@@ -27,7 +27,7 @@ ctranslate2>=4.6.0
 sentencepiece>=0.2.0
 transformers>=4.50.0
 torch>=2.5.0
-torchvision>=0.20.0
+torchvision>=0.29.0
 pyinstaller
 psutil>=5.9.0
 llama-cpp-python>=0.3.14
