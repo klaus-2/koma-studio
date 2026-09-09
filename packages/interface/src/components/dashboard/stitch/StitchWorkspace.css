@@ -1,0 +1,1092 @@
+/* ================================================================
+   Stitch Workspace — KOMA Design System
+   Manhwa Glass UI · Preview + Planning
+   ================================================================ */
+
+/* ── Root Layout ──────────────────────────────────────────────── */
+.koma-stitch-ws {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(168, 85, 247, 0.12) transparent;
+    padding-bottom: 12px;
+  }
+  
+  /* ── Preview Panel ────────────────────────────────────────────── */
+  .koma-stitch-preview {
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--auth-radius-lg);
+    border: 1px solid var(--auth-card-border);
+    background: var(--auth-card-bg);
+    backdrop-filter: blur(12px) saturate(1.2);
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+  }
+  
+  /* Preview Header */
+  .koma-stitch-preview__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  
+  .koma-stitch-preview__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  
+  .koma-stitch-preview__eyebrow {
+    font-family: var(--auth-font-heading);
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(168, 85, 247, 0.35);
+  }
+  
+  .koma-stitch-preview__title {
+    margin: 0;
+    font-family: var(--auth-font-heading);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--auth-text);
+  }
+  
+  .koma-stitch-preview__meta {
+    font-family: var(--auth-font-body);
+    font-size: 11px;
+    color: var(--auth-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .koma-stitch-preview__meta-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(186, 199, 247, 0.2);
+    flex-shrink: 0;
+  }
+  
+  /* Preview Controls Strip */
+  .koma-stitch-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  
+  /* Nav button (prev/next batch) */
+  .koma-stitch-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.025);
+    color: var(--auth-text-muted);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  
+  .koma-stitch-nav-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--auth-text);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  
+  .koma-stitch-nav-btn:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.45);
+    outline-offset: -1px;
+  }
+  
+  .koma-stitch-nav-btn:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+  }
+  
+  /* Zoom controls */
+  .koma-stitch-zoom {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(6, 8, 18, 0.5);
+    overflow: hidden;
+  }
+  
+  .koma-stitch-zoom__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: var(--auth-text-muted);
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+  
+  .koma-stitch-zoom__btn:hover {
+    background: rgba(168, 85, 247, 0.08);
+    color: var(--auth-purple);
+  }
+  
+  .koma-stitch-zoom__btn:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.4);
+    outline-offset: -1px;
+  }
+
+  .koma-stitch-zoom__pct {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 100%;
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background: transparent;
+    color: var(--auth-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    padding: 0 4px;
+  }
+
+  .koma-stitch-zoom__pct:hover {
+    background: rgba(168, 85, 247, 0.08);
+    color: var(--auth-purple);
+  }
+  
+  /* Separator in controls */
+  .koma-stitch-controls__sep {
+    width: 1px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
+  
+  /* Export button (primary CTA) */
+  .koma-stitch-export-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 9px;
+    border: none;
+    background: linear-gradient(135deg, #9333ea, var(--auth-purple) 55%, #7c3aed);
+    color: #fff;
+    font-family: var(--auth-font-heading);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 6px 18px rgba(168, 85, 247, 0.18);
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  
+  .koma-stitch-export-btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
+  
+  .koma-stitch-export-btn:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.5);
+    outline-offset: 1px;
+  }
+  
+  .koma-stitch-export-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  
+  .koma-stitch-export-btn::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+    pointer-events: none;
+  }
+  
+  .koma-stitch-export-btn:hover::after { transform: translateX(100%); }
+  
+  /* Ghost action button */
+  .koma-stitch-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.025);
+    color: rgba(186, 199, 247, 0.7);
+    font-family: var(--auth-font-heading);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
+  }
+  
+  .koma-stitch-action-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--auth-text);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  
+  .koma-stitch-action-btn:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.45);
+    outline-offset: -1px;
+  }
+  
+  .koma-stitch-action-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  
+  .koma-stitch-action-btn--emerald {
+    border-color: rgba(16, 185, 129, 0.15);
+    color: rgba(134, 239, 172, 0.8);
+  }
+  
+  .koma-stitch-action-btn--emerald:hover:not(:disabled) {
+    border-color: rgba(16, 185, 129, 0.25);
+    background: rgba(16, 185, 129, 0.06);
+    color: #86efac;
+  }
+  
+  .koma-stitch-action-btn--danger {
+    border-color: rgba(244, 63, 94, 0.15);
+    color: rgba(253, 164, 175, 0.7);
+  }
+  
+  .koma-stitch-action-btn--danger:hover:not(:disabled) {
+    border-color: rgba(244, 63, 94, 0.25);
+    background: rgba(244, 63, 94, 0.06);
+    color: #fda4af;
+  }
+  
+  /* ── Preview Stage ────────────────────────────────────────────── */
+  .koma-stitch-stage {
+    flex: 1;
+    min-height: 360px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    overflow: auto;
+    padding: 16px;
+    position: relative;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(168, 85, 247, 0.04), transparent 50%),
+      radial-gradient(circle at 70% 80%, rgba(6, 182, 212, 0.03), transparent 50%);
+  }
+  
+  /* Halftone overlay */
+  .koma-stitch-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+    background-size: 4px 4px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  /* Empty state */
+  .koma-stitch-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    max-width: 340px;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .koma-stitch-empty__icon {
+    color: rgba(186, 199, 247, 0.15);
+  }
+  
+  .koma-stitch-empty__title {
+    margin: 0;
+    font-family: var(--auth-font-heading);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--auth-text);
+  }
+  
+  .koma-stitch-empty__desc {
+    margin: 0;
+    font-family: var(--auth-font-body);
+    font-size: 11.5px;
+    color: var(--auth-text-muted);
+    line-height: 1.5;
+  }
+  
+  /* Preview image */
+  .koma-stitch-stage__img {
+    position: relative;
+    z-index: 1;
+    margin: auto;
+    display: block;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.35),
+      0 0 30px rgba(168, 85, 247, 0.03);
+    transition: zoom 0.15s ease;
+  }
+  
+  /* Progress overlay */
+  .koma-stitch-progress {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    right: 14px;
+    z-index: 10;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(168, 85, 247, 0.12);
+    background: rgba(10, 12, 24, 0.88);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    animation: koma-stitch-progress-in 0.2s ease forwards;
+  }
+  
+  @keyframes koma-stitch-progress-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  
+  .koma-stitch-progress__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--auth-font-heading);
+    font-size: 11px;
+    font-weight: 700;
+    color: #c4b5fd;
+  }
+  
+  .koma-stitch-progress__track {
+    margin-top: 6px;
+    width: 100%;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+  }
+  
+  .koma-stitch-progress__fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.15);
+    transition: width 0.25s ease;
+  }
+  
+  /* Error banner */
+  .koma-stitch-error {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    margin: 0 14px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(244, 63, 94, 0.18);
+    background: rgba(127, 29, 29, 0.1);
+    flex-shrink: 0;
+  }
+  
+  .koma-stitch-error__head {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--auth-font-heading);
+    font-size: 11px;
+    font-weight: 700;
+    color: #fda4af;
+  }
+  
+  .koma-stitch-error__msg {
+    margin: 0;
+    font-family: var(--auth-font-body);
+    font-size: 11px;
+    color: rgba(253, 164, 175, 0.7);
+    line-height: 1.45;
+  }
+  
+  /* ── Planning Panel ───────────────────────────────────────────── */
+  .koma-stitch-planning {
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--auth-radius-lg);
+    border: 1px solid var(--auth-card-border);
+    background: var(--auth-card-bg);
+    backdrop-filter: blur(12px) saturate(1.2);
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+    min-height: 0;
+    flex: 0 0 auto;
+    max-height: min(48vh, 540px);
+  }
+  
+  /* Planning Header */
+  .koma-stitch-planning__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    flex-wrap: wrap;
+  }
+  
+  .koma-stitch-planning__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .koma-stitch-planning__eyebrow {
+    font-family: var(--auth-font-heading);
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(168, 85, 247, 0.35);
+  }
+  
+  .koma-stitch-planning__title {
+    margin: 0;
+    font-family: var(--auth-font-heading);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--auth-text);
+  }
+  
+  .koma-stitch-planning__subtitle {
+    font-family: var(--auth-font-body);
+    font-size: 11px;
+    color: var(--auth-text-muted);
+  }
+  
+  .koma-stitch-planning__stem {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    color: var(--auth-text-muted);
+  }
+  
+  .koma-stitch-planning__stem strong {
+    color: var(--auth-text);
+    font-weight: 600;
+  }
+  
+  /* Planning Grid */
+  .koma-stitch-planning__body {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 14px;
+    padding: 14px 18px 18px;
+    min-height: 0;
+    overflow: hidden;
+  }
+  
+  /* Batch List */
+  .koma-stitch-batch-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(168, 85, 247, 0.12) transparent;
+  }
+  
+  /* ── Batch Card ───────────────────────────────────────────────── */
+  .koma-stitch-batch {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.012);
+    cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+    text-align: left;
+    width: 100%;
+  }
+  
+  .koma-stitch-batch:hover {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.025);
+  }
+  
+  .koma-stitch-batch:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.45);
+    outline-offset: -1px;
+  }
+  
+  .koma-stitch-batch--active {
+    border-color: rgba(168, 85, 247, 0.18);
+    background: rgba(168, 85, 247, 0.04);
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.06);
+  }
+  
+  .koma-stitch-batch--active:hover {
+    border-color: rgba(168, 85, 247, 0.25);
+  }
+  
+  /* Batch head row */
+  .koma-stitch-batch__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  
+  .koma-stitch-batch__name {
+    font-family: var(--auth-font-heading);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--auth-text);
+  }
+  
+  .koma-stitch-batch__dims {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--auth-text-muted);
+    margin-top: 2px;
+  }
+  
+  .koma-stitch-batch__mp {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--auth-text-muted);
+    flex-shrink: 0;
+  }
+  
+  /* Batch image chips */
+  .koma-stitch-batch__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .koma-stitch-batch__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px 3px 3px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(6, 8, 18, 0.4);
+    font-family: var(--auth-font-body);
+    font-size: 10px;
+    color: var(--auth-text-muted);
+    max-width: 150px;
+  }
+  
+  .koma-stitch-batch__chip-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.06);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--auth-text);
+    flex-shrink: 0;
+  }
+  
+  .koma-stitch-batch__chip-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .koma-stitch-batch__chip-plus {
+    color: rgba(186, 199, 247, 0.25);
+    font-weight: 600;
+    margin-left: 2px;
+  }
+  
+  /* Batch warnings */
+  .koma-stitch-batch__warnings {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(245, 158, 11, 0.12);
+    background: rgba(120, 53, 15, 0.06);
+  }
+  
+  .koma-stitch-batch__warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    font-family: var(--auth-font-body);
+    font-size: 10px;
+    color: #fde68a;
+    line-height: 1.35;
+  }
+  
+  .koma-stitch-batch__warning-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  
+  /* ── Active Batch Sidebar ─────────────────────────────────────── */
+  .koma-stitch-active {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(6, 8, 18, 0.35);
+    height: fit-content;
+    max-height: 100%;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  
+  .koma-stitch-active__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--auth-font-heading);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--auth-text);
+  }
+  
+  .koma-stitch-active__head-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background: rgba(168, 85, 247, 0.1);
+    color: var(--auth-purple);
+  }
+  
+  /* Stats list */
+  .koma-stitch-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .koma-stitch-stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--auth-font-body);
+    font-size: 11.5px;
+  }
+  
+  .koma-stitch-stat__key {
+    color: var(--auth-text-muted);
+  }
+  
+  .koma-stitch-stat__val {
+    font-weight: 600;
+    color: var(--auth-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px;
+  }
+  
+  /* Info card */
+  .koma-stitch-active__note {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.015);
+    font-family: var(--auth-font-body);
+    font-size: 11px;
+    color: var(--auth-text-muted);
+    line-height: 1.45;
+  }
+  
+  .koma-stitch-active__note strong {
+    display: block;
+    font-family: var(--auth-font-heading);
+    font-weight: 700;
+    color: var(--auth-text);
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+  
+  /* ── Spinner ──────────────────────────────────────────────────── */
+  .koma-stitch-spin {
+    animation: koma-stitch-spin-rotate 0.7s linear infinite;
+  }
+  
+  @keyframes koma-stitch-spin-rotate {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* ── Responsive ───────────────────────────────────────────────── */
+  @media (max-width: 1100px) {
+    .koma-stitch-planning__body {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .koma-stitch-preview__head {
+      padding: 10px 14px;
+      gap: 8px;
+    }
+  
+    .koma-stitch-controls {
+      width: 100%;
+      justify-content: flex-end;
+    }
+  
+    .koma-stitch-planning__body {
+      padding: 10px 14px 14px;
+    }
+  
+    .koma-stitch-batch__chips {
+      display: none;
+    }
+  }
+
+/* ================================================================
+   Light Theme Overrides
+   ================================================================ */
+
+/* Preview card shadow */
+[data-theme="light"] .koma-stitch-preview {
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .koma-stitch-ws,
+[data-theme="light"] .koma-stitch-batch-list {
+  scrollbar-color: rgba(168, 85, 247, 0.18) transparent;
+}
+
+/* Preview header border */
+[data-theme="light"] .koma-stitch-preview__head {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Eyebrow text */
+[data-theme="light"] .koma-stitch-preview__eyebrow {
+  color: rgba(168, 85, 247, 0.5);
+}
+
+/* Meta dot */
+[data-theme="light"] .koma-stitch-preview__meta-dot {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* Nav buttons */
+[data-theme="light"] .koma-stitch-nav-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-stitch-nav-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Zoom controls */
+[data-theme="light"] .koma-stitch-zoom {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-stitch-zoom__btn:hover {
+  background: rgba(168, 85, 247, 0.08);
+}
+
+[data-theme="light"] .koma-stitch-zoom__pct {
+  border-left-color: rgba(0, 0, 0, 0.08);
+  border-right-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .koma-stitch-zoom__pct:hover {
+  background: rgba(168, 85, 247, 0.08);
+}
+
+/* Controls separator */
+[data-theme="light"] .koma-stitch-controls__sep {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Ghost action button */
+[data-theme="light"] .koma-stitch-action-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.02);
+  color: #475569;
+}
+
+[data-theme="light"] .koma-stitch-action-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #0f172a;
+}
+
+[data-theme="light"] .koma-stitch-action-btn--emerald {
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #059669;
+}
+
+[data-theme="light"] .koma-stitch-action-btn--emerald:hover:not(:disabled) {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.06);
+  color: #047857;
+}
+
+[data-theme="light"] .koma-stitch-action-btn--danger {
+  border-color: rgba(244, 63, 94, 0.2);
+  color: #e11d48;
+}
+
+[data-theme="light"] .koma-stitch-action-btn--danger:hover:not(:disabled) {
+  border-color: rgba(244, 63, 94, 0.3);
+  background: rgba(244, 63, 94, 0.06);
+  color: #be123c;
+}
+
+/* Stage background */
+[data-theme="light"] .koma-stitch-stage {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(168, 85, 247, 0.03), transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(6, 182, 212, 0.02), transparent 50%);
+}
+
+/* Stage halftone overlay */
+[data-theme="light"] .koma-stitch-stage::before {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+}
+
+/* Empty state icon */
+[data-theme="light"] .koma-stitch-empty__icon {
+  color: rgba(100, 116, 139, 0.2);
+}
+
+/* Stage image */
+[data-theme="light"] .koma-stitch-stage__img {
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.1),
+    0 0 30px rgba(168, 85, 247, 0.02);
+}
+
+/* Progress overlay */
+[data-theme="light"] .koma-stitch-progress {
+  border-color: rgba(168, 85, 247, 0.15);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .koma-stitch-progress__head {
+  color: #7c3aed;
+}
+
+[data-theme="light"] .koma-stitch-progress__track {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Error banner */
+[data-theme="light"] .koma-stitch-error {
+  border-color: rgba(244, 63, 94, 0.2);
+  background: rgba(254, 226, 226, 0.5);
+}
+
+[data-theme="light"] .koma-stitch-error__head {
+  color: #e11d48;
+}
+
+[data-theme="light"] .koma-stitch-error__msg {
+  color: #9f1239;
+}
+
+/* Planning panel shadow */
+[data-theme="light"] .koma-stitch-planning {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Planning header border */
+[data-theme="light"] .koma-stitch-planning__head {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Planning eyebrow */
+[data-theme="light"] .koma-stitch-planning__eyebrow {
+  color: rgba(168, 85, 247, 0.5);
+}
+
+/* Batch card */
+[data-theme="light"] .koma-stitch-batch {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.012);
+}
+
+[data-theme="light"] .koma-stitch-batch:hover {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.025);
+}
+
+[data-theme="light"] .koma-stitch-batch--active {
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.04);
+}
+
+[data-theme="light"] .koma-stitch-batch--active:hover {
+  border-color: rgba(168, 85, 247, 0.28);
+}
+
+/* Batch MP pill */
+[data-theme="light"] .koma-stitch-batch__mp {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Batch chip */
+[data-theme="light"] .koma-stitch-batch__chip {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Chip number */
+[data-theme="light"] .koma-stitch-batch__chip-num {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Chip plus */
+[data-theme="light"] .koma-stitch-batch__chip-plus {
+  color: rgba(100, 116, 139, 0.4);
+}
+
+/* Batch warnings */
+[data-theme="light"] .koma-stitch-batch__warnings {
+  border-color: rgba(245, 158, 11, 0.18);
+  background: rgba(254, 243, 199, 0.4);
+}
+
+[data-theme="light"] .koma-stitch-batch__warning {
+  color: #92400e;
+}
+
+/* Active batch sidebar */
+[data-theme="light"] .koma-stitch-active {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Active note card */
+[data-theme="light"] .koma-stitch-active__note {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="light"] .koma-stitch-active__head-icon {
+  background: rgba(168, 85, 247, 0.08);
+  color: #7c3aed;
+}
+
+/* Sidebar stats */
+[data-theme="light"] .koma-stitch-stats {
+  gap: 8px;
+}
+
+[data-theme="light"] .koma-stitch-stat {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.012);
+}
+
+[data-theme="light"] .koma-stitch-stat__key {
+  color: #64748b;
+}
+
+[data-theme="light"] .koma-stitch-stat__val {
+  color: #0f172a;
+}
+
+/* Output lists */
+[data-theme="light"] .koma-stitch-batch-list {
+  gap: 8px;
+}
+
+[data-theme="light"] .koma-stitch-batch__chips {
+  gap: 5px;
+}
+
+[data-theme="light"] .koma-stitch-batch__chip-name {
+  color: #475569;
+}
+
+[data-theme="light"] .koma-stitch-batch__warning-icon {
+  color: #b45309;
+}

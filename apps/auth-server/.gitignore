@@ -1,0 +1,48 @@
+# Node.js
+node_modules/
+dist/
+release/
+release-desktop/
+package-lock.json
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+backend/dist/
+backend/build/
+backend/*.spec
+backend/requirements.txt
+mini-backend/dist/
+mini-backend/build/
+backend-premium/dist/
+backend-premium/build/
+.venv/
+env/
+venv/
+
+# Auth server
+node_modules/
+dist/
+logs/
+.env
+.env.*
+.env.*.local
+!.env.example
+
+# TypeScript build artifacts
+electron/*.js
+electron/*.d.ts
+*.tsbuildinfo
+interface/components/routing/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+icon.png
+*.ico
+generate_icon.py
+convert_to_ico.py

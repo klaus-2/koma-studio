@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# Monorepo KŌMA — pre-commit gate.
+#
+# In the monorepo the full gates (typecheck/test/audit) run in CI.
+# The local commit keeps only the fast per-file lint-staged.
+#
+# Run `git commit --no-verify` ONLY to escape an active incident — never as a habit.
+
+set -e
+
+echo "▸ lint-staged"
+bun x lint-staged
+
+echo "✓ pre-commit gate passed"

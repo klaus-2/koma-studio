@@ -1,0 +1,188 @@
+/* ================================================================
+   Splitter Sidebar Toolbox — KOMA Design System
+   ================================================================ */
+
+.koma-splitter-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Dual field row */
+.koma-spl-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+/* Slider stack */
+.koma-spl-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Action grid */
+.koma-spl-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.koma-spl-actions .koma-btn {
+  font-size: 10px;
+  padding: 6px 8px;
+  justify-content: center;
+}
+
+/* Export bar */
+.koma-spl-export {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  padding: 10px 0 2px;
+  background: linear-gradient(to top, var(--auth-bg) 60%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-spl-export__btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #9333ea, var(--auth-purple) 55%, #7c3aed);
+  color: #fff;
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(168, 85, 247, 0.18);
+  transition:
+    filter 0.15s ease,
+    transform 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.koma-spl-export__btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.koma-spl-export__btn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline-offset: 1px;
+}
+
+.koma-spl-export__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.koma-spl-export__btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+  pointer-events: none;
+}
+
+.koma-spl-export__btn:hover::after {
+  transform: translateX(100%);
+}
+
+.koma-spl-export__btn--ghost {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: rgba(186, 199, 247, 0.7);
+  box-shadow: none;
+}
+
+.koma-spl-export__btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--auth-text);
+  filter: none;
+  transform: none;
+}
+
+.koma-spl-export__btn--ghost::after {
+  display: none;
+}
+
+/* Info/Warning note */
+.koma-spl-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-family: var(--auth-font-body);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.koma-spl-note__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.koma-spl-note--info {
+  border: 1px solid rgba(6, 182, 212, 0.1);
+  background: rgba(8, 51, 68, 0.07);
+  color: #67e8f9;
+}
+
+.koma-spl-note--warn {
+  border: 1px solid rgba(245, 158, 11, 0.12);
+  background: rgba(120, 53, 15, 0.06);
+  color: #fde68a;
+}
+
+@media (max-width: 1100px) {
+  .koma-spl-dual {
+    grid-template-columns: 1fr;
+  }
+  .koma-spl-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Light Theme ─────────────────────────────────────────────────── */
+[data-theme="light"] .koma-spl-export__btn--ghost {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="light"] .koma-spl-export__btn--ghost:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-spl-note--info {
+  border-color: rgba(6, 182, 212, 0.15);
+  background: rgba(6, 182, 212, 0.05);
+  color: #0e7490;
+}
+
+[data-theme="light"] .koma-spl-note--warn {
+  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.06);
+  color: #92400e;
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agentskills.io/schemas/agent-skills-index-v0.2.0.json",
+  "skills": [
+    {
+      "name": "scanlation-workflow",
+      "type": "documentation",
+      "description": "Overview of KOMA Studio's scanlation workflow and primary public entry points.",
+      "url": "https://koma-studio.site/.well-known/agent-skills/scanlation-workflow/SKILL.md",
+      "sha256": "ce1aee6a3e159ba9c6467e38a7fb1d2bebb2085e3819d789c2b9e766e9aeab4f"
+    },
+    {
+      "name": "downloads",
+      "type": "operations",
+      "description": "Stable download and artifact endpoints for KOMA Studio desktop releases.",
+      "url": "https://koma-studio.site/.well-known/agent-skills/downloads/SKILL.md",
+      "sha256": "b32fb939ba565722297e705617f112f89ce7ed839dba628bd230c908755f6aa8"
+    }
+  ]
+}

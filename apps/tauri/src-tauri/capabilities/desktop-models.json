@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-models",
+  "description": "Allows the main window to manage local model manifests, downloads, imports, and uninstall operations.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "dialog:default",
+    "log:default"
+  ]
+}

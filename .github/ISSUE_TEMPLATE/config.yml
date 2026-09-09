@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discord community
+    url: https://discord.gg/tzaV2efD4e
+    about: Questions, help with setup, model recommendations and general discussion.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/klaus-2/koma-studio/security/advisories/new
+    about: Please report vulnerabilities privately — never in a public issue.
+  - name: 🌐 Project website
+    url: https://koma-studio.site/
+    about: Downloads, documentation and news.

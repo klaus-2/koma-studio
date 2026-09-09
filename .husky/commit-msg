@@ -1,0 +1,43 @@
+#!/usr/bin/env sh
+# KŌMA Studio v2 — commit message gate.
+#
+# Enforces Conventional Commits:
+#   <type>(<scope>): <subject>
+#
+# Accepted types: feat | fix | chore | docs | refactor | test | perf | build | ci | style | revert
+# Subject must be <= 100 chars, lowercase first letter.
+#
+# Examples:
+#   feat(v2-tauri): port core/workspace commands to rust
+#   chore(v2): governance tooling and design tokens
+#   feat(v2): phase 1 complete — tauri shell production-ready
+
+commit_msg_file="$1"
+first_line=$(head -n1 "$commit_msg_file")
+
+# Allow merge/revert messages straight through
+case "$first_line" in
+  "Merge "*|"Revert "*|"fixup!"*|"squash!"*)
+    exit 0
+    ;;
+esac
+
+pattern='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert)(\([a-z0-9._/-]+\))?: .+'
+
+if ! echo "$first_line" | grep -Eq "$pattern"; then
+  echo "✗ Invalid commit message:"
+  echo "    $first_line"
+  echo
+  echo "  Use Conventional Commits: <type>(<scope>): <subject>"
+  echo "    types: feat | fix | chore | docs | refactor | test | perf | build | ci | style | revert"
+  echo "  Example:"
+  echo "    feat(v2-stores): wave 1 — pipeline + stage stores"
+  exit 1
+fi
+
+# Subject line length check
+if [ ${#first_line} -gt 100 ]; then
+  echo "✗ Commit subject is ${#first_line} chars — max is 100."
+  echo "  Tighten or move detail to the body."
+  exit 1
+fi

@@ -1,0 +1,50 @@
+{
+  "name": "koma",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KŌMA Studio — monorepo: Electron (v1) + Tauri (v2) + landing + auth-server + tools",
+  "license": "MIT",
+  "homepage": "https://koma-studio.site",
+  "packageManager": "bun@1.4.0",
+  "engines": {
+    "bun": ">=1.4.0",
+    "node": ">=22.18"
+  },
+  "workspaces": [
+    "apps/*",
+    "apps/tools/*",
+    "packages/*"
+  ],
+  "trustedDependencies": [
+    "@tauri-apps/cli",
+    "electron",
+    "electron-winstaller",
+    "esbuild",
+    "msw",
+    "playwright"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint && oxlint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "dev:electron": "bun run --elide-lines=0 --filter @koma/electron dev",
+    "dev:tauri": "bun run --elide-lines=0 --filter @koma/tauri dev",
+    "dev:web": "bun run --filter @koma/tauri dev:web",
+    "dev:desktop": "bun run --filter @koma/tauri dev:desktop",
+    "dev:tauri:window": "bun run --elide-lines=0 --filter @koma/tauri tauri:dev",
+    "dev:landing": "bun run --elide-lines=0 --filter @koma/landing dev",
+    "dev:auth": "bun run --elide-lines=0 --filter @koma/auth-server dev",
+    "prepare": "husky",
+    "doctor": "bunx react-doctor"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "oxlint": "^1.80.0",
+    "react-doctor": "^0.9.12",
+    "turbo": "^2.5.0"
+  }
+}

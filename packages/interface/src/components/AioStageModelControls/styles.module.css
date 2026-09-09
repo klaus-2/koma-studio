@@ -1,0 +1,58 @@
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.manageButton {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+  color: rgba(226, 232, 240, 0.95);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.manageButton:hover {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: rgba(30, 41, 59, 0.88);
+}
+
+.manageButton:focus-visible {
+  outline: none;
+  border-color: rgba(168, 85, 247, 0.65);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.16);
+}
+
+/* ================================================================
+   Light Mode Overrides
+   ================================================================ */
+:global([data-theme="light"]) .manageButton {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+  color: #0f172a;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+}
+
+:global([data-theme="light"]) .manageButton:hover {
+  border-color: rgba(147, 51, 234, 0.22);
+  background: rgba(0, 0, 0, 0.035);
+}
+
+:global([data-theme="light"]) .manageButton:focus-visible {
+  border-color: rgba(147, 51, 234, 0.35);
+  box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.12);
+}

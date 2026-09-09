@@ -1,0 +1,143 @@
+/* ============================================================
+   KŌMA STUDIO - CUSTOM CURSOR (PERFORMANCE MODE)
+   Dot-only cursor: no trail, no ring, no glow, no magnetism
+   ============================================================ */
+
+html.koma-custom-cursor-active,
+html.koma-custom-cursor-active body,
+html.koma-custom-cursor-active * {
+  cursor: none !important;
+}
+
+.koma-cursor {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s linear;
+}
+
+.koma-cursor--visible {
+  opacity: 1;
+}
+
+.koma-cursor__dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.45);
+  transform: translate3d(-100px, -100px, 0);
+  will-change: transform, width, height, margin, border-radius, background, box-shadow;
+  transition:
+    width 0.14s ease,
+    height 0.14s ease,
+    margin 0.14s ease,
+    border-radius 0.14s ease,
+    background 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.koma-cursor--hover .koma-cursor__dot {
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  margin-top: -3px;
+  background: var(--auth-purple);
+  box-shadow:
+    0 0 14px rgba(168, 85, 247, 0.7),
+    0 0 24px rgba(168, 85, 247, 0.25);
+}
+
+.koma-cursor--clicking .koma-cursor__dot {
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--auth-purple), var(--auth-cyan));
+  box-shadow:
+    0 0 18px rgba(168, 85, 247, 0.8),
+    0 0 36px rgba(6, 182, 212, 0.25);
+}
+
+.koma-cursor--text .koma-cursor__dot {
+  width: 3px;
+  height: 20px;
+  margin-left: -1.5px;
+  margin-top: -10px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--auth-purple), var(--auth-cyan));
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+}
+
+.koma-cursor--grab .koma-cursor__dot {
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  margin-top: -6px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--auth-purple), var(--auth-cyan));
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.6);
+}
+
+.koma-cursor--hidden {
+  opacity: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .koma-cursor,
+  .koma-cursor__dot {
+    transition-duration: 0s !important;
+  }
+}
+
+@media (pointer: coarse) {
+  .koma-cursor {
+    display: none !important;
+  }
+
+  html.koma-custom-cursor-active,
+  html.koma-custom-cursor-active body,
+  html.koma-custom-cursor-active * {
+    cursor: auto !important;
+  }
+}
+
+/* ================================================================
+   Light Mode Overrides
+   ================================================================ */
+[data-theme="light"] .koma-cursor__dot {
+  background: #0f172a;
+  box-shadow: 0 0 10px rgba(147, 51, 234, 0.22);
+}
+
+[data-theme="light"] .koma-cursor--hover .koma-cursor__dot {
+  background: #7c3aed;
+  box-shadow:
+    0 0 12px rgba(147, 51, 234, 0.4),
+    0 0 20px rgba(147, 51, 234, 0.12);
+}
+
+[data-theme="light"] .koma-cursor--clicking .koma-cursor__dot {
+  background: linear-gradient(135deg, #7c3aed, #0891b2);
+  box-shadow:
+    0 0 18px rgba(147, 51, 234, 0.45),
+    0 0 32px rgba(8, 145, 178, 0.14);
+}
+
+[data-theme="light"] .koma-cursor--text .koma-cursor__dot {
+  background: linear-gradient(180deg, #7c3aed, #0891b2);
+  box-shadow: 0 0 10px rgba(147, 51, 234, 0.32);
+}
+
+[data-theme="light"] .koma-cursor--grab .koma-cursor__dot {
+  background: linear-gradient(135deg, #7c3aed, #0891b2);
+  box-shadow: 0 0 12px rgba(147, 51, 234, 0.34);
+}

@@ -1,0 +1,55 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://auth.koma-studio.site/api/auth",
+      "service-doc": [
+        {
+          "href": "https://koma-studio.site/docs/api-overview.md",
+          "type": "text/markdown",
+          "title": "KOMA Studio API overview"
+        }
+      ],
+      "service-desc": [
+        {
+          "href": "https://koma-studio.site/.well-known/oauth-authorization-server",
+          "type": "application/json",
+          "title": "OAuth authorization server metadata"
+        }
+      ]
+    },
+    {
+      "anchor": "https://api.koma-studio.site/updates/stable/mini-backend-artifacts/latest.json",
+      "service-doc": [
+        {
+          "href": "https://koma-studio.site/docs/api-overview.md",
+          "type": "text/markdown",
+          "title": "Updates and artifact delivery overview"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://chat.koma-studio.site/health",
+          "type": "application/json",
+          "title": "Open WebUI health endpoint"
+        }
+      ]
+    },
+    {
+      "anchor": "https://github.com/klaus-2/koma-studio",
+      "service-doc": [
+        {
+          "href": "https://koma-studio.site/docs/api-overview.md",
+          "type": "text/markdown",
+          "title": "KOMA Studio API overview"
+        }
+      ],
+      "license": [
+        {
+          "href": "https://github.com/klaus-2/koma-studio/blob/main/LICENSE",
+          "type": "text/plain",
+          "title": "MIT license"
+        }
+      ]
+    }
+  ]
+}

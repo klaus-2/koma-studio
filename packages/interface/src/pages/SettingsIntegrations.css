@@ -1,0 +1,772 @@
+/* ================================================================
+   Settings — Integrations Tab
+   KOMA Design System · Manhwa Glass UI
+   ================================================================ */
+
+/* ── Panel Root ───────────────────────────────────────────────── */
+.koma-integ-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  /* ── Integration Card ─────────────────────────────────────────── */
+  .koma-integ-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid var(--auth-card-border);
+    background: var(--auth-card-bg);
+    backdrop-filter: blur(12px) saturate(1.2);
+    transition: box-shadow 0.25s ease;
+  }
+  
+  .koma-integ-card:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 40px rgba(168, 85, 247, 0.02);
+  }
+  
+  /* Card header */
+  .koma-integ-card__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .koma-integ-card__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  
+  .koma-integ-card__icon--discord {
+    background: linear-gradient(135deg, rgba(88, 101, 242, 0.18), rgba(88, 101, 242, 0.08));
+    color: #7289da;
+  }
+  
+  .koma-integ-card__icon--blogger {
+    background: linear-gradient(135deg, rgba(245, 124, 0, 0.15), rgba(245, 124, 0, 0.06));
+    color: #f57c00;
+  }
+  
+  .koma-integ-card__icon--imgur {
+    background: linear-gradient(135deg, rgba(29, 185, 84, 0.15), rgba(29, 185, 84, 0.06));
+    color: #1db954;
+  }
+  
+  .koma-integ-card__title-group {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .koma-integ-card__title {
+    margin: 0;
+    font-family: var(--auth-font-heading);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--auth-text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .koma-integ-card__desc {
+    margin: 2px 0 0;
+    font-family: var(--auth-font-body);
+    font-size: 11px;
+    color: var(--auth-text-muted);
+    line-height: 1.4;
+  }
+  
+  /* Status dot */
+  .koma-integ-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  }
+  
+  .koma-integ-status--off {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .koma-integ-status--on {
+    background: var(--auth-emerald);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  }
+  
+  /* ── Form Body ────────────────────────────────────────────────── */
+  .koma-integ-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  /* ── Field ────────────────────────────────────────────────────── */
+  .koma-ig-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  
+  .koma-ig-field__label {
+    font-family: var(--auth-font-heading);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(186, 199, 247, 0.4);
+  }
+  
+  .koma-ig-field__label--opt::after {
+    content: " (opcional)";
+    font-weight: 600;
+    color: rgba(186, 199, 247, 0.22);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  
+  .koma-ig-field__input,
+  .koma-ig-field__select {
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(6, 8, 18, 0.65);
+    color: var(--auth-text);
+    font-family: var(--auth-font-body);
+    font-size: 12px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  
+  .koma-ig-field__input:focus,
+  .koma-ig-field__select:focus {
+    border-color: rgba(168, 85, 247, 0.35);
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.08);
+    outline: none;
+  }
+  
+  .koma-ig-field__select {
+    appearance: none;
+    padding-right: 24px;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='rgba(186,199,247,0.4)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+  
+  /* Input with inline action */
+  .koma-ig-field__row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  
+  .koma-ig-field__row .koma-ig-field__input {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  /* ── Dual Grid ────────────────────────────────────────────────── */
+  .koma-ig-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  
+  .koma-ig-grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .koma-ig-grid--4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  /* ── Events Checklist ─────────────────────────────────────────── */
+  .koma-ig-events {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  
+  .koma-ig-event {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.01);
+    cursor: pointer;
+    transition: color 0.12s ease, background-color 0.12s ease, opacity 0.12s ease, transform 0.12s ease;
+  }
+  
+  .koma-ig-event:hover {
+    background: rgba(255, 255, 255, 0.025);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  
+  .koma-ig-event input[type="checkbox"] {
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(168, 85, 247, 0.25);
+    background: var(--auth-input-bg);
+    cursor: pointer;
+    transition: color 0.12s ease, background-color 0.12s ease, opacity 0.12s ease, transform 0.12s ease;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  
+  .koma-ig-event input[type="checkbox"]:checked {
+    background: var(--auth-purple);
+    border-color: var(--auth-purple);
+  }
+  
+  .koma-ig-event input[type="checkbox"]:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.4);
+    outline-offset: 1px;
+  }
+  
+  .koma-ig-event__info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+  
+  .koma-ig-event__name {
+    font-family: var(--auth-font-heading);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--auth-text);
+    line-height: 1.3;
+  }
+  
+  .koma-ig-event__desc {
+    font-family: var(--auth-font-body);
+    font-size: 9.5px;
+    color: var(--auth-text-muted);
+    line-height: 1.3;
+  }
+  
+  /* ── Toggle Row ───────────────────────────────────────────────── */
+  .koma-ig-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+  }
+  
+  .koma-ig-toggle-row span {
+    font-family: var(--auth-font-heading);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--auth-text-muted);
+  }
+  
+  /* Toggle switch */
+  .koma-ig-toggle {
+    position: relative;
+    display: inline-flex;
+    width: 34px;
+    height: 18px;
+    cursor: pointer;
+  }
+  
+  .koma-ig-toggle__input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    z-index: 1;
+  }
+  
+  .koma-ig-toggle__track {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    transition: background 0.2s ease;
+    padding: 2px;
+  }
+  
+  .koma-ig-toggle--on .koma-ig-toggle__track {
+    background: var(--auth-purple);
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+  }
+  
+  .koma-ig-toggle__thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  
+  .koma-ig-toggle--on .koma-ig-toggle__thumb {
+    transform: translateX(16px);
+  }
+  
+  /* ── Footer Row ───────────────────────────────────────────────── */
+  .koma-ig-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
+    flex-wrap: wrap;
+  }
+  
+  .koma-ig-footer__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .koma-ig-footer__label {
+    font-family: var(--auth-font-heading);
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(168, 85, 247, 0.35);
+  }
+  
+  .koma-ig-footer__value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    color: var(--auth-text-muted);
+  }
+  
+  .koma-ig-footer__actions {
+    display: flex;
+    gap: 6px;
+  }
+  
+  /* Test button states */
+  .koma-ig-test--success { color: #86efac !important; border-color: rgba(16, 185, 129, 0.2) !important; }
+  .koma-ig-test--error { color: #fda4af !important; border-color: rgba(244, 63, 94, 0.2) !important; }
+  
+  /* ── Alert ────────────────────────────────────────────────────── */
+  .koma-ig-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-family: var(--auth-font-body);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  
+  .koma-ig-alert__icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  
+  .koma-ig-alert--info {
+    border: 1px solid rgba(6, 182, 212, 0.1);
+    background: rgba(8, 51, 68, 0.08);
+    color: #67e8f9;
+  }
+  
+  .koma-ig-alert--success {
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    background: rgba(6, 78, 59, 0.08);
+    color: #86efac;
+  }
+  
+  .koma-ig-alert--error {
+    border: 1px solid rgba(244, 63, 94, 0.15);
+    background: rgba(127, 29, 29, 0.08);
+    color: #fda4af;
+  }
+  
+  .koma-ig-alert strong {
+    font-weight: 700;
+  }
+  
+  .koma-ig-alert p {
+    margin: 3px 0 0;
+  }
+  
+  .koma-ig-alert a {
+    color: var(--auth-purple);
+    text-decoration: none;
+    transition: color 0.12s ease;
+  }
+  
+  .koma-ig-alert a:hover {
+    color: #c084fc;
+  }
+  
+  .koma-ig-alert code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+  }
+  
+  /* ── Collapsible Guide ────────────────────────────────────────── */
+  .koma-ig-guide {
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(6, 8, 18, 0.35);
+    overflow: hidden;
+  }
+  
+  .koma-ig-guide__trigger {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    color: var(--auth-text-muted);
+    font-family: var(--auth-font-heading);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+    text-align: left;
+  }
+  
+  .koma-ig-guide__trigger:hover {
+    color: var(--auth-text);
+    background: rgba(255, 255, 255, 0.015);
+  }
+  
+  .koma-ig-guide__trigger:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.4);
+    outline-offset: -2px;
+  }
+  
+  .koma-ig-guide__trigger-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: rgba(168, 85, 247, 0.08);
+    color: var(--auth-purple);
+    flex-shrink: 0;
+  }
+  
+  .koma-ig-guide__chevron {
+    margin-left: auto;
+    transition: transform 0.2s ease;
+    color: rgba(186, 199, 247, 0.25);
+  }
+  
+  .koma-ig-guide--open .koma-ig-guide__chevron {
+    transform: rotate(180deg);
+  }
+  
+  .koma-ig-guide__body {
+    padding: 0 14px 14px;
+    animation: koma-ig-guide-in 0.18s ease forwards;
+  }
+  
+  @keyframes koma-ig-guide-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  
+  .koma-ig-guide__steps {
+    margin: 0;
+    padding-left: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-family: var(--auth-font-body);
+    font-size: 11px;
+    color: rgba(241, 245, 249, 0.8);
+    line-height: 1.55;
+    list-style: none;
+    counter-reset: ig-step;
+  }
+  
+  .koma-ig-guide__steps li {
+    counter-increment: ig-step;
+    position: relative;
+    padding-left: 6px;
+  }
+  
+  .koma-ig-guide__steps li::before {
+    content: counter(ig-step);
+    position: absolute;
+    left: -16px;
+    top: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    background: rgba(168, 85, 247, 0.08);
+    color: rgba(168, 85, 247, 0.5);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .koma-ig-guide__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin-top: 8px;
+    font-size: 10.5px;
+  }
+  
+  .koma-ig-guide__links a {
+    color: var(--auth-purple);
+    text-decoration: none;
+    transition: color 0.12s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  
+  .koma-ig-guide__links a:hover {
+    color: #c084fc;
+  }
+  
+  /* ── Key Card (Imgur) ─────────────────────────────────────────── */
+  .koma-ig-key-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .koma-ig-key-card {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.012);
+    transition: color 0.12s ease, background-color 0.12s ease, opacity 0.12s ease, transform 0.12s ease;
+  }
+  
+  .koma-ig-key-card:hover {
+    background: rgba(255, 255, 255, 0.025);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  
+  .koma-ig-key-card__fields {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  
+  .koma-ig-key-card__fields .koma-ig-field__input {
+    height: 28px;
+    font-size: 11px;
+  }
+  
+  .koma-ig-key-card__right {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+  
+  /* ── Quota Info Grid ──────────────────────────────────────────── */
+  .koma-ig-quota-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px;
+  }
+  
+  .koma-ig-quota-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.01);
+  }
+  
+  .koma-ig-quota-cell__label {
+    font-family: var(--auth-font-heading);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(168, 85, 247, 0.35);
+  }
+  
+  .koma-ig-quota-cell__value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--auth-text);
+  }
+  
+  /* ── Responsive ───────────────────────────────────────────────── */
+  @media (max-width: 860px) {
+    .koma-ig-grid {
+      grid-template-columns: 1fr;
+    }
+  
+    .koma-ig-grid--3,
+    .koma-ig-grid--4 {
+      grid-template-columns: 1fr 1fr;
+    }
+  
+    .koma-ig-events {
+      grid-template-columns: 1fr;
+    }
+  
+    .koma-ig-footer {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  
+    .koma-ig-key-card {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  
+    .koma-ig-key-card__right {
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-end;
+    }
+  }
+
+/* ================================================================
+   LIGHT THEME OVERRIDES
+   ================================================================ */
+[data-theme="light"] .koma-integ-card:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 0 40px rgba(168, 85, 247, 0.03);
+}
+
+[data-theme="light"] .koma-integ-status--off {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .koma-ig-field__label {
+  color: rgba(51, 65, 85, 0.55);
+}
+
+[data-theme="light"] .koma-ig-field__label--opt::after {
+  color: rgba(51, 65, 85, 0.3);
+}
+
+[data-theme="light"] .koma-ig-field__input,
+[data-theme="light"] .koma-ig-field__select {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(241, 245, 249, 0.7);
+}
+
+[data-theme="light"] .koma-ig-event {
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+[data-theme="light"] .koma-ig-event:hover {
+  background: rgba(0, 0, 0, 0.025);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .koma-ig-toggle__track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .koma-ig-toggle__thumb {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .koma-ig-footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-ig-footer__label {
+  color: rgba(168, 85, 247, 0.55);
+}
+
+[data-theme="light"] .koma-ig-alert--info {
+  border: 1px solid rgba(6, 182, 212, 0.15);
+  background: rgba(6, 182, 212, 0.06);
+  color: #0e7490;
+}
+
+[data-theme="light"] .koma-ig-alert--success {
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.06);
+  color: #047857;
+}
+
+[data-theme="light"] .koma-ig-alert--error {
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  background: rgba(244, 63, 94, 0.06);
+  color: #be123c;
+}
+
+[data-theme="light"] .koma-ig-alert code {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-ig-guide {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(241, 245, 249, 0.5);
+}
+
+[data-theme="light"] .koma-ig-guide__trigger:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-ig-guide__chevron {
+  color: rgba(51, 65, 85, 0.3);
+}
+
+[data-theme="light"] .koma-ig-guide__steps {
+  color: rgba(15, 23, 42, 0.75);
+}
+
+[data-theme="light"] .koma-ig-key-card {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="light"] .koma-ig-key-card:hover {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .koma-ig-quota-cell {
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="light"] .koma-ig-test--success {
+  color: #047857 !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+[data-theme="light"] .koma-ig-test--error {
+  color: #be123c !important;
+  border-color: rgba(244, 63, 94, 0.25) !important;
+}

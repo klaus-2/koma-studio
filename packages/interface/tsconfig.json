@@ -1,0 +1,14 @@
+{
+  "extends": "../../packages/config/tsconfig/react.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@koma/interface/*": ["./src/*"],
+      "@/*": ["./src/*"],
+      "@shared/*": ["../../packages/types/src/*"]
+    },
+    "types": ["vite/client"]
+  },
+  "include": ["src", "../../types/src"],
+  "exclude": ["node_modules", "dist"]
+}

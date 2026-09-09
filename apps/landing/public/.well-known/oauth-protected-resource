@@ -1,0 +1,11 @@
+{
+  "resource": "https://koma-studio.site",
+  "authorization_servers": [
+    "https://auth.koma-studio.site"
+  ],
+  "scopes_supported": [
+    "openid",
+    "profile",
+    "email"
+  ]
+}

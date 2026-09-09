@@ -1,0 +1,2 @@
+-r requirements.txt
+onnxruntime-gpu==1.22.0

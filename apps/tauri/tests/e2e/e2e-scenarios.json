@@ -1,0 +1,274 @@
+[
+  {
+    "id": "auth-login-empty-submit",
+    "area": "auth",
+    "title": "Login rejects an empty submit with visible validation",
+    "route": "/#/login",
+    "success": "Login form remains visible and exposes an alert or inline validation.",
+    "visual": true
+  },
+  {
+    "id": "auth-login-invalid-credentials",
+    "area": "auth",
+    "title": "Login handles invalid credentials without navigation",
+    "route": "/#/login",
+    "success": "The auth shell remains stable and shows the failed-login state.",
+    "visual": true
+  },
+  {
+    "id": "auth-register-open",
+    "area": "auth",
+    "title": "Register route renders the registration shell",
+    "route": "/#/register",
+    "success": "Registration form, language switcher, and legal footer render.",
+    "visual": true
+  },
+  {
+    "id": "auth-forgot-password-open",
+    "area": "auth",
+    "title": "Forgot-password route renders reset request",
+    "route": "/#/forgot-password",
+    "success": "Reset request form renders without redirecting to dashboard.",
+    "visual": true
+  },
+  {
+    "id": "auth-reset-token-route",
+    "area": "auth",
+    "title": "Reset-password token route is accepted",
+    "route": "/?token=e2e-reset-token#/reset-password",
+    "success": "Reset password screen renders with token-aware state.",
+    "visual": true
+  },
+  {
+    "id": "dashboard-unauth-redirect",
+    "area": "dashboard",
+    "title": "Unauthenticated dashboard route redirects to login",
+    "route": "/#/dashboard",
+    "success": "Route guard lands on login rather than rendering protected dashboard controls.",
+    "visual": true
+  },
+  {
+    "id": "dashboard-shell-authenticated",
+    "area": "dashboard",
+    "title": "Authenticated dashboard shell loads primary workspace",
+    "route": "/#/dashboard",
+    "success": "Workspace shell, top navigation, import area, and status panels render.",
+    "visual": true
+  },
+  {
+    "id": "dashboard-image-import-empty",
+    "area": "dashboard",
+    "title": "Dashboard empty import state is clear",
+    "route": "/#/dashboard",
+    "success": "Drop zone or import action is visible and no fatal overlay appears.",
+    "visual": true
+  },
+  {
+    "id": "dashboard-translation-panel",
+    "area": "dashboard",
+    "title": "Translation panel opens and keeps current workspace stable",
+    "route": "/#/dashboard?panel=translation",
+    "success": "Translation controls are reachable without layout overlap.",
+    "visual": true
+  },
+  {
+    "id": "dashboard-cleaner-panel",
+    "area": "dashboard",
+    "title": "Cleaner panel opens with empty-state guidance",
+    "route": "/#/dashboard?panel=cleaner",
+    "success": "Cleaner controls render and disabled states are explicit.",
+    "visual": true
+  },
+  {
+    "id": "aio-panel-open",
+    "area": "aio",
+    "title": "AIO pipeline panel opens",
+    "route": "/#/dashboard?panel=aio",
+    "success": "AIO mode, stage controls, and run button states render.",
+    "visual": true
+  },
+  {
+    "id": "aio-stage-selection",
+    "area": "aio",
+    "title": "AIO stage selection can be inspected",
+    "route": "/#/dashboard?panel=aio&stage=translate",
+    "success": "Stage labels and stage-specific configuration are visible.",
+    "visual": true
+  },
+  {
+    "id": "aio-preset-management",
+    "area": "aio",
+    "title": "AIO preset controls render",
+    "route": "/#/dashboard?panel=aio&section=presets",
+    "success": "Preset selector and save/new actions are visible without overflow.",
+    "visual": true
+  },
+  {
+    "id": "aio-run-disabled-empty",
+    "area": "aio",
+    "title": "AIO run is disabled or guarded with no imported pages",
+    "route": "/#/dashboard?panel=aio",
+    "success": "The app prevents an empty pipeline run and explains the blocked state.",
+    "visual": true
+  },
+  {
+    "id": "models-catalog-open",
+    "area": "models",
+    "title": "Model catalog or rankings route opens",
+    "route": "/#/model-rankings",
+    "success": "Model rankings page renders catalogue rows or loading skeletons.",
+    "visual": true
+  },
+  {
+    "id": "models-download-open",
+    "area": "models",
+    "title": "Model download controls render",
+    "route": "/#/settings?tab=models",
+    "success": "Model provider/download settings are discoverable and stable.",
+    "visual": true
+  },
+  {
+    "id": "models-provider-config",
+    "area": "models",
+    "title": "Provider configuration form renders",
+    "route": "/#/settings?tab=providers",
+    "success": "Provider token/url controls render with no secret leakage.",
+    "visual": true
+  },
+  {
+    "id": "autosave-load-empty",
+    "area": "autosave",
+    "title": "Autosave load path handles empty state",
+    "route": "/#/dashboard?panel=autosave",
+    "success": "Autosave status is visible and no blocking error modal appears.",
+    "visual": true
+  },
+  {
+    "id": "autosave-save-indicator",
+    "area": "autosave",
+    "title": "Autosave save indicator is visible in dashboard shell",
+    "route": "/#/dashboard",
+    "success": "Autosave/sync indicator can be captured for regression checks.",
+    "visual": true
+  },
+  {
+    "id": "autosave-recovery-dialog",
+    "area": "autosave",
+    "title": "Autosave recovery dialog can be triggered by fixture state",
+    "route": "/#/dashboard?fixture=autosave-recovery",
+    "success": "Recovery dialog renders with restore and discard actions.",
+    "visual": true
+  },
+  {
+    "id": "updater-status-toast",
+    "area": "updater",
+    "title": "Updater status toast renders update check state",
+    "route": "/#/dashboard?fixture=updater-available",
+    "success": "Update toast is visible, readable, and non-blocking when optional.",
+    "visual": true
+  },
+  {
+    "id": "updater-mandatory-gate",
+    "area": "updater",
+    "title": "Mandatory updater gate blocks protected work",
+    "route": "/#/dashboard?fixture=updater-mandatory",
+    "success": "Mandatory update modal/gate is visible with download/install actions.",
+    "visual": true
+  },
+  {
+    "id": "updater-rollback-action",
+    "area": "updater",
+    "title": "Updater rollback action is represented in desktop bridge",
+    "route": "/#/settings?tab=updates",
+    "success": "Update settings expose rollback status/action when bridge fixture provides it.",
+    "visual": true
+  },
+  {
+    "id": "settings-general",
+    "area": "settings",
+    "title": "Settings general tab renders",
+    "route": "/#/settings",
+    "success": "Settings shell renders general controls with no route fallback.",
+    "visual": true
+  },
+  {
+    "id": "settings-language",
+    "area": "settings",
+    "title": "Settings language control is usable",
+    "route": "/#/settings?tab=language",
+    "success": "Language selector is visible and does not overlap adjacent controls.",
+    "visual": true
+  },
+  {
+    "id": "settings-runtime",
+    "area": "settings",
+    "title": "Settings runtime tab exposes mini-backend status",
+    "route": "/#/settings?tab=runtime",
+    "success": "Runtime profile, source, and install status are visible.",
+    "visual": true
+  },
+  {
+    "id": "feed-open",
+    "area": "feed",
+    "title": "Scanlation feed route renders",
+    "route": "/#/scanlation-feed",
+    "success": "Feed page renders list, empty, or loading state without auth leakage.",
+    "visual": true
+  },
+  {
+    "id": "feed-filter",
+    "area": "feed",
+    "title": "Feed filtering controls render",
+    "route": "/#/scanlation-feed?filter=following",
+    "success": "Filter controls are visible and current filter state is clear.",
+    "visual": true
+  },
+  {
+    "id": "feed-card-detail",
+    "area": "feed",
+    "title": "Feed card detail state renders",
+    "route": "/#/scanlation-feed?fixture=post-detail",
+    "success": "Detail surface opens without breaking feed layout.",
+    "visual": true
+  },
+  {
+    "id": "rankings-open",
+    "area": "rankings",
+    "title": "Model rankings route renders",
+    "route": "/#/model-rankings",
+    "success": "Ranking list, sort controls, or loading state render.",
+    "visual": true
+  },
+  {
+    "id": "rankings-review-composer",
+    "area": "rankings",
+    "title": "Model review composer renders",
+    "route": "/#/model-rankings?fixture=review-composer",
+    "success": "Composer controls are visible and constrained to the page layout.",
+    "visual": true
+  },
+  {
+    "id": "bug-report-open",
+    "area": "bug-report",
+    "title": "Bug report entrypoint opens",
+    "route": "/#/settings?tab=bug-report",
+    "success": "Bug report form or desktop session-log bridge state is visible.",
+    "visual": true
+  },
+  {
+    "id": "bug-report-attach-log",
+    "area": "bug-report",
+    "title": "Bug report can attach diagnostic log metadata",
+    "route": "/#/settings?tab=bug-report&fixture=log",
+    "success": "Attachment/log state renders without exposing local absolute secrets.",
+    "visual": true
+  },
+  {
+    "id": "bug-report-submit-disabled",
+    "area": "bug-report",
+    "title": "Bug report submit stays guarded while required fields are empty",
+    "route": "/#/settings?tab=bug-report",
+    "success": "Submit action is disabled or guarded and validation is visible.",
+    "visual": true
+  }
+]

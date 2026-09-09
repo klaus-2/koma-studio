@@ -1,0 +1,659 @@
+{
+  "categories": [
+    {
+      "id": "quick-start",
+      "label": "Quick Start",
+      "description": "Get started with KŌMA Studio in minutes.",
+      "accentColor": "amber",
+      "status": "published",
+      "sortOrder": 0
+    },
+    {
+      "id": "workflows",
+      "label": "Workflows & Pipelines",
+      "description": "Optimized scanlation workflows.",
+      "accentColor": "purple",
+      "status": "published",
+      "sortOrder": 1
+    },
+    {
+      "id": "tools-translator",
+      "label": "Translator",
+      "description": "Integrated translation tools and techniques.",
+      "accentColor": "cyan",
+      "status": "published",
+      "sortOrder": 2
+    },
+    {
+      "id": "tools-typesetter",
+      "label": "Typesetter",
+      "description": "Text placement, typography, and fonts.",
+      "accentColor": "rose",
+      "status": "published",
+      "sortOrder": 3
+    },
+    {
+      "id": "tools-cleaner",
+      "label": "Cleaner / Redrawer",
+      "description": "Bubble cleaning and area redrawing.",
+      "accentColor": "emerald",
+      "status": "published",
+      "sortOrder": 4
+    },
+    {
+      "id": "tools-qc",
+      "label": "Quality Checker",
+      "description": "Quality review and final verification.",
+      "accentColor": "amber",
+      "status": "published",
+      "sortOrder": 5
+    },
+    {
+      "id": "ai-models",
+      "label": "AI Models",
+      "description": "Configuration and usage of AI models.",
+      "accentColor": "purple",
+      "status": "published",
+      "sortOrder": 6
+    },
+    {
+      "id": "keyboard-shortcuts",
+      "label": "Keyboard Shortcuts",
+      "description": "Master shortcuts for maximum productivity.",
+      "accentColor": "cyan",
+      "status": "published",
+      "sortOrder": 7
+    },
+    {
+      "id": "automation",
+      "label": "Automation & Batch",
+      "description": "Batch processing and advanced automation.",
+      "accentColor": "rose",
+      "status": "published",
+      "sortOrder": 8
+    },
+    {
+      "id": "troubleshooting",
+      "label": "Troubleshooting",
+      "description": "Diagnose and resolve common errors.",
+      "accentColor": "amber",
+      "status": "published",
+      "sortOrder": 9
+    }
+  ],
+  "entries": [
+    {
+      "id": "qs-first-project",
+      "categoryId": "quick-start",
+      "title": "Your First Project",
+      "subtitle": "Create and process your first manga in 5 minutes.",
+      "accentColor": "amber",
+      "difficulty": "beginner",
+      "estimatedTime": "5 min",
+      "tags": [
+        "start",
+        "project",
+        "upload"
+      ],
+      "status": "published",
+      "sortOrder": 0,
+      "sections": [
+        {
+          "id": "qs-fp-s1",
+          "title": "Importing Images",
+          "steps": [
+            {
+              "title": "Drag your images to the Dashboard",
+              "content": "Select or drag RAW manga images directly into the central Dashboard area. Supported formats: PNG, JPG, WEBP, AVIF, and TIFF.",
+              "tip": "You can drag entire folders - KOMA will import all images recursively."
+            },
+            {
+              "title": "Organize the page order",
+              "content": "Images appear in the left sidebar list. Drag to reorder or use the auto-sort button to sort by filename."
+            }
+          ]
+        },
+        {
+          "id": "qs-fp-s2",
+          "title": "Quick Processing with AIO",
+          "steps": [
+            {
+              "title": "Select the AIO Pipeline",
+              "content": "Click the AIO lightning bolt icon in the top bar. This activates the \"All-In-One\" pipeline that detects text, translates, cleans, and applies typography automatically."
+            },
+            {
+              "title": "Configure Languages",
+              "content": "Select the source language (e.g. Japanese) and the target language (e.g. English). The system will use the appropriate translation model.",
+              "tip": "For Korean manhwa, select \"Korean\" as source for better detection results."
+            },
+            {
+              "title": "Start Processing",
+              "content": "Click \"Process All\" or use Ctrl+Shift+Enter. A progress bar shows each step: Detection -> Translation -> Cleaning -> Typography."
+            }
+          ]
+        },
+        {
+          "id": "qs-fp-s3",
+          "title": "Exporting Results",
+          "steps": [
+            {
+              "title": "Review the processed pages",
+              "content": "Navigate pages in the left panel. Compare original vs. processed using the toggle button (shortcut: Tab)."
+            },
+            {
+              "title": "Export the final result",
+              "content": "Click Download (down arrow icon) in the top toolbar. Choose format (individual PNG, ZIP bundle, or local folder) and output quality.",
+              "tip": "Use \"Web Optimized\" for WEBP output with reduced file size ideal for online reading."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qs-interface-overview",
+      "categoryId": "quick-start",
+      "title": "Interface Tour",
+      "subtitle": "Explore all panels and areas of the interface.",
+      "accentColor": "amber",
+      "difficulty": "beginner",
+      "estimatedTime": "8 min",
+      "tags": [
+        "interface",
+        "panels",
+        "tour"
+      ],
+      "status": "published",
+      "sortOrder": 1,
+      "sections": [
+        {
+          "id": "qs-io-s1",
+          "title": "Main Layout",
+          "steps": [
+            {
+              "title": "Top Bar",
+              "content": "Contains: KOMA logo, mode selector (AIO, Translator, Cleaner, etc.), quick actions (download, settings), and user profile menu."
+            },
+            {
+              "title": "Left Sidebar",
+              "content": "Lists pages in the current project. Shows thumbnails, processing status (colored indicators), and supports drag-and-drop reordering."
+            },
+            {
+              "title": "Central Stage",
+              "content": "Displays the current page at high resolution. Supports zoom (scroll), pan (click-drag), and detected text-box overlays."
+            },
+            {
+              "title": "Right Sidebar (Tools Panel)",
+              "content": "Contextual tools that change based on the active mode. E.g. in Translator mode, shows detected texts and translation fields."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wf-aio-pipeline",
+      "categoryId": "workflows",
+      "title": "Full AIO Pipeline",
+      "subtitle": "End-to-end automated workflow.",
+      "accentColor": "purple",
+      "difficulty": "intermediate",
+      "estimatedTime": "12 min",
+      "tags": [
+        "aio",
+        "pipeline",
+        "automation"
+      ],
+      "status": "published",
+      "sortOrder": 2,
+      "sections": [
+        {
+          "id": "wf-aio-s1",
+          "title": "Understanding the Pipeline",
+          "steps": [
+            {
+              "title": "What is AIO?",
+              "content": "AIO (All-In-One) is the pipeline that runs all scanlation steps in sequence: Text Detection -> OCR -> Translation -> Bubble Cleaning -> Typography. Each step can be configured individually."
+            },
+            {
+              "title": "Step Configuration",
+              "content": "In the AIO panel, each step has an on/off toggle. Disable steps you don't need - for example, if translations are ready, turn off Translation and OCR.",
+              "tip": "The step order is fixed and optimized. You cannot reorder them, but you can skip any step."
+            }
+          ]
+        },
+        {
+          "id": "wf-aio-s2",
+          "title": "Pipeline Presets",
+          "steps": [
+            {
+              "title": "Included Presets",
+              "content": "KOMA comes with optimized presets: \"Manga JP->EN\" (Japanese to English, manga fonts), \"Manhwa KR->EN\" (Korean, webtoon fonts), \"Manhua CN->EN\" (Simplified Chinese)."
+            },
+            {
+              "title": "Creating Custom Presets",
+              "content": "Configure each step as desired, then click \"Save Preset\". Give it a descriptive name and it will be available for future use."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wf-manual-flow",
+      "categoryId": "workflows",
+      "title": "Manual Step-by-Step Workflow",
+      "subtitle": "Full control over each stage of the process.",
+      "accentColor": "purple",
+      "difficulty": "intermediate",
+      "estimatedTime": "15 min",
+      "tags": [
+        "manual",
+        "control",
+        "step-by-step"
+      ],
+      "status": "published",
+      "sortOrder": 3,
+      "sections": [
+        {
+          "id": "wf-mf-s1",
+          "title": "Recommended Workflow",
+          "steps": [
+            {
+              "title": "1. Text Detection",
+              "content": "Switch to \"Detect\" mode and run detection. Review detected bubbles - adjust boxes manually by clicking and dragging corners."
+            },
+            {
+              "title": "2. OCR and Translation",
+              "content": "With text detected, switch to \"Translate\" mode. OCR extracts text from each bubble and the translator generates the localized version."
+            },
+            {
+              "title": "3. Cleaning",
+              "content": "In \"Clean\" mode, AI removes original text from bubbles. Review areas with complex art behind text - use the manual eraser for corrections.",
+              "warning": "Bubbles with text over detailed illustrations may require manual redraw (RD)."
+            },
+            {
+              "title": "4. Typography (Typesetting)",
+              "content": "In \"Type\" mode, translated text is applied automatically to clean bubbles. Adjust font, size, alignment, and position as needed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tl-basics",
+      "categoryId": "tools-translator",
+      "title": "Translator Fundamentals",
+      "subtitle": "How to use the KŌMA translation module.",
+      "accentColor": "cyan",
+      "difficulty": "beginner",
+      "estimatedTime": "10 min",
+      "tags": [
+        "translation",
+        "languages",
+        "OCR"
+      ],
+      "status": "published",
+      "sortOrder": 4,
+      "sections": [
+        {
+          "id": "tl-b-s1",
+          "title": "Language Configuration",
+          "steps": [
+            {
+              "title": "Select Language Pair",
+              "content": "In the translation panel, select source and target languages. KOMA supports: Japanese, Korean, Simplified Chinese, Traditional Chinese, English, Spanish, and Portuguese."
+            },
+            {
+              "title": "Choose Translation Engine",
+              "content": "Available options: GPT-4o (best quality), Google Translate (free, fast), DeepL (excellent for European pairs), and Local Models (Ollama).",
+              "tip": "For JP->EN, GPT-4o produces the best results with manga context. Use Google Translate as a cost-effective fallback."
+            }
+          ]
+        },
+        {
+          "id": "tl-b-s2",
+          "title": "Editing Translations",
+          "steps": [
+            {
+              "title": "Text Panel",
+              "content": "Each detected bubble appears as a card in the right sidebar with: original text, translated text (editable), and detection confidence (%)."
+            },
+            {
+              "title": "Inline Editing",
+              "content": "Click any translated text to edit directly. Use Ctrl+Enter to confirm and move to the next bubble."
+            },
+            {
+              "title": "Re-translate Individual",
+              "content": "Click the refresh icon next to any translation to generate a new version of just that bubble."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ts-typography",
+      "categoryId": "tools-typesetter",
+      "title": "Typography for Manga",
+      "subtitle": "Best practices for fonts, size, and style.",
+      "accentColor": "rose",
+      "difficulty": "intermediate",
+      "estimatedTime": "12 min",
+      "tags": [
+        "typography",
+        "fonts",
+        "style"
+      ],
+      "status": "published",
+      "sortOrder": 5,
+      "sections": [
+        {
+          "id": "ts-typ-s1",
+          "title": "Choosing Fonts",
+          "steps": [
+            {
+              "title": "Fonts for Regular Dialogue",
+              "content": "Use fonts like CC Wild Words, Anime Ace, or Manga Temple for normal dialogue. These fonts have good legibility at small sizes and convey the manga feel.",
+              "tip": "Avoid Comic Sans. Use Wild Words or Anime Ace for an authentic look."
+            },
+            {
+              "title": "Fonts for Thoughts and Narration",
+              "content": "Use italic or light-serif fonts like CC Comicrazy Italic or Manga Temple Italic for internal thoughts. For narration, fonts like CC Meanwhile work well."
+            },
+            {
+              "title": "Fonts for Screams and Emphasis",
+              "content": "For screams, use bold impactful fonts like Badaboom BB, CC Astro City, or anime-style display fonts. Increase size 20-30% over normal dialogue."
+            }
+          ]
+        },
+        {
+          "id": "ts-typ-s2",
+          "title": "Text Settings",
+          "steps": [
+            {
+              "title": "Size and Spacing",
+              "content": "Default size is calculated automatically based on bubble area. Adjust manually if needed. KOMA uses optimized anti-aliasing for screens."
+            },
+            {
+              "title": "Alignment and Line Breaks",
+              "content": "Text is centered by default in bubbles. For narrative boxes, left-align. Adjust line breaks to avoid rivers (unwanted vertical spaces)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cl-cleaning-basics",
+      "categoryId": "tools-cleaner",
+      "title": "Cleaning Guide (CL/RD)",
+      "subtitle": "Bubble cleaning and redrawing techniques.",
+      "accentColor": "emerald",
+      "difficulty": "intermediate",
+      "estimatedTime": "15 min",
+      "tags": [
+        "cleaning",
+        "cleaning",
+        "redraw"
+      ],
+      "status": "published",
+      "sortOrder": 6,
+      "sections": [
+        {
+          "id": "cl-cb-s1",
+          "title": "Automatic Cleaning (AI)",
+          "steps": [
+            {
+              "title": "How It Works",
+              "content": "The AI model analyzes the detected text mask and reconstructs the missing background using inpainting. The result is a clean bubble ready for text."
+            },
+            {
+              "title": "Adjusting the Mask",
+              "content": "If detection did not cover all text, use the manual mask tool to expand the area. Paint over remaining text with the mask brush.",
+              "tip": "Increase brush size (shortcut: ] to increase, [ to decrease) to cover larger areas quickly."
+            }
+          ]
+        },
+        {
+          "id": "cl-cb-s2",
+          "title": "Manual Redraw",
+          "steps": [
+            {
+              "title": "When to Redraw",
+              "content": "Manual redraw is needed when: text is over detailed illustrations, sound effects (SFX) integrated into art, or irregular bubble borders that AI could not reconstruct well."
+            },
+            {
+              "title": "Redraw Tools",
+              "content": "Use the clone brush (S) to copy nearby textures, the healing brush (H) for automatic blending, or import patches from Photoshop if needed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qc-review",
+      "categoryId": "tools-qc",
+      "title": "Quality Review",
+      "subtitle": "QC checklists and best practices.",
+      "accentColor": "amber",
+      "difficulty": "beginner",
+      "estimatedTime": "8 min",
+      "tags": [
+        "quality",
+        "review",
+        "qc"
+      ],
+      "status": "published",
+      "sortOrder": 7,
+      "sections": [
+        {
+          "id": "qc-r-s1",
+          "title": "QC Checklist",
+          "steps": [
+            {
+              "title": "Check Translations",
+              "content": "Compare translated text with original. Check: semantic accuracy, natural flow, term consistency (character names, techniques, etc.), and register appropriateness (formal vs. informal)."
+            },
+            {
+              "title": "Check Typography",
+              "content": "Verify: text does not exceed bubbles, fonts are consistent throughout the chapter, SFX are translated when applicable, and no typos."
+            },
+            {
+              "title": "Check Cleaning",
+              "content": "Look for: original text residue, inpainting artifacts, damaged bubble borders, and blurry fonts or incorrect aliasing."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ai-model-setup",
+      "categoryId": "ai-models",
+      "title": "Setting Up AI Models",
+      "subtitle": "Installation and setup of local and cloud models.",
+      "accentColor": "purple",
+      "difficulty": "advanced",
+      "estimatedTime": "20 min",
+      "tags": [
+        "ai",
+        "models",
+        "setup"
+      ],
+      "status": "published",
+      "sortOrder": 8,
+      "sections": [
+        {
+          "id": "ai-ms-s1",
+          "title": "Cloud Models",
+          "steps": [
+            {
+              "title": "OpenAI (GPT-4o)",
+              "content": "Go to Settings -> AI Providers -> OpenAI. Enter your API Key. GPT-4o is used for high-quality translation with context.",
+              "tip": "Use the \"prompt caching\" option to reduce costs on large batches."
+            },
+            {
+              "title": "Google Gemini",
+              "content": "Configure in Settings -> AI Providers -> Google. Gemini Pro offers excellent cost-benefit for batch translation."
+            }
+          ]
+        },
+        {
+          "id": "ai-ms-s2",
+          "title": "Local Models",
+          "steps": [
+            {
+              "title": "Ollama (Local LLMs)",
+              "content": "Install Ollama on your system and download models like Qwen2.5, Llama 3, or Mistral. In KOMA, configure the endpoint at Settings -> AI Providers -> Ollama -> URL (default: localhost:11434)."
+            },
+            {
+              "title": "Detection Models",
+              "content": "KOMA uses specialized models for manga text detection. Go to Settings -> Models -> Download to get the required models (manga-text-detector, bubble-segmenter).",
+              "warning": "Detection models require a GPU with at least 4GB VRAM for good performance."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kb-shortcuts",
+      "categoryId": "keyboard-shortcuts",
+      "title": "Essential Shortcuts",
+      "subtitle": "Complete keyboard shortcut reference.",
+      "accentColor": "cyan",
+      "difficulty": "beginner",
+      "estimatedTime": "5 min",
+      "tags": [
+        "shortcuts",
+        "keyboard",
+        "productivity"
+      ],
+      "status": "published",
+      "sortOrder": 9,
+      "sections": [
+        {
+          "id": "kb-es-s1",
+          "title": "Navigation",
+          "steps": [
+            {
+              "title": "Page Navigation",
+              "content": "Left/Right or A/D - Previous/next page. Home/End - First/last page. Ctrl+G - Go to specific page number."
+            },
+            {
+              "title": "Zoom and Viewport",
+              "content": "Ctrl+0 - Fit to screen. Ctrl++ / Ctrl+- - Zoom in/out. Ctrl+Scroll - Smooth zoom. Space+Drag - Pan image."
+            }
+          ]
+        },
+        {
+          "id": "kb-es-s2",
+          "title": "Tools",
+          "steps": [
+            {
+              "title": "Operation Modes",
+              "content": "1 - AIO Mode. 2 - Translator Mode. 3 - Cleaner Mode. 4 - Typesetter Mode. 5 - Review Mode. Tab - Toggle original/processed."
+            },
+            {
+              "title": "Quick Actions",
+              "content": "Ctrl+S - Save progress. Ctrl+Z / Ctrl+Y - Undo/Redo. Ctrl+Shift+Enter - Process all (AIO). Ctrl+E - Export. Escape - Cancel current operation."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "auto-batch",
+      "categoryId": "automation",
+      "title": "Batch Processing",
+      "subtitle": "Automate multiple chapters at once.",
+      "accentColor": "rose",
+      "difficulty": "advanced",
+      "estimatedTime": "15 min",
+      "tags": [
+        "batch",
+        "automation",
+        "batch"
+      ],
+      "status": "published",
+      "sortOrder": 10,
+      "sections": [
+        {
+          "id": "auto-b-s1",
+          "title": "Batch Processing",
+          "steps": [
+            {
+              "title": "Configuring Batch",
+              "content": "Drag multiple folders (each representing a chapter) into KOMA. In AIO mode, enable \"Batch Mode\" in the controls panel. The system will process each chapter sequentially."
+            },
+            {
+              "title": "Per-Chapter Presets",
+              "content": "You can assign different presets to each chapter in the queue. Useful when different series use different configurations.",
+              "tip": "For long series with the same style, apply the same preset to all chapters for consistency."
+            },
+            {
+              "title": "Monitoring",
+              "content": "The progress bar shows the current step, current chapter, and estimated remaining time. Detailed logs are available at Settings -> Logs."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ts-common-issues",
+      "categoryId": "troubleshooting",
+      "title": "Common Problems",
+      "subtitle": "Solutions for the most frequent errors.",
+      "accentColor": "amber",
+      "difficulty": "beginner",
+      "estimatedTime": "10 min",
+      "tags": [
+        "problems",
+        "errors",
+        "solutions"
+      ],
+      "status": "published",
+      "sortOrder": 11,
+      "sections": [
+        {
+          "id": "ts-ci-s1",
+          "title": "Detection Errors",
+          "steps": [
+            {
+              "title": "Text Not Detected",
+              "content": "If text was not detected: 1) Check that the image has a minimum resolution of 720px width. 2) Confirm the detection model is installed. 3) Try a lower threshold at Settings -> Detection -> Confidence Threshold."
+            },
+            {
+              "title": "False Positives in Detection",
+              "content": "Areas like patterns, textures, or page numbers can be falsely detected as text. Use manual edit mode to delete unwanted boxes (select and press Delete)."
+            }
+          ]
+        },
+        {
+          "id": "ts-ci-s2",
+          "title": "Translation Errors",
+          "steps": [
+            {
+              "title": "Invalid or Expired API Key",
+              "content": "Go to Settings -> AI Providers and check: 1) The key is correct (no extra spaces). 2) The key has not expired. 3) There are credits/quota available on your provider account."
+            },
+            {
+              "title": "Incomplete or Truncated Translation",
+              "content": "This can happen due to timeout. Increase the timeout at Settings -> Advanced -> API Timeout. For long texts, try splitting into smaller segments."
+            }
+          ]
+        },
+        {
+          "id": "ts-ci-s3",
+          "title": "Performance Errors",
+          "steps": [
+            {
+              "title": "Slow Processing",
+              "content": "Check: 1) GPU is being used (Settings -> System -> GPU Status). 2) Images are not excessively large (>4000px). 3) Available RAM (minimum 8GB recommended).",
+              "tip": "Close other heavy applications during processing. KOMA uses GPU for AI model inference."
+            },
+            {
+              "title": "Crash or Freeze",
+              "content": "Restart KOMA and try again. If it persists: 1) Clear cache at Settings -> Advanced -> Clear Cache. 2) Update to the latest version. 3) Send logs (Help -> Report Bug).",
+              "warning": "Save your progress frequently (Ctrl+S) to avoid losing work."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

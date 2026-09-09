@@ -1,0 +1,915 @@
+/* ============================================================
+   KŌMA STUDIO - PAGE TRANSITION
+   Manhwa Glass UI Loading System
+   ============================================================ */
+
+:root {
+  --koma-route-vt-duration: 280ms;
+  --koma-route-vt-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.koma-route-shell {
+  min-height: 100vh;
+  view-transition-name: koma-route-shell;
+}
+
+.koma-route-shell__fallback {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(168, 85, 247, 0.14), transparent 42%),
+    radial-gradient(circle at bottom right, rgba(6, 182, 212, 0.12), transparent 38%),
+    rgba(6, 8, 16, 0.92);
+}
+
+::view-transition-old(koma-route-shell),
+::view-transition-new(koma-route-shell) {
+  animation-duration: var(--koma-route-vt-duration);
+  animation-timing-function: var(--koma-route-vt-ease);
+}
+
+::view-transition-old(koma-route-shell) {
+  animation-name: koma-route-out;
+}
+
+::view-transition-new(koma-route-shell) {
+  animation-name: koma-route-in;
+}
+
+@keyframes koma-route-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+}
+
+@keyframes koma-route-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.koma-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
+}
+
+.koma-transition__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 8, 16, 0.92);
+  backdrop-filter: blur(30px) saturate(1.6);
+}
+
+.koma-transition__orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(120px);
+  pointer-events: none;
+}
+
+.koma-transition__orb--purple {
+  top: -10%;
+  left: -5%;
+  width: 50vw;
+  height: 50vw;
+  max-width: 500px;
+  max-height: 500px;
+  background: rgba(168, 85, 247, 0.2);
+  animation: koma-t-orb-1 8s ease-in-out infinite alternate;
+}
+
+.koma-transition__orb--cyan {
+  right: -5%;
+  bottom: -10%;
+  width: 40vw;
+  height: 40vw;
+  max-width: 420px;
+  max-height: 420px;
+  background: rgba(6, 182, 212, 0.15);
+  animation: koma-t-orb-2 7s ease-in-out infinite alternate;
+}
+
+.koma-transition__speedlines {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.koma-transition__speedline {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--line-length, 60%);
+  height: 1px;
+  transform-origin: 0 0;
+  transform: rotate(var(--line-angle, 0deg));
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(168, 85, 247, var(--line-opacity, 0.05)) 30%,
+    rgba(6, 182, 212, calc(var(--line-opacity, 0.05) * 0.7)) 70%,
+    transparent 100%
+  );
+  animation: koma-t-speedline 1.8s ease-in-out var(--line-delay, 0s) infinite alternate;
+}
+
+.koma-transition__panels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.koma-transition__panel {
+  position: absolute;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  animation: koma-t-panel-float 1.2s cubic-bezier(0.16, 1, 0.3, 1) var(--panel-delay, 0s) forwards;
+}
+
+.koma-transition__panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.6));
+}
+
+.koma-transition__panel-lines {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-transition__panel-lines span {
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.koma-transition__panel-lines span:nth-child(1) {
+  width: 75%;
+}
+
+.koma-transition__panel-lines span:nth-child(2) {
+  width: 55%;
+}
+
+.koma-transition__panel-lines span:nth-child(3) {
+  width: 40%;
+}
+
+.koma-transition__panel--1 {
+  top: 8%;
+  left: 6%;
+  width: 100px;
+  height: 140px;
+  --panel-transform: rotate(-8deg);
+  transform: var(--panel-transform);
+}
+
+.koma-transition__panel--2 {
+  top: 12%;
+  right: 8%;
+  width: 85px;
+  height: 120px;
+  --panel-transform: rotate(6deg);
+  transform: var(--panel-transform);
+}
+
+.koma-transition__panel--3 {
+  bottom: 15%;
+  left: 10%;
+  width: 90px;
+  height: 130px;
+  --panel-transform: rotate(5deg);
+  transform: var(--panel-transform);
+}
+
+.koma-transition__panel--4 {
+  right: 12%;
+  bottom: 8%;
+  width: 80px;
+  height: 110px;
+  --panel-transform: rotate(-4deg);
+  transform: var(--panel-transform);
+}
+
+.koma-transition__panel--5 {
+  top: 45%;
+  left: 3%;
+  width: 70px;
+  height: 100px;
+  --panel-transform: rotate(-10deg);
+  transform: var(--panel-transform);
+}
+
+.koma-transition__particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.koma-transition__particle {
+  position: absolute;
+  left: var(--p-x);
+  top: var(--p-y);
+  width: var(--p-size, 3px);
+  height: var(--p-size, 3px);
+  border-radius: 50%;
+  background: var(--p-color);
+  opacity: 0;
+  animation: koma-t-particle var(--p-duration, 3s) ease-in-out var(--p-delay, 0s) infinite;
+}
+
+.koma-transition__center {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.koma-transition__logo {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.koma-transition__logoRing {
+  position: absolute;
+  inset: 0;
+}
+
+.koma-transition__logoRingSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.koma-transition__logoRingArc {
+  transform-origin: center;
+  animation: koma-t-ring-spin 1.4s linear infinite;
+}
+
+.koma-transition__logoIcon {
+  position: relative;
+  z-index: 2;
+  color: var(--ua-text, #f1f5f9);
+  animation: koma-t-logo-breathe 2s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.3));
+}
+
+.koma-transition__brand {
+  text-align: center;
+}
+
+.koma-transition__brandName {
+  font-family: "Cabin", "Segoe UI", system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--ua-text, #f1f5f9);
+}
+
+.koma-transition__brandName span {
+  background: linear-gradient(135deg, #a855f7, #06b6d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.koma-transition__progress {
+  width: 180px;
+}
+
+.koma-transition__progressTrack {
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.koma-transition__progressFill {
+  width: 40%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #a855f7, #06b6d4);
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.3);
+  animation: koma-t-progress 1.6s ease-in-out infinite;
+}
+
+.koma-transition__message {
+  font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(186, 199, 247, 0.6);
+  text-align: center;
+  min-height: 20px;
+  animation: koma-t-msg-fade 0.4s ease;
+}
+
+.koma-transition__sfx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.koma-transition__sfx-char {
+  position: absolute;
+  font-family: "Cabin", sans-serif;
+  font-weight: 900;
+  user-select: none;
+  color: rgba(255, 255, 255, 0.02);
+}
+
+.koma-transition__sfx-char--1 {
+  top: 10%;
+  right: 10%;
+  font-size: clamp(70px, 10vw, 140px);
+  --r: -15deg;
+  transform: rotate(var(--r));
+  animation: koma-t-sfx 5s ease-in-out infinite alternate;
+}
+
+.koma-transition__sfx-char--2 {
+  bottom: 12%;
+  left: 8%;
+  font-size: clamp(50px, 8vw, 110px);
+  --r: 10deg;
+  transform: rotate(var(--r));
+  animation: koma-t-sfx 4s ease-in-out 0.5s infinite alternate-reverse;
+}
+
+.koma-transition__sfx-char--3 {
+  top: 50%;
+  right: 5%;
+  font-size: clamp(40px, 6vw, 80px);
+  --r: 20deg;
+  transform: rotate(var(--r));
+  animation: koma-t-sfx 6s ease-in-out 1s infinite alternate;
+}
+
+.koma-transition__corner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+  opacity: 0.15;
+}
+
+.koma-transition__corner::before,
+.koma-transition__corner::after {
+  content: "";
+  position: absolute;
+  background: linear-gradient(135deg, #a855f7, #06b6d4);
+  border-radius: 2px;
+}
+
+.koma-transition__corner--tl {
+  top: 20px;
+  left: 20px;
+}
+
+.koma-transition__corner--tr {
+  top: 20px;
+  right: 20px;
+}
+
+.koma-transition__corner--bl {
+  bottom: 20px;
+  left: 20px;
+}
+
+.koma-transition__corner--br {
+  right: 20px;
+  bottom: 20px;
+}
+
+.koma-transition__corner--tl::before,
+.koma-transition__corner--bl::before {
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 2px;
+}
+
+.koma-transition__corner--tl::after,
+.koma-transition__corner--tr::after {
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 20px;
+}
+
+.koma-transition__corner--tr::before,
+.koma-transition__corner--br::before {
+  top: 0;
+  right: 0;
+  left: auto;
+  width: 20px;
+  height: 2px;
+}
+
+.koma-transition__corner--tr::after {
+  right: 0;
+  left: auto;
+}
+
+.koma-transition__corner--bl::after,
+.koma-transition__corner--br::after {
+  bottom: 0;
+  top: auto;
+  width: 2px;
+  height: 20px;
+}
+
+.koma-transition__corner--bl::after {
+  left: 0;
+}
+
+.koma-transition__corner--br::before {
+  left: auto;
+  right: 0;
+}
+
+.koma-transition__corner--br::after {
+  left: auto;
+  right: 0;
+}
+
+.koma-transition--entering .koma-transition__backdrop {
+  animation: koma-t-backdrop-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.koma-transition--entering .koma-transition__center {
+  animation: koma-t-center-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+.koma-transition--entering .koma-transition__corner {
+  animation: koma-t-corner-in 0.4s ease 0.2s both;
+}
+
+.koma-transition--entering .koma-transition__orb {
+  animation: koma-t-orb-in 0.6s ease both;
+}
+
+.koma-transition--visible .koma-transition__backdrop {
+  opacity: 1;
+}
+
+.koma-transition--visible .koma-transition__center {
+  opacity: 1;
+  transform: none;
+}
+
+.koma-transition--exiting .koma-transition__backdrop {
+  animation: koma-t-backdrop-out 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.koma-transition--exiting .koma-transition__center {
+  animation: koma-t-center-out 0.4s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+.koma-transition--exiting .koma-transition__corner {
+  animation: koma-t-corner-out 0.3s ease forwards;
+}
+
+.koma-transition--exiting .koma-transition__panel {
+  animation: koma-t-panel-exit 0.4s ease forwards;
+}
+
+.koma-transition--exiting .koma-transition__speedline {
+  animation: koma-t-speedline-exit 0.3s ease forwards;
+}
+
+.koma-transition--minimal .koma-transition__sfx,
+.koma-transition--minimal .koma-transition__corner {
+  display: none;
+}
+
+.koma-transition--minimal .koma-transition__backdrop {
+  background: rgba(6, 8, 16, 0.85);
+}
+
+.koma-transition--minimal .koma-transition__logo {
+  width: 72px;
+  height: 72px;
+}
+
+.koma-transition--minimal .koma-transition__brandName {
+  font-size: 20px;
+}
+
+.koma-transition--minimal .koma-transition__progress {
+  width: 140px;
+}
+
+@keyframes koma-t-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes koma-t-backdrop-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes koma-t-center-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+    filter: blur(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes koma-t-center-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.05) translateY(-15px);
+    filter: blur(8px);
+  }
+}
+
+@keyframes koma-t-corner-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  to {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+}
+
+@keyframes koma-t-corner-out {
+  to {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+@keyframes koma-t-orb-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes koma-t-orb-1 {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  100% {
+    transform: translate(30px, 20px);
+  }
+}
+
+@keyframes koma-t-orb-2 {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  100% {
+    transform: translate(-25px, -30px);
+  }
+}
+
+@keyframes koma-t-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes koma-t-logo-breathe {
+  from {
+    transform: scale(1);
+    filter: drop-shadow(0 0 16px rgba(168, 85, 247, 0.2));
+  }
+
+  to {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 28px rgba(168, 85, 247, 0.4));
+  }
+}
+
+@keyframes koma-t-progress {
+  0% {
+    transform: translateX(-100%);
+    width: 40%;
+  }
+
+  50% {
+    width: 60%;
+  }
+
+  100% {
+    transform: translateX(350%);
+    width: 40%;
+  }
+}
+
+@keyframes koma-t-msg-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes koma-t-speedline {
+  from {
+    opacity: 0;
+    transform: rotate(var(--line-angle)) scaleX(0.6);
+  }
+
+  to {
+    opacity: 1;
+    transform: rotate(var(--line-angle)) scaleX(1);
+  }
+}
+
+@keyframes koma-t-speedline-exit {
+  to {
+    opacity: 0;
+    transform: rotate(var(--line-angle)) scaleX(1.5);
+  }
+}
+
+@keyframes koma-t-panel-float {
+  from {
+    opacity: 0;
+    transform: var(--panel-transform, rotate(0deg)) translateY(40px) scale(0.8);
+  }
+
+  to {
+    opacity: 0.6;
+    transform: var(--panel-transform, rotate(0deg)) translateY(0) scale(1);
+  }
+}
+
+@keyframes koma-t-panel-exit {
+  to {
+    opacity: 0;
+    transform: scale(0.7) translateY(-30px);
+  }
+}
+
+@keyframes koma-t-particle {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0);
+  }
+
+  20% {
+    opacity: 0.6;
+    transform: translateY(-10px) scale(1);
+  }
+
+  80% {
+    opacity: 0.4;
+    transform: translateY(-30px) scale(0.8);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(0);
+  }
+}
+
+@keyframes koma-t-sfx {
+  0% {
+    opacity: 0.015;
+    transform: rotate(var(--r, -15deg)) translateY(0);
+  }
+
+  50% {
+    opacity: 0.035;
+  }
+
+  100% {
+    opacity: 0.02;
+    transform: rotate(var(--r, -15deg)) translateY(-15px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(koma-route-shell),
+  ::view-transition-new(koma-route-shell) {
+    animation-duration: 1ms;
+  }
+
+  .koma-transition__speedline,
+  .koma-transition__particle,
+  .koma-transition__sfx-char,
+  .koma-transition__panel {
+    animation: none !important;
+    display: none;
+  }
+
+  .koma-transition__logoRingArc {
+    animation-duration: 3s;
+  }
+
+  .koma-transition__logoIcon {
+    animation: none;
+  }
+
+  .koma-transition__progressFill {
+    animation-duration: 3s;
+  }
+
+  .koma-transition--entering .koma-transition__backdrop,
+  .koma-transition--entering .koma-transition__center {
+    animation-duration: 0.15s;
+  }
+
+  .koma-transition--exiting .koma-transition__backdrop,
+  .koma-transition--exiting .koma-transition__center {
+    animation-duration: 0.15s;
+  }
+}
+
+.koma-overlay-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.koma-overlay-loader__bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 8, 16, 0.75);
+  backdrop-filter: blur(8px);
+}
+
+.koma-overlay-loader__content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.koma-overlay-loader__spinner {
+  animation: koma-t-logo-breathe 2s ease-in-out infinite alternate;
+}
+
+.koma-overlay-loader__arc {
+  transform-origin: center;
+  animation: koma-t-ring-spin 1.2s linear infinite;
+}
+
+.koma-overlay-loader__msg {
+  margin: 0;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(186, 199, 247, 0.6);
+}
+
+/* ================================================================
+   LIGHT THEME OVERRIDES
+   ================================================================ */
+
+[data-theme="light"] .koma-transition__backdrop {
+  background: rgba(241, 245, 249, 0.92);
+}
+
+[data-theme="light"] .koma-route-shell__fallback {
+  background:
+    radial-gradient(circle at top left, rgba(168, 85, 247, 0.08), transparent 42%),
+    radial-gradient(circle at bottom right, rgba(6, 182, 212, 0.08), transparent 38%),
+    rgba(248, 250, 252, 0.88);
+}
+
+[data-theme="light"] .koma-transition__orb--purple {
+  background: rgba(168, 85, 247, 0.1);
+}
+
+[data-theme="light"] .koma-transition__orb--cyan {
+  background: rgba(6, 182, 212, 0.08);
+}
+
+[data-theme="light"] .koma-transition__speedline {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(168, 85, 247, calc(var(--line-opacity, 0.05) * 1.5)) 30%,
+    rgba(6, 182, 212, calc(var(--line-opacity, 0.05) * 1.2)) 70%,
+    transparent 100%
+  );
+}
+
+[data-theme="light"] .koma-transition__panel {
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .koma-transition__panel::after {
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.25));
+}
+
+[data-theme="light"] .koma-transition__panel-lines span {
+  background: rgba(15, 23, 42, 0.15);
+}
+
+[data-theme="light"] .koma-transition__logoIcon {
+  color: #1e293b;
+}
+
+[data-theme="light"] .koma-transition__brandName {
+  color: #1e293b;
+}
+
+[data-theme="light"] .koma-transition__progressTrack {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .koma-transition__message {
+  color: rgba(51, 65, 85, 0.65);
+}
+
+[data-theme="light"] .koma-transition__sfx-char {
+  color: rgba(15, 23, 42, 0.03);
+}
+
+[data-theme="light"] .koma-transition--minimal .koma-transition__backdrop {
+  background: rgba(241, 245, 249, 0.88);
+}
+
+[data-theme="light"] .koma-overlay-loader__bg {
+  background: rgba(248, 250, 252, 0.8);
+}
+
+[data-theme="light"] .koma-overlay-loader__msg {
+  color: rgba(51, 65, 85, 0.65);
+}

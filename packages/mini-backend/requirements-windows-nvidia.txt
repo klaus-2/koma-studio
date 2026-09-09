@@ -1,0 +1,15 @@
+-r requirements.txt
+onnxruntime-gpu==1.22.0
+nvidia-cuda-runtime-cu12
+nvidia-cuda-nvrtc-cu12
+nvidia-cublas-cu12
+nvidia-cufft-cu12
+nvidia-curand-cu12
+nvidia-cusolver-cu12
+nvidia-cusparse-cu12
+nvidia-cudnn-cu12
+nvidia-nvtx-cu12
+# nvjitlink must be 12.3+: cusparse 12.2.0.103 imports __nvJitLink*_12_3
+# symbols that 12.2.x versions do not export — the CUDA provider fails with
+# WinError 1114/127. Verified with 12.3.101.
+nvidia-nvjitlink-cu12==12.3.101

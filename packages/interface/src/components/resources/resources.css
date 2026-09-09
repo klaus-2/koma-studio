@@ -1,0 +1,1505 @@
+/* ══════════════════════════════════════════════════════
+   KŌMA STUDIO — Resources Page Styles
+   Manhwa Glass UI · Dark · Purple/Cyan Accent
+   ══════════════════════════════════════════════════════ */
+
+/* ── Page Layout ── */
+
+.koma-res {
+    position: relative;
+    /* min-height: 100%; */
+    padding: 28px 36px 48px;
+    /* overflow-y: auto; */
+    /* overflow-x: hidden; */
+  }
+  
+  .koma-res__orb {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(140px);
+    z-index: 0;
+  }
+  
+  .koma-res__orb--purple {
+    width: 420px;
+    height: 420px;
+    background: rgba(168, 85, 247, 0.07);
+    top: -120px;
+    right: -100px;
+    animation: koma-res-orb-drift 25s ease-in-out infinite alternate;
+  }
+  
+  .koma-res__orb--cyan {
+    width: 320px;
+    height: 320px;
+    background: rgba(6, 182, 212, 0.05);
+    bottom: -80px;
+    left: -60px;
+    animation: koma-res-orb-drift 30s ease-in-out infinite alternate-reverse;
+  }
+  
+  .koma-res__halftone {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+    background-size: 4px 4px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  .koma-res__inner {
+    position: relative;
+    z-index: 1;
+  }
+  
+  /* ── Header ── */
+  
+  .koma-res__header {
+    margin-bottom: 24px;
+  }
+  
+  .koma-res__title {
+    font-family: var(--auth-font-heading, 'Cabin', sans-serif);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--auth-text, #f1f5f9);
+    margin: 0 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.01em;
+  }
+  
+  .koma-res__title-accent {
+    background: linear-gradient(135deg, var(--auth-purple, #a855f7), var(--auth-cyan, #06b6d4));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .koma-res__subtitle {
+    font-family: var(--auth-font-body, 'Manrope', sans-serif);
+    font-size: 13px;
+    color: var(--auth-text-muted, rgba(186, 199, 247, 0.55));
+    margin: 0;
+    line-height: 1.55;
+    max-width: 560px;
+  }
+  
+  /* ── Search Bar ── */
+  
+  .koma-res__search {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  
+  .koma-res__search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(186, 199, 247, 0.3);
+    transition: color 0.2s ease;
+    pointer-events: none;
+    z-index: 2;
+  }
+  
+  .koma-res__search-input {
+    width: 100%;
+    padding: 11px 90px 11px 40px;
+    background: var(--auth-input-bg, rgba(6, 8, 18, 0.75));
+    border: 1px solid var(--auth-input-border, rgba(255, 255, 255, 0.08));
+    border-radius: 12px;
+    color: var(--auth-text, #f1f5f9);
+    font-family: var(--auth-font-body, 'Manrope', sans-serif);
+    font-size: 13px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+    box-sizing: border-box;
+  }
+  
+  .koma-res__search-input::placeholder {
+    color: rgba(186, 199, 247, 0.35);
+  }
+  
+  .koma-res__search-input:focus {
+    border-color: rgba(168, 85, 247, 0.4);
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+  }
+  
+  .koma-res__search-input:focus ~ .koma-res__search-icon {
+    color: var(--auth-purple, #a855f7);
+  }
+  
+  .koma-res__search-meta {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+  }
+  
+  .koma-res__search-clear {
+    pointer-events: auto;
+    background: none;
+    border: none;
+    color: rgba(186, 199, 247, 0.35);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    transition: color 0.15s ease;
+  }
+  
+  .koma-res__search-clear:hover {
+    color: var(--auth-text, #f1f5f9);
+  }
+  
+  .koma-res__kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 5px;
+    background: rgba(10, 12, 24, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(186, 199, 247, 0.45);
+  }
+  
+  /* ── Tabs ── */
+  
+  .koma-res__tabs {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  
+  .koma-res__tabs::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .koma-res__tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border-radius: 11px;
+    border: none;
+    background: transparent;
+    color: var(--auth-text-muted, rgba(186, 199, 247, 0.55));
+    font-family: var(--auth-font-body, 'Manrope', sans-serif);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+    position: relative;
+  }
+  
+  .koma-res__tab:hover {
+    color: rgba(241, 245, 249, 0.8);
+    background: rgba(255, 255, 255, 0.03);
+  }
+  
+  .koma-res__tab--active {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.14), rgba(6, 182, 212, 0.08));
+    color: rgba(255, 255, 255, 0.93);
+    box-shadow: 0 4px 16px rgba(168, 85, 247, 0.1);
+  }
+  
+  .koma-res__tab-count {
+    font-size: 10px;
+    font-family: ui-monospace, monospace;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(186, 199, 247, 0.45);
+    font-weight: 600;
+  }
+  
+  .koma-res__tab--active .koma-res__tab-count {
+    background: rgba(168, 85, 247, 0.2);
+    color: var(--auth-purple, #a855f7);
+  }
+  
+  /* ── Content Container ── */
+  
+  .koma-res__content {
+    animation: koma-res-fade-in 0.25s ease-out;
+  }
+  
+  /* ── Shared: Filter Pills ── */
+  
+  .koma-res-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  
+  .koma-res-filter-btn {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--auth-text-muted, rgba(186, 199, 247, 0.55));
+    font-family: var(--auth-font-body, 'Manrope', sans-serif);
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+    white-space: nowrap;
+  }
+  
+  .koma-res-filter-btn:hover {
+    color: rgba(241, 245, 249, 0.75);
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+  }
+  
+  .koma-res-filter-btn--active {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(6, 182, 212, 0.08));
+    border-color: rgba(168, 85, 247, 0.25);
+    color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 2px 10px rgba(168, 85, 247, 0.08);
+  }
+  
+  /* ── Shared: Tags ── */
+  
+  .koma-res-tag {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 500;
+    background: rgba(168, 85, 247, 0.08);
+    color: rgba(186, 199, 247, 0.6);
+    border: 1px solid rgba(168, 85, 247, 0.08);
+  }
+  
+  /* ── Shared: Badges ── */
+  
+  .koma-res-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  
+  .koma-res-badge--free,
+  .koma-res-badge--open-source {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.15);
+  }
+  
+  .koma-res-badge--commercial {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.15);
+  }
+  
+  .koma-res-badge--mixed {
+    background: rgba(168, 85, 247, 0.1);
+    color: var(--auth-purple, #a855f7);
+    border: 1px solid rgba(168, 85, 247, 0.15);
+  }
+  
+  /* ── Shared: Copy Button ── */
+  
+  .koma-res-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(186, 199, 247, 0.4);
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+    flex-shrink: 0;
+  }
+  
+  .koma-res-copy-btn:hover {
+    color: var(--auth-purple, #a855f7);
+    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.08);
+  }
+  
+  .koma-res-copy-btn--copied {
+    color: var(--auth-emerald, #10b981) !important;
+    border-color: rgba(16, 185, 129, 0.3) !important;
+    background: rgba(16, 185, 129, 0.08) !important;
+  }
+  
+  /* ── Shared: Section Label ── */
+  
+  .koma-res-section-count {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--auth-text-muted, rgba(186, 199, 247, 0.55));
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .koma-res-section-count__num {
+    color: var(--auth-purple, #a855f7);
+    font-weight: 600;
+  }
+  
+  /* ══════════════════════════════════════════
+     FONTS SECTION
+     ══════════════════════════════════════════ */
+  
+  .koma-res-fonts__preview-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 10px 14px;
+    background: rgba(10, 12, 24, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+  }
+  
+  .koma-res-fonts__preview-bar svg {
+    color: rgba(186, 199, 247, 0.3);
+    flex-shrink: 0;
+  }
+  
+  .koma-res-fonts__preview-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--auth-text, #f1f5f9);
+    font-family: var(--auth-font-body, 'Manrope', sans-serif);
+    font-size: 13px;
+    outline: none;
+  }
+  
+  .koma-res-fonts__preview-input::placeholder {
+    color: rgba(186, 199, 247, 0.3);
+  }
+  
+  .koma-res-fonts__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  
+  /* Font Card */
+  .koma-res-font-card {
+    background: var(--auth-card-bg, rgba(10, 12, 24, 0.82));
+    border: 1px solid var(--auth-card-border, rgba(168, 85, 247, 0.1));
+    border-radius: 16px;
+    padding: 20px;
+    backdrop-filter: blur(16px) saturate(1.3);
+    transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .koma-res-font-card:hover {
+    border-color: rgba(168, 85, 247, 0.22);
+    transform: translateY(-2px);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.3),
+      0 0 30px rgba(168, 85, 247, 0.04);
+  }
+  
+  .koma-res-font-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  
+  .koma-res-font-card__name {
+    font-family: var(--auth-font-heading, 'Cabin', sans-serif);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--auth-text, #f1f5f9);
+    margin: 0;
+  }
+  
+  .koma-res-font-card__style {
+    font-size: 11px;
+    color: var(--auth-text-muted, rgba(186, 199, 247, 0.55));
+    margin: -4px 0 0;
+  }
+  
+  .koma-res-font-card__preview {
+    background: rgba(6, 8, 18, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+    padding: 18px 16px;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--auth-text, #f1f5f9);
+    line-height: 1.35;
+    transition: font-size 0.2s ease;
+    overflow: hidden;
+  }
+  
+  .koma-res-font-card__sizes {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+  }
+  
+  .koma-res-font-card__size-btn {
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: transparent;
+    color: rgba(186, 199, 247, 0.4);
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  }
+  
+  .koma-res-font-card__size-btn--active {
+    color: var(--auth-purple, #a855f7);
+    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.08);
+  }
+  
+  .koma-res-font-card__usage {
+    font-size: 12px;
+    color: rgba(186, 199, 247, 0.55);
+    line-height: 1.5;
+    margin: 0;
+  }
+  
+  .koma-res-font-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .koma-res-font-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .koma-res-font-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  
+  .koma-res-font-card__download {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: rgba(186, 199, 247, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.02);
+    text-decoration: none;
+    transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  }
+  
+  .koma-res-font-card__download:hover {
+    color: var(--auth-purple, #a855f7);
+    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.06);
+  }
+  
+  /* ══════════════════════════════════════════
+     SFX SECTION
+     ══════════════════════════════════════════ */
+  
+  .koma-res-sfx__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  
+  .koma-res-sfx-card {
+    background: var(--auth-card-bg, rgba(10, 12, 24, 0.82));
+    border: 1px solid rgba(168, 85, 247, 0.07);
+    border-radius: 14px;
+    padding: 18px;
+    backdrop-filter: blur(14px);
+    transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .koma-res-sfx-card:hover {
+    border-color: rgba(168, 85, 247, 0.18);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+  }
+  
+  .koma-res-sfx-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  
+  .koma-res-sfx-card__jp {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--auth-text, #f1f5f9);
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+  }
+  
+  .koma-res-sfx-card__romaji {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    color: rgba(186, 199, 247, 0.4);
+    font-style: italic;
+  }
+  
+  .koma-res-sfx-card__translation {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(6, 8, 18, 0.5);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+  }
+  
+  .koma-res-sfx-card__flag {
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  
+  .koma-res-sfx-card__text {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    font-style: italic;
+    color: var(--auth-cyan, #06b6d4);
+  }
+  
+  .koma-res-sfx-card__note {
+    font-size: 11.5px;
+    color: rgba(186, 199, 247, 0.5);
+    line-height: 1.5;
+    margin: 0;
+  }
+  
+  .koma-res-sfx-card__common {
+    font-size: 10.5px;
+    color: rgba(186, 199, 247, 0.35);
+    margin: 0;
+  }
+  
+  /* SFX Category Badges */
+  .koma-res-sfx-badge {
+    display: inline-flex;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  
+  .koma-res-sfx-badge--impact { background: rgba(244, 63, 94, 0.1); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.15); }
+  .koma-res-sfx-badge--action { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.15); }
+  .koma-res-sfx-badge--emotion { background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.15); }
+  .koma-res-sfx-badge--ambient { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.15); }
+  .koma-res-sfx-badge--voice { background: rgba(6, 182, 212, 0.1); color: #06b6d4; border: 1px solid rgba(6, 182, 212, 0.15); }
+  .koma-res-sfx-badge--misc { background: rgba(186, 199, 247, 0.06); color: rgba(186, 199, 247, 0.55); border: 1px solid rgba(186, 199, 247, 0.1); }
+  
+  /* ══════════════════════════════════════════
+     GLOSSARY SECTION
+     ══════════════════════════════════════════ */
+  
+  .koma-res-glossary__layout {
+    display: flex;
+    gap: 20px;
+  }
+  
+  .koma-res-glossary__list {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  /* Alphabet Nav */
+  .koma-res-glossary__alpha-nav {
+    position: sticky;
+    top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 6px;
+    background: rgba(10, 12, 24, 0.85);
+    border: 1px solid rgba(168, 85, 247, 0.06);
+    border-radius: 12px;
+    backdrop-filter: blur(12px);
+    align-self: flex-start;
+    flex-shrink: 0;
+  }
+  
+  .koma-res-glossary__alpha-btn {
+    width: 26px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    border: none;
+    background: none;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(186, 199, 247, 0.35);
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  }
+  
+  .koma-res-glossary__alpha-btn:hover {
+    color: var(--auth-text, #f1f5f9);
+    background: rgba(168, 85, 247, 0.1);
+  }
+  
+  .koma-res-glossary__alpha-btn--active {
+    color: var(--auth-purple, #a855f7);
+    background: rgba(168, 85, 247, 0.15);
+  }
+  
+  .koma-res-glossary__alpha-btn--disabled {
+    opacity: 0.2;
+    cursor: default;
+    pointer-events: none;
+  }
+  
+  /* Letter Header */
+  .koma-res-glossary__letter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 0 8px;
+    margin-top: 16px;
+  }
+  
+  .koma-res-glossary__letter-row:first-child {
+    margin-top: 0;
+    padding-top: 0;
+  }
+  
+  .koma-res-glossary__letter {
+    font-family: var(--auth-font-heading, 'Cabin', sans-serif);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--auth-purple, #a855f7);
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(168, 85, 247, 0.08);
+    border-radius: 9px;
+    flex-shrink: 0;
+  }
+  
+  .koma-res-glossary__letter-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(168, 85, 247, 0.06);
+  }
+  
+  /* Glossary Item */
+  .koma-res-glossary-item {
+    background: rgba(10, 12, 24, 0.45);
+    border: 1px solid rgba(168, 85, 247, 0.05);
+    border-radius: 12px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  }
+  
+  .koma-res-glossary-item:hover {
+    border-color: rgba(168, 85, 247, 0.12);
+  }
+  
+  .koma-res-glossary-item--expanded {
+    border-color: rgba(168, 85, 247, 0.18);
+    background: rgba(10, 12, 24, 0.65);
+  }
+  
+  .koma-res-glossary-item__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+  }
+  
+  .koma-res-glossary-item__term {
+    font-family: var(--auth-font-heading, 'Cabin', sans-serif);
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--auth-text, #f1f5f9);
+    flex-shrink: 0;
+  }
+  
+  .koma-res-glossary-item__cat {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(168, 85, 247, 0.08);
+    color: rgba(186, 199, 247, 0.6);
+    border: 1px solid rgba(168, 85, 247, 0.08);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  
+  .koma-res-glossary-item__short {
+    flex: 1;
+    font-size: 12px;
+    color: rgba(186, 199, 247, 0.45);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  
+  .koma-res-glossary-item__chevron {
+    color: rgba(186, 199, 247, 0.25);
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+  }
+  
+  .koma-res-glossary-item--expanded .koma-res-glossary-item__chevron {
+    transform: rotate(180deg);
+  }
+  
+  .koma-res-glossary-item__body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.25s ease;
+    padding: 0 16px;
+  }
+  
+  .koma-res-glossary-item--expanded .koma-res-glossary-item__body {
+    max-height: 400px;
+    padding: 0 16px 16px;
+  }
+  
+  .koma-res-glossary-item__definition {
+    font-size: 13px;
+    color: rgba(186, 199, 247, 0.7);
+    line-height: 1.65;
+    margin: 0 0 10px;
+  }
+  
+  .koma-res-glossary-item__related {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .koma-res-glossary-item__related-label {
+    font-size: 11px;
+    color: rgba(186, 199, 247, 0.4);
+    font-weight: 500;
+  }
+  
+  .koma-res-glossary-item__related-pill {
+    display: inline-flex;
+    padding: 3px 10px;
+    background: rgba(168, 85, 247, 0.07);
+    border: 1px solid rgba(168, 85, 247, 0.1);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--auth-purple, #a855f7);
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  }
+  
+  .koma-res-glossary-item__related-pill:hover {
+    background: rgba(168, 85, 247, 0.14);
+    border-color: rgba(168, 85, 247, 0.25);
+  }
+  
+  /* ══════════════════════════════════════════
+     COMMUNITIES SECTION
+     ══════════════════════════════════════════ */
+  
+  .koma-res-links__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .koma-res-link-card {
+    background: var(--auth-card-bg, rgba(10, 12, 24, 0.82));
+    border: 1px solid rgba(168, 85, 247, 0.06);
+    border-radius: 14px;
+    padding: 18px;
+    backdrop-filter: blur(14px);
+    transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .koma-res-link-card:hover {
+    border-color: rgba(168, 85, 247, 0.16);
+    background: rgba(10, 12, 24, 0.88);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+  }
+  
+  .koma-res-link-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  
+  .koma-res-link-card__name {
+    font-family: var(--auth-font-heading, 'Cabin', sans-serif);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--auth-text, #f1f5f9);
+    margin: 0;
+  }
+  
+  .koma-res-link-card__desc {
+    font-size: 12px;
+    color: rgba(186, 199, 247, 0.55);
+    line-height: 1.55;
+    margin: 0;
+  }
+  
+  .koma-res-link-card__meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: rgba(186, 199, 247, 0.4);
+  }
+  
+  .koma-res-link-card__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(186, 199, 247, 0.55);
+    font-size: 11.5px;
+    font-weight: 500;
+    text-decoration: none;
+    margin-top: auto;
+    align-self: flex-start;
+    transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  }
+  
+  .koma-res-link-card__action:hover {
+    color: var(--auth-purple, #a855f7);
+    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.06);
+  }
+  
+  /* Platform Badges */
+  .koma-res-platform {
+    display: inline-flex;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  
+  .koma-res-platform--discord { background: rgba(88, 101, 242, 0.12); color: #7289da; border: 1px solid rgba(88, 101, 242, 0.15); }
+  .koma-res-platform--reddit { background: rgba(255, 69, 0, 0.1); color: #ff6b35; border: 1px solid rgba(255, 69, 0, 0.15); }
+  .koma-res-platform--forum { background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.15); }
+  .koma-res-platform--website { background: rgba(6, 182, 212, 0.1); color: #06b6d4; border: 1px solid rgba(6, 182, 212, 0.15); }
+  .koma-res-platform--telegram { background: rgba(0, 136, 204, 0.1); color: #0088cc; border: 1px solid rgba(0, 136, 204, 0.15); }
+  
+  /* ══════════════════════════════════════════
+     TOOLS SECTION
+     ══════════════════════════════════════════ */
+  
+  .koma-res-tools__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .koma-res-tool-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: rgba(10, 12, 24, 0.45);
+    border: 1px solid rgba(168, 85, 247, 0.05);
+    border-radius: 12px;
+    transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  }
+  
+  .koma-res-tool-row:hover {
+    border-color: rgba(168, 85, 247, 0.14);
+    background: rgba(10, 12, 24, 0.6);
+  }
+  
+  .koma-res-tool-row__icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: rgba(168, 85, 247, 0.07);
+    border: 1px solid rgba(168, 85, 247, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--auth-purple, #a855f7);
+    flex-shrink: 0;
+  }
+  
+  .koma-res-tool-row__body {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .koma-res-tool-row__name {
+    font-family: var(--auth-font-heading, 'Cabin', sans-serif);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--auth-text, #f1f5f9);
+  }
+  
+  .koma-res-tool-row__desc {
+    font-size: 12px;
+    color: rgba(186, 199, 247, 0.5);
+    line-height: 1.45;
+    margin-top: 2px;
+  }
+  
+  .koma-res-tool-row__badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  
+  .koma-res-tool-row__cat-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(186, 199, 247, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .koma-res-tool-row__free {
+    font-size: 10.5px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  
+  .koma-res-tool-row__free--yes {
+    color: var(--auth-emerald, #10b981);
+  }
+  
+  .koma-res-tool-row__free--no {
+    color: var(--auth-amber, #f59e0b);
+  }
+
+  .koma-res-tool-row__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  
+  .koma-res-tool-row__link {
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: rgba(186, 199, 247, 0.4);
+    text-decoration: none;
+    font-size: 11.5px;
+    font-weight: 600;
+    transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+    flex-shrink: 0;
+  }
+  
+  .koma-res-tool-row__link:hover {
+    color: var(--auth-purple, #a855f7);
+    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.06);
+  }
+
+  .koma-ext-tool-row__links,
+  .koma-font-row__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  
+  /* ══════════════════════════════════════════
+     EMPTY STATE
+     ══════════════════════════════════════════ */
+  
+  .koma-res-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 56px 24px;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .koma-res-empty__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: rgba(168, 85, 247, 0.06);
+    border: 1px solid rgba(168, 85, 247, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(186, 199, 247, 0.3);
+  }
+  
+  .koma-res-empty__title {
+    font-family: var(--auth-font-heading, 'Cabin', sans-serif);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--auth-text, #f1f5f9);
+    margin: 0;
+  }
+  
+  .koma-res-empty__desc {
+    font-size: 12.5px;
+    color: var(--auth-text-muted, rgba(186, 199, 247, 0.55));
+    margin: 0;
+    max-width: 320px;
+    line-height: 1.55;
+  }
+  
+  /* ══════════════════════════════════════════
+     LOADING SKELETON
+     ══════════════════════════════════════════ */
+  
+  .koma-res-skeleton {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  
+  .koma-res-skeleton__card {
+    height: 180px;
+    border-radius: 16px;
+    background: linear-gradient(
+      110deg,
+      rgba(10, 12, 24, 0.6) 25%,
+      rgba(168, 85, 247, 0.04) 37%,
+      rgba(10, 12, 24, 0.6) 63%
+    );
+    background-size: 400% 100%;
+    animation: koma-res-shimmer 1.6s ease-in-out infinite;
+    border: 1px solid rgba(168, 85, 247, 0.04);
+  }
+  
+  /* ══════════════════════════════════════════
+     ANIMATIONS
+     ══════════════════════════════════════════ */
+  
+  @keyframes koma-res-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes koma-res-orb-drift {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(25px, -18px); }
+  }
+  
+  @keyframes koma-res-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  
+  /* ══════════════════════════════════════════
+     RESPONSIVE
+     ══════════════════════════════════════════ */
+  
+  @media (max-width: 1100px) {
+    .koma-res-glossary__alpha-nav {
+      display: none;
+    }
+  }
+  
+  @media (max-width: 860px) {
+    .koma-res {
+      padding: 24px 20px 40px;
+    }
+  
+    .koma-res-fonts__grid,
+    .koma-res-sfx__grid,
+    .koma-res-links__grid,
+    .koma-res-skeleton {
+      grid-template-columns: 1fr;
+    }
+  
+    .koma-res__tabs {
+      gap: 1px;
+      padding: 2px;
+    }
+  
+    .koma-res__tab {
+      padding: 8px 12px;
+      font-size: 11.5px;
+    }
+
+    .koma-res-tool-row,
+    .koma-ext-tool-row,
+    .koma-font-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .koma-res-font-card__actions,
+    .koma-res-tool-row__actions,
+    .koma-ext-tool-row__links,
+    .koma-font-row__links {
+      justify-content: flex-start;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .koma-res__title {
+      font-size: 18px;
+    }
+  
+    .koma-res__tab-count {
+      display: none;
+    }
+  
+    .koma-res-sfx-card__jp {
+      font-size: 20px;
+    }
+  }
+  
+  /* ── Focus Visible ── */
+  
+  .koma-res__tab:focus-visible,
+  .koma-res-filter-btn:focus-visible,
+  .koma-res-glossary-item__header:focus-visible,
+  .koma-res-copy-btn:focus-visible,
+  .koma-res-tool-row__link:focus-visible,
+  .koma-res-link-card__action:focus-visible,
+  .koma-res-font-card__download:focus-visible {
+    outline: 2px solid var(--auth-purple, #a855f7);
+    outline-offset: 2px;
+  }
+  
+  .koma-res__search-input:focus-visible {
+    outline: none; /* already has box-shadow focus */
+  }
+
+  /* ══════════════════════════════════════════
+     LIGHT THEME OVERRIDES
+     ══════════════════════════════════════════ */
+
+  /* ── Halftone overlay ── */
+  [data-theme="light"] .koma-res__halftone {
+    background-image: radial-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  }
+
+  /* ── Search ── */
+  [data-theme="light"] .koma-res__search-icon {
+    color: rgba(51, 65, 85, 0.35);
+  }
+
+  [data-theme="light"] .koma-res__search-input::placeholder {
+    color: rgba(51, 65, 85, 0.4);
+  }
+
+  [data-theme="light"] .koma-res__search-clear {
+    color: rgba(51, 65, 85, 0.4);
+  }
+
+  [data-theme="light"] .koma-res__kbd {
+    background: rgba(241, 245, 249, 0.85);
+    border-color: rgba(0, 0, 0, 0.1);
+    border-bottom-color: rgba(0, 0, 0, 0.15);
+    color: rgba(51, 65, 85, 0.5);
+  }
+
+  /* ── Tabs ── */
+  [data-theme="light"] .koma-res__tabs {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+
+  [data-theme="light"] .koma-res__tab:hover {
+    color: rgba(15, 23, 42, 0.8);
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  [data-theme="light"] .koma-res__tab--active {
+    color: rgba(15, 23, 42, 0.93);
+    box-shadow: 0 4px 16px rgba(168, 85, 247, 0.1);
+  }
+
+  [data-theme="light"] .koma-res__tab-count {
+    background: rgba(0, 0, 0, 0.05);
+    color: rgba(51, 65, 85, 0.5);
+  }
+
+  /* ── Filter buttons ── */
+  [data-theme="light"] .koma-res-filter-btn {
+    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  [data-theme="light"] .koma-res-filter-btn:hover {
+    color: rgba(15, 23, 42, 0.75);
+    border-color: rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  [data-theme="light"] .koma-res-filter-btn--active {
+    color: rgba(15, 23, 42, 0.9);
+    box-shadow: 0 2px 10px rgba(168, 85, 247, 0.1);
+  }
+
+  /* ── Tags ── */
+  [data-theme="light"] .koma-res-tag {
+    color: rgba(51, 65, 85, 0.65);
+  }
+
+  /* ── Copy button ── */
+  [data-theme="light"] .koma-res-copy-btn {
+    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+    color: rgba(51, 65, 85, 0.4);
+  }
+
+  /* ── Fonts preview bar ── */
+  [data-theme="light"] .koma-res-fonts__preview-bar {
+    background: rgba(241, 245, 249, 0.6);
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+
+  [data-theme="light"] .koma-res-fonts__preview-bar svg {
+    color: rgba(51, 65, 85, 0.3);
+  }
+
+  [data-theme="light"] .koma-res-fonts__preview-input::placeholder {
+    color: rgba(51, 65, 85, 0.35);
+  }
+
+  /* ── Font card ── */
+  [data-theme="light"] .koma-res-font-card:hover {
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.08),
+      0 0 30px rgba(168, 85, 247, 0.04);
+  }
+
+  [data-theme="light"] .koma-res-font-card__preview {
+    background: rgba(241, 245, 249, 0.6);
+    border-color: rgba(0, 0, 0, 0.05);
+  }
+
+  [data-theme="light"] .koma-res-font-card__size-btn {
+    border-color: rgba(0, 0, 0, 0.06);
+    color: rgba(51, 65, 85, 0.45);
+  }
+
+  [data-theme="light"] .koma-res-font-card__usage {
+    color: rgba(51, 65, 85, 0.6);
+  }
+
+  [data-theme="light"] .koma-res-font-card__footer {
+    border-top-color: rgba(0, 0, 0, 0.06);
+  }
+
+  [data-theme="light"] .koma-res-font-card__download {
+    color: rgba(51, 65, 85, 0.6);
+    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  /* ── SFX card ── */
+  [data-theme="light"] .koma-res-sfx-card:hover {
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  }
+
+  [data-theme="light"] .koma-res-sfx-card__romaji {
+    color: rgba(51, 65, 85, 0.45);
+  }
+
+  [data-theme="light"] .koma-res-sfx-card__translation {
+    background: rgba(241, 245, 249, 0.6);
+    border-color: rgba(0, 0, 0, 0.04);
+  }
+
+  [data-theme="light"] .koma-res-sfx-card__note {
+    color: rgba(51, 65, 85, 0.55);
+  }
+
+  [data-theme="light"] .koma-res-sfx-card__common {
+    color: rgba(51, 65, 85, 0.4);
+  }
+
+  /* ── Glossary ── */
+  [data-theme="light"] .koma-res-glossary__alpha-nav {
+    background: rgba(248, 250, 252, 0.9);
+    border-color: rgba(168, 85, 247, 0.08);
+  }
+
+  [data-theme="light"] .koma-res-glossary__alpha-btn {
+    color: rgba(51, 65, 85, 0.4);
+  }
+
+  [data-theme="light"] .koma-res-glossary__alpha-btn:hover {
+    background: rgba(168, 85, 247, 0.08);
+  }
+
+  [data-theme="light"] .koma-res-glossary-item {
+    background: rgba(248, 250, 252, 0.5);
+  }
+
+  [data-theme="light"] .koma-res-glossary-item--expanded {
+    background: rgba(248, 250, 252, 0.75);
+  }
+
+  [data-theme="light"] .koma-res-glossary-item__short {
+    color: rgba(51, 65, 85, 0.5);
+  }
+
+  [data-theme="light"] .koma-res-glossary-item__chevron {
+    color: rgba(51, 65, 85, 0.3);
+  }
+
+  [data-theme="light"] .koma-res-glossary-item__definition {
+    color: rgba(51, 65, 85, 0.7);
+  }
+
+  [data-theme="light"] .koma-res-glossary-item__related-label {
+    color: rgba(51, 65, 85, 0.45);
+  }
+
+  [data-theme="light"] .koma-res-glossary-item__cat {
+    color: rgba(51, 65, 85, 0.6);
+  }
+
+  /* ── Link card ── */
+  [data-theme="light"] .koma-res-link-card:hover {
+    background: rgba(248, 250, 252, 0.9);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  }
+
+  [data-theme="light"] .koma-res-link-card__desc {
+    color: rgba(51, 65, 85, 0.6);
+  }
+
+  [data-theme="light"] .koma-res-link-card__meta {
+    color: rgba(51, 65, 85, 0.45);
+  }
+
+  [data-theme="light"] .koma-res-link-card__action {
+    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+    color: rgba(51, 65, 85, 0.6);
+  }
+
+  /* ── Tool row ── */
+  [data-theme="light"] .koma-res-tool-row {
+    background: rgba(248, 250, 252, 0.5);
+  }
+
+  [data-theme="light"] .koma-res-tool-row:hover {
+    background: rgba(248, 250, 252, 0.75);
+  }
+
+  [data-theme="light"] .koma-res-tool-row__desc {
+    color: rgba(51, 65, 85, 0.55);
+  }
+
+  [data-theme="light"] .koma-res-tool-row__cat-badge {
+    background: rgba(0, 0, 0, 0.04);
+    color: rgba(51, 65, 85, 0.6);
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+
+  [data-theme="light"] .koma-res-tool-row__link {
+    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+    color: rgba(51, 65, 85, 0.45);
+  }
+
+  /* ── Empty state ── */
+  [data-theme="light"] .koma-res-empty__icon {
+    color: rgba(51, 65, 85, 0.3);
+  }
+
+  /* ── Skeleton ── */
+  [data-theme="light"] .koma-res-skeleton__card {
+    background: linear-gradient(
+      110deg,
+      rgba(241, 245, 249, 0.6) 25%,
+      rgba(168, 85, 247, 0.04) 37%,
+      rgba(241, 245, 249, 0.6) 63%
+    );
+    background-size: 400% 100%;
+    border-color: rgba(0, 0, 0, 0.04);
+  }

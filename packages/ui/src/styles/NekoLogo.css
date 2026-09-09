@@ -1,0 +1,253 @@
+/* =========================================
+   Koma Neko frame-by-frame animation
+   Each frame is a separate image:
+   /images/logo-1.webp
+   /images/logo-2.webp
+   /images/logo-3.webp
+   /images/logo-4.webp
+   /images/logo-5.webp
+   ========================================= */
+
+   :root {
+    --koma-width: 140px;
+    --koma-height: 140px;
+    --koma-duration: 2.5s;
+  
+    --koma-glow-purple: rgba(168, 85, 247, 0.35);
+    --koma-glow-cyan: rgba(6, 182, 212, 0.22);
+  }
+  
+  .koma-neko {
+    position: relative;
+    width: var(--koma-width);
+    height: var(--koma-height);
+    display: inline-block;
+    overflow: visible;
+    animation: komaFloat 4s ease-in-out infinite;
+    transform-origin: center bottom;
+  }
+  
+  .koma-neko::before {
+    content: "";
+    position: absolute;
+    inset: 18% 20% 10% 20%;
+    z-index: 0;
+    border-radius: 999px;
+    background:
+      radial-gradient(circle, var(--koma-glow-purple) 0%, transparent 62%),
+      radial-gradient(circle, var(--koma-glow-cyan) 0%, transparent 72%);
+    filter: blur(18px);
+    opacity: 0.75;
+    animation: komaHalo 3.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+  
+  .koma-neko img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    z-index: 1;
+    pointer-events: none;
+    filter:
+      drop-shadow(0 0 10px rgba(168, 85, 247, 0.20))
+      drop-shadow(0 0 16px rgba(6, 182, 212, 0.10));
+    animation: komaGlow 3s ease-in-out infinite;
+  }
+  
+  /* total = 2.5s
+     5 frames => each takes 20% of the cycle */
+  .koma-neko img:nth-child(1) {
+    animation:
+      frame1 var(--koma-duration) linear infinite,
+      komaGlow 3s ease-in-out infinite;
+  }
+  
+  .koma-neko img:nth-child(2) {
+    animation:
+      frame2 var(--koma-duration) linear infinite,
+      komaGlow 3s ease-in-out infinite;
+  }
+  
+  .koma-neko img:nth-child(3) {
+    animation:
+      frame3 var(--koma-duration) linear infinite,
+      komaGlow 3s ease-in-out infinite;
+  }
+  
+  .koma-neko img:nth-child(4) {
+    animation:
+      frame4 var(--koma-duration) linear infinite,
+      komaGlow 3s ease-in-out infinite;
+  }
+  
+  .koma-neko img:nth-child(5) {
+    animation:
+      frame5 var(--koma-duration) linear infinite,
+      komaGlow 3s ease-in-out infinite;
+  }
+  
+  /* Frame 1: 0%–19.999% */
+  @keyframes frame1 {
+    0%, 19.999% { opacity: 1; }
+    20%, 100% { opacity: 0; }
+  }
+  
+  /* Frame 2: 20%–39.999% */
+  @keyframes frame2 {
+    0%, 19.999% { opacity: 0; }
+    20%, 39.999% { opacity: 1; }
+    40%, 100% { opacity: 0; }
+  }
+  
+  /* Frame 3: 40%–59.999% */
+  @keyframes frame3 {
+    0%, 39.999% { opacity: 0; }
+    40%, 59.999% { opacity: 1; }
+    60%, 100% { opacity: 0; }
+  }
+  
+  /* Frame 4: 60%–79.999% */
+  @keyframes frame4 {
+    0%, 59.999% { opacity: 0; }
+    60%, 79.999% { opacity: 1; }
+    80%, 100% { opacity: 0; }
+  }
+  
+  /* Frame 5: 80%–100% */
+  @keyframes frame5 {
+    0%, 79.999% { opacity: 0; }
+    80%, 100% { opacity: 1; }
+  }
+  
+  @keyframes komaFloat {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+  
+  @keyframes komaGlow {
+    0%, 100% {
+      filter:
+        drop-shadow(0 0 10px rgba(168, 85, 247, 0.20))
+        drop-shadow(0 0 16px rgba(6, 182, 212, 0.10));
+    }
+    50% {
+      filter:
+        drop-shadow(0 0 16px rgba(168, 85, 247, 0.34))
+        drop-shadow(0 0 22px rgba(6, 182, 212, 0.16));
+    }
+  }
+  
+  @keyframes komaHalo {
+    0%, 100% {
+      opacity: 0.55;
+      transform: scale(0.96);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.04);
+    }
+  }
+  
+  /* tamanhos opcionais */
+  .koma-neko.is-small {
+    --koma-width: 96px;
+    --koma-height: 96px;
+  }
+  
+  .koma-neko.is-medium {
+    --koma-width: 140px;
+    --koma-height: 140px;
+  }
+  
+  .koma-neko.is-large {
+    --koma-width: 220px;
+    --koma-height: 220px;
+  }
+  
+  /* hover opcional */
+  .koma-neko:hover {
+    --koma-duration: 1.8s;
+  }
+
+  [data-theme="light"] .koma-neko {
+    --koma-glow-purple: rgba(147, 51, 234, 0.18);
+    --koma-glow-cyan: rgba(8, 145, 178, 0.12);
+  }
+
+  [data-theme="light"] .koma-neko::before {
+    background:
+      radial-gradient(circle, rgba(147, 51, 234, 0.18) 0%, transparent 58%),
+      radial-gradient(circle, rgba(8, 145, 178, 0.12) 0%, transparent 68%);
+    opacity: 0.55;
+  }
+
+  [data-theme="light"] .koma-neko img {
+    filter:
+      drop-shadow(0 10px 18px rgba(15, 23, 42, 0.08))
+      drop-shadow(0 0 10px rgba(147, 51, 234, 0.12))
+      drop-shadow(0 0 14px rgba(8, 145, 178, 0.08));
+  }
+
+  [data-theme="light"] .koma-neko img:nth-child(1) {
+    animation:
+      frame1 var(--koma-duration) linear infinite,
+      komaGlowLight 3s ease-in-out infinite;
+  }
+
+  [data-theme="light"] .koma-neko img:nth-child(2) {
+    animation:
+      frame2 var(--koma-duration) linear infinite,
+      komaGlowLight 3s ease-in-out infinite;
+  }
+
+  [data-theme="light"] .koma-neko img:nth-child(3) {
+    animation:
+      frame3 var(--koma-duration) linear infinite,
+      komaGlowLight 3s ease-in-out infinite;
+  }
+
+  [data-theme="light"] .koma-neko img:nth-child(4) {
+    animation:
+      frame4 var(--koma-duration) linear infinite,
+      komaGlowLight 3s ease-in-out infinite;
+  }
+
+  [data-theme="light"] .koma-neko img:nth-child(5) {
+    animation:
+      frame5 var(--koma-duration) linear infinite,
+      komaGlowLight 3s ease-in-out infinite;
+  }
+
+  @keyframes komaGlowLight {
+    0%, 100% {
+      filter:
+        drop-shadow(0 10px 18px rgba(15, 23, 42, 0.08))
+        drop-shadow(0 0 10px rgba(147, 51, 234, 0.12))
+        drop-shadow(0 0 14px rgba(8, 145, 178, 0.08));
+    }
+    50% {
+      filter:
+        drop-shadow(0 12px 22px rgba(15, 23, 42, 0.12))
+        drop-shadow(0 0 14px rgba(147, 51, 234, 0.18))
+        drop-shadow(0 0 18px rgba(8, 145, 178, 0.12));
+    }
+  }
+  
+  /* @media (prefers-reduced-motion: reduce) {
+    .koma-neko,
+    .koma-neko::before,
+    .koma-neko img {
+      animation: none !important;
+    }
+  
+    .koma-neko img:first-child {
+      opacity: 1;
+    }
+  } */

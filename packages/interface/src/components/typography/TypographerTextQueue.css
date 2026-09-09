@@ -1,0 +1,444 @@
+/* ================================================================
+   Typographer Text Queue — KOMA Design System
+   ================================================================ */
+
+.koma-text-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Editor */
+.koma-text-queue__editor {
+  width: 100%;
+  min-height: 120px;
+  max-height: 280px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(6, 8, 18, 0.7);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  font-size: 12px;
+  line-height: 1.55;
+  resize: vertical;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.koma-text-queue__editor:focus {
+  border-color: rgba(168, 85, 247, 0.35);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.08);
+  outline: none;
+}
+
+.koma-text-queue__editor::placeholder {
+  color: var(--auth-text-muted);
+}
+
+/* Action rows */
+.koma-text-queue__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.koma-text-queue__actions .koma-btn {
+  font-size: 10.5px;
+  padding: 6px 8px;
+  justify-content: center;
+}
+
+/* Toggle + clear row */
+.koma-text-queue__control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.koma-text-queue__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.koma-text-queue__toggle input[type='checkbox'] {
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1.5px solid rgba(168, 85, 247, 0.25);
+  background: var(--auth-input-bg);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.koma-text-queue__toggle input[type='checkbox']:checked {
+  background: var(--auth-purple);
+  border-color: var(--auth-purple);
+}
+
+.koma-text-queue__toggle input[type='checkbox']:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: 1px;
+}
+
+.koma-text-queue__toggle span {
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+}
+
+/* Queue list */
+.koma-text-queue__list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.1) transparent;
+}
+
+/* Queue empty */
+.koma-text-queue__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.008);
+  text-align: center;
+  color: rgba(186, 199, 247, 0.3);
+}
+
+.koma-text-queue__empty p {
+  margin: 0;
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+}
+
+.koma-text-queue__empty span {
+  font-family: var(--auth-font-body);
+  font-size: 10px;
+  color: var(--auth-text-muted);
+}
+
+/* Queue item */
+.koma-text-queue__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.01);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  text-align: left;
+}
+
+.koma-text-queue__item:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.koma-text-queue__item:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+.koma-text-queue__item--active {
+  border-color: rgba(168, 85, 247, 0.15);
+  background: rgba(168, 85, 247, 0.04);
+}
+
+.koma-text-queue__item-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--auth-text-muted);
+  flex-shrink: 0;
+}
+
+.koma-text-queue__item--active .koma-text-queue__item-index {
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--auth-purple);
+}
+
+.koma-text-queue__item-text {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--auth-font-body);
+  font-size: 11px;
+  color: var(--auth-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status chip */
+.koma-text-queue__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: var(--auth-font-heading);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.koma-text-queue__status--pending {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text-muted);
+}
+
+.koma-text-queue__status--applied {
+  background: rgba(16, 185, 129, 0.12);
+  color: #86efac;
+}
+
+.koma-text-queue__status--skipped {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+}
+
+/* ================================================================
+   Bubble Order Panel
+   ================================================================ */
+
+.koma-bubble-order {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  background: rgba(56, 189, 248, 0.03);
+}
+
+.koma-bubble-order__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.koma-bubble-order__title {
+  font-family: var(--auth-font-heading);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(56, 189, 248, 0.85);
+}
+
+.koma-bubble-order__count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(56, 189, 248, 0.85);
+}
+
+.koma-bubble-order__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.koma-bubble-order__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.015);
+  cursor: grab;
+  transition: background-color 0.12s ease;
+  user-select: none;
+}
+
+.koma-bubble-order__item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.koma-bubble-order__item:active {
+  cursor: grabbing;
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.koma-bubble-order__grip {
+  display: flex;
+  align-items: center;
+  color: rgba(186, 199, 247, 0.25);
+  flex-shrink: 0;
+  cursor: grab;
+}
+
+.koma-bubble-order__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.88);
+  color: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.koma-bubble-order__label {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--auth-font-body);
+  font-size: 10.5px;
+  color: var(--auth-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.koma-bubble-order__queue-hint {
+  flex-shrink: 1;
+  min-width: 0;
+  font-family: var(--auth-font-body);
+  font-size: 9px;
+  color: rgba(186, 199, 247, 0.4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 80px;
+}
+
+.koma-bubble-order__arrows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.koma-bubble-order__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: rgba(186, 199, 247, 0.5);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-bubble-order__arrow:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(56, 189, 248, 0.9);
+}
+
+.koma-bubble-order__arrow:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+/* ── Light Theme ─────────────────────────────────────────────────── */
+[data-theme="light"] .koma-text-queue__editor {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(241, 245, 249, 0.7);
+}
+
+[data-theme="light"] .koma-text-queue__empty {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.01);
+  color: rgba(51, 65, 85, 0.3);
+}
+
+[data-theme="light"] .koma-text-queue__item {
+  background: rgba(0, 0, 0, 0.01);
+}
+
+[data-theme="light"] .koma-text-queue__item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .koma-text-queue__item-index {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .koma-text-queue__status--pending {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .koma-text-queue__status--applied {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+[data-theme="light"] .koma-text-queue__status--skipped {
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+}
+
+[data-theme="light"] .koma-bubble-order {
+  border-color: rgba(56, 189, 248, 0.18);
+  background: rgba(56, 189, 248, 0.04);
+}
+
+[data-theme="light"] .koma-bubble-order__item {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="light"] .koma-bubble-order__item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .koma-bubble-order__item:active {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+[data-theme="light"] .koma-bubble-order__grip {
+  color: rgba(51, 65, 85, 0.25);
+}
+
+[data-theme="light"] .koma-bubble-order__queue-hint {
+  color: rgba(51, 65, 85, 0.4);
+}
+
+[data-theme="light"] .koma-bubble-order__arrow {
+  color: rgba(51, 65, 85, 0.5);
+}
+
+[data-theme="light"] .koma-bubble-order__arrow:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+}

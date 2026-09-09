@@ -1,0 +1,21 @@
+{
+  "name": "@koma/config",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bases compartilhadas do monorepo KŌMA: tsconfig bases + factory de ESLint flat config",
+  "exports": {
+    "./tsconfig/*": "./tsconfig/*.json",
+    "./eslint": "./eslint/index.mjs"
+  },
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0"
+  },
+  "peerDependencies": {
+    "eslint": ">=9"
+  }
+}

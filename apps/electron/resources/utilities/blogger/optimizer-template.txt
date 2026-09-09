@@ -1,0 +1,1 @@
+https://wsrv.nl/?url={{url}}&output=webp

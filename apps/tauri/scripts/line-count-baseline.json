@@ -1,0 +1,17 @@
+{
+    "hardLimit": 1000,
+    "files": {
+        "interface/pages/Dashboard.tsx": {
+            "maxLines": 12000,
+            "reason": "God-file inherited from V1. Split tracked as tech debt."
+        },
+        "interface/components/dashboard/RenderTextPreview.tsx": {
+            "maxLines": 5000,
+            "reason": "God-file inherited from V1. Split tracked as tech debt."
+        },
+        "interface/pages/Settings.tsx": {
+            "maxLines": 2000,
+            "reason": "God-file inherited from V1. Split tracked as tech debt."
+        }
+    }
+}

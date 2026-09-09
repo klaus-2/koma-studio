@@ -1,0 +1,37 @@
+# React Doctor scans changed React files on PRs and tracks the health score on main.
+# Docs: https://www.react.doctor/ci
+
+name: React Doctor
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  statuses: write
+
+# Cancel superseded scans so reviewers only see the latest run.
+concurrency:
+  group: react-doctor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  react-doctor:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history so PR runs can diff against the merge base and report only
+      # issues the PR introduced.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: millionco/react-doctor@v2
+        # Advisory by default (never fails the check). To gate merges, set:
+        # with:
+        #   blocking: error    # "none" (default) | "warning" | "error"
+        #   version: "0.9.12"  # pin instead of latest

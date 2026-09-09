@@ -1,0 +1,6 @@
+# Compilados gerados ao lado da fonte (main process)
+electron/*.js
+electron/*.d.ts
+interface/components/routing/
+dist-electron/runtime-config.json
+desktop-identity-cache.json

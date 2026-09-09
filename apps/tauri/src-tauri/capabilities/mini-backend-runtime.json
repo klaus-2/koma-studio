@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mini-backend-runtime",
+  "description": "Allows the main window to inspect and install mini-backend runtime profiles and receive runtime lifecycle events.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "shell:allow-spawn",
+    "shell:allow-execute",
+    "shell:allow-kill",
+    "log:default"
+  ]
+}

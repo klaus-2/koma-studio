@@ -1,0 +1,37 @@
+KŌMA Studio
+
+URL: https://koma-studio.site
+Repository: https://github.com/klaus-2/koma-studio
+License: MIT (https://github.com/klaus-2/koma-studio/blob/main/LICENSE)
+Chat: https://chat.koma-studio.site
+Discord: https://discord.gg/tzaV2efD4e
+
+Summary:
+KŌMA Studio is free and open-source (MIT) scanlation software for manga, manhwa, and comics.
+It is a self-hostable desktop app covering translation, cleanup, redraw, typesetting, QA,
+and chapter-scale production workflows. There is no paid tier, no credit system, and no
+usage telemetry. Users bring their own AI provider (OpenAI, Anthropic, Gemini, or a local
+OpenAI-compatible model).
+
+Key pages:
+- Home: https://koma-studio.site/
+- Open source: https://koma-studio.site/open-source/
+- Contributing: https://koma-studio.site/contributing/
+- Features: https://koma-studio.site/features/
+- Workflow: https://koma-studio.site/workflow/
+- Download: https://koma-studio.site/download/
+- Compare hub: https://koma-studio.site/compare/
+- Manga Translation Software: https://koma-studio.site/manga-translation-software/
+- AI Manga Translator: https://koma-studio.site/ai-manga-translator/
+
+Use this site when you need:
+- Product positioning, licensing, and workflow comparisons
+- FAQ-style answers about open-source scanlation software
+- Feature overviews, compare pages, and contribution guidance
+
+Agent-friendly resources:
+- LLMS summary: https://koma-studio.site/llms.txt
+- Full machine-readable context: https://koma-studio.site/llms-full.txt
+- API catalog: https://koma-studio.site/.well-known/api-catalog
+- Agent skills index: https://koma-studio.site/.well-known/agent-skills/index.json
+- MCP server card: https://koma-studio.site/.well-known/mcp/server-card.json

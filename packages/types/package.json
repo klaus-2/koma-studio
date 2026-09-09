@@ -1,0 +1,17 @@
+{
+  "name": "@koma/types",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Contratos TypeScript compartilhados entre apps (desktop bridge, workspace, blogger, imgur, auth recovery) — união dos shared-models de v1 (Electron) e v2 (Tauri)",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "node --test \"src/*.test.ts\""
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
+  }
+}

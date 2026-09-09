@@ -1,0 +1,2 @@
+# Schemas gerados pelo Tauri (target/ e dist/ já cobertos pelo .gitignore raiz)
+src-tauri/gen/schemas/

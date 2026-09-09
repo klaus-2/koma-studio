@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-api",
+  "description": "Allows the main window to call Phase 1.2 API commands for auth, integrations, publishing, fonts, identity, and certificate pinning.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "deep-link:default",
+    "dialog:default",
+    "log:default",
+    "shell:allow-open"
+  ]
+}

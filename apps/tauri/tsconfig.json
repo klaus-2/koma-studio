@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Strictness — non-negotiable for v2 */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": false,
+
+    /* Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../../packages/interface/src/*"],
+      "@shared/*": ["../../packages/types/src/*"]
+    },
+
+    "types": ["vite/client", "node"]
+  },
+  "include": ["main.tsx", "tests", "src-tauri", "../../packages/interface/src"],
+  "exclude": ["node_modules", "dist", "src-tauri", "release-desktop", "mini-backend"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

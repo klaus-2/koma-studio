@@ -1,0 +1,479 @@
+/* ================================================================
+   Watermark Toolbox — Sidebar Portal Content
+   KOMA Design System · Manhwa Glass UI
+   ================================================================ */
+
+/* ── Toolbox Root ─────────────────────────────────────────────── */
+.koma-wm-toolbox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── Header Strip ─────────────────────────────────────────────── */
+.koma-wm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.koma-wm-header__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.koma-wm-header__eyebrow {
+  font-family: var(--auth-font-heading);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(168, 85, 247, 0.4);
+}
+
+.koma-wm-header__title {
+  font-family: var(--auth-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--auth-text);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.koma-wm-header__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.08);
+  font-family: var(--auth-font-heading);
+  font-size: 9px;
+  font-weight: 700;
+  color: #c4b5fd;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Preset Carousel ──────────────────────────────────────────── */
+.koma-wm-presets {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 2px 0;
+  scrollbar-width: none;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.koma-wm-presets::-webkit-scrollbar {
+  display: none;
+}
+
+.koma-wm-preset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.012);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+  min-width: 72px;
+  text-align: center;
+}
+
+.koma-wm-preset:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.koma-wm-preset:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.45);
+  outline-offset: -1px;
+}
+
+.koma-wm-preset--active {
+  border-color: rgba(168, 85, 247, 0.2);
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.1),
+    rgba(6, 182, 212, 0.06)
+  );
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.08);
+}
+
+.koma-wm-preset__name {
+  font-family: var(--auth-font-heading);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--auth-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.koma-wm-preset__kind {
+  font-family: var(--auth-font-body);
+  font-size: 8px;
+  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Preset action bar */
+.koma-wm-preset-actions {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.koma-wm-preset-actions .koma-btn {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  padding: 5px 6px;
+  white-space: nowrap;
+}
+
+/* ── Layer Toggle ─────────────────────────────────────────────── */
+.koma-wm-layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.koma-wm-layer-toggle input[type='checkbox'] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(168, 85, 247, 0.3);
+  background: var(--auth-input-bg);
+  cursor: pointer;
+  transition: color 0.12s ease, background-color 0.12s ease, opacity 0.12s ease, transform 0.12s ease;
+  flex-shrink: 0;
+}
+
+.koma-wm-layer-toggle input[type='checkbox']:checked {
+  background: var(--auth-purple);
+  border-color: var(--auth-purple);
+}
+
+.koma-wm-layer-toggle input[type='checkbox']:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: 1px;
+}
+
+.koma-wm-layer-toggle span {
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+}
+
+/* ── Compact Field Grid ───────────────────────────────────────── */
+.koma-wm-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.koma-wm-fields--full {
+  grid-template-columns: 1fr;
+}
+
+.koma-wm-fields .koma-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.koma-wm-fields .koma-field__label {
+  font-size: 8.5px;
+}
+
+/* ── Logo Preview ─────────────────────────────────────────────── */
+.koma-wm-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.koma-wm-logo-preview {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.koma-wm-logo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.koma-wm-logo-preview__remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  padding: 0;
+}
+
+.koma-wm-logo-preview__remove:hover {
+  background: rgba(244, 63, 94, 0.6);
+}
+
+/* ── Anchor Grid ──────────────────────────────────────────────── */
+.koma-wm-anchor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  width: fit-content;
+}
+
+.koma-wm-anchor-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.015);
+  color: var(--auth-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.12s ease, background-color 0.12s ease, opacity 0.12s ease, transform 0.12s ease;
+}
+
+.koma-wm-anchor-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text);
+}
+
+.koma-wm-anchor-btn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+.koma-wm-anchor-btn--active {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.16),
+    rgba(6, 182, 212, 0.1)
+  );
+  color: var(--auth-purple);
+  border-color: rgba(168, 85, 247, 0.18);
+  box-shadow: 0 3px 12px rgba(168, 85, 247, 0.1);
+}
+
+/* ── Placement Mode Chips ─────────────────────────────────────── */
+.koma-wm-placement-row {
+  display: flex;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.koma-wm-placement-chip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.12s ease, background-color 0.12s ease, opacity 0.12s ease, transform 0.12s ease;
+}
+
+.koma-wm-placement-chip:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text);
+}
+
+.koma-wm-placement-chip:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+.koma-wm-placement-chip--active {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.14),
+    rgba(6, 182, 212, 0.08)
+  );
+  color: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 3px 12px rgba(168, 85, 247, 0.08);
+}
+
+/* ── Distribution Layout (anchor + placement side by side) ────── */
+.koma-wm-distribution-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.koma-wm-distribution-row .koma-wm-anchor-grid {
+  flex-shrink: 0;
+}
+
+.koma-wm-distribution-row .koma-wm-placement-row {
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+}
+
+.koma-wm-distribution-row .koma-wm-placement-chip {
+  padding: 5px 6px;
+  font-size: 9px;
+}
+
+/* ── Color Input Compact ──────────────────────────────────────── */
+.koma-wm-color-input {
+  width: 100%;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--auth-input-bg);
+  cursor: pointer;
+  padding: 2px;
+  transition: border-color 0.12s ease;
+}
+
+.koma-wm-color-input:hover {
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+.koma-wm-color-input:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .koma-wm-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-wm-distribution-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .koma-wm-distribution-row .koma-wm-placement-row {
+    flex-direction: row;
+  }
+}
+
+/* ================================================================
+   LIGHT THEME OVERRIDES
+   ================================================================ */
+
+[data-theme="light"] .koma-wm-header__eyebrow {
+  color: rgba(147, 51, 234, 0.55);
+}
+
+[data-theme="light"] .koma-wm-header__badge {
+  background: rgba(147, 51, 234, 0.08);
+  border-color: rgba(147, 51, 234, 0.12);
+  color: #7c3aed;
+}
+
+[data-theme="light"] .koma-wm-preset {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="light"] .koma-wm-preset:hover {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .koma-wm-preset--active {
+  border-color: rgba(147, 51, 234, 0.25);
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.08), rgba(6, 182, 212, 0.05));
+  box-shadow: 0 4px 16px rgba(147, 51, 234, 0.06);
+}
+
+[data-theme="light"] .koma-wm-logo-preview {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .koma-wm-logo-preview__remove {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .koma-wm-anchor-btn {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-wm-anchor-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .koma-wm-anchor-btn--active {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.1), rgba(6, 182, 212, 0.06));
+  border-color: rgba(147, 51, 234, 0.2);
+  box-shadow: 0 3px 12px rgba(147, 51, 234, 0.08);
+}
+
+[data-theme="light"] .koma-wm-placement-row {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-wm-placement-chip:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .koma-wm-placement-chip--active {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.1), rgba(6, 182, 212, 0.06));
+  color: #1e293b;
+  box-shadow: 0 3px 12px rgba(147, 51, 234, 0.06);
+}
+
+[data-theme="light"] .koma-wm-color-input {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .koma-wm-color-input:hover {
+  border-color: rgba(147, 51, 234, 0.3);
+}

@@ -1,0 +1,2151 @@
+{
+  "categories": [
+    {
+      "id": "fonts",
+      "label": "Typesetting Fonts",
+      "description": "Curated collection of popular fonts for manga, manhwa, and manhua scanlation.",
+      "accentColor": "rose",
+      "itemCount": 18,
+      "status": "published",
+      "sortOrder": 0
+    },
+    {
+      "id": "sfx-library",
+      "label": "SFX Library",
+      "description": "Library of Japanese onomatopoeia with translations and usage examples.",
+      "accentColor": "purple",
+      "itemCount": 30,
+      "status": "published",
+      "sortOrder": 1
+    },
+    {
+      "id": "glossary",
+      "label": "Scanlation Glossary",
+      "description": "Technical terms and jargon from the scanlation community.",
+      "accentColor": "cyan",
+      "itemCount": 25,
+      "status": "published",
+      "sortOrder": 2
+    },
+    {
+      "id": "communities",
+      "label": "Communities",
+      "description": "Discord servers, subreddits, and scanlation forums.",
+      "accentColor": "emerald",
+      "itemCount": 8,
+      "status": "published",
+      "sortOrder": 3
+    },
+    {
+      "id": "tools-external",
+      "label": "External Tools",
+      "description": "Complementary software and useful online tools.",
+      "accentColor": "amber",
+      "itemCount": 10,
+      "status": "published",
+      "sortOrder": 4
+    }
+  ],
+  "entries": [
+    {
+      "id": "font-cc-wild-words",
+      "categoryId": "fonts",
+      "title": "CC Wild Words",
+      "subtitle": "Regular dialogue — the most popular font for manga scanlation. Good legibility at all sizes.",
+      "tags": [
+        "dialogue",
+        "manga",
+        "popular"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 0,
+      "payload": {
+        "name": "CC Wild Words",
+        "family": "CC Wild Words",
+        "style": "Regular, Bold, Italic",
+        "usage": "Regular dialogue — the most popular font for manga scanlation. Good legibility at all sizes.",
+        "license": "commercial",
+        "tags": [
+          "dialogue",
+          "manga",
+          "popular"
+        ]
+      }
+    },
+    {
+      "id": "font-anime-ace-20",
+      "categoryId": "fonts",
+      "title": "Anime Ace 2.0",
+      "subtitle": "Regular dialogue — free alternative to CC Wild Words. Legible with an authentic manga aesthetic.",
+      "tags": [
+        "dialogue",
+        "manga",
+        "free"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 1,
+      "payload": {
+        "name": "Anime Ace 2.0",
+        "family": "Anime Ace",
+        "style": "Regular, Bold, Italic",
+        "usage": "Regular dialogue — free alternative to CC Wild Words. Legible with an authentic manga aesthetic.",
+        "license": "free",
+        "downloadUrl": "https://www.dafont.com/anime-ace-bb.font",
+        "links": [
+          {
+            "label": "Download",
+            "url": "https://www.dafont.com/anime-ace-bb.font",
+            "kind": "download"
+          },
+          {
+            "label": "Preview",
+            "url": "https://www.dafont.com/anime-ace-bb.font",
+            "kind": "site"
+          }
+        ],
+        "tags": [
+          "dialogue",
+          "manga",
+          "free"
+        ]
+      }
+    },
+    {
+      "id": "font-manga-temple",
+      "categoryId": "fonts",
+      "title": "Manga Temple",
+      "subtitle": "Regular dialogue — clean, modern style. Excellent for manhwa and manhua.",
+      "tags": [
+        "dialogue",
+        "manhwa",
+        "modern"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 2,
+      "payload": {
+        "name": "Manga Temple",
+        "family": "Manga Temple",
+        "style": "Regular, Bold",
+        "usage": "Regular dialogue — clean, modern style. Excellent for manhwa and manhua.",
+        "license": "open-source",
+        "tags": [
+          "dialogue",
+          "manhwa",
+          "modern"
+        ]
+      }
+    },
+    {
+      "id": "font-cc-comicrazy",
+      "categoryId": "fonts",
+      "title": "CC Comicrazy",
+      "subtitle": "Inner thoughts and monologues — a subtle italic that conveys introspection.",
+      "tags": [
+        "thought",
+        "italic",
+        "inner"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 3,
+      "payload": {
+        "name": "CC Comicrazy",
+        "family": "CC Comicrazy",
+        "style": "Regular, Italic",
+        "usage": "Inner thoughts and monologues — a subtle italic that conveys introspection.",
+        "license": "commercial",
+        "tags": [
+          "thought",
+          "italic",
+          "inner"
+        ]
+      }
+    },
+    {
+      "id": "font-cc-meanwhile",
+      "categoryId": "fonts",
+      "title": "CC Meanwhile",
+      "subtitle": "Narration and narrative boxes — formal and distinct from dialogue.",
+      "tags": [
+        "narration",
+        "formal",
+        "box"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 4,
+      "payload": {
+        "name": "CC Meanwhile",
+        "family": "CC Meanwhile",
+        "style": "Regular",
+        "usage": "Narration and narrative boxes — formal and distinct from dialogue.",
+        "license": "commercial",
+        "tags": [
+          "narration",
+          "formal",
+          "box"
+        ]
+      }
+    },
+    {
+      "id": "font-badaboom-bb",
+      "categoryId": "fonts",
+      "title": "Badaboom BB",
+      "subtitle": "Screams and emphasis — bold and impactful. Ideal for onomatopoeia and exclamations.",
+      "tags": [
+        "scream",
+        "emphasis",
+        "impact"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 5,
+      "payload": {
+        "name": "Badaboom BB",
+        "family": "Badaboom BB",
+        "style": "Regular",
+        "usage": "Screams and emphasis — bold and impactful. Ideal for onomatopoeia and exclamations.",
+        "license": "free",
+        "tags": [
+          "scream",
+          "emphasis",
+          "impact"
+        ]
+      }
+    },
+    {
+      "id": "font-cc-astro-city",
+      "categoryId": "fonts",
+      "title": "CC Astro City",
+      "subtitle": "Titles and strong emphasis — a display font with striking visual presence.",
+      "tags": [
+        "title",
+        "display",
+        "emphasis"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 6,
+      "payload": {
+        "name": "CC Astro City",
+        "family": "CC Astro City",
+        "style": "Regular, Bold",
+        "usage": "Titles and strong emphasis — a display font with striking visual presence.",
+        "license": "commercial",
+        "tags": [
+          "title",
+          "display",
+          "emphasis"
+        ]
+      }
+    },
+    {
+      "id": "font-bangers",
+      "categoryId": "fonts",
+      "title": "Bangers",
+      "subtitle": "SFX and sound effects — American comic style, great for impacts and explosions.",
+      "tags": [
+        "sfx",
+        "impact",
+        "comic"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 7,
+      "payload": {
+        "name": "Bangers",
+        "family": "Bangers",
+        "style": "Regular",
+        "usage": "SFX and sound effects — American comic style, great for impacts and explosions.",
+        "license": "open-source",
+        "tags": [
+          "sfx",
+          "impact",
+          "comic"
+        ]
+      }
+    },
+    {
+      "id": "font-augie",
+      "categoryId": "fonts",
+      "title": "Augie",
+      "subtitle": "Notes, letters, and handwritten text — simulates natural handwriting.",
+      "tags": [
+        "handwritten",
+        "letter",
+        "note"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 8,
+      "payload": {
+        "name": "Augie",
+        "family": "Augie",
+        "style": "Regular",
+        "usage": "Notes, letters, and handwritten text — simulates natural handwriting.",
+        "license": "free",
+        "tags": [
+          "handwritten",
+          "letter",
+          "note"
+        ]
+      }
+    },
+    {
+      "id": "font-digital-strip",
+      "categoryId": "fonts",
+      "title": "Digital Strip",
+      "subtitle": "Computer, phone, and digital interface text within the manga.",
+      "tags": [
+        "digital",
+        "interface",
+        "tech"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 9,
+      "payload": {
+        "name": "Digital Strip",
+        "family": "Digital Strip",
+        "style": "Regular, Bold",
+        "usage": "Computer, phone, and digital interface text within the manga.",
+        "license": "free",
+        "tags": [
+          "digital",
+          "interface",
+          "tech"
+        ]
+      }
+    },
+    {
+      "id": "font-komika-hand",
+      "categoryId": "fonts",
+      "title": "Komika Hand",
+      "subtitle": "Versatile alternative for multiple contexts — dialogue, narration, and light SFX.",
+      "tags": [
+        "versatile",
+        "handwriting",
+        "alternative"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 10,
+      "payload": {
+        "name": "Komika Hand",
+        "family": "Komika Hand",
+        "style": "Regular, Bold, Italic",
+        "usage": "Versatile alternative for multiple contexts — dialogue, narration, and light SFX.",
+        "license": "free",
+        "tags": [
+          "versatile",
+          "handwriting",
+          "alternative"
+        ]
+      }
+    },
+    {
+      "id": "font-back-issues-bb",
+      "categoryId": "fonts",
+      "title": "Back Issues BB",
+      "subtitle": "Retro/vintage style — ideal for flashbacks or historical series.",
+      "tags": [
+        "retro",
+        "vintage",
+        "flashback"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 11,
+      "payload": {
+        "name": "Back Issues BB",
+        "family": "Back Issues BB",
+        "style": "Regular, Italic",
+        "usage": "Retro/vintage style — ideal for flashbacks or historical series.",
+        "license": "free",
+        "tags": [
+          "retro",
+          "vintage",
+          "flashback"
+        ]
+      }
+    },
+    {
+      "id": "font-noto-sans-jp",
+      "categoryId": "fonts",
+      "title": "Noto Sans JP",
+      "subtitle": "Residual or bilingual Japanese text — full support for kanji, hiragana, and katakana.",
+      "tags": [
+        "japanese",
+        "CJK",
+        "bilingual"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 12,
+      "payload": {
+        "name": "Noto Sans JP",
+        "family": "Noto Sans JP",
+        "style": "Light, Regular, Medium, Bold, Black",
+        "usage": "Residual or bilingual Japanese text — full support for kanji, hiragana, and katakana.",
+        "license": "open-source",
+        "downloadUrl": "https://fonts.google.com/noto/specimen/Noto+Sans+JP",
+        "links": [
+          {
+            "label": "Google Fonts",
+            "url": "https://fonts.google.com/noto/specimen/Noto+Sans+JP",
+            "kind": "download"
+          },
+          {
+            "label": "GitHub",
+            "url": "https://github.com/notofonts/noto-cjk",
+            "kind": "docs"
+          }
+        ],
+        "tags": [
+          "japanese",
+          "CJK",
+          "bilingual"
+        ]
+      }
+    },
+    {
+      "id": "font-noto-sans-kr",
+      "categoryId": "fonts",
+      "title": "Noto Sans KR",
+      "subtitle": "Residual or bilingual Korean text — full Hangul support.",
+      "tags": [
+        "korean",
+        "CJK",
+        "bilingual"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 13,
+      "payload": {
+        "name": "Noto Sans KR",
+        "family": "Noto Sans KR",
+        "style": "Light, Regular, Medium, Bold, Black",
+        "usage": "Residual or bilingual Korean text — full Hangul support.",
+        "license": "open-source",
+        "downloadUrl": "https://fonts.google.com/noto/specimen/Noto+Sans+KR",
+        "links": [
+          {
+            "label": "Google Fonts",
+            "url": "https://fonts.google.com/noto/specimen/Noto+Sans+KR",
+            "kind": "download"
+          },
+          {
+            "label": "GitHub",
+            "url": "https://github.com/notofonts/noto-cjk",
+            "kind": "docs"
+          }
+        ],
+        "tags": [
+          "korean",
+          "CJK",
+          "bilingual"
+        ]
+      }
+    },
+    {
+      "id": "font-source-han-sans",
+      "categoryId": "fonts",
+      "title": "Source Han Sans",
+      "subtitle": "Universal pan-CJK — supports Japanese, Korean, and Chinese (Simplified and Traditional).",
+      "tags": [
+        "CJK",
+        "universal",
+        "multilingual"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 14,
+      "payload": {
+        "name": "Source Han Sans",
+        "family": "Source Han Sans",
+        "style": "ExtraLight to Heavy (7 weights)",
+        "usage": "Universal pan-CJK — supports Japanese, Korean, and Chinese (Simplified and Traditional).",
+        "license": "open-source",
+        "downloadUrl": "https://github.com/adobe-fonts/source-han-sans/releases",
+        "links": [
+          {
+            "label": "Releases",
+            "url": "https://github.com/adobe-fonts/source-han-sans/releases",
+            "kind": "download"
+          },
+          {
+            "label": "Project",
+            "url": "https://github.com/adobe-fonts/source-han-sans",
+            "kind": "docs"
+          }
+        ],
+        "tags": [
+          "CJK",
+          "universal",
+          "multilingual"
+        ]
+      }
+    },
+    {
+      "id": "font-m-plus-rounded-1c",
+      "categoryId": "fonts",
+      "title": "M PLUS Rounded 1c",
+      "subtitle": "Cute/kawaii style for shoujo or slice-of-life manga. Soft rounded edges.",
+      "tags": [
+        "kawaii",
+        "rounded",
+        "shoujo"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 15,
+      "payload": {
+        "name": "M PLUS Rounded 1c",
+        "family": "M PLUS Rounded 1c",
+        "style": "Regular, Bold",
+        "usage": "Cute/kawaii style for shoujo or slice-of-life manga. Soft rounded edges.",
+        "license": "open-source",
+        "tags": [
+          "kawaii",
+          "rounded",
+          "shoujo"
+        ]
+      }
+    },
+    {
+      "id": "font-kosugi-maru",
+      "categoryId": "fonts",
+      "title": "Kosugi Maru",
+      "subtitle": "Casual, friendly Japanese text — good for informal titles.",
+      "tags": [
+        "casual",
+        "japanese",
+        "informal"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 16,
+      "payload": {
+        "name": "Kosugi Maru",
+        "family": "Kosugi Maru",
+        "style": "Regular",
+        "usage": "Casual, friendly Japanese text — good for informal titles.",
+        "license": "open-source",
+        "tags": [
+          "casual",
+          "japanese",
+          "informal"
+        ]
+      }
+    },
+    {
+      "id": "font-sawarabi-gothic",
+      "categoryId": "fonts",
+      "title": "Sawarabi Gothic",
+      "subtitle": "Light, modern Japanese gothic — excellent legibility on screens.",
+      "tags": [
+        "gothic",
+        "modern",
+        "screen"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 17,
+      "payload": {
+        "name": "Sawarabi Gothic",
+        "family": "Sawarabi Gothic",
+        "style": "Regular",
+        "usage": "Light, modern Japanese gothic — excellent legibility on screens.",
+        "license": "open-source",
+        "tags": [
+          "gothic",
+          "modern",
+          "screen"
+        ]
+      }
+    },
+    {
+      "id": "sfx-1-don",
+      "categoryId": "sfx-library",
+      "title": "ドン · BOOM / BAM",
+      "subtitle": "Dramatic impact, shocking reveal, or striking entrance.",
+      "tags": [
+        "impact",
+        "Battle, drama"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 0,
+      "payload": {
+        "japanese": "ドン",
+        "romaji": "DON",
+        "english": "BOOM / BAM",
+        "category": "impact",
+        "usageNote": "Dramatic impact, shocking reveal, or striking entrance.",
+        "commonIn": "Battle, drama"
+      }
+    },
+    {
+      "id": "sfx-2-ban",
+      "categoryId": "sfx-library",
+      "title": "バン · BANG",
+      "subtitle": "Door slamming, gunshot, or dry impact.",
+      "tags": [
+        "impact",
+        "Action"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 1,
+      "payload": {
+        "japanese": "バン",
+        "romaji": "BAN",
+        "english": "BANG",
+        "category": "impact",
+        "usageNote": "Door slamming, gunshot, or dry impact.",
+        "commonIn": "Action"
+      }
+    },
+    {
+      "id": "sfx-3-gan",
+      "categoryId": "sfx-library",
+      "title": "ガン · CLANG / WHAM",
+      "subtitle": "Strong metallic or solid impact.",
+      "tags": [
+        "impact",
+        "Battle"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 2,
+      "payload": {
+        "japanese": "ガン",
+        "romaji": "GAN",
+        "english": "CLANG / WHAM",
+        "category": "impact",
+        "usageNote": "Strong metallic or solid impact.",
+        "commonIn": "Battle"
+      }
+    },
+    {
+      "id": "sfx-4-doka",
+      "categoryId": "sfx-library",
+      "title": "ドカ · CRASH / THUD",
+      "subtitle": "Heavy impact, something falling hard.",
+      "tags": [
+        "impact",
+        "Action"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 3,
+      "payload": {
+        "japanese": "ドカ",
+        "romaji": "DOKA",
+        "english": "CRASH / THUD",
+        "category": "impact",
+        "usageNote": "Heavy impact, something falling hard.",
+        "commonIn": "Action"
+      }
+    },
+    {
+      "id": "sfx-5-baki",
+      "categoryId": "sfx-library",
+      "title": "バキ · CRACK / SNAP",
+      "subtitle": "Breaking, cracking, bones snapping.",
+      "tags": [
+        "impact",
+        "Battle, horror"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 4,
+      "payload": {
+        "japanese": "バキ",
+        "romaji": "BAKI",
+        "english": "CRACK / SNAP",
+        "category": "impact",
+        "usageNote": "Breaking, cracking, bones snapping.",
+        "commonIn": "Battle, horror"
+      }
+    },
+    {
+      "id": "sfx-6-doki-doki",
+      "categoryId": "sfx-library",
+      "title": "ドキドキ · THUMP THUMP (heartbeat)",
+      "subtitle": "Racing heart — nervousness, passion, or fear.",
+      "tags": [
+        "emotion",
+        "Romance, thriller"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 5,
+      "payload": {
+        "japanese": "ドキドキ",
+        "romaji": "DOKI DOKI",
+        "english": "THUMP THUMP (heartbeat)",
+        "category": "emotion",
+        "usageNote": "Racing heart — nervousness, passion, or fear.",
+        "commonIn": "Romance, thriller"
+      }
+    },
+    {
+      "id": "sfx-7-kyun",
+      "categoryId": "sfx-library",
+      "title": "キュン · FLUTTER (heart)",
+      "subtitle": "A tight feeling in the chest — cute, romantic.",
+      "tags": [
+        "emotion",
+        "Romance, shoujo"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 6,
+      "payload": {
+        "japanese": "キュン",
+        "romaji": "KYUN",
+        "english": "FLUTTER (heart)",
+        "category": "emotion",
+        "usageNote": "A tight feeling in the chest — cute, romantic.",
+        "commonIn": "Romance, shoujo"
+      }
+    },
+    {
+      "id": "sfx-8-gaan",
+      "categoryId": "sfx-library",
+      "title": "ガーン · SHOCK!",
+      "subtitle": "Comic shock, an exaggerated surprise reaction.",
+      "tags": [
+        "emotion",
+        "Comedy"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 7,
+      "payload": {
+        "japanese": "ガーン",
+        "romaji": "GAAN",
+        "english": "SHOCK!",
+        "category": "emotion",
+        "usageNote": "Comic shock, an exaggerated surprise reaction.",
+        "commonIn": "Comedy"
+      }
+    },
+    {
+      "id": "sfx-9-jiin",
+      "categoryId": "sfx-library",
+      "title": "ジーン · *touched* / *moved*",
+      "subtitle": "A feeling of deep emotion, being touched by something.",
+      "tags": [
+        "emotion",
+        "Drama"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 8,
+      "payload": {
+        "japanese": "ジーン",
+        "romaji": "JIIN",
+        "english": "*touched* / *moved*",
+        "category": "emotion",
+        "usageNote": "A feeling of deep emotion, being touched by something.",
+        "commonIn": "Drama"
+      }
+    },
+    {
+      "id": "sfx-10-ira-ira",
+      "categoryId": "sfx-library",
+      "title": "イライラ · *irritated* / *annoyed*",
+      "subtitle": "Growing irritation, frustration.",
+      "tags": [
+        "emotion",
+        "Comedy, SoL"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 9,
+      "payload": {
+        "japanese": "イライラ",
+        "romaji": "IRA IRA",
+        "english": "*irritated* / *annoyed*",
+        "category": "emotion",
+        "usageNote": "Growing irritation, frustration.",
+        "commonIn": "Comedy, SoL"
+      }
+    },
+    {
+      "id": "sfx-11-zaa",
+      "categoryId": "sfx-library",
+      "title": "ザー · WHOOSH (rain / waterfall)",
+      "subtitle": "Heavy rain, waterfall, running water.",
+      "tags": [
+        "ambient",
+        "Drama, action"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 10,
+      "payload": {
+        "japanese": "ザー",
+        "romaji": "ZAA",
+        "english": "WHOOSH (rain / waterfall)",
+        "category": "ambient",
+        "usageNote": "Heavy rain, waterfall, running water.",
+        "commonIn": "Drama, action"
+      }
+    },
+    {
+      "id": "sfx-12-shiin",
+      "categoryId": "sfx-library",
+      "title": "シーン · *silence*",
+      "subtitle": "Dramatic silence — the \"sound\" of silence.",
+      "tags": [
+        "ambient",
+        "Drama, comedy"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 11,
+      "payload": {
+        "japanese": "シーン",
+        "romaji": "SHIIN",
+        "english": "*silence*",
+        "category": "ambient",
+        "usageNote": "Dramatic silence — the \"sound\" of silence.",
+        "commonIn": "Drama, comedy"
+      }
+    },
+    {
+      "id": "sfx-13-go-go-go",
+      "categoryId": "sfx-library",
+      "title": "ゴゴゴ · *menacing rumble*",
+      "subtitle": "Menacing aura, a sense of impending danger.",
+      "tags": [
+        "ambient",
+        "JoJo's, battle"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 12,
+      "payload": {
+        "japanese": "ゴゴゴ",
+        "romaji": "GO GO GO",
+        "english": "*menacing rumble*",
+        "category": "ambient",
+        "usageNote": "Menacing aura, a sense of impending danger.",
+        "commonIn": "JoJo's, battle"
+      }
+    },
+    {
+      "id": "sfx-14-hyuu",
+      "categoryId": "sfx-library",
+      "title": "ヒュウ · WHOOO (wind)",
+      "subtitle": "Wind blowing, strong breeze.",
+      "tags": [
+        "ambient",
+        "Any"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 13,
+      "payload": {
+        "japanese": "ヒュウ",
+        "romaji": "HYUU",
+        "english": "WHOOO (wind)",
+        "category": "ambient",
+        "usageNote": "Wind blowing, strong breeze.",
+        "commonIn": "Any"
+      }
+    },
+    {
+      "id": "sfx-15-pachi-pachi",
+      "categoryId": "sfx-library",
+      "title": "パチパチ · CRACKLE / CLAP",
+      "subtitle": "Crackling fire or applause.",
+      "tags": [
+        "ambient",
+        "Any"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 14,
+      "payload": {
+        "japanese": "パチパチ",
+        "romaji": "PACHI PACHI",
+        "english": "CRACKLE / CLAP",
+        "category": "ambient",
+        "usageNote": "Crackling fire or applause.",
+        "commonIn": "Any"
+      }
+    },
+    {
+      "id": "sfx-16-dah",
+      "categoryId": "sfx-library",
+      "title": "ダッ · DASH!",
+      "subtitle": "Sudden running, quick departure.",
+      "tags": [
+        "action",
+        "Action, sports"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 15,
+      "payload": {
+        "japanese": "ダッ",
+        "romaji": "DAH",
+        "english": "DASH!",
+        "category": "action",
+        "usageNote": "Sudden running, quick departure.",
+        "commonIn": "Action, sports"
+      }
+    },
+    {
+      "id": "sfx-17-shuh",
+      "categoryId": "sfx-library",
+      "title": "シュッ · SWOOSH / SWIPE",
+      "subtitle": "Fast movement, sword strike, throw.",
+      "tags": [
+        "action",
+        "Battle"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 16,
+      "payload": {
+        "japanese": "シュッ",
+        "romaji": "SHUH",
+        "english": "SWOOSH / SWIPE",
+        "category": "action",
+        "usageNote": "Fast movement, sword strike, throw.",
+        "commonIn": "Battle"
+      }
+    },
+    {
+      "id": "sfx-18-byun",
+      "categoryId": "sfx-library",
+      "title": "ビュン · ZOOM / WHOOSH",
+      "subtitle": "Something passing at high speed.",
+      "tags": [
+        "action",
+        "Action"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 17,
+      "payload": {
+        "japanese": "ビュン",
+        "romaji": "BYUN",
+        "english": "ZOOM / WHOOSH",
+        "category": "action",
+        "usageNote": "Something passing at high speed.",
+        "commonIn": "Action"
+      }
+    },
+    {
+      "id": "sfx-19-do-do-do",
+      "categoryId": "sfx-library",
+      "title": "ドドド · RUMBLE RUMBLE",
+      "subtitle": "Tremor, stampede, a crowd running.",
+      "tags": [
+        "action",
+        "Action, JoJo's"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 18,
+      "payload": {
+        "japanese": "ドドド",
+        "romaji": "DO DO DO",
+        "english": "RUMBLE RUMBLE",
+        "category": "action",
+        "usageNote": "Tremor, stampede, a crowd running.",
+        "commonIn": "Action, JoJo's"
+      }
+    },
+    {
+      "id": "sfx-20-zashu",
+      "categoryId": "sfx-library",
+      "title": "ザシュ · SLASH!",
+      "subtitle": "Sword cut, slashing strike.",
+      "tags": [
+        "action",
+        "Battle"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 19,
+      "payload": {
+        "japanese": "ザシュ",
+        "romaji": "ZASHU",
+        "english": "SLASH!",
+        "category": "action",
+        "usageNote": "Sword cut, slashing strike.",
+        "commonIn": "Battle"
+      }
+    },
+    {
+      "id": "sfx-21-ha-ha-ha",
+      "categoryId": "sfx-library",
+      "title": "ハハハ · HA HA HA (laugh)",
+      "subtitle": "Loud, open laughter.",
+      "tags": [
+        "voice",
+        "Any"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 20,
+      "payload": {
+        "japanese": "ハハハ",
+        "romaji": "HA HA HA",
+        "english": "HA HA HA (laugh)",
+        "category": "voice",
+        "usageNote": "Loud, open laughter.",
+        "commonIn": "Any"
+      }
+    },
+    {
+      "id": "sfx-22-fu-fu-fu",
+      "categoryId": "sfx-library",
+      "title": "フフフ · HEH HEH HEH",
+      "subtitle": "Sinister, smug, or mysterious laughter.",
+      "tags": [
+        "voice",
+        "Villain, mystery"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 21,
+      "payload": {
+        "japanese": "フフフ",
+        "romaji": "FU FU FU",
+        "english": "HEH HEH HEH",
+        "category": "voice",
+        "usageNote": "Sinister, smug, or mysterious laughter.",
+        "commonIn": "Villain, mystery"
+      }
+    },
+    {
+      "id": "sfx-23-ehehe",
+      "categoryId": "sfx-library",
+      "title": "えへへ · HEH HEH (shy laugh)",
+      "subtitle": "An embarrassed or awkward laugh.",
+      "tags": [
+        "voice",
+        "Comedy, romance"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 22,
+      "payload": {
+        "japanese": "えへへ",
+        "romaji": "EHEHE",
+        "english": "HEH HEH (shy laugh)",
+        "category": "voice",
+        "usageNote": "An embarrassed or awkward laugh.",
+        "commonIn": "Comedy, romance"
+      }
+    },
+    {
+      "id": "sfx-24-geho-geho",
+      "categoryId": "sfx-library",
+      "title": "ゲホゲホ · COUGH COUGH",
+      "subtitle": "Coughing, choking.",
+      "tags": [
+        "voice",
+        "Any"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 23,
+      "payload": {
+        "japanese": "ゲホゲホ",
+        "romaji": "GEHO GEHO",
+        "english": "COUGH COUGH",
+        "category": "voice",
+        "usageNote": "Coughing, choking.",
+        "commonIn": "Any"
+      }
+    },
+    {
+      "id": "sfx-25-fuhh",
+      "categoryId": "sfx-library",
+      "title": "ため息 · *sigh*",
+      "subtitle": "A sigh of tiredness, frustration, or relief.",
+      "tags": [
+        "voice",
+        "SoL, drama"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 24,
+      "payload": {
+        "japanese": "ため息",
+        "romaji": "FUHH",
+        "english": "*sigh*",
+        "category": "voice",
+        "usageNote": "A sigh of tiredness, frustration, or relief.",
+        "commonIn": "SoL, drama"
+      }
+    },
+    {
+      "id": "sfx-26-kachi-kachi",
+      "categoryId": "sfx-library",
+      "title": "カチカチ · CLICK CLICK",
+      "subtitle": "Keyboard, clock, mechanism.",
+      "tags": [
+        "misc",
+        "Any"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 25,
+      "payload": {
+        "japanese": "カチカチ",
+        "romaji": "KACHI KACHI",
+        "english": "CLICK CLICK",
+        "category": "misc",
+        "usageNote": "Keyboard, clock, mechanism.",
+        "commonIn": "Any"
+      }
+    },
+    {
+      "id": "sfx-27-gacha",
+      "categoryId": "sfx-library",
+      "title": "ガチャ · CLACK / (door opening)",
+      "subtitle": "Doorknob turning, door opening.",
+      "tags": [
+        "misc",
+        "Any"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 26,
+      "payload": {
+        "japanese": "ガチャ",
+        "romaji": "GACHA",
+        "english": "CLACK / (door opening)",
+        "category": "misc",
+        "usageNote": "Doorknob turning, door opening.",
+        "commonIn": "Any"
+      }
+    },
+    {
+      "id": "sfx-28-pin-pon",
+      "categoryId": "sfx-library",
+      "title": "ピンポン · DING DONG (doorbell)",
+      "subtitle": "Doorbell ringing.",
+      "tags": [
+        "misc",
+        "SoL"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 27,
+      "payload": {
+        "japanese": "ピンポン",
+        "romaji": "PIN PON",
+        "english": "DING DONG (doorbell)",
+        "category": "misc",
+        "usageNote": "Doorbell ringing.",
+        "commonIn": "SoL"
+      }
+    },
+    {
+      "id": "sfx-29-buu-buu",
+      "categoryId": "sfx-library",
+      "title": "ブーブー · BUZZ BUZZ (phone)",
+      "subtitle": "Phone vibrating or horn honking.",
+      "tags": [
+        "misc",
+        "Any"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 28,
+      "payload": {
+        "japanese": "ブーブー",
+        "romaji": "BUU BUU",
+        "english": "BUZZ BUZZ (phone)",
+        "category": "misc",
+        "usageNote": "Phone vibrating or horn honking.",
+        "commonIn": "Any"
+      }
+    },
+    {
+      "id": "sfx-30-kari-kari",
+      "categoryId": "sfx-library",
+      "title": "カリカリ · SCRIBBLE SCRIBBLE",
+      "subtitle": "Writing, drawing.",
+      "tags": [
+        "misc",
+        "School, SoL"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 29,
+      "payload": {
+        "japanese": "カリカリ",
+        "romaji": "KARI KARI",
+        "english": "SCRIBBLE SCRIBBLE",
+        "category": "misc",
+        "usageNote": "Writing, drawing.",
+        "commonIn": "School, SoL"
+      }
+    },
+    {
+      "id": "glossary-scanlation",
+      "categoryId": "glossary",
+      "title": "Scanlation",
+      "subtitle": "The act of scanning, translating, and editing unlicensed manga/manhwa for online distribution. A combination of \"scan\" + \"translation\".",
+      "tags": [
+        "general",
+        "fansub",
+        "scan group"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 0,
+      "payload": {
+        "term": "Scanlation",
+        "definition": "The act of scanning, translating, and editing unlicensed manga/manhwa for online distribution. A combination of \"scan\" + \"translation\".",
+        "category": "general",
+        "relatedTerms": [
+          "fansub",
+          "scan group"
+        ]
+      }
+    },
+    {
+      "id": "glossary-raw",
+      "categoryId": "glossary",
+      "title": "Raw",
+      "subtitle": "The original, unedited image, usually in Japanese/Korean/Chinese. Can be a physical scan or a digital rip.",
+      "tags": [
+        "general",
+        "digital raw",
+        "scan"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 1,
+      "payload": {
+        "term": "Raw",
+        "definition": "The original, unedited image, usually in Japanese/Korean/Chinese. Can be a physical scan or a digital rip.",
+        "category": "general",
+        "relatedTerms": [
+          "digital raw",
+          "scan"
+        ]
+      }
+    },
+    {
+      "id": "glossary-chapter",
+      "categoryId": "glossary",
+      "title": "Chapter",
+      "subtitle": "An individual unit of manga publication, usually 15-25 pages for manga and 40-80+ panels for a webtoon.",
+      "tags": [
+        "general"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 2,
+      "payload": {
+        "term": "Chapter",
+        "definition": "An individual unit of manga publication, usually 15-25 pages for manga and 40-80+ panels for a webtoon.",
+        "category": "general"
+      }
+    },
+    {
+      "id": "glossary-tankoubon",
+      "categoryId": "glossary",
+      "title": "Tankoubon",
+      "subtitle": "A bound manga volume, usually containing 8-12 chapters. Tankoubon raws are higher quality than magazine raws.",
+      "tags": [
+        "general"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 3,
+      "payload": {
+        "term": "Tankoubon",
+        "definition": "A bound manga volume, usually containing 8-12 chapters. Tankoubon raws are higher quality than magazine raws.",
+        "category": "general"
+      }
+    },
+    {
+      "id": "glossary-webtoon",
+      "categoryId": "glossary",
+      "title": "Webtoon",
+      "subtitle": "A Korean digital manhwa format, published as long vertical strips optimized for reading on mobile.",
+      "tags": [
+        "general"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 4,
+      "payload": {
+        "term": "Webtoon",
+        "definition": "A Korean digital manhwa format, published as long vertical strips optimized for reading on mobile.",
+        "category": "general"
+      }
+    },
+    {
+      "id": "glossary-typesetting-ts",
+      "categoryId": "glossary",
+      "title": "Typesetting (TS)",
+      "subtitle": "The process of applying translated text to manga speech bubbles and text areas, including font choice, size, and positioning.",
+      "tags": [
+        "typesetting",
+        "lettering",
+        "font"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 5,
+      "payload": {
+        "term": "Typesetting (TS)",
+        "definition": "The process of applying translated text to manga speech bubbles and text areas, including font choice, size, and positioning.",
+        "category": "typesetting",
+        "relatedTerms": [
+          "lettering",
+          "font"
+        ]
+      }
+    },
+    {
+      "id": "glossary-sfx",
+      "categoryId": "glossary",
+      "title": "SFX",
+      "subtitle": "Sound Effects — onomatopoeia in manga (ドン, バン, etc.). Can be translated with an overlay or kept with a footnote.",
+      "tags": [
+        "typesetting",
+        "onomatopoeia",
+        "SFX translation"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 6,
+      "payload": {
+        "term": "SFX",
+        "definition": "Sound Effects — onomatopoeia in manga (ドン, バン, etc.). Can be translated with an overlay or kept with a footnote.",
+        "category": "typesetting",
+        "relatedTerms": [
+          "onomatopoeia",
+          "SFX translation"
+        ]
+      }
+    },
+    {
+      "id": "glossary-balao",
+      "categoryId": "glossary",
+      "title": "Speech Bubble",
+      "subtitle": "The bounded area where dialogue text is placed. Types: speech, thought, narration, shout, whisper.",
+      "tags": [
+        "typesetting"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 7,
+      "payload": {
+        "term": "Speech Bubble",
+        "definition": "The bounded area where dialogue text is placed. Types: speech, thought, narration, shout, whisper.",
+        "category": "typesetting"
+      }
+    },
+    {
+      "id": "glossary-kerning",
+      "categoryId": "glossary",
+      "title": "Kerning",
+      "subtitle": "Adjusting the spacing between pairs of characters to improve the visual appearance of text.",
+      "tags": [
+        "typesetting"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 8,
+      "payload": {
+        "term": "Kerning",
+        "definition": "Adjusting the spacing between pairs of characters to improve the visual appearance of text.",
+        "category": "typesetting"
+      }
+    },
+    {
+      "id": "glossary-leading",
+      "categoryId": "glossary",
+      "title": "Leading",
+      "subtitle": "Vertical spacing between lines of text. Also called \"line-height\" or \"line spacing\".",
+      "tags": [
+        "typesetting"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 9,
+      "payload": {
+        "term": "Leading",
+        "definition": "Vertical spacing between lines of text. Also called \"line-height\" or \"line spacing\".",
+        "category": "typesetting"
+      }
+    },
+    {
+      "id": "glossary-cleaning-cl",
+      "categoryId": "glossary",
+      "title": "Cleaning (CL)",
+      "subtitle": "The process of removing the original text and scan artifacts, and preparing the image to receive translated text.",
+      "tags": [
+        "cleaning",
+        "redraw",
+        "inpainting"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 10,
+      "payload": {
+        "term": "Cleaning (CL)",
+        "definition": "The process of removing the original text and scan artifacts, and preparing the image to receive translated text.",
+        "category": "cleaning",
+        "relatedTerms": [
+          "redraw",
+          "inpainting"
+        ]
+      }
+    },
+    {
+      "id": "glossary-redraw-rd",
+      "categoryId": "glossary",
+      "title": "Redraw (RD)",
+      "subtitle": "Manually redrawing parts of the image that were damaged by text removal, especially over detailed illustrations.",
+      "tags": [
+        "cleaning",
+        "cleaning",
+        "clone stamp"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 11,
+      "payload": {
+        "term": "Redraw (RD)",
+        "definition": "Manually redrawing parts of the image that were damaged by text removal, especially over detailed illustrations.",
+        "category": "cleaning",
+        "relatedTerms": [
+          "cleaning",
+          "clone stamp"
+        ]
+      }
+    },
+    {
+      "id": "glossary-inpainting",
+      "categoryId": "glossary",
+      "title": "Inpainting",
+      "subtitle": "An AI technique that reconstructs removed areas of an image, filling them with plausible content based on the surrounding context.",
+      "tags": [
+        "cleaning"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 12,
+      "payload": {
+        "term": "Inpainting",
+        "definition": "An AI technique that reconstructs removed areas of an image, filling them with plausible content based on the surrounding context.",
+        "category": "cleaning"
+      }
+    },
+    {
+      "id": "glossary-leveling",
+      "categoryId": "glossary",
+      "title": "Leveling",
+      "subtitle": "Adjusting white/black levels to improve image contrast and cleanliness. Essential for physical scan raws.",
+      "tags": [
+        "cleaning"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 13,
+      "payload": {
+        "term": "Leveling",
+        "definition": "Adjusting white/black levels to improve image contrast and cleanliness. Essential for physical scan raws.",
+        "category": "cleaning"
+      }
+    },
+    {
+      "id": "glossary-denoising",
+      "categoryId": "glossary",
+      "title": "Denoising",
+      "subtitle": "Removing noise/grain from an image, common in low-quality scans or photos of pages.",
+      "tags": [
+        "cleaning"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 14,
+      "payload": {
+        "term": "Denoising",
+        "definition": "Removing noise/grain from an image, common in low-quality scans or photos of pages.",
+        "category": "cleaning"
+      }
+    },
+    {
+      "id": "glossary-localizacao",
+      "categoryId": "glossary",
+      "title": "Localization",
+      "subtitle": "Adapting a translation for the local audience, including idioms, cultural references, and jokes. Goes beyond literal translation.",
+      "tags": [
+        "translation"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 15,
+      "payload": {
+        "term": "Localization",
+        "definition": "Adapting a translation for the local audience, including idioms, cultural references, and jokes. Goes beyond literal translation.",
+        "category": "translation"
+      }
+    },
+    {
+      "id": "glossary-honorificos",
+      "categoryId": "glossary",
+      "title": "Honorifics",
+      "subtitle": "Japanese suffixes such as -san, -kun, -chan, -sama. A constant community debate over whether to keep or adapt them.",
+      "tags": [
+        "translation",
+        "localization"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 16,
+      "payload": {
+        "term": "Honorifics",
+        "definition": "Japanese suffixes such as -san, -kun, -chan, -sama. A constant community debate over whether to keep or adapt them.",
+        "category": "translation",
+        "relatedTerms": [
+          "localization"
+        ]
+      }
+    },
+    {
+      "id": "glossary-tn",
+      "categoryId": "glossary",
+      "title": "T/N",
+      "subtitle": "Translator's Note — a note from the translator explaining cultural references, untranslatable puns, or necessary context.",
+      "tags": [
+        "translation"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 17,
+      "payload": {
+        "term": "T/N",
+        "definition": "Translator's Note — a note from the translator explaining cultural references, untranslatable puns, or necessary context.",
+        "category": "translation"
+      }
+    },
+    {
+      "id": "glossary-mtl",
+      "categoryId": "glossary",
+      "title": "MTL",
+      "subtitle": "Machine Translation — automated translation by machine (Google Translate, DeepL, etc.). Used as a base that requires human review.",
+      "tags": [
+        "translation"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 18,
+      "payload": {
+        "term": "MTL",
+        "definition": "Machine Translation — automated translation by machine (Google Translate, DeepL, etc.). Used as a base that requires human review.",
+        "category": "translation"
+      }
+    },
+    {
+      "id": "glossary-proofreading-pr",
+      "categoryId": "glossary",
+      "title": "Proofreading (PR)",
+      "subtitle": "Reviewing the translated text to correct grammar, consistency, and naturalness errors. The final step before release.",
+      "tags": [
+        "translation"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 19,
+      "payload": {
+        "term": "Proofreading (PR)",
+        "definition": "Reviewing the translated text to correct grammar, consistency, and naturalness errors. The final step before release.",
+        "category": "translation"
+      }
+    },
+    {
+      "id": "glossary-ocr",
+      "categoryId": "glossary",
+      "title": "OCR",
+      "subtitle": "Optical Character Recognition — technology that extracts text from images. KŌMA uses specialized models for Japanese/Korean text.",
+      "tags": [
+        "technical",
+        "text detection"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 20,
+      "payload": {
+        "term": "OCR",
+        "definition": "Optical Character Recognition — technology that extracts text from images. KŌMA uses specialized models for Japanese/Korean text.",
+        "category": "technical",
+        "relatedTerms": [
+          "text detection"
+        ]
+      }
+    },
+    {
+      "id": "glossary-text-detection",
+      "categoryId": "glossary",
+      "title": "Text Detection",
+      "subtitle": "Detecting text regions in an image using AI models. Identifies the position, rotation, and bounds of each text block.",
+      "tags": [
+        "technical",
+        "OCR",
+        "bubble detection"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 21,
+      "payload": {
+        "term": "Text Detection",
+        "definition": "Detecting text regions in an image using AI models. Identifies the position, rotation, and bounds of each text block.",
+        "category": "technical",
+        "relatedTerms": [
+          "OCR",
+          "bubble detection"
+        ]
+      }
+    },
+    {
+      "id": "glossary-segmentation",
+      "categoryId": "glossary",
+      "title": "Segmentation",
+      "subtitle": "Separating the image into distinct regions (text, bubbles, art). Used to create precise masks for cleanup.",
+      "tags": [
+        "technical"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 22,
+      "payload": {
+        "term": "Segmentation",
+        "definition": "Separating the image into distinct regions (text, bubbles, art). Used to create precise masks for cleanup.",
+        "category": "technical"
+      }
+    },
+    {
+      "id": "glossary-model",
+      "categoryId": "glossary",
+      "title": "Model",
+      "subtitle": "In the AI context, refers to a neural network trained for a specific task (detection, OCR, translation, inpainting).",
+      "tags": [
+        "technical"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 23,
+      "payload": {
+        "term": "Model",
+        "definition": "In the AI context, refers to a neural network trained for a specific task (detection, OCR, translation, inpainting).",
+        "category": "technical"
+      }
+    },
+    {
+      "id": "glossary-translator-tl",
+      "categoryId": "glossary",
+      "title": "Translator (TL)",
+      "subtitle": "Responsible for translating text from the source language into the target language. Requires fluency in both languages.",
+      "tags": [
+        "roles"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 24,
+      "payload": {
+        "term": "Translator (TL)",
+        "definition": "Responsible for translating text from the source language into the target language. Requires fluency in both languages.",
+        "category": "roles"
+      }
+    },
+    {
+      "id": "community-rscanlation",
+      "categoryId": "communities",
+      "title": "r/scanlation",
+      "subtitle": "The main scanlation subreddit — tips, recruitment, technical discussions, and work showcases.",
+      "tags": [
+        "reddit",
+        "English"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 0,
+      "payload": {
+        "name": "r/scanlation",
+        "platform": "reddit",
+        "url": "https://reddit.com/r/scanlation",
+        "description": "The main scanlation subreddit — tips, recruitment, technical discussions, and work showcases.",
+        "language": "English",
+        "memberCount": "25k+"
+      }
+    },
+    {
+      "id": "community-typesetting-community",
+      "categoryId": "communities",
+      "title": "Typesetting Community",
+      "subtitle": "Discord server focused on typography and lettering for manga. Tutorials, critiques, and workflows.",
+      "tags": [
+        "discord",
+        "English"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 1,
+      "payload": {
+        "name": "Typesetting Community",
+        "platform": "discord",
+        "url": "#",
+        "description": "Discord server focused on typography and lettering for manga. Tutorials, critiques, and workflows.",
+        "language": "English",
+        "memberCount": "8k+"
+      }
+    },
+    {
+      "id": "community-scanlators-brasil",
+      "categoryId": "communities",
+      "title": "Scanlators Brasil",
+      "subtitle": "Brazilian community of scanlators — PT-BR tutorials, recruitment, and series discussions.",
+      "tags": [
+        "discord",
+        "Portuguese"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 2,
+      "payload": {
+        "name": "Scanlators Brasil",
+        "platform": "discord",
+        "url": "#",
+        "description": "Brazilian community of scanlators — PT-BR tutorials, recruitment, and series discussions.",
+        "language": "Portuguese",
+        "memberCount": "5k+"
+      }
+    },
+    {
+      "id": "community-rmanga",
+      "categoryId": "communities",
+      "title": "r/manga",
+      "subtitle": "The largest manga subreddit — news, translations, discussions, and AMAs with scanlators.",
+      "tags": [
+        "reddit",
+        "English"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 3,
+      "payload": {
+        "name": "r/manga",
+        "platform": "reddit",
+        "url": "https://reddit.com/r/manga",
+        "description": "The largest manga subreddit — news, translations, discussions, and AMAs with scanlators.",
+        "language": "English",
+        "memberCount": "3M+"
+      }
+    },
+    {
+      "id": "community-mangadex-forums",
+      "categoryId": "communities",
+      "title": "MangaDex Forums",
+      "subtitle": "The official MangaDex forum — technical discussions, quality feedback, and group coordination.",
+      "tags": [
+        "forum",
+        "Multilingual"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 4,
+      "payload": {
+        "name": "MangaDex Forums",
+        "platform": "forum",
+        "url": "https://forums.mangadex.org",
+        "description": "The official MangaDex forum — technical discussions, quality feedback, and group coordination.",
+        "language": "Multilingual"
+      }
+    },
+    {
+      "id": "community-webtoon-canvas-community",
+      "categoryId": "communities",
+      "title": "Webtoon Canvas Community",
+      "subtitle": "The official Webtoon Canvas community for webcomic creators and translators.",
+      "tags": [
+        "forum",
+        "Multilingual"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 5,
+      "payload": {
+        "name": "Webtoon Canvas Community",
+        "platform": "forum",
+        "url": "https://www.webtoons.com/community",
+        "description": "The official Webtoon Canvas community for webcomic creators and translators.",
+        "language": "Multilingual"
+      }
+    },
+    {
+      "id": "community-koma-studio-discord",
+      "categoryId": "communities",
+      "title": "KŌMA Studio Discord",
+      "subtitle": "The official KŌMA Studio server — support, feature requests, showcase, and beta testing.",
+      "tags": [
+        "discord",
+        "Multilingual"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 6,
+      "payload": {
+        "name": "KŌMA Studio Discord",
+        "platform": "discord",
+        "url": "#",
+        "description": "The official KŌMA Studio server — support, feature requests, showcase, and beta testing.",
+        "language": "Multilingual",
+        "memberCount": "2k+"
+      }
+    },
+    {
+      "id": "community-ai-manga-tools",
+      "categoryId": "communities",
+      "title": "AI Manga Tools",
+      "subtitle": "Server focused on AI tools for scanlation — models, pipelines, and automation.",
+      "tags": [
+        "discord",
+        "English"
+      ],
+      "iconName": null,
+      "status": "published",
+      "sortOrder": 7,
+      "payload": {
+        "name": "AI Manga Tools",
+        "platform": "discord",
+        "url": "#",
+        "description": "Server focused on AI tools for scanlation — models, pipelines, and automation.",
+        "language": "English",
+        "memberCount": "12k+"
+      }
+    },
+    {
+      "id": "tool-photoshop",
+      "categoryId": "tools-external",
+      "title": "Photoshop",
+      "subtitle": "Professional image editor. The industry standard for complex redraws and fine adjustments.",
+      "tags": [
+        "editing",
+        "paid"
+      ],
+      "status": "published",
+      "sortOrder": 0,
+      "payload": {
+        "name": "Photoshop",
+        "description": "Professional image editor. The industry standard for complex redraws and fine adjustments.",
+        "url": "https://www.adobe.com/photoshop",
+        "downloadUrl": "https://www.adobe.com/products/photoshop/free-trial-download.html",
+        "links": [
+          {
+            "label": "Website",
+            "url": "https://www.adobe.com/photoshop",
+            "kind": "site"
+          },
+          {
+            "label": "Download",
+            "url": "https://www.adobe.com/products/photoshop/free-trial-download.html",
+            "kind": "download"
+          }
+        ],
+        "category": "editing",
+        "free": false,
+        "icon": {}
+      }
+    },
+    {
+      "id": "tool-gimp",
+      "categoryId": "tools-external",
+      "title": "GIMP",
+      "subtitle": "Free, open-source image editor. A solid alternative to Photoshop for cleanup and editing.",
+      "tags": [
+        "editing",
+        "free"
+      ],
+      "status": "published",
+      "sortOrder": 1,
+      "payload": {
+        "name": "GIMP",
+        "description": "Free, open-source image editor. A solid alternative to Photoshop for cleanup and editing.",
+        "url": "https://www.gimp.org",
+        "downloadUrl": "https://www.gimp.org/downloads/",
+        "links": [
+          {
+            "label": "Website",
+            "url": "https://www.gimp.org",
+            "kind": "site"
+          },
+          {
+            "label": "Download",
+            "url": "https://www.gimp.org/downloads/",
+            "kind": "download"
+          },
+          {
+            "label": "Docs",
+            "url": "https://docs.gimp.org/",
+            "kind": "docs"
+          }
+        ],
+        "category": "editing",
+        "free": true,
+        "icon": {}
+      }
+    },
+    {
+      "id": "tool-tesseract-ocr",
+      "categoryId": "tools-external",
+      "title": "Tesseract OCR",
+      "subtitle": "Google's open-source OCR engine. Supports 100+ languages including Japanese and Korean.",
+      "tags": [
+        "ocr",
+        "free"
+      ],
+      "status": "published",
+      "sortOrder": 2,
+      "payload": {
+        "name": "Tesseract OCR",
+        "description": "Google's open-source OCR engine. Supports 100+ languages including Japanese and Korean.",
+        "url": "https://github.com/tesseract-ocr/tesseract",
+        "downloadUrl": "https://github.com/tesseract-ocr/tesseract/releases",
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/tesseract-ocr/tesseract",
+            "kind": "site"
+          },
+          {
+            "label": "Releases",
+            "url": "https://github.com/tesseract-ocr/tesseract/releases",
+            "kind": "download"
+          },
+          {
+            "label": "Docs",
+            "url": "https://tesseract-ocr.github.io/",
+            "kind": "docs"
+          }
+        ],
+        "category": "ocr",
+        "free": true,
+        "icon": {}
+      }
+    },
+    {
+      "id": "tool-deepl",
+      "categoryId": "tools-external",
+      "title": "DeepL",
+      "subtitle": "A translator with superior quality for European language pairs. API available for integration.",
+      "tags": [
+        "translation",
+        "paid"
+      ],
+      "status": "published",
+      "sortOrder": 3,
+      "payload": {
+        "name": "DeepL",
+        "description": "A translator with superior quality for European language pairs. API available for integration.",
+        "url": "https://www.deepl.com",
+        "downloadUrl": "https://www.deepl.com/app/",
+        "links": [
+          {
+            "label": "Website",
+            "url": "https://www.deepl.com",
+            "kind": "site"
+          },
+          {
+            "label": "App",
+            "url": "https://www.deepl.com/app/",
+            "kind": "download"
+          },
+          {
+            "label": "API Docs",
+            "url": "https://developers.deepl.com/docs",
+            "kind": "docs"
+          }
+        ],
+        "category": "translation",
+        "free": false,
+        "icon": {}
+      }
+    },
+    {
+      "id": "tool-google-fonts",
+      "categoryId": "tools-external",
+      "title": "Google Fonts",
+      "subtitle": "Free font library. Includes Noto Sans JP/KR/SC and other essential CJK fonts.",
+      "tags": [
+        "fonts",
+        "free"
+      ],
+      "status": "published",
+      "sortOrder": 4,
+      "payload": {
+        "name": "Google Fonts",
+        "description": "Free font library. Includes Noto Sans JP/KR/SC and other essential CJK fonts.",
+        "url": "https://fonts.google.com",
+        "links": [
+          {
+            "label": "Catalog",
+            "url": "https://fonts.google.com",
+            "kind": "site"
+          },
+          {
+            "label": "Noto Collection",
+            "url": "https://fonts.google.com/noto",
+            "kind": "download"
+          }
+        ],
+        "category": "fonts",
+        "free": true,
+        "icon": {}
+      }
+    },
+    {
+      "id": "tool-dafont",
+      "categoryId": "tools-external",
+      "title": "DaFont",
+      "subtitle": "Free font repository. The \"Comic/Cartoon\" section has excellent fonts for scanlation.",
+      "tags": [
+        "fonts",
+        "free"
+      ],
+      "status": "published",
+      "sortOrder": 5,
+      "payload": {
+        "name": "DaFont",
+        "description": "Free font repository. The \"Comic/Cartoon\" section has excellent fonts for scanlation.",
+        "url": "https://www.dafont.com",
+        "links": [
+          {
+            "label": "Website",
+            "url": "https://www.dafont.com",
+            "kind": "site"
+          },
+          {
+            "label": "Comic/Cartoon",
+            "url": "https://www.dafont.com/theme.php?cat=102",
+            "kind": "download"
+          }
+        ],
+        "category": "fonts",
+        "free": true,
+        "icon": {}
+      }
+    },
+    {
+      "id": "tool-mangadex",
+      "categoryId": "tools-external",
+      "title": "MangaDex",
+      "subtitle": "The leading platform for publishing scanlations. Free uploads with group management.",
+      "tags": [
+        "hosting",
+        "free"
+      ],
+      "status": "published",
+      "sortOrder": 6,
+      "payload": {
+        "name": "MangaDex",
+        "description": "The leading platform for publishing scanlations. Free uploads with group management.",
+        "url": "https://mangadex.org",
+        "category": "hosting",
+        "free": true,
+        "icon": {}
+      }
+    },
+    {
+      "id": "tool-imgbb",
+      "categoryId": "tools-external",
+      "title": "ImgBB",
+      "subtitle": "Free image hosting with an API. Useful for hosting individual pages.",
+      "tags": [
+        "hosting",
+        "free"
+      ],
+      "status": "published",
+      "sortOrder": 7,
+      "payload": {
+        "name": "ImgBB",
+        "description": "Free image hosting with an API. Useful for hosting individual pages.",
+        "url": "https://imgbb.com",
+        "category": "hosting",
+        "free": true,
+        "icon": {}
+      }
+    },
+    {
+      "id": "tool-ollama",
+      "categoryId": "tools-external",
+      "title": "Ollama",
+      "subtitle": "Run LLMs locally on your machine. Supports Llama 3, Qwen, Mistral, and other models.",
+      "tags": [
+        "utility",
+        "free"
+      ],
+      "status": "published",
+      "sortOrder": 8,
+      "payload": {
+        "name": "Ollama",
+        "description": "Run LLMs locally on your machine. Supports Llama 3, Qwen, Mistral, and other models.",
+        "url": "https://ollama.com",
+        "downloadUrl": "https://ollama.com/download",
+        "links": [
+          {
+            "label": "Website",
+            "url": "https://ollama.com",
+            "kind": "site"
+          },
+          {
+            "label": "Download",
+            "url": "https://ollama.com/download",
+            "kind": "download"
+          },
+          {
+            "label": "Docs",
+            "url": "https://github.com/ollama/ollama/blob/main/README.md",
+            "kind": "docs"
+          }
+        ],
+        "category": "utility",
+        "free": true,
+        "icon": {}
+      }
+    },
+    {
+      "id": "tool-waifu2x",
+      "categoryId": "tools-external",
+      "title": "Waifu2x",
+      "subtitle": "Image upscaler using deep learning. Optimized for anime/manga-style art.",
+      "tags": [
+        "utility",
+        "free"
+      ],
+      "status": "published",
+      "sortOrder": 9,
+      "payload": {
+        "name": "Waifu2x",
+        "description": "Image upscaler using deep learning. Optimized for anime/manga-style art.",
+        "url": "https://waifu2x.udp.jp",
+        "category": "utility",
+        "free": true,
+        "icon": {}
+      }
+    }
+  ]
+}

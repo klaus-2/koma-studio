@@ -1,0 +1,234 @@
+{
+  "name": "@koma/electron",
+  "version": "1.0.0",
+  "description": "KŌMA Studio - The Ultimate Scanlation Toolkit",
+  "main": "dist-electron/main.js",
+  "author": "KŌMA Studio",
+  "license": "MIT",
+  "packageManager": "bun@1.4.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/klaus-2/koma-studio.git"
+  },
+  "bugs": "https://github.com/klaus-2/koma-studio/issues",
+  "homepage": "https://koma-studio.site",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "trustedDependencies": [
+    "electron",
+    "electron-winstaller",
+    "esbuild",
+    "msw"
+  ],
+  "scripts": {
+    "dev:auth": "bun run --filter @koma/auth-server dev",
+    "dev:backend": "node scripts/run-active-backend.mjs",
+    "mini:install-deps": "node scripts/ensure-mini-venv.mjs",
+    "dev:mini": "node scripts/ensure-mini-venv.mjs --run --mode dev",
+    "dev:vite": "vite --mode development",
+    "dev": "node scripts/dev-stack.mjs",
+    "tauri:dev": "bun run dev",
+    "dev:all": "bun run dev",
+    "test": "node --test \"electron/tests/*.test.ts\" \"scripts/*.test.mjs\"",
+    "test:python": "node scripts/ensure-mini-venv.mjs --exec -m pytest ../../packages/mini-backend/tests scripts/test_ensure_mini_deps.py -q",
+    "test:watermark": "node --test interface/components/dashboard/watermark/*.test.mjs",
+    "test:electron-runtime": "node scripts/test-electron-runtime.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json",
+    "build:mini": "node scripts/build-mini-backend.mjs",
+    "build:mini:artifacts": "node scripts/build-mini-backend-artifacts.mjs release-desktop",
+    "build:react": "vite build --mode production",
+    "build:electron": "node scripts/build-electron.mjs",
+    "cert-pins:refresh": "node scripts/refresh-cert-pins.mjs",
+    "build:all": "bun run build:mini && bun run build:app",
+    "build:app": "node scripts/build-app.mjs",
+    "build:desktop": "node scripts/build-desktop.mjs",
+    "build": "bun run build:app",
+    "build:release": "node scripts/build-release.mjs",
+    "preview": "vite preview",
+    "release": "bun run build:all && electron-builder --publish always",
+    "release:dry": "node scripts/build-release.mjs",
+    "release:win": "bun run build:all && electron-builder --win --publish always",
+    "release:linux": "bun run build:all && electron-builder --linux --publish always --config.forceCodeSigning=false",
+    "release:mac": "bun run build:all && electron-builder --mac --publish always --config.forceCodeSigning=false",
+    "harden:mini": "node scripts/ensure-mini-venv.mjs && node scripts/run-python-script.mjs scripts/harden-mini-backend.py",
+    "harden:electron": "node scripts/harden-electron.mjs",
+    "harden:frontend": "node scripts/harden-frontend.mjs",
+    "build:hardened": "node scripts/build-hardened-release.mjs",
+    "build:hardened:win": "node scripts/build-hardened-release.mjs --platform win",
+    "build:hardened:mac": "node scripts/build-hardened-release.mjs --platform mac",
+    "build:hardened:linux": "node scripts/build-hardened-release.mjs --platform linux"
+  },
+  "dependencies": {
+    "@koma/auth": "workspace:*",
+    "@koma/interface": "workspace:*",
+    "@koma/ui": "workspace:*",
+    "@nich87/discord-rpc": "^1.0.0",
+    "@tailwindcss/vite": "^4.1.0",
+    "@tanstack/react-query": "^5.94.5",
+    "@tiptap/extension-image": "^3.20.1",
+    "@tiptap/extension-link": "^3.20.1",
+    "@tiptap/extension-underline": "^3.20.1",
+    "@tiptap/react": "^3.20.1",
+    "@tiptap/starter-kit": "^3.20.1",
+    "bytenode": "^1.5.6",
+    "clsx": "^2.1.1",
+    "disable-devtool": "^0.3.9",
+    "driver.js": "^1.4.0",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.1",
+    "fflate": "^0.8.2",
+    "framer-motion": "^12.34.2",
+    "googleapis": "^171.4.0",
+    "lucide-react": "^1.33.0",
+    "pdf-lib": "^1.17.1",
+    "radix-ui": "^1.4.3",
+    "react": "^19.2.0",
+    "react-colorful": "^5.6.1",
+    "react-dom": "^19.2.0",
+    "react-dropzone": "^15.0.0",
+    "react-gcolor-picker": "^1.3.3",
+    "react-idle-timer": "^5.7.2",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^2.6.1",
+    "uuid": "^13.0.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@koma/config": "workspace:*",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^40.6.0",
+    "electron-builder": "^26.4.1",
+    "eslint": "^9.39.5",
+    "javascript-obfuscator": "^4.2.2",
+    "shadcn": "^3.8.5",
+    "tailwindcss": "^4.1.0",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.1.0",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.komastudio.desktop",
+    "productName": "KŌMA Studio",
+    "asar": true,
+    "asarUnpack": [
+      "**/*.jsc",
+      "**/node_modules/bytenode/**"
+    ],
+    "compression": "store",
+    "disableDefaultIgnoredFiles": true,
+    "forceCodeSigning": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
+    "directories": {
+      "output": "release-desktop",
+      "buildResources": "resources"
+    },
+    "files": [
+      "package.json",
+      {
+        "from": "dist",
+        "to": "dist",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "dist-electron",
+        "to": "dist-electron",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources",
+        "to": "resources",
+        "filter": [
+          "**/*"
+        ]
+      },
+      "node_modules/bytenode/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../../packages/mini-backend/dist",
+        "to": "mini-backend"
+      },
+      {
+        "from": "resources/reference_images",
+        "to": "resources/reference_images"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis-web",
+        "zip"
+      ],
+      "icon": "resources/windows/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "resources/macos/icon.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "resources/linux/icons/512x512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "useZip": true,
+      "preCompressedFileExtensions": [
+        ".exe",
+        ".mp4",
+        ".webp",
+        ".ico",
+        ".zip",
+        ".7z"
+      ],
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "include": "installer.nsh",
+      "installerIcon": "resources/windows/icon.ico",
+      "uninstallerIcon": "resources/windows/icon.ico",
+      "installerHeaderIcon": "resources/windows/icon.ico"
+    },
+    "protocols": [
+      {
+        "name": "KŌMA Studio Link",
+        "schemes": [
+          "komastudio"
+        ]
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "klaus-2",
+        "repo": "koma-studio"
+      }
+    ]
+  }
+}

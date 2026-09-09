@@ -1,0 +1,1044 @@
+/* ================================================================
+   Splitter Workspace — KOMA Design System
+   Manhwa Glass UI · Preview + Cuts + Segments
+   ================================================================ */
+
+/* ── Root ─────────────────────────────────────────────────────── */
+.koma-split-ws {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.12) transparent;
+  padding-bottom: 12px;
+}
+
+/* ── Empty State ──────────────────────────────────────────────── */
+.koma-split-ws__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  text-align: center;
+  height: 100%;
+}
+
+.koma-split-ws__empty-icon {
+  color: rgba(186, 199, 247, 0.12);
+}
+
+.koma-split-ws__empty-title {
+  margin: 0;
+  font-family: var(--auth-font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-split-ws__empty-desc {
+  margin: 0;
+  font-family: var(--auth-font-body);
+  font-size: 12px;
+  color: var(--auth-text-muted);
+  line-height: 1.5;
+  max-width: 360px;
+}
+
+/* ── Hero Layout (preview + diagnostics) ──────────────────────── */
+.koma-split-hero {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 14px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* ── Preview Card ─────────────────────────────────────────────── */
+.koma-split-preview {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.koma-split-preview__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+}
+
+.koma-split-preview__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-split-preview__title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.14), rgba(6, 182, 212, 0.08));
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+.koma-split-preview__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--auth-font-heading);
+  letter-spacing: 0.03em;
+}
+
+.koma-split-preview__badge--analyzing {
+  background: rgba(168, 85, 247, 0.12);
+  color: #c4b5fd;
+  animation: koma-split-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes koma-split-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.koma-split-preview__desc {
+  margin: 0;
+  font-family: var(--auth-font-body);
+  font-size: 10.5px;
+  color: var(--auth-text-muted);
+  line-height: 1.4;
+}
+
+/* Preview stage container — uses CSS zoom for layout-aware scaling */
+.koma-split-stage-wrap {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.1) transparent;
+  background:
+    repeating-conic-gradient(rgba(255, 255, 255, 0.015) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+
+.koma-split-stage {
+  position: relative;
+  margin: 0 auto;
+  cursor: crosshair;
+  width: fit-content;
+  /* zoom is set via inline style */
+}
+
+.koma-split-stage__img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+  border-radius: 0;
+}
+
+/* ── Segment highlight bands ─────────────────────────────────── */
+.koma-split-segment-band {
+  position: absolute;
+  z-index: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 4px;
+}
+
+.koma-split-segment-band--even {
+  background: rgba(168, 85, 247, 0.04);
+  border: 1px solid rgba(168, 85, 247, 0.06);
+}
+
+.koma-split-segment-band--odd {
+  background: rgba(6, 182, 212, 0.04);
+  border: 1px solid rgba(6, 182, 212, 0.06);
+}
+
+.koma-split-segment-band:hover {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.koma-split-segment-band--selected {
+  background: rgba(168, 85, 247, 0.14) !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
+  box-shadow: inset 0 0 20px rgba(168, 85, 247, 0.08);
+}
+
+.koma-split-segment-band__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(10, 12, 24, 0.75);
+  backdrop-filter: blur(6px);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  color: #c4b5fd;
+  pointer-events: none;
+}
+
+/* Cut map overlay */
+.koma-split-cut-map {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Cut line */
+.koma-split-cut-line {
+  position: absolute;
+  z-index: 3;
+  cursor: grab;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  transition: filter 0.12s ease;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.koma-split-cut-line:active {
+  cursor: grabbing;
+}
+
+.koma-split-cut-line--locked {
+  cursor: default;
+}
+
+.koma-split-cut-line--v {
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+}
+
+.koma-split-cut-line--h {
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--auth-purple), var(--auth-cyan));
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+  flex-direction: column;
+}
+
+.koma-split-cut-line--locked.koma-split-cut-line--v,
+.koma-split-cut-line--locked.koma-split-cut-line--h {
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+.koma-split-cut-line:hover {
+  filter: brightness(1.3);
+}
+
+/* Cut line badge */
+.koma-split-cut-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(10, 12, 24, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: #c4b5fd;
+  white-space: nowrap;
+  pointer-events: none;
+  margin-left: 6px;
+}
+
+.koma-split-cut-line--h .koma-split-cut-badge {
+  margin-left: 0;
+  margin-top: 6px;
+}
+
+/* Preview bottom bar */
+.koma-split-preview__bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  background: rgba(6, 8, 18, 0.3);
+}
+
+.koma-split-preview__bar .koma-btn {
+  font-size: 10.5px;
+  padding: 5px 10px;
+  height: 28px;
+}
+
+.koma-split-preview__zoom-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.koma-split-preview__zoom-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--auth-text-muted);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.koma-split-preview__zoom-label:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--auth-text);
+}
+
+.koma-split-preview__bar-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 4px;
+}
+
+.koma-split-preview__size-info {
+  margin-left: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  color: var(--auth-text-muted);
+  opacity: 0.6;
+}
+
+/* ── Diagnostics Panel ────────────────────────────────────────── */
+.koma-split-diag {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  height: fit-content;
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.08) transparent;
+}
+
+.koma-split-diag__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-split-diag__title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(168, 85, 247, 0.1);
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+/* Metric grid */
+.koma-split-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.koma-split-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.012);
+  text-align: center;
+}
+
+.koma-split-metric__value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--auth-text);
+  line-height: 1;
+}
+
+.koma-split-metric__label {
+  font-family: var(--auth-font-heading);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--auth-text-muted);
+}
+
+/* Image info rows */
+.koma-split-diag__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.koma-split-diag__info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.koma-split-diag__info-label {
+  font-family: var(--auth-font-heading);
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.koma-split-diag__info-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+/* Warnings */
+.koma-split-diag__warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-split-diag__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-family: var(--auth-font-body);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.koma-split-diag__alert--warn {
+  border: 1px solid rgba(245, 158, 11, 0.12);
+  background: rgba(120, 53, 15, 0.06);
+  color: #fde68a;
+}
+
+.koma-split-diag__alert--info {
+  border: 1px solid rgba(6, 182, 212, 0.1);
+  background: rgba(8, 51, 68, 0.06);
+  color: #67e8f9;
+}
+
+.koma-split-diag__alert-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Panels (Cuts / Segments) ────────────────────────────────── */
+.koma-split-panel {
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.koma-split-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-split-panel__head-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(168, 85, 247, 0.1);
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+/* ── Strip layouts ───────────────────────────────────────────── */
+.koma-split-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+
+.koma-split-strip--cuts {
+  /* Cuts: compact horizontal list */
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.koma-split-strip--segments {
+  /* Segments: scrollable horizontal strip with proper thumbnails */
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 8px;
+  padding: 10px 12px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.1) transparent;
+}
+
+/* ── Card ────────────────────────────────────────────────────── */
+.koma-split-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.012);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  position: relative;
+}
+
+.koma-split-card:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Badge (number) */
+.koma-split-card__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(6, 182, 212, 0.08));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #c4b5fd;
+  flex-shrink: 0;
+}
+
+/* Cut card */
+.koma-split-card--cut {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.koma-split-card--locked {
+  border-color: rgba(245, 158, 11, 0.12);
+  background: rgba(245, 158, 11, 0.03);
+}
+
+.koma-split-card--locked .koma-split-card__badge {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+}
+
+/* Segment card */
+.koma-split-card--segment {
+  flex: 0 0 auto;
+  min-width: 160px;
+  max-width: 260px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.koma-split-card--segment .koma-split-card__badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+  min-width: 22px;
+  height: 20px;
+  font-size: 8.5px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.koma-split-card--selected {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.06);
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.08);
+}
+
+.koma-split-card--warned {
+  border-color: rgba(245, 158, 11, 0.1);
+}
+
+/* Segment thumbnail — proportional, not squished */
+.koma-split-card__thumb {
+  width: 100%;
+  max-height: 120px;
+  min-height: 40px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  object-fit: contain;
+  background: rgba(6, 8, 18, 0.4);
+  flex-shrink: 0;
+}
+
+.koma-split-card__thumb--placeholder {
+  width: 100%;
+  height: 60px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(6, 8, 18, 0.25);
+  flex-shrink: 0;
+}
+
+.koma-split-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.koma-split-card__name {
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--auth-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.koma-split-card__meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  color: var(--auth-text-muted);
+  margin: 1px 0 0;
+  white-space: nowrap;
+}
+
+.koma-split-card__warn {
+  font-family: var(--auth-font-body);
+  font-size: 9px;
+  color: #fde68a;
+  margin: 2px 0 0;
+}
+
+/* Card actions */
+.koma-split-card__actions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.koma-split-card__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--auth-text-muted);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.koma-split-card__btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--auth-text);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.koma-split-card__btn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+.koma-split-card__btn--danger:hover {
+  background: rgba(244, 63, 94, 0.06);
+  color: var(--auth-rose);
+  border-color: rgba(244, 63, 94, 0.12);
+}
+
+/* ── Spin animation ──────────────────────────────────────────── */
+.koma-spin {
+  animation: koma-spin-rotate 1s linear infinite;
+}
+
+@keyframes koma-spin-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .koma-split-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-split-diag {
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .koma-split-preview__bar {
+    justify-content: flex-end;
+  }
+
+  .koma-split-strip--cuts {
+    flex-direction: column;
+  }
+
+  .koma-split-card--segment {
+    min-width: 130px;
+  }
+
+  .koma-split-card__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* ================================================================
+   Light Theme Overrides
+   ================================================================ */
+
+/* Root scrollbar */
+[data-theme="light"] .koma-split-ws {
+  scrollbar-color: rgba(168, 85, 247, 0.18) transparent;
+}
+
+/* Empty state icon */
+[data-theme="light"] .koma-split-ws__empty-icon {
+  color: rgba(100, 116, 139, 0.2);
+}
+
+/* Preview card shadow */
+[data-theme="light"] .koma-split-preview {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Preview head border */
+[data-theme="light"] .koma-split-preview__head {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Analyzing badge */
+[data-theme="light"] .koma-split-preview__badge--analyzing {
+  background: rgba(168, 85, 247, 0.1);
+  color: #7c3aed;
+}
+
+/* Stage wrap checkerboard */
+[data-theme="light"] .koma-split-stage-wrap {
+  background:
+    repeating-conic-gradient(rgba(0, 0, 0, 0.03) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+
+/* Segment band label */
+[data-theme="light"] .koma-split-segment-band__label {
+  background: rgba(255, 255, 255, 0.88);
+  color: #7c3aed;
+}
+
+/* Cut badge */
+[data-theme="light"] .koma-split-cut-badge {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(168, 85, 247, 0.25);
+  color: #7c3aed;
+}
+
+/* Preview bottom bar */
+[data-theme="light"] .koma-split-preview__bar {
+  border-top-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Zoom label */
+[data-theme="light"] .koma-split-preview__zoom-label {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-split-preview__zoom-label:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Bar separator */
+[data-theme="light"] .koma-split-preview__bar-sep {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Diagnostics panel shadow */
+[data-theme="light"] .koma-split-diag {
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  scrollbar-color: rgba(168, 85, 247, 0.12) transparent;
+}
+
+/* Metric card */
+[data-theme="light"] .koma-split-metric {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+/* Diag info */
+[data-theme="light"] .koma-split-diag__info {
+  border-color: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+/* Warnings */
+[data-theme="light"] .koma-split-diag__alert--warn {
+  border-color: rgba(245, 158, 11, 0.18);
+  background: rgba(254, 243, 199, 0.4);
+  color: #92400e;
+}
+
+[data-theme="light"] .koma-split-diag__alert--info {
+  border-color: rgba(6, 182, 212, 0.15);
+  background: rgba(207, 250, 254, 0.35);
+  color: #155e75;
+}
+
+/* Panels shadow */
+[data-theme="light"] .koma-split-panel {
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Panel head border */
+[data-theme="light"] .koma-split-panel__head {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Card */
+[data-theme="light"] .koma-split-card {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="light"] .koma-split-card:hover {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Card badge */
+[data-theme="light"] .koma-split-card__badge {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(6, 182, 212, 0.06));
+  color: #7c3aed;
+}
+
+/* Locked card */
+[data-theme="light"] .koma-split-card--locked {
+  border-color: rgba(245, 158, 11, 0.18);
+  background: rgba(254, 243, 199, 0.2);
+}
+
+[data-theme="light"] .koma-split-card--locked .koma-split-card__badge {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+/* Selected card */
+[data-theme="light"] .koma-split-card--selected {
+  border-color: rgba(168, 85, 247, 0.25);
+  background: rgba(168, 85, 247, 0.04);
+}
+
+/* Warned card */
+[data-theme="light"] .koma-split-card--warned {
+  border-color: rgba(245, 158, 11, 0.15);
+}
+
+/* Segment thumbnail */
+[data-theme="light"] .koma-split-card__thumb {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .koma-split-card__thumb--placeholder {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.025);
+}
+
+/* Card warning text */
+[data-theme="light"] .koma-split-card__warn {
+  color: #b45309;
+}
+
+/* Card action buttons */
+[data-theme="light"] .koma-split-card__btn {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-split-card__btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .koma-split-card__btn--danger:hover {
+  background: rgba(244, 63, 94, 0.06);
+  border-color: rgba(244, 63, 94, 0.15);
+}
+
+/* Segments scrollbar */
+[data-theme="light"] .koma-split-strip--segments {
+  scrollbar-color: rgba(168, 85, 247, 0.15) transparent;
+}
+
+/* Preview icons */
+[data-theme="light"] .koma-split-preview__title-icon,
+[data-theme="light"] .koma-split-diag__title-icon,
+[data-theme="light"] .koma-split-panel__head-icon {
+  background: rgba(168, 85, 247, 0.08);
+  color: #7c3aed;
+}
+
+/* Stage image */
+[data-theme="light"] .koma-split-stage__img {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.08),
+    0 0 30px rgba(168, 85, 247, 0.02);
+}
+
+/* Segment and cut states */
+[data-theme="light"] .koma-split-segment-band--even {
+  background: rgba(168, 85, 247, 0.03);
+  border-color: rgba(168, 85, 247, 0.08);
+}
+
+[data-theme="light"] .koma-split-segment-band--odd {
+  background: rgba(6, 182, 212, 0.03);
+  border-color: rgba(6, 182, 212, 0.08);
+}
+
+[data-theme="light"] .koma-split-segment-band:hover {
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.16);
+}
+
+[data-theme="light"] .koma-split-segment-band--selected {
+  background: rgba(168, 85, 247, 0.12) !important;
+  border-color: rgba(168, 85, 247, 0.3) !important;
+  box-shadow: inset 0 0 20px rgba(168, 85, 247, 0.06);
+}
+
+[data-theme="light"] .koma-split-cut-line--v,
+[data-theme="light"] .koma-split-cut-line--h {
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.14);
+}
+
+[data-theme="light"] .koma-split-cut-line--locked.koma-split-cut-line--v,
+[data-theme="light"] .koma-split-cut-line--locked.koma-split-cut-line--h {
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.14);
+}
+
+/* Output lists */
+[data-theme="light"] .koma-split-strip {
+  background: rgba(0, 0, 0, 0.008);
+}
+
+[data-theme="light"] .koma-split-strip--cuts,
+[data-theme="light"] .koma-split-strip--segments {
+  background: rgba(0, 0, 0, 0.012);
+}
+
+[data-theme="light"] .koma-split-card--cut,
+[data-theme="light"] .koma-split-card--segment {
+  background: rgba(0, 0, 0, 0.012);
+}
+
+[data-theme="light"] .koma-split-card--segment:hover {
+  background: rgba(0, 0, 0, 0.03);
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@koma/auth",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Client de auth compartilhado KŌMA: AuthContext + adapter de runtime + hooks + query/http/passwordPolicy — consumido como fonte TS direta (sem build)",
+  "exports": {
+    "./context": "./src/context.tsx",
+    "./context/*": "./src/context/*",
+    "./SessionTimeout": "./src/SessionTimeout.tsx",
+    "./hooks/*": "./src/hooks/*.tsx",
+    "./query/*": "./src/query/*.ts",
+    "./utils/*": "./src/utils/*.ts",
+    "./runtime-adapter": "./src/runtime-adapter.ts"
+  },
+  "dependencies": {
+    "@koma/types": "workspace:*",
+    "@koma/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.101.4",
+    "@types/react": "^19",
+    "react": "^19.2.0",
+    "react-idle-timer": "^5.7.3"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": ">=5",
+    "react": ">=18",
+    "react-idle-timer": ">=5"
+  }
+}

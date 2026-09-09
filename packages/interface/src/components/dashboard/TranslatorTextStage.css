@@ -1,0 +1,203 @@
+/* ================================================================
+   Translator Text Stage — KOMA Design System
+   Manhwa Glass UI · Side-by-side text editor
+   ================================================================ */
+
+.koma-translator-text {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── Panel ─────────────────────────────────────────────────────── */
+.koma-translator-text__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Panel header */
+.koma-translator-text__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.koma-translator-text__head-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.14),
+    rgba(6, 182, 212, 0.08)
+  );
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+.koma-translator-text__head-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.koma-translator-text__title {
+  margin: 0;
+  font-family: var(--auth-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-translator-text__desc {
+  margin: 0;
+  font-family: var(--auth-font-body);
+  font-size: 10.5px;
+  color: var(--auth-text-muted);
+  line-height: 1.4;
+}
+
+/* ── Editor textarea ──────────────────────────────────────────── */
+.koma-translator-text__editor {
+  flex: 1;
+  width: 100%;
+  min-height: 200px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(6, 8, 18, 0.6);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  font-size: 12.5px;
+  line-height: 1.65;
+  resize: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.1) transparent;
+}
+
+.koma-translator-text__editor:focus {
+  border-color: rgba(168, 85, 247, 0.3);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.06);
+  outline: none;
+}
+
+.koma-translator-text__editor::placeholder {
+  color: var(--auth-text-muted);
+}
+
+.koma-translator-text__editor--readonly {
+  cursor: default;
+  background: rgba(6, 8, 18, 0.4);
+}
+
+.koma-translator-text__editor--readonly:focus {
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+/* ── Action row ───────────────────────────────────────────────── */
+.koma-translator-text__actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.koma-translator-text__actions .koma-btn {
+  flex: 1;
+  min-width: 0;
+  font-size: 10.5px;
+  padding: 7px 10px;
+  justify-content: center;
+}
+
+/* ── Dirty indicator ──────────────────────────────────────────── */
+.koma-translator-text__dirty {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.12);
+  background: rgba(120, 53, 15, 0.06);
+  font-family: var(--auth-font-body);
+  font-size: 10px;
+  color: #fde68a;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.koma-translator-text__dirty-icon {
+  flex-shrink: 0;
+}
+
+/* ── Model info chip ──────────────────────────────────────────── */
+.koma-translator-text__model {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .koma-translator-text {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Light Theme ─────────────────────────────────────────────────── */
+[data-theme="light"] .koma-translator-text__panel {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .koma-translator-text__editor {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(241, 245, 249, 0.6);
+}
+
+[data-theme="light"] .koma-translator-text__editor--readonly {
+  background: rgba(241, 245, 249, 0.4);
+}
+
+[data-theme="light"] .koma-translator-text__editor--readonly:focus {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .koma-translator-text__dirty {
+  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.06);
+  color: #92400e;
+}
+
+[data-theme="light"] .koma-translator-text__model {
+  background: rgba(0, 0, 0, 0.04);
+}

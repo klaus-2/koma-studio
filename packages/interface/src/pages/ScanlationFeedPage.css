@@ -1,0 +1,2578 @@
+/* ═══════════════════════════════════════════════════════════
+   KOMA Scanlation Feed — Manhwa Glass UI v2
+   Composer-in-modal layout
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 1. Page Shell ─────────────────────────────────────── */
+.koma-feed {
+  position: relative;
+  min-height: 100vh;
+  background: var(--auth-bg);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  overflow-x: hidden;
+  padding-bottom: 80px;
+}
+
+/* ── 2. Decorative Background ──────────────────────────── */
+.koma-feed__bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.koma-feed__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(140px);
+  will-change: transform;
+}
+
+.koma-feed__orb--purple {
+  width: 600px;
+  height: 600px;
+  background: rgba(168, 85, 247, 0.18);
+  top: -120px;
+  right: -100px;
+  animation: kfeed-orb-1 25s ease-in-out infinite alternate;
+}
+
+.koma-feed__orb--cyan {
+  width: 500px;
+  height: 500px;
+  background: rgba(6, 182, 212, 0.12);
+  bottom: -80px;
+  left: -120px;
+  animation: kfeed-orb-2 28s ease-in-out infinite alternate;
+}
+
+.koma-feed__orb--rose {
+  width: 350px;
+  height: 350px;
+  background: rgba(244, 63, 94, 0.07);
+  top: 40%;
+  left: 55%;
+  animation: kfeed-orb-3 22s ease-in-out infinite alternate;
+}
+
+.koma-feed__halftone {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.015) 1px,
+    transparent 1px
+  );
+  background-size: 4px 4px;
+}
+
+.koma-feed__sfx {
+  position: absolute;
+  font-family: var(--auth-font-display);
+  font-weight: 700;
+  user-select: none;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.koma-feed__sfx--1 {
+  top: 12%;
+  right: 8%;
+  font-size: 120px;
+  color: rgba(168, 85, 247, 0.04);
+  transform: rotate(-12deg);
+}
+
+.koma-feed__sfx--2 {
+  bottom: 18%;
+  left: 5%;
+  font-size: 90px;
+  color: rgba(6, 182, 212, 0.035);
+  transform: rotate(8deg);
+}
+
+.koma-feed__sfx--3 {
+  top: 55%;
+  right: 20%;
+  font-size: 70px;
+  color: rgba(244, 63, 94, 0.03);
+  transform: rotate(-5deg);
+}
+
+/* ── 3. Content Wrapper ────────────────────────────────── */
+.koma-feed__content {
+  position: relative;
+  z-index: 1;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+/* ── 4. Hero ───────────────────────────────────────────── */
+.koma-feed__hero {
+  padding: 44px 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.koma-feed__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-family: var(--auth-font-heading);
+  font-weight: 500;
+  color: var(--auth-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 10px;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
+  align-self: flex-start;
+}
+
+.koma-feed__back:hover {
+  color: var(--auth-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.koma-feed__back:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+.koma-feed__hero-body {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.koma-feed__hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 640px;
+}
+
+.koma-feed__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--auth-font-heading);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--auth-purple);
+  background: var(--auth-purple-dim);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 999px;
+  padding: 6px 16px;
+  align-self: flex-start;
+  backdrop-filter: blur(8px);
+}
+
+.koma-feed__badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--auth-purple);
+  animation: kfeed-pulse 2s ease-in-out infinite;
+}
+
+.koma-feed__title {
+  font-family: var(--auth-font-heading);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  background: linear-gradient(
+    135deg,
+    #fff 0%,
+    rgba(168, 85, 247, 0.9) 60%,
+    var(--auth-cyan) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.koma-feed__subtitle {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--auth-text-muted);
+}
+
+/* ── 5. Toolbar ────────────────────────────────────────── */
+.koma-feed__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.koma-feed__tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(12px);
+}
+
+.koma-feed__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--auth-font-heading);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--auth-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 11px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.koma-feed__tab:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.koma-feed__tab:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: -2px;
+}
+
+.koma-feed__tab--active {
+  color: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.18),
+    rgba(6, 182, 212, 0.1)
+  );
+  box-shadow:
+    0 4px 16px rgba(168, 85, 247, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.koma-feed__tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.koma-feed__toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── 6. Alerts ─────────────────────────────────────────── */
+.koma-feed__alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.koma-feed-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 18px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  backdrop-filter: blur(10px);
+}
+
+.koma-feed-alert--warning {
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(120, 53, 15, 0.12);
+  color: #fde68a;
+}
+
+.koma-feed-alert--info {
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  background: rgba(8, 51, 68, 0.15);
+  color: #67e8f9;
+}
+
+.koma-feed-alert__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── 7. Toasts ─────────────────────────────────────────── */
+.koma-feed-toast {
+  border-radius: 14px;
+  padding: 13px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  backdrop-filter: blur(12px);
+  animation: kfeed-toast-in 0.3s ease forwards;
+  margin-bottom: 18px;
+}
+
+.koma-feed-toast--success {
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(6, 78, 59, 0.18);
+  color: #86efac;
+}
+
+.koma-feed-toast--error {
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  background: rgba(127, 29, 29, 0.18);
+  color: #fda4af;
+}
+
+/* ── 8. Grid ───────────────────────────────────────────── */
+.koma-feed__grid {
+  display: grid;
+  grid-template-columns: 1fr 330px;
+  gap: 24px;
+  align-items: start;
+}
+
+.koma-feed__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.koma-feed__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 24px;
+}
+
+/* ── 9. Glass Card ─────────────────────────────────────── */
+.koma-feed-card {
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  padding: 24px;
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  animation: kfeed-card-breathe 6s ease-in-out infinite alternate;
+}
+
+.koma-feed-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.koma-feed-card__header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.2),
+    rgba(6, 182, 212, 0.12)
+  );
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+.koma-feed-card__title {
+  font-family: var(--auth-font-heading);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--auth-text);
+  flex: 1;
+}
+
+.koma-feed-card__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgba(168, 85, 247, 0.14);
+  color: var(--auth-purple);
+}
+
+/* ── 10. Form Field ────────────────────────────────────── */
+.koma-feed-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.koma-feed-field__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  letter-spacing: 0.02em;
+}
+
+.koma-feed-field__label-hint {
+  font-weight: 400;
+  opacity: 0.5;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.koma-feed-field__input,
+.koma-feed-field__textarea,
+.koma-feed-field__select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--auth-input-border);
+  background: var(--auth-input-bg);
+  color: var(--auth-text);
+  padding: 11px 14px;
+  font-size: 13px;
+  font-family: var(--auth-font-body);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  line-height: 1.5;
+}
+
+.koma-feed-field__textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.koma-feed-field__select option {
+  background: #0a0c18;
+}
+
+.koma-feed-field__input::placeholder,
+.koma-feed-field__textarea::placeholder {
+  color: rgba(186, 199, 247, 0.3);
+}
+
+.koma-feed-field__input:focus,
+.koma-feed-field__textarea:focus,
+.koma-feed-field__select:focus {
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+  outline: none;
+}
+
+.koma-feed-field__char-count {
+  font-size: 10px;
+  color: rgba(186, 199, 247, 0.3);
+  text-align: right;
+  margin-top: 2px;
+}
+
+/* ── 11. Toggle Switch ─────────────────────────────────── */
+.koma-feed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  text-align: left;
+  font-family: var(--auth-font-body);
+}
+
+.koma-feed-toggle:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.koma-feed-toggle:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+.koma-feed-toggle--active {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.06);
+}
+
+.koma-feed-toggle__icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--auth-text-muted);
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-feed-toggle--active .koma-feed-toggle__icon-wrap {
+  background: linear-gradient(
+    135deg,
+    var(--auth-purple),
+    rgba(6, 182, 212, 0.6)
+  );
+  color: #fff;
+}
+
+.koma-feed-toggle__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.koma-feed-toggle__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.2s ease;
+}
+
+.koma-feed-toggle--active .koma-feed-toggle__title {
+  color: var(--auth-text);
+}
+
+.koma-feed-toggle__desc {
+  font-size: 11px;
+  color: var(--auth-text-muted);
+  margin-top: 2px;
+}
+
+.koma-feed-toggle__track {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+  transition: background 0.25s ease;
+}
+
+.koma-feed-toggle--active .koma-feed-toggle__track {
+  background: var(--auth-purple);
+}
+
+.koma-feed-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* ── 12. Requirement Chips ─────────────────────────────── */
+.koma-feed-req-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.koma-feed-req {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--auth-font-heading);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-feed-req:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.koma-feed-req:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+.koma-feed-req--active {
+  border-color: rgba(168, 85, 247, 0.35);
+  background: rgba(168, 85, 247, 0.1);
+  color: var(--auth-text);
+}
+
+.koma-feed-req__check {
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+/* ── 13. Availability ──────────────────────────────────── */
+.koma-feed-avail {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.koma-feed-avail__hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--auth-text-muted);
+}
+
+.koma-feed-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.koma-feed-weekday {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--auth-font-heading);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--auth-text-muted);
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.koma-feed-weekday:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.koma-feed-weekday:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+.koma-feed-weekday--active {
+  background: var(--auth-purple);
+  color: #fff;
+}
+
+/* ── 14. Role Cards ────────────────────────────────────── */
+.koma-feed-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.koma-feed-role {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-feed-role:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.koma-feed-role__gradient {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.koma-feed-role:hover .koma-feed-role__gradient {
+  opacity: 0.12;
+}
+
+.koma-feed-role__icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.koma-feed-role__info {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.koma-feed-role__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--auth-text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.koma-feed-role__short {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--auth-text-muted);
+}
+
+.koma-feed-role__pay {
+  font-size: 11px;
+  color: var(--auth-emerald);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.koma-feed-role__remove {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  background: rgba(244, 63, 94, 0.08);
+  color: rgba(244, 63, 94, 0.6);
+  cursor: pointer;
+  opacity: 0;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.koma-feed-role:hover .koma-feed-role__remove {
+  opacity: 1;
+}
+
+.koma-feed-role__remove:hover {
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--auth-rose);
+}
+
+.koma-feed-role__remove:focus-visible {
+  outline: 2px solid var(--auth-rose);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+/* Role gradients */
+.koma-feed-role--raw .koma-feed-role__gradient {
+  background: linear-gradient(135deg, #f97316, #f59e0b);
+}
+.koma-feed-role--raw .koma-feed-role__icon {
+  background: linear-gradient(135deg, #f97316, #f59e0b);
+}
+.koma-feed-role--cl .koma-feed-role__gradient {
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+}
+.koma-feed-role--cl .koma-feed-role__icon {
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+}
+.koma-feed-role--rd .koma-feed-role__gradient {
+  background: linear-gradient(135deg, #ec4899, #f43f5e);
+}
+.koma-feed-role--rd .koma-feed-role__icon {
+  background: linear-gradient(135deg, #ec4899, #f43f5e);
+}
+.koma-feed-role--tl .koma-feed-role__gradient {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+}
+.koma-feed-role--tl .koma-feed-role__icon {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+}
+.koma-feed-role--pr .koma-feed-role__gradient {
+  background: linear-gradient(135deg, #22c55e, #10b981);
+}
+.koma-feed-role--pr .koma-feed-role__icon {
+  background: linear-gradient(135deg, #22c55e, #10b981);
+}
+.koma-feed-role--ts .koma-feed-role__gradient {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+.koma-feed-role--ts .koma-feed-role__icon {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+.koma-feed-role--qc .koma-feed-role__gradient {
+  background: linear-gradient(135deg, #eab308, #f97316);
+}
+.koma-feed-role--qc .koma-feed-role__icon {
+  background: linear-gradient(135deg, #eab308, #f97316);
+}
+
+/* ── 15. Social Cards ──────────────────────────────────── */
+.koma-feed-socials {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.koma-feed-social {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-feed-social:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.koma-feed-social__gradient {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.koma-feed-social:hover .koma-feed-social__gradient {
+  opacity: 0.12;
+}
+
+.koma-feed-social__icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.koma-feed-social__info {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.koma-feed-social__platform {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--auth-text);
+}
+
+.koma-feed-social__value {
+  font-size: 11px;
+  color: var(--auth-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.koma-feed-social__remove {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  background: rgba(244, 63, 94, 0.08);
+  color: rgba(244, 63, 94, 0.6);
+  cursor: pointer;
+  opacity: 0;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.koma-feed-social:hover .koma-feed-social__remove {
+  opacity: 1;
+}
+
+.koma-feed-social__remove:hover {
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--auth-rose);
+}
+
+.koma-feed-social__remove:focus-visible {
+  outline: 2px solid var(--auth-rose);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+/* Platform gradients */
+.koma-feed-social--discord .koma-feed-social__gradient {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+.koma-feed-social--discord .koma-feed-social__icon {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+.koma-feed-social--twitter_x .koma-feed-social__gradient {
+  background: linear-gradient(135deg, #64748b, #334155);
+}
+.koma-feed-social--twitter_x .koma-feed-social__icon {
+  background: linear-gradient(135deg, #64748b, #334155);
+}
+.koma-feed-social--telegram .koma-feed-social__gradient {
+  background: linear-gradient(135deg, #38bdf8, #2563eb);
+}
+.koma-feed-social--telegram .koma-feed-social__icon {
+  background: linear-gradient(135deg, #38bdf8, #2563eb);
+}
+.koma-feed-social--email .koma-feed-social__gradient {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+}
+.koma-feed-social--email .koma-feed-social__icon {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+}
+.koma-feed-social--whatsapp .koma-feed-social__gradient {
+  background: linear-gradient(135deg, #22c55e, #10b981);
+}
+.koma-feed-social--whatsapp .koma-feed-social__icon {
+  background: linear-gradient(135deg, #22c55e, #10b981);
+}
+.koma-feed-social--instagram .koma-feed-social__gradient {
+  background: linear-gradient(135deg, #ec4899, #f43f5e);
+}
+.koma-feed-social--instagram .koma-feed-social__icon {
+  background: linear-gradient(135deg, #ec4899, #f43f5e);
+}
+
+/* ── 16. Inline form (add role / social) ───────────────── */
+.koma-feed-inline {
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(10px);
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.koma-feed-inline__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.koma-feed-inline__error {
+  font-size: 12px;
+  color: var(--auth-rose);
+}
+
+.koma-feed-inline__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── 17. Add Button ────────────────────────────────────── */
+.koma-feed-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.015);
+  color: var(--auth-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--auth-font-heading);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-feed-add:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(168, 85, 247, 0.2);
+  color: var(--auth-text);
+}
+
+.koma-feed-add:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+.koma-feed-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.koma-feed-add__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(
+    135deg,
+    var(--auth-purple),
+    rgba(6, 182, 212, 0.7)
+  );
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* ── 18. Media Upload ──────────────────────────────────── */
+.koma-feed-upload__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--auth-text-muted);
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  font-family: var(--auth-font-heading);
+}
+
+.koma-feed-upload__btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--auth-text);
+}
+
+.koma-feed-upload__btn:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+.koma-feed-media {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.koma-feed-media__item {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+
+.koma-feed-media__img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.koma-feed-media__name {
+  padding: 5px 8px;
+  font-size: 10px;
+  color: var(--auth-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 19. Buttons ───────────────────────────────────────── */
+.koma-feed-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--auth-font-heading);
+  font-weight: 600;
+  font-size: 13px;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 22px;
+  cursor: pointer;
+  transition:
+    filter 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.koma-feed-btn:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+.koma-feed-btn--primary {
+  background: linear-gradient(135deg, #9333ea, var(--auth-purple) 55%, #7c3aed);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(168, 85, 247, 0.2);
+}
+
+.koma-feed-btn--primary:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 36px rgba(168, 85, 247, 0.28);
+}
+
+.koma-feed-btn--primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.12),
+    transparent
+  );
+  transition: left 0.55s ease;
+}
+
+.koma-feed-btn--primary:hover::after {
+  left: 100%;
+}
+
+.koma-feed-btn--ghost {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--auth-text-muted);
+}
+
+.koma-feed-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--auth-text);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.koma-feed-btn--confirm {
+  background: linear-gradient(
+    135deg,
+    #059669,
+    var(--auth-emerald) 50%,
+    #34d399
+  );
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.18);
+}
+
+.koma-feed-btn--confirm:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.koma-feed-btn--sm {
+  padding: 7px 13px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+
+.koma-feed-btn--full {
+  width: 100%;
+}
+
+.koma-feed-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(186, 199, 247, 0.65);
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.koma-feed-iconbtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--auth-text);
+}
+
+.koma-feed-iconbtn:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+/* ── 20. Post Cards ────────────────────────────────────── */
+.koma-feed-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.koma-feed-post {
+  border-radius: 20px;
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(16px) saturate(1.3);
+  overflow: hidden;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.koma-feed-post:hover {
+  border-color: rgba(168, 85, 247, 0.15);
+  box-shadow:
+    0 16px 44px rgba(0, 0, 0, 0.3),
+    0 0 30px rgba(168, 85, 247, 0.04);
+}
+
+.koma-feed-post__accent {
+  height: 3px;
+  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
+}
+
+.koma-feed-post__accent--showcase {
+  background: linear-gradient(90deg, var(--auth-cyan), var(--auth-emerald));
+}
+
+.koma-feed-post__inner {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.koma-feed-post__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.koma-feed-post__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.2),
+    rgba(6, 182, 212, 0.15)
+  );
+  color: var(--auth-purple);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--auth-font-heading);
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.koma-feed-post__header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.koma-feed-post__author {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--auth-text);
+}
+
+.koma-feed-post__date {
+  font-size: 11px;
+  color: var(--auth-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.koma-feed-post__title {
+  font-family: var(--auth-font-heading);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--auth-text);
+  line-height: 1.3;
+}
+
+.koma-feed-post__summary {
+  font-size: 13px;
+  color: var(--auth-text-muted);
+  line-height: 1.55;
+}
+
+.koma-feed-post__body {
+  font-size: 13px;
+  color: rgba(186, 199, 247, 0.65);
+  line-height: 1.6;
+}
+
+.koma-feed-post__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(120, 53, 15, 0.1);
+  color: #fde68a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.koma-feed-post__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.koma-feed-post__role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.08);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--auth-font-heading);
+}
+
+.koma-feed-post__role-pay {
+  font-size: 10px;
+  color: var(--auth-emerald);
+  font-weight: 500;
+}
+
+.koma-feed-post__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ── 21. Pills ─────────────────────────────────────────── */
+.koma-feed-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--auth-font-heading);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  white-space: nowrap;
+}
+
+.koma-feed-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.koma-feed-pill:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+.koma-feed-pill--active {
+  border-color: rgba(168, 85, 247, 0.35);
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--auth-purple);
+}
+
+.koma-feed-pill--type {
+  cursor: default;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+}
+
+.koma-feed-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── 22. Sidebar Cards ─────────────────────────────────── */
+.koma-feed-sidebar-card {
+  border-radius: 20px;
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(18px) saturate(1.3);
+  padding: 20px;
+  box-shadow:
+    0 14px 44px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.koma-feed-sidebar-card__title {
+  font-family: var(--auth-font-heading);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--auth-text);
+  margin-bottom: 14px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.koma-feed-sidebar-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.koma-feed-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.koma-feed-check__input {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(168, 85, 247, 0.3);
+  background: var(--auth-input-bg);
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.koma-feed-check__input:checked {
+  background: var(--auth-purple);
+  border-color: var(--auth-purple);
+}
+
+.koma-feed-check__input:focus-visible {
+  outline: 2px solid var(--auth-purple);
+  outline-offset: 2px;
+}
+
+.koma-feed-check__label {
+  font-size: 12px;
+  color: var(--auth-text-muted);
+  line-height: 1.5;
+}
+
+.koma-feed-side-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--auth-text-muted);
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-feed-side-meta strong {
+  color: var(--auth-text);
+  font-weight: 600;
+}
+
+/* ── 23. Sidebar Lists ─────────────────────────────────── */
+.koma-feed-side-heading {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--auth-font-heading);
+  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.koma-feed-side-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.koma-feed-side-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: background 0.2s ease;
+}
+
+.koma-feed-side-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.koma-feed-side-item__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--auth-text);
+}
+
+.koma-feed-side-item__sub {
+  font-size: 11px;
+  color: var(--auth-text-muted);
+}
+
+.koma-feed-side-item__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.koma-feed-side-empty {
+  font-size: 12px;
+  color: var(--auth-text-muted);
+  padding: 4px 0;
+}
+
+/* ── 24. Modals ────────────────────────────────────────── */
+.koma-feed-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.koma-feed-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 8, 16, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.koma-feed-modal-panel {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid rgba(168, 85, 247, 0.12);
+  background: rgba(10, 12, 24, 0.96);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    0 40px 100px rgba(0, 0, 0, 0.7),
+    0 0 60px rgba(168, 85, 247, 0.06);
+  animation: kfeed-modal-in 0.25s ease forwards;
+}
+
+.koma-feed-modal-panel--lg {
+  max-width: 720px;
+}
+
+.koma-feed-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.koma-feed-modal-header__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.2),
+    rgba(6, 182, 212, 0.12)
+  );
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+.koma-feed-modal-header__title {
+  flex: 1;
+  font-family: var(--auth-font-heading);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--auth-text);
+}
+
+.koma-feed-modal-scroll {
+  overflow-y: auto;
+  max-height: calc(85vh - 72px);
+  overscroll-behavior: contain;
+}
+
+.koma-feed-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Composer sections inside modal */
+.koma-feed-csection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.koma-feed-csection + .koma-feed-csection {
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-feed-csection__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.koma-feed-csection__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.15),
+    rgba(6, 182, 212, 0.08)
+  );
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+.koma-feed-csection__label {
+  font-family: var(--auth-font-heading);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--auth-text);
+}
+
+.koma-feed-csection__sub {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--auth-text-muted);
+  margin-left: 4px;
+}
+
+.koma-feed-csection__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.koma-feed-csection__row--single {
+  grid-template-columns: 1fr;
+}
+
+/* Sticky footer inside modal scroll */
+.koma-feed-modal-footer {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    rgba(10, 12, 24, 0.98) 60%,
+    rgba(10, 12, 24, 0.6) 85%,
+    transparent
+  );
+  padding: 18px 24px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ── 25. Empty State ───────────────────────────────────── */
+.koma-feed-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 56px 24px;
+  gap: 14px;
+}
+
+.koma-feed-empty__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.12),
+    rgba(6, 182, 212, 0.08)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--auth-purple);
+  margin-bottom: 4px;
+}
+
+.koma-feed-empty__title {
+  font-family: var(--auth-font-heading);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--auth-text);
+}
+
+.koma-feed-empty__desc {
+  font-size: 13px;
+  color: var(--auth-text-muted);
+  max-width: 340px;
+  line-height: 1.5;
+}
+
+/* ── 26. FAB (mobile create button) ────────────────────── */
+.koma-feed-fab {
+  display: none;
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 40;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, #9333ea, var(--auth-purple) 55%, #7c3aed);
+  color: #fff;
+  box-shadow: 0 12px 36px rgba(168, 85, 247, 0.35);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.koma-feed-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 44px rgba(168, 85, 247, 0.45);
+}
+
+.koma-feed-fab:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+/* ── 27. Loading ───────────────────────────────────────── */
+.koma-feed-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 56px 24px;
+  color: var(--auth-text-muted);
+  font-size: 14px;
+}
+
+.koma-feed-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--auth-purple);
+  border-radius: 50%;
+  animation: kfeed-spin 0.7s linear infinite;
+}
+
+/* ── 28. Animations ────────────────────────────────────── */
+@keyframes kfeed-orb-1 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(-60px, 40px) scale(1.1);
+  }
+}
+
+@keyframes kfeed-orb-2 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(50px, -30px) scale(1.05);
+  }
+}
+
+@keyframes kfeed-orb-3 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(-40px, -50px) scale(0.95);
+  }
+}
+
+@keyframes kfeed-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes kfeed-card-breathe {
+  from {
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.4),
+      0 0 50px rgba(168, 85, 247, 0.02);
+  }
+  to {
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.4),
+      0 0 50px rgba(168, 85, 247, 0.06);
+  }
+}
+
+@keyframes kfeed-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes kfeed-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes kfeed-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── 29. Responsive ────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .koma-feed__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-feed__sidebar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+  }
+}
+
+@media (max-width: 860px) {
+  .koma-feed__content {
+    padding: 0 18px;
+  }
+
+  .koma-feed__hero {
+    padding: 28px 0 20px;
+  }
+
+  .koma-feed__title {
+    font-size: 22px;
+  }
+
+  .koma-feed__toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .koma-feed__tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .koma-feed__toolbar-right {
+    justify-content: flex-end;
+  }
+
+  .koma-feed-card {
+    padding: 20px;
+  }
+
+  .koma-feed-csection__row {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-feed-inline__row {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-feed-post__inner {
+    padding: 18px;
+  }
+
+  .koma-feed-modal-panel--lg {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .koma-feed__toolbar-right .koma-feed-btn {
+    display: none;
+  }
+
+  .koma-feed-fab {
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .koma-feed__content {
+    padding: 0 14px;
+  }
+
+  .koma-feed__title {
+    font-size: 19px;
+  }
+
+  .koma-feed__subtitle {
+    font-size: 13px;
+  }
+
+  .koma-feed-card {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .koma-feed-sidebar-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .koma-feed-btn {
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .koma-feed-toggle {
+    gap: 10px;
+    padding: 11px;
+  }
+
+  .koma-feed-toggle__icon-wrap {
+    width: 34px;
+    height: 34px;
+  }
+
+  .koma-feed-role,
+  .koma-feed-social {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .koma-feed-role__icon,
+  .koma-feed-social__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .koma-feed-post__avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+    border-radius: 9px;
+  }
+
+  .koma-feed__sfx {
+    display: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+
+  /* ── Decorative Background ── */
+  .koma-feed__orb--purple {
+    background: rgba(168, 85, 247, 0.09);
+  }
+
+  .koma-feed__orb--cyan {
+    background: rgba(6, 182, 212, 0.06);
+  }
+
+  .koma-feed__orb--rose {
+    background: rgba(244, 63, 94, 0.035);
+  }
+
+  .koma-feed__halftone {
+    background-image: radial-gradient(
+      rgba(0, 0, 0, 0.018) 1px,
+      transparent 1px
+    );
+  }
+
+  .koma-feed__sfx--1 {
+    color: rgba(168, 85, 247, 0.04);
+  }
+
+  .koma-feed__sfx--2 {
+    color: rgba(6, 182, 212, 0.035);
+  }
+
+  .koma-feed__sfx--3 {
+    color: rgba(244, 63, 94, 0.03);
+  }
+
+  /* ── Hero ── */
+  .koma-feed__back:hover {
+    color: #0f172a;
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .koma-feed__title {
+    background: linear-gradient(
+      135deg,
+      #0f172a 0%,
+      rgba(168, 85, 247, 0.9) 60%,
+      var(--auth-cyan) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Toolbar ── */
+  .koma-feed__tabs {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .koma-feed__tab:hover {
+    color: #1e293b;
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .koma-feed__tab--active {
+    color: #0f172a;
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.12),
+      rgba(6, 182, 212, 0.08)
+    );
+    box-shadow:
+      0 4px 16px rgba(168, 85, 247, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  /* ── Alerts ── */
+  .koma-feed-alert--warning {
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: rgba(254, 243, 199, 0.6);
+    color: #92400e;
+  }
+
+  .koma-feed-alert--info {
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    background: rgba(207, 250, 254, 0.5);
+    color: #155e75;
+  }
+
+  /* ── Toasts ── */
+  .koma-feed-toast--success {
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: rgba(209, 250, 229, 0.7);
+    color: #065f46;
+  }
+
+  .koma-feed-toast--error {
+    border: 1px solid rgba(244, 63, 94, 0.3);
+    background: rgba(254, 226, 226, 0.7);
+    color: #9f1239;
+  }
+
+  /* ── Glass Card ── */
+  .koma-feed-card {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .koma-feed-card__header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-feed-card__header-icon {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.12),
+      rgba(6, 182, 212, 0.08)
+    );
+  }
+
+  .koma-feed-card__count {
+    background: rgba(168, 85, 247, 0.1);
+  }
+
+  /* ── Form Fields ── */
+  .koma-feed-field__select option {
+    background: #ffffff;
+  }
+
+  .koma-feed-field__input::placeholder,
+  .koma-feed-field__textarea::placeholder {
+    color: rgba(100, 116, 139, 0.5);
+  }
+
+  .koma-feed-field__char-count {
+    color: rgba(100, 116, 139, 0.5);
+  }
+
+  /* ── Toggle Switch ── */
+  .koma-feed-toggle {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  .koma-feed-toggle:hover {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.12);
+  }
+
+  .koma-feed-toggle--active {
+    border-color: rgba(168, 85, 247, 0.25);
+    background: rgba(168, 85, 247, 0.04);
+  }
+
+  .koma-feed-toggle__icon-wrap {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-feed-toggle__title {
+    color: #475569;
+  }
+
+  .koma-feed-toggle--active .koma-feed-toggle__title {
+    color: #0f172a;
+  }
+
+  .koma-feed-toggle__track {
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  /* ── Requirement Chips ── */
+  .koma-feed-req {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .koma-feed-req:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.12);
+  }
+
+  .koma-feed-req--active {
+    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.06);
+  }
+
+  /* ── Availability ── */
+  .koma-feed-avail {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-feed-weekday {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .koma-feed-weekday:hover {
+    background: rgba(0, 0, 0, 0.08);
+  }
+
+  /* ── Role Cards ── */
+  .koma-feed-role {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  .koma-feed-role:hover {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.12);
+  }
+
+  .koma-feed-role__short {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-feed-role__remove {
+    border: 1px solid rgba(244, 63, 94, 0.25);
+    background: rgba(244, 63, 94, 0.06);
+  }
+
+  .koma-feed-role__remove:hover {
+    background: rgba(244, 63, 94, 0.12);
+  }
+
+  /* ── Social Cards ── */
+  .koma-feed-social {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  .koma-feed-social:hover {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.12);
+  }
+
+  .koma-feed-social__remove {
+    border: 1px solid rgba(244, 63, 94, 0.25);
+    background: rgba(244, 63, 94, 0.06);
+  }
+
+  .koma-feed-social__remove:hover {
+    background: rgba(244, 63, 94, 0.12);
+  }
+
+  /* ── Inline Form ── */
+  .koma-feed-inline {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  /* ── Add Button ── */
+  .koma-feed-add {
+    border: 1px dashed rgba(0, 0, 0, 0.15);
+    background: rgba(0, 0, 0, 0.01);
+  }
+
+  .koma-feed-add:hover {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(168, 85, 247, 0.25);
+  }
+
+  /* ── Media Upload ── */
+  .koma-feed-upload__btn {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .koma-feed-upload__btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.15);
+  }
+
+  .koma-feed-media__item {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  /* ── Buttons ── */
+  .koma-feed-btn--ghost {
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .koma-feed-btn--ghost:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.15);
+  }
+
+  .koma-feed-iconbtn {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.02);
+    color: #64748b;
+  }
+
+  .koma-feed-iconbtn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #0f172a;
+  }
+
+  /* ── Post Cards ── */
+  .koma-feed-post {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .koma-feed-post:hover {
+    border-color: rgba(168, 85, 247, 0.18);
+    box-shadow:
+      0 16px 44px rgba(0, 0, 0, 0.06),
+      0 0 30px rgba(168, 85, 247, 0.03);
+  }
+
+  .koma-feed-post__avatar {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.12),
+      rgba(6, 182, 212, 0.08)
+    );
+  }
+
+  .koma-feed-post__body {
+    color: #475569;
+  }
+
+  .koma-feed-post__warning {
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: rgba(254, 243, 199, 0.6);
+    color: #92400e;
+  }
+
+  .koma-feed-post__role-chip {
+    border: 1px solid rgba(168, 85, 247, 0.2);
+    background: rgba(168, 85, 247, 0.06);
+    color: #6d28d9;
+  }
+
+  .koma-feed-post__actions {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── Pills ── */
+  .koma-feed-pill {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .koma-feed-pill:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-feed-pill--active {
+    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.08);
+  }
+
+  /* ── Sidebar Cards ── */
+  .koma-feed-sidebar-card {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 14px 44px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .koma-feed-sidebar-card__title {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-feed-side-meta {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── Sidebar Lists ── */
+  .koma-feed-side-item {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  .koma-feed-side-item:hover {
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  /* ── Modals ── */
+  .koma-feed-modal-backdrop {
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  .koma-feed-modal-panel {
+    border: 1px solid rgba(168, 85, 247, 0.15);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow:
+      0 40px 100px rgba(0, 0, 0, 0.12),
+      0 0 60px rgba(168, 85, 247, 0.04);
+  }
+
+  .koma-feed-modal-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-feed-modal-header__icon {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.12),
+      rgba(6, 182, 212, 0.08)
+    );
+  }
+
+  /* Composer sections inside modal */
+  .koma-feed-csection + .koma-feed-csection {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-feed-csection__icon {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.1),
+      rgba(6, 182, 212, 0.06)
+    );
+  }
+
+  /* Sticky footer inside modal */
+  .koma-feed-modal-footer {
+    background: linear-gradient(
+      to top,
+      rgba(255, 255, 255, 0.98) 60%,
+      rgba(255, 255, 255, 0.6) 85%,
+      transparent
+    );
+  }
+
+  /* ── Empty State ── */
+  .koma-feed-empty__icon {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.08),
+      rgba(6, 182, 212, 0.05)
+    );
+  }
+
+  /* ── Loading ── */
+  .koma-feed-spinner {
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--auth-purple);
+  }
+
+  .koma-feed__halftone {
+    background-image: radial-gradient(
+      rgba(15, 23, 42, 0.035) 1px,
+      transparent 1px
+    );
+  }
+
+  .koma-feed__back {
+    color: rgba(51, 65, 85, 0.72);
+    background: rgba(255, 255, 255, 0.76);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-feed__back:hover {
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .koma-feed__title {
+    background: linear-gradient(
+      135deg,
+      #0f172a 0%,
+      #6d28d9 58%,
+      #0891b2 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .koma-feed__tabs {
+    border-color: rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.74);
+  }
+
+  .koma-feed__tab:hover {
+    color: #0f172a;
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .koma-feed__tab--active {
+    color: #0f172a;
+    box-shadow:
+      0 4px 16px rgba(168, 85, 247, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+
+  .koma-feed-fab {
+    background: linear-gradient(135deg, #7c3aed, #8b5cf6 55%, #7c3aed);
+    color: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 12px 28px rgba(147, 51, 234, 0.22);
+  }
+
+  .koma-feed-fab:hover {
+    box-shadow: 0 16px 36px rgba(147, 51, 234, 0.28);
+  }
+
+  .koma-feed-fab:focus-visible {
+    outline-color: rgba(15, 23, 42, 0.22);
+  }
+
+  /* ── Animations (reduced dark shadows) ── */
+  @keyframes kfeed-card-breathe {
+    from {
+      box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.06),
+        0 0 50px rgba(168, 85, 247, 0.01);
+    }
+    to {
+      box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.06),
+        0 0 50px rgba(168, 85, 247, 0.04);
+    }
+  }
+}

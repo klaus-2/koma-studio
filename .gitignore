@@ -1,0 +1,100 @@
+# ── Secrets / environment ─────────────────────────────────
+.env
+.env.*
+!*.env.example
+!*.example
+
+# ── Dependencies ──────────────────────────────────────────
+node_modules/
+
+# ── Package manager: only bun.lock at the root ─────────────
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# ── Build artifacts / caches ──────────────────────────────
+dist/
+dist-electron/
+dist-ssr/
+release/
+release-desktop/
+out/
+.next/
+target/
+*.tsbuildinfo
+coverage/
+.turbo/
+.build-cache/
+.bun-cache/
+*.local
+vite.config.mts.timestamp-*
+
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.venv-*/
+.venv-mini*/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.cache/
+**/mini-backend-hardened*/
+**/mini-backend/**/*.pyd
+**/mini-backend/**/*.so
+**/mini-backend/**/_cython_setup.py
+chroma_db/
+
+# ── Hardening artifacts ───────────────────────────────────
+*.bspatch
+*.vcdiff
+manifest.signed.json
+.pyarmor
+.pyarmor-obf
+_pyarmor_obfuscated
+
+# ── Test artifacts ────────────────────────────────────────
+test-results/
+playwright-report/
+tests/e2e/.artifacts/
+tests/e2e/probe-out/
+
+# ── Logs ──────────────────────────────────────────────────
+logs/
+*.log
+
+# ── AI/dev tooling (not published) ───────────────────────
+.agents/
+.claude/
+.codex/
+.commandcode/
+.cursor/
+.kilocode/
+.openclaude/
+.playwright-mcp/
+.qwen/
+.opencode/
+.windsurf/
+.zcode/
+graphify-out/
+
+# ── Local working reports (not published) ────────────────
+PRE-RELEASE-AUDIT.md
+RELEASE-EXECUTION-REPORT.md
+
+# ── OS / editor ───────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.bak
+*.tmp
+*.orig
+*.suo
+*.sw?
+.zcode-e2e/

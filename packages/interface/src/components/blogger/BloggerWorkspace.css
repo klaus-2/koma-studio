@@ -1,0 +1,881 @@
+/* ================================================================
+   Blogger Workspace — KOMA Design System
+   Manhwa Glass UI · Publishing Utility
+   ================================================================ */
+
+/* ── Root Container ───────────────────────────────────────────── */
+.koma-blogger {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── Hero Bar ─────────────────────────────────────────────────── */
+.koma-blogger__hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid rgba(168, 85, 247, 0.08);
+  background: rgba(10, 12, 24, 0.92);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.koma-blogger__hero-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.koma-blogger__eyebrow {
+  font-family: var(--auth-font-heading);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(168, 85, 247, 0.35);
+}
+
+.koma-blogger__title {
+  margin: 0;
+  font-family: var(--auth-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--auth-text);
+  line-height: 1.3;
+}
+
+.koma-blogger__desc {
+  margin: 0;
+  font-family: var(--auth-font-body);
+  font-size: 11px;
+  color: var(--auth-text-muted);
+  line-height: 1.4;
+}
+
+/* Status dot */
+.koma-blogger__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--auth-font-body);
+  font-size: 11px;
+  color: var(--auth-text-muted);
+}
+
+.koma-blogger__status--ready {
+  background: rgba(16, 185, 129, 0.08);
+  color: #86efac;
+}
+
+.koma-blogger__statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.koma-blogger__status--ready .koma-blogger__statusDot {
+  background: var(--auth-emerald);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────── */
+.koma-blogger__tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  overflow-x: auto;
+}
+
+.koma-blogger__tab {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.koma-blogger__tab:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text);
+}
+
+.koma-blogger__tab:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+.koma-blogger__tab--active {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.14),
+    rgba(6, 182, 212, 0.08)
+  );
+  color: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 3px 12px rgba(168, 85, 247, 0.08);
+}
+
+.koma-blogger__tab--ghost {
+  color: var(--auth-text-muted);
+  opacity: 0.7;
+}
+
+.koma-blogger__tab--ghost:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ── Surface Card ─────────────────────────────────────────────── */
+.koma-blogger__surface {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+}
+
+.koma-blogger__surface--editor {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Section header */
+.koma-blogger__sectionHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  margin-bottom: 6px;
+}
+
+.koma-blogger__sectionHead h3 {
+  margin: 0;
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--auth-text);
+  letter-spacing: 0.02em;
+}
+
+.koma-blogger__sectionHead p {
+  margin: 2px 0 0;
+  font-family: var(--auth-font-body);
+  font-size: 10.5px;
+  color: var(--auth-text-muted);
+}
+
+/* ── Field Grids & Inputs ─────────────────────────────────────── */
+.koma-blogger__fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.koma-blogger__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.koma-blogger__label {
+  font-family: var(--auth-font-heading);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(186, 199, 247, 0.4);
+}
+
+.koma-blogger__input {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(6, 8, 18, 0.65);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  font-size: 12px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.koma-blogger__input:focus {
+  border-color: rgba(168, 85, 247, 0.35);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.08);
+  outline: none;
+}
+
+.koma-blogger__input::placeholder {
+  color: var(--auth-text-muted);
+}
+
+/* Chips row */
+.koma-blogger__chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.koma-blogger__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* ── Segmented View Control (Visual/HTML/Preview) ─────────────── */
+.koma-blogger__seg {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.koma-blogger__segBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-blogger__segBtn:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text);
+}
+
+.koma-blogger__segBtn--active {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.16),
+    rgba(6, 182, 212, 0.1)
+  );
+  color: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.1);
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────── */
+.koma-blogger__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  overflow-x: auto;
+}
+
+.koma-blogger__toolbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--auth-text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.koma-blogger__toolbtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text);
+}
+
+.koma-blogger__toolbtn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+.koma-blogger__toolbtn--active {
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--auth-purple);
+}
+
+.koma-blogger__insertBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(168, 85, 247, 0.08);
+  color: var(--auth-purple);
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+  margin-left: 6px;
+}
+
+.koma-blogger__insertBtn:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.14);
+  color: var(--auth-purple);
+}
+
+/* Editor surface */
+.koma-blogger__editor {
+  min-height: 280px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 12px;
+  background: rgba(6, 8, 18, 0.4);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.koma-blogger__editor-surface {
+  outline: none;
+  font-family: var(--auth-font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--auth-text);
+}
+
+.koma-blogger__textarea {
+  width: 100%;
+  min-height: 280px;
+  max-height: 420px;
+  resize: vertical;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(6, 8, 18, 0.4);
+  color: var(--auth-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.koma-blogger__preview {
+  width: 100%;
+  min-height: 280px;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
+}
+
+/* ── Toggle Cards ─────────────────────────────────────────────── */
+.koma-blogger__optionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.koma-blogger__toggleCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.01);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-blogger__toggleCard:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.koma-blogger__toggleCard input[type='checkbox'] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(168, 85, 247, 0.25);
+  background: var(--auth-input-bg);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.koma-blogger__toggleCard input:checked {
+  background: var(--auth-purple);
+  border-color: var(--auth-purple);
+}
+
+.koma-blogger__toggleCard strong {
+  display: block;
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-blogger__toggleCard p {
+  margin: 2px 0 0;
+  font-family: var(--auth-font-body);
+  font-size: 10px;
+  color: var(--auth-text-muted);
+  line-height: 1.3;
+}
+
+/* ── Dropzone ─────────────────────────────────────────────────── */
+.koma-blogger__dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  border-radius: 12px;
+  border: 2px dashed rgba(168, 85, 247, 0.15);
+  background: rgba(168, 85, 247, 0.02);
+  color: rgba(186, 199, 247, 0.4);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  text-align: center;
+}
+
+.koma-blogger__dropzone:hover {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.05);
+  color: var(--auth-text);
+}
+
+.koma-blogger__dropzone svg {
+  color: rgba(168, 85, 247, 0.3);
+}
+
+/* ── Item List ────────────────────────────────────────────────── */
+.koma-blogger__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.koma-blogger__item {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.01);
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-blogger__item:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.koma-blogger__thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.koma-blogger__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-blogger__metaTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.koma-blogger__metaTop strong {
+  font-family: var(--auth-font-heading);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--auth-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.koma-blogger__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: var(--auth-font-heading);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.koma-blogger__badge--queued {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text-muted);
+}
+.koma-blogger__badge--processing {
+  background: rgba(168, 85, 247, 0.12);
+  color: #c4b5fd;
+}
+.koma-blogger__badge--uploaded {
+  background: rgba(16, 185, 129, 0.12);
+  color: #86efac;
+}
+.koma-blogger__badge--error {
+  background: rgba(244, 63, 94, 0.12);
+  color: #fda4af;
+}
+
+.koma-blogger__input--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+}
+
+.koma-blogger__resultGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.koma-blogger__resultField span {
+  font-family: var(--auth-font-heading);
+  font-size: 8.5px;
+  color: rgba(168, 85, 247, 0.35);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.koma-blogger__itemActions {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.koma-blogger__miniBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.koma-blogger__miniBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--auth-text);
+}
+
+.koma-blogger__miniBtn--danger:hover {
+  background: rgba(244, 63, 94, 0.06);
+  color: var(--auth-rose);
+  border-color: rgba(244, 63, 94, 0.12);
+}
+
+/* ── Alert Boxes ──────────────────────────────────────────────── */
+.koma-blogger__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-family: var(--auth-font-body);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.koma-blogger__alert--warn {
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  background: rgba(120, 53, 15, 0.08);
+  color: #fde68a;
+}
+
+.koma-blogger__alert--error {
+  border: 1px solid rgba(244, 63, 94, 0.15);
+  background: rgba(127, 29, 29, 0.08);
+  color: #fda4af;
+}
+
+.koma-blogger__alert--success {
+  border: 1px solid rgba(16, 185, 129, 0.12);
+  background: rgba(6, 78, 59, 0.08);
+  color: #86efac;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .koma-blogger__hero {
+    padding: 10px 12px;
+  }
+
+  .koma-blogger__optionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-blogger__toolbar {
+    flex-wrap: nowrap;
+  }
+}
+
+/* ================================================================
+   LIGHT MODE OVERRIDES
+   ================================================================ */
+[data-theme="light"] .koma-blogger__hero {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(168, 85, 247, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-blogger__eyebrow {
+  color: rgba(168, 85, 247, 0.55);
+}
+
+[data-theme="light"] .koma-blogger__status--ready {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+[data-theme="light"] .koma-blogger__tabs {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-blogger__tab:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .koma-blogger__tab--active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(6, 182, 212, 0.08));
+  color: #1e293b;
+  box-shadow: 0 3px 12px rgba(168, 85, 247, 0.1);
+}
+
+[data-theme="light"] .koma-blogger__tab--ghost:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .koma-blogger__surface {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .koma-blogger__sectionHead {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-blogger__label {
+  color: rgba(71, 85, 105, 0.65);
+}
+
+[data-theme="light"] .koma-blogger__input {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .koma-blogger__chip {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-blogger__seg {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-blogger__segBtn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .koma-blogger__segBtn--active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.14), rgba(6, 182, 212, 0.1));
+  color: #1e293b;
+}
+
+[data-theme="light"] .koma-blogger__toolbar {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-blogger__toolbtn {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-blogger__toolbtn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .koma-blogger__toolbtn--active {
+  background: rgba(168, 85, 247, 0.1);
+}
+
+[data-theme="light"] .koma-blogger__insertBtn {
+  border-color: rgba(168, 85, 247, 0.15);
+  background: rgba(168, 85, 247, 0.08);
+}
+
+[data-theme="light"] .koma-blogger__insertBtn:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.14);
+}
+
+[data-theme="light"] .koma-blogger__editor {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .koma-blogger__textarea {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(248, 250, 252, 0.8);
+}
+
+[data-theme="light"] .koma-blogger__toggleCard {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+[data-theme="light"] .koma-blogger__toggleCard:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .koma-blogger__dropzone {
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.03);
+  color: rgba(71, 85, 105, 0.6);
+}
+
+[data-theme="light"] .koma-blogger__dropzone:hover {
+  border-color: rgba(168, 85, 247, 0.35);
+  background: rgba(168, 85, 247, 0.06);
+}
+
+[data-theme="light"] .koma-blogger__item {
+  border-color: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+[data-theme="light"] .koma-blogger__item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .koma-blogger__thumb {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .koma-blogger__badge--queued {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .koma-blogger__badge--processing {
+  background: rgba(168, 85, 247, 0.1);
+  color: #7c3aed;
+}
+
+[data-theme="light"] .koma-blogger__badge--uploaded {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+[data-theme="light"] .koma-blogger__badge--error {
+  background: rgba(244, 63, 94, 0.1);
+  color: #e11d48;
+}
+
+[data-theme="light"] .koma-blogger__resultField span {
+  color: rgba(168, 85, 247, 0.55);
+}
+
+[data-theme="light"] .koma-blogger__miniBtn {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-blogger__miniBtn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .koma-blogger__miniBtn--danger:hover {
+  background: rgba(244, 63, 94, 0.08);
+  border-color: rgba(244, 63, 94, 0.15);
+}
+
+[data-theme="light"] .koma-blogger__alert--warn {
+  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.06);
+  color: #b45309;
+}
+
+[data-theme="light"] .koma-blogger__alert--error {
+  border-color: rgba(244, 63, 94, 0.2);
+  background: rgba(244, 63, 94, 0.06);
+  color: #e11d48;
+}
+
+[data-theme="light"] .koma-blogger__alert--success {
+  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.06);
+  color: #059669;
+}

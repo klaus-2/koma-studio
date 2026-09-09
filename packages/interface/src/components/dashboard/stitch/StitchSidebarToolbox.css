@@ -1,0 +1,310 @@
+/* ================================================================
+   Stitch Sidebar Toolbox — KOMA Design System
+   Manhwa Glass UI · Stitcher Config & Boundary Controls
+   ================================================================ */
+
+/* ── Root ─────────────────────────────────────────────────────── */
+.koma-stitch-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  /* ── Layout Toggle ────────────────────────────────────────────── */
+  .koma-stitch-layout-toggle {
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  
+  .koma-stitch-layout-toggle__btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 6px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--auth-text-muted);
+    font-family: var(--auth-font-heading);
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
+  }
+  
+  .koma-stitch-layout-toggle__btn:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--auth-text);
+  }
+  
+  .koma-stitch-layout-toggle__btn:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.45);
+    outline-offset: -1px;
+  }
+  
+  .koma-stitch-layout-toggle__btn--active {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.16),
+      rgba(6, 182, 212, 0.1)
+    );
+    color: rgba(255, 255, 255, 0.93);
+    box-shadow: 0 4px 14px rgba(168, 85, 247, 0.1);
+  }
+  
+  /* ── Alignment Strip ──────────────────────────────────────────── */
+  .koma-stitch-align {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.015);
+  }
+  
+  .koma-stitch-align__btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--auth-text-muted);
+    font-family: var(--auth-font-heading);
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  
+  .koma-stitch-align__btn:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--auth-text);
+  }
+  
+  .koma-stitch-align__btn:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.45);
+    outline-offset: -1px;
+  }
+  
+  .koma-stitch-align__btn--active {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.14),
+      rgba(6, 182, 212, 0.08)
+    );
+    color: var(--auth-purple);
+    box-shadow: 0 3px 12px rgba(168, 85, 247, 0.08);
+  }
+  
+  /* ── Output Row (color + format side by side) ─────────────────── */
+  .koma-stitch-output-row {
+    display: flex;
+    gap: 8px;
+    align-items: end;
+  }
+  
+  .koma-stitch-output-row .koma-field {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .koma-stitch-color-swatch {
+    width: 100%;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--auth-input-bg);
+    cursor: pointer;
+    padding: 2px;
+    transition: border-color 0.15s ease;
+  }
+  
+  .koma-stitch-color-swatch:hover {
+    border-color: rgba(168, 85, 247, 0.3);
+  }
+  
+  .koma-stitch-color-swatch:focus-visible {
+    outline: 2px solid rgba(168, 85, 247, 0.45);
+    outline-offset: -1px;
+  }
+  
+  /* ── Boundary Card ────────────────────────────────────────────── */
+  .koma-stitch-boundary {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(6, 8, 18, 0.35);
+  }
+  
+  .koma-stitch-boundary__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .koma-stitch-boundary__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: rgba(168, 85, 247, 0.1);
+    color: var(--auth-purple);
+    flex-shrink: 0;
+  }
+  
+  .koma-stitch-boundary__title {
+    font-family: var(--auth-font-heading);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(168, 85, 247, 0.5);
+  }
+  
+  .koma-stitch-boundary__status {
+    font-family: var(--auth-font-body);
+    font-size: 10.5px;
+    color: var(--auth-text-muted);
+    line-height: 1.4;
+    margin: 0;
+  }
+  
+  .koma-stitch-boundary__status strong {
+    color: var(--auth-text);
+    font-weight: 600;
+  }
+  
+  .koma-stitch-boundary__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .koma-stitch-boundary__actions .koma-btn {
+    font-size: 10.5px;
+    padding: 7px 10px;
+  }
+  
+  /* Warning inside boundary */
+  .koma-stitch-boundary__warn {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(245, 158, 11, 0.12);
+    background: rgba(120, 53, 15, 0.06);
+    font-family: var(--auth-font-body);
+    font-size: 10px;
+    color: #fde68a;
+    line-height: 1.35;
+  }
+  
+  .koma-stitch-boundary__warn-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  
+  /* ── Image Count Badge ────────────────────────────────────────── */
+  .koma-stitch-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(168, 85, 247, 0.12);
+    color: var(--auth-purple);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  
+  /* ── Info Note ────────────────────────────────────────────────── */
+  .koma-stitch-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(6, 182, 212, 0.1);
+    background: rgba(8, 51, 68, 0.08);
+    font-family: var(--auth-font-body);
+    font-size: 10.5px;
+    color: #67e8f9;
+    line-height: 1.4;
+  }
+  
+  .koma-stitch-info__icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  
+  /* ── Responsive ───────────────────────────────────────────────── */
+  @media (max-width: 1100px) {
+    .koma-stitch-output-row {
+      flex-direction: column;
+      gap: 6px;
+    }
+  }
+
+  /* ── Light Theme ─────────────────────────────────────────────────── */
+  [data-theme="light"] .koma-stitch-layout-toggle {
+    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  [data-theme="light"] .koma-stitch-layout-toggle__btn:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  [data-theme="light"] .koma-stitch-layout-toggle__btn--active {
+    color: rgba(15, 23, 42, 0.93);
+    box-shadow: 0 4px 14px rgba(168, 85, 247, 0.12);
+  }
+
+  [data-theme="light"] .koma-stitch-align {
+    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  [data-theme="light"] .koma-stitch-align__btn:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  [data-theme="light"] .koma-stitch-color-swatch {
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  [data-theme="light"] .koma-stitch-boundary {
+    border-color: rgba(0, 0, 0, 0.06);
+    background: rgba(241, 245, 249, 0.5);
+  }
+
+  [data-theme="light"] .koma-stitch-boundary__warn {
+    border-color: rgba(245, 158, 11, 0.2);
+    background: rgba(245, 158, 11, 0.06);
+    color: #92400e;
+  }
+
+  [data-theme="light"] .koma-stitch-info {
+    border-color: rgba(6, 182, 212, 0.15);
+    background: rgba(6, 182, 212, 0.05);
+    color: #0e7490;
+  }

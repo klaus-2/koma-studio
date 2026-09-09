@@ -1,0 +1,7 @@
+{
+  "servers": [
+    {
+      "url": "https://koma-studio.site/.well-known/mcp/server-card.json"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+-r requirements.txt
+torch>=2.5.0          # Replaces the CPU build
+torchvision>=0.20.0
+onnxruntime-gpu==1.22.0
+llama-cpp-python>=0.3.14

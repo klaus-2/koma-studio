@@ -1,0 +1,93 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report.
+
+        **Do not report security vulnerabilities here.** Use the process in
+        [SECURITY.md](../blob/main/SECURITY.md) instead.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, plus what you expected instead.
+      placeholder: |
+        When I run the AiO pipeline on a 20-page chapter, the OCR stage stops at page 7...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the app is affected?
+      options:
+        - Desktop shell (Tauri / Rust)
+        - Interface (React)
+        - Mini-backend (Python / FastAPI)
+        - Models & downloads
+        - Build / packaging
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Windows 11 23H2 / Ubuntu 24.04 / macOS 14.5"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: KŌMA Studio version
+      description: Found in Settings, or the commit SHA if you built from source.
+      placeholder: "2.0.0-alpha.0 (or commit abc1234)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Relevant log output or the mini-backend console. This is automatically
+        formatted as code, no backticks needed.
+
+        **Redact API keys, tokens and personal paths before pasting.**
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Screenshots, sample pages, hardware (GPU/VRAM), or other context.

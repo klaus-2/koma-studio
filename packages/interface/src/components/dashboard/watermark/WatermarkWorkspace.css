@@ -1,0 +1,990 @@
+/* ================================================================
+   Watermark Workspace — KOMA Design System
+   Manhwa Glass UI · Preview + Output
+   ================================================================ */
+
+/* ── Root Layout ──────────────────────────────────────────────── */
+.koma-wm-ws {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── Preview Panel ────────────────────────────────────────────── */
+.koma-wm-preview {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  min-height: 0;
+  position: relative;
+}
+
+/* Gradient accent line */
+.koma-wm-preview::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--auth-purple),
+    var(--auth-cyan),
+    var(--auth-purple)
+  );
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Preview header */
+.koma-wm-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.koma-wm-preview__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.koma-wm-preview__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-wm-preview__title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.14),
+    rgba(6, 182, 212, 0.08)
+  );
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+/* Compare mode toggle */
+.koma-wm-compare-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.015);
+  flex-shrink: 0;
+}
+
+.koma-wm-compare-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.koma-wm-compare-btn:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text);
+}
+
+.koma-wm-compare-btn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+.koma-wm-compare-btn--active {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.14),
+    rgba(6, 182, 212, 0.08)
+  );
+  color: rgba(255, 255, 255, 0.93);
+}
+
+/* ── Zoom Controls ───────────────────────────────────────────── */
+.koma-wm-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.015);
+  flex-shrink: 0;
+}
+
+.koma-wm-zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--auth-text-muted);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  padding: 0;
+}
+
+.koma-wm-zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text);
+}
+
+.koma-wm-zoom-btn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+.koma-wm-zoom-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--auth-text-muted);
+  min-width: 32px;
+  text-align: center;
+  user-select: none;
+}
+
+/* ── Thumbnail Rail ───────────────────────────────────────────── */
+.koma-wm-thumbs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: pan-x;
+}
+
+.koma-wm-thumbs::-webkit-scrollbar {
+  display: none;
+}
+
+.koma-wm-thumbs[data-drag-scrolling='true'] {
+  cursor: grabbing;
+}
+
+.koma-wm-thumb {
+  position: relative;
+  width: 44px;
+  height: 56px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: rgba(6, 8, 18, 0.5);
+  overflow: hidden;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.koma-wm-thumb:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.koma-wm-thumb:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.45);
+  outline-offset: 1px;
+}
+
+.koma-wm-thumb--active {
+  border-color: var(--auth-purple);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+}
+
+.koma-wm-thumb--detected {
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.15);
+}
+
+.koma-wm-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.koma-wm-thumb__num {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.6;
+}
+
+.koma-wm-thumb__detect-dot {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--auth-cyan);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 6px rgba(6, 182, 212, 0.4);
+}
+
+/* ── Compare Stage ────────────────────────────────────────────── */
+.koma-wm-stage {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  background:
+    radial-gradient(
+      circle at 25% 30%,
+      rgba(168, 85, 247, 0.03),
+      transparent 45%
+    ),
+    radial-gradient(circle at 75% 70%, rgba(6, 182, 212, 0.02), transparent 45%);
+}
+
+/* Halftone subtle */
+.koma-wm-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.008) 1px,
+    transparent 1px
+  );
+  background-size: 4px 4px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.koma-wm-stage__zoom-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.koma-wm-stage__compare-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.koma-wm-stage__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+  border-radius: 0;
+  display: block;
+}
+
+/* Compare overlay */
+.koma-wm-stage__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.koma-wm-stage__overlay img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Compare divider line */
+.koma-wm-stage__divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--auth-purple);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.koma-wm-stage__divider::before,
+.koma-wm-stage__divider::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--auth-purple);
+  border: 2px solid rgba(10, 12, 24, 0.8);
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+}
+
+.koma-wm-stage__divider::before {
+  top: 8px;
+}
+.koma-wm-stage__divider::after {
+  bottom: 8px;
+}
+
+/* Compare range slider (invisible, full-area) */
+.koma-wm-stage__range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: ew-resize;
+  z-index: 4;
+}
+
+/* Text zone overlay */
+.koma-wm-stage__text-zone-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.koma-wm-text-zone-rect {
+  fill: rgba(6, 182, 212, 0.12);
+  stroke: rgba(6, 182, 212, 0.5);
+  stroke-width: 2;
+  rx: 3;
+  ry: 3;
+  stroke-dasharray: 6 3;
+  animation: koma-wm-zone-pulse 2s ease-in-out infinite;
+}
+
+@keyframes koma-wm-zone-pulse {
+  0%, 100% { stroke-opacity: 0.5; }
+  50% { stroke-opacity: 1; }
+}
+
+/* Busy indicator */
+.koma-wm-stage__busy {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+
+/* File info bar (below compare) */
+.koma-wm-file-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+}
+
+.koma-wm-file-bar__name {
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auth-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.koma-wm-file-bar__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.koma-wm-file-bar__dims {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  color: var(--auth-text-muted);
+}
+
+.koma-wm-file-bar__anchor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: #c4b5fd;
+  flex-shrink: 0;
+}
+
+.koma-wm-file-bar__zones {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(6, 182, 212, 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: #67e8f9;
+  flex-shrink: 0;
+}
+
+/* ── Empty States ─────────────────────────────────────────────── */
+.koma-wm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.koma-wm-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.08),
+    rgba(6, 182, 212, 0.04)
+  );
+  border: 1px solid rgba(168, 85, 247, 0.06);
+  color: rgba(168, 85, 247, 0.3);
+}
+
+.koma-wm-empty__title {
+  margin: 0;
+  font-family: var(--auth-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-wm-empty__desc {
+  margin: 0;
+  font-family: var(--auth-font-body);
+  font-size: 11px;
+  color: var(--auth-text-muted);
+  line-height: 1.45;
+  max-width: 260px;
+}
+
+/* ── Output Panel ─────────────────────────────────────────────── */
+.koma-wm-output {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.koma-wm-output__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--auth-text);
+  flex-shrink: 0;
+}
+
+.koma-wm-output__head-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(168, 85, 247, 0.1);
+  color: var(--auth-purple);
+}
+
+/* Suggestion banner */
+.koma-wm-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 8px 12px;
+  margin: 0 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(6, 182, 212, 0.08);
+  background: rgba(8, 51, 68, 0.06);
+  font-family: var(--auth-font-body);
+  font-size: 10px;
+  color: #67e8f9;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.koma-wm-suggestion__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--auth-cyan);
+}
+
+/* Output actions */
+.koma-wm-output__actions {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+.koma-wm-output__actions .koma-btn {
+  flex: 1;
+  font-size: 10px;
+  padding: 6px 8px;
+  justify-content: center;
+}
+
+/* Result list */
+.koma-wm-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.08) transparent;
+}
+
+/* Result card */
+.koma-wm-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.01);
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.koma-wm-result:hover {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.koma-wm-result__thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.koma-wm-result__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.koma-wm-result__name {
+  font-family: var(--auth-font-heading);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--auth-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.koma-wm-result__anchor {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8.5px;
+  color: var(--auth-text-muted);
+}
+
+.koma-wm-result__dl {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--auth-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  flex-shrink: 0;
+}
+
+.koma-wm-result__dl:hover {
+  background: rgba(168, 85, 247, 0.08);
+  color: var(--auth-purple);
+  border-color: rgba(168, 85, 247, 0.12);
+}
+
+.koma-wm-result__dl:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.4);
+  outline-offset: -1px;
+}
+
+/* ── Text Avoidance Section (Toolbox) ─────────────────────────── */
+.koma-wm-avoidance-desc {
+  margin: 0;
+  font-family: var(--auth-font-body);
+  font-size: 10px;
+  color: var(--auth-text-muted);
+  line-height: 1.4;
+}
+
+.koma-wm-avoidance-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.koma-wm-avoidance-actions .koma-btn {
+  flex: 1;
+  font-size: 9px;
+  padding: 5px 6px;
+  justify-content: center;
+}
+
+.koma-wm-avoidance-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.koma-wm-avoidance-status__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(6, 182, 212, 0.08);
+  border: 1px solid rgba(6, 182, 212, 0.1);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: #67e8f9;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .koma-wm-ws {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .koma-wm-preview__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .koma-wm-preview__controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .koma-wm-thumbs {
+    padding: 6px 12px;
+  }
+
+  .koma-wm-thumb {
+    width: 36px;
+    height: 46px;
+  }
+}
+
+/* ================================================================
+   Light Mode Overrides
+   ================================================================ */
+[data-theme="light"] .koma-wm-ws {
+  color-scheme: light;
+}
+
+[data-theme="light"] .koma-wm-preview {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 20px 60px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .koma-wm-preview__head {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+}
+
+[data-theme="light"] .koma-wm-preview::before {
+  opacity: 0.5;
+}
+
+[data-theme="light"] .koma-wm-preview__controls,
+[data-theme="light"] .koma-wm-compare-toggle,
+[data-theme="light"] .koma-wm-zoom-controls {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: rgba(15, 23, 42, 0.03);
+}
+
+[data-theme="light"] .koma-wm-compare-btn,
+[data-theme="light"] .koma-wm-zoom-btn,
+[data-theme="light"] .koma-wm-zoom-label,
+[data-theme="light"] .koma-wm-file-bar__dims,
+[data-theme="light"] .koma-wm-result__anchor,
+[data-theme="light"] .koma-wm-avoidance-desc,
+[data-theme="light"] .koma-wm-empty__desc {
+  color: #64748b;
+}
+
+[data-theme="light"] .koma-wm-compare-btn:hover,
+[data-theme="light"] .koma-wm-zoom-btn:hover {
+  background: rgba(168, 85, 247, 0.07);
+  color: #0f172a;
+}
+
+[data-theme="light"] .koma-wm-compare-btn--active {
+  color: #0f172a;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.16), rgba(6, 182, 212, 0.08));
+}
+
+[data-theme="light"] .koma-wm-thumbs {
+  border-bottom-color: rgba(15, 23, 42, 0.07);
+}
+
+[data-theme="light"] .koma-wm-thumb {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="light"] .koma-wm-thumb:hover {
+  border-color: rgba(168, 85, 247, 0.18);
+}
+
+[data-theme="light"] .koma-wm-thumb--active {
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.16);
+}
+
+[data-theme="light"] .koma-wm-thumb--detected {
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.14);
+}
+
+[data-theme="light"] .koma-wm-thumb__num {
+  background: rgba(255, 255, 255, 0.85);
+  color: #0f172a;
+}
+
+[data-theme="light"] .koma-wm-thumb__detect-dot {
+  background: var(--auth-cyan);
+  box-shadow: 0 0 6px rgba(6, 182, 212, 0.32);
+}
+
+[data-theme="light"] .koma-wm-stage {
+  background:
+    radial-gradient(circle at 25% 30%, rgba(168, 85, 247, 0.06), transparent 45%),
+    radial-gradient(circle at 75% 70%, rgba(6, 182, 212, 0.04), transparent 45%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(241, 245, 249, 0.9));
+}
+
+[data-theme="light"] .koma-wm-stage::after {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+}
+
+[data-theme="light"] .koma-wm-stage__divider {
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.28);
+}
+
+[data-theme="light"] .koma-wm-stage__divider::before,
+[data-theme="light"] .koma-wm-stage__divider::after,
+[data-theme="light"] .koma-wm-stage__busy {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .koma-wm-stage__busy {
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .koma-wm-stage__text-zone-overlay {
+  opacity: 0.9;
+}
+
+[data-theme="light"] .koma-wm-text-zone-rect {
+  fill: rgba(6, 182, 212, 0.08);
+  stroke: rgba(6, 182, 212, 0.42);
+}
+
+[data-theme="light"] .koma-wm-file-bar {
+  border-top-color: rgba(15, 23, 42, 0.07);
+}
+
+[data-theme="light"] .koma-wm-file-bar__name,
+[data-theme="light"] .koma-wm-output__head,
+[data-theme="light"] .koma-wm-result__name,
+[data-theme="light"] .koma-wm-empty__title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .koma-wm-file-bar__anchor,
+[data-theme="light"] .koma-wm-file-bar__zones,
+[data-theme="light"] .koma-wm-avoidance-status__badge {
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.12);
+  color: #6d28d9;
+}
+
+[data-theme="light"] .koma-wm-file-bar__zones,
+[data-theme="light"] .koma-wm-avoidance-status__badge {
+  background: rgba(6, 182, 212, 0.08);
+  border-color: rgba(6, 182, 212, 0.12);
+  color: #0891b2;
+}
+
+[data-theme="light"] .koma-wm-output {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 16px 48px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .koma-wm-output__head {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+}
+
+[data-theme="light"] .koma-wm-output__head-icon,
+[data-theme="light"] .koma-wm-empty__icon,
+[data-theme="light"] .koma-wm-suggestion {
+  background: rgba(168, 85, 247, 0.07);
+  border-color: rgba(168, 85, 247, 0.1);
+}
+
+[data-theme="light"] .koma-wm-suggestion {
+  color: #0891b2;
+}
+
+[data-theme="light"] .koma-wm-suggestion__icon {
+  color: var(--auth-cyan);
+}
+
+[data-theme="light"] .koma-wm-results {
+  scrollbar-color: rgba(168, 85, 247, 0.16) transparent;
+}
+
+[data-theme="light"] .koma-wm-result {
+  border-color: rgba(15, 23, 42, 0.06);
+  background: rgba(15, 23, 42, 0.02);
+}
+
+[data-theme="light"] .koma-wm-result:hover {
+  border-color: rgba(168, 85, 247, 0.14);
+  background: rgba(168, 85, 247, 0.05);
+}
+
+[data-theme="light"] .koma-wm-result__thumb {
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .koma-wm-result__dl {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.8);
+  color: #64748b;
+}
+
+[data-theme="light"] .koma-wm-result__dl:hover {
+  background: rgba(168, 85, 247, 0.08);
+  color: #6d28d9;
+  border-color: rgba(168, 85, 247, 0.14);
+}
+
+[data-theme="light"] .koma-wm-empty__icon {
+  color: rgba(168, 85, 247, 0.45);
+}
+
+[data-theme="light"] .koma-wm-empty__desc,
+[data-theme="light"] .koma-wm-avoidance-desc {
+  color: #64748b;
+}
+
+[data-theme="light"] .koma-wm-avoidance-actions .koma-btn,
+[data-theme="light"] .koma-wm-output__actions .koma-btn {
+  box-shadow: none;
+}

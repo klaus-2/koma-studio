@@ -1,0 +1,233 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: "1.4.0"
+
+jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      electron: ${{ steps.filter.outputs.electron }}
+      tauri: ${{ steps.filter.outputs.tauri }}
+      auth: ${{ steps.filter.outputs.auth }}
+      landing: ${{ steps.filter.outputs.landing }}
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            interface:
+              - 'packages/interface/**'
+              - 'packages/types/**'
+              - 'packages/auth/**'
+              - 'packages/ui/**'
+            electron:
+              - 'apps/electron/electron/**'
+              - 'apps/electron/scripts/**'
+              - 'apps/electron/main.tsx'
+              - 'apps/electron/package.json'
+            tauri:
+              - 'apps/tauri/src-tauri/**'
+              - 'apps/tauri/scripts/**'
+              - 'apps/tauri/main.tsx'
+              - 'apps/tauri/package.json'
+            auth:
+              - 'apps/auth-server/**'
+            landing:
+              - 'apps/landing/**'
+            python:
+              - 'packages/mini-backend/**'
+
+  interface:
+    name: Interface (test · build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies (workspace root)
+        run: bun install --frozen-lockfile
+      - name: Tests (vitest)
+        run: bun run --filter @koma/interface test
+      - name: Build (vite)
+        run: bun run --filter @koma/interface exec vite build --mode production
+        working-directory: apps/tauri
+
+  electron:
+    name: Electron shell (typecheck · test · build)
+    needs: changes
+    if: ${{ needs.changes.outputs.electron == 'true' || needs.changes.outputs.interface == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies (workspace root)
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run --filter @koma/electron typecheck
+      - name: Tests
+        run: bun run --filter @koma/electron test
+      - name: Build (Vite — shell + @koma/interface)
+        run: bun run --filter @koma/electron build:react
+
+  tauri:
+    name: Tauri shell (lint · test · build)
+    needs: changes
+    if: ${{ needs.changes.outputs.tauri == 'true' || needs.changes.outputs.interface == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install dependencies (workspace root)
+        run: bun install --frozen-lockfile
+      - name: Lint
+        run: bun run --filter @koma/tauri lint
+      - name: Unit tests (shell + interface)
+        run: bun run --filter @koma/tauri test
+      - name: Build (Vite — shell + @koma/interface)
+        run: bun run --filter @koma/tauri build:react
+      - name: Validate E2E scenario matrix
+        run: bun run --filter @koma/tauri qa:e2e-plan
+
+  auth-server:
+    name: Auth server (typecheck · test)
+    needs: changes
+    if: ${{ needs.changes.outputs.auth == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install dependencies (workspace root)
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run --filter @koma/auth-server typecheck --if-present
+      - name: Tests
+        run: bun run --filter @koma/auth-server test
+
+  landing:
+    name: Landing (build)
+    needs: changes
+    if: ${{ needs.changes.outputs.landing == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install dependencies (workspace root)
+        run: bun install --frozen-lockfile
+      - name: Build
+        run: bun run --filter @koma/landing build
+
+  mini-backend:
+    name: Mini-backends (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Byte-compile all sources
+        run: python -m compileall -q packages/mini-backend
+      - name: Lint (pyflakes, non-blocking)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyflakes
+          python -m pyflakes packages/mini-backend || true
+
+  hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Reject foreign lockfiles
+        # A single bun.lock at the monorepo root.
+        run: |
+          set -e
+          found=0
+          while IFS= read -r f; do
+            echo "::error file=$f::$f is committed. This project uses Bun exclusively; only the root bun.lock may exist."
+            found=1
+          done < <(git ls-files 'package-lock.json' 'pnpm-lock.yaml' 'yarn.lock' '**/package-lock.json' '**/pnpm-lock.yaml' '**/yarn.lock')
+          test -f bun.lock || { echo "::error::bun.lock is missing at the repo root."; found=1; }
+          exit $found
+
+      - name: Reject committed secrets and env files
+        run: |
+          set -e
+          found=0
+          while IFS= read -r f; do
+            case "$f" in
+              *.example) ;;
+              *) echo "::error file=$f::environment file committed"; found=1 ;;
+            esac
+          done < <(git ls-files '.env*' '**/.env*')
+          exit $found
+
+      - name: Reject compiled Python artifacts
+        run: |
+          set -e
+          if git ls-files '*.pyd' '*.so' '*.pyc' | grep -q .; then
+            git ls-files '*.pyd' '*.so' '*.pyc'
+            echo "::error::compiled Python artifacts must not be committed"
+            exit 1
+          fi
+
+      - name: No telemetry or paywalls (shared UI + packages)
+        # Line v2 governance: 100% free, zero telemetry.
+        # The Electron app (v1) and the auth-server have their own context and stay out.
+        run: |
+          set -e
+          pattern='posthog|mixpanel|amplitude\.com|google-analytics|gtag\(|segment\.io|paddle\.com|MONTHLY_QUOTA|PlanTier|hasTierAccess|resolveFeatureEntitlements'
+          if git grep -nEI "$pattern" -- \
+               'packages/interface/src/**' 'apps/tauri/src-tauri/src/**' 'packages/mini-backend/**' 'packages/types/src/**' \
+               ':!*.test.*' ':!**/tests/**'; then
+            echo "::error::forbidden telemetry/monetisation reference found"
+            exit 1
+          fi
+          echo "clean"

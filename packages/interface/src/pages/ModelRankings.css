@@ -1,0 +1,2432 @@
+/* ═══════════════════════════════════════════════════════
+   KOMA Model Rankings — Manhwa Glass UI
+   ═══════════════════════════════════════════════════════ */
+
+/* ─── Page shell ─── */
+
+.koma-rank-page {
+  position: relative;
+  min-height: 100vh;
+  background: var(--auth-bg);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  overflow-x: hidden;
+}
+
+.koma-rank-page__bg {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% 0%,
+      rgba(168, 85, 247, 0.06),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 80% 100%,
+      rgba(6, 182, 212, 0.04),
+      transparent 60%
+    );
+  pointer-events: none;
+}
+
+.koma-rank-page__halftone {
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.012) 1px,
+    transparent 1px
+  );
+  background-size: 4px 4px;
+  pointer-events: none;
+}
+
+.koma-rank-page__orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(140px);
+  pointer-events: none;
+}
+
+.koma-rank-page__orb--purple {
+  width: 500px;
+  height: 500px;
+  top: -120px;
+  left: -100px;
+  background: rgba(168, 85, 247, 0.18);
+  animation: koma-rank-orb-drift 25s ease-in-out infinite alternate;
+}
+
+.koma-rank-page__orb--cyan {
+  width: 400px;
+  height: 400px;
+  bottom: -80px;
+  right: -60px;
+  background: rgba(6, 182, 212, 0.12);
+  animation: koma-rank-orb-drift 30s ease-in-out infinite alternate-reverse;
+}
+
+.koma-rank-page__container {
+  position: relative;
+  z-index: 1;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 24px 28px 48px;
+}
+
+/* ─── Back button ─── */
+
+.koma-rank-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  margin-bottom: 20px;
+}
+
+.koma-rank-back:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(168, 85, 247, 0.15);
+  color: var(--auth-text);
+}
+
+.koma-rank-back:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline-offset: 2px;
+}
+
+/* ─── Hero banner ─── */
+
+.koma-rank-hero {
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  padding: 24px 28px;
+  margin-bottom: 16px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  animation: koma-rank-hero-breathe 6s ease-in-out infinite alternate;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.koma-rank-hero__left {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.koma-rank-hero__icon {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.18),
+    rgba(6, 182, 212, 0.1)
+  );
+  border: 1px solid rgba(168, 85, 247, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--auth-purple);
+}
+
+.koma-rank-hero__title {
+  font-family: var(--auth-font-heading);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--auth-text);
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.koma-rank-hero__subtitle {
+  font-size: 12.5px;
+  color: var(--auth-text-muted);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 420px;
+}
+
+/* ─── Stat pills ─── */
+
+.koma-rank-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.koma-rank-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.025);
+  white-space: nowrap;
+  transition: border-color 0.2s ease;
+}
+
+.koma-rank-stat:hover {
+  border-color: rgba(168, 85, 247, 0.12);
+}
+
+.koma-rank-stat__icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.koma-rank-stat__icon--purple {
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--auth-purple);
+}
+
+.koma-rank-stat__icon--cyan {
+  background: rgba(6, 182, 212, 0.12);
+  color: var(--auth-cyan);
+}
+
+.koma-rank-stat__icon--amber {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--auth-amber);
+}
+
+.koma-rank-stat__icon--emerald {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--auth-emerald);
+}
+
+.koma-rank-stat__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.koma-rank-stat__value {
+  font-family: var(--auth-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--auth-text);
+  line-height: 1.2;
+}
+
+.koma-rank-stat__label {
+  font-size: 10.5px;
+  color: var(--auth-text-muted);
+  line-height: 1.2;
+}
+
+/* ─── Toolbar ─── */
+
+.koma-rank-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+/* ─── Segmented tabs ─── */
+
+.koma-rank-tabs {
+  display: flex;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 3px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.koma-rank-tab {
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  white-space: nowrap;
+}
+
+.koma-rank-tab:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.koma-rank-tab--active {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.16),
+    rgba(6, 182, 212, 0.1)
+  );
+  color: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.1);
+}
+
+.koma-rank-tab:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline-offset: 1px;
+}
+
+/* ─── Search field ─── */
+
+.koma-rank-search {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 300px;
+}
+
+.koma-rank-search__icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(186, 199, 247, 0.3);
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.koma-rank-search__input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border-radius: 10px;
+  border: 1px solid var(--auth-input-border);
+  background: var(--auth-input-bg);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  font-size: 12.5px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.koma-rank-search__input::placeholder {
+  color: rgba(186, 199, 247, 0.3);
+}
+
+.koma-rank-search__input:focus {
+  outline: none;
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.08);
+}
+
+.koma-rank-search:focus-within .koma-rank-search__icon {
+  color: var(--auth-purple);
+}
+
+/* ─── Filter toggle ─── */
+
+.koma-rank-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.koma-rank-filter-toggle:hover {
+  border-color: rgba(168, 85, 247, 0.15);
+  color: var(--auth-text);
+}
+
+.koma-rank-filter-toggle--active {
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.2);
+  color: var(--auth-purple);
+}
+
+.koma-rank-filter-toggle:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline-offset: 2px;
+}
+
+.koma-rank-filter-toggle__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--auth-purple);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ─── Advanced filter row ─── */
+
+.koma-rank-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  animation: koma-rank-filters-in 0.25s ease forwards;
+}
+
+.koma-rank-filters--hidden {
+  display: none;
+}
+
+.koma-rank-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-rank-filter__label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.koma-rank-filter__select {
+  padding: 7px 28px 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--auth-input-border);
+  background: var(--auth-input-bg);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(186,199,247,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.koma-rank-filter__select:focus {
+  outline: none;
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.08);
+}
+
+/* ─── Main layout ─── */
+
+.koma-rank-layout {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+
+/* ─── Leaderboard panel ─── */
+
+.koma-rank-board {
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  padding: 20px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.koma-rank-board__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-rank-board__title {
+  font-family: var(--auth-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--auth-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.koma-rank-board__title svg {
+  color: var(--auth-purple);
+}
+
+.koma-rank-board__count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-rank-board__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ─── Leaderboard row ─── */
+
+.koma-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  text-align: left;
+  width: 100%;
+  font-family: var(--auth-font-body);
+  position: relative;
+  overflow: hidden;
+}
+
+.koma-rank-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.koma-rank-row:hover {
+  background: rgba(168, 85, 247, 0.03);
+  border-color: rgba(168, 85, 247, 0.06);
+}
+
+.koma-rank-row:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline-offset: 1px;
+}
+
+.koma-rank-row--active {
+  background: rgba(168, 85, 247, 0.06);
+  border-color: rgba(168, 85, 247, 0.14);
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.06);
+}
+
+.koma-rank-row--active::before {
+  opacity: 1;
+  background: linear-gradient(
+    90deg,
+    rgba(168, 85, 247, 0.08) 0%,
+    transparent 60%
+  );
+}
+
+/* ─── Rank badge ─── */
+
+.koma-rank-row__pos {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text-muted);
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.koma-rank-row__pos--gold {
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.2),
+    rgba(245, 158, 11, 0.08)
+  );
+  border-color: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.08);
+}
+
+.koma-rank-row__pos--silver {
+  background: linear-gradient(
+    135deg,
+    rgba(203, 213, 225, 0.15),
+    rgba(203, 213, 225, 0.05)
+  );
+  border-color: rgba(203, 213, 225, 0.2);
+  color: #cbd5e1;
+  box-shadow: 0 0 12px rgba(203, 213, 225, 0.06);
+}
+
+.koma-rank-row__pos--bronze {
+  background: linear-gradient(
+    135deg,
+    rgba(217, 119, 6, 0.18),
+    rgba(217, 119, 6, 0.06)
+  );
+  border-color: rgba(217, 119, 6, 0.22);
+  color: #f59e0b;
+  box-shadow: 0 0 12px rgba(217, 119, 6, 0.06);
+}
+
+/* ─── Row info ─── */
+
+.koma-rank-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-rank-row__name {
+  font-family: var(--auth-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--auth-text);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.koma-rank-row__badges {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.koma-rank-row__badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.koma-rank-row__badge--new {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.2);
+  color: var(--auth-purple);
+}
+
+.koma-rank-row__badge--reviewed {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.18);
+  color: var(--auth-emerald);
+}
+
+/* ─── Score column ─── */
+
+.koma-rank-row__score-col {
+  flex-shrink: 0;
+  width: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.koma-rank-row__score-value {
+  font-family: var(--auth-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--auth-text);
+  line-height: 1;
+}
+
+.koma-rank-row__score-bar {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.koma-rank-row__score-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
+  transition: width 0.5s ease;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.15);
+}
+
+/* ─── Row meta ─── */
+
+.koma-rank-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  color: var(--auth-text-muted);
+}
+
+.koma-rank-row__trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.koma-rank-row__trend--up {
+  color: var(--auth-emerald);
+}
+
+.koma-rank-row__trend--down {
+  color: var(--auth-rose);
+}
+
+.koma-rank-row__cta {
+  display: none;
+  align-items: center;
+  gap: 3px;
+  color: var(--auth-purple);
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.koma-rank-row:hover .koma-rank-row__cta {
+  display: inline-flex;
+}
+
+/* ─── Detail panel ─── */
+
+.koma-rank-detail {
+  position: sticky;
+  top: 20px;
+  align-self: flex-start;
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  padding: 0;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.koma-rank-detail__empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--auth-text-muted);
+  font-size: 13px;
+}
+
+/* ─── Detail header ─── */
+
+.koma-rank-detail__header {
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-rank-detail__header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.koma-rank-detail__model-name {
+  font-family: var(--auth-font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--auth-text);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.koma-rank-detail__source-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.14),
+    rgba(6, 182, 212, 0.08)
+  );
+  border: 1px solid rgba(168, 85, 247, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.koma-rank-detail__desc {
+  font-size: 12px;
+  color: var(--auth-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ─── Score hero ─── */
+
+.koma-rank-score-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 20px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-rank-score-hero__ring {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.koma-rank-score-hero__ring-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.05);
+}
+
+.koma-rank-score-hero__ring-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--auth-purple);
+  border-right-color: var(--auth-cyan);
+  transform: rotate(-45deg);
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-rank-score-hero__number {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.koma-rank-score-hero__value {
+  font-family: var(--auth-font-heading);
+  font-size: 24px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--auth-purple), var(--auth-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.koma-rank-score-hero__label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+.koma-rank-score-hero__side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-rank-score-hero__reviews {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--auth-text);
+}
+
+.koma-rank-score-hero__trend {
+  font-size: 11px;
+  color: var(--auth-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.koma-rank-score-hero__trend--up {
+  color: var(--auth-emerald);
+}
+
+.koma-rank-score-hero__trend--down {
+  color: var(--auth-rose);
+}
+
+.koma-rank-score-hero__pills {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.koma-rank-score-hero__pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ─── Metric bars ─── */
+
+.koma-rank-metrics {
+  padding: 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-rank-metric {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.koma-rank-metric__label {
+  flex: 0 0 90px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+}
+
+.koma-rank-metric__bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.koma-rank-metric__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
+  transition: width 0.6s ease;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.12);
+}
+
+.koma-rank-metric__value {
+  flex: 0 0 32px;
+  text-align: right;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+/* ─── Info section ─── */
+
+.koma-rank-info {
+  padding: 16px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-rank-info__section-title {
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 10px;
+}
+
+.koma-rank-info__notes {
+  font-size: 12px;
+  color: rgba(186, 199, 247, 0.65);
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.koma-rank-info__langs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.koma-rank-info__lang-group strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+
+.koma-rank-info__lang-group span {
+  font-size: 12px;
+  color: rgba(186, 199, 247, 0.6);
+}
+
+/* ─── Distribution ─── */
+
+.koma-rank-distro {
+  padding: 16px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-rank-distro__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.koma-rank-distro__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.koma-rank-distro__star {
+  flex: 0 0 16px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--auth-text-muted);
+  text-align: right;
+}
+
+.koma-rank-distro__bar {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.koma-rank-distro__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--auth-amber), #fbbf24);
+  transition: width 0.5s ease;
+}
+
+.koma-rank-distro__count {
+  flex: 0 0 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  text-align: right;
+}
+
+.koma-rank-distro__footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 10.5px;
+  color: var(--auth-text-muted);
+}
+
+/* ─── Actions ─── */
+
+.koma-rank-actions {
+  display: flex;
+  gap: 8px;
+  padding: 16px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  flex-wrap: wrap;
+}
+
+.koma-rank-btn-primary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #9333ea, var(--auth-purple) 55%, #7c3aed);
+  color: #fff;
+  font-family: var(--auth-font-heading);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(168, 85, 247, 0.2);
+  transition:
+    filter 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.koma-rank-btn-primary:hover {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+}
+
+.koma-rank-btn-primary:active {
+  transform: translateY(0);
+}
+
+.koma-rank-btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.11),
+    transparent
+  );
+  transition: left 0.55s ease;
+}
+
+.koma-rank-btn-primary:hover::after {
+  left: 100%;
+}
+
+.koma-rank-btn-primary:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.6);
+  outline-offset: 2px;
+}
+
+.koma-rank-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(186, 199, 247, 0.7);
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.koma-rank-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(168, 85, 247, 0.15);
+  color: var(--auth-text);
+}
+
+.koma-rank-btn-ghost:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.koma-rank-btn-ghost:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline-offset: 2px;
+}
+
+.koma-rank-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(244, 63, 94, 0.15);
+  background: rgba(244, 63, 94, 0.06);
+  color: rgba(244, 63, 94, 0.8);
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.koma-rank-btn-danger:hover {
+  background: rgba(244, 63, 94, 0.1);
+  border-color: rgba(244, 63, 94, 0.25);
+}
+
+.koma-rank-btn-danger:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.koma-rank-btn-danger:focus-visible {
+  outline: 2px solid rgba(244, 63, 94, 0.5);
+  outline-offset: 2px;
+}
+
+/* ─── Warning notice ─── */
+
+.koma-rank-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.koma-rank-warning svg {
+  flex-shrink: 0;
+  color: var(--auth-amber);
+  margin-top: 1px;
+}
+
+.koma-rank-warning p {
+  font-size: 11.5px;
+  color: #fde68a;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ─── Review list ─── */
+
+.koma-rank-reviews {
+  padding: 16px 22px 20px;
+}
+
+.koma-rank-reviews__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.koma-rank-reviews__title {
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.koma-rank-reviews__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ─── Review card ─── */
+
+.koma-rank-review {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px 16px;
+  transition: border-color 0.2s ease;
+}
+
+.koma-rank-review:hover {
+  border-color: rgba(168, 85, 247, 0.08);
+}
+
+.koma-rank-review__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.koma-rank-review__author {
+  font-family: var(--auth-font-heading);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--auth-text);
+  margin: 0;
+}
+
+.koma-rank-review__context {
+  font-size: 11px;
+  color: var(--auth-text-muted);
+  margin: 2px 0 0;
+}
+
+.koma-rank-review__score {
+  flex-shrink: 0;
+  font-family: var(--auth-font-heading);
+  font-size: 14px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--auth-purple), var(--auth-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.koma-rank-review__body {
+  font-size: 12px;
+  color: rgba(186, 199, 247, 0.6);
+  line-height: 1.6;
+  margin: 0 0 8px;
+}
+
+.koma-rank-review__meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.koma-rank-review__meta-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* ─── Pagination ─── */
+
+.koma-rank-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.koma-rank-pagination__info {
+  font-size: 11.5px;
+  color: var(--auth-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ─── Composer ─── */
+
+.koma-rank-composer {
+  padding: 0 22px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  animation: koma-rank-composer-in 0.3s ease forwards;
+}
+
+.koma-rank-composer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-top: 16px;
+}
+
+.koma-rank-composer__eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--auth-purple);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 3px;
+}
+
+.koma-rank-composer__title {
+  font-family: var(--auth-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--auth-text);
+  margin: 0;
+}
+
+.koma-rank-composer__notice {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: rgba(120, 53, 15, 0.15);
+  color: #fde68a;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+
+.koma-rank-composer__error {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  background: rgba(127, 29, 29, 0.2);
+  color: #fda4af;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+
+/* ─── Score grid ─── */
+
+.koma-rank-scores {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.koma-rank-score-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.koma-rank-score-field__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+}
+
+.koma-rank-score-btns {
+  display: flex;
+  gap: 3px;
+}
+
+.koma-rank-score-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.koma-rank-score-btn:hover {
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.06);
+  color: var(--auth-text);
+}
+
+.koma-rank-score-btn--active {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.25),
+    rgba(6, 182, 212, 0.15)
+  );
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.12);
+}
+
+.koma-rank-score-btn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline-offset: 1px;
+}
+
+/* ─── Form grid ─── */
+
+.koma-rank-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.koma-rank-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.koma-rank-field--full {
+  grid-column: 1 / -1;
+}
+
+.koma-rank-field__label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.koma-rank-field__input,
+.koma-rank-field__select,
+.koma-rank-field__textarea {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--auth-input-border);
+  background: var(--auth-input-bg);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  font-size: 12.5px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.koma-rank-field__input::placeholder,
+.koma-rank-field__textarea::placeholder {
+  color: rgba(186, 199, 247, 0.3);
+}
+
+.koma-rank-field__input:focus,
+.koma-rank-field__select:focus,
+.koma-rank-field__textarea:focus {
+  outline: none;
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.08);
+}
+
+.koma-rank-field__input:disabled,
+.koma-rank-field__select:disabled,
+.koma-rank-field__textarea:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.koma-rank-field__textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.6;
+}
+
+.koma-rank-field__select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(186,199,247,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+/* ─── Composer actions ─── */
+
+.koma-rank-composer__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+/* ─── Discover section ─── */
+
+.koma-rank-discover {
+  border-radius: var(--auth-radius-lg);
+  border: 1px solid var(--auth-card-border);
+  background: var(--auth-card-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  padding: 20px 22px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.koma-rank-discover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.koma-rank-discover__title {
+  font-family: var(--auth-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--auth-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.koma-rank-discover__title svg {
+  color: var(--auth-emerald);
+}
+
+.koma-rank-discover__subtitle {
+  font-size: 11.5px;
+  color: var(--auth-text-muted);
+  margin: 3px 0 0;
+}
+
+.koma-rank-discover__count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  color: var(--auth-emerald);
+}
+
+.koma-rank-discover__scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.15) transparent;
+  padding-bottom: 6px;
+}
+
+.koma-rank-discover__scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.koma-rank-discover__scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.koma-rank-discover__scroll::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.15);
+  border-radius: 999px;
+}
+
+.koma-rank-discover__card {
+  flex: 0 0 210px;
+  scroll-snap-align: start;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  text-align: left;
+  font-family: var(--auth-font-body);
+}
+
+.koma-rank-discover__card:hover {
+  border-color: rgba(168, 85, 247, 0.12);
+  background: rgba(168, 85, 247, 0.04);
+  transform: translateY(-2px);
+}
+
+.koma-rank-discover__card:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline-offset: 1px;
+}
+
+.koma-rank-discover__card-name {
+  font-family: var(--auth-font-heading);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--auth-text);
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.koma-rank-discover__card-desc {
+  font-size: 11px;
+  color: var(--auth-text-muted);
+  margin: 0 0 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.koma-rank-discover__card-pills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.koma-rank-discover__card-pill {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.koma-rank-discover__empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--auth-text-muted);
+  font-size: 12.5px;
+  width: 100%;
+}
+
+/* ─── States ─── */
+
+.koma-rank-empty {
+  text-align: center;
+  padding: 32px 20px;
+  color: var(--auth-text-muted);
+  font-size: 13px;
+}
+
+.koma-rank-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  font-size: 12.5px;
+  color: var(--auth-text-muted);
+}
+
+.koma-rank-loading__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--auth-purple);
+  border-radius: 50%;
+  animation: koma-rank-spin 0.7s linear infinite;
+}
+
+.koma-rank-error {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  background: rgba(127, 29, 29, 0.2);
+  color: #fda4af;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.koma-rank-spin {
+  animation: koma-rank-spin 0.7s linear infinite;
+}
+
+/* ─── SFX decorative ─── */
+
+.koma-rank-sfx {
+  position: absolute;
+  font-family: var(--auth-font-display);
+  font-size: 64px;
+  font-weight: 400;
+  color: rgba(168, 85, 247, 0.025);
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+.koma-rank-sfx--tl {
+  top: 60px;
+  left: 40px;
+  transform: rotate(-12deg);
+}
+
+.koma-rank-sfx--br {
+  bottom: 100px;
+  right: 60px;
+  transform: rotate(8deg);
+}
+
+/* ─── Animations ─── */
+
+@keyframes koma-rank-orb-drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(40px, 30px) scale(1.08);
+  }
+}
+
+@keyframes koma-rank-hero-breathe {
+  from {
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.35),
+      0 0 40px rgba(168, 85, 247, 0.02);
+  }
+  to {
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.35),
+      0 0 40px rgba(168, 85, 247, 0.06);
+  }
+}
+
+@keyframes koma-rank-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes koma-rank-filters-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes koma-rank-composer-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes koma-rank-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 1100px) {
+  .koma-rank-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-rank-detail {
+    position: static;
+  }
+}
+
+@media (max-width: 860px) {
+  .koma-rank-page__container {
+    padding: 16px 16px 40px;
+  }
+
+  .koma-rank-hero {
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  .koma-rank-stats {
+    width: 100%;
+  }
+
+  .koma-rank-stat {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .koma-rank-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .koma-rank-tabs {
+    overflow-x: auto;
+  }
+
+  .koma-rank-search {
+    max-width: none;
+  }
+
+  .koma-rank-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .koma-rank-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-rank-scores {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .koma-rank-stat__label {
+    display: none;
+  }
+
+  .koma-rank-row__score-col {
+    width: 80px;
+  }
+
+  .koma-rank-row__badges {
+    display: none;
+  }
+
+  .koma-rank-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-rank-discover__card {
+    flex: 0 0 170px;
+  }
+
+  .koma-rank-scores {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-rank-info__langs {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   ═══════════════════════════════════════════════════════ */
+[data-theme="light"] {
+
+  /* ── Page background ── */
+  .koma-rank-page__bg {
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 50% 0%,
+        rgba(168, 85, 247, 0.03),
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 50% at 80% 100%,
+        rgba(6, 182, 212, 0.02),
+        transparent 60%
+      );
+  }
+
+  .koma-rank-page__halftone {
+    background-image: radial-gradient(
+      rgba(0, 0, 0, 0.015) 1px,
+      transparent 1px
+    );
+  }
+
+  .koma-rank-page__orb--purple {
+    background: rgba(168, 85, 247, 0.09);
+  }
+
+  .koma-rank-page__orb--cyan {
+    background: rgba(6, 182, 212, 0.06);
+  }
+
+  /* ── Back button ── */
+  .koma-rank-back {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .koma-rank-back:hover {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(168, 85, 247, 0.18);
+  }
+
+  /* ── Hero banner ── */
+  .koma-rank-hero {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .koma-rank-hero__icon {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.1),
+      rgba(6, 182, 212, 0.06)
+    );
+    border: 1px solid rgba(168, 85, 247, 0.12);
+  }
+
+  /* ── Stat pills ── */
+  .koma-rank-stat {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .koma-rank-stat:hover {
+    border-color: rgba(168, 85, 247, 0.15);
+  }
+
+  .koma-rank-stat__icon--purple {
+    background: rgba(168, 85, 247, 0.08);
+  }
+
+  .koma-rank-stat__icon--cyan {
+    background: rgba(6, 182, 212, 0.08);
+  }
+
+  .koma-rank-stat__icon--amber {
+    background: rgba(245, 158, 11, 0.08);
+  }
+
+  .koma-rank-stat__icon--emerald {
+    background: rgba(16, 185, 129, 0.08);
+  }
+
+  /* ── Segmented tabs ── */
+  .koma-rank-tabs {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .koma-rank-tab:hover {
+    color: #1e293b;
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .koma-rank-tab--active {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.1),
+      rgba(6, 182, 212, 0.06)
+    );
+    color: #0f172a;
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.06);
+  }
+
+  /* ── Search field ── */
+  .koma-rank-search__icon {
+    color: rgba(100, 116, 139, 0.5);
+  }
+
+  .koma-rank-search__input::placeholder {
+    color: rgba(100, 116, 139, 0.5);
+  }
+
+  /* ── Filter toggle ── */
+  .koma-rank-filter-toggle {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .koma-rank-filter-toggle:hover {
+    border-color: rgba(168, 85, 247, 0.18);
+  }
+
+  .koma-rank-filter-toggle--active {
+    background: rgba(168, 85, 247, 0.05);
+    border-color: rgba(168, 85, 247, 0.2);
+  }
+
+  /* ── Leaderboard panel ── */
+  .koma-rank-board {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .koma-rank-board__header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-board__count {
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── Leaderboard row ── */
+  .koma-rank-row:hover {
+    background: rgba(168, 85, 247, 0.03);
+    border-color: rgba(168, 85, 247, 0.08);
+  }
+
+  .koma-rank-row--active {
+    background: rgba(168, 85, 247, 0.04);
+    border-color: rgba(168, 85, 247, 0.12);
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.04);
+  }
+
+  .koma-rank-row--active::before {
+    background: linear-gradient(
+      90deg,
+      rgba(168, 85, 247, 0.06) 0%,
+      transparent 60%
+    );
+  }
+
+  /* ── Rank badge ── */
+  .koma-rank-row__pos {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .koma-rank-row__pos--gold {
+    background: linear-gradient(
+      135deg,
+      rgba(245, 158, 11, 0.12),
+      rgba(245, 158, 11, 0.04)
+    );
+    border-color: rgba(245, 158, 11, 0.2);
+    color: #b45309;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.06);
+  }
+
+  .koma-rank-row__pos--silver {
+    background: linear-gradient(
+      135deg,
+      rgba(100, 116, 139, 0.12),
+      rgba(100, 116, 139, 0.04)
+    );
+    border-color: rgba(100, 116, 139, 0.18);
+    color: #475569;
+    box-shadow: 0 0 12px rgba(100, 116, 139, 0.04);
+  }
+
+  .koma-rank-row__pos--bronze {
+    background: linear-gradient(
+      135deg,
+      rgba(217, 119, 6, 0.12),
+      rgba(217, 119, 6, 0.04)
+    );
+    border-color: rgba(217, 119, 6, 0.18);
+    color: #b45309;
+    box-shadow: 0 0 12px rgba(217, 119, 6, 0.04);
+  }
+
+  /* ── Row badges ── */
+  .koma-rank-row__badge {
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-row__badge--new {
+    background: rgba(168, 85, 247, 0.08);
+    border-color: rgba(168, 85, 247, 0.15);
+  }
+
+  .koma-rank-row__badge--reviewed {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.15);
+  }
+
+  /* ── Score bar ── */
+  .koma-rank-row__score-bar {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── Detail panel ── */
+  .koma-rank-detail {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .koma-rank-detail__header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-detail__source-badge {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.08),
+      rgba(6, 182, 212, 0.05)
+    );
+    border: 1px solid rgba(168, 85, 247, 0.1);
+    color: #6d28d9;
+  }
+
+  /* ── Score hero ── */
+  .koma-rank-score-hero {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-score-hero__ring-bg {
+    border: 3px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-score-hero__pill {
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── Metric bars ── */
+  .koma-rank-metrics {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-metric__bar {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── Info section ── */
+  .koma-rank-info {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-info__notes {
+    color: #475569;
+  }
+
+  .koma-rank-info__lang-group span {
+    color: #64748b;
+  }
+
+  /* ── Distribution ── */
+  .koma-rank-distro {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-distro__bar {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  /* ── Actions ── */
+  .koma-rank-actions {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-btn-ghost {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.02);
+    color: #64748b;
+  }
+
+  .koma-rank-btn-ghost:hover {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(168, 85, 247, 0.18);
+    color: #0f172a;
+  }
+
+  .koma-rank-btn-danger {
+    border: 1px solid rgba(244, 63, 94, 0.2);
+    background: rgba(244, 63, 94, 0.04);
+    color: rgba(244, 63, 94, 0.85);
+  }
+
+  .koma-rank-btn-danger:hover {
+    background: rgba(244, 63, 94, 0.08);
+    border-color: rgba(244, 63, 94, 0.3);
+  }
+
+  /* ── Warning notice ── */
+  .koma-rank-warning {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(254, 243, 199, 0.5);
+  }
+
+  .koma-rank-warning p {
+    color: #92400e;
+  }
+
+  /* ── Review card ── */
+  .koma-rank-review {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  .koma-rank-review:hover {
+    border-color: rgba(168, 85, 247, 0.1);
+  }
+
+  .koma-rank-review__body {
+    color: #475569;
+  }
+
+  .koma-rank-review__meta-tag {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  /* ── Pagination ── */
+  .koma-rank-pagination {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── Composer ── */
+  .koma-rank-composer {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .koma-rank-composer__notice {
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: rgba(254, 243, 199, 0.6);
+    color: #92400e;
+  }
+
+  .koma-rank-composer__error {
+    border: 1px solid rgba(244, 63, 94, 0.3);
+    background: rgba(254, 226, 226, 0.6);
+    color: #9f1239;
+  }
+
+  /* ── Score buttons ── */
+  .koma-rank-score-btn {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .koma-rank-score-btn:hover {
+    border-color: rgba(168, 85, 247, 0.2);
+    background: rgba(168, 85, 247, 0.04);
+  }
+
+  .koma-rank-score-btn--active {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.18),
+      rgba(6, 182, 212, 0.1)
+    );
+    border-color: rgba(168, 85, 247, 0.25);
+    color: #6d28d9;
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.08);
+  }
+
+  /* ── Form fields ── */
+  .koma-rank-field__input::placeholder,
+  .koma-rank-field__textarea::placeholder {
+    color: rgba(100, 116, 139, 0.5);
+  }
+
+  /* ── Discover section ── */
+  .koma-rank-discover {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .koma-rank-discover__count {
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(16, 185, 129, 0.12);
+  }
+
+  .koma-rank-discover__scroll {
+    scrollbar-color: rgba(168, 85, 247, 0.12) transparent;
+  }
+
+  .koma-rank-discover__scroll::-webkit-scrollbar-thumb {
+    background: rgba(168, 85, 247, 0.12);
+  }
+
+  .koma-rank-discover__card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  .koma-rank-discover__card:hover {
+    border-color: rgba(168, 85, 247, 0.15);
+    background: rgba(168, 85, 247, 0.03);
+  }
+
+  .koma-rank-discover__card-pill {
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── Loading / Error states ── */
+  .koma-rank-loading__spinner {
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--auth-purple);
+  }
+
+  .koma-rank-error {
+    border: 1px solid rgba(244, 63, 94, 0.3);
+    background: rgba(254, 226, 226, 0.6);
+    color: #9f1239;
+  }
+
+  /* ── SFX decorative ── */
+  .koma-rank-sfx {
+    color: rgba(168, 85, 247, 0.02);
+  }
+
+  .koma-rank-page__halftone {
+    background-image: radial-gradient(
+      rgba(15, 23, 42, 0.04) 1px,
+      transparent 1px
+    );
+  }
+
+  .koma-rank-back {
+    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.78);
+    color: rgba(51, 65, 85, 0.72);
+  }
+
+  .koma-rank-back:hover {
+    background: rgba(255, 255, 255, 0.94);
+    color: #0f172a;
+  }
+
+  .koma-rank-tabs {
+    border-color: rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .koma-rank-filter__select,
+  .koma-rank-field__select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(51,65,85,0.45)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  }
+
+  .koma-rank-tab:hover {
+    color: #0f172a;
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .koma-rank-tab--active {
+    color: #0f172a;
+  }
+
+  /* ── Animations (lighter shadows) ── */
+  @keyframes koma-rank-hero-breathe {
+    from {
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.05),
+        0 0 40px rgba(168, 85, 247, 0.01);
+    }
+    to {
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.05),
+        0 0 40px rgba(168, 85, 247, 0.04);
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "serverInfo": {
+    "name": "KOMA Studio Discovery Card",
+    "version": "1.0.0",
+    "description": "Discovery metadata for KOMA Studio \u2014 free and open-source (MIT) scanlation software. Agent-facing endpoints, downloads, source repository, support, and workflow resources."
+  },
+  "transports": [
+    {
+      "type": "http",
+      "url": "https://koma-studio.site/"
+    }
+  ],
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": false
+  },
+  "documentationUrl": "https://koma-studio.site/docs/api-overview.md",
+  "repository": "https://github.com/klaus-2/koma-studio",
+  "license": "MIT"
+}

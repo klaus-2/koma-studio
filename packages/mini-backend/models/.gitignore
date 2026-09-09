@@ -1,0 +1,18 @@
+# Python cache
+**/__pycache__/
+**/*.pyc
+
+# Legacy local model artifacts (must be downloaded to user PC at runtime)
+detection/comic_text_detector/weights/
+detection/craft/weights/
+detection/yolo_bubble/weights/
+detection/font/*.onnx
+
+inpainting/*.onnx
+inpainting/lama/weights/
+
+ocr/manga-ocr-base/
+ocr/manga-ocr-base-onnx/
+ocr/ppocr-v5-onnx/
+ocr/pororo/*.pt
+ocr/pororo/ocr-opt.txt

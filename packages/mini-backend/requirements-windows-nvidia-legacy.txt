@@ -1,0 +1,26 @@
+# Legacy NVIDIA profile for older Windows GPUs (Pascal-era, e.g. GTX 1050 Ti, CC 6.1).
+#
+# IMPORTANT: this uses requirements-base-no-ort.txt (NOT requirements.txt) to avoid
+# a conflict between onnxruntime (CPU) and onnxruntime-gpu (GPU). The two packages
+# share the same namespace directory and the CPU version overwrites the GPU version,
+# causing CUDAExecutionProvider to disappear.
+-r requirements-base-no-ort.txt
+
+# onnxruntime-gpu >= 1.19 (CUDA 12 builds) requires cuDNN 9, and cuDNN 9 dropped
+# Pascal (min CC 7.5). ORT 1.18.1 is the last CUDA 11.8 + cuDNN 8 build, which is
+# why the whole stack below is pinned to CUDA 11.8. Verified working on a
+# GTX 1050 Ti: CUDAExecutionProvider active with these exact versions.
+# ORT 1.18.1 also requires numpy<2 (compiled against the NumPy 1.x C-API).
+onnxruntime-gpu==1.18.1
+
+# CRITICAL: nvidia pip packages are pinned to CUDA 11.8 + cuDNN 8.x to match
+# onnxruntime-gpu 1.18.1. Windows wheels: cudnn 8.9.5.29 is the newest cuDNN 8
+# published for win_amd64 on the cu11 index.
+nvidia-cuda-runtime-cu11==11.8.89
+nvidia-cuda-nvrtc-cu11==11.8.89
+nvidia-cublas-cu11==11.11.3.6
+nvidia-cufft-cu11==10.9.0.58
+nvidia-curand-cu11==10.3.0.86
+nvidia-cusolver-cu11==11.4.1.48
+nvidia-cusparse-cu11==11.7.5.86
+nvidia-cudnn-cu11==8.9.5.29

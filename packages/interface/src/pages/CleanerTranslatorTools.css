@@ -1,0 +1,716 @@
+/* ================================================================
+   Cleaner · Typographer · Translator Sidebar Tools
+   KOMA Design System — Manhwa Glass UI
+   ================================================================ */
+
+/* ── Shared Mode Root ─────────────────────────────────────────── */
+.koma-mode-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Compact Model Selector Card ──────────────────────────────── */
+.koma-model-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.012);
+  transition: border-color 0.2s ease;
+}
+
+.koma-model-slot:hover {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.koma-model-slot__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.koma-model-slot__title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--auth-font-heading);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(168, 85, 247, 0.5);
+}
+
+.koma-model-slot__title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: rgba(168, 85, 247, 0.1);
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+.koma-model-slot__manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  text-transform: uppercase;
+}
+
+.koma-model-slot__manage:hover {
+  background: rgba(168, 85, 247, 0.08);
+  color: var(--auth-purple);
+  border-color: rgba(168, 85, 247, 0.12);
+}
+
+.koma-model-slot__manage:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.45);
+  outline-offset: -1px;
+}
+
+.koma-model-slot__meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  color: var(--auth-text-muted);
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.koma-model-slot__meta-dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(186, 199, 247, 0.2);
+  flex-shrink: 0;
+}
+
+/* ── Region Inspector Compact ─────────────────────────────────── */
+.koma-region-inspect {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(6, 8, 18, 0.4);
+}
+
+.koma-region-inspect__key {
+  font-family: var(--auth-font-heading);
+  font-weight: 600;
+  color: var(--auth-text-muted);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-top: 1px;
+}
+
+.koma-region-inspect__val {
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.koma-region-inspect__val--muted {
+  color: var(--auth-text-muted);
+  font-style: italic;
+}
+
+.koma-region-inspect__val--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+/* ── Cleaner Stat Grid ────────────────────────────────────────── */
+.koma-cleaner-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.koma-cleaner-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.012);
+  text-align: center;
+}
+
+.koma-cleaner-stat__value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--auth-text);
+  line-height: 1;
+}
+
+.koma-cleaner-stat__label {
+  font-family: var(--auth-font-heading);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--auth-text-muted);
+}
+
+.koma-cleaner-stat--active .koma-cleaner-stat__value {
+  color: var(--auth-purple);
+}
+
+/* ── Language Pair Compact ────────────────────────────────────── */
+.koma-lang-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.koma-lang-pair .koma-select {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  padding: 7px 10px;
+}
+
+.koma-lang-pair__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(168, 85, 247, 0.08);
+  color: var(--auth-purple);
+  flex-shrink: 0;
+}
+
+/* ── Typographer Tool Strip ───────────────────────────────────── */
+.koma-typo-strip {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.koma-typo-strip__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 6px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.koma-typo-strip__btn:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text);
+}
+
+.koma-typo-strip__btn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.45);
+  outline-offset: -1px;
+}
+
+.koma-typo-strip__btn--active {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.16),
+    rgba(6, 182, 212, 0.1)
+  );
+  color: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.1);
+}
+
+/* ── Typographer Action Grid ──────────────────────────────────── */
+.koma-typo-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.koma-typo-actions .koma-btn {
+  font-size: 10.5px;
+  padding: 6px 8px;
+  justify-content: center;
+}
+
+/* Full-width variant */
+.koma-typo-actions--full {
+  grid-template-columns: 1fr;
+}
+
+/* ── Snapshot Row ─────────────────────────────────────────────── */
+.koma-snapshot-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.koma-snapshot-row .koma-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 7px 10px;
+}
+
+.koma-snapshot-row .koma-btn {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  font-size: 10.5px;
+}
+
+.koma-snapshot-restore {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.koma-snapshot-restore .koma-select {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 7px 10px;
+}
+
+.koma-snapshot-restore .koma-btn {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  font-size: 10.5px;
+}
+
+/* ── Workspace Toggle (Translator) ────────────────────────────── */
+.koma-workspace-toggle {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.koma-workspace-toggle__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 8px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.koma-workspace-toggle__btn:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--auth-text);
+}
+
+.koma-workspace-toggle__btn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.45);
+  outline-offset: -1px;
+}
+
+.koma-workspace-toggle__btn--active {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.16),
+    rgba(6, 182, 212, 0.1)
+  );
+  color: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 5px 16px rgba(168, 85, 247, 0.1);
+}
+
+/* ── LLM Settings Compact ─────────────────────────────────────── */
+.koma-llm-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.06);
+  background: rgba(6, 8, 18, 0.45);
+}
+
+.koma-llm-compact .koma-input {
+  font-size: 11.5px;
+}
+
+.koma-llm-compact__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.koma-llm-compact__toggles .koma-checklist__item {
+  font-size: 10.5px;
+}
+
+.koma-llm-compact__toggles .koma-checklist__item span {
+  line-height: 1.3;
+}
+
+.koma-llm-compact__sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Translator Action Pair ───────────────────────────────────── */
+.koma-translator-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.koma-translator-actions .koma-btn {
+  flex: 1;
+  font-size: 10.5px;
+  padding: 8px 10px;
+}
+
+/* ── Translator Region Inspector ──────────────────────────────── */
+.koma-translator-region {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Mode Header Tag ──────────────────────────────────────────── */
+.koma-mode-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.1),
+    rgba(6, 182, 212, 0.06)
+  );
+  border: 1px solid rgba(168, 85, 247, 0.1);
+  font-family: var(--auth-font-heading);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #c4b5fd;
+  align-self: flex-start;
+  margin-bottom: 2px;
+}
+
+.koma-mode-tag__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--auth-purple);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+  animation: koma-tag-pulse 2s ease-in-out infinite;
+}
+
+@keyframes koma-tag-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ── Execute Bar Shared ───────────────────────────────────────── */
+.koma-execute-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  padding: 10px 0 2px;
+  background: linear-gradient(to top, var(--auth-bg) 60%, transparent);
+}
+
+.koma-execute-bar__btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px 16px;
+  border-radius: 13px;
+  border: none;
+  background: linear-gradient(135deg, #9333ea, var(--auth-purple) 55%, #7c3aed);
+  color: #fff;
+  font-family: var(--auth-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 12px 32px rgba(168, 85, 247, 0.2);
+  transition:
+    filter 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.koma-execute-bar__btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 40px rgba(168, 85, 247, 0.28);
+}
+
+.koma-execute-bar__btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.koma-execute-bar__btn:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.6);
+  outline-offset: 2px;
+}
+
+.koma-execute-bar__btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: left 0.55s ease;
+  pointer-events: none;
+}
+
+.koma-execute-bar__btn:hover::after {
+  left: 100%;
+}
+
+.koma-execute-bar__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.koma-execute-bar__btn--processing {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.35),
+    rgba(6, 182, 212, 0.25)
+  );
+  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.1);
+}
+
+.koma-execute-bar__btn--ghost {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(186, 199, 247, 0.7);
+  box-shadow: none;
+}
+
+.koma-execute-bar__btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--auth-text);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
+.koma-execute-bar__btn--ghost::after {
+  display: none;
+}
+
+/* ── Backend Info Chip ────────────────────────────────────────── */
+.koma-backend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  color: var(--auth-text-muted);
+}
+
+.koma-backend-chip__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--auth-emerald);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+}
+
+/* ── Hint Shared ──────────────────────────────────────────────── */
+.koma-tools-hint {
+  font-family: var(--auth-font-body);
+  font-size: 10.5px;
+  color: var(--auth-text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.koma-tools-hint strong {
+  color: var(--auth-text);
+  font-weight: 600;
+}
+
+/* ── HD Strategy compact ──────────────────────────────────────── */
+.koma-hd-strategy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.koma-hd-strategy .koma-select {
+  font-size: 11.5px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .koma-cleaner-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .koma-typo-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ================================================================
+   LIGHT THEME OVERRIDES
+   ================================================================ */
+[data-theme="light"] .koma-model-slot {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="light"] .koma-model-slot:hover {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .koma-model-slot__manage {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-model-slot__meta-dot {
+  background: rgba(51, 65, 85, 0.25);
+}
+
+[data-theme="light"] .koma-region-inspect {
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(241, 245, 249, 0.6);
+}
+
+[data-theme="light"] .koma-cleaner-stat {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="light"] .koma-typo-strip {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-typo-strip__btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .koma-typo-strip__btn--active {
+  color: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.12);
+}
+
+[data-theme="light"] .koma-workspace-toggle {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-workspace-toggle__btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .koma-workspace-toggle__btn--active {
+  color: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 5px 16px rgba(168, 85, 247, 0.12);
+}
+
+[data-theme="light"] .koma-llm-compact {
+  border: 1px solid rgba(168, 85, 247, 0.1);
+  background: rgba(241, 245, 249, 0.6);
+}
+
+[data-theme="light"] .koma-execute-bar__btn--ghost {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="light"] .koma-execute-bar__btn--ghost:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
+[data-theme="light"] .koma-backend-chip {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-mode-tag {
+  color: #7c3aed;
+}

@@ -1,0 +1,453 @@
+@import "tailwindcss";
+
+/* ============================================================
+   KOMA Studio Design System - Tailwind v4 @theme
+   ============================================================ */
+
+@theme inline {
+  /* ── Brand Colors ── */
+  --color-koma-bg: #060810;
+  --color-koma-surface: #0a0c18;
+  --color-koma-surface-alt: #0e1024;
+  --color-koma-surface-glass: rgba(10, 12, 24, 0.6);
+
+  --color-koma-purple: #a855f7;
+  --color-koma-purple-light: #c084fc;
+  --color-koma-purple-dark: #7c3aed;
+  --color-koma-purple-glow: rgba(168, 85, 247, 0.4);
+
+  --color-koma-cyan: #06b6d4;
+  --color-koma-cyan-light: #22d3ee;
+  --color-koma-cyan-glow: rgba(6, 182, 212, 0.35);
+
+  --color-koma-text: #f1f5f9;
+  --color-koma-text-secondary: rgba(214, 223, 255, 0.82);
+  --color-koma-muted: rgba(203, 213, 255, 0.72);
+
+  --color-koma-emerald: #10b981;
+  --color-koma-rose: #f43f5e;
+  --color-koma-amber: #f59e0b;
+
+  --color-koma-border: rgba(168, 85, 247, 0.08);
+  --color-koma-border-hover: rgba(168, 85, 247, 0.25);
+  --color-koma-border-glass: rgba(255, 255, 255, 0.06);
+
+  /* ── Typography ── */
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-body: "Inter", "Space Grotesk", sans-serif;
+
+  /* ── Display Sizes ── */
+  --text-display-xl: 4.5rem;
+  --text-display-lg: 3.5rem;
+  --text-display-md: 2.75rem;
+  --text-display-sm: 2rem;
+
+  /* ── Spacing ── */
+  --spacing-section: 8rem;
+  --spacing-section-sm: 5rem;
+
+  /* ── Shadows / Glows ── */
+  --shadow-glow-sm: 0 0 15px rgba(168, 85, 247, 0.15);
+  --shadow-glow-md: 0 0 30px rgba(168, 85, 247, 0.2);
+  --shadow-glow-lg: 0 0 60px rgba(168, 85, 247, 0.25);
+  --shadow-glow-xl: 0 4px 80px rgba(168, 85, 247, 0.3);
+  --shadow-glow-cyan: 0 0 40px rgba(6, 182, 212, 0.2);
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* ── Border Radius ── */
+  --radius-glass: 1rem;
+  --radius-pill: 9999px;
+
+  /* ── Animations ── */
+  --animate-float-slow: float-slow 8s ease-in-out infinite;
+  --animate-float-medium: float-medium 5s ease-in-out infinite;
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-marquee-reverse: marquee-reverse 40s linear infinite;
+  --animate-shimmer: shimmer 2.5s ease-in-out infinite;
+  --animate-glow-pulse: glow-pulse 3s ease-in-out infinite;
+  --animate-gradient-x: gradient-x 6s ease infinite;
+  --animate-fade-up: fade-up 0.6s ease-out forwards;
+  --animate-slide-in-left: slide-in-left 0.5s ease-out forwards;
+  --animate-slide-in-right: slide-in-right 0.5s ease-out forwards;
+}
+
+/* ── Keyframes ── */
+
+@keyframes float-slow {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes float-medium {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes gradient-x {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 100;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes typing-cursor {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes progress-fill {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes manga-panel-slide {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* ── Base ── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--color-koma-bg);
+  color: var(--color-koma-text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(168, 85, 247, 0.3);
+  color: #fff;
+}
+
+/* ── Utility Classes ── */
+
+.glass-card {
+  background: rgba(10, 12, 24, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-glass);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-card-hover {
+  background: rgba(10, 12, 24, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-glass);
+  box-shadow: var(--shadow-glass);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card-hover:hover {
+  border-color: rgba(168, 85, 247, 0.2);
+  box-shadow: var(--shadow-glow-sm);
+  transform: translateY(-2px);
+}
+
+.glass-nav {
+  background: rgba(6, 8, 16, 0.75);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #a855f7 0%, #06b6d4 50%, #a855f7 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-x 6s ease infinite;
+}
+
+.gradient-text-static {
+  background: linear-gradient(135deg, #a855f7, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.manga-grid-bg {
+  background-image:
+    linear-gradient(rgba(168, 85, 247, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.manga-speed-lines {
+  background: repeating-linear-gradient(90deg,
+      transparent,
+      transparent 2px,
+      rgba(168, 85, 247, 0.02) 2px,
+      rgba(168, 85, 247, 0.02) 4px);
+}
+
+/* ── Marquee Mask ── */
+
+.marquee-mask {
+  mask-image: linear-gradient(to right,
+      transparent 0%,
+      black 10%,
+      black 90%,
+      transparent 100%);
+  -webkit-mask-image: linear-gradient(to right,
+      transparent 0%,
+      black 10%,
+      black 90%,
+      transparent 100%);
+}
+
+/* ── Custom Scrollbar ── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.5);
+}
+
+/* ── Focus Styles ── */
+
+:focus-visible {
+  outline: 2px solid var(--color-koma-purple);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Reduced Motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Manga Panel Effect ── */
+
+.manga-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.manga-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(168, 85, 247, 0.1);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Glow Button ── */
+
+.btn-glow {
+  position: relative;
+  background: linear-gradient(135deg, var(--color-koma-purple), var(--color-koma-purple-dark));
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: var(--radius-pill);
+  padding: 0.75rem 2rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.btn-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(6, 182, 212, 0.4));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+  filter: blur(12px);
+}
+
+.btn-glow:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-glow-md);
+}
+
+.btn-glow:hover::before {
+  opacity: 1;
+}
+
+/* ── Section Divider ── */
+
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(168, 85, 247, 0.15),
+      rgba(6, 182, 212, 0.15),
+      transparent);
+}

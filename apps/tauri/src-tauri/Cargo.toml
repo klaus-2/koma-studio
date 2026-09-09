@@ -1,0 +1,96 @@
+[package]
+name = "koma-studio-v2"
+version = "2.0.0-alpha.0"
+description = "KŌMA Studio v2 — Tauri shell"
+authors = ["KŌMA Studio"]
+edition = "2021"
+rust-version = "1.77"
+autobins = false
+default-run = "koma-studio-v2"
+
+[lib]
+name = "koma_studio_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "koma-studio-v2"
+path = "src/main.rs"
+
+[[bin]]
+name = "make_bsdiff"
+path = "src/bin/make_bsdiff.rs"
+required-features = ["updater-tools"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-log = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+
+# Crypto
+sha2 = "0.10"
+ed25519-dalek = "2"
+hex = "0.4"
+
+# Logging
+log = "0.4"
+
+# HTTP / TLS
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream", "multipart"] }
+rustls = { version = "0.23", features = ["ring"] }
+rustls-platform-verifier = "0.7"
+futures-util = "0.3"
+
+# Hardware identity
+machine-uid = "0.5"
+
+# Error handling
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+png = "0.18"
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+url = "2"
+
+# Filesystem utilities
+tempfile = "3"
+fs2 = "0.4"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+# Updater incremental layer
+bsdiff = "0.2"
+
+# Optional: Discord Rich Presence (CHECK feature flag at runtime)
+discord-rich-presence = { version = "0.2", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging"] }
+
+[features]
+default = ["discord-rpc"]
+discord-rpc = ["dep:discord-rich-presence"]
+updater-tools = []
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+incremental = false
+opt-level = "z"
+strip = true

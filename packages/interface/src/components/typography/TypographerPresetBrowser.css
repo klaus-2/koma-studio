@@ -1,0 +1,579 @@
+/* ================================================================
+   Typographer Preset Browser — KOMA Design System
+   ================================================================ */
+
+.koma-preset-browser {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+/* Search */
+.koma-preset-browser__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(6, 8, 18, 0.65);
+  color: var(--auth-text-muted);
+  transition: border-color 0.15s ease;
+}
+
+.koma-preset-browser__search:focus-within {
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+.koma-preset-browser__search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  font-size: 11px;
+  outline: none;
+}
+
+.koma-preset-browser__search-input::placeholder {
+  color: var(--auth-text-muted);
+}
+
+.koma-preset-browser__search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--auth-text-muted);
+  cursor: pointer;
+}
+
+.koma-preset-browser__search-clear:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--auth-text);
+}
+
+/* Filter chips */
+.koma-preset-browser__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.koma-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--auth-text-muted);
+  font-family: var(--auth-font-heading);
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.koma-preset-chip:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--auth-text);
+}
+
+.koma-preset-chip--active {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.1);
+  color: rgba(168, 85, 247, 0.9);
+}
+
+/* Preset list */
+.koma-preset-browser__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.1) transparent;
+}
+
+.koma-preset-browser__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 8px;
+  color: rgba(186, 199, 247, 0.3);
+  font-family: var(--auth-font-body);
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.koma-preset-browser__divider {
+  height: 1px;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Preset item */
+.koma-preset-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.01);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-preset-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.koma-preset-item--active {
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.06);
+}
+
+.koma-preset-item__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.koma-preset-item__name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--auth-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auth-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.koma-preset-item--active .koma-preset-item__name {
+  color: rgba(168, 85, 247, 0.95);
+}
+
+.koma-preset-item__meta {
+  font-family: var(--auth-font-body);
+  font-size: 9px;
+  color: var(--auth-text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.koma-preset-item__edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(186, 199, 247, 0.3);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-preset-item:hover .koma-preset-item__edit {
+  opacity: 1;
+}
+
+.koma-preset-item__edit:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(168, 85, 247, 0.9);
+}
+
+/* Folder */
+.koma-preset-folder {
+  display: flex;
+  flex-direction: column;
+}
+
+.koma-preset-folder__header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--auth-text-muted);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+  text-align: left;
+}
+
+.koma-preset-folder__header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.koma-preset-folder__name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--auth-font-heading);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--auth-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.koma-preset-folder__count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  color: rgba(186, 199, 247, 0.35);
+  flex-shrink: 0;
+}
+
+.koma-preset-folder__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 12px;
+  margin-top: 2px;
+}
+
+/* Actions */
+.koma-preset-browser__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.koma-preset-browser__actions .koma-btn {
+  font-size: 10px;
+  padding: 5px 6px;
+  justify-content: center;
+}
+
+/* ================================================================
+   Quick Edit Popout
+   ================================================================ */
+
+.koma-preset-quickedit {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  right: -4px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  background: rgba(10, 12, 28, 0.97);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+}
+
+.koma-preset-quickedit__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-preset-quickedit__header span {
+  flex: 1;
+}
+
+.koma-preset-quickedit__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--auth-text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-preset-quickedit__close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--auth-text);
+}
+
+.koma-preset-quickedit__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.koma-preset-quickedit__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.koma-preset-quickedit__field > span {
+  font-family: var(--auth-font-heading);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--auth-text-muted);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.koma-preset-quickedit__field--half {
+  flex: 1;
+  min-width: 0;
+}
+
+.koma-preset-quickedit__row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.koma-preset-quickedit__toggles {
+  display: flex;
+  gap: 3px;
+  padding-bottom: 1px;
+}
+
+.koma-preset-quickedit__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--auth-text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.koma-preset-quickedit__toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--auth-text);
+}
+
+.koma-preset-quickedit__toggle--on {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.12);
+  color: rgba(168, 85, 247, 0.95);
+}
+
+/* Color fields */
+.koma-preset-quickedit__color-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(6, 8, 18, 0.65);
+}
+
+.koma-preset-quickedit__color {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  cursor: pointer;
+  background: none;
+}
+
+.koma-preset-quickedit__color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.koma-preset-quickedit__color::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.koma-preset-quickedit__color-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  color: var(--auth-text-muted);
+}
+
+/* Small input/select overrides */
+.koma-input--sm {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(6, 8, 18, 0.65);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s ease;
+}
+
+.koma-input--sm:focus {
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+.koma-select--sm {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(6, 8, 18, 0.65);
+  color: var(--auth-text);
+  font-family: var(--auth-font-body);
+  outline: none;
+  width: 100%;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.koma-select--sm:focus {
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+/* Footer */
+.koma-preset-quickedit__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ── Light Theme ─────────────────────────────────────────────────── */
+[data-theme="light"] .koma-preset-browser__search {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(241, 245, 249, 0.65);
+}
+
+[data-theme="light"] .koma-preset-browser__search-clear {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-preset-browser__search-clear:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .koma-preset-chip {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-preset-chip:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .koma-preset-browser__empty {
+  color: rgba(51, 65, 85, 0.3);
+}
+
+[data-theme="light"] .koma-preset-browser__divider {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-preset-item {
+  background: rgba(0, 0, 0, 0.01);
+}
+
+[data-theme="light"] .koma-preset-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .koma-preset-item__swatch {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .koma-preset-item__edit {
+  color: rgba(51, 65, 85, 0.3);
+}
+
+[data-theme="light"] .koma-preset-item__edit:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .koma-preset-folder__header:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .koma-preset-folder__count {
+  color: rgba(51, 65, 85, 0.35);
+}
+
+[data-theme="light"] .koma-preset-quickedit {
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-preset-quickedit__header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .koma-preset-quickedit__close:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-preset-quickedit__toggle {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .koma-preset-quickedit__toggle:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .koma-preset-quickedit__color-wrap {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(241, 245, 249, 0.65);
+}
+
+[data-theme="light"] .koma-preset-quickedit__color {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .koma-input--sm {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(241, 245, 249, 0.65);
+}
+
+[data-theme="light"] .koma-select--sm {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(241, 245, 249, 0.65);
+}
+
+[data-theme="light"] .koma-preset-quickedit__footer {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}

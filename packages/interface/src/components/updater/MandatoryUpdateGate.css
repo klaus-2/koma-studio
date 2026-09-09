@@ -1,0 +1,150 @@
+.koma-update-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.koma-update-gate__backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(168, 85, 247, 0.18), transparent 32%),
+    radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.12), transparent 28%),
+    rgba(6, 8, 18, 0.92);
+  backdrop-filter: blur(24px);
+}
+
+.koma-update-gate__panel {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border-radius: 24px;
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  background: rgba(10, 12, 24, 0.94);
+  box-shadow:
+    0 36px 120px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.koma-update-gate__badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  background: rgba(168, 85, 247, 0.1);
+  color: #d8b4fe;
+  font-family: var(--auth-font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.koma-update-gate__title {
+  margin: 0;
+  font-family: var(--auth-font-heading);
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.1;
+  color: #fff;
+}
+
+.koma-update-gate__subtitle {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--auth-text-muted);
+}
+
+.koma-update-gate__versions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.koma-update-gate__version {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--auth-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.koma-update-gate__version--target {
+  background: rgba(168, 85, 247, 0.16);
+  color: #f5d0fe;
+}
+
+.koma-update-gate__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.koma-update-gate__progress-head,
+.koma-update-gate__progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--auth-text-muted);
+}
+
+.koma-update-gate__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.koma-update-gate__actions .auth-submit {
+  flex: 1 1 220px;
+}
+
+.koma-update-gate__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.koma-update-gate__notes-title {
+  font-family: var(--auth-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--auth-text);
+}
+
+.koma-update-gate__notes-body {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 16px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+@media (max-width: 640px) {
+  .koma-update-gate {
+    padding: 12px;
+  }
+
+  .koma-update-gate__panel {
+    padding: 20px;
+    border-radius: 18px;
+  }
+}

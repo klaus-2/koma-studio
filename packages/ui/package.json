@@ -1,0 +1,30 @@
+{
+  "name": "@koma/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Design system compartilhado KŌMA: tokens CSS, componentes primitivos, theme store, assets de auth — consumido como fonte TS/CSS direta (sem build)",
+  "exports": {
+    "./styles/*": "./src/styles/*",
+    "./components/*": "./src/components/*.tsx",
+    "./stores/*": "./src/stores/*.ts",
+    "./utils/*": "./src/utils/*.ts",
+    "./i18n-port": "./src/i18n-port.ts",
+    "./assets/*": "./assets/*"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "radix-ui": "^1.4.3",
+    "tailwind-merge": "^2.6.1",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  }
+}

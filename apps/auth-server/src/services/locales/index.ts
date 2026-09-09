@@ -1,0 +1,11 @@
+export { arMessages } from "./ar.js";
+export { deMessages } from "./de.js";
+export { esMessages } from "./es.js";
+export { frMessages } from "./fr.js";
+export { hiMessages } from "./hi.js";
+export { itMessages } from "./it.js";
+export { jaMessages } from "./ja.js";
+export { koMessages } from "./ko.js";
+export { ptMessages } from "./pt.js";
+export { ruMessages } from "./ru.js";
+export { zhMessages } from "./zh.js";
