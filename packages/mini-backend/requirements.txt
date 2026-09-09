@@ -23,5 +23,5 @@ transformers>=4.50.0
 torch>=2.5.0
 torchvision>=0.20.0
 pyinstaller
-psutil>=5.9.0
+psutil>=7.2.2
 llama-cpp-python>=0.3.14
