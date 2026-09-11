@@ -28,7 +28,7 @@ import type {
   TranslatorVisualRunMeta,
 } from '../../types/dashboard.types';
 
-interface AioImageHistoryMeta {
+export interface AioImageHistoryMeta {
   key: string | null;
   label: string | null;
   index: number;

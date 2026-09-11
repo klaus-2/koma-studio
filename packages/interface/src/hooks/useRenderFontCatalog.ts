@@ -14,9 +14,9 @@ interface UseRenderFontCatalogArgs {
 export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogArgs) {
   const { t } = useI18n();
   const [renderFontCatalog, setRenderFontCatalog] = useState<RenderFontCatalog>({ system: [], custom: [] });
-  const [renderFontsLoading, setRenderFontsLoading] = useState(false);
-  const [renderFontsImporting, setRenderFontsImporting] = useState(false);
-  const [renderFontsError, setRenderFontsError] = useState<string | null>(null);
+  const [fontCatalogLoading, setFontCatalogLoading] = useState(false);
+  const [fontCatalogImporting, setFontCatalogImporting] = useState(false);
+  const [fontCatalogError, setFontCatalogError] = useState<string | null>(null);
   const [renderFontRefreshToken, setRenderFontRefreshToken] = useState(0);
 
   const registerCustomFontFace = useCallback(async (entry: IDesktopFontEntry) => {
@@ -32,13 +32,13 @@ export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogAr
     const desktopFontsApi = desktopBridge.desktop?.api?.fonts;
     if (!desktopFontsApi) {
       setRenderFontCatalog({ system: [], custom: [] });
-      setRenderFontsError(null);
+      setFontCatalogError(null);
       resetLoadedCanvasFontCache();
       return;
     }
 
-    setRenderFontsLoading(true);
-    setRenderFontsError(null);
+    setFontCatalogLoading(true);
+    setFontCatalogError(null);
     try {
       const payload = await desktopFontsApi.list();
       const normalizedCatalog: RenderFontCatalog = {
@@ -66,9 +66,9 @@ export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogAr
       setRenderFontCatalog(normalizedCatalog);
       setRenderFontRefreshToken((prev) => prev + 1);
     } catch (error) {
-      setRenderFontsError(error instanceof Error ? error.message : t('renderFontCatalog.loadFailed'));
+      setFontCatalogError(error instanceof Error ? error.message : t('renderFontCatalog.loadFailed'));
     } finally {
-      setRenderFontsLoading(false);
+      setFontCatalogLoading(false);
     }
   }, [registerCustomFontFace]);
 
@@ -78,8 +78,8 @@ export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogAr
     event.target.value = '';
     if (!file || !desktopFontsApi) return;
 
-    setRenderFontsImporting(true);
-    setRenderFontsError(null);
+    setFontCatalogImporting(true);
+    setFontCatalogError(null);
     try {
       const arrayBuffer = await file.arrayBuffer();
       const base64 = arrayBufferToBase64(arrayBuffer);
@@ -91,9 +91,9 @@ export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogAr
       await loadRenderFontCatalog();
       onImportSuccess(`Font "${file.name}" imported successfully.`);
     } catch (error) {
-      setRenderFontsError(error instanceof Error ? error.message : 'Failed to import the font.');
+      setFontCatalogError(error instanceof Error ? error.message : 'Failed to import the font.');
     } finally {
-      setRenderFontsImporting(false);
+      setFontCatalogImporting(false);
     }
   }, [loadRenderFontCatalog, onImportSuccess]);
 
@@ -115,9 +115,9 @@ export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogAr
   return {
     availableRenderFonts,
     renderFontCatalog,
-    renderFontsLoading,
-    renderFontsImporting,
-    renderFontsError,
+    fontCatalogLoading,
+    fontCatalogImporting,
+    fontCatalogError,
     renderFontRefreshToken,
     loadRenderFontCatalog,
     handleRenderFontImport,
