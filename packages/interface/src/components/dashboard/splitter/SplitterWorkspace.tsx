@@ -71,9 +71,12 @@ export const SplitterWorkspace = ({ controller }: SplitterWorkspaceProps) => {
   const processedCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const activeImageIdRef = useRef<string | null>(null);
 
-  /* Stable refs for values used in event handlers to avoid re-attaching listeners */
+  /* Latest controller for effects/handlers — written in an effect (declared
+     before the effects that read it), never during render. */
   const controllerRef = useRef(controller);
-  controllerRef.current = controller;
+  useEffect(() => {
+    controllerRef.current = controller;
+  });
 
   /* ── Build preview image (only when activeImage changes) ── */
   useEffect(() => {

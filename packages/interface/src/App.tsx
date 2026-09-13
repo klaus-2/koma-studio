@@ -2,6 +2,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { flushSync } from "react-dom";
 
 import { AuthProvider, useAuthContext } from "./contexts/AuthContext";
+import type { ActiveBanInfo } from "./contexts/AuthContext";
 import { UpdaterProvider, useUpdaterBlocking } from "./hooks/useUpdater";
 import { applyTheme, useThemeStore } from "@koma/ui/stores/theme-store";
 import { LegalInlineLinks } from "./components/legal/LegalInlineLinks";
@@ -36,6 +37,184 @@ import {
 } from "./app-router";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
+
+interface AppRouteContentProps {
+  activeBan: ActiveBanInfo | null;
+  handleBannedBackLogin: () => void;
+  handleConfirmNavigateDashboard: () => void;
+  handleConfirmSuccess: () => Promise<void>;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  navigateDashboard: () => void;
+  navigateForgotPassword: () => void;
+  navigateLogin: () => void;
+  navigateModelRankings: () => void;
+  navigateRegister: () => void;
+  navigateScanlationFeed: () => void;
+  navigateSettings: () => void;
+  navigateVerifyDashboard: () => void;
+  route: RoutePath;
+  updaterBlocking: boolean;
+}
+
+// Route picker, extracted so AppShell's restricted-production early return
+// happens before this tree is built at all (react-doctor:
+// rerender-memo-before-early-return).
+const AppRouteContent = ({
+  activeBan,
+  handleBannedBackLogin,
+  handleConfirmNavigateDashboard,
+  handleConfirmSuccess,
+  isAuthenticated,
+  isLoading,
+  navigateDashboard,
+  navigateForgotPassword,
+  navigateLogin,
+  navigateModelRankings,
+  navigateRegister,
+  navigateScanlationFeed,
+  navigateSettings,
+  navigateVerifyDashboard,
+  route,
+  updaterBlocking,
+}: AppRouteContentProps) => {
+  const content = useMemo(() => {
+    if (isLoading) {
+      return null;
+    }
+
+    if (isLegalRoutePath(route)) {
+      return <LegalHubPage documentId={getLegalDocumentIdForRoute(route) ?? "terms"} />;
+    }
+
+    if (updaterBlocking) {
+      return <MandatoryUpdateGate />;
+    }
+
+    if (activeBan) {
+        return (
+          <BannedPage
+            ban={activeBan}
+            onBackLogin={handleBannedBackLogin}
+          />
+        );
+      }
+
+    if (!isAuthenticated) {
+      if (route === "register") {
+        return (
+          <RegisterPage
+            onNavigateLogin={navigateLogin}
+            onRegisterSuccess={navigateDashboard}
+          />
+        );
+      }
+
+      if (route === "forgot-password") {
+        return (
+          <ForgotPasswordPage
+            onNavigateLogin={navigateLogin}
+          />
+        );
+      }
+
+      if (route === "reset-password") {
+        return (
+          <ResetPasswordPage
+            onNavigateLogin={navigateLogin}
+          />
+        );
+      }
+
+      if (route === "confirm-email") {
+        return (
+          <ConfirmEmailPage
+            onNavigateDashboard={handleConfirmNavigateDashboard}
+            onNavigateLogin={navigateLogin}
+            onConfirmSuccess={handleConfirmSuccess}
+          />
+        );
+      }
+
+      return (
+        <LoginPage
+          onNavigateRegister={navigateRegister}
+          onNavigateForgotPassword={navigateForgotPassword}
+          onLoginSuccess={navigateDashboard}
+        />
+      );
+    }
+
+    if (route === "verify-email") {
+      return (
+        <VerifyEmailPage
+          onBackDashboard={navigateVerifyDashboard}
+        />
+      );
+    }
+
+    if (route === "confirm-email") {
+      return (
+        <ConfirmEmailPage
+          onNavigateDashboard={handleConfirmNavigateDashboard}
+          onNavigateLogin={navigateLogin}
+          onConfirmSuccess={handleConfirmSuccess}
+        />
+      );
+    }
+
+    if (route === "scanlation-feed") {
+      return (
+        <ScanlationFeedPage
+          onBackDashboard={navigateDashboard}
+        />
+      );
+    }
+
+    if (route === "model-rankings") {
+      return (
+        <ModelRankingsPage
+          onBackDashboard={navigateDashboard}
+        />
+      );
+    }
+
+    if (route === "settings") {
+      return (
+        <SettingsPage
+          onBackDashboard={navigateDashboard}
+        />
+      );
+    }
+
+    return (
+      <DashboardPage
+        onOpenScanlationFeed={navigateScanlationFeed}
+        onOpenModelRankings={navigateModelRankings}
+        onOpenSettings={navigateSettings}
+      />
+    );
+  }, [
+    activeBan,
+    handleBannedBackLogin,
+    handleConfirmNavigateDashboard,
+    handleConfirmSuccess,
+    isAuthenticated,
+    isLoading,
+    navigateDashboard,
+    navigateForgotPassword,
+    navigateLogin,
+    navigateModelRankings,
+    navigateRegister,
+    navigateScanlationFeed,
+    navigateSettings,
+    navigateVerifyDashboard,
+    route,
+    updaterBlocking,
+  ]);
+  return content;
+};
+
 const AppShell = () => {
   const { t } = useI18n();
   const [route, setRoute] = useState<RoutePath>(parseHashRoute);
@@ -101,6 +280,9 @@ const AppShell = () => {
           runNavigation(() => {
             // Synchronous commit: the new route must be on screen in the same frame
             // the navigation indicator ends, otherwise the previous route flashes.
+            // ponytail: leaving flushSync as-is — it is load-bearing for this
+            // frame-atomic overlay handoff; startTransition/rAF would
+            // reintroduce the route flash it exists to prevent.
             flushSync(() => {
               updateRoute();
             });
@@ -284,140 +466,6 @@ const AppShell = () => {
     void syncRoutePresence();
   }, [discord, isAuthenticated, isLoading, route]);
 
-  const content = useMemo(() => {
-    if (isLoading) {
-      return null;
-    }
-
-    if (isLegalRoutePath(route)) {
-      return <LegalHubPage documentId={getLegalDocumentIdForRoute(route) ?? "terms"} />;
-    }
-
-    if (updaterBlocking) {
-      return <MandatoryUpdateGate />;
-    }
-
-    if (activeBan) {
-        return (
-          <BannedPage
-            ban={activeBan}
-            onBackLogin={handleBannedBackLogin}
-          />
-        );
-      }
-
-    if (!isAuthenticated) {
-      if (route === "register") {
-        return (
-          <RegisterPage
-            onNavigateLogin={navigateLogin}
-            onRegisterSuccess={navigateDashboard}
-          />
-        );
-      }
-
-      if (route === "forgot-password") {
-        return (
-          <ForgotPasswordPage
-            onNavigateLogin={navigateLogin}
-          />
-        );
-      }
-
-      if (route === "reset-password") {
-        return (
-          <ResetPasswordPage
-            onNavigateLogin={navigateLogin}
-          />
-        );
-      }
-
-      if (route === "confirm-email") {
-        return (
-          <ConfirmEmailPage
-            onNavigateDashboard={handleConfirmNavigateDashboard}
-            onNavigateLogin={navigateLogin}
-            onConfirmSuccess={handleConfirmSuccess}
-          />
-        );
-      }
-
-      return (
-        <LoginPage
-          onNavigateRegister={navigateRegister}
-          onNavigateForgotPassword={navigateForgotPassword}
-          onLoginSuccess={navigateDashboard}
-        />
-      );
-    }
-
-    if (route === "verify-email") {
-      return (
-        <VerifyEmailPage
-          onBackDashboard={navigateVerifyDashboard}
-        />
-      );
-    }
-
-    if (route === "confirm-email") {
-      return (
-        <ConfirmEmailPage
-          onNavigateDashboard={handleConfirmNavigateDashboard}
-          onNavigateLogin={navigateLogin}
-          onConfirmSuccess={handleConfirmSuccess}
-        />
-      );
-    }
-
-    if (route === "scanlation-feed") {
-      return (
-        <ScanlationFeedPage
-          onBackDashboard={navigateDashboard}
-        />
-      );
-    }
-
-    if (route === "model-rankings") {
-      return (
-        <ModelRankingsPage
-          onBackDashboard={navigateDashboard}
-        />
-      );
-    }
-
-    if (route === "settings") {
-      return (
-        <SettingsPage
-          onBackDashboard={navigateDashboard}
-        />
-      );
-    }
-
-    return (
-      <DashboardPage
-        onOpenScanlationFeed={navigateScanlationFeed}
-        onOpenModelRankings={navigateModelRankings}
-        onOpenSettings={navigateSettings}
-      />
-    );
-  }, [
-    activeBan,
-    handleBannedBackLogin,
-    handleConfirmNavigateDashboard,
-    handleConfirmSuccess,
-    isAuthenticated,
-    isLoading,
-    navigateDashboard,
-    navigateForgotPassword,
-    navigateLogin,
-    navigateModelRankings,
-    navigateRegister,
-    navigateScanlationFeed,
-    navigateSettings,
-    navigateVerifyDashboard,
-    route,
-    updaterBlocking,
-  ]);
 
   if (isProductionEnvironment && !isDesktopRuntime) {
     if (isLegalRoutePath(route)) {
@@ -457,7 +505,24 @@ const AppShell = () => {
       />
       <div className="koma-route-shell" data-route={route}>
         <Suspense fallback={<div className="koma-route-shell__fallback" aria-hidden="true" />}>
-          {content}
+          <AppRouteContent
+            activeBan={activeBan}
+            handleBannedBackLogin={handleBannedBackLogin}
+            handleConfirmNavigateDashboard={handleConfirmNavigateDashboard}
+            handleConfirmSuccess={handleConfirmSuccess}
+            isAuthenticated={isAuthenticated}
+            isLoading={isLoading}
+            navigateDashboard={navigateDashboard}
+            navigateForgotPassword={navigateForgotPassword}
+            navigateLogin={navigateLogin}
+            navigateModelRankings={navigateModelRankings}
+            navigateRegister={navigateRegister}
+            navigateScanlationFeed={navigateScanlationFeed}
+            navigateSettings={navigateSettings}
+            navigateVerifyDashboard={navigateVerifyDashboard}
+            route={route}
+            updaterBlocking={updaterBlocking}
+          />
         </Suspense>
       </div>
       <SessionTimeout />

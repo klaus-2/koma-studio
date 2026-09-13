@@ -452,18 +452,24 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   }, []);
 
   const customTranslationStageOptions = useMemo(
-    () =>
-      customLlmProfiles
-        .filter((profile) => profile.stage === "translation")
-        .map((profile) => buildCustomStageOption(profile)),
+    () => {
+      const options: AioStageOption[] = [];
+      for (const profile of customLlmProfiles) {
+        if (profile.stage === "translation") options.push(buildCustomStageOption(profile));
+      }
+      return options;
+    },
     [buildCustomStageOption, customLlmProfiles],
   );
 
   const customOcrStageOptions = useMemo(
-    () =>
-      customLlmProfiles
-        .filter((profile) => profile.stage === "ocr")
-        .map((profile) => buildCustomStageOption(profile)),
+    () => {
+      const options: AioStageOption[] = [];
+      for (const profile of customLlmProfiles) {
+        if (profile.stage === "ocr") options.push(buildCustomStageOption(profile));
+      }
+      return options;
+    },
     [buildCustomStageOption, customLlmProfiles],
   );
 
@@ -859,8 +865,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
         detectText: DEFAULT_AIO_STAGE_OPTIONS.detectText
           .filter((option) => option.implemented && option.available),
         recognizeText: DEFAULT_AIO_STAGE_OPTIONS.recognizeText
-          .filter((option) => option.implemented && option.available)
-          .filter((option) => ocrOptionSupportsLanguage(option, normalizedLanguage)),
+          .filter((option) => option.implemented && option.available && ocrOptionSupportsLanguage(option, normalizedLanguage)),
         getTranslations: DEFAULT_AIO_STAGE_OPTIONS.getTranslations
           .filter((option) => option.implemented && option.available),
         segmentText: DEFAULT_AIO_STAGE_OPTIONS.segmentText

@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,8 +14,6 @@ import './WatermarkWorkspace.css';
 import '../../../pages/WatermarkToolbox.css';
 import {
   buildBuiltinPresets,
-  createDefaultWatermarkDraft,
-  deserializeWatermarkPresets,
   duplicatePreset,
   sanitizePresetName,
   serializeWatermarkPresets,
@@ -22,7 +21,14 @@ import {
 } from './watermark-core.js';
 import { renderWatermarkAsset } from './watermarkRenderer';
 import { getApiConfig } from '../../../config/api';
+import { loadImageFromSource } from '../../../utils/dashboard.utils';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
+import {
+  USER_PRESETS_STORAGE_KEY,
+  useWatermarkStore,
+} from '../../../pages/dashboard/stores/watermark-store';
+import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
+import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
 
 import type {
   WatermarkAnchor,
@@ -44,8 +50,6 @@ import {
   ZOOM_DEFAULT,
   ZOOM_STEPS,
 } from './watermark-ui-constants';
-
-const USER_PRESETS_STORAGE_KEY = 'koma-studio.watermark.user-presets.v1';
 
 const sanitizeFileStem = (value: string): string =>
   value
@@ -100,19 +104,14 @@ const loadImageBitmapSource = async (file: File): Promise<ImageBitmap | HTMLImag
     return createImageBitmap(file);
   }
 
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('Failed to load the image for the smart suggestion.'));
-    };
-    image.src = objectUrl;
-  });
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    return await loadImageFromSource(objectUrl);
+  } catch {
+    throw new Error('Failed to load the image for the smart suggestion.');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 };
 
 const defaultAnalyzeSmartSuggestion = async (
@@ -155,10 +154,7 @@ const WatermarkWorkspace = ({
   restoreToken,
   toolboxHostId,
   processing,
-  setProcessing,
   progress: _progress,
-  setProgress,
-  setStatusMessage,
   ensureVerifiedEmailOrNotify,
   registerDownloads,
   recordProcessedPages,
@@ -206,50 +202,49 @@ const WatermarkWorkspace = ({
     () => buildBuiltinPresets() as WatermarkPresetV1[],
     [],
   );
-  const [draft, setDraft] = useState<WatermarkDraft>(() =>
-    workspaceState?.draft ?? createDefaultWatermarkDraft(),
+  /* ── Watermark domain state (store) ──
+     The draft, presets, logo file, results and zone cache live in the Zustand
+     store; actions are stable and callbacks read the latest values via
+     getState(), which replaced the render-time ref mirroring
+     (React Doctor no-ref-current-in-render). */
+  const draft = useWatermarkStore((s) => s.draft);
+  const activeImageId = useWatermarkStore((s) => s.activeImageId);
+  const watermarkImageFile = useWatermarkStore((s) => s.watermarkImageFile);
+  const userPresets = useWatermarkStore((s) => s.userPresets);
+  const selectedPresetId = useWatermarkStore((s) => s.selectedPresetId);
+  const results = useWatermarkStore((s) => s.results);
+  const autoSuggestion = useWatermarkStore((s) => s.autoSuggestion);
+  const compareMode = useWatermarkStore((s) => s.compareMode);
+  const compareValue = useWatermarkStore((s) => s.compareValue);
+  const textZoneCache = useWatermarkStore((s) => s.textZoneCache);
+  const setDraft = useWatermarkStore((s) => s.setDraft);
+  const setActiveImageId = useWatermarkStore((s) => s.setActiveImageId);
+  const setWatermarkImageFile = useWatermarkStore(
+    (s) => s.setWatermarkImageFile,
   );
-  const [activeImageId, setActiveImageId] = useState<string | null>(
-    workspaceState?.activeImageId ?? images[0]?.id ?? null,
-  );
+  const setUserPresets = useWatermarkStore((s) => s.setUserPresets);
+  const setSelectedPresetId = useWatermarkStore((s) => s.setSelectedPresetId);
+  const setResults = useWatermarkStore((s) => s.setResults);
+  const setAutoSuggestion = useWatermarkStore((s) => s.setAutoSuggestion);
+  const setCompareMode = useWatermarkStore((s) => s.setCompareMode);
+  const setCompareValue = useWatermarkStore((s) => s.setCompareValue);
+  const setTextZoneCache = useWatermarkStore((s) => s.setTextZoneCache);
+  // Shell/status actions come from their stores (the parent still passes the
+  // props, but the component no longer needs them).
+  const setProcessing = useUiShellStore((s) => s.setProcessing);
+  const setProgress = useUiShellStore((s) => s.setProgress);
+  const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
+
+  /* ── Transient preview/UI state (not part of the workspace snapshot) ── */
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewAnchor, setPreviewAnchor] =
     useState<WatermarkAnchor>('bottom-right');
   const [previewBusy, setPreviewBusy] = useState(false);
-  const [watermarkImageFile, setWatermarkImageFile] = useState<File | null>(
-    workspaceState?.watermarkImageFile ?? null,
-  );
   const [watermarkImagePreview, setWatermarkImagePreview] = useState<
     string | null
   >(null);
-  const [userPresets, setUserPresets] = useState<WatermarkPresetV1[]>(() => {
-    if (workspaceState?.userPresets) return workspaceState.userPresets;
-    if (typeof window === 'undefined') return [];
-    return deserializeWatermarkPresets(
-      window.localStorage.getItem(USER_PRESETS_STORAGE_KEY),
-    );
-  });
-  const [selectedPresetId, setSelectedPresetId] = useState(
-    workspaceState?.selectedPresetId ?? builtins[0]?.id ?? '',
-  );
-  const [results, setResults] = useState<WatermarkResultEntry[]>(
-    () => workspaceState?.results ?? [],
-  );
-  const [autoSuggestion, setAutoSuggestion] = useState(
-    workspaceState?.autoSuggestion ??
-      t('watermark.autoSuggestionHint'),
-  );
-  const [compareMode, setCompareMode] = useState<'split' | 'preview'>(
-    workspaceState?.compareMode ?? 'split',
-  );
-  const [compareValue, setCompareValue] = useState(
-    workspaceState?.compareValue ?? 58,
-  );
   const [toolboxHost, setToolboxHost] = useState<HTMLElement | null>(null);
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
-  const [textZoneCache, setTextZoneCache] = useState<Record<string, WatermarkTextAvoidanceZone[]>>(
-    () => workspaceState?.textZoneCache ?? {},
-  );
   const [detectingTextZones, setDetectingTextZones] = useState(false);
   const [showTextZoneOverlay, setShowTextZoneOverlay] = useState(false);
 
@@ -257,19 +252,25 @@ const WatermarkWorkspace = ({
   const workerRef = useRef<Worker | null>(null);
   const requestCounterRef = useRef(0);
   const cancelBatchRef = useRef(false);
-  const resultsRef = useRef<WatermarkResultEntry[]>([]);
   const previewRequestRef = useRef(0);
   const previewStageRef = useRef<HTMLDivElement | null>(null);
   const thumbsStripRef = useHorizontalDragScroll<HTMLDivElement>();
 
-  // ── Stable refs for breaking dependency loops ──
+  /* Latest refs for values that arrive as props (cross-domain callbacks and
+     the output format). Written in an effect — never during render — so they
+     always hold the last committed value without tripping
+     no-ref-current-in-render. */
   const onWorkspaceStateChangeRef = useRef(onWorkspaceStateChange);
-  onWorkspaceStateChangeRef.current = onWorkspaceStateChange;
-  const setStatusMessageRef = useRef(setStatusMessage);
-  setStatusMessageRef.current = setStatusMessage;
   const registerDownloadsRef = useRef(registerDownloads);
-  registerDownloadsRef.current = registerDownloads;
+  const outputTypeRef = useRef(outputType);
+  const outputQualityRef = useRef(outputQuality);
   const wsChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    onWorkspaceStateChangeRef.current = onWorkspaceStateChange;
+    registerDownloadsRef.current = registerDownloads;
+    outputTypeRef.current = outputType;
+    outputQualityRef.current = outputQuality;
+  });
   const lastRestoreTokenRef = useRef(restoreToken);
 
   const allPresets = useMemo(
@@ -311,12 +312,13 @@ const WatermarkWorkspace = ({
       );
   }, [userPresets]);
 
-  // Restore from workspace state only on explicit restoreToken change
-  useEffect(() => {
+  // Seed the store once at mount from the synced workspace snapshot — the same
+  // values the useState initializers consumed before the store migration.
+  // Runs once per mount, so it cannot loop with the debounced
+  // onWorkspaceStateChange sync below. useLayoutEffect so the first paint
+  // already shows the restored values instead of store defaults.
+  useLayoutEffect(() => {
     if (!workspaceState) return;
-    if (lastRestoreTokenRef.current === restoreToken) return;
-    lastRestoreTokenRef.current = restoreToken;
-    revokeEntries(resultsRef.current);
     setDraft(workspaceState.draft);
     setActiveImageId(workspaceState.activeImageId);
     setWatermarkImageFile(workspaceState.watermarkImageFile);
@@ -327,11 +329,27 @@ const WatermarkWorkspace = ({
     setCompareMode(workspaceState.compareMode);
     setCompareValue(workspaceState.compareValue);
     setTextZoneCache(workspaceState.textZoneCache ?? {});
-  }, [restoreToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Restore from workspace state only on explicit restoreToken change
   useEffect(() => {
-    resultsRef.current = results;
-  }, [results]);
+    if (!workspaceState) return;
+    if (lastRestoreTokenRef.current === restoreToken) return;
+    lastRestoreTokenRef.current = restoreToken;
+    revokeEntries(useWatermarkStore.getState().results);
+    setDraft(workspaceState.draft);
+    setActiveImageId(workspaceState.activeImageId);
+    setWatermarkImageFile(workspaceState.watermarkImageFile);
+    setUserPresets(workspaceState.userPresets);
+    setSelectedPresetId(workspaceState.selectedPresetId);
+    setResults(workspaceState.results);
+    setAutoSuggestion(workspaceState.autoSuggestion);
+    setCompareMode(workspaceState.compareMode);
+    setCompareValue(workspaceState.compareValue);
+    setTextZoneCache(workspaceState.textZoneCache ?? {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreToken]);
 
   useEffect(() => {
     workerRef.current = createWorker();
@@ -340,36 +358,43 @@ const WatermarkWorkspace = ({
       workerRef.current = null;
       if (previewTimeoutRef.current !== null)
         window.clearTimeout(previewTimeoutRef.current);
-      revokeEntries(resultsRef.current);
+      revokeEntries(useWatermarkStore.getState().results);
     };
   }, []);
 
+  // The host id is a static constant and the host element (InfoModesToolsPanel)
+  // is committed before this lazy workspace mounts, so a mount-once lookup is
+  // behavior-identical to re-querying on prop change.
+  // ponytail: if toolboxHostId ever becomes dynamic, re-key this lookup on it.
   useEffect(() => {
-    if (!toolboxHostId || typeof document === 'undefined') {
-      setToolboxHost(null);
-      return;
-    }
+    if (!toolboxHostId || typeof document === 'undefined') return;
     setToolboxHost(document.getElementById(toolboxHostId));
-  }, [toolboxHostId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Unmount-only cleanup for blob URLs (per-change cleanup is in setters)
-  const previewUrlCleanupRef = useRef(previewUrl);
-  previewUrlCleanupRef.current = previewUrl;
-  const wmImagePreviewCleanupRef = useRef(watermarkImagePreview);
-  wmImagePreviewCleanupRef.current = watermarkImagePreview;
+  // The watermark logo preview URL is owned by this effect: created per
+  // watermarkImageFile change, revoked in the cleanup (replace + unmount).
+  useEffect(() => {
+    const nextUrl = watermarkImageFile
+      ? URL.createObjectURL(watermarkImageFile)
+      : null;
+    setWatermarkImagePreview(nextUrl);
+    return () => {
+      if (nextUrl) URL.revokeObjectURL(nextUrl);
+    };
+  }, [watermarkImageFile]);
+
+  // Latest committed preview URL; swapped-out URLs are revoked at swap time
+  // (see the preview effect) and the last one on unmount.
+  const previewUrlCleanupRef = useRef<string | null>(null);
+  useEffect(() => {
+    previewUrlCleanupRef.current = previewUrl;
+  });
   useEffect(() => {
     return () => {
       if (previewUrlCleanupRef.current) URL.revokeObjectURL(previewUrlCleanupRef.current);
-      if (wmImagePreviewCleanupRef.current) URL.revokeObjectURL(wmImagePreviewCleanupRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    setWatermarkImagePreview((current) => {
-      if (current) URL.revokeObjectURL(current);
-      return watermarkImageFile ? URL.createObjectURL(watermarkImageFile) : null;
-    });
-  }, [watermarkImageFile]);
 
   // Debounced workspace state sync to parent
   useEffect(() => {
@@ -475,39 +500,31 @@ const WatermarkWorkspace = ({
     );
   }, []);
 
-  // Stable refs to avoid recreating buildAsset on every draft change
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
-  const textZoneCacheRef = useRef(textZoneCache);
-  textZoneCacheRef.current = textZoneCache;
-  const outputTypeRef = useRef(outputType);
-  outputTypeRef.current = outputType;
-  const outputQualityRef = useRef(outputQuality);
-  outputQualityRef.current = outputQuality;
-  const watermarkImageFileRef = useRef(watermarkImageFile);
-  watermarkImageFileRef.current = watermarkImageFile;
-
+  // Reads the watermark store via getState() so it stays stable across draft
+  // changes; output format/quality arrive as props and use the effect-written
+  // mirrors above.
   const buildAsset = useCallback(
-    (img: WatermarkLoadedImage): WatermarkRenderAsset => ({
-      sourceFile: img.file,
-      watermarkFile: watermarkImageFileRef.current,
-      image: {
-        id: img.id,
-        width: img.width,
-        height: img.height,
-        rotation: img.rotation,
-        filters: img.filters,
-      },
-      outputType: outputTypeRef.current,
-      outputQuality: outputQualityRef.current,
-      settings: draftRef.current,
-      textAvoidanceZones: draftRef.current.avoidTextRegions ? (textZoneCacheRef.current[img.id] ?? []) : undefined,
-    }),
-    [],
-  );
-
-  const updateDraft = useCallback(
-    (fn: (c: WatermarkDraft) => WatermarkDraft) => setDraft(fn),
+    (img: WatermarkLoadedImage): WatermarkRenderAsset => {
+      const { draft, textZoneCache, watermarkImageFile } =
+        useWatermarkStore.getState();
+      return {
+        sourceFile: img.file,
+        watermarkFile: watermarkImageFile,
+        image: {
+          id: img.id,
+          width: img.width,
+          height: img.height,
+          rotation: img.rotation,
+          filters: img.filters,
+        },
+        outputType: outputTypeRef.current,
+        outputQuality: outputQualityRef.current,
+        settings: draft,
+        textAvoidanceZones: draft.avoidTextRegions
+          ? (textZoneCache[img.id] ?? [])
+          : undefined,
+      };
+    },
     [],
   );
 
@@ -534,54 +551,63 @@ const WatermarkWorkspace = ({
         label: d.label,
       }));
       setTextZoneCache((prev) => ({ ...prev, [img.id]: zones }));
-      setStatusMessageRef.current(
+      setStatusMessage(
         t('watermark.textAvoidance.detected', { count: zones.length }),
       );
     } catch (err) {
-      setStatusMessageRef.current(
+      setStatusMessage(
         err instanceof Error ? err.message : t('watermark.textAvoidance.failed'),
       );
     } finally {
       setDetectingTextZones(false);
     }
-  }, [t]);
+  }, [setTextZoneCache, setStatusMessage, t]);
 
   const detectAllTextZones = useCallback(async () => {
     setDetectingTextZones(true);
     const apiConfig = getApiConfig();
     let total = 0;
     try {
-      for (const img of images) {
-        if (textZoneCache[img.id]) continue;
-        const formData = new FormData();
-        formData.append('file', img.file);
-        const response = await fetchWithTimeoutAndRetry(
-          `${apiConfig.localUrl}/detect`,
-          { method: 'POST', body: formData },
-          { timeoutMs: 30_000, retryCount: 1 },
-        );
-        if (!response.ok) continue;
-        const payload = (await response.json()) as DetectApiResponse;
-        const zones: WatermarkTextAvoidanceZone[] = payload.detections.map((d) => ({
-          id: d.id,
-          bbox: d.bbox,
-          score: d.score,
-          label: d.label,
+      const pendingImages = images.filter(
+        (img) => !useWatermarkStore.getState().textZoneCache[img.id],
+      );
+      // ponytail: bounded concurrency (4) — independent /detect calls, but don't fire every upload at the local API at once
+      for (let chunkStart = 0; chunkStart < pendingImages.length; chunkStart += 4) {
+        const chunk = pendingImages.slice(chunkStart, chunkStart + 4);
+        await Promise.all(chunk.map(async (img) => {
+          const formData = new FormData();
+          formData.append('file', img.file);
+          const response = await fetchWithTimeoutAndRetry(
+            `${apiConfig.localUrl}/detect`,
+            { method: 'POST', body: formData },
+            { timeoutMs: 30_000, retryCount: 1 },
+          );
+          if (!response.ok) return null;
+          const payload = (await response.json()) as DetectApiResponse;
+          const zones = payload.detections.map((d) => ({
+            id: d.id,
+            bbox: d.bbox,
+            score: d.score,
+            label: d.label,
+          }));
+          // Cache per item inside the callback so successes survive a
+          // mid-chunk failure (the original sequential loop did the same).
+          setTextZoneCache((prev) => ({ ...prev, [img.id]: zones }));
+          total += zones.length;
+          return zones;
         }));
-        setTextZoneCache((prev) => ({ ...prev, [img.id]: zones }));
-        total += zones.length;
       }
-      setStatusMessageRef.current(
+      setStatusMessage(
         t('watermark.textAvoidance.detectedAll', { count: total }),
       );
     } catch (err) {
-      setStatusMessageRef.current(
+      setStatusMessage(
         err instanceof Error ? err.message : t('watermark.textAvoidance.failed'),
       );
     } finally {
       setDetectingTextZones(false);
     }
-  }, [images, textZoneCache, t]);
+  }, [images, setTextZoneCache, setStatusMessage, t]);
 
   // Lightweight trigger key — changes whenever the preview should re-render
   const previewTrigger = useMemo(
@@ -594,10 +620,9 @@ const WatermarkWorkspace = ({
     if (previewTimeoutRef.current !== null)
       window.clearTimeout(previewTimeoutRef.current);
     if (!activeImage || !hasRenderableLayer) {
-      setPreviewUrl((c) => {
-        if (c) URL.revokeObjectURL(c);
-        return null;
-      });
+      const prevUrl = previewUrlCleanupRef.current;
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      setPreviewUrl(null);
       return;
     }
     previewTimeoutRef.current = window.setTimeout(() => {
@@ -607,14 +632,14 @@ const WatermarkWorkspace = ({
         .then((r) => {
           if (previewRequestRef.current !== rid) return;
           setPreviewAnchor(r.resolvedAnchor);
-          setPreviewUrl((c) => {
-            if (c) URL.revokeObjectURL(c);
-            return URL.createObjectURL(r.blob);
-          });
+          const nextUrl = URL.createObjectURL(r.blob);
+          const prevUrl = previewUrlCleanupRef.current;
+          if (prevUrl) URL.revokeObjectURL(prevUrl);
+          setPreviewUrl(nextUrl);
         })
         .catch((e) => {
           if (previewRequestRef.current === rid)
-            setStatusMessageRef.current(
+            setStatusMessage(
               e instanceof Error ? e.message : 'Preview failed.',
             );
         })
@@ -632,6 +657,7 @@ const WatermarkWorkspace = ({
     previewTrigger,
     buildAsset,
     runRender,
+    setStatusMessage,
   ]);
 
   // ── Preset handlers ──
@@ -639,11 +665,12 @@ const WatermarkWorkspace = ({
     (p: WatermarkPresetV1) => {
       setSelectedPresetId(p.id);
       setDraft(p.settings);
-      setStatusMessageRef.current(`${t('renderPreview.preset')}: ${p.name}`);
+      setStatusMessage(`${t('renderPreview.preset')}: ${p.name}`);
     },
-    [t],
+    [setDraft, setSelectedPresetId, setStatusMessage, t],
   );
   const saveCurrentPreset = useCallback(() => {
+    const { draft } = useWatermarkStore.getState();
     const n = sanitizePresetName(
       window.prompt(`${t('common.name')}:`, draft.baseName || t('watermark.presets.defaultName')) ?? '',
     );
@@ -657,9 +684,11 @@ const WatermarkWorkspace = ({
     };
     setUserPresets((c) => [np, ...c]);
     setSelectedPresetId(np.id);
-    setStatusMessageRef.current(`${t('common.saved')}: ${n}`);
-  }, [draft, t]);
+    setStatusMessage(`${t('common.saved')}: ${n}`);
+  }, [setSelectedPresetId, setUserPresets, setStatusMessage, t]);
   const duplicateSelectedPreset = useCallback(() => {
+    const { userPresets, selectedPresetId } = useWatermarkStore.getState();
+    const allPresets = [...builtins, ...userPresets];
     const p = allPresets.find((e) => e.id === selectedPresetId);
     if (!p) return;
     const np = duplicatePreset(
@@ -668,9 +697,11 @@ const WatermarkWorkspace = ({
     ) as WatermarkPresetV1;
     setUserPresets((c) => [np, ...c]);
     setSelectedPresetId(np.id);
-    setStatusMessageRef.current(`${t('common.duplicated')}: ${np.name}`);
-  }, [allPresets, selectedPresetId, t]);
+    setStatusMessage(`${t('common.duplicated')}: ${np.name}`);
+  }, [builtins, setSelectedPresetId, setUserPresets, setStatusMessage, t]);
   const renameSelectedPreset = useCallback(() => {
+    const { userPresets, selectedPresetId, draft } =
+      useWatermarkStore.getState();
     const p = userPresets.find((e) => e.id === selectedPresetId);
     if (!p) return;
     const nn = sanitizePresetName(
@@ -688,25 +719,22 @@ const WatermarkWorkspace = ({
           : e,
       ),
     );
-    setStatusMessageRef.current(`${t('common.renamed')}: ${nn}`);
-  }, [draft, selectedPresetId, t, userPresets]);
+    setStatusMessage(`${t('common.renamed')}: ${nn}`);
+  }, [setUserPresets, setStatusMessage, t]);
   const deleteSelectedPreset = useCallback(() => {
+    const { userPresets, selectedPresetId } = useWatermarkStore.getState();
     const p = userPresets.find((e) => e.id === selectedPresetId);
     if (!p) return;
     setUserPresets((c) => c.filter((e) => e.id !== p.id));
     setSelectedPresetId(builtins[0]?.id ?? '');
-    setStatusMessageRef.current(`${t('common.removed')}: ${p.name}`);
-  }, [builtins, selectedPresetId, t, userPresets]);
+    setStatusMessage(`${t('common.removed')}: ${p.name}`);
+  }, [builtins, setSelectedPresetId, setUserPresets, setStatusMessage, t]);
 
   const handleWatermarkImageChange = useCallback(
     (ev: ChangeEvent<HTMLInputElement>) => {
       const f = ev.target.files?.[0] ?? null;
       setWatermarkImageFile(f);
-      setWatermarkImagePreview((c) => {
-        if (c) URL.revokeObjectURL(c);
-        return f ? URL.createObjectURL(f) : null;
-      });
-      updateDraft((c) => ({
+      setDraft((c) => ({
         ...c,
         imageLayer: {
           ...c.imageLayer,
@@ -714,13 +742,13 @@ const WatermarkWorkspace = ({
         },
       }));
     },
-    [updateDraft],
+    [setDraft, setWatermarkImageFile],
   );
 
   const applySmartSuggestion = useCallback(async () => {
     if (!activeImage) return;
     const s = await analyzeSmartSuggestion(activeImage);
-    updateDraft((c) => ({
+    setDraft((c) => ({
       ...c,
       placementMode: 'smart',
       anchor: s.anchor,
@@ -728,32 +756,38 @@ const WatermarkWorkspace = ({
       textLayer: { ...c.textLayer, color: s.textColor },
     }));
     setAutoSuggestion(s.reason);
-    setStatusMessageRef.current(s.reason);
+    setStatusMessage(s.reason);
     // Auto-detect text zones for the active image if not cached
-    if (!textZoneCache[activeImage.id]) {
+    if (!useWatermarkStore.getState().textZoneCache[activeImage.id]) {
       void detectTextZones(activeImage);
     }
-  }, [activeImage, updateDraft, textZoneCache, detectTextZones]);
+  }, [activeImage, analyzeSmartSuggestion, detectTextZones, setAutoSuggestion, setDraft, setStatusMessage]);
 
   const processBatch = useCallback(async () => {
+    const { draft, watermarkImageFile } = useWatermarkStore.getState();
+    const renderable = Boolean(
+      (draft.textLayer.enabled && draft.textLayer.text.trim().length > 0) ||
+      (draft.imageLayer.enabled && watermarkImageFile),
+    );
     if (
       !ensureVerifiedEmailOrNotify() ||
       !images.length ||
-      !hasRenderableLayer
+      !renderable
     ) {
-      setStatusMessageRef.current(t('watermark.status.configureLayer'));
+      setStatusMessage(t('watermark.status.configureLayer'));
       return;
     }
     cancelBatchRef.current = false;
     setProcessing(true);
     setProgress(0);
-    setStatusMessageRef.current(t('watermark.action.applying'));
+    setStatusMessage(t('watermark.action.applying'));
     setResults((c) => {
       revokeEntries(c);
       return [];
     });
     const nr: WatermarkResultEntry[] = [];
     try {
+      // ponytail: sequential by design — per-image render pipeline with cancelBatchRef checks and per-image progress
       for (let i = 0; i < images.length; i++) {
         if (cancelBatchRef.current) throw new Error(t('common.cancelled'));
         const img = images[i]!;
@@ -777,31 +811,33 @@ const WatermarkWorkspace = ({
         'watermark',
       );
       recordProcessedPages(images.length);
-      setStatusMessageRef.current(t('watermark.status.appliedCount', { count: nr.length }));
+      setStatusMessage(t('watermark.status.appliedCount', { count: nr.length }));
     } catch (e) {
       revokeEntries(nr);
-      setStatusMessageRef.current(e instanceof Error ? e.message : t('common.failed'));
+      setStatusMessage(e instanceof Error ? e.message : t('common.failed'));
     } finally {
       setProcessing(false);
       setProgress(0);
     }
   }, [
     buildAsset,
-    draft,
+    buildOutputName,
     ensureVerifiedEmailOrNotify,
-    hasRenderableLayer,
     images,
     outputType,
     runRender,
     setProcessing,
     setProgress,
+    setResults,
     recordProcessedPages,
+    setStatusMessage,
     t,
   ]);
 
   const downloadZip = useCallback(() => {
+    const { draft, results, selectedPresetId } = useWatermarkStore.getState();
     if (!results.length) {
-      setStatusMessageRef.current(t('watermark.status.noResults'));
+      setStatusMessage(t('watermark.status.noResults'));
       return;
     }
     void Promise.all(
@@ -829,18 +865,12 @@ const WatermarkWorkspace = ({
         );
       })
       .catch((e) =>
-        setStatusMessageRef.current(e instanceof Error ? e.message : 'ZIP failed.'),
+        setStatusMessage(e instanceof Error ? e.message : 'ZIP failed.'),
       );
-  }, [
-    draft.baseName,
-    draft.placementMode,
-    results,
-    selectedPresetId,
-    triggerBlobDownload,
-    t,
-  ]);
+  }, [setStatusMessage, triggerBlobDownload, t]);
 
   const saveToFolder = useCallback(async () => {
+    const { results } = useWatermarkStore.getState();
     if (!supportsDirectorySave() || !results.length) return;
     const picker = (
       window as Window & {
@@ -849,19 +879,20 @@ const WatermarkWorkspace = ({
     ).showDirectoryPicker;
     if (!picker) return;
     const dir = await picker();
+    // ponytail: sequential by design — the first failed write stops the batch (preserved error semantics)
     for (const e of results) {
       const fh = await dir.getFileHandle(e.name, { create: true });
       const w = await fh.createWritable();
       await w.write(e.blob);
       await w.close();
     }
-    setStatusMessageRef.current(t('common.exportedCount', { count: results.length }));
-  }, [results, supportsDirectorySave, t]);
+    setStatusMessage(t('common.exportedCount', { count: results.length }));
+  }, [setStatusMessage, supportsDirectorySave, t]);
 
   const onCancelBatch = useCallback(() => {
     cancelBatchRef.current = true;
-    setStatusMessageRef.current(t('watermark.status.cancelRequested'));
-  }, [t]);
+    setStatusMessage(t('watermark.status.cancelRequested'));
+  }, [setStatusMessage, t]);
 
   const selectedResult = activeImage
     ? (resultsById.get(activeImage.id) ?? null)

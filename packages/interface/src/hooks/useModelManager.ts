@@ -24,6 +24,7 @@ import type {
   InstallAllSummary,
   ModelInstallState,
   ModelManagerEvent,
+  TranslationModel,
 } from "../models/types";
 import { modelStore } from "../stores/model-store";
 
@@ -313,9 +314,10 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
   const refreshRemoteModelUpdates = useCallback(async (): Promise<void> => {
     modelStore.setState((prev) => ({ ...prev, checkingRemoteUpdates: true }));
     const currentEntries = modelStore.getState().entries;
-    const installedModels = Object.values(currentEntries)
-      .filter((entry) => entry.status === "installed" || entry.status === "update_available")
-      .map((entry) => entry.model);
+    const installedModels: TranslationModel[] = [];
+    for (const entry of Object.values(currentEntries)) {
+      if (entry.status === "installed" || entry.status === "update_available") installedModels.push(entry.model);
+    }
     if (installedModels.length === 0) {
       modelStore.setState((prev) => ({ ...prev, checkingRemoteUpdates: false, lastRemoteCheckAt: Date.now() }));
       return;

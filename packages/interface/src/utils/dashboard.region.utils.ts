@@ -37,9 +37,11 @@ export const areDockAnchorsEqual = (
 
 export const normalizeTranslationNotes = (notes?: string[] | null): string[] | undefined => {
   if (!Array.isArray(notes)) return undefined;
-  const normalized = notes
-    .map((item) => String(item ?? "").trim())
-    .filter((item) => item.length > 0);
+  const normalized: string[] = [];
+  for (const item of notes) {
+    const value = String(item ?? "").trim();
+    if (value.length > 0) normalized.push(value);
+  }
   return normalized.length > 0 ? normalized : undefined;
 };
 

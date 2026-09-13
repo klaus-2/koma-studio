@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   loadToolTipsSettings,
   saveToolTipsSettings,
@@ -29,7 +29,11 @@ export function useToolTips() {
   const [settings, setSettings] = useState<ToolTipsSettings>(
     loadToolTipsSettings,
   );
-  const seenRef = useRef<Set<string>>(getSeenThisSession());
+  // ponytail: render-rule fix — getSeenThisSession() reads sessionStorage, so
+  // the function-initializer form runs it once per mount instead of on every
+  // render; the Set identity stays stable across renders and dismiss() still
+  // mutates it in place without triggering a re-render, as before.
+  const [seenSet] = useState<Set<string>>(getSeenThisSession);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -43,15 +47,15 @@ export function useToolTips() {
   const shouldShow = useCallback(
     (tipId: string): boolean => {
       if (!settings.enabled) return false;
-      return !seenRef.current.has(tipId);
+      return !seenSet.has(tipId);
     },
-    [settings.enabled],
+    [seenSet, settings.enabled],
   );
 
   const dismiss = useCallback((tipId: string): void => {
     markSeenThisSession(tipId);
-    seenRef.current.add(tipId);
-  }, []);
+    seenSet.add(tipId);
+  }, [seenSet]);
 
   const setEnabled = useCallback((enabled: boolean): void => {
     setSettings(saveToolTipsSettings({ enabled }));

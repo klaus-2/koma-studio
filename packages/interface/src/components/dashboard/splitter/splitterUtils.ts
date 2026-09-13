@@ -124,10 +124,16 @@ export const buildSegmentsFromCuts = (
   cuts: SplitterCutLine[],
   overlap: number,
 ): SplitterSegmentPreview[] => {
-  const normalizedCuts = [...cuts]
-    .map((cut) => clamp(Math.round(cut.position), 0, totalSize))
-    .filter((cut, index, array) => cut > 0 && cut < totalSize && array.indexOf(cut) === index)
-    .sort((left, right) => left - right);
+  const seenCuts = new Set<number>();
+  const normalizedCuts: number[] = [];
+  for (const cut of cuts) {
+    const position = clamp(Math.round(cut.position), 0, totalSize);
+    if (position > 0 && position < totalSize && !seenCuts.has(position)) {
+      seenCuts.add(position);
+      normalizedCuts.push(position);
+    }
+  }
+  normalizedCuts.sort((left, right) => left - right);
   const boundaries = [0, ...normalizedCuts, totalSize];
   const segments: SplitterSegmentPreview[] = [];
   for (let index = 0; index < boundaries.length - 1; index += 1) {
@@ -426,6 +432,7 @@ export const cropSegmentsFromCanvas = async (
   const extension = getExtensionFromMimeType(mimeType);
   const entries: SplitterExportEntry[] = [];
 
+  // ponytail: sequential by design — holds one full-size segment canvas at a time (parallelizing would hold N decoded segments)
   for (let index = 0; index < analysis.segments.length; index += 1) {
     const segment = analysis.segments[index];
     if (!segment) continue;

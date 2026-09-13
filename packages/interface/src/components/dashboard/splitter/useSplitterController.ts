@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useI18n } from '../../../i18n';
 import {
   analyzeSplitterRequest,
@@ -21,6 +21,9 @@ import type {
   SplitterRecipe,
   SplitterWorkspaceState,
 } from './types';
+import { useSplitterStore } from '../../../pages/dashboard/stores/splitter-store';
+import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
+import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
 
 interface SplitterControllerOptions {
   images: SplitterImageInput[];
@@ -33,9 +36,6 @@ interface SplitterControllerOptions {
   localApiBase: string;
   registerDownloads: (items: Array<{ fileName: string; blob: Blob; sourceImageId: string }>, scope: 'split') => void;
   triggerBlobDownload: (blob: Blob, fileName: string) => void;
-  setProcessing: (value: boolean) => void;
-  setProgress: (value: number) => void;
-  setStatusMessage: (message: string) => void;
   ensureVerifiedEmailOrNotify: () => boolean;
   recordProcessedPages: (count: number) => void;
 }
@@ -58,10 +58,9 @@ const parseApiError = async (response: Response): Promise<string> => {
 
 const buildZipBlob = async (entries: Array<{ fileName: string; blob: Blob }>): Promise<Blob> => {
   const { zipSync } = await import('fflate');
-  const files: Record<string, Uint8Array> = {};
-  for (const entry of entries) {
-    files[entry.fileName] = new Uint8Array(await entry.blob.arrayBuffer());
-  }
+  const files = Object.fromEntries(await Promise.all(
+    entries.map(async (entry) => [entry.fileName, new Uint8Array(await entry.blob.arrayBuffer())] as const),
+  ));
   const zipped = zipSync(files, { level: 6 });
   const zippedCopy = new Uint8Array(zipped.byteLength);
   zippedCopy.set(zipped);
@@ -136,46 +135,41 @@ export const useSplitterController = ({
   localApiBase,
   registerDownloads,
   triggerBlobDownload,
-  setProcessing,
-  setProgress,
-  setStatusMessage,
   ensureVerifiedEmailOrNotify,
   recordProcessedPages,
 }: SplitterControllerOptions) => {
   const { t } = useI18n();
-  const [recipe, setRecipe] = useState<SplitterRecipe>(() => initialWorkspaceState?.recipe ?? createDefaultSplitterRecipe());
-  const [imageStates, setImageStates] = useState<Record<string, SplitterImageState>>(() => initialWorkspaceState?.imageStates ?? {});
+  /* ── Splitter domain state (store) ──
+     recipe/imageStates live in the Zustand store; actions are stable and read
+     the latest state via get()/getState(), so callbacks never depend on them. */
+  const recipe = useSplitterStore((s) => s.recipe);
+  const imageStates = useSplitterStore((s) => s.imageStates);
+  const setRecipe = useSplitterStore((s) => s.setRecipe);
+  const setImageStates = useSplitterStore((s) => s.setImageStates);
+  const updateImageState = useSplitterStore((s) => s.updateImageState);
+  const setProcessing = useUiShellStore((s) => s.setProcessing);
+  const setProgress = useUiShellStore((s) => s.setProgress);
+  const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
   const directorySaveSupported = useMemo(() => canUseDirectoryPicker(), []);
   const latestAnalyzeTokenRef = useRef<Record<string, number>>({});
   const analyzePromisesRef = useRef<Record<string, Promise<SplitterAnalysisResult> | undefined>>({});
 
-  /* ── Refs for breaking dependency loops ──
-     These let callbacks read the latest value without being recreated when values change.
-     This is critical: without these, moveActiveCut depends on imageStates →
-     every cut drag updates imageStates → recreates moveActiveCut →
-     rerenders the entire tree → visible flickering. */
-  const imageStatesRef = useRef(imageStates);
-  imageStatesRef.current = imageStates;
-  const recipeRef = useRef(recipe);
-  recipeRef.current = recipe;
+  /* Latest refs for values that arrive as props (cross-domain callbacks and
+     the image list, which may be recreated by the parent). Written in an
+     effect — never during render — so they always hold the last committed
+     value without tripping no-ref-current-in-render. */
   const imagesRef = useRef(images);
-  imagesRef.current = images;
-
-  /* Stable refs for callbacks passed from parent (often recreated inline) */
   const registerDownloadsRef = useRef(registerDownloads);
-  registerDownloadsRef.current = registerDownloads;
   const triggerBlobDownloadRef = useRef(triggerBlobDownload);
-  triggerBlobDownloadRef.current = triggerBlobDownload;
-  const setProcessingRef = useRef(setProcessing);
-  setProcessingRef.current = setProcessing;
-  const setProgressRef = useRef(setProgress);
-  setProgressRef.current = setProgress;
-  const setStatusMessageRef = useRef(setStatusMessage);
-  setStatusMessageRef.current = setStatusMessage;
   const ensureVerifiedEmailOrNotifyRef = useRef(ensureVerifiedEmailOrNotify);
-  ensureVerifiedEmailOrNotifyRef.current = ensureVerifiedEmailOrNotify;
   const recordProcessedPagesRef = useRef(recordProcessedPages);
-  recordProcessedPagesRef.current = recordProcessedPages;
+  useEffect(() => {
+    imagesRef.current = images;
+    registerDownloadsRef.current = registerDownloads;
+    triggerBlobDownloadRef.current = triggerBlobDownload;
+    ensureVerifiedEmailOrNotifyRef.current = ensureVerifiedEmailOrNotify;
+    recordProcessedPagesRef.current = recordProcessedPages;
+  });
 
   /* ── Restore workspace state ONLY on explicit restoreToken change ──
      Previously this depended on initialWorkspaceState which created a loop:
@@ -237,23 +231,11 @@ export const useSplitterController = ({
     [activeImageState, recipe],
   );
 
-  /* ── Core state updaters (stable) ── */
-  const updateImageState = useCallback((
-    imageId: string,
-    updater: (current: SplitterImageState) => SplitterImageState,
-  ) => {
-    setImageStates((current) => {
-      const base = current[imageId] ?? { imageId, status: 'idle', error: null, analysis: null };
-      const next = updater(base);
-      if (next === base) return current; // No change
-      return { ...current, [imageId]: next };
-    });
-  }, []);
-
-  /* ── Analyze (stable — reads from refs) ── */
+  /* ── Analyze (stable — reads current state from the store) ── */
   const analyzeImage = useCallback(async (image: SplitterImageInput, force = false): Promise<SplitterAnalysisResult> => {
-    const currentState = imageStatesRef.current[image.id] ?? null;
-    const effectiveRecipe = resolveRecipeForImage(recipeRef.current, currentState);
+    const store = useSplitterStore.getState();
+    const currentState = store.imageStates[image.id] ?? null;
+    const effectiveRecipe = resolveRecipeForImage(store.recipe, currentState);
     if (!force && effectiveRecipe.strategy === 'manual' && currentState?.analysis) {
       return currentState.analysis;
     }
@@ -321,23 +303,23 @@ export const useSplitterController = ({
   const analyzeActiveImage = useCallback(async (force = true) => {
     if (!activeImage) return null;
     const analysis = await analyzeImage(activeImage, force);
-    setStatusMessageRef.current(`Splitter: ${analysis.segments.length} segmento(s) sugerido(s) para ${activeImage.file.name}.`);
+    setStatusMessage(`Splitter: ${analysis.segments.length} segmento(s) sugerido(s) para ${activeImage.file.name}.`);
     return analysis;
-  }, [activeImage, analyzeImage]);
+  }, [activeImage, analyzeImage, setStatusMessage]);
 
   const applyRecipeToSelected = useCallback(() => {
     if (!activeImage) return;
     updateImageState(activeImage.id, (state) => ({
       ...state,
-      recipeOverride: { ...recipeRef.current },
+      recipeOverride: { ...useSplitterStore.getState().recipe },
     }));
-    setStatusMessageRef.current(t('splitter.status.recipeApplied'));
-  }, [activeImage, t, updateImageState]);
+    setStatusMessage(t('splitter.status.recipeApplied'));
+  }, [activeImage, setStatusMessage, t, updateImageState]);
 
   const applyRecipeToAll = useCallback(() => {
+    const currentRecipe = useSplitterStore.getState().recipe;
     setImageStates((current) => {
       const next = { ...current };
-      const currentRecipe = recipeRef.current;
       imagesRef.current.forEach((image) => {
         next[image.id] = {
           ...(current[image.id] ?? { imageId: image.id, status: 'idle', error: null, analysis: null }),
@@ -346,13 +328,13 @@ export const useSplitterController = ({
       });
       return next;
     });
-    setStatusMessageRef.current('Global recipe applied to every Splitter image.');
-  }, []);
+    setStatusMessage('Global recipe applied to every Splitter image.');
+  }, [setImageStates, setStatusMessage]);
 
   const resetRecipe = useCallback(() => {
     setRecipe(createDefaultSplitterRecipe());
-    setStatusMessageRef.current(t('splitter.status.recipeRestored'));
-  }, [t]);
+    setStatusMessage(t('splitter.status.recipeRestored'));
+  }, [setRecipe, setStatusMessage, t]);
 
   const patchAnalysis = useCallback((imageId: string, updater: (analysis: SplitterAnalysisResult) => SplitterAnalysisResult) => {
     updateImageState(imageId, (state) => ({
@@ -365,13 +347,13 @@ export const useSplitterController = ({
 
   const addCutToActive = useCallback(async (position: number) => {
     if (!activeImage) return;
-    let analysis = imageStatesRef.current[activeImage.id]?.analysis ?? null;
+    let analysis = useSplitterStore.getState().imageStates[activeImage.id]?.analysis ?? null;
     if (!analysis) {
       analysis = await analyzeImage(activeImage, false);
     }
     updateImageState(activeImage.id, (state) => ({
       ...state,
-      analysis: addManualCut(analysis!, position, recipeRef.current),
+      analysis: addManualCut(analysis!, position, useSplitterStore.getState().recipe),
       status: 'ready',
       error: null,
     }));
@@ -379,30 +361,30 @@ export const useSplitterController = ({
 
   const moveActiveCut = useCallback((cutId: string, position: number) => {
     if (!activeImage) return;
-    const state = imageStatesRef.current[activeImage.id];
+    const state = useSplitterStore.getState().imageStates[activeImage.id];
     if (!state?.analysis) return;
-    patchAnalysis(activeImage.id, (analysis) => moveCut(analysis, cutId, position, recipeRef.current));
+    patchAnalysis(activeImage.id, (analysis) => moveCut(analysis, cutId, position, useSplitterStore.getState().recipe));
   }, [activeImage, patchAnalysis]);
 
   const removeActiveCut = useCallback((cutId: string) => {
     if (!activeImage) return;
-    const state = imageStatesRef.current[activeImage.id];
+    const state = useSplitterStore.getState().imageStates[activeImage.id];
     if (!state?.analysis) return;
-    patchAnalysis(activeImage.id, (analysis) => removeCut(analysis, cutId, recipeRef.current));
+    patchAnalysis(activeImage.id, (analysis) => removeCut(analysis, cutId, useSplitterStore.getState().recipe));
   }, [activeImage, patchAnalysis]);
 
   const toggleActiveCutLock = useCallback((cutId: string) => {
     if (!activeImage) return;
-    const state = imageStatesRef.current[activeImage.id];
+    const state = useSplitterStore.getState().imageStates[activeImage.id];
     if (!state?.analysis) return;
     patchAnalysis(activeImage.id, (analysis) => toggleCutLock(analysis, cutId));
   }, [activeImage, patchAnalysis]);
 
   const mergeActiveSegments = useCallback((mergeIndex: number) => {
     if (!activeImage) return;
-    const state = imageStatesRef.current[activeImage.id];
+    const state = useSplitterStore.getState().imageStates[activeImage.id];
     if (!state?.analysis) return;
-    patchAnalysis(activeImage.id, (analysis) => mergeSegmentsAtIndex(analysis, mergeIndex, recipeRef.current));
+    patchAnalysis(activeImage.id, (analysis) => mergeSegmentsAtIndex(analysis, mergeIndex, useSplitterStore.getState().recipe));
   }, [activeImage, patchAnalysis]);
 
   const clearActiveAnalysis = useCallback(() => {
@@ -413,17 +395,17 @@ export const useSplitterController = ({
       status: 'idle',
       error: null,
     }));
-    setStatusMessageRef.current('Manual Splitter cuts removed from the active image.');
-  }, [activeImage, updateImageState]);
+    setStatusMessage('Manual Splitter cuts removed from the active image.');
+  }, [activeImage, setStatusMessage, updateImageState]);
 
   const exportCurrentSelection = useCallback(async () => {
     if (!activeImage) return;
     if (!ensureVerifiedEmailOrNotifyRef.current()) return;
-    setProcessingRef.current(true);
-    setProgressRef.current(0);
+    setProcessing(true);
+    setProgress(0);
     try {
-      const currentRecipe = recipeRef.current;
-      const effectiveRecipe = resolveRecipeForImage(currentRecipe, imageStatesRef.current[activeImage.id] ?? null);
+      const currentRecipe = useSplitterStore.getState().recipe;
+      const effectiveRecipe = resolveRecipeForImage(currentRecipe, useSplitterStore.getState().imageStates[activeImage.id] ?? null);
       const analysis = await analyzeImage(activeImage, false);
       const canvas = await buildProcessedCanvasForImage(activeImage);
       const outputs = await cropSegmentsFromCanvas(canvas, activeImage, effectiveRecipe, analysis);
@@ -440,49 +422,50 @@ export const useSplitterController = ({
         triggerBlobDownloadRef.current(zipBlob, `${effectiveRecipe.baseName}-active.zip`);
       }
       recordProcessedPagesRef.current(1);
-      setStatusMessageRef.current(`Splitter: ${outputs.length} segment(s) generated for the active image.`);
+      setStatusMessage(`Splitter: ${outputs.length} segment(s) generated for the active image.`);
     } catch (error) {
-      setStatusMessageRef.current(error instanceof Error ? error.message : 'Failed to export the active Splitter image.');
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to export the active Splitter image.');
     } finally {
-      setProcessingRef.current(false);
-      setProgressRef.current(0);
+      setProcessing(false);
+      setProgress(0);
     }
-  }, [activeImage, analyzeImage, t]);
+  }, [activeImage, analyzeImage, setProcessing, setProgress, setStatusMessage, t]);
 
   const exportBatch = useCallback(async () => {
     const currentImages = imagesRef.current;
     if (currentImages.length === 0) return;
     if (!ensureVerifiedEmailOrNotifyRef.current()) return;
-    setProcessingRef.current(true);
-    setProgressRef.current(0);
+    setProcessing(true);
+    setProgress(0);
     try {
       const outputs: Array<{ fileName: string; blob: Blob; sourceImageId: string }> = [];
+      // ponytail: sequential by design — per-image canvas analysis/processing is memory-heavy and progress is per-image
       for (let index = 0; index < currentImages.length; index += 1) {
         const image = currentImages[index];
         if (!image) continue;
-        const state = imageStatesRef.current[image.id] ?? null;
-        const recipeForImage = resolveRecipeForImage(recipeRef.current, state);
+        const state = useSplitterStore.getState().imageStates[image.id] ?? null;
+        const recipeForImage = resolveRecipeForImage(useSplitterStore.getState().recipe, state);
         const analysis = await analyzeImage(image, false);
         const canvas = await buildProcessedCanvasForImage(image);
         const imageOutputs = await cropSegmentsFromCanvas(canvas, image, recipeForImage, analysis);
         outputs.push(...imageOutputs);
-        setProgressRef.current(((index + 1) / currentImages.length) * 100);
+        setProgress(((index + 1) / currentImages.length) * 100);
       }
       if (outputs.length === 0) {
         throw new Error(t('splitter.error.noSegmentsBatch'));
       }
       registerDownloadsRef.current(outputs, 'split');
       const zipBlob = await buildZipBlob(outputs);
-      triggerBlobDownloadRef.current(zipBlob, `${recipeRef.current.baseName}-batch.zip`);
+      triggerBlobDownloadRef.current(zipBlob, `${useSplitterStore.getState().recipe.baseName}-batch.zip`);
       recordProcessedPagesRef.current(currentImages.length);
-      setStatusMessageRef.current(`Splitter: ${outputs.length} segmento(s) gerado(s) em lote.`);
+      setStatusMessage(`Splitter: ${outputs.length} segmento(s) gerado(s) em lote.`);
     } catch (error) {
-      setStatusMessageRef.current(error instanceof Error ? error.message : 'Failed to export the Splitter batch.');
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to export the Splitter batch.');
     } finally {
-      setProcessingRef.current(false);
-      setProgressRef.current(0);
+      setProcessing(false);
+      setProgress(0);
     }
-  }, [analyzeImage, t]);
+  }, [analyzeImage, setProcessing, setProgress, setStatusMessage, t]);
 
   const exportBatchToDirectory = useCallback(async () => {
     const currentImages = imagesRef.current;
@@ -496,39 +479,41 @@ export const useSplitterController = ({
       directory = await showDirectoryPicker({ id: 'koma-splitter-export', mode: 'readwrite' });
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        setStatusMessageRef.current(t('splitter.status.exportCancelled'));
+        setStatusMessage(t('splitter.status.exportCancelled'));
         return;
       }
       throw error;
     }
-    setProcessingRef.current(true);
-    setProgressRef.current(0);
+    setProcessing(true);
+    setProgress(0);
     try {
+      // ponytail: sequential by design — per-image canvas pipeline is memory-heavy and progress is per-image
       for (let index = 0; index < currentImages.length; index += 1) {
         const image = currentImages[index];
         if (!image) continue;
-        const state = imageStatesRef.current[image.id] ?? null;
-        const recipeForImage = resolveRecipeForImage(recipeRef.current, state);
+        const state = useSplitterStore.getState().imageStates[image.id] ?? null;
+        const recipeForImage = resolveRecipeForImage(useSplitterStore.getState().recipe, state);
         const analysis = await analyzeImage(image, false);
         const canvas = await buildProcessedCanvasForImage(image);
         const imageOutputs = await cropSegmentsFromCanvas(canvas, image, recipeForImage, analysis);
+        // ponytail: sequential by design — the first failed write stops the batch (preserved error semantics)
         for (const output of imageOutputs) {
           const handle = await directory.getFileHandle(output.fileName, { create: true });
           const writable = await handle.createWritable();
           await writable.write(output.blob);
           await writable.close();
         }
-        setProgressRef.current(((index + 1) / currentImages.length) * 100);
+        setProgress(((index + 1) / currentImages.length) * 100);
       }
       recordProcessedPagesRef.current(currentImages.length);
-      setStatusMessageRef.current('Splitter: segments exported to the selected folder.');
+      setStatusMessage('Splitter: segments exported to the selected folder.');
     } catch (error) {
-      setStatusMessageRef.current(error instanceof Error ? error.message : 'Failed to export the Splitter output to the folder.');
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to export the Splitter output to the folder.');
     } finally {
-      setProcessingRef.current(false);
-      setProgressRef.current(0);
+      setProcessing(false);
+      setProgress(0);
     }
-  }, [analyzeImage, directorySaveSupported, t]);
+  }, [analyzeImage, directorySaveSupported, setProcessing, setProgress, setStatusMessage, t]);
 
   const setPreset = useCallback((presetKey: SplitterRecipe['preset']) => {
     setRecipe((current) => applyPresetToRecipe(current, presetKey));
@@ -537,7 +522,9 @@ export const useSplitterController = ({
   /* ── Sync workspace state to parent (debounced to avoid tight loops) ── */
   const wsChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onWorkspaceStateChangeRef = useRef(onWorkspaceStateChange);
-  onWorkspaceStateChangeRef.current = onWorkspaceStateChange;
+  useEffect(() => {
+    onWorkspaceStateChangeRef.current = onWorkspaceStateChange;
+  });
 
   useEffect(() => {
     if (!onWorkspaceStateChangeRef.current) return;

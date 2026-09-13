@@ -22,6 +22,10 @@ interface MultiBubbleRegion {
   label: string;
 }
 
+// ponytail: stable module-scope default so `multiBubbleRegions = []` doesn't
+// create a new array every render and defeat dependent useCallbacks.
+const EMPTY_MULTI_BUBBLE_REGIONS: MultiBubbleRegion[] = [];
+
 interface TypographerTextQueueProps {
   draftText: string;
   queue: TextQueueItem[];
@@ -52,7 +56,7 @@ export const TypographerTextQueue = ({
   onSelectQueueItem,
   onToggleMultiBubble,
   onImportText,
-  multiBubbleRegions = [],
+  multiBubbleRegions = EMPTY_MULTI_BUBBLE_REGIONS,
   onReorderMultiBubbleRegions,
 }: TypographerTextQueueProps) => {
   const { t } = useI18n();

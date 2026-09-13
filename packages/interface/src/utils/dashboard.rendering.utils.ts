@@ -6,7 +6,6 @@ import {
 import type {
   AioPresetEditorDraft,
   AioTextRegion,
-  ImageFilters,
   TranslatorStructuredTextInput,
 } from "../types/dashboard.types";
 import type { AioStageSelection } from "../types/aioModelPresets";
@@ -190,100 +189,6 @@ export const buildMagicWandMaskDataUrl = (
   return canvas.toDataURL("image/png");
 };
 
-export const applyImageFilters = (
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  filters: ImageFilters,
-) => {
-  const imgData = ctx.getImageData(0, 0, width, height);
-  const data = imgData.data;
-  const len = data.length;
-  const levelsLUT = new Uint8Array(256);
-  for (let i = 0; i < 256; i += 1) {
-    let val = (i - filters.levels.black) / (filters.levels.white - filters.levels.black);
-    val = Math.pow(Math.max(0, Math.min(1, val)), 1 / filters.levels.gamma);
-    levelsLUT[i] = clampNumber(val * 255, 0, 255);
-  }
-  const contrastFactor = (259 * (filters.contrast + 255)) / (255 * (259 - filters.contrast));
-  for (let i = 0; i < len; i += 4) {
-    let r = data[i] ?? 0;
-    let g = data[i + 1] ?? 0;
-    let b = data[i + 2] ?? 0;
-    r = levelsLUT[r] ?? 0;
-    g = levelsLUT[g] ?? 0;
-    b = levelsLUT[b] ?? 0;
-    r = clampNumber(contrastFactor * (r - 128) + 128 + filters.brightness, 0, 255);
-    g = clampNumber(contrastFactor * (g - 128) + 128 + filters.brightness, 0, 255);
-    b = clampNumber(contrastFactor * (b - 128) + 128 + filters.brightness, 0, 255);
-    const gray = (0.2989 * r) + (0.587 * g) + (0.114 * b);
-    if (filters.grayscale) {
-      r = g = b = gray;
-    } else if (filters.saturation !== 0) {
-      const satMult = 1 + (filters.saturation / 100);
-      r = clampNumber(gray + (satMult * (r - gray)), 0, 255);
-      g = clampNumber(gray + (satMult * (g - gray)), 0, 255);
-      b = clampNumber(gray + (satMult * (b - gray)), 0, 255);
-    }
-    if (filters.inverted) {
-      r = 255 - r;
-      g = 255 - g;
-      b = 255 - b;
-    }
-    data[i] = r;
-    data[i + 1] = g;
-    data[i + 2] = b;
-  }
-  ctx.putImageData(imgData, 0, 0);
-  if (filters.sharpen > 0) {
-    applyConvolution(ctx, width, height, [
-      0, -(filters.sharpen / 10), 0,
-      -(filters.sharpen / 10), 1 + (4 * (filters.sharpen / 10)), -(filters.sharpen / 10),
-      0, -(filters.sharpen / 10), 0,
-    ]);
-  }
-};
-
-export const applyConvolution = (
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  kernel: number[],
-) => {
-  const srcData = ctx.getImageData(0, 0, w, h);
-  const dstData = ctx.createImageData(w, h);
-  const src = srcData.data;
-  const dst = dstData.data;
-  const side = Math.round(Math.sqrt(kernel.length));
-  const halfSide = Math.floor(side / 2);
-  for (let y = 0; y < h; y += 1) {
-    for (let x = 0; x < w; x += 1) {
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      for (let cy = 0; cy < side; cy += 1) {
-        for (let cx = 0; cx < side; cx += 1) {
-          const scy = y + cy - halfSide;
-          const scx = x + cx - halfSide;
-          if (scy >= 0 && scy < h && scx >= 0 && scx < w) {
-            const srcOff = (scy * w + scx) * 4;
-            const wt = kernel[(cy * side) + cx] ?? 0;
-            r += (src[srcOff] ?? 0) * wt;
-            g += (src[srcOff + 1] ?? 0) * wt;
-            b += (src[srcOff + 2] ?? 0) * wt;
-          }
-        }
-      }
-      const dstOff = (y * w + x) * 4;
-      dst[dstOff] = clampNumber(r, 0, 255);
-      dst[dstOff + 1] = clampNumber(g, 0, 255);
-      dst[dstOff + 2] = clampNumber(b, 0, 255);
-      dst[dstOff + 3] = src[((y * w + x) * 4) + 3] ?? 255;
-    }
-  }
-  ctx.putImageData(dstData, 0, 0);
-};
-
 export const canvasToBlob = (
   canvas: HTMLCanvasElement,
   type: string,
@@ -298,26 +203,6 @@ export const canvasToBlob = (
       resolve(blob);
     }, type, quality);
   });
-
-export const drawRotated = (
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  rotation: number,
-) => {
-  ctx.save();
-  ctx.translate(x + (w / 2), y + (h / 2));
-  ctx.rotate((rotation * Math.PI) / 180);
-  if (rotation === 90 || rotation === 270) {
-    ctx.drawImage(img, -(h / 2), -(w / 2), h, w);
-  } else {
-    ctx.drawImage(img, -(w / 2), -(h / 2), w, h);
-  }
-  ctx.restore();
-};
 
 export const createEmptyAioPresetEditorDraft = (
   stageModels: AioStageSelection,

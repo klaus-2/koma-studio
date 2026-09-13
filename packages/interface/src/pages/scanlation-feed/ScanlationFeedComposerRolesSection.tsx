@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import {
   Briefcase,
   Check,
@@ -59,7 +59,7 @@ export default function ScanlationFeedComposerRolesSection({
             {recruitmentForm.roleOpenings.map((entry, idx) => {
               const meta = recruitmentRoleByValue.get(entry.role);
               return (
-                <motion.div
+                <m.div
                   key={entry.id}
                   initial={prefersReducedMotion ? {} : { opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -99,7 +99,7 @@ export default function ScanlationFeedComposerRolesSection({
                   >
                     <X size={13} />
                   </button>
-                </motion.div>
+                </m.div>
               );
             })}
           </div>
@@ -107,10 +107,10 @@ export default function ScanlationFeedComposerRolesSection({
       </AnimatePresence>
       <AnimatePresence>
         {recruitmentForm.showRoleInput && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
+          <m.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
             className="koma-feed-inline"
           >
             <div className="koma-feed-inline__row">
@@ -191,7 +191,7 @@ export default function ScanlationFeedComposerRolesSection({
                 <X size={13} /> {t('common.cancel')}
               </button>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
       {!recruitmentForm.showRoleInput && (

@@ -16,6 +16,7 @@ import {
   inferMimeTypeFromFileName,
   isContainerUploadFile,
   isDirectImageUploadFile,
+  loadImageFromSource,
   parseResponseErrorMessage,
 } from '../../../utils/dashboard.utils';
 import {
@@ -59,9 +60,10 @@ export function useDashboardUploads({
 
   const loadImageDetails = useCallback((file: File): Promise<LoadedImage> =>
     new Promise((resolve, reject) => {
+      // The URL is owned by the created LoadedImage and revoked when the
+      // image is removed from the collection (revokeLoadedImageUrls).
       const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
+      loadImageFromSource(url).then((img) => {
         const width = img.width;
         const height = img.height;
 
@@ -89,12 +91,10 @@ export function useDashboardUploads({
             filters: { ...DEFAULT_FILTERS },
           });
         });
-      };
-      img.onerror = () => {
+      }).catch(() => {
         URL.revokeObjectURL(url);
         reject(new Error('Failed to load the image.'));
-      };
-      img.src = url;
+      });
     }), []);
 
   const extractImagesFromContainerFiles = useCallback(async (
@@ -312,10 +312,15 @@ export function useDashboardImageCollection({
     }
 
     setDownloadItems((prev) => {
-      prev.filter((item) => item.sourceImageId === id).forEach((item) => {
-        if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
-      });
-      return prev.filter((item) => item.sourceImageId !== id);
+      const keep: typeof prev = [];
+      for (const item of prev) {
+        if (item.sourceImageId === id) {
+          if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
+        } else {
+          keep.push(item);
+        }
+      }
+      return keep;
     });
 
     setAioDetectionsByImage((prev) => { const next = { ...prev }; delete next[id]; return next; });
@@ -364,16 +369,18 @@ export function useDashboardImageCollection({
       prev.forEach((item) => {
         if (item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
       });
-      return items.map((item) => {
+      const next: DownloadItem[] = [];
+      for (const item of items) {
         const previewUrl = URL.createObjectURL(item.blob);
-        return {
+        next.push({
           name: item.fileName,
           blob: item.blob,
           scope,
           sourceImageId: item.sourceImageId,
           previewUrl,
-        };
-      });
+        });
+      }
+      return next;
     });
     setLastActionScope(scope);
   }, [setDownloadItems, setLastActionScope]);
@@ -407,18 +414,28 @@ export function useDashboardImageCollection({
     return img.thumbnailUrl ?? img.url;
   }, []);
 
-  const optimizerSourceVariants = useMemo(() => (
-    downloadItems
-      .filter((item) => item.scope !== 'proofreader' && item.scope !== 'optimizer')
-      .map((item) => ({
+  const optimizerSourceVariants = useMemo(() => {
+    const variants: Array<{
+      id: string;
+      imageId: string;
+      label: string;
+      scope: DownloadItem['scope'];
+      blob: Blob;
+      previewUrl: string;
+    }> = [];
+    for (const item of downloadItems) {
+      if (item.scope === 'proofreader' || item.scope === 'optimizer') continue;
+      variants.push({
         id: `${item.scope}-${item.sourceImageId}`,
         imageId: item.sourceImageId,
         label: modeLabels[item.scope],
         scope: item.scope,
         blob: item.blob,
         previewUrl: item.previewUrl,
-      }))
-  ), [downloadItems, modeLabels]);
+      });
+    }
+    return variants;
+  }, [downloadItems, modeLabels]);
 
   return {
     removeImage,

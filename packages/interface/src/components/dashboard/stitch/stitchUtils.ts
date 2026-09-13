@@ -80,26 +80,29 @@ export const buildBatchPlanFromIndexes = (
   images: StitchImageInput[],
   layoutMode: StitchLayoutMode,
   gap: number,
-): StitchBatchPlan[] =>
-  batchIndexes
-    .filter((batch) => batch.length > 0)
-    .map((batch, batchIndex) => {
-      const batchImages = batch
-        .map((imageIndex) => images[imageIndex])
-        .filter((image): image is StitchImageInput => Boolean(image));
-      const { width, height } = resolveStitchOutputMetrics(batchImages, layoutMode, gap);
-      const megapixels = (width * height) / 1_000_000;
-      return {
-        id: buildStitchBatchId(batchIndex),
-        imageIndexes: batch,
-        count: batch.length,
-        outputWidth: width,
-        outputHeight: height,
-        megapixels,
-        estimatedBytes: estimateBytesForPlan(width, height),
-        warnings: buildPlanWarnings(width, height, batch.length),
-      };
+): StitchBatchPlan[] => {
+  const plans: StitchBatchPlan[] = [];
+  for (const batch of batchIndexes) {
+    if (batch.length === 0) continue;
+    const batchIndex = plans.length;
+    const batchImages = batch
+      .map((imageIndex) => images[imageIndex])
+      .filter((image): image is StitchImageInput => Boolean(image));
+    const { width, height } = resolveStitchOutputMetrics(batchImages, layoutMode, gap);
+    const megapixels = (width * height) / 1_000_000;
+    plans.push({
+      id: buildStitchBatchId(batchIndex),
+      imageIndexes: batch,
+      count: batch.length,
+      outputWidth: width,
+      outputHeight: height,
+      megapixels,
+      estimatedBytes: estimateBytesForPlan(width, height),
+      warnings: buildPlanWarnings(width, height, batch.length),
     });
+  }
+  return plans;
+};
 
 export const buildAutoBatchIndexes = (
   images: StitchImageInput[],

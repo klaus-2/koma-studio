@@ -3,9 +3,6 @@
 // The shell (electron or tauri) registers the implementation BEFORE the first
 // render: setDesktopBridgeProvider(provider). The interface code only consumes
 // the `desktopBridge` object — never imports from @tauri-apps or window.desktop.
-//
-// Shape mirrors the existing test hook
-// (setTauriApiBridgeOverridesForTests).
 
 import type {
   IDesktopBridge,

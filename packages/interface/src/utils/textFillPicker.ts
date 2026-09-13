@@ -381,11 +381,13 @@ const sanitizeSwatchList = (values: unknown, type: "solid" | "gradient"): string
       : [...DEFAULT_GRADIENT_TEXT_FILL_SWATCHES];
   }
 
-  const normalized = values
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => normalizeTextFillSwatchValue(item))
-    .filter((item): item is string => Boolean(item))
-    .filter((item) => (type === "gradient" ? isGradientFillValue(item) : !isGradientFillValue(item)));
+  const normalized: string[] = [];
+  for (const item of values) {
+    if (typeof item !== "string") continue;
+    const value = normalizeTextFillSwatchValue(item);
+    if (!value) continue;
+    if (type === "gradient" ? isGradientFillValue(value) : !isGradientFillValue(value)) normalized.push(value);
+  }
 
   const unique = Array.from(new Set(normalized));
   if (unique.length > 0) {

@@ -250,6 +250,7 @@ export const TypographerPresetBrowser = ({
           >
             All
           </button>
+          {/* ponytail: kept separate for clarity — idiomatic JSX filter/map; one pass would need an IIFE */}
           {folders
             .filter((f) => !f.parentId)
             .map((f) => (

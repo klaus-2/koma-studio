@@ -1,24 +1,10 @@
 import {
-  BookOpen,
   Eye,
   Eraser,
-  FileImage,
-  FolderOpen,
-  Image as ImageIcon,
   Languages,
-  LayoutGrid,
-  Layers,
-  Maximize2,
   Paintbrush,
   Replace,
   ScanText,
-  Scissors,
-  ShieldCheck,
-  Sparkles,
-  Stamp,
-  Type,
-  Wand2,
-  Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { TranslationKey } from "../i18n/messages";
@@ -29,7 +15,6 @@ import type {
   AioPipelineSnapshotKey,
   EnhanceProfile,
   ImageFilters,
-  NavGroup,
   ToolMode,
 } from "../types/dashboard.types";
 import type { AioStageKey } from "../types/aioModelPresets";
@@ -50,7 +35,6 @@ export const getEnhanceProfileLabels = (t: TranslateFn): Record<EnhanceProfile, 
   general: t(ENHANCE_PROFILE_LABEL_KEYS.general),
   high_quality_4x: t(ENHANCE_PROFILE_LABEL_KEYS.high_quality_4x),
 });
-
 
 
 export const ENHANCE_OUTPUT_FORMATS = [
@@ -117,7 +101,6 @@ export const EMPTY_PREVIEW_TIP_KEYS = [
 
 export const getEmptyPreviewTips = (t: TranslateFn): string[] =>
   EMPTY_PREVIEW_TIP_KEYS.map((key) => t(key as TranslationKey));
-
 
 
 export const DEFAULT_FILTERS: ImageFilters = {
@@ -196,7 +179,6 @@ export const getAioPipelineStageProgressLabels = (t: TranslateFn): Record<AioPip
 });
 
 
-
 export const AIO_PIPELINE_STAGE_ICONS: Record<AioPipelineSnapshotKey, LucideIcon> = {
   detectText: ScanText,
   recognizeText: Eye,
@@ -256,151 +238,6 @@ export const UNDER_DEVELOPMENT_MODES: ToolMode[] = [];
 
 export const UNDER_DEVELOPMENT_TOOLTIP_KEY: TranslationKey = "dashboard.mode.underDevelopment";
 
-export const getNavGroups = (t: TranslateFn): NavGroup[] => [
-  {
-    id: "main",
-    label: t("dashboard.nav.group.main"),
-    items: [
-      {
-        mode: "organize",
-        icon: Layers,
-        label: t("dashboard.mode.organize"),
-        subtitle: t("dashboard.nav.subtitle.organize"),
-        tooltip: t("dashboard.nav.tooltip.organize"),
-      },
-      {
-        mode: "aio",
-        icon: Zap,
-        label: t("dashboard.nav.short.aio"),
-        subtitle: t("dashboard.nav.subtitle.aio"),
-        tooltip: t("dashboard.nav.tooltip.aio"),
-        hasSubMode: true,
-      },
-    ],
-  },
-  {
-    id: "production",
-    label: t("dashboard.nav.group.production"),
-    items: [
-      {
-        mode: "cleaner",
-        icon: Eraser,
-        label: t("dashboard.nav.short.cleaner"),
-        subtitle: t("dashboard.nav.subtitle.cleaner"),
-        tooltip: t("dashboard.nav.tooltip.cleaner"),
-      },
-      {
-        mode: "typesetter",
-        icon: Type,
-        label: t("dashboard.mode.typesetter"),
-        subtitle: t("dashboard.nav.subtitle.typesetter"),
-        tooltip: t("dashboard.nav.tooltip.typesetter"),
-        hasSubMode: true,
-      },
-      {
-        mode: "translator",
-        icon: Languages,
-        label: t("dashboard.mode.translator"),
-        subtitle: t("dashboard.nav.subtitle.translator"),
-        tooltip: t("dashboard.nav.tooltip.translator"),
-      },
-      {
-        mode: "raw",
-        icon: FileImage,
-        label: t("dashboard.mode.raw"),
-        subtitle: t("dashboard.nav.subtitle.raw"),
-        tooltip: t("dashboard.nav.tooltip.raw"),
-      },
-      {
-        mode: "proofreader",
-        icon: ShieldCheck,
-        label: t("dashboard.mode.proofreader"),
-        subtitle: t("dashboard.nav.subtitle.proofreader"),
-        tooltip: t("dashboard.nav.tooltip.proofreader"),
-      },
-    ],
-  },
-  {
-    id: "utils",
-    label: t("dashboard.nav.group.utils"),
-    items: [
-      {
-        mode: "stitch",
-        icon: Maximize2,
-        label: t("dashboard.mode.stitch"),
-        subtitle: t("dashboard.nav.subtitle.stitch"),
-        tooltip: t("dashboard.nav.tooltip.stitch"),
-      },
-      {
-        mode: "split",
-        icon: Scissors,
-        label: t("dashboard.mode.split"),
-        subtitle: t("dashboard.nav.subtitle.split"),
-        tooltip: t("dashboard.nav.tooltip.split"),
-      },
-      {
-        mode: "watermark",
-        icon: Stamp,
-        label: t("dashboard.mode.watermark"),
-        subtitle: t("dashboard.nav.subtitle.watermark"),
-        tooltip: t("dashboard.nav.tooltip.watermark"),
-      },
-      {
-        mode: "enhance",
-        icon: Wand2,
-        label: t("dashboard.nav.short.enhance"),
-        subtitle: t("dashboard.nav.subtitle.enhance"),
-        tooltip: t("dashboard.nav.tooltip.enhance"),
-      },
-      {
-        mode: "optimizer",
-        icon: Sparkles,
-        label: t("dashboard.mode.optimizer"),
-        subtitle: t("dashboard.nav.subtitle.optimizer"),
-        tooltip: t("dashboard.nav.tooltip.optimizer"),
-      },
-      {
-        mode: "blogger",
-        icon: LayoutGrid,
-        label: t("dashboard.mode.blogger"),
-        subtitle: t("dashboard.nav.subtitle.blogger"),
-        tooltip: t("dashboard.nav.tooltip.blogger"),
-      },
-      {
-        mode: "imgur",
-        icon: ImageIcon,
-        label: t("dashboard.mode.imgur"),
-        subtitle: t("dashboard.nav.subtitle.imgur"),
-        tooltip: t("dashboard.nav.tooltip.imgur"),
-      },
-    ],
-  },
-  {
-    id: "info",
-    label: t("dashboard.nav.group.info"),
-    items: [
-      {
-        mode: "guides",
-        icon: BookOpen,
-        label: t("dashboard.mode.guides"),
-        subtitle: t("dashboard.nav.subtitle.guides"),
-        tooltip: t("dashboard.nav.tooltip.guides"),
-      },
-      {
-        mode: "resources",
-        icon: FolderOpen,
-        label: t("dashboard.mode.resources"),
-        subtitle: t("dashboard.nav.subtitle.resources"),
-        tooltip: t("dashboard.nav.tooltip.resources"),
-      },
-    ],
-  },
-];
-
-
-
-
-
 
 export const MODES_WITH_SUBMODE: ToolMode[] = ["aio", "typesetter"];
 
@@ -449,7 +286,6 @@ export const MODE_LABELS: Record<ToolMode, string> = getModeLabels((key, vars) =
 );
 
 
-
 export const DEFAULT_RENDER_FONT_FAMILIES = [
   "CC Wild Words",
   "Anime Ace",
@@ -459,7 +295,6 @@ export const DEFAULT_RENDER_FONT_FAMILIES = [
   "Segoe UI",
   "Times New Roman",
 ];
-
 
 
 export const MIN_REGION_SIZE = 8;

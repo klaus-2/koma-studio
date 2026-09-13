@@ -1,43 +1,31 @@
-import { useCallback, useEffect, useMemo } from 'react';
+/**
+ * AIO region editor domain — entry point. Hosts the render-region editing
+ * hook (style/mode/preset/shape edits + removal) and re-exports the
+ * per-concern sibling modules split out in T10, so consumer imports from
+ * 'hooks/region-editor' stay valid.
+ */
+import { useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import { useI18n } from '../../../i18n';
-import {
-  AIO_MANUAL_STAGE_ORDER,
-  TRANSLATION_NOTE_REGION_PREFIX,
-} from '../../../constants/dashboard.constants';
+import { TRANSLATION_NOTE_REGION_PREFIX } from '../../../constants/dashboard.constants';
 import {
   applyDetectedGradientToStyle,
   applyRenderDefaultsToRegion,
-  areAioRegionsEqual,
   clamp,
   cloneAioRegion,
-  cloneAioRegions,
   cloneRenderStyle,
-  canvasToBlob,
-  getRegionTranslationNotesForDisplay,
-  ensureCanvasFontLoaded,
-  buildDefaultRegionRenderText,
-  buildTranslationNoteOverlayRegions,
   normalizeRegion,
   rebuildRegionShapeForAutoMode,
   rebuildRegionShapeForKind,
   rebuildRegionShapeForRefinement,
   resolveRegionShapeKind,
-  resolveSelectedRegionForRegions,
-  scaleTypographyShapeForBounds,
 } from '../../../utils/dashboard.utils';
 import {
-  type RenderTextMode,
   getRenderModePresetStyle,
   normalizeDetectedRenderMode,
-  resolveRenderTextMode,
+  type RenderTextMode,
 } from '../../../utils/renderModes';
-import { listTextFillSwatches } from '../../../utils/textFillPicker';
-import {
-  computeRenderTextLayout,
-  drawRenderedTextInRegion,
-} from '../../../utils/renderText';
 import {
   buildShapeFromPreset,
   createTypographyStyleFromPreset,
@@ -53,329 +41,18 @@ import type {
 import type { RenderTextStyle } from '../../../utils/renderText';
 import type {
   AioTextRegion,
-  DownloadItem,
   LoadedImage,
 } from '../../../types/dashboard.types';
 import type { useTypographerWorkspace } from './typographer';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
-import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 
+export { useAioRegionSnapshotSync } from './region-editor.snapshot';
+export { useAioRegionRenderToBlob, useActiveAioRegionState } from './region-editor.render';
+
 type TypographerWorkspaceApi = ReturnType<typeof useTypographerWorkspace>;
-
-interface AioManualImageEditComposer {
-  (
-    imgData: LoadedImage,
-    fallbackBaseSource?: string,
-    options?: { includePaintLayer?: boolean },
-  ): Promise<HTMLCanvasElement>;
-}
-
-/* ── Snapshot sync: region edits plumbed into the aio snapshot history ── */
-
-interface UseAioRegionSnapshotSyncArgs {
-  /* Page callbacks */
-  getAioImageSnapshotIndex: (imageId: string) => number;
-  syncManualStagePreviewToNextStage: (
-    imageId: string,
-    fromStageIndex: number,
-    toStageIndex: number,
-  ) => void;
-  typographerWorkspace: TypographerWorkspaceApi;
-}
-
-export function useAioRegionSnapshotSync({
-  getAioImageSnapshotIndex,
-  syncManualStagePreviewToNextStage,
-  typographerWorkspace,
-}: UseAioRegionSnapshotSyncArgs) {
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
-  const setAioDetectionsByImage = useRegionEditorStore(
-    (s) => s.setAioDetectionsByImage,
-  );
-  const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
-  );
-  const setAioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.setAioSelectedRegionByImage,
-  );
-  const setAioPipelineSnapshots = useAioPipelineStore(
-    (s) => s.setAioPipelineSnapshots,
-  );
-  const aioManualProgressByImage = useAioPipelineStore(
-    (s) => s.aioManualProgressByImage,
-  );
-  const setAioManualProgressByImage = useAioPipelineStore(
-    (s) => s.setAioManualProgressByImage,
-  );
-  const mode = useUiShellStore((s) => s.mode);
-  const subMode = useUiShellStore((s) => s.subMode);
-
-  const patchAioSnapshotsForImageEdit = useCallback(
-    (
-      imageId: string,
-      nextRegions: AioTextRegion[],
-      selectedRegionId: string | null,
-    ) => {
-      const snapshotIndex = getAioImageSnapshotIndex(imageId);
-      if (snapshotIndex < 0) return;
-      setAioPipelineSnapshots((prev) => {
-        if (prev.length === 0 || snapshotIndex >= prev.length) return prev;
-        let changed = false;
-        const nextSnapshots = prev.map((snapshot, index) => {
-          if (index < snapshotIndex) return snapshot;
-          const snapshotRegions = snapshot.detectionsByImage[imageId] ?? [];
-          const snapshotSelected =
-            snapshot.selectedRegionByImage[imageId] ?? null;
-          const snapshotById = new Map(
-            snapshotRegions.map((region) => [region.id, region]),
-          );
-          const mergedSnapshotRegions = nextRegions.map((region) => {
-            const existing = snapshotById.get(region.id);
-            if (!existing) return cloneAioRegion(region, cloneRenderStyle);
-            return {
-              ...existing,
-              ...region,
-              bbox: [...region.bbox] as [number, number, number, number],
-              segmentBoxes:
-                region.segmentBoxes?.map(
-                  (box) => [...box] as [number, number, number, number],
-                ) ??
-                existing.segmentBoxes?.map(
-                  (box) => [...box] as [number, number, number, number],
-                ),
-              mergedSegmentBoxes:
-                region.mergedSegmentBoxes?.map(
-                  (box) => [...box] as [number, number, number, number],
-                ) ??
-                existing.mergedSegmentBoxes?.map(
-                  (box) => [...box] as [number, number, number, number],
-                ),
-              renderStyle: region.renderStyle
-                ? cloneRenderStyle(region.renderStyle)
-                : existing.renderStyle
-                  ? cloneRenderStyle(existing.renderStyle)
-                  : undefined,
-            };
-          });
-          const resolvedSelected =
-            selectedRegionId === null ? null : selectedRegionId;
-          const regionsChanged = !areAioRegionsEqual(
-            snapshotRegions,
-            mergedSnapshotRegions,
-            cloneRenderStyle,
-          );
-          const selectedChanged = snapshotSelected !== resolvedSelected;
-          if (!regionsChanged && !selectedChanged) return snapshot;
-          changed = true;
-          return {
-            ...snapshot,
-            detectionsByImage: regionsChanged
-              ? {
-                  ...snapshot.detectionsByImage,
-                  [imageId]: mergedSnapshotRegions,
-                }
-              : snapshot.detectionsByImage,
-            selectedRegionByImage: selectedChanged
-              ? {
-                  ...snapshot.selectedRegionByImage,
-                  [imageId]: resolvedSelected,
-                }
-              : snapshot.selectedRegionByImage,
-          };
-        });
-        return changed ? nextSnapshots : prev;
-      });
-    },
-    [getAioImageSnapshotIndex, resolveSelectedRegionForRegions, setAioPipelineSnapshots],
-  );
-
-  const patchAioSnapshotSelectionForImage = useCallback(
-    (imageId: string, selectedRegionId: string | null) => {
-      const snapshotIndex = getAioImageSnapshotIndex(imageId);
-      if (snapshotIndex < 0) return;
-      setAioPipelineSnapshots((prev) => {
-        if (prev.length === 0 || snapshotIndex >= prev.length) return prev;
-        let changed = false;
-        const nextSnapshots = prev.map((snapshot, index) => {
-          if (index < snapshotIndex) return snapshot;
-          const snapshotSelected =
-            snapshot.selectedRegionByImage[imageId] ?? null;
-          const resolvedSelected = selectedRegionId;
-          if (snapshotSelected === resolvedSelected) return snapshot;
-          changed = true;
-          return {
-            ...snapshot,
-            selectedRegionByImage: {
-              ...snapshot.selectedRegionByImage,
-              [imageId]: resolvedSelected,
-            },
-          };
-        });
-        return changed ? nextSnapshots : prev;
-      });
-    },
-    [getAioImageSnapshotIndex, setAioPipelineSnapshots],
-  );
-
-  const applyAioRegionsEditForImage = useCallback(
-    (
-      imageId: string,
-      nextRegions: AioTextRegion[],
-      selectedRegionIdOverride?: string | null,
-    ) => {
-      const clonedRegions = cloneAioRegions(nextRegions, cloneRenderStyle);
-      const currentRegions = aioDetectionsByImage[imageId] ?? [];
-      const currentSelected = aioSelectedRegionByImage[imageId] ?? null;
-      const hasSelectedOverride = selectedRegionIdOverride !== undefined;
-      const resolvedSelected = hasSelectedOverride
-        ? selectedRegionIdOverride === null
-          ? null
-          : resolveSelectedRegionForRegions(
-              clonedRegions,
-              selectedRegionIdOverride,
-            )
-        : currentSelected === null
-          ? null
-          : resolveSelectedRegionForRegions(clonedRegions, currentSelected);
-
-      const regionsChanged = !areAioRegionsEqual(
-        currentRegions,
-        clonedRegions,
-        cloneRenderStyle,
-      );
-      const selectedChanged = currentSelected !== resolvedSelected;
-      if (!regionsChanged && !selectedChanged) return;
-
-      setAioDetectionsByImage((prev) => ({
-        ...prev,
-        [imageId]: clonedRegions,
-      }));
-      setAioSelectedRegionByImage((prev) => ({
-        ...prev,
-        [imageId]: resolvedSelected,
-      }));
-      patchAioSnapshotsForImageEdit(imageId, clonedRegions, resolvedSelected);
-    },
-    [
-      aioDetectionsByImage,
-      aioSelectedRegionByImage,
-      patchAioSnapshotsForImageEdit,
-      resolveSelectedRegionForRegions,
-      setAioDetectionsByImage,
-      setAioSelectedRegionByImage,
-    ],
-  );
-
-  const unlockManualDetectStageIfReady = useCallback(
-    (imageId: string, nextRegions: AioTextRegion[]) => {
-      if (mode !== 'aio' || subMode !== 'manual') return;
-      if (nextRegions.length === 0) return;
-
-      const detectStageIndex = AIO_MANUAL_STAGE_ORDER.indexOf('detectText');
-      if (detectStageIndex < 0) return;
-      const nextStageIndex = Math.min(
-        detectStageIndex + 1,
-        AIO_MANUAL_STAGE_ORDER.length - 1,
-      );
-      if (nextStageIndex === detectStageIndex) return;
-
-      const currentProgress = aioManualProgressByImage[imageId];
-      if (!currentProgress || currentProgress.currentIndex !== detectStageIndex)
-        return;
-
-      syncManualStagePreviewToNextStage(
-        imageId,
-        detectStageIndex,
-        nextStageIndex,
-      );
-
-      setAioManualProgressByImage((prev) => {
-        const progress = prev[imageId];
-        if (!progress || progress.currentIndex !== detectStageIndex)
-          return prev;
-
-        const detectStageKey = AIO_MANUAL_STAGE_ORDER[detectStageIndex];
-        const nextStageKey = AIO_MANUAL_STAGE_ORDER[nextStageIndex];
-        if (!detectStageKey || !nextStageKey) return prev;
-        const nextUnlockedIndex = Math.max(
-          progress.unlockedMaxIndex,
-          nextStageIndex,
-        );
-        const nextStatusByStage = { ...progress.statusByStage };
-        let changed = false;
-
-        if (nextStatusByStage[detectStageKey] !== 'done') {
-          nextStatusByStage[detectStageKey] = 'done';
-          changed = true;
-        }
-        if (nextStatusByStage[nextStageKey] === 'locked') {
-          nextStatusByStage[nextStageKey] = 'pending';
-          changed = true;
-        }
-        if (nextUnlockedIndex !== progress.unlockedMaxIndex) {
-          changed = true;
-        }
-        if (!changed) return prev;
-
-        return {
-          ...prev,
-          [imageId]: {
-            ...progress,
-            unlockedMaxIndex: nextUnlockedIndex,
-            statusByStage: nextStatusByStage,
-          },
-        };
-      });
-    },
-    [
-      aioManualProgressByImage,
-      mode,
-      setAioManualProgressByImage,
-      subMode,
-      syncManualStagePreviewToNextStage,
-    ],
-  );
-
-  const updateAioRegionsForImage = useCallback(
-    (
-      imageId: string,
-      nextRegions: AioTextRegion[],
-      selectedRegionIdOverride?: string | null,
-    ) => {
-      applyAioRegionsEditForImage(
-        imageId,
-        nextRegions,
-        selectedRegionIdOverride,
-      );
-      unlockManualDetectStageIfReady(imageId, nextRegions);
-    },
-    [applyAioRegionsEditForImage, unlockManualDetectStageIfReady],
-  );
-
-  const selectAioRegionForImage = useCallback(
-    (imageId: string, regionId: string | null) => {
-      const resolvedSelected = regionId;
-      setAioSelectedRegionByImage((prev) => {
-        if ((prev[imageId] ?? null) === resolvedSelected) return prev;
-        return { ...prev, [imageId]: resolvedSelected };
-      });
-      typographerWorkspace.setSelectedRegionId(imageId, resolvedSelected);
-      patchAioSnapshotSelectionForImage(imageId, resolvedSelected);
-    },
-    [patchAioSnapshotSelectionForImage, setAioSelectedRegionByImage, typographerWorkspace],
-  );
-
-  return {
-    applyAioRegionsEditForImage,
-    selectAioRegionForImage,
-    updateAioRegionsForImage,
-  };
-}
 
 /* ── Render-region editing: style/mode/preset/shape edits + removal ── */
 
@@ -714,7 +391,12 @@ export function useAioRegionEditing({
         setStatusMessage(options.statusMessage);
       }
     },
-    [activeSelectedRegion, setStatusMessage, updateActiveRenderRegion],
+    [
+      activeSelectedRegion,
+      renderDefaultStyle,
+      setStatusMessage,
+      updateActiveRenderRegion,
+    ],
   );
 
   const convertActiveTypographerShape = useCallback(
@@ -1024,229 +706,5 @@ export function useAioRegionEditing({
     removeSelectedAioRegion,
     updateActiveRenderMode,
     updateActiveRenderRegion,
-  };
-}
-
-/* ── Export rendering: composites the edited canvas and draws the regions ── */
-
-interface UseAioRegionRenderToBlobArgs {
-  /* Page callbacks / export-download state (T10) */
-  composeAioEditableCanvas: AioManualImageEditComposer;
-  downloadItems: DownloadItem[];
-  outFormat: string;
-  outQuality: number;
-}
-
-export function useAioRegionRenderToBlob({
-  composeAioEditableCanvas,
-  downloadItems,
-  outFormat,
-  outQuality,
-}: UseAioRegionRenderToBlobArgs) {
-  const { t } = useI18n();
-  const renderDefaultStyle = useRegionEditorStore(
-    (s) => s.renderDefaultStyle,
-  );
-  const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
-
-  const renderAioImageToBlob = useCallback(
-    async (imgData: LoadedImage, regions: AioTextRegion[]): Promise<Blob> => {
-      const baseItem = downloadItems.find(
-        (item) => item.scope === 'aio' && item.sourceImageId === imgData.id,
-      );
-      const canvas = await composeAioEditableCanvas(
-        imgData,
-        baseItem?.previewUrl ?? imgData.url,
-      );
-      const renderWidth = canvas.width;
-      const renderHeight = canvas.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error(t('dashboard.status.renderCanvasInitFailed'));
-      if (document.fonts?.ready) {
-        await document.fonts.ready;
-      }
-
-      const baseRenderRegions = regions.map((item) =>
-        applyRenderDefaultsToRegion(
-          item,
-          renderDefaultStyle,
-          applyDetectedGradientToStyle,
-          undefined,
-          aioTgtLang,
-        ),
-      );
-      const renderRegions = [
-        ...baseRenderRegions,
-        ...buildTranslationNoteOverlayRegions(
-          baseRenderRegions,
-          imgData.width,
-          imgData.height,
-          renderDefaultStyle,
-          llmSettings.translation_notes_enabled,
-        ),
-      ];
-      await Promise.all(
-        renderRegions.map(async (region) => {
-          const style = cloneRenderStyle(
-            region.renderStyle ?? renderDefaultStyle,
-          );
-          await ensureCanvasFontLoaded(style, region.renderTextStyleRanges);
-        }),
-      );
-
-      const scaleX = renderWidth / Math.max(1, imgData.width);
-      const scaleY = renderHeight / Math.max(1, imgData.height);
-      for (const region of renderRegions) {
-        const text = buildDefaultRegionRenderText(region);
-        if (!text.trim()) continue;
-        const style = cloneRenderStyle(
-          region.renderStyle ?? renderDefaultStyle,
-        );
-        const [x1, y1, x2, y2] = region.bbox;
-        const scaledBbox: [number, number, number, number] = [
-          Math.round(x1 * scaleX),
-          Math.round(y1 * scaleY),
-          Math.round(x2 * scaleX),
-          Math.round(y2 * scaleY),
-        ];
-        const scaledShape = scaleTypographyShapeForBounds(
-          region.shape,
-          region.bbox,
-          scaledBbox,
-        );
-        const width = Math.max(1, scaledBbox[2] - scaledBbox[0]);
-        const height = Math.max(1, scaledBbox[3] - scaledBbox[1]);
-        const layout = computeRenderTextLayout(
-          ctx,
-          text,
-          width,
-          height,
-          style,
-          scaledShape,
-          region.renderTextStyleRanges,
-        );
-        drawRenderedTextInRegion(ctx, scaledBbox, layout, style, scaledShape);
-      }
-
-      return canvasToBlob(canvas, outFormat, outQuality);
-    },
-    [
-      aioTgtLang,
-      composeAioEditableCanvas,
-      downloadItems,
-      llmSettings.translation_notes_enabled,
-      outFormat,
-      outQuality,
-      renderDefaultStyle,
-    ],
-  );
-
-  return { renderAioImageToBlob };
-}
-
-/* ── Active region state: memos derived from the region-editor stores for the
-   active image (page consumers: region editing hooks + stage/layout views) ── */
-
-export function useActiveAioRegionState({ resolvedActiveId }: { resolvedActiveId: string | null }) {
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
-  const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
-  );
-  const typographyPresetState = useRegionEditorStore(
-    (s) => s.typographyPresetState,
-  );
-  const renderDefaultStyle = useRegionEditorStore(
-    (s) => s.renderDefaultStyle,
-  );
-  const textFillSwatchState = useRegionEditorStore(
-    (s) => s.textFillSwatchState,
-  );
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
-  const textFillSwatches = useMemo(
-    () => listTextFillSwatches(textFillSwatchState),
-    [textFillSwatchState],
-  );
-  const typographyPresetList = useMemo(
-    () =>
-      [...typographyPresetState.presets].sort((left, right) =>
-        left.name.localeCompare(right.name, 'pt-BR'),
-      ),
-    [typographyPresetState.presets],
-  );
-  const typographyFolderList = useMemo(
-    () => [...typographyPresetState.folders].sort((left, right) => left.order - right.order || left.name.localeCompare(right.name, 'pt-BR')),
-    [typographyPresetState.folders],
-  );
-  const defaultBubbleTypographyPreset = useMemo(
-    () => resolveTypographyPresetForMode('text_bubble', typographyPresetState),
-    [typographyPresetState],
-  );
-  const activeImageDetections = useMemo(
-    () =>
-      resolvedActiveId ? (aioDetectionsByImage[resolvedActiveId] ?? []) : [],
-    [aioDetectionsByImage, resolvedActiveId],
-  );
-  const activeSelectedRegionId = useMemo(
-    () =>
-      resolvedActiveId
-        ? (aioSelectedRegionByImage[resolvedActiveId] ?? null)
-        : null,
-    [aioSelectedRegionByImage, resolvedActiveId],
-  );
-  const activeSelectedRegion = useMemo(
-    () =>
-      activeImageDetections.find(
-        (region) => region.id === activeSelectedRegionId,
-      ) ?? null,
-    [activeImageDetections, activeSelectedRegionId],
-  );
-  const activeSelectedRenderStyle = useMemo(
-    () =>
-      cloneRenderStyle(activeSelectedRegion?.renderStyle ?? renderDefaultStyle),
-    [activeSelectedRegion?.renderStyle, renderDefaultStyle],
-  );
-  const activeSelectedRenderMode = useMemo<RenderTextMode>(
-    () => activeSelectedRegion?.renderMode ?? 'auto',
-    [activeSelectedRegion?.renderMode],
-  );
-  const activeSelectedDetectedRenderMode = useMemo(
-    () => activeSelectedRegion?.detectedRenderMode ?? 'text_bubble',
-    [activeSelectedRegion?.detectedRenderMode],
-  );
-  const activeSelectedResolvedRenderMode = useMemo(
-    () =>
-      resolveRenderTextMode({
-        renderMode: activeSelectedRenderMode,
-        detectedRenderMode: activeSelectedDetectedRenderMode,
-      }),
-    [activeSelectedDetectedRenderMode, activeSelectedRenderMode],
-  );
-  const activeSelectedTranslationNotes = useMemo(
-    () =>
-      activeSelectedRegion
-        ? getRegionTranslationNotesForDisplay(
-            activeSelectedRegion,
-            llmSettings.translation_notes_enabled,
-          )
-        : [],
-    [activeSelectedRegion, llmSettings.translation_notes_enabled],
-  );
-
-  return {
-    textFillSwatches,
-    typographyPresetList,
-    typographyFolderList,
-    defaultBubbleTypographyPreset,
-    activeImageDetections,
-    activeSelectedRegionId,
-    activeSelectedRegion,
-    activeSelectedRenderStyle,
-    activeSelectedRenderMode,
-    activeSelectedDetectedRenderMode,
-    activeSelectedResolvedRenderMode,
-    activeSelectedTranslationNotes,
   };
 }

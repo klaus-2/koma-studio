@@ -46,14 +46,6 @@ export function ShortcutCenterModal({
   }>({ id: null, msg: null });
 
   useEffect(() => {
-    if (!open) {
-      setRecordingId(null);
-      setSearchQuery('');
-      setError({ id: null, msg: null });
-    }
-  }, [open]);
-
-  useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
       if (recordingId) {

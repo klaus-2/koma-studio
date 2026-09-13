@@ -1,6 +1,8 @@
 import { useCallback, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
+import { useWorkspaceCaptureState } from './workspace-persistence.capture';
+import { useWorkspaceRestoreState } from './workspace-persistence.restore';
 import type { AuthUser } from '../../../contexts/AuthContext';
 import { useI18n } from '../../../i18n';
 import { desktopBridge } from '../../../lib/desktop-bridge';
@@ -16,45 +18,11 @@ import {
   restoreWorkspaceHistorySnapshot,
   type DashboardWorkspaceCaptureState,
   type DashboardWorkspaceHistorySnapshot,
-  type DashboardWorkspaceRestoreState,
 } from '../../../workspace/dashboardWorkspace';
-import {
-  createEmptyCustomLlmDraft,
-  type CustomLlmProfile,
-  type CustomLlmProfileDraft,
-  type CustomLlmStage,
-  type LlmProfilesPersistenceMode,
-  type LlmRequestSettings,
-} from '../../../utils/customLlm';
-import type {
-  AioManualImageEditState,
-  AioManualImageProgress,
-  AioPipelineSnapshot,
-  AioTextRegion,
-  CleanerRunMeta,
-  EnhanceProfile,
-  EnhanceScale,
-  FreeProviderDraftMap,
-  ProcessableMode,
-  SubMode,
-  ToolMode,
-  TranslatorVisualProcessingMode,
-  TranslatorVisualRunMeta,
-  TranslatorWorkspaceMode,
-  ViewMode,
-} from '../../../types/dashboard.types';
-import type {
-  AioModelPresetStateV2,
-  AioStageSelection,
-} from '../../../types/aioModelPresets';
+import type { FreeProviderDraftMap } from '../../../types/dashboard.types';
 import type { WatermarkWorkspaceState } from '../../../components/dashboard/watermark/watermarkTypes';
 import type { ChapterOptimizerWorkspaceState } from '../../../components/dashboard/optimizer/ChapterOptimizerWorkspace';
 import type { SplitterWorkspaceState } from '../../../components/dashboard/splitter/types';
-import type {
-  StitchAlignMode,
-  StitchBatchStrategy,
-  StitchLayoutMode,
-} from '../../../components/dashboard/stitch/types';
 import type { useTypographerWorkspace } from './typographer';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
@@ -103,338 +71,158 @@ export function useWorkspacePersistence({
   const mode = useUiShellStore((s) => s.mode);
   const setMode = useUiShellStore((s) => s.setMode);
   const subMode = useUiShellStore((s) => s.subMode);
-  const setSubMode = useUiShellStore((s) => s.setSubMode);
   const viewMode = useUiShellStore((s) => s.viewMode);
-  const setViewMode = useUiShellStore((s) => s.setViewMode);
   const processing = useUiShellStore((s) => s.processing);
-  const setProcessing = useUiShellStore((s) => s.setProcessing);
-  const setProgress = useUiShellStore((s) => s.setProgress);
   const images = useImageCollectionStore((s) => s.images);
   const setImages = useImageCollectionStore((s) => s.setImages);
   const activeId = useImageCollectionStore((s) => s.activeId);
   const setActiveId = useImageCollectionStore((s) => s.setActiveId);
-  const statusMessage = useStatusStore((s) => s.statusMessage);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
   const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
 
   // Downloads
   const downloadItems = useExportStore((s) => s.downloadItems);
-  const setDownloadItems = useExportStore((s) => s.setDownloadItems);
   const lastActionScope = useExportStore((s) => s.lastActionScope);
-  const setLastActionScope = useExportStore((s) => s.setLastActionScope);
 
   // AIO pipeline
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
-  const setAioSteps = useAioPipelineStore((s) => s.setAioSteps);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
-  const setAioStageSelection = useAioPipelineStore(
-    (s) => s.setAioStageSelection,
-  );
   const aioPresetState = useAioPipelineStore((s) => s.aioPresetState);
-  const setAioPresetState = useAioPipelineStore((s) => s.setAioPresetState);
   const aioMaskDilation = useAioPipelineStore((s) => s.aioMaskDilation);
-  const setAioMaskDilation = useAioPipelineStore((s) => s.setAioMaskDilation);
   const aioHdStrategy = useAioPipelineStore((s) => s.aioHdStrategy);
-  const setAioHdStrategy = useAioPipelineStore((s) => s.setAioHdStrategy);
   const aioHdResizeLimit = useAioPipelineStore((s) => s.aioHdResizeLimit);
-  const setAioHdResizeLimit = useAioPipelineStore(
-    (s) => s.setAioHdResizeLimit,
-  );
   const aioHdCropMargin = useAioPipelineStore((s) => s.aioHdCropMargin);
-  const setAioHdCropMargin = useAioPipelineStore((s) => s.setAioHdCropMargin);
   const aioHdCropTriggerSize = useAioPipelineStore(
     (s) => s.aioHdCropTriggerSize,
-  );
-  const setAioHdCropTriggerSize = useAioPipelineStore(
-    (s) => s.setAioHdCropTriggerSize,
   );
   const aioPipelineSnapshots = useAioPipelineStore(
     (s) => s.aioPipelineSnapshots,
   );
-  const setAioPipelineSnapshots = useAioPipelineStore(
-    (s) => s.setAioPipelineSnapshots,
-  );
   const aioPipelineSnapshotIndex = useAioPipelineStore(
     (s) => s.aioPipelineSnapshotIndex,
-  );
-  const setAioPipelineSnapshotIndex = useAioPipelineStore(
-    (s) => s.setAioPipelineSnapshotIndex,
   );
   const aioImageSnapshotIndexById = useAioPipelineStore(
     (s) => s.aioImageSnapshotIndexById,
   );
-  const setAioImageSnapshotIndexById = useAioPipelineStore(
-    (s) => s.setAioImageSnapshotIndexById,
-  );
   const aioAutoHistoryAvailable = useAioPipelineStore(
     (s) => s.aioAutoHistoryAvailable,
-  );
-  const setAioAutoHistoryAvailable = useAioPipelineStore(
-    (s) => s.setAioAutoHistoryAvailable,
   );
   const aioAutoProcessedImageById = useAioPipelineStore(
     (s) => s.aioAutoProcessedImageById,
   );
-  const setAioAutoProcessedImageById = useAioPipelineStore(
-    (s) => s.setAioAutoProcessedImageById,
-  );
   const aioManualProgressByImage = useAioPipelineStore(
     (s) => s.aioManualProgressByImage,
   );
-  const setAioManualProgressByImage = useAioPipelineStore(
-    (s) => s.setAioManualProgressByImage,
-  );
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
-  const setAioSrcLang = useAioPipelineStore((s) => s.setAioSrcLang);
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
-  const setAioTgtLang = useAioPipelineStore((s) => s.setAioTgtLang);
   const batchThreads = useAioPipelineStore((s) => s.batchThreads);
-  const setBatchThreads = useAioPipelineStore((s) => s.setBatchThreads);
   const batchThreadsEnabled = useAioPipelineStore(
     (s) => s.batchThreadsEnabled,
-  );
-  const setBatchThreadsEnabled = useAioPipelineStore(
-    (s) => s.setBatchThreadsEnabled,
   );
 
   // Region editor
   const aioDetectionsByImage = useRegionEditorStore(
     (s) => s.aioDetectionsByImage,
   );
-  const setAioDetectionsByImage = useRegionEditorStore(
-    (s) => s.setAioDetectionsByImage,
-  );
   const aioSelectedRegionByImage = useRegionEditorStore(
     (s) => s.aioSelectedRegionByImage,
-  );
-  const setAioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.setAioSelectedRegionByImage,
   );
 
   // Manual tools
   const aioManualImageEditsByImage = useManualToolsStore(
     (s) => s.aioManualImageEditsByImage,
   );
-  const setAioManualImageEditsByImage = useManualToolsStore(
-    (s) => s.setAioManualImageEditsByImage,
-  );
-  const setAioManualHealingBusyByImage = useManualToolsStore(
-    (s) => s.setAioManualHealingBusyByImage,
-  );
 
   // Cleaner
   const cleanerDetectionsByImage = useCleanerStore(
     (s) => s.cleanerDetectionsByImage,
   );
-  const setCleanerDetectionsByImage = useCleanerStore(
-    (s) => s.setCleanerDetectionsByImage,
-  );
   const cleanerSelectedRegionByImage = useCleanerStore(
     (s) => s.cleanerSelectedRegionByImage,
-  );
-  const setCleanerSelectedRegionByImage = useCleanerStore(
-    (s) => s.setCleanerSelectedRegionByImage,
   );
   const cleanerProcessedBaseByImage = useCleanerStore(
     (s) => s.cleanerProcessedBaseByImage,
   );
-  const setCleanerProcessedBaseByImage = useCleanerStore(
-    (s) => s.setCleanerProcessedBaseByImage,
-  );
   const cleanerRunMetaByImage = useCleanerStore(
     (s) => s.cleanerRunMetaByImage,
-  );
-  const setCleanerRunMetaByImage = useCleanerStore(
-    (s) => s.setCleanerRunMetaByImage,
   );
   const cleanerManualImageEditsByImage = useCleanerStore(
     (s) => s.cleanerManualImageEditsByImage,
   );
-  const setCleanerManualImageEditsByImage = useCleanerStore(
-    (s) => s.setCleanerManualImageEditsByImage,
-  );
-  const setCleanerHealingBusyByImage = useCleanerStore(
-    (s) => s.setCleanerHealingBusyByImage,
-  );
 
   // Translator
   const srcLang = useTranslatorStore((s) => s.srcLang);
-  const setSrcLang = useTranslatorStore((s) => s.setSrcLang);
   const tgtLang = useTranslatorStore((s) => s.tgtLang);
-  const setTgtLang = useTranslatorStore((s) => s.setTgtLang);
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
   );
-  const setTranslatorWorkspaceMode = useTranslatorStore(
-    (s) => s.setTranslatorWorkspaceMode,
-  );
-  const translatorVisualProcessingMode = useTranslatorStore(
-    (s) => s.translatorVisualProcessingMode,
-  );
-  const setTranslatorVisualProcessingMode = useTranslatorStore(
-    (s) => s.setTranslatorVisualProcessingMode,
-  );
   const translatorDraftText = useTranslatorStore((s) => s.translatorDraftText);
-  const setTranslatorDraftText = useTranslatorStore(
-    (s) => s.setTranslatorDraftText,
-  );
   const translatorTranslatedText = useTranslatorStore(
     (s) => s.translatorTranslatedText,
-  );
-  const setTranslatorTranslatedText = useTranslatorStore(
-    (s) => s.setTranslatorTranslatedText,
   );
   const translatorLastTextModelUsed = useTranslatorStore(
     (s) => s.translatorLastTextModelUsed,
   );
-  const setTranslatorLastTextModelUsed = useTranslatorStore(
-    (s) => s.setTranslatorLastTextModelUsed,
-  );
   const translatorTextDirty = useTranslatorStore((s) => s.translatorTextDirty);
-  const setTranslatorTextDirty = useTranslatorStore(
-    (s) => s.setTranslatorTextDirty,
-  );
-  const setTranslatorVisualRunning = useTranslatorStore(
-    (s) => s.setTranslatorVisualRunning,
-  );
-  const setTranslatorTextRunning = useTranslatorStore(
-    (s) => s.setTranslatorTextRunning,
-  );
   const translatorDetectionsByImage = useTranslatorStore(
     (s) => s.translatorDetectionsByImage,
-  );
-  const setTranslatorDetectionsByImage = useTranslatorStore(
-    (s) => s.setTranslatorDetectionsByImage,
   );
   const translatorSelectedRegionByImage = useTranslatorStore(
     (s) => s.translatorSelectedRegionByImage,
   );
-  const setTranslatorSelectedRegionByImage = useTranslatorStore(
-    (s) => s.setTranslatorSelectedRegionByImage,
-  );
   const translatorRunMetaByImage = useTranslatorStore(
     (s) => s.translatorRunMetaByImage,
-  );
-  const setTranslatorRunMetaByImage = useTranslatorStore(
-    (s) => s.setTranslatorRunMetaByImage,
-  );
-  const translatorProcessedBaseByImage = useTranslatorStore(
-    (s) => s.translatorProcessedBaseByImage,
-  );
-  const setTranslatorProcessedBaseByImage = useTranslatorStore(
-    (s) => s.setTranslatorProcessedBaseByImage,
   );
 
   // Typographer
   const typographerSelectionTool = useTypographerStore(
     (s) => s.typographerSelectionTool,
   );
-  const setTypographerSelectionTool = useTypographerStore(
-    (s) => s.setTypographerSelectionTool,
-  );
   const typographerQueueSelectedId = useTypographerStore(
     (s) => s.typographerQueueSelectedId,
-  );
-  const setTypographerQueueSelectedId = useTypographerStore(
-    (s) => s.setTypographerQueueSelectedId,
   );
   const typographerSnapshotName = useTypographerStore(
     (s) => s.typographerSnapshotName,
   );
-  const setTypographerSnapshotName = useTypographerStore(
-    (s) => s.setTypographerSnapshotName,
-  );
   const typographerSelectedSnapshotId = useTypographerStore(
     (s) => s.typographerSelectedSnapshotId,
-  );
-  const setTypographerSelectedSnapshotId = useTypographerStore(
-    (s) => s.setTypographerSelectedSnapshotId,
   );
 
   // Enhance
   const enhanceScale = useEnhanceStore((s) => s.enhanceScale);
-  const setEnhanceScale = useEnhanceStore((s) => s.setEnhanceScale);
   const enhanceProfile = useEnhanceStore((s) => s.enhanceProfile);
-  const setEnhanceProfile = useEnhanceStore((s) => s.setEnhanceProfile);
   const enhanceModelId = useEnhanceStore((s) => s.enhanceModelId);
-  const setEnhanceModelId = useEnhanceStore((s) => s.setEnhanceModelId);
   const enhanceOutputFormat = useEnhanceStore((s) => s.enhanceOutputFormat);
-  const setEnhanceOutputFormat = useEnhanceStore(
-    (s) => s.setEnhanceOutputFormat,
-  );
 
   // Utility (stitch + workspace states)
   const stitchLayoutMode = useUtilityStore((s) => s.stitchLayoutMode);
-  const setStitchLayoutMode = useUtilityStore((s) => s.setStitchLayoutMode);
   const stitchBatchStrategy = useUtilityStore((s) => s.stitchBatchStrategy);
-  const setStitchBatchStrategy = useUtilityStore(
-    (s) => s.setStitchBatchStrategy,
-  );
   const stitchBatchSize = useUtilityStore((s) => s.stitchBatchSize);
-  const setStitchBatchSize = useUtilityStore((s) => s.setStitchBatchSize);
   const stitchTargetPrimaryAxis = useUtilityStore(
     (s) => s.stitchTargetPrimaryAxis,
   );
-  const setStitchTargetPrimaryAxis = useUtilityStore(
-    (s) => s.setStitchTargetPrimaryAxis,
-  );
   const stitchGap = useUtilityStore((s) => s.stitchGap);
-  const setStitchGap = useUtilityStore((s) => s.setStitchGap);
   const stitchAlignMode = useUtilityStore((s) => s.stitchAlignMode);
-  const setStitchAlignMode = useUtilityStore((s) => s.setStitchAlignMode);
   const stitchBackground = useUtilityStore((s) => s.stitchBackground);
-  const setStitchBackground = useUtilityStore((s) => s.setStitchBackground);
   const stitchSingleExportFormat = useUtilityStore(
     (s) => s.stitchSingleExportFormat,
   );
-  const setStitchSingleExportFormat = useUtilityStore(
-    (s) => s.setStitchSingleExportFormat,
-  );
   const stitchFileBaseName = useUtilityStore((s) => s.stitchFileBaseName);
-  const setStitchFileBaseName = useUtilityStore(
-    (s) => s.setStitchFileBaseName,
-  );
   const stitchSelectedBatchIndex = useUtilityStore(
     (s) => s.stitchSelectedBatchIndex,
   );
-  const setStitchSelectedBatchIndex = useUtilityStore(
-    (s) => s.setStitchSelectedBatchIndex,
-  );
   const stitchBatchIndexes = useUtilityStore((s) => s.stitchBatchIndexes);
-  const setStitchBatchIndexes = useUtilityStore((s) => s.setStitchBatchIndexes);
-  const setSplitterWorkspaceState = useUtilityStore(
-    (s) => s.setSplitterWorkspaceState,
-  );
-  const setWatermarkWorkspaceState = useUtilityStore(
-    (s) => s.setWatermarkWorkspaceState,
-  );
-  const setOptimizerWorkspaceState = useUtilityStore(
-    (s) => s.setOptimizerWorkspaceState,
-  );
 
   // LLM providers
   const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
-  const setLlmSettings = useLlmProvidersStore((s) => s.setLlmSettings);
   const customLlmProfiles = useLlmProvidersStore((s) => s.customLlmProfiles);
-  const setCustomLlmProfiles = useLlmProvidersStore(
-    (s) => s.setCustomLlmProfiles,
-  );
   const customLlmProfilesMode = useLlmProvidersStore(
     (s) => s.customLlmProfilesMode,
-  );
-  const setCustomLlmProfilesMode = useLlmProvidersStore(
-    (s) => s.setCustomLlmProfilesMode,
   );
   const pendingCustomSelections = useLlmProvidersStore(
     (s) => s.pendingCustomSelections,
   );
-  const setPendingCustomSelections = useLlmProvidersStore(
-    (s) => s.setPendingCustomSelections,
-  );
   const customLlmDrafts = useLlmProvidersStore((s) => s.customLlmDrafts);
-  const setCustomLlmDrafts = useLlmProvidersStore(
-    (s) => s.setCustomLlmDrafts,
-  );
 
   // Workspace persistence (own domain)
   const workspaceHydrated = useWorkspacePersistenceStore(
@@ -455,563 +243,26 @@ export function useWorkspacePersistence({
   const setWorkspaceLastSavedAt = useWorkspacePersistenceStore(
     (s) => s.setWorkspaceLastSavedAt,
   );
-  const setWorkspaceRestoreToken = useWorkspacePersistenceStore(
-    (s) => s.setWorkspaceRestoreToken,
-  );
 
-  const releaseWorkspaceObjectUrls = useCallback(() => {
-    images.forEach((image) => {
-      URL.revokeObjectURL(image.url);
-      if (image.previewUrl) {
-        URL.revokeObjectURL(image.previewUrl);
-      }
-    });
-    downloadItems.forEach((item) => {
-      URL.revokeObjectURL(item.previewUrl);
-    });
-    currentWatermarkWorkspaceState.results.forEach((item) => {
-      URL.revokeObjectURL(item.previewUrl);
-    });
-  }, [currentWatermarkWorkspaceState.results, downloadItems, images]);
+  const {
+    releaseWorkspaceObjectUrls,
+    buildCurrentWorkspaceCaptureState,
+    buildCaptureStateFromRestored,
+  } = useWorkspaceCaptureState({
+    authUser,
+    typographerWorkspace,
+    currentSplitterWorkspaceState,
+    currentWatermarkWorkspaceState,
+    currentOptimizerWorkspaceState,
+    freeProviderDrafts,
+  });
 
-  const buildCurrentWorkspaceCaptureState =
-    useCallback((): DashboardWorkspaceCaptureState => ({
-      autosaveScope: authUser?.id ? 'user' : 'guest',
-      autosaveUserId: authUser?.id ?? null,
-      mode: useUiShellStore.getState().mode,
-      subMode: useUiShellStore.getState().subMode,
-      activeImageId: useImageCollectionStore.getState().activeId,
-      viewMode: useUiShellStore.getState().viewMode,
-      translatorWorkspaceMode,
-      translatorVisualProcessingMode,
-      statusMessage: useStatusStore.getState().statusMessage,
-      lastActionScope: useExportStore.getState().lastActionScope,
-      images: useImageCollectionStore.getState().images,
-      downloadItems: useExportStore.getState().downloadItems,
-      batchThreadsEnabled: useAioPipelineStore.getState().batchThreadsEnabled,
-      batchThreads: useAioPipelineStore.getState().batchThreads,
-      aio: {
-        steps: useAioPipelineStore.getState().aioSteps,
-        stageSelection: useAioPipelineStore.getState().aioStageSelection,
-        presetState: useAioPipelineStore.getState().aioPresetState,
-        maskDilation: useAioPipelineStore.getState().aioMaskDilation,
-        hdStrategy: useAioPipelineStore.getState().aioHdStrategy,
-        hdResizeLimit: useAioPipelineStore.getState().aioHdResizeLimit,
-        hdCropMargin: useAioPipelineStore.getState().aioHdCropMargin,
-        hdCropTriggerSize: useAioPipelineStore.getState().aioHdCropTriggerSize,
-        detectionsByImage:
-          useRegionEditorStore.getState().aioDetectionsByImage,
-        selectedRegionByImage:
-          useRegionEditorStore.getState().aioSelectedRegionByImage,
-        pipelineSnapshots:
-          useAioPipelineStore.getState().aioPipelineSnapshots as unknown as DashboardWorkspaceCaptureState['aio']['pipelineSnapshots'],
-        pipelineSnapshotIndex:
-          useAioPipelineStore.getState().aioPipelineSnapshotIndex,
-        imageSnapshotIndexById:
-          useAioPipelineStore.getState().aioImageSnapshotIndexById,
-        autoHistoryAvailable:
-          useAioPipelineStore.getState().aioAutoHistoryAvailable,
-        autoProcessedImageById:
-          useAioPipelineStore.getState().aioAutoProcessedImageById,
-        // v2 does not charge manual quota (unified-contract field used by v1)
-        manualQuotaChargedByImage: {},
-        manualProgressByImage:
-          useAioPipelineStore.getState().aioManualProgressByImage,
-        manualImageEditsByImage:
-          useManualToolsStore.getState().aioManualImageEditsByImage as unknown as DashboardWorkspaceCaptureState['aio']['manualImageEditsByImage'],
-      },
-      cleaner: {
-        detectionsByImage:
-          useCleanerStore.getState().cleanerDetectionsByImage,
-        selectedRegionByImage:
-          useCleanerStore.getState().cleanerSelectedRegionByImage,
-        processedBaseByImage:
-          useCleanerStore.getState().cleanerProcessedBaseByImage,
-        runMetaByImage: useCleanerStore.getState().cleanerRunMetaByImage,
-        manualImageEditsByImage:
-          useCleanerStore.getState().cleanerManualImageEditsByImage,
-      },
-      translator: {
-        srcLang: useTranslatorStore.getState().srcLang,
-        tgtLang: useTranslatorStore.getState().tgtLang,
-        aioSrcLang: useAioPipelineStore.getState().aioSrcLang,
-        aioTgtLang: useAioPipelineStore.getState().aioTgtLang,
-        translatorDraftText: useTranslatorStore.getState().translatorDraftText,
-        translatorTranslatedText:
-          useTranslatorStore.getState().translatorTranslatedText,
-        translatorLastTextModelUsed:
-          useTranslatorStore.getState().translatorLastTextModelUsed,
-        translatorTextDirty: useTranslatorStore.getState().translatorTextDirty,
-        translatorDetectionsByImage:
-          useTranslatorStore.getState().translatorDetectionsByImage,
-        translatorSelectedRegionByImage:
-          useTranslatorStore.getState().translatorSelectedRegionByImage,
-        translatorRunMetaByImage:
-          useTranslatorStore.getState().translatorRunMetaByImage,
-        translatorProcessedBaseByImage:
-          useTranslatorStore.getState().translatorProcessedBaseByImage,
-      },
-      typesetter: {
-        selectionTool: useTypographerStore.getState().typographerSelectionTool,
-        queueSelectedId: useTypographerStore.getState().typographerQueueSelectedId,
-        snapshotName: useTypographerStore.getState().typographerSnapshotName,
-        selectedSnapshotId:
-          useTypographerStore.getState().typographerSelectedSnapshotId,
-        sessionsByImage: typographerWorkspace.sessionsByImage,
-      },
-      enhance: {
-        scale: useEnhanceStore.getState().enhanceScale,
-        profile: useEnhanceStore.getState().enhanceProfile,
-        modelId: useEnhanceStore.getState().enhanceModelId,
-        outputFormat: useEnhanceStore.getState().enhanceOutputFormat,
-      },
-      utility: {
-        stitch: {
-          stitchLayoutMode: useUtilityStore.getState().stitchLayoutMode,
-          stitchBatchStrategy: useUtilityStore.getState().stitchBatchStrategy,
-          stitchBatchSize: useUtilityStore.getState().stitchBatchSize,
-          stitchTargetPrimaryAxis:
-            useUtilityStore.getState().stitchTargetPrimaryAxis,
-          stitchGap: useUtilityStore.getState().stitchGap,
-          stitchAlignMode: useUtilityStore.getState().stitchAlignMode,
-          stitchBackground: useUtilityStore.getState().stitchBackground,
-          stitchSingleExportFormat:
-            useUtilityStore.getState().stitchSingleExportFormat,
-          stitchFileBaseName: useUtilityStore.getState().stitchFileBaseName,
-          stitchSelectedBatchIndex:
-            useUtilityStore.getState().stitchSelectedBatchIndex,
-          stitchBatchIndexes: useUtilityStore.getState().stitchBatchIndexes,
-        },
-        splitter: currentSplitterWorkspaceState,
-        watermark: currentWatermarkWorkspaceState,
-        optimizer: currentOptimizerWorkspaceState,
-      },
-      llm: {
-        llmSettings: useLlmProvidersStore.getState().llmSettings,
-        customLlmProfiles: useLlmProvidersStore.getState().customLlmProfiles,
-        customLlmProfilesMode:
-          useLlmProvidersStore.getState().customLlmProfilesMode,
-        pendingCustomSelections:
-          useLlmProvidersStore.getState().pendingCustomSelections,
-        customLlmDrafts: useLlmProvidersStore.getState().customLlmDrafts,
-        freeProviderDrafts,
-      },
-    }), [
-      activeId,
-      aioAutoHistoryAvailable,
-      aioAutoProcessedImageById,
-      aioDetectionsByImage,
-      aioHdCropMargin,
-      aioHdCropTriggerSize,
-      aioHdResizeLimit,
-      aioHdStrategy,
-      aioImageSnapshotIndexById,
-      aioManualImageEditsByImage,
-      aioManualProgressByImage,
-      aioMaskDilation,
-      aioPipelineSnapshotIndex,
-      aioPipelineSnapshots,
-      aioPresetState,
-      aioSelectedRegionByImage,
-      aioSrcLang,
-      aioStageSelection,
-      aioSteps,
-      aioTgtLang,
-      authUser?.id,
-      batchThreads,
-      batchThreadsEnabled,
-      cleanerDetectionsByImage,
-      cleanerManualImageEditsByImage,
-      cleanerProcessedBaseByImage,
-      cleanerRunMetaByImage,
-      cleanerSelectedRegionByImage,
-      currentOptimizerWorkspaceState,
-      currentSplitterWorkspaceState,
-      currentWatermarkWorkspaceState,
-      customLlmDrafts,
-      customLlmProfiles,
-      customLlmProfilesMode,
-      downloadItems,
-      enhanceModelId,
-      enhanceOutputFormat,
-      enhanceProfile,
-      enhanceScale,
-      freeProviderDrafts,
-      images,
-      lastActionScope,
-      llmSettings,
-      mode,
-      pendingCustomSelections,
-      srcLang,
-      statusMessage,
-      stitchAlignMode,
-      stitchBackground,
-      stitchBatchIndexes,
-      stitchBatchSize,
-      stitchBatchStrategy,
-      stitchFileBaseName,
-      stitchGap,
-      stitchLayoutMode,
-      stitchSelectedBatchIndex,
-      stitchSingleExportFormat,
-      stitchTargetPrimaryAxis,
-      subMode,
-      tgtLang,
-      translatorDetectionsByImage,
-      translatorDraftText,
-      translatorLastTextModelUsed,
-      translatorProcessedBaseByImage,
-      translatorRunMetaByImage,
-      translatorSelectedRegionByImage,
-      translatorTextDirty,
-      translatorTranslatedText,
-      translatorVisualProcessingMode,
-      translatorWorkspaceMode,
-      typographerQueueSelectedId,
-      typographerSelectedSnapshotId,
-      typographerSelectionTool,
-      typographerSnapshotName,
-      typographerWorkspace.sessionsByImage,
-      viewMode,
-    ]);
+  const { applyRestoredWorkspaceState } = useWorkspaceRestoreState({
+    releaseWorkspaceObjectUrls,
+    typographerWorkspace,
+    setFreeProviderDrafts,
+  });
 
-  useEffect(() => {
-    if (!workspaceAutosaveSettings.enabled) {
-      useWorkspacePersistenceStore.getState().latestWorkspaceCaptureState = null;
-      return;
-    }
-
-    useWorkspacePersistenceStore.getState().latestWorkspaceCaptureState =
-      buildCurrentWorkspaceCaptureState();
-  }, [buildCurrentWorkspaceCaptureState, workspaceAutosaveSettings.enabled]);
-
-  const applyRestoredWorkspaceState = useCallback(
-    async (
-      restored: DashboardWorkspaceRestoreState,
-      options?: { statusDetail?: string },
-    ) => {
-      releaseWorkspaceObjectUrls();
-      setMode(restored.document.view.mode as ToolMode);
-      setSubMode(restored.document.view.subMode as SubMode);
-      setActiveId(restored.document.view.activeImageId);
-      setViewMode(restored.document.view.viewMode as ViewMode);
-      setTranslatorWorkspaceMode(
-        restored.document.view.translatorWorkspaceMode as TranslatorWorkspaceMode,
-      );
-      setTranslatorVisualProcessingMode(
-        (restored.document.view.translatorVisualProcessingMode as TranslatorVisualProcessingMode | undefined) ?? 'standard',
-      );
-      setStatusMessage(
-        restored.document.footer.statusMessage || t('dashboard.status.workspaceRestored'),
-      );
-      setLastActionScope(
-        restored.document.footer.lastActionScope as ProcessableMode | null,
-      );
-      setImages(restored.images);
-      setDownloadItems(restored.downloadItems);
-      setBatchThreadsEnabled(restored.document.batchThreadsEnabled);
-      setBatchThreads(restored.document.batchThreads);
-
-      setAioSteps(restored.document.aio.steps as typeof aioSteps);
-      setAioStageSelection(
-        restored.document.aio.stageSelection as AioStageSelection,
-      );
-      setAioPresetState(
-        restored.document.aio.presetState as AioModelPresetStateV2,
-      );
-      setAioMaskDilation(restored.document.aio.maskDilation);
-      setAioHdStrategy(
-        restored.document.aio.hdStrategy as typeof aioHdStrategy,
-      );
-      setAioHdResizeLimit(restored.document.aio.hdResizeLimit);
-      setAioHdCropMargin(restored.document.aio.hdCropMargin);
-      setAioHdCropTriggerSize(restored.document.aio.hdCropTriggerSize);
-      setAioDetectionsByImage(
-        restored.document.aio.detectionsByImage as Record<string, AioTextRegion[]>,
-      );
-      setAioSelectedRegionByImage(
-        restored.document.aio.selectedRegionByImage,
-      );
-      setAioPipelineSnapshots(
-        restored.aio.pipelineSnapshots as unknown as AioPipelineSnapshot[],
-      );
-      setAioPipelineSnapshotIndex(restored.document.aio.pipelineSnapshotIndex);
-      setAioImageSnapshotIndexById(
-        restored.document.aio.imageSnapshotIndexById,
-      );
-      setAioAutoHistoryAvailable(restored.document.aio.autoHistoryAvailable);
-      setAioAutoProcessedImageById(
-        restored.document.aio.autoProcessedImageById,
-      );
-      setAioManualProgressByImage(
-        restored.document.aio.manualProgressByImage as Record<
-          string,
-          AioManualImageProgress
-        >,
-      );
-      setAioManualImageEditsByImage(
-        restored.aio.manualImageEditsByImage as Record<
-          string,
-          AioManualImageEditState
-        >,
-      );
-      setAioManualHealingBusyByImage({});
-
-      setCleanerDetectionsByImage(
-        restored.cleaner.detectionsByImage as Record<string, AioTextRegion[]>,
-      );
-      setCleanerSelectedRegionByImage(
-        restored.cleaner.selectedRegionByImage,
-      );
-      setCleanerProcessedBaseByImage(restored.cleaner.processedBaseByImage);
-      setCleanerRunMetaByImage(
-        restored.document.cleaner.runMetaByImage as Record<
-          string,
-          CleanerRunMeta
-        >,
-      );
-      setCleanerManualImageEditsByImage(
-        restored.cleaner.manualImageEditsByImage,
-      );
-      setCleanerHealingBusyByImage({});
-
-      setSrcLang(restored.document.translator.srcLang);
-      setTgtLang(restored.document.translator.tgtLang);
-      setAioSrcLang(restored.document.translator.aioSrcLang);
-      setAioTgtLang(restored.document.translator.aioTgtLang);
-      setTranslatorDraftText(restored.document.translator.translatorDraftText);
-      setTranslatorTranslatedText(
-        restored.document.translator.translatorTranslatedText,
-      );
-      setTranslatorLastTextModelUsed(
-        restored.document.translator.translatorLastTextModelUsed,
-      );
-      setTranslatorTextDirty(restored.document.translator.translatorTextDirty);
-      setTranslatorDetectionsByImage(
-        restored.document.translator
-          .translatorDetectionsByImage as Record<string, AioTextRegion[]>,
-      );
-      setTranslatorSelectedRegionByImage(
-        restored.document.translator.translatorSelectedRegionByImage,
-      );
-      setTranslatorRunMetaByImage(
-        restored.document.translator
-          .translatorRunMetaByImage as Record<string, TranslatorVisualRunMeta>,
-      );
-      setTranslatorProcessedBaseByImage(
-        restored.translator.translatorProcessedBaseByImage,
-      );
-      setTranslatorVisualRunning(false);
-      setTranslatorTextRunning(false);
-
-      setTypographerSelectionTool(
-        restored.typesetter.selectionTool as typeof typographerSelectionTool,
-      );
-      setTypographerQueueSelectedId(restored.typesetter.queueSelectedId);
-      setTypographerSnapshotName(restored.typesetter.snapshotName);
-      setTypographerSelectedSnapshotId(restored.typesetter.selectedSnapshotId);
-      typographerWorkspace.replaceSessionsByImage(
-        restored.typesetter.sessionsByImage,
-      );
-
-      setEnhanceScale(restored.document.enhance.scale as EnhanceScale);
-      setEnhanceProfile(
-        restored.document.enhance.profile as EnhanceProfile,
-      );
-      setEnhanceModelId(restored.document.enhance.modelId);
-      setEnhanceOutputFormat(
-        restored.document.enhance.outputFormat as 'png' | 'webp',
-      );
-
-      setStitchLayoutMode(
-        restored.document.utility.stitch
-          .stitchLayoutMode as StitchLayoutMode,
-      );
-      setStitchBatchStrategy(
-        restored.document.utility.stitch
-          .stitchBatchStrategy as StitchBatchStrategy,
-      );
-      setStitchBatchSize(restored.document.utility.stitch.stitchBatchSize);
-      setStitchTargetPrimaryAxis(
-        restored.document.utility.stitch.stitchTargetPrimaryAxis,
-      );
-      setStitchGap(restored.document.utility.stitch.stitchGap);
-      setStitchAlignMode(
-        restored.document.utility.stitch.stitchAlignMode as StitchAlignMode,
-      );
-      setStitchBackground(restored.document.utility.stitch.stitchBackground);
-      setStitchSingleExportFormat(
-        restored.document.utility.stitch
-          .stitchSingleExportFormat as 'png' | 'jpeg' | 'webp',
-      );
-      setStitchFileBaseName(restored.document.utility.stitch.stitchFileBaseName);
-      setStitchSelectedBatchIndex(
-        restored.document.utility.stitch.stitchSelectedBatchIndex,
-      );
-      setStitchBatchIndexes(
-        restored.document.utility.stitch.stitchBatchIndexes,
-      );
-      setSplitterWorkspaceState(
-        restored.utility.splitter as SplitterWorkspaceState | null,
-      );
-      setWatermarkWorkspaceState(
-        restored.utility.watermark as WatermarkWorkspaceState | null,
-      );
-      setOptimizerWorkspaceState(
-        restored.utility.optimizer as ChapterOptimizerWorkspaceState | null,
-      );
-
-      setLlmSettings(
-        restored.document.llm.llmSettings as LlmRequestSettings,
-      );
-      setCustomLlmProfiles((prev) => {
-        const restoredProfiles =
-          (restored.document.llm.customLlmProfiles as CustomLlmProfile[]) ?? [];
-        const byId = new Map<string, CustomLlmProfile>();
-        for (const profile of [...prev, ...restoredProfiles]) {
-          if (!profile?.id) {
-            continue;
-          }
-          const current = byId.get(profile.id);
-          if (!current) {
-            byId.set(profile.id, profile);
-            continue;
-          }
-          const currentTime = Date.parse(current.updatedAt || current.createdAt || '');
-          const nextTime = Date.parse(profile.updatedAt || profile.createdAt || '');
-          if (Number.isNaN(currentTime) || (!Number.isNaN(nextTime) && nextTime >= currentTime)) {
-            byId.set(profile.id, profile);
-          }
-        }
-        return Array.from(byId.values()).sort((left, right) =>
-          left.label.localeCompare(right.label, 'pt-BR'),
-        );
-      });
-      setCustomLlmProfilesMode((prev) => {
-        if (prev === 'desktop_secure' || prev === 'desktop_local') {
-          return prev;
-        }
-        return restored.document.llm.customLlmProfilesMode as LlmProfilesPersistenceMode;
-      });
-      setPendingCustomSelections(
-        restored.document.llm.pendingCustomSelections as Record<
-          CustomLlmStage,
-          string | null
-        >,
-      );
-      setCustomLlmDrafts(
-        (() => {
-          const restoredDrafts = restored.document.llm.customLlmDrafts as Record<CustomLlmStage, CustomLlmProfileDraft> | undefined;
-          return {
-            translation: restoredDrafts?.translation ?? createEmptyCustomLlmDraft(),
-            ocr: restoredDrafts?.ocr ?? createEmptyCustomLlmDraft(),
-            clean: restoredDrafts?.clean ?? createEmptyCustomLlmDraft(),
-          };
-        })(),
-      );
-      setFreeProviderDrafts(
-        restored.document.llm.freeProviderDrafts as FreeProviderDraftMap,
-      );
-      setWorkspaceRestoreToken((prev) => prev + 1);
-      setWorkspaceStatus('idle');
-      setWorkspaceStatusDetail(
-        options?.statusDetail ?? 'Workspace local restaurado.',
-      );
-      setProcessing(false);
-      setProgress(0);
-    },
-    [
-      aioHdStrategy,
-      aioSteps,
-      releaseWorkspaceObjectUrls,
-      setActiveId,
-      setAioAutoHistoryAvailable,
-      setAioAutoProcessedImageById,
-      setAioDetectionsByImage,
-      setAioHdCropMargin,
-      setAioHdCropTriggerSize,
-      setAioHdResizeLimit,
-      setAioHdStrategy,
-      setAioImageSnapshotIndexById,
-      setAioManualHealingBusyByImage,
-      setAioManualImageEditsByImage,
-      setAioManualProgressByImage,
-      setAioMaskDilation,
-      setAioPipelineSnapshotIndex,
-      setAioPipelineSnapshots,
-      setAioPresetState,
-      setAioSelectedRegionByImage,
-      setAioSrcLang,
-      setAioStageSelection,
-      setAioSteps,
-      setAioTgtLang,
-      setBatchThreads,
-      setBatchThreadsEnabled,
-      setCleanerDetectionsByImage,
-      setCleanerHealingBusyByImage,
-      setCleanerManualImageEditsByImage,
-      setCleanerProcessedBaseByImage,
-      setCleanerRunMetaByImage,
-      setCleanerSelectedRegionByImage,
-      setCustomLlmDrafts,
-      setCustomLlmProfiles,
-      setCustomLlmProfilesMode,
-      setDownloadItems,
-      setEnhanceModelId,
-      setEnhanceOutputFormat,
-      setEnhanceProfile,
-      setEnhanceScale,
-      setFreeProviderDrafts,
-      setImages,
-      setLastActionScope,
-      setLlmSettings,
-      setMode,
-      setOptimizerWorkspaceState,
-      setPendingCustomSelections,
-      setProcessing,
-      setProgress,
-      setSrcLang,
-      setSplitterWorkspaceState,
-      setTgtLang,
-      setStatusMessage,
-      setStitchAlignMode,
-      setStitchBackground,
-      setStitchBatchIndexes,
-      setStitchBatchSize,
-      setStitchBatchStrategy,
-      setStitchFileBaseName,
-      setStitchGap,
-      setStitchLayoutMode,
-      setStitchSelectedBatchIndex,
-      setStitchSingleExportFormat,
-      setStitchTargetPrimaryAxis,
-      setSubMode,
-      setTonedStatus,
-      setTranslatorDetectionsByImage,
-      setTranslatorDraftText,
-      setTranslatorLastTextModelUsed,
-      setTranslatorProcessedBaseByImage,
-      setTranslatorRunMetaByImage,
-      setTranslatorSelectedRegionByImage,
-      setTranslatorTextDirty,
-      setTranslatorTextRunning,
-      setTranslatorTranslatedText,
-      setTranslatorVisualProcessingMode,
-      setTranslatorVisualRunning,
-      setTranslatorWorkspaceMode,
-      setTypographerQueueSelectedId,
-      setTypographerSelectedSnapshotId,
-      setTypographerSelectionTool,
-      setTypographerSnapshotName,
-      setViewMode,
-      setWatermarkWorkspaceState,
-      setWorkspaceRestoreToken,
-      setWorkspaceStatus,
-      setWorkspaceStatusDetail,
-      typographerSelectionTool,
-      typographerWorkspace,
-    ],
-  );
 
   const workspaceHistory = useWorkspaceHistory<DashboardWorkspaceHistorySnapshot>(
     {
@@ -1031,56 +282,6 @@ export function useWorkspacePersistence({
     },
   );
 
-  const buildCaptureStateFromRestored = useCallback(
-    (restored: DashboardWorkspaceRestoreState): DashboardWorkspaceCaptureState => ({
-      autosaveScope: restored.document.autosaveScope,
-      autosaveUserId: restored.document.autosaveUserId,
-      mode: restored.document.view.mode,
-      subMode: restored.document.view.subMode,
-      activeImageId: restored.document.view.activeImageId,
-      viewMode: restored.document.view.viewMode,
-      translatorWorkspaceMode: restored.document.view.translatorWorkspaceMode,
-      translatorVisualProcessingMode:
-        (restored.document.view.translatorVisualProcessingMode ??
-          'sequential') as DashboardWorkspaceCaptureState['translatorVisualProcessingMode'],
-      statusMessage: restored.document.footer.statusMessage,
-      lastActionScope: restored.document.footer.lastActionScope,
-      images: restored.images,
-      downloadItems: restored.downloadItems,
-      batchThreadsEnabled: restored.document.batchThreadsEnabled,
-      batchThreads: restored.document.batchThreads,
-      aio: restored.aio,
-      cleaner: {
-        detectionsByImage: restored.cleaner.detectionsByImage,
-        selectedRegionByImage: restored.cleaner.selectedRegionByImage,
-        processedBaseByImage: restored.cleaner.processedBaseByImage,
-        runMetaByImage: restored.document.cleaner.runMetaByImage as Record<string, CleanerRunMeta>,
-        manualImageEditsByImage: restored.cleaner.manualImageEditsByImage,
-      },
-      translator: {
-        ...restored.document.translator,
-        translatorProcessedBaseByImage:
-          (restored.document.translator as unknown as {
-            translatorProcessedBaseByImage?: Record<string, string>;
-            translatorProcessedBaseAssetByImage?: Record<string, string>;
-          }).translatorProcessedBaseByImage ??
-          (restored.document.translator as unknown as {
-            translatorProcessedBaseAssetByImage?: Record<string, string>;
-          }).translatorProcessedBaseAssetByImage ??
-          {},
-      },
-      typesetter: restored.typesetter,
-      enhance: restored.document.enhance,
-      utility: {
-        stitch: restored.document.utility.stitch,
-        splitter: restored.utility.splitter,
-        watermark: restored.utility.watermark,
-        optimizer: restored.utility.optimizer,
-      },
-      llm: restored.document.llm,
-    }),
-    [],
-  );
 
   const seedWorkspaceHistory = useCallback((
     snapshot?: DashboardWorkspaceHistorySnapshot,

@@ -43,6 +43,7 @@ const renderJob = async (job: StitchRenderJob): Promise<StitchRenderResult> => {
 
   let cursorX = 0;
   let cursorY = 0;
+  // ponytail: sequential by design — memory-bounded per-page pipeline (parallelizing would hold N decoded pages)
   for (let index = 0; index < job.images.length; index += 1) {
     const imageInput = job.images[index];
     if (!imageInput) continue;

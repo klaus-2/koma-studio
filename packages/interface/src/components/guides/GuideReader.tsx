@@ -78,7 +78,21 @@
       markGuideRead(entryId);
       navigateToGuideCategory(categoryId);
     }, [markGuideRead, entryId, navigateToGuideCategory, categoryId]);
-  
+
+    // Identify which section headers belong before which step indices
+    const sectionBreaks = useMemo(() => {
+      const breaks: Record<number, string> = {};
+      if (!guide) return breaks;
+      let idx = 0;
+      for (const section of guide.sections) {
+        if (section.steps.length > 0) {
+          breaks[idx] = section.title;
+        }
+        idx += section.steps.length;
+      }
+      return breaks;
+    }, [guide]);
+
     if (!category || !guide || !currentStep) {
       return (
         <div className="koma-gr-page koma-gr-fadein">
@@ -91,19 +105,6 @@
         </div>
       );
     }
-  
-    // Identify which section headers belong before which step indices
-    const sectionBreaks = useMemo(() => {
-      const breaks: Record<number, string> = {};
-      let idx = 0;
-      for (const section of guide.sections) {
-        if (section.steps.length > 0) {
-          breaks[idx] = section.title;
-        }
-        idx += section.steps.length;
-      }
-      return breaks;
-    }, [guide]);
   
     return (
       <div className="koma-gr-page" style={{ padding: 0 }}>

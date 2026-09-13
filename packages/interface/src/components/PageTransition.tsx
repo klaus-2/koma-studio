@@ -184,6 +184,9 @@ export const PageTransition = ({
   );
 
   useEffect(() => {
+    let visibleTimer: ReturnType<typeof setTimeout> | null = null;
+    let doneTimer: ReturnType<typeof setTimeout> | null = null;
+
     if (active) {
       if (
         phaseRef.current === "idle" ||
@@ -194,30 +197,45 @@ export const PageTransition = ({
         updatePhase("entering");
         enteredAtRef.current = Date.now();
 
-        phaseTimeoutRef.current = setTimeout(() => {
+        visibleTimer = setTimeout(() => {
           updatePhase("visible");
         }, ENTER_DURATION);
+        phaseTimeoutRef.current = visibleTimer;
       }
+    } else if (
+      phaseRef.current === "entering" ||
+      phaseRef.current === "visible"
+    ) {
+      clearTimers();
+      const elapsed = Date.now() - enteredAtRef.current;
+      const remaining = Math.max(0, minDuration - elapsed);
 
-      return;
-    }
-
-    if (phaseRef.current !== "entering" && phaseRef.current !== "visible") {
-      return;
-    }
-
-    clearTimers();
-    const elapsed = Date.now() - enteredAtRef.current;
-    const remaining = Math.max(0, minDuration - elapsed);
-
-    phaseTimeoutRef.current = setTimeout(() => {
-      updatePhase("exiting");
-      exitTimeoutRef.current = setTimeout(() => {
+      visibleTimer = setTimeout(() => {
+        updatePhase("exiting");
+      }, remaining);
+      doneTimer = setTimeout(() => {
         updatePhase("done");
         onExitComplete?.();
-      }, EXIT_DURATION);
-    }, remaining);
-  }, [active, clearTimers, message, minDuration, onExitComplete, updatePhase]);
+      }, remaining + EXIT_DURATION);
+      phaseTimeoutRef.current = visibleTimer;
+      exitTimeoutRef.current = doneTimer;
+    }
+
+    return () => {
+      if (visibleTimer) {
+        if (phaseTimeoutRef.current === visibleTimer) {
+          phaseTimeoutRef.current = null;
+        }
+        clearTimeout(visibleTimer);
+      }
+      if (doneTimer) {
+        if (exitTimeoutRef.current === doneTimer) {
+          exitTimeoutRef.current = null;
+        }
+        clearTimeout(doneTimer);
+      }
+    };
+  }, [active, clearTimers, minDuration, onExitComplete, updatePhase]);
 
   useEffect(() => {
     if (phase !== "visible" || Boolean(message)) {

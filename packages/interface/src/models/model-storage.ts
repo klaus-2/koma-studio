@@ -151,24 +151,6 @@ export const importOnnxModelFromStorage = async (model: TranslationModel): Promi
   }) as Promise<InstalledModelRecord>;
 };
 
-export const cancelModelDownload = async (modelId: string): Promise<void> => {
-  const desktopModelsApi = desktopBridge.desktop?.models;
-  if (!desktopModelsApi) {
-    return;
-  }
-
-  await desktopModelsApi.cancel(modelId);
-};
-
-export const cancelAllModelDownloads = async (): Promise<void> => {
-  const desktopModelsApi = desktopBridge.desktop?.models;
-  if (!desktopModelsApi) {
-    return;
-  }
-
-  await desktopModelsApi.cancelAll();
-};
-
 export const buildModelInstallStates = (
   models: TranslationModel[],
   installedModels: InstalledModelRecord[],

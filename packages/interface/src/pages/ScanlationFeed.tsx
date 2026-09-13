@@ -3,9 +3,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import { useReducedMotion } from 'framer-motion';
+import { LazyMotion, domMax, useReducedMotion } from 'framer-motion';
 import {
   AtSign,
   Camera,
@@ -260,7 +261,9 @@ export const ScanlationFeedPage = ({
 
   /* state */
   const [tab, setTab] = useState<FeedTab>('recruitment');
-  const [previousReceivedCount, setPreviousReceivedCount] = useState(0);
+  // ponytail: render-rule fix — this only tracks the previous fetch's count for
+  // the new-application notice below; a ref holds it without re-rendering.
+  const previousReceivedCountRef = useRef(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -388,13 +391,11 @@ export const ScanlationFeedPage = ({
   }, [profile]);
 
   useEffect(() => {
-    if (
-      receivedApplications.length > previousReceivedCount &&
-      previousReceivedCount > 0
-    )
+    const previousCount = previousReceivedCountRef.current;
+    if (receivedApplications.length > previousCount && previousCount > 0)
       setFeedback(t('feed.feedback.newApplication'));
-    setPreviousReceivedCount(receivedApplications.length);
-  }, [previousReceivedCount, receivedApplications.length, t]);
+    previousReceivedCountRef.current = receivedApplications.length;
+  }, [receivedApplications.length, t]);
 
   const visiblePosts = useMemo(
     () =>
@@ -872,6 +873,9 @@ export const ScanlationFeedPage = ({
      ═══════════════════════════════════════════ */
   return (
     <div className="koma-feed">
+      {/* LazyMotion provider for the feed tree's `m` components. domMax (not
+          domAnimation) because the composer sections animate `layout`. */}
+      <LazyMotion features={domMax}>
       <ScanlationFeedContent
         tab={tab}
         canModerate={canModerate}
@@ -965,6 +969,7 @@ export const ScanlationFeedPage = ({
         onApply={() => void handleApply()}
         onReport={() => void handleReport()}
       />
+      </LazyMotion>
     </div>
   );
 };

@@ -131,7 +131,9 @@ export const useTextDetectionPreviewBehaviors = ({
   setRegionSkew,
 }: TextDetectionPreviewBehaviorDeps) => {
   const regionsRef = useRef(regions);
-  regionsRef.current = regions;
+  useEffect(() => {
+    regionsRef.current = regions;
+  });
   const segBrushDataUrlRef = useRef<string | null>(null);
   const [interaction, setInteraction] = useState<OverlayInteraction | null>(
     null,

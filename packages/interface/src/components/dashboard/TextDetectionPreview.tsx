@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { DEFAULT_RENDER_STYLE } from '../../constants/dashboard.constants';
 import type {
   AioPipelineSnapshotKey,
@@ -93,7 +93,9 @@ export const useTextDetectionPreviewController = (
   const segBrushLastRef = useRef<{ x: number; y: number } | null>(null);
   const brushCursorRef = useRef<HTMLDivElement | null>(null);
   const regionsRef = useRef(regions);
-  regionsRef.current = regions;
+  useEffect(() => {
+    regionsRef.current = regions;
+  });
 
   const imageMaxWidth = viewMode === 'paginated' ? 420 : 960;
   const isRotationSwapped = image.rotation === 90 || image.rotation === 270;

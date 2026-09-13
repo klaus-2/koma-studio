@@ -535,12 +535,12 @@ export const buildAioStageCatalog = ({
   localModelEntries,
   customProfiles = [],
 }: BuildAioStageCatalogOptions): AioStageOptionMap => {
-  const customTranslationOptions = customProfiles
-    .filter((profile) => profile.stage === "translation")
-    .map((profile) => buildCustomStageOption(profile));
-  const customOcrOptions = customProfiles
-    .filter((profile) => profile.stage === "ocr")
-    .map((profile) => buildCustomStageOption(profile));
+  const customTranslationOptions: AioStageOption[] = [];
+  const customOcrOptions: AioStageOption[] = [];
+  for (const profile of customProfiles) {
+    if (profile.stage === "translation") customTranslationOptions.push(buildCustomStageOption(profile));
+    else if (profile.stage === "ocr") customOcrOptions.push(buildCustomStageOption(profile));
+  }
 
   const detectText = BASE_AIO_STAGE_OPTIONS.detectText.map((option) =>
     decorateLocalOption(option, localModelEntries),

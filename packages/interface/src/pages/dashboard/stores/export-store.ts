@@ -134,18 +134,22 @@ export const useExportStore = create<ExportStore>()(
       // Composed actions, ported 1:1 from the page's useCallback bodies.
       setAioDownloadItems: (entries) => {
         get().setDownloadItems((prev) => {
-          const keep = prev.filter((item) => item.scope !== 'aio');
-          prev
-            .filter((item) => item.scope === 'aio')
-            .forEach((item) => URL.revokeObjectURL(item.previewUrl));
-          if (entries.length === 0) return keep;
-          const aioItems: DownloadItem[] = entries.map((entry) => ({
-            name: entry.fileName,
-            blob: entry.blob,
-            scope: 'aio',
-            sourceImageId: entry.sourceImageId,
-            previewUrl: URL.createObjectURL(entry.blob),
-          }));
+          const keep: DownloadItem[] = [];
+          for (const item of prev) {
+            if (item.scope === 'aio') URL.revokeObjectURL(item.previewUrl);
+            else keep.push(item);
+          }
+          const aioItems: DownloadItem[] = [];
+          for (const entry of entries) {
+            const previewUrl = URL.createObjectURL(entry.blob);
+            aioItems.push({
+              name: entry.fileName,
+              blob: entry.blob,
+              scope: 'aio',
+              sourceImageId: entry.sourceImageId,
+              previewUrl,
+            });
+          }
           return [...keep, ...aioItems];
         });
         if (entries.length > 0) {

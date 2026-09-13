@@ -138,7 +138,9 @@ const BugReportModal = ({
   const [contact, setContact] = useState('');
   const [crop, setCrop] = useState<CropRect | null>(null);
   const [drag, setDrag] = useState<CropRect | null>(null);
-  const [dragging, setDragging] = useState(false);
+  // ponytail: render-rule fix — `dragging` is only ever set in mouse handlers
+  // and read back in one; a ref updates it without re-rendering the modal.
+  const draggingRef = useRef(false);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -162,27 +164,8 @@ const BugReportModal = ({
     Boolean(prep?.ready) &&
     !loading;
 
-  const reset = useCallback(() => {
-    setTitle('');
-    setDesc('');
-    setSev('medium');
-    setSteps('');
-    setExpected('');
-    setActual('');
-    setContact('');
-    setCrop(null);
-    setDrag(null);
-    setDragging(false);
-    dragStart.current = null;
-    setAttachments([]);
-    setAttachErr(null);
-    setErr(null);
-    setSuccess(null);
-  }, []);
-
   useEffect(() => {
     if (!open) return;
-    reset();
     setPrepLoading(true);
     void (async () => {
       if (!api) {
@@ -210,7 +193,7 @@ const BugReportModal = ({
         setPrepLoading(false);
       }
     })();
-  }, [api, open, reset]);
+  }, [api, open]);
 
   const addFiles = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,13 +255,13 @@ const BugReportModal = ({
       if (!p) return;
       dragStart.current = { x: p.x, y: p.y };
       setDrag({ x: p.x, y: p.y, width: 0, height: 0 });
-      setDragging(true);
+      draggingRef.current = true;
     },
     [relPt, screenshot],
   );
   const onMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!dragging || !dragStart.current) return;
+      if (!draggingRef.current || !dragStart.current) return;
       const p = relPt(e.clientX, e.clientY);
       if (!p) return;
       setDrag({
@@ -288,14 +271,14 @@ const BugReportModal = ({
         height: Math.abs(p.y - dragStart.current.y),
       });
     },
-    [dragging, relPt],
+    [relPt],
   );
   const onUp = useCallback(() => {
     if (drag) {
       setCrop(drag.width >= 8 && drag.height >= 8 ? drag : null);
     }
     setDrag(null);
-    setDragging(false);
+    draggingRef.current = false;
     dragStart.current = null;
   }, [drag]);
 

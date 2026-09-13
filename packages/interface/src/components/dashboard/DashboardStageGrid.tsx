@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useRef } from 'react';
+import React, { memo } from 'react';
 
 import type { ViewMode } from '../../types/dashboard.types';
 import { VirtualizedLongStrip } from './VirtualizedLongStrip';
@@ -16,18 +16,13 @@ const DashboardStageGrid = ({
   renderStageItem,
   itemKey,
 }: DashboardStageGridProps) => {
-  // Stable render function reference to prevent VirtualizedLongStrip re-renders
-  const renderRef = useRef(renderStageItem);
-  renderRef.current = renderStageItem;
-
-  const stableRender = useCallback((index: number) => {
-    return renderRef.current(index);
-  }, []);
-
   if (itemCount === 0) return null;
 
   // Use virtualized rendering for ALL view modes when there are many items
   // This prevents rendering hundreds of images simultaneously
+  // renderStageItem is passed straight through: VirtualizedLongStrip memoizes
+  // items with renderItem in deps, so mirroring it in a ref would render
+  // one-commit-stale items after every images change.
   if (itemCount > 5) {
     return (
       <VirtualizedLongStrip
@@ -36,7 +31,7 @@ const DashboardStageGrid = ({
         overscan={viewMode === 'long_strip' ? 2 : 3}
         enabled={true}
         itemKey={itemKey}
-        renderItem={stableRender}
+        renderItem={renderStageItem}
       />
     );
   }
