@@ -183,7 +183,14 @@ export const ModelRankingsPage = ({
       leaderboardData.leaderboard[0]?.modelId ??
       OFFICIAL_MODEL_CATALOG[0]?.id ??
       null;
-    setSelectedModelId(preferredId);
+    // Selection changes carry their detail-panel resets inline so a state
+    // change here can't cascade through a second effect.
+    if (preferredId !== selectedModelId) {
+      setSelectedModelId(preferredId);
+      setDetailPage(1);
+      setComposerMode('closed');
+      setReviewMutationError(null);
+    }
   }, [leaderboardData, selectedModelId]);
 
   useEffect(() => {
@@ -193,17 +200,12 @@ export const ModelRankingsPage = ({
         setSelectedModelId(id);
         setDetailPage(1);
         setComposerMode('closed');
+        setReviewMutationError(null);
       }
     };
     window.addEventListener('hashchange', sync);
     return () => window.removeEventListener('hashchange', sync);
   }, []);
-
-  useEffect(() => {
-    setDetailPage(1);
-    setComposerMode('closed');
-    setReviewMutationError(null);
-  }, [selectedModelId]);
 
   const reviewedModelIds = useMemo(
     () => new Set(leaderboardData?.reviewedModelIds ?? []),
@@ -225,6 +227,7 @@ export const ModelRankingsPage = ({
     setSelectedModelId(modelId);
     setDetailPage(1);
     setComposerMode('closed');
+    setReviewMutationError(null);
     writeSelectedModelToHash(modelId);
   };
 

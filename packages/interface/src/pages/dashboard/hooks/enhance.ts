@@ -282,6 +282,7 @@ export function useDashboardEnhanceActions({
     }
   }, [
     discord,
+    effectiveBatchConcurrency,
     emitProcessCompleteWebhook,
     emitProcessErrorWebhook,
     emitProcessStartWebhook,

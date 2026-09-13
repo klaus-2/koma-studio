@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { useState, type RefObject } from 'react';
 import {
   BookOpen,
   Download,
@@ -58,11 +58,13 @@ export default function KomaTopbarUserMenu({
   const setCurrentTheme = useThemeStore((state) => state.setTheme);
   const [langPickerOpen, setLangPickerOpen] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setLangPickerOpen(false);
-    }
-  }, [isOpen]);
+  // Reset the sub-picker when the menu closes (adjust during render; the menu
+  // itself stays mounted while hidden, so the state must not leak across opens).
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (prevIsOpen !== isOpen) {
+    setPrevIsOpen(isOpen);
+    if (!isOpen) setLangPickerOpen(false);
+  }
 
   return (
     <div className="koma-navdrop koma-navdrop--right" ref={dropdownRef}>

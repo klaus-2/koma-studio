@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
 import { Check, X } from "lucide-react";
 import { useI18n } from "../../i18n";
 
@@ -43,28 +43,34 @@ export const PasswordStrength = ({ password }: PasswordStrengthProps) => {
   if (password.length === 0) return null;
 
   return (
-    <AnimatePresence>
-      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="koma-strength">
-        <div className="koma-strength__bars">
-          {strengthConfig.map((seg, i) => (
-            <div key={seg.label} className="koma-strength__seg">
-              <motion.div className="koma-strength__segFill" style={{ background: seg.gradient }} initial={{ width: 0 }} animate={{ width: i <= level ? "100%" : "0%" }} transition={{ duration: 0.35, delay: i * 0.05 }} />
-            </div>
-          ))}
-        </div>
-        {config && <p className={`koma-strength__label ${config.textCls}`}>{config.label}</p>}
-        <ul className="koma-strength__rules">
-          {rules.map((rule) => {
-            const ok = rule.test(password);
-            return (
-              <motion.li key={rule.label} className="koma-strength__rule" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}>
-                {ok ? <Check size={14} className="koma-strength__check--ok" strokeWidth={2.5} /> : <X size={14} className="koma-strength__check--no" strokeWidth={2.5} />}
-                <span className={ok ? "koma-strength__ruleText--ok" : "koma-strength__ruleText--no"}>{rule.label}</span>
-              </motion.li>
-            );
-          })}
-        </ul>
-      </motion.div>
-    </AnimatePresence>
+    // ponytail: render-rule fix — `m` + LazyMotion(domAnimation) instead of the
+    // full `motion` component trims ~30kb from the auth bundle; this screen
+    // only animates opacity/position/scale, which domAnimation covers.
+    <LazyMotion features={domAnimation}>
+      <AnimatePresence>
+        <m.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="koma-strength">
+          <div className="koma-strength__bars">
+            {strengthConfig.map((seg, i) => (
+              <div key={seg.label} className="koma-strength__seg">
+                {/* scaleX (origin left) instead of width: the .koma-strength__seg wrapper has overflow:hidden, so the scaled fill clips like a width grow */}
+                <m.div className="koma-strength__segFill" style={{ background: seg.gradient, width: '100%', originX: 0 }} initial={{ scaleX: 0 }} animate={{ scaleX: i <= level ? 1 : 0 }} transition={{ duration: 0.35, delay: i * 0.05 }} />
+              </div>
+            ))}
+          </div>
+          {config && <p className={`koma-strength__label ${config.textCls}`}>{config.label}</p>}
+          <ul className="koma-strength__rules">
+            {rules.map((rule) => {
+              const ok = rule.test(password);
+              return (
+                <m.li key={rule.label} className="koma-strength__rule" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}>
+                  {ok ? <Check size={14} className="koma-strength__check--ok" strokeWidth={2.5} /> : <X size={14} className="koma-strength__check--no" strokeWidth={2.5} />}
+                  <span className={ok ? "koma-strength__ruleText--ok" : "koma-strength__ruleText--no"}>{rule.label}</span>
+                </m.li>
+              );
+            })}
+          </ul>
+        </m.div>
+      </AnimatePresence>
+    </LazyMotion>
   );
 };

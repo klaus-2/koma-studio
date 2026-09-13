@@ -625,13 +625,3 @@ export const drawRenderedTextInRegion = (
 
   ctx.restore();
 };
-
-export const drawRenderedTextInBox = (
-  ctx: CanvasRenderingContext2D,
-  bbox: TypographyBounds,
-  layout: RenderTextLayout,
-  style: RenderTextStyle,
-  shape?: TypographyShape,
-): void => {
-  drawRenderedTextInRegion(ctx, bbox, layout, style, shape);
-};

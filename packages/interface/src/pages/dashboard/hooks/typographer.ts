@@ -112,40 +112,38 @@ export const useTypographerWorkspace = ({
 
       if (cancelled) return;
 
-      setSessionsByImage(() => {
-        const nextSessions: Record<string, TypographySession> = { ...cachedSessions };
-        const nextPersistedSessionUpdatedAt = {
-          ...persistedSessionUpdatedAtRef.current,
-        };
-        loadedEntries.forEach(({ image, emptySession, stored }) => {
-          const hydratedSession = stored
-            ? {
-              ...stored,
-              imageId: image.id,
-              imageFingerprint: emptySession.imageFingerprint,
-              updatedAt: stored.updatedAt ?? Date.now(),
-            }
-            : emptySession;
-          nextSessions[image.id] = hydratedSession;
-          nextPersistedSessionUpdatedAt[hydratedSession.imageFingerprint] =
-            hydratedSession.updatedAt;
-        });
-        const activeFingerprints = new Set(
-          Object.values(nextSessions).map((session) => session.imageFingerprint),
-        );
-        Object.keys(nextPersistedSessionUpdatedAt).forEach((fingerprint) => {
-          if (!activeFingerprints.has(fingerprint)) {
-            delete nextPersistedSessionUpdatedAt[fingerprint];
+      const nextSessions: Record<string, TypographySession> = { ...cachedSessions };
+      const nextPersistedSessionUpdatedAt = {
+        ...persistedSessionUpdatedAtRef.current,
+      };
+      loadedEntries.forEach(({ image, emptySession, stored }) => {
+        const hydratedSession = stored
+          ? {
+            ...stored,
+            imageId: image.id,
+            imageFingerprint: emptySession.imageFingerprint,
+            updatedAt: stored.updatedAt ?? Date.now(),
           }
-        });
-        Object.keys(saveTimerByFingerprintRef.current).forEach((fingerprint) => {
-          if (activeFingerprints.has(fingerprint)) return;
-          window.clearTimeout(saveTimerByFingerprintRef.current[fingerprint]);
-          delete saveTimerByFingerprintRef.current[fingerprint];
-        });
-        persistedSessionUpdatedAtRef.current = nextPersistedSessionUpdatedAt;
-        return nextSessions;
+          : emptySession;
+        nextSessions[image.id] = hydratedSession;
+        nextPersistedSessionUpdatedAt[hydratedSession.imageFingerprint] =
+          hydratedSession.updatedAt;
       });
+      const activeFingerprints = new Set(
+        Object.values(nextSessions).map((session) => session.imageFingerprint),
+      );
+      Object.keys(nextPersistedSessionUpdatedAt).forEach((fingerprint) => {
+        if (!activeFingerprints.has(fingerprint)) {
+          delete nextPersistedSessionUpdatedAt[fingerprint];
+        }
+      });
+      Object.keys(saveTimerByFingerprintRef.current).forEach((fingerprint) => {
+        if (activeFingerprints.has(fingerprint)) return;
+        window.clearTimeout(saveTimerByFingerprintRef.current[fingerprint]);
+        delete saveTimerByFingerprintRef.current[fingerprint];
+      });
+      persistedSessionUpdatedAtRef.current = nextPersistedSessionUpdatedAt;
+      setSessionsByImage(nextSessions);
     })();
     return () => {
       cancelled = true;

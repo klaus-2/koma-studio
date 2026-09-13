@@ -25,6 +25,12 @@ import { AioSection } from '@/pages/AioSection';
 
 type TypographerSelectionTool = 'select' | 'draw-square' | 'draw-rounded';
 
+// ponytail: stable module-scope defaults so the `= []` default props don't
+// create new arrays every render and redraw children that compare props.
+const EMPTY_MULTI_BUBBLE_REGIONS: Array<{ id: string; label: string }> = [];
+const EMPTY_FOLDERS: TypographyStyleFolder[] = [];
+const EMPTY_FONTS: string[] = [];
+
 interface TypographerToolboxProps {
   activeImageName: string | null;
   activeRegion: TypographyRegion | null;
@@ -94,10 +100,10 @@ export const TypographerToolbox = ({
   onSelectQueueItem,
   onToggleMultiBubble,
   onImportQueueText,
-  multiBubbleRegions = [],
+  multiBubbleRegions = EMPTY_MULTI_BUBBLE_REGIONS,
   onReorderMultiBubbleRegions,
-  availableFolders = [],
-  availableFonts = [],
+  availableFolders = EMPTY_FOLDERS,
+  availableFonts = EMPTY_FONTS,
   onUpdatePreset,
 }: TypographerToolboxProps) => {
   const { t } = useI18n();

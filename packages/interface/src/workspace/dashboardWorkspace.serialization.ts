@@ -414,14 +414,12 @@ export const captureWorkspaceDocument = async (
   state: DashboardWorkspaceCaptureState,
 ): Promise<WorkspacePackagePayload> => {
   const collector = new WorkspaceAssetCollector();
-  const aioDownloadPreviewUrlByKey = new Map(
-    state.downloadItems
-      .filter((item) => item.scope === "aio")
-      .map((item) => ([
-        buildWorkspaceDownloadLookupKey(item.sourceImageId, item.name),
-        item.previewUrl,
-      ] as const)),
-  );
+  const aioDownloadPreviewUrlByKey = new Map<string, string>();
+  for (const item of state.downloadItems) {
+    if (item.scope === "aio") {
+      aioDownloadPreviewUrlByKey.set(buildWorkspaceDownloadLookupKey(item.sourceImageId, item.name), item.previewUrl);
+    }
+  }
   const images = await Promise.all(state.images.map((image) => toLoadedImageDocument(collector, image)));
   const downloadItems = await Promise.all(state.downloadItems.map((item) => toDownloadItemDocument(collector, item)));
   const aioPipelineSnapshots = await Promise.all(
@@ -581,15 +579,19 @@ const restoreLoadedImage = (
   item: WorkspaceLoadedImageDocument,
 ): LoadedImage => {
   const file = toFileFromAsset(assetMap, item.source.assetId);
-  return {
+  // Owned by the restored image collection; revoked on image removal
+  // (revokeLoadedImageUrls).
+  const url = URL.createObjectURL(file);
+  const image = {
     id: item.id,
     file,
-    url: URL.createObjectURL(file),
+    url,
     width: item.width,
     height: item.height,
     rotation: item.rotation,
     filters: item.filters as ImageFilters,
   };
+  return image;
 };
 
 const restoreDownloadItem = (
@@ -597,13 +599,17 @@ const restoreDownloadItem = (
   item: WorkspaceDownloadItemDocument,
 ): DownloadItem => {
   const blob = toBlobFromAsset(assetMap, item.blob.assetId);
-  return {
+  // Owned by the restored download registry; revoked when the entry is
+  // replaced or removed (registerDownloads / removeImage).
+  const previewUrl = URL.createObjectURL(blob);
+  const downloadItem = {
     name: item.name,
     blob,
     scope: item.scope as DownloadItem["scope"],
     sourceImageId: item.sourceImageId,
-    previewUrl: URL.createObjectURL(blob),
+    previewUrl,
   };
+  return downloadItem;
 };
 
 const restoreAioDownloadItem = (
@@ -647,7 +653,20 @@ const restoreProcessedBaseMap = async (
 const restoreWatermarkState = async (
   assetMap: Map<string, WorkspaceBinaryAssetPayload>,
   utility: WorkspaceUtilityStateDocument["watermark"],
-): Promise<WatermarkWorkspaceRuntimeState> => ({
+): Promise<WatermarkWorkspaceRuntimeState> => {
+  const results: WatermarkWorkspaceRuntimeState["results"] = [];
+  for (const item of utility.results) {
+    const blob = toBlobFromAsset(assetMap, item.blob.assetId);
+    const previewUrl = URL.createObjectURL(blob);
+    results.push({
+      sourceImageId: item.sourceImageId,
+      name: item.name,
+      blob,
+      previewUrl,
+      resolvedAnchor: item.resolvedAnchor,
+    });
+  }
+  return {
   draft: toJsonClone(utility.draft),
   activeImageId: utility.activeImageId,
   compareMode: utility.compareMode,
@@ -658,18 +677,10 @@ const restoreWatermarkState = async (
   watermarkImageFile: utility.watermarkImage
     ? toFileFromAsset(assetMap, utility.watermarkImage.assetId)
     : null,
-  results: utility.results.map((item) => {
-    const blob = toBlobFromAsset(assetMap, item.blob.assetId);
-    return {
-      sourceImageId: item.sourceImageId,
-      name: item.name,
-      blob,
-      previewUrl: URL.createObjectURL(blob),
-      resolvedAnchor: item.resolvedAnchor,
-    };
-  }),
+  results,
   textZoneCache: (utility as WorkspaceWatermarkDocumentWithTextZoneCache).textZoneCache ?? {},
-});
+  };
+};
 
 const restoreOptimizerState = (
   assetMap: Map<string, WorkspaceBinaryAssetPayload>,

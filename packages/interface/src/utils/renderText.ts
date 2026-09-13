@@ -11,4 +11,4 @@ export type {
   RenderTextPlacementSegment,
 } from "./renderText.types";
 export { computeRenderTextLayout } from "./renderText.measure";
-export { drawRenderedTextInBox, drawRenderedTextInRegion } from "./renderText.draw";
+export { drawRenderedTextInRegion } from "./renderText.draw";

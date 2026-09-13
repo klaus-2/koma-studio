@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import {
   Briefcase,
   Clock,
@@ -95,10 +95,10 @@ export default function ScanlationFeedComposerRecruitmentSection({
       </div>
       <AnimatePresence>
         {recruitmentForm.candidateRequirements.availability && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
+          <m.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
             className="koma-feed-avail"
           >
             <div className="koma-feed-avail__hint">
@@ -167,7 +167,7 @@ export default function ScanlationFeedComposerRecruitmentSection({
                 /500
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

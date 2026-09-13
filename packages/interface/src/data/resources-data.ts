@@ -603,31 +603,35 @@ export const hydrateResourcesCatalog = (payload: {
     .filter((entry) => entry.status !== 'draft')
     .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
 
-  const nextFonts = publishedEntries
-    .filter((entry) => entry.categoryId === 'fonts')
-    .map((entry) => entry.payload as unknown as FontEntry);
-
-  const nextSfx = publishedEntries
-    .filter((entry) => entry.categoryId === 'sfx-library')
-    .map((entry) => entry.payload as unknown as SfxEntry);
-
-  const nextGlossary = publishedEntries
-    .filter((entry) => entry.categoryId === 'glossary')
-    .map((entry) => entry.payload as unknown as GlossaryEntry);
-
-  const nextCommunities = publishedEntries
-    .filter((entry) => entry.categoryId === 'communities')
-    .map((entry) => entry.payload as unknown as CommunityEntry);
-
-  const nextTools = publishedEntries
-    .filter((entry) => entry.categoryId === 'tools-external')
-    .map((entry) => {
-      const payloadValue = entry.payload as Record<string, unknown>;
-      return {
-        ...(payloadValue as unknown as Omit<ExternalToolEntry, 'icon'>),
-        icon: resolveResourceIcon(entry.iconName ?? (typeof payloadValue.iconName === 'string' ? payloadValue.iconName : null), 'Wrench'),
-      } as ExternalToolEntry;
-    });
+  const nextFonts: FontEntry[] = [];
+  const nextSfx: SfxEntry[] = [];
+  const nextGlossary: GlossaryEntry[] = [];
+  const nextCommunities: CommunityEntry[] = [];
+  const nextTools: ExternalToolEntry[] = [];
+  for (const entry of publishedEntries) {
+    switch (entry.categoryId) {
+      case 'fonts':
+        nextFonts.push(entry.payload as unknown as FontEntry);
+        break;
+      case 'sfx-library':
+        nextSfx.push(entry.payload as unknown as SfxEntry);
+        break;
+      case 'glossary':
+        nextGlossary.push(entry.payload as unknown as GlossaryEntry);
+        break;
+      case 'communities':
+        nextCommunities.push(entry.payload as unknown as CommunityEntry);
+        break;
+      case 'tools-external': {
+        const payloadValue = entry.payload as Record<string, unknown>;
+        nextTools.push({
+          ...(payloadValue as unknown as Omit<ExternalToolEntry, 'icon'>),
+          icon: resolveResourceIcon(entry.iconName ?? (typeof payloadValue.iconName === 'string' ? payloadValue.iconName : null), 'Wrench'),
+        } as ExternalToolEntry);
+        break;
+      }
+    }
+  }
 
   if (nextCategories.length > 0) {
     RESOURCE_CATEGORIES.splice(0, RESOURCE_CATEGORIES.length, ...nextCategories);

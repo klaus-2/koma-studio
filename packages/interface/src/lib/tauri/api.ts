@@ -52,10 +52,6 @@ import type {
 
 export type TauriCommandName = DesktopCommandName | UpdaterCommandName;
 export type TauriCommandArgs = InvokeArgs | undefined;
-export interface TauriApiBridgeOverrides {
-  desktop?: IDesktopBridge | null;
-  updater?: IUpdaterBridge | null;
-}
 
 export const invokeCommand = <TResponse = unknown>(
   command: TauriCommandName,
@@ -88,20 +84,6 @@ export const listenToDesktopEvent = <TName extends DesktopEventName>(
   return options === undefined
     ? listen<DesktopEventPayloadMap[TName]>(eventName, listener)
     : listen<DesktopEventPayloadMap[TName]>(eventName, listener, options);
-};
-
-export const listenToTauriEvent = <TPayload>(
-  eventName: string,
-  handler: (payload: TPayload, event: Event<TPayload>) => void,
-  options?: ListenOptions,
-): Promise<UnlistenFn> => {
-  const listener = (event: Event<TPayload>): void => {
-    handler(event.payload, event);
-  };
-
-  return options === undefined
-    ? listen<TPayload>(eventName, listener)
-    : listen<TPayload>(eventName, listener, options);
 };
 
 const envString = (key: string): string | undefined => {
@@ -147,7 +129,6 @@ const mergeRuntimeConfigWithBuildEnv = (runtimeConfig: RuntimeConfig): RuntimeCo
 });
 
 let runtimeConfigCache = buildDefaultRuntimeConfig();
-let bridgeOverrides: TauriApiBridgeOverrides | null = null;
 
 export const isTauriRuntime = (): boolean => {
   if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
@@ -602,23 +583,11 @@ const updaterBridge: IUpdaterBridge = {
 };
 
 const resolveDesktopBridge = (): IDesktopBridge | null => {
-  if (bridgeOverrides && "desktop" in bridgeOverrides) {
-    return bridgeOverrides.desktop ?? null;
-  }
   return isTauriRuntime() ? tauriDesktopBridge : null;
 };
 
 const resolveUpdaterBridge = (): IUpdaterBridge | null => {
-  if (bridgeOverrides && "updater" in bridgeOverrides) {
-    return bridgeOverrides.updater ?? null;
-  }
   return isTauriRuntime() ? updaterBridge : null;
-};
-
-export const setTauriApiBridgeOverridesForTests = (
-  overrides: TauriApiBridgeOverrides | null,
-): void => {
-  bridgeOverrides = overrides;
 };
 
 export const tauriApi = {

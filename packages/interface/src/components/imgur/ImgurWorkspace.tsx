@@ -125,15 +125,19 @@ export const ImgurWorkspace = ({ onOpenSettings }: ImgurWorkspaceProps) => {
   }, [copiedToken]);
 
   const appendUploadDrafts = useCallback((files: File[]) => {
-    const nextDrafts = files.map<UploadDraftItem>((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      altText: file.name.replace(/\.[^.]+$/u, ''),
-      previewUrl: URL.createObjectURL(file),
-      status: 'queued',
-      result: null,
-      error: null,
-    }));
+    const nextDrafts: UploadDraftItem[] = [];
+    for (const file of files) {
+      const previewUrl = URL.createObjectURL(file);
+      nextDrafts.push({
+        id: crypto.randomUUID(),
+        file,
+        altText: file.name.replace(/\.[^.]+$/u, ''),
+        previewUrl,
+        status: 'queued',
+        result: null,
+        error: null,
+      });
+    }
     setUploadDrafts((current) => [...current, ...nextDrafts]);
   }, []);
 

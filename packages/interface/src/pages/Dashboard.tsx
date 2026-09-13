@@ -279,6 +279,9 @@ export const DashboardPage = ({
       ghost.style.height = `${fromRect.height}px`;
       ghost.style.left = `${fromRect.left}px`;
       ghost.style.top = `${fromRect.top}px`;
+      // Ghost is pinned at the FROM rect; translate+scale with top-left origin
+      // maps it exactly onto the TO rect without animating layout properties.
+      ghost.style.transformOrigin = 'top left';
 
       document.body.appendChild(ghost);
       const previousFromVisibility = fromEl.style.visibility;
@@ -286,24 +289,21 @@ export const DashboardPage = ({
       fromEl.style.visibility = 'hidden';
       toEl.style.visibility = 'hidden';
 
+      const dx = toRect.left - fromRect.left;
+      const dy = toRect.top - fromRect.top;
+      const sx = toRect.width / fromRect.width;
+      const sy = toRect.height / fromRect.height;
+
       const animation = ghost.animate(
         [
           {
-            left: `${fromRect.left}px`,
-            top: `${fromRect.top}px`,
-            width: `${fromRect.width}px`,
-            height: `${fromRect.height}px`,
             opacity: 0.96,
-            transform: 'translateZ(0) scale(1)',
+            transform: 'translate(0px, 0px) translateZ(0) scale(1, 1)',
             borderRadius: '10px',
           },
           {
-            left: `${toRect.left}px`,
-            top: `${toRect.top}px`,
-            width: `${toRect.width}px`,
-            height: `${toRect.height}px`,
             opacity: 0.9,
-            transform: 'translateZ(0) scale(0.98)',
+            transform: `translate(${dx}px, ${dy}px) translateZ(0) scale(${sx * 0.98}, ${sy * 0.98})`,
             borderRadius: '10px',
           },
         ],
@@ -1408,7 +1408,7 @@ export const DashboardPage = ({
       return t('dashboard.status.profilesPersistedDesktopLocal');
     }
     return t('dashboard.status.profilesPersistedBrowser');
-  }, [customLlmProfilesMode]);
+  }, [customLlmProfilesMode, t]);
   const translationFreeProviderManagerSection = (
     <TranslationFreeProviderManagerSection
       translationStandaloneCustomProfiles={translationStandaloneCustomProfiles}

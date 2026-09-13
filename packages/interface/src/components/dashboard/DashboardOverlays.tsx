@@ -29,25 +29,29 @@ export default function DashboardOverlays({
 }: DashboardOverlaysProps) {
   return (
     <>
-      <ShortcutCenterModal
-        open={shortcutCenterOpen}
-        config={keyboardShortcutConfig}
-        onConfigChange={handleKeyboardShortcutConfigChange}
-        onClose={closeShortcutCenter}
-      />
-      <BugReportModal
-        open={bugReportModalOpen}
-        onClose={() => setBugReportModalOpen(false)}
-        context={{
-          mode,
-          statusMessage,
-          route:
-            typeof window !== 'undefined'
-              ? `${window.location.pathname}${window.location.search}${window.location.hash}`
-              : '',
-          userEmail,
-        }}
-      />
+      {shortcutCenterOpen && (
+        <ShortcutCenterModal
+          open={shortcutCenterOpen}
+          config={keyboardShortcutConfig}
+          onConfigChange={handleKeyboardShortcutConfigChange}
+          onClose={closeShortcutCenter}
+        />
+      )}
+      {bugReportModalOpen && (
+        <BugReportModal
+          open={bugReportModalOpen}
+          onClose={() => setBugReportModalOpen(false)}
+          context={{
+            mode,
+            statusMessage,
+            route:
+              typeof window !== 'undefined'
+                ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+                : '',
+            userEmail,
+          }}
+        />
+      )}
     </>
   );
 }

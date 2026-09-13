@@ -77,15 +77,17 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const sanitizeStyle = (value: unknown): RenderTextStyle => {
   const source = isRecord(value) ? value : {};
   const rawShadowLayers = Array.isArray(source.shadowLayers) ? source.shadowLayers : [];
-  const shadowLayers: RenderTextShadowLayer[] = rawShadowLayers
-    .filter((entry) => isRecord(entry))
-    .map((entry) => ({
+  const shadowLayers: RenderTextShadowLayer[] = [];
+  for (const entry of rawShadowLayers) {
+    if (!isRecord(entry)) continue;
+    shadowLayers.push({
       fillCssValue: String(entry.fillCssValue ?? entry.color ?? "#000000").trim() || "#000000",
       opacity: Number.isFinite(Number(entry.opacity)) ? Math.max(0, Math.min(1, Number(entry.opacity))) : 1,
       blur: Number.isFinite(Number(entry.blur)) ? Math.max(0, Number(entry.blur)) : 0,
       offsetX: Number.isFinite(Number(entry.offsetX)) ? Number(entry.offsetX) : 0,
       offsetY: Number.isFinite(Number(entry.offsetY)) ? Number(entry.offsetY) : 0,
-    }));
+    });
+  }
   return {
     ...DEFAULT_STYLE,
     ...source,

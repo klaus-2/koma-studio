@@ -26,9 +26,6 @@
   "peerDependenciesMeta": {
     "@tauri-apps/api": {
       "optional": true
-    },
-    "@tauri-apps/plugin-deep-link": {
-      "optional": true
     }
   },
   "devDependencies": {
@@ -47,11 +44,9 @@
   },
   "dependencies": {
     "@koma/auth": "workspace:*",
-    "@koma/types": "workspace:*",
     "@koma/ui": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "@tauri-apps/api": "^2.11.1",
-    "@tauri-apps/plugin-deep-link": "^2.4.9",
     "@tiptap/extension-image": "^3.30.2",
     "@tiptap/extension-link": "^3.30.2",
     "@tiptap/extension-underline": "^3.30.2",
@@ -63,7 +58,6 @@
     "framer-motion": "^12.43.0",
     "lucide-react": "^1.33.0",
     "pdf-lib": "^1.17.1",
-    "radix-ui": "^1.6.7",
     "react": "^19.2.0",
     "react-colorful": "^5.8.0",
     "react-dom": "^19.2.0",

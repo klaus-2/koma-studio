@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AioTextRegion, EditableRegionTextTarget } from '../../../types/dashboard.types';
 import type { RenderTextStyle } from '../../../utils/renderText';
 import { clamp, getRegionTranslationNotesForDisplay } from '../../../utils/dashboard.utils';
@@ -84,7 +84,9 @@ export const useTextDetectionPreviewTextState = ({
 }: TextDetectionPreviewTextStateDeps): TextDetectionPreviewTextState => {
   const { t } = useI18n();
   const regionsRef = useRef(regions);
-  regionsRef.current = regions;
+  useEffect(() => {
+    regionsRef.current = regions;
+  });
   const [hoveredRegionId, setHoveredRegionId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<TextDetectionPreviewContextMenu | null>(null);
   const [textEditor, setTextEditor] = useState<TextDetectionPreviewTextEditor | null>(null);
@@ -347,21 +349,25 @@ export const useTextDetectionPreviewTextState = ({
     setTextEditor((prev) => (prev ? { ...prev, value: nextValue } : prev));
   }, []);
 
+  // These two memos run during render, so they read the committed `regions`
+  // prop (with it in deps) rather than the commit-mirrored regionsRef — a ref
+  // read here would lag one commit behind whenever regions and hover/menu
+  // change in the same render.
   const hoveredRegionTooltip = useMemo(
     () => {
       if (!hoveredRegionId) return null;
-      const region = regionsRef.current.find((item) => item.id === hoveredRegionId);
+      const region = regions.find((item) => item.id === hoveredRegionId);
       return region ? getTooltipContent(region) : null;
     },
-    [getTooltipContent, hoveredRegionId],
+    [getTooltipContent, hoveredRegionId, regions],
   );
 
   const contextMenuTargetRegion = useMemo(
     () =>
       contextMenu?.regionId
-        ? regionsRef.current.find((item) => item.id === contextMenu.regionId) ?? null
+        ? regions.find((item) => item.id === contextMenu.regionId) ?? null
         : null,
-    [contextMenu?.regionId],
+    [contextMenu?.regionId, regions],
   );
 
   return {

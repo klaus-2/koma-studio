@@ -337,10 +337,15 @@ export default function ChapterOptimizerWorkspace({
     return map;
   }, [images, sourceVariants]);
 
+  // The active image falls back to the first image while nothing is selected;
+  // derived during render so incoming images never need a state-sync effect.
+  const effectiveActiveImageId = activeImageId ?? images[0]?.id ?? null;
   const activeImage = useMemo(
     () =>
-      images.find((image) => image.id === activeImageId) ?? images[0] ?? null,
-    [activeImageId, images],
+      images.find((image) => image.id === effectiveActiveImageId) ??
+      images[0] ??
+      null,
+    [effectiveActiveImageId, images],
   );
 
   const resolveSourceVariant = useCallback(
@@ -361,17 +366,21 @@ export default function ChapterOptimizerWorkspace({
     [variantsByImage],
   );
 
-  useEffect(() => {
-    if (!activeImageId && images[0]) setActiveImageId(images[0].id);
-  }, [activeImageId, images]);
-
-  useEffect(() => {
-    if (!workspaceState) return;
-    setRecipe(normalizeRecipe(workspaceState.recipe));
-    setSelectedPreset(workspaceState.selectedPreset);
-    setActiveImageId(workspaceState.activeImageId);
-    setResults(workspaceState.results);
-  }, [restoreToken, workspaceState]);
+  // Restore the persisted snapshot when the parent bumps the restore token
+  // (adjust during render). Keyed on the token only — not on workspaceState
+  // identity — so the report→restore roundtrip below can't re-apply the state
+  // this workspace just pushed up (previously an effect chain that looped on
+  // fresh normalizeRecipe identities every pass).
+  const [prevRestoreToken, setPrevRestoreToken] = useState(restoreToken);
+  if (prevRestoreToken !== restoreToken) {
+    setPrevRestoreToken(restoreToken);
+    if (workspaceState) {
+      setRecipe(normalizeRecipe(workspaceState.recipe));
+      setSelectedPreset(workspaceState.selectedPreset);
+      setActiveImageId(workspaceState.activeImageId);
+      setResults(workspaceState.results);
+    }
+  }
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(recipe));
@@ -382,10 +391,10 @@ export default function ChapterOptimizerWorkspace({
     onWorkspaceStateChange({
       recipe,
       selectedPreset,
-      activeImageId,
+      activeImageId: effectiveActiveImageId,
       results,
     });
-  }, [activeImageId, onWorkspaceStateChange, recipe, results, selectedPreset]);
+  }, [effectiveActiveImageId, onWorkspaceStateChange, recipe, results, selectedPreset]);
 
   // Generate preview — debounced to avoid thrashing during rapid slider changes
   useEffect(() => {
@@ -402,10 +411,7 @@ export default function ChapterOptimizerWorkspace({
     const source = resolveSourceVariant(activeImage.id);
     const sourceBlob = source?.blob ?? activeImage.file;
     const origUrl = URL.createObjectURL(sourceBlob);
-    setOriginalPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return origUrl;
-    });
+    setOriginalPreviewUrl(origUrl);
 
     const currentTicket = ++previewTicketRef.current;
     let jobCancelled = false;
@@ -425,10 +431,7 @@ export default function ChapterOptimizerWorkspace({
         .then((result) => {
           if (jobCancelled || currentTicket !== previewTicketRef.current) return;
           const nextUrl = URL.createObjectURL(result.blob);
-          setPreviewUrl((current) => {
-            if (current) URL.revokeObjectURL(current);
-            return nextUrl;
-          });
+          setPreviewUrl(nextUrl);
           setPreviewStats({
             originalBytes: sourceBlob.size,
             optimizedBytes: result.blob.size,
@@ -458,13 +461,19 @@ export default function ChapterOptimizerWorkspace({
     };
   }, [activeImage, recipe, resolveSourceVariant, setStatusMessage, t]);
 
-  useEffect(
-    () => () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      if (originalPreviewUrl) URL.revokeObjectURL(originalPreviewUrl);
-    },
-    [previewUrl, originalPreviewUrl],
-  );
+  // Separate effects so a change to one URL never revokes the other's
+  // still-displayed value (the compare panel renders both at once).
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+  useEffect(() => () => {
+    if (originalPreviewUrl) URL.revokeObjectURL(originalPreviewUrl);
+  }, [originalPreviewUrl]);
+
+  const recipeRef = useRef(recipe);
+  useEffect(() => {
+    recipeRef.current = recipe;
+  });
 
   const updatePreset = useCallback((preset: OptimizationPreset) => {
     setSelectedPreset(preset);
@@ -480,10 +489,12 @@ export default function ChapterOptimizerWorkspace({
         const next = { ...current, [key]: value };
         if (current.preset !== 'custom' && key !== 'preset') {
           next.preset = 'custom';
-          setSelectedPreset('custom');
         }
         return next;
       });
+      if (recipeRef.current.preset !== 'custom' && key !== 'preset') {
+        setSelectedPreset('custom');
+      }
     },
     [],
   );
@@ -530,6 +541,7 @@ export default function ChapterOptimizerWorkspace({
         const showDirectoryPicker = getDirectoryPicker();
         if (saveToDirectory && showDirectoryPicker) {
           const directory = await showDirectoryPicker();
+          // ponytail: sequential by design — the first failed write stops the batch (preserved error semantics)
           for (const output of outputs) {
             const handle = await directory.getFileHandle(output.fileName, {
               create: true,
@@ -542,12 +554,12 @@ export default function ChapterOptimizerWorkspace({
           return;
         }
 
-        const files: Record<string, Uint8Array> = {};
-        for (const output of outputs) {
-          files[output.fileName] = new Uint8Array(
-            await output.blob.arrayBuffer(),
-          );
-        }
+        const files = Object.fromEntries(await Promise.all(
+          outputs.map(async (output) => [
+            output.fileName,
+            new Uint8Array(await output.blob.arrayBuffer()),
+          ] as const),
+        ));
         const zipBlob = new Blob([zipSync(files, { level: 6 })], {
           type: 'application/zip',
         });
@@ -637,21 +649,23 @@ export default function ChapterOptimizerWorkspace({
       const next = { ...current, rotation: nextRot };
       if (current.preset !== 'custom') {
         next.preset = 'custom';
-        setSelectedPreset('custom');
       }
       return next;
     });
+    if (recipeRef.current.preset !== 'custom') {
+      setSelectedPreset('custom');
+    }
   }, []);
 
   // Scroll active thumbnail into view
   useEffect(() => {
-    if (!thumbStripRef.current || !activeImageId) return;
-    const el = thumbStripRef.current.querySelector(`[data-thumb-id="${activeImageId}"]`);
+    if (!thumbStripRef.current || !effectiveActiveImageId) return;
+    const el = thumbStripRef.current.querySelector(`[data-thumb-id="${effectiveActiveImageId}"]`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-  }, [activeImageId, thumbStripRef]);
+  }, [effectiveActiveImageId, thumbStripRef]);
 
   const presetKeys = Object.keys(PRESET_RECIPES) as OptimizationPreset[];
-  const activeIdx = images.findIndex((img) => img.id === activeImageId);
+  const activeIdx = images.findIndex((img) => img.id === effectiveActiveImageId);
   const canExportToFolder = canUseDirectoryPicker();
 
   return (

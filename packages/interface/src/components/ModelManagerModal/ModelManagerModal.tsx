@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Layers, X, CheckCircle2, AlertTriangle, Sparkles, Plus } from 'lucide-react';
 import { useI18n } from '../../i18n';
 
@@ -146,13 +146,16 @@ export const ModelManagerModal = ({
   const effectiveSource = enableCloudCatalog ? sourceFilter : 'local';
   const languageOptions = useMemo(() => listRegistryLanguages(), []);
 
-  useEffect(() => {
-    if (!enableCloudCatalog && sourceFilter !== 'local')
-      setSourceFilter('local');
-  }, [enableCloudCatalog, sourceFilter]);
-  useEffect(() => {
+  // Reset the custom-profiles toggle whenever it leaves the open+custom window
+  // (adjust during render so the collapsed state is visible on the first open).
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevCustomProfiles, setPrevCustomProfiles] =
+    useState(customProfilesSection);
+  if (prevOpen !== open || prevCustomProfiles !== customProfilesSection) {
+    setPrevOpen(open);
+    setPrevCustomProfiles(customProfilesSection);
     if (!open || !customProfilesSection) setShowCustom(false);
-  }, [customProfilesSection, open]);
+  }
 
   const filteredLocal = useMemo(() => {
     if (effectiveSource === 'cloud') return [];

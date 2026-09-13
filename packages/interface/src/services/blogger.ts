@@ -17,6 +17,7 @@ import {
 } from "./blogger-shared";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
+import { loadImageFromSource } from "@/utils/dashboard.utils";
 const BLOGGER_STORAGE_KEY = "koma-studio.blogger-config.v1";
 
 const isBrowser = (): boolean => typeof window !== "undefined";
@@ -43,12 +44,9 @@ const loadImageElement = async (file: File): Promise<HTMLImageElement> => {
   const objectUrl = URL.createObjectURL(file);
 
   try {
-    return await new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error(`Could not open ${file.name}.`));
-      image.src = objectUrl;
-    });
+    return await loadImageFromSource(objectUrl);
+  } catch {
+    throw new Error(`Could not open ${file.name}.`);
   } finally {
     URL.revokeObjectURL(objectUrl);
   }

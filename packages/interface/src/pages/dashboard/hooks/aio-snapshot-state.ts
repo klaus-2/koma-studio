@@ -111,14 +111,18 @@ export function useAioPipelineSnapshotState({
     aioPipelineSnapshotIndex >= 0 &&
     aioPipelineSnapshotIndex < aioPipelineSnapshots.length - 1;
   const currentAioDownloadEntries = useMemo<AioDownloadEntry[]>(
-    () =>
-      downloadItems
-        .filter((item) => item.scope === 'aio')
-        .map((item) => ({
+    () => {
+      const entries: AioDownloadEntry[] = [];
+      for (const item of downloadItems) {
+        if (item.scope !== 'aio') continue;
+        entries.push({
           fileName: item.name,
           blob: item.blob,
           sourceImageId: item.sourceImageId,
-        })),
+        });
+      }
+      return entries;
+    },
     [downloadItems],
   );
   const buildAioImageSnapshotIndexMap = useCallback(
@@ -819,7 +823,7 @@ export function useAioPipelineSnapshotState({
     const scopeLabel =
       aioExecutionStatus.scope === 'manual' ? t('dashboard.status.aioScopeManual') : t('dashboard.status.aioScopeAuto');
     return `${scopeLabel}: ${aioExecutionStatus.label}`;
-  }, [aioExecutionStatus, mode, processing]);
+  }, [aioExecutionStatus, mode, processing, t]);
   const aioExecuteButtonProcessingLabel = useMemo(() => {
     if (mode !== 'aio' || !processing || !aioExecutionStatus) {
       return `Executando ${Math.round(progress)}%`;
@@ -833,7 +837,7 @@ export function useAioPipelineSnapshotState({
         )
       : 'Executando';
     return `${stageLabel} ${Math.round(progress)}%`;
-  }, [aioExecutionStatus, mode, processing, progress]);
+  }, [aioExecutionStatus, mode, processing, progress, aioPipelineStageProgressLabels]);
   const activeImageRenderStageActive = useMemo(() => {
     if (mode !== 'aio') return true;
     if (subMode === 'manual') return activeAioStageKey === 'render';

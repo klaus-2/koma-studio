@@ -14,9 +14,7 @@ import {
   Zap,
 } from 'lucide-react';
 
-import {
-  TranslationModelControl,
-} from '../AioStageModelControls';
+import TranslationModelControl from '../AioStageModelControls/TranslationModelControl';
 import KlSlider from './KlSlider';
 import { useI18n } from '../../i18n';
 

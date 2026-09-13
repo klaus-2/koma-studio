@@ -478,7 +478,48 @@ export const captureWorkspaceHistorySnapshot = (
 
 export const restoreWorkspaceHistorySnapshot = async (
   snapshot: DashboardWorkspaceHistorySnapshot,
-): Promise<DashboardWorkspaceRestoreState> => ({
+): Promise<DashboardWorkspaceRestoreState> => {
+  // Restored object URLs are owned by the live collections they are restored
+  // into and are revoked when the corresponding entry is replaced or removed
+  // (revokeLoadedImageUrls / registerDownloads / watermark revokeEntries).
+  const restoredImages: DashboardWorkspaceRestoreState["images"] = [];
+  for (const item of snapshot.images) {
+    const url = URL.createObjectURL(item.file);
+    restoredImages.push({
+      id: item.id,
+      file: item.file,
+      url,
+      width: item.width,
+      height: item.height,
+      rotation: item.rotation,
+      filters: toJsonClone(item.filters),
+    });
+  }
+
+  const restoredDownloadItems: DashboardWorkspaceRestoreState["downloadItems"] = [];
+  for (const item of snapshot.downloadItems) {
+    const blob = resolveHistoryBlob(item.blob);
+    const previewUrl = URL.createObjectURL(blob);
+    restoredDownloadItems.push({
+      name: item.name,
+      blob,
+      scope: item.scope as DownloadItem["scope"],
+      sourceImageId: item.sourceImageId,
+      previewUrl,
+    });
+  }
+
+  const restoredWatermarkResults: DashboardWorkspaceRestoreState["utility"]["watermark"]["results"] = [];
+  for (const item of snapshot.utility.watermark.results) {
+    const blob = resolveHistoryBlob(item.blob);
+    restoredWatermarkResults.push({
+      ...item,
+      blob,
+      previewUrl: URL.createObjectURL(blob),
+    });
+  }
+
+  return ({
   document: {
     version: WORKSPACE_DOCUMENT_VERSION,
     savedAt: new Date().toISOString(),
@@ -547,22 +588,8 @@ export const restoreWorkspaceHistorySnapshot = async (
     },
     llm: snapshot.llm,
   },
-  images: snapshot.images.map((item) => ({
-    id: item.id,
-    file: item.file,
-    url: URL.createObjectURL(item.file),
-    width: item.width,
-    height: item.height,
-    rotation: item.rotation,
-    filters: toJsonClone(item.filters),
-  })),
-  downloadItems: snapshot.downloadItems.map((item) => ({
-    name: item.name,
-    blob: resolveHistoryBlob(item.blob),
-    scope: item.scope as DownloadItem["scope"],
-    sourceImageId: item.sourceImageId,
-    previewUrl: URL.createObjectURL(resolveHistoryBlob(item.blob)),
-  })),
+  images: restoredImages,
+  downloadItems: restoredDownloadItems,
   aio: {
     ...toJsonClone(snapshot.aio),
     pipelineSnapshots: snapshot.aio.pipelineSnapshots.map((pipelineSnapshot) => ({
@@ -624,11 +651,7 @@ export const restoreWorkspaceHistorySnapshot = async (
     watermark: {
       ...toJsonClone(snapshot.utility.watermark),
       watermarkImageFile: snapshot.utility.watermark.watermarkImageFile,
-      results: snapshot.utility.watermark.results.map((item) => ({
-        ...item,
-        blob: resolveHistoryBlob(item.blob),
-        previewUrl: URL.createObjectURL(resolveHistoryBlob(item.blob)),
-      })),
+      results: restoredWatermarkResults,
     },
     optimizer: {
       ...toJsonClone(snapshot.utility.optimizer),
@@ -638,7 +661,8 @@ export const restoreWorkspaceHistorySnapshot = async (
       })) as OptimizerWorkspaceRuntimeState["results"],
     },
   },
-});
+  });
+};
 
 export const releaseWorkspaceHistorySnapshot = (
   snapshot: DashboardWorkspaceHistorySnapshot,

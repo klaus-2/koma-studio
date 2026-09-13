@@ -136,9 +136,6 @@ export function useUtilitySplitterController({
   const setSplitterWorkspaceState = useUtilityStore(
     (s) => s.setSplitterWorkspaceState,
   );
-  const setProcessing = useUiShellStore((s) => s.setProcessing);
-  const setProgress = useUiShellStore((s) => s.setProgress);
-  const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
 
   const splitterController = useSplitterController({
     images,
@@ -151,9 +148,6 @@ export function useUtilitySplitterController({
     localApiBase,
     registerDownloads,
     triggerBlobDownload,
-    setProcessing,
-    setProgress,
-    setStatusMessage,
     ensureVerifiedEmailOrNotify,
     recordProcessedPages,
   });

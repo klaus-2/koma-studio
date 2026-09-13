@@ -68,8 +68,8 @@ function NavLink({ href, label }: { href: string; label: string }) {
       />
 
       <motion.span
-        className="absolute bottom-1 left-1/2 h-[2px] w-0 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-500 to-cyan-500"
-        animate={{ width: isHovered ? "60%" : "0%" }}
+        className="absolute bottom-1 left-1/2 h-[2px] w-[60%] -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-500 to-cyan-500"
+        animate={{ scaleX: isHovered ? 1 : 0 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       />
 

@@ -328,14 +328,17 @@ const OFFICIAL_CLOUD_MODEL_DEFINITIONS: OfficialCloudModelDefinition[] = [
 export const OFFICIAL_CLOUD_STAGE_OPTIONS: Record<
   "recognizeText" | "getTranslations",
   DashboardStageOptionDefinition[]
-> = {
-  recognizeText: OFFICIAL_CLOUD_MODEL_DEFINITIONS
-    .filter((entry) => entry.dashboardStage === "recognizeText")
-    .map((entry) => entry.dashboardOption),
-  getTranslations: OFFICIAL_CLOUD_MODEL_DEFINITIONS
-    .filter((entry) => entry.dashboardStage === "getTranslations")
-    .map((entry) => entry.dashboardOption),
-};
+> = (() => {
+  const options: Record<"recognizeText" | "getTranslations", DashboardStageOptionDefinition[]> = {
+    recognizeText: [],
+    getTranslations: [],
+  };
+  for (const entry of OFFICIAL_CLOUD_MODEL_DEFINITIONS) {
+    if (entry.dashboardStage === "recognizeText") options.recognizeText.push(entry.dashboardOption);
+    else if (entry.dashboardStage === "getTranslations") options.getTranslations.push(entry.dashboardOption);
+  }
+  return options;
+})();
 
 const localCatalogEntries: OfficialModelCatalogEntry[] = LOCAL_AIO_MODELS_REGISTRY.map((model) => ({
   id: model.id,

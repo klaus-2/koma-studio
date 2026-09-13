@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight, Download, FolderOutput, Layers3, Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 import type { StitchAlignMode, StitchBatchPlan, StitchExportFormat, StitchImageInput, StitchLayoutMode, StitchRenderJob, StitchRenderResult } from './types';
 import { applyImageFiltersToContext, calculateAxisOffset, formatBytes, getExtensionFromMimeType, getMimeTypeFromExportFormat, getRotatedDimensions, resolveStitchOutputMetrics } from './stitchUtils';
+import { loadImageFromSource } from '../../../utils/dashboard.utils';
 import './StitchWorkspace.css';
 import { useI18n } from '../../../i18n';
 
@@ -42,12 +43,12 @@ const canUseDirectoryPicker = (): boolean => getDirectoryPicker() !== null;
 
 const loadImageWithDecode = async (file: File): Promise<HTMLImageElement> => {
   const objectUrl = URL.createObjectURL(file);
-  const image = new Image();
-  image.src = objectUrl;
   try {
+    const image = await loadImageFromSource(objectUrl).catch(() => {
+      throw new Error('stitch.error.loadImage');
+    });
     const decodeImage = (image as HTMLImageElement & { decode?: () => Promise<void> }).decode;
     if (typeof decodeImage === 'function') await decodeImage.call(image);
-    else await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('stitch.error.loadImage')); });
     return image;
   } finally {
     URL.revokeObjectURL(objectUrl);
@@ -66,6 +67,7 @@ const renderJobOnMainThread = async (job: StitchRenderJob, onProgress?: (progres
 
   let cursorX = 0;
   let cursorY = 0;
+  // ponytail: sequential by design — memory-bounded per-page pipeline (parallelizing would hold N decoded pages)
   for (let index = 0; index < job.images.length; index += 1) {
     const input = job.images[index];
     if (!input) continue;
@@ -155,7 +157,9 @@ export const StitchWorkspace = ({
 }: StitchWorkspaceProps) => {
   const { t } = useI18n();
   const tRef = useRef(t);
-  tRef.current = t;
+  useEffect(() => {
+    tRef.current = t;
+  });
   const resolveStitchError = useCallback((error: unknown, fallbackKey: 'stitch.error.generatePreview' | 'stitch.error.exportBatch' | 'stitch.error.generateZip' | 'stitch.error.saveFolder'): string => {
     const knownKeys = new Set(['stitch.error.loadImage', 'stitch.error.initCanvas', 'stitch.error.initTempCanvas', 'stitch.error.generateBlob', 'stitch.error.workerFailed', 'stitch.error.generatePreview', 'stitch.error.exportBatch', 'stitch.error.generateZip', 'stitch.error.saveFolder']);
     if (error instanceof Error && knownKeys.has(error.message)) return tRef.current(error.message as Parameters<typeof tRef.current>[0]);
@@ -171,6 +175,9 @@ export const StitchWorkspace = ({
   const previewTaskRef = useRef<ActiveTask | null>(null);
   const exportTaskRef = useRef<ActiveTask | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  // Latest committed preview URL; swapped-out URLs are revoked at swap time
+  // (see the preview effect) and the last one on unmount.
+  const previewUrlCleanupRef = useRef<string | null>(null);
 
   const handleStageWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.ctrlKey && !e.metaKey) return;
@@ -198,9 +205,17 @@ export const StitchWorkspace = ({
     setStatusMessage(tRef.current('stitch.workspace.cancelled'));
   }, [setProcessing, setProgress, setStatusMessage]);
 
-  useEffect(() => {
+  // Reset the user-controlled zoom when the selected batch changes (adjust
+  // during render so the reset is visible on the first render of the new batch).
+  const [prevSelectedBatchIndex, setPrevSelectedBatchIndex] = useState(selectedBatchIndex);
+  if (prevSelectedBatchIndex !== selectedBatchIndex) {
+    setPrevSelectedBatchIndex(selectedBatchIndex);
     setPreviewZoom(1);
-  }, [selectedBatchIndex]);
+  }
+
+  useEffect(() => {
+    previewUrlCleanupRef.current = previewUrl;
+  }, [previewUrl]);
 
   useEffect(() => {
     if (selectedBatchImages.length === 0) {
@@ -209,10 +224,9 @@ export const StitchWorkspace = ({
       setPreviewProgress(0);
       setPreviewDimensions(null);
       setRenderError(null);
-      setPreviewUrl((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return null;
-      });
+      const prevUrl = previewUrlCleanupRef.current;
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      setPreviewUrl(null);
       return;
     }
 
@@ -233,10 +247,9 @@ export const StitchWorkspace = ({
     previewTaskRef.current = task;
     task.promise.then((result) => {
       const objectUrl = URL.createObjectURL(result.blob);
-      setPreviewUrl((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return objectUrl;
-      });
+      const prevUrl = previewUrlCleanupRef.current;
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      setPreviewUrl(objectUrl);
       setPreviewDimensions({ width: result.width, height: result.height });
     }).catch((error) => {
       if (error instanceof Error && error.message === 'stitch.error.cancelled') return;
@@ -253,10 +266,7 @@ export const StitchWorkspace = ({
   useEffect(() => () => {
     cancelPreviewTask();
     cancelExportTask();
-    setPreviewUrl((current) => {
-      if (current) URL.revokeObjectURL(current);
-      return null;
-    });
+    if (previewUrlCleanupRef.current) URL.revokeObjectURL(previewUrlCleanupRef.current);
   }, [cancelExportTask, cancelPreviewTask]);
 
   const buildRenderJobForBatch = useCallback((batch: StitchBatchPlan, format: Exclude<StitchExportFormat, 'zip'>): StitchRenderJob => ({
@@ -316,6 +326,7 @@ export const StitchWorkspace = ({
     try {
       const { zipSync } = await import('fflate');
       const zipFiles: Record<string, Uint8Array> = {};
+      // ponytail: sequential by design — single cancellable task ref (exportTaskRef) and per-batch progress assume serial batches
       for (let batchIndex = 0; batchIndex < batchPlans.length; batchIndex += 1) {
         const batch = batchPlans[batchIndex];
         if (!batch) continue;
@@ -349,6 +360,7 @@ export const StitchWorkspace = ({
       setProcessing(true);
       setProgress(0);
       setStatusMessage(t('stitch.workspace.savingToFolder', { count: batchPlans.length }));
+      // ponytail: sequential by design — single cancellable task ref (exportTaskRef) and per-batch progress assume serial batches
       for (let batchIndex = 0; batchIndex < batchPlans.length; batchIndex += 1) {
         const batch = batchPlans[batchIndex];
         if (!batch) continue;

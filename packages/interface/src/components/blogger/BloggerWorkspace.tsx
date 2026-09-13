@@ -175,7 +175,9 @@ export const BloggerWorkspace = ({ onOpenSettings }: BloggerWorkspaceProps) => {
   const [defaultLabels, setDefaultLabels] = useState('');
   const [uploadDrafts, setUploadDrafts] = useState<UploadDraftItem[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
-  const [uploadedItems, setUploadedItems] = useState<BloggerUploadResult[]>([]);
+  // ponytail: render-rule fix — uploadedItems is accumulated in upload handlers
+  // and only read when publishing; a ref holds it without re-rendering.
+  const uploadedItemsRef = useRef<BloggerUploadResult[]>([]);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [batchOptimizerEnabled, setBatchOptimizerEnabled] = useState(true);
   const [bulkPreferOptimizedUrl, setBulkPreferOptimizedUrl] = useState(true);
@@ -415,8 +417,9 @@ export const BloggerWorkspace = ({ onOpenSettings }: BloggerWorkspaceProps) => {
           items: preparedItems,
         });
 
-        setUploadedItems((current) =>
-          mergeUploadedItems(current, result.items),
+        uploadedItemsRef.current = mergeUploadedItems(
+          uploadedItemsRef.current,
+          result.items,
         );
         insertUploadedImagesIntoEditor(result.items, position);
         setWorkspaceFeedback(
@@ -437,18 +440,24 @@ export const BloggerWorkspace = ({ onOpenSettings }: BloggerWorkspaceProps) => {
     [insertUploadedImagesIntoEditor, t],
   );
 
-  editorUploadHandlerRef.current = handleEditorImageUpload;
+  useEffect(() => {
+    editorUploadHandlerRef.current = handleEditorImageUpload;
+  });
 
   const appendUploadDrafts = useCallback((files: File[]) => {
-    const nextDrafts = files.map<UploadDraftItem>((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      altText: file.name.replace(/\.[^.]+$/u, ''),
-      previewUrl: URL.createObjectURL(file),
-      status: 'queued',
-      result: null,
-      error: null,
-    }));
+    const nextDrafts: UploadDraftItem[] = [];
+    for (const file of files) {
+      const previewUrl = URL.createObjectURL(file);
+      nextDrafts.push({
+        id: crypto.randomUUID(),
+        file,
+        altText: file.name.replace(/\.[^.]+$/u, ''),
+        previewUrl,
+        status: 'queued',
+        result: null,
+        error: null,
+      });
+    }
 
     setUploadDrafts((current) => [...current, ...nextDrafts]);
   }, []);
@@ -549,8 +558,9 @@ export const BloggerWorkspace = ({ onOpenSettings }: BloggerWorkspaceProps) => {
           };
         }),
       );
-      setUploadedItems((current) =>
-        mergeUploadedItems(current, effectiveItems),
+      uploadedItemsRef.current = mergeUploadedItems(
+        uploadedItemsRef.current,
+        effectiveItems,
       );
       setWorkspaceFeedback(
         effectiveItems.length === 1
@@ -641,7 +651,7 @@ export const BloggerWorkspace = ({ onOpenSettings }: BloggerWorkspaceProps) => {
             : (editor?.getHTML() ?? editorHtml),
         labels,
         publish: publishLive,
-        uploadedImages: uploadedItems,
+        uploadedImages: uploadedItemsRef.current,
       });
 
       const verb = result.isDraft ? t('blogger.post.status.draft') : t('blogger.post.status.published');
@@ -668,7 +678,6 @@ export const BloggerWorkspace = ({ onOpenSettings }: BloggerWorkspaceProps) => {
     postTitle,
     publishLive,
     t,
-    uploadedItems,
   ]);
 
   const publishLabelPreview = useMemo(

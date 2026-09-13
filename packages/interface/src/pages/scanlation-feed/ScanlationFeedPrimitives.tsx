@@ -1,5 +1,5 @@
 import { memo, type ReactNode } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { CheckCircle2, Flag, X, type LucideIcon } from 'lucide-react';
 
 import { useI18n } from '../../i18n';
@@ -85,7 +85,7 @@ export const ToggleSwitch = memo(function ToggleSwitch({
         )}
       </div>
       <div className="koma-feed-toggle__track">
-        <motion.div
+        <m.div
           className="koma-feed-toggle__thumb"
           animate={{ x: checked ? 20 : 2 }}
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}

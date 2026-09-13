@@ -1,4 +1,4 @@
-import React, { MouseEvent, useEffect, useState } from 'react';
+import React, { MouseEvent, useState } from 'react';
 import { AlertTriangle, Bug, Cpu, Globe, Rocket, Zap } from 'lucide-react';
 import {
   Tooltip,
@@ -237,17 +237,20 @@ const DashboardFooter: React.FC<DashboardFooterProps> = ({
     }
   })();
 
-  useEffect(() => {
-    if (runtimeExecutionNotice) {
-      setRuntimeTooltipOpen(true);
-      return;
-    }
-    setRuntimeTooltipOpen(false);
-  }, [runtimeExecutionNotice]);
+  // While a runtime notice is up the tooltip is forced open; once it clears,
+  // reset the user-controlled open state during render so the tooltip closes
+  // with the notice (no post-commit flash of stale state).
+  const [prevNotice, setPrevNotice] = useState(runtimeExecutionNotice);
+  if (prevNotice !== runtimeExecutionNotice) {
+    setPrevNotice(runtimeExecutionNotice);
+    if (!runtimeExecutionNotice) setRuntimeTooltipOpen(false);
+  }
+  const tooltipOpen = runtimeExecutionNotice
+    ? true
+    : runtimeTooltipOpen;
 
   const handleRuntimeTooltipOpenChange = (nextOpen: boolean) => {
     if (runtimeExecutionNotice) {
-      setRuntimeTooltipOpen(true);
       return;
     }
     setRuntimeTooltipOpen(nextOpen);
@@ -298,7 +301,7 @@ const DashboardFooter: React.FC<DashboardFooterProps> = ({
         {runtimeBadge && (
           <TooltipProvider delayDuration={120}>
             <Tooltip
-              open={runtimeTooltipOpen}
+              open={tooltipOpen}
               onOpenChange={handleRuntimeTooltipOpenChange}
             >
               <TooltipTrigger asChild>

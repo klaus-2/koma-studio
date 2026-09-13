@@ -98,3 +98,4 @@ desktop.ini
 *.suo
 *.sw?
 .zcode-e2e/
+react-doctor-*.json
