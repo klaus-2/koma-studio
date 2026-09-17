@@ -205,3 +205,20 @@ Relatório final salvo em [`react-doctor-interface-final.json`](./react-doctor-i
 **Validação runtime (Playwright, 2026-08-30)** — probe temporário com `VITE_AUTH_DISABLED=true` (bypass de login do modo e2e), Chromium, 2 testes: (1) **long tasks** (PerformanceObserver `longtask`, o mesmo sinal de commits lentos que o Profiler do DevTools mostra) ao caminhar pelas 9 rotas do dashboard: pior task **297ms** (boot único da SPA; total cumulativo 988ms na sessão inteira) — nenhuma task > 500ms, nenhuma cascata; (2) **heap** com GC forçado (CDP `HeapProfiler.collectGarbage`) ao longo de 6 ciclos dashboard↔settings↔aio: **27,2 → 28,2 MB** (+1 MB — sem leak; valida o trabalho de revoke da T05); (3) **zero erros** de página/console/vite-overlay em ambas as fases. O Profiler UI do DevTools não é dirigível headless; o probe equivale funcionalmente ao que ele mediria.
 
 **O que ainda resta (dívida documentada, não bloqueante)**: A11y (298 — lane separada); `exhaustive-deps` deliberados (137, triados); `async-await-in-loop` sequenciais por design (16, com `ponytail:`); `no-giant-component` (30 — arquivos 500-2.000 l. coesos); `closeWorkspace` sem revoke (T05); Proxy `no-flush-sync` deliberado; Profiler runtime para confirmar as melhorias percebidas (T07/T08).
+
+---
+
+## 4. Pós-programa: fix do drag do `koma-render-box` (2026-08-30, uncommitted)
+
+**Bug reportado**: click+drag para mover o box → FPS em queda + input delay >650ms.
+
+**Causa raiz**: cada `pointermove` (60-500/s) commitava a nova bbox na store de regiões → `applyAioRegionsEditForImage` deep-clona TODAS as regiões → re-render da página inteira do Dashboard + redraw do canvas inteiro, por frame.
+
+**Fix** (3 peças + escalonamento guiado por medição):
+1. `useRenderTextPreviewPointer.ts` — branches move/resize/rotate não commitam por pointermove: stash em ref + 1 rAF em voo (flush/cancel); **move faz 1 único commit de store no pointerup**; box segue o ponteiro ao vivo via `dragBox` (setInteraction coalescido por rAF; sem re-render de Dashboard durante o drag).
+2. `useRenderTextPreviewRegionModel.ts` — cache de identidade (WeakMap por fallbackStyle, com fallback de igualdade de conteúdo via `areAioRegionsEqual`, pois a store clona tudo a cada commit); arrays preservam identidade quando nenhum elemento muda.
+3. Novo `RenderRegionOverlayBox.tsx` (React.memo) — box/badge/meta/inline-editor/handles extraídos; boxes não-dragados recebem props estáveis e fazem bail-out.
+
+**Medição (probe Playwright headless, região manual, drag de 40 moves/1.5s)**: durante o drag **0 long tasks** (antes: commit por pointermove, 40 tasks/max 161ms só com rAF-cap — o experimento de atribuição provou que o custo dominante era o re-render do Dashboard); no pointerup 1-2 tasks, **max 97ms** (commit único + redraw final do canvas). 
+
+**Tradeoffs documentados**: canvas do texto renderizado não redesenha durante o move (redesenha 1× no pointerup; resize/rotate continuam ao vivo); pointercancel no move reverte o drag (nada foi commitado). Correções pós-review aplicadas: cancel de rAF no unmount, flush antes do read no pointerup (não perde o último frame de arrasto), cancel de pending no pointerdown. Typecheck ✅, 43/43 ✅, errorCount 0.

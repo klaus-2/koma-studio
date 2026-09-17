@@ -549,6 +549,7 @@ export type RenderOverlayInteraction =
     startPointerX: number;
     startPointerY: number;
     hasMoved: boolean;
+    currentBox?: [number, number, number, number];
   }
   | {
     kind: "resize";

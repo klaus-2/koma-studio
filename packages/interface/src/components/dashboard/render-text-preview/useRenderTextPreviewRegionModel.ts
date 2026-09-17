@@ -1,8 +1,3 @@
-// Region model pipeline for RenderTextPreview: regions -> display regions
-// (with render defaults + translation-note overlays) and the shared
-// updateRegions mutator. Moved verbatim from RenderTextPreview.tsx (T07 split);
-// hook order preserved.
-
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { AioTextRegion, TranslationNoteOverlayConfig } from '../../../types/dashboard.types';
 import type { RenderTextStyle } from '../../../utils/renderText';
@@ -12,6 +7,7 @@ import {
 import {
   applyDetectedGradientToStyle,
   applyRenderDefaultsToRegion,
+  areAioRegionsEqual,
   buildTranslationNoteOverlayRegions,
   cloneRenderStyle,
   normalizeTranslationNotes,
@@ -30,6 +26,33 @@ interface UseRenderTextPreviewRegionModelParams {
   ) => void;
 }
 
+const reuseIfSameElements = (
+  prev: AioTextRegion[],
+  next: AioTextRegion[],
+): AioTextRegion[] => {
+  if (prev.length === next.length) {
+    let same = true;
+    for (let index = 0; index < next.length; index += 1) {
+      if (prev[index] !== next[index]) {
+        same = false;
+        break;
+      }
+    }
+    if (same) return prev;
+  }
+  return next;
+};
+
+interface RegionsWithDefaultsCache {
+  bySource: WeakMap<AioTextRegion, AioTextRegion>;
+  prevById: Map<string, { source: AioTextRegion; derived: AioTextRegion }>;
+}
+
+const regionsWithDefaultsCaches = new WeakMap<
+  RenderTextStyle,
+  RegionsWithDefaultsCache
+>();
+
 export const useRenderTextPreviewRegionModel = ({
   regions,
   fallbackStyle,
@@ -39,20 +62,42 @@ export const useRenderTextPreviewRegionModel = ({
   onRegionsChange,
 }: UseRenderTextPreviewRegionModelParams) => {
   const regionsWithDefaultsRef = useRef<AioTextRegion[]>([]);
+  const regionsWithDefaultsPrevRef = useRef<AioTextRegion[]>([]);
 
-  const regionsWithDefaults = useMemo(
-    () =>
-      regions.map((region) =>
-        applyRenderDefaultsToRegion(
-          region,
-          fallbackStyle,
-          applyDetectedGradientToStyle,
-        ),
-      ),
-    [fallbackStyle, regions],
-  );
+  const regionsWithDefaults = useMemo(() => {
+    let cache = regionsWithDefaultsCaches.get(fallbackStyle);
+    if (!cache) {
+      cache = { bySource: new WeakMap(), prevById: new Map() };
+      regionsWithDefaultsCaches.set(fallbackStyle, cache);
+    }
+    const { bySource, prevById } = cache;
+    const next = regions.map((region) => {
+      const cached = bySource.get(region);
+      if (cached) return cached;
+      const prev = prevById.get(region.id);
+      if (prev && areAioRegionsEqual([prev.source], [region], cloneRenderStyle)) {
+        bySource.set(region, prev.derived);
+        return prev.derived;
+      }
+      const derived = applyRenderDefaultsToRegion(
+        region,
+        fallbackStyle,
+        applyDetectedGradientToStyle,
+      );
+      bySource.set(region, derived);
+      return derived;
+    });
+    prevById.clear();
+    for (let index = 0; index < regions.length; index += 1) {
+      const region = regions[index];
+      const derived = next[index];
+      if (region && derived) prevById.set(region.id, { source: region, derived });
+    }
+    return reuseIfSameElements(regionsWithDefaultsPrevRef.current, next);
+  }, [fallbackStyle, regions]);
   useEffect(() => {
     regionsWithDefaultsRef.current = regionsWithDefaults;
+    regionsWithDefaultsPrevRef.current = regionsWithDefaults;
   });
   const noteOverlayRegions = useMemo(
     () =>

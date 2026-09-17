@@ -6,7 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import './ContextMenu.css';
 import { useI18n } from '../../i18n';
 import type {
@@ -24,12 +24,9 @@ import type {
 } from '../../typography/types';
 import type { RenderTextStyle } from '../../utils/renderText';
 import {
-  buildDefaultRegionRenderText,
-  cloneRenderStyle,
   cn,
   isTranslationNoteOverlayRegion,
 } from '../../utils/dashboard.utils';
-import { readInlineEditorPlainText } from '../../utils/inlineEditor';
 import RenderTextPreviewContextMenu, {
   type RenderTextPreviewContextMenuState,
 } from './render-text-preview/RenderTextPreviewContextMenu';
@@ -45,11 +42,11 @@ import { useRenderTextPreviewContextMenu } from './render-text-preview/useRender
 import { useRenderTextPreviewPointer } from './render-text-preview/useRenderTextPreviewPointer';
 import { useRenderTextPreviewSelection } from './render-text-preview/useRenderTextPreviewSelection';
 import { useRenderTextPreviewTypeDock } from './render-text-preview/useRenderTextPreviewTypeDock';
-import { getRegionRotation } from './render-text-preview/regionGeometry';
 import {
   drawRegionsToCanvas,
   preloadRegionCanvasFonts,
 } from './render-text-preview/canvasDrawing';
+import RenderRegionOverlayBox from './render-text-preview/RenderRegionOverlayBox';
 
 // Stable module-scope defaults: inline `= []` prop defaults created a new
 // array every render and defeated downstream memo deps (react-doctor
@@ -701,158 +698,45 @@ const RenderTextPreview = ({
           onWheel={handleOverlayWheel}
         >
           {showRegionOverlays && displayRegionsWithDefaults.map((region) => {
-            const [x1, y1, x2, y2] = region.bbox;
-            const isNoteOverlay = isTranslationNoteOverlayRegion(region);
-            const selected = region.id === selectedRegionId;
             const multiSelectIndex = multiSelectedRegionIds.indexOf(region.id);
-            const isMultiSelected = multiSelectIndex >= 0;
-            const previewText = renderStageActive
-              ? (region.renderText ?? '').trim()
-              : buildDefaultRegionRenderText(region);
-            const regionRotation = getRegionRotation(region, fallbackStyle);
-            const regionSkewStyle = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
+            const regionIsSelected = region.id === selectedRegionId;
+            const showHandles = regionIsSelected && editable && areaSelectionEnabled;
+            const dragBox =
+              interaction &&
+              interaction.kind === 'move' &&
+              interaction.regionId === region.id
+                ? interaction.currentBox
+                : undefined;
             return (
-              <React.Fragment key={region.id}>
-                <div
-                  className={cn(
-                    'koma-render-box',
-                    region.source === 'manual' && 'koma-render-box--manual',
-                    isNoteOverlay && 'koma-render-box--note',
-                    selected && 'koma-render-box--selected',
-                    isMultiSelected && 'koma-render-box--multi-selected',
-                  )}
-                  style={{
-                    left: `${(x1 / image.width) * 100}%`,
-                    top: `${(y1 / image.height) * 100}%`,
-                    width: `${((x2 - x1) / image.width) * 100}%`,
-                    height: `${((y2 - y1) / image.height) * 100}%`,
-                    transform: `rotate(${regionRotation}deg) skew(${regionSkewStyle.skewX || 0}deg, ${regionSkewStyle.skewY || 0}deg)`,
-                    transformOrigin: 'center center',
-                    borderRadius:
-                      region.shape?.kind === 'rounded' ? '999px' : '14px',
-                  }}
-                  data-region-id={region.id}
-                >
-                  {isMultiSelected && (
-                    <span className="koma-render-box__multi-badge">
-                      {multiSelectIndex + 1}
-                    </span>
-                  )}
-                  <span className="koma-render-box__meta">
-                    {isNoteOverlay
-                      ? 'NT'
-                      : previewText.trim().length > 0
-                        ? previewText.slice(0, 32)
-                        : renderStageActive
-                          ? t('dashboard.renderText.dblClickToEdit')
-                          : t('dashboard.renderText.renderNotApplied')}
-                  </span>
-                  {inlineEditor?.regionId === region.id && (
-                    <div
-                      ref={inlineEditorContentEditableRef}
-                      className="koma-render-inline-editor"
-                      contentEditable
-                      suppressContentEditableWarning
-                      style={inlineEditorContentEditableStyle}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      data-empty={inlineEditor.value.length === 0 ? 'true' : undefined}
-                      data-placeholder={t('dashboard.renderText.editPlaceholder')}
-                      onInput={(event) => {
-                        const nextValue = readInlineEditorPlainText(
-                          event.currentTarget,
-                        );
-                        if (nextValue.length > 0) {
-                          event.currentTarget.removeAttribute('data-empty');
-                        } else {
-                          event.currentTarget.setAttribute('data-empty', 'true');
-                        }
-                        handleInlineEditorInput(nextValue);
-                        syncInlineEditorSelection();
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Escape') {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          cancelInlineEditor();
-                          return;
-                        }
-                        if (event.key === 'Enter' && event.ctrlKey) {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          saveInlineEditor();
-                        }
-                      }}
-                      onBlur={(event) => {
-                        if (dockPointerDownRef.current) {
-                          return;
-                        }
-                        const nextTarget = event.relatedTarget as Node | null;
-                        if (nextTarget && dockRef.current?.contains(nextTarget)) {
-                          return;
-                        }
-                        if (!inlineEditor?.isDirty) {
-                          setInlineEditor(null);
-                          return;
-                        }
-                        saveInlineEditor();
-                      }}
-                      onSelect={syncInlineEditorSelection}
-                      onKeyUp={syncInlineEditorSelection}
-                      onMouseUp={syncInlineEditorSelection}
-                      aria-label={t('dashboard.renderText.editAria')}
-                    />
-                  )}
-                  {selected && editable && areaSelectionEnabled && (
-                    <>
-                      <button
-                        type="button"
-                        className="koma-render-box__close koma-render-handle"
-                        title={t('dashboard.renderText.removeSelection.title')}
-                        aria-label={t('dashboard.renderText.removeSelection.title')}
-                        onPointerDown={(event) => {
-                          event.stopPropagation();
-                        }}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          removeRegionById(region.id);
-                        }}
-                      >
-                        <X size={11} />
-                      </button>
-                      <span className="koma-render-rotate-arm" />
-                      <span
-                        className="koma-render-rotate-handle koma-render-handle"
-                        data-render-handle="rotate"
-                        data-region-id={region.id}
-                      />
-                      <span
-                        className="koma-detect-handle koma-detect-handle--nw koma-render-handle"
-                        data-render-handle="corner"
-                        data-corner="nw"
-                        data-region-id={region.id}
-                      />
-                      <span
-                        className="koma-detect-handle koma-detect-handle--ne koma-render-handle"
-                        data-render-handle="corner"
-                        data-corner="ne"
-                        data-region-id={region.id}
-                      />
-                      <span
-                        className="koma-detect-handle koma-detect-handle--sw koma-render-handle"
-                        data-render-handle="corner"
-                        data-corner="sw"
-                        data-region-id={region.id}
-                      />
-                      <span
-                        className="koma-detect-handle koma-detect-handle--se koma-render-handle"
-                        data-render-handle="corner"
-                        data-corner="se"
-                        data-region-id={region.id}
-                      />
-                    </>
-                  )}
-                </div>
-              </React.Fragment>
+              <RenderRegionOverlayBox
+                key={region.id}
+                region={region}
+                imageWidth={image.width}
+                imageHeight={image.height}
+                isNoteOverlay={isTranslationNoteOverlayRegion(region)}
+                selected={regionIsSelected}
+                isMultiSelected={multiSelectIndex >= 0}
+                multiSelectIndex={multiSelectIndex}
+                renderStageActive={renderStageActive}
+                fallbackStyle={fallbackStyle}
+                showHandles={showHandles}
+                dragBox={dragBox}
+                removeRegionById={showHandles ? removeRegionById : undefined}
+                editor={inlineEditor && inlineEditor.regionId === region.id
+                  ? {
+                      state: inlineEditor,
+                      contentEditableRef: inlineEditorContentEditableRef,
+                      contentEditableStyle: inlineEditorContentEditableStyle,
+                      onInput: handleInlineEditorInput,
+                      syncSelection: syncInlineEditorSelection,
+                      cancel: cancelInlineEditor,
+                      save: saveInlineEditor,
+                      setState: setInlineEditor,
+                      dockPointerDownRef,
+                      dockRef,
+                    }
+                  : undefined}
+              />
             );
           })}
 
