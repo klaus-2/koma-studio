@@ -98,6 +98,7 @@ const services = [
     cwd: authServerDir,
     required: false,
     healthUrl: "http://127.0.0.1:3001/health",
+    port: 3001,
     skip: authDisabled,
   },
   {
@@ -107,6 +108,7 @@ const services = [
     cwd: rootDir,
     required: false,
     healthUrl: "http://127.0.0.1:8001/health",
+    port: 8001,
   },
   {
     name: "vite-electron",
@@ -114,6 +116,8 @@ const services = [
     args: ["run", "dev:vite"],
     cwd: rootDir,
     required: true,
+    healthUrl: "http://127.0.0.1:5173/",
+    port: 5173,
   },
 ];
 
@@ -137,6 +141,120 @@ const isServiceHealthy = async (url) => {
     return false;
   } finally {
     clearTimeout(timeout);
+  }
+};
+
+// ── Stale-instance recovery ────────────────────────────────────────────────
+// CTRL+C in the user's terminal kills bun and this supervisor before our
+// SIGINT handlers run (Windows delivers CTRL_C_EVENT to the process group,
+// and the `bun run` wrapper above us does not forward it), so child services
+// survive and the NEXT launch sees a healthy healthUrl and "reuses" the
+// stale instance — hiding processes nobody's terminal controls anymore.
+//
+// Recovery: on startup, any dev-stack-owned port that is still listening
+// while the stack claims no owner (no marker file) is a leftover from a
+// dead stack — kill its listener tree. The marker (pidfile) records who
+// owns the stack right now: a LIVE stack never gets its services killed,
+// even if its marker write races (PID re-check guards that).
+const stackMarkerPath = path.join(rootDir, "node_modules", ".cache", "koma-dev-stack.json");
+const OWNED_PORTS = services.map((service) => service.port).filter(Boolean);
+
+const getPortListenerPid = (port) => {
+  const result = spawnSync(
+    "powershell",
+    [
+      "-NoProfile",
+      "-Command",
+      `(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess`,
+    ],
+    { encoding: "utf8", timeout: 10_000 },
+  );
+  const pid = Number.parseInt((result.stdout ?? "").trim(), 10);
+  return Number.isInteger(pid) && pid > 0 ? pid : null;
+};
+
+const isPidAlive = (pid) => {
+  const result = spawnSync("tasklist", ["/FI", `PID eq ${pid}`, "/NH"], {
+    encoding: "utf8",
+    timeout: 10_000,
+  });
+  return (result.stdout ?? "").includes(String(pid));
+};
+
+const recoverStaleInstances = () => {
+  if (process.platform !== "win32") {
+    return;
+  }
+
+  let ownerPid = null;
+  try {
+    if (fs.existsSync(stackMarkerPath)) {
+      const parsed = JSON.parse(fs.readFileSync(stackMarkerPath, "utf8"));
+      if (Number.isInteger(parsed?.pid) && parsed.pid > 0) {
+        ownerPid = parsed.pid;
+      }
+    }
+  } catch {
+    // Corrupt marker = no trustworthy owner; treated as none below.
+  }
+
+  // Distinguish a LIVE stack (owned, keep everything) from a DEAD one
+  // (marker left behind by CTRL+C — clear it and recover the ports).
+  if (ownerPid !== null && ownerPid !== process.pid) {
+    if (isPidAlive(ownerPid)) {
+      console.log(
+        `[dev] Another dev stack (pid ${ownerPid}) is already managing these services — recovering nothing.`,
+      );
+      return;
+    }
+    console.log(`[dev] Clearing stale dev-stack marker (owner pid ${ownerPid} is gone).`);
+  }
+  try {
+    fs.mkdirSync(path.dirname(stackMarkerPath), { recursive: true });
+    fs.writeFileSync(
+      stackMarkerPath,
+      JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }),
+    );
+  } catch {
+    // node_modules/.cache may not exist yet; recovery still proceeds.
+  }
+
+  const serviceByPort = new Map(
+    services.filter((service) => service.port).map((service) => [service.port, service.name]),
+  );
+  for (const port of OWNED_PORTS) {
+    const pid = getPortListenerPid(port);
+    if (!pid || pid === process.pid || !isPidAlive(pid)) {
+      continue;
+    }
+    const commandLine = spawnSync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-Command",
+        `(Get-CimInstance Win32_Process -Filter 'ProcessId = ${pid}').CommandLine`,
+      ],
+      { encoding: "utf8", timeout: 10_000 },
+    );
+    const line = (commandLine.stdout ?? "").trim();
+    // Only kill things that look like this repo's dev tooling — never an
+    // unrelated program that happens to bind the same port.
+    const looksOurs =
+      /koma/i.test(line) ||
+      /tsx|vite|uvicorn|bun\b|node\b|python/i.test(line);
+    if (!looksOurs) {
+      console.warn(
+        `[dev] Port ${port} is held by pid ${pid} which does not look like koma dev tooling — leaving it alone.`,
+      );
+      continue;
+    }
+    console.log(
+      `[dev] Killing stale ${serviceByPort.get(port) ?? "service"} on port ${port} (pid ${pid}) — leftover from a previous CTRL+C.`,
+    );
+    spawnSync("taskkill", ["/pid", String(pid), "/t", "/f"], {
+      stdio: "ignore",
+      timeout: 15_000,
+    });
   }
 };
 
@@ -179,31 +297,31 @@ const reapOrphanedMiniBackend = () => {
   if (candidates.size === 0) {
     return;
   }
-  const wmic = spawnSync(
-    "wmic",
+  // wmic was removed on recent Windows 11 builds; use the CIM cmdlet.
+  const powershell = spawnSync(
+    "powershell",
     [
-      "process",
-      "where",
-      "Name='python.exe'",
-      "get",
-      "ProcessId,CommandLine",
-      "/format:list",
+      "-NoProfile",
+      "-Command",
+      "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | ForEach-Object { \"$($_.ProcessId)|$($_.CommandLine)\" }",
     ],
     { encoding: "utf8", timeout: 10_000 },
   );
-  if (wmic.status !== 0 || !wmic.stdout) {
+  if (powershell.status !== 0 || !powershell.stdout) {
     return;
   }
   const livePids = new Set();
-  for (const block of wmic.stdout.split(/\r?\n\r?\n/)) {
-    const cmdMatch = block.match(/CommandLine=(.*)/);
-    if (!cmdMatch || !cmdMatch[1].toLowerCase().includes("app.py")) {
+  for (const line of powershell.stdout.split(/\r?\n/)) {
+    const separator = line.indexOf("|");
+    if (separator < 0) {
       continue;
     }
-    const pidMatch = block.match(/ProcessId=(\d+)/);
-    if (pidMatch) {
-      livePids.add(Number(pidMatch[1]));
+    const pid = line.slice(0, separator).trim();
+    const commandLine = line.slice(separator + 1);
+    if (!/^\d+$/.test(pid) || !commandLine.toLowerCase().includes("app.py")) {
+      continue;
     }
+    livePids.add(pid);
   }
   for (const pid of livePids) {
     spawnSync("taskkill", ["/pid", String(pid), "/t", "/f"], {
@@ -219,6 +337,11 @@ const shutdown = (exitCode = 0) => {
   }
 
   shuttingDown = true;
+  try {
+    fs.rmSync(stackMarkerPath, { force: true });
+  } catch {
+    // Marker cleanup is best-effort; the PID re-check covers leftovers.
+  }
   for (const child of children) {
     killChild(child);
   }
@@ -298,8 +421,28 @@ const startService = async ({ name, command, args = [], cwd, required, healthUrl
 
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
+// CTRL_BREAK reaches process groups that CTRL_C does not (children spawned
+// in their own process group) — handle it like an interrupt.
+process.on("SIGBREAK", () => shutdown(0));
+// Last resort when the process dies without shutdown() having run (uncaught
+// exception, hard kill from a parent that skipped signal forwarding): the
+// exit handler still fires on those paths, and killChild is synchronous.
+process.on("exit", () => {
+  if (!shuttingDown) {
+    for (const child of children) {
+      killChild(child);
+    }
+    reapOrphanedMiniBackend();
+  }
+  try {
+    fs.rmSync(stackMarkerPath, { force: true });
+  } catch {
+    // best effort
+  }
+});
 
 const main = async () => {
+  recoverStaleInstances();
   ensureMiniDeps();
   for (const service of services) {
     if (service.skip) {
