@@ -122,16 +122,24 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
     };
     let runtime_store = app.state::<MiniBackendRuntimeStore>();
     if check_local_backend_health(&reuse_config.local_api_url).await {
-        log::info!("mini-backend: healthy instance already on {} — reusing it", reuse_config.local_api_url);
-        patch_runtime_state(
-            &app,
-            &runtime_store,
-            MiniBackendRuntimePatch {
-                status: Some("ready".to_string()),
-                ..Default::default()
-            },
-        )?;
-        return Ok(());
+        if kill_stale_instance(&reuse_config.local_api_url) {
+            log::info!(
+                "mini-backend: stale instance on {} was left by a previous app run — killed it, starting fresh",
+                reuse_config.local_api_url
+            );
+            // Fall through to the normal spawn path below.
+        } else {
+            log::info!("mini-backend: healthy instance already on {} — reusing it", reuse_config.local_api_url);
+            patch_runtime_state(
+                &app,
+                &runtime_store,
+                MiniBackendRuntimePatch {
+                    status: Some("ready".to_string()),
+                    ..Default::default()
+                },
+            )?;
+            return Ok(());
+        }
     }
 
     let runtime_store = app.state::<MiniBackendRuntimeStore>();
@@ -309,6 +317,14 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
         .lock()
         .map_err(|error| error.to_string())? = Some(child);
 
+    // Ownership marker: lets a future instance tell "sidecar spawned by a
+    // dead app run" (stale → kill it) apart from "started by another live
+    // shell" (foreign → keep reusing). Removed again in stop_mini_backend.
+    let _ = fs::write(
+        mini_backend_marker_path(),
+        serde_json::json!({ "pid": std::process::id() }).to_string(),
+    );
+
     // Set when the child reports `Terminated`, so the health poll below can
     // give up immediately instead of waiting out the full attempt budget on a
     // process that is already gone (e.g. a missing Python dependency).
@@ -392,6 +408,119 @@ status_message: Some(Some(message.clone())),
     Ok(())
 }
 
+/// PIDfile of the app instance that spawned the current sidecar, if any.
+/// CTRL+C on `tauri dev` (or any hard app kill) bypasses the window/exit
+/// hooks that call `stop_mini_backend`, leaving the python sidecar bound to
+/// its port. The next boot then sees a "healthy" health-check and reuses a
+/// process nobody controls. The marker lets a future boot tell that case
+/// ("owner dead → stale, kill it") apart from a genuinely foreign instance
+/// (no marker → keep reusing, e.g. a manual `python app.py`).
+fn mini_backend_marker_path() -> PathBuf {
+    env::temp_dir().join("koma-tauri-mini-backend.json")
+}
+
+/// Returns true when a stale sidecar was identified and killed, so the
+/// caller should continue into a fresh spawn instead of reusing.
+#[cfg(windows)]
+fn kill_stale_instance(local_api_url: &str) -> bool {
+    let Ok(owner_json) = fs::read_to_string(mini_backend_marker_path()) else {
+        return false; // no marker → not spawned by us → keep the reuse behavior
+    };
+    let Ok(owner) = serde_json::from_str::<serde_json::Value>(&owner_json) else {
+        return false;
+    };
+    let Some(owner_pid) = owner.get("pid").and_then(|pid| pid.as_u64()).map(|p| p as u32)
+    else {
+        return false;
+    };
+    if owner_pid == std::process::id() || process_is_alive(owner_pid) {
+        return false; // a live app instance owns this sidecar
+    }
+    let Some(port) = port_from_url(local_api_url) else {
+        return false;
+    };
+    let Some(listener_pid) = port_listener_pid(port) else {
+        return false;
+    };
+    // Safety net: never kill an unrelated process that happens to bind the
+    // port — only our own python backend command line.
+    if !listener_looks_like_our_backend(listener_pid) {
+        log::warn!(
+            "mini-backend: stale-instance check found pid {listener_pid} on port {port}, but it is not app.py — leaving it alone"
+        );
+        return false;
+    }
+    let _ = std::process::Command::new("taskkill")
+        .args(["/pid", &listener_pid.to_string(), "/t", "/f"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+    let _ = fs::remove_file(mini_backend_marker_path());
+    true
+}
+
+#[cfg(not(windows))]
+fn kill_stale_instance(_local_api_url: &str) -> bool {
+    false
+}
+
+#[cfg(windows)]
+fn process_is_alive(pid: u32) -> bool {
+    std::process::Command::new("tasklist")
+        .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout).contains(&format!("\"{pid}\""))
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn port_listener_pid(port: u16) -> Option<u32> {
+    let output = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            &format!(
+                "(Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess"
+            ),
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&output.stdout).trim().parse::<u32>().ok()
+}
+
+#[cfg(windows)]
+fn listener_looks_like_our_backend(pid: u32) -> bool {
+    std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            &format!("(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').CommandLine"),
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout).to_lowercase().contains("app.py")
+        })
+        .unwrap_or(false)
+}
+
+/// "http://127.0.0.1:8001/health" → 8001
+fn port_from_url(url: &str) -> Option<u16> {
+    url.split(':')
+        .nth(2)?
+        .split('/')
+        .next()?
+        .parse::<u16>()
+        .ok()
+}
+
 pub fn stop_mini_backend<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     let store = app.state::<MiniBackendSidecarStore>();
     let pid = *store.pid.lock().map_err(|error| error.to_string())?;
@@ -420,6 +549,9 @@ pub fn stop_mini_backend<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
                     .status();
             }
         }
+        // We owned the sidecar: the ownership marker must not outlive a clean
+        // stop, or the next boot would treat a foreign instance as ours.
+        let _ = fs::remove_file(mini_backend_marker_path());
     }
     Ok(())
 }
@@ -935,5 +1067,13 @@ mod tests {
             option_env!("KOMA_EMBEDDED_MINI_BACKEND"),
             Some("0") | Some("1")
         ));
+    }
+
+    #[test]
+    fn extracts_port_from_local_api_url() {
+        assert_eq!(port_from_url("http://127.0.0.1:8001/health"), Some(8001));
+        assert_eq!(port_from_url("http://localhost:5173/"), Some(5173));
+        assert_eq!(port_from_url("http://127.0.0.1:9"), Some(9));
+        assert_eq!(port_from_url("not a url"), None);
     }
 }
