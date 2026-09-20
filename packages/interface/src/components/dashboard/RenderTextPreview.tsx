@@ -383,6 +383,24 @@ const RenderTextPreview = ({
     updateRegions,
   });
 
+  const canvasDrawRegions = useMemo(() => {
+    if (interaction?.kind !== 'move' || !interaction.currentBox) {
+      return displayRegionsWithDefaults;
+    }
+    const currentBox = interaction.currentBox;
+    let dragged: (typeof displayRegionsWithDefaults)[number] | null = null;
+    for (const region of displayRegionsWithDefaults) {
+      if (region.id === interaction.regionId) {
+        dragged = region;
+        break;
+      }
+    }
+    if (!dragged) return displayRegionsWithDefaults;
+    return displayRegionsWithDefaults.map((region) =>
+      region === dragged ? { ...region, bbox: currentBox } : region,
+    );
+  }, [displayRegionsWithDefaults, interaction]);
+
   // Paint the rendered text of every display region onto the preview canvas.
   useEffect(() => {
     let cancelled = false;
@@ -392,14 +410,14 @@ const RenderTextPreview = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      await preloadRegionCanvasFonts(displayRegionsWithDefaults, fallbackStyle);
+      await preloadRegionCanvasFonts(canvasDrawRegions, fallbackStyle);
       if (cancelled) return;
 
       drawRegionsToCanvas(
         ctx,
         image.width,
         image.height,
-        displayRegionsWithDefaults,
+        canvasDrawRegions,
         fallbackStyle,
         renderStageActive,
       );
@@ -410,7 +428,7 @@ const RenderTextPreview = ({
       cancelled = true;
     };
   }, [
-    displayRegionsWithDefaults,
+    canvasDrawRegions,
     fallbackStyle,
     fontRefreshToken,
     image.height,

@@ -194,6 +194,11 @@ export const preloadRegionCanvasFonts = (
   ).then(() => undefined);
 
 /** Paints the rendered text of every region onto the preview canvas. */
+type RegionCanvasLayout = ReturnType<typeof computeRenderTextLayout>;
+type CachedRegionLayout = { renderStageActive: boolean; layout: RegionCanvasLayout };
+let regionLayoutCache = new WeakMap<object, CachedRegionLayout>();
+let regionLayoutCacheStyle: RenderTextStyle | null = null;
+
 export const drawRegionsToCanvas = (
   ctx: CanvasRenderingContext2D,
   imageWidth: number,
@@ -203,9 +208,17 @@ export const drawRegionsToCanvas = (
   renderStageActive: boolean,
 ): void => {
   const canvas = ctx.canvas;
-  canvas.width = imageWidth;
-  canvas.height = imageHeight;
+  // Reassigning width/height reallocates the backing store — during a drag
+  // redraw this runs per animation frame, so only touch it when the size
+  // actually changes (clearRect already wipes the content).
+  if (canvas.width !== imageWidth) canvas.width = imageWidth;
+  if (canvas.height !== imageHeight) canvas.height = imageHeight;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (regionLayoutCacheStyle !== fallbackStyle) {
+    regionLayoutCacheStyle = fallbackStyle;
+    regionLayoutCache = new WeakMap();
+  }
 
   for (const region of regions) {
     const [x1, y1, x2, y2] = region.bbox;
@@ -214,15 +227,22 @@ export const drawRegionsToCanvas = (
     const style = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
     const text = renderStageActive ? (region.renderText ?? '').trim() : '';
     if (!text.trim()) continue;
-    const layout = computeRenderTextLayout(
-      ctx,
-      text,
-      width,
-      height,
-      style,
-      region.shape,
-      region.renderTextStyleRanges,
-    );
+    let layout: RegionCanvasLayout;
+    const cached = regionLayoutCache.get(region);
+    if (cached && cached.renderStageActive === renderStageActive) {
+      layout = cached.layout;
+    } else {
+      layout = computeRenderTextLayout(
+        ctx,
+        text,
+        width,
+        height,
+        style,
+        region.shape,
+        region.renderTextStyleRanges,
+      );
+      regionLayoutCache.set(region, { renderStageActive, layout });
+    }
     drawRenderedTextInRegion(ctx, region.bbox, layout, style, region.shape);
   }
 };
