@@ -1,3 +1,4 @@
+import { useDeferredValue } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
 import KomaTopbar from '../../KomaTopbar.tsx';
@@ -770,6 +771,7 @@ export default function DashboardMainLayout({
 
   // ── Store-backed values (granular selectors) ──
   const mode = useUiShellStore((s) => s.mode);
+  const deferredStageMode = useDeferredValue(mode);
   const subMode = useUiShellStore((s) => s.subMode);
   const processing = useUiShellStore((s) => s.processing);
   const progress = useUiShellStore((s) => s.progress);
@@ -1209,7 +1211,7 @@ export default function DashboardMainLayout({
 
         {/* Stage */}
         <DashboardStageSection
-          mode={mode}
+          mode={deferredStageMode}
           subMode={subMode}
           viewMode={viewMode}
           zoom={zoom}

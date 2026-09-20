@@ -1,6 +1,7 @@
 import { Suspense, lazy, memo } from 'react';
 import { Languages, Upload } from 'lucide-react';
 import { useI18n } from '@/i18n';
+import type { ToolMode } from '../../types/dashboard.types';
 
 const StitchWorkspace = lazy(() => import('./stitch/StitchWorkspace'));
 const SplitterWorkspace = lazy(() => import('./splitter/SplitterWorkspace'));
@@ -14,10 +15,16 @@ const LazyFallback = () => (
   </div>
 );
 
-const DashboardSpecialModeStage = ({ props }: { props: any }) => {
+const DashboardSpecialModeStage = ({
+  props,
+  stageMode,
+}: {
+  props: any;
+  stageMode?: ToolMode;
+}) => {
   const { t } = useI18n();
   const {
-    mode,
+    mode: immediateMode,
     translatorWorkspaceMode,
     images,
     translatorImageImportRef,
@@ -49,6 +56,8 @@ const DashboardSpecialModeStage = ({ props }: { props: any }) => {
     onWatermarkWorkspaceStateChange,
     onOptimizerWorkspaceStateChange,
   } = props;
+
+  const mode = (stageMode ?? immediateMode) as ToolMode;
 
   if (mode === 'translator' && translatorWorkspaceMode === 'visual' && images.length === 0) {
     return (

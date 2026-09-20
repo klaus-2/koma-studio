@@ -726,6 +726,7 @@ export default function DashboardStageSection({
         ].includes(mode) ? (
         <DashboardSpecialModeStage
           props={specialModeStageProps}
+          stageMode={mode}
         />
       ) : images.length > 0 ? (
         <div
