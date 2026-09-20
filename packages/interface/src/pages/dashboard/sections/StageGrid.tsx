@@ -1,7 +1,8 @@
-import { useCallback } from 'react';
+import { Suspense, lazy, useCallback } from 'react';
 
-import TextDetectionPreview from '../../../components/dashboard/TextDetectionPreview';
-import RenderTextPreview from '../../../components/dashboard/RenderTextPreview';
+import { memoLoad } from '../../../utils/lazyModule';
+
+import DashboardLazyFallback from '../../../components/dashboard/DashboardLazyFallback';
 import DashboardInfoModeStage from '../../../components/dashboard/DashboardInfoModeStage';
 import DashboardSpecialModeStage from '../../../components/dashboard/DashboardSpecialModeStage';
 import DashboardStageGrid from '../../../components/dashboard/DashboardStageGrid';
@@ -10,7 +11,21 @@ import { PreviewStageItem } from '../../../components/dashboard/PreviewStageItem
 import { TranslatorVisualStageItem } from '../../../components/dashboard/TranslatorVisualStageItem';
 import { CleanerStageItem } from '../../../components/dashboard/CleanerStageItem';
 import { TypesetterStageItem } from '../../../components/dashboard/TypesetterStageItem';
-import TranslatorTextStage from './TranslatorTextStage';
+
+const loadRenderTextPreview = memoLoad(() => import('../../../components/dashboard/RenderTextPreview'));
+const loadTextDetectionPreview = memoLoad(() => import('../../../components/dashboard/TextDetectionPreview'));
+const loadTranslatorTextStage = memoLoad(() => import('./TranslatorTextStage'));
+const RenderTextPreview = lazy(loadRenderTextPreview);
+const TextDetectionPreview = lazy(loadTextDetectionPreview);
+const TranslatorTextStage = lazy(loadTranslatorTextStage);
+
+/** Fire-and-forget warmup of the heavy stage modules (called at browser idle). */
+export function preloadStageHeavyModules() {
+  void loadRenderTextPreview().catch(() => { });
+  void loadTextDetectionPreview().catch(() => { });
+  void loadTranslatorTextStage().catch(() => { });
+}
+
 import type { useSpecialModeStageProps } from '../hooks/utility-workspaces';
 
 type SpecialModeStageProps = ReturnType<typeof useSpecialModeStageProps>['specialModeStageProps'];
@@ -488,10 +503,10 @@ export default function DashboardStageSection({
       const imageStageBadgeLabel = AIO_STAGE_BADGE_LABELS[imageStageKey];
       const imageHistoryHint = imageHistoryMeta.label
         ? t('dashboard.aio.historyHint', {
-            label: imageHistoryMeta.label,
-            current: imageHistoryMeta.index + 1,
-            total: aioPipelineSnapshots.length,
-          })
+          label: imageHistoryMeta.label,
+          current: imageHistoryMeta.index + 1,
+          total: aioPipelineSnapshots.length,
+        })
         : null;
 
       if (mode === 'aio') {
@@ -703,27 +718,29 @@ export default function DashboardStageSection({
     >
       {/* Info modes show content instead of images */}
       {mode === 'guides' ||
-      mode === 'resources' ||
-      mode === 'blogger' ||
-      mode === 'imgur' ? (
+        mode === 'resources' ||
+        mode === 'blogger' ||
+        mode === 'imgur' ? (
         <DashboardInfoModeStage
           mode={mode}
-          onOpenSettings={onOpenSettings ?? (() => {})}
+          onOpenSettings={onOpenSettings ?? (() => { })}
         />
       ) : mode === 'translator' && translatorWorkspaceMode === 'text' ? (
-        <TranslatorTextStage
-          translatorTextImportRef={translatorTextImportRef}
-          runTranslatorText={runTranslatorText}
-          handleDownload={handleDownload}
-          handleTranslatorTextImport={handleTranslatorTextImport}
-        />
+        <Suspense fallback={<DashboardLazyFallback />}>
+          <TranslatorTextStage
+            translatorTextImportRef={translatorTextImportRef}
+            runTranslatorText={runTranslatorText}
+            handleDownload={handleDownload}
+            handleTranslatorTextImport={handleTranslatorTextImport}
+          />
+        </Suspense>
       ) : [
-          'translator',
-          'stitch',
-          'split',
-          'watermark',
-          'optimizer',
-        ].includes(mode) ? (
+        'translator',
+        'stitch',
+        'split',
+        'watermark',
+        'optimizer',
+      ].includes(mode) ? (
         <DashboardSpecialModeStage
           props={specialModeStageProps}
           stageMode={mode}
@@ -738,12 +755,14 @@ export default function DashboardStageSection({
           )}
           data-tour="dashboard-stage-grid"
         >
-          <DashboardStageGrid
-            viewMode={viewMode}
-            itemCount={images.length}
-            itemKey={stageItemKey}
-            renderStageItem={renderStageItem}
-          />
+          <Suspense fallback={<DashboardLazyFallback />}>
+            <DashboardStageGrid
+              viewMode={viewMode}
+              itemCount={images.length}
+              itemKey={stageItemKey}
+              renderStageItem={renderStageItem}
+            />
+          </Suspense>
         </div>
       ) : (
         <DashboardEmptyStage

@@ -1,9 +1,12 @@
-import { useDeferredValue } from 'react';
+import { Suspense, lazy, useDeferredValue } from 'react';
+
+import { memoLoad } from '../../../utils/lazyModule';
 import { AlertTriangle } from 'lucide-react';
 
 import KomaTopbar from '../../KomaTopbar.tsx';
 import DashboardMobileBackdrop from '../../../components/dashboard/DashboardMobileBackdrop';
 import DashboardRightSidebar from '../../../components/dashboard/DashboardRightSidebar';
+import DashboardLazyFallback from '../../../components/dashboard/DashboardLazyFallback';
 import SubModeToggle from '../../../components/dashboard/SubModeToggle';
 import OrganizeToolsHint from '../../../components/dashboard/OrganizeToolsHint';
 import InfoModesToolsPanel from '../../../components/dashboard/InfoModesToolsPanel';
@@ -13,14 +16,30 @@ import DashboardModelManagers from '../../../components/dashboard/DashboardModel
 import DashboardFooter from '../../../components/dashboard/DashboardFooter';
 import ImageCollectionSidebar from './ImageCollectionSidebar';
 import ManualToolsDockSection from './ManualToolsDock';
-import AioRightPanel from './AioRightPanel';
-import CleanerToolsPanel from './CleanerToolsPanel';
-import TypographerToolsPanel from './TypographerToolsPanel';
-import TranslatorToolsPanel from './TranslatorToolsPanel';
 import WorkflowSidebarPanelsSection from './WorkflowSidebarPanels';
-import EnhanceToolsPanelSection from './EnhanceToolsPanel';
 import DashboardStageSection from './StageGrid';
 import CleanerAiRecognizeTextModelManagerModal from './CleanerAiRecognizeTextModelManagerModal';
+
+const loadAioRightPanel = memoLoad(() => import('./AioRightPanel'));
+const loadCleanerToolsPanel = memoLoad(() => import('./CleanerToolsPanel'));
+const loadTypographerToolsPanel = memoLoad(() => import('./TypographerToolsPanel'));
+const loadTranslatorToolsPanel = memoLoad(() => import('./TranslatorToolsPanel'));
+const loadEnhanceToolsPanel = memoLoad(() => import('./EnhanceToolsPanel'));
+const AioRightPanel = lazy(loadAioRightPanel);
+const CleanerToolsPanel = lazy(loadCleanerToolsPanel);
+const TypographerToolsPanel = lazy(loadTypographerToolsPanel);
+const TranslatorToolsPanel = lazy(loadTranslatorToolsPanel);
+const EnhanceToolsPanelSection = lazy(loadEnhanceToolsPanel);
+
+/** Fire-and-forget warmup of the mode tool panels (called at browser idle). */
+export function preloadModeToolPanels() {
+  void loadAioRightPanel().catch(() => { });
+  void loadCleanerToolsPanel().catch(() => { });
+  void loadTypographerToolsPanel().catch(() => { });
+  void loadTranslatorToolsPanel().catch(() => { });
+  void loadEnhanceToolsPanel().catch(() => { });
+}
+
 import type { useSpecialModeStageProps } from '../hooks/utility-workspaces';
 
 type SpecialModeStageProps = ReturnType<typeof useSpecialModeStageProps>['specialModeStageProps'];
@@ -1110,14 +1129,14 @@ export default function DashboardMainLayout({
           onDownload={(scope) => {
             const normalizedScope =
               scope === 'aio' ||
-              scope === 'cleaner' ||
-              scope === 'typesetter' ||
-              scope === 'translator' ||
-              scope === 'proofreader' ||
-              scope === 'enhance' ||
-              scope === 'split' ||
-              scope === 'raw' ||
-              scope === 'optimizer'
+                scope === 'cleaner' ||
+                scope === 'typesetter' ||
+                scope === 'translator' ||
+                scope === 'proofreader' ||
+                scope === 'enhance' ||
+                scope === 'split' ||
+                scope === 'raw' ||
+                scope === 'optimizer'
                 ? scope
                 : null;
             void handleDownload(normalizedScope);
@@ -1373,182 +1392,190 @@ export default function DashboardMainLayout({
         )}
         {mode === 'organize' && <OrganizeToolsHint />}
         {/* ─── AIO — ALL IN ONE ─── */}
-        {mode === 'aio' && (
-          <AioRightPanel
-            // ── AIO pipeline — sub-mode & execution (not yet migrated) ──
-            handleAioSubModeChange={handleAioSubModeChange}
-            rewindAioPipeline={rewindAioPipeline}
-            forwardAioPipeline={forwardAioPipeline}
-            setManualStageForActiveImage={setManualStageForActiveImage}
-            executeManualStageForActiveImage={executeManualStageForActiveImage}
-            skipManualStageForActiveImage={skipManualStageForActiveImage}
-            handleExecuteManualAioStage={handleExecuteManualAioStage}
-            activeManualStageStatus={activeManualStageStatus}
-            aioPipelineStageLabels={aioPipelineStageLabels}
-            stopAioExecution={stopAioExecution}
-            processAIO={processAIO}
-            aioExecuteButtonProcessingLabel={aioExecuteButtonProcessingLabel}
-            // ── AIO pipeline — preset editor (not yet migrated) ──
-            normalizedAioSourceLanguage={normalizedAioSourceLanguage}
-            presetsForCurrentLanguage={presetsForCurrentLanguage}
-            activePresetForCurrentLanguage={activePresetForCurrentLanguage}
-            presetEditorStageOptions={presetEditorStageOptions}
-            aioPresetEditorOpen={aioPresetEditorOpen}
-            aioPresetEditorDraft={aioPresetEditorDraft}
-            setAioPresetEditorDraft={setAioPresetEditorDraft}
-            handlePresetSelectionChange={handlePresetSelectionChange}
-            openCreatePresetEditor={openCreatePresetEditor}
-            openEditPresetEditor={openEditPresetEditor}
-            closePresetEditor={closePresetEditor}
-            handleDeleteActivePreset={handleDeleteActivePreset}
-            handleSaveCurrentSelectionAsPreset={handleSaveCurrentSelectionAsPreset}
-            handleSavePresetEditor={handleSavePresetEditor}
-            openSettingsOnPresetsTab={openSettingsOnPresetsTab}
-            // ── AIO pipeline — model selection & catalogs (not yet migrated) ──
-            availableDetectStageOptions={availableDetectStageOptions}
-            availableOcrStageOptions={availableOcrStageOptions}
-            availableTranslationStageOptions={availableTranslationStageOptions}
-            availableSegmentStageOptions={availableSegmentStageOptions}
-            availableCleanStageOptions={availableCleanStageOptions}
-            selectedDetectModel={selectedDetectModel}
-            selectedOcrModel={selectedOcrModel}
-            selectedSegmentModel={selectedSegmentModel}
-            selectedCleanModel={selectedCleanModel}
-            formatAioStageOptionLabel={formatAioStageOptionLabel}
-            resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
-            selectAioLocalStageModel={selectAioLocalStageModel}
-            selectAioRecognizeTextModel={selectAioRecognizeTextModel}
-            selectedDetectStatusText={selectedDetectStatusText}
-            selectedOcrStatusText={selectedOcrStatusText}
-            selectedSegmentStatusText={selectedSegmentStatusText}
-            selectedCleanStatusText={selectedCleanStatusText}
-            openModelManagerForStage={openModelManagerForStage}
-            modelManagerState={modelManagerState}
-            modelSummary={modelSummary}
-            selectedTranslationModelState={selectedTranslationModelState}
-            selectedCustomTranslationProfile={selectedCustomTranslationProfile}
-            selectedLegacyTranslationOption={selectedLegacyTranslationOption}
-            // ── AIO pipeline — labels & stage tabs (page memos) ──
-            aioStageLabels={aioStageLabels}
-            STAGE_TABS={STAGE_TABS}
-            // ── LLM settings (not yet migrated) ──
-            showLlmSettingsPanel={showLlmSettingsPanel}
-            llmSettingsSupportSummary={llmSettingsSupportSummary}
-            // ── Region editor / render stage (not yet migrated) ──
-            activeImageDetections={activeImageDetections}
-            activeSelectedRegion={activeSelectedRegion}
-            activeSelectedTranslationNotes={activeSelectedTranslationNotes}
-            activeSelectedRenderMode={activeSelectedRenderMode}
-            activeSelectedResolvedRenderMode={activeSelectedResolvedRenderMode}
-            updateActiveRenderMode={updateActiveRenderMode}
-            removeSelectedAioRegion={removeSelectedAioRegion}
-            duplicateSelectedTypographerRegion={duplicateSelectedTypographerRegion}
-            canEditActiveRenderStage={canEditActiveRenderStage}
-            applyActiveRenderStyleToAllRegions={applyActiveRenderStyleToAllRegions}
-            activeImageRenderStageActive={activeImageRenderStageActive}
-            // ── Typographer — render fonts (not yet migrated) ──
-            loadRenderFontCatalog={loadRenderFontCatalog}
-            fontCatalogLoading={fontCatalogLoading}
-            fontCatalogImporting={fontCatalogImporting}
-            fontCatalogError={fontCatalogError}
-            fontCatalogInputRef={fontCatalogInputRef}
-            handleRenderFontImport={handleRenderFontImport}
-            // ── Cleaner tools (not yet migrated) ──
-            cleanerSrcLang={cleanerSrcLang}
-            setCleanerSrcLang={setCleanerSrcLang}
-            // ── Shell (not yet migrated) ──
-            isDesktopRuntime={isDesktopRuntime}
-          />
+        {deferredStageMode === 'aio' && (
+          <Suspense fallback={<DashboardLazyFallback />}>
+            <AioRightPanel
+              // ── AIO pipeline — sub-mode & execution (not yet migrated) ──
+              handleAioSubModeChange={handleAioSubModeChange}
+              rewindAioPipeline={rewindAioPipeline}
+              forwardAioPipeline={forwardAioPipeline}
+              setManualStageForActiveImage={setManualStageForActiveImage}
+              executeManualStageForActiveImage={executeManualStageForActiveImage}
+              skipManualStageForActiveImage={skipManualStageForActiveImage}
+              handleExecuteManualAioStage={handleExecuteManualAioStage}
+              activeManualStageStatus={activeManualStageStatus}
+              aioPipelineStageLabels={aioPipelineStageLabels}
+              stopAioExecution={stopAioExecution}
+              processAIO={processAIO}
+              aioExecuteButtonProcessingLabel={aioExecuteButtonProcessingLabel}
+              // ── AIO pipeline — preset editor (not yet migrated) ──
+              normalizedAioSourceLanguage={normalizedAioSourceLanguage}
+              presetsForCurrentLanguage={presetsForCurrentLanguage}
+              activePresetForCurrentLanguage={activePresetForCurrentLanguage}
+              presetEditorStageOptions={presetEditorStageOptions}
+              aioPresetEditorOpen={aioPresetEditorOpen}
+              aioPresetEditorDraft={aioPresetEditorDraft}
+              setAioPresetEditorDraft={setAioPresetEditorDraft}
+              handlePresetSelectionChange={handlePresetSelectionChange}
+              openCreatePresetEditor={openCreatePresetEditor}
+              openEditPresetEditor={openEditPresetEditor}
+              closePresetEditor={closePresetEditor}
+              handleDeleteActivePreset={handleDeleteActivePreset}
+              handleSaveCurrentSelectionAsPreset={handleSaveCurrentSelectionAsPreset}
+              handleSavePresetEditor={handleSavePresetEditor}
+              openSettingsOnPresetsTab={openSettingsOnPresetsTab}
+              // ── AIO pipeline — model selection & catalogs (not yet migrated) ──
+              availableDetectStageOptions={availableDetectStageOptions}
+              availableOcrStageOptions={availableOcrStageOptions}
+              availableTranslationStageOptions={availableTranslationStageOptions}
+              availableSegmentStageOptions={availableSegmentStageOptions}
+              availableCleanStageOptions={availableCleanStageOptions}
+              selectedDetectModel={selectedDetectModel}
+              selectedOcrModel={selectedOcrModel}
+              selectedSegmentModel={selectedSegmentModel}
+              selectedCleanModel={selectedCleanModel}
+              formatAioStageOptionLabel={formatAioStageOptionLabel}
+              resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
+              selectAioLocalStageModel={selectAioLocalStageModel}
+              selectAioRecognizeTextModel={selectAioRecognizeTextModel}
+              selectedDetectStatusText={selectedDetectStatusText}
+              selectedOcrStatusText={selectedOcrStatusText}
+              selectedSegmentStatusText={selectedSegmentStatusText}
+              selectedCleanStatusText={selectedCleanStatusText}
+              openModelManagerForStage={openModelManagerForStage}
+              modelManagerState={modelManagerState}
+              modelSummary={modelSummary}
+              selectedTranslationModelState={selectedTranslationModelState}
+              selectedCustomTranslationProfile={selectedCustomTranslationProfile}
+              selectedLegacyTranslationOption={selectedLegacyTranslationOption}
+              // ── AIO pipeline — labels & stage tabs (page memos) ──
+              aioStageLabels={aioStageLabels}
+              STAGE_TABS={STAGE_TABS}
+              // ── LLM settings (not yet migrated) ──
+              showLlmSettingsPanel={showLlmSettingsPanel}
+              llmSettingsSupportSummary={llmSettingsSupportSummary}
+              // ── Region editor / render stage (not yet migrated) ──
+              activeImageDetections={activeImageDetections}
+              activeSelectedRegion={activeSelectedRegion}
+              activeSelectedTranslationNotes={activeSelectedTranslationNotes}
+              activeSelectedRenderMode={activeSelectedRenderMode}
+              activeSelectedResolvedRenderMode={activeSelectedResolvedRenderMode}
+              updateActiveRenderMode={updateActiveRenderMode}
+              removeSelectedAioRegion={removeSelectedAioRegion}
+              duplicateSelectedTypographerRegion={duplicateSelectedTypographerRegion}
+              canEditActiveRenderStage={canEditActiveRenderStage}
+              applyActiveRenderStyleToAllRegions={applyActiveRenderStyleToAllRegions}
+              activeImageRenderStageActive={activeImageRenderStageActive}
+              // ── Typographer — render fonts (not yet migrated) ──
+              loadRenderFontCatalog={loadRenderFontCatalog}
+              fontCatalogLoading={fontCatalogLoading}
+              fontCatalogImporting={fontCatalogImporting}
+              fontCatalogError={fontCatalogError}
+              fontCatalogInputRef={fontCatalogInputRef}
+              handleRenderFontImport={handleRenderFontImport}
+              // ── Cleaner tools (not yet migrated) ──
+              cleanerSrcLang={cleanerSrcLang}
+              setCleanerSrcLang={setCleanerSrcLang}
+              // ── Shell (not yet migrated) ──
+              isDesktopRuntime={isDesktopRuntime}
+            />
+          </Suspense>
         )}
-        {mode === 'cleaner' && (
-          <CleanerToolsPanel
-            cleanerAiModelOptions={cleanerAiOptionsForSelect}
-            availableOcrStageOptions={cleanerAvailableOcrStageOptions}
-            availableSegmentStageOptions={cleanerAvailableSegmentStageOptions}
-            availableCleanStageOptions={cleanerAvailableCleanStageOptions}
-            selectedOcrCloudOption={selectedOcrCloudOption}
-            selectedSegmentModel={selectedSegmentModel}
-            selectedCleanModel={selectedCleanModel}
-            selectedCleanerAiOption={selectedCleanerAiDisplayOption}
-            selectedOcrStatusText={selectedOcrStatusText}
-            selectedSegmentStatusText={selectedSegmentStatusText}
-            selectedCleanStatusText={selectedCleanStatusText}
-            formatAioStageOptionLabel={formatAioStageOptionLabel}
-            selectAioLocalStageModel={selectAioLocalStageModel}
-            openModelManagerForStage={openModelManagerForStage}
-            resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
-            selectCleanerAiModel={selectCleanerAiModel}
-            handleClean={handleClean}
-            localApiUrl={apiConfig.localUrl}
-            activeCleanerRunMeta={activeCleanerRunMeta}
-            activeCleanerSelectedRegion={activeCleanerSelectedRegion}
-          />
+        {deferredStageMode === 'cleaner' && (
+          <Suspense fallback={<DashboardLazyFallback />}>
+            <CleanerToolsPanel
+              cleanerAiModelOptions={cleanerAiOptionsForSelect}
+              availableOcrStageOptions={cleanerAvailableOcrStageOptions}
+              availableSegmentStageOptions={cleanerAvailableSegmentStageOptions}
+              availableCleanStageOptions={cleanerAvailableCleanStageOptions}
+              selectedOcrCloudOption={selectedOcrCloudOption}
+              selectedSegmentModel={selectedSegmentModel}
+              selectedCleanModel={selectedCleanModel}
+              selectedCleanerAiOption={selectedCleanerAiDisplayOption}
+              selectedOcrStatusText={selectedOcrStatusText}
+              selectedSegmentStatusText={selectedSegmentStatusText}
+              selectedCleanStatusText={selectedCleanStatusText}
+              formatAioStageOptionLabel={formatAioStageOptionLabel}
+              selectAioLocalStageModel={selectAioLocalStageModel}
+              openModelManagerForStage={openModelManagerForStage}
+              resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
+              selectCleanerAiModel={selectCleanerAiModel}
+              handleClean={handleClean}
+              localApiUrl={apiConfig.localUrl}
+              activeCleanerRunMeta={activeCleanerRunMeta}
+              activeCleanerSelectedRegion={activeCleanerSelectedRegion}
+            />
+          </Suspense>
         )}
-        {mode === 'typesetter' && (
-          <TypographerToolsPanel
-            activeTypographerSession={activeTypographerSession}
-            activeTypographerPreset={activeTypographerPreset}
-            activeTypographerMultiSelectedIds={activeTypographerMultiSelectedIds}
-            availableRenderFonts={availableRenderFonts}
-            handleTypographerPresetChange={handleTypographerPresetChange}
-            refineActiveTypographerShape={refineActiveTypographerShape}
-            convertActiveTypographerShape={convertActiveTypographerShape}
-            duplicateSelectedTypographerRegion={duplicateSelectedTypographerRegion}
-            removeSelectedAioRegion={removeSelectedAioRegion}
-            applyActiveTypographyPresetToSelection={applyActiveTypographyPresetToSelection}
-            applyActiveTypographyPresetToImage={applyActiveTypographyPresetToImage}
-            handleTypographerSaveSnapshot={handleTypographerSaveSnapshot}
-            handleTypographerRestoreSnapshot={handleTypographerRestoreSnapshot}
-            handleTypographerDraftChange={handleTypographerDraftChange}
-            handleTypographerBuildQueue={handleTypographerBuildQueue}
-            handleTypographerClearQueue={handleTypographerClearQueue}
-            applySelectedTypographerQueueItem={applySelectedTypographerQueueItem}
-            applyNextTypographerQueueItem={applyNextTypographerQueueItem}
-            handleTypographerToggleMultiBubble={handleTypographerToggleMultiBubble}
-            handleTypographerImportQueueText={handleTypographerImportQueueText}
-            handleTypographerMultiSelectReorder={handleTypographerMultiSelectReorder}
-            handleUpdateTypographyPreset={handleUpdateTypographyPreset}
-          />
+        {deferredStageMode === 'typesetter' && (
+          <Suspense fallback={<DashboardLazyFallback />}>
+            <TypographerToolsPanel
+              activeTypographerSession={activeTypographerSession}
+              activeTypographerPreset={activeTypographerPreset}
+              activeTypographerMultiSelectedIds={activeTypographerMultiSelectedIds}
+              availableRenderFonts={availableRenderFonts}
+              handleTypographerPresetChange={handleTypographerPresetChange}
+              refineActiveTypographerShape={refineActiveTypographerShape}
+              convertActiveTypographerShape={convertActiveTypographerShape}
+              duplicateSelectedTypographerRegion={duplicateSelectedTypographerRegion}
+              removeSelectedAioRegion={removeSelectedAioRegion}
+              applyActiveTypographyPresetToSelection={applyActiveTypographyPresetToSelection}
+              applyActiveTypographyPresetToImage={applyActiveTypographyPresetToImage}
+              handleTypographerSaveSnapshot={handleTypographerSaveSnapshot}
+              handleTypographerRestoreSnapshot={handleTypographerRestoreSnapshot}
+              handleTypographerDraftChange={handleTypographerDraftChange}
+              handleTypographerBuildQueue={handleTypographerBuildQueue}
+              handleTypographerClearQueue={handleTypographerClearQueue}
+              applySelectedTypographerQueueItem={applySelectedTypographerQueueItem}
+              applyNextTypographerQueueItem={applyNextTypographerQueueItem}
+              handleTypographerToggleMultiBubble={handleTypographerToggleMultiBubble}
+              handleTypographerImportQueueText={handleTypographerImportQueueText}
+              handleTypographerMultiSelectReorder={handleTypographerMultiSelectReorder}
+              handleUpdateTypographyPreset={handleUpdateTypographyPreset}
+            />
+          </Suspense>
         )}
-        {mode === 'translator' && (
-          <TranslatorToolsPanel
-            translatorAvailableOcrStageOptions={
-              translatorAvailableOcrStageOptions
-            }
-            selectedTranslatorOcrCloudOption={selectedTranslatorOcrCloudOption}
-            selectedOcrStatusText={selectedOcrStatusText}
-            availableTranslationStageOptions={availableTranslationStageOptions}
-            selectedTranslationModelState={selectedTranslationModelState}
-            selectedCustomTranslationProfile={selectedCustomTranslationProfile}
-            selectedLegacyTranslationOption={selectedLegacyTranslationOption}
-            translatorSelectedLocalTranslationCompatible={
-              translatorSelectedLocalTranslationCompatible
-            }
-            selectedTranslatorSfxCleanOption={
-              selectedTranslatorSfxCleanDisplayOption
-            }
-            formatAioStageOptionLabel={formatAioStageOptionLabel}
-            resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
-            modelEntries={modelManagerState.entries}
-            modelSummary={modelSummary}
-            openModelManagerForStage={openModelManagerForStage}
-            cleanerAiOptionsForSelect={cleanerAiOptionsForSelect}
-            selectTranslatorSfxCleanModel={selectTranslatorSfxCleanModel}
-            showLlmSettingsPanel={showLlmSettingsPanel}
-            translatorTextImportRef={translatorTextImportRef}
-            translatorImageImportRef={translatorImageImportRef}
-            runTranslatorText={runTranslatorText}
-            processTranslatorVisual={processTranslatorVisual}
-            handleTranslatorTextImport={handleTranslatorTextImport}
-            handleTranslatorImageUpload={handleTranslatorImageUpload}
-            activeId={resolvedActiveId}
-            activeTranslatorImageDetections={activeTranslatorImageDetections}
-            activeTranslatorSelectedRegion={activeTranslatorSelectedRegion}
-            activeTranslatorSelectedTranslationNotes={
-              activeTranslatorSelectedTranslationNotes
-            }
-            retranslateTranslatorRegions={retranslateTranslatorRegions}
-          />
+        {deferredStageMode === 'translator' && (
+          <Suspense fallback={<DashboardLazyFallback />}>
+            <TranslatorToolsPanel
+              translatorAvailableOcrStageOptions={
+                translatorAvailableOcrStageOptions
+              }
+              selectedTranslatorOcrCloudOption={selectedTranslatorOcrCloudOption}
+              selectedOcrStatusText={selectedOcrStatusText}
+              availableTranslationStageOptions={availableTranslationStageOptions}
+              selectedTranslationModelState={selectedTranslationModelState}
+              selectedCustomTranslationProfile={selectedCustomTranslationProfile}
+              selectedLegacyTranslationOption={selectedLegacyTranslationOption}
+              translatorSelectedLocalTranslationCompatible={
+                translatorSelectedLocalTranslationCompatible
+              }
+              selectedTranslatorSfxCleanOption={
+                selectedTranslatorSfxCleanDisplayOption
+              }
+              formatAioStageOptionLabel={formatAioStageOptionLabel}
+              resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
+              modelEntries={modelManagerState.entries}
+              modelSummary={modelSummary}
+              openModelManagerForStage={openModelManagerForStage}
+              cleanerAiOptionsForSelect={cleanerAiOptionsForSelect}
+              selectTranslatorSfxCleanModel={selectTranslatorSfxCleanModel}
+              showLlmSettingsPanel={showLlmSettingsPanel}
+              translatorTextImportRef={translatorTextImportRef}
+              translatorImageImportRef={translatorImageImportRef}
+              runTranslatorText={runTranslatorText}
+              processTranslatorVisual={processTranslatorVisual}
+              handleTranslatorTextImport={handleTranslatorTextImport}
+              handleTranslatorImageUpload={handleTranslatorImageUpload}
+              activeId={resolvedActiveId}
+              activeTranslatorImageDetections={activeTranslatorImageDetections}
+              activeTranslatorSelectedRegion={activeTranslatorSelectedRegion}
+              activeTranslatorSelectedTranslationNotes={
+                activeTranslatorSelectedTranslationNotes
+              }
+              retranslateTranslatorRegions={retranslateTranslatorRegions}
+            />
+          </Suspense>
         )}
         <WorkflowSidebarPanelsSection
           stitchBatchPlans={stitchBatchPlans}
@@ -1557,17 +1584,19 @@ export default function DashboardMainLayout({
         />
         <InfoModesToolsPanel mode={mode} />
         {/* ─── MELHORAR (ENHANCE) ─── */}
-        {mode === 'enhance' && (
-          <EnhanceToolsPanelSection
-            isDesktopRuntime={isDesktopRuntime}
-            selectedEnhanceModel={selectedEnhanceModel}
-            selectedEnhanceInstallState={selectedEnhanceInstallState}
-            filteredEnhanceModels={filteredEnhanceModels}
-            setEnhanceModelManagerOpen={setEnhanceModelManagerOpen}
-            importSelectedEnhanceModel={importSelectedEnhanceModel}
-            installSelectedEnhanceModel={installSelectedEnhanceModel}
-            processEnhance={processEnhance}
-          />
+        {deferredStageMode === 'enhance' && (
+          <Suspense fallback={<DashboardLazyFallback />}>
+            <EnhanceToolsPanelSection
+              isDesktopRuntime={isDesktopRuntime}
+              selectedEnhanceModel={selectedEnhanceModel}
+              selectedEnhanceInstallState={selectedEnhanceInstallState}
+              filteredEnhanceModels={filteredEnhanceModels}
+              setEnhanceModelManagerOpen={setEnhanceModelManagerOpen}
+              importSelectedEnhanceModel={importSelectedEnhanceModel}
+              installSelectedEnhanceModel={installSelectedEnhanceModel}
+              processEnhance={processEnhance}
+            />
+          </Suspense>
         )}
         <ReviewRawToolsPanel
           mode={mode}

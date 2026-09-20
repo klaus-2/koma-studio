@@ -248,3 +248,111 @@ Relatório final salvo em [`react-doctor-interface-final.json`](./react-doctor-i
 Todos **reproduzíveis por troca** (não é só cold-start). Testado e **refutado**: adiar o primeiro paint do canvas para rAF não reduz o custo (o dominante é o mount do React da stage — DOM+layout+compositing, não o raster). Deferral revertido. O caminho real para os ofensores de mount é arquitetural: keep-alive das stages (não desmontar ao trocar de modo), virtualização com threshold menor para canvas grandes, ou lazy-mount das tools pesadas — **decidir com profiling em hardware real** (SwiftShader multiplica o custo de canvas ~5-10×).
 
 **Dívida documentada (não re-flaggear)**: re-render do DashboardPage por commit de região; custos de mount das stages; EADDRINUSE do auth-server em sessões paralelas (cobrido na próxima subida do electron).
+
+---
+
+## 6. Pós-programa: plano stage-mount (2026-08-31)
+
+**Problema medido** (seção 5): trocas de modo custam por troca, reproduzível —
+aio/cleaner ~310-320ms, typesetter/translator ~200ms, split/watermark ~155-185ms,
+retorno ao dashboard ~330-560ms (headless SwiftShader; GPU real ≈ 5-10× menos, ainda perceptível).
+
+**Diagnóstico do mount** (código):
+- `StageGrid.tsx` + `DashboardSpecialModeStage.tsx` desmontam a stage antiga e montam a nova a cada `setMode` — sem keep-alive.
+- Imports estáticos: nenhum stage é `React.lazy` (tudo no bundle principal; custo de mount = React DOM + raster, não module eval).
+- Cada item de stage (RenderTextPreview) monta **4-5 canvases** (paint, wand mask, healing mask, render) e rasteriza todos no mount (`drawRegionsToCanvas` no effect + `preloadRegionCanvasFonts`).
+- `VirtualizedLongStrip` só ativa com **>5** imagens — com ≤5, todas as montagens+rasters acontecem juntas.
+- Hipótese do paint-deferral (rAF no primeiro paint) **testada e refutada** (seção 5): o custo dominante é o mount do React/DOM em si, não o raster isolado.
+
+### Fase 0 (plano) — Medição em hardware real (pré-requisito, ~1h)
+- Rodar o sweep probe contra o app com GPU real (chromium headed `--enable-gpu` ou o próprio Electron) e registrar a tabela base.
+- Critério: tabela antes/depois por fase; decisões das fases 2-4 dependem destes números (SwiftShader distorce prioridades).
+
+### Fase 1 — Quick wins de troca (baixo risco, ~2-4h)
+- **1a. `startTransition` no `setMode`** (ui-shell): a troca vira update concorrente — a stage antiga permanece interativa enquanto a nova monta; a travada vira não-bloqueante. Verificação: sweep com input responsivo durante a troca; drag probe inalterado.
+- **1b. `React.lazy` + preload antecipado dos workbases especiais** (`DashboardSpecialModeStage`: stitch/split/watermark/optimizer) e do `TranslatorTextStage` (tiptap): code-split tira parse/eval do primeiro mount; `import()` disparado na idle logo após o boot (modulepreload) para a troca não esperar rede/parse. Verificação: chunk count no build + sweep.
+- **1c. Dedupe de `preloadRegionCanvasFonts` por (família,peso) já existe — garantir que o primeiro paint não espere rede de fontes fora da tela.** Barato, manter.
+
+### Fase 2 (plano) — Cache de raster das stages (o maior ganho por complexidade, ~4-8h)
+- **2a. Cache de bitmap por (imageId, hash-de-regiões, stage)**: no unmount, salvar `ImageBitmap`/dataURL do canvas final ( já existe revoke/close helpers); no remount, **blit imediato** do bitmap no canvas e re-render fino por cima quando dados chegarem. Elimina a rasterização completa do mount (o pedaço caro que o deferral não separou) sem manter a árvore viva.
+- **2b. (Se 2a insuficiente) Keep-alive LRU-2 das stages pesadas** (aio, cleaner, typesetter, translator): renderizar a stage oculta (`display:none`, NÃO `content-visibility` — bugs conhecidos com canvas) em vez de desmontar; hooks de shortcut/keyboard/timers precisam de gate `visible` (o wiring já tem padrões de pause nos workbenches). Trade-off explícito: memória (canvases 1600×1200 × imagens × stages) — medir DevTools Memory antes/depois.
+- Verificação: sweep — mode:aio/cleaner < 120ms em GPU real; drag probe 0 long tasks; smoke 11/11; memória < orçamento definido na Fase 0.
+
+### Fase 3 (plano) — Virtualização/pintura sob demanda (~3-6h)
+- Threshold do `VirtualizedLongStrip` (>5) revisado para stages com canvas pesado (renderizar só visíveis + overscan via `IntersectionObserver` no modo grid), ou pintar previews fora da viewport na idle.
+- Verificação: sweep com 10+ imagens injetadas; mount com N imagens deve escalar sublinear.
+
+### Fase 4 (plano) — Dívida estrutural relacionada (fora do escopo imediato)
+- Extração da grade do `DashboardPage` (o retorno ao dashboard de 330-560ms inclui o re-render da página inteira além do remount) + subscrições por imagem em vez do mapa inteiro (mesma direção do CoW atual).
+- Executar só depois das fases 1-3, com o profiling real apontando o que resta.
+
+### Ordem e gates
+Fase 0 → 1a → 1b → 2a → (2b se preciso) → 3. Cada fase: sweep + drag probe + smoke 11/11 + Doctor 0 erros + registro antes/depois neste arquivo. Commits por fase.
+
+### Fase 0 — Harness de medição em GPU real + baseline
+
+**Probes** (temporários, untracked, reutilizados pelas fases seguintes; medição apenas — nenhum código de produção tocado):
+
+- `apps/tauri/tests/e2e/interaction-sweep-probe.spec.ts` — varre o dashboard (12 modos × `setSubMode('manual')`, 5 seleções de região, 4 rotas) com coletor `PerformanceObserver('longtask')` e janelas de 900ms; 1 imagem canvas 1600×1200 + 5 regiões manuais injetadas via dynamic import do module graph do vite (`/@fs/…/stores/*`).
+- `apps/tauri/tests/e2e/text-follow-probe.spec.ts` — drag do `koma-render-box` (20 passos de +15/+7.5px, 40ms): primeiro click só seleciona; amostra massa de pixels alpha do canvas (origem `getImageData(380,280,560,160)`, destino `getImageData(680,430,620,180)`) a cada passo; separa long tasks de **drag** (antes do pointerup) e de **commit** (pointerup). 2 passes: full (com pixels) e perf-only (`window.__komaNoPixels` pula o getImageData — readbacks dominam long tasks em software rendering).
+- Helpers compartilhados: `apps/tauri/tests/e2e/probe-helpers.ts` (GPU args, injeção de fixture, coletor/long-task windows, filtro de ruído de sidecars).
+
+**GPU mode alcançado**: **headed (GPU real)** — default dos probes com `launchOptions: { headless: false, args: ['--enable-gpu', '--disable-software-rasterizer', '--enable-zero-copy'] }`; fallback documentado via `SWEEP_HEADLESS=1` (headless novo, mesmos args) — não foi necessário. Evidência em ambos os runs: `GPU_MODE headed webgpu=true webgl2=true`, UA `Chrome/151.0.7922.34` sem "Headless". Viewport 1760×1320, `--workers=1`. Nota de harness: o probe de drag precisa subir o progresso manual do pipeline para o stage `render` (`setAioManualProgressByImage`, índice 5) — sem isso a imagem nova fica em detectText (1/6) e o `RenderTextPreview` (dono do `.koma-render-box`) não monta.
+
+**Baseline — varredura de interações (worst long task, ms; GPU real headed; 2026-08-31)**
+
+| Interação | Run 1 | Run 2 |
+| --- | --- | --- |
+| mode:aio | 205 | 206 |
+| mode:cleaner | 118 | 124 |
+| mode:typesetter | 216 | 202 |
+| mode:translator | 72 | 69 |
+| mode:raw | 53 | 56 |
+| mode:proofreader | 0 (sem task) | 52 |
+| mode:stitch | 71 | 67 |
+| mode:split | 87 | 82 |
+| mode:watermark | 103 | 98 |
+| mode:enhance | 63 | 61 |
+| mode:optimizer | 67 | 70 |
+| mode:organize | 54 | 51 |
+| region-select ×5 | 0 | 0 |
+| rotas settings / model-rankings / scanlation-feed | 0 | 0 |
+| route:/#/dashboard (retorno) | 234 | 237 |
+
+Ofensores >120ms consistentes: `mode:aio` (~205), `mode:typesetter` (~202-216), retorno `/#/dashboard` (~234-237) e `mode:cleaner` borderline (118-124). Comparação com SwiftShader (seção 5): aio 308-322 → 205-206, typesetter 198-214 → 202-216 (quase inalterado — dominado por DOM/layout, não raster), dashboard retorno 332-557 → 234-237; region-select e rotas leves caem a zero em GPU. Variância entre runs ≤ ~15ms.
+
+**Baseline — drag probe (20 passos; GPU real headed; 2026-08-31)**
+
+| Métrica | Run 1 | Run 2 |
+| --- | --- | --- |
+| Drag worst — full (com pixels) | **0 tasks** | **0 tasks** |
+| Drag worst — perf-only (sem getImageData) | **0** (assert < 50ms ✅) | **0** (assert < 50ms ✅) |
+| Commit pointerup worst — full | 127ms | 124ms |
+| Commit pointerup worst — perf-only | 117ms | 123ms |
+| Massa alpha origem → destino | 10419 → 0 / 0 → 4904 | 10419 → 0 / 0 → 4904 |
+| Deslocamento do box | +300px x | +300px x |
+
+Leitura: o texto renderizado segue o box ao vivo (massa migra por completo da janela de origem para a de destino durante o drag, 0 long tasks — inclusive com readback de pixels em GPU); o custo restante está no commit único do pointerup (~117-127ms — re-render do DashboardPage por `aioDetectionsByImage`, dívida estrutural já anotada na seção 5). Os probes não tiveram nenhum pageerror/console error nas 4 execuções.
+
+### Fase 1b — Code-split dos workbenches + idle preload (2026-08-31, uncommitted)
+
+**O que foi feito**:
+- `React.lazy` + Suspense (fallback compartilhado `DashboardLazyFallback`) em: 5 painéis de modo (`AioRightPanel`, `CleanerToolsPanel`, `TypographerToolsPanel`, `TranslatorToolsPanel`, `EnhanceToolsPanel` — wrappers em `DashboardMainLayout`), `TranslatorTextStage` (tiptap, em `StageGrid`) e 4 páginas info-mode (blogger/guides/imgur/resources, em `DashboardInfoModeStage`); os 4 workspaces especiais já eram lazy.
+- Idle preload: `pages/dashboard/hooks/use-dashboard-idle-preload.ts` — `requestIdleCallback` (fallback `setTimeout` 1500) dispara `import()` de todos os 17 módulos após o mount do dashboard; fire-and-forget, erro engolido.
+- `utils/lazyModule.ts` (`memoLoad`): a pré-carga e o ctor do `React.lazy` compartilham a MESMA promise. Sem isso o primeiro mount suspende mesmo com o chunk quente (medido: fallback de ~240ms no stitch em dev — o `import()` do ctor criava uma segunda promise ainda pending).
+- Os 5 painéis lazy renderizam no `deferredStageMode` (mesma lane da stage, 1a): primeiro mount suspenso segura a UI anterior em vez de commitar o fallback.
+- Nenhuma fronteira lazy na tela padrão (organize): a grade usa `PreviewStageItem` estático. Nota: `RenderTextPreview`/`TextDetectionPreview` continuam no chunk principal via imports estáticos pré-existentes (`CleanerStageItem`/`TypesetterStageItem`/`TranslatorVisualStageItem`) — o `lazy()` que a StageGrid aplica a eles não muda o split (mantido, inócuo).
+
+**Verificação**:
+- Flash probe (`fase1b-flash-check.spec.ts`, headed GPU, 10 modos × primeira troca e steady-state): 11 sightings de fallback no estado recebido → **0** após `memoLoad` + painéis na lane deferred (warm 13/13 confirmado via resource timing).
+- Build produção (vs build no HEAD `c40517d`): chunk `Dashboard` 910.6 → 746.0 kB (gzip 224.3 → 190.4 kB, −15%); entry `index` inalterado (620.8 kB); 52 → 66 chunks (+11 módulos-alvo + extrações de deps compartilhadas).
+- Sweep 3× (GPU real headed, worst long task por janela, mediana | baseline Fase 0): mode:aio 127 | 205 · typesetter 136 | 209 · watermark 69 | 100 · translator 61 | 70 · optimizer 70 | 68 · stitch 83 | 69 · split 116 | 84 · retorno /#/dashboard 264 (241-371 ruidoso) | 236.
+- Gates: typecheck raiz+interface ✅ · vitest 43/43 ✅ · dashboard smoke 11/11 ✅ · text-follow full: drag 0 tasks, commit 134ms (janela 120-135), massa 10419→0 / 0→4904, box +300px ✅ · perf-only: drag 0 (<50 ✅), commit 126ms ✅.
+
+**Leitura honesta**: split (+32ms) e stitch (+14ms) pioram — o swap virou dois commits (urgente + deferred) e a janela do probe captura a cauda; aio/typesetter/watermark caem 30-40% (mount dividido entre commits). O entregável desta fase é o code-split + garantia de no-flash, não a queda generalizada do sweep; retorno ao dashboard segue dívida estrutural (Fase 4).
+
+### Fase 1b — resultado (2026-08-31)
+- **Implementado**: `memoLoad` (`utils/lazyModule.ts`, promise compartilhada entre React.lazy e o preload; rejeição evita o memo → retry no próximo render); preload na idle (`use-dashboard-idle-preload` + wiring no Dashboard); lazy+Suspense nos 5 painéis de tools (lane deferred — trocam atomicamente com a stage), DashboardInfoModeStage, TranslatorTextStage. Flash-check: **11 → 0 flashes** em 10 trocas. Bundle: chunk Dashboard **910.6 → 746.0 kB** (gzip 224.3 → 190.4), entrada inalterada, chunks 52 → 66.
+- **Medição (3-run medians, GPU real)**: aio 205 → **127** (−38%), typesetter 209 → **136**, watermark 100 → **69**, translator 70 → 61, optimizer 68 → 70. **split 84 → 116 e stitch 69 → 83 pioraram** — o review adjudicou como **provável ruído de sessão** (o mecanismo atribuído — swap em 2 commits — não toca as lanes de split/stitch; otimizador +2ms, translator −9ms no mesmo caminho). Aceito com remeasure antes de usar como gate.
+- **Follow-ups anotados**: (1) ErrorBoundary em torno do DashboardMainLayout — a superfície lazy quadruplicou (4→16) e React.lazy nunca recusa-retry (payload rejected = throw permanente); (2) os dois lazy() no-op dos previews (cadeia estática via Typesetter/Cleaner/TranslatorVisual) — limpar se algum dia saírem do boot path; (3) flash-check probe é instrumento fraco (polling 150ms, sem assert) — manter só como diagnóstico.
+- Gates: typecheck ✅, vitest 43/43 ✅, smoke 11/11 ✅, drag probe 0 tasks no drag / commit 126-134ms ✅, build de produção ✅.

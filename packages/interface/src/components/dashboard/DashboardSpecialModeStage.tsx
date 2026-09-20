@@ -1,12 +1,26 @@
 import { Suspense, lazy, memo } from 'react';
 import { Languages, Upload } from 'lucide-react';
 import { useI18n } from '@/i18n';
+import { memoLoad } from '../../utils/lazyModule';
 import type { ToolMode } from '../../types/dashboard.types';
 
-const StitchWorkspace = lazy(() => import('./stitch/StitchWorkspace'));
-const SplitterWorkspace = lazy(() => import('./splitter/SplitterWorkspace'));
-const WatermarkWorkspace = lazy(() => import('./watermark/WatermarkWorkspace'));
-const ChapterOptimizerWorkspace = lazy(() => import('./optimizer/ChapterOptimizerWorkspace'));
+const loadStitchWorkspace = memoLoad(() => import('./stitch/StitchWorkspace'));
+const loadSplitterWorkspace = memoLoad(() => import('./splitter/SplitterWorkspace'));
+const loadWatermarkWorkspace = memoLoad(() => import('./watermark/WatermarkWorkspace'));
+const loadChapterOptimizerWorkspace = memoLoad(() => import('./optimizer/ChapterOptimizerWorkspace'));
+
+const StitchWorkspace = lazy(loadStitchWorkspace);
+const SplitterWorkspace = lazy(loadSplitterWorkspace);
+const WatermarkWorkspace = lazy(loadWatermarkWorkspace);
+const ChapterOptimizerWorkspace = lazy(loadChapterOptimizerWorkspace);
+
+/** Fire-and-forget warmup of the special workspaces (called at browser idle). */
+export function preloadSpecialWorkspaces() {
+  void loadStitchWorkspace().catch(() => { });
+  void loadSplitterWorkspace().catch(() => { });
+  void loadWatermarkWorkspace().catch(() => { });
+  void loadChapterOptimizerWorkspace().catch(() => { });
+}
 
 const LazyFallback = () => (
   <div className="koma-stage__empty" data-tour="dashboard-stage-empty">

@@ -205,6 +205,7 @@ import {
 } from './dashboard/hooks/auth-account';
 import { useWorkspacePersistence } from './dashboard/hooks/workspace-persistence';
 import { useDashboardKeyboard } from './dashboard/hooks/use-dashboard-keyboard';
+import { useDashboardIdlePreload } from './dashboard/hooks/use-dashboard-idle-preload';
 import DashboardMainLayout from './dashboard/sections/DashboardMainLayout';
 
 // ── UI Sub-components ──
@@ -214,6 +215,8 @@ export const DashboardPage = ({
   onOpenModelRankings,
   onOpenScanlationFeed,
 }: DashboardPageProps) => {
+  // Warm up lazy mode modules at browser idle (first switch never waits).
+  useDashboardIdlePreload();
   const { t } = useI18n();
   const {
     user: authUser,
