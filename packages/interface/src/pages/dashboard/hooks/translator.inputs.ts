@@ -8,7 +8,7 @@
 import { useCallback, useMemo } from 'react';
 
 import {
-  cloneAioRegions,
+  cloneAioRegionsCoW,
   cloneRenderStyle,
   getRegionTranslationNotesForDisplay,
   isDirectImageUploadFile,
@@ -38,7 +38,14 @@ export function useTranslatorRegionEditing() {
       nextRegions: AioTextRegion[],
       selectedRegionIdOverride?: string | null,
     ) => {
-      const clonedRegions = cloneAioRegions(nextRegions, cloneRenderStyle);
+      // Clone-on-write: untouched regions keep their identity (see
+      // cloneAioRegionsCoW) so the preview canvas and memoized boxes don't
+      // churn on every edit.
+      const { regions: clonedRegions } = cloneAioRegionsCoW(
+        nextRegions,
+        translatorDetectionsByImage[imageId],
+        cloneRenderStyle,
+      );
       setTranslatorDetectionsByImage((prev) => ({
         ...prev,
         [imageId]: clonedRegions,

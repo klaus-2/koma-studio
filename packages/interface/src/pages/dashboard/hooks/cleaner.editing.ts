@@ -14,7 +14,7 @@ import {
   blobToDataUrl,
   buildMagicWandMaskDataUrl,
   canvasToBlob,
-  cloneAioRegions,
+  cloneAioRegionsCoW,
   cloneRenderStyle,
   dataUrlToBlob,
   loadImageFromSource,
@@ -52,7 +52,11 @@ export function useCleanerRegionEditing() {
       nextRegions: AioTextRegion[],
       selectedRegionIdOverride?: string | null,
     ) => {
-      const clonedRegions = cloneAioRegions(nextRegions, cloneRenderStyle);
+      const { regions: clonedRegions } = cloneAioRegionsCoW(
+        nextRegions,
+        cleanerDetectionsByImage[imageId],
+        cloneRenderStyle,
+      );
       setCleanerDetectionsByImage((prev) => ({
         ...prev,
         [imageId]: clonedRegions,

@@ -444,6 +444,33 @@ export const cloneAioRegions = (
   cloneStyle: (style?: RenderTextStyle) => RenderTextStyle,
 ): AioTextRegion[] => regions.map((region) => cloneAioRegion(region, cloneStyle));
 
+/**
+ * Clone-on-write region update: regions whose content matches the previous
+ * committed state keep their object identity, so downstream identity caches
+ * (region model, canvas layout cache, memoized overlay boxes) stay warm and
+ * the store churn per edit stays proportional to what actually changed.
+ * The wholesale deep clone this replaces was the dominant cost of every
+ * region commit (drag release, text edits) on region-heavy pages.
+ */
+export const cloneAioRegionsCoW = (
+  nextRegions: AioTextRegion[],
+  previousRegions: AioTextRegion[] | undefined,
+  cloneStyle: (style?: RenderTextStyle) => RenderTextStyle,
+): { regions: AioTextRegion[]; changed: boolean } => {
+  let changed = (previousRegions?.length ?? -1) !== nextRegions.length;
+  const regions = nextRegions.map((region, index) => {
+    const previous = previousRegions?.[index];
+    if (previous === region) return region;
+    const cloned = cloneAioRegion(region, cloneStyle);
+    if (previous && areAioRegionsEqual([previous], [cloned], cloneStyle)) {
+      return previous;
+    }
+    changed = true;
+    return cloned;
+  });
+  return { regions, changed };
+};
+
 const areRgbTripletsEqual = (
   a: [number, number, number] | undefined,
   b: [number, number, number] | undefined,

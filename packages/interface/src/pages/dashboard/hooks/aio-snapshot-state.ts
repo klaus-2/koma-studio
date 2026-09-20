@@ -13,7 +13,7 @@ import {
   clamp,
   cloneAioDetectionsMap,
   cloneAioDownloadEntries,
-  cloneAioRegions,
+  cloneAioRegionsCoW,
   cloneRenderStyle,
   resolveSelectedRegionForRegions,
 } from '../../../utils/dashboard.utils';
@@ -384,10 +384,11 @@ export function useAioPipelineSnapshotState({
             const snapshot =
               normalizedSnapshots[activeProgress.currentIndex] ?? null;
             if (snapshot) {
-              const activeRegions = cloneAioRegions(
-                snapshot.detectionsByImage[activeId] ?? [],
-                cloneRenderStyle,
-              );
+            const activeRegions = cloneAioRegionsCoW(
+              snapshot.detectionsByImage[activeId] ?? [],
+              aioDetectionsByImage[activeId],
+              cloneRenderStyle,
+            ).regions;
               const activeSelected = resolveSnapshotSelectionForImage(
                 snapshot,
                 activeId,
@@ -450,10 +451,11 @@ export function useAioPipelineSnapshotState({
       const snapshot = aioPipelineSnapshots[index] ?? null;
       if (!snapshot) return null;
 
-      const regions = cloneAioRegions(
+      const regions = cloneAioRegionsCoW(
         snapshot.detectionsByImage[imageId] ?? [],
+        aioDetectionsByImage[imageId],
         cloneRenderStyle,
-      );
+      ).regions;
       const selectedRegionId = resolveSnapshotSelectionForImage(
         snapshot,
         imageId,
@@ -647,7 +649,14 @@ export function useAioPipelineSnapshotState({
       downloadEntry?: AioDownloadEntry | null,
     ) => {
       if (stageIndex < 0) return;
-      const clonedRegions = cloneAioRegions(nextRegions, cloneRenderStyle);
+      // Clone-on-write against the stage snapshot's committed regions:
+      // untouched regions keep identity so snapshot patches stay cheap and
+      // downstream identity caches (region model, canvas, memo boxes) hit.
+      const { regions: clonedRegions } = cloneAioRegionsCoW(
+        nextRegions,
+        aioPipelineSnapshots[stageIndex]?.detectionsByImage[imageId],
+        cloneRenderStyle,
+      );
       const resolvedSelected = resolveSelectedRegionForRegions(
         clonedRegions,
         clonedRegions[0]?.id ?? null,
@@ -721,11 +730,12 @@ export function useAioPipelineSnapshotState({
         const targetSnapshot = prev[toStageIndex];
         if (!sourceSnapshot || !targetSnapshot) return prev;
 
-        const sourceRegions = cloneAioRegions(
-          sourceSnapshot.detectionsByImage[imageId] ?? [],
-          cloneRenderStyle,
-        );
         const targetRegions = targetSnapshot.detectionsByImage[imageId] ?? [];
+        const sourceRegions = cloneAioRegionsCoW(
+          sourceSnapshot.detectionsByImage[imageId] ?? [],
+          targetRegions,
+          cloneRenderStyle,
+        ).regions;
         const sourceHasSelection = Object.prototype.hasOwnProperty.call(
           sourceSnapshot.selectedRegionByImage,
           imageId,

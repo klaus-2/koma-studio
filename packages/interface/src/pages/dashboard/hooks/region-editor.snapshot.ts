@@ -10,7 +10,7 @@ import { AIO_MANUAL_STAGE_ORDER } from '../../../constants/dashboard.constants';
 import {
   areAioRegionsEqual,
   cloneAioRegion,
-  cloneAioRegions,
+  cloneAioRegionsCoW,
   cloneRenderStyle,
   resolveSelectedRegionForRegions,
 } from '../../../utils/dashboard.utils';
@@ -83,10 +83,17 @@ export function useAioRegionSnapshotSync({
           const snapshotById = new Map(
             snapshotRegions.map((region) => [region.id, region]),
           );
+          // Identity fast path: regions the snapshot already shares with the
+          // committed state are reused as-is; only genuinely merged regions
+          // are copied. A merge that reuses every element identity is
+          // content-equal by construction and skips the deep compare.
+          let mergedChanged = false;
           const mergedSnapshotRegions = nextRegions.map((region) => {
             const existing = snapshotById.get(region.id);
+            if (existing === region) return existing;
+            mergedChanged = true;
             if (!existing) return cloneAioRegion(region, cloneRenderStyle);
-            return {
+            const merged = {
               ...existing,
               ...region,
               bbox: [...region.bbox] as [number, number, number, number],
@@ -110,14 +117,19 @@ export function useAioRegionSnapshotSync({
                   ? cloneRenderStyle(existing.renderStyle)
                   : undefined,
             };
+            return areAioRegionsEqual([existing], [merged], cloneRenderStyle)
+              ? existing
+              : merged;
           });
           const resolvedSelected =
             selectedRegionId === null ? null : selectedRegionId;
-          const regionsChanged = !areAioRegionsEqual(
-            snapshotRegions,
-            mergedSnapshotRegions,
-            cloneRenderStyle,
-          );
+          const regionsChanged = mergedChanged
+            ? !areAioRegionsEqual(
+                snapshotRegions,
+                mergedSnapshotRegions,
+                cloneRenderStyle,
+              )
+            : false;
           const selectedChanged = snapshotSelected !== resolvedSelected;
           if (!regionsChanged && !selectedChanged) return snapshot;
           changed = true;
@@ -177,9 +189,12 @@ export function useAioRegionSnapshotSync({
       nextRegions: AioTextRegion[],
       selectedRegionIdOverride?: string | null,
     ) => {
-      const clonedRegions = cloneAioRegions(nextRegions, cloneRenderStyle);
       const currentRegions = aioDetectionsByImage[imageId] ?? [];
       const currentSelected = aioSelectedRegionByImage[imageId] ?? null;
+      // Clone-on-write: untouched regions keep their identity so the
+      // downstream caches stay warm and the store diff stays cheap.
+      const { regions: clonedRegions, changed: regionsChanged } =
+        cloneAioRegionsCoW(nextRegions, currentRegions, cloneRenderStyle);
       const hasSelectedOverride = selectedRegionIdOverride !== undefined;
       const resolvedSelected = hasSelectedOverride
         ? selectedRegionIdOverride === null
@@ -192,11 +207,6 @@ export function useAioRegionSnapshotSync({
           ? null
           : resolveSelectedRegionForRegions(clonedRegions, currentSelected);
 
-      const regionsChanged = !areAioRegionsEqual(
-        currentRegions,
-        clonedRegions,
-        cloneRenderStyle,
-      );
       const selectedChanged = currentSelected !== resolvedSelected;
       if (!regionsChanged && !selectedChanged) return;
 

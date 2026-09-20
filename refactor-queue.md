@@ -222,3 +222,29 @@ Relatório final salvo em [`react-doctor-interface-final.json`](./react-doctor-i
 **Medição (probe Playwright headless, região manual, drag de 40 moves/1.5s)**: durante o drag **0 long tasks** (antes: commit por pointermove, 40 tasks/max 161ms só com rAF-cap — o experimento de atribuição provou que o custo dominante era o re-render do Dashboard); no pointerup 1-2 tasks, **max 97ms** (commit único + redraw final do canvas). 
 
 **Tradeoffs documentados**: canvas do texto renderizado não redesenha durante o move (redesenha 1× no pointerup; resize/rotate continuam ao vivo); pointercancel no move reverte o drag (nada foi commitado). Correções pós-review aplicadas: cancel de rAF no unmount, flush antes do read no pointerup (não perde o último frame de arrasto), cancel de pending no pointerdown. Typecheck ✅, 43/43 ✅, errorCount 0.
+
+---
+
+## 5. Pós-programa: commit path CoW + varredura de interações (2026-08-31)
+
+**Freeze pós-drop (drag-and-drop)**: cada commit de regiões fazia `cloneAioRegions` wholesale (deep-clone de todas as regiões) + deep-compare + merge/clona em **cada snapshot de histórico** (`patchAioSnapshotsForImageEdit` percorre todos os snapshots ≥ índice). Mesmo padrão em translator (`translator.inputs.ts`) e cleaner (`cleaner.editing.ts`).
+
+**Fix**: helper `cloneAioRegionsCoW` (`dashboard.region.utils.ts`) — regiões cujo conteúdo coincide com o estado anterior **mantêm identidade**; clone só do que mudou. Aplicado em 6 sites: applyAioRegionsEditForImage (com flag `changed` que substitui o deep-compare standalone), patchAioSnapshotsForImageEdit (fast-paths de identidade: `existing === region` → reuse; merge content-equal → reuse do objeto do snapshot; deep-compare só quando algo mudou), patchAioSnapshotStageForImage, applyAioPipelineSnapshotToImage, restore de snapshot ativo (aio-snapshot-state ×3), updateTranslatorRegionsForImage, updateCleanerRegionsForImage.
+
+**Medição** (probe Playwright headless, drag 20 steps + release): drag frames **0 long tasks** (texto segue ao vivo — massa 10419→0/dest 0→10419); commit do pointerup **92 → 76ms**. O restante do commit é o re-render do DashboardPage (2.7k l.) por mudança de `aioDetectionsByImage` — dívida estrutural já anotada (extrair grade).
+
+**Varredura de interações** (probe genérico, 5 regiões injetadas, SwiftShader headless — inflar ~5-10× vs GPU real):
+
+| Interação | Worst task |
+| --- | --- |
+| mode:aio / mode:cleaner | 308-322ms |
+| mode:typesetter / mode:translator | 198-214ms |
+| mode:split / mode:watermark | 152-186ms |
+| mode:raw/proofreader/stitch/enhance/optimizer/organize | 54-86ms |
+| region-select ×5 | 72-92ms |
+| rotas settings/model-rankings | 76-104ms |
+| route:/#/dashboard (retorno) | 332-557ms |
+
+Todos **reproduzíveis por troca** (não é só cold-start). Testado e **refutado**: adiar o primeiro paint do canvas para rAF não reduz o custo (o dominante é o mount do React da stage — DOM+layout+compositing, não o raster). Deferral revertido. O caminho real para os ofensores de mount é arquitetural: keep-alive das stages (não desmontar ao trocar de modo), virtualização com threshold menor para canvas grandes, ou lazy-mount das tools pesadas — **decidir com profiling em hardware real** (SwiftShader multiplica o custo de canvas ~5-10×).
+
+**Dívida documentada (não re-flaggear)**: re-render do DashboardPage por commit de região; custos de mount das stages; EADDRINUSE do auth-server em sessões paralelas (cobrido na próxima subida do electron).
