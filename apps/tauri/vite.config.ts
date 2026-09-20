@@ -24,10 +24,21 @@ export default defineConfig(async ({ mode }) => {
       __KOMA_APP_VERSION__: JSON.stringify(appVersion),
     },
     resolve: {
+      // Single React copy across workspaces: without this, Vite can emit two
+      // dep-optimizer bundles of react/react-dom (different ?v= hashes) when a
+      // workspace package resolves its own copy — hooks then see a dispatcher
+      // from a different React instance ("Invalid hook call" / null useMemo).
+      dedupe: ["react", "react-dom", "scheduler"],
       alias: {
         "@": path.resolve(__dirname, "../../packages/interface/src"),
         "@shared": path.resolve(__dirname, "../../packages/types/src"),
       },
+    },
+
+    // Pre-bundle the react entry points together so every importer (shell and
+    // workspace packages) shares one optimized chunk and one ?v= hash.
+    optimizeDeps: {
+      include: ["react", "react-dom", "react-dom/client", "scheduler"],
     },
 
     // Tauri keeps the default app-only dev host. Playwright opt-in mode binds

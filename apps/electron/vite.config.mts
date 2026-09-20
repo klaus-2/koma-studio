@@ -25,9 +25,17 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    // Single React copy across workspaces: without this, Vite can emit two
+    // dep-optimizer bundles of react/react-dom (different ?v= hashes) when a
+    // workspace package resolves its own copy — hooks then see a dispatcher
+    // from a different React instance ("Invalid hook call" / null useMemo).
+    dedupe: ['react', 'react-dom', 'scheduler'],
     alias: {
       '@': path.resolve(__dirname, '../../packages/interface/src'),
     },
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-dom/client', 'scheduler'],
   },
   server: {
     host: '127.0.0.1',
