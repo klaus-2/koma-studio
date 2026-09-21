@@ -33,6 +33,7 @@ import type {
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
+import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { useAioManualProgressControls } from '../../../hooks/useAioManualProgressControls';
@@ -42,9 +43,6 @@ import { useAioManualStageSkip } from '../../../hooks/useAioManualStageSkip';
 /* ── Manual stage execution (progress controls, stage executor, skip, run entry) ── */
 
 interface UseAioManualExecutionArgs {
-  /* Cross-domain state not yet in stores (region-editor T07, manual-tools T08) */
-  aioDetectionsByImage: Record<string, AioTextRegion[]>;
-  aioSelectedRegionByImage: Record<string, string | null>;
   renderDefaultStyle: RenderTextStyle;
   getAioManualImageEditState: (imageId: string) => AioManualImageEditState;
   /* Page callbacks (snapshot/manual-history family still on the page) */
@@ -99,8 +97,6 @@ interface UseAioManualExecutionArgs {
 }
 
 export function useAioManualExecution({
-  aioDetectionsByImage,
-  aioSelectedRegionByImage,
   renderDefaultStyle,
   getAioManualImageEditState,
   applyAioPipelineSnapshotToImage,
@@ -132,15 +128,6 @@ export function useAioManualExecution({
     (s) => s.setRuntimeExecutionNotice,
   );
   const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
-  const aioPipelineSnapshots = useAioPipelineStore(
-    (s) => s.aioPipelineSnapshots,
-  );
-  const aioManualProgressByImage = useAioPipelineStore(
-    (s) => s.aioManualProgressByImage,
-  );
-  const aioImageSnapshotIndexById = useAioPipelineStore(
-    (s) => s.aioImageSnapshotIndexById,
-  );
   const setAioManualProgressByImage = useAioPipelineStore(
     (s) => s.setAioManualProgressByImage,
   );
@@ -173,11 +160,6 @@ export function useAioManualExecution({
     syncActiveManualStageSnapshot,
   } = useAioManualProgressControls({
     activeId,
-    aioPipelineSnapshots,
-    aioManualProgressByImage,
-    aioImageSnapshotIndexById,
-    aioDetectionsByImage,
-    aioSelectedRegionByImage,
     applyAioPipelineSnapshotToImage,
     syncManualStagePreviewToNextStage,
     setAioManualProgressByImage,
@@ -187,15 +169,23 @@ export function useAioManualExecution({
   useEffect(() => {
     if (mode !== 'aio' || subMode !== 'manual') return;
     syncActiveManualStageSnapshot();
-  }, [mode, subMode, syncActiveManualStageSnapshot]);
+    const unsubPipeline = useAioPipelineStore.subscribe(() => {
+      syncActiveManualStageSnapshot();
+    });
+    const unsubRegion = useRegionEditorStore.subscribe(() => {
+      syncActiveManualStageSnapshot();
+    });
+    return () => {
+      unsubPipeline();
+      unsubRegion();
+    };
+  }, [activeId, mode, subMode, syncActiveManualStageSnapshot]);
 
   const executeManualStageForActiveImage = useAioManualStageExecutor({
     activeId,
     processing,
     images,
-    aioManualProgressByImage,
     aioAutoProcessedImageById,
-    aioDetectionsByImage,
     aioStageOptions: {
       detectText: aioStageOptions.detectText,
       recognizeText: aioStageOptions.recognizeText,
@@ -247,7 +237,6 @@ export function useAioManualExecution({
 
   const skipManualStageForActiveImage = useAioManualStageSkip({
     activeId,
-    aioManualProgressByImage,
     completeManualStageForImage,
     setStatusMessage,
   });

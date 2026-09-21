@@ -415,7 +415,6 @@ interface CustomProfileLike {
 interface UseTranslatorRetranslateArgs {
   /* Cross-domain values (image-collection, page memos & callbacks, export-download T10) */
   images: LoadedImage[];
-  activeTranslatorSelectedRegionId: string | null;
   localApiUrl: string;
   selectedCustomTranslationProfile: CustomProfileLike | null;
   ensureVerifiedEmailOrNotify: () => boolean;
@@ -430,7 +429,6 @@ interface UseTranslatorRetranslateArgs {
 
 export function useTranslatorRetranslate({
   images,
-  activeTranslatorSelectedRegionId,
   localApiUrl,
   selectedCustomTranslationProfile,
   ensureVerifiedEmailOrNotify,
@@ -583,7 +581,11 @@ export function useTranslatorRetranslate({
           translatorModelKey: match.translator_model_key,
         };
       });
-      updateTranslatorRegionsForImage(imageId, nextRegions, activeTranslatorSelectedRegionId);
+      updateTranslatorRegionsForImage(
+        imageId,
+        nextRegions,
+        useTranslatorStore.getState().translatorSelectedRegionByImage[imageId] ?? null,
+      );
       setTranslatorRunMetaByImage((prev) => ({
         ...prev,
         [imageId]: {
@@ -615,7 +617,6 @@ export function useTranslatorRetranslate({
       void syncDiscordForTab();
     }
   }, [
-    activeTranslatorSelectedRegionId,
     detectSelectionKey,
     ensureVerifiedEmailOrNotify,
     images,

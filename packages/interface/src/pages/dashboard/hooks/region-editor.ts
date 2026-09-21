@@ -38,34 +38,38 @@ import type {
   TypographyShapeKind,
   TypographyStylePreset,
 } from '../../../typography/types';
-import type { RenderTextStyle } from '../../../utils/renderText';
 import type {
   AioTextRegion,
-  LoadedImage,
 } from '../../../types/dashboard.types';
 import type { useTypographerWorkspace } from './typographer';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
+import { useCleanerStore } from '../stores/cleaner-store';
+import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
+import { useTranslatorStore } from '../stores/translator-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import {
+  readActiveAioSelectedRegion,
+  readActiveAioSelectedRegionId,
+  readActiveTypographerPreset,
+} from './region-editor.render';
 
 export { useAioRegionSnapshotSync } from './region-editor.snapshot';
-export { useAioRegionRenderToBlob, useActiveAioRegionState } from './region-editor.render';
+export {
+  useAioRegionRenderToBlob,
+  useActiveAioRegionState,
+  readActiveAioSelectedRegion,
+  readActiveAioSelectedRegionId,
+  readActiveSelectedRegionIdForMode,
+  readActiveTypographerPreset,
+} from './region-editor.render';
 
 type TypographerWorkspaceApi = ReturnType<typeof useTypographerWorkspace>;
 
 /* ── Render-region editing: style/mode/preset/shape edits + removal ── */
 
 interface UseAioRegionEditingArgs {
-  /* Page-derived values (active image memos) */
-  activeId: string | null;
-  activeSelectedRegionId: string | null;
-  activeSelectedRegion: AioTextRegion | null;
-  activeImage: LoadedImage | null;
-  activeSelectedRenderStyle: RenderTextStyle;
-  activeTypographerPreset: TypographyStylePreset | null;
-  typographyPresetList: TypographyStylePreset[];
-  /* Page callbacks */
   typographerWorkspace: TypographerWorkspaceApi;
   applyAioRegionsEditForImage: (
     imageId: string,
@@ -83,21 +87,11 @@ interface UseAioRegionEditingArgs {
     nextRegions: AioTextRegion[],
     selectedRegionIdOverride?: string | null,
   ) => void;
-  /* Cross-domain state not yet in stores (translator T09, cleaner T08) */
-  translatorDetectionsByImage: Record<string, AioTextRegion[]>;
-  cleanerDetectionsByImage: Record<string, AioTextRegion[]>;
-  activeTranslatorSelectedRegionId: string | null;
-  activeCleanerSelectedRegionId: string | null;
+  translatorDetectionsByImage: () => Record<string, AioTextRegion[]>;
+  cleanerDetectionsByImage: () => Record<string, AioTextRegion[]>;
 }
 
 export function useAioRegionEditing({
-  activeId,
-  activeSelectedRegionId,
-  activeSelectedRegion,
-  activeImage,
-  activeSelectedRenderStyle,
-  activeTypographerPreset,
-  typographyPresetList,
   typographerWorkspace,
   applyAioRegionsEditForImage,
   selectAioRegionForImage,
@@ -105,8 +99,6 @@ export function useAioRegionEditing({
   updateCleanerRegionsForImage,
   translatorDetectionsByImage,
   cleanerDetectionsByImage,
-  activeTranslatorSelectedRegionId,
-  activeCleanerSelectedRegionId,
 }: UseAioRegionEditingArgs) {
   const { t } = useI18n();
   const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
@@ -127,29 +119,26 @@ export function useAioRegionEditing({
   const setAioDetectionsByImage = useRegionEditorStore(
     (s) => s.setAioDetectionsByImage,
   );
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
-  const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
-  );
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
 
   const updateActiveRenderRegion = useCallback(
     (updater: (region: AioTextRegion) => AioTextRegion) => {
+      const activeId = useImageCollectionStore.getState().activeId;
+      const activeSelectedRegionId = readActiveAioSelectedRegionId(activeId);
       if (!activeId || !activeSelectedRegionId) return;
-      const currentRegions = aioDetectionsByImage[activeId] ?? [];
+      const currentRegions =
+        useRegionEditorStore.getState().aioDetectionsByImage[activeId] ?? [];
       const nextRegions = currentRegions.map((region) =>
         region.id === activeSelectedRegionId
           ? updater(
-              applyRenderDefaultsToRegion(
-                region,
-                renderDefaultStyle,
-                applyDetectedGradientToStyle,
-                undefined,
-                aioTgtLang,
-              ),
-            )
+            applyRenderDefaultsToRegion(
+              region,
+              renderDefaultStyle,
+              applyDetectedGradientToStyle,
+              undefined,
+              aioTgtLang,
+            ),
+          )
           : region,
       );
       applyAioRegionsEditForImage(
@@ -159,9 +148,6 @@ export function useAioRegionEditing({
       );
     },
     [
-      activeId,
-      activeSelectedRegionId,
-      aioDetectionsByImage,
       aioTgtLang,
       applyAioRegionsEditForImage,
       renderDefaultStyle,
@@ -174,24 +160,24 @@ export function useAioRegionEditing({
       regionId: string,
       updater: (region: AioTextRegion) => AioTextRegion,
     ) => {
-      const currentRegions = aioDetectionsByImage[imageId] ?? [];
+      const currentRegions =
+        useRegionEditorStore.getState().aioDetectionsByImage[imageId] ?? [];
       const nextRegions = currentRegions.map((region) =>
         region.id === regionId
           ? updater(
-              applyRenderDefaultsToRegion(
-                region,
-                renderDefaultStyle,
-                applyDetectedGradientToStyle,
-                undefined,
-                aioTgtLang,
-              ),
-            )
+            applyRenderDefaultsToRegion(
+              region,
+              renderDefaultStyle,
+              applyDetectedGradientToStyle,
+              undefined,
+              aioTgtLang,
+            ),
+          )
           : region,
       );
       applyAioRegionsEditForImage(imageId, nextRegions, regionId);
     },
     [
-      aioDetectionsByImage,
       aioTgtLang,
       applyAioRegionsEditForImage,
       renderDefaultStyle,
@@ -224,6 +210,9 @@ export function useAioRegionEditing({
   );
 
   const applyActiveTypographyPresetToSelection = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
+    const activeTypographerPreset = readActiveTypographerPreset(activeId);
+    const activeSelectedRegionId = readActiveAioSelectedRegionId(activeId);
     if (!activeTypographerPreset || !activeId || !activeSelectedRegionId)
       return;
     updateActiveRenderRegion((region) =>
@@ -234,9 +223,6 @@ export function useAioRegionEditing({
       'success',
     );
   }, [
-    activeId,
-    activeSelectedRegionId,
-    activeTypographerPreset,
     applyTypographyPresetToRegion,
     setTonedStatus,
     updateActiveRenderRegion,
@@ -245,7 +231,7 @@ export function useAioRegionEditing({
   const applyTypographyPresetToRegionById = useCallback(
     (imageId: string, regionId: string, presetId: string) => {
       const preset =
-        typographyPresetList.find((entry) => entry.id === presetId) ?? null;
+        typographyPresetState.presets.find((entry) => entry.id === presetId) ?? null;
       if (!preset) return;
       updateRenderRegionById(imageId, regionId, (region) =>
         applyTypographyPresetToRegion(region, preset),
@@ -255,7 +241,7 @@ export function useAioRegionEditing({
     [
       applyTypographyPresetToRegion,
       setTonedStatus,
-      typographyPresetList,
+      typographyPresetState.presets,
       updateRenderRegionById,
     ],
   );
@@ -269,6 +255,8 @@ export function useAioRegionEditing({
         | 'text_narration'
         | 'text_inside_black_bubble',
     ) => {
+      const activeId = useImageCollectionStore.getState().activeId;
+      const activeSelectedRegion = readActiveAioSelectedRegion(activeId);
       if (!activeSelectedRegion || !activeId) return false;
       const preset = resolveLegacyTypographyPresetForMode(
         modeKey,
@@ -289,10 +277,7 @@ export function useAioRegionEditing({
       return true;
     },
     [
-      activeId,
-      activeSelectedRegion,
       applyTypographyPresetToRegion,
-      setStatusMessage,
       setTonedStatus,
       typographyPresetState,
       typographerWorkspace,
@@ -301,8 +286,12 @@ export function useAioRegionEditing({
   );
 
   const applyActiveTypographyPresetToImage = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
+    const activeTypographerPreset = readActiveTypographerPreset(activeId);
+    const activeSelectedRegionId = readActiveAioSelectedRegionId(activeId);
     if (!activeTypographerPreset || !activeId) return;
-    const currentRegions = aioDetectionsByImage[activeId] ?? [];
+    const currentRegions =
+      useRegionEditorStore.getState().aioDetectionsByImage[activeId] ?? [];
     const nextRegions = currentRegions.map((region) =>
       applyTypographyPresetToRegion(region, activeTypographerPreset),
     );
@@ -312,17 +301,18 @@ export function useAioRegionEditing({
       'success',
     );
   }, [
-    activeId,
-    activeSelectedRegionId,
-    activeTypographerPreset,
-    aioDetectionsByImage,
     applyAioRegionsEditForImage,
     applyTypographyPresetToRegion,
     setTonedStatus,
   ]);
 
   const duplicateSelectedTypographerRegion = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
+    const activeSelectedRegion = readActiveAioSelectedRegion(activeId);
     if (!activeId || !activeSelectedRegion) return;
+    const activeImage = useImageCollectionStore
+      .getState()
+      .images.find((img) => img.id === activeId);
     const [x1, y1, x2, y2] = activeSelectedRegion.bbox;
     const offsetX = 18;
     const offsetY = 18;
@@ -341,16 +331,15 @@ export function useAioRegionEditing({
     };
     applyAioRegionsEditForImage(
       activeId,
-      [...(aioDetectionsByImage[activeId] ?? []), nextRegion],
+      [
+        ...(useRegionEditorStore.getState().aioDetectionsByImage[activeId] ??
+          []),
+        nextRegion,
+      ],
       nextRegion.id,
     );
     setTonedStatus(t('dashboard.status.typographerSelectionDuplicated'), 'success');
   }, [
-    activeId,
-    activeImage?.height,
-    activeImage?.width,
-    activeSelectedRegion,
-    aioDetectionsByImage,
     applyAioRegionsEditForImage,
     setTonedStatus,
   ]);
@@ -364,6 +353,9 @@ export function useAioRegionEditing({
         statusMessage?: string;
       } = {},
     ) => {
+      const activeSelectedRegion = readActiveAioSelectedRegion(
+        useImageCollectionStore.getState().activeId,
+      );
       if (!activeSelectedRegion) return;
       const shapeKind =
         options.kind ?? resolveRegionShapeKind(activeSelectedRegion);
@@ -392,7 +384,6 @@ export function useAioRegionEditing({
       }
     },
     [
-      activeSelectedRegion,
       renderDefaultStyle,
       setStatusMessage,
       updateActiveRenderRegion,
@@ -411,6 +402,9 @@ export function useAioRegionEditing({
   );
 
   const applyAutoDetectedShapeToActiveRegion = useCallback(() => {
+    const activeSelectedRegion = readActiveAioSelectedRegion(
+      useImageCollectionStore.getState().activeId,
+    );
     if (!activeSelectedRegion) return;
     updateActiveRenderRegion((region) =>
       rebuildRegionShapeForAutoMode(region, 'detected'),
@@ -418,20 +412,20 @@ export function useAioRegionEditing({
     const nextKind =
       normalizeDetectedRenderMode(activeSelectedRegion.detectedRenderMode) ===
         'text_bubble' ||
-      normalizeDetectedRenderMode(activeSelectedRegion.detectedRenderMode) ===
+        normalizeDetectedRenderMode(activeSelectedRegion.detectedRenderMode) ===
         'text_inside_black_bubble'
         ? 'rounded'
         : 'square';
     setStatusMessage(
       t('dashboard.status.autoShapeApplied', { shape: nextKind === 'rounded' ? 'elliptic' : 'rectangular' }),
     );
-  }, [activeSelectedRegion, setStatusMessage, updateActiveRenderRegion]);
+  }, [setStatusMessage, updateActiveRenderRegion]);
 
   const applyAutoDetectedShapeToRegionById = useCallback(
     (imageId: string, regionId: string) => {
-      const region = (aioDetectionsByImage[imageId] ?? []).find(
-        (entry) => entry.id === regionId,
-      );
+      const region = (
+        useRegionEditorStore.getState().aioDetectionsByImage[imageId] ?? []
+      ).find((entry) => entry.id === regionId);
       if (!region) return;
       updateRenderRegionById(imageId, regionId, (current) =>
         rebuildRegionShapeForAutoMode(current, 'detected'),
@@ -441,14 +435,14 @@ export function useAioRegionEditing({
       );
       const nextKind =
         detectedMode === 'text_bubble' ||
-        detectedMode === 'text_inside_black_bubble'
+          detectedMode === 'text_inside_black_bubble'
           ? 'rounded'
           : 'square';
       setStatusMessage(
         t('dashboard.status.autoShapeApplied', { shape: nextKind === 'rounded' ? 'elliptic' : 'rectangular' }),
       );
     },
-    [aioDetectionsByImage, setStatusMessage, updateRenderRegionById],
+    [setStatusMessage, updateRenderRegionById],
   );
 
   const convertRegionShapeById = useCallback(
@@ -473,9 +467,12 @@ export function useAioRegionEditing({
 
   const navigateActiveTypographerRegion = useCallback(
     (delta: number) => {
+      const activeId = useImageCollectionStore.getState().activeId;
       if (!activeId) return;
-      const regions = aioDetectionsByImage[activeId] ?? [];
+      const regions =
+        useRegionEditorStore.getState().aioDetectionsByImage[activeId] ?? [];
       if (regions.length === 0) return;
+      const activeSelectedRegionId = readActiveAioSelectedRegionId(activeId);
       const currentIndex = regions.findIndex(
         (region) => region.id === activeSelectedRegionId,
       );
@@ -486,19 +483,20 @@ export function useAioRegionEditing({
       selectAioRegionForImage(activeId, nextRegion.id);
     },
     [
-      activeId,
-      activeSelectedRegionId,
-      aioDetectionsByImage,
       selectAioRegionForImage,
     ],
   );
 
   const removeSelectedAioRegion = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId) return;
 
     if (mode === 'translator') {
+      const activeTranslatorSelectedRegionId =
+        useTranslatorStore.getState().translatorSelectedRegionByImage[activeId] ??
+        null;
       if (!activeTranslatorSelectedRegionId) return;
-      const currentRegions = translatorDetectionsByImage[activeId] ?? [];
+      const currentRegions = translatorDetectionsByImage()[activeId] ?? [];
       const nextRegions = currentRegions.filter(
         (region) => region.id !== activeTranslatorSelectedRegionId,
       );
@@ -507,8 +505,10 @@ export function useAioRegionEditing({
     }
 
     if (mode === 'cleaner') {
+      const activeCleanerSelectedRegionId =
+        useCleanerStore.getState().cleanerSelectedRegionByImage[activeId] ?? null;
       if (!activeCleanerSelectedRegionId) return;
-      const currentRegions = cleanerDetectionsByImage[activeId] ?? [];
+      const currentRegions = cleanerDetectionsByImage()[activeId] ?? [];
       const nextRegions = currentRegions.filter(
         (region) => region.id !== activeCleanerSelectedRegionId,
       );
@@ -516,37 +516,35 @@ export function useAioRegionEditing({
       return;
     }
 
+    const activeSelectedRegionId = readActiveAioSelectedRegionId(activeId);
     if (!activeSelectedRegionId) return;
 
     if (activeSelectedRegionId.startsWith(TRANSLATION_NOTE_REGION_PREFIX)) {
       const parentId = activeSelectedRegionId.slice(
         TRANSLATION_NOTE_REGION_PREFIX.length,
       );
-      const currentRegions = aioDetectionsByImage[activeId] ?? [];
+      const currentRegions =
+        useRegionEditorStore.getState().aioDetectionsByImage[activeId] ?? [];
       const nextRegions = currentRegions.map((region) =>
         region.id === parentId
           ? {
-              ...region,
-              translationNotes: undefined,
-              translationNoteOverlay: undefined,
-            }
+            ...region,
+            translationNotes: undefined,
+            translationNoteOverlay: undefined,
+          }
           : region,
       );
       applyAioRegionsEditForImage(activeId, nextRegions, parentId);
       return;
     }
 
-    const currentRegions = aioDetectionsByImage[activeId] ?? [];
+    const currentRegions =
+      useRegionEditorStore.getState().aioDetectionsByImage[activeId] ?? [];
     const nextRegions = currentRegions.filter(
       (region) => region.id !== activeSelectedRegionId,
     );
     applyAioRegionsEditForImage(activeId, nextRegions, null);
   }, [
-    activeCleanerSelectedRegionId,
-    activeId,
-    activeSelectedRegionId,
-    activeTranslatorSelectedRegionId,
-    aioDetectionsByImage,
     applyAioRegionsEditForImage,
     cleanerDetectionsByImage,
     mode,
@@ -556,9 +554,10 @@ export function useAioRegionEditing({
   ]);
 
   const clearAioRegionsForActiveImage = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId) return;
     applyAioRegionsEditForImage(activeId, [], null);
-  }, [activeId, applyAioRegionsEditForImage]);
+  }, [applyAioRegionsEditForImage]);
 
   const updateActiveRenderMode = useCallback(
     (nextMode: RenderTextMode) => {
@@ -575,15 +574,15 @@ export function useAioRegionEditing({
         );
         const presetStyle = typographyPreset
           ? createTypographyStyleFromPreset(
-              typographyPreset,
-              renderDefaultStyle,
-            )
+            typographyPreset,
+            renderDefaultStyle,
+          )
           : getRenderModePresetStyle(
-              nextMode,
-              renderDefaultStyle,
-              detectedRenderMode,
-              renderModePresetState.presets,
-            );
+            nextMode,
+            renderDefaultStyle,
+            detectedRenderMode,
+            renderModePresetState.presets,
+          );
         const [x1, y1, x2, y2] = region.bbox;
         return {
           ...region,
@@ -609,37 +608,40 @@ export function useAioRegionEditing({
   );
 
   const applyActiveRenderStyleToAllRegions = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
+    const activeSelectedRegion = readActiveAioSelectedRegion(activeId);
     if (!activeSelectedRegion) return;
-    const styleSnapshot = cloneRenderStyle(activeSelectedRenderStyle);
-    Object.entries(aioDetectionsByImage).forEach(([imageId, regions]) => {
-      const nextRegions = regions.map((region) => {
-        const withDefaults = applyRenderDefaultsToRegion(
-          region,
-          renderDefaultStyle,
-          applyDetectedGradientToStyle,
-          undefined,
-          aioTgtLang,
+    const styleSnapshot = cloneRenderStyle(
+      activeSelectedRegion.renderStyle ?? renderDefaultStyle,
+    );
+    const { aioSelectedRegionByImage } = useRegionEditorStore.getState();
+    Object.entries(useRegionEditorStore.getState().aioDetectionsByImage).forEach(
+      ([imageId, regions]) => {
+        const nextRegions = regions.map((region) => {
+          const withDefaults = applyRenderDefaultsToRegion(
+            region,
+            renderDefaultStyle,
+            applyDetectedGradientToStyle,
+            undefined,
+            aioTgtLang,
+          );
+          return {
+            ...withDefaults,
+            renderStyle: cloneRenderStyle(styleSnapshot),
+          };
+        });
+        applyAioRegionsEditForImage(
+          imageId,
+          nextRegions,
+          aioSelectedRegionByImage[imageId] ?? null,
         );
-        return {
-          ...withDefaults,
-          renderStyle: cloneRenderStyle(styleSnapshot),
-        };
-      });
-      applyAioRegionsEditForImage(
-        imageId,
-        nextRegions,
-        aioSelectedRegionByImage[imageId] ?? null,
-      );
-    });
+      },
+    );
     setTonedStatus(
       t('dashboard.status.renderStyleAppliedAll'),
       'success',
     );
   }, [
-    activeSelectedRegion,
-    activeSelectedRenderStyle,
-    aioDetectionsByImage,
-    aioSelectedRegionByImage,
     aioTgtLang,
     applyAioRegionsEditForImage,
     renderDefaultStyle,

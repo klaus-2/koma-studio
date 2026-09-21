@@ -1,15 +1,12 @@
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import type { useDashboardModelManager } from '../../../hooks/useDashboardModelManager';
-import type {
-  AioTextRegion,
-  CleanerRunMeta,
-} from '../../../types/dashboard.types';
 import type { useAioModelSelection } from '../hooks/aio-pipeline';
 import type { useCleanerActions } from '../hooks/cleaner';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import { useActiveCleanerRegionState } from '../hooks/cleaner';
 import CleanerToolsPanel from '../../../components/dashboard/CleanerToolsPanel';
 
 type AioModelSelectionApi = ReturnType<typeof useAioModelSelection>;
@@ -42,8 +39,6 @@ interface CleanerToolsPanelSectionProps {
 
   /* ── Page memos / config (not yet migrated) ── */
   localApiUrl: string;
-  activeCleanerRunMeta: CleanerRunMeta | null;
-  activeCleanerSelectedRegion: AioTextRegion | null;
 }
 
 /**
@@ -70,8 +65,6 @@ export default function CleanerToolsPanelSection({
   selectCleanerAiModel,
   handleClean,
   localApiUrl,
-  activeCleanerRunMeta,
-  activeCleanerSelectedRegion,
 }: CleanerToolsPanelSectionProps) {
   const cleanerMode = useCleanerStore((s) => s.cleanerMode);
   const setCleanerMode = useCleanerStore((s) => s.setCleanerMode);
@@ -107,6 +100,9 @@ export default function CleanerToolsPanelSection({
   const processing = useUiShellStore((s) => s.processing);
   const progress = useUiShellStore((s) => s.progress);
   const images = useImageCollectionStore((s) => s.images);
+  const resolvedActiveId = useImageCollectionStore((s) => s.activeId);
+  const { activeCleanerRunMeta, activeCleanerSelectedRegion } =
+    useActiveCleanerRegionState({ resolvedActiveId });
 
   return (
     <CleanerToolsPanel

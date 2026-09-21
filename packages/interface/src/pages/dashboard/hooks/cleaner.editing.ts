@@ -9,6 +9,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useI18n } from '../../../i18n';
 import { EMPTY_AIO_MANUAL_EDIT_STATE } from '../../../constants/dashboard.constants';
+import { EMPTY_REGIONS } from '../../../utils/dashboardRenderUtils';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   blobToDataUrl,
@@ -30,7 +31,7 @@ import type {
 } from '../../../types/dashboard.types';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
-import { useImageCollectionStore } from '../stores/image-collection-store';
+import { useManualToolsStore } from '../stores/manual-tools-store';
 import { useStatusStore } from '../stores/status-store';
 
 /* ── Region editing: cleaner detections/selection maps ── */
@@ -67,9 +68,9 @@ export function useCleanerRegionEditing() {
           selectedRegionIdOverride === undefined
             ? resolveSelectedRegionForRegions(clonedRegions, currentSelected)
             : resolveSelectedRegionForRegions(
-                clonedRegions,
-                selectedRegionIdOverride,
-              );
+              clonedRegions,
+              selectedRegionIdOverride,
+            );
         return {
           ...prev,
           [imageId]: resolvedSelected,
@@ -112,28 +113,24 @@ export function useCleanerManualEdits({
   getCleanerDownloadItemForImage,
 }: UseCleanerManualEditsArgs) {
   const { t } = useI18n();
-  const cleanerManualImageEditsByImage = useCleanerStore(
-    (s) => s.cleanerManualImageEditsByImage,
-  );
-  const cleanerProcessedBaseByImage = useCleanerStore(
-    (s) => s.cleanerProcessedBaseByImage,
-  );
   const setCleanerManualImageEditsByImage = useCleanerStore(
     (s) => s.setCleanerManualImageEditsByImage,
   );
 
   const getCleanerManualImageEditState = useCallback(
     (imageId: string): AioManualImageEditState =>
-      cleanerManualImageEditsByImage[imageId] ?? EMPTY_AIO_MANUAL_EDIT_STATE,
-    [cleanerManualImageEditsByImage],
+      useCleanerStore.getState().cleanerManualImageEditsByImage[imageId] ??
+      EMPTY_AIO_MANUAL_EDIT_STATE,
+    [],
   );
 
   const hasCleanerManualImageEdits = useCallback(
     (imageId: string): boolean => {
-      const state = cleanerManualImageEditsByImage[imageId];
+      const state =
+        useCleanerStore.getState().cleanerManualImageEditsByImage[imageId];
       return Boolean(state?.baseImageDataUrl || state?.paintLayerDataUrl);
     },
-    [cleanerManualImageEditsByImage],
+    [],
   );
 
   const patchCleanerManualImageEditState = useCallback(
@@ -168,16 +165,15 @@ export function useCleanerManualEdits({
 
   const resolveCleanerEditableBaseSourceForImage = useCallback(
     (imgData: LoadedImage): string => {
-      const manualState = cleanerManualImageEditsByImage[imgData.id];
+      const cleanerState = useCleanerStore.getState();
+      const manualState = cleanerState.cleanerManualImageEditsByImage[imgData.id];
       if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
-      if (cleanerProcessedBaseByImage[imgData.id])
-        return cleanerProcessedBaseByImage[imgData.id]!;
+      if (cleanerState.cleanerProcessedBaseByImage[imgData.id])
+        return cleanerState.cleanerProcessedBaseByImage[imgData.id]!;
       const baseItem = getCleanerDownloadItemForImage(imgData.id);
       return baseItem?.previewUrl ?? imgData.url;
     },
     [
-      cleanerManualImageEditsByImage,
-      cleanerProcessedBaseByImage,
       getCleanerDownloadItemForImage,
     ],
   );
@@ -194,7 +190,7 @@ export function useCleanerManualEdits({
         manualState.baseImageDataUrl ??
         fallbackBaseSource ??
         getCleanerDownloadItemForImage(imgData.id)?.previewUrl ??
-        cleanerProcessedBaseByImage[imgData.id] ??
+        useCleanerStore.getState().cleanerProcessedBaseByImage[imgData.id] ??
         imgData.url;
       const sourceImage = await loadImageFromSource(source);
       const width =
@@ -220,7 +216,6 @@ export function useCleanerManualEdits({
       return canvas;
     },
     [
-      cleanerProcessedBaseByImage,
       getCleanerDownloadItemForImage,
       getCleanerManualImageEditState,
     ],
@@ -260,7 +255,6 @@ export function useCleanerManualEdits({
 interface UseCleanerWandHealingArgs {
   /* Cross-domain values (image-collection, manual-tools T08b, export-download T10) */
   images: LoadedImage[];
-  manualImageWandTolerance: number;
   localApiUrl: string;
   setDownloadItems: React.Dispatch<React.SetStateAction<DownloadItem[]>>;
   setLastActionScope: React.Dispatch<React.SetStateAction<ProcessableMode | null>>;
@@ -279,7 +273,6 @@ interface UseCleanerWandHealingArgs {
 
 export function useCleanerWandHealing({
   images,
-  manualImageWandTolerance,
   localApiUrl,
   setDownloadItems,
   setLastActionScope,
@@ -329,7 +322,7 @@ export function useCleanerWandHealing({
           ctx.getImageData(0, 0, canvas.width, canvas.height),
           seedX,
           seedY,
-          manualImageWandTolerance,
+          useManualToolsStore.getState().manualImageWandTolerance,
         );
         patchCleanerManualImageEditState(imageId, {
           wandMaskDataUrl: nextMaskDataUrl,
@@ -356,7 +349,6 @@ export function useCleanerWandHealing({
     },
     [
       images,
-      manualImageWandTolerance,
       patchCleanerManualImageEditState,
       resolveCleanerEditableBaseSourceForImage,
       setTonedStatus,
@@ -500,40 +492,26 @@ export function useCleanerWandHealing({
 /* ── Active cleaner region state: memos for the active image (cleaner store) ── */
 
 export function useActiveCleanerRegionState({ resolvedActiveId }: { resolvedActiveId: string | null }) {
-  const activeId = useImageCollectionStore((s) => s.activeId);
-  const cleanerDetectionsByImage = useCleanerStore(
-    (s) => s.cleanerDetectionsByImage,
+  const activeCleanerDetectionsEntry = useCleanerStore((s) =>
+    resolvedActiveId
+      ? (s.cleanerDetectionsByImage[resolvedActiveId] ?? null)
+      : null,
   );
-  const cleanerSelectedRegionByImage = useCleanerStore(
-    (s) => s.cleanerSelectedRegionByImage,
+  const activeCleanerDetections = activeCleanerDetectionsEntry ?? EMPTY_REGIONS;
+  const activeCleanerSelectedRegionId = useCleanerStore((s) =>
+    resolvedActiveId
+      ? (s.cleanerSelectedRegionByImage[resolvedActiveId] ?? null)
+      : null,
   );
-  const cleanerRunMetaByImage = useCleanerStore(
-    (s) => s.cleanerRunMetaByImage,
-  );
-  const activeCleanerDetections = useMemo(
-    () =>
-      resolvedActiveId
-        ? (cleanerDetectionsByImage[resolvedActiveId] ?? [])
-        : [],
-    [cleanerDetectionsByImage, resolvedActiveId],
-  );
-  const activeCleanerSelectedRegionId = useMemo(
-    () =>
-      resolvedActiveId
-        ? (cleanerSelectedRegionByImage[resolvedActiveId] ?? null)
-        : null,
-    [cleanerSelectedRegionByImage, resolvedActiveId],
+  const activeCleanerRunMeta = useCleanerStore((s) =>
+    resolvedActiveId ? (s.cleanerRunMetaByImage[resolvedActiveId] ?? null) : null,
   );
   const activeCleanerSelectedRegion = useMemo(
     () =>
-      activeCleanerDetections.find(
+      activeCleanerDetectionsEntry?.find(
         (region) => region.id === activeCleanerSelectedRegionId,
       ) ?? null,
-    [activeCleanerDetections, activeCleanerSelectedRegionId],
-  );
-  const activeCleanerRunMeta = useMemo(
-    () => (activeId ? (cleanerRunMetaByImage[activeId] ?? null) : null),
-    [activeId, cleanerRunMetaByImage],
+    [activeCleanerDetectionsEntry, activeCleanerSelectedRegionId],
   );
 
   return {

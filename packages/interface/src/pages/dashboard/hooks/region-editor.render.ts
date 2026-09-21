@@ -28,15 +28,90 @@ import {
   computeRenderTextLayout,
   drawRenderedTextInRegion,
 } from '../../../utils/renderText';
+import { EMPTY_REGIONS } from '../../../utils/dashboardRenderUtils';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
+import type { TypographyStylePreset } from '../../../typography/types';
 import type {
   AioTextRegion,
-  DownloadItem,
   LoadedImage,
 } from '../../../types/dashboard.types';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
+import { useCleanerStore } from '../stores/cleaner-store';
+import { useExportStore } from '../stores/export-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
+import { useTranslatorStore } from '../stores/translator-store';
+import { useTypographerStore } from '../stores/typographer-store';
+
+export function readActiveAioSelectedRegionId(
+  imageId: string | null,
+): string | null {
+  if (!imageId) return null;
+  return (
+    useRegionEditorStore.getState().aioSelectedRegionByImage[imageId] ?? null
+  );
+}
+
+export function readActiveAioSelectedRegion(
+  imageId: string | null,
+): AioTextRegion | null {
+  if (!imageId) return null;
+  const { aioDetectionsByImage, aioSelectedRegionByImage } =
+    useRegionEditorStore.getState();
+  const selectedRegionId = aioSelectedRegionByImage[imageId] ?? null;
+  return (
+    aioDetectionsByImage[imageId]?.find(
+      (region) => region.id === selectedRegionId,
+    ) ?? null
+  );
+}
+
+/** Mode-aware selection id (keyboard shortcut gate + delete-region action). */
+export function readActiveSelectedRegionIdForMode(
+  mode: string,
+  imageId: string | null,
+): string | null {
+  if (!imageId) return null;
+  if (mode === 'translator') {
+    return (
+      useTranslatorStore.getState().translatorSelectedRegionByImage[imageId] ??
+      null
+    );
+  }
+  if (mode === 'cleaner') {
+    return (
+      useCleanerStore.getState().cleanerSelectedRegionByImage[imageId] ?? null
+    );
+  }
+  return readActiveAioSelectedRegionId(imageId);
+}
+
+/** Session-preset first, else the mode preset of the active selected region. */
+export function readActiveTypographerPreset(
+  imageId: string | null,
+): TypographyStylePreset | null {
+  const typographyPresetState =
+    useRegionEditorStore.getState().typographyPresetState;
+  const sessionPresetId = imageId
+    ? (useTypographerStore.getState().typographerSessionsByImage[imageId]
+      ?.activePresetId ?? null)
+    : null;
+  if (sessionPresetId) {
+    return (
+      typographyPresetState.presets.find(
+        (preset) => preset.id === sessionPresetId,
+      ) ?? null
+    );
+  }
+  const region = readActiveAioSelectedRegion(imageId);
+  return resolveTypographyPresetForMode(
+    resolveRenderTextMode({
+      renderMode: region?.renderMode ?? 'auto',
+      detectedRenderMode: region?.detectedRenderMode ?? 'text_bubble',
+    }),
+    typographyPresetState,
+  );
+}
 
 interface AioManualImageEditComposer {
   (
@@ -51,14 +126,12 @@ interface AioManualImageEditComposer {
 interface UseAioRegionRenderToBlobArgs {
   /* Page callbacks / export-download state (T10) */
   composeAioEditableCanvas: AioManualImageEditComposer;
-  downloadItems: DownloadItem[];
   outFormat: string;
   outQuality: number;
 }
 
 export function useAioRegionRenderToBlob({
   composeAioEditableCanvas,
-  downloadItems,
   outFormat,
   outQuality,
 }: UseAioRegionRenderToBlobArgs) {
@@ -71,9 +144,13 @@ export function useAioRegionRenderToBlob({
 
   const renderAioImageToBlob = useCallback(
     async (imgData: LoadedImage, regions: AioTextRegion[]): Promise<Blob> => {
-      const baseItem = downloadItems.find(
-        (item) => item.scope === 'aio' && item.sourceImageId === imgData.id,
-      );
+      // Download items are event-time reads (download rendering): read the
+      // export store at call time instead of subscribing the page to the list.
+      const baseItem = useExportStore
+        .getState()
+        .downloadItems.find(
+          (item) => item.scope === 'aio' && item.sourceImageId === imgData.id,
+        );
       const canvas = await composeAioEditableCanvas(
         imgData,
         baseItem?.previewUrl ?? imgData.url,
@@ -153,7 +230,6 @@ export function useAioRegionRenderToBlob({
     [
       aioTgtLang,
       composeAioEditableCanvas,
-      downloadItems,
       llmSettings.translation_notes_enabled,
       outFormat,
       outQuality,
@@ -168,11 +244,12 @@ export function useAioRegionRenderToBlob({
    active image (page consumers: region editing hooks + stage/layout views) ── */
 
 export function useActiveAioRegionState({ resolvedActiveId }: { resolvedActiveId: string | null }) {
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
+  const activeImageDetectionsEntry = useRegionEditorStore((s) =>
+    resolvedActiveId ? (s.aioDetectionsByImage[resolvedActiveId] ?? null) : null,
   );
-  const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
+  const activeImageDetections = activeImageDetectionsEntry ?? EMPTY_REGIONS;
+  const activeSelectedRegionId = useRegionEditorStore((s) =>
+    resolvedActiveId ? (s.aioSelectedRegionByImage[resolvedActiveId] ?? null) : null,
   );
   const typographyPresetState = useRegionEditorStore(
     (s) => s.typographyPresetState,
@@ -203,24 +280,12 @@ export function useActiveAioRegionState({ resolvedActiveId }: { resolvedActiveId
     () => resolveTypographyPresetForMode('text_bubble', typographyPresetState),
     [typographyPresetState],
   );
-  const activeImageDetections = useMemo(
-    () =>
-      resolvedActiveId ? (aioDetectionsByImage[resolvedActiveId] ?? []) : [],
-    [aioDetectionsByImage, resolvedActiveId],
-  );
-  const activeSelectedRegionId = useMemo(
-    () =>
-      resolvedActiveId
-        ? (aioSelectedRegionByImage[resolvedActiveId] ?? null)
-        : null,
-    [aioSelectedRegionByImage, resolvedActiveId],
-  );
   const activeSelectedRegion = useMemo(
     () =>
-      activeImageDetections.find(
+      activeImageDetectionsEntry?.find(
         (region) => region.id === activeSelectedRegionId,
       ) ?? null,
-    [activeImageDetections, activeSelectedRegionId],
+    [activeImageDetectionsEntry, activeSelectedRegionId],
   );
   const activeSelectedRenderStyle = useMemo(
     () =>
@@ -247,9 +312,9 @@ export function useActiveAioRegionState({ resolvedActiveId }: { resolvedActiveId
     () =>
       activeSelectedRegion
         ? getRegionTranslationNotesForDisplay(
-            activeSelectedRegion,
-            llmSettings.translation_notes_enabled,
-          )
+          activeSelectedRegion,
+          llmSettings.translation_notes_enabled,
+        )
         : [],
     [activeSelectedRegion, llmSettings.translation_notes_enabled],
   );

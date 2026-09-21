@@ -661,3 +661,343 @@ GREEN pós-fix) e foi deletada após a verificação.
 **Gates pós-correção (todos green):** spec dos gestos RED→GREEN conforme acima ·
 `dashboard-refactor-smoke` 11/11 · `text-follow-probe` 2/2 (drag 0 tasks; commit 1 task ~178-195ms,
 referência pré-existente) · typecheck clean · vitest 43/43.
+
+### T4.2 — execution (2026-09-01, Agente de Execução)
+
+**Status honesto: ESTRUTURA PRONTA, GATE PARCIAL.** A cirurgia de subscrições foi executada
+(107 subs mapeadas; 14 removidas da página; 6 hooks de domínio dessubscritos dos mapas; interlock
+de persistência migrado de render-effect para store.subscribe), typecheck/vitest/smoke/probes
+green — mas o gate central (DashboardPage 0-1 render por region-select com chrome co-render
+morto) **não foi atingido**: region-select mantém DP 2r (select:1-4) / 1r (select:5), igual ao
+baseline T4.1, porque `useActiveAioRegionState` + `useTypographerActiveState` continuam no corpo
+da página alimentando dock/painel/keyboard. Causa raiz restante mapeada e registrada abaixo.
+
+#### 1. Mapa das 107 subs (classificação a/b/c)
+
+Ações zustand (setX — identidade estável, zero re-render): 58 das 107. **Slices de valor
+(49)** — classificação por consumidor real:
+- **(a) consumido só em callback/event-time → getState() no callback (14 slices movidas):**
+  `aioDetectionsByImage` (mapa), `aioSelectedRegionByImage` (mapa), `aioManualProgressByImage`
+  (só entrada ativa fica reativa), `aioPipelineSnapshots` (array), `aioImageSnapshotIndexById`,
+  `aioAutoHistoryAvailable` (effect→getState), `downloadItems` (renderToBlob/bundle/getters),
+  `cleanerDetectionsByImage`, `translatorDetectionsByImage`, `cleanerProcessedBaseByImage`,
+  `translatorProcessedBaseByImage`, `cleanerManualImageEditsByImage`, `aioManualImageEditsByImage`,
+  `manualImageWandTolerance`, `renderDefaultStyle` (hook), `cleanerMode` (mantido, raro).
+- **(b) multi-consumidor de página → mantido (33):** mode, subMode, processing, images, activeId,
+  aioStageSelection/Options, aioSrcLang/TgtLang, maskDilation/HD* (args do handleClean),
+  llmSettings (arg do handleClean), srcLang/tgtLang, translatorWorkspaceMode, tool scalars
+  (segmentEditTool/manualImageTool/configOpen/areaSelectionCreateMode — P0-5 é T4.4c),
+  typographerQueueSelectedId/SelectedSnapshotId (effect de validação), statusMessage (effect de
+  tone), emptyPreviewTipIndex, workspaceRestoreToken, user, batchThreads* (persistência
+  localStorage), cleanerAiModelKey/AdditionalInstructions (fallback effects), translatorSfxCleanModelKey.
+- **(c) derivados multi-store → verificados; sem selector de mapa onde basta entrada
+  (2 corrigidos):** `activeManualProgress` (entrada por imagem no aio-snapshot-state),
+  `activeImageDetections/activeSelectedRegionId` (entradas por imagem no region-editor.render,
+  cleaner.editing, translator.inputs).
+
+#### 2. Mudanças por arquivo (resumo)
+
+| Arquivo | Mudança |
+| --- | --- |
+| `stores/typographer-store.ts` | +`typographerSessionsByImage` +action (value-or-updater) |
+| `hooks/typographer.ts` | Workspace stateless em render: hidratação/salvo-debounce via `store.subscribe` (fora do React); `saveSnapshot/restoreSnapshot` via getState; `useTypographerActiveState` subscreve a **sessão da imagem ativa** (slice único) em vez do mapa |
+| `hooks/region-editor.snapshot.ts` | `useAioRegionSnapshotSync`: leituras de detecções/seleção/progresso → getState (só setters subscrevem) |
+| `hooks/aio-snapshot-state.ts` | Getters `getAioImageSnapshotIndex/Meta/resolveAioStageKey` + rewind/forward/handleAioSubModeChange/apply/patch/normalize → getState; render-level = slices por imagem (progresso da imagem ativa, índice global, comprimento) |
+| `hooks/region-editor.render.ts` | `useActiveAioRegionState`: slices por imagem (`?? EMPTY_REGIONS`); `useAioRegionRenderToBlob`: downloadItems via getState (arg removida) |
+| `hooks/cleaner.editing.ts` | `useActiveCleanerRegionState` por imagem; `useCleanerManualEdits`/`useCleanerRegionEditing`/wand tolerance → getState |
+| `hooks/translator.inputs.ts` | `useActiveTranslatorRegionState` por imagem |
+| `hooks/manual-tools.ts` | `useAioManualEdits`/`useAioWandHealing` → getState (mapa + tolerância) |
+| `hooks/image-collection.ts` | `getPreviewSrc` → getState (5 mapas); args de mapas removidas |
+| `hooks/cleaner.ts` | `useCleanerActions`: leitura de `cleanerManualImageEditsByImage` no run → getState (arg removida) |
+| `hooks/typographer.ts` (controls) | `activeRegions`/sessão lidos no evento (args removidas) |
+| `workspace-persistence.capture.ts` / `.ts` | **Interlock de histórico/autosave: render-effect de ~50 deps → `store.subscribe`** (13 stores de domínio); builder de captura 100% getState; espelho de captura idem. Mesmo conjunto de gatilhos, zero re-render da página pela persistência |
+| `sections/StageGrid.tsx` | **Grade auto-subscrita**: 27 slices (mapas aio/cleaner/translator/typographer, tools, snapshots, steps, edits/preview bases, downloadItems) |
+| `sections/DashboardMainLayout.tsx` | Remove as 27 subs de encaminhamento da grade + props de estado ativo dos painéis |
+| `sections/AioRightPanel.tsx` / `CleanerToolsPanel.tsx` / `TranslatorToolsPanel.tsx` | Auto-subscrição do estado ativo (`useActive*RegionState` no painel); props de página removidas |
+| `pages/Dashboard.tsx` | 2718 → 2660 l.; 107 → 97 subs; effect de normalização manual com deps estreitas + getState |
+
+#### 3. Region-select: medição (audit probe, 3 runs, headed GPU)
+
+| Janela | T4.1 baseline | T4.2 pós | Delta |
+| --- | --- | --- | --- |
+| region-select:1 | DP 2r/~24ms · chrome 2r · Tooltip 76r | DP **2r**/~10ms · chrome 2r · Tooltip 72r | renders **iguais**, ms −58% |
+| region-select:5 | 1r | DP **1r**/4ms | igual |
+| route:dashboard | DP 7-9r/~53ms · AioRP 8r/89ms | DP **8r**/40ms · AioRP 8r/68ms | ~igual |
+| boot / drag / fixture | 6r / 2r / 10r | 6r / 2r / 10-11r | igual |
+
+**Gate NÃO batido** (2r > 0-1 em select:1-4; chrome continua co-renderizando 1:1 — unnec 0, todas
+as renders prop-driven). **Causa raiz restante (mapeada, não executada por falta de orçamento da
+sessão):** `useActiveAioRegionState` (slices de detecção+seleção da imagem ativa) e
+`useTypographerActiveState` (sessão da imagem ativa — seleção escreve `session.selectedRegionId`)
+rodam no corpo de `DashboardPage` e alimentam: `canEditActiveRenderStage`/`activeSelectedRegion`
+(dock + painel), `activeDockRegionsCount`, args event-time do keyboard/region-editing/controls.
+**Caminho documentado para 0r:** dock auto-subscribe seleção+contagem; painel já se auto-subscribe
+(falta `canEditActiveRenderStage` computado no painel); keyboard/region-editing/controls leem
+seleção via getState no evento (padrão já aplicado aos mapas); `useTypographerActiveState` passa a
+subscrever identidades de `queue`/`snapshots`/`activePresetId` em vez da sessão inteira (draft
+deixa de re-renderizar a página no typesetter).
+
+#### 4. Gates
+
+| Gate | Resultado |
+| --- | --- |
+| typecheck (interface + raiz + tauri) | ✅ 0 erros |
+| vitest | ✅ 43/43 |
+| smoke dashboard | ✅ 11/11 |
+| text-follow probe | ✅ 2/2 — drag **0 tasks**; commit **169/153ms** (T4.1: 183/198; T4.2b: 178-195); massa 10419→0/0→4904; boxDx 300px |
+| react-scan audit | ✅ (sem assertion) — 3 runs, medianas acima |
+| react-scan census | ✅ 2/2 (1 re-run: flake EBUSY/ERR_CONNECTION_REFUSED do vite — infra documentada no T4.1) |
+
+Census (1 run, comparado à mediana T4.1 — **não reivindicado como melhora sem 3 runs**): 
+mode:cleaner 116 (vs 229) · typesetter 181 (vs 249) · translator 82 (vs 140) ·
+retorno dashboard **442** (vs 558) com DP 6r/31ms (vs 8r/53ms) · translator:type worst 58ms/1 task
+(vs 17 tasks) · region:type-10-chars 0 tasks · images:add/remove 351/417 (vs 269/237 — pior, sessão
+ruidosa). Direção consistente com a queda de trabalho por commit, mas exige mediana de 3 antes de
+qualquer claim.
+
+#### 5. O que permanece estrutural e por quê
+
+1. **Seleção da imagem ativa ainda re-renderiza a página** (2r) — raiz e caminho na seção 3 acima.
+2. **Retorno ao dashboard (~440ms)** — dominado pelo remount da stage (DOM/raster, Fase 2a provou);
+a queda de 8r→6r/53→31ms no espelho de render ajuda pouco o task bloqueante.
+3. **Add/remove imagem (351/417ms)** — `images` é sub legítima da página (efeitos de poda,
+activeImage, hooks); precisa da transação única de store (T4.4e) + isolamento do card.
+4. **Drag-commit window (169/153ms)** — restante é redraw do canvas do stage + re-render do painel
+(T4.3), não cascata de página.
+5. **Toggle de ferramenta (P0-5)** — mantido na página por design nesta fase (T4.4c).
+
+#### 6. Follow-ups (T4.3)
+
+1. Mover o consumo de seleção/sessão para fora de `DashboardPage` (dock auto-subscribe +
+keyboard/edit/controls via getState + `useTypographerActiveState` por identidades de
+`queue`/`snapshots`/`activePresetId`) → alvo 0-1r em region-select e chrome co-render morto.
+2. `canEditActiveRenderStage` computado no AioRightPanel (painel já tem os slices).
+3. Mediana de 3 do census para os deltas da seção 4 antes de usar como gate.
+4. Dock: `activeDockRegionsCount` via slice próprio.
+
+### T4.2 — execution II (2026-09-01, Agente de Execução — continuação)
+
+**Status: GATE CENTRAL BATIDO.** Continuação direta da execução anterior (mesma sessão de
+trabalho, working tree sem commit): o caminho documentado na seção 3 acima foi executado por
+completo. Region-select caiu de **DP 2r + chrome 2r** (T4.1 baseline e 1ª execução) para
+**DP 1r (0r no re-select/no-op) + chrome co-render morto**. Nos caminhos de usuário do census
+(clique na região sobre a stage), a página inteira — DP, topbar, sidebars, footer, tooltips —
+fica em **0 renders e 0 long tasks**. O 1r residual do audit (escrita crua de
+`setAioSelectedRegionByImage`) ficou **por atribuir**: nenhum selector de valor da página
+reage ao mapa de seleção nos greps exaustivos, e o re-select (nova escrita, valor já igual à
+seleção anterior na sequência do probe) mostra 0r — o render só ocorre quando o VALOR da
+seleção muda de verdade. 1r está dentro do gate (0-1); ver seção 5.
+
+#### 1. Mapa — fechamento da classificação (101 → 89 subs de valor na página)
+
+Da 1ª execução restaram 49 slices de valor + 58 actions. Nesta continuação, os multi-consumidor
+(b) que ainda vazavam seleção/sessão pela página foram resolvidos:
+
+- **(a) → event-time getState (novos 12 slices movidos):** `aioDetectionsByImage` +
+  `aioSelectedRegionByImage` (args do useAioManualExecution → getState em
+  useAioManualProgressControls/useAioManualStageExecutor), `aioManualProgressByImage` +
+  `aioImageSnapshotIndexById` (progress controls/executor/skip), `aioPipelineSnapshots`
+  (getAioRegionsFromSnapshot), active selection/region/preset (keyboard, region-editing,
+  typographer controls — helpers `readActive*` em region-editor.render.ts),
+  `activeTranslatorSelectedRegionId` (translator visual/retranslate), mapas do bundle/PSD
+  (export-download.ts/.actions.ts), `cleanerProcessedBaseByImage` (bundle).
+- **(b) → auto-subscrição no consumidor (8 props de página removidas):** seleção ativa +
+  contagem de regiões (dock), `canEditActiveRenderStage` (AioRightPanel), sessão/preset/
+  multi-seleção da imagem ativa + listas de preset/swatches (StageGrid), sessão + 2 efeitos de
+  validação de queue/snapshot (TypographerToolsPanel), `activePsdAioRegionCount` como slice
+  primitivo (export availability).
+- **(c) → derivados verificados:** `syncActiveManualStageSnapshot` migrou de render-effect para
+  `store.subscribe` (region+pipeline) com guarda de reentrância — a versão sem guarda recursava
+  até stack overflow (apanhado pelo text-follow probe, não por typecheck).
+
+#### 2. Mudanças por arquivo (delta desta continuação)
+
+| Arquivo | Mudança |
+| --- | --- |
+| `hooks/region-editor.render.ts` | +4 helpers event-time (`readActiveAioSelectedRegion(Id)`, `readActiveSelectedRegionIdForMode`, `readActiveTypographerPreset`) |
+| `hooks/region-editor.ts` | `useAioRegionEditing` 100% event-time: seleção/region/preset/imagem lidos via getState dentro dos callbacks; args de página removidos (7) |
+| `hooks/typographer.ts` | `useTypographerControls` event-time (args de página removidos: 6); `useTypographerActiveState` **deletado** (órfão — os slices foram para o TypographerToolsPanel) |
+| `hooks/use-dashboard-keyboard.ts` | seleção via `readActive*` no event-time; `aioSteps.render` via getState no handler; args removidos (3) |
+| `hooks/manual-tools.ts` | `useManualToolToggles` recebe contagem primitiva (`activeCleanerDetectionsCount`) em vez do array |
+| `hooks/useAioManualProgressControls.ts` (+ executor/skip) | mapas → getState; `getAioRegionsFromSnapshot` sem subscrição; sync com guarda de reentrância |
+| `hooks/aio-pipeline.manual-execution.ts` | args de mapas removidos; sync dispara via `store.subscribe` (mesmo gatilho do efeito baseline) |
+| `hooks/translator.ts` / `translator.execution.ts` | `activeTranslatorSelectedRegionId` → getState no event-time (args removidos) |
+| `hooks/export-download.ts` / `.actions.ts` / `.availability.ts` | mapas do bundle/PSD → getState; `hasAioRenderRegionsForPsd` via slice de contagem da imagem ativa |
+| `sections/ManualToolsDock.tsx` | auto-subscribe seleção ativa + contagens (aio/cleaner) — 2 props removidas |
+| `sections/AioRightPanel.tsx` | `canEditActiveRenderStage` computado no painel — prop removida |
+| `sections/StageGrid.tsx` | auto-subscribe `textFillSwatchState`/`typographyPresetState` + mesmos memos da página — 3 props removidas |
+| `sections/TypographerToolsPanel.tsx` | auto-subscribe sessão/multi-seleção/regions; herda os 2 efeitos de fallback de preset/queue/snapshot da página (mesmos inputs de store) — 4 props removidas |
+| `sections/DashboardMainLayout.tsx` | encaminhamento das props removidas limpo |
+| `pages/Dashboard.tsx` | 2660 → **2527 l.**; subs de valor 97 → **89** (todas as restantes são multi-consumidor legítimo: mode/subMode/processing/images/activeId/args de execução/status/downloadItems) |
+
+#### 3. Region-select: medição final (audit probe, headed GPU)
+
+| Janela | T4.1 baseline | 1ª execução | **Esta execução (mediana de 3+)** |
+| --- | --- | --- | --- |
+| region-select:1-4 | DP 2r/~24ms · chrome 2r · Tooltip 76r | DP 2r | **DP 1r/~4ms · chrome 1r · Tooltip 36r** |
+| region-select:5 (re-select/no-op) | 1r | DP 1r | **DP 0r (só DashboardStageSection 1r)** |
+| drag (20 passos) | DP 2r | DP 2r | **DP 2r** (igual — selection é escrita real no commit) |
+| route:dashboard | DP 7-9r/53ms | DP 8r/40ms | **DP 8r/~30ms · AioRP 8r/68ms** (remount, inalterado) |
+| census region:select (clique usuário) | — | — | **DP 0r · Topbar 0r · Tooltip 0r · 0 tasks** (×3 runs) |
+| census region:type-10-chars | 13 tasks/262ms | — | **0 tasks** (×3 runs) |
+
+Chrome co-render em region-select caiu de "1:1 com a página" para **0 nos selects de usuário**
+e 1r-igual-Página no audit (a página só passa 1× por mudança real de seleção; DashboardMainLayout
+não é memoizado, então o chrome co-renderiza com essa única passada — memoização do layout +
+estabilização de identidade de props é o passo seguinte se 0r absoluto for exigido).
+
+#### 4. Gates
+
+| Gate | Resultado |
+| --- | --- |
+| typecheck (interface ×3 durante a sessão + raiz) | ✅ 0 erros |
+| vitest | ✅ 43/43 |
+| smoke dashboard | ✅ 11/11 (×2 runs) |
+| text-follow probe | ✅ 2/2 ×3 runs — drag **0 tasks**; commit **120/111/123ms** full (T4.1: 183/198; 1ª exec: 169/153); massa 10419→0 / 0→4904; boxDx 300px |
+| react-scan audit | ✅ sem assertion; medianas na seção 3 (4 runs salvos em `tests/e2e/probe-out/react-scan-audit-t42-run*.json`) |
+| react-scan census | ✅ 2/2 ×3 runs, sem assertion failure; artefatos em `tests/e2e/probe-out/react-scan-census-t42-run*.json` |
+
+Census (mediana de 3): mode:cleaner 110 (T4.1: 229) · typesetter 77 (249) · translator 69 (140)
+· watermark 162 (127 — dentro da variância de sessão) · retorno dashboard 336/339/327ms com
+**DP 6r/19ms** (T4.1: 558ms, 8r/53ms) · images:add/remove 205/183 (269/237) · region:type 0
+tasks (13) · translator:type 0 tasks (17). Todos os deltas de long task compartilham a sessão
+ruidosa documentada no T4.1 — a queda dos caminhos de seleção é a única reivindicação forte
+(mesmo instrumento, mesmo dia, mecanismo atribuído).
+
+#### 5. O que permanece estrutural e por quê
+
+1. **1r residual no audit region-select — por atribuir.** Ocorre só quando o VALOR da seleção
+   muda (re-select = 0r); os greps exaustivos não encontram selector de valor da página reagindo
+   ao mapa de seleção. Candidatos a investigar com Profiler/por eliminação: efeito de página com
+   setState derivado de seleção ou subscrição indireta. Está dentro do gate (0-1r) e o caminho
+   de usuário (census) já está em 0r.
+2. **Chrome co-render 1:1 com a passada restante da página** — `DashboardMainLayout` não é
+   memoizado; memoizá-lo exige estabilizar `STAGE_TABS` (recriado a cada render da página) e os
+   elementos de seção (`translationFreeProviderManagerSection` etc.).
+3. **`downloadItems`/`lastActionScope` na página** — sub legítima hoje (getters de download);
+   event-time na outra metade dos consumidores a abriria.
+2. **Retorno ao dashboard 327-339ms** — remount da stage (DOM/raster), provado dominante na
+   Fase 2a; o espelho de render da página caiu 8r→6r/53→19ms, mas o task é mount.
+3. **images add/remove ~180-210ms** — `images` é sub legítima da página (efeitos de poda,
+   activeImage, hooks); precisa da transação única (T4.4e) + isolamento do card.
+4. **mode:watermark 160-173ms** — piorou vs T4.1 dentro da variância; sem mudança atribuível.
+5. **drag-commit 111-123ms** — redraw do canvas + re-render do painel (T4.3), não cascata.
+
+#### 6. Follow-ups (T4.3+)
+
+1. Atribuir o 1r residual do audit region-select (Profiler/eliminação a partir dos candidatos da
+   seção 5.1) e memoizar `DashboardMainLayout` + estabilizar `STAGE_TABS`/elementos de seção se
+   0r absoluto + chrome morto no audit forem exigidos.
+2. AioRightPanel: selectors por slice dos mapas de snapshots/progress (subscribes inteiras que
+   restam no painel) — T4.3 como planejado.
+3. T4.4 na ordem de custo: (a) shortcut center sob demanda; (b) sub-mode manual normalizando
+   só a imagem ativa; (c) toggle de ferramenta de segmento narrowed; (d) ModelManagerModal
+   montagem condicional; (e) clear-all transação única.
+4. `downloadItems`/`lastActionScope` → event-time na metade restante dos consumidores de
+   download (getters já existem) — remove a subscrição da página.
+5. Reabrir retorno-dashboard apenas se o jank voltar a ser reportado (Fase 2a adjudicou o custo
+   como mount; keep-alive rejeitado).
+
+### T4.2 — review (2026-09-01, Review Agent)
+
+**VERDICT: ISSUES (1 must-fix, pequeno; todo o resto aprovado).** A cirurgia de subscrições da
+continuação (execution II) foi auditada linha a linha no eixo stale-read. As conversões
+render-time → event-time são consistentemente MAIS frescas que o baseline (leitura no call time
+vs valor capturado no último render), e não encontrei nenhum caminho que aja sobre seleção/região/
+preset/imagem anteriores. O achado único está na migração do interlock de persistência
+(execution I): o gatilho de hidratação foi perdido.
+
+#### 1. Achados
+
+1. **[MUST-FIX antes do commit] `workspaceChangeSignal` não dispara na conclusão da hidratação**
+   — `packages/interface/src/pages/dashboard/hooks/workspace-persistence.ts:469-491` (lista de
+   13 stores) e `:340-380` (efeito de hidratação). O efeito baseline tinha `workspaceHydrated`
+   como dep e re-semeava o baseline de histórico na virada false→true; a versão store.subscribe
+   não inclui `useWorkspacePersistenceStore` e o componente não assina mais `workspaceHydrated`
+   (leitura via `getState()`). Consequência: a PRIMEIRA mudança de domínio pós-hidratação (e
+   pós undo/redo restore, `:113` também reseta `workspaceHistoryReady` sem re-gatilho) cai no
+   ramo `!workspaceHistoryReady` (`:412-419`) e apenas semeia assinaturas — não comita histórico
+   nem marca `workspaceAutosaveDirty`. Delta visível: primeira ação do usuário após abrir o app
+   não é undoable, e uma única edição quitada antes do intervalo de autosave não é marcada
+   suja. Converge da segunda mudança em diante. **Fix (1 linha):** adicionar
+   `useWorkspacePersistenceStore` à lista `stores` do efeito do sinal (`:469`) — o write de
+   `setWorkspaceHydrated(true)` então dispara o sinal na hidratação (as escritas do próprio
+   sinal são mutação direta + convergem; sem loop). Alternativa: chamar
+   `workspaceChangeSignal()` logo após cada `setWorkspaceHydrated(true)` dos 4 ramos da
+   hidratação.
+2. **[Não-bloqueante, medição] mode:watermark +28% vs mediana T4.1** — 160/162/173ms (mediana
+   162) vs 127ms. Dentro do spread do próprio T4.1 (123-167; run 1 foi 167) e o render-path
+   MELHOROU nessa janela (audit: DP 2r/7ms; census DP 4-5r/17-19ms) — o long task é
+   raster/entrada de modo, sem mudança atribuível no diff. Registrado para investigação no
+   T4.3/T4.4 (re-medianar se persistir).
+3. **[Não-bloqueante, notas de auditoria]** (a) efeitos de validação de queue/snapshot do
+   typographer migraram da página (todos os modos) para dentro de `TypographerToolsPanel`
+   (montado só com `deferredStageMode === 'typesetter'`): o escopo estreitou, mas os únicos
+   consumidores reativos fora do painel eram os próprios efeitos — os demais
+   (`workspace-persistence.capture.ts:148-151`, `typographer.ts:544/678`) são event-time
+   getState; o estado converge no mount do painel. (b) `applyQueueTextToActiveRegion` agora
+   escreve `queueIndex: -1` (findIndex em fila vazia) onde o baseline escrevia `null` quando a
+   sessão não existia — inalcançável na prática (o queueItem vem da sessão). (c) Tree contém 31
+   arquivos modificados sob packages/interface/src = execution I + II sem commit (a claim "16
+   production files" cobre só o delta da execution II; consistente com as tabelas do registro).
+
+#### 2. Stale-read audit (resumo por área)
+
+- **Manual execution** (`useAioManualProgressControls/StageExecutor/StageSkip`): progress/
+  detections/índice lidos via getState no topo de cada callback — estritamente mais fresco que o
+  baseline (que usava valores do último render). O executor assíncrono captura `progress` no
+  início do run, igual ao baseline (comportamento pré-existente, não regressado). Sync
+  `syncActiveManualStageSnapshot`: mesmo conjunto de gatilhos do efeito baseline (as 5 fatias
+  viviam em 2 stores; subscribe nos 2 stores é superconjunto seguro — cada chamada valida
+  drift via `shouldSync`). Guarda de reentrância (`isSyncingActiveManualStage`, closure do
+  useCallback) cobre exatamente a recursão síncrona apply→subscribe→sync; escritas pós-await
+  re-disparam o sync sem guarda — sem lost update (apanhado e provado pelo text-follow probe
+  durante a execução).
+- **Keyboard/region-editing/typographer controls**: todos os `readActive*` resolvem no
+  call-time; `activeId` permanece dep de callback/efeito (subscrição legítima da página).
+  Edge-cases de seleção vazia preservados (`if (!region) return false/void`). Nenhum caminho
+  age na seleção anterior.
+- **Export download bundle/PSD**: leituras de mapas/`downloadItems` dentro dos callbacks de
+  build (clique) — não há serialização de estado capturado; menu aberto + imagens mudando não
+  produz dados per-image velhos.
+- **Helpers `readActive*` (region-editor.render.ts:39-96)**: leituras puras (sem subscribe),
+  fallbacks equivalentes aos memos do baseline (`?? EMPTY_REGIONS`, session-preset → mode-preset,
+  `resolveRenderTextMode` com os mesmos defaults 'auto'/'text_bubble').
+- **Props → sections (8 props + self-subscriptions)**: `canEditActiveRenderStage` recomputado no
+  AioRightPanel com a mesma expressão; `activeDockRegionsCount` no dock com `mode` próprio;
+  slices por imagem (`?? null`/length) idênticos aos memos da página. Nada dependia de
+  re-render do pai: os 2 efeitos movidos para TypographerToolsPanel têm os mesmos inputs de
+  store (ver nota 3a acima). `StageGrid` assina todas as 5 fatias que `getPreviewSrc` lê — os
+  previews da grade ficam frescos; `getListPreviewSrc` permanece sem consumidores (pré-existente).
+- **`useTypographerActiveState`**: 0 referências no repo (grep em packages/ e apps/) — órfão
+  confirmado, deleção correta.
+- **Dashboard.tsx**: diff é só remoção de subscrições/props + mudança dos 2 efeitos + deps
+  estreitas do efeito de normalização manual (leitura getState no corpo; os gatilhos removidos
+  voltam via `aioAutoHistoryAvailable`, ainda subscrito pela página via `aio-snapshot-state.ts:73`
+  → identidade de `initializeManualProgressFromSnapshots`). Nenhuma mudança de JSX/lógica além
+  dos movimentos documentados.
+
+#### 3. Gates (re-executados pelo review)
+
+| Gate | Resultado |
+| --- | --- |
+| typecheck interface + raiz (turbo) | ✅ 0 erros |
+| vitest (interface) | ✅ 43/43 |
+| smoke dashboard-refactor (headed, --workers=1) | ✅ 11/11 |
+| text-follow probe | ✅ 2/2 — drag **0 tasks**; commit 115/125ms (full/perf-only); massa 10419→0 / 0→4904; boxDx 300px |
+| react-scan census | ✅ 2/2 |
+| react-scan audit | ✅ 1 run — region-select:1-4 DP **1r**/~3-5ms (Tooltip 36r), select:5 **DP 0r** (só DashboardStageSection 1r), drag DP 2r (igual), route:dashboard DP 8r/~28ms, boot DP 6r/64ms, fixture 8r |
+
+#### 4. Medição — comparação janela a janela (census mediana de 3 vs T4.1 mediana)
+
+13 de 14 janelas comparáveis melhoraram: mode:cleaner 103 (229) · typesetter 76 (249) ·
+translator 69 (140) · raw 76 (133) · proofreader 67 (93) · stitch 82 (144) · split 97 (140) ·
+enhance 70 (264) · optimizer 83 (147) · organize 77 (119) · rotate-90 223 (392) · retorno
+dashboard 336 (558, DP 6r/19-22ms) · images add/remove 205/183 (269/237). Única piora:
+mode:watermark 162 (127, +28%) — ver Achado 2. Census region:select / region:type-10-chars /
+translator:type = **0 long tasks ×3 runs**. A assinatura central reivindicada (region-select
+0-1r, re-select 0r, chrome 0r nos selects de usuário) foi reproduzida pelo review.
+
+**Aceite**: estrutura e caminhos de usuário aprovados; aplicar o fix de 1 linha do Achado 1
+antes do commit e re-rodar smoke + um audit. Follow-ups (1r residual do audit,
+DashboardMainLayout memoization, custo de stage-remount do retorno) permanecem T4.3+.

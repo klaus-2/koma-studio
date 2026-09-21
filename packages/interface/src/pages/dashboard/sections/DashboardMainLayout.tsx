@@ -55,8 +55,6 @@ import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
-import { useManualToolsStore } from '../stores/manual-tools-store';
-import { useTypographerStore } from '../stores/typographer-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useExportStore } from '../stores/export-store';
@@ -128,7 +126,6 @@ import { useRenderFontCatalog } from '../../../hooks/useRenderFontCatalog';
 import type {
   AioManualStageStatus,
   AioPipelineSnapshotKey,
-  AioTextRegion,
   DashboardPageProps,
   DownloadItem,
   ProcessableMode,
@@ -137,17 +134,13 @@ import type {
 } from '../../../types/dashboard.types';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import type { KeyboardShortcutConfigV2 } from '../../../shortcuts/keyboardShortcuts';
-import type { RenderTextMode } from '../../../utils/renderModes';
 import type { CustomLlmProfile } from '../../../utils/customLlm';
-import type { listTextFillSwatches } from '../../../utils/textFillPicker';
 import type { TypographyShapeKind } from '../../../typography/types';
 import type { AioStageKey } from '../../../types/aioModelPresets';
 import type { StageTabDef } from '../../AioStageTabBar';
 
 /* Store/hook-backed prop types (same fields the page reads today). */
 type ImageCollectionState = ReturnType<typeof useImageCollectionStore.getState>;
-type RegionEditorState = ReturnType<typeof useRegionEditorStore.getState>;
-type CleanerState = ReturnType<typeof useCleanerStore.getState>;
 type ShellLayoutApi = ReturnType<typeof useDashboardShellLayout>;
 type ExternalActionsApi = ReturnType<typeof useDashboardExternalActions>;
 type WorkspacePersistenceApi = ReturnType<typeof useWorkspacePersistence>;
@@ -198,9 +191,6 @@ export interface DashboardMainLayoutProps {
   resolvedActiveId: string | null;
   resolvedAioAreaSelectionShapeKind: TypographyShapeKind;
   areaSelectionToolActive: boolean;
-  textFillSwatches: ReturnType<typeof listTextFillSwatches>;
-  typographyPresetList: RegionEditorState['typographyPresetState']['presets'];
-  typographyFolderList: RegionEditorState['typographyPresetState']['folders'];
   translationNotesEnabled: boolean;
   currentEmptyPreviewTip: string | undefined;
   handleStageWheelZoom: (event: React.WheelEvent<HTMLElement>) => void;
@@ -286,11 +276,7 @@ export interface DashboardMainLayoutProps {
   isDragActive: boolean;
   removeImage: ImageCollectionApi['removeImage'];
   activeImage: ImageCollectionState['images'][number] | null;
-  activeTypographerSession: TypographerWorkspaceApi['activeSession'];
-  activeTypographerPreset: RegionEditorState['typographyPresetState']['presets'][number] | null;
-  activeTypographerMultiSelectedIds: string[];
   modeLabel: string;
-  handleTypographerMultiSelectReorder: (nextOrder: string[]) => void;
 
   /* ── Workspace persistence ── */
   workspaceHistory: WorkspacePersistenceApi['workspaceHistory'];
@@ -341,12 +327,10 @@ export interface DashboardMainLayoutProps {
   manualToolsConfigTitle: string;
   areaSelectionToolHasConfig: boolean;
   activeDockToolHasConfig: boolean;
-  activeDockRegionsCount: number;
   isAioManualMode: boolean;
   activeStageAllowsAreaTools: boolean;
   activeStageAllowsSegmentTools: boolean;
   activeStageAllowsManualImageTools: boolean;
-  activeSelectedRegion: AioTextRegion | null;
   duplicateSelectedTypographerRegion: AioRegionEditingApi['duplicateSelectedTypographerRegion'];
   convertActiveTypographerShape: AioRegionEditingApi['convertActiveTypographerShape'];
   clearAioRegionsForActiveImage: AioRegionEditingApi['clearAioRegionsForActiveImage'];
@@ -417,12 +401,8 @@ export interface DashboardMainLayoutProps {
   STAGE_TABS: StageTabDef[];
   showLlmSettingsPanel: boolean;
   llmSettingsSupportSummary: string;
-  activeSelectedTranslationNotes: string[];
-  activeSelectedRenderMode: RenderTextMode;
-  activeSelectedResolvedRenderMode: RenderTextMode;
   updateActiveRenderMode: AioRegionEditingApi['updateActiveRenderMode'];
   removeSelectedAioRegion: AioRegionEditingApi['removeSelectedAioRegion'];
-  canEditActiveRenderStage: boolean;
   applyActiveRenderStyleToAllRegions: AioRegionEditingApi['applyActiveRenderStyleToAllRegions'];
   activeImageRenderStageActive: boolean;
   loadRenderFontCatalog: RenderFontCatalogApi['loadRenderFontCatalog'];
@@ -442,8 +422,6 @@ export interface DashboardMainLayoutProps {
   selectedCleanerAiDisplayOption: AioStageOption | null;
   selectCleanerAiModel: CleanerModelSelectionApi['selectCleanerAiModel'];
   handleClean: ReturnType<typeof useCleanerActions>;
-  activeCleanerRunMeta: CleanerState['cleanerRunMetaByImage'][string] | null;
-  activeCleanerSelectedRegion: AioTextRegion | null;
   translatorAvailableOcrStageOptions: AioStageOption[];
   selectedTranslatorOcrCloudOption: AioStageOption | null;
   translatorSelectedLocalTranslationCompatible: boolean;
@@ -451,10 +429,6 @@ export interface DashboardMainLayoutProps {
   selectTranslatorSfxCleanModel: (modelKey: string) => void;
   processTranslatorVisual: TranslatorVisualActionsApi;
   retranslateTranslatorRegions: TranslatorRetranslateApi;
-  activeImageDetections: AioTextRegion[];
-  activeTranslatorImageDetections: AioTextRegion[];
-  activeTranslatorSelectedRegion: AioTextRegion | null;
-  activeTranslatorSelectedTranslationNotes: string[];
   applyActiveTypographyPresetToSelection: AioRegionEditingApi['applyActiveTypographyPresetToSelection'];
   applyActiveTypographyPresetToImage: AioRegionEditingApi['applyActiveTypographyPresetToImage'];
   handleTypographerPresetChange: TypographerControlsApi['handleTypographerPresetChange'];
@@ -509,9 +483,6 @@ export default function DashboardMainLayout({
   resolvedActiveId,
   resolvedAioAreaSelectionShapeKind,
   areaSelectionToolActive,
-  textFillSwatches,
-  typographyPresetList,
-  typographyFolderList,
   translationNotesEnabled,
   currentEmptyPreviewTip,
   handleStageWheelZoom,
@@ -585,11 +556,7 @@ export default function DashboardMainLayout({
   isDragActive,
   removeImage,
   activeImage,
-  activeTypographerSession,
-  activeTypographerPreset,
-  activeTypographerMultiSelectedIds,
   modeLabel,
-  handleTypographerMultiSelectReorder,
   workspaceHistory,
   handleWorkspaceUndo,
   handleWorkspaceRedo,
@@ -630,12 +597,10 @@ export default function DashboardMainLayout({
   manualToolsConfigTitle,
   areaSelectionToolHasConfig,
   activeDockToolHasConfig,
-  activeDockRegionsCount,
   isAioManualMode,
   activeStageAllowsAreaTools,
   activeStageAllowsSegmentTools,
   activeStageAllowsManualImageTools,
-  activeSelectedRegion,
   duplicateSelectedTypographerRegion,
   convertActiveTypographerShape,
   clearAioRegionsForActiveImage,
@@ -704,12 +669,8 @@ export default function DashboardMainLayout({
   STAGE_TABS,
   showLlmSettingsPanel,
   llmSettingsSupportSummary,
-  activeSelectedTranslationNotes,
-  activeSelectedRenderMode,
-  activeSelectedResolvedRenderMode,
   updateActiveRenderMode,
   removeSelectedAioRegion,
-  canEditActiveRenderStage,
   applyActiveRenderStyleToAllRegions,
   activeImageRenderStageActive,
   loadRenderFontCatalog,
@@ -727,8 +688,6 @@ export default function DashboardMainLayout({
   selectedCleanerAiDisplayOption,
   selectCleanerAiModel,
   handleClean,
-  activeCleanerRunMeta,
-  activeCleanerSelectedRegion,
   translatorAvailableOcrStageOptions,
   selectedTranslatorOcrCloudOption,
   translatorSelectedLocalTranslationCompatible,
@@ -736,10 +695,6 @@ export default function DashboardMainLayout({
   selectTranslatorSfxCleanModel,
   processTranslatorVisual,
   retranslateTranslatorRegions,
-  activeImageDetections,
-  activeTranslatorImageDetections,
-  activeTranslatorSelectedRegion,
-  activeTranslatorSelectedTranslationNotes,
   applyActiveTypographyPresetToSelection,
   applyActiveTypographyPresetToImage,
   handleTypographerPresetChange,
@@ -805,7 +760,6 @@ export default function DashboardMainLayout({
   const inlineEditorShortcutRequestKey = useUiShellStore(
     (s) => s.inlineEditorShortcutRequestKey,
   );
-  const emptyPreviewTipIndex = useUiShellStore((s) => s.emptyPreviewTipIndex);
   const images = useImageCollectionStore((s) => s.images);
   const setActiveId = useImageCollectionStore((s) => s.setActiveId);
   const rotateImage = useImageCollectionStore((s) => s.rotateImage);
@@ -895,19 +849,6 @@ export default function DashboardMainLayout({
   const setTranslatorProcessedBaseByImage = useTranslatorStore(
     (s) => s.setTranslatorProcessedBaseByImage,
   );
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
-  const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
-  );
-  const renderDefaultStyle = useRegionEditorStore(
-    (s) => s.renderDefaultStyle,
-  );
-  const aioSteps = useAioPipelineStore((s) => s.aioSteps);
-  const aioPipelineSnapshots = useAioPipelineStore(
-    (s) => s.aioPipelineSnapshots,
-  );
   const batchThreads = useAioPipelineStore((s) => s.batchThreads);
   const setBatchThreads = useAioPipelineStore((s) => s.setBatchThreads);
   const batchThreadsEnabled = useAioPipelineStore((s) => s.batchThreadsEnabled);
@@ -927,55 +868,8 @@ export default function DashboardMainLayout({
   const invalidateAioPipelineHistory = useAioPipelineStore(
     (s) => s.invalidateAioPipelineHistory,
   );
-  const aioManualHealingBusyByImage = useManualToolsStore(
-    (s) => s.aioManualHealingBusyByImage,
-  );
-  const manualImageTool = useManualToolsStore((s) => s.manualImageTool);
-  const manualImagePaintColor = useManualToolsStore(
-    (s) => s.manualImagePaintColor,
-  );
-  const manualImageBrushSize = useManualToolsStore(
-    (s) => s.manualImageBrushSize,
-  );
-  const manualImageBrushOpacity = useManualToolsStore(
-    (s) => s.manualImageBrushOpacity,
-  );
-  const manualImageBrushBlur = useManualToolsStore(
-    (s) => s.manualImageBrushBlur,
-  );
-  const segmentEditTool = useManualToolsStore((s) => s.segmentEditTool);
-  const segmentBrushSize = useManualToolsStore((s) => s.segmentBrushSize);
-  const typographerSelectionTool = useTypographerStore(
-    (s) => s.typographerSelectionTool,
-  );
-  const typographerMultiSelectedByImage = useTypographerStore(
-    (s) => s.typographerMultiSelectedByImage,
-  );
-  const setTypographerMultiSelectedByImage = useTypographerStore(
-    (s) => s.setTypographerMultiSelectedByImage,
-  );
-  const cleanerRunMetaByImage = useCleanerStore((s) => s.cleanerRunMetaByImage);
-  const cleanerDetectionsByImage = useCleanerStore(
-    (s) => s.cleanerDetectionsByImage,
-  );
-  const cleanerSelectedRegionByImage = useCleanerStore(
-    (s) => s.cleanerSelectedRegionByImage,
-  );
-  const cleanerHealingBusyByImage = useCleanerStore(
-    (s) => s.cleanerHealingBusyByImage,
-  );
-  const cleanerShowOverlays = useCleanerStore((s) => s.cleanerShowOverlays);
   const cleanerSrcLang = useCleanerStore((s) => s.cleanerSrcLang);
   const setCleanerSrcLang = useCleanerStore((s) => s.setCleanerSrcLang);
-  const translatorRunMetaByImage = useTranslatorStore(
-    (s) => s.translatorRunMetaByImage,
-  );
-  const translatorDetectionsByImage = useTranslatorStore(
-    (s) => s.translatorDetectionsByImage,
-  );
-  const translatorSelectedRegionByImage = useTranslatorStore(
-    (s) => s.translatorSelectedRegionByImage,
-  );
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
   );
@@ -1259,32 +1153,6 @@ export default function DashboardMainLayout({
           images={images}
           setActiveId={setActiveId}
           inlineEditorShortcutRequestKey={inlineEditorShortcutRequestKey}
-          emptyPreviewTipIndex={emptyPreviewTipIndex}
-          aioDetectionsByImage={aioDetectionsByImage}
-          aioSelectedRegionByImage={aioSelectedRegionByImage}
-          renderDefaultStyle={renderDefaultStyle}
-          aioSteps={aioSteps}
-          aioPipelineSnapshots={aioPipelineSnapshots}
-          aioManualHealingBusyByImage={aioManualHealingBusyByImage}
-          manualImageTool={manualImageTool}
-          manualImagePaintColor={manualImagePaintColor}
-          manualImageBrushSize={manualImageBrushSize}
-          manualImageBrushOpacity={manualImageBrushOpacity}
-          manualImageBrushBlur={manualImageBrushBlur}
-          segmentEditTool={segmentEditTool}
-          segmentBrushSize={segmentBrushSize}
-          typographerSelectionTool={typographerSelectionTool}
-          typographerMultiSelectedByImage={typographerMultiSelectedByImage}
-          setTypographerMultiSelectedByImage={setTypographerMultiSelectedByImage}
-          cleanerRunMetaByImage={cleanerRunMetaByImage}
-          cleanerDetectionsByImage={cleanerDetectionsByImage}
-          cleanerSelectedRegionByImage={cleanerSelectedRegionByImage}
-          cleanerHealingBusyByImage={cleanerHealingBusyByImage}
-          cleanerShowOverlays={cleanerShowOverlays}
-          translatorRunMetaByImage={translatorRunMetaByImage}
-          translatorDetectionsByImage={translatorDetectionsByImage}
-          translatorSelectedRegionByImage={translatorSelectedRegionByImage}
-          translatorWorkspaceMode={translatorWorkspaceMode}
           selectAioRegionForImage={selectAioRegionForImage}
           updateAioRegionsForImage={updateAioRegionsForImage}
           selectCleanerRegionForImage={selectCleanerRegionForImage}
@@ -1312,9 +1180,6 @@ export default function DashboardMainLayout({
           applyAutoDetectedShapeToRegionById={applyAutoDetectedShapeToRegionById}
           applyTypographyPresetToRegionById={applyTypographyPresetToRegionById}
           convertRegionShapeById={convertRegionShapeById}
-          textFillSwatches={textFillSwatches}
-          typographyPresetList={typographyPresetList}
-          typographyFolderList={typographyFolderList}
           translationNotesEnabled={translationNotesEnabled}
           currentEmptyPreviewTip={currentEmptyPreviewTip}
           isCompactViewport={isCompactViewport}
@@ -1357,14 +1222,12 @@ export default function DashboardMainLayout({
         manualToolsConfigTitle={manualToolsConfigTitle}
         areaSelectionToolHasConfig={areaSelectionToolHasConfig}
         activeDockToolHasConfig={activeDockToolHasConfig}
-        activeDockRegionsCount={activeDockRegionsCount}
         isAioManualMode={isAioManualMode}
         areaSelectionToolActive={areaSelectionToolActive}
         activeStageAllowsAreaTools={activeStageAllowsAreaTools}
         activeStageAllowsSegmentTools={activeStageAllowsSegmentTools}
         activeStageAllowsManualImageTools={activeStageAllowsManualImageTools}
         resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKind}
-        activeSelectedRegion={activeSelectedRegion}
         duplicateSelectedTypographerRegion={
           duplicateSelectedTypographerRegion
         }
@@ -1477,15 +1340,9 @@ export default function DashboardMainLayout({
               showLlmSettingsPanel={showLlmSettingsPanel}
               llmSettingsSupportSummary={llmSettingsSupportSummary}
               // ── Region editor / render stage (not yet migrated) ──
-              activeImageDetections={activeImageDetections}
-              activeSelectedRegion={activeSelectedRegion}
-              activeSelectedTranslationNotes={activeSelectedTranslationNotes}
-              activeSelectedRenderMode={activeSelectedRenderMode}
-              activeSelectedResolvedRenderMode={activeSelectedResolvedRenderMode}
               updateActiveRenderMode={updateActiveRenderMode}
               removeSelectedAioRegion={removeSelectedAioRegion}
               duplicateSelectedTypographerRegion={duplicateSelectedTypographerRegion}
-              canEditActiveRenderStage={canEditActiveRenderStage}
               applyActiveRenderStyleToAllRegions={applyActiveRenderStyleToAllRegions}
               activeImageRenderStageActive={activeImageRenderStageActive}
               // ── Typographer — render fonts (not yet migrated) ──
@@ -1524,17 +1381,12 @@ export default function DashboardMainLayout({
               selectCleanerAiModel={selectCleanerAiModel}
               handleClean={handleClean}
               localApiUrl={apiConfig.localUrl}
-              activeCleanerRunMeta={activeCleanerRunMeta}
-              activeCleanerSelectedRegion={activeCleanerSelectedRegion}
             />
           </Suspense>
         )}
         {deferredStageMode === 'typesetter' && (
           <Suspense fallback={<DashboardLazyFallback />}>
             <TypographerToolsPanel
-              activeTypographerSession={activeTypographerSession}
-              activeTypographerPreset={activeTypographerPreset}
-              activeTypographerMultiSelectedIds={activeTypographerMultiSelectedIds}
               availableRenderFonts={availableRenderFonts}
               handleTypographerPresetChange={handleTypographerPresetChange}
               refineActiveTypographerShape={refineActiveTypographerShape}
@@ -1552,7 +1404,6 @@ export default function DashboardMainLayout({
               applyNextTypographerQueueItem={applyNextTypographerQueueItem}
               handleTypographerToggleMultiBubble={handleTypographerToggleMultiBubble}
               handleTypographerImportQueueText={handleTypographerImportQueueText}
-              handleTypographerMultiSelectReorder={handleTypographerMultiSelectReorder}
               handleUpdateTypographyPreset={handleUpdateTypographyPreset}
             />
           </Suspense>
@@ -1590,11 +1441,6 @@ export default function DashboardMainLayout({
               handleTranslatorTextImport={handleTranslatorTextImport}
               handleTranslatorImageUpload={handleTranslatorImageUpload}
               activeId={resolvedActiveId}
-              activeTranslatorImageDetections={activeTranslatorImageDetections}
-              activeTranslatorSelectedRegion={activeTranslatorSelectedRegion}
-              activeTranslatorSelectedTranslationNotes={
-                activeTranslatorSelectedTranslationNotes
-              }
               retranslateTranslatorRegions={retranslateTranslatorRegions}
             />
           </Suspense>

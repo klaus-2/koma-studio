@@ -162,7 +162,6 @@ export function useDashboardDownloadActions({
     setDownloadMenuOpen,
     setStatusMessage,
     t,
-    translatorDetectionsByImage,
     translatorTranslatedText,
     translatorWorkspaceMode,
     triggerBlobDownload,
@@ -203,16 +202,7 @@ export function useDashboardPsdDownload({
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
   const srcLang = useTranslatorStore((s) => s.srcLang);
   const tgtLang = useTranslatorStore((s) => s.tgtLang);
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
   const renderDefaultStyle = useRegionEditorStore((s) => s.renderDefaultStyle);
-  const translatorDetectionsByImage = useTranslatorStore(
-    (s) => s.translatorDetectionsByImage,
-  );
-  const translatorProcessedBaseByImage = useTranslatorStore(
-    (s) => s.translatorProcessedBaseByImage,
-  );
   const downloadPsdCompression = useExportStore((s) => s.downloadPsdCompression);
   const downloadPsdDpi = useExportStore((s) => s.downloadPsdDpi);
   const downloadPsdIncludeIndividualCrops = useExportStore(
@@ -385,9 +375,9 @@ export function useDashboardPsdDownload({
         setTypographerSessionSourceType(targetImage.id, sourceType);
         sourceBlobForExport = sourceFile;
       }
-      if (mode === 'translator' && translatorProcessedBaseByImage[targetImage.id]) {
+      if (mode === "translator" && useTranslatorStore.getState().translatorProcessedBaseByImage[targetImage.id]) {
         sourceBlobForExport = await dataUrlToBlob(
-          translatorProcessedBaseByImage[targetImage.id]!,
+          useTranslatorStore.getState().translatorProcessedBaseByImage[targetImage.id]!,
         );
       }
       const sourceFileForExport = sourceBlobForExport instanceof File
@@ -409,8 +399,8 @@ export function useDashboardPsdDownload({
         const targetLanguage = mode === 'translator' ? tgtLang : aioTgtLang;
         const regions = (
           mode === 'translator'
-            ? (translatorDetectionsByImage[targetImage.id] ?? [])
-            : (aioDetectionsByImage[targetImage.id] ?? [])
+            ? (useTranslatorStore.getState().translatorDetectionsByImage[targetImage.id] ?? [])
+            : (useRegionEditorStore.getState().aioDetectionsByImage[targetImage.id] ?? [])
         ).map((region) => applyRenderDefaultsToRegion(region, renderDefaultStyle as any, applyDetectedGradientToStyle, undefined, targetLanguage));
         if (regions.length > 0) {
           const textLayerEntries: PsdTextLayerEntry[] = [];
@@ -515,7 +505,6 @@ export function useDashboardPsdDownload({
     }
   }, [
     activeImage,
-    aioDetectionsByImage,
     aioSrcLang,
     aioTgtLang,
     applyDetectedGradientToStyle,
@@ -544,8 +533,6 @@ export function useDashboardPsdDownload({
     setTypographerSessionSourceType,
     srcLang,
     tgtLang,
-    translatorDetectionsByImage,
-    translatorProcessedBaseByImage,
     translationNotesEnabled,
     triggerBlobDownload,
   ]);

@@ -52,9 +52,10 @@ interface UseWorkspacePersistenceArgs {
 /**
  * Workspace persistence: capture/restore of the full workspace document,
  * undo/redo history, local autosave, export/import/close and the footer
- * workspace status. The capture deps are DELIBERATE (they are the
- * change-signal of the history/autosave interlock — effects below and the
- * queue rule) even where the body reads `getState()` instead.
+ * workspace status. The history/autosave change-signal moved from a
+ * render-driven effect (the hook subscribed the page to every domain store)
+ * to a single store.subscribe over the domain stores — same observed change
+ * set, zero page re-renders from persistence bookkeeping.
  */
 export function useWorkspacePersistence({
   authUser,
@@ -66,171 +67,6 @@ export function useWorkspacePersistence({
   setFreeProviderDrafts,
 }: UseWorkspacePersistenceArgs) {
   const { t } = useI18n();
-
-  // Shell / collection / status
-  const mode = useUiShellStore((s) => s.mode);
-  const setMode = useUiShellStore((s) => s.setMode);
-  const subMode = useUiShellStore((s) => s.subMode);
-  const viewMode = useUiShellStore((s) => s.viewMode);
-  const processing = useUiShellStore((s) => s.processing);
-  const images = useImageCollectionStore((s) => s.images);
-  const setImages = useImageCollectionStore((s) => s.setImages);
-  const activeId = useImageCollectionStore((s) => s.activeId);
-  const setActiveId = useImageCollectionStore((s) => s.setActiveId);
-  const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
-  const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
-
-  // Downloads
-  const downloadItems = useExportStore((s) => s.downloadItems);
-  const lastActionScope = useExportStore((s) => s.lastActionScope);
-
-  // AIO pipeline
-  const aioSteps = useAioPipelineStore((s) => s.aioSteps);
-  const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
-  const aioPresetState = useAioPipelineStore((s) => s.aioPresetState);
-  const aioMaskDilation = useAioPipelineStore((s) => s.aioMaskDilation);
-  const aioHdStrategy = useAioPipelineStore((s) => s.aioHdStrategy);
-  const aioHdResizeLimit = useAioPipelineStore((s) => s.aioHdResizeLimit);
-  const aioHdCropMargin = useAioPipelineStore((s) => s.aioHdCropMargin);
-  const aioHdCropTriggerSize = useAioPipelineStore(
-    (s) => s.aioHdCropTriggerSize,
-  );
-  const aioPipelineSnapshots = useAioPipelineStore(
-    (s) => s.aioPipelineSnapshots,
-  );
-  const aioPipelineSnapshotIndex = useAioPipelineStore(
-    (s) => s.aioPipelineSnapshotIndex,
-  );
-  const aioImageSnapshotIndexById = useAioPipelineStore(
-    (s) => s.aioImageSnapshotIndexById,
-  );
-  const aioAutoHistoryAvailable = useAioPipelineStore(
-    (s) => s.aioAutoHistoryAvailable,
-  );
-  const aioAutoProcessedImageById = useAioPipelineStore(
-    (s) => s.aioAutoProcessedImageById,
-  );
-  const aioManualProgressByImage = useAioPipelineStore(
-    (s) => s.aioManualProgressByImage,
-  );
-  const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
-  const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
-  const batchThreads = useAioPipelineStore((s) => s.batchThreads);
-  const batchThreadsEnabled = useAioPipelineStore(
-    (s) => s.batchThreadsEnabled,
-  );
-
-  // Region editor
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
-  const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
-  );
-
-  // Manual tools
-  const aioManualImageEditsByImage = useManualToolsStore(
-    (s) => s.aioManualImageEditsByImage,
-  );
-
-  // Cleaner
-  const cleanerDetectionsByImage = useCleanerStore(
-    (s) => s.cleanerDetectionsByImage,
-  );
-  const cleanerSelectedRegionByImage = useCleanerStore(
-    (s) => s.cleanerSelectedRegionByImage,
-  );
-  const cleanerProcessedBaseByImage = useCleanerStore(
-    (s) => s.cleanerProcessedBaseByImage,
-  );
-  const cleanerRunMetaByImage = useCleanerStore(
-    (s) => s.cleanerRunMetaByImage,
-  );
-  const cleanerManualImageEditsByImage = useCleanerStore(
-    (s) => s.cleanerManualImageEditsByImage,
-  );
-
-  // Translator
-  const srcLang = useTranslatorStore((s) => s.srcLang);
-  const tgtLang = useTranslatorStore((s) => s.tgtLang);
-  const translatorWorkspaceMode = useTranslatorStore(
-    (s) => s.translatorWorkspaceMode,
-  );
-  const translatorDraftText = useTranslatorStore((s) => s.translatorDraftText);
-  const translatorTranslatedText = useTranslatorStore(
-    (s) => s.translatorTranslatedText,
-  );
-  const translatorLastTextModelUsed = useTranslatorStore(
-    (s) => s.translatorLastTextModelUsed,
-  );
-  const translatorTextDirty = useTranslatorStore((s) => s.translatorTextDirty);
-  const translatorDetectionsByImage = useTranslatorStore(
-    (s) => s.translatorDetectionsByImage,
-  );
-  const translatorSelectedRegionByImage = useTranslatorStore(
-    (s) => s.translatorSelectedRegionByImage,
-  );
-  const translatorRunMetaByImage = useTranslatorStore(
-    (s) => s.translatorRunMetaByImage,
-  );
-
-  // Typographer
-  const typographerSelectionTool = useTypographerStore(
-    (s) => s.typographerSelectionTool,
-  );
-  const typographerQueueSelectedId = useTypographerStore(
-    (s) => s.typographerQueueSelectedId,
-  );
-  const typographerSnapshotName = useTypographerStore(
-    (s) => s.typographerSnapshotName,
-  );
-  const typographerSelectedSnapshotId = useTypographerStore(
-    (s) => s.typographerSelectedSnapshotId,
-  );
-
-  // Enhance
-  const enhanceScale = useEnhanceStore((s) => s.enhanceScale);
-  const enhanceProfile = useEnhanceStore((s) => s.enhanceProfile);
-  const enhanceModelId = useEnhanceStore((s) => s.enhanceModelId);
-  const enhanceOutputFormat = useEnhanceStore((s) => s.enhanceOutputFormat);
-
-  // Utility (stitch + workspace states)
-  const stitchLayoutMode = useUtilityStore((s) => s.stitchLayoutMode);
-  const stitchBatchStrategy = useUtilityStore((s) => s.stitchBatchStrategy);
-  const stitchBatchSize = useUtilityStore((s) => s.stitchBatchSize);
-  const stitchTargetPrimaryAxis = useUtilityStore(
-    (s) => s.stitchTargetPrimaryAxis,
-  );
-  const stitchGap = useUtilityStore((s) => s.stitchGap);
-  const stitchAlignMode = useUtilityStore((s) => s.stitchAlignMode);
-  const stitchBackground = useUtilityStore((s) => s.stitchBackground);
-  const stitchSingleExportFormat = useUtilityStore(
-    (s) => s.stitchSingleExportFormat,
-  );
-  const stitchFileBaseName = useUtilityStore((s) => s.stitchFileBaseName);
-  const stitchSelectedBatchIndex = useUtilityStore(
-    (s) => s.stitchSelectedBatchIndex,
-  );
-  const stitchBatchIndexes = useUtilityStore((s) => s.stitchBatchIndexes);
-
-  // LLM providers
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
-  const customLlmProfiles = useLlmProvidersStore((s) => s.customLlmProfiles);
-  const customLlmProfilesMode = useLlmProvidersStore(
-    (s) => s.customLlmProfilesMode,
-  );
-  const pendingCustomSelections = useLlmProvidersStore(
-    (s) => s.pendingCustomSelections,
-  );
-  const customLlmDrafts = useLlmProvidersStore((s) => s.customLlmDrafts);
-
-  // Workspace persistence (own domain)
-  const workspaceHydrated = useWorkspacePersistenceStore(
-    (s) => s.workspaceHydrated,
-  );
-  const setWorkspaceHydrated = useWorkspacePersistenceStore(
-    (s) => s.setWorkspaceHydrated,
-  );
   const workspaceAutosaveSettings = useWorkspacePersistenceStore(
     (s) => s.workspaceAutosaveSettings,
   );
@@ -243,14 +79,22 @@ export function useWorkspacePersistence({
   const setWorkspaceLastSavedAt = useWorkspacePersistenceStore(
     (s) => s.setWorkspaceLastSavedAt,
   );
-
+  const setWorkspaceHydrated = useWorkspacePersistenceStore(
+    (s) => s.setWorkspaceHydrated,
+  );
+  const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
+  const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
+  const images = useImageCollectionStore((s) => s.images);
+  const setImages = useImageCollectionStore((s) => s.setImages);
+  const setActiveId = useImageCollectionStore((s) => s.setActiveId);
+  const setMode = useUiShellStore((s) => s.setMode);
+  const processing = useUiShellStore((s) => s.processing);
   const {
     releaseWorkspaceObjectUrls,
     buildCurrentWorkspaceCaptureState,
     buildCaptureStateFromRestored,
   } = useWorkspaceCaptureState({
     authUser,
-    typographerWorkspace,
     currentSplitterWorkspaceState,
     currentWatermarkWorkspaceState,
     currentOptimizerWorkspaceState,
@@ -296,7 +140,7 @@ export function useWorkspacePersistence({
       buildWorkspaceAutosaveSignature(captureState);
     workspaceHistory.setBaseline(
       snapshot ??
-        captureWorkspaceHistorySnapshot(captureState),
+      captureWorkspaceHistorySnapshot(captureState),
     );
   }, [buildCurrentWorkspaceCaptureState, workspaceHistory]);
 
@@ -551,14 +395,15 @@ export function useWorkspacePersistence({
     };
   }, [authUser?.id, setWorkspaceHydrated, setWorkspaceLastSavedAt]);
 
-  useEffect(() => {
-    if (!workspaceHydrated) return;
-    if (workspaceHistory.isRestoringRef.current) return;
+  const workspaceChangeSignal = useCallback(() => {
     const persistence = useWorkspacePersistenceStore.getState();
+    if (!persistence.workspaceHydrated) return;
+    if (workspaceHistory.isRestoringRef.current) return;
     const captureState =
       persistence.latestWorkspaceCaptureState ??
       buildCurrentWorkspaceCaptureState();
     const historySignature = buildWorkspaceHistorySignature(captureState);
+    const processing = useUiShellStore.getState().processing;
 
     if (!persistence.workspaceHistoryReady) {
       persistence.workspaceHistoryReady = true;
@@ -597,89 +442,45 @@ export function useWorkspacePersistence({
       setWorkspaceStatusDetail(t('dashboard.status.workspacePendingChanges'));
     }
   }, [
-    activeId,
-    aioAutoHistoryAvailable,
-    aioAutoProcessedImageById,
-    aioDetectionsByImage,
-    aioHdCropMargin,
-    aioHdCropTriggerSize,
-    aioHdResizeLimit,
-    aioHdStrategy,
-    aioImageSnapshotIndexById,
-    aioManualImageEditsByImage,
-    aioManualProgressByImage,
-    aioMaskDilation,
-    aioPipelineSnapshotIndex,
-    aioPipelineSnapshots,
-    aioPresetState,
-    aioSelectedRegionByImage,
-    aioSrcLang,
-    aioStageSelection,
-    aioSteps,
-    aioTgtLang,
-    batchThreads,
-    batchThreadsEnabled,
-    cleanerDetectionsByImage,
-    cleanerManualImageEditsByImage,
-    cleanerProcessedBaseByImage,
-    cleanerRunMetaByImage,
-    cleanerSelectedRegionByImage,
-    currentOptimizerWorkspaceState,
-    currentSplitterWorkspaceState,
-    currentWatermarkWorkspaceState,
-    customLlmDrafts,
-    customLlmProfiles,
-    customLlmProfilesMode,
-    downloadItems,
-    enhanceModelId,
-    enhanceOutputFormat,
-    enhanceProfile,
-    enhanceScale,
-    freeProviderDrafts,
-    images,
-    lastActionScope,
-    llmSettings,
-    mode,
-    pendingCustomSelections,
-    srcLang,
-    stitchAlignMode,
-    stitchBackground,
-    stitchBatchIndexes,
-    stitchBatchSize,
-    stitchBatchStrategy,
-    stitchFileBaseName,
-    stitchGap,
-    stitchLayoutMode,
-    stitchSelectedBatchIndex,
-    stitchSingleExportFormat,
-    stitchTargetPrimaryAxis,
-    setWorkspaceStatus,
-    setWorkspaceStatusDetail,
-    subMode,
-    tgtLang,
-    translatorDetectionsByImage,
-    translatorDraftText,
-    translatorLastTextModelUsed,
-    translatorRunMetaByImage,
-    translatorSelectedRegionByImage,
-    translatorTextDirty,
-    translatorTranslatedText,
-    translatorWorkspaceMode,
-    typographerQueueSelectedId,
-    typographerSelectedSnapshotId,
-    typographerSelectionTool,
-    typographerSnapshotName,
-    typographerWorkspace.sessionsByImage,
-    viewMode,
-    workspaceHydrated,
-    workspaceAutosaveSettings.enabled,
     buildCurrentWorkspaceCaptureState,
     commitWorkspaceHistory,
+    setWorkspaceStatus,
+    setWorkspaceStatusDetail,
+    t,
+    workspaceAutosaveSettings.enabled,
     workspaceHistory,
   ]);
 
   useEffect(() => {
-    if (!workspaceHydrated) return;
+    const stores = [
+      useUiShellStore,
+      useImageCollectionStore,
+      useStatusStore,
+      useExportStore,
+      useAioPipelineStore,
+      useRegionEditorStore,
+      useManualToolsStore,
+      useCleanerStore,
+      useTranslatorStore,
+      useTypographerStore,
+      useEnhanceStore,
+      useUtilityStore,
+      useLlmProvidersStore,
+      useWorkspacePersistenceStore,
+    ];
+    const unsubscribes = stores.map((store) =>
+      store.subscribe(() => {
+        workspaceChangeSignal();
+      }),
+    );
+    workspaceChangeSignal();
+    return () => {
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [workspaceChangeSignal, freeProviderDrafts, currentOptimizerWorkspaceState, currentSplitterWorkspaceState, currentWatermarkWorkspaceState]);
+
+  useEffect(() => {
+    if (!useWorkspacePersistenceStore.getState().workspaceHydrated) return;
     if (!desktopBridge.desktop?.workspace) return;
     if (!workspaceAutosaveSettings.enabled) return;
 
@@ -691,7 +492,7 @@ export function useWorkspacePersistence({
     persistence.workspaceAutosaveInterval = window.setInterval(() => {
       const tick = useWorkspacePersistenceStore.getState();
       if (!tick.workspaceAutosaveDirty) return;
-      if (processing) return;
+      if (useUiShellStore.getState().processing) return;
       if (workspaceHistory.isRestoringRef.current) return;
       if (tick.workspaceAutosaveSaving) return;
 
@@ -713,7 +514,6 @@ export function useWorkspacePersistence({
     processing,
     workspaceAutosaveSettings.enabled,
     workspaceAutosaveSettings.intervalSeconds,
-    workspaceHydrated,
   ]);
 
   const handleWorkspaceUndo = useCallback(async () => {

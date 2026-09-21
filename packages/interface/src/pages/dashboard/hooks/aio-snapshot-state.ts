@@ -58,9 +58,6 @@ export function useAioPipelineSnapshotState({
   const progress = useUiShellStore((s) => s.progress);
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const aioExecutionStatus = useAioPipelineStore((s) => s.aioExecutionStatus);
-  const aioPipelineSnapshots = useAioPipelineStore(
-    (s) => s.aioPipelineSnapshots,
-  );
   const setAioPipelineSnapshots = useAioPipelineStore(
     (s) => s.setAioPipelineSnapshots,
   );
@@ -69,9 +66,6 @@ export function useAioPipelineSnapshotState({
   );
   const setAioPipelineSnapshotIndex = useAioPipelineStore(
     (s) => s.setAioPipelineSnapshotIndex,
-  );
-  const aioImageSnapshotIndexById = useAioPipelineStore(
-    (s) => s.aioImageSnapshotIndexById,
   );
   const setAioImageSnapshotIndexById = useAioPipelineStore(
     (s) => s.setAioImageSnapshotIndexById,
@@ -82,17 +76,13 @@ export function useAioPipelineSnapshotState({
   const setAioAutoProcessedImageById = useAioPipelineStore(
     (s) => s.setAioAutoProcessedImageById,
   );
-  const aioManualProgressByImage = useAioPipelineStore(
-    (s) => s.aioManualProgressByImage,
+  const activeManualProgressEntry = useAioPipelineStore((s) =>
+    resolvedActiveId
+      ? (s.aioManualProgressByImage[resolvedActiveId] ?? null)
+      : null,
   );
   const setAioManualProgressByImage = useAioPipelineStore(
     (s) => s.setAioManualProgressByImage,
-  );
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
-  const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
   );
   const setAioDetectionsByImage = useRegionEditorStore(
     (s) => s.setAioDetectionsByImage,
@@ -100,19 +90,15 @@ export function useAioPipelineSnapshotState({
   const setAioSelectedRegionByImage = useRegionEditorStore(
     (s) => s.setAioSelectedRegionByImage,
   );
-  const downloadItems = useExportStore((s) => s.downloadItems);
   const setAioDownloadItems = useExportStore((s) => s.setAioDownloadItems);
   const setAioDownloadItemForImage = useExportStore(
     (s) => s.setAioDownloadItemForImage,
   );
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
-  const canAioRewind = aioPipelineSnapshotIndex > 0;
-  const canAioForward =
-    aioPipelineSnapshotIndex >= 0 &&
-    aioPipelineSnapshotIndex < aioPipelineSnapshots.length - 1;
   const currentAioDownloadEntries = useMemo<AioDownloadEntry[]>(
     () => {
       const entries: AioDownloadEntry[] = [];
+      const { downloadItems } = useExportStore.getState();
       for (const item of downloadItems) {
         if (item.scope !== 'aio') continue;
         entries.push({
@@ -123,7 +109,7 @@ export function useAioPipelineSnapshotState({
       }
       return entries;
     },
-    [downloadItems],
+    [],
   );
   const buildAioImageSnapshotIndexMap = useCallback(
     (index: number): Record<string, number> => {
@@ -138,34 +124,35 @@ export function useAioPipelineSnapshotState({
   );
   const getAioImageSnapshotIndex = useCallback(
     (imageId: string): number => {
+      const pipelineState = useAioPipelineStore.getState();
       if (mode === 'aio' && subMode === 'manual') {
-        const manualProgress = aioManualProgressByImage[imageId];
+        const manualProgress = pipelineState.aioManualProgressByImage[imageId];
         if (manualProgress) return manualProgress.currentIndex;
       }
-      const explicitIndex = aioImageSnapshotIndexById[imageId];
+      const explicitIndex = pipelineState.aioImageSnapshotIndexById[imageId];
       if (typeof explicitIndex === 'number') return explicitIndex;
-      if (aioPipelineSnapshotIndex >= 0) return aioPipelineSnapshotIndex;
-      if (aioPipelineSnapshots.length > 0)
-        return aioPipelineSnapshots.length - 1;
+      if (pipelineState.aioPipelineSnapshotIndex >= 0)
+        return pipelineState.aioPipelineSnapshotIndex;
+      if (pipelineState.aioPipelineSnapshots.length > 0)
+        return pipelineState.aioPipelineSnapshots.length - 1;
       return -1;
     },
     [
-      aioImageSnapshotIndexById,
-      aioManualProgressByImage,
-      aioPipelineSnapshotIndex,
-      aioPipelineSnapshots.length,
       mode,
       subMode,
     ],
   );
   const getAioImageSnapshotMeta = useCallback(
     (imageId: string) => {
+      const pipelineState = useAioPipelineStore.getState();
       if (mode === 'aio' && subMode === 'manual') {
-        const manualProgress = aioManualProgressByImage[imageId];
+        const manualProgress = pipelineState.aioManualProgressByImage[imageId];
         const index =
           manualProgress?.currentIndex ?? getAioImageSnapshotIndex(imageId);
         const snapshot =
-          index >= 0 ? (aioPipelineSnapshots[index] ?? null) : null;
+          index >= 0
+            ? (pipelineState.aioPipelineSnapshots[index] ?? null)
+            : null;
         const canRewind = index > 0;
         const manualForwardCap = manualProgress?.unlockedMaxIndex ?? index;
         const canForward = index >= 0 && index < manualForwardCap;
@@ -175,16 +162,17 @@ export function useAioPipelineSnapshotState({
       }
       const index = getAioImageSnapshotIndex(imageId);
       const snapshot =
-        index >= 0 ? (aioPipelineSnapshots[index] ?? null) : null;
+        index >= 0
+          ? (pipelineState.aioPipelineSnapshots[index] ?? null)
+          : null;
       const canRewind = index > 0;
-      const canForward = index >= 0 && index < aioPipelineSnapshots.length - 1;
+      const canForward =
+        index >= 0 && index < pipelineState.aioPipelineSnapshots.length - 1;
       const label = snapshot?.label ?? null;
       const key = snapshot?.key ?? null;
       return { index, canRewind, canForward, label, key };
     },
     [
-      aioManualProgressByImage,
-      aioPipelineSnapshots,
       getAioImageSnapshotIndex,
       mode,
       subMode,
@@ -206,8 +194,9 @@ export function useAioPipelineSnapshotState({
   ]);
   const resolveAioStageKeyForImage = useCallback(
     (imageId: string): AioPipelineSnapshotKey => {
+      const pipelineState = useAioPipelineStore.getState();
       if (mode === 'aio' && subMode === 'manual') {
-        const manualProgress = aioManualProgressByImage[imageId];
+        const manualProgress = pipelineState.aioManualProgressByImage[imageId];
         if (manualProgress) {
           const normalizedIndex = clamp(
             manualProgress.currentIndex,
@@ -221,7 +210,6 @@ export function useAioPipelineSnapshotState({
       return key ?? getAioFallbackStageKey();
     },
     [
-      aioManualProgressByImage,
       getAioFallbackStageKey,
       getAioImageSnapshotMeta,
       mode,
@@ -230,8 +218,9 @@ export function useAioPipelineSnapshotState({
   );
   const normalizeAioPipelineSnapshotsForManualMode = useCallback(
     (snapshots: AioPipelineSnapshot[]): AioPipelineSnapshot[] => {
+      const regionState = useRegionEditorStore.getState();
       const fallbackDetections = cloneAioDetectionsMap(
-        aioDetectionsByImage,
+        regionState.aioDetectionsByImage,
         cloneRenderStyle,
       );
       images.forEach((image) => {
@@ -241,7 +230,7 @@ export function useAioPipelineSnapshotState({
       });
       const fallbackSelection = {
         ...buildAioSelectionMapFromDetections(fallbackDetections),
-        ...aioSelectedRegionByImage,
+        ...regionState.aioSelectedRegionByImage,
       };
       const snapshotsByKey = new Map<
         AioPipelineSnapshotKey,
@@ -298,8 +287,6 @@ export function useAioPipelineSnapshotState({
       });
     },
     [
-      aioDetectionsByImage,
-      aioSelectedRegionByImage,
       currentAioDownloadEntries,
       images,
     ],
@@ -335,19 +322,21 @@ export function useAioPipelineSnapshotState({
       if (nextMode === subMode) return;
 
       if (nextMode === 'manual') {
+        const pipelineState = useAioPipelineStore.getState();
+        const regionState = useRegionEditorStore.getState();
         const normalizedSnapshots =
-          normalizeAioPipelineSnapshotsForManualMode(aioPipelineSnapshots);
+          normalizeAioPipelineSnapshotsForManualMode(pipelineState.aioPipelineSnapshots);
         const fallbackIndex =
           normalizedSnapshots.length > 0
             ? activeId
-              ? (aioImageSnapshotIndexById[activeId] ?? 0)
+              ? (pipelineState.aioImageSnapshotIndexById[activeId] ?? 0)
               : 0
             : -1;
         const normalizedImageIndexById: Record<string, number> = {};
         const autoHistoryImageIds: Record<string, boolean> = {};
         images.forEach((image) => {
-          const explicitIndex = aioAutoHistoryAvailable
-            ? aioImageSnapshotIndexById[image.id]
+          const explicitIndex = pipelineState.aioAutoHistoryAvailable
+            ? pipelineState.aioImageSnapshotIndexById[image.id]
             : undefined;
           if (typeof explicitIndex === 'number' && explicitIndex >= 0) {
             normalizedImageIndexById[image.id] = clamp(
@@ -355,7 +344,7 @@ export function useAioPipelineSnapshotState({
               0,
               Math.max(0, normalizedSnapshots.length - 1),
             );
-            if (aioAutoHistoryAvailable) {
+            if (pipelineState.aioAutoHistoryAvailable) {
               autoHistoryImageIds[image.id] = true;
             }
             return;
@@ -384,16 +373,16 @@ export function useAioPipelineSnapshotState({
             const snapshot =
               normalizedSnapshots[activeProgress.currentIndex] ?? null;
             if (snapshot) {
-            const activeRegions = cloneAioRegionsCoW(
-              snapshot.detectionsByImage[activeId] ?? [],
-              aioDetectionsByImage[activeId],
-              cloneRenderStyle,
-            ).regions;
+              const activeRegions = cloneAioRegionsCoW(
+                snapshot.detectionsByImage[activeId] ?? [],
+                regionState.aioDetectionsByImage[activeId],
+                cloneRenderStyle,
+              ).regions;
               const activeSelected = resolveSnapshotSelectionForImage(
                 snapshot,
                 activeId,
                 activeRegions,
-                aioSelectedRegionByImage[activeId] ?? null,
+                regionState.aioSelectedRegionByImage[activeId] ?? null,
               );
               setAioDetectionsByImage((prev) => ({
                 ...prev,
@@ -417,9 +406,6 @@ export function useAioPipelineSnapshotState({
     },
     [
       activeId,
-      aioAutoHistoryAvailable,
-      aioImageSnapshotIndexById,
-      aioPipelineSnapshots,
       images,
       initializeManualProgressFromSnapshots,
       normalizeAioPipelineSnapshotsForManualMode,
@@ -447,20 +433,23 @@ export function useAioPipelineSnapshotState({
   );
   const applyAioPipelineSnapshotToImage = useCallback(
     (imageId: string, index: number): AioPipelineSnapshot | null => {
-      if (index < 0 || index >= aioPipelineSnapshots.length) return null;
-      const snapshot = aioPipelineSnapshots[index] ?? null;
+      const pipelineState = useAioPipelineStore.getState();
+      const regionState = useRegionEditorStore.getState();
+      if (index < 0 || index >= pipelineState.aioPipelineSnapshots.length)
+        return null;
+      const snapshot = pipelineState.aioPipelineSnapshots[index] ?? null;
       if (!snapshot) return null;
 
       const regions = cloneAioRegionsCoW(
         snapshot.detectionsByImage[imageId] ?? [],
-        aioDetectionsByImage[imageId],
+        regionState.aioDetectionsByImage[imageId],
         cloneRenderStyle,
       ).regions;
       const selectedRegionId = resolveSnapshotSelectionForImage(
         snapshot,
         imageId,
         regions,
-        aioSelectedRegionByImage[imageId] ?? null,
+        regionState.aioSelectedRegionByImage[imageId] ?? null,
       );
       setAioDetectionsByImage((prev) => ({ ...prev, [imageId]: regions }));
       setAioSelectedRegionByImage((prev) => ({
@@ -475,8 +464,6 @@ export function useAioPipelineSnapshotState({
       return snapshot;
     },
     [
-      aioPipelineSnapshots,
-      aioSelectedRegionByImage,
       setAioDetectionsByImage,
       setAioDownloadItemForImage,
       setAioImageSnapshotIndexById,
@@ -485,7 +472,8 @@ export function useAioPipelineSnapshotState({
   );
   const setManualCurrentStageForImage = useCallback(
     (imageId: string, nextIndex: number): AioPipelineSnapshot | null => {
-      const manualProgress = aioManualProgressByImage[imageId];
+      const manualProgress =
+        useAioPipelineStore.getState().aioManualProgressByImage[imageId];
       if (!manualProgress) return null;
       const boundedIndex = clamp(
         nextIndex,
@@ -509,16 +497,16 @@ export function useAioPipelineSnapshotState({
       return snapshot;
     },
     [
-      aioManualProgressByImage,
       applyAioPipelineSnapshotToImage,
       setAioManualProgressByImage,
     ],
   );
   const rewindAioPipeline = useCallback(() => {
     if (mode === 'aio' && subMode === 'manual') return;
-    if (!canAioRewind) return;
+    const pipelineState = useAioPipelineStore.getState();
+    if (!(aioPipelineSnapshotIndex > 0)) return;
     const nextIndex = aioPipelineSnapshotIndex - 1;
-    const snapshot = aioPipelineSnapshots[nextIndex];
+    const snapshot = pipelineState.aioPipelineSnapshots[nextIndex];
     if (!snapshot) return;
     applyAioPipelineSnapshot(snapshot);
     setAioPipelineSnapshotIndex(nextIndex);
@@ -527,26 +515,33 @@ export function useAioPipelineSnapshotState({
       t('dashboard.aio.rewind', {
         label: snapshot.label,
         current: nextIndex + 1,
-        total: aioPipelineSnapshots.length,
+        total: pipelineState.aioPipelineSnapshots.length,
       }),
     );
   }, [
     aioPipelineSnapshotIndex,
-    aioPipelineSnapshots,
     applyAioPipelineSnapshot,
     buildAioImageSnapshotIndexMap,
-    canAioRewind,
     mode,
     setAioImageSnapshotIndexById,
     setAioPipelineSnapshotIndex,
     setStatusMessage,
     subMode,
+    t,
   ]);
   const forwardAioPipeline = useCallback(() => {
     if (mode === 'aio' && subMode === 'manual') return;
-    if (!canAioForward) return;
+    const pipelineState = useAioPipelineStore.getState();
+    if (
+      !(
+        aioPipelineSnapshotIndex >= 0 &&
+        aioPipelineSnapshotIndex < pipelineState.aioPipelineSnapshots.length - 1
+      )
+    ) {
+      return;
+    }
     const nextIndex = aioPipelineSnapshotIndex + 1;
-    const snapshot = aioPipelineSnapshots[nextIndex];
+    const snapshot = pipelineState.aioPipelineSnapshots[nextIndex];
     if (!snapshot) return;
     applyAioPipelineSnapshot(snapshot);
     setAioPipelineSnapshotIndex(nextIndex);
@@ -555,20 +550,19 @@ export function useAioPipelineSnapshotState({
       t('dashboard.aio.forward', {
         label: snapshot.label,
         current: nextIndex + 1,
-        total: aioPipelineSnapshots.length,
+        total: pipelineState.aioPipelineSnapshots.length,
       }),
     );
   }, [
     aioPipelineSnapshotIndex,
-    aioPipelineSnapshots,
     applyAioPipelineSnapshot,
     buildAioImageSnapshotIndexMap,
-    canAioForward,
     mode,
     setAioImageSnapshotIndexById,
     setAioPipelineSnapshotIndex,
     setStatusMessage,
     subMode,
+    t,
   ]);
   const rewindAioPipelineForImage = useCallback(
     (imageId: string) => {
@@ -587,12 +581,11 @@ export function useAioPipelineSnapshotState({
           imageName,
           label: snapshot.label,
           current: nextIndex + 1,
-          total: aioPipelineSnapshots.length,
+          total: useAioPipelineStore.getState().aioPipelineSnapshots.length,
         }),
       );
     },
     [
-      aioPipelineSnapshots.length,
       applyAioPipelineSnapshotToImage,
       getAioImageSnapshotIndex,
       images,
@@ -600,16 +593,20 @@ export function useAioPipelineSnapshotState({
       setManualCurrentStageForImage,
       setStatusMessage,
       subMode,
+      t,
     ],
   );
   const forwardAioPipelineForImage = useCallback(
     (imageId: string) => {
       const currentIndex = getAioImageSnapshotIndex(imageId);
       if (currentIndex < 0) return;
+      const pipelineState = useAioPipelineStore.getState();
       if (mode !== 'aio' || subMode !== 'manual') {
-        if (currentIndex >= aioPipelineSnapshots.length - 1) return;
+        if (currentIndex >= pipelineState.aioPipelineSnapshots.length - 1)
+          return;
       } else {
-        const manualProgress = aioManualProgressByImage[imageId];
+        const manualProgress =
+          pipelineState.aioManualProgressByImage[imageId];
         if (!manualProgress || currentIndex >= manualProgress.unlockedMaxIndex)
           return;
       }
@@ -626,12 +623,11 @@ export function useAioPipelineSnapshotState({
           imageName,
           label: snapshot.label,
           current: nextIndex + 1,
-          total: aioPipelineSnapshots.length,
+          total: pipelineState.aioPipelineSnapshots.length,
         }),
-      );    },
+      );
+    },
     [
-      aioManualProgressByImage,
-      aioPipelineSnapshots.length,
       applyAioPipelineSnapshotToImage,
       getAioImageSnapshotIndex,
       images,
@@ -639,6 +635,7 @@ export function useAioPipelineSnapshotState({
       setManualCurrentStageForImage,
       setStatusMessage,
       subMode,
+      t,
     ],
   );
   const patchAioSnapshotStageForImage = useCallback(
@@ -654,7 +651,8 @@ export function useAioPipelineSnapshotState({
       // downstream identity caches (region model, canvas, memo boxes) hit.
       const { regions: clonedRegions } = cloneAioRegionsCoW(
         nextRegions,
-        aioPipelineSnapshots[stageIndex]?.detectionsByImage[imageId],
+        useAioPipelineStore.getState().aioPipelineSnapshots[stageIndex]
+          ?.detectionsByImage[imageId],
         cloneRenderStyle,
       );
       const resolvedSelected = resolveSelectedRegionForRegions(
@@ -783,18 +781,18 @@ export function useAioPipelineSnapshotState({
             : targetSnapshot.detectionsByImage,
           selectedRegionByImage: selectedChanged
             ? {
-                ...targetSnapshot.selectedRegionByImage,
-                [imageId]: sourceSelected,
-              }
+              ...targetSnapshot.selectedRegionByImage,
+              [imageId]: sourceSelected,
+            }
             : targetSnapshot.selectedRegionByImage,
           aioDownloads:
             downloadChanged && sourceDownload
               ? [
-                  ...targetSnapshot.aioDownloads.filter(
-                    (entry) => entry.sourceImageId !== imageId,
-                  ),
-                  sourceDownload,
-                ]
+                ...targetSnapshot.aioDownloads.filter(
+                  (entry) => entry.sourceImageId !== imageId,
+                ),
+                sourceDownload,
+              ]
               : targetSnapshot.aioDownloads,
         };
 
@@ -805,21 +803,24 @@ export function useAioPipelineSnapshotState({
     },
     [setAioPipelineSnapshots],
   );
+  const activeManualProgress = activeManualProgressEntry;
+  const activeManualCurrentIndex = activeManualProgress?.currentIndex ?? -1;
   const activeImageSnapshotMeta = useMemo(
-    () =>
-      resolvedActiveId ? getAioImageSnapshotMeta(resolvedActiveId) : null,
-    [getAioImageSnapshotMeta, resolvedActiveId],
+    () => {
+      if (!resolvedActiveId || activeManualCurrentIndex < 0) return null;
+      return getAioImageSnapshotMeta(resolvedActiveId);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- narrow reactive
+    // inputs; the getter reads the stores at call time.
+    [
+      activeManualCurrentIndex,
+      aioPipelineSnapshotIndex,
+      resolvedActiveId,
+    ],
   );
   const activeAioStageKey = useMemo<AioPipelineSnapshotKey>(
     () => activeImageSnapshotMeta?.key ?? getAioFallbackStageKey(),
     [activeImageSnapshotMeta?.key, getAioFallbackStageKey],
-  );
-  const activeManualProgress = useMemo(
-    () =>
-      resolvedActiveId
-        ? (aioManualProgressByImage[resolvedActiveId] ?? null)
-        : null,
-    [aioManualProgressByImage, resolvedActiveId],
   );
   const activeManualStageStatus = useMemo<AioManualStageStatus | null>(() => {
     if (!activeManualProgress) return null;
@@ -841,10 +842,10 @@ export function useAioPipelineSnapshotState({
 
     const stageLabel = aioExecutionStatus.stageKey
       ? capitalizeStageLabel(
-          aioPipelineStageProgressLabels[
-            aioExecutionStatus.stageKey as AioPipelineSnapshotKey
-          ],
-        )
+        aioPipelineStageProgressLabels[
+        aioExecutionStatus.stageKey as AioPipelineSnapshotKey
+        ],
+      )
       : 'Executando';
     return `${stageLabel} ${Math.round(progress)}%`;
   }, [aioExecutionStatus, mode, processing, progress, aioPipelineStageProgressLabels]);

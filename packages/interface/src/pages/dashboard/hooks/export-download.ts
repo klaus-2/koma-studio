@@ -49,7 +49,7 @@ interface ImageRef {
 }
 
 interface UseDashboardDownloadBundleArgs {
-  typographerSessionsByImage: Record<string, unknown>;
+  getTypographerSessionsByImage: () => Record<string, unknown>;
   renderAioImageToBlob: (img: ImageRef, regions: AioTextRegion[]) => Promise<Blob>;
   composeCleanerEditableCanvas: (img: ImageRef, fallbackBaseSource?: string) => Promise<HTMLCanvasElement>;
   composeAioEditableCanvas: (img: ImageRef, fallbackBaseSource?: string) => Promise<HTMLCanvasElement>;
@@ -60,7 +60,7 @@ interface UseDashboardDownloadBundleArgs {
 }
 
 export function useDashboardDownloadBundle({
-  typographerSessionsByImage,
+  getTypographerSessionsByImage,
   renderAioImageToBlob,
   composeCleanerEditableCanvas,
   composeAioEditableCanvas,
@@ -70,13 +70,7 @@ export function useDashboardDownloadBundle({
   resolveAioStageKeyForImage,
 }: UseDashboardDownloadBundleArgs) {
   const images = useImageCollectionStore((s) => s.images);
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
   const downloadItems = useExportStore((s) => s.downloadItems);
-  const cleanerProcessedBaseByImage = useCleanerStore(
-    (s) => s.cleanerProcessedBaseByImage,
-  );
   const outFormat = useExportStore((s) => s.outFormat);
   const outQuality = useExportStore((s) => s.outQuality);
   const downloadBundleFormat = useExportStore((s) => s.downloadBundleFormat);
@@ -96,7 +90,7 @@ export function useDashboardDownloadBundle({
       const outputs: PreparedDownloadEntry[] = [];
       // ponytail: sequential by design — canvas render pipeline holds one full-page bitmap at a time (parallelizing would hold N decoded pages)
       for (const imgData of images) {
-        const regions = aioDetectionsByImage[imgData.id] ?? [];
+        const regions = useRegionEditorStore.getState().aioDetectionsByImage[imgData.id] ?? [];
         const blob = await renderAioImageToBlob(imgData, regions);
         outputs.push({
           fileName: `koma-studio-typesetter-render-${imgData.file.name.replace(/\s+/g, '-')}.${extension}`,
@@ -116,7 +110,7 @@ export function useDashboardDownloadBundle({
         if (hasCleanerManualImageEdits(imgData.id)) {
           const composed = await composeCleanerEditableCanvas(
             imgData,
-            cleanerProcessedBaseByImage[imgData.id] ?? baseItem?.previewUrl ?? imgData.url,
+            useCleanerStore.getState().cleanerProcessedBaseByImage[imgData.id] ?? baseItem?.previewUrl ?? imgData.url,
           );
           const blob = await canvasToBlob(composed, outFormat, outQuality);
           outputs.push({
@@ -144,7 +138,7 @@ export function useDashboardDownloadBundle({
       for (const imgData of images) {
         const stageKey = resolveAioStageKeyForImage(imgData.id);
         if (stageKey === 'render') {
-          const regions = aioDetectionsByImage[imgData.id] ?? [];
+          const regions = useRegionEditorStore.getState().aioDetectionsByImage[imgData.id] ?? [];
           const blob = await renderAioImageToBlob(imgData, regions);
           outputs.push({
             fileName: `koma-studio-aio-render-${imgData.file.name.replace(/\s+/g, '-')}.${extension}`,
@@ -199,8 +193,7 @@ export function useDashboardDownloadBundle({
     }
     return scopedEntries;
   }, [
-    aioDetectionsByImage,
-    cleanerProcessedBaseByImage,
+
     composeAioEditableCanvas,
     composeCleanerEditableCanvas,
     downloadItems,
@@ -278,7 +271,7 @@ export function useDashboardDownloadBundle({
       zipFiles[imagePath] = new Uint8Array(await entry.blob.arrayBuffer());
 
       if (scope !== 'aio' && scope !== 'typesetter') return;
-      const regions = aioDetectionsByImage[entry.sourceImageId] ?? [];
+      const regions = useRegionEditorStore.getState().aioDetectionsByImage[entry.sourceImageId] ?? [];
       if (scope === 'aio' && downloadIncludeRawText) {
         const rawTextPath = `texts/raw/${String(index + 1).padStart(3, '0')}-${baseName}.txt`;
         zipFiles[rawTextPath] = strToU8(buildRegionTextDump(regions, 'recognized'));
@@ -292,7 +285,8 @@ export function useDashboardDownloadBundle({
         const notesTextPath = `texts/notes/${String(index + 1).padStart(3, '0')}-${baseName}.txt`;
         zipFiles[notesTextPath] = strToU8(notesDump);
       }
-      const typographySession = typographerSessionsByImage[entry.sourceImageId];
+      const typographySession =
+        getTypographerSessionsByImage()[entry.sourceImageId];
       if (scope === 'typesetter' && typographySession) {
         const sessionPath = `typographer/${String(index + 1).padStart(3, '0')}-${baseName}.session.json`;
         zipFiles[sessionPath] = strToU8(JSON.stringify(typographySession, null, 2));
@@ -339,7 +333,7 @@ export function useDashboardDownloadBundle({
       fileName: `koma-studio-${scope}-${timestamp}.${targetExt}`,
     };
   }, [
-    aioDetectionsByImage,
+
     composeAioEditableCanvas,
     downloadBundleFormat,
     downloadIncludeInpaintedImage,
@@ -349,7 +343,7 @@ export function useDashboardDownloadBundle({
     hasAioManualImageEdits,
     images,
     outFormat,
-    typographerSessionsByImage,
+    getTypographerSessionsByImage,
   ]);
 
   return {

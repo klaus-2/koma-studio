@@ -70,7 +70,6 @@ interface OcrExecutionResult {
 interface UseTranslatorVisualActionsArgs {
   /* Cross-domain values (image-collection, page memos & callbacks, export-download T10) */
   images: LoadedImage[];
-  activeTranslatorSelectedRegionId: string | null;
   selectedCustomOcrProfile: CustomLlmProfile | null;
   selectedCustomTranslationProfile: CustomLlmProfile | null;
   selectedTranslatorSfxCleanCustomProfile: CustomLlmProfile | null;
@@ -90,7 +89,6 @@ interface UseTranslatorVisualActionsArgs {
 
 export function useTranslatorVisualActions({
   images,
-  activeTranslatorSelectedRegionId,
   selectedCustomOcrProfile,
   selectedCustomTranslationProfile,
   selectedTranslatorSfxCleanCustomProfile,
@@ -402,13 +400,13 @@ export function useTranslatorVisualActions({
               JSON.stringify(
                 translatorVisualProcessingMode === 'ai_sfx'
                   ? {
-                      ...(llmSettings as Record<string, unknown>),
-                      extra_context: buildSfxTranslationInstructions(
-                        String((llmSettings as { extra_context?: string } | null)?.extra_context ?? ''),
-                        translatorSfxAdditionalInstructions,
-                      ),
-                      translation_notes_enabled: false,
-                    }
+                    ...(llmSettings as Record<string, unknown>),
+                    extra_context: buildSfxTranslationInstructions(
+                      String((llmSettings as { extra_context?: string } | null)?.extra_context ?? ''),
+                      translatorSfxAdditionalInstructions,
+                    ),
+                    translation_notes_enabled: false,
+                  }
                   : llmSettings,
               ),
             );
@@ -482,7 +480,13 @@ export function useTranslatorVisualActions({
         processedPagesCount += 1;
 
         nextDetections[imgData.id] = cloneAioRegions(detectedRegions, cloneRenderStyle);
-        nextSelections[imgData.id] = resolveSelectedRegionForRegions(detectedRegions, activeId === imgData.id ? activeTranslatorSelectedRegionId : null);
+        nextSelections[imgData.id] = resolveSelectedRegionForRegions(
+          detectedRegions,
+          // Event-time read of the active translator selection
+          activeId === imgData.id
+            ? (useTranslatorStore.getState().translatorSelectedRegionByImage[imgData.id] ?? null)
+            : null,
+        );
         if (processedBaseDataUrl) {
           nextProcessedBase[imgData.id] = processedBaseDataUrl;
         }
@@ -546,7 +550,6 @@ export function useTranslatorVisualActions({
     }
   }, [
     activeId,
-    activeTranslatorSelectedRegionId,
     detectSelectionKey,
     emitProcessCompleteWebhook,
     emitProcessErrorWebhook,

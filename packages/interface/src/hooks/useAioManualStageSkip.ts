@@ -6,18 +6,16 @@ import {
   AIO_PIPELINE_STAGE_LABELS,
 } from '../constants/dashboard.constants';
 import { clamp } from '../utils/dashboard.utils';
-import type { AioManualImageProgress } from '../types/dashboard.types';
+import { useAioPipelineStore } from '../pages/dashboard/stores/aio-pipeline-store';
 
 interface UseAioManualStageSkipArgs {
   activeId: string | null;
-  aioManualProgressByImage: Record<string, AioManualImageProgress>;
   completeManualStageForImage: (imageId: string, stageIndex: number, status: 'done' | 'skipped') => void;
   setStatusMessage: (value: string) => void;
 }
 
 export function useAioManualStageSkip({
   activeId,
-  aioManualProgressByImage,
   completeManualStageForImage,
   setStatusMessage,
 }: UseAioManualStageSkipArgs) {
@@ -28,7 +26,10 @@ export function useAioManualStageSkip({
       setStatusMessage('Select an image to skip a stage.');
       return;
     }
-    const progress = aioManualProgressByImage[activeId];
+    // Progress read is event-time (skip runs on user action): getState at
+    // call time instead of subscribing the page to the whole map.
+    const progress =
+      useAioPipelineStore.getState().aioManualProgressByImage[activeId];
     if (!progress) {
       setStatusMessage(t('aioManual.progressionNotInitialized'));
       return;
@@ -37,5 +38,5 @@ export function useAioManualStageSkip({
     const stageLabel = AIO_PIPELINE_STAGE_LABELS[AIO_MANUAL_STAGE_ORDER[stageIndex]!];
     completeManualStageForImage(activeId, stageIndex, 'skipped');
     setStatusMessage(`Modo manual: etapa "${stageLabel}" pulada.`);
-  }, [activeId, aioManualProgressByImage, completeManualStageForImage, setStatusMessage, t]);
+  }, [activeId, completeManualStageForImage, setStatusMessage, t]);
 }

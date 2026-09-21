@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback } from 'react';
+import { Suspense, lazy, useCallback, useMemo } from 'react';
 
 import { memoLoad } from '../../../utils/lazyModule';
 
@@ -41,6 +41,7 @@ import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useManualToolsStore } from '../stores/manual-tools-store';
 import { useTypographerStore } from '../stores/typographer-store';
 import { useCleanerStore } from '../stores/cleaner-store';
+import { useExportStore } from '../stores/export-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useAioRegionSnapshotSync, useAioRegionEditing } from '../hooks/region-editor';
 import { useCleanerRegionEditing, useCleanerManualEdits, useCleanerWandHealing } from '../hooks/cleaner';
@@ -55,17 +56,11 @@ import type {
   DownloadItem,
 } from '../../../types/dashboard.types';
 import type { TypographyShapeKind } from '../../../typography/types';
-import type { listTextFillSwatches } from '../../../utils/textFillPicker';
+import { listTextFillSwatches } from '../../../utils/textFillPicker';
 
 /* Store/hook-backed prop types (same fields the page reads today). */
 type ImageCollectionState = ReturnType<typeof useImageCollectionStore.getState>;
 type UiShellState = ReturnType<typeof useUiShellStore.getState>;
-type RegionEditorState = ReturnType<typeof useRegionEditorStore.getState>;
-type AioPipelineState = ReturnType<typeof useAioPipelineStore.getState>;
-type ManualToolsState = ReturnType<typeof useManualToolsStore.getState>;
-type TypographerState = ReturnType<typeof useTypographerStore.getState>;
-type CleanerState = ReturnType<typeof useCleanerStore.getState>;
-type TranslatorState = ReturnType<typeof useTranslatorStore.getState>;
 type AioSnapshotSyncApi = ReturnType<typeof useAioRegionSnapshotSync>;
 type AioRegionEditingApi = ReturnType<typeof useAioRegionEditing>;
 type TypographerControlsApi = ReturnType<typeof useTypographerControls>;
@@ -97,32 +92,6 @@ export interface DashboardStageSectionProps {
   viewMode: UiShellState['viewMode'];
   zoom: UiShellState['zoom'];
   inlineEditorShortcutRequestKey: UiShellState['inlineEditorShortcutRequestKey'];
-  emptyPreviewTipIndex: UiShellState['emptyPreviewTipIndex'];
-  aioDetectionsByImage: RegionEditorState['aioDetectionsByImage'];
-  aioSelectedRegionByImage: RegionEditorState['aioSelectedRegionByImage'];
-  renderDefaultStyle: RegionEditorState['renderDefaultStyle'];
-  aioSteps: AioPipelineState['aioSteps'];
-  aioPipelineSnapshots: AioPipelineState['aioPipelineSnapshots'];
-  aioManualHealingBusyByImage: ManualToolsState['aioManualHealingBusyByImage'];
-  manualImageTool: ManualToolsState['manualImageTool'];
-  manualImagePaintColor: ManualToolsState['manualImagePaintColor'];
-  manualImageBrushSize: ManualToolsState['manualImageBrushSize'];
-  manualImageBrushOpacity: ManualToolsState['manualImageBrushOpacity'];
-  manualImageBrushBlur: ManualToolsState['manualImageBrushBlur'];
-  segmentEditTool: ManualToolsState['segmentEditTool'];
-  segmentBrushSize: ManualToolsState['segmentBrushSize'];
-  typographerSelectionTool: TypographerState['typographerSelectionTool'];
-  typographerMultiSelectedByImage: TypographerState['typographerMultiSelectedByImage'];
-  setTypographerMultiSelectedByImage: TypographerState['setTypographerMultiSelectedByImage'];
-  cleanerRunMetaByImage: CleanerState['cleanerRunMetaByImage'];
-  cleanerDetectionsByImage: CleanerState['cleanerDetectionsByImage'];
-  cleanerSelectedRegionByImage: CleanerState['cleanerSelectedRegionByImage'];
-  cleanerHealingBusyByImage: CleanerState['cleanerHealingBusyByImage'];
-  cleanerShowOverlays: CleanerState['cleanerShowOverlays'];
-  translatorRunMetaByImage: TranslatorState['translatorRunMetaByImage'];
-  translatorDetectionsByImage: TranslatorState['translatorDetectionsByImage'];
-  translatorSelectedRegionByImage: TranslatorState['translatorSelectedRegionByImage'];
-  translatorWorkspaceMode: TranslatorState['translatorWorkspaceMode'];
 
   /* ── Region editing / manual tools callbacks ── */
   selectAioRegionForImage: AioSnapshotSyncApi['selectAioRegionForImage'];
@@ -164,9 +133,6 @@ export interface DashboardStageSectionProps {
   applyAutoDetectedShapeToRegionById: AioRegionEditingApi['applyAutoDetectedShapeToRegionById'];
   applyTypographyPresetToRegionById: AioRegionEditingApi['applyTypographyPresetToRegionById'];
   convertRegionShapeById: AioRegionEditingApi['convertRegionShapeById'];
-  textFillSwatches: ReturnType<typeof listTextFillSwatches>;
-  typographyPresetList: RegionEditorState['typographyPresetState']['presets'];
-  typographyFolderList: RegionEditorState['typographyPresetState']['folders'];
   translationNotesEnabled: boolean;
   currentEmptyPreviewTip: string | undefined;
 
@@ -200,32 +166,6 @@ export default function DashboardStageSection({
   viewMode,
   zoom,
   inlineEditorShortcutRequestKey,
-  emptyPreviewTipIndex,
-  aioDetectionsByImage,
-  aioSelectedRegionByImage,
-  renderDefaultStyle,
-  aioSteps,
-  aioPipelineSnapshots,
-  aioManualHealingBusyByImage,
-  manualImageTool,
-  manualImagePaintColor,
-  manualImageBrushSize,
-  manualImageBrushOpacity,
-  manualImageBrushBlur,
-  segmentEditTool,
-  segmentBrushSize,
-  typographerSelectionTool,
-  typographerMultiSelectedByImage,
-  setTypographerMultiSelectedByImage,
-  cleanerRunMetaByImage,
-  cleanerDetectionsByImage,
-  cleanerSelectedRegionByImage,
-  cleanerHealingBusyByImage,
-  cleanerShowOverlays,
-  translatorRunMetaByImage,
-  translatorDetectionsByImage,
-  translatorSelectedRegionByImage,
-  translatorWorkspaceMode,
   selectAioRegionForImage,
   updateAioRegionsForImage,
   selectCleanerRegionForImage,
@@ -253,9 +193,6 @@ export default function DashboardStageSection({
   applyAutoDetectedShapeToRegionById,
   applyTypographyPresetToRegionById,
   convertRegionShapeById,
-  textFillSwatches,
-  typographyPresetList,
-  typographyFolderList,
   translationNotesEnabled,
   currentEmptyPreviewTip,
   isCompactViewport,
@@ -272,6 +209,114 @@ export default function DashboardStageSection({
   typographerWorkspace,
 }: DashboardStageSectionProps) {
   const { t } = useI18n();
+
+  const aioDetectionsByImage = useRegionEditorStore(
+    (s) => s.aioDetectionsByImage,
+  );
+  const aioSelectedRegionByImage = useRegionEditorStore(
+    (s) => s.aioSelectedRegionByImage,
+  );
+  const renderDefaultStyle = useRegionEditorStore(
+    (s) => s.renderDefaultStyle,
+  );
+  const textFillSwatchState = useRegionEditorStore(
+    (s) => s.textFillSwatchState,
+  );
+  const typographyPresetState = useRegionEditorStore(
+    (s) => s.typographyPresetState,
+  );
+  // Same derivations the page computes for these lists (single source stores).
+  const textFillSwatches = useMemo(
+    () => listTextFillSwatches(textFillSwatchState),
+    [textFillSwatchState],
+  );
+  const typographyPresetList = useMemo(
+    () =>
+      [...typographyPresetState.presets].sort((left, right) =>
+        left.name.localeCompare(right.name, 'pt-BR'),
+      ),
+    [typographyPresetState.presets],
+  );
+  const typographyFolderList = useMemo(
+    () =>
+      [...typographyPresetState.folders].sort(
+        (left, right) =>
+          left.order - right.order ||
+          left.name.localeCompare(right.name, 'pt-BR'),
+      ),
+    [typographyPresetState.folders],
+  );
+  const aioSteps = useAioPipelineStore((s) => s.aioSteps);
+  const aioPipelineSnapshots = useAioPipelineStore(
+    (s) => s.aioPipelineSnapshots,
+  );
+  const emptyPreviewTipIndex = useUiShellStore((s) => s.emptyPreviewTipIndex);
+  const aioManualHealingBusyByImage = useManualToolsStore(
+    (s) => s.aioManualHealingBusyByImage,
+  );
+  const manualImageTool = useManualToolsStore((s) => s.manualImageTool);
+  const manualImagePaintColor = useManualToolsStore(
+    (s) => s.manualImagePaintColor,
+  );
+  const manualImageBrushSize = useManualToolsStore(
+    (s) => s.manualImageBrushSize,
+  );
+  const manualImageBrushOpacity = useManualToolsStore(
+    (s) => s.manualImageBrushOpacity,
+  );
+  const manualImageBrushBlur = useManualToolsStore(
+    (s) => s.manualImageBrushBlur,
+  );
+  const segmentEditTool = useManualToolsStore((s) => s.segmentEditTool);
+  const segmentBrushSize = useManualToolsStore((s) => s.segmentBrushSize);
+  const typographerSelectionTool = useTypographerStore(
+    (s) => s.typographerSelectionTool,
+  );
+  const typographerMultiSelectedByImage = useTypographerStore(
+    (s) => s.typographerMultiSelectedByImage,
+  );
+  const setTypographerMultiSelectedByImage = useTypographerStore(
+    (s) => s.setTypographerMultiSelectedByImage,
+  );
+  const cleanerRunMetaByImage = useCleanerStore((s) => s.cleanerRunMetaByImage);
+  const cleanerDetectionsByImage = useCleanerStore(
+    (s) => s.cleanerDetectionsByImage,
+  );
+  const cleanerSelectedRegionByImage = useCleanerStore(
+    (s) => s.cleanerSelectedRegionByImage,
+  );
+  const cleanerHealingBusyByImage = useCleanerStore(
+    (s) => s.cleanerHealingBusyByImage,
+  );
+  const cleanerShowOverlays = useCleanerStore((s) => s.cleanerShowOverlays);
+  const translatorRunMetaByImage = useTranslatorStore(
+    (s) => s.translatorRunMetaByImage,
+  );
+  const translatorDetectionsByImage = useTranslatorStore(
+    (s) => s.translatorDetectionsByImage,
+  );
+  const translatorSelectedRegionByImage = useTranslatorStore(
+    (s) => s.translatorSelectedRegionByImage,
+  );
+  const translatorWorkspaceMode = useTranslatorStore(
+    (s) => s.translatorWorkspaceMode,
+  );
+  // Preview/base sources read the stores at call time inside getPreviewSrc
+  // and the per-item manual-edit getters; these slices keep the grade's
+  // re-render cadence in sync with those reads (T4.2).
+  const aioManualImageEditsByImage = useManualToolsStore(
+    (s) => s.aioManualImageEditsByImage,
+  );
+  const cleanerManualImageEditsByImage = useCleanerStore(
+    (s) => s.cleanerManualImageEditsByImage,
+  );
+  const cleanerProcessedBaseByImage = useCleanerStore(
+    (s) => s.cleanerProcessedBaseByImage,
+  );
+  const translatorProcessedBaseByImage = useTranslatorStore(
+    (s) => s.translatorProcessedBaseByImage,
+  );
+  const downloadItems = useExportStore((s) => s.downloadItems);
 
   const renderAioStageItem = useCallback(
     (
@@ -446,9 +491,6 @@ export default function DashboardStageSection({
       );
     },
     [
-      aioDetectionsByImage,
-      aioManualHealingBusyByImage,
-      aioSelectedRegionByImage,
       aioSteps.render,
       applyAioHealingMaskForImage,
       applyAutoDetectedShapeToActiveRegion,
@@ -461,21 +503,13 @@ export default function DashboardStageSection({
       getPreviewSrc,
       inlineEditorShortcutRequestKey,
       isCompactViewport,
-      manualImageBrushBlur,
-      manualImageBrushOpacity,
-      manualImageBrushSize,
-      manualImagePaintColor,
-      manualImageTool,
       patchAioManualImageEditState,
       refineActiveTypographerShape,
-      renderDefaultStyle,
       renderFontRefreshToken,
       resolvedActiveId,
       resolvedAioAreaSelectionShapeKind,
       rewindAioPipelineForImage,
       runAioMagicWandForImage,
-      segmentBrushSize,
-      segmentEditTool,
       selectAioRegionForImage,
       setActiveId,
       subMode,
@@ -497,6 +531,16 @@ export default function DashboardStageSection({
     (index: number) => {
       const img = images[index];
       if (!img) return null;
+
+      if (
+        !aioManualImageEditsByImage &&
+        !cleanerManualImageEditsByImage &&
+        !cleanerProcessedBaseByImage &&
+        !translatorProcessedBaseByImage &&
+        !downloadItems
+      ) {
+        return null;
+      }
 
       const imageHistoryMeta = getAioImageSnapshotMeta(img.id);
       const imageStageKey = imageHistoryMeta.key ?? getAioFallbackStageKey();
@@ -695,15 +739,18 @@ export default function DashboardStageSection({
       );
     },
     [
-      aioPipelineSnapshots,
+      aioManualImageEditsByImage,
+      cleanerManualImageEditsByImage,
+      cleanerProcessedBaseByImage,
+      downloadItems,
       getAioFallbackStageKey,
       getAioImageSnapshotMeta,
       images,
       mode,
       renderAioStageItem,
       setActiveId,
-      setTypographerMultiSelectedByImage,
       t,
+      translatorProcessedBaseByImage,
       translatorWorkspaceMode,
       translationNotesEnabled,
     ],

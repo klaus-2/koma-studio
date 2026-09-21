@@ -32,6 +32,7 @@ import {
   requiresCustomLlmApiKey,
 } from '../../../utils/customLlm';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
+import { useCleanerStore } from '../stores/cleaner-store';
 import { createDefaultTypographyShape } from '../../../typography/types';
 import {
   applySfxDecisionsToRegions,
@@ -154,7 +155,6 @@ export interface UseCleanerActionsArgs {
   setCleanerProcessedBaseByImage: (value: Record<string, string>) => void;
   setCleanerRunMetaByImage: (value: Record<string, CleanerRunMeta>) => void;
   setCleanerManualImageEditsByImage: (value: Record<string, AioManualImageEditState>) => void;
-  cleanerManualImageEditsByImage: Record<string, AioManualImageEditState>;
   setCleanerHealingBusyByImage: (value: Record<string, boolean>) => void;
   setProcessing: (value: boolean) => void;
   setProgress: (value: number) => void;
@@ -203,7 +203,6 @@ export function useCleanerActions(args: UseCleanerActionsArgs) {
     setCleanerProcessedBaseByImage,
     setCleanerRunMetaByImage,
     setCleanerManualImageEditsByImage,
-    cleanerManualImageEditsByImage,
     setCleanerHealingBusyByImage,
     setProcessing,
     setProgress,
@@ -510,7 +509,8 @@ export function useCleanerActions(args: UseCleanerActionsArgs) {
           // If the user painted on the segment brush canvas, convert it to a pixel-exact
           // binary mask and send it as brush_mask. This ensures inpainting only touches
           // the exact painted pixels (not their bounding boxes).
-          const manualEditState = cleanerManualImageEditsByImage[imgData.id];
+          const manualEditState =
+            useCleanerStore.getState().cleanerManualImageEditsByImage[imgData.id];
           const brushDataUrl = manualEditState?.segmentBrushDataUrl ?? null;
           let brushMaskBlob: Blob | null = null;
           if (brushDataUrl) {
@@ -668,7 +668,6 @@ export function useCleanerActions(args: UseCleanerActionsArgs) {
     args,
     cleanerAiAdditionalInstructions,
     cleanerAiModelKey,
-    cleanerManualImageEditsByImage,
     cleanerMode,
     cleanSelectionKey,
     detectSelectionKey,

@@ -40,23 +40,16 @@ export function useAioRegionSnapshotSync({
   syncManualStagePreviewToNextStage,
   typographerWorkspace,
 }: UseAioRegionSnapshotSyncArgs) {
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
+  // Map reads are event-time only (inside edit/selection callbacks), so they
+  // read the store at call time instead of subscribing the page to the maps.
   const setAioDetectionsByImage = useRegionEditorStore(
     (s) => s.setAioDetectionsByImage,
-  );
-  const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
   );
   const setAioSelectedRegionByImage = useRegionEditorStore(
     (s) => s.setAioSelectedRegionByImage,
   );
   const setAioPipelineSnapshots = useAioPipelineStore(
     (s) => s.setAioPipelineSnapshots,
-  );
-  const aioManualProgressByImage = useAioPipelineStore(
-    (s) => s.aioManualProgressByImage,
   );
   const setAioManualProgressByImage = useAioPipelineStore(
     (s) => s.setAioManualProgressByImage,
@@ -189,6 +182,8 @@ export function useAioRegionSnapshotSync({
       nextRegions: AioTextRegion[],
       selectedRegionIdOverride?: string | null,
     ) => {
+      const { aioDetectionsByImage, aioSelectedRegionByImage } =
+        useRegionEditorStore.getState();
       const currentRegions = aioDetectionsByImage[imageId] ?? [];
       const currentSelected = aioSelectedRegionByImage[imageId] ?? null;
       // Clone-on-write: untouched regions keep their identity so the
@@ -221,8 +216,6 @@ export function useAioRegionSnapshotSync({
       patchAioSnapshotsForImageEdit(imageId, clonedRegions, resolvedSelected);
     },
     [
-      aioDetectionsByImage,
-      aioSelectedRegionByImage,
       patchAioSnapshotsForImageEdit,
       resolveSelectedRegionForRegions,
       setAioDetectionsByImage,
@@ -243,7 +236,8 @@ export function useAioRegionSnapshotSync({
       );
       if (nextStageIndex === detectStageIndex) return;
 
-      const currentProgress = aioManualProgressByImage[imageId];
+      const currentProgress =
+        useAioPipelineStore.getState().aioManualProgressByImage[imageId];
       if (!currentProgress || currentProgress.currentIndex !== detectStageIndex)
         return;
 
@@ -292,7 +286,6 @@ export function useAioRegionSnapshotSync({
       });
     },
     [
-      aioManualProgressByImage,
       mode,
       setAioManualProgressByImage,
       subMode,

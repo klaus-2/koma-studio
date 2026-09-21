@@ -5,7 +5,6 @@ import type { useDashboardModelManager } from '../../../hooks/useDashboardModelM
 import type { useModelManager } from '../../../hooks/useModelManager';
 import type { CustomLlmProfile } from '../../../utils/customLlm';
 import { clampLlmRequestSettings } from '../../../utils/customLlm';
-import type { AioTextRegion } from '../../../types/dashboard.types';
 import type { useAioModelSelection } from '../hooks/aio-pipeline';
 import type {
   useTranslatorRetranslate,
@@ -16,6 +15,7 @@ import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useTranslatorStore } from '../stores/translator-store';
+import { useActiveTranslatorRegionState } from '../hooks/translator';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import TranslatorToolsPanel from '../../../components/dashboard/TranslatorToolsPanel';
 
@@ -67,9 +67,6 @@ interface TranslatorToolsPanelSectionProps {
 
   /* ── Active-image memos (multi-store; selector candidates in T12) ── */
   activeId: string | null;
-  activeTranslatorImageDetections: AioTextRegion[];
-  activeTranslatorSelectedRegion: AioTextRegion | null;
-  activeTranslatorSelectedTranslationNotes: string[];
   retranslateTranslatorRegions: ReturnType<typeof useTranslatorRetranslate>;
 }
 
@@ -104,9 +101,6 @@ export default function TranslatorToolsPanelSection({
   handleTranslatorTextImport,
   handleTranslatorImageUpload,
   activeId,
-  activeTranslatorImageDetections,
-  activeTranslatorSelectedRegion,
-  activeTranslatorSelectedTranslationNotes,
   retranslateTranslatorRegions,
 }: TranslatorToolsPanelSectionProps) {
   const { t } = useI18n();
@@ -135,6 +129,11 @@ export default function TranslatorToolsPanelSection({
   const setTranslatorSfxAdditionalInstructions = useTranslatorStore(
     (s) => s.setTranslatorSfxAdditionalInstructions,
   );
+  const {
+    activeTranslatorImageDetections,
+    activeTranslatorSelectedRegion,
+    activeTranslatorSelectedTranslationNotes,
+  } = useActiveTranslatorRegionState({ resolvedActiveId: activeId });
   const translatorDraftText = useTranslatorStore((s) => s.translatorDraftText);
   const translatorTextPending = useTranslatorStore(
     (s) => s.translatorTextPending,

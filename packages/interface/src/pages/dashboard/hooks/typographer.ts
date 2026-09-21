@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useI18n } from '../../../i18n';
 import {
@@ -8,7 +8,6 @@ import {
 } from '../../../typography/storage';
 import type {
   TextQueueItem,
-  TypographyRegion,
   TypographySession,
   TypographySessionSourceType,
   TypographyShapeKind,
@@ -18,11 +17,14 @@ import { cloneTypographyRegions, createTypographyId } from '../../../typography/
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import { resolveRegionShapeKind } from '../../../utils/dashboard.utils';
 import { EMPTY_SELECTED_REGION_IDS } from '../../../utils/dashboardRenderUtils';
-import type { RenderTextMode } from '../../../utils/renderModes';
-import { resolveTypographyPresetForMode } from '../../../typography/presets';
+import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useTypographerStore } from '../stores/typographer-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
+import {
+  readActiveAioSelectedRegion,
+  readActiveAioSelectedRegionId,
+} from './region-editor.render';
 
 interface WorkspaceImage {
   id: string;
@@ -33,9 +35,11 @@ interface WorkspaceImage {
 
 interface UseTypographerWorkspaceOptions {
   images: WorkspaceImage[];
-  activeImageId: string | null;
-  regionsByImage: Record<string, TypographyRegion[]>;
 }
+
+const getTypographerSessionsByImage = () =>
+  useTypographerStore.getState().typographerSessionsByImage;
+const setTypographerSessionsByImage = useTypographerStore.getState().setTypographerSessionsByImage;
 
 const createEmptySession = (
   image: WorkspaceImage,
@@ -75,10 +79,7 @@ const TYPOGRAPHY_SESSION_SAVE_DEBOUNCE_MS = 400;
 
 export const useTypographerWorkspace = ({
   images,
-  activeImageId,
-  regionsByImage,
 }: UseTypographerWorkspaceOptions) => {
-  const [sessionsByImage, setSessionsByImage] = useState<Record<string, TypographySession>>({});
   const latestSessionsByFingerprintRef = useRef<Record<string, TypographySession>>({});
   const persistedSessionUpdatedAtRef = useRef<Record<string, number>>({});
   const saveTimerByFingerprintRef = useRef<Record<string, number>>({});
@@ -86,6 +87,7 @@ export const useTypographerWorkspace = ({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      const sessionsByImage = getTypographerSessionsByImage();
       // Only load from IndexedDB for images that are new or have changed fingerprint
       const entriesToLoad: Array<{ image: typeof images[number]; emptySession: TypographySession }> = [];
       const cachedSessions: Record<string, TypographySession> = {};
@@ -143,72 +145,99 @@ export const useTypographerWorkspace = ({
         delete saveTimerByFingerprintRef.current[fingerprint];
       });
       persistedSessionUpdatedAtRef.current = nextPersistedSessionUpdatedAt;
-      setSessionsByImage(nextSessions);
+      setTypographerSessionsByImage(nextSessions);
     })();
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images]);
 
   useEffect(() => {
+    // Mirror latest sessions by fingerprint for the debounced saver + unmount
+    // flush, driven by store.subscribe (no render-path subscription).
     latestSessionsByFingerprintRef.current = Object.fromEntries(
-      Object.values(sessionsByImage).map((session) => [
+      Object.values(getTypographerSessionsByImage()).map((session) => [
         session.imageFingerprint,
         session,
       ]),
     );
-  }, [sessionsByImage]);
-
-  useEffect(() => {
-    const activeFingerprints = new Set<string>();
-    Object.values(sessionsByImage).forEach((session) => {
-      activeFingerprints.add(session.imageFingerprint);
-      if (
-        persistedSessionUpdatedAtRef.current[session.imageFingerprint] ===
-        session.updatedAt
-      ) {
+    const unsubscribe = useTypographerStore.subscribe((state, prevState) => {
+      if (state.typographerSessionsByImage === prevState.typographerSessionsByImage) {
         return;
       }
+      latestSessionsByFingerprintRef.current = Object.fromEntries(
+        Object.values(state.typographerSessionsByImage).map((session) => [
+          session.imageFingerprint,
+          session,
+        ]),
+      );
+    });
+    return unsubscribe;
+  }, []);
 
-      const currentTimer =
-        saveTimerByFingerprintRef.current[session.imageFingerprint];
-      if (currentTimer !== undefined) {
-        window.clearTimeout(currentTimer);
-      }
+  useEffect(() => {
+    // Debounced persistence of session writes, driven by store.subscribe.
+    const scheduleSaves = (sessionsByImage: Record<string, TypographySession>) => {
+      Object.values(sessionsByImage).forEach((session) => {
+        if (
+          persistedSessionUpdatedAtRef.current[session.imageFingerprint] ===
+          session.updatedAt
+        ) {
+          return;
+        }
 
-      saveTimerByFingerprintRef.current[session.imageFingerprint] =
-        window.setTimeout(() => {
-          delete saveTimerByFingerprintRef.current[session.imageFingerprint];
-          const latestSession =
-            latestSessionsByFingerprintRef.current[session.imageFingerprint];
-          if (!latestSession) return;
-          if (
-            persistedSessionUpdatedAtRef.current[latestSession.imageFingerprint] ===
-            latestSession.updatedAt
-          ) {
-            return;
-          }
-          void saveTypographySession(latestSession).then(() => {
-            const currentSession =
-              latestSessionsByFingerprintRef.current[latestSession.imageFingerprint];
+        const currentTimer =
+          saveTimerByFingerprintRef.current[session.imageFingerprint];
+        if (currentTimer !== undefined) {
+          window.clearTimeout(currentTimer);
+        }
+
+        saveTimerByFingerprintRef.current[session.imageFingerprint] =
+          window.setTimeout(() => {
+            delete saveTimerByFingerprintRef.current[session.imageFingerprint];
+            const latestSession =
+              latestSessionsByFingerprintRef.current[session.imageFingerprint];
+            if (!latestSession) return;
             if (
-              currentSession &&
-              currentSession.updatedAt === latestSession.updatedAt
+              persistedSessionUpdatedAtRef.current[latestSession.imageFingerprint] ===
+              latestSession.updatedAt
             ) {
-              persistedSessionUpdatedAtRef.current[latestSession.imageFingerprint] =
-                latestSession.updatedAt;
+              return;
             }
-          });
-        }, TYPOGRAPHY_SESSION_SAVE_DEBOUNCE_MS);
+            void saveTypographySession(latestSession).then(() => {
+              const currentSession =
+                latestSessionsByFingerprintRef.current[latestSession.imageFingerprint];
+              if (
+                currentSession &&
+                currentSession.updatedAt === latestSession.updatedAt
+              ) {
+                persistedSessionUpdatedAtRef.current[latestSession.imageFingerprint] =
+                  latestSession.updatedAt;
+              }
+            });
+          }, TYPOGRAPHY_SESSION_SAVE_DEBOUNCE_MS);
+      });
+    };
+    scheduleSaves(getTypographerSessionsByImage());
+    const unsubscribe = useTypographerStore.subscribe((state, prevState) => {
+      if (state.typographerSessionsByImage === prevState.typographerSessionsByImage) {
+        return;
+      }
+      const activeFingerprints = new Set(
+        Object.values(state.typographerSessionsByImage).map(
+          (session) => session.imageFingerprint,
+        ),
+      );
+      scheduleSaves(state.typographerSessionsByImage);
+      Object.keys(saveTimerByFingerprintRef.current).forEach((fingerprint) => {
+        if (activeFingerprints.has(fingerprint)) return;
+        window.clearTimeout(saveTimerByFingerprintRef.current[fingerprint]);
+        delete saveTimerByFingerprintRef.current[fingerprint];
+      });
     });
-
-    Object.keys(saveTimerByFingerprintRef.current).forEach((fingerprint) => {
-      if (activeFingerprints.has(fingerprint)) return;
-      window.clearTimeout(saveTimerByFingerprintRef.current[fingerprint]);
-      delete saveTimerByFingerprintRef.current[fingerprint];
-    });
-  }, [sessionsByImage]);
+    return unsubscribe;
+  }, []);
 
   useEffect(() => () => {
     Object.values(saveTimerByFingerprintRef.current).forEach((timerId) => {
@@ -225,13 +254,8 @@ export const useTypographerWorkspace = ({
     });
   }, []);
 
-  const activeSession = useMemo(
-    () => (activeImageId ? sessionsByImage[activeImageId] ?? null : null),
-    [activeImageId, sessionsByImage],
-  );
-
   const updateSession = useCallback((imageId: string, updater: (session: TypographySession) => TypographySession) => {
-    setSessionsByImage((prev) => {
+    setTypographerSessionsByImage((prev) => {
       const current = prev[imageId];
       if (!current) return prev;
       const nextValue = updater(current);
@@ -249,7 +273,7 @@ export const useTypographerWorkspace = ({
   }, []);
 
   const replaceSessionsByImage = useCallback((nextSessions: Record<string, TypographySession>) => {
-    setSessionsByImage(nextSessions);
+    setTypographerSessionsByImage(nextSessions);
   }, []);
 
   const setSessionSourceType = useCallback((imageId: string, sourceType: TypographySessionSourceType) => {
@@ -299,10 +323,10 @@ export const useTypographerWorkspace = ({
       session.queue.length === 0 && session.draftText.length === 0
         ? session
         : {
-            ...session,
-            queue: [],
-            draftText: "",
-          },
+          ...session,
+          queue: [],
+          draftText: "",
+        },
     );
   }, [updateSession]);
 
@@ -325,9 +349,9 @@ export const useTypographerWorkspace = ({
 
       return changed
         ? {
-            ...session,
-            queue: nextQueue,
-          }
+          ...session,
+          queue: nextQueue,
+        }
         : session;
     });
   }, [updateSession]);
@@ -356,11 +380,14 @@ export const useTypographerWorkspace = ({
   }, [updateSession]);
 
   const saveSnapshot = useCallback((imageId: string, name: string) => {
+    const sessionsByImage = getTypographerSessionsByImage();
     const session = sessionsByImage[imageId];
     if (!session) return;
     const snapshotName = name.trim();
     if (!snapshotName) return;
-    const regions = cloneTypographyRegions(regionsByImage[imageId] ?? []);
+    const regions = cloneTypographyRegions(
+      useRegionEditorStore.getState().aioDetectionsByImage[imageId] ?? [],
+    );
     updateSession(imageId, (currentSession) => {
       const existing = currentSession.snapshots.find((item) => item.name === snapshotName) ?? null;
       const snapshot: TypographerSnapshot = {
@@ -384,10 +411,10 @@ export const useTypographerWorkspace = ({
         snapshots: nextSnapshots.sort((left, right) => right.updatedAt - left.updatedAt),
       };
     });
-  }, [regionsByImage, sessionsByImage, updateSession]);
+  }, [updateSession]);
 
   const restoreSnapshot = useCallback((imageId: string, snapshotId: string): TypographerSnapshot | null => {
-    const session = sessionsByImage[imageId];
+    const session = getTypographerSessionsByImage()[imageId];
     if (!session) return null;
     const snapshot = session.snapshots.find((item) => item.id === snapshotId) ?? null;
     if (!snapshot) return null;
@@ -401,11 +428,9 @@ export const useTypographerWorkspace = ({
       defaults: { ...snapshot.defaults },
     }));
     return snapshot;
-  }, [sessionsByImage, updateSession]);
+  }, [updateSession]);
 
   return {
-    sessionsByImage,
-    activeSession,
     replaceSessionsByImage,
     updateSession,
     setSessionSourceType,
@@ -439,11 +464,6 @@ interface TypographerWorkspaceLike {
 }
 
 interface UseTypographerControlsArgs {
-  activeId: string | null;
-  activeSelectedRegion: AioTextRegion | null;
-  activeSelectedRegionId: string | null;
-  activeTypographerSession: TypographySession | null;
-  activeTypographerQueueItem: TextQueueItem | null;
   typographerWorkspace: TypographerWorkspaceLike;
   normalizeActiveTypographerShape: (options: {
     kind: TypographyShapeKind;
@@ -453,22 +473,13 @@ interface UseTypographerControlsArgs {
   }) => void;
   updateActiveRenderRegion: (updater: (region: AioTextRegion) => AioTextRegion) => void;
   applyAioRegionsEditForImage: (imageId: string, nextRegions: AioTextRegion[], nextSelectedRegionId?: string | null) => void;
-  multiSelectedRegionIds: string[];
-  activeRegions: AioTextRegion[];
 }
 
 export function useTypographerControls({
-  activeId,
-  activeSelectedRegion,
-  activeSelectedRegionId,
-  activeTypographerSession,
-  activeTypographerQueueItem,
   typographerWorkspace,
   normalizeActiveTypographerShape,
   updateActiveRenderRegion,
   applyAioRegionsEditForImage,
-  multiSelectedRegionIds,
-  activeRegions,
 }: UseTypographerControlsArgs) {
   const { t } = useI18n();
   const typographerSnapshotName = useTypographerStore(
@@ -486,6 +497,9 @@ export function useTypographerControls({
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
 
   const refineActiveTypographerShape = useCallback(async () => {
+    const activeSelectedRegion = readActiveAioSelectedRegion(
+      useImageCollectionStore.getState().activeId,
+    );
     if (!activeSelectedRegion) return;
     const currentKind = resolveRegionShapeKind(activeSelectedRegion);
     normalizeActiveTypographerShape({
@@ -494,14 +508,17 @@ export function useTypographerControls({
       source: 'refined',
       statusMessage: t('typographer.shapeApplied'),
     });
-  }, [activeSelectedRegion, normalizeActiveTypographerShape, t]);
+  }, [normalizeActiveTypographerShape, t]);
 
   const applyQueueTextToActiveRegion = useCallback((queueItem: TextQueueItem | null) => {
+    const activeId = useImageCollectionStore.getState().activeId;
+    const activeSelectedRegionId = readActiveAioSelectedRegionId(activeId);
     if (!activeId || !activeSelectedRegionId || !queueItem) return;
+    const queue = useTypographerStore.getState().typographerSessionsByImage[activeId]?.queue ?? [];
     updateActiveRenderRegion((region) => ({
       ...region,
       renderText: queueItem.text,
-      queueIndex: activeTypographerSession?.queue.findIndex((item) => item.id === queueItem.id) ?? null,
+      queueIndex: queue.findIndex((item) => item.id === queueItem.id),
     }));
     typographerWorkspace.markQueueItem(activeId, queueItem.id, {
       status: 'applied',
@@ -510,9 +527,6 @@ export function useTypographerControls({
     setTypographerQueueSelectedId(queueItem.id);
     setStatusMessage(t('typographer.queueApplied'));
   }, [
-    activeId,
-    activeSelectedRegionId,
-    activeTypographerSession?.queue,
     setStatusMessage,
     setTypographerQueueSelectedId,
     t,
@@ -521,16 +535,33 @@ export function useTypographerControls({
   ]);
 
   const applySelectedTypographerQueueItem = useCallback(() => {
-    applyQueueTextToActiveRegion(activeTypographerQueueItem);
-  }, [activeTypographerQueueItem, applyQueueTextToActiveRegion]);
+    const activeId = useImageCollectionStore.getState().activeId;
+    const queueSelectedId = useTypographerStore.getState().typographerQueueSelectedId;
+    const queueItem =
+      useTypographerStore
+        .getState()
+        .typographerSessionsByImage[activeId ?? '']?.queue.find(
+          (item) => item.id === queueSelectedId,
+        ) ?? null;
+    applyQueueTextToActiveRegion(queueItem);
+  }, [applyQueueTextToActiveRegion]);
 
   const applyMultiBubbleQueueToRegions = useCallback(() => {
-    if (!activeId || !activeTypographerSession) return;
+    const activeId = useImageCollectionStore.getState().activeId;
+    const session = activeId
+      ? useTypographerStore.getState().typographerSessionsByImage[activeId]
+      : null;
+    const multiSelectedRegionIds = activeId
+      ? (useTypographerStore.getState().typographerMultiSelectedByImage[activeId] ??
+        EMPTY_SELECTED_REGION_IDS)
+      : EMPTY_SELECTED_REGION_IDS;
+    if (!activeId || !session) return;
     if (multiSelectedRegionIds.length === 0) return;
-    const pendingItems = activeTypographerSession.queue.filter(
+    const pendingItems = session.queue.filter(
       (item) => item.status === 'pending',
     );
     if (pendingItems.length === 0) return;
+    const activeRegions = useRegionEditorStore.getState().aioDetectionsByImage[activeId] ?? [];
     const regionMap = new Map(activeRegions.map((r) => [r.id, r]));
     const nextRegions = [...activeRegions];
     let appliedCount = 0;
@@ -544,7 +575,7 @@ export function useTypographerControls({
       nextRegions[regionIdx] = {
         ...currentRegion,
         renderText: queueItem.text,
-        queueIndex: activeTypographerSession.queue.findIndex((q) => q.id === queueItem.id),
+        queueIndex: session.queue.findIndex((q) => q.id === queueItem.id),
       };
       typographerWorkspace.markQueueItem(activeId, queueItem.id, {
         status: 'applied',
@@ -557,85 +588,94 @@ export function useTypographerControls({
       setStatusMessage(t('typographer.queueAppliedMulti', { count: appliedCount }));
     }
   }, [
-    activeId,
-    activeRegions,
-    activeTypographerSession,
     applyAioRegionsEditForImage,
-    multiSelectedRegionIds,
     setStatusMessage,
     t,
     typographerWorkspace,
   ]);
 
   const applyNextTypographerQueueItem = useCallback(() => {
-    if (!activeId || !activeTypographerSession) return;
+    const activeId = useImageCollectionStore.getState().activeId;
+    const session = activeId
+      ? useTypographerStore.getState().typographerSessionsByImage[activeId]
+      : null;
+    const multiSelectedRegionIds = activeId
+      ? (useTypographerStore.getState().typographerMultiSelectedByImage[activeId] ??
+        EMPTY_SELECTED_REGION_IDS)
+      : EMPTY_SELECTED_REGION_IDS;
+    if (!activeId || !session) return;
     if (
-      activeTypographerSession.multiBubbleEnabled &&
+      session.multiBubbleEnabled &&
       multiSelectedRegionIds.length > 0
     ) {
       applyMultiBubbleQueueToRegions();
       return;
     }
-    const nextItem = activeTypographerSession.queue.find((item) => item.status === 'pending') ?? null;
+    const nextItem = session.queue.find((item) => item.status === 'pending') ?? null;
     applyQueueTextToActiveRegion(nextItem);
   }, [
-    activeId,
-    activeTypographerSession,
     applyMultiBubbleQueueToRegions,
     applyQueueTextToActiveRegion,
-    multiSelectedRegionIds.length,
   ]);
 
   const handleTypographerDraftChange = useCallback((value: string) => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId) return;
     typographerWorkspace.setDraftText(activeId, value);
-  }, [activeId, typographerWorkspace]);
+  }, [typographerWorkspace]);
 
   const handleTypographerBuildQueue = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId) return;
     typographerWorkspace.queueFromDraft(activeId);
     setTypographerQueueSelectedId(null);
     setStatusMessage('Fila de texto atualizada.');
-  }, [activeId, setStatusMessage, setTypographerQueueSelectedId, typographerWorkspace]);
+  }, [setStatusMessage, setTypographerQueueSelectedId, typographerWorkspace]);
 
   const handleTypographerClearQueue = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId) return;
     typographerWorkspace.clearQueue(activeId);
     setTypographerQueueSelectedId(null);
     setStatusMessage(t('typographer.queueCleared'));
-  }, [activeId, setStatusMessage, setTypographerQueueSelectedId, t, typographerWorkspace]);
+  }, [setStatusMessage, setTypographerQueueSelectedId, t, typographerWorkspace]);
 
   const handleTypographerImportQueueText = useCallback((value: string) => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId) return;
     typographerWorkspace.importQueueText(activeId, value);
     setTypographerQueueSelectedId(null);
     setStatusMessage(t('typographer.queueImported'));
-  }, [activeId, setStatusMessage, setTypographerQueueSelectedId, t, typographerWorkspace]);
+  }, [setStatusMessage, setTypographerQueueSelectedId, t, typographerWorkspace]);
 
   const handleTypographerToggleMultiBubble = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId) return;
     typographerWorkspace.toggleMultiBubble(activeId);
-  }, [activeId, typographerWorkspace]);
+  }, [typographerWorkspace]);
 
   const handleTypographerPresetChange = useCallback((presetId: string | null) => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId) return;
     typographerWorkspace.setActivePreset(activeId, presetId);
-  }, [activeId, typographerWorkspace]);
+  }, [typographerWorkspace]);
 
   const handleTypographerSaveSnapshot = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId || !typographerSnapshotName.trim()) return;
     typographerWorkspace.saveSnapshot(activeId, typographerSnapshotName);
     setStatusMessage(`Snapshot "${typographerSnapshotName.trim()}" salvo.`);
     setTypographerSnapshotName('');
-  }, [activeId, setStatusMessage, setTypographerSnapshotName, typographerSnapshotName, typographerWorkspace]);
+  }, [setStatusMessage, setTypographerSnapshotName, typographerSnapshotName, typographerWorkspace]);
 
   const handleTypographerRestoreSnapshot = useCallback(() => {
+    const activeId = useImageCollectionStore.getState().activeId;
     if (!activeId || !typographerSelectedSnapshotId) return;
     const snapshot = typographerWorkspace.restoreSnapshot(activeId, typographerSelectedSnapshotId);
     if (!snapshot) return;
     applyAioRegionsEditForImage(activeId, snapshot.regions as AioTextRegion[], snapshot.selectedRegionId);
     setStatusMessage(`Snapshot "${snapshot.name}" restaurado.`);
-  }, [activeId, applyAioRegionsEditForImage, setStatusMessage, typographerSelectedSnapshotId, typographerWorkspace]);
+  }, [applyAioRegionsEditForImage, setStatusMessage, typographerSelectedSnapshotId, typographerWorkspace]);
 
   return {
     refineActiveTypographerShape,
@@ -649,81 +689,5 @@ export function useTypographerControls({
     handleTypographerPresetChange,
     handleTypographerSaveSnapshot,
     handleTypographerRestoreSnapshot,
-  };
-}
-
-/* ── Active typographer state: session/preset/selection memos for the active
-   image (typographer store + region-editor preset state) ── */
-
-export function useTypographerActiveState({
-  typographerWorkspace,
-  resolvedActiveId,
-  activeSelectedResolvedRenderMode,
-}: {
-  typographerWorkspace: ReturnType<typeof useTypographerWorkspace>;
-  resolvedActiveId: string | null;
-  activeSelectedResolvedRenderMode: RenderTextMode;
-}) {
-  const typographyPresetState = useRegionEditorStore(
-    (s) => s.typographyPresetState,
-  );
-  const typographerQueueSelectedId = useTypographerStore(
-    (s) => s.typographerQueueSelectedId,
-  );
-  const typographerMultiSelectedByImage = useTypographerStore(
-    (s) => s.typographerMultiSelectedByImage,
-  );
-  const setTypographerMultiSelectedByImage = useTypographerStore(
-    (s) => s.setTypographerMultiSelectedByImage,
-  );
-  const activeTypographerSession = typographerWorkspace.activeSession;
-  const activeTypographerPreset = useMemo(() => {
-    const sessionPreset = activeTypographerSession?.activePresetId
-      ? (typographyPresetState.presets.find(
-          (preset) => preset.id === activeTypographerSession.activePresetId,
-        ) ?? null)
-      : null;
-    if (sessionPreset) return sessionPreset;
-    return resolveTypographyPresetForMode(
-      activeSelectedResolvedRenderMode,
-      typographyPresetState,
-    );
-  }, [
-    activeSelectedResolvedRenderMode,
-    activeTypographerSession?.activePresetId,
-    typographyPresetState,
-  ]);
-  const activeTypographerQueueItem = useMemo(
-    () =>
-      activeTypographerSession?.queue.find(
-        (item) => item.id === typographerQueueSelectedId,
-      ) ?? null,
-    [activeTypographerSession?.queue, typographerQueueSelectedId],
-  );
-  const activeTypographerMultiSelectedIds = useMemo(
-    () =>
-      resolvedActiveId
-        ? typographerMultiSelectedByImage[resolvedActiveId] ?? EMPTY_SELECTED_REGION_IDS
-        : EMPTY_SELECTED_REGION_IDS,
-    [resolvedActiveId, typographerMultiSelectedByImage],
-  );
-
-  const handleTypographerMultiSelectReorder = useCallback(
-    (nextOrder: string[]) => {
-      if (!resolvedActiveId) return;
-      setTypographerMultiSelectedByImage((prev) => ({
-        ...prev,
-        [resolvedActiveId]: nextOrder,
-      }));
-    },
-    [resolvedActiveId, setTypographerMultiSelectedByImage],
-  );
-
-  return {
-    activeTypographerSession,
-    activeTypographerPreset,
-    activeTypographerQueueItem,
-    activeTypographerMultiSelectedIds,
-    handleTypographerMultiSelectReorder,
   };
 }

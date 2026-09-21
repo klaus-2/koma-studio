@@ -5,7 +5,6 @@ import { EMPTY_AIO_MANUAL_EDIT_STATE } from '../../../constants/dashboard.consta
 import type {
   AioManualImageEditState,
   AioPipelineSnapshotKey,
-  AioTextRegion,
   DownloadItem,
   LoadedImage,
   ManualImageEditTool,
@@ -37,25 +36,24 @@ export function useAioManualEdits({
   getAioDownloadItemForImage,
 }: UseAioManualEditsArgs) {
   const { t } = useI18n();
-  const aioManualImageEditsByImage = useManualToolsStore(
-    (s) => s.aioManualImageEditsByImage,
-  );
   const setAioManualImageEditsByImage = useManualToolsStore(
     (s) => s.setAioManualImageEditsByImage,
   );
 
   const getAioManualImageEditState = useCallback(
     (imageId: string): AioManualImageEditState =>
-      aioManualImageEditsByImage[imageId] ?? EMPTY_AIO_MANUAL_EDIT_STATE,
-    [aioManualImageEditsByImage],
+      useManualToolsStore.getState().aioManualImageEditsByImage[imageId] ??
+      EMPTY_AIO_MANUAL_EDIT_STATE,
+    [],
   );
 
   const hasAioManualImageEdits = useCallback(
     (imageId: string): boolean => {
-      const state = aioManualImageEditsByImage[imageId];
+      const state =
+        useManualToolsStore.getState().aioManualImageEditsByImage[imageId];
       return Boolean(state?.baseImageDataUrl || state?.paintLayerDataUrl);
     },
-    [aioManualImageEditsByImage],
+    [],
   );
 
   const patchAioManualImageEditState = useCallback(
@@ -92,12 +90,13 @@ export function useAioManualEdits({
 
   const resolveAioEditableBaseSourceForImage = useCallback(
     (imgData: LoadedImage): string => {
-      const manualState = aioManualImageEditsByImage[imgData.id];
+      const manualState =
+        useManualToolsStore.getState().aioManualImageEditsByImage[imgData.id];
       if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
       const baseItem = getAioDownloadItemForImage(imgData.id);
       return baseItem?.previewUrl ?? imgData.url;
     },
-    [aioManualImageEditsByImage, getAioDownloadItemForImage],
+    [getAioDownloadItemForImage],
   );
 
   const composeAioEditableCanvas = useCallback(
@@ -171,7 +170,6 @@ export function useAioManualEdits({
 interface UseAioWandHealingArgs {
   /* Cross-domain values (image-collection, manual-tools slot, aio page wiring) */
   images: LoadedImage[];
-  manualImageWandTolerance: number;
   localApiUrl: string;
   /* AIO manual-edit callbacks (useAioManualEdits) */
   getAioManualImageEditState: (imageId: string) => AioManualImageEditState;
@@ -192,7 +190,6 @@ interface UseAioWandHealingArgs {
 
 export function useAioWandHealing({
   images,
-  manualImageWandTolerance,
   localApiUrl,
   getAioManualImageEditState,
   patchAioManualImageEditState,
@@ -241,7 +238,7 @@ export function useAioWandHealing({
           ctx.getImageData(0, 0, canvas.width, canvas.height),
           seedX,
           seedY,
-          manualImageWandTolerance,
+          useManualToolsStore.getState().manualImageWandTolerance,
         );
         patchAioManualImageEditState(imageId, {
           wandMaskDataUrl: nextMaskDataUrl,
@@ -268,7 +265,6 @@ export function useAioWandHealing({
     },
     [
       images,
-      manualImageWandTolerance,
       patchAioManualImageEditState,
       resolveAioEditableBaseSourceForImage,
       setTonedStatus,
@@ -409,15 +405,17 @@ export function useAioWandHealing({
 /* ── Active tool toggling + dock config gating effects (manual-tools) ── */
 
 interface UseManualToolTogglesArgs {
-  /* Cross-domain inputs for the tool-gating memos (aio stage key + cleaner detections) */
+  /* Cross-domain inputs for the tool-gating memos (aio stage key + cleaner
+     detections count — a primitive, so commits that keep the length do not
+     notify the page) */
   activeAioStageKey: AioPipelineSnapshotKey;
-  activeCleanerDetections: AioTextRegion[];
+  activeCleanerDetectionsCount: number;
   resolvedActiveId: string | null;
 }
 
 export function useManualToolToggles({
   activeAioStageKey,
-  activeCleanerDetections,
+  activeCleanerDetectionsCount,
   resolvedActiveId,
 }: UseManualToolTogglesArgs) {
   const mode = useUiShellStore((s) => s.mode);
@@ -436,10 +434,10 @@ export function useManualToolToggles({
   const activeStageAllowsSegmentTools = useMemo(
     () =>
       (isAioManualMode && activeAioStageKey === 'segmentText') ||
-      (isCleanerToolMode && activeCleanerDetections.length > 0),
+      (isCleanerToolMode && activeCleanerDetectionsCount > 0),
     [
       activeAioStageKey,
-      activeCleanerDetections.length,
+      activeCleanerDetectionsCount,
       isAioManualMode,
       isCleanerToolMode,
     ],

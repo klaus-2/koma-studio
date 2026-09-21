@@ -34,7 +34,6 @@ import type { RenderTextStyle } from '../utils/renderText';
 import type {
   AioDownloadEntry,
   AioManualImageEditState,
-  AioManualImageProgress,
   AioPipelineSnapshotKey,
   AioTextRegion,
   DetectApiResponse,
@@ -45,6 +44,8 @@ import type {
   TranslationApiResponse,
 } from '../types/dashboard.types';
 import type { AioStageOption } from '../models/aioStageCatalog';
+import { useAioPipelineStore } from '../pages/dashboard/stores/aio-pipeline-store';
+import { useRegionEditorStore } from '../pages/dashboard/stores/region-editor-store';
 
 interface ModelManagerEntryLike {
   status: string;
@@ -58,9 +59,7 @@ interface UseAioManualStageExecutorArgs {
   activeId: string | null;
   processing: boolean;
   images: LoadedImage[];
-  aioManualProgressByImage: Record<string, AioManualImageProgress>;
   aioAutoProcessedImageById: Record<string, boolean>;
-  aioDetectionsByImage: Record<string, AioTextRegion[]>;
   aioStageOptions: {
     detectText: AioStageOption[];
     recognizeText: AioStageOption[];
@@ -161,9 +160,7 @@ export function useAioManualStageExecutor({
   activeId,
   processing,
   images,
-  aioManualProgressByImage,
   aioAutoProcessedImageById,
-  aioDetectionsByImage,
   aioStageOptions,
   aioStageSelection,
   aioSrcLang,
@@ -222,7 +219,8 @@ export function useAioManualStageExecutor({
       setStatusMessage(t('aioManual.imageNotFound'));
       return;
     }
-    const progress = aioManualProgressByImage[activeId];
+    const progress =
+      useAioPipelineStore.getState().aioManualProgressByImage[activeId];
     if (!progress) {
       setStatusMessage(t('aioManual.progressNotInitialized'));
       return;
@@ -271,7 +269,8 @@ export function useAioManualStageExecutor({
       let executionNotice: RuntimeExecutionNotice | null = null;
       if (stageKey === 'detectText') {
         assertNotAborted();
-        const currentDetectRegions = aioDetectionsByImage[activeId] ?? [];
+        const currentDetectRegions =
+          useRegionEditorStore.getState().aioDetectionsByImage[activeId] ?? [];
         const normalizedSelectedRegions = currentDetectRegions
           .map((region): AioTextRegion | null => {
             const normalizedBbox = toApiIntegerBbox(
@@ -759,25 +758,23 @@ export function useAioManualStageExecutor({
   }, [
     activeId,
     aioAutoProcessedImageById,
-    aioDetectionsByImage,
     aioHdCropMargin,
     aioHdCropTriggerSize,
     aioHdResizeLimit,
     aioHdStrategy,
-    aioManualProgressByImage,
     aioMaskDilation,
     aioSrcLang,
     aioStageOptions,
     aioStageSelection,
     aioTgtLang,
-      applyDetectedGradientToStyle,
-      compatibleTranslationModelIds,
-      completeManualStageForImage,
-      getAbortSignal,
-      getAioRegionsFromSnapshot,
-      getAioStageOption,
-      gpuStages,
-      images,
+    applyDetectedGradientToStyle,
+    compatibleTranslationModelIds,
+    completeManualStageForImage,
+    getAbortSignal,
+    getAioRegionsFromSnapshot,
+    getAioStageOption,
+    gpuStages,
+    images,
     llmSettings,
     localApiUrl,
     minRegionSize,
@@ -791,8 +788,8 @@ export function useAioManualStageExecutor({
     setRuntimeExecutionNotice,
     onStageStart,
     setProcessing,
-      setProgress,
-      setStatusMessage,
+    setProgress,
+    setStatusMessage,
     syncDiscordForTab,
     recordProcessedPages,
     t,

@@ -33,6 +33,7 @@ import {
   resolveSnapshotSelectionForImage,
 } from './dashboard/helpers';
 import { useI18n } from '../i18n';
+import { resolveTypographyPresetForMode } from '../typography/presets';
 import { importOnnxModelFromStorage } from '../models/model-storage';
 import {
   isCustomModelSelectionKey,
@@ -98,7 +99,6 @@ import { useDashboardShellLayout } from '../hooks/useDashboardShellLayout';
 import { useDashboardUsageAndPresence } from '../hooks/useDashboardUsageAndPresence';
 import { useCleanerActions } from './dashboard/hooks/cleaner';
 import {
-  useActiveCleanerRegionState,
   useCleanerAiStageOptions,
   useCleanerAiDraftProfileActions,
   useCleanerManualEdits,
@@ -107,7 +107,6 @@ import {
   useCleanerWandHealing,
 } from './dashboard/hooks/cleaner';
 import {
-  useActiveTranslatorRegionState,
   useTranslatorExecutionResolvers,
   useTranslatorSfxOptions,
   useTranslatorImports,
@@ -117,7 +116,6 @@ import {
   useTranslatorVisualActions,
 } from './dashboard/hooks/translator';
 import {
-  useTypographerActiveState,
   useTypographerControls,
   useTypographerWorkspace,
 } from './dashboard/hooks/typographer';
@@ -156,7 +154,6 @@ import { useExportStore } from './dashboard/stores/export-store';
 import { useAuthAccountStore } from './dashboard/stores/auth-account-store';
 import { useWorkspacePersistenceStore } from './dashboard/stores/workspace-persistence-store';
 import {
-  useActiveAioRegionState,
   useAioRegionEditing,
   useAioRegionRenderToBlob,
   useAioRegionSnapshotSync,
@@ -372,7 +369,6 @@ export const DashboardPage = ({
   // Enhance
 
   // AIO Pipeline
-  const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const aioStageOptions = useAioPipelineStore((s) => s.aioStageOptions);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
   const setAioStageSelection = useAioPipelineStore((s) => s.setAioStageSelection);
@@ -383,14 +379,8 @@ export const DashboardPage = ({
   const aioHdCropTriggerSize = useAioPipelineStore((s) => s.aioHdCropTriggerSize);
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
   const setAioDetectionsByImage = useRegionEditorStore(
     (s) => s.setAioDetectionsByImage,
-  );
-  const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
   );
   const setAioSelectedRegionByImage = useRegionEditorStore(
     (s) => s.setAioSelectedRegionByImage,
@@ -398,35 +388,14 @@ export const DashboardPage = ({
   const setKeyboardShortcutConfig = useUiShellStore(
     (s) => s.setKeyboardShortcutConfig,
   );
-  const typographerQueueSelectedId = useTypographerStore(
-    (s) => s.typographerQueueSelectedId,
-  );
-  const setTypographerQueueSelectedId = useTypographerStore(
-    (s) => s.setTypographerQueueSelectedId,
-  );
-  const typographerSelectedSnapshotId = useTypographerStore(
-    (s) => s.typographerSelectedSnapshotId,
-  );
-  const setTypographerSelectedSnapshotId = useTypographerStore(
-    (s) => s.setTypographerSelectedSnapshotId,
-  );
-  const aioPipelineSnapshots = useAioPipelineStore(
-    (s) => s.aioPipelineSnapshots,
-  );
   const setAioPipelineSnapshots = useAioPipelineStore(
     (s) => s.setAioPipelineSnapshots,
   );
   const setAioPipelineSnapshotIndex = useAioPipelineStore(
     (s) => s.setAioPipelineSnapshotIndex,
   );
-  const aioImageSnapshotIndexById = useAioPipelineStore(
-    (s) => s.aioImageSnapshotIndexById,
-  );
   const setAioImageSnapshotIndexById = useAioPipelineStore(
     (s) => s.setAioImageSnapshotIndexById,
-  );
-  const aioAutoHistoryAvailable = useAioPipelineStore(
-    (s) => s.aioAutoHistoryAvailable,
   );
   const setAioAutoProcessedImageById = useAioPipelineStore(
     (s) => s.setAioAutoProcessedImageById,
@@ -446,12 +415,6 @@ export const DashboardPage = ({
   );
   const setManualToolsConfigOpen = useManualToolsStore(
     (s) => s.setManualToolsConfigOpen,
-  );
-  const manualImageWandTolerance = useManualToolsStore(
-    (s) => s.manualImageWandTolerance,
-  );
-  const aioManualImageEditsByImage = useManualToolsStore(
-    (s) => s.aioManualImageEditsByImage,
   );
   const setAioManualImageEditsByImage = useManualToolsStore(
     (s) => s.setAioManualImageEditsByImage,
@@ -481,9 +444,6 @@ export const DashboardPage = ({
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
   );
-  const translatorDetectionsByImage = useTranslatorStore(
-    (s) => s.translatorDetectionsByImage,
-  );
   const setTranslatorDetectionsByImage = useTranslatorStore(
     (s) => s.setTranslatorDetectionsByImage,
   );
@@ -493,14 +453,8 @@ export const DashboardPage = ({
   const setTranslatorRunMetaByImage = useTranslatorStore(
     (s) => s.setTranslatorRunMetaByImage,
   );
-  const translatorProcessedBaseByImage = useTranslatorStore(
-    (s) => s.translatorProcessedBaseByImage,
-  );
   const setTranslatorProcessedBaseByImage = useTranslatorStore(
     (s) => s.setTranslatorProcessedBaseByImage,
-  );
-  const cleanerDetectionsByImage = useCleanerStore(
-    (s) => s.cleanerDetectionsByImage,
   );
   const setCleanerDetectionsByImage = useCleanerStore(
     (s) => s.setCleanerDetectionsByImage,
@@ -508,17 +462,11 @@ export const DashboardPage = ({
   const setCleanerSelectedRegionByImage = useCleanerStore(
     (s) => s.setCleanerSelectedRegionByImage,
   );
-  const cleanerProcessedBaseByImage = useCleanerStore(
-    (s) => s.cleanerProcessedBaseByImage,
-  );
   const setCleanerProcessedBaseByImage = useCleanerStore(
     (s) => s.setCleanerProcessedBaseByImage,
   );
   const setCleanerRunMetaByImage = useCleanerStore(
     (s) => s.setCleanerRunMetaByImage,
-  );
-  const cleanerManualImageEditsByImage = useCleanerStore(
-    (s) => s.cleanerManualImageEditsByImage,
   );
   const setCleanerManualImageEditsByImage = useCleanerStore(
     (s) => s.setCleanerManualImageEditsByImage,
@@ -652,8 +600,6 @@ export const DashboardPage = ({
   );
   const typographerWorkspace = useTypographerWorkspace({
     images: typographerWorkspaceImages,
-    activeImageId: activeId,
-    regionsByImage: aioDetectionsByImage,
   });
 
   // The execution state operations live on the aio-pipeline store. The page
@@ -798,64 +744,13 @@ export const DashboardPage = ({
 
     setActiveId(images[0]?.id ?? null);
   }, [activeId, images, setActiveId]);
-  const {
-    textFillSwatches,
-    typographyPresetList,
-    typographyFolderList,
-    defaultBubbleTypographyPreset,
-    activeImageDetections,
-    activeSelectedRegionId,
-    activeSelectedRegion,
-    activeSelectedRenderStyle,
-    activeSelectedRenderMode,
-    activeSelectedResolvedRenderMode,
-    activeSelectedTranslationNotes,
-  } = useActiveAioRegionState({ resolvedActiveId });
-  const {
-    activeTranslatorImageDetections,
-    activeTranslatorSelectedRegionId,
-    activeTranslatorSelectedRegion,
-    activeTranslatorSelectedTranslationNotes,
-  } = useActiveTranslatorRegionState({ resolvedActiveId });
-  const {
-    activeCleanerDetections,
-    activeCleanerSelectedRegionId,
-    activeCleanerSelectedRegion,
-    activeCleanerRunMeta,
-  } = useActiveCleanerRegionState({ resolvedActiveId });
-  const {
-    activeTypographerSession,
-    activeTypographerPreset,
-    activeTypographerQueueItem,
-    activeTypographerMultiSelectedIds,
-    handleTypographerMultiSelectReorder,
-  } = useTypographerActiveState({
-    typographerWorkspace,
-    resolvedActiveId,
-    activeSelectedResolvedRenderMode,
-  });
-
-  const currentManualSelectedRegionId = useMemo(() => {
-    if (subMode !== 'manual') {
-      return null;
-    }
-    if (mode === 'translator') {
-      return activeTranslatorSelectedRegionId;
-    }
-    if (mode === 'cleaner') {
-      return activeCleanerSelectedRegionId;
-    }
-    if (mode === 'aio' || mode === 'typesetter') {
-      return activeSelectedRegionId;
-    }
-    return null;
-  }, [
-    activeCleanerSelectedRegionId,
-    activeSelectedRegionId,
-    activeTranslatorSelectedRegionId,
-    mode,
-    subMode,
-  ]);
+  const typographyPresetState = useRegionEditorStore(
+    (s) => s.typographyPresetState,
+  );
+  const defaultBubbleTypographyPreset = useMemo(
+    () => resolveTypographyPresetForMode('text_bubble', typographyPresetState),
+    [typographyPresetState],
+  );
 
   const {
     buildAioImageSnapshotIndexMap,
@@ -992,6 +887,9 @@ export const DashboardPage = ({
     if (mode !== 'aio' || subMode !== 'manual') return;
     if (images.length === 0) return;
 
+    const pipelineState = useAioPipelineStore.getState();
+    const regionState = useRegionEditorStore.getState();
+    const aioPipelineSnapshots = pipelineState.aioPipelineSnapshots;
     const snapshotsNeedNormalization =
       aioPipelineSnapshots.length === 0 ||
       aioPipelineSnapshots.length !== AIO_MANUAL_STAGE_ORDER.length ||
@@ -1004,16 +902,16 @@ export const DashboardPage = ({
         normalizeAioPipelineSnapshotsForManualMode(aioPipelineSnapshots);
       const normalizedImageIndexById: Record<string, number> = {};
       images.forEach((image) => {
-        const explicitIndex = aioAutoHistoryAvailable
-          ? aioImageSnapshotIndexById[image.id]
+        const explicitIndex = pipelineState.aioAutoHistoryAvailable
+          ? pipelineState.aioImageSnapshotIndexById[image.id]
           : undefined;
         normalizedImageIndexById[image.id] =
           typeof explicitIndex === 'number' && explicitIndex >= 0
             ? clamp(
-                explicitIndex,
-                0,
-                Math.max(0, normalizedSnapshots.length - 1),
-              )
+              explicitIndex,
+              0,
+              Math.max(0, normalizedSnapshots.length - 1),
+            )
             : 0;
       });
       const manualProgress = initializeManualProgressFromSnapshots(
@@ -1039,7 +937,7 @@ export const DashboardPage = ({
             snapshot,
             activeId,
             activeRegions,
-            aioSelectedRegionByImage[activeId] ?? null,
+            regionState.aioSelectedRegionByImage[activeId] ?? null,
           );
           setAioDetectionsByImage((prev) => ({
             ...prev,
@@ -1073,8 +971,8 @@ export const DashboardPage = ({
       images.forEach((image) => {
         if (next[image.id]) return;
         changed = true;
-        const explicitIndex = aioAutoHistoryAvailable
-          ? aioImageSnapshotIndexById[image.id]
+        const explicitIndex = pipelineState.aioAutoHistoryAvailable
+          ? pipelineState.aioImageSnapshotIndexById[image.id]
           : undefined;
         if (typeof explicitIndex === 'number' && explicitIndex >= 0) {
           next[image.id] = createAioManualProgressFromAutoIndex(
@@ -1088,9 +986,6 @@ export const DashboardPage = ({
     });
   }, [
     activeId,
-    aioAutoHistoryAvailable,
-    aioImageSnapshotIndexById,
-    aioPipelineSnapshots,
     images,
     initializeManualProgressFromSnapshots,
     mode,
@@ -1236,7 +1131,7 @@ export const DashboardPage = ({
     if (
       selectedCustomTranslationProfile &&
       toCustomModelSelectionKey(selectedCustomTranslationProfile) ===
-        pendingSelection
+      pendingSelection
     ) {
       markPendingCustomSelection('translation', null);
     }
@@ -1494,52 +1389,6 @@ export const DashboardPage = ({
     areaSelectionCreateMode,
     defaultBubbleTypographyPreset?.defaultShapeKind,
   ]);
-  useEffect(() => {
-    if (mode !== 'typesetter') return;
-    if (!activeId || !activeTypographerSession) return;
-    if (activeTypographerSession.activePresetId) return;
-    if (!activeTypographerPreset?.id) return;
-    typographerWorkspace.setActivePreset(activeId, activeTypographerPreset.id);
-  }, [
-    activeId,
-    activeTypographerPreset?.id,
-    activeTypographerSession,
-    mode,
-    typographerWorkspace,
-  ]);
-  useEffect(() => {
-    if (!activeTypographerSession) {
-      setTypographerQueueSelectedId(null);
-      setTypographerSelectedSnapshotId(null);
-      return;
-    }
-    if (
-      !typographerQueueSelectedId ||
-      !activeTypographerSession.queue.some(
-        (item) => item.id === typographerQueueSelectedId,
-      )
-    ) {
-      setTypographerQueueSelectedId(
-        activeTypographerSession.queue[0]?.id ?? null,
-      );
-    }
-    if (
-      !typographerSelectedSnapshotId ||
-      !activeTypographerSession.snapshots.some(
-        (item) => item.id === typographerSelectedSnapshotId,
-      )
-    ) {
-      setTypographerSelectedSnapshotId(
-        activeTypographerSession.snapshots[0]?.id ?? null,
-      );
-    }
-  }, [
-    activeTypographerSession,
-    setTypographerQueueSelectedId,
-    setTypographerSelectedSnapshotId,
-    typographerQueueSelectedId,
-    typographerSelectedSnapshotId,
-  ]);
   const areaSelectionToolActive =
     segmentEditTool === 'select' && manualImageTool === 'none';
   const isCleanerToolMode = mode === 'cleaner';
@@ -1788,10 +1637,6 @@ export const DashboardPage = ({
     setTranslatorSelectedRegionByImage,
     setTranslatorRunMetaByImage,
     setTranslatorProcessedBaseByImage,
-    aioManualImageEditsByImage,
-    cleanerManualImageEditsByImage,
-    cleanerProcessedBaseByImage,
-    translatorProcessedBaseByImage,
   });
 
   useExportDownloadLifecycle();
@@ -1849,22 +1694,15 @@ export const DashboardPage = ({
     updateActiveRenderMode,
     updateActiveRenderRegion,
   } = useAioRegionEditing({
-    activeId,
-    activeSelectedRegionId,
-    activeSelectedRegion,
-    activeImage,
-    activeSelectedRenderStyle,
-    activeTypographerPreset,
-    typographyPresetList,
     typographerWorkspace,
     applyAioRegionsEditForImage,
     selectAioRegionForImage,
     updateTranslatorRegionsForImage,
     updateCleanerRegionsForImage,
-    translatorDetectionsByImage,
-    cleanerDetectionsByImage,
-    activeTranslatorSelectedRegionId,
-    activeCleanerSelectedRegionId,
+    translatorDetectionsByImage: () =>
+      useTranslatorStore.getState().translatorDetectionsByImage,
+    cleanerDetectionsByImage: () =>
+      useCleanerStore.getState().cleanerDetectionsByImage,
   });
 
   const {
@@ -1880,11 +1718,6 @@ export const DashboardPage = ({
     handleTypographerSaveSnapshot,
     handleTypographerRestoreSnapshot,
   } = useTypographerControls({
-    activeId,
-    activeSelectedRegion,
-    activeSelectedRegionId,
-    activeTypographerSession,
-    activeTypographerQueueItem,
     typographerWorkspace: {
       markQueueItem: typographerWorkspace.markQueueItem,
       setDraftText: typographerWorkspace.setDraftText,
@@ -1902,14 +1735,11 @@ export const DashboardPage = ({
     normalizeActiveTypographerShape,
     updateActiveRenderRegion,
     applyAioRegionsEditForImage,
-    multiSelectedRegionIds: activeTypographerMultiSelectedIds,
-    activeRegions: activeId ? aioDetectionsByImage[activeId] ?? [] : [],
   });
 
   const { runCleanerMagicWandForImage, applyCleanerHealingMaskForImage } =
     useCleanerWandHealing({
       images,
-      manualImageWandTolerance,
       localApiUrl: apiConfig.localUrl,
       setDownloadItems,
       setLastActionScope,
@@ -1924,7 +1754,6 @@ export const DashboardPage = ({
     applyHealingFromActiveWandSelection,
   } = useAioWandHealing({
     images,
-    manualImageWandTolerance,
     localApiUrl: apiConfig.localUrl,
     getAioManualImageEditState,
     patchAioManualImageEditState,
@@ -1934,6 +1763,11 @@ export const DashboardPage = ({
     applyCleanerHealingMaskForImage,
   });
 
+  const activeCleanerDetectionsCount = useCleanerStore((s) =>
+    resolvedActiveId
+      ? (s.cleanerDetectionsByImage[resolvedActiveId]?.length ?? 0)
+      : 0,
+  );
   const {
     isAioManualMode,
     activeStageAllowsAreaTools,
@@ -1945,13 +1779,12 @@ export const DashboardPage = ({
     toggleManualToolsConfig,
   } = useManualToolToggles({
     activeAioStageKey,
-    activeCleanerDetections,
+    activeCleanerDetectionsCount,
     resolvedActiveId,
   });
 
   const { renderAioImageToBlob } = useAioRegionRenderToBlob({
     composeAioEditableCanvas,
-    downloadItems,
     outFormat,
     outQuality,
   });
@@ -1972,7 +1805,7 @@ export const DashboardPage = ({
 
   const { prepareDownloadEntries, buildDownloadBundleBlob } =
     useDashboardDownloadBundle({
-      typographerSessionsByImage: typographerWorkspace.sessionsByImage,
+      getTypographerSessionsByImage: () => useTypographerStore.getState().typographerSessionsByImage,
       renderAioImageToBlob: (img, regions) =>
         (renderAioImageToBlob as unknown as (
           img: LoadedImage,
@@ -2058,7 +1891,6 @@ export const DashboardPage = ({
     setCleanerProcessedBaseByImage,
     setCleanerRunMetaByImage,
     setCleanerManualImageEditsByImage,
-    cleanerManualImageEditsByImage,
     setCleanerHealingBusyByImage,
     setProcessing,
     setProgress,
@@ -2098,8 +1930,6 @@ export const DashboardPage = ({
     skipManualStageForActiveImage,
     handleExecuteManualAioStage,
   } = useAioManualExecution({
-    aioDetectionsByImage,
-    aioSelectedRegionByImage,
     renderDefaultStyle,
     getAioManualImageEditState,
     applyAioPipelineSnapshotToImage,
@@ -2184,7 +2014,6 @@ export const DashboardPage = ({
 
   const processTranslatorVisual = useTranslatorVisualActions({
     images,
-    activeTranslatorSelectedRegionId,
     selectedCustomOcrProfile,
     selectedCustomTranslationProfile,
     selectedTranslatorSfxCleanCustomProfile,
@@ -2208,7 +2037,6 @@ export const DashboardPage = ({
 
   const retranslateTranslatorRegions = useTranslatorRetranslate({
     images,
-    activeTranslatorSelectedRegionId,
     localApiUrl: apiConfig.localUrl,
     selectedCustomTranslationProfile,
     ensureVerifiedEmailOrNotify,
@@ -2279,9 +2107,6 @@ export const DashboardPage = ({
 
   useDashboardKeyboard({
     activeId,
-    activeSelectedRegion,
-    aioSteps,
-    currentManualSelectedRegionId,
     shortcutCenterOpen,
     translatorWorkspaceMode,
     handleModeChange,
@@ -2365,10 +2190,6 @@ export const DashboardPage = ({
     hasDownloadActions,
     isCompactViewport,
   });
-  const canEditActiveRenderStage =
-    activeImageRenderStageActive &&
-    subMode === 'manual' &&
-    Boolean(activeSelectedRegion);
   const areaSelectionToolHasConfig =
     activeStageAllowsAreaTools && areaSelectionToolActive;
   const segmentToolHasConfig =
@@ -2392,10 +2213,6 @@ export const DashboardPage = ({
     activeHasManualPaintLayer ||
     activeHasManualBaseOverride ||
     activeHasManualWandSelection;
-  const activeDockRegionsCount =
-    mode === 'cleaner'
-      ? activeCleanerDetections.length
-      : activeImageDetections.length;
   const manualToolsConfigTitle = areaSelectionToolHasConfig
     ? t('dashboard.status.toolSelectArea')
     : segmentToolHasConfig
@@ -2425,9 +2242,6 @@ export const DashboardPage = ({
       resolvedActiveId={resolvedActiveId}
       resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKind}
       areaSelectionToolActive={areaSelectionToolActive}
-      textFillSwatches={textFillSwatches}
-      typographyPresetList={typographyPresetList}
-      typographyFolderList={typographyFolderList}
       translationNotesEnabled={translationNotesEnabled}
       currentEmptyPreviewTip={currentEmptyPreviewTip}
       handleStageWheelZoom={handleStageWheelZoom}
@@ -2503,11 +2317,7 @@ export const DashboardPage = ({
       isDragActive={isDragActive}
       removeImage={removeImage}
       activeImage={activeImage}
-      activeTypographerSession={activeTypographerSession}
-      activeTypographerPreset={activeTypographerPreset}
-      activeTypographerMultiSelectedIds={activeTypographerMultiSelectedIds}
       modeLabel={modeLabel}
-      handleTypographerMultiSelectReorder={handleTypographerMultiSelectReorder}
       // ── Workspace persistence ──
       workspaceHistory={workspaceHistory}
       handleWorkspaceUndo={handleWorkspaceUndo}
@@ -2553,12 +2363,10 @@ export const DashboardPage = ({
       manualToolsConfigTitle={manualToolsConfigTitle}
       areaSelectionToolHasConfig={areaSelectionToolHasConfig}
       activeDockToolHasConfig={activeDockToolHasConfig}
-      activeDockRegionsCount={activeDockRegionsCount}
       isAioManualMode={isAioManualMode}
       activeStageAllowsAreaTools={activeStageAllowsAreaTools}
       activeStageAllowsSegmentTools={activeStageAllowsSegmentTools}
       activeStageAllowsManualImageTools={activeStageAllowsManualImageTools}
-      activeSelectedRegion={activeSelectedRegion}
       duplicateSelectedTypographerRegion={duplicateSelectedTypographerRegion}
       convertActiveTypographerShape={convertActiveTypographerShape}
       clearAioRegionsForActiveImage={clearAioRegionsForActiveImage}
@@ -2628,13 +2436,8 @@ export const DashboardPage = ({
       STAGE_TABS={STAGE_TABS}
       showLlmSettingsPanel={showLlmSettingsPanel}
       llmSettingsSupportSummary={llmSettingsSupportSummary}
-      activeImageDetections={activeImageDetections}
-      activeSelectedTranslationNotes={activeSelectedTranslationNotes}
-      activeSelectedRenderMode={activeSelectedRenderMode}
-      activeSelectedResolvedRenderMode={activeSelectedResolvedRenderMode}
       updateActiveRenderMode={updateActiveRenderMode}
       removeSelectedAioRegion={removeSelectedAioRegion}
-      canEditActiveRenderStage={canEditActiveRenderStage}
       applyActiveRenderStyleToAllRegions={applyActiveRenderStyleToAllRegions}
       activeImageRenderStageActive={activeImageRenderStageActive}
       loadRenderFontCatalog={loadRenderFontCatalog}
@@ -2653,8 +2456,6 @@ export const DashboardPage = ({
       selectedCleanerAiDisplayOption={selectedCleanerAiDisplayOption}
       selectCleanerAiModel={selectCleanerAiModel}
       handleClean={handleClean}
-      activeCleanerRunMeta={activeCleanerRunMeta}
-      activeCleanerSelectedRegion={activeCleanerSelectedRegion}
       translatorAvailableOcrStageOptions={translatorAvailableOcrStageOptions}
       selectedTranslatorOcrCloudOption={selectedTranslatorOcrCloudOption}
       translatorSelectedLocalTranslationCompatible={translatorSelectedLocalTranslationCompatible}
@@ -2662,9 +2463,6 @@ export const DashboardPage = ({
       selectTranslatorSfxCleanModel={selectTranslatorSfxCleanModel}
       processTranslatorVisual={processTranslatorVisual}
       retranslateTranslatorRegions={retranslateTranslatorRegions}
-      activeTranslatorImageDetections={activeTranslatorImageDetections}
-      activeTranslatorSelectedRegion={activeTranslatorSelectedRegion}
-      activeTranslatorSelectedTranslationNotes={activeTranslatorSelectedTranslationNotes}
       applyActiveTypographyPresetToSelection={applyActiveTypographyPresetToSelection}
       applyActiveTypographyPresetToImage={applyActiveTypographyPresetToImage}
       handleTypographerPresetChange={handleTypographerPresetChange}

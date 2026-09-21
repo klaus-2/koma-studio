@@ -1,5 +1,4 @@
 import type { TypographyShapeKind } from '../../../typography/types';
-import type { AioTextRegion } from '../../../types/dashboard.types';
 import type { useAioRegionEditing } from '../hooks/region-editor';
 import type { useCleanerManualEdits } from '../hooks/cleaner';
 import type {
@@ -8,7 +7,9 @@ import type {
   useManualToolToggles,
 } from '../hooks/manual-tools';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
+import { useCleanerStore } from '../stores/cleaner-store';
 import { useManualToolsStore } from '../stores/manual-tools-store';
+import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { DashboardManualDock } from '../../../features/dashboard/components/DashboardManualDock';
 import { HealingToolHint } from '../../../components/dashboard/HealingToolHint';
@@ -23,7 +24,6 @@ interface ManualToolsDockSectionProps {
   manualToolsConfigTitle: string;
   areaSelectionToolHasConfig: boolean;
   activeDockToolHasConfig: boolean;
-  activeDockRegionsCount: number;
   isAioManualMode: boolean;
   areaSelectionToolActive: boolean;
   activeStageAllowsAreaTools: boolean;
@@ -32,7 +32,6 @@ interface ManualToolsDockSectionProps {
 
   /* ── Region editor / typographer callbacks (not yet migrated) ── */
   resolvedAioAreaSelectionShapeKind: TypographyShapeKind;
-  activeSelectedRegion: AioTextRegion | null;
   duplicateSelectedTypographerRegion: AioRegionEditingApi['duplicateSelectedTypographerRegion'];
   applyAutoDetectedShapeToActiveRegion: AioRegionEditingApi['applyAutoDetectedShapeToActiveRegion'];
   convertActiveTypographerShape: AioRegionEditingApi['convertActiveTypographerShape'];
@@ -83,14 +82,12 @@ export default function ManualToolsDockSection({
   manualToolsConfigTitle,
   areaSelectionToolHasConfig,
   activeDockToolHasConfig,
-  activeDockRegionsCount,
   isAioManualMode,
   areaSelectionToolActive,
   activeStageAllowsAreaTools,
   activeStageAllowsSegmentTools,
   activeStageAllowsManualImageTools,
   resolvedAioAreaSelectionShapeKind,
-  activeSelectedRegion,
   duplicateSelectedTypographerRegion,
   applyAutoDetectedShapeToActiveRegion,
   convertActiveTypographerShape,
@@ -162,6 +159,27 @@ export default function ManualToolsDockSection({
     (s) => s.keyboardShortcutConfig,
   );
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
+
+  const activeSelectedRegion = useRegionEditorStore((s) => {
+    if (!activeId) return null;
+    const selectedRegionId =
+      s.aioSelectedRegionByImage[activeId] ?? null;
+    return (
+      s.aioDetectionsByImage[activeId]?.find(
+        (region) => region.id === selectedRegionId,
+      ) ?? null
+    );
+  });
+  const activeCleanerDetectionsCount = useCleanerStore((s) =>
+    activeId ? (s.cleanerDetectionsByImage[activeId]?.length ?? 0) : 0,
+  );
+  const activeAioRegionsCount = useRegionEditorStore((s) =>
+    activeId ? (s.aioDetectionsByImage[activeId]?.length ?? 0) : 0,
+  );
+  const activeDockRegionsCount =
+    mode === 'cleaner'
+      ? activeCleanerDetectionsCount
+      : activeAioRegionsCount;
 
   return (
     <>

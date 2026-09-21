@@ -1,8 +1,26 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import type { TypographySession } from '../../../typography/types';
 
 /** Canvas tool of the typesetter stage (same union the page's useState had). */
 type TypographerSelectionTool = 'select' | 'draw-square' | 'draw-rounded';
+
+/**
+ * Per-image typographer sessions. Owned by the workspace lifecycle in
+ * hooks/typographer.ts (hydrate from IndexedDB, debounced save); the store is
+ * the shared container so region-selection/draft writes do not re-render the
+ * page-level subscribers (ponytail: keep sessions out of hot render paths).
+ */
+interface TypographerSessionsState {
+  typographerSessionsByImage: Record<string, TypographySession>;
+  setTypographerSessionsByImage: (
+    value:
+      | Record<string, TypographySession>
+      | ((
+          prev: Record<string, TypographySession>,
+        ) => Record<string, TypographySession>),
+  ) => void;
+}
 
 /**
  * Typographer/typesetter domain: the tool, queue and snapshot selection slots.
@@ -10,7 +28,7 @@ type TypographerSelectionTool = 'select' | 'draw-square' | 'draw-rounded';
  * store (`typographyPresetState`, shared slot) and the per-image sessions live
  * in `useTypographerWorkspace` (hooks/typographer.ts).
  */
-interface TypographerStore {
+interface TypographerStore extends TypographerSessionsState {
   /** Active canvas tool of the typesetter stage. */
   typographerSelectionTool: TypographerSelectionTool;
   /** Selected queue item id (panel list). */
@@ -37,6 +55,14 @@ export const useTypographerStore = create<TypographerStore>()(
   devtools(
     (set) => ({
       // Same initial values the page's useState had.
+      typographerSessionsByImage: {},
+      setTypographerSessionsByImage: (value) =>
+        set((state) => ({
+          typographerSessionsByImage:
+            typeof value === 'function'
+              ? value(state.typographerSessionsByImage)
+              : value,
+        })),
       typographerSelectionTool: 'select',
       typographerQueueSelectedId: null,
       typographerMultiSelectedByImage: {},

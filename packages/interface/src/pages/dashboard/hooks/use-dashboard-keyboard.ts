@@ -9,7 +9,6 @@ import {
   type ShortcutActionId,
 } from '../../../shortcuts/keyboardShortcuts';
 import type {
-  AioTextRegion,
   ToolMode,
   TranslatorWorkspaceMode,
 } from '../../../types/dashboard.types';
@@ -17,6 +16,10 @@ import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useManualToolsStore } from '../stores/manual-tools-store';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import {
+  readActiveAioSelectedRegion,
+  readActiveSelectedRegionIdForMode,
+} from './region-editor';
 import { useAioManualEdits, useManualToolToggles } from './manual-tools';
 import { useAioRegionEditing } from './region-editor';
 import { useCleanerManualEdits } from './cleaner';
@@ -26,9 +29,6 @@ import { useWorkspacePersistence } from './workspace-persistence';
 export interface UseDashboardKeyboardArgs {
   /* Values still owned by the page */
   activeId: string | null;
-  activeSelectedRegion: AioTextRegion | null;
-  aioSteps: ReturnType<typeof useAioPipelineStore.getState>['aioSteps'];
-  currentManualSelectedRegionId: string | null;
   shortcutCenterOpen: boolean;
   translatorWorkspaceMode: TranslatorWorkspaceMode;
 
@@ -125,9 +125,6 @@ export interface UseDashboardKeyboardArgs {
 
 export function useDashboardKeyboard({
   activeId,
-  activeSelectedRegion,
-  aioSteps,
-  currentManualSelectedRegionId,
   shortcutCenterOpen,
   translatorWorkspaceMode,
   handleModeChange,
@@ -174,6 +171,8 @@ export function useDashboardKeyboard({
 
   const dispatchKeyboardShortcutAction = useCallback(
     (actionId: ShortcutActionId) => {
+      const getActiveSelectedRegion = () =>
+        readActiveAioSelectedRegion(activeId);
       switch (actionId) {
         case 'openShortcutModal':
           openShortcutCenter();
@@ -261,11 +260,11 @@ export function useDashboardKeyboard({
           handleTypographerSaveSnapshot();
           return true;
         case 'detectShapes':
-          if (!activeSelectedRegion) return false;
+          if (!getActiveSelectedRegion()) return false;
           void refineActiveTypographerShape();
           return true;
         case 'applyActivePreset':
-          if (!activeSelectedRegion) return false;
+          if (!getActiveSelectedRegion()) return false;
           applyActiveTypographyPresetToSelection();
           return true;
         case 'applyLegacyPresetTextBubble':
@@ -281,29 +280,31 @@ export function useDashboardKeyboard({
             'text_inside_black_bubble',
           );
         case 'applyAutoShape':
-          if (!activeSelectedRegion) return false;
+          if (!getActiveSelectedRegion()) return false;
           applyAutoDetectedShapeToActiveRegion();
           return true;
         case 'convertShapeSquare':
-          if (!activeSelectedRegion) return false;
+          if (!getActiveSelectedRegion()) return false;
           convertActiveTypographerShape('square');
           return true;
         case 'convertShapeRounded':
-          if (!activeSelectedRegion) return false;
+          if (!getActiveSelectedRegion()) return false;
           convertActiveTypographerShape('rounded');
           return true;
         case 'deleteRegion':
           removeSelectedAioRegion();
           return true;
-        case 'editInline':
+        case 'editInline': {
+          const activeSelectedRegion = getActiveSelectedRegion();
           if (!activeSelectedRegion) return false;
           setInlineEditorShortcutRequestKey(
             `${activeSelectedRegion.id}::${Date.now()}`,
           );
           return true;
+        }
         // ── Tool Palette ───────────────────────────────────────────────────
         case 'duplicateRegion':
-          if (!activeSelectedRegion) return false;
+          if (!getActiveSelectedRegion()) return false;
           duplicateSelectedTypographerRegion();
           return true;
         case 'toolConfigToggle':
@@ -363,7 +364,6 @@ export function useDashboardKeyboard({
     },
     [
       activeId,
-      activeSelectedRegion,
       applySelectedTypographerQueueItem,
       applyActiveTypographyPresetToSelection,
       applyLegacyTypographyPresetToSelection,
@@ -414,8 +414,11 @@ export function useDashboardKeyboard({
           subMode,
           translatorWorkspaceMode,
           activeId,
-          activeSelectedRegionId: currentManualSelectedRegionId,
-          aioRenderReady: aioSteps.render,
+          activeSelectedRegionId: readActiveSelectedRegionIdForMode(
+            mode,
+            activeId,
+          ),
+          aioRenderReady: useAioPipelineStore.getState().aioSteps.render,
           processing,
         },
       );
@@ -449,8 +452,6 @@ export function useDashboardKeyboard({
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [
     activeId,
-    aioSteps.render,
-    currentManualSelectedRegionId,
     dispatchKeyboardShortcutAction,
     keyboardShortcutConfig,
     mode,

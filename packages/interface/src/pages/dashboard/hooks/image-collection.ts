@@ -36,6 +36,10 @@ import type {
 } from '../../../types/dashboard.types';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import { useExportStore } from '../stores/export-store';
+import { useCleanerStore } from '../stores/cleaner-store';
+import { useManualToolsStore } from '../stores/manual-tools-store';
+import { useTranslatorStore } from '../stores/translator-store';
 
 interface UseDashboardUploadsArgs {
   localApiUrl: string;
@@ -258,10 +262,6 @@ interface UseDashboardImageCollectionArgs {
   setTranslatorSelectedRegionByImage: React.Dispatch<React.SetStateAction<Record<string, string | null>>>;
   setTranslatorRunMetaByImage: React.Dispatch<React.SetStateAction<Record<string, TranslatorVisualRunMeta>>>;
   setTranslatorProcessedBaseByImage: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  aioManualImageEditsByImage: Record<string, AioManualImageEditState>;
-  cleanerManualImageEditsByImage: Record<string, AioManualImageEditState>;
-  cleanerProcessedBaseByImage: Record<string, string>;
-  translatorProcessedBaseByImage: Record<string, string>;
 }
 
 export function useDashboardImageCollection({
@@ -281,10 +281,6 @@ export function useDashboardImageCollection({
   setTranslatorSelectedRegionByImage,
   setTranslatorRunMetaByImage,
   setTranslatorProcessedBaseByImage,
-  aioManualImageEditsByImage,
-  cleanerManualImageEditsByImage,
-  cleanerProcessedBaseByImage,
-  translatorProcessedBaseByImage,
 }: UseDashboardImageCollectionArgs) {
   const { t } = useI18n();
   const mode = useUiShellStore((s) => s.mode);
@@ -293,14 +289,6 @@ export function useDashboardImageCollection({
   const removeImageById = useImageCollectionStore((s) => s.removeImageById);
   const setActiveId = useImageCollectionStore((s) => s.setActiveId);
   const modeLabels = useMemo(() => getModeLabels(t), [t]);
-
-  const previewUrlByScopeAndImage = useMemo(() => {
-    const lookup = new Map<string, string>();
-    downloadItems.forEach((item) => {
-      lookup.set(`${item.scope}:${item.sourceImageId}`, item.previewUrl);
-    });
-    return lookup;
-  }, [downloadItems]);
 
   const removeImage = useCallback((id: string) => {
     const removed = images.find((img) => img.id === id);
@@ -385,29 +373,38 @@ export function useDashboardImageCollection({
     setLastActionScope(scope);
   }, [setDownloadItems, setLastActionScope]);
 
-  const getPreviewSrc = useCallback((img: LoadedImage) => {
-    if (mode === 'organize' || INFO_MODES.includes(mode)) return img.url;
-    if (mode === 'aio') {
-      const manualState = aioManualImageEditsByImage[img.id];
-      if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
-    }
-    if (mode === 'cleaner') {
-      const manualState = cleanerManualImageEditsByImage[img.id];
-      if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
-      if (cleanerProcessedBaseByImage[img.id]) return cleanerProcessedBaseByImage[img.id]!;
-    }
-    if (mode === 'translator' && translatorProcessedBaseByImage[img.id]) {
-      return translatorProcessedBaseByImage[img.id]!;
-    }
-    return previewUrlByScopeAndImage.get(`${mode}:${img.id}`) ?? img.url;
-  }, [
-    aioManualImageEditsByImage,
-    cleanerManualImageEditsByImage,
-    cleanerProcessedBaseByImage,
-    mode,
-    previewUrlByScopeAndImage,
-    translatorProcessedBaseByImage,
-  ]);
+  const getPreviewSrc = useCallback(
+    (img: LoadedImage) => {
+      if (mode === 'organize' || INFO_MODES.includes(mode)) return img.url;
+      const manualToolsState = useManualToolsStore.getState();
+      const cleanerState = useCleanerStore.getState();
+      const translatorState = useTranslatorStore.getState();
+      if (mode === 'aio') {
+        const manualState = manualToolsState.aioManualImageEditsByImage[img.id];
+        if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
+      }
+      if (mode === 'cleaner') {
+        const manualState =
+          cleanerState.cleanerManualImageEditsByImage[img.id];
+        if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
+        if (cleanerState.cleanerProcessedBaseByImage[img.id])
+          return cleanerState.cleanerProcessedBaseByImage[img.id]!;
+      }
+      if (
+        mode === 'translator' &&
+        translatorState.translatorProcessedBaseByImage[img.id]
+      ) {
+        return translatorState.translatorProcessedBaseByImage[img.id]!;
+      }
+      const scopedDownload = useExportStore
+        .getState()
+        .downloadItems.find(
+          (item) => item.scope === mode && item.sourceImageId === img.id,
+        );
+      return scopedDownload?.previewUrl ?? img.url;
+    },
+    [mode],
+  );
 
   // List/grid preview uses thumbnailUrl when available for lower memory usage
   const getListPreviewSrc = useCallback((img: LoadedImage) => {

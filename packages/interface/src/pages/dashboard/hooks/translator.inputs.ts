@@ -16,6 +16,7 @@ import {
 } from '../../../utils/dashboard.utils';
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
+import { EMPTY_REGIONS } from '../../../utils/dashboardRenderUtils';
 import { useStatusStore } from '../stores/status-store';
 import { useTranslatorStore } from '../stores/translator-store';
 
@@ -56,9 +57,9 @@ export function useTranslatorRegionEditing() {
           selectedRegionIdOverride === undefined
             ? resolveSelectedRegionForRegions(clonedRegions, currentSelected)
             : resolveSelectedRegionForRegions(
-                clonedRegions,
-                selectedRegionIdOverride,
-              );
+              clonedRegions,
+              selectedRegionIdOverride,
+            );
         return {
           ...prev,
           [imageId]: resolvedSelected,
@@ -154,41 +155,33 @@ export function useTranslatorImports({
    (translator store + llm translation-notes setting) ── */
 
 export function useActiveTranslatorRegionState({ resolvedActiveId }: { resolvedActiveId: string | null }) {
-  const translatorDetectionsByImage = useTranslatorStore(
-    (s) => s.translatorDetectionsByImage,
+  const activeTranslatorImageDetectionsEntry = useTranslatorStore((s) =>
+    resolvedActiveId
+      ? (s.translatorDetectionsByImage[resolvedActiveId] ?? null)
+      : null,
   );
-  const translatorSelectedRegionByImage = useTranslatorStore(
-    (s) => s.translatorSelectedRegionByImage,
+  const activeTranslatorImageDetections =
+    activeTranslatorImageDetectionsEntry ?? EMPTY_REGIONS;
+  const activeTranslatorSelectedRegionId = useTranslatorStore((s) =>
+    resolvedActiveId
+      ? (s.translatorSelectedRegionByImage[resolvedActiveId] ?? null)
+      : null,
   );
   const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
-  const activeTranslatorImageDetections = useMemo(
-    () =>
-      resolvedActiveId
-        ? (translatorDetectionsByImage[resolvedActiveId] ?? [])
-        : [],
-    [resolvedActiveId, translatorDetectionsByImage],
-  );
-  const activeTranslatorSelectedRegionId = useMemo(
-    () =>
-      resolvedActiveId
-        ? (translatorSelectedRegionByImage[resolvedActiveId] ?? null)
-        : null,
-    [resolvedActiveId, translatorSelectedRegionByImage],
-  );
   const activeTranslatorSelectedRegion = useMemo(
     () =>
-      activeTranslatorImageDetections.find(
+      activeTranslatorImageDetectionsEntry?.find(
         (region) => region.id === activeTranslatorSelectedRegionId,
       ) ?? null,
-    [activeTranslatorImageDetections, activeTranslatorSelectedRegionId],
+    [activeTranslatorImageDetectionsEntry, activeTranslatorSelectedRegionId],
   );
   const activeTranslatorSelectedTranslationNotes = useMemo(
     () =>
       activeTranslatorSelectedRegion
         ? getRegionTranslationNotesForDisplay(
-            activeTranslatorSelectedRegion,
-            llmSettings.translation_notes_enabled,
-          )
+          activeTranslatorSelectedRegion,
+          llmSettings.translation_notes_enabled,
+        )
         : [],
     [activeTranslatorSelectedRegion, llmSettings.translation_notes_enabled],
   );

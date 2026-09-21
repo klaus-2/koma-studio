@@ -40,9 +40,6 @@ export function useExportDownloadAvailability({ activeImage }: { activeImage: Lo
   const mode = useUiShellStore((s) => s.mode);
   const images = useImageCollectionStore((s) => s.images);
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
   );
@@ -77,13 +74,19 @@ export function useExportDownloadAvailability({ activeImage }: { activeImage: Lo
     : lastActionScope;
   const canExportAioMetadata = activeDownloadScope === 'aio';
   const activePsdImage = activeImage ?? images[0] ?? null;
+  const activePsdImageId = activePsdImage?.id ?? null;
   const canExportPsd =
     mode !== 'cleaner' &&
     (mode !== 'translator' || translatorWorkspaceMode === 'visual') &&
     Boolean(activePsdImage);
+  const activePsdAioRegionCount = useRegionEditorStore((s) =>
+    activePsdImageId
+      ? (s.aioDetectionsByImage[activePsdImageId]?.length ?? 0)
+      : 0,
+  );
   const hasAioRenderRegionsForPsd = Boolean(
     activePsdImage &&
-    (aioDetectionsByImage[activePsdImage.id] ?? []).length > 0,
+    activePsdAioRegionCount > 0,
   );
   const hasInpaintedOutputs = downloadItems.some(
     (item) => item.scope === 'aio',
@@ -94,14 +97,14 @@ export function useExportDownloadAvailability({ activeImage }: { activeImage: Lo
         ? translatorTextHasDownload
         : translatorVisualHasDownload
       : downloadItems.some((item) =>
-          isProcessableMode
-            ? item.scope === mode
-            : lastActionScope
-              ? item.scope === lastActionScope
-              : false,
-        ) ||
-        hasRenderableAioOutput ||
-        hasRenderableTypographerOutput;
+        isProcessableMode
+          ? item.scope === mode
+          : lastActionScope
+            ? item.scope === lastActionScope
+            : false,
+      ) ||
+      hasRenderableAioOutput ||
+      hasRenderableTypographerOutput;
   const hasDownloadActions = hasDownloads || canExportPsd;
   return {
     hasDownloadActions,
