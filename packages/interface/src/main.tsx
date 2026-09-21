@@ -1,5 +1,8 @@
 // Single interface render module. The shell (electron/tauri) registers the
 // provider + auth adapter + i18n port BEFORE importing this file.
+// react-scan bootstrap first: its top-level await must attach the scan
+// hook before the App module (a side-effect import) renders.
+import "./react-scan-init";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";

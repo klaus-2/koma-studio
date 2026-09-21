@@ -116,7 +116,8 @@ interface DockTooltipButtonProps {
   disabledReason?: string;
   hotkey?: string;
   onClick?: () => void;
-  children: React.ReactNode;
+  icon: React.ComponentType<{ size?: number }>;
+  iconSize?: number;
 }
 
 const renderDockTooltipPreview = (
@@ -212,7 +213,7 @@ const renderDockTooltipPreview = (
   }
 };
 
-const DockTooltipButton: React.FC<DockTooltipButtonProps> = ({
+const DockTooltipButton: React.FC<DockTooltipButtonProps> = React.memo(({
   className,
   ariaLabel,
   title,
@@ -223,53 +224,54 @@ const DockTooltipButton: React.FC<DockTooltipButtonProps> = ({
   disabledReason,
   hotkey,
   onClick,
-  children,
+  icon: Icon,
+  iconSize = 14,
 }) => {
   const { t } = useI18n();
   const footerText = disabled && disabledReason
     ? disabledReason
     : t('dashboard.dock.tooltip.hoverHint');
   return (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <span className="koma-tool-palette__tooltip-anchor">
-        <button
-          type="button"
-          className={className}
-          onClick={onClick}
-          disabled={disabled}
-          aria-label={ariaLabel}
-        >
-          {children}
-        </button>
-      </span>
-    </TooltipTrigger>
-    <TooltipContent
-      side="left"
-      align="center"
-      sideOffset={18}
-      className="koma-tool-rich-tooltip"
-    >
-      <div className="koma-tool-rich-tooltip__media">
-        {renderDockTooltipPreview(previewKind)}
-      </div>
-      <div className="koma-tool-rich-tooltip__body">
-        <div className="koma-tool-rich-tooltip__topline">
-          <strong>{title}</strong>
-          <span>{badge}</span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="koma-tool-palette__tooltip-anchor">
+          <button
+            type="button"
+            className={className}
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={ariaLabel}
+          >
+            <Icon size={iconSize} />
+          </button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent
+        side="left"
+        align="center"
+        sideOffset={18}
+        className="koma-tool-rich-tooltip"
+      >
+        <div className="koma-tool-rich-tooltip__media">
+          {renderDockTooltipPreview(previewKind)}
         </div>
-        <p>{description}</p>
-        <div className="koma-tool-rich-tooltip__footer">
-          <span>{footerText}</span>
-          {hotkey && !disabled && (
-            <kbd className="koma-tool-rich-tooltip__kbd">{hotkey}</kbd>
-          )}
+        <div className="koma-tool-rich-tooltip__body">
+          <div className="koma-tool-rich-tooltip__topline">
+            <strong>{title}</strong>
+            <span>{badge}</span>
+          </div>
+          <p>{description}</p>
+          <div className="koma-tool-rich-tooltip__footer">
+            <span>{footerText}</span>
+            {hotkey && !disabled && (
+              <kbd className="koma-tool-rich-tooltip__kbd">{hotkey}</kbd>
+            )}
+          </div>
         </div>
-      </div>
-    </TooltipContent>
-  </Tooltip>
+      </TooltipContent>
+    </Tooltip>
   );
-};
+});
 
 export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
   manualDockRightOffset,
@@ -329,6 +331,51 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
   /** Returns display label (e.g. "ALT + H") for a given action, or "" if unset. */
   const hk = (id: ShortcutActionId): string =>
     getShortcutDisplayLabel(shortcutConfig.shortcuts[id] ?? [], '');
+
+  const openAreaSelect = React.useCallback(() => {
+    if (!activeStageAllowsAreaTools) return;
+    setSegmentEditTool('select');
+    setManualImageTool('none');
+    setManualToolsConfigOpen(true);
+  }, [activeStageAllowsAreaTools, setSegmentEditTool, setManualImageTool, setManualToolsConfigOpen]);
+
+  const selectSegmentBrush = React.useCallback(() => {
+    if (!activeStageAllowsSegmentTools) return;
+    setManualImageTool('none');
+    setSegmentEditTool('brush');
+    setManualToolsConfigOpen(true);
+  }, [activeStageAllowsSegmentTools, setManualImageTool, setSegmentEditTool, setManualToolsConfigOpen]);
+
+  const selectSegmentEraser = React.useCallback(() => {
+    if (!activeStageAllowsSegmentTools) return;
+    setManualImageTool('none');
+    setSegmentEditTool('eraser');
+    setManualToolsConfigOpen(true);
+  }, [activeStageAllowsSegmentTools, setManualImageTool, setSegmentEditTool, setManualToolsConfigOpen]);
+
+  const pickPaintTool = React.useCallback(() => toggleManualImageTool('paint'), [toggleManualImageTool]);
+  const pickPaintEraserTool = React.useCallback(() => toggleManualImageTool('paint_eraser'), [toggleManualImageTool]);
+  const pickWandTool = React.useCallback(() => toggleManualImageTool('magic_wand'), [toggleManualImageTool]);
+  const pickHealingTool = React.useCallback(() => toggleManualImageTool('healing_brush'), [toggleManualImageTool]);
+
+  const clearActivePaint = React.useCallback(() => {
+    if (!activeId) return;
+    if (mode === 'cleaner') {
+      clearCleanerManualPaintForImage(activeId);
+      return;
+    }
+    clearAioManualPaintForImage(activeId);
+  }, [mode, activeId, clearCleanerManualPaintForImage, clearAioManualPaintForImage]);
+
+  const resetActiveEdits = React.useCallback(() => {
+    if (!activeId) return;
+    if (mode === 'cleaner') {
+      resetCleanerManualImageEditsForImage(activeId);
+      return;
+    }
+    resetAioManualImageEditsForImage(activeId);
+  }, [mode, activeId, resetCleanerManualImageEditsForImage, resetAioManualImageEditsForImage]);
+
   return (
     <>
       {/* ═══ Tool Config Flyout ═══ */}
@@ -614,9 +661,9 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               disabledReason={t('dashboard.dock.config.disabledReason')}
               hotkey={hk('toolConfigToggle')}
               onClick={toggleManualToolsConfig}
-            >
-              <PanelLeftOpen size={15} />
-            </DockTooltipButton>
+              icon={PanelLeftOpen}
+              iconSize={15}
+            />
           </div>
 
           {/* ── Region Tools ────────────────────────────── */}
@@ -628,12 +675,12 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
 
               <div className="koma-tool-palette__group">
                 <DockTooltipButton
-                className={cn(
-                  'koma-tool-palette__btn',
-                  areaSelectionToolActive &&
+                  className={cn(
+                    'koma-tool-palette__btn',
+                    areaSelectionToolActive &&
                     activeStageAllowsAreaTools &&
                     'koma-tool-palette__btn--active',
-                )}
+                  )}
                   ariaLabel={t('dashboard.dock.areaSelect.ariaLabel')}
                   title={t('dashboard.dock.areaSelect.title')}
                   description={t('dashboard.dock.areaSelect.description')}
@@ -642,15 +689,9 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
                   disabled={!activeStageAllowsAreaTools}
                   disabledReason={t('dashboard.dock.areaSelect.disabledReason')}
                   hotkey={hk('toolAreaSelect')}
-                  onClick={() => {
-                    if (!activeStageAllowsAreaTools) return;
-                    setSegmentEditTool('select');
-                    setManualImageTool('none');
-                    setManualToolsConfigOpen(true);
-                  }}
-                >
-                  <ScanText size={14} />
-                </DockTooltipButton>
+                  onClick={openAreaSelect}
+                  icon={ScanText}
+                />
 
                 <DockTooltipButton
                   className="koma-tool-palette__btn koma-tool-palette__btn--danger"
@@ -665,9 +706,8 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
                   disabledReason={t('dashboard.dock.clearPage.disabledReason')}
                   hotkey={hk('toolClearRegions')}
                   onClick={clearAioRegionsForActiveImage}
-                >
-                  <Trash2 size={14} />
-                </DockTooltipButton>
+                  icon={Trash2}
+                />
               </div>
             </>
           )}
@@ -682,8 +722,8 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               className={cn(
                 'koma-tool-palette__btn',
                 segmentEditTool === 'brush' &&
-                  activeStageAllowsSegmentTools &&
-                  'koma-tool-palette__btn--active',
+                activeStageAllowsSegmentTools &&
+                'koma-tool-palette__btn--active',
               )}
               ariaLabel={t('dashboard.dock.segBrush.ariaLabel')}
               title={t('dashboard.dock.segBrush.title')}
@@ -693,22 +733,16 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               disabled={!activeStageAllowsSegmentTools}
               disabledReason={t('dashboard.dock.segBrush.disabledReason')}
               hotkey={hk('toolSegmentBrush')}
-              onClick={() => {
-                if (!activeStageAllowsSegmentTools) return;
-                setManualImageTool('none');
-                setSegmentEditTool('brush');
-                setManualToolsConfigOpen(true);
-              }}
-            >
-              <Paintbrush size={14} />
-            </DockTooltipButton>
+              onClick={selectSegmentBrush}
+              icon={Paintbrush}
+            />
 
             <DockTooltipButton
               className={cn(
                 'koma-tool-palette__btn',
                 segmentEditTool === 'eraser' &&
-                  activeStageAllowsSegmentTools &&
-                  'koma-tool-palette__btn--active',
+                activeStageAllowsSegmentTools &&
+                'koma-tool-palette__btn--active',
               )}
               ariaLabel={t('dashboard.dock.segEraser.ariaLabel')}
               title={t('dashboard.dock.segEraser.title')}
@@ -718,15 +752,9 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               disabled={!activeStageAllowsSegmentTools}
               disabledReason={t('dashboard.dock.segEraser.disabledReason')}
               hotkey={hk('toolSegmentEraser')}
-              onClick={() => {
-                if (!activeStageAllowsSegmentTools) return;
-                setManualImageTool('none');
-                setSegmentEditTool('eraser');
-                setManualToolsConfigOpen(true);
-              }}
-            >
-              <Eraser size={14} />
-            </DockTooltipButton>
+              onClick={selectSegmentEraser}
+              icon={Eraser}
+            />
           </div>
 
           {/* ── Image Tools ─────────────────────────────── */}
@@ -739,8 +767,8 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               className={cn(
                 'koma-tool-palette__btn',
                 manualImageTool === 'paint' &&
-                  activeStageAllowsManualImageTools &&
-                  'koma-tool-palette__btn--active',
+                activeStageAllowsManualImageTools &&
+                'koma-tool-palette__btn--active',
               )}
               ariaLabel={t('dashboard.dock.paint.ariaLabel')}
               title={t('dashboard.dock.paint.title')}
@@ -750,17 +778,16 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               disabled={!activeStageAllowsManualImageTools}
               disabledReason={t('dashboard.dock.paint.disabledReason')}
               hotkey={hk('toolPaint')}
-              onClick={() => toggleManualImageTool('paint')}
-            >
-              <Paintbrush size={14} />
-            </DockTooltipButton>
+              onClick={pickPaintTool}
+              icon={Paintbrush}
+            />
 
             <DockTooltipButton
               className={cn(
                 'koma-tool-palette__btn',
                 manualImageTool === 'paint_eraser' &&
-                  activeStageAllowsManualImageTools &&
-                  'koma-tool-palette__btn--active',
+                activeStageAllowsManualImageTools &&
+                'koma-tool-palette__btn--active',
               )}
               ariaLabel={t('dashboard.dock.paintEraser.ariaLabel')}
               title={t('dashboard.dock.paintEraser.title')}
@@ -770,17 +797,16 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               disabled={!activeStageAllowsManualImageTools}
               disabledReason={t('dashboard.dock.paintEraser.disabledReason')}
               hotkey={hk('toolPaintEraser')}
-              onClick={() => toggleManualImageTool('paint_eraser')}
-            >
-              <Eraser size={14} />
-            </DockTooltipButton>
+              onClick={pickPaintEraserTool}
+              icon={Eraser}
+            />
 
             <DockTooltipButton
               className={cn(
                 'koma-tool-palette__btn',
                 manualImageTool === 'magic_wand' &&
-                  activeStageAllowsManualImageTools &&
-                  'koma-tool-palette__btn--active',
+                activeStageAllowsManualImageTools &&
+                'koma-tool-palette__btn--active',
               )}
               ariaLabel={t('dashboard.dock.wand.ariaLabel')}
               title={t('dashboard.dock.wand.title')}
@@ -790,17 +816,16 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               disabled={!activeStageAllowsManualImageTools}
               disabledReason={t('dashboard.dock.wand.disabledReason')}
               hotkey={hk('toolMagicWand')}
-              onClick={() => toggleManualImageTool('magic_wand')}
-            >
-              <Wand2 size={14} />
-            </DockTooltipButton>
+              onClick={pickWandTool}
+              icon={Wand2}
+            />
 
             <DockTooltipButton
               className={cn(
                 'koma-tool-palette__btn',
                 manualImageTool === 'healing_brush' &&
-                  activeStageAllowsManualImageTools &&
-                  'koma-tool-palette__btn--active',
+                activeStageAllowsManualImageTools &&
+                'koma-tool-palette__btn--active',
               )}
               ariaLabel={t('dashboard.dock.healing.ariaLabel')}
               title={t('dashboard.dock.healing.title')}
@@ -810,10 +835,9 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               disabled={!activeStageAllowsManualImageTools}
               disabledReason={t('dashboard.dock.healing.disabledReason')}
               hotkey={hk('toolHealingBrush')}
-              onClick={() => toggleManualImageTool('healing_brush')}
-            >
-              <Sparkles size={14} />
-            </DockTooltipButton>
+              onClick={pickHealingTool}
+              icon={Sparkles}
+            />
           </div>
 
           {/* ── Destructive Actions ─────────────────────── */}
@@ -834,17 +858,9 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               }
               disabledReason={t('dashboard.dock.clearPaint.disabledReason')}
               hotkey={hk('toolClearPaint')}
-              onClick={() => {
-                if (!activeId) return;
-                if (mode === 'cleaner') {
-                  clearCleanerManualPaintForImage(activeId);
-                  return;
-                }
-                clearAioManualPaintForImage(activeId);
-              }}
-            >
-              <Trash2 size={14} />
-            </DockTooltipButton>
+              onClick={clearActivePaint}
+              icon={Trash2}
+            />
 
             <DockTooltipButton
               className="koma-tool-palette__btn koma-tool-palette__btn--danger"
@@ -860,17 +876,9 @@ export const DashboardManualDock: React.FC<DashboardManualDockProps> = ({
               }
               disabledReason={t('dashboard.dock.resetEdits.disabledReason')}
               hotkey={hk('toolResetEdits')}
-              onClick={() => {
-                if (!activeId) return;
-                if (mode === 'cleaner') {
-                  resetCleanerManualImageEditsForImage(activeId);
-                  return;
-                }
-                resetAioManualImageEditsForImage(activeId);
-              }}
-            >
-              <RefreshCcw size={14} />
-            </DockTooltipButton>
+              onClick={resetActiveEdits}
+              icon={RefreshCcw}
+            />
           </div>
         </div>
       </TooltipProvider>

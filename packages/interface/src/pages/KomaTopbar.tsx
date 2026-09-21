@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react';
 import {
   PanelLeftOpen,
   PanelRightClose,
@@ -308,8 +308,7 @@ interface KomaTopbarProps {
 
 // ═══════════════════════════════════════════
 // ═══════════════════════════════════════════
-
-export default function KomaTopbar(props: KomaTopbarProps) {
+const KomaTopbar = memo(function KomaTopbar(props: KomaTopbarProps) {
   const {
     mode,
     onModeChange,
@@ -546,7 +545,7 @@ export default function KomaTopbar(props: KomaTopbarProps) {
                       ref={sidebarRevealButtonRef}
                       className="koma-topbar__sidebar-reveal"
                       onClick={onSidebarToggle}
-                  aria-label={t('dashboard.topbar.showSidebar')}
+                      aria-label={t('dashboard.topbar.showSidebar')}
                     >
                       <PanelLeftOpen size={14} />
                     </button>
@@ -704,7 +703,7 @@ export default function KomaTopbar(props: KomaTopbarProps) {
                     )}
                     onClick={() => onBatchThreadsToggle(!batchThreadsEnabled)}
                     disabled={processing}
-                aria-label={
+                    aria-label={
                       batchThreadsEnabled
                         ? t('dashboard.topbar.disableBatch')
                         : t('dashboard.topbar.enableBatch')
@@ -967,4 +966,6 @@ export default function KomaTopbar(props: KomaTopbarProps) {
       />
     </TooltipProvider>
   );
-}
+});
+
+export default KomaTopbar;
