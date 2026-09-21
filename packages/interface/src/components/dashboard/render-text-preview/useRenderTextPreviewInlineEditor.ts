@@ -3,7 +3,7 @@
 // Note: the dock pointer-state effect logically belongs to the type dock
 // cluster but sits here to preserve the original hook order.
 
-import { useCallback, useEffect, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type React from 'react';
 import type {
   AioTextRegion,
@@ -68,6 +68,21 @@ export const useRenderTextPreviewInlineEditor = ({
   getTranslationNoteOverlayParentId,
   resolveTranslationNoteOverlayConfig,
 }: UseRenderTextPreviewInlineEditorParams) => {
+  // keystrokes stay in the local draft (pendingDraftRef + editor state);
+  const pendingDraftRef = useRef<{
+    regionId: string;
+    value: string;
+  } | null>(null);
+  const updateRegionTextRef = useRef(updateRegionText);
+  updateRegionTextRef.current = updateRegionText;
+
+  const commitPendingInlineEditorDraft = useCallback(() => {
+    const pending = pendingDraftRef.current;
+    if (!pending) return;
+    pendingDraftRef.current = null;
+    updateRegionTextRef.current(pending.regionId, pending.value);
+  }, []);
+
   const restoreInlineEditorSelection = useCallback(() => {
     if (!inlineEditor) return;
     requestAnimationFrame(() => {
@@ -85,7 +100,13 @@ export const useRenderTextPreviewInlineEditor = ({
   const openInlineEditorForRegion = useCallback(
     (region: AioTextRegion) => {
       if (!editable || !renderStageActive) return;
-      const initialText = region.renderText ?? '';
+      const pendingDraft = pendingDraftRef.current;
+      const pendingSameRegionText =
+        pendingDraft && pendingDraft.regionId === region.id
+          ? pendingDraft.value
+          : null;
+      const initialText = pendingSameRegionText ?? (region.renderText ?? '');
+      commitPendingInlineEditorDraft();
       onSelectRegion(region.id);
       setContextMenu(null);
       setInlineEditor({
@@ -100,21 +121,30 @@ export const useRenderTextPreviewInlineEditor = ({
         selectionEnd: initialText.length,
       });
     },
-    [editable, onSelectRegion, renderStageActive],
+    [
+      commitPendingInlineEditorDraft,
+      editable,
+      onSelectRegion,
+      renderStageActive,
+    ],
   );
 
   const saveInlineEditor = useCallback(() => {
     if (!inlineEditor) return;
     savedSelectionRef.current = null;
     isPickerOpenRef.current = false;
-    updateRegionText(inlineEditor.regionId, inlineEditor.value);
+    // The one terminal store commit for the whole typing session.
+    commitPendingInlineEditorDraft();
     setInlineEditor(null);
-  }, [inlineEditor, updateRegionText]);
+  }, [commitPendingInlineEditorDraft, inlineEditor, setInlineEditor]);
 
   const cancelInlineEditor = useCallback(() => {
     if (!inlineEditor) return;
     savedSelectionRef.current = null;
     isPickerOpenRef.current = false;
+    // Escape reverts: drop the draft (store still holds originalValue, which
+    // the updateRegions write below re-commits as the revert).
+    pendingDraftRef.current = null;
     const parentId = getTranslationNoteOverlayParentId(inlineEditor.regionId);
     updateRegions((region) => {
       if (!parentId) {
@@ -152,18 +182,25 @@ export const useRenderTextPreviewInlineEditor = ({
   const handleInlineEditorInput = useCallback(
     (nextValue: string) => {
       if (!inlineEditor) return;
-      updateRegionText(inlineEditor.regionId, nextValue);
+      if (nextValue === inlineEditor.originalValue) {
+        pendingDraftRef.current = null;
+      } else {
+        pendingDraftRef.current = {
+          regionId: inlineEditor.regionId,
+          value: nextValue,
+        };
+      }
       setInlineEditor((prev) =>
         prev
           ? {
-              ...prev,
-              value: nextValue,
-              isDirty: nextValue !== prev.originalValue,
-            }
+            ...prev,
+            value: nextValue,
+            isDirty: nextValue !== prev.originalValue,
+          }
           : prev,
       );
     },
-    [inlineEditor, updateRegionText],
+    [inlineEditor],
   );
 
   const getInlineEditorSelection = useCallback(() => {
@@ -194,10 +231,10 @@ export const useRenderTextPreviewInlineEditor = ({
     setInlineEditor((prev) =>
       prev
         ? {
-            ...prev,
-            selectionStart: Math.min(selection.start, prev.value.length),
-            selectionEnd: Math.min(selection.end, prev.value.length),
-          }
+          ...prev,
+          selectionStart: Math.min(selection.start, prev.value.length),
+          selectionEnd: Math.min(selection.end, prev.value.length),
+        }
         : prev,
     );
   }, [getInlineEditorSelection]);
@@ -223,6 +260,7 @@ export const useRenderTextPreviewInlineEditor = ({
       (region) => region.id === inlineEditor.regionId,
     );
     if (!exists) {
+      pendingDraftRef.current = null;
       setInlineEditor(null);
     }
   }, [displayRegionsWithDefaults, inlineEditor]);
@@ -230,9 +268,29 @@ export const useRenderTextPreviewInlineEditor = ({
   useEffect(() => {
     if (!inlineEditor) return;
     if (!editable || !renderStageActive || !areaSelectionEnabled) {
+      commitPendingInlineEditorDraft();
       setInlineEditor(null);
     }
-  }, [areaSelectionEnabled, editable, inlineEditor, renderStageActive]);
+  }, [
+    areaSelectionEnabled,
+    commitPendingInlineEditorDraft,
+    editable,
+    inlineEditor,
+    renderStageActive,
+    setInlineEditor,
+  ]);
+
+  useEffect(
+    () => () => {
+      commitPendingInlineEditorDraft();
+    },
+    [commitPendingInlineEditorDraft],
+  );
+
+  const closeInlineEditor = useCallback(() => {
+    commitPendingInlineEditorDraft();
+    setInlineEditor(null);
+  }, [commitPendingInlineEditorDraft, setInlineEditor]);
 
   useEffect(() => {
     if (!inlineEditor) return;
@@ -287,6 +345,7 @@ export const useRenderTextPreviewInlineEditor = ({
     saveInlineEditor,
     cancelInlineEditor,
     handleInlineEditorInput,
+    closeInlineEditor,
     getInlineEditorSelection,
     syncInlineEditorSelection,
     saveCurrentSelection,

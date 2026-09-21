@@ -72,6 +72,8 @@ interface TranslatorToolsPanelProps {
   translatorTextImportRef: React.RefObject<HTMLInputElement | null>;
   translatorImageImportRef: React.RefObject<HTMLInputElement | null>;
   translatorDraftText: string;
+  /** Stage has an uncommitted non-empty draft (typing without blur yet). */
+  translatorTextPending: boolean;
   translatorTranslatedText: string;
   translatorTextRunning: boolean;
   processing: boolean;
@@ -134,6 +136,7 @@ export default function TranslatorToolsPanel({
   translatorTextImportRef,
   translatorImageImportRef,
   translatorDraftText,
+  translatorTextPending,
   translatorTranslatedText,
   translatorTextRunning,
   processing,
@@ -489,7 +492,11 @@ export default function TranslatorToolsPanel({
               <button
                 type="button"
                 className="koma-btn koma-btn--primary"
-                disabled={processing || translatorDraftText.trim().length === 0}
+                disabled={
+                  processing ||
+                  (translatorDraftText.trim().length === 0 &&
+                    !translatorTextPending)
+                }
                 onClick={() => void runTranslatorText()}
                 aria-busy={translatorTextRunning}
               >
@@ -618,7 +625,7 @@ export default function TranslatorToolsPanel({
               className={cn(
                 'koma-region-inspect__val',
                 !activeTranslatorSelectedRegion &&
-                  'koma-region-inspect__val--muted',
+                'koma-region-inspect__val--muted',
               )}
             >
               {activeTranslatorSelectedRegion
@@ -633,7 +640,7 @@ export default function TranslatorToolsPanel({
                   className={cn(
                     'koma-region-inspect__val',
                     !activeTranslatorSelectedRegion.recognizedText &&
-                      'koma-region-inspect__val--muted',
+                    'koma-region-inspect__val--muted',
                   )}
                 >
                   {activeTranslatorSelectedRegion.recognizedText
@@ -646,7 +653,7 @@ export default function TranslatorToolsPanel({
                   className={cn(
                     'koma-region-inspect__val',
                     !activeTranslatorSelectedRegion.translatedText &&
-                      'koma-region-inspect__val--muted',
+                    'koma-region-inspect__val--muted',
                   )}
                 >
                   {activeTranslatorSelectedRegion.translatedText

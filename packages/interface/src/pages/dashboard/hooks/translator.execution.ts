@@ -255,7 +255,6 @@ export function useTranslatorTextActions({
   setLastActionScope,
 }: UseTranslatorTextActionsArgs) {
   const { t } = useI18n();
-  const translatorDraftText = useTranslatorStore((s) => s.translatorDraftText);
   const srcLang = useTranslatorStore((s) => s.srcLang);
   const tgtLang = useTranslatorStore((s) => s.tgtLang);
   const setTranslatorTextRunning = useTranslatorStore(
@@ -279,6 +278,7 @@ export function useTranslatorTextActions({
 
   return useCallback(async () => {
     if (!ensureVerifiedEmailOrNotify()) return;
+    const translatorDraftText = useTranslatorStore.getState().translatorDraftText;
     const sourceText = translatorDraftText.trim();
     if (!sourceText) {
       setStatusMessage('Paste or import some text before translating.');
@@ -401,7 +401,6 @@ export function useTranslatorTextActions({
     recordProcessedPages,
     t,
     tgtLang,
-    translatorDraftText,
   ]);
 }
 
@@ -542,13 +541,13 @@ export function useTranslatorRetranslate({
           JSON.stringify(
             translatorVisualProcessingMode === 'ai_sfx'
               ? {
-                  ...(llmSettings as Record<string, unknown>),
-                  extra_context: buildSfxTranslationInstructions(
-                    String((llmSettings as { extra_context?: string } | null)?.extra_context ?? ''),
-                    translatorSfxAdditionalInstructions,
-                  ),
-                  translation_notes_enabled: false,
-                }
+                ...(llmSettings as Record<string, unknown>),
+                extra_context: buildSfxTranslationInstructions(
+                  String((llmSettings as { extra_context?: string } | null)?.extra_context ?? ''),
+                  translatorSfxAdditionalInstructions,
+                ),
+                translation_notes_enabled: false,
+              }
               : llmSettings,
           ),
         );

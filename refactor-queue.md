@@ -364,3 +364,300 @@ Leitura: o texto renderizado segue o box ao vivo (massa migra por completo da ja
 
 ### DECISÃO DE ENCERRAMENTO do plano de mounts (2026-08-31, revisada pelo Review Agent)
 O gate "mode:aio/cleaner < 120ms" foi calibrado para o modelo mental de custo dominado por raster — **refutado pela Fase 2a**. O gap restante (aio 127 vs 120; cleaner já passa em ~101-107) está dentro da variância de sessão documentada (±15ms). **Fase 2b (keep-alive) rejeitada**: 4-8h de mudança de alto risco (gates de timer/shortcut em 4 stages + custo de memória de bitmaps) para um custo que a Fase 1a já tornou não-bloqueante e que está bem abaixo do sintoma original (205-320ms). **Fase 3 inaplicável** ao workload medido (≤5 imagens; virtualização só ativa >5). Programa encerrado com sucesso nas Fases 0, 1a, 1b; se o jank de switch voltar a ser reportado, reabrir pela **Fase 4** (retorno ao dashboard ~236-264ms e commit do pointerup ~126-134ms são os maiores custos restantes, ambos estruturais) — a Fase 2b só se os switches voltarem a incomodar, e o probe A/B está pronto.
+
+---
+
+## 7. Fase 4 — REABERTURA (2026-09-01): dívida estrutural + exploração interativa completa
+
+Objetivo declarado do usuário: interface estável — zero re-renders *desnecessários* (medidos por razão de fan-out no react-scan), zero jank acima dos thresholds conhecidos, sem deixar nada para depois. Instrumento: probe react-scan-audit + buffer `window.__komaReactScan` + long tasks. Disciplina inalterada: MEDIR → causa raiz → menor fix arquitetural suficiente → medir → review. Commits por tarefa após review.
+
+### Baseline na reabertura (HEAD c312877, headed GPU real)
+- Global (1 sessão de auditoria): DashboardPage 45r/~305ms; KomaTopbar 50r/~222ms; Tooltip-família ~2500r (pós-fix de memo: 76-285r por janela, antes 116-522).
+- Long tasks (histórico do programa, a reconfirmar no T4.1): retorno ao dashboard ~236-264ms (bloqueante, sem lane); commit do pointerup ~126-134ms; drag 0 tasks.
+- Janela route:dashboard (última auditoria): AioRightPanel 7r/203ms, DashboardFooter 7r/85ms, DashboardPage 7r/71ms.
+- Gatilho conhecido: seleção/edição de região re-renderiza a página inteira (subscrições largas do DashboardPage) — causa raiz documentada tanto do retorno caro quanto do commit do pointerup.
+
+### Tarefas (uma por vez; agente de execução → agente de review → próxima)
+- **T4.1 — Exploração interativa + census** (somente medição): dirigir o Dashboard como usuário real com react-scan espelhando renders — todos os 12 modos, sub-modos, dock completo (sliders, cores, wand), sidebar esquerda/direita, footer, topbar (menus, downloads, PSD), zoom/rotate, adicionar/remover imagem, editor inline de região (duplo clique + digitação), páginas info, settings/rankings/feed, shortcuts, empty stage, tour. Census P0/P1/P2 com evidência (razão de render, long task, tempo). Inclui reconfirmar o baseline de long tasks em mediana de 3 runs. → **resultado abaixo (2026-09-01)**.
+- **T4.2 — DashboardPage: subscrições por imagem + extração da grade** (a dívida central): a página não pode re-renderizar em seleção/edição/commit de região; cada card/grade assina seu próprio slice. Targets: retorno ao dashboard ≤ ~180ms (mediana 3), DashboardPage 0-1 render por region-select, commit pointerup ≤ ~100ms. Gates: typecheck, vitest 43/43, smoke 11/11, sweep sem regressão de long task, drag probe green.
+- **T4.3 — AioRightPanel/sections**: narrowing dos drivers que sobreviverem ao T4.2 (target: ≤2 renders no retorno, custo ≤ ~60ms).
+- **T4.4 — Hotspots residuais do census T4.1**: um agente por item, na ordem de custo medido; honestidade clause (revertir se mediana não melhorar).
+- **Fecho**: React Doctor (0 erros mantido), todos os probes green, relatório consolidado com before/after.
+
+### T4.1 — census (2026-09-01)
+
+**Execução**: baseline re-confirmado (audit ×3, sweep ×3, text-follow ×1) + probe novo
+`apps/tauri/tests/e2e/react-scan-census.spec.ts` (untracked) — 75 janelas cobrindo os 12 modos,
+sub-modos (aio/typesetter), dock completo (config, slider, 7 tools, seg brush/eraser no stage
+segmentText e no cleaner), editor inline (duplo clique + digitação + Escape + delete), zoom,
+rotate ×2, view-mode, threads (enable/input/disable), sidebars, menus (download/PSD, user,
+shortcuts), 2ª imagem (add/switch/remove), 4 info-modes, digitação no translator text stage,
+4 rotas + retorno, empty stage, e drawer mobile (viewport 390px em runtime). Artefatos:
+`.artifacts/react-scan-census.json` + `react-scan-census-mobile.json` (cópias em
+`tests/e2e/probe-out/`). Probe 2/2 green, zero pageerrors/console errors.
+
+**Aviso de instrumento**: o react-scan dev-instrument (HEAD c312877) está sempre ativo no dev
+server e NÃO estava nos baselines da Fase 0/1b — todo render empurra um evento num array JS, e o
+custo é proporcional ao fan-out (o commit de região re-renderiza ~48 tooltips). Os números
+absolutos abaixo estão inflados vs o histórico; comparações relativas dentro do T4.x são válidas
+(instrumento constante). Recalibrar gates com A/B (react-scan on/off) no T4.2 se necessário.
+
+#### Baseline de long tasks — mediana de 3 runs (headed GPU, worst task por janela, ms)
+
+| Janela | Run 1 | Run 2 | Run 3 | **Mediana** | Histórico (pré-react-scan) |
+| --- | --- | --- | --- | --- | --- |
+| mode:aio | 383 | 367 | 216 | **367** | 205-206 / 127 (Fase 1b) |
+| mode:cleaner | 250 | 229 | 159 | **229** | 118-124 / ~101-107 |
+| mode:typesetter | 249 | 252 | 240 | **249** | 202-216 / 136 |
+| mode:translator | 140 | 141 | 110 | **140** | 69-72 / 61 |
+| mode:raw | 133 | 197 | 118 | **133** | 53-56 |
+| mode:proofreader | 97 | 93 | 69 | **93** | 0-52 |
+| mode:stitch | 146 | 144 | 136 | **144** | 67-71 / 83 |
+| mode:split | 140 | 157 | 134 | **140** | 82-87 / 116 |
+| mode:watermark | 167 | 123 | 127 | **127** | 98-103 / 69 |
+| mode:enhance | 264 | 243 | 273 | **264** | 61-63 |
+| mode:optimizer | 147 | 149 | 122 | **147** | 67-70 |
+| mode:organize | 169 | 111 | 119 | **119** | 51-54 |
+| region-select ×5 (worst) | 83-133 | 75-130 | 61-76 | **~76-130** | 0 |
+| route:/#/model-rankings | 141 | 77 | 77 | **77** | 76-104 |
+| route:/#/dashboard (retorno) | 615 | 558 | 433 | **558** | 234-237 / 236-264 |
+| drag (text-follow, 20 passos) | — | — | — | **0 tasks** (2 passes) | 0 |
+| commit pointerup (text-follow) | — | — | — | **183 / 198ms** (full/perf-only) | 117-127 / 126-134 |
+
+Leitura honesta: a direção dos números é consistente com o histórico (aio/typesetter/retorno
+dominam; drag segue live com 0 tasks; commit ~130-200), mas tudo piorou em absoluto — atribuição
+principal: instrumento react-scan agora ativo (custo proporcional ao fan-out) + variância de
+sessão. **O retorno ao dashboard segue o maior custo do app (433-615ms) e é o gate central do T4.2.**
+
+#### Baseline de renders — audit ×3, medianas das janelas-chave (react-scan)
+
+| Janela | Componentes (mediana) |
+| --- | --- |
+| boot | DashboardPage 6r/~107ms · KomaTopbar2 6r/~52ms · Tooltip 204r · DashboardLeftSidebar 6r |
+| fixture (5 regiões + render stage) | DashboardPage 10r/~64ms · Tooltip 404r · RenderTextPreview 5r |
+| drag (20 passos) | RenderTextPreview 29r/~94ms · RenderRegionOverlayBox 27r/~19ms · DashboardPage 2r/~17ms |
+| region-select:1 | AioRightPanel 2r/~27ms · DashboardPage 2r/~24ms · Tooltip 76r |
+| region-select:5 | 1r em todo o chrome (seleção já ativa) |
+| route:dashboard (retorno) | AioRightPanel 8r/~89ms · DashboardPage 8r/~53ms · KomaTopbar2 8r/~45ms · Tooltip 321r |
+
+#### Census — agregado de sessão (75 janelas, react-scan)
+
+Top por COUNT de render: Tooltip/TooltipTrigger 6.683r cada · TooltipProvider 4.869r ·
+Popper/PopperProvider/PopperAnchor/Primitive.*/TooltipPortal ×5-8 famílias 3.375r cada ·
+TooltipContent 3.308r · ChevronDown 1.606r · **ModelManagerModal 1.176r (62 janelas — 6 modais
+sempre montados com `open={false}`)** · AioSection 736r · KomaNavGroupDropdown 516r.
+
+Top por TEMPO de render: **AioRightPanel 85r/1.030ms** · **KomaTopbar2 172r/1.002ms** ·
+**DashboardPage 158r/1.002ms** · **DashboardLeftSidebar 196r/730ms** · DashboardMainLayout
+196r/468ms · DashboardFooter 196r/413ms · RenderTextPreview 169r/403ms · DashboardManualDock
+101r/315ms.
+
+**Padrão estrutural confirmado**: em TODAS as janelas medidas, os 5 chrome components
+(DashboardPage + KomaTopbar2 + DashboardLeftSidebar + DashboardMainLayout + DashboardFooter)
+re-renderizam JUNTOS, em qualquer interação (tool toggle, slider, tecla, menu, zoom). Causa raiz:
+`pages/Dashboard.tsx` (2.718 l.) tem **107 subscrições `useStore`** na raiz da página — qualquer
+mutação de qualquer store re-renderiza a página inteira e a árvore abaixo (incl. os ~48 tooltips
+do topbar/dock e os 6 modais fechados).
+
+#### P0 — bloqueios >150ms atribuíveis (census, 1 imagem + 5 regiões, GPU real)
+
+| # | Interação | Worst (tasks) | Causa raiz (código) | Fix mínimo |
+| --- | --- | --- | --- | --- |
+| P0-1 | Retorno `/#/dashboard` | **434ms** census / **558ms** mediana sweep (8/3 tasks) | Remount total: hash-route desmonta DashboardPage → StageGrid remonta RenderTextPreview (4-5 canvases + raster) + chrome + painéis lazy. Render mirado é pequeno (DP 7r/53ms) — o task é DOM/layout/raster do mount | Dívida central já planejada (grade extraída + subscrições por imagem; keep-alive/LRU descartado na Fase 2a). T4.2 |
+| P0-2 | **Digitação no editor inline** (10 chars) | **262ms** e **13 long tasks em 10 keystrokes** | `useRenderTextPreviewInlineEditor.handleInlineEditorInput` chama `updateRegionText` **a cada tecla** → `updateRegions` → commit na store (`aioDetectionsByImage`) → DashboardPage (107 subs) + AioRightPanel (subscribes a snapshots/progress) + RenderTextPreview 34r/107ms + cascata de tooltips (380r) | O editor JÁ mantém draft local (`inlineEditor.value`, `isDirty`, `originalValue` + save/cancel) — parar de commitar por tecla: commit só em save/blur/Escape (saveInlineEditor já existe). **Maior ratio custo/benefício do census** |
+| P0-3 | **Digitação no translator text stage** (26 chars) | worst 104-133ms mas **17 tasks** + DashboardPage 26r/126ms + 884 Tooltip renders | Cada tecla do tiptap escreve no estado do translator que vive na página → mesma cascata | Estado de digitação local ao estágio; commit no submit/blur. Mesma classe do P0-2 (verificação T08 ainda não cumprida em runtime) |
+| P0-4 | **Rotate 90°** (topbar ou sidebar) | **392ms** (×2 janelas) | `rotateImage` substitui o array `images` → página inteira re-renderiza + canvas re-rasteriza na rotação + thumbs da sidebar | Subscrições por imagem (T4.2) cobrem o lado render; raster é local ao stage |
+| P0-5 | **Toggle de ferramenta de segmento** (aio@segmentText e cleaner): seg-brush 298/270ms, seg-eraser 277/310ms, stage:segmentText 304ms | ~270-310ms por toggle | `manual-tools-store` update → re-render da página inteira + switch de modo do overlay de segmento (canvas) | Consumidores do manual-tools-store deveriam ser só dock + overlay (T4.4) |
+| P0-6 | **ShortcutCenterModal open/close** | **278/265ms** | Modal monta ~90 linhas de atalhos de uma vez (ícones re-renderizam 50×+ — Trash2 54r, RotateCcw 53r) | Montar linhas sob demanda/virtualizar; ou dividir por grupo |
+| P0-7 | **Add/remove imagem** (2ª imagem) | **269/237ms** | `addImages`/`removeImageById` substituem o array da collection → página inteira + PreviewStageItem do item novo (decode+draw) | Subscrições por imagem + card isolado (T4.2) |
+| P0-8 | **Sub-mode manual** (aio) | **262ms** | `handleAioSubModeChange` normaliza TODOS os snapshots + reescreve `aioManualProgressByImage` para todas as imagens numa passada | Normalizar só a imagem ativa; lazy para as demais |
+| P0-9 | **Empty stage** (clear-all na sidebar) | **353ms** | Botão real limpa ~15 mapas cross-domain + desmonta todas as stages + revoke | Transação única de store (menos commits intermediários); custo de unmount é inerente — prioridade menor |
+
+Modos (switch): enhance 235ms, cleaner-2 221ms, typesetter 216ms, stitch 177ms, optimizer 133ms,
+split 147ms, watermark 140ms — montagem de stage, já documentado na Fase 4; re-medidos e piores
+com o instrumento ligado. Sidebar toggles 121-192ms; threads-input (digitação no number input)
+189ms; viewmode-paginated 191ms — todos da mesma raiz (chrome-wide re-render).
+
+#### P1 — hotspots de render provados (custo por render alto ou cascata)
+
+| # | Componente | Evidência | Causa raiz | Fix |
+| --- | --- | --- | --- | --- |
+| P1-1 | **AioRightPanel** | 85r/**1.030ms** sessão; 10r/127ms durante digitação; re-renderiza com toda interação do painel | 1.609 l.; subscreve `aioPipelineSnapshots`, `aioPipelineSnapshotIndex`, `aioManualProgressByImage` (mapas inteiros), `llmSettings`, ~40 props da página; não é memo eficaz | T4.3: selectors por imagem/slice; dividir painel em seções memoizadas |
+| P1-2 | **Família radix Tooltip** | 6.683r Tooltip+Trigger; 3.375r ×5 primitives; fan-out até **108:1** vs DashboardPage (dock:seg-slider-drag) | Multiplicador: cada re-render do topbar/dock/painéis re-renderiza todos os tooltips fechados (Provider + Popper + Portal + Content por tooltip) | Depois do T4.2 a cascata encolhe proporcionalmente; se ainda quente, memo no wrapper do tooltip / montar só o aberto |
+| P1-3 | **KomaTopbar2** | 172r/1.002ms; 26r/91ms durante digitação no translator | Recebe dezenas de props da página (subscrições largas do DashboardPage vazam por props) | T4.2/T4.3: isolar subscrições próprias do topbar |
+| P1-4 | **DashboardLeftSidebar/MainLayout/Footer** | 196r cada / 730+468+413ms — co-renderizam em TODAS as janelas | Mesma raiz (props da página) | T4.2 |
+| P1-5 | **RenderTextPreview** | 34r/107ms durante digitação (esperado), 29r/~94ms no drag (boxes seguem ao vivo — correto) | Composição ok no drag; a digitação re-renderiza por commit de store (ver P0-2) | P0-2 resolve |
+| P1-6 | **ModelManagerModal ×6** | 1.176r em 62 janelas — sempre montados com `open={false}` | `DashboardModelManagers` monta os 6 modais incondicionalmente (gating só pela prop `open`) | Montagem condicional (só quando `modalOpen`) |
+| P1-7 | **AioSection / AioTimelineStep** | 736r/224ms; 104r/17ms numa janela de digitação | Re-renderizam com o painel a cada mutação de store do pipeline | T4.3 |
+
+#### P2 — relevante mas menor
+
+- Ícones lucide inline re-renderizam com os pais: ChevronDown 1.606r, Zap 818r, X 614r,
+  Layers 605r, ChevronRight/Left ~530r cada, Paintbrush 520r, Languages/Trash2/RotateCcw ~54r por
+  janela de modal — custo ~0,01ms/r; some com T4.2/memo.
+- KlSlider 27r/7ms no drag do slider (com AioTimelineStep 54r/16ms) — o drag do slider re-renderiza
+  o painel por frame (onValueChange → store) — aceitável, mas pegaria um memo por slide.
+- Zoom in/out (92/99ms; 71-142 tooltip renders por clique), threads enable/disable (71/59ms),
+  user menu open/close (106/56ms), download menu (62-129ms incl. PSD section 129ms) — single
+  digits de ms de render, long tasks só por causa da cascata de página.
+- Info modes: resources 74ms/imgur 89ms/blogger 106ms (BloggerWorkspace 22ms render) — saudáveis;
+  guides 229ms (monta conteúdo longo).
+
+#### Janelas limpas (zero findings)
+
+`mode:aio` (0 tasks quando a stage já está montada — o custo do switch é o MOUNT, confirmado de
+novo), `images:switch-active`/`images:switch-back` (0ms/0 tasks — troca de imagem ativa é barata),
+`route:settings` (0ms), `route:model-rankings` (69ms), `route:scanlation-feed` (74ms),
+`topbar:zoom-in` (92ms), `topbar:viewmode-longstrip` (102ms), `topbar:threads-disable` (59ms),
+`topbar:user-menu-close` (56ms), `info:resources` (74ms). Sidebar esquerda/direita, modais e
+menus são de 50-190ms — todos descem para trivial quando a cascata de página morrer.
+
+#### Cenários SKIPPED (com motivo, não falsificados)
+
+- **sub-mode cleaner**: não existe — `MODES_WITH_SUBMODE = ["aio","typesetter"]`
+  (`constants/dashboard.constants.ts`). Registrado no probe.
+- **Mobile drawer em viewport desktop**: gatilho só renderiza ≤1100px
+  (`TOOLS_PANEL_COMPACT_BREAKPOINT`) — coberto via shrink de viewport em runtime (drawer aberto +
+  item "Cleaner/RD" clicado: 77/101ms, saudável).
+- **PSD section**: primeira tentativa fechou o menu (trigger é toggle) — corrigido no fluxo do
+  probe; seção medida (129ms).
+- **Editor inline exigiu área ativa**: dblclick só abre com a ferramenta "Select area" ativa e
+  stage render (`useRenderTextPreviewPointer.ts` gate `areaSelectionEnabled`) — fluxo do probe
+  reordenado; medido.
+- **Seg tools no cleaner exigem detecções do cleaner** — detecções injetadas via
+  `cleaner-store.ts` (não `region-editor-store.ts`); medido.
+
+#### Problemas de infra do probe (resolvidos, para histórico)
+
+1. Playwright limpa `outputDir` (`.artifacts`) no início de CADA run — os JSONs das runs 1-2 do
+   audit se perderam (console logs retidos); agora os artefatos são copiados para
+   `tests/e2e/probe-out/` imediatamente após cada run.
+2. `test.use({launchOptions})` não pode ficar em describe (força worker novo) — viewport mobile
+   feito com `setViewportSize` em runtime.
+3. `locator.click()` travou 10min em actionability ("waiting for element to be stable") no botão
+   de zoom — todos os cliques do probe migraram para mouse cru no centro do bounding box com
+   timeout limitado (nunca mais trava; falha vira SKIPPED logado).
+4. Uma ocorrência de EBUSY no watcher do vite (lock do video.webm de run morta) — transitória.
+5. `region-editor-store` não tem `setCleanerDetectionsByImage` (está no `cleaner-store`) —
+   descoberto pelo probe, corrigido.
+
+#### Ordem de fix recomendada (T4.2+)
+
+1. **T4.2 (como planejado)** — DashboardPage: subscrições por imagem + extração da grade. Mata a
+   raiz que multiplica tudo (co-render dos 5 chrome components em 100% das janelas, tooltips
+   108:1, modais fechados 1.176r). Esperado derrubar também: rotate, add/remove imagem, threads,
+   sidebars, menus.
+2. **T4.2b (novo, barato, alto ganho)** — editor inline: parar de commitar `updateRegionText`
+   por tecla (commit em save/blur/Escape; o draft local já existe). Mesma classe para o translator
+   text stage. É a verificação "digitação sem cascata" da T08 que o runtime mostra não cumprida.
+3. **T4.3** — AioRightPanel: selectors por slice/imagem (snapshots, progress, llmSettings), seções
+   memoizadas.
+4. **T4.4 (ordem de custo medido)** — (a) shortcut center: montagem sob demanda das ~90 linhas;
+   (b) sub-mode manual: normalizar só a imagem ativa; (c) toggle de ferramenta de segmento:
+   consumidores narrowed (dock + overlay); (d) ModelManagerModal: montagem condicional;
+   (e) clear-all: transação única.
+5. Re-medir com o MESMO probe (census + sweep + drag) após cada item; comparar contra as medianas
+   desta seção (não contra os números pré-react-scan).
+
+### T4.2b — review (2026-09-01, Review Agent)
+
+**Veredito: ISSUES** — ciclo de flush correto nos caminhos principais e gates green, mas 1
+regressão de comportamento com perda de dados num gesto comum + 1 dead-click de UX precisam de fix
+antes do commit. Os 5 arquivos de produção modificados conferem com o declarado (mais
+refactor-queue.md e probes untracked).
+
+**Verificação estática (código)**
+- Flush lifecycle correto: `pendingDraftRef` setado em `handleInlineEditorInput`; commit único em
+  save (blur/Ctrl+Enter), Escape (descarta draft + re-committa originalValue — igual ao estado
+  líquido pré-mudança), pointerdown-away/pointercancel (`closeInlineEditor` = flush + close,
+  preservando o texto que os commits por tecla mantinham), reopen em outra região, switch de
+  tool/stage (effect), região deletada (descarta — texto morre com a região, como antes) e
+  dirty-unmount. `updateRegionTextRef` (latest-ref) evita stale closure; `commitPending` esvazia o
+  ref antes de escrever → sem double-commit no blur duplo. `RenderRegionOverlayBox` usa
+  `setState` só no close não-dirty do blur (inócuo). Type dock não insere texto (só estilo) —
+  nenhum caminho bypassa o draft.
+- Translator: sync-effect não entra em loop (guarda `pending === null` / comparação contra
+  `pending`; echo do próprio flush vira no-op); Clear limpa o draft antes de zerar a store;
+  `setTranslatorDraftText`/`setTranslatorTextDirty` são actions estáveis do zustand → o effect de
+  unmount não re-dispara no meio da digitação. `translator.execution.ts`: `translatorDraftText`
+  era consumido só dentro de `runTranslatorText` (grep em todo o código) → `getState()` na
+  execução é equivalente; painel/blur sempre commitam antes do click (blur dispara no mousedown).
+
+**Gates (todos green)**
+- `dashboard-refactor-smoke` 11/11 · `text-follow-probe` 2/2 (drag 0 tasks; commit 1 task ~250ms,
+  referência pré-existente) · census 2/2 (×2 runs, sem assertion failure) · typecheck clean ·
+  vitest 43/43.
+- A/B census T4.1 baseline vs T4.2b (janelas de digitação, mesmo instrumento):
+  - `region:type-10-chars`: 13 tasks/worst 262 → **3-5 tasks/worst 150-311**; DashboardPage 10r → 0,
+    Tooltip 380r → 0, KomaTopbar2 10r → 0 (cascata de página eliminada; RenderTextPreview 20-21r
+    é o estado local do editor, esperado). Claim "13→~2" confirmado dentro da variância.
+  - `translator:type`: 17 tasks → **12-16 tasks** (worst 104 → 141-156); DashboardPage 26r/126ms → 0,
+    Tooltip 884r → 0, TranslatorToolsPanel 26r → 0 — a cascata morreu, mas o claim "~2 per window"
+    NÃO se confirmou: resta um bloqueador residual de ~60-155ms por ~2 keystrokes, presente com a
+    mesma magnitude no baseline (57-104ms) → pré-existente, NÃO introduzido por T4.2b (a mudança
+    só reduziu trabalho por tecla), mas também não resolvido. Requer atribuição (follow-up T4.4).
+- Notas de instrumento: tasks individuais ficaram ~30-60% maiores nesta sessão em todo o census
+  (escape-editor 187→240-262, dblclick 240→308-329) — variância de sessão documentada no T4.1.
+
+**Findings (números referem-se ao working tree de 2026-09-01)**
+1. **ALTO — reabertura da MESMA região no meio da edição perde o texto digitado.**
+   `useRenderTextPreviewInlineEditor.ts` (`openInlineEditorForRegion`): `initialText` é lido do
+   snapshot pré-flush; o dblclick delegado no overlay (`RenderTextPreview.tsx` onDoubleClick →
+   `useRenderTextPreviewPointer.handleRegionDoubleClickDelegated`) borbulha do contentEditable, então
+   double-click para selecionar palavra DURANTE a edição reabre a mesma região: o flush comita o
+   draft, mas o `useLayoutEffect` reescreve `node.textContent` com o texto pré-digitação; se o
+   usuário digitar mais e salvar (ou der Escape — `originalValue` também ficou stale), o texto
+   digitado se perde. Pré-mudança era seguro (commits por tecla mantinham o snapshot atual).
+   **Fix:** capturar o valor do draft pendente como `initialText` quando
+   `pendingDraftRef.current?.regionId === region.id` antes do flush.
+2. **MÉDIO — botão Translate do TranslatorToolsPanel vira dead click enquanto digita.**
+   `TranslatorToolsPanel.tsx` (~linha 492): `disabled` lê `translatorDraftText` da store; com o
+   commit adiado, segue desabilitado durante a digitação (store vazia), e botão disabled engole o
+   mousedown — a textarea não perde o foco, não há blur → não há flush → clique morto. Pré-mudança
+   habilitava por tecla. **Fix (escolher):** (a) espelhar o estado "pending" da stage para o painel
+   via slice mínimo da store (sem subscrição por tecla em componentes pesados), ou (b) o painel
+   habilita só por `processing` e o guard vazio de `runTranslatorText` mostra a mensagem de status.
+3. **BAIXO — draft residual no close não-dirty.** `RenderRegionOverlayBox.tsx` blur não-dirty chama
+   `setState(null)` sem limpar `pendingDraftRef`; o draft (== originalValue) pode sobreviver à
+   sessão e um flush posterior reescreve `originalValue` na região — inócuo hoje, mas se outra
+   feature reescrever o texto da região no meio-tempo (ex. refine por IA), o flush tardio reverte.
+   **Fix:** limpar `pendingDraftRef` quando `nextValue === originalValue` em
+   `handleInlineEditorInput` (ou no close não-dirty).
+
+**Follow-ups (não bloqueiam):** (a) atribuir o bloqueador residual de ~60-155ms/keystroke no
+translator textarea (presente no baseline; render é ~2-3ms/tecla — não é o caminho da store);
+(b) capture/history de workspace durante digitação lê o último commit (getState) — texto não
+commitado só entra em blur/unmount; aceitável sob o design, registrar na documentação do T4.2a;
+(c) painel Translate com lag de habilitação após flush — resolvido pelo finding 2.
+
+### T4.2b — correction (2026-09-01, Correction Agent)
+
+Os 3 findings do review foram corrigidos no working tree (sem commit). Spec throwaway
+`tests/e2e/t42b-correction-check.spec.ts` cobriu os 2 gestos (RED contra o código pré-fix,
+GREEN pós-fix) e foi deletada após a verificação.
+
+1. **ALTO (perda de dados no reopen da mesma região) — corrigido.**
+   `useRenderTextPreviewInlineEditor.ts` (`openInlineEditorForRegion`): quando
+   `pendingDraftRef.current?.regionId === region.id`, o draft pendente é capturado ANTES do flush
+   e usado como `initialText`/`originalValue` do editor reaberto (o flush segue — a store recebe
+   o texto digitado; o `useLayoutEffect` de reescrita do contentEditable vira no-op porque o valor
+   já é igual). Reopen de OUTRA região preserva o flush-before-open (draft antigo commita, editor
+   novo semeia o snapshot da nova região). Escape pós-reopen agora reverte para o texto digitado
+   (originalValue consistente), sem double-commit.
+2. **MÉDIO (dead click no Translate do painel) — corrigido pela opção (a) do review.** Slice
+   booleano `translatorTextPending` no `translator-store` ("existe draft não-commitado não-vazio";
+   setado em `handleDraftInput`, limpo em flush/clear/replace-externo/unmount) espelhado pela
+   `useTranslatorTextDraft` (`TranslatorTextStage.tsx`). `TranslatorToolsPanel.tsx` lê o slice via
+   section wrapper: `disabled = processing || (store vazio && !pending)`. Booleano → zustand só
+   notifica na virada, digitação dentro do mesmo estado continua sem cascata; empty-sem-pending
+   segue desabilitado (affordance preservada); habilita por tecla sem blur, o mousedown do click
+   blur→flush→executa (`runTranslatorText` lê o texto commitado no `getState()`).
+3. **BAIXO (draft residual no close não-dirty) — corrigido.** `handleInlineEditorInput` limpa
+   `pendingDraftRef` quando `nextValue === originalValue` (reverter ao original descarta o draft);
+   `isDirty` do ref virou campo morto e foi removido — ref não-nulo ⟺ dirty, então o close
+   não-dirty do blur (`setState(null)`) não pode mais vazar draft que um flush tardio
+   reescreveria sobre escritas externas (ex. refine por IA).
+
+**Gates pós-correção (todos green):** spec dos gestos RED→GREEN conforme acima ·
+`dashboard-refactor-smoke` 11/11 · `text-follow-probe` 2/2 (drag 0 tasks; commit 1 task ~178-195ms,
+referência pré-existente) · typecheck clean · vitest 43/43.

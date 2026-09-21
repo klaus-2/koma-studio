@@ -136,6 +136,9 @@ export default function TranslatorToolsPanelSection({
     (s) => s.setTranslatorSfxAdditionalInstructions,
   );
   const translatorDraftText = useTranslatorStore((s) => s.translatorDraftText);
+  const translatorTextPending = useTranslatorStore(
+    (s) => s.translatorTextPending,
+  );
   const translatorTranslatedText = useTranslatorStore(
     (s) => s.translatorTranslatedText,
   );
@@ -236,6 +239,7 @@ export default function TranslatorToolsPanelSection({
       translatorTextImportRef={translatorTextImportRef}
       translatorImageImportRef={translatorImageImportRef}
       translatorDraftText={translatorDraftText}
+      translatorTextPending={translatorTextPending}
       translatorTranslatedText={translatorTranslatedText}
       translatorTextRunning={translatorTextRunning}
       processing={processing}

@@ -31,7 +31,6 @@ import {
   getRegionRotation,
 } from './regionGeometry';
 import type { RenderTextPreviewContextMenuState } from './RenderTextPreviewContextMenu';
-import type { RenderTextPreviewInlineEditorState } from './useRenderTextPreviewInlineEditor';
 
 type RenderTextPreviewInteraction = RenderOverlayInteraction;
 
@@ -55,9 +54,6 @@ interface UseRenderTextPreviewPointerParams {
   >;
   setContextMenu: React.Dispatch<
     React.SetStateAction<RenderTextPreviewContextMenuState | null>
-  >;
-  setInlineEditor: React.Dispatch<
-    React.SetStateAction<RenderTextPreviewInlineEditorState | null>
   >;
   setHoveredRegionId: React.Dispatch<React.SetStateAction<string | null>>;
   paintCanvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -116,13 +112,15 @@ interface UseRenderTextPreviewPointerParams {
     region: AioTextRegion,
   ) => void;
   openInlineEditorForRegion: (region: AioTextRegion) => void;
+  /** Discard-path editor close: flushes the pending text draft once (P0-2). */
+  closeInlineEditor: () => void;
 }
 
 export const useRenderTextPreviewPointer = ({
   interaction,
   setInteraction,
   setContextMenu,
-  setInlineEditor,
+  closeInlineEditor,
   setHoveredRegionId,
   paintCanvasRef,
   healingMaskCanvasRef,
@@ -170,88 +168,86 @@ export const useRenderTextPreviewPointer = ({
   updateRegionRotation,
   updateBrushCursor,
   hideBrushCursor,
-    handleRegionContextMenu,
-    openInlineEditorForRegion,
-  }: UseRenderTextPreviewPointerParams) => {
-    const pendingRegionCommitRef = useRef<PendingRegionCommit | null>(null);
-    const pendingRegionCommitFrameRef = useRef<number | null>(null);
+  handleRegionContextMenu,
+  openInlineEditorForRegion,
+}: UseRenderTextPreviewPointerParams) => {
+  const pendingRegionCommitRef = useRef<PendingRegionCommit | null>(null);
+  const pendingRegionCommitFrameRef = useRef<number | null>(null);
 
-    const lastMoveVisualBoxRef = useRef<{
-      pointerId: number;
-      regionId: string;
-      nextBox: [number, number, number, number];
-    } | null>(null);
+  const lastMoveVisualBoxRef = useRef<{
+    pointerId: number;
+    regionId: string;
+    nextBox: [number, number, number, number];
+  } | null>(null);
 
-    const flushPendingRegionCommit = useCallback(() => {
-      if (pendingRegionCommitFrameRef.current !== null) {
-        cancelAnimationFrame(pendingRegionCommitFrameRef.current);
-        pendingRegionCommitFrameRef.current = null;
-      }
-      const pending = pendingRegionCommitRef.current;
-      if (!pending) return;
-      pendingRegionCommitRef.current = null;
-      if (pending.kind === 'move-visual') {
-        lastMoveVisualBoxRef.current = {
-          pointerId: pending.pointerId,
-          regionId: pending.regionId,
-          nextBox: pending.nextBox,
-        };
-        setInteraction((prev) =>
-          prev &&
+  const flushPendingRegionCommit = useCallback(() => {
+    if (pendingRegionCommitFrameRef.current !== null) {
+      cancelAnimationFrame(pendingRegionCommitFrameRef.current);
+      pendingRegionCommitFrameRef.current = null;
+    }
+    const pending = pendingRegionCommitRef.current;
+    if (!pending) return;
+    pendingRegionCommitRef.current = null;
+    if (pending.kind === 'move-visual') {
+      lastMoveVisualBoxRef.current = {
+        pointerId: pending.pointerId,
+        regionId: pending.regionId,
+        nextBox: pending.nextBox,
+      };
+      setInteraction((prev) =>
+        prev &&
           prev.kind === 'move' &&
           prev.pointerId === pending.pointerId
-            ? { ...prev, currentBox: pending.nextBox }
-            : prev,
-        );
-      } else if (pending.kind === 'box') {
-        updateRegionBox(pending.regionId, pending.nextBox);
-      } else if (pending.kind === 'rotation') {
-        setRegionRotation(pending.regionId, pending.rotation);
-      } else {
-        setRegionSkew(pending.regionId, pending.skewX, pending.skewY);
-      }
-    }, [setRegionRotation, setRegionSkew, setInteraction, updateRegionBox]);
+          ? { ...prev, currentBox: pending.nextBox }
+          : prev,
+      );
+    } else if (pending.kind === 'box') {
+      updateRegionBox(pending.regionId, pending.nextBox);
+    } else if (pending.kind === 'rotation') {
+      setRegionRotation(pending.regionId, pending.rotation);
+    } else {
+      setRegionSkew(pending.regionId, pending.skewX, pending.skewY);
+    }
+  }, [setRegionRotation, setRegionSkew, setInteraction, updateRegionBox]);
 
-    const schedulePendingRegionCommit = useCallback(
-      (commit: PendingRegionCommit) => {
-        pendingRegionCommitRef.current = commit;
-        if (pendingRegionCommitFrameRef.current !== null) return;
-        pendingRegionCommitFrameRef.current = requestAnimationFrame(() => {
-          flushPendingRegionCommit();
-        });
-      },
-      [flushPendingRegionCommit],
-    );
+  const schedulePendingRegionCommit = useCallback(
+    (commit: PendingRegionCommit) => {
+      pendingRegionCommitRef.current = commit;
+      if (pendingRegionCommitFrameRef.current !== null) return;
+      pendingRegionCommitFrameRef.current = requestAnimationFrame(() => {
+        flushPendingRegionCommit();
+      });
+    },
+    [flushPendingRegionCommit],
+  );
 
-    // Gesture aborted (pointercancel): discard the uncommitted value.
-    const cancelPendingRegionCommit = useCallback(() => {
+  // Gesture aborted (pointercancel): discard the uncommitted value.
+  const cancelPendingRegionCommit = useCallback(() => {
+    if (pendingRegionCommitFrameRef.current !== null) {
+      cancelAnimationFrame(pendingRegionCommitFrameRef.current);
+      pendingRegionCommitFrameRef.current = null;
+    }
+    pendingRegionCommitRef.current = null;
+    lastMoveVisualBoxRef.current = null;
+  }, []);
+
+  useEffect(
+    () => () => {
       if (pendingRegionCommitFrameRef.current !== null) {
         cancelAnimationFrame(pendingRegionCommitFrameRef.current);
         pendingRegionCommitFrameRef.current = null;
       }
       pendingRegionCommitRef.current = null;
-      lastMoveVisualBoxRef.current = null;
-    }, []);
+    },
+    [],
+  );
 
-    // A card can unmount mid-drag (image removed, view-mode switch); drop the
-    // in-flight frame instead of committing through a stale closure.
-    useEffect(
-      () => () => {
-        if (pendingRegionCommitFrameRef.current !== null) {
-          cancelAnimationFrame(pendingRegionCommitFrameRef.current);
-          pendingRegionCommitFrameRef.current = null;
-        }
-        pendingRegionCommitRef.current = null;
-      },
-      [],
-    );
-
-    const handlePointerDown = useCallback(
+  const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.stopPropagation();
       onCardSelect();
       setContextMenu(null);
-      setInlineEditor(null);
+      closeInlineEditor();
       setHoveredRegionId(null);
       if (event.button !== 0) return;
       event.preventDefault();
@@ -396,9 +392,9 @@ export const useRenderTextPreviewPointer = ({
             const cornerRaw = handleElement.dataset.corner;
             const corner: RegionCorner | null =
               cornerRaw === 'nw' ||
-              cornerRaw === 'ne' ||
-              cornerRaw === 'sw' ||
-              cornerRaw === 'se'
+                cornerRaw === 'ne' ||
+                cornerRaw === 'sw' ||
+                cornerRaw === 'se'
                 ? cornerRaw
                 : null;
             if (corner) {
@@ -433,8 +429,8 @@ export const useRenderTextPreviewPointer = ({
 
       const selectedRegion = selectedRegionId
         ? (displayRegionsWithDefaults.find(
-            (region) => region.id === selectedRegionId,
-          ) ?? null)
+          (region) => region.id === selectedRegionId,
+        ) ?? null)
         : null;
       const handleRadius = 15 * point.scale;
       const rotateHandleRadius = 16 * point.scale;
@@ -857,8 +853,8 @@ export const useRenderTextPreviewPointer = ({
         const lastVisual = lastMoveVisualBoxRef.current;
         const finalBox =
           lastVisual &&
-          lastVisual.pointerId === interaction.pointerId &&
-          lastVisual.regionId === interaction.regionId
+            lastVisual.pointerId === interaction.pointerId &&
+            lastVisual.regionId === interaction.regionId
             ? lastVisual.nextBox
             : null;
         lastMoveVisualBoxRef.current = null;
@@ -1041,9 +1037,9 @@ export const useRenderTextPreviewPointer = ({
     setInteraction(null);
     setHoveredRegionId(null);
     setContextMenu(null);
-    setInlineEditor(null);
+    closeInlineEditor();
     hideBrushCursor();
-  }, [cancelPendingRegionCommit, hideBrushCursor]);
+  }, [cancelPendingRegionCommit, closeInlineEditor, hideBrushCursor]);
 
   return {
     handlePointerDown,

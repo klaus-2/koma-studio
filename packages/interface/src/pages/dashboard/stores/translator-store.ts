@@ -24,6 +24,12 @@ interface TranslatorStore {
   translatorVisualProcessingMode: TranslatorVisualProcessingMode;
   /** Text tab input. */
   translatorDraftText: string;
+  /** 
+   * Text tab stage has an uncommitted non-empty draft pending (set on
+   * input, cleared on flush). Boolean slice: the tools panel keeps the
+   * Translate button enabled while typing without re-rendering per keystroke.
+   */
+  translatorTextPending: boolean;
   /** Text tab output. */
   translatorTranslatedText: string;
   /** Model label used by the last text run. */
@@ -52,6 +58,7 @@ interface TranslatorStore {
   setTranslatorWorkspaceMode: (value: TranslatorWorkspaceMode) => void;
   setTranslatorVisualProcessingMode: (value: TranslatorVisualProcessingMode) => void;
   setTranslatorDraftText: (value: string) => void;
+  setTranslatorTextPending: (value: boolean) => void;
   setTranslatorTranslatedText: (value: string) => void;
   setTranslatorLastTextModelUsed: (value: string | null) => void;
   setTranslatorTextDirty: (value: boolean) => void;
@@ -90,6 +97,7 @@ export const useTranslatorStore = create<TranslatorStore>()(
       translatorWorkspaceMode: 'text',
       translatorVisualProcessingMode: 'standard',
       translatorDraftText: '',
+      translatorTextPending: false,
       translatorTranslatedText: '',
       translatorLastTextModelUsed: null,
       translatorTextDirty: false,
@@ -110,6 +118,8 @@ export const useTranslatorStore = create<TranslatorStore>()(
         set({ translatorVisualProcessingMode }),
       setTranslatorDraftText: (translatorDraftText) =>
         set({ translatorDraftText }),
+      setTranslatorTextPending: (translatorTextPending) =>
+        set({ translatorTextPending }),
       setTranslatorTranslatedText: (translatorTranslatedText) =>
         set({ translatorTranslatedText }),
       setTranslatorLastTextModelUsed: (translatorLastTextModelUsed) =>

@@ -323,6 +323,7 @@ const RenderTextPreview = ({
     saveInlineEditor,
     cancelInlineEditor,
     handleInlineEditorInput,
+    closeInlineEditor,
     syncInlineEditorSelection,
     saveCurrentSelection,
     clearPickerState,
@@ -449,7 +450,6 @@ const RenderTextPreview = ({
     interaction,
     setInteraction,
     setContextMenu,
-    setInlineEditor,
     setHoveredRegionId,
     paintCanvasRef,
     healingMaskCanvasRef,
@@ -499,6 +499,7 @@ const RenderTextPreview = ({
     hideBrushCursor,
     handleRegionContextMenu,
     openInlineEditorForRegion,
+    closeInlineEditor,
   });
 
   const {

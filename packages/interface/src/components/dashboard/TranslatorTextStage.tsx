@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Copy,
@@ -13,7 +13,9 @@ import './TranslatorTextStage.css';
 
 interface TranslatorTextStageProps {
   translatorDraftText: string;
+  /** Programmatic replace (clear button): commits to the store. */
   setTranslatorDraftText: (value: string) => void;
+  setTranslatorTextPending: (value: boolean) => void;
   setTranslatorTranslatedText: (value: string) => void;
   setTranslatorTextDirty: (value: boolean) => void;
   translatorTextImportRef: React.RefObject<HTMLInputElement | null>;
@@ -30,9 +32,93 @@ interface TranslatorTextStageProps {
   handleTranslatorTextImport: React.ChangeEventHandler<HTMLInputElement>;
 }
 
+function useTranslatorTextDraft(
+  translatorDraftText: string,
+  setTranslatorDraftText: (value: string) => void,
+  setTranslatorTextDirty: (value: boolean) => void,
+  setTranslatorTextPending: (value: boolean) => void,
+) {
+  const pendingDraftRef = useRef<string | null>(null);
+  const storeTextRef = useRef(translatorDraftText);
+  storeTextRef.current = translatorDraftText;
+  const [draftInputValue, setDraftInputValue] = useState(translatorDraftText);
+
+  // External store writes (import, restore, clear) replace the draft.
+  useEffect(() => {
+    if (pendingDraftRef.current === null) {
+      setDraftInputValue(translatorDraftText);
+      return;
+    }
+    if (translatorDraftText !== pendingDraftRef.current) {
+      pendingDraftRef.current = null;
+      setDraftInputValue(translatorDraftText);
+      // The pending draft was discarded wholesale — clear its mirror bit.
+      setTranslatorTextPending(false);
+    }
+  }, [translatorDraftText, setTranslatorTextPending]);
+
+  const handleDraftInput = useCallback(
+    (value: string) => {
+      pendingDraftRef.current = value;
+      setDraftInputValue(value);
+      // Boolean slice write: zustand only notifies when the value flips, so
+      // typing without crossing the empty boundary stays cascade-free.
+      setTranslatorTextPending(value.trim().length > 0);
+    },
+    [setTranslatorTextPending],
+  );
+
+  const flushPendingDraft = useCallback(() => {
+    const pending = pendingDraftRef.current;
+    if (pending === null) return;
+    pendingDraftRef.current = null;
+    if (pending !== storeTextRef.current) {
+      setTranslatorDraftText(pending);
+    }
+    setTranslatorTextDirty(true);
+    setTranslatorTextPending(false);
+  }, [
+    setTranslatorDraftText,
+    setTranslatorTextDirty,
+    setTranslatorTextPending,
+  ]);
+
+  const clearPendingDraft = useCallback(() => {
+    pendingDraftRef.current = null;
+    setTranslatorTextPending(false);
+  }, [setTranslatorTextPending]);
+
+  useEffect(
+    () => () => {
+      // Dirty unmount (mode/route switch): persist the draft like blur would.
+      const pending = pendingDraftRef.current;
+      if (pending === null) return;
+      pendingDraftRef.current = null;
+      if (pending !== storeTextRef.current) {
+        setTranslatorDraftText(pending);
+      }
+      setTranslatorTextDirty(true);
+      setTranslatorTextPending(false);
+    },
+    [
+      setTranslatorDraftText,
+      setTranslatorTextDirty,
+      setTranslatorTextPending,
+    ],
+  );
+
+  return {
+    draftInputValue,
+    handleDraftInput,
+    flushPendingDraft,
+    clearPendingDraft,
+  };
+}
+
 export default function TranslatorTextStage({
   translatorDraftText,
   setTranslatorDraftText,
+  setTranslatorTextPending,
   setTranslatorTextDirty,
   translatorTextImportRef,
   translatorTextRunning,
@@ -49,6 +135,17 @@ export default function TranslatorTextStage({
   translatorTextDirty,
 }: TranslatorTextStageProps) {
   const { t } = useI18n();
+  const {
+    draftInputValue,
+    handleDraftInput,
+    flushPendingDraft,
+    clearPendingDraft,
+  } = useTranslatorTextDraft(
+    translatorDraftText,
+    setTranslatorDraftText,
+    setTranslatorTextDirty,
+    setTranslatorTextPending,
+  );
 
   return (
     <div className="koma-translator-text">
@@ -69,11 +166,11 @@ export default function TranslatorTextStage({
         <textarea
           id="translator-text-editor"
           className="koma-translator-text__editor"
-          value={translatorDraftText}
+          value={draftInputValue}
           onChange={(e) => {
-            setTranslatorDraftText(e.target.value);
-            setTranslatorTextDirty(true);
+            handleDraftInput(e.target.value);
           }}
+          onBlur={flushPendingDraft}
           rows={14}
           placeholder={t("dashboard.translator.sourcePlaceholder")}
           aria-label={t("dashboard.translator.sourceAria")}
@@ -90,8 +187,11 @@ export default function TranslatorTextStage({
           <button
             type="button"
             className="koma-btn koma-btn--primary"
-            disabled={processing || translatorDraftText.trim().length === 0}
-            onClick={() => void runTranslatorText()}
+            disabled={processing || draftInputValue.trim().length === 0}
+            onClick={() => {
+              flushPendingDraft();
+              void runTranslatorText();
+            }}
             aria-busy={translatorTextRunning}
           >
             {translatorTextRunning ? (
@@ -113,10 +213,11 @@ export default function TranslatorTextStage({
             type="button"
             className="koma-btn koma-btn--ghost"
             disabled={
-              translatorDraftText.trim().length === 0 &&
+              draftInputValue.trim().length === 0 &&
               translatorTranslatedText.trim().length === 0
             }
             onClick={() => {
+              clearPendingDraft();
               setTranslatorDraftText('');
               setTranslatorTranslatedText('');
               setTranslatorLastTextModelUsed(null);

@@ -28,6 +28,9 @@ export default function TranslatorTextStageSection({
   const setTranslatorDraftText = useTranslatorStore(
     (s) => s.setTranslatorDraftText,
   );
+  const setTranslatorTextPending = useTranslatorStore(
+    (s) => s.setTranslatorTextPending,
+  );
   const setTranslatorTranslatedText = useTranslatorStore(
     (s) => s.setTranslatorTranslatedText,
   );
@@ -54,6 +57,7 @@ export default function TranslatorTextStageSection({
     <TranslatorTextStage
       translatorDraftText={translatorDraftText}
       setTranslatorDraftText={setTranslatorDraftText}
+      setTranslatorTextPending={setTranslatorTextPending}
       setTranslatorTranslatedText={setTranslatorTranslatedText}
       setTranslatorTextDirty={setTranslatorTextDirty}
       translatorTextImportRef={translatorTextImportRef}
