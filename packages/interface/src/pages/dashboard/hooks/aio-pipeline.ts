@@ -3,7 +3,7 @@
  * (processAIO orchestration) and re-exports the per-concern sibling modules
  * split out in T10, so consumer imports from 'hooks/aio-pipeline' stay valid.
  */
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useI18n } from '../../../i18n';
 import { AIO_MANUAL_STAGE_ORDER, MIN_REGION_SIZE } from '../../../constants/dashboard.constants';
@@ -421,8 +421,8 @@ export function useAioPipelineExecution({
         const executionStatus = useAioPipelineStore.getState().aioExecutionStatus;
         const stageLabel = executionStatus?.stageKey
           ? aioPipelineStageProgressLabels[
-              executionStatus.stageKey as AioPipelineSnapshotKey
-            ]
+          executionStatus.stageKey as AioPipelineSnapshotKey
+          ]
           : 'OCR';
         useStatusStore.getState().setTonedStatus(
           `Timed out during the "${stageLabel}" stage. The mini-backend may have crashed, restarted, or taken too long to respond.`,
@@ -454,7 +454,7 @@ export function useAioPipelineExecution({
     processAIORef.current = processAioImpl;
   });
 
-  const processAIO = () => processAIORef.current?.();
+  const processAIO = useCallback(() => processAIORef.current?.(), []);
 
   return { processAIO };
 }

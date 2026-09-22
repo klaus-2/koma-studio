@@ -4,7 +4,7 @@
  * Split out of aio-pipeline.ts (T10); the entry file keeps orchestration and
  * re-exports this module.
  */
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import {
   AIO_MANUAL_STAGE_ORDER,
@@ -127,6 +127,20 @@ export function useAioManualExecution({
   const setRuntimeExecutionNotice = useStatusStore(
     (s) => s.setRuntimeExecutionNotice,
   );
+  const onStageStart = useCallback(
+    (stageKey: AioPipelineSnapshotKey, image: LoadedImage, index: number) =>
+      updateAioExecutionStage('manual', stageKey, image, index, 1),
+    [updateAioExecutionStage],
+  );
+  const validateStageModelAdapter = useCallback(
+    (stageKey: string, stageLabel: string, modelKey: string) =>
+      validateManualLocalStageModel(
+        stageKey as Exclude<AioStageKey, 'getTranslations'>,
+        stageLabel,
+        modelKey,
+      ),
+    [validateManualLocalStageModel],
+  );
   const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
   const setAioManualProgressByImage = useAioPipelineStore(
     (s) => s.setAioManualProgressByImage,
@@ -136,6 +150,36 @@ export function useAioManualExecution({
   );
   const aioStageOptions = useAioPipelineStore((s) => s.aioStageOptions);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
+  const executorStageOptions = useMemo(
+    () => ({
+      detectText: aioStageOptions.detectText,
+      recognizeText: aioStageOptions.recognizeText,
+      segmentText: aioStageOptions.segmentText,
+      cleanImage: aioStageOptions.cleanImage,
+    }),
+    [
+      aioStageOptions.detectText,
+      aioStageOptions.recognizeText,
+      aioStageOptions.segmentText,
+      aioStageOptions.cleanImage,
+    ],
+  );
+  const executorStageSelection = useMemo(
+    () => ({
+      detectText: aioStageSelection.detectText,
+      recognizeText: aioStageSelection.recognizeText,
+      getTranslations: aioStageSelection.getTranslations,
+      segmentText: aioStageSelection.segmentText,
+      cleanImage: aioStageSelection.cleanImage,
+    }),
+    [
+      aioStageSelection.detectText,
+      aioStageSelection.recognizeText,
+      aioStageSelection.getTranslations,
+      aioStageSelection.segmentText,
+      aioStageSelection.cleanImage,
+    ],
+  );
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
   const aioMaskDilation = useAioPipelineStore((s) => s.aioMaskDilation);
@@ -186,19 +230,8 @@ export function useAioManualExecution({
     processing,
     images,
     aioAutoProcessedImageById,
-    aioStageOptions: {
-      detectText: aioStageOptions.detectText,
-      recognizeText: aioStageOptions.recognizeText,
-      segmentText: aioStageOptions.segmentText,
-      cleanImage: aioStageOptions.cleanImage,
-    },
-    aioStageSelection: {
-      detectText: aioStageSelection.detectText,
-      recognizeText: aioStageSelection.recognizeText,
-      getTranslations: aioStageSelection.getTranslations,
-      segmentText: aioStageSelection.segmentText,
-      cleanImage: aioStageSelection.cleanImage,
-    },
+    aioStageOptions: executorStageOptions,
+    aioStageSelection: executorStageSelection,
     aioSrcLang,
     aioTgtLang,
     aioMaskDilation,
@@ -215,8 +248,7 @@ export function useAioManualExecution({
     compatibleTranslationModelIds,
     selectedCustomOcrProfile,
     selectedCustomTranslationProfile,
-    validateManualLocalStageModel: (stageKey, stageLabel, modelKey) =>
-      validateManualLocalStageModel(stageKey as Exclude<AioStageKey, 'getTranslations'>, stageLabel, modelKey),
+    validateManualLocalStageModel: validateStageModelAdapter,
     getAioStageOption,
     parseApiError,
     getAioRegionsFromSnapshot,
@@ -230,8 +262,7 @@ export function useAioManualExecution({
     setStatusMessage,
     applyDetectedGradientToStyle,
     getAbortSignal: getActiveAioAbortSignal,
-    onStageStart: (stageKey, image, index) =>
-      updateAioExecutionStage('manual', stageKey, image, index, 1),
+    onStageStart,
     setRuntimeExecutionNotice,
   });
 

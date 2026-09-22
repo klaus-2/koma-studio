@@ -274,11 +274,49 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
           };
         });
 
+        const entriesUnchanged =
+          mergedEntries === prev.entries ||
+          (Object.keys(mergedEntries).length === Object.keys(prev.entries).length &&
+            Object.keys(mergedEntries).every((modelId) => {
+              const nextEntry = mergedEntries[modelId];
+              const prevEntry = prev.entries[modelId];
+              return (
+                nextEntry !== undefined &&
+                prevEntry !== undefined &&
+                (nextEntry === prevEntry ||
+                  (nextEntry.status === prevEntry.status &&
+                    nextEntry.progress === prevEntry.progress &&
+                    nextEntry.updateAvailable === prevEntry.updateAvailable &&
+                    nextEntry.installedVersion === prevEntry.installedVersion &&
+                    nextEntry.error === prevEntry.error &&
+                    nextEntry.availableVersion === prevEntry.availableVersion))
+              );
+            }));
+        const diskSpaceUnchanged =
+          diskSpace === prev.diskSpace ||
+          (diskSpace !== null &&
+            prev.diskSpace !== null &&
+            diskSpace.freeBytes === prev.diskSpace.freeBytes &&
+            diskSpace.totalBytes === prev.diskSpace.totalBytes);
+        const nextEntries = entriesUnchanged ? prev.entries : mergedEntries;
+        const nextDiskSpace = diskSpaceUnchanged ? prev.diskSpace : diskSpace;
+        const installedSizeBytes = computeInstalledSizeBytes(installedModels);
+        if (
+          nextEntries === prev.entries &&
+          nextDiskSpace === prev.diskSpace &&
+          installedSizeBytes === prev.installedSizeBytes &&
+          prev.loading === false &&
+          prev.initialized &&
+          prev.error === null
+        ) {
+          return prev;
+        }
+
         return {
           ...prev,
-          entries: mergedEntries,
-          installedSizeBytes: computeInstalledSizeBytes(installedModels),
-          diskSpace,
+          entries: nextEntries,
+          installedSizeBytes,
+          diskSpace: nextDiskSpace,
           loading: false,
           initialized: true,
         };

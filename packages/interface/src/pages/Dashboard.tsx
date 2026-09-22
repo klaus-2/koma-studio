@@ -33,7 +33,6 @@ import {
   resolveSnapshotSelectionForImage,
 } from './dashboard/helpers';
 import { useI18n } from '../i18n';
-import { resolveTypographyPresetForMode } from '../typography/presets';
 import { importOnnxModelFromStorage } from '../models/model-storage';
 import {
   isCustomModelSelectionKey,
@@ -133,9 +132,6 @@ import {
 import {
   type KeyboardShortcutConfigV2,
 } from '../shortcuts/keyboardShortcuts';
-import type {
-  TypographyShapeKind,
-} from '../typography/types';
 import './AioToolsPanel.css';
 import './DockTools.css';
 
@@ -403,16 +399,8 @@ export const DashboardPage = ({
   const setAioManualProgressByImage = useAioPipelineStore(
     (s) => s.setAioManualProgressByImage,
   );
-  const segmentEditTool = useManualToolsStore((s) => s.segmentEditTool);
   const setSegmentEditTool = useManualToolsStore((s) => s.setSegmentEditTool);
-  const areaSelectionCreateMode = useManualToolsStore(
-    (s) => s.areaSelectionCreateMode,
-  );
-  const manualImageTool = useManualToolsStore((s) => s.manualImageTool);
   const setManualImageTool = useManualToolsStore((s) => s.setManualImageTool);
-  const manualToolsConfigOpen = useManualToolsStore(
-    (s) => s.manualToolsConfigOpen,
-  );
   const setManualToolsConfigOpen = useManualToolsStore(
     (s) => s.setManualToolsConfigOpen,
   );
@@ -743,13 +731,6 @@ export const DashboardPage = ({
 
     setActiveId(images[0]?.id ?? null);
   }, [activeId, images, setActiveId]);
-  const typographyPresetState = useRegionEditorStore(
-    (s) => s.typographyPresetState,
-  );
-  const defaultBubbleTypographyPreset = useMemo(
-    () => resolveTypographyPresetForMode('text_bubble', typographyPresetState),
-    [typographyPresetState],
-  );
 
   const {
     buildAioImageSnapshotIndexMap,
@@ -1438,20 +1419,6 @@ export const DashboardPage = ({
   } = useRenderFontCatalog({
     onImportSuccess: setStatusMessage,
   });
-  const resolvedAioAreaSelectionShapeKind = useMemo<TypographyShapeKind>(() => {
-    if (
-      areaSelectionCreateMode === 'square' ||
-      areaSelectionCreateMode === 'rounded'
-    ) {
-      return areaSelectionCreateMode;
-    }
-    return defaultBubbleTypographyPreset?.defaultShapeKind ?? 'rounded';
-  }, [
-    areaSelectionCreateMode,
-    defaultBubbleTypographyPreset?.defaultShapeKind,
-  ]);
-  const areaSelectionToolActive =
-    segmentEditTool === 'select' && manualImageTool === 'none';
   const isCleanerToolMode = mode === 'cleaner';
   const { selectCleanerAiModel, useExistingCleanerCustomProfile } =
     useCleanerModelSelection({
@@ -1764,6 +1731,14 @@ export const DashboardPage = ({
     typographerWorkspace,
   });
 
+  const translatorDetectionsByImage = useCallback(
+    () => useTranslatorStore.getState().translatorDetectionsByImage,
+    [],
+  );
+  const cleanerDetectionsByImage = useCallback(
+    () => useCleanerStore.getState().cleanerDetectionsByImage,
+    [],
+  );
   const {
     applyActiveTypographyPresetToImage,
     applyActiveTypographyPresetToSelection,
@@ -1788,10 +1763,8 @@ export const DashboardPage = ({
     selectAioRegionForImage,
     updateTranslatorRegionsForImage,
     updateCleanerRegionsForImage,
-    translatorDetectionsByImage: () =>
-      useTranslatorStore.getState().translatorDetectionsByImage,
-    cleanerDetectionsByImage: () =>
-      useCleanerStore.getState().cleanerDetectionsByImage,
+    translatorDetectionsByImage,
+    cleanerDetectionsByImage,
   });
 
   const {
@@ -1863,7 +1836,6 @@ export const DashboardPage = ({
     activeStageAllowsSegmentTools,
     activeStageAllowsManualImageTools,
     tryShowHealingHint,
-    manualImageToolHasConfig,
     toggleManualImageTool,
     toggleManualToolsConfig,
   } = useManualToolToggles({
@@ -2278,49 +2250,16 @@ export const DashboardPage = ({
     hasDownloadActions,
     isCompactViewport,
   });
-  const areaSelectionToolHasConfig =
-    activeStageAllowsAreaTools && areaSelectionToolActive;
-  const segmentToolHasConfig =
-    activeStageAllowsSegmentTools &&
-    (segmentEditTool === 'brush' || segmentEditTool === 'eraser');
-  const manualToolHasConfigActiveStage =
-    activeStageAllowsManualImageTools && manualImageToolHasConfig;
-  const activeDockToolHasConfig =
-    areaSelectionToolHasConfig ||
-    segmentToolHasConfig ||
-    manualToolHasConfigActiveStage;
   const manualDockVisible =
     (isAioManualMode || isCleanerToolMode) &&
     Boolean(resolvedActiveId) &&
     !isCompactViewport;
   const manualDockRightOffset =
     !isCompactViewport && !toolsPanelCollapsed ? 326 : 16;
-  const manualToolsConfigVisible =
-    manualDockVisible && manualToolsConfigOpen && activeDockToolHasConfig;
   const activeHasManualEdits =
     activeHasManualPaintLayer ||
     activeHasManualBaseOverride ||
     activeHasManualWandSelection;
-  const manualToolsConfigTitle = areaSelectionToolHasConfig
-    ? t('dashboard.status.toolSelectArea')
-    : segmentToolHasConfig
-      ? segmentEditTool === 'brush'
-        ? t('dashboard.status.toolSegmentBrush')
-        : t('dashboard.status.toolSegmentEraser')
-      : manualToolHasConfigActiveStage
-        ? manualImageTool === 'paint'
-          ? 'Pincel'
-          : manualImageTool === 'paint_eraser'
-            ? 'Borracha'
-            : manualImageTool === 'magic_wand'
-              ? 'Varinha'
-              : 'Healing'
-        : 'Ferramenta';
-  useEffect(() => {
-    if (!activeDockToolHasConfig && manualToolsConfigOpen) {
-      setManualToolsConfigOpen(false);
-    }
-  }, [activeDockToolHasConfig, manualToolsConfigOpen, setManualToolsConfigOpen]);
 
   const translationNotesEnabled = llmSettings.translation_notes_enabled;
   // ══════════════ RENDER ══════════════
@@ -2328,8 +2267,6 @@ export const DashboardPage = ({
     <DashboardMainLayout
       // ── Stage section (page-derived values forwarded to StageGrid) ──
       resolvedActiveId={resolvedActiveId}
-      resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKind}
-      areaSelectionToolActive={areaSelectionToolActive}
       translationNotesEnabled={translationNotesEnabled}
       currentEmptyPreviewTip={currentEmptyPreviewTip}
       handleStageWheelZoom={handleStageWheelZoom}
@@ -2447,10 +2384,6 @@ export const DashboardPage = ({
       aioFooterProcessingLabel={aioFooterProcessingLabel}
       manualDockVisible={manualDockVisible}
       manualDockRightOffset={manualDockRightOffset}
-      manualToolsConfigVisible={manualToolsConfigVisible}
-      manualToolsConfigTitle={manualToolsConfigTitle}
-      areaSelectionToolHasConfig={areaSelectionToolHasConfig}
-      activeDockToolHasConfig={activeDockToolHasConfig}
       isAioManualMode={isAioManualMode}
       activeStageAllowsAreaTools={activeStageAllowsAreaTools}
       activeStageAllowsSegmentTools={activeStageAllowsSegmentTools}

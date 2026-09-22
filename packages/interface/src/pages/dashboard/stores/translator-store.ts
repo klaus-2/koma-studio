@@ -83,6 +83,7 @@ interface TranslatorStore {
       | Record<string, string>
       | ((prev: Record<string, string>) => Record<string, string>),
   ) => void;
+  clearTranslatorPerImageMaps: () => void;
   setTranslatorVisualRunning: (value: boolean) => void;
   setTranslatorSfxCleanModelKey: (value: string) => void;
   setTranslatorSfxAdditionalInstructions: (value: string) => void;
@@ -164,6 +165,13 @@ export const useTranslatorStore = create<TranslatorStore>()(
               ? value(state.translatorProcessedBaseByImage)
               : value,
         })),
+      clearTranslatorPerImageMaps: () =>
+        set({
+          translatorDetectionsByImage: {},
+          translatorSelectedRegionByImage: {},
+          translatorRunMetaByImage: {},
+          translatorProcessedBaseByImage: {},
+        }),
       setTranslatorVisualRunning: (translatorVisualRunning) =>
         set({ translatorVisualRunning }),
       setTranslatorSfxCleanModelKey: (translatorSfxCleanModelKey) =>

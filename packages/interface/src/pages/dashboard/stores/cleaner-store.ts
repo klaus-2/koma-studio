@@ -70,6 +70,7 @@ interface CleanerStore {
       | Record<string, boolean>
       | ((prev: Record<string, boolean>) => Record<string, boolean>),
   ) => void;
+  clearCleanerPerImageMaps: () => void;
   setCleanerShowOverlays: (value: boolean) => void;
   setCleanerAiModelKey: (value: string) => void;
   setCleanerAiModelManagerOpen: (value: boolean) => void;
@@ -140,6 +141,15 @@ export const useCleanerStore = create<CleanerStore>()(
               ? value(state.cleanerHealingBusyByImage)
               : value,
         })),
+      clearCleanerPerImageMaps: () =>
+        set({
+          cleanerDetectionsByImage: {},
+          cleanerSelectedRegionByImage: {},
+          cleanerProcessedBaseByImage: {},
+          cleanerRunMetaByImage: {},
+          cleanerManualImageEditsByImage: {},
+          cleanerHealingBusyByImage: {},
+        }),
       setCleanerShowOverlays: (cleanerShowOverlays) =>
         set({ cleanerShowOverlays }),
       setCleanerAiModelKey: (cleanerAiModelKey) => set({ cleanerAiModelKey }),

@@ -1200,3 +1200,260 @@ Estrutura, caminhos de usuário e atribuição aprovados. O fix da StageGrid é 
 risco funcional e está correto (é inclusive um bug de corretude pre-existente corrigido —
 grade stale sob escritas de seleção sem churn de identidade). T4.3 fechado; itens 7.x da
 execução e os achados 1-2 acima seguem para T4.4.
+
+### T4.4 — execution (2026-09-01, resumed)
+
+**Retomada**: a 1ª tentativa de T4.4 foi interrompida no meio; o working tree carregava 8 arquivos
+de produção modificados. Auditoria dos hunks parciais + diag correlacionado
+(`probe-out/t44/diag-correlated.json`, timeline de commits vs escritas de store na janela
+route:dashboard; StrictMode dobra as rodadas de boot no dev):
+
+| Arquivo | Decisão | Motivo |
+| --- | --- | --- |
+| `hooks/useAioManualStageExecutor.ts` | **REVERTIDO** | logger de deps puro (diagnóstico): effect sem guarda que roda a cada render, sem efeito de produção |
+| `sections/AioRightPanel.tsx` | **REVERTIDO** | comparator de memo `return false` (diagnóstico) — derrotava o memo do T4.3 e contaminava a última medição (os "6r" do route:dashboard incluíam re-renders diagnósticos do painel) |
+| `hooks/useModelManager.ts` | **MANTIDO** | T4.4a real: guarda de conteúdo em `refreshModelState` — passadas de boot idênticas mantêm identidade de `entries`/`diskSpace`/`installedSizeBytes` e fazem bail-out (`return prev`) |
+| `stores/model-store.ts` | **MANTIDO** | T4.4a real: bail-out por identidade no `setState` (contrato zustand) — a página subscreve o snapshot inteiro, emit sem mudança re-renderizava DashboardPage |
+| `stores/llm-providers-store.ts` | **MANTIDO** | T4.4a real: `setCustomLlmProfiles` mantém identidade quando o conteúdo é igual (o hook de boot refetcha a cada montagem do dashboard) |
+| `pages/Dashboard.tsx` | **MANTIDO** | T4.4a real: accessors estáveis `translatorDetectionsByImage`/`cleanerDetectionsByImage` (useCallback `[]`) — arrows inline faziam `removeSelectedAioRegion` (prop do AioRightPanel) churnar por render |
+| `hooks/aio-pipeline.manual-execution.ts` | **MANTIDO** | T4.4a real: adapters/narrowings memoizados (`onStageStart`, `validateStageModelAdapter`, options/selection) — identidades do executor estáveis |
+| `hooks/aio-pipeline.ts` | **MANTIDO** | T4.4a real: `processAIO` memoizado via indireção de ref (`useCallback([])`) |
+
+Specs throwaway `t44a-diag.spec.ts`/`t44a-console.spec.ts` deletadas após o uso (diagnóstico,
+não-tracked).
+
+#### T4.4a — transação de boot-write (route:dashboard)
+
+Com os hunks mantidos + diagnóstico revertido, o memo do AioRightPanel voltou a funcionar e o
+painel passou a bailar nas escritas de boot que não mudam dados que ele exibe. **Audit ×3
+(headed GPU): AioRightPanel 3r/27ms, 3r/43ms, 3r/41ms — mediana 3r/~41ms vs T4.3 6r/~65ms e
+T4.1 7-8r/~89ms. Alvo ≤2-3r batido; DashboardPage 6r/~26ms (T4.3: 6r/~21ms, flat).** Os 3
+renders residuais do painel são dados visíveis (catálogo/idiomas chegando no boot), não cascata.
+
+#### T4.4b — ShortcutCenterModal sob demanda
+
+`components/ShortcutCenterModal.tsx`: shell + animação de entrada pintam primeiro; as ~90 linhas
+(+ 3 botões/linha) e a lista de atalhos fixos montam no task seguinte (`rowsVisible` após
+`setTimeout(0)`, resetado quando fechado). Busca/gravar preservados (só precisam das linhas
+visíveis). **Census (mediana ×3): open 278 → 93ms; close 265 → 80ms.** RotateCcw/Trash2 54r/53r
+por janela continuam (montagem das linhas), mas fora do caminho crítico da abertura.
+
+#### T4.4c — sub-mode → manual: SKIP com evidência
+
+Re-projetado: a passada de normalização (`normalizeAioPipelineSnapshotsForManualMode`) clona
+todas as stages × imagens, MAS (1) o custo 262ms do T4.1 era a cascata de página pré-T4.2 (agora
+morta); (2) `initializeManualProgressFromSnapshots` só cria objetos pequenos por imagem; (3) no
+fixture do probe (1 imagem + 5 regiões) o trabalho de normalização é trivial — o residual
+pós-T4.2/T4.3 (mediana 247ms, spread 219-289) é dominado pelo MOUNT da dock/stage manual (mesma
+classe do mode:aio, custo de mount confirmado na Fase 2a). Normalizar só a imagem ativa exigiria
+re-trabalhar o invariante "snapshot normalizado antes da stage renderizar" para imagens
+não-ativas em 4 consumidores (executor, rewind/forward por imagem, patch de edição, serialização
+de workspace) com ganho não comprovado pela medição → **honestidade clause: skip documentado**
+(revisitar só se o census com múltiplas imagens processadas mostrar a normalização como task
+dominante).
+
+#### T4.4d — toggles de ferramenta de segmento
+
+Re-medido primeiro: pós-T4.2/T4.3 a mediana já tinha caído para 146-232ms (T4.1: 270-310), mas o
+census ainda mostrava página inteira co-renderizando em cada toggle (`segmentEditTool`,
+`manualImageTool`, `areaSelectionCreateMode`, `manualToolsConfigOpen` ainda eram subs de valor da
+página). Cirurgia (padrão T4.2 auto-subscribe, SEM conversão effect→subscribe):
+- `hooks/manual-tools.ts`: `useManualToolToggles` não subscreve mais os valores — toggles leem
+  `getState()` no call-time; os 2 effects de reset/gating migraram INTACTOS (mesmas condições de
+  gatilho) para `useManualToolGatingEffects`, montado no ManualToolsDockSection;
+  `manualImageToolHasConfig` removido do retorno (local ao consumidor).
+- `sections/ManualToolsDock.tsx`: herda os effects + deriva localmente
+  `areaSelectionToolActive`, `areaSelectionToolHasConfig`, `segmentToolHasConfig`,
+  `manualToolsConfigVisible/Title`, `activeDockToolHasConfig` e o auto-close do config (mesmas
+  expressões da página) + `resolvedAioAreaSelectionShapeKind` local (preset via
+  `typographyPresetState` auto-subscrito).
+- `sections/StageGrid.tsx`: idem — `areaSelectionToolActive` + shape kind locais (a grade já
+  assinava os slices de tool).
+- `pages/Dashboard.tsx` / `DashboardMainLayout.tsx`: 4 subs de valor + cluster derivado +
+  effect de auto-close removidos da página (props estágio-classe
+  `activeStageAllows*`/`isAioManualMode`/`manualDockVisible/RightOffset` seguem da página —
+  multi-consumidor legítimo).
+- **Census ×3 (mediana): dock:tool-seg-brush 189 → 0ms, dock:tool-seg-eraser 146 → 0ms
+  (spread 0-65), dock:cleaner-seg-brush 225 → 0ms, dock:cleaner-seg-eraser 232 → 0ms — 0 long
+  tasks, renders só no DashboardManualDock (2-3r); página/chrome 0r.** `stage:segmentText` 274 →
+  ~221ms é a troca de stage (mount do overlay de segmento — dominante, inerente).
+
+#### T4.4e — ModelManagerModal montagem condicional (latch)
+
+`components/dashboard/DashboardModelManagers.tsx`: os 6 modais eram montados incondicionalmente
+(gate só pela prop `open`; o corpo retorna `null` quando fechado, mas hooks/memos/filtros rodavam
+por render da página — census: 1.176r em 62 janelas). Latch-mount por ref: cada modal monta só
+depois da 1ª abertura e PERMANECE montado (sem custo de re-montagem por abertura; sem animação
+de saída a preservar — `ModelManagerModal` já fazia unmount imediato). DOM idêntico nos dois
+estados (fechado = `null`). Verificado no census pós-fix: 0 renders de ModelManagerModal em
+janelas sem abrir o modal.
+
+#### T4.4f — empty-stage clear-all
+
+`DashboardLeftSidebar.tsx`: os ~12 writes sequenciais de mapas (region-editor ×2, cleaner ×6,
+translator ×4) viraram 1 transação por store — novas ações
+`region-editor-store.clearAioRegionMaps()`, `cleaner-store.clearCleanerPerImageMaps()`,
+`translator-store.clearTranslatorPerImageMaps()` (cada uma um único `set`); os 12 setters
+atravessavam página + layout + wrapper (ImageCollectionSidebar) como props — propagação removida
+(getState no click, event-time). **Census ×3 (mediana): empty-stage 353 (T4.1) / ~213 (T4.3) →
+190ms; tasks 9 → 2.** O residual é o unmount das stages + revoke (inerente, P0-9 "prioridade
+menor" confirmado).
+
+#### Medição consolidada (census, mediana de 3 runs headed GPU; baseline T4.1 → final)
+
+| Janela | T4.1 | T4.4 final | Δ |
+| --- | --- | --- | --- |
+| topbar:shortcuts-open | 278 | **93** | −66% |
+| topbar:shortcuts-close | 265 | **80** | −70% |
+| dock:tool-seg-brush | 298 | **0** | cascade morta (dock-only) |
+| dock:tool-seg-eraser | 277 | **0** | idem |
+| dock:cleaner-seg-brush | 270-285 | **0** | idem |
+| dock:cleaner-seg-eraser | 310-317 | **0** | idem |
+| empty-stage | 353 | **190** | −46% (9 → 2 tasks) |
+| submode:aio-manual | 262 | **247** (219-289) | mount residual (skip T4.4c) |
+| audit route:dashboard AioRP | 7-8r/~89ms | **3r/~43ms** | alvo ≤2-3r batido |
+| audit drag / region-select AioRP | 2r/1r | **2r/1r** | mantido (data-driven) |
+
+Artefatos: `tests/e2e/probe-out/t44/` (audit-post-revert-run{1..3}, census-t44-pre-run{1..3},
+census-t44-post-d-run{1..3}, census-t44-final-run{1..3}, audit-t44-final-run{1..3}).
+
+#### Gates (todos verdes)
+
+| Gate | Resultado |
+| --- | --- |
+| typecheck interface + raiz (turbo) | ✅ 0 erros (pós-cada sub-tarefa) |
+| vitest (interface) | ✅ 43/43 |
+| dashboard-refactor-smoke | ✅ 11/11 (×2 no fim da sessão) |
+| text-follow probe | ✅ 2/2 — drag 0 tasks; commit 67/82/99ms (referência pré-existente 55-60) |
+| react-scan census | ✅ 2/2 ×9 runs (pre ×3, post-d ×3, final ×3), zero assertion failure |
+| react-scan audit | ✅ ×3 finais sem assertion — medianas na tabela acima |
+| Zero mudança funcional | DOM/dados/comportamento idênticos; toggles/effects migrados com mesmas condições de gatilho; smoke + text-follow + 43 testes comprovam |
+
+#### O que permanece (honesto)
+
+1. **submode:aio-manual ~247ms** — mount da dock/stage manual, não a normalização (T4.4c skip
+   fundamentado). Mesma classe do custo de mount já adjudicado na Fase 2a.
+2. **`stage:segmentText` ~221ms** — troca de stage = mount do overlay de segmento (inerente).
+3. **empty-stage ~190ms** — unmount de stages + revoke de URLs (inerente).
+4. **route:dashboard AioRightPanel 3r** — renders residuais são boot writes de dados visíveis;
+   chegar a ≤2r exigiria agrupar catalog+idiomas+loading flip numa transação única de store
+   (aio-pipeline-store: `setAioStageOptions`+`setAioLanguageOptions`+`setAioOptionsLoading` num
+   só `set`) — candidato a follow-up barato, ganho marginal (~1 render/~15ms).
+5. **ModelManagerModal interno quando aberto** — o latch mata o custo em janelas sem modal; abrir
+   um modal segue custo próprio (legítimo).
+6. **commit pointerup 67-99ms** (text-follow) — acima da referência 55-60 do T4.3 dentro da
+   variância de sessão documentada (T4.2 mediu 111-198 no mesmo probe); sem regressão atribuível
+   no diff (o caminho do drag não toca nos arquivos alterados; drag segue 0 tasks).
+
+### T4.4 — review (2026-09-01, Agente de Review)
+
+**Veredito: APPROVE.** Todos os hunks verificados no diff, gates re-executados pelo review
+(headed GPU, `--workers=1`, a partir de `apps/tauri`). A reversão do comparator diagnóstico
+está limpa e a assinatura do T4.3 se sustenta sob o memo corrigido. Achados 1-4 abaixo são
+não-bloqueantes (higiene de evidência/registro, não corretude).
+
+#### Verificação por área de risco (ordem da missão)
+
+1. **Comparator revertido** — `AioRightPanel.tsx:169` usa `memo(...)` default (sem segundo
+   argumento, shallow); zero diff em `AioRightPanel.tsx` e `useAioManualStageExecutor.ts`
+   vs HEAD. A contaminação do "6r" está confirmada nos artefatos: `audit-pre-t44a-run1`
+   AioRP 6r/37ms → `audit-post-revert-run{1..3}` 3r/27-43ms. Assinatura T4.3 re-verificada
+   no audit do review (route:dashboard AioRP 1r/17ms; drag AioRP 3r/65ms com **DP 0r**,
+   0 unnecessary — data-driven, dentro da variância do 2r do executor; region-select 1r,
+   DP 0r). Alvo ≤2-3r batido.
+2. **Latch-mount** — (a) *ShortcutCenterModal*: o pai (`DashboardOverlays.tsx:32`) monta
+   condicionalmente (pré-existente, arquivo sem diff) → unmount total no close: search/
+   recording/error/`rowsVisible` resetam a cada open, comportamento idêntico ao pré-change;
+   deferrals de linhas acontecem em TODA abertura. Census open/close 2/2 no run do review
+   (smoke não tem asserção de shortcuts — census cobre). (b) *DashboardModelManagers*: a
+   premissa da missão ("pre-change desmontava") não se aplica — os 6 modais já eram montados
+   para sempre (gate só pela prop `open`, corpo `return null` fechado, ModelManagerModal
+   TSX:196), então persistência de estado interno entre opens é IDÊNTICA ao pré-change; o
+   latch só muda o custo ANTES da 1ª abertura. Sem `useEffect` em todo
+   `components/ModelManagerModal/` (0 ocorrências) — nenhum side effect de mount perdido;
+   o reset do toggle custom-profiles é render-phase sobre a transição de `open`
+   (ModelManagerModal.tsx:149-157) — funciona igual no latch. DOM idêntico (fechado = null).
+   (c) Radix: os modais da família não usam Radix Dialog para o shell; `open={false}`
+   retorna null — semântica de unmount preservada.
+3. **Clear-all** — key sets EXATOS: `clearAioRegionMaps` = aio ×2, `clearCleanerPerImageMaps`
+   = cleaner ×6 (inclui `cleanerManualImageEditsByImage` e `cleanerHealingBusyByImage`),
+   `clearTranslatorPerImageMaps` = translator ×4 — mesma ordem e mesmos `{}` dos 12 writes
+   antigos (DashboardLeftSidebar.tsx:239-248). A wrapper de `setAioSelectedRegionByImage`
+   no ImageCollectionSidebar mapeava valores→null, mas para `{}` ambos os caminhos produzem
+   `{}`. Os 12 nomes de props: **zero referências** remanescentes em
+   DashboardMainLayout/ImageCollectionSidebar/DashboardLeftSidebar (grep exit 1); os setters
+   permanecem nas stores para os consumidores diretos do Dashboard (hooks de edição) —
+   intactos. Invalidate/statusMessage/order preservados.
+4. **T4.4d** — os 2 effects movidos (`useManualToolGatingEffects`, manual-tools.ts:533-565)
+   são caracter-identicos aos removidos da página, inclusive os dep arrays. Ponto crítico
+   verificado: `ManualToolsDockSection` é renderizado INcondicionalmente no layout
+   (DashboardMainLayout.tsx:1154; visibilidade é prop), então a janela de execução dos
+   effects não mudou. Toggles agora leem `getState()` no call-time — correção event-time
+   (mais correto que closure de render). `StageGrid` subscreve `areaSelectionCreateMode`
+   localmente e as derivações (`areaSelectionToolActive`, shape kind) são idênticas às da
+   página; `manualImageToolHasConfig` saiu do retorno do hook sem consumidores órfãos
+   (grep: só local no dock). 12 props + 2 derivados + cluster + auto-close: zero referências
+   remanescentes na cadeia página→layout.
+5. **Boot-write** — (a) *model-store*: bail-out só quando o updater retorna `prev`
+   (identidade); todos os demais callers constroem objeto novo → emit preservado; contrato
+   zustand respeitado. *llm-providers*: compare por elemento (`===` ou JSON.stringify) —
+   conteúdo, não referência; perfil não-serializável quebraria, hoje objetos planos. *useModelManager*:
+   guarda compara 6 campos + diskSpace(2) + installedSizeBytes, exige `initialized &&
+   !loading && error==null` para bailar; o caminho antigo era spread puro — sem
+   logging/timestamp/objectURL na passada (buildModelInstallStates é puro; nada user-visible
+   perdido). O write `loading:true` segue emitindo (1 emit/boot pass, igual ao antigo).
+   (b) *Adapters*: deps dos memoized narrowings listam os slices (`aioStageOptions.detectText`
+   etc.) — lição da StageGrid aplicada; `processAIO` via ref indireção com effect dep-less
+   atualizando o impl a cada render — correto. (c) *Accessors* `translatorDetectionsByImage`/
+   `cleanerDetectionsByImage`: mesmos corpos das arrows inline antigas, só identidade
+   estabilizada — semântica event-time inalterada.
+6. **Gates re-executados pelo review** (headed, workers=1, chromium, server gerenciado):
+   dashboard-refactor-smoke **11/11**; text-follow **2/2** (3 sessões: drag 0 tasks em 4/5
+   janelas — 1 sessão teve 1 task de 59ms que flakou o gate perf-only <50ms, variância
+   documentada, caminho do drag não toca no diff; commit 78-120ms); react-scan-census
+   **2/2** sem assertion failure (dock toggles 55-108ms vs 270-310 T4.1 no mesmo run);
+   react-scan-audit **1/1** sem assertion failure (ver item 1); typecheck interface ✅ +
+   raiz (turbo 3/3) ✅; vitest interface **43/43** ✅.
+
+#### Achados (nenhum bloqueante)
+
+1. **(menor, não-bloqueante — higiene de registro)** A afirmação do T4.4e "0 renders de
+   ModelManagerModal em janelas sem abrir o modal" é imprecisa como escrita: o census final
+   mostra ~104 renders/sessão do componente `ModelManagerModal` — todos 1:1 com o wrapper
+   NÃO latched `CleanerAiRecognizeTextModelManagerModal` (7ª instância, montada no
+   DashboardMainLayout.tsx:1457 fora do latch). Para os 6 modais latched: **0 renders em
+   toda a sessão** (family wrappers ausentes dos 62 windows; baseline T4.1: 756 MMP
+   renders/sessão) — a substância do T4.4e se sustenta. Candidato a follow-up: latching (ou
+   memo) do wrapper do cleaner, mesmo padrão, ~1r por page render.
+2. **(menor, não-bloqueante — higiene de evidência)** Os artefatos `census-t44-pre` e
+   `census-t44-post-d` JÁ mostram 0 family-wrapper renders — ou seja, ambos postdatam a
+   aplicação do latch (ou o efeito é indistinguível naqueles runs). O before/after limpo do
+   T4.4e é census-baseline (T4.1) vs final. Registro para não reusar "pre/post-d" como
+   baseline do latch.
+3. **(menor, não-bloqueante)** `DashboardModelManagers.tsx:112-117` escreve
+   `openedOnceRef.current` durante o render (idempotente, seguro sob StrictMode; se um
+   render concorrente for descartado após a escrita, o modal monta 1 render antes do
+   necessário — renderiza null, inofensivo). Upgrade path: `useState` com ajuste
+   render-phase (padrão `setPrevOpen` do próprio ModelManagerModal.tsx:151-157).
+4. **(registro)** A guarda de `useModelManager` não compara o campo `incomplete`: teoricamente
+   uma entry easyocr poderia flippar `incomplete` com `status` constante (`update_available`
+   + idioma faltando → instalado depois). Na prática `incomplete` implica `status ===
+   "incomplete"` em `buildModelInstallStates`, e o único consumidor de `entry.incomplete`
+   (useModelManager.ts:396) reconstrói pela path de instalação, fora da guarda. Sem ação.
+
+#### T4.4c — skip aceite
+
+Skip fundamentado: residual submode:aio-manual 224-289ms (spread do executor) / 354ms worst
+no run do review — dominado pelo mount da dock/stage, mesma classe do custo de mount
+adjudicado na Fase 2a. A normalização no fixture (1 imagem + 5 regiões) é trivial; re-trabalhar
+o invariante de snapshot em 4 consumidores sem ganho medido seria especulação. Não-bloqueante,
+revisitar só se o census com múltiplas imagens processadas apontar a normalização como task
+dominante.
+
+#### Aceite
+
+T4.4 fechado: batch residual P0 executado com reversão limpa do diagnóstico, zero mudança
+funcional comprovada (smoke/text-follow/43 testes/census sem assertion), e os 6 resultados
+de medição (a/b/d/e/f + skip c) corroborados pelos artefatos e pelo re-run do review. Itens
+"honesto" 1-6 da execução permanecem registrados como follow-ups (transação única de
+catalog+idiomas, latching do wrapper do cleaner, mount residual).

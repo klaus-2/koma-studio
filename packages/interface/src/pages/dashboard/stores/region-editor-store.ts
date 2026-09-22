@@ -43,6 +43,7 @@ interface RegionEditorStore {
       | Record<string, string | null>
       | ((prev: Record<string, string | null>) => Record<string, string | null>),
   ) => void;
+  clearAioRegionMaps: () => void;
   setTypographyPresetState: (state: TypographyPresetStateV1) => void;
 }
 
@@ -71,6 +72,8 @@ export const useRegionEditorStore = create<RegionEditorStore>()(
               ? value(state.aioSelectedRegionByImage)
               : value,
         })),
+      clearAioRegionMaps: () =>
+        set({ aioDetectionsByImage: {}, aioSelectedRegionByImage: {} }),
       setTypographyPresetState: (typographyPresetState) =>
         set({ typographyPresetState }),
     }),

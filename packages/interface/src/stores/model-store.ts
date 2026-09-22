@@ -65,13 +65,15 @@ export const modelStore = {
   },
   setState: (updater: Partial<ModelStoreState> | ((prev: ModelStoreState) => ModelStoreState)): void => {
     const prevState = state;
-    state =
+    const nextState =
       typeof updater === "function"
         ? updater(state)
         : {
-            ...state,
-            ...updater,
-          };
+          ...state,
+          ...updater,
+        };
+    if (nextState === prevState) return;
+    state = nextState;
     emit(prevState);
   },
   reset: (): void => {

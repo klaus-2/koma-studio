@@ -53,9 +53,7 @@ import {
 } from '../../../constants/dashboard.constants';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
-import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
-import { useCleanerStore } from '../stores/cleaner-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useExportStore } from '../stores/export-store';
 import { useStatusStore } from '../stores/status-store';
@@ -135,7 +133,6 @@ import type {
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import type { KeyboardShortcutConfigV2 } from '../../../shortcuts/keyboardShortcuts';
 import type { CustomLlmProfile } from '../../../utils/customLlm';
-import type { TypographyShapeKind } from '../../../typography/types';
 import type { AioStageKey } from '../../../types/aioModelPresets';
 import type { StageTabDef } from '../../AioStageTabBar';
 
@@ -189,8 +186,6 @@ type EnhanceActionsApi = ReturnType<typeof useDashboardEnhanceActions>;
 export interface DashboardMainLayoutProps {
   /* ── Stage section (page-derived values forwarded to StageGrid) ── */
   resolvedActiveId: string | null;
-  resolvedAioAreaSelectionShapeKind: TypographyShapeKind;
-  areaSelectionToolActive: boolean;
   translationNotesEnabled: boolean;
   currentEmptyPreviewTip: string | undefined;
   handleStageWheelZoom: (event: React.WheelEvent<HTMLElement>) => void;
@@ -323,10 +318,6 @@ export interface DashboardMainLayoutProps {
   aioFooterProcessingLabel: string | null;
   manualDockVisible: boolean;
   manualDockRightOffset: number;
-  manualToolsConfigVisible: boolean;
-  manualToolsConfigTitle: string;
-  areaSelectionToolHasConfig: boolean;
-  activeDockToolHasConfig: boolean;
   isAioManualMode: boolean;
   activeStageAllowsAreaTools: boolean;
   activeStageAllowsSegmentTools: boolean;
@@ -480,8 +471,6 @@ export interface DashboardMainLayoutProps {
 
 export default memo(function DashboardMainLayout({
   resolvedActiveId,
-  resolvedAioAreaSelectionShapeKind,
-  areaSelectionToolActive,
   translationNotesEnabled,
   currentEmptyPreviewTip,
   handleStageWheelZoom,
@@ -592,10 +581,6 @@ export default memo(function DashboardMainLayout({
   aioFooterProcessingLabel,
   manualDockVisible,
   manualDockRightOffset,
-  manualToolsConfigVisible,
-  manualToolsConfigTitle,
-  areaSelectionToolHasConfig,
-  activeDockToolHasConfig,
   isAioManualMode,
   activeStageAllowsAreaTools,
   activeStageAllowsSegmentTools,
@@ -811,42 +796,6 @@ export default memo(function DashboardMainLayout({
     toggleDesktopSidebar(false);
   }, [toggleDesktopSidebar]);
 
-  const setAioDetectionsByImage = useRegionEditorStore(
-    (s) => s.setAioDetectionsByImage,
-  );
-  const setAioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.setAioSelectedRegionByImage,
-  );
-  const setCleanerDetectionsByImage = useCleanerStore(
-    (s) => s.setCleanerDetectionsByImage,
-  );
-  const setCleanerSelectedRegionByImage = useCleanerStore(
-    (s) => s.setCleanerSelectedRegionByImage,
-  );
-  const setCleanerProcessedBaseByImage = useCleanerStore(
-    (s) => s.setCleanerProcessedBaseByImage,
-  );
-  const setCleanerRunMetaByImage = useCleanerStore(
-    (s) => s.setCleanerRunMetaByImage,
-  );
-  const setCleanerManualImageEditsByImage = useCleanerStore(
-    (s) => s.setCleanerManualImageEditsByImage,
-  );
-  const setCleanerHealingBusyByImage = useCleanerStore(
-    (s) => s.setCleanerHealingBusyByImage,
-  );
-  const setTranslatorDetectionsByImage = useTranslatorStore(
-    (s) => s.setTranslatorDetectionsByImage,
-  );
-  const setTranslatorSelectedRegionByImage = useTranslatorStore(
-    (s) => s.setTranslatorSelectedRegionByImage,
-  );
-  const setTranslatorRunMetaByImage = useTranslatorStore(
-    (s) => s.setTranslatorRunMetaByImage,
-  );
-  const setTranslatorProcessedBaseByImage = useTranslatorStore(
-    (s) => s.setTranslatorProcessedBaseByImage,
-  );
   const batchThreads = useAioPipelineStore((s) => s.batchThreads);
   const setBatchThreads = useAioPipelineStore((s) => s.setBatchThreads);
   const batchThreadsEnabled = useAioPipelineStore((s) => s.batchThreadsEnabled);
@@ -981,18 +930,6 @@ export default memo(function DashboardMainLayout({
         getRootProps={getRootProps}
         getInputProps={getInputProps}
         isDragActive={isDragActive}
-        setAioDetectionsByImage={setAioDetectionsByImage}
-        setAioSelectedRegionByImage={setAioSelectedRegionByImage}
-        setCleanerDetectionsByImage={setCleanerDetectionsByImage}
-        setCleanerSelectedRegionByImage={setCleanerSelectedRegionByImage}
-        setCleanerProcessedBaseByImage={setCleanerProcessedBaseByImage}
-        setCleanerRunMetaByImage={setCleanerRunMetaByImage}
-        setCleanerManualImageEditsByImage={setCleanerManualImageEditsByImage}
-        setCleanerHealingBusyByImage={setCleanerHealingBusyByImage}
-        setTranslatorDetectionsByImage={setTranslatorDetectionsByImage}
-        setTranslatorSelectedRegionByImage={setTranslatorSelectedRegionByImage}
-        setTranslatorRunMetaByImage={setTranslatorRunMetaByImage}
-        setTranslatorProcessedBaseByImage={setTranslatorProcessedBaseByImage}
         invalidateAioPipelineHistory={invalidateAioPipelineHistory}
         toggleDesktopSidebar={toggleDesktopSidebar}
         startSidebarResize={startSidebarResize}
@@ -1166,8 +1103,6 @@ export default memo(function DashboardMainLayout({
           getAioFallbackStageKey={getAioFallbackStageKey}
           getAioDownloadItemForImage={getAioDownloadItemForImage}
           resolvedActiveId={resolvedActiveId}
-          resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKind}
-          areaSelectionToolActive={areaSelectionToolActive}
           applyAutoDetectedShapeToActiveRegion={applyAutoDetectedShapeToActiveRegion}
           applyAutoDetectedShapeToRegionById={applyAutoDetectedShapeToRegionById}
           applyTypographyPresetToRegionById={applyTypographyPresetToRegionById}
@@ -1210,16 +1145,10 @@ export default memo(function DashboardMainLayout({
       <ManualToolsDockSection
         manualDockVisible={manualDockVisible}
         manualDockRightOffset={manualDockRightOffset}
-        manualToolsConfigVisible={manualToolsConfigVisible}
-        manualToolsConfigTitle={manualToolsConfigTitle}
-        areaSelectionToolHasConfig={areaSelectionToolHasConfig}
-        activeDockToolHasConfig={activeDockToolHasConfig}
         isAioManualMode={isAioManualMode}
-        areaSelectionToolActive={areaSelectionToolActive}
         activeStageAllowsAreaTools={activeStageAllowsAreaTools}
         activeStageAllowsSegmentTools={activeStageAllowsSegmentTools}
         activeStageAllowsManualImageTools={activeStageAllowsManualImageTools}
-        resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKind}
         duplicateSelectedTypographerRegion={
           duplicateSelectedTypographerRegion
         }

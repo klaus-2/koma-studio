@@ -1,10 +1,16 @@
 import type { TypographyShapeKind } from '../../../typography/types';
+import { resolveTypographyPresetForMode } from '../../../typography/presets';
+import { useEffect, useMemo } from 'react';
+import { useI18n } from '../../../i18n';
 import type { useAioRegionEditing } from '../hooks/region-editor';
 import type { useCleanerManualEdits } from '../hooks/cleaner';
+import {
+  useManualToolGatingEffects,
+} from '../hooks/manual-tools';
 import type {
   useAioManualEdits,
   useAioWandHealing,
-  useManualToolToggles,
+  useManualToolToggles as useManualToolTogglesApi,
 } from '../hooks/manual-tools';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
@@ -17,21 +23,15 @@ import { HealingToolHint } from '../../../components/dashboard/HealingToolHint';
 type AioRegionEditingApi = ReturnType<typeof useAioRegionEditing>;
 
 interface ManualToolsDockSectionProps {
-  /* ── Dock gating (multi-store derived in the page; selector candidates in T12) ── */
+  /* ── Dock gating (stage-class booleans; tool-value derivations are local) ── */
   manualDockVisible: boolean;
   manualDockRightOffset: number;
-  manualToolsConfigVisible: boolean;
-  manualToolsConfigTitle: string;
-  areaSelectionToolHasConfig: boolean;
-  activeDockToolHasConfig: boolean;
   isAioManualMode: boolean;
-  areaSelectionToolActive: boolean;
   activeStageAllowsAreaTools: boolean;
   activeStageAllowsSegmentTools: boolean;
   activeStageAllowsManualImageTools: boolean;
 
   /* ── Region editor / typographer callbacks (not yet migrated) ── */
-  resolvedAioAreaSelectionShapeKind: TypographyShapeKind;
   duplicateSelectedTypographerRegion: AioRegionEditingApi['duplicateSelectedTypographerRegion'];
   applyAutoDetectedShapeToActiveRegion: AioRegionEditingApi['applyAutoDetectedShapeToActiveRegion'];
   convertActiveTypographerShape: AioRegionEditingApi['convertActiveTypographerShape'];
@@ -44,10 +44,10 @@ interface ManualToolsDockSectionProps {
   activeId: string | null;
   clearManualWandSelection: (imageId: string) => void;
   toggleManualToolsConfig: ReturnType<
-    typeof useManualToolToggles
+    typeof useManualToolTogglesApi
   >['toggleManualToolsConfig'];
   toggleManualImageTool: ReturnType<
-    typeof useManualToolToggles
+    typeof useManualToolTogglesApi
   >['toggleManualImageTool'];
   clearCleanerManualPaintForImage: ReturnType<
     typeof useCleanerManualEdits
@@ -78,16 +78,10 @@ interface ManualToolsDockSectionProps {
 export default function ManualToolsDockSection({
   manualDockVisible,
   manualDockRightOffset,
-  manualToolsConfigVisible,
-  manualToolsConfigTitle,
-  areaSelectionToolHasConfig,
-  activeDockToolHasConfig,
   isAioManualMode,
-  areaSelectionToolActive,
   activeStageAllowsAreaTools,
   activeStageAllowsSegmentTools,
   activeStageAllowsManualImageTools,
-  resolvedAioAreaSelectionShapeKind,
   duplicateSelectedTypographerRegion,
   applyAutoDetectedShapeToActiveRegion,
   convertActiveTypographerShape,
@@ -106,6 +100,7 @@ export default function ManualToolsDockSection({
   activeHasManualPaintLayer,
   activeHasManualEdits,
 }: ManualToolsDockSectionProps) {
+  const { t } = useI18n();
   const setManualToolsConfigOpen = useManualToolsStore(
     (s) => s.setManualToolsConfigOpen,
   );
@@ -153,12 +148,78 @@ export default function ManualToolsDockSection({
   );
   const setSegmentEditTool = useManualToolsStore((s) => s.setSegmentEditTool);
   const setManualImageTool = useManualToolsStore((s) => s.setManualImageTool);
+  const manualToolsConfigOpen = useManualToolsStore(
+    (s) => s.manualToolsConfigOpen,
+  );
   const healingHintTrigger = useManualToolsStore((s) => s.healingHintTrigger);
+  const typographyPresetState = useRegionEditorStore(
+    (s) => s.typographyPresetState,
+  );
   const mode = useUiShellStore((s) => s.mode);
   const keyboardShortcutConfig = useUiShellStore(
     (s) => s.keyboardShortcutConfig,
   );
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
+
+  useManualToolGatingEffects({
+    activeStageAllowsAreaTools,
+    activeStageAllowsSegmentTools,
+    activeStageAllowsManualImageTools,
+  });
+
+  const resolvedAioAreaSelectionShapeKindLocal = useMemo<TypographyShapeKind>(() => {
+    if (
+      areaSelectionCreateMode === 'square' ||
+      areaSelectionCreateMode === 'rounded'
+    ) {
+      return areaSelectionCreateMode;
+    }
+    return (
+      resolveTypographyPresetForMode('text_bubble', typographyPresetState)
+        ?.defaultShapeKind ?? 'rounded'
+    );
+  }, [areaSelectionCreateMode, typographyPresetState]);
+
+  const areaSelectionToolActive =
+    segmentEditTool === 'select' && manualImageTool === 'none';
+  const manualImageToolHasConfig =
+    manualImageTool === 'paint' ||
+    manualImageTool === 'paint_eraser' ||
+    manualImageTool === 'healing_brush' ||
+    manualImageTool === 'magic_wand';
+  const areaSelectionToolHasConfig =
+    activeStageAllowsAreaTools && areaSelectionToolActive;
+  const segmentToolHasConfig =
+    activeStageAllowsSegmentTools &&
+    (segmentEditTool === 'brush' || segmentEditTool === 'eraser');
+  const manualToolHasConfigActiveStage =
+    activeStageAllowsManualImageTools && manualImageToolHasConfig;
+  const activeDockToolHasConfig =
+    areaSelectionToolHasConfig ||
+    segmentToolHasConfig ||
+    manualToolHasConfigActiveStage;
+  const manualToolsConfigVisible =
+    manualDockVisible && manualToolsConfigOpen && activeDockToolHasConfig;
+  const manualToolsConfigTitle = areaSelectionToolHasConfig
+    ? t('dashboard.status.toolSelectArea')
+    : segmentToolHasConfig
+      ? segmentEditTool === 'brush'
+        ? t('dashboard.status.toolSegmentBrush')
+        : t('dashboard.status.toolSegmentEraser')
+      : manualToolHasConfigActiveStage
+        ? manualImageTool === 'paint'
+          ? 'Pincel'
+          : manualImageTool === 'paint_eraser'
+            ? 'Borracha'
+            : manualImageTool === 'magic_wand'
+              ? 'Varinha'
+              : 'Healing'
+        : 'Ferramenta';
+  useEffect(() => {
+    if (!activeDockToolHasConfig && manualToolsConfigOpen) {
+      setManualToolsConfigOpen(false);
+    }
+  }, [activeDockToolHasConfig, manualToolsConfigOpen, setManualToolsConfigOpen]);
 
   const activeSelectedRegion = useRegionEditorStore((s) => {
     if (!activeId) return null;
@@ -192,7 +253,7 @@ export default function ManualToolsDockSection({
           areaSelectionToolHasConfig={areaSelectionToolHasConfig}
           areaSelectionCreateMode={areaSelectionCreateMode}
           setAreaSelectionCreateMode={setAreaSelectionCreateMode}
-          resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKind}
+          resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKindLocal}
           activeSelectedRegion={activeSelectedRegion}
           duplicateSelectedTypographerRegion={
             duplicateSelectedTypographerRegion

@@ -91,12 +91,26 @@ export const useLlmProvidersStore = create<LlmProvidersStore>()(
               : llmSettings,
         })),
       setCustomLlmProfiles: (profiles) =>
-        set((state) => ({
-          customLlmProfiles:
+        set((state) => {
+          const next =
             typeof profiles === 'function'
               ? profiles(state.customLlmProfiles)
-              : profiles,
-        })),
+              : profiles;
+          const prev = state.customLlmProfiles;
+          const sameProfiles =
+            next === prev ||
+            (Array.isArray(next) &&
+              Array.isArray(prev) &&
+              next.length === prev.length &&
+              next.every(
+                (profile, index) =>
+                  profile === prev[index] ||
+                  JSON.stringify(profile) === JSON.stringify(prev[index]),
+              ));
+          return sameProfiles
+            ? { customLlmProfiles: prev }
+            : { customLlmProfiles: next };
+        }),
       setCustomLlmProfilesLoading: (customLlmProfilesLoading) =>
         set({ customLlmProfilesLoading }),
       setCustomLlmProfilesError: (customLlmProfilesError) =>

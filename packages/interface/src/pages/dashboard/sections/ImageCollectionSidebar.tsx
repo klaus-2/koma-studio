@@ -6,11 +6,7 @@ import DashboardLeftSidebar, {
 import { SIDEBAR_RESIZE_STEP } from '../../../constants/dashboard.constants';
 import { getRotatedDims } from '../../../utils/dashboard.utils';
 import type {
-  AioManualImageEditState,
-  AioTextRegion,
-  CleanerRunMeta,
   DashboardProcessingStatsSummary,
-  TranslatorVisualRunMeta,
 } from '../../../types/dashboard.types';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
@@ -37,18 +33,6 @@ interface ImageCollectionSidebarProps {
   isDragActive: boolean;
 
   /* ── Cross-domain region/state setters (not yet migrated) ── */
-  setAioDetectionsByImage: React.Dispatch<React.SetStateAction<Record<string, AioTextRegion[]>>>;
-  setAioSelectedRegionByImage: React.Dispatch<React.SetStateAction<Record<string, string | null>>>;
-  setCleanerDetectionsByImage: React.Dispatch<React.SetStateAction<Record<string, AioTextRegion[]>>>;
-  setCleanerSelectedRegionByImage: React.Dispatch<React.SetStateAction<Record<string, string | null>>>;
-  setCleanerProcessedBaseByImage: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  setCleanerRunMetaByImage: React.Dispatch<React.SetStateAction<Record<string, CleanerRunMeta>>>;
-  setCleanerManualImageEditsByImage: React.Dispatch<React.SetStateAction<Record<string, AioManualImageEditState>>>;
-  setCleanerHealingBusyByImage: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  setTranslatorDetectionsByImage: React.Dispatch<React.SetStateAction<Record<string, AioTextRegion[]>>>;
-  setTranslatorSelectedRegionByImage: React.Dispatch<React.SetStateAction<Record<string, string | null>>>;
-  setTranslatorRunMetaByImage: React.Dispatch<React.SetStateAction<Record<string, TranslatorVisualRunMeta>>>;
-  setTranslatorProcessedBaseByImage: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   invalidateAioPipelineHistory: () => void;
 
   /* ── AIO pipeline (not yet migrated) ── */
@@ -74,18 +58,6 @@ export default function ImageCollectionSidebar({
   getRootProps,
   getInputProps,
   isDragActive,
-  setAioDetectionsByImage,
-  setAioSelectedRegionByImage,
-  setCleanerDetectionsByImage,
-  setCleanerSelectedRegionByImage,
-  setCleanerProcessedBaseByImage,
-  setCleanerRunMetaByImage,
-  setCleanerManualImageEditsByImage,
-  setCleanerHealingBusyByImage,
-  setTranslatorDetectionsByImage,
-  setTranslatorSelectedRegionByImage,
-  setTranslatorRunMetaByImage,
-  setTranslatorProcessedBaseByImage,
   invalidateAioPipelineHistory,
   getAioImageSnapshotMeta,
   rewindAioPipelineForImage,
@@ -132,32 +104,6 @@ export default function ImageCollectionSidebar({
       isDragActive={isDragActive}
       setImages={setImages}
       setActiveId={setActiveId}
-      setAioDetectionsByImage={(value) =>
-        setAioDetectionsByImage(value as Record<string, AioTextRegion[]>)
-      }
-      setAioSelectedRegionByImage={(value) => {
-        const next: Record<string, string | null> = {};
-        for (const [k] of Object.entries(value)) {
-          next[k] = null;
-        }
-        setAioSelectedRegionByImage(next);
-      }}
-      setCleanerDetectionsByImage={(value) =>
-        setCleanerDetectionsByImage(value as unknown as Record<string, AioTextRegion[]>)
-      }
-      setCleanerSelectedRegionByImage={setCleanerSelectedRegionByImage}
-      setCleanerProcessedBaseByImage={setCleanerProcessedBaseByImage}
-      setCleanerRunMetaByImage={setCleanerRunMetaByImage}
-      setCleanerManualImageEditsByImage={setCleanerManualImageEditsByImage}
-      setCleanerHealingBusyByImage={setCleanerHealingBusyByImage}
-      setTranslatorDetectionsByImage={(value) =>
-        setTranslatorDetectionsByImage(
-          value as Record<string, AioTextRegion[]>,
-        )
-      }
-      setTranslatorSelectedRegionByImage={setTranslatorSelectedRegionByImage}
-      setTranslatorRunMetaByImage={setTranslatorRunMetaByImage}
-      setTranslatorProcessedBaseByImage={setTranslatorProcessedBaseByImage}
       invalidateAioPipelineHistory={invalidateAioPipelineHistory}
       setStatusMessage={setStatusMessage}
       toggleDesktopSidebar={toggleDesktopSidebar}

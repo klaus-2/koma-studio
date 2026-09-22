@@ -453,8 +453,6 @@ export function useManualToolToggles({
       resolvedActiveId,
     ],
   );
-  const segmentEditTool = useManualToolsStore((s) => s.segmentEditTool);
-  const manualImageTool = useManualToolsStore((s) => s.manualImageTool);
   const setSegmentEditTool = useManualToolsStore((s) => s.setSegmentEditTool);
   const setManualImageTool = useManualToolsStore((s) => s.setManualImageTool);
   const setManualToolsConfigOpen = useManualToolsStore(
@@ -467,6 +465,75 @@ export function useManualToolToggles({
   const tryShowHealingHint = useCallback(() => {
     setHealingHintTrigger((v) => v + 1);
   }, [setHealingHintTrigger]);
+
+  const toggleManualImageTool = useCallback(
+    (tool: Exclude<ManualImageEditTool, 'none'>) => {
+      if (!activeStageAllowsManualImageTools) return;
+      const sameTool = useManualToolsStore.getState().manualImageTool === tool;
+      setSegmentEditTool('select');
+      setManualImageTool(sameTool ? 'none' : tool);
+      setManualToolsConfigOpen(!sameTool);
+      if (!sameTool && tool === 'healing_brush') {
+        tryShowHealingHint();
+      }
+    },
+    [activeStageAllowsManualImageTools, setManualImageTool, setManualToolsConfigOpen, setSegmentEditTool, tryShowHealingHint],
+  );
+
+  const toggleManualToolsConfig = useCallback(() => {
+    const state = useManualToolsStore.getState();
+    const manualImageToolHasConfig =
+      state.manualImageTool === 'paint' ||
+      state.manualImageTool === 'paint_eraser' ||
+      state.manualImageTool === 'healing_brush' ||
+      state.manualImageTool === 'magic_wand';
+    const hasAreaSelectionConfig =
+      activeStageAllowsAreaTools &&
+      state.segmentEditTool === 'select' &&
+      state.manualImageTool === 'none';
+    const hasSegmentConfig =
+      activeStageAllowsSegmentTools &&
+      (state.segmentEditTool === 'brush' || state.segmentEditTool === 'eraser');
+    const hasManualConfig =
+      activeStageAllowsManualImageTools && manualImageToolHasConfig;
+    if (!hasAreaSelectionConfig && !hasSegmentConfig && !hasManualConfig) return;
+    setManualToolsConfigOpen((current) => !current);
+  }, [
+    activeStageAllowsAreaTools,
+    activeStageAllowsManualImageTools,
+    activeStageAllowsSegmentTools,
+    setManualToolsConfigOpen,
+  ]);
+
+  return {
+    isAioManualMode,
+    activeStageAllowsAreaTools,
+    activeStageAllowsSegmentTools,
+    activeStageAllowsManualImageTools,
+    tryShowHealingHint,
+    toggleManualImageTool,
+    toggleManualToolsConfig,
+  };
+}
+
+interface UseManualToolGatingEffectsArgs {
+  activeStageAllowsAreaTools: boolean;
+  activeStageAllowsSegmentTools: boolean;
+  activeStageAllowsManualImageTools: boolean;
+}
+
+export function useManualToolGatingEffects({
+  activeStageAllowsAreaTools,
+  activeStageAllowsSegmentTools,
+  activeStageAllowsManualImageTools,
+}: UseManualToolGatingEffectsArgs) {
+  const segmentEditTool = useManualToolsStore((s) => s.segmentEditTool);
+  const manualImageTool = useManualToolsStore((s) => s.manualImageTool);
+  const setSegmentEditTool = useManualToolsStore((s) => s.setSegmentEditTool);
+  const setManualImageTool = useManualToolsStore((s) => s.setManualImageTool);
+  const setManualToolsConfigOpen = useManualToolsStore(
+    (s) => s.setManualToolsConfigOpen,
+  );
 
   useEffect(() => {
     if (!activeStageAllowsSegmentTools && segmentEditTool !== 'select') {
@@ -488,62 +555,6 @@ export function useManualToolToggles({
       }
     }
   }, [activeStageAllowsAreaTools, activeStageAllowsManualImageTools, manualImageTool, segmentEditTool, setManualImageTool, setManualToolsConfigOpen]);
-
-  const toggleManualImageTool = useCallback(
-    (tool: Exclude<ManualImageEditTool, 'none'>) => {
-      if (!activeStageAllowsManualImageTools) return;
-      const sameTool = manualImageTool === tool;
-      setSegmentEditTool('select');
-      setManualImageTool(sameTool ? 'none' : tool);
-      setManualToolsConfigOpen(!sameTool);
-      if (!sameTool && tool === 'healing_brush') {
-        tryShowHealingHint();
-      }
-    },
-    [activeStageAllowsManualImageTools, manualImageTool, setManualImageTool, setManualToolsConfigOpen, setSegmentEditTool, tryShowHealingHint],
-  );
-
-  const manualImageToolHasConfig = useMemo(
-    () =>
-      manualImageTool === 'paint' ||
-      manualImageTool === 'paint_eraser' ||
-      manualImageTool === 'healing_brush' ||
-      manualImageTool === 'magic_wand',
-    [manualImageTool],
-  );
-
-  const toggleManualToolsConfig = useCallback(() => {
-    const hasAreaSelectionConfig =
-      activeStageAllowsAreaTools &&
-      segmentEditTool === 'select' &&
-      manualImageTool === 'none';
-    const hasSegmentConfig =
-      activeStageAllowsSegmentTools &&
-      (segmentEditTool === 'brush' || segmentEditTool === 'eraser');
-    const hasManualConfig =
-      activeStageAllowsManualImageTools && manualImageToolHasConfig;
-    if (!hasAreaSelectionConfig && !hasSegmentConfig && !hasManualConfig) return;
-    setManualToolsConfigOpen((current) => !current);
-  }, [
-    activeStageAllowsAreaTools,
-    activeStageAllowsManualImageTools,
-    activeStageAllowsSegmentTools,
-    manualImageTool,
-    manualImageToolHasConfig,
-    segmentEditTool,
-    setManualToolsConfigOpen,
-  ]);
-
-  return {
-    isAioManualMode,
-    activeStageAllowsAreaTools,
-    activeStageAllowsSegmentTools,
-    activeStageAllowsManualImageTools,
-    tryShowHealingHint,
-    manualImageToolHasConfig,
-    toggleManualImageTool,
-    toggleManualToolsConfig,
-  };
 }
 
 /* ── Active-image manual edit state (mode-dependent aio/cleaner switch) ── */

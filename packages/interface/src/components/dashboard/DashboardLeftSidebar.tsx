@@ -20,12 +20,12 @@ import { useI18n } from '../../i18n';
 import VersionBadge from '../VersionBadge';
 import { cn } from '../../utils/dashboard.utils';
 import { useExportStore } from '../../pages/dashboard/stores/export-store';
+import { useRegionEditorStore } from '../../pages/dashboard/stores/region-editor-store';
+import { useCleanerStore } from '../../pages/dashboard/stores/cleaner-store';
+import { useTranslatorStore } from '../../pages/dashboard/stores/translator-store';
 import type {
-  AioManualImageEditState,
-  CleanerRunMeta,
   DashboardProcessingStatsSummary,
   LoadedImage,
-  TranslatorVisualRunMeta,
 } from '../../types/dashboard.types';
 
 export interface AioImageHistoryMeta {
@@ -53,18 +53,6 @@ interface DashboardLeftSidebarProps {
   isDragActive: boolean;
   setImages: (images: LoadedImage[]) => void;
   setActiveId: (id: string | null) => void;
-  setAioDetectionsByImage: (value: Record<string, unknown>) => void;
-  setAioSelectedRegionByImage: (value: Record<string, string | null>) => void;
-  setCleanerDetectionsByImage: (value: Record<string, unknown>) => void;
-  setCleanerSelectedRegionByImage: (value: Record<string, string | null>) => void;
-  setCleanerProcessedBaseByImage: (value: Record<string, string>) => void;
-  setCleanerRunMetaByImage: (value: Record<string, CleanerRunMeta>) => void;
-  setCleanerManualImageEditsByImage: (value: Record<string, AioManualImageEditState>) => void;
-  setCleanerHealingBusyByImage: (value: Record<string, boolean>) => void;
-  setTranslatorDetectionsByImage: (value: Record<string, unknown>) => void;
-  setTranslatorSelectedRegionByImage: (value: Record<string, string | null>) => void;
-  setTranslatorRunMetaByImage: (value: Record<string, TranslatorVisualRunMeta>) => void;
-  setTranslatorProcessedBaseByImage: (value: Record<string, string>) => void;
   invalidateAioPipelineHistory: () => void;
   setStatusMessage: (value: string) => void;
   toggleDesktopSidebar: (animate: boolean) => void;
@@ -98,18 +86,6 @@ export default function DashboardLeftSidebar({
   isDragActive,
   setImages,
   setActiveId,
-  setAioDetectionsByImage,
-  setAioSelectedRegionByImage,
-  setCleanerDetectionsByImage,
-  setCleanerSelectedRegionByImage,
-  setCleanerProcessedBaseByImage,
-  setCleanerRunMetaByImage,
-  setCleanerManualImageEditsByImage,
-  setCleanerHealingBusyByImage,
-  setTranslatorDetectionsByImage,
-  setTranslatorSelectedRegionByImage,
-  setTranslatorRunMetaByImage,
-  setTranslatorProcessedBaseByImage,
   invalidateAioPipelineHistory,
   setStatusMessage,
   toggleDesktopSidebar,
@@ -260,18 +236,9 @@ export default function DashboardLeftSidebar({
                 setImages([]);
                 setActiveId(null);
                 setDownloadItems([]);
-                setAioDetectionsByImage({});
-                setAioSelectedRegionByImage({});
-                setCleanerDetectionsByImage({});
-                setCleanerSelectedRegionByImage({});
-                setCleanerProcessedBaseByImage({});
-                setCleanerRunMetaByImage({});
-                setCleanerManualImageEditsByImage({});
-                setCleanerHealingBusyByImage({});
-                setTranslatorDetectionsByImage({});
-                setTranslatorSelectedRegionByImage({});
-                setTranslatorRunMetaByImage({});
-                setTranslatorProcessedBaseByImage({});
+                useRegionEditorStore.getState().clearAioRegionMaps();
+                useCleanerStore.getState().clearCleanerPerImageMaps();
+                useTranslatorStore.getState().clearTranslatorPerImageMaps();
                 invalidateAioPipelineHistory();
                 setStatusMessage(t('dashboard.sidebar.cleared'));
               }}

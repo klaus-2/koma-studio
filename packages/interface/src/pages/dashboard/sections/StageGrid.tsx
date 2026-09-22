@@ -56,6 +56,7 @@ import type {
   DownloadItem,
 } from '../../../types/dashboard.types';
 import type { TypographyShapeKind } from '../../../typography/types';
+import { resolveTypographyPresetForMode } from '../../../typography/presets';
 import { listTextFillSwatches } from '../../../utils/textFillPicker';
 
 /* Store/hook-backed prop types (same fields the page reads today). */
@@ -127,8 +128,6 @@ export interface DashboardStageSectionProps {
 
   /* ── Region-editor / typographer derived values ── */
   resolvedActiveId: string | null;
-  resolvedAioAreaSelectionShapeKind: TypographyShapeKind;
-  areaSelectionToolActive: boolean;
   applyAutoDetectedShapeToActiveRegion: AioRegionEditingApi['applyAutoDetectedShapeToActiveRegion'];
   applyAutoDetectedShapeToRegionById: AioRegionEditingApi['applyAutoDetectedShapeToRegionById'];
   applyTypographyPresetToRegionById: AioRegionEditingApi['applyTypographyPresetToRegionById'];
@@ -187,8 +186,6 @@ export default function DashboardStageSection({
   getAioFallbackStageKey,
   getAioDownloadItemForImage,
   resolvedActiveId,
-  resolvedAioAreaSelectionShapeKind,
-  areaSelectionToolActive,
   applyAutoDetectedShapeToActiveRegion,
   applyAutoDetectedShapeToRegionById,
   applyTypographyPresetToRegionById,
@@ -225,6 +222,9 @@ export default function DashboardStageSection({
   );
   const typographyPresetState = useRegionEditorStore(
     (s) => s.typographyPresetState,
+  );
+  const areaSelectionCreateMode = useManualToolsStore(
+    (s) => s.areaSelectionCreateMode,
   );
   // Same derivations the page computes for these lists (single source stores).
   const textFillSwatches = useMemo(
@@ -270,6 +270,21 @@ export default function DashboardStageSection({
   );
   const segmentEditTool = useManualToolsStore((s) => s.segmentEditTool);
   const segmentBrushSize = useManualToolsStore((s) => s.segmentBrushSize);
+
+  const areaSelectionToolActive =
+    segmentEditTool === 'select' && manualImageTool === 'none';
+  const resolvedAioAreaSelectionShapeKind = useMemo<TypographyShapeKind>(() => {
+    if (
+      areaSelectionCreateMode === 'square' ||
+      areaSelectionCreateMode === 'rounded'
+    ) {
+      return areaSelectionCreateMode;
+    }
+    return (
+      resolveTypographyPresetForMode('text_bubble', typographyPresetState)
+        ?.defaultShapeKind ?? 'rounded'
+    );
+  }, [areaSelectionCreateMode, typographyPresetState]);
   const typographerSelectionTool = useTypographerStore(
     (s) => s.typographerSelectionTool,
   );

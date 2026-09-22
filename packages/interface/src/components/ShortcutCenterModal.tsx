@@ -45,6 +45,14 @@ export function ShortcutCenterModal({
     msg: string | null;
   }>({ id: null, msg: null });
 
+  const [rowsVisible, setRowsVisible] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = window.setTimeout(() => setRowsVisible(true), 0);
+    return () => window.clearTimeout(handle);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -230,7 +238,7 @@ export function ShortcutCenterModal({
             </span>
           </div>
 
-          {CATEGORY_ORDER.map((cat) => {
+          {rowsVisible && CATEGORY_ORDER.map((cat) => {
             const actions = grouped.get(cat) ?? [];
             if (actions.length === 0) return null;
             return (
@@ -311,7 +319,7 @@ export function ShortcutCenterModal({
           })}
 
           {/* Fixed shortcuts */}
-          {filteredFixedShortcuts.length > 0 && (
+          {rowsVisible && filteredFixedShortcuts.length > 0 && (
             <section className="koma-sc-section">
               <div className="koma-sc-section__head">
                 <h3 className="koma-sc-section__title">
@@ -342,7 +350,7 @@ export function ShortcutCenterModal({
             </section>
           )}
 
-          {visibleShortcutCount === 0 && (
+          {rowsVisible && visibleShortcutCount === 0 && (
             <div className="koma-sc-empty">
               {t('shortcutModal.noResults', { query: searchQuery.trim() })}
             </div>
