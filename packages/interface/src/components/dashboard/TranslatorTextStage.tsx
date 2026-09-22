@@ -40,7 +40,9 @@ function useTranslatorTextDraft(
 ) {
   const pendingDraftRef = useRef<string | null>(null);
   const storeTextRef = useRef(translatorDraftText);
-  storeTextRef.current = translatorDraftText;
+  useEffect(() => {
+    storeTextRef.current = translatorDraftText;
+  }, [translatorDraftText]);
   const [draftInputValue, setDraftInputValue] = useState(translatorDraftText);
 
   // External store writes (import, restore, clear) replace the draft.

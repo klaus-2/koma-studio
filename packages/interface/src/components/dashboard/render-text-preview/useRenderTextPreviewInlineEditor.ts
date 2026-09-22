@@ -74,7 +74,9 @@ export const useRenderTextPreviewInlineEditor = ({
     value: string;
   } | null>(null);
   const updateRegionTextRef = useRef(updateRegionText);
-  updateRegionTextRef.current = updateRegionText;
+  useEffect(() => {
+    updateRegionTextRef.current = updateRegionText;
+  }, [updateRegionText]);
 
   const commitPendingInlineEditorDraft = useCallback(() => {
     const pending = pendingDraftRef.current;

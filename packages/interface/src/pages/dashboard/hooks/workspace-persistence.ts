@@ -1,7 +1,10 @@
 import { useCallback, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
-import { useWorkspaceCaptureState } from './workspace-persistence.capture';
+import {
+  subscribeWorkspaceDomainStores,
+  useWorkspaceCaptureState,
+} from './workspace-persistence.capture';
 import { useWorkspaceRestoreState } from './workspace-persistence.restore';
 import type { AuthUser } from '../../../contexts/AuthContext';
 import { useI18n } from '../../../i18n';
@@ -468,15 +471,12 @@ export function useWorkspacePersistence({
       useLlmProvidersStore,
       useWorkspacePersistenceStore,
     ];
-    const unsubscribes = stores.map((store) =>
-      store.subscribe(() => {
-        workspaceChangeSignal();
-      }),
+    const unsubscribesAll = subscribeWorkspaceDomainStores(
+      stores,
+      workspaceChangeSignal,
     );
     workspaceChangeSignal();
-    return () => {
-      unsubscribes.forEach((unsubscribe) => unsubscribe());
-    };
+    return unsubscribesAll;
   }, [workspaceChangeSignal, freeProviderDrafts, currentOptimizerWorkspaceState, currentSplitterWorkspaceState, currentWatermarkWorkspaceState]);
 
   useEffect(() => {

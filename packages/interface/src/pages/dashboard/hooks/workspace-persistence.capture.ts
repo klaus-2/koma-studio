@@ -1,4 +1,19 @@
 /**
+ * Subscribes every domain store to one change callback. Owns its allocations
+ * and returns a single unsubscribe-all cleanup (Doctor: the effect must own
+ * every subscription it creates through one obvious cleanup path).
+ */
+export const subscribeWorkspaceDomainStores = (
+  stores: ReadonlyArray<{ subscribe: (listener: () => void) => () => void }>,
+  listener: () => void,
+): (() => void) => {
+  const unsubscribes = stores.map((store) => store.subscribe(listener));
+  return () => {
+    for (const unsubscribe of unsubscribes) unsubscribe();
+  };
+};
+
+/**
  * Workspace capture state — builds the DashboardWorkspaceCaptureState snapshot
  * from every domain store (the change-signal of the history/autosave
  * interlock), the object-URL release helper, the capture-state mirror effect
@@ -225,15 +240,12 @@ export function useWorkspaceCaptureState({
       useLlmProvidersStore,
       useWorkspacePersistenceStore,
     ];
-    const unsubscribes = stores.map((store) =>
-      store.subscribe(() => {
-        mirrorWorkspaceCaptureState();
-      }),
+    const unsubscribesAll = subscribeWorkspaceDomainStores(
+      stores,
+      mirrorWorkspaceCaptureState,
     );
     mirrorWorkspaceCaptureState();
-    return () => {
-      unsubscribes.forEach((unsubscribe) => unsubscribe());
-    };
+    return unsubscribesAll;
   }, [mirrorWorkspaceCaptureState]);
 
   const buildCaptureStateFromRestored = useCallback(

@@ -1457,3 +1457,6 @@ funcional comprovada (smoke/text-follow/43 testes/census sem assertion), e os 6 
 de medição (a/b/d/e/f + skip c) corroborados pelos artefatos e pelo re-run do review. Itens
 "honesto" 1-6 da execução permanecem registrados como follow-ups (transação única de
 catalog+idiomas, latching do wrapper do cleaner, mount residual).
+
+### Fecho da Fase 4 (2026-09-01)
+Programa concluído: T4.1 (census) → T4.2b (typing, 8416f44) → T4.2 (subscrições, 9832013) → T4.3 (panel/layout, c9c3686) → T4.4 (batch/defer, 2f24add) + fixes de Doctor no fecho (refs latest-value via effect; subscribe multi-store extraído para `subscribeWorkspaceDomainStores` com cleanup único — 0 erros restaurado). Gates finais: typecheck interface+root ✅, vitest 43/43 ✅, Doctor 0 erros ✅, smoke 11/11 ✅, text-follow 2/2 (drag 0 tasks) ✅, census 2/2 ✅, audit 1/1 ✅. Follow-ups registrados: latch do 7º modal (CleanerAiRecognize), boot single-transaction marginal, sub-mode/stage ~220-250ms são custos de mount (classe Fase 2a, adjudicados), commits text-follow 55-120ms (variância de sessão).
