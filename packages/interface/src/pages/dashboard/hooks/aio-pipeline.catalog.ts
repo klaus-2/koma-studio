@@ -259,27 +259,27 @@ export function useAioStageCatalogBuild({
 
     const pendingTranslationOption = pendingCustomSelections.translation
       ? {
-          key: pendingCustomSelections.translation,
-          name: t('dashboard.status.pendingCustomTranslationName'),
-          device: 'cloud',
-          use_case: t('dashboard.status.customProfilePendingSync'),
-          languages: ['multi'],
-          available: true,
-          implemented: true,
-          llm_capabilities: FULL_LLM_CAPABILITIES,
-        }
+        key: pendingCustomSelections.translation,
+        name: t('dashboard.status.pendingCustomTranslationName'),
+        device: 'cloud',
+        use_case: t('dashboard.status.customProfilePendingSync'),
+        languages: ['multi'],
+        available: true,
+        implemented: true,
+        llm_capabilities: FULL_LLM_CAPABILITIES,
+      }
       : null;
     const pendingOcrOption = pendingCustomSelections.ocr
       ? {
-          key: pendingCustomSelections.ocr,
-          name: t('dashboard.status.pendingCustomOcrName'),
-          device: 'cloud',
-          use_case: t('dashboard.status.customProfileOcrPendingSync'),
-          languages: ['multi'],
-          available: true,
-          implemented: true,
-          llm_capabilities: FULL_LLM_CAPABILITIES,
-        }
+        key: pendingCustomSelections.ocr,
+        name: t('dashboard.status.pendingCustomOcrName'),
+        device: 'cloud',
+        use_case: t('dashboard.status.customProfileOcrPendingSync'),
+        languages: ['multi'],
+        available: true,
+        implemented: true,
+        llm_capabilities: FULL_LLM_CAPABILITIES,
+      }
       : null;
 
     const builtOptions = buildAioStageCatalog({
@@ -292,27 +292,65 @@ export function useAioStageCatalogBuild({
       ...builtOptions,
       recognizeText:
         pendingOcrOption &&
-        !builtOptions.recognizeText.some(
-          (option) => option.key === pendingOcrOption.key,
-        )
+          !builtOptions.recognizeText.some(
+            (option) => option.key === pendingOcrOption.key,
+          )
           ? [...builtOptions.recognizeText, pendingOcrOption]
           : builtOptions.recognizeText,
       getTranslations:
         pendingTranslationOption &&
-        !builtOptions.getTranslations.some(
-          (option) => option.key === pendingTranslationOption.key,
-        )
+          !builtOptions.getTranslations.some(
+            (option) => option.key === pendingTranslationOption.key,
+          )
           ? [...builtOptions.getTranslations, pendingTranslationOption]
           : builtOptions.getTranslations,
     };
 
-    setAioStageOptions(nextOptions);
+    setAioStageOptions((prev) => {
+      const sameOptions = (
+        a: AioStageOption[],
+        b: AioStageOption[],
+      ): boolean =>
+        a.length === b.length &&
+        a.every(
+          (option, index) =>
+            JSON.stringify(option) === JSON.stringify(b[index]),
+        );
+      return (
+        Object.keys(prev).every((stage) =>
+          sameOptions(
+            prev[stage as keyof typeof prev],
+            nextOptions[stage as keyof typeof nextOptions],
+          ),
+        )
+          ? prev
+          : nextOptions
+      );
+    });
     // The catalog stores i18n keys (e.g. "aioStage.lang.en") as `label` to keep
     // the data file locale-agnostic. Without resolving them through `t` here the
     // raw key leaks into the UI (and into preset names saved by the user).
-    setAioLanguageOptions({
-      source: SOURCE_LANGUAGE_OPTIONS.map((option) => ({ ...option, label: t(option.label) })),
-      target: TARGET_LANGUAGE_OPTIONS.map((option) => ({ ...option, label: t(option.label) })),
+    setAioLanguageOptions((prev) => {
+      const source = SOURCE_LANGUAGE_OPTIONS.map((option) => ({
+        ...option,
+        label: t(option.label),
+      }));
+      const target = TARGET_LANGUAGE_OPTIONS.map((option) => ({
+        ...option,
+        label: t(option.label),
+      }));
+      const sameList = (
+        a: Array<{ value: string; label: string }>,
+        b: Array<{ value: string; label: string }>,
+      ): boolean =>
+        a.length === b.length &&
+        a.every(
+          (option, index) =>
+            option.value === b[index]?.value && option.label === b[index]?.label,
+        );
+      return sameList(prev.source, source) && sameList(prev.target, target)
+        ? prev
+        : { source, target };
     });
     setAioSrcLang((prev) =>
       SOURCE_LANGUAGE_OPTIONS.some((option) => option.value === prev)
@@ -357,40 +395,49 @@ export function useAioStageCatalogBuild({
           (item) => item.key === prev.getTranslations,
         ) ||
           pendingCustomSelections.translation === prev.getTranslations);
-      return {
+      const next = {
         detectText:
           prev.detectText &&
-          nextOptions.detectText.some((item) => item.key === prev.detectText)
+            nextOptions.detectText.some((item) => item.key === prev.detectText)
             ? prev.detectText
             : detectDefault,
         recognizeText: keepCustomOcrSelection
           ? prev.recognizeText
           : prev.recognizeText &&
-              nextOptions.recognizeText.some(
-                (item) => item.key === prev.recognizeText,
-              )
+            nextOptions.recognizeText.some(
+              (item) => item.key === prev.recognizeText,
+            )
             ? prev.recognizeText
             : ocrDefault,
         getTranslations:
           prev.getTranslations &&
-          nextOptions.getTranslations.some(
-            (item) => item.key === prev.getTranslations,
-          )
+            nextOptions.getTranslations.some(
+              (item) => item.key === prev.getTranslations,
+            )
             ? prev.getTranslations
             : keepCustomTranslationSelection
               ? prev.getTranslations
               : translationDefault,
         segmentText:
           prev.segmentText &&
-          nextOptions.segmentText.some((item) => item.key === prev.segmentText)
+            nextOptions.segmentText.some((item) => item.key === prev.segmentText)
             ? prev.segmentText
             : segmentDefault,
         cleanImage:
           prev.cleanImage &&
-          nextOptions.cleanImage.some((item) => item.key === prev.cleanImage)
+            nextOptions.cleanImage.some((item) => item.key === prev.cleanImage)
             ? prev.cleanImage
             : cleanDefault,
       };
+      return (
+        next.detectText === prev.detectText &&
+          next.recognizeText === prev.recognizeText &&
+          next.getTranslations === prev.getTranslations &&
+          next.segmentText === prev.segmentText &&
+          next.cleanImage === prev.cleanImage
+          ? prev
+          : next
+      );
     });
     setAioOptionsLoading(false);
     // `t` deliberately outside the deps — parity with the baseline effect,

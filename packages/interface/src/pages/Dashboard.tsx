@@ -491,7 +491,6 @@ export const DashboardPage = ({
 
   // Typesetter
   // Downloads & Status
-  const downloadItems = useExportStore((s) => s.downloadItems);
   const setDownloadItems = useExportStore((s) => s.setDownloadItems);
   const setLastActionScope = useExportStore((s) => s.setLastActionScope);
   const statusMessage = useStatusStore((s) => s.statusMessage);
@@ -782,18 +781,22 @@ export const DashboardPage = ({
 
   const getAioDownloadItemForImage = useCallback(
     (imageId: string): DownloadItem | null =>
-      downloadItems.find(
-        (item) => item.scope === 'aio' && item.sourceImageId === imageId,
-      ) ?? null,
-    [downloadItems],
+      useExportStore
+        .getState()
+        .downloadItems.find(
+          (item) => item.scope === 'aio' && item.sourceImageId === imageId,
+        ) ?? null,
+    [],
   );
 
   const getCleanerDownloadItemForImage = useCallback(
     (imageId: string): DownloadItem | null =>
-      downloadItems.find(
-        (item) => item.scope === 'cleaner' && item.sourceImageId === imageId,
-      ) ?? null,
-    [downloadItems],
+      useExportStore
+        .getState()
+        .downloadItems.find(
+          (item) => item.scope === 'cleaner' && item.sourceImageId === imageId,
+        ) ?? null,
+    [],
   );
 
   const { updateCleanerRegionsForImage, selectCleanerRegionForImage } =
@@ -1307,62 +1310,120 @@ export const DashboardPage = ({
     }
     return t('dashboard.status.profilesPersistedBrowser');
   }, [customLlmProfilesMode, t]);
-  const translationFreeProviderManagerSection = (
-    <TranslationFreeProviderManagerSection
-      translationStandaloneCustomProfiles={translationStandaloneCustomProfiles}
-      getFreeProviderDraft={getFreeProviderDraft}
-      getSelectedFreeProviderProfileLabel={getSelectedFreeProviderProfileLabel}
-      updateFreeProviderDraft={updateFreeProviderDraft}
-      saveFreeProviderProfile={saveFreeProviderProfile}
-      useFreeProviderProfile={useFreeProviderProfile}
-      testFreeProviderConfig={testFreeProviderConfig}
-      useCustomProfileById={useCustomProfileById}
-      testCustomProfileConfig={testCustomProfileConfig}
-      saveCustomProfileInline={saveCustomProfileInline}
-      removeCustomLlmProfileById={removeCustomLlmProfileById}
-    />
+
+  const translationFreeProviderManagerSection = useMemo(
+    () => (
+      <TranslationFreeProviderManagerSection
+        translationStandaloneCustomProfiles={translationStandaloneCustomProfiles}
+        getFreeProviderDraft={getFreeProviderDraft}
+        getSelectedFreeProviderProfileLabel={getSelectedFreeProviderProfileLabel}
+        updateFreeProviderDraft={updateFreeProviderDraft}
+        saveFreeProviderProfile={saveFreeProviderProfile}
+        useFreeProviderProfile={useFreeProviderProfile}
+        testFreeProviderConfig={testFreeProviderConfig}
+        useCustomProfileById={useCustomProfileById}
+        testCustomProfileConfig={testCustomProfileConfig}
+        saveCustomProfileInline={saveCustomProfileInline}
+        removeCustomLlmProfileById={removeCustomLlmProfileById}
+      />
+    ),
+    [
+      translationStandaloneCustomProfiles,
+      getFreeProviderDraft,
+      getSelectedFreeProviderProfileLabel,
+      updateFreeProviderDraft,
+      saveFreeProviderProfile,
+      useFreeProviderProfile,
+      testFreeProviderConfig,
+      useCustomProfileById,
+      testCustomProfileConfig,
+      saveCustomProfileInline,
+      removeCustomLlmProfileById,
+    ],
   );
-  const ocrFreeProviderManagerSection = (
-    <OcrFreeProviderManagerSection
-      ocrStandaloneCustomProfiles={ocrStandaloneCustomProfiles}
-      getFreeProviderDraft={getFreeProviderDraft}
-      getSelectedFreeProviderProfileLabel={getSelectedFreeProviderProfileLabel}
-      updateFreeProviderDraft={updateFreeProviderDraft}
-      saveFreeProviderProfile={saveFreeProviderProfile}
-      useFreeProviderProfile={useFreeProviderProfile}
-      testFreeProviderConfig={testFreeProviderConfig}
-      useCustomProfileById={useCustomProfileById}
-      testCustomProfileConfig={testCustomProfileConfig}
-      saveCustomProfileInline={saveCustomProfileInline}
-      removeCustomLlmProfileById={removeCustomLlmProfileById}
-    />
+  const ocrFreeProviderManagerSection = useMemo(
+    () => (
+      <OcrFreeProviderManagerSection
+        ocrStandaloneCustomProfiles={ocrStandaloneCustomProfiles}
+        getFreeProviderDraft={getFreeProviderDraft}
+        getSelectedFreeProviderProfileLabel={getSelectedFreeProviderProfileLabel}
+        updateFreeProviderDraft={updateFreeProviderDraft}
+        saveFreeProviderProfile={saveFreeProviderProfile}
+        useFreeProviderProfile={useFreeProviderProfile}
+        testFreeProviderConfig={testFreeProviderConfig}
+        useCustomProfileById={useCustomProfileById}
+        testCustomProfileConfig={testCustomProfileConfig}
+        saveCustomProfileInline={saveCustomProfileInline}
+        removeCustomLlmProfileById={removeCustomLlmProfileById}
+      />
+    ),
+    [
+      ocrStandaloneCustomProfiles,
+      getFreeProviderDraft,
+      getSelectedFreeProviderProfileLabel,
+      updateFreeProviderDraft,
+      saveFreeProviderProfile,
+      useFreeProviderProfile,
+      testFreeProviderConfig,
+      useCustomProfileById,
+      testCustomProfileConfig,
+      saveCustomProfileInline,
+      removeCustomLlmProfileById,
+    ],
   );
-  const translationCustomProfilesManagerSection = (
-    <TranslationCustomProfilesManagerSection
-      translationStandaloneCustomProfiles={translationStandaloneCustomProfiles}
-      translationCustomProviderNotice={translationCustomProviderNotice}
-      llmProfilesPersistenceHint={llmProfilesPersistenceHint}
-      loadCustomLlmDraftFromProfile={loadCustomLlmDraftFromProfile}
-      updateCustomLlmDraft={updateCustomLlmDraft}
-      useExistingCustomProfile={useExistingCustomProfile}
-      resetCustomLlmDraft={resetCustomLlmDraft}
-      removeCustomLlmDraftProfile={removeCustomLlmDraftProfile}
-      saveCustomLlmDraftProfile={saveCustomLlmDraftProfile}
-      applyOllamaPresetToTranslationDraft={applyOllamaPresetToTranslationDraft}
-    />
+  const translationCustomProfilesManagerSection = useMemo(
+    () => (
+      <TranslationCustomProfilesManagerSection
+        translationStandaloneCustomProfiles={translationStandaloneCustomProfiles}
+        translationCustomProviderNotice={translationCustomProviderNotice}
+        llmProfilesPersistenceHint={llmProfilesPersistenceHint}
+        loadCustomLlmDraftFromProfile={loadCustomLlmDraftFromProfile}
+        updateCustomLlmDraft={updateCustomLlmDraft}
+        useExistingCustomProfile={useExistingCustomProfile}
+        resetCustomLlmDraft={resetCustomLlmDraft}
+        removeCustomLlmDraftProfile={removeCustomLlmDraftProfile}
+        saveCustomLlmDraftProfile={saveCustomLlmDraftProfile}
+        applyOllamaPresetToTranslationDraft={applyOllamaPresetToTranslationDraft}
+      />
+    ),
+    [
+      translationStandaloneCustomProfiles,
+      translationCustomProviderNotice,
+      llmProfilesPersistenceHint,
+      loadCustomLlmDraftFromProfile,
+      updateCustomLlmDraft,
+      useExistingCustomProfile,
+      resetCustomLlmDraft,
+      removeCustomLlmDraftProfile,
+      saveCustomLlmDraftProfile,
+      applyOllamaPresetToTranslationDraft,
+    ],
   );
-  const ocrCustomProfilesManagerSection = (
-    <OcrCustomProfilesManagerSection
-      ocrStandaloneCustomProfiles={ocrStandaloneCustomProfiles}
-      ocrCustomProviderNotice={ocrCustomProviderNotice}
-      llmProfilesPersistenceHint={llmProfilesPersistenceHint}
-      loadCustomLlmDraftFromProfile={loadCustomLlmDraftFromProfile}
-      updateCustomLlmDraft={updateCustomLlmDraft}
-      useExistingCustomProfile={useExistingCustomProfile}
-      resetCustomLlmDraft={resetCustomLlmDraft}
-      removeCustomLlmDraftProfile={removeCustomLlmDraftProfile}
-      saveCustomLlmDraftProfile={saveCustomLlmDraftProfile}
-    />
+  const ocrCustomProfilesManagerSection = useMemo(
+    () => (
+      <OcrCustomProfilesManagerSection
+        ocrStandaloneCustomProfiles={ocrStandaloneCustomProfiles}
+        ocrCustomProviderNotice={ocrCustomProviderNotice}
+        llmProfilesPersistenceHint={llmProfilesPersistenceHint}
+        loadCustomLlmDraftFromProfile={loadCustomLlmDraftFromProfile}
+        updateCustomLlmDraft={updateCustomLlmDraft}
+        useExistingCustomProfile={useExistingCustomProfile}
+        resetCustomLlmDraft={resetCustomLlmDraft}
+        removeCustomLlmDraftProfile={removeCustomLlmDraftProfile}
+        saveCustomLlmDraftProfile={saveCustomLlmDraftProfile}
+      />
+    ),
+    [
+      ocrStandaloneCustomProfiles,
+      ocrCustomProviderNotice,
+      llmProfilesPersistenceHint,
+      loadCustomLlmDraftFromProfile,
+      updateCustomLlmDraft,
+      useExistingCustomProfile,
+      resetCustomLlmDraft,
+      removeCustomLlmDraftProfile,
+      saveCustomLlmDraftProfile,
+    ],
   );
 
 
@@ -1398,72 +1459,102 @@ export const DashboardPage = ({
       cleanStandaloneCustomProfiles,
     });
 
-  const cleanerAiCustomProfilesManagerSection = (
-    <CleanerAiCustomProfilesManagerSection
-      cleanStandaloneCustomProfiles={cleanStandaloneCustomProfiles}
-      cleanerAiCustomProviderNotice={cleanerAiCustomProviderNotice}
-      llmProfilesPersistenceHint={llmProfilesPersistenceHint}
-      loadCustomLlmDraftFromProfile={loadCustomLlmDraftFromProfile}
-      updateCustomLlmDraft={updateCustomLlmDraft}
-      useExistingCleanerCustomProfile={useExistingCleanerCustomProfile}
-      resetCustomLlmDraft={resetCustomLlmDraft}
-      removeCleanerCustomDraftProfile={removeCleanerCustomDraftProfile}
-      saveCleanerCustomDraftProfile={saveCleanerCustomDraftProfile}
-    />
+  const cleanerAiCustomProfilesManagerSection = useMemo(
+    () => (
+      <CleanerAiCustomProfilesManagerSection
+        cleanStandaloneCustomProfiles={cleanStandaloneCustomProfiles}
+        cleanerAiCustomProviderNotice={cleanerAiCustomProviderNotice}
+        llmProfilesPersistenceHint={llmProfilesPersistenceHint}
+        loadCustomLlmDraftFromProfile={loadCustomLlmDraftFromProfile}
+        updateCustomLlmDraft={updateCustomLlmDraft}
+        useExistingCleanerCustomProfile={useExistingCleanerCustomProfile}
+        resetCustomLlmDraft={resetCustomLlmDraft}
+        removeCleanerCustomDraftProfile={removeCleanerCustomDraftProfile}
+        saveCleanerCustomDraftProfile={saveCleanerCustomDraftProfile}
+      />
+    ),
+    [
+      cleanStandaloneCustomProfiles,
+      cleanerAiCustomProviderNotice,
+      llmProfilesPersistenceHint,
+      loadCustomLlmDraftFromProfile,
+      updateCustomLlmDraft,
+      useExistingCleanerCustomProfile,
+      resetCustomLlmDraft,
+      removeCleanerCustomDraftProfile,
+      saveCleanerCustomDraftProfile,
+    ],
   );
-  const cleanerAiFreeProviderManagerSection = (
-    <CleanerAiFreeProviderManagerSection
-      cleanStandaloneCustomProfiles={cleanStandaloneCustomProfiles}
-      getFreeProviderDraft={getFreeProviderDraft}
-      getSelectedFreeProviderProfileLabel={getSelectedFreeProviderProfileLabel}
-      updateFreeProviderDraft={updateFreeProviderDraft}
-      saveFreeProviderProfile={saveFreeProviderProfile}
-      testFreeProviderConfig={testFreeProviderConfig}
-      testCustomProfileConfig={testCustomProfileConfig}
-      saveCustomProfileInline={saveCustomProfileInline}
-      removeCustomLlmProfileById={removeCustomLlmProfileById}
-    />
+  const cleanerAiFreeProviderManagerSection = useMemo(
+    () => (
+      <CleanerAiFreeProviderManagerSection
+        cleanStandaloneCustomProfiles={cleanStandaloneCustomProfiles}
+        getFreeProviderDraft={getFreeProviderDraft}
+        getSelectedFreeProviderProfileLabel={getSelectedFreeProviderProfileLabel}
+        updateFreeProviderDraft={updateFreeProviderDraft}
+        saveFreeProviderProfile={saveFreeProviderProfile}
+        testFreeProviderConfig={testFreeProviderConfig}
+        testCustomProfileConfig={testCustomProfileConfig}
+        saveCustomProfileInline={saveCustomProfileInline}
+        removeCustomLlmProfileById={removeCustomLlmProfileById}
+      />
+    ),
+    [
+      cleanStandaloneCustomProfiles,
+      getFreeProviderDraft,
+      getSelectedFreeProviderProfileLabel,
+      updateFreeProviderDraft,
+      saveFreeProviderProfile,
+      testFreeProviderConfig,
+      testCustomProfileConfig,
+      saveCustomProfileInline,
+      removeCustomLlmProfileById,
+    ],
   );
 
   // ── Tab definitions ──────────────────────────────────────────────
-  const STAGE_TABS: StageTabDef[] = [
-    {
-      key: 'detectText',
-      icon: ScanText,
-      label: t('dashboard.stage.detectText.label'),
-      shortLabel: t('dashboard.stage.detectText.short'),
-    },
-    {
-      key: 'recognizeText',
-      icon: Eye,
-      label: t('dashboard.stage.recognizeText.label'),
-      shortLabel: t('dashboard.stage.recognizeText.short'),
-    },
-    {
-      key: 'getTranslations',
-      icon: Languages,
-      label: t('dashboard.stage.getTranslations.label'),
-      shortLabel: t('dashboard.stage.getTranslations.short'),
-    },
-    {
-      key: 'segmentText',
-      icon: Replace,
-      label: t('dashboard.stage.segmentText.label'),
-      shortLabel: t('dashboard.stage.segmentText.short'),
-    },
-    {
-      key: 'cleanImage',
-      icon: Eraser,
-      label: t('dashboard.stage.cleanImage.label'),
-      shortLabel: t('dashboard.stage.cleanImage.short'),
-    },
-    {
-      key: 'render',
-      icon: Paintbrush,
-      label: t('dashboard.stage.render.label'),
-      shortLabel: t('dashboard.stage.render.short'),
-    },
-  ];
+  const STAGE_TABS: StageTabDef[] = useMemo(
+    () =>
+      [
+        {
+          key: 'detectText',
+          icon: ScanText,
+          label: t('dashboard.stage.detectText.label'),
+          shortLabel: t('dashboard.stage.detectText.short'),
+        },
+        {
+          key: 'recognizeText',
+          icon: Eye,
+          label: t('dashboard.stage.recognizeText.label'),
+          shortLabel: t('dashboard.stage.recognizeText.short'),
+        },
+        {
+          key: 'getTranslations',
+          icon: Languages,
+          label: t('dashboard.stage.getTranslations.label'),
+          shortLabel: t('dashboard.stage.getTranslations.short'),
+        },
+        {
+          key: 'segmentText',
+          icon: Replace,
+          label: t('dashboard.stage.segmentText.label'),
+          shortLabel: t('dashboard.stage.segmentText.short'),
+        },
+        {
+          key: 'cleanImage',
+          icon: Eraser,
+          label: t('dashboard.stage.cleanImage.label'),
+          shortLabel: t('dashboard.stage.cleanImage.short'),
+        },
+        {
+          key: 'render',
+          icon: Paintbrush,
+          label: t('dashboard.stage.render.label'),
+          shortLabel: t('dashboard.stage.render.short'),
+        },
+      ] as StageTabDef[],
+    [t],
+  );
 
   const setActiveStageTab = useUiShellStore((s) => s.setActiveStageTab);
 
@@ -1619,9 +1710,7 @@ export const DashboardPage = ({
     removeImage,
     registerDownloads,
     getPreviewSrc,
-    optimizerSourceVariants,
   } = useDashboardImageCollection({
-    downloadItems,
     setDownloadItems,
     setLastActionScope,
     invalidateAioPipelineHistory,
@@ -2146,7 +2235,6 @@ export const DashboardPage = ({
     ensureVerifiedEmailOrNotify,
     registerDownloads,
     recordProcessedPages,
-    optimizerSourceVariants,
     translatorImageImportRef,
     isDesktopRuntime,
     currentWatermarkWorkspaceState,
@@ -2391,7 +2479,6 @@ export const DashboardPage = ({
       skipManualStageForActiveImage={skipManualStageForActiveImage}
       handleExecuteManualAioStage={handleExecuteManualAioStage}
       activeManualStageStatus={activeManualStageStatus}
-      aioPipelineStageLabels={aioPipelineStageLabels}
       stopAioExecution={stopAioExecution}
       processAIO={processAIO}
       aioExecuteButtonProcessingLabel={aioExecuteButtonProcessingLabel}

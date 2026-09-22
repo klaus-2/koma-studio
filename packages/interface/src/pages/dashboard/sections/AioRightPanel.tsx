@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
 import {
   ArrowRight,
@@ -46,17 +47,18 @@ import {
 } from '../../../utils/renderModes';
 import {
   AIO_MANUAL_STAGE_ORDER,
-  AIO_PRESET_STAGE_KEYS,
   AIO_PIPELINE_STAGE_ICONS,
+  AIO_PRESET_STAGE_KEYS,
+  getAioPipelineStageLabels,
 } from '../../../constants/dashboard.constants';
 import type {
   AioManualStageStatus,
-  AioPipelineSnapshotKey,
   SubMode,
 } from '../../../types/dashboard.types';
 import type { AioStageKey } from '../../../types/aioModelPresets';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
+import { useCleanerStore } from '../stores/cleaner-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useActiveAioRegionState } from '../hooks/region-editor';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
@@ -89,7 +91,6 @@ interface AioRightPanelProps {
   skipManualStageForActiveImage: AioManualExecutionApi['skipManualStageForActiveImage'];
   handleExecuteManualAioStage: AioManualExecutionApi['handleExecuteManualAioStage'];
   activeManualStageStatus: AioManualStageStatus | null;
-  aioPipelineStageLabels: Record<AioPipelineSnapshotKey, string>;
   stopAioExecution: () => void;
   processAIO: AioPipelineExecutionApi['processAIO'];
   aioExecuteButtonProcessingLabel: string;
@@ -161,15 +162,11 @@ interface AioRightPanelProps {
   fontCatalogInputRef: React.RefObject<HTMLInputElement | null>;
   handleRenderFontImport: RenderFontCatalogApi['handleRenderFontImport'];
 
-  /* ── Cleaner tools (not yet migrated) ── */
-  cleanerSrcLang: string;
-  setCleanerSrcLang: (value: string) => void;
-
   /* ── Shell (not yet migrated) ── */
   isDesktopRuntime: boolean;
 }
 
-export default function AioRightPanel({
+export default memo(function AioRightPanel({
   handleAioSubModeChange,
   rewindAioPipeline,
   forwardAioPipeline,
@@ -178,7 +175,6 @@ export default function AioRightPanel({
   skipManualStageForActiveImage,
   handleExecuteManualAioStage,
   activeManualStageStatus,
-  aioPipelineStageLabels,
   stopAioExecution,
   processAIO,
   aioExecuteButtonProcessingLabel,
@@ -235,8 +231,6 @@ export default function AioRightPanel({
   fontCatalogError,
   fontCatalogInputRef,
   handleRenderFontImport,
-  cleanerSrcLang,
-  setCleanerSrcLang,
   isDesktopRuntime,
 }: AioRightPanelProps) {
   const { t } = useI18n();
@@ -244,6 +238,12 @@ export default function AioRightPanel({
   /* ── Image collection ── */
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
+  const resolvedActiveId = useMemo(
+    () =>
+      (images.find((img) => img.id === activeId) ?? images[0] ?? null)?.id ??
+      null,
+    [activeId, images],
+  );
   const {
     activeImageDetections,
     activeSelectedRegion,
@@ -251,6 +251,11 @@ export default function AioRightPanel({
     activeSelectedRenderMode,
     activeSelectedResolvedRenderMode,
   } = useActiveAioRegionState({ resolvedActiveId: activeId });
+
+  /* ── Cleaner language (self-subscribed; panel renders the cleaner-language
+     section only during the deferred-lane window) ── */
+  const cleanerSrcLang = useCleanerStore((s) => s.cleanerSrcLang);
+  const setCleanerSrcLang = useCleanerStore((s) => s.setCleanerSrcLang);
 
   /* ── UI shell ── */
   const mode = useUiShellStore((s) => s.mode);
@@ -265,10 +270,31 @@ export default function AioRightPanel({
     Boolean(activeSelectedRegion);
 
   /* ── LLM providers ── */
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
+  const {
+    llmExtraContext,
+    llmTranslationNotesEnabled,
+    llmNeighborContextEnabled,
+    llmImageInputEnabled,
+    llmTemperature,
+    llmTopP,
+    llmMaxTokens,
+  } = useLlmProvidersStore(
+    useShallow((s) => ({
+      llmExtraContext: s.llmSettings.extra_context,
+      llmTranslationNotesEnabled: s.llmSettings.translation_notes_enabled,
+      llmNeighborContextEnabled: s.llmSettings.neighbor_image_context_enabled,
+      llmImageInputEnabled: s.llmSettings.image_input_enabled,
+      llmTemperature: s.llmSettings.temperature,
+      llmTopP: s.llmSettings.top_p,
+      llmMaxTokens: s.llmSettings.max_tokens,
+    })),
+  );
   const setLlmSettings = useLlmProvidersStore((s) => s.setLlmSettings);
 
   /* ── AIO pipeline ── */
+  // Single-value slices (T4.3): map/array reads below are narrowed to the
+  // active-image entries or primitive projections — whole-map subscriptions
+  // made the panel re-render with every other image's pipeline churn.
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const setAioSteps = useAioPipelineStore((s) => s.setAioSteps);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
@@ -298,27 +324,30 @@ export default function AioRightPanel({
   );
   const aioGpuStages = useAioPipelineStore((s) => s.aioGpuStages);
   const updateAioGpuStage = useAioPipelineStore((s) => s.updateAioGpuStage);
-  const aioPipelineSnapshots = useAioPipelineStore(
-    (s) => s.aioPipelineSnapshots,
+  // Snapshot history narrowed to what this panel renders: count (hint
+  // "n/m"), the index, and the active entry by identity.
+  const aioPipelineSnapshotCount = useAioPipelineStore(
+    (s) => s.aioPipelineSnapshots.length,
   );
   const aioPipelineSnapshotIndex = useAioPipelineStore(
     (s) => s.aioPipelineSnapshotIndex,
   );
-  const aioManualProgressByImage = useAioPipelineStore(
-    (s) => s.aioManualProgressByImage,
+  const activeAioPipelineSnapshot = useAioPipelineStore((s) => {
+    const index = s.aioPipelineSnapshotIndex;
+    return index >= 0 && index < s.aioPipelineSnapshots.length
+      ? (s.aioPipelineSnapshots[index] ?? null)
+      : null;
+  });
+  // Active-image manual progress entry only: other images' progress writes no
+  // longer reach the panel.
+  const activeManualProgress = useAioPipelineStore((s) =>
+    resolvedActiveId
+      ? (s.aioManualProgressByImage[resolvedActiveId] ?? null)
+      : null,
   );
   const aioDeviceInfo = useAioPipelineStore((s) => s.aioDeviceInfo);
   const aioMiniBackendRuntimeState = useAioPipelineStore(
     (s) => s.aioMiniBackendRuntimeState,
-  );
-
-  // Same derivation as the page-level `activeImage` memo: the active selection
-  // falls back to the first loaded image.
-  const resolvedActiveId = useMemo(
-    () =>
-      (images.find((img) => img.id === activeId) ?? images[0] ?? null)?.id ??
-      null,
-    [activeId, images],
   );
 
   // Same derivation as the page-level `enabledStepCount` computation.
@@ -331,27 +360,16 @@ export default function AioRightPanel({
     aioSteps.render,
   ].filter(Boolean).length;
 
-  // Same derivation as the page-level `activeAioPipelineSnapshot` memo.
-  const activeAioPipelineSnapshot = useMemo(
-    () =>
-      aioPipelineSnapshotIndex >= 0 &&
-        aioPipelineSnapshotIndex < aioPipelineSnapshots.length
-        ? (aioPipelineSnapshots[aioPipelineSnapshotIndex] ?? null)
-        : null,
-    [aioPipelineSnapshotIndex, aioPipelineSnapshots],
-  );
   const canAioRewind = aioPipelineSnapshotIndex > 0;
   const canAioForward =
     aioPipelineSnapshotIndex >= 0 &&
-    aioPipelineSnapshotIndex < aioPipelineSnapshots.length - 1;
+    aioPipelineSnapshotIndex < aioPipelineSnapshotCount - 1;
 
-  // Same derivation as the page-level `activeManualProgress` memo.
-  const activeManualProgress = useMemo(
-    () =>
-      resolvedActiveId
-        ? (aioManualProgressByImage[resolvedActiveId] ?? null)
-        : null,
-    [aioManualProgressByImage, resolvedActiveId],
+  // Same helper as the page-level `aioPipelineStageLabels` memo (T4.3): built
+  // locally so the page no longer forwards the labels through the layout.
+  const aioPipelineStageLabels = useMemo(
+    () => getAioPipelineStageLabels(t),
+    [t],
   );
 
   // Same derivation as the page-level `aioHasGpuExecutionProfile` value.
@@ -496,7 +514,7 @@ export default function AioRightPanel({
                 Snapshot:{' '}
                 <strong>{activeAioPipelineSnapshot.label}</strong> (
                 {aioPipelineSnapshotIndex + 1}/
-                {aioPipelineSnapshots.length})
+                {aioPipelineSnapshotCount})
               </p>
             )}
           </>
@@ -967,7 +985,7 @@ export default function AioRightPanel({
                   </span>
                   <div className="koma-aio-llm-panel">
                     <textarea
-                      value={llmSettings.extra_context}
+                      value={llmExtraContext}
                       onChange={(e) =>
                         setLlmSettings((prev) =>
                           clampLlmRequestSettings({
@@ -985,7 +1003,7 @@ export default function AioRightPanel({
                       <label className="koma-checklist__item">
                         <input
                           type="checkbox"
-                          checked={llmSettings.translation_notes_enabled}
+                          checked={llmTranslationNotesEnabled}
                           onChange={(e) =>
                             setLlmSettings((prev) =>
                               clampLlmRequestSettings({
@@ -1000,7 +1018,7 @@ export default function AioRightPanel({
                       <label className="koma-checklist__item">
                         <input
                           type="checkbox"
-                          checked={llmSettings.neighbor_image_context_enabled}
+                          checked={llmNeighborContextEnabled}
                           onChange={(e) =>
                             setLlmSettings((prev) =>
                               clampLlmRequestSettings({
@@ -1015,7 +1033,7 @@ export default function AioRightPanel({
                       <label className="koma-checklist__item">
                         <input
                           type="checkbox"
-                          checked={llmSettings.image_input_enabled}
+                          checked={llmImageInputEnabled}
                           onChange={(e) =>
                             setLlmSettings((prev) =>
                               clampLlmRequestSettings({
@@ -1032,7 +1050,7 @@ export default function AioRightPanel({
                     <div className="koma-aio-llm-sliders">
                       <KlSlider
                         label={t("dashboard.dashboardLlm.temperature")}
-                        value={llmSettings.temperature}
+                        value={llmTemperature}
                         min={0}
                         max={2}
                         step={0.05}
@@ -1048,7 +1066,7 @@ export default function AioRightPanel({
                       />
                       <KlSlider
                         label={t("dashboard.dashboardLlm.topP")}
-                        value={llmSettings.top_p}
+                        value={llmTopP}
                         min={0}
                         max={1}
                         step={0.01}
@@ -1064,7 +1082,7 @@ export default function AioRightPanel({
                       />
                       <KlSlider
                         label={t("dashboard.dashboardLlm.maxTokens")}
-                        value={llmSettings.max_tokens}
+                        value={llmMaxTokens}
                         min={128}
                         max={8192}
                         step={64}
@@ -1606,4 +1624,4 @@ export default function AioRightPanel({
       </div>
     </div>
   );
-}
+});

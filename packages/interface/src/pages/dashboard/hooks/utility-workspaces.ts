@@ -237,7 +237,6 @@ export function useSpecialModeStageProps({
   ensureVerifiedEmailOrNotify,
   registerDownloads,
   recordProcessedPages,
-  optimizerSourceVariants,
   translatorImageImportRef,
   isDesktopRuntime,
   currentWatermarkWorkspaceState,
@@ -249,9 +248,6 @@ export function useSpecialModeStageProps({
   ensureVerifiedEmailOrNotify: EnsureVerifiedEmailOrNotifyFn;
   registerDownloads: RegisterDownloadsFn;
   recordProcessedPages: RecordProcessedPagesFn;
-  optimizerSourceVariants: ReturnType<
-    typeof useDashboardImageCollection
-  >['optimizerSourceVariants'];
   translatorImageImportRef: RefObject<HTMLInputElement | null>;
   isDesktopRuntime: boolean;
   currentWatermarkWorkspaceState: ReturnType<
@@ -321,7 +317,6 @@ export function useSpecialModeStageProps({
       recordProcessedPages,
       splitterController,
       outFormat,
-      optimizerSourceVariants,
       watermarkWorkspaceState: currentWatermarkWorkspaceState,
       optimizerWorkspaceState: currentOptimizerWorkspaceState,
       workspaceRestoreToken,
@@ -335,7 +330,6 @@ export function useSpecialModeStageProps({
       images,
       isDesktopRuntime,
       mode,
-      optimizerSourceVariants,
       outFormat,
       outQuality,
       processing,

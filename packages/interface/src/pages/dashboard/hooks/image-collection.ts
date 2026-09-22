@@ -1,14 +1,12 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { v4 as uuidv4 } from 'uuid';
 
-import { useI18n } from '../../../i18n';
 import {
   DASHBOARD_UPLOAD_ACCEPT,
   DEFAULT_FILTERS,
   DIRECT_IMAGE_UPLOAD_EXTENSIONS,
   INFO_MODES,
-  getModeLabels,
 } from '../../../constants/dashboard.constants';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
@@ -246,7 +244,6 @@ export function useDashboardUploads({
 }
 
 interface UseDashboardImageCollectionArgs {
-  downloadItems: DownloadItem[];
   setDownloadItems: React.Dispatch<React.SetStateAction<DownloadItem[]>>;
   setLastActionScope: React.Dispatch<React.SetStateAction<ProcessableMode | null>>;
   invalidateAioPipelineHistory: () => void;
@@ -265,7 +262,6 @@ interface UseDashboardImageCollectionArgs {
 }
 
 export function useDashboardImageCollection({
-  downloadItems,
   setDownloadItems,
   setLastActionScope,
   invalidateAioPipelineHistory,
@@ -282,14 +278,11 @@ export function useDashboardImageCollection({
   setTranslatorRunMetaByImage,
   setTranslatorProcessedBaseByImage,
 }: UseDashboardImageCollectionArgs) {
-  const { t } = useI18n();
   const mode = useUiShellStore((s) => s.mode);
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
   const removeImageById = useImageCollectionStore((s) => s.removeImageById);
   const setActiveId = useImageCollectionStore((s) => s.setActiveId);
-  const modeLabels = useMemo(() => getModeLabels(t), [t]);
-
   const removeImage = useCallback((id: string) => {
     const removed = images.find((img) => img.id === id);
     const fallbackActiveId = activeId === id ? images.find((img) => img.id !== id)?.id ?? null : activeId;
@@ -411,34 +404,10 @@ export function useDashboardImageCollection({
     return img.thumbnailUrl ?? img.url;
   }, []);
 
-  const optimizerSourceVariants = useMemo(() => {
-    const variants: Array<{
-      id: string;
-      imageId: string;
-      label: string;
-      scope: DownloadItem['scope'];
-      blob: Blob;
-      previewUrl: string;
-    }> = [];
-    for (const item of downloadItems) {
-      if (item.scope === 'proofreader' || item.scope === 'optimizer') continue;
-      variants.push({
-        id: `${item.scope}-${item.sourceImageId}`,
-        imageId: item.sourceImageId,
-        label: modeLabels[item.scope],
-        scope: item.scope,
-        blob: item.blob,
-        previewUrl: item.previewUrl,
-      });
-    }
-    return variants;
-  }, [downloadItems, modeLabels]);
-
   return {
     removeImage,
     registerDownloads,
     getPreviewSrc,
     getListPreviewSrc,
-    optimizerSourceVariants,
   };
 }

@@ -167,10 +167,20 @@ interface AioPipelineStore {
       | AioStageSelection
       | ((prev: AioStageSelection) => AioStageSelection),
   ) => void;
-  setAioLanguageOptions: (options: {
-    source: AioLanguageOption[];
-    target: AioLanguageOption[];
-  }) => void;
+  setAioLanguageOptions: (
+    options:
+      | {
+          source: AioLanguageOption[];
+          target: AioLanguageOption[];
+        }
+      | ((prev: {
+          source: AioLanguageOption[];
+          target: AioLanguageOption[];
+        }) => {
+          source: AioLanguageOption[];
+          target: AioLanguageOption[];
+        }),
+  ) => void;
   setAioSrcLang: (lang: string | ((prev: string) => string)) => void;
   setAioTgtLang: (lang: string | ((prev: string) => string)) => void;
   setAioOptionsLoading: (loading: boolean) => void;
@@ -341,7 +351,12 @@ export const useAioPipelineStore = create<AioPipelineStore>()(
               : selection,
         })),
       setAioLanguageOptions: (aioLanguageOptions) =>
-        set({ aioLanguageOptions }),
+        set((state) => ({
+          aioLanguageOptions:
+            typeof aioLanguageOptions === 'function'
+              ? aioLanguageOptions(state.aioLanguageOptions)
+              : aioLanguageOptions,
+        })),
       setAioSrcLang: (aioSrcLang) =>
         set((state) => ({
           aioSrcLang:

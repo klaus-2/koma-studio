@@ -1,9 +1,14 @@
-import { Suspense, lazy, memo } from 'react';
+import { Suspense, lazy, memo, useMemo } from 'react';
 import { Languages, Upload } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { memoLoad } from '../../utils/lazyModule';
+import { useExportStore } from '../../pages/dashboard/stores/export-store';
+import { getModeLabels } from '../../constants/dashboard.constants';
 import type { ToolMode } from '../../types/dashboard.types';
 
+// Loaders memoize the import() promise so React.lazy's ctor and the idle
+// preload share it — a warmed chunk does not suspend on first mount (no
+// fallback flash).
 const loadStitchWorkspace = memoLoad(() => import('./stitch/StitchWorkspace'));
 const loadSplitterWorkspace = memoLoad(() => import('./splitter/SplitterWorkspace'));
 const loadWatermarkWorkspace = memoLoad(() => import('./watermark/WatermarkWorkspace'));
@@ -37,6 +42,30 @@ const DashboardSpecialModeStage = ({
   stageMode?: ToolMode;
 }) => {
   const { t } = useI18n();
+  const downloadItems = useExportStore((s) => s.downloadItems);
+  const modeLabels = useMemo(() => getModeLabels(t), [t]);
+  const optimizerSourceVariants = useMemo(() => {
+    const variants: Array<{
+      id: string;
+      imageId: string;
+      label: string;
+      scope: string;
+      blob: Blob;
+      previewUrl: string;
+    }> = [];
+    for (const item of downloadItems) {
+      if (item.scope === 'proofreader' || item.scope === 'optimizer') continue;
+      variants.push({
+        id: `${item.scope}-${item.sourceImageId}`,
+        imageId: item.sourceImageId,
+        label: modeLabels[item.scope],
+        scope: item.scope,
+        blob: item.blob,
+        previewUrl: item.previewUrl,
+      });
+    }
+    return variants;
+  }, [downloadItems, modeLabels]);
   const {
     mode: immediateMode,
     translatorWorkspaceMode,
@@ -63,7 +92,6 @@ const DashboardSpecialModeStage = ({
     recordProcessedPages,
     splitterController,
     outFormat,
-    optimizerSourceVariants,
     watermarkWorkspaceState,
     optimizerWorkspaceState,
     workspaceRestoreToken,
@@ -71,6 +99,8 @@ const DashboardSpecialModeStage = ({
     onOptimizerWorkspaceStateChange,
   } = props;
 
+  // Branch on the mode this mount belongs to, not the immediate store mode
+  // (which flips mid-deferral while the old workspace must stay mounted).
   const mode = (stageMode ?? immediateMode) as ToolMode;
 
   if (mode === 'translator' && translatorWorkspaceMode === 'visual' && images.length === 0) {

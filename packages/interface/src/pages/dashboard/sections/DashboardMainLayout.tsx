@@ -1,4 +1,4 @@
-import { Suspense, lazy, useDeferredValue, useCallback } from 'react';
+import { Suspense, lazy, memo, useDeferredValue, useCallback } from 'react';
 
 import { memoLoad } from '../../../utils/lazyModule';
 import { AlertTriangle } from 'lucide-react';
@@ -356,7 +356,6 @@ export interface DashboardMainLayoutProps {
   skipManualStageForActiveImage: AioManualExecutionApi['skipManualStageForActiveImage'];
   handleExecuteManualAioStage: AioManualExecutionApi['handleExecuteManualAioStage'];
   activeManualStageStatus: AioManualStageStatus | null;
-  aioPipelineStageLabels: Record<AioPipelineSnapshotKey, string>;
   stopAioExecution: () => void;
   processAIO: AioPipelineExecutionApi['processAIO'];
   aioExecuteButtonProcessingLabel: string;
@@ -479,7 +478,7 @@ export interface DashboardMainLayoutProps {
   refreshModelState: ModelManagerApi['refreshModelState'];
 }
 
-export default function DashboardMainLayout({
+export default memo(function DashboardMainLayout({
   resolvedActiveId,
   resolvedAioAreaSelectionShapeKind,
   areaSelectionToolActive,
@@ -624,7 +623,6 @@ export default function DashboardMainLayout({
   skipManualStageForActiveImage,
   handleExecuteManualAioStage,
   activeManualStageStatus,
-  aioPipelineStageLabels,
   stopAioExecution,
   processAIO,
   aioExecuteButtonProcessingLabel,
@@ -868,13 +866,9 @@ export default function DashboardMainLayout({
   const invalidateAioPipelineHistory = useAioPipelineStore(
     (s) => s.invalidateAioPipelineHistory,
   );
-  const cleanerSrcLang = useCleanerStore((s) => s.cleanerSrcLang);
-  const setCleanerSrcLang = useCleanerStore((s) => s.setCleanerSrcLang);
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
   );
-  const downloadItems = useExportStore((s) => s.downloadItems);
-  const setDownloadItems = useExportStore((s) => s.setDownloadItems);
   const outFormat = useExportStore((s) => s.outFormat);
   const setOutFormat = useExportStore((s) => s.setOutFormat);
   const outQuality = useExportStore((s) => s.outQuality);
@@ -984,8 +978,6 @@ export default function DashboardMainLayout({
         leftSidebarWidth={leftSidebarWidth}
         desktopSidebarToggleRef={desktopSidebarToggleRef}
         processingStats={processingStats}
-        downloadItems={downloadItems}
-        setDownloadItems={setDownloadItems}
         getRootProps={getRootProps}
         getInputProps={getInputProps}
         isDragActive={isDragActive}
@@ -1289,7 +1281,6 @@ export default function DashboardMainLayout({
               skipManualStageForActiveImage={skipManualStageForActiveImage}
               handleExecuteManualAioStage={handleExecuteManualAioStage}
               activeManualStageStatus={activeManualStageStatus}
-              aioPipelineStageLabels={aioPipelineStageLabels}
               stopAioExecution={stopAioExecution}
               processAIO={processAIO}
               aioExecuteButtonProcessingLabel={aioExecuteButtonProcessingLabel}
@@ -1352,9 +1343,6 @@ export default function DashboardMainLayout({
               fontCatalogError={fontCatalogError}
               fontCatalogInputRef={fontCatalogInputRef}
               handleRenderFontImport={handleRenderFontImport}
-              // ── Cleaner tools (not yet migrated) ──
-              cleanerSrcLang={cleanerSrcLang}
-              setCleanerSrcLang={setCleanerSrcLang}
               // ── Shell (not yet migrated) ──
               isDesktopRuntime={isDesktopRuntime}
             />
@@ -1531,4 +1519,4 @@ export default function DashboardMainLayout({
       />
     </div>
   );
-}
+});

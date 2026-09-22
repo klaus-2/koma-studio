@@ -19,11 +19,11 @@ import {
 import { useI18n } from '../../i18n';
 import VersionBadge from '../VersionBadge';
 import { cn } from '../../utils/dashboard.utils';
+import { useExportStore } from '../../pages/dashboard/stores/export-store';
 import type {
   AioManualImageEditState,
   CleanerRunMeta,
   DashboardProcessingStatsSummary,
-  DownloadItem,
   LoadedImage,
   TranslatorVisualRunMeta,
 } from '../../types/dashboard.types';
@@ -44,7 +44,6 @@ interface DashboardLeftSidebarProps {
   desktopSidebarToggleRef: React.RefObject<HTMLButtonElement | null>;
   processingStats: DashboardProcessingStatsSummary;
   images: LoadedImage[];
-  downloadItems: DownloadItem[];
   activeId: string | null;
   mode: string;
   processing: boolean;
@@ -54,7 +53,6 @@ interface DashboardLeftSidebarProps {
   isDragActive: boolean;
   setImages: (images: LoadedImage[]) => void;
   setActiveId: (id: string | null) => void;
-  setDownloadItems: (items: DownloadItem[]) => void;
   setAioDetectionsByImage: (value: Record<string, unknown>) => void;
   setAioSelectedRegionByImage: (value: Record<string, string | null>) => void;
   setCleanerDetectionsByImage: (value: Record<string, unknown>) => void;
@@ -91,7 +89,6 @@ export default function DashboardLeftSidebar({
   desktopSidebarToggleRef,
   processingStats,
   images,
-  downloadItems,
   activeId,
   mode,
   processing,
@@ -101,7 +98,6 @@ export default function DashboardLeftSidebar({
   isDragActive,
   setImages,
   setActiveId,
-  setDownloadItems,
   setAioDetectionsByImage,
   setAioSelectedRegionByImage,
   setCleanerDetectionsByImage,
@@ -255,6 +251,8 @@ export default function DashboardLeftSidebar({
               className="koma-iconbtn koma-iconbtn--danger koma-iconbtn--xs"
               title={t('dashboard.sidebar.clearAll')}
               onClick={() => {
+                const { downloadItems, setDownloadItems } =
+                  useExportStore.getState();
                 images.forEach((img) => { URL.revokeObjectURL(img.url); if (img.thumbnailUrl?.startsWith("blob:")) URL.revokeObjectURL(img.thumbnailUrl); });
                 downloadItems.forEach((item) =>
                   URL.revokeObjectURL(item.previewUrl),
@@ -304,7 +302,7 @@ export default function DashboardLeftSidebar({
                     )}
                   >
                     <div className="koma-fileitem__thumb">
-                      <img src={img.thumbnailUrl ?? img.url} alt="thumb" loading="lazy" decoding="async" style={{contain:"content"}} />
+                      <img src={img.thumbnailUrl ?? img.url} alt="thumb" loading="lazy" decoding="async" style={{ contain: "content" }} />
                     </div>
                     <div className="koma-fileitem__info">
                       <p className="koma-fileitem__name" title={img.file.name}>
@@ -417,8 +415,8 @@ export default function DashboardLeftSidebar({
               {isExtractingUploads
                 ? t('dashboard.sidebar.extracting')
                 : isDragActive
-                ? t('dashboard.sidebar.dropHere')
-                : t('dashboard.sidebar.clickOrDrag')}
+                  ? t('dashboard.sidebar.dropHere')
+                  : t('dashboard.sidebar.clickOrDrag')}
             </p>
             {isExtractingUploads ? (
               <span className="koma-dropzone__loading">

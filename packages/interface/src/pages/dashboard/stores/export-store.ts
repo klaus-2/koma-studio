@@ -157,6 +157,19 @@ export const useExportStore = create<ExportStore>()(
         }
       },
       setAioDownloadItemForImage: (imageId, entry) => {
+        const existing = get()
+          .downloadItems.find(
+            (item) => item.scope === 'aio' && item.sourceImageId === imageId,
+          ) ?? null;
+        if (
+          (existing === null && entry === null) ||
+          (existing !== null &&
+            entry !== null &&
+            existing.blob === entry.blob &&
+            existing.name === entry.fileName)
+        ) {
+          return;
+        }
         get().setDownloadItems((prev) => {
           const next: DownloadItem[] = [];
           prev.forEach((item) => {

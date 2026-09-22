@@ -1001,3 +1001,202 @@ translator:type = **0 long tasks ×3 runs**. A assinatura central reivindicada (
 **Aceite**: estrutura e caminhos de usuário aprovados; aplicar o fix de 1 linha do Achado 1
 antes do commit e re-rodar smoke + um audit. Follow-ups (1r residual do audit,
 DashboardMainLayout memoization, custo de stage-remount do retorno) permanecem T4.3+.
+
+### T4.3 — execution (2026-09-01, Agente de Execução)
+
+**Escopo cumprido**: (1) AioRightPanel narrowing + memo; (2) DashboardMainLayout memoization
+com estabilização de identidade; (3) atribuição do 1r residual do audit region-select; (4)
+`downloadItems` event-time. **Descoberta no meio do caminho**: a remoção do churn de
+`downloadItems` expôs um bug pre-existente de exhaustive-deps na StageGrid (o churn da
+export-store estava mascarando itens de grade stale) — corrigido, pois sem ele o
+text-follow probe falhava (box perdia a classe `--selected`).
+
+#### 0. Descoberta crítica — bug pre-existente da StageGrid (fix inclusão)
+
+`renderAioStageItem`/`renderStageItem` (sections/StageGrid.tsx) leem
+`aioDetectionsByImage`/`aioSelectedRegionByImage` do closure mas **omitiam-nos das deps**;
+`DashboardStageGrid` é `memo` sobre a identidade de `renderStageItem` → em qualquer escrita
+de seleção/detections sem mudança de identidade do callback, a grade fazia **bail-out com
+itens stale** (box sem `--selected`). No HEAD o acaso cobria isso: o churn de
+`downloadItems` (rebuild do array a cada `applyAioPipelineSnapshotToImage` do sync) mudava a
+identidade do callback → grade re-renderizava. O fix: **mapas adicionados às deps de ambos
+os callbacks** (filhos pesados continuam bailando via memo/areEqual + CoW mantém identidade
+por imagem). Reproduzido 4× com probe de diagnóstico (não-tracked), green 3× pós-fix.
+Text-follow ficou 2/2 com folga (commit 56-59ms vs 115-134ms do T4.2 — o churn eliminado
+também pesava no commit).
+
+#### 1. Atribuição do 1r (mission item 3) — CONFIRMADA
+
+O render residual do DashboardPage no audit region-select **não é uma subscrição de seleção
+da página** — vem da cascata `syncActiveManualStageSnapshot` (subscreve as duas stores sem
+filtro): escrita de seleção → drift vs snapshot → `applyAioPipelineSnapshotToImage` → 4
+writes, entre eles `setAioDownloadItemForImage(imageId, entry)` que **reconstruía o array
+`downloadItems` incondicionalmente** (novo identity + revoke/create de objectURL por apply —
+2-3 applies por seleção). A página subscribia `downloadItems` (Dashboard.tsx:494) → 1r.
+Re-select sem mudança de valor: sync não detecta drift → 0 writes → 0r — exatamente o
+padrão observado no T4.2. Caminho de usuário do census (0r) passa por
+`selectAioRegionForImage`, que sincroniza o snapshot antes — sem drift líquido.
+
+#### 2. Mudanças por arquivo
+
+| Arquivo | Mudança |
+| --- | --- |
+| `stores/export-store.ts` | `setAioDownloadItemForImage`: fast-path no-op quando a entry é idêntica (mesmo blob+nome) — mata o churn de identity + revoke/create de objectURL por apply |
+| `pages/Dashboard.tsx` | `downloadItems` sub **removida**; `getAio/CleanerDownloadItemForImage` → `useExportStore.getState()` no call-time (deps `[]`); `STAGE_TABS` → `useMemo([t])`; 6 section elements dos managers → `useMemo` com deps reais |
+| `sections/AioRightPanel.tsx` | `aioManualProgressByImage` (mapa) → slice da entry ativa; `aioPipelineSnapshots` (array) → `count` + `index` + entry ativa por identidade; `llmSettings` (objeto) → `useShallow` de 7 campos; `aioPipelineStageLabels`/`cleanerSrcLang`/`setCleanerSrcLang` agora locais (props removidas); **`memo()` no painel** |
+| `sections/DashboardMainLayout.tsx` | **`memo()` no layout**; subs/props de `downloadItems` removidas |
+| `sections/ImageCollectionSidebar.tsx` + `components/DashboardLeftSidebar.tsx` | props `downloadItems`/`setDownloadItems` removidas; clear-all lê `useExportStore.getState()` no click (event-time) |
+| `hooks/image-collection.ts` | arg `downloadItems` removida; `optimizerSourceVariants` deixou de existir no hook (see Stage/SpecialModeStage) |
+| `hooks/utility-workspaces.ts` | `optimizerSourceVariants` removido do bundle `specialModeStageProps` |
+| `components/DashboardSpecialModeStage.tsx` | **auto-subscribe** `downloadItems` + deriva os variants localmente (só monta em modos especiais) — a página não subscribe mais a lista |
+| `components/splitter/useSplitterController.ts` | return do controller → `useMemo` (identidade estável entre writes do splitter-store) |
+| `hooks/typographer.ts` | `useTypographerWorkspace` return → `useMemo` (métodos todos estáveis) |
+| `hooks/aio-pipeline.catalog.ts` | guarda de conteúdo no rebuild do catálogo (`setAioStageOptions`/`setAioLanguageOptions`/`setAioStageSelection`): passes repetidos de boot mantêm identity → sem re-render de página/painel por rebuild idêntico |
+| `stores/aio-pipeline-store.ts` | `setAioLanguageOptions` aceita updater (value-or-updater, padrão da casa) |
+| `pages/dashboard/sections/StageGrid.tsx` | **fix exhaustive-deps**: `aioDetectionsByImage`/`aioSelectedRegionByImage` adicionadas às deps de `renderAioStageItem` e `renderStageItem` (item 0) |
+
+#### 3. Medição — audit ×3 (headed GPU, mediana)
+
+| Janela | T4.1 baseline | T4.2 pós | **T4.3 (mediana ×3)** |
+| --- | --- | --- | --- |
+| region-select:1-4 | DP 2r/~24ms · chrome 2r · Tooltip 76r | DP 1r/~4ms · chrome 1r · Tooltip 36r | **DP 0r · chrome 0r (topbar/sidebar/footer/layout 0r) · Tooltip ~36r · AioRP 1r/~11ms** |
+| region-select:5 (re-select) | 1r | DP 0r | **DP 0r · chrome 0r · só DashboardStageSection 1r** |
+| drag (20 passos) | DP 2r | DP 2r | **DP 0r · chrome 0r · AioRP 2r/~17ms** |
+| route:dashboard | AioRP 7-8r/~89ms | AioRP 8r/68ms · DP 8r/30-40ms | **AioRP 6r/~65ms (spread 37-79) · DP 6r/~21ms · topbar 6r/29ms** |
+
+#### 4. Gates
+
+| Gate | Resultado |
+| --- | --- |
+| typecheck interface + raiz (turbo) | ✅ 0 erros |
+| vitest (interface) | ✅ 43/43 |
+| smoke dashboard-refactor | ✅ 11/11 (×3 runs durante a sessão) |
+| text-follow probe | ✅ 2/2 ×2 runs — drag **0 tasks** (full pass 1 task de 89ms é o getImageData sampling, sem assert); commit **56-59ms** (T4.2: 111-134); massa 10419→0 / 0→4904; boxDx 300px |
+| react-scan audit ×3 | ✅ sem assertion — medianas na seção 3 (artefatos `probe-out/react-scan-audit-t43-final-run{1,2,3}.json`) |
+| react-scan census ×1 | ✅ 2/2, zero assertion failure (`probe-out/react-scan-census-t43-run1.json`) |
+
+#### 5. Census — deltas por janela vs T4.2 (3 runs → comparação com run3 + spread dos outros)
+
+**Nenhuma janela >25% pior fora do spread de sessão documentado** (as duas variações
+matemáticas: `topbar:download-open` 0→50ms — o T4.2 run1 mediu 54 e o T4.1 62-129, task
+própria do menu; `empty-stage` 149→213ms — T4.2 mediu 147/307, custo de unmount inerente
+(P0-9), prioridade menor). Melhoras notáveis: `mode:watermark` 162→80ms (DP 5r→2r);
+`region:dblclick-editor` 153→103ms; `region:escape-editor` 123→66ms;
+`topbar:rotate-90-again` 196→152ms. Agregado da sessão: DP 107→102r/395→334ms · topbar
+122→117r · footer 130→125r/206→198ms · AioRP 51→50r/465→475ms (flat — os renders restantes
+do painel são data-driven legítimos: seleção/progresso/settings que o painel exibe).
+Long tasks de janelas críticas: retorno ao dashboard 327→329ms (mount, inalterado),
+region/type/translator-type 0 tasks (mantido).
+
+#### 6. AioRightPanel: avaliação do alvo (honesto)
+
+- **Interações**: 1-2 renders por janela (select 1r/~11ms, drag 2r/17ms) — em linha com o
+  objetivo (dados que o painel exibe mudaram).
+- **route:dashboard (remount)**: mediana 6r/~65ms vs T4.1 7-8r/~89ms. O alvo ≤2r **não foi
+  batido**; os 6 renders restantes são writes de first-boot (montagem + flip de
+  `aioOptionsLoading` + primeira escrita de catálogo/idiomas/seleção) que caem em tasks
+  separadas do boot — não cascata de interação. Tempo ~65ms (spread 37-79) está na
+  vizinhança do teto de ~60ms. Caminho documentado para T4.4: transação única de boot
+  (T4.4e) + preservação de identidade na rehidratação de progress/snapshots — reduziria os
+  ~2-3 renders residuais.
+
+#### 7. O que permanece (para T4.4)
+
+1. Boot-write transaction (T4.4e já listado): agrupar os writes de normalização/primeiro
+   catálogo — reduziria os renders de remount do painel e da página.
+2. `aioImageSnapshotIndexById` churn no apply do sync (write incondicional do mapa) — a
+   página não subscribe mais, mas manter o padrão de fast-path no setter se algum slice
+   por mapa reaparecer.
+3. `dashboard-refactor-smoke`/`text-follow` cobrem o gesto do fix da StageGrid — o
+   diagnóstico (box `--selected`) hoje vive em probes não-tracked (`koma-t43-probes/`);
+   se a classe stale voltar a aparecer, o caminho é o mesmo (deps de closures que leem
+   mapas).
+
+### T4.3 — review (2026-09-01, Agente de Review)
+
+**Veredito: APPROVE.** Escopo cumprido, atribuição do 1r confirmada, gates todos verdes
+re-executados pelo review (headed, `--workers=1`, a partir de `apps/tauri`).
+
+#### Verificação por área de risco (ordem da missão)
+
+1. **Fast path `setAioDownloadItemForImage`** (export-store.ts:159-176) — **seguro**.
+   (a) Semântica: blob+name é proxy correto aqui porque o fast path existe apenas para o
+   caso de sincronização — a mesma entry do snapshot (`snapshot.aioDownloads.find(...)`)
+   reescrita por selects/progresso; o blob é um objeto identidade-estável do snapshot (CoW),
+   não um blob recém-regenerado. Um render regenerado que produza conteúdo idêntico cria um
+   **novo** Blob (identidade diferente) → cai no slow path → URL nova. Não há consumidor que
+   dependa de URL fresca para o mesmo Blob (`<img>` usa o objectURL; reuso do mesmo Blob =
+   mesmo conteúdo). (b) Leaks: slow path inalterado — revoga a URL antiga e cria a nova;
+   fast path não revoga nem cria (nada a revogar — a URL existente continua válida e em uso);
+   sem double-revoke. Clear-all (DashboardLeftSidebar.tsx:251-268), removeImage
+   (image-collection.ts:292-302) e o unmount revoke (export-download.availability.ts:26-32)
+   revogam pelo store, independente do fast path. A rota settings/feed desmonta a Dashboard →
+   revoke de todas as URLs com o array persistindo na store; no retorno o autosave restore
+   recria `downloadItems` com URLs novas
+   (workspace-persistence.restore.ts:275,293) — e sem autosave o fluxo de boot re-aplica
+   snapshots com blobs de identidade nova → slow path. Sem caminho de URL morta via fast
+   path. (c) Callers: 4 sites — Dashboard.tsx:966 (sync de boot/manual), aio-snapshot-state.ts:402
+   (sub-mode switch), :465 (setManualCurrentStageForImage), :709
+   (patchAioSnapshotStageForImage). Todos passam entries originadas de snapshots (identidade
+   estável entre applies), exatamente o caso coberto. Nota: o fast path não reproduz o efeito
+   colateral `setLastActionScope('aio')` do slow path — aceitável: quando a entry já está em
+   place, o escopo 'aio' já foi setado pela escrita que a criou (e o T4.2 verificou os menus);
+   registrar caso algum fluxo dependa de re-afirmar o escopo com a mesma entry.
+2. **Fix exhaustive-deps da StageGrid** (StageGrid.tsx:504-505, 759-761) — **correto e
+   necessário**. `DashboardStageGrid` é `memo`; dentro dele o `items` do
+   VirtualizedLongStrip é `useMemo` dependente de `renderItem` — identidade nova de
+   `renderStageItem`/`renderAioStageItem` re-deriva os itens; os filhos pesados continuam
+   bailando via `React.memo(..., areEqual)` + CoW (identidade por imagem). Restaura
+   `--selected`, CoW commits e drag visual. Text-follow 2/2 ×2 runs re-executados pelo
+   review (drag 0 long tasks; commit 55-60ms; MASS/boxDx corretos).
+3. **`memo(DashboardMainLayout)`** — props enumerados (~230). Todos estáveis por hooks
+   memoizados; os bundles que antes quebravam a identidade foram estabilizados
+   (`useTypographerWorkspace` return → useMemo; `useSplitterController` return → useMemo;
+   6 section elements → useMemo com deps reais; `STAGE_TABS` → useMemo([t])). Confirmação
+   empírica: no audit re-executado, windows region-select/drag mostram
+   DashboardMainLayout **0r** — o memo não é morto. Os elementos `useMemo` dos managers
+   capturam handlers estáveis (callbacks dos hooks) — sem stale-capture observável; os
+   handlers são todos callbacks de identidade estável das mesmas deps listadas.
+4. **Slices do AioRightPanel** — corretos. `activeAioPipelineSnapshot` indexa por
+   `aioPipelineSnapshotIndex` (progresso de outra imagem não muda a entry no índice ativo;
+   avanço da ativa troca índice → entry nova → re-render); `activeManualProgress` é slice
+   por `resolvedActiveId` (troca de imagem ativa re-renderiza). `llmSettings` useShallow:
+   7/7 campos de `LlmRequestSettings` cobertos (extra_context, image_input_enabled,
+   temperature, top_p, max_tokens, translation_notes_enabled,
+   neighbor_image_context_enabled — utils/customLlm.ts:10-18). Nenhum campo faltando.
+5. **Guardas de conteúdo do boot** (aio-pipeline.catalog.ts:309-360, 399-443) — equivalentes.
+   `aioStageOptions` guarda compara JSON.stringify por option (conteúdo, não referência; as
+   options do catálogo são objetos planos serializáveis — sem funções/Map/Set); `prev` parte
+   de `DEFAULT_AIO_STAGE_OPTIONS` com as 5 chaves, então o `Object.keys(prev).every` compara
+   todas as chaves construídas. `aioLanguageOptions` compara value+label por elemento
+   (conteúdo). `setAioStageSelection` guard de 5 campos primitivos. `setAioLanguageOptions`
+   aceita updater (padrão da casa) — todos os callers compatíveis (o único caller com
+   argumento é o catálogo; os demais chamam `setAioStageSelection`, já value-or-updater).
+6. **Gates re-executados pelo review** (headed, workers=1, chromium):
+   dashboard-refactor-smoke 11/11 (39.9s); text-follow 2/2 ×2 (commit 55/58/56/60ms;
+   drag 0 tasks ×2; MASS 10419→0 / 0→4904; boxDx 300px ×2); react-scan-audit 1/1 sem
+   assertion failure — region-select:1-4 **DP 0r/chrome 0r** (AioRP 1r/~11-12ms por janela,
+   data-driven), re-select só DashboardStageSection+Grid 1r, drag AioRP 2r/17ms,
+   route:dashboard AioRP 6r/37ms (boot writes, não cascata); react-scan-census 2/2 sem
+   assertion failure (route:dashboard-return worst 347ms — mount, inalterado vs T4.2/T4.1);
+   typecheck interface + raiz (turbo, 3/3) ✅; vitest interface 43/43 ✅.
+
+#### Achados (nenhum bloqueante)
+
+1. **(menor, não-bloqueante)** Fast path pula `setLastActionScope('aio')` que o slow path
+   executa. Inofensivo hoje (escopo já afirmado quando a entry entrou; menu de download
+   verificado no census). Se algum fluxo futuro re-aplicar a mesma entry esperando re-afirmar
+   o escopo, este é o ponto — export-store.ts:165-176.
+2. **(menor, não-bloqueante)** `JSON.stringify` nas options do catálogo é O(n) por boot pass
+   e quebraria silenciosamente se uma option ganhar campo não-serializável (hoje: objetos
+   planos). Upgrade path: comparar por key/label/modelKey campo a campo.
+3. **(registro)** Alvo ≤2r do route:dashboard **não batido** (6r/~65ms mediana) — como
+   declarado pelo executor; boot-write transaction (T4.4e) e preservação de identidade na
+   rehidratação são o caminho, escopo T4.4, não-bloqueante.
+
+#### Aceite
+
+Estrutura, caminhos de usuário e atribuição aprovados. O fix da StageGrid é a peça de maior
+risco funcional e está correto (é inclusive um bug de corretude pre-existente corrigido —
+grade stale sob escritas de seleção sem churn de identidade). T4.3 fechado; itens 7.x da
+execução e os achados 1-2 acima seguem para T4.4.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useI18n } from '../../../i18n';
 import {
@@ -430,21 +430,38 @@ export const useTypographerWorkspace = ({
     return snapshot;
   }, [updateSession]);
 
-  return {
-    replaceSessionsByImage,
-    updateSession,
-    setSessionSourceType,
-    setDraftText,
-    queueFromDraft,
-    importQueueText,
-    clearQueue,
-    markQueueItem,
-    toggleMultiBubble,
-    setActivePreset,
-    setSelectedRegionId,
-    saveSnapshot,
-    restoreSnapshot,
-  };
+  return useMemo(
+    () => ({
+      replaceSessionsByImage,
+      updateSession,
+      setSessionSourceType,
+      setDraftText,
+      queueFromDraft,
+      importQueueText,
+      clearQueue,
+      markQueueItem,
+      toggleMultiBubble,
+      setActivePreset,
+      setSelectedRegionId,
+      saveSnapshot,
+      restoreSnapshot,
+    }),
+    [
+      replaceSessionsByImage,
+      updateSession,
+      setSessionSourceType,
+      setDraftText,
+      queueFromDraft,
+      importQueueText,
+      clearQueue,
+      markQueueItem,
+      toggleMultiBubble,
+      setActivePreset,
+      setSelectedRegionId,
+      saveSnapshot,
+      restoreSnapshot,
+    ],
+  );
 };
 
 interface TypographerWorkspaceLike {

@@ -210,6 +210,7 @@ export default function DashboardStageSection({
 }: DashboardStageSectionProps) {
   const { t } = useI18n();
 
+  // ── Stage-owned store slices ──
   const aioDetectionsByImage = useRegionEditorStore(
     (s) => s.aioDetectionsByImage,
   );
@@ -491,6 +492,8 @@ export default function DashboardStageSection({
       );
     },
     [
+      aioDetectionsByImage,
+      aioSelectedRegionByImage,
       aioSteps.render,
       applyAioHealingMaskForImage,
       applyAutoDetectedShapeToActiveRegion,
@@ -739,7 +742,9 @@ export default function DashboardStageSection({
       );
     },
     [
+      aioDetectionsByImage,
       aioManualImageEditsByImage,
+      aioSelectedRegionByImage,
       cleanerManualImageEditsByImage,
       cleanerProcessedBaseByImage,
       downloadItems,

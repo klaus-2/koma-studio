@@ -10,7 +10,6 @@ import type {
   AioTextRegion,
   CleanerRunMeta,
   DashboardProcessingStatsSummary,
-  DownloadItem,
   TranslatorVisualRunMeta,
 } from '../../../types/dashboard.types';
 import { useImageCollectionStore } from '../stores/image-collection-store';
@@ -31,10 +30,6 @@ interface ImageCollectionSidebarProps {
 
   /* ── Processing stats (not yet migrated) ── */
   processingStats: DashboardProcessingStatsSummary;
-
-  /* ── Export-download (not yet migrated) ── */
-  downloadItems: DownloadItem[];
-  setDownloadItems: (items: DownloadItem[]) => void;
 
   /* ── Uploads hook (dropzone bindings) ── */
   getRootProps: () => Record<string, unknown>;
@@ -76,8 +71,6 @@ export default function ImageCollectionSidebar({
   resetLeftSidebarWidth,
   resizeLeftSidebarBy,
   processingStats,
-  downloadItems,
-  setDownloadItems,
   getRootProps,
   getInputProps,
   isDragActive,
@@ -130,7 +123,6 @@ export default function ImageCollectionSidebar({
       desktopSidebarToggleRef={desktopSidebarToggleRef}
       processingStats={processingStats}
       images={images}
-      downloadItems={downloadItems}
       activeId={resolvedActiveId}
       mode={mode}
       processing={processing}
@@ -140,7 +132,6 @@ export default function ImageCollectionSidebar({
       isDragActive={isDragActive}
       setImages={setImages}
       setActiveId={setActiveId}
-      setDownloadItems={setDownloadItems}
       setAioDetectionsByImage={(value) =>
         setAioDetectionsByImage(value as Record<string, AioTextRegion[]>)
       }
