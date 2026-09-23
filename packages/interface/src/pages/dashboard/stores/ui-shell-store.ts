@@ -99,7 +99,12 @@ export const useUiShellStore = create<UiShellStore>()(
           zoom: typeof zoom === 'function' ? zoom(state.zoom) : zoom,
         })),
       setViewMode: (viewMode) => set({ viewMode }),
-      setActiveStageTab: (activeStageTab) => set({ activeStageTab }),
+      setActiveStageTab: (activeStageTab) =>
+        set((state) =>
+          state.activeStageTab === activeStageTab
+            ? state
+            : { activeStageTab },
+        ),
       setForcedTourDropdown: (forcedTourDropdown) =>
         set({ forcedTourDropdown }),
       setModeTabsScroll: (modeTabsScroll) => set({ modeTabsScroll }),

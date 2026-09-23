@@ -110,22 +110,30 @@ export function useWorkspacePersistence({
     setFreeProviderDrafts,
   });
 
+  const handleHistoryRestore = useCallback(
+    async (snapshot: DashboardWorkspaceHistorySnapshot) => {
+      useWorkspacePersistenceStore.getState().workspaceHistoryReady = false;
+      const restored = await restoreWorkspaceHistorySnapshot(snapshot);
+      const restoredCaptureState = buildCaptureStateFromRestored(restored);
+      useWorkspacePersistenceStore.getState().workspaceHistorySignature =
+        buildWorkspaceHistorySignature(restoredCaptureState);
+      useWorkspacePersistenceStore.getState().workspaceAutosaveSignature =
+        buildWorkspaceAutosaveSignature(restoredCaptureState);
+      await applyRestoredWorkspaceState(restored, {
+        statusDetail: t('dashboard.status.historyRestored'),
+      });
+    },
+    [
+      applyRestoredWorkspaceState,
+      buildCaptureStateFromRestored,
+      t,
+    ],
+  );
 
   const workspaceHistory = useWorkspaceHistory<DashboardWorkspaceHistorySnapshot>(
     {
       disposeSnapshot: releaseWorkspaceHistorySnapshot,
-      onRestore: async (snapshot) => {
-        useWorkspacePersistenceStore.getState().workspaceHistoryReady = false;
-        const restored = await restoreWorkspaceHistorySnapshot(snapshot);
-        const restoredCaptureState = buildCaptureStateFromRestored(restored);
-        useWorkspacePersistenceStore.getState().workspaceHistorySignature =
-          buildWorkspaceHistorySignature(restoredCaptureState);
-        useWorkspacePersistenceStore.getState().workspaceAutosaveSignature =
-          buildWorkspaceAutosaveSignature(restoredCaptureState);
-        await applyRestoredWorkspaceState(restored, {
-          statusDetail: t('dashboard.status.historyRestored'),
-        });
-      },
+      onRestore: handleHistoryRestore,
     },
   );
 

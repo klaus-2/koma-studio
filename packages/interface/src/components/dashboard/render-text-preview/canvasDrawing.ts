@@ -181,6 +181,21 @@ export const computeWandMaskFrames = (
   };
 };
 
+/**
+ * Materializes one ants frame as an offscreen canvas (GPU texture) so the
+ * animation can swap frames with drawImage (GPU copy) instead of
+ * putImageData (CPU pixel upload of a full-res buffer every tick).
+ */
+export const createWandFrameCanvas = (
+  frame: ImageData,
+): HTMLCanvasElement => {
+  const canvas = document.createElement('canvas');
+  canvas.width = frame.width;
+  canvas.height = frame.height;
+  canvas.getContext('2d')?.putImageData(frame, 0, 0);
+  return canvas;
+};
+
 /** Preloads the fonts referenced by every region style before painting. */
 export const preloadRegionCanvasFonts = (
   regions: AioTextRegion[],

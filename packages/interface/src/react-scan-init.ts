@@ -28,7 +28,16 @@ declare global {
   }
 }
 
-if (import.meta.env.DEV && import.meta.env.MODE !== "test") {
+if (
+  import.meta.env.DEV &&
+  import.meta.env.MODE !== "test" &&
+  // Opt-in for normal dev sessions (VITE_REACT_SCAN=1 in .env.local): the
+  // overlay + per-render profiling measurably costs the dev runtime and was
+  // polluting interaction measurements. Always on for the e2e probe server
+  // (--mode e2e), which the audit probes rely on.
+  (import.meta.env.MODE === "e2e" ||
+    import.meta.env.VITE_REACT_SCAN === "1")
+) {
   const { scan } = await import("react-scan");
 
   // Bounds the buffer so long audit sessions can't grow it unbounded; drops

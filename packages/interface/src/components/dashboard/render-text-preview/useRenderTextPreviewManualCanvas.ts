@@ -12,7 +12,10 @@ import {
   loadImageFromSource,
   maskCanvasHasVisibleContent,
 } from '../../../utils/dashboard.utils';
-import { computeWandMaskFrames } from './canvasDrawing';
+import {
+  computeWandMaskFrames,
+  createWandFrameCanvas,
+} from './canvasDrawing';
 
 interface UseRenderTextPreviewManualCanvasParams {
   overlayRef: React.RefObject<HTMLDivElement | null>;
@@ -284,14 +287,16 @@ export const useRenderTextPreviewManualCanvas = ({
 
         wandMaskSelectedRef.current = frames.selected;
 
-        overlayCtx.putImageData(frames.frameA, 0, 0);
+        const frameCanvasA = createWandFrameCanvas(frames.frameA);
+        const frameCanvasB = createWandFrameCanvas(frames.frameB);
+        overlayCtx.drawImage(frameCanvasA, 0, 0);
         let useFrameA = false;
         const ANIMATION_INTERVAL_MS = 120;
         let lastFrameTime = 0;
         const animate = (timestamp: number) => {
           if (cancelled) return;
           if (timestamp - lastFrameTime >= ANIMATION_INTERVAL_MS) {
-            overlayCtx.putImageData(useFrameA ? frames.frameA : frames.frameB, 0, 0);
+            overlayCtx.drawImage(useFrameA ? frameCanvasA : frameCanvasB, 0, 0);
             useFrameA = !useFrameA;
             lastFrameTime = timestamp;
           }

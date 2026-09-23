@@ -1,4 +1,5 @@
-import { type LucideIcon } from 'lucide-react';
+import { memo } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { AioManualStageStatus } from '../types/dashboard.types';
 import { useI18n } from '../i18n';
@@ -9,17 +10,19 @@ interface AioTimelineStepProps {
   active: boolean;
   status: AioManualStageStatus;
   locked: boolean;
-  onSelect: () => void;
+  stageIndex: number;
+  onSelect: (stageIndex: number) => void;
 }
 
-export const AioTimelineStep = ({
+export const AioTimelineStep = memo(function AioTimelineStep({
   icon: Icon,
   label,
   active,
   status,
   locked,
+  stageIndex,
   onSelect,
-}: AioTimelineStepProps) => {
+}: AioTimelineStepProps) {
   const { t } = useI18n();
 
   const getStatusLabel = (s: AioManualStageStatus) => {
@@ -41,7 +44,7 @@ export const AioTimelineStep = ({
         locked && 'koma-aio-timeline__step--locked',
         `koma-aio-timeline__step--${status}`,
       )}
-      onClick={onSelect}
+      onClick={() => onSelect(stageIndex)}
       disabled={locked}
       aria-current={active ? 'step' : undefined}
     >
@@ -60,5 +63,4 @@ export const AioTimelineStep = ({
       </span>
     </button>
   );
-};
-
+});

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { ChevronDown, type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -10,13 +10,13 @@ interface AioSectionProps {
   children: ReactNode;
 }
 
-export const AioSection = ({
+export const AioSection = memo(function AioSection({
   icon: Icon,
   title,
   badge,
   defaultOpen = true,
   children,
-}: AioSectionProps) => {
+}: AioSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -38,4 +38,4 @@ export const AioSection = ({
       {open && <div className="koma-aio-section__body">{children}</div>}
     </div>
   );
-};
+});

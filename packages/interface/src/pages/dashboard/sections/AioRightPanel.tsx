@@ -244,6 +244,12 @@ export default memo(function AioRightPanel({
       null,
     [activeId, images],
   );
+  const selectManualStageByIndex = useCallback(
+    (index: number) => {
+      void setManualStageForActiveImage(index);
+    },
+    [setManualStageForActiveImage],
+  );
   const {
     activeImageDetections,
     activeSelectedRegion,
@@ -541,7 +547,8 @@ export default memo(function AioRightPanel({
                     active={isActiveStage}
                     status={stageStatus}
                     locked={!unlocked || !resolvedActiveId}
-                    onSelect={() => setManualStageForActiveImage(index)}
+                    stageIndex={index}
+                    onSelect={selectManualStageByIndex}
                   />
                 );
               })}
