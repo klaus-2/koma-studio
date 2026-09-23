@@ -30,7 +30,8 @@ export const useImageCollectionStore = create<ImageCollectionStore>()(
       isExtractingUploads: false,
 
       setImages: (images) => set({ images }),
-      setActiveId: (activeId) => set({ activeId }),
+      setActiveId: (activeId) =>
+        set((state) => (state.activeId === activeId ? state : { activeId })),
       setIsExtractingUploads: (isExtractingUploads) =>
         set({ isExtractingUploads }),
       addImages: (newImages) =>

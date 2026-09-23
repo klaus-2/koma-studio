@@ -102,6 +102,16 @@ const RenderTextPreviewTypeDock = ({
 }: RenderTextPreviewTypeDockProps) => {
   const { t } = useI18n();
 
+  const fontOptions = React.useMemo(
+    () =>
+      availableRenderFonts.map((family) => (
+        <option key={family} value={family}>
+          {family}
+        </option>
+      )),
+    [availableRenderFonts],
+  );
+
   return (
     <div
       ref={dockRef}
@@ -136,11 +146,7 @@ const RenderTextPreviewTypeDock = ({
             }
             aria-label={t('renderPreview.textFont')}
           >
-            {availableRenderFonts.map((family) => (
-              <option key={family} value={family}>
-                {family}
-              </option>
-            ))}
+            {fontOptions}
           </select>
 
           {/* Shape */}
@@ -202,7 +208,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.alignment === 'left' &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 updateSelectedRegionStyle((s) => ({
@@ -219,7 +225,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.alignment === 'center' &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 normalizeSelectedRegionShape({
@@ -236,7 +242,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.alignment === 'right' &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 updateSelectedRegionStyle((s) => ({
@@ -263,7 +269,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.bold &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 updateSelectedRegionStyle((s) => ({
@@ -280,7 +286,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.italic &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 updateSelectedRegionStyle((s) => ({
@@ -297,7 +303,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.underline &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 updateSelectedRegionStyle((s) => ({
@@ -314,7 +320,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.uppercase &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 updateSelectedRegionStyle((s) => ({
@@ -342,7 +348,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.textOrientation !== 'vertical' &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 updateSelectedRegionStyle((s) => ({
@@ -360,7 +366,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.textOrientation === 'vertical' &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 updateSelectedRegionStyle((s) => ({
@@ -378,7 +384,7 @@ const RenderTextPreviewTypeDock = ({
               className={cn(
                 'koma-type-dock__icon-btn',
                 selectedRegionStyle.textPathMode === 'circular' &&
-                  'koma-type-dock__icon-btn--active',
+                'koma-type-dock__icon-btn--active',
               )}
               onClick={() =>
                 updateSelectedRegionStyle((s) => ({
@@ -862,11 +868,11 @@ const RenderTextPreviewTypeDock = ({
               summary={
                 selectedRegionStyle.shadowLayers?.length
                   ? t('renderPreview.shadowLayersCount', {
-                      count: selectedRegionStyle.shadowLayers.length,
-                    })
+                    count: selectedRegionStyle.shadowLayers.length,
+                  })
                   : t('renderPreview.shadowBlurSummary', {
-                      value: selectedRegionStyle.shadowBlur.toFixed(0),
-                    })
+                    value: selectedRegionStyle.shadowBlur.toFixed(0),
+                  })
               }
               allowGradient
               swatches={textFillSwatches}

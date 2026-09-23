@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 
 interface UseWorkspaceHistoryArgs<T> {
   limit?: number;
@@ -167,16 +174,30 @@ export function useWorkspaceHistory<T>({
     disposeSnapshotList(redoStackRef.current);
   }, [cancelPendingCommit, disposeSnapshotList, disposeSnapshotSafe]);
 
-  return {
-    canUndo,
-    canRedo,
-    setBaseline,
-    reset,
-    commit,
-    queueCommit,
-    undo,
-    redo,
-    cancelPendingCommit,
-    isRestoringRef,
-  };
+  const handle = useMemo(
+    () => ({
+      canUndo,
+      canRedo,
+      setBaseline,
+      reset,
+      commit,
+      queueCommit,
+      undo,
+      redo,
+      cancelPendingCommit,
+      isRestoringRef,
+    }),
+    [
+      canUndo,
+      canRedo,
+      setBaseline,
+      reset,
+      commit,
+      queueCommit,
+      undo,
+      redo,
+      cancelPendingCommit,
+    ],
+  );
+  return handle;
 }
