@@ -42,7 +42,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "husky": "^9.1.7",
-    "lint-staged": "^15.5.2",
+    "lint-staged": "^17.5.1",
     "oxlint": "^1.80.0",
     "react-doctor": "^0.9.12",
     "turbo": "^2.5.0"
