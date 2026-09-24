@@ -3,19 +3,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
+use tauri::State;
 
-const IMAGE_EXTENSIONS: &[&str] = &[
+use crate::{error::AppError, protocol::media::MediaScopes};
+
+pub(crate) const IMAGE_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "tif", "svg", "ico", "avif",
 ];
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct DesktopImageReadResult {
-    pub data_url: String,
-    pub size: u64,
-}
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -26,51 +21,73 @@ pub struct DesktopImageFolderEntry {
     pub size: u64,
 }
 
-#[tauri::command(rename = "desktop-api:images:read-file")]
-pub fn read_file_as_data_url(file_path: String) -> Result<DesktopImageReadResult, String> {
-    read_image_file(&file_path)
+/// Metadata returned by `allow-paths`. Never bytes.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopImageAllowedEntry {
+    pub file_path: String,
+    pub mime_type: String,
+    pub size: u64,
 }
 
-#[tauri::command(rename = "desktop-api:images:read-buffer")]
-pub fn read_file_buffer(file_path: String) -> Result<DesktopImageReadResult, String> {
-    read_image_file(&file_path)
-}
-
+/// Output is unchanged (metadata only, sorted). Side effect: the folder the
+/// user just browsed becomes servable through `koma-image://`.
 #[tauri::command(rename = "desktop-api:images:list-folder")]
 pub fn desktop_api_list_folder(
+    scopes: State<'_, MediaScopes>,
     folder_path: String,
-) -> Result<Vec<DesktopImageFolderEntry>, String> {
-    list_image_folder(&folder_path)
+) -> Result<Vec<DesktopImageFolderEntry>, AppError> {
+    let entries = list_image_folder(&folder_path)?;
+    scopes.images.allow_dir(folder_path.trim())?;
+    Ok(entries)
 }
 
-pub fn read_image_file(file_path: &str) -> Result<DesktopImageReadResult, String> {
-    let path = validate_non_empty_path(file_path, "File path was not provided.")?;
-    let buffer = fs::read(&path).map_err(|_| "Could not read the file.".to_string())?;
-    let mime = infer_mime_type_from_path(&path);
-    Ok(DesktopImageReadResult {
-        data_url: format!("data:{mime};base64,{}", STANDARD.encode(&buffer)),
-        size: buffer.len() as u64,
-    })
+/// Registers individual image files (file picker / restored autosave) so the
+/// protocol will serve them. Restricted to absolute paths with image
+/// extensions; returns metadata so the frontend needs no second IPC call.
+#[tauri::command(rename = "desktop-api:images:allow-paths")]
+pub fn desktop_api_allow_paths(
+    scopes: State<'_, MediaScopes>,
+    paths: Vec<String>,
+) -> Result<Vec<DesktopImageAllowedEntry>, AppError> {
+    paths
+        .iter()
+        .map(|raw| {
+            let path = validate_non_empty_path(raw, "File path was not provided.")?;
+            if !path.is_absolute() {
+                return Err(AppError::InvalidPath(format!("not absolute: {raw}")));
+            }
+            if !is_supported_image_path(&path) {
+                return Err(AppError::UnsupportedMediaType(
+                    extension(&path).unwrap_or_default(),
+                ));
+            }
+            let canonical = scopes.images.allow_file(&path)?;
+            let metadata = fs::metadata(&canonical)?;
+            Ok(DesktopImageAllowedEntry {
+                file_path: raw.trim().to_string(),
+                mime_type: infer_mime_type_from_path(&canonical),
+                size: metadata.len(),
+            })
+        })
+        .collect()
 }
 
-pub fn list_image_folder(folder_path: &str) -> Result<Vec<DesktopImageFolderEntry>, String> {
-    let path = validate_non_empty_path(folder_path, "Folder path was not provided.")?;
-    let metadata =
-        fs::metadata(&path).map_err(|_| "Could not access the folder.".to_string())?;
+pub fn list_image_folder(folder_path: &str) -> Result<Vec<DesktopImageFolderEntry>, AppError> {
+    let path = validate_non_empty_path(folder_path, "File path was not provided.")?;
+    let metadata = fs::metadata(&path)?;
     if !metadata.is_dir() {
-        return Err("The provided path is not a folder.".to_string());
+        return Err(AppError::NotADirectory(path));
     }
 
     let mut entries = Vec::new();
-    for entry in fs::read_dir(&path).map_err(|_| "Could not list the folder.".to_string())? {
-        let entry = entry.map_err(|_| "Could not list the folder.".to_string())?;
+    for entry in fs::read_dir(&path)? {
+        let entry = entry?;
         let file_path = entry.path();
         if !file_path.is_file() || !is_supported_image_path(&file_path) {
             continue;
         }
-        let metadata = entry
-            .metadata()
-            .map_err(|_| "Could not read the image metadata.".to_string())?;
+        let metadata = entry.metadata()?;
         let file_name = file_path
             .file_name()
             .and_then(|name| name.to_str())
@@ -88,7 +105,7 @@ pub fn list_image_folder(folder_path: &str) -> Result<Vec<DesktopImageFolderEntr
     Ok(entries)
 }
 
-pub fn infer_mime_type_from_path(path: &Path) -> String {
+pub(crate) fn infer_mime_type_from_path(path: &Path) -> String {
     match extension(path).as_deref() {
         Some("png") => "image/png",
         Some("jpg") | Some("jpeg") => "image/jpeg",
@@ -104,10 +121,10 @@ pub fn infer_mime_type_from_path(path: &Path) -> String {
     .to_string()
 }
 
-fn validate_non_empty_path(raw_path: &str, message: &str) -> Result<PathBuf, String> {
+fn validate_non_empty_path(raw_path: &str, message: &str) -> Result<PathBuf, AppError> {
     let trimmed = raw_path.trim();
     if trimmed.is_empty() {
-        return Err(message.to_string());
+        return Err(AppError::InvalidInput(message.to_string()));
     }
 
     Ok(PathBuf::from(trimmed))
@@ -121,33 +138,13 @@ fn is_supported_image_path(path: &Path) -> bool {
 
 fn extension(path: &Path) -> Option<String> {
     path.extension()
-        .and_then(|extension| extension.to_str())
-        .map(|extension| extension.to_ascii_lowercase())
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn read_image_file_returns_data_url_and_size() {
-        let temp = tempfile::tempdir().unwrap();
-        let file_path = temp.path().join("page.png");
-        fs::write(&file_path, [1_u8, 2, 3]).unwrap();
-
-        let result = read_image_file(&file_path.to_string_lossy()).unwrap();
-
-        assert_eq!(result.size, 3);
-        assert_eq!(result.data_url, "data:image/png;base64,AQID");
-    }
-
-    #[test]
-    fn read_image_file_rejects_missing_path() {
-        assert_eq!(
-            read_image_file(" ").unwrap_err(),
-            "File path was not provided."
-        );
-    }
 
     #[test]
     fn list_folder_returns_supported_images_sorted() {
@@ -170,9 +167,17 @@ mod tests {
         let file_path = temp.path().join("page.png");
         fs::write(&file_path, [1_u8]).unwrap();
 
-        assert_eq!(
+        assert!(matches!(
             list_image_folder(&file_path.to_string_lossy()).unwrap_err(),
-            "The provided path is not a folder."
-        );
+            AppError::NotADirectory(_)
+        ));
+    }
+
+    #[test]
+    fn list_folder_rejects_empty_path() {
+        assert!(matches!(
+            list_image_folder("  ").unwrap_err(),
+            AppError::InvalidInput(_)
+        ));
     }
 }

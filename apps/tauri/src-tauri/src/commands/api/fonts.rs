@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs, path::PathBuf};
+use std::{collections::BTreeMap, fs, path::{Path, PathBuf}};
 
 use base64::{engine::general_purpose, Engine as _};
 use serde::Serialize;
@@ -6,8 +6,9 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, Runtime};
 
 use super::client::{app_data_dir, read_json_file, string_field, write_json_file};
+use crate::protocol::media::media_url;
 
-const FONT_EXTENSIONS: &[&str] = &["ttf", "otf", "woff", "woff2"];
+pub(crate) const FONT_EXTENSIONS: &[&str] = &["ttf", "otf", "woff", "woff2"];
 const DEFAULT_SYSTEM_FONTS: &[&str] = &[
     "Arial",
     "Calibri",
@@ -80,7 +81,7 @@ pub fn fonts_install<R: Runtime>(app: AppHandle<R>, payload: Value) -> Result<Va
             family,
             source: "custom".to_string(),
             file_name: Some(unique_file_name),
-            data_url: Some(font_data_url(&final_path)?),
+            data_url: Some(font_media_url(&final_path)),
         }
     }))
 }
@@ -140,7 +141,7 @@ fn list_custom_fonts<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<FontEntry>, S
             family,
             source: "custom".to_string(),
             file_name: Some(file_name),
-            data_url: Some(font_data_url(&path)?),
+            data_url: Some(font_media_url(&path)),
         });
     }
     write_manifest(app, &next_manifest)?;
@@ -152,6 +153,13 @@ fn fonts_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let dir = app_data_dir(app)?.join("fonts");
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     Ok(dir)
+}
+
+/// Fonts root for the `koma-font` protocol scope (AppError surface).
+pub(crate) fn fonts_dir_for_media<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<PathBuf, crate::error::AppError> {
+    fonts_dir(app).map_err(crate::error::AppError::Internal)
 }
 
 fn manifest_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
@@ -209,21 +217,9 @@ fn unique_font_file_name<R: Runtime>(
     Err("Could not generate a unique font name.".to_string())
 }
 
-fn font_data_url(path: &PathBuf) -> Result<String, String> {
-    let path_text = path.to_string_lossy().to_string();
-    let extension = font_extension(&path_text).unwrap_or("ttf");
-    let mime = match extension {
-        "ttf" => "font/ttf",
-        "otf" => "font/otf",
-        "woff" => "font/woff",
-        "woff2" => "font/woff2",
-        _ => "application/octet-stream",
-    };
-    let bytes = fs::read(path).map_err(|error| error.to_string())?;
-    Ok(format!(
-        "data:{mime};base64,{}",
-        general_purpose::STANDARD.encode(bytes)
-    ))
+/// `koma-font://` URL served by the media protocol — never a base64 payload.
+fn font_media_url(path: &Path) -> String {
+    media_url(crate::protocol::media::FONT_SCHEME, path)
 }
 
 fn sanitize_family(value: &str) -> String {

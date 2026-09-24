@@ -8,6 +8,8 @@
 //!   - `workspace::*`  → autosave, import/export `.komaproj`
 
 mod commands;
+mod error;
+mod protocol;
 mod runtime;
 mod security;
 mod sidecar;
@@ -22,7 +24,9 @@ pub fn run() {
     // both are present. Pin ring (the same backend reqwest's rustls-tls uses).
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    tauri::Builder::default()
+    // koma-image:// / koma-font:// — serve image/font bytes from disk with
+    // scope allowlisting, Range and ETag (see protocol::media docs).
+    protocol::media::register(tauri::Builder::default())
         .register_uri_scheme_protocol("app", updater::protocol::serve_chunks_protocol)
         // Must stay the first registered plugin: it exits duplicate processes
         // before any other plugin or window spawns. When the OS protocol
@@ -128,9 +132,8 @@ pub fn run() {
             commands::workspace::clear_autosave,
             commands::workspace::export_current,
             commands::workspace::import_file,
-            commands::images::read_file_as_data_url,
-            commands::images::read_file_buffer,
             commands::images::desktop_api_list_folder,
+            commands::images::desktop_api_allow_paths,
             commands::api::auth::config,
             commands::api::auth::session,
             commands::api::auth::refresh_session,
@@ -185,6 +188,7 @@ pub fn run() {
         ])
         .setup(|app| {
             log::info!("KŌMA Studio v2 booting");
+            protocol::media::init_static_roots(app.handle())?;
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = sidecar::mini_backend::start_mini_backend(handle).await {
@@ -199,6 +203,7 @@ pub fn run() {
         // so the next launch sees a healthy health-check and "reuses" the dead
         // process instead of starting a fresh backend.
         .on_window_event(|window, event| {
+            protocol::media::on_window_event(window, event);
             if matches!(
                 event,
                 tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed

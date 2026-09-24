@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' tauri://localhost app:; base-uri 'self'; object-src 'none'; script-src 'self' app:; frame-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' tauri://localhost app:; img-src 'self' data: blob: https: tauri://localhost app:; connect-src 'self' tauri://localhost app: ipc://localhost http://127.0.0.1:* ws://127.0.0.1:* https:; font-src 'self' data:; worker-src 'self' blob: app: https://challenges.cloudflare.com",
+      "csp": "default-src 'self' tauri://localhost app:; base-uri 'self'; object-src 'none'; script-src 'self' app:; frame-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' tauri://localhost app:; img-src 'self' data: blob: https: tauri://localhost app: http://koma-image.localhost https://koma-image.localhost; connect-src 'self' tauri://localhost app: ipc://localhost http://127.0.0.1:* ws://127.0.0.1:* https:; font-src 'self' data: http://koma-font.localhost https://koma-font.localhost; worker-src 'self' blob: app: https://challenges.cloudflare.com",
       "dangerousDisableAssetCspModification": false,
       "assetProtocol": {
         "enable": true,
