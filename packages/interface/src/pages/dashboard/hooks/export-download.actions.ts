@@ -61,7 +61,9 @@ export function useDashboardDownloadActions({
   setDownloadMenuOpen,
 }: UseDashboardDownloadActionsArgs) {
   const { t } = useI18n();
-  const images = useImageCollectionStore((s) => s.images);
+  const getImages = () => useImageCollectionStore.getState().images;
+  const getTranslatorDetectionsByImage = () =>
+    useTranslatorStore.getState().translatorDetectionsByImage;
   const lastActionScope = useExportStore((s) => s.lastActionScope);
   const downloadBundleFormat = useExportStore((s) => s.downloadBundleFormat);
   const translatorWorkspaceMode = useTranslatorStore(
@@ -69,9 +71,6 @@ export function useDashboardDownloadActions({
   );
   const translatorTranslatedText = useTranslatorStore(
     (s) => s.translatorTranslatedText,
-  );
-  const translatorDetectionsByImage = useTranslatorStore(
-    (s) => s.translatorDetectionsByImage,
   );
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
 
@@ -87,8 +86,8 @@ export function useDashboardDownloadActions({
 
     const { zipSync, strToU8 } = await import('fflate');
     const zipFiles: Record<string, Uint8Array> = {};
-    images.forEach((imgData, index) => {
-      const regions = translatorDetectionsByImage[imgData.id] ?? [];
+    getImages().forEach((imgData, index) => {
+      const regions = getTranslatorDetectionsByImage()[imgData.id] ?? [];
       const baseName = sanitizeArchivePathToken(removeFileExtension(imgData.file.name));
       zipFiles[`texts/raw/${String(index + 1).padStart(3, '0')}-${baseName}.txt`] = strToU8(
         buildRegionTextDump(regions, 'recognized'),
@@ -105,7 +104,7 @@ export function useDashboardDownloadActions({
       blob: new Blob([zippedCopy.buffer], { type: 'application/zip' }),
       fileName: `koma-studio-translator-visual-${timestamp}.zip`,
     };
-  }, [images, translatorDetectionsByImage, translatorTranslatedText, translatorWorkspaceMode]);
+  }, [translatorTranslatedText, translatorWorkspaceMode]);
 
   const handleDownload = useCallback(async (scope: ProcessableMode | null = lastActionScope) => {
     try {
@@ -117,8 +116,8 @@ export function useDashboardDownloadActions({
       if (scope === 'translator') {
         const translatorCanDownload = translatorWorkspaceMode === 'text'
           ? translatorTranslatedText.trim().length > 0
-          : images.some((img) => {
-            const regions = translatorDetectionsByImage[img.id] ?? [];
+          : getImages().some((img) => {
+            const regions = getTranslatorDetectionsByImage()[img.id] ?? [];
             return regions.some((region) => (
               (region.recognizedText ?? '').trim().length > 0
               || (region.translatedText ?? '').trim().length > 0
@@ -156,7 +155,6 @@ export function useDashboardDownloadActions({
     buildDownloadBundleBlob,
     buildTranslatorDownloadBlob,
     downloadBundleFormat,
-    images,
     lastActionScope,
     prepareDownloadEntries,
     setDownloadMenuOpen,

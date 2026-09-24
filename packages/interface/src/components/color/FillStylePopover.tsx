@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { memo, useMemo, useState } from "react";
 import ReactGPicker from "react-gcolor-picker";
 
 import { useI18n } from '../../i18n';
@@ -19,7 +19,7 @@ interface FillStylePopoverProps {
 const isGradientValue = (value: string): boolean =>
   /^(linear|radial)-gradient\(/i.test(value.trim());
 
-export const FillStylePopover = ({
+export const FillStylePopover = memo(function FillStylePopover({
   label,
   value,
   onChange,
@@ -28,7 +28,7 @@ export const FillStylePopover = ({
   swatches,
   onBeforeOpen,
   onClose,
-}: FillStylePopoverProps) => {
+}: FillStylePopoverProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const gradientActive = allowGradient && isGradientValue(value);
@@ -134,4 +134,4 @@ export const FillStylePopover = ({
       </PopoverContent>
     </Popover>
   );
-};
+});

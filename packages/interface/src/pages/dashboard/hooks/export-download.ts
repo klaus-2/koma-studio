@@ -69,8 +69,8 @@ export function useDashboardDownloadBundle({
   getAioDownloadItemForImage,
   resolveAioStageKeyForImage,
 }: UseDashboardDownloadBundleArgs) {
-  const images = useImageCollectionStore((s) => s.images);
-  const downloadItems = useExportStore((s) => s.downloadItems);
+  const getImages = () => useImageCollectionStore.getState().images;
+  const getDownloadItems = () => useExportStore.getState().downloadItems;
   const outFormat = useExportStore((s) => s.outFormat);
   const outQuality = useExportStore((s) => s.outQuality);
   const downloadBundleFormat = useExportStore((s) => s.downloadBundleFormat);
@@ -89,7 +89,7 @@ export function useDashboardDownloadBundle({
       const extension = getImageExtensionFromMime(outFormat);
       const outputs: PreparedDownloadEntry[] = [];
       // ponytail: sequential by design — canvas render pipeline holds one full-page bitmap at a time (parallelizing would hold N decoded pages)
-      for (const imgData of images) {
+      for (const imgData of getImages()) {
         const regions = useRegionEditorStore.getState().aioDetectionsByImage[imgData.id] ?? [];
         const blob = await renderAioImageToBlob(imgData, regions);
         outputs.push({
@@ -105,8 +105,8 @@ export function useDashboardDownloadBundle({
       const extension = getImageExtensionFromMime(outFormat);
       const outputs: PreparedDownloadEntry[] = [];
       // ponytail: sequential by design — canvas composition holds one full-page bitmap at a time (parallelizing would hold N decoded pages)
-      for (const imgData of images) {
-        const baseItem = downloadItems.find((item) => item.scope === 'cleaner' && item.sourceImageId === imgData.id) ?? null;
+      for (const imgData of getImages()) {
+        const baseItem = getDownloadItems().find((item) => item.scope === 'cleaner' && item.sourceImageId === imgData.id) ?? null;
         if (hasCleanerManualImageEdits(imgData.id)) {
           const composed = await composeCleanerEditableCanvas(
             imgData,
@@ -135,7 +135,7 @@ export function useDashboardDownloadBundle({
       const extension = getImageExtensionFromMime(outFormat);
       const outputs: PreparedDownloadEntry[] = [];
       // ponytail: sequential by design — canvas composition holds one full-page bitmap at a time (parallelizing would hold N decoded pages)
-      for (const imgData of images) {
+      for (const imgData of getImages()) {
         const stageKey = resolveAioStageKeyForImage(imgData.id);
         if (stageKey === 'render') {
           const regions = useRegionEditorStore.getState().aioDetectionsByImage[imgData.id] ?? [];
@@ -183,7 +183,7 @@ export function useDashboardDownloadBundle({
     }
 
     const scopedEntries: PreparedDownloadEntry[] = [];
-    for (const item of downloadItems) {
+    for (const item of getDownloadItems()) {
       if (item.scope !== scope) continue;
       scopedEntries.push({
         fileName: item.name,
@@ -196,11 +196,9 @@ export function useDashboardDownloadBundle({
 
     composeAioEditableCanvas,
     composeCleanerEditableCanvas,
-    downloadItems,
     getAioDownloadItemForImage,
     hasAioManualImageEdits,
     hasCleanerManualImageEdits,
-    images,
     outFormat,
     outQuality,
     renderAioImageToBlob,
@@ -223,8 +221,8 @@ export function useDashboardDownloadBundle({
       const { PDFDocument } = await import('pdf-lib');
       const pdf = await PDFDocument.create();
       const orderedEntries = [...entries].sort((a, b) => {
-        const ai = images.findIndex((item) => item.id === a.sourceImageId);
-        const bi = images.findIndex((item) => item.id === b.sourceImageId);
+        const ai = getImages().findIndex((item) => item.id === a.sourceImageId);
+        const bi = getImages().findIndex((item) => item.id === b.sourceImageId);
         return ai - bi;
       });
       // ponytail: sequential by design — pdf-lib embeds pages in order; each embed mutates the document
@@ -253,18 +251,18 @@ export function useDashboardDownloadBundle({
 
     const { zipSync, strToU8 } = await import('fflate');
     const orderedEntries = [...entries].sort((a, b) => {
-      const ai = images.findIndex((item) => item.id === a.sourceImageId);
-      const bi = images.findIndex((item) => item.id === b.sourceImageId);
+      const ai = getImages().findIndex((item) => item.id === a.sourceImageId);
+      const bi = getImages().findIndex((item) => item.id === b.sourceImageId);
       return ai - bi;
     });
     const zipFiles: Record<string, Uint8Array> = {};
     const inpaintedByImageId = new Map<string, DownloadItem>();
-    for (const item of downloadItems) {
+    for (const item of getDownloadItems()) {
       if (item.scope === 'aio') inpaintedByImageId.set(item.sourceImageId, item);
     }
 
     const imageWriteJobs = orderedEntries.map(async (entry, index) => {
-      const imageRef = images.find((item) => item.id === entry.sourceImageId);
+      const imageRef = getImages().find((item) => item.id === entry.sourceImageId);
       const baseName = sanitizeArchivePathToken(removeFileExtension(imageRef?.file.name ?? `page-${index + 1}`));
       const imageExt = getImageExtensionFromMime(entry.blob.type || outFormat);
       const imagePath = `images/${String(index + 1).padStart(3, '0')}-${baseName}.${imageExt}`;
@@ -293,7 +291,7 @@ export function useDashboardDownloadBundle({
       }
       if (scope === 'aio' && downloadIncludeInpaintedImage) {
         const inpainted = inpaintedByImageId.get(entry.sourceImageId);
-        const imageState = images.find((item) => item.id === entry.sourceImageId);
+        const imageState = getImages().find((item) => item.id === entry.sourceImageId);
         if (imageState && hasAioManualImageEdits(entry.sourceImageId)) {
           const composed = await composeAioEditableCanvas(
             imageState,
@@ -339,9 +337,7 @@ export function useDashboardDownloadBundle({
     downloadIncludeInpaintedImage,
     downloadIncludeRawText,
     downloadIncludeTranslatedText,
-    downloadItems,
     hasAioManualImageEdits,
-    images,
     outFormat,
     getTypographerSessionsByImage,
   ]);

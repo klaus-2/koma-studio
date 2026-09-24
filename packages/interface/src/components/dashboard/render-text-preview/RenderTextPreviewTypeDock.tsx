@@ -26,6 +26,7 @@ import { DEFAULT_RENDER_STYLE } from '../../../constants/dashboard.constants';
 import {
   applyNativeTextEffectPreset,
   NATIVE_TEXT_EFFECT_PRESETS,
+  type NativeTextEffectPresetId,
 } from '../../../typography/textEffects';
 import {
   buildFillPickerValue,
@@ -110,6 +111,22 @@ const RenderTextPreviewTypeDock = ({
         </option>
       )),
     [availableRenderFonts],
+  );
+
+  const handleTextEffectChange = React.useCallback(
+    (presetId: NativeTextEffectPresetId) =>
+      updateSelectedRegionStyle((s) =>
+        applyNativeTextEffectPreset(s, presetId),
+      ),
+    [updateSelectedRegionStyle],
+  );
+  const handleTextEffectIntensity = React.useCallback(
+    (value: number) =>
+      updateSelectedRegionStyle((s) => ({
+        ...s,
+        textEffectIntensity: value,
+      })),
+    [updateSelectedRegionStyle],
   );
 
   return (
@@ -1155,17 +1172,8 @@ const RenderTextPreviewTypeDock = ({
               value={selectedRegionStyle.textEffectPreset ?? 'none'}
               presets={NATIVE_TEXT_EFFECT_PRESETS}
               intensity={selectedRegionStyle.textEffectIntensity ?? 1}
-              onChange={(presetId) =>
-                updateSelectedRegionStyle((s) =>
-                  applyNativeTextEffectPreset(s, presetId),
-                )
-              }
-              onIntensityChange={(value) =>
-                updateSelectedRegionStyle((s) => ({
-                  ...s,
-                  textEffectIntensity: value,
-                }))
-              }
+              onChange={handleTextEffectChange}
+              onIntensityChange={handleTextEffectIntensity}
             />
 
             {/* Circular Text */}

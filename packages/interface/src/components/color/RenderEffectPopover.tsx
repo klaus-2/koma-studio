@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import ReactGPicker from "react-gcolor-picker";
 
@@ -18,7 +18,7 @@ interface RenderEffectPopoverProps {
   children?: ReactNode;
 }
 
-export const RenderEffectPopover = ({
+export const RenderEffectPopover = memo(function RenderEffectPopover({
   label,
   value,
   enabled,
@@ -29,7 +29,7 @@ export const RenderEffectPopover = ({
   allowGradient = false,
   swatches,
   children,
-}: RenderEffectPopoverProps) => {
+}: RenderEffectPopoverProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [pickerKey, setPickerKey] = useState(0);
@@ -128,4 +128,4 @@ export const RenderEffectPopover = ({
       </PopoverContent>
     </Popover>
   );
-};
+});

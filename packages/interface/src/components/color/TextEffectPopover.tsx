@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@koma/ui/components/popover";
 import type { NativeTextEffectPreset, NativeTextEffectPresetId } from "../../typography/textEffects";
@@ -12,13 +12,13 @@ interface TextEffectPopoverProps {
   onIntensityChange: (value: number) => void;
 }
 
-export const TextEffectPopover = ({
+export const TextEffectPopover = memo(function TextEffectPopover({
   value,
   presets,
   onChange,
   intensity,
   onIntensityChange,
-}: TextEffectPopoverProps) => {
+}: TextEffectPopoverProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -109,4 +109,4 @@ export const TextEffectPopover = ({
       </PopoverContent>
     </Popover>
   );
-};
+});

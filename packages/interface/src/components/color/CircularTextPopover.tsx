@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { memo, useState, type ReactNode } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@koma/ui/components/popover";
 import { useI18n } from "../../i18n";
@@ -10,12 +10,12 @@ interface CircularTextPopoverProps {
   children?: ReactNode;
 }
 
-export const CircularTextPopover = ({
+export const CircularTextPopover = memo(function CircularTextPopover({
   enabled,
   summary,
   onEnabledChange,
   children,
-}: CircularTextPopoverProps) => {
+}: CircularTextPopoverProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
@@ -59,4 +59,4 @@ export const CircularTextPopover = ({
       </PopoverContent>
     </Popover>
   );
-};
+});

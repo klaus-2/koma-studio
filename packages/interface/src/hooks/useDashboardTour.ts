@@ -878,9 +878,9 @@ export const useDashboardTour = ({
     };
   }, [setForcedDropdown]);
 
-  return {
-    replayTour: () => {
-      void startTour(true);
-    },
-  };
+  const replayTour = useCallback(() => {
+    void startTour(true);
+  }, [startTour]);
+
+  return { replayTour };
 };

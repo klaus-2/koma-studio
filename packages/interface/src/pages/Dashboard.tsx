@@ -1767,6 +1767,24 @@ export const DashboardPage = ({
     cleanerDetectionsByImage,
   });
 
+  const typographerWorkspaceApi = useMemo(
+    () => ({
+      markQueueItem: typographerWorkspace.markQueueItem,
+      setDraftText: typographerWorkspace.setDraftText,
+      queueFromDraft: typographerWorkspace.queueFromDraft,
+      clearQueue: typographerWorkspace.clearQueue,
+      importQueueText: typographerWorkspace.importQueueText,
+      toggleMultiBubble: typographerWorkspace.toggleMultiBubble,
+      setActivePreset: typographerWorkspace.setActivePreset,
+      saveSnapshot: typographerWorkspace.saveSnapshot,
+      restoreSnapshot: typographerWorkspace.restoreSnapshot as (
+        imageId: string,
+        snapshotId: string,
+      ) => { name: string; regions: AioTextRegion[]; selectedRegionId: string | null } | null,
+    }),
+    [typographerWorkspace],
+  );
+
   const {
     refineActiveTypographerShape,
     applySelectedTypographerQueueItem,
@@ -1780,20 +1798,7 @@ export const DashboardPage = ({
     handleTypographerSaveSnapshot,
     handleTypographerRestoreSnapshot,
   } = useTypographerControls({
-    typographerWorkspace: {
-      markQueueItem: typographerWorkspace.markQueueItem,
-      setDraftText: typographerWorkspace.setDraftText,
-      queueFromDraft: typographerWorkspace.queueFromDraft,
-      clearQueue: typographerWorkspace.clearQueue,
-      importQueueText: typographerWorkspace.importQueueText,
-      toggleMultiBubble: typographerWorkspace.toggleMultiBubble,
-      setActivePreset: typographerWorkspace.setActivePreset,
-      saveSnapshot: typographerWorkspace.saveSnapshot,
-      restoreSnapshot: typographerWorkspace.restoreSnapshot as (
-        imageId: string,
-        snapshotId: string,
-      ) => { name: string; regions: AioTextRegion[]; selectedRegionId: string | null } | null,
-    },
+    typographerWorkspace: typographerWorkspaceApi,
     normalizeActiveTypographerShape,
     updateActiveRenderRegion,
     applyAioRegionsEditForImage,
@@ -2056,17 +2061,30 @@ export const DashboardPage = ({
       validateManualLocalStageModel(stageKey as Exclude<AioStageKey, 'getTranslations'>, stageLabel, modelKey),
   });
 
+  const emitProcessStartWebhookWrapped = useCallback(
+    (name: string, pages: number, context: unknown) =>
+      emitProcessStartWebhook(name, pages, (context as WebhookMetrics) ?? {}),
+    [emitProcessStartWebhook],
+  );
+  const emitProcessCompleteWebhookWrapped = useCallback(
+    (name: string, pages: number, context: unknown) =>
+      emitProcessCompleteWebhook(name, pages, (context as WebhookMetrics) ?? {}),
+    [emitProcessCompleteWebhook],
+  );
+  const emitProcessErrorWebhookWrapped = useCallback(
+    (name: string, pages: number, error: unknown, context: unknown) =>
+      emitProcessErrorWebhook(name, pages, error, (context as WebhookMetrics) ?? {}),
+    [emitProcessErrorWebhook],
+  );
+
   const runTranslatorText = useTranslatorTextActions({
     localApiUrl: apiConfig.localUrl,
     selectedCustomTranslationProfile,
     ensureVerifiedEmailOrNotify,
     resolveTranslatorTranslationExecution,
-    emitProcessStartWebhook: (name, pages, context) =>
-      emitProcessStartWebhook(name, pages, (context as WebhookMetrics) ?? {}),
-    emitProcessCompleteWebhook: (name, pages, context) =>
-      emitProcessCompleteWebhook(name, pages, (context as WebhookMetrics) ?? {}),
-    emitProcessErrorWebhook: (name, pages, error, context) =>
-      emitProcessErrorWebhook(name, pages, error, (context as WebhookMetrics) ?? {}),
+    emitProcessStartWebhook: emitProcessStartWebhookWrapped,
+    emitProcessCompleteWebhook: emitProcessCompleteWebhookWrapped,
+    emitProcessErrorWebhook: emitProcessErrorWebhookWrapped,
     setDiscordTranslating,
     syncDiscordForTab,
     recordProcessedPages,
