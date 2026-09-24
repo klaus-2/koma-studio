@@ -16,10 +16,10 @@
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
-    "better-auth": "1.5.0",
+    "better-auth": "1.7.5",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "^0.45.3",
     "express": "^4.21.2",
     "express-rate-limit": "^8.1.0",
     "express-validator": "^7.2.1",
