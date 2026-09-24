@@ -497,7 +497,7 @@ checksum = "d38f2da7a0a2c4ccf0065be06397cc26a81f4e528be095826eee9d4adbb8c60f"
 dependencies = [
  "byteorder",
  "fnv",
- "uuid 1.24.1",
+ "uuid 1.26.1",
 ]
 
 [[package]]
@@ -2315,7 +2315,7 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "url",
- "uuid 1.24.1",
+ "uuid 1.26.1",
  "windows-sys 0.61.2",
  "zip 2.4.2",
 ]
@@ -3638,7 +3638,7 @@ dependencies = [
  "serde",
  "serde_json",
  "url",
- "uuid 1.24.1",
+ "uuid 1.26.1",
 ]
 
 [[package]]
@@ -4364,7 +4364,7 @@ dependencies = [
  "thiserror 2.0.20",
  "time",
  "url",
- "uuid 1.24.1",
+ "uuid 1.26.1",
  "walkdir",
 ]
 
@@ -4638,7 +4638,7 @@ dependencies = [
  "toml 1.1.4+spec-1.1.0",
  "url",
  "urlpattern",
- "uuid 1.24.1",
+ "uuid 1.26.1",
  "walkdir",
 ]
 
@@ -5186,9 +5186,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.24.1"
+version = "1.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cefc03fd367c0c6d4305de1b312cf00248c4114f4a0418ce6a6af769e3b0bd9"
+checksum = "2ef6dac1e96601b4fb3acccccff2139741fcb757cb9a36089bf5be91cfb285ce"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",
@@ -6100,7 +6100,7 @@ dependencies = [
  "serde_repr",
  "tracing",
  "uds_windows",
- "uuid 1.24.1",
+ "uuid 1.26.1",
  "windows-sys 0.61.2",
  "winnow 1.0.4",
  "zbus_macros",
