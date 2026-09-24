@@ -1,6 +1,6 @@
 {
   "name": "@koma/electron",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "KŌMA Studio - The Ultimate Scanlation Toolkit",
   "main": "dist-electron/main.js",
   "author": "KŌMA Studio",
