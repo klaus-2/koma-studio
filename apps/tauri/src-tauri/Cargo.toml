@@ -60,7 +60,7 @@ rustls-platform-verifier = "0.7"
 futures-util = "0.3"
 
 # Hardware identity
-machine-uid = "0.5"
+machine-uid = "0.6"
 
 # Error handling
 
