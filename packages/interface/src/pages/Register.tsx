@@ -21,6 +21,8 @@ const PASSWORD_POLICY_ERROR_KEYS = {
   "Password must contain at least one special symbol.": "password.policy.special",
 } as const;
 
+const handleSelectRegister = (): void => undefined;
+
 export const RegisterPage = ({ onRegisterSuccess, onNavigateLogin }: RegisterPageProps) => {
   const { t } = useI18n();
   const [name, setName] = useState("");
@@ -71,7 +73,7 @@ export const RegisterPage = ({ onRegisterSuccess, onNavigateLogin }: RegisterPag
     <AuthShell
       activeTab="register"
       onSelectLogin={onNavigateLogin}
-      onSelectRegister={() => undefined}
+      onSelectRegister={handleSelectRegister}
       subtitle={t("register.subtitle")}
     >
       {errorMessage && (

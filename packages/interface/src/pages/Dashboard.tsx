@@ -399,6 +399,7 @@ export const DashboardPage = ({
   const setAioManualProgressByImage = useAioPipelineStore(
     (s) => s.setAioManualProgressByImage,
   );
+
   const setSegmentEditTool = useManualToolsStore((s) => s.setSegmentEditTool);
   const setManualImageTool = useManualToolsStore((s) => s.setManualImageTool);
   const setManualToolsConfigOpen = useManualToolsStore(
@@ -464,6 +465,11 @@ export const DashboardPage = ({
   );
   const setCleanerShowOverlays = useCleanerStore(
     (s) => s.setCleanerShowOverlays,
+  );
+
+  const handleCleanRunComplete = useCallback(
+    () => setCleanerShowOverlays(false),
+    [setCleanerShowOverlays],
   );
   const cleanerAiModelKey = useCleanerStore((s) => s.cleanerAiModelKey);
   const setCleanerAiModelKey = useCleanerStore((s) => s.setCleanerAiModelKey);
@@ -1232,6 +1238,16 @@ export const DashboardPage = ({
     resolveLocalModelFocusForStage,
     setStatusMessage,
   });
+
+  const validateManualLocalStageModelNarrowed = useCallback(
+    (stageKey: string, stageLabel: string, modelKey: string) =>
+      validateManualLocalStageModel(
+        stageKey as Exclude<AioStageKey, 'getTranslations'>,
+        stageLabel,
+        modelKey,
+      ),
+    [validateManualLocalStageModel],
+  );
   const {
     freeProviderDrafts,
     setFreeProviderDrafts,
@@ -1419,6 +1435,7 @@ export const DashboardPage = ({
   } = useRenderFontCatalog({
     onImportSuccess: setStatusMessage,
   });
+
   const isCleanerToolMode = mode === 'cleaner';
   const { selectCleanerAiModel, useExistingCleanerCustomProfile } =
     useCleanerModelSelection({
@@ -1550,7 +1567,6 @@ export const DashboardPage = ({
     authLoading,
     user,
     mode,
-    processing,
     activeImageFileName: activeImage?.file.name,
     imagesLength: images.length,
     translatorWorkspaceMode,
@@ -1559,6 +1575,22 @@ export const DashboardPage = ({
     setStatusMessage,
     setDiscordPreset,
   });
+
+  const emitProcessStartWebhookWrapped = useCallback(
+    (name: string, pages: number, context: unknown) =>
+      emitProcessStartWebhook(name, pages, (context as WebhookMetrics) ?? {}),
+    [emitProcessStartWebhook],
+  );
+  const emitProcessCompleteWebhookWrapped = useCallback(
+    (name: string, pages: number, context: unknown) =>
+      emitProcessCompleteWebhook(name, pages, (context as WebhookMetrics) ?? {}),
+    [emitProcessCompleteWebhook],
+  );
+  const emitProcessErrorWebhookWrapped = useCallback(
+    (name: string, pages: number, error: unknown, context: unknown) =>
+      emitProcessErrorWebhook(name, pages, error, (context as WebhookMetrics) ?? {}),
+    [emitProcessErrorWebhook],
+  );
   const {
     verifyEmailSending,
     handleSendVerificationEmail,
@@ -1718,6 +1750,12 @@ export const DashboardPage = ({
 
   // ── Processing helpers ──
 
+  const registerCleanerDownloads = useCallback(
+    (items: Parameters<typeof registerDownloads>[0]) =>
+      registerDownloads(items, 'cleaner'),
+    [registerDownloads],
+  );
+
   const { updateTranslatorRegionsForImage, selectTranslatorRegionForImage } =
     useTranslatorRegionEditing();
 
@@ -1869,24 +1907,41 @@ export const DashboardPage = ({
     currentOptimizerWorkspaceState,
   } = useCurrentUtilityWorkspaceStates();
 
+  const bundleGetTypographerSessionsByImage = useCallback(
+    () => useTypographerStore.getState().typographerSessionsByImage,
+    [],
+  );
+  const bundleRenderAioImageToBlob = useCallback(
+    (img: { id: string; file: File; url: string }, regions: AioTextRegion[]) =>
+      (renderAioImageToBlob as unknown as (
+        img: LoadedImage,
+        regions: AioTextRegion[],
+      ) => Promise<Blob>)(img as unknown as LoadedImage, regions),
+    [renderAioImageToBlob],
+  );
+  const bundleComposeCleanerEditableCanvas = useCallback(
+    (img: { id: string; file: File; url: string }, fallback?: string) =>
+      (composeCleanerEditableCanvas as unknown as (
+        img: LoadedImage,
+        fallback?: string,
+      ) => Promise<HTMLCanvasElement>)(img as unknown as LoadedImage, fallback),
+    [composeCleanerEditableCanvas],
+  );
+  const bundleComposeAioEditableCanvas = useCallback(
+    (img: { id: string; file: File; url: string }, fallback?: string) =>
+      (composeAioEditableCanvas as unknown as (
+        img: LoadedImage,
+        fallback?: string,
+      ) => Promise<HTMLCanvasElement>)(img as unknown as LoadedImage, fallback),
+    [composeAioEditableCanvas],
+  );
+
   const { prepareDownloadEntries, buildDownloadBundleBlob } =
     useDashboardDownloadBundle({
-      getTypographerSessionsByImage: () => useTypographerStore.getState().typographerSessionsByImage,
-      renderAioImageToBlob: (img, regions) =>
-        (renderAioImageToBlob as unknown as (
-          img: LoadedImage,
-          regions: AioTextRegion[],
-        ) => Promise<Blob>)(img as unknown as LoadedImage, regions),
-      composeCleanerEditableCanvas: (img, fallback) =>
-        (composeCleanerEditableCanvas as unknown as (
-          img: LoadedImage,
-          fallback?: string,
-        ) => Promise<HTMLCanvasElement>)(img as unknown as LoadedImage, fallback),
-      composeAioEditableCanvas: (img, fallback) =>
-        (composeAioEditableCanvas as unknown as (
-          img: LoadedImage,
-          fallback?: string,
-        ) => Promise<HTMLCanvasElement>)(img as unknown as LoadedImage, fallback),
+      getTypographerSessionsByImage: bundleGetTypographerSessionsByImage,
+      renderAioImageToBlob: bundleRenderAioImageToBlob,
+      composeCleanerEditableCanvas: bundleComposeCleanerEditableCanvas,
+      composeAioEditableCanvas: bundleComposeAioEditableCanvas,
       hasCleanerManualImageEdits,
       hasAioManualImageEdits,
       getAioDownloadItemForImage,
@@ -1939,18 +1994,14 @@ export const DashboardPage = ({
     selectedCustomOcrProfile,
     discord,
     ensureVerifiedEmailOrNotify,
-    validateManualLocalStageModel: (stageKey, stageLabel, modelKey) =>
-      validateManualLocalStageModel(stageKey as Exclude<AioStageKey, 'getTranslations'>, stageLabel, modelKey),
+    validateManualLocalStageModel: validateManualLocalStageModelNarrowed,
     getAioStageOption,
     parseApiError,
-    registerDownloads: (items) => registerDownloads(items, 'cleaner'),
+    registerDownloads: registerCleanerDownloads,
     recordProcessedPages,
-    emitProcessStartWebhook: (name, pages, context) =>
-      emitProcessStartWebhook(name, pages, (context as WebhookMetrics) ?? {}),
-    emitProcessCompleteWebhook: (name, pages, context) =>
-      emitProcessCompleteWebhook(name, pages, (context as WebhookMetrics) ?? {}),
-    emitProcessErrorWebhook: (name, pages, error, context) =>
-      emitProcessErrorWebhook(name, pages, error, (context as WebhookMetrics) ?? {}),
+    emitProcessStartWebhook: emitProcessStartWebhookWrapped,
+    emitProcessCompleteWebhook: emitProcessCompleteWebhookWrapped,
+    emitProcessErrorWebhook: emitProcessErrorWebhookWrapped,
     syncDiscordForTab,
     setCleanerDetectionsByImage,
     setCleanerSelectedRegionByImage,
@@ -1962,7 +2013,7 @@ export const DashboardPage = ({
     setProgress,
     setStatusMessage,
     setRuntimeExecutionNotice,
-    onRunComplete: () => setCleanerShowOverlays(false),
+    onRunComplete: handleCleanRunComplete,
   });
 
   const installSelectedEnhanceModel = useEnhanceInstallAction({
@@ -2057,25 +2108,8 @@ export const DashboardPage = ({
     translatorOcrStageOptionsForSelect,
     selectedCustomTranslationProfile,
     selectedCustomOcrProfile,
-    validateManualLocalStageModel: (stageKey, stageLabel, modelKey) =>
-      validateManualLocalStageModel(stageKey as Exclude<AioStageKey, 'getTranslations'>, stageLabel, modelKey),
+    validateManualLocalStageModel: validateManualLocalStageModelNarrowed,
   });
-
-  const emitProcessStartWebhookWrapped = useCallback(
-    (name: string, pages: number, context: unknown) =>
-      emitProcessStartWebhook(name, pages, (context as WebhookMetrics) ?? {}),
-    [emitProcessStartWebhook],
-  );
-  const emitProcessCompleteWebhookWrapped = useCallback(
-    (name: string, pages: number, context: unknown) =>
-      emitProcessCompleteWebhook(name, pages, (context as WebhookMetrics) ?? {}),
-    [emitProcessCompleteWebhook],
-  );
-  const emitProcessErrorWebhookWrapped = useCallback(
-    (name: string, pages: number, error: unknown, context: unknown) =>
-      emitProcessErrorWebhook(name, pages, error, (context as WebhookMetrics) ?? {}),
-    [emitProcessErrorWebhook],
-  );
 
   const runTranslatorText = useTranslatorTextActions({
     localApiUrl: apiConfig.localUrl,
@@ -2097,16 +2131,12 @@ export const DashboardPage = ({
     selectedCustomTranslationProfile,
     selectedTranslatorSfxCleanCustomProfile,
     ensureVerifiedEmailOrNotify,
-    validateManualLocalStageModel: (stageKey, stageLabel, modelKey) =>
-      validateManualLocalStageModel(stageKey as Exclude<AioStageKey, 'getTranslations'>, stageLabel, modelKey),
+    validateManualLocalStageModel: validateManualLocalStageModelNarrowed,
     resolveTranslatorOcrExecution,
     resolveTranslatorTranslationExecution,
-    emitProcessStartWebhook: (name, pages, context) =>
-      emitProcessStartWebhook(name, pages, (context as WebhookMetrics) ?? {}),
-    emitProcessCompleteWebhook: (name, pages, context) =>
-      emitProcessCompleteWebhook(name, pages, (context as WebhookMetrics) ?? {}),
-    emitProcessErrorWebhook: (name, pages, error, context) =>
-      emitProcessErrorWebhook(name, pages, error, (context as WebhookMetrics) ?? {}),
+    emitProcessStartWebhook: emitProcessStartWebhookWrapped,
+    emitProcessCompleteWebhook: emitProcessCompleteWebhookWrapped,
+    emitProcessErrorWebhook: emitProcessErrorWebhookWrapped,
     setDiscordTranslating,
     syncDiscordForTab,
     recordProcessedPages,

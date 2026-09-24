@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DashboardProcessingStatsSummary } from '../types/dashboard.types';
 
@@ -114,12 +114,24 @@ export const useDashboardProcessingStats = (userKey: string | null) => {
     const now = new Date();
     return normalizeState(readStoredState(userKey, now), now);
   });
+
   const [now, setNow] = useState(() => Date.now());
+  const lastMinuteRef = useRef(Math.floor(now / 60_000));
 
   useEffect(() => {
     const current = new Date();
     const normalized = normalizeState(readStoredState(userKey, current), current);
-    setState(normalized);
+
+    setState((previous) =>
+      previous.dayKey === normalized.dayKey &&
+        previous.weekKey === normalized.weekKey &&
+        previous.monthKey === normalized.monthKey &&
+        previous.dayCount === normalized.dayCount &&
+        previous.weekCount === normalized.weekCount &&
+        previous.monthCount === normalized.monthCount
+        ? previous
+        : normalized,
+    );
     persistState(userKey, normalized);
   }, [userKey]);
 
@@ -129,16 +141,23 @@ export const useDashboardProcessingStats = (userKey: string | null) => {
 
     const tick = () => {
       const current = new Date();
+
+      const minuteSignature = Math.floor(current.getTime() / 60_000);
+      if (minuteSignature === lastMinuteRef.current) {
+        return;
+      }
+      lastMinuteRef.current = minuteSignature;
       setNow(current.getTime());
       setState((previous) => {
         const normalized = normalizeState(previous, current);
         if (
-          normalized.dayKey !== previous.dayKey ||
-          normalized.weekKey !== previous.weekKey ||
-          normalized.monthKey !== previous.monthKey
+          normalized.dayKey === previous.dayKey &&
+          normalized.weekKey === previous.weekKey &&
+          normalized.monthKey === previous.monthKey
         ) {
-          persistState(userKey, normalized);
+          return previous;
         }
+        persistState(userKey, normalized);
         return normalized;
       });
     };
@@ -166,6 +185,7 @@ export const useDashboardProcessingStats = (userKey: string | null) => {
 
     const current = new Date();
     setNow(current.getTime());
+    lastMinuteRef.current = Math.floor(current.getTime() / 60_000);
     setState((previous) => {
       const normalized = normalizeState(previous, current);
       const nextState = {

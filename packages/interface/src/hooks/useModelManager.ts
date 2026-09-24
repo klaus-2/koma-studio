@@ -239,7 +239,10 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
   const manager = useMemo(() => getModelDownloadManager(), []);
 
   const refreshModelState = useCallback(async (): Promise<void> => {
-    modelStore.setState({ loading: true, error: null });
+    const current = modelStore.getState();
+    if (!current.loading || current.error !== null) {
+      modelStore.setState({ loading: true, error: null });
+    }
     try {
       const [installedModels, diskSpace] = await Promise.all([listInstalledModels(), getDiskSpace()]);
       const entries = buildModelInstallStates(

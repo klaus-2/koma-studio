@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { RefObject } from 'react';
 
 import type {
@@ -79,6 +79,22 @@ export function useStitchWorkspace() {
     ],
   );
   useEffect(() => {
+    const current = useUtilityStore.getState().stitchBatchIndexes;
+    if (
+      current.length === stitchAutoBatchIndexes.length &&
+      current.every(
+        (batch, index) => {
+          const nextBatch = stitchAutoBatchIndexes[index];
+          return (
+            nextBatch !== undefined &&
+            batch.length === nextBatch.length &&
+            batch.every((value, position) => value === nextBatch[position])
+          );
+        },
+      )
+    ) {
+      return;
+    }
     setStitchBatchIndexes(stitchAutoBatchIndexes);
   }, [setStitchBatchIndexes, stitchAutoBatchIndexes]);
   const stitchBatchPlans = useMemo(
@@ -137,13 +153,45 @@ export function useUtilitySplitterController({
     (s) => s.setSplitterWorkspaceState,
   );
 
+  const syncSplitterWorkspaceState = useCallback(
+    (next: SplitterWorkspaceState) => {
+      const current = useUtilityStore.getState().splitterWorkspaceState;
+      if (
+        current !== null &&
+        current.recipe === next.recipe &&
+        current.activeImageId === next.activeImageId &&
+        current.imageStates === next.imageStates
+      ) {
+        return;
+      }
+      if (
+        current !== null &&
+        current.recipe === next.recipe &&
+        current.activeImageId === next.activeImageId
+      ) {
+        const currentKeys = Object.keys(current.imageStates);
+        const nextKeys = Object.keys(next.imageStates);
+        if (
+          currentKeys.length === nextKeys.length &&
+          nextKeys.every(
+            (key) => current.imageStates[key] === next.imageStates[key],
+          )
+        ) {
+          return;
+        }
+      }
+      setSplitterWorkspaceState(next);
+    },
+    [setSplitterWorkspaceState],
+  );
+
   const splitterController = useSplitterController({
     images,
     activeImageId: activeId,
     setActiveImageId: setActiveId,
     initialWorkspaceState: splitterWorkspaceState,
     restoreToken: workspaceRestoreToken,
-    onWorkspaceStateChange: setSplitterWorkspaceState,
+    onWorkspaceStateChange: syncSplitterWorkspaceState,
     isDesktopRuntime,
     localApiBase,
     registerDownloads,
@@ -308,7 +356,7 @@ export function useSpecialModeStageProps({
       processing,
       outQuality,
       ensureVerifiedEmailOrNotify,
-        isDesktopRuntime,
+      isDesktopRuntime,
       registerDownloads,
       triggerBlobDownload,
       setProcessing,
@@ -326,7 +374,7 @@ export function useSpecialModeStageProps({
     [
       currentOptimizerWorkspaceState,
       currentWatermarkWorkspaceState,
-        ensureVerifiedEmailOrNotify,
+      ensureVerifiedEmailOrNotify,
       images,
       isDesktopRuntime,
       mode,

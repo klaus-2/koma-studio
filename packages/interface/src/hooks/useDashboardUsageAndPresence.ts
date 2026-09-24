@@ -6,6 +6,7 @@ import type { DashboardUser, WebhookMetrics, ToolMode } from '../types/dashboard
 import type { DiscordActivityPreset } from '../types';
 import { sanitizeWebhookErrorMessage } from '../utils/dashboard.utils';
 import { sendDiscordWebhookEvent } from '../services/discordWebhook';
+import { useUiShellStore } from '../pages/dashboard/stores/ui-shell-store';
 
 interface AuthLikeUser {
   name?: string | null;
@@ -18,7 +19,6 @@ interface UseDashboardUsageAndPresenceArgs {
   authLoading: boolean;
   user: DashboardUser;
   mode: ToolMode;
-  processing: boolean;
   activeImageFileName?: string;
   imagesLength: number;
   translatorWorkspaceMode: 'text' | 'visual';
@@ -33,7 +33,6 @@ export function useDashboardUsageAndPresence({
   authLoading,
   user,
   mode,
-  processing,
   activeImageFileName,
   imagesLength,
   translatorWorkspaceMode,
@@ -98,6 +97,7 @@ export function useDashboardUsageAndPresence({
   );
 
   const syncDiscordForTab = useCallback(async () => {
+    const processing = useUiShellStore.getState().processing;
     if (!authUser || processing) return;
     const currentFileName =
       activeImageFileName ??
@@ -160,7 +160,6 @@ export function useDashboardUsageAndPresence({
     authUser,
     imagesLength,
     mode,
-    processing,
     setDiscordPreset,
     srcLang,
     tgtLang,

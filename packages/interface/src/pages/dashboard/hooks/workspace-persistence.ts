@@ -153,7 +153,7 @@ export function useWorkspacePersistence({
       snapshot ??
       captureWorkspaceHistorySnapshot(captureState),
     );
-  }, [buildCurrentWorkspaceCaptureState, workspaceHistory]);
+  }, [buildCurrentWorkspaceCaptureState, workspaceHistory.setBaseline]);
 
   const commitWorkspaceHistory = useCallback(
     (delayMs?: number) => {
@@ -172,7 +172,7 @@ export function useWorkspacePersistence({
         captureWorkspaceHistorySnapshot(buildCurrentWorkspaceCaptureState()),
       );
     },
-    [buildCurrentWorkspaceCaptureState, workspaceHistory],
+    [buildCurrentWorkspaceCaptureState, workspaceHistory.commit, workspaceHistory.queueCommit],
   );
 
   const saveWorkspaceAutosave = useCallback(async (
@@ -214,7 +214,7 @@ export function useWorkspacePersistence({
     } finally {
       useWorkspacePersistenceStore.getState().workspaceAutosaveSaving = false;
     }
-  }, [authUser?.id, buildCurrentWorkspaceCaptureState, setWorkspaceLastSavedAt, setWorkspaceStatus, setWorkspaceStatusDetail, workspaceHistory]);
+  }, [authUser?.id, buildCurrentWorkspaceCaptureState, setWorkspaceLastSavedAt, setWorkspaceStatus, setWorkspaceStatusDetail, workspaceHistory.isRestoringRef]);
 
   useEffect(() => {
     useWorkspacePersistenceStore.getState().saveWorkspaceAutosaveImpl =
@@ -459,7 +459,7 @@ export function useWorkspacePersistence({
     setWorkspaceStatusDetail,
     t,
     workspaceAutosaveSettings.enabled,
-    workspaceHistory,
+    workspaceHistory.isRestoringRef,
   ]);
 
   useEffect(() => {
@@ -522,6 +522,7 @@ export function useWorkspacePersistence({
     processing,
     workspaceAutosaveSettings.enabled,
     workspaceAutosaveSettings.intervalSeconds,
+    workspaceHistory.isRestoringRef,
   ]);
 
   const handleWorkspaceUndo = useCallback(async () => {
@@ -532,7 +533,7 @@ export function useWorkspacePersistence({
     }
     setStatusMessage(t('dashboard.status.undo'));
     return true;
-  }, [setStatusMessage, setTonedStatus, workspaceHistory, t]);
+  }, [setStatusMessage, setTonedStatus, workspaceHistory.undo, t]);
 
   const handleWorkspaceRedo = useCallback(async () => {
     const handled = await workspaceHistory.redo();
@@ -542,7 +543,7 @@ export function useWorkspacePersistence({
     }
     setStatusMessage(t('dashboard.status.redo'));
     return true;
-  }, [setStatusMessage, setTonedStatus, workspaceHistory, t]);
+  }, [setStatusMessage, setTonedStatus, workspaceHistory.redo, t]);
 
   const handleWorkspaceManualSave = useCallback(async () => {
     const saved = await saveWorkspaceAutosave();

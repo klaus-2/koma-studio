@@ -1460,3 +1460,469 @@ catalog+idiomas, latching do wrapper do cleaner, mount residual).
 
 ### Fecho da Fase 4 (2026-09-01)
 Programa concluído: T4.1 (census) → T4.2b (typing, 8416f44) → T4.2 (subscrições, 9832013) → T4.3 (panel/layout, c9c3686) → T4.4 (batch/defer, 2f24add) + fixes de Doctor no fecho (refs latest-value via effect; subscribe multi-store extraído para `subscribeWorkspaceDomainStores` com cleanup único — 0 erros restaurado). Gates finais: typecheck interface+root ✅, vitest 43/43 ✅, Doctor 0 erros ✅, smoke 11/11 ✅, text-follow 2/2 (drag 0 tasks) ✅, census 2/2 ✅, audit 1/1 ✅. Follow-ups registrados: latch do 7º modal (CleanerAiRecognize), boot single-transaction marginal, sub-mode/stage ~220-250ms são custos de mount (classe Fase 2a, adjudicados), commits text-follow 55-120ms (variância de sessão).
+
+### FPS-1 route-transition (2026-09-02)
+
+**Gatilho**: janela FPS-drop do react-scan Optimize tab (react 861ms + other 1389ms) — DashboardPage
+2r/518ms SELF, PageTransition 3r (active:1x, SpeedLines/Particles = filhos do overlay, não da
+página rankings), DashboardMainLayout 2r com 8 props churnando 2x (specialModeStageProps,
+processingStats, handleDownload, modelManagerState, fontCatalogLoading, handleClean,
+processTranslatorVisual, stitchBatchPlans), KomaTopbar onDownload:2x, DashboardLeftSidebar
+processingStats:2x, AppShell hook 31:2x. Janela = transição de rota /#/model-rankings ↔
+/#/dashboard.
+
+**Reprodução** (probe untracked `apps/tauri/tests/e2e/react-scan-transition.spec.ts`, headed GPU,
+workers=1, buffer do mirror limpo antes de cada janela + recorder de writes por store com diff de
+chaves): assinatura reproduzida como remount — BACK (retorno): DashboardPage 6r/~35ms (React
+render; o SELF do Optimize tab infla por hook), task longa de route-swap ~560-1000ms (flushSync
+unmount+mount da árvore toda, classe P0-1/Fase 2a), ~65 writes de boot em 2-3 ondas + onda tardia
+de fetch (~250ms). AWAY: barato (worst 60-99ms). AWAY2: ModelRankingsPage 3r/~116-188ms.
+RANKINGS-IDLE (2s sem navegar): 0 renders, 0 tasks.
+
+**Atribuição**:
+1. Churn dos 8 props do layout — causa raiz por prop: `handleClean` = dep `args` (objeto inteiro
+   reconstruído por render) em `useCleanerActions` + 6 arrows inline no call-site;
+   `processTranslatorVisual` = 4 arrows inline (emit×3 + validator);
+   `handleDownload` = 3 adapters casted inline no `useDashboardDownloadBundle`;
+   `processingStats` = setState sem guarda no efeito de mount de `useDashboardProcessingStats`;
+   `stitchBatchPlans` = write de sync sem guarda em `useStitchWorkspace`;
+   `modelManagerState` = write object-form sem guarda em `refreshModelState` (overlap de refresh
+   de boot); `specialModeStageProps`/`fontCatalogLoading` herdadas das anteriores / flips
+   legítimos de fetch de fontes no desktop (documentado, sem fix — flipping de boolean de fetch
+   real).
+2. O re-render do DashboardPage no AWAY (1r, 0 writes, 0 changes) é parent-driven (flip de
+   isActive do overlay via AppShell); com os props estabilizados o memo do layout volta a valer
+   (co-render do chrome cai no probe).
+3. Loop de persistência ~3s/30s (`mirrorWorkspaceCaptureState` + `workspaceChangeSignal`
+   assinando 14 stores e re-stringificando o capture inteiro) — confirmado por medição indireta
+   (co-renders de chrome espelham as ondas de write mesmo ocioso); CAUSA RAIZ residual do
+   background churn, sem fix nesta rodada (escopo: transição).
+
+**Fixes (zero funcional — adapters idênticos, guards só pulam emit sem mudança de conteúdo)**:
+- `pages/dashboard/hooks/cleaner.ts`: dep `args` removida de `handleClean` (todos os campos usados
+  pelo corpo e por `runAutomaticCleanerWorkflow` já listados individualmente).
+- `pages/Dashboard.tsx`: adapters memoizados — `validateManualLocalStageModelNarrowed`,
+  `emitProcess{Start,Complete,Error}WebhookWrapped` (movidos para antes dos hooks que os
+  consomem), `registerCleanerDownloads`, `handleCleanRunComplete`,
+  `bundleRenderAioImageToBlob`/`bundleCompose{Cleaner,Aio}EditableCanvas`.
+- `hooks/useDashboardProcessingStats.ts`: bail-out de conteúdo no setState de mount.
+- `pages/dashboard/hooks/utility-workspaces.ts`: guarda de conteúdo no write de sync
+  `stitchBatchIndexes`.
+- `hooks/useModelManager.ts`: guarda no write `loading:true` de `refreshModelState`.
+
+**Medição (probe transição, headed GPU, mediana de 3; mesmo instrumento antes/depois)**:
+
+| Janela | Baseline (antes) | FPS-1 (depois) |
+| --- | --- | --- |
+| BACK worst task (route-swap) | 874 / 1003 / — → med ~940ms | 589 / 619 / 562 → med **589ms** (~-37%) |
+| AWAY worst task | 98 / 72 / 99 → med **98ms** | 72 / 64 / 78 → med **72ms** |
+| AWAY2 (rankings) worst task | 130 / 198 / 95 → med **130ms** | 95 / 109 / 101 → med **101ms** |
+| BACK KomaTopbar2 tempo | 34/53/22 → med 34ms | 16/22/14 → med **16ms** |
+| BACK DashboardMainLayout tempo | 15/14/10 → med 14ms | 7/10/7 → med **7ms** |
+| BACK DashboardPage renders | 6r | 6r (ondas de boot data-driven — residual T4.4, transação única) |
+| RANKINGS-IDLE | 0r/0 tasks | 0r/0 tasks (sem regressão) |
+
+**SpeedLines/Particles (missão 5)**: vivem no overlay `PageTransition` (App.tsx), NÃO na página
+model-rankings. CSS-only (`page-transition.css`), sem rAF/JS; idle no rankings = 0 renders/0
+tasks; `prefers-reduced-motion: reduce` já cobre o overlay (speedlines/partículas/panéis
+`display:none`). Sem custo de runtime demonstrado → nenhuma mudança (clause: só gatear com
+evidência).
+
+**Gates**: typecheck interface + raiz ✅ · vitest 43/43 ✅ · smoke 11/11 ✅ · text-follow 2/2
+(drag 0 tasks; commit 63/72ms) ✅ · census 2/2 ✅ · probe transição 3/3 ✅. Probes não-tracked
+(`react-scan-transition.spec.ts` novo; fix de TS2532 em `react-scan-click.spec.ts`).
+
+**O que permanece**: (1) transação única de boot-writes (ondas status/aio-pipeline/llm-providers
+→ 6r do page no retorno, residual T4.4 documentado); (2) loop de persistência ~3s/30s (capture
+inteiro re-stringificado por write de qualquer store — 14 stores assinadas 2×); (3) task de
+route-swap ~560-620ms é mount/DOM/raster (classe Fase 2a); (4) fetch de fontes desktop flipa
+`fontCatalogLoading` por remount (comportamento legítimo de refresh).
+
+### FPS-2 first-selection (2026-09-02)
+
+**Gatilho**: janela FPS-drop do react-scan Optimize tab (react 457ms + other 694ms) — FIRST region
+selection after boot: RenderTextPreviewTypeDock 1r/54ms SELF com TODOS os 21 props novos (mount da
+dock), RenderTextPreview 4r/39ms (hook 25 próprio), DashboardPage 1r/8ms com own-state hook 2588,
+DashboardFooter miniBackendRuntimeState:1x (3r), KomaTopbar
+canUndo/onUndo/onRedo/onImport/onClose/onDownload:1x.
+
+**Reprodução** (probes untracked `react-scan-first-selection.spec.ts` — CLICK1/CLICK2/CLICK3 com
+recorder de writes por store com diff de chaves + buffer limpo antes de cada janela, 3 runs;
+`react-scan-dock-task.spec.ts` — breakdown do corpo da task com CDP + rAF probes). CLICK1 no
+fixture: task longa única worst 80/86/88ms (mediana 86), dock 2r/8-10ms, RenderTextPreview 4r/7-9ms,
+DashboardPage 0-1r (~6ms quando ocorre), DashboardMainLayout 0-1r, KomaTopbar/Footer 0-1r. CLICK2
+(troca de seleção) e CLICK3 (re-click) sempre 0 tasks / 2r do RenderTextPreview apenas. Setup do
+rig (vite e2e, sem desktop) registra writes extras que o usuário não vê: `region-editor@t[
+aioDetectionsByImage]` (sync do índice via detectText→recognizeText) e dupla escrita de seleção.
+
+**Atribuição**:
+1. **hook 2588 (DashboardPage)**: por comportamento, NENHUM estado de página muda exatamente uma
+   vez na primeira seleção e não nas subsequentes — as escritas observadas na primeira seleção são
+   (a) region-editor `aioSelectedRegionByImage` (guardo por igualdade no setter + no
+   `selectAioRegionForImage`), (b) aio-pipeline `aioPipelineSnapshots` patch de seleção (guardo),
+   (c) typographer-store `typographerSessionsByImage` (updater com early-return), (d)
+   `aioImageSnapshotIndexById` (sync de índice do rig de e2e — inexistente no fluxo desktop do
+   usuário). Os flips legítimos de uma vez só no usuário (canUndo/canRedo do useWorkspaceHistory no
+   primeiro commit de histórico e `statusMessage`) não reproduzem no rig: canUndo flip é inerente
+   (estado real de histórico; o handle memoizado já isola) e o status message de seleção não existe
+   no caminho atual. **Conclusão: sem defeito de estado no caminho de seleção; o "1r/8ms" do
+   DashboardPage é o co-render legítimo das escritas (a)-(c).** hook 2588 é um slot interno de hook
+   custom (numeração do react-scan através de hooks) — sem alvo de fix.
+2. **Mount da dock (54ms self)**: o corpo da task de ~80-88ms é o FLUSH de commit do clique
+   (dispatch→render→layout→paint medido por CDP: wall dispatch→3rAF 41-44ms; flush de render
+   DashboardPage+layout 55ms num run) — o render da dock em si é 3-5ms e o solver de posição
+   (useRenderTextPreviewTypeDock) é passivo (usa clientWidth/offsetWidth já comitados; nenhum
+   getBoundingClientRect no caminho; os 2 rects do portal são reads pontuais no render do portal).
+   Defer do measure não se justifica: a resolução do anchor já acontece em effect pós-mount
+   (state → mount shell → measure → position) e o custo está no mount DOM/paint da barra (~1.100
+   linhas + ~100 <option>), inerente à primeira seleção. **Sem mudança (clause: só fixar o que a
+   evidência condena).**
+3. **DashboardFooter miniBackendRuntimeState 3r**: `useAioMiniBackendRuntimeSync` registra listener
+   IPC + fetch inicial; em runtime web `desktop.desktop` é null → o setter era chamado com `null`
+   sem guarda de identidade, emitindo a cada remount/ciclo. **Fix**: guarda de identidade no setter
+   `setAioMiniBackendRuntimeState` (aio-pipeline-store) — emite só quando a identidade muda. O
+   `3r` do usuário (desktop) são flips reais de status do runtime (resolving→ready), data-driven —
+   preservados.
+4. **KomaTopbar workspace callbacks 1x**: `onImportWorkspace`/`onCloseWorkspace` NÃO dependem de
+   canUndo (cadeia: closeWorkspace → seedWorkspaceHistory → workspaceHistory INTEIRO como dep).
+   **Fix**: deps estreitadas em workspace-persistence.ts — seedWorkspaceHistory →
+   `workspaceHistory.setBaseline`; commitWorkspaceHistory → `commit`+`queueCommit`;
+   saveWorkspaceAutosave/workspaceChangeSignal/interval → `isRestoringRef`;
+   handleWorkspaceUndo/Redo → `undo`/`redo` (todas identidades estáveis do useWorkspaceHistory). A
+   partir do primeiro commit, essas closures não mudam mais de identidade; só
+   onUndo/onRedo/onDownload (canUndo flip + deps próprias) flipam 1x — legítimo.
+
+**Fixes (zero funcional)**:
+- `stores/aio-pipeline-store.ts`: `setAioMiniBackendRuntimeState` guarda identidade (retorna
+  `state` inalterado quando igual — contrato zustand, padrão T4.4a).
+- `hooks/workspace-persistence.ts`: deps estreitadas para os membros estáveis do handle
+  (`setBaseline`, `commit`, `queueCommit`, `undo`, `redo`, `isRestoringRef`) em 6 callbacks.
+
+**Medição (probe first-selection, headed GPU, mediana de 3; mesmo instrumento antes/depois)**:
+
+| Métrica | Baseline (antes) | FPS-2 (depois) |
+| --- | --- | --- |
+| CLICK1 worst task | 80/86/88 → med **86ms** | 88/97/80 → med **88ms** (flat — custo de mount inerente) |
+| CLICK1 dock renders | 2r/8-10ms | 2r/8-17ms (flat) |
+| CLICK1 DashboardPage | 0-1r/~6ms | 0-1r (flat) |
+| CLICK2/CLICK3 | 0 tasks | 0 tasks (sem regressão) |
+
+**Gates**: typecheck interface ✅ + raiz (turbo 3/3) ✅ · vitest interface 43/43 ✅ ·
+dashboard-refactor-smoke 11/11 ✅ · text-follow 2/2 ✅ · census 2/2 ✅ · probe first-selection 3/3 ✅.
+
+**O que permanece**: (1) CLICK1 worst task 80-97ms = flush do mount da dock + cascade de seleção
+(classe mount, Fase 2a — a barra ~1.100 linhas e o catálogo de fontes são o corpo; defer de
+posição já existe por design do anchor-state); (2) flips 1x do topbar (canUndo/canRedo) são
+legítimos; (3) em desktop real, os 3r do footer seguem sendo data-driven do runtime real
+(guardas não os eliminam — correto).
+
+### FPS-3 processingStats (2026-09-02)
+
+**Gatilho**: janela FPS-drop do react-scan Optimize tab (react 180ms + other 249ms) —
+DashboardLeftSidebar 1r com processingStats:1x; DashboardMainLayout 1r com
+processingStats+handleDownload+handleClean+processTranslatorVisual cada 1x; DashboardPage 1r com
+own-state hooks 364:1x + 365:1x; KomaTopbar onDownload:1x. `processingStats` churnando como prop
+do layout E da sidebar = a página passa o objeto e a identidade dele mudou 1x.
+
+**Reprodução** (probe untracked novo `apps/tauri/tests/e2e/react-scan-processing.spec.ts`, headed
+GPU, workers=1, reutiliza `probe-helpers.ts`, 3 janelas com buffer limpo + recorder de writes por
+store com diff de chaves): **PROC-FLIP** = flip de `ui-shell.processing` true→false (o par de
+writes de início/fim de todo processamento); **TICK-95S** = observação idle de 95s sobre o
+intervalo alinhado de 30s do hook de stats (≥3 ticks, ≥1 virada de minuto); **STATS-GENUINE** =
+semente de contagens no localStorage + flip do userKey (auth-account user) — ingere contagens
+reais pelo effect do userKey (caminho de conteúdo). O rig de e2e web não executa estágios de
+pipeline (backend local offline), então os ciclos legítimos que o usuário vê são cobertos por
+PROC-FLIP (flips do shell) + STATS-GENUINE (ingestão de contagem).
+
+**Atribuição**:
+1. **hooks 364/365 (DashboardPage)**: por comportamento são os dois useState de
+   `useDashboardProcessingStats` (`state` das contagens + `now` do relógio). Nenhum write de store
+   os toca — o owner é o **tick periódico do próprio hook** (`setInterval` 30s alinhado), que
+   fazia `setNow(...)` + setState **sem guarda a cada 30s** (TICK-95S baseline: DashboardPage
+   3-4r co-renderizando layout/topbar/footer/sidebar inteiros). O segundo gatilho legítimo é
+   `recordProcessedPages` (escrito por executor de estágio manual, cleaner, translator, enhance,
+   splitter, watermark, stitch) e a ingestão do effect do userKey — mudança real de conteúdo,
+   preservada.
+2. **handleDownload**: FPS-1 estabilizou os 3 adapters casted, mas o 4º arg de
+   `useDashboardDownloadBundle` (`getTypographerSessionsByImage`) continuava arrow inline →
+   `buildDownloadBundleBlob` → `handleDownload` → `onDownload` do topbar reconstruídos a cada
+   render da página (incl. flips de processingStats).
+3. **handleClean + processTranslatorVisual**: os dois consomem `syncDiscordForTab`, cuja
+   identidade flipava com `processing` (dep de closure em `useDashboardUsageAndPresence`) a cada
+   início/fim de processamento — flip real porém sem conteúdo para esses callbacks. As demais
+   deps do handleClean pós-FPS-1 são estáveis (getters event-time, setters de store, adapters
+   memoizados); `modelEntries` e `images` são conteúdo real.
+4. **processingStats em si**: o useMemo deriva de `[now, state]` — `now` avançava 2×/min pelo
+   tick, reconstruindo o objeto (e a countdown `resetInMs`) sem que a exibição (granularidade de
+   MINUTO via `Math.ceil(resetInMs/60_000)` na sidebar) mudasse.
+
+**Fixes (zero funcional)**:
+- `hooks/useDashboardProcessingStats.ts`: guarda de minuto no tick — `lastMinuteRef`
+  (bucket `floor(now/60_000)`); o tick só avança `now`/setState quando o bucket de minuto cruza;
+  `recordProcessedPages` sincroniza o ref. A exibição da sidebar é minute-granular, então nada
+  visível muda; a persistência de virada de day/week/month continua no setState com diff de keys
+  (agora alcançado só em viradas reais).
+- `hooks/useDashboardUsageAndPresence.ts`: `processing` sai dos args/deps de
+  `syncDiscordForTab` — leitura event-time `useUiShellStore.getState().processing` no corpo (o
+  callback só roda em caminhos terminais/ação do usuário, padrão T4.2). Identidade estável sob
+  flips do shell.
+- `pages/Dashboard.tsx`: `getTypographerSessionsByImage` memoizado como
+  `bundleGetTypographerSessionsByImage` (useCallback [], getState event-time) — 4º adapter do
+  bundle faltante do FPS-1 (extensão da mesma linha de edits do FPS-1).
+
+**Medição (probe processing, headed GPU, mediana de 3; mesmo instrumento antes/depois)**:
+
+| Janela | Baseline (antes) | FPS-3 (depois) |
+| --- | --- | --- |
+| TICK-95S DashboardPage | 3r/4r/3r → med **3r** | 2r/1r/1r → med **1r** (só viradas de minuto reais) |
+| TICK-95S DashboardMainLayout | 3r/4r/3r → med 3r | 2r/1r/1r → med **1r** |
+| TICK-95S KomaTopbar2 | 3r/4r/3r → med 3r | 0r/0r/0r → med **0r** |
+| TICK-95S DashboardLeftSidebar | 3r/4r/3r → med 3r | 2r/1r/1r → med **1r** |
+| PROC-FLIP (chrome inteiro) | 2r cada | 2r cada (flip real de estado — inerente) |
+| STATS-GENUINE sidebar | 2r | 2r (witness: mudança REAL de contagens ainda atualiza a sidebar) |
+
+**Gates**: typecheck interface ✅ + raiz (turbo 3/3) ✅ · vitest interface **47/47** ✅ (43
+baseline + 4 novos de `useDashboardProcessingStats.test.ts`: guarda de tick via fake timers,
+ingestão genuine via userKey, recordProcessedPages persiste, no-op de contagens inválidas) ·
+dashboard-refactor-smoke 11/11 ✅ · text-follow 2/2 ✅ · census 2/2 ✅ · probe processing 3/3 ✅
+(baseline 3/3 antes das fixes, código revertido temporariamente via stash/snapshot p/ medição).
+
+**O que permanece**: (1) PROC-FLIP re-renderiza o chrome 2r por flip de processing — flips reais
+de estado (progress/footer labels), inerentes; (2) o churn residual de fundo ~3s/30s do loop de
+persistência (FPS-1 item 3) segue sem fix; (3) cada `recordProcessedPages` emite 1 re-render da
+página — legítimo (muda as contagens exibidas); (4) ticks do stats hook com contagem alterada
+fora de virada de minuto (edit manual do localStorage durante idle) emitem 1 re-render no tick
+seguinte — caminho de conteúdo preservado de propósito.
+
+### FPS-4 auth-covers (2026-09-02)
+
+**Gatilho**: janela FPS-drop do react-scan Optimize tab na tela de AUTH/LOGIN (react 76ms +
+**other 731ms**): AuthShell 4r com onSelectLogin:4x (changed every render — unstable closure),
+LoginPage 4r/13ms, ManhwaCovers 4r/10ms, PageTransition 5r. A massa dominante é o bucket "other"
+(não-React: effects, style recalc, decode/paint de imagem, compositor) — custo clássico de
+image-wall.
+
+**Reprodução** (probe untracked novo `apps/tauri/tests/e2e/react-scan-auth-covers.spec.ts`, headed
+GPU, workers=1, reutiliza `probe-helpers.ts`): o modo e2e do vite seta VITE_AUTH_DISABLED=true
+(isAuthenticated:true → `/#/login` cai no Dashboard), então o probe sobe servidor DEV próprio
+(`--mode development` + VITE_REACT_SCAN=1, porta 5173) onde o login é a rota real
+não-autenticada — mesmo browser, mesmo instrumento (react-scan + PerformanceObserver longtask +
+amostrador de deltas de rAF). Janelas: **BOOT** (load → covers montados → settle 6s: storm de
+decode/paint inicial + censo de renders) e **IDLE-RUN vs IDLE-PAUSED** (8s cada; PAUSED é
+contrafactual probe-only com `animation-play-state: paused` no .auth-shell — o delta atribui o
+custo sustentado às animações CSS especificamente).
+
+**Atribuição**:
+1. **BOOT long tasks (o "other" 731ms)**: 4-6 tasks de 51-142ms concentradas no mount — o corpo
+   é decode/paint do muro de imagens: 10 <img> de cover SEM width/height/loading/decoding
+   (natural ~0.66-1.77MP cada, ~13.9MP totais decodificados para cards de 88-125px de CSS) +
+   <video> de fundo + 39 animações CSS simultâneas. O react 76ms do usuário é coerente com o
+   censo do probe: AuthShell 3r/16-20ms + LoginPage 3r/7-8ms + ManhwaCovers 3r/8-9ms.
+2. **AuthShell 3-4r**: LoginPage passava `onSelectLogin={() => undefined}` inline → closure nova
+   a cada render (o flip legítimo do badge `showMotionBackground` aos 15s em PROD — 0ms em DEV —
+   e os setState do form re-renderizam a página e re-passam a closure). RegisterPage tinha o
+   mesmo padrão espelhado (`onSelectRegister={() => undefined}`).
+3. **ManhwaCovers 3-4r**: sem memo — re-renderizou em TODO render do AuthShell embora não tenha
+   props (o custo React é pequeno, 8-9ms, mas multiplica os 10 imgs no reconcile).
+4. **IDLE (custo sustentado das animações)**: 39 animações simultâneas; delta RUN vs PAUSED:
+   run1 median 13.9ms→6.9ms (2.0x), run3 16.7→16.7 (flat), run2 worst 100ms→50ms. Ou seja: o
+   custo sustentado existe mas é variável (compositor com GPU real às vezes acompanha); **as
+   animações hostis ficam FLAGADAS, sem touch**: `preview-bar` anima `left` (layout) e
+   `preview-clip` anima `clip-path` (não-composited, repaint do card inteiro) em 5 cards cada,
+   `cover-shine` anima `left` num ::after por card, `will-change: left`/`clip-path` explícitos —
+   transform/opacity (cover-drift) estão ok. **Mudança visual → precisa sign-off do usuário.**
+
+**Fixes (zero funcional/visual)**:
+- `pages/Login.tsx`: `onSelectLogin` vira `handleSelectLogin` module-level noop estável (a tab
+  login já está ativa nessa página — noop semântico, não mudança de comportamento).
+- `pages/Register.tsx`: `onSelectRegister` vira `handleSelectRegister` module-level noop estável
+  (espelho exato do fix do Login).
+- `components/auth/AuthShell.tsx`: `ManhwaCovers` envolvido em `memo()` (sem props → baila
+  todo re-render driven pelo AuthShell; mudança de locale continua atualizando via useI18n
+  interno) + `loading="lazy" decoding="async"` nos 10 imgs de cover (width/height já existem no
+  CSS por card — dims fixas, sem layout shift possível; attrs só higiene de decode).
+
+**Medição (probe auth-covers, headed GPU, mediana de 3; mesmo instrumento antes/depois)**:
+
+| Métrica | Baseline (antes) | FPS-4 (depois) |
+| --- | --- | --- |
+| BOOT worst task | 141/142/125 → med **141ms** | 115/111/105 → med **111ms** (-21%) |
+| BOOT tasks total | 444/574/485 → med **485ms** | 362/424/344 → med **362ms** (-25%) |
+| ManhwaCovers renders | 3r/3r/3r → med **3r** | **1r** (só mount; memo baila o resto) |
+| AuthShell renders | 3r (inaerente ao badge 15s + form state) | 3r (flat — esperado; o churn era a closure, agora estável) |
+| IDLE-RUN frames | median 13.9/16.7/16.7ms | 16.7/16.7/16.7ms (flat; worst 100ms→17ms entre runs) |
+| IDLE-PAUSED vs RUN | delta até 2.0x median | flat (custo sustentado variável — ver flag acima) |
+
+**Gates**: typecheck interface ✅ + raiz (turbo 3/3) ✅ · vitest interface **47/47** ✅ ·
+dashboard-refactor-smoke **11/11** ✅ · smoke.spec.ts **2/2** ✅ · probe auth-covers 3/3 ✅ ·
+check funcional (tabs login↔register, typing, 10 imgs complete/broken=0, screenshot de
+zero-visual-change) ✅. witness: ManhwaCovers 1r com 15 imgs decoded=15 (renderiza, e o memo
+não congela o conteúdo).
+
+**O que permanece**: (1) **FLAG para sign-off**: `preview-bar` (left), `preview-clip`
+(clip-path) e `cover-shine` (left) animam propriedades não-composited em 5 cards + 5 pseudos —
+convertê-los para transform (bar: translateX; shine: translateX; clip: width num wrapper com
+overflow ou clip-path em pseudo isolado) eliminaria o repaint contínuo, mas MUDA o desenho
+sutilmente (subpixel) — não tocado; (2) o custo BOOT residual (~360ms em 4 tasks de ~100ms) é
+decode/paint inerente do muro + vídeo; a próxima alavanca seria servir covers pré-redimensionadas
+(88-125px em vez de 1.5MP) — mudança de asset, fora do escopo zero-visual; (3) o <video> de
+fundo só monta após 15s em PROD (DECORATIVE_MEDIA_DELAY_MS) — o custo do vídeo não aparece em
+DEV (delay=0 só depois do settle do BOOT).
+
+### FPS-5 non-react (2026-09-02)
+
+**Gatilho**: janelas FPS-drop do react-scan Optimize tab com react≈0 e "other" grande —
+(a) react 1ms + other 163ms; (b) react 0ms + other 467ms — sem atribuição de componente (nenhum
+render react domina). Hipóteses pré-missão: rAF loops, observer storms, putImageData, backdrop-filter,
+transições em width/height/left/top. Instrumento novo: LoAF (`long-animation-frame`) dá atribuição
+script/style/layout/paint SEM react-scan.
+
+**Instrumento** (probe untracked `apps/tauri/tests/e2e/react-scan-loaf.spec.ts`, headed GPU,
+workers=1): PerformanceObserver `longtask` + `long-animation-frame` com `sourceCharPosition`/
+`invokerType`/`sourceFunctionName` por script entry; janelas SWITCH-AIO (organize→aio),
+SWITCH-TYPES (aio→typesetter), SELECT-1 (clique região), DRAG-20 (down+20 moves@40ms+up),
+RETURN (rankings→dashboard), IDLE-5S. Nota de Chromium: os atributos `styleDuration`/
+`layoutDuration`/`paintDuration`/`scriptDuration` NÃO existem nesta build (proto expõe
+`renderStart`, `styleAndLayoutStart`, `blockingDuration`, `scripts`, `paintTime`,
+`presentationTime`) — a decomposição fina style/layout/paint não está disponível; a atribuição
+script usa a lista `scripts[]` (soma das durações) e frames SEM scripts = custo puro de
+style/layout/paint (classe raster/paint).
+
+#### Atribuição LoAF por janela (baseline ×4 runs + verificação de mecanismo)
+
+| Janela | LoAF dominante | Atribuição | Veredicto |
+| --- | --- | --- | --- |
+| SWITCH-AIO | `import.then(resolve-promise)` 226-239ms (sem URL) + frame **sem scripts** 141-161ms + frame de scheduler react-dom MessagePort (5-65ms de chunks) | Eval/continuação do chunk lazy da stage (dev-mode, mount) + frame puro style/layout/paint do raster do stage (canvas 1600×1200 + paint do DOM montado) | Classe Fase 2a (mount) confirmada; o frame sem scripts bate com a janela (a) other 163ms. Sem fix zero-visual (paint inerente do mount) |
+| SWITCH-TYPES | `import.then` 124-175ms + frame **sem scripts** 150-156ms | Mesma classe acima | Idem |
+| SELECT-1 | **0 LoAF / 0 tasks** (4/4 runs) | — | Limpo (trabalho T4.2-T4.4 sustenta) |
+| DRAG-20 | Movimentos limpos; 1 LoAF 70-110ms = `DIV#root.onpointerup` 59-95ms | Commit do pointerup (classe conhecida 55-120ms) | Conhecido, variância de sessão |
+| RETURN | `app-router.tsx@1075:import.then(resolve-promise)` 466-520ms (baseline) + `useSplitterController.ts@19353:TimerHandler:setTimeout` **75-84ms** + scheduler react-dom 58-69ms | Verificado: `same-doc=true`, ZERO resources fetchados na janela → NÃO é re-eval/fetch de chunk; é a continuação da resolução do lazy do Dashboard (render+commit do remount inteiro dentro do frame) | (b) other 467ms = remount do retorno (classe Fase 2a) — LoAF prova script-dominante, NÃO raster/CSS |
+| IDLE-5S | 0 LoAF / 0 tasks (baseline 3/3) | — | Sem custo sustentado de fundo no rig; loop de persistência ~3s/30s não gera frame ≥50ms ocioso |
+
+**Achados por candidato da missão 2 (inventário de código + medição)**:
+- **rAF loops**: só o wand ants existe (já drawImage + pausa por IntersectionObserver, FPS-0/Fase
+  anterior); todos os demais rAF são one-shot event-driven (CustomCursor dot, PageTransition end,
+  coachmarks/tour, dock). Nenhum LoAF em nenhuma janela → **inocentes**.
+- **Observers**: dock ResizeObserver (dockSizeRevision), seg-brush redraw, TextDetectionPreview,
+  VirtualizedLongStrip IO — todos event-driven; SELECT-1 = 0 LoAF/0 tasks → sem storm → **inocentes**.
+- **putImageData/getImageData**: optimizer/splitter workers (off-thread), stitch/watermark/canvasDrawing
+  (modo+ação específicos, fora das janelas medidas) → sem contribuição nas janelas → **inocentes**.
+- **backdrop-filter**: dezenas de regras no App.css (type-dock conhecido, user declined); IDLE 0 LoAF
+  e nenhum frame sem scripts fora de mounts → custo sustentado NÃO demonstrado nas janelas → sem
+  mudança (clause: só gatear com evidência).
+- **Transições/animações em width/height/left/top**: existem 7 regras (App.css 660/3530/3790/5069/
+  9090/10246/10621) em elementos não-envolvidos nas janelas medidas; sem LoAF associado → **inocentes
+  nas janelas medidas** (registro para futura auditoria visual).
+
+**Fix (único condenado pela evidência, zero funcional)**:
+- `pages/dashboard/hooks/utility-workspaces.ts`: o sync debounced (300ms) do
+  `useSplitterController` escreve de volta `{recipe, imageStates, activeImageId}` no
+  `utility-store.splitterWorkspaceState` a TODO mount da página (effect roda no mount mesmo com
+  deps iguais — o splitter-store persiste entre remounts) → write no-op de conteúdo com identidade
+  nova → emit → re-render da página (que subscreve `splitterWorkspaceState` via
+  `useUtilitySplitterController` + `useCurrentUtilityWorkspaceStates`) → **task de 75-84ms + LoAF
+  80ms em TODO retorno ao dashboard (3/3 runs baseline), além de boot**. Guard de conteúdo no
+  callback (`syncSplitterWorkspaceState`): fast-path por identidade (recipe/activeImageId/imageStates
+  referências) + fallback shallow das per-image states — o store mantém identidade e o zustand pula
+  o emit; write genuíno (usuário no modo splitter) preservado. Padrão FPS-1 (`stitchBatchIndexes`).
+
+**Medição (mesmo instrumento; A/B same-session para o restante)**:
+
+| Métrica | Baseline (antes) ×4 runs | FPS-5 (depois) ×3 runs |
+| --- | --- | --- |
+| `useSplitterController` setTimeout no RETURN | **75 / 84 / 75ms (3/3 runs)** | **ausente (0/3 runs)** — mecanismo-level, insensível a carga |
+| RETURN worst task | 472 / 520 / 465 / 755ms (A/B same-session) | 814 / 838 / 1073ms — **DOMINADO pelo continuation do lazy-mount (466→1073ms conforme a carga da máquina; CPU 54-93% durante os after-runs)** |
+| SWITCH-AIO worst task | 226-239 / 320 (A/B) | 321-379 (mesma inflação de sessão) |
+| SELECT-1 / DRAG-moves / IDLE | 0 LoAF | 0 LoAF (sem regressão; 1 frame 55ms blocking=0 em 2 runs sob carga) |
+
+Leitura honesta: a janela RETURN é um único task dominado pela continuação do lazy (`import.then`)
+que inclui o flush React inteiro do remount — a variância da máquina (CPU 50-93% externa durante a
+sessão) infla TUDO ~40% e impede claim absoluto de melhoria no worst task; a melhoria provada é a
+**eliminação determinística** do sub-task de sync no-op (75-84ms) que aparecia em todo retorno.
+Mediana de 3 em sessão com GPU dedicada ociosa é o caminho para números absolutos (o rig atual
+compartilha a máquina com carga externa — ver T4.1 "variância de sessão").
+
+**Gates**: typecheck interface ✅ + raiz ✅ + tauri ✅ · vitest interface **47/47** ✅ ·
+dashboard-refactor-smoke **11/11** ✅ · text-follow **2/2** (MASS 10419→0 / 0→4904; boxDx 300px) ✅ ·
+census **2/2** ✅ · probe LoAF 7 runs (4 baseline + 3 depois) ✅ sem pageerrors/console errors.
+
+**O que permanece**: (1) **RETURN 466-520ms (sessão ociosa)** — continuação do lazy-mount do
+dashboard (script-dominante, LoAF prova), classe Fase 2a adjudicada; keep-alive rejeitado; chunk
+splitting/preload é mudança de build, fora do escopo; (2) **frames sem scripts 141-161ms nos mode
+switches** — style/layout/paint puro do mount do stage (canvas raster + paint), sem decomposição
+fina nesta build de Chromium (styleDuration/layoutDuration/paintDuration ausentes — upgrade path:
+Chromium ≥134 ou tracing CDP); (3) commit pointerup 59-95ms (classe conhecida); (4) loop de
+persistência ~3s/30s segue sem gerar frames ≥50ms ociosos no rig (não medido em desktop real);
+(5) 7 regras CSS de transição em propriedades de layout ficam registradas para auditoria futura —
+não envolvidas nas janelas medidas.
+
+### FPS batch — review/fix (2026-09-02)
+
+Review-and-Fix pass sobre os 5 registros acima (árvore uncommitted sobre HEAD 3e6bef0, edits
+sequenciais e sobrepostos — Dashboard.tsx recebeu FPS-1 + FPS-3). Verificação linha-a-linha de
+cada diff (semântica, conteúdo dos guards, deps estreitadas lidas closure-vs-corpo, ordem de
+declaração dos adapters, contratos de args/props ponta-a-ponta) + gates completos re-executados.
+**Nenhum fix de código necessário — 0 achados MAJOR.**
+
+**Veredictos por agente**:
+- **FPS-1 route-transition: APPROVED** — remoção do dep `args` em `handleClean` verificada
+  campo-a-campo: todos os 43 campos desestruturados + `t` estão no dep array
+  (cleaner.ts:666-716) e `runAutomaticCleanerWorkflow` nunca lê `ctx.*` fora do destructure
+  completo (o spread `{...args, t}` não pode ficar stale: qualquer mudança de valor de campo
+  recria o callback). 9 adapters do Dashboard.tsx com deps completos, fontes declaradas antes
+  dos adapters e adapters antes dos consumidores (sem use-before-define); wrappers de emit
+  movidos sem duplicação (bloco antigo substituído por comentário).
+- **FPS-2 first-selection: APPROVED** — deps estreitadas em workspace-persistence.ts verificadas
+  contra o corpo de cada callback: só `setBaseline`/`commit`/`queueCommit`/`undo`/`redo`/
+  `isRestoringRef` são lidos, e useWorkspaceHistory.ts confirma que todos são identidades
+  estáveis (useCallbacks com deps estáveis; isRestoringRef = ref slot). Guard de identidade do
+  `setAioMiniBackendRuntimeState` segue o contrato zustand (retorna `state` → sem emit).
+- **FPS-3 processingStats: APPROVED** — guard de minuto é completo: chaves de período só flipam
+  em fronteiras de minuto (meia-noite local / segunda / dia 1 — todas 00:00:00.000), contagens
+  nunca mudam dentro de um tick (normalizeState preserva) e `recordProcessedPages` sincroniza
+  `lastMinuteRef` (última escrita "vence" — sem corrida). Bail-out do effect de mount compara os
+  6 campos do estado (conjunto completo). `processing` fora de useDashboardUsageAndPresence:
+  único call-site atualizado, corpo do `syncDiscordForTab` não lê mais nada fora do dep array
+  (event-time `getState().processing` = mais preciso que o closure antigo — caminhos terminais
+  rodam pós `setProcessing(false)`), e `bundleGetTypographerSessionsByImage` está nos deps de
+  `buildDownloadBundleBlob` (export-download.ts:349). Teste novo cobre os 4 caminhos reais.
+- **FPS-4 auth-covers: APPROVED** — noop module-level só para a tab já ativa (semântica
+  preservada); `ManhwaCovers` memo sem props baila re-renders do AuthShell mas continua
+  atualizando via contexto useI18n interno (memo não bloqueia context propagation).
+- **FPS-5 non-react: APPROVED** — guard do sync do splitter correto contra as fatias imutáveis
+  do splitter-store: fast-path por identidade + fallback shallow por chave/per-image identity
+  (rename/remoção de chave com mesma contagem não bate → write preservado; objeto mutado
+  in-place teria identidade igual em ambos os lados → store já contém o conteúdo). Guard do
+  stitch compara conteúdo elemento-a-elemento — write só quando difere.
+
+**Cross-cut findings** (nenhum aplicado como fix — todos pré-existentes ou operacionais):
+1. `cleaner.ts:667` — `activeImage` é dep morta no array de `handleClean` (nunca referenciada no
+   corpo; pré-existente, coberta pelo antigo dep `args`). Inofensiva (só gatilho extra de
+   re-criação); não tocada (regra de mudança cirúrgica).
+2. **Operacional — `react-scan-auth-covers.spec.ts` falha determinística sob a config default**
+   (webServer e2e → `VITE_AUTH_DISABLED=true` → `/#/login` cai no Dashboard). Rodar com o
+   servidor DEV próprio conforme o header do probe: `bun run dev` (mode development) na 5173 +
+   `PLAYWRIGHT_REUSE_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:5173` (dev mode binda
+   `localhost`, não `127.0.0.1`). Witness re-executado: ManhwaCovers **1r**, 15 imgs
+   decoded=15/broken=0, 39 anims — confirmam o memo do FPS-4.
+3. **Operacional — smoke com workers paralelos flakka por timeout**: 6 workers satura a máquina
+   e o teste de 30s ("auth bypass") estoura enquanto os de 40s passam; com `--workers=1` (como
+   os registros do batch especificam) → 11/11 estável.
+
+**Gates (re-executados nesta review, headed GPU, workers=1)**:
+
+| Gate | Resultado |
+| --- | --- |
+| typecheck interface (`tsc --noEmit`) | ✅ |
+| vitest interface | ✅ **47/47** (15 arquivos; inclui os 4 novos de useDashboardProcessingStats.test.ts) |
+| typecheck raiz (turbo) | ✅ 3/3 |
+| dashboard-refactor-smoke | ✅ **11/11** (`--workers=1`) |
+| text-follow-probe | ✅ **2/2** (drag 0 tasks; commit worst 63ms; boxDx 300px) |
+| react-scan-census | ✅ **2/2** (desktop walk + mobile drawer) |
+| react-scan-audit | ✅ **1/1** |
+| react-scan-click | ✅ **1/1** (CLICK2/3 targeted-only 2r) |
+| react-scan-first-selection | ✅ **1/1** (runnable) |
+| react-scan-transition | ✅ **1/1** |
+| react-scan-processing | ✅ **1/1** |
+| react-scan-auth-covers | ✅ **1/1** (receita dev-server acima) |
+| react-scan-loaf | ✅ **1/1** |

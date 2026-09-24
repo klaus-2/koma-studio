@@ -29,6 +29,8 @@ type LoginAuthFlow = "credentials" | "travel-token";
 const LOGIN_REMEMBER_EMAIL_KEY = "auth:remember-email";
 const LOGIN_SAVED_EMAIL_KEY = "auth:saved-email";
 
+const handleSelectLogin = (): void => undefined;
+
 const hasTravelIntentInHash = (): boolean => {
   if (typeof window === "undefined") {
     return false;
@@ -216,7 +218,7 @@ export const LoginPage = ({
   return (
     <AuthShell
       activeTab="login"
-      onSelectLogin={() => undefined}
+      onSelectLogin={handleSelectLogin}
       onSelectRegister={onNavigateRegister}
       subtitle={pageSubtitle}
     >

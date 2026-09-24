@@ -388,7 +388,11 @@ export const useAioPipelineStore = create<AioPipelineStore>()(
         set({ aioHdCropTriggerSize }),
       setAioDeviceInfo: (aioDeviceInfo) => set({ aioDeviceInfo }),
       setAioMiniBackendRuntimeState: (aioMiniBackendRuntimeState) =>
-        set({ aioMiniBackendRuntimeState }),
+        set((state) =>
+          state.aioMiniBackendRuntimeState === aioMiniBackendRuntimeState
+            ? state
+            : { aioMiniBackendRuntimeState },
+        ),
       updateAioGpuStage: (stage, value) =>
         set((state) => {
           const next = { ...state.aioGpuStages, [stage]: value };
