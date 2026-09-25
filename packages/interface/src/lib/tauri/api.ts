@@ -22,7 +22,7 @@ import type {
   DesktopApiEnvelope,
   DesktopFontEntry,
   DesktopFontsListResult,
-  DesktopImageFilePayload,
+  DesktopImageAllowedEntry,
   DesktopImageFolderEntry,
   DesktopImageFolderPayload,
   DesktopModelDownloadPayload,
@@ -448,18 +448,15 @@ const tauriDesktopBridge: IDesktopBridge = {
     },
   },
   images: {
-    readFileAsDataUrl: (payload: DesktopImageFilePayload) =>
-      invokeCommand(desktopCommandChannels.images.readFileAsDataUrl, {
-        filePath: payload.filePath,
-      }),
-    readFileBuffer: (payload: DesktopImageFilePayload) =>
-      invokeCommand(desktopCommandChannels.images.readFileBuffer, {
-        filePath: payload.filePath,
-      }),
     listFolder: (payload: DesktopImageFolderPayload) =>
       invokeCommand<DesktopImageFolderEntry[]>(
         desktopCommandChannels.images.listFolder,
         { folderPath: payload.folderPath },
+      ),
+    allowPaths: (paths: string[]) =>
+      invokeCommand<DesktopImageAllowedEntry[]>(
+        desktopCommandChannels.images.allowPaths,
+        { paths },
       ),
   },
   discordRPC: {

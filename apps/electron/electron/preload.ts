@@ -873,14 +873,6 @@ contextBridge.exposeInMainWorld("desktop", {
     },
   },
     images: {
-      readFileAsDataUrl: async (payload: {
-        filePath: string;
-      }): Promise<unknown> =>
-        invokeSecureDesktopApi("desktop-api:images:read-file", payload),
-      readFileBuffer: async (payload: {
-        filePath: string;
-      }): Promise<unknown> =>
-        invokeSecureDesktopApi("desktop-api:images:read-buffer", payload),
       listFolder: async (payload: {
         folderPath: string;
       }): Promise<unknown> =>

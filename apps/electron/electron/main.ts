@@ -2019,75 +2019,6 @@ const fetchDesktopCookieSessionEnvelope = async (): Promise<DesktopApiEnvelope> 
     { requireDesktopSession: false },
   );
 
-const INFER_IMAGE_MIME_BY_EXT: Record<string, string> = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
-  ".bmp": "image/bmp",
-  ".tiff": "image/tiff",
-  ".tif": "image/tiff",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".avif": "image/avif",
-};
-
-const inferMimeTypeFromPath = (filePath: string): string => {
-  const ext = path.extname(filePath).toLowerCase();
-  return INFER_IMAGE_MIME_BY_EXT[ext] ?? "application/octet-stream";
-};
-
-const setupDesktopImageIpcHandlers = (): void => {
-  registerSecureIpcHandler<{ dataUrl: string; size: number }>(
-    "desktop-api:images:read-file",
-    async (value) => {
-      const payload = (value ?? {}) as Record<string, unknown>;
-      const filePath = typeof payload.filePath === "string" ? payload.filePath.trim() : "";
-      if (!filePath) {
-        throw new Error("File path not provided.");
-      }
-
-      let buffer: Buffer;
-      try {
-        buffer = fs.readFileSync(filePath);
-      } catch {
-        throw new Error("Could not read the file.");
-      }
-
-      const mime = inferMimeTypeFromPath(filePath);
-      const base64 = buffer.toString("base64");
-      return { dataUrl: `data:${mime};base64,${base64}`, size: buffer.length };
-    },
-  );
-
-  registerSecureIpcHandler<{ dataUrl: string; size: number }>(
-    "desktop-api:images:read-buffer",
-    async (value) => {
-      const payload = (value ?? {}) as Record<string, unknown>;
-      const filePath = typeof payload.filePath === "string" ? payload.filePath.trim() : "";
-      if (!filePath) {
-        throw new Error("File path not provided.");
-      }
-
-      const stats = fs.statSync(filePath);
-      const stream = fs.createReadStream(filePath);
-      const chunks: Buffer[] = [];
-
-      return new Promise((resolve, reject) => {
-        stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-        stream.on("end", () => {
-          const buffer = Buffer.concat(chunks);
-          const mime = inferMimeTypeFromPath(filePath);
-          const base64 = buffer.toString("base64");
-          resolve({ dataUrl: `data:${mime};base64,${base64}`, size: stats.size });
-        });
-        stream.on("error", (err) => reject(err));
-      });
-    },
-  );
-};
-
 const setupDesktopAuthIpcHandlers = (): void => {
   registerSecureIpcHandler<DesktopApiEnvelope>("desktop-api:auth:config", async () => {
     return desktopSessionApiFetch(
@@ -4015,7 +3946,6 @@ setupDesktopFontIpcHandlers();
 setupDesktopLlmProfilesIpcHandlers();
 setupDesktopBloggerIpcHandlers();
 setupDesktopImgurIpcHandlers();
-setupDesktopImageIpcHandlers();
 setupDesktopDiscordWebhookIpcHandlers();
 setupDesktopBugReportIpcHandlers({
   getMainWindow: () => mainWindow,

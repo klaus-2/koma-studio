@@ -310,8 +310,10 @@ export interface DeepLinkUrlPayload {
   url: string;
 }
 
-export interface DesktopImageFilePayload {
+export interface DesktopImageAllowedEntry {
   filePath: string;
+  mimeType: string;
+  size: number;
 }
 
 export interface DesktopImageFolderPayload {
@@ -429,8 +431,7 @@ export const desktopCommandChannels = {
     },
   },
   images: {
-    readFileAsDataUrl: "desktop-api:images:read-file",
-    readFileBuffer: "desktop-api:images:read-buffer",
+    allowPaths: "desktop-api:images:allow-paths",
     listFolder: "desktop-api:images:list-folder",
   },
   discordRPC: {
@@ -576,8 +577,8 @@ export interface DesktopApiNamespace {
 }
 
 export interface DesktopImagesApi {
-  readFileAsDataUrl(payload: DesktopImageFilePayload): Promise<unknown>;
-  readFileBuffer(payload: DesktopImageFilePayload): Promise<unknown>;
+  /** Tauri-only: widens the koma-image protocol scope for files picked outside list-folder. */
+  allowPaths?(paths: string[]): Promise<DesktopImageAllowedEntry[]>;
   listFolder(
     payload: DesktopImageFolderPayload,
   ): Promise<DesktopImageFolderEntry[]>;
