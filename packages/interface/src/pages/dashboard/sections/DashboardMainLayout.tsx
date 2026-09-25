@@ -971,73 +971,73 @@ export default memo(function DashboardMainLayout({
           hasDownloadActions={hasDownloadActions}
           hasDownloads={hasDownloads}
           activeDownloadScope={activeDownloadScope}
-          setDownloadIncludeInpaintedImage
+          outFormat={outFormat}
+          onOutFormatChange={setOutFormat}
+          outQuality={outQuality}
+          onOutQualityChange={setOutQuality}
+          downloadBundleFormat={downloadBundleFormat}
+          onDownloadBundleFormatChange={setDownloadBundleFormat}
+          canExportAioMetadata={canExportAioMetadata}
+          downloadIncludeRawText={downloadIncludeRawText}
+          onDownloadIncludeRawTextChange={setDownloadIncludeRawText}
+          downloadIncludeTranslatedText={downloadIncludeTranslatedText}
+          onDownloadIncludeTranslatedTextChange={
+            setDownloadIncludeTranslatedText
           }
-        hasInpaintedOutputs={hasInpaintedOutputs}
-        onDownload={handleTopbarDownload}
-        canExportPsd={canExportPsd}
-        downloadPsdLoading={downloadPsdLoading}
-        downloadPsdCompression={downloadPsdCompression}
-        scope === 'cleaner' ||
-        scope === 'typesetter' ||
-        scope === 'translator' ||
-        scope === 'proofreader' ||
-        scope === 'enhance' ||
-        scope === 'split' ||
-        scope === 'raw' ||
-        scope === 'optimizer'
-        ? scope
-        : null;
-        void handleDownload(normalizedScope);
-          }}
-        canExportPsd={canExportPsd}
-        downloadPsdLoading={downloadPsdLoading}
-        downloadPsdCompression={downloadPsdCompression}
-        onDownloadPsdCompressionChange={setDownloadPsdCompression}
-        downloadPsdDpi={downloadPsdDpi}
-        onDownloadPsdDpiChange={setDownloadPsdDpi}
-        downloadPsdIncludeOcrOverlay={downloadPsdIncludeOcrOverlay}
-        onDownloadPsdIncludeOcrOverlayChange={setDownloadPsdIncludeOcrOverlay}
-        downloadPsdIncludeIndividualCrops={downloadPsdIncludeIndividualCrops}
-        onDownloadPsdIncludeIndividualCropsChange={
-          setDownloadPsdIncludeIndividualCrops
-        }
-        downloadPsdIncludeRawTextLayer={downloadPsdIncludeRawTextLayer}
-        onDownloadPsdIncludeRawTextLayerChange={
-          setDownloadPsdIncludeRawTextLayer
-        }
-        downloadPsdIncludeTranslatedTextLayer={
-          downloadPsdIncludeTranslatedTextLayer
-        }
-        onDownloadPsdIncludeTranslatedTextLayerChange={
-          setDownloadPsdIncludeTranslatedTextLayer
-        }
-        downloadPsdUsePhotoshopTextLayers={downloadPsdUsePhotoshopTextLayers}
-        onDownloadPsdUsePhotoshopTextLayersChange={
-          setDownloadPsdUsePhotoshopTextLayers
-        }
-        downloadPsdIncludeMetadataJson={downloadPsdIncludeMetadataJson}
-        onDownloadPsdIncludeMetadataJsonChange={
-          setDownloadPsdIncludeMetadataJson
-        }
-        hasAioRenderRegionsForPsd={hasAioRenderRegionsForPsd}
-        onDownloadPsd={handleDownloadPsd}
-        toolsPanelVisible={toolsPanelVisible}
-        onToolsPanelToggle={handleToolsToggle}
-        isCompactViewport={isCompactViewport}
-        toolsRevealButtonRef={setToolsRevealNode}
-        sidebarCollapsed={desktopSidebarCollapsed}
-        onSidebarToggle={handleSidebarToggle}
-        sidebarRevealButtonRef={setSidebarRevealNode}
-        userDisplayName={userDisplayName ?? ''}
-        userDisplayEmail={userDisplayEmail}
-        onLogout={logout}
-        onOpenSettings={onOpenSettings}
-        onOpenModelRankings={onOpenModelRankings}
-        onOpenScanlationFeed={onOpenScanlationFeed}
-        onReplayTour={replayTour}
-        onOpenShortcuts={openShortcutCenter}
-        shortcutModalOpen={shortcutCenterOpen}
+          downloadIncludeInpaintedImage={downloadIncludeInpaintedImage}
+          onDownloadIncludeInpaintedImageChange={
+            setDownloadIncludeInpaintedImage
+          }
+          hasInpaintedOutputs={hasInpaintedOutputs}
+          onDownload={handleTopbarDownload}
+          canExportPsd={canExportPsd}
+          downloadPsdLoading={downloadPsdLoading}
+          downloadPsdCompression={downloadPsdCompression}
+          onDownloadPsdCompressionChange={setDownloadPsdCompression}
+          downloadPsdDpi={downloadPsdDpi}
+          onDownloadPsdDpiChange={setDownloadPsdDpi}
+          downloadPsdIncludeOcrOverlay={downloadPsdIncludeOcrOverlay}
+          onDownloadPsdIncludeOcrOverlayChange={setDownloadPsdIncludeOcrOverlay}
+          downloadPsdIncludeIndividualCrops={downloadPsdIncludeIndividualCrops}
+          onDownloadPsdIncludeIndividualCropsChange={
+            setDownloadPsdIncludeIndividualCrops
+          }
+          downloadPsdIncludeRawTextLayer={downloadPsdIncludeRawTextLayer}
+          onDownloadPsdIncludeRawTextLayerChange={
+            setDownloadPsdIncludeRawTextLayer
+          }
+          downloadPsdIncludeTranslatedTextLayer={
+            downloadPsdIncludeTranslatedTextLayer
+          }
+          onDownloadPsdIncludeTranslatedTextLayerChange={
+            setDownloadPsdIncludeTranslatedTextLayer
+          }
+          downloadPsdUsePhotoshopTextLayers={downloadPsdUsePhotoshopTextLayers}
+          onDownloadPsdUsePhotoshopTextLayersChange={
+            setDownloadPsdUsePhotoshopTextLayers
+          }
+          downloadPsdIncludeMetadataJson={downloadPsdIncludeMetadataJson}
+          onDownloadPsdIncludeMetadataJsonChange={
+            setDownloadPsdIncludeMetadataJson
+          }
+          hasAioRenderRegionsForPsd={hasAioRenderRegionsForPsd}
+          onDownloadPsd={handleDownloadPsd}
+          toolsPanelVisible={toolsPanelVisible}
+          onToolsPanelToggle={handleToolsToggle}
+          isCompactViewport={isCompactViewport}
+          toolsRevealButtonRef={setToolsRevealNode}
+          sidebarCollapsed={desktopSidebarCollapsed}
+          onSidebarToggle={handleSidebarToggle}
+          sidebarRevealButtonRef={setSidebarRevealNode}
+          userDisplayName={userDisplayName ?? ''}
+          userDisplayEmail={userDisplayEmail}
+          onLogout={logout}
+          onOpenSettings={onOpenSettings}
+          onOpenModelRankings={onOpenModelRankings}
+          onOpenScanlationFeed={onOpenScanlationFeed}
+          onReplayTour={replayTour}
+          onOpenShortcuts={openShortcutCenter}
+          shortcutModalOpen={shortcutCenterOpen}
         />
 
         {/* Email verify banner */}
