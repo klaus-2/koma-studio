@@ -42,6 +42,7 @@ interface DashboardLeftSidebarProps {
   desktopSidebarCollapsed: boolean;
   leftSidebarWidth: number;
   desktopSidebarToggleRef: React.RefObject<HTMLButtonElement | null>;
+  sidebarRef?: React.RefObject<HTMLElement | null>;
   processingStats: DashboardProcessingStatsSummary;
   images: LoadedImage[];
   activeId: string | null;
@@ -75,6 +76,7 @@ export default function DashboardLeftSidebar({
   desktopSidebarCollapsed,
   leftSidebarWidth,
   desktopSidebarToggleRef,
+  sidebarRef,
   processingStats,
   images,
   activeId,
@@ -123,6 +125,7 @@ export default function DashboardLeftSidebar({
 
   return (
     <aside
+      ref={sidebarRef}
       className={cn(
         'koma-dash__sidebar',
         mobileSidebarOpen && 'koma-dash__sidebar--open',

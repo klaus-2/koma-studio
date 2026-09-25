@@ -45,6 +45,8 @@ interface UseDashboardShellLayoutArgs {
   desktopToolsToggleRef: SidebarToggleButtonRef;
   topbarToolsRevealRef: SidebarToggleButtonRef;
   animateSidebarToggle: (fromEl: HTMLElement | null, toEl: HTMLElement | null) => void;
+  leftSidebarRef?: MutableRefObject<HTMLElement | null>;
+  rightSidebarRef?: MutableRefObject<HTMLElement | null>;
 }
 
 export function useDashboardShellLayout({
@@ -53,6 +55,8 @@ export function useDashboardShellLayout({
   desktopToolsToggleRef,
   topbarToolsRevealRef,
   animateSidebarToggle,
+  leftSidebarRef,
+  rightSidebarRef,
 }: UseDashboardShellLayoutArgs) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -127,25 +131,38 @@ export function useDashboardShellLayout({
     }
 
     const startWidth = side === 'left' ? leftSidebarWidth : rightSidebarWidth;
+    const getContainer = () =>
+      side === 'left' ? leftSidebarRef?.current : rightSidebarRef?.current;
+    const applyWidth = (width: number) => {
+      const container = getContainer();
+      if (container) {
+        container.style.width = `${width}px`;
+      }
+    };
+    let frame: number | null = null;
+    let pendingWidth = startWidth;
 
     const handlePointerMove = (event: globalThis.MouseEvent) => {
       const deltaX = event.clientX - startX;
+      let nextWidth: number;
       if (side === 'left') {
-        setLeftSidebarWidth(
-          Math.max(
-            LEFT_SIDEBAR_MIN_WIDTH,
-            Math.min(LEFT_SIDEBAR_MAX_WIDTH, startWidth + deltaX),
-          ),
+        nextWidth = Math.max(
+          LEFT_SIDEBAR_MIN_WIDTH,
+          Math.min(LEFT_SIDEBAR_MAX_WIDTH, startWidth + deltaX),
         );
-        return;
-      }
-
-      setRightSidebarWidth(
-        Math.max(
+      } else {
+        nextWidth = Math.max(
           RIGHT_SIDEBAR_MIN_WIDTH,
           Math.min(RIGHT_SIDEBAR_MAX_WIDTH, startWidth - deltaX),
-        ),
-      );
+        );
+      }
+      pendingWidth = nextWidth;
+      if (frame === null) {
+        frame = window.requestAnimationFrame(() => {
+          frame = null;
+          applyWidth(pendingWidth);
+        });
+      }
     };
 
     const stopResize = () => {
@@ -153,6 +170,15 @@ export function useDashboardShellLayout({
       document.body.style.userSelect = '';
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', stopResize);
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+        frame = null;
+      }
+      if (side === 'left') {
+        setLeftSidebarWidth(pendingWidth);
+      } else {
+        setRightSidebarWidth(pendingWidth);
+      }
     };
 
     document.body.style.cursor = 'ew-resize';
@@ -166,7 +192,7 @@ export function useDashboardShellLayout({
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', stopResize);
     };
-  }, [isCompactViewport, leftSidebarWidth, rightSidebarWidth]);
+  }, [isCompactViewport, leftSidebarWidth, rightSidebarWidth, leftSidebarRef, rightSidebarRef]);
 
   const resizeLeftSidebarBy = useCallback((delta: number) => {
     setLeftSidebarWidth((prev) =>

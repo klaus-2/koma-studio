@@ -249,6 +249,8 @@ export const DashboardPage = ({
   const topbarSidebarRevealRef = useRef<HTMLButtonElement | null>(null);
   const desktopToolsToggleRef = useRef<HTMLButtonElement | null>(null);
   const topbarToolsRevealRef = useRef<HTMLButtonElement | null>(null);
+  const leftSidebarRef = useRef<HTMLElement | null>(null);
+  const rightSidebarRef = useRef<HTMLElement | null>(null);
 
   const animateSidebarToggleSharedElement = useCallback(
     (fromEl: HTMLElement | null, toEl: HTMLElement | null) => {
@@ -353,6 +355,8 @@ export const DashboardPage = ({
     desktopToolsToggleRef,
     topbarToolsRevealRef,
     animateSidebarToggle: animateSidebarToggleSharedElement,
+    leftSidebarRef,
+    rightSidebarRef,
   });
 
   // ── Tool Settings ──
@@ -2373,6 +2377,8 @@ export const DashboardPage = ({
       setToolsPanelCollapsed={setToolsPanelCollapsed}
       leftSidebarWidth={leftSidebarWidth}
       rightSidebarWidth={rightSidebarWidth}
+      leftSidebarRef={leftSidebarRef}
+      rightSidebarRef={rightSidebarRef}
       isCompactViewport={isCompactViewport}
       toolsPanelVisible={toolsPanelVisible}
       toggleDesktopSidebar={toggleDesktopSidebar}

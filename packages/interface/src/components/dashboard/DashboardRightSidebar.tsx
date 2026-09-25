@@ -11,6 +11,7 @@ interface DashboardRightSidebarProps {
   rightSidebarWidth: number;
   modeLabel: string;
   desktopToolsToggleRef: React.RefObject<HTMLButtonElement | null>;
+  sidebarRef?: React.RefObject<HTMLElement | null>;
   setMobileToolsOpen: (value: boolean) => void;
   setToolsPanelCollapsed: (value: boolean) => void;
   toggleDesktopToolsPanel: (animate: boolean) => void;
@@ -28,6 +29,7 @@ export default function DashboardRightSidebar({
   rightSidebarWidth,
   modeLabel,
   desktopToolsToggleRef,
+  sidebarRef,
   setMobileToolsOpen,
   setToolsPanelCollapsed,
   toggleDesktopToolsPanel,
@@ -40,6 +42,7 @@ export default function DashboardRightSidebar({
   const { t } = useI18n();
   return (
     <aside
+      ref={sidebarRef}
       className={cn(
         'koma-dash__tools custom-scrollbar',
         mobileToolsOpen && 'koma-dash__tools--open',

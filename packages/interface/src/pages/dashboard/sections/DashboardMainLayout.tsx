@@ -253,6 +253,8 @@ export interface DashboardMainLayoutProps {
   setToolsPanelCollapsed: ShellLayoutApi['setToolsPanelCollapsed'];
   leftSidebarWidth: ShellLayoutApi['leftSidebarWidth'];
   rightSidebarWidth: ShellLayoutApi['rightSidebarWidth'];
+  rightSidebarRef?: React.RefObject<HTMLElement | null>;
+  leftSidebarRef?: React.RefObject<HTMLElement | null>;
   isCompactViewport: boolean;
   toolsPanelVisible: ShellLayoutApi['toolsPanelVisible'];
   toggleDesktopSidebar: ShellLayoutApi['toggleDesktopSidebar'];
@@ -528,6 +530,8 @@ export default memo(function DashboardMainLayout({
   setToolsPanelCollapsed,
   leftSidebarWidth,
   rightSidebarWidth,
+  rightSidebarRef,
+  leftSidebarRef,
   isCompactViewport,
   toolsPanelVisible,
   toggleDesktopSidebar,
@@ -925,6 +929,7 @@ export default memo(function DashboardMainLayout({
         isCompactViewport={isCompactViewport}
         desktopSidebarCollapsed={desktopSidebarCollapsed}
         leftSidebarWidth={leftSidebarWidth}
+        sidebarRef={leftSidebarRef}
         desktopSidebarToggleRef={desktopSidebarToggleRef}
         processingStats={processingStats}
         getRootProps={getRootProps}
@@ -1182,6 +1187,7 @@ export default memo(function DashboardMainLayout({
         isCompactViewport={isCompactViewport}
         toolsPanelCollapsed={toolsPanelCollapsed}
         rightSidebarWidth={rightSidebarWidth}
+        sidebarRef={rightSidebarRef}
         modeLabel={modeLabel}
         desktopToolsToggleRef={desktopToolsToggleRef}
         setMobileToolsOpen={setMobileToolsOpen}

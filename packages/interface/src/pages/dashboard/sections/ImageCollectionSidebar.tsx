@@ -18,6 +18,7 @@ interface ImageCollectionSidebarProps {
   isCompactViewport: boolean;
   desktopSidebarCollapsed: boolean;
   leftSidebarWidth: number;
+  sidebarRef?: React.RefObject<HTMLElement | null>;
   desktopSidebarToggleRef: React.RefObject<HTMLButtonElement | null>;
   toggleDesktopSidebar: (animate: boolean) => void;
   startSidebarResize: (side: 'left' | 'right', clientX: number) => void;
@@ -49,6 +50,7 @@ export default function ImageCollectionSidebar({
   isCompactViewport,
   desktopSidebarCollapsed,
   leftSidebarWidth,
+  sidebarRef,
   desktopSidebarToggleRef,
   toggleDesktopSidebar,
   startSidebarResize,
@@ -92,6 +94,7 @@ export default function ImageCollectionSidebar({
       isCompactViewport={isCompactViewport}
       desktopSidebarCollapsed={desktopSidebarCollapsed}
       leftSidebarWidth={leftSidebarWidth}
+      sidebarRef={sidebarRef}
       desktopSidebarToggleRef={desktopSidebarToggleRef}
       processingStats={processingStats}
       images={images}
