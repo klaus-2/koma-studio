@@ -1,49 +1,91 @@
 from __future__ import annotations
 
-import asyncio
 import base64
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
 
+from core.http_retry import post_with_429_retry
 
 _REDIRECT_STATUSES = {301, 302, 307, 308}
 _HUGGINGFACE_ROUTER_API_BASE = "https://router.huggingface.co/v1"
+_AUTH_ERROR_STATUSES = frozenset({401, 403})
 
 
 def _normalized_hostname(url: str) -> str:
     return (urlparse(url).hostname or "").strip().lower()
 
 
-def is_groq_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) == "api.groq.com"
+@dataclass(frozen=True)
+class KnownProvider:
+    key: str
+    hosts: frozenset[str]
+    auth_error_detail: str                       # appended on 401/403
+    model_error_statuses: frozenset[int] = frozenset()
+    model_error_detail: str = ""                 # appended on model_error_statuses
 
 
-def is_openrouter_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) == "openrouter.ai"
+# Hosts must be pairwise disjoint (add a unit test asserting that);
+# build_custom_provider_http_error_detail relies on it so registry order is
+# irrelevant. aiplatform.googleapis.com is deliberately under "gemini" — the
+# Vertex OpenAI endpoint is a *path* check on that host and is handled first.
+KNOWN_PROVIDERS: tuple[KnownProvider, ...] = (
+    KnownProvider("groq", frozenset({"api.groq.com"}), "Groq requires a valid API key."),
+    KnownProvider("openrouter", frozenset({"openrouter.ai"}), "OpenRouter requires a valid API key."),
+    KnownProvider("cerebras", frozenset({"api.cerebras.ai"}), "Cerebras requires a valid API key."),
+    KnownProvider(
+        "huggingface",
+        frozenset({"router.huggingface.co", "api-inference.huggingface.co"}),
+        "Hugging Face Router requires a valid Bearer token.",
+    ),
+    KnownProvider(
+        "airforce",
+        frozenset({"api.airforce"}),
+        "Airforce requires a valid API key.",
+        model_error_statuses=frozenset({400, 404}),
+        model_error_detail="Model ID not recognized by the Airforce provider; check the provider catalog.",
+    ),
+    KnownProvider(
+        "gemini",
+        frozenset({"generativelanguage.googleapis.com", "aiplatform.googleapis.com"}),
+        "Gemini requires a valid API key.",
+    ),
+    KnownProvider("nlp_cloud", frozenset({"api.nlpcloud.io"}), "NLP Cloud requires a valid token in the Authorization header."),
+    KnownProvider("zhipu", frozenset({"open.bigmodel.cn"}), "Zhipu AI requires a valid API key."),
+    KnownProvider("kluster", frozenset({"api.kluster.ai"}), "Kluster AI requires a valid API key."),
+    KnownProvider("llm7", frozenset({"api.llm7.io"}), "LLM7.io requires a valid token/API key."),
+    KnownProvider("siliconflow", frozenset({"api.siliconflow.cn"}), "SiliconFlow requires a valid API key."),
+    KnownProvider("ollama_cloud", frozenset({"ollama.com", "api.ollama.com"}), "Ollama Cloud requires a valid Bearer token."),
+)
+_HOST_TO_PROVIDER: dict[str, KnownProvider] = {
+    host: provider for provider in KNOWN_PROVIDERS for host in provider.hosts
+}
+_PROVIDER_BY_KEY: dict[str, KnownProvider] = {p.key: p for p in KNOWN_PROVIDERS}
 
 
-def is_cerebras_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) == "api.cerebras.ai"
+def known_provider_for(api_base: str) -> KnownProvider | None:
+    return _HOST_TO_PROVIDER.get(_normalized_hostname(api_base))
 
 
-def is_huggingface_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) in {
-        "router.huggingface.co",
-        "api-inference.huggingface.co",
-    }
+def _is_provider_host(api_base: str, key: str) -> bool:
+    return _normalized_hostname(api_base) in _PROVIDER_BY_KEY[key].hosts
 
 
-def is_airforce_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) == "api.airforce"
-
-
-def is_gemini_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) in {
-        "generativelanguage.googleapis.com",
-        "aiplatform.googleapis.com",
-    }
+# Predicates kept as one-liners for callers/tests; delete any that grep shows unused.
+def is_groq_host(api_base: str) -> bool:        return _is_provider_host(api_base, "groq")
+def is_openrouter_host(api_base: str) -> bool:  return _is_provider_host(api_base, "openrouter")
+def is_cerebras_host(api_base: str) -> bool:    return _is_provider_host(api_base, "cerebras")
+def is_huggingface_host(api_base: str) -> bool: return _is_provider_host(api_base, "huggingface")
+def is_airforce_host(api_base: str) -> bool:    return _is_provider_host(api_base, "airforce")
+def is_gemini_host(api_base: str) -> bool:      return _is_provider_host(api_base, "gemini")
+def is_nlp_cloud_host(api_base: str) -> bool:   return _is_provider_host(api_base, "nlp_cloud")
+def is_zhipu_host(api_base: str) -> bool:       return _is_provider_host(api_base, "zhipu")
+def is_kluster_host(api_base: str) -> bool:     return _is_provider_host(api_base, "kluster")
+def is_llm7_host(api_base: str) -> bool:        return _is_provider_host(api_base, "llm7")
+def is_siliconflow_host(api_base: str) -> bool: return _is_provider_host(api_base, "siliconflow")
+def is_ollama_cloud_host(api_base: str) -> bool: return _is_provider_host(api_base, "ollama_cloud")
 
 
 def is_vertex_openai_endpoint(api_base: str) -> bool:
@@ -52,30 +94,6 @@ def is_vertex_openai_endpoint(api_base: str) -> bool:
     hostname = (parsed.hostname or "").strip().lower()
     path = (parsed.path or "").strip().lower()
     return hostname == "aiplatform.googleapis.com" and "/endpoints/openapi" in path
-
-
-def is_nlp_cloud_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) == "api.nlpcloud.io"
-
-
-def is_zhipu_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) == "open.bigmodel.cn"
-
-
-def is_kluster_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) == "api.kluster.ai"
-
-
-def is_llm7_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) == "api.llm7.io"
-
-
-def is_siliconflow_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) == "api.siliconflow.cn"
-
-
-def is_ollama_cloud_host(api_base: str) -> bool:
-    return _normalized_hostname(api_base) in {"ollama.com", "api.ollama.com"}
 
 
 def extract_huggingface_model_from_legacy_api_base(api_base: str) -> str | None:
@@ -111,21 +129,7 @@ def normalize_openai_compatible_api_base(api_base: str) -> str:
 
 
 def requires_api_key_for_known_provider(api_base: str) -> bool:
-    normalized = normalize_openai_compatible_api_base(api_base)
-    return (
-        is_groq_host(normalized)
-        or is_openrouter_host(normalized)
-        or is_cerebras_host(normalized)
-        or is_huggingface_host(normalized)
-        or is_airforce_host(normalized)
-        or is_gemini_host(normalized)
-        or is_nlp_cloud_host(normalized)
-        or is_zhipu_host(normalized)
-        or is_kluster_host(normalized)
-        or is_llm7_host(normalized)
-        or is_siliconflow_host(normalized)
-        or is_ollama_cloud_host(normalized)
-    )
+    return known_provider_for(normalize_openai_compatible_api_base(api_base)) is not None
 
 
 def build_custom_provider_http_error_detail(
@@ -135,26 +139,10 @@ def build_custom_provider_http_error_detail(
     normalized = normalize_openai_compatible_api_base(api_base)
     _ = model_name
 
-    if is_airforce_host(normalized):
-        if status_code in {401, 403}:
-            return f"{detail}. Airforce requires a valid API key."
-        if status_code in {400, 404}:
-            return f"{detail}. Model ID not recognized by the Airforce provider; check the provider catalog."
-
-    if is_huggingface_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. Hugging Face Router requires a valid Bearer token."
-
-    if is_groq_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. Groq requires a valid API key."
-
-    if is_openrouter_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. OpenRouter requires a valid API key."
-
-    if is_cerebras_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. Cerebras requires a valid API key."
-
+    # Vertex shares aiplatform.googleapis.com with the gemini entry and was
+    # checked before gemini in the original chain; keep it ahead of the table.
     if is_vertex_openai_endpoint(normalized):
-        if status_code in {401, 403}:
+        if status_code in _AUTH_ERROR_STATUSES:
             return (
                 f"{detail}. The Vertex AI OpenAI endpoint requires a valid IAM access token "
                 "(Bearer) in the API key field."
@@ -165,26 +153,12 @@ def build_custom_provider_http_error_detail(
                 "`.../endpoints/openapi` is correct."
             )
 
-    if is_gemini_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. Gemini requires a valid API key."
-
-    if is_nlp_cloud_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. NLP Cloud requires a valid token in the Authorization header."
-
-    if is_zhipu_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. Zhipu AI requires a valid API key."
-
-    if is_kluster_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. Kluster AI requires a valid API key."
-
-    if is_llm7_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. LLM7.io requires a valid token/API key."
-
-    if is_siliconflow_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. SiliconFlow requires a valid API key."
-
-    if is_ollama_cloud_host(normalized) and status_code in {401, 403}:
-        return f"{detail}. Ollama Cloud requires a valid Bearer token."
+    provider = known_provider_for(normalized)
+    if provider is not None:
+        if status_code in _AUTH_ERROR_STATUSES:
+            return f"{detail}. {provider.auth_error_detail}"
+        if status_code in provider.model_error_statuses:
+            return f"{detail}. {provider.model_error_detail}"
 
     if status_code == 404:
         return (
@@ -204,36 +178,62 @@ def build_openai_compatible_headers(api_key: str | None) -> dict[str, str]:
     return {"Authorization": f"Bearer {normalized}"}
 
 
-def resolve_openai_compatible_chat_endpoint(api_base: str) -> str:
+def _resolve_openai_compatible_endpoint(api_base: str, suffix: str) -> str:
     normalized = normalize_openai_compatible_api_base(api_base)
-    if normalized.lower().endswith("/chat/completions"):
+    if normalized.lower().endswith(suffix):
         return normalized
-    return f"{normalized}/chat/completions"
+    return f"{normalized}{suffix}"
+
+
+def _resolve_ollama_endpoint(api_base: str, leaf: str) -> str:
+    normalized = (api_base or "").strip().rstrip("/")
+    lowered = normalized.lower()
+    if lowered.endswith(f"/api/{leaf}"):
+        return normalized
+    if lowered.endswith("/api"):
+        return f"{normalized}/{leaf}"
+    return f"{normalized}/api/{leaf}"
+
+
+def resolve_openai_compatible_chat_endpoint(api_base: str) -> str:
+    return _resolve_openai_compatible_endpoint(api_base, "/chat/completions")
 
 
 def resolve_openai_compatible_models_endpoint(api_base: str) -> str:
-    normalized = normalize_openai_compatible_api_base(api_base)
-    if normalized.lower().endswith("/models"):
-        return normalized
-    return f"{normalized}/models"
+    return _resolve_openai_compatible_endpoint(api_base, "/models")
 
 
 def resolve_ollama_chat_endpoint(api_base: str) -> str:
-    normalized = (api_base or "").strip().rstrip("/")
-    if normalized.lower().endswith("/api/chat"):
-        return normalized
-    if normalized.lower().endswith("/api"):
-        return f"{normalized}/chat"
-    return f"{normalized}/api/chat"
+    return _resolve_ollama_endpoint(api_base, "chat")
 
 
 def resolve_ollama_tags_endpoint(api_base: str) -> str:
-    normalized = (api_base or "").strip().rstrip("/")
-    if normalized.lower().endswith("/api/tags"):
-        return normalized
-    if normalized.lower().endswith("/api"):
-        return f"{normalized}/tags"
-    return f"{normalized}/api/tags"
+    return _resolve_ollama_endpoint(api_base, "tags")
+
+
+async def _get_json(
+    *,
+    url: str,
+    headers: dict[str, str],
+    timeout: float,
+    follow_redirects: bool,
+    none_on_404: bool,
+) -> Any:
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.get(
+            url, headers=headers or None, follow_redirects=follow_redirects
+        )
+        if none_on_404 and response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.json()
+
+
+def _list_field(data: Any, key: str) -> list[Any]:
+    if not isinstance(data, dict):
+        return []
+    value = data.get(key, [])
+    return value if isinstance(value, list) else []
 
 
 async def fetch_openai_compatible_models(
@@ -242,29 +242,18 @@ async def fetch_openai_compatible_models(
     api_key: str | None,
     timeout: float = 15.0,
 ) -> list[dict[str, Any]]:
-    request_url = resolve_openai_compatible_models_endpoint(api_base)
-    headers = build_openai_compatible_headers(api_key)
-
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.get(
-            request_url,
-            headers=headers or None,
-            follow_redirects=False,
-        )
-        if response.status_code == 404:
-            return []
-        response.raise_for_status()
-        data = response.json()
-        if not isinstance(data, dict):
-            return []
-        models_list = data.get("data", [])
-        if not isinstance(models_list, list):
-            return []
-        return [
-            item
-            for item in models_list
-            if isinstance(item, dict) and isinstance(item.get("id"), str)
-        ]
+    data = await _get_json(
+        url=resolve_openai_compatible_models_endpoint(api_base),
+        headers=build_openai_compatible_headers(api_key),
+        timeout=timeout,
+        follow_redirects=False,   # differs from Ollama on purpose
+        none_on_404=True,         # differs from Ollama on purpose
+    )
+    return [
+        item
+        for item in _list_field(data, "data")
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    ]
 
 
 async def fetch_ollama_models(
@@ -273,39 +262,29 @@ async def fetch_ollama_models(
     api_key: str | None,
     timeout: float = 15.0,
 ) -> list[dict[str, Any]]:
-    request_url = resolve_ollama_tags_endpoint(api_base)
-    headers = build_openai_compatible_headers(api_key)
-
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.get(
-            request_url,
-            headers=headers or None,
-            follow_redirects=True,
+    data = await _get_json(
+        url=resolve_ollama_tags_endpoint(api_base),
+        headers=build_openai_compatible_headers(api_key),
+        timeout=timeout,
+        follow_redirects=True,
+        none_on_404=False,
+    )
+    parsed_models: list[dict[str, Any]] = []
+    for model in _list_field(data, "models"):
+        if not isinstance(model, dict):
+            continue
+        model_id = str(model.get("model") or model.get("name") or "").strip()
+        if not model_id:
+            continue
+        parsed_models.append(
+            {
+                "id": model_id,
+                "object": "model",
+                "created": 0,
+                "name": str(model.get("name") or model_id),
+            }
         )
-        response.raise_for_status()
-        data = response.json()
-        if not isinstance(data, dict):
-            return []
-        models_list = data.get("models", [])
-        if not isinstance(models_list, list):
-            return []
-
-        parsed_models: list[dict[str, Any]] = []
-        for model in models_list:
-            if not isinstance(model, dict):
-                continue
-            model_id = str(model.get("model") or model.get("name") or "").strip()
-            if not model_id:
-                continue
-            parsed_models.append(
-                {
-                    "id": model_id,
-                    "object": "model",
-                    "created": 0,
-                    "name": str(model.get("name") or model_id),
-                }
-            )
-        return parsed_models
+    return parsed_models
 
 
 def _normalized_origin(url: str) -> tuple[str, str, int | None]:
@@ -339,27 +318,14 @@ async def post_openai_compatible_json(
     async with httpx.AsyncClient(timeout=timeout) as client:
         redirects_followed = 0
         while True:
-            response = None
-            for attempt in range(3):
-                response = await client.post(
-                    request_url,
-                    headers=headers or None,
-                    json=payload,
-                    follow_redirects=False,
-                )
-                if response.status_code != 429 or attempt == 2:
-                    break
-                retry_after = response.headers.get("retry-after")
-                try:
-                    retry_delay = (
-                        max(1.0, min(10.0, float(retry_after)))
-                        if retry_after
-                        else float(attempt + 1)
-                    )
-                except (TypeError, ValueError):
-                    retry_delay = float(attempt + 1)
-                await asyncio.sleep(retry_delay)
-            assert response is not None
+            response = await post_with_429_retry(
+                client,
+                request_url,
+                max_retries=3,
+                headers=headers or None,
+                json=payload,               # keep httpx json encoding (≠ providers' content=)
+                follow_redirects=False,
+            )
             if response.status_code not in _REDIRECT_STATUSES:
                 response.raise_for_status()
                 payload_data = response.json()
@@ -415,6 +381,28 @@ def extract_ollama_content(response: dict[str, Any]) -> str:
     return str(response.get("response") or "").strip()
 
 
+_TINY_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f"
+    b"\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+_TINY_PNG_B64 = base64.b64encode(_TINY_PNG).decode("utf-8")
+_VISION_PROBE_PROMPT = "Reply with exactly: VISION_OK"
+
+
+def extract_openai_compatible_message_content(response: dict[str, Any]) -> Any:
+    """Raw ``choices[0].message.content`` (str, list, or "" when absent).
+    Returns the raw value, not a joined string: the vision probe intentionally
+    treats list-typed content as "not str → False".
+    """
+    choices = response.get("choices", []) if isinstance(response, dict) else []
+    if not isinstance(choices, list) or not choices:
+        return ""
+    first = choices[0] if isinstance(choices[0], dict) else {}
+    message = first.get("message", {}) if isinstance(first, dict) else {}
+    return message.get("content", "") if isinstance(message, dict) else ""
+
+
 async def probe_vision_capability(
     *,
     api_base: str,
@@ -422,23 +410,14 @@ async def probe_vision_capability(
     model_name: str,
     timeout: float = 30.0,
 ) -> bool:
-    tiny_png = (
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-        b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f"
-        b"\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
-    encoded = base64.b64encode(tiny_png).decode("utf-8")
     payload = {
         "model": model_name,
         "messages": [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "Reply with exactly: VISION_OK"},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{encoded}"},
-                    },
+                    {"type": "text", "text": _VISION_PROBE_PROMPT},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{_TINY_PNG_B64}"}},
                 ],
             },
         ],
@@ -446,25 +425,15 @@ async def probe_vision_capability(
         "temperature": 0,
     }
     try:
-        response = await post_openai_compatible_json(
-            api_base=api_base,
-            api_key=api_key,
-            payload=payload,
-            timeout=timeout,
-        )
-        choices = response.get("choices", [])
-        if not isinstance(choices, list) or not choices:
-            return False
-        first = choices[0] if isinstance(choices[0], dict) else {}
-        message = first.get("message", {}) if isinstance(first, dict) else {}
-        content = message.get("content", "") if isinstance(message, dict) else ""
+        response = await post_openai_compatible_json(api_base=api_base, api_key=api_key, payload=payload, timeout=timeout)
+        content = extract_openai_compatible_message_content(response)
         return isinstance(content, str) and "VISION_OK" in content
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code in {400, 415, 422}:
             return False
         raise
     except Exception:
-        return False
+        return False          # NB: Ollama probe does NOT do this; kept asymmetric
 
 
 async def probe_ollama_vision_capability(
@@ -474,19 +443,14 @@ async def probe_ollama_vision_capability(
     model_name: str,
     timeout: float = 30.0,
 ) -> bool:
-    tiny_png = (
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-        b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f"
-        b"\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
     payload = {
         "model": model_name,
         "stream": False,
         "messages": [
             {
                 "role": "user",
-                "content": "Reply with exactly: VISION_OK",
-                "images": [base64.b64encode(tiny_png).decode("utf-8")],
+                "content": _VISION_PROBE_PROMPT,
+                "images": [_TINY_PNG_B64],
             }
         ],
         "options": {"temperature": 0, "num_predict": 16},
