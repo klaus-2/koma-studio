@@ -23,8 +23,11 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 IMPORT_ERROR: Exception | None = None
 try:
     import app as mini_app
+    from contextlib import ExitStack
+
     from models.ocr.base_ocr import OCRInputRegion, OCRTextResult
     from models.translation.base_translator import TranslationInputRegion, TranslationTextResult
+    from pipelines.batch import stages as stages_module
     from pipelines.cache_manager import CacheManager
     from routers import ocr as ocr_router
     from routers import pipeline as pipeline_router
@@ -185,24 +188,35 @@ class PipelineBatchRouteTests(unittest.TestCase):
         translation_router.CACHE_MANAGER = CacheManager(ttl_seconds=1800, max_entries=128, bbox_tolerance_px=5)
 
     def _patch_pipeline_dependencies(self):
-        return patch.multiple(
-            pipeline_router,
-            get_detector=lambda **_: self.fake_detector,
-            get_ocr_engine=lambda **_: self.fake_ocr,
-            get_translation_engine=lambda **_: self.fake_translation,
-            get_segmenter=lambda **_: self.fake_segmenter,
-            get_inpainter=lambda **_: self.fake_inpainter,
-            get_device_info=lambda: SimpleNamespace(
-                has_gpu=False,
-                name="cpu",
-                onnx_provider="CPUExecutionProvider",
-                available_onnx_providers=("CPUExecutionProvider",),
-                vram_gb=None,
-                acceleration_profile="cpu",
-                fallback_reason=None,
-                supported_model_families=("ocr", "detection", "enhance", "inpainting", "translation"),
-            ),
+        # The batch stages own the model factories now; patching pipeline_router
+        # alone would leave the real ONNX factories in play.
+        stack = ExitStack()
+        stack.enter_context(
+            patch.multiple(
+                stages_module,
+                get_detector=lambda **_: self.fake_detector,
+                get_ocr_engine=lambda **_: self.fake_ocr,
+                get_translation_engine=lambda **_: self.fake_translation,
+                get_segmenter=lambda **_: self.fake_segmenter,
+                get_inpainter=lambda **_: self.fake_inpainter,
+            )
         )
+        stack.enter_context(
+            patch.multiple(
+                pipeline_router,
+                get_device_info=lambda: SimpleNamespace(
+                    has_gpu=False,
+                    name="cpu",
+                    onnx_provider="CPUExecutionProvider",
+                    available_onnx_providers=("CPUExecutionProvider",),
+                    vram_gb=None,
+                    acceleration_profile="cpu",
+                    fallback_reason=None,
+                    supported_model_families=("ocr", "detection", "enhance", "inpainting", "translation"),
+                ),
+            )
+        )
+        return stack
 
     def test_batch_with_clean_returns_zip_with_report_and_images(self) -> None:
         files = [
