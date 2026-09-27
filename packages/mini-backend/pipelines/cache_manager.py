@@ -7,10 +7,16 @@ import json
 import logging
 import threading
 import time
-from typing import Any
+from typing import Any, TypedDict
 
 
 logger = logging.getLogger(__name__)
+
+
+class CacheManagerStats(TypedDict):
+    entries: int
+    ttl_seconds: float
+    max_entries: int
 
 
 @dataclass
@@ -238,6 +244,15 @@ class CacheManager:
         with self._lock:
             self._ocr_cache.clear()
             self._translation_cache.clear()
+
+    def stats(self) -> CacheManagerStats:
+        with self._lock:
+            entries = len(self._ocr_cache) + len(self._translation_cache)
+        return CacheManagerStats(
+            entries=entries,
+            ttl_seconds=self.ttl_seconds,
+            max_entries=self.max_entries,
+        )
 
     def _find_matching_ocr_record(
         self,
