@@ -25,8 +25,11 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from PIL import Image
 from starlette.middleware.base import RequestResponseEndpoint
+
+BaseModel.model_config["protected_namespaces"] = ()
 
 from core.config import get_config
 from core.device import (

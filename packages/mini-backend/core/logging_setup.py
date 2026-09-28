@@ -6,7 +6,7 @@ from typing import Final
 
 _RESERVED: Final = frozenset(
     logging.LogRecord("", 0, "", 0, "", None, None).__dict__
-    | {"message": None, "asctime": None}
+    | {"message": None, "asctime": None, "color_message": None}
 )
 
 
