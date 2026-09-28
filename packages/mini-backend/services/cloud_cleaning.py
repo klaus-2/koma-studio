@@ -2,19 +2,24 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import ipaddress
+import logging
 import math
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any
+from typing import Any, Final, Protocol
 from urllib.parse import quote
 
 import httpx
+import numpy as np
 from PIL import Image
 
 from core.cloud_registry import get_clean_model_spec, get_env_value
 from core.config import normalize_stage_model_key
 from models.translation.providers import resolve_request_custom_openai_config
+from services.http_client import get_shared_client
 from services.openai_compatible import (
     build_custom_provider_http_error_detail,
     is_gemini_host,
@@ -33,6 +38,27 @@ _SEGMENT_OVERLAP = 160
 _CUT_SEARCH_RADIUS = 220
 _CUT_SEARCH_STEP = 12
 _INSTRUCTION_LIMIT = 1200
+_MAX_CONCURRENT_SEGMENT_CALLS: Final = 2  # providers rate-limit per project; 2 is the sweet spot
+_MAX_REMOTE_IMAGE_BYTES: Final = 32 * 1024 * 1024
+_MAX_REDIRECTS: Final = 3
+_IMAGE_MAGIC: Final = (b"\x89PNG", b"\xff\xd8", b"RIFF")
+_GEMINI_RETRY_STATUSES: Final = frozenset({429, 500, 502, 503, 504})
+
+
+class CloudCleanError(RuntimeError):
+    """Base for automatic-cleaning failures. Subclasses RuntimeError only so
+    existing router handlers keep working; new code must catch the subclasses."""
+
+
+class CloudCleanConfigError(CloudCleanError):
+    """Missing API key / unsupported model or provider."""
+
+
+class CloudCleanProviderError(CloudCleanError):
+    """The provider answered, but not with a usable image."""
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -345,22 +371,46 @@ def _extract_gemini_text(response: dict[str, Any]) -> str:
     return ""
 
 
-async def _download_remote_image(url: str) -> bytes | None:
-    normalized = str(url or "").strip()
-    if not normalized.lower().startswith(("http://", "https://")):
-        return None
+async def _resolves_to_public_ip(host: str) -> bool:
+    try:
+        infos = await asyncio.get_running_loop().getaddrinfo(host, None)
+    except OSError:
+        return False
+    return bool(infos) and all(
+        ipaddress.ip_address(info[4][0]).is_global for info in infos
+    )
 
-    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
-        response = await client.get(normalized)
-    response.raise_for_status()
-    content_type = (response.headers.get("content-type") or "").lower()
-    if (
-        "image/" not in content_type
-        and not response.content.startswith(b"\x89PNG")
-        and not response.content.startswith(b"\xff\xd8")
-    ):
-        return None
-    return response.content
+
+async def _download_remote_image(url: str, client: httpx.AsyncClient) -> bytes | None:
+    current = httpx.URL(str(url or "").strip())
+    for _ in range(_MAX_REDIRECTS + 1):
+        if current.scheme not in {"http", "https"} or not await _resolves_to_public_ip(
+            current.host
+        ):
+            logger.warning("clean.remote_image_blocked", extra={"host": current.host})
+            return None
+        async with client.stream(
+            "GET", current, follow_redirects=False
+        ) as response:
+            if response.is_redirect:
+                location = response.headers.get("location")
+                if not location:
+                    return None
+                current = current.join(location)
+                continue
+            response.raise_for_status()
+            buffer = bytearray()
+            async for chunk in response.aiter_bytes():
+                buffer.extend(chunk)
+                if len(buffer) > _MAX_REMOTE_IMAGE_BYTES:
+                    raise CloudCleanProviderError(
+                        "Remote image exceeds the size limit."
+                    )
+            content_type = response.headers.get("content-type", "").lower()
+            if "image/" in content_type or bytes(buffer[:4]).startswith(_IMAGE_MAGIC):
+                return bytes(buffer)
+            return None
+    return None
 
 
 def _build_system_prompt() -> str:
@@ -445,14 +495,14 @@ def _resolve_custom_clean_provider(custom_llm: dict[str, Any] | None) -> dict[st
     api_key = str(resolved.get("api_key") or "").strip()
     if requires_api_key_for_known_provider(normalized_api_base) and not api_key:
         if is_vertex_openai_endpoint(normalized_api_base):
-            raise RuntimeError(
+            raise CloudCleanConfigError(
                 "The Vertex AI OpenAI endpoint requires an IAM access token (Bearer) in the API key field for AI Custom."
             )
         if is_gemini_host(normalized_api_base):
-            raise RuntimeError(
+            raise CloudCleanConfigError(
                 "Google AI Studio/Gemini requires a valid API key for AI Custom."
             )
-        raise RuntimeError(
+        raise CloudCleanConfigError(
             "This custom provider requires a valid API key for AI Custom."
         )
 
@@ -517,10 +567,31 @@ async def _call_openai_compatible_clean(
                 text = str(content or "").strip()
     remote_image_url = _extract_remote_image_url_from_text(text)
     if remote_image_url:
-        downloaded = await _download_remote_image(remote_image_url)
+        downloaded = await _download_remote_image(
+            remote_image_url, get_shared_client()
+        )
         if downloaded is not None:
             return downloaded
-    raise RuntimeError(text or "The custom provider did not return an edited image.")
+    raise CloudCleanProviderError(text or "The custom provider did not return an edited image.")
+
+
+def _retry_delay(response: httpx.Response, attempt: int) -> float:
+    header = response.headers.get("retry-after")
+    try:
+        return max(1.0, min(10.0, float(header))) if header else float(attempt + 1)
+    except (TypeError, ValueError):
+        return float(attempt + 1)
+
+
+async def _post_gemini_with_retry(
+    client: httpx.AsyncClient, url: str, payload: Mapping[str, object], *, attempts: int = 3
+) -> httpx.Response:
+    for attempt in range(attempts):
+        response = await client.post(url, json=payload)
+        if response.status_code not in _GEMINI_RETRY_STATUSES or attempt == attempts - 1:
+            return response
+        await asyncio.sleep(_retry_delay(response, attempt))
+    raise AssertionError("unreachable: loop always returns on the last attempt")
 
 
 async def _call_gemini_clean(
@@ -531,6 +602,7 @@ async def _call_gemini_clean(
     system_prompt: str,
     user_prompt: str,
     image_bytes: bytes,
+    client: httpx.AsyncClient,
 ) -> bytes:
     payload = {
         "contents": [
@@ -550,26 +622,9 @@ async def _call_gemini_clean(
             "responseModalities": ["TEXT", "IMAGE"],
         },
     }
-    async with httpx.AsyncClient(timeout=180.0) as client:
-        response = None
-        for attempt in range(3):
-            response = await client.post(
-                f"{api_base.rstrip('/')}/{model_name}:generateContent?key={quote(api_key)}",
-                json=payload,
-            )
-            if response.status_code != 429 or attempt == 2:
-                break
-            retry_after = response.headers.get("retry-after")
-            try:
-                retry_delay = (
-                    max(1.0, min(10.0, float(retry_after)))
-                    if retry_after
-                    else float(attempt + 1)
-                )
-            except (TypeError, ValueError):
-                retry_delay = float(attempt + 1)
-            await asyncio.sleep(retry_delay)
-        assert response is not None
+    response = await _post_gemini_with_retry(
+        client, f"{api_base.rstrip('/')}/{model_name}:generateContent?key={quote(api_key)}", payload
+    )
     response.raise_for_status()
     response_payload = response.json()
     image = _extract_gemini_image(response_payload)
@@ -578,10 +633,12 @@ async def _call_gemini_clean(
     text_payload = _extract_gemini_text(response_payload)
     remote_image_url = _extract_remote_image_url_from_text(text_payload)
     if remote_image_url:
-        downloaded = await _download_remote_image(remote_image_url)
+        downloaded = await _download_remote_image(
+            remote_image_url, get_shared_client()
+        )
         if downloaded is not None:
             return downloaded
-    raise RuntimeError(
+    raise CloudCleanProviderError(
         text_payload or "The Gemini model did not return an edited image."
     )
 
@@ -598,7 +655,7 @@ async def _execute_clean_call(
 ) -> bytes:
     if provider == "gemini_image":
         if not api_key:
-            raise RuntimeError(
+            raise CloudCleanConfigError(
                 "No API key configured for the Gemini cleaning model."
             )
         return await _call_gemini_clean(
@@ -608,12 +665,13 @@ async def _execute_clean_call(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             image_bytes=image_bytes,
+            client=get_shared_client(),
         )
 
     if provider in {"custom_image", "openai_compatible_image"}:
         if is_gemini_host(api_base) and not is_vertex_openai_endpoint(api_base):
             if not api_key:
-                raise RuntimeError(
+                raise CloudCleanConfigError(
                     "Google AI Studio/Gemini requires a valid API key for AI Custom."
                 )
             return await _call_gemini_clean(
@@ -623,6 +681,7 @@ async def _execute_clean_call(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 image_bytes=image_bytes,
+                client=get_shared_client(),
             )
         return await _call_openai_compatible_clean(
             api_base=api_base,
@@ -633,7 +692,7 @@ async def _execute_clean_call(
             image_bytes=image_bytes,
         )
 
-    raise RuntimeError("Unsupported automatic cleaning provider.")
+    raise CloudCleanConfigError("Unsupported automatic cleaning provider.")
 
 
 def _ensure_image_size(
@@ -647,20 +706,20 @@ def _ensure_image_size(
 def _build_segment_alpha(
     width: int, height: int, *, fade_in: int, fade_out: int
 ) -> Image.Image:
-    mask = Image.new("L", (width, height), 255)
-    pixels = mask.load()
-    if pixels is None:
-        return mask
-    for y in range(height):
-        alpha = 255
-        if fade_in > 0 and y < fade_in:
-            alpha = min(alpha, int((y / max(1, fade_in)) * 255))
-        if fade_out > 0 and y >= height - fade_out:
-            tail_distance = height - y - 1
-            alpha = min(alpha, int((tail_distance / max(1, fade_out)) * 255))
-        for x in range(width):
-            pixels[x, y] = max(0, min(255, alpha))
-    return mask
+    alpha = np.full(height, 255.0, dtype=np.float32)
+    if fade_in > 0:
+        rows = min(fade_in, height)
+        alpha[:rows] = np.minimum(
+            alpha[:rows], np.arange(rows, dtype=np.float32) / fade_in * 255.0
+        )
+    if fade_out > 0:
+        rows = min(fade_out, height)
+        tail = np.arange(rows, dtype=np.float32)[::-1] / fade_out * 255.0
+        alpha[height - rows :] = np.minimum(alpha[height - rows :], tail)
+    column = alpha.astype(np.uint8)
+    return Image.fromarray(
+        np.repeat(column[:, np.newaxis], width, axis=1), mode="L"
+    )
 
 
 def _compose_segments(
@@ -692,6 +751,49 @@ def _compose_segments(
     return buffer.getvalue()
 
 
+def _crop_to_png(image: Image.Image, window: SegmentWindow, width: int) -> bytes:
+    return _image_to_png_bytes(image.crop((0, window.start_y, width, window.end_y)))
+
+
+async def _clean_segments(
+    *,
+    image: Image.Image,
+    windows: Sequence[SegmentWindow],
+    regions: Sequence[CleanRegion],
+    provider: str,
+    api_base: str,
+    api_key: str | None,
+    model_name: str,
+    system_prompt: str,
+    additional_instructions: str,
+) -> list[Image.Image]:
+    width, _ = image.size
+    semaphore = asyncio.Semaphore(_MAX_CONCURRENT_SEGMENT_CALLS)
+
+    async def clean_one(window: SegmentWindow) -> Image.Image:
+        async with semaphore:
+            crop_bytes = await asyncio.to_thread(_crop_to_png, image, window, width)
+            user_prompt = _build_user_prompt(
+                regions=_project_regions_to_window(regions, window, width),
+                additional_instructions=additional_instructions,
+                window=None if len(windows) == 1 else window,
+            )
+            cleaned_bytes = await _execute_clean_call(
+                provider=provider,
+                api_base=api_base,
+                api_key=api_key,
+                model_name=model_name,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                image_bytes=crop_bytes,
+            )
+            return await asyncio.to_thread(
+                lambda: Image.open(BytesIO(cleaned_bytes)).convert("RGB")
+            )
+
+    return list(await asyncio.gather(*(clean_one(window) for window in windows)))
+
+
 async def clean_image_with_ai(
     *,
     image_bytes: bytes,
@@ -703,7 +805,7 @@ async def clean_image_with_ai(
     canonical_model_key = normalize_stage_model_key("clean", model_key)
     spec = get_clean_model_spec(canonical_model_key)
     if spec is None:
-        raise RuntimeError("Unsupported automatic cleaning model.")
+        raise CloudCleanConfigError("Unsupported automatic cleaning model.")
 
     provider = str(spec.get("provider") or "")
     model_name = str(spec.get("model") or "").strip()
@@ -728,26 +830,17 @@ async def clean_image_with_ai(
         additional_instructions
     )
 
-    cleaned_segments: list[Image.Image] = []
-    for window in windows:
-        crop = image.crop((0, window.start_y, width, window.end_y))
-        crop_bytes = _image_to_png_bytes(crop)
-        projected_regions = _project_regions_to_window(parsed_regions, window, width)
-        user_prompt = _build_user_prompt(
-            regions=projected_regions,
-            additional_instructions=normalized_additional_instructions,
-            window=None if len(windows) == 1 else window,
-        )
-        cleaned_bytes = await _execute_clean_call(
-            provider=provider,
-            api_base=api_base,
-            api_key=api_key,
-            model_name=model_name,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            image_bytes=crop_bytes,
-        )
-        cleaned_segments.append(Image.open(BytesIO(cleaned_bytes)).convert("RGB"))
+    cleaned_segments = await _clean_segments(
+        image=image,
+        windows=windows,
+        regions=parsed_regions,
+        provider=provider,
+        api_base=api_base,
+        api_key=api_key,
+        model_name=model_name,
+        system_prompt=system_prompt,
+        additional_instructions=normalized_additional_instructions,
+    )
 
     if len(cleaned_segments) == 1:
         single = _ensure_image_size(cleaned_segments[0], width, height)
