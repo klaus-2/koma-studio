@@ -2,11 +2,121 @@ from __future__ import annotations
 
 import logging
 import re
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Final, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
 logger = logging.getLogger(__name__)
+
+if sys.platform == "win32":
+    from _ctypes import COMError
+else:  # keeps the module importable (and type-checkable) on dev machines
+
+    class COMError(OSError): ...  # noqa: E701
+
+
+_COM_STEP_ERRORS: Final = (COMError, AttributeError, TypeError, ValueError)
+
+
+@contextmanager
+def _com_step(description: str, **context: object) -> Iterator[None]:
+    """Run one optional Photoshop property write; log and continue on COM failure.
+
+    Only for cosmetic steps (font, leading, stroke…). Structural steps — opening
+    the document, creating the layer, saving — must NOT use this and must raise.
+    """
+    try:
+        yield
+    except _COM_STEP_ERRORS:
+        logger.debug(
+            "photoshop.step_failed", extra={"step": description, **context}, exc_info=True
+        )
+
+
+class TextLayerStyle(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="ignore", populate_by_name=True)
+
+    font_family: str = Field(default="", alias="fontFamily")
+    font_size: float = Field(default=24.0, alias="fontSize")
+    computed_font_size: float | None = Field(default=None, alias="computedFontSize")
+    computed_line_height: float = Field(default=0.0, alias="computedLineHeight", ge=0)
+    computed_text_height: float = Field(default=0.0, alias="computedTextHeight", ge=0)
+    line_spacing: float = Field(default=1.0, alias="lineSpacing")
+    alignment: Literal["left", "center", "right"] = "left"
+    bold: bool = False
+    italic: bool = False
+    underline: bool = False
+    color: str = "#111111"
+    outline_color: str = Field(default="#ffffff", alias="outlineColor")
+    outline_width: float = Field(default=0.0, alias="outlineWidth", ge=0)
+    draw_top_offset: float = Field(default=0.0, alias="drawTopOffset", ge=0)
+    wrapped_text: str = Field(default="", alias="wrappedText")
+    gradient_enabled: bool = Field(default=False, alias="gradientEnabled")
+    point_anchor_x: float | None = Field(default=None, alias="pointAnchorX")
+    point_anchor_baseline_offset: float | None = Field(
+        default=None, alias="pointAnchorBaselineOffset"
+    )
+
+    @field_validator("alignment", mode="before")
+    @classmethod
+    def _normalize_alignment(cls, value: object) -> object:
+        raw = str(value or "left").strip().lower()
+        mapped = {"middle": "center", "end": "right"}.get(raw, raw)
+        return mapped if mapped in {"left", "center", "right"} else "left"
+
+    @field_validator(
+        "font_size", "computed_font_size", "computed_line_height",
+        "computed_text_height", "line_spacing", "outline_width",
+        "draw_top_offset", "point_anchor_x", "point_anchor_baseline_offset",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_float(cls, value: object) -> object:
+        if value is None or isinstance(value, (int, float)):
+            return value
+        try:
+            return float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+
+    @property
+    def effective_font_size(self) -> float:
+        return max(6.0, self.computed_font_size or self.font_size)
+
+
+class TextLayerEntry(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    name: str = "text_layer"
+    text: str = ""
+    left: float = 0.0
+    top: float = 0.0
+    width: float = Field(default=1.0, ge=1.0)
+    height: float = Field(default=1.0, ge=1.0)
+    style: TextLayerStyle = Field(default_factory=TextLayerStyle)
+
+    @field_validator("left", "top", "width", "height", mode="before")
+    @classmethod
+    def _coerce_coords(cls, value: object) -> object:
+        if value is None or isinstance(value, (int, float)):
+            return value
+        try:
+            return float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+
+    @property
+    def resolved_text(self) -> str:
+        return (self.style.wrapped_text or self.text).replace("\r\n", "\n").strip()
+
+    @property
+    def is_editable(self) -> bool:
+        return bool(self.resolved_text) and not self.style.gradient_enabled
 
 SUPPORTED_PHOTOSHOP_VERSIONS: tuple[str, ...] = (
     "2025",
@@ -87,16 +197,18 @@ class PhotoshopTextLayerWriter:
         if not psd_path.exists():
             raise PhotoshopUnavailableError(f"Base PSD not found: {psd_path}")
 
-        editable_layers = [
-            layer
-            for layer in layers
-            if str(layer.get("text", "")).strip()
-            and not (
-                isinstance(layer.get("style"), dict)
-                and bool(layer["style"].get("gradientEnabled"))
-            )
-        ]
-        if not editable_layers:
+        entries: list[TextLayerEntry] = []
+        for layer in layers:
+            try:
+                entry = TextLayerEntry.model_validate(layer)
+            except ValidationError:
+                logger.debug(
+                    "photoshop.entry_ignored", extra={"name": layer.get("name")}, exc_info=True
+                )
+                continue
+            if entry.is_editable:
+                entries.append(entry)
+        if not entries:
             return 0
 
         created_count = 0
@@ -106,7 +218,7 @@ class PhotoshopTextLayerWriter:
                 render_group = self._find_or_create_group(document, RENDER_TEXT_GROUP_NAME)
                 render_group.visible = False
 
-                for entry in editable_layers:
+                for entry in entries:
                     if self._create_text_layer(app, render_group, entry):
                         created_count += 1
 
@@ -114,7 +226,7 @@ class PhotoshopTextLayerWriter:
                 save_options.layers = True
                 document.saveAs(str(psd_path), save_options, True)
                 document.close(self._ps.SaveOptions.DoNotSaveChanges)
-        except Exception as exc:
+        except COMError as exc:
             raise PhotoshopUnavailableError(
                 "PSD export with editable text layers requires Adobe Photoshop installed on the same machine. "
                 f"Versoes testadas: {SUPPORTED_PHOTOSHOP_VERSIONS_LABEL}."
@@ -130,26 +242,26 @@ class PhotoshopTextLayerWriter:
             for group in document.layerSets:
                 if str(getattr(group, "name", "")).strip() == name:
                     return group
-        except Exception:
+        except _COM_STEP_ERRORS:
             logger.debug("Could not iterate layerSets; creating a new group", exc_info=True)
 
         group = document.layerSets.add()
         group.name = name
         return group
 
-    def _create_text_layer(self, session: Any, render_group: Any, entry: dict[str, Any]) -> bool:
+    def _create_text_layer(self, session: Any, render_group: Any, entry: TextLayerEntry) -> bool:
         """Create and configure a single text layer."""
 
-        style = entry.get("style") if isinstance(entry.get("style"), dict) else {}
-        text = self._resolve_layer_text(entry, style)
+        style = entry.style
+        text = entry.resolved_text
         if not text:
             return False
 
-        font_size = max(6.0, self._as_float(style.get("computedFontSize", style.get("fontSize", 24.0)), 24.0))
-        left = self._as_float(entry.get("left", 0), 0.0)
-        top = self._as_float(entry.get("top", 0), 0.0)
-        width = max(1.0, self._as_float(entry.get("width", 1.0), 1.0))
-        height = max(1.0, self._as_float(entry.get("height", 1.0), 1.0))
+        font_size = style.effective_font_size
+        left = entry.left
+        top = entry.top
+        width = entry.width
+        height = entry.height
         box_left, box_top, box_width, box_height = self._build_paragraph_box(
             style=style,
             left=left,
@@ -160,7 +272,7 @@ class PhotoshopTextLayerWriter:
 
         text_layer = render_group.artLayers.add()
         text_layer.kind = self._ps.LayerKind.TextLayer
-        text_layer.name = str(entry.get("name", "text_layer")).strip() or "text_layer"
+        text_layer.name = entry.name.strip() or "text_layer"
         text_item = text_layer.textItem
         paragraph_ok = self._set_paragraph_text_box(
             text_item=text_item,
@@ -193,8 +305,8 @@ class PhotoshopTextLayerWriter:
         )
         self._set_optional_color(text_item, style)
 
-        outline_color = self._parse_rgb_color(str(style.get("outlineColor", "#ffffff")))
-        outline_width = max(0.0, self._as_float(style.get("outlineWidth", 0.0), 0.0))
+        outline_color = self._parse_rgb_color(style.outline_color)
+        outline_width = style.outline_width
         if outline_color is not None and outline_width > 0:
             self._apply_stroke_effect(
                 session=session,
@@ -210,30 +322,20 @@ class PhotoshopTextLayerWriter:
             box_top,
             box_width,
             box_height,
-            str(style.get("alignment", "left")).strip().lower(),
+            style.alignment,
         )
         return True
-
-    def _resolve_layer_text(self, entry: dict[str, Any], style: dict[str, Any]) -> str:
-        """Resolve the layer initial text, preferring the wrap computed in the preview."""
-
-        wrapped_text = str(style.get("wrappedText", "")).replace("\r\n", "\n").strip()
-        if wrapped_text:
-            return wrapped_text
-        return str(entry.get("text", "")).replace("\r\n", "\n").strip()
 
     def _set_text_size(self, text_item: Any, font_size: float) -> None:
         """Set the font size on the text item."""
 
-        try:
+        with _com_step("font_size", size=font_size):
             text_item.size = font_size
-        except Exception:
-            logger.debug("Failed to apply font size (%.2f)", font_size, exc_info=True)
 
     def _build_paragraph_box(
         self,
         *,
-        style: dict[str, Any],
+        style: TextLayerStyle,
         left: float,
         top: float,
         width: float,
@@ -241,9 +343,9 @@ class PhotoshopTextLayerWriter:
     ) -> tuple[float, float, float, float]:
         """Compute the ParagraphText box aligned with the canvas preview."""
 
-        outline_width = max(0.0, self._as_float(style.get("outlineWidth", 0.0), 0.0))
-        draw_top_offset = max(0.0, self._as_float(style.get("drawTopOffset", 0.0), 0.0))
-        computed_text_height = max(0.0, self._as_float(style.get("computedTextHeight", 0.0), 0.0))
+        outline_width = style.outline_width
+        draw_top_offset = style.draw_top_offset
+        computed_text_height = style.computed_text_height
 
         paragraph_left = left + outline_width
         paragraph_top = top + draw_top_offset
@@ -271,7 +373,7 @@ class PhotoshopTextLayerWriter:
             text_item.width = width
             text_item.height = height
             return True
-        except Exception:
+        except _COM_STEP_ERRORS:
             logger.debug("Failed to configure ParagraphText; falling back to PointText", exc_info=True)
             return False
 
@@ -279,7 +381,7 @@ class PhotoshopTextLayerWriter:
         self,
         text_item: Any,
         *,
-        style: dict[str, Any],
+        style: TextLayerStyle,
         left: float,
         top: float,
         width: float,
@@ -289,31 +391,35 @@ class PhotoshopTextLayerWriter:
 
         try:
             text_item.kind = self._ps.TextType.PointText
-        except Exception:
+        except _COM_STEP_ERRORS:
             logger.debug("Could not set PointText; keeping the default type", exc_info=True)
 
-        anchor_x = self._as_float(style.get("pointAnchorX", self._resolve_default_anchor_x(style, width)), 0.0)
-        baseline_offset = self._as_float(style.get("pointAnchorBaselineOffset", font_size), font_size)
-        try:
+        anchor_x = (
+            style.point_anchor_x
+            if style.point_anchor_x is not None
+            else self._resolve_default_anchor_x(style, width)
+        )
+        baseline_offset = (
+            style.point_anchor_baseline_offset
+            if style.point_anchor_baseline_offset is not None
+            else font_size
+        )
+        with _com_step("point_text_position"):
             text_item.position = [left + anchor_x, top + baseline_offset]
-        except Exception:
-            logger.debug("Failed to position PointText", exc_info=True)
 
-    def _resolve_default_anchor_x(self, style: dict[str, Any], width: float) -> float:
+    def _resolve_default_anchor_x(self, style: TextLayerStyle, width: float) -> float:
         """Returns the default horizontal anchor for left/center/right alignment."""
 
-        alignment = self._resolve_alignment(style)
-        outline_width = max(0.0, self._as_float(style.get("outlineWidth", 0.0), 0.0))
-        if alignment == "center":
+        if style.alignment == "center":
             return width / 2.0
-        if alignment == "right":
-            return max(0.0, width - outline_width)
-        return outline_width
+        if style.alignment == "right":
+            return max(0.0, width - style.outline_width)
+        return style.outline_width
 
-    def _set_optional_font_family(self, session: Any, text_item: Any, style: dict[str, Any]) -> tuple[bool, bool]:
+    def _set_optional_font_family(self, session: Any, text_item: Any, style: TextLayerStyle) -> tuple[bool, bool]:
         """Apply the font family when available on the local host."""
 
-        family_raw = str(style.get("fontFamily", "")).strip()
+        family_raw = style.font_family.strip()
         if not family_raw:
             return False, False
 
@@ -321,8 +427,8 @@ class PhotoshopTextLayerWriter:
         if not family:
             return False, False
 
-        use_bold = bool(style.get("bold", False))
-        use_italic = bool(style.get("italic", False))
+        use_bold = style.bold
+        use_italic = style.italic
         (
             resolved_postscript,
             resolved_font_name,
@@ -336,26 +442,23 @@ class PhotoshopTextLayerWriter:
         )
 
         font_candidates = [resolved_postscript, resolved_font_name, family]
-        try:
-            for candidate in font_candidates:
-                if not candidate:
-                    continue
-                try:
-                    text_item.font = candidate
-                    logger.debug("Fonte aplicada no PSD: solicitada='%s' aplicada='%s'", family, candidate)
-                    return resolved_bold, resolved_italic
-                except Exception:
-                    continue
-        except Exception:
-            pass
+        for candidate in font_candidates:
+            if not candidate:
+                continue
+            with _com_step("font_family", requested=family, candidate=candidate):
+                text_item.font = candidate
+                logger.debug(
+                    "Fonte aplicada no PSD: solicitada='%s' aplicada='%s'", family, candidate
+                )
+                return resolved_bold, resolved_italic
 
         logger.debug("Font '%s' is not available in the local Photoshop", family, exc_info=True)
         return False, False
 
-    def _set_optional_justification(self, text_item: Any, style: dict[str, Any]) -> None:
+    def _set_optional_justification(self, text_item: Any, style: TextLayerStyle) -> None:
         """Apply the horizontal text alignment (left/center/right)."""
 
-        alignment = self._resolve_alignment(style)
+        alignment = style.alignment
         justification_enum = getattr(self._ps, "Justification", None)
         if justification_enum is None:
             return
@@ -370,103 +473,78 @@ class PhotoshopTextLayerWriter:
             value = getattr(justification_enum, name, None)
             if value is None:
                 continue
-            try:
+            with _com_step("justification", value=name):
                 text_item.justification = value
                 return
-            except Exception:
-                logger.debug("Failed to apply justification '%s'", name, exc_info=True)
 
-    def _set_optional_leading(self, text_item: Any, style: dict[str, Any], *, font_size: float) -> None:
+    def _set_optional_leading(self, text_item: Any, style: TextLayerStyle, *, font_size: float) -> None:
         """Applies line spacing based on the render style."""
 
-        computed_line_height = self._as_float(style.get("computedLineHeight", 0), 0.0)
+        computed_line_height = style.computed_line_height
         if computed_line_height > 0:
-            try:
+            with _com_step("auto_leading_off"):
                 text_item.useAutoLeading = False
-            except Exception:
-                logger.debug("Could not disable AutoLeading", exc_info=True)
-            try:
+            with _com_step("leading_computed", value=computed_line_height):
                 text_item.leading = max(1.0, computed_line_height)
                 return
-            except Exception:
-                logger.debug("Failed to apply computedLineHeight to text_item", exc_info=True)
 
-        try:
-            line_spacing = float(style.get("lineSpacing", 1.0))
-        except (TypeError, ValueError):
-            return
-
+        line_spacing = style.line_spacing
         if line_spacing <= 0:
             return
 
-        try:
+        with _com_step("leading_scaled", value=font_size * line_spacing):
             text_item.leading = max(1.0, font_size * line_spacing)
-        except Exception:
-            logger.debug("Failed to apply leading to text_item", exc_info=True)
 
     def _set_optional_style_flags(
         self,
         *,
         text_item: Any,
-        style: dict[str, Any],
+        style: TextLayerStyle,
         resolved_font_bold: bool,
         resolved_font_italic: bool,
     ) -> None:
         """Apply style flags (bold/italic/underline) when supported."""
 
-        requested_bold = bool(style.get("bold", False))
-        requested_italic = bool(style.get("italic", False))
+        apply_faux_bold = style.bold and not resolved_font_bold
+        apply_faux_italic = style.italic and not resolved_font_italic
 
-        apply_faux_bold = requested_bold and not resolved_font_bold
-        apply_faux_italic = requested_italic and not resolved_font_italic
-
-        try:
+        with _com_step("faux_bold", value=apply_faux_bold):
             text_item.fauxBold = apply_faux_bold
-        except Exception:
-            logger.debug("Failed to apply fauxBold", exc_info=True)
 
-        try:
+        with _com_step("faux_italic", value=apply_faux_italic):
             text_item.fauxItalic = apply_faux_italic
-        except Exception:
-            logger.debug("Failed to apply fauxItalic", exc_info=True)
 
-        underline = bool(style.get("underline", False))
+        underline = style.underline
         underline_enum = getattr(self._ps, "UnderlineType", None)
         if underline_enum is not None:
-            try:
-                underline_value = (
-                    getattr(underline_enum, "UnderlineLeft", None)
-                    if underline
-                    else getattr(underline_enum, "UnderlineOff", None)
-                )
-                if underline_value is not None:
+            underline_value = (
+                getattr(underline_enum, "UnderlineLeft", None)
+                if underline
+                else getattr(underline_enum, "UnderlineOff", None)
+            )
+            if underline_value is not None:
+                with _com_step("underline_enum"):
                     text_item.underline = underline_value
-                    return
-            except Exception:
-                logger.debug("Failed to apply UnderlineType", exc_info=True)
+                return
 
         if underline:
-            try:
+            with _com_step("underline_boolean"):
                 text_item.underline = True
-            except Exception:
-                logger.debug("Failed to apply the boolean underline flag", exc_info=True)
 
-    def _set_optional_color(self, text_item: Any, style: dict[str, Any]) -> None:
+    def _set_optional_color(self, text_item: Any, style: TextLayerStyle) -> None:
         """Apply the main text fill color."""
 
-        parsed = self._parse_rgb_color(str(style.get("color", "#111111")))
+        parsed = self._parse_rgb_color(style.color)
         if parsed is None:
             return
 
         red, green, blue = parsed
-        try:
+        with _com_step("text_color", color=style.color):
             color = self._ps.SolidColor()
             color.rgb.red = red
             color.rgb.green = green
             color.rgb.blue = blue
             text_item.color = color
-        except Exception:
-            logger.debug("Failed to apply color to text_item", exc_info=True)
 
     def _resolve_font_variant(
         self,
@@ -518,7 +596,7 @@ class PhotoshopTextLayerWriter:
                 font_name = str(getattr(font, "name", "") or "").strip()
                 font_family = str(getattr(font, "family", "") or "").strip()
                 font_style = str(getattr(font, "style", "") or "").strip()
-            except Exception:
+            except _COM_STEP_ERRORS:
                 continue
 
             if not postscript:
@@ -587,7 +665,7 @@ class PhotoshopTextLayerWriter:
                 continue
             try:
                 return fonts.getByName(candidate)
-            except Exception:
+            except _COM_STEP_ERRORS:
                 continue
         return None
 
@@ -603,10 +681,8 @@ class PhotoshopTextLayerWriter:
 
         red, green, blue = color
         stroke_size = max(0.5, float(size_px))
-        try:
+        with _com_step("activate_layer_for_stroke"):
             session.active_document.activeLayer = text_layer
-        except Exception:
-            logger.debug("Could not activate the text layer for stroke", exc_info=True)
 
         script = f"""
 (function() {{
@@ -636,28 +712,8 @@ class PhotoshopTextLayerWriter:
   executeAction(charIDToTypeID('setd'), desc, DialogModes.NO);
 }})();
 """
-        try:
+        with _com_step("stroke_effect", size_px=stroke_size):
             session.app.doJavaScript(script)
-        except Exception:
-            logger.debug("Failed to apply stroke via ActionDescriptor/JS", exc_info=True)
-
-    def _as_float(self, value: Any, default: float) -> float:
-        """Convert a value to float with a safe fallback."""
-
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return float(default)
-
-    def _resolve_alignment(self, style: dict[str, Any]) -> str:
-        """Normalize the style alignment to left/center/right."""
-
-        raw = str(style.get("alignment", "left")).strip().lower()
-        if raw in {"center", "middle"}:
-            return "center"
-        if raw in {"right", "end"}:
-            return "right"
-        return "left"
 
     def _normalize_font_token(self, value: str) -> str:
         """Normalize a string for robust font comparison."""
