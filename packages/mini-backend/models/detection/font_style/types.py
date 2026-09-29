@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 
 @dataclass(frozen=True)
@@ -40,12 +41,12 @@ class FontStylePrediction:
     font_size_px: float = 0.0
     line_height: float = 1.2
     angle_degrees: float = 0.0
-    direction: str = "horizontal"  # "horizontal" | "vertical"
+    direction: Literal["horizontal", "vertical"] = "horizontal"
 
     # Font candidates
     font_candidates: list[FontCandidate] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {
             "text_color": [self.text_color_r, self.text_color_g, self.text_color_b],
             "stroke_color": [self.stroke_color_r, self.stroke_color_g, self.stroke_color_b],

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import math
+from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
-from typing import Sequence
 
 import cv2
 import numpy as np
@@ -13,7 +13,35 @@ from core.config import get_config
 from core.device import get_device_info, get_onnx_execution_providers
 from models.detection.base_detector import BaseDetector, TextDetection
 from models.detection.reading_order import sort_detections_in_reading_order
+from models.detection.slicing import compute_slice_bounds
 from models.detection.storage import resolve_detection_model_path
+
+
+def suppress_overlapping_detections(
+    detections: Sequence[TextDetection],
+    *,
+    min_box_size_px: int,
+    nms_threshold: float,
+) -> list[TextDetection]:
+    """Greedy NMS. Score filtering is the caller's job; this only resolves overlap."""
+    eligible = [
+        det
+        for det in detections
+        if (det.bbox[2] - det.bbox[0]) >= min_box_size_px
+        and (det.bbox[3] - det.bbox[1]) >= min_box_size_px
+    ]
+    if not eligible:
+        return []
+
+    boxes_xywh = [[x1, y1, x2 - x1, y2 - y1] for (x1, y1, x2, y2) in (d.bbox for d in eligible)]
+    scores = [float(det.score) for det in eligible]
+    indices = cv2.dnn.NMSBoxes(
+        boxes_xywh, scores, score_threshold=0.0, nms_threshold=float(nms_threshold)
+    )
+    keep = np.asarray(indices, dtype=np.int64).reshape(-1)
+    kept = [eligible[int(i)] for i in keep]
+    kept.sort(key=lambda det: det.score, reverse=True)
+    return kept
 
 
 class ComicTextDetector(BaseDetector):
@@ -22,10 +50,6 @@ class ComicTextDetector(BaseDetector):
 
     _default_confidence = 0.15
     _min_box_size_px = 6
-    _slice_ratio_threshold = 3.5
-    _slice_target_ratio = 3.0
-    _slice_overlap_ratio = 0.2
-    _slice_min_height_ratio = 0.7
 
     def __init__(
         self,
@@ -77,37 +101,14 @@ class ComicTextDetector(BaseDetector):
 
     def _detect_with_slicing(self, rgb: np.ndarray, score_threshold: float) -> list[TextDetection]:
         height, width = rgb.shape[:2]
-        if width <= 0 or height <= 0:
-            return []
-
-        if (height / float(width)) <= self._slice_ratio_threshold:
-            return self._detect_single(rgb, score_threshold=score_threshold)
-
-        slice_height = int(width * self._slice_target_ratio)
-        effective_slice_height = max(1, int(slice_height * (1.0 - self._slice_overlap_ratio)))
-        num_slices = max(1, math.ceil(height / float(effective_slice_height)))
-
-        last_slice_start = (num_slices - 1) * effective_slice_height
-        last_slice_height = height - last_slice_start
-        if num_slices > 1 and (last_slice_height / float(max(slice_height, 1))) < self._slice_min_height_ratio:
-            num_slices -= 1
-
         detections: list[TextDetection] = []
-        for slice_idx in range(num_slices):
-            start_y = slice_idx * effective_slice_height
-            end_y = height if slice_idx == num_slices - 1 else min(start_y + slice_height, height)
-            slice_img = rgb[start_y:end_y, 0:width]
-            for det in self._detect_single(slice_img, score_threshold=score_threshold):
+        for start_y, end_y in compute_slice_bounds(height, width):
+            for det in self._detect_single(rgb[start_y:end_y], score_threshold=score_threshold):
+                if start_y == 0:
+                    detections.append(det)
+                    continue
                 x1, y1, x2, y2 = det.bbox
-                detections.append(
-                    TextDetection(
-                        bbox=(x1, y1 + start_y, x2, y2 + start_y),
-                        score=det.score,
-                        label=det.label,
-                        source=det.source,
-                        model_key=det.model_key,
-                    ),
-                )
+                detections.append(replace(det, bbox=(x1, y1 + start_y, x2, y2 + start_y)))
         return detections
 
     def _detect_single(self, rgb: np.ndarray, score_threshold: float) -> list[TextDetection]:
@@ -155,6 +156,13 @@ class ComicTextDetector(BaseDetector):
                 ),
             )
         return self._apply_nms(detections)
+
+    def _apply_nms(self, detections: list[TextDetection]) -> list[TextDetection]:
+        return suppress_overlapping_detections(
+            detections,
+            min_box_size_px=self._min_box_size_px,
+            nms_threshold=self.nms_threshold,
+        )
 
     def _merge_text_lines(self, detections: list[TextDetection], width: int, height: int) -> list[TextDetection]:
         if len(detections) <= 1:
@@ -220,35 +228,3 @@ class ComicTextDetector(BaseDetector):
         if not merged:
             return detections
         return merged
-
-    def _apply_nms(self, detections: list[TextDetection]) -> list[TextDetection]:
-        if not detections:
-            return []
-
-        boxes_xywh: list[list[int]] = []
-        scores: list[float] = []
-        for det in detections:
-            x1, y1, x2, y2 = det.bbox
-            box_w = x2 - x1
-            box_h = y2 - y1
-            if box_w < self._min_box_size_px or box_h < self._min_box_size_px:
-                continue
-            boxes_xywh.append([x1, y1, box_w, box_h])
-            scores.append(float(det.score))
-
-        if not boxes_xywh:
-            return []
-
-        indices = cv2.dnn.NMSBoxes(
-            boxes_xywh,
-            scores,
-            score_threshold=max(0.05, min(self.confidence_threshold, 0.3)),
-            nms_threshold=float(self.nms_threshold),
-        )
-        if indices is None or len(indices) == 0:
-            return sorted(detections, key=lambda item: item.score, reverse=True)
-
-        keep = np.array(indices).reshape(-1).tolist()
-        kept = [detections[idx] for idx in keep if 0 <= idx < len(detections)]
-        kept.sort(key=lambda item: item.score, reverse=True)
-        return kept

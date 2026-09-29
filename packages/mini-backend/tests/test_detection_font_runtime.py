@@ -63,10 +63,22 @@ class FontDetectorRuntimeTests(unittest.TestCase):
 
             detection_factory.clear_detector_cache()
             try:
-                with patch.dict(
-                    detection_factory._BUILDERS,
-                    {"font_rtdetr_v2": lambda *args, **kwargs: fake_detector},
-                    clear=False,
+                import dataclasses
+
+                fake_spec = dataclasses.replace(
+                    detection_factory.DETECTION_MODELS["font_rtdetr_v2"],
+                    builder=lambda *args, **kwargs: fake_detector,
+                    # Keep the real readiness check: this test pins that a
+                    # listing/get with an "incomplete" manifest and the payload
+                    # on disk repairs the manifest in place.
+                    weights_ready=detection_factory.DETECTION_MODELS[
+                        "font_rtdetr_v2"
+                    ].weights_ready,
+                )
+                with patch.object(
+                    detection_factory,
+                    "DETECTION_MODELS",
+                    {"font_rtdetr_v2": fake_spec},
                 ):
                     result = detection_factory.get_detector(
                         task="text",

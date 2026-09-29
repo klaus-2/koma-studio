@@ -1,23 +1,49 @@
 from __future__ import annotations
 
 import json
-import math
+import logging
 import os
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Final, Literal
 
 import numpy as np
 import onnxruntime as ort
 from PIL import Image
 
+from onnxruntime.capi.onnxruntime_pybind11_state import (
+    EPFail,
+    Fail,
+    InvalidArgument,
+    InvalidGraph,
+    InvalidProtobuf,
+    NoModel,
+    NoSuchFile,
+    NotImplemented as OrtNotImplemented,
+    RuntimeException,
+)
+
 from core.config import get_config
 from core.device import get_device_info, get_onnx_execution_providers
 from models.detection.base_detector import BaseDetector, TextDetection
+from models.detection.errors import (
+    DetectionModelCorruptedError,
+    DetectionModelNotInstalledError,
+    DetectionRuntimeError,
+)
 from models.detection.font.classify import classify_text_regions
 from models.detection.reading_order import sort_detections_in_reading_order
+from models.detection.slicing import SliceParams, compute_slice_bounds
 
+logger = logging.getLogger(__name__)
 
-_MODEL_ROOT_ENV = "KOMA_MODELS_ROOT"
+_MODEL_ROOT_ENV: Final = "KOMA_MODELS_ROOT"
+_CORRUPTED_MODEL_ERRORS: Final = (InvalidProtobuf, InvalidGraph, NoModel)
+_SESSION_RUNTIME_ERRORS: Final = (
+    Fail, EPFail, InvalidArgument, NoSuchFile, OrtNotImplemented, RuntimeException, OSError, ValueError
+)
+
+type ManifestStatus = Literal["installed", "incomplete"]
 
 
 def _resolve_managed_font_detector_path() -> Path | None:
@@ -29,44 +55,34 @@ def _resolve_managed_font_detector_path() -> Path | None:
     return model_dir / "detector.onnx"
 
 
-def _mark_manifest_incomplete(model_path: Path) -> None:
+def _update_manifest_status(model_path: Path, status: ManifestStatus) -> None:
     manifest_path = model_path.parent / "manifest.json"
-    if not manifest_path.exists():
-        return
-
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            return
-
-        payload["status"] = "incomplete"
-        manifest_path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2),
-            encoding="utf-8",
+    except FileNotFoundError:
+        return
+    except (OSError, ValueError) as exc:
+        logger.warning(
+            "detection.manifest_unreadable",
+            extra={"manifest_path": str(manifest_path), "error": str(exc)},
         )
-    except Exception:
-        # Best effort: if fixing the manifest fails, keep the original error.
+        return
+    if not isinstance(payload, dict):
         return
 
-
-def _mark_manifest_installed(model_path: Path) -> None:
-    manifest_path = model_path.parent / "manifest.json"
-    if not manifest_path.exists():
-        return
-
+    payload["status"] = status
+    payload.setdefault("modelId", model_path.parent.name)
+    # Write-then-rename so a crash mid-write can never leave a truncated manifest.
+    temp_path = manifest_path.with_suffix(".json.tmp")
     try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            return
-
-        payload["status"] = "installed"
-        payload.setdefault("modelId", model_path.parent.name)
-        manifest_path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2),
-            encoding="utf-8",
+        temp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(temp_path, manifest_path)
+    except OSError as exc:
+        temp_path.unlink(missing_ok=True)
+        logger.warning(
+            "detection.manifest_write_failed",
+            extra={"manifest_path": str(manifest_path), "error": str(exc)},
         )
-    except Exception:
-        return
 
 
 def font_detector_payload_available() -> bool:
@@ -76,38 +92,10 @@ def font_detector_payload_available() -> bool:
 
 def repair_font_detector_manifest_if_payload_present() -> bool:
     managed_model_path = _resolve_managed_font_detector_path()
-    if managed_model_path is None or not managed_model_path.exists():
+    if managed_model_path is None or not managed_model_path.is_file():
         return False
-    _mark_manifest_installed(managed_model_path)
+    _update_manifest_status(managed_model_path, "installed")
     return True
-
-
-def _is_probable_model_file_error(exc: Exception) -> bool:
-    detail = str(exc).lower()
-    runtime_markers = (
-        "has no attribute 'inferencesession'",
-        'has no attribute "inferencesession"',
-        "executionprovider",
-        "cuda",
-        "cudnn",
-        "dll",
-        "provider",
-        "onnxruntime",
-    )
-    if any(marker in detail for marker in runtime_markers):
-        return False
-
-    file_markers = (
-        "invalid protobuf",
-        "modelproto",
-        "model proto",
-        "failed to load model",
-        "load model from",
-        "unsupported model ir version",
-        "deserialize",
-        "parse",
-    )
-    return any(marker in detail for marker in file_markers)
 
 
 def calculate_iou(rect1: list[float], rect2: list[float]) -> float:
@@ -164,35 +152,22 @@ def merge_overlapping_boxes(
     if bboxes.size == 0:
         return np.empty((0, 4), dtype=int)
 
+    boxes: list[list[float]] = [[float(v) for v in row] for row in bboxes.tolist()]
     accepted: list[list[float]] = []
-    for i, box in enumerate(bboxes.tolist()):
-        merged = box.copy()
-        for j, other in enumerate(bboxes.tolist()):
+    for i, box in enumerate(boxes):
+        merged = list(box)
+        for j, other in enumerate(boxes):
             if i == j:
                 continue
-            if is_mostly_contained(
-                merged, other, containment_threshold
-            ) or is_mostly_contained(other, merged, containment_threshold):
+            if is_mostly_contained(merged, other, containment_threshold) or is_mostly_contained(
+                other, merged, containment_threshold
+            ):
                 merged = merge_boxes(merged, other)
-
-        conflict = False
-        for acc in accepted:
-            if do_rectangles_overlap(merged, acc, overlap_threshold):
-                conflict = True
-                break
-        if conflict:
+        if any(do_rectangles_overlap(merged, acc, overlap_threshold) for acc in accepted):
             continue
-
-        accepted = [
-            acc
-            for acc in accepted
-            if not do_rectangles_overlap(merged, acc, overlap_threshold)
-        ]
         accepted.append(merged)
 
-    if not accepted:
-        return np.empty((0, 4), dtype=int)
-    return np.array(accepted, dtype=int)
+    return np.array(accepted, dtype=int) if accepted else np.empty((0, 4), dtype=int)
 
 
 def filter_and_fix_bboxes(
@@ -229,70 +204,17 @@ class ImageSlicer:
     def __init__(
         self,
         *,
-        height_to_width_ratio_threshold: float = 3.5,
-        target_slice_ratio: float = 3.0,
-        overlap_height_ratio: float = 0.2,
-        min_slice_height_ratio: float = 0.7,
+        slice_params: SliceParams = SliceParams(),
         merge_iou_threshold: float = 0.2,
         duplicate_iou_threshold: float = 0.5,
         merge_y_distance_threshold: float = 0.1,
         containment_threshold: float = 0.85,
     ) -> None:
-        self.height_to_width_ratio_threshold = height_to_width_ratio_threshold
-        self.target_slice_ratio = target_slice_ratio
-        self.overlap_height_ratio = overlap_height_ratio
-        self.min_slice_height_ratio = min_slice_height_ratio
+        self.slice_params = slice_params
         self.merge_iou_threshold = merge_iou_threshold
         self.duplicate_iou_threshold = duplicate_iou_threshold
         self.merge_y_distance_threshold = merge_y_distance_threshold
         self.containment_threshold = containment_threshold
-
-    def should_slice(self, image: np.ndarray) -> bool:
-        height, width = image.shape[:2]
-        return (height / float(max(width, 1))) > self.height_to_width_ratio_threshold
-
-    def calculate_slice_params(self, image: np.ndarray) -> tuple[int, int, int, int]:
-        height, width = image.shape[:2]
-        slice_width = width
-        slice_height = int(slice_width * self.target_slice_ratio)
-        effective_slice_height = int(slice_height * (1.0 - self.overlap_height_ratio))
-        num_slices = max(1, math.ceil(height / float(max(effective_slice_height, 1))))
-
-        last_slice_start = (num_slices - 1) * effective_slice_height
-        last_slice_height = height - last_slice_start
-        if (
-            num_slices > 1
-            and (last_slice_height / float(max(slice_height, 1)))
-            < self.min_slice_height_ratio
-        ):
-            num_slices -= 1
-
-        return slice_width, slice_height, effective_slice_height, num_slices
-
-    def get_slice(
-        self,
-        image: np.ndarray,
-        slice_number: int,
-        effective_slice_height: int,
-        slice_height: int,
-    ) -> tuple[np.ndarray, int, int]:
-        height, width = image.shape[:2]
-        start_y = slice_number * effective_slice_height
-        end_y = (
-            height
-            if slice_number
-            == math.ceil(height / float(max(effective_slice_height, 1))) - 1
-            else min(start_y + slice_height, height)
-        )
-        return image[start_y:end_y, 0:width].copy(), start_y, end_y
-
-    def adjust_box_coordinates(self, boxes: np.ndarray, start_y: int) -> np.ndarray:
-        if boxes.size == 0:
-            return boxes
-        adjusted = boxes.copy()
-        adjusted[:, 1] += start_y
-        adjusted[:, 3] += start_y
-        return adjusted
 
     def box_contained(
         self, box1: list[float], box2: list[float]
@@ -394,52 +316,39 @@ class ImageSlicer:
 
         return np.array(box_list, dtype=int)
 
+    @staticmethod
+    def _shift_y(boxes: np.ndarray, offset: int) -> np.ndarray:
+        shifted = boxes.copy()
+        shifted[:, [1, 3]] += offset
+        return shifted
+
     def process_slices_for_detection(
         self,
         image: np.ndarray,
         detect_func: Callable[[np.ndarray], tuple[np.ndarray, np.ndarray]],
     ) -> tuple[np.ndarray, np.ndarray]:
-        if not self.should_slice(image):
+        height, width = image.shape[:2]
+        bounds = compute_slice_bounds(height, width, self.slice_params)
+        if len(bounds) <= 1:
             return detect_func(image)
 
-        _, slice_height, effective_slice_height, num_slices = (
-            self.calculate_slice_params(image)
-        )
-        all_bubble_boxes: list[np.ndarray] = []
-        all_text_boxes: list[np.ndarray] = []
+        bubble_parts: list[np.ndarray] = []
+        text_parts: list[np.ndarray] = []
+        for start_y, end_y in bounds:
+            bubble_boxes, text_boxes = detect_func(image[start_y:end_y])
+            if bubble_boxes.size > 0:
+                bubble_parts.append(self._shift_y(bubble_boxes, start_y))
+            if text_boxes.size > 0:
+                text_parts.append(self._shift_y(text_boxes, start_y))
 
-        for slice_idx in range(num_slices):
-            slice_img, start_y, _ = self.get_slice(
-                image, slice_idx, effective_slice_height, slice_height
-            )
-            bubble_boxes, text_boxes = detect_func(slice_img)
-
-            if isinstance(bubble_boxes, np.ndarray) and bubble_boxes.size > 0:
-                all_bubble_boxes.append(
-                    self.adjust_box_coordinates(bubble_boxes, start_y)
-                )
-            if isinstance(text_boxes, np.ndarray) and text_boxes.size > 0:
-                all_text_boxes.append(self.adjust_box_coordinates(text_boxes, start_y))
-
-        combined_bubble = (
-            np.vstack(all_bubble_boxes)
-            if all_bubble_boxes
-            else np.empty((0, 4), dtype=int)
-        )
-        combined_text = (
-            np.vstack(all_text_boxes) if all_text_boxes else np.empty((0, 4), dtype=int)
-        )
-
-        if combined_bubble.size > 0:
-            combined_bubble = self.merge_overlapping_boxes(
-                combined_bubble, image_height=image.shape[0]
-            )
-        if combined_text.size > 0:
-            combined_text = self.merge_overlapping_boxes(
-                combined_text, image_height=image.shape[0]
-            )
-
-        return combined_bubble, combined_text
+        empty = np.empty((0, 4), dtype=int)
+        bubbles = np.vstack(bubble_parts) if bubble_parts else empty
+        texts = np.vstack(text_parts) if text_parts else empty
+        if bubbles.size > 0:
+            bubbles = self.merge_overlapping_boxes(bubbles, image_height=height)
+        if texts.size > 0:
+            texts = self.merge_overlapping_boxes(texts, image_height=height)
+        return bubbles, texts
 
 
 class FontRTDetrV2Detector(BaseDetector):
@@ -454,94 +363,42 @@ class FontRTDetrV2Detector(BaseDetector):
         providers: Sequence[str] | None = None,
     ) -> None:
         config = get_config()
-        self.confidence_threshold = (
-            float(confidence_threshold) if confidence_threshold is not None else 0.3
-        )
+        self.confidence_threshold = 0.3 if confidence_threshold is None else float(confidence_threshold)
         self.nms_threshold = (
-            float(nms_threshold)
-            if nms_threshold is not None
-            else float(config.detection_nms_threshold)
+            float(config.detection_nms_threshold) if nms_threshold is None else float(nms_threshold)
         )
-
-        self.base_dir = Path(__file__).resolve().parent
-        managed_model_path = _resolve_managed_font_detector_path()
-        self.model_path = (
-            Path(model_path)
-            if model_path
-            else (managed_model_path if managed_model_path is not None else Path(""))
+        self.model_path: Path | None = (
+            Path(model_path) if model_path else _resolve_managed_font_detector_path()
         )
-        self.providers = (
-            list(providers)
-            if providers
-            else get_onnx_execution_providers(get_device_info())
+        self.providers: list[str] = (
+            list(providers) if providers else get_onnx_execution_providers(get_device_info())
         )
-
         self.session: ort.InferenceSession | None = None
         self.image_input_name: str = "images"
         self.target_size_input_name: str | None = "orig_target_sizes"
-
-        self.image_slicer = ImageSlicer(
-            height_to_width_ratio_threshold=3.5,
-            target_slice_ratio=3.0,
-            overlap_height_ratio=0.2,
-            min_slice_height_ratio=0.7,
-        )
+        self.image_slicer = ImageSlicer()
 
     def _ensure_session(self) -> None:
         if self.session is not None:
             return
+        if self.model_path is None or not self.model_path.is_file():
+            raise DetectionModelNotInstalledError(self.key)
 
-        if not self.model_path.exists():
-            raise RuntimeError(
-                "The font_rtdetr_v2 detector.onnx model was not found in local storage. "
-                "Install the model in the Model Manager before running detection.",
-            )
-
-        session_factory = getattr(ort, "InferenceSession", None)
-        if not callable(session_factory):
-            raise RuntimeError(
-                "Failed to initialize the ONNX runtime for font_rtdetr_v2. "
-                "The model file exists, but the onnxruntime package is incomplete or inconsistent. "
-                f"Detalhe: {type(ort).__name__} sem InferenceSession.",
-            )
-
-        load_errors: list[str] = []
-        corruption_detected = False
         try:
-            self.session = session_factory(
-                str(self.model_path), providers=self.providers
-            )
-        except Exception as exc:
-            load_errors.append(f"{self.model_path}: {exc}")
-            corruption_detected = _is_probable_model_file_error(exc)
-            if corruption_detected:
-                _mark_manifest_incomplete(self.model_path)
+            session = ort.InferenceSession(str(self.model_path), providers=self.providers)
+        except _CORRUPTED_MODEL_ERRORS as exc:
+            _update_manifest_status(self.model_path, "incomplete")
+            raise DetectionModelCorruptedError(self.key, self.model_path, str(exc)) from exc
+        except (AttributeError, *_SESSION_RUNTIME_ERRORS) as exc:
+            # AttributeError covers a broken onnxruntime install where the
+            # module exists but has no usable InferenceSession.
+            raise DetectionRuntimeError(self.key, str(exc)) from exc
 
-        if self.session is None:
-            if corruption_detected:
-                raise RuntimeError(
-                    "The font_rtdetr_v2 model file is invalid/corrupted in local storage. "
-                    "Uninstall and reinstall it in the Model Manager. "
-                    f"Detalhe: {' | '.join(load_errors)}",
-                )
-            raise RuntimeError(
-                "Failed to initialize the ONNX runtime for font_rtdetr_v2. "
-                "The model file exists, but the runtime failed to open the session. "
-                f"Detalhe: {' | '.join(load_errors)}",
-            )
-
-        _mark_manifest_installed(self.model_path)
-
-        input_names = [item.name for item in self.session.get_inputs()]
-
-        if "images" in input_names:
-            self.image_input_name = "images"
-        else:
-            self.image_input_name = input_names[0]
-
-        self.target_size_input_name = (
-            "orig_target_sizes" if "orig_target_sizes" in input_names else None
-        )
+        _update_manifest_status(self.model_path, "installed")
+        input_names = [item.name for item in session.get_inputs()]
+        self.image_input_name = "images" if "images" in input_names else input_names[0]
+        self.target_size_input_name = "orig_target_sizes" if "orig_target_sizes" in input_names else None
+        self.session = session
 
     def _detect(self, image: Image.Image) -> list[TextDetection]:
         self._ensure_session()
@@ -560,7 +417,7 @@ class FontRTDetrV2Detector(BaseDetector):
             bubble_boxes=bubble_boxes,
         )
         detections: list[TextDetection] = []
-        for idx, region in enumerate(classified_regions, start=1):
+        for region in classified_regions:
             x1, y1, x2, y2 = region.bbox
             detections.append(
                 TextDetection(
@@ -579,58 +436,28 @@ class FontRTDetrV2Detector(BaseDetector):
         return sort_detections_in_reading_order(detections)
 
     def _detect_single_image(self, image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        empty = np.empty((0, 4), dtype=int)
         if self.session is None:
-            return np.empty((0, 4), dtype=int), np.empty((0, 4), dtype=int)
+            return empty, empty
 
         pil_image = Image.fromarray(image)
-        resized = pil_image.resize((640, 640))
-        arr = np.asarray(resized, dtype=np.float32) / 255.0
-        arr = np.transpose(arr, (2, 0, 1))
-        im_data = arr[np.newaxis, ...]
-
-        w, h = pil_image.size
-        orig_size = np.array([[w, h]], dtype=np.int64)
+        resized = pil_image.resize((640, 640), Image.Resampling.BICUBIC)
+        im_data = (np.asarray(resized, dtype=np.float32) / 255.0).transpose(2, 0, 1)[np.newaxis, ...]
 
         feed: dict[str, np.ndarray] = {self.image_input_name: im_data}
         if self.target_size_input_name is not None:
-            feed[self.target_size_input_name] = orig_size
+            feed[self.target_size_input_name] = np.array(
+                [[pil_image.width, pil_image.height]], dtype=np.int64
+            )
 
         outputs = self.session.run(None, feed)
         if len(outputs) < 3:
-            return np.empty((0, 4), dtype=int), np.empty((0, 4), dtype=int)
+            return empty, empty
 
-        labels, boxes, scores = outputs[:3]
+        labels = np.asarray(outputs[0]).reshape(-1)
+        boxes = np.asarray(outputs[1]).reshape(-1, 4)
+        scores = np.asarray(outputs[2]).reshape(-1)
 
-        if isinstance(labels, np.ndarray) and labels.ndim == 2 and labels.shape[0] == 1:
-            labels = labels[0]
-        if isinstance(scores, np.ndarray) and scores.ndim == 2 and scores.shape[0] == 1:
-            scores = scores[0]
-        if isinstance(boxes, np.ndarray) and boxes.ndim == 3 and boxes.shape[0] == 1:
-            boxes = boxes[0]
-
-        bubble_boxes: list[list[int]] = []
-        text_boxes: list[list[int]] = []
-
-        for label, box, score in zip(labels, boxes, scores):
-            conf = float(score)
-            if conf < self.confidence_threshold:
-                continue
-
-            x1, y1, x2, y2 = [int(v) for v in box.tolist()]
-            class_id = int(label)
-            if class_id == 0:
-                bubble_boxes.append([x1, y1, x2, y2])
-            elif class_id in (1, 2):
-                text_boxes.append([x1, y1, x2, y2])
-
-        bubble_arr = (
-            np.array(bubble_boxes, dtype=int)
-            if bubble_boxes
-            else np.empty((0, 4), dtype=int)
-        )
-        text_arr = (
-            np.array(text_boxes, dtype=int)
-            if text_boxes
-            else np.empty((0, 4), dtype=int)
-        )
-        return bubble_arr, text_arr
+        confident = scores >= self.confidence_threshold
+        labels, boxes = labels[confident], boxes[confident].astype(int)
+        return boxes[labels == 0], boxes[np.isin(labels, (1, 2))]

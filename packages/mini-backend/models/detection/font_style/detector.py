@@ -14,11 +14,13 @@ import json
 import logging
 import math
 from pathlib import Path
-from typing import Sequence
+from typing import Protocol, Sequence
 
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 
+from core.device import get_device_info, get_onnx_execution_providers
 from models.detection.font_style.types import FontCandidate, FontLabel, FontStylePrediction
 
 logger = logging.getLogger(__name__)
@@ -104,6 +106,47 @@ def _colors_similar(c1: tuple[int, int, int], c2: tuple[int, int, int]) -> bool:
 
 # ── Detector ─────────────────────────────────────────────────────────────────
 
+class _InferenceBackend(Protocol):
+    def run(self, batch: NDArray[np.float32]) -> NDArray[np.float32]: ...
+
+
+class _OnnxBackend:
+    __slots__ = ("_input_name", "_session")
+
+    def __init__(self, path: Path, providers: Sequence[str]) -> None:
+        import onnxruntime as ort  # noqa: PLC0415 - optional heavy dependency
+
+        self._session = ort.InferenceSession(str(path), providers=list(providers))
+        self._input_name: str = self._session.get_inputs()[0].name
+
+    def run(self, batch: NDArray[np.float32]) -> NDArray[np.float32]:
+        return np.asarray(
+            self._session.run(None, {self._input_name: batch})[0], dtype=np.float32
+        )
+
+
+class _TorchBackend:
+    __slots__ = ("_model", "_torch")
+
+    def __init__(self, path: Path) -> None:
+        import torch  # noqa: PLC0415 - optional heavy dependency
+        from safetensors.torch import load_file  # noqa: PLC0415
+
+        from models.detection.font_style.resnet_model import build_resnet50_font_model
+
+        model = build_resnet50_font_model(TOTAL_OUTPUT)
+        model.load_state_dict(load_file(str(path)), strict=False)
+        model.eval()
+        self._model = model
+        self._torch = torch
+
+    def run(self, batch: NDArray[np.float32]) -> NDArray[np.float32]:
+        with self._torch.no_grad():
+            return (
+                self._model(self._torch.from_numpy(batch)).cpu().numpy().astype(np.float32)
+            )
+
+
 class YuzuFontStyleDetector:
     """Font/color/style detector backed by the YuzuMarker SafeTensors model.
 
@@ -111,67 +154,44 @@ class YuzuFontStyleDetector:
     ``models/detection/font_style/weights/``.
     """
 
-    def __init__(self, model_dir: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        model_dir: str | Path | None = None,
+        providers: Sequence[str] | None = None,
+    ) -> None:
         self._model_dir = Path(model_dir) if model_dir else _resolve_bundled_model_dir()
-        self._session = None
+        self._providers = (
+            list(providers) if providers else get_onnx_execution_providers(get_device_info())
+        )
+        self._backend: _InferenceBackend | None = None
         self._font_labels: list[FontLabel] | None = None
 
     # ── Lazy loading ─────────────────────────────────────────────────────
 
     def _ensure_loaded(self) -> None:
-        if self._session is not None:
+        if self._backend is not None:
             return
         self._load_model()
         self._load_labels()
 
     def _load_model(self) -> None:
-        """Load SafeTensors model using ONNX Runtime or PyTorch.
-
-        Priority: ONNX exported model > SafeTensors with torch.
-        """
+        """Load ONNX export first, falling back to SafeTensors with torch."""
         onnx_path = self._model_dir / "yuzumarker-font-detection.onnx"
-        if onnx_path.exists():
-            self._load_onnx(onnx_path)
+        if onnx_path.is_file():
+            self._backend = _OnnxBackend(onnx_path, self._providers)
+            logger.info("YuzuMarker font detector loaded (ONNX) from %s", onnx_path)
             return
 
         safetensors_path = self._model_dir / "yuzumarker-font-detection.safetensors"
-        if safetensors_path.exists():
-            self._load_safetensors(safetensors_path)
+        if safetensors_path.is_file():
+            self._backend = _TorchBackend(safetensors_path)
+            logger.info("YuzuMarker font detector loaded (SafeTensors/PyTorch) from %s", safetensors_path)
             return
 
         raise FileNotFoundError(
             f"YuzuMarker font detection model not found in {self._model_dir}. "
             "Expected yuzumarker-font-detection.onnx or .safetensors"
         )
-
-    def _load_onnx(self, path: Path) -> None:
-        try:
-            import onnxruntime as ort  # type: ignore
-        except ImportError as exc:
-            raise RuntimeError("onnxruntime not installed for YuzuMarker font detection") from exc
-
-        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        self._session = ort.InferenceSession(str(path), providers=providers)
-        self._backend = "onnx"
-        logger.info("YuzuMarker font detector loaded (ONNX) from %s", path)
-
-    def _load_safetensors(self, path: Path) -> None:
-        try:
-            import torch  # type: ignore
-            from safetensors.torch import load_file  # type: ignore
-        except ImportError as exc:
-            raise RuntimeError(
-                "torch + safetensors not installed for YuzuMarker font detection"
-            ) from exc
-
-        state_dict = load_file(str(path))
-        from models.detection.font_style.resnet_model import build_resnet50_font_model
-        model = build_resnet50_font_model(TOTAL_OUTPUT)
-        model.load_state_dict(state_dict, strict=False)
-        model.eval()
-        self._session = model
-        self._backend = "torch"
-        logger.info("YuzuMarker font detector loaded (SafeTensors/PyTorch) from %s", path)
 
     def _load_labels(self) -> None:
         labels_path = self._model_dir / "font-labels-ex.json"
@@ -195,16 +215,8 @@ class YuzuFontStyleDetector:
 
     def _run_model(self, input_tensor: np.ndarray) -> np.ndarray:
         """Run inference and return (batch, 6162) output."""
-        if self._backend == "onnx":
-            input_name = self._session.get_inputs()[0].name
-            outputs = self._session.run(None, {input_name: input_tensor})
-            return outputs[0]
-        else:
-            import torch  # type: ignore
-            with torch.no_grad():
-                tensor = torch.from_numpy(input_tensor)
-                result = self._session(tensor)
-                return result.cpu().numpy()
+        assert self._backend is not None  # _ensure_loaded guarantees it
+        return np.asarray(self._backend.run(np.asarray(input_tensor, dtype=np.float32)))
 
     def detect(
         self,
