@@ -4,6 +4,7 @@ from collections import OrderedDict
 from typing import Any
 
 from core.device import (
+    register_gpu_cache_releaser,
     DeviceInfo,
     build_cpu_device_info,
     get_device_info,
@@ -188,6 +189,7 @@ def get_inpainter(
     return inpainter
 
 
+@register_gpu_cache_releaser
 def clear_inpainter_cache() -> None:
     _INPAINTER_CACHE.clear()
 

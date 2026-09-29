@@ -7,6 +7,7 @@ import threading
 
 from PIL import Image
 
+from core.device import register_gpu_cache_releaser
 from models.detection.font_style import YuzuFontStyleDetector
 from models.detection.font_style.storage import font_style_runtime_ready
 from pipelines.batch.records import DetectionRecord, normalize_bbox
@@ -29,6 +30,7 @@ def get_font_style_detector() -> YuzuFontStyleDetector | None:
     return _detector
 
 
+@register_gpu_cache_releaser
 def clear_font_style_detector() -> None:
     """Drop the shared detector so its ONNX session can be garbage-collected."""
     global _detector

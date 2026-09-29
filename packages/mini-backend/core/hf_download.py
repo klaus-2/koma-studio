@@ -1,35 +1,70 @@
+"""HuggingFace file resolution and resumable downloads.
+
+Synchronous on purpose: every caller runs on the download worker thread
+(core.download_jobs), never on the event loop.
+"""
+
 from __future__ import annotations
 
 import contextvars
+import errno
 import hashlib
 import json
 import logging
 import random
-import socket
 import time
+from collections.abc import Sequence
+from http.client import HTTPException, HTTPResponse
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Literal, NamedTuple, Protocol, TypedDict, cast
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
-
 
 _HF_API_ROOT = "https://huggingface.co/api/models"
 _HF_RESOLVE_ROOT = "https://huggingface.co"
 _USER_AGENT = "koma-studio-mini-backend/1.0"
-_RETRYABLE_HTTP_STATUS = {408, 425, 429, 500, 502, 503, 504}
-_CHUNK_SIZE = 1024 * 1024  # 1 MB
-_READ_TIMEOUT = 60  # per-chunk read timeout in seconds
-_CONNECT_TIMEOUT = 30  # connection timeout in seconds
-_MAX_RETRY_AFTER_SLEEP = 120.0  # cap on server-provided Retry-After seconds
+_RETRYABLE_HTTP_STATUS = frozenset({408, 425, 429, 500, 502, 503, 504})
+_CHUNK_SIZE = 1024 * 1024
+# urlopen installs this timeout on the socket itself, so it bounds the connect
+# AND every subsequent read — a stalled transfer fails instead of hanging.
+_SOCKET_TIMEOUT_SECONDS = 60.0
+_MAX_BACKOFF_SECONDS = 4.0
+_MAX_RETRY_AFTER_SECONDS = 120.0
+_CANCEL_POLL_SECONDS = 0.25
+
+# Backoff jitter only; not security-sensitive.
+_jitter = random.Random()  # noqa: S311
 
 logger = logging.getLogger(__name__)
 
-
-class DownloadCancelled(Exception):
-    """Raised when the owning download job requests cancellation."""
+type DownloadPhase = Literal["downloading", "verifying"]
 
 
-class RateLimitedError(RuntimeError):
+# --------------------------------------------------------------------- errors
+
+
+class HFDownloadError(RuntimeError):
+    """Base for every failure raised by this module."""
+
+
+class HFResolveError(HFDownloadError):
+    """The HuggingFace API/probe could not locate the requested file."""
+
+
+class NetworkDownloadError(HFDownloadError):
+    """Transport failed after retries were exhausted."""
+
+
+class DiskWriteError(HFDownloadError):
+    """The local filesystem rejected the download (ENOSPC, permissions...)."""
+
+    def __init__(self, message: str, *, os_errno: int | None) -> None:
+        super().__init__(message)
+        self.os_errno = os_errno
+
+
+class RateLimitedError(HFDownloadError):
     """Remote server answered HTTP 429 and retries were exhausted."""
 
     def __init__(self, message: str, http_status: int = 429) -> None:
@@ -37,7 +72,7 @@ class RateLimitedError(RuntimeError):
         self.http_status = http_status
 
 
-class ChecksumMismatchError(RuntimeError):
+class ChecksumMismatchError(HFDownloadError):
     """Downloaded file does not match the expected SHA-256."""
 
     def __init__(self, message: str, *, expected: str, got: str) -> None:
@@ -46,23 +81,29 @@ class ChecksumMismatchError(RuntimeError):
         self.got = got
 
 
-class DownloadProgressBridge(Protocol):
-    """Progress/cancellation channel between the job and hf_download.
+class DownloadCancelled(Exception):  # noqa: N818 - established wire/API name
+    """Raised when the owning download job requests cancellation."""
 
-    Intentionally a duck-typed Protocol: the implementation lives in
-    core.download_jobs so this layer doesn't know about jobs (no import
-    cycle) and the storages (models/*/storage.py) don't need to receive
-    callbacks — the sink travels in a ContextVar set by the worker thread.
+
+# ----------------------------------------------------------- progress bridge
+
+
+class DownloadProgressBridge(Protocol):
+    """Progress/cancellation channel between the job and this module.
+
+    Duck-typed so core.download_jobs implements it without an import cycle;
+    the active bridge travels in a ContextVar set by the worker thread.
     """
 
-    def report_download(self, file_key: str, delta_bytes: int, file_total: int | None) -> None:
+    def report_download(
+        self, file_key: str, delta_bytes: int, file_total: int | None
+    ) -> None:
+        """``delta_bytes`` may be negative when a resume is discarded."""
         ...
 
-    def report_phase(self, phase: str) -> None:
-        ...
+    def report_phase(self, phase: DownloadPhase) -> None: ...
 
-    def raise_if_cancelled(self) -> None:
-        ...
+    def raise_if_cancelled(self) -> None: ...
 
 
 progress_bridge_var: contextvars.ContextVar[DownloadProgressBridge | None] = (
@@ -74,112 +115,105 @@ def _active_bridge() -> DownloadProgressBridge | None:
     return progress_bridge_var.get()
 
 
+# ------------------------------------------------------------------- helpers
+
+
+def _open(request: Request) -> HTTPResponse:
+    # Every URL here is assembled from the fixed https HuggingFace host with
+    # quoted path segments, so the scheme check Bandit wants (S310) holds by
+    # construction. The cast pins typeshed's `Any` return to the real type.
+    return cast(
+        HTTPResponse, urlopen(request, timeout=_SOCKET_TIMEOUT_SECONDS)  # noqa: S310
+    )
+
+
 def _normalize_sha(value: str | None) -> str | None:
     if not value:
         return None
-
-    normalized = value.strip().lower()
-    if normalized.startswith("sha256:"):
-        normalized = normalized.split(":", 1)[1]
-    if len(normalized) != 64:
-        return None
-    if not all(ch in "0123456789abcdef" for ch in normalized):
+    normalized = value.strip().lower().removeprefix("sha256:")
+    if len(normalized) != 64 or any(ch not in "0123456789abcdef" for ch in normalized):
         return None
     return normalized
 
 
 def _build_hf_resolve_url(repo: str, revision: str, target: str) -> str:
-    return f"{_HF_RESOLVE_ROOT}/{repo}/resolve/{revision}/{target}"
+    return (
+        f"{_HF_RESOLVE_ROOT}/{quote(repo, safe='/')}/resolve/"
+        f"{quote(revision, safe='')}/{quote(target, safe='/')}"
+    )
 
 
 def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
     with path.open("rb") as handle:
-        while True:
-            chunk = handle.read(1024 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
-    return digest.hexdigest()
+        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
-def fetch_hf_siblings(repo: str, revision: str = "main") -> list[dict[str, Any]]:
-    api_url = f"{_HF_API_ROOT}/{repo}/revision/{revision}"
-    request = Request(
-        api_url,
-        headers={
-            "User-Agent": _USER_AGENT,
-            "Accept": "application/json",
-        },
+def fetch_hf_siblings(repo: str, revision: str = "main") -> list[dict[str, object]]:
+    """Return raw sibling dicts (rfilename/lfs) for repo compatibility tests."""
+    api_url = (
+        f"{_HF_API_ROOT}/{quote(repo, safe='/')}/revision/{quote(revision, safe='')}"
     )
-
+    request = Request(
+        api_url, headers={"User-Agent": _USER_AGENT, "Accept": "application/json"}
+    )
     try:
-        with urlopen(request, timeout=60) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError) as exc:
-        raise RuntimeError(
+        with _open(request) as response:
+            raw = response.read().decode("utf-8")
+    except OSError as exc:  # HTTPError, URLError and socket timeouts are all OSError
+        raise HFResolveError(
             f"Failed to query the HuggingFace API for '{repo}': {exc}"
         ) from exc
-    except Exception as exc:
-        raise RuntimeError(
-            f"Failed to parse the HuggingFace API response for '{repo}': {exc}"
+    try:
+        payload: object = json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise HFResolveError(
+            f"Invalid HuggingFace API response for '{repo}': {exc}"
         ) from exc
-
-    siblings = payload.get("siblings", [])
+    siblings = payload.get("siblings") if isinstance(payload, dict) else None
     if not isinstance(siblings, list):
-        raise RuntimeError(f"Invalid HuggingFace API response for '{repo}'.")
+        raise HFResolveError(f"Invalid HuggingFace API response for '{repo}'.")
     return [item for item in siblings if isinstance(item, dict)]
 
 
 def _probe_hf_resolve_url(url: str) -> bool:
-    head_request = Request(
-        url,
-        method="HEAD",
-        headers={
-            "User-Agent": _USER_AGENT,
-        },
-    )
+    head = Request(url, method="HEAD", headers={"User-Agent": _USER_AGENT})
     try:
-        with urlopen(head_request, timeout=30):
+        with _open(head):
             return True
     except HTTPError as exc:
-        # Some hosts block HEAD, so we fall back to a lightweight GET below.
+        # Some hosts block HEAD; fall through to a 1-byte ranged GET.
         if exc.code not in {405, 501}:
             return False
-    except URLError:
-        return False
-    except Exception:
+    except OSError:
         return False
 
-    get_request = Request(
-        url,
-        headers={
-            "User-Agent": _USER_AGENT,
-            "Range": "bytes=0-0",
-        },
-    )
+    ranged = Request(url, headers={"User-Agent": _USER_AGENT, "Range": "bytes=0-0"})
     try:
-        with urlopen(get_request, timeout=30):
+        with _open(ranged):
             return True
-    except (HTTPError, URLError):
-        return False
-    except Exception:
+    except OSError:
         return False
 
 
 def resolve_hf_file(
-    repo: str, candidate_paths: list[str], revision: str = "main"
+    repo: str, candidate_paths: Sequence[str], revision: str = "main"
 ) -> tuple[str, str, str]:
-    api_error: RuntimeError | None = None
-    siblings: list[dict[str, Any]] = []
+    """Return (resolved_path, sha256, download_url) for the best candidate.
+
+    sha256 is "" when the file is small/non-LFS (no remote digest; local-only
+    validation), mirroring the historical contract consumed by callers.
+    """
+    candidates = [item.strip() for item in candidate_paths if item.strip()]
+    api_error: HFResolveError | None = None
+    siblings: list[dict[str, object]] = []
     try:
-        siblings = fetch_hf_siblings(repo=repo, revision=revision)
-    except RuntimeError as exc:
+        siblings = fetch_hf_siblings(repo, revision)
+    except HFResolveError as exc:
         api_error = exc
 
     if siblings:
-        by_path: dict[str, dict[str, Any]] = {}
-        by_path_lower: dict[str, dict[str, Any]] = {}
+        by_path: dict[str, dict[str, object]] = {}
+        by_path_lower: dict[str, dict[str, object]] = {}
         for sibling in siblings:
             raw_name = sibling.get("rfilename")
             if not isinstance(raw_name, str):
@@ -190,240 +224,192 @@ def resolve_hf_file(
             by_path[normalized_name] = sibling
             by_path_lower[normalized_name.lower()] = sibling
 
-        for candidate in candidate_paths:
-            target = candidate.strip()
-            if not target:
-                continue
-            sibling = by_path.get(target)
-            if sibling is None:
-                sibling = by_path_lower.get(target.lower())
+        for target in candidates:
+            sibling = by_path.get(target) or by_path_lower.get(target.lower())
             if sibling is None:
                 continue
 
             resolved_target = str(sibling.get("rfilename") or "").strip() or target
-
             lfs = sibling.get("lfs")
-            sha = None
+            sha: str | None = None
             if isinstance(lfs, dict):
-                sha = _normalize_sha(lfs.get("sha256")) or _normalize_sha(
-                    lfs.get("oid")
-                )
+                lfs_sha = lfs.get("sha256")
+                lfs_oid = lfs.get("oid")
+                sha = _normalize_sha(lfs_sha if isinstance(lfs_sha, str) else None)
+                if sha is None:
+                    sha = _normalize_sha(lfs_oid if isinstance(lfs_oid, str) else None)
 
             if not sha:
-                # Some small files are not stored in LFS. In those cases we
-                # accept no remote checksum and validate local integrity only.
+                # Small non-LFS files carry no remote digest; local-only validation.
                 sha = ""
 
-            url = _build_hf_resolve_url(
-                repo=repo,
-                revision=revision,
-                target=resolved_target,
-            )
+            url = _build_hf_resolve_url(repo, revision, resolved_target)
             return resolved_target, sha, url
 
-    # Fallback: same approach as the reference project (direct per-file URL).
-    for candidate in candidate_paths:
-        target = candidate.strip()
-        if not target:
-            continue
-        url = _build_hf_resolve_url(repo=repo, revision=revision, target=target)
+    # API unavailable or file not listed: probe direct per-file URLs.
+    for target in candidates:
+        url = _build_hf_resolve_url(repo, revision, target)
         if _probe_hf_resolve_url(url):
             return target, "", url
 
-    tried = ", ".join(candidate_paths)
-    if api_error:
-        raise RuntimeError(
-            f"{api_error} No accessible file in repo '{repo}' for candidates: {tried}",
+    tried = ", ".join(candidates)
+    if api_error is not None:
+        raise HFResolveError(
+            f"{api_error} No accessible file in repo '{repo}' for candidates: {tried}"
         ) from api_error
-    raise RuntimeError(
-        f"No file found in repo '{repo}' for candidates: {tried}"
-    )
+    raise HFResolveError(f"No file found in repo '{repo}' for candidates: {tried}")
 
 
-def _sleep_before_retry(attempt: int, delay_override: float | None = None) -> None:
-    if delay_override is None:
-        base_delay = min(4.0, 0.5 * (2 ** max(0, attempt - 1)))
-        jitter = random.uniform(0.0, 0.35)
-        delay_override = base_delay + jitter
-
-    bridge = _active_bridge()
-    deadline = time.monotonic() + delay_override
-    while True:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            return
-        if bridge is not None:
-            bridge.raise_if_cancelled()
-        time.sleep(min(0.25, remaining))
+# ----------------------------------------------------------------- download
 
 
-def _retry_delay_for(exc: Exception, attempt: int) -> float:
-    """Exponential backoff with jitter, honoring Retry-After when present."""
-    delay = min(4.0, 0.5 * (2 ** max(0, attempt - 1))) + random.uniform(0.0, 0.35)
-    headers = getattr(exc, "headers", None)
-    raw_retry_after = headers.get("Retry-After") if headers is not None else None
-    if raw_retry_after:
-        try:
-            server_delay = float(str(raw_retry_after).strip())
-        except (TypeError, ValueError):
-            return delay
-        if server_delay > 0:
-            delay = max(delay, min(server_delay, _MAX_RETRY_AFTER_SLEEP))
-    return delay
-
-
-def _is_retryable_error(exc: Exception) -> bool:
+def _is_retryable(exc: OSError | HTTPException) -> bool:
     if isinstance(exc, HTTPError):
         return exc.code in _RETRYABLE_HTTP_STATUS
-    return isinstance(
-        exc, (URLError, socket.timeout, TimeoutError, ConnectionError, OSError)
-    )
+    if isinstance(exc, HTTPException):  # IncompleteRead, RemoteDisconnected...
+        return True
+    # Retrying a full disk only burns time; everything else on the wire is transient.
+    return exc.errno != errno.ENOSPC
 
 
-def _get_content_length(url: str) -> int | None:
-    """Try to get the total file size via HEAD request."""
-    head_request = Request(url, method="HEAD", headers={"User-Agent": _USER_AGENT})
+def _retry_delay_seconds(exc: OSError | HTTPException, attempt: int) -> float:
+    delay = min(_MAX_BACKOFF_SECONDS, 0.5 * 2 ** (attempt - 1))
+    delay += _jitter.uniform(0.0, 0.35)
+    if not isinstance(exc, HTTPError):
+        return delay
+    raw_retry_after = exc.headers.get("Retry-After") if exc.headers else None
+    if not raw_retry_after:
+        return delay
     try:
-        with urlopen(head_request, timeout=_CONNECT_TIMEOUT) as resp:
-            cl = resp.headers.get("Content-Length")
-            return int(cl) if cl else None
-    except Exception:
+        server_delay = float(str(raw_retry_after).strip())
+    except ValueError:
+        return delay
+    if server_delay <= 0:
+        return delay
+    return max(delay, min(server_delay, _MAX_RETRY_AFTER_SECONDS))
+
+
+def _translate_failure(exc: OSError | HTTPException, url: str) -> HFDownloadError:
+    if isinstance(exc, HTTPError):
+        if exc.code == 429:
+            return RateLimitedError(f"Rate limited by remote server (HTTP 429): {url}")
+        return NetworkDownloadError(f"Failed to download file (HTTP {exc.code}): {url}")
+    if isinstance(exc, URLError):
+        return NetworkDownloadError(f"Failed to download file: {exc.reason} ({url})")
+    if isinstance(exc, HTTPException | ConnectionError | TimeoutError):
+        return NetworkDownloadError(f"Connection failed mid-download: {exc} ({url})")
+    if exc.errno == errno.ENOSPC:
+        return DiskWriteError(f"Disk full while writing: {url}", os_errno=exc.errno)
+    return DiskWriteError(f"Failed to save downloaded file: {exc}", os_errno=exc.errno)
+
+
+def _sleep_cancellable(delay: float, bridge: DownloadProgressBridge | None) -> None:
+    deadline = time.monotonic() + delay
+    while (remaining := deadline - time.monotonic()) > 0:
+        if bridge is not None:
+            bridge.raise_if_cancelled()
+        time.sleep(min(_CANCEL_POLL_SECONDS, remaining))
+
+
+def _remote_content_length(url: str) -> int | None:
+    head = Request(url, method="HEAD", headers={"User-Agent": _USER_AGENT})
+    try:
+        with _open(head) as response:
+            raw = response.headers.get("Content-Length")
+    except OSError:
+        return None
+    try:
+        return int(raw) if raw else None
+    except ValueError:
         return None
 
 
-def download_file(url: str, target_path: Path, max_retries: int = 5) -> None:
-    """Download a file with resume support and per-chunk read timeout.
+def _download_once(
+    url: str,
+    temp_path: Path,
+    existing_bytes: int,
+    total_size: int | None,
+    bridge: DownloadProgressBridge | None,
+) -> None:
+    headers = {"User-Agent": _USER_AGENT}
+    if existing_bytes > 0:
+        headers["Range"] = f"bytes={existing_bytes}-"
+        logger.info("Resuming download from %d bytes: %s", existing_bytes, url)
 
-    For large files (multi-GB GGUF models), the download resumes from where it
-    left off on each retry instead of starting over. A per-read socket timeout
-    prevents the connection from stalling indefinitely.
-    """
-    temp_path = target_path.with_suffix(target_path.suffix + ".part")
+    with _open(Request(url, headers=headers)) as response:
+        resumed = existing_bytes > 0 and response.status == 206
+        if existing_bytes > 0 and not resumed:
+            logger.info("Server ignored Range header; restarting from scratch: %s", url)
+            if bridge is not None:
+                bridge.report_download(url, -existing_bytes, total_size)
+        with temp_path.open("ab" if resumed else "wb") as handle:
+            while chunk := response.read(_CHUNK_SIZE):
+                if bridge is not None:
+                    bridge.raise_if_cancelled()
+                handle.write(chunk)
+                if bridge is not None:
+                    bridge.report_download(url, len(chunk), total_size)
+
+
+def download_file(url: str, target_path: Path, max_retries: int = 5) -> None:
+    """Download with resume support; the ``.part`` file survives retries,
+    cancellation and even the final failure so a later job continues from it."""
+    temp_path = target_path.with_suffix(f"{target_path.suffix}.part")
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     bridge = _active_bridge()
     if bridge is not None:
         bridge.report_phase("downloading")
 
-    total_size = _get_content_length(url)
-    attempts = max(1, int(max_retries))
+    total_size = _remote_content_length(url)
+    attempts = max(1, max_retries)
+    resume_reported = False
 
     for attempt in range(1, attempts + 1):
-        # Check how much we already have from a previous partial download
-        existing_bytes = 0
-        if temp_path.exists():
-            existing_bytes = temp_path.stat().st_size
-            # If we know the total and we already have it all, just finalize
-            if total_size and existing_bytes >= total_size:
-                temp_path.replace(target_path)
-                return
-
+        existing_bytes = temp_path.stat().st_size if temp_path.exists() else 0
+        if total_size is not None and 0 < total_size <= existing_bytes:
+            break
         if bridge is not None:
             bridge.raise_if_cancelled()
-            bridge.report_download(url, 0, total_size)
-
-        headers: dict[str, str] = {"User-Agent": _USER_AGENT}
-        if existing_bytes > 0:
-            headers["Range"] = f"bytes={existing_bytes}-"
-            logger.info(
-                "Resuming download from %d bytes (attempt %d/%d): %s",
-                existing_bytes,
-                attempt,
-                attempts,
-                url,
+            # A .part left by a previous job is real progress; count it exactly once.
+            bridge.report_download(
+                url, 0 if resume_reported else existing_bytes, total_size
             )
-
-        request = Request(url, headers=headers)
+            resume_reported = True
         try:
-            with urlopen(request, timeout=_CONNECT_TIMEOUT) as response:
-                status_code = response.status
-                if existing_bytes > 0 and status_code == 200:
-                    # Server ignored Range header — restart from scratch
-                    existing_bytes = 0
-                    mode = "wb"
-                elif status_code == 206:
-                    mode = "ab"
-                else:
-                    mode = "wb"
-                    existing_bytes = 0
-
-                # Set socket-level read timeout to prevent stalls
-                raw_sock = response.fp
-                if hasattr(raw_sock, "raw"):
-                    raw_sock = raw_sock.raw
-                if hasattr(raw_sock, "_sock"):
-                    try:
-                        raw_sock._sock.settimeout(_READ_TIMEOUT)
-                    except Exception:
-                        pass
-
-                with temp_path.open(mode) as handle:
-                    bytes_this_session = 0
-                    last_progress_time = time.monotonic()
-                    while True:
-                        if bridge is not None:
-                            bridge.raise_if_cancelled()
-                        chunk = response.read(_CHUNK_SIZE)
-                        if not chunk:
-                            break
-                        handle.write(chunk)
-                        bytes_this_session += len(chunk)
-                        last_progress_time = time.monotonic()
-                        if bridge is not None:
-                            bridge.report_download(url, len(chunk), total_size)
-
-            # Download complete
-            temp_path.replace(target_path)
-            return
-
+            _download_once(url, temp_path, existing_bytes, total_size, bridge)
+            break
         except DownloadCancelled:
-            # Keep the .part so a future job resumes from the same byte.
             raise
-
-        except Exception as exc:
-            is_last_attempt = attempt >= attempts
-
-            # Keep partial file for resume on retryable errors — even on the
-            # last attempt, so a later job/session can pick up from here.
-            if _is_retryable_error(exc) and not is_last_attempt:
-                delay = _retry_delay_for(exc, attempt)
+        except (OSError, HTTPException) as exc:
+            retryable = _is_retryable(exc)
+            if retryable and attempt < attempts:
+                delay = _retry_delay_seconds(exc, attempt)
                 logger.warning(
-                    "Download attempt %d/%d failed (will resume in %.1fs): %s",
-                    attempt,
-                    attempts,
-                    delay,
-                    exc,
+                    "Download attempt %d/%d failed; resuming in %.1fs: %s",
+                    attempt, attempts, delay, exc,
                 )
-                retry_bridge = _active_bridge()
-                if retry_bridge is not None:
-                    # Leave "verifying" (multi-file) and signal the wait.
-                    retry_bridge.report_phase("downloading")
-                _sleep_before_retry(attempt, delay)
+                _sleep_cancellable(delay, bridge)
                 continue
-
-            if not _is_retryable_error(exc):
-                # Non-retryable failures (e.g., HTTP 404) leave junk partials.
+            if not retryable:
+                # e.g. HTTP 404 — the partial is junk, nothing to resume from.
                 temp_path.unlink(missing_ok=True)
-            if isinstance(exc, HTTPError) and exc.code == 429:
-                raise RateLimitedError(
-                    f"Rate limited by remote server (HTTP 429): {url}"
-                ) from exc
-            if isinstance(exc, (HTTPError, URLError)):
-                raise RuntimeError(f"Failed to download file: {exc}") from exc
-            raise RuntimeError(f"Failed to save downloaded file: {exc}") from exc
+            raise _translate_failure(exc, url) from exc
+
+    temp_path.replace(target_path)
 
 
 def ensure_file_from_hf(
     *,
     repo: str,
-    candidate_paths: list[str],
+    candidate_paths: Sequence[str],
     target_path: Path,
     revision: str = "main",
     expected_sha256: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     configured_sha = _normalize_sha(expected_sha256)
-    if expected_sha256 and not configured_sha:
-        raise RuntimeError(
+    if expected_sha256 and configured_sha is None:
+        raise HFDownloadError(
             f"Invalid SHA256 checksum configured for '{repo}': {expected_sha256}"
         )
 
@@ -432,7 +418,7 @@ def ensure_file_from_hf(
         candidate_paths=candidate_paths,
         revision=revision,
     )
-    expected_sha = configured_sha or resolved_sha
+    expected_sha = configured_sha or (resolved_sha or None)
 
     if target_path.exists():
         if expected_sha:
@@ -463,7 +449,8 @@ def ensure_file_from_hf(
     if expected_sha and current_sha.lower() != expected_sha.lower():
         target_path.unlink(missing_ok=True)
         raise ChecksumMismatchError(
-            f"Invalid SHA256 checksum for '{selected_path}'. Expected: {expected_sha} | Got: {current_sha}",
+            f"Invalid SHA256 checksum for '{selected_path}'. "
+            f"Expected: {expected_sha} | Got: {current_sha}",
             expected=expected_sha,
             got=current_sha,
         )
@@ -479,12 +466,12 @@ def ensure_file_from_hf(
 def ensure_files_from_hf(
     *,
     repo: str,
-    files: list[str],
+    files: Sequence[str],
     target_dir: Path,
     revision: str = "main",
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     target_dir.mkdir(parents=True, exist_ok=True)
-    payloads: list[dict[str, Any]] = []
+    payloads: list[dict[str, object]] = []
     for relative_path in [str(item).strip() for item in files if str(item).strip()]:
         target_path = target_dir / relative_path
         payload = ensure_file_from_hf(

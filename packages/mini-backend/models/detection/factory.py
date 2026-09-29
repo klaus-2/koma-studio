@@ -4,6 +4,7 @@ from collections import OrderedDict
 from typing import Any
 
 from core.device import (
+    register_gpu_cache_releaser,
     DeviceInfo,
     build_cpu_device_info,
     get_device_info,
@@ -71,6 +72,7 @@ DETECTION_MODELS: dict[str, dict[str, Any]] = {
 }
 
 
+@register_gpu_cache_releaser
 def clear_detector_cache() -> None:
     _DETECTOR_CACHE.clear()
 

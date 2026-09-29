@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TypedDict
+from collections.abc import Mapping
+from typing import NamedTuple, TypedDict
 
 
 class LanguageOption(TypedDict):
@@ -8,34 +9,38 @@ class LanguageOption(TypedDict):
     label: str
 
 
-# Canonical language registry.
-# Codes are normalized to lowercase for transport consistency.
-_LANGUAGE_REGISTRY: tuple[dict[str, str], ...] = (
-    {"name": "Korean", "code": "ko"},
-    {"name": "Japanese", "code": "ja"},
-    {"name": "Chinese", "code": "zh"},
-    {"name": "Simplified Chinese", "code": "zh-cn"},
-    {"name": "Traditional Chinese", "code": "zh-tw"},
-    {"name": "English", "code": "en"},
-    {"name": "Russian", "code": "ru"},
-    {"name": "French", "code": "fr"},
-    {"name": "German", "code": "de"},
-    {"name": "Dutch", "code": "nl"},
-    {"name": "Spanish", "code": "es"},
-    {"name": "Italian", "code": "it"},
-    {"name": "Turkish", "code": "tr"},
-    {"name": "Polish", "code": "pl"},
-    {"name": "Portuguese", "code": "pt"},
-    {"name": "Brazilian Portuguese", "code": "pt-br"},
-    {"name": "Thai", "code": "th"},
-    {"name": "Vietnamese", "code": "vi"},
-    {"name": "Indonesian", "code": "id"},
-    {"name": "Hungarian", "code": "hu"},
-    {"name": "Finnish", "code": "fi"},
-    {"name": "Arabic", "code": "ar"},
+class _Language(NamedTuple):
+    name: str
+    code: str
+
+
+# Canonical language registry. Codes are normalized to lowercase for
+# transport consistency.
+_LANGUAGE_REGISTRY: tuple[_Language, ...] = (
+    _Language("Korean", "ko"),
+    _Language("Japanese", "ja"),
+    _Language("Chinese", "zh"),
+    _Language("Simplified Chinese", "zh-cn"),
+    _Language("Traditional Chinese", "zh-tw"),
+    _Language("English", "en"),
+    _Language("Russian", "ru"),
+    _Language("French", "fr"),
+    _Language("German", "de"),
+    _Language("Dutch", "nl"),
+    _Language("Spanish", "es"),
+    _Language("Italian", "it"),
+    _Language("Turkish", "tr"),
+    _Language("Polish", "pl"),
+    _Language("Portuguese", "pt"),
+    _Language("Brazilian Portuguese", "pt-br"),
+    _Language("Thai", "th"),
+    _Language("Vietnamese", "vi"),
+    _Language("Indonesian", "id"),
+    _Language("Hungarian", "hu"),
+    _Language("Finnish", "fi"),
+    _Language("Arabic", "ar"),
 )
 
-# Mirrors supported_source_languages.
 _SOURCE_LANGUAGE_CODES: tuple[str, ...] = (
     "ko",
     "ja",
@@ -49,7 +54,6 @@ _SOURCE_LANGUAGE_CODES: tuple[str, ...] = (
     "it",
 )
 
-# Mirrors supported_target_languages.
 _TARGET_LANGUAGE_CODES: tuple[str, ...] = (
     "en",
     "ko",
@@ -75,13 +79,11 @@ _TARGET_LANGUAGE_CODES: tuple[str, ...] = (
 )
 
 
-_NAME_TO_CODE: dict[str, str] = {
-    item["name"].lower(): item["code"]
-    for item in _LANGUAGE_REGISTRY
-}
-_CODE_SET: set[str] = {item["code"] for item in _LANGUAGE_REGISTRY}
+_NAME_TO_CODE: Mapping[str, str] = {item.name.lower(): item.code for item in _LANGUAGE_REGISTRY}
+_CODE_TO_NAME: Mapping[str, str] = {item.code: item.name for item in _LANGUAGE_REGISTRY}
+_CODE_SET: frozenset[str] = frozenset(item.code for item in _LANGUAGE_REGISTRY)
 
-_ALIAS_TO_CODE: dict[str, str] = {
+_ALIAS_TO_CODE: Mapping[str, str] = {
     "pt_br": "pt-br",
     "pt-br": "pt-br",
     "ptbr": "pt-br",
@@ -105,6 +107,10 @@ _ALIAS_TO_CODE: dict[str, str] = {
     "automatico": "auto",
     "detectar": "auto",
 }
+
+
+def _code_to_name(code: str) -> str:
+    return _CODE_TO_NAME.get(code, code)
 
 
 def normalize_language_code(
@@ -178,10 +184,3 @@ def get_target_language_options() -> list[LanguageOption]:
 
 def get_language_label(code: str) -> str:
     return _code_to_name(code)
-
-
-def _code_to_name(code: str) -> str:
-    for item in _LANGUAGE_REGISTRY:
-        if item["code"] == code:
-            return item["name"]
-    return code

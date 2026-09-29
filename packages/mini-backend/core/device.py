@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import ctypes
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
+import gc
 import importlib
 import logging
 import os
@@ -12,9 +14,24 @@ import shutil
 import subprocess
 import sys
 import sysconfig
+import threading
 from typing import Any
 
 LOGGER = logging.getLogger("mini-backend")
+
+# GPU cache releasers registered by the modules that own model caches
+# (models/*/factory.py, routers/pipeline.py). This inversion keeps core
+# device code from importing models.* or routers.*.
+_gpu_cache_releasers: list[Callable[[], None]] = []
+_gpu_cache_releasers_lock = threading.Lock()
+
+
+def register_gpu_cache_releaser(release: Callable[[], None]) -> Callable[[], None]:
+    """Decorator: modules owning InferenceSession/torch caches register their
+    clear function here, so core never imports models/* or routers/*."""
+    with _gpu_cache_releasers_lock:
+        _gpu_cache_releasers.append(release)
+    return release
 
 
 def _cudnn_preload_dlls_for_profile(profile: str) -> tuple[str, ...]:
@@ -111,8 +128,6 @@ def _preload_nvidia_dlls() -> None:
 _preload_nvidia_dlls()
 
 import onnxruntime as ort  # noqa: E402  — requires the DLLs to be pre-loaded
-
-LOGGER = logging.getLogger("mini-backend")
 
 # ---------------------------------------------------------------------------
 # Critical DLL paths per profile (Windows)
@@ -351,7 +366,7 @@ def _add_nvidia_dll_directories() -> None:
     if not nvidia_root.is_dir():
         return
 
-    registered: list[str] = []
+    registered: list[Path] = []
     for bin_dir in nvidia_root.glob("*/bin"):
         if bin_dir.is_dir():
             registered.append(bin_dir)
@@ -824,77 +839,32 @@ def release_gpu_memory() -> None:
     torch is not installed or CUDA is unavailable, errors are silently
     suppressed.
     """
-    import gc
-
     gc.collect()
     try:
-        import torch  # type: ignore
-
+        import torch  # noqa: PLC0415 - optional heavy dependency
+    except (ImportError, OSError):
+        return
+    try:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
-    except Exception:
-        pass
+    except RuntimeError:
+        LOGGER.debug("torch CUDA cache release failed", exc_info=True)
 
 
 def release_onnx_gpu_memory() -> None:
-    """Release ONNX Runtime GPU memory by clearing model caches.
+    """Release ONNX Runtime GPU memory by clearing registered model caches.
 
     ONNX Runtime holds GPU memory in its CUDA allocator even after
-    inference completes. This function clears all factory caches that
-    hold InferenceSession references, then forces garbage collection
-    to release the underlying CUDA allocations.
+    inference completes. Factories that hold InferenceSession references
+    register their clear function via ``register_gpu_cache_releaser``, so
+    this function clears every cache without importing models/* or routers/*.
     """
-    import gc
-
-    try:
-        from models.detection.factory import clear_detector_cache
-
-        clear_detector_cache()
-    except Exception:
-        pass
-
-    try:
-        from models.ocr.factory import clear_ocr_cache
-
-        clear_ocr_cache()
-    except Exception:
-        pass
-
-    try:
-        from models.segmentation.factory import clear_segmenter_cache
-
-        clear_segmenter_cache()
-    except Exception:
-        pass
-
-    try:
-        from models.inpainting.factory import clear_inpainter_cache
-
-        clear_inpainter_cache()
-    except Exception:
-        pass
-
-    try:
-        from models.translation.factory import clear_translator_cache
-
-        clear_translator_cache()
-    except Exception:
-        pass
-
-    try:
-        from routers.pipeline import clear_font_style_detector
-
-        clear_font_style_detector()
-    except Exception:
-        pass
-
-    gc.collect()
-    try:
-        import torch  # type: ignore
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
-    except Exception:
-        pass
+    with _gpu_cache_releasers_lock:
+        releasers = tuple(_gpu_cache_releasers)
+    for release in releasers:
+        try:
+            release()
+        except Exception:  # noqa: BLE001 - one broken cache must not block the others
+            LOGGER.exception("GPU cache releaser failed")
+    release_gpu_memory()

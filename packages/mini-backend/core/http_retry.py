@@ -5,19 +5,19 @@ from typing import Any
 
 import httpx
 
+_MIN_RETRY_AFTER_SECONDS = 1.0
+_MAX_RETRY_AFTER_SECONDS = 10.0
+
 
 def retry_delay_seconds(retry_after: str | None, attempt: int) -> float:
-    # Identical to the inlined logic previously duplicated in
-    # models/translation/providers.py (_http_json_post, _http_form_post) and
-    # services/openai_compatible.py (post_openai_compatible_json).
+    """Delay before retry *attempt* (0-based), honoring a numeric Retry-After."""
+    fallback = float(attempt + 1)
+    if not retry_after:
+        return fallback
     try:
-        return (
-            max(1.0, min(10.0, float(retry_after)))
-            if retry_after
-            else float(attempt + 1)
-        )
-    except (TypeError, ValueError):
-        return float(attempt + 1)
+        return max(_MIN_RETRY_AFTER_SECONDS, min(_MAX_RETRY_AFTER_SECONDS, float(retry_after)))
+    except ValueError:
+        return fallback
 
 
 async def post_with_429_retry(
@@ -25,21 +25,19 @@ async def post_with_429_retry(
     url: str,
     *,
     max_retries: int = 3,
-    **request_kwargs: Any,
+    # `Any` is deliberate: kwargs are forwarded verbatim to httpx so callers keep
+    # their exact wire format (content= / json= / data=); httpx types them itself.
+    **request_kwargs: Any,  # noqa: ANN401
 ) -> httpx.Response:
-    """POST with the project's 429 back-off. Returns the final response
-    un-raised so callers keep their own raise_for_status / redirect handling.
-
-    ``request_kwargs`` is passed straight to ``client.post`` so callers keep
-    their exact wire format (``content=`` vs ``json=`` vs ``data=``).
-    """
-    response: httpx.Response | None = None
-    for attempt in range(max_retries):
+    """POST with 429 back-off. Returns the final response un-raised so callers
+    keep their own raise_for_status / redirect handling."""
+    attempts = max(1, max_retries)
+    attempt = 0
+    while True:
         response = await client.post(url, **request_kwargs)
-        if response.status_code != 429 or attempt == max_retries - 1:
-            break
+        attempt += 1
+        if response.status_code != 429 or attempt >= attempts:
+            return response
         await asyncio.sleep(
-            retry_delay_seconds(response.headers.get("retry-after"), attempt)
+            retry_delay_seconds(response.headers.get("retry-after"), attempt - 1)
         )
-    assert response is not None
-    return response

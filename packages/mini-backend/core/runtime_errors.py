@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Literal
+
+from typing_extensions import TypedDict
 
 
 _MEMORY_ERROR_PATTERNS = (
@@ -21,6 +23,18 @@ _STAGE_LABELS: dict[str, str] = {
     "enhance": "Image enhancement",
     "segment": "Segmentation",
 }
+
+
+class RuntimeErrorDetail(TypedDict):
+    error: str
+    code: Literal["INSUFFICIENT_VRAM", "RUNTIME_ERROR"]
+    stage: str
+    stage_label: str
+    model_key: str
+    backend: Literal["gpu", "cpu"]
+    cpu_fallback_attempted: bool
+    cpu_fallback_error: str | None
+    raw_detail: str
 
 
 def flatten_exception_message(error: BaseException) -> str:
@@ -51,7 +65,7 @@ def build_runtime_error_detail(
     used_gpu: bool,
     cpu_fallback_attempted: bool = False,
     cpu_fallback_error: BaseException | None = None,
-) -> dict[str, Any]:
+) -> RuntimeErrorDetail:
     stage_label = _STAGE_LABELS.get(stage, stage)
     resolved_model = (model_key or "auto").strip() or "auto"
     raw_detail = flatten_exception_message(error)

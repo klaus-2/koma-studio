@@ -5,6 +5,7 @@ from typing import Any
 
 from core.languages import normalize_language_code
 from core.device import (
+    register_gpu_cache_releaser,
     DeviceInfo,
     build_cpu_device_info,
     get_device_info,
@@ -547,6 +548,7 @@ def list_ocr_models(
     return options
 
 
+@register_gpu_cache_releaser
 def clear_ocr_cache() -> None:
     _OCR_CACHE.clear()
 

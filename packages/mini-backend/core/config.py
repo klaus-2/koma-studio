@@ -3,8 +3,55 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import json
+import math
 import os
 import re
+
+
+_FALSE_STRINGS = frozenset({"", "0", "false", "no", "off"})
+
+
+def _as_bool(value: object, fallback: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int | float):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() not in _FALSE_STRINGS
+    return fallback
+
+
+def _as_float(
+    value: object, fallback: float, minimum: float, maximum: float
+) -> float:
+    if isinstance(value, bool) or value is None:
+        return fallback
+    if isinstance(value, int | float):
+        parsed = float(value)
+    elif isinstance(value, str):
+        try:
+            parsed = float(value)
+        except ValueError:
+            return fallback
+    else:
+        return fallback
+    if not math.isfinite(parsed):  # "nan"/"inf" would survive min/max clamping
+        return fallback
+    return max(minimum, min(parsed, maximum))
+
+
+def _as_int(value: object, fallback: int, minimum: int, maximum: int) -> int:
+    if isinstance(value, bool) or value is None:
+        return fallback
+    if isinstance(value, int):
+        return max(minimum, min(value, maximum))
+    if isinstance(value, float | str):
+        try:
+            parsed = int(float(value))
+        except (ValueError, OverflowError):
+            return fallback
+        return max(minimum, min(parsed, maximum))
+    return fallback
 
 
 _MODEL_NAME_PATTERN = re.compile(r"[^a-z0-9]+")
@@ -74,28 +121,6 @@ def normalize_stage_model_key(stage: str, value: str | None) -> str:
     return TRANSLATOR_MODEL_ALIASES.get(slug, slug)
 
 
-def _as_float(
-    value: str | None, fallback: float, minimum: float, maximum: float
-) -> float:
-    if value is None:
-        return fallback
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError):
-        return fallback
-    return max(minimum, min(parsed, maximum))
-
-
-def _as_int(value: str | None, fallback: int, minimum: int, maximum: int) -> int:
-    if value is None:
-        return fallback
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return fallback
-    return max(minimum, min(parsed, maximum))
-
-
 @dataclass(frozen=True)
 class MiniBackendConfig:
     environment: str
@@ -137,26 +162,14 @@ def clamp_llm_request_settings(
         raw = value
 
     extra_context = str(raw.get("extra_context") or "").strip()
-    image_input_enabled = bool(raw.get("image_input_enabled", True))
-    translation_notes_enabled = bool(raw.get("translation_notes_enabled", True))
-    neighbor_image_context_enabled = bool(
-        raw.get("neighbor_image_context_enabled", False)
+    image_input_enabled = _as_bool(raw.get("image_input_enabled"), True)
+    translation_notes_enabled = _as_bool(raw.get("translation_notes_enabled"), True)
+    neighbor_image_context_enabled = _as_bool(
+        raw.get("neighbor_image_context_enabled"), False
     )
-    temperature = _as_float(
-        str(raw.get("temperature")) if raw.get("temperature") is not None else None,
-        0.2,
-        0.0,
-        2.0,
-    )
-    top_p = _as_float(
-        str(raw.get("top_p")) if raw.get("top_p") is not None else None, 0.95, 0.0, 1.0
-    )
-    max_tokens = _as_int(
-        str(raw.get("max_tokens")) if raw.get("max_tokens") is not None else None,
-        4096,
-        128,
-        8192,
-    )
+    temperature = _as_float(raw.get("temperature"), 0.2, 0.0, 2.0)
+    top_p = _as_float(raw.get("top_p"), 0.95, 0.0, 1.0)
+    max_tokens = _as_int(raw.get("max_tokens"), 4096, 128, 8192)
 
     return LLMRequestSettings(
         extra_context=extra_context,

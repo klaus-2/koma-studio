@@ -4,6 +4,7 @@ from collections import OrderedDict
 from typing import Any
 
 from core.models_store import model_is_installed
+from core.device import register_gpu_cache_releaser
 from models.segmentation.baka_segmenter import BakaContentSegmenter
 from models.segmentation.base_segmenter import BaseSegmenter
 from models.segmentation.storage import segmentation_runtime_ready
@@ -97,6 +98,7 @@ def get_segmenter(
     return segmenter
 
 
+@register_gpu_cache_releaser
 def clear_segmenter_cache() -> None:
     _SEGMENTER_CACHE.clear()
 
