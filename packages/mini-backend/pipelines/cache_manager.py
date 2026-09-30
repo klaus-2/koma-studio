@@ -155,7 +155,7 @@ class CacheManager:
 
             if merged:
                 self._ocr_cache[cache_key] = _TimedCacheEntry(
-                    cached_at=time.time(),
+                    cached_at=time.monotonic(),
                     payload=merged,
                 )
                 self._ocr_cache.move_to_end(cache_key)
@@ -232,7 +232,7 @@ class CacheManager:
 
             if merged:
                 self._translation_cache[cache_key] = _TimedCacheEntry(
-                    cached_at=time.time(),
+                    cached_at=time.monotonic(),
                     payload=merged,
                 )
                 self._translation_cache.move_to_end(cache_key)
@@ -304,10 +304,10 @@ class CacheManager:
     def _hash_image_bytes(self, image_bytes: bytes) -> str:
         if not image_bytes:
             return "empty-image"
-        if len(image_bytes) <= 4096:
-            return hashlib.sha256(image_bytes).hexdigest()
-        sampled = image_bytes[::97]
-        return hashlib.sha256(sampled).hexdigest()
+        # Full-content digest. Sampling every N-th byte let two different pages
+        # collide and serve each other's OCR. blake2b stays under ~10 ms for a
+        # 10 MB scan — noise next to a single OCR call.
+        return hashlib.blake2b(image_bytes, digest_size=32).hexdigest()
 
     def _stable_hash(self, payload: dict[str, Any]) -> str:
         encoded = json.dumps(
@@ -319,7 +319,7 @@ class CacheManager:
         return hashlib.sha256(encoded).hexdigest()
 
     def _cleanup_cache(self, cache: OrderedDict[str, _TimedCacheEntry]) -> None:
-        now = time.time()
+        now = time.monotonic()
         expired_keys = [
             key for key, entry in cache.items() if (now - entry.cached_at) >= self.ttl_seconds
         ]
@@ -338,7 +338,7 @@ class CacheManager:
         entry = cache.get(key)
         if entry is None:
             return None
-        if (time.time() - entry.cached_at) >= self.ttl_seconds:
+        if (time.monotonic() - entry.cached_at) >= self.ttl_seconds:
             cache.pop(key, None)
             return None
         cache.move_to_end(key)

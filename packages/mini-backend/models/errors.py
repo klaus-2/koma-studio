@@ -49,3 +49,7 @@ class GpuOutOfMemoryError(InferenceError):
 
 class InvalidModelOutputError(InferenceError):
     """Model produced an output with unexpected shape or content."""
+
+
+class InvalidInputImageError(ModelError):
+    """Caller supplied bytes that do not decode to an image."""

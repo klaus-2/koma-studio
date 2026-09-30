@@ -146,7 +146,10 @@ class PipelineCacheManagerTests(unittest.TestCase):
             ],
         )
 
-        manager._translation_cache[key].cached_at = time.time() - 9999  # noqa: SLF001
+        # Entries are timestamped with time.monotonic(); aging via wall clock
+        # would go backwards. Simulate an expired entry with a huge negative
+        # monotonic offset instead.
+        manager._translation_cache[key].cached_at = time.monotonic() - 9999  # noqa: SLF001
         hits, missing = manager.get_cached_translations_for_regions(
             key,
             [{"id": "r1", "text": "a", "source": "model", "detector_model_key": "", "ocr_model_key": ""}],

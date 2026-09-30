@@ -1,27 +1,36 @@
+"""Segmentation contract. Implementations are synchronous and CPU-bound; the
+public ``segment`` coroutine offloads them so the event loop is never blocked."""
+
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Literal
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import ClassVar, Literal
+
+from models.geometry import BBox
+
+type RegionSource = Literal["model", "manual"]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SegmentInputRegion:
     id: str
-    bbox: tuple[int, int, int, int]
-    source: Literal["model", "manual"] = "model"
+    bbox: BBox
+    source: RegionSource = "model"
     detector_model_key: str = ""
     ocr_model_key: str = ""
     translator_model_key: str = ""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SegmentResultRegion:
     id: str
-    bbox: tuple[int, int, int, int]
-    segment_boxes: list[tuple[int, int, int, int]] = field(default_factory=list)
-    merged_boxes: list[tuple[int, int, int, int]] = field(default_factory=list)
-    source: Literal["model", "manual"] = "model"
+    bbox: BBox
+    segment_boxes: tuple[BBox, ...] = ()
+    merged_boxes: tuple[BBox, ...] = ()
+    source: RegionSource = "model"
     detector_model_key: str = ""
     ocr_model_key: str = ""
     translator_model_key: str = ""
@@ -30,20 +39,20 @@ class SegmentResultRegion:
 
 
 class BaseSegmenter(ABC):
-    key: str = "base_segmenter"
-    name: str = "Base Segmenter"
+    key: ClassVar[str] = "base_segmenter"
+    name: ClassVar[str] = "Base Segmenter"
 
     async def segment(
         self,
         image_bytes: bytes,
-        regions: list[SegmentInputRegion],
+        regions: Sequence[SegmentInputRegion],
     ) -> list[SegmentResultRegion]:
-        return self._segment(image_bytes=image_bytes, regions=regions)
+        return await asyncio.to_thread(self._segment, image_bytes, tuple(regions))
 
     @abstractmethod
     def _segment(
         self,
         image_bytes: bytes,
-        regions: list[SegmentInputRegion],
+        regions: Sequence[SegmentInputRegion],
     ) -> list[SegmentResultRegion]:
-        raise NotImplementedError
+        """Synchronous implementation. Must be safe to call from worker threads."""
