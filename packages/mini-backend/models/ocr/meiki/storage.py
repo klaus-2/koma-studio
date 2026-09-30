@@ -1,67 +1,63 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Final
 
 from core.hf_download import ensure_file_from_hf
 from core.models_store import resolve_model_dir
+from models.ocr.common import (
+    InstalledFilePayload,
+    InstallPayload,
+    ModelsRootNotConfiguredError,
+    missing_files,
+)
 
-
-_MEIKI_MODEL_ID = "meiki_ocr"
-_MEIKI_REPO = "rtr46/meiki.txt.recognition.v0"
-_MEIKI_FILES: list[dict[str, str]] = [
-    {
-        "target": "meiki.text.rec.v0.960x32.onnx",
-        "candidate": "meiki.text.rec.v0.960x32.onnx",
-    },
-    {
-        "target": "meiki.text.rec.v0.vertical.32x480.onnx",
-        "candidate": "meiki.text.rec.v0.vertical.32x480.onnx",
-    },
-]
+MEIKI_MODEL_ID: Final = "meiki_ocr"
+MEIKI_HF_REPO: Final = "rtr46/meiki.txt.recognition.v0"
+MEIKI_HORIZONTAL_MODEL_FILE: Final = "meiki.text.rec.v0.960x32.onnx"
+MEIKI_VERTICAL_MODEL_FILE: Final = "meiki.text.rec.v0.vertical.32x480.onnx"
+MEIKI_MODEL_FILES: Final[tuple[str, ...]] = (
+    MEIKI_HORIZONTAL_MODEL_FILE,
+    MEIKI_VERTICAL_MODEL_FILE,
+)
 
 
 def resolve_meiki_model_dir() -> Path | None:
-    return resolve_model_dir(_MEIKI_MODEL_ID)
+    return resolve_model_dir(MEIKI_MODEL_ID)
 
 
 def meiki_runtime_ready() -> bool:
     model_dir = resolve_meiki_model_dir()
-    if model_dir is None:
-        return False
-    return all((model_dir / item["target"]).exists() for item in _MEIKI_FILES)
+    return model_dir is not None and not missing_files(model_dir, MEIKI_MODEL_FILES)
 
 
-def ensure_meiki_models_installed() -> dict[str, Any]:
+def ensure_meiki_models_installed() -> InstallPayload:
     model_dir = resolve_meiki_model_dir()
     if model_dir is None:
-        raise RuntimeError(
-            "KOMA_MODELS_ROOT is not configured for managed Meiki OCR installs.",
-        )
+        raise ModelsRootNotConfiguredError(MEIKI_MODEL_ID)
 
     model_dir.mkdir(parents=True, exist_ok=True)
-    files_payload: list[dict[str, Any]] = []
-    for item in _MEIKI_FILES:
-        target_path = model_dir / item["target"]
+    files: list[InstalledFilePayload] = []
+    for filename in MEIKI_MODEL_FILES:
         payload = ensure_file_from_hf(
-            repo=_MEIKI_REPO,
-            candidate_paths=[item["candidate"]],
-            target_path=target_path,
+            repo=MEIKI_HF_REPO,
+            candidate_paths=[filename],
+            target_path=model_dir / filename,
             revision="main",
         )
-        files_payload.append(
-            {
-                "target": item["target"],
-                "source": payload["path"],
-                "sha256": payload["sha256"],
-                "downloaded": payload["downloaded"],
-            }
+        files.append(
+            InstalledFilePayload(
+                target=filename,
+                source=str(payload["path"]),
+                sha256=str(payload["sha256"]),
+                downloaded=bool(payload["downloaded"]),
+            )
         )
 
-    return {
-        "modelId": _MEIKI_MODEL_ID,
-        "directory": str(model_dir),
-        "fileCount": len(files_payload),
-        "files": files_payload,
-        "repo": _MEIKI_REPO,
-    }
+    return InstallPayload(
+        modelId=MEIKI_MODEL_ID,
+        directory=str(model_dir),
+        fileCount=len(files),
+        files=files,
+        repo=MEIKI_HF_REPO,
+    )

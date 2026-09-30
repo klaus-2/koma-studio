@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
+import logging
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Sequence
 
 import cv2
@@ -11,7 +13,21 @@ from PIL import Image
 
 from core.device import get_device_info, get_onnx_execution_providers
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
+from models.ocr.common import (
+    LazyRuntime,
+    ModelFilesMissingError,
+    ModelsRootNotConfiguredError,
+    OcrEngineError,
+    build_result,
+    missing_files,
+)
 from models.ocr.paddleocr.storage import resolve_paddleocr_model_dir
+
+logger = logging.getLogger(__name__)
+
+
+class PaddleModelContractError(OcrEngineError):
+    """The recogniser emitted logits that do not fit any known CTC layout."""
 
 
 def _resolve_static_dim(value: object, fallback: int) -> int:
@@ -26,10 +42,20 @@ def _resolve_static_dim(value: object, fallback: int) -> int:
     return fallback
 
 
+@dataclass(frozen=True, slots=True)
+class _PaddleRuntime:
+    session: ort.InferenceSession
+    det_session: ort.InferenceSession
+    decoder: "CTCLabelDecoder"
+
+
 class CTCLabelDecoder:
     def __init__(self, dict_path: str | Path):
+        # splitlines() handles LF and CRLF alike; the previous strip("\n") left
+        # a "\r" on every entry and the printable filter then silently dropped
+        # the whole dictionary -> OCR always returned empty on such installs.
         with open(dict_path, "r", encoding="utf-8") as handle:
-            self.dict_chars = [line.strip("\n") for line in handle]
+            self.dict_chars = handle.read().splitlines()
 
     def __call__(
         self, logits: np.ndarray, prob_threshold: float = 0.0
@@ -94,8 +120,10 @@ def rec_resize_norm(
     ratio = w / float(max(1, h))
     if max_wh_ratio is None:
         max_wh_ratio = target_w / float(target_h)
-
-    padded_w = int(target_h * max_wh_ratio)
+    # Reference behaviour: max(imgW/imgH, targetW/targetH) — a floor on the
+    # padded width so square crops are not narrowed below the model's design
+    # aspect (the old code let a bare max_wh_ratio shrink the input).
+    padded_w = max(1, int(target_h * max(max_wh_ratio, target_w / float(target_h))))
     resized_w = min(padded_w, max(1, int(np.ceil(target_h * ratio))))
     resized = cv2.resize(image, (resized_w, target_h), interpolation=cv2.INTER_LINEAR)
     x = resized.astype(np.float32) / 255.0
@@ -149,38 +177,32 @@ class PPOCRV5RecEngine(BaseOCR):
         self.det_unclip_ratio = 2.0
         self.det_use_dilation = False
 
-        self.session: ort.InferenceSession | None = None
-        self.det_session: ort.InferenceSession | None = None
-        self.decoder: CTCLabelDecoder | None = None
+        self._runtime: LazyRuntime[_PaddleRuntime] = LazyRuntime(self._load_runtime)
 
-    def _ensure_session(self) -> None:
-        if (
-            self.session is not None
-            and self.det_session is not None
-            and self.decoder is not None
-        ):
-            return
-        if (
-            not self.model_path.exists()
-            or not self.dict_path.exists()
-            or not self.det_model_path.exists()
-        ):
-            raise FileNotFoundError(
-                f"paddleocr models not found in {self.model_dir}",
-            )
-        self.det_session = ort.InferenceSession(
+    def _load_runtime(self) -> _PaddleRuntime:
+        missing = missing_files(
+            self.model_dir, (self.det_model_path.name, self.model_path.name, self.dict_path.name)
+        )
+        if missing:
+            raise ModelFilesMissingError(self.model_dir, missing)
+        det_session = ort.InferenceSession(
             str(self.det_model_path), providers=self.providers
         )
-        self.session = ort.InferenceSession(
+        session = ort.InferenceSession(
             str(self.model_path), providers=self.providers
         )
-        model_input_shape = self.session.get_inputs()[0].shape
+        model_input_shape = session.get_inputs()[0].shape
         if isinstance(model_input_shape, (list, tuple)) and len(model_input_shape) >= 4:
             channels = _resolve_static_dim(model_input_shape[1], self.img_shape[0])
             height = _resolve_static_dim(model_input_shape[2], self.img_shape[1])
             width = _resolve_static_dim(model_input_shape[3], self.img_shape[2])
             self.img_shape = (channels, height, width)
-        self.decoder = CTCLabelDecoder(self.dict_path)
+        decoder = CTCLabelDecoder(self.dict_path)
+        logger.info(
+            "paddleocr_sessions_loaded",
+            extra={"model_dir": str(self.model_dir), "requested_providers": self.providers},
+        )
+        return _PaddleRuntime(session=session, det_session=det_session, decoder=decoder)
 
     def _expand_box(
         self,
@@ -205,8 +227,9 @@ class PPOCRV5RecEngine(BaseOCR):
     def _run_recognition(
         self, crops: list[np.ndarray]
     ) -> tuple[list[str], list[float]]:
-        assert self.session is not None
-        assert self.decoder is not None
+        runtime = self._runtime.get()
+        session = runtime.session
+        decoder = runtime.decoder
         if not crops:
             return [], []
 
@@ -214,8 +237,8 @@ class PPOCRV5RecEngine(BaseOCR):
         order = np.argsort(ratios)
         texts = [""] * len(crops)
         scores = [0.0] * len(crops)
-        input_name = self.session.get_inputs()[0].name
-        output_name = self.session.get_outputs()[0].name
+        input_name = session.get_inputs()[0].name
+        output_name = session.get_outputs()[0].name
         c, h, w = self.img_shape
 
         for start in range(0, len(crops), self.batch_size):
@@ -228,15 +251,36 @@ class PPOCRV5RecEngine(BaseOCR):
                 for idx in batch_indices
             ]
             x = np.concatenate(batch, axis=0).astype(np.float32)
-            logits = self.session.run([output_name], {input_name: x})[0]
-            if logits.ndim == 3 and logits.shape[1] > logits.shape[2]:
-                logits = np.transpose(logits, (0, 2, 1))
-            decoded_texts, decoded_scores = self.decoder(logits, prob_threshold=0.0)
+            logits = np.asarray(session.run([output_name], {input_name: x})[0])
+            logits = self._orient_logits(logits, decoder)
+            decoded_texts, decoded_scores = decoder(logits, prob_threshold=0.0)
             for idx, text, score in zip(batch_indices, decoded_texts, decoded_scores):
                 texts[int(idx)] = text
                 scores[int(idx)] = float(score)
 
         return texts, scores
+
+    def _orient_logits(self, logits: np.ndarray, decoder: CTCLabelDecoder) -> np.ndarray:
+        """Guarantee (N, T, C) with C on the last axis.
+
+        The old shape-only heuristic (transpose when T > C) silently transposed
+        correct tensors for small dictionaries: with the latin dict (~200
+        classes) and wide crops, T > C is the NORMAL case. The dictionary size
+        is the reliable discriminator — the class axis always carries at least
+        dict_len + 1 entries.
+        """
+        if logits.ndim != 3:
+            raise PaddleModelContractError(
+                f"Expected 3-D recognition logits, got shape {logits.shape}"
+            )
+        min_classes = len(decoder.dict_chars) + 1
+        if logits.shape[2] >= min_classes:
+            return logits
+        if logits.shape[1] >= min_classes:
+            return np.ascontiguousarray(np.transpose(logits, (0, 2, 1)))
+        raise PaddleModelContractError(
+            f"Neither axis matches the dictionary ({logits.shape} vs dict {len(decoder.dict_chars)})."
+        )
 
     @staticmethod
     def _resize_keep_stride(
@@ -301,44 +345,26 @@ class PPOCRV5RecEngine(BaseOCR):
     ) -> list[tuple[int, int, int, int, float]]:
         if not boxes:
             return []
-        ordered = sorted(boxes, key=lambda item: item[4], reverse=True)
-        kept: list[tuple[int, int, int, int, float]] = []
-        for candidate in ordered:
-            x1, y1, x2, y2, score = candidate
-            area = max(1, x2 - x1) * max(1, y2 - y1)
-            should_keep = True
-            for existing in kept:
-                ex1, ey1, ex2, ey2, _ = existing
-                ix1 = max(x1, ex1)
-                iy1 = max(y1, ey1)
-                ix2 = min(x2, ex2)
-                iy2 = min(y2, ey2)
-                iw = max(0, ix2 - ix1)
-                ih = max(0, iy2 - iy1)
-                inter = iw * ih
-                if inter == 0:
-                    continue
-                existing_area = max(1, ex2 - ex1) * max(1, ey2 - ey1)
-                union = area + existing_area - inter
-                if union <= 0:
-                    continue
-                iou = inter / float(union)
-                if iou >= iou_thresh:
-                    should_keep = False
-                    break
-            if should_keep:
-                kept.append((x1, y1, x2, y2, score))
-        return kept
+        # cv2's NMS is the same greedy highest-score-first suppression, in C;
+        # the pure-Python O(n²) version stalled on dense pages (up to 1200
+        # contour candidates).
+        rects = [(float(b[0]), float(b[1]), float(b[2] - b[0]), float(b[3] - b[1])) for b in boxes]
+        scores = [float(b[4]) for b in boxes]
+        indices = cv2.dnn.NMSBoxes(
+            rects, scores, score_threshold=0.0, nms_threshold=float(iou_thresh)
+        )
+        keep = np.asarray(indices, dtype=np.int64).reshape(-1)
+        return [boxes[int(i)] for i in keep]
 
     def _detect_text_boxes(
         self, image_bgr: np.ndarray
     ) -> list[tuple[int, int, int, int, float]]:
-        assert self.det_session is not None
+        det_session = self._runtime.get().det_session
         img_h, img_w = image_bgr.shape[:2]
         x, resized_h, resized_w = self._det_preprocess(image_bgr)
-        input_name = self.det_session.get_inputs()[0].name
-        output_name = self.det_session.get_outputs()[0].name
-        pred = self.det_session.run([output_name], {input_name: x})[0]
+        input_name = det_session.get_inputs()[0].name
+        output_name = det_session.get_outputs()[0].name
+        pred = np.asarray(det_session.run([output_name], {input_name: x})[0])
         if pred.ndim == 4:
             prob_map = pred[0, 0]
         elif pred.ndim == 3:
@@ -577,7 +603,7 @@ class PPOCRV5RecEngine(BaseOCR):
         regions: list[OCRInputRegion],
         language: str = "en",
     ) -> list[OCRTextResult]:
-        self._ensure_session()
+        self._runtime.get()  # fail fast with the typed error when models are missing
         bgr = cv2.cvtColor(np.asarray(image.convert("RGB")), cv2.COLOR_RGB2BGR)
         img_h, img_w = bgr.shape[:2]
 
@@ -588,62 +614,28 @@ class PPOCRV5RecEngine(BaseOCR):
         for idx, region in enumerate(regions):
             x1, y1, x2, y2 = self._expand_box(region.bbox, img_w, img_h)
             if x2 <= x1 or y2 <= y1:
-                results.append(
-                    OCRTextResult(
-                        id=region.id,
-                        bbox=region.bbox,
-                        text="",
-                        score=0.0,
-                        source=region.source,
-                        detector_model_key=region.detector_model_key,
-                        model_key=self.key,
-                    ),
-                )
+                results.append(build_result(region, model_key=self.key))
                 continue
 
             crop = bgr[y1:y2, x1:x2]
             if crop.size == 0:
-                results.append(
-                    OCRTextResult(
-                        id=region.id,
-                        bbox=region.bbox,
-                        text="",
-                        score=0.0,
-                        source=region.source,
-                        detector_model_key=region.detector_model_key,
-                        model_key=self.key,
-                    ),
-                )
+                results.append(build_result(region, model_key=self.key))
                 continue
 
             valid_indices.append(idx)
             crops.append(crop)
-            results.append(
-                OCRTextResult(
-                    id=region.id,
-                    bbox=region.bbox,
-                    text="",
-                    score=0.0,
-                    source=region.source,
-                    detector_model_key=region.detector_model_key,
-                    model_key=self.key,
-                ),
-            )
+            results.append(build_result(region, model_key=self.key))
 
         if not crops:
             return results
 
         texts, scores = self._run_recognition(crops)
         for local_idx, global_idx in enumerate(valid_indices):
-            current = results[global_idx]
-            results[global_idx] = OCRTextResult(
-                id=current.id,
-                bbox=current.bbox,
+            results[global_idx] = build_result(
+                regions[global_idx],
+                model_key=self.key,
                 text=texts[local_idx],
                 score=scores[local_idx],
-                source=current.source,
-                detector_model_key=current.detector_model_key,
-                model_key=current.model_key,
             )
 
         fallback_indices = [
@@ -672,14 +664,11 @@ class PPOCRV5RecEngine(BaseOCR):
                         language,
                     ):
                         continue
-                    results[idx] = OCRTextResult(
-                        id=current.id,
-                        bbox=current.bbox,
+                    results[idx] = build_result(
+                        regions[idx],
+                        model_key=self.key,
                         text=text,
                         score=score,
-                        source=current.source,
-                        detector_model_key=current.detector_model_key,
-                        model_key=current.model_key,
                     )
         return results
 

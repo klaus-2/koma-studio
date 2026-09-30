@@ -1,31 +1,154 @@
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Final, Protocol, cast
 
 from PIL import Image
 
 from core.device import get_device_info
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
+from models.ocr.common import (
+    LazyRuntime,
+    ModelFilesMissingError,
+    ModelLoadError,
+    RuntimeDependencyMissingError,
+    build_result,
+    crop_region,
+    normalize_generated_text,
+)
+
+if TYPE_CHECKING:
+    import torch
+
+logger = logging.getLogger(__name__)
+
+type PromptBuilder = Callable[[str], str]  # language -> prompt
+
+_MIN_NEW_TOKENS: Final = 32
+# Ordered by specificity; transformers raises ValueError when a config is not
+# registered for a given auto-class, which is the only signal that we should
+# try the next one.
+_AUTO_MODEL_CLASSES: Final[tuple[str, ...]] = (
+    "AutoModelForImageTextToText",
+    "AutoModelForVision2Seq",
+    "AutoModelForCausalLM",
+)
 
 
-def _normalize_generated_text(raw_text: str) -> str:
-    cleaned = str(raw_text or "").strip()
-    for prefix in ("assistant\n", "assistant:", "Assistant:", "OCR:", "Text Recognition:"):
-        if cleaned.startswith(prefix):
-            cleaned = cleaned[len(prefix):].strip()
-    cleaned = cleaned.replace("<|im_end|>", "").replace("<|endoftext|>", "").strip()
-    return " ".join(cleaned.split())
+class _GenerationConfig(Protocol):
+    pad_token_id: int | None
+    eos_token_id: int | list[int] | None
 
 
-def _default_prompt(model_key: str, language: str) -> str:
-    if model_key == "rolmocr":
-        return "Return the plain text representation of this image region as if you were reading it naturally."
-    if model_key == "mangalmm":
-        return "Read all visible text in this manga image region and return only the recognized text in reading order."
-    if model_key == "got_ocr2":
-        return "OCR the provided image region and return only the recognized text in reading order."
-    return f"Perform OCR on this image region. The source language is {language}. Return only the recognized text."
+class _GenerateOutput(Protocol):
+    sequences: "torch.Tensor"
+    scores: "tuple[torch.Tensor, ...] | None"
+
+
+class VlmModel(Protocol):
+    generation_config: _GenerationConfig
+
+    def to(self, device: str) -> VlmModel: ...
+    def eval(self) -> VlmModel: ...
+    def generate(self, **kwargs: object) -> _GenerateOutput: ...
+    def compute_transition_scores(
+        self,
+        sequences: "torch.Tensor",
+        scores: "tuple[torch.Tensor, ...]",
+        *,
+        normalize_logits: bool,
+    ) -> "torch.Tensor": ...
+
+
+class VlmProcessor(Protocol):
+    chat_template: str | None
+    tokenizer: object
+
+    def __call__(self, **kwargs: object) -> Mapping[str, object]: ...
+    def apply_chat_template(
+        self,
+        conversation: Sequence[Mapping[str, object]],
+        *,
+        tokenize: bool,
+        add_generation_prompt: bool,
+    ) -> str: ...
+    def batch_decode(self, sequences: "torch.Tensor", *, skip_special_tokens: bool) -> list[str]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class VlmProfile:
+    prompt: PromptBuilder
+    trust_remote_code: bool = False
+    # GOT-OCR2's processor renders its own prompt and rejects `text=`.
+    image_only_inputs: bool = False
+    stop_strings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class _LoadedRuntime:
+    model: VlmModel
+    processor: VlmProcessor
+    device: str
+
+
+def _generic_prompt(language: str) -> str:
+    return (
+        f"Perform OCR on this image region. The source language is {language}. "
+        "Return only the recognized text."
+    )
+
+
+VLM_PROFILES: Final[Mapping[str, VlmProfile]] = {
+    "rolmocr": VlmProfile(
+        prompt=lambda _: (
+            "Return the plain text representation of this image region as if you were reading it naturally."
+        ),
+    ),
+    "mangalmm": VlmProfile(
+        prompt=lambda _: (
+            "Read all visible text in this manga image region and return only the recognized text in reading order."
+        ),
+    ),
+    "got_ocr2": VlmProfile(
+        prompt=lambda _: "OCR the provided image region and return only the recognized text in reading order.",
+        image_only_inputs=True,
+        stop_strings=("<|im_end|>",),
+    ),
+    "paddleocr_vl_1_5": VlmProfile(
+        prompt=lambda _: "OCR:",
+        trust_remote_code=True,
+    ),
+}
+_DEFAULT_PROFILE: Final = VlmProfile(prompt=_generic_prompt)
+
+
+def _token_ids(value: int | list[int] | None) -> frozenset[int]:
+    if value is None:
+        return frozenset()
+    return frozenset([value]) if isinstance(value, int) else frozenset(value)
+
+
+def _mean_token_probability(
+    log_probs: "torch.Tensor",
+    tokens: "torch.Tensor",
+    ignored_token_ids: frozenset[int],
+) -> float:
+    import torch
+
+    length = min(int(log_probs.shape[0]), int(tokens.shape[0]))
+    if length == 0:
+        return 0.0
+    log_probs = log_probs[:length]
+    tokens = tokens[:length]
+    if ignored_token_ids:
+        ignored = torch.tensor(sorted(ignored_token_ids), device=tokens.device)
+        log_probs = log_probs[~torch.isin(tokens, ignored)]
+    if log_probs.numel() == 0:
+        return 0.0
+    return float(log_probs.exp().mean().item())
 
 
 class TransformersVlmOcrEngine(BaseOCR):
@@ -36,190 +159,146 @@ class TransformersVlmOcrEngine(BaseOCR):
         name: str,
         model_dir: str | Path,
         max_new_tokens: int = 256,
-        prompt_builder: Callable[[str, str], str] | None = None,
+        profile: VlmProfile | None = None,
         use_gpu: bool | None = None,
     ) -> None:
         self.key = key
         self.name = name
-        self.model_dir = Path(model_dir).expanduser().resolve()
-        self.max_new_tokens = max(32, int(max_new_tokens))
-        self.prompt_builder = prompt_builder or _default_prompt
+        self.model_dir: Path = Path(model_dir).expanduser().resolve()
+        self.max_new_tokens: int = max(_MIN_NEW_TOKENS, max_new_tokens)
+        self.profile: VlmProfile = profile or VLM_PROFILES.get(key, _DEFAULT_PROFILE)
         self._use_gpu = use_gpu
-        self.model: Any = None
-        self.processor: Any = None
-        self.device: str | None = None
+        self._runtime: LazyRuntime[_LoadedRuntime] = LazyRuntime(self._load_runtime)
 
-    def _ensure_runtime(self) -> None:
-        if self.model is not None and self.processor is not None:
-            return
+    def _load_runtime(self) -> _LoadedRuntime:
         try:
-            import torch  # type: ignore
-            import transformers  # type: ignore
-        except Exception as exc:
-            raise RuntimeError("OCR VLM dependencies (torch/transformers) are not installed.") from exc
+            import torch
+            import transformers
+        except ImportError as exc:
+            raise RuntimeDependencyMissingError(self.key, "torch/transformers") from exc
 
-        if not self.model_dir.exists():
-            raise FileNotFoundError(f"VLM model not found in {self.model_dir}")
+        if not self.model_dir.is_dir():
+            raise ModelFilesMissingError(self.model_dir, ("config.json",))
 
-        force_gpu = self._use_gpu if self._use_gpu is not None else get_device_info().has_gpu
-        self.device = "cuda" if force_gpu and torch.cuda.is_available() else "cpu"
-        torch_dtype = torch.float16 if self.device == "cuda" else torch.float32
+        use_gpu = self._use_gpu if self._use_gpu is not None else get_device_info().has_gpu
+        device = "cuda" if use_gpu and torch.cuda.is_available() else "cpu"
+        dtype = torch.float16 if device == "cuda" else torch.float32
 
-        auto_processor = getattr(transformers, "AutoProcessor")
-        self.processor = auto_processor.from_pretrained(
-            str(self.model_dir),
-            local_files_only=True,
+        processor = cast(
+            VlmProcessor,
+            transformers.AutoProcessor.from_pretrained(
+                str(self.model_dir),
+                local_files_only=True,
+                trust_remote_code=self.profile.trust_remote_code,
+            ),
         )
+        model = self._instantiate_model(transformers, dtype)
+        model.to(device)
+        model.eval()
+        logger.info(
+            "vlm_runtime_loaded",
+            extra={"engine": self.key, "device": device, "model_dir": str(self.model_dir)},
+        )
+        return _LoadedRuntime(model=model, processor=processor, device=device)
 
-        model_error: Exception | None = None
-        for class_name in ("AutoModelForImageTextToText", "AutoModelForVision2Seq", "AutoModelForCausalLM"):
-            model_cls = getattr(transformers, class_name, None)
-            if model_cls is None:
+    def _instantiate_model(self, transformers: object, dtype: "torch.dtype") -> VlmModel:
+        last_error: ValueError | None = None
+        for class_name in _AUTO_MODEL_CLASSES:
+            auto_cls = getattr(transformers, class_name, None)
+            if auto_cls is None:
                 continue
             try:
-                self.model = model_cls.from_pretrained(
-                    str(self.model_dir),
-                    local_files_only=True,
-                    torch_dtype=torch_dtype,
-                    low_cpu_mem_usage=True,
+                return cast(
+                    VlmModel,
+                    auto_cls.from_pretrained(
+                        str(self.model_dir),
+                        local_files_only=True,
+                        torch_dtype=dtype,
+                        low_cpu_mem_usage=True,
+                        trust_remote_code=self.profile.trust_remote_code,
+                    ),
                 )
-                break
-            except Exception as exc:
-                model_error = exc
-                self.model = None
-        if self.model is None:
-            raise RuntimeError(
-                f"Could not load the local VLM model '{self.key}' with the available auto-classes."
-            ) from model_error
-        self.model.to(self.device)
-        self.model.eval()
-
-    @staticmethod
-    def _crop_region(image: Image.Image, region: OCRInputRegion) -> Image.Image:
-        width, height = image.size
-        x1, y1, x2, y2 = region.bbox
-        left = max(0, min(x1, x2))
-        top = max(0, min(y1, y2))
-        right = min(width, max(x1, x2))
-        bottom = min(height, max(y1, y2))
-        if right <= left or bottom <= top:
-            return Image.new("RGB", (8, 8), "white")
-        return image.crop((left, top, right, bottom)).convert("RGB")
-
-    @staticmethod
-    def _resolve_input_length(inputs: dict[str, Any]) -> int:
-        input_ids = inputs.get("input_ids")
-        shape = getattr(input_ids, "shape", None)
-        if shape is not None and len(shape) > 1:
-            return int(shape[1])
-        if isinstance(input_ids, list) and input_ids:
-            first_item = input_ids[0]
-            if isinstance(first_item, list):
-                return len(first_item)
-        return 0
-
-    def _build_inputs(self, crop: Image.Image, prompt: str) -> tuple[dict[str, Any], int]:
-        assert self.processor is not None
-        if hasattr(self.processor, "apply_chat_template"):
-            messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image", "image": crop},
-                        {"type": "text", "text": prompt},
-                    ],
-                }
-            ]
-            try:
-                rendered_prompt = self.processor.apply_chat_template(
-                    messages,
-                    tokenize=False,
-                    add_generation_prompt=True,
+            except ValueError as exc:
+                last_error = exc
+                logger.debug(
+                    "vlm_auto_class_rejected", extra={"engine": self.key, "auto_class": class_name}
                 )
-                inputs = self.processor(
-                    text=[rendered_prompt],
-                    images=[crop],
-                    padding=True,
-                    return_tensors="pt",
-                )
-                input_length = self._resolve_input_length(inputs)
-                return inputs, input_length
-            except Exception as exc:
-                if "chat template" not in str(exc).lower():
-                    raise
+        raise ModelLoadError(
+            f"No transformers auto-class accepts the model at {self.model_dir} for engine '{self.key}'."
+        ) from last_error
 
-        if self.key == "got_ocr2":
-            inputs = self.processor(
-                images=crop,
-                return_tensors="pt",
-            )
-        else:
-            inputs = self.processor(
-                text=prompt,
-                images=crop,
-                return_tensors="pt",
-            )
-        input_length = self._resolve_input_length(inputs)
-        return inputs, input_length
+    def _build_inputs(
+        self, processor: VlmProcessor, crop: Image.Image, prompt: str
+    ) -> Mapping[str, object]:
+        if self.profile.image_only_inputs:
+            return processor(images=crop, return_tensors="pt")
+        if processor.chat_template is None:
+            return processor(text=prompt, images=crop, return_tensors="pt")
+        conversation = [
+            {
+                "role": "user",
+                "content": [{"type": "image", "image": crop}, {"type": "text", "text": prompt}],
+            }
+        ]
+        rendered = processor.apply_chat_template(
+            conversation, tokenize=False, add_generation_prompt=True
+        )
+        return processor(text=[rendered], images=[crop], padding=True, return_tensors="pt")
 
-    def _generate_text(self, crop: Image.Image, prompt: str) -> str:
-        self._ensure_runtime()
-        assert self.model is not None
-        assert self.processor is not None
-        assert self.device is not None
+    def _generate(self, runtime: _LoadedRuntime, crop: Image.Image, prompt: str) -> tuple[str, float]:
+        import torch
 
-        try:
-            import torch  # type: ignore
-        except Exception as exc:
-            raise RuntimeError("torch is not available for OCR VLM.") from exc
-
-        inputs, input_length = self._build_inputs(crop, prompt)
-        prepared_inputs = {
-            key: value.to(self.device) if hasattr(value, "to") else value
-            for key, value in inputs.items()
+        inputs = self._build_inputs(runtime.processor, crop, prompt)
+        batch: dict[str, object] = {
+            name: value.to(runtime.device) if isinstance(value, torch.Tensor) else value
+            for name, value in inputs.items()
         }
+        input_ids = batch.get("input_ids")
+        input_length = int(input_ids.shape[1]) if isinstance(input_ids, torch.Tensor) else 0
+
+        generation_kwargs: dict[str, object] = {
+            **batch,
+            "max_new_tokens": self.max_new_tokens,
+            "do_sample": False,
+            "use_cache": True,
+            "return_dict_in_generate": True,
+            "output_scores": True,
+        }
+        if self.profile.stop_strings:
+            generation_kwargs["stop_strings"] = list(self.profile.stop_strings)
+            generation_kwargs["tokenizer"] = runtime.processor.tokenizer
 
         with torch.inference_mode():
-            generation_kwargs = {
-                **prepared_inputs,
-                "max_new_tokens": self.max_new_tokens,
-                "do_sample": False,
-                "use_cache": True,
-            }
-            if self.key == "got_ocr2" and getattr(self.processor, "tokenizer", None) is not None:
-                generation_kwargs["tokenizer"] = self.processor.tokenizer
-                generation_kwargs["stop_strings"] = "<|im_end|>"
-            generated = self.model.generate(
-                **generation_kwargs,
-            )
+            output = runtime.model.generate(**generation_kwargs)
+            new_tokens = output.sequences[:, input_length:]
+            confidence = 0.0
+            if output.scores:
+                transition = runtime.model.compute_transition_scores(
+                    output.sequences, output.scores, normalize_logits=True
+                )
+                config = runtime.model.generation_config
+                ignored = _token_ids(config.pad_token_id) | _token_ids(config.eos_token_id)
+                confidence = _mean_token_probability(transition[0], new_tokens[0], ignored)
 
-        generated_tokens = generated[:, input_length:] if input_length > 0 else generated
-        decoded = self.processor.batch_decode(
-            generated_tokens,
-            skip_special_tokens=True,
-        )[0]
-        return _normalize_generated_text(decoded)
+        decoded = runtime.processor.batch_decode(new_tokens, skip_special_tokens=True)[0]
+        text = normalize_generated_text(decoded)
+        return text, (confidence if text else 0.0)
 
     def _recognize(
         self,
         image: Image.Image,
-        regions: list[OCRInputRegion],
+        regions: Sequence[OCRInputRegion],
         language: str = "en",
     ) -> list[OCRTextResult]:
-        prompt = self.prompt_builder(self.key, language)
+        prompt = self.profile.prompt(language)
+        runtime = self._runtime.get()
         results: list[OCRTextResult] = []
         for region in regions:
-            crop = self._crop_region(image, region)
-            text = self._generate_text(crop, prompt)
-            results.append(
-                OCRTextResult(
-                    id=region.id,
-                    bbox=region.bbox,
-                    text=text,
-                    score=0.95 if text else 0.0,
-                    source=region.source,
-                    detector_model_key=region.detector_model_key,
-                    model_key=self.key,
-                )
-            )
+            crop = crop_region(image, region)
+            if crop is None:
+                # Degenerate region: empty result, no inference on fake pixels.
+                results.append(build_result(region, model_key=self.key))
+                continue
+            text, score = self._generate(runtime, crop, prompt)
+            results.append(build_result(region, model_key=self.key, text=text, score=score))
         return results

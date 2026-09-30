@@ -1,16 +1,29 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from core.hf_download import ensure_files_from_hf
 from core.models_store import resolve_model_dir
+from models.ocr.common import (
+    InstalledFilePayload,
+    InstallPayload,
+    ModelsRootNotConfiguredError,
+    UnknownManagedModelError,
+    missing_files,
+)
 
 
-_TRANSFORMERS_VLM_MODEL_SOURCES: dict[str, dict[str, Any]] = {
-    "got_ocr2": {
-        "repo": "stepfun-ai/GOT-OCR-2.0-hf",
-        "files": [
+@dataclass(frozen=True, slots=True)
+class HfModelSource:
+    repo: str
+    files: tuple[str, ...]
+
+
+_TRANSFORMERS_VLM_MODEL_SOURCES: dict[str, HfModelSource] = {
+    "got_ocr2": HfModelSource(
+        repo="stepfun-ai/GOT-OCR-2.0-hf",
+        files=(
             "config.json",
             "generation_config.json",
             "model.safetensors",
@@ -18,11 +31,11 @@ _TRANSFORMERS_VLM_MODEL_SOURCES: dict[str, dict[str, Any]] = {
             "special_tokens_map.json",
             "tokenizer.json",
             "tokenizer_config.json",
-        ],
-    },
-    "qwen2_5_vl_3b": {
-        "repo": "Qwen/Qwen2.5-VL-3B-Instruct",
-        "files": [
+        ),
+    ),
+    "qwen2_5_vl_3b": HfModelSource(
+        repo="Qwen/Qwen2.5-VL-3B-Instruct",
+        files=(
             "chat_template.json",
             "config.json",
             "generation_config.json",
@@ -34,11 +47,11 @@ _TRANSFORMERS_VLM_MODEL_SOURCES: dict[str, dict[str, Any]] = {
             "tokenizer.json",
             "tokenizer_config.json",
             "vocab.json",
-        ],
-    },
-    "mangalmm": {
-        "repo": "hal-utokyo/MangaLMM",
-        "files": [
+        ),
+    ),
+    "mangalmm": HfModelSource(
+        repo="hal-utokyo/MangaLMM",
+        files=(
             "added_tokens.json",
             "chat_template.json",
             "config.json",
@@ -54,11 +67,11 @@ _TRANSFORMERS_VLM_MODEL_SOURCES: dict[str, dict[str, Any]] = {
             "tokenizer.json",
             "tokenizer_config.json",
             "vocab.json",
-        ],
-    },
-    "rolmocr": {
-        "repo": "reducto/RolmOCR",
-        "files": [
+        ),
+    ),
+    "rolmocr": HfModelSource(
+        repo="reducto/RolmOCR",
+        files=(
             "added_tokens.json",
             "chat_template.json",
             "config.json",
@@ -74,11 +87,11 @@ _TRANSFORMERS_VLM_MODEL_SOURCES: dict[str, dict[str, Any]] = {
             "tokenizer.json",
             "tokenizer_config.json",
             "vocab.json",
-        ],
-    },
-    "paddleocr_vl_1_5": {
-        "repo": "PaddlePaddle/PaddleOCR-VL-1.5",
-        "files": [
+        ),
+    ),
+    "paddleocr_vl_1_5": HfModelSource(
+        repo="PaddlePaddle/PaddleOCR-VL-1.5",
+        files=(
             "added_tokens.json",
             "chat_template.jinja",
             "config.json",
@@ -94,16 +107,16 @@ _TRANSFORMERS_VLM_MODEL_SOURCES: dict[str, dict[str, Any]] = {
             "tokenizer.json",
             "tokenizer.model",
             "tokenizer_config.json",
-        ],
-    },
+        ),
+    ),
 }
 
 
-def _get_transformers_vlm_source(model_id: str) -> dict[str, Any]:
+def _get_transformers_vlm_source(model_id: str) -> HfModelSource:
     normalized = (model_id or "").strip().lower()
     source = _TRANSFORMERS_VLM_MODEL_SOURCES.get(normalized)
     if not source:
-        raise RuntimeError(f"Invalid VLM model for managed install: {model_id}")
+        raise UnknownManagedModelError(model_id)
     return source
 
 
@@ -116,28 +129,35 @@ def transformers_vlm_runtime_ready(model_id: str) -> bool:
     if model_dir is None:
         return False
     source = _get_transformers_vlm_source(model_id)
-    return all((model_dir / relative_path).exists() for relative_path in source["files"])
+    return not missing_files(model_dir, source.files)
 
 
-def ensure_transformers_vlm_model_installed(model_id: str) -> dict[str, Any]:
+def ensure_transformers_vlm_model_installed(model_id: str) -> InstallPayload:
     normalized = (model_id or "").strip().lower()
     source = _get_transformers_vlm_source(normalized)
     model_dir = resolve_transformers_vlm_model_dir(normalized)
     if model_dir is None:
-        raise RuntimeError(
-            "KOMA_MODELS_ROOT is not configured for managed OCR VLM installs.",
-        )
+        raise ModelsRootNotConfiguredError(normalized)
 
-    files_payload = ensure_files_from_hf(
-        repo=str(source["repo"]),
-        files=[str(item) for item in source["files"]],
+    raw_files = ensure_files_from_hf(
+        repo=source.repo,
+        files=list(source.files),
         target_dir=model_dir,
         revision="main",
     )
-    return {
-        "modelId": normalized,
-        "directory": str(model_dir),
-        "fileCount": len(files_payload),
-        "files": files_payload,
-        "repo": str(source["repo"]),
-    }
+    files = [
+        InstalledFilePayload(
+            target=str(item["target"]),
+            source=str(item["source"]),
+            sha256=str(item["sha256"]),
+            downloaded=bool(item["downloaded"]),
+        )
+        for item in raw_files
+    ]
+    return InstallPayload(
+        modelId=normalized,
+        directory=str(model_dir),
+        fileCount=len(files),
+        files=files,
+        repo=source.repo,
+    )

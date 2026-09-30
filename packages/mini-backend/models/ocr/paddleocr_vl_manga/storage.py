@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Final
 
 from core.hf_download import ensure_files_from_hf
 from core.models_store import resolve_model_dir
+from models.ocr.common import (
+    InstalledFilePayload,
+    InstallPayload,
+    ModelsRootNotConfiguredError,
+    missing_files,
+)
 
-
-_MODEL_ID = "paddleocr_vl_manga"
-_MODEL_REPO = "jzhang533/PaddleOCR-VL-For-Manga"
-_MODEL_FILES = [
+PADDLEOCR_VL_MANGA_MODEL_ID: Final = "paddleocr_vl_manga"
+_HF_REPO: Final = "jzhang533/PaddleOCR-VL-For-Manga"
+# Remote code is loaded through transformers' `trust_remote_code` + `auto_map`;
+# no package shim is created on disk and sys.path is never mutated.
+_MODEL_FILES: Final[tuple[str, ...]] = (
     "added_tokens.json",
     "chat_template.jinja",
     "config.json",
@@ -25,47 +32,39 @@ _MODEL_FILES = [
     "tokenizer.json",
     "tokenizer.model",
     "tokenizer_config.json",
-]
+)
 
 
 def resolve_paddleocr_vl_manga_model_dir() -> Path | None:
-    return resolve_model_dir(_MODEL_ID)
+    return resolve_model_dir(PADDLEOCR_VL_MANGA_MODEL_ID)
 
 
 def paddleocr_vl_manga_runtime_ready() -> bool:
     model_dir = resolve_paddleocr_vl_manga_model_dir()
-    if model_dir is None:
-        return False
-    return all((model_dir / relative_path).exists() for relative_path in _MODEL_FILES)
+    return model_dir is not None and not missing_files(model_dir, _MODEL_FILES)
 
 
-def ensure_paddleocr_vl_manga_installed() -> dict[str, Any]:
+def ensure_paddleocr_vl_manga_installed() -> InstallPayload:
     model_dir = resolve_paddleocr_vl_manga_model_dir()
     if model_dir is None:
-        raise RuntimeError(
-            "KOMA_MODELS_ROOT is not configured for managed PaddleOCRVLManga installs.",
-        )
+        raise ModelsRootNotConfiguredError(PADDLEOCR_VL_MANGA_MODEL_ID)
 
-    files_payload = ensure_files_from_hf(
-        repo=_MODEL_REPO,
-        files=_MODEL_FILES,
-        target_dir=model_dir,
-        revision="main",
+    raw_files = ensure_files_from_hf(
+        repo=_HF_REPO, files=list(_MODEL_FILES), target_dir=model_dir, revision="main"
     )
-    init_file = model_dir / "__init__.py"
-    init_created = not init_file.exists()
-    if init_created:
-        init_file.write_text("", encoding="utf-8")
-    files_payload.append({
-        "target": "__init__.py",
-        "source": "generated-local",
-        "sha256": "",
-        "downloaded": init_created,
-    })
-    return {
-        "modelId": _MODEL_ID,
-        "directory": str(model_dir),
-        "fileCount": len(files_payload),
-        "files": files_payload,
-        "repo": _MODEL_REPO,
-    }
+    files = [
+        InstalledFilePayload(
+            target=str(item["target"]),
+            source=str(item["source"]),
+            sha256=str(item["sha256"]),
+            downloaded=bool(item["downloaded"]),
+        )
+        for item in raw_files
+    ]
+    return InstallPayload(
+        modelId=PADDLEOCR_VL_MANGA_MODEL_ID,
+        directory=str(model_dir),
+        fileCount=len(files),
+        files=files,
+        repo=_HF_REPO,
+    )
