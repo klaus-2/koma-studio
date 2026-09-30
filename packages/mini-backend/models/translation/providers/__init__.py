@@ -8,7 +8,8 @@ from __future__ import annotations
 import logging
 
 from models.translation.http import (  # noqa: F401
-    _http_form_post, _http_get_json, _http_json_post, post_llm_json,
+    _http_form_post, _http_get_json, _http_json_post, get_json, post_form,
+    post_json,
 )
 from models.translation.lang_codes import (  # noqa: F401
     _deepl_source_lang, _deepl_target_lang, _google_lang,
@@ -33,8 +34,10 @@ from models.translation.urls import (  # noqa: F401
     _resolve_openai_compatible_chat_url, resolve_request_custom_openai_config,
 )
 from models.translation.providers._common import (  # noqa: F401
-    _empty_translation_results, _first_env, _preprocess_translation_regions,
-    _preprocess_translation_text,
+    _env_llm_temperature, _first_env, _preprocess_translation_regions,
+    _preprocess_translation_text, clamp_temperature, env_float, env_int,
+    env_llm_temperature, first_env, payload_from_parsed, preprocess_regions,
+    preprocess_text, require_api_key, resolve_env_endpoint,
 )
 from models.translation.providers.claude import ClaudeTranslatorEngine
 from models.translation.providers.custom import CustomTranslatorEngine

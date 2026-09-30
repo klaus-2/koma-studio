@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import sys
 import unittest
@@ -10,6 +11,7 @@ MINI_BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(MINI_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(MINI_BACKEND_DIR))
 
+from models.translation import http as translation_http
 from models.translation.base_translator import TranslationInputRegion
 from models.translation import providers
 
@@ -92,22 +94,26 @@ class TranslationPreprocessingTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_openai_translator_preprocesses_regions_before_batch_translation(self) -> None:
-        engine = providers.OpenAIGPTTranslatorEngine(model_name="gpt-4.1-mini", key="gpt_4_1_mini")
-        captured_regions: list[list[TranslationInputRegion]] = []
+        captured_requests: list[dict[str, object]] = []
 
-        def fake_translate_batch(
-            *,
-            regions: list[TranslationInputRegion],
-            source_language: str,
-            target_language: str,
-            extra_context: str,
-            translation_notes_enabled: bool,
-        ) -> dict[str, dict[str, object]]:
-            _ = source_language, target_language, extra_context, translation_notes_enabled
-            captured_regions.append(regions)
-            return {"r1": {"text": "hello", "notes": []}}
+        async def fake_post_json(**kwargs: object) -> object:
+            captured_requests.append(kwargs)
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"translations":[{"id":"r1","text":"hello","notes":[]}]}'
+                        }
+                    }
+                ]
+            }
 
-        with patch.object(engine, "_translate_batch", side_effect=fake_translate_batch):
+        with (
+            patch.dict(os.environ, {"MINI_BACKEND_OPENAI_API_KEY": "test-key"}),
+            patch.object(translation_http, "post_json", side_effect=fake_post_json),
+        ):
+            # Engine built inside the env patch: endpoints resolve at __init__.
+            engine = providers.OpenAIGPTTranslatorEngine(model_name="gpt-4.1-mini", key="gpt_4_1_mini")
             results = await engine.translate(
                 regions=[TranslationInputRegion(id="r1", text=" こ ん\r\nに ち は ", source="model")],
                 source_language="ja",
@@ -115,7 +121,9 @@ class TranslationPreprocessingTests(unittest.IsolatedAsyncioTestCase):
                 extra_context="",
             )
 
-        self.assertEqual(captured_regions[0][0].text, "こんにちは")
+        user_content = captured_requests[0]["payload"]["messages"][1]["content"]  # type: ignore[index]
+        self.assertIn("こんにちは", str(user_content))
+        self.assertNotIn("こ ん", str(user_content))
         self.assertEqual(results[0].source_text, "こ ん\r\nに ち は")
         self.assertEqual(results[0].translated_text, "hello")
 

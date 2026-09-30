@@ -1,104 +1,63 @@
 from __future__ import annotations
 
-import os
-from typing import Any
+from collections.abc import Sequence
 
 from models.translation import http as http_mod
-from models.translation.base_translator import (
-    BaseTranslator,
-    TranslationInputRegion,
-    TranslationTextResult,
+from models.translation.errors import (
+    TranslatorConfigurationError,
+    UnsupportedLanguagePairError,
 )
 from models.translation.lang_codes import _yandex_source_lang, _yandex_target_lang
-from models.translation.providers._common import _preprocess_translation_text
+from models.translation.providers._batch_base import (
+    IndexedBatchTranslatorBase,
+    texts_from_list,
+)
+from models.translation.providers._common import first_env
+
+_API_KEY_ENV = "MINI_BACKEND_YANDEX_API_KEY"
+_FOLDER_ID_ENV = "MINI_BACKEND_YANDEX_FOLDER_ID"
+_TIMEOUT_SECONDS = 35.0
 
 
-class YandexTranslatorEngine(BaseTranslator):
+class YandexTranslatorEngine(IndexedBatchTranslatorBase):
     key = "yandex_translate"
     name = "Yandex Translate"
+    provider_label = "Yandex"
 
     def __init__(self) -> None:
-        self.api_key = (os.getenv("MINI_BACKEND_YANDEX_API_KEY") or "").strip()
-        self.folder_id = (os.getenv("MINI_BACKEND_YANDEX_FOLDER_ID") or "").strip()
-        self.endpoint = (
-            os.getenv("MINI_BACKEND_YANDEX_ENDPOINT")
-            or "https://translate.api.cloud.yandex.net/translate/v2/translate"
-        ).strip()
+        self.api_key = first_env(_API_KEY_ENV)
+        self.folder_id = first_env(_FOLDER_ID_ENV)
+        self.endpoint = first_env(
+            "MINI_BACKEND_YANDEX_ENDPOINT",
+            default="https://translate.api.cloud.yandex.net/translate/v2/translate",
+        )
 
-    async def _translate(
-        self,
-        regions: list[TranslationInputRegion],
-        source_language: str,
-        target_language: str,
-        extra_context: str = "",
-        translation_notes_enabled: bool = True,
-        translation_mode: str = "default",
-    ) -> list[TranslationTextResult]:
-        _ = extra_context
-        _ = translation_notes_enabled
-        _ = translation_mode
+    def _ensure_configured(self) -> None:
         if not self.api_key or not self.folder_id:
-            raise RuntimeError(
-                "Yandex requires MINI_BACKEND_YANDEX_API_KEY and MINI_BACKEND_YANDEX_FOLDER_ID"
+            raise TranslatorConfigurationError(
+                f"Yandex requires {_API_KEY_ENV} and {_FOLDER_ID_ENV}"
             )
 
-        source = _yandex_source_lang(source_language)
+    def _resolve_language_pair(self, source_language: str, target_language: str) -> tuple[str, str]:
         target = _yandex_target_lang(target_language)
         if not target:
-            raise RuntimeError("Invalid target language for Yandex Translate")
+            raise UnsupportedLanguagePairError(self.key, source_language, target_language)
+        return _yandex_source_lang(source_language), target
 
-        non_empty: list[tuple[int, TranslationInputRegion]] = []
-        texts: list[str] = []
-        for idx, region in enumerate(regions):
-            source_text = (region.text or "").strip()
-            if not source_text:
-                continue
-            prepared_text = _preprocess_translation_text(source_text, source_language)
-            if not prepared_text:
-                continue
-            non_empty.append((idx, region))
-            texts.append(prepared_text)
-
-        translated_by_idx: dict[int, str] = {}
-        if texts:
-            payload: dict[str, Any] = {
-                "texts": texts,
-                "targetLanguageCode": target,
-                "folderId": self.folder_id,
-                "format": "PLAIN_TEXT",
-            }
-            if source:
-                payload["sourceLanguageCode"] = source
-            headers = {
-                "Authorization": f"Api-Key {self.api_key}",
-            }
-            response = await http_mod._http_json_post(
-                url=self.endpoint, payload=payload, headers=headers, timeout=35
-            )
-            translations = (
-                response.get("translations", []) if isinstance(response, dict) else []
-            )
-            if isinstance(translations, list):
-                for pos, item in enumerate(translations):
-                    if pos >= len(non_empty):
-                        break
-                    text = ""
-                    if isinstance(item, dict):
-                        text = str(item.get("text") or "")
-                    translated_by_idx[non_empty[pos][0]] = text
-
-        results: list[TranslationTextResult] = []
-        for idx, region in enumerate(regions):
-            source_text = (region.text or "").strip()
-            results.append(
-                TranslationTextResult(
-                    id=region.id,
-                    source_text=source_text,
-                    translated_text=translated_by_idx.get(idx, ""),
-                    source=region.source,
-                    detector_model_key=region.detector_model_key,
-                    ocr_model_key=region.ocr_model_key,
-                    translator_model_key=self.key,
-                ),
-            )
-        return results
+    async def _translate_texts(self, texts: Sequence[str], source: str, target: str) -> list[str]:
+        payload: dict[str, object] = {
+            "texts": list(texts),
+            "targetLanguageCode": target,
+            "folderId": self.folder_id,
+            "format": "PLAIN_TEXT",
+        }
+        if source:
+            payload["sourceLanguageCode"] = source
+        response = await http_mod.post_json(
+            provider_label=self.provider_label,
+            url=self.endpoint,
+            payload=payload,
+            headers={"Authorization": f"Api-Key {self.api_key}"},
+            timeout=_TIMEOUT_SECONDS,
+        )
+        return texts_from_list(response, "translations")

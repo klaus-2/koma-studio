@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+from collections.abc import Mapping
 from typing import Any
 from urllib import parse
 
@@ -83,7 +84,7 @@ def _is_private_or_internal_host(hostname: str) -> bool:
 
 
 def resolve_request_custom_openai_config(
-    custom_llm: dict[str, Any] | None,
+    custom_llm: Mapping[str, object] | None,
 ) -> dict[str, str]:
     payload = custom_llm or {}
     api_key = str(payload.get("api_key") or payload.get("apiKey") or "").strip()

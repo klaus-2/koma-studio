@@ -1,113 +1,124 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, replace
 
 from core.languages import is_no_space_lang
-from models.translation.base_translator import TranslationInputRegion, TranslationTextResult
-from models.translation.parsing import _parse_llm_translation_map
+from models.translation.base_translator import (
+    TranslationInputRegion,
+    TranslationPayload,
+)
+from models.translation.errors import TranslatorConfigurationError
+from models.translation.json_types import JsonValue
+
+LLM_TEMPERATURE_ENV = "MINI_BACKEND_LLM_TEMPERATURE"
+DEFAULT_LLM_TEMPERATURE = 0.2
+_MIN_TEMPERATURE = 0.0
+_MAX_TEMPERATURE = 2.0
 
 
-def _first_env(*names: str, default: str = "") -> str:
+def first_env(*names: str, default: str = "") -> str:
     for name in names:
-        value = (os.getenv(name) or "").strip()
+        value = os.getenv(name, "").strip()
         if value:
             return value
     return default
 
 
+# Historical name, kept for the providers compat surface (tests import it).
+_first_env = first_env
+
+
+def env_float(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise TranslatorConfigurationError(f"{name} must be a number, got {raw!r}") from exc
+
+
+def env_int(name: str, default: int, *, minimum: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return max(minimum, default)
+    try:
+        return max(minimum, int(raw))
+    except ValueError as exc:
+        raise TranslatorConfigurationError(f"{name} must be an integer, got {raw!r}") from exc
+
+
+def clamp_temperature(value: float) -> float:
+    return min(_MAX_TEMPERATURE, max(_MIN_TEMPERATURE, value))
+
+
+def env_llm_temperature() -> float:
+    return clamp_temperature(env_float(LLM_TEMPERATURE_ENV, DEFAULT_LLM_TEMPERATURE))
+
+
+# Historical name (unclamped variant) kept on the compat surface.
 def _env_llm_temperature() -> float:
-    # was inlined identically in OpenAI/Gemini/Claude __init__
-    return float((os.getenv("MINI_BACKEND_LLM_TEMPERATURE") or "0.2").strip())
+    return env_llm_temperature()
 
 
-def _preprocess_translation_text(text: str, source_language: str) -> str:
-    cleaned = str(text or "").replace("\r", "").replace("\n", "")
+@dataclass(frozen=True, slots=True)
+class EnvEndpoint:
+    api_key: str
+    base_url: str
+    api_key_env_hint: str
+
+
+def resolve_env_endpoint(
+    *,
+    api_key_envs: tuple[str, ...],
+    base_url_envs: tuple[str, ...],
+    default_base_url: str,
+) -> EnvEndpoint:
+    return EnvEndpoint(
+        api_key=first_env(*api_key_envs),
+        base_url=first_env(*base_url_envs, default=default_base_url).rstrip("/"),
+        api_key_env_hint=api_key_envs[0],
+    )
+
+
+def require_api_key(endpoint: EnvEndpoint, provider_label: str) -> None:
+    if not endpoint.api_key:
+        raise TranslatorConfigurationError(
+            f"{provider_label} requires {endpoint.api_key_env_hint}"
+        )
+
+
+def preprocess_text(text: str, source_language: str) -> str:
+    cleaned = text.replace("\r", "").replace("\n", "")
     if is_no_space_lang(source_language):
         cleaned = cleaned.replace(" ", "")
     return cleaned.strip()
 
 
-def _preprocess_translation_regions(
-    regions: list[TranslationInputRegion],
-    source_language: str,
+# Historical names kept for the compat surface.
+_preprocess_translation_text = preprocess_text
+
+
+def preprocess_regions(
+    regions: Iterable[TranslationInputRegion], source_language: str
 ) -> list[TranslationInputRegion]:
-    prepared: list[TranslationInputRegion] = []
-    for region in regions:
-        prepared.append(
-            TranslationInputRegion(
-                id=region.id,
-                text=_preprocess_translation_text(region.text, source_language),
-                source=region.source,
-                detector_model_key=region.detector_model_key,
-                ocr_model_key=region.ocr_model_key,
-                detected_render_mode=region.detected_render_mode,
-                structural_type=region.structural_type,
-                sfx_requires_redraw=region.sfx_requires_redraw,
-            ),
-        )
-    return prepared
-
-
-def _empty_translation_results(
-    regions: list[TranslationInputRegion],
-    translator_key: str,
-) -> list[TranslationTextResult]:
     return [
-        TranslationTextResult(
-            id=region.id,
-            source_text=(region.text or "").strip(),
-            translated_text="",
-            source=region.source,
-            detector_model_key=region.detector_model_key,
-            ocr_model_key=region.ocr_model_key,
-            translator_model_key=translator_key,
-        )
+        replace(region, text=preprocess_text(region.text, source_language))
         for region in regions
     ]
 
 
-def parse_llm_response(
-    raw_text: str | None, regions: list[TranslationInputRegion]
-) -> dict[str, dict[str, Any]]:
-    if raw_text is None:      # provider returned no choices/candidates
-        return {}
-    return _parse_llm_translation_map(raw_text, regions)
+_preprocess_translation_regions = preprocess_regions
 
 
-_EMPTY_PAYLOAD: dict[str, Any] = {"text": "", "notes": []}
-
-
-def build_llm_results(
-    regions: list[TranslationInputRegion],
-    translated_map: dict[str, dict[str, Any]],
-    *,
-    translator_key: str,
-    translation_notes_enabled: bool,
-    translation_mode: str,
-) -> list[TranslationTextResult]:
-    # Body of the result loop that was identical in OpenAI, RequestScoped*,
-    # Gemini and Claude. CustomTranslatorEngine's index-based loop is left alone.
-    results: list[TranslationTextResult] = []
-    for region in regions:
-        source_text = (region.text or "").strip()
-        payload = (
-            translated_map.get(region.id, {"text": "", "notes": []})
-            if source_text
-            else {"text": "", "notes": []}
-        )
-        results.append(
-            TranslationTextResult(
-                id=region.id,
-                source_text=source_text,
-                translated_text=str(payload.get("text") or ""),
-                translation_notes=list(payload.get("notes") or [])
-                if translation_notes_enabled and translation_mode != "sfx"
-                else [],
-                source=region.source,
-                detector_model_key=region.detector_model_key,
-                ocr_model_key=region.ocr_model_key,
-                translator_model_key=translator_key,
-            ),
-        )
-    return results
+def payload_from_parsed(raw: Mapping[str, JsonValue]) -> TranslationPayload:
+    """Adapter from parsing.py's ``{"text": ..., "notes": [...]}`` dicts."""
+    text = raw.get("text")
+    notes = raw.get("notes")
+    note_values = notes if isinstance(notes, list) else []
+    return TranslationPayload(
+        text=text if isinstance(text, str) else "",
+        notes=tuple(note for note in note_values if isinstance(note, str) and note),
+    )

@@ -126,7 +126,7 @@ def _llm_user_prompt(
         if str(translation_mode or "").strip().lower() == "sfx":
             item["detected_render_mode"] = region.detected_render_mode
             item["structural_type"] = region.structural_type
-            item["sfx_requires_redraw"] = region.sfx_requires_redraw
+            item["sfx_requires_redraw"] = str(region.sfx_requires_redraw)
         payload.append(item)
     context = (extra_context or "").strip()
     notes_allowed = (

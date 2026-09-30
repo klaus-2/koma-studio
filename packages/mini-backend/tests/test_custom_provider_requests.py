@@ -16,6 +16,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 
 IMPORT_ERROR: Exception | None = None
 try:
+    from models.translation import http as translation_http
     from models.translation import providers
     from pipelines.cache_manager import CacheManager
     from routers import translation as translation_router
@@ -70,16 +71,11 @@ class MiniBackendCustomProviderTests(unittest.TestCase):
     ) -> None:
         captured_request: dict[str, object] = {}
 
-        def fake_http_json_post(
-            url: str,
-            payload: dict[str, object],
-            headers: dict[str, str] | None = None,
-            timeout: int = 35,
-        ) -> dict[str, object]:
-            captured_request["url"] = url
-            captured_request["payload"] = payload
-            captured_request["headers"] = headers or {}
-            captured_request["timeout"] = timeout
+        async def fake_post_json(**kwargs: object) -> object:
+            captured_request["url"] = kwargs.get("url")
+            captured_request["payload"] = kwargs.get("payload")
+            captured_request["headers"] = kwargs.get("headers") or {}
+            captured_request["timeout"] = kwargs.get("timeout")
             return {
                 "choices": [
                     {
@@ -109,9 +105,9 @@ class MiniBackendCustomProviderTests(unittest.TestCase):
                 ),
             ),
             patch.object(
-                providers,
-                "_http_json_post",
-                side_effect=fake_http_json_post,
+                translation_http,
+                "post_json",
+                side_effect=fake_post_json,
             ),
         ):
             response = self.client.post(
@@ -155,16 +151,11 @@ class MiniBackendCustomProviderTests(unittest.TestCase):
     def test_translate_route_uses_ollama_cloud_native_chat_endpoint(self) -> None:
         captured_request: dict[str, object] = {}
 
-        def fake_http_json_post(
-            url: str,
-            payload: dict[str, object],
-            headers: dict[str, str] | None = None,
-            timeout: int = 35,
-        ) -> dict[str, object]:
-            captured_request["url"] = url
-            captured_request["payload"] = payload
-            captured_request["headers"] = headers or {}
-            captured_request["timeout"] = timeout
+        async def fake_post_json(**kwargs: object) -> object:
+            captured_request["url"] = kwargs.get("url")
+            captured_request["payload"] = kwargs.get("payload")
+            captured_request["headers"] = kwargs.get("headers") or {}
+            captured_request["timeout"] = kwargs.get("timeout")
             return {
                 "message": {
                     "content": json.dumps(
@@ -190,9 +181,9 @@ class MiniBackendCustomProviderTests(unittest.TestCase):
                 ),
             ),
             patch.object(
-                providers,
-                "_http_json_post",
-                side_effect=fake_http_json_post,
+                translation_http,
+                "post_json",
+                side_effect=fake_post_json,
             ),
         ):
             response = self.client.post(

@@ -1,123 +1,115 @@
-from __future__ import annotations
-
-import os
-from typing import Any
+import logging
 
 from models.translation import http as http_mod
 from models.translation.base_translator import (
+    EMPTY_PAYLOAD,
     BaseTranslator,
-    TranslationInputRegion,
+    TranslationPayload,
+    TranslationRequest,
     TranslationTextResult,
 )
+from models.translation.errors import TranslationError
+from models.translation.json_types import JsonValue
 from models.translation.parsing import _translation_payload
-from models.translation.providers._common import _preprocess_translation_text
+from models.translation.providers._common import (
+    env_int,
+    first_env,
+    payload_from_parsed,
+    preprocess_text,
+)
+
+logger = logging.getLogger(__name__)
+
+_TEXT_KEYS = ("translated_text", "text")
+_NOTES_KEYS = ("translation_notes", "notes", "note", "nt")
+
+
+def _first_present(item: dict[str, JsonValue], keys: tuple[str, ...]) -> JsonValue:
+    for key in keys:
+        value = item.get(key)
+        if value:
+            return value
+    return None
+
+
+def _payload_from_item(item: JsonValue) -> TranslationPayload:
+    if isinstance(item, dict):
+        raw = _translation_payload(
+            _first_present(item, _TEXT_KEYS) or "", _first_present(item, _NOTES_KEYS)
+        )
+    else:
+        raw = _translation_payload(item)
+    return payload_from_parsed(raw)
+
+
+def _extract_translations(response: JsonValue) -> list[TranslationPayload]:
+    if not isinstance(response, dict):
+        return []
+    items = response.get("translations")
+    if not isinstance(items, list):
+        items = response.get("data")
+    if not isinstance(items, list):
+        return []
+    return [_payload_from_item(item) for item in items]
 
 
 class CustomTranslatorEngine(BaseTranslator):
     key = "custom"
     name = "Custom"
+    provider_label = "Custom"
 
     def __init__(self) -> None:
-        self.endpoint = (os.getenv("MINI_BACKEND_CUSTOM_TRANSLATOR_URL") or "").strip()
-        self.api_key = (
-            os.getenv("MINI_BACKEND_CUSTOM_TRANSLATOR_API_KEY") or ""
-        ).strip()
-        self.model = (os.getenv("MINI_BACKEND_CUSTOM_TRANSLATOR_MODEL") or "").strip()
-        self.timeout = int(
-            (os.getenv("MINI_BACKEND_CUSTOM_TRANSLATOR_TIMEOUT") or "45").strip()
+        self.endpoint = first_env("MINI_BACKEND_CUSTOM_TRANSLATOR_URL")
+        self.api_key = first_env("MINI_BACKEND_CUSTOM_TRANSLATOR_API_KEY")
+        self.model = first_env("MINI_BACKEND_CUSTOM_TRANSLATOR_MODEL")
+        self.timeout_seconds = env_int(
+            "MINI_BACKEND_CUSTOM_TRANSLATOR_TIMEOUT", default=45, minimum=5
         )
 
-    async def _translate(
-        self,
-        regions: list[TranslationInputRegion],
-        source_language: str,
-        target_language: str,
-        extra_context: str = "",
-        translation_notes_enabled: bool = True,
-        translation_mode: str = "default",
-    ) -> list[TranslationTextResult]:
-        if not self.endpoint:
-            # Fallback local: keep text as-is, useful when there is no network/API key configured.
-            return [
-                TranslationTextResult(
-                    id=region.id,
-                    source_text=(region.text or "").strip(),
-                    translated_text=(region.text or "").strip(),
-                    source=region.source,
-                    detector_model_key=region.detector_model_key,
-                    ocr_model_key=region.ocr_model_key,
-                    translator_model_key=self.key,
-                )
-                for region in regions
-            ]
+    def _passthrough(self, request: TranslationRequest) -> list[TranslationTextResult]:
+        return [self._result(region, region.text.strip()) for region in request.regions]
 
-        texts = [(region.text or "").strip() for region in regions]
-        prepared_texts = [
-            _preprocess_translation_text(text, source_language) for text in texts
-        ]
-        headers: dict[str, str] = {}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        payload = {
-            "source_language": source_language,
-            "target_language": target_language,
-            "texts": prepared_texts,
-            "extra_context": extra_context,
-            "translation_notes_enabled": translation_notes_enabled,
-            "translation_mode": translation_mode,
+    async def _translate(self, request: TranslationRequest) -> list[TranslationTextResult]:
+        if not self.endpoint:
+            # Documented offline behaviour: no endpoint configured → source text is kept verbatim.
+            return self._passthrough(request)
+
+        payload: dict[str, object] = {
+            "source_language": request.source_language,
+            "target_language": request.target_language,
+            "texts": [
+                preprocess_text(region.text, request.source_language)
+                for region in request.regions
+            ],
+            "extra_context": request.extra_context,
+            "translation_notes_enabled": request.translation_notes_enabled,
+            "translation_mode": request.translation_mode,
         }
         if self.model:
             payload["model"] = self.model
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
 
-        translated: list[dict[str, Any]] = [{"text": "", "notes": []} for _ in texts]
         try:
-            response = await http_mod._http_json_post(
+            response = await http_mod.post_json(
+                provider_label=self.provider_label,
                 url=self.endpoint,
                 payload=payload,
                 headers=headers,
-                timeout=max(5, self.timeout),
+                timeout=self.timeout_seconds,
             )
-            translations = []
-            if isinstance(response, dict):
-                if isinstance(response.get("translations"), list):
-                    translations = response["translations"]
-                elif isinstance(response.get("data"), list):
-                    translations = response["data"]
-            if isinstance(translations, list):
-                for idx, item in enumerate(translations):
-                    if idx >= len(translated):
-                        break
-                    if isinstance(item, dict):
-                        translated[idx] = _translation_payload(
-                            item.get("translated_text") or item.get("text") or "",
-                            item.get("translation_notes")
-                            or item.get("notes")
-                            or item.get("note")
-                            or item.get("nt"),
-                        )
-                    else:
-                        translated[idx] = _translation_payload(item)
-        except Exception:
-            translated = [{"text": text, "notes": []} for text in texts]
+        except TranslationError as exc:
+            # Documented degraded mode: endpoint failures fall back to the
+            # source text, but they are logged instead of vanishing.
+            logger.warning(
+                "translation.custom.fallback_to_source",
+                extra={"translator": self.key, "error": type(exc).__name__, "detail": str(exc)},
+            )
+            return self._passthrough(request)
 
+        translations = _extract_translations(response)
         results: list[TranslationTextResult] = []
-        for idx, region in enumerate(regions):
-            source_text = texts[idx]
-            payload_item = (
-                translated[idx] if idx < len(translated) else {"text": "", "notes": []}
-            )
-            results.append(
-                TranslationTextResult(
-                    id=region.id,
-                    source_text=source_text,
-                    translated_text=str(payload_item.get("text") or ""),
-                    translation_notes=list(payload_item.get("notes") or [])
-                    if translation_notes_enabled and translation_mode != "sfx"
-                    else [],
-                    source=region.source,
-                    detector_model_key=region.detector_model_key,
-                    ocr_model_key=region.ocr_model_key,
-                    translator_model_key=self.key,
-                ),
-            )
+        for index, region in enumerate(request.regions):
+            item = translations[index] if index < len(translations) else EMPTY_PAYLOAD
+            notes = item.notes if request.notes_allowed else ()
+            results.append(self._result(region, item.text, notes))
         return results

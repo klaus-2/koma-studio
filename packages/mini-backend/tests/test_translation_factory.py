@@ -26,15 +26,13 @@ class TranslationFactoryTests(unittest.TestCase):
         self.assertIn("m2m100_1_2b_ct2", translation_factory.TRANSLATION_MODELS)
 
     def test_local_ctranslate2_model_requires_installation(self) -> None:
-        meta = {
-            **translation_factory.TRANSLATION_MODELS["sugoi_v4_ja_en_ct2"],
-            "key": "sugoi_v4_ja_en_ct2",
-        }
+        key = "sugoi_v4_ja_en_ct2"
+        meta = translation_factory.TRANSLATION_MODELS[key]
         with (
             patch.object(translation_factory, "model_is_installed", return_value=False),
             patch.object(translation_factory, "local_translation_runtime_ready", return_value=False),
         ):
-            self.assertFalse(translation_factory._is_available(meta))
+            self.assertFalse(translation_factory._is_available(key, meta))
 
 
 if __name__ == "__main__":
