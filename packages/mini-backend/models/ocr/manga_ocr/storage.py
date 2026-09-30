@@ -1,142 +1,69 @@
 from __future__ import annotations
 
-import hashlib
-from pathlib import Path
 import os
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
-from typing import Any
+from dataclasses import dataclass
+from pathlib import Path
 
+from core.hf_download import ensure_file_from_hf
+from models.errors import ModelConfigurationError
 
 _MODEL_ROOT_ENV = "KOMA_MODELS_ROOT"
 _MANGA_OCR_SUBDIR = "manga_ocr"
+_HF_REPO = "mayocream/manga-ocr-onnx"
 
-_REQUIRED_FILES: dict[str, dict[str, str]] = {
-    "encoder_model.onnx": {
-        "sha256": "15fa8155fe9bc1a7d25d9bb353debaa4def033d0174e907dbd2dd6d995def85f",
-        "url": "https://huggingface.co/mayocream/manga-ocr-onnx/resolve/main/encoder_model.onnx",
-    },
-    "decoder_model.onnx": {
-        "sha256": "ef7765261e9d1cdc34d89356986c2bbc2a082897f753a89605ae80fdfa61f5e8",
-        "url": "https://huggingface.co/mayocream/manga-ocr-onnx/resolve/main/decoder_model.onnx",
-    },
-    "vocab.txt": {
-        "sha256": "5cb5c5586d98a2f331d9f8828e4586479b0611bfba5d8c3b6dadffc84d6a36a3",
-        "url": "https://huggingface.co/mayocream/manga-ocr-onnx/resolve/main/vocab.txt",
-    },
-}
+ENCODER_FILE = "encoder_model.onnx"
+DECODER_FILE = "decoder_model.onnx"
+VOCAB_FILE = "vocab.txt"
 
 
-def resolve_manga_ocr_models_root() -> Path | None:
-    raw_root = os.getenv(_MODEL_ROOT_ENV, "").strip()
-    if not raw_root:
-        return None
-
-    root = Path(raw_root).expanduser().resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    return root / _MANGA_OCR_SUBDIR
+@dataclass(frozen=True, slots=True)
+class ManagedFile:
+    name: str
+    sha256: str
 
 
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while True:
-            chunk = handle.read(1024 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _has_required_files(directory: Path) -> bool:
-    return all((directory / filename).exists() for filename in _REQUIRED_FILES.keys())
+# SHA values copied from the historical registry - wire contract with HF.
+REQUIRED_FILES: tuple[ManagedFile, ...] = (
+    ManagedFile(ENCODER_FILE, "15fa8155fe9bc1a7d25d9bb353debaa4def033d0174e907dbd2dd6d995def85f"),
+    ManagedFile(DECODER_FILE, "ef7765261e9d1cdc34d89356986c2bbc2a082897f753a89605ae80fdfa61f5e8"),
+    ManagedFile(VOCAB_FILE, "5cb5c5586d98a2f331d9f8828e4586479b0611bfba5d8c3b6dadffc84d6a36a3"),
+)
 
 
 def resolve_manga_ocr_model_dir() -> Path | None:
-    managed_dir = resolve_manga_ocr_models_root()
-    if managed_dir is None:
+    raw_root = os.getenv(_MODEL_ROOT_ENV, "").strip()
+    if not raw_root:
         return None
-    return managed_dir
+    return Path(raw_root).expanduser().resolve() / _MANGA_OCR_SUBDIR
 
 
 def manga_ocr_runtime_ready() -> bool:
     model_dir = resolve_manga_ocr_model_dir()
-    if model_dir is None:
-        return False
-    return _has_required_files(model_dir)
-
-
-def _download_file(url: str, target_path: Path) -> None:
-    request = Request(
-        url,
-        headers={
-            "User-Agent": "koma-studio-mini-backend/1.0",
-        },
+    return model_dir is not None and all(
+        (model_dir / item.name).is_file() for item in REQUIRED_FILES
     )
-    temp_path = target_path.with_suffix(target_path.suffix + ".part")
-    if temp_path.exists():
-        temp_path.unlink(missing_ok=True)
-
-    try:
-        with urlopen(request, timeout=120) as response, temp_path.open("wb") as handle:
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
-                handle.write(chunk)
-    except (HTTPError, URLError) as exc:
-        temp_path.unlink(missing_ok=True)
-        raise RuntimeError(f"Failed to download manga_ocr file: {exc}") from exc
-    except Exception as exc:
-        temp_path.unlink(missing_ok=True)
-        raise RuntimeError(f"Failed to save manga_ocr file: {exc}") from exc
-
-    temp_path.replace(target_path)
 
 
-def _ensure_required_file(
-    filename: str,
-    *,
-    storage_dir: Path,
-    expected_sha256: str,
-    url: str,
-) -> None:
-    target_path = storage_dir / filename
-
-    if target_path.exists():
-        existing_sha = _sha256_file(target_path)
-        if existing_sha.lower() == expected_sha256.lower():
-            return
-        target_path.unlink(missing_ok=True)
-
-    _download_file(url, target_path)
-    downloaded_sha = _sha256_file(target_path)
-    if downloaded_sha.lower() != expected_sha256.lower():
-        target_path.unlink(missing_ok=True)
-        raise RuntimeError(
-            f"Invalid SHA256 checksum for '{filename}'. Expected: {expected_sha256} | Got: {downloaded_sha}",
+def ensure_manga_ocr_models_installed() -> dict[str, object]:
+    model_dir = resolve_manga_ocr_model_dir()
+    if model_dir is None:
+        raise ModelConfigurationError(
+            "KOMA_MODELS_ROOT is not configured for managed Manga OCR installs."
         )
 
-
-def ensure_manga_ocr_models_installed() -> dict[str, Any]:
-    storage_dir = resolve_manga_ocr_models_root()
-    if storage_dir is None:
-        raise RuntimeError(
-            "KOMA_MODELS_ROOT is not configured for managed Manga OCR installs.",
+    model_dir.mkdir(parents=True, exist_ok=True)
+    for item in REQUIRED_FILES:
+        ensure_file_from_hf(
+            repo=_HF_REPO,
+            candidate_paths=[item.name],
+            target_path=model_dir / item.name,
+            revision="main",
+            expected_sha256=item.sha256,
         )
 
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    for filename, meta in _REQUIRED_FILES.items():
-        _ensure_required_file(
-            filename,
-            storage_dir=storage_dir,
-            expected_sha256=meta["sha256"],
-            url=meta["url"],
-        )
-
-    files = [path for path in storage_dir.rglob("*") if path.is_file()]
-    return {
-        "directory": str(storage_dir),
-        "fileCount": len(files),
-        "files": [str(path.relative_to(storage_dir)) for path in files],
-    }
+    files = sorted(
+        path.relative_to(model_dir).as_posix()
+        for path in model_dir.rglob("*")
+        if path.is_file()
+    )
+    return {"directory": str(model_dir), "fileCount": len(files), "files": files}

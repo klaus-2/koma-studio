@@ -1,135 +1,103 @@
 from __future__ import annotations
 
-from typing import Sequence
+import logging
+import threading
+from collections.abc import Sequence
+from typing import Protocol, cast
 
 import cv2
 import numpy as np
-from PIL import Image
+from numpy.typing import NDArray
 
-from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
-from models.ocr.easyocr.storage import (
-    ensure_easyocr_models_installed,
-    resolve_easyocr_storage_dir,
-)
+from models.errors import MissingDependencyError, ModelNotInstalledError
+from models.ocr.base_ocr import RegionCropOCR, RgbArray
+from models.ocr.easyocr.storage import resolve_easyocr_storage_dir
+from models.onnx_utils import translate_inference_error
+
+logger = logging.getLogger(__name__)
 
 
-class EasyOCREngine(BaseOCR):
+class _EasyOcrReader(Protocol):
+    def recognize(
+        self,
+        img_cv_grey: NDArray[np.uint8],
+        horizontal_list: None,
+        free_list: None,
+        paragraph: bool,
+        detail: int,
+        reformat: bool,
+    ) -> list[tuple[object, str, float]]: ...
+
+
+class EasyOCREngine(RegionCropOCR):
     key = "easyocr"
     name = "EasyOCR"
 
-    def __init__(
-        self,
-        languages: Sequence[str] | None = None,
-        use_gpu: bool = False,
-        expansion_percentage: int = 5,
-    ) -> None:
-        self.languages = list(languages or ("en",))
-        self.use_gpu = use_gpu
-        self.expansion_percentage = max(0, expansion_percentage)
-        self.reader = None
+    def __init__(self, languages: Sequence[str] | None = None, use_gpu: bool = False) -> None:
+        self._languages: list[str] = list(languages or ("en",))
+        self._use_gpu = use_gpu
+        self._lock = threading.Lock()
+        self._reader: _EasyOcrReader | None = None
 
-    def _ensure_reader(self):
-        if self.reader is not None:
-            return self.reader
+    def _ensure_reader(self) -> _EasyOcrReader:
+        reader = self._reader
+        if reader is not None:
+            return reader
+        with self._lock:
+            if self._reader is None:
+                self._reader = self._build_reader()
+            return self._reader
+
+    def _build_reader(self) -> _EasyOcrReader:
         try:
-            import easyocr  # type: ignore
-        except Exception as exc:  # pragma: no cover - optional dependency
-            raise RuntimeError("easyocr is not installed in the local environment") from exc
+            import easyocr  # pyright: ignore[reportMissingTypeStubs]
+        except ImportError as exc:
+            raise MissingDependencyError("easyocr is not installed in the local environment") from exc
 
-        storage_dir = resolve_easyocr_storage_dir(self.languages)
-        reader_kwargs: dict[str, object] = {
-            "gpu": self.use_gpu,
-            "verbose": False,
-        }
+        storage_dir = resolve_easyocr_storage_dir(self._languages)
+        reader_kwargs: dict[str, object] = {"gpu": self._use_gpu, "verbose": False}
         if storage_dir is not None:
-            # In managed desktop mode the weights must be installed via the modal.
+            # Managed desktop mode: weights are provisioned by the Model Manager only.
             reader_kwargs["model_storage_directory"] = str(storage_dir)
             reader_kwargs["download_enabled"] = False
 
+        logger.info("easyocr loading", extra={"languages": self._languages, "gpu": self._use_gpu})
         try:
-            self.reader = easyocr.Reader(self.languages, **reader_kwargs)
-        except Exception as exc:
-            if storage_dir is not None:
-                try:
-                    ensure_easyocr_models_installed(self.languages, self.use_gpu)
-                    self.reader = easyocr.Reader(self.languages, **reader_kwargs)
-                    return self.reader
-                except Exception:
-                    raise RuntimeError(
-                        "EasyOCR models are not installed locally for this language. Open the Model Manager and install/reinstall the EasyOCR model.",
-                    ) from exc
-            raise
-        return self.reader
-
-    def _expand_box(
-        self, bbox: tuple[int, int, int, int], width: int, height: int
-    ) -> tuple[int, int, int, int]:
-        x1, y1, x2, y2 = bbox
-        box_w = max(1, x2 - x1)
-        box_h = max(1, y2 - y1)
-        dx = int(box_w * self.expansion_percentage / 100.0)
-        dy = int(box_h * self.expansion_percentage / 100.0)
-        return (
-            max(0, x1 - dx),
-            max(0, y1 - dy),
-            min(width, x2 + dx),
-            min(height, y2 + dy),
-        )
-
-    def _recognize(
-        self,
-        image: Image.Image,
-        regions: list[OCRInputRegion],
-        language: str = "en",
-    ) -> list[OCRTextResult]:
-        reader = self._ensure_reader()
-        rgb = np.asarray(image.convert("RGB"))
-        img_h, img_w = rgb.shape[:2]
-        results: list[OCRTextResult] = []
-
-        for region in regions:
-            x1, y1, x2, y2 = self._expand_box(region.bbox, img_w, img_h)
-            text = ""
-            score = 0.0
-            if x2 > x1 and y2 > y1:
-                crop = rgb[y1:y2, x1:x2]
-                crop_gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
-                # Use recognize() directly instead of readtext() to skip
-                # EasyOCR's internal CRAFT detection. Since regions are
-                # already detected externally, we treat each crop as a
-                # single text line by passing horizontal_list=None and
-                # free_list=None, which makes EasyOCR use the full crop.
-                pred = reader.recognize(
-                    crop_gray,
-                    horizontal_list=None,
-                    free_list=None,
-                    paragraph=False,
-                    detail=1,
-                    reformat=False,
-                )
-                if pred:
-                    parts = []
-                    total_score = 0.0
-                    for item in pred:
-                        if isinstance(item, (list, tuple)) and len(item) >= 2:
-                            t = str(item[1]).strip()
-                            c = float(item[2]) if len(item) > 2 else 0.0
-                            if t:
-                                parts.append(t)
-                                total_score += c
-                    text = " ".join(parts)
-                    score = total_score / len(parts) if parts else 0.0
-
-            results.append(
-                OCRTextResult(
-                    id=region.id,
-                    bbox=region.bbox,
-                    text=text,
-                    score=score,
-                    source=region.source,
-                    detector_model_key=region.detector_model_key,
-                    model_key=self.key,
-                ),
+            reader = easyocr.Reader(  # pyright: ignore[reportUnknownMemberType, reportCallIssue]
+                self._languages,
+                **reader_kwargs,  # pyright: ignore[reportArgumentType] - easyocr ships no stubs
             )
+        except FileNotFoundError as exc:
+            raise ModelNotInstalledError(
+                "EasyOCR weights are not installed for this language. "
+                "Install them in the Model Manager before using EasyOCR."
+            ) from exc
+        return cast(_EasyOcrReader, reader)
 
-        return results
+    def _recognize_crop(self, crop: RgbArray, language: str) -> tuple[str, float]:
+        reader = self._ensure_reader()
+        gray = np.ascontiguousarray(cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY), dtype=np.uint8)
+        try:
+            # recognize() bypasses EasyOCR's CRAFT detector: regions are already
+            # detected upstream, so each crop is treated as one text line.
+            predictions = reader.recognize(
+                gray,
+                horizontal_list=None,
+                free_list=None,
+                paragraph=False,
+                detail=1,
+                reformat=False,
+            )
+        except RuntimeError as exc:
+            raise translate_inference_error(exc, model_key=self.key) from exc
+
+        texts: list[str] = []
+        confidence_sum = 0.0
+        for _box, raw_text, confidence in predictions:
+            text = raw_text.strip()
+            if text:
+                texts.append(text)
+                confidence_sum += float(confidence)
+        if not texts:
+            return "", 0.0
+        return " ".join(texts), confidence_sum / len(texts)

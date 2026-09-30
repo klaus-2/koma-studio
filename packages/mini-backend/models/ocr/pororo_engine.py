@@ -1,89 +1,61 @@
 from __future__ import annotations
 
-from typing import Any
+import threading
+from collections.abc import Mapping
+from typing import Protocol, cast
 
 import numpy as np
-from PIL import Image
+from numpy.typing import NDArray
 
-from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
+from models.errors import ModelNotInstalledError
+from models.ocr.base_ocr import RegionCropOCR, RgbArray
+from models.onnx_utils import translate_inference_error
 
 
-class PororoOCREngine(BaseOCR):
+class _PororoModel(Protocol):
+    def run_ocr(self, image: NDArray[np.uint8]) -> object: ...
+    def get_ocr_result(self) -> Mapping[str, object] | None: ...
+
+
+class PororoOCREngine(RegionCropOCR):
     key = "pororo"
     name = "Pororo OCR (Korean)"
 
-    def __init__(self, language: str = "ko", expansion_percentage: int = 5) -> None:
-        self.language = language or "ko"
-        self.expansion_percentage = max(0, expansion_percentage)
-        self._model: Any | None = None
+    def __init__(self, language: str = "ko") -> None:
+        self._language = language or "ko"
+        self._lock = threading.Lock()
+        self._model: _PororoModel | None = None
 
-    def _ensure_model(self) -> None:
-        if self._model is not None:
-            return
-        from models.ocr.pororo.main import PororoOcr
+    def _ensure_model(self) -> _PororoModel:
+        model = self._model
+        if model is not None:
+            return model
+        with self._lock:
+            if self._model is None:
+                from models.ocr.pororo.main import PororoOcr
 
-        try:
-            self._model = PororoOcr(lang=self.language)
-        except RuntimeError as exc:
-            raise RuntimeError(
-                "Pororo OCR models are not installed locally. "
-                "Install the model in the Model Manager before using it.",
-            ) from exc
-
-    def _expand_box(
-        self,
-        bbox: tuple[int, int, int, int],
-        width: int,
-        height: int,
-    ) -> tuple[int, int, int, int]:
-        x1, y1, x2, y2 = bbox
-        box_w = max(1, x2 - x1)
-        box_h = max(1, y2 - y1)
-        dx = int(box_w * self.expansion_percentage / 100.0)
-        dy = int(box_h * self.expansion_percentage / 100.0)
-        return max(0, x1 - dx), max(0, y1 - dy), min(width, x2 + dx), min(height, y2 + dy)
-
-    def _recognize(
-        self,
-        image: Image.Image,
-        regions: list[OCRInputRegion],
-        language: str = "ko",
-    ) -> list[OCRTextResult]:
-        self._ensure_model()
-        assert self._model is not None
-
-        rgb = np.asarray(image.convert("RGB"))
-        img_h, img_w = rgb.shape[:2]
-        results: list[OCRTextResult] = []
-
-        for region in regions:
-            x1, y1, x2, y2 = self._expand_box(region.bbox, img_w, img_h)
-            text = ""
-            score = 0.0
-
-            if x2 > x1 and y2 > y1:
-                crop_rgb = rgb[y1:y2, x1:x2]
-                crop_bgr = crop_rgb[:, :, ::-1]
                 try:
-                    self._model.run_ocr(crop_bgr)
-                    payload = self._model.get_ocr_result() or {}
-                    pieces = payload.get("description", [])
-                    text = " ".join(str(piece).strip() for piece in pieces if str(piece).strip()).strip()
-                    score = 1.0 if text else 0.0
-                except Exception:
-                    text = ""
-                    score = 0.0
+                    self._model = cast(_PororoModel, PororoOcr(lang=self._language))
+                except RuntimeError as exc:
+                    raise ModelNotInstalledError(
+                        "Pororo OCR models are not installed locally. "
+                        "Install the model in the Model Manager before using it."
+                    ) from exc
+            return self._model
 
-            results.append(
-                OCRTextResult(
-                    id=region.id,
-                    bbox=region.bbox,
-                    text=text,
-                    score=score,
-                    source=region.source,
-                    detector_model_key=region.detector_model_key,
-                    model_key=self.key,
-                ),
-            )
+    def _recognize_crop(self, crop: RgbArray, language: str) -> tuple[str, float]:
+        model = self._ensure_model()
+        bgr = np.ascontiguousarray(crop[:, :, ::-1])
+        try:
+            # PororoOcr keeps the last result as instance state: run + read must be atomic.
+            with self._lock:
+                model.run_ocr(bgr)
+                payload = model.get_ocr_result() or {}
+        except (RuntimeError, ValueError) as exc:
+            raise translate_inference_error(exc, model_key=self.key) from exc
 
-        return results
+        pieces = payload.get("description")
+        if not isinstance(pieces, list):
+            return "", 0.0
+        text = " ".join(part for part in (str(piece).strip() for piece in pieces) if part)
+        return text, (1.0 if text else 0.0)

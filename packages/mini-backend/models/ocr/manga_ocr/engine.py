@@ -1,368 +1,157 @@
 from __future__ import annotations
 
-import asyncio
+import gc
 import logging
 import re
+import threading
+from collections.abc import Sequence
+from importlib.util import find_spec
 from pathlib import Path
-from typing import Sequence
+from typing import cast
 
 import numpy as np
 import onnxruntime as ort
+from numpy.typing import NDArray
 from PIL import Image
 
 from core.device import get_device_info, get_onnx_execution_providers
-from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
-from models.ocr.manga_ocr.storage import resolve_manga_ocr_model_dir
-
-_OCR_BATCH_SIZE = 8
+from models.errors import ModelConfigurationError, ModelNotInstalledError
+from models.ocr.base_ocr import RegionCropOCR, RgbArray
+from models.ocr.manga_ocr.storage import (
+    DECODER_FILE,
+    ENCODER_FILE,
+    VOCAB_FILE,
+    resolve_manga_ocr_model_dir,
+)
+from models.onnx_utils import ONNX_RUNTIME_ERRORS, translate_inference_error
 
 logger = logging.getLogger(__name__)
 
-try:
-    import jaconv  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
-    jaconv = None
+_START_TOKEN = 2
+_END_TOKEN = 3
+_FIRST_VOCAB_TOKEN = 5
+_MAX_GENERATED_TOKENS = 300
+_INPUT_SIDE = 224
+_HAS_JACONV = find_spec("jaconv") is not None
+_DOT_RUN = re.compile(r"[・.]{2,}")
+
+
+def _find_input_name(session, candidates):
+    names = [item.name for item in session.get_inputs()]
+    for candidate in candidates:
+        for name in names:
+            if candidate in name:
+                return name
+    return names[0]
+
+
+def _preprocess(crop):
+    pil = Image.fromarray(crop).convert("L").convert("RGB")
+    pil = pil.resize((_INPUT_SIDE, _INPUT_SIDE), resample=Image.Resampling.BILINEAR)
+    arr = np.asarray(pil, dtype=np.float32) / 255.0
+    arr = (arr - 0.5) / 0.5
+    return arr.transpose((2, 0, 1))[np.newaxis, ...].astype(np.float32, copy=False)
+
+
+def _postprocess(text):
+    result = "".join(text.split()).replace("…", "...")
+    result = _DOT_RUN.sub(lambda match: "." * len(match.group(0)), result)
+    if _HAS_JACONV:
+        import jaconv
+
+        result = cast(str, jaconv.h2z(result, ascii=True, digit=True))
+    return result
 
 
 class MangaOCRONNX:
-    def __init__(
-        self,
-        encoder_path: str | Path,
-        decoder_path: str | Path,
-        vocab_path: str | Path,
-        providers: Sequence[str],
-    ) -> None:
-        self.encoder = ort.InferenceSession(str(encoder_path), providers=list(providers))
-        self.decoder = ort.InferenceSession(str(decoder_path), providers=list(providers))
-        self.vocab = self._load_vocab(vocab_path)
+    __slots__ = (
+        "_decoder",
+        "_decoder_encoder_input",
+        "_decoder_token_input",
+        "_encoder",
+        "_encoder_image_input",
+        "_vocab",
+    )
 
-        self.encoder_image_input = self._find_input_name(self.encoder, ("image", "pixel_values", "input"))
-        self.encoder_output_name = self.encoder.get_outputs()[0].name
-        self.decoder_token_input = self._find_input_name(self.decoder, ("token_ids", "input_ids", "input"))
-        self.decoder_encoder_input = self._find_input_name(
-            self.decoder,
+    def __init__(self, encoder_path, decoder_path, vocab_path, providers):
+        provider_list = list(providers)
+        self._encoder = ort.InferenceSession(str(encoder_path), providers=provider_list)
+        self._decoder = ort.InferenceSession(str(decoder_path), providers=provider_list)
+        self._vocab = vocab_path.read_text(encoding="utf-8").splitlines()
+        self._encoder_image_input = _find_input_name(self._encoder, ("image", "pixel_values", "input"))
+        self._decoder_token_input = _find_input_name(self._decoder, ("token_ids", "input_ids", "input"))
+        self._decoder_encoder_input = _find_input_name(
+            self._decoder,
             ("encoder_hidden_states", "encoder_outputs", "encoder_last_hidden_state"),
         )
 
-    @staticmethod
-    def _load_vocab(path: str | Path) -> list[str]:
-        with open(path, "r", encoding="utf-8") as handle:
-            return handle.read().splitlines()
-
-    @staticmethod
-    def _find_input_name(session: ort.InferenceSession, candidates: Sequence[str]) -> str:
-        names = [item.name for item in session.get_inputs()]
-        for candidate in candidates:
-            for name in names:
-                if candidate in name:
-                    return name
-        return names[0]
-
-    @staticmethod
-    def _preprocess(image: np.ndarray) -> np.ndarray:
-        pil_image = Image.fromarray(image).convert("L").convert("RGB")
-        pil_image = pil_image.resize((224, 224), resample=Image.BILINEAR)
-        arr = np.asarray(pil_image, dtype=np.float32)
-        arr /= 255.0
-        arr = (arr - 0.5) / 0.5
-        arr = arr.transpose((2, 0, 1)).astype(np.float32)
-        return arr[None]
-
-    def _generate(self, image: np.ndarray) -> list[int]:
-        encoder_out = self.encoder.run(None, {self.encoder_image_input: image})
-        encoder_hidden = encoder_out[0]
-
-        token_ids = [2]
-        for _ in range(300):
-            decoder_inputs = {
-                self.decoder_token_input: np.array([token_ids], dtype=np.int64),
-                self.decoder_encoder_input: encoder_hidden,
-            }
-            logits = self.decoder.run(None, decoder_inputs)[0]
+    def predict(self, crop):
+        encoder_hidden = self._encoder.run(None, {self._encoder_image_input: _preprocess(crop)})[0]
+        token_ids = [_START_TOKEN]
+        for _ in range(_MAX_GENERATED_TOKENS):
+            raw_logits = self._decoder.run(
+                None,
+                {
+                    self._decoder_token_input: np.array([token_ids], dtype=np.int64),
+                    self._decoder_encoder_input: encoder_hidden,
+                },
+            )[0]
+            logits = np.asarray(raw_logits, dtype=np.float32)
             next_token = int(np.argmax(logits[0, -1, :]))
             token_ids.append(next_token)
-            if next_token == 3:
+            if next_token == _END_TOKEN:
                 break
-        return token_ids
+        return _postprocess(self._decode(token_ids))
 
-    def _decode(self, token_ids: list[int]) -> str:
-        text = ""
-        for token_id in token_ids:
-            if token_id < 5:
-                continue
-            if token_id < len(self.vocab):
-                text += self.vocab[token_id]
-        return text
-
-    @staticmethod
-    def _postprocess(text: str) -> str:
-        result = "".join(text.split())
-        result = result.replace("…", "...")
-        result = re.sub(r"[・.]{2,}", lambda match: "." * len(match.group(0)), result)
-        if jaconv is not None:
-            result = jaconv.h2z(result, ascii=True, digit=True)
-        return result
-
-    def predict(self, image: np.ndarray) -> str:
-        x = self._preprocess(image)
-        token_ids = self._generate(x)
-        raw = self._decode(token_ids)
-        return self._postprocess(raw)
+    def _decode(self, token_ids):
+        vocab_size = len(self._vocab)
+        return "".join(
+            self._vocab[token_id]
+            for token_id in token_ids
+            if _FIRST_VOCAB_TOKEN <= token_id < vocab_size
+        )
 
 
-class MangaOCROnnxEngine(BaseOCR):
+class MangaOCROnnxEngine(RegionCropOCR):
     key = "manga_ocr"
     name = "Manga OCR (ONNX)"
 
-    def __init__(
-        self,
-        providers: Sequence[str] | None = None,
-        expansion_percentage: int = 5,
-        model_dir: str | Path | None = None,
-    ) -> None:
-        self.expansion_percentage = max(0, expansion_percentage)
-        if model_dir is not None:
-            self.model_dir = Path(model_dir).expanduser().resolve()
-        else:
-            resolved_dir = resolve_manga_ocr_model_dir()
-            if resolved_dir is None:
-                raise RuntimeError(
-                    "Managed models directory is not configured for Manga OCR. "
-                    "Verifique KOMA_MODELS_ROOT.",
-                )
-            self.model_dir = resolved_dir
-        self.providers = list(providers) if providers else get_onnx_execution_providers(get_device_info())
-        self.model: MangaOCRONNX | None = None
-
-    def _ensure_model(self) -> None:
-        if self.model is not None:
-            return
-        encoder_path = self.model_dir / "encoder_model.onnx"
-        decoder_path = self.model_dir / "decoder_model.onnx"
-        vocab_path = self.model_dir / "vocab.txt"
-        if not encoder_path.exists() or not decoder_path.exists() or not vocab_path.exists():
-            raise FileNotFoundError(
-                f"manga_ocr models not found in {self.model_dir}",
+    def __init__(self, providers=None, model_dir=None):
+        resolved = model_dir if model_dir is not None else resolve_manga_ocr_model_dir()
+        if resolved is None:
+            raise ModelConfigurationError(
+                "Managed models directory is not configured for Manga OCR (KOMA_MODELS_ROOT)."
             )
-        self.model = MangaOCRONNX(
-            encoder_path=encoder_path,
-            decoder_path=decoder_path,
-            vocab_path=vocab_path,
-            providers=self.providers,
-        )
+        self._model_dir = resolved.expanduser().resolve()
+        self._providers = tuple(providers) if providers else tuple(get_onnx_execution_providers(get_device_info()))
+        self._lock = threading.Lock()
+        self._model = None
 
-    def _expand_box(
-        self,
-        bbox: tuple[int, int, int, int],
-        width: int,
-        height: int,
-    ) -> tuple[int, int, int, int]:
-        x1, y1, x2, y2 = bbox
-        box_w = max(1, x2 - x1)
-        box_h = max(1, y2 - y1)
-        dx = int(box_w * self.expansion_percentage / 100.0)
-        dy = int(box_h * self.expansion_percentage / 100.0)
-        nx1 = max(0, x1 - dx)
-        ny1 = max(0, y1 - dy)
-        nx2 = min(width, x2 + dx)
-        ny2 = min(height, y2 + dy)
-        return nx1, ny1, nx2, ny2
+    def _ensure_model(self):
+        model = self._model
+        if model is not None:
+            return model
+        with self._lock:
+            if self._model is None:
+                encoder = self._model_dir / ENCODER_FILE
+                decoder = self._model_dir / DECODER_FILE
+                vocab = self._model_dir / VOCAB_FILE
+                if not (encoder.is_file() and decoder.is_file() and vocab.is_file()):
+                    raise ModelNotInstalledError(f"manga_ocr models not found in {self._model_dir}")
+                logger.info("manga_ocr loading", extra={"providers": list(self._providers)})
+                self._model = MangaOCRONNX(encoder, decoder, vocab, self._providers)
+            return self._model
 
-    def _recognize(
-        self,
-        image: Image.Image,
-        regions: list[OCRInputRegion],
-        language: str = "en",
-    ) -> list[OCRTextResult]:
-        self._ensure_model()
-        assert self.model is not None
-
-        rgb = np.asarray(image.convert("RGB"))
-        img_h, img_w = rgb.shape[:2]
-        results: list[OCRTextResult] = []
-
-        for region in regions:
-            x1, y1, x2, y2 = self._expand_box(region.bbox, img_w, img_h)
-            if x2 <= x1 or y2 <= y1:
-                text = ""
-            else:
-                crop = rgb[y1:y2, x1:x2]
-                try:
-                    text = self.model.predict(crop)
-                except Exception as exc:
-                    exc_msg = str(exc).lower()
-                    if "allocate memory" in exc_msg or "out of memory" in exc_msg or "bfc_arena" in exc_msg:
-                        import gc
-                        gc.collect()
-                        raise RuntimeError(
-                            f"Failed to allocate memory for requested buffer "
-                            f"during manga_ocr inference: {exc}"
-                        ) from exc
-                    text = ""
-
-            score = 1.0 if text else 0.0
-            results.append(
-                OCRTextResult(
-                    id=region.id,
-                    bbox=region.bbox,
-                    text=text,
-                    score=score,
-                    source=region.source,
-                    detector_model_key=region.detector_model_key,
-                    model_key=self.key,
-                ),
-            )
-
-        return results
-
-    def _process_batch_sync(
-        self,
-        rgb: np.ndarray,
-        img_w: int,
-        img_h: int,
-        batch: list[OCRInputRegion],
-    ) -> list[OCRTextResult]:
-        """Process a batch of regions synchronously.  Meant to be called via
-        ``asyncio.to_thread`` so that the event loop is **not** blocked during
-        ONNX inference.
-
-        If an OOM / allocation failure is detected the error is **re-raised**
-        so that the caller (``ocr.py``) can trigger the CPU fallback path.
-        """
-        import gc
-
-        assert self.model is not None
-        results: list[OCRTextResult] = []
-        for region in batch:
-            x1, y1, x2, y2 = self._expand_box(region.bbox, img_w, img_h)
-            if x2 <= x1 or y2 <= y1:
-                text = ""
-            else:
-                crop = rgb[y1:y2, x1:x2]
-                try:
-                    text = self.model.predict(crop)
-                except Exception as exc:
-                    exc_msg = str(exc).lower()
-                    if "allocate memory" in exc_msg or "out of memory" in exc_msg or "bfc_arena" in exc_msg:
-                        # OOM — force GC and propagate so the endpoint can
-                        # fall back to CPU.
-                        logger.error("manga_ocr OOM during predict: %s", exc)
-                        gc.collect()
-                        raise RuntimeError(
-                            f"Failed to allocate memory for requested buffer "
-                            f"during manga_ocr inference: {exc}"
-                        ) from exc
-                    logger.warning("manga_ocr predict failed for region %s: %s", region.id, exc)
-                    text = ""
-
-            score = 1.0 if text else 0.0
-            results.append(
-                OCRTextResult(
-                    id=region.id,
-                    bbox=region.bbox,
-                    text=text,
-                    score=score,
-                    source=region.source,
-                    detector_model_key=region.detector_model_key,
-                    model_key=self.key,
-                ),
-            )
-        return results
-
-    def _release_gpu_sessions(self) -> None:
-        """Destroy the ONNX sessions to free GPU VRAM after an OOM error.
-
-        A fresh model will be re-created on the next ``_ensure_model`` call
-        (possibly with CPU-only providers via the fallback path in ``ocr.py``).
-        """
-        import gc
-
-        if self.model is not None:
-            try:
-                del self.model.encoder
-                del self.model.decoder
-            except Exception:
-                pass
-            self.model = None
-        gc.collect()
-        logger.info("manga_ocr GPU sessions released after OOM")
-
-    async def recognize(
-        self,
-        image: Image.Image,
-        regions: list[OCRInputRegion],
-        language: str = "en",
-        *,
-        cancellation_event: asyncio.Event | None = None,
-    ) -> list[OCRTextResult]:
-        """Async recognize that processes regions in batches.
-
-        Each batch runs in a **thread executor** via ``asyncio.to_thread`` so
-        the event loop stays free for disconnect detection, timeout enforcement,
-        and other async tasks.  Between batches we check the cancellation event.
-
-        If an OOM error is detected during inference, the ONNX sessions are
-        released and the error is propagated so the caller can fall back to CPU.
-        """
-        self._ensure_model()
-        assert self.model is not None
-
-        rgb = np.asarray(image.convert("RGB"))
-        img_h, img_w = rgb.shape[:2]
-        results: list[OCRTextResult] = []
-        batch_size = max(1, _OCR_BATCH_SIZE)
-
-        total_regions = len(regions)
-        logger.info(
-            "manga_ocr recognize started regions=%d batch_size=%d image=%dx%d",
-            total_regions,
-            batch_size,
-            img_w,
-            img_h,
-        )
-
+    def _recognize_crop(self, crop, language):
+        model = self._ensure_model()
         try:
-            for batch_start in range(0, total_regions, batch_size):
-                # --- Check cancellation before starting a new batch ---
-                if cancellation_event is not None and cancellation_event.is_set():
-                    for region in regions[batch_start:]:
-                        results.append(
-                            OCRTextResult(
-                                id=region.id,
-                                bbox=region.bbox,
-                                text="",
-                                score=0.0,
-                                source=region.source,
-                                detector_model_key=region.detector_model_key,
-                                model_key=self.key,
-                            ),
-                        )
-                    logger.info(
-                        "manga_ocr recognize cancelled at batch_start=%d/%d",
-                        batch_start,
-                        total_regions,
-                    )
-                    break
+            text = model.predict(crop)
+        except ONNX_RUNTIME_ERRORS as exc:
+            raise translate_inference_error(exc, model_key=self.key) from exc
+        return text, (1.0 if text else 0.0)
 
-                batch = regions[batch_start : batch_start + batch_size]
-
-                # Run the synchronous ONNX inference in a thread so the event
-                # loop remains responsive (timeouts, disconnect monitor, etc.).
-                batch_results = await asyncio.to_thread(
-                    self._process_batch_sync, rgb, img_w, img_h, batch
-                )
-                results.extend(batch_results)
-
-                logger.info(
-                    "manga_ocr batch done %d/%d",
-                    min(batch_start + batch_size, total_regions),
-                    total_regions,
-                )
-        except (RuntimeError, Exception) as exc:
-            exc_msg = str(exc).lower()
-            if "allocate memory" in exc_msg or "out of memory" in exc_msg or "bfc_arena" in exc_msg:
-                logger.error("manga_ocr OOM — releasing GPU sessions: %s", exc)
-                self._release_gpu_sessions()
-            raise
-
-        return results
+    def release(self):
+        with self._lock:
+            self._model = None
+        gc.collect()
+        logger.info("manga_ocr sessions released")

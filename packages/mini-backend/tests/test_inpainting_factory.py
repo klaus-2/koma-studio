@@ -23,10 +23,16 @@ except Exception as exc:  # pragma: no cover - optional runtime deps
 
 @unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
 class InpaintingFactoryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        inpainting_factory.clear_inpainter_cache()
+
+    def tearDown(self) -> None:
+        inpainting_factory.clear_inpainter_cache()
+
     def test_list_inpainting_models_includes_new_cpu_options(self) -> None:
         with (
             patch.object(inpainting_factory, "model_is_installed", return_value=True),
-            patch.object(inpainting_factory, "_path_exists", return_value=True),
+            patch.object(inpainting_factory, "inpainting_runtime_ready", return_value=True),
         ):
             models = inpainting_factory.list_inpainting_models(has_gpu=False)
 
@@ -37,12 +43,8 @@ class InpaintingFactoryTests(unittest.TestCase):
         self.assertIn("lama_fp32", keys)
 
     def test_auto_prefers_contextual_lama_variants_when_available(self) -> None:
-        with patch.object(
-            inpainting_factory,
-            "_available_model_keys",
-            return_value=["aot", "opencv_lama", "lama_fp32", "lama_manga"],
-        ):
-            selected = inpainting_factory._resolve_model_key(False, "auto")
+        with patch.object(inpainting_factory, "_is_available", return_value=True):
+            selected = inpainting_factory._resolve_model_key("auto")
 
         self.assertEqual(selected, "lama_manga")
 
@@ -58,14 +60,19 @@ class InpaintingFactoryTests(unittest.TestCase):
 
         with (
             patch.object(inpainting_factory, "get_device_info", return_value=fake_device),
-            patch.object(inpainting_factory, "model_is_installed", return_value=True),
+            patch.object(
+                inpainting_factory,
+                "_is_available",
+                side_effect=lambda spec: spec.key == "opencv_lama",
+            ),
             patch.object(inpainting_factory, "resolve_inpainting_model_path", return_value=Path(__file__)),
-            patch.object(inpainting_factory, "_available_model_keys", return_value=["opencv_lama"]),
             patch.object(inpainting_factory, "LaMaInpainter") as lama_cls,
         ):
             inpainting_factory.get_inpainter(True, model_key="opencv_lama")
 
-        self.assertEqual(lama_cls.call_args.kwargs["providers"], ["CPUExecutionProvider"])
+        self.assertEqual(
+            list(lama_cls.call_args.kwargs["providers"]), ["CPUExecutionProvider"]
+        )
 
 
 if __name__ == "__main__":
