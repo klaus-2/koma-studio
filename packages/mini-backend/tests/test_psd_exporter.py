@@ -432,12 +432,13 @@ def test_export_zip_endpoint(monkeypatch: pytest.MonkeyPatch, sample_image: Imag
             self,
             image: Image.Image,
             options: ExportRequest,
+            output_dir: Path,
+            *,
             render_overlays: dict[str, Image.Image] | None = None,
             render_text_layers: list[dict[str, object]] | None = None,
         ):
-            temp_dir = Path(tempfile.mkdtemp(prefix="zip_export_test_"))
-            psd_path = temp_dir / "export.psd"
-            json_path = temp_dir / "export.json"
+            psd_path = output_dir / "export.psd"
+            json_path = output_dir / "export.json"
             psd_path.write_bytes(b"psd-data")
             json_path.write_text('{"ok": true}', encoding="utf-8")
             response = ExportResponse(

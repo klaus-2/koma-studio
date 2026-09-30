@@ -361,9 +361,12 @@ class PSDExporter:
             return base
 
         crop = layer.crop((x1 - left, y1 - top, x2 - left, y2 - top))
-        overlay_canvas = Image.new("RGBA", base.size, (0, 0, 0, 0))
-        overlay_canvas.paste(crop, (x1, y1), crop)
-        return Image.alpha_composite(base, overlay_canvas)
+        # Composite over only the layer's own window: allocating a page-sized
+        # canvas per text layer made 1000-layer exports O(layers × page pixels).
+        region = base.crop((x1, y1, x2, y2))
+        composed = Image.alpha_composite(region, crop)
+        base.paste(composed, (x1, y1))
+        return base
 
     def _render_ocr_overlay(self, base: Image.Image, detections: list[DetectionResult]) -> Image.Image:
         """

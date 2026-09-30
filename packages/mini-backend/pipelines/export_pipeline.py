@@ -1,16 +1,26 @@
+"""Export orchestration: detect → OCR → inpaint → PSD (+ optional metadata).
+
+The pipeline owns no filesystem state: callers pass ``output_dir`` and clean
+it up. Stage failures degrade to the previous stage output (a product decision:
+export must not fail because one model failed) but are reported through
+``degraded_stages`` in the response instead of silently succeeding.
+"""
+
 from __future__ import annotations
 
-from pathlib import Path
+import asyncio
 import logging
-import tempfile
 import time
-from typing import Any
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Protocol
 
-from fastapi import HTTPException
 from PIL import Image
 
 from core.config import get_config
 from core.device import get_device_info
+from models.errors import ExportError, PsdExportError
 from pipelines.clean_pipeline import CleanPipeline
 from pipelines.ocr_pipeline import OCRPipeline
 from schemas.export import (
@@ -22,213 +32,262 @@ from schemas.export import (
     TextLayerEngine,
 )
 from schemas.inpainting import CleanRequest, CleanResult
-from utils.psd_metadata import export_metadata
 from utils.photoshop_text_layers import (
+    SUPPORTED_PHOTOSHOP_VERSIONS_LABEL,
     PhotoshopDependencyError,
     PhotoshopTextLayerWriter,
     PhotoshopUnavailableError,
-    SUPPORTED_PHOTOSHOP_VERSIONS_LABEL,
 )
-
+from utils.psd_metadata import export_metadata
+from utils.psd_exporter import PSDExporter
 
 logger = logging.getLogger(__name__)
+
+
+class CleanRunner(Protocol):
+    async def run(self, image: Image.Image, request: CleanRequest) -> CleanResult: ...
+
+
+class OcrRunner(Protocol):
+    async def run(
+        self, image: Image.Image, language: str = "ja"
+    ) -> tuple[list[DetectionResult], str]: ...
+
+
+# Stage failures that degrade instead of failing the export. Product decision:
+# an export must not fail because one model failed — but the client is told.
+# Anything else (bug, unexpected state) propagates and fails the request.
+_DEGRADED_STAGE_ERRORS = (RuntimeError, OSError)
+
+
+@dataclass(slots=True)
+class _StageState:
+    mask: Image.Image
+    cleaned: Image.Image
+    clean_result: CleanResult | None
+    detections: list[DetectionResult]
+    model_info: dict[str, str]
+    degraded_stages: list[str] = field(default_factory=list)
+
+
+def _normalize_text_layers(
+    entries: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """CPU-bound RGBA converts. Runs in a worker thread via to_thread."""
+    normalized: list[dict[str, Any]] = []
+    for entry in entries:
+        image_layer = entry.get("image")
+        if image_layer is None:
+            continue
+        raw_style = entry.get("style")
+        style_payload = raw_style if isinstance(raw_style, dict) else {}
+        normalized.append(
+            {
+                "name": str(entry.get("name", "text_layer")).strip() or "text_layer",
+                "left": int(entry.get("left", 0)),
+                "top": int(entry.get("top", 0)),
+                "width": int(entry.get("width", image_layer.width)),
+                "height": int(entry.get("height", image_layer.height)),
+                "kind": str(entry.get("kind", "rendered")).strip().lower() or "rendered",
+                "text": str(entry.get("text", "")).strip(),
+                "style": style_payload,
+                "image": image_layer.convert("RGBA"),
+            }
+        )
+    return normalized
+
+
+def _export_psd_sync(
+    result: PipelineResult, options: ExportRequest, output_dir: Path
+) -> tuple[Path, PSDExporter]:
+    """CPU-bound: encode every layer. Runs in a worker thread via to_thread."""
+    try:
+        exporter = PSDExporter(compression=options.compression.value)
+        psd_path = output_dir / "export.psd"
+        exporter.export(result, psd_path, options)
+    except PsdExportError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — translated to the domain error below
+        logger.error("PSD export failed: %s", exc, exc_info=exc)
+        raise PsdExportError(f"Failed to generate the PSD file: {exc}") from exc
+    return psd_path, exporter
 
 
 class ExportPipeline:
     """Orchestrate detect/OCR/inpaint and produce PSD + metadata files."""
 
-    def __init__(self) -> None:
-        """Initialize the export pipeline dependencies."""
+    def __init__(
+        self,
+        *,
+        clean_runner: CleanRunner,
+        ocr_runner: OcrRunner,
+        default_detection_model: str,
+    ) -> None:
+        self._clean_runner = clean_runner
+        self._ocr_runner = ocr_runner
+        self._default_detection_model = default_detection_model
 
-        self._config = get_config()
-        self._device = get_device_info()
-        self.clean_pipeline = CleanPipeline(device=self._device)
-        self.ocr_pipeline = OCRPipeline(device=self._device)
-        self.logger = logger
+    @classmethod
+    def build(cls) -> "ExportPipeline":
+        """Production wiring; tests inject fakes via the constructor."""
+        device = get_device_info()
+        return cls(
+            clean_runner=CleanPipeline(device=device),
+            ocr_runner=OCRPipeline(device=device),
+            default_detection_model=get_config().default_detection_model,
+        )
 
     async def run(
         self,
         image: Image.Image,
         options: ExportRequest,
+        output_dir: Path,
+        *,
         render_overlays: dict[str, Image.Image] | None = None,
-        render_text_layers: list[dict[str, Any]] | None = None,
+        render_text_layers: Sequence[Mapping[str, Any]] | None = None,
     ) -> tuple[Path, Path | None, ExportResponse]:
+        """Write the PSD (and optional JSON) into ``output_dir``.
+
+        ``output_dir`` is owned by the caller; the pipeline only writes into it.
         """
-        Executa pipeline completo e exporta PSD.
-
-        Args:
-            image: Input image.
-            options: Export options.
-            render_overlays: Optional rendered-text overlays (raw/translated/rendered).
-            render_text_layers: Individual rendered-text layers with position and image.
-
-        Returns:
-            Tuple with the PSD path, the optional JSON path and the structured response.
-        """
-
         start = time.perf_counter()
-        temp_dir = Path(tempfile.mkdtemp(prefix="koma_export_"))
-
-        image_rgb = image.convert("RGB")
-        normalized_overlays: dict[str, Image.Image] = {}
-        for key, overlay in (render_overlays or {}).items():
-            if overlay is None:
-                continue
-            normalized_overlays[key] = overlay.convert("RGBA")
-        normalized_text_layers: list[dict[str, Any]] = []
-        for entry in (render_text_layers or []):
-            image_layer = entry.get("image")
-            if image_layer is None:
-                continue
-            raw_style = entry.get("style")
-            style_payload = raw_style if isinstance(raw_style, dict) else {}
-            normalized_text_layers.append(
-                {
-                    "name": str(entry.get("name", "text_layer")).strip() or "text_layer",
-                    "left": int(entry.get("left", 0)),
-                    "top": int(entry.get("top", 0)),
-                    "width": int(entry.get("width", image_layer.width)),
-                    "height": int(entry.get("height", image_layer.height)),
-                    "kind": str(entry.get("kind", "rendered")).strip().lower() or "rendered",
-                    "text": str(entry.get("text", "")).strip(),
-                    "style": style_payload,
-                    "image": image_layer.convert("RGBA"),
-                }
-            )
-        mask = Image.new("L", image_rgb.size, 0)
-        cleaned = image_rgb.copy()
-        clean_result: CleanResult | None = None
-        ocr_detections: list[DetectionResult] = []
-        ocr_model_key = "none"
-
-        # 1) Inpainting (with a fallback to the original)
-        try:
-            clean_request = CleanRequest()
-            clean_result = await self.clean_pipeline.run(image_rgb, clean_request)
-            if clean_result.mask is not None:
-                mask = clean_result.mask.convert("L")
-            if clean_result.image is not None:
-                cleaned = clean_result.image.convert("RGB")
-        except Exception as exc:
-            self.logger.warning("Inpainting failed, using the original image: %s", exc)
-            mask = Image.new("L", image_rgb.size, 0)
-            cleaned = image_rgb.copy()
-
-        # 2) OCR (with a fallback for the no-text case)
-        try:
-            ocr_detections = await self.ocr_pipeline.run(image_rgb, language=options.language)
-            ocr_model_key = self.ocr_pipeline.last_model_key
-        except Exception as exc:
-            self.logger.warning("OCR failed, exporting without text: %s", exc)
-            ocr_detections = []
-            ocr_model_key = "none"
-
-        # Secondary fallback: reuse the inpainting detections when OCR fails.
-        detections = ocr_detections
-        if not detections and clean_result is not None:
-            detections = self._coerce_clean_detections(clean_result.detections)
-
-        # 3) Assemble the consolidated result
-        model_info = {
-            "detector": self._resolve_detector_model(clean_result),
-            "ocr": ocr_model_key,
-            "inpainter": self._resolve_inpainter_model(clean_result),
+        image_rgb = await asyncio.to_thread(image.convert, "RGB")
+        normalized_overlays = {
+            key: overlay.convert("RGBA")
+            for key, overlay in (render_overlays or {}).items()
+            if overlay is not None
         }
+        normalized_text_layers = await asyncio.to_thread(
+            _normalize_text_layers, list(render_text_layers or [])
+        )
+
+        state = await self._run_stages(image_rgb, options)
         result = PipelineResult(
-            original=image_rgb.copy(),
-            mask=mask,
-            cleaned=cleaned,
-            detections=detections,
-            model_info=model_info,
+            original=await asyncio.to_thread(image_rgb.copy),
+            mask=state.mask,
+            cleaned=state.cleaned,
+            detections=state.detections,
+            model_info=state.model_info,
             render_overlays=normalized_overlays,
             render_text_layers=normalized_text_layers,
             source_dpi=options.dpi,
         )
 
-        # 4) PSD export
-        try:
-            from utils.psd_exporter import PSDExporter
-
-            exporter = PSDExporter(compression=options.compression.value)
-            psd_path = temp_dir / "export.psd"
-            exporter.export(result, psd_path, options)
-        except ModuleNotFoundError as exc:
-            if exc.name == "psd_tools":
-                self.logger.error("Missing dependency for PSD export: %s", exc)
-                raise HTTPException(
-                    status_code=500,
-                    detail="PSD export is unavailable: the 'psd-tools' dependency is not installed in this environment.",
-                ) from exc
-            raise
-        except Exception as exc:
-            self.logger.error("PSD export failed: %s", exc)
-            raise HTTPException(status_code=500, detail="Failed to generate the PSD file") from exc
+        psd_path, exporter = await asyncio.to_thread(
+            _export_psd_sync, result, options, output_dir
+        )
 
         if options.text_layer_engine == TextLayerEngine.PHOTOSHOP and normalized_text_layers:
-            try:
-                text_writer = PhotoshopTextLayerWriter()
-                text_layer_count = text_writer.apply_text_layers(psd_path, normalized_text_layers)
-                self.logger.info("Text layers editaveis aplicadas via Photoshop: %d", text_layer_count)
-            except PhotoshopDependencyError as exc:
-                self.logger.error("Dependencia ausente para text layers editaveis: %s", exc)
-                raise HTTPException(
-                    status_code=500,
-                    detail=(
-                        "PSD export with editable text layers is unavailable: "
-                        "the 'photoshop-python-api' dependency is not installed. "
-                        "Desative 'Text layers editaveis (Photoshop)' para fallback raster."
-                    ),
-                ) from exc
-            except PhotoshopUnavailableError as exc:
-                self.logger.error("Adobe Photoshop is unavailable for editable text layers: %s", exc)
-                raise HTTPException(
-                    status_code=500,
-                    detail=(
-                        "PSD export with editable text layers requires Adobe Photoshop installed on the same machine. "
-                        f"Versoes testadas: {SUPPORTED_PHOTOSHOP_VERSIONS_LABEL}. "
-                        "Desative 'Text layers editaveis (Photoshop)' para fallback raster."
-                    ),
-                ) from exc
-            except Exception as exc:
-                self.logger.error("Failed to apply editable text layers via Photoshop: %s", exc)
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed to apply editable text layers to the PSD.",
-                ) from exc
+            await asyncio.to_thread(
+                self._apply_photoshop_text_layers, psd_path, normalized_text_layers
+            )
 
-        # 5) Optional metadata
         json_path: Path | None = None
         if options.include_metadata_json:
-            json_path = temp_dir / "export.json"
-            export_metadata(result, psd_path, json_path)
+            json_path = output_dir / "export.json"
+            await asyncio.to_thread(export_metadata, result, psd_path, json_path)
 
-        # 6) Export response
         elapsed_ms = int((time.perf_counter() - start) * 1000)
         response = ExportResponse(
             psd_filename=psd_path.name,
             json_filename=json_path.name if json_path else None,
             layer_count=exporter.last_layer_count,
             group_count=exporter.last_group_count,
-            detection_count=len(detections),
-            models_used=result.model_info,
+            detection_count=len(state.detections),
+            models_used=state.model_info,
             file_size_bytes=psd_path.stat().st_size,
             processing_time_ms=elapsed_ms,
             image_dimensions=(image_rgb.width, image_rgb.height),
+            degraded_stages=state.degraded_stages,
         )
-
         return psd_path, json_path, response
 
+    # ---------------------------------------------------------------- stages
+
+    async def _run_stages(self, image_rgb: Image.Image, options: ExportRequest) -> _StageState:
+        state = _StageState(
+            mask=Image.new("L", image_rgb.size, 0),
+            cleaned=image_rgb.copy(),
+            clean_result=None,
+            detections=[],
+            model_info={},
+        )
+
+        # 1) Inpainting: degrade to the original image on model failure.
+        try:
+            clean_result = await self._clean_runner.run(image_rgb, CleanRequest())
+            if clean_result.mask is not None:
+                state.mask = clean_result.mask.convert("L")
+            if clean_result.image is not None:
+                state.cleaned = clean_result.image.convert("RGB")
+            state.clean_result = clean_result
+        except Exception as exc:  # noqa: BLE001 — documented degrade-to-original policy
+            if not isinstance(exc, _DEGRADED_STAGE_ERRORS):
+                raise
+            logger.warning(
+                "export.clean_degraded_to_original",
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+                exc_info=exc,
+            )
+            state.degraded_stages.append("clean")
+
+        # 2) OCR: degrade to the clean-stage detections on failure.
+        try:
+            ocr_detections, ocr_model_used = await self._ocr_runner.run(
+                image_rgb, language=options.language
+            )
+            state.detections = list(ocr_detections)
+        except Exception as exc:  # noqa: BLE001 — documented degrade policy
+            if not isinstance(exc, _DEGRADED_STAGE_ERRORS):
+                raise
+            logger.warning(
+                "export.ocr_degraded_to_clean_detections",
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+                exc_info=exc,
+            )
+            state.degraded_stages.append("ocr")
+            ocr_model_used = "none"
+
+        if not state.detections and state.clean_result is not None:
+            state.detections = self._coerce_clean_detections(state.clean_result.detections)
+
+        state.model_info = {
+            "detector": self._resolve_detector_model(state.clean_result),
+            "ocr": ocr_model_used,
+            "inpainter": self._resolve_inpainter_model(state.clean_result),
+        }
+        return state
+
+    # ------------------------------------------------------------- photoshop
+
+    def _apply_photoshop_text_layers(
+        self, psd_path: Path, text_layers: list[dict[str, Any]]
+    ) -> None:
+        """COM automation, seconds long — called via to_thread from ``run``."""
+        try:
+            text_writer = PhotoshopTextLayerWriter()
+            text_layer_count = text_writer.apply_text_layers(psd_path, text_layers)
+        except PhotoshopDependencyError as exc:
+            raise ExportError(
+                "PSD export with editable text layers is unavailable: "
+                "the 'photoshop-python-api' dependency is not installed. "
+                "Disable 'Text layers editaveis (Photoshop)' for the raster fallback."
+            ) from exc
+        except PhotoshopUnavailableError as exc:
+            raise ExportError(
+                "PSD export with editable text layers requires Adobe Photoshop "
+                "installed on the same machine. "
+                f"Versoes testadas: {SUPPORTED_PHOTOSHOP_VERSIONS_LABEL}. "
+                "Desative 'Text layers editaveis (Photoshop)' para fallback raster."
+            ) from exc
+        except Exception as exc:  # noqa: BLE001 — COM automation raises heterogeneous errors
+            logger.error("Failed to apply editable text layers via Photoshop: %s", exc, exc_info=exc)
+            raise ExportError("Failed to apply editable text layers to the PSD.") from exc
+        logger.info("Text layers editaveis aplicadas via Photoshop: %d", text_layer_count)
+
+    # ---------------------------------------------------------------- helpers
+
     def _coerce_clean_detections(self, clean_detections: list[Any]) -> list[DetectionResult]:
-        """
-        Convert clean-stage detections into `DetectionResult`.
-
-        Args:
-            clean_detections: Heterogeneous list of detections.
-
-        Returns:
-            List converted to the export schema.
-        """
-
         converted: list[DetectionResult] = []
         for item in clean_detections:
             bbox = getattr(item, "bbox", None)
@@ -238,7 +297,7 @@ class ExportPipeline:
             det_type = DetectionType.BUBBLE if label == "bubble" else DetectionType.TEXT
             converted.append(
                 DetectionResult(
-                    bbox=tuple(int(v) for v in bbox),
+                    bbox=(int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])),
                     confidence=float(getattr(item, "score", 1.0)),
                     type=det_type,
                     text=None,
@@ -248,15 +307,11 @@ class ExportPipeline:
         return converted
 
     def _resolve_detector_model(self, clean_result: CleanResult | None) -> str:
-        """Extract the name of the detector used in the clean stage."""
-
         if clean_result and clean_result.model_used.get("detector"):
             return clean_result.model_used["detector"]
-        return self._config.default_detection_model
+        return self._default_detection_model
 
     def _resolve_inpainter_model(self, clean_result: CleanResult | None) -> str:
-        """Extract the name of the inpainter used in the clean stage."""
-
         if clean_result and clean_result.model_used.get("inpainter"):
             return clean_result.model_used["inpainter"]
         return "fallback-original"

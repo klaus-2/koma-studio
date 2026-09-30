@@ -146,10 +146,9 @@ class PipelineCacheManagerTests(unittest.TestCase):
             ],
         )
 
-        # Entries are timestamped with time.monotonic(); aging via wall clock
-        # would go backwards. Simulate an expired entry with a huge negative
-        # monotonic offset instead.
-        manager._translation_cache[key].cached_at = time.monotonic() - 9999  # noqa: SLF001
+        # Age every entry past the TTL through the store's own clock.
+        for store_entry in manager._translation._entries.values():  # noqa: SLF001
+            store_entry.expires_at = time.monotonic() - 1  # noqa: SLF001
         hits, missing = manager.get_cached_translations_for_regions(
             key,
             [{"id": "r1", "text": "a", "source": "model", "detector_model_key": "", "ocr_model_key": ""}],
@@ -198,9 +197,9 @@ class PipelineCacheManagerTests(unittest.TestCase):
             [{"id": "b", "bbox": [3, 3, 4, 4], "text": "y", "score": 1.0, "source": "model", "detector_model_key": "", "ocr_model_key": "easyocr"}],
         )
 
-        self.assertEqual(len(manager._ocr_cache), 1)  # noqa: SLF001
-        self.assertIn(key_b, manager._ocr_cache)  # noqa: SLF001
-        self.assertNotIn(key_a, manager._ocr_cache)  # noqa: SLF001
+        self.assertEqual(len(manager._ocr), 1)  # noqa: SLF001
+        self.assertIn(key_b, manager._ocr._entries)  # noqa: SLF001
+        self.assertNotIn(key_a, manager._ocr._entries)  # noqa: SLF001
 
 
 if __name__ == "__main__":

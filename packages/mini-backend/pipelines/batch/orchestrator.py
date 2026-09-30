@@ -319,7 +319,9 @@ class BatchOrchestrator:
                         model_key=cfg.ocr_model_key,
                         has_gpu=cfg.gpu.ocr,
                         default_detection_model=cfg.default_detection_model,
-                        detected_regions=state.detected,
+                        seeds=stages.ocr_seeds_from_detections(
+                            state.detected, cfg.default_detection_model
+                        ),
                         cancellation_event=self._cancellation,
                     )
                     state.ocr = out.regions

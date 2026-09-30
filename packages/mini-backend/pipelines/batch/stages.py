@@ -16,7 +16,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from core.device import release_gpu_memory
+from core.device import DeviceInfo, release_gpu_memory
 from models.detection.factory import get_detector
 from models.inpainting.base_inpainter import HDStrategy, InpaintConfig
 from models.inpainting.factory import get_inpainter
@@ -39,6 +39,7 @@ from pipelines.batch.records import (
     SegmentRecord,
     SegmentSeed,
     TranslationRecord,
+    TranslationSeed,
     normalize_bbox,
     normalize_boxes,
     normalize_stage_source,
@@ -46,9 +47,10 @@ from pipelines.batch.records import (
     optional_rgb,
     optional_str,
 )
-from routers import ocr as ocr_router
-from routers import translation as translation_router
+from pipelines.cache_manager import get_pipeline_cache
+from pipelines.ocr_enrichment import enrich_ocr_record_with_gradient
 from utils.detection_fallback import detect_with_fallbacks
+from utils.image_decode import decode_image
 from utils.inpaint_heuristics import (
     apply_need_inpaint_heuristic,
     detect_background_complexity,
@@ -97,22 +99,8 @@ class CleanStageResult:
 # --------------------------------------------------------------------------- image
 
 
-def _decode_rgb(image_bytes: bytes) -> Image.Image:
-    from io import BytesIO
-
-    from PIL import UnidentifiedImageError
-
-    try:
-        with Image.open(BytesIO(image_bytes)) as source:
-            return source.convert("RGB")
-    except UnidentifiedImageError as exc:
-        raise InvalidImageError("Invalid image file") from exc
-    except OSError as exc:
-        raise InvalidImageError(f"Failed to read the image: {exc}") from exc
-
-
 async def open_rgb_image(image_bytes: bytes) -> Image.Image:
-    return await asyncio.to_thread(_decode_rgb, image_bytes)
+    return await asyncio.to_thread(decode_image, image_bytes, "RGB")
 
 
 def _encode_png(rgb: RGBArray) -> bytes:
@@ -193,19 +181,30 @@ async def run_detect_stage(
 # --------------------------------------------------------------------------- ocr
 
 
-def _seed_from_detection(det: DetectionRecord, default_model: str) -> OCRSeed:
-    return OCRSeed(
-        id=det["id"],
-        bbox=list(det["bbox"]),
-        source=det["source"],
-        detector_model_key=det["model_key"] or default_model,
+def ocr_seeds_from_detections(
+    detections: Sequence[DetectionRecord], default_model: str
+) -> list[OCRSeed]:
+    return [
+        OCRSeed(
+            id=det["id"],
+            bbox=list(det["bbox"]),
+            source=det["source"],
+            detector_model_key=det["model_key"] or default_model,
+        )
+        for det in detections
+    ]
+
+
+def _ocr_input(seed: OCRSeed) -> OCRInputRegion | None:
+    bbox = normalize_bbox(seed["bbox"])
+    if bbox is None:
+        return None
+    return OCRInputRegion(
+        id=seed["id"],
+        bbox=bbox,
+        source=seed["source"],
+        detector_model_key=seed["detector_model_key"],
     )
-
-
-def _enrich_ocr_record(image: Image.Image, record: OCRRecord) -> OCRRecord:
-    # The enricher's contract is "same record plus gradient keys"; the cast
-    # re-attaches the TypedDict view the plain-dict boundary drops.
-    return cast(OCRRecord, ocr_router.enrich_ocr_record_with_gradient(image, dict(record)))
 
 
 async def run_ocr_stage(
@@ -216,39 +215,33 @@ async def run_ocr_stage(
     model_key: str | None,
     has_gpu: bool,
     default_detection_model: str,
-    detected_regions: Sequence[DetectionRecord],
-    cancellation_event: asyncio.Event,
+    seeds: Sequence[OCRSeed] | None = None,
+    cancellation_event: asyncio.Event | None = None,
+    device_info: DeviceInfo | None = None,
 ) -> StageOutput[OCRRecord]:
-    seeds = [_seed_from_detection(det, default_detection_model) for det in detected_regions]
-    if not seeds:
+    """Shared by the batch orchestrator and ``POST /ocr``. Detects regions when
+    none are supplied, serves cache hits, recognises misses, enriches off-loop."""
+    resolved_seeds = list(seeds) if seeds is not None else []
+    if not resolved_seeds:
         plain = await _detect_plain(
             image, has_gpu=has_gpu, model_key=default_detection_model
         )
-        seeds = [_seed_from_detection(det, default_detection_model) for det in plain]
-    if not seeds:
+        resolved_seeds = ocr_seeds_from_detections(plain, default_detection_model)
+    if not resolved_seeds:
         return StageOutput(model_used=model_key or "", regions=[])
 
-    engine = get_ocr_engine(language=source_language, has_gpu=has_gpu, model_key=model_key)
-    cache_manager = ocr_router.CACHE_MANAGER
-    cache_key = cache_manager.build_ocr_cache_key(
+    engine = get_ocr_engine(
+        language=source_language, has_gpu=has_gpu, model_key=model_key, device_info=device_info
+    )
+    cache = get_pipeline_cache()
+    cache_key = cache.build_ocr_cache_key(
         image_bytes=image_bytes, language=source_language, model_key=engine.key
     )
-    cached_by_id, missing = cache_manager.get_cached_ocr_for_regions(
-        cache_key, [dict(seed) for seed in seeds]
-    )
-    missing_seeds = [cast(OCRSeed, region) for region in missing]
+    cached_by_id, missing = cache.get_cached_ocr_for_regions(cache_key, resolved_seeds)
 
     fresh_by_id: dict[str, OCRRecord] = {}
-    if missing_seeds:
-        inputs = [
-            OCRInputRegion(
-                id=seed["id"],
-                bbox=(seed["bbox"][0], seed["bbox"][1], seed["bbox"][2], seed["bbox"][3]),
-                source=seed["source"],
-                detector_model_key=seed["detector_model_key"],
-            )
-            for seed in missing_seeds
-        ]
+    inputs = [region for seed in missing if (region := _ocr_input(seed)) is not None]
+    if inputs:
         try:
             results = await recognize_with_fallbacks(
                 engine=engine,
@@ -259,36 +252,30 @@ async def run_ocr_stage(
             )
         finally:
             release_gpu_memory()
-        raw_fresh = [
+        raw = [
             OCRRecord(
-                id=result.id,
-                bbox=[int(v) for v in result.bbox],
-                text=result.text,
-                score=float(result.score),
-                source=normalize_stage_source(result.source),
-                detector_model_key=result.detector_model_key,
-                ocr_model_key=result.model_key or engine.key,
+                id=r.id,
+                bbox=[int(v) for v in r.bbox],
+                text=r.text,
+                score=float(r.score),
+                source=normalize_stage_source(r.source),
+                detector_model_key=r.detector_model_key,
+                ocr_model_key=r.model_key or engine.key,
             )
-            for result in results
+            for r in results
         ]
         fresh = await asyncio.to_thread(
-            lambda: [_enrich_ocr_record(image, record) for record in raw_fresh]
+            lambda: [enrich_ocr_record_with_gradient(image, record) for record in raw]
         )
         fresh_by_id = {record["id"]: record for record in fresh}
-        cache_manager.cache_ocr_results(cache_key, [dict(record) for record in fresh])
+        cache.cache_ocr_results(cache_key, fresh)
 
     def _merge() -> list[OCRRecord]:
         merged: list[OCRRecord] = []
-        for seed in seeds:
-            fresh_record = fresh_by_id.get(seed["id"])
-            if fresh_record is not None:
-                merged.append(fresh_record)  # already enriched above
-                continue
-            cached = cached_by_id.get(seed["id"])
-            record = (
-                cast(OCRRecord, cached)
-                if cached is not None
-                else OCRRecord(
+        for seed in resolved_seeds:
+            record = fresh_by_id.get(seed["id"]) or cached_by_id.get(seed["id"])
+            if record is None:
+                record = OCRRecord(
                     id=seed["id"],
                     bbox=list(seed["bbox"]),
                     text="",
@@ -297,8 +284,7 @@ async def run_ocr_stage(
                     detector_model_key=seed["detector_model_key"],
                     ocr_model_key=engine.key,
                 )
-            )
-            merged.append(_enrich_ocr_record(image, record))
+            merged.append(enrich_ocr_record_with_gradient(image, record))
         return merged
 
     return StageOutput(model_used=engine.key, regions=await asyncio.to_thread(_merge))
@@ -318,13 +304,39 @@ def _translate_accepts_notes_flag(engine_type: type) -> bool:
     )
 
 
-def _translation_input(region: Mapping[str, object]) -> TranslationInputRegion:
+def translation_seed_from_ocr(record: OCRRecord) -> TranslationSeed:
+    return TranslationSeed(
+        id=record["id"],
+        text=record["text"],
+        source=record["source"],
+        detector_model_key=record["detector_model_key"],
+        ocr_model_key=record["ocr_model_key"],
+    )
+
+
+def translation_input(seed: TranslationSeed) -> TranslationInputRegion:
     return TranslationInputRegion(
-        id=str(region.get("id") or ""),
-        text=str(region.get("text") or ""),
-        source=str(region.get("source") or "model"),
-        detector_model_key=str(region.get("detector_model_key") or ""),
-        ocr_model_key=str(region.get("ocr_model_key") or ""),
+        id=seed["id"],
+        text=seed["text"],
+        source=seed["source"],
+        detector_model_key=seed["detector_model_key"],
+        ocr_model_key=seed["ocr_model_key"],
+        detected_render_mode=seed.get("detected_render_mode", ""),
+        structural_type=seed.get("structural_type", ""),
+        sfx_requires_redraw=seed.get("sfx_requires_redraw", False),
+    )
+
+
+def empty_translation_record(seed: TranslationSeed, engine_key: str) -> TranslationRecord:
+    return TranslationRecord(
+        id=seed["id"],
+        source_text=seed["text"].strip(),
+        translated_text="",
+        translation_notes=[],
+        source=seed["source"],
+        detector_model_key=seed["detector_model_key"],
+        ocr_model_key=seed["ocr_model_key"],
+        translator_model_key=engine_key,
     )
 
 
@@ -344,47 +356,36 @@ async def run_translation_stage(
 
     requested_key = (model_key or "").strip()
     settings_payload = dict(vars(settings))
+    custom_payload = dict(custom_llm) if custom_llm is not None else None
     if requested_key == "custom" or requested_key.startswith("custom:"):
         engine = build_request_scoped_custom_translation_engine(
             selected_model_key=requested_key,
-            custom_llm=dict(custom_llm) if custom_llm is not None else None,
+            custom_llm=custom_payload,
             llm_settings=settings_payload,
         )
     else:
         engine = get_translation_engine(model_key=model_key)
 
-    inputs = [_translation_input(region) for region in ocr_regions]
+    seeds = [translation_seed_from_ocr(record) for record in ocr_regions]
     effective_context = compose_translation_extra_context(
         settings.extra_context or extra_context,
-        build_current_image_translation_context(inputs),
+        build_current_image_translation_context([translation_input(s) for s in seeds]),
         neighbor_context,
     )
-    request_regions: list[dict[str, object]] = [
-        {
-            "id": item.id,
-            "text": item.text,
-            "source": item.source,
-            "detector_model_key": item.detector_model_key,
-            "ocr_model_key": item.ocr_model_key,
-        }
-        for item in inputs
-    ]
-    cache_manager = translation_router.CACHE_MANAGER
-    cache_key = cache_manager.build_translation_cache_key(
+    cache = get_pipeline_cache()
+    cache_key = cache.build_translation_cache_key(
         model_key=requested_key or engine.key,
         source_language=source_language,
         target_language=target_language,
         extra_context=effective_context,
         llm_settings=settings_payload,
-        custom_llm=dict(custom_llm) if custom_llm is not None else None,
+        custom_llm=custom_payload,
     )
-    cached_by_id, missing = cache_manager.get_cached_translations_for_regions(
-        cache_key, request_regions
-    )
+    cached_by_id, missing = cache.get_cached_translations_for_regions(cache_key, seeds)
 
     fresh_by_id: dict[str, TranslationRecord] = {}
     if missing:
-        missing_inputs = [_translation_input(region) for region in missing]
+        missing_inputs = [translation_input(seed) for seed in missing]
         if _translate_accepts_notes_flag(type(engine)):
             translated = await engine.translate(
                 regions=missing_inputs,
@@ -406,7 +407,7 @@ async def run_translation_stage(
                 source_text=item.source_text,
                 translated_text=item.translated_text,
                 translation_notes=list(item.translation_notes),
-                source=item.source,
+                source=normalize_stage_source(item.source),
                 detector_model_key=item.detector_model_key,
                 ocr_model_key=item.ocr_model_key,
                 translator_model_key=item.translator_model_key or engine.key,
@@ -414,30 +415,14 @@ async def run_translation_stage(
             for item in translated
         ]
         fresh_by_id = {record["id"]: record for record in fresh}
-        cache_manager.cache_translation_results(
-            cache_key, [dict(record) for record in fresh]
-        )
+        cache.cache_translation_results(cache_key, fresh)
 
-    merged: list[TranslationRecord] = []
-    for item in inputs:
-        resolved = fresh_by_id.get(item.id)
-        if resolved is None:
-            cached = cached_by_id.get(item.id)
-            resolved = (
-                cast(TranslationRecord, cached)
-                if cached is not None
-                else TranslationRecord(
-                    id=item.id,
-                    source_text=item.text.strip(),
-                    translated_text="",
-                    translation_notes=[],
-                    source=item.source,
-                    detector_model_key=item.detector_model_key,
-                    ocr_model_key=item.ocr_model_key,
-                    translator_model_key=engine.key,
-                )
-            )
-        merged.append(resolved)
+    merged = [
+        fresh_by_id.get(seed["id"])
+        or cached_by_id.get(seed["id"])
+        or empty_translation_record(seed, engine.key)
+        for seed in seeds
+    ]
     return StageOutput(model_used=requested_key or engine.key, regions=merged)
 
 

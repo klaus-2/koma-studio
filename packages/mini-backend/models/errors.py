@@ -53,3 +53,11 @@ class InvalidModelOutputError(InferenceError):
 
 class InvalidInputImageError(ModelError):
     """Caller supplied bytes that do not decode to an image."""
+
+
+class ExportError(ModelError):
+    """Export orchestration failed."""
+
+
+class PsdExportError(ExportError):
+    """PSD assembly failed."""

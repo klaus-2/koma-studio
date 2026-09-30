@@ -1,62 +1,156 @@
+"""TTL + LRU caches for OCR and translation results, shared by routers and
+batch stages through ``get_pipeline_cache``.
+
+Records are stored in their wire ``TypedDict`` shape, including the computed
+``foreground_gradient``: a cache hit is served without re-running any pixel work.
+"""
+
 from __future__ import annotations
 
-from collections import OrderedDict
-from dataclasses import dataclass
 import hashlib
 import json
 import logging
 import threading
 import time
-from typing import Any, TypedDict
+from collections import OrderedDict
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from functools import cache
+from typing import TypedDict
 
+from core.config import get_config
+from pipelines.batch.records import (
+    BBox,
+    OCRRecord,
+    OCRSeed,
+    TranslationRecord,
+    TranslationSeed,
+    normalize_bbox,
+)
 
 logger = logging.getLogger(__name__)
+
+_MIN_TTL_SECONDS = 30
+_CUSTOM_LLM_ENDPOINT_KEYS = ("api_base", "apiBase", "base_url", "baseUrl")
+
+type _OcrBlocks = dict[str, OCRRecord]  # keyed by bbox id
+type _TranslationBlocks = dict[str, TranslationRecord]  # keyed by region id
 
 
 class CacheManagerStats(TypedDict):
     entries: int
-    ttl_seconds: float
+    ttl_seconds: int
     max_entries: int
 
 
-@dataclass
-class _TimedCacheEntry:
-    cached_at: float
-    payload: dict[str, Any]
+@dataclass(slots=True)
+class _Entry[V]:
+    expires_at: float
+    value: V
+
+
+class _TtlLruCache[V]:
+    """Monotonic-clock TTL over an LRU. Not thread-safe: ``CacheManager`` serialises access."""
+
+    __slots__ = ("_entries", "_max_entries", "_ttl_seconds")
+
+    def __init__(self, *, ttl_seconds: int, max_entries: int) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._max_entries = max_entries
+        self._entries: OrderedDict[str, _Entry[V]] = OrderedDict()
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def get(self, key: str) -> V | None:
+        entry = self._entries.get(key)
+        if entry is None:
+            return None
+        if entry.expires_at <= time.monotonic():
+            del self._entries[key]
+            return None
+        self._entries.move_to_end(key)
+        return entry.value
+
+    def put(self, key: str, value: V) -> None:
+        now = time.monotonic()
+        self._entries[key] = _Entry(expires_at=now + self._ttl_seconds, value=value)
+        self._entries.move_to_end(key)
+        for expired in [k for k, e in self._entries.items() if e.expires_at <= now]:
+            del self._entries[expired]
+        while len(self._entries) > self._max_entries:
+            self._entries.popitem(last=False)
+
+    def clear(self) -> None:
+        self._entries.clear()
+
+
+def _hash_image_bytes(image_bytes: bytes) -> str:
+    if not image_bytes:
+        return "empty-image"
+    # Full-content digest: sampling let two different pages collide and serve
+    # each other's OCR. blake2b over a 10 MB scan is ~10 ms.
+    return hashlib.blake2b(image_bytes, digest_size=32).hexdigest()
+
+
+def _stable_hash(payload: Mapping[str, object]) -> str:
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _non_sensitive_custom_llm(custom_llm: Mapping[str, object] | None) -> dict[str, str]:
+    """Only endpoint + model name enter the key; API keys never do."""
+    if custom_llm is None:
+        return {}
+    endpoint = next(
+        (str(custom_llm[k]).strip() for k in _CUSTOM_LLM_ENDPOINT_KEYS if custom_llm.get(k)),
+        "",
+    )
+    return {"api_base": endpoint, "model": str(custom_llm.get("model") or "").strip()}
+
+
+def _bbox_id(bbox: BBox) -> str:
+    return f"{bbox[0]}_{bbox[1]}_{bbox[2]}_{bbox[3]}"
 
 
 class CacheManager:
-    """Caches OCR/translation results for pipeline stages."""
+    __slots__ = (
+        "_lock",
+        "_ocr",
+        "_translation",
+        "bbox_tolerance_px",
+        "max_entries",
+        "ttl_seconds",
+    )
 
     def __init__(
-        self,
-        *,
-        ttl_seconds: int,
-        max_entries: int,
-        bbox_tolerance_px: float = 5.0,
+        self, *, ttl_seconds: int, max_entries: int, bbox_tolerance_px: float = 5.0
     ) -> None:
-        self.ttl_seconds = max(30, int(ttl_seconds))
-        self.max_entries = max(1, int(max_entries))
-        self.bbox_tolerance_px = max(0.0, float(bbox_tolerance_px))
-        self._ocr_cache: OrderedDict[str, _TimedCacheEntry] = OrderedDict()
-        self._translation_cache: OrderedDict[str, _TimedCacheEntry] = OrderedDict()
-        self._lock = threading.RLock()
+        self.ttl_seconds = max(_MIN_TTL_SECONDS, ttl_seconds)
+        self.max_entries = max(1, max_entries)
+        self.bbox_tolerance_px = max(0.0, bbox_tolerance_px)
+        self._ocr: _TtlLruCache[_OcrBlocks] = _TtlLruCache(
+            ttl_seconds=self.ttl_seconds, max_entries=self.max_entries
+        )
+        self._translation: _TtlLruCache[_TranslationBlocks] = _TtlLruCache(
+            ttl_seconds=self.ttl_seconds, max_entries=self.max_entries
+        )
+        self._lock = threading.Lock()
+
+    # ------------------------------------------------------------------ keys
 
     def build_ocr_cache_key(
-        self,
-        *,
-        image_bytes: bytes,
-        language: str,
-        model_key: str,
-        namespace: str = "",
+        self, *, image_bytes: bytes, language: str, model_key: str, namespace: str = ""
     ) -> str:
-        key_payload = {
-            "namespace": (namespace or "").strip(),
-            "language": (language or "").strip().lower(),
-            "model_key": (model_key or "").strip().lower(),
-            "image_hash": self._hash_image_bytes(image_bytes),
+        payload = {
+            "namespace": namespace.strip(),
+            "language": language.strip().lower(),
+            "model_key": model_key.strip().lower(),
+            "image_hash": _hash_image_bytes(image_bytes),
         }
-        return f"ocr::{self._stable_hash(key_payload)}"
+        return f"ocr::{_stable_hash(payload)}"
 
     def build_translation_cache_key(
         self,
@@ -65,281 +159,140 @@ class CacheManager:
         source_language: str,
         target_language: str,
         extra_context: str,
-        llm_settings: dict[str, Any] | None = None,
-        custom_llm: dict[str, Any] | None = None,
+        llm_settings: Mapping[str, object] | None = None,
+        custom_llm: Mapping[str, object] | None = None,
         namespace: str = "",
         translation_mode: str = "default",
     ) -> str:
-        non_sensitive_custom = {}
-        if isinstance(custom_llm, dict):
-            non_sensitive_custom = {
-                "api_base": str(
-                    custom_llm.get("api_base")
-                    or custom_llm.get("apiBase")
-                    or custom_llm.get("base_url")
-                    or custom_llm.get("baseUrl")
-                    or ""
-                ).strip(),
-                "model": str(custom_llm.get("model") or "").strip(),
-            }
-        key_payload = {
-            "namespace": (namespace or "").strip(),
-            "model_key": (model_key or "").strip().lower(),
-            "source_language": (source_language or "").strip().lower(),
-            "target_language": (target_language or "").strip().lower(),
-            "extra_context": str(extra_context or "").strip(),
-            "translation_mode": str(translation_mode or "default").strip().lower(),
-            "llm_settings": llm_settings if isinstance(llm_settings, dict) else {},
-            "custom_llm": non_sensitive_custom,
+        payload = {
+            "namespace": namespace.strip(),
+            "model_key": model_key.strip().lower(),
+            "source_language": source_language.strip().lower(),
+            "target_language": target_language.strip().lower(),
+            "extra_context": extra_context.strip(),
+            "translation_mode": (translation_mode or "default").strip().lower(),
+            "llm_settings": dict(llm_settings) if llm_settings else {},
+            "custom_llm": _non_sensitive_custom_llm(custom_llm),
         }
-        return f"translation::{self._stable_hash(key_payload)}"
+        return f"translation::{_stable_hash(payload)}"
+
+    # ------------------------------------------------------------------- ocr
 
     def get_cached_ocr_for_regions(
-        self,
-        cache_key: str,
-        regions: list[dict[str, Any]],
-    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+        self, cache_key: str, seeds: Sequence[OCRSeed]
+    ) -> tuple[dict[str, OCRRecord], list[OCRSeed]]:
         with self._lock:
-            entry = self._get_entry(self._ocr_cache, cache_key)
-            if entry is None:
-                return {}, list(regions)
-
-            cached_records: dict[str, dict[str, Any]] = {}
-            missing_regions: list[dict[str, Any]] = []
-            records = entry.payload
-
-            for region in regions:
-                match = self._find_matching_ocr_record(records, region)
-                region_id = str(region.get("id") or "")
-                if match is None:
-                    missing_regions.append(region)
+            blocks = self._ocr.get(cache_key)
+            if blocks is None:
+                return {}, list(seeds)
+            hits: dict[str, OCRRecord] = {}
+            misses: list[OCRSeed] = []
+            for seed in seeds:
+                block = self._match_ocr_block(blocks, seed)
+                if block is None:
+                    misses.append(seed)
                     continue
+                hit = block.copy()
+                hit["id"] = seed["id"]
+                hit["bbox"] = list(seed["bbox"])
+                hits[seed["id"]] = hit
+            return hits, misses
 
-                cached_records[region_id] = {
-                    "id": region_id,
-                    "bbox": [int(v) for v in region.get("bbox", [])[:4]],
-                    "text": str(match.get("text") or ""),
-                    "score": float(match.get("score") or 0.0),
-                    "source": str(match.get("source") or "model"),
-                    "detector_model_key": str(match.get("detector_model_key") or ""),
-                    "ocr_model_key": str(match.get("ocr_model_key") or ""),
-                }
-
-            return cached_records, missing_regions
-
-    def cache_ocr_results(
-        self,
-        cache_key: str,
-        records: list[dict[str, Any]],
-    ) -> int:
+    def cache_ocr_results(self, cache_key: str, records: Sequence[OCRRecord]) -> int:
+        stored = 0
         with self._lock:
-            entry = self._get_entry(self._ocr_cache, cache_key)
-            merged: dict[str, dict[str, Any]] = dict(entry.payload) if entry else {}
-
-            cached_count = 0
+            blocks = self._ocr.get(cache_key) or {}
             for record in records:
-                text = str(record.get("text") or "")
-                bbox = self._parse_bbox(record.get("bbox"))
-                if bbox is None or not text.strip():
+                bbox = normalize_bbox(record["bbox"])
+                # Blank text is not cached so a later pass can still recover it.
+                if bbox is None or not record["text"].strip():
                     continue
-                block_id = self._bbox_to_id(bbox)
-                merged[block_id] = {
-                    "bbox": [int(v) for v in bbox],
-                    "text": text,
-                    "score": float(record.get("score") or 0.0),
-                    "source": str(record.get("source") or "model"),
-                    "detector_model_key": str(record.get("detector_model_key") or ""),
-                    "ocr_model_key": str(record.get("ocr_model_key") or ""),
-                }
-                cached_count += 1
+                blocks[_bbox_id(bbox)] = record.copy()
+                stored += 1
+            if blocks:
+                self._ocr.put(cache_key, blocks)
+        if stored:
+            logger.info("ocr results cached", extra={"blocks": stored})
+        return stored
 
-            if merged:
-                self._ocr_cache[cache_key] = _TimedCacheEntry(
-                    cached_at=time.monotonic(),
-                    payload=merged,
-                )
-                self._ocr_cache.move_to_end(cache_key)
-                self._cleanup_cache(self._ocr_cache)
+    def _match_ocr_block(self, blocks: _OcrBlocks, seed: OCRSeed) -> OCRRecord | None:
+        target = normalize_bbox(seed["bbox"])
+        if target is None:
+            return None
+        exact = blocks.get(_bbox_id(target))
+        if exact is not None:
+            return exact
+        tolerance = self.bbox_tolerance_px
+        for block in blocks.values():
+            cached = normalize_bbox(block["bbox"])
+            if cached is not None and all(
+                abs(a - b) <= tolerance for a, b in zip(target, cached, strict=True)
+            ):
+                return block
+        return None
 
-            if cached_count:
-                logger.info("Cached OCR results for %d blocks", cached_count)
-            return cached_count
+    # ----------------------------------------------------------- translation
 
     def get_cached_translations_for_regions(
-        self,
-        cache_key: str,
-        regions: list[dict[str, Any]],
-    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+        self, cache_key: str, seeds: Sequence[TranslationSeed]
+    ) -> tuple[dict[str, TranslationRecord], list[TranslationSeed]]:
         with self._lock:
-            entry = self._get_entry(self._translation_cache, cache_key)
-            if entry is None:
-                return {}, list(regions)
-
-            cached_records: dict[str, dict[str, Any]] = {}
-            missing_regions: list[dict[str, Any]] = []
-            records = entry.payload
-
-            for region in regions:
-                region_id = str(region.get("id") or "")
-                source_text = str(region.get("text") or "").strip()
-                cached = records.get(region_id)
-                if cached is None:
-                    missing_regions.append(region)
+            blocks = self._translation.get(cache_key)
+            if blocks is None:
+                return {}, list(seeds)
+            hits: dict[str, TranslationRecord] = {}
+            misses: list[TranslationSeed] = []
+            for seed in seeds:
+                cached = blocks.get(seed["id"])
+                if cached is None or cached["source_text"] != seed["text"].strip():
+                    misses.append(seed)
                     continue
-                if str(cached.get("source_text") or "").strip() != source_text:
-                    missing_regions.append(region)
-                    continue
-
-                cached_records[region_id] = {
-                    "id": region_id,
-                    "source_text": source_text,
-                    "translated_text": str(cached.get("translated_text") or ""),
-                    "translation_notes": [str(item) for item in (cached.get("translation_notes") or []) if str(item).strip()],
-                    "source": str(cached.get("source") or "model"),
-                    "detector_model_key": str(cached.get("detector_model_key") or ""),
-                    "ocr_model_key": str(cached.get("ocr_model_key") or ""),
-                    "translator_model_key": str(cached.get("translator_model_key") or ""),
-                }
-
-            return cached_records, missing_regions
+                hits[seed["id"]] = cached.copy()
+            return hits, misses
 
     def cache_translation_results(
-        self,
-        cache_key: str,
-        records: list[dict[str, Any]],
+        self, cache_key: str, records: Sequence[TranslationRecord]
     ) -> int:
+        stored = 0
         with self._lock:
-            entry = self._get_entry(self._translation_cache, cache_key)
-            merged: dict[str, dict[str, Any]] = dict(entry.payload) if entry else {}
-
-            cached_count = 0
+            blocks = self._translation.get(cache_key) or {}
             for record in records:
-                region_id = str(record.get("id") or "").strip()
-                translated_text = str(record.get("translated_text") or "")
-                if not region_id or not translated_text.strip():
+                region_id = record["id"].strip()
+                if not region_id or not record["translated_text"].strip():
                     continue
+                normalized = record.copy()
+                normalized["source_text"] = record["source_text"].strip()
+                normalized["translation_notes"] = [
+                    note for note in record["translation_notes"] if note.strip()
+                ]
+                blocks[region_id] = normalized
+                stored += 1
+            if blocks:
+                self._translation.put(cache_key, blocks)
+        if stored:
+            logger.info("translation results cached", extra={"blocks": stored})
+        return stored
 
-                merged[region_id] = {
-                    "source_text": str(record.get("source_text") or "").strip(),
-                    "translated_text": translated_text,
-                    "translation_notes": [str(item) for item in (record.get("translation_notes") or []) if str(item).strip()],
-                    "source": str(record.get("source") or "model"),
-                    "detector_model_key": str(record.get("detector_model_key") or ""),
-                    "ocr_model_key": str(record.get("ocr_model_key") or ""),
-                    "translator_model_key": str(record.get("translator_model_key") or ""),
-                }
-                cached_count += 1
-
-            if merged:
-                self._translation_cache[cache_key] = _TimedCacheEntry(
-                    cached_at=time.monotonic(),
-                    payload=merged,
-                )
-                self._translation_cache.move_to_end(cache_key)
-                self._cleanup_cache(self._translation_cache)
-
-            return cached_count
+    # ------------------------------------------------------------------ misc
 
     def clear(self) -> None:
         with self._lock:
-            self._ocr_cache.clear()
-            self._translation_cache.clear()
+            self._ocr.clear()
+            self._translation.clear()
 
     def stats(self) -> CacheManagerStats:
         with self._lock:
-            entries = len(self._ocr_cache) + len(self._translation_cache)
+            entries = len(self._ocr) + len(self._translation)
         return CacheManagerStats(
-            entries=entries,
-            ttl_seconds=self.ttl_seconds,
-            max_entries=self.max_entries,
+            entries=entries, ttl_seconds=self.ttl_seconds, max_entries=self.max_entries
         )
 
-    def _find_matching_ocr_record(
-        self,
-        records: dict[str, dict[str, Any]],
-        target_region: dict[str, Any],
-    ) -> dict[str, Any] | None:
-        target_bbox = self._parse_bbox(target_region.get("bbox"))
-        if target_bbox is None:
-            return None
 
-        exact = records.get(self._bbox_to_id(target_bbox))
-        if exact is not None:
-            return exact
-
-        for record in records.values():
-            cached_bbox = self._parse_bbox(record.get("bbox"))
-            if cached_bbox is None:
-                continue
-            if self._bbox_matches(target_bbox, cached_bbox):
-                return record
-        return None
-
-    def _bbox_matches(
-        self,
-        bbox_a: tuple[int, int, int, int],
-        bbox_b: tuple[int, int, int, int],
-    ) -> bool:
-        tolerance = self.bbox_tolerance_px
-        return (
-            abs(float(bbox_a[0]) - float(bbox_b[0])) <= tolerance
-            and abs(float(bbox_a[1]) - float(bbox_b[1])) <= tolerance
-            and abs(float(bbox_a[2]) - float(bbox_b[2])) <= tolerance
-            and abs(float(bbox_a[3]) - float(bbox_b[3])) <= tolerance
-        )
-
-    def _parse_bbox(self, raw_bbox: Any) -> tuple[int, int, int, int] | None:
-        if not isinstance(raw_bbox, (list, tuple)) or len(raw_bbox) < 4:
-            return None
-        try:
-            x1, y1, x2, y2 = [int(float(v)) for v in raw_bbox[:4]]
-        except (TypeError, ValueError):
-            return None
-        return (x1, y1, x2, y2)
-
-    def _bbox_to_id(self, bbox: tuple[int, int, int, int]) -> str:
-        x1, y1, x2, y2 = bbox
-        return f"{x1}_{y1}_{x2}_{y2}"
-
-    def _hash_image_bytes(self, image_bytes: bytes) -> str:
-        if not image_bytes:
-            return "empty-image"
-        # Full-content digest. Sampling every N-th byte let two different pages
-        # collide and serve each other's OCR. blake2b stays under ~10 ms for a
-        # 10 MB scan — noise next to a single OCR call.
-        return hashlib.blake2b(image_bytes, digest_size=32).hexdigest()
-
-    def _stable_hash(self, payload: dict[str, Any]) -> str:
-        encoded = json.dumps(
-            payload,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-        return hashlib.sha256(encoded).hexdigest()
-
-    def _cleanup_cache(self, cache: OrderedDict[str, _TimedCacheEntry]) -> None:
-        now = time.monotonic()
-        expired_keys = [
-            key for key, entry in cache.items() if (now - entry.cached_at) >= self.ttl_seconds
-        ]
-        for key in expired_keys:
-            cache.pop(key, None)
-
-        while len(cache) > self.max_entries:
-            cache.popitem(last=False)
-
-    def _get_entry(
-        self,
-        cache: OrderedDict[str, _TimedCacheEntry],
-        key: str,
-    ) -> _TimedCacheEntry | None:
-        self._cleanup_cache(cache)
-        entry = cache.get(key)
-        if entry is None:
-            return None
-        if (time.monotonic() - entry.cached_at) >= self.ttl_seconds:
-            cache.pop(key, None)
-            return None
-        cache.move_to_end(key)
-        return entry
+@cache
+def get_pipeline_cache() -> CacheManager:
+    config = get_config()
+    return CacheManager(
+        ttl_seconds=config.pipeline_cache_ttl_seconds,
+        max_entries=config.pipeline_cache_max_entries,
+        bbox_tolerance_px=config.pipeline_cache_bbox_tolerance_px,
+    )

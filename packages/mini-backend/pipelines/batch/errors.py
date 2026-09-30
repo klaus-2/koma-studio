@@ -11,3 +11,7 @@ class InvalidImageError(PipelineStageError):
 
 class ImageEncodeError(PipelineStageError):
     """PNG encoding of a stage output failed."""
+
+
+class ImageTooLargeError(InvalidImageError):
+    """Decoded pixel count exceeds the decompression-bomb guard."""

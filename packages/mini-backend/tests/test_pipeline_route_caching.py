@@ -70,8 +70,11 @@ class _FakeTranslationEngine:
         source_language: str,
         target_language: str,
         extra_context: str = "",
+        translation_notes_enabled: bool = True,
+        translation_mode: str = "default",
     ) -> list[TranslationTextResult]:
         _ = source_language, target_language, extra_context
+        _ = translation_notes_enabled, translation_mode
         self.calls += 1
         return [
             TranslationTextResult(
@@ -97,8 +100,10 @@ class PipelineRouteCachingTests(unittest.TestCase):
         return buffer.getvalue()
 
     def setUp(self) -> None:
-        ocr_router.CACHE_MANAGER = CacheManager(ttl_seconds=1800, max_entries=64, bbox_tolerance_px=5)
-        translation_router.CACHE_MANAGER = CacheManager(ttl_seconds=1800, max_entries=64, bbox_tolerance_px=5)
+        # Routers hold the process-wide cache from get_pipeline_cache(); tests
+        # start from a clean cache instead of swapping the instance.
+        ocr_router.CACHE_MANAGER.clear()
+        translation_router.CACHE_MANAGER.clear()
 
     def test_ocr_route_uses_pipeline_cache_on_repeated_requests(self) -> None:
         fake_engine = _FakeOCREngine()

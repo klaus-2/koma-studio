@@ -28,35 +28,35 @@ class OCRPipeline:
         """
 
         self.device = device
-        self.last_model_key: str = "none"
         self.detector = get_detector(
             task="text",
             has_gpu=device.has_gpu,
             model_key=get_config().default_detection_model,
         )
 
-    async def run(self, image: Image.Image, language: str = "ja") -> list[DetectionResult]:
-        """
-        Run OCR on the image with automatic region detection.
+    async def run(
+        self, image: Image.Image, language: str = "ja"
+    ) -> tuple[list[DetectionResult], str]:
+        """Run OCR and return ``(detections, model_key)``.
 
-        Args:
-            image: Input image.
-            language: OCR language.
-
-        Returns:
-            List of detections with bbox, confidence and OCR text.
+        The model key is returned instead of stored on the instance: two
+        concurrent exports must not report each other's model.
         """
 
         normalized_language = normalize_language_code(language, default="en", allow_auto=False)
         detections = await self.detector.detect(image)
         if not detections:
-            self.last_model_key = "none"
-            return []
+            return [], "none"
 
         regions = [
             OCRInputRegion(
                 id=f"det-{index}",
-                bbox=tuple(int(value) for value in detection.bbox),
+                bbox=(
+                    int(detection.bbox[0]),
+                    int(detection.bbox[1]),
+                    int(detection.bbox[2]),
+                    int(detection.bbox[3]),
+                ),
                 source=detection.source,
                 detector_model_key=detection.model_key,
             )
@@ -68,7 +68,7 @@ class OCRPipeline:
             has_gpu=self.device.has_gpu,
             model_key=None,
         )
-        self.last_model_key = engine.key
+        model_key = engine.key
         ocr_results = await engine.recognize(image, regions, language=normalized_language)
         by_id: dict[str, OCRTextResult] = {result.id: result for result in ocr_results}
 
@@ -91,6 +91,6 @@ class OCRPipeline:
             "OCR pipeline finished: regions=%d, language=%s, model=%s",
             len(converted),
             normalized_language,
-            self.last_model_key,
+            model_key,
         )
-        return converted
+        return converted, model_key

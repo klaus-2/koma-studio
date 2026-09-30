@@ -38,6 +38,12 @@ class OCRSeed(TypedDict):
     detector_model_key: str
 
 
+class ForegroundGradientRecord(TypedDict):
+    start_rgb: list[int]
+    end_rgb: list[int]
+    angle_degrees: float
+
+
 class OCRRecord(TypedDict):
     id: str
     bbox: list[int]
@@ -46,6 +52,8 @@ class OCRRecord(TypedDict):
     source: StageSource
     detector_model_key: str
     ocr_model_key: str
+    # Presence of the key means "computed"; None means "computed, nothing found".
+    foreground_gradient: NotRequired[ForegroundGradientRecord | None]
 
 
 class TranslationRecord(TypedDict):
@@ -53,10 +61,21 @@ class TranslationRecord(TypedDict):
     source_text: str
     translated_text: str
     translation_notes: list[str]
-    source: str
+    source: StageSource
     detector_model_key: str
     ocr_model_key: str
     translator_model_key: str
+
+
+class TranslationSeed(TypedDict):
+    id: str
+    text: str
+    source: StageSource
+    detector_model_key: str
+    ocr_model_key: str
+    detected_render_mode: NotRequired[str]
+    structural_type: NotRequired[str]
+    sfx_requires_redraw: NotRequired[bool]
 
 
 class SegmentSeed(TypedDict):

@@ -103,3 +103,6 @@ class ExportResponse(SchemaModel):
     file_size_bytes: int
     processing_time_ms: int
     image_dimensions: tuple[int, int]
+    # Stages that failed and were degraded to a fallback (e.g. "ocr", "clean").
+    # Empty means every requested stage succeeded; the client can surface it.
+    degraded_stages: list[str] = Field(default_factory=list)
