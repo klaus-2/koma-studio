@@ -2295,6 +2295,7 @@ dependencies = [
  "hex",
  "log",
  "machine-uid",
+ "mime",
  "percent-encoding",
  "png 0.18.1",
  "reqwest 0.12.28",

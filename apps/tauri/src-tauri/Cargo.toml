@@ -64,6 +64,9 @@ machine-uid = "0.5"
 
 # Error handling
 
+# MIME validation for bug-report attachments
+mime = "0.3"
+
 # Time
 chrono = { version = "0.4", features = ["serde"] }
 png = "0.18"

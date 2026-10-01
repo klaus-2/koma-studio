@@ -95,7 +95,14 @@ pub fn run() {
         .manage(sidecar::mini_backend::MiniBackendSidecarStore::default())
         .manage(commands::models::ModelDownloadStore::default())
         .manage(commands::api::auth::DesktopAuthStore::default())
-        .manage(commands::discord::DiscordRpcState::default())
+        .manage(
+            // A failed spawn (thread exhaustion) is unrecoverable for presence:
+            // fail loudly at startup instead of managing a dead handle.
+            commands::discord::DiscordPresence::spawn(
+                commands::discord::DEFAULT_DISCORD_CLIENT_ID.to_owned(),
+            )
+            .expect("failed to spawn the Discord presence worker"),
+        )
         .manage(commands::updater::DesktopUpdaterStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::desktop::get_runtime_config,

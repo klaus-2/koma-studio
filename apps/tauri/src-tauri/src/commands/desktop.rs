@@ -364,7 +364,7 @@ fn normalize_runtime_channel(channel: &str) -> &str {
     }
 }
 
-fn update_channel_from_version(version: &str) -> String {
+pub(crate) fn update_channel_from_version(version: &str) -> String {
     if version.contains('-') {
         "beta".to_string()
     } else {
