@@ -202,11 +202,14 @@ export const BloggerWorkspace = ({ onOpenSettings }: BloggerWorkspaceProps) => {
         if (cancelled) {
           return;
         }
+        // Tauri keeps secrets in the OS keychain and reports presence via
+        // has* flags; the Electron shell returns the values inline. Accept
+        // either signal per secret.
         setConfigReady(
           Boolean(
             config.clientId &&
-            config.clientSecret &&
-            config.refreshToken &&
+            (config.hasClientSecret ?? Boolean(config.clientSecret)) &&
+            (config.hasRefreshToken ?? Boolean(config.refreshToken)) &&
             config.blogId,
           ),
         );

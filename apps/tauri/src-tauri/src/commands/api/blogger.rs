@@ -7,40 +7,99 @@ use tauri::{AppHandle, Runtime};
 use super::client::{
     read_plain_envelope, secure_store_dir, string_field, value_object, write_plain_envelope,
 };
+use crate::error::{AppError, AppResult};
 
 const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const BLOGGER_API_BASE: &str = "https://www.googleapis.com/blogger/v3";
 const DRIVE_UPLOAD_URL: &str =
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webContentLink,webViewLink,thumbnailLink,size,imageMediaMetadata";
+const KEYCHAIN_SERVICE: &str = "com.komastudio.desktop";
+const KEYCHAIN_ACCOUNT: &str = "blogger-oauth-v1";
+const MAX_IMAGE_BYTES: usize = 100 * 1024 * 1024;
 
 #[tauri::command(rename = "desktop-api:blogger:config:load")]
-pub fn blogger_load_config<R: Runtime>(app: AppHandle<R>) -> Result<Value, String> {
-    Ok(json!({
-        "config": read_config(&app)?,
-        "secureStorage": false,
-    }))
+pub async fn blogger_load_config<R: Runtime>(app: AppHandle<R>) -> AppResult<Value> {
+    let path = config_path(&app)?;
+    let raw = tauri::async_runtime::spawn_blocking(move || {
+        read_plain_envelope(&path, default_config())
+    })
+    .await?;
+
+    let mut config = normalize_config(&raw);
+    let secrets = read_secrets().await?;
+    config["hasClientSecret"] = json!(
+        secrets
+            .as_ref()
+            .is_some_and(|value| !value.client_secret.is_empty())
+    );
+    config["hasRefreshToken"] = json!(
+        secrets
+            .as_ref()
+            .is_some_and(|value| !value.refresh_token.is_empty())
+    );
+
+    Ok(json!({ "config": config, "secureStorage": true }))
 }
 
 #[tauri::command(rename = "desktop-api:blogger:config:save")]
-pub fn blogger_save_config<R: Runtime>(app: AppHandle<R>, payload: Value) -> Result<Value, String> {
-    let config = normalize_config(&payload);
-    write_plain_envelope(&config_path(&app)?, &config)?;
-    Ok(json!({ "config": config, "secureStorage": false }))
+pub async fn blogger_save_config<R: Runtime>(
+    app: AppHandle<R>,
+    payload: Value,
+) -> AppResult<Value> {
+    let mut config = normalize_config(&payload);
+
+    // Secrets live in the OS keychain only. Writes replace them; the public
+    // JSON never receives them (the legacy plaintext file is consumed once
+    // and its secret fields dropped).
+    let legacy = migrate_legacy_secrets(&app).await?;
+    let mut secrets = read_secrets().await?.unwrap_or(BloggerSecrets::default());
+
+    if let Some(value) = string_or_empty(&payload, "clientSecret") {
+        secrets.client_secret = value;
+    }
+    if let Some(value) = string_or_empty(&payload, "refreshToken") {
+        secrets.refresh_token = value;
+    }
+    if legacy.is_some() && secrets.is_empty() {
+        if let Some(legacy_secrets) = legacy {
+            secrets = legacy_secrets;
+        }
+    }
+
+    write_secrets(secrets.clone()).await?;
+
+    config["clientSecret"] = json!("");
+    config["refreshToken"] = json!("");
+    config["hasClientSecret"] = json!(!secrets.client_secret.is_empty());
+    config["hasRefreshToken"] = json!(!secrets.refresh_token.is_empty());
+
+    let path = config_path(&app)?;
+    let config_for_disk = config.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        write_plain_envelope(&path, &config_for_disk)
+    })
+    .await??;
+
+    Ok(json!({ "config": config, "secureStorage": true }))
 }
 
 #[tauri::command(rename = "desktop-api:blogger:test-connection")]
 pub async fn blogger_test_connection<R: Runtime>(
     app: AppHandle<R>,
     payload: Value,
-) -> Result<Value, String> {
-    let config = if payload.is_null() || payload.as_object().map(|v| v.is_empty()).unwrap_or(false)
+) -> AppResult<Value> {
+    let raw_config = if payload.is_null()
+        || payload.as_object().map(|v| v.is_empty()).unwrap_or(false)
     {
-        read_config(&app)?
+        load_public_config(&app).await?
     } else {
         normalize_config(&payload)
     };
-    validate_config(&config)?;
-    let token = google_access_token(&config).await?;
+    let secrets = required_secrets().await?;
+    let config = merged_with_secrets(raw_config, &secrets);
+    validate_runtime_config(&config, &secrets)?;
+
+    let token = google_access_token(&config, &secrets).await?;
     let client = super::client::http_client()?;
     let response = client
         .get(format!(
@@ -50,8 +109,8 @@ pub async fn blogger_test_connection<R: Runtime>(
         .bearer_auth(token)
         .send()
         .await
-        .map_err(|error| error.to_string())?;
-    let payload = super::client::response_json_or_error(response).await?;
+        .map_err(|error| AppError::network("Google Blogger request failed.", &error))?;
+    let payload = response_json(response).await?;
     Ok(json!({
         "ok": true,
         "blogTitle": string_field(&payload, "name"),
@@ -64,15 +123,24 @@ pub async fn blogger_test_connection<R: Runtime>(
 pub async fn blogger_upload_images<R: Runtime>(
     app: AppHandle<R>,
     payload: Value,
-) -> Result<Value, String> {
+) -> AppResult<Value> {
     let items = payload
         .get("items")
         .and_then(Value::as_array)
         .filter(|items| !items.is_empty())
-        .ok_or_else(|| "No image was received for the Blogger upload.".to_string())?;
-    let config = read_config(&app)?;
-    validate_config(&config)?;
-    let token = google_access_token(&config).await?;
+        .ok_or_else(|| AppError::invalid_input("No image was received for the Blogger upload."))?;
+    if items.len() > 100 {
+        return Err(AppError::invalid_input(
+            "Select between 1 and 100 images.",
+        ));
+    }
+
+    let raw_config = load_public_config(&app).await?;
+    let secrets = required_secrets().await?;
+    let config = merged_with_secrets(raw_config, &secrets);
+    validate_runtime_config(&config, &secrets)?;
+
+    let token = google_access_token(&config, &secrets).await?;
     let client = super::client::http_client()?;
     let mut uploaded = Vec::new();
 
@@ -87,16 +155,23 @@ pub async fn blogger_upload_images<R: Runtime>(
 pub async fn blogger_publish_post<R: Runtime>(
     app: AppHandle<R>,
     payload: Value,
-) -> Result<Value, String> {
-    let config = read_config(&app)?;
-    validate_config(&config)?;
+) -> AppResult<Value> {
+    let raw_config = load_public_config(&app).await?;
+    let secrets = required_secrets().await?;
+    let config = merged_with_secrets(raw_config, &secrets);
+    validate_runtime_config(&config, &secrets)?;
+
     let title = string_field(&payload, "title");
     let html = string_field(&payload, "html");
     if title.is_empty() {
-        return Err("Defina um titulo para a postagem.".to_string());
+        return Err(AppError::invalid_input(
+            "Defina um titulo para a postagem.",
+        ));
     }
     if html.is_empty() {
-        return Err("The post HTML content cannot be empty.".to_string());
+        return Err(AppError::invalid_input(
+            "The post HTML content cannot be empty.",
+        ));
     }
 
     let labels = merged_labels(
@@ -107,7 +182,7 @@ pub async fn blogger_publish_post<R: Runtime>(
         .get("publish")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let token = google_access_token(&config).await?;
+    let token = google_access_token(&config, &secrets).await?;
     let blog_id = string_field(&config, "blogId");
     let response = super::client::http_client()?
         .post(format!(
@@ -119,11 +194,13 @@ pub async fn blogger_publish_post<R: Runtime>(
         .json(&json!({ "title": title, "content": html, "labels": labels }))
         .send()
         .await
-        .map_err(|error| error.to_string())?;
-    let response_payload = super::client::response_json_or_error(response).await?;
+        .map_err(|error| AppError::network("Blogger publish request failed.", &error))?;
+    let response_payload = response_json(response).await?;
     let post_id = string_field(&response_payload, "id");
     if post_id.is_empty() {
-        return Err("Blogger did not return the ID of the new post.".to_string());
+        return Err(AppError::Network(
+            "Blogger did not return the ID of the new post.".to_string(),
+        ));
     }
     Ok(json!({
         "postId": post_id,
@@ -134,12 +211,155 @@ pub async fn blogger_publish_post<R: Runtime>(
     }))
 }
 
-fn read_config<R: Runtime>(app: &AppHandle<R>) -> Result<Value, String> {
-    Ok(normalize_config(&read_plain_envelope(
-        &config_path(app)?,
-        default_config(),
-    )))
+// --- keychain-backed secrets -------------------------------------------------
+
+#[derive(Clone, Default)]
+struct BloggerSecrets {
+    client_secret: String,
+    refresh_token: String,
 }
+
+impl BloggerSecrets {
+    fn is_empty(&self) -> bool {
+        self.client_secret.is_empty() && self.refresh_token.is_empty()
+    }
+}
+
+fn read_secrets_blocking() -> AppResult<Option<BloggerSecrets>> {
+    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)?;
+    match entry.get_password() {
+        Ok(value) => {
+            let parsed: Value = serde_json::from_str(&value)?;
+            Ok(Some(BloggerSecrets {
+                client_secret: string_field(&parsed, "clientSecret"),
+                refresh_token: string_field(&parsed, "refreshToken"),
+            }))
+        }
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(error.into()),
+    }
+}
+
+async fn read_secrets() -> AppResult<Option<BloggerSecrets>> {
+    tauri::async_runtime::spawn_blocking(read_secrets_blocking).await?
+}
+
+async fn write_secrets(secrets: BloggerSecrets) -> AppResult<()> {
+    let serialized = serde_json::to_string(&json!({
+        "clientSecret": secrets.client_secret,
+        "refreshToken": secrets.refresh_token,
+    }))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let entry = keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)?;
+        if secrets.is_empty() {
+            // Removing a missing entry is an error on some backends; ignore it.
+            match entry.delete_credential() {
+                Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+                Err(error) => Err(AppError::from(error)),
+            }
+        } else {
+            entry.set_password(&serialized)?;
+            Ok(())
+        }
+    })
+    .await?
+}
+
+/// One-time migration: consumers of previous versions stored client_secret and
+/// refresh_token inside the public JSON. Move them into the keychain and scrub
+/// the plaintext copy.
+async fn migrate_legacy_secrets<R: Runtime>(app: &AppHandle<R>) -> AppResult<Option<BloggerSecrets>> {
+    let path = config_path(app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let raw = read_plain_envelope(&path, Value::Null);
+        let client_secret = string_field(&raw, "clientSecret");
+        let refresh_token = string_field(&raw, "refreshToken");
+        if client_secret.is_empty() && refresh_token.is_empty() {
+            return Ok(None);
+        }
+
+        let existing = read_secrets_blocking()?.unwrap_or_default();
+        let legacy = BloggerSecrets {
+            client_secret: if existing.client_secret.is_empty() {
+                client_secret
+            } else {
+                existing.client_secret
+            },
+            refresh_token: if existing.refresh_token.is_empty() {
+                refresh_token
+            } else {
+                existing.refresh_token
+            },
+        };
+
+        let entry = keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT)?;
+        entry.set_password(
+            &serde_json::to_string(&json!({
+                "clientSecret": legacy.client_secret,
+                "refreshToken": legacy.refresh_token,
+            }))?,
+        )?;
+
+        let scrubbed = normalize_config(&raw);
+        write_plain_envelope(&path, &scrubbed)?;
+        Ok(Some(legacy))
+    })
+    .await?
+}
+
+async fn required_secrets() -> AppResult<BloggerSecrets> {
+    let secrets = read_secrets().await?.ok_or_else(|| {
+        AppError::not_configured("Blogger credentials are not configured.")
+    })?;
+
+    if secrets.client_secret.is_empty() || secrets.refresh_token.is_empty() {
+        return Err(AppError::not_configured(
+            "Preencha Client Secret e Refresh Token.",
+        ));
+    }
+
+    Ok(secrets)
+}
+
+// --- config helpers ----------------------------------------------------------
+
+async fn load_public_config<R: Runtime>(app: &AppHandle<R>) -> AppResult<Value> {
+    let path = config_path(app)?;
+    let raw = tauri::async_runtime::spawn_blocking(move || {
+        read_plain_envelope(&path, default_config())
+    })
+    .await?;
+    Ok(normalize_config(&raw))
+}
+
+fn config_path<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
+    let path = secure_store_dir(app)?.join("blogger-config.json");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    Ok(path)
+}
+
+/// Owned copy of the public config with the keychain secrets merged in, so
+/// downstream helpers read one coherent document.
+fn merged_with_secrets(mut config: Value, secrets: &BloggerSecrets) -> Value {
+    if let Some(object) = config.as_object_mut() {
+        object.insert("clientSecret".to_string(), json!(secrets.client_secret));
+        object.insert("refreshToken".to_string(), json!(secrets.refresh_token));
+    }
+    config
+}
+
+fn string_or_empty(payload: &Value, key: &str) -> Option<String> {
+    payload
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+}
+
+// --- Google helpers ----------------------------------------------------------
 
 fn normalize_config(value: &Value) -> Value {
     let mut config = value_object(default_config());
@@ -178,35 +398,60 @@ fn normalize_config(value: &Value) -> Value {
     Value::Object(config)
 }
 
-fn validate_config(config: &Value) -> Result<(), String> {
-    let missing = ["clientId", "clientSecret", "refreshToken", "blogId"]
-        .iter()
-        .any(|key| string_field(config, key).is_empty());
-    if missing {
-        Err("Preencha Client ID, Client Secret, Refresh Token e Blog ID.".to_string())
-    } else {
-        Ok(())
+fn validate_runtime_config(config: &Value, secrets: &BloggerSecrets) -> AppResult<()> {
+    if string_field(config, "clientId").is_empty() {
+        return Err(AppError::invalid_input("Preencha o Client ID do Google."));
     }
+    if string_field(config, "blogId").is_empty() {
+        return Err(AppError::invalid_input("Preencha o Blog ID."));
+    }
+    if secrets.client_secret.is_empty() || secrets.refresh_token.is_empty() {
+        return Err(AppError::not_configured(
+            "Preencha Client Secret e Refresh Token.",
+        ));
+    }
+    Ok(())
 }
 
-async fn google_access_token(config: &Value) -> Result<String, String> {
+async fn google_access_token(config: &Value, secrets: &BloggerSecrets) -> AppResult<String> {
     let mut form = std::collections::HashMap::new();
     form.insert("client_id", string_field(config, "clientId"));
-    form.insert("client_secret", string_field(config, "clientSecret"));
-    form.insert("refresh_token", string_field(config, "refreshToken"));
+    form.insert("client_secret", secrets.client_secret.clone());
+    form.insert("refresh_token", secrets.refresh_token.clone());
     form.insert("grant_type", "refresh_token".to_string());
     let response = super::client::http_client()?
         .post(GOOGLE_TOKEN_URL)
         .form(&form)
         .send()
         .await
-        .map_err(|error| error.to_string())?;
-    let payload = super::client::response_json_or_error(response).await?;
+        .map_err(|error| AppError::network("Google OAuth request failed.", &error))?;
+    let payload = response_json(response).await?;
     let token = string_field(&payload, "access_token");
     if token.is_empty() {
-        Err("Google OAuth did not return an access_token.".to_string())
+        return Err(AppError::Network(
+            "Google OAuth did not return an access_token.".to_string(),
+        ));
+    }
+    Ok(token)
+}
+
+async fn response_json(response: reqwest::Response) -> AppResult<Value> {
+    let status = response.status();
+    let payload = response
+        .json::<Value>()
+        .await
+        .map_err(|error| AppError::network("Remote API returned invalid JSON.", &error))?;
+
+    if status.is_success() {
+        Ok(payload)
     } else {
-        Ok(token)
+        let message = payload
+            .get("error")
+            .or_else(|| payload.get("message"))
+            .and_then(Value::as_str)
+            .unwrap_or("Remote API request failed.")
+            .to_string();
+        Err(AppError::Network(message))
     }
 }
 
@@ -214,19 +459,24 @@ async fn upload_drive_image(
     client: &reqwest::Client,
     access_token: &str,
     item: &Value,
-) -> Result<Value, String> {
+) -> AppResult<Value> {
     let file_name = string_field(item, "fileName");
     let mime_type = string_field(item, "mimeType");
     let content = string_field(item, "contentBase64");
     if file_name.is_empty() || mime_type.is_empty() || content.is_empty() {
-        return Err("Invalid Blogger upload item.".to_string());
+        return Err(AppError::invalid_input("Invalid Blogger upload item."));
     }
     let bytes = general_purpose::STANDARD
         .decode(content.as_bytes())
-        .map_err(|_| "Invalid image content.".to_string())?;
+        .map_err(|_| AppError::invalid_input("Invalid image content."))?;
+    if bytes.len() > MAX_IMAGE_BYTES {
+        return Err(AppError::invalid_input(
+            "Blogger image exceeds 100 MiB.",
+        ));
+    }
     let boundary = format!("koma-boundary-{}", uuid::Uuid::new_v4());
     let metadata = json!({ "name": file_name, "mimeType": mime_type });
-    let mut body = Vec::new();
+    let mut body = Vec::with_capacity(bytes.len() + 256);
     body.extend_from_slice(
         format!(
             "--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{metadata}\r\n"
@@ -247,14 +497,16 @@ async fn upload_drive_image(
         .body(body)
         .send()
         .await
-        .map_err(|error| error.to_string())?;
-    let payload = super::client::response_json_or_error(response).await?;
+        .map_err(|error| AppError::network("Google Drive upload failed.", &error))?;
+    let payload = response_json(response).await?;
     let file_id = string_field(&payload, "id");
     if file_id.is_empty() {
-        return Err(format!("Google Drive did not return an ID for {file_name}."));
+        return Err(AppError::Network(format!(
+            "Google Drive did not return an ID for {file_name}."
+        )));
     }
 
-    let _ = client
+    if let Err(error) = client
         .post(format!(
             "https://www.googleapis.com/drive/v3/files/{}/permissions",
             encode_component(&file_id)
@@ -262,7 +514,14 @@ async fn upload_drive_image(
         .bearer_auth(access_token)
         .json(&json!({ "role": "reader", "type": "anyone" }))
         .send()
-        .await;
+        .await
+    {
+        tracing::warn!(
+            timeout = error.is_timeout(),
+            status = ?error.status(),
+            "failed to grant public read permission on the Drive file"
+        );
+    }
 
     let canonical_url = format!("https://drive.google.com/uc?export=view&id={file_id}");
     let alt_text = string_field(item, "altText");
@@ -333,22 +592,17 @@ fn default_config() -> Value {
             "outputFormat": "original",
             "quality": 92,
             "stripMetadata": true
-        }
+        },
+        "hasClientSecret": false,
+        "hasRefreshToken": false
     })
-}
-
-fn config_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    let path = secure_store_dir(app)?.join("blogger-config.json");
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    Ok(path)
 }
 
 fn html_escape(value: &str) -> String {
     value
         .replace('&', "&amp;")
         .replace('"', "&quot;")
+        .replace('\'', "&#39;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
 }

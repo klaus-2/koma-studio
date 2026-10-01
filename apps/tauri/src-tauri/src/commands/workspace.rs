@@ -1,147 +1,218 @@
 use std::{
     fs,
-    io::{Read, Write},
     path::{Path, PathBuf},
 };
 
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
-use zip::{write::SimpleFileOptions, CompressionMethod, ZipArchive, ZipWriter};
 
-const WORKSPACE_FILE_EXTENSION: &str = "koma";
-const WORKSPACE_AUTOSAVE_FILE_BASENAME: &str = "autosave";
-const MANIFEST_PATH: &str = "manifest.json";
+use crate::{
+    error::{AppError, AppResult},
+    models::workspace::{
+        InternalAssetRegistration, WorkspaceAssetId, WorkspaceAssetSelectionResult,
+        WorkspaceAssetSource, WorkspaceAutosaveClearResult, WorkspaceAutosaveLoadResult,
+        WorkspaceAutosaveSaveResult, WorkspaceExportResult, WorkspaceImportResult,
+        WorkspacePackagePayload,
+    },
+    services::workspace::{
+        WORKSPACE_FILE_EXTENSION, normalize_asset_path, read_workspace_package,
+        workspace_autosave_path, write_workspace_package,
+    },
+    state::{AuthorizedWorkspaceAsset, WorkspaceAssetStore},
+};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceAssetManifestEntry {
-    pub id: String,
-    pub path: String,
-    pub file_name: String,
-    pub mime_type: String,
-    pub byte_length: u64,
+#[tauri::command(rename = "desktop-workspace:select-assets")]
+pub async fn select_asset_files(
+    app: AppHandle,
+    store: State<'_, WorkspaceAssetStore>,
+) -> AppResult<WorkspaceAssetSelectionResult> {
+    let dialog_app = app.clone();
+    let selected = tauri::async_runtime::spawn_blocking(move || {
+        dialog_app
+            .dialog()
+            .file()
+            .set_title("Selecionar assets")
+            .blocking_pick_files()
+    })
+    .await?;
+
+    let Some(selected) = selected else {
+        return Ok(WorkspaceAssetSelectionResult {
+            cancelled: true,
+            assets: Vec::new(),
+        });
+    };
+
+    let paths = selected
+        .into_iter()
+        .map(|path| {
+            path.into_path()
+                .map_err(|_| AppError::invalid_path("Invalid selected asset path."))
+        })
+        .collect::<AppResult<Vec<_>>>()?;
+
+    let prepared = tauri::async_runtime::spawn_blocking(move || {
+        paths
+            .into_iter()
+            .map(prepare_selected_asset)
+            .collect::<AppResult<Vec<_>>>()
+    })
+    .await??;
+
+    let mut assets = Vec::with_capacity(prepared.len());
+    for asset in prepared {
+        assets.push(store.authorize(asset).await?);
+    }
+
+    Ok(WorkspaceAssetSelectionResult {
+        cancelled: false,
+        assets,
+    })
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspacePackageManifestV1 {
-    pub package_version: u8,
-    pub exported_at: String,
-    pub app: String,
-    pub document_version: u8,
-    pub document: Value,
-    pub assets: Vec<WorkspaceAssetManifestEntry>,
-}
+#[tauri::command(rename = "desktop-workspace:register-internal-assets")]
+pub async fn register_internal_assets(
+    app: AppHandle,
+    store: State<'_, WorkspaceAssetStore>,
+    items: Vec<InternalAssetRegistration>,
+) -> AppResult<Vec<WorkspaceAssetSource>> {
+    let workspace_root = workspace_storage_dir(&app)?;
+    let cache_root = app.path().app_cache_dir()?;
+    let roots = [
+        fs::canonicalize(workspace_root)?,
+        fs::canonicalize(cache_root)?,
+    ];
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceBinaryAssetPayload {
-    pub id: String,
-    pub path: String,
-    pub file_name: String,
-    pub mime_type: String,
-    pub buffer: Vec<u8>,
-}
+    let prepared = tauri::async_runtime::spawn_blocking(move || {
+        items
+            .into_iter()
+            .map(|item| {
+                let source_path = fs::canonicalize(&item.source_path)?;
+                if !roots.iter().any(|root| source_path.starts_with(root)) {
+                    return Err(AppError::not_allowed(
+                        "Internal asset is outside the application workspace and cache.",
+                    ));
+                }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspacePackagePayload {
-    pub manifest: WorkspacePackageManifestV1,
-    pub assets: Vec<WorkspaceBinaryAssetPayload>,
-}
+                let metadata = fs::metadata(&source_path)?;
+                if !metadata.is_file() {
+                    return Err(AppError::invalid_path(
+                        "Internal asset is not a regular file.",
+                    ));
+                }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceAutosaveLoadResult {
-    pub found: bool,
-    pub path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload: Option<WorkspacePackagePayload>,
-}
+                Ok(AuthorizedWorkspaceAsset {
+                    id: item.id,
+                    path: normalize_asset_path(&item.path)?,
+                    file_name: validate_display_file_name(&item.file_name)?,
+                    mime_type: validate_mime(&item.mime_type)?,
+                    byte_length: metadata.len(),
+                    source_path,
+                })
+            })
+            .collect::<AppResult<Vec<_>>>()
+    })
+    .await??;
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceAutosaveSaveResult {
-    pub saved: bool,
-    pub path: String,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceAutosaveClearResult {
-    pub cleared: bool,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceExportResult {
-    pub cancelled: bool,
-    pub file_path: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceImportResult {
-    pub cancelled: bool,
-    pub file_path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload: Option<WorkspacePackagePayload>,
+    let mut output = Vec::with_capacity(prepared.len());
+    for asset in prepared {
+        output.push(store.authorize(asset).await?);
+    }
+    Ok(output)
 }
 
 #[tauri::command(rename = "desktop-workspace:load-autosave")]
-pub fn load_autosave<R: Runtime>(
-    app: AppHandle<R>,
+pub async fn load_autosave(
+    app: AppHandle,
     user_id: Option<String>,
-) -> Result<WorkspaceAutosaveLoadResult, String> {
-    let file_path = workspace_autosave_path(&workspace_storage_dir(&app)?, user_id.as_deref())?;
-    load_autosave_from_path(&file_path)
+) -> AppResult<WorkspaceAutosaveLoadResult> {
+    let file_path = workspace_autosave_path(&workspace_storage_dir(&app)?, user_id.as_deref());
+    if !file_path.is_file() {
+        return Ok(WorkspaceAutosaveLoadResult {
+            found: false,
+            path: Some(file_path.to_string_lossy().into_owned()),
+            payload: None,
+        });
+    }
+
+    let loaded = tauri::async_runtime::spawn_blocking(move || {
+        read_workspace_package(&file_path).map(|loaded| {
+            (
+                file_path,
+                WorkspacePackagePayload {
+                    manifest: loaded.manifest,
+                    assets: loaded.assets,
+                },
+            )
+        })
+    })
+    .await??;
+
+    let (file_path, payload) = loaded;
+    Ok(WorkspaceAutosaveLoadResult {
+        found: true,
+        path: Some(file_path.to_string_lossy().into_owned()),
+        payload: Some(payload),
+    })
 }
 
 #[tauri::command(rename = "desktop-workspace:save-autosave")]
-pub fn save_autosave<R: Runtime>(
-    app: AppHandle<R>,
+pub async fn save_autosave(
+    app: AppHandle,
     user_id: Option<String>,
     payload: WorkspacePackagePayload,
-) -> Result<WorkspaceAutosaveSaveResult, String> {
-    let file_path = workspace_autosave_path(&workspace_storage_dir(&app)?, user_id.as_deref())?;
-    write_workspace_package_to_file(&file_path, &payload)?;
+) -> AppResult<WorkspaceAutosaveSaveResult> {
+    let file_path = workspace_autosave_path(&workspace_storage_dir(&app)?, user_id.as_deref());
+    let output_path = file_path.clone();
+
+    tauri::async_runtime::spawn_blocking(move || write_workspace_package(&output_path, &payload))
+        .await??;
+
     Ok(WorkspaceAutosaveSaveResult {
         saved: true,
-        path: file_path.to_string_lossy().to_string(),
+        path: file_path.to_string_lossy().into_owned(),
     })
 }
 
 #[tauri::command(rename = "desktop-workspace:clear-autosave")]
-pub fn clear_autosave<R: Runtime>(
-    app: AppHandle<R>,
+pub async fn clear_autosave(
+    app: AppHandle,
     user_id: Option<String>,
-) -> Result<WorkspaceAutosaveClearResult, String> {
-    let file_path = workspace_autosave_path(&workspace_storage_dir(&app)?, user_id.as_deref())?;
-    if file_path.exists() {
-        fs::remove_file(&file_path).map_err(|error| error.to_string())?;
-        return Ok(WorkspaceAutosaveClearResult { cleared: true });
-    }
+) -> AppResult<WorkspaceAutosaveClearResult> {
+    let file_path = workspace_autosave_path(&workspace_storage_dir(&app)?, user_id.as_deref());
 
-    Ok(WorkspaceAutosaveClearResult { cleared: false })
+    let cleared = tauri::async_runtime::spawn_blocking(move || -> AppResult<bool> {
+        if file_path.is_file() {
+            fs::remove_file(&file_path)?;
+            return Ok(true);
+        }
+        Ok(false)
+    })
+    .await??;
+
+    Ok(WorkspaceAutosaveClearResult { cleared })
 }
 
 #[tauri::command(rename = "desktop-workspace:export-current")]
-pub fn export_current<R: Runtime>(
-    app: AppHandle<R>,
+pub async fn export_current(
+    app: AppHandle,
     default_file_name: String,
     payload: WorkspacePackagePayload,
-) -> Result<WorkspaceExportResult, String> {
-    let selected = app
-        .dialog()
-        .file()
-        .set_title("Exportar workspace")
-        .set_file_name(default_file_name)
-        .add_filter("KOMA Workspace", &[WORKSPACE_FILE_EXTENSION])
-        .blocking_save_file();
+) -> AppResult<WorkspaceExportResult> {
+    let file_name = sanitized_export_file_name(&default_file_name);
+    let dialog_app = app.clone();
+
+    let selected = tauri::async_runtime::spawn_blocking(move || {
+        dialog_app
+            .dialog()
+            .file()
+            .set_title("Exportar workspace")
+            .set_file_name(file_name)
+            .add_filter("KOMA Workspace", &[WORKSPACE_FILE_EXTENSION])
+            .blocking_save_file()
+    })
+    .await?;
 
     let Some(selected) = selected else {
         return Ok(WorkspaceExportResult {
@@ -152,31 +223,37 @@ pub fn export_current<R: Runtime>(
 
     let mut final_path = selected
         .into_path()
-        .map_err(|_| "Invalid export path.".to_string())?;
-    if final_path
+        .map_err(|_| AppError::invalid_path("Invalid export path."))?;
+    if !final_path
         .extension()
         .and_then(|extension| extension.to_str())
-        .map(|extension| !extension.eq_ignore_ascii_case(WORKSPACE_FILE_EXTENSION))
-        .unwrap_or(true)
+        .is_some_and(|extension| extension.eq_ignore_ascii_case(WORKSPACE_FILE_EXTENSION))
     {
         final_path.set_extension(WORKSPACE_FILE_EXTENSION);
     }
 
-    write_workspace_package_to_file(&final_path, &payload)?;
+    let output_path = final_path.clone();
+    tauri::async_runtime::spawn_blocking(move || write_workspace_package(&output_path, &payload))
+        .await??;
+
     Ok(WorkspaceExportResult {
         cancelled: false,
-        file_path: Some(final_path.to_string_lossy().to_string()),
+        file_path: Some(final_path.to_string_lossy().into_owned()),
     })
 }
 
 #[tauri::command(rename = "desktop-workspace:import-file")]
-pub fn import_file<R: Runtime>(app: AppHandle<R>) -> Result<WorkspaceImportResult, String> {
-    let selected = app
-        .dialog()
-        .file()
-        .set_title("Importar workspace")
-        .add_filter("KOMA Workspace", &[WORKSPACE_FILE_EXTENSION])
-        .blocking_pick_file();
+pub async fn import_file(app: AppHandle) -> AppResult<WorkspaceImportResult> {
+    let dialog_app = app.clone();
+    let selected = tauri::async_runtime::spawn_blocking(move || {
+        dialog_app
+            .dialog()
+            .file()
+            .set_title("Importar workspace")
+            .add_filter("KOMA Workspace", &[WORKSPACE_FILE_EXTENSION])
+            .blocking_pick_file()
+    })
+    .await?;
 
     let Some(selected) = selected else {
         return Ok(WorkspaceImportResult {
@@ -188,178 +265,126 @@ pub fn import_file<R: Runtime>(app: AppHandle<R>) -> Result<WorkspaceImportResul
 
     let file_path = selected
         .into_path()
-        .map_err(|_| "Invalid import path.".to_string())?;
-    let payload = read_workspace_package_from_file(&file_path)?;
+        .map_err(|_| AppError::invalid_path("Invalid import path."))?;
+    let input_path = file_path.clone();
+    let payload =
+        tauri::async_runtime::spawn_blocking(move || read_workspace_package(&input_path)).await??;
+
     Ok(WorkspaceImportResult {
         cancelled: false,
-        file_path: Some(file_path.to_string_lossy().to_string()),
-        payload: Some(payload),
+        file_path: Some(file_path.to_string_lossy().into_owned()),
+        payload: Some(WorkspacePackagePayload {
+            manifest: payload.manifest,
+            assets: payload.assets,
+        }),
     })
 }
 
-pub fn workspace_storage_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    let workspace_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("workspace");
-    fs::create_dir_all(&workspace_dir).map_err(|error| error.to_string())?;
+pub fn workspace_storage_dir<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
+    let workspace_dir = app.path().app_data_dir()?.join("workspace");
+    fs::create_dir_all(&workspace_dir)?;
     Ok(workspace_dir)
 }
 
-pub fn sanitize_workspace_user_id(value: Option<&str>) -> String {
-    value.unwrap_or_default().trim().chars().take(256).collect()
-}
+fn prepare_selected_asset(path: PathBuf) -> AppResult<AuthorizedWorkspaceAsset> {
+    let source_path = fs::canonicalize(path)?;
+    let metadata = fs::metadata(&source_path)?;
 
-pub fn workspace_autosave_path(
-    storage_dir: &Path,
-    user_id: Option<&str>,
-) -> Result<PathBuf, String> {
-    let normalized_user_id = sanitize_workspace_user_id(user_id);
-    let user_key = if normalized_user_id.is_empty() {
-        "guest".to_string()
-    } else {
-        normalized_user_id
-    };
-    let digest = Sha256::digest(user_key.as_bytes());
-    Ok(storage_dir.join(format!(
-        "{WORKSPACE_AUTOSAVE_FILE_BASENAME}.{}.{WORKSPACE_FILE_EXTENSION}",
-        hex::encode(digest)
-    )))
-}
-
-pub fn load_autosave_from_path(file_path: &Path) -> Result<WorkspaceAutosaveLoadResult, String> {
-    if !file_path.exists() {
-        return Ok(WorkspaceAutosaveLoadResult {
-            found: false,
-            path: Some(file_path.to_string_lossy().to_string()),
-            payload: None,
-        });
+    if !metadata.is_file() {
+        return Err(AppError::invalid_path(
+            "Selected asset is not a regular file.",
+        ));
     }
 
-    Ok(WorkspaceAutosaveLoadResult {
-        found: true,
-        path: Some(file_path.to_string_lossy().to_string()),
-        payload: Some(read_workspace_package_from_file(file_path)?),
+    let file_name = source_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| AppError::invalid_path("Asset file name is not valid UTF-8."))?
+        .to_string();
+
+    let inferred = infer::get_from_path(&source_path)
+        .map_err(|error| AppError::internal("Asset sniffing failed.", error))?
+        .map(|kind| kind.mime_type().to_string())
+        .unwrap_or_else(|| {
+            mime_guess::from_path(&source_path)
+                .first_or_octet_stream()
+                .to_string()
+        });
+
+    let id = WorkspaceAssetId(Uuid::new_v4().to_string());
+    let extension = source_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .filter(|extension| {
+            !extension.is_empty()
+                && extension
+                    .chars()
+                    .all(|character| character.is_ascii_alphanumeric())
+        });
+
+    let archive_name = match extension {
+        Some(extension) => format!("{}.{}", id.0, extension.to_ascii_lowercase()),
+        None => id.0.clone(),
+    };
+
+    Ok(AuthorizedWorkspaceAsset {
+        id,
+        path: format!("assets/{archive_name}"),
+        file_name,
+        mime_type: inferred,
+        byte_length: metadata.len(),
+        source_path,
     })
 }
 
-pub fn write_workspace_package_to_file(
-    file_path: &Path,
-    payload: &WorkspacePackagePayload,
-) -> Result<(), String> {
-    let zip_bytes = build_workspace_package_zip(payload)?;
-    if let Some(parent) = file_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
+fn sanitized_export_file_name(value: &str) -> String {
+    let name = Path::new(value.trim())
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("workspace.koma");
 
-    let temp_path = file_path.with_extension(format!(
-        "{}.{}.tmp",
-        file_path
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .unwrap_or(WORKSPACE_FILE_EXTENSION),
-        Uuid::new_v4()
-    ));
-    fs::write(&temp_path, zip_bytes).map_err(|error| error.to_string())?;
-    if file_path.exists() {
-        fs::remove_file(file_path).map_err(|error| error.to_string())?;
-    }
-    fs::rename(&temp_path, file_path).map_err(|error| error.to_string())
-}
-
-pub fn read_workspace_package_from_file(
-    file_path: &Path,
-) -> Result<WorkspacePackagePayload, String> {
-    let raw = fs::read(file_path).map_err(|_| "Could not read the workspace.".to_string())?;
-    parse_workspace_package_zip(&raw)
-}
-
-pub fn build_workspace_package_zip(payload: &WorkspacePackagePayload) -> Result<Vec<u8>, String> {
-    let cursor = std::io::Cursor::new(Vec::new());
-    let mut zip = ZipWriter::new(cursor);
-    let options = SimpleFileOptions::default()
-        .compression_method(CompressionMethod::Deflated)
-        .compression_level(Some(6));
-
-    let mut manifest = payload.manifest.clone();
-    manifest.assets = manifest
-        .assets
-        .iter()
-        .map(normalize_asset_manifest_entry)
+    let mut output: String = name
+        .chars()
+        .filter(|character| {
+            !character.is_control()
+                && !matches!(character, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
+        })
+        .take(200)
         .collect();
-    let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
-    zip.start_file(MANIFEST_PATH, options)
-        .map_err(|error| error.to_string())?;
-    zip.write_all(&manifest_bytes)
-        .map_err(|error| error.to_string())?;
 
-    for asset in &payload.assets {
-        let normalized_path = normalize_asset_path(&asset.path);
-        zip.start_file(normalized_path, options)
-            .map_err(|error| error.to_string())?;
-        zip.write_all(&asset.buffer)
-            .map_err(|error| error.to_string())?;
+    if output.is_empty() {
+        output = "workspace.koma".to_string();
     }
 
-    zip.finish()
-        .map(|cursor| cursor.into_inner())
-        .map_err(|error| error.to_string())
+    if !output
+        .to_ascii_lowercase()
+        .ends_with(&format!(".{WORKSPACE_FILE_EXTENSION}"))
+    {
+        output.push('.');
+        output.push_str(WORKSPACE_FILE_EXTENSION);
+    }
+
+    output
 }
 
-pub fn parse_workspace_package_zip(zip_bytes: &[u8]) -> Result<WorkspacePackagePayload, String> {
-    let cursor = std::io::Cursor::new(zip_bytes);
-    let mut archive = ZipArchive::new(cursor).map_err(|_| "Invalid workspace.".to_string())?;
-    let mut manifest_file = archive
-        .by_name(MANIFEST_PATH)
-        .map_err(|_| "Invalid workspace: manifest.json is missing.".to_string())?;
-    let mut manifest_bytes = Vec::new();
-    manifest_file
-        .read_to_end(&mut manifest_bytes)
-        .map_err(|_| "Invalid workspace: manifest.json is corrupted.".to_string())?;
-    drop(manifest_file);
-
-    let manifest: WorkspacePackageManifestV1 = serde_json::from_slice(&manifest_bytes)
-        .map_err(|_| "Invalid workspace: manifest.json is corrupted.".to_string())?;
-    if manifest.package_version != 1 || manifest.document_version != 1 {
-        return Err("This workspace is not compatible with this version of the app.".to_string());
+fn validate_display_file_name(value: &str) -> AppResult<String> {
+    if value.is_empty()
+        || value.len() > 255
+        || value.contains('/')
+        || value.contains('\\')
+        || value.contains('\0')
+    {
+        return Err(AppError::invalid_input("Invalid asset file name."));
     }
-
-    let mut assets = Vec::with_capacity(manifest.assets.len());
-    for entry in &manifest.assets {
-        let normalized_path = normalize_asset_path(&entry.path);
-        let mut file = archive
-            .by_name(&normalized_path)
-            .map_err(|_| format!("Invalid workspace: missing asset ({normalized_path})."))?;
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)
-            .map_err(|_| format!("Invalid workspace: corrupted asset ({normalized_path})."))?;
-        assets.push(WorkspaceBinaryAssetPayload {
-            id: entry.id.clone(),
-            path: normalized_path,
-            file_name: entry.file_name.clone(),
-            mime_type: entry.mime_type.clone(),
-            buffer,
-        });
-    }
-
-    Ok(WorkspacePackagePayload { manifest, assets })
+    Ok(value.to_string())
 }
 
-fn normalize_asset_manifest_entry(
-    entry: &WorkspaceAssetManifestEntry,
-) -> WorkspaceAssetManifestEntry {
-    WorkspaceAssetManifestEntry {
-        id: entry.id.clone(),
-        path: normalize_asset_path(&entry.path),
-        file_name: entry.file_name.clone(),
-        mime_type: entry.mime_type.clone(),
-        byte_length: entry.byte_length,
-    }
-}
-
-fn normalize_asset_path(path: &str) -> String {
-    path.replace('\\', "/")
+fn validate_mime(value: &str) -> AppResult<String> {
+    value
+        .parse::<mime::Mime>()
+        .map(|mime| mime.to_string())
+        .map_err(|_| AppError::invalid_input("Invalid asset MIME type."))
 }
 
 #[cfg(test)]
@@ -367,15 +392,27 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn sample_payload() -> WorkspacePackagePayload {
-        WorkspacePackagePayload {
-            manifest: WorkspacePackageManifestV1 {
+    #[test]
+    fn sanitized_export_file_name_strips_path_and_bad_chars() {
+        assert_eq!(sanitized_export_file_name(" a<b>.koma "), "ab.koma");
+        assert_eq!(sanitized_export_file_name("../../x"), "x.koma");
+        assert_eq!(sanitized_export_file_name(""), "workspace.koma");
+        assert_eq!(sanitized_export_file_name("page"), "page.koma");
+    }
+
+    #[test]
+    fn sample_payload_roundtrips_through_the_service() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("autosave.test.koma");
+
+        let payload = WorkspacePackagePayload {
+            manifest: crate::models::workspace::WorkspacePackageManifestV1 {
                 package_version: 1,
                 exported_at: "2026-05-20T00:00:00.000Z".to_string(),
                 app: "koma-studio".to_string(),
                 document_version: 1,
-                document: json!({ "version": 1, "savedAt": "2026-05-20T00:00:00.000Z" }),
-                assets: vec![WorkspaceAssetManifestEntry {
+                document: json!({ "version": 1 }),
+                assets: vec![crate::models::workspace::WorkspaceAssetManifestEntry {
                     id: "asset-1".to_string(),
                     path: "assets\\page.png".to_string(),
                     file_name: "page.png".to_string(),
@@ -383,71 +420,51 @@ mod tests {
                     byte_length: 4,
                 }],
             },
-            assets: vec![WorkspaceBinaryAssetPayload {
+            assets: vec![crate::models::workspace::WorkspaceBinaryAssetPayload {
                 id: "asset-1".to_string(),
                 path: "assets\\page.png".to_string(),
                 file_name: "page.png".to_string(),
                 mime_type: "image/png".to_string(),
                 buffer: vec![1, 2, 3, 4],
             }],
-        }
+        };
+
+        write_workspace_package(&path, &payload).unwrap();
+        let loaded = read_workspace_package(&path).unwrap();
+        assert_eq!(loaded.assets[0].buffer, vec![1, 2, 3, 4]);
+        assert_eq!(loaded.manifest.assets[0].path, "assets/page.png");
     }
 
     #[test]
-    fn autosave_path_hashes_sanitized_user_id() {
-        let path = workspace_autosave_path(Path::new("workspace"), Some(" user-1 ")).unwrap();
-        assert!(path.to_string_lossy().starts_with("workspace"));
-        assert!(path.to_string_lossy().ends_with(".koma"));
-        assert!(!path.to_string_lossy().contains("user-1"));
-    }
-
-    #[test]
-    fn load_autosave_reports_missing_path() {
+    fn service_rejects_oversized_declared_asset() {
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("missing.koma");
+        let path = temp.path().join("bad.koma");
 
-        let result = load_autosave_from_path(&path).unwrap();
+        let payload = WorkspacePackagePayload {
+            manifest: crate::models::workspace::WorkspacePackageManifestV1 {
+                package_version: 1,
+                exported_at: String::new(),
+                app: "koma".to_string(),
+                document_version: 1,
+                document: json!({}),
+                assets: vec![crate::models::workspace::WorkspaceAssetManifestEntry {
+                    id: "a".to_string(),
+                    path: "assets/a.png".to_string(),
+                    file_name: "a.png".to_string(),
+                    mime_type: "image/png".to_string(),
+                    byte_length: (512 * 1024 * 1024) + 1,
+                }],
+            },
+            assets: vec![crate::models::workspace::WorkspaceBinaryAssetPayload {
+                id: "a".to_string(),
+                path: "assets/a.png".to_string(),
+                file_name: "a.png".to_string(),
+                mime_type: "image/png".to_string(),
+                buffer: vec![0_u8; 8],
+            }],
+        };
 
-        assert!(!result.found);
-        assert_eq!(result.path, Some(path.to_string_lossy().to_string()));
-        assert!(result.payload.is_none());
-    }
-
-    #[test]
-    fn workspace_package_zip_roundtrips() {
-        let payload = sample_payload();
-        let zip = build_workspace_package_zip(&payload).unwrap();
-        let parsed = parse_workspace_package_zip(&zip).unwrap();
-
-        assert_eq!(parsed.assets[0].path, "assets/page.png");
-        assert_eq!(parsed.assets[0].buffer, vec![1, 2, 3, 4]);
-        assert_eq!(parsed.manifest.assets[0].path, "assets/page.png");
-    }
-
-    #[test]
-    fn save_load_and_clear_autosave_file() {
-        let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("autosave.test.koma");
-        let payload = sample_payload();
-
-        write_workspace_package_to_file(&path, &payload).unwrap();
-        let loaded = load_autosave_from_path(&path).unwrap();
-        assert!(loaded.found);
-        assert_eq!(loaded.payload.unwrap().assets[0].buffer, vec![1, 2, 3, 4]);
-
-        fs::remove_file(&path).unwrap();
-        assert!(!load_autosave_from_path(&path).unwrap().found);
-    }
-
-    #[test]
-    fn rejects_incompatible_workspace_package() {
-        let mut payload = sample_payload();
-        payload.manifest.package_version = 2;
-        let zip = build_workspace_package_zip(&payload).unwrap();
-
-        assert_eq!(
-            parse_workspace_package_zip(&zip).unwrap_err(),
-            "This workspace is not compatible with this version of the app."
-        );
+        let error = write_workspace_package(&path, &payload).unwrap_err();
+        assert!(matches!(error, AppError::InvalidInput(_)));
     }
 }

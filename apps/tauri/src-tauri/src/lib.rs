@@ -9,10 +9,13 @@
 
 mod commands;
 mod error;
+mod models;
 mod protocol;
 mod runtime;
 mod security;
+mod services;
 mod sidecar;
+mod state;
 mod updater;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -36,12 +39,17 @@ pub fn run() {
         // deterministic and observable, unlike hopping through the webview
         // event listener.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            log::info!("single-instance: focusing existing window");
-            if let Some(url) =
-                commands::api::integrations::extract_deep_link_from_args(argv.iter().cloned())
-            {
-                log::info!("single-instance: deep link {url}");
-                match commands::api::integrations::deep_link_to_hash_route(&url) {
+                log::info!("single-instance: focusing existing window");
+                if let Some(url) =
+                    commands::api::integrations::extract_deep_link_from_args(argv.iter().cloned())
+                {
+                    // Log only the scheme, never the full URL: deep links can
+                    // carry tokens in their query string.
+                    tracing::info!(
+                        scheme = url.split(':').next().unwrap_or("unknown"),
+                        "single-instance deep link received"
+                    );
+                    match commands::api::integrations::deep_link_to_hash_route(&url) {
                     Some(route) => {
                         if let Some(window) = app.webview_windows().values().next() {
                             let hash = format!("#{route}");
@@ -64,7 +72,7 @@ pub fn run() {
                         }
                     }
                     None => {
-                        log::warn!("single-instance: deep link {url} contains no route");
+                        tracing::warn!("single-instance deep link contained no route");
                     }
                 }
             }
@@ -106,6 +114,7 @@ pub fn run() {
             .expect("failed to spawn the Discord presence worker"),
         )
         .manage(commands::updater::DesktopUpdaterStore::default())
+        .manage(state::WorkspaceAssetStore::default())
         .invoke_handler(tauri::generate_handler![
             commands::desktop::get_runtime_config,
             commands::desktop::get_locale_preferences,
@@ -141,6 +150,8 @@ pub fn run() {
             commands::workspace::clear_autosave,
             commands::workspace::export_current,
             commands::workspace::import_file,
+            commands::workspace::select_asset_files,
+            commands::workspace::register_internal_assets,
             commands::images::desktop_api_list_folder,
             commands::images::desktop_api_allow_paths,
             commands::api::auth::config,

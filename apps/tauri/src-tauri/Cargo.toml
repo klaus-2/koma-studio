@@ -54,6 +54,19 @@ hex = "0.4"
 
 # Logging
 log = "0.4"
+tracing = "0.1"
+
+# OS keychain (Blogger secrets; no plaintext fallback)
+keyring = { version = "3.6", default-features = false, features = [
+  "windows-native",
+  "apple-native",
+  "sync-secret-service",
+  "crypto-rust"
+] }
+
+# Asset MIME sniffing for workspace imports/selection
+infer = "0.19"
+mime_guess = "2"
 
 # HTTP / TLS
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream", "multipart"] }

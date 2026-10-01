@@ -34,6 +34,12 @@ export interface BloggerConfig {
   defaultLabels: string[];
   optimizer: BloggerOptimizerConfig;
   preprocess: BloggerPreprocessConfig;
+  /**
+   * Set by shells that keep secrets outside the config (Tauri: OS keychain).
+   * When absent, the inline clientSecret/refreshToken values are the signal.
+   */
+  hasClientSecret?: boolean;
+  hasRefreshToken?: boolean;
 }
 
 export interface BloggerUploadItemInput {

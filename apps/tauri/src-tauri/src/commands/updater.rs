@@ -1,14 +1,40 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Runtime, State};
+use tokio::sync::Semaphore;
 
-use crate::updater::{incremental, manifest::IncrementalUpdateManifest};
+use crate::{
+    error::{AppError, AppResult},
+    updater::{incremental, manifest::IncrementalUpdateManifest},
+};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct DesktopUpdaterStore {
     inner: Mutex<DesktopUpdaterInner>,
+    // check/download/apply/rollback must never interleave: each one mutates
+    // the staged state the next one consumes. A semaphore serializes them
+    // without holding the state lock across awaits.
+    operation: Arc<Semaphore>,
+}
+
+impl Default for DesktopUpdaterStore {
+    fn default() -> Self {
+        Self {
+            inner: Mutex::new(DesktopUpdaterInner::default()),
+            operation: Arc::new(Semaphore::new(1)),
+        }
+    }
+}
+
+impl DesktopUpdaterStore {
+    fn try_acquire(&self) -> AppResult<tokio::sync::OwnedSemaphorePermit> {
+        self.operation
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| AppError::conflict("An updater operation is already running."))
+    }
 }
 
 #[derive(Debug)]
@@ -91,7 +117,7 @@ impl UpdaterStatusPayload {
 pub fn get_status<R: Runtime>(
     app: AppHandle<R>,
     store: State<DesktopUpdaterStore>,
-) -> Result<UpdaterStatusPayload, String> {
+) -> AppResult<UpdaterStatusPayload> {
     with_state(&app, &store, None, |state| {
         let current_version = app.package_info().version.to_string();
         state.current_version = current_version.clone();
@@ -110,7 +136,8 @@ pub async fn updater_check<R: Runtime>(
     store: State<'_, DesktopUpdaterStore>,
     manifest_url: Option<String>,
     payload: Option<Value>,
-) -> Result<UpdaterStatusPayload, String> {
+) -> AppResult<UpdaterStatusPayload> {
+    let _permit = store.try_acquire()?;
     with_state(&app, &store, Some("checking"), |state| {
         state.status = "checking".to_string();
         state.current_version = app.package_info().version.to_string();
@@ -124,7 +151,7 @@ pub async fn updater_check<R: Runtime>(
     match incremental::check(&app, request).await {
         Ok((manifest, report)) => {
             {
-                let mut inner = store.inner.lock().map_err(|error| error.to_string())?;
+                let mut inner = store.inner.lock().map_err(|error| AppError::internal("updater state poisoned", error))?;
                 inner.incremental_manifest = Some(manifest);
                 inner.incremental_public_key = incremental_public_key;
             }
@@ -168,7 +195,7 @@ pub async fn updater_check<R: Runtime>(
                 state.error = None;
             })
         }
-        Err(error) => set_error(&app, &store, error),
+        Err(error) => set_error(&app, &store, AppError::Update(error)),
     }
 }
 
@@ -178,10 +205,11 @@ pub async fn updater_download_incremental<R: Runtime>(
     store: State<'_, DesktopUpdaterStore>,
     manifest_url: Option<String>,
     payload: Option<Value>,
-) -> Result<UpdaterStatusPayload, String> {
+) -> AppResult<UpdaterStatusPayload> {
+    let _permit = store.try_acquire()?;
     let request = incremental::request_from_parts(manifest_url, payload);
     let (manifest, public_key) = {
-        let inner = store.inner.lock().map_err(|error| error.to_string())?;
+        let inner = store.inner.lock().map_err(|error| AppError::internal("updater state poisoned", error))?;
         (
             inner.incremental_manifest.clone(),
             inner.incremental_public_key.clone(),
@@ -192,7 +220,7 @@ pub async fn updater_download_incremental<R: Runtime>(
         Some(manifest) => manifest,
         None => {
             let (manifest, _) = incremental::check(&app, request.clone()).await?;
-            let mut inner = store.inner.lock().map_err(|error| error.to_string())?;
+            let mut inner = store.inner.lock().map_err(|error| AppError::internal("updater state poisoned", error))?;
             inner.incremental_manifest = Some(manifest.clone());
             inner.incremental_public_key = request.public_key.clone();
             manifest
@@ -229,16 +257,18 @@ pub async fn updater_download_incremental<R: Runtime>(
             ));
             state.error = None;
         }),
-        Err(error) => set_error(&app, &store, error),
+        Err(error) => set_error(&app, &store, AppError::Update(error)),
     }
 }
 
 #[tauri::command(rename = "updater_apply")]
-pub fn updater_apply<R: Runtime>(
+pub async fn updater_apply<R: Runtime>(
     app: AppHandle<R>,
-    store: State<DesktopUpdaterStore>,
-) -> Result<UpdaterStatusPayload, String> {
-    match incremental::apply(&app) {
+    store: State<'_, DesktopUpdaterStore>,
+) -> AppResult<UpdaterStatusPayload> {
+    let _permit = store.try_acquire()?;
+    let worker_app = app.clone();
+    match tauri::async_runtime::spawn_blocking(move || incremental::apply(&worker_app)).await? {
         Ok(report) => with_state(&app, &store, Some("downloaded"), |state| {
             state.status = "downloaded".to_string();
             state.current_version = report.active_version.clone();
@@ -249,16 +279,18 @@ pub fn updater_apply<R: Runtime>(
             ));
             state.error = None;
         }),
-        Err(error) => set_error(&app, &store, error),
+        Err(error) => set_error(&app, &store, AppError::Update(error)),
     }
 }
 
 #[tauri::command(rename = "updater_rollback")]
-pub fn updater_rollback<R: Runtime>(
+pub async fn updater_rollback<R: Runtime>(
     app: AppHandle<R>,
-    store: State<DesktopUpdaterStore>,
-) -> Result<UpdaterStatusPayload, String> {
-    match incremental::rollback(&app) {
+    store: State<'_, DesktopUpdaterStore>,
+) -> AppResult<UpdaterStatusPayload> {
+    let _permit = store.try_acquire()?;
+    let worker_app = app.clone();
+    match tauri::async_runtime::spawn_blocking(move || incremental::rollback(&worker_app)).await? {
         Ok(report) => with_state(&app, &store, Some("status"), |state| {
             state.status = "idle".to_string();
             state.current_version = report.active_version.clone();
@@ -270,7 +302,7 @@ pub fn updater_rollback<R: Runtime>(
             state.progress = None;
             state.error = None;
         }),
-        Err(error) => set_error(&app, &store, error),
+        Err(error) => set_error(&app, &store, AppError::Update(error)),
     }
 }
 
@@ -278,7 +310,7 @@ pub fn updater_rollback<R: Runtime>(
 pub fn updater_postpone<R: Runtime>(
     app: AppHandle<R>,
     store: State<DesktopUpdaterStore>,
-) -> Result<UpdaterStatusPayload, String> {
+) -> AppResult<UpdaterStatusPayload> {
     with_state(&app, &store, Some("status"), |state| {
         state.blocking = false;
         state.blocking_reason = None;
@@ -292,7 +324,7 @@ pub fn set_channel<R: Runtime>(
     store: State<DesktopUpdaterStore>,
     channel: Option<String>,
     payload: Option<Value>,
-) -> Result<UpdaterStatusPayload, String> {
+) -> AppResult<UpdaterStatusPayload> {
     let channel = normalize_channel(
         channel
             .as_deref()
@@ -317,7 +349,7 @@ pub fn set_auto_install<R: Runtime>(
     store: State<DesktopUpdaterStore>,
     enabled: Option<bool>,
     payload: Option<Value>,
-) -> Result<UpdaterStatusPayload, String> {
+) -> AppResult<UpdaterStatusPayload> {
     let enabled = enabled
         .or_else(|| payload.as_ref().and_then(Value::as_bool))
         .or_else(|| {
@@ -338,9 +370,9 @@ fn with_state<R: Runtime>(
     store: &DesktopUpdaterStore,
     event: Option<&str>,
     mutate: impl FnOnce(&mut UpdaterStatusPayload),
-) -> Result<UpdaterStatusPayload, String> {
+) -> AppResult<UpdaterStatusPayload> {
     let state = {
-        let mut inner = store.inner.lock().map_err(|error| error.to_string())?;
+        let mut inner = store.inner.lock().map_err(|error| AppError::internal("updater state poisoned", error))?;
         mutate(&mut inner.state);
         inner.state.clone()
     };
@@ -353,11 +385,12 @@ fn with_state<R: Runtime>(
 fn set_error<R: Runtime>(
     app: &AppHandle<R>,
     store: &DesktopUpdaterStore,
-    error: String,
-) -> Result<UpdaterStatusPayload, String> {
+    error: AppError,
+) -> AppResult<UpdaterStatusPayload> {
+    tracing::error!(kind = ?error, "updater operation failed");
     with_state(app, store, Some("error"), |state| {
         state.status = "error".to_string();
-        state.error = Some(error);
+        state.error = Some(error.to_string());
         state.progress = None;
     })
 }
