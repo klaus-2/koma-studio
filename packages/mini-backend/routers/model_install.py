@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -8,7 +9,8 @@ from pydantic import BaseModel
 
 from core.device import get_device_info
 from core.download_jobs import ERROR_CANCELLED, ERROR_UNKNOWN, STATE_READY, get_job_manager
-from core.hf_download import progress_bridge_var
+from core.hf_download import ChecksumMismatchError, download_file, progress_bridge_var, sha256_file
+from core.models_store import resolve_model_dir
 from core.languages import normalize_language_code
 from models.detection.storage import ensure_detection_model_installed
 from models.enhance.storage import ensure_enhance_model_installed
@@ -24,6 +26,8 @@ from models.ocr.transformers_vlm.storage import ensure_transformers_vlm_model_in
 from models.segmentation.storage import ensure_segmentation_model_installed
 from models.translation.local_storage import ensure_local_translation_model_installed
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["model-install"])
 
@@ -74,13 +78,6 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
     checksum, progress/cancellation via the bridge), writing model.bin to the
     model's default directory.
     """
-    from core.hf_download import (
-        ChecksumMismatchError,
-        download_file,
-        sha256_file,
-    )
-    from core.models_store import resolve_model_dir
-
     url = str(extras.get("download_url") or "").strip()
     if not url:
         raise RuntimeError(f"Invalid managed model: {model_id}")
@@ -92,7 +89,9 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
     expected_sha = str(extras.get("checksum_sha256") or "").strip() or None
     if expected_sha is not None and set(expected_sha) == {"0"}:
         # Registry placeholder ("000...0") — treat as missing, otherwise
-        # every post-download comparison fails.
+        # every post-download comparison fails. It still means the registry
+        # has no integrity pin for this model, so say so out loud.
+        logger.warning("registry.checksum_placeholder", extra={"model_id": model_id})
         expected_sha = None
     target_path = target_dir / "model.bin"
 

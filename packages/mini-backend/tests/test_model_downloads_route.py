@@ -227,7 +227,7 @@ class ModelDownloadsRouteTests(unittest.TestCase):
 class GenericUrlDownloadTests(unittest.TestCase):
     def test_unknown_model_with_url_downloads_generic_payload(self) -> None:
         """Registry direct_download models (nllb/opus) fall through to the fallback."""
-        from core import hf_download
+        from routers import model_install
 
         calls: list[tuple[str, Path]] = []
 
@@ -239,7 +239,9 @@ class GenericUrlDownloadTests(unittest.TestCase):
         manager = _manager()
         original = manager.installer
         try:
-            with tempfile.TemporaryDirectory() as models_root,                 patch.dict(os.environ, {"KOMA_MODELS_ROOT": models_root}),                 patch.object(hf_download, "download_file", side_effect=fake_download),                 patch.object(hf_download, "sha256_file", return_value="a" * 64):
+            # model_install hoisted the hf_download imports to module level, so
+            # the patch must target the router's bound names, not the source module.
+            with tempfile.TemporaryDirectory() as models_root,                 patch.dict(os.environ, {"KOMA_MODELS_ROOT": models_root}),                 patch.object(model_install, "download_file", side_effect=fake_download),                 patch.object(model_install, "sha256_file", return_value="a" * 64):
                 job, created = manager.submit(
                     "nllb-200-600m-int8",
                     extras={

@@ -4,6 +4,8 @@ import asyncio
 from io import BytesIO
 import json
 import logging
+import tempfile
+import threading
 from pathlib import Path
 import re
 import shutil
@@ -35,25 +37,31 @@ _EXPORT_TIMEOUT_SECONDS = 120.0
 logger = logging.getLogger(__name__)
 
 
+_PIPELINE_LOCK = threading.Lock()
+
+
 def _get_export_pipeline() -> ExportPipeline:
-    """Initialize the export pipeline on demand."""
+    """Initialize the export pipeline on demand (double-checked, thread-safe)."""
 
     global _EXPORT_PIPELINE
-    if _EXPORT_PIPELINE is None:
-        try:
-            _EXPORT_PIPELINE = ExportPipeline.build()
-        except HTTPException:
-            raise
-        except (FileNotFoundError, RuntimeError) as exc:
-            message = str(exc).strip() or "The required models are not installed for export."
-            logger.warning("Failed to initialize ExportPipeline: %s", message)
-            raise HTTPException(status_code=400, detail=message) from exc
-        except Exception as exc:
-            logger.exception("Unexpected failure while initializing ExportPipeline")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to initialize the export pipeline.",
-            ) from exc
+    if _EXPORT_PIPELINE is not None:
+        return _EXPORT_PIPELINE
+    with _PIPELINE_LOCK:
+        if _EXPORT_PIPELINE is None:
+            try:
+                _EXPORT_PIPELINE = ExportPipeline.build()
+            except HTTPException:
+                raise
+            except (FileNotFoundError, RuntimeError) as exc:
+                message = str(exc).strip() or "The required models are not installed for export."
+                logger.warning("Failed to initialize ExportPipeline: %s", message)
+                raise HTTPException(status_code=400, detail=message) from exc
+            except Exception as exc:
+                logger.exception("Unexpected failure while initializing ExportPipeline")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to initialize the export pipeline.",
+                ) from exc
     return _EXPORT_PIPELINE
 
 
@@ -310,6 +318,8 @@ async def _read_text_layers(
 
 
 async def _load_export_image(file: UploadFile) -> tuple[bytes, Image.Image]:
+    # Reject bad content-type/extension before spending bandwidth reading the body.
+    _validate_file(file.content_type, file.filename, b"")
     payload = await read_upload_limited(
         file, limit_bytes=_MAX_FILE_SIZE_BYTES, label="Image"
     )
@@ -366,7 +376,7 @@ async def _run_export(
     """Owns the temp directory: cleans it on any failure, delegates to a
     BackgroundTask on success."""
 
-    temp_dir = Path(__import__("tempfile").mkdtemp(prefix="koma_export_"))
+    temp_dir = Path(tempfile.mkdtemp(prefix="koma_export_"))
     try:
         try:
             psd_path, json_path, response = await asyncio.wait_for(
@@ -413,7 +423,6 @@ async def export_psd(
     language: str = Form("ja"),
     include_ocr_overlay: bool = Form(True),
     include_individual_crops: bool = Form(True),
-    include_metadata_json: bool = Form(False),
     compression: str = Form("rle"),
     text_layer_engine: str = Form("photoshop"),
     dpi: int = Form(300),
@@ -431,12 +440,11 @@ async def export_psd(
         language=language,
         include_ocr_overlay=include_ocr_overlay,
         include_individual_crops=include_individual_crops,
-        include_metadata_json=bool(include_metadata_json),
+        include_metadata_json=False,
         compression=compression,
         text_layer_engine=text_layer_engine,
         dpi=dpi,
     )
-    request.include_metadata_json = False
 
     render_overlays, render_text_layers = await _collect_render_inputs(
         raw_text_overlay=raw_text_overlay,
@@ -466,7 +474,8 @@ async def export_psd(
         filename=download_filename,
         background=background_tasks,
         headers={
-            "X-Koma-Export": json.dumps(export_payload),
+            # Headers are latin-1: non-ASCII layer names must be escaped, not raw.
+            "X-Koma-Export": json.dumps(export_payload, ensure_ascii=True, separators=(",", ":")),
         },
     )
 
@@ -483,7 +492,6 @@ async def export_psd_with_metadata(
     language: str = Form("ja"),
     include_ocr_overlay: bool = Form(True),
     include_individual_crops: bool = Form(True),
-    include_metadata_json: bool = Form(True),
     compression: str = Form("rle"),
     text_layer_engine: str = Form("photoshop"),
     dpi: int = Form(300),
@@ -501,12 +509,11 @@ async def export_psd_with_metadata(
         language=language,
         include_ocr_overlay=include_ocr_overlay,
         include_individual_crops=include_individual_crops,
-        include_metadata_json=bool(include_metadata_json),
+        include_metadata_json=True,
         compression=compression,
         text_layer_engine=text_layer_engine,
         dpi=dpi,
     )
-    request.include_metadata_json = True
 
     render_overlays, render_text_layers = await _collect_render_inputs(
         raw_text_overlay=raw_text_overlay,
@@ -528,10 +535,14 @@ async def export_psd_with_metadata(
     stem = _build_export_stem(file.filename)
     zip_filename = f"{stem}_export.zip"
     zip_path = psd_path.parent / zip_filename
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        zip_file.write(psd_path, arcname=f"{stem}.psd")
-        if json_path is not None:
-            zip_file.write(json_path, arcname=f"{stem}.json")
+
+    def _write_export_zip() -> None:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.write(psd_path, arcname=f"{stem}.psd")
+            if json_path is not None:
+                zip_file.write(json_path, arcname=f"{stem}.json")
+
+    await asyncio.to_thread(_write_export_zip)
 
     return FileResponse(
         path=zip_path,

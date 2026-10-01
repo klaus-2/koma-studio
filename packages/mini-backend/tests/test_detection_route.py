@@ -41,6 +41,8 @@ class _FakeDetection:
 
 
 class _FakeDetector:
+    key = "fake-detector"  # collected for the X-Koma-Execution-* fallback headers
+
     async def detect(self, image: Image.Image) -> list[_FakeDetection]:
         _ = image
         return [_FakeDetection()]

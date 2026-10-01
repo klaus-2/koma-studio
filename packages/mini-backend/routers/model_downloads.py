@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from core.download_jobs import ACTIVE_STATES, get_job_manager
 from routers.model_install import install_managed_model_sync
@@ -20,19 +20,22 @@ from routers.model_install import install_managed_model_sync
 router = APIRouter(tags=["model-downloads"])
 
 # Installer wiring: JobManager lives in core and does not know about routers;
-# this module bridges the two (tests replace manager.installer).
+# this module bridges the two (tests replace manager.installer). Import-time
+# wiring on purpose: TestClient consumers never run the lifespan.
 _MANAGED_JOB_MANAGER = get_job_manager()
 _MANAGED_JOB_MANAGER.installer = install_managed_model_sync
 
 
 class ModelDownloadRequest(BaseModel):
-    model_id: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    model_id: str = Field(min_length=1)
     source_language: str | None = None
-    required_disk_bytes: int | None = None
+    required_disk_bytes: int = Field(default=0, ge=0)
     # Extras for models without a dedicated dispatch (registry direct_download):
-    download_url: str | None = None
-    checksum_sha256: str | None = None
-    expected_download_bytes: int | None = None
+    download_url: HttpUrl | None = None
+    checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+    expected_download_bytes: int | None = Field(default=None, ge=0)
 
 
 @router.post("/models/downloads", status_code=202)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from io import BytesIO
 import json
 import os
@@ -10,6 +12,8 @@ import zipfile
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from PIL import Image, UnidentifiedImageError
+
+from routers._boundary import read_upload_bytes
 
 try:
     import py7zr  # type: ignore[import-not-found]
@@ -67,6 +71,12 @@ def _build_output_name(sequence: int, source_file: str, original_name: str) -> s
     return f"{sequence:04d}-{source_stem}-{original_stem}.png"
 
 
+# Zip-bomb guards: manga archives are small; anything beyond these bounds is abuse or corruption.
+_MAX_UPLOAD_BYTES = 200 * 1024 * 1024
+_MAX_ENTRY_BYTES = 64 * 1024 * 1024
+_MAX_ENTRIES = 2000
+
+
 def _extract_from_zip_payload(payload: bytes, source_file: str) -> tuple[list[dict[str, Any]], list[str]]:
     extracted_items: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -80,7 +90,16 @@ def _extract_from_zip_payload(payload: bytes, source_file: str) -> tuple[list[di
                 ],
                 key=lambda value: value.lower(),
             )
+            if len(entry_names) > _MAX_ENTRIES:
+                warnings.append(
+                    f"{source_file}: too many archive entries ({len(entry_names)}), "
+                    f"processing only the first {_MAX_ENTRIES}."
+                )
+                entry_names = entry_names[:_MAX_ENTRIES]
             for entry_name in entry_names:
+                if archive.getinfo(entry_name).file_size > _MAX_ENTRY_BYTES:
+                    warnings.append(f"{source_file}: entry too large, skipped: {entry_name}")
+                    continue
                 try:
                     entry_payload = archive.read(entry_name)
                     normalized = _to_png_bytes(entry_payload)
@@ -229,7 +248,7 @@ async def ingest_images(files: list[UploadFile] = File(...)):
     for index, upload in enumerate(files):
         source_file = upload.filename or f"file-{index + 1}"
         file_ext = _file_extension(source_file)
-        payload = await upload.read()
+        payload = await read_upload_bytes(upload, limit_bytes=_MAX_UPLOAD_BYTES, label=source_file)
         if not payload:
             warnings.append(f"{source_file}: empty file.")
             continue
@@ -248,23 +267,31 @@ async def ingest_images(files: list[UploadFile] = File(...)):
                 continue
 
             if file_ext in ZIP_ARCHIVE_EXTENSIONS:
-                archive_items, archive_warnings = _extract_from_zip_payload(payload, source_file)
+                archive_items, archive_warnings = await asyncio.to_thread(
+                    _extract_from_zip_payload, payload, source_file
+                )
                 extracted_items.extend(archive_items)
                 warnings.extend(archive_warnings)
                 continue
 
             if file_ext in SEVEN_Z_ARCHIVE_EXTENSIONS:
-                archive_items, archive_warnings = _extract_from_7z_payload(payload, source_file)
+                archive_items, archive_warnings = await asyncio.to_thread(
+                    _extract_from_7z_payload, payload, source_file
+                )
                 extracted_items.extend(archive_items)
                 warnings.extend(archive_warnings)
                 continue
 
             if file_ext == ".pdf":
-                extracted_items.extend(_extract_from_pdf_payload(payload, source_file))
+                extracted_items.extend(
+                    await asyncio.to_thread(_extract_from_pdf_payload, payload, source_file)
+                )
                 continue
 
             if file_ext == ".psd":
-                extracted_items.extend(_extract_from_psd_payload(payload, source_file))
+                extracted_items.extend(
+                    await asyncio.to_thread(_extract_from_psd_payload, payload, source_file)
+                )
                 continue
 
             warnings.append(f"{source_file}: unsupported format ({file_ext or 'unknown'}).")
@@ -281,7 +308,26 @@ async def ingest_images(files: list[UploadFile] = File(...)):
         detail = warnings[0] if warnings else "No valid image was found."
         raise HTTPException(status_code=400, detail=detail)
 
-    archive_buffer = BytesIO()
+    def _build_archive() -> BytesIO:
+        buffer = BytesIO()
+        _write_ingest_zip(buffer, files, extracted_items, warnings)
+        buffer.seek(0)
+        return buffer
+
+    archive_buffer = await asyncio.to_thread(_build_archive)
+    return StreamingResponse(
+        archive_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=ingested-images.zip"},
+    )
+
+
+def _write_ingest_zip(
+    archive_buffer: BytesIO,
+    files: list[UploadFile],
+    extracted_items: list[dict[str, Any]],
+    warnings: list[str],
+) -> None:
     manifest_items: list[dict[str, str]] = []
     with zipfile.ZipFile(archive_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
         for sequence, item in enumerate(extracted_items, start=1):
@@ -315,9 +361,3 @@ async def ingest_images(files: list[UploadFile] = File(...)):
             ).encode("utf-8"),
         )
 
-    archive_buffer.seek(0)
-    return StreamingResponse(
-        archive_buffer,
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=ingested-images.zip"},
-    )

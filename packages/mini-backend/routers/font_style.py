@@ -1,110 +1,95 @@
-"""Router for YuzuMarker font/color/style detection on text blocks."""
+"""YuzuMarker font/color/style detection on text blocks."""
+
 from __future__ import annotations
 
-import json
+import asyncio
 import logging
-from io import BytesIO
-from typing import Any
+import threading
+from collections.abc import Sequence
+from typing import Annotated, Final
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from PIL import Image, UnidentifiedImageError
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from PIL import Image
+from pydantic import TypeAdapter
 
 from models.detection.font_style import YuzuFontStyleDetector
 from models.detection.font_style.storage import font_style_runtime_ready
+from routers._boundary import parse_json_form_field, read_rgb_upload
+from schemas.font_style import FontStyleDetectResponse, FontStyleRegion
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["font-style"])
 
-_DETECTOR: YuzuFontStyleDetector | None = None
+_REGIONS_ADAPTER: Final = TypeAdapter(list[FontStyleRegion])
+_MAX_TOP_K: Final = 10
+
+_detector_lock = threading.Lock()
+_detector: YuzuFontStyleDetector | None = None
+# YuzuFontStyleDetector does not document thread-safety and GPU inference
+# serialises anyway, so one inference at a time is the correct default.
+_inference_lock = threading.Lock()
 
 
 def _get_detector() -> YuzuFontStyleDetector:
-    global _DETECTOR
-    if _DETECTOR is None:
-        _DETECTOR = YuzuFontStyleDetector()
-    return _DETECTOR
+    global _detector
+    if _detector is None:
+        with _detector_lock:
+            if _detector is None:
+                _detector = YuzuFontStyleDetector()
+    return _detector
+
+
+def _detect_blocking(
+    crops: Sequence[Image.Image], *, original_widths: Sequence[int], top_k: int
+):  # noqa: ANN202 — return type owned by YuzuFontStyleDetector.detect
+    with _inference_lock:
+        return _get_detector().detect(list(crops), original_widths=list(original_widths), top_k=top_k)
 
 
 @router.get("/font-style/status")
-async def font_style_status() -> dict[str, Any]:
-    """Check whether the bundled YuzuMarker model is available."""
-    return {
-        "available": font_style_runtime_ready(),
-    }
+async def font_style_status() -> dict[str, bool]:
+    return {"available": font_style_runtime_ready()}
 
 
-@router.post("/font-style/detect")
+@router.post("/font-style/detect", response_model=FontStyleDetectResponse)
 async def detect_font_style(
-    file: UploadFile = File(...),
-    regions_json: str = Form("[]"),
-    top_k: int = Form(1),
-) -> dict[str, Any]:
-    """Detect font, color, and style for text-block regions in the given image.
-
-    Parameters
-    ----------
-    file : uploaded image (full page)
-    regions_json : JSON array of ``{"id": str, "x": int, "y": int, "w": int, "h": int}``
-    top_k : how many font candidates per region (default 1)
-    """
+    file: Annotated[UploadFile, File()],
+    regions_json: Annotated[str, Form()] = "[]",
+    top_k: Annotated[int, Form(ge=1, le=_MAX_TOP_K)] = 1,
+) -> FontStyleDetectResponse:
     if not font_style_runtime_ready():
         raise HTTPException(
-            status_code=503,
+            status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="YuzuMarker font detection model not available. Check bundled weights.",
         )
 
-    try:
-        payload = await file.read()
-        page_image = Image.open(BytesIO(payload)).convert("RGB")
-    except UnidentifiedImageError as exc:
-        raise HTTPException(status_code=400, detail="Invalid image file") from exc
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Failed to read the uploaded file") from exc
-
-    try:
-        regions = json.loads(regions_json)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON in regions_json: {exc}") from exc
-
+    _, rgb_image = await read_rgb_upload(file)
+    regions = parse_json_form_field(regions_json, _REGIONS_ADAPTER, field_name="regions_json") or []
     if not regions:
-        return {"predictions": []}
+        return FontStyleDetectResponse(predictions=[])
 
+    page_image = Image.fromarray(rgb_image)
     page_w, page_h = page_image.size
-    cropped_images: list[Image.Image] = []
-    original_widths: list[int] = []
-    valid_regions: list[dict[str, Any]] = []
 
+    crops: list[Image.Image] = []
+    kept_regions: list[FontStyleRegion] = []
     for region in regions:
-        x = max(0, int(region.get("x", 0)))
-        y = max(0, int(region.get("y", 0)))
-        w = int(region.get("w", 0))
-        h = int(region.get("h", 0))
-        if w <= 0 or h <= 0:
+        x1, y1 = max(0, region.x), max(0, region.y)
+        x2, y2 = min(region.x + region.w, page_w), min(region.y + region.h, page_h)
+        if x2 <= x1 or y2 <= y1:
             continue
-        x2 = min(x + w, page_w)
-        y2 = min(y + h, page_h)
-        if x2 <= x or y2 <= y:
-            continue
-        crop = page_image.crop((x, y, x2, y2))
-        cropped_images.append(crop)
-        original_widths.append(page_w)
-        valid_regions.append(region)
+        crops.append(page_image.crop((x1, y1, x2, y2)))
+        kept_regions.append(region)
 
-    if not cropped_images:
-        return {"predictions": []}
+    if not crops:
+        return FontStyleDetectResponse(predictions=[])
 
-    try:
-        detector = _get_detector()
-        predictions = detector.detect(cropped_images, original_widths=original_widths, top_k=top_k)
-    except Exception as exc:
-        logger.exception("Font style detection failed")
-        raise HTTPException(status_code=500, detail=f"Style detection failed: {exc}") from exc
-
-    results: list[dict[str, Any]] = []
-    for region, pred in zip(valid_regions, predictions):
-        results.append({
-            "region_id": str(region.get("id", "")),
-            **pred.to_dict(),
-        })
-
-    return {"predictions": results}
+    predictions = await asyncio.to_thread(
+        _detect_blocking, crops, original_widths=[page_w] * len(crops), top_k=top_k
+    )
+    return FontStyleDetectResponse(
+        predictions=[
+            {"region_id": region.id, **prediction.to_dict()}
+            for region, prediction in zip(kept_regions, predictions, strict=True)
+        ]
+    )

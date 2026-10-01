@@ -1,23 +1,28 @@
+"""Text detection endpoints."""
+
 from __future__ import annotations
 
-from io import BytesIO
+from collections.abc import Awaitable, Callable
+from typing import Annotated, Final, cast
 
-from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
-from PIL import Image, UnidentifiedImageError
+from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
+from PIL import Image
 
 from core.config import get_config
-from core.device import build_cpu_device_info, build_device_payload, get_device_info, release_gpu_memory
-from core.runtime_errors import build_runtime_error_detail, is_insufficient_memory_error
+from core.device import DeviceInfo, build_device_payload, get_device_info
+from models.detection.base_detector import TextDetection
 from models.detection.factory import get_detector, list_detection_models
+from routers._boundary import execution_error_to_http, read_rgb_upload
 from schemas.detection import DetectionBox, DetectionResponse
+from services.device_fallback import ExecutionError, resolve_use_gpu, run_with_cpu_fallback
 from utils.detection_fallback import detect_with_fallbacks
 
-
 router = APIRouter(tags=["detection"])
+STAGE: Final = "detect"
 
 
 @router.get("/detect/models")
-async def detect_models():
+async def detect_models() -> dict[str, object]:
     device = get_device_info()
     return {
         "device": build_device_payload(device),
@@ -28,107 +33,73 @@ async def detect_models():
 @router.post("/detect", response_model=DetectionResponse)
 async def detect_text(
     response: Response,
-    file: UploadFile = File(...),
-    model_key: str | None = Form(None),
-    confidence_threshold: float | None = Form(None),
-    nms_threshold: float | None = Form(None),
-    use_gpu: str | None = Form(None),
-):
-    config = get_config()
+    file: Annotated[UploadFile, File()],
+    model_key: Annotated[str | None, Form()] = None,
+    confidence_threshold: Annotated[float | None, Form(ge=0.0, le=1.0)] = None,
+    nms_threshold: Annotated[float | None, Form(ge=0.0, le=1.0)] = None,
+    use_gpu: Annotated[bool | None, Form()] = None,
+) -> DetectionResponse:
     device = get_device_info()
-    effective_has_gpu = device.has_gpu if use_gpu is None else use_gpu.lower() not in ("false", "0", "no")
+    _, rgb_image = await read_rgb_upload(file)
+    image = Image.fromarray(rgb_image)
 
-    try:
-        payload = await file.read()
-        image = Image.open(BytesIO(payload)).convert("RGB")
-    except UnidentifiedImageError as exc:
-        raise HTTPException(status_code=400, detail="Invalid image file") from exc
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Failed to read the uploaded file") from exc
-
-    execution_device = device
-    try:
+    async def run(execution_device: DeviceInfo, has_gpu: bool) -> tuple[list[TextDetection], str, str]:
         detector = get_detector(
             task="text",
-            has_gpu=effective_has_gpu,
+            has_gpu=has_gpu,
             model_key=model_key,
             confidence=confidence_threshold,
             nms_threshold=nms_threshold,
-            device_info=device,
+            device_info=execution_device,
         )
-        detections, detection_variant = await detect_with_fallbacks(
-            image,
-            lambda variant_image: detector.detect(variant_image),
+        async def run_detection(variant_image: Image.Image) -> list[object]:
+            return list(await detector.detect(variant_image))
+
+        detections, variant = await detect_with_fallbacks(image, run_detection)
+        # detection_fallback's runner alias is list[object]; narrow at this boundary.
+        return list(cast("list[TextDetection]", detections)), variant, detector.key
+
+    try:
+        outcome = await run_with_cpu_fallback(
+            run, device=device, use_gpu=resolve_use_gpu(device, use_gpu), stage=STAGE
         )
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except Exception as exc:
-        release_gpu_memory()
-        if effective_has_gpu and is_insufficient_memory_error(exc):
-            cpu_device = build_cpu_device_info(device, fallback_reason="gpu_runtime_out_of_memory")
-            try:
-                detector = get_detector(
-                    task="text",
-                    has_gpu=False,
-                    model_key=model_key,
-                    confidence=confidence_threshold,
-                    nms_threshold=nms_threshold,
-                    device_info=cpu_device,
-                )
-                detections, detection_variant = await detect_with_fallbacks(
-                    image,
-                    lambda variant_image: detector.detect(variant_image),
-                )
-                execution_device = cpu_device
-                response.headers["X-Koma-Execution-Fallback"] = "gpu_oom_to_cpu"
-                response.headers["X-Koma-Execution-Stage"] = "detect"
-                response.headers["X-Koma-Execution-Model"] = detector.key
-            except Exception as cpu_exc:
-                raise HTTPException(
-                    status_code=500,
-                    detail=build_runtime_error_detail(
-                        error=exc,
-                        stage="detect",
-                        model_key=model_key,
-                        used_gpu=True,
-                        cpu_fallback_attempted=True,
-                        cpu_fallback_error=cpu_exc,
-                    ),
-                ) from cpu_exc
-        else:
-            raise HTTPException(status_code=500, detail=f"Text detection failed: {exc}") from exc
-    else:
-        release_gpu_memory()
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    except ExecutionError as exc:
+        raise execution_error_to_http(exc, model_key=model_key) from exc
 
-    response_boxes: list[DetectionBox] = []
-    resolved_model = model_key or config.default_detection_model
-    for idx, det in enumerate(detections, start=1):
-        current_model = det.model_key or resolved_model
-        resolved_model = current_model
-        response_boxes.append(
-            DetectionBox(
-                id=f"det-{idx}",
-                bbox=[int(v) for v in det.bbox],
-                score=round(float(det.score), 4),
-                label=det.label,
-                source="model",
-                model_key=current_model,
-                foreground_rgb=(
-                    [int(channel) for channel in det.foreground_rgb]
-                    if det.foreground_rgb is not None
-                    else None
-                ),
-                structural_type=getattr(det, "structural_type", None),
-                structural_confidence=getattr(det, "structural_confidence", None),
-                structural_source=getattr(det, "structural_source", None),
-                matched_reference_image=getattr(det, "matched_reference_image", None),
+    detections, detection_variant, detector_key = outcome.result
+    response.headers.update(outcome.fallback_headers(model_key=detector_key))
+
+    default_model = model_key or get_config().default_detection_model
+    boxes = [
+        DetectionBox(
+            id=f"det-{index}",
+            bbox=[int(v) for v in det.bbox],
+            score=round(float(det.score), 4),
+            label=det.label,
+            source="model",
+            model_key=det.model_key or default_model,
+            foreground_rgb=(
+                None if det.foreground_rgb is None else [int(c) for c in det.foreground_rgb]
             ),
+            structural_type=det.structural_type,
+            structural_confidence=det.structural_confidence,
+            structural_source=det.structural_source,
+            matched_reference_image=det.matched_reference_image,
         )
+        for index, det in enumerate(detections, start=1)
+    ]
+    resolved_model = boxes[-1].model_key if boxes else default_model
 
     return DetectionResponse(
-        device=execution_device.name,
-        model_used=resolved_model if detection_variant == "original" else f"{resolved_model}@{detection_variant}",
+        device=outcome.device.name,
+        model_used=(
+            resolved_model
+            if detection_variant == "original"
+            else f"{resolved_model}@{detection_variant}"
+        ),
         image_width=image.width,
         image_height=image.height,
-        detections=response_boxes,
+        detections=boxes,
     )
