@@ -46,6 +46,16 @@ def _run(coro):  # noqa: ANN001, ANN202
     return asyncio.run(coro)
 
 
+def _spool(payload: bytes) -> Path:
+    """Write to a temp file: BatchImageTask now carries a spooled path."""
+    import tempfile
+
+    handle = tempfile.NamedTemporaryFile(suffix=".img", delete=False)
+    handle.write(payload)
+    handle.close()
+    return Path(handle.name)
+
+
 def _png_bytes() -> bytes:
     buffer = BytesIO()
     Image.new("RGB", (8, 8), (255, 255, 255)).save(buffer, format="PNG")
@@ -172,9 +182,9 @@ class BatchOrchestratorTests(unittest.TestCase):
         try:
             png = _png_bytes()
             tasks = [
-                BatchImageTask(0, "a.png", png),
-                BatchImageTask(1, "b.png", png + b"\x00"),
-                BatchImageTask(2, "broken.png", b"not-an-image"),
+                BatchImageTask(0, "a.png", str(_spool(png))),
+                BatchImageTask(1, "b.png", str(_spool(png + b"\x00"))),
+                BatchImageTask(2, "broken.png", str(_spool(b"not-an-image"))),
             ]
             for neighbor in (False, True):
                 seen_contexts.clear()

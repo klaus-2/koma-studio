@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 from typing import Annotated
@@ -150,7 +151,7 @@ async def translate_text(
     if extra_context and "extra_context" not in settings_payload:
         settings_payload["extra_context"] = extra_context
     settings = clamp_llm_request_settings(settings_payload)
-    settings_dict = dict(vars(settings))
+    settings_dict = dataclasses.asdict(settings)
     parsed_custom_llm = _parse_json_object(custom_llm, field="custom_llm")
     requested_key = (model_key or "").strip()
     request_scoped = requested_key == "custom" or requested_key.startswith("custom:")

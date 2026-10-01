@@ -47,6 +47,7 @@ from models.ocr.factory import clear_ocr_cache, get_ocr_cache_size
 from models.segmentation.factory import clear_segmenter_cache, get_segmenter_cache_size
 from models.translation.factory import clear_translator_cache, get_translator_cache_size
 from routers.cloud_tools import router as cloud_tools_router
+from routers.diagnostics import router as diagnostics_router
 from routers.detection import router as detection_router
 from routers.enhance import router as enhance_router
 from routers.export import router as export_router
@@ -413,6 +414,7 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         font_style_router,
         model_install_router,
         model_downloads_router,
+        diagnostics_router,
     )
     for router in routers:
         app.include_router(router)  # type: ignore[arg-type]

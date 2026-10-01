@@ -260,6 +260,9 @@ async def _run_local_ocr(
     )
 
     def merge() -> list[OCRRecord]:
+        # Fresh and cached records already went through the enricher; only
+        # records with no gradient at all (empty seeds, stale cache entries)
+        # are computed here.
         merged: list[OCRRecord] = []
         for seed in seeds:
             record = fresh_by_id.get(seed["id"])
@@ -267,7 +270,10 @@ async def _run_local_ocr(
                 record = cached_by_id.get(seed["id"])
             if record is None:
                 record = _empty_record(seed, engine.key)
-            merged.append(enrich_ocr_record_with_gradient(image, record))
+            if "foreground_gradient" in record:
+                merged.append(record)
+            else:
+                merged.append(enrich_ocr_record_with_gradient(image, record))
         return merged
 
     return _LocalOcrOutcome(engine_key=engine.key, records=await asyncio.to_thread(merge))

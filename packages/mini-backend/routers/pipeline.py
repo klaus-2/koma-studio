@@ -5,8 +5,11 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 import json
+import shutil
+import tempfile
+from pathlib import Path
 import logging
-from typing import Annotated, cast
+from typing import Annotated, BinaryIO, cast
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -46,16 +49,6 @@ _MAX_IMAGE_BYTES = 32 * 1024 * 1024
 _UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
-def __getattr__(name: str):  # noqa: ANN202 — module-level PEP 562
-    # scripts/memory_profile.py reaches into the old module global; forward it
-    # to the batch package so observability keeps working.
-    if name == "_FONT_STYLE_DETECTOR":
-        from pipelines.batch import font_style
-
-        return font_style._detector
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
 def _clamp_int(value: int | None, *, fallback: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(maximum, fallback if value is None else value))
 
@@ -78,16 +71,48 @@ def _parse_optional_custom_llm(raw: str | None) -> dict[str, object] | None:
     return cast(dict[str, object], payload)
 
 
-async def _read_upload_bounded(upload: UploadFile, position: int) -> bytes:
-    buffer = bytearray()
-    while chunk := await upload.read(_UPLOAD_CHUNK_BYTES):
-        buffer.extend(chunk)
-        if len(buffer) > _MAX_IMAGE_BYTES:
+def _spool_upload_sync(
+    source: BinaryIO, target: Path, *, limit_bytes: int
+) -> None:
+    """Disk-to-disk copy: Starlette already spooled the part; never re-buffer it."""
+    written = 0
+    with target.open("wb") as sink:
+        while chunk := source.read(_UPLOAD_CHUNK_BYTES):
+            written += len(chunk)
+            if written > limit_bytes:
+                raise _SpoolLimitExceededError
+            sink.write(chunk)
+
+
+class _SpoolLimitExceededError(Exception):
+    """The spooled part crossed the per-image cap mid-copy."""
+
+
+async def _spool_uploads(
+    files: Sequence[UploadFile], *, limit_bytes: int
+) -> list[BatchImageTask]:
+    spool_dir = Path(tempfile.mkdtemp(prefix="koma_batch_"))  # 0700, owner-only
+    tasks: list[BatchImageTask] = []
+    for index, upload in enumerate(files):
+        target = spool_dir / f"{index:04d}.img"
+        try:
+            await asyncio.to_thread(
+                _spool_upload_sync, upload.file, target, limit_bytes=limit_bytes
+            )
+        except _SpoolLimitExceededError as exc:
+            shutil.rmtree(spool_dir, ignore_errors=True)
             raise HTTPException(
                 status_code=413,
-                detail=f"File #{position + 1} exceeds {_MAX_IMAGE_BYTES // (1024 * 1024)} MiB.",
+                detail=f"File #{index + 1} exceeds {limit_bytes // (1024 * 1024)} MiB.",
+            ) from exc
+        tasks.append(
+            BatchImageTask(
+                index=index,
+                filename=upload.filename or f"image-{index + 1}.png",
+                image_path=str(target),
             )
-    return bytes(buffer)
+        )
+    return tasks
 
 
 async def _monitor_client_disconnect(
@@ -218,14 +243,7 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
         ),
     )
 
-    tasks = [
-        BatchImageTask(
-            index=index,
-            filename=upload.filename or f"image-{index + 1}.png",
-            image_bytes=await _read_upload_bounded(upload, index),
-        )
-        for index, upload in enumerate(files)
-    ]
+    tasks = await _spool_uploads(files, limit_bytes=_MAX_IMAGE_BYTES)
 
     cancellation_event = asyncio.Event()
     monitor = asyncio.create_task(_monitor_client_disconnect(request, cancellation_event))
@@ -236,6 +254,9 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
         monitor.cancel()
         await asyncio.gather(monitor, return_exceptions=True)
         release_onnx_gpu_memory()
+        spool_dir = Path(tasks[0].image_path).parent if tasks else None
+        if spool_dir is not None:
+            await asyncio.to_thread(shutil.rmtree, spool_dir, ignore_errors=True)
 
     report_payload = outcome.report.model_dump(mode="json")
     if not run_clean:

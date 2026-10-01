@@ -4,6 +4,7 @@ translator needs neighbouring pages' OCR as context, single-pass otherwise."""
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 import logging
@@ -46,7 +47,13 @@ _NEIGHBOR_MAX_CHARS = 800
 class BatchImageTask:
     index: int
     filename: str
-    image_bytes: bytes
+    # Spooled upload: bytes are read off-disk only after this task holds a
+    # concurrency slot, keeping peak RAM at concurrency × image size instead
+    # of batch_size × image size.
+    image_path: str
+
+    def read_bytes(self) -> bytes:
+        return Path(self.image_path).read_bytes()
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,7 +290,7 @@ class BatchOrchestrator:
         two-phase batch never holds every page in memory at once."""
         cfg = self._config
         try:
-            image = await stages.open_rgb_image(state.task.image_bytes)
+            image = await stages.open_rgb_image(await asyncio.to_thread(state.task.read_bytes))
         except InvalidImageError as exc:
             state.fail("input", str(exc))
             return
@@ -314,7 +321,7 @@ class BatchOrchestrator:
                 try:
                     out = await stages.run_ocr_stage(
                         image=image,
-                        image_bytes=state.task.image_bytes,
+                        image_bytes=await asyncio.to_thread(state.task.read_bytes),
                         source_language=cfg.source_language,
                         model_key=cfg.ocr_model_key,
                         has_gpu=cfg.gpu.ocr,
@@ -389,7 +396,7 @@ class BatchOrchestrator:
             return
         try:
             out = await stages.run_segment_stage(
-                image_bytes=state.task.image_bytes,
+                image_bytes=await asyncio.to_thread(state.task.read_bytes),
                 has_gpu=cfg.gpu.segment,
                 model_key=cfg.segment_model_key,
                 seeds=seeds,
@@ -411,7 +418,7 @@ class BatchOrchestrator:
     async def _clean(self, state: _ImageState) -> None:
         cfg = self._config
         try:
-            image = await stages.open_rgb_image(state.task.image_bytes)
+            image = await stages.open_rgb_image(await asyncio.to_thread(state.task.read_bytes))
         except InvalidImageError as exc:
             state.fail("clean", f"Invalid image for the clean stage: {exc}")
             return
