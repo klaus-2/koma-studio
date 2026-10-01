@@ -20,7 +20,7 @@
   "devDependencies": {
     "@tanstack/react-query": "^5.101.4",
     "@types/react": "^19",
-    "react": "^19.2.0",
+    "react": "^19.3.0",
     "react-idle-timer": "^5.7.3"
   },
   "peerDependencies": {
