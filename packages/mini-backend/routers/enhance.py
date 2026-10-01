@@ -25,8 +25,7 @@ from utils.image_codec import RGBImage
 
 router = APIRouter(tags=["enhance"])
 STAGE: Final = "enhance"
-
-type OutputFormat = Literal["png", "webp"]
+OutputFormat = Literal["png", "webp"]
 
 _MEDIA_TYPES: Final[dict[OutputFormat, str]] = {"png": "image/png", "webp": "image/webp"}
 _ENCODE_PARAMS: Final[dict[OutputFormat, list[int]]] = {

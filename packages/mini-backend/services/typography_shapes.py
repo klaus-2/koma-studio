@@ -13,7 +13,7 @@ from schemas.typography import TypographyShapeDetection
 from utils.image_codec import RGBImage
 
 type ShapeKind = Literal["square", "rounded"]
-type Bbox = tuple[int, int, int, int]
+Bbox = tuple[int, int, int, int]
 type GrayMask = npt.NDArray[np.uint8]
 type Contour = npt.NDArray[np.int32]
 
