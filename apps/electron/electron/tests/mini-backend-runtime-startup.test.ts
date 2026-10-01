@@ -28,7 +28,8 @@ test("resolveMiniBackendStartupWaitOptions preserves the long dev startup window
     isDev: true,
     source: "bundled-core",
   }), {
-    initial: { attempts: 240, delayMs: 500 },
+    // 360s: covers the measured ~151s cold cuDNN/CUDA warmup with margin.
+    initial: { attempts: 720, delayMs: 500 },
     background: null,
   });
 });
