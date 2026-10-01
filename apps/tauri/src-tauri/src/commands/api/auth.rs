@@ -11,9 +11,8 @@ use uuid::Uuid;
 
 use super::{
     client::{
-        api_error, api_url, bool_field, http_client_for_app, method, now_iso, number_field,
-        raw_string_field, response_envelope, response_json_or_error, string_field, ApiEnvelope,
-        AUTH_API_BASE,
+        api_error, bool_field, now_iso, number_field, raw_string_field, response_envelope,
+        string_field, string_api, ApiEnvelope, AUTH_API_BASE,
     },
     identity::{collect_machine_profile, resolve_hardware_id, resolve_mac_fingerprint},
 };
@@ -282,7 +281,7 @@ pub async fn verify_email<R: Runtime>(
     store: State<'_, DesktopAuthStore>,
     payload: Value,
 ) -> Result<ApiEnvelope, String> {
-    let token = super::client::access_token(&payload).map_err(|_| String::new());
+    let token = string_api::access_token(&payload).map_err(|_| String::new());
     let Ok(access_token) = token else {
         return Ok(api_error(401, "Session expired. Please sign in again."));
     };
@@ -393,10 +392,10 @@ pub async fn auth_api_json<R: Runtime>(
     access_token: &str,
 ) -> Result<Value, String> {
     ensure_session_token(app, store).await?;
-    let target_url = api_url(app, AUTH_API_BASE, endpoint_path)?;
-    let client = http_client_for_app(app)?;
+    let target_url = string_api::api_url(app, AUTH_API_BASE, endpoint_path)?;
+    let client = string_api::http_client_for_app(app)?;
     let mut request = client
-        .request(method(method_name)?, target_url)
+        .request(string_api::method(method_name)?, target_url)
         .headers(build_session_headers(store, Some(access_token))?);
     if let Some(value) = body {
         request = request
@@ -404,7 +403,7 @@ pub async fn auth_api_json<R: Runtime>(
             .json(&value);
     }
     let response = request.send().await.map_err(|error| error.to_string())?;
-    response_json_or_error(response).await
+    string_api::response_json_or_error(response).await
 }
 
 async fn session_api_fetch<R: Runtime>(
@@ -426,8 +425,8 @@ async fn session_api_fetch<R: Runtime>(
         }
     }
 
-    let target_url = api_url(app, AUTH_API_BASE, endpoint_path)?;
-    let client = http_client_for_app(app)?;
+    let target_url = string_api::api_url(app, AUTH_API_BASE, endpoint_path)?;
+    let client = string_api::http_client_for_app(app)?;
     let mut request = client
         .request(request_method, target_url)
         .headers(build_session_headers(store, access_token.as_deref())?);
@@ -498,8 +497,8 @@ async fn refresh_session_token<R: Runtime>(
         }
     }
 
-    let response = http_client_for_app(app)?
-        .post(api_url(app, AUTH_API_BASE, DESKTOP_BOOTSTRAP_PATH)?)
+    let response = string_api::http_client_for_app(app)?
+        .post(string_api::api_url(app, AUTH_API_BASE, DESKTOP_BOOTSTRAP_PATH)?)
         .headers(headers)
         .json(&json!({
             "sessionId": session_id,
@@ -511,7 +510,7 @@ async fn refresh_session_token<R: Runtime>(
         .await
         .map_err(|error| error.to_string())?;
 
-    let payload = response_json_or_error(response).await?;
+    let payload = string_api::response_json_or_error(response).await?;
     let ttl = payload
         .get("ttlSeconds")
         .and_then(Value::as_i64)
@@ -564,8 +563,8 @@ async fn register_device_key<R: Runtime>(
 
     let device_id = resolve_hardware_id(app)?;
     let machine_profile = collect_machine_profile(app)?;
-    let response = http_client_for_app(app)?
-        .post(api_url(app, AUTH_API_BASE, DESKTOP_DEVICE_REGISTER_PATH)?)
+    let response = string_api::http_client_for_app(app)?
+        .post(string_api::api_url(app, AUTH_API_BASE, DESKTOP_DEVICE_REGISTER_PATH)?)
         .headers(headers)
         .json(&json!({
             "deviceId": device_id,
@@ -577,7 +576,7 @@ async fn register_device_key<R: Runtime>(
         .await
         .map_err(|error| error.to_string())?;
 
-    let payload = response_json_or_error(response).await?;
+    let payload = string_api::response_json_or_error(response).await?;
     let device_key = payload
         .get("deviceKey")
         .and_then(Value::as_str)

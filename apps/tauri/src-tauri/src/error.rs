@@ -35,6 +35,10 @@ pub enum AppError {
     Security(String),
     #[error("{0}")]
     Network(String),
+    #[error("remote service returned HTTP {status}: {message}")]
+    Remote { status: u16, message: String },
+    #[error("{0}")]
+    RateLimited(String),
     #[error("{0}")]
     Serialization(String),
     #[error("{0}")]
@@ -56,7 +60,7 @@ pub enum AppError {
 }
 
 impl AppError {
-    fn kind(&self) -> &'static str {
+    pub fn kind(&self) -> &'static str {
         match self {
             Self::InvalidInput(_) => "invalid-input",
             Self::InvalidPath(_) => "invalid-path",
@@ -70,6 +74,8 @@ impl AppError {
             Self::Authentication(_) => "authentication",
             Self::Security(_) => "security",
             Self::Network(_) => "network",
+            Self::Remote { .. } => "network",
+            Self::RateLimited(_) => "rate-limited",
             Self::Serialization(_) => "serialization",
             Self::Archive(_) => "archive",
             Self::Update(_) => "update",
@@ -131,6 +137,13 @@ impl From<serde_json::Error> for AppError {
     }
 }
 
+impl From<url::ParseError> for AppError {
+    fn from(error: url::ParseError) -> Self {
+        tracing::warn!(error = %error, "URL validation failed");
+        Self::InvalidInput("Invalid URL.".to_string())
+    }
+}
+
 impl From<zip::result::ZipError> for AppError {
     fn from(error: zip::result::ZipError) -> Self {
         tracing::error!(error = %error, "workspace archive operation failed");
@@ -184,3 +197,132 @@ impl serde::Serialize for AppError {
 }
 
 pub type AppResult<T> = Result<T, AppError>;
+
+/// Sanitized command-layer error. Duplicates AppError's kebab-case wire
+/// format but never carries filesystem paths or raw internals: messages are
+/// replaced with safe generics at the conversion boundary.
+pub type CommandResult<T> = Result<T, CommandError>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum CommandError {
+    #[error("{0}")]
+    InvalidInput(String),
+    #[error("{0}")]
+    InvalidPath(String),
+    #[error("{0}")]
+    PathNotAllowed(String),
+    #[error("{0}")]
+    NotFound(String),
+    #[error("{0}")]
+    Conflict(String),
+    #[error("{0}")]
+    NotConfigured(String),
+    #[error("{0}")]
+    Authentication(String),
+    #[error("{0}")]
+    Security(String),
+    #[error("{0}")]
+    Network(String),
+    #[error("{0}")]
+    RateLimited(String),
+    #[error("{0}")]
+    Archive(String),
+    #[error("{0}")]
+    Update(String),
+    #[error("{0}")]
+    Internal(String),
+}
+
+impl serde::Serialize for CommandError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let kind = match self {
+            Self::InvalidInput(_) => "invalid-input",
+            Self::InvalidPath(_) => "invalid-path",
+            Self::PathNotAllowed(_) => "path-not-allowed",
+            Self::NotFound(_) => "not-found",
+            Self::Conflict(_) => "conflict",
+            Self::NotConfigured(_) => "not-configured",
+            Self::Authentication(_) => "authentication",
+            Self::Security(_) => "security",
+            Self::Network(_) => "network",
+            Self::RateLimited(_) => "rate-limited",
+            Self::Archive(_) => "archive",
+            Self::Update(_) => "update",
+            Self::Internal(_) => "internal",
+        };
+
+        let mut state = serializer.serialize_struct("CommandError", 2)?;
+        state.serialize_field("kind", kind)?;
+        state.serialize_field("message", &self.to_string())?;
+        state.end()
+    }
+}
+
+impl From<tauri::Error> for CommandError {
+    fn from(error: tauri::Error) -> Self {
+        Self::Internal(format!("Tauri operation failed: {error}"))
+    }
+}
+
+impl From<tokio::task::JoinError> for CommandError {
+    fn from(_error: tokio::task::JoinError) -> Self {
+        Self::Internal("A background operation failed.".to_string())
+    }
+}
+
+impl From<AppError> for CommandError {
+    fn from(error: AppError) -> Self {
+        tracing::error!(error_kind = error.kind(), "application operation failed");
+
+        match error {
+            AppError::InvalidInput(message) => Self::InvalidInput(message),
+            AppError::InvalidPath(_) => {
+                Self::InvalidPath("The selected path is invalid.".to_string())
+            }
+            AppError::PathNotAllowed(_) => {
+                Self::PathNotAllowed("The selected path is not authorized.".to_string())
+            }
+            AppError::NotFound(_) => {
+                Self::NotFound("The requested resource was not found.".to_string())
+            }
+            AppError::NotADirectory(_) => {
+                Self::InvalidPath("The selected path is not a directory.".to_string())
+            }
+            AppError::NotAFile(_) => {
+                Self::InvalidPath("The selected path is not a regular file.".to_string())
+            }
+            AppError::NotAllowed(_) => {
+                Self::PathNotAllowed("The requested path is not authorized.".to_string())
+            }
+            AppError::UnsupportedMediaType(message) => Self::InvalidInput(message),
+            AppError::RangeNotSatisfiable { .. } => {
+                Self::InvalidInput("The requested byte range is invalid.".to_string())
+            }
+            AppError::MethodNotAllowed(message) => Self::InvalidInput(message),
+            AppError::OriginMismatch => {
+                Self::Security("The request origin is not authorized.".to_string())
+            }
+            AppError::Conflict(message) => Self::Conflict(message),
+            AppError::NotConfigured(message) => Self::NotConfigured(message),
+            AppError::Authentication(message) => Self::Authentication(message),
+            AppError::Security(message) => Self::Security(message),
+            AppError::Network(message) => Self::Network(message),
+            AppError::Remote { status, message } => {
+                Self::Network(format!("Remote service returned HTTP {status}: {message}"))
+            }
+            AppError::RateLimited(message) => Self::RateLimited(message),
+            AppError::Archive(message) => Self::Archive(message),
+            AppError::Update(message) => Self::Update(message),
+            AppError::Io(_) => Self::Internal("A filesystem operation failed.".to_string()),
+            AppError::Serialization(_) => {
+                Self::Internal("A data serialization operation failed.".to_string())
+            }
+            AppError::Internal(message) => Self::Internal(message),
+        }
+    }
+}

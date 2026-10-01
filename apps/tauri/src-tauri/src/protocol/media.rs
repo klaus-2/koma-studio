@@ -30,7 +30,7 @@ use tauri::{
 };
 
 use crate::{
-    commands::api::fonts::fonts_dir_for_media,
+    services::fonts::fonts_dir as service_fonts_dir,
     error::AppError,
 };
 
@@ -77,7 +77,7 @@ impl MediaKind {
     fn extensions(self) -> &'static [&'static str] {
         match self {
             Self::Image => crate::commands::images::IMAGE_EXTENSIONS,
-            Self::Font => crate::commands::api::fonts::FONT_EXTENSIONS,
+            Self::Font => crate::services::fonts::FONT_EXTENSIONS,
         }
     }
 
@@ -222,7 +222,7 @@ pub fn init_static_roots<R: Runtime>(app: &AppHandle<R>) -> Result<(), AppError>
         .try_state::<MediaScopes>()
         .ok_or_else(|| AppError::Internal("MediaScopes not managed".to_string()))?;
 
-    scopes.fonts.allow_dir(fonts_dir_for_media(app)?)?;
+    scopes.fonts.allow_dir(service_fonts_dir(app)?)?;
 
     let app_data = app
         .path()

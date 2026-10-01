@@ -1,6 +1,8 @@
 //! Authorized workspace assets: opaque capability tokens the renderer can hand
 //! back for export/upload without ever touching filesystem paths.
 
+pub mod api;
+
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -114,5 +116,38 @@ impl WorkspaceAssetStore {
             resolved.push(self.resolve(source).await?);
         }
         Ok(resolved)
+    }
+
+    /// Token-bound resolution for upload flows: the token alone is useless
+    /// without the matching asset id, and the on-disk file must still match
+    /// the authorized metadata.
+    #[allow(dead_code)] // reserved for token-based export/upload flows
+    pub async fn resolve_token(
+        &self,
+        id: &WorkspaceAssetId,
+        token: &WorkspaceAssetToken,
+    ) -> AppResult<AuthorizedWorkspaceAsset> {
+        let assets = self.assets.read().await;
+        let stored = assets
+            .get(token)
+            .filter(|stored| stored.expires_at > Instant::now())
+            .ok_or_else(|| {
+                AppError::security("The workspace asset authorization is invalid or expired.")
+            })?;
+
+        if &stored.asset.id != id {
+            return Err(AppError::security(
+                "Workspace asset ID does not match its authorization.",
+            ));
+        }
+
+        let metadata = std::fs::metadata(&stored.asset.source_path)?;
+        if !metadata.is_file() || metadata.len() != stored.asset.byte_length {
+            return Err(AppError::Conflict(
+                "The authorized asset changed after authorization.".to_string(),
+            ));
+        }
+
+        Ok(stored.asset.clone())
     }
 }

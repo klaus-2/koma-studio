@@ -1,14 +1,24 @@
-use std::{collections::BTreeMap, fs, path::{Path, PathBuf}};
+//! Font commands. The import contract carries base64 bytes (decoded to a temp
+//! write so the content signature can be validated); uninstall still targets
+//! legacy file names or families. Font bytes are served to the webview via
+//! `koma-font://` — no data URLs cross the IPC boundary.
 
 use base64::{engine::general_purpose, Engine as _};
-use serde::Serialize;
-use serde_json::{json, Value};
-use tauri::{AppHandle, Runtime};
+use serde_json::Value;
+use tauri::{AppHandle, Manager, State};
+use tauri_plugin_dialog::DialogExt;
 
-use super::client::{app_data_dir, read_json_file, string_field, write_json_file};
-use crate::protocol::media::media_url;
+use crate::{
+    error::{AppError, CommandResult},
+    models::fonts::{
+        FontEntry, FontInstallProgress, FontInstallResult, FontListResult, FontSource,
+        FontUninstallResult,
+    },
+    protocol::media::media_url,
+    services::fonts::{self, FONT_EXTENSIONS, ProgressObserver},
+    state::api::ApiRuntimeState,
+};
 
-pub(crate) const FONT_EXTENSIONS: &[&str] = &["ttf", "otf", "woff", "woff2"];
 const DEFAULT_SYSTEM_FONTS: &[&str] = &[
     "Arial",
     "Calibri",
@@ -21,265 +31,262 @@ const DEFAULT_SYSTEM_FONTS: &[&str] = &[
     "Verdana",
 ];
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct FontEntry {
-    pub family: String,
-    pub source: String,
-    pub file_name: Option<String>,
-    pub data_url: Option<String>,
+struct ThrottledFontProgress {
+    channel: tauri::ipc::Channel<FontInstallProgress>,
+    last_emit_ms: std::sync::atomic::AtomicU64,
+}
+
+impl ThrottledFontProgress {
+    fn emit(&self, progress: FontInstallProgress) {
+        use std::sync::atomic::Ordering;
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis() as u64)
+            .unwrap_or(0);
+
+        let previous = self.last_emit_ms.load(Ordering::Relaxed);
+        let complete = progress.transferred >= progress.total;
+
+        if !complete && now.saturating_sub(previous) < 50 {
+            return;
+        }
+
+        self.last_emit_ms.store(now, Ordering::Relaxed);
+        if let Err(error) = self.channel.send(progress) {
+            tracing::warn!(error = %error, "font progress receiver disconnected");
+        }
+    }
+}
+
+fn media_entry(
+    id: Option<fonts::InstalledFont>,
+    family: String,
+) -> FontEntry {
+    match id {
+        Some(installed) => FontEntry {
+            id: Some(installed.id),
+            family: installed.family,
+            source: FontSource::Custom,
+            file_name: Some(installed.file_name),
+            media_url: Some(media_url(
+                crate::protocol::media::FONT_SCHEME,
+                &installed.path,
+            )),
+        },
+        None => FontEntry {
+            id: None,
+            family,
+            source: FontSource::Custom,
+            file_name: None,
+            media_url: None,
+        },
+    }
 }
 
 #[tauri::command(rename = "desktop-api:fonts:list")]
-pub fn fonts_list<R: Runtime>(app: AppHandle<R>) -> Result<Value, String> {
-    let mut system = DEFAULT_SYSTEM_FONTS
+pub async fn fonts_list(
+    app: AppHandle,
+    state: State<'_, ApiRuntimeState>,
+) -> CommandResult<FontListResult> {
+    let _permit = state.fonts_permit().await?;
+    let worker_app = app.clone();
+
+    let custom = tauri::async_runtime::spawn_blocking(move || fonts::list(&worker_app)).await??;
+
+    let mut system: Vec<String> = DEFAULT_SYSTEM_FONTS
         .iter()
-        .map(|value| value.to_string())
-        .collect::<Vec<_>>();
-    system.sort_by_key(|item| item.to_ascii_lowercase());
-    let custom = list_custom_fonts(&app)?;
-    Ok(json!({ "system": system, "custom": custom }))
+        .map(|font| (*font).to_string())
+        .collect();
+    system.sort_by_key(|font| font.to_ascii_lowercase());
+
+    Ok(FontListResult {
+        system,
+        custom: custom
+            .into_iter()
+            .map(|font| FontEntry {
+                id: Some(font.id),
+                family: font.family,
+                source: FontSource::Custom,
+                file_name: Some(font.file_name),
+                media_url: Some(media_url(
+                    crate::protocol::media::FONT_SCHEME,
+                    &font.path,
+                )),
+            })
+            .collect(),
+    })
 }
 
 #[tauri::command(rename = "desktop-api:fonts:import")]
-pub fn fonts_import<R: Runtime>(app: AppHandle<R>, payload: Value) -> Result<Value, String> {
-    fonts_install(app, payload)
+pub async fn fonts_import(
+    app: AppHandle,
+    state: State<'_, ApiRuntimeState>,
+    payload: Value,
+    on_progress: Option<tauri::ipc::JavaScriptChannelId>,
+) -> CommandResult<FontInstallResult> {
+    fonts_install(app, state, payload, on_progress).await
 }
 
+/// Legacy contract: base64 bytes + optional family. The bytes are decoded and
+/// installed through the validating service (extension/signature checks run on
+/// the decoded content).
 #[tauri::command(rename = "desktop-api:fonts:install")]
-pub fn fonts_install<R: Runtime>(app: AppHandle<R>, payload: Value) -> Result<Value, String> {
-    let file_name = string_field(&payload, "fileName");
-    let content_base64 = string_field(&payload, "contentBase64");
+pub async fn fonts_install(
+    app: AppHandle,
+    state: State<'_, ApiRuntimeState>,
+    payload: Value,
+    on_progress: Option<tauri::ipc::JavaScriptChannelId>,
+) -> CommandResult<FontInstallResult> {
+    let _permit = state.fonts_permit().await?;
+
+    let file_name = payload
+        .get("fileName")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let content_base64 = payload
+        .get("contentBase64")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let family = payload
+        .get("family")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string);
+
     if file_name.is_empty() || content_base64.is_empty() {
-        return Err("Invalid font payload.".to_string());
+        return Err(AppError::invalid_input("Invalid font payload.").into());
     }
 
-    let extension = font_extension(&file_name).ok_or_else(|| {
-        "Unsupported font format. Use TTF, OTF, WOFF or WOFF2.".to_string()
-    })?;
     let bytes = general_purpose::STANDARD
         .decode(content_base64.as_bytes())
-        .or_else(|_| general_purpose::STANDARD_NO_PAD.decode(content_base64.as_bytes()))
-        .map_err(|_| "Invalid font content.".to_string())?;
-    let fallback_family = file_stem(&file_name);
-    let family = sanitize_family(
-        payload
-            .get("family")
-            .and_then(Value::as_str)
-            .unwrap_or(fallback_family.as_str()),
-    );
-    let unique_file_name = unique_font_file_name(&app, &family, extension)?;
-    let final_path = fonts_dir(&app)?.join(&unique_file_name);
-    fs::write(&final_path, bytes).map_err(|error| error.to_string())?;
+        .or_else(|_| general_purpose::URL_SAFE.decode(content_base64.as_bytes()))
+        .map_err(|_| AppError::invalid_input("Invalid font content."))?;
 
-    let mut manifest = read_manifest(&app)?;
-    manifest.insert(unique_file_name.clone(), family.clone());
-    write_manifest(&app, &manifest)?;
+    let observer = progress_observer(&app, on_progress);
+    let worker_app = app.clone();
 
-    Ok(json!({
-        "entry": FontEntry {
-            family,
-            source: "custom".to_string(),
-            file_name: Some(unique_file_name),
-            data_url: Some(font_media_url(&final_path)),
-        }
-    }))
+    let installed = tauri::async_runtime::spawn_blocking(move || {
+        fonts::install_bytes(
+            &worker_app,
+            &file_name,
+            &bytes,
+            family.as_deref(),
+            observer.clone(),
+        )
+    })
+    .await??;
+
+    Ok(FontInstallResult {
+        cancelled: false,
+        entry: Some(FontEntry {
+            id: Some(installed.id),
+            family: installed.family,
+            source: FontSource::Custom,
+            file_name: Some(installed.file_name),
+            media_url: Some(media_url(
+                crate::protocol::media::FONT_SCHEME,
+                &installed.path,
+            )),
+        }),
+    })
 }
 
 #[tauri::command(rename = "desktop-api:fonts:uninstall")]
-pub fn fonts_uninstall<R: Runtime>(app: AppHandle<R>, payload: Value) -> Result<Value, String> {
-    let file_name = string_field(&payload, "fileName");
-    let family = string_field(&payload, "family");
-    if file_name.is_empty() && family.is_empty() {
-        return Err("Fonte custom ausente.".to_string());
-    }
-
-    let mut removed = false;
-    let mut manifest = read_manifest(&app)?;
-    let fonts_dir = fonts_dir(&app)?;
-    let targets = manifest
-        .iter()
-        .filter(|(name, current_family)| {
-            (!file_name.is_empty() && *name == &file_name)
-                || (!family.is_empty() && current_family == &&family)
-        })
-        .map(|(name, _)| name.clone())
-        .collect::<Vec<_>>();
-
-    for target in targets {
-        let path = fonts_dir.join(&target);
-        if path.exists() {
-            fs::remove_file(&path).map_err(|error| error.to_string())?;
-            removed = true;
-        }
-        manifest.remove(&target);
-    }
-    write_manifest(&app, &manifest)?;
-    Ok(json!({ "removed": removed }))
-}
-
-fn list_custom_fonts<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<FontEntry>, String> {
-    let dir = fonts_dir(app)?;
-    let mut manifest = read_manifest(app)?;
-    let mut entries = Vec::new();
-    let mut next_manifest = BTreeMap::new();
-    for entry in fs::read_dir(&dir).map_err(|error| error.to_string())? {
-        let entry = entry.map_err(|error| error.to_string())?;
-        let path = entry.path();
-        if !path.is_file() {
-            continue;
-        }
-        let file_name = entry.file_name().to_string_lossy().to_string();
-        if font_extension(&file_name).is_none() {
-            continue;
-        }
-        let family = manifest
-            .remove(&file_name)
-            .unwrap_or_else(|| sanitize_family(file_stem(&file_name).as_str()));
-        next_manifest.insert(file_name.clone(), family.clone());
-        entries.push(FontEntry {
-            family,
-            source: "custom".to_string(),
-            file_name: Some(file_name),
-            data_url: Some(font_media_url(&path)),
-        });
-    }
-    write_manifest(app, &next_manifest)?;
-    entries.sort_by_key(|entry| entry.family.to_ascii_lowercase());
-    Ok(entries)
-}
-
-fn fonts_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    let dir = app_data_dir(app)?.join("fonts");
-    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
-    Ok(dir)
-}
-
-/// Fonts root for the `koma-font` protocol scope (AppError surface).
-pub(crate) fn fonts_dir_for_media<R: Runtime>(
-    app: &AppHandle<R>,
-) -> Result<PathBuf, crate::error::AppError> {
-    fonts_dir(app).map_err(crate::error::AppError::Internal)
-}
-
-fn manifest_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    Ok(fonts_dir(app)?.join("manifest.json"))
-}
-
-fn read_manifest<R: Runtime>(app: &AppHandle<R>) -> Result<BTreeMap<String, String>, String> {
-    let Some(Value::Object(object)) = read_json_file(&manifest_path(app)?) else {
-        return Ok(BTreeMap::new());
-    };
-    Ok(object
-        .into_iter()
-        .filter_map(|(key, value)| value.as_str().map(|family| (key, sanitize_family(family))))
-        .collect())
-}
-
-fn write_manifest<R: Runtime>(
-    app: &AppHandle<R>,
-    manifest: &BTreeMap<String, String>,
-) -> Result<(), String> {
-    write_json_file(&manifest_path(app)?, &json!(manifest))
-}
-
-fn font_extension(file_name: &str) -> Option<&str> {
-    file_name
-        .rsplit_once('.')
-        .map(|(_, extension)| extension.to_ascii_lowercase())
-        .filter(|extension| FONT_EXTENSIONS.contains(&extension.as_str()))
-        .map(|extension| match extension.as_str() {
-            "ttf" => "ttf",
-            "otf" => "otf",
-            "woff" => "woff",
-            "woff2" => "woff2",
-            _ => unreachable!(),
-        })
-}
-
-fn unique_font_file_name<R: Runtime>(
-    app: &AppHandle<R>,
-    family: &str,
-    extension: &str,
-) -> Result<String, String> {
-    let base = sanitize_file_component(family);
-    let dir = fonts_dir(app)?;
-    for index in 0..1000 {
-        let candidate = if index == 0 {
-            format!("{base}.{extension}")
-        } else {
-            format!("{base}-{index}.{extension}")
-        };
-        if !dir.join(&candidate).exists() {
-            return Ok(candidate);
-        }
-    }
-    Err("Could not generate a unique font name.".to_string())
-}
-
-/// `koma-font://` URL served by the media protocol — never a base64 payload.
-fn font_media_url(path: &Path) -> String {
-    media_url(crate::protocol::media::FONT_SCHEME, path)
-}
-
-fn sanitize_family(value: &str) -> String {
-    let normalized = value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, ' ' | '.' | '_' | '-') {
-                ch
-            } else {
-                ' '
-            }
-        })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    normalized
-        .chars()
-        .take(96)
-        .collect::<String>()
-        .if_empty("Custom Font")
-}
-
-fn sanitize_file_component(value: &str) -> String {
-    let normalized = value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-') {
-                ch.to_ascii_lowercase()
-            } else {
-                '_'
-            }
-        })
-        .collect::<String>()
-        .trim_matches('_')
+pub async fn fonts_uninstall(
+    app: AppHandle,
+    state: State<'_, ApiRuntimeState>,
+    payload: Value,
+) -> CommandResult<FontUninstallResult> {
+    let _permit = state.fonts_permit().await?;
+    let file_name = payload
+        .get("fileName")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
         .to_string();
-    normalized
-        .chars()
-        .take(80)
-        .collect::<String>()
-        .if_empty("custom-font")
-}
-
-fn file_stem(file_name: &str) -> String {
-    PathBuf::from(file_name)
-        .file_stem()
-        .map(|value| value.to_string_lossy().to_string())
-        .unwrap_or_else(|| "Custom Font".to_string())
-}
-
-trait EmptyFallback {
-    fn if_empty(self, fallback: &str) -> String;
-}
-
-impl EmptyFallback for String {
-    fn if_empty(self, fallback: &str) -> String {
-        if self.is_empty() {
-            fallback.to_string()
-        } else {
-            self
-        }
+    let family = payload
+        .get("family")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if file_name.is_empty() && family.is_empty() {
+        return Err(AppError::invalid_input("Fonte custom ausente.").into());
     }
+
+    let worker_app = app.clone();
+    let removed = tauri::async_runtime::spawn_blocking(move || {
+        fonts::uninstall_by_selector(&worker_app, &file_name, &family)
+    })
+    .await??;
+
+    Ok(FontUninstallResult { removed })
+}
+
+/// Native dialog install path (the batch's forward contract; unused while the
+/// frontend sends base64 — registered for parity with the batch).
+#[allow(dead_code)]
+async fn install_from_dialog(
+    app: AppHandle,
+    state: State<'_, ApiRuntimeState>,
+    on_progress: Option<tauri::ipc::JavaScriptChannelId>,
+) -> CommandResult<FontInstallResult> {
+    let _permit = state.fonts_permit().await?;
+    let dialog_app = app.clone();
+
+    let selected = tauri::async_runtime::spawn_blocking(move || {
+        dialog_app
+            .dialog()
+            .file()
+            .set_title("Importar fonte")
+            .add_filter("Fontes", FONT_EXTENSIONS)
+            .blocking_pick_file()
+    })
+    .await?;
+
+    let Some(selected) = selected else {
+        return Ok(FontInstallResult {
+            cancelled: true,
+            entry: None,
+        });
+    };
+
+    let source_path: std::path::PathBuf = selected
+        .into_path()
+        .map_err(|_| AppError::invalid_path("Invalid selected font path."))?;
+    let observer = progress_observer(&app, on_progress);
+    let worker_app = app.clone();
+
+    let installed = tauri::async_runtime::spawn_blocking(move || {
+        fonts::install_from_path(&worker_app, &source_path, None, observer.clone())
+    })
+    .await??;
+
+    let entry = media_entry(Some(installed.clone()), installed.family.clone());
+    Ok(FontInstallResult {
+        cancelled: false,
+        entry: Some(entry),
+    })
+}
+
+fn progress_observer(
+    app: &AppHandle,
+    channel: Option<tauri::ipc::JavaScriptChannelId>,
+) -> Option<ProgressObserver> {
+    let channel = channel.and_then(|id| {
+        app.get_webview_window("main")
+            .map(|webview_window| id.channel_on::<_, FontInstallProgress>(webview_window.as_ref().clone()))
+    });
+    channel.map(|channel| {
+        let progress = std::sync::Arc::new(ThrottledFontProgress {
+            channel,
+            last_emit_ms: std::sync::atomic::AtomicU64::new(0),
+        });
+
+        std::sync::Arc::new(move |payload| progress.emit(payload)) as ProgressObserver
+    })
 }

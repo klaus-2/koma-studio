@@ -1,198 +1,57 @@
-use std::{fs, path::PathBuf, time::Duration};
+//! Re-export surface: the api command modules consume helpers from
+//! `services::api_client` via this module so imports stay short and the
+//! service layer stays free of command-specific re-exports.
 
-use reqwest::{Method, Response};
-use serde::Serialize;
-use serde_json::{json, Value};
-use tauri::{AppHandle, Manager, Runtime};
-use url::Url;
+use serde_json::Value;
 
-use crate::commands::desktop::build_runtime_config;
+pub use crate::services::api_client::{api_error, now_iso, stable_hash, value_object, AUTH_API_BASE};
 
-pub const AUTH_API_BASE: ApiBase = ApiBase::Auth;
+pub use crate::models::api::ApiEnvelope;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ApiBase {
-    Auth,
-}
+/// Legacy `Result<_, String>` surface for auth.rs (not yet migrated to
+/// AppResult). Typed helpers stay exported below for migrated commands.
+pub mod string_api {
+    use crate::services::api_client as inner;
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiEnvelope {
-    pub ok: bool,
-    pub status: u16,
-    pub payload: Option<Value>,
-}
+    pub fn api_url<R: tauri::Runtime>(
+        app: &tauri::AppHandle<R>,
+        base: inner::ApiBase,
+        endpoint_path: &str,
+    ) -> Result<String, String> {
+        inner::api_url(app, base, endpoint_path).map_err(|error| error.to_string())
+    }
 
-pub fn api_error(status: u16, message: &str) -> ApiEnvelope {
-    ApiEnvelope {
-        ok: false,
-        status,
-        payload: Some(json!({ "error": message })),
+    pub fn method(name: &str) -> Result<reqwest::Method, String> {
+        inner::method(name).map_err(|error| error.to_string())
+    }
+
+    pub fn access_token(payload: &serde_json::Value) -> Result<String, String> {
+        inner::access_token(payload).map_err(|error| error.to_string())
+    }
+
+    pub async fn response_json_or_error(
+        response: reqwest::Response,
+    ) -> Result<serde_json::Value, String> {
+        inner::response_json_or_error(response)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn http_client_for_app<R: tauri::Runtime>(
+        app: &tauri::AppHandle<R>,
+    ) -> Result<reqwest::Client, String> {
+        inner::http_client_for_app(app).map_err(|error| error.to_string())
     }
 }
 
-pub fn string_field(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .trim()
-        .to_string()
+/// Legacy plaintext envelope helpers used by blogger.rs. Kept on the typed
+/// surface so the secret-migration path can read/write the legacy format.
+pub fn read_plain_envelope(path: &std::path::Path, fallback: Value) -> Value {
+    read_legacy_plain_envelope(path, fallback.clone()).unwrap_or(fallback)
 }
 
-pub fn raw_string_field(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-pub fn bool_field(payload: &Value, key: &str) -> bool {
-    payload.get(key).and_then(Value::as_bool).unwrap_or(false)
-}
-
-pub fn number_field(payload: &Value, key: &str) -> Option<f64> {
-    payload.get(key).and_then(Value::as_f64)
-}
-
-pub fn access_token(payload: &Value) -> Result<String, String> {
-    let token = string_field(payload, "accessToken");
-    if token.is_empty() {
-        Err("Token de acesso ausente.".to_string())
-    } else {
-        Ok(token)
-    }
-}
-
-pub fn http_client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()
-        .map_err(|error| error.to_string())
-}
-
-pub fn http_client_for_app<R: Runtime>(app: &AppHandle<R>) -> Result<reqwest::Client, String> {
-    crate::security::cert_pinning::pinned_http_client(app, Duration::from_secs(30))
-}
-
-pub fn api_url<R: Runtime>(
-    app: &AppHandle<R>,
-    base: ApiBase,
-    endpoint_path: &str,
-) -> Result<String, String> {
-    let config = build_runtime_config(app);
-    let raw_base = match base {
-        ApiBase::Auth => config.auth_api_url,
-    };
-    Url::parse(endpoint_path)
-        .or_else(|_| Url::parse(&raw_base).and_then(|base_url| base_url.join(endpoint_path)))
-        .map(|url| url.to_string())
-        .map_err(|error| error.to_string())
-}
-
-pub async fn parse_response_payload(response: Response) -> (u16, Option<Value>) {
-    let status = response.status().as_u16();
-    let text = response.text().await.unwrap_or_default();
-    if text.trim().is_empty() {
-        return (status, None);
-    }
-    let payload = serde_json::from_str::<Value>(&text).unwrap_or_else(|_| json!({ "error": text }));
-    (status, Some(payload))
-}
-
-pub async fn response_envelope(response: Response) -> ApiEnvelope {
-    let ok = response.status().is_success();
-    let (status, payload) = parse_response_payload(response).await;
-    ApiEnvelope {
-        ok,
-        status,
-        payload,
-    }
-}
-
-pub async fn response_json_or_error(response: Response) -> Result<Value, String> {
-    let ok = response.status().is_success();
-    let (_status, payload) = parse_response_payload(response).await;
-    if ok {
-        return Ok(payload.unwrap_or(Value::Null));
-    }
-
-    Err(api_error_message(payload.as_ref()))
-}
-
-pub fn api_error_message(payload: Option<&Value>) -> String {
-    payload
-        .and_then(|value| {
-            value
-                .get("error")
-                .or_else(|| value.get("message"))
-                .and_then(Value::as_str)
-        })
-        .filter(|message| !message.trim().is_empty())
-        .unwrap_or("Desktop API request failed.")
-        .to_string()
-}
-
-pub fn method(name: &str) -> Result<Method, String> {
-    Method::from_bytes(name.as_bytes()).map_err(|error| error.to_string())
-}
-
-pub fn app_data_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    app.path().app_data_dir().map_err(|error| error.to_string())
-}
-
-pub fn secure_store_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    let dir = app_data_dir(app)?.join("secure-store");
-    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
-    Ok(dir)
-}
-
-pub fn read_json_file(path: &PathBuf) -> Option<Value> {
-    let raw = fs::read_to_string(path).ok()?;
-    serde_json::from_str::<Value>(&raw).ok()
-}
-
-pub fn write_json_file(path: &PathBuf, value: &Value) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    let raw = serde_json::to_string_pretty(value).map_err(|error| error.to_string())?;
-    fs::write(path, raw).map_err(|error| error.to_string())
-}
-
-pub fn read_plain_envelope(path: &PathBuf, fallback: Value) -> Value {
-    let Some(value) = read_json_file(path) else {
-        return fallback;
-    };
-    if let Some(payload) = value.get("payload").and_then(Value::as_str) {
-        return serde_json::from_str::<Value>(payload).unwrap_or(fallback);
-    }
-    value
-}
-
-pub fn write_plain_envelope(path: &PathBuf, payload: &Value) -> Result<bool, String> {
-    let envelope = json!({
-        "encrypted": false,
-        "payload": serde_json::to_string(payload).map_err(|error| error.to_string())?,
-    });
-    write_json_file(path, &envelope)?;
-    Ok(false)
-}
-
-pub fn value_object(payload: Value) -> serde_json::Map<String, Value> {
-    payload.as_object().cloned().unwrap_or_default()
-}
-
-pub fn now_iso() -> String {
-    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
-}
-
-pub fn stable_hash(namespace: &str, source: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(namespace.as_bytes());
-    hasher.update(b":");
-    hasher.update(source.as_bytes());
-    hex::encode(hasher.finalize())
-}
+// Typed surface for the migrated commands.
+pub use crate::services::api_client::{
+    bool_field, http_client, number_field, raw_string_field, read_legacy_plain_envelope,
+    response_envelope, secure_store_dir, string_field, write_json_file_async,
+};

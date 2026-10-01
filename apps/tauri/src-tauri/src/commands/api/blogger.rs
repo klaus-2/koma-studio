@@ -5,7 +5,8 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, Runtime};
 
 use super::client::{
-    read_plain_envelope, secure_store_dir, string_field, value_object, write_plain_envelope,
+    read_legacy_plain_envelope, read_plain_envelope, secure_store_dir, string_field,
+    value_object, write_json_file_async,
 };
 use crate::error::{AppError, AppResult};
 
@@ -21,9 +22,9 @@ const MAX_IMAGE_BYTES: usize = 100 * 1024 * 1024;
 pub async fn blogger_load_config<R: Runtime>(app: AppHandle<R>) -> AppResult<Value> {
     let path = config_path(&app)?;
     let raw = tauri::async_runtime::spawn_blocking(move || {
-        read_plain_envelope(&path, default_config())
+        read_legacy_plain_envelope(&path, default_config())
     })
-    .await?;
+    .await??;
 
     let mut config = normalize_config(&raw);
     let secrets = read_secrets().await?;
@@ -75,10 +76,7 @@ pub async fn blogger_save_config<R: Runtime>(
 
     let path = config_path(&app)?;
     let config_for_disk = config.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        write_plain_envelope(&path, &config_for_disk)
-    })
-    .await??;
+    write_json_file_async(path, config_for_disk).await?;
 
     Ok(json!({ "config": config, "secureStorage": true }))
 }
@@ -301,7 +299,7 @@ async fn migrate_legacy_secrets<R: Runtime>(app: &AppHandle<R>) -> AppResult<Opt
         )?;
 
         let scrubbed = normalize_config(&raw);
-        write_plain_envelope(&path, &scrubbed)?;
+        crate::services::api_client::write_json_file(&path, &scrubbed)?;
         Ok(Some(legacy))
     })
     .await?
@@ -326,9 +324,9 @@ async fn required_secrets() -> AppResult<BloggerSecrets> {
 async fn load_public_config<R: Runtime>(app: &AppHandle<R>) -> AppResult<Value> {
     let path = config_path(app)?;
     let raw = tauri::async_runtime::spawn_blocking(move || {
-        read_plain_envelope(&path, default_config())
+        read_legacy_plain_envelope(&path, default_config())
     })
-    .await?;
+    .await??;
     Ok(normalize_config(&raw))
 }
 

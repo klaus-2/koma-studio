@@ -115,6 +115,7 @@ pub fn run() {
         )
         .manage(commands::updater::DesktopUpdaterStore::default())
         .manage(state::WorkspaceAssetStore::default())
+        .manage(state::api::ApiRuntimeState::default())
         .invoke_handler(tauri::generate_handler![
             commands::desktop::get_runtime_config,
             commands::desktop::get_locale_preferences,

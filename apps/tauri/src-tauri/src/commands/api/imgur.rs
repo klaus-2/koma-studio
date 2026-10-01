@@ -1,296 +1,276 @@
-use std::{fs, path::PathBuf};
+//! Imgur commands. The current frontend contract sends base64 items; each item
+//! is decoded to an authorized temp file, then uploaded through the service
+//! (streaming multipart, key rotation, keychain credentials, persistent rate
+//! ledger). The wire response keeps the legacy shape (directUrl, deleteHash
+//! stays out — delete hashes live in the keychain).
 
+use base64::{engine::general_purpose, Engine as _};
 use serde_json::{json, Value};
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, State};
+use uuid::Uuid;
 
-use super::client::{
-    read_json_file, read_plain_envelope, secure_store_dir, string_field, write_json_file,
-    write_plain_envelope,
+use crate::{
+    error::{AppError, AppResult},
+    models::imgur::{ImgurConfig, ImgurRateStatus},
+    services::imgur::{self, ResolvedUpload},
+    state::{api::ApiRuntimeState, AuthorizedWorkspaceAsset, WorkspaceAssetStore},
 };
 
-const IMGUR_API_URL: &str = "https://api.imgur.com/3/image";
-const DEFAULT_RATE_LIMIT_PER_HOUR: i64 = 50;
-const DEFAULT_BATCH_DELAY_MS: i64 = 1200;
-
 #[tauri::command(rename = "desktop-api:imgur:config:load")]
-pub fn imgur_load_config<R: Runtime>(app: AppHandle<R>) -> Result<Value, String> {
-    let config = read_config(&app)?;
-    Ok(json!({
-        "config": config,
-        "secureStorage": false,
-        "rateLimit": rate_status(&app, &config)?,
-    }))
+pub async fn imgur_load_config(
+    app: AppHandle,
+    runtime: State<'_, ApiRuntimeState>,
+) -> AppResult<Value> {
+    let _permit = runtime.imgur_permit().await?;
+    let result = imgur::load_config(&app).await?;
+    Ok(config_to_wire(result.config, result.rate_limit))
 }
 
 #[tauri::command(rename = "desktop-api:imgur:config:save")]
-pub fn imgur_save_config<R: Runtime>(app: AppHandle<R>, payload: Value) -> Result<Value, String> {
-    let config = normalize_config(&payload);
-    write_plain_envelope(&config_path(&app)?, &config)?;
-    Ok(json!({
-        "config": config,
-        "secureStorage": false,
-        "rateLimit": rate_status(&app, &config)?,
-    }))
+pub async fn imgur_save_config(
+    app: AppHandle,
+    runtime: State<'_, ApiRuntimeState>,
+    payload: Value,
+) -> AppResult<Value> {
+    let _permit = runtime.imgur_permit().await?;
+    let request = config_from_wire(&payload)?;
+    let result = imgur::save_config(
+        &app,
+        request,
+        payload
+            .get("rateLimitPerHour")
+            .and_then(Value::as_u64)
+            .unwrap_or(50) as u32,
+        payload
+            .get("batchDelayMs")
+            .and_then(Value::as_u64)
+            .unwrap_or(1200),
+    )
+    .await?;
+    Ok(config_to_wire(result.config, result.rate_limit))
 }
 
 #[tauri::command(rename = "desktop-api:imgur:upload-images")]
-pub async fn imgur_upload_images<R: Runtime>(
-    app: AppHandle<R>,
+pub async fn imgur_upload_images(
+    app: AppHandle,
+    runtime: State<'_, ApiRuntimeState>,
+    assets: State<'_, WorkspaceAssetStore>,
     payload: Value,
-) -> Result<Value, String> {
+) -> AppResult<Value> {
+    let _permit = runtime.imgur_permit().await?;
+
     let items = payload
         .get("items")
         .and_then(Value::as_array)
         .filter(|items| !items.is_empty())
-        .ok_or_else(|| "No image was received for the Imgur upload.".to_string())?;
-    let config = read_config(&app)?;
-    let keys = active_keys(&config);
-    if keys.is_empty() {
-        return Err("Configure ao menos uma Client ID ativa do Imgur.".to_string());
-    }
-    ensure_rate_capacity(&app, &config, items.len() as i64)?;
+        .ok_or_else(|| AppError::invalid_input("No image was received for the Imgur upload."))?;
 
-    let client = super::client::http_client()?;
-    let mut uploaded = Vec::new();
+    // Adapter: decode each base64 item to a temp file authorized by the asset
+    // store, so the service streams from disk with byte_length revalidation.
+    let mut resolved = Vec::with_capacity(items.len());
     for item in items {
-        let result = upload_one(&client, &keys, item).await?;
-        register_upload(&app)?;
-        uploaded.push(result);
-    }
-
-    Ok(json!({
-        "items": uploaded,
-        "rateLimit": rate_status(&app, &config)?,
-    }))
-}
-
-fn read_config<R: Runtime>(app: &AppHandle<R>) -> Result<Value, String> {
-    Ok(normalize_config(&read_plain_envelope(
-        &config_path(app)?,
-        default_config(),
-    )))
-}
-
-fn normalize_config(value: &Value) -> Value {
-    let keys = value
-        .get("keys")
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| {
-                    let id = string_field(item, "id");
-                    let label = string_field(item, "label");
-                    let client_id = string_field(item, "clientId");
-                    if client_id.is_empty() {
-                        return None;
-                    }
-                    Some(json!({
-                        "id": if id.is_empty() { format!("imgur-key-{}", uuid::Uuid::new_v4()) } else { id },
-                        "label": if label.is_empty() { "Imgur".to_string() } else { label },
-                        "clientId": client_id,
-                        "enabled": item.get("enabled").and_then(Value::as_bool).unwrap_or(true),
-                    }))
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    let rate_limit = value
-        .get("rateLimitPerHour")
-        .and_then(Value::as_i64)
-        .filter(|value| *value > 0)
-        .unwrap_or(DEFAULT_RATE_LIMIT_PER_HOUR);
-    let batch_delay = value
-        .get("batchDelayMs")
-        .and_then(Value::as_i64)
-        .filter(|value| *value >= 0)
-        .unwrap_or(DEFAULT_BATCH_DELAY_MS);
-    json!({
-        "keys": keys,
-        "rateLimitPerHour": rate_limit,
-        "batchDelayMs": batch_delay,
-    })
-}
-
-async fn upload_one(
-    client: &reqwest::Client,
-    keys: &[Value],
-    item: &Value,
-) -> Result<Value, String> {
-    let file_name = string_field(item, "fileName");
-    let content_base64 = string_field(item, "contentBase64");
-    if file_name.is_empty() || content_base64.is_empty() {
-        return Err("Invalid Imgur upload item.".to_string());
-    }
-    if item.get("byteLength").and_then(Value::as_u64).unwrap_or(0) > 10 * 1024 * 1024 {
-        return Err(format!("Image {file_name} exceeds 10 MB."));
-    }
-
-    let mut errors = Vec::new();
-    for key in keys {
-        let client_id = string_field(key, "clientId");
-        let label = string_field(key, "label");
-        let mut form = std::collections::HashMap::new();
-        form.insert("image", content_base64.clone());
-        form.insert("type", "base64".to_string());
-        form.insert("name", file_name.clone());
-        let alt_text = string_field(item, "altText");
-        if !alt_text.is_empty() {
-            form.insert("title", alt_text.clone());
-            form.insert("description", alt_text.clone());
+        let file_name = string_field(item, "fileName");
+        let content_base64 = string_field(item, "contentBase64");
+        if file_name.is_empty() || content_base64.is_empty() {
+            return Err(AppError::invalid_input("Invalid Imgur upload item."));
+        }
+        let byte_length = item.get("byteLength").and_then(Value::as_u64).unwrap_or(0);
+        if byte_length > 10 * 1024 * 1024 {
+            return Err(AppError::invalid_input(format!(
+                "Image {file_name} exceeds 10 MB."
+            )));
         }
 
-        let response = client
-            .post(IMGUR_API_URL)
-            .header(
-                reqwest::header::AUTHORIZATION,
-                format!("Client-ID {client_id}"),
-            )
-            .form(&form)
-            .send()
+        let bytes = general_purpose::STANDARD
+            .decode(content_base64.as_bytes())
+            .map_err(|_| AppError::invalid_input("Invalid image content."))?;
+        if bytes.is_empty() || bytes.len() as u64 > 10 * 1024 * 1024 {
+            return Err(AppError::invalid_input(format!(
+                "Image {file_name} must be between 1 byte and 10 MiB."
+            )));
+        }
+
+        let temp_path = std::env::temp_dir().join(format!(
+            "koma-imgur-{}.{}",
+            Uuid::new_v4(),
+            file_ext(&file_name)
+        ));
+        std::fs::write(&temp_path, &bytes)?;
+
+        let mime_type = infer::get(&bytes)
+            .map(|kind| kind.mime_type().to_string())
+            .unwrap_or_else(|| {
+                "application/octet-stream".to_string()
+            });
+
+        let asset = AuthorizedWorkspaceAsset {
+            id: crate::models::workspace::WorkspaceAssetId(Uuid::new_v4().to_string()),
+            path: format!("imgur/{file_name}"),
+            file_name: file_name.clone(),
+            mime_type: mime_type.clone(),
+            byte_length: bytes.len() as u64,
+            source_path: temp_path.clone(),
+        };
+
+        let source = assets
+            .authorize(asset)
             .await
-            .map_err(|error| error.to_string())?;
-        let status = response.status();
-        let payload = super::client::response_json_or_error(response).await;
-        match payload {
-            Ok(value) => {
-                let data = value.get("data").unwrap_or(&Value::Null);
-                let direct_url = data
-                    .get("link")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .trim()
-                    .to_string();
-                if direct_url.is_empty() {
-                    return Err(format!("Imgur did not return a link for {file_name}."));
-                }
-                return Ok(json!({
-                    "id": string_field(item, "id"),
-                    "fileName": file_name,
-                    "mimeType": string_field(item, "mimeType"),
-                    "altText": alt_text,
-                    "directUrl": direct_url,
-                    "deleteHash": data.get("deletehash").cloned().unwrap_or(Value::Null),
-                    "width": data.get("width").cloned().unwrap_or(Value::Null),
-                    "height": data.get("height").cloned().unwrap_or(Value::Null),
-                    "byteLength": item.get("byteLength").cloned().unwrap_or(Value::Null),
-                    "keyLabel": if label.is_empty() { "Imgur" } else { label.as_str() },
-                }));
-            }
-            Err(_) if status.as_u16() == 429 => {
-                return Err(format!(
-                    "Imgur returned a rate limit/429 while using the key \"{label}\"."
-                ));
-            }
-            Err(error) => errors.push(format!("{label}: {} {error}", status.as_u16())),
-        }
+            .inspect_err(|_| {
+                let _ = std::fs::remove_file(&temp_path);
+            })?;
+
+        resolved.push(ResolvedUpload {
+            asset: AuthorizedWorkspaceAsset {
+                id: source.id,
+                path: source.path,
+                file_name: source.file_name,
+                mime_type: source.mime_type,
+                byte_length: source.byte_length,
+                source_path: temp_path.clone(),
+            },
+            alt_text: string_field(item, "altText"),
+        });
     }
-    Err(format!(
-        "Imgur upload failed. Attempts: {}",
-        errors.join(" | ")
-    ))
-}
 
-fn active_keys(config: &Value) -> Vec<Value> {
-    config
-        .get("keys")
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter(|item| item.get("enabled").and_then(Value::as_bool).unwrap_or(true))
-                .filter(|item| !string_field(item, "clientId").is_empty())
-                .cloned()
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn ensure_rate_capacity<R: Runtime>(
-    app: &AppHandle<R>,
-    config: &Value,
-    count: i64,
-) -> Result<(), String> {
-    let status = rate_status(app, config)?;
-    let remaining = status
-        .get("remainingThisHour")
-        .and_then(Value::as_i64)
-        .unwrap_or(DEFAULT_RATE_LIMIT_PER_HOUR);
-    if remaining < count {
-        return Err("Limite local conservador do Imgur atingido.".to_string());
-    }
-    Ok(())
-}
-
-fn rate_status<R: Runtime>(app: &AppHandle<R>, config: &Value) -> Result<Value, String> {
-    let limit = config
-        .get("rateLimitPerHour")
-        .and_then(Value::as_i64)
-        .unwrap_or(DEFAULT_RATE_LIMIT_PER_HOUR);
-    let now = chrono::Utc::now().timestamp_millis();
-    let cutoff = now - 60 * 60 * 1_000;
-    let timestamps = read_rate_timestamps(app)?
-        .into_iter()
-        .filter(|value| *value >= cutoff)
-        .collect::<Vec<_>>();
-    let used = timestamps.len() as i64;
-    let resets_at = timestamps
+    let temp_paths: Vec<std::path::PathBuf> = resolved
         .iter()
-        .min()
-        .map(|value| {
-            chrono::DateTime::<chrono::Utc>::from_timestamp_millis(*value + 60 * 60 * 1_000)
+        .map(|item| item.asset.source_path.clone())
+        .collect();
+    let upload = imgur::upload(&app, resolved).await;
+
+    // Temp files are disposable either way.
+    for path in &temp_paths {
+        let _ = std::fs::remove_file(path);
+    }
+
+    let (uploaded, rate_limit) = upload?;
+
+    let items_wire: Vec<Value> = uploaded
+        .into_iter()
+        .map(|image| {
+            json!({
+                "id": image.id,
+                "fileName": image.file_name,
+                "mimeType": image.mime_type,
+                "altText": image.alt_text,
+                "directUrl": image.direct_url,
+                "deleteHash": Value::Null,
+                "width": image.width,
+                "height": image.height,
+                "byteLength": image.byte_length,
+                "keyLabel": image.key_label,
+            })
         })
-        .flatten()
-        .map(|date| date.to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+        .collect();
+
     Ok(json!({
-        "limitPerHour": limit,
-        "usedThisHour": used,
-        "remainingThisHour": (limit - used).max(0),
-        "resetsAt": resets_at,
+        "items": items_wire,
+        "rateLimit": rate_to_wire(&rate_limit),
     }))
 }
 
-fn register_upload<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    let now = chrono::Utc::now().timestamp_millis();
-    let cutoff = now - 60 * 60 * 1_000;
-    let mut timestamps = read_rate_timestamps(app)?
-        .into_iter()
-        .filter(|value| *value >= cutoff)
-        .collect::<Vec<_>>();
-    timestamps.push(now);
-    write_json_file(&rate_path(app)?, &json!({ "uploadTimestamps": timestamps }))
-}
-
-fn read_rate_timestamps<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<i64>, String> {
-    Ok(read_json_file(&rate_path(app)?)
-        .and_then(|value| {
-            value
-                .get("uploadTimestamps")
-                .and_then(Value::as_array)
-                .cloned()
-        })
+fn string_field(payload: &Value, key: &str) -> String {
+    payload
+        .get(key)
+        .and_then(Value::as_str)
         .unwrap_or_default()
-        .into_iter()
-        .filter_map(|value| value.as_i64())
-        .collect())
+        .trim()
+        .chars()
+        .take(4096)
+        .collect()
 }
 
-fn default_config() -> Value {
+fn file_ext(file_name: &str) -> String {
+    file_name
+        .rsplit_once('.')
+        .map(|(_, extension)| {
+            extension
+                .chars()
+                .take(8)
+                .filter(|character| character.is_ascii_alphanumeric())
+                .collect::<String>()
+        })
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "bin".to_string())
+}
+
+fn config_to_wire(config: ImgurConfig, rate_limit: ImgurRateStatus) -> Value {
+    let keys: Vec<Value> = config
+        .keys
+        .iter()
+        .map(|key| {
+            json!({
+                "id": key.id.0,
+                "label": key.label,
+                "clientId": "",
+                "enabled": key.enabled,
+                "hasCredential": key.has_credential,
+            })
+        })
+        .collect();
+
     json!({
-        "keys": [],
-        "rateLimitPerHour": DEFAULT_RATE_LIMIT_PER_HOUR,
-        "batchDelayMs": DEFAULT_BATCH_DELAY_MS,
+        "config": {
+            "keys": keys,
+            "rateLimitPerHour": config.rate_limit_per_hour,
+            "batchDelayMs": config.batch_delay_ms,
+        },
+        "secureStorage": true,
+        "rateLimit": rate_to_wire(&rate_limit),
     })
 }
 
-fn config_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    Ok(secure_store_dir(app)?.join("imgur-config.json"))
+fn rate_to_wire(rate: &ImgurRateStatus) -> Value {
+    json!({
+        "limitPerHour": rate.limit_per_hour,
+        "usedThisHour": rate.used_this_hour,
+        "remainingThisHour": rate.remaining_this_hour,
+        "resetsAt": rate.resets_at,
+    })
 }
 
-fn rate_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    let path = secure_store_dir(app)?.join("imgur-rate-state.json");
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+fn config_from_wire(payload: &Value) -> AppResult<Vec<imgur::SaveImgurKeyInput>> {
+    let keys = payload
+        .get("keys")
+        .and_then(Value::as_array)
+        .ok_or_else(|| AppError::invalid_input("Invalid Imgur configuration."))?;
+
+    let mut request = Vec::with_capacity(keys.len());
+    for item in keys {
+        let id = item
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| crate::models::imgur::ImgurKeyId(value.trim().to_string()))
+            .unwrap_or_else(|| crate::models::imgur::ImgurKeyId(Uuid::new_v4().to_string()));
+
+        let client_id = item
+            .get("clientId")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| zeroize::Zeroizing::new(value.to_string()));
+
+        let clear_credential = item
+            .get("clearCredential")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        request.push(imgur::SaveImgurKeyInput {
+            id,
+            label: item
+                .get("label")
+                .and_then(Value::as_str)
+                .unwrap_or("Imgur")
+                .to_string(),
+            enabled: item
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(true),
+            client_id,
+            clear_credential,
+        });
     }
-    Ok(path)
+
+    Ok(request)
 }

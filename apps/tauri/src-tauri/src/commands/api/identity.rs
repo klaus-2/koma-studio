@@ -1,111 +1,80 @@
-use std::{env, fs, path::PathBuf};
+//! Identity commands. The command layer uses the v2 namespace (machine-uid
+//! sourced, surrogate MAC); auth.rs keeps its own v1 namespace so the
+//! server-registered device_id never changes under a deployed server.
 
-use serde::Serialize;
 use serde_json::{json, Value};
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 
-use super::client::{app_data_dir, read_json_file, stable_hash, write_json_file};
-
-const IDENTITY_CACHE_FILE: &str = "desktop-identity-cache.json";
-const HARDWARE_NAMESPACE: &str = "koma-studio:hardware:v1";
-const MAC_NAMESPACE: &str = "koma-studio:mac:v1";
-const MACHINE_PROFILE_SCHEMA_VERSION: u8 = 1;
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct HardwareIdResponse {
-    pub hardware_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct MachineFingerprintResponse {
-    pub hardware_id: String,
-    pub mac_fingerprint: String,
-    pub profile_hash: String,
-    pub profile: Value,
-}
+use crate::{
+    error::{AppResult},
+    models::identity::{HardwareIdResponse, MachineFingerprintResponse},
+    services::{api_client::stable_hash, identity as identity_service},
+};
 
 #[tauri::command(rename = "desktop-api:identity:hardware-id")]
-pub fn hardware_id<R: Runtime>(app: AppHandle<R>) -> Result<HardwareIdResponse, String> {
-    Ok(HardwareIdResponse {
-        hardware_id: resolve_hardware_id(&app)?,
+pub async fn hardware_id(app: AppHandle) -> AppResult<HardwareIdResponse> {
+    let app_data = app.path().app_data_dir()?;
+
+    let hardware_id = tauri::async_runtime::spawn_blocking(move || {
+        identity_service::resolve_hardware_id(&app_data)
     })
+    .await??;
+
+    Ok(HardwareIdResponse { hardware_id })
 }
 
 #[tauri::command(rename = "desktop-api:identity:machine-fingerprint")]
-pub fn machine_fingerprint<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<MachineFingerprintResponse, String> {
-    let profile = collect_machine_profile(&app)?;
-    let profile_hash = stable_hash(
-        "koma-studio:machine-profile:v1",
-        &serde_json::to_string(&profile).map_err(|error| error.to_string())?,
-    );
+pub async fn machine_fingerprint(app: AppHandle) -> AppResult<MachineFingerprintResponse> {
+    let app_data = app.path().app_data_dir()?;
+
+    let profile = tauri::async_runtime::spawn_blocking(move || {
+        identity_service::collect_machine_profile(&app_data)
+    })
+    .await??;
+
+    let profile_json = serde_json::to_string(&profile)?;
+    let profile_hash = stable_hash("koma-studio:machine-profile:v2", &profile_json);
+
     Ok(MachineFingerprintResponse {
-        hardware_id: profile
-            .get("desktopDeviceId")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        mac_fingerprint: profile
-            .get("desktopMacFingerprint")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
+        hardware_id: profile.desktop_device_id.clone(),
+        mac_fingerprint: profile.desktop_mac_fingerprint.clone(),
         profile_hash,
         profile,
     })
 }
 
+/// v1-compat helpers (auth.rs registers device ids under the v1 namespace;
+/// migrating them would invalidate every deployed device registration).
 pub fn resolve_hardware_id<R: Runtime>(app: &AppHandle<R>) -> Result<String, String> {
-    let cache = read_identity_cache(app)?;
-    let cached = cache
-        .get("hardwareId")
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .map(ToString::to_string);
+    let cache = read_legacy_identity_cache(app)?;
+    if let Some(value) = cache.get("hardwareId").and_then(Value::as_str) {
+        if !value.trim().is_empty() {
+            return Ok(value.to_string());
+        }
+    }
 
     let machine_source = machine_uid::get().unwrap_or_default();
-    let hardware_id = if machine_source.trim().is_empty() {
-        cached.unwrap_or_else(|| {
-            let fallback = format!(
-                "{}:{}:{}",
-                env::consts::OS,
-                env::consts::ARCH,
-                env::var("COMPUTERNAME")
-                    .or_else(|_| env::var("HOSTNAME"))
-                    .unwrap_or_default()
-            );
-            format!("hw-{}", stable_hash(HARDWARE_NAMESPACE, &fallback))
-        })
-    } else {
-        format!(
-            "hw-{}",
-            stable_hash(HARDWARE_NAMESPACE, machine_source.trim())
-        )
-    };
-
-    write_identity_cache_value(app, "hardwareId", &hardware_id)?;
-    Ok(hardware_id)
+    if machine_source.trim().is_empty() {
+        return Err("Hardware identity is unavailable.".to_string());
+    }
+    Ok(format!(
+        "hw-{}",
+        stable_hash("koma-studio:hardware:v1", machine_source.trim())
+    ))
 }
 
 pub fn resolve_mac_fingerprint<R: Runtime>(app: &AppHandle<R>) -> Result<String, String> {
-    let cache = read_identity_cache(app)?;
-    if let Some(cached) = cache
-        .get("macFingerprint")
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-    {
-        return Ok(cached.to_string());
+    let cache = read_legacy_identity_cache(app)?;
+    if let Some(cached) = cache.get("macFingerprint").and_then(Value::as_str) {
+        if !cached.trim().is_empty() {
+            return Ok(cached.to_string());
+        }
     }
 
-    let source = env::var("COMPUTERNAME")
-        .or_else(|_| env::var("HOSTNAME"))
+    let source = std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
         .unwrap_or_else(|_| "no-valid-mac".to_string());
-    let fingerprint = format!("macf-{}", stable_hash(MAC_NAMESPACE, &source));
-    write_identity_cache_value(app, "macFingerprint", &fingerprint)?;
-    Ok(fingerprint)
+    Ok(format!("macf-{}", stable_hash("koma-studio:mac:v1", &source)))
 }
 
 pub fn collect_machine_profile<R: Runtime>(app: &AppHandle<R>) -> Result<Value, String> {
@@ -116,16 +85,16 @@ pub fn collect_machine_profile<R: Runtime>(app: &AppHandle<R>) -> Result<Value, 
         .unwrap_or(1);
     let os_version = os_version();
     Ok(json!({
-        "schemaVersion": MACHINE_PROFILE_SCHEMA_VERSION,
+        "schemaVersion": 1_u8,
         "desktopDeviceId": hardware_id,
         "desktopMacFingerprint": mac_fingerprint,
-        "platform": env::consts::OS,
-        "os": env::consts::OS,
+        "platform": std::env::consts::OS,
+        "os": std::env::consts::OS,
         "osVersion": os_version,
         "osRelease": os_version,
-        "osMachine": env::consts::ARCH,
-        "arch": env::consts::ARCH,
-        "processorModel": env::var("PROCESSOR_IDENTIFIER").unwrap_or_default(),
+        "osMachine": std::env::consts::ARCH,
+        "arch": std::env::consts::ARCH,
+        "processorModel": std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_default(),
         "cpuCount": cpu_count,
         "cpuFrequencyMHz": Value::Null,
         "totalMemoryBytes": 0_u64,
@@ -138,51 +107,28 @@ pub fn collect_machine_profile<R: Runtime>(app: &AppHandle<R>) -> Result<Value, 
     }))
 }
 
-fn identity_cache_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    Ok(app_data_dir(app)?.join(IDENTITY_CACHE_FILE))
-}
-
-fn read_identity_cache<R: Runtime>(app: &AppHandle<R>) -> Result<Value, String> {
-    let path = identity_cache_path(app)?;
-    Ok(read_json_file(&path).unwrap_or_else(|| json!({})))
-}
-
-fn write_identity_cache_value<R: Runtime>(
-    app: &AppHandle<R>,
-    key: &str,
-    value: &str,
-) -> Result<(), String> {
-    let path = identity_cache_path(app)?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    let mut cache = read_json_file(&path)
-        .and_then(|value| value.as_object().cloned())
-        .unwrap_or_default();
-    cache.insert(key.to_string(), Value::String(value.to_string()));
-    write_json_file(&path, &Value::Object(cache))
-}
-
 fn os_version() -> String {
     #[cfg(target_os = "windows")]
     {
-        env::var("OS").unwrap_or_else(|_| "Windows".to_string())
+        sysinfo::System::long_os_version().unwrap_or_else(|| std::env::consts::OS.to_string())
     }
     #[cfg(not(target_os = "windows"))]
     {
-        env::consts::OS.to_string()
+        sysinfo::System::long_os_version().unwrap_or_else(|| std::env::consts::OS.to_string())
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn stable_hash_is_namespaced() {
-        assert_ne!(
-            stable_hash(HARDWARE_NAMESPACE, "abc"),
-            stable_hash(MAC_NAMESPACE, "abc")
-        );
+/// v1 identity cache: a plain JSON object at app_data_dir with optional
+/// hardwareId/macFingerprint keys. Kept only so registered device ids remain
+/// stable for the auth server.
+fn read_legacy_identity_cache<R: Runtime>(app: &AppHandle<R>) -> Result<Value, String> {
+    let path = crate::services::api_client::app_data_dir(app)
+        .map_err(|error| error.to_string())?
+        .join("desktop-identity-cache.json");
+    match std::fs::read_to_string(path) {
+        Ok(raw) => serde_json::from_str::<Value>(&raw)
+            .map_err(|error| format!("Corrupted identity cache: {error}")),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(json!({})),
+        Err(error) => Err(error.to_string()),
     }
 }

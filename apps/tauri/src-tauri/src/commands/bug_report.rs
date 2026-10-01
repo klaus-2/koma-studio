@@ -75,6 +75,12 @@ enum BugReportError {
     Internal(String),
 }
 
+impl From<crate::error::AppError> for BugReportError {
+    fn from(error: crate::error::AppError) -> Self {
+        Self::Internal(error.to_string())
+    }
+}
+
 impl BugReportError {
     fn rejected(status: u16, message: impl Into<Cow<'static, str>>) -> Self {
         Self::Rejected {
@@ -339,7 +345,7 @@ async fn submit_inner<R: Runtime>(
             .await
             .map_err(BugReportError::internal)??;
 
-    let client = http_client().map_err(BugReportError::Internal)?;
+    let client = http_client().map_err(|error| BugReportError::Internal(error.to_string()))?;
     let screenshot_url = match prepared.screenshot_base64.as_deref() {
         Some(image) => Some(
             upload_screenshot_to_imgur(
@@ -1220,7 +1226,7 @@ pub async fn discord_webhook_send(
         ));
     }
 
-    let client = http_client()?;
+    let client = http_client().map_err(|error| error.to_string())?;
     let response = match client
         .post(webhook_url)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
