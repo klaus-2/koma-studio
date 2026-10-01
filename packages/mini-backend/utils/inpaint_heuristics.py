@@ -1,15 +1,30 @@
+"""Solid-colour fill for mask components on flat backgrounds; the rest goes to the model."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Final, Literal
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
+
+from utils.image_codec import MaskImage, RGBImage
+
+type InpaintMethod = Literal["no-op", "solid_fill", "hybrid", "model_only"]
+
+MIN_COMPONENT_AREA: Final = 9
+RING_RADIUS: Final = 4
+MIN_RING_PIXELS: Final = 24
+_RING_KERNEL: Final = cv2.getStructuringElement(
+    cv2.MORPH_ELLIPSE, (RING_RADIUS * 2 + 1, RING_RADIUS * 2 + 1)
+)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class HeuristicInpaintPreparation:
-    image_rgb: np.ndarray
-    remaining_mask: np.ndarray
+    image_rgb: RGBImage
+    remaining_mask: MaskImage
     filled_components: int
     total_components: int
 
@@ -18,7 +33,7 @@ class HeuristicInpaintPreparation:
         return bool(np.any(self.remaining_mask))
 
     @property
-    def method_label(self) -> str:
+    def method_label(self) -> InpaintMethod:
         if self.total_components == 0:
             return "no-op"
         if self.filled_components == self.total_components:
@@ -28,41 +43,47 @@ class HeuristicInpaintPreparation:
         return "model_only"
 
 
-def _component_fill_color(
-    image_rgb: np.ndarray,
-    component_mask: np.ndarray,
-) -> tuple[np.ndarray | None, float, float, float]:
-    if image_rgb.ndim != 3 or image_rgb.shape[2] != 3:
-        return None, 10_000.0, 10_000.0, 10_000.0
+@dataclass(frozen=True, slots=True)
+class _RingStatistics:
+    fill_rgb: NDArray[np.uint8]
+    gray_std: float
+    max_channel_std: float
+    saturation_mean: float
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
-    outer_ring = cv2.dilate(component_mask, kernel, iterations=1)
-    ring_only = cv2.bitwise_and(outer_ring, cv2.bitwise_not(component_mask))
-    ring_pixels = image_rgb[ring_only > 0]
-    if ring_pixels.shape[0] < 24:
-        return None, 10_000.0, 10_000.0, 10_000.0
 
-    ring_pixels_f32 = ring_pixels.astype(np.float32)
-    mean_rgb = np.median(ring_pixels_f32, axis=0)
-    gray = cv2.cvtColor(ring_pixels.reshape(-1, 1, 3).astype(np.uint8), cv2.COLOR_RGB2GRAY).reshape(-1)
-    std_gray = float(np.std(gray.astype(np.float32)))
-    color_std = float(np.max(np.std(ring_pixels_f32, axis=0)))
-    hsv = cv2.cvtColor(ring_pixels.reshape(-1, 1, 3).astype(np.uint8), cv2.COLOR_RGB2HSV).reshape(-1, 3)
-    saturation_mean = float(np.mean(hsv[:, 1].astype(np.float32)))
-    return mean_rgb.astype(np.uint8), std_gray, color_std, saturation_mean
+def _ring_statistics(roi_rgb: RGBImage, roi_component: NDArray[np.bool_]) -> _RingStatistics | None:
+    """Colour statistics of the ring just outside the component (within its ROI)."""
+    component_u8 = roi_component.astype(np.uint8) * 255
+    dilated = np.asarray(cv2.dilate(component_u8, _RING_KERNEL, iterations=1)) > 0
+    ring_pixels = roi_rgb[dilated & ~roi_component]
+    if ring_pixels.shape[0] < MIN_RING_PIXELS:
+        return None
+
+    pixels_f32 = ring_pixels.astype(np.float32)
+    column = ring_pixels.reshape(-1, 1, 3)
+    gray = np.asarray(cv2.cvtColor(column, cv2.COLOR_RGB2GRAY)).reshape(-1).astype(np.float32)
+    hsv = np.asarray(cv2.cvtColor(column, cv2.COLOR_RGB2HSV)).reshape(-1, 3)
+    return _RingStatistics(
+        fill_rgb=np.median(pixels_f32, axis=0).astype(np.uint8),
+        gray_std=float(np.std(gray)),
+        max_channel_std=float(np.max(np.std(pixels_f32, axis=0))),
+        saturation_mean=float(np.mean(hsv[:, 1])),
+    )
 
 
 def detect_background_complexity(
-    image_rgb: np.ndarray,
-    mask: np.ndarray,
+    image_rgb: RGBImage,
+    mask: MaskImage,
     *,
     gradient_threshold: float = 12.0,
     line_density_threshold: float = 0.15,
 ) -> str:
-    """Detect whether the background under the mask is complex (gradients, patterns) or simple.
+    """Classify the background under the mask as "complex" or "simple".
 
-    Returns "complex" if the masked region shows strong gradients or dense line patterns,
-    otherwise "simple".
+    Note: the grayscale-std test fires for any dark text on a light page, so
+    in practice this skews "complex" on dense pages. Callers currently use it
+    only to pick the inpaint HD strategy; a spatial rewrite (Laplacian over
+    the masked ROI, not a flattened vector) is on the utils refactor queue.
     """
     if mask.ndim == 3:
         mask = mask[:, :, 0]
@@ -77,75 +98,69 @@ def detect_background_complexity(
         masked_region.reshape(-1, 1, 3).astype(np.uint8), cv2.COLOR_RGB2GRAY
     ).reshape(-1)
 
-    # Check gradient: high std in grayscale indicates gradient/pattern
     gradient_std = float(np.std(gray.astype(np.float32)))
     if gradient_std > gradient_threshold:
         return "complex"
 
-    # Check line density: apply edge detection, count edge pixels
-    h, w = mask.shape[:2]
+    _ = line_density_threshold
     roi_gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
     roi_gray = roi_gray[mask > 0]
     if roi_gray.shape[0] < 10:
         return "simple"
 
     laplacian = cv2.Laplacian(roi_gray.astype(np.float32), cv2.CV_32F)
-    variance = float(np.var(laplacian))
-    if variance > 200.0:
+    if float(np.var(laplacian)) > 200.0:
         return "complex"
 
     return "simple"
 
 
 def apply_need_inpaint_heuristic(
-    image_rgb: np.ndarray,
-    mask: np.ndarray,
+    image_rgb: RGBImage,
+    mask: MaskImage,
     *,
     background_std_threshold: float = 8.0,
     color_std_threshold: float = 9.0,
     saturation_threshold: float = 18.0,
 ) -> HeuristicInpaintPreparation:
+    if image_rgb.ndim != 3 or image_rgb.shape[2] != 3:
+        raise ValueError(f"image_rgb must be HxWx3, got shape {image_rgb.shape}")
     if mask.ndim == 3:
         mask = mask[:, :, 0]
+    if mask.shape != image_rgb.shape[:2]:
+        raise ValueError(f"mask shape {mask.shape} does not match image {image_rgb.shape[:2]}")
 
-    binary_mask = np.where(mask > 0, 255, 0).astype(np.uint8)
-    if not np.any(binary_mask):
-        return HeuristicInpaintPreparation(
-            image_rgb=image_rgb.copy(),
-            remaining_mask=binary_mask,
-            filled_components=0,
-            total_components=0,
-        )
+    binary: MaskImage = np.where(mask > 0, 255, 0).astype(np.uint8)
+    if not np.any(binary):
+        return HeuristicInpaintPreparation(image_rgb.copy(), binary, 0, 0)
 
-    component_count, labels, stats, _ = cv2.connectedComponentsWithStats(binary_mask, 8, cv2.CV_32S)
-    prepared_image = image_rgb.copy()
-    remaining_mask = binary_mask.copy()
-    filled_components = 0
-    total_components = 0
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8, ltype=cv2.CV_32S)
+    height, width = binary.shape
+    prepared = image_rgb.copy()
+    remaining = binary.copy()
+    filled = total = 0
 
-    for label in range(1, component_count):
-        area = int(stats[label, cv2.CC_STAT_AREA])
-        if area < 9:
+    for label in range(1, count):
+        x, y, w, h, area = (int(v) for v in stats[label])
+        if area < MIN_COMPONENT_AREA:
             continue
+        total += 1
 
-        total_components += 1
-        component_mask = np.where(labels == label, 255, 0).astype(np.uint8)
-        fill_rgb, std_gray, color_std, saturation_mean = _component_fill_color(image_rgb, component_mask)
+        y0, y1 = max(0, y - RING_RADIUS), min(height, y + h + RING_RADIUS)
+        x0, x1 = max(0, x - RING_RADIUS), min(width, x + w + RING_RADIUS)
+        roi_component = np.asarray(labels[y0:y1, x0:x1]) == label
+
+        ring = _ring_statistics(image_rgb[y0:y1, x0:x1], roi_component)
         if (
-            fill_rgb is None
-            or std_gray > background_std_threshold
-            or color_std > color_std_threshold
-            or saturation_mean > saturation_threshold
+            ring is None
+            or ring.gray_std > background_std_threshold
+            or ring.max_channel_std > color_std_threshold
+            or ring.saturation_mean > saturation_threshold
         ):
             continue
 
-        prepared_image[component_mask > 0] = fill_rgb
-        remaining_mask[component_mask > 0] = 0
-        filled_components += 1
+        prepared[y0:y1, x0:x1][roi_component] = ring.fill_rgb
+        remaining[y0:y1, x0:x1][roi_component] = 0
+        filled += 1
 
-    return HeuristicInpaintPreparation(
-        image_rgb=prepared_image,
-        remaining_mask=remaining_mask,
-        filled_components=filled_components,
-        total_components=total_components,
-    )
+    return HeuristicInpaintPreparation(prepared, remaining, filled, total)

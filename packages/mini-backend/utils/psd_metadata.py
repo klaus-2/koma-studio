@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from core.version import APP_VERSION
 from datetime import datetime, timezone
 import json
 import logging
@@ -47,7 +48,7 @@ def export_metadata(result: PipelineResult, psd_path: Path, output_path: Path) -
         psd_groups.insert(1, "✍️ Rendered Text")
 
     data = {
-        "koma_lab_version": "1.0.0",
+        "koma_lab_version": APP_VERSION,
         "image_size": [int(result.original.width), int(result.original.height)],
         "source_dpi": int(result.source_dpi),
         "color_mode": "RGB",

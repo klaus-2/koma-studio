@@ -15,6 +15,9 @@ class UploadTooLargeError(ValueError):
 
 
 async def read_upload(upload: UploadFile, *, limit: int = MAX_UPLOAD_BYTES) -> bytes:
+    # UploadFile.size is the declared Content-Length: reject before reading.
+    if upload.size is not None and upload.size > limit:
+        raise UploadTooLargeError(limit)
     buffer = bytearray()
     while chunk := await upload.read(_CHUNK_SIZE):
         buffer.extend(chunk)

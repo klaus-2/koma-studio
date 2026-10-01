@@ -5,8 +5,12 @@ from __future__ import annotations
 from fastapi import HTTPException, UploadFile
 from PIL import Image
 
-from pipelines.batch.errors import ImageTooLargeError, InvalidImageError
-from utils.image_decode import ImageMode, decode_image_async
+from utils.image_codec import (
+    ImageDecodeError,
+    ImageMode,
+    ImageTooLargeError,
+    decode_pil_async,
+)
 
 _MIB = 1024 * 1024
 
@@ -25,8 +29,7 @@ async def decode_upload(
     payload: bytes, *, mode: ImageMode, label: str, invalid_status: int = 422
 ) -> Image.Image:
     try:
-        return await decode_image_async(payload, mode)
-    except ImageTooLargeError as exc:
-        raise HTTPException(status_code=413, detail=f"{label}: {exc}") from exc
-    except InvalidImageError as exc:
-        raise HTTPException(status_code=invalid_status, detail=f"{label}: {exc}") from exc
+        return await decode_pil_async(payload, mode)
+    except ImageDecodeError as exc:
+        status = 413 if isinstance(exc, ImageTooLargeError) else invalid_status
+        raise HTTPException(status_code=status, detail=f"{label}: {exc}") from exc

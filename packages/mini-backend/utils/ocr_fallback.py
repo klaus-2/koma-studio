@@ -1,73 +1,91 @@
+"""Re-run OCR on photometric variants for regions the first pass read poorly."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import replace
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import dataclass, replace
+from typing import Final
 
-import cv2
 import numpy as np
 from PIL import Image
 
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
-
-
-_OCR_SCORE_THRESHOLD = 0.55
+from utils import image_variants as iv
+from utils.image_variants import PixelSize, RGBImage
 
 logger = logging.getLogger(__name__)
 
+OCR_SCORE_THRESHOLD: Final = 0.55
+_NON_EMPTY_TEXT_BONUS: Final = 0.08
 
-def _should_retry_region(result: OCRTextResult | None) -> bool:
-    if result is None:
+
+@dataclass(frozen=True, slots=True)
+class _OCRPass:
+    name: str
+    build: Callable[[], RGBImage]
+    project_region: Callable[[OCRInputRegion], OCRInputRegion]
+
+
+def _same_region(region: OCRInputRegion) -> OCRInputRegion:
+    return region
+
+
+def _fallback_passes(rgb: RGBImage, size: PixelSize) -> Iterator[_OCRPass]:
+    yield _OCRPass("invert", lambda: iv.invert(rgb), _same_region)
+    yield _OCRPass("gamma", lambda: iv.gamma_normalize(rgb), _same_region)
+
+    target = iv.upscale_target(size)
+    if target is not None:
+        scale_x, scale_y = target[0] / size[0], target[1] / size[1]
+
+        def project(region: OCRInputRegion) -> OCRInputRegion:
+            return replace(region, bbox=iv.scale_bbox(region.bbox, scale_x=scale_x, scale_y=scale_y))
+
+        yield _OCRPass("upscale", lambda: iv.upscale(rgb, target), project)
+
+
+def _needs_retry(result: OCRTextResult | None) -> bool:
+    if result is None or not (result.text or "").strip():
         return True
-    text = (result.text or "").strip()
-    if not text:
-        return True
-    return float(result.score or 0.0) < _OCR_SCORE_THRESHOLD
+    return float(result.score or 0.0) < OCR_SCORE_THRESHOLD
 
 
-def _score_result(result: OCRTextResult) -> float:
-    text = (result.text or "").strip()
-    return float(result.score or 0.0) + (0.08 if text else 0.0)
+def _score(result: OCRTextResult) -> float:
+    bonus = _NON_EMPTY_TEXT_BONUS if (result.text or "").strip() else 0.0
+    return float(result.score or 0.0) + bonus
 
 
-def _scale_bbox(
-    bbox: tuple[int, int, int, int],
-    scale_x: float,
-    scale_y: float,
-) -> tuple[int, int, int, int]:
-    x1, y1, x2, y2 = bbox
-    return (
-        int(round(x1 * scale_x)),
-        int(round(y1 * scale_y)),
-        int(round(x2 * scale_x)),
-        int(round(y2 * scale_y)),
-    )
+def _is_cancelled(event: asyncio.Event | None) -> bool:
+    return event is not None and event.is_set()
 
 
-async def _call_engine_recognize(
-    engine: BaseOCR,
-    image: Image.Image,
-    regions: list[OCRInputRegion],
-    language: str,
-    cancellation_event: asyncio.Event | None,
-) -> list[OCRTextResult]:
-    """Call engine.recognize, forwarding cancellation_event when supported."""
-    try:
-        return await engine.recognize(
-            image,
-            regions,
-            language=language,
-            cancellation_event=cancellation_event,
-        )
-    except TypeError:
-        # Engine does not accept cancellation_event kwarg — fall back.
-        return await engine.recognize(image, regions, language=language)
+def _to_rgb_array(image: Image.Image) -> RGBImage:
+    return np.asarray(image.convert("RGB"), dtype=np.uint8)
 
 
-def _finalize_results(
-    regions: list[OCRInputRegion],
+def _materialize(ocr_pass: _OCRPass) -> Image.Image:
+    return Image.fromarray(ocr_pass.build())
+
+
+def _merge_best(
+    candidates: Sequence[OCRTextResult],
+    pending_by_id: Mapping[str, OCRInputRegion],
     best_by_id: dict[str, OCRTextResult],
-    engine: BaseOCR,
+) -> None:
+    for candidate in candidates:
+        region = pending_by_id.get(candidate.id)
+        if region is None:
+            continue
+        normalized = replace(candidate, bbox=region.bbox)
+        current = best_by_id.get(candidate.id)
+        if current is None or _score(normalized) > _score(current):
+            best_by_id[candidate.id] = normalized
+
+
+def _finalize(
+    regions: Sequence[OCRInputRegion], best_by_id: Mapping[str, OCRTextResult], engine: BaseOCR
 ) -> list[OCRTextResult]:
     return [
         best_by_id.get(
@@ -86,136 +104,41 @@ def _finalize_results(
     ]
 
 
-def _build_invert_image(rgb: np.ndarray) -> Image.Image:
-    return Image.fromarray(cv2.bitwise_not(rgb))
-
-
-def _build_gamma_image(rgb: np.ndarray) -> Image.Image:
-    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
-    mean = max(1.0, float(np.mean(gray)))
-    gamma = np.log(0.5 * 255.0) / np.log(mean) if mean not in {0.0, 1.0} else 1.0
-    rgb_norm = rgb.astype(np.float32) / 255.0
-    gamma_corrected = (np.power(rgb_norm, gamma) * 255.0).clip(0, 255).astype(np.uint8)
-    return Image.fromarray(gamma_corrected)
-
-
-def _is_cancelled(event: asyncio.Event | None) -> bool:
-    return event is not None and event.is_set()
-
-
-def _update_best(
-    candidate_results: list[OCRTextResult],
-    pending_regions: list[OCRInputRegion],
-    best_by_id: dict[str, OCRTextResult],
-) -> None:
-    for candidate in candidate_results:
-        original_region = next(
-            (r for r in pending_regions if r.id == candidate.id), None
-        )
-        if original_region is None:
-            continue
-        normalized_candidate = replace(candidate, bbox=original_region.bbox)
-        current_best = best_by_id.get(candidate.id)
-        if current_best is None or _score_result(normalized_candidate) > _score_result(
-            current_best
-        ):
-            best_by_id[candidate.id] = normalized_candidate
-
-
 async def recognize_with_fallbacks(
     *,
     engine: BaseOCR,
     image: Image.Image,
-    regions: list[OCRInputRegion],
+    regions: Sequence[OCRInputRegion],
     language: str,
     cancellation_event: asyncio.Event | None = None,
 ) -> list[OCRTextResult]:
     if not regions:
         return []
 
-    logger.info("ocr_fallback started regions=%d", len(regions))
-
-    # --- Pass 1: original image ---
-    original_results = await _call_engine_recognize(
-        engine, image, regions, language, cancellation_event
+    original = await engine.recognize(
+        image, list(regions), language=language, cancellation_event=cancellation_event
     )
-    best_by_id = {result.id: result for result in original_results}
-    pending_regions = [
-        region for region in regions if _should_retry_region(best_by_id.get(region.id))
-    ]
+    best_by_id: dict[str, OCRTextResult] = {result.id: result for result in original}
+    pending = [region for region in regions if _needs_retry(best_by_id.get(region.id))]
+    logger.debug("ocr_fallback.pass", extra={"pass": "original", "pending": len(pending)})
+    if not pending or _is_cancelled(cancellation_event):
+        return _finalize(regions, best_by_id, engine)
 
-    logger.info(
-        "ocr_fallback pass=original done=%d pending=%d",
-        len(regions) - len(pending_regions),
-        len(pending_regions),
-    )
+    rgb = await asyncio.to_thread(_to_rgb_array, image)
 
-    if not pending_regions or _is_cancelled(cancellation_event):
-        return _finalize_results(regions, best_by_id, engine)
-
-    # Convert full image to numpy once (run in thread for very large images).
-    rgb: np.ndarray = await asyncio.to_thread(lambda: np.array(image.convert("RGB")))
-
-    # --- Pass 2: Invert ---
-    if pending_regions and not _is_cancelled(cancellation_event):
-        invert_image = await asyncio.to_thread(_build_invert_image, rgb)
-        candidate_results = await _call_engine_recognize(
-            engine, invert_image, pending_regions, language, cancellation_event
+    for ocr_pass in _fallback_passes(rgb, image.size):
+        if not pending or _is_cancelled(cancellation_event):
+            break
+        variant_image = await asyncio.to_thread(_materialize, ocr_pass)
+        candidates = await engine.recognize(
+            variant_image,
+            [ocr_pass.project_region(region) for region in pending],
+            language=language,
+            cancellation_event=cancellation_event,
         )
-        _update_best(candidate_results, pending_regions, best_by_id)
-        pending_regions = [
-            r for r in pending_regions if _should_retry_region(best_by_id.get(r.id))
-        ]
-        logger.info("ocr_fallback pass=invert pending=%d", len(pending_regions))
+        _merge_best(candidates, {region.id: region for region in pending}, best_by_id)
+        pending = [region for region in pending if _needs_retry(best_by_id.get(region.id))]
+        logger.debug("ocr_fallback.pass", extra={"pass": ocr_pass.name, "pending": len(pending)})
 
-    # --- Pass 3: Gamma correction ---
-    if pending_regions and not _is_cancelled(cancellation_event):
-        gamma_image = await asyncio.to_thread(_build_gamma_image, rgb)
-        candidate_results = await _call_engine_recognize(
-            engine, gamma_image, pending_regions, language, cancellation_event
-        )
-        _update_best(candidate_results, pending_regions, best_by_id)
-        pending_regions = [
-            r for r in pending_regions if _should_retry_region(best_by_id.get(r.id))
-        ]
-        logger.info("ocr_fallback pass=gamma pending=%d", len(pending_regions))
-
-    # --- Pass 4: Upscale (only for small images) ---
-    width, height = image.size
-    max_side = max(width, height)
-    min_side = min(width, height)
-    if (
-        pending_regions
-        and not _is_cancelled(cancellation_event)
-        and (max_side < 1400 or min_side < 720)
-    ):
-        target_long_edge = min(2048, max(1400, max_side * 2))
-        scale = float(target_long_edge) / float(max_side)
-        upscale_w = max(1, int(round(width * scale)))
-        upscale_h = max(1, int(round(height * scale)))
-        if upscale_w > width or upscale_h > height:
-            upscaled_rgb = await asyncio.to_thread(
-                lambda: cv2.resize(
-                    rgb, (upscale_w, upscale_h), interpolation=cv2.INTER_CUBIC
-                )
-            )
-            scaled_regions = [
-                replace(
-                    region,
-                    bbox=_scale_bbox(
-                        region.bbox,
-                        upscale_w / float(width),
-                        upscale_h / float(height),
-                    ),
-                )
-                for region in pending_regions
-            ]
-            upscale_image = Image.fromarray(upscaled_rgb)
-            candidate_results = await _call_engine_recognize(
-                engine, upscale_image, scaled_regions, language, cancellation_event
-            )
-            _update_best(candidate_results, pending_regions, best_by_id)
-            logger.info("ocr_fallback pass=upscale done")
-
-    logger.info("ocr_fallback finished regions=%d", len(regions))
-    return _finalize_results(regions, best_by_id, engine)
+    logger.info("ocr_fallback.done", extra={"regions": len(regions), "unresolved": len(pending)})
+    return _finalize(regions, best_by_id, engine)

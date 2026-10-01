@@ -17,6 +17,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from core.device import DeviceInfo, release_gpu_memory
+from models.detection.base_detector import TextDetection
 from models.detection.factory import get_detector
 from models.inpainting.base_inpainter import HDStrategy, InpaintConfig
 from models.inpainting.factory import get_inpainter
@@ -50,7 +51,7 @@ from pipelines.batch.records import (
 from pipelines.cache_manager import get_pipeline_cache
 from pipelines.ocr_enrichment import enrich_ocr_record_with_gradient
 from utils.detection_fallback import detect_with_fallbacks
-from utils.image_decode import decode_image
+from utils.image_codec import ImageDecodeError, decode_pil
 from utils.inpaint_heuristics import (
     apply_need_inpaint_heuristic,
     detect_background_complexity,
@@ -100,7 +101,10 @@ class CleanStageResult:
 
 
 async def open_rgb_image(image_bytes: bytes) -> Image.Image:
-    return await asyncio.to_thread(decode_image, image_bytes, "RGB")
+    try:
+        return await asyncio.to_thread(decode_pil, image_bytes, "RGB")
+    except ImageDecodeError as exc:
+        raise InvalidImageError(str(exc)) from exc
 
 
 def _encode_png(rgb: RGBArray) -> bytes:
@@ -163,7 +167,8 @@ async def run_detect_stage(
     detector = get_detector(task="text", has_gpu=has_gpu, model_key=resolved_model)
     try:
         detections, variant = await detect_with_fallbacks(
-            image, cast("Callable[[Image.Image], Awaitable[list[object]]]", detector.detect)
+            image,
+            cast("Callable[[Image.Image], Awaitable[Sequence[TextDetection]]]", detector.detect),
         )
     finally:
         release_gpu_memory()

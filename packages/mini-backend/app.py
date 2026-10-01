@@ -15,14 +15,14 @@ import os
 import sys
 import time
 import tracemalloc
-from collections.abc import AsyncIterator, Callable, Iterable
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Final, Protocol, TypedDict
 
 import psutil
 import uvicorn
-from fastapi import FastAPI, Request, Response
+from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -32,6 +32,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 BaseModel.model_config["protected_namespaces"] = ()
 
 from core.config import get_config
+from core.version import APP_VERSION
 from core.device import (
     build_device_payload,
     get_device_info,
@@ -56,6 +57,7 @@ from routers.ingest import router as ingest_router
 from routers.inpainting import router as inpainting_router
 from routers.model_downloads import router as model_downloads_router
 from routers.model_install import router as model_install_router
+from pipelines.cache_manager import CacheManagerStats
 from routers.ocr import CACHE_MANAGER as OCR_CACHE_MANAGER
 from routers.ocr import router as ocr_router
 from routers.pipeline import router as pipeline_router
@@ -193,12 +195,6 @@ async def warmup_text_detection_model() -> None:
 # --------------------------------------------------------------------------- #
 # Memory diagnostics
 # --------------------------------------------------------------------------- #
-class CacheManagerStats(TypedDict):
-    entries: int
-    ttl_seconds: float
-    max_entries: int
-
-
 class _CacheManager(Protocol):
     def stats(self) -> CacheManagerStats: ...
     def clear(self) -> None: ...
@@ -214,7 +210,6 @@ class ProcessStats(TypedDict):
 class GcStats(TypedDict):
     counts: list[int]
     thresholds: list[int]
-    tracked_objects: int
 
 
 class TracemallocStats(TypedDict):
@@ -255,12 +250,14 @@ def _collect_gc_stats() -> GcStats:
     return GcStats(
         counts=list(gc.get_count()),
         thresholds=list(gc.get_threshold()),
-        tracked_objects=len(gc.get_objects()),
     )
 
 
+_PSUTIL_PROCESS: Final = psutil.Process()
+
+
 def _collect_memory_stats() -> MemoryStatsPayload:
-    process = psutil.Process()
+    process = _PSUTIL_PROCESS
     memory = process.memory_info()
     traced = (
         TracemallocStats(
@@ -343,7 +340,7 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
             if tracemalloc.is_tracing():
                 tracemalloc.stop()
 
-    app = FastAPI(title="KŌMA Studio - Mini Backend", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="KŌMA Studio - Mini Backend", version=APP_VERSION, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
@@ -367,7 +364,9 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         if ENVIRONMENT != "production" and origin in trusted_origins:
             return await call_next(request)
         provided = (request.headers.get(LOCAL_API_SESSION_HEADER) or "").strip()
-        if not provided or not hmac.compare_digest(provided, LOCAL_API_SESSION_SECRET):
+        if not provided or not hmac.compare_digest(
+            provided.encode("utf-8"), LOCAL_API_SESSION_SECRET.encode("utf-8")
+        ):
             return JSONResponse(
                 status_code=403,
                 content={
@@ -398,7 +397,7 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         collected = await asyncio.to_thread(_clear_all_caches)
         return {"status": "all_caches_cleared", "collected_objects": collected}
 
-    routers: Iterable[object] = (
+    routers: tuple[APIRouter, ...] = (
         detection_router,
         cloud_tools_router,
         enhance_router,

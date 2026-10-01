@@ -18,8 +18,8 @@ from utils.ocr_fallback import recognize_with_fallbacks  # noqa: E402
 class _FakeEngine:
     key = "fake_ocr"
 
-    async def recognize(self, image, regions, language="en"):  # noqa: ANN001
-        _ = language
+    async def recognize(self, image, regions, language="en", cancellation_event=None):  # noqa: ANN001
+        _ = language, cancellation_event
         width, _height = image.size
         if width <= 400:
             return [

@@ -19,6 +19,7 @@ type RGBImage = NDArray[np.uint8]
 type MaskImage = NDArray[np.uint8]
 type PixelShape = tuple[int, int]
 """(height, width) — numpy order."""
+type ImageMode = Literal["RGB", "RGBA", "L"]
 
 MAX_IMAGE_PIXELS: Final = 64_000_000
 """8k×8k. Decoded RGB ≈ 192 MiB; anything above is not a comic page."""
@@ -28,26 +29,51 @@ class ImageDecodeError(ValueError):
     """Payload is not a decodable raster image within the accepted limits."""
 
 
+class ImageTooLargeError(ImageDecodeError):
+    """Pixel count above MAX_IMAGE_PIXELS — map to HTTP 413 at the edge."""
+
+
 class ImageEncodeError(RuntimeError):
     """OpenCV failed to encode the output image."""
 
 
+def _open_guarded(payload: bytes, *, label: str):
+    try:
+        image = Image.open(BytesIO(payload))
+    except UnidentifiedImageError as exc:
+        raise ImageDecodeError(f"Invalid {label} file") from exc
+    except (OSError, ValueError) as exc:
+        raise ImageDecodeError(f"Failed to read the uploaded {label}") from exc
+    if image.width * image.height > MAX_IMAGE_PIXELS:
+        image.close()
+        raise ImageTooLargeError(f"{label} exceeds {MAX_IMAGE_PIXELS} pixels")
+    return image
+
+
 def _decode(payload: bytes, *, mode: Literal["RGB", "L"], label: str) -> NDArray[np.uint8]:
     try:
-        with Image.open(BytesIO(payload)) as image:
-            if image.width * image.height > MAX_IMAGE_PIXELS:
-                raise ImageDecodeError(f"{label} exceeds {MAX_IMAGE_PIXELS} pixels")
+        with _open_guarded(payload, label=label) as image:
             return np.asarray(image.convert(mode), dtype=np.uint8)
     except ImageDecodeError:
         raise
-    except UnidentifiedImageError as exc:
-        raise ImageDecodeError(f"Invalid {label} file") from exc
     except (OSError, ValueError, Image.DecompressionBombError) as exc:
         raise ImageDecodeError(f"Failed to read the uploaded {label}") from exc
 
 
 def decode_rgb(payload: bytes) -> RGBImage:
     return _decode(payload, mode="RGB", label="image")
+
+
+def decode_pil(payload: bytes, mode: ImageMode = "RGB") -> Image.Image:
+    """Decode to a PIL image; ``convert`` forces a full decode, so truncated
+    files fail here, not later. Caller owns the returned image."""
+    try:
+        with _open_guarded(payload, label="image") as image:
+            return image.convert(mode)
+    except ImageDecodeError:
+        raise
+    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise ImageDecodeError(f"Failed to read the uploaded image") from exc
 
 
 def decode_binary_mask(payload: bytes, *, target_shape: PixelShape) -> MaskImage:
@@ -78,6 +104,10 @@ def encode_png(rgb: RGBImage) -> bytes:
 
 async def decode_rgb_async(payload: bytes) -> RGBImage:
     return await asyncio.to_thread(decode_rgb, payload)
+
+
+async def decode_pil_async(payload: bytes, mode: ImageMode = "RGB") -> Image.Image:
+    return await asyncio.to_thread(decode_pil, payload, mode)
 
 
 async def decode_binary_mask_async(payload: bytes, *, target_shape: PixelShape) -> MaskImage:

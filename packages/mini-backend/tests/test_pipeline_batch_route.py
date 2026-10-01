@@ -77,6 +77,7 @@ class _FakeOCREngine:
         image: Image.Image,
         regions: list[OCRInputRegion],
         language: str = "ja",
+        cancellation_event: object = None,
     ) -> list[OCRTextResult]:
         _ = language
         self.calls += 1
