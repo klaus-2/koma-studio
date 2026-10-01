@@ -39,11 +39,11 @@ pub fn snapshot<R: Runtime>(app: AppHandle<R>) -> Result<CertificatePinningSnaps
 pub fn resolve_certificate_pins<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<BTreeMap<String, BTreeSet<String>>, String> {
-    let config = build_runtime_config(app)?;
+    let config = build_runtime_config(app);
     let rules = [
         (config.auth_api_url, "AUTH_API_CERT_PINS_SHA256"),
         (
-            config.runtime_artifacts_url.unwrap_or_default(),
+            config.runtime_artifacts_url,
             "UPDATE_SERVER_CERT_PINS_SHA256",
         ),
     ];

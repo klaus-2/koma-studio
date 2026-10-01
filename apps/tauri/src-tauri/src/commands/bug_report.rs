@@ -722,7 +722,7 @@ fn report_fields(
 // ---------------------------------------------------------------------------
 
 async fn diagnostics<R: Runtime>(app: &AppHandle<R>) -> Result<BugReportDiagnostics, String> {
-    let config = build_runtime_config(app)?;
+    let config = build_runtime_config(app);
     let mini_backend_running = tokio::time::timeout(
         BACKEND_PROBE_TIMEOUT,
         check_local_backend_health(&config.local_api_url),
@@ -750,15 +750,15 @@ async fn diagnostics<R: Runtime>(app: &AppHandle<R>) -> Result<BugReportDiagnost
         mini_backend_running,
         auth_api_url: config.auth_api_url,
         local_api_url: config.local_api_url,
-        runtime_artifacts_url: config.runtime_artifacts_url,
+        runtime_artifacts_url: Some(config.runtime_artifacts_url),
     })
 }
 
 fn resolve_config<R: Runtime>(app: &AppHandle<R>) -> Result<Option<BugReportConfig>, String> {
     let webhook_url = normalize_discord_webhook_url(
-        resolve_desktop_env_value(app, DISCORD_WEBHOOK_ENV)?.as_deref(),
+        resolve_desktop_env_value(app, DISCORD_WEBHOOK_ENV).as_deref(),
     );
-    let imgur_client_id = resolve_desktop_env_value(app, IMGUR_CLIENT_ID_ENV)?
+    let imgur_client_id = resolve_desktop_env_value(app, IMGUR_CLIENT_ID_ENV)
         .as_deref()
         .and_then(non_empty)
         .map(str::to_owned);

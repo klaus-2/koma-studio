@@ -81,7 +81,7 @@ pub fn api_url<R: Runtime>(
     base: ApiBase,
     endpoint_path: &str,
 ) -> Result<String, String> {
-    let config = build_runtime_config(app)?;
+    let config = build_runtime_config(app);
     let raw_base = match base {
         ApiBase::Auth => config.auth_api_url,
     };

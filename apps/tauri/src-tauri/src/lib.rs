@@ -88,6 +88,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init())
@@ -95,6 +96,7 @@ pub fn run() {
         .manage(sidecar::mini_backend::MiniBackendSidecarStore::default())
         .manage(commands::models::ModelDownloadStore::default())
         .manage(commands::api::auth::DesktopAuthStore::default())
+        .manage(commands::logging::SessionLogSink::default())
         .manage(
             // A failed spawn (thread exhaustion) is unrecoverable for presence:
             // fail loudly at startup instead of managing a dead handle.

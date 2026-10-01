@@ -117,9 +117,7 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
     // Reuse: if a healthy mini-backend is already listening on the default
     // port (e.g. started by another shell in the monorepo), don't try to bind
     // again — the EADDRINUSE during warmup was killing the sidecar with exit 1.
-    let Ok(reuse_config) = build_runtime_config(&app) else {
-        return Ok(());
-    };
+    let reuse_config = build_runtime_config(&app);
     let runtime_store = app.state::<MiniBackendRuntimeStore>();
     if check_local_backend_health(&reuse_config.local_api_url).await {
         if kill_stale_instance(&reuse_config.local_api_url) {
@@ -227,7 +225,7 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
         }
     }
 
-    let config = build_runtime_config(&app)?;
+    let config = build_runtime_config(&app);
     let port = parse_configured_port(&config.local_api_url).unwrap_or(8001);
     let models_root = app
         .path()

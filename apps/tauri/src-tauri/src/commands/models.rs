@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, MutexGuard, PoisonError,
     },
     time::Duration,
 };
@@ -21,6 +21,10 @@ mod model_support;
 use model_support::*;
 
 const MAX_RETRY_ATTEMPTS: u32 = 3;
+/// Exponential backoff base: attempt 1 → 1s, attempt 2 → 2s before retrying.
+const RETRY_BASE_DELAY: Duration = Duration::from_secs(1);
+/// Granularity at which a cancel request is honoured while waiting to retry.
+const RETRY_CANCEL_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const PARTIAL_FILE_NAME: &str = "download.partial";
 const MANIFEST_FILE_NAME: &str = "manifest.json";
 const EASYOCR_MODEL_ID: &str = "easyocr";
@@ -48,7 +52,6 @@ const FONT_RTDETR_MODEL_ID: &str = "font_rtdetr_v2";
 const FONT_RTDETR_FILE_NAME: &str = "detector.onnx";
 const ENHANCE_MODEL_FILE_NAME: &str = "model.onnx";
 const MODEL_EVENT_CHANNEL: &str = "model-manager:event";
-
 
 const BACKEND_MANAGED_MODEL_IDS: &[&str] = &[
     EASYOCR_MODEL_ID,
@@ -227,14 +230,16 @@ struct DesktopModelManifest {
     origin: Option<String>,
 }
 
-#[tauri::command(rename = "desktop-models:list-installed")]
+// Directory walks and manifest parsing are blocking I/O; `#[tauri::command(async)]`
+// keeps them off the main thread so the webview never stalls on a slow disk.
+#[tauri::command(async, rename = "desktop-models:list-installed")]
 pub fn list_installed<R: Runtime>(
     app: AppHandle<R>,
 ) -> Result<Vec<DesktopInstalledModelRecord>, String> {
     list_installed_models(&models_root_dir(&app)?)
 }
 
-#[tauri::command(rename = "desktop-models:get-disk-space")]
+#[tauri::command(async, rename = "desktop-models:get-disk-space")]
 pub fn get_disk_space<R: Runtime>(app: AppHandle<R>) -> Result<DesktopDiskSpaceInfo, String> {
     disk_space_info(&models_root_dir(&app)?)
 }
@@ -260,19 +265,28 @@ pub async fn import_onnx<R: Runtime>(
     app: AppHandle<R>,
     payload: DesktopModelImportOnnxPayload,
 ) -> Result<DesktopInstalledModelRecord, String> {
-    let selected = app
-        .dialog()
-        .file()
-        .set_title("Importar modelo ONNX")
-        .add_filter("ONNX", &["onnx"])
-        .blocking_pick_file();
+    // `blocking_pick_file` parks the calling thread until the user closes the
+    // dialog. Doing that on an async worker starves every other command, so
+    // the dialog is driven from the blocking pool. The builder itself holds a
+    // raw window handle and is !Send, hence it is constructed inside the task.
+    let dialog_app = app.clone();
+    let selected = tauri::async_runtime::spawn_blocking(move || {
+        dialog_app
+            .dialog()
+            .file()
+            .set_title("Importar modelo ONNX")
+            .add_filter("ONNX", &["onnx"])
+            .blocking_pick_file()
+    })
+    .await
+    .map_err(|error| error.to_string())?;
 
     let Some(selected) = selected else {
-        return Err("ONNX import cancelled.".to_string());
+        return Err("ONNX import cancelled.".to_owned());
     };
     let source_path = selected
         .into_path()
-        .map_err(|_| "Invalid ONNX path.".to_string())?;
+        .map_err(|_| "Invalid ONNX path.".to_owned())?;
     import_onnx_model(&app, payload, &source_path).await
 }
 
@@ -284,28 +298,22 @@ pub fn cancel<R: Runtime>(app: AppHandle<R>, model_id: String) -> Result<(), Str
 #[tauri::command(rename = "desktop-models:cancel-all")]
 pub fn cancel_all<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     let store = app.state::<ModelDownloadStore>();
-    let queued_ids = {
-        let mut queue = store.queue.lock().map_err(|error| error.to_string())?;
-        queue
-            .drain(..)
-            .map(|task| task.model.id)
-            .collect::<Vec<_>>()
-    };
+    let queued_ids = lock_unpoisoned(&store.queue)
+        .drain(..)
+        .map(|task| task.model.id)
+        .collect::<Vec<_>>();
     for model_id in queued_ids {
         emit_model_event(&app, ModelManagerEvent::Cancelled { model_id });
     }
-    if let Some(active) = store
-        .active
-        .lock()
-        .map_err(|error| error.to_string())?
-        .as_ref()
-    {
-        active.cancelled.store(true, Ordering::SeqCst);
+    if let Some(active) = lock_unpoisoned(&store.active).as_ref() {
+        active.cancelled.store(true, Ordering::Release);
     }
     Ok(())
 }
 
-#[tauri::command(rename = "desktop-models:uninstall")]
+// `remove_dir_all` on a multi-gigabyte model directory must never run on the
+// main thread.
+#[tauri::command(async, rename = "desktop-models:uninstall")]
 pub fn uninstall<R: Runtime>(app: AppHandle<R>, model_id: String) -> Result<(), String> {
     let normalized = sanitize_model_id(&model_id)?;
     cancel_download(&app, &normalized)?;
@@ -323,11 +331,14 @@ fn enqueue_download<R: Runtime + 'static>(
     let store = app.state::<ModelDownloadStore>();
     let model = normalize_download_payload(payload)?;
     let queue_length = {
-        let active = store.active.lock().map_err(|error| error.to_string())?;
-        let mut queue = store.queue.lock().map_err(|error| error.to_string())?;
-        if active.as_ref().map(|item| item.model_id.as_str()) == Some(model.id.as_str())
-            || queue.iter().any(|task| task.model.id == model.id)
-        {
+        // Lock order (active → queue) is shared with the rest of the module;
+        // never acquire them in the opposite order.
+        let active = lock_unpoisoned(&store.active);
+        let mut queue = lock_unpoisoned(&store.queue);
+        let already_active = active
+            .as_ref()
+            .is_some_and(|item| item.model_id == model.id);
+        if already_active || queue.iter().any(|task| task.model.id == model.id) {
             return Ok(ModelQueueResult {
                 queued: true,
                 queue_length: queue.len() + usize::from(active.is_some()),
@@ -347,7 +358,7 @@ fn enqueue_download<R: Runtime + 'static>(
         },
     );
 
-    if !store.processing.swap(true, Ordering::SeqCst) {
+    if !store.processing.swap(true, Ordering::AcqRel) {
         tauri::async_runtime::spawn(process_queue(app));
     }
 
@@ -361,86 +372,113 @@ async fn process_queue<R: Runtime + 'static>(app: AppHandle<R>) {
     loop {
         let next_task = {
             let store = app.state::<ModelDownloadStore>();
-            let task = match store.queue.lock() {
-                Ok(mut queue) => queue.pop_front(),
-                Err(error) => {
-                    log::error!("model queue lock failed: {error}");
-                    None
-                }
-            };
+            let mut queue = lock_unpoisoned(&store.queue);
+            let task = queue.pop_front();
+            drop(queue);
             task
         };
         let Some(task) = next_task else {
             let store = app.state::<ModelDownloadStore>();
-            store.processing.store(false, Ordering::SeqCst);
+            store.processing.store(false, Ordering::Release);
+            // Closes the lost-wakeup window: a producer that enqueued between
+            // our empty pop and the flag reset saw `processing == true` and did
+            // not spawn a worker. If that happened, this worker re-arms itself.
+            let has_pending = !lock_unpoisoned(&store.queue).is_empty();
+            if has_pending && !store.processing.swap(true, Ordering::AcqRel) {
+                continue;
+            }
             return;
         };
-        if let Err(error) = execute_download_task(&app, task.clone()).await {
+
+        if let Err(message) = execute_download_task(&app, &task).await {
+            log::error!("model download '{}' aborted: {message}", task.model.id);
             emit_model_event(
                 &app,
                 ModelManagerEvent::Failed {
                     model_id: task.model.id.clone(),
-                    message: error,
+                    message,
                     attempt: MAX_RETRY_ATTEMPTS,
                     will_retry: false,
                     code: None,
                 },
             );
-            let _ = write_incomplete_manifest(
-                &models_root_dir(&app).unwrap_or_default(),
-                &task.model,
-                "download",
-            );
-            clear_active_download(&app);
+            match models_root_dir(&app) {
+                Ok(root) => {
+                    if let Err(error) = write_incomplete_manifest(&root, &task.model, "download")
+                    {
+                        log::warn!(
+                            "could not persist incomplete manifest for '{}': {error}",
+                            task.model.id
+                        );
+                    }
+                }
+                Err(error) => log::warn!(
+                    "models root unavailable, skipping incomplete manifest for '{}': {error}",
+                    task.model.id
+                ),
+            }
         }
     }
 }
 
+/// Runs every attempt for one task. `active` stays populated for the whole
+/// lifetime of the task — including the backoff between attempts — so the user
+/// can cancel at any point, not just while bytes are flowing.
 async fn execute_download_task<R: Runtime>(
     app: &AppHandle<R>,
-    task: DownloadTask,
+    task: &DownloadTask,
 ) -> Result<(), String> {
+    let cancelled = Arc::new(AtomicBool::new(false));
+    {
+        let store = app.state::<ModelDownloadStore>();
+        *lock_unpoisoned(&store.active) = Some(ActiveDownload {
+            model_id: task.model.id.clone(),
+            cancelled: Arc::clone(&cancelled),
+        });
+    }
+
+    let outcome = run_download_attempts(app, &task.model, &cancelled).await;
+    clear_active_download(app);
+    outcome
+}
+
+async fn run_download_attempts<R: Runtime>(
+    app: &AppHandle<R>,
+    model: &DesktopModelDownloadPayload,
+    cancelled: &Arc<AtomicBool>,
+) -> Result<(), String> {
+    let root = models_root_dir(app)?;
+
     for attempt in 1..=MAX_RETRY_ATTEMPTS {
-        let cancelled = Arc::new(AtomicBool::new(false));
-        {
-            let store = app.state::<ModelDownloadStore>();
-            *store.active.lock().map_err(|error| error.to_string())? = Some(ActiveDownload {
-                model_id: task.model.id.clone(),
-                cancelled: cancelled.clone(),
-            });
+        if cancelled.load(Ordering::Acquire) {
+            write_incomplete_manifest(&root, model, "download")?;
+            emit_cancelled(app, model);
+            return Ok(());
         }
+
         emit_model_event(
             app,
             ModelManagerEvent::Started {
-                model_id: task.model.id.clone(),
+                model_id: model.id.clone(),
                 attempt,
             },
         );
 
-        match download_and_install(app, &task.model, attempt, &cancelled).await {
+        match download_and_install(app, model, attempt, cancelled).await {
             Ok(()) => {
-                let installed_at = chrono::Utc::now().to_rfc3339();
                 emit_model_event(
                     app,
                     ModelManagerEvent::Completed {
-                        model_id: task.model.id,
-                        version: task.model.version,
-                        installed_at,
+                        model_id: model.id.clone(),
+                        version: model.version.clone(),
+                        installed_at: chrono::Utc::now().to_rfc3339(),
                     },
                 );
-                clear_active_download(app);
                 return Ok(());
             }
-            Err(_error) if cancelled.load(Ordering::SeqCst) => {
-                let root = models_root_dir(app)?;
-                write_incomplete_manifest(&root, &task.model, "download")?;
-                emit_model_event(
-                    app,
-                    ModelManagerEvent::Cancelled {
-                        model_id: task.model.id,
-                    },
-                );
-                clear_active_download(app);
+            Err(_) if cancelled.load(Ordering::Acquire) => {
+                write_incomplete_manifest(&root, model, "download")?;
+                emit_cancelled(app, model);
                 return Ok(());
             }
             Err(error) => {
@@ -448,24 +486,60 @@ async fn execute_download_task<R: Runtime>(
                 emit_model_event(
                     app,
                     ModelManagerEvent::Failed {
-                        model_id: task.model.id.clone(),
+                        model_id: model.id.clone(),
                         message: error.message.clone(),
                         attempt,
                         will_retry,
                         code: error.code,
                     },
                 );
-                let root = models_root_dir(app)?;
-                write_incomplete_manifest(&root, &task.model, "download")?;
-                clear_active_download(app);
-                if will_retry {
-                    continue;
+                write_incomplete_manifest(&root, model, "download")?;
+                if !will_retry {
+                    return Ok(());
                 }
-                return Ok(());
+                if wait_before_retry(cancelled, attempt).await {
+                    emit_cancelled(app, model);
+                    return Ok(());
+                }
             }
         }
     }
     Ok(())
+}
+
+/// Exponential backoff that stays responsive to cancellation. Returns `true`
+/// when the wait was interrupted by a cancel request.
+async fn wait_before_retry(cancelled: &AtomicBool, attempt: u32) -> bool {
+    let exponent = attempt.saturating_sub(1).min(8);
+    let total = RETRY_BASE_DELAY.saturating_mul(1_u32 << exponent);
+    let deadline = tokio::time::Instant::now() + total;
+
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return true;
+        }
+        let now = tokio::time::Instant::now();
+        if now >= deadline {
+            return false;
+        }
+        tokio::time::sleep((deadline - now).min(RETRY_CANCEL_POLL_INTERVAL)).await;
+    }
+}
+
+fn emit_cancelled<R: Runtime>(app: &AppHandle<R>, model: &DesktopModelDownloadPayload) {
+    emit_model_event(
+        app,
+        ModelManagerEvent::Cancelled {
+            model_id: model.id.clone(),
+        },
+    );
+}
+
+/// The store's invariants hold across every critical section (each one is a
+/// single queue/option mutation), so a poison caused by a panic elsewhere is
+/// safe to recover from instead of taking the whole download pipeline down.
+fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 #[cfg(test)]
@@ -489,7 +563,10 @@ mod tests {
         }"#;
         let parsed: DesktopModelDownloadPayload =
             serde_json::from_str(payload).expect("frontend payload must deserialize");
-        assert_eq!(parsed.checksum_sha256, "54e50d7b19c16883541a0f42f2f2be3617c6597457d8a29f86dc6f5d130f8f2d");
+        assert_eq!(
+            parsed.checksum_sha256,
+            "54e50d7b19c16883541a0f42f2f2be3617c6597457d8a29f86dc6f5d130f8f2d"
+        );
 
         // The pre-fix plain-camelCase spelling stays accepted on input.
         let legacy = payload.replace("checksumSHA256", "checksumSha256");
@@ -501,30 +578,82 @@ mod tests {
     #[test]
     fn records_serialize_with_frontend_field_names() {
         let record = DesktopInstalledModelRecord {
-            model_id: "nllb-200".to_string(),
-            version: "1.0.0".to_string(),
-            installed_at: "2026-08-21T00:00:00Z".to_string(),
-            checksum_sha256: "abc".to_string(),
-            status: "installed".to_string(),
+            model_id: "nllb-200".to_owned(),
+            version: "1.0.0".to_owned(),
+            installed_at: "2026-08-21T00:00:00Z".to_owned(),
+            checksum_sha256: "abc".to_owned(),
+            status: "installed".to_owned(),
             installed_languages: None,
             origin: None,
-            model_dir: "models/nllb-200".to_string(),
-            manifest_path: "models/nllb-200/manifest.json".to_string(),
+            model_dir: "models/nllb-200".to_owned(),
+            manifest_path: "models/nllb-200/manifest.json".to_owned(),
             size_bytes: 1234,
         };
         let json = serde_json::to_value(&record).expect("serialize record");
         assert_eq!(json["checksumSHA256"], "abc");
 
         let update_check = DesktopRemoteModelUpdateCheckResult {
-            model_id: "nllb-200".to_string(),
-            installed_checksum_sha256: Some("abc".to_string()),
+            model_id: "nllb-200".to_owned(),
+            installed_checksum_sha256: Some("abc".to_owned()),
             remote_checksum_sha256: None,
-            registry_version: "1.0.0".to_string(),
+            registry_version: "1.0.0".to_owned(),
             checked: true,
             update_available: false,
         };
         let json = serde_json::to_value(&update_check).expect("serialize update check");
         assert_eq!(json["installedChecksumSHA256"], "abc");
-        assert!(json.get("remoteChecksumSHA256").is_some_and(serde_json::Value::is_null));
+        assert!(json
+            .get("remoteChecksumSHA256")
+            .is_some_and(serde_json::Value::is_null));
+    }
+
+    #[test]
+    fn events_serialize_with_camel_case_tag_and_fields() {
+        let event = ModelManagerEvent::Progress {
+            model_id: "nllb-200".to_owned(),
+            bytes_downloaded: 10,
+            total_bytes: 100,
+            speed_bytes_per_second: 5,
+            percent: 10.0,
+            attempt: 2,
+        };
+        let json = serde_json::to_value(&event).expect("serialize event");
+        assert_eq!(json["type"], "progress");
+        assert_eq!(json["modelId"], "nllb-200");
+        assert_eq!(json["bytesDownloaded"], 10);
+        assert_eq!(json["speedBytesPerSecond"], 5);
+
+        let failed = ModelManagerEvent::Failed {
+            model_id: "x".to_owned(),
+            message: "boom".to_owned(),
+            attempt: 1,
+            will_retry: true,
+            code: None,
+        };
+        let json = serde_json::to_value(&failed).expect("serialize failed event");
+        assert_eq!(json["willRetry"], true);
+        assert!(json.get("code").is_none());
+    }
+
+    #[tokio::test]
+    async fn retry_wait_honours_cancellation_immediately() {
+        let cancelled = AtomicBool::new(true);
+        let started = std::time::Instant::now();
+        assert!(wait_before_retry(&cancelled, 3).await);
+        assert!(started.elapsed() < RETRY_CANCEL_POLL_INTERVAL);
+    }
+
+    #[test]
+    fn lock_unpoisoned_recovers_after_panic() {
+        let mutex = Arc::new(Mutex::new(VecDeque::<u8>::new()));
+        let poisoner = Arc::clone(&mutex);
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoner.lock().unwrap();
+            panic!("poison");
+        })
+        .join();
+        assert!(mutex.is_poisoned());
+        lock_unpoisoned(&mutex).push_back(1);
+        assert_eq!(lock_unpoisoned(&mutex).len(), 1);
     }
 }

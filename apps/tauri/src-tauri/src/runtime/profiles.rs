@@ -317,7 +317,7 @@ pub async fn sync_runtime_state_from_api<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
 ) -> Result<(), String> {
-    let config = build_runtime_config(app)?;
+    let config = build_runtime_config(app);
     let endpoint = format!("{}/device/info", config.local_api_url.trim_end_matches('/'));
     let response = match reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
@@ -613,7 +613,7 @@ fn write_runtime_selection<R: Runtime>(
 }
 
 fn resolve_artifacts_url<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, String> {
-    Ok(build_runtime_config(app)?.runtime_artifacts_url)
+    Ok(Some(build_runtime_config(app).runtime_artifacts_url))
 }
 
 fn resolve_manifest_url<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, String> {

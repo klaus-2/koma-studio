@@ -89,7 +89,7 @@ impl MediaKind {
 
     fn mime_for(self, path: &Path) -> String {
         match self {
-            Self::Image => crate::commands::images::infer_mime_type_from_path(path),
+            Self::Image => crate::commands::images::infer_mime_type_from_path(path).to_owned(),
             Self::Font => match lower_extension(path).as_deref() {
                 Some("ttf") => "font/ttf",
                 Some("otf") => "font/otf",

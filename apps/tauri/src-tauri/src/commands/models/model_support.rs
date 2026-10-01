@@ -86,7 +86,7 @@ async fn install_via_backend_job<R: Runtime>(
     attempt: u32,
     cancelled: &AtomicBool,
 ) -> Result<String, DownloadTaskError> {
-    let config = build_runtime_config(app).map_err(DownloadTaskError::plain)?;
+    let config = build_runtime_config(app);
     if config.local_api_url.trim().is_empty() {
         return Err(DownloadTaskError::plain(
             "Mini backend is not available to install the local model.",
@@ -373,7 +373,7 @@ async fn validate_enhance_onnx_file<R: Runtime>(
     app: &AppHandle<R>,
     source_path: &Path,
 ) -> Result<(), String> {
-    let config = build_runtime_config(app)?;
+    let config = build_runtime_config(app);
     if config.local_api_url.trim().is_empty() {
         return Err("Mini backend is not available to validate the ONNX file.".to_string());
     }
