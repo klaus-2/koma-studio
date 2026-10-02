@@ -396,6 +396,7 @@ export const desktopCommandChannels = {
       list: "desktop-api:llm-profiles:list",
       save: "desktop-api:llm-profiles:save",
       remove: "desktop-api:llm-profiles:remove",
+      resolve: "desktop-api:llm-profiles:resolve-key",
     },
     blogger: {
       loadConfig: "desktop-api:blogger:config:load",
@@ -524,6 +525,8 @@ export interface DesktopApiNamespace {
     list(userId: string): Promise<unknown>;
     save(userId: string, profile: LlmProfilePayload): Promise<unknown>;
     remove(userId: string, profileId: string): Promise<unknown>;
+    /** Keychain-backed shells only (Tauri). Electron returns keys inline. */
+    resolveKey?(userId: string, profileId: string): Promise<unknown>;
   };
   blogger: {
     loadConfig(): Promise<{ config: BloggerConfig; secureStorage: boolean }>;

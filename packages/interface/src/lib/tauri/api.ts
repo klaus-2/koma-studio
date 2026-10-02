@@ -382,6 +382,10 @@ const tauriDesktopBridge: IDesktopBridge = {
         invokeCommand(desktopCommandChannels.api.llmProfiles.remove, {
           payload: { userId, profileId },
         }),
+      resolveKey: (userId: string, profileId: string) =>
+        invokeCommand(desktopCommandChannels.api.llmProfiles.resolve, {
+          payload: { userId, profileId },
+        }),
     },
     blogger: {
       loadConfig: () => invokeCommand(desktopCommandChannels.api.blogger.loadConfig),

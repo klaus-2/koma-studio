@@ -72,6 +72,25 @@ pub async fn llm_profiles_remove(
     }))
 }
 
+#[tauri::command(rename = "desktop-api:llm-profiles:resolve-key")]
+pub async fn llm_profiles_resolve_key(
+    app: AppHandle,
+    state: State<'_, ApiRuntimeState>,
+    payload: Value,
+) -> AppResult<Value> {
+    let _permit = state.llm_permit().await?;
+    let user_id = resolve_user_id(payload.get("userId").unwrap_or(&Value::Null));
+    let profile_id = payload
+        .get("profileId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::invalid_input("Perfil custom ausente."))?;
+
+    let api_key = llm::resolve_key(&app, user_id, &LlmProfileId(profile_id.to_string())).await?;
+    Ok(json!({ "apiKey": api_key }))
+}
+
 // --- wire adapters -----------------------------------------------------------
 
 fn resolve_user_id(payload: &Value) -> Option<LlmUserId> {
@@ -128,7 +147,9 @@ fn profile_from_wire(value: &Value) -> AppResult<LlmProfileInput> {
     let api_key = object
         .get("apiKey")
         .and_then(Value::as_str)
-        .map(|value| Zeroizing::new(value.trim().to_string()));
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| Zeroizing::new(value.to_string()));
 
     Ok(LlmProfileInput {
         id: LlmProfileId(id),
@@ -165,4 +186,41 @@ fn profile_to_json(profile: &LlmProfile) -> Value {
         "createdAt": profile.created_at,
         "updatedAt": profile.updated_at,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn empty_wire_api_key_means_keep_existing() {
+        let input = profile_from_wire(&json!({
+            "id": "prof-1",
+            "stage": "translation",
+            "label": "Local",
+            "apiBase": "http://127.0.0.1:11434/v1",
+            "apiKey": "",
+            "model": "qwen2.5:7b",
+        }))
+        .expect("profile should parse");
+
+        assert!(input.api_key.is_none());
+        assert!(!input.clear_api_key);
+    }
+
+    #[test]
+    fn filled_wire_api_key_is_trimmed_and_carried() {
+        let input = profile_from_wire(&json!({
+            "id": "prof-1",
+            "stage": "translation",
+            "label": "Cloud",
+            "apiBase": "https://openrouter.ai/api/v1",
+            "apiKey": "  sk-test  ",
+            "model": "qwen2.5:7b",
+        }))
+        .expect("profile should parse");
+
+        assert_eq!(input.api_key.as_ref().expect("key expected").as_str(), "sk-test");
+    }
 }

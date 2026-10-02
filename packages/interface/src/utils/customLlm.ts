@@ -775,6 +775,37 @@ export const persistLlmSettings = (settings: LlmRequestSettings): void => {
   );
 };
 
+/**
+ * Tauri keychain shells return `apiKey: ""` from list/save; keys live in the
+ * OS keychain and are resolved per profile. Electron returns keys inline and
+ * has no resolveKey — hydration is skipped there.
+ */
+interface DesktopLlmProfilesBridge {
+  resolveKey?(userId: string, profileId: string): Promise<unknown>;
+}
+
+const hydrateDesktopProfileKeys = async (
+  bridge: DesktopLlmProfilesBridge,
+  userId: string,
+  profiles: CustomLlmProfile[],
+): Promise<CustomLlmProfile[]> => {
+  if (!bridge.resolveKey) {
+    return profiles;
+  }
+
+  return Promise.all(
+    profiles.map(async (profile) => {
+      try {
+        const payload = (await bridge.resolveKey!(userId, profile.id)) as { apiKey?: string } | null;
+        const apiKey = typeof payload?.apiKey === "string" ? sanitizeApiKeyText(payload.apiKey) : "";
+        return apiKey ? { ...profile, apiKey } : profile;
+      } catch {
+        return profile;
+      }
+    }),
+  );
+};
+
 export const loadCustomLlmProfiles = async (userId?: string | null): Promise<{
   profiles: CustomLlmProfile[];
   mode: LlmProfilesPersistenceMode;
@@ -785,7 +816,7 @@ export const loadCustomLlmProfiles = async (userId?: string | null): Promise<{
   if (bridge) {
     const payload = (await bridge.list(normalizedUserId)) as DesktopProfileStorePayload | null;
     return {
-      profiles: normalizeProfiles(payload?.profiles),
+      profiles: await hydrateDesktopProfileKeys(bridge, normalizedUserId, normalizeProfiles(payload?.profiles)),
       mode: getDesktopMode(payload?.secureStorage),
     };
   }
@@ -823,10 +854,11 @@ export const saveCustomLlmProfile = async (
   if (bridge) {
     const payload = (await bridge.save(normalizedUserId, sanitizedProfile)) as DesktopSavedProfilePayload | null;
     const normalizedProfile = normalizeProfiles(payload?.profile ? [payload.profile] : [sanitizedProfile])[0] ?? sanitizedProfile;
+    const profiles = await hydrateDesktopProfileKeys(bridge, normalizedUserId, normalizeProfiles(payload?.profiles));
     return {
-      profiles: normalizeProfiles(payload?.profiles),
+      profiles,
       mode: getDesktopMode(payload?.secureStorage),
-      profile: normalizedProfile,
+      profile: profiles.find((profile) => profile.id === normalizedProfile.id) ?? normalizedProfile,
     };
   }
 

@@ -177,6 +177,7 @@ pub fn run() {
             commands::api::blogger::blogger_publish_post,
             commands::api::llm::llm_profiles_list,
             commands::api::llm::llm_profiles_save,
+            commands::api::llm::llm_profiles_resolve_key,
             commands::api::llm::llm_profiles_remove,
             commands::api::fonts::fonts_list,
             commands::api::fonts::fonts_import,

@@ -46,6 +46,7 @@ struct StoredProfiles {
 #[derive(Debug)]
 struct ScopedProfile {
     profile: LlmProfile,
+    scope: ProfileScope,
     priority: u8,
 }
 
@@ -183,6 +184,28 @@ pub async fn remove(
     })
 }
 
+/// Returns the API key stored in the OS keychain for a profile. Empty string
+/// when the profile exists but has no key. Used by the resolve-key command so
+/// the renderer can hydrate keys at runtime — list/save never carry them.
+pub async fn resolve_key(
+    app: &AppHandle,
+    user_id: Option<LlmUserId>,
+    profile_id: &LlmProfileId,
+) -> AppResult<String> {
+    validate_profile_id(profile_id)?;
+    let scope = resolve_scope(user_id);
+    let selected = merged_scoped_profiles(app, scope)
+        .await?
+        .into_iter()
+        .find(|entry| &entry.profile.id == profile_id)
+        .ok_or_else(|| AppError::NotConfigured("LLM profile was not found.".to_string()))?;
+
+    let secret = secret_store::get(key_account(&selected.scope, profile_id)).await?;
+    Ok(secret
+        .map(|value| value.expose().to_string())
+        .unwrap_or_default())
+}
+
 async fn merged_profiles(app: &AppHandle, scope: ProfileScope) -> AppResult<Vec<LlmProfile>> {
     Ok(merged_scoped_profiles(app, scope)
         .await?
@@ -222,6 +245,7 @@ async fn merged_scoped_profiles(
                     profile.id.clone(),
                     ScopedProfile {
                         profile,
+                        scope: source_scope.clone(),
                         priority,
                     },
                 );
