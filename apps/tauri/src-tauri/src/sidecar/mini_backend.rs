@@ -83,6 +83,15 @@ fn mini_venv_provisioning(python: &Path) -> bool {
 pub struct MiniBackendSidecarStore {
     child: Mutex<Option<CommandChild>>,
     pid: Mutex<Option<u32>>,
+    starting: AtomicBool,
+}
+
+struct StartupGuard<'a>(&'a AtomicBool);
+
+impl Drop for StartupGuard<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -105,6 +114,17 @@ pub async fn restart_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Re
 
 pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Result<(), String> {
     let sidecar_store = app.state::<MiniBackendSidecarStore>();
+
+    if sidecar_store
+        .starting
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        // Another start is in flight; it will finish the job.
+        return Ok(());
+    }
+    let _start_guard = StartupGuard(&sidecar_store.starting);
+
     if sidecar_store
         .child
         .lock()
@@ -120,7 +140,14 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
     let reuse_config = build_runtime_config(&app);
     let runtime_store = app.state::<MiniBackendRuntimeStore>();
     if check_local_backend_health(&reuse_config.local_api_url).await {
-        if kill_stale_instance(&reuse_config.local_api_url) {
+        // The stale check shells out to tasklist/PowerShell (hundreds of ms);
+        // it must not stall an async runtime worker.
+        let health_url = reuse_config.local_api_url.clone();
+        let stale_killed =
+            tauri::async_runtime::spawn_blocking(move || kill_stale_instance(&health_url))
+                .await
+                .map_err(|error| error.to_string())?;
+        if stale_killed {
             log::info!(
                 "mini-backend: stale instance on {} was left by a previous app run — killed it, starting fresh",
                 reuse_config.local_api_url
@@ -156,7 +183,16 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
             );
         }
     }
-    let command_spec = resolve_mini_backend_command(&app, &runtime_store)?;
+
+    // Command resolution probes the venv interpreter with a real python
+    // subprocess in dev builds - blocking work that belongs off the runtime.
+    let resolve_app = app.clone();
+    let command_spec = tauri::async_runtime::spawn_blocking(move || {
+        let runtime_store = resolve_app.state::<MiniBackendRuntimeStore>();
+        resolve_mini_backend_command(&resolve_app, &runtime_store)
+    })
+    .await
+    .map_err(|error| error.to_string())??;
 
     // Thin release without a downloaded runtime: no-op. The rest of the app
     // (login, sync) works because it talks to the self-hosted auth server
@@ -434,7 +470,7 @@ fn kill_stale_instance(local_api_url: &str) -> bool {
     if owner_pid == std::process::id() || process_is_alive(owner_pid) {
         return false; // a live app instance owns this sidecar
     }
-    let Some(port) = port_from_url(local_api_url) else {
+    let Some(port) = parse_configured_port(local_api_url) else {
         return false;
     };
     let Some(listener_pid) = port_listener_pid(port) else {
@@ -509,20 +545,16 @@ fn listener_looks_like_our_backend(pid: u32) -> bool {
         .unwrap_or(false)
 }
 
-/// "http://127.0.0.1:8001/health" → 8001
-fn port_from_url(url: &str) -> Option<u16> {
-    url.split(':')
-        .nth(2)?
-        .split('/')
-        .next()?
-        .parse::<u16>()
-        .ok()
-}
-
 pub fn stop_mini_backend<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     let store = app.state::<MiniBackendSidecarStore>();
-    let pid = *store.pid.lock().map_err(|error| error.to_string())?;
-    *store.pid.lock().map_err(|error| error.to_string())? = None;
+
+    // Single lock scope per mutex; lock order (pid -> child) matches
+    // handle_command_event so the two can never deadlock.
+    let pid = store
+        .pid
+        .lock()
+        .map_err(|error| error.to_string())?
+        .take();
     let child = store
         .child
         .lock()
@@ -747,11 +779,13 @@ async fn wait_for_mini_backend(
     exited: &AtomicBool,
 ) -> bool {
     for _ in 0..attempts {
-        if check_local_backend_health(local_api_url).await {
-            return true;
-        }
+        // Exit first: a dead child must fail fast even if some other process
+        // happens to answer health checks on the same port.
         if exited.load(Ordering::SeqCst) {
             return false;
+        }
+        if check_local_backend_health(local_api_url).await {
+            return true;
         }
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
@@ -1068,10 +1102,27 @@ mod tests {
     }
 
     #[test]
+    fn startup_guard_releases_the_latch_on_drop() {
+        let flag = AtomicBool::new(false);
+        assert!(flag
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok());
+        {
+            let _guard = StartupGuard(&flag);
+            // A second start must be refused while the guard is alive.
+            assert!(flag
+                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                .is_err());
+        }
+        // Any exit path (success, `?`, panic unwind) re-arms the latch.
+        assert!(!flag.load(Ordering::SeqCst));
+    }
+
+    #[test]
     fn extracts_port_from_local_api_url() {
-        assert_eq!(port_from_url("http://127.0.0.1:8001/health"), Some(8001));
-        assert_eq!(port_from_url("http://localhost:5173/"), Some(5173));
-        assert_eq!(port_from_url("http://127.0.0.1:9"), Some(9));
-        assert_eq!(port_from_url("not a url"), None);
+        assert_eq!(parse_configured_port("http://127.0.0.1:8001/health"), Some(8001));
+        assert_eq!(parse_configured_port("http://localhost:5173/"), Some(5173));
+        assert_eq!(parse_configured_port("http://127.0.0.1:9"), Some(9));
+        assert_eq!(parse_configured_port("not a url"), None);
     }
 }

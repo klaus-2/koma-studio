@@ -4,7 +4,7 @@
 //! normalize-then-verify of every path.
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Component, Path, PathBuf},
@@ -64,21 +64,9 @@ pub fn workspace_autosave_path(storage_dir: &Path, user_id: Option<&str>) -> Pat
     ))
 }
 
-fn validate_package(payload: &WorkspacePackagePayload) -> AppResult<()> {
-    let manifest = &payload.manifest;
-    if manifest.package_version != 1 || manifest.document_version != 1 {
-        return Err(AppError::Archive(
-            "This workspace is not compatible with this application version.".to_string(),
-        ));
-    }
-
-    if manifest.assets.len() > MAX_ASSETS || payload.assets.len() > MAX_ASSETS {
+fn validate_manifest_entries(manifest: &WorkspacePackageManifestV1) -> AppResult<()> {
+    if manifest.assets.len() > MAX_ASSETS {
         return Err(AppError::invalid_input("Workspace contains too many assets."));
-    }
-    if manifest.assets.len() != payload.assets.len() {
-        return Err(AppError::invalid_input(
-            "Workspace manifest and asset list have different lengths.",
-        ));
     }
 
     let mut ids = HashSet::with_capacity(manifest.assets.len());
@@ -89,7 +77,7 @@ fn validate_package(payload: &WorkspacePackagePayload) -> AppResult<()> {
         if entry.id.is_empty() || entry.id.len() > 128 {
             return Err(AppError::invalid_input("Invalid workspace asset ID."));
         }
-        if !ids.insert(entry.id.clone()) {
+        if !ids.insert(entry.id.as_str()) {
             return Err(AppError::invalid_input(
                 "Workspace contains duplicated asset IDs.",
             ));
@@ -113,6 +101,57 @@ fn validate_package(payload: &WorkspacePackagePayload) -> AppResult<()> {
         if total > MAX_TOTAL_UNCOMPRESSED_BYTES {
             return Err(AppError::invalid_input(
                 "Workspace exceeds the supported total size.",
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_package(payload: &WorkspacePackagePayload) -> AppResult<()> {
+    let manifest = &payload.manifest;
+    if manifest.package_version != 1 || manifest.document_version != 1 {
+        return Err(AppError::Archive(
+            "This workspace is not compatible with this application version.".to_string(),
+        ));
+    }
+
+    if manifest.assets.len() != payload.assets.len() {
+        return Err(AppError::invalid_input(
+            "Workspace manifest and asset list have different lengths.",
+        ));
+    }
+
+    validate_manifest_entries(manifest)?;
+
+    let mut by_id: HashMap<&str, &WorkspaceBinaryAssetPayload> =
+        HashMap::with_capacity(payload.assets.len());
+    for asset in &payload.assets {
+        if by_id.insert(asset.id.as_str(), asset).is_some() {
+            return Err(AppError::invalid_input(
+                "Workspace contains duplicated asset IDs.",
+            ));
+        }
+    }
+
+    for entry in &manifest.assets {
+        let asset = by_id.get(entry.id.as_str()).ok_or_else(|| {
+            AppError::invalid_input("Workspace manifest declares an asset that has no payload.")
+        })?;
+
+        if asset.buffer.len() as u64 != entry.byte_length {
+            return Err(AppError::invalid_input(
+                "Workspace asset buffer does not match its declared size.",
+            ));
+        }
+        if normalize_asset_path(&asset.path)? != normalize_asset_path(&entry.path)? {
+            return Err(AppError::invalid_input(
+                "Workspace asset path does not match its manifest entry.",
+            ));
+        }
+        if asset.file_name != entry.file_name || asset.mime_type != entry.mime_type {
+            return Err(AppError::invalid_input(
+                "Workspace asset metadata does not match its manifest entry.",
             ));
         }
     }
@@ -201,7 +240,11 @@ fn atomic_replace(temp_path: &Path, final_path: &Path) -> AppResult<()> {
         return Err(error.into());
     }
 
-    fs::remove_file(backup_path)?;
+    // The replacement already succeeded; a leftover backup is cosmetic and
+    // must never turn a completed save into a reported failure.
+    if let Err(error) = fs::remove_file(backup_path) {
+        tracing::warn!(error_kind = ?error.kind(), "workspace backup cleanup failed");
+    }
     Ok(())
 }
 
@@ -257,6 +300,7 @@ pub fn write_workspace_package(
         let file = writer.finish()?;
         file.sync_all()?;
         atomic_replace(&temp_path, file_path)?;
+        sync_directory(parent)?;
 
         Ok(())
     })();
@@ -304,7 +348,7 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
     }
 
     let manifest_bytes = {
-        let mut manifest_file = archive.by_name(MANIFEST_PATH).map_err(|_| {
+        let manifest_file = archive.by_name(MANIFEST_PATH).map_err(|_| {
             AppError::Archive("Workspace manifest is missing.".to_string())
         })?;
 
@@ -314,8 +358,17 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
             ));
         }
 
-        let mut bytes = Vec::with_capacity(manifest_file.size() as usize);
-        manifest_file.read_to_end(&mut bytes)?;
+        // ZIP headers can lie about the uncompressed size; the reader must be
+        // hard-capped instead of trusting the declared value.
+        let declared = manifest_file.size() as usize;
+        let mut limited = manifest_file.take(MAX_MANIFEST_BYTES + 1);
+        let mut bytes = Vec::with_capacity(declared);
+        limited.read_to_end(&mut bytes)?;
+        if bytes.len() as u64 > MAX_MANIFEST_BYTES {
+            return Err(AppError::Archive(
+                "Workspace manifest exceeds the supported size.".to_string(),
+            ));
+        }
         bytes
     };
 
@@ -327,6 +380,7 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
     }
 
     let manifest = normalized_manifest(&manifest)?;
+    validate_manifest_entries(&manifest)?;
 
     // Every archive entry must be declared by the manifest and vice versa.
     {
@@ -336,10 +390,19 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
         let mut found = HashSet::new();
         for index in 0..archive.len() {
             let file = archive.by_index(index)?;
+            if !file.is_file() {
+                return Err(AppError::Archive(
+                    "Workspace contains unexpected or duplicated entries.".to_string(),
+                ));
+            }
             let name = if file.name() == MANIFEST_PATH {
                 MANIFEST_PATH.to_string()
             } else {
-                normalize_asset_path(file.name())?
+                normalize_asset_path(file.name()).map_err(|_| {
+                    AppError::Archive(
+                        "Workspace contains unexpected or duplicated entries.".to_string(),
+                    )
+                })?
             };
             if !expected.remove(&name) || !found.insert(name) {
                 return Err(AppError::Archive(
@@ -357,7 +420,7 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
     let mut assets = Vec::with_capacity(manifest.assets.len());
     for entry in &manifest.assets {
         let normalized_path = normalize_asset_path(&entry.path)?;
-        let mut source = archive.by_name(&normalized_path)?;
+        let source = archive.by_name(&normalized_path)?;
 
         if !source.is_file() {
             return Err(AppError::Archive(format!(
@@ -385,11 +448,14 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
             ));
         }
 
+        // Same hard cap as the manifest: never read past declared + 1 byte,
+        // regardless of what the compressed stream actually inflates to.
+        let mut limited = source.take(entry.byte_length.saturating_add(1));
         let mut buffer = Vec::with_capacity(entry.byte_length as usize);
-        source.read_to_end(&mut buffer)?;
+        limited.read_to_end(&mut buffer)?;
         if buffer.len() as u64 != entry.byte_length {
             return Err(AppError::Archive(
-                "Workspace asset is truncated.".to_string(),
+                "Workspace asset size does not match its manifest entry.".to_string(),
             ));
         }
 
@@ -503,6 +569,18 @@ mod tests {
     }
 
     #[test]
+    fn rejects_buffer_and_manifest_length_mismatch() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("bad.koma");
+        let mut payload = sample_payload();
+
+        payload.assets[0].buffer = vec![1, 2, 3];
+
+        let error = write_workspace_package(&path, &payload).unwrap_err();
+        assert!(matches!(error, AppError::InvalidInput(_)));
+    }
+
+    #[test]
     fn rejects_duplicated_asset_ids() {
         let temp = tempfile::tempdir().unwrap();
         let path = temp.path().join("bad.koma");
@@ -520,4 +598,15 @@ mod tests {
         let error = write_workspace_package(&path, &payload).unwrap_err();
         assert!(matches!(error, AppError::InvalidInput(_)));
     }
+}
+
+#[cfg(unix)]
+fn sync_directory(path: &Path) -> AppResult<()> {
+    File::open(path)?.sync_all()?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn sync_directory(_path: &Path) -> AppResult<()> {
+    Ok(())
 }

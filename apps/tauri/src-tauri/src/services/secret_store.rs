@@ -6,6 +6,19 @@ use zeroize::Zeroizing;
 use crate::error::{AppError, AppResult};
 
 const KEYCHAIN_SERVICE: &str = "com.komastudio.desktop";
+const MAX_ACCOUNT_BYTES: usize = 512;
+
+/// Fails fast on programming errors (empty/oversized/control-char accounts)
+/// before they turn into opaque platform-specific keyring failures.
+fn validate_account(account: &str) -> AppResult<()> {
+    if account.is_empty()
+        || account.len() > MAX_ACCOUNT_BYTES
+        || account.chars().any(char::is_control)
+    {
+        return Err(AppError::invalid_input("Invalid keychain account name."));
+    }
+    Ok(())
+}
 
 pub struct SecretString(Zeroizing<String>);
 
@@ -27,6 +40,7 @@ impl std::fmt::Debug for SecretString {
 
 pub async fn get(account: impl Into<String>) -> AppResult<Option<SecretString>> {
     let account = account.into();
+    validate_account(&account)?;
 
     tokio::task::spawn_blocking(move || {
         let entry = keyring::Entry::new(KEYCHAIN_SERVICE, &account)?;
@@ -42,6 +56,7 @@ pub async fn get(account: impl Into<String>) -> AppResult<Option<SecretString>> 
 
 pub async fn set(account: impl Into<String>, secret: impl AsRef<str>) -> AppResult<()> {
     let account = account.into();
+    validate_account(&account)?;
     let secret = Zeroizing::new(secret.as_ref().to_string());
 
     tokio::task::spawn_blocking(move || {
@@ -54,6 +69,7 @@ pub async fn set(account: impl Into<String>, secret: impl AsRef<str>) -> AppResu
 
 pub async fn delete(account: impl Into<String>) -> AppResult<()> {
     let account = account.into();
+    validate_account(&account)?;
 
     tokio::task::spawn_blocking(move || {
         let entry = keyring::Entry::new(KEYCHAIN_SERVICE, &account)?;

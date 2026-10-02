@@ -29,6 +29,8 @@ const GUEST_SCOPE: &str = "__guest__";
 const SHARED_SCOPE: &str = "__shared__";
 const MAX_PROFILES_PER_SCOPE: usize = 256;
 
+static PROFILE_STORE_GUARD: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[derive(Debug, Clone)]
 enum ProfileScope {
     Guest,
@@ -51,6 +53,7 @@ struct ScopedProfile {
 }
 
 pub async fn list(app: &AppHandle, user_id: Option<LlmUserId>) -> AppResult<LlmProfilesResult> {
+    let _guard = PROFILE_STORE_GUARD.lock().await;
     let profiles = merged_profiles(app, resolve_scope(user_id)).await?;
 
     Ok(LlmProfilesResult {
@@ -75,6 +78,8 @@ pub async fn save(
     user_id: Option<LlmUserId>,
     input: &LlmProfileInput,
 ) -> AppResult<(Vec<LlmProfile>, LlmProfile)> {
+    let _guard = PROFILE_STORE_GUARD.lock().await;
+
     validate_profile_id(&input.id)?;
     let scope = resolve_scope(user_id);
     let mut stored = load_scope(app, &scope).await?;
@@ -151,6 +156,8 @@ pub async fn remove(
     user_id: Option<LlmUserId>,
     profile_id: &LlmProfileId,
 ) -> AppResult<LlmProfilesResult> {
+    let _guard = PROFILE_STORE_GUARD.lock().await;
+
     validate_profile_id(profile_id)?;
 
     let scope = resolve_scope(user_id);
@@ -192,6 +199,8 @@ pub async fn resolve_key(
     user_id: Option<LlmUserId>,
     profile_id: &LlmProfileId,
 ) -> AppResult<String> {
+    let _guard = PROFILE_STORE_GUARD.lock().await;
+
     validate_profile_id(profile_id)?;
     let scope = resolve_scope(user_id);
     let selected = merged_scoped_profiles(app, scope)
@@ -274,16 +283,15 @@ async fn load_scope(app: &AppHandle, scope: &ProfileScope) -> AppResult<StoredPr
 
     if let Ok(mut stored) = serde_json::from_value::<StoredProfiles>(value.clone()) {
         if stored.version == 2 {
-            sanitize_stored_profiles(&mut stored)?;
+            sanitize_stored_profiles(&mut stored);
             return Ok(stored);
         }
     }
 
-    migrate_legacy_profiles(app, scope, path, value).await
+    migrate_legacy_profiles(scope, path, value).await
 }
 
 async fn migrate_legacy_profiles(
-    _app: &AppHandle,
     scope: &ProfileScope,
     path: PathBuf,
     value: Value,
@@ -410,29 +418,45 @@ fn legacy_profile(value: &Value) -> AppResult<Option<LlmProfile>> {
     }))
 }
 
-fn sanitize_stored_profiles(stored: &mut StoredProfiles) -> AppResult<()> {
-    if stored.profiles.len() > MAX_PROFILES_PER_SCOPE {
-        return Err(AppError::Serialization(
-            "LLM profile store exceeds the supported limit.".to_string(),
-        ));
-    }
+fn sanitize_stored_profiles(stored: &mut StoredProfiles) {
+    stored.profiles.truncate(MAX_PROFILES_PER_SCOPE);
 
-    let mut ids = HashSet::new();
-    for profile in &mut stored.profiles {
-        validate_profile_id(&profile.id)?;
-        if !ids.insert(profile.id.clone()) {
-            return Err(AppError::Serialization(
-                "LLM profile store contains duplicated identifiers.".to_string(),
-            ));
+    let mut kept = BTreeMap::<LlmProfileId, LlmProfile>::new();
+    let mut dropped = 0_usize;
+
+    for mut profile in std::mem::take(&mut stored.profiles) {
+        let valid = validate_profile_id(&profile.id).is_ok()
+            && sanitize_required_text(&profile.label, 128, "profile label")
+                .map(|label| profile.label = label)
+                .is_ok()
+            && sanitize_required_text(&profile.model, 256, "model")
+                .map(|model| profile.model = model)
+                .is_ok()
+            && validate_api_base(&profile.api_base)
+                .map(|api_base| profile.api_base = api_base)
+                .is_ok();
+
+        if !valid {
+            dropped += 1;
+            continue;
         }
 
-        profile.label = sanitize_required_text(&profile.label, 128, "profile label")?;
-        profile.model = sanitize_required_text(&profile.model, 256, "model")?;
-        profile.api_base = validate_api_base(&profile.api_base)?;
+        match kept.get(&profile.id) {
+            Some(current) if timestamp(&current.updated_at) >= timestamp(&profile.updated_at) => {
+                dropped += 1;
+            }
+            _ => {
+                kept.insert(profile.id.clone(), profile);
+            }
+        }
     }
 
+    if dropped > 0 {
+        tracing::warn!(dropped, "invalid or duplicated LLM profiles were dropped");
+    }
+
+    stored.profiles = kept.into_values().collect();
     sort_profiles(&mut stored.profiles);
-    Ok(())
 }
 
 async fn write_scope(app: &AppHandle, scope: &ProfileScope, stored: StoredProfiles) -> AppResult<()> {

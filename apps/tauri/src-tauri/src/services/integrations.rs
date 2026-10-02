@@ -7,8 +7,13 @@ use percent_encoding::percent_decode_str;
 use url::{Url, form_urlencoded};
 
 const APP_PROTOCOL: &str = "komastudio";
+const PROTOCOL_WITH_COLON: &str = "komastudio:";
+const PROTOCOL_WITH_SLASHES: &str = "komastudio://";
 const MAX_DEEP_LINK_BYTES: usize = 8192;
 const MAX_ARGUMENTS: usize = 64;
+/// The widest allowlisted route accepts two keys; anything past this bound is
+/// hostile or malformed and gets rejected before per-pair validation runs.
+const MAX_QUERY_PAIRS: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ValidatedDeepLink {
@@ -52,13 +57,15 @@ fn normalize_deep_link_argument(raw: &str) -> Option<String> {
 }
 
 fn candidate_from_argument(raw: &str) -> Option<String> {
+    // `to_ascii_lowercase` preserves byte offsets, so the index found in the
+    // lowered copy is valid for slicing the original string.
     let lower = raw.to_ascii_lowercase();
-    let index = lower.find(&format!("{APP_PROTOCOL}:"))?;
+    let index = lower.find(PROTOCOL_WITH_COLON)?;
     let mut candidate = raw[index..].trim().to_string();
 
     if !candidate
         .to_ascii_lowercase()
-        .starts_with(&format!("{APP_PROTOCOL}://"))
+        .starts_with(PROTOCOL_WITH_SLASHES)
     {
         let suffix = candidate
             .split_once(':')
@@ -66,7 +73,7 @@ fn candidate_from_argument(raw: &str) -> Option<String> {
             .unwrap_or_default()
             .trim_start_matches('/');
 
-        candidate = format!("{APP_PROTOCOL}://{suffix}");
+        candidate = format!("{PROTOCOL_WITH_SLASHES}{suffix}");
     }
 
     Some(candidate)
@@ -92,6 +99,9 @@ fn validate_deep_link(value: &str) -> Option<ValidatedDeepLink> {
 
     let route = route_name(&parsed)?;
     let pairs: Vec<(Cow<'_, str>, Cow<'_, str>)> = parsed.query_pairs().collect();
+    if pairs.len() > MAX_QUERY_PAIRS {
+        return None;
+    }
 
     validate_query(&route, &pairs)?;
 
@@ -222,6 +232,24 @@ mod tests {
         assert_eq!(
             link.as_deref(),
             Some("komastudio://settings?tab=account")
+        );
+    }
+
+    #[test]
+    fn protocol_constants_are_consistent() {
+        assert_eq!(PROTOCOL_WITH_COLON, format!("{APP_PROTOCOL}:"));
+        assert_eq!(PROTOCOL_WITH_SLASHES, format!("{APP_PROTOCOL}://"));
+    }
+
+    #[test]
+    fn rejects_excessive_query_pairs() {
+        let query: String = (0..=MAX_QUERY_PAIRS)
+            .map(|index| format!("token=v{index}"))
+            .collect::<Vec<_>>()
+            .join("&");
+        assert_eq!(
+            deep_link_to_hash_route(&format!("komastudio://login?{query}")),
+            None
         );
     }
 }
