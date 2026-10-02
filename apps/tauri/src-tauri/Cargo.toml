@@ -3,8 +3,8 @@ name = "koma-studio-v2"
 version = "2.0.0-alpha.0"
 description = "KŌMA Studio v2 — Tauri shell"
 authors = ["KŌMA Studio"]
-edition = "2021"
-rust-version = "1.77"
+edition = "2024"
+rust-version = "1.85"
 autobins = false
 default-run = "koma-studio-v2"
 
