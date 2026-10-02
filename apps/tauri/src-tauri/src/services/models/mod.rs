@@ -465,7 +465,10 @@ fn emit_progress(
     observer(ModelServiceEvent::Progress {
         bytes_downloaded,
         total_bytes,
-        speed_bytes_per_second: snapshot.speed_bytes_per_second.unwrap_or(0),
+        speed_bytes_per_second: snapshot
+            .speed_bytes_per_second
+            .unwrap_or(0.0)
+            .max(0.0) as u64,
         percent: percent.clamp(0.0, if has_real_total { 100.0 } else { 98.0 }),
     });
 }

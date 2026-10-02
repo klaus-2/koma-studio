@@ -110,6 +110,39 @@ fn events_serialize_with_camel_case_tag_and_fields() {
     assert!(json.get("code").is_none());
 }
 
+// Regression pin: the backend's job snapshot reports speed as a JSON float
+// ("speedBytesPerSecond": 0.0). Typing it as u64 failed every snapshot and
+// downloads died at 0 B / 0% after exhausting poll failures.
+#[test]
+fn backend_snapshot_accepts_float_speed_and_null_total() {
+    use crate::services::models::backend::BackendJobSnapshot;
+
+    let payload = r#"{
+        "jobId": "d5f1e2a3b4c6d7e8f9a0b1c2d3e4f5a6",
+        "modelId": "manga_ocr",
+        "state": "downloading",
+        "bytesDownloaded": 0,
+        "totalBytes": null,
+        "speedBytesPerSecond": 0.0,
+        "percent": 0.0,
+        "attempt": 0,
+        "createdAt": "2026-09-05T00:00:00Z"
+    }"#;
+    let snapshot: BackendJobSnapshot =
+        serde_json::from_str(payload).expect("backend snapshot must deserialize");
+    assert_eq!(snapshot.state, "downloading");
+    assert_eq!(snapshot.bytes_downloaded, 0);
+    assert_eq!(snapshot.total_bytes, None);
+    assert_eq!(snapshot.speed_bytes_per_second, Some(0.0));
+
+    let flowing = payload
+        .replace(r#""bytesDownloaded": 0"#, r#""bytesDownloaded": 1024"#)
+        .replace(r#""speedBytesPerSecond": 0.0"#, r#""speedBytesPerSecond": 153600.0"#);
+    let snapshot: BackendJobSnapshot =
+        serde_json::from_str(&flowing).expect("flowing snapshot must deserialize");
+    assert_eq!(snapshot.speed_bytes_per_second, Some(153600.0));
+}
+
 #[test]
 fn checksum_header_parser_accepts_explicit_sha256() {
     assert_eq!(

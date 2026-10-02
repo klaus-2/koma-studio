@@ -49,7 +49,10 @@ pub struct BackendJobSnapshot {
     pub bytes_downloaded: u64,
     pub total_bytes: Option<u64>,
     pub percent: Option<f64>,
-    pub speed_bytes_per_second: Option<u64>,
+    // The backend reports speed as a float (`round(x, 1)`, `0.0` when idle);
+    // typing this as u64 failed every snapshot with "invalid type: floating
+    // point" and the download died at 0 B after exhausting poll failures.
+    pub speed_bytes_per_second: Option<f64>,
     pub error_message: Option<String>,
     pub error_code: Option<String>,
 }
