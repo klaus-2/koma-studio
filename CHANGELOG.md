@@ -3,6 +3,142 @@
 Versions match the tags under `refs/tags/v*`. Entries describe what changed
 between two tags, with the commit that carries each change.
 
+## [v1.0.3] - 2026-10-02
+
+13 commits since v1.0.2, and this time they are in the Rust side of the Tauri
+shell rather than the Python side. Most of it is input validation and error
+typing on code that talks to the OS keyring, the network and the filesystem.
+
+### Security
+
+- A Tauri workspace manifest declaring 10k assets of 512 MiB each passed every
+  per-asset cap and buffered 5 TB, because the read path did not run the
+  structural validation the write path runs. Reads now share
+  `validate_manifest_entries`, and take `declared + 1` bytes instead of
+  trusting the ZIP headers for the manifest and for every asset. (82c274b)
+- Certificate pins were checked against the end-entity certificate only. They
+  are now anchored against the full presented chain, so a rotated leaf inside
+  a pinned chain still validates. The pinned client builder was unified with
+  the public one for connect timeout, redirect bound and user agent. (af96795)
+- `api_client.method()` accepted any HTTP method the frontend asked for,
+  TRACE, CONNECT and custom verbs included. There is an explicit allowlist now.
+  (af96795)
+- Imgur delete hashes reached the URL path through form encoding. They are
+  validated as alphanumeric and at most 128 characters before the keychain
+  lookup and the URL build. (af96795)
+- `install_bytes` for fonts checked the file extension and nothing else, so any
+  payload named `.ttf` was accepted as a font. The magic-byte signature test is
+  shared with `install_from_path` now, covering ttf, otf, woff and woff2 under a
+  64 MiB cap. (af96795, 4cfd212)
+- Base URLs are HTTPS-only with loopback exempt, responses are capped at 8 MiB,
+  and deep links go through an allowlist with duplicate query keys rejected.
+  (4cfd212)
+- Renderer log lines are sanitized: control characters are replaced and length
+  is capped at 8 KiB on a character boundary, so a stray `\n` can no longer
+  forge a log line or inject terminal escapes. (ff91eea)
+- Keychain account names are validated for empty, oversized and control
+  characters before the blocking call. Secrets are zeroized after use.
+  (82c274b, 4cfd212)
+- Model download retry logic was backwards: `is_retryable_error` retried
+  everything except a sha512 mismatch. Transport errors and 408, 429, 500,
+  502, 503 and 504 retry now, while integrity and local I/O failures are
+  terminal, with a test pinning that. (25c434c)
+
+### Fixed
+
+- Custom LLM API keys came back empty after saving on Tauri. The profile
+  rewrite stores keys in the OS keychain and answers list and save with
+  `apiKey: ""` plus a `hasApiKey` flag, but the frontend consumes `apiKey`
+  inline, which is the contract Electron keeps by returning keys directly.
+  Validation failed on save and `custom_llm` requests went out without the key.
+  A `desktop-api:llm-profiles:resolve-key` command returns the keychain secret
+  for one profile, and `customLlm.ts` hydrates keys on the desktop bridge path
+  after list and save. (9fbcc47)
+- Model downloads sat at 0%. Progress emitted a `patch_runtime_state` per
+  stream chunk, which is thousands of IPC events per second on a multi-gigabyte
+  download, and the speed snapshot was a float. Emission is throttled to about
+  10 per second with a guaranteed final frame, and the hot write path uses a
+  256 KiB `BufWriter` with an explicit flush before the sha512 re-open.
+  (25c434c)
+- Two concurrent sidecar starts could both pass the child check and then fight
+  over the port. A single-flight `AtomicBool` with an RAII guard re-arms on
+  every exit path, and `wait_for_mini_backend` reads the exited flag before the
+  health check, so a dead child fails fast even when a foreign instance answers
+  on the port. (82c274b)
+- `sanitize_stored_profiles` bricked list and save permanently on a single
+  corrupted entry. Invalid entries are dropped with a warning and duplicate ids
+  keep the newest record. The profile store read-modify-write is serialized by
+  one mutex acquired per public entry point. (82c274b)
+- `atomic_replace` failed a completed save when the backup cleanup errored. It
+  warns now, and the parent directory is fsynced. (82c274b)
+- A failed font rename left the `.tmp` file behind, and one corrupt stray font
+  aborted the whole manifest reconciliation, which took `list()` down with it.
+  (af96795)
+- `load_or_create_fallback_id().unwrap_or_default()` swallowed the real I/O
+  error, and building the CPU and memory profile called `System::new_all()`,
+  which walks the entire process table. (af96795)
+- Listing a folder for images ran synchronously on the main thread, so a large
+  directory froze the webview. It is async over `spawn_blocking` now, the
+  extension scan is a string operation before any `stat()`, and non-UTF-8 paths
+  are logged and skipped instead of producing an unservable lossy path.
+  (ff91eea)
+- The downloaded archive was only reclaimed when `binary_path` existed, so a
+  failed extraction leaked the temp zip. (25c434c)
+- `dev:electron` failed intermittently with `mini_backend_health_timeout` on a
+  CUDA machine that was healthy. Measured on first boot of the day:
+  `detection.model_loaded` at +145s, `warmup.done` at +151.17s, then health 200
+  immediately. The dev budget was 120s, so it was about 30s short, and earlier
+  boots passed because the OS file cache was warm. Raised to 360s, roughly 2.4
+  times the worst cold run observed. (04d6c3e)
+- The bug report and Discord command rewrite did not compile. `#[serde(other)]`
+  sat on the second enum variant instead of the last one, which invalidated the
+  whole `Deserialize` derive. (537f638)
+- OCR fallback applied gamma in the wrong domain: the formula computed
+  `(mean/255)^gamma` in 0-255 and then applied it in 0-1. There is one shared
+  LUT-based `gamma_normalize` now, used by detection and ocr alike. Detection
+  fallback also built all 5 to 7 variants eagerly, including a 2048px cubic
+  upscale, before the first pass, and used a float64 `np.power` over the full
+  page. Variants are lazy and off the event loop, gamma is a 256-entry LUT, the
+  original pass exits early, and the `except TypeError` engine-signature probe
+  is gone because the `BaseOCR` contract already declares
+  `cancellation_event`. (0165fff)
+
+### Structure
+
+- `Result<_, String>` became `AppResult` across the models, runtime, api
+  client, imgur, fonts, identity and cert pinning layers. `AppError` grew
+  NotAllowed, Conflict, NotConfigured, Authentication, Security, Network,
+  Serialization, Archive, Update, Remote, RateLimited and CommandError, with
+  typed `From` impls for serde_json, zip, tauri, reqwest, keyring and JoinError.
+  A `RuntimeError` with thiserror and a manual `{kind, message}` serialization
+  covers the runtime profile commands. (b19047b, 4cfd212, 1e049c8, 25c434c)
+- Command files are thin typed layers now. Models, API, fonts, identity,
+  imgur, integrations and the model manager live under `services/`, workspace
+  models and download state moved to `models/` and `state.rs`, and the queue,
+  active and reserved sets sit on one `ModelDownloadStore` mutex that is never
+  held across an await. (4cfd212, 81b5bff)
+- Session logging held the log file open for the process lifetime. Before that
+  it did `create_dir_all`, open and close on every line, on the main thread.
+  (ff91eea)
+- Both Tauri crates moved from Rust edition 2021 to edition 2024, with MSRV
+  1.85. Tauri stays on 2.11.5 because 3.x is not stable yet. (85e2766)
+- The kill-stale-instance probe and the dev venv probe left the async runtime
+  for `spawn_blocking`, and the duplicated `split(':')` port parser collapsed
+  into `parse_configured_port`. (82c274b)
+
+### Contracts and checks
+
+Wire contracts held: the `desktop:*` command names, the
+`mini-backend-runtime` event channel, `emit_to(main)`, and the state and patch
+shapes are unchanged, because the workspace and Imgur payloads are shared with
+the Electron shell as buffers and base64. The error payload for three desktop
+runtime commands moved to `{kind, message}`, matching the commands already
+migrated. (b19047b, 25c434c)
+
+`cargo test` went 111, then 113, then 117 passed across the batch, with the same
+one pre-existing sidecar failure each time. Clippy sits at one pre-existing
+warning.
+
 ## [v1.0.2] - 2026-10-01
 
 21 commits since v1.0.1, almost all of them in the bundled Python mini-backend.
