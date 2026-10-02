@@ -13,11 +13,11 @@ use std::{
 
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
-use sysinfo::System;
+use sysinfo::{RefreshKind, System};
 use uuid::Uuid;
 
 use crate::{
-    error::{AppError, AppResult},
+    error::AppResult,
     models::identity::{HardwareId, MacFingerprint, MachineProfile},
     services::api_client::{now_iso, read_json_file, stable_hash, write_json_file},
 };
@@ -36,18 +36,17 @@ struct IdentityCache {
 }
 
 pub fn resolve_hardware_id(app_data_dir: &Path) -> AppResult<HardwareId> {
-    let source = machine_uid::get()
+    let machine_source = machine_uid::get()
         .ok()
         .map(|source| source.trim().to_string())
-        .filter(|source| !source.is_empty())
-        .unwrap_or_else(|| load_or_create_fallback_id(app_data_dir).unwrap_or_default());
+        .filter(|source| !source.is_empty());
 
-    if source.is_empty() {
-        return Err(AppError::internal(
-            "identity source unavailable",
-            "no machine uid and no fallback installation id",
-        ));
-    }
+    // The fallback never yields an empty string (validated existing UUID or a
+    // freshly generated one); a real I/O failure propagates with its cause.
+    let source = match machine_source {
+        Some(source) => source,
+        None => load_or_create_fallback_id(app_data_dir)?,
+    };
 
     Ok(HardwareId(format!(
         "hw-{}",
@@ -67,7 +66,9 @@ pub fn resolve_mac_fingerprint(app_data_dir: &Path) -> AppResult<MacFingerprint>
 pub fn collect_machine_profile(app_data_dir: &Path) -> AppResult<MachineProfile> {
     let hardware_id = resolve_hardware_id(app_data_dir)?;
     let mac_fingerprint = resolve_mac_fingerprint(app_data_dir)?;
-    let system = System::new_all();
+    // The profile only needs CPU and memory; scanning the whole process
+    // table (`new_all`) costs tens of unnecessary milliseconds at startup.
+    let system = System::new_with_specifics(RefreshKind::everything().without_processes());
 
     let processor_model = system
         .cpus()

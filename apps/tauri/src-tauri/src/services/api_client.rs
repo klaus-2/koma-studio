@@ -100,16 +100,14 @@ pub fn http_client() -> AppResult<Client> {
 
 pub fn http_client_for_app<R: Runtime>(app: &AppHandle<R>) -> AppResult<Client> {
     cached_client(&PINNED_HTTP_CLIENT, || {
-        crate::security::cert_pinning::pinned_http_client(
-            app,
-            Duration::from_secs(30),
+        crate::security::cert_pinning::pinned_http_client(app, Duration::from_secs(30)).inspect_err(
+            |error| {
+                tracing::error!(
+                    error_kind = error.kind(),
+                    "pinned HTTP client initialization failed"
+                );
+            },
         )
-        .map_err(|error| {
-            tracing::error!(error = %error, "pinned HTTP client initialization failed");
-            AppError::Security(
-                "Certificate-pinned HTTP client initialization failed.".to_string(),
-            )
-        })
     })
 }
 
@@ -300,8 +298,19 @@ fn sanitize_remote_message(value: &str) -> String {
     }
 }
 
+/// Explicit allowlist: the frontend never decides which HTTP methods this
+/// process emits (blocks TRACE/CONNECT and arbitrary custom methods).
 pub fn method(name: &str) -> AppResult<Method> {
-    Method::from_bytes(name.as_bytes()).map_err(|_| AppError::invalid_input("Invalid HTTP method."))
+    match name.trim().to_ascii_uppercase().as_str() {
+        "GET" => Ok(Method::GET),
+        "POST" => Ok(Method::POST),
+        "PUT" => Ok(Method::PUT),
+        "PATCH" => Ok(Method::PATCH),
+        "DELETE" => Ok(Method::DELETE),
+        "HEAD" => Ok(Method::HEAD),
+        "OPTIONS" => Ok(Method::OPTIONS),
+        _ => Err(AppError::invalid_input("Invalid HTTP method.")),
+    }
 }
 
 pub fn app_data_dir<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {

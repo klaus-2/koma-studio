@@ -37,6 +37,11 @@ const MAX_BATCH: usize = 100;
 const MAX_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
 const RATE_WINDOW_MS: i64 = 60 * 60 * 1000;
 
+/// Serializes every read-modify-write of the rate ledger. Tauri commands run
+/// concurrently; without mutual exclusion two simultaneous reservations could
+/// exceed the local hourly limit.
+static RATE_LEDGER_GUARD: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredImgurConfig {
@@ -234,7 +239,8 @@ pub async fn upload(
     }
 
     let client = http_client()?;
-    let mut uploaded = Vec::with_capacity(items.len());
+    let total = items.len();
+    let mut uploaded = Vec::with_capacity(total);
 
     for (index, item) in items.into_iter().enumerate() {
         validate_asset(&item.asset).await?;
@@ -243,12 +249,19 @@ pub async fn upload(
         match upload_one(&client, &keys, item).await {
             Ok(image) => uploaded.push(image),
             Err(error) => {
-                rollback_rate_slot(app, &reservation).await?;
+                // The original error is the root cause; a rollback failure is
+                // observable via tracing and never replaces the upload error.
+                if let Err(rollback_error) = rollback_rate_slot(app, &reservation).await {
+                    tracing::error!(
+                        error_kind = rollback_error.kind(),
+                        "imgur rate reservation rollback failed"
+                    );
+                }
                 return Err(error);
             }
         }
 
-        if index + 1 < uploaded.capacity() && config.batch_delay_ms > 0 {
+        if index + 1 < total && config.batch_delay_ms > 0 {
             tokio::time::sleep(Duration::from_millis(config.batch_delay_ms)).await;
         }
     }
@@ -322,10 +335,7 @@ async fn upload_one(
 
         let direct_url = required_https_url(data, "link")?;
         let remote_id = required_string(data, "id")?;
-        let delete_hash = data
-            .get("deletehash")
-            .and_then(Value::as_str)
-            .filter(|value| !value.trim().is_empty());
+        let delete_hash = validated_delete_hash(data);
 
         if let Some(delete_hash) = delete_hash {
             let account = format!(
@@ -334,7 +344,7 @@ async fn upload_one(
             );
 
             if let Err(error) = secret_store::set(account, delete_hash).await {
-                cleanup_uploaded_image(client, delete_hash).await;
+                cleanup_uploaded_image(client, &key.credential, delete_hash).await;
                 return Err(error);
             }
         }
@@ -360,6 +370,23 @@ async fn upload_one(
     Err(AppError::Authentication(
         "All enabled Imgur credentials were rejected or rate-limited.".to_string(),
     ))
+}
+
+/// Imgur delete hashes are alphanumeric; anything else is rejected before it
+/// reaches the keychain or a URL path (anti path-injection).
+fn validated_delete_hash(data: &Value) -> Option<&str> {
+    let candidate = data
+        .get("deletehash")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+
+    if candidate.len() <= 128 && candidate.chars().all(|ch| ch.is_ascii_alphanumeric()) {
+        Some(candidate)
+    } else {
+        tracing::warn!("Imgur returned a malformed delete hash; it was discarded");
+        None
+    }
 }
 
 async fn validate_asset(asset: &AuthorizedWorkspaceAsset) -> AppResult<()> {
@@ -562,6 +589,8 @@ async fn rollback_secret_changes(changes: &[SecretChange]) {
 }
 
 async fn reserve_rate_slot(app: &AppHandle, limit: u32) -> AppResult<String> {
+    let _guard = RATE_LEDGER_GUARD.lock().await;
+
     let now = chrono::Utc::now().timestamp_millis();
     let mut ledger = read_rate_ledger(app).await?;
     prune_rate_ledger(&mut ledger, now);
@@ -582,12 +611,16 @@ async fn reserve_rate_slot(app: &AppHandle, limit: u32) -> AppResult<String> {
 }
 
 async fn rollback_rate_slot(app: &AppHandle, reservation: &str) -> AppResult<()> {
+    let _guard = RATE_LEDGER_GUARD.lock().await;
+
     let mut ledger = read_rate_ledger(app).await?;
     ledger.records.retain(|record| record.id != reservation);
     write_rate_ledger(app, ledger).await
 }
 
 async fn rate_status(app: &AppHandle, limit: u32) -> AppResult<ImgurRateStatus> {
+    let _guard = RATE_LEDGER_GUARD.lock().await;
+
     let now = chrono::Utc::now().timestamp_millis();
     let mut ledger = read_rate_ledger(app).await?;
     let original_len = ledger.records.len();
@@ -660,12 +693,19 @@ fn prune_rate_ledger(ledger: &mut RateLedger, now: i64) {
         .retain(|record| record.timestamp_ms >= cutoff);
 }
 
-async fn cleanup_uploaded_image(client: &Client, delete_hash: &str) {
+/// The Imgur delete API requires the same `Client-ID` auth as the upload;
+/// without the header the transactional cleanup is silently rejected (401).
+async fn cleanup_uploaded_image(
+    client: &Client,
+    credential: &secret_store::SecretString,
+    delete_hash: &str,
+) {
     let response = client
-        .delete(format!(
-            "https://api.imgur.com/3/image/{}",
-            url::form_urlencoded::byte_serialize(delete_hash.as_bytes()).collect::<String>()
-        ))
+        .delete(format!("https://api.imgur.com/3/image/{delete_hash}"))
+        .header(
+            reqwest::header::AUTHORIZATION,
+            format!("Client-ID {}", credential.expose()),
+        )
         .send()
         .await;
 

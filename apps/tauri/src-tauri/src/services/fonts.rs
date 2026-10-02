@@ -11,6 +11,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 
 use serde::{Deserialize, Serialize};
@@ -24,6 +25,10 @@ use crate::{
 
 pub const FONT_EXTENSIONS: &[&str] = &["ttf", "otf", "woff", "woff2"];
 pub const MAX_FONT_BYTES: u64 = 64 * 1024 * 1024;
+
+/// ~20 emissions/s worst case — inside the 10-30 updates/s window for
+/// progress events crossing the IPC boundary.
+const PROGRESS_EMIT_INTERVAL: Duration = Duration::from_millis(50);
 
 pub type ProgressObserver = std::sync::Arc<dyn Fn(FontInstallProgress) + Send + Sync + 'static>;
 
@@ -107,6 +112,16 @@ pub fn install_bytes<R: tauri::Runtime>(
         )
     })?;
 
+    // Same guarantee as the path-based import: the declared extension must
+    // match the actual binary before any byte touches the disk.
+    let signature: [u8; 4] = bytes
+        .get(..4)
+        .and_then(|header| header.try_into().ok())
+        .ok_or_else(signature_mismatch)?;
+    if !signature_matches(signature, extension) {
+        return Err(signature_mismatch());
+    }
+
     let fallback_family = file_stem(source_name);
     let family = sanitize_family(requested_family.unwrap_or(&fallback_family));
 
@@ -117,7 +132,7 @@ pub fn install_bytes<R: tauri::Runtime>(
     let final_path = directory.join(&file_name);
     let temp_path = directory.join(format!(".{}.tmp", Uuid::new_v4()));
 
-    let write_result = write_font_bytes(&temp_path, bytes, bytes.len() as u64, progress);
+    let write_result = write_font_bytes(&temp_path, bytes, progress);
 
     if let Err(error) = write_result {
         remove_if_exists(&temp_path);
@@ -198,7 +213,10 @@ pub fn install_from_path<R: tauri::Runtime>(
         return Err(error);
     }
 
-    fs::rename(&temp_path, &final_path)?;
+    if let Err(error) = fs::rename(&temp_path, &final_path) {
+        remove_if_exists(&temp_path);
+        return Err(error.into());
+    }
 
     manifest.fonts.insert(
         id.clone(),
@@ -292,9 +310,9 @@ pub fn font_extension(file_name: &str) -> Option<&'static str> {
 fn write_font_bytes(
     destination: &Path,
     bytes: &[u8],
-    total: u64,
     progress: Option<ProgressObserver>,
 ) -> AppResult<()> {
+    let total = bytes.len() as u64;
     let mut file = OpenOptions::new()
         .create_new(true)
         .write(true)
@@ -302,28 +320,45 @@ fn write_font_bytes(
     set_private_permissions(&file)?;
 
     let mut written = 0_u64;
+    let mut last_emit: Option<Instant> = None;
     for chunk in bytes.chunks(128 * 1024) {
         file.write_all(chunk)?;
         written += chunk.len() as u64;
-
-        if let Some(observer) = progress.as_ref() {
-            observer(FontInstallProgress {
-                transferred: written,
-                total,
-                percent: (written as f64 / total as f64 * 100.0).clamp(0.0, 100.0),
-            });
-        }
+        emit_progress(progress.as_ref(), &mut last_emit, written, total);
     }
 
     file.sync_all()?;
+    emit_progress(progress.as_ref(), &mut last_emit, total, total);
+    Ok(())
+}
 
-    if written != total {
-        return Err(AppError::Conflict(
-            "The font changed while it was being imported.".to_string(),
-        ));
+/// The final event is always emitted; intermediate ones are time-throttled so
+/// large files do not flood the IPC channel (10-30 updates/s window).
+fn emit_progress(
+    progress: Option<&ProgressObserver>,
+    last_emit: &mut Option<Instant>,
+    transferred: u64,
+    total: u64,
+) {
+    let Some(observer) = progress else {
+        return;
+    };
+
+    let finished = transferred >= total;
+    if !finished && last_emit.is_some_and(|instant| instant.elapsed() < PROGRESS_EMIT_INTERVAL) {
+        return;
     }
 
-    Ok(())
+    *last_emit = Some(Instant::now());
+    observer(FontInstallProgress {
+        transferred,
+        total,
+        percent: if total == 0 {
+            100.0
+        } else {
+            (transferred as f64 / total as f64 * 100.0).clamp(0.0, 100.0)
+        },
+    });
 }
 
 fn copy_font(
@@ -341,6 +376,7 @@ fn copy_font(
 
     let mut buffer = vec![0_u8; 128 * 1024];
     let mut transferred = 0_u64;
+    let mut last_emit: Option<Instant> = None;
 
     loop {
         let read = source.read(&mut buffer)?;
@@ -350,17 +386,11 @@ fn copy_font(
 
         destination.write_all(&buffer[..read])?;
         transferred += read as u64;
-
-        if let Some(observer) = progress.as_ref() {
-            observer(FontInstallProgress {
-                transferred,
-                total,
-                percent: (transferred as f64 / total as f64 * 100.0).clamp(0.0, 100.0),
-            });
-        }
+        emit_progress(progress.as_ref(), &mut last_emit, transferred, total);
     }
 
     destination.sync_all()?;
+    emit_progress(progress.as_ref(), &mut last_emit, total, total);
 
     if transferred != total {
         return Err(AppError::Conflict(
@@ -371,13 +401,27 @@ fn copy_font(
     Ok(())
 }
 
+fn signature_mismatch() -> AppError {
+    AppError::UnsupportedMediaType(
+        "The font signature does not match its file extension.".to_string(),
+    )
+}
+
 fn validate_font_signature(path: &Path, extension: &str) -> AppResult<()> {
     let mut file = File::open(path)?;
     let mut signature = [0_u8; 4];
     file.read_exact(&mut signature)?;
     file.seek(SeekFrom::Start(0))?;
 
-    let valid = match extension {
+    if signature_matches(signature, extension) {
+        Ok(())
+    } else {
+        Err(signature_mismatch())
+    }
+}
+
+fn signature_matches(signature: [u8; 4], extension: &str) -> bool {
+    match extension {
         "ttf" => {
             signature == [0x00, 0x01, 0x00, 0x00]
                 || signature == *b"true"
@@ -387,15 +431,7 @@ fn validate_font_signature(path: &Path, extension: &str) -> AppResult<()> {
         "woff" => signature == *b"wOFF",
         "woff2" => signature == *b"wOF2",
         _ => false,
-    };
-
-    if !valid {
-        return Err(AppError::UnsupportedMediaType(
-            "The font signature does not match its file extension.".to_string(),
-        ));
     }
-
-    Ok(())
 }
 
 fn reconcile_manifest(directory: &Path) -> AppResult<FontManifest> {
@@ -460,7 +496,16 @@ fn reconcile_manifest(directory: &Path) -> AppResult<FontManifest> {
             continue;
         }
 
-        validate_font_signature(&path, extension)?;
+        // One corrupt stray file must not take down the whole listing: it is
+        // skipped (logged) and left on disk for manual inspection.
+        if let Err(error) = validate_font_signature(&path, extension) {
+            tracing::warn!(
+                error_kind = error.kind(),
+                "stray font failed signature validation and was skipped"
+            );
+            continue;
+        }
+
         let id = FontId(Uuid::new_v4().to_string());
         let managed_name = format!("{}.{}", id.0, extension);
         fs::rename(&path, directory.join(&managed_name))?;
@@ -564,4 +609,20 @@ fn set_private_permissions(file: &File) -> AppResult<()> {
 #[cfg(not(unix))]
 fn set_private_permissions(_file: &File) -> AppResult<()> {
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signature_matching_covers_all_supported_formats() {
+        assert!(signature_matches([0x00, 0x01, 0x00, 0x00], "ttf"));
+        assert!(signature_matches(*b"true", "ttf"));
+        assert!(signature_matches(*b"OTTO", "otf"));
+        assert!(signature_matches(*b"wOFF", "woff"));
+        assert!(signature_matches(*b"wOF2", "woff2"));
+        assert!(!signature_matches(*b"OTTO", "ttf"));
+        assert!(!signature_matches([0xFF; 4], "woff2"));
+    }
 }

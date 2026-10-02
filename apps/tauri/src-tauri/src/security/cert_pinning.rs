@@ -12,10 +12,14 @@ use rustls::{
 use rustls_platform_verifier::Verifier as PlatformVerifier;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use reqwest::redirect::Policy;
 use tauri::{AppHandle, Runtime};
 use url::Url;
 
-use crate::commands::desktop::build_runtime_config;
+use crate::{
+    commands::desktop::build_runtime_config,
+    error::{AppError, AppResult},
+};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -25,20 +29,20 @@ pub struct CertificatePinningSnapshot {
 }
 
 #[tauri::command(rename = "desktop-api:security:cert-pinning:snapshot")]
-pub fn snapshot<R: Runtime>(app: AppHandle<R>) -> Result<CertificatePinningSnapshot, String> {
-    let pins = resolve_certificate_pins(&app)?;
-    Ok(CertificatePinningSnapshot {
+pub fn snapshot<R: Runtime>(app: AppHandle<R>) -> CertificatePinningSnapshot {
+    let pins = resolve_certificate_pins(&app);
+    CertificatePinningSnapshot {
         configured: !pins.is_empty(),
         hosts: pins
             .into_iter()
             .map(|(host, values)| (host, values.into_iter().collect()))
             .collect(),
-    })
+    }
 }
 
 pub fn resolve_certificate_pins<R: Runtime>(
     app: &AppHandle<R>,
-) -> Result<BTreeMap<String, BTreeSet<String>>, String> {
+) -> BTreeMap<String, BTreeSet<String>> {
     let config = build_runtime_config(app);
     let rules = [
         (config.auth_api_url, "AUTH_API_CERT_PINS_SHA256"),
@@ -58,29 +62,39 @@ pub fn resolve_certificate_pins<R: Runtime>(
         }
         by_host.entry(host).or_default().extend(pins);
     }
-    Ok(by_host)
+    by_host
 }
 
 pub fn pinned_http_client<R: Runtime>(
     app: &AppHandle<R>,
     timeout: Duration,
-) -> Result<reqwest::Client, String> {
-    build_http_client(resolve_certificate_pins(app)?, timeout)
+) -> AppResult<reqwest::Client> {
+    build_http_client(resolve_certificate_pins(app), timeout)
 }
 
 pub fn build_http_client(
     pins_by_host: BTreeMap<String, BTreeSet<String>>,
     timeout: Duration,
-) -> Result<reqwest::Client, String> {
-    let mut builder = reqwest::Client::builder().timeout(timeout);
+) -> AppResult<reqwest::Client> {
+    // Same profile as the public client: short connect timeout, bounded
+    // redirects and an identifiable user agent, with or without active pinning.
+    let mut builder = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(timeout)
+        .redirect(Policy::limited(5))
+        .user_agent(concat!("KOMA-Studio/", env!("CARGO_PKG_VERSION")));
     if pins_by_host.is_empty() {
-        return builder.build().map_err(|error| error.to_string());
+        return builder
+            .build()
+            .map_err(|error| AppError::network("HTTP client initialization failed.", &error));
     }
 
     let config_builder = rustls::ClientConfig::builder();
     let crypto_provider = config_builder.crypto_provider().clone();
-    let platform_verifier =
-        PlatformVerifier::new(crypto_provider).map_err(|error| error.to_string())?;
+    let platform_verifier = PlatformVerifier::new(crypto_provider).map_err(|error| {
+        tracing::error!(error = %error, "platform TLS verifier initialization failed");
+        AppError::Security("Platform TLS verifier initialization failed.".to_string())
+    })?;
     let mut tls_config = config_builder
         .dangerous()
         .with_custom_certificate_verifier(Arc::new(PinnedServerCertVerifier {
@@ -90,7 +104,9 @@ pub fn build_http_client(
         .with_no_client_auth();
     tls_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
     builder = builder.use_preconfigured_tls(tls_config);
-    builder.build().map_err(|error| error.to_string())
+    builder
+        .build()
+        .map_err(|error| AppError::network("HTTP client initialization failed.", &error))
 }
 
 pub fn parse_sha256_pins(value: &str) -> BTreeSet<String> {
@@ -140,11 +156,18 @@ impl ServerCertVerifier for PinnedServerCertVerifier {
         let Some(allowed_pins) = self.pins_by_host.get(host.as_str()) else {
             return Ok(verified);
         };
-        let presented_pins = certificate_pins(end_entity.as_ref());
-        if presented_pins.iter().any(|pin| allowed_pins.contains(pin)) {
-            return Ok(verified);
+        // HPKP semantics: the pin may anchor on any certificate in the
+        // presented chain (leaf, intermediate or root), so leaf rotation
+        // does not break deployed clients.
+        let chain = std::iter::once(end_entity).chain(intermediates.iter());
+        for certificate in chain {
+            let presented_pins = certificate_pins(certificate.as_ref());
+            if presented_pins.iter().any(|pin| allowed_pins.contains(pin)) {
+                return Ok(verified);
+            }
         }
 
+        tracing::error!(host = %host, "TLS certificate pin validation failed");
         Err(TlsError::InvalidCertificate(
             CertificateError::ApplicationVerificationFailure,
         ))
