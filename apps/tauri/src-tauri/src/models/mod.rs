@@ -6,4 +6,5 @@ pub mod identity;
 pub mod imgur;
 pub mod integrations;
 pub mod llm;
+pub mod model_manager;
 pub mod workspace;

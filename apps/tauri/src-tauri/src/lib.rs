@@ -102,7 +102,7 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .manage(runtime::profiles::MiniBackendRuntimeStore::default())
         .manage(sidecar::mini_backend::MiniBackendSidecarStore::default())
-        .manage(commands::models::ModelDownloadStore::default())
+        .manage(state::ModelDownloadStore::default())
         .manage(commands::api::auth::DesktopAuthStore::default())
         .manage(commands::logging::SessionLogSink::default())
         .manage(

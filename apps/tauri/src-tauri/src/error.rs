@@ -34,9 +34,13 @@ pub enum AppError {
     #[error("{0}")]
     Security(String),
     #[error("{0}")]
+    Integrity(String),
+    #[error("{0}")]
     Network(String),
     #[error("remote service returned HTTP {status}: {message}")]
     Remote { status: u16, message: String },
+    #[error("{0}")]
+    Cancelled(String),
     #[error("{0}")]
     RateLimited(String),
     #[error("{0}")]
@@ -73,9 +77,11 @@ impl AppError {
             Self::NotConfigured(_) => "not-configured",
             Self::Authentication(_) => "authentication",
             Self::Security(_) => "security",
+            Self::Integrity(_) => "integrity",
             Self::Network(_) => "network",
             Self::Remote { .. } => "network",
             Self::RateLimited(_) => "rate-limited",
+            Self::Cancelled(_) => "cancelled",
             Self::Serialization(_) => "serialization",
             Self::Archive(_) => "archive",
             Self::Update(_) => "update",
@@ -99,6 +105,7 @@ impl AppError {
     pub fn not_allowed(message: impl Into<String>) -> Self {
         Self::NotAllowed(message.into())
     }
+
 
     pub fn conflict(message: impl Into<String>) -> Self {
         Self::Conflict(message.into())
@@ -222,9 +229,13 @@ pub enum CommandError {
     #[error("{0}")]
     Security(String),
     #[error("{0}")]
+    Integrity(String),
+    #[error("{0}")]
     Network(String),
     #[error("{0}")]
     RateLimited(String),
+    #[error("{0}")]
+    Cancelled(String),
     #[error("{0}")]
     Archive(String),
     #[error("{0}")]
@@ -249,8 +260,10 @@ impl serde::Serialize for CommandError {
             Self::NotConfigured(_) => "not-configured",
             Self::Authentication(_) => "authentication",
             Self::Security(_) => "security",
+            Self::Integrity(_) => "integrity",
             Self::Network(_) => "network",
             Self::RateLimited(_) => "rate-limited",
+            Self::Cancelled(_) => "cancelled",
             Self::Archive(_) => "archive",
             Self::Update(_) => "update",
             Self::Internal(_) => "internal",
@@ -311,11 +324,13 @@ impl From<AppError> for CommandError {
             AppError::NotConfigured(message) => Self::NotConfigured(message),
             AppError::Authentication(message) => Self::Authentication(message),
             AppError::Security(message) => Self::Security(message),
+            AppError::Integrity(message) => Self::Integrity(message),
             AppError::Network(message) => Self::Network(message),
             AppError::Remote { status, message } => {
                 Self::Network(format!("Remote service returned HTTP {status}: {message}"))
             }
             AppError::RateLimited(message) => Self::RateLimited(message),
+            AppError::Cancelled(message) => Self::Cancelled(message),
             AppError::Archive(message) => Self::Archive(message),
             AppError::Update(message) => Self::Update(message),
             AppError::Io(_) => Self::Internal("A filesystem operation failed.".to_string()),

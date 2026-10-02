@@ -4,16 +4,21 @@
 pub mod api;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet, VecDeque},
     path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use crate::{
     error::{AppError, AppResult},
+    models::model_manager::DesktopModelDownloadPayload,
     models::workspace::{WorkspaceAssetId, WorkspaceAssetSource, WorkspaceAssetToken},
 };
 
@@ -149,5 +154,187 @@ impl WorkspaceAssetStore {
         }
 
         Ok(stored.asset.clone())
+    }
+}
+
+
+// Model download queue: a single worker drains the queue; every state
+// transition (queue/active/reserved) is one short critical section on a
+// single tokio Mutex, never held across `.await`ed I/O.
+
+#[derive(Debug, Clone)]
+pub(crate) struct QueuedModelDownload {
+    pub model: DesktopModelDownloadPayload,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ActiveModelDownload {
+    pub model_id: String,
+    pub cancelled: Arc<AtomicBool>,
+}
+
+#[derive(Debug, Default)]
+struct ModelDownloadState {
+    queue: VecDeque<QueuedModelDownload>,
+    active: Option<ActiveModelDownload>,
+    reserved: HashSet<String>,
+    worker_running: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct ModelDownloadStore {
+    inner: Mutex<ModelDownloadState>,
+}
+
+#[derive(Debug)]
+pub(crate) enum CancellationTarget {
+    Queued(String),
+    Active,
+    NotFound,
+}
+
+impl ModelDownloadStore {
+    pub(crate) async fn enqueue(
+        &self,
+        model: DesktopModelDownloadPayload,
+    ) -> AppResult<(u32, bool)> {
+        let mut state = self.inner.lock().await;
+
+        let duplicated = state
+            .active
+            .as_ref()
+            .is_some_and(|active| active.model_id == model.id)
+            || state
+                .queue
+                .iter()
+                .any(|queued| queued.model.id == model.id)
+            || state.reserved.contains(&model.id);
+
+        if duplicated {
+            return Err(AppError::conflict(
+                "The model already has an active operation.",
+            ));
+        }
+
+        state.queue.push_back(QueuedModelDownload { model });
+        let position = state.queue.len().min(u32::MAX as usize) as u32;
+        let start_worker = !state.worker_running;
+
+        if start_worker {
+            state.worker_running = true;
+        }
+
+        Ok((position, start_worker))
+    }
+
+    pub(crate) async fn pop_next(&self) -> Option<QueuedModelDownload> {
+        let mut state = self.inner.lock().await;
+        let queued = state.queue.pop_front();
+
+        match queued {
+            Some(queued) => {
+                state.active = Some(ActiveModelDownload {
+                    model_id: queued.model.id.clone(),
+                    cancelled: Arc::new(AtomicBool::new(false)),
+                });
+                Some(queued)
+            }
+            None => {
+                state.active = None;
+                state.worker_running = false;
+                None
+            }
+        }
+    }
+
+    pub(crate) async fn active_cancellation(&self, model_id: &str) -> Option<Arc<AtomicBool>> {
+        let state = self.inner.lock().await;
+
+        state
+            .active
+            .as_ref()
+            .filter(|active| active.model_id == model_id)
+            .map(|active| Arc::clone(&active.cancelled))
+    }
+
+    pub(crate) async fn clear_active(&self, model_id: &str) {
+        let mut state = self.inner.lock().await;
+
+        if state
+            .active
+            .as_ref()
+            .is_some_and(|active| active.model_id == model_id)
+        {
+            state.active = None;
+        }
+    }
+
+    pub(crate) async fn cancel(&self, model_id: &str) -> CancellationTarget {
+        let mut state = self.inner.lock().await;
+
+        if let Some(index) = state
+            .queue
+            .iter()
+            .position(|queued| queued.model.id == model_id)
+        {
+            if let Some(queued) = state.queue.remove(index) {
+                return CancellationTarget::Queued(queued.model.id);
+            }
+        }
+
+        if let Some(active) = state
+            .active
+            .as_ref()
+            .filter(|active| active.model_id == model_id)
+        {
+            active.cancelled.store(true, Ordering::Release);
+            return CancellationTarget::Active;
+        }
+
+        CancellationTarget::NotFound
+    }
+
+    pub(crate) async fn cancel_all(&self) -> (Vec<String>, bool) {
+        let mut state = self.inner.lock().await;
+
+        let queued = state
+            .queue
+            .drain(..)
+            .map(|queued| queued.model.id)
+            .collect::<Vec<_>>();
+
+        let active = state.active.is_some();
+        if let Some(active_download) = &state.active {
+            active_download.cancelled.store(true, Ordering::Release);
+        }
+
+        (queued, active)
+    }
+
+    pub(crate) async fn reserve(&self, model_id: &str) -> AppResult<()> {
+        let mut state = self.inner.lock().await;
+
+        let busy = state
+            .active
+            .as_ref()
+            .is_some_and(|active| active.model_id == model_id)
+            || state
+                .queue
+                .iter()
+                .any(|queued| queued.model.id == model_id)
+            || state.reserved.contains(model_id);
+
+        if busy {
+            return Err(AppError::conflict(
+                "The model already has an active operation.",
+            ));
+        }
+
+        state.reserved.insert(model_id.to_string());
+        Ok(())
+    }
+
+    pub(crate) async fn release(&self, model_id: &str) {
+        self.inner.lock().await.reserved.remove(model_id);
     }
 }

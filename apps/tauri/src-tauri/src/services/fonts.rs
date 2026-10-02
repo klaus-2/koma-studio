@@ -237,7 +237,7 @@ pub fn uninstall_by_selector<R: tauri::Runtime>(
         .filter(|(id, record)| {
             (!file_name.is_empty() && record.file_name == file_name)
                 || (!file_name.is_empty() && id.0.as_str() == file_name)
-                || (!family.is_empty() && record.family.eq_ignore_ascii_case(&family))
+                || (!family.is_empty() && record.family.eq_ignore_ascii_case(family))
         })
         .map(|(id, _)| id.clone())
         .collect();
