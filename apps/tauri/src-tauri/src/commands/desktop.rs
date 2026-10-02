@@ -200,7 +200,7 @@ pub fn get_mini_backend_runtime_state<R: Runtime>(
     app: AppHandle<R>,
     store: State<'_, MiniBackendRuntimeStore>,
 ) -> Result<RuntimeMiniBackendRuntimeState, DesktopError> {
-    snapshot_runtime_state(&app, &store).map_err(DesktopError::Runtime)
+    snapshot_runtime_state(&app, &store).map_err(|error| DesktopError::Runtime(error.to_string()))
 }
 
 #[tauri::command(rename = "desktop:check-local-backend")]

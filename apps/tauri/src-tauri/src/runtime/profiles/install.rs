@@ -1,9 +1,15 @@
+use std::time::Instant;
+
 use super::*;
+
+/// Progress emit cadence. bytes_stream() yields far faster than the UI (or the
+/// IPC bus) can consume; throttle to ~10 updates/s and always emit a final one.
+const PROGRESS_EMIT_INTERVAL: Duration = Duration::from_millis(100);
 
 pub(super) async fn install_recommended_runtime<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
-) -> Result<MiniBackendRuntimeInstallResult, String> {
+) -> Result<MiniBackendRuntimeInstallResult, RuntimeError> {
     let profile = resolve_runtime_profile(app, store, false, false)?;
     if cfg!(debug_assertions) {
         set_manual_install_blocked(app, store, "dev-only-unavailable", &profile)?;
@@ -29,7 +35,7 @@ pub(super) async fn install_runtime_profile<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
     profile_input: &str,
-) -> Result<MiniBackendRuntimeInstallResult, String> {
+) -> Result<MiniBackendRuntimeInstallResult, RuntimeError> {
     let profile = normalize_profile_override(Some(profile_input.to_string()));
     if profile == "auto" {
         return Ok(install_result(
@@ -53,7 +59,7 @@ pub(super) async fn install_runtime_profile<R: Runtime>(
 pub(crate) async fn ensure_startup_runtime<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
-) -> Result<bool, String> {
+) -> Result<bool, RuntimeError> {
     if resolve_selected_runtime_binary_path(app)?.is_some() {
         return Ok(true);
     }
@@ -94,7 +100,7 @@ async fn install_startup_runtime_selection<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
     profile: &str,
-) -> Result<bool, String> {
+) -> Result<bool, RuntimeError> {
     let Some(installed) = ensure_downloaded_runtime(app, store, profile, true).await? else {
         return Ok(false);
     };
@@ -115,7 +121,7 @@ async fn install_and_restart<R: Runtime>(
     store: &MiniBackendRuntimeStore,
     profile: &str,
     allow_cpu_download: bool,
-) -> Result<MiniBackendRuntimeInstallResult, String> {
+) -> Result<MiniBackendRuntimeInstallResult, RuntimeError> {
     let Some(installed) =
         ensure_downloaded_runtime(app, store, profile, allow_cpu_download).await?
     else {
@@ -137,7 +143,9 @@ async fn install_and_restart<R: Runtime>(
             entry: installed.entry,
         },
     )?;
-    crate::sidecar::mini_backend::restart_mini_backend(app.clone()).await?;
+    crate::sidecar::mini_backend::restart_mini_backend(app.clone())
+        .await
+        .map_err(RuntimeError::Message)?;
     Ok(MiniBackendRuntimeInstallResult {
         ok: true,
         profile: profile.to_string(),
@@ -156,7 +164,7 @@ async fn ensure_downloaded_runtime<R: Runtime>(
     store: &MiniBackendRuntimeStore,
     profile: &str,
     allow_cpu_download: bool,
-) -> Result<Option<InstalledRuntime>, String> {
+) -> Result<Option<InstalledRuntime>, RuntimeError> {
     if profile == "cpu" && !allow_cpu_download {
         return Ok(None);
     }
@@ -233,7 +241,9 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         )?;
         let actual_sha512 = sha512_base64_file(&temp_zip_path)?;
         if actual_sha512 != record.sha512 {
-            return Err("Runtime archive sha512 mismatch.".to_string());
+            return Err(RuntimeError::Integrity(
+                "Runtime archive sha512 mismatch.".to_string(),
+            ));
         }
         patch_runtime_state(
             app,
@@ -246,10 +256,10 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         )?;
         extract_runtime_archive(&temp_zip_path, &temp_extract_dir)?;
         if install_dir.exists() {
-            fs::remove_dir_all(&install_dir).map_err(|error| error.to_string())?;
+            fs::remove_dir_all(&install_dir)?;
         }
-        fs::rename(&temp_extract_dir, &install_dir).map_err(|error| error.to_string())?;
-        Ok::<(), String>(())
+        fs::rename(&temp_extract_dir, &install_dir)?;
+        Ok::<(), RuntimeError>(())
     }
     .await
     {
@@ -276,15 +286,15 @@ async fn ensure_downloaded_runtime<R: Runtime>(
                     ..Default::default()
                 },
             )?;
-            if binary_path.exists() {
-                let _ = fs::remove_file(&temp_zip_path);
-            }
+            // The archive is redundant once extracted; always reclaim the space.
+            let _ = fs::remove_file(&temp_zip_path);
             Ok(Some(InstalledRuntime {
                 version: manifest.version,
                 entry: record.entry,
             }))
         }
         Err(error) => {
+            let message = error.to_string();
             let _ = fs::remove_dir_all(&temp_extract_dir);
             patch_runtime_state(
                 app,
@@ -297,7 +307,7 @@ async fn ensure_downloaded_runtime<R: Runtime>(
                     runtime_archive_url: Some(Some(archive_url)),
                     install_dir: Some(None),
                     version: Some(Some(manifest.version)),
-                    last_error: Some(Some(error.clone())),
+                    last_error: Some(Some(message.clone())),
                     status: Some("fallback".to_string()),
                     status_message: Some(Some(format!(
                         "Failed to install {profile} runtime. Falling back to the embedded runtime."
@@ -306,7 +316,7 @@ async fn ensure_downloaded_runtime<R: Runtime>(
                     ..Default::default()
                 },
             )?;
-            log::warn!("mini-backend-runtime: {error}");
+            log::warn!("mini-backend-runtime: {message}");
             Ok(None)
         }
     }
@@ -315,7 +325,7 @@ async fn ensure_downloaded_runtime<R: Runtime>(
 pub(super) async fn list_runtime_artifacts<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
-) -> Result<Vec<MiniBackendRuntimeArtifactOption>, String> {
+) -> Result<Vec<MiniBackendRuntimeArtifactOption>, RuntimeError> {
     let Some(manifest) = read_runtime_manifest(app, store, true).await? else {
         return Ok(Vec::new());
     };
@@ -342,7 +352,7 @@ async fn read_runtime_manifest<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
     silent: bool,
-) -> Result<Option<MiniBackendRuntimeArtifactManifest>, String> {
+) -> Result<Option<MiniBackendRuntimeArtifactManifest>, RuntimeError> {
     let Some(manifest_url) = resolve_manifest_url(app)? else {
         return Ok(None);
     };
@@ -368,11 +378,8 @@ async fn read_runtime_manifest<R: Runtime>(
             .await
         {
             Ok(response) if response.status().is_success() => {
-                return response
-                    .json::<MiniBackendRuntimeArtifactManifest>()
-                    .await
-                    .map(Some)
-                    .map_err(|error| error.to_string());
+                let manifest = response.json::<MiniBackendRuntimeArtifactManifest>().await?;
+                return Ok(Some(manifest));
             }
             Ok(response) if is_retryable_status(response.status().as_u16()) => {
                 if !silent && attempt <= RUNTIME_DOWNLOAD_RETRY_COUNT {
@@ -422,7 +429,11 @@ async fn read_runtime_manifest<R: Runtime>(
                 }
             }
         }
-        tokio::time::sleep(Duration::from_millis(1_000 * u64::from(attempt))).await;
+        // Only back off when another attempt is actually coming; never waste a
+        // seconds-long sleep right before returning on the final iteration.
+        if attempt <= RUNTIME_DOWNLOAD_RETRY_COUNT {
+            tokio::time::sleep(Duration::from_millis(1_000 * u64::from(attempt))).await;
+        }
     }
 
     Ok(None)
@@ -435,7 +446,7 @@ async fn download_runtime_artifact<R: Runtime>(
     record: &MiniBackendRuntimeArtifactRecord,
     archive_url: &str,
     output_path: &Path,
-) -> Result<(), String> {
+) -> Result<(), RuntimeError> {
     let max_attempts = RUNTIME_DOWNLOAD_RETRY_COUNT + 1;
     for attempt in 1..=max_attempts {
         let existing = existing_download_bytes(output_path, record.size)?;
@@ -457,35 +468,29 @@ async fn download_runtime_artifact<R: Runtime>(
             },
         )?;
 
-        let result = download_url_to_file_with_resume(
-            app,
-            store,
-            archive_url,
-            output_path,
-            record,
-            existing,
-        )
-        .await;
-        if result.is_ok() {
-            return Ok(());
+        match download_url_to_file_with_resume(app, store, archive_url, output_path, record, existing)
+            .await
+        {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                if attempt >= max_attempts || !is_retryable_error(&error) {
+                    return Err(error);
+                }
+                patch_runtime_state(
+                    app,
+                    store,
+                    MiniBackendRuntimePatch {
+                        last_error: Some(Some(error.to_string())),
+                        attempt: Some(attempt + 1),
+                        max_attempts: Some(max_attempts),
+                        ..Default::default()
+                    },
+                )?;
+                tokio::time::sleep(Duration::from_millis(1_000 * u64::from(attempt))).await;
+            }
         }
-        let error = result.unwrap_err();
-        if attempt >= max_attempts || !is_retryable_error(&error) {
-            return Err(error);
-        }
-        patch_runtime_state(
-            app,
-            store,
-            MiniBackendRuntimePatch {
-                last_error: Some(Some(error)),
-                attempt: Some(attempt + 1),
-                max_attempts: Some(max_attempts),
-                ..Default::default()
-            },
-        )?;
-        tokio::time::sleep(Duration::from_millis(1_000 * u64::from(attempt))).await;
     }
-    Err("Runtime download failed.".to_string())
+    Err(RuntimeError::Message("Runtime download failed.".to_string()))
 }
 
 async fn download_url_to_file_with_resume<R: Runtime>(
@@ -495,9 +500,9 @@ async fn download_url_to_file_with_resume<R: Runtime>(
     output_path: &Path,
     record: &MiniBackendRuntimeArtifactRecord,
     existing: u64,
-) -> Result<(), String> {
+) -> Result<(), RuntimeError> {
     if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        fs::create_dir_all(parent)?;
     }
     let client = reqwest::Client::new();
     let mut request = client
@@ -506,40 +511,67 @@ async fn download_url_to_file_with_resume<R: Runtime>(
     if existing > 0 {
         request = request.header(reqwest::header::RANGE, format!("bytes={existing}-"));
     }
-    let response = request.send().await.map_err(|error| error.to_string())?;
+    let response = request.send().await?;
     if !response.status().is_success() {
-        return Err(format!("HTTP {}", response.status()));
+        return Err(RuntimeError::Message(format!("HTTP {}", response.status())));
     }
     let can_append = existing > 0 && response.status() == reqwest::StatusCode::PARTIAL_CONTENT;
     if existing > 0 && !can_append {
-        fs::remove_file(output_path).map_err(|error| error.to_string())?;
+        fs::remove_file(output_path)?;
     }
-    let mut file = fs::OpenOptions::new()
+    let file = fs::OpenOptions::new()
         .create(true)
         .append(can_append)
         .write(true)
         .truncate(!can_append)
-        .open(output_path)
-        .map_err(|error| error.to_string())?;
+        .open(output_path)?;
+    // Coalesce many small stream chunks into fewer syscalls.
+    let mut writer = std::io::BufWriter::with_capacity(256 * 1024, file);
+
     let started_at = now_millis();
     let mut transferred = if can_append { existing } else { 0 };
+    let mut last_emit = Instant::now();
     let mut stream = response.bytes_stream();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|error| error.to_string())?;
-        file.write_all(&chunk).map_err(|error| error.to_string())?;
+        let chunk = chunk?;
+        writer.write_all(&chunk)?;
         transferred += chunk.len() as u64;
-        let elapsed = ((now_millis().saturating_sub(started_at)).max(1) as f64) / 1000.0;
-        let speed = (transferred as f64 / elapsed).round();
-        patch_runtime_state(
-            app,
-            store,
-            MiniBackendRuntimePatch {
-                status: Some("downloading".to_string()),
-                progress: Some(Some(progress_snapshot(transferred, record.size, speed))),
-                last_error: Some(None),
-                ..Default::default()
-            },
-        )?;
+
+        // Throttle IPC to ~10 updates/s instead of one per chunk.
+        if last_emit.elapsed() >= PROGRESS_EMIT_INTERVAL {
+            last_emit = Instant::now();
+            emit_download_progress(app, store, transferred, record.size, started_at)?;
+        }
     }
+    writer.flush()?;
+    // Guarantee the final (100%) frame lands even if the last chunk arrived
+    // inside the throttle window; sha512_base64_file reopens the path next.
+    emit_download_progress(app, store, transferred, record.size, started_at)?;
     Ok(())
+}
+
+fn emit_download_progress<R: Runtime>(
+    app: &AppHandle<R>,
+    store: &MiniBackendRuntimeStore,
+    transferred: u64,
+    total: u64,
+    started_at: u64,
+) -> Result<(), RuntimeError> {
+    let speed = compute_speed(transferred, started_at);
+    patch_runtime_state(
+        app,
+        store,
+        MiniBackendRuntimePatch {
+            status: Some("downloading".to_string()),
+            progress: Some(Some(progress_snapshot(transferred, total, speed))),
+            last_error: Some(None),
+            ..Default::default()
+        },
+    )?;
+    Ok(())
+}
+
+fn compute_speed(transferred: u64, started_at: u64) -> f64 {
+    let elapsed = ((now_millis().saturating_sub(started_at)).max(1) as f64) / 1000.0;
+    (transferred as f64 / elapsed).round()
 }

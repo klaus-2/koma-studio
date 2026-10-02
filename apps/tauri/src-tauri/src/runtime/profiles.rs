@@ -46,6 +46,68 @@ const PROFILES: &[&str] = &[
     "intel-openvino",
 ];
 
+// ---------------------------------------------------------------------------
+// Typed error (replaces the forbidden `Result<T, String>` contract).
+// Serialized to the webview as `{ "kind": "...", "message": "..." }`.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, thiserror::Error)]
+pub enum RuntimeError {
+    #[error("filesystem error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("network error: {0}")]
+    Http(#[from] reqwest::Error),
+    #[error("serialization error: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("archive error: {0}")]
+    Archive(#[from] zip::result::ZipError),
+    #[error("invalid url: {0}")]
+    Url(#[from] url::ParseError),
+    #[error("platform error: {0}")]
+    Tauri(#[from] tauri::Error),
+    #[error("runtime state lock poisoned")]
+    StatePoisoned,
+    #[error("integrity check failed: {0}")]
+    Integrity(String),
+    #[error("{0}")]
+    Message(String),
+}
+
+impl RuntimeError {
+    const fn kind(&self) -> &'static str {
+        match self {
+            Self::Io(_) => "io",
+            Self::Http(_) => "http",
+            Self::Serde(_) => "serde",
+            Self::Archive(_) => "archive",
+            Self::Url(_) => "url",
+            Self::Tauri(_) => "platform",
+            Self::StatePoisoned => "statePoisoned",
+            Self::Integrity(_) => "integrity",
+            Self::Message(_) => "message",
+        }
+    }
+}
+
+impl Serialize for RuntimeError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("RuntimeError", 2)?;
+        state.serialize_field("kind", self.kind())?;
+        state.serialize_field("message", &self.to_string())?;
+        state.end()
+    }
+}
+
+/// Bridge so pre-existing `Result<_, String>` call sites (commands/desktop.rs,
+/// sidecar/mini_backend.rs, not yet migrated to typed errors) keep compiling
+/// through `?`. Migrate them incrementally; drop this impl when they are done.
+impl From<RuntimeError> for String {
+    fn from(error: RuntimeError) -> Self {
+        error.to_string()
+    }
+}
+
 #[derive(Debug)]
 pub struct MiniBackendRuntimeStore {
     state: Mutex<MiniBackendRuntimeState>,
@@ -170,7 +232,7 @@ pub struct MiniBackendRuntimeArtifactOption {
 pub async fn list_mini_backend_runtime_artifacts<R: Runtime>(
     app: AppHandle<R>,
     store: State<'_, MiniBackendRuntimeStore>,
-) -> Result<Vec<MiniBackendRuntimeArtifactOption>, String> {
+) -> Result<Vec<MiniBackendRuntimeArtifactOption>, RuntimeError> {
     list_runtime_artifacts(&app, &store).await
 }
 
@@ -178,7 +240,7 @@ pub async fn list_mini_backend_runtime_artifacts<R: Runtime>(
 pub async fn install_recommended_mini_backend_runtime<R: Runtime>(
     app: AppHandle<R>,
     store: State<'_, MiniBackendRuntimeStore>,
-) -> Result<MiniBackendRuntimeInstallResult, String> {
+) -> Result<MiniBackendRuntimeInstallResult, RuntimeError> {
     if store.installing.swap(true, Ordering::SeqCst) {
         return Ok(MiniBackendRuntimeInstallResult {
             ok: false,
@@ -197,7 +259,7 @@ pub async fn install_mini_backend_runtime_profile<R: Runtime>(
     app: AppHandle<R>,
     store: State<'_, MiniBackendRuntimeStore>,
     profile: String,
-) -> Result<MiniBackendRuntimeInstallResult, String> {
+) -> Result<MiniBackendRuntimeInstallResult, RuntimeError> {
     if store.installing.swap(true, Ordering::SeqCst) {
         return Ok(MiniBackendRuntimeInstallResult {
             ok: false,
@@ -214,9 +276,9 @@ pub async fn install_mini_backend_runtime_profile<R: Runtime>(
 pub fn snapshot_runtime_state<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
-) -> Result<MiniBackendRuntimeState, String> {
+) -> Result<MiniBackendRuntimeState, RuntimeError> {
     refresh_runtime_context(app, store)?;
-    let guard = store.state.lock().map_err(|error| error.to_string())?;
+    let guard = store.state.lock().map_err(|_| RuntimeError::StatePoisoned)?;
     Ok(guard.clone())
 }
 
@@ -224,12 +286,14 @@ pub fn patch_runtime_state<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
     patch: MiniBackendRuntimePatch,
-) -> Result<MiniBackendRuntimeState, String> {
-    let mut guard = store.state.lock().map_err(|error| error.to_string())?;
-    apply_patch(&mut guard, patch);
-    guard.updated_at = Some(now_millis());
-    let snapshot = guard.clone();
-    drop(guard);
+) -> Result<MiniBackendRuntimeState, RuntimeError> {
+    // Lock is released *before* emitting: never hold a lock across the event bus.
+    let snapshot = {
+        let mut guard = store.state.lock().map_err(|_| RuntimeError::StatePoisoned)?;
+        apply_patch(&mut guard, patch);
+        guard.updated_at = Some(now_millis());
+        guard.clone()
+    };
     let _ = app.emit_to("main", RUNTIME_EVENT_CHANNEL, snapshot.clone());
     Ok(snapshot)
 }
@@ -239,7 +303,7 @@ pub fn resolve_runtime_profile<R: Runtime>(
     store: &MiniBackendRuntimeStore,
     silent: bool,
     ignore_manual_selection: bool,
-) -> Result<String, String> {
+) -> Result<String, RuntimeError> {
     let env_override =
         normalize_profile_override(env::var("MINI_BACKEND_ACCELERATION_PROFILE").ok());
     let selection = if ignore_manual_selection {
@@ -285,14 +349,13 @@ pub fn resolve_runtime_profile<R: Runtime>(
 
 pub fn read_runtime_selection<R: Runtime>(
     app: &AppHandle<R>,
-) -> Result<Option<MiniBackendRuntimeSelection>, String> {
+) -> Result<Option<MiniBackendRuntimeSelection>, RuntimeError> {
     let file_path = runtime_selection_path(app)?;
     if !file_path.exists() {
         return Ok(None);
     }
-    let raw = fs::read_to_string(&file_path).map_err(|error| error.to_string())?;
-    let parsed: MiniBackendRuntimeSelection =
-        serde_json::from_str(&raw).map_err(|error| error.to_string())?;
+    let raw = fs::read_to_string(&file_path)?;
+    let parsed: MiniBackendRuntimeSelection = serde_json::from_str(&raw)?;
     if normalize_profile_override(Some(parsed.profile.clone())) == "auto"
         || parsed.version.trim().is_empty()
         || parsed.entry.trim().is_empty()
@@ -304,7 +367,7 @@ pub fn read_runtime_selection<R: Runtime>(
 
 pub fn resolve_selected_runtime_binary_path<R: Runtime>(
     app: &AppHandle<R>,
-) -> Result<Option<PathBuf>, String> {
+) -> Result<Option<PathBuf>, RuntimeError> {
     let Some(selection) = read_runtime_selection(app)? else {
         return Ok(None);
     };
@@ -316,13 +379,12 @@ pub fn resolve_selected_runtime_binary_path<R: Runtime>(
 pub async fn sync_runtime_state_from_api<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
-) -> Result<(), String> {
+) -> Result<(), RuntimeError> {
     let config = build_runtime_config(app);
     let endpoint = format!("{}/device/info", config.local_api_url.trim_end_matches('/'));
     let response = match reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
-        .build()
-        .map_err(|error| error.to_string())?
+        .build()?
         .get(endpoint)
         .send()
         .await
@@ -331,7 +393,7 @@ pub async fn sync_runtime_state_from_api<R: Runtime>(
         _ => return Ok(()),
     };
 
-    let payload: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
+    let payload: serde_json::Value = response.json().await?;
     let requested = normalize_profile_override(
         payload
             .get("profile")
@@ -392,11 +454,10 @@ pub fn runtime_install_dir<R: Runtime>(
     app: &AppHandle<R>,
     version: &str,
     profile: &str,
-) -> Result<PathBuf, String> {
+) -> Result<PathBuf, RuntimeError> {
     Ok(app
         .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
+        .app_data_dir()?
         .join("mini-backend-runtimes")
         .join(version)
         .join(sanitize_profile(profile)))
@@ -485,7 +546,7 @@ fn initial_runtime_state() -> MiniBackendRuntimeState {
 fn refresh_runtime_context<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
-) -> Result<(), String> {
+) -> Result<(), RuntimeError> {
     let runtime_artifacts_url = resolve_artifacts_url(app)?;
     let download_cache_dir = Some(
         env::temp_dir()
@@ -493,7 +554,7 @@ fn refresh_runtime_context<R: Runtime>(
             .to_string_lossy()
             .to_string(),
     );
-    let mut guard = store.state.lock().map_err(|error| error.to_string())?;
+    let mut guard = store.state.lock().map_err(|_| RuntimeError::StatePoisoned)?;
     guard.runtime_artifacts_url = runtime_artifacts_url;
     guard.download_cache_dir = download_cache_dir;
     Ok(())
@@ -558,7 +619,7 @@ fn set_manual_install_blocked<R: Runtime>(
     store: &MiniBackendRuntimeStore,
     reason: &str,
     requested_profile: &str,
-) -> Result<(), String> {
+) -> Result<(), RuntimeError> {
     let snapshot = snapshot_runtime_state(app, store)?;
     let message = if reason == "cpu-not-required" {
         "This device does not need a downloadable GPU runtime profile."
@@ -592,31 +653,28 @@ fn install_result(ok: bool, profile: &str, reason: &str) -> MiniBackendRuntimeIn
     }
 }
 
-fn runtime_selection_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
-    Ok(app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join(RUNTIME_SELECTION_FILE_NAME))
+fn runtime_selection_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, RuntimeError> {
+    Ok(app.path().app_data_dir()?.join(RUNTIME_SELECTION_FILE_NAME))
 }
 
 fn write_runtime_selection<R: Runtime>(
     app: &AppHandle<R>,
     selection: &MiniBackendRuntimeSelection,
-) -> Result<(), String> {
+) -> Result<(), RuntimeError> {
     let file_path = runtime_selection_path(app)?;
     if let Some(parent) = file_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        fs::create_dir_all(parent)?;
     }
-    let raw = serde_json::to_string_pretty(selection).map_err(|error| error.to_string())?;
-    fs::write(file_path, format!("{raw}\n")).map_err(|error| error.to_string())
+    let raw = serde_json::to_string_pretty(selection)?;
+    fs::write(file_path, format!("{raw}\n"))?;
+    Ok(())
 }
 
-fn resolve_artifacts_url<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, String> {
+fn resolve_artifacts_url<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, RuntimeError> {
     Ok(Some(build_runtime_config(app).runtime_artifacts_url))
 }
 
-fn resolve_manifest_url<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, String> {
+fn resolve_manifest_url<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, RuntimeError> {
     Ok(resolve_manifest_url_from_base(
         resolve_artifacts_url(app)?.as_deref(),
     ))
@@ -635,20 +693,14 @@ fn resolve_manifest_url_from_base(raw_url: Option<&str>) -> Option<String> {
     if base.to_ascii_lowercase().ends_with(".json/") {
         return Some(trimmed.to_string());
     }
-    if base
-        .to_ascii_lowercase()
-        .contains("/mini-backend-artifacts/")
-    {
+    if base.to_ascii_lowercase().contains("/mini-backend-artifacts/") {
         return Some(format!("{base}latest.json"));
     }
     Some(format!("{base}mini-backend-artifacts/latest.json"))
 }
 
-fn resolve_runtime_url(manifest_url: &str, relative_url: &str) -> Result<String, String> {
-    url::Url::parse(manifest_url)
-        .and_then(|base| base.join(relative_url))
-        .map(|url| url.to_string())
-        .map_err(|error| error.to_string())
+fn resolve_runtime_url(manifest_url: &str, relative_url: &str) -> Result<String, RuntimeError> {
+    Ok(url::Url::parse(manifest_url)?.join(relative_url)?.to_string())
 }
 
 fn list_artifact_options(
@@ -730,16 +782,16 @@ fn progress_snapshot(
     }
 }
 
-fn existing_download_bytes(output_path: &Path, expected_total_bytes: u64) -> Result<u64, String> {
+fn existing_download_bytes(
+    output_path: &Path,
+    expected_total_bytes: u64,
+) -> Result<u64, RuntimeError> {
     if !output_path.exists() {
         return Ok(0);
     }
-    let size = output_path
-        .metadata()
-        .map_err(|error| error.to_string())?
-        .len();
+    let size = output_path.metadata()?.len();
     if expected_total_bytes > 0 && size >= expected_total_bytes {
-        fs::remove_file(output_path).map_err(|error| error.to_string())?;
+        fs::remove_file(output_path)?;
         return Ok(0);
     }
     Ok(size)
@@ -749,18 +801,19 @@ fn ensure_runtime_disk_space(
     archive_path: &Path,
     install_dir: &Path,
     archive_bytes: u64,
-) -> Result<(), String> {
+) -> Result<(), RuntimeError> {
     let required = estimate_runtime_install_required_bytes(archive_bytes);
     for target in [archive_path, install_dir] {
-        let stat_path = existing_ancestor(target)
-            .ok_or_else(|| format!("Could not resolve the disk for {}.", target.display()))?;
-        let free = fs2::available_space(&stat_path).map_err(|error| error.to_string())?;
+        let stat_path = existing_ancestor(target).ok_or_else(|| {
+            RuntimeError::Message(format!("Could not resolve the disk for {}.", target.display()))
+        })?;
+        let free = fs2::available_space(&stat_path)?;
         if free < required {
-            return Err(format!(
+            return Err(RuntimeError::Message(format!(
                 "Insufficient disk space for the runtime. Required: {:.1} GB | Available: {:.1} GB.",
                 required as f64 / 1024_f64.powi(3),
                 free as f64 / 1024_f64.powi(3)
-            ));
+            )));
         }
     }
     Ok(())
@@ -784,12 +837,12 @@ fn existing_ancestor(path: &Path) -> Option<PathBuf> {
     }
 }
 
-fn sha512_base64_file(path: &Path) -> Result<String, String> {
-    let mut file = File::open(path).map_err(|error| error.to_string())?;
+fn sha512_base64_file(path: &Path) -> Result<String, RuntimeError> {
+    let mut file = File::open(path)?;
     let mut hasher = Sha512::new();
     let mut buffer = [0_u8; 64 * 1024];
     loop {
-        let read = file.read(&mut buffer).map_err(|error| error.to_string())?;
+        let read = file.read(&mut buffer)?;
         if read == 0 {
             break;
         }
@@ -798,28 +851,29 @@ fn sha512_base64_file(path: &Path) -> Result<String, String> {
     Ok(BASE64.encode(hasher.finalize()))
 }
 
-fn extract_runtime_archive(archive_path: &Path, destination_dir: &Path) -> Result<(), String> {
+fn extract_runtime_archive(archive_path: &Path, destination_dir: &Path) -> Result<(), RuntimeError> {
     if destination_dir.exists() {
-        fs::remove_dir_all(destination_dir).map_err(|error| error.to_string())?;
+        fs::remove_dir_all(destination_dir)?;
     }
-    fs::create_dir_all(destination_dir).map_err(|error| error.to_string())?;
-    let file = File::open(archive_path).map_err(|error| error.to_string())?;
-    let mut archive = ZipArchive::new(file).map_err(|error| error.to_string())?;
+    fs::create_dir_all(destination_dir)?;
+    let file = File::open(archive_path)?;
+    let mut archive = ZipArchive::new(file)?;
     for index in 0..archive.len() {
-        let mut entry = archive.by_index(index).map_err(|error| error.to_string())?;
+        let mut entry = archive.by_index(index)?;
+        // `enclosed_name` already rejects `..`/absolute components (zip-slip safe).
         let Some(enclosed_name) = entry.enclosed_name() else {
             continue;
         };
         let output_path = destination_dir.join(enclosed_name);
         if entry.is_dir() {
-            fs::create_dir_all(&output_path).map_err(|error| error.to_string())?;
+            fs::create_dir_all(&output_path)?;
             continue;
         }
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+            fs::create_dir_all(parent)?;
         }
-        let mut output = File::create(&output_path).map_err(|error| error.to_string())?;
-        std::io::copy(&mut entry, &mut output).map_err(|error| error.to_string())?;
+        let mut output = File::create(&output_path)?;
+        std::io::copy(&mut entry, &mut output)?;
     }
     Ok(())
 }
@@ -836,12 +890,23 @@ fn is_retryable_status(status: u16) -> bool {
     RUNTIME_RETRYABLE_HTTP_STATUSES.contains(&status)
 }
 
-fn is_retryable_error(message: &str) -> bool {
+/// Retry only transport failures and explicitly retryable HTTP statuses.
+/// Integrity failures and local I/O (e.g. disk full) are terminal.
+fn is_retryable_error(error: &RuntimeError) -> bool {
+    match error {
+        RuntimeError::Integrity(_) => false,
+        RuntimeError::Io(_) => false,
+        RuntimeError::Http(_) => true,
+        RuntimeError::Message(message) => is_retryable_message(message),
+        _ => false,
+    }
+}
+
+fn is_retryable_message(message: &str) -> bool {
     let lower = message.to_ascii_lowercase();
     RUNTIME_RETRYABLE_HTTP_STATUSES
         .iter()
         .any(|status| lower.contains(&format!("http {status}")))
-        || !lower.contains("sha512 mismatch")
 }
 
 fn format_runtime_fallback_reason(value: Option<&str>) -> Option<String> {
@@ -959,6 +1024,25 @@ mod tests {
         assert_eq!(
             estimate_runtime_install_required_bytes(1_000_000_000),
             3_000_000_000
+        );
+    }
+
+    #[test]
+    fn retry_policy_excludes_integrity_and_local_io() {
+        assert!(!is_retryable_error(&RuntimeError::Integrity("x".into())));
+        assert!(!is_retryable_error(&RuntimeError::Io(
+            std::io::Error::other("disk full")
+        )));
+        assert!(is_retryable_error(&RuntimeError::Message("HTTP 503".into())));
+        assert!(!is_retryable_error(&RuntimeError::Message("HTTP 404".into())));
+    }
+
+    #[test]
+    fn runtime_error_serializes_kind_and_message() {
+        let json = serde_json::to_string(&RuntimeError::Integrity("bad hash".into())).unwrap();
+        assert_eq!(
+            json,
+            r#"{"kind":"integrity","message":"integrity check failed: bad hash"}"#
         );
     }
 
