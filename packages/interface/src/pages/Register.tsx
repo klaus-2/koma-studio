@@ -1,6 +1,10 @@
 import { FormEvent, useState } from "react";
 
+import { useThemeStore } from "@koma/ui/stores/theme-store";
+
 import { AuthShell } from "../components/auth/AuthShell";
+import { RegisterNoir } from "./register/RegisterNoir";
+import type { RegisterViewProps } from "./register/RegisterNoir";
 import { LegalInlineLinks } from "../components/legal/LegalInlineLinks";
 import { PasswordStrength } from "../components/auth/PasswordStrength";
 import { useAuth } from "../hooks/useAuth";
@@ -34,6 +38,7 @@ export const RegisterPage = ({ onRegisterSuccess, onNavigateLogin }: RegisterPag
   const [acceptedLegalTerms, setAcceptedLegalTerms] = useState(false);
 
   const { register } = useAuth();
+  const themeFamily = useThemeStore((s) => s.family);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -68,6 +73,27 @@ export const RegisterPage = ({ onRegisterSuccess, onNavigateLogin }: RegisterPag
       setIsSubmitting(false);
     }
   };
+
+  if (themeFamily === "noir") {
+    const viewProps: RegisterViewProps = {
+      subtitle: t("register.subtitle"),
+      name,
+      email,
+      password,
+      confirmPassword,
+      acceptedLegalTerms,
+      errorMessage,
+      isSubmitting,
+      onNameChange: setName,
+      onEmailChange: setEmail,
+      onPasswordChange: setPassword,
+      onConfirmPasswordChange: setConfirmPassword,
+      onAcceptedLegalTermsChange: setAcceptedLegalTerms,
+      onSubmit: handleSubmit,
+      onNavigateLogin,
+    };
+    return <RegisterNoir {...viewProps} />;
+  }
 
   return (
     <AuthShell

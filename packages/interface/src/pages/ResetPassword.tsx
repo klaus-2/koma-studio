@@ -1,6 +1,10 @@
 import { FormEvent, useMemo, useState } from "react";
 
+import { useThemeStore } from "@koma/ui/stores/theme-store";
+
 import { AuthSimpleShell } from "../components/auth/AuthSimpleShell";
+import { ResetPasswordNoir } from "./reset-password/ResetPasswordNoir";
+import type { ResetPasswordViewProps } from "./reset-password/ResetPasswordNoir";
 import { PasswordStrength } from "../components/auth/PasswordStrength";
 import { useAuth } from "../hooks/useAuth";
 import { getPasswordPolicyErrors } from "../utils/passwordPolicy";
@@ -28,6 +32,7 @@ const getResetTokenFromLocation = (): string => {
 export const ResetPasswordPage = ({ onNavigateLogin }: ResetPasswordPageProps) => {
   const { t } = useI18n();
   const { resetPassword } = useAuth();
+  const themeFamily = useThemeStore((s) => s.family);
   const token = useMemo(() => getResetTokenFromLocation(), []);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -68,6 +73,24 @@ export const ResetPasswordPage = ({ onNavigateLogin }: ResetPasswordPageProps) =
       setIsSubmitting(false);
     }
   };
+
+  if (themeFamily === "noir") {
+    const viewProps: ResetPasswordViewProps = {
+      title: t("reset.title"),
+      subtitle: t("reset.subtitle"),
+      hasToken: Boolean(token),
+      password,
+      confirmPassword,
+      errorMessage,
+      successMessage,
+      isSubmitting,
+      onPasswordChange: setPassword,
+      onConfirmPasswordChange: setConfirmPassword,
+      onSubmit: handleSubmit,
+      onNavigateLogin,
+    };
+    return <ResetPasswordNoir {...viewProps} />;
+  }
 
   return (
     <AuthSimpleShell title={t("reset.title")} subtitle={t("reset.subtitle")}>

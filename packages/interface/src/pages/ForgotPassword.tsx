@@ -1,6 +1,10 @@
 import { FormEvent, useState } from "react";
 
+import { useThemeStore } from "@koma/ui/stores/theme-store";
+
 import { AuthSimpleShell } from "../components/auth/AuthSimpleShell.tsx";
+import { ForgotPasswordNoir } from "./forgot-password/ForgotPasswordNoir";
+import type { ForgotPasswordViewProps } from "./forgot-password/ForgotPasswordNoir";
 import { useAuth } from "../hooks/useAuth";
 import { useI18n } from "../i18n";
 
@@ -11,6 +15,7 @@ interface ForgotPasswordPageProps {
 export const ForgotPasswordPage = ({ onNavigateLogin }: ForgotPasswordPageProps) => {
   const { t } = useI18n();
   const { requestPasswordReset } = useAuth();
+  const themeFamily = useThemeStore((s) => s.family);
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -31,6 +36,21 @@ export const ForgotPasswordPage = ({ onNavigateLogin }: ForgotPasswordPageProps)
       setIsSubmitting(false);
     }
   };
+
+  if (themeFamily === "noir") {
+    const viewProps: ForgotPasswordViewProps = {
+      title: t("forgot.title"),
+      subtitle: t("forgot.subtitle"),
+      email,
+      errorMessage,
+      successMessage,
+      isSubmitting,
+      onEmailChange: setEmail,
+      onSubmit: handleSubmit,
+      onNavigateLogin,
+    };
+    return <ForgotPasswordNoir {...viewProps} />;
+  }
 
   return (
     <AuthSimpleShell title={t("forgot.title")} subtitle={t("forgot.subtitle")}>

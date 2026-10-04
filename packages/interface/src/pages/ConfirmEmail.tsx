@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { useThemeStore } from "@koma/ui/stores/theme-store";
+
 import { AuthSimpleShell } from "../components/auth/AuthSimpleShell";
+import { ConfirmEmailNoir } from "./confirm-email/ConfirmEmailNoir";
+import type { ConfirmEmailViewProps } from "./confirm-email/ConfirmEmailNoir";
 import { buildUrl } from "../config/api";
 import { fetchWithTimeoutAndRetry } from "../utils/http";
 import { useI18n } from "../i18n";
@@ -22,6 +26,7 @@ const readParam = (key: string): string | null => {
 
 export const ConfirmEmailPage = ({ onNavigateLogin, onNavigateDashboard, onConfirmSuccess }: ConfirmEmailPageProps) => {
   const { t } = useI18n();
+  const themeFamily = useThemeStore((s) => s.family);
   const token = useMemo(() => readParam("token"), []);
   const initialError = useMemo(() => readParam("error"), []);
   const [isVerifying, setIsVerifying] = useState<boolean>(Boolean(token));
@@ -94,6 +99,19 @@ export const ConfirmEmailPage = ({ onNavigateLogin, onNavigateDashboard, onConfi
     : isSuccess
       ? t("confirm.subtitle.success")
       : t("confirm.subtitle.error");
+
+  if (themeFamily === "noir") {
+    const viewProps: ConfirmEmailViewProps = {
+      title,
+      subtitle,
+      isVerifying,
+      errorCode,
+      isSuccess,
+      onNavigateDashboard,
+      onNavigateLogin,
+    };
+    return <ConfirmEmailNoir {...viewProps} />;
+  }
 
   return (
     <AuthSimpleShell title={title} subtitle={subtitle}>

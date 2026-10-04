@@ -1,6 +1,10 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
+import { useThemeStore } from "@koma/ui/stores/theme-store";
+
 import { AuthShell } from "../components/auth/AuthShell";
+import { LoginNoir } from "./login/LoginNoir";
+import type { LoginViewProps } from "./login/LoginNoir";
 import { useAuth } from "../hooks/useAuth";
 import { useAuthConfigQuery } from "../query/authConfig";
 import { useUpdater } from "../hooks/useUpdater";
@@ -76,6 +80,7 @@ export const LoginPage = ({
   const { login } = useAuth();
   const updater = useUpdater();
   const { data: authConfig } = useAuthConfigQuery();
+  const themeFamily = useThemeStore((s) => s.family);
 
   useEffect(() => {
     if (!authConfig) return;
@@ -214,6 +219,34 @@ export const LoginPage = ({
       setIsSubmitting(false);
     }
   };
+
+  if (themeFamily === "noir") {
+    const viewProps: LoginViewProps = {
+      subtitle: pageSubtitle,
+      authFlow,
+      email,
+      password,
+      travelToken,
+      rememberMe,
+      errorMessage,
+      travelError,
+      isSubmitting,
+      retryCountdown,
+      verificationFeedback,
+      updater,
+      emailDeliveryEnabled,
+      travelTokenInputRef,
+      onEmailChange: setEmail,
+      onPasswordChange: setPassword,
+      onTravelTokenChange: setTravelToken,
+      onRememberMeChange: setRememberMe,
+      onSubmit: handleSubmit,
+      onBackToCredentials: handleBackToCredentials,
+      onNavigateRegister,
+      onNavigateForgotPassword,
+    };
+    return <LoginNoir {...viewProps} />;
+  }
 
   return (
     <AuthShell
