@@ -179,6 +179,8 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   /* state — theme */
   const currentTheme = useThemeStore((s) => s.theme);
   const setCurrentTheme = useThemeStore((s) => s.setTheme);
+  const currentFamily = useThemeStore((s) => s.family);
+  const setCurrentFamily = useThemeStore((s) => s.setFamily);
 
   /* state — profile */
   const [verificationBusy, setVerificationBusy] = useState(false);
@@ -1659,6 +1661,8 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       t,
       currentTheme,
       setCurrentTheme,
+      currentFamily,
+      setCurrentFamily,
       locale,
       localeLabels,
       setLocale,

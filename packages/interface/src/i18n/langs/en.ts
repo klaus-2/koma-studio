@@ -190,6 +190,13 @@ export const enMessages = {
   'settings.theme.darkDesc': 'Default dark interface',
   'settings.theme.light': 'Light',
   'settings.theme.lightDesc': 'Light interface',
+
+  'settings.theme.styleLabel': 'Theme style',
+  'settings.theme.styleDescription': 'Choose the design system applied across the interface.',
+  'settings.theme.family.classic': 'Classic',
+  'settings.theme.family.classicDesc': 'Original KŌMA design',
+  'settings.theme.family.noir': 'Noir',
+  'settings.theme.family.noirDesc': 'Editorial manga noir redesign',
   'settings.language.title': 'Interface language',
   'settings.language.description':
     "Choose the app language. On desktop, initial detection uses your system's preferred languages.",

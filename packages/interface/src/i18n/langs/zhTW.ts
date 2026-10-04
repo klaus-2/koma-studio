@@ -175,6 +175,13 @@ export const zhMessages: TranslationCatalog = {
   'settings.theme.darkDesc': '預設深色介面',
   'settings.theme.light': '淺色',
   'settings.theme.lightDesc': '淺色介面',
+
+  'settings.theme.styleLabel': '主題風格',
+  'settings.theme.styleDescription': '選擇套用於整個介面的設計系統。',
+  'settings.theme.family.classic': '經典',
+  'settings.theme.family.classicDesc': 'KŌMA 原始設計',
+  'settings.theme.family.noir': 'Noir',
+  'settings.theme.family.noirDesc': '編輯漫畫黑色風重新設計',
   'settings.language.title': '介面語言',
   'settings.language.description':
     '選擇應用程式語言。在桌面版中，初始偵測會使用您系統的偏好語言。',

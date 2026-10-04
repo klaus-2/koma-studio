@@ -162,6 +162,13 @@ export const frMessages: TranslationCatalog = {
   'settings.theme.darkDesc': 'Interface sombre par défaut',
   'settings.theme.light': 'Clair',
   'settings.theme.lightDesc': 'Interface claire',
+
+  'settings.theme.styleLabel': 'Style du thème',
+  'settings.theme.styleDescription': 'Choisissez le système de design appliqué dans toute l\'interface.',
+  'settings.theme.family.classic': 'Classique',
+  'settings.theme.family.classicDesc': 'Design original de KŌMA',
+  'settings.theme.family.noir': 'Noir',
+  'settings.theme.family.noirDesc': 'Redesign éditorial manga noir',
   'settings.language.title': "Langue de l'interface",
   'settings.language.description':
     "Choisissez la langue de l'application. Sur bureau, la détection initiale utilise les langues préférées de votre système.",

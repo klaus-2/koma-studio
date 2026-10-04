@@ -8,6 +8,7 @@
     "./styles/*": "./src/styles/*",
     "./components/*": "./src/components/*.tsx",
     "./stores/*": "./src/stores/*.ts",
+    "./themes/*": "./src/themes/*.ts",
     "./utils/*": "./src/utils/*.ts",
     "./i18n-port": "./src/i18n-port.ts",
     "./assets/*": "./assets/*"

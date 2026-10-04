@@ -190,6 +190,13 @@ export const koMessages: TranslationCatalog = {
   'settings.theme.darkDesc': '기본 다크 인터페이스',
   'settings.theme.light': '라이트',
   'settings.theme.lightDesc': '라이트 인터페이스',
+
+  'settings.theme.styleLabel': '테마 스타일',
+  'settings.theme.styleDescription': '전체 인터페이스에 적용될 디자인 시스템을 선택하세요.',
+  'settings.theme.family.classic': '클래식',
+  'settings.theme.family.classicDesc': 'KŌMA 오리지널 디자인',
+  'settings.theme.family.noir': '누아르',
+  'settings.theme.family.noirDesc': '에디토리얼 만화 누아르 리디자인',
   'settings.language.title': '인터페이스 언어',
   'settings.language.description':
     '앱 언어를 선택하세요. 데스크톱에서는 시스템의 기본 언어를 사용하여 초기 감지됩니다.',

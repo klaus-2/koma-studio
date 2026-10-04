@@ -197,6 +197,13 @@ export const ptMessages: TranslationCatalog = {
   'settings.theme.darkDesc': 'Interface escura padrão',
   'settings.theme.light': 'Claro',
   'settings.theme.lightDesc': 'Interface clara',
+
+  'settings.theme.styleLabel': 'Estilo do tema',
+  'settings.theme.styleDescription': 'Escolha o sistema de design aplicado em toda a interface.',
+  'settings.theme.family.classic': 'Clássico',
+  'settings.theme.family.classicDesc': 'Design original do KŌMA',
+  'settings.theme.family.noir': 'Noir',
+  'settings.theme.family.noirDesc': 'Redesign editorial manga noir',
   'settings.language.title': 'Idioma da interface',
   'settings.language.description':
     'Escolha o idioma do app. No desktop, a detecção inicial usa os idiomas preferidos do sistema.',

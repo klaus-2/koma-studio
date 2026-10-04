@@ -206,6 +206,13 @@ export const deMessages: TranslationCatalog = {
   'settings.theme.darkDesc': 'Standard-Dunkeldesign',
   'settings.theme.light': 'Hell',
   'settings.theme.lightDesc': 'Helles Design',
+
+  'settings.theme.styleLabel': 'Design-Stil',
+  'settings.theme.styleDescription': 'Wähle das Designsystem, das in der gesamten Oberfläche verwendet wird.',
+  'settings.theme.family.classic': 'Klassisch',
+  'settings.theme.family.classicDesc': 'Originäres KŌMA-Design',
+  'settings.theme.family.noir': 'Noir',
+  'settings.theme.family.noirDesc': 'Editorial-Manga-Noir-Redesign',
   'settings.language.title': 'Sprache der Benutzeroberfläche',
   'settings.language.description':
     'Wähle die App-Sprache. Auf dem Desktop wird die Sprache deines Systems bei der Ersteinrichtung automatisch erkannt.',

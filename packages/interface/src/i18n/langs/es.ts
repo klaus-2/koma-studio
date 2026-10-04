@@ -200,6 +200,13 @@ export const esMessages: TranslationCatalog = {
   'settings.theme.darkDesc': 'Interfaz oscura predeterminada',
   'settings.theme.light': 'Claro',
   'settings.theme.lightDesc': 'Interfaz clara',
+
+  'settings.theme.styleLabel': 'Estilo del tema',
+  'settings.theme.styleDescription': 'Elige el sistema de diseño aplicado en toda la interfaz.',
+  'settings.theme.family.classic': 'Clásico',
+  'settings.theme.family.classicDesc': 'Diseño original de KŌMA',
+  'settings.theme.family.noir': 'Noir',
+  'settings.theme.family.noirDesc': 'Rediseño editorial manga noir',
   'settings.language.title': 'Idioma de la interfaz',
   'settings.language.description':
     'Elige el idioma de la aplicación. En escritorio, la detección inicial usa los idiomas preferidos de tu sistema.',

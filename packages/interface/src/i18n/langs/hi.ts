@@ -196,6 +196,13 @@ export const hiMessages: TranslationCatalog = {
   'settings.theme.darkDesc': 'Antarmuka gelap default',
   'settings.theme.light': 'Terang',
   'settings.theme.lightDesc': 'Antarmuka terang',
+
+  'settings.theme.styleLabel': 'थीम शैली',
+  'settings.theme.styleDescription': 'पूरे इंटरफ़ेस पर लागू डिज़ाइन सिस्टम चुनें।',
+  'settings.theme.family.classic': 'क्लासिक',
+  'settings.theme.family.classicDesc': 'मूल KŌMA डिज़ाइन',
+  'settings.theme.family.noir': 'नॉयर',
+  'settings.theme.family.noirDesc': 'एडिटोरियल मंगा नॉयर रीडिज़ाइन',
   'settings.language.title': 'Bahasa antarmuka',
   'settings.language.description':
     'Pilih bahasa aplikasi. Di desktop, deteksi awal menggunakan bahasa pilihan sistem Anda.',

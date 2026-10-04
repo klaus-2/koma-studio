@@ -198,6 +198,13 @@ export const jaMessages: TranslationCatalog = {
   'settings.theme.darkDesc': 'デフォルトのダークインターフェース',
   'settings.theme.light': 'ライト',
   'settings.theme.lightDesc': 'ライトインターフェース',
+
+  'settings.theme.styleLabel': 'テーマスタイル',
+  'settings.theme.styleDescription': 'インターフェース全体に適用するデザインシステムを選択します。',
+  'settings.theme.family.classic': 'クラシック',
+  'settings.theme.family.classicDesc': 'KŌMAのオリジナルデザイン',
+  'settings.theme.family.noir': 'ノワール',
+  'settings.theme.family.noirDesc': 'エディトリアル・マンガ・ノワールのリデザイン',
   'settings.language.title': 'インターフェース言語',
   'settings.language.description':
     'アプリの言語を選択します。デスクトップ版では、初回検出時にシステムの優先言語が使用されます。',

@@ -202,6 +202,13 @@ export const ruMessages: TranslationCatalog = {
   'settings.theme.darkDesc': 'Тёмный интерфейс по умолчанию',
   'settings.theme.light': 'Светлая',
   'settings.theme.lightDesc': 'Светлый интерфейс',
+
+  'settings.theme.styleLabel': 'Стиль темы',
+  'settings.theme.styleDescription': 'Выберите дизайн-систему, применяемую во всём интерфейсе.',
+  'settings.theme.family.classic': 'Классический',
+  'settings.theme.family.classicDesc': 'Оригинальный дизайн KŌMA',
+  'settings.theme.family.noir': 'Нуар',
+  'settings.theme.family.noirDesc': 'Редизайн в стиле editorial manga noir',
   'settings.language.title': 'Язык интерфейса',
   'settings.language.description':
     'Выберите язык приложения. На настольной версии начальное определение использует системные языковые настройки.',

@@ -7,7 +7,8 @@ import { ReleaseNotesMarkdown } from "../../components/updater/ReleaseNotesMarkd
 import type { AppLocale } from "../../i18n/config";
 import type { useI18n } from "../../i18n";
 import type { UseUpdaterApi } from "../../hooks/useUpdater";
-import type { KomaTheme } from "@koma/ui/stores/theme-store";
+import type { KomaTheme, KomaThemeFamily } from "@koma/ui/stores/theme-store";
+import { THEME_FAMILIES } from "@koma/ui/themes/registry";
 import type { WorkspaceAutosaveSettings } from "../../utils/workspaceAutosaveSettings";
 import type {
   DesktopMiniBackendRuntimeArtifactOption,
@@ -26,6 +27,8 @@ interface SettingsAppTabArgs {
   t: TranslationFn;
   currentTheme: KomaTheme;
   setCurrentTheme: (theme: KomaTheme) => void;
+  currentFamily: KomaThemeFamily;
+  setCurrentFamily: (family: KomaThemeFamily) => void;
   locale: AppLocale;
   localeLabels: Record<AppLocale, string>;
   setLocale: (locale: AppLocale) => void;
@@ -73,6 +76,8 @@ export const renderSettingsAppTab = ({
   t,
   currentTheme,
   setCurrentTheme,
+  currentFamily,
+  setCurrentFamily,
   locale,
   localeLabels,
   setLocale,
@@ -116,6 +121,36 @@ export const renderSettingsAppTab = ({
   formatRuntimeProfileLabel,
 }: SettingsAppTabArgs): JSX.Element => (
 <div className="koma-stg-panel" key="app">
+  {/* Theme Family Selector (design system: classic / noir) */}
+  <section className="koma-stg-section">
+    <div className="koma-stg-section__head">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
+        <path d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm11.5 0L18 16.5 20.5 14 22 15.5 18 19.5 14 15.5 15.5 14z" />
+      </svg>
+      <h3 className="koma-stg-section__title">{t("settings.theme.styleLabel")}</h3>
+    </div>
+    <p className="koma-stg-section__desc">{t("settings.theme.styleDescription")}</p>
+
+    <div className="koma-stg-themes">
+      {THEME_FAMILIES.map((family) => (
+        <button
+          key={family.id}
+          type="button"
+          className={`koma-stg-theme ${currentFamily === family.id ? "koma-stg-theme--active" : ""}`}
+          onClick={() => setCurrentFamily(family.id)}
+        >
+          <div className={`koma-stg-theme__preview koma-stg-theme__preview--${family.id}`}>
+            {family.id === "noir" ? "\u30B3\u30DE" : "\u{1F3A8}"}
+          </div>
+          <div className="koma-stg-theme__info">
+            <span className="koma-stg-theme__name">{t(family.nameKey)}</span>
+            <span className="koma-stg-theme__desc">{t(family.descKey)}</span>
+          </div>
+        </button>
+      ))}
+    </div>
+  </section>
+
   {/* Theme Selector */}
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">

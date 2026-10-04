@@ -225,12 +225,15 @@ const AppShell = () => {
   const theme = useThemeStore(
     (s: { theme: import("@koma/ui/stores/theme-store").KomaTheme }) => s.theme,
   );
+  const themeFamily = useThemeStore(
+    (s: { family: import("@koma/ui/stores/theme-store").KomaThemeFamily }) => s.family,
+  );
   const discord = useDiscordRPC(user);
   useDesktopDeepLink();
 
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    applyTheme(theme, themeFamily);
+  }, [theme, themeFamily]);
   const {
     isActive: isTransitionActive,
     message: transitionMessage,
