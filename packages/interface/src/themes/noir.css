@@ -299,3 +299,179 @@
     transition: none !important;
   }
 }
+
+.koma-noir .manhwa-float {
+  border-radius: 12px;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    0 0 0 1px color-mix(in srgb, var(--color-paper) 12%, transparent);
+}
+
+.koma-noir .manhwa-float__gradient {
+  background:
+    linear-gradient(to top, color-mix(in srgb, var(--color-ink) 92%, transparent) 0%, transparent 60%),
+    radial-gradient(circle at 70% 35%, color-mix(in srgb, var(--color-crimson) 14%, transparent), transparent 55%);
+}
+
+.koma-noir .manhwa-float__title {
+  color: var(--color-paper);
+}
+
+.koma-noir .manhwa-float__subtitle {
+  color: color-mix(in srgb, var(--color-paper) 55%, transparent);
+}
+
+.koma-noir .manhwa-float__badge {
+  background: color-mix(in srgb, var(--color-ink) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 25%, transparent);
+  color: var(--color-paper);
+}
+
+.koma-noir .manhwa-float__badge--new {
+  background: var(--color-crimson);
+  border-color: var(--color-crimson);
+  color: var(--color-ink);
+}
+
+.koma-noir .manhwa-float__bar {
+  background: color-mix(in srgb, var(--color-ink) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 18%, transparent);
+}
+
+.koma-noir .manhwa-float__handle {
+  background: var(--color-crimson);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-crimson) 60%, transparent);
+}
+
+.koma-noir .auth-quote {
+  color: var(--color-paper);
+}
+
+.koma-noir .auth-quote__mark {
+  color: var(--color-crimson);
+}
+
+.koma-noir .koma-legal-inline a {
+  color: color-mix(in srgb, var(--color-paper) 62%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--color-crimson) 45%, transparent);
+}
+
+.koma-noir .koma-legal-inline a:hover {
+  color: var(--color-crimson);
+}
+
+.koma-noir .auth-stat__number {
+  background: linear-gradient(135deg, var(--color-paper), color-mix(in srgb, var(--color-paper) 80%, transparent));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.koma-noir .auth-stat__label {
+  color: color-mix(in srgb, var(--color-paper) 55%, transparent);
+}
+
+.koma-noir .auth-stat__sep {
+  background: color-mix(in srgb, var(--color-paper) 12%, transparent);
+}
+
+.koma-noir .auth-toolkit__label {
+  color: color-mix(in srgb, var(--color-paper) 75%, transparent);
+}
+
+.koma-noir .auth-community__label {
+  color: color-mix(in srgb, var(--color-paper) 60%, transparent);
+}
+
+.koma-noir .auth-genre--purple {
+  background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-crimson) 30%, transparent);
+  color: #ff7aa3;
+}
+
+.koma-noir .auth-genre--purple:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-crimson) 30%, transparent);
+}
+
+.koma-noir .auth-genre--cyan {
+  background: color-mix(in srgb, var(--color-azure) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-azure) 30%, transparent);
+  color: #8fe0ff;
+}
+
+.koma-noir .auth-genre--cyan:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-azure) 30%, transparent);
+}
+
+.koma-noir .auth-genre--rose {
+  background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-crimson) 30%, transparent);
+  color: #ff7aa3;
+}
+
+.koma-noir .auth-genre--rose:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-crimson) 30%, transparent);
+}
+
+.koma-noir .auth-genre--amber {
+  background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-gold) 30%, transparent);
+  color: #ffd98a;
+}
+
+.koma-noir .auth-genre--amber:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-gold) 30%, transparent);
+}
+
+.koma-noir .auth-genre--emerald {
+  background: color-mix(in srgb, var(--color-mint) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-mint) 30%, transparent);
+  color: #8ff7d4;
+}
+
+.koma-noir .auth-genre--emerald:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-mint) 30%, transparent);
+}
+
+.koma-noir .auth-avatar {
+  border-color: var(--color-ink);
+}
+
+.koma-noir .auth-avatar--1 {
+  background: var(--color-crimson);
+}
+
+.koma-noir .auth-avatar--2 {
+  background: var(--color-gold);
+}
+
+.koma-noir .auth-avatar--3 {
+  background: var(--color-azure);
+}
+
+.koma-noir .auth-avatar--4 {
+  background: var(--color-mint);
+}
+
+.koma-noir .auth-avatar--join {
+  background: color-mix(in srgb, var(--color-paper) 12%, transparent);
+  color: var(--color-paper);
+  border-color: color-mix(in srgb, var(--color-paper) 30%, transparent);
+}
+
+:root[data-theme-family='noir'][data-theme='light'] .auth-genre--purple,
+:root[data-theme-family='noir'][data-theme='light'] .auth-genre--rose {
+  color: #b3123f;
+}
+
+:root[data-theme-family='noir'][data-theme='light'] .auth-genre--cyan {
+  color: #06689c;
+}
+
+:root[data-theme-family='noir'][data-theme='light'] .auth-genre--amber {
+  color: #8a640b;
+}
+
+:root[data-theme-family='noir'][data-theme='light'] .auth-genre--emerald {
+  color: #06714e;
+}
