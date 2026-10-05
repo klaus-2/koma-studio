@@ -1,20 +1,12 @@
 import { memo } from 'react';
-
-import { useI18n } from '../i18n';
-import { useUpdaterVersionInfo } from '../hooks/useUpdater';
+import { useThemeStore } from '@koma/ui/stores/theme-store';
+import VersionBadgeClassic from './VersionBadgeClassic';
+import VersionBadgeNoir from './noir/VersionBadgeNoir';
 
 function VersionBadge() {
-  const { t } = useI18n();
-  const { currentVersion, channel } = useUpdaterVersionInfo();
+  const family = useThemeStore((s) => s.family);
 
-  return (
-    <span
-      className={`koma-version-badge koma-version-badge--${channel}`}
-      title={t('versionBadge.tooltip', { version: currentVersion })}
-    >
-      v{currentVersion}
-    </span>
-  );
+  return family === 'noir' ? <VersionBadgeNoir /> : <VersionBadgeClassic />;
 }
 
 export default memo(VersionBadge);
