@@ -133,6 +133,7 @@ import {
   type KeyboardShortcutConfigV2,
 } from '../shortcuts/keyboardShortcuts';
 import './AioToolsPanel.css';
+import '../themes/aio-noir.css';
 import './DockTools.css';
 
 import { desktopBridge } from "@/lib/desktop-bridge";

@@ -1,6 +1,8 @@
 import { type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useI18n } from '../i18n';
+import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { AioStageTabBarNoir } from './aio-noir/AioStageTabBarNoir';
 
 export type StageTabKey =
   | 'detectText'
@@ -24,7 +26,7 @@ interface AioStageTabBarProps {
   onSelect: (tab: StageTabKey) => void;
 }
 
-export const AioStageTabBar = ({
+const AioStageTabBarClassic = ({
   tabs,
   activeTab,
   enabledSteps,
@@ -65,3 +67,8 @@ export const AioStageTabBar = ({
   );
 };
 
+export const AioStageTabBar = (props: AioStageTabBarProps) => {
+  const family = useThemeStore((s) => s.family);
+
+  return family === 'noir' ? <AioStageTabBarNoir {...props} /> : <AioStageTabBarClassic {...props} />;
+};

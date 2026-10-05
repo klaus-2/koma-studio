@@ -3,6 +3,8 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { AioManualStageStatus } from '../types/dashboard.types';
 import { useI18n } from '../i18n';
+import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { AioTimelineStepNoir } from './aio-noir/AioTimelineStepNoir';
 
 interface AioTimelineStepProps {
   icon: LucideIcon;
@@ -14,7 +16,7 @@ interface AioTimelineStepProps {
   onSelect: (stageIndex: number) => void;
 }
 
-export const AioTimelineStep = memo(function AioTimelineStep({
+const AioTimelineStepClassic = memo(function AioTimelineStepClassic({
   icon: Icon,
   label,
   active,
@@ -63,4 +65,10 @@ export const AioTimelineStep = memo(function AioTimelineStep({
       </span>
     </button>
   );
+});
+
+export const AioTimelineStep = memo(function AioTimelineStep(props: AioTimelineStepProps) {
+  const family = useThemeStore((s) => s.family);
+
+  return family === 'noir' ? <AioTimelineStepNoir {...props} /> : <AioTimelineStepClassic {...props} />;
 });

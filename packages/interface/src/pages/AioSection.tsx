@@ -1,6 +1,8 @@
 import { memo, useState, type ReactNode } from 'react';
 import { ChevronDown, type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { AioSectionNoir } from './aio-noir/AioSectionNoir';
 
 interface AioSectionProps {
   icon: LucideIcon;
@@ -10,7 +12,7 @@ interface AioSectionProps {
   children: ReactNode;
 }
 
-export const AioSection = memo(function AioSection({
+const AioSectionClassic = memo(function AioSectionClassic({
   icon: Icon,
   title,
   badge,
@@ -38,4 +40,10 @@ export const AioSection = memo(function AioSection({
       {open && <div className="koma-aio-section__body">{children}</div>}
     </div>
   );
+});
+
+export const AioSection = memo(function AioSection(props: AioSectionProps) {
+  const family = useThemeStore((s) => s.family);
+
+  return family === 'noir' ? <AioSectionNoir {...props} /> : <AioSectionClassic {...props} />;
 });

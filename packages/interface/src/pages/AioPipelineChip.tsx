@@ -1,5 +1,7 @@
 import { type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { AioPipelineChipNoir } from './aio-noir/AioPipelineChipNoir';
 
 interface AioPipelineChipProps {
   icon: LucideIcon;
@@ -10,7 +12,7 @@ interface AioPipelineChipProps {
   onToggle: () => void;
 }
 
-export const AioPipelineChip = ({
+const AioPipelineChipClassic = ({
   icon: Icon,
   label,
   subtitle,
@@ -37,3 +39,9 @@ export const AioPipelineChip = ({
     <span className="koma-aio-chip__toggle" aria-hidden="true" />
   </button>
 );
+
+export const AioPipelineChip = (props: AioPipelineChipProps) => {
+  const family = useThemeStore((s) => s.family);
+
+  return family === 'noir' ? <AioPipelineChipNoir {...props} /> : <AioPipelineChipClassic {...props} />;
+};
