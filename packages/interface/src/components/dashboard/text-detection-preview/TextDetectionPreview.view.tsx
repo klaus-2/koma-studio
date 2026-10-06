@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { motion } from 'framer-motion';
 import {
   ChevronLeft,
   ChevronRight,
@@ -98,29 +99,42 @@ const TextDetectionPreviewView = ({
 
   return (
     <>
-      <div
+      <motion.div
         onClick={onCardSelect}
         data-tour={active ? 'dashboard-active-preview-card' : undefined}
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
-          'koma-preview-card',
-          active && 'koma-preview-card--active',
+          'group/card relative flex flex-col gap-2 p-2 transition-all',
+          active && 'z-10',
         )}
         style={{ zoom }}
       >
-        <div className="koma-preview-card__labelRow">
-          <div className="koma-preview-card__label">{label}</div>
+        <div className="glass panel-cut-sm relative flex items-center gap-2 px-2.5 py-1.5">
+          <div className="halftone-red pointer-events-none absolute inset-0 opacity-20" aria-hidden="true" />
+          {active && <span className="relative h-1.5 w-1.5 bg-crimson blink-noir" aria-hidden="true" />}
+          <span className="relative truncate font-display text-xs font-black uppercase tracking-tight text-paper">
+            {label}
+          </span>
           <span
             className={cn(
-              'koma-preview-card__stageBadge',
-              `koma-preview-card__stageBadge--${stageBadgeKey}`,
+              'panel-cut-sm relative shrink-0 border px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-widest',
+              {
+                detectText: 'border-azure/40 bg-azure/10 text-azure',
+                recognizeText: 'border-azure/40 bg-azure/10 text-azure',
+                segmentText: 'border-azure/40 bg-azure/10 text-azure',
+                cleanImage: 'border-gold/40 bg-gold/10 text-gold',
+                getTranslations: 'border-mint/40 bg-mint/10 text-mint',
+                render: 'border-crimson/40 bg-crimson/10 text-crimson',
+              }[stageBadgeKey] ?? 'border-paper/20 bg-ink-3 text-paper-dim',
             )}
           >
             {stageBadgeLabel}
           </span>
-          <div className="koma-preview-card__labelActions">
+          <div className="relative ml-auto flex items-center gap-0.5">
             <button
               type="button"
-              className="koma-iconbtn koma-iconbtn--xs koma-preview-card__historyBtn"
               onClick={(event) => {
                 event.stopPropagation();
                 onRewind();
@@ -128,12 +142,12 @@ const TextDetectionPreviewView = ({
               disabled={!canRewind}
               title={t('detectionPreview.rewind')}
               aria-label={t('detectionPreview.rewind')}
+              className="panel-cut-sm grid h-6 w-6 place-items-center text-paper-dim transition-colors hover:bg-crimson hover:text-ink disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-paper-dim"
             >
               <ChevronLeft size={11} />
             </button>
             <button
               type="button"
-              className="koma-iconbtn koma-iconbtn--xs koma-preview-card__historyBtn"
               onClick={(event) => {
                 event.stopPropagation();
                 onForward();
@@ -141,12 +155,14 @@ const TextDetectionPreviewView = ({
               disabled={!canForward}
               title={t('detectionPreview.forward')}
               aria-label={t('detectionPreview.forward')}
+              className="panel-cut-sm grid h-6 w-6 place-items-center text-paper-dim transition-colors hover:bg-crimson hover:text-ink disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-paper-dim"
             >
               <ChevronRight size={11} />
             </button>
           </div>
         </div>
-        <div className="koma-preview-card__labelHint">
+        <div className="flex items-center gap-1.5 px-1 font-mono text-[9px] uppercase tracking-wider text-paper-dim">
+          <span className="h-px w-3 bg-crimson/40" aria-hidden="true" />
           {historyHint ?? t('detectionPreview.noHistory')}
         </div>
         <div
@@ -533,7 +549,7 @@ const TextDetectionPreviewView = ({
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
       {brushCursorPortal}
     </>
   );
