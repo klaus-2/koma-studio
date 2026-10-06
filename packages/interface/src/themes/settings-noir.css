@@ -1,0 +1,127 @@
+:root[data-theme-family='noir'] .koma-stg__bg {
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 20%,
+      color-mix(in srgb, var(--noir-crimson) 7%, transparent),
+      transparent),
+    radial-gradient(ellipse 60% 50% at 80% 80%,
+      color-mix(in srgb, var(--noir-azure) 5%, transparent),
+      transparent);
+}
+
+:root[data-theme-family='noir'] .koma-stg__scroll {
+  scrollbar-color: color-mix(in srgb, var(--noir-crimson) 22%, transparent) transparent;
+}
+
+:root[data-theme-family='noir'] .koma-stg__scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--noir-crimson) 22%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-stg-section {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 10%, transparent);
+  background: color-mix(in srgb, var(--noir-ink-2) 78%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-stg-section__title {
+  color: var(--noir-paper);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+:root[data-theme-family='noir'] .koma-stg-section__ico {
+  color: var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-stg-section__desc {
+  color: color-mix(in srgb, var(--noir-paper) 45%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-stg-theme {
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);
+  background: color-mix(in srgb, var(--noir-ink-3) 60%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-stg-theme:hover {
+  border-color: color-mix(in srgb, var(--noir-crimson) 40%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-stg-theme--active {
+  border-color: var(--noir-crimson);
+  box-shadow: inset 0 0 0 1px var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-stg-theme__name {
+  color: var(--noir-paper);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+:root[data-theme-family='noir'] .koma-stg-theme__desc {
+  color: color-mix(in srgb, var(--noir-paper) 50%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-stg-theme__preview--noir {
+  background: linear-gradient(135deg, #07070c, #ff2e63 160%);
+  border: 1px solid rgba(242, 237, 227, 0.18);
+  color: #f2ede3;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+}
+
+:root[data-theme-family='noir'] .koma-stg-item__label {
+  color: color-mix(in srgb, var(--noir-paper) 70%, transparent);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+:root[data-theme-family='noir'] .koma-stg-item__value {
+  color: color-mix(in srgb, var(--noir-paper) 50%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-ig-field__select,
+:root[data-theme-family='noir'] .koma-ig-field__input {
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  background: color-mix(in srgb, var(--noir-ink-3) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 14%, transparent);
+  color: var(--noir-paper);
+}
+
+:root[data-theme-family='noir'] .koma-ig-field__select:focus,
+:root[data-theme-family='noir'] .koma-ig-field__input:focus {
+  outline: none;
+  border-color: var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-toggle--on .koma-toggle__track {
+  background: color-mix(in srgb, var(--noir-crimson) 25%, transparent);
+  border-color: var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-toggle--on .koma-toggle__thumb {
+  background: var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-stg-alert {
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 14%, transparent);
+  border-left: 2px solid var(--noir-crimson);
+  background: color-mix(in srgb, var(--noir-ink-3) 70%, transparent);
+  color: color-mix(in srgb, var(--noir-paper) 85%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-stg-alert--error {
+  border-left-color: var(--noir-crimson);
+  color: var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-btn--primary {
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  background: var(--noir-crimson);
+  color: var(--noir-ink-0);
+}
+
+:root[data-theme-family='noir'] .koma-btn--ghost {
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 22%, transparent);
+  color: var(--noir-paper);
+}

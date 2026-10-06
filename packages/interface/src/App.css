@@ -11,6 +11,8 @@
 @import 'tw-animate-css';
 /* Noir theme family — fully scoped, classic selectors untouched */
 @import './themes/noir.css';
+/* Noir settings page re-skin (partes 1+2 do beta) */
+@import './themes/settings-noir.css';
 
 @custom-variant dark (&:is(.dark *));
 
