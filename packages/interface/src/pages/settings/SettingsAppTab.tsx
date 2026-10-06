@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
 
 import RuntimeProfileSection from "../../components/runtime/RuntimeProfileSection";
-import { ReleaseNotesMarkdown } from "../../components/updater/ReleaseNotesMarkdown";
+import ReleaseNotesMarkdownClassic from "../../components/updater/ReleaseNotesMarkdownClassic";
 import type { AppLocale } from "../../i18n/config";
 import type { useI18n } from "../../i18n";
 import type { UseUpdaterApi } from "../../hooks/useUpdater";
@@ -556,7 +556,7 @@ export const renderSettingsAppTab = ({
     </div>
     {updater.releaseNotes ? (
       <div className="koma-stg-release">
-        <ReleaseNotesMarkdown markdown={updater.releaseNotes} className="koma-stg-release__md" />
+        <ReleaseNotesMarkdownClassic markdown={updater.releaseNotes} className="koma-stg-release__md" />
       </div>
     ) : (
       <p className="koma-stg-empty-text">{t("update.modal.releaseNotesEmpty")}</p>

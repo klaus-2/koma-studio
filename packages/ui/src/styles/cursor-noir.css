@@ -1,0 +1,155 @@
+html.koma-custom-cursor-active,
+html.koma-custom-cursor-active body,
+html.koma-custom-cursor-active * {
+  cursor: none !important;
+}
+
+.koma-cursor[data-variant] .koma-cursor__dot {
+  width: auto;
+  height: auto;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.koma-cursor {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.koma-cursor--visible {
+  opacity: 1;
+}
+
+.koma-cursor__dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+.koma-cursor__core {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  top: -3px;
+  left: -3px;
+  background: var(--color-crimson);
+  transform: rotate(45deg);
+  transition:
+    transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.15s;
+}
+
+.koma-cursor__bracket {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--color-crimson);
+  opacity: 0;
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.koma-cursor__bracket--tl {
+  top: -4px;
+  left: -4px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.koma-cursor__bracket--tr {
+  top: -4px;
+  left: -3px;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.koma-cursor__bracket--bl {
+  top: -3px;
+  left: -4px;
+  border-right: 0;
+  border-top: 0;
+}
+
+.koma-cursor__bracket--br {
+  top: -3px;
+  left: -3px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.koma-cursor[data-variant="hover"] .koma-cursor__core {
+  transform: rotate(45deg) scale(0.6);
+}
+
+.koma-cursor[data-variant="hover"] .koma-cursor__bracket {
+  opacity: 1;
+}
+
+.koma-cursor[data-variant="hover"] .koma-cursor__bracket--tl {
+  top: -14px;
+  left: -14px;
+}
+
+.koma-cursor[data-variant="hover"] .koma-cursor__bracket--tr {
+  top: -14px;
+  left: 7px;
+}
+
+.koma-cursor[data-variant="hover"] .koma-cursor__bracket--bl {
+  top: 7px;
+  left: -14px;
+}
+
+.koma-cursor[data-variant="hover"] .koma-cursor__bracket--br {
+  top: 7px;
+  left: 7px;
+}
+
+.koma-cursor--clicking .koma-cursor__core {
+  transform: rotate(45deg) scale(1.6);
+  background: var(--color-gold);
+}
+
+.koma-cursor[data-variant="text"] .koma-cursor__core {
+  width: 2px;
+  height: 16px;
+  top: -8px;
+  left: -1px;
+  transform: none;
+  background: var(--color-azure);
+}
+
+.koma-cursor[data-variant="grab"] .koma-cursor__core {
+  width: 14px;
+  height: 3px;
+  top: -1.5px;
+  left: -7px;
+  transform: none;
+  background: var(--color-gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .koma-cursor__core,
+  .koma-cursor__bracket {
+    transition: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .koma-cursor {
+    display: none !important;
+  }
+
+  html.koma-custom-cursor-active,
+  html.koma-custom-cursor-active body,
+  html.koma-custom-cursor-active * {
+    cursor: auto !important;
+  }
+}

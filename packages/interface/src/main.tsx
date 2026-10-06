@@ -1,7 +1,3 @@
-// Single interface render module. The shell (electron/tauri) registers the
-// provider + auth adapter + i18n port BEFORE importing this file.
-// react-scan bootstrap first: its top-level await must attach the scan
-// hook before the App module (a side-effect import) renders.
 import "./react-scan-init";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -11,6 +7,7 @@ import App from "./App";
 import "@koma/ui/styles/tokens.css";
 import "./App.css";
 import "@koma/ui/styles/cursor.css";
+import "@koma/ui/styles/cursor-noir.css";
 import "@koma/ui/styles/page-transition.css";
 import "./pages/guides-resources.css";
 import { I18nProvider } from "./i18n";
@@ -89,8 +86,6 @@ const preloadCriticalBrandAsset = (): void => {
 const bootstrap = (): void => {
   preloadCriticalBrandAsset();
 
-  // React 19: render errors are no longer re-thrown — the handler below is
-  // the single logging point (the default would be console.error with no prefix).
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement, {
     onUncaughtError: (error, errorInfo) => {
       console.error("[react] uncaught render error:", error, errorInfo.componentStack);

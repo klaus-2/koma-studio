@@ -7,7 +7,7 @@ interface ReleaseNotesMarkdownProps {
   className?: string;
 }
 
-export const ReleaseNotesMarkdown = ({
+export const ReleaseNotesMarkdownClassic = ({
   markdown,
   className,
 }: ReleaseNotesMarkdownProps) => (
@@ -25,4 +25,4 @@ export const ReleaseNotesMarkdown = ({
   </div>
 );
 
-export default ReleaseNotesMarkdown;
+export default ReleaseNotesMarkdownClassic;
