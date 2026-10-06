@@ -27,7 +27,6 @@ interface DashboardFooterProps {
   runtimeExecutionNotice?: RuntimeExecutionNotice | null;
 }
 
-/* tone → color token maps (neo-brutalist, no glow) */
 const TONE_TEXT: Record<string, string> = {
   info: 'text-paper', success: 'text-mint', error: 'text-crimson',
   warning: 'text-gold', progress: 'text-azure',
@@ -177,7 +176,6 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-
         {runtimeBadge && (
           <TooltipProvider delayDuration={120}>
             <Tooltip open={runtimeTooltipOpen} onOpenChange={handleRuntimeTooltipOpenChange}>
@@ -214,7 +212,6 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
             </Tooltip>
           </TooltipProvider>
         )}
-
         {processing && (
           <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">
             <motion.div
@@ -226,7 +223,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
             <span className="relative z-10 w-full text-center font-mono text-[9px] font-bold text-paper mix-blend-difference">{Math.round(progress)}%</span>
           </div>
         )}
-
+        <span aria-hidden className="mx-0.5 select-none font-mono text-[10px] text-paper-faint">/</span>
         <TooltipProvider delayDuration={120}>
           <div className="flex items-center gap-1" aria-label={t('dashboard.footer.quickLinks')}>
             <Tooltip>

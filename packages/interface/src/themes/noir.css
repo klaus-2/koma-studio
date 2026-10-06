@@ -53,12 +53,13 @@
   --color-azure: var(--noir-azure);
   --color-mint: var(--noir-mint);
   --color-paper-dim: #a8a396;
-
+  --color-paper-faint: color-mix(in srgb, var(--noir-paper) 35%, transparent);
   --ease-noir: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ── Type system ── */
   --font-display: 'Archivo', system-ui, sans-serif;
   --font-accent: 'Instrument Serif', Georgia, serif;
+  --font-serif-accent: 'Instrument Serif', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   --ease-koma: cubic-bezier(0.22, 1, 0.36, 1);
