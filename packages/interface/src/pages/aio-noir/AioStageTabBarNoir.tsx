@@ -1,7 +1,7 @@
+import type { StageTabDef, StageTabKey } from "../AioStageTabBar";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";
-import type { StageTabDef, StageTabKey } from "../AioStageTabBar";
 
 interface AioStageTabBarProps {
   tabs: StageTabDef[];
@@ -60,4 +60,3 @@ export const AioStageTabBarNoir = ({
     </div>
   );
 };
-

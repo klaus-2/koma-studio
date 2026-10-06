@@ -1,6 +1,6 @@
-import { memo, useId, useState, type ReactNode } from "react";
-import { type LucideIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ChevronDown, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -13,55 +13,59 @@ interface AioSectionProps {
   children: ReactNode;
 }
 
-export const AioSectionNoir = memo(function AioSectionNoir({
+export const AioSectionNoir = ({
   icon: Icon,
   title,
   badge,
   defaultOpen = true,
   children,
-}: AioSectionProps) {
+}: AioSectionProps) => {
   const [open, setOpen] = useState(defaultOpen);
   const reduced = useReducedMotion();
-  const bodyId = useId();
 
   return (
-    <section className={cn("koma-aio-section", open && "koma-aio-section--open")}>
+    <section
+      className={cn(
+        "glass panel-cut-sm mb-3 overflow-hidden border-l-2 border-l-crimson/70",
+      )}
+    >
       <button
         type="button"
-        className="koma-aio-section__header"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-controls={bodyId}
+        className="group flex w-full items-center gap-2.5 px-3.5 py-3 text-left"
       >
-        <span className="koma-aio-section__header-icon" aria-hidden="true">
-          <Icon size={12} strokeWidth={2.5} />
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center bg-crimson/12 text-crimson panel-cut-sm">
+          <Icon size={14} strokeWidth={2.4} />
         </span>
-
-        <span className="koma-aio-section__title">
-          <span className="koma-aio-section__slashes" aria-hidden="true">//</span>
+        <h3 className="flex-1 font-display text-[13px] font-extrabold uppercase tracking-tight text-paper">
           {title}
-        </span>
-
+        </h3>
         {badge}
-
-        <span className="koma-aio-section__chevron" aria-hidden="true">▼</span>
+        <ChevronDown
+          size={15}
+          className={cn(
+            "text-paper-dim transition-transform duration-300",
+            open && "rotate-180 text-crimson",
+          )}
+        />
       </button>
 
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            id={bodyId}
-            key="body"
             initial={reduced ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={reduced ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: EASE }}
+            transition={{ duration: 0.32, ease: EASE }}
             style={{ overflow: "hidden" }}
           >
-            <div className="koma-aio-section__body">{children}</div>
+            <div className="halftone space-y-3 border-t border-paper/8 px-3.5 py-3.5">
+              {children}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
     </section>
   );
-});
+};
