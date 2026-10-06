@@ -310,6 +310,37 @@
   }
 }
 
+.koma-noir-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 12px;
+  width: 12px;
+  background: var(--color-crimson);
+  clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%);
+  cursor: pointer;
+}
+
+.koma-noir-range::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
+  border: 0;
+  background: var(--color-crimson);
+  clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%);
+  cursor: pointer;
+}
+
+.koma-effects-row {
+  scrollbar-width: thin;
+}
+
+.koma-effects-row>* {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.koma-effects-row .koma-color-popover__trigger {
+  width: 100%;
+}
+
 /* ── Scoped base for the noir auth surfaces ── */
 .koma-noir {
   position: relative;
