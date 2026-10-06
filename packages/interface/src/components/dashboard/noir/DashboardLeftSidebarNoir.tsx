@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Upload, Layers, Image as ImageIcon, Trash2, RotateCw, ArrowUp, ArrowDown,
+  Upload, Image as ImageIcon, Trash2, RotateCw, ArrowUp, ArrowDown,
   X, PanelLeftOpen, ChevronLeft, ChevronRight, SkipBack, SkipForward, RefreshCcw,
 } from 'lucide-react';
 
@@ -132,17 +132,26 @@ export default function DashboardLeftSidebarNoir({
       <span className="v-text pointer-events-none absolute -right-1 bottom-32 font-display text-5xl font-black text-outline opacity-25" aria-hidden="true">ファイル</span>
 
       <div className="relative shrink-0 border-b-2 border-crimson/20 p-3">
-        <div className="flex items-center gap-2.5">
-          <div className="panel-cut-sm grid h-10 w-10 shrink-0 place-items-center bg-crimson text-ink shadow-hard-gold">
-            <Layers size={18} />
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col">
+        <div className="relative z-10 flex items-center gap-2.5">
+          <motion.span
+            className="grid size-9 shrink-0 -rotate-3 place-items-center bg-crimson font-display text-base font-black text-ink shadow-[2px_2px_0_var(--color-gold)]"
+            whileHover={{ rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+            aria-hidden
+          >
+            コ
+          </motion.span>
+          <div className="min-w-0 flex-1 leading-none">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-display text-sm font-black uppercase tracking-tight text-paper">{t('brand.name')}</span>
-              <span className="kicker !text-[9px] text-paper-dim">{t('brand.studioSuffix')}</span>
+              <span className="font-display text-[14px] font-black uppercase tracking-tight text-paper">
+                {t('brand.name')}
+                <span className="font-accent italic text-crimson"> {t('brand.studioSuffix')}</span>
+              </span>
               <VersionBadge />
             </div>
-            <span className="font-mono text-[10px] text-paper-dim">{t('dashboard.sidebar.workspace')}</span>
+            <span className="mt-0.5 block font-mono text-[8px] uppercase tracking-[0.28em] text-paper-dim">
+              {t('dashboard.sidebar.workspace')}
+            </span>
           </div>
           {!isCompactViewport && (
             <button

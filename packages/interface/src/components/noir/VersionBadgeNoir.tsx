@@ -8,16 +8,16 @@ function VersionBadgeNoir() {
   const { currentVersion, channel } = useUpdaterVersionInfo();
 
   const channelColor: Record<string, string> = {
-    stable: 'border-mint/40 text-mint',
-    beta: 'border-gold/40 text-gold',
-    alpha: 'border-crimson/40 text-crimson',
-    nightly: 'border-azure/40 text-azure',
+    stable: 'border-mint/50 text-mint bg-mint/10',
+    beta: 'border-gold/50 text-gold bg-gold/10',
+    alpha: 'border-crimson/50 text-crimson bg-crimson/10',
+    nightly: 'border-azure/50 text-azure bg-azure/10',
   };
 
   return (
     <span
       title={t('versionBadge.tooltip', { version: currentVersion })}
-      className={`panel-cut-sm inline-flex items-center bg-ink px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-widest ${channelColor[channel] ?? channelColor.stable} border`}
+      className={`inline-flex -rotate-2 select-none items-center border px-1 py-px font-mono text-[8px] font-bold uppercase tracking-[0.12em] ${channelColor[channel] ?? channelColor.stable} border`}
     >
       v{currentVersion}
     </span>
