@@ -1,0 +1,42 @@
+/* ── Guides "Editorial Manga Noir" primitives ── */
+:root[data-theme-family='noir'] .noir-kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  background: #0d0d16;
+  color: #f2ede3;
+  border: 1px solid rgba(242, 237, 227, 0.25);
+  border-bottom-width: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%);
+}
+
+:root[data-theme-family='noir'] .noir-code-line--hl {
+  display: inline-block;
+  width: 100%;
+  background: rgba(255, 46, 99, 0.1);
+  box-shadow: inset 2px 0 0 #ff2e63;
+}
+
+:root[data-theme-family='noir'] .noir-guide-text {
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: rgba(242, 237, 227, 0.78);
+}
+
+:root[data-theme-family='noir'] .noir-timeline {
+  position: relative;
+}
+
+:root[data-theme-family='noir'] .noir-timeline::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: rgba(242, 237, 227, 0.1);
+}
