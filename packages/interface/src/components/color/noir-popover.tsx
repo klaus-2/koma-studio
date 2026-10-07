@@ -1,19 +1,21 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
 
-export function PopoverChip({
-  label, value, previewStyle, previewText, disabled, valueClassName = '', ...rest
-}: {
+export const PopoverChip = forwardRef<HTMLButtonElement, {
   label: ReactNode;
   value: ReactNode;
   previewStyle?: CSSProperties;
   previewText?: string;
   disabled?: boolean;
   valueClassName?: string;
-} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+} & ButtonHTMLAttributes<HTMLButtonElement>>(function PopoverChip(
+  { label, value, previewStyle, previewText, disabled, valueClassName = '', ...rest },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type="button"
       disabled={disabled}
       {...rest}
@@ -36,7 +38,7 @@ export function PopoverChip({
       </span>
     </button>
   );
-}
+});
 
 export function PopoverPanel({
   title, hint, children,
