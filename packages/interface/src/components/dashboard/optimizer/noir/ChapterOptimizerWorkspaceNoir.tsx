@@ -1,10 +1,24 @@
 'use client';
 
-import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+/* eslint-disable @next/next/no-img-element */
+
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+} from 'framer-motion';
 import {
   ArrowDownToLine,
+  ChevronDown,
   Contrast,
   Download,
   Eye,
@@ -14,8 +28,10 @@ import {
   Globe,
   Image as ImageIcon,
   Layers3,
+  Minus,
   MonitorSmartphone,
   Palette,
+  Plus,
   RefreshCw,
   RotateCw,
   Scissors,
@@ -26,8 +42,7 @@ import {
   Type,
   Wand2,
   ZoomIn,
-  Minus,
-  Plus,
+  type LucideIcon,
 } from 'lucide-react';
 import { zipSync } from 'fflate';
 
@@ -38,17 +53,6 @@ import type {
   RawOutputFormat,
 } from '../../../../types';
 import { useI18n } from '../../../../i18n';
-import { useHorizontalDragScroll } from '../../../../hooks/useHorizontalDragScroll';
-import {
-  NoirSection,
-  NoirField,
-  NoirInput,
-  NoirSlider,
-  NoirToggle,
-  Segmented,
-  Stamp,
-  useNoirMotion,
-} from '../../../noir-panels/NoirPrimitives';
 
 interface OptimizerImageInput {
   id: string;
@@ -70,14 +74,23 @@ interface OptimizerSourceVariant {
 interface ChapterOptimizerWorkspaceProps {
   workspaceState?: ChapterOptimizerWorkspaceState | null;
   restoreToken?: string | number | null;
-  onWorkspaceStateChange?: (state: ChapterOptimizerWorkspaceState) => void;
+  onWorkspaceStateChange?: (
+    state: ChapterOptimizerWorkspaceState,
+  ) => void;
   images: OptimizerImageInput[];
   sourceVariants: OptimizerSourceVariant[];
   registerDownloads: (
-    items: Array<{ fileName: string; blob: Blob; sourceImageId: string }>,
+    items: Array<{
+      fileName: string;
+      blob: Blob;
+      sourceImageId: string;
+    }>,
     scope: 'optimizer',
   ) => void;
-  triggerBlobDownload: (blob: Blob, fileName: string) => void;
+  triggerBlobDownload: (
+    blob: Blob,
+    fileName: string,
+  ) => void;
   setStatusMessage: (message: string) => void;
 }
 
@@ -88,7 +101,30 @@ export interface ChapterOptimizerWorkspaceState {
   results: OptimizationResult[];
 }
 
-const STORAGE_KEY = 'koma-studio.chapter-optimizer.recipe.v2';
+interface WritableLike {
+  write: (data: Blob) => Promise<void>;
+  close: () => Promise<void>;
+}
+
+interface FileHandleLike {
+  createWritable: () => Promise<WritableLike>;
+}
+
+interface DirectoryHandleLike {
+  getFileHandle: (
+    fileName: string,
+    options: { create: boolean },
+  ) => Promise<FileHandleLike>;
+}
+
+type DirectoryPickerWindow = Window & {
+  showDirectoryPicker?: () => Promise<DirectoryHandleLike>;
+};
+
+const STORAGE_KEY =
+  'koma-studio.chapter-optimizer.recipe.v2';
+
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 const DEFAULT_NEW_FIELDS = {
   brightness: 0,
@@ -99,7 +135,10 @@ const DEFAULT_NEW_FIELDS = {
   renamePattern: '{name}',
 };
 
-const PRESET_RECIPES: Record<OptimizationPreset, OptimizationRecipe> = {
+const PRESET_RECIPES: Record<
+  OptimizationPreset,
+  OptimizationRecipe
+> = {
   'web-light': {
     preset: 'web-light',
     outputFormat: 'webp',
@@ -179,21 +218,51 @@ const PRESET_RECIPES: Record<OptimizationPreset, OptimizationRecipe> = {
   },
 };
 
-const PRESET_META: Record<OptimizationPreset, { icon: typeof Globe; descKey: string }> = {
-  'web-light': { icon: Globe, descKey: 'optimizer.presets.webLight.desc' },
-  reading: { icon: Eye, descKey: 'optimizer.presets.reading.desc' },
-  archive: { icon: Layers3, descKey: 'optimizer.presets.archive.desc' },
-  social: { icon: MonitorSmartphone, descKey: 'optimizer.presets.social.desc' },
-  custom: { icon: Settings2, descKey: 'optimizer.presets.custom.desc' },
+const PRESET_META: Record<
+  OptimizationPreset,
+  {
+    icon: LucideIcon;
+    descKey: string;
+  }
+> = {
+  'web-light': {
+    icon: Globe,
+    descKey: 'optimizer.presets.webLight.desc',
+  },
+  reading: {
+    icon: Eye,
+    descKey: 'optimizer.presets.reading.desc',
+  },
+  archive: {
+    icon: Layers3,
+    descKey: 'optimizer.presets.archive.desc',
+  },
+  social: {
+    icon: MonitorSmartphone,
+    descKey: 'optimizer.presets.social.desc',
+  },
+  custom: {
+    icon: Settings2,
+    descKey: 'optimizer.presets.custom.desc',
+  },
 };
 
 const ROTATION_OPTIONS = [0, 90, 180, 270] as const;
 
-const canUseDirectoryPicker = (): boolean =>
-  typeof window !== 'undefined' && typeof (window as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function';
+const ZOOM_LEVELS = [
+  0.25,
+  0.5,
+  0.75,
+  1,
+  1.25,
+  1.5,
+  2,
+  3,
+];
 
-const getExtension = (format: RawOutputFormat): string =>
-  format === 'jpeg' ? 'jpg' : format;
+const getExtension = (
+  format: RawOutputFormat,
+): string => (format === 'jpeg' ? 'jpg' : format);
 
 const sanitizeStem = (fileName: string): string =>
   fileName
@@ -208,29 +277,71 @@ const buildOutputName = (
   index: number,
 ): string => {
   const stem = sanitizeStem(fileName);
-  const ext = getExtension(format);
-  const padIdx = String(index + 1).padStart(3, '0');
+  const extension = getExtension(format);
+  const paddedIndex = String(index + 1).padStart(3, '0');
+
   const resolved = pattern
     .replace(/\{name\}/g, stem)
-    .replace(/\{index\}/g, padIdx)
-    .replace(/\{ext\}/g, ext);
-  const finalStem = resolved.trim() || stem;
-  return `${finalStem}.${ext}`;
+    .replace(/\{index\}/g, paddedIndex)
+    .replace(/\{ext\}/g, extension);
+
+  return `${resolved.trim() || stem}.${extension}`;
 };
 
-type WorkerSuccess = { blob: Blob; width: number; height: number };
+const savingsPercent = (
+  original: number,
+  optimized: number,
+): number => {
+  if (original <= 0) return 0;
+
+  return Math.round(
+    ((original - optimized) / original) * 100,
+  );
+};
+
+const savingsColor = (percentage: number): string => {
+  if (percentage >= 60) return 'var(--color-mint)';
+  if (percentage >= 30) return 'var(--color-azure)';
+  if (percentage > 0) return 'var(--color-gold)';
+
+  return 'rgb(242 237 227 / 0.42)';
+};
+
+const formatDelta = (percentage: number): string => {
+  if (percentage >= 0) return `-${percentage}%`;
+  return `+${Math.abs(percentage)}%`;
+};
+
+type WorkerSuccess = {
+  blob: Blob;
+  width: number;
+  height: number;
+};
 
 const runOptimizerJob = (
-  payload: { sourceBuffer: ArrayBuffer; sourceMimeType: string } & OptimizationRecipe,
+  payload: {
+    sourceBuffer: ArrayBuffer;
+    sourceMimeType: string;
+  } & OptimizationRecipe,
   t: (key: any) => string,
 ): Promise<WorkerSuccess> => {
   if (typeof Worker === 'undefined') {
-    return Promise.reject(new Error(t('optimizer.error.worker')));
+    return Promise.reject(
+      new Error(t('optimizer.error.worker')),
+    );
   }
-  const worker = new Worker(new URL('./optimizerWorker.ts', import.meta.url), {
-    type: 'module',
-  });
-  const requestId = `optimizer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const worker = new Worker(
+    new URL('./optimizerWorker.ts', import.meta.url),
+    {
+      type: 'module',
+    },
+  );
+
+  const requestId = `optimizer-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+
   return new Promise((resolve, reject) => {
     worker.onmessage = (
       event: MessageEvent<{
@@ -243,37 +354,290 @@ const runOptimizerJob = (
       }>,
     ) => {
       if (event.data.id !== requestId) return;
+
       worker.terminate();
-      if (!event.data.ok || !event.data.blob || !event.data.width || !event.data.height) {
-        reject(new Error(event.data.error || t('optimizer.error.failed')));
+
+      if (
+        !event.data.ok ||
+        !event.data.blob ||
+        !event.data.width ||
+        !event.data.height
+      ) {
+        reject(
+          new Error(
+            event.data.error ||
+            t('optimizer.error.failed'),
+          ),
+        );
         return;
       }
-      resolve({ blob: event.data.blob, width: event.data.width, height: event.data.height });
+
+      resolve({
+        blob: event.data.blob,
+        width: event.data.width,
+        height: event.data.height,
+      });
     };
+
     worker.onerror = () => {
       worker.terminate();
-      reject(new Error(t('optimizer.error.worker')));
+
+      reject(
+        new Error(t('optimizer.error.worker')),
+      );
     };
-    worker.postMessage({ id: requestId, ...payload });
+
+    worker.postMessage({
+      id: requestId,
+      ...payload,
+    });
   });
 };
 
-const savingsPercent = (original: number, optimized: number): number => {
-  if (original <= 0) return 0;
-  return Math.round(((original - optimized) / original) * 100);
-};
+/* ───────────────────── UI primitives ───────────────────── */
 
-/* Paleta noir para savings: mint → azure → gold */
-const savingsColor = (pct: number): string => {
-  if (pct >= 60) return '#3ef2b0';
-  if (pct >= 30) return '#4dc9ff';
-  if (pct > 0) return '#ffc857';
-  return 'rgba(242, 237, 227, 0.4)';
-};
+interface ControlSectionProps {
+  index: string;
+  icon: LucideIcon;
+  title: string;
+  children: ReactNode;
+  expanded?: boolean;
+  onToggle?: () => void;
+}
 
-const ZOOM_LEVELS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3];
+function ControlSection({
+  index,
+  icon: Icon,
+  title,
+  children,
+  expanded = true,
+  onToggle,
+}: ControlSectionProps) {
+  const contentId = useId();
+  const reduceMotion = useReducedMotion();
 
-/* ══════════════════ Component ══════════════════ */
+  const header = (
+    <>
+      <span
+        className="text-outline font-display font-black text-[58px] leading-none select-none pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 opacity-[0.12]"
+        aria-hidden="true"
+      >
+        {index}
+      </span>
+
+      <span
+        className="relative grid size-8 shrink-0 place-items-center border border-crimson/30 bg-crimson/10 text-crimson panel-cut-sm"
+        aria-hidden="true"
+      >
+        <Icon size={13} />
+      </span>
+
+      <span className="relative min-w-0 flex-1 text-left">
+        <span className="kicker block text-[0.58rem]">
+          // {index}
+        </span>
+
+        <span className="mt-1 block font-display text-sm font-black uppercase tracking-[-0.025em] text-paper">
+          {title}
+        </span>
+      </span>
+
+      {onToggle ? (
+        <span
+          className={[
+            'relative grid size-7 place-items-center border border-paper/10',
+            'bg-paper/[0.035] text-paper/45 panel-cut-sm',
+            'transition-transform duration-300',
+            expanded ? 'rotate-180' : '',
+          ].join(' ')}
+          aria-hidden="true"
+        >
+          <ChevronDown size={13} />
+        </span>
+      ) : null}
+    </>
+  );
+
+  return (
+    <section className="border-b border-paper/[0.065] last:border-b-0">
+      {onToggle ? (
+        <button
+          type="button"
+          className="panel-cut-sm relative flex w-full items-center gap-3 px-4 py-4 hover:bg-paper/[0.025]"
+          aria-expanded={expanded}
+          aria-controls={contentId}
+          onClick={onToggle}
+        >
+          {header}
+        </button>
+      ) : (
+        <div className="relative flex items-center gap-3 px-4 py-4">
+          {header}
+        </div>
+      )}
+
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            id={contentId}
+            initial={
+              reduceMotion
+                ? false
+                : {
+                  height: 0,
+                  opacity: 0,
+                }
+            }
+            animate={{
+              height: 'auto',
+              opacity: 1,
+            }}
+            exit={{
+              height: 0,
+              opacity: 0,
+            }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.3,
+              ease: EASE,
+            }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-5">
+              {children}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+interface ToggleControlProps {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  icon?: LucideIcon;
+}
+
+function ToggleControl({
+  label,
+  checked,
+  onChange,
+  icon: Icon,
+}: ToggleControlProps) {
+  return (
+    <label className="panel-cut-sm flex min-h-12 cursor-pointer items-center gap-3 border border-paper/10 bg-ink/45 px-3 py-2.5 transition-colors hover:border-paper/20 hover:bg-paper/[0.035] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-crimson">
+      <input
+        type="checkbox"
+        className="sr-only"
+        checked={checked}
+        onChange={(event) =>
+          onChange(event.target.checked)
+        }
+      />
+
+      <span
+        className={[
+          'relative h-5 w-9 shrink-0 border transition-colors panel-cut-sm',
+          checked
+            ? 'border-crimson bg-crimson/20'
+            : 'border-paper/15 bg-ink-2',
+        ].join(' ')}
+        aria-hidden="true"
+      >
+        <motion.span
+          layout
+          transition={{ ease: EASE, duration: 0.2 }}
+          className={[
+            'absolute top-0.5 size-3.5 transition-colors',
+            checked
+              ? 'left-[18px] bg-crimson'
+              : 'left-0.5 bg-paper/50',
+          ].join(' ')}
+        />
+      </span>
+
+      <span className="flex min-w-0 items-center gap-2 font-mono text-[0.67rem] font-bold uppercase tracking-[0.08em] text-paper/58">
+        {Icon ? (
+          <Icon
+            size={13}
+            className={
+              checked ? 'text-crimson' : 'text-paper/35'
+            }
+            aria-hidden="true"
+          />
+        ) : null}
+
+        {label}
+      </span>
+    </label>
+  );
+}
+
+interface RangeControlProps {
+  label: string;
+  valueLabel: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+  icon?: LucideIcon;
+}
+
+function RangeControl({
+  label,
+  valueLabel,
+  min,
+  max,
+  step,
+  value,
+  onChange,
+  disabled = false,
+  icon: Icon,
+}: RangeControlProps) {
+  return (
+    <label className="block">
+      <span className="mb-2 flex items-center justify-between gap-4">
+        <span className="flex items-center gap-2 font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-paper/48">
+          {Icon ? (
+            <Icon
+              size={13}
+              className="text-crimson"
+              aria-hidden="true"
+            />
+          ) : null}
+          {label}
+        </span>
+
+        <output className="stamp !px-2 !py-1 !text-[0.58rem]">
+          {valueLabel}
+        </output>
+      </span>
+
+      <input
+        type="range"
+        aria-label={label}
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        onChange={(event) =>
+          onChange(Number(event.target.value))
+        }
+        className={[
+          'w-full h-1 appearance-none bg-paper/15 cursor-pointer',
+          '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3',
+          '[&::-webkit-slider-thumb]:bg-crimson [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-ink [&::-webkit-slider-thumb]:cursor-pointer',
+          '[&::-webkit-slider-thumb]:shadow-[2px_2px_0_0_rgba(255,200,87,0.4)]',
+          '[&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:bg-crimson [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer',
+        ].join(' ')}
+      />
+    </label>
+  );
+}
 
 export default function ChapterOptimizerWorkspace({
   workspaceState,
@@ -286,194 +650,421 @@ export default function ChapterOptimizerWorkspace({
   setStatusMessage,
 }: ChapterOptimizerWorkspaceProps) {
   const { t } = useI18n();
-  const m = useNoirMotion();
+  const reduceMotion = useReducedMotion();
+
+  const [recipe, setRecipe] =
+    useState<OptimizationRecipe>(() => {
+      if (workspaceState?.recipe) {
+        return workspaceState.recipe;
+      }
+
+      if (typeof window === 'undefined') {
+        return PRESET_RECIPES['web-light'];
+      }
+
+      try {
+        const savedRecipe =
+          window.localStorage.getItem(STORAGE_KEY);
+
+        return savedRecipe
+          ? {
+            ...PRESET_RECIPES['web-light'],
+            ...(JSON.parse(
+              savedRecipe,
+            ) as Partial<OptimizationRecipe>),
+          }
+          : PRESET_RECIPES['web-light'];
+      } catch {
+        return PRESET_RECIPES['web-light'];
+      }
+    });
+
+  const [selectedPreset, setSelectedPreset] =
+    useState<OptimizationPreset>(
+      workspaceState?.selectedPreset ??
+      recipe.preset,
+    );
+
+  const [activeImageId, setActiveImageId] =
+    useState<string | null>(
+      workspaceState?.activeImageId ??
+      images[0]?.id ??
+      null,
+    );
+
+  const [previewUrl, setPreviewUrl] =
+    useState<string | null>(null);
+
+  const [originalPreviewUrl, setOriginalPreviewUrl] =
+    useState<string | null>(null);
+
+  const [previewStats, setPreviewStats] =
+    useState<{
+      originalBytes: number;
+      optimizedBytes: number;
+      width: number;
+      height: number;
+    } | null>(null);
+
+  const [results, setResults] = useState<
+    OptimizationResult[]
+  >(() => workspaceState?.results ?? []);
+
+  const [busy, setBusy] = useState(false);
+
+  const [batchProgress, setBatchProgress] =
+    useState<{
+      current: number;
+      total: number;
+    } | null>(null);
+
+  const [showCompare, setShowCompare] =
+    useState(false);
+
+  const [comparePosition, setComparePosition] =
+    useState(50);
+
+  const [filtersExpanded, setFiltersExpanded] =
+    useState(false);
+
+  const [advancedExpanded, setAdvancedExpanded] =
+    useState(false);
+
+  const [previewLoading, setPreviewLoading] =
+    useState(false);
+
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  const [
+    directoryPickerAvailable,
+    setDirectoryPickerAvailable,
+  ] = useState(false);
+
+  const previewTicketRef = useRef(0);
+
+  const previewDebounceRef =
+    useRef<ReturnType<typeof setTimeout> | null>(
+      null,
+    );
+
+  const thumbStripRef =
+    useRef<HTMLDivElement | null>(null);
 
   const formatBytes = useCallback(
     (value: number): string => {
-      if (value < 1024) return `${value} ${t('update.units.bytes')}`;
-      if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} ${t('update.units.kilobytes')}`;
-      return `${(value / (1024 * 1024)).toFixed(2)} ${t('update.units.megabytes')}`;
+      if (value < 1024) {
+        return `${value} ${t('update.units.bytes')}`;
+      }
+
+      if (value < 1024 * 1024) {
+        return `${(value / 1024).toFixed(1)} ${t(
+          'update.units.kilobytes',
+        )}`;
+      }
+
+      return `${(value / (1024 * 1024)).toFixed(
+        2,
+      )} ${t('update.units.megabytes')}`;
     },
     [t],
   );
 
-  const [recipe, setRecipe] = useState<OptimizationRecipe>(() => {
-    if (workspaceState?.recipe) return workspaceState.recipe;
-    if (typeof window === 'undefined') return PRESET_RECIPES['web-light'];
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      return raw
-        ? { ...PRESET_RECIPES['web-light'], ...(JSON.parse(raw) as Partial<OptimizationRecipe>) }
-        : PRESET_RECIPES['web-light'];
-    } catch {
-      return PRESET_RECIPES['web-light'];
-    }
-  });
-  const [selectedPreset, setSelectedPreset] = useState<OptimizationPreset>(
-    workspaceState?.selectedPreset ?? recipe.preset,
-  );
-  const [activeImageId, setActiveImageId] = useState<string | null>(
-    workspaceState?.activeImageId ?? images[0]?.id ?? null,
-  );
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [originalPreviewUrl, setOriginalPreviewUrl] = useState<string | null>(null);
-  const [previewStats, setPreviewStats] = useState<{
-    originalBytes: number;
-    optimizedBytes: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const [results, setResults] = useState<OptimizationResult[]>(() => workspaceState?.results ?? []);
-  const [busy, setBusy] = useState(false);
-  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
-  const [showCompare, setShowCompare] = useState(false);
-  const [comparePosition, setComparePosition] = useState(50);
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const [advancedExpanded, setAdvancedExpanded] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const previewTicketRef = useRef(0);
-  const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const compareRef = useRef<HTMLDivElement>(null);
-  const thumbStripRef = useHorizontalDragScroll<HTMLDivElement>();
-
   const variantsByImage = useMemo(() => {
-    const map = new Map<string, OptimizerSourceVariant[]>();
+    const map = new Map<
+      string,
+      OptimizerSourceVariant[]
+    >();
+
     images.forEach((image) => {
-      map.set(image.id, sourceVariants.filter((v) => v.imageId === image.id));
+      map.set(
+        image.id,
+        sourceVariants.filter(
+          (variant) =>
+            variant.imageId === image.id,
+        ),
+      );
     });
+
     return map;
   }, [images, sourceVariants]);
 
   const activeImage = useMemo(
-    () => images.find((image) => image.id === activeImageId) ?? images[0] ?? null,
+    () =>
+      images.find(
+        (image) => image.id === activeImageId,
+      ) ??
+      images[0] ??
+      null,
     [activeImageId, images],
   );
 
   const resolveSourceVariant = useCallback(
-    (imageId: string): OptimizerSourceVariant | null => {
-      const entries = variantsByImage.get(imageId) ?? [];
-      const byPriority = [...entries].sort((left, right) => {
-        const priority = (scope: string): number => {
-          if (scope === 'typesetter') return 0;
-          if (scope === 'cleaner') return 1;
-          if (scope === 'aio') return 2;
-          if (scope === 'enhance') return 3;
-          return 10;
-        };
-        return priority(left.scope) - priority(right.scope);
-      });
-      return byPriority[0] ?? null;
+    (
+      imageId: string,
+    ): OptimizerSourceVariant | null => {
+      const variants =
+        variantsByImage.get(imageId) ?? [];
+
+      const priority = (scope: string): number => {
+        if (scope === 'typesetter') return 0;
+        if (scope === 'cleaner') return 1;
+        if (scope === 'aio') return 2;
+        if (scope === 'enhance') return 3;
+        return 10;
+      };
+
+      return (
+        [...variants].sort(
+          (left, right) =>
+            priority(left.scope) -
+            priority(right.scope),
+        )[0] ?? null
+      );
     },
     [variantsByImage],
   );
 
+  const activeSourceBlob = useMemo(() => {
+    if (!activeImage) return null;
+
+    return (
+      resolveSourceVariant(activeImage.id)?.blob ??
+      activeImage.file
+    );
+  }, [activeImage, resolveSourceVariant]);
+
   useEffect(() => {
-    if (!activeImageId && images[0]) setActiveImageId(images[0].id);
+    const imageStillExists = images.some(
+      (image) => image.id === activeImageId,
+    );
+
+    if (!imageStillExists) {
+      setActiveImageId(images[0]?.id ?? null);
+    }
   }, [activeImageId, images]);
 
   useEffect(() => {
     if (!workspaceState) return;
+
     setRecipe(workspaceState.recipe);
-    setSelectedPreset(workspaceState.selectedPreset);
-    setActiveImageId(workspaceState.activeImageId);
+    setSelectedPreset(
+      workspaceState.selectedPreset,
+    );
+    setActiveImageId(
+      workspaceState.activeImageId,
+    );
     setResults(workspaceState.results);
   }, [restoreToken, workspaceState]);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(recipe));
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(recipe),
+      );
+    } catch {
+      // Storage can fail in restricted browser modes.
+    }
   }, [recipe]);
 
   useEffect(() => {
     if (!onWorkspaceStateChange) return;
-    onWorkspaceStateChange({ recipe, selectedPreset, activeImageId, results });
-  }, [activeImageId, onWorkspaceStateChange, recipe, results, selectedPreset]);
+
+    onWorkspaceStateChange({
+      recipe,
+      selectedPreset,
+      activeImageId,
+      results,
+    });
+  }, [
+    activeImageId,
+    onWorkspaceStateChange,
+    recipe,
+    results,
+    selectedPreset,
+  ]);
 
   useEffect(() => {
-    if (!activeImage) return;
+    setDirectoryPickerAvailable(
+      typeof window !== 'undefined' &&
+      typeof (
+        window as DirectoryPickerWindow
+      ).showDirectoryPicker === 'function',
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!activeSourceBlob) {
+      setOriginalPreviewUrl(null);
+      return;
+    }
+
+    const nextUrl =
+      URL.createObjectURL(activeSourceBlob);
+
+    setOriginalPreviewUrl(nextUrl);
+    setPreviewStats(null);
+    setComparePosition(50);
+    setZoomLevel(1);
+  }, [activeSourceBlob]);
+
+  useEffect(
+    () => () => {
+      if (originalPreviewUrl) {
+        URL.revokeObjectURL(
+          originalPreviewUrl,
+        );
+      }
+    },
+    [originalPreviewUrl],
+  );
+
+  useEffect(() => {
+    if (!activeImage || !activeSourceBlob) {
+      setPreviewLoading(false);
+      setPreviewUrl(null);
+      return;
+    }
+
     setPreviewLoading(true);
-    if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
 
-    const source = resolveSourceVariant(activeImage.id);
-    const sourceBlob = source?.blob ?? activeImage.file;
-    const origUrl = URL.createObjectURL(sourceBlob);
-    setOriginalPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return origUrl;
-    });
+    if (previewDebounceRef.current) {
+      clearTimeout(previewDebounceRef.current);
+    }
 
-    const currentTicket = ++previewTicketRef.current;
+    const currentTicket =
+      ++previewTicketRef.current;
+
     let jobCancelled = false;
 
     previewDebounceRef.current = setTimeout(() => {
-      void sourceBlob
+      void activeSourceBlob
         .arrayBuffer()
         .then((buffer) =>
           runOptimizerJob(
             {
               sourceBuffer: buffer,
-              sourceMimeType: sourceBlob.type || activeImage.file.type || 'image/png',
+              sourceMimeType:
+                activeSourceBlob.type ||
+                activeImage.file.type ||
+                'image/png',
               ...recipe,
             },
             t,
           ),
         )
         .then((result) => {
-          if (jobCancelled || currentTicket !== previewTicketRef.current) return;
-          const nextUrl = URL.createObjectURL(result.blob);
-          setPreviewUrl((current) => {
-            if (current) URL.revokeObjectURL(current);
-            return nextUrl;
-          });
+          if (
+            jobCancelled ||
+            currentTicket !==
+            previewTicketRef.current
+          ) {
+            return;
+          }
+
+          const nextUrl =
+            URL.createObjectURL(result.blob);
+
+          setPreviewUrl(nextUrl);
+
           setPreviewStats({
-            originalBytes: sourceBlob.size,
+            originalBytes:
+              activeSourceBlob.size,
             optimizedBytes: result.blob.size,
             width: result.width,
             height: result.height,
           });
+
           setPreviewLoading(false);
         })
         .catch((error) => {
-          if (!jobCancelled) {
-            setPreviewLoading(false);
-            setStatusMessage(
-              error instanceof Error ? error.message : t('optimizer.error.preview'),
-            );
-          }
+          if (jobCancelled) return;
+
+          setPreviewLoading(false);
+
+          setStatusMessage(
+            error instanceof Error
+              ? error.message
+              : t('optimizer.error.preview'),
+          );
         });
-    }, 300);
+    }, 280);
 
     return () => {
       jobCancelled = true;
+
       if (previewDebounceRef.current) {
-        clearTimeout(previewDebounceRef.current);
+        clearTimeout(
+          previewDebounceRef.current,
+        );
         previewDebounceRef.current = null;
       }
     };
-  }, [activeImage, recipe, resolveSourceVariant, setStatusMessage, t]);
+  }, [
+    activeImage,
+    activeSourceBlob,
+    recipe,
+    setStatusMessage,
+    t,
+  ]);
 
   useEffect(
     () => () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      if (originalPreviewUrl) URL.revokeObjectURL(originalPreviewUrl);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
     },
-    [previewUrl, originalPreviewUrl],
+    [previewUrl],
   );
 
-  const updatePreset = useCallback((preset: OptimizationPreset) => {
-    setSelectedPreset(preset);
-    setRecipe(PRESET_RECIPES[preset]);
-  }, []);
+  useEffect(() => {
+    if (
+      !thumbStripRef.current ||
+      !activeImageId
+    ) {
+      return;
+    }
+
+    const activeThumbnail =
+      thumbStripRef.current.querySelector<HTMLElement>(
+        `[data-thumb-id="${activeImageId}"]`,
+      );
+
+    activeThumbnail?.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    });
+  }, [activeImageId, reduceMotion]);
+
+  const updatePreset = useCallback(
+    (preset: OptimizationPreset) => {
+      setSelectedPreset(preset);
+      setRecipe(PRESET_RECIPES[preset]);
+    },
+    [],
+  );
 
   const updateRecipe = useCallback(
-    <K extends keyof OptimizationRecipe>(key: K, value: OptimizationRecipe[K]) => {
-      setRecipe((current) => {
-        const next = { ...current, [key]: value };
-        if (current.preset !== 'custom' && key !== 'preset') {
-          next.preset = 'custom';
+    <Key extends keyof OptimizationRecipe>(
+      key: Key,
+      value: OptimizationRecipe[Key],
+    ) => {
+      setRecipe((currentRecipe) => {
+        const nextRecipe = {
+          ...currentRecipe,
+          [key]: value,
+        };
+
+        if (
+          currentRecipe.preset !== 'custom' &&
+          key !== 'preset'
+        ) {
+          nextRecipe.preset = 'custom';
           setSelectedPreset('custom');
         }
-        return next;
+
+        return nextRecipe;
       });
     },
     [],
@@ -482,808 +1073,1700 @@ export default function ChapterOptimizerWorkspace({
   const handleOptimizeAll = useCallback(
     async (saveToDirectory: boolean) => {
       if (images.length === 0) return;
+
       setBusy(true);
-      setBatchProgress({ current: 0, total: images.length });
+
+      setBatchProgress({
+        current: 0,
+        total: images.length,
+      });
+
       try {
         const outputs: OptimizationResult[] = [];
-        for (let i = 0; i < images.length; i++) {
-          const image = images[i];
+
+        for (
+          let index = 0;
+          index < images.length;
+          index += 1
+        ) {
+          const image = images[index];
           if (!image) continue;
-          const source = resolveSourceVariant(image.id);
-          const sourceBlob = source?.blob ?? image.file;
+          const sourceVariant =
+            resolveSourceVariant(image.id);
+
+          const sourceBlob =
+            sourceVariant?.blob ?? image.file;
+
           const result = await runOptimizerJob(
             {
-              sourceBuffer: await sourceBlob.arrayBuffer(),
-              sourceMimeType: sourceBlob.type || image.file.type || 'image/png',
+              sourceBuffer:
+                await sourceBlob.arrayBuffer(),
+              sourceMimeType:
+                sourceBlob.type ||
+                image.file.type ||
+                'image/png',
               ...recipe,
             },
             t,
           );
+
           outputs.push({
             sourceImageId: image.id,
-            fileName: buildOutputName(image.file.name, recipe.outputFormat, recipe.renamePattern, i),
+            fileName: buildOutputName(
+              image.file.name,
+              recipe.outputFormat,
+              recipe.renamePattern,
+              index,
+            ),
             blob: result.blob,
-            previewUrl: '',
             originalBytes: sourceBlob.size,
             optimizedBytes: result.blob.size,
             width: result.width,
             height: result.height,
           });
-          setBatchProgress({ current: i + 1, total: images.length });
+
+          setBatchProgress({
+            current: index + 1,
+            total: images.length,
+          });
         }
 
         setResults(outputs);
+
         registerDownloads(
-          outputs.map((item) => ({
-            fileName: item.fileName,
-            blob: item.blob,
-            sourceImageId: item.sourceImageId,
+          outputs.map((output) => ({
+            fileName: output.fileName,
+            blob: output.blob,
+            sourceImageId:
+              output.sourceImageId,
           })),
           'optimizer',
         );
 
-        if (saveToDirectory && canUseDirectoryPicker()) {
-          const directory = await (window as any).showDirectoryPicker();
+        const pickerWindow =
+          window as DirectoryPickerWindow;
+
+        if (
+          saveToDirectory &&
+          pickerWindow.showDirectoryPicker
+        ) {
+          const directory =
+            await pickerWindow.showDirectoryPicker();
+
           for (const output of outputs) {
-            const handle = await directory.getFileHandle(output.fileName, { create: true });
-            const writable = await handle.createWritable();
+            const fileHandle =
+              await directory.getFileHandle(
+                output.fileName,
+                {
+                  create: true,
+                },
+              );
+
+            const writable =
+              await fileHandle.createWritable();
+
             await writable.write(output.blob);
             await writable.close();
           }
-          setStatusMessage(t('optimizer.export.folderSuccess'));
+
+          setStatusMessage(
+            t('optimizer.export.folderSuccess'),
+          );
+
           return;
         }
 
-        const files: Record<string, Uint8Array> = {};
+        const files: Record<
+          string,
+          Uint8Array
+        > = {};
+
         for (const output of outputs) {
-          files[output.fileName] = new Uint8Array(await output.blob.arrayBuffer());
+          files[output.fileName] =
+            new Uint8Array(
+              await output.blob.arrayBuffer(),
+            );
         }
-        const zipBlob = new Blob([zipSync(files, { level: 6 }) as BlobPart], { type: 'application/zip' });
-        triggerBlobDownload(zipBlob, `chapter-optimizer-${recipe.preset}.zip`);
-        setStatusMessage(t('optimizer.export.zipSuccess'));
+
+        const zipData = zipSync(files, {
+          level: 6,
+        });
+
+        const zipBlob = new Blob(
+          [zipData as BlobPart],
+          {
+            type: 'application/zip',
+          },
+        );
+
+        triggerBlobDownload(
+          zipBlob,
+          `chapter-optimizer-${recipe.preset}.zip`,
+        );
+
+        setStatusMessage(
+          t('optimizer.export.zipSuccess'),
+        );
       } catch (error) {
-        setStatusMessage(error instanceof Error ? error.message : t('optimizer.error.failed'));
+        setStatusMessage(
+          error instanceof Error
+            ? error.message
+            : t('optimizer.error.failed'),
+        );
       } finally {
         setBusy(false);
         setBatchProgress(null);
       }
     },
-    [images, recipe, registerDownloads, resolveSourceVariant, setStatusMessage, triggerBlobDownload, t],
+    [
+      images,
+      recipe,
+      registerDownloads,
+      resolveSourceVariant,
+      setStatusMessage,
+      t,
+      triggerBlobDownload,
+    ],
   );
 
   const handleDownloadSingle = useCallback(
     (result: OptimizationResult) => {
-      triggerBlobDownload(result.blob, result.fileName);
+      triggerBlobDownload(
+        result.blob,
+        result.fileName,
+      );
     },
     [triggerBlobDownload],
   );
 
-  const totals = useMemo(() => {
-    const original = results.reduce((sum, item) => sum + item.originalBytes, 0);
-    const optimized = results.reduce((sum, item) => sum + item.optimizedBytes, 0);
-    return {
-      original,
-      optimized,
-      savings: Math.max(0, original - optimized),
-      savingsPercent: savingsPercent(original, optimized),
-    };
-  }, [results]);
-
-  const handleCompareMove = useCallback(
-    (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-      if (!compareRef.current) return;
-      const rect = compareRef.current.getBoundingClientRect();
-      const clientX = 'touches' in e ? (e.touches[0]?.clientX ?? 0) : e.clientX;
-      const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-      setComparePosition(pct);
-    },
-    [],
-  );
-
   const handleZoomIn = useCallback(() => {
-    setZoomLevel((z) => {
-      const idx = ZOOM_LEVELS.findIndex((l) => l >= z);
-      const next = ZOOM_LEVELS[idx + 1];
-      return next ?? z;
+    setZoomLevel((currentZoom) => {
+      const currentIndex = ZOOM_LEVELS.findIndex(
+        (level) => level >= currentZoom,
+      );
+
+      return currentIndex <
+        ZOOM_LEVELS.length - 1
+        ? (ZOOM_LEVELS[currentIndex + 1] ?? currentZoom)
+        : currentZoom;
     });
   }, []);
 
   const handleZoomOut = useCallback(() => {
-    setZoomLevel((z) => {
-      const idx = ZOOM_LEVELS.findIndex((l) => l >= z);
-      const prev = ZOOM_LEVELS[idx - 1];
-      return idx > 0 ? (prev ?? z) : z;
+    setZoomLevel((currentZoom) => {
+      const currentIndex = ZOOM_LEVELS.findIndex(
+        (level) => level >= currentZoom,
+      );
+
+      return currentIndex > 0
+        ? (ZOOM_LEVELS[currentIndex - 1] ?? currentZoom)
+        : currentZoom;
     });
   }, []);
-
-  const handleZoomReset = useCallback(() => setZoomLevel(1), []);
 
   const cycleRotation = useCallback(() => {
-    setRecipe((current) => {
-      const idx = ROTATION_OPTIONS.indexOf(current.rotation);
-      const nextRot = ROTATION_OPTIONS[(idx < 0 ? 0 : idx + 1) % ROTATION_OPTIONS.length] ?? 0;
-      const next = { ...current, rotation: nextRot };
-      if (current.preset !== 'custom') {
-        next.preset = 'custom';
+    setRecipe((currentRecipe) => {
+      const currentIndex =
+        ROTATION_OPTIONS.indexOf(
+          currentRecipe.rotation,
+        );
+
+      const nextRotation =
+        ROTATION_OPTIONS[
+        (currentIndex < 0 ? 0 : currentIndex + 1) %
+        ROTATION_OPTIONS.length
+        ] ?? 0;
+
+      const nextRecipe = {
+        ...currentRecipe,
+        rotation: nextRotation,
+      };
+
+      if (
+        currentRecipe.preset !== 'custom'
+      ) {
+        nextRecipe.preset = 'custom';
         setSelectedPreset('custom');
       }
-      return next;
+
+      return nextRecipe;
     });
   }, []);
 
-  useEffect(() => {
-    if (!thumbStripRef.current || !activeImageId) return;
-    const el = thumbStripRef.current.querySelector(`[data-thumb-id="${activeImageId}"]`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-  }, [activeImageId]);
+  const totals = useMemo(() => {
+    const original = results.reduce(
+      (sum, item) =>
+        sum + item.originalBytes,
+      0,
+    );
 
-  const presetKeys = Object.keys(PRESET_RECIPES) as OptimizationPreset[];
-  const activeIdx = images.findIndex((img) => img.id === activeImageId);
+    const optimized = results.reduce(
+      (sum, item) =>
+        sum + item.optimizedBytes,
+      0,
+    );
 
-  /* ══════════════════ Render — Manga Noir ══════════════════ */
+    return {
+      original,
+      optimized,
+      savings: Math.max(
+        0,
+        original - optimized,
+      ),
+      savingsPercent: savingsPercent(
+        original,
+        optimized,
+      ),
+    };
+  }, [results]);
+
+  const presetKeys = Object.keys(
+    PRESET_RECIPES,
+  ) as OptimizationPreset[];
+
+  const activeImageIndex = images.findIndex(
+    (image) => image.id === activeImageId,
+  );
+
+  const listVariants = {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: reduceMotion ? 0 : 0.055,
+      },
+    },
+  };
+
+  const cardVariants = {
+    hidden: {
+      opacity: 0,
+      y: 14,
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: reduceMotion ? 0 : 0.42,
+        ease: EASE,
+      },
+    },
+  };
 
   return (
-    <motion.div
-      variants={m.container}
-      initial={m.initial}
-      animate={m.animate}
-      className="flex flex-col gap-4"
+    <section
+      className="relative isolate space-y-5"
+      aria-labelledby="optimizer-v2-title"
+      data-coauthor="OpenAI ChatGPT; model ID from API response.model"
     >
-      {/* ── Hero ── */}
-      <motion.header variants={m.item} className="glass panel-cut relative overflow-hidden p-5">
-        <span
+      {/* Hero */}
+      <motion.header
+        initial={
+          reduceMotion
+            ? false
+            : {
+              opacity: 0,
+              y: 22,
+              clipPath: 'inset(0 0 100% 0)',
+            }
+        }
+        animate={{
+          opacity: 1,
+          y: 0,
+          clipPath: 'inset(0 0 0% 0)',
+        }}
+        transition={{
+          duration: reduceMotion ? 0 : 0.68,
+          ease: EASE,
+        }}
+        className="glass panel-cut manga-grid-bg relative overflow-hidden p-5 sm:p-7"
+      >
+        <div className="halftone-red absolute inset-0 opacity-40" aria-hidden />
+        <span aria-hidden className="v-text absolute right-4 top-3 text-crimson/60  font-accent italic text-2xl leading-none select-none">最適化</span>
+        <div
+          className="absolute -right-8 -top-8 h-40 w-40 rounded-full blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(255,46,99,0.35), transparent)' }}
           aria-hidden
-          className="text-outline pointer-events-none absolute -top-8 right-4 select-none font-display text-[110px] font-black leading-none"
-        >
-          最適
-        </span>
-        <div className="halftone-red pointer-events-none absolute inset-y-0 right-0 w-40 opacity-40" aria-hidden />
+        />
 
-        <div className="relative flex flex-wrap items-end justify-between gap-5">
-          <div className="max-w-md">
-            <p className="kicker mb-2 flex items-center gap-2">
-              <Sparkles size={11} aria-hidden />
-              {'// '}
+        <span
+          className="text-outline pointer-events-none absolute right-8 top-0 font-display text-[7rem] font-black leading-none"
+          aria-hidden="true"
+        >
+          02
+        </span>
+
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 h-[3px] w-2/5 bg-crimson"
+          aria-hidden="true"
+        />
+
+        <div className="relative z-10 flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="stamp">
+                <span
+                  className="koma-blink size-1.5 bg-crimson"
+                  aria-hidden="true"
+                />
+                Export press / V2
+              </span>
+
+              <span className="kicker text-paper/35">
+                KOMA // Chapter lab
+              </span>
+            </div>
+
+            <h1
+              id="optimizer-v2-title"
+              className="font-display text-3xl font-black uppercase leading-[0.88] tracking-[-0.06em] text-paper sm:text-5xl lg:text-6xl"
+            >
               {t('optimizer.hero.title')}
-            </p>
-            <h2 className="font-display text-2xl font-black uppercase leading-none tracking-tight text-paper">
-              Chapter{' '}
-              <em className="font-accent font-normal normal-case italic text-crimson">Optimizer</em>
-            </h2>
-            <p className="mt-2 text-[12px] leading-relaxed text-paper/50">
+              <span
+                className="font-accent font-normal italic text-crimson"
+                aria-hidden="true"
+              >
+                {' '}
+                press
+              </span>
+            </h1>
+
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-paper/48">
               {t('optimizer.hero.desc')}
             </p>
           </div>
 
-          {/* Stat chips */}
-          <div className="flex flex-wrap gap-2">
-            <div className="panel-cut-sm flex items-center gap-2 border border-paper/12 bg-ink/60 px-3 py-2">
-              <FileImage size={11} className="text-crimson" aria-hidden />
-              <span className="font-mono text-[13px] font-bold text-paper">{images.length}</span>
-              <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">
+          <div className="grid grid-cols-2 gap-px overflow-hidden border border-paper/10 bg-paper/10 panel-cut-sm sm:grid-cols-4">
+            <div className="min-w-28 bg-ink-2/95 p-3">
+              <FileImage
+                size={14}
+                className="mb-2 text-crimson"
+                aria-hidden="true"
+              />
+              <strong className="block font-display text-xl font-black text-paper">
+                {images.length}
+              </strong>
+              <span className="font-mono text-[0.58rem] uppercase tracking-[0.12em] text-paper/35">
                 {t('optimizer.hero.pages')}
               </span>
             </div>
-            <div className="panel-cut-sm flex items-center gap-2 border border-paper/12 bg-ink/60 px-3 py-2">
-              <TrendingDown size={11} className="text-mint" aria-hidden />
-              <span
-                className="font-mono text-[13px] font-bold"
-                style={results.length > 0 ? { color: savingsColor(totals.savingsPercent) } : { color: 'rgba(242,237,227,.35)' }}
+
+            <div className="min-w-28 bg-ink-2/95 p-3">
+              <TrendingDown
+                size={14}
+                className="mb-2 text-mint"
+                aria-hidden="true"
+              />
+              <strong
+                className="block font-display text-xl font-black"
+                style={{
+                  color:
+                    results.length > 0
+                      ? savingsColor(
+                        totals.savingsPercent,
+                      )
+                      : undefined,
+                }}
               >
-                {results.length > 0 ? `${totals.savingsPercent}%` : '—'}
-              </span>
-              <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">
+                {results.length > 0
+                  ? formatDelta(
+                    totals.savingsPercent,
+                  )
+                  : '—'}
+              </strong>
+              <span className="font-mono text-[0.58rem] uppercase tracking-[0.12em] text-paper/35">
                 {t('optimizer.hero.savings')}
               </span>
             </div>
-            <div className="panel-cut-sm flex items-center gap-2 border border-paper/12 bg-ink/60 px-3 py-2">
-              <span className="font-mono text-[13px] font-bold text-paper">
-                {results.length > 0 ? formatBytes(totals.savings) : '—'}
-              </span>
-              <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">
+
+            <div className="min-w-28 bg-ink-2/95 p-3">
+              <Sparkles
+                size={14}
+                className="mb-2 text-gold"
+                aria-hidden="true"
+              />
+              <strong className="block font-display text-xl font-black text-paper">
+                {results.length > 0
+                  ? formatBytes(totals.savings)
+                  : '—'}
+              </strong>
+              <span className="font-mono text-[0.58rem] uppercase tracking-[0.12em] text-paper/35">
                 {t('optimizer.hero.saved')}
               </span>
             </div>
-            <div className="panel-cut-sm flex items-center gap-2 border border-crimson/40 bg-crimson/10 px-3 py-2">
-              <span className="font-mono text-[13px] font-bold text-crimson">
-                {recipe.outputFormat.toUpperCase()}
-              </span>
-              <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">
+
+            <div className="min-w-28 bg-ink-2/95 p-3">
+              <Layers3
+                size={14}
+                className="mb-2 text-azure"
+                aria-hidden="true"
+              />
+              <strong className="block font-display text-xl font-black uppercase text-paper">
+                {recipe.outputFormat}
+              </strong>
+              <span className="font-mono text-[0.58rem] uppercase tracking-[0.12em] text-paper/35">
                 {t('optimizer.hero.output')}
               </span>
             </div>
-            {recipe.rotation !== 0 && (
-              <div className="panel-cut-sm flex items-center gap-2 border border-gold/40 bg-gold/10 px-3 py-2">
-                <RotateCw size={11} className="text-gold" aria-hidden />
-                <span className="font-mono text-[13px] font-bold text-gold">{recipe.rotation}°</span>
-                <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">
-                  {t('optimizer.config.rotation')}
-                </span>
-              </div>
-            )}
           </div>
         </div>
       </motion.header>
 
-      {/* ── Layout ── */}
-      <div className="grid items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-        {/* ═══ Config column ═══ */}
-        <motion.aside variants={m.item} className="flex flex-col gap-3">
-          {/* 01 · Presets */}
-          <NoirSection no="01" icon={Gauge} title={t('optimizer.panel.presets')} jp="プリセット">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(350px,430px)_minmax(0,1fr)]">
+        {/* Configuration press */}
+        <motion.aside
+          initial={
+            reduceMotion
+              ? false
+              : {
+                opacity: 0,
+                x: -20,
+              }
+          }
+          animate={{
+            opacity: 1,
+            x: 0,
+          }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.55,
+            delay: reduceMotion ? 0 : 0.08,
+            ease: EASE,
+          }}
+          className="glass panel-cut overflow-hidden"
+        >
+          {/* Presets */}
+          <ControlSection
+            index="A01"
+            icon={Gauge}
+            title={t('optimizer.panel.presets')}
+          >
             <div className="grid grid-cols-2 gap-2">
-              {presetKeys.map((key) => {
-                const meta = PRESET_META[key];
-                const Icon = meta.icon;
-                const active = selectedPreset === key;
+              {presetKeys.map((presetKey) => {
+                const metadata =
+                  PRESET_META[presetKey];
+
+                const PresetIcon = metadata.icon;
+
+                const presetNameKey =
+                  presetKey === 'web-light'
+                    ? 'webLight'
+                    : presetKey;
+
+                const active =
+                  selectedPreset === presetKey;
+
                 return (
                   <button
-                    key={key}
+                    key={presetKey}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => updatePreset(key)}
-                    className={`panel-cut-sm flex flex-col items-start gap-1 border p-2.5 text-left transition-all duration-150 ${active
-                        ? 'border-crimson bg-crimson/10 -translate-x-0.5 -translate-y-0.5 drop-shadow-[4px_4px_0_rgba(255,200,87,0.85)]'
-                        : 'border-paper/12 hover:border-paper/35'
-                      }`}
+                    className={[
+                      'offset-card panel-cut-sm min-h-24 border p-3 text-left',
+                      active
+                        ? 'border-crimson/65 bg-crimson/10 drop-shadow-[4px_4px_0_rgba(255,46,99,0.3)]'
+                        : 'border-paper/10 bg-ink/50 hover:border-crimson/35',
+                    ].join(' ')}
+                    onClick={() =>
+                      updatePreset(presetKey)
+                    }
                   >
-                    <Icon size={13} className={active ? 'text-crimson' : 'text-paper/50'} aria-hidden />
-                    <span className="font-display text-[11px] font-extrabold uppercase tracking-wide text-paper">
-                      {t(`optimizer.presets.${key === 'web-light' ? 'webLight' : key}`)}
+                    <span
+                      className={[
+                        'mb-3 grid size-7 place-items-center border panel-cut-sm',
+                        active
+                          ? 'border-crimson/45 bg-crimson text-ink'
+                          : 'border-paper/10 bg-paper/[0.035] text-paper/40',
+                      ].join(' ')}
+                    >
+                      <PresetIcon size={13} />
                     </span>
-                    <span className="text-[9.5px] leading-snug text-paper/40">{t(meta.descKey)}</span>
+
+                    <strong className="block font-display text-xs font-black uppercase tracking-[-0.02em] text-paper">
+                      {t(
+                        `optimizer.presets.${presetNameKey}`,
+                      )}
+                    </strong>
+
+                    <span className="mt-1 block text-[0.65rem] leading-4 text-paper/35">
+                      {t(metadata.descKey)}
+                    </span>
                   </button>
                 );
               })}
             </div>
-          </NoirSection>
+          </ControlSection>
 
-          {/* 02 · Output */}
-          <NoirSection no="02" icon={ImageIcon} title={t('optimizer.panel.output')} jp="出力">
-            <div className="flex flex-col gap-3.5">
-              <NoirField as="div" label={t('optimizer.config.format')}>
-                <Segmented
-                  value={recipe.outputFormat}
-                  onChange={(v) => updateRecipe('outputFormat', v as RawOutputFormat)}
-                  options={[
-                    { value: 'png', label: t('settings.downloadFormat.png') },
-                    { value: 'jpeg', label: t('settings.downloadFormat.jpeg') },
-                    { value: 'webp', label: t('settings.downloadFormat.webp') },
-                  ]}
-                />
-              </NoirField>
-              <NoirSlider
-                label={t('optimizer.config.quality')}
-                display={`${Math.round(recipe.quality * 100)}%`}
+          {/* Output */}
+          <ControlSection
+            index="A02"
+            icon={ImageIcon}
+            title={t('optimizer.panel.output')}
+          >
+            <div className="space-y-5">
+              <div>
+                <span className="mb-2 block font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-paper/48">
+                  {t('optimizer.config.format')}
+                </span>
+
+                <div className="grid grid-cols-3 gap-1">
+                  {(
+                    [
+                      'png',
+                      'jpeg',
+                      'webp',
+                    ] as RawOutputFormat[]
+                  ).map((format) => (
+                    <button
+                      key={format}
+                      type="button"
+                      aria-pressed={
+                        recipe.outputFormat === format
+                      }
+                      className={[
+                        'panel-cut-sm min-h-10 border font-mono text-[0.65rem] font-black uppercase tracking-[0.08em] transition',
+                        recipe.outputFormat === format
+                          ? 'border-crimson bg-crimson text-ink shadow-[2px_2px_0_0_rgba(255,200,87,0.4)]'
+                          : 'border-paper/10 bg-ink/55 text-paper/45 hover:border-crimson/40',
+                      ].join(' ')}
+                      onClick={() =>
+                        updateRecipe(
+                          'outputFormat',
+                          format,
+                        )
+                      }
+                    >
+                      {format === 'jpeg'
+                        ? 'JPG'
+                        : format}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <RangeControl
+                label={t(
+                  'optimizer.config.quality',
+                )}
+                valueLabel={`${Math.round(
+                  recipe.quality * 100,
+                )}%`}
                 min={30}
                 max={100}
-                value={Math.round(recipe.quality * 100)}
-                onChange={(v) => updateRecipe('quality', v / 100)}
+                step={1}
+                value={Math.round(
+                  recipe.quality * 100,
+                )}
+                onChange={(value) =>
+                  updateRecipe(
+                    'quality',
+                    value / 100,
+                  )
+                }
               />
             </div>
-          </NoirSection>
+          </ControlSection>
 
-          {/* 03 · Dimensions */}
-          <NoirSection no="03" icon={ZoomIn} title={t('optimizer.panel.dimensions')} jp="寸法">
-            <div className="grid grid-cols-2 gap-x-3 gap-y-3.5">
-              <NoirToggle checked={recipe.resizeEnabled} onChange={(v) => updateRecipe('resizeEnabled', v)}>
-                {t('optimizer.config.resize')}
-              </NoirToggle>
-              <NoirToggle checked={recipe.trimBorders} onChange={(v) => updateRecipe('trimBorders', v)}>
-                {t('optimizer.config.trimBorders')}
-              </NoirToggle>
+          {/* Dimensions */}
+          <ControlSection
+            index="A03"
+            icon={ZoomIn}
+            title={t(
+              'optimizer.panel.dimensions',
+            )}
+          >
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
+              <ToggleControl
+                label={t(
+                  'optimizer.config.resize',
+                )}
+                checked={recipe.resizeEnabled}
+                onChange={(checked) =>
+                  updateRecipe(
+                    'resizeEnabled',
+                    checked,
+                  )
+                }
+              />
 
-              <NoirField label={t('optimizer.config.maxWidth')}>
-                <NoirInput
+              <ToggleControl
+                label={t(
+                  'optimizer.config.trimBorders',
+                )}
+                checked={recipe.trimBorders}
+                onChange={(checked) =>
+                  updateRecipe(
+                    'trimBorders',
+                    checked,
+                  )
+                }
+              />
+
+              <label className="block">
+                <span className="mb-2 block font-mono text-[0.62rem] font-bold uppercase tracking-[0.1em] text-paper/42">
+                  {t(
+                    'optimizer.config.maxWidth',
+                  )}
+                </span>
+
+                <input
                   type="number"
+                  className="w-full bg-ink-2 text-paper px-3 py-2 panel-cut-sm border border-paper/15 font-mono text-[11px] focus:border-crimson focus:shadow-[3px_3px_0_0_#ff2e63] focus-visible:outline-none transition-all duration-200 disabled:opacity-35 disabled:cursor-not-allowed"
                   min={320}
                   max={4000}
                   value={recipe.maxWidth}
                   disabled={!recipe.resizeEnabled}
-                  onChange={(e) =>
-                    updateRecipe('maxWidth', Math.max(320, Number(e.target.value) || recipe.maxWidth))
+                  onChange={(event) =>
+                    updateRecipe(
+                      'maxWidth',
+                      Math.max(
+                        320,
+                        Number(
+                          event.target.value,
+                        ) || recipe.maxWidth,
+                      ),
+                    )
                   }
                 />
-              </NoirField>
-              <NoirField label={t('optimizer.config.maxHeight')}>
-                <NoirInput
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block font-mono text-[0.62rem] font-bold uppercase tracking-[0.1em] text-paper/42">
+                  {t(
+                    'optimizer.config.maxHeight',
+                  )}
+                </span>
+
+                <input
                   type="number"
+                  className="w-full bg-ink-2 text-paper px-3 py-2 panel-cut-sm border border-paper/15 font-mono text-[11px] focus:border-crimson focus:shadow-[3px_3px_0_0_#ff2e63] focus-visible:outline-none transition-all duration-200 disabled:opacity-35 disabled:cursor-not-allowed"
                   min={320}
                   max={6000}
                   value={recipe.maxHeight}
                   disabled={!recipe.resizeEnabled}
-                  onChange={(e) =>
-                    updateRecipe('maxHeight', Math.max(320, Number(e.target.value) || recipe.maxHeight))
+                  onChange={(event) =>
+                    updateRecipe(
+                      'maxHeight',
+                      Math.max(
+                        320,
+                        Number(
+                          event.target.value,
+                        ) || recipe.maxHeight,
+                      ),
+                    )
                   }
                 />
-              </NoirField>
+              </label>
 
-              {recipe.trimBorders && (
-                <NoirSlider
-                  className="col-span-2"
-                  label={t('optimizer.config.trimTolerance')}
-                  display={recipe.trimTolerance}
-                  min={4}
-                  max={60}
-                  value={recipe.trimTolerance}
-                  onChange={(v) => updateRecipe('trimTolerance', v)}
-                />
-              )}
+              {recipe.trimBorders ? (
+                <div className="sm:col-span-2">
+                  <RangeControl
+                    label={t(
+                      'optimizer.config.trimTolerance',
+                    )}
+                    valueLabel={String(
+                      recipe.trimTolerance,
+                    )}
+                    min={4}
+                    max={60}
+                    step={1}
+                    value={recipe.trimTolerance}
+                    onChange={(value) =>
+                      updateRecipe(
+                        'trimTolerance',
+                        value,
+                      )
+                    }
+                  />
+                </div>
+              ) : null}
 
-              <NoirField
-                as="div"
-                className="col-span-2"
-                label={t('optimizer.config.rotation')}
-                value={`${recipe.rotation}°`}
-              >
-                <Segmented
-                  value={recipe.rotation}
-                  onChange={(v) => updateRecipe('rotation', v as OptimizationRecipe['rotation'])}
-                  options={ROTATION_OPTIONS.map((deg) => ({
-                    value: deg,
-                    label: deg === 0 ? t('optimizer.config.rotationNone') : `${deg}°`,
-                  }))}
-                />
-              </NoirField>
+              <div className="sm:col-span-2">
+                <span className="mb-2 flex items-center justify-between font-mono text-[0.62rem] font-bold uppercase tracking-[0.1em] text-paper/42">
+                  {t(
+                    'optimizer.config.rotation',
+                  )}
+                  <span className="text-crimson">
+                    {recipe.rotation}°
+                  </span>
+                </span>
+
+                <div className="grid grid-cols-4 gap-1">
+                  {ROTATION_OPTIONS.map(
+                    (rotation) => (
+                      <button
+                        key={rotation}
+                        type="button"
+                        aria-pressed={
+                          recipe.rotation ===
+                          rotation
+                        }
+                        className={[
+                          'panel-cut-sm min-h-10 border font-mono text-[0.63rem] font-black transition',
+                          recipe.rotation === rotation
+                            ? 'border-crimson bg-crimson text-ink shadow-[2px_2px_0_0_rgba(255,200,87,0.4)]'
+                            : 'border-paper/10 bg-ink/50 text-paper/40 hover:border-crimson/40',
+                        ].join(' ')}
+                        onClick={() =>
+                          updateRecipe(
+                            'rotation',
+                            rotation,
+                          )
+                        }
+                      >
+                        {rotation === 0
+                          ? t(
+                            'optimizer.config.rotationNone',
+                          )
+                          : `${rotation}°`}
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
             </div>
-          </NoirSection>
+          </ControlSection>
 
-          {/* 04 · Filters (collapsible) */}
-          <NoirSection
-            no="04"
+          {/* Filters */}
+          <ControlSection
+            index="A04"
             icon={Wand2}
             title={t('optimizer.panel.filters')}
-            jp="フィルター"
-            collapsible
-            open={filtersExpanded}
-            onToggle={() => setFiltersExpanded((p) => !p)}
+            expanded={filtersExpanded}
+            onToggle={() =>
+              setFiltersExpanded(
+                (current) => !current,
+              )
+            }
           >
-            <div className="flex flex-col gap-3.5">
-              <NoirSlider
-                icon={SunMedium}
-                label={t('optimizer.config.brightness')}
-                display={`${recipe.brightness > 0 ? '+' : ''}${recipe.brightness}`}
+            <div className="space-y-5">
+              <RangeControl
+                label={t(
+                  'optimizer.config.brightness',
+                )}
+                valueLabel={`${recipe.brightness > 0 ? '+' : ''
+                  }${recipe.brightness}`}
                 min={-50}
                 max={50}
+                step={1}
                 value={recipe.brightness}
-                onChange={(v) => updateRecipe('brightness', v)}
-              />
-              <NoirSlider
-                icon={Contrast}
-                label={t('optimizer.config.contrast')}
-                display={`${recipe.contrast > 0 ? '+' : ''}${recipe.contrast}`}
-                min={-50}
-                max={50}
-                value={recipe.contrast}
-                onChange={(v) => updateRecipe('contrast', v)}
+                icon={SunMedium}
+                onChange={(value) =>
+                  updateRecipe(
+                    'brightness',
+                    value,
+                  )
+                }
               />
 
-              <NoirToggle icon={Contrast} checked={recipe.sharpen} onChange={(v) => updateRecipe('sharpen', v)}>
-                {t('optimizer.config.sharpen')}
-              </NoirToggle>
-              {recipe.sharpen && (
-                <NoirSlider
-                  label={t('optimizer.config.sharpenStrength')}
-                  display={recipe.sharpenStrength.toFixed(1)}
+              <RangeControl
+                label={t(
+                  'optimizer.config.contrast',
+                )}
+                valueLabel={`${recipe.contrast > 0 ? '+' : ''
+                  }${recipe.contrast}`}
+                min={-50}
+                max={50}
+                step={1}
+                value={recipe.contrast}
+                icon={Contrast}
+                onChange={(value) =>
+                  updateRecipe('contrast', value)
+                }
+              />
+
+              <ToggleControl
+                label={t(
+                  'optimizer.config.sharpen',
+                )}
+                checked={recipe.sharpen}
+                icon={Contrast}
+                onChange={(checked) =>
+                  updateRecipe(
+                    'sharpen',
+                    checked,
+                  )
+                }
+              />
+
+              {recipe.sharpen ? (
+                <RangeControl
+                  label={t(
+                    'optimizer.config.sharpenStrength',
+                  )}
+                  valueLabel={recipe.sharpenStrength.toFixed(
+                    1,
+                  )}
                   min={10}
                   max={200}
                   step={5}
-                  value={Math.round(recipe.sharpenStrength * 100)}
-                  onChange={(v) => updateRecipe('sharpenStrength', v / 100)}
+                  value={Math.round(
+                    recipe.sharpenStrength * 100,
+                  )}
+                  onChange={(value) =>
+                    updateRecipe(
+                      'sharpenStrength',
+                      value / 100,
+                    )
+                  }
                 />
-              )}
+              ) : null}
 
-              <NoirToggle
-                icon={Sparkles}
+              <ToggleControl
+                label={t(
+                  'optimizer.config.noiseReduction',
+                )}
                 checked={recipe.noiseReduction}
-                onChange={(v) => updateRecipe('noiseReduction', v)}
-              >
-                {t('optimizer.config.noiseReduction')}
-              </NoirToggle>
-              {recipe.noiseReduction && (
-                <NoirSlider
-                  label={t('optimizer.config.noiseReductionStrength')}
-                  display={recipe.noiseReductionStrength.toFixed(1)}
+                icon={Sparkles}
+                onChange={(checked) =>
+                  updateRecipe(
+                    'noiseReduction',
+                    checked,
+                  )
+                }
+              />
+
+              {recipe.noiseReduction ? (
+                <RangeControl
+                  label={t(
+                    'optimizer.config.noiseReductionStrength',
+                  )}
+                  valueLabel={recipe.noiseReductionStrength.toFixed(
+                    1,
+                  )}
                   min={10}
                   max={100}
                   step={5}
-                  value={Math.round(recipe.noiseReductionStrength * 100)}
-                  onChange={(v) => updateRecipe('noiseReductionStrength', v / 100)}
+                  value={Math.round(
+                    recipe.noiseReductionStrength *
+                    100,
+                  )}
+                  onChange={(value) =>
+                    updateRecipe(
+                      'noiseReductionStrength',
+                      value / 100,
+                    )
+                  }
                 />
-              )}
+              ) : null}
 
-              <NoirToggle icon={Palette} checked={recipe.grayscale} onChange={(v) => updateRecipe('grayscale', v)}>
-                {t('optimizer.config.grayscale')}
-              </NoirToggle>
-              <NoirToggle icon={SunMedium} checked={recipe.autoLevels} onChange={(v) => updateRecipe('autoLevels', v)}>
-                {t('optimizer.config.autoLevels')}
-              </NoirToggle>
-            </div>
-          </NoirSection>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-2">
+                <ToggleControl
+                  label={t(
+                    'optimizer.config.grayscale',
+                  )}
+                  checked={recipe.grayscale}
+                  icon={Palette}
+                  onChange={(checked) =>
+                    updateRecipe(
+                      'grayscale',
+                      checked,
+                    )
+                  }
+                />
 
-          {/* 05 · Advanced (collapsible) */}
-          <NoirSection
-            no="05"
-            icon={Settings2}
-            title={t('optimizer.panel.advanced')}
-            jp="上級"
-            collapsible
-            open={advancedExpanded}
-            onToggle={() => setAdvancedExpanded((p) => !p)}
-          >
-            <NoirField
-              label={
-                <>
-                  <Type size={11} aria-hidden />
-                  {t('optimizer.config.renamePattern')}
-                </>
-              }
-            >
-              <NoirInput
-                type="text"
-                value={recipe.renamePattern}
-                placeholder="{name}"
-                onChange={(e) => updateRecipe('renamePattern', e.target.value)}
-              />
-            </NoirField>
-            <p className="mt-2 font-mono text-[9.5px] leading-relaxed text-paper/35">
-              {t('optimizer.config.renameHint')}
-            </p>
-          </NoirSection>
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="btn-primary flex-1"
-              disabled={busy || !images.length}
-              onClick={() => void handleOptimizeAll(false)}
-            >
-              {busy ? (
-                <>
-                  <span className="noir-spinner" aria-hidden />
-                  {batchProgress
-                    ? `${batchProgress.current}/${batchProgress.total}`
-                    : t('optimizer.action.optimizing')}
-                </>
-              ) : (
-                <>
-                  <Download size={12} /> ZIP
-                </>
-              )}
-            </button>
-            {canUseDirectoryPicker() && (
-              <button
-                type="button"
-                className="btn-ghost flex-1 justify-center"
-                disabled={busy || !images.length}
-                onClick={() => void handleOptimizeAll(true)}
-              >
-                <FolderOutput size={12} /> {t('optimizer.action.folder')}
-              </button>
-            )}
-          </div>
-
-          {/* Batch progress */}
-          {batchProgress && (
-            <div>
-              <div className="panel-cut-sm h-2.5 w-full border border-paper/15 bg-ink p-px">
-                <div
-                  className="noir-progress-fill h-full transition-[width] duration-300 ease-out"
-                  style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                <ToggleControl
+                  label={t(
+                    'optimizer.config.autoLevels',
+                  )}
+                  checked={recipe.autoLevels}
+                  icon={SunMedium}
+                  onChange={(checked) =>
+                    updateRecipe(
+                      'autoLevels',
+                      checked,
+                    )
+                  }
                 />
               </div>
-              <span className="mt-1.5 block font-mono text-[9.5px] uppercase tracking-[0.2em] text-paper/45">
-                {t('optimizer.action.optimizing')} — {batchProgress.current}/{batchProgress.total}
-              </span>
             </div>
-          )}
-        </motion.aside>
+          </ControlSection>
 
-        {/* ═══ Preview column ═══ */}
-        <motion.section variants={m.item} className="glass panel-cut flex min-w-0 flex-col p-4">
-          {/* Toolbar */}
-          <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-paper/10 pb-3">
-            <span className="panel-cut-sm grid h-6 w-6 flex-none place-items-center bg-crimson text-ink">
-              <Eye size={12} strokeWidth={2.5} />
-            </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-paper/75">
-              {t('optimizer.panel.preview')}
-            </span>
-            {activeIdx >= 0 && (
-              <span className="font-mono text-[10px] text-crimson">
-                {activeIdx + 1}
-                <span className="text-paper/30">/{images.length}</span>
+          {/* Advanced */}
+          <ControlSection
+            index="A05"
+            icon={Settings2}
+            title={t('optimizer.panel.advanced')}
+            expanded={advancedExpanded}
+            onToggle={() =>
+              setAdvancedExpanded(
+                (current) => !current,
+              )
+            }
+          >
+            <label className="block">
+              <span className="mb-2 flex items-center gap-2 font-mono text-[0.64rem] font-bold uppercase tracking-[0.1em] text-paper/45">
+                <Type
+                  size={13}
+                  className="text-crimson"
+                  aria-hidden="true"
+                />
+                {t(
+                  'optimizer.config.renamePattern',
+                )}
               </span>
-            )}
 
-            <div className="ml-auto flex items-center gap-1.5">
-              {previewUrl && originalPreviewUrl && (
-                <button
-                  type="button"
-                  aria-pressed={showCompare}
-                  onClick={() => setShowCompare((p) => !p)}
-                  title={t('optimizer.preview.compare')}
-                  className={`panel-cut-sm flex items-center gap-1.5 px-2.5 py-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] transition-all ${showCompare
-                      ? 'bg-crimson font-bold text-ink drop-shadow-[2px_2px_0_#ffc857]'
-                      : 'border border-paper/15 text-paper/55 hover:border-paper/40 hover:text-paper'
-                    }`}
-                >
-                  <Scissors size={10} />
-                  {t('optimizer.preview.compare')}
-                </button>
-              )}
+              <input
+                type="text"
+                className="w-full bg-ink-2 text-paper px-3 py-2 panel-cut-sm border border-paper/15 font-mono text-[11px] focus:border-crimson focus:shadow-[3px_3px_0_0_#ff2e63] focus-visible:outline-none transition-all duration-200 disabled:opacity-35 disabled:cursor-not-allowed"
+                value={recipe.renamePattern}
+                placeholder="{name}"
+                onChange={(event) =>
+                  updateRecipe(
+                    'renamePattern',
+                    event.target.value,
+                  )
+                }
+              />
+
+              <span className="mt-2 block text-[0.66rem] leading-4 text-paper/32">
+                {t(
+                  'optimizer.config.renameHint',
+                )}
+              </span>
+
+              {activeImage ? (
+                <code className="mt-3 block overflow-hidden text-ellipsis whitespace-nowrap border-l-2 border-azure bg-azure/[0.045] px-3 py-2 font-mono text-[0.64rem] text-azure panel-cut-sm">
+                  {buildOutputName(
+                    activeImage.file.name,
+                    recipe.outputFormat,
+                    recipe.renamePattern,
+                    activeImageIndex >= 0
+                      ? activeImageIndex
+                      : 0,
+                  )}
+                </code>
+              ) : null}
+            </label>
+          </ControlSection>
+
+          {/* Execute */}
+          <div className="bg-ink/55 p-4">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-2">
               <button
                 type="button"
-                className="noir-icon-btn"
-                onClick={cycleRotation}
-                title={t('optimizer.config.rotation')}
+                className="btn-primary w-full"
+                disabled={busy || images.length === 0}
+                onClick={() =>
+                  void handleOptimizeAll(false)
+                }
               >
-                <RotateCw size={12} />
+                {busy ? (
+                  <>
+                    <RefreshCw
+                      size={14}
+                      className="animate-spin"
+                      aria-hidden="true"
+                    />
+                    {batchProgress
+                      ? `${batchProgress.current}/${batchProgress.total}`
+                      : t(
+                        'optimizer.action.optimizing',
+                      )}
+                  </>
+                ) : (
+                  <>
+                    <Download
+                      size={14}
+                      aria-hidden="true"
+                    />
+                    ZIP
+                  </>
+                )}
               </button>
-              <div className="flex items-center gap-1">
+
+              {directoryPickerAvailable ? (
                 <button
                   type="button"
-                  className="noir-icon-btn"
-                  onClick={handleZoomOut}
-                  disabled={zoomLevel <= (ZOOM_LEVELS[0] ?? 0)}
+                  className="btn-ghost w-full"
+                  disabled={
+                    busy || images.length === 0
+                  }
+                  onClick={() =>
+                    void handleOptimizeAll(true)
+                  }
                 >
-                  <Minus size={11} />
+                  <FolderOutput
+                    size={14}
+                    aria-hidden="true"
+                  />
+                  {t('optimizer.action.folder')}
                 </button>
+              ) : null}
+            </div>
+
+            {batchProgress ? (
+              <div
+                className="mt-4"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={
+                  batchProgress.total
+                }
+                aria-valuenow={
+                  batchProgress.current
+                }
+              >
+                <div className="h-1.5 overflow-hidden bg-paper/[0.055] panel-cut-sm">
+                  <motion.div
+                    className="h-full bg-crimson"
+                    animate={{
+                      width: `${(batchProgress.current /
+                          batchProgress.total) *
+                        100
+                        }%`,
+                    }}
+                    transition={{
+                      duration: reduceMotion
+                        ? 0
+                        : 0.28,
+                      ease: EASE,
+                    }}
+                  />
+                </div>
+
+                <div className="mt-2 flex items-center justify-between font-mono text-[0.6rem] uppercase tracking-[0.09em] text-paper/38">
+                  <span>
+                    {t(
+                      'optimizer.action.optimizing',
+                    )}
+                  </span>
+                  <span className="text-crimson">
+                    {batchProgress.current}/
+                    {batchProgress.total}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </motion.aside>
+
+        {/* Preview press */}
+        <motion.main
+          initial={
+            reduceMotion
+              ? false
+              : {
+                opacity: 0,
+                x: 20,
+              }
+          }
+          animate={{
+            opacity: 1,
+            x: 0,
+          }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.55,
+            delay: reduceMotion ? 0 : 0.12,
+            ease: EASE,
+          }}
+          className="glass panel-cut overflow-hidden xl:sticky xl:top-5"
+        >
+          <header className="flex flex-col gap-3 border-b border-paper/[0.065] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span
+                className="grid size-9 place-items-center border border-azure/30 bg-azure/10 text-azure panel-cut-sm"
+                aria-hidden="true"
+              >
+                <Eye size={15} />
+              </span>
+
+              <span>
+                <span className="kicker block">
+                  // B01 / Proof
+                </span>
+
+                <strong className="mt-1 block font-display text-base font-black uppercase tracking-[-0.03em] text-paper">
+                  {t('optimizer.panel.preview')}
+                </strong>
+              </span>
+
+              {activeImageIndex >= 0 ? (
+                <span className="stamp !border-paper/15 !bg-paper/[0.035] !text-paper/45">
+                  {activeImageIndex + 1}/
+                  {images.length}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {previewUrl &&
+                originalPreviewUrl ? (
                 <button
                   type="button"
-                  onClick={handleZoomReset}
+                  className={[
+                    'btn-ghost !min-h-9 !px-3 !py-2',
+                    showCompare
+                      ? '!border-crimson/60 !bg-crimson/10 !text-crimson'
+                      : '',
+                  ].join(' ')}
+                  aria-pressed={showCompare}
+                  onClick={() =>
+                    setShowCompare(
+                      (current) => !current,
+                    )
+                  }
+                >
+                  <Scissors
+                    size={13}
+                    aria-hidden="true"
+                  />
+                  {t(
+                    'optimizer.preview.compare',
+                  )}
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                className="btn-ghost !min-h-9 !px-3 !py-2"
+                title={t(
+                  'optimizer.config.rotation',
+                )}
+                onClick={cycleRotation}
+              >
+                <RotateCw
+                  size={13}
+                  aria-hidden="true"
+                />
+                {recipe.rotation}°
+              </button>
+
+              <div className="flex border border-paper/10 bg-ink/60 panel-cut-sm">
+                <button
+                  type="button"
+                  className="panel-cut-sm grid size-9 place-items-center text-paper/45 transition hover:bg-paper/[0.05] hover:text-paper disabled:opacity-25"
+                  aria-label="Zoom out"
+                  disabled={
+                    zoomLevel <= (ZOOM_LEVELS[0] ?? 0)
+                  }
+                  onClick={handleZoomOut}
+                >
+                  <Minus
+                    size={13}
+                    aria-hidden="true"
+                  />
+                </button>
+
+                <button
+                  type="button"
+                  className="panel-cut-sm min-w-14 border-x border-paper/10 px-2 font-mono text-[0.62rem] font-bold text-paper/55 hover:bg-paper/[0.05] hover:text-paper"
                   title="Reset zoom"
-                  className="min-w-[44px] px-1 font-mono text-[10px] text-paper/60 transition-colors hover:text-crimson"
+                  onClick={() => setZoomLevel(1)}
                 >
                   {Math.round(zoomLevel * 100)}%
                 </button>
+
                 <button
                   type="button"
-                  className="noir-icon-btn"
+                  className="panel-cut-sm grid size-9 place-items-center text-paper/45 transition hover:bg-paper/[0.05] hover:text-paper disabled:opacity-25"
+                  aria-label="Zoom in"
+                  disabled={
+                    zoomLevel >=
+                    (ZOOM_LEVELS[
+                    ZOOM_LEVELS.length - 1
+                    ] ?? 0)
+                  }
                   onClick={handleZoomIn}
-                  disabled={zoomLevel >= (ZOOM_LEVELS[ZOOM_LEVELS.length - 1] ?? 0)}
                 >
-                  <Plus size={11} />
+                  <Plus
+                    size={13}
+                    aria-hidden="true"
+                  />
                 </button>
               </div>
             </div>
-          </div>
+          </header>
 
           {activeImage ? (
             <>
-              {/* Thumbnail strip */}
-              {images.length > 1 && (
-                <div ref={thumbStripRef} className="noir-scroll mb-3 flex gap-2 overflow-x-auto pb-1.5">
-                  {images.map((img, idx) => {
-                    const active = img.id === activeImage.id;
+              {images.length > 1 ? (
+                <div
+                  ref={thumbStripRef}
+                  className="koma-scrollbar flex gap-2 overflow-x-auto border-b border-paper/[0.065] bg-ink/35 p-3"
+                >
+                  {images.map((image, index) => {
+                    const active =
+                      image.id === activeImage.id;
+
                     return (
                       <button
-                        key={img.id}
+                        key={image.id}
                         type="button"
-                        data-thumb-id={img.id}
-                        onClick={() => setActiveImageId(img.id)}
-                        title={img.file.name}
-                        className={`panel-cut-sm relative h-16 w-12 flex-none overflow-hidden border transition-all duration-150 ${active
-                            ? 'border-crimson -translate-y-0.5 drop-shadow-[3px_3px_0_rgba(255,46,99,0.5)]'
-                            : 'border-paper/12 opacity-55 hover:opacity-100'
-                          }`}
+                        data-thumb-id={image.id}
+                        title={image.file.name}
+                        aria-label={`${index + 1}: ${image.file.name}`}
+                        aria-pressed={active}
+                        className={[
+                          'panel-cut-sm relative h-16 w-12 shrink-0 overflow-hidden border transition',
+                          active
+                            ? 'border-crimson drop-shadow-[3px_3px_0_rgba(255,46,99,0.38)]'
+                            : 'border-paper/10 opacity-48 hover:border-paper/30 hover:opacity-100',
+                        ].join(' ')}
+                        onClick={() =>
+                          setActiveImageId(image.id)
+                        }
                       >
-                        <img src={img.url} alt={img.file.name} className="h-full w-full object-cover" loading="lazy" />
-                        <span className="absolute bottom-0 right-0 bg-ink/90 px-1 font-mono text-[8px] text-paper/70">
-                          {idx + 1}
+                        <img
+                          src={image.url}
+                          alt=""
+                          loading="lazy"
+                          className="size-full object-cover"
+                        />
+
+                        <span className="absolute bottom-0 left-0 bg-ink/90 px-1.5 py-0.5 font-mono text-[0.52rem] font-bold text-paper">
+                          {String(index + 1).padStart(
+                            2,
+                            '0',
+                          )}
                         </span>
                       </button>
                     );
                   })}
                 </div>
-              )}
+              ) : null}
 
-              {/* Preview area */}
-              <div className="noir-scroll halftone relative flex min-h-[320px] flex-1 items-center justify-center overflow-auto border border-paper/10 bg-ink/70 p-3">
-                {previewLoading && (
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-ink/70 backdrop-blur-sm">
-                    <RefreshCw size={16} className="animate-spin text-crimson" />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-paper/60">
-                      {t('optimizer.preview.generating')}
-                    </span>
+              <div className="halftone relative grid min-h-[420px] place-items-center overflow-auto bg-ink/60 p-5 sm:min-h-[560px]">
+                <div
+                  className="pointer-events-none absolute inset-4 border border-paper/[0.045] panel-cut"
+                  aria-hidden="true"
+                />
+
+                <div className="pointer-events-none absolute left-6 top-5 z-10 font-mono text-[0.55rem] uppercase tracking-[0.15em] text-paper/22">
+                  Proof frame / RGB /{' '}
+                  {recipe.outputFormat}
+                </div>
+
+                {previewLoading ? (
+                  <div className="absolute inset-0 z-40 grid place-items-center bg-ink/68 backdrop-blur-sm">
+                    <div className="panel-cut-sm flex items-center gap-3 border border-crimson/30 bg-ink-2 px-4 py-3 drop-shadow-[5px_5px_0_rgba(255,46,99,0.25)]">
+                      <span
+                        className="koma-spinner text-crimson"
+                        aria-hidden="true"
+                      />
+
+                      <span className="font-mono text-[0.66rem] font-bold uppercase tracking-[0.1em] text-paper/60">
+                        {t(
+                          'optimizer.preview.generating',
+                        )}
+                      </span>
+                    </div>
                   </div>
-                )}
+                ) : null}
 
-                {showCompare && previewUrl && originalPreviewUrl ? (
+                {showCompare &&
+                  previewUrl &&
+                  originalPreviewUrl ? (
                   <div
-                    ref={compareRef}
-                    className="relative max-w-full cursor-ew-resize select-none"
-                    onMouseMove={handleCompareMove}
-                    onTouchMove={handleCompareMove}
-                    style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center center' }}
+                    className="relative max-w-full transition-transform duration-200 focus-within:outline focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-crimson"
+                    style={{
+                      transform: `scale(${zoomLevel})`,
+                      transformOrigin: 'center',
+                    }}
                   >
                     <img
                       src={originalPreviewUrl}
-                      alt={t('optimizer.preview.before')}
-                      className="block max-h-[60vh] w-auto max-w-full"
+                      alt={t(
+                        'optimizer.preview.before',
+                      )}
+                      className="block max-h-[68vh] max-w-full select-none object-contain"
                       draggable={false}
                     />
+
                     <div
-                      className="absolute inset-0"
-                      style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
+                      className="pointer-events-none absolute inset-0 overflow-hidden"
+                      style={{
+                        clipPath: `inset(0 ${100 - comparePosition
+                          }% 0 0)`,
+                      }}
                     >
                       <img
                         src={previewUrl}
-                        alt={t('optimizer.preview.after')}
-                        className="block h-full w-full object-cover"
+                        alt={t(
+                          'optimizer.preview.after',
+                        )}
+                        className="size-full select-none object-contain"
                         draggable={false}
                       />
                     </div>
-                    {/* Divider */}
+
                     <div
-                      className="absolute inset-y-0 w-0.5 bg-crimson"
-                      style={{ left: `${comparePosition}%` }}
-                      aria-hidden
+                      className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-crimson"
+                      style={{
+                        left: `${comparePosition}%`,
+                      }}
+                      aria-hidden="true"
                     >
-                      <span className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-ink bg-gold" />
+                      <span className="absolute left-1/2 top-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center border-2 border-ink bg-crimson text-ink panel-cut-sm drop-shadow-[3px_3px_0_#ffc857]">
+                        <Scissors size={14} />
+                      </span>
                     </div>
-                    <span className="absolute left-2 top-2">
-                      <Stamp tone="gold">{t('optimizer.preview.original')}</Stamp>
+
+                    <span className="stamp pointer-events-none absolute left-3 top-3 z-20 !border-paper/20 !bg-ink/80 !text-paper/65">
+                      {t(
+                        'optimizer.preview.original',
+                      )}
                     </span>
-                    <span className="absolute right-2 top-2">
-                      <Stamp tone="mint">{t('optimizer.preview.optimized')}</Stamp>
+
+                    <span className="stamp pointer-events-none absolute right-3 top-3 z-20">
+                      {t(
+                        'optimizer.preview.optimized',
+                      )}
                     </span>
+
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={comparePosition}
+                      aria-label={t(
+                        'optimizer.preview.compare',
+                      )}
+                      aria-valuetext={`${Math.round(
+                        comparePosition,
+                      )}%`}
+                      className="panel-cut-sm absolute inset-0 z-30 size-full cursor-ew-resize appearance-none bg-transparent opacity-0"
+                      onChange={(event) =>
+                        setComparePosition(
+                          Number(
+                            event.target.value,
+                          ),
+                        )
+                      }
+                    />
                   </div>
                 ) : previewUrl ? (
                   <img
                     src={previewUrl}
                     alt={activeImage.file.name}
-                    className="block max-h-[60vh] w-auto max-w-full"
-                    style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center center' }}
                     draggable={false}
+                    className="max-h-[68vh] max-w-full select-none object-contain transition-transform duration-200"
+                    style={{
+                      transform: `scale(${zoomLevel})`,
+                      transformOrigin: 'center',
+                    }}
                   />
                 ) : !previewLoading ? (
-                  <span className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-paper/35">
-                    {t('optimizer.preview.generating')}
-                  </span>
+                  <div className="text-center">
+                    <ImageIcon
+                      size={34}
+                      className="mx-auto text-paper/16"
+                      aria-hidden="true"
+                    />
+
+                    <p className="mt-3 font-mono text-xs uppercase tracking-[0.12em] text-paper/32">
+                      {t(
+                        'optimizer.preview.generating',
+                      )}
+                    </p>
+                  </div>
                 ) : null}
               </div>
 
-              {/* Stats bar */}
-              {previewStats && (
-                <div className="mt-3 grid grid-cols-2 gap-px border border-paper/10 bg-paper/10 sm:grid-cols-4">
-                  <div className="flex flex-col gap-0.5 bg-ink-2 px-3 py-2">
-                    <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">
-                      {t('optimizer.preview.before')}
+              {previewStats ? (
+                <div className="grid grid-cols-2 gap-px border-t border-paper/[0.065] bg-paper/[0.065] sm:grid-cols-4">
+                  <div className="bg-ink-2/95 p-3">
+                    <span className="font-mono text-[0.56rem] uppercase tracking-[0.12em] text-paper/30">
+                      {t(
+                        'optimizer.preview.before',
+                      )}
                     </span>
-                    <span className="font-mono text-[12px] font-bold text-paper">
-                      {formatBytes(previewStats.originalBytes)}
-                    </span>
+                    <strong className="mt-1 block font-display text-base font-black text-paper">
+                      {formatBytes(
+                        previewStats.originalBytes,
+                      )}
+                    </strong>
                   </div>
-                  <div className="flex flex-col gap-0.5 bg-ink-2 px-3 py-2">
-                    <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">
-                      {t('optimizer.preview.after')}
+
+                  <div className="bg-ink-2/95 p-3">
+                    <span className="font-mono text-[0.56rem] uppercase tracking-[0.12em] text-paper/30">
+                      {t(
+                        'optimizer.preview.after',
+                      )}
                     </span>
-                    <span className="font-mono text-[12px] font-bold text-paper">
-                      {formatBytes(previewStats.optimizedBytes)}
-                    </span>
+                    <strong className="mt-1 block font-display text-base font-black text-paper">
+                      {formatBytes(
+                        previewStats.optimizedBytes,
+                      )}
+                    </strong>
                   </div>
-                  <div className="flex flex-col gap-0.5 bg-ink-2 px-3 py-2">
-                    <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">
-                      {t('optimizer.preview.reduction')}
+
+                  <div className="bg-ink-2/95 p-3">
+                    <span className="font-mono text-[0.56rem] uppercase tracking-[0.12em] text-paper/30">
+                      {t(
+                        'optimizer.preview.reduction',
+                      )}
                     </span>
-                    <span
-                      className="font-mono text-[12px] font-bold"
+                    <strong
+                      className="mt-1 block font-display text-base font-black"
                       style={{
                         color: savingsColor(
-                          savingsPercent(previewStats.originalBytes, previewStats.optimizedBytes),
+                          savingsPercent(
+                            previewStats.originalBytes,
+                            previewStats.optimizedBytes,
+                          ),
                         ),
                       }}
                     >
-                      -{savingsPercent(previewStats.originalBytes, previewStats.optimizedBytes)}%
-                    </span>
+                      {formatDelta(
+                        savingsPercent(
+                          previewStats.originalBytes,
+                          previewStats.optimizedBytes,
+                        ),
+                      )}
+                    </strong>
                   </div>
-                  <div className="flex flex-col gap-0.5 bg-ink-2 px-3 py-2">
-                    <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">
-                      {t('optimizer.preview.dimensions')}
+
+                  <div className="bg-ink-2/95 p-3">
+                    <span className="font-mono text-[0.56rem] uppercase tracking-[0.12em] text-paper/30">
+                      {t(
+                        'optimizer.preview.dimensions',
+                      )}
                     </span>
-                    <span className="font-mono text-[12px] font-bold text-paper">
-                      {previewStats.width}×{previewStats.height}
-                    </span>
+                    <strong className="mt-1 block font-display text-base font-black text-paper">
+                      {previewStats.width}×
+                      {previewStats.height}
+                    </strong>
                   </div>
                 </div>
-              )}
+              ) : null}
             </>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 border border-dashed border-paper/15 py-16 text-paper/35">
-              <ImageIcon size={28} strokeWidth={1.2} />
-              <span className="font-mono text-[10.5px] uppercase tracking-[0.2em]">
-                {t('optimizer.preview.empty')}
-              </span>
+            <div className="halftone grid min-h-[560px] place-items-center bg-ink/50 text-center">
+              <div>
+                <ImageIcon
+                  size={44}
+                  strokeWidth={1.2}
+                  className="mx-auto text-paper/16"
+                  aria-hidden="true"
+                />
+
+                <p className="mt-4 font-mono text-xs uppercase tracking-[0.12em] text-paper/34">
+                  {t('optimizer.preview.empty')}
+                </p>
+              </div>
             </div>
           )}
-        </motion.section>
+        </motion.main>
       </div>
 
-      {/* ── Results ── */}
-      <motion.section variants={m.item} className="glass panel-cut relative overflow-hidden p-4">
-        <span
-          aria-hidden
-          className="text-outline pointer-events-none absolute -top-4 right-4 select-none font-display text-6xl font-black leading-none"
-        >
-          結果
-        </span>
-
-        <div className="relative mb-4 flex flex-wrap items-center gap-2.5">
-          <span className="panel-cut-sm grid h-6 w-6 flex-none place-items-center bg-crimson text-ink">
-            <Layers3 size={12} strokeWidth={2.5} />
-          </span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-paper/75">
-            {t('optimizer.results.title')}
-            {results.length > 0 && <span className="ml-1.5 text-crimson">({results.length})</span>}
-          </span>
-
-          {results.length > 0 && (
-            <span className="ml-auto flex items-center gap-2 font-mono text-[10.5px] text-paper/55">
-              {formatBytes(totals.original)} → {formatBytes(totals.optimized)}
-              <span
-                className="panel-cut-sm px-2 py-0.5 font-bold text-ink"
-                style={{ background: savingsColor(totals.savingsPercent) }}
-              >
-                -{totals.savingsPercent}%
-              </span>
+      {/* Results press */}
+      <section className="glass panel-cut overflow-hidden">
+        <header className="flex flex-col gap-3 border-b border-paper/[0.065] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span
+              className="grid size-9 place-items-center border border-mint/30 bg-mint/10 text-mint panel-cut-sm"
+              aria-hidden="true"
+            >
+              <Layers3 size={15} />
             </span>
-          )}
-        </div>
+
+            <span>
+              <span className="kicker block">
+                // C01 / Output manifest
+              </span>
+
+              <strong className="mt-1 block font-display text-base font-black uppercase tracking-[-0.03em] text-paper">
+                {t('optimizer.results.title')}
+                {results.length > 0
+                  ? ` / ${results.length}`
+                  : ''}
+              </strong>
+            </span>
+          </div>
+
+          {results.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 font-mono text-[0.65rem] text-paper/42">
+              <span>
+                {formatBytes(totals.original)}
+              </span>
+              <span className="text-crimson">→</span>
+              <span>
+                {formatBytes(totals.optimized)}
+              </span>
+
+              <span
+                className="stamp"
+                style={{
+                  color: savingsColor(
+                    totals.savingsPercent,
+                  ),
+                  borderColor: savingsColor(
+                    totals.savingsPercent,
+                  ),
+                }}
+              >
+                {formatDelta(
+                  totals.savingsPercent,
+                )}
+              </span>
+            </div>
+          ) : null}
+        </header>
 
         {results.length > 0 ? (
-          <div className="relative grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {results.map((r) => {
-              const pct = savingsPercent(r.originalBytes, r.optimizedBytes);
+          <motion.div
+            variants={listVariants}
+            initial={
+              reduceMotion ? false : 'hidden'
+            }
+            whileInView="visible"
+            viewport={{
+              once: true,
+              amount: 0.08,
+            }}
+            className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3"
+          >
+            {results.map((result, index) => {
+              const percentage =
+                savingsPercent(
+                  result.originalBytes,
+                  result.optimizedBytes,
+                );
+
+              const remainingWidth = Math.min(
+                100,
+                Math.max(
+                  3,
+                  100 - Math.max(0, percentage),
+                ),
+              );
+
               return (
-                <div
-                  key={r.sourceImageId}
-                  className="panel-cut-sm group border border-paper/10 bg-ink/60 p-3 transition-all duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:border-paper/25 hover:drop-shadow-[3px_3px_0_rgba(255,200,87,0.35)]"
+                <motion.article
+                  key={result.sourceImageId}
+                  variants={cardVariants}
+                  className="offset-card panel-cut-sm relative overflow-hidden border border-paper/10 bg-ink/50 p-4"
                 >
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <strong className="truncate font-mono text-[10.5px] font-bold text-paper">
-                      {r.fileName}
-                    </strong>
+                  <span
+                    className="text-outline pointer-events-none absolute right-3 top-0 font-display text-5xl font-black leading-none"
+                    aria-hidden="true"
+                  >
+                    {String(index + 1).padStart(
+                      2,
+                      '0',
+                    )}
+                  </span>
+
+                  <div className="relative z-10 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="kicker block text-[0.55rem]">
+                        Export file
+                      </span>
+
+                      <strong className="mt-2 block truncate font-mono text-[0.7rem] text-paper">
+                        {result.fileName}
+                      </strong>
+                    </div>
+
                     <button
                       type="button"
-                      className="noir-icon-btn flex-none"
-                      onClick={() => handleDownloadSingle(r)}
-                      title={t('optimizer.results.download')}
+                      className="panel-cut-sm grid size-9 shrink-0 place-items-center border border-paper/10 bg-paper/[0.035] text-paper/45 transition hover:border-crimson/50 hover:bg-crimson/10 hover:text-crimson"
+                      title={t(
+                        'optimizer.results.download',
+                      )}
+                      aria-label={`${t(
+                        'optimizer.results.download',
+                      )}: ${result.fileName}`}
+                      onClick={() =>
+                        handleDownloadSingle(result)
+                      }
                     >
-                      <ArrowDownToLine size={11} />
+                      <ArrowDownToLine
+                        size={14}
+                        aria-hidden="true"
+                      />
                     </button>
                   </div>
-                  <div className="mb-2 flex items-center justify-between font-mono text-[9.5px] text-paper/45">
+
+                  <div className="relative z-10 mt-4 flex items-center justify-between gap-4 font-mono text-[0.6rem] text-paper/38">
                     <span>
-                      {formatBytes(r.originalBytes)} → {formatBytes(r.optimizedBytes)}
+                      {formatBytes(
+                        result.originalBytes,
+                      )}{' '}
+                      →{' '}
+                      {formatBytes(
+                        result.optimizedBytes,
+                      )}
                     </span>
+
                     <span>
-                      {r.width}×{r.height}
+                      {result.width}×{result.height}
                     </span>
                   </div>
-                  <div className="h-1.5 w-full bg-paper/8">
-                    <div
-                      className="h-full transition-[width] duration-500"
-                      style={{ width: `${100 - pct}%`, background: savingsColor(pct) }}
+
+                  <div className="relative z-10 mt-3 h-1.5 overflow-hidden bg-paper/[0.055] panel-cut-sm">
+                    <motion.div
+                      initial={
+                        reduceMotion
+                          ? false
+                          : {
+                            width: '100%',
+                          }
+                      }
+                      whileInView={{
+                        width: `${remainingWidth}%`,
+                      }}
+                      viewport={{ once: true }}
+                      transition={{
+                        duration: reduceMotion
+                          ? 0
+                          : 0.72,
+                        delay: reduceMotion
+                          ? 0
+                          : index * 0.04,
+                        ease: EASE,
+                      }}
+                      className="h-full"
+                      style={{
+                        background:
+                          savingsColor(percentage),
+                      }}
                     />
                   </div>
-                  <span className="mt-1.5 block font-mono text-[9.5px] font-bold" style={{ color: savingsColor(pct) }}>
-                    -{pct}% ({formatBytes(Math.max(0, r.originalBytes - r.optimizedBytes))})
-                  </span>
-                </div>
+
+                  <div className="relative z-10 mt-3 flex items-center justify-between">
+                    <strong
+                      className="font-display text-lg font-black"
+                      style={{
+                        color:
+                          savingsColor(percentage),
+                      }}
+                    >
+                      {formatDelta(percentage)}
+                    </strong>
+
+                    <span className="font-mono text-[0.6rem] text-paper/32">
+                      {formatBytes(
+                        Math.max(
+                          0,
+                          result.originalBytes -
+                          result.optimizedBytes,
+                        ),
+                      )}{' '}
+                      saved
+                    </span>
+                  </div>
+                </motion.article>
               );
             })}
-          </div>
+          </motion.div>
         ) : (
-          <div className="relative flex flex-col items-center justify-center gap-2 border border-dashed border-paper/15 py-9 text-paper/35">
-            <Sparkles size={18} strokeWidth={1.2} />
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em]">
-              {t('optimizer.results.empty')}
-            </span>
+          <div className="halftone grid min-h-52 place-items-center p-6 text-center">
+            <div>
+              <Sparkles
+                size={28}
+                strokeWidth={1.2}
+                className="mx-auto text-paper/16"
+                aria-hidden="true"
+              />
+
+              <p className="mt-3 font-mono text-xs uppercase tracking-[0.12em] text-paper/32">
+                {t('optimizer.results.empty')}
+              </p>
+            </div>
           </div>
         )}
-      </motion.section>
-    </motion.div>
+      </section>
+    </section>
   );
 }
