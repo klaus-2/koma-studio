@@ -1,0 +1,166 @@
+:root[data-theme-family='noir'] .noir-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+
+:root[data-theme-family='noir'] .noir-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: color-mix(in srgb, var(--color-paper) 15%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -5px;
+  width: 12px;
+  height: 12px;
+  background: var(--color-crimson);
+  border: 2px solid var(--color-ink);
+  outline: 1px solid var(--color-crimson);
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root[data-theme-family='noir'] .noir-slider:hover::-webkit-slider-thumb {
+  transform: rotate(45deg) scale(1.15);
+  outline-color: var(--color-gold);
+}
+
+:root[data-theme-family='noir'] .noir-slider::-moz-range-track {
+  height: 2px;
+  background: color-mix(in srgb, var(--color-paper) 15%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--color-crimson);
+  border: 2px solid var(--color-ink);
+  outline: 1px solid var(--color-crimson);
+}
+
+/* ── Toggle (manga-panel cut switch) ── */
+:root[data-theme-family='noir'] .noir-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+:root[data-theme-family='noir'] .noir-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+:root[data-theme-family='noir'] .noir-toggle__track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 18px;
+  border: 1px solid color-mix(in srgb, var(--color-paper) 22%, transparent);
+  background: var(--color-ink-2);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+:root[data-theme-family='noir'] .noir-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  background: color-mix(in srgb, var(--color-paper) 35%, transparent);
+  transition: left 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s;
+}
+
+:root[data-theme-family='noir'] .noir-toggle input:checked+.noir-toggle__track {
+  border-color: var(--color-crimson);
+  background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-toggle input:checked+.noir-toggle__track .noir-toggle__thumb {
+  left: 21px;
+  background: var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .noir-toggle input:focus-visible+.noir-toggle__track {
+  outline: 2px solid var(--color-crimson);
+  outline-offset: 2px;
+}
+
+/* ── Icon button (toolbar) ── */
+:root[data-theme-family='noir'] .noir-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid color-mix(in srgb, var(--color-paper) 15%, transparent);
+  background: color-mix(in srgb, var(--color-ink) 50%, transparent);
+  color: color-mix(in srgb, var(--color-paper) 60%, transparent);
+  cursor: pointer;
+  transition: 0.15s;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+}
+
+:root[data-theme-family='noir'] .noir-icon-btn:hover:not(:disabled) {
+  border-color: var(--color-crimson);
+  color: var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .noir-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ── Spinner (hard, noir — steps spin) ── */
+:root[data-theme-family='noir'] .noir-spinner {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: noir-spin 0.7s linear infinite;
+}
+
+/* ── Progress fill (risograph diagonal stripes) ── */
+:root[data-theme-family='noir'] .noir-progress-fill {
+  background: repeating-linear-gradient(-45deg,
+      var(--color-crimson) 0 8px,
+      #c91e4d 8px 16px);
+}
+
+/* ── Thin scrollbar for strip containers ── */
+:root[data-theme-family='noir'] .noir-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+:root[data-theme-family='noir'] .noir-scroll::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--color-paper) 4%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-crimson) 40%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-crimson) 70%, transparent);
+}
+
+@keyframes noir-blink {
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes noir-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

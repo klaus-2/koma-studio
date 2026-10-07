@@ -17,6 +17,8 @@
 @import './themes/aio-tools-noir.css';
 /* Noir watermark range thumb */
 @import './themes/watermark-noir.css';
+/* Noir enhance/chapter-optimize */
+@import './themes/enhance-noir.css';
 
 @custom-variant dark (&:is(.dark *));
 
