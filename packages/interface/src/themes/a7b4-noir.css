@@ -1,0 +1,79 @@
+/* ── Legal doc prose ───────────────────────────── */
+:root[data-theme-family='noir'] .noir-doc h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: #f2ede3;
+  margin: 2em 0 0.8em;
+  padding-bottom: 0.5em;
+  border-bottom: 1px solid rgba(242, 237, 227, 0.1);
+}
+
+:root[data-theme-family='noir'] .noir-doc h2::before {
+  content: "¶ ";
+  color: #ff2e63;
+}
+
+:root[data-theme-family='noir'] .noir-doc section:first-child h2 {
+  margin-top: 0;
+}
+
+:root[data-theme-family='noir'] .noir-doc p {
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: rgba(242, 237, 227, 0.68);
+  margin: 0 0 1em;
+}
+
+:root[data-theme-family='noir'] .noir-doc ul {
+  margin: 0 0 1em;
+  padding: 0;
+  list-style: none;
+}
+
+:root[data-theme-family='noir'] .noir-doc li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: rgba(242, 237, 227, 0.6);
+  margin-bottom: 6px;
+}
+
+:root[data-theme-family='noir'] .noir-doc li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  background: #ff2e63;
+  transform: rotate(45deg);
+}
+
+/* ── Color picker dark-theming (react-colorful / gcolor) ── */
+:root[data-theme-family='noir'] .noir-picker-wrap .react-colorful {
+  width: 100%;
+}
+
+:root[data-theme-family='noir'] .noir-picker-wrap .react-colorful__saturation,
+:root[data-theme-family='noir'] .noir-picker-wrap .react-colorful__hue,
+:root[data-theme-family='noir'] .noir-picker-wrap .react-colorful__alpha {
+  border-radius: 0;
+}
+
+:root[data-theme-family='noir'] .noir-picker-wrap .react-colorful__pointer {
+  border-radius: 0;
+  border: 2px solid #07070c;
+  outline: 1px solid #f2ede3;
+  width: 14px;
+  height: 14px;
+}
+
+:root[data-theme-family='noir'] .noir-picker-wrap .gradient-result,
+:root[data-theme-family='noir'] .noir-picker-wrap .popup_tabs,
+:root[data-theme-family='noir'] .noir-picker-wrap .popup_tabs-body {
+  background: transparent !important;
+}
