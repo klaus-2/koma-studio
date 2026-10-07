@@ -1,0 +1,1931 @@
+@theme {
+  /* ── Ink & Paper palette ── */
+  --color-ink: #07070c;
+  --color-ink-2: #0d0d16;
+  --color-ink-3: #151522;
+  --color-paper: #f2ede3;
+  --color-crimson: #ff2e63;
+  --color-gold: #ffc857;
+  --color-azure: #4dc9ff;
+  --color-mint: #3ef2b0;
+  --color-paper-dim: #a8a396;
+  --color-paper-faint: rgba(242, 237, 227, 0.28);
+
+  /* ── Type system ── */
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-accent: "Instrument Serif", Georgia, serif;
+  --font-serif-accent: "Instrument Serif", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --ease-koma: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-noir: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ── Motion ── */
+  --animate-marquee: marquee 30s linear infinite;
+  --animate-blink: blink 1.1s steps(2, jump-none) infinite;
+  --animate-wipe: wipe 7s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  --animate-spin-hard: spin-hard 0.7s steps(8) infinite;
+  --animate-float-ink: float-ink 9s ease-in-out infinite;
+
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0.12;
+    }
+  }
+
+  @keyframes blink-noir {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.15;
+    }
+  }
+
+  @keyframes spin-hard {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes float-ink {
+    50% {
+      transform: translateY(-14px);
+    }
+  }
+
+  @keyframes stamp-in {
+    0% {
+      transform: scale(1.4) rotate(-8deg);
+      opacity: 0;
+    }
+
+    60% {
+      transform: scale(0.94) rotate(2deg);
+      opacity: 1;
+    }
+
+    100% {
+      transform: scale(1) rotate(0);
+    }
+  }
+
+  @keyframes wipe {
+
+    0%,
+    10% {
+      clip-path: inset(0 100% 0 0);
+    }
+
+    45%,
+    60% {
+      clip-path: inset(0 0% 0 0);
+    }
+
+    90%,
+    100% {
+      clip-path: inset(0 100% 0 0);
+    }
+  }
+}
+
+@layer components {
+
+  /* ── Manga panel cuts ── */
+  :root[data-theme-family='noir'] .panel-cut {
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+  }
+
+  :root[data-theme-family='noir'] .panel-cut-sm {
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  }
+
+  :root[data-theme-family='noir'] .glass {
+    background: color-mix(in srgb, var(--color-ink-2) 74%, transparent);
+    backdrop-filter: blur(14px);
+    border: 1px solid color-mix(in srgb, var(--color-paper) 9%, transparent);
+  }
+
+  /* ── Riso halftone ── */
+  :root[data-theme-family='noir'] .halftone {
+    background-image: radial-gradient(color-mix(in srgb, var(--color-paper) 8%, transparent) 1px,
+        transparent 1px);
+    background-size: 14px 14px;
+  }
+
+  :root[data-theme-family='noir'] .halftone-red {
+    background-image: radial-gradient(color-mix(in srgb, var(--color-crimson) 22%, transparent) 1px,
+        transparent 1px);
+    background-size: 10px 10px;
+  }
+
+  :root[data-theme-family='noir'] .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--color-crimson);
+  }
+
+  /* ── Hanko stamp badge ── */
+  :root[data-theme-family='noir'] .stamp {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-crimson);
+    border: 1.5px solid var(--color-crimson);
+    background: color-mix(in srgb, var(--color-crimson) 10%, transparent);
+    padding: 4px 10px;
+  }
+
+  /* ── Buttons: hard offset shadow via drop-shadow (survives clip-path!) ── */
+  :root[data-theme-family='noir'] .btn-primary {
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 13px;
+    background: var(--color-crimson);
+    color: var(--color-ink);
+    padding: 15px 26px;
+    transition:
+      transform 0.25s var(--ease-koma),
+      filter 0.25s var(--ease-koma),
+      opacity 0.2s;
+  }
+
+  :root[data-theme-family='noir'] .btn-primary:hover:not(:disabled) {
+    transform: translate(-3px, -3px);
+    filter: drop-shadow(5px 5px 0 var(--color-gold));
+  }
+
+  :root[data-theme-family='noir'] .btn-primary:active:not(:disabled) {
+    transform: translate(0, 0);
+    filter: none;
+  }
+
+  :root[data-theme-family='noir'] .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  :root[data-theme-family='noir'] .btn-ghost {
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 12px;
+    color: var(--color-paper);
+    border: 1px solid color-mix(in srgb, var(--color-paper) 22%, transparent);
+    padding: 14px 24px;
+    transition:
+      transform 0.25s var(--ease-koma),
+      filter 0.25s var(--ease-koma),
+      border-color 0.2s;
+  }
+
+  :root[data-theme-family='noir'] .btn-ghost:hover:not(:disabled) {
+    transform: translate(-2px, -2px);
+    filter: drop-shadow(4px 4px 0 color-mix(in srgb, var(--color-paper) 25%, transparent));
+    border-color: color-mix(in srgb, var(--color-paper) 45%, transparent);
+  }
+
+  /* ── Inputs ── */
+  :root[data-theme-family='noir'] .input-koma {
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    width: 100%;
+    font-family: var(--font-display);
+    font-size: 14px;
+    color: var(--color-paper);
+    background: color-mix(in srgb, var(--color-ink-3) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-paper) 12%, transparent);
+    padding: 13px 14px 13px 42px;
+    transition: border-color 0.2s, filter 0.25s var(--ease-koma), background 0.2s;
+  }
+
+  :root[data-theme-family='noir'] .input-koma::placeholder {
+    color: color-mix(in srgb, var(--color-paper) 28%, transparent);
+  }
+
+  :root[data-theme-family='noir'] .input-koma:focus {
+    outline: none;
+    border-color: var(--color-crimson);
+    background: var(--color-ink-3);
+    filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-crimson) 40%, transparent));
+  }
+
+  /* ── Editorial extras ── */
+  :root[data-theme-family='noir'] .text-outline {
+    color: transparent;
+    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--color-paper) 14%, transparent);
+  }
+
+  :root[data-theme-family='noir'] .v-text {
+    writing-mode: vertical-rl;
+  }
+
+  :root[data-theme-family='noir'] .spinner-hard {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    animation: spin-hard 0.7s steps(8) infinite;
+  }
+
+  :root[data-theme-family='noir'] .blink-noir {
+    animation: blink-noir 1.1s steps(2, jump-none) infinite;
+  }
+
+  :root[data-theme-family='noir'] .animate-stamp {
+    animation: stamp-in 0.4s var(--ease-noir) both;
+  }
+
+  :root[data-theme-family='noir'] .hard-hover {
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), filter 0.18s;
+  }
+
+  :root[data-theme-family='noir'] .hard-hover:hover:not(:disabled) {
+    transform: translate(-3px, -3px);
+    filter: drop-shadow(5px 5px 0 color-mix(in srgb, var(--color-gold) 90%, transparent));
+  }
+
+  :root[data-theme-family='noir'] .blink {
+    animation: koma-blink 1.1s steps(2, start) infinite;
+  }
+
+  :root[data-theme-family='noir'] .stripes-anim {
+    animation: koma-stripes 0.7s linear infinite;
+  }
+}
+
+@keyframes koma-blink {
+  to {
+    opacity: 0.2;
+  }
+}
+
+@keyframes koma-stripes {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 17px 0;
+  }
+}
+
+/* ── Hard offset shadows (drop-shadow survives clip-path) ── */
+@utility shadow-hard-crimson {
+  filter: drop-shadow(4px 4px 0 var(--color-crimson));
+}
+
+@utility shadow-hard-gold {
+  filter: drop-shadow(4px 4px 0 var(--color-gold));
+}
+
+@utility shadow-hard-paper {
+  filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-paper) 25%, transparent));
+}
+
+/* ── Manga panel cut (both corners) — Editorial Manga Noir V2 ── */
+:root[data-theme-family='noir'] .panel-cut-both {
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px),
+      calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+
+/* ── Form primitives — noir select / input / textarea ── */
+:root[data-theme-family='noir'] .noir-select,
+:root[data-theme-family='noir'] .noir-input,
+:root[data-theme-family='noir'] .noir-textarea {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 12%, transparent);
+  padding: 9px 11px;
+  transition: border-color 0.16s, filter 0.18s var(--ease-noir);
+}
+
+:root[data-theme-family='noir'] .noir-select:focus-visible,
+:root[data-theme-family='noir'] .noir-input:focus-visible,
+:root[data-theme-family='noir'] .noir-textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-crimson);
+  filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-crimson) 40%, transparent));
+}
+
+/* ── Range thumb (noir) ── */
+:root[data-theme-family='noir'] .noir-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--color-crimson);
+  border: 2px solid var(--color-ink);
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--color-gold) 60%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--color-crimson);
+  border: 2px solid var(--color-ink);
+  cursor: pointer;
+}
+
+/* ── Pulse ring (sharp, noir) ── */
+@keyframes noir-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-crimson) 60%, transparent);
+  }
+
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+:root[data-theme-family='noir'] .animate-pulse-ring {
+  animation: noir-pulse-ring 1.6s var(--ease-noir) infinite;
+}
+
+/* ── Slider (square thumb rotates 45° on hover) ── */
+:root[data-theme-family='noir'] .noir-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+
+:root[data-theme-family='noir'] .noir-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: color-mix(in srgb, var(--color-paper) 15%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -5px;
+  width: 12px;
+  height: 12px;
+  background: var(--color-crimson);
+  border: 2px solid var(--color-ink);
+  outline: 1px solid var(--color-crimson);
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root[data-theme-family='noir'] .noir-slider:hover::-webkit-slider-thumb {
+  transform: rotate(45deg) scale(1.15);
+  outline-color: var(--color-gold);
+}
+
+:root[data-theme-family='noir'] .noir-slider::-moz-range-track {
+  height: 2px;
+  background: color-mix(in srgb, var(--color-paper) 15%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--color-crimson);
+  border: 2px solid var(--color-ink);
+  outline: 1px solid var(--color-crimson);
+}
+
+/* ── Toggle (manga-panel cut switch) ── */
+:root[data-theme-family='noir'] .noir-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+:root[data-theme-family='noir'] .noir-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+:root[data-theme-family='noir'] .noir-toggle__track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 18px;
+  border: 1px solid color-mix(in srgb, var(--color-paper) 22%, transparent);
+  background: var(--color-ink-2);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+:root[data-theme-family='noir'] .noir-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  background: color-mix(in srgb, var(--color-paper) 35%, transparent);
+  transition: left 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s;
+}
+
+:root[data-theme-family='noir'] .noir-toggle input:checked+.noir-toggle__track {
+  border-color: var(--color-crimson);
+  background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-toggle input:checked+.noir-toggle__track .noir-toggle__thumb {
+  left: 21px;
+  background: var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .noir-toggle input:focus-visible+.noir-toggle__track {
+  outline: 2px solid var(--color-crimson);
+  outline-offset: 2px;
+}
+
+/* ── Icon button (toolbar) ── */
+:root[data-theme-family='noir'] .noir-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid color-mix(in srgb, var(--color-paper) 15%, transparent);
+  background: color-mix(in srgb, var(--color-ink) 50%, transparent);
+  color: color-mix(in srgb, var(--color-paper) 60%, transparent);
+  cursor: pointer;
+  transition: 0.15s;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+}
+
+:root[data-theme-family='noir'] .noir-icon-btn:hover:not(:disabled) {
+  border-color: var(--color-crimson);
+  color: var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .noir-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ── Spinner (hard, noir — steps spin) ── */
+:root[data-theme-family='noir'] .noir-spinner {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: noir-spin 0.7s linear infinite;
+}
+
+/* ── Progress fill (risograph diagonal stripes) ── */
+:root[data-theme-family='noir'] .noir-progress-fill {
+  background: repeating-linear-gradient(-45deg,
+      var(--color-crimson) 0 8px,
+      #c91e4d 8px 16px);
+}
+
+/* ── Thin scrollbar for strip containers ── */
+:root[data-theme-family='noir'] .noir-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+:root[data-theme-family='noir'] .noir-scroll::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--color-paper) 4%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-crimson) 40%, transparent);
+}
+
+:root[data-theme-family='noir'] .noir-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-crimson) 70%, transparent);
+}
+
+/* ── Guides "Editorial Manga Noir" primitives ── */
+:root[data-theme-family='noir'] .noir-kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  background: #0d0d16;
+  color: #f2ede3;
+  border: 1px solid rgba(242, 237, 227, 0.25);
+  border-bottom-width: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%);
+}
+
+:root[data-theme-family='noir'] .noir-code-line--hl {
+  display: inline-block;
+  width: 100%;
+  background: rgba(255, 46, 99, 0.1);
+  box-shadow: inset 2px 0 0 #ff2e63;
+}
+
+:root[data-theme-family='noir'] .noir-guide-text {
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: rgba(242, 237, 227, 0.78);
+}
+
+:root[data-theme-family='noir'] .noir-timeline {
+  position: relative;
+}
+
+:root[data-theme-family='noir'] .noir-timeline::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: rgba(242, 237, 227, 0.1);
+}
+
+@keyframes noir-blink {
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes noir-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Global film grain overlay ── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+:root[data-theme-family='noir'] .koma-aio-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Language pair + divider */
+:root[data-theme-family='noir'] .koma-aio-lang-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-lang-row__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.5rem;
+  width: 1.5rem;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
+  color: var(--color-crimson);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+
+:root[data-theme-family='noir'] .koma-aio-lang-divider,
+:root[data-theme-family='noir'] .koma-aio-divider {
+  height: 1px;
+  width: 100%;
+  background: color-mix(in srgb, var(--color-paper) 8%, transparent);
+}
+
+/* Preset row */
+:root[data-theme-family='noir'] .koma-aio-lang-preset-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-lang-preset-row__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-crimson);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-lang-preset-row__select {
+  /* .noir-select + .panel-cut-sm */
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 12%, transparent);
+  padding: 9px 11px;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-bar__actions {
+  display: flex;
+  gap: 0.375rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  width: 2rem;
+  border: 1px solid color-mix(in srgb, var(--color-paper) 20%, transparent);
+  background: var(--color-ink);
+  color: color-mix(in srgb, var(--color-paper) 75%, transparent);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  transition: transform 0.15s, border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-action:hover:not(:disabled) {
+  border-color: var(--color-paper);
+  color: var(--color-paper);
+  transform: translate(-1px, -1px);
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-action:disabled {
+  opacity: 0.3;
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-action--primary {
+  border-color: color-mix(in srgb, var(--color-crimson) 50%, transparent);
+  color: var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-action--primary:hover:not(:disabled) {
+  background: var(--color-crimson);
+  color: var(--color-ink);
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-action--danger {
+  border-color: color-mix(in srgb, var(--color-crimson) 30%, transparent);
+  color: color-mix(in srgb, var(--color-crimson) 70%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-action--danger:hover:not(:disabled) {
+  border-color: var(--color-crimson);
+  color: var(--color-crimson);
+}
+
+/* Inline preset editor */
+:root[data-theme-family='noir'] .koma-aio-preset-editor {
+  /* .glass + .panel-cut-sm + gold rail */
+  background: color-mix(in srgb, var(--color-ink-2) 78%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 8%, transparent);
+  border-left: 2px solid var(--color-gold);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-editor__stages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-preset-editor__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Stage tab content shell */
+:root[data-theme-family='noir'] .koma-aio-stage-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+/* Translation extras (LLM panel) */
+:root[data-theme-family='noir'] .koma-aio-translation-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-llm-panel {
+  /* .glass + .panel-cut-sm + azure rail */
+  background: color-mix(in srgb, var(--color-ink-2) 78%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 8%, transparent);
+  border-left: 2px solid var(--color-azure);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+
+:root[data-theme-family='noir'] .koma-aio-llm-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-llm-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Render text-mode + font row */
+:root[data-theme-family='noir'] .koma-aio-text-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-font-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+/* Region inspector */
+:root[data-theme-family='noir'] .koma-aio-region {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-region__grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.75rem;
+  row-gap: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+:root[data-theme-family='noir'] .koma-aio-region__key {
+  color: color-mix(in srgb, var(--color-crimson) 80%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-aio-region__val {
+  color: var(--color-paper);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme-family='noir'] .koma-aio-region__val--muted {
+  color: color-mix(in srgb, var(--color-paper) 55%, transparent);
+  font-style: italic;
+}
+
+:root[data-theme-family='noir'] .koma-aio-region__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+/* Inline info / warning callouts */
+:root[data-theme-family='noir'] .koma-aio-info {
+  /* .glass + .panel-cut-sm + border-l-2 */
+  background: color-mix(in srgb, var(--color-ink-2) 78%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 8%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--color-paper) 14%, transparent);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  color: var(--color-paper);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+
+:root[data-theme-family='noir'] .koma-aio-info__icon {
+  margin-top: 0.125rem;
+  height: 0.8125rem;
+  width: 0.8125rem;
+  flex-shrink: 0;
+}
+
+:root[data-theme-family='noir'] .koma-aio-info--warning {
+  border-left-color: var(--color-gold);
+  color: var(--color-gold);
+}
+
+/* Section badge (enabled-count stamp) — reuses .stamp */
+:root[data-theme-family='noir'] .koma-aio-section__badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-crimson);
+  border: 1.5px solid color-mix(in srgb, var(--color-crimson) 55%, transparent);
+  background: color-mix(in srgb, var(--color-crimson) 10%, transparent);
+  padding: 3px 10px;
+}
+
+/* Hints */
+:root[data-theme-family='noir'] .koma-aio-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: color-mix(in srgb, var(--color-paper) 55%, transparent);
+}
+
+/* Timeline (manual mode) */
+:root[data-theme-family='noir'] .koma-aio-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* Pipeline grid + controls */
+:root[data-theme-family='noir'] .koma-aio-pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-pipeline-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+/* Execute bar */
+:root[data-theme-family='noir'] .koma-aio-execute {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  gap: 0.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-paper) 8%, transparent);
+  background: color-mix(in srgb, var(--color-ink) 90%, transparent);
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  backdrop-filter: blur(12px);
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__btn {
+  /* .btn-primary + .panel-cut-sm */
+  position: relative;
+  flex: 1 1 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 13px;
+  background: var(--color-crimson);
+  color: var(--color-ink);
+  padding: 0.875rem 1.625rem;
+  transition: transform 0.25s var(--ease-koma), filter 0.25s var(--ease-koma), opacity 0.2s;
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__btn:hover:not(:disabled) {
+  transform: translate(-3px, -3px);
+  filter: drop-shadow(5px 5px 0 var(--color-gold));
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__btn--processing {
+  animation: koma-blink 1.1s steps(2, start) infinite;
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__btn--stop {
+  /* .btn-ghost + crimson override */
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  color: var(--color-crimson);
+  border: 1px solid var(--color-crimson);
+  padding: 0.875rem 1.5rem;
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__pulse {
+  position: absolute;
+  left: 0.75rem;
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 9999px;
+  background: var(--color-ink);
+  animation: noir-pulse-ring 1.6s var(--ease-noir) infinite;
+}
+
+/* ── Range slider — Editorial Manga Noir (RenderTextPreview fine-tune) ── */
+:root[data-theme-family='noir'] .koma-noir-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 12px;
+  width: 12px;
+  background: var(--color-crimson);
+  clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%);
+  cursor: pointer;
+}
+
+:root[data-theme-family='noir'] .koma-noir-range::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
+  border: 0;
+  background: var(--color-crimson);
+  clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 0 100%);
+  cursor: pointer;
+}
+
+/* ── Effects row in the noir type dock: keep color popovers side-by-side ── */
+:root[data-theme-family='noir'] .koma-effects-row {
+  scrollbar-width: thin;
+}
+
+:root[data-theme-family='noir'] .koma-effects-row>* {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+:root[data-theme-family='noir'] .koma-effects-row .koma-color-popover__trigger {
+  width: 100%;
+}
+
+/* ── Scoped base for the noir auth surfaces ── */
+.koma-noir {
+  position: relative;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Film grain global (SVG turbulence) */
+:root[data-theme-family='noir'] .koma-noir::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+:root[data-theme-family='noir'] .koma-noir :focus-visible {
+  outline: 2px solid var(--color-crimson);
+  outline-offset: 3px;
+}
+
+:root[data-theme-family='noir'] .koma-noir ::selection {
+  background: var(--color-crimson);
+  color: var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  :root[data-theme-family='noir'] .koma-noir *,
+  :root[data-theme-family='noir'] .koma-noir *::before,
+  :root[data-theme-family='noir'] .koma-noir *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+:root[data-theme-family='noir'] .koma-noir .manhwa-float {
+  border-radius: 12px;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    0 0 0 1px color-mix(in srgb, var(--color-paper) 12%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .manhwa-float__gradient {
+  background:
+    linear-gradient(to top, color-mix(in srgb, var(--color-ink) 92%, transparent) 0%, transparent 60%),
+    radial-gradient(circle at 70% 35%, color-mix(in srgb, var(--color-crimson) 14%, transparent), transparent 55%);
+}
+
+:root[data-theme-family='noir'] .koma-noir .manhwa-float__title {
+  color: var(--color-paper);
+}
+
+:root[data-theme-family='noir'] .koma-noir .manhwa-float__subtitle {
+  color: color-mix(in srgb, var(--color-paper) 55%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .manhwa-float__badge {
+  background: color-mix(in srgb, var(--color-ink) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 25%, transparent);
+  color: var(--color-paper);
+}
+
+:root[data-theme-family='noir'] .koma-noir .manhwa-float__badge--new {
+  background: var(--color-crimson);
+  border-color: var(--color-crimson);
+  color: var(--color-ink);
+}
+
+:root[data-theme-family='noir'] .koma-noir .manhwa-float__bar {
+  background: color-mix(in srgb, var(--color-ink) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 18%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .manhwa-float__handle {
+  background: var(--color-crimson);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-crimson) 60%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-quote {
+  color: var(--color-paper);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-quote__mark {
+  color: var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-stat__number {
+  background: linear-gradient(135deg, var(--color-paper), color-mix(in srgb, var(--color-paper) 80%, transparent));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-stat__label {
+  color: color-mix(in srgb, var(--color-paper) 55%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-stat__sep {
+  background: color-mix(in srgb, var(--color-paper) 12%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-toolkit__label {
+  color: color-mix(in srgb, var(--color-paper) 75%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-community__label {
+  color: color-mix(in srgb, var(--color-paper) 60%, transparent);
+}
+
+/* gêneros — remap para paleta noir */
+:root[data-theme-family='noir'] .koma-noir .auth-genre--purple {
+  background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-crimson) 30%, transparent);
+  color: #ff7aa3;
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-genre--purple:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-crimson) 30%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-genre--cyan {
+  background: color-mix(in srgb, var(--color-azure) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-azure) 30%, transparent);
+  color: #8fe0ff;
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-genre--cyan:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-azure) 30%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-genre--rose {
+  background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-crimson) 30%, transparent);
+  color: #ff7aa3;
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-genre--rose:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-crimson) 30%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-genre--amber {
+  background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-gold) 30%, transparent);
+  color: #ffd98a;
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-genre--amber:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-gold) 30%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-genre--emerald {
+  background: color-mix(in srgb, var(--color-mint) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-mint) 30%, transparent);
+  color: #8ff7d4;
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-genre--emerald:hover {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-mint) 30%, transparent);
+}
+
+/* avatares da comunidade — cores noir */
+:root[data-theme-family='noir'] .koma-noir .auth-avatar {
+  border-color: var(--color-ink);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-avatar--1 {
+  background: var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-avatar--2 {
+  background: var(--color-gold);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-avatar--3 {
+  background: var(--color-azure);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-avatar--4 {
+  background: var(--color-mint);
+}
+
+:root[data-theme-family='noir'] .koma-noir .auth-avatar--join {
+  background: color-mix(in srgb, var(--color-paper) 12%, transparent);
+  color: var(--color-paper);
+  border-color: color-mix(in srgb, var(--color-paper) 30%, transparent);
+}
+
+/* ════════════════ CDN Workspaces — Editorial Manga Noir (Blogger / Imgur) ════════════════ */
+@layer components {
+
+  /* ── TipTap prose noir ─────────────────────────── */
+  :root[data-theme-family='noir'] .noir-prose {
+    min-height: 320px;
+    padding: 18px;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: rgba(242, 237, 227, 0.85);
+    outline: none;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose h1,
+  :root[data-theme-family='noir'] .noir-prose h2 {
+    font-family: var(--font-display);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    color: #f2ede3;
+    margin: 1.2em 0 0.5em;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose h1 {
+    font-size: 1.5rem;
+    border-bottom: 2px solid #ff2e63;
+    padding-bottom: 0.25em;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose h2 {
+    font-size: 1.15rem;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose a {
+    color: #4dc9ff;
+    text-underline-offset: 3px;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose blockquote {
+    border-left: 3px solid #ff2e63;
+    background: rgba(255, 46, 99, 0.06);
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    font-family: var(--font-accent);
+    font-style: italic;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose ul,
+  :root[data-theme-family='noir'] .noir-prose ol {
+    padding-left: 1.4em;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose ul li::marker {
+    color: #ff2e63;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose ol li::marker {
+    color: #ffc857;
+    font-family: var(--font-mono);
+  }
+
+  :root[data-theme-family='noir'] .noir-prose img {
+    max-width: 100%;
+    height: auto;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+    border: 1px solid rgba(242, 237, 227, 0.12);
+  }
+
+  :root[data-theme-family='noir'] .noir-prose img.ProseMirror-selectednode {
+    outline: 2px solid #ff2e63;
+    outline-offset: 2px;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: rgba(242, 237, 227, 0.25);
+    float: left;
+    pointer-events: none;
+    height: 0;
+  }
+
+  /* ── Textarea HTML noir ────────────────────────── */
+  :root[data-theme-family='noir'] .noir-code-area {
+    width: 100%;
+    min-height: 340px;
+    resize: vertical;
+    background: rgba(7, 7, 12, 0.85);
+    border: 1px solid rgba(242, 237, 227, 0.14);
+    color: #3ef2b0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.7;
+    padding: 14px;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    transition: border-color 0.2s;
+  }
+
+  :root[data-theme-family='noir'] .noir-code-area:focus {
+    border-color: rgba(255, 46, 99, 0.6);
+    outline: none;
+  }
+
+  /* ── Dropzone risograph dash ───────────────────── */
+  :root[data-theme-family='noir'] .noir-dropzone {
+    position: relative;
+    cursor: pointer;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+    background:
+      repeating-linear-gradient(-45deg, transparent 0 10px, rgba(255, 46, 99, 0.045) 10px 20px),
+      rgba(7, 7, 12, 0.5);
+    border: 1.5px dashed rgba(242, 237, 227, 0.22);
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), filter 0.18s, border-color 0.18s, background 0.18s;
+  }
+
+  :root[data-theme-family='noir'] .noir-dropzone:hover,
+  :root[data-theme-family='noir'] .noir-dropzone--active {
+    border-color: #ff2e63;
+    transform: translate(-2px, -2px);
+    filter: drop-shadow(4px 4px 0 rgba(255, 200, 87, 0.55));
+  }
+
+  :root[data-theme-family='noir'] .noir-dropzone--active {
+    background: rgba(255, 46, 99, 0.08);
+  }
+
+  /* ── Legal doc prose ───────────────────────────── */
+  :root[data-theme-family='noir'] .noir-doc h2 {
+    font-family: var(--font-display);
+    font-weight: 900;
+    text-transform: uppercase;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    color: #f2ede3;
+    margin: 2em 0 0.8em;
+    padding-bottom: 0.5em;
+    border-bottom: 1px solid rgba(242, 237, 227, 0.1);
+  }
+
+  :root[data-theme-family='noir'] .noir-doc h2::before {
+    content: "¶ ";
+    color: #ff2e63;
+  }
+
+  :root[data-theme-family='noir'] .noir-doc section:first-child h2 {
+    margin-top: 0;
+  }
+
+  :root[data-theme-family='noir'] .noir-doc p {
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: rgba(242, 237, 227, 0.68);
+    margin: 0 0 1em;
+  }
+
+  :root[data-theme-family='noir'] .noir-doc ul {
+    margin: 0 0 1em;
+    padding: 0;
+    list-style: none;
+  }
+
+  :root[data-theme-family='noir'] .noir-doc li {
+    position: relative;
+    padding-left: 18px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: rgba(242, 237, 227, 0.6);
+    margin-bottom: 6px;
+  }
+
+  :root[data-theme-family='noir'] .noir-doc li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 8px;
+    width: 6px;
+    height: 6px;
+    background: #ff2e63;
+    transform: rotate(45deg);
+  }
+
+  /* ── Color picker dark-theming (react-colorful / gcolor) ── */
+  :root[data-theme-family='noir'] .noir-picker-wrap .react-colorful {
+    width: 100%;
+  }
+
+  :root[data-theme-family='noir'] .noir-picker-wrap .react-colorful__saturation,
+  :root[data-theme-family='noir'] .noir-picker-wrap .react-colorful__hue,
+  :root[data-theme-family='noir'] .noir-picker-wrap .react-colorful__alpha {
+    border-radius: 0;
+  }
+
+  :root[data-theme-family='noir'] .noir-picker-wrap .react-colorful__pointer {
+    border-radius: 0;
+    border: 2px solid #07070c;
+    outline: 1px solid #f2ede3;
+    width: 14px;
+    height: 14px;
+  }
+
+  :root[data-theme-family='noir'] .noir-picker-wrap .gradient-result,
+  :root[data-theme-family='noir'] .noir-picker-wrap .popup_tabs,
+  :root[data-theme-family='noir'] .noir-picker-wrap .popup_tabs-body {
+    background: transparent !important;
+  }
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell {
+  position: relative;
+  min-height: 560px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 100% 0,
+      rgb(255 46 99 / 0.065),
+      transparent 22rem),
+    var(--color-paper);
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  opacity: 0.08;
+  background-image: radial-gradient(circle,
+      rgb(7 7 12 / 0.65) 0.7px,
+      transparent 0.9px);
+  background-size: 7px 7px;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror {
+  position: relative;
+  z-index: 1;
+  min-height: 560px;
+  padding: clamp(1.35rem, 4vw, 3.5rem);
+  color: #17171f;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1rem;
+  line-height: 1.8;
+  outline: none;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror>* {
+  max-width: 880px;
+  margin-inline: auto;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror>*+* {
+  margin-top: 1rem;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror h1,
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror h2,
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror h3 {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror h1 {
+  margin-top: 2rem;
+  font-size: clamp(2rem, 6vw, 4.5rem);
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror h2 {
+  margin-top: 1.75rem;
+  font-size: clamp(1.5rem, 4vw, 2.8rem);
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror h3 {
+  margin-top: 1.5rem;
+  font-size: 1.35rem;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror strong {
+  font-weight: 800;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror a {
+  color: #c9194a;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror ul {
+  list-style: square;
+  padding-left: 1.5rem;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror ol {
+  list-style: decimal-leading-zero;
+  padding-left: 1.8rem;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror li+li {
+  margin-top: 0.35rem;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror blockquote {
+  position: relative;
+  margin-block: 1.75rem;
+  border-left: 5px solid var(--color-crimson);
+  padding: 1rem 1.25rem;
+  background: rgb(255 46 99 / 0.07);
+  color: rgb(7 7 12 / 0.72);
+  font-family: var(--font-accent), serif;
+  font-size: 1.25rem;
+  font-style: italic;
+  clip-path: polygon(0 0,
+      calc(100% - 14px) 0,
+      100% 14px,
+      100% 100%,
+      0 100%);
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror code {
+  background: rgb(7 7 12 / 0.08);
+  padding: 0.18rem 0.35rem;
+  color: #b01240;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.88em;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror pre {
+  overflow-x: auto;
+  margin-block: 1.75rem;
+  background: var(--color-ink);
+  padding: 1.2rem;
+  color: var(--color-paper);
+  clip-path: polygon(0 0,
+      calc(100% - 16px) 0,
+      100% 16px,
+      100% 100%,
+      0 100%);
+  box-shadow: 6px 6px 0 rgb(255 46 99 / 0.28);
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-block: 2rem;
+  border: 1px solid rgb(7 7 12 / 0.12);
+  clip-path: polygon(0 0,
+      calc(100% - 18px) 0,
+      100% 18px,
+      100% 100%,
+      0 100%);
+  box-shadow: 7px 7px 0 rgb(7 7 12 / 0.16);
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror img.ProseMirror-selectednode {
+  outline: 3px solid var(--color-crimson);
+  outline-offset: 4px;
+}
+
+:root[data-theme-family='noir'] .koma-editor-shell .ProseMirror p.is-editor-empty:first-child::before {
+  float: left;
+  height: 0;
+  color: rgb(7 7 12 / 0.35);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+:root[data-theme-family='noir'] .koma-source-editor {
+  display: block;
+  width: 100%;
+  min-height: 600px;
+  resize: vertical;
+  border: 0;
+  background:
+    linear-gradient(90deg,
+      rgb(255 46 99 / 0.055) 1px,
+      transparent 1px),
+    linear-gradient(rgb(77 201 255 / 0.035) 1px,
+      transparent 1px),
+    #080811;
+  background-size: 56px 100%, 100% 24px;
+  padding: 3rem 1.5rem 1.5rem;
+  color: #b9f4ff;
+  caret-color: var(--color-crimson);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.78rem;
+  line-height: 1.75;
+  outline: none;
+  tab-size: 2;
+}
+
+:root[data-theme-family='noir'] .koma-source-editor:focus {
+  background-color: #0a0a14;
+  box-shadow: inset 4px 0 0 var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-preview-frame {
+  display: block;
+  width: 100%;
+  min-height: 620px;
+  border: 1px solid rgb(242 237 227 / 0.12);
+  background: #ffffff;
+  clip-path: polygon(0 0,
+      calc(100% - 18px) 0,
+      100% 18px,
+      100% 100%,
+      0 100%);
+  box-shadow: 7px 7px 0 rgb(77 201 255 / 0.22);
+}
+
+@media (max-width: 640px) {
+
+  :root[data-theme-family='noir'] .koma-editor-shell,
+  :root[data-theme-family='noir'] .koma-editor-shell .ProseMirror {
+    min-height: 480px;
+  }
+
+  :root[data-theme-family='noir'] .koma-editor-shell .ProseMirror {
+    padding: 1.25rem;
+  }
+
+  :root[data-theme-family='noir'] .koma-source-editor,
+  :root[data-theme-family='noir'] .koma-preview-frame {
+    min-height: 500px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  :root[data-theme-family='noir'] .koma-editor-shell *,
+  :root[data-theme-family='noir'] .koma-source-editor,
+  :root[data-theme-family='noir'] .koma-preview-frame {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── CDN Press V2 — missing helper classes ── */
+
+/* ProseMirror wrapper class (TipTap attributes.class) */
+:root[data-theme-family='noir'] .koma-editor-prosemirror {
+  height: 100%;
+}
+
+/* Status blink — uses keyframe already defined in App.css */
+:root[data-theme-family='noir'] .koma-blink {
+  animation: koma-blink 1.1s steps(2, start) infinite;
+}
+
+/* Faint manga grid background used by the press hero */
+:root[data-theme-family='noir'] .manga-grid-bg {
+  background-image:
+    linear-gradient(to right,
+      color-mix(in srgb, var(--color-paper) 6%, transparent) 1px,
+      transparent 1px),
+    linear-gradient(to bottom,
+      color-mix(in srgb, var(--color-paper) 6%, transparent) 1px,
+      transparent 1px);
+  background-size: 26px 26px;
+}
+
+/* Thin dark scrollbar */
+:root[data-theme-family='noir'] .koma-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-crimson) transparent;
+}
+
+:root[data-theme-family='noir'] .koma-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:root[data-theme-family='noir'] .koma-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-crimson) 60%, transparent);
+  border-radius: 0;
+}
+
+:root[data-theme-family='noir'] .koma-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Subtle offset-bordered card */
+:root[data-theme-family='noir'] .offset-card {
+  background: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  transition: border-color 0.16s ease, transform 0.16s var(--ease-noir);
+}
+
+:root[data-theme-family='noir'] .offset-card:hover {
+  border-color: color-mix(in srgb, var(--color-paper) 28%, transparent);
+}
+
+/* Form control (noir) — input used across Blogger/Imgur V2 surfaces */
+:root[data-theme-family='noir'] .koma-control {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 12%, transparent);
+  padding: 9px 11px;
+  transition: border-color 0.16s, filter 0.18s var(--ease-noir);
+}
+
+:root[data-theme-family='noir'] .koma-control::placeholder {
+  color: color-mix(in srgb, var(--color-paper) 38%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-control:focus-visible {
+  outline: none;
+  border-color: var(--color-crimson);
+  filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-crimson) 40%, transparent));
+}
+
+:root[data-theme-family='noir'] .koma-resource-shell {
+  container-name: resource-nexus;
+  container-type: inline-size;
+}
+
+/* Font specimen paper texture */
+
+:root[data-theme-family='noir'] .koma-resource-font-specimen {
+  background-image:
+    radial-gradient(circle at 12% 16%,
+      rgb(255 46 99 / 0.075),
+      transparent 12rem),
+    radial-gradient(circle,
+      rgb(7 7 12 / 0.12) 0.65px,
+      transparent 0.8px);
+  background-size:
+    auto,
+    7px 7px;
+}
+
+:root[data-theme-family='noir'] .koma-resource-font-specimen::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  border: 5px solid rgb(7 7 12 / 0.035);
+}
+
+/* Resource production marquee */
+
+:root[data-theme-family='noir'] .koma-resource-marquee {
+  mask-image: linear-gradient(90deg,
+      transparent,
+      #000 7%,
+      #000 93%,
+      transparent);
+  -webkit-mask-image: linear-gradient(90deg,
+      transparent,
+      #000 7%,
+      #000 93%,
+      transparent);
+}
+
+:root[data-theme-family='noir'] .koma-resource-marquee__track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 1.25rem;
+  animation: koma-resource-marquee 30s linear infinite;
+}
+
+@keyframes koma-resource-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Better Japanese SFX rendering */
+
+:root[data-theme-family='noir'] :lang(ja),
+:root[data-theme-family='noir'] .koma-resource-shell [lang="ja"] {
+  font-feature-settings:
+    "palt" 1,
+    "kern" 1;
+}
+
+/* Prevent large URLs and definitions from breaking cards */
+
+:root[data-theme-family='noir'] .koma-resource-shell p,
+:root[data-theme-family='noir'] .koma-resource-shell code,
+:root[data-theme-family='noir'] .koma-resource-shell a,
+:root[data-theme-family='noir'] .koma-resource-shell input {
+  overflow-wrap: anywhere;
+}
+
+/* Container-query refinement */
+
+@container resource-nexus (max-width: 680px) {
+  :root[data-theme-family='noir'] .koma-resource-font-specimen {
+    min-height: 7.5rem;
+  }
+}
+
+/* Print-friendly resource archive */
+
+@media print {
+  :root[data-theme-family='noir'] .koma-resource-shell {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  :root[data-theme-family='noir'] .koma-resource-shell button,
+  :root[data-theme-family='noir'] .koma-resource-shell nav,
+  :root[data-theme-family='noir'] .koma-resource-marquee {
+    display: none !important;
+  }
+}
+
+/* Accessibility */
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme-family='noir'] .koma-resource-marquee__track {
+    animation: none !important;
+  }
+
+  :root[data-theme-family='noir'] .koma-resource-marquee {
+    overflow-x: auto;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+}
+
+:root[data-theme-family='noir'] .koma-guide-step-copy {
+  color: rgb(242 237 227 / 0.68);
+}
+
+:root[data-theme-family='noir'] .koma-guide-step-copy>*:first-child {
+  margin-top: 0;
+}
+
+:root[data-theme-family='noir'] .koma-guide-step-copy>*:last-child {
+  margin-bottom: 0;
+}
+
+/* Horizontal manga-production marquee */
+
+:root[data-theme-family='noir'] .koma-guide-marquee {
+  mask-image: linear-gradient(90deg,
+      transparent,
+      #000 7%,
+      #000 93%,
+      transparent);
+  -webkit-mask-image: linear-gradient(90deg,
+      transparent,
+      #000 7%,
+      #000 93%,
+      transparent);
+}
+
+:root[data-theme-family='noir'] .koma-guide-marquee__track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 1.25rem;
+  animation: koma-guide-marquee 28s linear infinite;
+}
+
+@keyframes koma-guide-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Search modal keyboard labels */
+
+:root[data-theme-family='noir'] [role="dialog"] kbd {
+  display: inline-grid;
+  min-width: 1.55rem;
+  place-items: center;
+  border: 1px solid rgb(242 237 227 / 0.13);
+  background: rgb(242 237 227 / 0.035);
+  padding: 0.18rem 0.36rem;
+  color: rgb(242 237 227 / 0.52);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.56rem;
+  line-height: 1;
+  clip-path: polygon(0 0,
+      calc(100% - 5px) 0,
+      100% 5px,
+      100% 100%,
+      0 100%);
+}
+
+/* Reader selection */
+
+:root[data-theme-family='noir'] .koma-guide-step-copy ::selection {
+  background: var(--color-crimson);
+  color: var(--color-ink);
+}
+
+/* Stable wrapping for long code and URLs */
+
+:root[data-theme-family='noir'] .koma-guide-step-copy p,
+:root[data-theme-family='noir'] .koma-guide-step-copy blockquote,
+:root[data-theme-family='noir'] .koma-guide-step-copy figcaption {
+  overflow-wrap: anywhere;
+}
+
+/* Reader scrollbar */
+
+@media (min-width: 1024px) {
+  :root[data-theme-family='noir'] .koma-guide-step-copy {
+    min-height: 20rem;
+  }
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme-family='noir'] .koma-guide-marquee__track {
+    animation: none;
+  }
+
+  :root[data-theme-family='noir'] .koma-guide-marquee {
+    overflow-x: auto;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+}

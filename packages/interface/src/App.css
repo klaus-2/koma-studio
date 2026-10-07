@@ -23,6 +23,8 @@
 @import './themes/blogger-noir.css';
 /* Noir LegalHub/ModelRankings/Feed extras */
 @import './themes/a7b4-noir.css';
+/* Noir consolidated block — (settings/guides/resources/cdn V2, form primitives, noir-doc, noir-picker, grain) */
+@import './themes/noir-consolidated.css';
 
 @custom-variant dark (&:is(.dark *));
 
