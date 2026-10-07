@@ -164,21 +164,56 @@ const toAppResetUrl = (originalUrl: string): string => {
   }
 };
 
-const LOGO_SVG = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="6" fill="#1a1a2e"/><text x="6" y="17" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#fff" letter-spacing="0.5">KŌ</text><text x="6" y="33" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#fff" letter-spacing="0.5">MA</text><circle cx="32" cy="10" r="4" fill="#a855f7"/></svg>`;
+/* ── Palette (email-safe hex) ── */
+const INK = "#07070c";
+const INK_2 = "#0d0d16";
+const PAPER = "#f2ede3";
+const PAPER_DIM = "#8f8b82";
+const PAPER_FAINT = "#5c5952";
+const CRIMSON = "#ff2e63";
+const GOLD = "#ffc857";
+const BORDER = "#23232e";
 
+const FONT_STACK =
+  "'Segoe UI',Arial,Helvetica,sans-serif";
+const MONO_STACK =
+  "'Courier New',Courier,monospace";
+
+/* ── Logo — hanko block (inline SVG, dark-safe) ── */
+const LOGO_SVG = `<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="44" fill="${CRIMSON}"/><rect x="3" y="3" width="38" height="38" fill="${INK}"/><text x="8" y="20" font-family="Arial,sans-serif" font-size="12" font-weight="900" fill="${PAPER}" letter-spacing="1">KO</text><text x="8" y="35" font-family="Arial,sans-serif" font-size="12" font-weight="900" fill="${PAPER}" letter-spacing="1">MA</text><rect x="30" y="6" width="8" height="8" fill="${CRIMSON}"/></svg>`;
+
+/* ── Button — hard gold offset via borders (works everywhere) ── */
 const buildEmailButton = (label: string, href: string): string => `
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 24px;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 28px;">
     <tr>
-      <td align="center" bgcolor="#7c3aed" style="background-color:#7c3aed;border:1px solid #a855f7;border-radius:12px;">
+      <td align="center" bgcolor="${CRIMSON}" style="background-color:${CRIMSON};border-right:4px solid ${GOLD};border-bottom:4px solid ${GOLD};">
         <a
           href="${href}"
-          style="display:block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1.2;color:#ffffff !important;text-decoration:none;border-radius:12px;letter-spacing:0.3px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;"
-        >${label}</a>
+          style="display:block;padding:15px 34px;font-family:${FONT_STACK};font-size:13px;font-weight:800;line-height:1.2;color:${INK} !important;text-decoration:none;text-transform:uppercase;letter-spacing:2px;"
+        >${label}&nbsp;&nbsp;&#9656;</a>
       </td>
     </tr>
   </table>
 `;
 
+/* ── Divider — crimson diamond ── */
+const EMAIL_DIVIDER = `
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
+    <tr>
+      <td style="height:1px;background-color:${BORDER};"></td>
+      <td width="14" align="center" style="padding:0 8px;font-size:10px;line-height:1;color:${CRIMSON};">&#9670;</td>
+      <td style="height:1px;background-color:${BORDER};"></td>
+    </tr>
+  </table>
+`;
+
+/* ── Kicker + Title block ── */
+const buildEmailHeading = (kicker: string, title: string): string => `
+  <p style="margin:0 0 10px;font-family:${MONO_STACK};font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:${CRIMSON};">// ${kicker}</p>
+  <h2 style="margin:0 0 22px;font-family:${FONT_STACK};font-size:24px;font-weight:900;line-height:1.15;letter-spacing:-0.5px;text-transform:uppercase;color:${PAPER};">${title}</h2>
+`;
+
+/* ── Document shell ── */
 const buildHtmlDocument = (body: string, footerExtra?: string): string => `
 <!DOCTYPE html>
 <html lang="en">
@@ -188,49 +223,59 @@ const buildHtmlDocument = (body: string, footerExtra?: string): string => `
   <meta name="color-scheme" content="dark"/>
   <title>KŌMA Studio</title>
 </head>
-<body style="margin:0;padding:0;background-color:#0a0a0f;font-family:'Segoe UI',Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#0a0a0f;">
-    <tr><td align="center" style="padding:40px 16px 0;">
+<body style="margin:0;padding:0;background-color:${INK};font-family:${FONT_STACK};-webkit-font-smoothing:antialiased;">
+  <!-- preheader spacer -->
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="${INK}" style="background-color:${INK};">
+    <tr><td align="center" style="padding:36px 16px 0;">
 
-      <!-- Top accent line -->
+      <!-- Risograph top strip: crimson / gold / crimson -->
       <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;width:100%;">
-        <tr><td style="height:2px;background-color:#7c3aed;border-radius:1px;"></td></tr>
+        <tr>
+          <td width="70%" style="height:3px;background-color:${CRIMSON};font-size:0;line-height:0;">&nbsp;</td>
+          <td width="12%" style="height:3px;background-color:${GOLD};font-size:0;line-height:0;">&nbsp;</td>
+          <td width="18%" style="height:3px;background-color:${INK_2};font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
       </table>
 
-      <!-- Logo -->
+      <!-- Masthead -->
       <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;width:100%;">
-        <tr><td align="center" style="padding:28px 0 32px;">
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-            <tr>
-              <td style="vertical-align:middle;padding-right:12px;">
-                ${LOGO_SVG}
-              </td>
-              <td style="vertical-align:middle;">
-                <span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:2px;">KŌMA</span>
-                <span style="font-size:13px;font-weight:600;color:#a0a0b8;letter-spacing:3px;margin-left:6px;">STUDIO</span>
-              </td>
-            </tr>
-          </table>
-        </td></tr>
+        <tr>
+          <td style="padding:26px 0 24px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+              <tr>
+                <td style="vertical-align:middle;width:56px;">${LOGO_SVG}</td>
+                <td style="vertical-align:middle;padding-left:14px;">
+                  <span style="font-family:${FONT_STACK};font-size:20px;font-weight:900;color:${PAPER};letter-spacing:3px;">K&#332;MA</span>
+                  <span style="font-family:${MONO_STACK};font-size:10px;font-weight:700;color:${CRIMSON};letter-spacing:4px;padding-left:8px;">STUDIO</span>
+                </td>
+                <td align="right" style="vertical-align:middle;font-family:${FONT_STACK};font-size:18px;font-weight:900;color:#1b1b26;letter-spacing:2px;" aria-hidden="true">
+                  &#12467;&#12510;
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
       </table>
 
-      <!-- Main card -->
+      <!-- Main panel: gold hard shadow via border trick -->
       <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;width:100%;">
-        <tr><td style="background-color:#141420;border:1px solid #2a2a3d;border-radius:16px;padding:40px 36px;">
-          ${body}
-        </td></tr>
+        <tr>
+          <td bgcolor="${INK_2}" style="background-color:${INK_2};border:1px solid ${BORDER};border-right:5px solid ${GOLD};border-bottom:5px solid ${CRIMSON};padding:38px 34px;">
+            ${body}
+          </td>
+        </tr>
       </table>
 
       <!-- Footer -->
       <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;width:100%;">
-        <tr><td align="center" style="padding:32px 0 8px;">
-          ${LOGO_SVG}
+        <tr><td align="center" style="padding:30px 0 4px;font-family:${MONO_STACK};font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${PAPER_FAINT};">
+          SCANLATION&nbsp;&nbsp;&#9670;&nbsp;&nbsp;WORKFLOW&nbsp;&nbsp;&#9670;&nbsp;&nbsp;STUDIO
         </td></tr>
-        <tr><td align="center" style="padding:12px 0 4px;font-size:12px;color:#6b6b80;">
-          &copy; ${new Date().getFullYear()} KŌMA Studio. All rights reserved.
+        <tr><td align="center" style="padding:10px 0 4px;font-family:${FONT_STACK};font-size:11px;color:${PAPER_FAINT};">
+          &copy; ${new Date().getFullYear()} K&#332;MA Studio. All rights reserved.
         </td></tr>
-        ${footerExtra ? `<tr><td align="center" style="padding:8px 0;font-size:12px;color:#6b6b80;">${footerExtra}</td></tr>` : ""}
-        <tr><td style="height:40px;"></td></tr>
+        ${footerExtra ? `<tr><td align="center" style="padding:6px 0;font-family:${FONT_STACK};font-size:11px;color:${PAPER_FAINT};">${footerExtra}</td></tr>` : ""}
+        <tr><td style="height:40px;font-size:0;line-height:0;">&nbsp;</td></tr>
       </table>
 
     </td></tr>
@@ -785,12 +830,13 @@ export const sendVerificationEmail = async ({
     to: email,
     subject: messages.verification.subject,
     html: buildHtmlDocument(`
-      <h2 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#ffffff;">${messages.verification.title}</h2>
-      <p style="margin:0 0 12px;font-size:15px;color:#d0d0e0;line-height:1.6;">${messages.verification.greeting(safeName)}</p>
-      <p style="margin:0 0 28px;font-size:15px;color:#d0d0e0;line-height:1.6;">${messages.verification.intro}</p>
+      ${buildEmailHeading("ACCOUNT", messages.verification.title)}
+      <p style="margin:0 0 10px;font-family:${FONT_STACK};font-size:14px;color:${PAPER};line-height:1.7;">${messages.verification.greeting(safeName)}</p>
+      <p style="margin:0 0 26px;font-family:${FONT_STACK};font-size:14px;color:${PAPER_DIM};line-height:1.7;">${messages.verification.intro}</p>
       ${buildEmailButton(messages.verification.cta, finalUrl)}
-      <p style="margin:0 0 8px;font-size:13px;color:#6b6b80;line-height:1.5;">${messages.verification.fallback}</p>
-      <p style="margin:0;font-size:13px;word-break:break-all;"><a href="${finalUrl}" style="color:#a855f7;text-decoration:underline;">${finalUrl}</a></p>
+      ${EMAIL_DIVIDER}
+      <p style="margin:0 0 8px;font-family:${FONT_STACK};font-size:12px;color:${PAPER_FAINT};line-height:1.6;">${messages.verification.fallback}</p>
+      <p style="margin:0;font-family:${MONO_STACK};font-size:11px;word-break:break-all;line-height:1.6;"><a href="${finalUrl}" style="color:#4dc9ff;text-decoration:underline;">${finalUrl}</a></p>
     `),
     text: messages.verification.text(finalUrl),
   });
@@ -816,11 +862,12 @@ export const sendPasswordResetEmail = async ({
     to: email,
     subject: messages.reset.subject,
     html: buildHtmlDocument(`
-      <h2 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#ffffff;">${messages.reset.title}</h2>
-      <p style="margin:0 0 12px;font-size:15px;color:#d0d0e0;line-height:1.6;">${messages.reset.greeting(safeName)}</p>
-      <p style="margin:0 0 28px;font-size:15px;color:#d0d0e0;line-height:1.6;">${messages.reset.intro}</p>
+      ${buildEmailHeading("SECURITY", messages.reset.title)}
+      <p style="margin:0 0 10px;font-family:${FONT_STACK};font-size:14px;color:${PAPER};line-height:1.7;">${messages.reset.greeting(safeName)}</p>
+      <p style="margin:0 0 26px;font-family:${FONT_STACK};font-size:14px;color:${PAPER_DIM};line-height:1.7;">${messages.reset.intro}</p>
       ${buildEmailButton(messages.reset.cta, finalResetUrl)}
-      <p style="margin:0;font-size:13px;color:#6b6b80;line-height:1.5;">${messages.reset.ignore}</p>
+      ${EMAIL_DIVIDER}
+      <p style="margin:0;font-family:${FONT_STACK};font-size:12px;color:${PAPER_FAINT};line-height:1.6;">${messages.reset.ignore}</p>
     `),
     text: messages.reset.text(finalResetUrl),
   });
@@ -855,23 +902,31 @@ export const sendDesktopTravelTokenEmail = async ({
     to: email,
     subject: messages.travel.subject,
     html: buildHtmlDocument(`
-      <h2 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#ffffff;">${messages.travel.title}</h2>
-      <p style="margin:0 0 12px;font-size:15px;color:#d0d0e0;line-height:1.6;">${messages.travel.greeting(safeName)}</p>
-      <p style="margin:0 0 24px;font-size:15px;color:#d0d0e0;line-height:1.6;">${messages.travel.intro}</p>
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
-        <tr><td style="padding:22px 24px;border-radius:12px;background-color:#0a0a14;border:1px solid #7c3aed44;text-align:center;">
-          <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#a855f7;margin-bottom:10px;">${messages.travel.tokenLabel}</div>
-          <div style="font-size:30px;font-weight:700;letter-spacing:0.18em;color:#ffffff;">${escapeHtml(token)}</div>
-        </td></tr>
+      ${buildEmailHeading("TRAVEL ACCESS", messages.travel.title)}
+      <p style="margin:0 0 10px;font-family:${FONT_STACK};font-size:14px;color:${PAPER};line-height:1.7;">${messages.travel.greeting(safeName)}</p>
+      <p style="margin:0 0 24px;font-family:${FONT_STACK};font-size:14px;color:${PAPER_DIM};line-height:1.7;">${messages.travel.intro}</p>
+
+      <!-- Token ticket: ink well + crimson border + gold offset -->
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 26px;">
+        <tr>
+          <td bgcolor="${INK}" style="background-color:${INK};border:1px solid ${CRIMSON};border-right:4px solid ${GOLD};border-bottom:4px solid ${GOLD};padding:24px;text-align:center;">
+            <div style="font-family:${MONO_STACK};font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:${CRIMSON};margin-bottom:12px;">&#9670; ${messages.travel.tokenLabel} &#9670;</div>
+            <div style="font-family:${MONO_STACK};font-size:32px;font-weight:700;letter-spacing:8px;color:${PAPER};">${escapeHtml(token)}</div>
+          </td>
+        </tr>
       </table>
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
-        <tr><td style="padding:0 0 6px;font-size:14px;color:#9090a8;line-height:1.5;">&#8226; ${messages.travel.validFor(remainingMinutes)}</td></tr>
-        <tr><td style="padding:0 0 6px;font-size:14px;color:#9090a8;line-height:1.5;">&#8226; ${messages.travel.expiresAt(expiresAtLabel)}</td></tr>
-        <tr><td style="padding:0 0 6px;font-size:14px;color:#9090a8;line-height:1.5;">&#8226; ${messages.travel.accessFor(travelDays)}</td></tr>
+
+      <!-- Facts ledger -->
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 22px;border-left:3px solid ${CRIMSON};">
+        <tr><td style="padding:2px 0 6px 14px;font-family:${FONT_STACK};font-size:13px;color:${PAPER_DIM};line-height:1.6;">${messages.travel.validFor(remainingMinutes)}</td></tr>
+        <tr><td style="padding:0 0 6px 14px;font-family:${FONT_STACK};font-size:13px;color:${PAPER_DIM};line-height:1.6;">${messages.travel.expiresAt(expiresAtLabel)}</td></tr>
+        <tr><td style="padding:0 0 2px 14px;font-family:${FONT_STACK};font-size:13px;color:${PAPER_DIM};line-height:1.6;">${messages.travel.accessFor(travelDays)}</td></tr>
       </table>
-      <p style="margin:0 0 24px;font-size:14px;color:#9090a8;line-height:1.5;">${messages.travel.issuedFrom}</p>
+
+      <p style="margin:0 0 26px;font-family:${FONT_STACK};font-size:13px;color:${PAPER_DIM};line-height:1.6;">${messages.travel.issuedFrom}</p>
       ${buildEmailButton(messages.travel.cta, deepLinkUrl)}
-      <p style="margin:0;font-size:13px;color:#6b6b80;line-height:1.5;">${messages.travel.security}</p>
+      ${EMAIL_DIVIDER}
+      <p style="margin:0;font-family:${FONT_STACK};font-size:12px;color:${PAPER_FAINT};line-height:1.6;">&#9888;&#65039; ${messages.travel.security}</p>
     `),
     text: [
       messages.travel.textIntro,

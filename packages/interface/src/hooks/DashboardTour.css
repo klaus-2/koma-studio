@@ -1,113 +1,123 @@
 /* ================================================================
-   Dashboard Tour — KOMA Design System
-   Manhwa Glass UI · driver.js Overrides + Preview Illustrations
+   KOMA STUDIO · V2 — Dashboard Tour "Editorial Manga Noir"
+   driver.js overrides + preview illustrations
    ================================================================ */
 
-/* ── driver.js Overlay Override ────────────────────────────────── */
-.driver-overlay {
-  background: rgba(6, 8, 16, 0.18) !important;
-  /* backdrop-filter: blur(1px); */
+/* ── Tokens locais ── */
+.koma-tour-popover {
+  --tour-ink: #07070c;
+  --tour-ink-2: #0d0d16;
+  --tour-paper: #f2ede3;
+  --tour-paper-dim: rgba(242, 237, 227, 0.55);
+  --tour-paper-faint: rgba(242, 237, 227, 0.35);
+  --tour-crimson: #ff2e63;
+  --tour-gold: #ffc857;
+  --tour-azure: #4dc9ff;
+  --tour-border: rgba(242, 237, 227, 0.12);
+  --tour-font-display: var(--font-archivo, 'Archivo'), ui-sans-serif, sans-serif;
+  --tour-font-mono: var(--font-jetbrains, 'JetBrains Mono'), ui-monospace, monospace;
+  --tour-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Stage highlight ring */
+/* ── Overlay ── */
+.driver-overlay {
+  background: rgba(7, 7, 12, 0.25) !important;
+}
+
+/* Stage highlight — hard crimson frame, sem glow */
 .driver-active-element {
   box-shadow:
-    0 0 0 4px rgba(168, 85, 247, 0.15),
-    0 0 0 9999px rgba(6, 8, 16, 0.72) !important;
-  border-radius: 20px !important;
+    0 0 0 2px #ff2e63,
+    0 0 0 6px rgba(255, 200, 87, 0.35),
+    0 0 0 9999px rgba(7, 7, 12, 0.78) !important;
+  border-radius: 2px !important;
 }
 
-/* ── Popover Shell ────────────────────────────────────────────── */
+/* ── Popover shell — manga panel ── */
 .driver-popover.koma-tour-popover {
-  border-radius: 18px !important;
-  border: 1px solid rgba(168, 85, 247, 0.12) !important;
-  background: rgba(10, 12, 24, 0.96) !important;
-  backdrop-filter: blur(14px) saturate(1.3) !important;
-  box-shadow:
-    0 32px 80px rgba(0, 0, 0, 0.6),
-    0 0 60px rgba(168, 85, 247, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--tour-border) !important;
+  background: rgba(13, 13, 22, 0.97) !important;
+  backdrop-filter: blur(14px) !important;
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+  filter: drop-shadow(6px 6px 0 rgba(255, 200, 87, 0.85));
+  box-shadow: none !important;
   padding: 0 !important;
   max-width: 380px !important;
   min-width: 300px !important;
   overflow: hidden !important;
-  animation: koma-tour-in 0.25s ease forwards !important;
+  animation: koma-tour-in 0.3s var(--tour-ease) forwards !important;
 }
 
 @keyframes koma-tour-in {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(6px);
+    transform: translate(6px, 6px);
   }
+
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translate(0, 0);
   }
 }
 
-/* Top accent gradient */
+/* Barra risograph no topo */
 .driver-popover.koma-tour-popover::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    var(--auth-purple),
-    var(--auth-cyan),
-    var(--auth-purple)
-  );
-  opacity: 0.5;
+  height: 3px;
+  background: linear-gradient(90deg,
+      var(--tour-crimson) 0 68%,
+      var(--tour-gold) 68% 82%,
+      transparent 82%);
   z-index: 1;
   pointer-events: none;
 }
 
-/* Arrow */
+/* Katakana decorativo */
+.driver-popover.koma-tour-popover::after {
+  content: 'ツアー';
+  position: absolute;
+  top: 10px;
+  right: 26px;
+  font-family: var(--tour-font-display);
+  font-weight: 900;
+  font-size: 22px;
+  color: rgba(242, 237, 227, 0.05);
+  letter-spacing: 0.2em;
+  pointer-events: none;
+}
+
+/* Arrow — escondida (o panel-cut a cortaria); o frame crimson já ancora */
 .driver-popover.koma-tour-popover .driver-popover-arrow {
-  border-color: rgba(10, 12, 24, 0.96) !important;
+  display: none !important;
 }
 
-.driver-popover.koma-tour-popover .driver-popover-arrow-side-left {
-  border-left-color: rgba(10, 12, 24, 0.96) !important;
-}
-
-.driver-popover.koma-tour-popover .driver-popover-arrow-side-right {
-  border-right-color: rgba(10, 12, 24, 0.96) !important;
-}
-
-.driver-popover.koma-tour-popover .driver-popover-arrow-side-top {
-  border-top-color: rgba(10, 12, 24, 0.96) !important;
-}
-
-.driver-popover.koma-tour-popover .driver-popover-arrow-side-bottom {
-  border-bottom-color: rgba(10, 12, 24, 0.96) !important;
-}
-
-/* ── Title ────────────────────────────────────────────────────── */
+/* ── Title ── */
 .driver-popover.koma-tour-popover .driver-popover-title {
-  padding: 16px 18px 0 !important;
+  padding: 18px 44px 0 18px !important;
   margin: 0 !important;
-  font-family: var(--auth-font-heading) !important;
+  font-family: var(--tour-font-display) !important;
   font-size: 14px !important;
-  font-weight: 700 !important;
-  color: var(--auth-text) !important;
-  line-height: 1.35 !important;
-  letter-spacing: 0.01em !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.02em !important;
+  color: var(--tour-paper) !important;
+  line-height: 1.3 !important;
 }
 
-/* ── Description Wrapper ──────────────────────────────────────── */
 .driver-popover.koma-tour-popover .driver-popover-description {
   padding: 0 !important;
   margin: 0 !important;
 }
 
-/* ── Body (preview + copy) ────────────────────────────────────── */
+/* ── Body ── */
 .koma-tour-popover__body {
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
 .koma-tour-popover__body--coachmark {
@@ -118,48 +128,56 @@
   padding: 10px 18px 14px;
 }
 
+/* Eyebrow — kicker mono crimson */
 .koma-tour-popover__eyebrow {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   margin-bottom: 8px;
-  border-radius: 999px;
-  padding: 4px 9px;
-  font-family: var(--auth-font-heading);
-  font-size: 9px;
+  padding: 3px 9px;
+  border: 1px solid rgba(255, 46, 99, 0.45);
+  background: rgba(255, 46, 99, 0.1);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  font-family: var(--tour-font-mono);
+  font-size: 8.5px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(196, 181, 253, 0.96);
-  background: rgba(168, 85, 247, 0.14);
+  color: var(--tour-crimson);
+}
+
+.koma-tour-popover__eyebrow::before {
+  content: '//';
+  opacity: 0.6;
 }
 
 .koma-tour-popover__copy p {
   margin: 0;
-  font-family: var(--auth-font-body);
   font-size: 12px;
-  color: var(--auth-text-muted);
-  line-height: 1.6;
+  color: var(--tour-paper-dim);
+  line-height: 1.65;
 }
 
 .koma-tour-popover__copy strong {
-  color: var(--auth-text);
-  font-weight: 600;
+  color: var(--tour-paper);
+  font-weight: 700;
 }
 
-/* ── Progress ─────────────────────────────────────────────────── */
+/* ── Progress — contagem editorial [02/09] ── */
 .driver-popover.koma-tour-popover .driver-popover-progress-text {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-family: var(--tour-font-mono) !important;
   font-size: 9px !important;
-  font-weight: 600 !important;
-  color: rgba(168, 85, 247, 0.4) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2em !important;
+  color: var(--tour-crimson) !important;
   padding: 0 18px !important;
   margin-top: 4px !important;
 }
 
-/* ── Buttons ──────────────────────────────────────────────────── */
+/* ── Footer / botões ── */
 .driver-popover.koma-tour-popover .driver-popover-footer {
-  padding: 8px 14px 12px !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.03) !important;
+  padding: 10px 14px 14px !important;
+  border-top: 1px solid rgba(242, 237, 227, 0.08) !important;
   gap: 6px !important;
 }
 
@@ -174,129 +192,105 @@
   justify-content: center !important;
   height: 30px !important;
   padding: 0 14px !important;
-  border-radius: 9px !important;
-  font-family: var(--auth-font-heading) !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
+  border-radius: 0 !important;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+  font-family: var(--tour-font-display) !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
   cursor: pointer !important;
-  transition: all 0.15s ease !important;
+  transition: transform 0.15s var(--tour-ease), filter 0.15s !important;
   text-shadow: none !important;
 }
 
+/* Prev — ghost */
 .driver-popover.koma-tour-popover .driver-popover-prev-btn {
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  background: rgba(255, 255, 255, 0.025) !important;
-  color: rgba(186, 199, 247, 0.7) !important;
+  border: 1px solid rgba(242, 237, 227, 0.2) !important;
+  background: transparent !important;
+  color: var(--tour-paper-dim) !important;
 }
 
 .driver-popover.koma-tour-popover .driver-popover-prev-btn:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
-  color: var(--auth-text) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+  transform: translate(-2px, -2px) !important;
+  filter: drop-shadow(3px 3px 0 rgba(242, 237, 227, 0.25));
+  color: var(--tour-paper) !important;
+  border-color: rgba(242, 237, 227, 0.5) !important;
 }
 
+/* Next — hanko crimson + gold hard shadow */
 .driver-popover.koma-tour-popover .driver-popover-next-btn {
   border: none !important;
-  background: linear-gradient(
-    135deg,
-    #9333ea,
-    var(--auth-purple) 55%,
-    #7c3aed
-  ) !important;
-  color: #fff !important;
-  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.2) !important;
-  position: relative !important;
-  overflow: hidden !important;
+  background: var(--tour-crimson) !important;
+  color: var(--tour-ink) !important;
+  box-shadow: none !important;
 }
 
 .driver-popover.koma-tour-popover .driver-popover-next-btn:hover {
-  filter: brightness(1.08) !important;
-  transform: translateY(-1px) !important;
+  transform: translate(-3px, -3px) !important;
+  filter: drop-shadow(5px 5px 0 var(--tour-gold)) brightness(1) !important;
 }
 
-/* Shimmer on next button */
+/* sem shimmer — neo-brutalist, sem glow */
 .driver-popover.koma-tour-popover .driver-popover-next-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.1),
-    transparent
-  );
-  transition: left 0.5s ease;
-  pointer-events: none;
+  content: none !important;
 }
 
-.driver-popover.koma-tour-popover .driver-popover-next-btn:hover::after {
-  left: 100%;
-}
-
-/* Close button */
+/* Close */
 .driver-popover.koma-tour-popover .driver-popover-close-btn {
   width: 26px !important;
   height: 26px !important;
-  border-radius: 8px !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
-  background: rgba(255, 255, 255, 0.02) !important;
-  color: var(--auth-text-muted) !important;
+  border-radius: 0 !important;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+  border: 1px solid rgba(242, 237, 227, 0.15) !important;
+  background: rgba(7, 7, 12, 0.5) !important;
+  color: var(--tour-paper-faint) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer !important;
-  transition: all 0.15s ease !important;
-  top: 14px !important;
-  right: 14px !important;
-  font-size: 14px !important;
+  transition: all 0.15s var(--tour-ease) !important;
+  top: 12px !important;
+  right: 12px !important;
+  font-size: 13px !important;
   line-height: 1 !important;
 }
 
 .driver-popover.koma-tour-popover .driver-popover-close-btn:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: var(--auth-text) !important;
+  border-color: var(--tour-crimson) !important;
+  color: var(--tour-crimson) !important;
 }
 
-/* Focus styles */
+/* Focus */
 .driver-popover.koma-tour-popover .driver-popover-prev-btn:focus-visible,
 .driver-popover.koma-tour-popover .driver-popover-next-btn:focus-visible,
 .driver-popover.koma-tour-popover .driver-popover-close-btn:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.5) !important;
-  outline-offset: 1px !important;
+  outline: 2px solid var(--tour-crimson) !important;
+  outline-offset: 2px !important;
 }
 
 /* ================================================================
-   PREVIEW ILLUSTRATIONS
+   PREVIEW ILLUSTRATIONS — mini manga panels
    ================================================================ */
 
 .koma-tour-preview {
   margin: 10px 14px 0;
   padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(6, 8, 18, 0.5);
+  border: 1px solid rgba(242, 237, 227, 0.08);
+  background:
+    radial-gradient(rgba(242, 237, 227, 0.05) 1px, transparent 1px) 0 0 / 12px 12px,
+    rgba(7, 7, 12, 0.6);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
   position: relative;
   overflow: hidden;
 }
 
-/* Subtle inner glow */
+/* sem glow interno — halftone já dá textura */
 .koma-tour-preview::before {
-  content: '';
-  position: absolute;
-  top: -30px;
-  right: -30px;
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: rgba(168, 85, 247, 0.06);
-  filter: blur(30px);
-  pointer-events: none;
+  content: none;
 }
 
-/* ── Welcome ──────────────────────────────────────────────────── */
+/* ── Welcome ── */
 .koma-tour-preview--welcome {
   display: flex;
   flex-direction: column;
@@ -307,14 +301,18 @@
 }
 
 .koma-tour-preview__hero {
-  font-family: var(--auth-font-display);
-  font-size: 28px;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--auth-purple), var(--auth-cyan));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: var(--tour-font-display);
+  font-size: 26px;
+  font-weight: 900;
+  text-transform: uppercase;
   letter-spacing: -0.02em;
+  color: var(--tour-paper);
+}
+
+.koma-tour-preview__hero em,
+.koma-tour-preview__hero span {
+  color: var(--tour-crimson);
+  font-style: italic;
 }
 
 .koma-tour-preview__chips {
@@ -325,17 +323,19 @@
 .koma-tour-preview__chip {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(168, 85, 247, 0.1);
-  font-family: var(--auth-font-heading);
-  font-size: 9px;
+  padding: 3px 9px;
+  border: 1px solid rgba(255, 46, 99, 0.4);
+  background: rgba(255, 46, 99, 0.1);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+  font-family: var(--tour-font-mono);
+  font-size: 8px;
   font-weight: 700;
-  color: #c4b5fd;
-  letter-spacing: 0.04em;
+  color: var(--tour-crimson);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
 }
 
-/* ── Sidebar ──────────────────────────────────────────────────── */
+/* ── Sidebar ── */
 .koma-tour-preview--sidebar {
   padding: 10px;
 }
@@ -345,20 +345,19 @@
   flex-direction: column;
   gap: 6px;
   padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(242, 237, 227, 0.08);
+  background: rgba(13, 13, 22, 0.6);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
 }
 
 .koma-tour-preview__bar {
   height: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(242, 237, 227, 0.08);
 }
 
 .koma-tour-preview__bar--gradient {
-  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
-  box-shadow: 0 0 8px rgba(168, 85, 247, 0.15);
+  background: repeating-linear-gradient(-45deg, #ff2e63 0 5px, #c91e4d 5px 10px);
+  box-shadow: none;
 }
 
 .koma-tour-preview__row {
@@ -371,21 +370,22 @@
 .koma-tour-preview__pill {
   display: inline-flex;
   padding: 2px 7px;
-  border-radius: 999px;
-  background: rgba(168, 85, 247, 0.1);
-  font-family: var(--auth-font-heading);
-  font-size: 8px;
+  border: 1px solid rgba(255, 200, 87, 0.4);
+  background: rgba(255, 200, 87, 0.1);
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%);
+  font-family: var(--tour-font-mono);
+  font-size: 7.5px;
   font-weight: 800;
-  color: #c4b5fd;
-  letter-spacing: 0.06em;
+  color: var(--tour-gold);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .koma-tour-preview__mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--tour-font-mono);
   font-size: 9px;
   font-weight: 600;
-  color: var(--auth-text-muted);
+  color: var(--tour-paper-faint);
 }
 
 .koma-tour-preview__list {
@@ -396,21 +396,22 @@
 
 .koma-tour-preview__list span {
   height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(242, 237, 227, 0.06);
 }
 
 .koma-tour-preview__list span:nth-child(1) {
   width: 90%;
 }
+
 .koma-tour-preview__list span:nth-child(2) {
   width: 70%;
 }
+
 .koma-tour-preview__list span:nth-child(3) {
   width: 55%;
 }
 
-/* ── Upload ───────────────────────────────────────────────────── */
+/* ── Upload ── */
 .koma-tour-preview--upload {
   display: flex;
   align-items: center;
@@ -420,48 +421,57 @@
 
 .koma-tour-preview__drop {
   padding: 14px 18px;
-  border-radius: 10px;
-  border: 2px dashed rgba(168, 85, 247, 0.15);
-  background: rgba(168, 85, 247, 0.02);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
-  font-weight: 600;
-  color: rgba(168, 85, 247, 0.45);
-  letter-spacing: 0.06em;
+  border: 1.5px dashed rgba(255, 46, 99, 0.4);
+  background:
+    repeating-linear-gradient(-45deg, transparent 0 8px, rgba(255, 46, 99, 0.05) 8px 16px);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  font-family: var(--tour-font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  color: rgba(255, 46, 99, 0.7);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   text-align: center;
 }
 
-/* ── Modes ────────────────────────────────────────────────────── */
+/* ── Modes / Submode tabs ── */
 .koma-tour-preview--modes {
   display: flex;
   gap: 4px;
   padding: 10px;
 }
 
-.koma-tour-preview__tab {
+.koma-tour-preview--submode {
+  display: flex;
+  gap: 4px;
+  padding: 10px;
+}
+
+.koma-tour-preview__tab,
+.koma-tour-preview__toggle {
   flex: 1;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.015);
-  font-family: var(--auth-font-heading);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--auth-text-muted);
+  padding: 6px 8px;
+  border: 1px solid rgba(242, 237, 227, 0.1);
+  background: transparent;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+  font-family: var(--tour-font-display);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tour-paper-faint);
   text-align: center;
 }
 
-.koma-tour-preview__tab--active {
-  background: linear-gradient(
-    135deg,
-    rgba(168, 85, 247, 0.14),
-    rgba(6, 182, 212, 0.08)
-  );
-  color: rgba(255, 255, 255, 0.93);
-  border-color: rgba(168, 85, 247, 0.1);
+.koma-tour-preview__tab--active,
+.koma-tour-preview__toggle--active {
+  background: var(--tour-crimson);
+  color: var(--tour-ink);
+  border-color: var(--tour-crimson);
+  filter: drop-shadow(2px 2px 0 var(--tour-gold));
 }
 
-/* ── Grid (Production + Utils) ────────────────────────────────── */
+/* ── Grid ── */
 .koma-tour-preview--grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -471,48 +481,19 @@
 
 .koma-tour-preview__miniCard {
   padding: 8px 6px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.012);
-  font-family: var(--auth-font-heading);
-  font-size: 9px;
+  border: 1px solid rgba(242, 237, 227, 0.08);
+  background: rgba(13, 13, 22, 0.6);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+  font-family: var(--tour-font-mono);
+  font-size: 8px;
   font-weight: 600;
-  color: var(--auth-text-muted);
+  color: var(--tour-paper-faint);
   text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-/* ── Submode ──────────────────────────────────────────────────── */
-.koma-tour-preview--submode {
-  display: flex;
-  gap: 3px;
-  padding: 10px;
-  border-radius: 12px;
-}
-
-.koma-tour-preview__toggle {
-  flex: 1;
-  padding: 7px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: transparent;
-  font-family: var(--auth-font-heading);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--auth-text-muted);
-  text-align: center;
-}
-
-.koma-tour-preview__toggle--active {
-  background: linear-gradient(
-    135deg,
-    rgba(168, 85, 247, 0.14),
-    rgba(6, 182, 212, 0.08)
-  );
-  color: rgba(255, 255, 255, 0.93);
-  border-color: rgba(168, 85, 247, 0.1);
-}
-
-/* ── Pipeline ─────────────────────────────────────────────────── */
+/* ── Pipeline ── */
 .koma-tour-preview--pipeline {
   display: flex;
   align-items: center;
@@ -524,12 +505,15 @@
 
 .koma-tour-preview--pipeline span {
   padding: 5px 8px;
-  border-radius: 7px;
-  background: rgba(168, 85, 247, 0.06);
-  font-family: var(--auth-font-heading);
-  font-size: 8.5px;
+  border: 1px solid rgba(77, 201, 255, 0.35);
+  background: rgba(77, 201, 255, 0.08);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+  font-family: var(--tour-font-mono);
+  font-size: 8px;
   font-weight: 700;
-  color: #c4b5fd;
+  color: var(--tour-azure);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -538,16 +522,11 @@
   display: block;
   width: 12px;
   height: 2px;
-  background: linear-gradient(
-    90deg,
-    rgba(168, 85, 247, 0.15),
-    rgba(6, 182, 212, 0.1)
-  );
-  border-radius: 1px;
+  background: var(--tour-crimson);
   flex-shrink: 0;
 }
 
-/* ── Config ───────────────────────────────────────────────────── */
+/* ── Config ── */
 .koma-tour-preview--config {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -557,12 +536,12 @@
 
 .koma-tour-preview__field {
   height: 24px;
-  border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(6, 8, 18, 0.5);
+  border: 1px solid rgba(242, 237, 227, 0.1);
+  background: rgba(7, 7, 12, 0.7);
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
 }
 
-/* ── Stage ────────────────────────────────────────────────────── */
+/* ── Stage ── */
 .koma-tour-preview--stage {
   padding: 10px;
 }
@@ -573,46 +552,33 @@
   justify-content: center;
   gap: 8px;
   min-height: 60px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background:
-    radial-gradient(
-      circle at 30% 40%,
-      rgba(168, 85, 247, 0.03),
-      transparent 50%
-    ),
-    rgba(6, 8, 18, 0.4);
   padding: 12px;
-  font-family: var(--auth-font-body);
+  border: 1px solid rgba(242, 237, 227, 0.08);
+  background: rgba(7, 7, 12, 0.6);
   font-size: 10px;
-  color: var(--auth-text-muted);
+  color: var(--tour-paper-faint);
 }
 
 .koma-tour-preview__canvas--empty {
   border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(242, 237, 227, 0.15);
 }
 
-/* Bubbles */
 .koma-tour-preview__bubble {
   width: 32px;
   height: 22px;
-  border-radius: 6px;
-  background: linear-gradient(
-    135deg,
-    rgba(168, 85, 247, 0.12),
-    rgba(6, 182, 212, 0.08)
-  );
-  border: 1px solid rgba(168, 85, 247, 0.1);
+  background: rgba(255, 46, 99, 0.12);
+  border: 1px solid rgba(255, 46, 99, 0.4);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
 }
 
 .koma-tour-preview__bubble--secondary {
   width: 24px;
   height: 16px;
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
-/* ── Manual Dock ──────────────────────────────────────────────── */
+/* ── Manual dock ── */
 .koma-tour-preview--manual {
   display: flex;
   gap: 4px;
@@ -623,21 +589,18 @@
 .koma-tour-preview__tool {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(242, 237, 227, 0.12);
+  background: rgba(13, 13, 22, 0.6);
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
 }
 
 .koma-tour-preview__tool:first-child {
-  background: linear-gradient(
-    135deg,
-    rgba(168, 85, 247, 0.12),
-    rgba(6, 182, 212, 0.08)
-  );
-  border-color: rgba(168, 85, 247, 0.12);
+  background: var(--tour-crimson);
+  border-color: var(--tour-crimson);
+  filter: drop-shadow(2px 2px 0 var(--tour-gold));
 }
 
-/* ── Download ─────────────────────────────────────────────────── */
+/* ── Download / Replay ── */
 .koma-tour-preview--download {
   display: flex;
   flex-direction: column;
@@ -645,7 +608,6 @@
   padding: 10px;
 }
 
-/* ── Replay ───────────────────────────────────────────────────── */
 .koma-tour-preview--replay {
   display: flex;
   flex-direction: column;
@@ -655,34 +617,30 @@
 
 .koma-tour-preview__menuItem {
   padding: 6px 10px;
-  border-radius: 7px;
-  font-family: var(--auth-font-heading);
-  font-size: 10.5px;
+  font-family: var(--tour-font-mono);
+  font-size: 9.5px;
   font-weight: 600;
-  color: var(--auth-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--tour-paper-faint);
 }
 
 .koma-tour-preview__menuItem--active {
-  background: linear-gradient(
-    135deg,
-    rgba(168, 85, 247, 0.1),
-    rgba(6, 182, 212, 0.06)
-  );
-  color: var(--auth-text);
+  border-left: 2px solid var(--tour-crimson);
+  background: rgba(255, 46, 99, 0.08);
+  color: var(--tour-paper);
 }
 
-/* ── Responsive ───────────────────────────────────────────────── */
+/* ── Responsive ── */
 @media (max-width: 480px) {
   .driver-popover.koma-tour-popover {
     max-width: 92vw !important;
     min-width: 260px !important;
-    border-radius: 14px !important;
   }
 
   .koma-tour-preview {
     margin: 8px 10px 0;
     padding: 8px 10px;
-    border-radius: 10px;
   }
 
   .koma-tour-preview--pipeline {
@@ -699,160 +657,104 @@
   }
 }
 
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .driver-popover.koma-tour-popover {
+    animation: none !important;
+  }
+
+  .driver-popover.koma-tour-popover .driver-popover-prev-btn,
+  .driver-popover.koma-tour-popover .driver-popover-next-btn,
+  .driver-popover.koma-tour-popover .driver-popover-close-btn {
+    transition: none !important;
+  }
+}
+
 /* ================================================================
-   LIGHT MODE OVERRIDES
+   LIGHT MODE — "Washi Paper" (noir invertido: papel + tinta)
    ================================================================ */
 [data-theme="light"] .driver-overlay {
-  background: rgba(100, 116, 139, 0.18) !important;
+  background: rgba(242, 237, 227, 0.3) !important;
 }
 
 [data-theme="light"] .driver-active-element {
-  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.15), 0 0 0 9999px rgba(100, 116, 139, 0.45) !important;
+  box-shadow:
+    0 0 0 2px #ff2e63,
+    0 0 0 6px rgba(7, 7, 12, 0.12),
+    0 0 0 9999px rgba(46, 42, 36, 0.55) !important;
 }
 
 [data-theme="light"] .driver-popover.koma-tour-popover {
-  border-color: rgba(168, 85, 247, 0.15) !important;
-  background: rgba(255, 255, 255, 0.97) !important;
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.12), 0 0 32px rgba(168, 85, 247, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  --tour-ink: #f2ede3;
+  --tour-ink-2: #faf7f0;
+  --tour-paper: #14131a;
+  --tour-paper-dim: rgba(20, 19, 26, 0.6);
+  --tour-paper-faint: rgba(20, 19, 26, 0.4);
+  --tour-border: rgba(20, 19, 26, 0.15);
+  background: rgba(250, 247, 240, 0.98) !important;
+  border-color: rgba(20, 19, 26, 0.18) !important;
+  filter: drop-shadow(6px 6px 0 rgba(255, 46, 99, 0.75));
 }
 
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-arrow {
-  border-color: rgba(255, 255, 255, 0.97) !important;
+[data-theme="light"] .driver-popover.koma-tour-popover::after {
+  color: rgba(20, 19, 26, 0.05);
 }
 
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-arrow-side-left {
-  border-left-color: rgba(255, 255, 255, 0.97) !important;
-}
-
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-arrow-side-right {
-  border-right-color: rgba(255, 255, 255, 0.97) !important;
-}
-
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-arrow-side-top {
-  border-top-color: rgba(255, 255, 255, 0.97) !important;
-}
-
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-arrow-side-bottom {
-  border-bottom-color: rgba(255, 255, 255, 0.97) !important;
-}
-
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-progress-text {
-  color: rgba(168, 85, 247, 0.55) !important;
-}
-
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-footer {
-  border-top-color: rgba(0, 0, 0, 0.06) !important;
-}
-
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-prev-btn {
-  border-color: rgba(0, 0, 0, 0.1) !important;
-  background: rgba(0, 0, 0, 0.03) !important;
-  color: #475569 !important;
-}
-
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-prev-btn:hover {
-  background: rgba(0, 0, 0, 0.06) !important;
-  border-color: rgba(0, 0, 0, 0.15) !important;
-}
-
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-close-btn {
-  border-color: rgba(0, 0, 0, 0.08) !important;
-  background: rgba(0, 0, 0, 0.03) !important;
-}
-
-[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-close-btn:hover {
-  background: rgba(0, 0, 0, 0.08) !important;
+[data-theme="light"] .driver-popover.koma-tour-popover .driver-popover-next-btn {
+  color: #faf7f0 !important;
+  /* texto claro sobre crimson no tema papel */
 }
 
 [data-theme="light"] .koma-tour-preview {
-  border-color: rgba(0, 0, 0, 0.06);
-  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(20, 19, 26, 0.1);
+  background:
+    radial-gradient(rgba(20, 19, 26, 0.06) 1px, transparent 1px) 0 0 / 12px 12px,
+    rgba(242, 237, 227, 0.7);
 }
 
-[data-theme="light"] .koma-tour-preview__chip {
-  background: rgba(168, 85, 247, 0.1);
-  color: #7c3aed;
-}
-
-[data-theme="light"] .koma-tour-preview__panel {
-  border-color: rgba(0, 0, 0, 0.06);
-  background: rgba(0, 0, 0, 0.02);
+[data-theme="light"] .koma-tour-preview__panel,
+[data-theme="light"] .koma-tour-preview__miniCard,
+[data-theme="light"] .koma-tour-preview__tool,
+[data-theme="light"] .koma-tour-preview__field {
+  border-color: rgba(20, 19, 26, 0.12);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 [data-theme="light"] .koma-tour-preview__bar {
-  background: rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .koma-tour-preview__pill {
-  background: rgba(168, 85, 247, 0.1);
-  color: #7c3aed;
+  background: rgba(20, 19, 26, 0.08);
 }
 
 [data-theme="light"] .koma-tour-preview__list span {
-  background: rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .koma-tour-preview__drop {
-  border-color: rgba(168, 85, 247, 0.2);
-  background: rgba(168, 85, 247, 0.03);
-  color: rgba(168, 85, 247, 0.6);
-}
-
-[data-theme="light"] .koma-tour-preview__tab {
-  border-color: rgba(0, 0, 0, 0.06);
-  background: rgba(0, 0, 0, 0.02);
-}
-
-[data-theme="light"] .koma-tour-preview__tab--active {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(6, 182, 212, 0.08));
-  color: #1e293b;
-  border-color: rgba(168, 85, 247, 0.12);
-}
-
-[data-theme="light"] .koma-tour-preview__miniCard {
-  border-color: rgba(0, 0, 0, 0.06);
-  background: rgba(0, 0, 0, 0.02);
-}
-
-[data-theme="light"] .koma-tour-preview__toggle {
-  border-color: rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .koma-tour-preview__toggle--active {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(6, 182, 212, 0.08));
-  color: #1e293b;
-  border-color: rgba(168, 85, 247, 0.12);
-}
-
-[data-theme="light"] .koma-tour-preview--pipeline span {
-  background: rgba(168, 85, 247, 0.08);
-  color: #7c3aed;
-}
-
-[data-theme="light"] .koma-tour-preview__field {
-  border-color: rgba(0, 0, 0, 0.06);
-  background: rgba(248, 250, 252, 0.8);
+  background: rgba(20, 19, 26, 0.08);
 }
 
 [data-theme="light"] .koma-tour-preview__canvas {
-  border-color: rgba(0, 0, 0, 0.06);
-  background: radial-gradient(circle at 30% 40%, rgba(168, 85, 247, 0.04), transparent 50%), rgba(248, 250, 252, 0.6);
+  border-color: rgba(20, 19, 26, 0.1);
+  background: rgba(255, 255, 255, 0.5);
+  color: rgba(20, 19, 26, 0.45);
 }
 
 [data-theme="light"] .koma-tour-preview__canvas--empty {
-  border-color: rgba(0, 0, 0, 0.08);
+  border-color: rgba(20, 19, 26, 0.18);
 }
 
-[data-theme="light"] .koma-tour-preview__tool {
-  border-color: rgba(0, 0, 0, 0.08);
-  background: rgba(0, 0, 0, 0.02);
+[data-theme="light"] .koma-tour-preview__tab,
+[data-theme="light"] .koma-tour-preview__toggle {
+  border-color: rgba(20, 19, 26, 0.14);
+  color: rgba(20, 19, 26, 0.5);
+}
+
+[data-theme="light"] .koma-tour-preview__tab--active,
+[data-theme="light"] .koma-tour-preview__toggle--active {
+  background: #ff2e63;
+  color: #faf7f0;
+  border-color: #ff2e63;
+}
+
+[data-theme="light"] .koma-tour-preview__menuItem {
+  color: rgba(20, 19, 26, 0.45);
 }
 
 [data-theme="light"] .koma-tour-preview__menuItem--active {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(6, 182, 212, 0.05));
-}
-
-[data-theme="light"] .koma-tour-popover__eyebrow {
-  color: #7c3aed;
-  background: rgba(168, 85, 247, 0.1);
+  color: #14131a;
 }
