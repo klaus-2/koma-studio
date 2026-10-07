@@ -1,3 +1,5 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { HardDrive, type LucideIcon } from 'lucide-react';
@@ -149,5 +151,95 @@ export function ExecuteButton({ processing, disabled, title, onClick, children, 
       className={`btn-primary panel-cut-sm relative w-full !py-3.5 !text-sm ${processing ? 'animate-pulse' : ''}`}>
       {children}
     </button>
+  );
+}
+
+/* ── Number input field ── */
+export function NumberField({ label, value, onChange, min, max, step }: {
+  label: ReactNode; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number;
+}) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="kicker !text-paper-dim">{label}</span>
+      <input type="number" value={value} min={min} max={max} step={step}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="noir-input panel-cut-sm" />
+    </label>
+  );
+}
+
+/* ── Color swatch ── */
+export function ColorField({ label, value, onChange, ariaLabel }: {
+  label: ReactNode; value: string; onChange: (v: string) => void; ariaLabel?: string;
+}) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="kicker !text-paper-dim">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="relative h-9 w-9 shrink-0 overflow-hidden panel-cut-sm border border-paper/15" style={{ backgroundColor: value }}>
+          <input type="color" value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+        </span>
+        <span className="font-mono text-[11px] uppercase text-paper-dim">{value}</span>
+      </div>
+    </label>
+  );
+}
+
+/* ── Info note (colored left border) ── */
+export function InfoNote({ children, icon: Icon, tone = 'azure', role = 'status' }: {
+  children: ReactNode; icon: LucideIcon; tone?: 'azure' | 'gold' | 'crimson' | 'mint'; role?: 'status' | 'alert';
+}) {
+  const map = {
+    azure: 'border-l-azure text-azure', gold: 'border-l-gold text-gold',
+    crimson: 'border-l-crimson text-crimson', mint: 'border-l-mint text-mint',
+  } as const;
+  return (
+    <div role={role} className={`glass panel-cut-sm flex items-start gap-2 border-l-2 p-2.5 ${map[tone]}`}>
+      <Icon size={13} className="mt-0.5 shrink-0" />
+      <span className="font-mono text-[10.5px] leading-relaxed text-paper">{children}</span>
+    </div>
+  );
+}
+
+/* ── Ghost icon button (toolbar) ── */
+export function ToolBtn({ children, onClick, disabled, title, ariaLabel, active, tone }: {
+  children: ReactNode; onClick?: () => void; disabled?: boolean; title?: string; ariaLabel?: string;
+  active?: boolean; tone?: 'crimson' | 'mint' | 'gold';
+}) {
+  const toneCls = active
+    ? tone === 'mint' ? 'bg-mint text-ink' : tone === 'gold' ? 'bg-gold text-ink' : 'bg-crimson text-ink'
+    : 'bg-ink text-paper-dim hover:text-paper border border-paper/12';
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title={title} aria-label={ariaLabel}
+      className={`flex h-8 items-center justify-center gap-1.5 panel-cut-sm px-2.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-all duration-150 disabled:opacity-30 ${toneCls}`}>
+      {children}
+    </button>
+  );
+}
+
+/* ── Section panel wrapper (workspace cards) ── */
+export function WsPanel({ children, className = '', accent = 'crimson' }: {
+  children: ReactNode; className?: string; accent?: 'crimson' | 'mint' | 'azure' | 'gold';
+}) {
+  const map = { crimson: 'border-l-crimson', mint: 'border-l-mint', azure: 'border-l-azure', gold: 'border-l-gold' } as const;
+  return <div className={`glass panel-cut border-l-2 ${map[accent]} ${className}`}>{children}</div>;
+}
+
+/* ── Panel eyebrow header ── */
+export function WsHead({ eyebrow, title, subtitle, right, icon: Icon }: {
+  eyebrow: string; title: ReactNode; subtitle?: ReactNode; right?: ReactNode; icon?: LucideIcon;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-paper/8 p-4">
+      <div className="min-w-0">
+        <span className="kicker flex items-center gap-1.5">
+          {Icon && <Icon size={11} />} // {eyebrow}
+        </span>
+        <h2 className="mt-1 font-display text-base font-black uppercase tracking-tight text-paper">{title}</h2>
+        {subtitle && <p className="mt-0.5 font-mono text-[10px] text-paper-dim">{subtitle}</p>}
+      </div>
+      {right && <div className="shrink-0">{right}</div>}
+    </div>
   );
 }
