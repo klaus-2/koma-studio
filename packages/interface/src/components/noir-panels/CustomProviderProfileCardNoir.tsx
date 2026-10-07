@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronDown, Pencil, Save, Settings2, Trash2, X } from 'lucide-react';
 import { useI18n } from '../../i18n';
 
-import type { CustomLlmProfile, CustomLlmProfileDraft, CustomLlmStage } from '../../utils/premiumAi';
-import { requiresCustomLlmApiKey } from '../../utils/premiumAi';
-import { NoirField, NoirInput } from '../noir/NoirPrimitives';
-import { ProviderStatus, providerCardClass } from '../noir/noir-provider';
+import type { CustomLlmProfile, CustomLlmProfileDraft, CustomLlmStage } from '../../utils/customLlm';
+import { requiresCustomLlmApiKey } from '../../utils/customLlm';
+import { NoirField, NoirInput } from './NoirPrimitives';
+import { ProviderStatus, providerCardClass } from './noir-provider';
 
 interface CustomProviderProfileCardProps {
   stage: CustomLlmStage;

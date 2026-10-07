@@ -13,11 +13,11 @@ import type {
   FreeProviderStage,
   FreeProviderStageDefinition,
 } from '../../models/freeAiProviderCatalog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@koma/ui/components/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@koma/ui/components/popover';
 import ResourceExternalAnchor from '../resources/ResourceExternalAnchor';
-import { NoirField, NoirInput } from '../noir/NoirPrimitives';
-import { AccessBadge, ProviderStatus, providerCardClass } from '../noir/noir-provider';
+import { NoirField, NoirInput } from './NoirPrimitives';
+import { AccessBadge, ProviderStatus, providerCardClass } from './noir-provider';
 
 interface FreeProviderCardProps {
   provider: FreeAiProviderCatalogEntry;
