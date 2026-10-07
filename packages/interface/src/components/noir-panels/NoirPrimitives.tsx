@@ -243,3 +243,51 @@ export function WsHead({ eyebrow, title, subtitle, right, icon: Icon }: {
     </div>
   );
 }
+
+/* ══════════════════ V2 additions (Watermark form kit) ══════════════════ */
+
+/* ── Layer on/off toggle (hanko switch) ── */
+export function LayerToggle({ label, checked, onChange }: {
+  label: ReactNode; checked: boolean; onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-3 panel-cut-sm border border-paper/10 bg-ink px-3 py-2.5">
+      <span className="font-display text-[11px] font-bold uppercase tracking-tight text-paper">{label}</span>
+      <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}
+        className={`relative h-5 w-9 shrink-0 panel-cut-sm border transition-colors duration-200 ${checked ? 'border-crimson bg-crimson/20' : 'border-paper/20 bg-ink'}`}>
+        <span className={`absolute top-0.5 h-3.5 w-3.5 panel-cut-sm transition-all duration-200 ${checked ? 'left-[18px] bg-crimson' : 'left-0.5 bg-paper/40'}`} />
+      </button>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only" />
+    </label>
+  );
+}
+
+/* ── Range slider (native, noir-styled) ── */
+export function RangeField({ label, value, min, max, step, onChange, suffix }: {
+  label: ReactNode; value: number; min: number; max: number; step?: number; onChange: (v: number) => void; suffix?: string;
+}) {
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <label className="block space-y-1.5">
+      <span className="flex items-center justify-between">
+        <span className="kicker !text-paper-dim">{label}</span>
+        <span className="font-mono text-[10px] text-crimson">{typeof value === 'number' && value % 1 !== 0 ? value.toFixed(2) : value}{suffix}</span>
+      </span>
+      <input type="range" value={value} min={min} max={max} step={step} onChange={(e) => onChange(Number(e.target.value))}
+        className="noir-range h-1.5 w-full cursor-pointer appearance-none bg-ink"
+        style={{ background: `linear-gradient(to right, var(--color-crimson) ${pct}%, color-mix(in srgb, var(--color-paper) 12%, transparent) ${pct}%)` }} />
+    </label>
+  );
+}
+
+/* ── Inline color swatch (compact, for form grids) ── */
+export function ColorInput({ label, value, onChange }: { label: ReactNode; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="kicker !text-paper-dim">{label}</span>
+      <span className="relative block h-8 w-full overflow-hidden panel-cut-sm border border-paper/15" style={{ backgroundColor: value }}>
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+      </span>
+    </label>
+  );
+}
