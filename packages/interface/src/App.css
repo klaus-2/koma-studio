@@ -1,16 +1,22 @@
 /* ============================================================
-   KŌMA STUDIO — AUTH DESIGN SYSTEM
+   KŌMA STUDIO — DESIGN SYSTEM
    ============================================================ */
 
 @import 'driver.js/dist/driver.css';
 @import 'tailwindcss';
+/* monorepo: the scanner needs to see shared package sources */
 @source "./";
 @source "../../../packages/ui/src";
 @source "../../../packages/auth/src";
 @import 'tw-animate-css';
+/* Noir theme family */
 @import './themes/noir.css';
+/* Noir settings page re-skin */
 @import './themes/settings-noir.css';
+/* Noir AIO tools body (koma-aio-* hooks + grain + form primitives) */
 @import './themes/aio-tools-noir.css';
+/* Noir watermark range thumb */
+@import './themes/watermark-noir.css';
 
 @custom-variant dark (&:is(.dark *));
 

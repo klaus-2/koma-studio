@@ -1,0 +1,17 @@
+/* ── Range thumb (noir) ── */
+:root[data-theme-family='noir'] .noir-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  background: var(--color-crimson);
+  border: 2px solid var(--color-ink);
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--color-gold) 60%, transparent);
+}
+:root[data-theme-family='noir'] .noir-range::-moz-range-thumb {
+  width: 14px; height: 14px;
+  background: var(--color-crimson);
+  border: 2px solid var(--color-ink);
+  cursor: pointer;
+}
+
