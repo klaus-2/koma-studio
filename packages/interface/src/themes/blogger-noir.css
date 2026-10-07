@@ -1,0 +1,125 @@
+/* ════════════════ CDN Workspaces — Editorial Manga Noir (Blogger / Imgur) ════════════════ */
+@layer components {
+
+  /* ── TipTap prose noir ─────────────────────────── */
+  :root[data-theme-family='noir'] .noir-prose {
+    min-height: 320px;
+    padding: 18px;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: rgba(242, 237, 227, 0.85);
+    outline: none;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose h1,
+  :root[data-theme-family='noir'] .noir-prose h2 {
+    font-family: var(--font-display);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    color: #f2ede3;
+    margin: 1.2em 0 0.5em;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose h1 {
+    font-size: 1.5rem;
+    border-bottom: 2px solid #ff2e63;
+    padding-bottom: 0.25em;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose h2 {
+    font-size: 1.15rem;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose a {
+    color: #4dc9ff;
+    text-underline-offset: 3px;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose blockquote {
+    border-left: 3px solid #ff2e63;
+    background: rgba(255, 46, 99, 0.06);
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    font-family: var(--font-accent);
+    font-style: italic;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose ul,
+  :root[data-theme-family='noir'] .noir-prose ol {
+    padding-left: 1.4em;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose ul li::marker {
+    color: #ff2e63;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose ol li::marker {
+    color: #ffc857;
+    font-family: var(--font-mono);
+  }
+
+  :root[data-theme-family='noir'] .noir-prose img {
+    max-width: 100%;
+    height: auto;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+    border: 1px solid rgba(242, 237, 227, 0.12);
+  }
+
+  :root[data-theme-family='noir'] .noir-prose img.ProseMirror-selectednode {
+    outline: 2px solid #ff2e63;
+    outline-offset: 2px;
+  }
+
+  :root[data-theme-family='noir'] .noir-prose p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: rgba(242, 237, 227, 0.25);
+    float: left;
+    pointer-events: none;
+    height: 0;
+  }
+
+  /* ── Textarea HTML noir ────────────────────────── */
+  :root[data-theme-family='noir'] .noir-code-area {
+    width: 100%;
+    min-height: 340px;
+    resize: vertical;
+    background: rgba(7, 7, 12, 0.85);
+    border: 1px solid rgba(242, 237, 227, 0.14);
+    color: #3ef2b0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.7;
+    padding: 14px;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    transition: border-color 0.2s;
+  }
+
+  :root[data-theme-family='noir'] .noir-code-area:focus {
+    border-color: rgba(255, 46, 99, 0.6);
+    outline: none;
+  }
+
+  /* ── Dropzone risograph dash ───────────────────── */
+  :root[data-theme-family='noir'] .noir-dropzone {
+    position: relative;
+    cursor: pointer;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+    background:
+      repeating-linear-gradient(-45deg, transparent 0 10px, rgba(255, 46, 99, 0.045) 10px 20px),
+      rgba(7, 7, 12, 0.5);
+    border: 1.5px dashed rgba(242, 237, 227, 0.22);
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), filter 0.18s, border-color 0.18s, background 0.18s;
+  }
+
+  :root[data-theme-family='noir'] .noir-dropzone:hover,
+  :root[data-theme-family='noir'] .noir-dropzone--active {
+    border-color: #ff2e63;
+    transform: translate(-2px, -2px);
+    filter: drop-shadow(4px 4px 0 rgba(255, 200, 87, 0.55));
+  }
+
+  :root[data-theme-family='noir'] .noir-dropzone--active {
+    background: rgba(255, 46, 99, 0.08);
+  }
+}

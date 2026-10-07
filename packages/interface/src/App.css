@@ -19,6 +19,8 @@
 @import './themes/watermark-noir.css';
 /* Noir enhance/chapter-optimize */
 @import './themes/enhance-noir.css';
+/* Noir blogger/imgur CDN panels */
+@import './themes/blogger-noir.css';
 
 @custom-variant dark (&:is(.dark *));
 
