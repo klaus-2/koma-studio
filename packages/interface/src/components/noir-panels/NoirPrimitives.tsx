@@ -1,8 +1,325 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { motion } from 'framer-motion';
-import { HardDrive, type LucideIcon } from 'lucide-react';
+import { useState } from 'react';
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  type Variants,
+} from 'framer-motion';
+import { HardDrive, ChevronDown, type LucideIcon } from 'lucide-react';
+
+import type {
+  InputHTMLAttributes,
+  SelectHTMLAttributes,
+} from 'react';
+
+export const staggerVariants: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
+};
+
+export const revealVariants: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
+};
+
+export function useNoirMotion() {
+  const reduce = useReducedMotion();
+  return {
+    container: reduce ? undefined : staggerVariants,
+    item: reduce ? undefined : revealVariants,
+    initial: reduce ? undefined : ('hidden' as const),
+    animate: reduce ? undefined : ('show' as const),
+  };
+}
+
+type Tone = 'crimson' | 'gold' | 'azure' | 'mint';
+
+const TONES: Record<Tone, { text: string; border: string; bg: string; dot: string }> = {
+  crimson: { text: 'text-crimson', border: 'border-crimson/45', bg: 'bg-crimson/10', dot: 'bg-crimson' },
+  gold: { text: 'text-gold', border: 'border-gold/45', bg: 'bg-gold/10', dot: 'bg-gold' },
+  azure: { text: 'text-azure', border: 'border-azure/45', bg: 'bg-azure/10', dot: 'bg-azure' },
+  mint: { text: 'text-mint', border: 'border-mint/45', bg: 'bg-mint/10', dot: 'bg-mint' },
+};
+
+export function Stamp({
+  tone = 'crimson',
+  blink,
+  children,
+}: {
+  tone?: Tone;
+  blink?: boolean;
+  children: ReactNode;
+}) {
+  const t = TONES[tone];
+  return (
+    <span
+      className={`panel-cut-sm inline-flex items-center gap-1.5 border ${t.border} ${t.bg} ${t.text} px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em]`}
+    >
+      {blink && <span aria-hidden className={`h-1.5 w-1.5 ${t.dot} blink`} />}
+      {children}
+    </span>
+  );
+}
+
+export function NoirNote({
+  tone = 'azure',
+  icon: Icon,
+  children,
+}: {
+  tone?: Tone;
+  icon?: LucideIcon;
+  children: ReactNode;
+}) {
+  const t = TONES[tone];
+  return (
+    <div
+      className={`panel-cut-sm flex items-start gap-2 border-l-2 ${t.border.replace('/45', '')} ${t.bg} px-3 py-2 text-[11px] leading-relaxed text-paper/70`}
+    >
+      {Icon && <Icon size={12} className={`mt-0.5 flex-none ${t.text}`} aria-hidden />}
+      <span>{children}</span>
+    </div>
+  );
+}
+
+export function NoirSection({
+  no,
+  icon: Icon,
+  title,
+  jp,
+  collapsible,
+  open,
+  onToggle,
+  children,
+}: {
+  no?: string;
+  icon: LucideIcon;
+  title: ReactNode;
+  jp?: string;
+  collapsible?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
+  children: ReactNode;
+}) {
+  const [internalOpen, setInternalOpen] = useState(true);
+  const isOpen = collapsible ? (open ?? internalOpen) : true;
+  const reduce = useReducedMotion();
+
+  const head = (
+    <>
+      <span className="panel-cut-sm grid h-6 w-6 flex-none place-items-center bg-crimson text-ink">
+        <Icon size={12} strokeWidth={2.5} />
+      </span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-paper/75">
+        {title}
+      </span>
+      {jp && (
+        <span aria-hidden className="font-mono text-[9px] tracking-[0.2em] text-paper/25">
+          {jp}
+        </span>
+      )}
+      {no && (
+        <span aria-hidden className="text-outline ml-auto select-none font-display text-xl font-black leading-none">
+          {no}
+        </span>
+      )}
+      {collapsible && (
+        <ChevronDown
+          size={13}
+          className={`${no ? '' : 'ml-auto'} text-paper/40 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+      )}
+    </>
+  );
+
+  return (
+    <section className="glass panel-cut p-4">
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={onToggle ?? (() => setInternalOpen((p) => !p))}
+          aria-expanded={isOpen}
+          className="flex w-full items-center gap-2.5 text-left"
+        >
+          {head}
+        </button>
+      ) : (
+        <div className="flex items-center gap-2.5">{head}</div>
+      )}
+
+      {collapsible ? (
+        <AnimatePresence initial={false}>
+          {isOpen && (
+            <motion.div
+              initial={reduce ? false : { height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={reduce ? undefined : { height: 0, opacity: 0 }}
+              transition={{ duration: 0.32, ease: EASE }}
+              className="overflow-hidden"
+            >
+              <div className="pt-4">{children}</div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        <div className="pt-4">{children}</div>
+      )}
+    </section>
+  );
+}
+
+export function NoirField({
+  label,
+  value,
+  as = 'label',
+  className = '',
+  children,
+}: {
+  label: ReactNode;
+  value?: ReactNode;
+  as?: 'label' | 'div';
+  className?: string;
+  children: ReactNode;
+}) {
+  const Tag = as;
+  return (
+    <Tag className={`flex flex-col gap-1.5 ${className}`}>
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.22em] text-paper/45">
+          {label}
+        </span>
+        {value != null && <span className="font-mono text-[10px] text-crimson">{value}</span>}
+      </span>
+      {children}
+    </Tag>
+  );
+}
+
+export function NoirSelect(props: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <span className="relative block">
+      <select {...props} className="noir-select" />
+      <ChevronDown
+        size={12}
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-crimson"
+        aria-hidden
+      />
+    </span>
+  );
+}
+
+export function NoirInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className="noir-input" />;
+}
+
+export function NoirSlider({
+  label,
+  icon: Icon,
+  display,
+  min,
+  max,
+  step = 1,
+  value,
+  onChange,
+  className = '',
+}: {
+  label: ReactNode;
+  icon?: LucideIcon;
+  display: ReactNode;
+  min: number;
+  max: number;
+  step?: number;
+  value: number;
+  onChange: (value: number) => void;
+  className?: string;
+}) {
+  return (
+    <NoirField
+      className={className}
+      label={
+        <>
+          {Icon && <Icon size={11} aria-hidden />}
+          {label}
+        </>
+      }
+      value={display}
+    >
+      <input
+        type="range"
+        className="noir-slider"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    </NoirField>
+  );
+}
+
+export function NoirToggle({
+  checked,
+  onChange,
+  icon: Icon,
+  children,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  icon?: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <label className="noir-toggle">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="noir-toggle__track" aria-hidden>
+        <span className="noir-toggle__thumb" />
+      </span>
+      <span className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-paper/70">
+        {Icon && <Icon size={11} aria-hidden />}
+        {children}
+      </span>
+    </label>
+  );
+}
+
+export function Segmented<T extends string | number>({
+  options,
+  value,
+  onChange,
+  disabled,
+}: {
+  options: Array<{ value: T; label: ReactNode }>;
+  value: T;
+  onChange: (value: T) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div role="group" className="flex gap-1.5">
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={String(option.value)}
+            type="button"
+            disabled={disabled}
+            aria-pressed={active}
+            onClick={() => onChange(option.value)}
+            className={`panel-cut-sm flex-1 px-2 py-2 font-mono text-[10.5px] uppercase tracking-[0.12em] transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${active
+              ? 'bg-crimson font-bold text-ink -translate-x-px -translate-y-px drop-shadow-[3px_3px_0_rgba(255,200,87,0.9)]'
+              : 'border border-paper/15 text-paper/55 hover:border-paper/45 hover:text-paper'
+              }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 
 export const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -153,6 +470,8 @@ export function ExecuteButton({ processing, disabled, title, onClick, children, 
     </button>
   );
 }
+
+/* ══════════════════ V2 additions (Stitch / Splitter) ════════════════ */
 
 /* ── Number input field ── */
 export function NumberField({ label, value, onChange, min, max, step }: {
