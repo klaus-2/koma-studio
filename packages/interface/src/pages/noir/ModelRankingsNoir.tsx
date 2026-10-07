@@ -32,7 +32,7 @@ import {
 } from '../../query/modelReviews';
 import { useI18n } from '../../i18n';
 
-import './ModelRankings.css';
+import './ModelRankingsNoir.css';
 
 interface ModelRankingsPageProps {
   onBackDashboard: () => void;
