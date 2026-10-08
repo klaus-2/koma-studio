@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useI18n } from "../i18n";
 import brandLogo from "@koma/ui/assets/logo-1.webp";
+import { EASE } from "./system/v2/kit";
+import { useThemeStore } from "@koma/ui/stores/theme-store";
+import { PageTransitionClassic } from "./PageTransitionClassic";
 
 type TransitionVariant = "default" | "panels" | "minimal";
 type TransitionPhase = "idle" | "entering" | "visible" | "exiting" | "done";
@@ -15,141 +19,17 @@ interface PageTransitionProps {
 
 const ENTER_DURATION = 450;
 const EXIT_DURATION = 500;
-const FLOATING_PANELS = [
-  { cls: "koma-transition__panel--1", gradient: "linear-gradient(150deg, #1a0533, #7c3aed)" },
-  { cls: "koma-transition__panel--2", gradient: "linear-gradient(150deg, #042f2e, #06b6d4)" },
-  { cls: "koma-transition__panel--3", gradient: "linear-gradient(150deg, #3b0028, #ec4899)" },
-  { cls: "koma-transition__panel--4", gradient: "linear-gradient(150deg, #431407, #ea580c)" },
-  { cls: "koma-transition__panel--5", gradient: "linear-gradient(150deg, #022c22, #10b981)" },
-] as const;
+const STRIPS = 5;
+const SFX = ["ドン", "ザッ", "バン"] as const;
 
-interface SpeedlineSpec {
-  angle: string;
-  delay: string;
-  length: string;
-  opacity: string;
-}
-
-interface ParticleSpec {
-  x: string;
-  y: string;
-  delay: string;
-  duration: string;
-  size: string;
-  color: string;
-}
-
-const buildSpeedlineSpecs = (): SpeedlineSpec[] =>
-  Array.from({ length: 24 }, (_, index) => ({
-    angle: `${index * 15}deg`,
-    delay: `${index * 0.03}s`,
-    length: `${55 + Math.random() * 35}%`,
-    opacity: `${0.03 + Math.random() * 0.08}`,
-  }));
-
-const buildParticleSpecs = (): ParticleSpec[] =>
-  Array.from({ length: 18 }, (_, index) => ({
-    x: `${10 + Math.random() * 80}%`,
-    y: `${10 + Math.random() * 80}%`,
-    delay: `${Math.random() * 2}s`,
-    duration: `${2 + Math.random() * 3}s`,
-    size: `${2 + Math.random() * 4}px`,
-    color:
-      index % 3 === 0
-        ? "var(--ua-purple, #a855f7)"
-        : index % 3 === 1
-          ? "var(--ua-cyan, #06b6d4)"
-          : "var(--ua-rose, #f43f5e)",
-  }));
-
-const BrandMark = () => (
-  <img src={brandLogo} alt="" />
-);
-
-const SpeedLines = ({ specs }: { specs: SpeedlineSpec[] }) => (
-  <div className="koma-transition__speedlines" aria-hidden="true">
-    {specs.map((line, index) => (
-      <div
-        key={index}
-        className="koma-transition__speedline"
-        style={
-          {
-            "--line-angle": line.angle,
-            "--line-delay": line.delay,
-            "--line-length": line.length,
-            "--line-opacity": line.opacity,
-          } as CSSProperties
-        }
-      />
-    ))}
-  </div>
-);
-
-const FloatingPanels = () => (
-  <div className="koma-transition__panels" aria-hidden="true">
-    {FLOATING_PANELS.map((panel, index) => (
-      <div
-        key={panel.cls}
-        className={`koma-transition__panel ${panel.cls}`}
-        style={
-          {
-            background: panel.gradient,
-            "--panel-delay": `${index * 0.08}s`,
-          } as CSSProperties
-        }
-      >
-        <div className="koma-transition__panel-lines">
-          <span />
-          <span />
-          <span />
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
-const Particles = ({ specs }: { specs: ParticleSpec[] }) => (
-  <div className="koma-transition__particles" aria-hidden="true">
-    {specs.map((particle, index) => (
-      <div
-        key={index}
-        className="koma-transition__particle"
-        style={
-          {
-            "--p-x": particle.x,
-            "--p-y": particle.y,
-            "--p-delay": particle.delay,
-            "--p-duration": particle.duration,
-            "--p-size": particle.size,
-            "--p-color": particle.color,
-          } as CSSProperties
-        }
-      />
-    ))}
-  </div>
-);
-
-export const PageTransition = ({
-  active,
-  variant = "default",
-  message,
-  minDuration = 600,
-  onExitComplete,
+const PageTransitionNoir = ({
+  active, variant = "default", message, minDuration = 600, onExitComplete,
 }: PageTransitionProps) => {
   const { t } = useI18n();
-  const tips = useMemo(
-    () => [
-      t("transition.tips.loading"),
-      t("transition.tips.preparing"),
-      t("transition.tips.opening"),
-      t("transition.tips.organizing"),
-      t("transition.tips.warming"),
-      t("transition.tips.workflow"),
-    ],
-    [t],
-  );
-  const speedlineSpecs = useMemo(buildSpeedlineSpecs, []);
-  const particleSpecs = useMemo(buildParticleSpecs, []);
+  const tips = useMemo(() => [
+    t("transition.tips.loading"), t("transition.tips.preparing"), t("transition.tips.opening"),
+    t("transition.tips.organizing"), t("transition.tips.warming"), t("transition.tips.workflow"),
+  ], [t]);
 
   const [phase, setPhase] = useState<TransitionPhase>("idle");
   const [tipIndex, setTipIndex] = useState(0);
@@ -159,180 +39,171 @@ export const PageTransition = ({
   const phaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const updatePhase = useCallback((nextPhase: TransitionPhase) => {
-    phaseRef.current = nextPhase;
-    setPhase(nextPhase);
+  const updatePhase = useCallback((next: TransitionPhase) => {
+    phaseRef.current = next;
+    setPhase(next);
   }, []);
-
   const clearTimers = useCallback(() => {
-    if (phaseTimeoutRef.current) {
-      clearTimeout(phaseTimeoutRef.current);
-      phaseTimeoutRef.current = null;
-    }
-
-    if (exitTimeoutRef.current) {
-      clearTimeout(exitTimeoutRef.current);
-      exitTimeoutRef.current = null;
-    }
+    if (phaseTimeoutRef.current) { clearTimeout(phaseTimeoutRef.current); phaseTimeoutRef.current = null; }
+    if (exitTimeoutRef.current) { clearTimeout(exitTimeoutRef.current); exitTimeoutRef.current = null; }
   }, []);
 
-  useEffect(
-    () => () => {
-      clearTimers();
-    },
-    [clearTimers],
-  );
+  useEffect(() => () => clearTimers(), [clearTimers]);
 
   useEffect(() => {
-    let visibleTimer: ReturnType<typeof setTimeout> | null = null;
-    let doneTimer: ReturnType<typeof setTimeout> | null = null;
+    let phaseTimer: ReturnType<typeof setTimeout> | null = null;
+    let exitTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearOwned = () => {
+      if (phaseTimer) clearTimeout(phaseTimer);
+      if (exitTimer) clearTimeout(exitTimer);
+      phaseTimer = null;
+      exitTimer = null;
+      phaseTimeoutRef.current = null;
+      exitTimeoutRef.current = null;
+    };
 
     if (active) {
-      if (
-        phaseRef.current === "idle" ||
-        phaseRef.current === "done" ||
-        phaseRef.current === "exiting"
-      ) {
+      if (phaseRef.current === "idle" || phaseRef.current === "done" || phaseRef.current === "exiting") {
         clearTimers();
         updatePhase("entering");
         enteredAtRef.current = Date.now();
-
-        visibleTimer = setTimeout(() => {
-          updatePhase("visible");
-        }, ENTER_DURATION);
-        phaseTimeoutRef.current = visibleTimer;
+        phaseTimer = setTimeout(() => updatePhase("visible"), ENTER_DURATION);
+        phaseTimeoutRef.current = phaseTimer;
       }
-    } else if (
-      phaseRef.current === "entering" ||
-      phaseRef.current === "visible"
-    ) {
-      clearTimers();
-      const elapsed = Date.now() - enteredAtRef.current;
-      const remaining = Math.max(0, minDuration - elapsed);
-
-      visibleTimer = setTimeout(() => {
-        updatePhase("exiting");
-      }, remaining);
-      doneTimer = setTimeout(() => {
+      return clearOwned;
+    }
+    if (phaseRef.current !== "entering" && phaseRef.current !== "visible") {
+      return clearOwned;
+    }
+    clearTimers();
+    const elapsed = Date.now() - enteredAtRef.current;
+    const remaining = Math.max(0, minDuration - elapsed);
+    phaseTimer = setTimeout(() => {
+      updatePhase("exiting");
+      exitTimer = setTimeout(() => {
         updatePhase("done");
         onExitComplete?.();
-      }, remaining + EXIT_DURATION);
-      phaseTimeoutRef.current = visibleTimer;
-      exitTimeoutRef.current = doneTimer;
-    }
-
-    return () => {
-      if (visibleTimer) {
-        if (phaseTimeoutRef.current === visibleTimer) {
-          phaseTimeoutRef.current = null;
-        }
-        clearTimeout(visibleTimer);
-      }
-      if (doneTimer) {
-        if (exitTimeoutRef.current === doneTimer) {
-          exitTimeoutRef.current = null;
-        }
-        clearTimeout(doneTimer);
-      }
-    };
-  }, [active, clearTimers, minDuration, onExitComplete, updatePhase]);
+      }, EXIT_DURATION);
+      exitTimeoutRef.current = exitTimer;
+    }, remaining);
+    phaseTimeoutRef.current = phaseTimer;
+    return clearOwned;
+  }, [active, clearTimers, message, minDuration, onExitComplete, updatePhase]);
 
   useEffect(() => {
-    if (phase !== "visible" || Boolean(message)) {
-      return;
-    }
-
-    const intervalId = setInterval(() => {
-      setTipIndex((current) => (current + 1) % tips.length);
-    }, 2200);
-
-    return () => clearInterval(intervalId);
+    if (phase !== "visible" || Boolean(message)) return;
+    const id = setInterval(() => setTipIndex((c) => (c + 1) % tips.length), 2200);
+    return () => clearInterval(id);
   }, [message, phase, tips.length]);
 
-  if (phase === "idle" || phase === "done") {
-    return null;
-  }
+  if (phase === "idle" || phase === "done") return null;
 
-  const stateClass = `koma-transition koma-transition--${variant} koma-transition--${phase}`;
+  const exiting = phase === "exiting";
   const displayedMessage = message?.trim() ? message : tips[tipIndex];
 
   return (
-    <div className={stateClass} role="alert" aria-live="assertive" aria-label={t("transition.ariaLabel")}>
-      <div className="koma-transition__backdrop" />
+    <div className="fixed inset-0 z-[300] overflow-hidden" role="alert" aria-live="assertive"
+      aria-label={t("transition.ariaLabel")}>
 
-      <div className="koma-transition__orb koma-transition__orb--purple" aria-hidden="true" />
-      <div className="koma-transition__orb koma-transition__orb--cyan" aria-hidden="true" />
-
-      {variant !== "minimal" && <SpeedLines specs={speedlineSpecs} />}
-      {variant === "panels" && <FloatingPanels />}
-
-      <Particles specs={particleSpecs} />
-
-      <div className="koma-transition__center">
-        <div className="koma-transition__logo">
-          <div className="koma-transition__logoRing">
-            <svg className="koma-transition__logoRingSvg" viewBox="0 0 100 100">
-              <circle
-                cx="50"
-                cy="50"
-                r="46"
-                fill="none"
-                stroke="rgba(168,85,247,0.08)"
-                strokeWidth="2"
-              />
-              <circle
-                cx="50"
-                cy="50"
-                r="46"
-                fill="none"
-                stroke="url(#transitionGrad)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeDasharray="72 217"
-                className="koma-transition__logoRingArc"
-              />
-              <defs>
-                <linearGradient id="transitionGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#a855f7" />
-                  <stop offset="100%" stopColor="#06b6d4" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <div className="koma-transition__logoIcon">
-            <BrandMark />
-          </div>
-        </div>
-
-        <div className="koma-transition__brand">
-          <span className="koma-transition__brandName">
-            {t("brand.name")}<span>{t("brand.studioSuffix")}</span>
-          </span>
-        </div>
-
-        <div className="koma-transition__progress">
-          <div className="koma-transition__progressTrack">
-            <div className="koma-transition__progressFill" />
-          </div>
-        </div>
-
-        <div className="koma-transition__message" key={displayedMessage}>
-          {displayedMessage}
-        </div>
-
-        {variant !== "minimal" && (
-          <div className="koma-transition__sfx" aria-hidden="true">
-            <span className="koma-transition__sfx-char koma-transition__sfx-char--1">쾅</span>
-            <span className="koma-transition__sfx-char koma-transition__sfx-char--2">휙</span>
-            <span className="koma-transition__sfx-char koma-transition__sfx-char--3">팡</span>
-          </div>
-        )}
+      <div className="absolute inset-0 flex" aria-hidden>
+        {Array.from({ length: STRIPS }).map((_, i) => (
+          <motion.div
+            key={i}
+            className="halftone h-full flex-1 border-r border-paper/[0.04] bg-ink last:border-r-0"
+            initial={{ scaleY: 0 }}
+            animate={{ scaleY: exiting ? 0 : 1 }}
+            style={{ originY: exiting ? 1 : 0 }}
+            transition={{ duration: exiting ? 0.42 : 0.38, delay: i * 0.05, ease: EASE }}
+          />
+        ))}
       </div>
 
-      <div className="koma-transition__corner koma-transition__corner--tl" aria-hidden="true" />
-      <div className="koma-transition__corner koma-transition__corner--tr" aria-hidden="true" />
-      <div className="koma-transition__corner koma-transition__corner--bl" aria-hidden="true" />
-      <div className="koma-transition__corner koma-transition__corner--br" aria-hidden="true" />
+      <motion.span aria-hidden
+        className="absolute left-0 top-0 h-[3px] w-full bg-gradient-to-r from-crimson via-crimson/50 to-transparent"
+        initial={{ y: "0vh" }}
+        animate={{ y: exiting ? "100vh" : "0vh" }}
+        transition={{ duration: 0.5, ease: EASE }}
+      />
+
+      {/* ── Katakana vertical + SFX ── */}
+      <span aria-hidden className="v-text pointer-events-none absolute right-6 top-1/2 hidden -translate-y-1/2 select-none font-display text-3xl font-black tracking-[0.3em] text-paper/[0.05] lg:block">
+        ページ切替中
+      </span>
+      {variant !== "minimal" && (
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          {SFX.map((sfx, i) => (
+            <motion.span key={sfx}
+              className="absolute select-none font-display font-black text-crimson/15"
+              style={{
+                fontSize: `${3 + i}rem`,
+                left: `${12 + i * 30}%`,
+                top: `${18 + i * 24}%`,
+                rotate: `${-8 + i * 7}deg`,
+              }}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: exiting ? 0 : 1, scale: exiting ? 0.8 : 1 }}
+              transition={{ delay: 0.25 + i * 0.12, duration: 0.4, ease: EASE }}
+            >
+              {sfx}
+            </motion.span>
+          ))}
+        </div>
+      )}
+
+      {/* ── Centro ── */}
+      <motion.div
+        className="absolute inset-0 flex flex-col items-center justify-center gap-5"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: exiting ? 0 : 1, y: exiting ? -12 : 0 }}
+        transition={{ duration: 0.35, delay: exiting ? 0 : 0.3, ease: EASE }}
+      >
+        {/* Logo hanko */}
+        <motion.div
+          className="panel-cut-sm relative flex h-20 w-20 items-center justify-center border-2 border-crimson bg-crimson/8"
+          initial={{ rotate: -8, scale: 0.7 }}
+          animate={{ rotate: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.35 }}
+        >
+          <img src={brandLogo} alt="" className="h-11 w-11 object-contain" />
+          <motion.span aria-hidden
+            className="absolute -inset-1.5 border border-crimson/40"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+            style={{ clipPath: "polygon(0 0, 30% 0, 30% 2px, 2px 2px, 2px 30%, 0 30%)" }}
+          />
+        </motion.div>
+
+        <p className="font-display text-xl font-black uppercase tracking-tight text-paper">
+          {t("brand.name")}
+          <em className="font-accent font-normal normal-case italic text-crimson">{t("brand.studioSuffix")}</em>
+        </p>
+
+        <div className="panel-cut-sm h-1.5 w-48 overflow-hidden border border-paper/10 bg-ink-2" aria-hidden>
+          <motion.div
+            className="stripes-anim h-full w-1/3 bg-crimson bg-[repeating-linear-gradient(-45deg,rgba(7,7,12,0.3)_0_6px,transparent_6px_12px)] bg-[length:17px_17px]"
+            animate={{ x: ["-100%", "300%"] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </div>
+
+        <motion.p key={displayedMessage}
+          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: EASE }}
+          className="font-mono text-[10px] uppercase tracking-[0.24em] text-paper/45">
+          <span aria-hidden className="text-crimson">//</span> {displayedMessage}
+        </motion.p>
+      </motion.div>
+
+      {/* ── Crop marks ── */}
+      {(["left-5 top-5 border-l border-t", "right-5 top-5 border-r border-t",
+        "bottom-5 left-5 border-b border-l", "bottom-5 right-5 border-b border-r"] as const).map((pos) => (
+          <span key={pos} aria-hidden className={`absolute h-5 w-5 border-paper/20 ${pos}`} />
+        ))}
     </div>
   );
+};
+
+export const PageTransition = (props: PageTransitionProps) => {
+  const family = useThemeStore((s) => s.family);
+  return family === "noir" ? <PageTransitionNoir {...props} /> : <PageTransitionClassic {...props} />;
 };
