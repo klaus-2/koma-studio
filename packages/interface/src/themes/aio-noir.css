@@ -1026,3 +1026,52 @@
     transition: none !important;
   }
 }
+
+/* ── Radius leak guard ─────────────────────────────────────────── */
+:root[data-theme-family='noir'] .koma-aio-tools,
+:root[data-theme-family='noir'] .koma-aio-section,
+:root[data-theme-family='noir'] .koma-aio-section__header,
+:root[data-theme-family='noir'] .koma-aio-section__header-icon,
+:root[data-theme-family='noir'] .koma-aio-section__badge,
+:root[data-theme-family='noir'] .koma-aio-chip,
+:root[data-theme-family='noir'] .koma-aio-chip__icon,
+:root[data-theme-family='noir'] .koma-aio-chip__toggle,
+:root[data-theme-family='noir'] .koma-aio-timeline__step,
+:root[data-theme-family='noir'] .koma-aio-timeline__node,
+:root[data-theme-family='noir'] .koma-aio-timeline__badge,
+:root[data-theme-family='noir'] .koma-aio-lang-row__arrow,
+:root[data-theme-family='noir'] .koma-aio-stage-tabs__bar,
+:root[data-theme-family='noir'] .koma-aio-stage-tab,
+:root[data-theme-family='noir'] .koma-aio-preset-action,
+:root[data-theme-family='noir'] .koma-aio-preset-editor,
+:root[data-theme-family='noir'] .koma-aio-llm-panel,
+:root[data-theme-family='noir'] .koma-aio-custom-profile,
+:root[data-theme-family='noir'] .koma-aio-execute__btn,
+:root[data-theme-family='noir'] .koma-aio-execute__btn--stop,
+:root[data-theme-family='noir'] .koma-aio-info,
+:root[data-theme-family='noir'] .koma-aio-hw-chip {
+  border-radius: 0;
+}
+
+/* ── Execute btn: neutraliza leaks clássicos (glow roxo + shimmer) ── */
+:root[data-theme-family='noir'] .koma-aio-execute__btn,
+:root[data-theme-family='noir'] .koma-aio-execute__btn--stop {
+  box-shadow: none;
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__btn:hover:not(:disabled),
+:root[data-theme-family='noir'] .koma-aio-execute__btn:active:not(:disabled) {
+  box-shadow: none;
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__btn::after {
+  content: none;
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__btn--processing {
+  background: var(--aio-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__btn--stop {
+  background: transparent;
+}
