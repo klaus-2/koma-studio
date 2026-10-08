@@ -12,6 +12,19 @@ import {
   Keyboard,
   Undo2,
   Redo2,
+  Eraser,
+  Type,
+  Languages,
+  Maximize2,
+  Scissors,
+  Stamp,
+  Wand2,
+  BookOpen,
+  FolderOpen,
+  Image as ImageIcon,
+
+  Wrench,
+  Sparkles,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -28,13 +41,13 @@ import KomaTopbarUserMenuNoir from './koma-topbar/noir/KomaTopbarUserMenuNoir';
 import {
   cn,
   isModeUnderDevelopment,
+  NavGroup,
   type DownloadBundleFormat,
   type DropdownId,
   type PsdCompression,
   type ToolMode,
   type ViewMode,
 } from './koma-topbar/KomaTopbar.shared';
-import { createNavGroups } from './KomaTopbarClassic';
 
 interface KomaTopbarProps {
   mode: ToolMode;
@@ -115,6 +128,155 @@ interface KomaTopbarProps {
   onLogout: () => void;
   onStatusMessage?: (msg: string) => void;
 }
+
+type TranslateFn = ReturnType<typeof useI18n>['t'];
+
+const createNavGroups = (t: TranslateFn): NavGroup[] => [
+  {
+    id: 'main',
+    label: t('dashboard.nav.group.main'),
+    groupIcon: Layers,
+    items: [
+      {
+        mode: 'organize',
+        icon: Layers,
+        label: t('dashboard.mode.organize'),
+        subtitle: t('dashboard.nav.subtitle.organize'),
+        tooltip: t('dashboard.nav.tooltip.organize'),
+      },
+      {
+        mode: 'aio',
+        icon: Zap,
+        label: t('dashboard.nav.short.aio'),
+        subtitle: t('dashboard.nav.subtitle.aio'),
+        tooltip: t('dashboard.nav.tooltip.aio'),
+        hasSubMode: true,
+      },
+    ],
+  },
+  {
+    id: 'production',
+    label: t('dashboard.nav.group.production'),
+    groupIcon: Wrench,
+    items: [
+      {
+        mode: 'cleaner',
+        icon: Eraser,
+        label: t('dashboard.nav.short.cleaner'),
+        subtitle: t('dashboard.nav.subtitle.cleaner'),
+        tooltip:
+          t('dashboard.nav.tooltip.cleaner'),
+      },
+      {
+        mode: 'typesetter',
+        icon: Type,
+        label: t('dashboard.mode.typesetter'),
+        subtitle: t('dashboard.nav.subtitle.typesetter'),
+        tooltip: t('dashboard.nav.tooltip.typesetter'),
+        hasSubMode: true,
+      },
+      {
+        mode: 'translator',
+        icon: Languages,
+        label: t('dashboard.mode.translator'),
+        subtitle: t('dashboard.nav.subtitle.translator'),
+        tooltip: t('dashboard.nav.tooltip.translator'),
+      },
+      // {
+      //   mode: 'raw',
+      //   icon: FileImage,
+      //   label: t('dashboard.mode.raw'),
+      //   subtitle: t('dashboard.nav.subtitle.raw'),
+      //   tooltip: t('dashboard.nav.tooltip.raw'),
+      // },
+      // {
+      //   mode: 'proofreader',
+      //   icon: ShieldCheck,
+      //   label: t('dashboard.mode.proofreader'),
+      //   subtitle: t('dashboard.nav.subtitle.proofreader'),
+      //   tooltip: t('dashboard.nav.tooltip.proofreader'),
+      //   hasSubMode: true,
+      // },
+    ],
+  },
+  {
+    id: 'utils',
+    label: t('dashboard.nav.group.utils'),
+    groupIcon: Wand2,
+    items: [
+      {
+        mode: 'stitch',
+        icon: Maximize2,
+        label: t('dashboard.mode.stitch'),
+        subtitle: t('dashboard.nav.subtitle.stitch'),
+        tooltip: t('dashboard.nav.tooltip.stitch'),
+      },
+      {
+        mode: 'split',
+        icon: Scissors,
+        label: t('dashboard.mode.split'),
+        subtitle: t('dashboard.nav.subtitle.split'),
+        tooltip: t('dashboard.nav.tooltip.split'),
+      },
+      {
+        mode: 'watermark',
+        icon: Stamp,
+        label: t('dashboard.mode.watermark'),
+        subtitle: t('dashboard.nav.subtitle.watermark'),
+        tooltip: t('dashboard.nav.tooltip.watermark'),
+      },
+      {
+        mode: 'enhance',
+        icon: Wand2,
+        label: t('dashboard.nav.short.enhance'),
+        subtitle: t('dashboard.nav.subtitle.enhance'),
+        tooltip: t('dashboard.nav.tooltip.enhance'),
+      },
+      {
+        mode: 'optimizer',
+        icon: Sparkles,
+        label: t('dashboard.mode.optimizer'),
+        subtitle: t('dashboard.nav.subtitle.optimizer'),
+        tooltip: t('dashboard.nav.tooltip.optimizer'),
+      },
+      {
+        mode: 'blogger',
+        icon: LayoutGrid,
+        label: t('dashboard.mode.blogger'),
+        subtitle: t('dashboard.nav.subtitle.blogger'),
+        tooltip: t('dashboard.nav.tooltip.blogger'),
+      },
+      {
+        mode: 'imgur',
+        icon: ImageIcon,
+        label: t('dashboard.mode.imgur'),
+        subtitle: t('dashboard.nav.subtitle.imgur'),
+        tooltip: t('dashboard.nav.tooltip.imgur'),
+      },
+    ],
+  },
+  {
+    id: 'info',
+    label: t('dashboard.nav.group.info'),
+    groupIcon: BookOpen,
+    items: [
+      {
+        mode: 'guides',
+        icon: BookOpen,
+        label: t('dashboard.mode.guides'),
+        subtitle: t('dashboard.nav.subtitle.guides'),
+        tooltip: t('dashboard.nav.tooltip.guides'),
+      },
+      {
+        mode: 'resources',
+        icon: FolderOpen,
+        label: t('dashboard.mode.resources'),
+        subtitle: t('dashboard.nav.subtitle.resources'),
+        tooltip: t('dashboard.nav.tooltip.resources'),
+      },
+    ],
+  },
+];
 
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 5;
