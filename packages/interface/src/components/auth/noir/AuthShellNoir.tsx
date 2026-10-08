@@ -1,4 +1,5 @@
 import { memo, ReactNode } from "react";
+import loginBackgroundVideo from "@koma/ui/assets/login-background.mp4";
 import { motion, useReducedMotion } from "framer-motion";
 import cl1 from "@koma/ui/assets/cl-before.webp";
 import cl2 from "@koma/ui/assets/cl-after.webp";
@@ -292,7 +293,16 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
     <div className="koma-noir relative flex min-h-dvh overflow-hidden">
       <ThemeFamilySwitch variant="noir" />
 
-      {/* ════════ ESQUERDA — a página do formulário ════════ */}
+      <video
+        className="koma-bg-video"
+        src={loginBackgroundVideo}
+        autoPlay
+        loop
+        muted
+        playsInline
+        aria-hidden="true"
+      />
+
       <main className="relative z-10 flex w-full items-center justify-center px-5 py-12 lg:w-[46%] lg:px-12">
         <div aria-hidden className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-crimson/10 blur-[130px]" />
 
