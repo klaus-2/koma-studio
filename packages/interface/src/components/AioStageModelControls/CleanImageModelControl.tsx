@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { HardDrive } from "lucide-react";
 
 import { useI18n } from "../../i18n";
+import { useThemeStore } from "@koma/ui/stores/theme-store";
 import FieldInfoTooltip from "../dashboard/FieldInfoTooltip";
 import type { AioStageModelOption } from "./types";
 import styles from "./styles.module.css";
@@ -28,6 +29,7 @@ export const CleanImageModelControl = ({
   children,
 }: CleanImageModelControlProps) => {
   const { t } = useI18n();
+  const noir = useThemeStore((s) => s.family === "noir");
   const selectedValue = options.some((option) => option.key === value) ? value : "";
   const cleanImageTooltip = (() => {
     const key = 'dashboard.aio.cleanImage.tooltip';
@@ -62,7 +64,7 @@ export const CleanImageModelControl = ({
       <select
         value={selectedValue}
         onChange={(event) => onSelectModel(event.target.value)}
-        className="koma-select"
+        className={noir ? "panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson" : "koma-select"}
         disabled={options.length === 0}
       >
         {options.length === 0 ? (

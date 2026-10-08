@@ -5,6 +5,7 @@ import { modelSupportsLanguage, TRANSLATION_MODELS_REGISTRY } from "../../models
 import type { ModelInstallState } from "../../models/types";
 import type { LlmCapabilities } from "../../utils/customLlm";
 import { useI18n } from "../../i18n";
+import { useThemeStore } from "@koma/ui/stores/theme-store";
 import styles from "./styles.module.css";
 
 interface LegacyTranslationOption {
@@ -53,6 +54,7 @@ export const TranslationModelControl = ({
   onOpenManager,
 }: TranslationModelControlProps) => {
   const { t } = useI18n();
+  const noir = useThemeStore((s) => s.family === "noir");
 
   const compatibleLocalModels = useMemo(
     () =>
@@ -91,7 +93,7 @@ export const TranslationModelControl = ({
 
   const selectedValue =
     availableLocalModels.some((model) => model.id === selectedModelId) ||
-    availableLegacyOptions.some((option) => option.key === selectedModelId)
+      availableLegacyOptions.some((option) => option.key === selectedModelId)
       ? selectedModelId
       : "";
 
@@ -131,7 +133,7 @@ export const TranslationModelControl = ({
       <select
         value={selectedValue}
         onChange={(event) => onSelectModel(event.target.value)}
-        className="koma-select"
+        className={noir ? "panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson" : "koma-select"}
         disabled={availableLocalModels.length === 0 && availableLegacyOptions.length === 0}
       >
         {availableLocalModels.length === 0 && availableLegacyOptions.length === 0 ? (

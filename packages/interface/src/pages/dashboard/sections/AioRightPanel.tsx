@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { useThemeStore } from '@koma/ui/stores/theme-store';
 
 import {
   ArrowRight,
@@ -166,6 +167,15 @@ interface AioRightPanelProps {
   isDesktopRuntime: boolean;
 }
 
+const BTN_PRIMARY_NOIR =
+  'panel-cut-sm hard-hover inline-flex flex-1 items-center justify-center gap-1.5 bg-crimson px-3.5 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-ink disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold';
+const BTN_PRIMARY_FULL_NOIR = BTN_PRIMARY_NOIR.replace('flex-1', 'w-full');
+const BTN_GHOST_NOIR =
+  'panel-cut-sm hard-hover inline-flex flex-1 items-center justify-center gap-1.5 border border-crimson/40 bg-crimson/10 px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-crimson disabled:opacity-40';
+const SELECT_NOIR =
+  'panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson';
+const SELECT_FLEX_NOIR = SELECT_NOIR.replace('w-full', 'flex-1 min-w-0');
+
 export default memo(function AioRightPanel({
   handleAioSubModeChange,
   rewindAioPipeline,
@@ -234,22 +244,26 @@ export default memo(function AioRightPanel({
   isDesktopRuntime,
 }: AioRightPanelProps) {
   const { t } = useI18n();
+  const noir = useThemeStore((s) => s.family === 'noir');
 
   /* ── Image collection ── */
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
+
   const resolvedActiveId = useMemo(
     () =>
       (images.find((img) => img.id === activeId) ?? images[0] ?? null)?.id ??
       null,
     [activeId, images],
   );
+
   const selectManualStageByIndex = useCallback(
     (index: number) => {
       void setManualStageForActiveImage(index);
     },
     [setManualStageForActiveImage],
   );
+
   const {
     activeImageDetections,
     activeSelectedRegion,
@@ -258,8 +272,6 @@ export default memo(function AioRightPanel({
     activeSelectedResolvedRenderMode,
   } = useActiveAioRegionState({ resolvedActiveId: activeId });
 
-  /* ── Cleaner language (self-subscribed; panel renders the cleaner-language
-     section only during the deferred-lane window) ── */
   const cleanerSrcLang = useCleanerStore((s) => s.cleanerSrcLang);
   const setCleanerSrcLang = useCleanerStore((s) => s.setCleanerSrcLang);
 
@@ -298,9 +310,6 @@ export default memo(function AioRightPanel({
   const setLlmSettings = useLlmProvidersStore((s) => s.setLlmSettings);
 
   /* ── AIO pipeline ── */
-  // Single-value slices (T4.3): map/array reads below are narrowed to the
-  // active-image entries or primitive projections — whole-map subscriptions
-  // made the panel re-render with every other image's pipeline churn.
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const setAioSteps = useAioPipelineStore((s) => s.setAioSteps);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
@@ -330,22 +339,20 @@ export default memo(function AioRightPanel({
   );
   const aioGpuStages = useAioPipelineStore((s) => s.aioGpuStages);
   const updateAioGpuStage = useAioPipelineStore((s) => s.updateAioGpuStage);
-  // Snapshot history narrowed to what this panel renders: count (hint
-  // "n/m"), the index, and the active entry by identity.
   const aioPipelineSnapshotCount = useAioPipelineStore(
     (s) => s.aioPipelineSnapshots.length,
   );
   const aioPipelineSnapshotIndex = useAioPipelineStore(
     (s) => s.aioPipelineSnapshotIndex,
   );
+
   const activeAioPipelineSnapshot = useAioPipelineStore((s) => {
     const index = s.aioPipelineSnapshotIndex;
     return index >= 0 && index < s.aioPipelineSnapshots.length
       ? (s.aioPipelineSnapshots[index] ?? null)
       : null;
   });
-  // Active-image manual progress entry only: other images' progress writes no
-  // longer reach the panel.
+
   const activeManualProgress = useAioPipelineStore((s) =>
     resolvedActiveId
       ? (s.aioManualProgressByImage[resolvedActiveId] ?? null)
@@ -356,7 +363,6 @@ export default memo(function AioRightPanel({
     (s) => s.aioMiniBackendRuntimeState,
   );
 
-  // Same derivation as the page-level `enabledStepCount` computation.
   const enabledStepCount = [
     aioSteps.detectText,
     aioSteps.recognizeText,
@@ -371,14 +377,11 @@ export default memo(function AioRightPanel({
     aioPipelineSnapshotIndex >= 0 &&
     aioPipelineSnapshotIndex < aioPipelineSnapshotCount - 1;
 
-  // Same helper as the page-level `aioPipelineStageLabels` memo (T4.3): built
-  // locally so the page no longer forwards the labels through the layout.
   const aioPipelineStageLabels = useMemo(
     () => getAioPipelineStageLabels(t),
     [t],
   );
 
-  // Same derivation as the page-level `aioHasGpuExecutionProfile` value.
   const aioHasGpuExecutionProfile = Boolean(
     aioDeviceInfo?.has_gpu
     || aioMiniBackendRuntimeState?.gpuName
@@ -388,7 +391,6 @@ export default memo(function AioRightPanel({
       && aioMiniBackendRuntimeState.requestedProfile !== 'cpu'),
   );
 
-  // Same helper as the page-level `resolveTooltipText` callback.
   const resolveTooltipText = useCallback(
     (key: string, fallback: string) => {
       const value = t(key as any) as string;
@@ -495,7 +497,7 @@ export default memo(function AioRightPanel({
             <div className="koma-aio-pipeline-controls">
               <button
                 type="button"
-                className="koma-btn koma-btn--ghost"
+                className={noir ? BTN_GHOST_NOIR : "koma-btn koma-btn--ghost"}
                 onClick={rewindAioPipeline}
                 disabled={processing || !canAioRewind}
                 title={t('dashboard.pipeline.prevStep.title')}
@@ -505,7 +507,7 @@ export default memo(function AioRightPanel({
               </button>
               <button
                 type="button"
-                className="koma-btn koma-btn--ghost"
+                className={noir ? BTN_GHOST_NOIR : "koma-btn koma-btn--ghost"}
                 onClick={forwardAioPipeline}
                 disabled={processing || !canAioForward}
                 title={t('dashboard.pipeline.nextStep.title')}
@@ -558,7 +560,7 @@ export default memo(function AioRightPanel({
             <div className="koma-aio-pipeline-controls">
               <button
                 type="button"
-                className="koma-btn koma-btn--primary"
+                className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--primary"}
                 onClick={() => void executeManualStageForActiveImage()}
                 disabled={
                   processing ||
@@ -588,7 +590,7 @@ export default memo(function AioRightPanel({
               </button>
               <button
                 type="button"
-                className="koma-btn koma-btn--ghost"
+                className={noir ? BTN_GHOST_NOIR : "koma-btn koma-btn--ghost"}
                 onClick={skipManualStageForActiveImage}
                 disabled={
                   processing ||
@@ -637,7 +639,7 @@ export default memo(function AioRightPanel({
             <select
               value={cleanerSrcLang}
               onChange={(e) => setCleanerSrcLang(e.target.value)}
-              className="koma-select"
+              className={noir ? SELECT_NOIR : "koma-select"}
               aria-label={t('dashboard.cleaner.ocr.languageAria')}
             >
               {aioLanguageOptions.source.map((opt) => (
@@ -655,7 +657,7 @@ export default memo(function AioRightPanel({
             <select
               value={aioSrcLang}
               onChange={(e) => setAioSrcLang(e.target.value)}
-              className="koma-select"
+              className={noir ? SELECT_NOIR : "koma-select"}
               aria-label={t('dashboard.aio.config.sourceLanguage')}
             >
               {aioLanguageOptions.source.map((opt) => (
@@ -670,7 +672,7 @@ export default memo(function AioRightPanel({
             <select
               value={aioTgtLang}
               onChange={(e) => setAioTgtLang(e.target.value)}
-              className="koma-select"
+              className={noir ? SELECT_NOIR : "koma-select"}
               aria-label={t('dashboard.aio.config.targetLanguage')}
             >
               {aioLanguageOptions.target.map((opt) => (
@@ -699,7 +701,7 @@ export default memo(function AioRightPanel({
               />
             </span>
             <select
-              className="koma-select koma-aio-lang-preset-row__select"
+              className={noir ? SELECT_FLEX_NOIR + ' koma-aio-lang-preset-row__select' : "koma-select koma-aio-lang-preset-row__select"}
               value={
                 aioPresetState.activePresetBySourceLanguage[
                 normalizedAioSourceLanguage
@@ -815,7 +817,7 @@ export default memo(function AioRightPanel({
                         {aioStageLabels[stageKey]}
                       </span>
                       <select
-                        className="koma-select"
+                        className={noir ? SELECT_NOIR : "koma-select"}
                         value={selectedModel}
                         disabled={stageOptions.length === 0}
                         onChange={(e) =>
@@ -1198,7 +1200,7 @@ export default memo(function AioRightPanel({
                     e.target.value as 'original' | 'resize' | 'crop',
                   )
                 }
-                className="koma-select"
+                className={noir ? SELECT_NOIR : "koma-select"}
               >
                 <option value="resize">{t("dashboard.dashboardLlm.resize")}</option>
                 <option value="crop">{t("dashboard.dashboardLlm.crop")}</option>
@@ -1281,7 +1283,7 @@ export default memo(function AioRightPanel({
                   {t('dashboard.status.selectionMode')}
                 </label>
                 <select
-                  className="koma-select"
+                  className={noir ? SELECT_NOIR : "koma-select"}
                   disabled={!canEditActiveRenderStage}
                   value={activeSelectedRenderMode}
                   onChange={(e) =>
@@ -1315,7 +1317,7 @@ export default memo(function AioRightPanel({
               <div className="koma-aio-font-row">
                 <button
                   type="button"
-                  className="koma-btn koma-btn--ghost"
+                  className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--ghost"}
                   onClick={() => void loadRenderFontCatalog()}
                   disabled={fontCatalogLoading}
                 >
@@ -1325,7 +1327,7 @@ export default memo(function AioRightPanel({
                 </button>
                 <button
                   type="button"
-                  className="koma-btn koma-btn--ghost"
+                  className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--ghost"}
                   onClick={() => fontCatalogInputRef.current?.click()}
                   disabled={!isDesktopRuntime || fontCatalogImporting}
                   title={
@@ -1357,7 +1359,7 @@ export default memo(function AioRightPanel({
               {/* Apply style */}
               <button
                 type="button"
-                className="koma-btn koma-btn--ghost koma-btn--full"
+                className={noir ? BTN_PRIMARY_FULL_NOIR : "koma-btn koma-btn--ghost koma-btn--full"}
                 disabled={!canEditActiveRenderStage}
                 onClick={applyActiveRenderStyleToAllRegions}
                 title={t('dashboard.typesetter.applyStyleAll.title')}
@@ -1408,41 +1410,57 @@ export default memo(function AioRightPanel({
             </p>
           )}
           <div className="koma-aio-llm-toggles">
-            <label className="koma-checklist__item">
+            <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
+              <span className={noir ? (aioGpuStages.detectText ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
+                {noir && aioGpuStages.detectText && <span className="h-1.5 w-1.5 bg-ink" />}
+              </span>
               <input
                 type="checkbox"
+                className={noir ? 'sr-only' : undefined}
                 checked={aioGpuStages.detectText}
                 disabled={!aioHasGpuExecutionProfile}
                 onChange={(e) => updateAioGpuStage('detectText', e.target.checked)}
               />
-              <span>{t('dashboard.aio.gpuStages.detect')}</span>
+              <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t('dashboard.aio.gpuStages.detect')}</span>
             </label>
-            <label className="koma-checklist__item">
+            <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
+              <span className={noir ? (aioGpuStages.recognizeText ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
+                {noir && aioGpuStages.recognizeText && <span className="h-1.5 w-1.5 bg-ink" />}
+              </span>
               <input
                 type="checkbox"
+                className={noir ? 'sr-only' : undefined}
                 checked={aioGpuStages.recognizeText}
                 disabled={!aioHasGpuExecutionProfile}
                 onChange={(e) => updateAioGpuStage('recognizeText', e.target.checked)}
               />
-              <span>{t('dashboard.aio.gpuStages.ocr')}</span>
+              <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t('dashboard.aio.gpuStages.ocr')}</span>
             </label>
-            <label className="koma-checklist__item">
+            <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
+              <span className={noir ? (aioGpuStages.segmentText ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
+                {noir && aioGpuStages.segmentText && <span className="h-1.5 w-1.5 bg-ink" />}
+              </span>
               <input
                 type="checkbox"
+                className={noir ? 'sr-only' : undefined}
                 checked={aioGpuStages.segmentText}
                 disabled={!aioHasGpuExecutionProfile}
                 onChange={(e) => updateAioGpuStage('segmentText', e.target.checked)}
               />
-              <span>{t('dashboard.aio.gpuStages.segment')}</span>
+              <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t('dashboard.aio.gpuStages.segment')}</span>
             </label>
-            <label className="koma-checklist__item">
+            <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
+              <span className={noir ? (aioGpuStages.cleanImage ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
+                {noir && aioGpuStages.cleanImage && <span className="h-1.5 w-1.5 bg-ink" />}
+              </span>
               <input
                 type="checkbox"
+                className={noir ? 'sr-only' : undefined}
                 checked={aioGpuStages.cleanImage}
                 disabled={!aioHasGpuExecutionProfile}
                 onChange={(e) => updateAioGpuStage('cleanImage', e.target.checked)}
               />
-              <span>{t('dashboard.aio.gpuStages.clean')}</span>
+              <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t('dashboard.aio.gpuStages.clean')}</span>
             </label>
           </div>
         </AioSection>
@@ -1526,7 +1544,7 @@ export default memo(function AioRightPanel({
           <div className="koma-aio-region__actions">
             <button
               type="button"
-              className="koma-btn koma-btn--ghost"
+              className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--ghost"}
               disabled={!activeSelectedRegion}
               onClick={removeSelectedAioRegion}
             >
@@ -1534,7 +1552,7 @@ export default memo(function AioRightPanel({
             </button>
             <button
               type="button"
-              className="koma-btn koma-btn--ghost"
+              className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--ghost"}
               disabled={!activeSelectedRegion}
               onClick={duplicateSelectedTypographerRegion}
             >
