@@ -84,10 +84,11 @@ export const ModelCardNoir = ({
     "panel-cut-sm hard-hover inline-flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.16em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson disabled:cursor-not-allowed disabled:opacity-40";
   const btnPrimary = `${btnBase} bg-crimson text-ink`;
   const btnGhost = `${btnBase} border border-paper/20 bg-transparent text-paper/70 hover:text-paper`;
+  const btnWarn = `${btnBase} border border-gold/50 bg-gold/10 text-gold`;
 
   const actionButton = (() => {
     if (isActive)
-      return <button type="button" className={btnPrimary} onClick={() => void onCancel(model.id)}>{t("modelCard.action.cancel")}</button>;
+      return <button type="button" className={btnWarn} onClick={() => void onCancel(model.id)}>{t("modelCard.action.cancel")}</button>;
     if (entry.status === "installed")
       return <button type="button" className={btnGhost} onClick={() => void onUninstall(model.id)}><Trash2 size={11} /> {t("modelCard.action.remove")}</button>;
     if (entry.status === "update_available")
