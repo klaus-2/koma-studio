@@ -491,21 +491,6 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
         {/* crimson tape accent */}
         <span className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-gradient-to-r from-crimson via-crimson/40 to-transparent" aria-hidden="true" />
 
-        {/* ═══ BRAND — hanko-framed K ═══ */}
-        <div className="relative z-10 flex items-center gap-2.5">
-          <div className="panel-cut-sm relative grid h-9 w-9 place-items-center bg-crimson shadow-hard-gold">
-            <svg width="18" height="18" viewBox="0 0 132 132" fill="none" aria-hidden="true" className="text-ink">
-              <path d="M46 34 V 98" stroke="currentColor" strokeWidth="11" strokeLinecap="square" />
-              <path d="M46 66 L 96 34" stroke="currentColor" strokeWidth="11" strokeLinecap="square" />
-              <path d="M46 66 L 96 98" stroke="currentColor" strokeWidth="11" strokeLinecap="square" />
-            </svg>
-          </div>
-          <div className="hidden flex-col leading-none sm:flex">
-            <span className="font-display text-sm font-black uppercase tracking-tight text-paper">{t('brand.name')}</span>
-            <span className="kicker !text-[9px] !tracking-[0.3em] !text-paper-dim">{t('brand.studioSuffix')}</span>
-          </div>
-        </div>
-
         {/* ═══ NAVIGATION ═══ */}
         {!isCompactViewport ? (
           <nav className="relative z-10 flex min-w-0 flex-1 items-center gap-1.5" role="tablist" aria-label={t('dashboard.topbar.tools')}>

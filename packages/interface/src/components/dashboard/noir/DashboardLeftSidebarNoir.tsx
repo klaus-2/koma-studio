@@ -117,7 +117,6 @@ export default function DashboardLeftSidebarNoir({
 
   return (
     <aside
-      ref={sidebarRef}
       className={cn(
         'relative flex h-full flex-col overflow-hidden border-r-2 border-crimson/25 bg-ink-2/90 backdrop-blur-xl transition-transform',
         mobileSidebarOpen && 'z-50 translate-x-0',
@@ -131,8 +130,8 @@ export default function DashboardLeftSidebarNoir({
       <div className="halftone pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
       <span className="v-text pointer-events-none absolute -right-1 bottom-32 font-display text-5xl font-black text-outline opacity-25" aria-hidden="true">ファイル</span>
 
-      <div className="relative shrink-0 border-b-2 border-crimson/20 p-3">
-        <div className="relative z-10 flex items-center gap-2.5">
+      <div className="relative z-10 border-b border-paper/10 p-3">
+        <div className="flex items-center gap-2.5">
           <motion.span
             className="grid size-9 shrink-0 -rotate-3 place-items-center bg-crimson font-display text-base font-black text-ink shadow-[2px_2px_0_var(--color-gold)]"
             whileHover={{ rotate: 0 }}
@@ -145,22 +144,22 @@ export default function DashboardLeftSidebarNoir({
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="font-display text-[14px] font-black uppercase tracking-tight text-paper">
                 {t('brand.name')}
-                <span className="font-accent italic text-crimson"> {t('brand.studioSuffix')}</span>
+                <span className="font-serif-accent italic text-crimson"> {t('brand.studioSuffix')}</span>
               </span>
-              <VersionBadge />
             </div>
-            <span className="mt-0.5 block font-mono text-[8px] uppercase tracking-[0.28em] text-paper-dim">
-              {t('dashboard.sidebar.workspace')}
-            </span>
+            <VersionBadge />
           </div>
+          <span className="font-mono text-[8px] uppercase tracking-[0.28em] text-paper-faint">
+            {t('dashboard.sidebar.workspace')}
+          </span>
           {!isCompactViewport && (
             <button
               type="button"
-              ref={desktopSidebarToggleRef as React.LegacyRef<HTMLButtonElement>}
+              ref={desktopSidebarToggleRef}
+              className="k2-mbtn"
               onClick={() => toggleDesktopSidebar(true)}
               title={t('dashboard.sidebar.hide')}
               aria-label={t('dashboard.sidebar.hide')}
-              className="panel-cut-sm grid h-7 w-7 shrink-0 place-items-center bg-ink-3 text-paper-dim transition-colors hover:bg-crimson hover:text-ink"
             >
               <PanelLeftOpen size={15} className="-scale-x-100" />
             </button>
@@ -200,13 +199,11 @@ export default function DashboardLeftSidebarNoir({
             else if (e.key === 'ArrowLeft') { e.preventDefault(); resizeLeftSidebarBy(-sidebarResizeStep); }
             else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); resetLeftSidebarWidth(); }
           }}
-          aria-label={t('dashboard.sidebar.resizeAria')}
-          title={t('dashboard.sidebar.resizeTitle')}
+          aria-label={t('dashboard.sidebar.resizeAria')} title={t('dashboard.sidebar.resizeTitle')}
           className="group absolute right-0 top-0 z-30 flex h-full w-2 cursor-col-resize items-center justify-center hover:bg-crimson/10"
         >
           <span className="flex flex-col text-paper-dim opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true">
-            <ChevronLeft size={10} />
-            <ChevronRight size={10} />
+            <ChevronLeft size={10} /><ChevronRight size={10} />
           </span>
         </button>
       )}
