@@ -1,6 +1,11 @@
+"use client";
+
 import { memo, ReactNode } from "react";
-import loginBackgroundVideo from "@koma/ui/assets/login-background.mp4";
 import { motion, useReducedMotion } from "framer-motion";
+import { Hanko, PrintTicks } from "./koma-ui";
+import { LegalInlineLinks } from "../../legal/LegalInlineLinks";
+import { ThemeFamilySwitch } from "../ThemeFamilySwitch";
+import { useI18n } from "../../../i18n";
 import cl1 from "@koma/ui/assets/cl-before.webp";
 import cl2 from "@koma/ui/assets/cl-after.webp";
 import tl1 from "@koma/ui/assets/tl-before.webp";
@@ -9,10 +14,6 @@ import rd1 from "@koma/ui/assets/cl-before-2.webp";
 import rd2 from "@koma/ui/assets/cl-after-2.webp";
 import aio1 from "@koma/ui/assets/aio-before.webp";
 import aio2 from "@koma/ui/assets/aio-after.webp";
-import { Hanko, PrintTicks } from "./koma-ui";
-import { LegalInlineLinks } from "../../legal/LegalInlineLinks";
-import { ThemeFamilySwitch } from "../ThemeFamilySwitch";
-import { useI18n } from "../../../i18n";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -33,8 +34,6 @@ const stagger = {
   show: { transition: { staggerChildren: 0.09, delayChildren: 0.2 } },
 };
 
-/* ── cover config ─────────────────────────────── */
-
 interface CoverConfig {
   id: string;
   badge?: string;
@@ -44,8 +43,6 @@ interface CoverConfig {
   beforeImg: string;
   afterImg: string;
 }
-
-/* ── floating covers with before/after slider ─── */
 
 const ManhwaCovers = memo(function ManhwaCovers() {
   const { t } = useI18n();
@@ -95,31 +92,21 @@ const ManhwaCovers = memo(function ManhwaCovers() {
     <>
       {covers.map((c) => (
         <div key={c.id} className={`manhwa-float manhwa-float--${c.id}`} aria-hidden="true">
-          {/* ── image comparison slider ── */}
           <div className="manhwa-float__preview">
-            {/* AFTER — base layer (full card) */}
             <img
               className="manhwa-float__img manhwa-float__img--after"
               src={c.afterImg}
               alt=""
-              loading="lazy"
-              decoding="async"
               draggable={false}
             />
-
-            {/* BEFORE — clip-path animated overlay */}
             <div className="manhwa-float__before-wrap">
               <img
                 className="manhwa-float__img manhwa-float__img--before"
                 src={c.beforeImg}
                 alt=""
-                loading="lazy"
-                decoding="async"
                 draggable={false}
               />
             </div>
-
-            {/* Slider bar + handle */}
             <div className="manhwa-float__bar">
               <span className="manhwa-float__handle" />
             </div>
@@ -143,8 +130,6 @@ const ManhwaCovers = memo(function ManhwaCovers() {
   );
 });
 
-/* ── toolkit icons (inline SVGs, same set as the classic shell) ── */
-
 const IconAI = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
     <path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11 6.5 7.5 3 6l3.5-1.5L8 1zm4.5 7l.75 1.75L15 10.5l-1.75.75L12.5 13l-.75-1.75L10 10.5l1.75-.75L12.5 8zM3 10l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2z" />
@@ -163,145 +148,13 @@ const IconBook = () => (
   </svg>
 );
 
-const NoirAuthAside = memo(function NoirAuthAside() {
-  const { t } = useI18n();
-  const reduced = useReducedMotion();
-
-  return (
-    <aside aria-hidden className="relative hidden min-h-dvh flex-1 overflow-hidden border-l border-paper/10 lg:block">
-      <div className="halftone absolute inset-0 opacity-60" />
-      <div className="absolute -right-24 top-20 h-96 w-96 rounded-full bg-crimson/15 blur-[130px]" />
-      <div className="absolute bottom-16 -left-16 h-80 w-80 rounded-full bg-azure/10 blur-[120px]" />
-
-      <span className="text-outline absolute -top-10 left-8 select-none font-display text-[10rem] font-black leading-none tracking-tighter xl:text-[13rem]">
-        KOMA
-      </span>
-
-      <span className="v-text absolute right-7 top-24 font-display text-sm font-bold tracking-[0.55em] text-paper/25">
-        コマ・スタジオ — 漫画工房 — 第二版
-      </span>
-
-      <span className="absolute bottom-44 right-14 -rotate-12 select-none font-display text-7xl font-black text-crimson/15">
-        ドドド!!
-      </span>
-
-      <motion.div
-        variants={stagger}
-        initial={reduced ? "show" : "hidden"}
-        animate="show"
-        className="relative z-10 flex h-full w-full items-center justify-center px-10"
-      >
-        <ManhwaCovers />
-
-        <div className="auth-right-content">
-          <blockquote className="auth-quote">
-            <span className="auth-quote__mark">&ldquo;</span>
-            {t("auth.quote.line1")}
-            <br />
-            {t("auth.quote.line2")}
-            <br />
-            {t("auth.quote.line3")}
-          </blockquote>
-
-          {/* ── Stats ── */}
-          <div className="auth-stats">
-            <div className="auth-stat">
-              <span className="auth-stat__number">{t("auth.stats.activeScanlatorsValue")}</span>
-              <span className="auth-stat__label">{t("auth.stats.activeScanlators")}</span>
-            </div>
-            <div className="auth-stat__sep" />
-            <div className="auth-stat">
-              <span className="auth-stat__number">{t("auth.stats.toolsValue")}</span>
-              <span className="auth-stat__label">{t("auth.stats.tools")}</span>
-            </div>
-            <div className="auth-stat__sep" />
-            <div className="auth-stat">
-              <span className="auth-stat__number">{t("auth.stats.pagesProcessedValue")}</span>
-              <span className="auth-stat__label">{t("auth.stats.pagesProcessed")}</span>
-            </div>
-          </div>
-
-          {/* ── Toolkit tags (organized) ── */}
-          <div className="auth-toolkit">
-            <div className="auth-toolkit__group">
-              <span className="auth-toolkit__label">
-                <IconAI />
-                {t("auth.toolkit.ai")}
-              </span>
-              <div className="auth-toolkit__tags">
-                <span className="auth-genre auth-genre--purple">{t("auth.toolkit.aiClean")}</span>
-                <span className="auth-genre auth-genre--purple">{t("auth.toolkit.aiTranslation")}</span>
-                <span className="auth-genre auth-genre--cyan">{t("auth.toolkit.autoRedraw")}</span>
-              </div>
-            </div>
-
-            <div className="auth-toolkit__group">
-              <span className="auth-toolkit__label">
-                <IconTools />
-                {t("auth.toolkit.tools")}
-              </span>
-              <div className="auth-toolkit__tags">
-                <span className="auth-genre auth-genre--rose">{t("auth.toolkit.advancedEditor")}</span>
-                <span className="auth-genre auth-genre--rose">{t("auth.toolkit.proTypesetting")}</span>
-                <span className="auth-genre auth-genre--amber">{t("auth.toolkit.qualityControl")}</span>
-              </div>
-            </div>
-
-            <div className="auth-toolkit__group">
-              <span className="auth-toolkit__label">
-                <IconBook />
-                {t("auth.toolkit.learning")}
-              </span>
-              <div className="auth-toolkit__tags">
-                <span className="auth-genre auth-genre--emerald">{t("auth.toolkit.guides")}</span>
-                <span className="auth-genre auth-genre--amber">{t("auth.toolkit.resources")}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="auth-community">
-            <div className="auth-community__avatars">
-              <span className="auth-avatar auth-avatar--1" />
-              <span className="auth-avatar auth-avatar--2" />
-              <span className="auth-avatar auth-avatar--3" />
-              <span className="auth-avatar auth-avatar--4" />
-              <span className="auth-avatar auth-avatar--join">{t("auth.community.joinIndicator")}</span>
-            </div>
-            <p className="auth-community__label">{t("auth.community.join")}</p>
-          </div>
-        </div>
-      </motion.div>
-
-      <div className="absolute inset-x-0 bottom-0 border-t border-paper/10 bg-ink/80 py-3 backdrop-blur-sm [mask-image:linear-gradient(90deg,transparent,black_8%,black_92%,transparent)]">
-        <div className="flex w-max animate-marquee gap-10 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.3em] text-paper/40">
-          {[...MARQUEE, ...MARQUEE].map((w, i) => (
-            <span key={i} className="flex items-center gap-10">
-              {w} <span className="text-crimson">✕</span>
-            </span>
-          ))}
-        </div>
-      </div>
-    </aside>
-  );
-});
-
 export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subtitle, children }: AuthShellProps) => {
-  const { t, locale, localeLabels, setLocale, supportedLocales } = useI18n();
   const reduced = useReducedMotion();
+  const { t } = useI18n();
 
   return (
     <div className="koma-noir relative flex min-h-dvh overflow-hidden">
       <ThemeFamilySwitch variant="noir" />
-
-      <video
-        className="koma-bg-video"
-        src={loginBackgroundVideo}
-        autoPlay
-        loop
-        muted
-        playsInline
-        aria-hidden="true"
-      />
 
       <main className="relative z-10 flex w-full items-center justify-center px-5 py-12 lg:w-[46%] lg:px-12">
         <div aria-hidden className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-crimson/10 blur-[130px]" />
@@ -317,12 +170,12 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
           <div className="glass panel-cut relative p-7 sm:p-9">
             <div className="mb-7 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.25em] text-paper/40">
               <span>
-                <span className="text-crimson">{t("auth.noir.cap")}</span>{" "}
-                {activeTab === "login" ? `01 — ${t("auth.tabs.login")}` : `02 — ${t("auth.tabs.register")}`}
+                <span className="text-crimson">Cap.</span>{" "}
+                {activeTab === "login" ? "01 — Entrar" : "02 — Registrar"}
               </span>
               <span className="flex items-center gap-2">
                 <span aria-hidden className="inline-block h-1.5 w-1.5 animate-blink bg-crimson" />
-                {t("auth.noir.serverOnline")}
+                Servidor online
               </span>
             </div>
 
@@ -330,9 +183,9 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
               <Hanko />
               <div>
                 <h1 className="font-display text-[27px] font-black uppercase leading-none tracking-tight text-paper">
-                  {t("brand.name")}{" "}
+                  Koma{" "}
                   <span className="font-accent font-normal normal-case italic tracking-normal text-crimson">
-                    {t("brand.studioSuffix")}
+                    Studio
                   </span>
                   <span className="text-gold">.</span>
                 </h1>
@@ -342,7 +195,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
 
             <div
               role="tablist"
-              aria-label={t("auth.tabs.login")}
+              aria-label="Autenticação"
               className="panel-cut-sm mb-7 grid grid-cols-2 gap-1 border border-paper/10 bg-ink/60 p-1"
             >
               {(["login", "register"] as const).map((tab) => {
@@ -365,7 +218,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
                         transition={{ type: "spring", bounce: 0.18, duration: 0.5 }}
                       />
                     )}
-                    <span className="relative z-10">{tab === "login" ? t("auth.tabs.login") : t("auth.tabs.register")}</span>
+                    <span className="relative z-10">{tab === "login" ? "Entrar" : "Registrar"}</span>
                   </button>
                 );
               })}
@@ -373,32 +226,139 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
 
             {children}
 
-            <footer className="mt-7 flex items-center justify-between gap-3 border-t border-paper/10 pt-4">
+            <footer className="mt-7 border-t border-paper/10 pt-4">
               <p className="font-mono text-[10px] leading-relaxed tracking-wide text-paper/35">
-                {t("auth.legal.reviewDocs")}{" "}
-                <span className="koma-legal-inline">
-                  <LegalInlineLinks />
-                </span>
+                Ao continuar você concorda com os{" "}
+                <LegalInlineLinks />
               </p>
-              <select
-                className="shrink-0 border border-paper/20 bg-transparent px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-paper/60"
-                value={locale}
-                onChange={(event) => setLocale(event.target.value as typeof locale)}
-                aria-label={t("settings.language.label")}
-                title={t("settings.language.title")}
-              >
-                {supportedLocales.map((entry) => (
-                  <option key={entry} value={entry} className="text-ink">
-                    {localeLabels[entry]}
-                  </option>
-                ))}
-              </select>
             </footer>
           </div>
         </motion.section>
       </main>
 
-      <NoirAuthAside />
+      <aside aria-hidden className="relative hidden min-h-dvh flex-1 overflow-hidden border-l border-paper/10 lg:block">
+        <video
+          className="koma-bg-video"
+          src="/resources/login-background.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          aria-hidden="true"
+        />
+        <div className="halftone absolute inset-0 opacity-60" />
+        <div className="absolute -right-24 top-20 h-96 w-96 rounded-full bg-crimson/15 blur-[130px]" />
+        <div className="absolute bottom-16 -left-16 h-80 w-80 rounded-full bg-azure/10 blur-[120px]" />
+
+        <span className="text-outline absolute -top-10 left-8 select-none font-display text-[10rem] font-black leading-none tracking-tighter xl:text-[13rem]">
+          KOMA
+        </span>
+
+        <span className="v-text absolute right-7 top-24 font-display text-sm font-bold tracking-[0.55em] text-paper/25">
+          コマ・スタジオ — 漫画工房 — 第二版
+        </span>
+
+        <span className="absolute bottom-44 right-14 -rotate-12 select-none font-display text-7xl font-black text-crimson/15">
+          ドドド!!
+        </span>
+
+        <motion.div
+          variants={stagger}
+          initial={reduced ? "show" : "hidden"}
+          animate="show"
+          className="relative z-10 flex h-full w-full items-center justify-center px-10"
+        >
+          <ManhwaCovers />
+
+          <div className="auth-right-content">
+            <blockquote className="auth-quote">
+              <span className="auth-quote__mark">&ldquo;</span>
+              {t("auth.quote.line1")}
+              <br />
+              {t("auth.quote.line2")}
+              <br />
+              {t("auth.quote.line3")}
+            </blockquote>
+
+            {/* ── Stats ── */}
+            <div className="auth-stats">
+              <div className="auth-stat">
+                <span className="auth-stat__number">{t("auth.stats.activeScanlatorsValue")}</span>
+                <span className="auth-stat__label">{t("auth.stats.activeScanlators")}</span>
+              </div>
+              <div className="auth-stat__sep" />
+              <div className="auth-stat">
+                <span className="auth-stat__number">{t("auth.stats.toolsValue")}</span>
+                <span className="auth-stat__label">{t("auth.stats.tools")}</span>
+              </div>
+              <div className="auth-stat__sep" />
+              <div className="auth-stat">
+                <span className="auth-stat__number">{t("auth.stats.pagesProcessedValue")}</span>
+                <span className="auth-stat__label">{t("auth.stats.pagesProcessed")}</span>
+              </div>
+            </div>
+
+            {/* ── Toolkit tags (organized) ── */}
+            <div className="auth-toolkit">
+              <div className="auth-toolkit__group">
+                <span className="auth-toolkit__label">
+                  <IconAI />
+                  {t("auth.toolkit.ai")}
+                </span>
+                <div className="auth-toolkit__tags">
+                  <span className="auth-genre auth-genre--purple">{t("auth.toolkit.aiClean")}</span>
+                  <span className="auth-genre auth-genre--purple">{t("auth.toolkit.aiTranslation")}</span>
+                  <span className="auth-genre auth-genre--cyan">{t("auth.toolkit.autoRedraw")}</span>
+                </div>
+              </div>
+
+              <div className="auth-toolkit__group">
+                <span className="auth-toolkit__label">
+                  <IconTools />
+                  {t("auth.toolkit.tools")}
+                </span>
+                <div className="auth-toolkit__tags">
+                  <span className="auth-genre auth-genre--rose">{t("auth.toolkit.advancedEditor")}</span>
+                  <span className="auth-genre auth-genre--rose">{t("auth.toolkit.proTypesetting")}</span>
+                  <span className="auth-genre auth-genre--amber">{t("auth.toolkit.qualityControl")}</span>
+                </div>
+              </div>
+
+              <div className="auth-toolkit__group">
+                <span className="auth-toolkit__label">
+                  <IconBook />
+                  {t("auth.toolkit.learning")}
+                </span>
+                <div className="auth-toolkit__tags">
+                  <span className="auth-genre auth-genre--emerald">{t("auth.toolkit.guides")}</span>
+                  <span className="auth-genre auth-genre--amber">{t("auth.toolkit.resources")}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="auth-community">
+              <div className="auth-community__avatars">
+                <span className="auth-avatar auth-avatar--1" />
+                <span className="auth-avatar auth-avatar--2" />
+                <span className="auth-avatar auth-avatar--3" />
+                <span className="auth-avatar auth-avatar--4" />
+                <span className="auth-avatar auth-avatar--join">{t("auth.community.joinIndicator")}</span>
+              </div>
+              <p className="auth-community__label">{t("auth.community.join")}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <div className="absolute inset-x-0 bottom-0 border-t border-paper/10 bg-ink/80 py-3 backdrop-blur-sm [mask-image:linear-gradient(90deg,transparent,black_8%,black_92%,transparent)]">
+          <div className="flex w-max animate-marquee gap-10 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.3em] text-paper/40">
+            {[...MARQUEE, ...MARQUEE].map((w, i) => (
+              <span key={i} className="flex items-center gap-10">
+                {w} <span className="text-crimson">✕</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </aside>
     </div>
   );
 };

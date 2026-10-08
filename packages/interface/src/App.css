@@ -1852,6 +1852,25 @@ body {
   }
 }
 
+.koma-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  mix-blend-mode: screen;
+  filter: saturate(1.1) contrast(1.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .koma-bg-video {
+    display: none;
+  }
+}
+
 @keyframes spinner-rotate {
   to {
     transform: rotate(360deg);

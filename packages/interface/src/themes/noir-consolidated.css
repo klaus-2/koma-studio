@@ -1005,7 +1005,7 @@ body::before {
 }
 
 /* ── Scoped base for the noir auth surfaces ── */
-.koma-noir {
+:root[data-theme-family='noir'] .koma-noir {
   position: relative;
   background: var(--color-ink);
   color: var(--color-paper);
