@@ -27,6 +27,7 @@
 @import './themes/noir-consolidated.css';
 /* Noir type dock compact sizing */
 @import './themes/type-dock-noir.css';
+@import './themes/noir-app.css';
 
 @custom-variant dark (&:is(.dark *));
 
