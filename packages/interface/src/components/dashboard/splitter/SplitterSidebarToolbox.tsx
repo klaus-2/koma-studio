@@ -83,7 +83,7 @@ export const SplitterSidebarToolbox = ({
               onChange={(e) =>
                 setPreset(e.target.value as typeof recipe.preset)
               }
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             >
               {Object.entries(SPLITTER_PRESET_LABELS).map(([v, l]) => (
                 <option key={v} value={v}>
@@ -102,7 +102,7 @@ export const SplitterSidebarToolbox = ({
                   strategy: e.target.value as SplitStrategy,
                 }))
               }
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             >
               {STRATEGIES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -125,7 +125,7 @@ export const SplitterSidebarToolbox = ({
                   axis: e.target.value as typeof recipe.axis,
                 }))
               }
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             >
               <option value="vertical">{t("splitter.sidebar.vertical")}</option>
               <option value="horizontal">{t("splitter.sidebar.horizontal")}</option>
@@ -141,7 +141,7 @@ export const SplitterSidebarToolbox = ({
                   outputFormat: e.target.value as typeof recipe.outputFormat,
                 }))
               }
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             >
               <option value="png">{t("settings.downloadFormat.png")}</option>
               <option value="jpeg">{t("settings.downloadFormat.jpeg")}</option>

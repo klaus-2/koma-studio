@@ -202,7 +202,7 @@ export default function TranslatorToolsPanel({
           <select
             value={srcLang}
             onChange={(e) => setSrcLang(e.target.value)}
-            className="koma-select"
+            className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             aria-label={t("dashboard.language.source")}
           >
             {sourceLanguageOptions.map((opt) => (
@@ -219,7 +219,7 @@ export default function TranslatorToolsPanel({
           <select
             value={tgtLang}
             onChange={(e) => setTgtLang(e.target.value)}
-            className="koma-select"
+            className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             aria-label={t("dashboard.language.target")}
           >
             {targetLanguageOptions.map((opt) => (
@@ -264,7 +264,7 @@ export default function TranslatorToolsPanel({
                   : ''
               }
               onChange={(e) => setAioRecognizeTextModel(e.target.value)}
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
               disabled={translatorAvailableOcrStageOptions.length === 0}
               aria-label={t("dashboard.translator.ocr")}
             >
@@ -341,7 +341,7 @@ export default function TranslatorToolsPanel({
               onChange={(event) =>
                 selectTranslatorSfxCleanModel(event.target.value)
               }
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
               disabled={translatorSfxCleanModelOptions.length === 0}
               aria-label={t("dashboard.translator.sfx.cleanModel")}
             >

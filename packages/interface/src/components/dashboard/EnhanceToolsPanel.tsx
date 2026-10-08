@@ -96,7 +96,7 @@ export default function EnhanceToolsPanel({
               onChange={(e) =>
                 setEnhanceScale(parseInt(e.target.value, 10) as EnhanceScale)
               }
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             >
               <option value={2}>{t('dashboard.enhance.scale.2x')}</option>
               <option value={4}>{t('dashboard.enhance.scale.4x')}</option>
@@ -109,7 +109,7 @@ export default function EnhanceToolsPanel({
               onChange={(e) =>
                 setEnhanceProfile(e.target.value as EnhanceProfile)
               }
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             >
               {Object.entries(enhanceProfileLabels).map(([v, l]) => (
                 <option key={v} value={v}>
@@ -126,7 +126,7 @@ export default function EnhanceToolsPanel({
             <select
               value={selectedEnhanceModel?.id ?? ''}
               onChange={(e) => setEnhanceModelId(e.target.value)}
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
               disabled={filteredEnhanceModels.length === 0}
             >
               {filteredEnhanceModels.map((m) => (
@@ -143,7 +143,7 @@ export default function EnhanceToolsPanel({
               onChange={(e) =>
                 setEnhanceOutputFormat(e.target.value as 'png' | 'webp')
               }
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             >
               {enhanceOutputFormats.map((o) => (
                 <option key={o.value} value={o.value}>

@@ -346,7 +346,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
 
         {/* ═══ NAVIGATION ═══ */}
         {!isCompactViewport ? (
-          <nav className="relative z-10 flex items-center gap-1.5" role="tablist" aria-label={t('dashboard.topbar.tools')}>
+          <nav className="relative z-10 flex min-w-0 flex-1 items-center gap-1.5" role="tablist" aria-label={t('dashboard.topbar.tools')}>
             <div className="flex items-center gap-1">
               {primaryItems.map((item) => {
                 const Icon = item.icon;
@@ -373,7 +373,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
                       >
                         {isActive && <span className="h-1.5 w-1.5 bg-ink blink-noir" aria-hidden="true" />}
                         <Icon size={13} aria-hidden="true" />
-                        <span>{item.label}</span>
+                        <span className="hidden lg:inline">{item.label}</span>
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="glass panel-cut-sm border-crimson/30">
@@ -432,7 +432,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
         )}
 
         {/* ═══ RIGHT ACTION CLUSTER ═══ */}
-        <div className="relative z-10 ml-auto flex items-center gap-1.5">
+        <div className="relative z-10 ml-auto flex flex-shrink-0 items-center gap-1.5">
           {/* Zoom */}
           <div className="panel-cut-sm flex items-center gap-0.5 bg-ink-3/70 px-1 py-0.5">
             <IconBtn label={t('dashboard.topbar.zoomOut')} onClick={() => onZoomChange(clamp(zoom - ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}>

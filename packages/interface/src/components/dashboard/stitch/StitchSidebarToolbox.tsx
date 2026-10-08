@@ -136,7 +136,7 @@ export const StitchSidebarToolbox = ({
             onChange={(e) =>
               onBatchStrategyChange(e.target.value as StitchBatchStrategy)
             }
-            className="koma-select"
+            className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
           >
             <option value="fixed-count">{t('stitch.sidebar.fixedCount')}</option>
             <option value="target-height">{t('stitch.sidebar.targetAxis')}</option>
@@ -234,7 +234,7 @@ export const StitchSidebarToolbox = ({
                   e.target.value as Exclude<StitchExportFormat, 'zip'>,
                 )
               }
-              className="koma-select"
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             >
               <option value="png">{t("settings.downloadFormat.png")}</option>
               <option value="jpeg">{t("settings.downloadFormat.jpeg")}</option>

@@ -88,7 +88,7 @@ export default function WatermarkDistributionPanel({
         <div className="koma-field">
           <label className="koma-field__label">{t('watermark.distribution.blend')}</label>
           <select
-            className="koma-select"
+            className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
             value={draft.blendMode}
             onChange={(e) => setDraft((current) => ({ ...current, blendMode: e.target.value as WatermarkDraft['blendMode'] }))}
           >

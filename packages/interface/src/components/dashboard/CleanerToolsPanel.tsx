@@ -196,7 +196,7 @@ export default function CleanerToolsPanel({
                 <select
                   value={cleanerSrcLang}
                   onChange={(e) => setCleanerSrcLang(e.target.value)}
-                  className="koma-select"
+                  className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
                   aria-label={t('dashboard.cleaner.ocr.languageAria')}
                 >
                   {sourceLanguageOptions.map((opt) => (
@@ -236,7 +236,7 @@ export default function CleanerToolsPanel({
                       : ''
                   }
                   onChange={(event) => setRecognizeTextModel(event.target.value)}
-                  className="koma-select"
+                  className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
                   disabled={availableOcrStageOptions.length === 0}
                   aria-label={t('dashboard.cleaner.ocr.modelAria')}
                 >
@@ -293,7 +293,7 @@ export default function CleanerToolsPanel({
                   onChange={(event) =>
                     selectSegmentTextModel(event.target.value)
                   }
-                  className="koma-select"
+                  className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
                   disabled={availableSegmentStageOptions.length === 0}
                   aria-label={t('dashboard.cleaner.segment.modelAria')}
                 >
@@ -350,7 +350,7 @@ export default function CleanerToolsPanel({
                   onChange={(event) =>
                     selectCleanImageModel(event.target.value)
                   }
-                  className="koma-select"
+                  className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
                   disabled={availableCleanStageOptions.length === 0}
                   aria-label={t('dashboard.cleaner.clean.modelAria')}
                 >
@@ -402,7 +402,7 @@ export default function CleanerToolsPanel({
                       e.target.value as 'original' | 'resize' | 'crop',
                     )
                   }
-                  className="koma-select"
+                  className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
                 >
                   <option value="resize">{t('dashboard.aio.clean.hdStrategy.resize')}</option>
                   <option value="crop">{t('dashboard.aio.clean.hdStrategy.crop')}</option>
@@ -544,7 +544,7 @@ export default function CleanerToolsPanel({
                     : ''
                 }
                 onChange={(event) => selectCleanerAiModel(event.target.value)}
-                className="koma-select"
+                className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
                 disabled={cleanerAiModelOptions.length === 0}
                 aria-label={t('dashboard.cleaner.ai.modelAria', {
                   value: isAiSfx ? t('dashboard.cleaner.ai.sfxCleaner') : t('dashboard.cleaner.ai.automaticClean')

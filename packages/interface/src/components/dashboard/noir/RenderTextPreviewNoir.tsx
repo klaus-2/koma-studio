@@ -813,6 +813,7 @@ const RenderTextPreviewNoir = ({
                       style={{
                         left: `${centerX}%`,
                         top: `${Math.max(1.5, topY)}%`,
+                        transform: 'translate(-50%, calc(-100% - 8px))',
                       }}
                     >
                       <div className="koma-detect-tooltip__line">

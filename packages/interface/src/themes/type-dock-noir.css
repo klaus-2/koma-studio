@@ -1,0 +1,23 @@
+:root[data-theme-family='noir'] .koma-type-dock {
+  max-width: 440px;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__stepper,
+:root[data-theme-family='noir'] .koma-type-dock__icon-group {
+  height: 28px;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__step-btn,
+:root[data-theme-family='noir'] .koma-type-dock__icon-btn {
+  height: 28px;
+  width: 28px;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__step-val {
+  height: 28px;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__row-sep {
+  height: 28px;
+  width: 1px;
+}

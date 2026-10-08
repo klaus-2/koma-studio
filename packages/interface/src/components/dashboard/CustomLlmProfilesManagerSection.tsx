@@ -83,7 +83,7 @@ export default function CustomLlmProfilesManagerSection({
           <select
             value={draft.id ?? ''}
             onChange={(event) => onLoadProfile(event.target.value)}
-            className="koma-select"
+            className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
           >
             <option value="">{emptyLabel}</option>
             {profiles.map((profile) => (
