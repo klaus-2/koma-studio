@@ -31,9 +31,9 @@ export const ModelProgressBarNoir = ({ progress, onCancel, compact = false }: Mo
 
       <div className="panel-cut-sm relative h-2 overflow-hidden border border-paper/10 bg-ink" role="progressbar" aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100}>
         <motion.div
-          className="stripes-anim h-full bg-crimson bg-[repeating-linear-gradient(-45deg,rgba(7,7,12,0.3)_0_6px,transparent_6px_12px)] bg-[length:17px_17px]"
+          className="stripes-anim h-full w-full origin-left bg-crimson bg-[repeating-linear-gradient(-45deg,rgba(7,7,12,0.3)_0_6px,transparent_6px_12px)] bg-[length:17px_17px]"
           initial={false}
-          animate={{ width: `${percent}%` }}
+          animate={{ scaleX: percent / 100 }}
           transition={{ type: "spring", stiffness: 90, damping: 22 }}
         />
       </div>

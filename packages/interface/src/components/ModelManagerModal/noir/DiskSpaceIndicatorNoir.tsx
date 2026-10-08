@@ -38,9 +38,9 @@ export const DiskSpaceIndicatorNoir = ({
       {diskSpace ? (
         <div aria-hidden className="panel-cut-sm h-1.5 overflow-hidden border border-paper/10 bg-ink">
           <motion.div
-            className={`h-full ${fillColor}`}
-            initial={{ width: 0 }}
-            animate={{ width: `${usagePercent}%` }}
+            className={`h-full w-full origin-left ${fillColor}`}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: usagePercent / 100 }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           />
         </div>
