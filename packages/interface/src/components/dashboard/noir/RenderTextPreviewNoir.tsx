@@ -23,14 +23,11 @@ import type {
   TypographyStylePreset,
 } from '../../../typography/types';
 import type { RenderTextStyle } from '../../../utils/renderText';
-import {
-  cn,
-  isTranslationNoteOverlayRegion,
-} from '../../../utils/dashboard.utils';
-import RenderTextPreviewContextMenu, {
-  type RenderTextPreviewContextMenuState,
-} from '../render-text-preview/RenderTextPreviewContextMenu';
-import RenderTextPreviewTypeDock from '../render-text-preview/RenderTextPreviewTypeDock';
+import { cn, isTranslationNoteOverlayRegion } from '../../../utils/dashboard.utils';
+import type { RenderTextPreviewContextMenuState } from '../render-text-preview/RenderTextPreviewContextMenu';
+import RenderTextPreviewContextMenuNoir from './RenderTextPreviewContextMenuNoir';
+import RenderRegionOverlayBoxNoir from './RenderRegionOverlayBoxNoir';
+import RenderTextPreviewTypeDockNoir from './RenderTextPreviewTypeDockNoir';
 import type { RenderTextPreviewDockAnchor } from '../render-text-preview/useRenderTextPreviewTypeDock';
 import type { RenderTextPreviewInlineEditorState } from '../render-text-preview/useRenderTextPreviewInlineEditor';
 import { useRenderTextPreviewToolFlags } from '../render-text-preview/useRenderTextPreviewToolFlags';
@@ -46,7 +43,6 @@ import {
   drawRegionsToCanvas,
   preloadRegionCanvasFonts,
 } from '../render-text-preview/canvasDrawing';
-import RenderRegionOverlayBox from '../render-text-preview/RenderRegionOverlayBox';
 
 const EMPTY_TYPOGRAPHY_PRESETS: TypographyStylePreset[] = [];
 const EMPTY_TYPOGRAPHY_FOLDERS: TypographyStyleFolder[] = [];
@@ -621,7 +617,17 @@ const RenderTextPreviewNoir = ({
   return (
     <>
       <div
+        role="button"
+        tabIndex={0}
         onClick={onCardSelect}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onCardSelect();
+          }
+        }}
+        aria-label={label}
+        aria-pressed={active}
         data-tour={active ? 'dashboard-active-preview-card' : undefined}
         className={cn(
           'group/card relative flex flex-col gap-2 p-2 transition-all',
@@ -629,7 +635,6 @@ const RenderTextPreviewNoir = ({
         )}
         style={{ zoom }}
       >
-        {/* ═══ LABEL ROW — carimbo de stage ═══ */}
         <div className="glass panel-cut-sm relative flex items-center gap-2 px-2.5 py-1.5">
           <div className="halftone-red pointer-events-none absolute inset-0 opacity-20" aria-hidden="true" />
           {active && <span className="relative h-1.5 w-1.5 bg-crimson blink-noir" aria-hidden="true" />}
@@ -746,7 +751,7 @@ const RenderTextPreviewNoir = ({
                     ? interaction.currentBox
                     : undefined;
                 return (
-                  <RenderRegionOverlayBox
+                  <RenderRegionOverlayBoxNoir
                     key={region.id}
                     region={region}
                     imageWidth={image.width}
@@ -784,7 +789,7 @@ const RenderTextPreviewNoir = ({
                   return (
                     <div
                       key={key}
-                      className="koma-detect-seg-box"
+                      className="koma-detect-seg-box absolute border border-dashed border-mint/60 bg-mint/5"
                       style={{
                         left: `${(sx1 / image.width) * 100}%`,
                         top: `${(sy1 / image.height) * 100}%`,
@@ -809,42 +814,20 @@ const RenderTextPreviewNoir = ({
                   const tooltip = getTooltipContent(hoveredRegion);
                   return (
                     <div
-                      className="koma-detect-tooltip"
-                      style={{
-                        left: `${centerX}%`,
-                        top: `${Math.max(1.5, topY)}%`,
-                        transform: 'translate(-50%, calc(-100% - 8px))',
-                      }}
+                      className="glass panel-cut-sm absolute z-30 flex w-52 flex-col gap-1 border-crimson/30 p-2 shadow-hard-crimson"
+                      style={{ left: `${centerX}%`, top: `${Math.max(1.5, topY)}%`, transform: 'translate(-50%, calc(-100% - 8px))' }}
                     >
-                      <div className="koma-detect-tooltip__line">
-                        <span className="koma-detect-tooltip__label">
-                          {t('detectionPreview.recognized')}
-                        </span>
-                        <span className="koma-detect-tooltip__value">
-                          {tooltip.recognized}
-                        </span>
-                      </div>
-                      <div className="koma-detect-tooltip__line">
-                        <span className="koma-detect-tooltip__label">
-                          {t('detectionPreview.translated')}
-                        </span>
-                        <span className="koma-detect-tooltip__value">
-                          {tooltip.translated}
-                        </span>
-                      </div>
+                      <div className="halftone-red pointer-events-none absolute inset-0 opacity-15" aria-hidden="true" />
+                      <TooltipLine label={t('detectionPreview.recognized')} value={tooltip.recognized} tone="azure" />
+                      <TooltipLine label={t('detectionPreview.translated')} value={tooltip.translated} tone="mint" />
                       {translationNotesEnabled && (
-                        <div className="koma-detect-tooltip__line">
-                          <span className="koma-detect-tooltip__label">{t('detectionPreview.note')}</span>
-                          <span className="koma-detect-tooltip__value">
-                            {tooltip.notes}
-                          </span>
-                        </div>
+                        <TooltipLine label={t('detectionPreview.note')} value={tooltip.notes} tone="gold" />
                       )}
                     </div>
                   );
                 })()}
 
-              <RenderTextPreviewContextMenu
+              <RenderTextPreviewContextMenuNoir
                 contextMenu={contextMenu}
                 targetRegion={contextMenuTargetRegion}
                 editable={editable}
@@ -882,13 +865,14 @@ const RenderTextPreviewNoir = ({
                 const dockLeft = overlayRect.left - stageRect.left + stageScrollLeft + dockAnchor.x;
                 const dockTop = overlayRect.top - stageRect.top + stageScrollTop + dockAnchor.y;
                 return (
-                  <RenderTextPreviewTypeDock
+                  <RenderTextPreviewTypeDockNoir
                     dockLeft={dockLeft}
                     dockTop={dockTop}
                     dockAnchor={dockAnchor}
                     dockRef={dockRef}
                     dockPointerDownRef={dockPointerDownRef}
                     isCompactViewport={isCompactViewport}
+                    selectedRegionId={selectedRegionId}
                     selectedRegion={selectedRegion}
                     selectedRegionStyle={selectedRegionStyle}
                     selectedRegionIsNoteOverlay={selectedRegionIsNoteOverlay}
@@ -911,7 +895,7 @@ const RenderTextPreviewNoir = ({
 
               {draftBox && (
                 <div
-                  className="koma-render-box koma-render-box--draft"
+                  className="absolute border-2 border-dashed border-crimson bg-crimson/10"
                   style={{
                     left: `${(draftBox[0] / image.width) * 100}%`,
                     top: `${(draftBox[1] / image.height) * 100}%`,
@@ -928,6 +912,17 @@ const RenderTextPreviewNoir = ({
     </>
   );
 };
+
+/* ── Tooltip line ── */
+function TooltipLine({ label, value, tone }: { label: string; value: string; tone: 'azure' | 'mint' | 'gold' }) {
+  const toneCls = { azure: 'text-azure', mint: 'text-mint', gold: 'text-gold' }[tone];
+  return (
+    <div className="relative flex flex-col gap-0.5">
+      <span className={cn('font-mono text-[8px] font-bold uppercase tracking-widest', toneCls)}>{label}</span>
+      <span className="line-clamp-2 font-mono text-[10px] leading-tight text-paper">{value}</span>
+    </div>
+  );
+}
 
 // ── Main Component ──
 

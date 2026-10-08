@@ -117,6 +117,7 @@ export default function DashboardLeftSidebarNoir({
 
   return (
     <aside
+      ref={sidebarRef}
       className={cn(
         'relative flex h-full flex-col overflow-hidden border-r-2 border-crimson/25 bg-ink-2/90 backdrop-blur-xl transition-transform',
         mobileSidebarOpen && 'z-50 translate-x-0',
