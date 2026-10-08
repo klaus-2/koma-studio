@@ -2207,6 +2207,7 @@ export const arMessages: TranslationCatalog = {
   'settings.profile.verification': 'التحقق',
   'settings.profile.accountId': 'معرّف الحساب',
   'settings.profile.environment': 'البيئة',
+  'settings.profile.billing': 'الفواتير',
   'settings.profile.unspecified': 'غير محدد',
   'settings.profile.verified': 'مُوثّق',
   'settings.profile.pending': 'قيد الانتظار',

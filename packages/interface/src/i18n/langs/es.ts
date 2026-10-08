@@ -2309,6 +2309,7 @@ export const esMessages: TranslationCatalog = {
   'settings.profile.verification': 'Verificación',
   'settings.profile.accountId': 'ID de cuenta',
   'settings.profile.environment': 'Entorno',
+  'settings.profile.billing': 'Facturación',
   'settings.profile.unspecified': 'No especificado',
   'settings.profile.verified': 'Verificado',
   'settings.profile.pending': 'Pendiente',

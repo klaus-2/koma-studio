@@ -2311,6 +2311,7 @@ export const ruMessages: TranslationCatalog = {
   'settings.profile.verification': 'Верификация',
   'settings.profile.accountId': 'ID аккаунта',
   'settings.profile.environment': 'Окружение',
+  'settings.profile.billing': 'Биллинг',
   'settings.profile.unspecified': 'Не указано',
   'settings.profile.verified': 'Подтверждена',
   'settings.profile.pending': 'Ожидание',

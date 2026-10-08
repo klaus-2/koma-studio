@@ -2267,6 +2267,7 @@ export const ptMessages: TranslationCatalog = {
   'settings.profile.verification': 'Verificação',
   'settings.profile.accountId': 'ID da conta',
   'settings.profile.environment': 'Ambiente',
+  'settings.profile.billing': 'Cobrança',
   'settings.profile.unspecified': 'Não informado',
   'settings.profile.verified': 'Verificado',
   'settings.profile.pending': 'Pendente',

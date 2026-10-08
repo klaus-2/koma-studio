@@ -1,6 +1,7 @@
 import { TranslationCatalog } from '../messages';
 
 export const itMessages: TranslationCatalog = {
+  'settings.profile.billing': 'Fatturazione',
   'app.restricted.title': 'Accesso limitato',
   'app.restricted.description':
     "Questa versione è disponibile solo nell'app desktop ufficiale.",

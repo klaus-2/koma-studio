@@ -2115,6 +2115,7 @@ export const zhMessages: TranslationCatalog = {
   'settings.profile.verification': '验证',
   'settings.profile.accountId': '账号 ID',
   'settings.profile.environment': '环境',
+  'settings.profile.billing': '账单',
   'settings.profile.unspecified': '未指定',
   'settings.profile.verified': '已验证',
   'settings.profile.pending': '待验证',

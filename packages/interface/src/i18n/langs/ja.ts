@@ -2288,6 +2288,7 @@ export const jaMessages: TranslationCatalog = {
   'settings.profile.verification': '認証',
   'settings.profile.accountId': 'アカウントID',
   'settings.profile.environment': '環境',
+  'settings.profile.billing': '課金',
   'settings.profile.unspecified': '未指定',
   'settings.profile.verified': '認証済み',
   'settings.profile.pending': '保留中',

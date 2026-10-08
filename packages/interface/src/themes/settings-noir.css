@@ -125,3 +125,35 @@
   border: 1px solid color-mix(in srgb, var(--noir-paper) 22%, transparent);
   color: var(--noir-paper);
 }
+
+/* ── Tab bar raiz noir (settings) ── */
+:root[data-theme-family='noir'] .koma-stg-tab {
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);
+  background: color-mix(in srgb, var(--noir-ink-3) 60%, transparent);
+  color: color-mix(in srgb, var(--noir-paper) 55%, transparent);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+:root[data-theme-family='noir'] .koma-stg-tab:hover {
+  border-color: color-mix(in srgb, var(--noir-crimson) 40%, transparent);
+  color: var(--noir-paper);
+}
+
+:root[data-theme-family='noir'] .koma-stg-tab--active {
+  border-color: var(--noir-crimson);
+  background: color-mix(in srgb, var(--noir-crimson) 15%, transparent);
+  color: var(--noir-paper);
+  box-shadow: inset 0 0 0 1px var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-stg-tabs {
+  gap: 6px;
+}
+
+:root[data-theme-family='noir'] .koma-stg-item__label:first-letter {
+  text-transform: uppercase;
+}

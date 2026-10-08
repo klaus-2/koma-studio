@@ -2340,6 +2340,7 @@ export const deMessages: TranslationCatalog = {
   'settings.profile.verification': 'Verifizierung',
   'settings.profile.accountId': 'Konto-ID',
   'settings.profile.environment': 'Umgebung',
+  'settings.profile.billing': 'Abrechnung',
   'settings.profile.unspecified': 'Nicht angegeben',
   'settings.profile.verified': 'Verifiziert',
   'settings.profile.pending': 'Ausstehend',

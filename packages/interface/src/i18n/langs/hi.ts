@@ -2276,6 +2276,7 @@ export const hiMessages: TranslationCatalog = {
   'settings.profile.verification': 'Verifikasi',
   'settings.profile.accountId': 'ID Akun',
   'settings.profile.environment': 'Lingkungan',
+  'settings.profile.billing': 'बिलिंग',
   'settings.profile.unspecified': 'Tidak ditentukan',
   'settings.profile.verified': 'Terverifikasi',
   'settings.profile.pending': 'Menunggu',

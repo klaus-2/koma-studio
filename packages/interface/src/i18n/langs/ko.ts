@@ -2228,6 +2228,7 @@ export const koMessages: TranslationCatalog = {
   'settings.profile.verification': '인증',
   'settings.profile.accountId': '계정 ID',
   'settings.profile.environment': '환경',
+  'settings.profile.billing': '결제',
   'settings.profile.unspecified': '지정 안 됨',
   'settings.profile.verified': '인증됨',
   'settings.profile.pending': '대기 중',

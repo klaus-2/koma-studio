@@ -4283,6 +4283,7 @@ export const enMessages = {
   'settings.profile.verification': 'Verification',
   'settings.profile.accountId': 'Account ID',
   'settings.profile.environment': 'Environment',
+  'settings.profile.billing': 'Billing',
   'settings.profile.unspecified': 'Not provided',
   'settings.profile.verified': 'Verified',
   'settings.profile.pending': 'Pending',

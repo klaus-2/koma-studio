@@ -2262,6 +2262,7 @@ export const frMessages: TranslationCatalog = {
   'settings.profile.verification': 'Vérification',
   'settings.profile.accountId': 'Identifiant du compte',
   'settings.profile.environment': 'Environnement',
+  'settings.profile.billing': 'Facturation',
   'settings.profile.unspecified': 'Non spécifié',
   'settings.profile.verified': 'Vérifié',
   'settings.profile.pending': 'En attente',
