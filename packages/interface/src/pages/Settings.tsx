@@ -114,10 +114,10 @@ import type { RenderTextStyle } from "../utils/renderText";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
 import { SettingsTabIcon as TabIcon } from "./settings/SettingsTabIcon";
-import { renderSettingsAppTab } from "./settings/SettingsAppTab";
-import { renderSettingsIntegrationsTab } from "./settings/SettingsIntegrationsTab";
-import { renderSettingsPresetsTab } from "./settings/SettingsPresetsTab";
-import { renderSettingsGeneralTab } from "./settings/SettingsGeneralTab";
+import { renderSettingsAppTab } from "./settings/SettingsAppTabFacade";
+import { renderSettingsIntegrationsTab } from "./settings/SettingsIntegrationsTabFacade";
+import { renderSettingsPresetsTab } from "./settings/SettingsPresetsTabFacade";
+import { renderSettingsGeneralTab } from "./settings/SettingsGeneralTabFacade";
 import type {
   BloggerFeedbackState,
   LocalResetFeedbackState,
