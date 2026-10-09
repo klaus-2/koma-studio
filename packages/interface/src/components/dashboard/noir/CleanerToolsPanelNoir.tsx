@@ -66,8 +66,8 @@ interface CleanerToolsPanelProps {
   } | null;
   processing: boolean;
   imagesCount: number;
-  hasQuotaForCurrentBatch: boolean;
-  quotaLimitButtonTitle: string;
+  hasQuotaForCurrentBatch?: boolean;
+  quotaLimitButtonTitle?: string;
   progress: number;
   handleClean: () => void;
 }
@@ -85,7 +85,7 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
     aioHdResizeLimit, setAioHdResizeLimit, aioHdCropMargin, setAioHdCropMargin,
     aioHdCropTriggerSize, setAioHdCropTriggerSize, cleanerAiAdditionalInstructions,
     setCleanerAiAdditionalInstructions, activeCleanerRunMeta, activeCleanerSelectedRegion,
-    processing, imagesCount, hasQuotaForCurrentBatch, quotaLimitButtonTitle, progress, handleClean,
+    processing, imagesCount, hasQuotaForCurrentBatch = true, quotaLimitButtonTitle = '', progress, handleClean,
   } = props;
 
   const { t } = useI18n();
