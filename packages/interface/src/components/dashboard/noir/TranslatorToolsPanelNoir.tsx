@@ -33,7 +33,7 @@ interface TranslatorToolsPanelProps {
   setAioRecognizeTextModel: (k: string) => void;
   openRecognizeTextManager: () => void;
   translationSelectedModelId: string;
-  modelUserTier: string;
+  modelUserTier?: string;
   modelEntries: Record<string, unknown>;
   availableTranslationStageOptions: any[];
   installedCount: number;
@@ -59,8 +59,8 @@ interface TranslatorToolsPanelProps {
   translatorTextRunning: boolean;
   processing: boolean;
   imagesCount: number;
-  hasQuotaForCurrentBatch: boolean;
-  quotaLimitButtonTitle: string;
+  hasQuotaForCurrentBatch?: boolean;
+  quotaLimitButtonTitle?: string;
   runTranslatorText: () => Promise<void> | void;
   processTranslatorVisual: () => Promise<void> | void;
   handleTranslatorTextImport: React.ChangeEventHandler<HTMLInputElement>;
@@ -83,8 +83,8 @@ export default function TranslatorToolsPanel(props: TranslatorToolsPanelProps) {
     translatorSfxCleanModelOptions, selectedTranslatorSfxCleanOption, selectTranslatorSfxCleanModel,
     translatorSfxAdditionalInstructions, setTranslatorSfxAdditionalInstructions, showLlmSettingsPanel, llmSettings,
     setLlmSettings, clampLlmRequestSettings, translatorTextImportRef, translatorImageImportRef, translatorDraftText,
-    translatorTranslatedText, translatorTextRunning, processing, imagesCount, hasQuotaForCurrentBatch,
-    quotaLimitButtonTitle, runTranslatorText, processTranslatorVisual, handleTranslatorTextImport,
+    translatorTranslatedText, translatorTextRunning, processing, imagesCount, hasQuotaForCurrentBatch = true,
+    quotaLimitButtonTitle = '', runTranslatorText, processTranslatorVisual, handleTranslatorTextImport,
     handleTranslatorImageUpload, activeId, activeTranslatorImageDetectionsCount, activeTranslatorSelectedRegion,
     activeTranslatorSelectedTranslationNotes, retranslateTranslatorRegions,
   } = props;
