@@ -3,21 +3,22 @@
    ============================================================ */
 
 :root[data-theme-family='noir'] {
-  --auth-bg: #060810;
-  --auth-purple: #a855f7;
-  --auth-purple-dim: rgba(168, 85, 247, 0.15);
-  --auth-cyan: #06b6d4;
-  --auth-cyan-dim: rgba(6, 182, 212, 0.12);
-  --auth-rose: #f43f5e;
-  --auth-rose-dim: rgba(244, 63, 94, 0.12);
-  --auth-amber: #f59e0b;
-  --auth-emerald: #10b981;
-  --auth-text: #f1f5f9;
-  --auth-text-muted: rgba(186, 199, 247, 0.55);
-  --auth-card-bg: rgba(10, 12, 24, 0.82);
-  --auth-card-border: rgba(168, 85, 247, 0.1);
-  --auth-input-bg: rgba(6, 8, 18, 0.75);
-  --auth-input-border: rgba(255, 255, 255, 0.08);
+  /* tokens auth mode-adaptive (dark verbatim / light via noir.css) */
+  --auth-bg: var(--noir-auth-bg);
+  --auth-purple: var(--noir-koma-text-secondary);
+  --auth-purple-dim: color-mix(in srgb, var(--noir-koma-text-secondary) 15%, transparent);
+  --auth-cyan: var(--noir-azure);
+  --auth-cyan-dim: color-mix(in srgb, var(--noir-azure) 12%, transparent);
+  --auth-rose: var(--noir-crimson);
+  --auth-rose-dim: color-mix(in srgb, var(--noir-crimson) 12%, transparent);
+  --auth-amber: var(--noir-gold);
+  --auth-emerald: var(--noir-mint);
+  --auth-text: var(--noir-auth-text);
+  --auth-text-muted: color-mix(in srgb, var(--noir-paper) 55%, transparent);
+  --auth-card-bg: color-mix(in srgb, var(--noir-ink-2) 82%, transparent);
+  --auth-card-border: color-mix(in srgb, var(--noir-paper) 10%, transparent);
+  --auth-input-bg: color-mix(in srgb, var(--noir-ink-2) 75%, transparent);
+  --auth-input-border: color-mix(in srgb, var(--noir-paper) 8%, transparent);
   --auth-radius: 16px;
   --auth-radius-lg: 24px;
   --auth-font-body: 'Manrope', 'Segoe UI', system-ui, sans-serif;
@@ -16571,4 +16572,228 @@
     mask-image: none;
     -webkit-mask-image: none;
   }
+}
+
+/* ═══ NOIR: Shortcuts Center (koma-sc-*) — re-skin do KomaModals.css ═══ */
+:root[data-theme-family='noir'] .koma-shortcuts-modal {
+  max-width: min(920px, 96vw);
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);
+  background: color-mix(in srgb, var(--noir-ink-2) 96%, transparent);
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal__header-icon {
+  border: 2px solid var(--noir-crimson);
+  background: color-mix(in srgb, var(--noir-crimson) 10%, transparent);
+  color: var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal__title {
+  font-family: var(--noir-font-display, 'Archivo', sans-serif);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal__subtitle {
+  color: color-mix(in srgb, var(--noir-paper) 55%, transparent);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal__meta-chip {
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);
+  background: color-mix(in srgb, var(--noir-ink-3) 60%, transparent);
+  color: color-mix(in srgb, var(--noir-paper) 60%, transparent);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal-alert--info {
+  border: 1px solid color-mix(in srgb, var(--noir-azure) 30%, transparent);
+  border-left-width: 2px;
+  background: color-mix(in srgb, var(--noir-azure) 8%, transparent);
+  color: color-mix(in srgb, var(--noir-paper) 85%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal-alert--info strong {
+  color: var(--noir-paper);
+}
+
+/* ── Busca ── */
+:root[data-theme-family='noir'] .koma-sc-search__field {
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);
+  background: color-mix(in srgb, var(--noir-ink-3) 60%, transparent);
+  color: color-mix(in srgb, var(--noir-paper) 60%, transparent);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+:root[data-theme-family='noir'] .koma-sc-search__field:focus-within {
+  border-color: var(--noir-crimson);
+  background: color-mix(in srgb, var(--noir-ink-3) 90%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-sc-search__field input {
+  color: var(--noir-paper);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+}
+
+:root[data-theme-family='noir'] .koma-sc-search__field input::placeholder {
+  color: color-mix(in srgb, var(--noir-paper) 35%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-sc-search__count {
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--noir-paper) 45%, transparent);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ── Seções ── */
+:root[data-theme-family='noir'] .koma-sc-section__title {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+:root[data-theme-family='noir'] .koma-sc-section__title::before {
+  border-radius: 0;
+  background: var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-sc-section__count {
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 12%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--noir-paper) 45%, transparent);
+}
+
+/* ── Itens ── */
+:root[data-theme-family='noir'] .koma-sc-item {
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--noir-paper) 2%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-sc-item:hover {
+  background: color-mix(in srgb, var(--noir-paper) 4%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-sc-item--recording {
+  border-color: color-mix(in srgb, var(--noir-crimson) 55%, transparent);
+  background: color-mix(in srgb, var(--noir-crimson) 8%, transparent);
+  box-shadow: none;
+  animation: koma-blink-noir-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes koma-blink-noir-pulse {
+
+  0%,
+  100% {
+    border-color: color-mix(in srgb, var(--noir-crimson) 55%, transparent);
+  }
+
+  50% {
+    border-color: var(--noir-crimson);
+  }
+}
+
+:root[data-theme-family='noir'] .koma-sc-item__name {
+  font-family: 'Archivo', sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+:root[data-theme-family='noir'] .koma-sc-item__desc {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9.5px;
+}
+
+/* ── Keycaps — losango noir com sombra dura ── */
+:root[data-theme-family='noir'] .koma-sc-keycap {
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 18%, transparent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--noir-ink-3) 80%, transparent);
+  color: var(--noir-paper);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--noir-crimson) 28%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-sc-combo-empty {
+  color: color-mix(in srgb, var(--noir-paper) 35%, transparent);
+}
+
+/* ── Ações (Gravar/Restaurar/Limpar) ── */
+:root[data-theme-family='noir'] .koma-sc-actions .koma-btn {
+  border-radius: 0;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+:root[data-theme-family='noir'] .koma-sc-actions .koma-btn--ghost {
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 15%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--noir-paper) 60%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-sc-actions .koma-btn--ghost:hover {
+  border-color: color-mix(in srgb, var(--noir-crimson) 50%, transparent);
+  background: transparent;
+  color: var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-sc-actions .koma-btn--recording {
+  border: 1px solid var(--noir-crimson);
+  background: color-mix(in srgb, var(--noir-crimson) 15%, transparent);
+  color: var(--noir-crimson);
+  animation: koma-blink 1.1s steps(2, jump-none) infinite;
+}
+
+/* ── Erro/empty/footer ── */
+:root[data-theme-family='noir'] .koma-sc-error {
+  border-left: 2px solid var(--noir-crimson);
+  color: var(--noir-crimson);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+}
+
+:root[data-theme-family='noir'] .koma-sc-empty {
+  border: 1px dashed color-mix(in srgb, var(--noir-paper) 18%, transparent);
+  color: color-mix(in srgb, var(--noir-paper) 40%, transparent);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 24px;
+  text-align: center;
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal__btn--primary {
+  border-radius: 0;
+  background: var(--noir-crimson);
+  color: var(--noir-ink-0);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal__btn--primary::after {
+  content: none;
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal__btn--ghost {
+  border: 1px solid color-mix(in srgb, var(--noir-paper) 18%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--noir-paper) 65%, transparent);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+:root[data-theme-family='noir'] .koma-shortcuts-modal .koma-modal__btn--ghost:hover {
+  color: var(--noir-paper);
+  border-color: color-mix(in srgb, var(--noir-crimson) 50%, transparent);
 }
