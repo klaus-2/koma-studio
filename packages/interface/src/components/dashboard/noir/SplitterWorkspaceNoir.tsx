@@ -278,7 +278,7 @@ export const SplitterWorkspaceNoir = ({ controller }: SplitterWorkspaceProps) =>
                 const isSelected = selectedSegmentId === seg.id;
                 return (
                   <div key={seg.id}
-                    className={`absolute cursor-pointer transition-colors ${idx % 2 === 0 ? 'bg-crimson/5' : 'bg-azure/5'} ${isSelected ? '!bg-crimson/20 ring-1 ring-crimson' : ''}`}
+                    className={`absolute cursor-pointer border-0 p-0 transition-colors ${idx % 2 === 0 ? 'bg-crimson/5' : 'bg-azure/5'} ${isSelected ? '!bg-crimson/20 ring-1 ring-crimson' : ''}`}
                     style={activeRecipe.axis === 'vertical' ? { top: startPct, height: sizePct, left: 0, right: 0 } : { left: startPct, width: sizePct, top: 0, bottom: 0 }}
                     onClick={() => setSelectedSegmentId(isSelected ? null : seg.id)}>
                     <span className="absolute left-1 top-1 panel-cut-sm bg-ink/80 px-1.5 py-0.5 font-mono text-[9px] font-bold text-crimson">S{idx + 1}</span>

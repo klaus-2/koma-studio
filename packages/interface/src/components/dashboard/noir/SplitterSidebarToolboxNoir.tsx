@@ -24,7 +24,7 @@ interface SplitterSidebarToolboxProps {
   controller: SplitterController;
   imagesCount: number;
   processing: boolean;
-  hasQuotaForCurrentBatch: boolean;
+  hasQuotaForCurrentBatch?: boolean;
   quotaLimitButtonTitle?: string;
 }
 
@@ -32,8 +32,8 @@ export const SplitterSidebarToolboxNoir = ({
   controller,
   imagesCount,
   processing,
-  hasQuotaForCurrentBatch,
-  quotaLimitButtonTitle,
+  hasQuotaForCurrentBatch = true,
+  quotaLimitButtonTitle = '',
 }: SplitterSidebarToolboxProps) => {
   const { t } = useI18n();
 
