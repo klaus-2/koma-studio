@@ -9,7 +9,6 @@
   --color-azure: var(--noir-azure);
   --color-mint: var(--noir-mint);
   --color-paper-dim: var(--noir-paper-dim);
-  --color-paper-faint: color-mix(in srgb, var(--noir-paper) 28%, transparent);
 
   /* ── Type system ── */
   --font-display: "Archivo", system-ui, sans-serif;

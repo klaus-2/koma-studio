@@ -23,14 +23,18 @@
   --noir-koma-text-secondary: #7a8089;
   --noir-koma-text-primary: #f5f3ee;
   --noir-surface-inset: #181b20;
-  --mm-accent-border: rgba(255, 46, 99, 0.22);
-  --mm-accent-glow: rgba(255, 46, 99, 0.06);
-  --mm-accent-line: rgba(255, 46, 99, 0.25);
-  --mm-accent-line2: rgba(77, 201, 255, 0.12);
-  --mm-accent-focus: rgba(255, 46, 99, 0.55);
-  --mm-accent-dim: rgba(255, 46, 99, 0.5);
-  --mm-accent-ring: rgba(255, 46, 99, 0.12);
-  --mm-modal-bg: rgba(13, 13, 22, 0.96);
+  --auth-purple-dim: color-mix(in srgb, var(--noir-koma-text-secondary) 15%, transparent);
+  --auth-cyan: var(--noir-azure);
+  --auth-cyan-dim: color-mix(in srgb, var(--noir-azure) 12%, transparent);
+  --auth-rose: var(--noir-crimson);
+  --auth-rose-dim: color-mix(in srgb, var(--noir-crimson) 12%, transparent);
+  --auth-amber: var(--noir-gold);
+  --auth-emerald: var(--noir-mint);
+  --auth-text-muted: color-mix(in srgb, var(--noir-paper) 55%, transparent);
+  --auth-card-bg: color-mix(in srgb, var(--noir-ink-2) 82%, transparent);
+  --auth-card-border: color-mix(in srgb, var(--noir-paper) 10%, transparent);
+  --auth-input-bg: color-mix(in srgb, var(--noir-ink-2) 75%, transparent);
+  --auth-input-border: color-mix(in srgb, var(--noir-paper) 8%, transparent);
 }
 
 :root[data-theme-family='noir'][data-theme='light'] {
@@ -49,6 +53,9 @@
   --noir-koma-text-secondary: #5d6470;
   --noir-koma-text-primary: #201d2a;
   --noir-surface-inset: #ece6d8;
+  --auth-text-muted: color-mix(in srgb, var(--noir-paper) 55%, transparent);
+  --auth-card-bg: color-mix(in srgb, var(--noir-ink-2) 82%, transparent);
+  --auth-input-bg: color-mix(in srgb, var(--noir-ink-2) 75%, transparent);
 }
 
 /* ── Tailwind theme tokens (dark palette in source) ── */
@@ -63,7 +70,7 @@
   --color-azure: var(--noir-azure);
   --color-mint: var(--noir-mint);
   --color-paper-dim: var(--noir-paper-dim);
-  --color-paper-faint: color-mix(in srgb, var(--noir-paper) 35%, transparent);
+  --color-paper-faint: color-mix(in srgb, var(--noir-paper) 28%, transparent);
   --ease-noir: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ── Type system ── */
