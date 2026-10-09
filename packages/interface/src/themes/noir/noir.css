@@ -1,13 +1,3 @@
-/* ============================================================
-   KŌMA STUDIO — NOIR THEME FAMILY
-   "Editorial Manga Noir" design system, ported 1:1 from the
-   Noir redesign. Dark values match the source exactly; the
-   light block is a derived palette (ink page becomes paper,
-   paper text becomes ink, accents retuned for contrast).
-   Tailwind v4 utilities used by Noir components resolve these
-   tokens via the @theme inline block below.
-   ============================================================ */
-
 /* ── mode-adaptive palette ───────────────────────── */
 :root[data-theme-family='noir'] {
   /* dark — source palette (@theme) verbatim */

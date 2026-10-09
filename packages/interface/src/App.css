@@ -10,13 +10,13 @@
 @source "../../../packages/auth/src";
 @import 'tw-animate-css';
 /* Noir theme family */
-@import './themes/noir.css';
+@import './themes/noir/noir.css';
 /* Noir settings page re-skin */
-@import './themes/settings-noir.css';
+@import './themes/noir/settings-noir.css';
 /* Noir AIO tools body (koma-aio-* hooks + grain + form primitives) */
-@import './themes/aio-tools-noir.css';
+@import './themes/noir/aio-tools-noir.css';
 /* Noir watermark range thumb */
-@import './themes/watermark-noir.css';
+@import './themes/noir/watermark-noir.css';
 /* Noir enhance/chapter-optimize */
 @import './themes/enhance-noir.css';
 /* Noir blogger/imgur CDN panels */
@@ -28,6 +28,8 @@
 /* Noir type dock compact sizing */
 @import './themes/type-dock-noir.css';
 @import './themes/noir-app.css';
+/* Noir enhance/chapter-optimize */
+@import './themes/noir/enhance-noir.css';
 
 @custom-variant dark (&:is(.dark *));
 
