@@ -50,8 +50,8 @@ interface EnhanceToolsPanelProps {
   enhanceActionBusy: boolean;
   processing: boolean;
   imagesCount: number;
-  hasQuotaForCurrentBatch: boolean;
-  quotaLimitButtonTitle: string;
+  hasQuotaForCurrentBatch?: boolean;
+  quotaLimitButtonTitle?: string;
   setEnhanceModelId: (value: string) => void;
   setEnhanceModelManagerOpen: (value: boolean) => void;
   importSelectedEnhanceModel: () => void;
@@ -194,8 +194,8 @@ export default function EnhanceToolsPanel({
   enhanceActionBusy,
   processing,
   imagesCount,
-  hasQuotaForCurrentBatch,
-  quotaLimitButtonTitle,
+  hasQuotaForCurrentBatch = true,
+  quotaLimitButtonTitle = '',
   setEnhanceModelId,
   setEnhanceModelManagerOpen,
   importSelectedEnhanceModel,
