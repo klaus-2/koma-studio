@@ -718,7 +718,7 @@ const OPEN_SOURCE_PAGE: SeoPage = {
     {
       question: "Is there telemetry in the app?",
       answer:
-        "No. KOMA Studio ships no analytics or usage tracking: your chapters and projects stay on your disk. Network calls are limited to what you configure and opt into — your model providers, plus optional services such as the update check and the account login.",
+        "No. KOMA Studio does not collect usage analytics or page content. It runs locally, and the only network calls are the model requests you configure yourself.",
     },
   ],
   relatedPages: [

@@ -68,8 +68,8 @@ function NavLink({ href, label }: { href: string; label: string }) {
       />
 
       <motion.span
-        className="absolute bottom-1 left-1/2 h-[2px] w-[60%] -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-500 to-cyan-500"
-        animate={{ scaleX: isHovered ? 1 : 0 }}
+        className="absolute bottom-1 left-1/2 h-[2px] w-0 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-500 to-cyan-500"
+        animate={{ width: isHovered ? "60%" : "0%" }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       />
 
@@ -183,9 +183,8 @@ export function Navbar() {
   return (
     <>
       <motion.header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          isScrolled ? "py-2" : "py-4"
-        }`}
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled ? "py-2" : "py-4"
+          }`}
         initial={{ y: -100, opacity: 0 }}
         animate={{
           y: isVisible ? 0 : -100,
@@ -194,11 +193,10 @@ export function Navbar() {
         transition={{ duration: 0.4, ease: "easeOut" }}
       >
         <motion.div
-          className={`absolute inset-0 transition-all duration-500 ${
-            isScrolled
+          className={`absolute inset-0 transition-all duration-500 ${isScrolled
               ? "bg-black/60 backdrop-blur-2xl border-b border-white/[0.06]"
               : "bg-transparent"
-          }`}
+            }`}
           initial={false}
         />
 

@@ -1,23 +1,22 @@
 # Contributing
 
-Thanks for helping out. [KŌMA Studio](https://github.com/klaus-2/koma-studio) is a
-monorepo: this `apps/landing` workspace holds the marketing site, while the desktop
-apps, auth server, and shared packages live alongside it in the same repository.
+Thanks for helping out. This repository is the **landing page** for
+[KŌMA Studio](https://github.com/klaus-2/koma-studio) — the desktop app lives in its own repository.
 
-- Landing page bugs, copy, and SEO → open an issue or PR **here** (under `apps/landing`)
-- Desktop app bugs and features → same repo, but see the
-  [root CONTRIBUTING.md](../../CONTRIBUTING.md) first
+- Landing page bugs, copy, and SEO → open an issue or PR **here**
+- Desktop app bugs and features → [klaus-2/koma-studio](https://github.com/klaus-2/koma-studio/issues)
 - Questions and roadmap talk → [Discord](https://discord.gg/tzaV2efD4e)
 
 ## Getting set up
 
 ```bash
-bun install                # from the repository root — single install for all workspaces
-bun run dev:landing        # http://localhost:3000
+bun install
+bun run dev        # http://localhost:3000
+bun run build      # static export to out/
+bun run lint
 ```
 
-Running from `apps/landing` directly, `bun run dev`, `bun run build`, and `bun run lint`
-work as well. `npm` works too if you do not have Bun installed.
+`npm install` / `npm run dev` work as well.
 
 ## Where things live
 
@@ -49,3 +48,4 @@ platforms, self-hosting, telemetry) live in `src/lib/project.ts` so they stay co
 ## License
 
 By contributing you agree that your work is released under the [MIT license](./LICENSE).
+
