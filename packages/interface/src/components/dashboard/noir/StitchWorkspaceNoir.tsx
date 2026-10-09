@@ -20,8 +20,8 @@ interface StitchWorkspaceProps {
   processing: boolean;
   outQuality: number;
   ensureVerifiedEmailOrNotify: () => boolean;
-  ensureQuotaBeforeProcessing: (pages: number, processMode?: string) => boolean;
-  hasQuotaForCurrentBatch: boolean;
+  ensureQuotaBeforeProcessing?: (pages: number, processMode?: string) => boolean;
+  hasQuotaForCurrentBatch?: boolean;
   quotaLimitButtonTitle?: string;
   isDesktopRuntime: boolean;
   registerDownloads: (items: Array<{ fileName: string; blob: Blob; sourceImageId: string }>, scope: 'stitch') => void;
@@ -29,7 +29,7 @@ interface StitchWorkspaceProps {
   setProcessing: (value: boolean) => void;
   setProgress: (value: number) => void;
   setStatusMessage: (message: string) => void;
-  syncUsageAfterProcessing: (pages: number) => Promise<void>;
+  recordProcessedPages: (pages: number) => void;
 }
 
 type ActiveTask = { cancel: () => void };
@@ -111,7 +111,7 @@ const runRenderJob = (job: StitchRenderJob, onProgress?: (progress: number) => v
     };
   }
 
-  const worker = new Worker(new URL('./stitchWorker.ts', import.meta.url), { type: 'module' });
+  const worker = new Worker(new URL('../stitch/stitchWorker.ts', import.meta.url), { type: 'module' });
   let settled = false;
   const promise = new Promise<WorkerSuccess>((resolve, reject) => {
     worker.onmessage = (event: MessageEvent<
@@ -148,8 +148,8 @@ const runRenderJob = (job: StitchRenderJob, onProgress?: (progress: number) => v
 
 export const StitchWorkspaceNoir = ({
   images, batchPlans, selectedBatchIndex, onSelectBatchIndex, layoutMode, gap, alignMode, background, singleExportFormat, safeFileStem,
-  processing, outQuality, ensureVerifiedEmailOrNotify, ensureQuotaBeforeProcessing, hasQuotaForCurrentBatch, quotaLimitButtonTitle,
-  isDesktopRuntime, registerDownloads, triggerBlobDownload, setProcessing, setProgress, setStatusMessage, syncUsageAfterProcessing,
+  processing, outQuality, ensureVerifiedEmailOrNotify, ensureQuotaBeforeProcessing = () => true, hasQuotaForCurrentBatch = true, quotaLimitButtonTitle = '',
+  isDesktopRuntime, registerDownloads, triggerBlobDownload, setProcessing, setProgress, setStatusMessage, recordProcessedPages,
 }: StitchWorkspaceProps) => {
   const { t } = useI18n();
   const tRef = useRef(t);
@@ -286,7 +286,7 @@ export const StitchWorkspaceNoir = ({
       const extension = getExtensionFromMimeType(result.blob.type);
       const fileName = `${safeFileStem}_${String(selectedBatchIndex + 1).padStart(3, '0')}.${extension}`;
       registerDownloads([{ fileName, blob: result.blob, sourceImageId: selectedBatchImages[0]?.id ?? '' }], 'stitch');
-      await syncUsageAfterProcessing(selectedBatchImages.length);
+      recordProcessedPages(selectedBatchImages.length);
       setStatusMessage(t('stitch.workspace.batchReady', { current: selectedBatchIndex + 1 }));
     } catch (error) {
       if (error instanceof Error && error.message === 'stitch.error.cancelled') return;
@@ -297,7 +297,7 @@ export const StitchWorkspaceNoir = ({
       setProcessing(false);
       setProgress(0);
     }
-  }, [batchPlans.length, buildRenderJobForBatch, ensureQuotaBeforeProcessing, ensureVerifiedEmailOrNotify, registerDownloads, resolveStitchError, safeFileStem, selectedBatch, selectedBatchImages, selectedBatchIndex, setProcessing, setProgress, setStatusMessage, singleExportFormat, syncUsageAfterProcessing, t]);
+  }, [batchPlans.length, buildRenderJobForBatch, ensureQuotaBeforeProcessing, ensureVerifiedEmailOrNotify, registerDownloads, resolveStitchError, safeFileStem, selectedBatch, selectedBatchImages, selectedBatchIndex, setProcessing, setProgress, setStatusMessage, singleExportFormat, recordProcessedPages, t]);
 
   const exportAllBatchesAsZip = useCallback(async () => {
     if (batchPlans.length === 0) return;
@@ -322,7 +322,7 @@ export const StitchWorkspaceNoir = ({
         zipFiles[`${safeFileStem}_${String(batchIndex + 1).padStart(3, '0')}.${extension}`] = new Uint8Array(await result.blob.arrayBuffer());
       }
       triggerBlobDownload(new Blob([zipSync(zipFiles, { level: 6 })], { type: 'application/zip' }), `${safeFileStem}.zip`);
-      await syncUsageAfterProcessing(totalPages);
+      recordProcessedPages(totalPages);
       setStatusMessage(t('stitch.workspace.zipReady', { count: batchPlans.length }));
     } catch (error) {
       if (error instanceof Error && error.message === 'stitch.error.cancelled') return;
@@ -333,7 +333,7 @@ export const StitchWorkspaceNoir = ({
       setProcessing(false);
       setProgress(0);
     }
-  }, [batchPlans, buildRenderJobForBatch, ensureQuotaBeforeProcessing, ensureVerifiedEmailOrNotify, resolveStitchError, safeFileStem, setProcessing, setProgress, setStatusMessage, singleExportFormat, syncUsageAfterProcessing, t, triggerBlobDownload]);
+  }, [batchPlans, buildRenderJobForBatch, ensureQuotaBeforeProcessing, ensureVerifiedEmailOrNotify, resolveStitchError, safeFileStem, setProcessing, setProgress, setStatusMessage, singleExportFormat, recordProcessedPages, t, triggerBlobDownload]);
 
   const exportAllBatchesToDirectory = useCallback(async () => {
     if (!canUseDirectoryPicker() || batchPlans.length === 0) return;
@@ -357,7 +357,7 @@ export const StitchWorkspaceNoir = ({
         await writable.write(result.blob);
         await writable.close();
       }
-      await syncUsageAfterProcessing(totalPages);
+      recordProcessedPages(totalPages);
       setStatusMessage(t('stitch.workspace.folderReady'));
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -372,7 +372,7 @@ export const StitchWorkspaceNoir = ({
       setProcessing(false);
       setProgress(0);
     }
-  }, [batchPlans, buildRenderJobForBatch, ensureQuotaBeforeProcessing, ensureVerifiedEmailOrNotify, resolveStitchError, safeFileStem, setProcessing, setProgress, setStatusMessage, singleExportFormat, syncUsageAfterProcessing, t]);
+  }, [batchPlans, buildRenderJobForBatch, ensureQuotaBeforeProcessing, ensureVerifiedEmailOrNotify, resolveStitchError, safeFileStem, setProcessing, setProgress, setStatusMessage, singleExportFormat, recordProcessedPages, t]);
 
   const selectedBatchHasPrevious = selectedBatchIndex > 0;
   const selectedBatchHasNext = selectedBatchIndex < batchPlans.length - 1;
@@ -440,7 +440,7 @@ export const StitchWorkspaceNoir = ({
                 <span>{t('stitch.workspace.generatingPreview', { progress: Math.round(previewProgress) })}</span>
               </div>
               <div className="h-1.5 overflow-hidden bg-ink">
-                <motion.div className="h-full bg-crimson" animate={{ width: `${previewProgress}%` }} transition={{ ease: EASE }} />
+                <motion.div className="h-full w-full origin-left bg-crimson" animate={{ scaleX: previewProgress / 100 }} transition={{ ease: EASE }} />
               </div>
             </div>
           )}
@@ -476,9 +476,8 @@ export const StitchWorkspaceNoir = ({
               const active = selectedBatchIndex === idx;
               return (
                 <button key={batch.id} type="button" onClick={() => onSelectBatchIndex(idx)}
-                  className={`panel-cut-sm block w-full space-y-2 border p-3 text-left transition-all duration-200 ${
-                    active ? 'border-crimson/60 bg-crimson/8 -translate-x-0.5 -translate-y-0.5 shadow-[4px_4px_0_rgba(255,46,99,0.25)]' : 'border-paper/10 bg-ink hover:border-paper/25'
-                  }`}>
+                  className={`panel-cut-sm block w-full space-y-2 border p-3 text-left transition-all duration-200 ${active ? 'border-crimson/60 bg-crimson/8 -translate-x-0.5 -translate-y-0.5 shadow-[4px_4px_0_rgba(255,46,99,0.25)]' : 'border-paper/10 bg-ink hover:border-paper/25'
+                    }`}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="font-display text-[12px] font-bold uppercase tracking-tight text-paper">{t('stitch.workspace.batchCardTitle', { index: idx + 1 })}</div>
