@@ -129,7 +129,7 @@ const defaultSupportsDirectorySave = (): boolean =>
 const defaultCreateWorker = (): Worker | null => {
   if (typeof Worker === 'undefined') return null;
   try {
-    return new Worker(new URL('./watermarkWorker.ts', import.meta.url), {
+    return new Worker(new URL('../watermark/watermarkWorker.ts', import.meta.url), {
       type: 'module',
     });
   } catch {
@@ -208,11 +208,11 @@ const WatermarkWorkspaceNoir = ({
   setProgress,
   setStatusMessage,
   ensureVerifiedEmailOrNotify,
-  ensureQuotaBeforeProcessing,
-  hasQuotaForCurrentBatch,
-  quotaLimitButtonTitle,
+  ensureQuotaBeforeProcessing = () => true,
+  hasQuotaForCurrentBatch = true,
+  quotaLimitButtonTitle = '',
   registerDownloads,
-  syncUsageAfterProcessing,
+  recordProcessedPages,
   buildOutputName = defaultBuildOutputName,
   triggerBlobDownload,
   supportsDirectorySave = defaultSupportsDirectorySave,
@@ -233,11 +233,11 @@ const WatermarkWorkspaceNoir = ({
   setProgress: (progress: number) => void;
   setStatusMessage: (message: string) => void;
   ensureVerifiedEmailOrNotify: () => boolean;
-  ensureQuotaBeforeProcessing: (count: number, toolName: string) => boolean;
-  hasQuotaForCurrentBatch: boolean;
-  quotaLimitButtonTitle: string;
+  ensureQuotaBeforeProcessing?: (count: number, toolName: string) => boolean;
+  hasQuotaForCurrentBatch?: boolean;
+  quotaLimitButtonTitle?: string;
   registerDownloads: (downloads: { fileName: string; blob: Blob; sourceImageId: string }[], tool: string) => void;
-  syncUsageAfterProcessing: (count: number) => Promise<void>;
+  recordProcessedPages: (count: number) => void;
   buildOutputName?: (originalName: string, draft: WatermarkDraft, outputType: string) => string;
   triggerBlobDownload: (blob: Blob, fileName: string) => void;
   supportsDirectorySave?: () => boolean;
@@ -291,7 +291,7 @@ const WatermarkWorkspaceNoir = ({
   );
   const [autoSuggestion, setAutoSuggestion] = useState(
     workspaceState?.autoSuggestion ??
-      t('watermark.autoSuggestionHint'),
+    t('watermark.autoSuggestionHint'),
   );
   const [compareMode, setCompareMode] = useState<'split' | 'preview'>(
     workspaceState?.compareMode ?? 'split',
@@ -733,11 +733,11 @@ const WatermarkWorkspaceNoir = ({
       c.map((e) =>
         e.id === p.id
           ? {
-              ...e,
-              name: nn,
-              updatedAt: new Date().toISOString(),
-              settings: draft,
-            }
+            ...e,
+            name: nn,
+            updatedAt: new Date().toISOString(),
+            settings: draft,
+          }
           : e,
       ),
     );
@@ -830,7 +830,7 @@ const WatermarkWorkspaceNoir = ({
         })),
         'watermark',
       );
-      await syncUsageAfterProcessing(images.length);
+      recordProcessedPages(images.length);
       setStatusMessageRef.current(t('watermark.status.appliedCount', { count: nr.length }));
     } catch (e) {
       revokeEntries(nr);
@@ -850,7 +850,7 @@ const WatermarkWorkspaceNoir = ({
     runRender,
     setProcessing,
     setProgress,
-    syncUsageAfterProcessing,
+    recordProcessedPages,
     t,
   ]);
 
@@ -941,9 +941,8 @@ const WatermarkWorkspaceNoir = ({
             const active = selectedPresetId === p.id;
             return (
               <button key={p.id} type="button" onClick={() => applyPreset(p)}
-                className={`panel-cut-sm flex flex-col gap-0.5 border p-2 text-left transition-all duration-150 ${
-                  active ? 'border-crimson/60 bg-crimson/10 -translate-x-0.5 -translate-y-0.5 shadow-[3px_3px_0_rgba(255,46,99,0.3)]' : 'border-paper/10 bg-ink hover:border-paper/25'
-                }`}>
+                className={`panel-cut-sm flex flex-col gap-0.5 border p-2 text-left transition-all duration-150 ${active ? 'border-crimson/60 bg-crimson/10 -translate-x-0.5 -translate-y-0.5 shadow-[3px_3px_0_rgba(255,46,99,0.3)]' : 'border-paper/10 bg-ink hover:border-paper/25'
+                  }`}>
                 <span className="truncate font-display text-[11px] font-bold uppercase tracking-tight">{p.name}</span>
                 <span className={`font-mono text-[8px] uppercase tracking-wider ${p.kind === 'builtin' ? 'text-azure' : 'text-mint'}`}>
                   {p.kind === 'builtin' ? t('watermark.presets.builtin') : t('watermark.presets.user')}
