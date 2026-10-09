@@ -94,12 +94,8 @@ interface ChapterOptimizerWorkspaceProps {
   setStatusMessage: (message: string) => void;
 }
 
-export interface ChapterOptimizerWorkspaceState {
-  recipe: OptimizationRecipe;
-  selectedPreset: OptimizationPreset;
-  activeImageId: string | null;
-  results: OptimizationResult[];
-}
+// usa o State do koma (recipe Partial — persistido do clássico)
+type ChapterOptimizerWorkspaceState = import('../ChapterOptimizerWorkspace.types').ChapterOptimizerWorkspaceState;
 
 interface WritableLike {
   write: (data: Blob) => Promise<void>;
@@ -247,6 +243,33 @@ const PRESET_META: Record<
   },
 };
 
+type OptimizerPersistedRecipe = Omit<Partial<OptimizationRecipe>, 'preset' | 'sharpen'> & {
+  preset?: OptimizationPreset | 'manga';
+  sharpen?: boolean | number;
+};
+
+const normalizeRecipe = (
+  input?: OptimizerPersistedRecipe | null,
+): OptimizationRecipe => {
+  const preset =
+    input?.preset && input.preset in PRESET_RECIPES && input.preset !== 'manga'
+      ? (input.preset as OptimizationPreset)
+      : 'web-light';
+  const base = PRESET_RECIPES[preset];
+  return {
+    ...base,
+    ...input,
+    preset,
+    sharpen: typeof input?.sharpen === 'number'
+      ? input.sharpen > 0
+      : input?.sharpen ?? base.sharpen,
+    sharpenStrength:
+      typeof input?.sharpen === 'number'
+        ? input.sharpen
+        : input?.sharpenStrength ?? base.sharpenStrength,
+  } as OptimizationRecipe;
+};
+
 const ROTATION_OPTIONS = [0, 90, 180, 270] as const;
 
 const ZOOM_LEVELS = [
@@ -332,7 +355,7 @@ const runOptimizerJob = (
   }
 
   const worker = new Worker(
-    new URL('./optimizerWorker.ts', import.meta.url),
+    new URL('../optimizerWorker.ts', import.meta.url),
     {
       type: 'module',
     },
@@ -655,7 +678,9 @@ export default function ChapterOptimizerWorkspace({
   const [recipe, setRecipe] =
     useState<OptimizationRecipe>(() => {
       if (workspaceState?.recipe) {
-        return workspaceState.recipe;
+        return normalizeRecipe(
+          workspaceState.recipe as OptimizerPersistedRecipe,
+        );
       }
 
       if (typeof window === 'undefined') {
@@ -843,18 +868,21 @@ export default function ChapterOptimizerWorkspace({
     }
   }, [activeImageId, images]);
 
-  useEffect(() => {
-    if (!workspaceState) return;
 
-    setRecipe(workspaceState.recipe);
-    setSelectedPreset(
-      workspaceState.selectedPreset,
-    );
-    setActiveImageId(
-      workspaceState.activeImageId,
-    );
-    setResults(workspaceState.results);
-  }, [restoreToken, workspaceState]);
+  const [prevRestoreToken, setPrevRestoreToken] = useState(restoreToken);
+  if (prevRestoreToken !== restoreToken) {
+    setPrevRestoreToken(restoreToken);
+    if (workspaceState) {
+      setRecipe(
+        normalizeRecipe(
+          workspaceState.recipe as OptimizerPersistedRecipe,
+        ),
+      );
+      setSelectedPreset(workspaceState.selectedPreset);
+      setActiveImageId(workspaceState.activeImageId);
+      setResults(workspaceState.results);
+    }
+  }
 
   useEffect(() => {
     try {
@@ -2110,7 +2138,7 @@ export default function ChapterOptimizerWorkspace({
                     className="h-full bg-crimson"
                     animate={{
                       width: `${(batchProgress.current /
-                          batchProgress.total) *
+                        batchProgress.total) *
                         100
                         }%`,
                     }}
@@ -2262,7 +2290,7 @@ export default function ChapterOptimizerWorkspace({
                   disabled={
                     zoomLevel >=
                     (ZOOM_LEVELS[
-                    ZOOM_LEVELS.length - 1
+                      ZOOM_LEVELS.length - 1
                     ] ?? 0)
                   }
                   onClick={handleZoomIn}
