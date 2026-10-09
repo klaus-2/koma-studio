@@ -1,6 +1,5 @@
 /* ── mode-adaptive palette ───────────────────────── */
 :root[data-theme-family='noir'] {
-  /* dark — source palette (@theme) verbatim */
   --noir-ink-0: #07070c;
   --noir-ink-2: #0d0d16;
   --noir-ink-3: #151522;
@@ -9,6 +8,21 @@
   --noir-gold: #ffc857;
   --noir-azure: #4dc9ff;
   --noir-mint: #3ef2b0;
+}
+
+:root[data-theme-family='noir'] {
+  --auth-bg: var(--noir-auth-bg);
+  --auth-text: var(--noir-auth-text);
+  --auth-purple: var(--noir-koma-text-secondary);
+  --koma-text-secondary: var(--noir-koma-text-secondary);
+  --koma-text-primary: var(--noir-koma-text-primary);
+  --koma-surface-inset: var(--noir-surface-inset);
+  --noir-auth-bg: #0b0b12;
+  --noir-auth-text: #f5f3ee;
+  --noir-paper-dim: #a8a396;
+  --noir-koma-text-secondary: #7a8089;
+  --noir-koma-text-primary: #f5f3ee;
+  --noir-surface-inset: #181b20;
   --mm-accent-border: rgba(255, 46, 99, 0.22);
   --mm-accent-glow: rgba(255, 46, 99, 0.06);
   --mm-accent-line: rgba(255, 46, 99, 0.25);
@@ -29,6 +43,12 @@
   --noir-gold: #a87b0e;
   --noir-azure: #0b83bd;
   --noir-mint: #0a8f63;
+  --noir-auth-bg: #f2ede3;
+  --noir-auth-text: #16141e;
+  --noir-paper-dim: #6d675c;
+  --noir-koma-text-secondary: #5d6470;
+  --noir-koma-text-primary: #201d2a;
+  --noir-surface-inset: #ece6d8;
 }
 
 /* ── Tailwind theme tokens (dark palette in source) ── */
@@ -42,13 +62,8 @@
   --color-gold: var(--noir-gold);
   --color-azure: var(--noir-azure);
   --color-mint: var(--noir-mint);
-  --color-paper-dim: #a8a396;
+  --color-paper-dim: var(--noir-paper-dim);
   --color-paper-faint: color-mix(in srgb, var(--noir-paper) 35%, transparent);
-  --koma-text-secondary: #7a8089;
-  --koma-text-primary: #f5f3ee;
-  --koma-surface-inset: #181b20;
-  --auth-purple: #7a8089;
-
   --ease-noir: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ── Type system ── */

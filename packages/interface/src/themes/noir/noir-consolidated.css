@@ -1,15 +1,15 @@
-@theme {
-  /* ── Ink & Paper palette ── */
-  --color-ink: #07070c;
-  --color-ink-2: #0d0d16;
-  --color-ink-3: #151522;
-  --color-paper: #f2ede3;
-  --color-crimson: #ff2e63;
-  --color-gold: #ffc857;
-  --color-azure: #4dc9ff;
-  --color-mint: #3ef2b0;
-  --color-paper-dim: #a8a396;
-  --color-paper-faint: rgba(242, 237, 227, 0.28);
+@theme inline {
+  /* ── Ink & Paper palette — aliases mode-adaptive ── */
+  --color-ink: var(--noir-ink-0);
+  --color-ink-2: var(--noir-ink-2);
+  --color-ink-3: var(--noir-ink-3);
+  --color-paper: var(--noir-paper);
+  --color-crimson: var(--noir-crimson);
+  --color-gold: var(--noir-gold);
+  --color-azure: var(--noir-azure);
+  --color-mint: var(--noir-mint);
+  --color-paper-dim: var(--noir-paper-dim);
+  --color-paper-faint: color-mix(in srgb, var(--noir-paper) 28%, transparent);
 
   /* ── Type system ── */
   --font-display: "Archivo", system-ui, sans-serif;
