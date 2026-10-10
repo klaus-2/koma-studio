@@ -6,6 +6,8 @@
 [![Discord](https://img.shields.io/badge/Discord-join%20us-5865F2?logo=discord)](https://discord.gg/tzaV2efD4e)
 [![Website](https://img.shields.io/badge/website-koma--studio.site-111827)](https://koma-studio.site/)
 
+![KŌMA Studio — 15s preview](docs/media/koma-studio-promo.mp4)
+
 **A free, open-source desktop toolkit for scanlation**: detection, OCR, translation,
 cleaning, typesetting and export, running locally on your machine.
 
@@ -22,6 +24,24 @@ Drop in manga, manhwa or manhua pages and get a fully typeset translation out. O
 workspace bundles the whole pipeline: bubble and text detection, OCR, machine
 translation, text erasure (inpainting) and a typesetting editor.
 
+The whole job is one pipeline, six stages, in this order:
+
+| Stage | What happens |
+|---|---|
+| **Detect** | Locate the text and bubble regions on the page |
+| **OCR** | Extract the textual content of each region |
+| **Translate** | Translate it with the model or service you picked |
+| **Segment** | Refine the region geometry into renderable lines |
+| **Clean** | Inpaint the source text away (AOT/LaMa + mask) |
+| **Render** | Draw the translated text back into the image |
+
+Run it end to end in one click (**AIO automatic**), or open it up and take
+manual control of each stage — rewind, re-run, skip, adjust the region on the
+page, then continue. Below the pipeline sit the individual tools: **Cleaner &
+Redrawer**, **Typesetter**, **Translator**, **Stitch**, **Smart Split**,
+**Watermark**, **Enhance**, **Chapter Optimizer**, plus **Blogger CDN** and
+**Imgur** publishing.
+
 - **100% free.** No plans, tiers, quotas, credits or paid features. If you bring your
   own API key for a cloud AI provider, you talk to that provider directly.
 - **Local first.** Detection, OCR, inpainting and offline translation run on your own
@@ -29,6 +49,7 @@ translation, text erasure (inpainting) and a typesetting editor.
   from public repositories and cached locally.
 - **No telemetry.** The app does not collect analytics, usage statistics or behavioural
   data.
+- **MIT licensed.** Bring your own models, CUDA/CPU/TensorRT/OpenVINO aware.
 
 ## Project status
 
