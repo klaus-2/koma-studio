@@ -60,7 +60,6 @@ _pyarmor_obfuscated
 test-results/
 playwright-report/
 tests/e2e/.artifacts/
-tests/e2e/probe-out/
 
 # ── Logs ──────────────────────────────────────────────────
 logs/
@@ -99,3 +98,4 @@ desktop.ini
 *.sw?
 .zcode-e2e/
 react-doctor-*.json
+/apps/tauri/tests
