@@ -1,118 +1,69 @@
-import { KomaLogo } from "./ui/KomaLogo";
+import { Star } from "lucide-react";
 import { GitHubIcon } from "./ui/GitHubIcon";
-import {
-  SITE_DISCORD_URL,
-  SITE_GITHUB_URL,
-  SITE_ISSUES_URL,
-  SITE_LICENSE,
-  SITE_LICENSE_URL,
-  SITE_RELEASES_URL,
-} from "@/lib/site";
+import { SITE_CONFIG } from "@/lib/data";
 
-const footerLinks = {
-  Product: [
-    { label: "Features", href: "/features" },
-    { label: "Preview", href: "/app-preview" },
-    { label: "Workflow", href: "/workflow" },
-    { label: "Download", href: "/download" },
-  ],
-  "Open Source": [
-    { label: "GitHub repository", href: SITE_GITHUB_URL, external: true },
-    { label: "Contributing guide", href: "/contributing" },
-    { label: "Issues & roadmap", href: SITE_ISSUES_URL, external: true },
-    { label: `${SITE_LICENSE} license`, href: SITE_LICENSE_URL, external: true },
-  ],
-  Community: [
-    { label: "Discord", href: SITE_DISCORD_URL, external: true },
-    { label: "Open WebUI chat", href: "https://chat.koma-studio.site", external: true },
-    { label: "Good first issues", href: `${SITE_GITHUB_URL}/contribute`, external: true },
-    { label: "Releases", href: SITE_RELEASES_URL, external: true },
-  ],
-  Guides: [
-    { label: "Manga Translation Software", href: "/manga-translation-software" },
-    { label: "Scanlation Typesetting", href: "/scanlation-typesetting-software" },
-    { label: "Cleaning & Redraw", href: "/manga-cleaning-redraw-tool" },
-    { label: "AI Manga Translator", href: "/ai-manga-translator" },
-  ],
-  Compare: [
-    { label: "Compare KOMA Studio", href: "/compare" },
-    { label: "Comic Translator vs KOMA", href: "/comictranslator-vs-koma-studio" },
-    { label: "Photoshop vs KOMA", href: "/photoshop-vs-koma-studio" },
-    { label: "Yomu AI vs KOMA", href: "/yomu-vs-koma-studio" },
-  ],
-};
+const COLS: [string, [string, string][]][] = [
+  ["Project", [
+    ["GitHub", SITE_CONFIG.github],
+    ["Releases", SITE_CONFIG.releases],
+    ["Roadmap", SITE_CONFIG.issues],
+    ["MIT License", SITE_CONFIG.licenseFile],
+    ["Star us", SITE_CONFIG.stargazers],
+  ]],
+  ["Community", [
+    ["Discord", SITE_CONFIG.discord],
+    ["Discussions", SITE_CONFIG.discussions],
+    ["Contributing guide", SITE_CONFIG.contributing],
+    ["Code of conduct", SITE_CONFIG.codeOfConduct],
+    ["Good first issues", SITE_CONFIG.goodFirstIssues],
+    ["Pull requests", SITE_CONFIG.pulls],
+  ]],
+  ["Studio", [
+    ["Features", "#features"],
+    ["Desktop app", "#studio"],
+    ["Workflow", "#workflow"],
+    ["Open vs closed", "#compare"],
+    ["FAQ", "#faq"],
+  ]],
+];
 
-export function Footer() {
+export default function Footer() {
   return (
-    <footer className="border-t border-white/6 py-14">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="grid gap-10 md:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_1fr]">
-          <div>
-            <KomaLogo size={36} />
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-koma-text-secondary">
-              Open-source, {SITE_LICENSE}-licensed desktop workflow for manga, manhwa, and comic
-              production. Translate, clean, typeset, redraw, and review in one focused environment —
-              on your machine.
-            </p>
-            <a
-              href={SITE_GITHUB_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-3.5 py-2 text-xs font-medium text-koma-text transition-colors hover:border-koma-purple/30 hover:bg-white/[0.06]"
-            >
-              <GitHubIcon size={14} />
-              View source on GitHub
-            </a>
+    <footer className="border-t border-paper/10 bg-ink-2/60">
+      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 md:grid-cols-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <span className="panel-cut-sm flex h-9 w-9 items-center justify-center bg-crimson font-black text-ink">コ</span>
+            <span className="font-black uppercase tracking-widest">KOMA<span className="text-crimson">.</span></span>
           </div>
-
-          {Object.entries(footerLinks).map(([group, links]) => (
-            <div key={group}>
-              <h3 className="text-sm font-semibold text-koma-text">{group}</h3>
-              <ul className="mt-4 space-y-2.5">
-                {links.map((link) => (
-                  <li key={link.label}>
-                    <a
-                      href={link.href}
-                      target={"external" in link && link.external ? "_blank" : undefined}
-                      rel={"external" in link && link.external ? "noreferrer" : undefined}
-                      className="text-sm text-koma-muted transition-colors hover:text-koma-text"
-                    >
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <p className="mt-4 max-w-xs text-sm text-paper/45">
+            The free, open-source AI scanlation studio. <em className="font-[family-name:var(--font-accent)] italic text-paper/70">Every panel tells a story.</em>
+          </p>
+          <a href={SITE_CONFIG.github} target="_blank" rel="noreferrer"
+            className="mt-5 inline-flex items-center gap-2 border border-paper/15 px-4 py-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-paper/60 transition-colors hover:border-gold/60 hover:text-gold">
+            <GitHubIcon size={14} /> {SITE_CONFIG.repo} <Star size={12} className="text-gold" fill="currentColor" />
+          </a>
         </div>
-
-        <div className="mt-10 flex flex-col gap-3 border-t border-white/6 pt-6 text-sm text-koma-muted md:flex-row md:items-center md:justify-between">
-          <div className="text-xs text-koma-text-secondary">
-            <p className="text-xs text-koma-muted/80">
-              © {new Date().getFullYear()} KOMA Studio · {SITE_LICENSE} licensed · built in the open
-            </p>
-            <p className="italic mt-1 text-koma-text-secondary">
-              &quot;Every panel tells a story&quot;
-            </p>
-          </div>
-          <div className="flex items-center gap-4 font-[var(--font-mono)] text-xs">
-            <a
-              href={SITE_RELEASES_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="transition-colors hover:text-koma-text"
-            >
-              changelog
-            </a>
-            <a
-              href={SITE_ISSUES_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="transition-colors hover:text-koma-text"
-            >
-              issues
-            </a>
-          </div>
+        {COLS.map(([title, links]) => (
+          <nav key={title} aria-label={title}>
+            <p className="kicker mb-4 !text-[10px]">{title}</p>
+            <ul className="space-y-2.5">
+              {links.map(([label, href]) => (
+                <li key={label}>
+                  <a href={href} target={href.startsWith("#") ? undefined : "_blank"} rel={href.startsWith("#") ? undefined : "noreferrer"}
+                    className="text-sm text-paper/45 transition-colors hover:text-crimson">
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))}
+      </div>
+      <div className="border-t border-paper/10">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-6 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-paper/30">
+          <p>© {new Date().getFullYear()} KOMA Studio — MIT Licensed</p>
+          <p>Open source · <span className="text-mint">Free forever</span> · Built with the community 🤖</p>
         </div>
       </div>
     </footer>

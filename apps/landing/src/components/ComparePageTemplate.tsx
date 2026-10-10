@@ -1,58 +1,8 @@
 import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import type { ComparePage, CompareStepResult } from "@/types";
 import { toSectionId } from "@/lib/seo";
-
-function SidebarCard({
-  eyebrow,
-  title,
-  children,
-  accent = "cyan",
-}: {
-  eyebrow?: string;
-  title: string;
-  children: React.ReactNode;
-  accent?: "cyan" | "purple" | "emerald";
-}) {
-  const accentStyles = {
-    cyan: {
-      line: "from-koma-cyan/80 via-koma-cyan/20 to-transparent",
-      glow: "shadow-[0_0_32px_rgba(34,211,238,0.12)]",
-      pill: "text-koma-cyan-light border-koma-cyan/20 bg-koma-cyan/10",
-    },
-    purple: {
-      line: "from-koma-purple-light/80 via-koma-purple/20 to-transparent",
-      glow: "shadow-[0_0_32px_rgba(168,85,247,0.14)]",
-      pill: "text-koma-purple-light border-koma-purple/20 bg-koma-purple/10",
-    },
-    emerald: {
-      line: "from-emerald-300/80 via-emerald-400/20 to-transparent",
-      glow: "shadow-[0_0_32px_rgba(52,211,153,0.12)]",
-      pill: "text-emerald-200 border-emerald-400/20 bg-emerald-500/10",
-    },
-  } as const;
-
-  const style = accentStyles[accent];
-
-  return (
-    <div
-      className={`group relative overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-6 backdrop-blur-2xl ${style.glow}`}
-    >
-      <div className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r ${style.line}`} />
-      <div className="pointer-events-none absolute -right-16 top-0 h-28 w-28 rounded-full bg-white/5 blur-3xl transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
-
-      {eyebrow ? (
-        <div className={`mb-4 inline-flex rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${style.pill}`}>
-          {eyebrow}
-        </div>
-      ) : null}
-
-      <div className="text-sm font-semibold text-koma-text">{title}</div>
-      <div className="mt-4">{children}</div>
-    </div>
-  );
-}
 
 function StepCard({
   title,
@@ -64,42 +14,39 @@ function StepCard({
   variant: "provider" | "koma";
 }) {
   const qualityStyles = {
-    poor: "bg-rose-500/15 text-rose-200 border-rose-500/20",
-    average: "bg-amber-500/15 text-amber-100 border-amber-500/20",
-    good: "bg-sky-500/15 text-sky-100 border-sky-500/20",
-    excellent: "bg-emerald-500/15 text-emerald-100 border-emerald-500/20",
+    poor: "border-crimson/40 bg-crimson/10 text-crimson",
+    average: "border-gold/40 bg-gold/10 text-gold",
+    good: "border-azure/40 bg-azure/10 text-azure",
+    excellent: "border-mint/40 bg-mint/10 text-mint",
   } as const;
 
   return (
     <article
-      className={`rounded-3xl border p-6 ${
-        variant === "koma"
-          ? "border-emerald-400/22 bg-[linear-gradient(180deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03))] shadow-[0_0_28px_rgba(16,185,129,0.08)]"
-          : "border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))]"
-      }`}
+      className={`panel-cut border p-6 ${variant === "koma"
+          ? "border-mint/25 bg-mint/[0.04] shadow-[4px_4px_0_rgba(62,242,176,0.15)]"
+          : "border-paper/10 bg-paper/[0.02]"
+        }`}
     >
       <div className="flex items-center justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-koma-muted">
-            {title}
-          </div>
-          <div className="mt-2 text-base font-semibold text-koma-text">
+          <div className="kicker !text-[10px]">{title}</div>
+          <div className="mt-2 text-base font-black uppercase tracking-wide text-paper">
             {variant === "koma" ? "KOMA Studio" : "Provider"}
           </div>
         </div>
         <span
-          className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${qualityStyles[result.quality]}`}
+          className={`border px-3 py-1 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.2em] ${qualityStyles[result.quality]}`}
         >
           {result.quality}
         </span>
       </div>
-      <p className="mt-4 text-sm leading-relaxed text-koma-text-secondary">
+      <p className="mt-4 text-sm leading-relaxed text-paper/60">
         {result.description}
       </p>
       <ul className="mt-5 space-y-2">
         {result.notes.map((note) => (
-          <li key={note} className="flex items-start gap-2 text-sm text-koma-muted">
-            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-koma-cyan/70" />
+          <li key={note} className="flex items-start gap-2 text-sm text-paper/50">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 bg-crimson" />
             <span>{note}</span>
           </li>
         ))}
@@ -113,30 +60,33 @@ export function ComparePageTemplate({ page }: { page: ComparePage }) {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-koma-bg">
+      <main className="min-h-screen bg-ink">
         <section className="relative overflow-hidden py-28">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.14),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(6,182,212,0.12),transparent_36%),linear-gradient(180deg,rgba(10,12,24,0.16),transparent_42%,rgba(10,12,24,0.28))]" />
-          <div className="absolute inset-0 opacity-[0.05] [background-image:linear-gradient(rgba(255,255,255,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:44px_44px]" />
-          <div className="absolute left-1/2 top-10 h-56 w-[42rem] -translate-x-1/2 rounded-full bg-koma-purple/10 blur-[110px]" />
+          <div
+            aria-hidden
+            className="halftone-red absolute inset-0 opacity-[0.06]"
+          />
+          <div
+            aria-hidden
+            className="absolute -left-32 top-1/4 h-96 w-96 rounded-full bg-crimson/10 blur-[120px]"
+          />
           <div className="relative mx-auto max-w-6xl px-6">
-            <div className="mb-5 inline-flex rounded-full border border-koma-cyan/20 bg-koma-cyan/8 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-koma-cyan-light shadow-[0_0_24px_rgba(34,211,238,0.12)]">
-              {isHub ? "Comparison Hub" : "Direct Comparison"}
-            </div>
-            <h1 className="max-w-5xl font-[var(--font-display)] text-4xl font-bold tracking-tight text-koma-text sm:text-5xl lg:text-6xl">
+            <div className="stamp mb-6">{isHub ? "Comparison Hub" : "Direct Comparison"}</div>
+            <h1 className="max-w-5xl text-4xl font-black uppercase leading-[0.95] tracking-tight text-paper sm:text-5xl lg:text-6xl">
               {page.heroTitle}
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-relaxed text-koma-text-secondary">
+            <p className="mt-6 max-w-3xl text-lg leading-relaxed text-paper/60">
               {page.heroSubtitle}
             </p>
-            <p className="mt-6 max-w-3xl text-base leading-relaxed text-koma-muted">
+            <p className="mt-6 max-w-3xl text-base leading-relaxed text-paper/45">
               {page.intro}
             </p>
             {page.competitorUrl ? (
-              <p className="mt-4 text-sm text-koma-muted">
-                Competitor reference: {" "}
+              <p className="mt-4 font-[family-name:var(--font-mono)] text-sm text-paper/45">
+                Competitor reference:{" "}
                 <a
                   href={page.competitorUrl}
-                  className="text-koma-cyan-light underline-offset-4 hover:underline"
+                  className="text-azure underline-offset-4 hover:underline"
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -151,16 +101,12 @@ export function ComparePageTemplate({ page }: { page: ComparePage }) {
           <div className="mx-auto max-w-6xl px-6">
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
               <div className="space-y-8">
-                <section className="glass-card relative overflow-hidden p-7">
-                  <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-koma-cyan/80 via-koma-purple/40 to-transparent" />
-                  <div className="pointer-events-none absolute -right-10 top-0 h-28 w-28 rounded-full bg-koma-cyan/10 blur-3xl" />
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-koma-cyan-light">
-                    At a Glance
-                  </div>
-                  <h2 className="mt-3 font-[var(--font-display)] text-2xl font-semibold text-koma-text">
+                <section className="glass panel-cut p-7">
+                  <div className="kicker">At a Glance</div>
+                  <h2 className="mt-3 text-2xl font-black uppercase tracking-tight text-paper">
                     {page.summaryQuestion}
                   </h2>
-                  <p className="mt-4 max-w-3xl text-base leading-relaxed text-koma-text-secondary">
+                  <p className="mt-4 max-w-3xl text-base leading-relaxed text-paper/60">
                     {page.summaryAnswer}
                   </p>
                   {page.summaryTakeaways?.length ? (
@@ -168,7 +114,7 @@ export function ComparePageTemplate({ page }: { page: ComparePage }) {
                       {page.summaryTakeaways.map((point) => (
                         <li
                           key={point}
-                          className="rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-3 text-sm text-koma-muted"
+                          className="panel-cut-sm border border-paper/10 bg-paper/[0.02] px-4 py-3 text-sm text-paper/50"
                         >
                           {point}
                         </li>
@@ -178,27 +124,21 @@ export function ComparePageTemplate({ page }: { page: ComparePage }) {
                 </section>
 
                 {page.comparisonRows?.length ? (
-                  <section className="glass-card relative overflow-hidden">
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-koma-cyan/80 via-koma-purple/40 to-transparent" />
-                    <div className="grid gap-4 border-b border-white/6 bg-white/[0.03] px-6 py-4 md:grid-cols-[1fr_1fr_1fr]">
-                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-koma-muted">
-                        Comparison Point
-                      </div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-koma-muted">
-                        KOMA Studio
-                      </div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-koma-muted">
-                        {page.competitorName}
-                      </div>
+                  <section className="glass panel-cut overflow-hidden">
+                    <div className="grid gap-4 border-b border-paper/10 bg-ink px-6 py-4 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em]">
+                      <div className="text-paper/40">Comparison Point</div>
+                      <div className="text-mint">KOMA Studio</div>
+                      <div className="text-paper/40">{page.competitorName}</div>
                     </div>
-                    {page.comparisonRows.map((row) => (
+                    {page.comparisonRows.map((row, i) => (
                       <div
                         key={row.label}
-                        className="grid gap-4 border-b border-white/6 px-6 py-5 last:border-b-0 md:grid-cols-[1fr_1fr_1fr]"
+                        className={`grid gap-4 px-6 py-5 md:grid-cols-[1fr_1fr_1fr] ${i % 2 ? "bg-paper/[0.02]" : ""
+                          } ${i < page.comparisonRows!.length - 1 ? "border-b border-paper/8" : ""}`}
                       >
-                        <div className="text-sm font-medium text-koma-text">{row.label}</div>
-                        <div className="text-sm text-koma-text-secondary">{row.koma}</div>
-                        <div className="text-sm text-koma-text-secondary">{row.competitor}</div>
+                        <div className="text-sm font-medium text-paper">{row.label}</div>
+                        <div className="text-sm text-paper/65">{row.koma}</div>
+                        <div className="text-sm text-paper/40">{row.competitor}</div>
                       </div>
                     ))}
                   </section>
@@ -208,10 +148,10 @@ export function ComparePageTemplate({ page }: { page: ComparePage }) {
                   <>
                     <section className="space-y-4">
                       <div>
-                        <h2 className="font-[var(--font-display)] text-2xl font-semibold text-koma-text">
+                        <h2 className="text-2xl font-black uppercase tracking-tight text-paper">
                           Cleaner and Redraw Workflow
                         </h2>
-                        <p className="mt-2 text-sm leading-relaxed text-koma-text-secondary">
+                        <p className="mt-2 text-sm leading-relaxed text-paper/55">
                           This section compares how each option handles text removal, page cleanup, redraw continuity, and the downstream production burden that follows.
                         </p>
                       </div>
@@ -223,10 +163,10 @@ export function ComparePageTemplate({ page }: { page: ComparePage }) {
 
                     <section className="space-y-4">
                       <div>
-                        <h2 className="font-[var(--font-display)] text-2xl font-semibold text-koma-text">
+                        <h2 className="text-2xl font-black uppercase tracking-tight text-paper">
                           Typesetting and QA Readiness
                         </h2>
-                        <p className="mt-2 text-sm leading-relaxed text-koma-text-secondary">
+                        <p className="mt-2 text-sm leading-relaxed text-paper/55">
                           This section focuses on lettering continuity, balloon-fit quality, and whether the workflow stays coherent once the chapter reaches review.
                         </p>
                       </div>
@@ -242,19 +182,18 @@ export function ComparePageTemplate({ page }: { page: ComparePage }) {
                   const sectionId = toSectionId(section.title);
 
                   return (
-                    <article key={section.title} id={sectionId} className="glass-card relative scroll-mt-28 overflow-hidden p-7">
-                      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-koma-purple/70 via-koma-cyan/30 to-transparent" />
-                      <h2 className="font-[var(--font-display)] text-2xl font-semibold text-koma-text">
+                    <article key={section.title} id={sectionId} className="glass panel-cut scroll-mt-28 p-7">
+                      <h2 className="text-2xl font-black uppercase tracking-tight text-paper">
                         {section.title}
                       </h2>
-                      <p className="mt-4 text-base leading-relaxed text-koma-text-secondary">
+                      <p className="mt-4 text-base leading-relaxed text-paper/60">
                         {section.content}
                       </p>
                       {section.bullets ? (
                         <ul className="mt-5 space-y-2">
                           {section.bullets.map((bullet) => (
-                            <li key={bullet} className="flex items-start gap-2 text-sm text-koma-muted">
-                              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-koma-cyan/70" />
+                            <li key={bullet} className="flex items-start gap-2 text-sm text-paper/50">
+                              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 bg-crimson" />
                               <span>{bullet}</span>
                             </li>
                           ))}
@@ -267,10 +206,15 @@ export function ComparePageTemplate({ page }: { page: ComparePage }) {
                 {page.cards?.length ? (
                   <section className="grid gap-4 md:grid-cols-2">
                     {page.cards.map((card) => (
-                      <Link key={card.slug} href={`/${card.slug}`} className="glass-card-hover relative block overflow-hidden p-5">
-                        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-koma-cyan/70 to-transparent" />
-                        <div className="text-lg font-semibold text-koma-text">{card.title}</div>
-                        <p className="mt-2 text-sm leading-relaxed text-koma-text-secondary">
+                      <Link
+                        key={card.slug}
+                        href={`/${card.slug}`}
+                        className="glass panel-cut-sm block p-5 transition-all duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:border-crimson/40 hover:shadow-[5px_5px_0_rgba(255,46,99,0.35)]"
+                      >
+                        <div className="text-lg font-black uppercase tracking-wide text-paper">
+                          {card.title}
+                        </div>
+                        <p className="mt-2 text-sm leading-relaxed text-paper/55">
                           {card.summary}
                         </p>
                       </Link>
@@ -279,76 +223,83 @@ export function ComparePageTemplate({ page }: { page: ComparePage }) {
                 ) : null}
               </div>
 
-              <aside className="relative self-start lg:sticky lg:top-24">
-                <div className="space-y-5">
-                  <SidebarCard eyebrow="Navigate" title="On This Page" accent="cyan">
-                    <div className="space-y-3">
-                      {page.sections.map((section) => (
+              <aside className="relative self-start space-y-5 lg:sticky lg:top-24">
+                <div className="glass panel-cut-sm p-6">
+                  <div className="kicker">Navigate</div>
+                  <div className="mt-4 space-y-3">
+                    {page.sections.map((section) => (
+                      <a
+                        key={section.title}
+                        href={`#${toSectionId(section.title)}`}
+                        className="block border border-paper/10 bg-paper/[0.02] px-4 py-3 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/60 transition-colors hover:border-crimson/40 hover:text-paper"
+                      >
+                        {section.title}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="glass panel-cut-sm p-6">
+                  <div className="text-sm font-black uppercase tracking-wide text-paper">
+                    Questions
+                  </div>
+                  <div className="mt-4 space-y-4">
+                    {page.faqs.map((faq) => (
+                      <div
+                        key={faq.question}
+                        className="border-b border-paper/10 pb-4 last:border-b-0 last:pb-0"
+                      >
+                        <div className="text-sm font-medium text-paper">{faq.question}</div>
+                        <div className="mt-2 text-sm leading-relaxed text-paper/55">
+                          {faq.answer}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="glass panel-cut-sm p-6">
+                  <div className="text-sm font-black uppercase tracking-wide text-paper">
+                    Related Pages
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {page.relatedPages.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className="block border border-paper/10 bg-paper/[0.02] px-4 py-3 text-sm text-paper/60 transition-colors hover:text-paper"
+                      >
+                        {link.title}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {page.sourceLinks?.length ? (
+                  <div className="glass panel-cut-sm p-6">
+                    <div className="text-sm font-black uppercase tracking-wide text-paper">
+                      Sources
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {page.sourceLinks.map((link) => (
                         <a
-                          key={section.title}
-                          href={`#${toSectionId(section.title)}`}
-                          className="block rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-3 text-sm text-koma-text-secondary transition-all hover:border-koma-cyan/20 hover:bg-koma-cyan/8 hover:text-koma-text"
+                          key={link.href}
+                          href={link.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block border border-paper/10 bg-paper/[0.02] px-4 py-3 text-sm text-paper/60 transition-colors hover:text-paper"
                         >
-                          {section.title}
+                          {link.title}
                         </a>
                       ))}
                     </div>
-                  </SidebarCard>
-
-                  <SidebarCard eyebrow="FAQ" title="Questions" accent="purple">
-                    <div className="space-y-4">
-                      {page.faqs.map((faq) => (
-                        <div
-                          key={faq.question}
-                          className="border-b border-white/6 pb-4 last:border-b-0 last:pb-0"
-                        >
-                          <div className="text-sm font-medium text-koma-text">{faq.question}</div>
-                          <div className="mt-2 text-sm leading-relaxed text-koma-text-secondary">
-                            {faq.answer}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </SidebarCard>
-
-                  <SidebarCard eyebrow="Explore" title="Related Pages" accent="emerald">
-                    <div className="space-y-3">
-                      {page.relatedPages.map((link) => (
-                        <Link
-                          key={link.href}
-                          href={link.href}
-                          className="block rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-3 text-sm text-koma-text-secondary transition-all hover:border-emerald-400/20 hover:bg-emerald-500/[0.08] hover:text-koma-text"
-                        >
-                          {link.title}
-                        </Link>
-                      ))}
-                    </div>
-                  </SidebarCard>
-
-                  {page.sourceLinks?.length ? (
-                    <SidebarCard eyebrow="Sources" title="Reference Links" accent="cyan">
-                      <div className="space-y-3">
-                        {page.sourceLinks.map((link) => (
-                          <a
-                            key={link.href}
-                            href={link.href}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-3 text-sm text-koma-text-secondary transition-all hover:border-koma-cyan/20 hover:bg-koma-cyan/8 hover:text-koma-text"
-                          >
-                            {link.title}
-                          </a>
-                        ))}
-                      </div>
-                    </SidebarCard>
-                  ) : null}
-
-                </div>
+                  </div>
+                ) : null}
               </aside>
             </div>
           </div>
         </section>
-    </main>
+      </main>
       <Footer />
     </>
   );

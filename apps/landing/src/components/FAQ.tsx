@@ -1,41 +1,24 @@
 import { ChevronDown } from "lucide-react";
-import { SectionHeader } from "./ui/SectionHeader";
+import SectionHeader from "./SectionHeader";
+import Reveal from "./Reveal";
 import { landingFaqs } from "@/content/site-faqs";
 
-export function FAQ() {
+export default function Faq() {
   return (
-    <section id="faq" className="py-[var(--spacing-section)]">
-      <div className="mx-auto max-w-4xl px-6">
-        <SectionHeader
-          badge="FAQ"
-          title="Straight Answers, No Sales Pitch"
-          subtitle="Licensing, self-hosting, privacy, contributing, and workflow questions — answered in the open."
-        />
-
-        <div className="space-y-3">
-          {landingFaqs.map((faq, index) => {
-            return (
-              <details
-                key={faq.question}
-                className="group rounded-[24px] border border-white/6 bg-white/[0.02] transition-all open:border-koma-purple/20 open:bg-koma-purple/6"
-                open={index === 0}
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 text-left">
-                  <span className="text-base font-medium text-koma-text">
-                    {faq.question}
-                  </span>
-                  <span className="transition-transform duration-200 group-open:rotate-180">
-                    <ChevronDown size={18} className="text-koma-muted" />
-                  </span>
-                </summary>
-
-                <div className="px-6 pb-6 text-sm leading-relaxed text-koma-text-secondary">
-                  {faq.answer}
-                </div>
-              </details>
-            );
-          })}
-        </div>
+    <section id="faq" className="mx-auto max-w-4xl scroll-mt-24 px-6 py-32">
+      <SectionHeader index="07" kicker="FAQ" title="Questions," accent="answered." />
+      <div className="space-y-3">
+        {landingFaqs.map((f, i) => (
+          <Reveal key={f.question} delay={i * 0.04}>
+            <details className="glass panel-cut-sm group open:border-crimson/40" open={i === 0}>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-6 font-black uppercase tracking-wide [&::-webkit-details-marker]:hidden">
+                {f.question}
+                <ChevronDown size={18} className="shrink-0 text-crimson transition-transform group-open:rotate-180" />
+              </summary>
+              <p className="px-6 pb-6 text-sm leading-relaxed text-paper/55">{f.answer}</p>
+            </details>
+          </Reveal>
+        ))}
       </div>
     </section>
   );

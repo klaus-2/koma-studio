@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Navbar } from "@/components/Navbar";
-import { Hero } from "@/components/Hero";
-import { SocialProof } from "@/components/SocialProof";
-import { Features } from "@/components/Features";
-import { AppPreview } from "@/components/AppPreview";
-import { Workflow } from "@/components/Workflow";
-import { ComparisonTable } from "@/components/ComparisonTable";
-import { Contribute } from "@/components/Contribute";
-import { OpenSource } from "@/components/OpenSource";
-import { FAQ } from "@/components/FAQ";
-import { FinalCTA } from "@/components/FinalCTA";
-import { Footer } from "@/components/Footer";
+import Navbar from "@/components/Navbar";
+import Hero from "@/components/Hero";
+import Marquee from "@/components/Marquee";
+import Features from "@/components/Features";
+import AppPreview from "@/components/AppPreview";
+import Workflow from "@/components/Workflow";
+import OpenSource from "@/components/OpenSource";
+import Comparison from "@/components/Comparison";
+import Contribute from "@/components/Contribute";
+import Faq from "@/components/FAQ";
+import FinalCta from "@/components/FinalCTA";
+import Footer from "@/components/Footer";
 import { WebMcpProvider } from "@/components/WebMcpProvider";
 import {
   SITE_CHAT_URL,
@@ -152,15 +152,15 @@ export default function HomePage() {
       <Navbar />
       <main>
         <Hero />
-        <SocialProof />
+        <Marquee />
         <Features />
         <AppPreview />
         <Workflow />
         <OpenSource />
-        <ComparisonTable />
+        <Comparison />
         <Contribute />
-        <FAQ />
-        <FinalCTA />
+        <Faq />
+        <FinalCta />
       </main>
       <Footer />
     </>

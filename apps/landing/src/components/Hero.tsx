@@ -1,227 +1,98 @@
 "use client";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Download, ArrowRight } from "lucide-react";
+import StarButton from "./StarButton";
 
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Apple,
-  Download,
-  Monitor,
-  Scale,
-  ShieldOff,
-  Terminal,
-} from "lucide-react";
-import dynamic from "next/dynamic";
-import { useGitHubStars } from "@/components/GitHubStars";
-import { GitHubIcon } from "@/components/ui/GitHubIcon";
-import { SITE_GITHUB_URL, SITE_LICENSE } from "@/lib/site";
-
-const MangaScene = dynamic(
-  () => import("./three/MangaScene").then((m) => m.MangaScene),
-  { ssr: false },
-);
-
-const HERO_VIDEO_SRC = "/bg-8.mp4";
-const TYPING_WORDS = ["Translate", "Clean", "Typeset", "Redraw", "Publish"];
-
-function useTypingEffect(words: string[], typingSpeed = 100, pauseMs = 2000) {
-  const [state, setState] = useState({
-    display: "",
-    wordIdx: 0,
-    isDeleting: false,
-  });
-
-  useEffect(() => {
-    const current = words[state.wordIdx];
-
-    if (!state.isDeleting && state.display === current) {
-      const timeout = setTimeout(() => {
-        setState((prev) => ({ ...prev, isDeleting: true }));
-      }, pauseMs);
-      return () => clearTimeout(timeout);
-    }
-
-    if (state.isDeleting && state.display === "") {
-      const timeout = setTimeout(() => {
-        setState((prev) => ({
-          display: "",
-          wordIdx: (prev.wordIdx + 1) % words.length,
-          isDeleting: false,
-        }));
-      }, typingSpeed / 2);
-      return () => clearTimeout(timeout);
-    }
-
-    const delay = state.isDeleting ? typingSpeed / 2 : typingSpeed;
-    const timeout = setTimeout(() => {
-      setState((prev) => {
-        const word = words[prev.wordIdx];
-        const nextLength = prev.display.length + (prev.isDeleting ? -1 : 1);
-
-        return {
-          ...prev,
-          display: word.substring(0, nextLength),
-        };
-      });
-    }, delay);
-
-    return () => clearTimeout(timeout);
-  }, [state, words, typingSpeed, pauseMs]);
-
-  return state.display;
-}
-
-const STATS = [
-  { icon: Scale, value: SITE_LICENSE, label: "License — free forever" },
-  { icon: Terminal, value: "100%", label: "Source available" },
-  { icon: Monitor, value: "3", label: "Desktop platforms" },
-  { icon: ShieldOff, value: "0", label: "Tracking or telemetry" },
+const WORDS = [
+  { w: "TRANSLATED", c: "text-crimson" },
+  { w: "CLEANED", c: "text-azure" },
+  { w: "TYPESET", c: "text-mint" },
+  { w: "REDRAWN", c: "text-gold" },
+  { w: "PUBLISHED", c: "text-crimson" },
 ];
 
-export function Hero() {
-  const platformHref = "/download";
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const typedWord = useTypingEffect(TYPING_WORDS);
-  const stars = useGitHubStars();
+const STATS = [["MIT", "License"], ["100%", "Open Source"], ["0", "Trackers · Ads · Paywalls"]] as const;
 
+export default function Hero() {
+  const [i, setI] = useState(0);
   useEffect(() => {
-    if (!videoRef.current) {
-      return;
-    }
-
-    const video = videoRef.current;
-    video.playbackRate = 0.9;
-
-    const ensurePlayback = async () => {
-      try {
-        await video.play();
-      } catch {
-        // Background video is decorative. If autoplay is blocked,
-        // the section still renders with the gradient/fx stack.
-      }
-    };
-
-    void ensurePlayback();
+    const t = setInterval(() => setI((v) => (v + 1) % WORDS.length), 2200);
+    return () => clearInterval(t);
   }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-      {/* Media / FX stack */}
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
-        <motion.video
-          ref={videoRef}
-          className="absolute inset-0 z-0 h-full w-full object-cover [filter:saturate(1.15)_contrast(1.08)_brightness(0.55)] mix-blend-lighten"
-          src={HERO_VIDEO_SRC}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          initial={{ opacity: 0, scale: 1.05 }}
-          animate={{ opacity: 0.34, scale: 1 }}
-          transition={{ duration: 1 }}
-        />
+    <section className="relative flex min-h-dvh items-center overflow-hidden pt-16">
+      {/* background layers */}
+      <div aria-hidden className="halftone absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
+      <div aria-hidden className="absolute -left-32 top-1/4 h-96 w-96 rounded-full bg-crimson/15 blur-[120px]" />
+      <div aria-hidden className="absolute -right-32 bottom-1/4 h-96 w-96 rounded-full bg-gold/10 blur-[120px]" />
+      <span aria-hidden className="v-text absolute right-6 top-24 hidden select-none font-black text-paper/[0.06] xl:block" style={{ fontSize: "6rem", letterSpacing: "0.1em" }}>
+        コマスタジオ
+      </span>
+      <span aria-hidden className="v-text absolute left-6 bottom-24 hidden select-none font-[family-name:var(--font-mono)] text-xs tracking-[0.5em] text-crimson/40 xl:block">
+        EVERY PANEL TELLS A STORY
+      </span>
 
-        <div className="absolute inset-0 z-10 bg-[radial-gradient(circle_at_top,rgba(6,8,16,0.02),rgba(6,8,16,0.48)_42%,rgba(6,8,16,0.82)_100%)]" />
-        <div className="absolute inset-0 z-20 bg-[linear-gradient(120deg,rgba(6,182,212,0.08),transparent_28%,transparent_72%,rgba(168,85,247,0.1))]" />
-        <div className="absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(6,8,16,0.04)_0%,rgba(6,8,16,0.1)_30%,rgba(6,8,16,0.34)_60%,rgba(6,8,16,0.74)_100%)]" />
-        <div className="absolute inset-0 z-30 opacity-[0.05] [background-image:linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:120px_120px]" />
-
-        <div className="absolute inset-0 z-30 opacity-85">
-          <MangaScene />
-        </div>
-
-        <div className="absolute top-1/4 left-1/4 z-40 h-[500px] w-[500px] rounded-full bg-koma-purple/10 blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 z-40 h-[400px] w-[400px] rounded-full bg-koma-cyan/8 blur-[100px]" />
-      </div>
-
-      <div className="relative z-10 mx-auto max-w-7xl px-6 py-20 text-center">
-        {/* Open-source badge */}
-        <Link
-          href={SITE_GITHUB_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="mb-8 inline-flex items-center gap-2 rounded-full border border-koma-purple/20 bg-koma-purple/5 backdrop-blur-sm px-5 py-2 transition-colors hover:border-koma-purple/40 hover:bg-koma-purple/10"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span className="text-xs font-medium tracking-wider text-koma-purple-light uppercase">
-            Now open source — {SITE_LICENSE} licensed
+      <div className="relative mx-auto w-full max-w-7xl px-6 py-24">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+          <span className="stamp animate-float">
+            <span className="h-1.5 w-1.5 animate-blink bg-mint" /> 100% open source — MIT licensed
           </span>
-          <ArrowRight size={12} className="text-koma-purple-light/70" />
-        </Link>
+        </motion.div>
 
-        {/* Main Headline */}
-        <h1 className="mx-auto max-w-4xl font-[var(--font-display)] text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-[4.5rem]">
-          <span className="text-koma-text">One open-source app to </span>
-          <span className="gradient-text inline-block min-w-[200px] text-left">
-            {typedWord}
-            <span className="ml-0.5 animate-[typing-cursor_1s_infinite] text-koma-purple">|</span>
+        <motion.h1
+          className="mt-8 text-[13vw] font-black uppercase leading-[0.88] tracking-tighter sm:text-7xl md:text-8xl lg:text-[7.5rem]"
+          initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1 }}
+        >
+          Raw chapter,
+          <br />
+          <span className="relative inline-block h-[1em] min-w-[7ch] align-top">
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={i}
+                className={`absolute left-0 ${WORDS[i].c}`}
+                initial={{ y: "60%", opacity: 0, rotateX: 40 }}
+                animate={{ y: 0, opacity: 1, rotateX: 0 }}
+                exit={{ y: "-60%", opacity: 0, rotateX: -40 }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {WORDS[i].w}
+              </motion.span>
+            </AnimatePresence>
           </span>
           <br />
-          <span className="text-koma-text">Your Manga</span>
-        </h1>
+          <span className="text-outline">in one studio.</span>
+        </motion.h1>
 
-        {/* Subtitle */}
-        <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-koma-text-secondary sm:text-xl">
-          KŌMA Studio combines AI translation, smart typesetting, automatic cleaning, and
-          inpainting redraw in one desktop app — and now the whole thing is{" "}
-          <span className="text-koma-text">{SITE_LICENSE}-licensed and free forever</span>. Read the
-          code, fork it, self-host it, bring your own models.
-        </p>
+        <motion.p
+          className="mt-8 max-w-xl text-lg text-paper/60"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
+        >
+          KOMA Studio is a free, open-source scanlation pipeline — translate, clean, typeset
+          and publish without leaving one window. <em className="font-[family-name:var(--font-accent)] italic text-paper">From raw to release</em>,
+          owned by its community.
+        </motion.p>
 
-        {/* CTAs */}
-        <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-          <Link href={platformHref} className="btn-glow flex items-center gap-2.5 px-8 py-3.5 text-base">
-            <Download size={18} />
-            Download — free &amp; open source
-            <ArrowRight size={16} className="opacity-60" />
-          </Link>
-          <Link
-            href={SITE_GITHUB_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 rounded-full border border-koma-border-hover bg-white/[0.03] px-8 py-3.5 text-base font-medium text-koma-text transition-all hover:bg-white/[0.06] hover:border-koma-purple/30"
-          >
-            <GitHubIcon size={18} />
-            Star on GitHub
-            {stars !== null ? (
-              <span className="rounded-full bg-white/[0.06] px-2 py-0.5 font-[var(--font-mono)] text-xs text-koma-text-secondary">
-                {stars >= 1000 ? `${(stars / 1000).toFixed(1).replace(/\.0$/, "")}k` : stars}
-              </span>
-            ) : null}
-          </Link>
-        </div>
+        <motion.div className="mt-10 flex flex-wrap items-center gap-4" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+          <StarButton />
+          <a href="#download" className="btn-ghost"><Download size={18} /> Download Free</a>
+          <a href="#contribute" className="group inline-flex items-center gap-1 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/50 transition-colors hover:text-mint">
+            or contribute <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+          </a>
+        </motion.div>
+        <motion.p className="mt-4 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/35" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}>
+          Windows · macOS · Linux — binaries on every release
+        </motion.p>
 
-        {/* Platform badges */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-koma-muted">
-          <span className="flex items-center gap-1.5">
-            <Monitor size={14} /> Windows
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Apple size={14} /> macOS
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Terminal size={14} /> Linux
-          </span>
-          <span className="h-3 w-px bg-white/10" aria-hidden="true" />
-          <span className="font-[var(--font-mono)] text-koma-text-secondary/80">
-            or build it from source
-          </span>
-        </div>
-
-        {/* Stats Row */}
-        <div className="mx-auto mt-16 grid max-w-3xl grid-cols-2 gap-6 sm:grid-cols-4">
-          {STATS.map(({ icon: Icon, value, label }) => (
-            <div key={label} className="glass-card px-4 py-4 text-center">
-              <Icon size={18} className="mx-auto mb-2 text-koma-purple" />
-              <div className="font-[var(--font-mono)] text-xl font-bold text-koma-text">
-                {value}
-              </div>
-              <div className="mt-1 text-xs text-koma-muted">{label}</div>
+        <motion.div className="mt-12 grid max-w-2xl grid-cols-3 gap-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+          {STATS.map(([n, label]) => (
+            <div key={label} className="glass panel-cut-sm p-5 transition-transform hover:-translate-y-1">
+              <p className="text-3xl font-black text-mint">{n}</p>
+              <p className="mt-1 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-paper/50">{label}</p>
             </div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

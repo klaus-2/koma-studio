@@ -10,8 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Free and open-source (MIT) scanlation software for manga translation, cleaning, redraw, and typesetting.",
     start_url: "/",
     display: "standalone",
-    background_color: "#060810",
-    theme_color: "#a855f7",
+    background_color: "#07070c",
+    theme_color: "#ff2e63",
     icons: [
       {
         src: "/android-chrome-192x192.png",

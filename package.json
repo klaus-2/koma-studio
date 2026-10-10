@@ -34,6 +34,7 @@
     "dev:desktop": "bun run --filter @koma/tauri dev:desktop",
     "dev:tauri:window": "bun run --elide-lines=0 --filter @koma/tauri tauri:dev",
     "dev:landing": "bun run --elide-lines=0 --filter @koma/landing dev",
+    "build:landing": "bun run --elide-lines=0 --filter @koma/landing build",
     "dev:auth": "bun run --elide-lines=0 --filter @koma/auth-server dev",
     "prepare": "husky",
     "doctor": "bunx react-doctor"

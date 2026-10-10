@@ -1,26 +1,25 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono, Inter } from "next/font/google";
+import { Archivo, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { SITE_CHAT_URL, SITE_DISCORD_URL, SITE_GITHUB_URL } from "@/lib/site";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
+const archivo = Archivo({
   subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-archivo",
+  display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  variable: "--font-instrument",
+  weight: "400",
+  style: ["normal", "italic"],
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-mono",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-body",
-  weight: ["400", "500", "600", "700"],
+  variable: "--font-jetbrains",
   display: "swap",
 });
 
@@ -109,7 +108,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${inter.variable}`}
+      className={`${archivo.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
     >
       <head>
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -124,9 +123,7 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
         <link rel="shortcut icon" href="/favicon.ico" />
       </head>
-      <body className="min-h-screen bg-koma-bg text-koma-text antialiased">
-        {children}
-      </body>
+      <body className="bg-ink text-paper antialiased">{children}</body>
     </html>
   );
 }

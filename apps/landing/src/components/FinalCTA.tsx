@@ -1,69 +1,39 @@
-import Link from "next/link";
-import { ArrowRight, Download, MessageCircle } from "lucide-react";
-import { KomaLogo } from "./ui/KomaLogo";
-import { GitHubIcon } from "./ui/GitHubIcon";
-import {
-  SITE_DISCORD_URL,
-  SITE_GITHUB_URL,
-  SITE_LICENSE,
-  SITE_REPO_NAME,
-  SITE_REPO_OWNER,
-} from "@/lib/site";
+import { Download, BookOpen } from "lucide-react";
+import Reveal from "./Reveal";
+import StarButton from "./StarButton";
+import { SITE_CONFIG } from "@/lib/data";
 
-export function FinalCTA() {
+export default function FinalCta() {
   return (
-    <section id="download" className="py-[var(--spacing-section)]">
-      <div className="mx-auto max-w-5xl px-6">
-        <div className="glass-card relative overflow-hidden px-8 py-14 text-center md:px-14 md:py-18">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.14),transparent_45%),radial-gradient(circle_at_bottom_right,rgba(6,182,212,0.1),transparent_40%)]" />
+    <section id="download" className="scroll-mt-24 px-6 pb-32">
+      <Reveal>
+        <div className="glass panel-cut relative mx-auto max-w-5xl overflow-hidden p-12 text-center md:p-20">
+          <div aria-hidden className="halftone-red absolute inset-0 opacity-10" />
+          <div aria-hidden className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-crimson/20 blur-[100px]" />
+          <div aria-hidden className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-gold/15 blur-[100px]" />
           <div className="relative">
-            <div className="mb-6 flex justify-center">
-              <KomaLogo size={68} showText={false} />
-            </div>
-            <h2 className="font-[var(--font-display)] text-3xl font-bold tracking-tight text-koma-text md:text-5xl">
-              A Scanlation Studio You
-              <br />
-              <span className="gradient-text-static">Actually Own.</span>
+            <span className="panel-cut-sm mx-auto flex h-16 w-16 items-center justify-center bg-crimson text-3xl font-black text-ink">コ</span>
+            <h2 className="mx-auto mt-8 max-w-3xl text-4xl font-black uppercase leading-[0.95] tracking-tight md:text-6xl">
+              Own your tools.{" "}
+              <em className="font-[family-name:var(--font-accent)] font-normal normal-case italic text-crimson">Star the press.</em>
             </h2>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-koma-text-secondary md:text-lg">
-              Download the build, read the source, or fork it and make it yours. {SITE_LICENSE}
-              -licensed, free forever, no account and no credit balance.
+            <p className="mx-auto mt-6 max-w-xl text-paper/55">
+              KOMA Studio is free, open-source software under the MIT license.
+              Star it, download it, fork it — or help draw the next panel.
             </p>
-
-            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/download" className="btn-glow inline-flex items-center gap-2.5 text-base">
-                <Download size={18} />
-                Download KŌMA Free
-                <ArrowRight size={16} className="opacity-60" />
-              </Link>
-              <a
-                href={SITE_GITHUB_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2.5 rounded-full border border-koma-border-hover bg-white/[0.03] px-8 py-3.5 text-base font-medium text-koma-text transition-all hover:border-koma-purple/30 hover:bg-white/[0.06]"
-              >
-                <GitHubIcon size={18} />
-                Star on GitHub
-              </a>
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+              <StarButton />
+              <a href={SITE_CONFIG.releases} target="_blank" rel="noreferrer" className="btn-ghost"><Download size={18} /> Download Free</a>
             </div>
-
-            <div className="mt-6 flex flex-col items-center gap-3">
-              <code className="rounded-lg border border-white/[0.06] bg-black/30 px-4 py-2 font-[var(--font-mono)] text-xs text-koma-muted">
-                git clone https://github.com/{SITE_REPO_OWNER}/{SITE_REPO_NAME}.git
-              </code>
-              <a
-                href={SITE_DISCORD_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-koma-muted transition-colors hover:text-koma-text"
-              >
-                <MessageCircle size={14} />
-                Or come say hi on Discord
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+              <a href={SITE_CONFIG.contributing} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/50 transition-colors hover:text-mint">
+                <BookOpen size={14} /> Read the contributing guide
               </a>
+              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/35">Windows · macOS · Linux</span>
             </div>
           </div>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
