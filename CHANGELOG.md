@@ -1,7 +1,124 @@
 # Changelog
 
-Versions match the tags under `refs/tags/v*`. Entries describe what changed
-between two tags, with the commit that carries each change.
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Version headings carry no `v`; the git tags do.
+
+## [Unreleased]
+
+## [1.1.0] - 2026-10-10
+
+89 commits since v1.0.3. The app gained a second theme family, Noir, and the
+landing page was rebuilt to speak the same visual language as it. A Tauri app
+that drives the release steps landed alongside.
+
+### Added
+
+**The app ships two theme families, Classic and Noir.** Theme state persists in
+`koma_theme`, and saved states written before this change fall back to classic
+through a shallow merge, so nobody wakes up in a theme they did not pick.
+`applyTheme(theme, family)` sets `data-theme-family` and clears the bootstrap
+inline background, `themes/registry.ts` is the single source behind the settings
+and login switchers, and `themes/noir.css` holds the scoped tokens with dark as
+the source palette, light derived from it, and a reduced-motion guard. A
+CSP-safe `theme-bootstrap.js` in both shells applies family and theme before
+paint, which is what removes the flash on boot. Archivo and JetBrains Mono join
+the Google Fonts stylesheet, Settings gains a Style section under App, and the
+new keys landed in all 14 locales.
+([`ae4267b`](https://github.com/klaus-2/koma-studio/commit/ae4267b))
+
+**Most of the app gained a Noir view: 79 components and 12 stylesheets.** The
+splitter workspace and sidebar, the stitch workspace and sidebar, the translator
+text stage and tools panel, the cleaner and enhance tools panels, the AIO tools
+panel and right panel, the optimizer workspace, the shortcuts center and the
+watermark workspace route on the theme family, with its own noir worker behind
+the watermark. The model manager modal is split into classic and noir views, the
+shared popover draws an ink panel, the preview card overlays moved to their own
+noir views, and the provider card picks its view off the family. The auth shell
+was rebuilt around a cover gallery.
+([`260bcf4`](https://github.com/klaus-2/koma-studio/commit/260bcf4),
+[`eaedb42`](https://github.com/klaus-2/koma-studio/commit/eaedb42),
+[`e1bb175`](https://github.com/klaus-2/koma-studio/commit/e1bb175),
+[`1fbd0ca`](https://github.com/klaus-2/koma-studio/commit/1fbd0ca))
+
+**The landing page reads in the same language as the app.** It was still purple
+gradient over blurred panel while the app had moved to noir, so the two stopped
+looking like one product. The site now reads off the ink, paper, crimson and
+gold tokens, with Archivo, Instrument Serif and JetBrains Mono in place of Space
+Grotesk and Inter. The preview is a markup manga page under a four-mode stepper,
+which let `MangaScene` and `app-preview/shared` go and took three, drei and
+zustand out of the dependency list. SocialProof became a Marquee,
+ComparisonTable became one Comparison section, and the section copy moved into
+`lib/data.ts`.
+([`d4f5548`](https://github.com/klaus-2/koma-studio/commit/d4f5548))
+
+**A Tauri app drives the release steps.** Its tabs call scripts that already
+existed: `build_msi` and `build_update` run
+`apps/tauri/scripts/build-hardened-release.mjs` and
+`build-update-manifest.mjs`, `deploy_artifacts` scp's the mini-backend profile
+zips and `latest.json` to the update server, and `deploy_landing` builds
+`apps/landing` and swaps `out/` over ssh. Rust spawns them through the
+`tauri-plugin-shell` allowlist, streams child stdout into the log panel and
+writes a per-run log under `logs/`. VPS host, user, path, ssh key, channel and
+version come from the process environment and are documented in `.env.example`,
+so no credential sits in the tree.
+([`e5b1bcf`](https://github.com/klaus-2/koma-studio/commit/e5b1bcf))
+
+**Bundle analysis on the electron vite build, opt-in.** `scheduler` became a
+direct dependency because `vite.config.mts` already names it in
+`resolve.dedupe` and `optimizeDeps.include` while only react-dom pulled it in.
+([`8a73a33`](https://github.com/klaus-2/koma-studio/commit/8a73a33))
+
+### Changed
+
+**The promo clip and the stage order moved above the fold in the README.**
+([`ab800aa`](https://github.com/klaus-2/koma-studio/commit/ab800aa))
+
+**The model manager bars scale instead of relaying out.** `DiskSpaceIndicator`
+and `ModelProgressBar` animated `width`, so every download tick relaid out the
+card around them. Both fills hold full width with `origin-left` and animate
+`scaleX` to percent over 100; duration, easing and spring settings are
+untouched. One side effect worth naming: the progress bar draws its diagonal
+stripes as a `repeating-linear-gradient` on the same element at
+`bg-[length:17px_17px]`, so the scale squashes the stripe pitch instead of
+revealing more stripes. No browser pass was run on this, so how it reads at low
+progress is unverified.
+([`7a066ac`](https://github.com/klaus-2/koma-studio/commit/7a066ac))
+
+**The stitch render job and export handlers moved into a hook**, so the
+workspace screens keep thin boundaries, the same cut the typography and splitter
+algorithms took into services in v1.0.2.
+([`b95a4f8`](https://github.com/klaus-2/koma-studio/commit/b95a4f8))
+
+### Fixed
+
+**Three stylesheet references left dangling by the noir move.** `790a0bc` moved
+the noir stylesheets into `themes/noir` and six `App.css` imports kept reading
+the pre-move location, where nothing exists any more, with `enhance-noir`
+loaded twice because the old path stayed at the top of the block while the new
+one was added below it.
+([`d34162d`](https://github.com/klaus-2/koma-studio/commit/d34162d))
+`ModelRankingsNoir.tsx` imported `./ModelRankings.css` instead of its own noir
+sheet.
+([`c17dff8`](https://github.com/klaus-2/koma-studio/commit/c17dff8))
+
+**The noir auth block read four tokens nothing defined.** Four of the 20
+`--auth-*` declarations at `noir-app.css:7-26` pointed at `--noir-auth-bg`,
+`--noir-koma-text-secondary` and `--noir-auth-text`, names no sheet under
+`themes/noir` ever declared, and no reader supplied a substitute either, so
+those computed to the guaranteed-invalid value from `9ece195` onward. `noir.css`
+gained the six backing tokens per mode, dark at 20-25 and light at 46-51.
+([`b9237da`](https://github.com/klaus-2/koma-studio/commit/b9237da))
+
+### Removed
+
+**Unused noir views and sheets are gone.**
+([`e884dc9`](https://github.com/klaus-2/koma-studio/commit/e884dc9)) `MangaScene`
+and `app-preview/shared` left with the landing preview rewrite, taking three,
+drei and zustand out of the dependency list.
+([`d4f5548`](https://github.com/klaus-2/koma-studio/commit/d4f5548))
 
 ## [v1.0.3] - 2026-10-02
 
