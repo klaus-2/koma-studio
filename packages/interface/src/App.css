@@ -9,27 +9,25 @@
 @source "../../../packages/ui/src";
 @source "../../../packages/auth/src";
 @import 'tw-animate-css';
-/* Noir theme family */
+/* Noir theme family — fully scoped, classic selectors untouched */
 @import './themes/noir/noir.css';
 /* Noir settings page re-skin */
 @import './themes/noir/settings-noir.css';
-/* Noir AIO tools body (koma-aio-* hooks + grain + form primitives) */
+/* Noir AIO tools body */
 @import './themes/noir/aio-tools-noir.css';
 /* Noir watermark range thumb */
 @import './themes/noir/watermark-noir.css';
 /* Noir enhance/chapter-optimize */
-@import './themes/enhance-noir.css';
-/* Noir blogger/imgur CDN panels */
-@import './themes/blogger-noir.css';
-/* Noir LegalHub/ModelRankings/Feed extras */
-@import './themes/a7b4-noir.css';
-/* Noir consolidated block — (settings/guides/resources/cdn V2, form primitives, noir-doc, noir-picker, grain) */
-@import './themes/noir-consolidated.css';
-/* Noir type dock compact sizing */
-@import './themes/type-dock-noir.css';
-@import './themes/noir-app.css';
-/* Noir enhance/chapter-optimize */
 @import './themes/noir/enhance-noir.css';
+/* Noir blogger/imgur CDN panels */
+@import './themes/noir/blogger-noir.css';
+/* Noir LegalHub/ModelRankings/Feed extras */
+@import './themes/noir/a7b4-noir.css';
+/* Noir consolidated block */
+@import './themes/noir/noir-consolidated.css';
+/* Noir type dock compact sizing */
+@import './themes/noir/type-dock-noir.css';
+@import './themes/noir/noir-app.css';
 
 @custom-variant dark (&:is(.dark *));
 
