@@ -3,12 +3,22 @@ import path from 'node:path';
 import electron from 'vite-plugin-electron/simple';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // Bundle analysis: ANALYZE=1 bun run build:react → dist/stats.html
+    ...(process.env.ANALYZE === '1'
+      ? [visualizer({
+          template: 'treemap',
+          filename: 'dist/stats.html',
+          gzipSize: true,
+          brotliSize: false,
+        })]
+      : []),
     electron({
       main: {
         // Shortcut of `build.lib.entry`.
