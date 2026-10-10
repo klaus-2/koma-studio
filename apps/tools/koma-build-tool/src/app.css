@@ -1,0 +1,246 @@
+@import "tailwindcss";
+@import "@fontsource/archivo/800.css";
+@import "@fontsource/archivo/900.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/700.css";
+
+/* ─── Tailwind v4 theme tokens ──────────────────────────────────── */
+@theme {
+  --color-ink: #07070c;
+  --color-ink-2: #0d0d16;
+  --color-ink-3: #141420;
+  --color-ink-4: #1c1c2e;
+  --color-paper: #f2ede3;
+  --color-paper-dim: #b8b0a0;
+  --color-crimson: #ff2e63;
+  --color-gold: #ffc857;
+  --color-azure: #4dc9ff;
+  --color-mint: #3ef2b0;
+  --color-surface: #0d0d16;
+  --color-card: #141420;
+  --font-display: "Archivo", sans-serif;
+  --font-accent: "Instrument Serif", serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+/* ─── Global ────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html, body, #app {
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-mono);
+}
+
+/* Film grain overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.03;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-ink-2); }
+::-webkit-scrollbar-thumb { background: #2a2a40; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-crimson); }
+
+/* ─── Component utilities ───────────────────────────────────────── */
+
+.panel-cut {
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+}
+
+.panel-cut-sm {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+
+.glass {
+  background: rgba(13, 13, 22, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(242, 237, 227, 0.06);
+}
+
+.text-outline {
+  -webkit-text-stroke: 1.5px var(--color-paper);
+  -webkit-text-fill-color: transparent;
+  paint-order: stroke fill;
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-crimson);
+}
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border: 1.5px solid var(--color-crimson);
+  background: rgba(255, 46, 99, 0.08);
+  color: var(--color-crimson);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--color-crimson);
+  color: var(--color-ink);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+}
+.btn-primary:hover:not(:disabled) {
+  translate: -3px -3px;
+  box-shadow: 5px 5px 0 var(--color-gold);
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: transparent;
+  color: var(--color-paper);
+  border: 1px solid rgba(242, 237, 227, 0.15);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 46, 99, 0.06);
+  border-color: var(--color-crimson);
+  translate: -2px -2px;
+  box-shadow: 3px 3px 0 rgba(255, 46, 99, 0.2);
+}
+.btn-ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Card */
+.card {
+  background: var(--color-card);
+  border: 1px solid rgba(242, 237, 227, 0.06);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card:hover {
+  border-color: rgba(255, 46, 99, 0.15);
+  translate: -2px -2px;
+  box-shadow: 4px 4px 0 rgba(255, 46, 99, 0.08);
+}
+
+/* Checkbox custom */
+input[type="checkbox"] {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid rgba(242, 237, 227, 0.25);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  flex-shrink: 0;
+}
+input[type="checkbox"]:checked {
+  background: var(--color-crimson);
+  border-color: var(--color-crimson);
+}
+input[type="checkbox"]:checked::after {
+  content: "✦";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Blink animation */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-blink {
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+/* Progress bar */
+.progress-track {
+  background: rgba(242, 237, 227, 0.06);
+  border-radius: 0;
+  height: 4px;
+  overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
+}
+.progress-fill {
+  height: 100%;
+  background: var(--color-crimson);
+  transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Result banner */
+.result-success {
+  background: rgba(62, 242, 176, 0.08);
+  border: 1px solid rgba(62, 242, 176, 0.15);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  color: var(--color-mint);
+}
+.result-fail {
+  background: rgba(255, 46, 99, 0.08);
+  border: 1px solid rgba(255, 46, 99, 0.15);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  color: var(--color-crimson);
+}
+
+/* Status indicator */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 0;
+  background: var(--color-crimson);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  body::before { display: none; }
+}

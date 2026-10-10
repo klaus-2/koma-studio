@@ -1,0 +1,28 @@
+{
+  "identifier": "default",
+  "description": "Default capability for KOMA Build Tool",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "shell:allow-execute",
+    "shell:allow-spawn",
+    "shell:allow-stdin-write",
+    "shell:allow-kill",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        { "name": "node", "cmd": "node", "args": true },
+        { "name": "bun", "cmd": "bun", "args": true },
+        { "name": "npm", "cmd": "npm", "args": true },
+        { "name": "scp", "cmd": "scp", "args": true },
+        { "name": "ssh", "cmd": "ssh", "args": true },
+        { "name": "tar", "cmd": "tar", "args": true },
+        { "name": "7z", "cmd": "7z", "args": true },
+        { "name": "pwsh", "cmd": "pwsh", "args": true },
+        { "name": "python", "cmd": "python", "args": true },
+        { "name": "py", "cmd": "py", "args": true }
+      ]
+    }
+  ]
+}
