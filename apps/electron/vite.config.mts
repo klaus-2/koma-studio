@@ -42,6 +42,7 @@ export default defineConfig({
     dedupe: ['react', 'react-dom', 'scheduler'],
     alias: {
       '@': path.resolve(__dirname, '../../packages/interface/src'),
+      '@shared': path.resolve(__dirname, '../../packages/types/src'),
     },
   },
   optimizeDeps: {
