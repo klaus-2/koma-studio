@@ -277,7 +277,7 @@ pub async fn build_update(app: AppHandle, state: State<'_, AppState>) -> Result<
     let (mut log, log_path) = open_log_file(&log_dir, "build-update").map_err(|e| e.to_string())?;
 
     let start = std::time::Instant::now();
-    write_log(&mut log, "Starting hardened release + update manifest...");
+    write_log(&mut log, "Starting hardened release...");
 
     let _ = app.emit("build-progress", ProgressEvent {
         phase: "Hardened Build".into(),
@@ -288,17 +288,6 @@ pub async fn build_update(app: AppHandle, state: State<'_, AppState>) -> Result<
     run_command(
         &app, &mut log, "node", &["scripts/build-hardened-release.mjs", "--platform", "win"],
         v2, "Hardened Build", 0.60, 5.0,
-    )?;
-
-    let _ = app.emit("build-progress", ProgressEvent {
-        phase: "Update Manifest".into(),
-        message: "Building update manifest...".into(),
-        pct: 70.0, is_warn: false, is_error: false,
-    });
-
-    run_command(
-        &app, &mut log, "node", &["scripts/build-update-manifest.mjs"],
-        v2, "Update Manifest", 0.10, 70.0,
     )?;
 
     // Upload to VPS
