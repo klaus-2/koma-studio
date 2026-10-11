@@ -60,8 +60,7 @@
     "harden:frontend": "node scripts/harden-frontend.mjs",
     "build:hardened:win": "node scripts/build-hardened-release.mjs --platform win",
     "build:hardened:mac": "node scripts/build-hardened-release.mjs --platform mac",
-    "build:hardened:linux": "node scripts/build-hardened-release.mjs --platform linux",
-    "build:update-manifest": "node scripts/build-update-manifest.mjs"
+    "build:hardened:linux": "node scripts/build-hardened-release.mjs --platform linux"
   },
   "dependencies": {
     "@koma/auth": "workspace:*",

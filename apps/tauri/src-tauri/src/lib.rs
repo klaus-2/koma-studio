@@ -3,7 +3,6 @@
 //! Decomposed by domain:
 //!   - `commands::*`   → IPC commands exposed to the renderer
 //!   - `sidecar::*`    → mini-backend lifecycle and IPC
-//!   - `updater::*`    → incremental updater (CAS + Merkle + bsdiff + Ed25519)
 //!   - `security::*`   → cert pinning, integrity validation, hardware identity
 //!   - `workspace::*`  → autosave, import/export `.komaproj`
 
@@ -16,7 +15,6 @@ mod security;
 mod services;
 mod sidecar;
 mod state;
-mod updater;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -30,7 +28,6 @@ pub fn run() {
     // koma-image:// / koma-font:// — serve image/font bytes from disk with
     // scope allowlisting, Range and ETag (see protocol::media docs).
     protocol::media::register(tauri::Builder::default())
-        .register_uri_scheme_protocol("app", updater::protocol::serve_chunks_protocol)
         // Must stay the first registered plugin: it exits duplicate processes
         // before any other plugin or window spawns. When the OS protocol
         // handler launched a second instance (e.g. the user clicked
@@ -98,7 +95,6 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init())
         .manage(runtime::profiles::MiniBackendRuntimeStore::default())
         .manage(sidecar::mini_backend::MiniBackendSidecarStore::default())
@@ -113,7 +109,6 @@ pub fn run() {
             )
             .expect("failed to spawn the Discord presence worker"),
         )
-        .manage(commands::updater::DesktopUpdaterStore::default())
         .manage(state::WorkspaceAssetStore::default())
         .manage(state::api::ApiRuntimeState::default())
         .invoke_handler(tauri::generate_handler![
@@ -127,14 +122,6 @@ pub fn run() {
             commands::desktop::open_external,
             commands::desktop::open_community_link,
             commands::logging::session_log,
-            commands::updater::updater_check,
-            commands::updater::updater_download_incremental,
-            commands::updater::updater_apply,
-            commands::updater::updater_rollback,
-            commands::updater::updater_postpone,
-            commands::updater::get_status,
-            commands::updater::set_channel,
-            commands::updater::set_auto_install,
             runtime::profiles::list_mini_backend_runtime_artifacts,
             runtime::profiles::install_recommended_mini_backend_runtime,
             runtime::profiles::install_mini_backend_runtime_profile,

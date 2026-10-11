@@ -393,12 +393,6 @@ const resolveTauriEnv = () => {
   const env = {
     KOMA_EMBEDDED_MINI_BACKEND: embedMiniBackend ? "1" : "0",
   };
-  const keyPath = path.join(os.homedir(), ".tauri", "koma-studio.key");
-
-  if (!process.env.TAURI_SIGNING_PRIVATE_KEY && fs.existsSync(keyPath)) {
-    env.TAURI_SIGNING_PRIVATE_KEY = fs.readFileSync(keyPath, "utf8").trim();
-  }
-
   if (shouldSkipWindowsSigning()) {
     env.KOMA_CODESIGN_SKIP = "1";
   }

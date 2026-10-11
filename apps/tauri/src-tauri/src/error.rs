@@ -47,8 +47,6 @@ pub enum AppError {
     Serialization(String),
     #[error("{0}")]
     Archive(String),
-    #[error("{0}")]
-    Update(String),
     #[error("unsupported media type: {0}")]
     UnsupportedMediaType(String),
     #[error("range not satisfiable (size {size})")]
@@ -84,7 +82,6 @@ impl AppError {
             Self::Cancelled(_) => "cancelled",
             Self::Serialization(_) => "serialization",
             Self::Archive(_) => "archive",
-            Self::Update(_) => "update",
             Self::UnsupportedMediaType(_) => "unsupported-media-type",
             Self::RangeNotSatisfiable { .. } => "range-not-satisfiable",
             Self::MethodNotAllowed(_) => "method-not-allowed",
@@ -239,8 +236,6 @@ pub enum CommandError {
     #[error("{0}")]
     Archive(String),
     #[error("{0}")]
-    Update(String),
-    #[error("{0}")]
     Internal(String),
 }
 
@@ -265,7 +260,6 @@ impl serde::Serialize for CommandError {
             Self::RateLimited(_) => "rate-limited",
             Self::Cancelled(_) => "cancelled",
             Self::Archive(_) => "archive",
-            Self::Update(_) => "update",
             Self::Internal(_) => "internal",
         };
 
@@ -332,7 +326,6 @@ impl From<AppError> for CommandError {
             AppError::RateLimited(message) => Self::RateLimited(message),
             AppError::Cancelled(message) => Self::Cancelled(message),
             AppError::Archive(message) => Self::Archive(message),
-            AppError::Update(message) => Self::Update(message),
             AppError::Io(_) => Self::Internal("A filesystem operation failed.".to_string()),
             AppError::Serialization(_) => {
                 Self::Internal("A data serialization operation failed.".to_string())

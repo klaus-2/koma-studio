@@ -4,7 +4,6 @@ import type { Event, UnlistenFn } from "@tauri-apps/api/event";
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   desktopCommandChannels,
-  updaterCommandChannels,
 } from "@shared/desktop-api";
 import type {
   DesktopModelDownloadPayload,
@@ -67,29 +66,17 @@ describe("tauri api wrapper", () => {
     });
   });
 
-  it("invokes updater commands without args", async () => {
-    mockedInvoke.mockResolvedValueOnce(runtimeStatePayload);
+  it("invokes desktop commands without args", async () => {
+    mockedInvoke.mockResolvedValueOnce({ ok: true });
 
-    await invokeCommand(updaterCommandChannels.getStatus);
+    await invokeCommand(desktopCommandChannels.discordRPC.setIdle);
 
-    expect(mockedInvoke).toHaveBeenCalledWith("updater:get-status");
-  });
-
-  it("invokes updater check with a manifest url when provided", async () => {
-    mockedInvoke.mockResolvedValueOnce(runtimeStatePayload);
-
-    await invokeCommand(updaterCommandChannels.check, {
-      manifestUrl: "https://api.koma-studio.site/updates/beta/manifest.json",
-    });
-
-    expect(mockedInvoke).toHaveBeenCalledWith("updater_check", {
-      manifestUrl: "https://api.koma-studio.site/updates/beta/manifest.json",
-    });
+    expect(mockedInvoke).toHaveBeenCalledTimes(1);
   });
 
   it("keeps production Vite URLs when Tauri runtime config returns local defaults", async () => {
     vi.stubEnv("VITE_AUTH_API_URL", "https://auth.koma-studio.site");
-    vi.stubEnv("VITE_UPDATE_SERVER_URL", "https://api.koma-studio.site/updates/");
+    vi.stubEnv("VITE_MINI_BACKEND_ARTIFACTS_URL", "https://api.koma-studio.site/updates/");
     mockedIsTauri.mockReturnValue(true);
     mockedInvoke.mockResolvedValueOnce({
       authApiUrl: "http://127.0.0.1:3001",
@@ -115,7 +102,9 @@ describe("tauri api wrapper", () => {
 
     try {
       expect(isTauriRuntime()).toBe(true);
-      expect(tauriApi.updater).not.toBeNull();
+      // Source-only update model: the Tauri shell has no native updater bridge.
+      expect(tauriApi.updater).toBeNull();
+      expect(tauriApi.desktop).not.toBeNull();
     } finally {
       if (internals === undefined) {
         Reflect.deleteProperty(globalThis as Record<string, unknown>, "__TAURI_INTERNALS__");

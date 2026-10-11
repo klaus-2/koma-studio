@@ -8,7 +8,6 @@ import type {
 } from "@tauri-apps/api/event";
 import {
   desktopCommandChannels,
-  updaterCommandChannels,
 } from "@shared/desktop-api";
 import type {
   AuthLoginPayload,
@@ -37,20 +36,15 @@ import type {
   JsonRecord,
   LlmProfilePayload,
   RuntimeConfig,
-  UpdaterCommandName,
 } from "@shared/desktop-api";
 import type {
   DesktopEventName,
   DesktopEventPayloadMap,
   MiniBackendRuntimeListener,
   ModelManagerListener,
-  UpdaterEventName,
-  UpdaterEventPayload,
-  UpdaterListener,
-  UpdaterStatusPayload,
 } from "@shared/desktop-events";
 
-export type TauriCommandName = DesktopCommandName | UpdaterCommandName;
+export type TauriCommandName = DesktopCommandName;
 export type TauriCommandArgs = InvokeArgs | undefined;
 
 export const invokeCommand = <TResponse = unknown>(
@@ -186,10 +180,6 @@ const miniBackendRuntimeListeners = new Map<
   Promise<UnlistenFn>
 >();
 const modelManagerListeners = new Map<ModelManagerListener, Promise<UnlistenFn>>();
-const updaterListeners = new Map<
-  UpdaterEventName,
-  Map<UpdaterListener, Promise<UnlistenFn>>
->();
 
 const normalizeFontEntry = (entry: unknown): DesktopFontEntry | null => {
   if (!entry || typeof entry !== "object") {
@@ -518,77 +508,12 @@ const tauriDesktopBridge: IDesktopBridge = {
   },
 };
 
-const updaterBridge: IUpdaterBridge = {
-  check: (manifestUrl?: string) =>
-    manifestUrl
-      ? invokeCommand<UpdaterStatusPayload>(updaterCommandChannels.check, {
-          manifestUrl,
-        })
-      : invokeCommand<UpdaterStatusPayload>(updaterCommandChannels.check),
-  download: () =>
-    invokeCommand<UpdaterStatusPayload>(updaterCommandChannels.download),
-  install: () => invokeCommand<UpdaterStatusPayload>(updaterCommandChannels.install),
-  rollback: () =>
-    invokeCommand<UpdaterStatusPayload>(updaterCommandChannels.rollback),
-  postpone: () =>
-    invokeCommand<UpdaterStatusPayload>(updaterCommandChannels.postpone),
-  getStatus: () =>
-    invokeCommand<UpdaterStatusPayload>(updaterCommandChannels.getStatus),
-  setChannel: (channel) =>
-    invokeCommand<UpdaterStatusPayload>(updaterCommandChannels.setChannel, {
-      channel,
-    }),
-  setAutoInstall: (enabled) =>
-    invokeCommand<UpdaterStatusPayload>(updaterCommandChannels.setAutoInstall, {
-      enabled,
-    }),
-  on: (eventName, listener) => {
-    const listenersForEvent =
-      updaterListeners.get(eventName) ?? new Map<UpdaterListener, Promise<UnlistenFn>>();
-    updaterListeners.set(eventName, listenersForEvent);
-    registerListener(
-      listenersForEvent,
-      listener,
-      listenToDesktopEvent("updater:event", (payload: UpdaterEventPayload) => {
-        if (payload.event === eventName) {
-          listener(payload);
-        }
-      }),
-    );
-  },
-  off: (eventName, listener) => {
-    const listenersForEvent = updaterListeners.get(eventName);
-    if (!listenersForEvent) {
-      return;
-    }
-    unregisterListener(listenersForEvent, listener);
-    if (listenersForEvent.size === 0) {
-      updaterListeners.delete(eventName);
-    }
-  },
-  offAll: (eventName?: UpdaterEventName) => {
-    const entries =
-      eventName === undefined
-        ? Array.from(updaterListeners.entries())
-        : ([[eventName, updaterListeners.get(eventName)]] as const);
-    entries.forEach(([name, listenersForEvent]) => {
-      if (!listenersForEvent) {
-        return;
-      }
-      Array.from(listenersForEvent.keys()).forEach((listener) => {
-        unregisterListener(listenersForEvent, listener);
-      });
-      updaterListeners.delete(name);
-    });
-  },
-};
+// Source-only update model: the Tauri shell performs no native updater IPC.
+// The renderer checks GitHub Releases directly (useUpdater) and the source
+// sync pipeline is Electron-only.
 
 const resolveDesktopBridge = (): IDesktopBridge | null => {
   return isTauriRuntime() ? tauriDesktopBridge : null;
-};
-
-const resolveUpdaterBridge = (): IUpdaterBridge | null => {
-  return isTauriRuntime() ? updaterBridge : null;
 };
 
 export const tauriApi = {
@@ -596,7 +521,7 @@ export const tauriApi = {
     return resolveDesktopBridge();
   },
   get updater(): IUpdaterBridge | null {
-    return resolveUpdaterBridge();
+    return null;
   },
   isDesktopRuntime: isTauriRuntime,
   getRuntimeConfig: getCachedTauriRuntimeConfig,

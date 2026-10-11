@@ -7,5 +7,4 @@ pub mod discord;
 pub mod images;
 pub mod logging;
 pub mod models;
-pub mod updater;
 pub mod workspace;
