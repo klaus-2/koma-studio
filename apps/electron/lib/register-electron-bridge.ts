@@ -29,15 +29,27 @@ type ElectronDesktop = {
   };
 };
 
+type ElectronUpdaterSync = {
+  start: () => Promise<unknown>;
+  cancel: () => Promise<unknown>;
+  rebuildAndRestart: () => Promise<unknown>;
+  getStatus: () => Promise<unknown>;
+  on: (listener: (payload: unknown) => void) => () => void;
+};
+
 declare global {
   interface Window {
     desktop?: ElectronDesktop & Record<string, unknown>;
     updater?: Record<string, (...args: unknown[]) => Promise<unknown>>;
+    updaterSync?: ElectronUpdaterSync;
   }
 }
 
 const electronDesktop = (): ElectronDesktop | null =>
   typeof window !== "undefined" && window.desktop ? window.desktop : null;
+
+const electronUpdaterSync = (): ElectronUpdaterSync | null =>
+  typeof window !== "undefined" && window.updaterSync ? window.updaterSync : null;
 
 // Fallback for pure browser preview (no preload): keeps the Dashboard
 // working — without this, getRuntimeConfig() throws and the page goes blank.
@@ -54,6 +66,9 @@ setDesktopBridgeProvider({
   },
   get updater() {
     return (typeof window !== "undefined" ? window.updater : null) ?? null;
+  },
+  get updaterSync() {
+    return electronUpdaterSync();
   },
   isDesktopRuntime: () => electronDesktop() !== null,
   getRuntimeConfig: () => electronDesktop()?.getRuntimeConfig() ?? FALLBACK_RUNTIME_CONFIG,

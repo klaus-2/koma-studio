@@ -7,6 +7,7 @@
 import type {
   IDesktopBridge,
   IUpdaterBridge,
+  IUpdaterSyncBridge,
   RuntimeConfig,
 } from "@shared/desktop-api";
 import type {
@@ -17,6 +18,8 @@ import type {
 export interface DesktopBridgeProvider {
   desktop: IDesktopBridge | null;
   updater: IUpdaterBridge | null;
+  /** Source-sync bridge (git pull pipeline). Electron-only; null elsewhere. */
+  updaterSync?: IUpdaterSyncBridge | null;
   isDesktopRuntime(): boolean;
   getRuntimeConfig(): RuntimeConfig;
   hydrateRuntimeConfig(): Promise<RuntimeConfig>;
@@ -60,6 +63,9 @@ export const desktopBridge = {
   },
   get updater(): IUpdaterBridge | null {
     return getDesktopBridgeProvider().updater ?? null;
+  },
+  get updaterSync(): IUpdaterSyncBridge | null {
+    return getDesktopBridgeProvider().updaterSync ?? null;
   },
   isDesktopRuntime: (): boolean => getDesktopBridgeProvider().isDesktopRuntime?.() ?? false,
   getRuntimeConfig: (): RuntimeConfig => getDesktopBridgeProvider().getRuntimeConfig?.() ?? ({} as RuntimeConfig),

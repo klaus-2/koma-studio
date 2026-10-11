@@ -6,6 +6,7 @@ import type {
   UpdaterListener,
   UpdaterStatusPayload,
 } from "./desktop-events";
+import type { UpdaterSyncLogListener } from "./updaterSync";
 import type {
   BloggerConfig,
   BloggerConnectionResult,
@@ -653,4 +654,12 @@ export interface IUpdaterBridge {
   on(eventName: UpdaterEventName, listener: UpdaterListener): void;
   off(eventName: UpdaterEventName, listener: UpdaterListener): void;
   offAll(eventName?: UpdaterEventName): void;
+}
+
+export interface IUpdaterSyncBridge {
+  start(): Promise<unknown>;
+  cancel(): Promise<unknown>;
+  rebuildAndRestart(): Promise<unknown>;
+  getStatus(): Promise<unknown>;
+  on(listener: UpdaterSyncLogListener): () => void;
 }

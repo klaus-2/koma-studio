@@ -1,54 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
-
-type UpdaterEventName =
-  | "status"
-  | "checking"
-  | "available"
-  | "not-available"
-  | "progress"
-  | "downloaded"
-  | "error";
-
-type UpdaterStatus =
-  | "idle"
-  | "checking"
-  | "available"
-  | "not-available"
-  | "downloading"
-  | "downloaded"
-  | "error";
-
-interface UpdaterProgressPayload {
-  percent: number;
-  transferred: number;
-  total: number;
-  speed: number;
-}
-
-interface UpdaterStatusPayload {
-  status: UpdaterStatus;
-  currentVersion: string;
-  newVersion: string | null;
-  mandatory: boolean;
-  blocking: boolean;
-  blockingReason: "mandatory-update" | null;
-  releaseNotes: string | null;
-  channel: "stable" | "beta";
-  provider: "github" | "generic";
-  autoInstallOnQuit: boolean;
-  allowPrerelease: boolean;
-  progress: UpdaterProgressPayload | null;
-  checkedAt: number | null;
-  downloadedAt: number | null;
-  error: string | null;
-}
-
-interface UpdaterEventPayload {
-  event: UpdaterEventName;
-  state: UpdaterStatusPayload;
-}
-
-type UpdaterListener = (payload: UpdaterEventPayload) => void;
+import {
+  parseUpdaterSyncState,
+  UPDATER_SYNC_IPC,
+  type UpdaterSyncEventPayload,
+  type UpdaterSyncLogListener,
+} from "../../../packages/types/src/updaterSync.ts";
 
 type ModelManagerEvent =
   | {
@@ -246,148 +202,6 @@ const invokeSecureDesktopApi = (channel: string, payload: Record<string, unknown
       timestampMs: Date.now(),
     },
   });
-
-const updaterEventNames: UpdaterEventName[] = [
-  "status",
-  "checking",
-  "available",
-  "not-available",
-  "progress",
-  "downloaded",
-  "error",
-];
-const updaterListeners = new Map<UpdaterEventName, Set<UpdaterListener>>();
-for (const eventName of updaterEventNames) {
-  updaterListeners.set(eventName, new Set<UpdaterListener>());
-}
-
-const asUpdaterEventName = (value: unknown): UpdaterEventName | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  return updaterEventNames.includes(value as UpdaterEventName) ? (value as UpdaterEventName) : null;
-};
-
-const asUpdaterState = (value: unknown): UpdaterStatusPayload | null => {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const payload = value as Record<string, unknown>;
-  const status =
-    typeof payload.status === "string"
-      ? (payload.status as UpdaterStatus)
-      : null;
-  if (!status) {
-    return null;
-  }
-
-  return {
-    status,
-    currentVersion: typeof payload.currentVersion === "string" ? payload.currentVersion : "0.0.0",
-    newVersion: typeof payload.newVersion === "string" ? payload.newVersion : null,
-    mandatory: payload.mandatory === true,
-    blocking: payload.blocking === true,
-    blockingReason: payload.blockingReason === "mandatory-update" ? "mandatory-update" : null,
-    releaseNotes: typeof payload.releaseNotes === "string" ? payload.releaseNotes : null,
-    channel: payload.channel === "beta" ? "beta" : "stable",
-    provider: payload.provider === "generic" ? "generic" : "github",
-    autoInstallOnQuit: payload.autoInstallOnQuit === true,
-    allowPrerelease: payload.allowPrerelease === true,
-    progress:
-      payload.progress && typeof payload.progress === "object"
-        ? {
-            percent: Number((payload.progress as Record<string, unknown>).percent ?? 0),
-            transferred: Number((payload.progress as Record<string, unknown>).transferred ?? 0),
-            total: Number((payload.progress as Record<string, unknown>).total ?? 0),
-            speed: Number((payload.progress as Record<string, unknown>).speed ?? 0),
-          }
-        : null,
-    checkedAt: typeof payload.checkedAt === "number" ? payload.checkedAt : null,
-    downloadedAt: typeof payload.downloadedAt === "number" ? payload.downloadedAt : null,
-    error: typeof payload.error === "string" ? payload.error : null,
-  };
-};
-
-const invokeUpdaterState = async (
-  channel: string,
-  payload?: unknown,
-): Promise<UpdaterStatusPayload> => {
-  const rawState =
-    payload === undefined ? await ipcRenderer.invoke(channel) : await ipcRenderer.invoke(channel, payload);
-  const normalized = asUpdaterState(rawState);
-  if (!normalized) {
-    throw new Error(`Updater bridge returned invalid state for ${channel}.`);
-  }
-
-  return normalized;
-};
-
-const notifyUpdaterListeners = (eventName: UpdaterEventName, payload: UpdaterEventPayload): void => {
-  const listeners = updaterListeners.get(eventName);
-  if (!listeners || listeners.size === 0) {
-    return;
-  }
-
-  listeners.forEach((listener) => {
-    try {
-      listener(payload);
-    } catch {
-      // Listener failures should not break preload event dispatch.
-    }
-  });
-};
-
-ipcRenderer.on("updater:event", (_event, rawPayload: unknown) => {
-  if (!rawPayload || typeof rawPayload !== "object") {
-    return;
-  }
-
-  const payload = rawPayload as Record<string, unknown>;
-  const eventName = asUpdaterEventName(payload.event);
-  const state = asUpdaterState(payload.state);
-  if (!eventName || !state) {
-    return;
-  }
-
-  const normalizedPayload: UpdaterEventPayload = {
-    event: eventName,
-    state,
-  };
-
-  notifyUpdaterListeners(eventName, normalizedPayload);
-  if (eventName !== "status") {
-    notifyUpdaterListeners("status", normalizedPayload);
-  }
-});
-
-const addUpdaterListener = (eventName: UpdaterEventName, listener: UpdaterListener): void => {
-  const bucket = updaterListeners.get(eventName);
-  if (!bucket) {
-    return;
-  }
-
-  bucket.add(listener);
-};
-
-const removeUpdaterListener = (eventName: UpdaterEventName, listener: UpdaterListener): void => {
-  const bucket = updaterListeners.get(eventName);
-  if (!bucket) {
-    return;
-  }
-
-  bucket.delete(listener);
-};
-
-const removeAllUpdaterListeners = (eventName?: UpdaterEventName): void => {
-  if (eventName) {
-    updaterListeners.get(eventName)?.clear();
-    return;
-  }
-
-  updaterListeners.forEach((bucket) => bucket.clear());
-};
 
 const modelManagerListeners = new Set<ModelManagerListener>();
 
@@ -916,24 +730,41 @@ contextBridge.exposeInMainWorld("desktop", {
   },
 });
 
-contextBridge.exposeInMainWorld("updater", {
-  check: async (): Promise<UpdaterStatusPayload> => invokeUpdaterState("updater:check"),
-  download: async (): Promise<UpdaterStatusPayload> => invokeUpdaterState("updater:download"),
-  install: async (): Promise<UpdaterStatusPayload> => invokeUpdaterState("updater:install"),
-  rollback: async (): Promise<UpdaterStatusPayload> => invokeUpdaterState("updater:rollback"),
-  postpone: async (): Promise<UpdaterStatusPayload> => invokeUpdaterState("updater:postpone"),
-  getStatus: async (): Promise<UpdaterStatusPayload> => invokeUpdaterState("updater:get-status"),
-  setChannel: async (channel: "stable" | "beta"): Promise<UpdaterStatusPayload> =>
-    invokeUpdaterState("updater:set-channel", channel),
-  setAutoInstall: async (enabled: boolean): Promise<UpdaterStatusPayload> =>
-    invokeUpdaterState("updater:set-auto-install", enabled),
-  on: (eventName: UpdaterEventName, listener: UpdaterListener): void => {
-    addUpdaterListener(eventName, listener);
-  },
-  off: (eventName: UpdaterEventName, listener: UpdaterListener): void => {
-    removeUpdaterListener(eventName, listener);
-  },
-  offAll: (eventName?: UpdaterEventName): void => {
-    removeAllUpdaterListeners(eventName);
+/* ─── Source-sync updater bridge (git pull → bun install → venv → rebuild) ── */
+
+const SYNC_EVENT_CHANNEL = "updater:sync-event";
+
+const syncListeners = new Set<UpdaterSyncLogListener>();
+
+ipcRenderer.on(SYNC_EVENT_CHANNEL, (_event, rawPayload: unknown) => {
+  const state = parseUpdaterSyncState(
+    rawPayload && typeof rawPayload === "object"
+      ? (rawPayload as Record<string, unknown>).state
+      : null,
+  );
+  if (!state) {
+    return;
+  }
+
+  const payload: UpdaterSyncEventPayload = { state };
+  syncListeners.forEach((listener) => {
+    try {
+      listener(payload);
+    } catch {
+      // Listener failures should not break preload event dispatch.
+    }
+  });
+});
+
+contextBridge.exposeInMainWorld("updaterSync", {
+  start: async (): Promise<unknown> => invokeSecureDesktopApi(UPDATER_SYNC_IPC.start),
+  cancel: async (): Promise<unknown> => ipcRenderer.invoke(UPDATER_SYNC_IPC.cancel),
+  rebuildAndRestart: async (): Promise<unknown> => ipcRenderer.invoke(UPDATER_SYNC_IPC.rebuild),
+  getStatus: async (): Promise<unknown> => ipcRenderer.invoke(UPDATER_SYNC_IPC.getStatus),
+  on: (listener: UpdaterSyncLogListener): (() => void) => {
+    syncListeners.add(listener);
+    return () => {
+      syncListeners.delete(listener);
+    };
   },
 });

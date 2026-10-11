@@ -29,7 +29,7 @@ import {
   type DesktopSessionRecoveryAction,
 } from "../../../packages/types/src/desktopSessionRecovery.ts";
 import { discordRPC } from "./discord-rpc.ts";
-import { UpdaterService } from "./updater/UpdaterService";
+import { registerUpdaterSyncService } from "./updater/sync-service";
 import { resolveDesktopShortcutAction } from "./app-shortcuts.ts";
 import {
   listMiniBackendRuntimeArtifactOptions,
@@ -121,7 +121,6 @@ let miniBackendExitPromise: Promise<void> | null = null;
 // stopMiniBackend() nulls miniBackendProcess before kill completes, so the
 // exit handler needs its own copy to guarantee the child is killed.
 let miniBackendProcessForExitCleanup: ChildProcess | null = null;
-let updaterService: UpdaterService | null = null;
 let localApiSessionSecret = randomBytes(32).toString("hex");
 let preparedMiniBackendPort: number | null = null;
 let miniBackendRuntimeInstallPromise: Promise<{
@@ -1861,9 +1860,10 @@ const hasDesktopAuthCookie = async (): Promise<boolean> => {
   return cookies.some((cookie) => cookieMatchesHost(cookie.domain ?? "", authHost));
 };
 
+// Source-only model: no native updater state — infer the channel from the app
+// version (same heuristic as the renderer's inferChannelFromVersion).
 const getDesktopUpdateChannel = (): "stable" | "beta" => {
-  const channel = updaterService?.getStatusSnapshot().channel;
-  return channel === "beta" ? "beta" : "stable";
+  return app.getVersion().includes("-") ? "beta" : "stable";
 };
 
 const buildDesktopSessionHeaders = (
@@ -3819,14 +3819,7 @@ const createWindow = async (): Promise<void> => {
 
   setupDesktopClientHeaderInjection(mainWindow);
   setupNavigationHardening(mainWindow);
-  updaterService = UpdaterService.getInstance(resolveDesktopEnvValue);
-  try {
-    updaterService.initialize(mainWindow);
-  } catch (error) {
-    console.warn(
-      `[updater] initialization failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  registerUpdaterSyncService();
 
   if (process.env.VITE_DEV_SERVER_URL) {
     await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -4118,8 +4111,4 @@ app.on("before-quit", (event) => {
       app.quit();
     });
   }
-});
-
-app.on("will-quit", () => {
-  updaterService?.cleanup();
 });
