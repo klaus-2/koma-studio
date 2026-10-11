@@ -1,94 +1,116 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
+from typing import ClassVar
 
 import cv2
 import numpy as np
 import numpy.typing as npt
 
-from models.inpainting.base_inpainter import BaseInpainter, ImageU8, InpaintConfig, MaskU8
-from models.onnx_utils import (
-    ONNX_RUNTIME_ERRORS,
-    ImageMaskOnnxModel,
-    translate_inference_error,
+from models.inpainting.base_inpainter import (
+    BaseInpainter,
+    ImageU8,
+    InpaintConfig,
+    MaskU8,
 )
+from models.onnx_utils import ImageMaskOnnxModel, OutputRange, output_to_u8
 
 
-def _denormalize_output(output: npt.NDArray[np.float32]) -> ImageU8:
-    """Map model output to uint8.
-
-    LaMa ONNX exports in the wild use three conventions and the graphs carry no
-    metadata about it: [0, 1] (original LaMa), [-1, 1] (GAN-style exports) and
-    [0, 255] (exports with the scale baked in). The value range of a single
-    inference is enough to tell them apart because a real image never fits two
-    of these ranges simultaneously except at the degenerate all-gray extreme.
-    """
-    lo, hi = float(output.min()), float(output.max())
-    if hi > 2.0:
-        scaled = output
-    elif lo >= -0.05:
-        scaled = output * 255.0
-    else:
-        scaled = (output + 1.0) * 127.5
-    return np.clip(np.rint(scaled), 0, 255).astype(np.uint8)
+def _denormalize_output(
+    output: npt.NDArray[np.float32],
+    output_range: OutputRange = OutputRange.ZERO_ONE,
+) -> ImageU8:
+    """Apply the export contract; pixel statistics never select normalization."""
+    return output_to_u8(output, output_range)
 
 
 class LaMaInpainter(BaseInpainter):
-    key = "lama_manga"
-    name = "LaMa Manga Dynamic (ONNX)"
-    pad_mod = 8
+    key: str = "lama_manga"
+    name: str = "LaMa Manga Dynamic (ONNX)"
+    pad_mod: ClassVar[int] = 8
 
     def __init__(
         self,
-        model_path: str,
+        model_path: Path | str,
         providers: Sequence[str],
         *,
         key: str | None = None,
         name: str | None = None,
+        output_range: OutputRange = OutputRange.ZERO_ONE,
     ) -> None:
-        if key:
+        if key is not None:
+            if not key.strip():
+                raise ValueError("Model key must not be blank")
             self.key = key
-        if name:
-            self.name = name
-        self._onnx = ImageMaskOnnxModel(model_path, providers, model_key=self.key)
 
-    def forward(self, image: ImageU8, mask: MaskU8, config: InpaintConfig) -> ImageU8:
-        h, w = image.shape[:2]
+        if name is not None:
+            if not name.strip():
+                raise ValueError("Model name must not be blank")
+            self.name = name
+
+        self._onnx = ImageMaskOnnxModel(
+            model_path,
+            providers,
+            model_key=self.key,
+            output_range=output_range,
+        )
+
+    def forward(
+        self,
+        image: ImageU8,
+        mask: MaskU8,
+        config: InpaintConfig,
+    ) -> ImageU8:
+        del config
+        height, width = image.shape[:2]
+        loaded = self._onnx.load()
         run_image, run_mask = image, mask
 
-        loaded = self._onnx.load()
-        if loaded.fixed_hw is not None and loaded.fixed_hw != (h, w):
+        if loaded.fixed_hw is not None and loaded.fixed_hw != (height, width):
             target_h, target_w = loaded.fixed_hw
             run_image = np.asarray(
-                cv2.resize(image, (target_w, target_h), interpolation=cv2.INTER_CUBIC), dtype=np.uint8
+                cv2.resize(
+                    image,
+                    (target_w, target_h),
+                    interpolation=cv2.INTER_LINEAR,
+                ),
+                dtype=np.uint8,
             )
-            run_mask = np.asarray(
-                cv2.resize(mask, (target_w, target_h), interpolation=cv2.INTER_NEAREST), dtype=np.uint8
+            coverage = np.asarray(
+                cv2.resize(
+                    mask,
+                    (target_w, target_h),
+                    interpolation=cv2.INTER_AREA,
+                ),
+                dtype=np.uint8,
             )
+            run_mask = np.where(coverage > 0, np.uint8(255), np.uint8(0))
 
-        image_tensor = (run_image.astype(np.float32) / 255.0).transpose(2, 0, 1)[np.newaxis]
-        mask_tensor = (run_mask > 0).astype(np.float32)[np.newaxis, np.newaxis]
+        image_f = run_image.astype(np.float32)
+        image_f *= np.float32(1.0 / 255.0)
 
-        try:
-            outputs = loaded.session.run(
-                None, {loaded.image_input: image_tensor, loaded.mask_input: mask_tensor}
-            )
-        except ONNX_RUNTIME_ERRORS as exc:
-            raise translate_inference_error(exc, model_key=self.key) from exc
-        if not outputs:
-            from models.errors import InvalidModelOutputError
+        image_tensor = np.ascontiguousarray(
+            image_f.transpose(2, 0, 1)[np.newaxis]
+        )
+        mask_tensor = np.ascontiguousarray(
+            (run_mask >= 128).astype(np.float32)[np.newaxis, np.newaxis]
+        )
 
-            raise InvalidModelOutputError(f"{self.key}: model returned no output")
+        output = self._onnx.run(
+            image_tensor,
+            mask_tensor,
+            loaded=loaded,
+        )
+        result = _denormalize_output(output, loaded.output_range)
 
-        output = np.asarray(outputs[0], dtype=np.float32)
-        if output.ndim == 4:
-            output = output[0].transpose(1, 2, 0)
-        elif output.ndim == 3 and output.shape[0] == 3:
-            output = output.transpose(1, 2, 0)
-
-        result = _denormalize_output(np.asarray(output, dtype=np.float32))
-        if result.shape[:2] != (h, w):
+        if result.shape[:2] != (height, width):
             result = np.asarray(
-                cv2.resize(result, (w, h), interpolation=cv2.INTER_CUBIC), dtype=np.uint8
+                cv2.resize(
+                    result,
+                    (width, height),
+                    interpolation=cv2.INTER_LINEAR,
+                ),
+                dtype=np.uint8,
             )
         return result

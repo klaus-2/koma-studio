@@ -1,7 +1,7 @@
-"""Thread-safe LRU cache for heavyweight inference engines.
+"""Thread-safe, generation-aware LRU with one concurrent build per key.
 
-Guarantees a single build per key under contention and releases evicted engines
-so device memory is returned deterministically instead of waiting for GC.
+Returned values are shared references. Eviction removes cache ownership only:
+it must not release resources still owned by callers.
 """
 
 from __future__ import annotations
@@ -10,67 +10,117 @@ import logging
 import threading
 from collections import OrderedDict
 from collections.abc import Callable, Hashable
-from typing import Protocol, runtime_checkable
+from concurrent.futures import Future
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
 
-@runtime_checkable
-class Releasable(Protocol):
-    def release(self) -> None: ...
+class RecursiveEngineBuildError(RuntimeError):
+    """An engine builder recursively requested its own pending cache key."""
 
 
-def _release(engine: object) -> None:
-    if isinstance(engine, Releasable):
-        engine.release()
+@dataclass(frozen=True, slots=True)
+class _Build[V]:
+    future: Future[V]
+    owner_thread: int
+    generation: int
 
 
 class LruEngineCache[K: Hashable, V]:
+    __slots__ = (
+        "_builds",
+        "_entries",
+        "_generation",
+        "_lock",
+        "_max_size",
+    )
+
     def __init__(self, max_size: int) -> None:
         if max_size < 1:
-            raise ValueError("max_size must be >= 1")
+            raise ValueError("max_size must be positive")
+
         self._max_size = max_size
         self._entries: OrderedDict[K, V] = OrderedDict()
+        self._builds: dict[K, _Build[V]] = {}
+        self._generation = 0
         self._lock = threading.Lock()
-        self._build_locks: dict[K, threading.Lock] = {}
 
     def __len__(self) -> int:
         with self._lock:
             return len(self._entries)
 
     def get_or_build(self, key: K, build: Callable[[], V]) -> V:
+        owner_thread = threading.get_ident()
+
         with self._lock:
-            hit = self._entries.get(key)
-            if hit is not None:
+            if key in self._entries:
                 self._entries.move_to_end(key)
-                return hit
-            build_lock = self._build_locks.setdefault(key, threading.Lock())
+                return self._entries[key]
 
-        with build_lock:
-            with self._lock:
-                hit = self._entries.get(key)
-                if hit is not None:
-                    self._entries.move_to_end(key)
-                    return hit
+            pending = self._builds.get(key)
+            if pending is None:
+                pending = _Build(
+                    future=Future[V](),
+                    owner_thread=owner_thread,
+                    generation=self._generation,
+                )
+                self._builds[key] = pending
+                is_builder = True
+            else:
+                is_builder = False
+                if pending.owner_thread == owner_thread:
+                    raise RecursiveEngineBuildError(
+                        "An engine builder requested its own pending key"
+                    )
 
+        if not is_builder:
+            return pending.future.result()
+
+        try:
             engine = build()
-
-            evicted: list[V] = []
+        except BaseException as exc:
+            # This is the builder boundary: every waiter must be completed.
             with self._lock:
-                self._entries[key] = engine
-                while len(self._entries) > self._max_size:
-                    _, old = self._entries.popitem(last=False)
-                    evicted.append(old)
-                self._build_locks.pop(key, None)
+                if self._builds.get(key) is pending:
+                    del self._builds[key]
+            pending.future.set_exception(exc)
+            raise
 
-        for old in evicted:
-            logger.info("engine evicted", extra={"engine": type(old).__name__})
-            _release(old)
+        evicted: list[V] = []
+        with self._lock:
+            if (
+                pending.generation == self._generation
+                and self._builds.get(key) is pending
+            ):
+                self._entries[key] = engine
+                self._entries.move_to_end(key)
+
+                while len(self._entries) > self._max_size:
+                    _, previous = self._entries.popitem(last=False)
+                    evicted.append(previous)
+
+            if self._builds.get(key) is pending:
+                del self._builds[key]
+
+        pending.future.set_result(engine)
+
+        if evicted:
+            logger.info(
+                "engine_cache.evicted",
+                extra={"entries": len(evicted)},
+            )
+
+        # Drop cache references outside the mutex; destructors may be expensive.
+        evicted.clear()
         return engine
 
     def clear(self) -> None:
         with self._lock:
-            engines = list(self._entries.values())
-            self._entries.clear()
-        for engine in engines:
-            _release(engine)
+            self._generation += 1
+            previous_entries = self._entries
+            self._entries = OrderedDict()
+            self._builds.clear()
+
+        previous_entries.clear()
+        logger.info("engine_cache.cleared")

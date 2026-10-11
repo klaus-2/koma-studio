@@ -1,17 +1,20 @@
-"""Segmentation contract. Implementations are synchronous and CPU-bound; the
-public ``segment`` coroutine offloads them so the event loop is never blocked."""
+"""Segmentation contracts with bounded asynchronous execution."""
 
 from __future__ import annotations
 
-import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import ClassVar, Literal
 
+from models.errors import InvalidInputImageError
+from models.execution import run_inference
 from models.geometry import BBox
 
 type RegionSource = Literal["model", "manual"]
+
+_MAX_REGIONS = 256
+_MAX_IMAGE_BYTES = 64 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,7 +50,18 @@ class BaseSegmenter(ABC):
         image_bytes: bytes,
         regions: Sequence[SegmentInputRegion],
     ) -> list[SegmentResultRegion]:
-        return await asyncio.to_thread(self._segment, image_bytes, tuple(regions))
+        if len(regions) > _MAX_REGIONS:
+            raise InvalidInputImageError("Too many segmentation regions")
+        if len(image_bytes) > _MAX_IMAGE_BYTES:
+            raise InvalidInputImageError("Encoded image exceeds the byte budget")
+
+        snapshot = tuple(regions)
+        if not snapshot:
+            return []
+
+        return await run_inference(
+            lambda: self._segment(image_bytes, snapshot)
+        )
 
     @abstractmethod
     def _segment(
@@ -55,4 +69,4 @@ class BaseSegmenter(ABC):
         image_bytes: bytes,
         regions: Sequence[SegmentInputRegion],
     ) -> list[SegmentResultRegion]:
-        """Synchronous implementation. Must be safe to call from worker threads."""
+        """Synchronous implementation; must be safe across worker threads."""

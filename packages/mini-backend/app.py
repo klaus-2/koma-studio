@@ -332,6 +332,9 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         try:
             yield
         finally:
+            from models.execution import shutdown_inference_workers
+
+            await shutdown_inference_workers()
             collected = await asyncio.to_thread(_clear_all_caches)
             logger.info("shutdown.caches_released", extra={"collected_objects": collected})
             from services.http_client import close_shared_client

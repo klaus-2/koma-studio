@@ -1,14 +1,19 @@
 from __future__ import annotations
 
-import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import ClassVar
 
 from PIL import Image
 
-type Bbox = tuple[int, int, int, int]
+from models.errors import InvalidInputImageError
+from models.execution import run_inference
+from models.geometry import BBox
+
+type Bbox = BBox
 type Rgb = tuple[int, int, int]
+
+_MAX_IMAGE_PIXELS = 32_000_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,10 +35,18 @@ class BaseDetector(ABC):
     name: ClassVar[str] = "Base Detector"
 
     async def detect(self, image: Image.Image) -> list[TextDetection]:
-        # ONNX inference is CPU/GPU-bound and takes hundreds of milliseconds;
-        # running it inline would stall every other coroutine on the loop.
-        # onnxruntime sessions are safe for concurrent ``run`` calls.
-        return await asyncio.to_thread(self._detect, image)
+        """Borrow image read-only until completion, including cancellation."""
+        return await run_inference(lambda: self._detect_validated(image))
+
+    def _detect_validated(self, image: Image.Image) -> list[TextDetection]:
+        width, height = image.size
+        if width < 1 or height < 1 or width * height > _MAX_IMAGE_PIXELS:
+            raise InvalidInputImageError("Image dimensions exceed detection limits")
+
+        with image.convert("RGB") as rgb:
+            rgb.load()
+            return self._detect(rgb)
 
     @abstractmethod
-    def _detect(self, image: Image.Image) -> list[TextDetection]: ...
+    def _detect(self, image: Image.Image) -> list[TextDetection]:
+        """Synchronous implementation; must not retain or mutate image."""

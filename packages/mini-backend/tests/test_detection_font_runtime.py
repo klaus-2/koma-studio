@@ -57,7 +57,10 @@ class FontDetectorRuntimeTests(unittest.TestCase):
             )
 
             fake_device = SimpleNamespace(
-                has_gpu=False, onnx_provider="CPUExecutionProvider"
+                has_gpu=False,
+                onnx_provider="CPUExecutionProvider",
+                available_onnx_providers=("CPUExecutionProvider",),
+                acceleration_profile="cpu",
             )
             fake_detector = object()
 

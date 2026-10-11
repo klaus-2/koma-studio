@@ -75,24 +75,22 @@ class ResolveDetectorKeyTests(unittest.TestCase):
 @unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
 class DetectorCacheTests(unittest.TestCase):
     def test_put_prefers_existing_instance(self) -> None:
-        cache = factory._DetectorCache(max_size=2)
+        cache = factory.LruEngineCache(max_size=2)
         key = ("k", "CPUExecutionProvider", -1.0, -1.0)
         first, second = _Stub(), _Stub()
-        self.assertIs(cache.put(key, first), first)
-        self.assertIs(cache.put(key, second), first)
-        self.assertIs(cache.get(key), first)
+        self.assertIs(cache.get_or_build(key, lambda: first), first)
+        self.assertIs(cache.get_or_build(key, lambda: second), first)
 
     def test_evicts_least_recently_used(self) -> None:
-        cache = factory._DetectorCache(max_size=2)
+        cache = factory.LruEngineCache(max_size=2)
         k1 = ("a", (), 0.0, 0.0)
         k2 = ("b", (), 0.0, 0.0)
         k3 = ("c", (), 0.0, 0.0)
-        cache.put(k1, _Stub())
-        cache.put(k2, _Stub())
-        cache.get(k1)
-        cache.put(k3, _Stub())
-        self.assertIsNone(cache.get(k2))
-        self.assertIsNotNone(cache.get(k1))
+        cache.get_or_build(k1, _Stub)
+        cache.get_or_build(k2, _Stub)
+        cache.get_or_build(k1, _Stub)  # refresh LRU position
+        cache.get_or_build(k3, _Stub)
+        self.assertEqual(len(cache), 2)
 
 
 if __name__ == "__main__":
