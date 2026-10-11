@@ -6,7 +6,7 @@
 [![Discord](https://img.shields.io/badge/Discord-join%20us-5865F2?logo=discord)](https://discord.gg/tzaV2efD4e)
 [![Website](https://img.shields.io/badge/website-koma--studio.site-111827)](https://koma-studio.site/)
 
-![KŌMA Studio — 15s preview](docs/media/koma-studio-promo.mp4)
+![KŌMA Studio — 15s preview](docs/media/koma-studio-promo.gif)
 
 **A free, open-source desktop toolkit for scanlation**: detection, OCR, translation,
 cleaning, typesetting and export, running locally on your machine.
