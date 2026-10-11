@@ -235,8 +235,6 @@ export interface EnvConfig {
   desktopTravelTokenTtlMinutes: number;
   desktopTravelDeviceDurationDays: number;
   disableTravelTokenEnforcement: boolean;
-  updateServerUrl?: string;
-  updateManifestCacheTtlMs: number;
   feedModerationDiscordWebhookUrl?: string;
   feedMaxLinksPerPost: number;
   feedMaxMediaItems: number;
@@ -299,11 +297,6 @@ export const env: EnvConfig = {
   disableTravelTokenEnforcement: parseBoolean(
     process.env.DISABLE_TRAVEL_TOKEN_ENFORCEMENT,
     false,
-  ),
-  updateServerUrl: process.env.UPDATE_SERVER_URL?.trim() || undefined,
-  updateManifestCacheTtlMs: Math.max(
-    5_000,
-    parseNumber(process.env.UPDATE_MANIFEST_CACHE_TTL_MS, 30_000),
   ),
   feedModerationDiscordWebhookUrl: process.env.FEED_MODERATION_DISCORD_WEBHOOK_URL?.trim() || undefined,
   feedMaxLinksPerPost: Math.max(1, Math.min(25, parseNumber(process.env.FEED_MAX_LINKS_PER_POST, 8))),

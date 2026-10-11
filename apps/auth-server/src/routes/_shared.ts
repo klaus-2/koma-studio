@@ -68,7 +68,6 @@ import {
   resolvePreferredEmailLocale,
 } from "../services/locale.js";
 import { resolveLocaleFromHeaders, tServer } from "../services/server-i18n.js";
-import { isMandatoryUpdatePending, type DesktopUpdateRequirement } from "../services/update-policy.js";
 import {
   deleteModelReview,
   getModelReviewDetail,
@@ -719,88 +718,6 @@ export const isDesktopCaptchaBypassRequest = (req: Request, body: unknown): bool
     getRequestDesktopDeviceId(req, bodyRecord) || getRequestDesktopMacFingerprint(bodyRecord),
   );
   return hasDesktopIdentityPayload && (Boolean(getDesktopClientVersion(req)) || desktopSignalValidation.ok);
-};
-
-export const getDesktopUpdateChannel = (req: Request): "stable" | "beta" =>
-  readHeaderValue(req.headers[DESKTOP_UPDATE_CHANNEL_HEADER])?.toLowerCase() === "beta"
-    ? "beta"
-    : "stable";
-
-export const sendMandatoryUpdateRequired = (
-  res: Response,
-  requirement: DesktopUpdateRequirement,
-  route: string,
-): Response =>
-  sendAuthError(
-    res,
-    426,
-    {
-      error: tServer(resolveLocaleFromHeaders(res.req.headers), "auth.error.mandatoryUpdateRequired"),
-      code: "MANDATORY_UPDATE_REQUIRED",
-      update: {
-        version: requirement.version,
-        mandatory: true,
-        channel: requirement.channel,
-      },
-    }
-  );
-
-export const sendDesktopAppVersionRequired = (
-  res: Response,
-  route: string,
-): Response =>
-  sendAuthError(
-    res,
-    400,
-    {
-      error: tServer(resolveLocaleFromHeaders(res.req.headers), "auth.error.desktopVersionMissing"),
-      code: "DESKTOP_APP_VERSION_REQUIRED",
-    }
-  );
-
-export const enforceMandatoryUpdateIfNeeded = async (
-  req: Request,
-  res: Response,
-  route: string,
-): Promise<boolean> => {
-  if (isAdminWebRequest(req)) {
-    return false;
-  }
-
-  const appVersion = getDesktopClientVersion(req);
-  if (!appVersion) {
-    sendDesktopAppVersionRequired(res, route);
-    return true;
-  }
-
-  try {
-    const requirement = await isMandatoryUpdatePending({
-      updateServerUrl: env.updateServerUrl,
-      channel: getDesktopUpdateChannel(req),
-      appVersion,
-      cacheTtlMs: env.updateManifestCacheTtlMs,
-    });
-    if (!requirement) {
-      return false;
-    }
-
-    sendMandatoryUpdateRequired(res, requirement, route);
-    return true;
-  } catch (error) {
-    logger.error("Mandatory update policy lookup failed", {
-      route,
-      message: error instanceof Error ? error.message : String(error),
-    });
-    sendAuthError(
-      res,
-      503,
-      {
-        error: tServer(resolveLocaleFromHeaders(req.headers), "auth.error.updatePolicyUnavailable"),
-        code: "UPDATE_POLICY_UNAVAILABLE",
-      }
-    );
-    return true;
-  }
 };
 
 export const safeTokenEquals = (left: string, right: string): boolean => {

@@ -59,7 +59,6 @@ import {
   buildAuthenticatedUserResponse,
   buildNormalizedAuthErrorBody,
   detectRequestLocale,
-  enforceMandatoryUpdateIfNeeded,
   getRequestDesktopDeviceId,
   getRequestDesktopMacFingerprint,
   getUserById,
@@ -382,9 +381,6 @@ export function registerAuthRoutes(app: express.Express): void {
 
         try {
           const requestLocale = detectRequestLocale(req, body);
-          if (await enforceMandatoryUpdateIfNeeded(req, res, "/api/auth/login")) {
-            return;
-          }
 
           const existingUser = await findUserByEmail(email);
           const requestBan = await findActiveBanForSignals(
@@ -753,9 +749,6 @@ export function registerAuthRoutes(app: express.Express): void {
           normalizedUser,
           detectRequestLocale(req),
         );
-        if (await enforceMandatoryUpdateIfNeeded(req, res, "/api/auth/session")) {
-          return;
-        }
 
         const accessToken = issueAccessToken({
           sub: localeAwareUser.id,
@@ -817,9 +810,6 @@ export function registerAuthRoutes(app: express.Express): void {
       }
 
       const normalizedUser = userRow;
-      if (await enforceMandatoryUpdateIfNeeded(req, res, "/api/auth/verify")) {
-        return;
-      }
       return res.json(await buildAuthenticatedUserResponse(normalizedUser));
     });
 
