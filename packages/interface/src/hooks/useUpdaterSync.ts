@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-import {
-  createInitialUpdaterSyncState,
-  parseUpdaterSyncState,
-  type UpdaterSyncState,
-} from "@shared/updaterSync";
-
 import { desktopBridge } from "@/lib/desktop-bridge";
+import { type UpdaterSyncState, parseUpdaterSyncState, createInitialUpdaterSyncState } from "@shared/updaterSync";
 
 export interface UseUpdaterSyncApi {
   supported: boolean;

@@ -13,11 +13,11 @@ export default defineConfig({
     // Bundle analysis: ANALYZE=1 bun run build:react → dist/stats.html
     ...(process.env.ANALYZE === '1'
       ? [visualizer({
-          template: 'treemap',
-          filename: 'dist/stats.html',
-          gzipSize: true,
-          brotliSize: false,
-        })]
+        template: 'treemap',
+        filename: 'dist/stats.html',
+        gzipSize: true,
+        brotliSize: false,
+      })]
       : []),
     electron({
       main: {
