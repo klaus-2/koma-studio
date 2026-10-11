@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useUpdater } from "../../hooks/useUpdater";
+import { useUpdaterSync } from "../../hooks/useUpdaterSync";
 import UpdateModalClassic from "./UpdateModalClassic";
-import UpdateProgressClassic from "./UpdateProgressClassic";
 import type { UpdaterStatus } from "../../types";
 import { sendDiscordWebhookEvent } from "../../services/discordWebhook";
 import { useI18n } from "../../i18n";
@@ -10,28 +10,17 @@ import { useI18n } from "../../i18n";
 export const UpdateToastClassic = () => {
   const { t } = useI18n();
   const updater = useUpdater();
+  const sync = useUpdaterSync();
   const [modalOpen, setModalOpen] = useState(false);
-  const [dismissedStatus, setDismissedStatus] = useState<UpdaterStatus | null>(null);
+  const [dismissed, setDismissed] = useState<string | null>(null);
   const previousStatusRef = useRef<UpdaterStatus>(updater.status);
   const emittedWebhookKeysRef = useRef<Set<string>>(new Set());
-  const downloadedPercent = updater.status === "downloaded" ? 100 : Math.max(0, Math.min(100, updater.progress.percent || 0));
 
-  const handleInstallLater = async (): Promise<void> => {
-    await updater.setAutoInstall(true);
-    setDismissedStatus("downloaded");
-    setModalOpen(false);
-  };
+  const dismissedKey = updater.newVersion ?? "unknown";
 
   useEffect(() => {
-    if (dismissedStatus && dismissedStatus !== updater.status) setDismissedStatus(null);
-  }, [dismissedStatus, updater.status]);
-
-  useEffect(() => {
-    if (updater.blocking) {
-      setModalOpen(true);
-      setDismissedStatus(null);
-    }
-  }, [updater.blocking]);
+    if (dismissed && dismissed !== dismissedKey) setDismissed(null);
+  }, [dismissed, dismissedKey]);
 
   useEffect(() => {
     if (previousStatusRef.current === updater.status) {
@@ -42,11 +31,9 @@ export const UpdateToastClassic = () => {
     const eventKey =
       updater.status === "available"
         ? "updateAvailable"
-        : updater.status === "downloaded"
-          ? "updateDownloaded"
-          : updater.status === "error"
-            ? "updateError"
-            : null;
+        : updater.status === "error"
+          ? "updateError"
+          : null;
 
     if (eventKey) {
       const dedupeKey = `${updater.status}:${version ?? "unknown"}`;
@@ -86,46 +73,20 @@ export const UpdateToastClassic = () => {
           </svg>
         ),
       };
-    if (updater.status === "downloaded")
-      return {
-        title: t("update.toast.downloadedTitle"),
-        description: t("update.toast.downloadedDescription", { percent: downloadedPercent.toFixed(0) }),
-        icon: (
-          <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        ),
-      };
-    if (updater.status === "downloading")
-      return {
-        title: t("update.toast.downloadingTitle"),
-        description: t("update.toast.downloadingDescription", {
-          percent: updater.progress.percent.toFixed(0),
-        }),
-        icon: <span className="auth-spinner" style={{ width: 16, height: 16 }} />,
-      };
     return null;
-  }, [downloadedPercent, t, updater.channel, updater.newVersion, updater.progress.percent, updater.status]);
+  }, [t, updater.channel, updater.newVersion, updater.status]);
 
-  const shouldShowBanner =
-    toastContent !== null &&
-    updater.status !== "downloading" &&
-    updater.blocking !== true &&
-    dismissedStatus !== updater.status;
+  const shouldShowBanner = toastContent !== null && dismissed !== dismissedKey && !sync.running;
 
   return (
     <>
-      {shouldShowBanner && (
+      {shouldShowBanner && toastContent && (
         <div className="koma-toast">
           <div className="koma-toast__glow" aria-hidden="true" />
 
           <button
             type="button"
-            onClick={() => setDismissedStatus(updater.status)}
+            onClick={() => setDismissed(dismissedKey)}
             className="koma-toast__close"
             aria-label={t("update.toast.closeAria")}
           >
@@ -142,66 +103,31 @@ export const UpdateToastClassic = () => {
           </div>
 
           <div className="koma-toast__actions">
-            {updater.status === "available" && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void updater.downloadUpdate()}
-                  className="koma-toast__btn koma-toast__btn--primary"
-                >
-                  {t("update.button.download")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(true)}
-                  className="koma-toast__btn koma-toast__btn--ghost"
-                >
-                  {t("update.button.details")}
-                </button>
-              </>
-            )}
-            {updater.status === "downloaded" && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void updater.installUpdate()}
-                  className="koma-toast__btn koma-toast__btn--success"
-                >
-                  {t("update.button.installNow")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleInstallLater()}
-                  className="koma-toast__btn koma-toast__btn--ghost"
-                >
-                  {t("update.button.installLater")}
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="koma-toast__btn koma-toast__btn--primary"
+            >
+              {t("update.button.syncNow")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="koma-toast__btn koma-toast__btn--ghost"
+            >
+              {t("update.button.details")}
+            </button>
           </div>
         </div>
       )}
 
-      <UpdateProgressClassic status={updater.status} progress={updater.progress} newVersion={updater.newVersion} hidden={modalOpen} />
-
       <UpdateModalClassic
         open={modalOpen}
-        status={updater.status}
         currentVersion={updater.currentVersion}
         newVersion={updater.newVersion}
-        mandatory={updater.mandatory}
         releaseNotes={updater.releaseNotes}
-        progress={updater.progress}
-        autoInstallOnQuit={updater.autoInstallOnQuit}
-        onClose={() => {
-          if (!updater.mandatory) {
-            setModalOpen(false);
-          }
-        }}
-        onDownload={updater.downloadUpdate}
-        onInstall={updater.installUpdate}
-        onInstallLater={handleInstallLater}
-        onPostpone={updater.postpone}
+        onClose={() => setModalOpen(false)}
+        onOpenReleasePage={updater.downloadUpdate}
       />
     </>
   );

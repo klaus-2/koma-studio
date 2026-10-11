@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { Moon, Sun, Globe2, DownloadCloud, Radio, Save, Lightbulb, Keyboard, RotateCcw, FileText } from "lucide-react";
 import RuntimeProfileSection from "../../../components/runtime/RuntimeProfileSection";
 import ReleaseNotesMarkdownClassic from "../../../components/updater/ReleaseNotesMarkdownClassic";
+import SyncPanel from "../../../components/updater/SyncPanel";
 import type { AppLocale } from "../../../i18n/config";
 import type { useI18n } from "../../../i18n";
 import type { UseUpdaterApi } from "../../../hooks/useUpdater";
@@ -35,7 +36,6 @@ interface SettingsAppTabArgs {
   fmtDate: (value: number | string | null) => string;
   busy: boolean;
   handleChannel: (channel: UpdaterChannel) => Promise<void>;
-  handleAutoInstall: (enabled: boolean) => Promise<void>;
   workspaceAutosaveSettings: WorkspaceAutosaveSettings;
   setWorkspaceAutosaveSettings: Dispatch<SetStateAction<WorkspaceAutosaveSettings>>;
   setWorkspaceAutosaveFeedback: Dispatch<SetStateAction<WorkspaceAutosaveFeedbackState>>;
@@ -47,8 +47,6 @@ interface SettingsAppTabArgs {
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
   handleCheck: () => Promise<void>;
-  handleDownload: () => Promise<void>;
-  handleInstall: () => Promise<void>;
   runtimeState: DesktopMiniBackendRuntimeState | null;
   recommendedRuntimeProfile: string;
   runtimeArtifactsAvailable: boolean;
@@ -126,14 +124,8 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
               {a.busy ? <span className="blink">{t("settings.updates.checking")}</span> : t("settings.updates.checkNow")}
             </button>
             {updater.status === "available" && (
-              <button type="button" disabled={a.busy} onClick={() => void a.handleDownload()} className={btnGhost}>
-                {t("settings.updates.download")}
-              </button>
-            )}
-            {updater.status === "downloaded" && (
-              <button type="button" disabled={a.busy} onClick={() => void a.handleInstall()}
-                className={`${btnPrimary} !bg-mint`}>
-                {t("update.button.installNow")}
+              <button type="button" disabled={a.busy} onClick={() => void updater.downloadUpdate()} className={btnGhost}>
+                {t("update.modal.openReleasePage")}
               </button>
             )}
           </div>
@@ -150,18 +142,17 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
             </span>
           </SpecRow>
           <SpecRow label={t("settings.updates.channel")}>{a.channelLabel}</SpecRow>
-          <SpecRow label={t("settings.updates.installOnClose")}>
-            {updater.autoInstallOnQuit ? t("renderPreview.enabled") : t("renderPreview.disabled")}
-          </SpecRow>
-          <SpecRow label={t("settings.updates.policy")}>
-            {updater.mandatory ? t("settings.updates.mandatory") : t("settings.updates.optional")}
-          </SpecRow>
           <SpecRow label={t("settings.updates.lastCheck")} mono>{a.fmtDate(updater.checkedAt)}</SpecRow>
-          <SpecRow label={t("settings.updates.downloadCompleted")} mono>{a.fmtDate(updater.downloadedAt)}</SpecRow>
         </SpecGrid>
         {updater.status === "error" && updater.error && (
           <div className="mt-3"><Alert tone="error">{updater.error}</Alert></div>
         )}
+
+        {/* Source-sync control panel */}
+        <div className="mt-4">
+          <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.24em] text-paper/40">{t("update.sync.title")}</p>
+          <SyncPanel />
+        </div>
       </Sec>
 
       {/* ═══ CHANNEL ═══ */}
@@ -187,15 +178,6 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
               </button>
             );
           })}
-        </div>
-
-        <div className="mt-3">
-          <ToggleRow
-            title={t("settings.updates.installOnCloseTitle")}
-            desc={t("settings.updates.installOnCloseDesc")}
-            checked={updater.autoInstallOnQuit}
-            disabled={a.busy}
-            onChange={(v) => void a.handleAutoInstall(v)} />
         </div>
       </Sec>
 

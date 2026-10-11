@@ -1,36 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { DownloadCloud, CheckCircle2, X } from "lucide-react";
+import { DownloadCloud, X } from "lucide-react";
 import { useUpdater } from "../../../hooks/useUpdater";
+import { useUpdaterSync } from "../../../hooks/useUpdaterSync";
 import type { UpdaterStatus } from "../../../types";
 import { sendDiscordWebhookEvent } from "../../../services/discordWebhook";
 import UpdateModalNoir from "./UpdateModalNoir";
-import UpdateProgressNoir from "./UpdateProgressNoir";
 import { useI18n } from "../../../i18n";
-import { btnPrimary, btnMint, btnGhost } from "../../system/v2/kit";
+import { btnPrimary, btnGhost } from "../../system/v2/kit";
 
+// Noir variant — source-only update model (single "available" state; primary
+// action opens the update modal with the sync panel).
 export const UpdateToastNoir = () => {
   const { t } = useI18n();
   const updater = useUpdater();
+  const sync = useUpdaterSync();
   const [modalOpen, setModalOpen] = useState(false);
-  const [dismissedStatus, setDismissedStatus] = useState<UpdaterStatus | null>(null);
+  const [dismissed, setDismissed] = useState<string | null>(null);
   const previousStatusRef = useRef<UpdaterStatus>(updater.status);
   const emittedWebhookKeysRef = useRef<Set<string>>(new Set());
-  const downloadedPercent = updater.status === "downloaded" ? 100 : Math.max(0, Math.min(100, updater.progress.percent || 0));
 
-  const handleInstallLater = async (): Promise<void> => {
-    await updater.setAutoInstall(true);
-    setDismissedStatus("downloaded");
-    setModalOpen(false);
-  };
+  const dismissedKey = updater.newVersion ?? "unknown";
 
   useEffect(() => {
-    if (dismissedStatus && dismissedStatus !== updater.status) setDismissedStatus(null);
-  }, [dismissedStatus, updater.status]);
-
-  useEffect(() => {
-    if (updater.blocking) { setModalOpen(true); setDismissedStatus(null); }
-  }, [updater.blocking]);
+    if (dismissed && dismissed !== dismissedKey) setDismissed(null);
+  }, [dismissed, dismissedKey]);
 
   /* Webhook dedupe — lógica V1 intacta */
   useEffect(() => {
@@ -38,7 +32,6 @@ export const UpdateToastNoir = () => {
     const version = updater.newVersion ?? updater.currentVersion ?? null;
     const eventKey =
       updater.status === "available" ? "updateAvailable"
-      : updater.status === "downloaded" ? "updateDownloaded"
       : updater.status === "error" ? "updateError" : null;
 
     if (eventKey) {
@@ -69,32 +62,12 @@ export const UpdateToastNoir = () => {
         }),
         icon: <DownloadCloud size={16} />,
       };
-    if (updater.status === "downloaded")
-      return {
-        tone: "mint" as const,
-        title: t("update.toast.downloadedTitle"),
-        description: t("update.toast.downloadedDescription", { percent: downloadedPercent.toFixed(0) }),
-        icon: <CheckCircle2 size={16} />,
-      };
-    if (updater.status === "downloading")
-      return {
-        tone: "crimson" as const,
-        title: t("update.toast.downloadingTitle"),
-        description: t("update.toast.downloadingDescription", { percent: updater.progress.percent.toFixed(0) }),
-        icon: <span className="blink text-crimson">▼</span>,
-      };
     return null;
-  }, [downloadedPercent, t, updater.channel, updater.newVersion, updater.progress.percent, updater.status]);
+  }, [t, updater.channel, updater.newVersion, updater.status]);
 
-  const shouldShowBanner =
-    toastContent !== null &&
-    updater.status !== "downloading" &&
-    updater.blocking !== true &&
-    dismissedStatus !== updater.status;
+  const shouldShowBanner = toastContent !== null && dismissed !== dismissedKey && !sync.running;
 
-  const toneCls = toastContent?.tone === "mint"
-    ? { bar: "bg-mint", icon: "border-mint bg-mint/10 text-mint" }
-    : { bar: "bg-crimson", icon: "border-crimson bg-crimson/10 text-crimson" };
+  const toneCls = { bar: "bg-crimson", icon: "border-crimson bg-crimson/10 text-crimson" };
 
   return (
     <>
@@ -113,7 +86,7 @@ export const UpdateToastNoir = () => {
               通信
             </span>
 
-            <button type="button" onClick={() => setDismissedStatus(updater.status)}
+            <button type="button" onClick={() => setDismissed(dismissedKey)}
               aria-label={t("update.toast.closeAria")}
               className="absolute right-2 top-2 p-1 text-paper/35 transition-colors hover:text-crimson">
               <X size={12} />
@@ -136,47 +109,24 @@ export const UpdateToastNoir = () => {
             </div>
 
             <div className="mt-3 flex gap-2 border-t border-paper/8 pt-3">
-              {updater.status === "available" && (
-                <>
-                  <button type="button" onClick={() => void updater.downloadUpdate()} className={`${btnPrimary} flex-1`}>
-                    {t("update.button.download")}
-                  </button>
-                  <button type="button" onClick={() => setModalOpen(true)} className={btnGhost}>
-                    {t("update.button.details")}
-                  </button>
-                </>
-              )}
-              {updater.status === "downloaded" && (
-                <>
-                  <button type="button" onClick={() => void updater.installUpdate()} className={`${btnMint} flex-1`}>
-                    {t("update.button.installNow")}
-                  </button>
-                  <button type="button" onClick={() => void handleInstallLater()} className={btnGhost}>
-                    {t("update.button.installLater")}
-                  </button>
-                </>
-              )}
+              <button type="button" onClick={() => setModalOpen(true)} className={`${btnPrimary} flex-1`}>
+                {t("update.button.syncNow")}
+              </button>
+              <button type="button" onClick={() => setModalOpen(true)} className={btnGhost}>
+                {t("update.button.details")}
+              </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <UpdateProgressNoir status={updater.status} progress={updater.progress} newVersion={updater.newVersion} hidden={modalOpen} />
-
       <UpdateModalNoir
         open={modalOpen}
-        status={updater.status}
         currentVersion={updater.currentVersion}
         newVersion={updater.newVersion}
-        mandatory={updater.mandatory}
         releaseNotes={updater.releaseNotes}
-        progress={updater.progress}
-        autoInstallOnQuit={updater.autoInstallOnQuit}
-        onClose={() => { if (!updater.mandatory) setModalOpen(false); }}
-        onDownload={updater.downloadUpdate}
-        onInstall={updater.installUpdate}
-        onInstallLater={handleInstallLater}
-        onPostpone={updater.postpone}
+        onClose={() => setModalOpen(false)}
+        onOpenReleasePage={updater.downloadUpdate}
       />
     </>
   );

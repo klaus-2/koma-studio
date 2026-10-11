@@ -3,12 +3,11 @@ import { flushSync } from "react-dom";
 
 import { AuthProvider, useAuthContext } from "./contexts/AuthContext";
 import type { ActiveBanInfo } from "./contexts/AuthContext";
-import { UpdaterProvider, useUpdaterBlocking } from "./hooks/useUpdater";
+import { UpdaterProvider } from "./hooks/useUpdater";
 import { applyTheme, useThemeStore } from "@koma/ui/stores/theme-store";
 import { LegalInlineLinks } from "./components/legal/LegalInlineLinks";
 import { getLegalDocumentIdForRoute, isLegalRoutePath } from "./legal/navigation";
 import { UpdateToast } from "./components/updater/UpdateToast";
-import { MandatoryUpdateGate } from "./components/updater/MandatoryUpdateGate";
 import { RuntimeStartupToast } from "./components/runtime/RuntimeStartupToast";
 import { CustomCursor } from "./components/CustomCursor";
 import { SessionTimeout } from "@koma/auth/SessionTimeout";
@@ -54,7 +53,6 @@ interface AppRouteContentProps {
   navigateSettings: () => void;
   navigateVerifyDashboard: () => void;
   route: RoutePath;
-  updaterBlocking: boolean;
 }
 
 // Route picker, extracted so AppShell's restricted-production early return
@@ -76,7 +74,6 @@ const AppRouteContent = ({
   navigateSettings,
   navigateVerifyDashboard,
   route,
-  updaterBlocking,
 }: AppRouteContentProps) => {
   const content = useMemo(() => {
     if (isLoading) {
@@ -85,10 +82,6 @@ const AppRouteContent = ({
 
     if (isLegalRoutePath(route)) {
       return <LegalHubPage documentId={getLegalDocumentIdForRoute(route) ?? "terms"} />;
-    }
-
-    if (updaterBlocking) {
-      return <MandatoryUpdateGate />;
     }
 
     if (activeBan) {
@@ -210,7 +203,6 @@ const AppRouteContent = ({
     navigateSettings,
     navigateVerifyDashboard,
     route,
-    updaterBlocking,
   ]);
   return content;
 };
@@ -221,7 +213,6 @@ const AppShell = () => {
   const routeRef = useRef(route);
   const pendingNavigationRef = useRef(0);
   const { user, isAuthenticated, isLoading, refreshSession, markEmailVerified, activeBan, clearBanState } = useAuthContext();
-  const updaterBlocking = useUpdaterBlocking();
   const theme = useThemeStore(
     (s: { theme: import("@koma/ui/stores/theme-store").KomaTheme }) => s.theme,
   );
@@ -421,7 +412,7 @@ const AppShell = () => {
     ) {
       navigateInstant("dashboard");
     }
-  }, [activeBan, isAuthenticated, isLoading, navigateInstant, route, updaterBlocking]);
+  }, [activeBan, isAuthenticated, isLoading, navigateInstant, route]);
 
   useEffect(() => {
     if (isLoading || !discord.enabled || !discord.isAvailable) {
@@ -524,7 +515,6 @@ const AppShell = () => {
             navigateSettings={navigateSettings}
             navigateVerifyDashboard={navigateVerifyDashboard}
             route={route}
-            updaterBlocking={updaterBlocking}
           />
         </Suspense>
       </div>

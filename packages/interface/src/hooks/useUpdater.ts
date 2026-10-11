@@ -2,56 +2,31 @@ import { createContext, createElement, type ReactNode, useCallback, useContext, 
 import packageJson from "../../package.json";
 import { useI18n } from "../i18n";
 import { fetchWithTimeoutAndRetry } from "../utils/http";
-import { buildIncrementalManifestUrl } from "@/lib/tauri/update-url";
+
+import { desktopBridge } from "@/lib/desktop-bridge";
 
 import type {
-  IUpdaterBridge,
   UpdaterChannel,
-  UpdaterEventName,
-  UpdaterEventPayload,
   UpdaterProgress,
   UpdaterState,
   UpdaterStatus,
 } from "../types";
 
-import { desktopBridge } from "@/lib/desktop-bridge";
+const GITHUB_OWNER = "klaus-2";
+const GITHUB_REPO = "koma-studio";
+
 const CHANNEL_STORAGE_KEY = "updater-channel";
 const CHANNEL_STORAGE_VERSION_KEY = "updater-channel-version";
 const CHANNEL_STORAGE_EXPLICIT_KEY = "updater-channel-explicit";
-const AUTO_INSTALL_STORAGE_KEY = "updater-auto-install-on-quit";
 const CHECK_DELAY_MS = 8_000;
 const PERIODIC_CHECK_MS = 60 * 1_000;
-
-type PackagePublishConfig = {
-  provider?: unknown;
-  owner?: unknown;
-  repo?: unknown;
-};
+// api.github.com allows 60 req/h per IP unauthenticated — back off before retrying.
+const MAX_BACKOFF_ATTEMPTS = 4;
 
 const packageVersion =
   typeof (packageJson as { version?: unknown }).version === "string"
     ? (packageJson as { version: string }).version
     : "0.0.0";
-const publishConfig = Array.isArray((packageJson as { build?: { publish?: unknown } }).build?.publish)
-  ? (((packageJson as { build?: { publish?: unknown[] } }).build?.publish?.[0] ?? null) as
-      | PackagePublishConfig
-      | null)
-  : null;
-const fallbackGithubOwner =
-  typeof publishConfig?.owner === "string" ? publishConfig.owner : "your-username";
-const fallbackGithubRepo =
-  typeof publishConfig?.repo === "string" ? publishConfig.repo : "koma-studio-releases";
-const fallbackProvider = publishConfig?.provider === "generic" ? "generic" : "github";
-
-const UPDATER_EVENTS: UpdaterEventName[] = [
-  "status",
-  "checking",
-  "available",
-  "not-available",
-  "progress",
-  "downloaded",
-  "error",
-];
 
 const inferChannelFromVersion = (version: string): UpdaterChannel =>
   version.includes("-") ? "beta" : "stable";
@@ -72,8 +47,8 @@ const initialState: UpdaterState = {
   blockingReason: null,
   releaseNotes: null,
   channel: inferChannelFromVersion(packageVersion),
-  provider: fallbackProvider,
-  autoInstallOnQuit: true,
+  provider: "github",
+  autoInstallOnQuit: false,
   allowPrerelease: inferChannelFromVersion(packageVersion) === "beta",
   progress: null,
   checkedAt: null,
@@ -122,40 +97,15 @@ const updaterStateReducer = (state: UpdaterState, action: UpdaterStateAction): U
   const nextState = action.type === "replace"
     ? action.nextState
     : {
-        ...state,
-        ...action.nextState,
-      };
+      ...state,
+      ...action.nextState,
+    };
 
   return areUpdaterStatesEqual(state, nextState) ? state : nextState;
 };
 
 const isUpdaterChannel = (value: string | null): value is UpdaterChannel =>
   value === "stable" || value === "beta";
-
-const parseStoredBoolean = (value: string | null): boolean | null => {
-  if (value === "true") {
-    return true;
-  }
-  if (value === "false") {
-    return false;
-  }
-
-  return null;
-};
-
-const getUpdaterBridge = (): IUpdaterBridge | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return desktopBridge.updater ?? null;
-};
-
-const resolveIncrementalManifestUrl = (channel: UpdaterChannel): string | null =>
-  buildIncrementalManifestUrl(
-    desktopBridge.getRuntimeConfig().runtimeArtifactsUrl ?? null,
-    channel,
-  );
 
 interface GithubReleasePayload {
   tag_name?: string;
@@ -218,8 +168,6 @@ const compareVersions = (a: string, b: string): number => {
 };
 
 const fetchGithubRelease = async (
-  owner: string,
-  repo: string,
   channel: UpdaterChannel,
 ): Promise<GithubReleasePayload | null> => {
   const headers = {
@@ -228,7 +176,7 @@ const fetchGithubRelease = async (
   };
 
   if (channel === "stable") {
-    const response = await fetchWithTimeoutAndRetry(`https://api.github.com/repos/${owner}/${repo}/releases/latest`, {
+    const response = await fetchWithTimeoutAndRetry(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`, {
       headers,
     });
     if (!response.ok) {
@@ -237,7 +185,7 @@ const fetchGithubRelease = async (
     return (await response.json()) as GithubReleasePayload;
   }
 
-  const response = await fetchWithTimeoutAndRetry(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=20`, {
+  const response = await fetchWithTimeoutAndRetry(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases?per_page=20`, {
     headers,
   });
   if (!response.ok) {
@@ -249,13 +197,11 @@ const fetchGithubRelease = async (
   return match ?? null;
 };
 
-const buildFallbackReleaseUrl = (
-  owner: string,
-  repo: string,
+const buildReleasePageUrl = (
   channel: UpdaterChannel,
   version: string | null,
 ): string => {
-  const base = `https://github.com/${owner}/${repo}/releases`;
+  const base = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
   if (version && version.trim().length > 0) {
     const normalized = normalizeVersion(version);
     return `${base}/tag/v${normalized}`;
@@ -301,10 +247,9 @@ const UpdaterVersionContext = createContext<Pick<UseUpdaterApi, "currentVersion"
 
 const useProvideUpdater = (): UseUpdaterApi => {
   const { t } = useI18n();
-  const bridge = useMemo(getUpdaterBridge, []);
   const [state, dispatch] = useReducer(updaterStateReducer, initialState);
-  const fallbackReleasePageUrlRef = useRef<string | null>(null);
-  const usingBridge = Boolean(bridge);
+  const releasePageUrlRef = useRef<string | null>(null);
+  const githubBackoffAttemptsRef = useRef(0);
 
   const applyState = useCallback((nextState: UpdaterState) => {
     dispatch({ type: "replace", nextState });
@@ -314,38 +259,8 @@ const useProvideUpdater = (): UseUpdaterApi => {
     dispatch({ type: "patch", nextState });
   }, []);
 
-  const runAction = useCallback(
-    async (callback: (api: IUpdaterBridge) => Promise<UpdaterState>): Promise<void> => {
-      if (!bridge) {
-        return;
-      }
-
-      try {
-        const nextState = await callback(bridge);
-        applyState(nextState);
-      } catch (error) {
-        patchState({
-          status: "error",
-          error: error instanceof Error ? error.message : "Updater failed.",
-        });
-      }
-    },
-    [applyState, bridge, patchState],
-  );
-
-  const runGithubFallbackCheck = useCallback(async (channelOverride?: UpdaterChannel): Promise<void> => {
-    const owner = fallbackGithubOwner;
-    const repo = fallbackGithubRepo;
+  const runGithubCheck = useCallback(async (channelOverride?: UpdaterChannel): Promise<void> => {
     const effectiveChannel = channelOverride ?? state.channel;
-    if (!owner || !repo || owner === "your-username") {
-      patchState({
-        status: "error",
-        provider: "github",
-        error:
-          "UPDATE_GITHUB_OWNER/UPDATE_GITHUB_REPO are not configured for the web/dev fallback.",
-      });
-      return;
-    }
 
     patchState({
       status: "checking",
@@ -356,7 +271,9 @@ const useProvideUpdater = (): UseUpdaterApi => {
     });
 
     try {
-      const release = await fetchGithubRelease(owner, repo, effectiveChannel);
+      const release = await fetchGithubRelease(effectiveChannel);
+      githubBackoffAttemptsRef.current = 0;
+
       if (!release) {
         patchState({
           status: "not-available",
@@ -376,7 +293,7 @@ const useProvideUpdater = (): UseUpdaterApi => {
         throw new Error("Release sem tag/version valida.");
       }
 
-      fallbackReleasePageUrlRef.current =
+      releasePageUrlRef.current =
         typeof release.html_url === "string" && release.html_url.trim().length > 0
           ? release.html_url
           : null;
@@ -412,137 +329,51 @@ const useProvideUpdater = (): UseUpdaterApi => {
         checkedAt: Date.now(),
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to check for updates.";
+      const rateLimited = message.includes("403") || message.includes("429");
+      githubBackoffAttemptsRef.current = rateLimited
+        ? Math.min(githubBackoffAttemptsRef.current + 1, MAX_BACKOFF_ATTEMPTS)
+        : 0;
+
       patchState({
         status: "error",
-        error:
-          error instanceof Error
-            ? `Failed to check for updates (GitHub fallback): ${error.message}`
-            : "Failed to check for updates (GitHub fallback).",
+        error: `Failed to check for updates: ${message}`,
       });
     }
   }, [patchState, state.channel, state.currentVersion]);
 
-  const runScheduledCheck = useCallback(async (): Promise<void> => {
-    if (bridge) {
-      await runAction((api) => api.check(resolveIncrementalManifestUrl(state.channel) ?? undefined));
-      return;
+  useEffect(() => {
+    const storedChannel = localStorage.getItem(CHANNEL_STORAGE_KEY);
+    const storedChannelExplicit = localStorage.getItem(CHANNEL_STORAGE_EXPLICIT_KEY) === "true";
+    if (storedChannelExplicit && isUpdaterChannel(storedChannel)) {
+      patchState({
+        channel: storedChannel,
+        allowPrerelease: storedChannel === "beta",
+      });
     }
-
-    await runGithubFallbackCheck();
-  }, [bridge, runAction, runGithubFallbackCheck, state.channel]);
+    // One-shot restore; runGithubCheck closure picks up the channel on re-run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    if (!bridge) {
-      return;
-    }
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    let mounted = true;
-
-    const statusListener = (payload: UpdaterEventPayload): void => {
-      if (!mounted) {
-        return;
-      }
-      applyState(payload.state);
-    };
-
-    const syncInitialStatus = async (): Promise<void> => {
-      try {
-        const initialStatus = await bridge.getStatus();
-        if (!mounted) {
-          return;
-        }
-        applyState(initialStatus);
-
-        const storedChannel = localStorage.getItem(CHANNEL_STORAGE_KEY);
-        const storedChannelVersion = localStorage.getItem(CHANNEL_STORAGE_VERSION_KEY);
-        const storedChannelExplicit = localStorage.getItem(CHANNEL_STORAGE_EXPLICIT_KEY) === "true";
-        if (
-          storedChannelExplicit &&
-          isUpdaterChannel(storedChannel) &&
-          storedChannel !== initialStatus.channel &&
-          storedChannelVersion === initialStatus.currentVersion
-        ) {
-          const updatedState = await bridge.setChannel(storedChannel);
-          if (mounted) {
-            applyState(updatedState);
-          }
-        } else {
-          localStorage.setItem(CHANNEL_STORAGE_KEY, initialStatus.channel);
-          localStorage.setItem(CHANNEL_STORAGE_VERSION_KEY, initialStatus.currentVersion);
-        }
-
-        const storedAutoInstall = parseStoredBoolean(localStorage.getItem(AUTO_INSTALL_STORAGE_KEY));
-        if (
-          typeof storedAutoInstall === "boolean" &&
-          storedAutoInstall !== initialStatus.autoInstallOnQuit
-        ) {
-          const updatedState = await bridge.setAutoInstall(storedAutoInstall);
-          if (mounted) {
-            applyState(updatedState);
-          }
-        }
-      } catch (error) {
-        if (!mounted) {
-          return;
-        }
-        patchState({
-          status: "error",
-          error: error instanceof Error ? error.message : "Failed to synchronize the updater.",
-        });
-      }
-    };
-
-    UPDATER_EVENTS.forEach((eventName) => {
-      bridge.on(eventName, statusListener);
-    });
-    void syncInitialStatus();
-
-    return () => {
-      mounted = false;
-      UPDATER_EVENTS.forEach((eventName) => {
-        bridge.off(eventName, statusListener);
+    const tick = (): void => {
+      void runGithubCheck().finally(() => {
+        const attempts = githubBackoffAttemptsRef.current;
+        const delay = Math.min(PERIODIC_CHECK_MS * 2 ** attempts, PERIODIC_CHECK_MS * 8);
+        timer = setTimeout(tick, delay);
       });
     };
-  }, [applyState, bridge, patchState]);
 
-  useEffect(() => {
-    if (!bridge) {
-      return;
-    }
-
-    const delayedTimer = setTimeout(() => {
-      void runScheduledCheck();
-    }, CHECK_DELAY_MS);
+    timer = setTimeout(tick, CHECK_DELAY_MS);
 
     return () => {
-      clearTimeout(delayedTimer);
+      if (timer) {
+        clearTimeout(timer);
+      }
     };
-  }, [bridge, runScheduledCheck]);
-
-  useEffect(() => {
-    if (usingBridge) {
-      return;
-    }
-
-    patchState({
-      currentVersion: packageVersion,
-      provider: fallbackProvider,
-      channel: inferChannelFromVersion(packageVersion),
-      allowPrerelease: inferChannelFromVersion(packageVersion) === "beta",
-    });
-
-    const delayedTimer = setTimeout(() => {
-      void runGithubFallbackCheck();
-    }, CHECK_DELAY_MS);
-    const periodicTimer = setInterval(() => {
-      void runGithubFallbackCheck();
-    }, PERIODIC_CHECK_MS);
-
-    return () => {
-      clearTimeout(delayedTimer);
-      clearInterval(periodicTimer);
-    };
-  }, [patchState, runGithubFallbackCheck, usingBridge]);
+  }, [runGithubCheck]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") {
@@ -554,7 +385,7 @@ const useProvideUpdater = (): UseUpdaterApi => {
         return;
       }
 
-      void runScheduledCheck();
+      void runGithubCheck();
     };
 
     window.addEventListener("focus", handleForegroundCheck);
@@ -564,7 +395,7 @@ const useProvideUpdater = (): UseUpdaterApi => {
       window.removeEventListener("focus", handleForegroundCheck);
       document.removeEventListener("visibilitychange", handleForegroundCheck);
     };
-  }, [runScheduledCheck]);
+  }, [runGithubCheck]);
 
   const api = useMemo<UseUpdaterApi>(() => ({
     status: state.status,
@@ -582,37 +413,12 @@ const useProvideUpdater = (): UseUpdaterApi => {
     autoInstallOnQuit: state.autoInstallOnQuit,
     error: state.error,
     checkForUpdates: async () => {
-      if (usingBridge) {
-        await runAction((api) => api.check(resolveIncrementalManifestUrl(state.channel) ?? undefined));
-        return;
-      }
-      await runGithubFallbackCheck();
+      await runGithubCheck();
     },
     downloadUpdate: async () => {
-      if (usingBridge && bridge) {
-        if (state.status !== "available" && state.status !== "downloading") {
-          return;
-        }
-
-        try {
-          const nextState = await bridge.download();
-          if (nextState) {
-            applyState(nextState);
-          }
-        } catch (error) {
-          patchState({
-            status: "error",
-            error: error instanceof Error ? error.message : "Failed to download the update.",
-          });
-        }
-        return;
-      }
-
-      const owner = fallbackGithubOwner;
-      const repo = fallbackGithubRepo;
       const releaseUrl =
-        fallbackReleasePageUrlRef.current ??
-        buildFallbackReleaseUrl(owner, repo, state.channel, state.newVersion);
+        releasePageUrlRef.current ??
+        buildReleasePageUrl(state.channel, state.newVersion);
 
       try {
         if (typeof window !== "undefined" && desktopBridge.desktop?.openExternal) {
@@ -630,36 +436,24 @@ const useProvideUpdater = (): UseUpdaterApi => {
           status: "error",
           error:
             error instanceof Error
-              ? `Failed to open the download page: ${error.message}`
-              : "Failed to open the download page.",
+              ? `Failed to open the release page: ${error.message}`
+              : "Failed to open the release page.",
         });
       }
     },
     installUpdate: async () => {
-      if (usingBridge) {
-        await runAction((api) => api.install());
-        return;
-      }
       patchState({
         status: "error",
-        error: "Automatic installation is only available in the desktop app.",
+        error: "Source builds update through the sync pipeline, not installer downloads.",
       });
     },
     rollbackUpdate: async () => {
-      if (usingBridge) {
-        await runAction((api) => api.rollback());
-        return;
-      }
       patchState({
         status: "error",
-        error: "Automatic rollback is only available in the desktop app.",
+        error: "Automatic rollback is not available in the source-sync model (use git).",
       });
     },
     postpone: async () => {
-      if (usingBridge) {
-        await runAction((api) => api.postpone());
-        return;
-      }
       patchState({
         status: state.blocking ? "available" : "idle",
         error: state.blocking ? t("updater.mandatoryUpdate") : null,
@@ -669,33 +463,21 @@ const useProvideUpdater = (): UseUpdaterApi => {
       localStorage.setItem(CHANNEL_STORAGE_KEY, channel);
       localStorage.setItem(CHANNEL_STORAGE_VERSION_KEY, state.currentVersion);
       localStorage.setItem(CHANNEL_STORAGE_EXPLICIT_KEY, "true");
-      if (usingBridge) {
-        await runAction((api) => api.setChannel(channel));
-        await runAction((api) => api.check(resolveIncrementalManifestUrl(channel) ?? undefined));
-        return;
-      }
       patchState({
         channel,
         allowPrerelease: channel === "beta",
       });
-      await runGithubFallbackCheck(channel);
+      await runGithubCheck(channel);
     },
     setAutoInstall: async (enabled: boolean) => {
-      localStorage.setItem(AUTO_INSTALL_STORAGE_KEY, String(enabled));
-      if (usingBridge) {
-        await runAction((api) => api.setAutoInstall(enabled));
-        return;
-      }
       patchState({
         autoInstallOnQuit: enabled,
       });
     },
   }), [
     applyState,
-    bridge,
     patchState,
-    runAction,
-    runGithubFallbackCheck,
+    runGithubCheck,
     state.autoInstallOnQuit,
     state.blocking,
     state.blockingReason,
@@ -711,7 +493,6 @@ const useProvideUpdater = (): UseUpdaterApi => {
     state.releaseNotes,
     state.status,
     t,
-    usingBridge,
   ]);
 
   return api;

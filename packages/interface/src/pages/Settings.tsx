@@ -683,11 +683,6 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
     try { await updater.setChannel(ch); } finally { setBusy(false); }
   }, [updater]);
 
-  const handleAutoInstall = useCallback(async (v: boolean) => {
-    setBusy(true);
-    try { await updater.setAutoInstall(v); } finally { setBusy(false); }
-  }, [updater]);
-
   const handleSaveWorkspaceAutosaveSettings = useCallback(() => {
     const saved = saveWorkspaceAutosaveSettings(workspaceAutosaveSettings);
     setWorkspaceAutosaveSettings(saved);
@@ -735,16 +730,6 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       setLocalResetBusy(false);
     }
   }, [t]);
-
-  const handleDownload = useCallback(async () => {
-    setBusy(true);
-    try { await updater.downloadUpdate(); } finally { setBusy(false); }
-  }, [updater]);
-
-  const handleInstall = useCallback(async () => {
-    setBusy(true);
-    try { await updater.installUpdate(); } finally { setBusy(false); }
-  }, [updater]);
 
   const handleUseRecommendedRuntimeProfile = useCallback((profile: string) => {
     setSelectedRuntimeArtifactProfile(profile);
@@ -1678,7 +1663,6 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       fmtDate,
       busy,
       handleChannel,
-      handleAutoInstall,
       workspaceAutosaveSettings,
       setWorkspaceAutosaveSettings,
       setWorkspaceAutosaveFeedback,
@@ -1690,8 +1674,6 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       handleResetLocalAppSettings,
       localResetFeedback,
       handleCheck,
-      handleDownload,
-      handleInstall,
       runtimeState,
       recommendedRuntimeProfile,
       runtimeArtifactsAvailable,

@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
 
 import RuntimeProfileSection from "../../components/runtime/RuntimeProfileSection";
 import ReleaseNotesMarkdownClassic from "../../components/updater/ReleaseNotesMarkdownClassic";
+import { SyncPanel } from "../../components/updater/SyncPanel";
 import type { AppLocale } from "../../i18n/config";
 import type { useI18n } from "../../i18n";
 import type { UseUpdaterApi } from "../../hooks/useUpdater";
@@ -40,7 +41,6 @@ interface SettingsAppTabArgs {
   fmtDate: (value: number | string | null) => string;
   busy: boolean;
   handleChannel: (channel: UpdaterChannel) => Promise<void>;
-  handleAutoInstall: (enabled: boolean) => Promise<void>;
   workspaceAutosaveSettings: WorkspaceAutosaveSettings;
   setWorkspaceAutosaveSettings: Dispatch<SetStateAction<WorkspaceAutosaveSettings>>;
   setWorkspaceAutosaveFeedback: Dispatch<SetStateAction<WorkspaceAutosaveFeedbackState>>;
@@ -52,8 +52,6 @@ interface SettingsAppTabArgs {
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
   handleCheck: () => Promise<void>;
-  handleDownload: () => Promise<void>;
-  handleInstall: () => Promise<void>;
   runtimeState: DesktopMiniBackendRuntimeState | null;
   recommendedRuntimeProfile: string;
   runtimeArtifactsAvailable: boolean;
@@ -89,7 +87,6 @@ export const renderSettingsAppTab = ({
   fmtDate,
   busy,
   handleChannel,
-  handleAutoInstall,
   workspaceAutosaveSettings,
   setWorkspaceAutosaveSettings,
   setWorkspaceAutosaveFeedback,
@@ -101,8 +98,6 @@ export const renderSettingsAppTab = ({
   handleResetLocalAppSettings,
   localResetFeedback,
   handleCheck,
-  handleDownload,
-  handleInstall,
   runtimeState,
   recommendedRuntimeProfile,
   runtimeArtifactsAvailable,
@@ -256,20 +251,8 @@ export const renderSettingsAppTab = ({
         <span className="koma-stg-item__value">{channelLabel}</span>
       </div>
       <div className="koma-stg-item">
-        <span className="koma-stg-item__label">{t("settings.updates.installOnClose")}</span>
-        <span className="koma-stg-item__value">{updater.autoInstallOnQuit ? t("renderPreview.enabled") : t("renderPreview.disabled")}</span>
-      </div>
-      <div className="koma-stg-item">
-        <span className="koma-stg-item__label">{t("settings.updates.policy")}</span>
-        <span className="koma-stg-item__value">{updater.mandatory ? t("settings.updates.mandatory") : t("settings.updates.optional")}</span>
-      </div>
-      <div className="koma-stg-item">
         <span className="koma-stg-item__label">{t("settings.updates.lastCheck")}</span>
         <span className="koma-stg-item__value">{fmtDate(updater.checkedAt)}</span>
-      </div>
-      <div className="koma-stg-item">
-        <span className="koma-stg-item__label">{t("settings.updates.downloadCompleted")}</span>
-        <span className="koma-stg-item__value">{fmtDate(updater.downloadedAt)}</span>
       </div>
     </div>
   </section>
@@ -311,28 +294,15 @@ export const renderSettingsAppTab = ({
     </div>
   </section>
 
-  {/* Auto-install toggle */}
+  {/* Source-sync control panel */}
   <section className="koma-stg-section">
-    <label className="koma-stg-toggle-wide">
-      <div>
-        <span className="koma-stg-toggle-wide__title">{t("settings.updates.installOnCloseTitle")}</span>
-        <p className="koma-stg-toggle-wide__desc">
-          {t("settings.updates.installOnCloseDesc")}
-        </p>
-      </div>
-      <div className={`koma-toggle ${updater.autoInstallOnQuit ? "koma-toggle--on" : ""}`}>
-        <input
-          type="checkbox"
-          className="koma-toggle__input"
-          checked={updater.autoInstallOnQuit}
-          disabled={busy}
-          onChange={(e) => void handleAutoInstall(e.target.checked)}
-        />
-        <span className="koma-toggle__track">
-          <span className="koma-toggle__thumb" />
-        </span>
-      </div>
-    </label>
+    <div className="koma-stg-section__head">
+      <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
+        <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <h3 className="koma-stg-section__title">{t("update.sync.title")}</h3>
+    </div>
+    <SyncPanel />
   </section>
 
   <section className="koma-stg-section">
@@ -535,13 +505,8 @@ export const renderSettingsAppTab = ({
       )}
     </button>
     {updater.status === "available" && (
-      <button type="button" disabled={busy} onClick={() => void handleDownload()} className="koma-btn koma-btn--ghost koma-btn--sm">
-        {t("settings.updates.download")}
-      </button>
-    )}
-    {updater.status === "downloaded" && (
-      <button type="button" disabled={busy} onClick={() => void handleInstall()} className="koma-btn koma-btn--success koma-btn--sm">
-        {t("update.button.installNow")}
+      <button type="button" disabled={busy} onClick={() => void updater.downloadUpdate()} className="koma-btn koma-btn--ghost koma-btn--sm">
+        {t("update.modal.openReleasePage")}
       </button>
     )}
   </div>

@@ -1,84 +1,29 @@
-import type { UpdaterProgress, UpdaterStatus } from "../../types";
-import ReleaseNotesMarkdownClassic from "./ReleaseNotesMarkdownClassic";
 import { useI18n } from "../../i18n";
-
-type UpdateTranslationFn = ReturnType<typeof useI18n>["t"];
+import SyncPanelClassic from "./SyncPanelClassic";
+import ReleaseNotesMarkdownClassic from "./ReleaseNotesMarkdownClassic";
 
 interface UpdateModalProps {
   open: boolean;
-  status: UpdaterStatus;
   currentVersion: string;
   newVersion: string | null;
-  mandatory: boolean;
   releaseNotes: string | null;
-  progress: UpdaterProgress;
-  autoInstallOnQuit: boolean;
   onClose: () => void;
-  onDownload: () => Promise<void>;
-  onInstall: () => Promise<void>;
-  onInstallLater: () => Promise<void>;
-  onPostpone: () => Promise<void>;
+  onOpenReleasePage: () => Promise<void>;
 }
-
-const formatBytes = (
-  t: UpdateTranslationFn,
-  value: number,
-): string => {
-  if (!Number.isFinite(value) || value <= 0) return `0 ${t("update.units.bytes")}`;
-  const units = [
-    t("update.units.bytes"),
-    t("update.units.kilobytes"),
-    t("update.units.megabytes"),
-    t("update.units.gigabytes"),
-  ];
-  let size = value;
-  let unit = units[0];
-  for (let i = 0; i < units.length; i += 1) {
-    unit = units[i];
-    if (size < 1024 || i === units.length - 1) break;
-    size /= 1024;
-  }
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${unit}`;
-};
-
-const formatSpeed = (
-  t: UpdateTranslationFn,
-  bps: number,
-): string => `${formatBytes(t, Math.max(0, bps))}${t("update.units.perSecond")}`;
 
 export const UpdateModalClassic = ({
   open,
-  status,
   currentVersion,
   newVersion,
-  mandatory,
   releaseNotes,
-  progress,
-  autoInstallOnQuit,
   onClose,
-  onDownload,
-  onInstall,
-  onInstallLater,
-  onPostpone,
+  onOpenReleasePage,
 }: UpdateModalProps) => {
   const { t } = useI18n();
   if (!open) return null;
 
-  const isDownloading = status === "downloading";
-  const isDownloaded = status === "downloaded";
-  const isAvailable = status === "available";
-  const showProgress = isDownloading || isDownloaded;
-  const progressPercent = Math.max(
-    0,
-    Math.min(100, isDownloaded ? 100 : Number(progress.percent || 0)),
-  );
-  const transferredBytes = isDownloaded
-    ? Math.max(progress.transferred || 0, progress.total || 0)
-    : progress.transferred || 0;
-  const rawTotal = Math.max(progress.total || 0, transferredBytes);
-
   return (
-    <div className="koma-modal-backdrop" onClick={mandatory ? undefined : onClose}>
+    <div className="koma-modal-backdrop" onClick={onClose}>
       <div className="koma-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="koma-modal__header">
@@ -103,20 +48,12 @@ export const UpdateModalClassic = ({
               </span>
             </p>
           </div>
-          {!mandatory && (
-            <button type="button" onClick={onClose} className="koma-modal__close" aria-label={t("update.modal.closeAria")}>
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-                <path d="M4.293 4.293a1 1 0 011.414 0L8 6.586l2.293-2.293a1 1 0 111.414 1.414L9.414 8l2.293 2.293a1 1 0 01-1.414 1.414L8 9.414l-2.293 2.293a1 1 0 01-1.414-1.414L6.586 8 4.293 5.707a1 1 0 010-1.414z" />
-              </svg>
-            </button>
-          )}
+          <button type="button" onClick={onClose} className="koma-modal__close" aria-label={t("update.modal.closeAria")}>
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+              <path d="M4.293 4.293a1 1 0 011.414 0L8 6.586l2.293-2.293a1 1 0 111.414 1.414L9.414 8l2.293 2.293a1 1 0 01-1.414 1.414L8 9.414l-2.293 2.293a1 1 0 01-1.414-1.414L6.586 8 4.293 5.707a1 1 0 010-1.414z" />
+            </svg>
+          </button>
         </div>
-
-        {mandatory && (
-          <div className="auth-alert auth-alert--warning" role="alert" style={{ marginBottom: 16 }}>
-            {t("update.modal.mandatory")}
-          </div>
-        )}
 
         {/* Release Notes */}
         <div className="koma-modal__notes">
@@ -139,101 +76,25 @@ export const UpdateModalClassic = ({
           </div>
         </div>
 
-        {showProgress && (
-          <div className="koma-modal__progress">
-            <div className="koma-modal__progress-head">
-              <span className="koma-modal__progress-title">
-                {isDownloaded ? t("update.modal.readyProgress") : t("update.modal.downloadingProgress")}
-              </span>
-              <span className="koma-modal__progress-percent">{progressPercent.toFixed(1)}%</span>
-            </div>
-            <div className="koma-progress-bar">
-              <div
-                className={`koma-progress-bar__fill ${isDownloaded ? "koma-progress-bar__fill--done" : ""}`}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <div className="koma-modal__progress-meta">
-              <span>
-                {formatBytes(t, transferredBytes)} / {formatBytes(t, rawTotal)}
-              </span>
-              <span>{isDownloading ? formatSpeed(t, progress.speed || 0) : t("update.modal.readyToInstall")}</span>
-            </div>
-            {isDownloaded && (
-              <p className={`koma-modal__install-hint ${autoInstallOnQuit ? "" : "koma-modal__install-hint--warn"}`}>
-                {autoInstallOnQuit
-                  ? t("update.modal.installHintAuto")
-                  : t("update.modal.installHintManual")}
-              </p>
-            )}
-          </div>
-        )}
+        {/* Sync control panel */}
+        <SyncPanelClassic />
 
         {/* Actions */}
         <div className="koma-modal__actions">
-          {isAvailable && (
-            <button type="button" onClick={() => void onDownload()} className="auth-submit" style={{ flex: 1 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-                  <path d="M8 2a.75.75 0 01.75.75v7.19l2.22-2.22a.75.75 0 111.06 1.06l-3.5 3.5a.75.75 0 01-1.06 0l-3.5-3.5a.75.75 0 011.06-1.06l2.22 2.22V2.75A.75.75 0 018 2z" />
-                  <path d="M2.75 11.5a.75.75 0 01.75.75v1.5h9v-1.5a.75.75 0 011.5 0v1.5A1.5 1.5 0 0112.5 15h-9A1.5 1.5 0 012 13.5v-1.5a.75.75 0 01.75-.75z" />
-                </svg>
-                {t("update.modal.downloadAction")}
-              </span>
-            </button>
-          )}
-          {isDownloading && (
-            <button type="button" disabled className="auth-submit" style={{ flex: 1, opacity: 0.6 }}>
-              <span className="auth-submit__loading">
-                <span className="auth-spinner" />
-                {t("update.modal.downloadingAction")}
-              </span>
-            </button>
-          )}
-          {isDownloaded && (
-            <>
-              <button
-                type="button"
-                onClick={() => void onInstall()}
-                className="auth-submit"
-                style={{
-                  flex: 1,
-                  background: "linear-gradient(135deg, #059669, #10b981 50%, #34d399)",
-                  boxShadow: "0 16px 40px rgba(16,185,129,0.25)",
-                }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  {t("update.modal.installAction")}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void onInstallLater()}
-                className="auth-submit auth-submit--outline"
-              >
-                {t("update.modal.installLaterAction")}
-              </button>
-            </>
-          )}
-          {!isDownloaded && !mandatory && (
-            <button
-              type="button"
-              onClick={() => {
-                void onPostpone();
-                onClose();
-              }}
-              className="auth-submit auth-submit--outline"
-            >
-              {t("update.modal.laterAction")}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => void onOpenReleasePage()}
+            className="auth-submit auth-submit--outline"
+          >
+            {t("update.modal.openReleasePage")}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="auth-submit auth-submit--outline"
+          >
+            {t("update.modal.laterAction")}
+          </button>
         </div>
       </div>
     </div>
