@@ -81,6 +81,15 @@ interface AuthSessionSnapshot {
   accessToken: string;
 }
 
+const authErrorFrom = (payload: AuthErrorPayload): Error & AuthErrorPayload =>
+  Object.assign(new Error(payload.message), {
+    code: payload.code,
+    requiresVerification: payload.requiresVerification,
+    retryAfterSeconds: payload.retryAfterSeconds,
+    verificationHint: payload.verificationHint,
+    activeBan: payload.activeBan,
+  });
+
 const extractErrorPayloadFromEnvelope = <TPayload,>(
   envelope: DesktopApiEnvelope<TPayload> | null,
   t: TranslationFn,
@@ -578,13 +587,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (payload.code === "AUTH_BANNED") {
             setActiveBan(payload.activeBan ?? buildFallbackBanInfo(payload.message));
           }
-          const error = new Error(payload.message) as Error & AuthErrorPayload;
-          error.code = payload.code;
-          error.requiresVerification = payload.requiresVerification;
-          error.retryAfterSeconds = payload.retryAfterSeconds;
-          error.verificationHint = payload.verificationHint;
-          error.activeBan = payload.activeBan;
-          throw error;
+          throw authErrorFrom(payload);
         }
 
         // Seed the session snapshot directly from the login envelope so
@@ -648,13 +651,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (payload.code === "AUTH_BANNED") {
           setActiveBan(payload.activeBan ?? buildFallbackBanInfo(payload.message));
         }
-        const error = new Error(payload.message) as Error & AuthErrorPayload;
-        error.code = payload.code;
-        error.requiresVerification = payload.requiresVerification;
-        error.retryAfterSeconds = payload.retryAfterSeconds;
-        error.verificationHint = payload.verificationHint;
-        error.activeBan = payload.activeBan;
-        throw error;
+        throw authErrorFrom(payload);
       }
 
       const loginSnapshot = extractAuthSessionSnapshot(await response.json().catch(() => null));
@@ -704,13 +701,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (payload.code === "AUTH_BANNED") {
             setActiveBan(payload.activeBan ?? buildFallbackBanInfo(payload.message));
           }
-          const error = new Error(payload.message) as Error & AuthErrorPayload;
-          error.code = payload.code;
-          error.requiresVerification = payload.requiresVerification;
-          error.retryAfterSeconds = payload.retryAfterSeconds;
-          error.verificationHint = payload.verificationHint;
-          error.activeBan = payload.activeBan;
-          throw error;
+          throw authErrorFrom(payload);
         }
 
         await refreshSessionAfterAuthChange();
@@ -739,13 +730,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (payload.code === "AUTH_BANNED") {
           setActiveBan(payload.activeBan ?? buildFallbackBanInfo(payload.message));
         }
-        const error = new Error(payload.message) as Error & AuthErrorPayload;
-        error.code = payload.code;
-        error.requiresVerification = payload.requiresVerification;
-        error.retryAfterSeconds = payload.retryAfterSeconds;
-        error.verificationHint = payload.verificationHint;
-        error.activeBan = payload.activeBan;
-        throw error;
+        throw authErrorFrom(payload);
       }
 
       await refreshSessionAfterAuthChange();
@@ -764,13 +749,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const envelope = (await desktopAuthApi.verifyEmail(tokenValue)) as DesktopApiEnvelope;
       if (!envelope.ok) {
         const payload = extractErrorPayloadFromEnvelope(envelope, t);
-        const error = new Error(payload.message) as Error & AuthErrorPayload;
-        error.code = payload.code;
-        error.requiresVerification = payload.requiresVerification;
-        error.retryAfterSeconds = payload.retryAfterSeconds;
-        error.verificationHint = payload.verificationHint;
-        error.activeBan = payload.activeBan;
-        throw error;
+        throw authErrorFrom(payload);
       }
       return;
     }
@@ -792,13 +771,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (!response.ok) {
       const payload = await parseError(response, t);
-      const error = new Error(payload.message) as Error & AuthErrorPayload;
-      error.code = payload.code;
-      error.requiresVerification = payload.requiresVerification;
-      error.retryAfterSeconds = payload.retryAfterSeconds;
-      error.verificationHint = payload.verificationHint;
-      error.activeBan = payload.activeBan;
-      throw error;
+      throw authErrorFrom(payload);
     }
   }, [isDesktopRuntime, locale, refreshSession, t, token]);
 
