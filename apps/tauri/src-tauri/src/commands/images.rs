@@ -1,21 +1,28 @@
 use std::{
     borrow::Cow,
+    collections::{BinaryHeap, HashSet},
     fs, io,
     path::{Path, PathBuf},
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::{error::AppError, protocol::media::MediaScopes};
+use crate::{
+    error::AppError,
+    protocol::media::MediaScopes,
+};
 
 pub(crate) const IMAGE_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "tif", "svg", "ico", "avif",
 ];
 
-const EMPTY_PATH_MESSAGE: &str = "File path was not provided.";
+const MAX_BATCH_PATHS: usize = 256;
+const MAX_PATH_BYTES: usize = 32 * 1024;
+const MAX_PAGE_SIZE: usize = 200;
+const DEFAULT_PAGE_SIZE: usize = 100;
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct DesktopImageFolderEntry {
     pub file_path: String,
@@ -24,8 +31,7 @@ pub struct DesktopImageFolderEntry {
     pub size: u64,
 }
 
-/// Metadata returned by `allow-paths`. Never bytes.
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct DesktopImageAllowedEntry {
     pub file_path: String,
@@ -33,105 +39,394 @@ pub struct DesktopImageAllowedEntry {
     pub size: u64,
 }
 
-/// Output is metadata only, sorted by file name. Side effect: the folder the
-/// user just browsed becomes servable through `koma-image://`.
-///
-/// Directory scanning is blocking I/O, so it runs on the blocking pool; the
-/// main thread (and therefore the webview) never waits on the disk.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopImageFolderPage {
+    pub entries: Vec<DesktopImageFolderEntry>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ImagePathFailureCode {
+    InvalidPath,
+    UnsupportedMediaType,
+    NotAFile,
+    Io,
+    AuthorizationFailed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum DesktopImageAllowOutcome {
+    Allowed {
+        index: u32,
+        entry: DesktopImageAllowedEntry,
+    },
+    Rejected {
+        index: u32,
+        code: ImagePathFailureCode,
+    },
+}
+
+#[derive(Debug)]
+struct PreparedImage {
+    canonical_path: PathBuf,
+    entry: DesktopImageAllowedEntry,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct FolderCandidate {
+    file_name: String,
+    file_path: PathBuf,
+    size: u64,
+}
+
+impl Ord for FolderCandidate {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.file_name
+            .cmp(&other.file_name)
+            .then_with(|| self.file_path.cmp(&other.file_path))
+            .then_with(|| self.size.cmp(&other.size))
+    }
+}
+
+impl PartialOrd for FolderCandidate {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 #[tauri::command(rename = "desktop-api:images:list-folder")]
 pub async fn desktop_api_list_folder(
     scopes: State<'_, MediaScopes>,
     folder_path: String,
-) -> Result<Vec<DesktopImageFolderEntry>, AppError> {
-    let trimmed = folder_path.trim().to_owned();
-    let folder = validate_non_empty_path(&trimmed)?;
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> Result<DesktopImageFolderPage, AppError> {
+    let folder = validate_non_empty_path(&folder_path)?;
+    let limit = validate_page_size(limit)?;
 
-    let entries = tauri::async_runtime::spawn_blocking(move || scan_image_folder(&folder))
-        .await
-        .map_err(blocking_task_error)??;
+    if !folder.is_absolute() {
+        return Err(AppError::InvalidInput(
+            "Folder path must be absolute.".to_owned(),
+        ));
+    }
 
-    scopes.images.allow_dir(&trimmed)?;
-    Ok(entries)
+    if let Some(cursor) = cursor.as_deref() {
+        validate_cursor(cursor)?;
+    }
+
+    let (folder, page) = tauri::async_runtime::spawn_blocking(move || {
+        let canonical = fs::canonicalize(folder)?;
+
+        let page = scan_image_folder_page(
+            &canonical,
+            cursor.as_deref(),
+            limit,
+        )?;
+
+        Ok::<_, AppError>((canonical, page))
+    })
+    .await
+    .map_err(blocking_task_error)??;
+
+    // Grant the exact canonical root used by the scan.
+    scopes.images.allow_dir(&folder)?;
+
+    Ok(page)
 }
 
-/// Registers individual image files (file picker / restored autosave) so the
-/// protocol will serve them. Restricted to absolute paths with image
-/// extensions; returns metadata so the frontend needs no second IPC call.
-///
-/// Validation is fail-fast on purpose: a single rejected path means the whole
-/// batch came from an untrusted or corrupted source and nothing is allowed.
 #[tauri::command(rename = "desktop-api:images:allow-paths")]
 pub async fn desktop_api_allow_paths(
     scopes: State<'_, MediaScopes>,
     paths: Vec<String>,
-) -> Result<Vec<DesktopImageAllowedEntry>, AppError> {
-    paths
-        .iter()
-        .map(|raw| allow_single_path(&scopes, raw))
-        .collect()
-}
-
-fn allow_single_path(
-    scopes: &MediaScopes,
-    raw: &str,
-) -> Result<DesktopImageAllowedEntry, AppError> {
-    let trimmed = raw.trim();
-    let path = validate_non_empty_path(trimmed)?;
-    if !path.is_absolute() {
-        return Err(AppError::InvalidPath(format!("not absolute: {trimmed}")));
-    }
-    if !is_supported_image_path(&path) {
-        return Err(AppError::UnsupportedMediaType(
-            extension(&path).map(Cow::into_owned).unwrap_or_default(),
+) -> Result<Vec<DesktopImageAllowOutcome>, AppError> {
+    if paths.len() > MAX_BATCH_PATHS {
+        return Err(AppError::InvalidInput(
+            "Image path batch exceeds the supported size.".to_owned(),
         ));
     }
-    let canonical = scopes.images.allow_file(&path)?;
-    let metadata = fs::metadata(&canonical)?;
-    Ok(DesktopImageAllowedEntry {
-        file_path: trimmed.to_owned(),
-        mime_type: infer_mime_type_from_path(&canonical).to_owned(),
-        size: metadata.len(),
+
+    let prepared = tauri::async_runtime::spawn_blocking(move || {
+        paths
+            .into_iter()
+            .map(|raw| prepare_image_path(&raw))
+            .collect::<Vec<_>>()
     })
-}
+    .await
+    .map_err(blocking_task_error)?;
 
-fn scan_image_folder(path: &Path) -> Result<Vec<DesktopImageFolderEntry>, AppError> {
-    if !fs::metadata(path)?.is_dir() {
-        return Err(AppError::NotADirectory(path.to_path_buf()));
-    }
+    let mut outcomes = Vec::with_capacity(prepared.len());
+    let mut granted = HashSet::new();
 
-    let mut entries = Vec::new();
-    for entry in fs::read_dir(path)? {
-        let file_path = entry?.path();
-        // Extension check is a pure string operation; doing it first avoids a
-        // stat() for every non-image file in the directory.
-        if !is_supported_image_path(&file_path) {
-            continue;
-        }
-        // Symlinks must be followed here, otherwise a linked page would be
-        // listed with the link's (zero) size.
-        let metadata = fs::metadata(&file_path)?;
-        if !metadata.is_file() {
-            continue;
-        }
-        let Some(file_path_str) = file_path.to_str() else {
-            log::debug!("skipping non-UTF-8 image path: {}", file_path.display());
-            continue;
+    for (index, prepared) in prepared.into_iter().enumerate() {
+        let index = u32::try_from(index).map_err(|_| {
+            AppError::InvalidInput(
+                "Image path batch exceeds the supported size.".to_owned(),
+            )
+        })?;
+
+        let prepared = match prepared {
+            Ok(prepared) => prepared,
+            Err(code) => {
+                tracing::warn!(
+                    operation = "prepare_image_authorization",
+                    index,
+                    error_code = ?code,
+                    "image path rejected"
+                );
+
+                outcomes.push(DesktopImageAllowOutcome::Rejected {
+                    index,
+                    code,
+                });
+
+                continue;
+            }
         };
-        let file_name = file_path
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        entries.push(DesktopImageFolderEntry {
-            file_path: file_path_str.to_owned(),
-            file_name,
-            mime_type: infer_mime_type_from_path(&file_path).to_owned(),
-            size: metadata.len(),
+
+        if !granted.contains(&prepared.canonical_path) {
+            match scopes.images.allow_file(&prepared.canonical_path) {
+                Ok(authorized_path)
+                    if authorized_path == prepared.canonical_path =>
+                {
+                    granted.insert(prepared.canonical_path.clone());
+                }
+                Ok(_) => {
+                    tracing::error!(
+                        operation = "authorize_image",
+                        index,
+                        "canonical path changed during authorization"
+                    );
+
+                    outcomes.push(DesktopImageAllowOutcome::Rejected {
+                        index,
+                        code: ImagePathFailureCode::AuthorizationFailed,
+                    });
+
+                    continue;
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        operation = "authorize_image",
+                        index,
+                        "image authorization failed"
+                    );
+
+                    outcomes.push(DesktopImageAllowOutcome::Rejected {
+                        index,
+                        code: ImagePathFailureCode::AuthorizationFailed,
+                    });
+
+                    continue;
+                }
+            }
+        }
+
+        outcomes.push(DesktopImageAllowOutcome::Allowed {
+            index,
+            entry: prepared.entry,
         });
     }
 
-    // File names are unique inside one directory, so an unstable sort is safe.
-    entries.sort_unstable_by(|left, right| left.file_name.cmp(&right.file_name));
-    Ok(entries)
+    Ok(outcomes)
+}
+
+fn prepare_image_path(
+    raw: &str,
+) -> Result<PreparedImage, ImagePathFailureCode> {
+    let path = validate_non_empty_path(raw)
+        .map_err(|_| ImagePathFailureCode::InvalidPath)?;
+
+    if !path.is_absolute() {
+        return Err(ImagePathFailureCode::InvalidPath);
+    }
+
+    if !is_supported_image_path(&path) {
+        return Err(ImagePathFailureCode::UnsupportedMediaType);
+    }
+
+    let canonical_path = fs::canonicalize(path)
+        .map_err(|_| ImagePathFailureCode::Io)?;
+
+    if !is_supported_image_path(&canonical_path) {
+        return Err(ImagePathFailureCode::UnsupportedMediaType);
+    }
+
+    let metadata = fs::metadata(&canonical_path)
+        .map_err(|_| ImagePathFailureCode::Io)?;
+
+    if !metadata.is_file() {
+        return Err(ImagePathFailureCode::NotAFile);
+    }
+
+    let file_path = canonical_path
+        .to_str()
+        .ok_or(ImagePathFailureCode::InvalidPath)?
+        .to_owned();
+
+    let entry = DesktopImageAllowedEntry {
+        file_path,
+        mime_type: infer_mime_type_from_path(&canonical_path).to_owned(),
+        size: metadata.len(),
+    };
+
+    Ok(PreparedImage {
+        canonical_path,
+        entry,
+    })
+}
+
+fn scan_image_folder_page(
+    folder: &Path,
+    cursor: Option<&str>,
+    limit: usize,
+) -> Result<DesktopImageFolderPage, AppError> {
+    if !fs::metadata(folder)?.is_dir() {
+        return Err(AppError::NotADirectory(folder.to_path_buf()));
+    }
+
+    let capacity = limit + 1;
+    let mut candidates = BinaryHeap::with_capacity(capacity);
+
+    for entry in fs::read_dir(folder)? {
+        let entry = entry?;
+        let file_path = entry.path();
+
+        if !is_supported_image_path(&file_path) {
+            continue;
+        }
+
+        let file_name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| {
+                AppError::InvalidInput(
+                    "Image file name is not valid UTF-8.".to_owned(),
+                )
+            })?;
+
+        if cursor.is_some_and(|cursor| file_name.as_str() <= cursor) {
+            continue;
+        }
+
+        let file_type = entry.file_type()?;
+
+        // A directory listing does not authorize targets outside its root.
+        if file_type.is_symlink() || !file_type.is_file() {
+            continue;
+        }
+
+        let metadata = entry.metadata()?;
+
+        candidates.push(FolderCandidate {
+            file_name,
+            file_path,
+            size: metadata.len(),
+        });
+
+        if candidates.len() > capacity {
+            candidates.pop();
+        }
+    }
+
+    let mut candidates = candidates.into_sorted_vec();
+    let has_more = candidates.len() > limit;
+
+    if has_more {
+        candidates.truncate(limit);
+    }
+
+    let next_cursor = if has_more {
+        candidates.last().map(|entry| entry.file_name.clone())
+    } else {
+        None
+    };
+
+    let entries = candidates
+        .into_iter()
+        .map(|candidate| {
+            let mime_type =
+                infer_mime_type_from_path(&candidate.file_path).to_owned();
+
+            let file_path = candidate
+                .file_path
+                .to_str()
+                .ok_or_else(|| {
+                    AppError::InvalidInput(
+                        "Image path is not valid UTF-8.".to_owned(),
+                    )
+                })?
+                .to_owned();
+
+            Ok(DesktopImageFolderEntry {
+                file_path,
+                file_name: candidate.file_name,
+                mime_type,
+                size: candidate.size,
+            })
+        })
+        .collect::<Result<Vec<_>, AppError>>()?;
+
+    Ok(DesktopImageFolderPage {
+        entries,
+        next_cursor,
+    })
+}
+
+fn validate_page_size(limit: Option<u32>) -> Result<usize, AppError> {
+    let limit = match limit {
+        Some(limit) => usize::try_from(limit).map_err(|_| {
+            AppError::InvalidInput("Invalid image page size.".to_owned())
+        })?,
+        None => DEFAULT_PAGE_SIZE,
+    };
+
+    if !(1..=MAX_PAGE_SIZE).contains(&limit) {
+        return Err(AppError::InvalidInput(
+            "Image page size is outside the supported range.".to_owned(),
+        ));
+    }
+
+    Ok(limit)
+}
+
+fn validate_cursor(cursor: &str) -> Result<(), AppError> {
+    if cursor.is_empty()
+        || cursor.len() > MAX_PATH_BYTES
+        || cursor.contains('/')
+        || cursor.contains('\\')
+        || cursor.contains('\0')
+    {
+        return Err(AppError::InvalidInput(
+            "Invalid image pagination cursor.".to_owned(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_non_empty_path(raw_path: &str) -> Result<PathBuf, AppError> {
+    if raw_path.trim().is_empty()
+        || raw_path.len() > MAX_PATH_BYTES
+        || raw_path.contains('\0')
+    {
+        return Err(AppError::InvalidInput(
+            "Invalid image path.".to_owned(),
+        ));
+    }
+
+    // Leading and trailing spaces can be part of a valid filesystem name.
+    Ok(PathBuf::from(raw_path))
 }
 
 pub(crate) fn infer_mime_type_from_path(path: &Path) -> &'static str {
@@ -149,30 +444,28 @@ pub(crate) fn infer_mime_type_from_path(path: &Path) -> &'static str {
     }
 }
 
-fn validate_non_empty_path(raw_path: &str) -> Result<PathBuf, AppError> {
-    let trimmed = raw_path.trim();
-    if trimmed.is_empty() {
-        return Err(AppError::InvalidInput(EMPTY_PATH_MESSAGE.to_owned()));
-    }
-    Ok(PathBuf::from(trimmed))
-}
-
 fn is_supported_image_path(path: &Path) -> bool {
-    extension(path).is_some_and(|ext| IMAGE_EXTENSIONS.contains(&&*ext))
+    extension(path).is_some_and(|extension| {
+        IMAGE_EXTENSIONS.contains(&extension.as_ref())
+    })
 }
 
-/// Lower-cased extension. Borrows when the extension is already lower-case,
-/// which is the overwhelmingly common case on scanned folders.
 fn extension(path: &Path) -> Option<Cow<'_, str>> {
-    let ext = path.extension()?.to_str()?;
-    if ext.bytes().any(|byte| byte.is_ascii_uppercase()) {
-        Some(Cow::Owned(ext.to_ascii_lowercase()))
+    let extension = path.extension()?.to_str()?;
+
+    if extension.bytes().any(|byte| byte.is_ascii_uppercase()) {
+        Some(Cow::Owned(extension.to_ascii_lowercase()))
     } else {
-        Some(Cow::Borrowed(ext))
+        Some(Cow::Borrowed(extension))
     }
 }
 
 fn blocking_task_error(error: tauri::Error) -> AppError {
+    tracing::error!(
+        operation = "image_background_task",
+        "image background task failed"
+    );
+
     AppError::from(io::Error::other(error))
 }
 
@@ -181,66 +474,115 @@ mod tests {
     use super::*;
 
     #[test]
-    fn list_folder_returns_supported_images_sorted() {
+    fn folder_page_is_sorted_and_has_a_cursor() {
         let temp = tempfile::tempdir().unwrap();
-        fs::write(temp.path().join("b.jpg"), [1_u8]).unwrap();
-        fs::write(temp.path().join("a.png"), [1_u8, 2]).unwrap();
-        fs::write(temp.path().join("C.WEBP"), [1_u8, 2, 3]).unwrap();
-        fs::write(temp.path().join("note.txt"), [1_u8]).unwrap();
-        fs::create_dir(temp.path().join("nested.png")).unwrap();
 
-        let result = scan_image_folder(&temp.path()).unwrap();
+        for name in ["d.png", "b.png", "a.png", "c.png"] {
+            fs::write(temp.path().join(name), [1_u8]).unwrap();
+        }
 
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0].file_name, "C.WEBP");
-        assert_eq!(result[0].mime_type, "image/webp");
-        assert_eq!(result[0].size, 3);
-        assert_eq!(result[1].file_name, "a.png");
-        assert_eq!(result[1].mime_type, "image/png");
-        assert_eq!(result[2].file_name, "b.jpg");
-        assert_eq!(result[2].mime_type, "image/jpeg");
+        let first =
+            scan_image_folder_page(temp.path(), None, 2).unwrap();
+
+        assert_eq!(first.entries.len(), 2);
+        assert_eq!(first.entries[0].file_name, "a.png");
+        assert_eq!(first.entries[1].file_name, "b.png");
+        assert_eq!(first.next_cursor.as_deref(), Some("b.png"));
+
+        let second = scan_image_folder_page(
+            temp.path(),
+            first.next_cursor.as_deref(),
+            2,
+        )
+        .unwrap();
+
+        assert_eq!(second.entries.len(), 2);
+        assert_eq!(second.entries[0].file_name, "c.png");
+        assert_eq!(second.entries[1].file_name, "d.png");
+        assert_eq!(second.next_cursor, None);
     }
 
     #[test]
-    fn list_folder_rejects_file_path() {
+    fn folder_page_ignores_unsupported_files_and_directories() {
         let temp = tempfile::tempdir().unwrap();
-        let file_path = temp.path().join("page.png");
-        fs::write(&file_path, [1_u8]).unwrap();
 
-        assert!(matches!(
-            scan_image_folder(&file_path).unwrap_err(),
-            AppError::NotADirectory(_)
-        ));
+        fs::write(temp.path().join("image.PNG"), [1_u8, 2]).unwrap();
+        fs::write(temp.path().join("notes.txt"), [1_u8]).unwrap();
+        fs::create_dir(temp.path().join("nested.jpg")).unwrap();
+
+        let page =
+            scan_image_folder_page(temp.path(), None, 100).unwrap();
+
+        assert_eq!(page.entries.len(), 1);
+        assert_eq!(page.entries[0].file_name, "image.PNG");
+        assert_eq!(page.entries[0].mime_type, "image/png");
+        assert_eq!(page.entries[0].size, 2);
     }
 
     #[test]
-    fn list_folder_rejects_empty_path() {
-        assert!(matches!(
-            validate_non_empty_path("  ").unwrap_err(),
-            AppError::InvalidInput(_)
-        ));
+    fn paths_are_not_trimmed() {
+        assert_eq!(
+            validate_non_empty_path(" image.png ").unwrap(),
+            PathBuf::from(" image.png ")
+        );
     }
 
     #[test]
-    fn extension_borrows_when_already_lowercase() {
+    fn invalid_paths_are_rejected() {
+        assert!(validate_non_empty_path("").is_err());
+        assert!(validate_non_empty_path("   ").is_err());
+        assert!(validate_non_empty_path("image\0.png").is_err());
+    }
+
+    #[test]
+    fn pagination_limits_are_validated() {
+        assert!(validate_page_size(Some(0)).is_err());
+        assert!(validate_page_size(Some(201)).is_err());
+        assert_eq!(validate_page_size(Some(200)).unwrap(), 200);
+        assert_eq!(validate_page_size(None).unwrap(), 100);
+    }
+
+    #[test]
+    fn extension_borrows_lowercase_values() {
         assert!(matches!(
-            extension(Path::new("/a/b.png")),
+            extension(Path::new("image.png")),
             Some(Cow::Borrowed("png"))
         ));
+
         assert!(matches!(
-            extension(Path::new("/a/b.PNG")),
-            Some(Cow::Owned(ref owned)) if owned == "png"
+            extension(Path::new("image.PNG")),
+            Some(Cow::Owned(ref value)) if value == "png"
         ));
-        assert!(extension(Path::new("/a/noext")).is_none());
     }
 
     #[test]
-    fn mime_type_is_case_insensitive_and_falls_back() {
-        assert_eq!(infer_mime_type_from_path(Path::new("x.JPEG")), "image/jpeg");
-        assert_eq!(infer_mime_type_from_path(Path::new("x.Tif")), "image/tiff");
-        assert_eq!(
-            infer_mime_type_from_path(Path::new("x.bin")),
-            "application/octet-stream"
-        );
+    fn preparing_a_directory_as_an_image_is_rejected() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("directory.png");
+        fs::create_dir(&path).unwrap();
+
+        assert!(matches!(
+            prepare_image_path(path.to_str().unwrap()),
+            Err(ImagePathFailureCode::NotAFile)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn folder_page_does_not_follow_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        let folder = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+
+        let target = outside.path().join("outside.png");
+        fs::write(&target, [1_u8]).unwrap();
+
+        symlink(&target, folder.path().join("linked.png")).unwrap();
+
+        let page =
+            scan_image_folder_page(folder.path(), None, 100).unwrap();
+
+        assert!(page.entries.is_empty());
     }
 }

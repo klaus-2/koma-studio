@@ -21,8 +21,8 @@ import type {
   DesktopApiEnvelope,
   DesktopFontEntry,
   DesktopFontsListResult,
-  DesktopImageAllowedEntry,
-  DesktopImageFolderEntry,
+  DesktopImageAllowOutcome,
+  DesktopImageFolderPage,
   DesktopImageFolderPayload,
   DesktopModelDownloadPayload,
   DesktopModelImportOnnxPayload,
@@ -443,12 +443,16 @@ const tauriDesktopBridge: IDesktopBridge = {
   },
   images: {
     listFolder: (payload: DesktopImageFolderPayload) =>
-      invokeCommand<DesktopImageFolderEntry[]>(
+      invokeCommand<DesktopImageFolderPage>(
         desktopCommandChannels.images.listFolder,
-        { folderPath: payload.folderPath },
+        {
+          folderPath: payload.folderPath,
+          ...(payload.cursor !== undefined ? { cursor: payload.cursor } : {}),
+          ...(payload.limit !== undefined ? { limit: payload.limit } : {}),
+        },
       ),
     allowPaths: (paths: string[]) =>
-      invokeCommand<DesktopImageAllowedEntry[]>(
+      invokeCommand<DesktopImageAllowOutcome[]>(
         desktopCommandChannels.images.allowPaths,
         { paths },
       ),

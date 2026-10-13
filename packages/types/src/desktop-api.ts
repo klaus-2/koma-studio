@@ -324,6 +324,26 @@ export interface DesktopImageAllowedEntry {
 
 export interface DesktopImageFolderPayload {
   folderPath: string;
+  /** Opaque pagination cursor: the last file name of the previous page. */
+  cursor?: string;
+  /** Page size, 1-200 (default 100). */
+  limit?: number;
+}
+
+export type DesktopImagePathFailureCode =
+  | "invalid_path"
+  | "unsupported_media_type"
+  | "not_a_file"
+  | "io"
+  | "authorization_failed";
+
+export type DesktopImageAllowOutcome =
+  | { status: "allowed"; index: number; entry: DesktopImageAllowedEntry }
+  | { status: "rejected"; index: number; code: DesktopImagePathFailureCode };
+
+export interface DesktopImageFolderPage {
+  entries: DesktopImageFolderEntry[];
+  nextCursor: string | null;
 }
 
 export interface DesktopImageFolderEntry {
@@ -587,10 +607,10 @@ export interface DesktopApiNamespace {
 
 export interface DesktopImagesApi {
   /** Tauri-only: widens the koma-image protocol scope for files picked outside list-folder. */
-  allowPaths?(paths: string[]): Promise<DesktopImageAllowedEntry[]>;
+  allowPaths?(paths: string[]): Promise<DesktopImageAllowOutcome[]>;
   listFolder(
     payload: DesktopImageFolderPayload,
-  ): Promise<DesktopImageFolderEntry[]>;
+  ): Promise<DesktopImageFolderPage>;
 }
 
 export interface DesktopSessionLogPayload {
