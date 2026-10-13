@@ -1,6 +1,6 @@
 use std::{
-    fs,
-    path::{Path, PathBuf},
+    fs, io,
+    path::PathBuf,
 };
 
 use tauri::{AppHandle, Manager, Runtime, State};
@@ -21,6 +21,11 @@ use crate::{
     },
     state::{AuthorizedWorkspaceAsset, WorkspaceAssetStore},
 };
+
+const MAX_ASSET_REGISTRATION_BATCH: usize = 256;
+const MAX_DISPLAY_FILE_NAME_BYTES: usize = 255;
+const MAX_EXPORT_FILE_NAME_BYTES: usize = 200;
+const MAX_MIME_BYTES: usize = 255;
 
 #[tauri::command(rename = "desktop-workspace:select-assets")]
 pub async fn select_asset_files(
@@ -43,6 +48,12 @@ pub async fn select_asset_files(
             assets: Vec::new(),
         });
     };
+
+    if selected.len() > MAX_ASSET_REGISTRATION_BATCH {
+        return Err(AppError::invalid_input(
+            "Selected asset batch exceeds the supported size.",
+        ));
+    }
 
     let paths = selected
         .into_iter()
@@ -77,25 +88,42 @@ pub async fn register_internal_assets(
     store: State<'_, WorkspaceAssetStore>,
     items: Vec<InternalAssetRegistration>,
 ) -> AppResult<Vec<WorkspaceAssetSource>> {
+    if items.len() > MAX_ASSET_REGISTRATION_BATCH {
+        return Err(AppError::invalid_input(
+            "Internal asset batch exceeds the supported size.",
+        ));
+    }
+
     let workspace_root = workspace_storage_dir(&app)?;
     let cache_root = app.path().app_cache_dir()?;
-    let roots = [
-        fs::canonicalize(workspace_root)?,
-        fs::canonicalize(cache_root)?,
-    ];
 
     let prepared = tauri::async_runtime::spawn_blocking(move || {
+        fs::create_dir_all(&workspace_root)?;
+        fs::create_dir_all(&cache_root)?;
+
+        let roots = [
+            fs::canonicalize(workspace_root)?,
+            fs::canonicalize(cache_root)?,
+        ];
+
         items
             .into_iter()
             .map(|item| {
                 let source_path = fs::canonicalize(&item.source_path)?;
+
                 if !roots.iter().any(|root| source_path.starts_with(root)) {
+                    tracing::warn!(
+                        operation = "register_internal_workspace_asset",
+                        "internal asset is outside authorized roots"
+                    );
+
                     return Err(AppError::not_allowed(
-                        "Internal asset is outside the application workspace and cache.",
+                        "Internal asset is outside application storage.",
                     ));
                 }
 
                 let metadata = fs::metadata(&source_path)?;
+
                 if !metadata.is_file() {
                     return Err(AppError::invalid_path(
                         "Internal asset is not a regular file.",
@@ -116,9 +144,11 @@ pub async fn register_internal_assets(
     .await??;
 
     let mut output = Vec::with_capacity(prepared.len());
+
     for asset in prepared {
         output.push(store.authorize(asset).await?);
     }
+
     Ok(output)
 }
 
@@ -127,34 +157,49 @@ pub async fn load_autosave(
     app: AppHandle,
     user_id: Option<String>,
 ) -> AppResult<WorkspaceAutosaveLoadResult> {
-    let file_path = workspace_autosave_path(&workspace_storage_dir(&app)?, user_id.as_deref());
-    if !file_path.is_file() {
-        return Ok(WorkspaceAutosaveLoadResult {
-            found: false,
-            path: Some(file_path.to_string_lossy().into_owned()),
-            payload: None,
-        });
-    }
+    let root = workspace_storage_dir(&app)?;
 
-    let loaded = tauri::async_runtime::spawn_blocking(move || {
-        read_workspace_package(&file_path).map(|loaded| {
-            (
-                file_path,
-                WorkspacePackagePayload {
-                    manifest: loaded.manifest,
-                    assets: loaded.assets,
-                },
-            )
+    tauri::async_runtime::spawn_blocking(move || {
+        let file_path = workspace_autosave_path(&root, user_id.as_deref());
+
+        let metadata = match fs::metadata(&file_path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                return Ok(WorkspaceAutosaveLoadResult {
+                    found: false,
+                    path: Some(file_path.to_string_lossy().into_owned()),
+                    payload: None,
+                });
+            }
+            Err(error) => {
+                tracing::error!(
+                    operation = "load_workspace_autosave",
+                    error_kind = ?error.kind(),
+                    "failed to inspect autosave"
+                );
+
+                return Err(error.into());
+            }
+        };
+
+        if !metadata.is_file() {
+            return Err(AppError::invalid_path(
+                "Autosave path is not a regular file.",
+            ));
+        }
+
+        let loaded = read_workspace_package(&file_path)?;
+
+        Ok(WorkspaceAutosaveLoadResult {
+            found: true,
+            path: Some(file_path.to_string_lossy().into_owned()),
+            payload: Some(WorkspacePackagePayload {
+                manifest: loaded.manifest,
+                assets: loaded.assets,
+            }),
         })
     })
-    .await??;
-
-    let (file_path, payload) = loaded;
-    Ok(WorkspaceAutosaveLoadResult {
-        found: true,
-        path: Some(file_path.to_string_lossy().into_owned()),
-        payload: Some(payload),
-    })
+    .await?
 }
 
 #[tauri::command(rename = "desktop-workspace:save-autosave")]
@@ -163,16 +208,22 @@ pub async fn save_autosave(
     user_id: Option<String>,
     payload: WorkspacePackagePayload,
 ) -> AppResult<WorkspaceAutosaveSaveResult> {
-    let file_path = workspace_autosave_path(&workspace_storage_dir(&app)?, user_id.as_deref());
-    let output_path = file_path.clone();
+    let root = workspace_storage_dir(&app)?;
 
-    tauri::async_runtime::spawn_blocking(move || write_workspace_package(&output_path, &payload))
-        .await??;
+    tauri::async_runtime::spawn_blocking(move || {
+        fs::create_dir_all(&root)?;
 
-    Ok(WorkspaceAutosaveSaveResult {
-        saved: true,
-        path: file_path.to_string_lossy().into_owned(),
+        let file_path =
+            workspace_autosave_path(&root, user_id.as_deref());
+
+        write_workspace_package(&file_path, &payload)?;
+
+        Ok(WorkspaceAutosaveSaveResult {
+            saved: true,
+            path: file_path.to_string_lossy().into_owned(),
+        })
     })
+    .await?
 }
 
 #[tauri::command(rename = "desktop-workspace:clear-autosave")]
@@ -180,18 +231,33 @@ pub async fn clear_autosave(
     app: AppHandle,
     user_id: Option<String>,
 ) -> AppResult<WorkspaceAutosaveClearResult> {
-    let file_path = workspace_autosave_path(&workspace_storage_dir(&app)?, user_id.as_deref());
+    let root = workspace_storage_dir(&app)?;
 
-    let cleared = tauri::async_runtime::spawn_blocking(move || -> AppResult<bool> {
-        if file_path.is_file() {
-            fs::remove_file(&file_path)?;
-            return Ok(true);
+    tauri::async_runtime::spawn_blocking(move || {
+        let file_path =
+            workspace_autosave_path(&root, user_id.as_deref());
+
+        match fs::remove_file(file_path) {
+            Ok(()) => Ok(WorkspaceAutosaveClearResult {
+                cleared: true,
+            }),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                Ok(WorkspaceAutosaveClearResult {
+                    cleared: false,
+                })
+            }
+            Err(error) => {
+                tracing::error!(
+                    operation = "clear_workspace_autosave",
+                    error_kind = ?error.kind(),
+                    "failed to remove autosave"
+                );
+
+                Err(error.into())
+            }
         }
-        Ok(false)
     })
-    .await??;
-
-    Ok(WorkspaceAutosaveClearResult { cleared })
+    .await?
 }
 
 #[tauri::command(rename = "desktop-workspace:export-current")]
@@ -281,9 +347,9 @@ pub async fn import_file(app: AppHandle) -> AppResult<WorkspaceImportResult> {
 }
 
 pub fn workspace_storage_dir<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
-    let workspace_dir = app.path().app_data_dir()?.join("workspace");
-    fs::create_dir_all(&workspace_dir)?;
-    Ok(workspace_dir)
+    // Pure path resolution: directories are created by the blocking workers
+    // that actually write, never on the async executor.
+    Ok(app.path().app_data_dir()?.join("workspace"))
 }
 
 fn prepare_selected_asset(path: PathBuf) -> AppResult<AuthorizedWorkspaceAsset> {
@@ -299,8 +365,9 @@ fn prepare_selected_asset(path: PathBuf) -> AppResult<AuthorizedWorkspaceAsset> 
     let file_name = source_path
         .file_name()
         .and_then(|name| name.to_str())
-        .ok_or_else(|| AppError::invalid_path("Asset file name is not valid UTF-8."))?
-        .to_string();
+        .ok_or_else(|| AppError::invalid_path("Asset file name is not valid UTF-8."))?;
+
+    let file_name = validate_display_file_name(file_name)?;
 
     let inferred = infer::get_from_path(&source_path)
         .map_err(|error| AppError::internal("Asset sniffing failed.", error))?
@@ -338,53 +405,130 @@ fn prepare_selected_asset(path: PathBuf) -> AppResult<AuthorizedWorkspaceAsset> 
 }
 
 fn sanitized_export_file_name(value: &str) -> String {
-    let name = Path::new(value.trim())
-        .file_name()
-        .and_then(|name| name.to_str())
-        .filter(|name| !name.is_empty())
-        .unwrap_or("workspace.koma");
+    let candidate = value
+        .trim()
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or_default();
 
-    let mut output: String = name
+    let mut name: String = candidate
         .chars()
         .filter(|character| {
             !character.is_control()
-                && !matches!(character, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
+                && !matches!(
+                    character,
+                    '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'
+                )
         })
-        .take(200)
         .collect();
 
-    if output.is_empty() {
-        output = "workspace.koma".to_string();
-    }
+    name = name.trim_matches([' ', '.']).to_owned();
 
-    if !output
-        .to_ascii_lowercase()
-        .ends_with(&format!(".{WORKSPACE_FILE_EXTENSION}"))
+    let extension = format!(".{WORKSPACE_FILE_EXTENSION}");
+
+    if name
+        .get(name.len().saturating_sub(extension.len())..)
+        .is_some_and(|suffix| suffix.eq_ignore_ascii_case(&extension))
     {
-        output.push('.');
-        output.push_str(WORKSPACE_FILE_EXTENSION);
+        name.truncate(name.len() - extension.len());
+        name = name.trim_matches([' ', '.']).to_owned();
     }
 
-    output
+    if name.is_empty() {
+        name.push_str("workspace");
+    }
+
+    if is_windows_reserved_file_name(&name) {
+        name.insert(0, '_');
+    }
+
+    let stem_limit = MAX_EXPORT_FILE_NAME_BYTES
+        .saturating_sub(extension.len());
+
+    truncate_utf8(&mut name, stem_limit);
+
+    name = name.trim_end_matches([' ', '.']).to_owned();
+
+    if name.is_empty() {
+        name.push_str("workspace");
+    }
+
+    name.push_str(&extension);
+    name
+}
+
+fn truncate_utf8(value: &mut String, max_bytes: usize) {
+    if value.len() <= max_bytes {
+        return;
+    }
+
+    let mut boundary = max_bytes;
+
+    while !value.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+
+    value.truncate(boundary);
+}
+
+fn is_windows_reserved_file_name(value: &str) -> bool {
+    let stem = value
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches(' ')
+        .to_ascii_uppercase();
+
+    if matches!(
+        stem.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$"
+    ) {
+        return true;
+    }
+
+    ["COM", "LPT"].iter().any(|prefix| {
+        stem.strip_prefix(prefix).is_some_and(|suffix| {
+            matches!(
+                suffix,
+                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+                    | "¹" | "²" | "³"
+            )
+        })
+    })
 }
 
 fn validate_display_file_name(value: &str) -> AppResult<String> {
     if value.is_empty()
-        || value.len() > 255
+        || value.len() > MAX_DISPLAY_FILE_NAME_BYTES
+        || value.chars().any(char::is_control)
         || value.contains('/')
         || value.contains('\\')
-        || value.contains('\0')
+        || matches!(value, "." | "..")
     {
-        return Err(AppError::invalid_input("Invalid asset file name."));
+        return Err(AppError::invalid_input(
+            "Invalid asset file name.",
+        ));
     }
-    Ok(value.to_string())
+
+    Ok(value.to_owned())
 }
 
 fn validate_mime(value: &str) -> AppResult<String> {
+    if value.is_empty()
+        || value.len() > MAX_MIME_BYTES
+        || value.chars().any(char::is_control)
+    {
+        return Err(AppError::invalid_input(
+            "Invalid asset MIME type.",
+        ));
+    }
+
     value
         .parse::<mime::Mime>()
         .map(|mime| mime.to_string())
-        .map_err(|_| AppError::invalid_input("Invalid asset MIME type."))
+        .map_err(|_| {
+            AppError::invalid_input("Invalid asset MIME type.")
+        })
 }
 
 #[cfg(test)]
@@ -398,6 +542,63 @@ mod tests {
         assert_eq!(sanitized_export_file_name("../../x"), "x.koma");
         assert_eq!(sanitized_export_file_name(""), "workspace.koma");
         assert_eq!(sanitized_export_file_name("page"), "page.koma");
+    }
+
+    #[test]
+    fn export_file_name_handles_both_path_separators() {
+        assert_eq!(
+            sanitized_export_file_name(r"C:\folder\page.koma"),
+            "page.koma"
+        );
+
+        assert_eq!(
+            sanitized_export_file_name("/folder/page.koma"),
+            "page.koma"
+        );
+    }
+
+    #[test]
+    fn export_file_name_rejects_windows_reserved_names() {
+        assert_eq!(sanitized_export_file_name("CON"), "_CON.koma");
+        assert_eq!(sanitized_export_file_name("nul.koma"), "_nul.koma");
+        assert_eq!(sanitized_export_file_name("COM1"), "_COM1.koma");
+        assert_eq!(sanitized_export_file_name("LPT9"), "_LPT9.koma");
+    }
+
+    #[test]
+    fn export_file_name_removes_trailing_dots_and_spaces() {
+        assert_eq!(
+            sanitized_export_file_name("page...   "),
+            "page.koma"
+        );
+
+        assert_eq!(
+            sanitized_export_file_name("..."),
+            "workspace.koma"
+        );
+    }
+
+    #[test]
+    fn export_file_name_limits_bytes_without_breaking_utf8() {
+        let input = "界".repeat(200);
+        let output = sanitized_export_file_name(&input);
+
+        assert!(output.len() <= MAX_EXPORT_FILE_NAME_BYTES);
+        assert!(output.ends_with(".koma"));
+        assert!(std::str::from_utf8(output.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn display_file_name_rejects_controls_and_dot_entries() {
+        for value in ["", ".", "..", "line\nbreak.png", "tab\tname.png"] {
+            assert!(validate_display_file_name(value).is_err());
+        }
+    }
+
+    #[test]
+    fn mime_validation_rejects_controls_and_oversized_input() {
+        assert!(validate_mime("image/png\r\nx-header: value").is_err());
+        assert!(validate_mime(&"a".repeat(MAX_MIME_BYTES + 1)).is_err());
     }
 
     #[test]
