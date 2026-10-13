@@ -2,19 +2,21 @@
 //! preferences, local settings reset, application restart, local backend
 //! health probing and hardened external URL opening.
 //!
-//! Configuration is resolved exactly once per process (see
-//! [`resolved_desktop_config`]) and cached in Tauri managed state; every
-//! command after the first pays only a pointer clone.
+//! Configuration is resolved exactly once per process into a shared
+//! [`OnceLock`] cell (see [`resolved_desktop_config`]) and every command
+//! afterwards pays only a pointer clone. Only public configuration keys may
+//! be resolved; secrets cannot pass through this layer at all.
 
 use std::{
     collections::{HashMap, HashSet},
     env, fs, io,
+    io::Read,
     path::{Path, PathBuf},
     sync::{Arc, OnceLock},
     time::Duration,
 };
 
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_opener::OpenerExt;
 use thiserror::Error;
@@ -51,13 +53,23 @@ const CURRENT_DIR_ANCESTOR_DEPTH: usize = 6;
 const EXE_DIR_ANCESTOR_DEPTH: usize = 8;
 const RESOURCE_DIR_ANCESTOR_DEPTH: usize = 6;
 
-const FORBIDDEN_RUNTIME_CONFIG_KEYS: &[&str] = &[
-    "DESKTOP_BOOTSTRAP_SECRET",
-    "JWT_SECRET",
-    "BETTER_AUTH_SECRET",
+const MAX_CONFIG_FILE_BYTES: u64 = 256 * 1024;
+const MAX_URL_BYTES: usize = 8 * 1024;
+
+/// The only configuration keys this layer will ever resolve. This is an
+/// allowlist on purpose: a denylist means every new secret key needs a
+/// matching entry or it leaks.
+const PUBLIC_DESKTOP_CONFIG_KEYS: &[&str] = &[
+    "VITE_AUTH_API_URL",
+    "VITE_LOCAL_API_URL",
+    "MINI_BACKEND_ARTIFACTS_URL",
+    "VITE_MINI_BACKEND_ARTIFACTS_URL",
+    "UPDATE_SERVER_URL",
+    "VITE_UPDATE_SERVER_URL",
+    "VITE_PROJECT_WEBSITE_URL",
+    "VITE_PROJECT_DISCORD_URL",
+    "VITE_PROJECT_BUG_URL",
 ];
-const FORBIDDEN_RUNTIME_CONFIG_KEY_MARKERS: &[&str] =
-    &["SECRET", "PASSWORD", "PRIVATE_KEY", "API_KEY"];
 
 const RUNTIME_ARTIFACTS_ENV_KEYS: [&str; 4] = [
     "MINI_BACKEND_ARTIFACTS_URL",
@@ -86,49 +98,46 @@ const EXTERNAL_ALLOWED_HOST_SUFFIXES: &[&str] = &[
 // Errors
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Error)]
+/// Structured, non-sensitive error surface: the frontend receives
+/// `{"code": "snake_case"}` and never a message carrying paths or URLs.
+#[derive(Debug, Clone, Copy, Error, Serialize, Deserialize)]
+#[serde(tag = "code", rename_all = "snake_case")]
 pub enum DesktopError {
     #[error("external URL is missing")]
     MissingUrl,
     #[error("external URL is invalid")]
     InvalidUrl,
+    #[error("external URL exceeds the supported length")]
+    UrlTooLong,
     #[error("only HTTPS links are allowed")]
     InsecureScheme,
     #[error("URLs with embedded credentials are not allowed")]
     EmbeddedCredentials,
     #[error("external URL host is not allowed")]
     HostNotAllowed,
-    #[error("failed to open URL: {0}")]
-    Opener(#[from] tauri_plugin_opener::Error),
-    #[error("failed to resolve application data directory: {0}")]
-    AppDataDir(#[source] tauri::Error),
-    #[error("failed to clear local configuration at {path}: {source}")]
-    ClearLocalSettings {
-        path: PathBuf,
-        #[source]
-        source: io::Error,
-    },
-    #[error("background task failed: {0}")]
-    TaskJoin(#[source] tauri::Error),
-    #[error("{0}")]
-    Runtime(String),
-    #[error("{0}")]
-    Sidecar(String),
-}
-
-/// The frontend contract is a plain error string; keep it stable while the
-/// Rust side gets a real error hierarchy.
-impl Serialize for DesktopError {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_string())
-    }
+    #[error("external URL port is not allowed")]
+    PortNotAllowed,
+    #[error("local backend URL must address a loopback interface")]
+    InvalidLoopbackUrl,
+    #[error("failed to open external URL")]
+    Opener,
+    #[error("failed to resolve application data directory")]
+    AppDataDir,
+    #[error("failed to clear local configuration")]
+    ClearLocalSettings,
+    #[error("background task failed")]
+    TaskJoin,
+    #[error("failed to obtain runtime state")]
+    Runtime,
+    #[error("failed to restart local backend")]
+    Sidecar,
 }
 
 // ---------------------------------------------------------------------------
 // IPC payloads
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeConfig {
     pub auth_api_url: String,
@@ -137,14 +146,14 @@ pub struct RuntimeConfig {
     pub app_packaged: bool,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalePreferences {
     pub app_locale: String,
     pub system_locales: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ResetLocalSettingsResult {
     pub cleared: bool,
@@ -152,7 +161,7 @@ pub struct ResetLocalSettingsResult {
     pub cleared_paths: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RestartAppResult {
     pub restarting: bool,
@@ -188,7 +197,10 @@ pub fn restart_app<R: Runtime>(app: AppHandle<R>) -> RestartAppResult {
         // Give the IPC layer time to flush this command's response to the
         // webview before the process image is replaced.
         tokio::time::sleep(RESTART_GRACE_PERIOD).await;
-        log::info!("restarting application by user request");
+        tracing::info!(
+            operation = "restart_application",
+            "application restart requested"
+        );
         app.restart();
     });
 
@@ -200,12 +212,24 @@ pub fn get_mini_backend_runtime_state<R: Runtime>(
     app: AppHandle<R>,
     store: State<'_, MiniBackendRuntimeStore>,
 ) -> Result<RuntimeMiniBackendRuntimeState, DesktopError> {
-    snapshot_runtime_state(&app, &store).map_err(|error| DesktopError::Runtime(error.to_string()))
+    snapshot_runtime_state(&app, &store).map_err(|_| {
+        tracing::error!(
+            operation = "snapshot_runtime_state",
+            "failed to obtain runtime state"
+        );
+        DesktopError::Runtime
+    })
 }
 
 #[tauri::command(rename = "desktop:check-local-backend")]
-pub async fn check_local_backend<R: Runtime>(app: AppHandle<R>) -> Result<bool, DesktopError> {
-    let local_api_url = resolved_desktop_config(&app).runtime.local_api_url.clone();
+pub async fn check_local_backend<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<bool, DesktopError> {
+    let local_api_url = run_blocking(move || {
+        Ok(resolved_desktop_config(&app).runtime.local_api_url.clone())
+    })
+    .await?;
+
     Ok(check_local_backend_health(&local_api_url).await)
 }
 
@@ -215,7 +239,13 @@ pub async fn restart_local_backend<R: Runtime + 'static>(
 ) -> Result<bool, DesktopError> {
     crate::sidecar::mini_backend::restart_mini_backend(app)
         .await
-        .map_err(DesktopError::Sidecar)
+        .map_err(|_| {
+            tracing::error!(
+                operation = "restart_local_backend",
+                "failed to restart local backend"
+            );
+            DesktopError::Sidecar
+        })
 }
 
 #[tauri::command(rename = "desktop:open-external")]
@@ -227,7 +257,11 @@ pub async fn open_external<R: Runtime>(
         let config = resolved_desktop_config(&app);
         let target = validate_external_url(&url, &config.allowed_external_hosts)
             .inspect_err(|error| {
-                log::warn!("blocked external URL open request: {error}");
+                tracing::warn!(
+                    operation = "validate_external_url",
+                    error_code = ?error,
+                    "external URL request rejected"
+                );
             })?;
         open_url(&app, &target)
     })
@@ -241,7 +275,11 @@ pub async fn open_community_link<R: Runtime>(
 ) -> Result<(), DesktopError> {
     run_blocking(move || {
         let target = validate_community_url(&url).inspect_err(|error| {
-            log::warn!("blocked community URL open request: {error}");
+            tracing::warn!(
+                operation = "validate_community_url",
+                error_code = ?error,
+                "community URL request rejected"
+            );
         })?;
         open_url(&app, &target)
     })
@@ -258,13 +296,14 @@ pub fn build_runtime_config<R: Runtime>(app: &AppHandle<R>) -> RuntimeConfig {
     resolved_desktop_config(app).runtime.clone()
 }
 
-/// Resolves a non-secret configuration value using the precedence
-/// process env → `runtime-config.json` → `.env` files (dev builds only).
-pub(crate) fn resolve_desktop_env_value<R: Runtime>(
+/// Desktop-internal variant: same precedence as the public resolve, but
+/// without the public-keys allowlist. For Rust-side consumers whose values
+/// never cross to the webview.
+pub(crate) fn resolve_desktop_internal_value<R: Runtime>(
     app: &AppHandle<R>,
     key: &str,
 ) -> Option<String> {
-    resolved_desktop_config(app).sources.resolve(key)
+    resolved_desktop_config(app).sources.resolve_any(key)
 }
 
 pub fn reset_local_settings_at(
@@ -273,18 +312,26 @@ pub fn reset_local_settings_at(
     let mut cleared_paths = Vec::with_capacity(LOCAL_SETTINGS_ENTRIES.len());
     for entry in LOCAL_SETTINGS_ENTRIES {
         let target = user_data_dir.join(entry);
-        let removed = remove_path_if_present(&target).map_err(|source| {
-            DesktopError::ClearLocalSettings {
-                path: target.clone(),
-                source,
-            }
+        let removed = remove_path_if_present(&target).map_err(|error| {
+            tracing::error!(
+                operation = "reset_local_settings",
+                entry,
+                error_kind = ?error.kind(),
+                "failed to remove local settings entry"
+            );
+
+            DesktopError::ClearLocalSettings
         })?;
         if removed {
             cleared_paths.push(target.to_string_lossy().into_owned());
         }
     }
 
-    log::info!("local desktop settings cleared (count={})", cleared_paths.len());
+    tracing::info!(
+        operation = "reset_local_settings",
+        removed_count = cleared_paths.len(),
+        "local settings reset completed"
+    );
 
     Ok(ResetLocalSettingsResult {
         cleared: true,
@@ -294,25 +341,47 @@ pub fn reset_local_settings_at(
 }
 
 pub async fn check_local_backend_health(local_api_url: &str) -> bool {
+    let mut endpoint = match parse_loopback_url(local_api_url) {
+        Ok(endpoint) => endpoint,
+        Err(error) => {
+            tracing::warn!(
+                operation = "check_local_backend_health",
+                error_code = ?error,
+                "health check target rejected"
+            );
+            return false;
+        }
+    };
+
+    let path = format!("{}/health", endpoint.path().trim_end_matches('/'));
+    endpoint.set_path(&path);
+
     let Some(client) = loopback_http_client() else {
         return false;
     };
-    let endpoint = format!("{}/health", local_api_url.trim_end_matches('/'));
 
     for attempt in 0..=DESKTOP_FETCH_RETRY_COUNT {
-        match client.get(&endpoint).send().await {
+        match client.get(endpoint.clone()).send().await {
             Ok(response) if response.status().is_success() => return true,
-            Ok(response) => log::debug!(
-                "local backend health check attempt {} returned non-success status {}",
-                attempt,
-                response.status()
-            ),
-            Err(error) => log::debug!(
-                "local backend health check attempt {} failed: {}",
-                attempt,
-                error
-            ),
+            Ok(response) => {
+                tracing::debug!(
+                    operation = "check_local_backend_health",
+                    attempt,
+                    status = response.status().as_u16(),
+                    "backend health check returned a non-success status"
+                );
+            }
+            Err(error) => {
+                tracing::debug!(
+                    operation = "check_local_backend_health",
+                    attempt,
+                    timeout = error.is_timeout(),
+                    connect = error.is_connect(),
+                    "backend health check request failed"
+                );
+            }
         }
+
         if attempt < DESKTOP_FETCH_RETRY_COUNT {
             tokio::time::sleep(DESKTOP_FETCH_RETRY_DELAY).await;
         }
@@ -322,8 +391,8 @@ pub async fn check_local_backend_health(local_api_url: &str) -> bool {
 }
 
 /// Validates an arbitrary URL against the strict external policy:
-/// HTTPS, no embedded credentials, host in the dynamic allowlist or under an
-/// allowed suffix.
+/// HTTPS, standard port, no embedded credentials, host in the dynamic
+/// allowlist or under an allowed public suffix.
 pub fn validate_external_url(
     raw_url: &str,
     allowed_hosts: &HashSet<String>,
@@ -346,14 +415,10 @@ pub fn validate_external_url(
     }
 }
 
-/// Community links may point at any *public* HTTPS origin, but never at
-/// loopback, link-local names, IP literals or single-label intranet hosts.
+/// Community links use the same static allowlist as every other external
+/// URL: "any hostname with a dot" is not a security boundary.
 pub fn validate_community_url(raw_url: &str) -> Result<Url, DesktopError> {
-    let parsed = parse_https_url(raw_url)?;
-    match parsed.host() {
-        Some(Host::Domain(domain)) if is_public_domain(domain) => Ok(parsed),
-        _ => Err(DesktopError::HostNotAllowed),
-    }
+    validate_external_url(raw_url, &HashSet::new())
 }
 
 /// Builds locale preferences from an ordered list of system locale tags.
@@ -392,6 +457,7 @@ where
 // ---------------------------------------------------------------------------
 
 type SharedDesktopConfig = Arc<ResolvedDesktopConfig>;
+type DesktopConfigCell = Arc<OnceLock<SharedDesktopConfig>>;
 
 /// Fully resolved, immutable desktop configuration. Intentionally does not
 /// derive `Debug`: `sources` may hold developer `.env` contents.
@@ -423,10 +489,11 @@ impl ResolvedDesktopConfig {
             }
         }
 
-        log::info!(
-            "desktop runtime configuration resolved (channel={}, auth_api_url={local_api_url}, local_api_url={auth_api_url}, runtime_artifacts_url={runtime_artifacts_url}, allowed_hosts={})",
-            sources.channel.as_str(),
-            allowed_external_hosts.len()
+        tracing::info!(
+            operation = "resolve_desktop_config",
+            channel = sources.channel.as_str(),
+            allowed_hosts = allowed_external_hosts.len(),
+            "desktop runtime configuration resolved"
         );
 
         Self {
@@ -442,18 +509,24 @@ impl ResolvedDesktopConfig {
     }
 }
 
-fn resolved_desktop_config<R: Runtime>(app: &AppHandle<R>) -> SharedDesktopConfig {
-    if let Some(cached) = app.try_state::<SharedDesktopConfig>() {
-        return Arc::clone(cached.inner());
+fn desktop_config_cell<R: Runtime>(app: &AppHandle<R>) -> DesktopConfigCell {
+    if let Some(state) = app.try_state::<DesktopConfigCell>() {
+        return Arc::clone(state.inner());
     }
 
-    let resolved: SharedDesktopConfig = Arc::new(ResolvedDesktopConfig::from_sources(
-        ConfigSources::load(&ConfigLocations::from_app(app), app),
-    ));
-    // `manage` is first-writer-wins under concurrent first calls; re-reading
-    // guarantees every caller observes the single canonical instance.
-    app.manage(resolved);
-    Arc::clone(app.state::<SharedDesktopConfig>().inner())
+    app.manage(DesktopConfigCell::default());
+
+    Arc::clone(app.state::<DesktopConfigCell>().inner())
+}
+
+fn resolved_desktop_config<R: Runtime>(app: &AppHandle<R>) -> SharedDesktopConfig {
+    let cell = desktop_config_cell(app);
+
+    Arc::clone(cell.get_or_init(|| {
+        Arc::new(ResolvedDesktopConfig::from_sources(
+            ConfigSources::load(&ConfigLocations::from_app(app), app),
+        ))
+    }))
 }
 
 // ---------------------------------------------------------------------------
@@ -518,11 +591,27 @@ impl ConfigLocations {
     }
 
     fn runtime_config_candidates(&self) -> Vec<PathBuf> {
-        let roots = self.current_dir.iter().chain(self.resource_dir.iter());
+        // Packaged builds only ever read the bundled runtime config; walking
+        // ancestor directories of the executable would let a stray file in a
+        // user-writable folder override configuration.
+        if !cfg!(debug_assertions) {
+            return self
+                .resource_dir
+                .iter()
+                .map(|root| root.join(RUNTIME_CONFIG_FILE))
+                .collect();
+        }
+
+        let roots = self
+            .current_dir
+            .iter()
+            .chain(self.resource_dir.iter());
+
         dedupe_paths(roots.flat_map(|root| {
             [
                 root.join(RUNTIME_CONFIG_FILE),
-                root.join(LEGACY_RUNTIME_CONFIG_DIR).join(RUNTIME_CONFIG_FILE),
+                root.join(LEGACY_RUNTIME_CONFIG_DIR)
+                    .join(RUNTIME_CONFIG_FILE),
             ]
         }))
     }
@@ -562,9 +651,10 @@ impl ConfigLocations {
     }
 }
 
-/// Pre-parsed configuration documents in precedence order. Secrets are
-/// filtered out at parse time so they never reside in this structure.
+/// Pre-parsed configuration documents in precedence order. Only public keys
+/// survive parsing, so nothing else can ever be resolved from this structure.
 struct ConfigSources {
+    process_values: HashMap<String, String>,
     runtime_config_documents: Vec<serde_json::Map<String, serde_json::Value>>,
     env_documents: Vec<HashMap<String, String>>,
     channel: UpdateChannel,
@@ -572,6 +662,13 @@ struct ConfigSources {
 
 impl ConfigSources {
     fn load<R: Runtime>(locations: &ConfigLocations, app: &AppHandle<R>) -> Self {
+        let process_values = PUBLIC_DESKTOP_CONFIG_KEYS
+            .iter()
+            .filter_map(|key| {
+                non_empty_env_var(key).map(|value| ((*key).to_owned(), value))
+            })
+            .collect();
+
         let runtime_config_documents =
             load_runtime_config_documents(&locations.runtime_config_candidates());
 
@@ -585,18 +682,31 @@ impl ConfigSources {
         };
 
         Self {
+            process_values,
             runtime_config_documents,
             env_documents,
-            channel: UpdateChannel::from_version(&app.package_info().version.to_string()),
+            channel: UpdateChannel::from_version(
+                &app.package_info().version.to_string(),
+            ),
         }
     }
 
     fn resolve(&self, key: &str) -> Option<String> {
-        if is_forbidden_runtime_config_key(key) {
+        if !is_public_desktop_config_key(key) {
             return None;
         }
 
-        non_empty_env_var(key)
+        self.resolve_any(key)
+    }
+
+    /// Same precedence as [`Self::resolve`] but without the public-keys
+    /// allowlist: for desktop-internal consumers only (bug report webhook,
+    /// imgur client id). Values resolved here must never cross to the
+    /// webview.
+    fn resolve_any(&self, key: &str) -> Option<String> {
+        self.process_values
+            .get(key)
+            .cloned()
             .or_else(|| self.resolve_from_runtime_config(key))
             .or_else(|| self.resolve_from_env_files(key))
     }
@@ -618,28 +728,88 @@ impl ConfigSources {
     }
 }
 
+fn is_public_desktop_config_key(key: &str) -> bool {
+    PUBLIC_DESKTOP_CONFIG_KEYS.contains(&key)
+}
+
+/// Reads a configuration document with a hard size cap; oversized or
+/// non-UTF-8 sources are rejected instead of silently truncated.
+fn read_config_document(path: &Path) -> io::Result<Option<String>> {
+    let file = match fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(None);
+        }
+        Err(error) => return Err(error),
+    };
+
+    if !file.metadata()?.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "configuration source is not a regular file",
+        ));
+    }
+
+    let mut bytes = Vec::new();
+    file.take(MAX_CONFIG_FILE_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+
+    if bytes.len() as u64 > MAX_CONFIG_FILE_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "configuration document exceeds the size limit",
+        ));
+    }
+
+    String::from_utf8(bytes)
+        .map(Some)
+        .map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "configuration document is not valid UTF-8",
+            )
+        })
+}
+
 fn load_runtime_config_documents(
     candidates: &[PathBuf],
 ) -> Vec<serde_json::Map<String, serde_json::Value>> {
     candidates
         .iter()
         .filter_map(|path| {
-            let raw = match fs::read_to_string(path) {
-                Ok(raw) => raw,
-                Err(error) if error.kind() == io::ErrorKind::NotFound => return None,
+            let raw = match read_config_document(path) {
+                Ok(Some(raw)) => raw,
+                Ok(None) => return None,
                 Err(error) => {
-                    log::warn!(target: "desktop_config", "unable to read runtime config {}: {}", path.display(), error);
+                    tracing::warn!(
+                        target: "desktop_config",
+                        operation = "read_runtime_config",
+                        error_kind = ?error.kind(),
+                        "configuration source rejected"
+                    );
                     return None;
                 }
             };
-            match serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&raw) {
+
+            match serde_json::from_str::<
+                serde_json::Map<String, serde_json::Value>,
+            >(&raw)
+            {
                 Ok(mut document) => {
-                    document.retain(|key, _| !is_forbidden_runtime_config_key(key));
-                    log::debug!(target: "desktop_config", "loaded runtime config {}", path.display());
+                    document.retain(|key, value| {
+                        is_public_desktop_config_key(key) && value.is_string()
+                    });
+
                     Some(document)
                 }
                 Err(error) => {
-                    log::warn!(target: "desktop_config", "runtime config {} is not valid JSON: {}", path.display(), error);
+                    tracing::warn!(
+                        target: "desktop_config",
+                        operation = "parse_runtime_config",
+                        line = error.line(),
+                        column = error.column(),
+                        "configuration source rejected"
+                    );
                     None
                 }
             }
@@ -650,52 +820,86 @@ fn load_runtime_config_documents(
 fn load_env_documents(candidates: &[PathBuf]) -> Vec<HashMap<String, String>> {
     candidates
         .iter()
-        .filter_map(|path| {
-            let raw = fs::read_to_string(path).ok()?;
-            log::debug!(target: "desktop_config", "loaded env file {}", path.display());
-            Some(parse_env_document(&raw))
+        .filter_map(|path| match read_config_document(path) {
+            Ok(Some(raw)) => Some(parse_env_document(&raw)),
+            Ok(None) => None,
+            Err(error) => {
+                tracing::warn!(
+                    target: "desktop_config",
+                    operation = "read_env_config",
+                    error_kind = ?error.kind(),
+                    "configuration source rejected"
+                );
+                None
+            }
         })
         .collect()
 }
 
 /// Parses a dotenv document. Within a single file the last non-empty
-/// assignment of a key wins; secret keys are dropped.
+/// assignment of a key wins; non-public keys are dropped.
 fn parse_env_document(raw: &str) -> HashMap<String, String> {
     let mut document = HashMap::new();
+
     for (key, value) in raw.lines().filter_map(parse_env_line) {
-        if value.is_empty() || is_forbidden_runtime_config_key(key) {
+        if value.is_empty() || !is_public_desktop_config_key(key) {
             continue;
         }
+
         document.insert(key.to_owned(), value.to_owned());
     }
+
     document
 }
 
 fn parse_env_line(line: &str) -> Option<(&str, &str)> {
     let trimmed = line.trim();
+
     if trimmed.is_empty() || trimmed.starts_with('#') {
         return None;
     }
-    let trimmed = trimmed.strip_prefix("export ").map_or(trimmed, str::trim);
+
+    let trimmed = trimmed
+        .strip_prefix("export ")
+        .map_or(trimmed, str::trim);
+
     let (key, value) = trimmed.split_once('=')?;
-    Some((key.trim(), parse_env_value(value)))
+    let key = key.trim();
+
+    if !is_public_desktop_config_key(key) {
+        return None;
+    }
+
+    Some((key, parse_env_value(value)?))
 }
 
-/// dotenv value semantics: quoted values end at the matching quote; unquoted
+/// dotenv value semantics: quoted values must close their quote; unquoted
 /// values end at the first `#` preceded by whitespace (inline comment).
-fn parse_env_value(raw_value: &str) -> &str {
+fn parse_env_value(raw_value: &str) -> Option<&str> {
     let raw_value = raw_value.trim();
+
     for quote in ['"', '\''] {
         if let Some(inner) = raw_value.strip_prefix(quote) {
-            return inner.find(quote).map_or(inner, |end| &inner[..end]);
+            let end = inner.find(quote)?;
+            let trailing = inner[end + quote.len_utf8()..].trim();
+
+            if !trailing.is_empty() && !trailing.starts_with('#') {
+                return None;
+            }
+
+            return Some(&inner[..end]);
         }
     }
 
     let end = raw_value
         .match_indices('#')
-        .find(|(index, _)| raw_value[..*index].ends_with(char::is_whitespace))
+        .find(|(index, _)| {
+            *index == 0
+                || raw_value[..*index].ends_with(char::is_whitespace)
+        })
         .map_or(raw_value.len(), |(index, _)| index);
-    raw_value[..end].trim()
+
+    Some(raw_value[..end].trim())
 }
 
 fn desktop_env_file_name() -> &'static str {
@@ -717,14 +921,6 @@ fn non_empty_env_var(key: &str) -> Option<String> {
         .ok()
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())
-}
-
-fn is_forbidden_runtime_config_key(key: &str) -> bool {
-    let upper = key.trim().to_ascii_uppercase();
-    FORBIDDEN_RUNTIME_CONFIG_KEYS.contains(&upper.as_str())
-        || FORBIDDEN_RUNTIME_CONFIG_KEY_MARKERS
-            .iter()
-            .any(|marker| upper.contains(marker))
 }
 
 // ---------------------------------------------------------------------------
@@ -751,10 +947,13 @@ fn default_runtime_artifacts_url(channel: UpdateChannel) -> String {
 
 fn normalize_runtime_artifacts_url(raw_url: &str, channel: UpdateChannel) -> String {
     let trimmed = raw_url.trim();
-    let Ok(mut parsed) = Url::parse(trimmed) else {
-        log::warn!(
-            "configured runtime artifacts URL is not an absolute URL; using channel default"
+
+    let Ok(mut parsed) = parse_https_url(trimmed) else {
+        tracing::warn!(
+            operation = "resolve_runtime_artifacts_url",
+            "invalid artifacts endpoint; using channel default"
         );
+
         return default_runtime_artifacts_url(channel);
     };
 
@@ -799,21 +998,78 @@ fn normalize_runtime_artifacts_path(path: &str, channel: UpdateChannel) -> Strin
 // URL policy helpers
 // ---------------------------------------------------------------------------
 
+/// Strict HTTPS policy for externally opened URLs: standard port only,
+/// no credentials, public domains only (static allowlist decides access).
 fn parse_https_url(raw_url: &str) -> Result<Url, DesktopError> {
+    if raw_url.len() > MAX_URL_BYTES {
+        return Err(DesktopError::UrlTooLong);
+    }
+
     let trimmed = raw_url.trim();
+
     if trimmed.is_empty() {
         return Err(DesktopError::MissingUrl);
     }
-    let parsed = Url::parse(trimmed).map_err(|_| DesktopError::InvalidUrl)?;
+
+    if trimmed.chars().any(char::is_control) || trimmed.contains('\\') {
+        return Err(DesktopError::InvalidUrl);
+    }
+
+    let parsed =
+        Url::parse(trimmed).map_err(|_| DesktopError::InvalidUrl)?;
+
     if parsed.scheme() != "https" {
         return Err(DesktopError::InsecureScheme);
     }
+
     if !parsed.username().is_empty() || parsed.password().is_some() {
         return Err(DesktopError::EmbeddedCredentials);
     }
-    if parsed.host_str().is_none() {
-        return Err(DesktopError::InvalidUrl);
+
+    if parsed.port_or_known_default() != Some(443) {
+        return Err(DesktopError::PortNotAllowed);
     }
+
+    match parsed.host() {
+        Some(Host::Domain(domain)) if is_public_domain(domain) => Ok(parsed),
+        _ => Err(DesktopError::HostNotAllowed),
+    }
+}
+
+/// Only true loopback targets may be probed: literal IPv4/IPv6 loopback or
+/// the `localhost` name (normalised to `127.0.0.1` so no DNS lookup runs).
+fn parse_loopback_url(raw_url: &str) -> Result<Url, DesktopError> {
+    if raw_url.len() > MAX_URL_BYTES {
+        return Err(DesktopError::UrlTooLong);
+    }
+
+    let mut parsed =
+        Url::parse(raw_url.trim()).map_err(|_| DesktopError::InvalidLoopbackUrl)?;
+
+    if !matches!(parsed.scheme(), "http" | "https")
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+        || parsed.port() == Some(0)
+    {
+        return Err(DesktopError::InvalidLoopbackUrl);
+    }
+
+    match parsed.host() {
+        Some(Host::Ipv4(address)) if address.is_loopback() => {}
+        Some(Host::Ipv6(address)) if address.is_loopback() => {}
+        Some(Host::Domain(domain))
+            if domain.eq_ignore_ascii_case("localhost")
+                || domain.eq_ignore_ascii_case("localhost.") =>
+        {
+            parsed
+                .set_host(Some("127.0.0.1"))
+                .map_err(|_| DesktopError::InvalidLoopbackUrl)?;
+        }
+        _ => return Err(DesktopError::InvalidLoopbackUrl),
+    }
+
     Ok(parsed)
 }
 
@@ -826,32 +1082,47 @@ fn host_matches_suffix(host: &str, suffix: &str) -> bool {
 
 fn is_public_domain(domain: &str) -> bool {
     let host = normalize_host(domain);
+
+    let reserved_suffixes = [
+        "localhost",
+        "local",
+        "internal",
+        "home.arpa",
+        "test",
+        "invalid",
+        "example",
+        "onion",
+    ];
+
     host.contains('.')
-        && host != "localhost"
-        && !host.ends_with(".localhost")
-        && !host.ends_with(".local")
+        && !reserved_suffixes
+            .iter()
+            .any(|suffix| host_matches_suffix(&host, suffix))
 }
 
 fn insert_url_host(hosts: &mut HashSet<String>, raw_url: &str) {
-    if let Some(host) = Url::parse(raw_url)
-        .ok()
-        .and_then(|parsed| parsed.host_str().map(normalize_host))
-    {
-        hosts.insert(host);
+    if let Ok(parsed) = parse_https_url(raw_url) {
+        if let Some(host) = parsed.host_str() {
+            hosts.insert(normalize_host(host));
+        }
     }
 }
 
 fn normalize_loopback_url(raw_url: &str) -> String {
-    let Ok(mut parsed) = Url::parse(raw_url) else {
-        return raw_url.to_owned();
-    };
-    if parsed.host_str().map(normalize_host).as_deref() != Some("localhost") {
-        return raw_url.to_owned();
-    }
-    if parsed.set_host(Some("127.0.0.1")).is_ok() {
-        parsed.to_string().trim_end_matches('/').to_owned()
-    } else {
-        raw_url.to_owned()
+    match parse_loopback_url(raw_url) {
+        Ok(parsed) => parsed
+            .to_string()
+            .trim_end_matches('/')
+            .to_owned(),
+        Err(error) => {
+            tracing::warn!(
+                operation = "resolve_local_backend_url",
+                error_code = ?error,
+                "invalid local backend configuration; using default"
+            );
+
+            DEFAULT_LOCAL_API_URL.to_owned()
+        }
     }
 }
 
@@ -890,8 +1161,11 @@ fn loopback_http_client() -> Option<&'static reqwest::Client> {
                 .redirect(reqwest::redirect::Policy::none())
                 .pool_max_idle_per_host(1)
                 .build()
-                .inspect_err(|error| {
-                    log::error!("failed to build loopback HTTP client: {error}");
+                .inspect_err(|_| {
+                    tracing::error!(
+                        operation = "build_loopback_http_client",
+                        "failed to construct HTTP client"
+                    );
                 })
                 .ok()
         })
@@ -905,19 +1179,40 @@ where
 {
     tauri::async_runtime::spawn_blocking(task)
         .await
-        .map_err(DesktopError::TaskJoin)?
+        .map_err(|_| {
+            tracing::error!(
+                operation = "desktop_background_task",
+                "background task failed"
+            );
+            DesktopError::TaskJoin
+        })?
 }
 
-fn app_user_data_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, DesktopError> {
-    app.path()
-        .app_data_dir()
-        .map_err(DesktopError::AppDataDir)
+fn app_user_data_dir<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<PathBuf, DesktopError> {
+    app.path().app_data_dir().map_err(|_| {
+        tracing::error!(
+            operation = "resolve_app_data_directory",
+            "failed to resolve application data directory"
+        );
+        DesktopError::AppDataDir
+    })
 }
 
-fn open_url<R: Runtime>(app: &AppHandle<R>, target: &Url) -> Result<(), DesktopError> {
-    log::debug!("opening external URL (host={:?})", target.host_str());
-    app.opener().open_url(target.as_str(), None::<&str>)?;
-    Ok(())
+fn open_url<R: Runtime>(
+    app: &AppHandle<R>,
+    target: &Url,
+) -> Result<(), DesktopError> {
+    app.opener()
+        .open_url(target.as_str(), None::<&str>)
+        .map_err(|_| {
+            tracing::error!(
+                operation = "open_external_url",
+                "external URL opener failed"
+            );
+            DesktopError::Opener
+        })
 }
 
 fn ancestor_dirs(start: &Path, max_depth: usize) -> Vec<PathBuf> {
@@ -948,13 +1243,18 @@ fn remove_path_if_present(path: &Path) -> io::Result<bool> {
     }
 }
 
+/// Decides how to unlink a symlink from its own metadata, never from the
+/// target's: a directory-junction target cannot decide the removal mode.
 #[cfg(windows)]
 fn remove_symlink(path: &Path) -> io::Result<()> {
-    // Directory symlinks and junctions on Windows are removed with
-    // `remove_dir`; `remove_file` fails on them with ACCESS_DENIED.
-    match fs::metadata(path) {
-        Ok(target) if target.is_dir() => fs::remove_dir(path),
-        _ => fs::remove_file(path),
+    use std::os::windows::fs::FileTypeExt;
+
+    let file_type = fs::symlink_metadata(path)?.file_type();
+
+    if file_type.is_symlink_dir() {
+        fs::remove_dir(path)
+    } else {
+        fs::remove_file(path)
     }
 }
 
@@ -973,6 +1273,7 @@ mod tests {
         channel: UpdateChannel,
     ) -> ConfigSources {
         ConfigSources {
+            process_values: HashMap::new(),
             runtime_config_documents: runtime,
             env_documents: envs,
             channel,
@@ -994,7 +1295,7 @@ mod tests {
     }
 
     #[test]
-    fn external_url_requires_https_and_allowed_host() {
+    fn external_url_requires_https_allowed_host_and_standard_port() {
         let hosts = HashSet::from(["api.example.com".to_owned()]);
 
         assert!(validate_external_url("https://github.com/koma", &hosts).is_ok());
@@ -1023,9 +1324,27 @@ mod tests {
     }
 
     #[test]
-    fn community_url_requires_https_and_public_domain() {
+    fn external_url_rejects_nonstandard_ports_and_ip_literals() {
+        let hosts = HashSet::new();
+
+        assert!(matches!(
+            validate_external_url("https://github.com:8443", &hosts),
+            Err(DesktopError::PortNotAllowed)
+        ));
+
+        assert!(matches!(
+            validate_external_url("https://127.0.0.1", &hosts),
+            Err(DesktopError::HostNotAllowed)
+        ));
+    }
+
+    #[test]
+    fn community_url_uses_the_static_allowlist() {
         assert!(validate_community_url("https://discord.gg/koma").is_ok());
-        assert!(validate_community_url("https://any-public-site.example/x").is_ok());
+        assert!(matches!(
+            validate_community_url("https://any-public-site.example/x"),
+            Err(DesktopError::HostNotAllowed)
+        ));
         assert!(matches!(
             validate_community_url("http://discord.gg/koma"),
             Err(DesktopError::InsecureScheme)
@@ -1038,30 +1357,41 @@ mod tests {
             validate_community_url("https://10.0.0.1/"),
             Err(DesktopError::HostNotAllowed)
         ));
-        assert!(matches!(
-            validate_community_url("https://intranet/"),
-            Err(DesktopError::HostNotAllowed)
-        ));
-        assert!(matches!(
-            validate_community_url("https://printer.local/"),
-            Err(DesktopError::HostNotAllowed)
-        ));
-        assert!(matches!(
-            validate_community_url("https://a:b@discord.gg/"),
-            Err(DesktopError::EmbeddedCredentials)
-        ));
+    }
+
+    #[test]
+    fn error_serializes_as_structured_code() {
+        let value = serde_json::to_value(DesktopError::HostNotAllowed).unwrap();
+
         assert_eq!(
-            validate_community_url("http://discord.gg/koma")
-                .unwrap_err()
-                .to_string(),
-            "only HTTPS links are allowed"
+            value,
+            serde_json::json!({
+                "code": "host_not_allowed"
+            })
         );
     }
 
     #[test]
-    fn error_serializes_as_plain_string() {
-        let json = serde_json::to_string(&DesktopError::HostNotAllowed).unwrap();
-        assert_eq!(json, "\"external URL host is not allowed\"");
+    fn loopback_url_rejects_remote_hosts_and_credentials() {
+        for raw in [
+            "http://example.com:8001",
+            "http://192.168.1.10:8001",
+            "http://user:password@127.0.0.1:8001",
+            "file:///tmp/backend",
+            "http://127.0.0.1:8001?token=value",
+            "http://127.0.0.1:8001#fragment",
+        ] {
+            assert!(parse_loopback_url(raw).is_err(), "{raw}");
+        }
+    }
+
+    #[test]
+    fn loopback_url_accepts_ipv4_ipv6_and_normalizes_localhost() {
+        assert!(parse_loopback_url("http://127.0.0.1:8001").is_ok());
+        assert!(parse_loopback_url("http://[::1]:8001").is_ok());
+
+        let localhost = parse_loopback_url("http://localhost:8001").unwrap();
+        assert_eq!(localhost.host_str(), Some("127.0.0.1"));
     }
 
     #[test]
@@ -1093,14 +1423,14 @@ mod tests {
     }
 
     #[test]
-    fn normalize_loopback_rewrites_localhost_only() {
+    fn normalize_loopback_rewrites_localhost_and_defaults_on_invalid() {
         assert_eq!(
             normalize_loopback_url("http://localhost:8001/"),
             "http://127.0.0.1:8001"
         );
         assert_eq!(
-            normalize_loopback_url("https://example.com/"),
-            "https://example.com/"
+            normalize_loopback_url("http://example.com/"),
+            DEFAULT_LOCAL_API_URL
         );
     }
 
@@ -1185,10 +1515,9 @@ mod tests {
     fn env_document_supports_export_prefix_quotes_and_inline_comments() {
         let document = parse_env_document(concat!(
             "export VITE_AUTH_API_URL=\"https://auth.example.test\"\n",
-            "SINGLE='https://single.example.test' # trailing\n",
-            "UNQUOTED=https://plain.example.test # inline comment\n",
-            "HASH_INSIDE=abc#def\n",
-            "EMPTY=\n",
+            "VITE_LOCAL_API_URL='https://single.example.test' # trailing\n",
+            "UPDATE_SERVER_URL=https://plain.example.test # inline comment\n",
+            "VITE_PROJECT_BUG_URL=https://bug.example.test/abc#def\n",
             "JWT_SECRET=should-never-be-loaded\n",
         ));
 
@@ -1197,19 +1526,76 @@ mod tests {
             Some("https://auth.example.test")
         );
         assert_eq!(
-            document.get("SINGLE").map(String::as_str),
+            document.get("VITE_LOCAL_API_URL").map(String::as_str),
             Some("https://single.example.test")
         );
         assert_eq!(
-            document.get("UNQUOTED").map(String::as_str),
+            document.get("UPDATE_SERVER_URL").map(String::as_str),
             Some("https://plain.example.test")
         );
         assert_eq!(
-            document.get("HASH_INSIDE").map(String::as_str),
-            Some("abc#def")
+            document.get("VITE_PROJECT_BUG_URL").map(String::as_str),
+            Some("https://bug.example.test/abc#def")
         );
-        assert!(!document.contains_key("EMPTY"));
         assert!(!document.contains_key("JWT_SECRET"));
+    }
+
+    #[test]
+    fn env_parser_rejects_unterminated_quoted_values() {
+        assert_eq!(
+            parse_env_line("VITE_AUTH_API_URL=\"https://example.com"),
+            None
+        );
+    }
+
+    #[test]
+    fn process_configuration_is_a_snapshot() {
+        let mut resolved = sources(
+            vec![json_doc(&[(
+                "VITE_AUTH_API_URL",
+                "https://json.example.com",
+            )])],
+            Vec::new(),
+            UpdateChannel::Stable,
+        );
+
+        resolved.process_values.insert(
+            "VITE_AUTH_API_URL".to_owned(),
+            "https://process.example.com".to_owned(),
+        );
+
+        assert_eq!(
+            resolved.resolve("VITE_AUTH_API_URL").as_deref(),
+            Some("https://process.example.com")
+        );
+    }
+
+    #[test]
+    fn non_public_keys_are_never_resolved() {
+        let resolved = sources(
+            vec![json_doc(&[("JWT_SECRET", "leak")])],
+            vec![env_doc(&[("SOME_API_KEY", "leak")])],
+            UpdateChannel::Stable,
+        );
+
+        assert_eq!(resolved.resolve("JWT_SECRET"), None);
+        assert_eq!(resolved.resolve("SOME_API_KEY"), None);
+    }
+
+    #[test]
+    fn runtime_config_loader_drops_non_public_keys() {
+        let temp = tempfile::tempdir().unwrap();
+        let config_path = temp.path().join(RUNTIME_CONFIG_FILE);
+        fs::write(
+            &config_path,
+            r#"{"JWT_SECRET":"nope","VITE_AUTH_API_URL":"https://auth.example.test"}"#,
+        )
+        .unwrap();
+
+        let documents = load_runtime_config_documents(&[config_path]);
+
+        assert!(documents[0].get("JWT_SECRET").is_none());
+        assert!(documents[0].get("VITE_AUTH_API_URL").is_some());
     }
 
     #[test]
@@ -1217,46 +1603,62 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let first = temp.path().join(".env.local");
         let second = temp.path().join(".env");
-        fs::write(&first, "KOMA_TEST_ORDER=first\n").unwrap();
-        fs::write(&second, "KOMA_TEST_ORDER=second\nKOMA_TEST_ONLY_SECOND=yes\n").unwrap();
+        fs::write(&first, "VITE_AUTH_API_URL=http://first.example.test\n").unwrap();
+        fs::write(
+            &second,
+            "VITE_AUTH_API_URL=http://second.example.test\nVITE_LOCAL_API_URL=http://only-second.example.test\n",
+        )
+        .unwrap();
 
         let documents = load_env_documents(&[first, temp.path().join("missing"), second]);
         let resolved = sources(Vec::new(), documents, UpdateChannel::Stable);
 
-        assert_eq!(resolved.resolve("KOMA_TEST_ORDER").as_deref(), Some("first"));
         assert_eq!(
-            resolved.resolve("KOMA_TEST_ONLY_SECOND").as_deref(),
-            Some("yes")
+            resolved.resolve("VITE_AUTH_API_URL").as_deref(),
+            Some("http://first.example.test")
+        );
+        assert_eq!(
+            resolved.resolve("VITE_LOCAL_API_URL").as_deref(),
+            Some("http://only-second.example.test")
         );
     }
 
     #[test]
-    fn runtime_config_takes_precedence_over_env_files_and_filters_secrets() {
+    fn oversized_config_documents_are_rejected() {
+        let temp = tempfile::tempdir().unwrap();
+        let config_path = temp.path().join(RUNTIME_CONFIG_FILE);
+        fs::write(&config_path, "x".repeat(MAX_CONFIG_FILE_BYTES as usize + 1)).unwrap();
+
+        assert!(read_config_document(&config_path).is_err());
+    }
+
+    #[test]
+    fn runtime_config_takes_precedence_over_env_files() {
         let temp = tempfile::tempdir().unwrap();
         let config_path = temp.path().join(RUNTIME_CONFIG_FILE);
         fs::write(
             &config_path,
-            r#"{"KOMA_TEST_PRECEDENCE":"from-json","JWT_SECRET":"nope","KOMA_TEST_BLANK":"  "}"#,
+            r#"{"VITE_AUTH_API_URL":"https://from-json.example.test","VITE_LOCAL_API_URL":"  "}"#,
         )
         .unwrap();
 
         let resolved = sources(
             load_runtime_config_documents(&[config_path, temp.path().join("absent.json")]),
             vec![env_doc(&[
-                ("KOMA_TEST_PRECEDENCE", "from-env"),
-                ("KOMA_TEST_BLANK", "from-env"),
+                ("VITE_AUTH_API_URL", "https://from-env.example.test"),
+                ("VITE_LOCAL_API_URL", "https://from-env-blank.example.test"),
             ])],
             UpdateChannel::Stable,
         );
 
         assert_eq!(
-            resolved.resolve("KOMA_TEST_PRECEDENCE").as_deref(),
-            Some("from-json")
+            resolved.resolve("VITE_AUTH_API_URL").as_deref(),
+            Some("https://from-json.example.test")
         );
-        assert_eq!(resolved.resolve("KOMA_TEST_BLANK").as_deref(), Some("from-env"));
-        assert_eq!(resolved.resolve("JWT_SECRET"), None);
-        assert_eq!(resolved.resolve("SOME_API_KEY"), None);
-        assert!(resolved.runtime_config_documents[0].get("JWT_SECRET").is_none());
+        assert_eq!(
+            resolved.resolve("VITE_LOCAL_API_URL").as_deref(),
+            Some("https://from-env-blank.example.test")
+        );
     }
 
     #[test]
@@ -1272,9 +1674,9 @@ mod tests {
     fn resolved_config_builds_allowlist_and_normalizes_loopback() {
         let resolved = ResolvedDesktopConfig::from_sources(sources(
             vec![json_doc(&[
-                ("VITE_AUTH_API_URL", "https://auth.koma-test.example"),
+                ("VITE_AUTH_API_URL", "https://auth.koma-studio.site"),
                 ("VITE_LOCAL_API_URL", "http://localhost:8001/"),
-                ("VITE_PROJECT_WEBSITE_URL", "https://www.koma-test.example/"),
+                ("VITE_PROJECT_WEBSITE_URL", "https://koma-studio.site/"),
             ])],
             Vec::new(),
             UpdateChannel::Beta,
@@ -1287,35 +1689,37 @@ mod tests {
         );
         assert!(resolved
             .allowed_external_hosts
-            .contains("auth.koma-test.example"));
+            .contains("auth.koma-studio.site"));
         assert!(resolved
             .allowed_external_hosts
-            .contains("www.koma-test.example"));
+            .contains("koma-studio.site"));
         assert!(validate_external_url(
-            "https://www.koma-test.example/docs",
+            "https://koma-studio.site/docs",
             &resolved.allowed_external_hosts
         )
         .is_ok());
     }
 
     #[test]
-    fn runtime_config_candidates_include_root_and_legacy_dir() {
+    fn runtime_config_candidates_are_resource_only_in_release() {
         let locations = ConfigLocations {
             current_dir: Some(PathBuf::from("/app")),
-            exe_dir: None,
-            resource_dir: Some(PathBuf::from("/app")),
+            exe_dir: Some(PathBuf::from("/app/bin")),
+            resource_dir: Some(PathBuf::from("/app/res")),
         };
-        let candidates = locations.runtime_config_candidates();
 
-        assert_eq!(
-            candidates,
-            vec![
-                PathBuf::from("/app").join(RUNTIME_CONFIG_FILE),
-                PathBuf::from("/app")
-                    .join(LEGACY_RUNTIME_CONFIG_DIR)
-                    .join(RUNTIME_CONFIG_FILE),
-            ]
-        );
+        // The compile-time mode decides; both branches must stay absolute
+        // resource-scoped or include the legacy dev layout respectively.
+        let candidates = locations.runtime_config_candidates();
+        assert!(!candidates.is_empty());
+        if cfg!(debug_assertions) {
+            assert!(candidates.contains(&PathBuf::from("/app").join(RUNTIME_CONFIG_FILE)));
+        } else {
+            assert_eq!(
+                candidates,
+                vec![PathBuf::from("/app/res").join(RUNTIME_CONFIG_FILE)]
+            );
+        }
     }
 
     #[test]

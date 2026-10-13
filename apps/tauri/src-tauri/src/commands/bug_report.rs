@@ -17,7 +17,7 @@ use thiserror::Error;
 use crate::commands::{
     api::client::{http_client, stable_hash},
     desktop::{
-        build_runtime_config, check_local_backend_health, resolve_desktop_env_value,
+        build_runtime_config, check_local_backend_health, resolve_desktop_internal_value,
         update_channel_from_version,
     },
 };
@@ -762,9 +762,9 @@ async fn diagnostics<R: Runtime>(app: &AppHandle<R>) -> Result<BugReportDiagnost
 
 fn resolve_config<R: Runtime>(app: &AppHandle<R>) -> Result<Option<BugReportConfig>, String> {
     let webhook_url = normalize_discord_webhook_url(
-        resolve_desktop_env_value(app, DISCORD_WEBHOOK_ENV).as_deref(),
+        resolve_desktop_internal_value(app, DISCORD_WEBHOOK_ENV).as_deref(),
     );
-    let imgur_client_id = resolve_desktop_env_value(app, IMGUR_CLIENT_ID_ENV)
+    let imgur_client_id = resolve_desktop_internal_value(app, IMGUR_CLIENT_ID_ENV)
         .as_deref()
         .and_then(non_empty)
         .map(str::to_owned);
