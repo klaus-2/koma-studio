@@ -818,6 +818,7 @@ export function registerAuthRoutes(app: express.Express): void {
       jsonParser,
       urlEncodedParser,
       authenticateBearerToken,
+      requireNoActiveBan,
       async (req: Request, res: Response) => {
         const authUser = req.authUser;
         if (!authUser?.sub) {
