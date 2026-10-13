@@ -120,7 +120,7 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
       <Sec icon={<DownloadCloud size={14} />} title={t("settings.updates.title")}
         actions={
           <div className="flex gap-2">
-            <button type="button" disabled={a.busy} onClick={() => void a.handleCheck()} className={btnPrimary}>
+            <button type="button" disabled={a.busy || !updater.currentVersion} onClick={() => void a.handleCheck()} className={btnPrimary}>
               {a.busy ? <span className="blink">{t("settings.updates.checking")}</span> : t("settings.updates.checkNow")}
             </button>
             {updater.status === "available" && (
@@ -131,7 +131,9 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
           </div>
         }>
         <SpecGrid>
-          <SpecRow label={t("settings.updates.currentVersion")} mono>v{updater.currentVersion}</SpecRow>
+          <SpecRow label={t("settings.updates.currentVersion")} mono>
+            {updater.currentVersion ? `v${updater.currentVersion}` : t("common.notAvailableShort")}
+          </SpecRow>
           <SpecRow label={t("settings.updates.newVersion")} mono>
             {updater.newVersion ? <span className="text-gold">v{updater.newVersion}</span> : t("common.notAvailableShort")}
           </SpecRow>

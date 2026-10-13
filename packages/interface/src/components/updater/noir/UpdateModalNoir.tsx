@@ -7,7 +7,7 @@ import ReleaseNotesMarkdownClassic from '../ReleaseNotesMarkdownClassic';
 
 interface UpdateModalProps {
   open: boolean;
-  currentVersion: string;
+  currentVersion: string | null;
   newVersion: string | null;
   releaseNotes: string | null;
   onClose: () => void;
@@ -58,7 +58,9 @@ export const UpdateModalNoir = ({
                 {/* Version stamps: v atual ▸ v nova */}
                 <p className="mt-1.5 flex items-center gap-2 font-mono text-[10px]">
                   <span className="border border-paper/20 px-2 py-0.5 text-paper/50">
-                    {t("update.versionPrefix", { version: currentVersion })}
+                    {currentVersion
+                      ? t("update.versionPrefix", { version: currentVersion })
+                      : t("update.modal.unknownVersion")}
                   </span>
                   <span aria-hidden className="text-crimson">▸▸</span>
                   <span className="stamp !text-[10px]">

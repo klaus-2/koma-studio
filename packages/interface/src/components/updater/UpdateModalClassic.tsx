@@ -4,7 +4,7 @@ import ReleaseNotesMarkdownClassic from "./ReleaseNotesMarkdownClassic";
 
 interface UpdateModalProps {
   open: boolean;
-  currentVersion: string;
+  currentVersion: string | null;
   newVersion: string | null;
   releaseNotes: string | null;
   onClose: () => void;
@@ -39,7 +39,11 @@ export const UpdateModalClassic = ({
           <div>
             <h2 className="koma-modal__title">{t("update.modal.title")}</h2>
             <p className="koma-modal__version-info">
-              <span className="koma-modal__version-tag">{t("update.versionPrefix", { version: currentVersion })}</span>
+              <span className="koma-modal__version-tag">
+                {currentVersion
+                  ? t("update.versionPrefix", { version: currentVersion })
+                  : t("update.modal.unknownVersion")}
+              </span>
               <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" style={{ opacity: 0.3 }}>
                 <path d="M6.22 4.22a.75.75 0 011.06 0l3.25 3.25a.75.75 0 010 1.06l-3.25 3.25a.75.75 0 01-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 010-1.06z" />
               </svg>

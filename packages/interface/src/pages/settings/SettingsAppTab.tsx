@@ -231,7 +231,9 @@ export const renderSettingsAppTab = ({
     <div className="koma-stg-grid">
       <div className="koma-stg-item">
         <span className="koma-stg-item__label">{t("settings.updates.currentVersion")}</span>
-        <span className="koma-stg-item__value koma-stg-item__value--mono">v{updater.currentVersion}</span>
+        <span className="koma-stg-item__value koma-stg-item__value--mono">
+          {updater.currentVersion ? `v${updater.currentVersion}` : t("common.notAvailableShort")}
+        </span>
       </div>
       <div className="koma-stg-item">
         <span className="koma-stg-item__label">{t("settings.updates.newVersion")}</span>
@@ -497,7 +499,7 @@ export const renderSettingsAppTab = ({
 
   {/* Action buttons */}
   <div className="koma-stg-actions koma-stg-actions--row">
-    <button type="button" disabled={busy} onClick={() => void handleCheck()} className="koma-btn koma-btn--primary koma-btn--sm">
+    <button type="button" disabled={busy || !updater.currentVersion} onClick={() => void handleCheck()} className="koma-btn koma-btn--primary koma-btn--sm">
       {busy ? (
         <><span className="auth-spinner" /> {t("settings.updates.checking")}</>
       ) : (

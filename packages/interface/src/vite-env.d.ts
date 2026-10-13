@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-declare const __KOMA_APP_VERSION__: string;
+declare const __KOMA_APP_VERSION__: string | undefined;
 
 interface ViewTransition {
   finished: Promise<void>;

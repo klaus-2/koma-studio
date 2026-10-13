@@ -11,7 +11,7 @@
 > ### ⚠️ Esta rama es la v2: trabajo en curso
 > KŌMA Studio v2 es una reescritura completa sobre **Tauri 2 + React 18**, que reemplaza la v1 basada
 > en Electron. **No está lista para producción**: espera cambios incompatibles, funciones incompletas
-> y aristas. Versión: `2.0.0-alpha.0`.
+> y aristas. Versión: `1.1.0`.
 
 ---
 

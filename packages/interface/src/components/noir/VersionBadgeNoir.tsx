@@ -14,6 +14,10 @@ function VersionBadgeNoir() {
     nightly: 'border-azure/50 text-azure bg-azure/10',
   };
 
+  if (!currentVersion) {
+    return null;
+  }
+
   return (
     <span
       title={t('versionBadge.tooltip', { version: currentVersion })}

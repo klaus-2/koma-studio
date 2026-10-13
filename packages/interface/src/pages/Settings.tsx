@@ -1741,15 +1741,19 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
                 <p className="truncate font-mono text-[11px] text-paper/45">{user?.email || '—'}</p>
               </div>
 
-              <span className="stamp !text-[11px]">v{updater.currentVersion}</span>
+              {updater.currentVersion ? (
+                <span className="stamp !text-[11px]">v{updater.currentVersion}</span>
+              ) : null}
             </div>
 
-            <div className="relative mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-paper/8 pt-4 font-mono text-[11px]">
-              <span className="inline-flex items-baseline gap-2">
-                <strong className="text-sm font-bold text-paper">v{updater.currentVersion}</strong>
-                <span className="uppercase tracking-[0.16em] text-paper/35">{t('settings.stats.version')}</span>
-              </span>
-            </div>
+            {updater.currentVersion ? (
+              <div className="relative mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-paper/8 pt-4 font-mono text-[11px]">
+                <span className="inline-flex items-baseline gap-2">
+                  <strong className="text-sm font-bold text-paper">v{updater.currentVersion}</strong>
+                  <span className="uppercase tracking-[0.16em] text-paper/35">{t('settings.stats.version')}</span>
+                </span>
+              </div>
+            ) : null}
           </motion.header>
 
           <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
@@ -1851,12 +1855,14 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
               </div>
             </div>
 
-            <div className="koma-stg-stats">
-              <div className="koma-stg-stat">
-                <span className="koma-stg-stat__value">v{updater.currentVersion}</span>
-                <span className="koma-stg-stat__label">{t("settings.stats.version")}</span>
+            {updater.currentVersion ? (
+              <div className="koma-stg-stats">
+                <div className="koma-stg-stat">
+                  <span className="koma-stg-stat__value">v{updater.currentVersion}</span>
+                  <span className="koma-stg-stat__label">{t("settings.stats.version")}</span>
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
 
           {/* ── Tab navigation ── */}

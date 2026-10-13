@@ -1,17 +1,13 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { readFileSync } from "node:fs";
+import { appVersionDefine } from "@koma/config/vite";
 import path from "node:path";
 
 // Tauri expects a fixed port and excludes src-tauri from HMR.
 // https://v2.tauri.app/start/frontend/vite/
 
 const host = process.env.TAURI_DEV_HOST;
-const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
-  version?: string;
-};
-const appVersion = packageJson.version ?? "0.0.0";
 
 export default defineConfig(async ({ mode }) => {
   const playwrightWebAccess =
@@ -20,9 +16,7 @@ export default defineConfig(async ({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
-    define: {
-      __KOMA_APP_VERSION__: JSON.stringify(appVersion),
-    },
+    define: appVersionDefine(import.meta.url),
     resolve: {
       // Single React copy across workspaces: without this, Vite can emit two
       // dep-optimizer bundles of react/react-dom (different ?v= hashes) when a

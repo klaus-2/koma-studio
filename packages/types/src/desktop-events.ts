@@ -28,7 +28,8 @@ export interface UpdaterProgressPayload {
 
 export interface UpdaterStatusPayload {
   status: UpdaterStatus;
-  currentVersion: string;
+  // null = no installed shell version, so the updater has no baseline and must not run.
+  currentVersion: string | null;
   newVersion: string | null;
   mandatory: boolean;
   blocking: boolean;

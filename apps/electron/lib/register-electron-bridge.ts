@@ -86,7 +86,7 @@ setRuntimeAdapter({
   getDesktopAuthApi: () => electronDesktop()?.api?.auth ?? null,
   isAuthDisabled: () => authDisabled,
   buildUrl,
-  getDesktopUpdatePolicyHeaders: () => ({}),
+  getDesktopUpdatePolicyHeaders,
   useUpdaterBlocking,
 });
 

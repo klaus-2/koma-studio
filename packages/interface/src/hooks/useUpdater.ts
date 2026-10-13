@@ -1,5 +1,5 @@
 import { createContext, createElement, type ReactNode, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
-import packageJson from "../../package.json";
+import { getDesktopAppVersion } from "../config/desktopClient";
 import { useI18n } from "../i18n";
 import { fetchWithTimeoutAndRetry } from "../utils/http";
 
@@ -16,20 +16,11 @@ const GITHUB_OWNER = "klaus-2";
 const GITHUB_REPO = "koma-studio";
 
 const CHANNEL_STORAGE_KEY = "updater-channel";
-const CHANNEL_STORAGE_VERSION_KEY = "updater-channel-version";
 const CHANNEL_STORAGE_EXPLICIT_KEY = "updater-channel-explicit";
 const CHECK_DELAY_MS = 8_000;
 const PERIODIC_CHECK_MS = 60 * 1_000;
 // api.github.com allows 60 req/h per IP unauthenticated — back off before retrying.
 const MAX_BACKOFF_ATTEMPTS = 4;
-
-const packageVersion =
-  typeof (packageJson as { version?: unknown }).version === "string"
-    ? (packageJson as { version: string }).version
-    : "0.0.0";
-
-const inferChannelFromVersion = (version: string): UpdaterChannel =>
-  version.includes("-") ? "beta" : "stable";
 
 const ZERO_PROGRESS: UpdaterProgress = Object.freeze({
   percent: 0,
@@ -38,27 +29,31 @@ const ZERO_PROGRESS: UpdaterProgress = Object.freeze({
   speed: 0,
 });
 
-const initialState: UpdaterState = {
-  status: "idle",
-  currentVersion: packageVersion,
-  newVersion: null,
-  mandatory: false,
-  blocking: false,
-  blockingReason: null,
-  releaseNotes: null,
-  channel: inferChannelFromVersion(packageVersion),
-  provider: "github",
-  autoInstallOnQuit: false,
-  allowPrerelease: inferChannelFromVersion(packageVersion) === "beta",
-  progress: null,
-  checkedAt: null,
-  downloadedAt: null,
-  error: null,
-};
+const inferChannelFromVersion = (version: string | null): UpdaterChannel =>
+  version !== null && version.includes("-") ? "beta" : "stable";
 
-type UpdaterStateAction =
-  | { type: "replace"; nextState: UpdaterState }
-  | { type: "patch"; nextState: Partial<UpdaterState> };
+const createInitialState = (): UpdaterState => {
+  const currentVersion = getDesktopAppVersion();
+  const channel = inferChannelFromVersion(currentVersion);
+
+  return {
+    status: "idle",
+    currentVersion,
+    newVersion: null,
+    mandatory: false,
+    blocking: false,
+    blockingReason: null,
+    releaseNotes: null,
+    channel,
+    provider: "github",
+    autoInstallOnQuit: false,
+    allowPrerelease: channel === "beta",
+    progress: null,
+    checkedAt: null,
+    downloadedAt: null,
+    error: null,
+  };
+};
 
 const areProgressEqual = (left: UpdaterProgress | null, right: UpdaterProgress | null): boolean => {
   if (left === right) {
@@ -93,13 +88,8 @@ const areUpdaterStatesEqual = (left: UpdaterState, right: UpdaterState): boolean
   left.downloadedAt === right.downloadedAt &&
   left.error === right.error;
 
-const updaterStateReducer = (state: UpdaterState, action: UpdaterStateAction): UpdaterState => {
-  const nextState = action.type === "replace"
-    ? action.nextState
-    : {
-      ...state,
-      ...action.nextState,
-    };
+const updaterStateReducer = (state: UpdaterState, patch: Partial<UpdaterState>): UpdaterState => {
+  const nextState = { ...state, ...patch };
 
   return areUpdaterStatesEqual(state, nextState) ? state : nextState;
 };
@@ -214,7 +204,7 @@ const buildReleasePageUrl = (
 
 export interface UseUpdaterApi {
   status: UpdaterStatus;
-  currentVersion: string;
+  currentVersion: string | null;
   newVersion: string | null;
   mandatory: boolean;
   blocking: boolean;
@@ -239,27 +229,25 @@ export interface UseUpdaterApi {
 const UpdaterContext = createContext<UseUpdaterApi | null>(null);
 const UpdaterBlockingContext = createContext<boolean>(false);
 const UpdaterVersionContext = createContext<Pick<UseUpdaterApi, "currentVersion" | "channel">>(
-  Object.freeze({
-    currentVersion: packageVersion,
-    channel: inferChannelFromVersion(packageVersion),
-  }),
+  Object.freeze({ currentVersion: null, channel: "stable" }),
 );
 
 const useProvideUpdater = (): UseUpdaterApi => {
   const { t } = useI18n();
-  const [state, dispatch] = useReducer(updaterStateReducer, initialState);
+  const [state, dispatch] = useReducer(updaterStateReducer, null, createInitialState);
   const releasePageUrlRef = useRef<string | null>(null);
   const githubBackoffAttemptsRef = useRef(0);
 
-  const applyState = useCallback((nextState: UpdaterState) => {
-    dispatch({ type: "replace", nextState });
-  }, []);
-
-  const patchState = useCallback((nextState: Partial<UpdaterState>) => {
-    dispatch({ type: "patch", nextState });
+  const patchState = useCallback((patch: Partial<UpdaterState>) => {
+    dispatch(patch);
   }, []);
 
   const runGithubCheck = useCallback(async (channelOverride?: UpdaterChannel): Promise<void> => {
+    const installedVersion = state.currentVersion;
+    if (!installedVersion) {
+      return;
+    }
+
     const effectiveChannel = channelOverride ?? state.channel;
 
     patchState({
@@ -298,11 +286,11 @@ const useProvideUpdater = (): UseUpdaterApi => {
           ? release.html_url
           : null;
 
-      const compareResult = compareVersions(latestVersion, state.currentVersion);
-      const manualChannelOverrideActive = effectiveChannel !== inferChannelFromVersion(state.currentVersion);
+      const compareResult = compareVersions(latestVersion, installedVersion);
+      const manualChannelOverrideActive = effectiveChannel !== inferChannelFromVersion(installedVersion);
       const shouldOfferRelease =
         compareResult > 0 ||
-        (manualChannelOverrideActive && normalizeVersion(latestVersion) !== normalizeVersion(state.currentVersion));
+        (manualChannelOverrideActive && normalizeVersion(latestVersion) !== normalizeVersion(installedVersion));
 
       if (shouldOfferRelease) {
         patchState({
@@ -461,7 +449,6 @@ const useProvideUpdater = (): UseUpdaterApi => {
     },
     setChannel: async (channel: UpdaterChannel) => {
       localStorage.setItem(CHANNEL_STORAGE_KEY, channel);
-      localStorage.setItem(CHANNEL_STORAGE_VERSION_KEY, state.currentVersion);
       localStorage.setItem(CHANNEL_STORAGE_EXPLICIT_KEY, "true");
       patchState({
         channel,
@@ -475,7 +462,6 @@ const useProvideUpdater = (): UseUpdaterApi => {
       });
     },
   }), [
-    applyState,
     patchState,
     runGithubCheck,
     state.autoInstallOnQuit,

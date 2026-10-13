@@ -7,6 +7,10 @@ function VersionBadgeClassic() {
   const { t } = useI18n();
   const { currentVersion, channel } = useUpdaterVersionInfo();
 
+  if (!currentVersion) {
+    return null;
+  }
+
   return (
     <span
       className={`koma-version-badge koma-version-badge--${channel}`}
