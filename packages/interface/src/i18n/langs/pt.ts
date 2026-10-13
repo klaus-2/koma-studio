@@ -3278,6 +3278,8 @@ export const ptMessages: TranslationCatalog = {
   'auth.error.generic': 'Erro {status}',
   'auth.error.desktopBridgeUnavailable':
     'Bridge de autenticação desktop indisponível.',
+  'auth.error.sessionExpired':
+    'Sessão expirada. Inicie sessão novamente.',
   'dashboard.status.modeLabel': 'Modo',
   'dashboard.status.selectedLabel': 'Selecionado',
   'dashboard.status.selectBoxInPreview': 'Selecione uma caixa no preview.',

@@ -3312,6 +3312,8 @@ export const itMessages: TranslationCatalog = {
   'auth.error.generic': 'Errore {status}',
   'auth.error.desktopBridgeUnavailable':
     'Bridge di autenticazione desktop non disponibile.',
+  'auth.error.sessionExpired':
+    'Sessione scaduta. Effettua nuovamente l\'accesso.',
   'dashboard.status.modeLabel': 'Modalità',
   'dashboard.status.selectedLabel': 'Selezionato',
   'dashboard.status.selectBoxInPreview':

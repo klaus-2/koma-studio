@@ -3333,6 +3333,8 @@ export const esMessages: TranslationCatalog = {
   'auth.error.generic': 'Error {status}',
   'auth.error.desktopBridgeUnavailable':
     'Puente de autenticación de escritorio no disponible.',
+  'auth.error.sessionExpired':
+    'Sesión expirada. Inicie sesión nuevamente.',
   'dashboard.status.modeLabel': 'Modo',
   'dashboard.status.selectedLabel': 'Seleccionado',
   'dashboard.status.selectBoxInPreview':

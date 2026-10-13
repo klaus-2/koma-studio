@@ -7,6 +7,7 @@ export const frMessages = {
   "auth.error.accountLocked": "Compte temporairement bloqué pour des raisons de sécurité.",
   "auth.error.emailDeliveryUnavailable": "La livraison d'e-mails est actuellement indisponible.",
   "auth.error.sessionRequired": "Session expirée. Veuillez vous reconnecter.",
+  "auth.error.sessionRevoked": "Votre session a été révoquée. Veuillez vous reconnecter.",
   "auth.error.desktopIdentityRequired": "L'inscription n'est autorisée que via l'application de bureau authentifiée.",
   "auth.error.desktopIdentityInvalid": "Identité de l'appareil invalide. Mettez à jour l'application et réessayez.",
   "auth.error.multiAccountBlocked": "Inscription bloquée par la politique de compte unique par appareil/réseau.",

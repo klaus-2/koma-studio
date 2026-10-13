@@ -7,6 +7,7 @@ export const hiMessages = {
   "auth.error.accountLocked": "सुरक्षा कारणों से खाता अस्थायी रूप से लॉक कर दिया गया है।",
   "auth.error.emailDeliveryUnavailable": "ईमेल डिलीवरी वर्तमान में अनुपलब्ध है।",
   "auth.error.sessionRequired": "सत्र समाप्त हो गया। कृपया फिर से साइन इन करें।",
+  "auth.error.sessionRevoked": "सत्र रद्द कर दिया गया है। कृपया फिर से साइन इन करें।",
   "auth.error.desktopIdentityRequired": "पंजीकरण केवल प्रमाणित डेस्कटॉप ऐप के माध्यम से किया जा सकता है।",
   "auth.error.desktopIdentityInvalid": "अमान्य डिवाइस पहचान। ऐप अपडेट करें और पुनः प्रयास करें।",
   "auth.error.multiAccountBlocked": "प्रति डिवाइस/नेटवर्क एकल खाता नीति द्वारा पंजीकरण अवरुद्ध।",

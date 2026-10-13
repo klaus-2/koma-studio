@@ -3286,6 +3286,8 @@ export const frMessages: TranslationCatalog = {
   'auth.error.generic': 'Erreur {status}',
   'auth.error.desktopBridgeUnavailable':
     "Pont d'authentification bureau indisponible.",
+  'auth.error.sessionExpired':
+    'Session expirée. Veuillez vous reconnecter.',
   'dashboard.status.modeLabel': 'Mode',
   'dashboard.status.selectedLabel': 'Sélectionné',
   'dashboard.status.selectBoxInPreview': "Sélectionnez une zone dans l'aperçu.",

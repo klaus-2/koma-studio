@@ -7,6 +7,7 @@ export const koMessages = {
   "auth.error.accountLocked": "보안상의 이유로 계정이 일시적으로 잠겼습니다.",
   "auth.error.emailDeliveryUnavailable": "현재 이메일 전송을 사용할 수 없습니다.",
   "auth.error.sessionRequired": "세션이 만료되었습니다. 다시 로그인하세요.",
+  "auth.error.sessionRevoked": "세션이 폐기되었습니다. 다시 로그인하세요.",
   "auth.error.desktopIdentityRequired": "인증된 데스크톱 앱을 통해서만 등록이 가능합니다.",
   "auth.error.desktopIdentityInvalid": "잘못된 기기 신원입니다. 앱을 업데이트하고 다시 시도하세요.",
   "auth.error.multiAccountBlocked": "기기/네트워크당 단일 계정 정책에 의해 등록이 차단되었습니다.",

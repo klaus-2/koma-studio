@@ -3376,6 +3376,8 @@ export const deMessages: TranslationCatalog = {
   'auth.error.generic': 'Fehler {status}',
   'auth.error.desktopBridgeUnavailable':
     'Desktop-Authentifizierungsbrücke nicht verfügbar.',
+  'auth.error.sessionExpired':
+    'Sitzung abgelaufen. Bitte melden Sie sich erneut an.',
   'dashboard.status.modeLabel': 'Modus',
   'dashboard.status.selectedLabel': 'Ausgewählt',
   'dashboard.status.selectBoxInPreview': 'Wähle eine Box in der Vorschau.',

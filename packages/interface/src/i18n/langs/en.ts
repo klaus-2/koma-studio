@@ -2863,6 +2863,8 @@ export const enMessages = {
   'auth.error.generic': 'Error {status}',
   'auth.error.desktopBridgeUnavailable':
     'Desktop authentication bridge unavailable.',
+  'auth.error.sessionExpired':
+    'Session expired. Please sign in again.',
   'dashboard.status.modeLabel': 'Mode',
   'dashboard.status.selectedLabel': 'Selected',
   'dashboard.status.selectBoxInPreview': 'Select a box in the preview.',

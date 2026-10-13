@@ -756,7 +756,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const sendVerificationEmail = useCallback(async () => {
     const tokenValue = token ?? (await refreshSession());
     if (!tokenValue) {
-      throw new Error("Session expired. Please sign in again.");
+      throw new Error(t('auth.error.sessionExpired'));
     }
 
     const desktopAuthApi = adapter.getDesktopAuthApi();
@@ -764,7 +764,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const envelope = (await desktopAuthApi.verifyEmail(tokenValue)) as DesktopApiEnvelope;
       if (!envelope.ok) {
         const payload = extractErrorPayloadFromEnvelope(envelope, t);
-        throw new Error(payload.message);
+        const error = new Error(payload.message) as Error & AuthErrorPayload;
+        error.code = payload.code;
+        error.requiresVerification = payload.requiresVerification;
+        error.retryAfterSeconds = payload.retryAfterSeconds;
+        error.verificationHint = payload.verificationHint;
+        error.activeBan = payload.activeBan;
+        throw error;
       }
       return;
     }
@@ -786,7 +792,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (!response.ok) {
       const payload = await parseError(response, t);
-      throw new Error(payload.message);
+      const error = new Error(payload.message) as Error & AuthErrorPayload;
+      error.code = payload.code;
+      error.requiresVerification = payload.requiresVerification;
+      error.retryAfterSeconds = payload.retryAfterSeconds;
+      error.verificationHint = payload.verificationHint;
+      error.activeBan = payload.activeBan;
+      throw error;
     }
   }, [isDesktopRuntime, locale, refreshSession, t, token]);
 

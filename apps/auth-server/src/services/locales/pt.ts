@@ -7,6 +7,7 @@ export const ptMessages = {
   "auth.error.accountLocked": "Conta temporariamente bloqueada por segurança.",
   "auth.error.emailDeliveryUnavailable": "Envio de e-mail indisponível de momento.",
   "auth.error.sessionRequired": "Sessão expirada. Inicie sessão novamente.",
+  "auth.error.sessionRevoked": "A sua sessão foi revogada. Inicie sessão novamente.",
   "auth.error.desktopIdentityRequired": "O registo só é permitido através da aplicação de desktop autenticada.",
   "auth.error.desktopIdentityInvalid": "Identidade do dispositivo inválida. Atualize a aplicação e tente novamente.",
   "auth.error.multiAccountBlocked": "Registo bloqueado pela política de conta única por dispositivo/rede.",

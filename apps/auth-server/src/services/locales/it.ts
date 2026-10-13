@@ -7,6 +7,7 @@ export const itMessages = {
   "auth.error.accountLocked": "Account temporaneamente bloccato per motivi di sicurezza.",
   "auth.error.emailDeliveryUnavailable": "La consegna delle email non è attualmente disponibile.",
   "auth.error.sessionRequired": "Sessione scaduta. Effettua nuovamente l'accesso.",
+  "auth.error.sessionRevoked": "La tua sessione è stata revocata. Effettua nuovamente l'accesso.",
   "auth.error.desktopIdentityRequired": "La registrazione è consentita solo tramite l'app desktop autenticata.",
   "auth.error.desktopIdentityInvalid": "Identità del dispositivo non valida. Aggiorna l'app e riprova.",
   "auth.error.multiAccountBlocked": "Registrazione bloccata dalla politica di account unico per dispositivo/rete.",

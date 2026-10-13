@@ -7,6 +7,7 @@ export const esMessages = {
   "auth.error.accountLocked": "Cuenta bloqueada temporalmente por seguridad.",
   "auth.error.emailDeliveryUnavailable": "El envío de correos no está disponible en este momento.",
   "auth.error.sessionRequired": "Sesión expirada. Inicie sesión nuevamente.",
+  "auth.error.sessionRevoked": "Su sesión fue revocada. Inicie sesión nuevamente.",
   "auth.error.desktopIdentityRequired": "El registro solo está permitido desde la aplicación de escritorio autenticada.",
   "auth.error.desktopIdentityInvalid": "Identidad del dispositivo inválida. Actualice la app e intente de nuevo.",
   "auth.error.multiAccountBlocked": "Registro bloqueado por política de cuenta única por dispositivo/red.",

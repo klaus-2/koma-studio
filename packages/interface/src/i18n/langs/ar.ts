@@ -3194,6 +3194,7 @@ export const arMessages: TranslationCatalog = {
     'تمت إضافة الصورة الأولى من الدفعة التالية إلى الدفعة الحالية.',
   'auth.error.generic': 'خطأ {status}',
   'auth.error.desktopBridgeUnavailable': 'جسر المصادقة لسطح المكتب غير متاح.',
+  'auth.error.sessionExpired': 'انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.',
   'dashboard.status.modeLabel': 'الوضع',
   'dashboard.status.selectedLabel': 'المحدد',
   'dashboard.status.selectBoxInPreview': 'حدد مربعًا في المعاينة.',

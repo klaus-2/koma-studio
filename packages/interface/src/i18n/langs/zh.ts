@@ -3055,6 +3055,7 @@ export const zhMessages: TranslationCatalog = {
     '下一批次的第一张图片已添加到当前批次。',
   'auth.error.generic': '错误 {status}',
   'auth.error.desktopBridgeUnavailable': '桌面认证桥接不可用。',
+  'auth.error.sessionExpired': '会话已过期。请重新登录。',
   'dashboard.status.modeLabel': '模式',
   'dashboard.status.selectedLabel': '已选择',
   'dashboard.status.selectBoxInPreview': '在预览中选择一个框体。',

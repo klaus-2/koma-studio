@@ -7,6 +7,7 @@ export const arMessages = {
   "auth.error.accountLocked": "تم قفل الحساب مؤقتًا لأسباب أمنية.",
   "auth.error.emailDeliveryUnavailable": "تسليم البريد الإلكتروني غير متاح حاليًا.",
   "auth.error.sessionRequired": "انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.",
+  "auth.error.sessionRevoked": "انتهت الجلسة وتم إلغاءها. يرجى تسجيل الدخول مرة أخرى.",
   "auth.error.desktopIdentityRequired": "يُسمح بالتسجيل فقط من خلال تطبيق سطح المكتب المصادق عليه.",
   "auth.error.desktopIdentityInvalid": "هوية الجهاز غير صالحة. حدّث التطبيق وحاول مرة أخرى.",
   "auth.error.multiAccountBlocked": "تم حظر التسجيل بموجب سياسة حساب واحد لكل جهاز/شبكة.",

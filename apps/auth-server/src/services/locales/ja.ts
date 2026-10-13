@@ -7,6 +7,7 @@ export const jaMessages = {
   "auth.error.accountLocked": "セキュリティ上の理由によりアカウントが一時的にロックされています。",
   "auth.error.emailDeliveryUnavailable": "現在、メール配信は利用できません。",
   "auth.error.sessionRequired": "セッションの有効期限が切れました。再度ログインしてください。",
+  "auth.error.sessionRevoked": "セッションは取り消されました。再度ログインしてください。",
   "auth.error.desktopIdentityRequired": "登録は認証されたデスクトップアプリからのみ許可されます。",
   "auth.error.desktopIdentityInvalid": "デバイスIDが無効です。アプリを更新して再試行してください。",
   "auth.error.multiAccountBlocked": "デバイス/ネットワークあたりの単一アカウントポリシーにより登録がブロックされました。",

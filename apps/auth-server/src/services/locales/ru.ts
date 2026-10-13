@@ -7,6 +7,7 @@ export const ruMessages = {
   "auth.error.accountLocked": "Учётная запись временно заблокирована из соображений безопасности.",
   "auth.error.emailDeliveryUnavailable": "Доставка электронной почты в настоящее время недоступна.",
   "auth.error.sessionRequired": "Сессия истекла. Пожалуйста, войдите снова.",
+  "auth.error.sessionRevoked": "Сессия была отозвана. Пожалуйста, войдите снова.",
   "auth.error.desktopIdentityRequired": "Регистрация разрешена только через аутентифицированное настольное приложение.",
   "auth.error.desktopIdentityInvalid": "Неверная идентификация устройства. Обновите приложение и попробуйте снова.",
   "auth.error.multiAccountBlocked": "Регистрация заблокирована политикой одной учётной записи на устройство/сеть.",

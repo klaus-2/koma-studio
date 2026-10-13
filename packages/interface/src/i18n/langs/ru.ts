@@ -3336,6 +3336,8 @@ export const ruMessages: TranslationCatalog = {
   'auth.error.generic': 'Ошибка {status}',
   'auth.error.desktopBridgeUnavailable':
     'Мост аутентификации настольного приложения недоступен.',
+  'auth.error.sessionExpired':
+    'Сессия истекла. Пожалуйста, войдите снова.',
   'dashboard.status.modeLabel': 'Режим',
   'dashboard.status.selectedLabel': 'Выбрано',
   'dashboard.status.selectBoxInPreview': 'Выберите блок на превью.',

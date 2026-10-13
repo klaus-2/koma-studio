@@ -3311,6 +3311,8 @@ export const jaMessages: TranslationCatalog = {
   'auth.error.generic': 'エラー {status}',
   'auth.error.desktopBridgeUnavailable':
     'デスクトップ認証ブリッジが利用できません。',
+  'auth.error.sessionExpired':
+    'セッションの有効期限が切れました。再度ログインしてください。',
   'dashboard.status.modeLabel': 'モード',
   'dashboard.status.selectedLabel': '選択中',
   'dashboard.status.selectBoxInPreview':

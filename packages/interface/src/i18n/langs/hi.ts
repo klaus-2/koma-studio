@@ -3286,6 +3286,8 @@ export const hiMessages: TranslationCatalog = {
   'auth.error.generic': 'Error {status}',
   'auth.error.desktopBridgeUnavailable':
     'Jembatan autentikasi desktop tidak tersedia.',
+  'auth.error.sessionExpired':
+    'सत्र समाप्त हो गया। कृपया फिर से साइन इन करें।',
   'dashboard.status.modeLabel': 'Mode',
   'dashboard.status.selectedLabel': 'Dipilih',
   'dashboard.status.selectBoxInPreview': 'Pilih kotak di pratinjau.',

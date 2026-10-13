@@ -7,6 +7,7 @@ export const deMessages = {
   "auth.error.accountLocked": "Konto vorübergehend aus Sicherheitsgründen gesperrt.",
   "auth.error.emailDeliveryUnavailable": "E-Mail-Zustellung ist derzeit nicht verfügbar.",
   "auth.error.sessionRequired": "Sitzung abgelaufen. Bitte melden Sie sich erneut an.",
+  "auth.error.sessionRevoked": "Ihre Sitzung wurde widerrufen. Bitte melden Sie sich erneut an.",
   "auth.error.desktopIdentityRequired": "Registrierung nur über die authentifizierte Desktop-App erlaubt.",
   "auth.error.desktopIdentityInvalid": "Ungültige Geräteidentität. Aktualisieren Sie die App und versuchen Sie es erneut.",
   "auth.error.multiAccountBlocked": "Registrierung durch Einzelkonto-pro-Gerät/Netzwerk-Richtlinie blockiert.",

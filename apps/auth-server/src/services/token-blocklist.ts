@@ -1,4 +1,5 @@
 import { redisClient } from "../services/redis.js";
+import { logger } from "../utils/logger.js";
 
 const TOKEN_BLOCKLIST_PREFIX = "bl:token:";
 
@@ -6,16 +7,34 @@ const TOKEN_BLOCKLIST_PREFIX = "bl:token:";
 const _userRevokedCache = new Map<string, { revoked: boolean; expiresAt: number }>();
 const USER_REVOKED_CACHE_TTL_MS = 30_000;
 
+const FAIL_OPEN_LOG_INTERVAL_MS = 2_000;
+const lastFailOpenLoggedAt = new Map<string, number>();
+
+const logFailOpen = (reason: string, detail?: string): void => {
+  const now = Date.now();
+  const last = lastFailOpenLoggedAt.get(reason);
+  if (last !== undefined && now >= last && now - last < FAIL_OPEN_LOG_INTERVAL_MS) {
+    return;
+  }
+  lastFailOpenLoggedAt.set(reason, now);
+  logger.warn("Token blocklist unavailable - failing open, revocation check skipped", {
+    reason,
+    detail,
+  });
+};
+
 export const isTokenRevoked = async (sessionId: string): Promise<boolean> => {
-  if (!redisClient.isOpen) {
-    return true; // fail-closed: treat as revoked when Redis unavailable
+  if (!redisClient.isReady) {
+    logFailOpen("token-check-unavailable");
+    return false;
   }
   try {
     const key = `${TOKEN_BLOCKLIST_PREFIX}${sessionId}`;
     const result = await redisClient.get(key);
     return result === "1";
-  } catch {
-    return true; // fail-closed on Redis error
+  } catch (error) {
+    logFailOpen("token-check-failed", error instanceof Error ? error.message : String(error));
+    return false;
   }
 };
 
@@ -42,8 +61,9 @@ export const isUserTokenRevoked = async (userId: string): Promise<boolean> => {
     return cached.revoked;
   }
 
-  if (!redisClient.isOpen) {
-    return true; // fail-closed: treat as revoked when Redis unavailable
+  if (!redisClient.isReady) {
+    logFailOpen("user-token-check-unavailable");
+    return false;
   }
 
   try {
@@ -52,7 +72,8 @@ export const isUserTokenRevoked = async (userId: string): Promise<boolean> => {
     const revoked = result === "1";
     _userRevokedCache.set(userId, { revoked, expiresAt: Date.now() + USER_REVOKED_CACHE_TTL_MS });
     return revoked;
-  } catch {
-    return true; // fail-closed on Redis error
+  } catch (error) {
+    logFailOpen("user-token-check-failed", error instanceof Error ? error.message : String(error));
+    return false;
   }
 };

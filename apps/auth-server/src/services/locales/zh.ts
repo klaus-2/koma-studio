@@ -7,6 +7,7 @@ export const zhMessages = {
   "auth.error.accountLocked": "出于安全原因，账户已被临时锁定。",
   "auth.error.emailDeliveryUnavailable": "当前无法发送邮件。",
   "auth.error.sessionRequired": "会话已过期。请重新登录。",
+  "auth.error.sessionRevoked": "会话已被撤销。请重新登录。",
   "auth.error.desktopIdentityRequired": "仅允许通过已认证的桌面应用进行注册。",
   "auth.error.desktopIdentityInvalid": "设备身份无效。请更新应用后重试。",
   "auth.error.multiAccountBlocked": "由于每台设备/网络仅限一个账户的政策，注册已被阻止。",

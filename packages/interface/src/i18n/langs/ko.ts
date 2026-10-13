@@ -3234,6 +3234,8 @@ export const koMessages: TranslationCatalog = {
   'auth.error.generic': '오류 {status}',
   'auth.error.desktopBridgeUnavailable':
     '데스크톱 인증 브리지를 사용할 수 없습니다.',
+  'auth.error.sessionExpired':
+    '세션이 만료되었습니다. 다시 로그인하세요.',
   'dashboard.status.modeLabel': '모드',
   'dashboard.status.selectedLabel': '선택됨',
   'dashboard.status.selectBoxInPreview': '미리보기에서 상자를 선택하세요.',
