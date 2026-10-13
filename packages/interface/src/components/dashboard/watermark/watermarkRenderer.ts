@@ -1,6 +1,7 @@
 import {
   suggestSmartPlacement,
 } from './watermark-core.js';
+import { normalizeFontFamily } from '../../../utils/renderText.core';
 import type {
   WatermarkAnchor,
   WatermarkDraft,
@@ -310,6 +311,12 @@ const resolveSmartSuggestion = async (
   };
 };
 
+/** Not `buildCanvasFont`: that emits italic/bold prefixes and a `, sans-serif` fallback; this layer uses an explicit weight. */
+export const buildWatermarkTextLayerFont = (fontSize: number, fontFamily: string): string => {
+  const escapedFamily = normalizeFontFamily(fontFamily).replace(/["\\]/g, '\\$&');
+  return `700 ${fontSize}px "${escapedFamily}"`;
+};
+
 const drawTextLayer = (
   ctx: AnyCanvasContext,
   settings: WatermarkDraft,
@@ -318,8 +325,10 @@ const drawTextLayer = (
   const { textLayer } = settings;
   if (!textLayer.enabled || !textLayer.text.trim()) return;
 
+  const textLayerFont = buildWatermarkTextLayerFont(textLayer.fontSize, textLayer.fontFamily);
+
   const measureCtx = createMeasurementContext();
-  measureCtx.font = `700 ${textLayer.fontSize}px ${textLayer.fontFamily}`;
+  measureCtx.font = textLayerFont;
   const metrics = measureCtx.measureText(textLayer.text);
   const width = Math.max(metrics.width, textLayer.fontSize * 3);
   const height = textLayer.fontSize * 1.6;
@@ -328,7 +337,7 @@ const drawTextLayer = (
   ctx.globalCompositeOperation = settings.blendMode;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `700 ${textLayer.fontSize}px ${textLayer.fontFamily}`;
+  ctx.font = textLayerFont;
 
   for (const point of points) {
     ctx.save();

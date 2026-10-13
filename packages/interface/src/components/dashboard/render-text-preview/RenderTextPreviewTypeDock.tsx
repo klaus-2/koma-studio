@@ -45,6 +45,7 @@ import { CircularTextPopover } from '../../color/CircularTextPopover';
 import { FillStylePopover } from '../../color/FillStylePopover';
 import { RenderEffectPopover } from '../../color/RenderEffectPopover';
 import { TextEffectPopover } from '../../color/TextEffectPopover';
+import { FontFamilySelect } from '../../fonts/FontFamilySelect';
 
 interface RenderTextPreviewTypeDockProps {
   dockLeft: number;
@@ -103,16 +104,6 @@ const RenderTextPreviewTypeDock = ({
 }: RenderTextPreviewTypeDockProps) => {
   const { t } = useI18n();
 
-  const fontOptions = React.useMemo(
-    () =>
-      availableRenderFonts.map((family) => (
-        <option key={family} value={family}>
-          {family}
-        </option>
-      )),
-    [availableRenderFonts],
-  );
-
   const handleTextEffectChange = React.useCallback(
     (presetId: NativeTextEffectPresetId) =>
       updateSelectedRegionStyle((s) =>
@@ -152,19 +143,18 @@ const RenderTextPreviewTypeDock = ({
         {/* ═══ Row 1: Primary Controls ═══ */}
         <div className="koma-type-dock__row koma-type-dock__row--primary">
           {/* Font Family */}
-          <select
+          <FontFamilySelect
             className="koma-type-dock__select koma-type-dock__select--font"
             value={selectedRegionStyle.fontFamily}
-            onChange={(e) =>
+            onChange={(family) =>
               updateSelectedRegionStyle((s) => ({
                 ...s,
-                fontFamily: e.target.value,
+                fontFamily: family,
               }))
             }
-            aria-label={t('renderPreview.textFont')}
-          >
-            {fontOptions}
-          </select>
+            families={availableRenderFonts}
+            ariaLabel={t('renderPreview.textFont')}
+          />
 
           {/* Shape */}
           <select

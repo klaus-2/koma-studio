@@ -10,7 +10,6 @@ import type { RenderModePresetFormData, PresetFormData, SettingsTab, TypographyP
 // Single source lives in constants/dashboard.constants.ts; re-exported here to
 // avoid breaking the importers of this page.
 export {
-  DEFAULT_RENDER_FONT_FAMILIES,
   SETTINGS_REQUESTED_TAB_STORAGE_KEY,
 } from "../../constants/dashboard.constants";
 

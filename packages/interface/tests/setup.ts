@@ -17,3 +17,15 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(async () => () => undefined),
   emit: vi.fn(async () => undefined),
 }));
+
+// jsdom has no matchMedia; @koma/ui's theme store reads the colour scheme at module evaluation.
+window.matchMedia = (query: string): MediaQueryList => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: () => {},
+  removeListener: () => {},
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  dispatchEvent: () => false,
+});

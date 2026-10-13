@@ -9,6 +9,7 @@ import type {
 } from "../../../typography/types";
 import type { RenderTextStyle } from "../../../typography/renderStyle";
 import { btnGhost, btnPrimary, inputCls, selectCls } from "../../../pages/settings/noir/primitives";
+import { FontFamilySelect } from "../../fonts/FontFamilySelect";
 import { EASE } from "../../system/v2/kit";
 
 interface TypographerPresetBrowserProps {
@@ -336,10 +337,9 @@ const PresetQuickEdit = React.forwardRef<HTMLDivElement, PresetQuickEditProps>(
 
           <label className={fld}>
             <span className={lbl}>Font</span>
-            <select className={selectCls} value={fontFamily} onChange={(e) => setFontFamily(e.target.value)}>
-              <option value="">Default</option>
-              {availableFonts.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
+            <FontFamilySelect className={selectCls} value={fontFamily}
+              onChange={(family) => setFontFamily(family)} families={availableFonts} ariaLabel="Font"
+              defaultOptionLabel="Default" />
           </label>
 
           <div className="flex items-end gap-2">

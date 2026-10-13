@@ -1,13 +1,5 @@
 import type { WatermarkAnchor } from './watermarkTypes';
 
-export const FONT_OPTIONS = [
-  'Cabin',
-  'Manrope',
-  'Instrument Serif',
-  'Georgia',
-  'Times New Roman',
-];
-
 export const BLEND_OPTIONS = [
   { value: 'source-over', labelKey: 'watermark.blend.normal' },
   { value: 'multiply', labelKey: 'watermark.blend.multiply' },

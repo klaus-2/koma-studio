@@ -58,19 +58,14 @@ import type {
 import type { DetectApiResponse } from '../../../types/dashboard.types';
 import { AioSection } from '@/pages/AioSection.js';
 import { useI18n } from '../../../i18n';
+import { FontFamilySelect } from '../../fonts/FontFamilySelect';
+import { useFontCatalogOptions } from '../../../hooks/useFontCatalogOptions';
 import {
   Field, Hint, LayerToggle, RangeField, ColorInput, NumberField, ToolBtn, EASE,
 } from '../../noir-panels/NoirPrimitives';
 import { useHorizontalDragScroll } from '../../../hooks/useHorizontalDragScroll';
 
 const USER_PRESETS_STORAGE_KEY = 'koma-studio.watermark.user-presets.v1';
-const FONT_OPTIONS = [
-  'Cabin',
-  'Manrope',
-  'Instrument Serif',
-  'Georgia',
-  'Times New Roman',
-];
 const BLEND_OPTIONS = [
   { value: 'source-over', labelKey: 'watermark.blend.normal' },
   { value: 'multiply', labelKey: 'watermark.blend.multiply' },
@@ -247,6 +242,7 @@ const WatermarkWorkspaceNoir = ({
   onWorkspaceStateChange?: (state: WatermarkWorkspaceState) => void;
 }) => {
   const { t } = useI18n();
+  const fontFamilies = useFontCatalogOptions();
 
   const PLACEMENT_LABELS: Record<WatermarkDraft['placementMode'], string> = {
     single: t('common.single'),
@@ -969,9 +965,7 @@ const WatermarkWorkspaceNoir = ({
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('watermark.text.font')}>
-            <select className="noir-select panel-cut-sm" value={draft.textLayer.fontFamily} onChange={(e) => updateDraft((c) => ({ ...c, textLayer: { ...c.textLayer, fontFamily: e.target.value } }))}>
-              {FONT_OPTIONS.map((f) => (<option key={f} value={f}>{f}</option>))}
-            </select>
+            <FontFamilySelect className="noir-select panel-cut-sm" value={draft.textLayer.fontFamily} onChange={(family) => updateDraft((c) => ({ ...c, textLayer: { ...c.textLayer, fontFamily: family } }))} families={fontFamilies} ariaLabel={t('watermark.text.font')} />
           </Field>
           <NumberField label={t('watermark.text.size')} value={draft.textLayer.fontSize} min={12} max={160} onChange={(v: number) => updateDraft((c) => ({ ...c, textLayer: { ...c.textLayer, fontSize: v || c.textLayer.fontSize } }))} />
           <ColorInput label={t('watermark.text.color')} value={draft.textLayer.color} onChange={(v: string) => updateDraft((c) => ({ ...c, textLayer: { ...c.textLayer, color: v } }))} />

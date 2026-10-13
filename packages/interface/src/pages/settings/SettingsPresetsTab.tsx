@@ -3,6 +3,7 @@ import { AlertTriangle, BookOpen, CheckCircle2, ChevronDown, Check, Copy, Folder
 
 import { FillStylePopover } from "../../components/color/FillStylePopover";
 import { HexColorPopover } from "../../components/color/HexColorPopover";
+import { FontFamilySelect } from "../../components/fonts/FontFamilySelect";
 import type { useI18n } from "../../i18n";
 import { AIO_STAGE_KEYS, AIO_STAGE_LABELS, RENDER_MODE_PRESET_OPTIONS, normalizeLanguageCode } from "./settings.constants";
 import type {
@@ -429,9 +430,13 @@ export const renderSettingsPresetsTab = ({
 
       {/* Style controls */}
       <div className="koma-style-row">
-        <select className="koma-pf__select" value={renderModePresetForm.style.fontFamily} onChange={(e) => handleRenderModePresetFieldChange("fontFamily", e.target.value)}>
-          {renderModePresetFontOptions.map((f) => <option key={f} value={f}>{f}</option>)}
-        </select>
+        <FontFamilySelect
+          className="koma-pf__select"
+          value={renderModePresetForm.style.fontFamily}
+          onChange={(family) => handleRenderModePresetFieldChange("fontFamily", family)}
+          families={renderModePresetFontOptions}
+          ariaLabel={t("renderPreview.textFont")}
+        />
         <div className="koma-style-row__group" role="group" aria-label={t("renderPreview.typographyStyle")}>
           <button type="button" className={`koma-style-row__btn${renderModePresetForm.style.bold ? " koma-style-row__btn--active" : ""}`} onClick={() => handleRenderModePresetFieldChange("bold", !renderModePresetForm.style.bold)} aria-label={t("renderPreview.bold")}>{t("settings.typography.iconBold")}</button>
           <button type="button" className={`koma-style-row__btn${renderModePresetForm.style.italic ? " koma-style-row__btn--active" : ""}`} onClick={() => handleRenderModePresetFieldChange("italic", !renderModePresetForm.style.italic)} aria-label={t("renderPreview.italic")}>{t("settings.typography.iconItalic")}</button>
@@ -571,9 +576,13 @@ export const renderSettingsPresetsTab = ({
         </div>
 
         <div className="koma-style-row">
-          <select className="koma-pf__select" value={typographyPresetForm.style.fontFamily} onChange={(e) => handleTypographyPresetStyleChange("fontFamily", e.target.value)}>
-            {typographyPresetFontOptions.map((f) => <option key={f} value={f}>{f}</option>)}
-          </select>
+          <FontFamilySelect
+            className="koma-pf__select"
+            value={typographyPresetForm.style.fontFamily}
+            onChange={(family) => handleTypographyPresetStyleChange("fontFamily", family)}
+            families={typographyPresetFontOptions}
+            ariaLabel={t("renderPreview.textFont")}
+          />
           <div className="koma-style-row__group" role="group" aria-label={t("renderPreview.typographyStyle")}>
             <button type="button" className={`koma-style-row__btn${typographyPresetForm.style.bold ? " koma-style-row__btn--active" : ""}`} onClick={() => handleTypographyPresetStyleChange("bold", !typographyPresetForm.style.bold)} aria-label={t("renderPreview.bold")}>{t("settings.typography.iconBold")}</button>
             <button type="button" className={`koma-style-row__btn${typographyPresetForm.style.italic ? " koma-style-row__btn--active" : ""}`} onClick={() => handleTypographyPresetStyleChange("italic", !typographyPresetForm.style.italic)} aria-label={t("renderPreview.italic")}>{t("settings.typography.iconItalic")}</button>

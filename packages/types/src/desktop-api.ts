@@ -80,6 +80,7 @@ export interface MiniBackendRuntimeArtifactOption {
 
 export interface DesktopFontEntry {
   id: string;
+  /** Family name only — never a style instance or a file name. */
   family: string;
   source?: string;
   fileName: string;
@@ -87,6 +88,10 @@ export interface DesktopFontEntry {
 }
 
 export interface DesktopFontsListResult {
+  /**
+   * Family names only (see `DesktopFontEntry.family`), deduped case-insensitively, order not
+   * significant. Empty means the shell could not ask the OS, not that nothing is installed.
+   */
   system: string[];
   custom: DesktopFontEntry[];
 }

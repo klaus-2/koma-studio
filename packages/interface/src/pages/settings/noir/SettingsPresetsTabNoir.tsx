@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { FillStylePopover } from "../../../components/color/FillStylePopover";
 import { HexColorPopover } from "../../../components/color/HexColorPopover";
+import { FontFamilySelect } from "../../../components/fonts/FontFamilySelect";
 import type React from "react";
 import type { useI18n } from "../../../i18n";
 import { AIO_STAGE_KEYS, AIO_STAGE_LABELS, RENDER_MODE_PRESET_OPTIONS, normalizeLanguageCode } from "../settings.constants";
@@ -412,10 +413,13 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
             </Field>
             <Field label={t("renderPreview.typographyStyle")}>
               <div className="flex flex-wrap items-center gap-2">
-                <select className={`${selectCls} flex-1`} value={rf.style.fontFamily}
-                  onChange={(e) => renderMode.handleRenderModePresetFieldChange("fontFamily", e.target.value)}>
-                  {renderMode.renderModePresetFontOptions.map((f) => <option key={f} value={f}>{f}</option>)}
-                </select>
+                <FontFamilySelect
+                  className={`${selectCls} flex-1`}
+                  value={rf.style.fontFamily}
+                  onChange={(family) => renderMode.handleRenderModePresetFieldChange("fontFamily", family)}
+                  families={renderMode.renderModePresetFontOptions}
+                  ariaLabel={t("renderPreview.textFont")}
+                />
                 <StyleToggles t={t} bold={rf.style.bold} italic={rf.style.italic} uppercase={rf.style.uppercase}
                   onToggle={(k, v) => renderMode.handleRenderModePresetFieldChange(k, v)} />
               </div>
@@ -577,10 +581,13 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <select className={`${selectCls} flex-1 min-w-[180px]`} value={tf.style.fontFamily}
-                    onChange={(e) => typography.handleTypographyPresetStyleChange("fontFamily", e.target.value)}>
-                    {typography.typographyPresetFontOptions.map((f) => <option key={f} value={f}>{f}</option>)}
-                  </select>
+                  <FontFamilySelect
+                    className={`${selectCls} flex-1 min-w-[180px]`}
+                    value={tf.style.fontFamily}
+                    onChange={(family) => typography.handleTypographyPresetStyleChange("fontFamily", family)}
+                    families={typography.typographyPresetFontOptions}
+                    ariaLabel={t("renderPreview.textFont")}
+                  />
                   <StyleToggles t={t} bold={tf.style.bold} italic={tf.style.italic} uppercase={tf.style.uppercase}
                     onToggle={(k, v) => typography.handleTypographyPresetStyleChange(k, v)} />
                 </div>

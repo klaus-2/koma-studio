@@ -109,6 +109,7 @@ import {
   type WorkspaceAutosaveSettings,
 } from "../utils/workspaceAutosaveSettings";
 import { clearRendererStoredAppState } from "../utils/resetLocalAppState";
+import { buildFontCatalog, getFontCatalogFallbackFamilies } from "../utils/font-catalog";
 import { useToolTips } from "../hooks/useToolTips";
 import './SettingsPresets.css';
 import './SettingsIntegrations.css';
@@ -138,7 +139,6 @@ import type {
 } from "./settings/settings.types";
 import {
   AIO_STAGE_KEYS,
-  DEFAULT_RENDER_FONT_FAMILIES,
   RENDER_MODE_PRESET_OPTIONS,
   SETTINGS_REQUESTED_TAB_STORAGE_KEY,
   TABS,
@@ -381,42 +381,13 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
   }, [languageLabelByCode, presetState.activePresetBySourceLanguage, presetState.presets]);
 
-  const renderModePresetFontOptions = useMemo(() => {
-    const bucket = new Set<string>(DEFAULT_RENDER_FONT_FAMILIES);
-    renderFontCatalog.system.forEach((family) => {
-      const normalizedFamily = family.trim();
-      if (normalizedFamily.length > 0) {
-        bucket.add(normalizedFamily);
-      }
+  const presetFontOptions = useMemo(() => {
+    return buildFontCatalog({
+      osFamilies: renderFontCatalog.system,
+      customFamilies: renderFontCatalog.custom.map((fontEntry) => fontEntry.family),
+      fallbackFamilies: getFontCatalogFallbackFamilies(),
     });
-    renderFontCatalog.custom.forEach((fontEntry) => {
-      const normalizedFamily = fontEntry.family.trim();
-      if (normalizedFamily.length > 0) {
-        bucket.add(normalizedFamily);
-      }
-    });
-    const currentFont = renderModePresetForm.style.fontFamily.trim();
-    if (currentFont.length > 0) {
-      bucket.add(currentFont);
-    }
-    return Array.from(bucket.values()).sort((left, right) => left.localeCompare(right, "pt-BR"));
-  }, [renderFontCatalog.custom, renderFontCatalog.system, renderModePresetForm.style.fontFamily]);
-  const typographyPresetFontOptions = useMemo(() => {
-    const bucket = new Set<string>(DEFAULT_RENDER_FONT_FAMILIES);
-    renderFontCatalog.system.forEach((family) => {
-      const normalized = family.trim();
-      if (normalized.length > 0) bucket.add(normalized);
-    });
-    renderFontCatalog.custom.forEach((fontEntry) => {
-      const normalized = fontEntry.family.trim();
-      if (normalized.length > 0) bucket.add(normalized);
-    });
-    const currentFont = typographyPresetForm?.style.fontFamily.trim();
-    if (currentFont) {
-      bucket.add(currentFont);
-    }
-    return Array.from(bucket.values()).sort((left, right) => left.localeCompare(right, "pt-BR"));
-  }, [renderFontCatalog.custom, renderFontCatalog.system, typographyPresetForm?.style.fontFamily]);
+  }, [renderFontCatalog.custom, renderFontCatalog.system]);
   const typographyPresetsByFolder = useMemo(() => {
     const map = new Map<string | null, TypographyStylePreset[]>();
     typographyPresetState.presets.forEach((preset) => {
@@ -1563,7 +1534,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
         handleSaveRenderModePreset,
         handleResetAllRenderModePreset,
         handleResetRenderModePreset,
-        renderModePresetFontOptions,
+        renderModePresetFontOptions: presetFontOptions,
       },
       typography: {
         typographyPresetState,
@@ -1580,7 +1551,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
         setFolderRenameId,
         folderRenameName,
         setFolderRenameName,
-        typographyPresetFontOptions,
+        typographyPresetFontOptions: presetFontOptions,
         typographyPresetsByFolder,
         openCreateTypographyPresetForm,
         openEditTypographyPresetForm,

@@ -15,6 +15,8 @@ mod security;
 mod services;
 mod sidecar;
 mod state;
+#[cfg(windows)]
+mod win32;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

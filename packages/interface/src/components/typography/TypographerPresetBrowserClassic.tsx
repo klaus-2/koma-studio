@@ -20,6 +20,7 @@ import type {
   TypographyShapeKind,
 } from '../../typography/types';
 import type { RenderTextStyle } from '../../typography/renderStyle';
+import { FontFamilySelect } from '../fonts/FontFamilySelect';
 import './TypographerPresetBrowser.css';
 
 interface TypographerPresetBrowserProps {
@@ -423,18 +424,14 @@ const PresetQuickEdit = React.forwardRef<HTMLDivElement, PresetQuickEditProps>(
           {/* Font */}
           <label className="koma-preset-quickedit__field">
             <span>Font</span>
-            <select
+            <FontFamilySelect
               className="koma-select koma-select--sm"
               value={fontFamily}
-              onChange={(e) => setFontFamily(e.target.value)}
-            >
-              <option value="">Default</option>
-              {availableFonts.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
+              onChange={(family) => setFontFamily(family)}
+              families={availableFonts}
+              ariaLabel="Font"
+              defaultOptionLabel="Default"
+            />
           </label>
 
           {/* Size + Style toggles */}

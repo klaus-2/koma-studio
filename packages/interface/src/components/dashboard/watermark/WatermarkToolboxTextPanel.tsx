@@ -3,8 +3,9 @@ import { Type } from 'lucide-react';
 
 import { AioSection } from '@/pages/AioSection.js';
 import { useI18n } from '../../../i18n';
+import { FontFamilySelect } from '../../fonts/FontFamilySelect';
+import { useFontCatalogOptions } from '../../../hooks/useFontCatalogOptions';
 import type { WatermarkDraft } from './watermarkTypes';
-import { FONT_OPTIONS } from './watermark-ui-constants';
 
 type WatermarkTextPanelProps = {
   draft: WatermarkDraft;
@@ -13,6 +14,7 @@ type WatermarkTextPanelProps = {
 
 export default function WatermarkTextPanel({ draft, setDraft }: WatermarkTextPanelProps) {
   const { t } = useI18n();
+  const fontFamilies = useFontCatalogOptions();
   const updateTextLayer = (patch: Partial<WatermarkDraft['textLayer']>) =>
     setDraft((current) => ({
       ...current,
@@ -44,15 +46,13 @@ export default function WatermarkTextPanel({ draft, setDraft }: WatermarkTextPan
       <div className="koma-wm-fields">
         <div className="koma-field">
           <label className="koma-field__label">{t('watermark.text.font')}</label>
-          <select
+          <FontFamilySelect
             className="koma-select"
             value={draft.textLayer.fontFamily}
-            onChange={(e) => updateTextLayer({ fontFamily: e.target.value })}
-          >
-            {FONT_OPTIONS.map((fontFamily) => (
-              <option key={fontFamily} value={fontFamily}>{fontFamily}</option>
-            ))}
-          </select>
+            onChange={(family) => updateTextLayer({ fontFamily: family })}
+            families={fontFamilies}
+            ariaLabel={t('watermark.text.font')}
+          />
         </div>
         <div className="koma-field">
           <label className="koma-field__label">{t('watermark.text.size')}</label>

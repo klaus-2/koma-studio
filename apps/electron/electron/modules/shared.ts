@@ -7,7 +7,6 @@ import {
   type IpcMainEvent,
   type IpcMainInvokeEvent,
 } from "electron";
-import { execFileSync } from "node:child_process";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -95,29 +94,6 @@ const sanitizeSessionLogText = (value: unknown, maxLength = 4_000): string => {
     )
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]");
   return sanitized.trim().slice(0, maxLength);
-};
-
-// ---------------------------------------------------------------------------
-// External command utility
-// ---------------------------------------------------------------------------
-
-const readCommandOutput = (
-  command: string,
-  args: string[],
-  timeoutMs: number = 2_500,
-): string | null => {
-  try {
-    const output = execFileSync(command, args, {
-      stdio: ["ignore", "pipe", "ignore"],
-      encoding: "utf8",
-      windowsHide: true,
-      timeout: timeoutMs,
-    });
-    const normalized = output.trim();
-    return normalized.length > 0 ? normalized : null;
-  } catch {
-    return null;
-  }
 };
 
 // ---------------------------------------------------------------------------
@@ -592,7 +568,6 @@ export {
   normalizeAccessToken,
   normalizeHost,
   sanitizeSessionLogText,
-  readCommandOutput,
   // Renderer URL validation
   getDevServerOrigin,
   isInternalAppUrl,

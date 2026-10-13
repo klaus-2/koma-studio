@@ -41,6 +41,7 @@ import { CircularTextPopover } from '../../color/CircularTextPopover';
 import { FillStylePopover } from '../../color/FillStylePopover';
 import { RenderEffectPopover } from '../../color/RenderEffectPopover';
 import { TextEffectPopover } from '../../color/TextEffectPopover';
+import { FontFamilySelect } from '../../fonts/FontFamilySelect';
 
 interface RenderTextPreviewTypeDockNoirProps {
   dockLeft: number;
@@ -229,16 +230,6 @@ const RenderTextPreviewTypeDockNoir = ({
 }: RenderTextPreviewTypeDockNoirProps) => {
   const { t } = useI18n();
 
-  const fontOptions = React.useMemo(
-    () =>
-      availableRenderFonts.map((family) => (
-        <option key={family} value={family}>
-          {family}
-        </option>
-      )),
-    [availableRenderFonts],
-  );
-
   const handleTextEffectChange = React.useCallback(
     (presetId: NativeTextEffectPresetId) =>
       updateSelectedRegionStyle((s) =>
@@ -271,14 +262,13 @@ const RenderTextPreviewTypeDockNoir = ({
 
         {/* ═══ Row 1: Primary ═══ */}
         <div className="relative flex items-center gap-1.5">
-          <select
+          <FontFamilySelect
             className="panel-cut-sm h-7 min-w-0 flex-1 max-w-[170px] border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
             value={selectedRegionStyle.fontFamily}
-            onChange={(e) => updateSelectedRegionStyle((s) => ({ ...s, fontFamily: e.target.value }))}
-            aria-label={t('renderPreview.textFont')}
-          >
-            {fontOptions}
-          </select>
+            onChange={(family) => updateSelectedRegionStyle((s) => ({ ...s, fontFamily: family }))}
+            families={availableRenderFonts}
+            ariaLabel={t('renderPreview.textFont')}
+          />
           <select
             className="panel-cut-sm h-7 w-[82px] border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
             value={selectedRegion?.shape?.kind ?? 'rounded'}

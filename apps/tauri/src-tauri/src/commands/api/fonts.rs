@@ -16,9 +16,11 @@ use crate::{
     },
     protocol::media::media_url,
     services::fonts::{self, FONT_EXTENSIONS, ProgressObserver},
+    services::system_fonts,
     state::api::ApiRuntimeState,
 };
 
+/// Used only when the OS reports no families at all.
 const DEFAULT_SYSTEM_FONTS: &[&str] = &[
     "Arial",
     "Calibri",
@@ -92,13 +94,18 @@ pub async fn fonts_list(
     let _permit = state.fonts_permit().await?;
     let worker_app = app.clone();
 
-    let custom = tauri::async_runtime::spawn_blocking(move || fonts::list(&worker_app)).await??;
+    let custom_task = tauri::async_runtime::spawn_blocking(move || fonts::list(&worker_app));
+    let system_task = tauri::async_runtime::spawn_blocking(system_fonts::families);
+    let (custom, system) = tokio::join!(custom_task, system_task);
+    let custom = custom??;
 
-    let mut system: Vec<String> = DEFAULT_SYSTEM_FONTS
-        .iter()
-        .map(|font| (*font).to_string())
-        .collect();
-    system.sort_by_key(|font| font.to_ascii_lowercase());
+    let mut system = system?;
+    if system.is_empty() {
+        system = DEFAULT_SYSTEM_FONTS
+            .iter()
+            .map(|font| (*font).to_string())
+            .collect();
+    }
 
     Ok(FontListResult {
         system,

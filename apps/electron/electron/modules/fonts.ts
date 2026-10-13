@@ -5,10 +5,8 @@
 import { app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
-import {
-  readCommandOutput,
-  registerSecureIpcHandler,
-} from "./shared.ts";
+import { registerSecureIpcHandler } from "./shared.ts";
+import { readWindowsFontFamilies } from "../font-registry.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -120,40 +118,9 @@ const buildDesktopFontDataUrl = (extension: string, fileBuffer: Buffer): string 
   return `data:${mime};base64,${base64}`;
 };
 
-const listDesktopSystemFonts = (): string[] => {
-  const bucket = new Set<string>(DEFAULT_SYSTEM_FONTS);
-  if (process.platform !== "win32") {
-    return Array.from(bucket).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }
-
-  const output = readCommandOutput(
-    "reg.exe",
-    [
-      "query",
-      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts",
-    ],
-    4_000,
-  );
-
-  if (!output) {
-    return Array.from(bucket).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }
-
-  const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const parser = /^(.+?)\s+REG_\w+\s+(.+)$/i;
-  for (const line of lines) {
-    const match = line.match(parser);
-    if (!match) {
-      continue;
-    }
-    const rawFamily = (match[1] ?? "").replace(/\s*\(.*?\)\s*$/g, "").trim();
-    const family = sanitizeFontFamily(rawFamily);
-    if (family) {
-      bucket.add(family);
-    }
-  }
-
-  return Array.from(bucket).sort((a, b) => a.localeCompare(b, "pt-BR"));
+const listDesktopSystemFonts = async (): Promise<string[]> => {
+  const families = await readWindowsFontFamilies({ tempDir: app.getPath("temp") });
+  return families.length > 0 ? families : DEFAULT_SYSTEM_FONTS;
 };
 
 const listDesktopCustomFonts = (): DesktopFontEntry[] => {
@@ -199,7 +166,7 @@ const setupDesktopFontIpcHandlers = (): void => {
     "desktop-api:fonts:list",
     async () => {
       return {
-        system: listDesktopSystemFonts(),
+        system: await listDesktopSystemFonts(),
         custom: listDesktopCustomFonts(),
       };
     },

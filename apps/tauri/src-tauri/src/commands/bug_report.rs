@@ -954,13 +954,13 @@ mod screen_capture {
 
 #[cfg(windows)]
 mod screen_capture {
-    use std::{mem, ptr};
+    use std::mem;
 
     use windows_sys::Win32::{
         Graphics::Gdi::{
-            BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC,
-            GetDIBits, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, CAPTUREBLT,
-            DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ, SRCCOPY,
+            BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits,
+            SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, CAPTUREBLT, DIB_RGB_COLORS, HBITMAP,
+            HDC, HGDIOBJ, SRCCOPY,
         },
         UI::WindowsAndMessaging::{
             GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
@@ -969,39 +969,17 @@ mod screen_capture {
     };
 
     use super::RawImage;
+    use crate::win32::ScreenDc;
 
     /// Hard ceiling for the raw BGRA buffer (e.g. 8 × 4K displays ≈ 265 MiB).
     const MAX_CAPTURE_BYTES: usize = 512 * 1024 * 1024;
-
-    struct ScreenDc(HDC);
-
-    impl ScreenDc {
-        fn acquire() -> Result<Self, String> {
-            // SAFETY: `GetDC(null)` returns the DC of the entire screen; no
-            // preconditions. Released exactly once in `Drop`.
-            let dc = unsafe { GetDC(ptr::null_mut()) };
-            if dc.is_null() {
-                return Err("Failed to access the screen context.".to_owned());
-            }
-            Ok(Self(dc))
-        }
-    }
-
-    impl Drop for ScreenDc {
-        fn drop(&mut self) {
-            // SAFETY: `self.0` was obtained from `GetDC(null)` and is released here only.
-            unsafe {
-                ReleaseDC(ptr::null_mut(), self.0);
-            }
-        }
-    }
 
     struct MemoryDc(HDC);
 
     impl MemoryDc {
         fn compatible_with(screen: &ScreenDc) -> Result<Self, String> {
-            // SAFETY: `screen.0` is a live DC for the lifetime of `screen`.
-            let dc = unsafe { CreateCompatibleDC(screen.0) };
+            // SAFETY: `screen.handle()` is a live DC for the lifetime of `screen`.
+            let dc = unsafe { CreateCompatibleDC(screen.handle()) };
             if dc.is_null() {
                 return Err("Failed to create the capture context.".to_owned());
             }
@@ -1022,8 +1000,8 @@ mod screen_capture {
 
     impl GdiBitmap {
         fn compatible_with(screen: &ScreenDc, width: i32, height: i32) -> Result<Self, String> {
-            // SAFETY: `screen.0` is a live DC; dimensions were validated as positive.
-            let bitmap = unsafe { CreateCompatibleBitmap(screen.0, width, height) };
+            // SAFETY: `screen.handle()` is a live DC; dimensions were validated as positive.
+            let bitmap = unsafe { CreateCompatibleBitmap(screen.handle(), width, height) };
             if bitmap.is_null() {
                 return Err("Failed to create the capture bitmap.".to_owned());
             }
@@ -1091,7 +1069,8 @@ mod screen_capture {
             .filter(|len| *len <= MAX_CAPTURE_BYTES)
             .ok_or_else(|| "The virtual screen is too large to capture.".to_owned())?;
 
-        let screen = ScreenDc::acquire()?;
+        let screen =
+            ScreenDc::acquire().ok_or_else(|| "Failed to access the screen context.".to_owned())?;
         let memory = MemoryDc::compatible_with(&screen)?;
         let bitmap = GdiBitmap::compatible_with(&screen, width, height)?;
 
@@ -1106,7 +1085,7 @@ mod screen_capture {
                     0,
                     width,
                     height,
-                    screen.0,
+                    screen.handle(),
                     left,
                     top,
                     SRCCOPY | CAPTUREBLT,

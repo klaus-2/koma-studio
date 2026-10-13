@@ -8,4 +8,5 @@ pub mod integrations;
 pub mod llm;
 pub mod models;
 pub mod secret_store;
+pub mod system_fonts;
 pub mod workspace;

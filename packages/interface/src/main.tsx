@@ -13,10 +13,8 @@ import "./pages/guides-resources.css";
 import { I18nProvider } from "./i18n";
 import { appQueryClient } from "./query/client";
 import { desktopBridge } from "@/lib/desktop-bridge";
+import { KOMA_FONT_STYLESHEET_URL } from "./constants/app-webfonts";
 import brandLogoPreload from "@koma/ui/assets/logo-1.webp";
-
-const KOMA_FONT_STYLESHEET_URL =
-  "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Cabin:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap";
 
 const playwrightWebAccess =
   import.meta.env.DEV &&

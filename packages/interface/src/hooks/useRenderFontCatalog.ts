@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useI18n } from '../i18n';
-import { DEFAULT_RENDER_FONT_FAMILIES } from '../constants/dashboard.constants';
 import type { IDesktopFontEntry } from '../types';
 import type { RenderFontCatalog } from '../types/dashboard.types';
+import { buildFontCatalog, getFontCatalogFallbackFamilies } from '../utils/font-catalog';
 import { arrayBufferToBase64, resetLoadedCanvasFontCache } from '../utils/dashboard.utils';
 
 import { desktopBridge } from "@/lib/desktop-bridge";
+import { publishFontCatalog } from "@/lib/font-catalog-cache";
 interface UseRenderFontCatalogArgs {
   onImportSuccess: (message: string) => void;
 }
@@ -101,16 +102,15 @@ export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogAr
     void loadRenderFontCatalog();
   }, [loadRenderFontCatalog]);
 
-  const availableRenderFonts = useMemo(() => {
-    const bucket = new Set<string>(DEFAULT_RENDER_FONT_FAMILIES);
-    renderFontCatalog.system.forEach((family) => {
-      if (family.trim().length > 0) bucket.add(family.trim());
-    });
-    renderFontCatalog.custom.forEach((fontEntry) => {
-      if (fontEntry.family.trim().length > 0) bucket.add(fontEntry.family.trim());
-    });
-    return Array.from(bucket).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [renderFontCatalog.custom, renderFontCatalog.system]);
+  const availableRenderFonts = useMemo(() => buildFontCatalog({
+    osFamilies: renderFontCatalog.system,
+    customFamilies: renderFontCatalog.custom.map((fontEntry) => fontEntry.family),
+    fallbackFamilies: getFontCatalogFallbackFamilies(),
+  }), [renderFontCatalog.custom, renderFontCatalog.system]);
+
+  useEffect(() => {
+    publishFontCatalog(availableRenderFonts);
+  }, [availableRenderFonts]);
 
   return {
     availableRenderFonts,
