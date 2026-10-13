@@ -7,9 +7,14 @@ let redisErrorLoggedAt = 0;
 let redisErrorCount = 0;
 const REDIS_ERROR_THROTTLE_MS = 30_000;
 
+const REDIS_CONNECT_BUDGET_MS = 5_000;
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 export const redisClient = createClient({
   url: env.redisUrl,
   socket: {
+    socketTimeout: 90_000,
     reconnectStrategy: (retries) => {
       if (env.nodeEnv !== "production" && retries > 5) {
         return new Error("Redis reconnect limit reached in development - giving up");
@@ -17,6 +22,7 @@ export const redisClient = createClient({
       return Math.min(retries * 200, 3_000);
     },
   },
+  pingInterval: 30_000,
   disableOfflineQueue: true,
 });
 
@@ -44,14 +50,18 @@ redisClient.on("end", () => {
 });
 
 export const connectRedis = async (): Promise<void> => {
-  if (!redisClient.isOpen) {
-    try {
-      await redisClient.connect();
-    } catch (error) {
-      logger.warn("Redis connect failed, running without Redis", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+  if (redisClient.isOpen) {
+    return;
+  }
+
+  const connecting = redisClient.connect().catch(() => undefined);
+  const booted = await Promise.race([
+    connecting.then(() => true),
+    sleep(REDIS_CONNECT_BUDGET_MS).then(() => false),
+  ]);
+
+  if (!booted) {
+    logger.warn(`Redis not reachable within ${REDIS_CONNECT_BUDGET_MS}ms, continuing without it`);
   }
 };
 

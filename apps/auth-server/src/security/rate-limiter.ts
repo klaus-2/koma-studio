@@ -12,12 +12,7 @@ const createStore = (prefix: string) => {
   }
   return new RedisStore({
     prefix,
-    sendCommand: async (...args: string[]) => {
-      if (!redisClient.isOpen) {
-        await redisClient.connect();
-      }
-      return redisClient.sendCommand(args);
-    },
+    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
   });
 };
 
