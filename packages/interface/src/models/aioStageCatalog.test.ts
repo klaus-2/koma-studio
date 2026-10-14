@@ -1,0 +1,181 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  buildAioStageCatalog,
+  isStageOptionSelectable,
+  mergeStageOptions,
+  ocrStageOptionSupportsLanguage,
+} from '@/models/aioStageCatalog';
+import type {
+  AioStageOption,
+  LocalModelEntries,
+} from '@/models/aioStageCatalog';
+
+function createOption(
+  overrides: Partial<AioStageOption> = {},
+): AioStageOption {
+  return {
+    key: 'cloud-model',
+    name: 'Cloud model',
+    device: 'cloud',
+    use_case: 'OCR',
+    available: true,
+    implemented: true,
+    ...overrides,
+  };
+}
+
+describe('ocrStageOptionSupportsLanguage', () => {
+  it.each([
+    [['ja'], 'ja', true],
+    [['ja'], 'en', false],
+    [['multi'], 'en', true],
+    [[], 'en', true],
+    [['ZH_CN'], ' zh ', true],
+    [['zh'], 'ZH_TW', true],
+    [['zh-cn'], 'zh-tw', false],
+    [['pt'], 'PT_BR', true],
+    [['pt-br'], 'pt', false],
+  ])(
+    'languages=%j source=%s supported=%s',
+    (languages, source, expected) => {
+      expect(
+        ocrStageOptionSupportsLanguage(
+          createOption({ languages }),
+          source,
+        ),
+      ).toBe(expected);
+    },
+  );
+});
+
+describe('mergeStageOptions', () => {
+  it('deduplicates by key and keeps deterministic order', () => {
+    const result = mergeStageOptions(
+      [
+        createOption({ key: 'first', name: 'Original' }),
+        createOption({ key: 'second' }),
+      ],
+      [
+        createOption({ key: 'first', name: 'Updated' }),
+        createOption({ key: 'third' }),
+      ],
+    );
+
+    expect(result.map((option) => option.key)).toEqual([
+      'first',
+      'second',
+      'third',
+    ]);
+    expect(result[0]?.name).toBe('Updated');
+  });
+
+  it('does not share mutable language arrays with inputs', () => {
+    const original = createOption({ languages: ['ja'] });
+    const merged = mergeStageOptions([original], []);
+
+    merged[0]?.languages?.push('en');
+
+    expect(original.languages).toEqual(['ja']);
+  });
+});
+
+describe('isStageOptionSelectable', () => {
+  const entries: LocalModelEntries = {
+    manga_ocr: {
+      status: 'installed',
+      model: { id: 'manga_ocr', name: 'Manga OCR' },
+    },
+    aot: {
+      status: 'update_available',
+      model: { id: 'aot', name: 'AOT' },
+    },
+  };
+
+  it('rejects placeholders and missing options', () => {
+    expect(isStageOptionSelectable(null, entries)).toBe(false);
+    expect(
+      isStageOptionSelectable(createOption({ key: 'custom' }), entries),
+    ).toBe(false);
+    expect(
+      isStageOptionSelectable(createOption({ key: 'custom_ocr' }), entries),
+    ).toBe(false);
+  });
+
+  it('does not make unimplemented local models executable', () => {
+    expect(
+      isStageOptionSelectable(
+        createOption({ key: 'manga_ocr', implemented: false }),
+        entries,
+      ),
+    ).toBe(false);
+  });
+
+  it('accepts installed models and models with updates available', () => {
+    expect(
+      isStageOptionSelectable(
+        createOption({ key: 'manga_ocr', available: false }),
+        entries,
+      ),
+    ).toBe(true);
+    expect(
+      isStageOptionSelectable(createOption({ key: 'aot' }), entries),
+    ).toBe(true);
+  });
+
+  it('rejects known local models when install state has not hydrated', () => {
+    expect(
+      isStageOptionSelectable(createOption({ key: 'manga_ocr' }), {}),
+    ).toBe(false);
+  });
+
+  it('preserves cloud availability gating', () => {
+    expect(
+      isStageOptionSelectable(createOption({ available: false }), {}),
+    ).toBe(false);
+  });
+});
+
+describe('buildAioStageCatalog', () => {
+  it('does not advertise missing local installations as available', () => {
+    const catalog = buildAioStageCatalog({ sourceLanguage: 'ja' });
+
+    expect(
+      catalog.detectText.find((option) => option.key === 'font_rtdetr_v2')
+        ?.available,
+    ).toBe(false);
+    expect(
+      catalog.recognizeText.find((option) => option.key === 'manga_ocr')
+        ?.available,
+    ).toBe(false);
+  });
+
+  it('filters incompatible OCR without falling back to incompatible models', () => {
+    const catalog = buildAioStageCatalog({ sourceLanguage: 'en' });
+
+    expect(
+      catalog.recognizeText.some((option) => option.key === 'manga_ocr'),
+    ).toBe(false);
+    expect(
+      catalog.recognizeText.every((option) =>
+        ocrStageOptionSupportsLanguage(option, 'en'),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not leak mutations between builds', () => {
+    const first = buildAioStageCatalog({ sourceLanguage: 'ja' });
+    const option = first.recognizeText.find(
+      (candidate) => candidate.key === 'manga_ocr',
+    );
+    option?.languages?.push('en');
+
+    const second = buildAioStageCatalog({ sourceLanguage: 'ja' });
+
+    expect(
+      second.recognizeText.find(
+        (candidate) => candidate.key === 'manga_ocr',
+      )?.languages,
+    ).toEqual(['ja']);
+  });
+});
