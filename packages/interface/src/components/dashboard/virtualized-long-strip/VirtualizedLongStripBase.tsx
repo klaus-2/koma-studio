@@ -129,7 +129,12 @@ export function VirtualizedLongStripBase({
         return indexes;
       }
 
-      return [...indexes, focusedIndex].toSorted((left, right) => left - right);
+      // `indexes` is already sorted; splice the focused index into place.
+      return [
+        ...indexes.filter((value) => value < focusedIndex),
+        focusedIndex,
+        ...indexes.filter((value) => value >= focusedIndex),
+      ];
     },
   });
 
