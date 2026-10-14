@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { AioStageKey } from "../types/aioModelPresets";
 import {
   FULL_LLM_CAPABILITIES,
@@ -42,7 +44,7 @@ export interface AioDeviceInfo {
   has_gpu: boolean;
   provider: string;
   vram_gb: number | null;
-  profile?: string;
+  profile?: string | null;
   fallback_reason?: string | null;
   available_providers?: string[];
   nvidia_cuda_available?: boolean;
@@ -50,6 +52,25 @@ export interface AioDeviceInfo {
   intel_openvino_available?: boolean;
   amd_rocm_available?: boolean;
 }
+
+/**
+ * Matches the `/device/info` payload (mini-backend `build_device_payload`).
+ * Unknown backend fields are stripped; `vram_gb`/`profile`/`fallback_reason`
+ * may be null on CPU-only machines.
+ */
+export const aioDeviceInfoSchema = z.object({
+  name: z.string(),
+  has_gpu: z.boolean(),
+  provider: z.string(),
+  vram_gb: z.number().nullable(),
+  profile: z.string().nullable().optional(),
+  fallback_reason: z.string().nullable().optional(),
+  available_providers: z.array(z.string()).optional(),
+  nvidia_cuda_available: z.boolean().optional(),
+  nvidia_tensorrt_available: z.boolean().optional(),
+  intel_openvino_available: z.boolean().optional(),
+  amd_rocm_available: z.boolean().optional(),
+});
 
 export type AioStageOptionMap = Record<AioStageKey, AioStageOption[]>;
 

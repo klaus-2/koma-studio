@@ -1,317 +1,347 @@
-/**
- * AIO manual stage execution — wiring for the manual progress controls, the
- * manual stage executor, the stage skip, and the manual run entry point.
- * Split out of aio-pipeline.ts (T10); the entry file keeps orchestration and
- * re-exports this module.
- */
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   AIO_MANUAL_STAGE_ORDER,
   MIN_REGION_SIZE,
-} from '../../../constants/dashboard.constants';
-import type { AioStageOption } from '../../../models/aioStageCatalog';
-import type { ModelInstallState } from '../../../models/types';
-import type { AioStageKey } from '../../../types/aioModelPresets';
-import { parseApiError } from '../helpers';
+} from '@/constants/dashboard.constants';
+import { useAioManualProgressControls } from '@/hooks/useAioManualProgressControls';
+import { useAioManualStageExecutor } from '@/hooks/useAioManualStageExecutor';
+import { useAioManualStageSkip } from '@/hooks/useAioManualStageSkip';
+import { useI18n } from '@/i18n';
+import { parseApiError } from '@/pages/dashboard/helpers';
+import { useAioManualSnapshotSync } from '@/pages/dashboard/hooks/use-aio-manual-snapshot-sync';
+import { useCommittedAsyncAction } from '@/pages/dashboard/hooks/use-committed-async-action';
 import {
-  applyDetectedGradientToStyle,
-  clamp,
-} from '../../../utils/dashboard.utils';
-import type { RenderTextStyle } from '../../../utils/renderText';
-import type { CustomLlmProfile } from '../../../utils/customLlm';
-import type { AioExecutionScope } from '../../../utils/dashboardRenderUtils';
+  reportAioEvent,
+  runAioNotification,
+} from '@/pages/dashboard/lib/aio-observability';
+import { createAioAbortError } from '@/pages/dashboard/lib/run-aio-batch';
+import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
+import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collection-store';
+import { useLlmProvidersStore } from '@/pages/dashboard/stores/llm-providers-store';
+import { useStatusStore } from '@/pages/dashboard/stores/status-store';
+import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
+import type { AioStageKey } from '@/types/aioModelPresets';
 import type {
-  AioDownloadEntry,
-  AioManualImageEditState,
   AioManualImageProgress,
-  AioPipelineSnapshot,
   AioPipelineSnapshotKey,
-  AioTextRegion,
   LoadedImage,
-} from '../../../types/dashboard.types';
-import { useAioPipelineStore } from '../stores/aio-pipeline-store';
-import { useImageCollectionStore } from '../stores/image-collection-store';
-import { useLlmProvidersStore } from '../stores/llm-providers-store';
-import { useRegionEditorStore } from '../stores/region-editor-store';
-import { useStatusStore } from '../stores/status-store';
-import { useUiShellStore } from '../stores/ui-shell-store';
-import { useAioManualProgressControls } from '../../../hooks/useAioManualProgressControls';
-import { useAioManualStageExecutor } from '../../../hooks/useAioManualStageExecutor';
-import { useAioManualStageSkip } from '../../../hooks/useAioManualStageSkip';
+} from '@/types/dashboard.types';
+import { applyDetectedGradientToStyle } from '@/utils/dashboard.utils';
+import {
+  isAbortError,
+  type AioExecutionScope,
+} from '@/utils/dashboardRenderUtils';
 
-/* ── Manual stage execution (progress controls, stage executor, skip, run entry) ── */
+type ExecutorArgs = Parameters<typeof useAioManualStageExecutor>[0];
+type ProgressArgs = Parameters<typeof useAioManualProgressControls>[0];
 
-interface UseAioManualExecutionArgs {
-  renderDefaultStyle: RenderTextStyle;
-  getAioManualImageEditState: (imageId: string) => AioManualImageEditState;
-  /* Page callbacks (snapshot/manual-history family still on the page) */
-  applyAioPipelineSnapshotToImage: (
-    imageId: string,
-    index: number,
-  ) => AioPipelineSnapshot | null;
-  syncManualStagePreviewToNextStage: (
-    imageId: string,
-    fromIndex: number,
-    toIndex: number,
-  ) => void;
-  patchAioSnapshotStageForImage: (
-    imageId: string,
-    stageIndex: number,
-    nextRegions: AioTextRegion[],
-    downloadEntry?: AioDownloadEntry | null,
-  ) => void;
-  validateManualLocalStageModel: (
+interface UseAioManualExecutionArgs
+  extends Pick<
+    ExecutorArgs,
+    | 'renderDefaultStyle'
+    | 'getAioManualImageEditState'
+    | 'patchAioSnapshotStageForImage'
+    | 'getAioStageOption'
+    | 'recordProcessedPages'
+    | 'syncDiscordForTab'
+    | 'localApiUrl'
+    | 'modelEntries'
+    | 'compatibleTranslationModelIds'
+    | 'selectedCustomOcrProfile'
+    | 'selectedCustomTranslationProfile'
+  >,
+  Pick<
+    ProgressArgs,
+    | 'applyAioPipelineSnapshotToImage'
+    | 'syncManualStagePreviewToNextStage'
+  > {
+  readonly activeManualProgress: AioManualImageProgress | null;
+  readonly resolvedActiveId: string | null;
+
+  readonly validateManualLocalStageModel: (
     stage: Exclude<AioStageKey, 'getTranslations'>,
     stageLabel: string,
     selectedKey: string,
   ) => boolean;
-  getAioStageOption: (
-    stageKey: 'recognizeText' | 'getTranslations',
-    key: string,
-  ) => AioStageOption | null;
-  recordProcessedPages: (pages: number) => void;
-  syncDiscordForTab: () => Promise<void> | void;
-  /* Page bindings that compute the execution i18n labels (kept at the call
-     site per the T05b review decision — do not move into the store) */
-  beginAioExecution: (
+
+  readonly beginAioExecution: (
     scope: AioExecutionScope,
     totalImages: number,
     stageKeys: AioPipelineSnapshotKey[],
   ) => void;
-  updateAioExecutionStage: (
+
+  readonly updateAioExecutionStage: (
     scope: AioExecutionScope,
     stageKey: AioPipelineSnapshotKey,
     image: LoadedImage,
     index: number,
     totalImages: number,
   ) => void;
-  /* Page-derived values (memos / hook returns) */
-  localApiUrl: string;
-  modelEntries: Record<string, ModelInstallState>;
-  compatibleTranslationModelIds: Set<string>;
-  selectedCustomOcrProfile: CustomLlmProfile | null;
-  selectedCustomTranslationProfile: CustomLlmProfile | null;
-  activeManualProgress: AioManualImageProgress | null;
-  resolvedActiveId: string | null;
 }
 
-export function useAioManualExecution({
-  renderDefaultStyle,
-  getAioManualImageEditState,
-  applyAioPipelineSnapshotToImage,
-  syncManualStagePreviewToNextStage,
-  patchAioSnapshotStageForImage,
-  validateManualLocalStageModel,
-  getAioStageOption,
-  recordProcessedPages,
-  syncDiscordForTab,
-  beginAioExecution,
-  updateAioExecutionStage,
-  localApiUrl,
-  modelEntries,
-  compatibleTranslationModelIds,
-  selectedCustomOcrProfile,
-  selectedCustomTranslationProfile,
-  activeManualProgress,
-  resolvedActiveId,
-}: UseAioManualExecutionArgs) {
-  const activeId = useImageCollectionStore((s) => s.activeId);
-  const images = useImageCollectionStore((s) => s.images);
-  const mode = useUiShellStore((s) => s.mode);
-  const subMode = useUiShellStore((s) => s.subMode);
-  const processing = useUiShellStore((s) => s.processing);
-  const setProcessing = useUiShellStore((s) => s.setProcessing);
-  const setProgress = useUiShellStore((s) => s.setProgress);
-  const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
-  const setRuntimeExecutionNotice = useStatusStore(
-    (s) => s.setRuntimeExecutionNotice,
+function isLocalStage(
+  stage: string,
+): stage is Exclude<AioStageKey, 'getTranslations'> {
+  return (
+    stage === 'detectText' ||
+    stage === 'recognizeText' ||
+    stage === 'segmentText' ||
+    stage === 'cleanImage'
   );
-  const onStageStart = useCallback(
-    (stageKey: AioPipelineSnapshotKey, image: LoadedImage, index: number) =>
-      updateAioExecutionStage('manual', stageKey, image, index, 1),
-    [updateAioExecutionStage],
-  );
-  const validateStageModelAdapter = useCallback(
-    (stageKey: string, stageLabel: string, modelKey: string) =>
-      validateManualLocalStageModel(
-        stageKey as Exclude<AioStageKey, 'getTranslations'>,
-        stageLabel,
-        modelKey,
-      ),
-    [validateManualLocalStageModel],
-  );
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
-  const setAioManualProgressByImage = useAioPipelineStore(
-    (s) => s.setAioManualProgressByImage,
-  );
-  const aioAutoProcessedImageById = useAioPipelineStore(
-    (s) => s.aioAutoProcessedImageById,
-  );
-  const aioStageOptions = useAioPipelineStore((s) => s.aioStageOptions);
-  const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
-  const executorStageOptions = useMemo(
-    () => ({
-      detectText: aioStageOptions.detectText,
-      recognizeText: aioStageOptions.recognizeText,
-      segmentText: aioStageOptions.segmentText,
-      cleanImage: aioStageOptions.cleanImage,
-    }),
-    [
-      aioStageOptions.detectText,
-      aioStageOptions.recognizeText,
-      aioStageOptions.segmentText,
-      aioStageOptions.cleanImage,
-    ],
-  );
-  const executorStageSelection = useMemo(
-    () => ({
-      detectText: aioStageSelection.detectText,
-      recognizeText: aioStageSelection.recognizeText,
-      getTranslations: aioStageSelection.getTranslations,
-      segmentText: aioStageSelection.segmentText,
-      cleanImage: aioStageSelection.cleanImage,
-    }),
-    [
-      aioStageSelection.detectText,
-      aioStageSelection.recognizeText,
-      aioStageSelection.getTranslations,
-      aioStageSelection.segmentText,
-      aioStageSelection.cleanImage,
-    ],
-  );
-  const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
-  const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
-  const aioMaskDilation = useAioPipelineStore((s) => s.aioMaskDilation);
-  const aioHdStrategy = useAioPipelineStore((s) => s.aioHdStrategy);
-  const aioHdResizeLimit = useAioPipelineStore((s) => s.aioHdResizeLimit);
-  const aioHdCropMargin = useAioPipelineStore((s) => s.aioHdCropMargin);
-  const aioHdCropTriggerSize = useAioPipelineStore(
-    (s) => s.aioHdCropTriggerSize,
-  );
-  const aioGpuStages = useAioPipelineStore((s) => s.aioGpuStages);
-  const clearAioExecutionState = useAioPipelineStore(
-    (s) => s.clearAioExecutionState,
-  );
-  const getActiveAioAbortSignal = useAioPipelineStore(
-    (s) => s.getActiveAioAbortSignal,
-  );
+}
 
-  const {
-    getAioRegionsFromSnapshot,
-    setManualStageForActiveImage,
-    completeManualStageForImage,
-    syncActiveManualStageSnapshot,
-  } = useAioManualProgressControls({
-    activeId,
-    applyAioPipelineSnapshotToImage,
-    syncManualStagePreviewToNextStage,
-    setAioManualProgressByImage,
-    setStatusMessage,
-  });
+export function useAioManualExecution(args: UseAioManualExecutionArgs) {
+  const { t } = useI18n();
+  const activeId = useImageCollectionStore((state) => state.activeId);
+  const images = useImageCollectionStore((state) => state.images);
+  const mode = useUiShellStore((state) => state.mode);
+  const subMode = useUiShellStore((state) => state.subMode);
+  const processing = useUiShellStore((state) => state.processing);
+  const llmSettings = useLlmProvidersStore((state) => state.llmSettings);
+
+  const autoProcessed = useAioPipelineStore(
+    (state) => state.aioAutoProcessedImageById,
+  );
+  const stageOptions = useAioPipelineStore((state) => state.aioStageOptions);
+  const stageSelection = useAioPipelineStore(
+    (state) => state.aioStageSelection,
+  );
+  const sourceLanguage = useAioPipelineStore((state) => state.aioSrcLang);
+  const targetLanguage = useAioPipelineStore((state) => state.aioTgtLang);
+  const maskDilation = useAioPipelineStore((state) => state.aioMaskDilation);
+  const hdStrategy = useAioPipelineStore((state) => state.aioHdStrategy);
+  const hdResizeLimit = useAioPipelineStore(
+    (state) => state.aioHdResizeLimit,
+  );
+  const hdCropMargin = useAioPipelineStore((state) => state.aioHdCropMargin);
+  const hdCropTriggerSize = useAioPipelineStore(
+    (state) => state.aioHdCropTriggerSize,
+  );
+  const gpuStages = useAioPipelineStore((state) => state.aioGpuStages);
+
+  const runningRef = useRef(false);
+  const controllerRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    if (mode !== 'aio' || subMode !== 'manual') return;
-    syncActiveManualStageSnapshot();
-    const unsubPipeline = useAioPipelineStore.subscribe(() => {
-      syncActiveManualStageSnapshot();
-    });
-    const unsubRegion = useRegionEditorStore.subscribe(() => {
-      syncActiveManualStageSnapshot();
-    });
-    return () => {
-      unsubPipeline();
-      unsubRegion();
-    };
-  }, [activeId, mode, subMode, syncActiveManualStageSnapshot]);
+    mountedRef.current = true;
 
-  const executeManualStageForActiveImage = useAioManualStageExecutor({
+    return () => {
+      mountedRef.current = false;
+      controllerRef.current?.abort(createAioAbortError());
+    };
+  }, []);
+
+  const onStageStart = useCallback(
+    (
+      stageKey: AioPipelineSnapshotKey,
+      image: LoadedImage,
+      index: number,
+    ): void => {
+      const controller = controllerRef.current;
+
+      if (
+        controller &&
+        !controller.signal.aborted &&
+        useAioPipelineStore.getState().aioAbortController === controller
+      ) {
+        args.updateAioExecutionStage('manual', stageKey, image, index, 1);
+      }
+    },
+    [args.updateAioExecutionStage],
+  );
+
+  const validateStageModel = useCallback(
+    (stageKey: string, stageLabel: string, modelKey: string): boolean =>
+      isLocalStage(stageKey) &&
+      args.validateManualLocalStageModel(stageKey, stageLabel, modelKey),
+    [args.validateManualLocalStageModel],
+  );
+
+  const executorStageOptions = useMemo(
+    () => ({
+      detectText: stageOptions.detectText,
+      recognizeText: stageOptions.recognizeText,
+      segmentText: stageOptions.segmentText,
+      cleanImage: stageOptions.cleanImage,
+    }),
+    [
+      stageOptions.cleanImage,
+      stageOptions.detectText,
+      stageOptions.recognizeText,
+      stageOptions.segmentText,
+    ],
+  );
+
+  const progressControls = useAioManualProgressControls({
+    activeId,
+    applyAioPipelineSnapshotToImage: args.applyAioPipelineSnapshotToImage,
+    syncManualStagePreviewToNextStage:
+      args.syncManualStagePreviewToNextStage,
+    setAioManualProgressByImage:
+      useAioPipelineStore.getState().setAioManualProgressByImage,
+    setStatusMessage: useStatusStore.getState().setStatusMessage,
+  });
+
+  useAioManualSnapshotSync({
+    enabled: mode === 'aio' && subMode === 'manual',
+    activeId,
+    synchronize: progressControls.syncActiveManualStageSnapshot,
+  });
+
+  const executeStage = useAioManualStageExecutor({
     activeId,
     processing,
     images,
-    aioAutoProcessedImageById,
+    aioAutoProcessedImageById: autoProcessed,
     aioStageOptions: executorStageOptions,
-    aioStageSelection: executorStageSelection,
-    aioSrcLang,
-    aioTgtLang,
-    aioMaskDilation,
-    aioHdStrategy,
-    aioHdResizeLimit,
-    aioHdCropMargin,
-    aioHdCropTriggerSize,
-    gpuStages: aioGpuStages,
+    aioStageSelection: stageSelection,
+    aioSrcLang: sourceLanguage,
+    aioTgtLang: targetLanguage,
+    aioMaskDilation: maskDilation,
+    aioHdStrategy: hdStrategy,
+    aioHdResizeLimit: hdResizeLimit,
+    aioHdCropMargin: hdCropMargin,
+    aioHdCropTriggerSize: hdCropTriggerSize,
+    gpuStages,
     minRegionSize: MIN_REGION_SIZE,
     llmSettings,
-    renderDefaultStyle,
-    localApiUrl,
-    modelEntries,
-    compatibleTranslationModelIds,
-    selectedCustomOcrProfile,
-    selectedCustomTranslationProfile,
-    validateManualLocalStageModel: validateStageModelAdapter,
-    getAioStageOption,
+    renderDefaultStyle: args.renderDefaultStyle,
+    localApiUrl: args.localApiUrl,
+    modelEntries: args.modelEntries,
+    compatibleTranslationModelIds: args.compatibleTranslationModelIds,
+    selectedCustomOcrProfile: args.selectedCustomOcrProfile,
+    selectedCustomTranslationProfile: args.selectedCustomTranslationProfile,
+    validateManualLocalStageModel: validateStageModel,
+    getAioStageOption: args.getAioStageOption,
     parseApiError,
-    getAioRegionsFromSnapshot,
-    getAioManualImageEditState,
-    patchAioSnapshotStageForImage,
-    completeManualStageForImage,
-    recordProcessedPages,
-    syncDiscordForTab,
-    setProcessing,
-    setProgress,
-    setStatusMessage,
+    getAioRegionsFromSnapshot: progressControls.getAioRegionsFromSnapshot,
+    getAioManualImageEditState: args.getAioManualImageEditState,
+    patchAioSnapshotStageForImage: args.patchAioSnapshotStageForImage,
+    completeManualStageForImage: progressControls.completeManualStageForImage,
+    recordProcessedPages: args.recordProcessedPages,
+    syncDiscordForTab: () => runAioNotification(args.syncDiscordForTab),
+    setProcessing: useUiShellStore.getState().setProcessing,
+    setProgress: useUiShellStore.getState().setProgress,
+    setStatusMessage: useStatusStore.getState().setStatusMessage,
     applyDetectedGradientToStyle,
-    getAbortSignal: getActiveAioAbortSignal,
+    getAbortSignal: () => controllerRef.current?.signal ?? null,
     onStageStart,
-    setRuntimeExecutionNotice,
+    setRuntimeExecutionNotice:
+      useStatusStore.getState().setRuntimeExecutionNotice,
   });
 
-  const skipManualStageForActiveImage = useAioManualStageSkip({
+  const skipStage = useAioManualStageSkip({
     activeId,
-    completeManualStageForImage,
-    setStatusMessage,
+    completeManualStageForImage: progressControls.completeManualStageForImage,
+    setStatusMessage: useStatusStore.getState().setStatusMessage,
   });
 
-  const handleExecuteManualAioStage = useCallback(async () => {
-    if (processing) {
+  const executeManualStageForActiveImage = useCommittedAsyncAction(
+    async (): Promise<void> => {
+      const pipeline = useAioPipelineStore.getState();
+      const currentActiveId = useImageCollectionStore.getState().activeId;
+
+      if (
+        runningRef.current ||
+        processing ||
+        useUiShellStore.getState().processing ||
+        pipeline.aioAbortController ||
+        pipeline.aioBackendRestarting ||
+        !activeId ||
+        currentActiveId !== activeId ||
+        args.resolvedActiveId !== activeId ||
+        !args.activeManualProgress
+      ) {
+        return;
+      }
+
+      const currentProgress =
+        pipeline.aioManualProgressByImage[activeId] ??
+        args.activeManualProgress;
+
+      const index = currentProgress.currentIndex;
+      const stage = Number.isInteger(index)
+        ? AIO_MANUAL_STAGE_ORDER[index]
+        : undefined;
+
+      if (!stage) {
+        return;
+      }
+
+      runningRef.current = true;
+
+      try {
+        useStatusStore.getState().setRuntimeExecutionNotice(null);
+        args.beginAioExecution('manual', 1, [stage]);
+
+        const controller =
+          useAioPipelineStore.getState().aioAbortController;
+
+        if (!controller) {
+          throw new Error(
+            'Manual AIO execution did not acquire a controller.',
+          );
+        }
+
+        controllerRef.current = controller;
+
+        await executeStage();
+      } catch (error: unknown) {
+        if (mountedRef.current) {
+          const aborted = isAbortError(error);
+
+          if (!aborted) {
+            reportAioEvent('execution-failed', { scope: 'manual', pages: 1 });
+          }
+
+          useStatusStore.getState().setTonedStatus(
+            t(
+              aborted
+                ? 'dashboard.status.aioAborted'
+                : 'dashboard.status.aioExecutionFailed',
+            ),
+            aborted ? 'warning' : 'error',
+          );
+        }
+      } finally {
+        const controller = controllerRef.current;
+
+        if (
+          controller &&
+          useAioPipelineStore.getState().aioAbortController === controller
+        ) {
+          useAioPipelineStore.getState().clearAioExecutionState(controller);
+          useUiShellStore.getState().setProcessing(false);
+          useUiShellStore.getState().setProgress(0);
+          useStatusStore.getState().setRuntimeExecutionNotice(null);
+        }
+
+        controllerRef.current = null;
+        runningRef.current = false;
+      }
+    },
+  );
+
+  const skipManualStageForActiveImage = useCallback(() => {
+    if (
+      runningRef.current ||
+      useUiShellStore.getState().processing ||
+      useAioPipelineStore.getState().aioAbortController ||
+      useImageCollectionStore.getState().activeId !== activeId
+    ) {
       return;
     }
-    setRuntimeExecutionNotice(null);
 
-    if (resolvedActiveId && activeManualProgress) {
-      const currentStageIndex = clamp(
-        activeManualProgress.currentIndex,
-        0,
-        AIO_MANUAL_STAGE_ORDER.length - 1,
-      );
-      beginAioExecution('manual', 1, [
-        AIO_MANUAL_STAGE_ORDER[currentStageIndex]!,
-      ]);
-    }
-
-    await executeManualStageForActiveImage();
-    setTimeout(() => {
-      // Read the processing mirror through the store at the same point the
-      // baseline read `processingRef.current` (latest value at timeout-fire
-      // time; the mirror ref itself had no other consumer and was removed).
-      if (!useUiShellStore.getState().processing) {
-        clearAioExecutionState();
-      }
-    }, 0);
-  }, [
-    activeManualProgress,
-    beginAioExecution,
-    clearAioExecutionState,
-    executeManualStageForActiveImage,
-    processing,
-    resolvedActiveId,
-    setRuntimeExecutionNotice,
-  ]);
+    return skipStage();
+  }, [activeId, skipStage]);
 
   return {
-    setManualStageForActiveImage,
+    setManualStageForActiveImage:
+      progressControls.setManualStageForActiveImage,
     executeManualStageForActiveImage,
     skipManualStageForActiveImage,
-    handleExecuteManualAioStage,
+    handleExecuteManualAioStage: executeManualStageForActiveImage,
   };
 }

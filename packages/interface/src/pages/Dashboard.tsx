@@ -34,6 +34,7 @@ import {
 } from './dashboard/helpers';
 import { useI18n } from '../i18n';
 import { importOnnxModelFromStorage } from '../models/model-storage';
+import { aioDeviceInfoSchema } from '../models/aioStageCatalog';
 import {
   isCustomModelSelectionKey,
   toCustomModelSelectionKey,
@@ -1652,7 +1653,7 @@ export const DashboardPage = ({
     modelEntries: modelManagerState.entries,
   });
   useAioMiniBackendRuntimeSync();
-  useAioDeviceInfoSync(apiConfig.localUrl);
+  useAioDeviceInfoSync(apiConfig.localUrl, aioDeviceInfoSchema);
   useAioStageSelectionFallbacks({
     availableDetectStageOptions,
     availableOcrStageOptions,
