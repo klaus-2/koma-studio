@@ -47,6 +47,7 @@
     "@koma/auth": "workspace:*",
     "@koma/ui": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
+    "@tanstack/react-virtual": "^3.14.11",
     "@tauri-apps/api": "^2.11.1",
     "@tiptap/extension-image": "^3.30.2",
     "@tiptap/extension-link": "^3.30.2",

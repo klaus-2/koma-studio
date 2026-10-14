@@ -17,11 +17,14 @@ export const SUPPORTED_LOCALES = [
 
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 
-export const DEFAULT_APP_LOCALE: AppLocale = "en";
-export const RTL_LOCALES = new Set<AppLocale>(["ar"]);
+export const DEFAULT_APP_LOCALE = "en" satisfies AppLocale;
 export const LOCALE_STORAGE_KEY = "koma-studio.locale.v1";
 
-export const LOCALE_LABELS: Record<AppLocale, string> = {
+export const RTL_LOCALES: ReadonlySet<AppLocale> = new Set<AppLocale>([
+  "ar",
+]);
+
+export const LOCALE_LABELS: Readonly<Record<AppLocale, string>> = Object.freeze({
   ar: "العربية",
   de: "Deutsch",
   en: "English",
@@ -36,100 +39,112 @@ export const LOCALE_LABELS: Record<AppLocale, string> = {
   ru: "Русский",
   zh: "中文",
   "zh-tw": "繁體中文",
-};
+});
 
-const NORMALIZED_LOCALE_MAP = new Map<string, AppLocale>([
-  ["ar", "ar"],
-  ["ar-sa", "ar"],
-  ["de", "de"],
-  ["de-de", "de"],
-  ["en", "en"],
-  ["en-us", "en"],
-  ["en-gb", "en"],
-  ["es", "es"],
-  ["es-es", "es"],
-  ["es-419", "es"],
-  ["fr", "fr"],
-  ["fr-fr", "fr"],
-  ["hi", "hi"],
-  ["hi-in", "hi"],
-  ["it", "it"],
-  ["it-it", "it"],
-  ["ja", "ja"],
-  ["ja-jp", "ja"],
-  ["ko", "ko"],
-  ["ko-kr", "ko"],
-  ["pt", "pt"],
-  ["pt-pt", "pt"],
-  ["pt_br", "pt-br"],
-  ["pt-br", "pt-br"],
-  ["ru", "ru"],
-  ["ru-ru", "ru"],
-  ["zh", "zh"],
-  ["zh-cn", "zh"],
-  ["zh-hans", "zh"],
-  ["zh-sg", "zh"],
-  ["zh-tw", "zh-tw"],
-  ["zh-hant", "zh-tw"],
-  ["zh-hk", "zh-tw"],
-  ["zh-mo", "zh-tw"],
+const supportedLocaleSet: ReadonlySet<string> = new Set(SUPPORTED_LOCALES);
+
+const traditionalChineseRegions: ReadonlySet<string> = new Set([
+  "TW",
+  "HK",
+  "MO",
 ]);
 
-export const normalizeLocale = (value: string | null | undefined): AppLocale | null => {
-  if (!value) {
-    return null;
-  }
+const isAppLocale = (value: string): value is AppLocale =>
+  supportedLocaleSet.has(value);
 
-  const normalized = value.trim().toLowerCase().replace(/_/g, "-");
+export const normalizeLocale = (
+  value: string | null | undefined,
+): AppLocale | null => {
+  const normalized = value?.trim().replace(/_/g, "-").toLowerCase();
+
   if (!normalized) {
     return null;
   }
 
-  const direct = NORMALIZED_LOCALE_MAP.get(normalized);
-  if (direct) {
-    return direct;
+  if (isAppLocale(normalized)) {
+    return normalized;
   }
 
-  if (normalized.startsWith("pt-br")) {
-    return "pt-br";
+  let locale: Intl.Locale;
+
+  try {
+    locale = new Intl.Locale(normalized);
+  } catch {
+    return null;
   }
 
-  const root = normalized.split("-")[0] ?? '';
-  return (SUPPORTED_LOCALES as readonly string[]).includes(root) ? (root as AppLocale) : null;
+  const language = locale.language.toLowerCase();
+
+  if (language === "pt") {
+    return locale.region === "BR" ? "pt-br" : "pt";
+  }
+
+  if (language === "zh") {
+    if (locale.script === "Hant") {
+      return "zh-tw";
+    }
+
+    if (locale.script === "Hans") {
+      return "zh";
+    }
+
+    return locale.region && traditionalChineseRegions.has(locale.region)
+      ? "zh-tw"
+      : "zh";
+  }
+
+  return isAppLocale(language) ? language : null;
 };
 
-export const dedupeLocales = (values: Array<string | null | undefined>): AppLocale[] => {
+export const dedupeLocales = (
+  values: ReadonlyArray<string | null | undefined>,
+): AppLocale[] => {
   const seen = new Set<AppLocale>();
   const result: AppLocale[] = [];
 
-  values.forEach((value) => {
+  for (const value of values) {
     const locale = normalizeLocale(value);
-    if (!locale || seen.has(locale)) {
-      return;
-    }
 
-    seen.add(locale);
-    result.push(locale);
-  });
+    if (locale !== null && !seen.has(locale)) {
+      seen.add(locale);
+      result.push(locale);
+    }
+  }
 
   return result;
 };
 
-export const resolveLocaleChain = (locale: AppLocale): AppLocale[] =>
-  dedupeLocales([
-    locale,
-    locale === "pt-br" ? "pt" : null,
-    locale === "pt" ? "pt-br" : null,
-    locale === "zh-tw" ? "zh" : null,
-    locale === "zh" ? "zh-tw" : null,
-    "en",
-    DEFAULT_APP_LOCALE,
-  ]);
+const localeFallbacks = {
+  ar: ["ar", "en"],
+  de: ["de", "en"],
+  en: ["en"],
+  es: ["es", "en"],
+  fr: ["fr", "en"],
+  hi: ["hi", "en"],
+  it: ["it", "en"],
+  ja: ["ja", "en"],
+  ko: ["ko", "en"],
+  pt: ["pt", "pt-br", "en"],
+  "pt-br": ["pt-br", "pt", "en"],
+  ru: ["ru", "en"],
+  zh: ["zh", "zh-tw", "en"],
+  "zh-tw": ["zh-tw", "zh", "en"],
+} as const satisfies Readonly<Record<AppLocale, readonly AppLocale[]>>;
+
+export const resolveLocaleChain = (locale: AppLocale): AppLocale[] => [
+  ...localeFallbacks[locale],
+];
 
 export const toHtmlLang = (locale: AppLocale): string => {
-  if (locale === "pt-br") return "pt-BR";
-  if (locale === "zh-tw") return "zh-TW";
-  return locale;
+  switch (locale) {
+    case "pt-br":
+      return "pt-BR";
+    case "zh-tw":
+      return "zh-TW";
+    default:
+      return locale;
+  }
 };
 
-export const isRtlLocale = (locale: AppLocale): boolean => RTL_LOCALES.has(locale);
+export const isRtlLocale = (locale: AppLocale): boolean =>
+  RTL_LOCALES.has(locale);
