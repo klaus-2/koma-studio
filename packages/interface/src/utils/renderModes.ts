@@ -1,41 +1,55 @@
-import type { RenderTextStyle } from "./renderText";
+import type { RenderTextStyle } from "@/typography/renderStyle";
 import {
   loadRenderModePresetState,
-  type RenderModePresetMode,
-  type RenderModeStylePreset,
-} from "./renderModePresets";
+} from "@/utils/renderModePresets";
+import type {
+  RenderModePresetMode,
+  RenderModeStylePreset,
+} from "@/utils/renderModePresets";
 
 export type DetectedRenderTextMode = RenderModePresetMode;
-
 export type RenderTextMode = "auto" | DetectedRenderTextMode;
 
 export interface RenderModeRegionLike {
-  renderMode?: RenderTextMode;
-  detectedRenderMode?: DetectedRenderTextMode;
+  readonly renderMode?: RenderTextMode;
+  readonly detectedRenderMode?: DetectedRenderTextMode;
 }
 
-export const RENDER_TEXT_MODE_LABELS: Record<RenderTextMode, string> = {
+export const RENDER_TEXT_MODE_LABELS = Object.freeze({
   auto: "AUTO",
   text_bubble: "Bubble Text",
   text_free: "Free Text",
   text_sfx: "Sound Effect",
   text_narration: "Narration",
   text_inside_black_bubble: "Inside Black Bubble",
-};
+} satisfies Record<RenderTextMode, string>);
 
-const applyPatch = (
-  baseStyle: RenderTextStyle,
-  patch: Partial<RenderTextStyle>,
-): RenderTextStyle => ({
-  ...baseStyle,
-  ...patch,
-});
+const aliases: ReadonlyMap<string, DetectedRenderTextMode> = new Map([
+  ["text_bubble", "text_bubble"],
+  ["bubble", "text_bubble"],
+  ["text_free", "text_free"],
+  ["free", "text_free"],
+  ["text_sfx", "text_sfx"],
+  ["sound_effect", "text_sfx"],
+  ["sound-effect", "text_sfx"],
+  ["sfx", "text_sfx"],
+  ["text_narration", "text_narration"],
+  ["narration", "text_narration"],
+  ["text_inside_black_bubble", "text_inside_black_bubble"],
+  ["inside_black_bubble", "text_inside_black_bubble"],
+  ["inside-black-bubble", "text_inside_black_bubble"],
+]);
+
+const finiteOr = (value: number, fallback: number): number =>
+  Number.isFinite(value) ? value : fallback;
 
 const buildDefaultModePatch = (
-  resolvedMode: DetectedRenderTextMode,
-  baseStyle: RenderTextStyle,
+  mode: DetectedRenderTextMode,
+  style: RenderTextStyle,
 ): Partial<RenderTextStyle> => {
-  switch (resolvedMode) {
+  const outlineWidth = Math.max(0, finiteOr(style.outlineWidth, 0));
+
+  switch (mode) {
     case "text_free":
       return {
         color: "#0f172a",
@@ -43,35 +57,38 @@ const buildDefaultModePatch = (
         outlineWidth: 1.5,
         uppercase: false,
       };
+
     case "text_sfx":
       return {
-        fontSize: Math.max(baseStyle.fontSize, 52),
-        minFontSize: Math.max(baseStyle.minFontSize, 12),
+        fontSize: Math.max(finiteOr(style.fontSize, 52), 52),
+        minFontSize: Math.max(finiteOr(style.minFontSize, 12), 12),
         bold: true,
-        outlineWidth: Math.max(baseStyle.outlineWidth, 3.5),
+        outlineWidth: Math.max(outlineWidth, 3.5),
         uppercase: false,
       };
+
     case "text_narration":
       return {
         fontFamily: "Times New Roman",
         alignment: "left",
         italic: true,
-        outlineWidth: Math.max(1, baseStyle.outlineWidth * 0.75),
+        outlineWidth: Math.max(1, outlineWidth * 0.75),
         uppercase: false,
       };
+
     case "text_inside_black_bubble":
       return {
         color: "#ffffff",
         outlineColor: "#111111",
-        outlineWidth: Math.max(baseStyle.outlineWidth, 2.5),
+        outlineWidth: Math.max(outlineWidth, 2.5),
         uppercase: false,
       };
+
     case "text_bubble":
-    default:
       return {
         color: "#111111",
         outlineColor: "#ffffff",
-        outlineWidth: Math.max(baseStyle.outlineWidth, 2),
+        outlineWidth: Math.max(outlineWidth, 2),
         alignment: "center",
         bold: false,
         italic: false,
@@ -82,66 +99,43 @@ const buildDefaultModePatch = (
 
 export const normalizeDetectedRenderMode = (
   value: string | null | undefined,
-): DetectedRenderTextMode | undefined => {
-  if (!value) return undefined;
-
-  switch (value.trim().toLowerCase()) {
-    case "text_bubble":
-    case "bubble":
-      return "text_bubble";
-    case "text_free":
-    case "free":
-      return "text_free";
-    case "text_sfx":
-    case "sound_effect":
-    case "sound-effect":
-    case "sfx":
-      return "text_sfx";
-    case "text_narration":
-    case "narration":
-      return "text_narration";
-    case "text_inside_black_bubble":
-    case "inside_black_bubble":
-    case "inside-black-bubble":
-      return "text_inside_black_bubble";
-    default:
-      return undefined;
-  }
-};
+): DetectedRenderTextMode | undefined =>
+  value ? aliases.get(value.trim().toLowerCase()) : undefined;
 
 export const resolveRenderTextMode = (
   region: RenderModeRegionLike,
-): DetectedRenderTextMode => {
-  if (region.renderMode && region.renderMode !== "auto") {
-    return region.renderMode;
-  }
-  return region.detectedRenderMode ?? "text_bubble";
-};
+): DetectedRenderTextMode =>
+  normalizeDetectedRenderMode(region.renderMode) ??
+  normalizeDetectedRenderMode(region.detectedRenderMode) ??
+  "text_bubble";
 
 export const getRenderModePresetStyle = (
   renderMode: RenderTextMode,
   baseStyle: RenderTextStyle,
   detectedRenderMode?: DetectedRenderTextMode,
-  modePresetOverrides?: Partial<Record<DetectedRenderTextMode, RenderModeStylePreset>>,
+  modePresetOverrides?: Readonly<
+    Partial<Record<DetectedRenderTextMode, RenderModeStylePreset>>
+  >,
 ): RenderTextStyle => {
-  const resolvedMode =
-    renderMode === "auto" ? (detectedRenderMode ?? "text_bubble") : renderMode;
-  const styleWithDefaults = applyPatch(baseStyle, buildDefaultModePatch(resolvedMode, baseStyle));
+  const mode =
+    normalizeDetectedRenderMode(renderMode) ??
+    normalizeDetectedRenderMode(detectedRenderMode) ??
+    "text_bubble";
+  const defaults = {
+    ...baseStyle,
+    ...buildDefaultModePatch(mode, baseStyle),
+  };
+  const overrides =
+    modePresetOverrides ?? loadRenderModePresetState().presets;
+  const override = overrides[mode];
 
-  const overrides = modePresetOverrides ?? loadRenderModePresetState().presets;
-  const modeOverride = overrides[resolvedMode];
-  if (!modeOverride) {
-    return styleWithDefaults;
-  }
+  if (!override) return structuredClone(defaults);
 
-  const { outlineEnabled, ...styleOverride } = modeOverride;
-  const styleWithOverride = applyPatch(styleWithDefaults, styleOverride);
-  if (outlineEnabled === false) {
-    return {
-      ...styleWithOverride,
-      outlineWidth: 0,
-    };
-  }
+  const { outlineEnabled, ...patch } = override;
 
-  return styleWithOverride;
+  return structuredClone({
+    ...defaults,
+    ...patch,
+    ...(outlineEnabled === false ? { outlineWidth: 0 } : {}),
+  });
 };

@@ -1,214 +1,265 @@
-import type {
-  TypographyBounds,
-  TypographyShape,
-  TypographyShapeKind,
-} from "../typography/types";
+import { converter, parse } from "culori";
 import type {
   RenderTextOrientation,
   RenderTextPathMode,
   RenderTextStyle,
   RenderTextStyleRange,
-} from "../typography/renderStyle";
-import { parseCssGradientValue } from "./textFillPicker";
+} from "@/typography/renderStyle";
 import type {
   FillStyleSource,
   RenderTextPlacementSegment,
   RenderTextVisualPadding,
-} from "./renderText.types";
+  StyledGlyph,
+} from "@/utils/renderText.types";
+import {
+  resolveInlineStyleRuns,
+  styleValuesEqual,
+} from "@/utils/renderTextStyleRanges";
+import {
+  isParagraphBreak,
+  normalizeLineEndings,
+  segmentText,
+} from "@/utils/renderText.unicode";
+import { parseCssGradientValue } from "@/utils/textFillPicker";
 
-const ROUNDED_REFINED_SAFE_ZONE = {
-  left: 16,
-  right: 16,
-  top: 60,
-  bottom: 60,
-} as const;
+export {
+  buildRefinedSafeZoneInnerBox,
+  clampSafeZoneInset,
+  inferAutoFontBounds,
+  normalizeShape,
+  resolveHorizontalBandWidth,
+  resolveHorizontalLineWidths,
+  resolveStrictSafeZoneMode,
+} from "@/utils/renderText.geometry";
 
-const SQUARE_REFINED_SAFE_ZONE = {
-  left: 8,
-  right: 8,
-  top: 30,
-  bottom: 30,
-} as const;
+const toRgb = converter("rgb");
 
-const ROUNDED_REFINED_H_RATIO = 0.05;
-const ROUNDED_REFINED_V_RATIO = 0.20;
-const SQUARE_REFINED_H_RATIO = 0.02;
-const SQUARE_REFINED_V_RATIO = 0.15;
+export const withCanvasState = <T>(
+  ctx: CanvasRenderingContext2D,
+  operation: () => T,
+): T => {
+  ctx.save();
+  try {
+    return operation();
+  } finally {
+    ctx.restore();
+  }
+};
 
 export const normalizeText = (value: string): string =>
-  value.replace(/\r\n/g, "\n").trim();
+  normalizeLineEndings(value).trim();
 
 export const normalizeFontFamily = (value: string): string => {
-  const firstFamily = value.split(",")[0]?.trim() ?? "";
-  const unquoted = firstFamily.replace(/^["']+|["']+$/g, "").trim();
-  return unquoted.length > 0 ? unquoted : "Arial";
+  const firstFamily =
+    /^\s*(?:"([^"]+)"|'([^']+)'|([^,]+))/u.exec(value);
+  const family =
+    firstFamily?.[1] ?? firstFamily?.[2] ?? firstFamily?.[3] ?? "";
+
+  // Strip control characters without a control-char regex literal (lint).
+  const sanitized = Array.from(family)
+    .filter((char) => {
+      const code = char.codePointAt(0) ?? 0;
+      return code > 0x1f && code !== 0x7f;
+    })
+    .join("");
+
+  return sanitized.trim() || "Arial";
 };
 
-export const buildCanvasFont = (style: RenderTextStyle, fontSize: number): string => {
-  const italic = style.italic ? "italic " : "";
-  const bold = style.bold ? "bold " : "";
-  const family = normalizeFontFamily(style.fontFamily);
-  const escapedFamily = family.replace(/["\\]/g, "\\$&");
-  return `${italic}${bold}${fontSize}px "${escapedFamily}", sans-serif`;
-};
+export const buildCanvasFont = (
+  style: RenderTextStyle,
+  fontSize: number,
+): string => {
+  if (!Number.isFinite(fontSize) || fontSize <= 0) {
+    throw new RangeError("Font size must be finite and positive.");
+  }
 
-type StyledGlyph = {
-  text: string;
-  style: RenderTextStyle;
-  measuredWidth: number;
-  lineHeight: number;
+  const family = normalizeFontFamily(style.fontFamily)
+    .replace(/["\\]/gu, "\\$&");
+
+  return `${style.italic ? "italic " : ""}${style.bold ? "bold " : ""}${fontSize}px "${family}", sans-serif`;
 };
 
 export const cloneShadowLayers = (
   style: RenderTextStyle,
 ): RenderTextStyle["shadowLayers"] =>
-  style.shadowLayers?.map((layer) => ({ ...layer }));
+  style.shadowLayers === undefined
+    ? undefined
+    : structuredClone(style.shadowLayers);
 
 export const resolveGlyphStyle = (
   baseStyle: RenderTextStyle,
   fontSize: number,
   patch?: Partial<RenderTextStyle>,
-): RenderTextStyle => ({
-  ...baseStyle,
-  fontSize,
-  ...patch,
-  shadowLayers: patch?.shadowLayers
-    ? patch.shadowLayers.map((layer) => ({ ...layer }))
-    : cloneShadowLayers(baseStyle),
-});
+): RenderTextStyle =>
+  structuredClone({
+    ...baseStyle,
+    fontSize,
+    ...patch,
+  });
+
+export const estimateLineHeight = (
+  ctx: CanvasRenderingContext2D,
+  style: RenderTextStyle,
+  fontSize: number,
+): number =>
+  withCanvasState(ctx, () => {
+    ctx.font = buildCanvasFont(style, fontSize);
+    const metrics = ctx.measureText("Mg");
+    const ascent = Number.isFinite(metrics.actualBoundingBoxAscent)
+      ? Math.max(0, metrics.actualBoundingBoxAscent)
+      : fontSize * 0.8;
+    const descent = Number.isFinite(metrics.actualBoundingBoxDescent)
+      ? Math.max(0, metrics.actualBoundingBoxDescent)
+      : fontSize * 0.2;
+    const spacing = Number.isFinite(style.lineSpacing)
+      ? Math.max(0.6, style.lineSpacing)
+      : 1;
+
+    return Math.max(fontSize * 0.8, ascent + descent) * spacing;
+  });
+
+export const measureStyledGlyph = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  style: RenderTextStyle,
+): StyledGlyph =>
+  withCanvasState(ctx, () => {
+    ctx.font = buildCanvasFont(style, style.fontSize);
+    return {
+      text,
+      style,
+      measuredWidth: ctx.measureText(text).width,
+      lineHeight: estimateLineHeight(ctx, style, style.fontSize),
+    };
+  });
 
 export const buildStyledGlyphLines = (
   ctx: CanvasRenderingContext2D,
   text: string,
   baseStyle: RenderTextStyle,
   fontSize: number,
-  ranges?: RenderTextStyleRange[],
-): StyledGlyph[][] => {
-  const lines: StyledGlyph[][] = [[]];
-  const safeText = text.length > 0 ? text : " ";
-  const lineBreaks = safeText.split("\n");
-  let offset = 0;
+  ranges?: readonly RenderTextStyleRange[],
+): StyledGlyph[][] =>
+  withCanvasState(ctx, () => {
+    const runs = resolveInlineStyleRuns(text.length, ranges);
+    const styles = new Map<number, RenderTextStyle>();
+    const metrics = new Map<RenderTextStyle, Map<string, StyledGlyph>>();
+    const lines: StyledGlyph[][] = [];
+    let line: StyledGlyph[] = [];
+    let runIndex = 0;
 
-  const applyPatchForIndex = (index: number): Partial<RenderTextStyle> | undefined => {
-    const patch: Partial<RenderTextStyle> = {};
-    ranges?.forEach((range) => {
-      if (index < range.start || index >= range.end) return;
-      Object.assign(patch, range.style);
-    });
-    return Object.keys(patch).length > 0 ? patch : undefined;
-  };
+    for (const grapheme of segmentText(text)) {
+      if (isParagraphBreak(grapheme.text)) {
+        lines.push(line);
+        line = [];
+        continue;
+      }
 
-  for (let lineIndex = 0; lineIndex < lineBreaks.length; lineIndex += 1) {
-    const rawLine = lineBreaks[lineIndex] ?? "";
-    const currentLine = lines[lineIndex] ?? [];
-    const source = rawLine.length > 0 ? Array.from(rawLine) : [" "];
+      while (
+        runs[runIndex] !== undefined &&
+        (runs[runIndex]?.end ?? text.length) <= grapheme.start
+      ) {
+        runIndex += 1;
+      }
 
-    source.forEach((rawGlyph, glyphIndex) => {
-      const style = resolveGlyphStyle(
-        baseStyle,
-        fontSize,
-        applyPatchForIndex(offset + glyphIndex),
-      );
-      const glyph = style.uppercase ? rawGlyph.toUpperCase() : rawGlyph;
-      ctx.font = buildCanvasFont(style, style.fontSize);
-      currentLine.push({
-        text: glyph,
-        style,
-        measuredWidth: ctx.measureText(glyph || " ").width,
-        lineHeight: estimateLineHeight(ctx, style, style.fontSize),
-      });
-    });
+      let style = styles.get(runIndex);
+      if (!style) {
+        style = resolveGlyphStyle(
+          baseStyle,
+          fontSize,
+          runs[runIndex]?.style,
+        );
+        styles.set(runIndex, style);
+      }
 
-    offset += rawLine.length + 1;
-    if (lineIndex < lineBreaks.length - 1) {
-      lines.push([]);
+      const glyphText = style.uppercase
+        ? grapheme.text.toUpperCase()
+        : grapheme.text;
+      const cache = metrics.get(style) ?? new Map<string, StyledGlyph>();
+      let glyph = cache.get(glyphText);
+
+      if (!glyph) {
+        glyph = measureStyledGlyph(ctx, glyphText, style);
+        cache.set(glyphText, glyph);
+        metrics.set(style, cache);
+      }
+
+      line.push(glyph);
     }
-  }
 
-  return lines;
-};
+    lines.push(line);
+    return lines;
+  });
 
 export const compressGlyphSegments = (
   ctx: CanvasRenderingContext2D,
-  glyphs: StyledGlyph[],
-): RenderTextPlacementSegment[] => {
-  const segments: RenderTextPlacementSegment[] = [];
-  glyphs.forEach((glyph) => {
-    const previousSegment = segments[segments.length - 1];
-    const previousSignature = previousSegment
-      ? JSON.stringify(previousSegment.style)
-      : "";
-    const nextSignature = JSON.stringify(glyph.style);
-    if (previousSegment && previousSignature === nextSignature) {
-      previousSegment.text += glyph.text;
-      ctx.font = buildCanvasFont(previousSegment.style, previousSegment.style.fontSize);
-      previousSegment.measuredWidth = ctx.measureText(previousSegment.text).width;
-      return;
+  glyphs: readonly StyledGlyph[],
+): RenderTextPlacementSegment[] =>
+  withCanvasState(ctx, () => {
+    const segments: RenderTextPlacementSegment[] = [];
+    let currentStyle: RenderTextStyle | undefined;
+    let pieces: string[] = [];
+
+    const flush = (): void => {
+      if (!currentStyle || pieces.length === 0) return;
+
+      const text = pieces.join("");
+      ctx.font = buildCanvasFont(currentStyle, currentStyle.fontSize);
+      segments.push({
+        text,
+        style: currentStyle,
+        measuredWidth: ctx.measureText(text).width,
+      });
+      pieces = [];
+    };
+
+    for (const glyph of glyphs) {
+      if (
+        currentStyle !== glyph.style &&
+        !styleValuesEqual(currentStyle, glyph.style)
+      ) {
+        flush();
+        currentStyle = glyph.style;
+      }
+
+      pieces.push(glyph.text);
     }
-    segments.push({
-      text: glyph.text,
-      style: glyph.style,
-      measuredWidth: glyph.measuredWidth,
-    });
+
+    flush();
+    return segments;
   });
-  return segments;
-};
 
 export const normalizeRotationAngle = (value: number): number => {
   if (!Number.isFinite(value)) return 0;
-  let normalized = value % 360;
-  if (normalized > 180) normalized -= 360;
-  if (normalized <= -180) normalized += 360;
-  return normalized;
+  const normalized = ((value % 360) + 360) % 360;
+  return normalized > 180 ? normalized - 360 : normalized;
 };
 
-export const normalizeSkewAngle = (value: number): number => {
-  if (!Number.isFinite(value)) return 0;
-  return Math.min(Math.max(value, -45), 45);
+export const normalizeSkewAngle = (value: number): number =>
+  Number.isFinite(value) ? Math.min(45, Math.max(-45, value)) : 0;
+
+export const normalizeOpacity = (value: number): number =>
+  Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 1;
+
+export const applyOpacityToColor = (
+  color: string,
+  opacity: number,
+): string => {
+  const parsed = parse(color.trim() || "#000000");
+  const rgb = parsed ? toRgb(parsed) : undefined;
+
+  if (!rgb) throw new TypeError("Unsupported standalone CSS color.");
+
+  const channel = (value: number): number =>
+    Math.round(Math.min(1, Math.max(0, value)) * 255);
+  const alpha = normalizeOpacity(rgb.alpha ?? 1) * normalizeOpacity(opacity);
+
+  return `rgba(${channel(rgb.r)}, ${channel(rgb.g)}, ${channel(rgb.b)}, ${alpha})`;
 };
 
-export const normalizeOpacity = (value: number): number => {
-  if (!Number.isFinite(value)) return 1;
-  return Math.min(Math.max(value, 0), 1);
-};
-
-export const applyOpacityToColor = (color: string, opacity: number): string => {
-  const normalizedOpacity = normalizeOpacity(opacity);
-  const normalizedColor = String(color || "").trim();
-  if (!normalizedColor) {
-    return `rgba(0, 0, 0, ${normalizedOpacity})`;
-  }
-
-  if (normalizedColor.startsWith("#")) {
-    let hex = normalizedColor.slice(1);
-    if (hex.length === 3 || hex.length === 4) {
-      hex = hex.split("").map((char) => char + char).join("");
-    }
-    if (hex.length === 6 || hex.length === 8) {
-      const r = parseInt(hex.slice(0, 2), 16);
-      const g = parseInt(hex.slice(2, 4), 16);
-      const b = parseInt(hex.slice(4, 6), 16);
-      return `rgba(${r}, ${g}, ${b}, ${normalizedOpacity})`;
-    }
-  }
-
-  const rgbMatch = normalizedColor.match(/^rgba?\(([^)]+)\)$/i);
-  if (rgbMatch) {
-    const parts = (rgbMatch[1] ?? "").split(",").map((part) => part.trim());
-    if (parts.length >= 3) {
-      return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${normalizedOpacity})`;
-    }
-  }
-
-  return normalizedColor;
-};
-
-export const normalizeGradientAngle = (value: number): number => {
-  if (!Number.isFinite(value)) return 90;
-  let normalized = value % 360;
-  if (normalized < 0) normalized += 360;
-  return normalized;
-};
+export const normalizeGradientAngle = (value: number): number =>
+  Number.isFinite(value) ? ((value % 360) + 360) % 360 : 90;
 
 export const resolveRadialGradientCenter = (
   x: number,
@@ -216,44 +267,64 @@ export const resolveRadialGradientCenter = (
   width: number,
   height: number,
   position: string,
-): { centerX: number; centerY: number; radius: number } => {
-  const normalized = position.trim().toLowerCase();
-  const horizontal = normalized.includes("left")
+): Readonly<{ centerX: number; centerY: number; radius: number }> => {
+  const tokens = position.trim().toLowerCase().split(/\s+/u);
+  const horizontal = tokens.includes("left")
     ? 0
-    : normalized.includes("right")
+    : tokens.includes("right")
       ? 1
       : 0.5;
-  const vertical = normalized.includes("top")
+  const vertical = tokens.includes("top")
     ? 0
-    : normalized.includes("bottom")
+    : tokens.includes("bottom")
       ? 1
       : 0.5;
 
-  const centerX = x + (width * horizontal);
-  const centerY = y + (height * vertical);
-  const candidatePoints: Array<[number, number]> = [
-    [x, y],
-    [x + width, y],
-    [x, y + height],
-    [x + width, y + height],
-  ];
-  const radius = candidatePoints.reduce((maxDistance, [pointX, pointY]) => {
-    const distance = Math.hypot(pointX - centerX, pointY - centerY);
-    return Math.max(maxDistance, distance);
-  }, 1);
+  const centerX = x + width * horizontal;
+  const centerY = y + height * vertical;
+  const radius = Math.max(
+    Math.hypot(centerX - x, centerY - y),
+    Math.hypot(centerX - x - width, centerY - y),
+    Math.hypot(centerX - x, centerY - y - height),
+    Math.hypot(centerX - x - width, centerY - y - height),
+  );
 
-  return {
-    centerX,
-    centerY,
-    radius: Math.max(1, radius),
-  };
+  return { centerX, centerY, radius: Math.max(Number.EPSILON, radius) };
 };
 
-export const normalizeTextOrientation = (value: RenderTextStyle["textOrientation"]): RenderTextOrientation =>
+export const normalizeTextOrientation = (
+  value: RenderTextStyle["textOrientation"],
+): RenderTextOrientation =>
   value === "vertical" ? "vertical" : "horizontal";
 
-export const normalizeTextPathMode = (value: RenderTextStyle["textPathMode"]): RenderTextPathMode =>
+export const normalizeTextPathMode = (
+  value: RenderTextStyle["textPathMode"],
+): RenderTextPathMode =>
   value === "circular" ? "circular" : "normal";
+
+const createLinearGradient = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  degrees: number,
+): CanvasGradient => {
+  const angle = (normalizeGradientAngle(degrees) * Math.PI) / 180;
+  const directionX = Math.sin(angle);
+  const directionY = -Math.cos(angle);
+  const halfLength =
+    (Math.abs(width * directionX) + Math.abs(height * directionY)) / 2;
+  const centerX = x + width / 2;
+  const centerY = y + height / 2;
+
+  return ctx.createLinearGradient(
+    centerX - directionX * halfLength,
+    centerY - directionY * halfLength,
+    centerX + directionX * halfLength,
+    centerY + directionY * halfLength,
+  );
+};
 
 export const resolveCanvasFillStyle = (
   ctx: CanvasRenderingContext2D,
@@ -263,72 +334,60 @@ export const resolveCanvasFillStyle = (
   width: number,
   height: number,
 ): string | CanvasGradient => {
-  if (!style.gradientEnabled) {
-    return style.fillCssValue || style.color;
+  if (![x, y, width, height].every(Number.isFinite)) {
+    throw new RangeError("Gradient geometry must be finite.");
   }
 
-  const fillCssValue = style.fillCssValue?.trim();
-  if (fillCssValue) {
-    const parsedGradient = parseCssGradientValue(fillCssValue);
-    if (parsedGradient?.stops.length) {
-      if (parsedGradient.mode === "radial") {
-        const { centerX, centerY, radius } = resolveRadialGradientCenter(
-          x,
-          y,
-          width,
-          height,
-          parsedGradient.position,
-        );
-        const radialGradient = ctx.createRadialGradient(
-          centerX,
-          centerY,
-          0,
-          centerX,
-          centerY,
-          radius,
-        );
-        parsedGradient.stops.forEach((stop) => {
-          radialGradient.addColorStop(
-            Math.max(0, Math.min(1, stop.position / 100)),
-            stop.color,
-          );
-        });
-        return radialGradient;
+  if (!style.gradientEnabled) return style.fillCssValue || style.color;
+
+  const parsed = style.fillCssValue
+    ? parseCssGradientValue(style.fillCssValue.trim())
+    : null;
+
+  if (parsed?.stops.length) {
+    const gradient =
+      parsed.mode === "radial"
+        ? (() => {
+            const { centerX, centerY, radius } =
+              resolveRadialGradientCenter(
+                x,
+                y,
+                width,
+                height,
+                parsed.position,
+              );
+
+            return ctx.createRadialGradient(
+              centerX,
+              centerY,
+              0,
+              centerX,
+              centerY,
+              radius,
+            );
+          })()
+        : createLinearGradient(ctx, x, y, width, height, parsed.angle);
+
+    for (const stop of parsed.stops) {
+      if (!Number.isFinite(stop.position)) {
+        throw new RangeError("Gradient stop position must be finite.");
       }
-
-      const centerX = x + (width / 2);
-      const centerY = y + (height / 2);
-      const gradientLength = Math.max(1, Math.hypot(width, height) / 2);
-      const angle = (normalizeGradientAngle(parsedGradient.angle) * Math.PI) / 180;
-      const deltaX = Math.cos(angle) * gradientLength;
-      const deltaY = Math.sin(angle) * gradientLength;
-      const linearGradient = ctx.createLinearGradient(
-        centerX - deltaX,
-        centerY - deltaY,
-        centerX + deltaX,
-        centerY + deltaY,
+      gradient.addColorStop(
+        Math.min(1, Math.max(0, stop.position / 100)),
+        stop.color,
       );
-      parsedGradient.stops.forEach((stop) => {
-        linearGradient.addColorStop(
-          Math.max(0, Math.min(1, stop.position / 100)),
-          stop.color,
-        );
-      });
-      return linearGradient;
     }
+
+    return gradient;
   }
 
-  const centerX = x + (width / 2);
-  const centerY = y + (height / 2);
-  const gradientLength = Math.max(1, Math.hypot(width, height) / 2);
-  const angle = (normalizeGradientAngle(style.gradientAngle) * Math.PI) / 180;
-  const deltaX = Math.cos(angle) * gradientLength;
-  const deltaY = Math.sin(angle) * gradientLength;
-  const gradient = ctx.createLinearGradient(
-    centerX - deltaX,
-    centerY - deltaY,
-    centerX + deltaX,
-    centerY + deltaY,
+  const gradient = createLinearGradient(
+    ctx,
+    x,
+    y,
+    width,
+    height,
+    style.gradientAngle,
   );
   gradient.addColorStop(0, style.gradientStartColor || style.color);
   gradient.addColorStop(1, style.gradientEndColor || style.color);
@@ -342,168 +401,16 @@ export const resolveTextFillStyle = (
   y: number,
   width: number,
   height: number,
-): string | CanvasGradient => resolveCanvasFillStyle(ctx, style, x, y, width, height);
-
-export const estimateLineHeight = (
-  ctx: CanvasRenderingContext2D,
-  style: RenderTextStyle,
-  fontSize: number,
-): number => {
-  ctx.font = buildCanvasFont(style, fontSize);
-  const metrics = ctx.measureText("Mg");
-  const baseHeight =
-    (metrics.actualBoundingBoxAscent || fontSize * 0.8)
-    + (metrics.actualBoundingBoxDescent || fontSize * 0.2);
-  const spacing = Math.max(0.6, style.lineSpacing || 1);
-  return Math.max(fontSize * 0.8, baseHeight) * spacing;
-};
-
-export const clampSafeZoneInset = (size: number, inset: number): number =>
-  Math.min(
-    inset,
-    Math.max(0, Math.floor((Math.max(1, Math.round(size)) - 1) / 2)),
-  );
-
-export const buildRefinedSafeZoneInnerBox = (
-  kind: TypographyShapeKind,
-  roiWidth: number,
-  roiHeight: number,
-): TypographyBounds => {
-  const safeWidth = Math.max(1, Math.round(roiWidth));
-  const safeHeight = Math.max(1, Math.round(roiHeight));
-  const template =
-    kind === "rounded" ? ROUNDED_REFINED_SAFE_ZONE : SQUARE_REFINED_SAFE_ZONE;
-  const hRatio = kind === "rounded" ? ROUNDED_REFINED_H_RATIO : SQUARE_REFINED_H_RATIO;
-  const vRatio = kind === "rounded" ? ROUNDED_REFINED_V_RATIO : SQUARE_REFINED_V_RATIO;
-
-  // Use the smaller of the fixed maximum or the proportional value,
-  // with a floor so margins never collapse for tiny shapes.
-  // This keeps text area consistent regardless of bubble size.
-  const left = clampSafeZoneInset(safeWidth, Math.min(template.left, Math.max(4, Math.round(safeWidth * hRatio))));
-  const right = clampSafeZoneInset(safeWidth, Math.min(template.right, Math.max(4, Math.round(safeWidth * hRatio))));
-  const top = clampSafeZoneInset(safeHeight, Math.min(template.top, Math.max(8, Math.round(safeHeight * vRatio))));
-  const bottom = clampSafeZoneInset(safeHeight, Math.min(template.bottom, Math.max(8, Math.round(safeHeight * vRatio))));
-
-  return [
-    left,
-    top,
-    Math.max(left + 1, safeWidth - right),
-    Math.max(top + 1, safeHeight - bottom),
-  ];
-};
-
-export const resolveStrictSafeZoneMode = (
-  shape: TypographyShape | null | undefined,
-  roiWidth: number,
-  roiHeight: number,
-): boolean => {
-  if (!shape || shape.source !== "refined") {
-    return false;
-  }
-
-  const expectedInnerBox = buildRefinedSafeZoneInnerBox(
-    shape.kind,
-    roiWidth,
-    roiHeight,
-  );
-
-  return expectedInnerBox.every(
-    (value, index) => value === (shape.innerBox[index] ?? value),
-  );
-};
+): string | CanvasGradient =>
+  resolveCanvasFillStyle(ctx, style, x, y, width, height);
 
 export const resolveRenderTextVisualPadding = (
   style: RenderTextStyle,
-  strictSafeZone: boolean,
+  _strictSafeZone: boolean,
 ): RenderTextVisualPadding => {
-  const outlineWidth = Math.max(0, style.outlineWidth || 0);
-  const padding: RenderTextVisualPadding = {
-    left: outlineWidth,
-    right: outlineWidth,
-    top: outlineWidth,
-    bottom: outlineWidth,
-  };
+  const outline = Number.isFinite(style.outlineWidth)
+    ? Math.max(0, style.outlineWidth)
+    : 0;
 
-  if (!strictSafeZone) {
-    return padding;
-  }
-
-  return padding;
-};
-
-export const inferAutoFontBounds = (
-  roiWidth: number,
-  roiHeight: number,
-  style: RenderTextStyle,
-  shape?: TypographyShape | null,
-): { minFontSize: number; maxFontSize: number } => {
-  const safeWidth = Math.max(1, roiWidth);
-  const safeHeight = Math.max(1, roiHeight);
-  const orientation = normalizeTextOrientation(style.textOrientation);
-  // Use inner box dimensions when available so the font bounds reflect
-  // the actual usable area, not the full shape bounding box.
-  let usableWidth = safeWidth;
-  let usableHeight = safeHeight;
-  if (shape?.innerBox) {
-    usableWidth = Math.max(1, shape.innerBox[2] - shape.innerBox[0]);
-    usableHeight = Math.max(1, shape.innerBox[3] - shape.innerBox[1]);
-  }
-  const maxByHeight = usableHeight * 0.95;
-  const maxByWidth = orientation === "vertical" ? usableWidth * 1.5 : usableWidth * 0.88;
-  const inferredMax = Math.floor(Math.min(maxByHeight, maxByWidth));
-  const maxFontSize = Math.min(300, Math.max(8, inferredMax));
-  const minFontSize = Math.min(maxFontSize, Math.max(6, Math.floor(maxFontSize * 0.15)));
-  return { minFontSize, maxFontSize };
-};
-
-export const normalizeShape = (
-  shape: TypographyShape | undefined,
-  roiWidth: number,
-  roiHeight: number,
-): TypographyShape | null => {
-  if (!shape) return null;
-  const safeWidth = Math.max(1, roiWidth);
-  const safeHeight = Math.max(1, roiHeight);
-  const [rawX1, rawY1, rawX2, rawY2] = shape.innerBox;
-  const x1 = Math.min(Math.max(0, rawX1), safeWidth);
-  const y1 = Math.min(Math.max(0, rawY1), safeHeight);
-  const x2 = Math.max(x1 + 1, Math.min(safeWidth, rawX2));
-  const y2 = Math.max(y1 + 1, Math.min(safeHeight, rawY2));
-  const fitProfile = Array.isArray(shape.fitProfile) && shape.fitProfile.length > 0
-    ? shape.fitProfile.map((value) => Math.min(1, Math.max(0.2, Number(value) || 1)))
-    : [1];
-  return {
-    ...shape,
-    innerBox: [x1, y1, x2, y2],
-    fitProfile,
-  };
-};
-
-export const resolveHorizontalLineWidths = (
-  normalizedShape: TypographyShape | null,
-  lineCount: number,
-  fallbackWidth: number,
-): number[] => {
-  if (!normalizedShape || normalizedShape.kind !== "rounded" || lineCount <= 0) {
-    return Array.from({ length: Math.max(1, lineCount) }, () => fallbackWidth);
-  }
-  const fitProfile = normalizedShape.fitProfile.length > 0 ? normalizedShape.fitProfile : [1];
-  const innerBox = normalizedShape.innerBox;
-  const innerHeight = Math.max(1, (innerBox[3] ?? 0) - (innerBox[1] ?? 0));
-  const widths: number[] = [];
-  for (let index = 0; index < lineCount; index += 1) {
-    const yCenter = lineCount <= 1
-      ? innerHeight / 2
-      : (index + 0.5) / lineCount * innerHeight;
-    const yRatio = yCenter / innerHeight;
-    const profilePos = yRatio * (fitProfile.length - 1);
-    const lowerIndex = Math.floor(profilePos);
-    const upperIndex = Math.min(fitProfile.length - 1, lowerIndex + 1);
-    const t = profilePos - lowerIndex;
-    const lowerRatio = fitProfile[lowerIndex] ?? 1;
-    const upperRatio = fitProfile[upperIndex] ?? 1;
-    const ratio = lowerRatio + (upperRatio - lowerRatio) * t;
-    widths.push(Math.max(1, fallbackWidth * ratio));
-  }
-  return widths;
+  return { left: outline, right: outline, top: outline, bottom: outline };
 };

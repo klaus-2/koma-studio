@@ -1,150 +1,151 @@
-export const LATIN_WORD_PATTERN = /^\p{Script=Latin}+$/u;
-export const LATIN_WORD_TOKEN_PATTERN = /^([^\p{Script=Latin}]*)([\p{Script=Latin}]+)([^\p{Script=Latin}]*)$/u;
-export const LATIN_ALLOWED_ONSET_CLUSTERS = new Set([
-  "bl",
-  "br",
-  "ch",
-  "cl",
-  "cr",
-  "dr",
-  "fl",
-  "fr",
-  "gl",
-  "gr",
-  "gu",
-  "lh",
-  "nh",
-  "pl",
-  "pr",
-  "qu",
-  "sc",
-  "sh",
-  "sk",
-  "sl",
-  "sm",
-  "sn",
-  "sp",
-  "st",
-  "sw",
-  "th",
-  "tr",
-  "vr",
-  "wr",
+import {
+  segmentText,
+  splitGraphemes,
+} from "@/utils/renderText.unicode";
+
+export interface TextMeasurer {
+  measureText(text: string): Readonly<{ width: number }>;
+}
+
+export interface HyphenationProfile {
+  readonly vowels: ReadonlySet<string>;
+  readonly weakVowels: ReadonlySet<string>;
+  readonly accentedWeakVowels: ReadonlySet<string>;
+}
+
+export interface TokenAffixes {
+  readonly prefix: string;
+  readonly word: string;
+  readonly suffix: string;
+}
+
+export interface WordSplit {
+  readonly head: string;
+  readonly tail: string;
+}
+
+export const LATIN_WORD_PATTERN = /^(?:\p{Script=Latin}\p{M}*)+$/u;
+
+export const LATIN_WORD_TOKEN_PATTERN =
+  /^([^\p{L}\p{N}\p{M}]*)([\p{Script=Latin}][\p{Script=Latin}\p{M}]*)([^\p{L}\p{N}\p{M}]*)$/u;
+
+export const LATIN_ALLOWED_ONSET_CLUSTERS: ReadonlySet<string> = new Set([
+  "bl", "br", "ch", "cl", "cr", "dr", "fl", "fr", "gl", "gr",
+  "gu", "lh", "nh", "pl", "pr", "qu", "sc", "sh", "sk", "sl",
+  "sm", "sn", "sp", "st", "sw", "th", "tr", "vr", "wr",
 ]);
 
-export const LATIN_HYPHENATION_LANGUAGES = new Set([
-  "de",
-  "en",
-  "es",
-  "fi",
-  "fr",
-  "hu",
-  "id",
-  "it",
-  "nl",
-  "pl",
-  "pt",
-  "pt-br",
-  "tr",
-  "vi",
+export const LATIN_HYPHENATION_LANGUAGES: ReadonlySet<string> = new Set([
+  "de", "en", "es", "fi", "fr", "hu", "id", "it",
+  "nl", "pl", "pt", "pt-br", "tr", "vi",
 ]);
 
-type HyphenationProfile = {
-  vowels: Set<string>;
-  weakVowels: Set<string>;
-  accentedWeakVowels: Set<string>;
+const createProfile = (
+  vowels: string,
+  weakVowels: string,
+  accentedWeakVowels = "",
+): HyphenationProfile => ({
+  vowels: new Set(vowels),
+  weakVowels: new Set(weakVowels),
+  accentedWeakVowels: new Set(accentedWeakVowels),
+});
+
+export const DEFAULT_LATIN_HYPHENATION_PROFILE =
+  createProfile("aeiou", "iu", "íú");
+
+const portugueseProfile = createProfile("aeiou", "iu", "íú");
+
+export const LATIN_HYPHENATION_PROFILES: ReadonlyMap<
+  string,
+  HyphenationProfile
+> = new Map([
+  ["en", createProfile("aeiouy", "iuy")],
+  ["pl", createProfile("aeiouy", "iy")],
+  ["pt", portugueseProfile],
+  ["pt-br", portugueseProfile],
+  ["es", createProfile("aeiou", "iu", "íú")],
+  ["fi", createProfile("aeiouy", "iuy")],
+]);
+
+export const normalizeHyphenationLanguage = (
+  value: string | undefined,
+): string | undefined => {
+  const candidate = value?.trim().replace(/_/gu, "-");
+  if (!candidate) return undefined;
+
+  try {
+    return Intl.getCanonicalLocales(candidate)[0]?.toLowerCase();
+  } catch {
+    return undefined;
+  }
 };
-
-export const DEFAULT_LATIN_HYPHENATION_PROFILE: HyphenationProfile = {
-  vowels: new Set(["a", "e", "i", "o", "u"]),
-  weakVowels: new Set(["i", "u"]),
-  accentedWeakVowels: new Set(["í", "ú"]),
-};
-
-export const LATIN_HYPHENATION_PROFILES = new Map<string, HyphenationProfile>([
-  [
-    "en",
-    {
-      vowels: new Set(["a", "e", "i", "o", "u", "y"]),
-      weakVowels: new Set(["i", "u", "y"]),
-      accentedWeakVowels: new Set(),
-    },
-  ],
-  [
-    "pl",
-    {
-      vowels: new Set(["a", "e", "i", "o", "u", "y"]),
-      weakVowels: new Set(["i", "y"]),
-      accentedWeakVowels: new Set(),
-    },
-  ],
-  [
-    "pt",
-    {
-      vowels: new Set(["a", "e", "i", "o", "u", "á", "à", "â", "ã", "é", "ê", "í", "ó", "ô", "õ", "ú", "ü"]),
-      weakVowels: new Set(["i", "u", "í", "ú", "ü"]),
-      accentedWeakVowels: new Set(["í", "ú"]),
-    },
-  ],
-  [
-    "pt-br",
-    {
-      vowels: new Set(["a", "e", "i", "o", "u", "á", "à", "â", "ã", "é", "ê", "í", "ó", "ô", "õ", "ú", "ü"]),
-      weakVowels: new Set(["i", "u", "í", "ú", "ü"]),
-      accentedWeakVowels: new Set(["í", "ú"]),
-    },
-  ],
-]);
 
 export const normalizeLatinBase = (value: string): string =>
   value
-    .replace(/[Ææ]/g, "ae")
-    .replace(/[Œœ]/g, "oe")
-    .replace(/[Øø]/g, "o")
-    .replace(/[Łł]/g, "l")
-    .replace(/[Đđ]/g, "d")
-    .replace(/ß/g, "ss")
+    .replace(/[Ææ]/gu, "ae")
+    .replace(/[Œœ]/gu, "oe")
+    .replace(/[Øø]/gu, "o")
+    .replace(/[Łł]/gu, "l")
+    .replace(/[Đđ]/gu, "d")
+    .replace(/[ẞß]/gu, "ss")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{M}/gu, "")
     .toLowerCase();
 
-export const isLatinHyphenationLanguage = (value: string | undefined): boolean =>
-  value ? LATIN_HYPHENATION_LANGUAGES.has(value.trim().toLowerCase()) : false;
+export const isLatinHyphenationLanguage = (
+  value: string | undefined,
+): boolean => {
+  const language = normalizeHyphenationLanguage(value);
+  if (!language) return false;
 
-export const resolveHyphenationProfile = (language: string | undefined): HyphenationProfile => {
-  const normalized = language?.trim().toLowerCase();
-  if (!normalized) {
-    return DEFAULT_LATIN_HYPHENATION_PROFILE;
-  }
-  return LATIN_HYPHENATION_PROFILES.get(normalized) ?? DEFAULT_LATIN_HYPHENATION_PROFILE;
+  return (
+    LATIN_HYPHENATION_LANGUAGES.has(language) ||
+    LATIN_HYPHENATION_LANGUAGES.has(language.split("-")[0] ?? "")
+  );
 };
 
-export const isLatinVowel = (value: string, profile: HyphenationProfile): boolean => {
-  const normalized = normalizeLatinBase(value);
-  if (!normalized) {
-    return false;
-  }
-  return Array.from(normalized).some((char) => profile.vowels.has(char));
+export const resolveHyphenationProfile = (
+  language: string | undefined,
+): HyphenationProfile => {
+  const normalized = normalizeHyphenationLanguage(language);
+  if (!normalized) return DEFAULT_LATIN_HYPHENATION_PROFILE;
+
+  return (
+    LATIN_HYPHENATION_PROFILES.get(normalized) ??
+    LATIN_HYPHENATION_PROFILES.get(normalized.split("-")[0] ?? "") ??
+    DEFAULT_LATIN_HYPHENATION_PROFILE
+  );
 };
 
-export const isLatinStrongVowel = (value: string, profile: HyphenationProfile): boolean => {
-  const normalized = normalizeLatinBase(value);
-  if (!normalized) {
-    return false;
-  }
-  return Array.from(normalized).some((char) => profile.vowels.has(char) && !profile.weakVowels.has(char));
-};
+export const isLatinVowel = (
+  value: string,
+  profile: HyphenationProfile,
+): boolean =>
+  Array.from(normalizeLatinBase(value)).some((char) =>
+    profile.vowels.has(char),
+  );
 
-export const isLatinWeakVowel = (value: string, profile: HyphenationProfile): boolean => {
-  const normalized = normalizeLatinBase(value);
-  if (!normalized) {
-    return false;
-  }
-  return Array.from(normalized).some((char) => profile.weakVowels.has(char));
-};
+export const isLatinStrongVowel = (
+  value: string,
+  profile: HyphenationProfile,
+): boolean =>
+  Array.from(normalizeLatinBase(value)).some(
+    (char) => profile.vowels.has(char) && !profile.weakVowels.has(char),
+  );
 
-export const isLatinAccentedWeakVowel = (value: string, profile: HyphenationProfile): boolean =>
-  profile.accentedWeakVowels.has(value.toLowerCase());
+export const isLatinWeakVowel = (
+  value: string,
+  profile: HyphenationProfile,
+): boolean =>
+  Array.from(normalizeLatinBase(value)).some((char) =>
+    profile.weakVowels.has(char),
+  );
+
+export const isLatinAccentedWeakVowel = (
+  value: string,
+  profile: HyphenationProfile,
+): boolean =>
+  profile.accentedWeakVowels.has(value.normalize("NFC").toLowerCase());
 
 export const canStartLatinOnset = (value: string): boolean =>
   LATIN_ALLOWED_ONSET_CLUSTERS.has(normalizeLatinBase(value));
@@ -156,183 +157,202 @@ export const shouldSplitLatinVowelPair = (
   current: string,
   next: string,
 ): boolean => {
-  if (isLatinAccentedWeakVowel(current, profile) || isLatinAccentedWeakVowel(next, profile)) {
+  if (!isLatinVowel(current, profile) || !isLatinVowel(next, profile)) {
+    return false;
+  }
+
+  const primaryLanguage =
+    normalizeHyphenationLanguage(language)?.split("-")[0];
+  const currentBase = normalizeLatinBase(current);
+  const nextBase = normalizeLatinBase(next);
+
+  if (primaryLanguage === "fi" && currentBase === nextBase) {
+    return false;
+  }
+
+  if (
+    isLatinAccentedWeakVowel(current, profile) ||
+    isLatinAccentedWeakVowel(next, profile)
+  ) {
     return true;
   }
-  if (isLatinStrongVowel(current, profile) && isLatinStrongVowel(next, profile)) {
+
+  if (
+    isLatinStrongVowel(current, profile) &&
+    isLatinStrongVowel(next, profile)
+  ) {
     return true;
   }
-  if (isLatinWeakVowel(current, profile) && isLatinStrongVowel(next, profile)) {
-    const normalizedCurrent = normalizeLatinBase(current);
-    const normalizedPrevious = normalizeLatinBase(previousChar ?? "");
-    if (normalizedCurrent === "u" && (normalizedPrevious === "q" || normalizedPrevious === "g")) {
-      return false;
-    }
-    return true;
+
+  if (
+    isLatinWeakVowel(current, profile) &&
+    isLatinStrongVowel(next, profile)
+  ) {
+    const previousBase = normalizeLatinBase(previousChar ?? "");
+    return !(
+      currentBase === "u" &&
+      (previousBase === "q" || previousBase === "g")
+    );
   }
-  if (language === "fi" && isLatinVowel(current, profile) && isLatinVowel(next, profile)) {
-    return true;
-  }
+
   return false;
 };
 
-export const splitLatinSyllables = (word: string, language: string | undefined): string[] => {
-  const trimmed = word.trim();
-  if (!trimmed || !LATIN_WORD_PATTERN.test(trimmed)) {
-    return [word];
+export const splitLatinSyllables = (
+  word: string,
+  language: string | undefined,
+): string[] => {
+  if (!word || !LATIN_WORD_PATTERN.test(word)) return [word];
+
+  const glyphs = splitGraphemes(word);
+  const profile = resolveHyphenationProfile(language);
+  const vowelIndexes: number[] = [];
+
+  for (let index = 0; index < glyphs.length; index += 1) {
+    if (isLatinVowel(glyphs[index] ?? "", profile)) {
+      vowelIndexes.push(index);
+    }
   }
 
-  const profile = resolveHyphenationProfile(language);
-  const chars = Array.from(trimmed);
+  const boundaries: number[] = [];
+
+  for (let index = 1; index < vowelIndexes.length; index += 1) {
+    const previous = vowelIndexes[index - 1];
+    const next = vowelIndexes[index];
+    if (previous === undefined || next === undefined) continue;
+
+    const clusterSize = next - previous - 1;
+
+    if (clusterSize === 0) {
+      if (
+        shouldSplitLatinVowelPair(
+          language,
+          profile,
+          glyphs[previous - 1],
+          glyphs[previous] ?? "",
+          glyphs[next] ?? "",
+        )
+      ) {
+        boundaries.push(next);
+      }
+      continue;
+    }
+
+    const lastTwo = glyphs.slice(Math.max(previous + 1, next - 2), next);
+    boundaries.push(
+      clusterSize >= 2 && canStartLatinOnset(lastTwo.join(""))
+        ? next - 2
+        : next - 1,
+    );
+  }
+
   const syllables: string[] = [];
   let start = 0;
 
-  while (start < chars.length) {
-    let vowelIndex = start;
-    while (vowelIndex < chars.length && !isLatinVowel(chars[vowelIndex] ?? "", profile)) {
-      vowelIndex += 1;
-    }
-
-    if (vowelIndex >= chars.length) {
-      if (syllables.length === 0) {
-        syllables.push(chars.slice(start).join(""));
-      } else {
-        syllables[syllables.length - 1] += chars.slice(start).join("");
-      }
-      break;
-    }
-
-    let nucleusEnd = vowelIndex;
-    while (nucleusEnd + 1 < chars.length && isLatinVowel(chars[nucleusEnd + 1] ?? "", profile)) {
-      const previousChar = chars[nucleusEnd - 1];
-      const currentChar = chars[nucleusEnd] ?? "";
-      const nextChar = chars[nucleusEnd + 1] ?? "";
-      if (shouldSplitLatinVowelPair(language, profile, previousChar, currentChar, nextChar)) {
-        break;
-      }
-      nucleusEnd += 1;
-    }
-
-    let nextVowelIndex = nucleusEnd + 1;
-    while (
-      nextVowelIndex < chars.length
-      && !isLatinVowel(chars[nextVowelIndex] ?? "", profile)
-    ) {
-      nextVowelIndex += 1;
-    }
-
-    if (nextVowelIndex >= chars.length) {
-      syllables.push(chars.slice(start).join(""));
-      break;
-    }
-
-    const consonantClusterStart = nucleusEnd + 1;
-    const clusterSize = nextVowelIndex - consonantClusterStart;
-    let splitIndex = nextVowelIndex;
-
-    if (clusterSize === 1) {
-      splitIndex = consonantClusterStart;
-    } else if (clusterSize === 2) {
-      const cluster = chars.slice(consonantClusterStart, nextVowelIndex).join("");
-      splitIndex = canStartLatinOnset(cluster)
-        ? consonantClusterStart
-        : consonantClusterStart + 1;
-    } else if (clusterSize >= 3) {
-      const lastTwo = chars.slice(nextVowelIndex - 2, nextVowelIndex).join("");
-      splitIndex = canStartLatinOnset(lastTwo)
-        ? nextVowelIndex - 2
-        : nextVowelIndex - 1;
-    }
-
-    if (splitIndex <= start) {
-      splitIndex = Math.min(chars.length, start + 1);
-    }
-
-    syllables.push(chars.slice(start, splitIndex).join(""));
-    start = splitIndex;
+  for (const boundary of boundaries) {
+    if (boundary <= start) continue;
+    syllables.push(glyphs.slice(start, boundary).join(""));
+    start = boundary;
   }
 
-  return syllables.filter((syllable) => syllable.length > 0);
+  syllables.push(glyphs.slice(start).join(""));
+  return syllables;
 };
 
-export const splitTokenAffixes = (token: string): { prefix: string; word: string; suffix: string } | null => {
-  const match = token.match(LATIN_WORD_TOKEN_PATTERN);
-  if (!match) return null;
-  return {
-    prefix: match[1] ?? "",
-    word: match[2] ?? "",
-    suffix: match[3] ?? "",
-  };
+export const splitTokenAffixes = (token: string): TokenAffixes | null => {
+  const match = LATIN_WORD_TOKEN_PATTERN.exec(token);
+  const word = match?.[2];
+
+  return word
+    ? {
+        prefix: match?.[1] ?? "",
+        word,
+        suffix: match?.[3] ?? "",
+      }
+    : null;
 };
 
-export const splitGenericTokenAffixes = (token: string): { prefix: string; word: string; suffix: string } | null => {
-  const trimmed = token.trim();
-  if (trimmed.length < 4) return null;
+export const splitGenericTokenAffixes = (
+  token: string,
+): TokenAffixes | null => {
+  const glyphs = segmentText(token);
+  let first = 0;
+  let last = glyphs.length - 1;
 
-  const leadingMatch = trimmed.match(/^[^\p{L}\p{N}]*/u);
-  const trailingMatch = trimmed.match(/[^\p{L}\p{N}]*$/u);
-  const prefix = leadingMatch?.[0] ?? "";
-  const suffix = trailingMatch?.[0] ?? "";
-  const wordStart = prefix.length;
-  const wordEnd = Math.max(wordStart, trimmed.length - suffix.length);
-  const word = trimmed.slice(wordStart, wordEnd);
+  while (
+    first <= last &&
+    !/[\p{L}\p{N}]/u.test(glyphs[first]?.text ?? "")
+  ) {
+    first += 1;
+  }
 
-  if (word.length < 4) {
+  while (
+    last >= first &&
+    !/[\p{L}\p{N}]/u.test(glyphs[last]?.text ?? "")
+  ) {
+    last -= 1;
+  }
+
+  const start = glyphs[first]?.start;
+  const end = glyphs[last]?.end;
+
+  if (start === undefined || end === undefined || last - first + 1 < 4) {
     return null;
   }
 
   return {
-    prefix,
-    word,
-    suffix,
+    prefix: token.slice(0, start),
+    word: token.slice(start, end),
+    suffix: token.slice(end),
   };
+};
+
+export const getWordBreakOffsets = (
+  token: string,
+  language?: string,
+): number[] => {
+  const parts = splitTokenAffixes(token) ?? splitGenericTokenAffixes(token);
+  if (!parts) return [];
+
+  const glyphs = segmentText(parts.word);
+  if (glyphs.length < 4) return [];
+
+  const validOffsets = new Set(
+    glyphs.slice(1, -2).map((glyph) => glyph.end),
+  );
+  const preferred: number[] = [];
+
+  if (isLatinHyphenationLanguage(language)) {
+    let offset = 0;
+    for (const syllable of splitLatinSyllables(parts.word, language)) {
+      offset += syllable.length;
+      if (validOffsets.has(offset)) preferred.push(offset);
+    }
+  }
+
+  const offsets = new Set([
+    ...preferred.reverse(),
+    ...Array.from(validOffsets).reverse(),
+  ]);
+
+  return Array.from(offsets, (offset) => parts.prefix.length + offset);
 };
 
 export const splitWordToFitWidth = (
-  ctx: CanvasRenderingContext2D,
+  ctx: TextMeasurer,
   token: string,
   availableWidth: number,
   hyphenationLanguage?: string,
-): { head: string; tail: string } | null => {
-  if (availableWidth <= 0) return null;
+): WordSplit | null => {
+  if (!Number.isFinite(availableWidth) || availableWidth <= 0) return null;
+  if (ctx.measureText(token).width <= availableWidth) return null;
 
-  const parts = splitTokenAffixes(token) ?? splitGenericTokenAffixes(token);
-  if (!parts || parts.word.length < 4) {
-    return null;
-  }
+  for (const offset of getWordBreakOffsets(token, hyphenationLanguage)) {
+    const head = `${token.slice(0, offset)}-`;
+    const width = ctx.measureText(head).width;
 
-  const { prefix, word, suffix } = parts;
-  const syllables = isLatinHyphenationLanguage(hyphenationLanguage)
-    ? splitLatinSyllables(word, hyphenationLanguage)
-    : Array.from(word);
-
-  if (syllables.length >= 2) {
-    for (let splitIndex = syllables.length - 1; splitIndex >= 1; splitIndex -= 1) {
-      const headCore = syllables.slice(0, splitIndex).join("");
-      const tailCore = syllables.slice(splitIndex).join("");
-      if (headCore.length < 3 || tailCore.length < 2) {
-        continue;
-      }
-      const head = `${prefix}${headCore}-`;
-      if (ctx.measureText(head).width <= availableWidth) {
-        return {
-          head,
-          tail: `${tailCore}${suffix}`,
-        };
-      }
-    }
-  }
-
-  const glyphs = Array.from(word);
-  for (let splitIndex = glyphs.length - 2; splitIndex >= 2; splitIndex -= 1) {
-    const headCore = glyphs.slice(0, splitIndex).join("");
-    const tailCore = glyphs.slice(splitIndex).join("");
-    const head = `${prefix}${headCore}-`;
-    if (ctx.measureText(head).width <= availableWidth) {
-      return {
-        head,
-        tail: `${tailCore}${suffix}`,
-      };
+    if (Number.isFinite(width) && width <= availableWidth) {
+      return { head, tail: token.slice(offset) };
     }
   }
 
@@ -340,94 +360,92 @@ export const splitWordToFitWidth = (
 };
 
 export const wrapParagraphAcrossLineWidths = (
-  ctx: CanvasRenderingContext2D,
+  ctx: TextMeasurer,
   paragraph: string,
-  lineWidths: number[],
+  lineWidths: readonly number[],
   maxLines: number,
   allowHyphenation: boolean,
   hyphenationLanguage?: string,
   strictMaxWidth = false,
 ): string[] | null => {
-  const trimmed = paragraph.trim();
-  if (!trimmed) {
-    return [""];
+  if (
+    !Number.isSafeInteger(maxLines) ||
+    maxLines < 1 ||
+    lineWidths.length === 0 ||
+    lineWidths.some((width) => !Number.isFinite(width) || width <= 0)
+  ) {
+    return null;
   }
 
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  if (words.length === 0) {
-    return [""];
-  }
+  const words = paragraph.trim().split(/[\t\f\v ]+/u).filter(Boolean);
+  if (words.length === 0) return [""];
 
   const lines: string[] = [];
-  let currentLine = "";
-  let lineIndex = 0;
+  let index = 0;
+  let pending = words[0] ?? "";
+  let line = "";
 
-  while (words.length > 0) {
-    const maxWidth = lineWidths[Math.min(lineWidths.length - 1, lineIndex)] ?? lineWidths[lineWidths.length - 1] ?? 1;
-    const nextWord = words[0] ?? "";
-    const candidate = currentLine ? `${currentLine} ${nextWord}` : nextWord;
+  const measureFits = (value: string, width: number): boolean => {
+    const measured = ctx.measureText(value).width;
+    return Number.isFinite(measured) && measured <= width;
+  };
 
-    if (ctx.measureText(candidate).width <= maxWidth) {
-      currentLine = candidate;
-      words.shift();
+  while (index < words.length) {
+    if (lines.length >= maxLines) return null;
+
+    const width =
+      lineWidths[Math.min(lines.length, lineWidths.length - 1)] ?? 0;
+    const candidate = line ? `${line} ${pending}` : pending;
+
+    if (measureFits(candidate, width)) {
+      line = candidate;
+      index += 1;
+      pending = words[index] ?? "";
       continue;
     }
 
-    if (!allowHyphenation && !currentLine) {
-      if (strictMaxWidth) {
-        return null;
+    let split: WordSplit | null = null;
+
+    if (allowHyphenation) {
+      for (const offset of getWordBreakOffsets(pending, hyphenationLanguage)) {
+        const head = `${pending.slice(0, offset)}-`;
+        const fullHead = line ? `${line} ${head}` : head;
+        if (measureFits(fullHead, width)) {
+          split = { head: fullHead, tail: pending.slice(offset) };
+          break;
+        }
       }
-      currentLine = nextWord;
-      words.shift();
-      continue;
     }
 
-    const remainingWidth = currentLine
-      ? Math.max(1, maxWidth - ctx.measureText(`${currentLine} `).width)
-      : maxWidth;
-    const hyphenated = allowHyphenation
-      ? splitWordToFitWidth(ctx, nextWord, remainingWidth, hyphenationLanguage)
-      : null;
-
-    if (hyphenated) {
-      lines.push(currentLine ? `${currentLine} ${hyphenated.head}` : hyphenated.head);
-      lineIndex += 1;
-      if (lineIndex >= maxLines) {
-        return null;
-      }
-      words[0] = hyphenated.tail;
-      currentLine = "";
-      continue;
-    }
-
-    if (!currentLine) {
+    if (split) {
+      lines.push(split.head);
+      pending = split.tail;
+      line = "";
+    } else if (line) {
+      lines.push(line);
+      line = "";
+    } else if (!strictMaxWidth) {
+      lines.push(pending);
+      index += 1;
+      pending = words[index] ?? "";
+    } else {
       return null;
     }
-
-    lines.push(currentLine);
-    lineIndex += 1;
-    if (lineIndex >= maxLines) {
-      return null;
-    }
-    currentLine = "";
   }
 
-  if (currentLine || lines.length === 0) {
-    lines.push(currentLine);
-  }
-
+  if (line) lines.push(line);
   return lines.length <= maxLines ? lines : null;
 };
 
 export const wrapParagraphGreedy = (
-  ctx: CanvasRenderingContext2D,
+  ctx: TextMeasurer,
   paragraph: string,
   maxWidth: number,
   allowHyphenation: boolean,
   hyphenationLanguage?: string,
   strictMaxWidth = false,
 ): string[] => {
-  return wrapParagraphAcrossLineWidths(
+  const result = wrapParagraphAcrossLineWidths(
     ctx,
     paragraph,
     [maxWidth],
@@ -435,26 +453,13 @@ export const wrapParagraphGreedy = (
     allowHyphenation,
     hyphenationLanguage,
     strictMaxWidth,
-  )
-    ?? [paragraph.trim()];
+  );
+
+  if (!result) {
+    throw new RangeError("Paragraph does not fit the requested line width.");
+  }
+
+  return result;
 };
 
-export const wrapParagraphWithProfile = (
-  ctx: CanvasRenderingContext2D,
-  paragraph: string,
-  lineWidths: number[],
-  maxLines: number,
-  allowHyphenation: boolean,
-  hyphenationLanguage?: string,
-  strictMaxWidth = false,
-): string[] | null => {
-  return wrapParagraphAcrossLineWidths(
-    ctx,
-    paragraph,
-    lineWidths,
-    maxLines,
-    allowHyphenation,
-    hyphenationLanguage,
-    strictMaxWidth,
-  );
-};
+export const wrapParagraphWithProfile = wrapParagraphAcrossLineWidths;
