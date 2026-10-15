@@ -530,7 +530,9 @@ class PhotoshopTextLayerWriter:
                 "group": RENDER_TEXT_GROUP_NAME,
                 "entries": [
                     {
-                        **entry.model_dump(mode="json", by_alias=True),
+                        # snake_case dump: the JSX script reads font_family,
+                        # computed_font_size etc. (no by_alias here).
+                        **entry.model_dump(mode="json"),
                         "resolved_text": entry.resolved_text,
                     }
                     for entry in entries
