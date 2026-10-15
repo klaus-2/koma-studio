@@ -8,8 +8,9 @@ from core.device import (
     DeviceInfo,
     build_cpu_device_info,
     get_device_info,
-    get_onnx_execution_providers,
     register_gpu_cache_releaser,
+    get_provider_specs,
+    OnnxProviderSpec,
 )
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
@@ -30,7 +31,9 @@ logger = logging.getLogger(__name__)
 
 _CPU_PROVIDERS: tuple[str, ...] = ("CPUExecutionProvider",)
 
-type CacheKey = tuple[str, tuple[str, ...], Path, int, int, int, int]
+type CacheKey = tuple[
+    str, tuple[OnnxProviderSpec, ...], Path, int, int, int, int
+]
 
 _cache: LruEngineCache[CacheKey, BaseInpainter] = LruEngineCache(4)
 
@@ -103,20 +106,18 @@ def _resolve_model_key(requested: str | None) -> str:
     return selected
 
 
-def _plain_providers(device: DeviceInfo) -> tuple[str, ...]:
-    raw = get_onnx_execution_providers(device)
-    plain = tuple(provider for provider in raw if isinstance(provider, str))
-    if len(plain) != len(raw):
-        raise TypeError("Expected plain ONNX execution-provider names")
-    if not plain:
-        raise ValueError("The selected device has no ONNX execution providers")
-    return plain
+def _plain_providers(
+    device: DeviceInfo,
+) -> tuple[OnnxProviderSpec, ...]:
+    # Includes the (CUDAExecutionProvider, options) tuple form on the
+    # CUDA-legacy profile — pass it straight to ORT, never stringify.
+    return get_provider_specs(device)
 
 
 def _build(
     spec: InpaintModelSpec,
     model_path: Path,
-    providers: tuple[str, ...],
+    providers: tuple[OnnxProviderSpec, ...],
 ) -> BaseInpainter:
     if spec.key == "aot":
         return AOTInpainter(model_path=model_path, providers=providers)

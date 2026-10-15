@@ -20,7 +20,11 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from core.device import get_device_info, get_onnx_execution_providers
+from core.device import (
+    OnnxProviderSpec,
+    get_device_info,
+    get_onnx_execution_providers,
+)
 from models.detection.font_style.types import FontCandidate, FontLabel, FontStylePrediction
 
 logger = logging.getLogger(__name__)
@@ -113,7 +117,7 @@ class _InferenceBackend(Protocol):
 class _OnnxBackend:
     __slots__ = ("_input_name", "_session")
 
-    def __init__(self, path: Path, providers: Sequence[str]) -> None:
+    def __init__(self, path: Path, providers: Sequence[OnnxProviderSpec]) -> None:
         import onnxruntime as ort  # noqa: PLC0415 - optional heavy dependency
 
         self._session = ort.InferenceSession(str(path), providers=list(providers))
@@ -157,7 +161,7 @@ class YuzuFontStyleDetector:
     def __init__(
         self,
         model_dir: str | Path | None = None,
-        providers: Sequence[str] | None = None,
+        providers: Sequence[OnnxProviderSpec] | None = None,
     ) -> None:
         self._model_dir = Path(model_dir) if model_dir else _resolve_bundled_model_dir()
         self._providers = (

@@ -24,7 +24,11 @@ from onnxruntime.capi.onnxruntime_pybind11_state import (
 )
 
 from core.config import get_config
-from core.device import get_device_info, get_onnx_execution_providers
+from core.device import (
+    OnnxProviderSpec,
+    get_device_info,
+    get_onnx_execution_providers,
+)
 from models.detection.base_detector import BaseDetector, TextDetection
 from models.detection.errors import (
     DetectionModelCorruptedError,
@@ -360,7 +364,7 @@ class FontRTDetrV2Detector(BaseDetector):
         model_path: str | Path | None = None,
         confidence_threshold: float | None = None,
         nms_threshold: float | None = None,
-        providers: Sequence[str] | None = None,
+        providers: Sequence[OnnxProviderSpec] | None = None,
     ) -> None:
         config = get_config()
         self.confidence_threshold = 0.3 if confidence_threshold is None else float(confidence_threshold)
@@ -370,7 +374,7 @@ class FontRTDetrV2Detector(BaseDetector):
         self.model_path: Path | None = (
             Path(model_path) if model_path else _resolve_managed_font_detector_path()
         )
-        self.providers: list[str] = (
+        self.providers: list[OnnxProviderSpec] = (
             list(providers) if providers else get_onnx_execution_providers(get_device_info())
         )
         self.session: ort.InferenceSession | None = None

@@ -17,6 +17,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol, cast
 
+from core.device import OnnxProviderSpec
+
 import numpy as np
 import onnxruntime as ort
 from numpy.typing import NDArray
@@ -318,7 +320,7 @@ class ImageMaskOnnxModel:
     def __init__(
         self,
         path: Path | str,
-        providers: Sequence[str],
+        providers: Sequence[OnnxProviderSpec],
         *,
         model_key: str,
         output_range: OutputRange = OutputRange.ZERO_ONE,

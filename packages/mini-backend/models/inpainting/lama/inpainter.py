@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 
+from core.device import OnnxProviderSpec
 from models.inpainting.base_inpainter import (
     BaseInpainter,
     ImageU8,
@@ -33,7 +34,7 @@ class LaMaInpainter(BaseInpainter):
     def __init__(
         self,
         model_path: Path | str,
-        providers: Sequence[str],
+        providers: Sequence[OnnxProviderSpec],
         *,
         key: str | None = None,
         name: str | None = None,

@@ -7,6 +7,7 @@ from typing import ClassVar
 import cv2
 import numpy as np
 
+from core.device import OnnxProviderSpec
 from models.errors import IncompatibleModelError
 from models.inpainting.base_inpainter import (
     BaseInpainter,
@@ -26,7 +27,7 @@ class AOTInpainter(BaseInpainter):
     min_size: ClassVar[int | None] = 128
     max_size: ClassVar[int] = 1024
 
-    def __init__(self, model_path: Path | str, providers: Sequence[str]) -> None:
+    def __init__(self, model_path: Path | str, providers: Sequence[OnnxProviderSpec]) -> None:
         # Lazy session: the factory may construct this on the event loop; the
         # multi-second ONNX load happens inside the inference worker call.
         self._onnx = ImageMaskOnnxModel(

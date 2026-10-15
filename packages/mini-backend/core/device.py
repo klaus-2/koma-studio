@@ -789,6 +789,44 @@ def get_onnx_execution_providers(
     return ordered
 
 
+type OnnxProviderSpec = str | tuple[str, dict[str, str]]
+
+
+def get_provider_specs(
+    device_info: DeviceInfo,
+) -> tuple[OnnxProviderSpec, ...]:
+    """Validated ORT session provider specs: names or (name, options) pairs.
+
+    `get_onnx_execution_providers` legitimately returns the tuple form for
+    profiles that require provider options (e.g. the CUDA-legacy cuDNN 8
+    heuristics); callers must not stringify it.
+    """
+    specs: list[OnnxProviderSpec] = []
+    for provider in get_onnx_execution_providers(device_info):
+        if isinstance(provider, str) and provider:
+            specs.append(provider)
+            continue
+        if (
+            isinstance(provider, tuple)
+            and len(provider) == 2
+            and isinstance(provider[0], str)
+            and provider[0]
+            and isinstance(provider[1], dict)
+            and all(
+                isinstance(key, str) and isinstance(value, str)
+                for key, value in provider[1].items()
+            )
+        ):
+            specs.append((provider[0], dict(provider[1])))
+            continue
+        raise TypeError(
+            "Expected ONNX provider names or (name, options) pairs"
+        )
+    if not specs:
+        raise ValueError("The selected device has no ONNX execution providers")
+    return tuple(specs)
+
+
 def build_device_payload(
     device_info: DeviceInfo,
 ) -> dict[str, str | bool | float | None | list[str]]:

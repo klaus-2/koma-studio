@@ -13,7 +13,11 @@ import onnxruntime as ort
 from numpy.typing import NDArray
 from PIL import Image
 
-from core.device import get_device_info, get_onnx_execution_providers
+from core.device import (
+    OnnxProviderSpec,
+    get_device_info,
+    get_onnx_execution_providers,
+)
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
 from models.ocr.common import (
     LazyRuntime,
@@ -209,7 +213,7 @@ class MeikiOcrEngine(BaseOCR):
 
     def __init__(
         self,
-        providers: Sequence[str] | None = None,
+        providers: Sequence[OnnxProviderSpec] | None = None,
         model_dir: str | Path | None = None,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
     ) -> None:

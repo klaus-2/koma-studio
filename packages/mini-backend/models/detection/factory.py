@@ -12,8 +12,9 @@ from core.device import (
     DeviceInfo,
     build_cpu_device_info,
     get_device_info,
-    get_onnx_execution_providers,
+    get_provider_specs,
     register_gpu_cache_releaser,
+    OnnxProviderSpec,
 )
 from core.models_store import model_is_installed
 from models.detection.base_detector import BaseDetector
@@ -35,7 +36,9 @@ type DeviceSupport = Literal["cpu", "cpu_gpu"]
 type DetectorBuilder = Callable[[DeviceInfo, float | None, float | None], BaseDetector]
 type ReadinessCheck = Callable[[], bool]
 type FallbackReason = Literal["unknown_model", "not_implemented", "not_installed"]
-type CacheKey = tuple[str, tuple[str, ...], float | None, float | None]
+type CacheKey = tuple[
+    str, tuple[OnnxProviderSpec, ...], float | None, float | None
+]
 
 
 class _Thresholds(BaseModel):
@@ -94,14 +97,12 @@ def _not_installable() -> bool:
     return False
 
 
-def _plain_providers(device_info: DeviceInfo) -> tuple[str, ...]:
-    raw = get_onnx_execution_providers(device_info)
-    plain = tuple(provider for provider in raw if isinstance(provider, str))
-    if len(plain) != len(raw):
-        raise TypeError("Expected plain ONNX execution-provider names")
-    if not plain:
-        raise ValueError("The selected device has no ONNX execution providers")
-    return plain
+def _plain_providers(
+    device_info: DeviceInfo,
+) -> tuple[OnnxProviderSpec, ...]:
+    # Includes the (CUDAExecutionProvider, options) tuple form on the
+    # CUDA-legacy profile — pass it straight to ORT, never stringify.
+    return get_provider_specs(device_info)
 
 
 def _build_font_detector(

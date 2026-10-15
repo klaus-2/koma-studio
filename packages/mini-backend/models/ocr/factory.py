@@ -8,11 +8,12 @@ from typing import Any
 
 from core.languages import normalize_language_code
 from core.device import (
+    OnnxProviderSpec,
+    get_provider_specs,
     register_gpu_cache_releaser,
     DeviceInfo,
     build_cpu_device_info,
     get_device_info,
-    get_onnx_execution_providers,
 )
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
@@ -285,8 +286,10 @@ def _cache_key(model_key: str, device_info: DeviceInfo, language: str) -> tuple[
     return model_key, provider, "multi"
 
 
-def _plain_providers(device: DeviceInfo) -> list[str]:
-    return [str(p) for p in get_onnx_execution_providers(device)]
+def _plain_providers(device: DeviceInfo) -> list[OnnxProviderSpec]:
+    # Includes the (CUDAExecutionProvider, options) tuple form on the
+    # CUDA-legacy profile — str() would mangle it into a garbage name.
+    return list(get_provider_specs(device))
 
 
 def _build_ocr_engine(model_key: str, device_info: DeviceInfo, language: str) -> BaseOCR:

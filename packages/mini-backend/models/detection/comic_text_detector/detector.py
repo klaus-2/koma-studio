@@ -10,7 +10,11 @@ import onnxruntime as ort
 from PIL import Image
 
 from core.config import get_config
-from core.device import get_device_info, get_onnx_execution_providers
+from core.device import (
+    OnnxProviderSpec,
+    get_device_info,
+    get_onnx_execution_providers,
+)
 from models.detection.base_detector import BaseDetector, TextDetection
 from models.detection.reading_order import sort_detections_in_reading_order
 from models.detection.slicing import compute_slice_bounds
@@ -56,7 +60,7 @@ class ComicTextDetector(BaseDetector):
         model_path: str | Path | None = None,
         confidence_threshold: float | None = None,
         nms_threshold: float | None = None,
-        providers: Sequence[str] | None = None,
+        providers: Sequence[OnnxProviderSpec] | None = None,
     ) -> None:
         config = get_config()
         self.confidence_threshold = (

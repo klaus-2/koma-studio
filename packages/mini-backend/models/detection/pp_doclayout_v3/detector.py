@@ -18,6 +18,7 @@ import numpy as np
 import numpy.typing as npt
 from PIL import Image
 
+from core.device import OnnxProviderSpec
 from core.models_store import resolve_model_dir
 from models.detection.base_detector import BaseDetector, TextDetection
 from models.geometry import greedy_nms
@@ -66,7 +67,7 @@ class PPDocLayoutV3Detector(BaseDetector):
         model_path: str | Path | None = None,
         confidence_threshold: float | None = None,
         nms_threshold: float | None = None,
-        providers: Sequence[str] | None = None,
+        providers: Sequence[OnnxProviderSpec] | None = None,
     ) -> None:
         self._confidence = _DEFAULT_CONFIDENCE if confidence_threshold is None else confidence_threshold
         self._nms_iou = _DEFAULT_NMS_IOU if nms_threshold is None else nms_threshold

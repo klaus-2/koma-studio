@@ -11,7 +11,11 @@ import numpy as np
 import onnxruntime as ort
 from PIL import Image
 
-from core.device import get_device_info, get_onnx_execution_providers
+from core.device import (
+    OnnxProviderSpec,
+    get_device_info,
+    get_onnx_execution_providers,
+)
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
 from models.ocr.common import (
     LazyRuntime,
@@ -141,7 +145,7 @@ class PPOCRV5RecEngine(BaseOCR):
 
     def __init__(
         self,
-        providers: Sequence[str] | None = None,
+        providers: Sequence[OnnxProviderSpec] | None = None,
         expansion_percentage: int = 5,
         batch_size: int = 8,
         rec_model_filename: str = "eslav_PP-OCRv5_rec_mobile_infer.onnx",
@@ -679,7 +683,7 @@ class PPOCRV5EnglishRecEngine(PPOCRV5RecEngine):
 
     def __init__(
         self,
-        providers: Sequence[str] | None = None,
+        providers: Sequence[OnnxProviderSpec] | None = None,
         expansion_percentage: int = 5,
         batch_size: int = 8,
         model_dir: str | Path | None = None,
@@ -702,7 +706,7 @@ class PPOCRV5LatinRecEngine(PPOCRV5RecEngine):
 
     def __init__(
         self,
-        providers: Sequence[str] | None = None,
+        providers: Sequence[OnnxProviderSpec] | None = None,
         expansion_percentage: int = 5,
         batch_size: int = 8,
         model_dir: str | Path | None = None,
@@ -725,7 +729,7 @@ class PPOCRV5ChineseRecEngine(PPOCRV5RecEngine):
 
     def __init__(
         self,
-        providers: Sequence[str] | None = None,
+        providers: Sequence[OnnxProviderSpec] | None = None,
         expansion_percentage: int = 5,
         batch_size: int = 8,
         model_dir: str | Path | None = None,
