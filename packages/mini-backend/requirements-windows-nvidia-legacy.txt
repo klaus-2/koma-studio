@@ -24,3 +24,10 @@ nvidia-curand-cu11==10.3.0.86
 nvidia-cusolver-cu11==11.4.1.48
 nvidia-cusparse-cu11==11.7.5.86
 nvidia-cudnn-cu11==8.9.5.29
+
+# v2 provisioner contract (mini_backend_tools.dependencies): the legacy
+# Windows profile must constrain NumPy explicitly. ORT 1.18.1 is compiled
+# against the NumPy 1.x C-API and crashes with NumPy 2 (see comment above);
+# the base requirements pin numpy>=2.0.0, which the provisioner filters out
+# for this profile in favor of the pin below.
+numpy<2
