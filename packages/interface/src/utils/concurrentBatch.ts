@@ -1,60 +1,66 @@
 export const DEFAULT_BATCH_THREADS = 4;
 export const MAX_BATCH_THREADS = 32;
-export const BATCH_THREADS_ENABLED_STORAGE_KEY = "koma-studio.batch-threads-enabled";
-export const BATCH_THREADS_COUNT_STORAGE_KEY = "koma-studio.batch-threads-count";
+export const BATCH_THREADS_ENABLED_STORAGE_KEY =
+  "koma-studio.batch-threads-enabled";
+export const BATCH_THREADS_COUNT_STORAGE_KEY =
+  "koma-studio.batch-threads-count";
 
 export interface ConcurrentBatchWorkerContext<TItem> {
-  item: TItem;
-  index: number;
-  workerIndex: number;
-  total: number;
+  readonly item: TItem;
+  readonly index: number;
+  readonly workerIndex: number;
+  readonly total: number;
+  readonly signal: AbortSignal;
 }
 
 export interface ConcurrentBatchProgressContext<TItem, TResult>
   extends ConcurrentBatchWorkerContext<TItem> {
-  completed: number;
-  result: TResult;
+  readonly completed: number;
+  readonly result: TResult;
 }
 
 export interface ConcurrentBatchOptions<TItem, TResult> {
-  items: TItem[];
-  concurrency: number;
-  worker: (context: ConcurrentBatchWorkerContext<TItem>) => Promise<TResult>;
-  onProgress?: (context: ConcurrentBatchProgressContext<TItem, TResult>) => Promise<void> | void;
-  signal?: AbortSignal | null;
+  readonly items: readonly TItem[];
+  readonly concurrency: number;
+  readonly worker: (
+    context: ConcurrentBatchWorkerContext<TItem>,
+  ) => Promise<TResult>;
+  readonly onProgress?: (
+    context: ConcurrentBatchProgressContext<TItem, TResult>,
+  ) => Promise<void> | void;
+  readonly signal?: AbortSignal | null;
 }
 
-export const clampBatchThreads = (value: number): number => {
-  if (!Number.isFinite(value)) {
-    return DEFAULT_BATCH_THREADS;
-  }
-
-  const nextValue = Math.floor(value);
-  return Math.min(MAX_BATCH_THREADS, Math.max(1, nextValue));
-};
+export const clampBatchThreads = (value: number): number =>
+  Number.isFinite(value)
+    ? Math.min(MAX_BATCH_THREADS, Math.max(1, Math.floor(value)))
+    : DEFAULT_BATCH_THREADS;
 
 export const parseStoredBatchThreads = (
   value: string | null | undefined,
 ): number => {
-  if (!value) {
+  const normalized = value?.trim();
+  if (!normalized || !/^[+-]?\d+$/u.test(normalized)) {
     return DEFAULT_BATCH_THREADS;
   }
 
-  return clampBatchThreads(Number.parseInt(value, 10));
+  return clampBatchThreads(Number(normalized));
 };
 
 export const parseStoredBatchThreadsEnabled = (
   value: string | null | undefined,
-): boolean => value !== "false";
+): boolean => value?.trim().toLowerCase() !== "false";
 
 export const normalizeBatchConcurrency = (
   enabled: boolean,
   requestedThreads: number,
   itemCount: number,
 ): number => {
-  const requested = enabled ? clampBatchThreads(requestedThreads) : 1;
-  const safeItemCount = Math.max(1, itemCount);
-  return Math.min(requested, safeItemCount);
+  const count = Number.isFinite(itemCount)
+    ? Math.max(0, Math.floor(itemCount))
+    : 0;
+
+  return Math.min(enabled ? clampBatchThreads(requestedThreads) : 1, count);
 };
 
 export const runConcurrentBatch = async <TItem, TResult>({
@@ -64,93 +70,103 @@ export const runConcurrentBatch = async <TItem, TResult>({
   onProgress,
   signal,
 }: ConcurrentBatchOptions<TItem, TResult>): Promise<TResult[]> => {
-  if (items.length === 0) {
-    return [];
-  }
+  signal?.throwIfAborted();
 
-  const normalizedConcurrency = Math.max(1, Math.min(Math.floor(concurrency) || 1, items.length));
-  const results = Array.from<TResult>({ length: items.length });
+  const entries = Array.from(items, (item, index) => ({ item, index }));
+  if (entries.length === 0) return [];
+
+  const controller = new AbortController();
+  const results = new Map<number, Readonly<{ value: TResult }>>();
+  const workerCount = normalizeBatchConcurrency(
+    true,
+    concurrency,
+    entries.length,
+  );
+
   let nextIndex = 0;
   let completed = 0;
-  let firstError: unknown = null;
+  let failed = false;
+  let failure: unknown;
+  let progressQueue: Promise<void> = Promise.resolve();
 
-  const claimNextIndex = (): number | null => {
-    if (firstError !== null) {
-      return null;
-    }
+  const fail = (reason: unknown): void => {
+    if (failed) return;
+    failed = true;
+    failure = reason;
+    controller.abort(reason);
+  };
 
-    if (signal?.aborted) {
-      firstError ??=
-        signal.reason instanceof Error
-          ? signal.reason
-          : new DOMException("The operation was aborted.", "AbortError");
-      return null;
-    }
+  const handleAbort = (): void => {
+    fail(signal?.reason);
+  };
 
-    if (nextIndex >= items.length) {
-      return null;
-    }
+  signal?.addEventListener("abort", handleAbort, { once: true });
+  if (signal?.aborted) handleAbort();
 
-    const currentIndex = nextIndex;
-    nextIndex += 1;
-    return currentIndex;
+  const reportProgress = (
+    context: ConcurrentBatchProgressContext<TItem, TResult>,
+  ): Promise<void> => {
+    const task = progressQueue.then(async () => {
+      if (!failed) await onProgress?.(context);
+    });
+
+    progressQueue = task.catch((error: unknown) => {
+      fail(error);
+    });
+
+    return progressQueue;
   };
 
   const runWorker = async (workerIndex: number): Promise<void> => {
-    while (true) {
-      const currentIndex = claimNextIndex();
-      if (currentIndex === null) {
-        return;
-      }
+    while (!failed) {
+      const entry = entries[nextIndex];
+      if (!entry) return;
+      nextIndex += 1;
 
-      const item = items[currentIndex];
-      if (item === undefined) {
-        return;
-      }
+      const context: ConcurrentBatchWorkerContext<TItem> = {
+        ...entry,
+        workerIndex,
+        total: entries.length,
+        signal: controller.signal,
+      };
 
       try {
-        if (signal?.aborted) {
-          throw (
-            signal.reason instanceof Error
-              ? signal.reason
-              : new DOMException("The operation was aborted.", "AbortError")
-          );
-        }
+        controller.signal.throwIfAborted();
+        const result = await worker(context);
 
-        const result = await worker({
-          item,
-          index: currentIndex,
-          workerIndex,
-          total: items.length,
-        });
+        if (failed) return;
+        controller.signal.throwIfAborted();
 
-        results[currentIndex] = result;
+        results.set(entry.index, { value: result });
         completed += 1;
 
-        await onProgress?.({
-          item,
-          index: currentIndex,
-          workerIndex,
-          total: items.length,
+        await reportProgress({
+          ...context,
           completed,
           result,
         });
-      } catch (error) {
-        firstError ??= error;
-        return;
+      } catch (error: unknown) {
+        fail(error);
       }
     }
   };
 
-  await Promise.all(
-    Array.from({ length: normalizedConcurrency }, (_, workerIndex) =>
-      runWorker(workerIndex),
-    ),
-  );
+  try {
+    await Promise.all(
+      Array.from({ length: workerCount }, (_, index) => runWorker(index)),
+    );
 
-  if (firstError !== null) {
-    throw firstError;
+    await progressQueue;
+    if (failed) throw failure;
+
+    return entries.map(({ index }) => {
+      const result = results.get(index);
+      if (!result) {
+        throw new Error("Concurrent batch completed without a result.");
+      }
+      return result.value;
+    });
+  } finally {
+    signal?.removeEventListener("abort", handleAbort);
   }
-
-  return results;
 };
