@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 from collections.abc import Callable
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 import gc
@@ -825,6 +826,26 @@ def get_provider_specs(
     if not specs:
         raise ValueError("The selected device has no ONNX execution providers")
     return tuple(specs)
+
+
+type FrozenOnnxProviderSpec = str | tuple[str, tuple[tuple[str, str], ...]]
+
+
+def freeze_provider_specs(
+    specs: Sequence[OnnxProviderSpec],
+) -> tuple[FrozenOnnxProviderSpec, ...]:
+    """Hashable canonical form of provider specs (for engine cache keys).
+
+    Options dicts are frozen as sorted (key, value) tuples so equal option
+    sets always produce equal keys regardless of dict insertion order.
+    """
+    frozen: list[FrozenOnnxProviderSpec] = []
+    for spec in specs:
+        if isinstance(spec, str):
+            frozen.append(spec)
+            continue
+        frozen.append((spec[0], tuple(sorted(spec[1].items()))))
+    return tuple(frozen)
 
 
 def build_device_payload(

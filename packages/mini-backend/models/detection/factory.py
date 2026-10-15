@@ -15,6 +15,8 @@ from core.device import (
     get_provider_specs,
     register_gpu_cache_releaser,
     OnnxProviderSpec,
+    freeze_provider_specs,
+    FrozenOnnxProviderSpec,
 )
 from core.models_store import model_is_installed
 from models.detection.base_detector import BaseDetector
@@ -37,7 +39,10 @@ type DetectorBuilder = Callable[[DeviceInfo, float | None, float | None], BaseDe
 type ReadinessCheck = Callable[[], bool]
 type FallbackReason = Literal["unknown_model", "not_implemented", "not_installed"]
 type CacheKey = tuple[
-    str, tuple[OnnxProviderSpec, ...], float | None, float | None
+    str,
+    tuple[FrozenOnnxProviderSpec, ...],
+    float | None,
+    float | None,
 ]
 
 
@@ -311,7 +316,7 @@ def get_detector(
 
     cache_key: CacheKey = (
         resolution.spec.key,
-        providers,
+        freeze_provider_specs(providers),
         thresholds.confidence,
         thresholds.nms_threshold,
     )

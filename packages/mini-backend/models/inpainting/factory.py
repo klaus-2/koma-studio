@@ -11,6 +11,8 @@ from core.device import (
     register_gpu_cache_releaser,
     get_provider_specs,
     OnnxProviderSpec,
+    freeze_provider_specs,
+    FrozenOnnxProviderSpec,
 )
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
@@ -32,7 +34,13 @@ logger = logging.getLogger(__name__)
 _CPU_PROVIDERS: tuple[str, ...] = ("CPUExecutionProvider",)
 
 type CacheKey = tuple[
-    str, tuple[OnnxProviderSpec, ...], Path, int, int, int, int
+    str,
+    tuple[FrozenOnnxProviderSpec, ...],
+    Path,
+    int,
+    int,
+    int,
+    int,
 ]
 
 _cache: LruEngineCache[CacheKey, BaseInpainter] = LruEngineCache(4)
@@ -169,7 +177,7 @@ def get_inpainter(
 
     cache_key: CacheKey = (
         spec.key,
-        providers,
+        freeze_provider_specs(providers),
         resolved_path,
         stat.st_dev,
         stat.st_ino,
