@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
 from mini_backend_tools.dependencies import run_provisioning
 from mini_backend_tools.observability import configure_logging
@@ -21,7 +26,7 @@ PROFILE_REQUIREMENTS: dict[tuple[str, str], str] = {
 
 def main() -> int:
     configure_logging()
-    return run_provisioning(Path(__file__).resolve().parents[1], PROFILE_REQUIREMENTS)
+    return run_provisioning(BACKEND_ROOT, PROFILE_REQUIREMENTS)
 
 
 if __name__ == "__main__":

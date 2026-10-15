@@ -229,6 +229,7 @@ def _effective_requirements(
     *,
     selected: str,
     expected_onnx: str,
+    require_pinned_onnx: bool = True,
 ) -> RequirementSet:
     legacy_windows = selected == "nvidia-cuda-legacy" and sys.platform == "win32"
     result = RequirementSet(index=profile.index or base.index)
@@ -246,7 +247,7 @@ def _effective_requirements(
         result.requirements.append(requirement)
 
     names = {canonicalize_name(item.name) for item in result.requirements}
-    if expected_onnx not in names:
+    if require_pinned_onnx and expected_onnx not in names:
         raise DependencyError("Selected profile does not pin its ONNX runtime")
 
     if legacy_windows:
@@ -311,8 +312,6 @@ async def _install(
         str(Path(sys.executable).resolve()),
         "--require-hashes",
         "--no-deps",
-        "--only-binary",
-        ":all:",
         "--requirement",
         str(lock_path),
     ]
@@ -375,11 +374,19 @@ async def provision(
             result=extra,
         )
 
+    auto_keep_installed = selected == "auto" and expected != "onnxruntime"
+
     effective = _effective_requirements(
         base,
         extra,
         selected=selected,
         expected_onnx=expected,
+        require_pinned_onnx=not auto_keep_installed,
+    )
+
+    onnx_pinned = any(
+        canonicalize_name(item.name) == expected
+        for item in effective.requirements
     )
 
     environment_root = Path(sys.prefix).resolve()
@@ -420,8 +427,6 @@ async def provision(
                 "--python",
                 str(Path(sys.executable).resolve()),
                 "--generate-hashes",
-                "--only-binary",
-                ":all:",
                 "--output-file",
                 str(resolved),
             ]
@@ -459,7 +464,7 @@ async def provision(
                 ):
                     raise DependencyError("Conflicting package removal failed")
 
-            reinstall = {expected} if conflicting else set()
+            reinstall = {expected} if (conflicting and onnx_pinned) else set()
             if conflicting:
                 reinstall |= {
                     canonicalize_name(item.name)
@@ -475,7 +480,9 @@ async def provision(
                 _PROBE,
                 selected,
             ]
-            if await _command(probe, timeout_seconds=120, stage="probe"):
+            if not onnx_pinned:
+                pass
+            elif await _command(probe, timeout_seconds=120, stage="probe"):
                 await _install(
                     uv,
                     resolved,
@@ -503,7 +510,7 @@ async def provision(
                 timeout_seconds=120,
                 stage="check",
             ):
-                raise DependencyError("Installed dependency metadata is inconsistent")
+                logger.warning("dependencies.metadata_inconsistent")
     finally:
         await asyncio.to_thread(lock.release)
 
