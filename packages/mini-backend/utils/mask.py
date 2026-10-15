@@ -1,98 +1,117 @@
-"""Inpaint mask rasterisation from segmenter masks and/or detection boxes."""
-
 from __future__ import annotations
 
 import base64
 import binascii
 import logging
+import math
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final
 
 import cv2
 import numpy as np
 
 from utils.image_codec import (
+    MAX_IMAGE_BYTES,
     ImageDecodeError,
     MaskImage,
     PixelShape,
     decode_binary_mask,
     dilate_mask,
+    validate_radius,
+    validate_shape,
 )
-from utils.image_variants import BBox, clip_bbox
+from utils.image_variants import BBox, PixelSize, clip_bbox
+from utils.workers import run_native
 
 logger = logging.getLogger(__name__)
 
-_RASTER_LONG_EDGE: Final = 2048.0
-_RASTER_PAD: Final = 1
+_RASTER_LONG_EDGE: Final = 2048
+_MAX_BASE64_CHARACTERS: Final = 4 * ((MAX_IMAGE_BYTES + 2) // 3)
+_MAX_REGIONS: Final = 10_000
+_MAX_BOXES: Final = 100_000
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MaskRegion:
     bbox: BBox
-    segment_boxes: list[BBox] = field(default_factory=list)
-    merged_boxes: list[BBox] = field(default_factory=list)
+    segment_boxes: tuple[BBox, ...] = ()
+    merged_boxes: tuple[BBox, ...] = ()
     mask_base64: str = ""
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "segment_boxes", tuple(self.segment_boxes))
+        object.__setattr__(self, "merged_boxes", tuple(self.merged_boxes))
 
-def _decode_region_mask(encoded: str, *, target_shape: PixelShape) -> MaskImage | None:
-    try:
-        payload = base64.b64decode(encoded)
-    except (binascii.Error, ValueError):
-        logger.warning("mask.base64_invalid")
+
+def _decode_region_mask(
+    encoded: str,
+    *,
+    target_shape: PixelShape,
+) -> MaskImage | None:
+    if len(encoded) > _MAX_BASE64_CHARACTERS:
+        logger.warning("mask.encoded_budget_exceeded")
         return None
+
     try:
+        payload = base64.b64decode(encoded, validate=True)
         return decode_binary_mask(payload, target_shape=target_shape)
-    except ImageDecodeError:
-        # decode_binary_mask guards the pixel budget (decompression-bomb safe).
-        logger.warning("mask.png_invalid", exc_info=True)
+    except (binascii.Error, ValueError, ImageDecodeError):
+        logger.warning("mask.region_decode_failed")
         return None
 
 
-def _region_boxes(region: MaskRegion, size: tuple[int, int]) -> list[BBox]:
-    candidates = region.merged_boxes or region.segment_boxes or [region.bbox]
-    return [box for raw in candidates if (box := clip_bbox(raw, size)) is not None]
+def _region_boxes(region: MaskRegion, size: PixelSize) -> list[BBox]:
+    candidates = region.merged_boxes or region.segment_boxes or (region.bbox,)
+    return [
+        clipped
+        for raw in candidates
+        if (clipped := clip_bbox(raw, size)) is not None
+    ]
 
 
 def _rasterize_boxes(mask: MaskImage, boxes: Sequence[BBox]) -> None:
-    """Draw the closed hull of ``boxes`` into ``mask`` in place.
+    if not boxes:
+        return
 
-    Works on a ≤2048px-long-edge copy of the boxes' bounding ROI so the
-    morphological close costs the same regardless of page resolution;
-    resulting contours are scaled back onto the full mask.
-    """
-    min_x = min(x1 for x1, _, _, _ in boxes)
-    min_y = min(y1 for _, y1, _, _ in boxes)
-    roi_w = max(1, max(x2 for _, _, x2, _ in boxes) - min_x + 1)
-    roi_h = max(1, max(y2 for _, _, _, y2 in boxes) - min_y + 1)
-    downscale = max(1.0, max(roi_w, roi_h) / _RASTER_LONG_EDGE)
+    min_x = min(box[0] for box in boxes)
+    min_y = min(box[1] for box in boxes)
+    max_x = max(box[2] for box in boxes)
+    max_y = max(box[3] for box in boxes)
+    width, height = max_x - min_x, max_y - min_y
+    scale = max(1.0, max(width, height) / _RASTER_LONG_EDGE)
+    small_width = max(1, math.ceil(width / scale))
+    small_height = max(1, math.ceil(height / scale))
+    small: MaskImage = np.zeros((small_height, small_width), dtype=np.uint8)
 
-    small = np.zeros((int(roi_h / downscale) + 2, int(roi_w / downscale) + 2), dtype=np.uint8)
     for x1, y1, x2, y2 in boxes:
-        cv2.rectangle(
-            small,
-            (int((x1 - min_x) / downscale) + _RASTER_PAD, int((y1 - min_y) / downscale) + _RASTER_PAD),
-            (int((x2 - min_x) / downscale) + _RASTER_PAD, int((y2 - min_y) / downscale) + _RASTER_PAD),
-            255,
-            thickness=-1,
-        )
+        left = math.floor((x1 - min_x) / scale)
+        top = math.floor((y1 - min_y) / scale)
+        right = math.ceil((x2 - min_x) / scale)
+        bottom = math.ceil((y2 - min_y) / scale)
+        small[top:bottom, left:right] = 255
 
-    close_size = max(3, min(9, round(min(roi_w, roi_h) / 160) * 2 + 1))
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (close_size, close_size))
-    closed = cv2.morphologyEx(small, cv2.MORPH_CLOSE, kernel)
-    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    kernel_size = max(3, min(9, round(min(small.shape) / 160) * 2 + 1))
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE,
+        (kernel_size, kernel_size),
+    )
+    closed = cv2.morphologyEx(
+        small,
+        cv2.MORPH_CLOSE,
+        kernel,
+        borderType=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+    restored = np.asarray(
+        cv2.resize(closed, (width, height), interpolation=cv2.INTER_NEAREST),
+        dtype=np.uint8,
+    )
+    roi = mask[min_y:max_y, min_x:max_x]
+    np.maximum(roi, restored, out=roi)
 
-    polygons: list[np.ndarray] = []
-    for contour in contours:
-        points = np.asarray(contour).reshape(-1, 2)
-        if points.shape[0] < 3:
-            continue
-        scaled = (points.astype(np.float32) - _RASTER_PAD) * downscale
-        scaled[:, 0] += min_x
-        scaled[:, 1] += min_y
-        polygons.append(np.round(scaled).astype(np.int32))
-    if polygons:
-        cv2.fillPoly(mask, polygons, 255)
+    for x1, y1, x2, y2 in boxes:
+        mask[y1:y2, x1:x2] = 255
 
 
 def generate_baka_style_mask(
@@ -101,15 +120,18 @@ def generate_baka_style_mask(
     regions: Sequence[MaskRegion],
     mask_dilation: int = 5,
 ) -> MaskImage:
-    """Union of all region masks, dilated once.
+    shape = validate_shape((image_height, image_width))
+    radius = validate_radius(mask_dilation)
+    if len(regions) > _MAX_REGIONS:
+        raise ValueError("Region count exceeds the rasterization budget")
+    if sum(
+        len(region.merged_boxes or region.segment_boxes or (region.bbox,))
+        for region in regions
+    ) > _MAX_BOXES:
+        raise ValueError("Box count exceeds the rasterization budget")
 
-    Dilation distributes over union (``dilate(A ∪ B) == dilate(A) ∪ dilate(B)``),
-    so a single pass at the end is identical to dilating each region and is
-    O(pixels) instead of O(regions × pixels).
-    """
-    mask: MaskImage = np.zeros((image_height, image_width), dtype=np.uint8)
-    shape: PixelShape = (image_height, image_width)
-    size = (image_width, image_height)
+    mask: MaskImage = np.zeros(shape, dtype=np.uint8)
+    size: PixelSize = image_width, image_height
 
     for region in regions:
         if region.mask_base64:
@@ -117,8 +139,22 @@ def generate_baka_style_mask(
             if segment is not None:
                 np.maximum(mask, segment, out=mask)
                 continue
-        boxes = _region_boxes(region, size)
-        if boxes:
-            _rasterize_boxes(mask, boxes)
 
-    return dilate_mask(mask, radius=max(0, mask_dilation))
+        _rasterize_boxes(mask, _region_boxes(region, size))
+
+    return dilate_mask(mask, radius=radius)
+
+
+async def generate_baka_style_mask_async(
+    image_width: int,
+    image_height: int,
+    regions: Sequence[MaskRegion],
+    mask_dilation: int = 5,
+) -> MaskImage:
+    return await run_native(
+        generate_baka_style_mask,
+        image_width,
+        image_height,
+        regions,
+        mask_dilation,
+    )

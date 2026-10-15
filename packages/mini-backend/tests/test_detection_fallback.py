@@ -31,12 +31,13 @@ class DetectionFallbackTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(tuple(detections[0].bbox), (10, 20, 60, 80))
 
     async def test_detect_with_fallbacks_maps_upscaled_bboxes_back_to_original(self) -> None:
+        # v2 upscale policy caps the scale at 2.0: (300, 500) -> (600, 1000).
         image = Image.new("RGB", (300, 500), (255, 255, 255))
 
         async def fake_runner(variant_image: Image.Image) -> list[object]:
             if variant_image.size == image.size:
                 return []
-            if variant_image.size[1] > 1000:
+            if variant_image.size == (600, 1000):
                 return [SimpleNamespace(bbox=(90, 120, 210, 300), score=0.95)]
             return []
 
@@ -44,7 +45,7 @@ class DetectionFallbackTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(variant, "upscale")
         self.assertEqual(len(detections), 1)
-        self.assertEqual(tuple(detections[0].bbox), (32, 43, 75, 107))
+        self.assertEqual(tuple(detections[0].bbox), (45, 60, 105, 150))
 
 
 if __name__ == "__main__":
