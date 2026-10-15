@@ -29,6 +29,7 @@ export interface MeasurementBox {
   readonly height: number;
   readonly paddingX: number;
   readonly paddingY: number;
+  readonly paddingTop: number;
   readonly fallbackLineHeight: number;
   readonly shape: TypographyShape | null;
   widthAt(y: number, height: number): number;
@@ -72,6 +73,7 @@ export const createMeasurementBox = (
     height,
     paddingX,
     paddingY,
+    paddingTop: padding.top,
     fallbackLineHeight: estimateLineHeight(ctx, style, fontSize),
     shape: normalized,
     widthAt: (y, lineHeight) =>

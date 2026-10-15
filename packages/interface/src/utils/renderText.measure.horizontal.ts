@@ -124,7 +124,9 @@ export const measureHorizontalText = (
       placements.push({
         ...measured,
         x: box.x + Math.max(0, (box.width - availableWidth) / 2),
-        y: box.y + cursorY,
+        // Relative to the content area: the renderer's drawTop already adds
+        // the ROI offset and centers the whole block vertically.
+        y: box.paddingTop + cursorY,
         availableWidth,
       });
 

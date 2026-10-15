@@ -97,7 +97,7 @@ export const measureVerticalText = (
         placements.push({
           text: columnText,
           x: box.x + cursorX + advance / 2,
-          y: box.y,
+          y: 0,
           measuredWidth: advance,
           availableWidth: advance,
           lineHeight: rowHeight,
@@ -221,7 +221,7 @@ export const measureCircularText = (
       {
         text: circularText,
         x: box.x + box.width / 2,
-        y: box.y + box.height / 2,
+        y: 0,
         measuredWidth: arcLength,
         availableWidth: Math.max(0, 2 * Math.PI * radius * 0.96),
         lineHeight,
