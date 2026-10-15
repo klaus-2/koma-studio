@@ -1,8 +1,3 @@
-// Derived selection/editor state for RenderTextPreview: selected + hovered
-// region lookups, inline editor display metrics/styles, typography preset
-// filtering, and the inline-editor request key effect.
-// Moved verbatim from RenderTextPreview.tsx (T07 split); hook order preserved.
-
 import { useEffect, useMemo } from 'react';
 import type React from 'react';
 import type { AioTextRegion } from '../../../types/dashboard.types';
@@ -20,6 +15,11 @@ import {
   resolveRenderTextSelectionStyle,
 } from '../../../utils/renderTextStyleRanges';
 import { computeRenderTextLayout } from '../../../utils/renderText';
+import {
+  RenderTextLayoutError,
+  wrapAndMeasureStyled,
+} from '../../../utils/renderText.measure';
+import type { RenderTextLayout } from '../../../utils/renderText.types';
 import type { RenderTextPreviewContextMenuState } from './RenderTextPreviewContextMenu';
 import type { RenderTextPreviewInlineEditorState } from './useRenderTextPreviewInlineEditor';
 
@@ -103,15 +103,34 @@ export const useRenderTextPreviewSelection = ({
     if (!ctx) {
       return { fontSize: 12, lineHeight: 17 };
     }
-    const layout = computeRenderTextLayout(
-      ctx,
-      inlineEditor.value,
-      width,
-      height,
-      inlineEditorBaseStyle,
-      inlineEditorRegion.shape,
-      inlineEditorRegion.renderTextStyleRanges,
-    );
+    let layout: RenderTextLayout;
+    try {
+      layout = computeRenderTextLayout(
+        ctx,
+        inlineEditor.value,
+        width,
+        height,
+        inlineEditorBaseStyle,
+        inlineEditorRegion.shape,
+        inlineEditorRegion.renderTextStyleRanges,
+      );
+    } catch {
+      const fallback = wrapAndMeasureStyled(
+        ctx,
+        inlineEditor.value,
+        width,
+        height,
+        inlineEditorBaseStyle,
+        inlineEditorBaseStyle.autoFontSize === false
+          ? inlineEditorBaseStyle.fontSize
+          : inlineEditorBaseStyle.minFontSize,
+        inlineEditorRegion.shape,
+        inlineEditorRegion.renderTextStyleRanges ?? [],
+        false,
+      );
+      if (!fallback) throw new RenderTextLayoutError();
+      layout = fallback;
+    }
     // Free GPU texture memory immediately.
     canvas.width = 0;
     canvas.height = 0;
@@ -210,9 +229,9 @@ export const useRenderTextPreviewSelection = ({
   );
   const selectedInlineSelectionActive = Boolean(
     inlineEditor
-      && selectedRegion
-      && inlineEditor.regionId === selectedRegion.id
-      && inlineEditor.selectionEnd > inlineEditor.selectionStart,
+    && selectedRegion
+    && inlineEditor.regionId === selectedRegion.id
+    && inlineEditor.selectionEnd > inlineEditor.selectionStart,
   );
   const selectedRegionStyle = useMemo(
     () => {

@@ -1,10 +1,3 @@
-/**
- * AIO region derived state — the active-region memos for the active image
- * (region/style/mode/preset resolution for the panels) and the export
- * render-to-blob compositing of the edited canvas with its regions. Split out
- * of region-editor.ts (T10); the entry file keeps the region editing hook and
- * re-exports this module.
- */
 import { useCallback, useMemo } from 'react';
 
 import { useI18n } from '../../../i18n';
@@ -28,6 +21,11 @@ import {
   computeRenderTextLayout,
   drawRenderedTextInRegion,
 } from '../../../utils/renderText';
+import {
+  RenderTextLayoutError,
+  wrapAndMeasureStyled,
+} from '../../../utils/renderText.measure';
+import type { RenderTextLayout } from '../../../utils/renderText.types';
 import { EMPTY_REGIONS } from '../../../utils/dashboardRenderUtils';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
 import type { TypographyStylePreset } from '../../../typography/types';
@@ -213,15 +211,32 @@ export function useAioRegionRenderToBlob({
         );
         const width = Math.max(1, scaledBbox[2] - scaledBbox[0]);
         const height = Math.max(1, scaledBbox[3] - scaledBbox[1]);
-        const layout = computeRenderTextLayout(
-          ctx,
-          text,
-          width,
-          height,
-          style,
-          scaledShape,
-          region.renderTextStyleRanges,
-        );
+        let layout: RenderTextLayout;
+        try {
+          layout = computeRenderTextLayout(
+            ctx,
+            text,
+            width,
+            height,
+            style,
+            scaledShape,
+            region.renderTextStyleRanges,
+          );
+        } catch {
+          const fallback = wrapAndMeasureStyled(
+            ctx,
+            text,
+            width,
+            height,
+            style,
+            style.autoFontSize === false ? style.fontSize : style.minFontSize,
+            scaledShape,
+            region.renderTextStyleRanges ?? [],
+            false,
+          );
+          if (!fallback) throw new RenderTextLayoutError();
+          layout = fallback;
+        }
         drawRenderedTextInRegion(ctx, scaledBbox, layout, style, scaledShape);
       }
 

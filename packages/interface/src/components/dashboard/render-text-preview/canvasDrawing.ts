@@ -1,6 +1,3 @@
-// Canvas drawing / pixel-processing helpers for the render text preview.
-// Moved verbatim from RenderTextPreview.tsx (T07 split). No React imports.
-
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import type { RenderTextStyle } from '../../../utils/renderText';
 import {
@@ -12,6 +9,10 @@ import {
   computeRenderTextLayout,
   drawRenderedTextInRegion,
 } from '../../../utils/renderText';
+import {
+  RenderTextLayoutError,
+  wrapAndMeasureStyled,
+} from '../../../utils/renderText.measure';
 
 export const drawManualStroke = (
   canvas: HTMLCanvasElement | null,
@@ -247,15 +248,31 @@ export const drawRegionsToCanvas = (
     if (cached && cached.renderStageActive === renderStageActive) {
       layout = cached.layout;
     } else {
-      layout = computeRenderTextLayout(
-        ctx,
-        text,
-        width,
-        height,
-        style,
-        region.shape,
-        region.renderTextStyleRanges,
-      );
+      try {
+        layout = computeRenderTextLayout(
+          ctx,
+          text,
+          width,
+          height,
+          style,
+          region.shape,
+          region.renderTextStyleRanges,
+        );
+      } catch {
+        const fallback = wrapAndMeasureStyled(
+          ctx,
+          text,
+          width,
+          height,
+          style,
+          style.autoFontSize === false ? style.fontSize : style.minFontSize,
+          region.shape,
+          region.renderTextStyleRanges ?? [],
+          false,
+        );
+        if (!fallback) throw new RenderTextLayoutError();
+        layout = fallback;
+      }
       regionLayoutCache.set(region, { renderStageActive, layout });
     }
     drawRenderedTextInRegion(ctx, region.bbox, layout, style, region.shape);

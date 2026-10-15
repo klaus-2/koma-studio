@@ -1,9 +1,3 @@
-/**
- * Download actions — the topbar download-menu flow (per-scope download
- * handlers) and the PSD download export with its typographer session
- * plumbing. Split out of export-download.ts (T10); the entry file keeps the
- * bundle preparation and re-exports this module.
- */
 import { useCallback } from 'react';
 
 import { useI18n } from '../../../i18n';
@@ -27,6 +21,11 @@ import {
   scaleTypographyShapeForBounds,
 } from '../../../utils/dashboard.utils';
 import { computeRenderTextLayout, drawRenderedTextInRegion } from '../../../utils/renderText';
+import {
+  RenderTextLayoutError,
+  wrapAndMeasureStyled,
+} from '../../../utils/renderText.measure';
+import type { RenderTextLayout } from '../../../utils/renderText.types';
 import type { TypographySessionSourceType } from '../../../typography/types';
 import type {
   AioPipelineSnapshotKey,
@@ -298,15 +297,32 @@ export function useDashboardPsdDownload({
         layerCanvas.height = height;
         const layerCtx = layerCanvas.getContext('2d');
         if (!layerCtx) return null;
-        const layout = computeRenderTextLayout(
-          layerCtx,
-          text,
-          width,
-          height,
-          style,
-          scaledShape,
-          region.renderTextStyleRanges,
-        );
+        let layout: RenderTextLayout;
+        try {
+          layout = computeRenderTextLayout(
+            layerCtx,
+            text,
+            width,
+            height,
+            style,
+            scaledShape,
+            region.renderTextStyleRanges,
+          );
+        } catch {
+          const fallback = wrapAndMeasureStyled(
+            layerCtx,
+            text,
+            width,
+            height,
+            style,
+            style.autoFontSize === false ? style.fontSize : style.minFontSize,
+            scaledShape,
+            region.renderTextStyleRanges ?? [],
+            false,
+          );
+          if (!fallback) throw new RenderTextLayoutError();
+          layout = fallback;
+        }
         drawRenderedTextInRegion(layerCtx, [0, 0, width, height], layout, style, scaledShape);
         const outlineWidth = Math.max(0, style.outlineWidth || 0);
         const drawTopOffset = Math.max(0, (height - layout.textHeight) / 2) + outlineWidth;
