@@ -21,6 +21,7 @@ import {
   scaleTypographyShapeForBounds,
 } from '../../../utils/dashboard.utils';
 import { computeRenderTextLayout, drawRenderedTextInRegion } from '../../../utils/renderText';
+import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
 import {
   RenderTextLayoutError,
   wrapAndMeasureStyled,
@@ -289,7 +290,11 @@ export function useDashboardPsdDownload({
           Math.round(x2 * scaleX),
           Math.round(y2 * scaleY),
         ];
-        const scaledShape = scaleTypographyShapeForBounds(region.shape, region.bbox, scaledBbox);
+        const scaledShape = scaleTypographyShapeForBounds(
+          resolveRegionRenderShape(region),
+          region.bbox,
+          scaledBbox,
+        );
         const width = Math.max(1, scaledBbox[2] - scaledBbox[0]);
         const height = Math.max(1, scaledBbox[3] - scaledBbox[1]);
         const layerCanvas = document.createElement('canvas');

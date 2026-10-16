@@ -5,6 +5,8 @@ import {
   cloneRenderStyle,
   ensureCanvasFontLoaded,
 } from '../../../utils/dashboard.utils';
+import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
+import type { TypographyShape } from '../../../typography/types';
 import {
   computeRenderTextLayout,
   drawRenderedTextInRegion,
@@ -213,6 +215,7 @@ export const preloadRegionCanvasFonts = (
 type RegionCanvasLayout = ReturnType<typeof computeRenderTextLayout>;
 type CachedRegionLayout = { renderStageActive: boolean; layout: RegionCanvasLayout };
 let regionLayoutCache = new WeakMap<object, CachedRegionLayout>();
+let regionRenderShapeCache = new WeakMap<AioTextRegion, TypographyShape | undefined>();
 let regionLayoutCacheStyle: RenderTextStyle | null = null;
 
 export const drawRegionsToCanvas = (
@@ -234,6 +237,7 @@ export const drawRegionsToCanvas = (
   if (regionLayoutCacheStyle !== fallbackStyle) {
     regionLayoutCacheStyle = fallbackStyle;
     regionLayoutCache = new WeakMap();
+    regionRenderShapeCache = new WeakMap();
   }
 
   for (const region of regions) {
@@ -248,6 +252,7 @@ export const drawRegionsToCanvas = (
     if (cached && cached.renderStageActive === renderStageActive) {
       layout = cached.layout;
     } else {
+      const shape = resolveRegionRenderShape(region);
       try {
         layout = computeRenderTextLayout(
           ctx,
@@ -255,7 +260,7 @@ export const drawRegionsToCanvas = (
           width,
           height,
           style,
-          region.shape,
+          shape,
           region.renderTextStyleRanges,
         );
       } catch {
@@ -266,7 +271,7 @@ export const drawRegionsToCanvas = (
           height,
           style,
           style.autoFontSize === false ? style.fontSize : style.minFontSize,
-          region.shape,
+          shape,
           region.renderTextStyleRanges ?? [],
           false,
         );
@@ -274,7 +279,8 @@ export const drawRegionsToCanvas = (
         layout = fallback;
       }
       regionLayoutCache.set(region, { renderStageActive, layout });
+      regionRenderShapeCache.set(region, shape);
     }
-    drawRenderedTextInRegion(ctx, region.bbox, layout, style, region.shape);
+    drawRenderedTextInRegion(ctx, region.bbox, layout, style, regionRenderShapeCache.get(region) ?? resolveRegionRenderShape(region));
   }
 };

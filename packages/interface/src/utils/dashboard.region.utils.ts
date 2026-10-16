@@ -19,10 +19,10 @@ import { getRenderModePresetStyle, normalizeDetectedRenderMode } from "./renderM
 const clampNumber = (num: number, min: number, max: number): number =>
   Math.min(Math.max(num, min), max);
 
-const ROUNDED_REFINEMENT_HORIZONTAL_MARGIN = 16;
+const ROUNDED_REFINEMENT_HORIZONTAL_MARGIN = 30;
 const ROUNDED_REFINEMENT_VERTICAL_MARGIN = 60;
 const ROUNDED_REFINEMENT_FIT_PROFILE = [0.50, 0.71, 0.87, 0.97, 1.0, 1.0, 0.97, 0.87, 0.71, 0.50];
-const SQUARE_REFINEMENT_HORIZONTAL_MARGIN = 8;
+const SQUARE_REFINEMENT_HORIZONTAL_MARGIN = 10;
 const SQUARE_REFINEMENT_VERTICAL_MARGIN = 30;
 const SQUARE_REFINEMENT_FIT_PROFILE = Array.from({ length: 10 }, () => 1);
 
@@ -303,7 +303,7 @@ const createRoundedRefinementShape = (
     safeWidth,
     Math.min(
       ROUNDED_REFINEMENT_HORIZONTAL_MARGIN,
-      Math.round(safeWidth * 0.05),
+      Math.round(safeWidth * 0.10),
     ),
   );
   const verticalMargin = clampRefinementMargin(
@@ -392,6 +392,19 @@ export const rebuildRegionShapeForAutoMode = (
       ? "rounded"
       : "square";
   return rebuildRegionShapeForRefinement(region, autoShapeKind, source === "detected" ? "refined" : source);
+};
+
+/**
+ * Shape used whenever a region's text is measured/drawn: regions the user
+ * refined keep their refined shape; everything else gets the automatic
+ * refinement (shape-aware margins + fit profile) so the wrap matches what
+ * REFINE would produce, at every stage that touches the text.
+ */
+export const resolveRegionRenderShape = (
+  region: AioTextRegion,
+): TypographyShape | undefined => {
+  if (region.shape?.source === "refined") return region.shape;
+  return rebuildRegionShapeForAutoMode(region, "refined").shape;
 };
 
 export const cloneAioRegion = (

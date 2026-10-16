@@ -15,6 +15,7 @@ import {
   resolveRenderTextSelectionStyle,
 } from '../../../utils/renderTextStyleRanges';
 import { computeRenderTextLayout } from '../../../utils/renderText';
+import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
 import {
   RenderTextLayoutError,
   wrapAndMeasureStyled,
@@ -111,7 +112,7 @@ export const useRenderTextPreviewSelection = ({
         width,
         height,
         inlineEditorBaseStyle,
-        inlineEditorRegion.shape,
+        resolveRegionRenderShape(inlineEditorRegion),
         inlineEditorRegion.renderTextStyleRanges,
       );
     } catch {
@@ -124,7 +125,7 @@ export const useRenderTextPreviewSelection = ({
         inlineEditorBaseStyle.autoFontSize === false
           ? inlineEditorBaseStyle.fontSize
           : inlineEditorBaseStyle.minFontSize,
-        inlineEditorRegion.shape,
+        resolveRegionRenderShape(inlineEditorRegion),
         inlineEditorRegion.renderTextStyleRanges ?? [],
         false,
       );

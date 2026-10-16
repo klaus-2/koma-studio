@@ -16,6 +16,7 @@ import {
   resolveRenderTextMode,
   type RenderTextMode,
 } from '../../../utils/renderModes';
+import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
 import { listTextFillSwatches } from '../../../utils/textFillPicker';
 import {
   computeRenderTextLayout,
@@ -205,7 +206,7 @@ export function useAioRegionRenderToBlob({
           Math.round(y2 * scaleY),
         ];
         const scaledShape = scaleTypographyShapeForBounds(
-          region.shape,
+          resolveRegionRenderShape(region),
           region.bbox,
           scaledBbox,
         );
