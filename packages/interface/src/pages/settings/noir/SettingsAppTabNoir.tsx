@@ -1,13 +1,14 @@
 import type React from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { Moon, Sun, Globe2, DownloadCloud, Radio, Save, Lightbulb, Keyboard, RotateCcw, FileText } from "lucide-react";
+import { Moon, Sun, Globe2, DownloadCloud, Radio, Save, Lightbulb, Keyboard, RotateCcw, FileText, Palette } from "lucide-react";
 import RuntimeProfileSection from "../../../components/runtime/RuntimeProfileSection";
 import ReleaseNotesMarkdownClassic from "../../../components/updater/ReleaseNotesMarkdownClassic";
 import SyncPanel from "../../../components/updater/SyncPanel";
 import type { AppLocale } from "../../../i18n/config";
 import type { useI18n } from "../../../i18n";
 import type { UseUpdaterApi } from "../../../hooks/useUpdater";
-import type { KomaTheme } from "@koma/ui/stores/theme-store";
+import type { KomaTheme, KomaThemeFamily } from "@koma/ui/stores/theme-store";
+import { THEME_FAMILIES } from "@koma/ui/themes/registry";
 import type { WorkspaceAutosaveSettings } from "../../../utils/workspaceAutosaveSettings";
 import type {
   DesktopMiniBackendRuntimeArtifactOption, DesktopMiniBackendRuntimeState, UpdaterChannel,
@@ -25,6 +26,8 @@ interface SettingsAppTabArgs {
   t: TranslationFn;
   currentTheme: KomaTheme;
   setCurrentTheme: (theme: KomaTheme) => void;
+  currentFamily: KomaThemeFamily;
+  setCurrentFamily: (family: KomaThemeFamily) => void;
   locale: AppLocale;
   localeLabels: Record<AppLocale, string>;
   setLocale: (locale: AppLocale) => void;
@@ -70,6 +73,30 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
 
   return (
     <div className="space-y-5" key="app">
+      {/* ═══ THEME FAMILY ═══ */}
+      <Sec icon={<Palette size={14} />} title={t("settings.theme.styleLabel")} desc={t("settings.theme.styleDescription")}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {THEME_FAMILIES.map((family) => {
+            const active = a.currentFamily === family.id;
+            return (
+              <button key={family.id} type="button" onClick={() => a.setCurrentFamily(family.id)}
+                aria-pressed={active}
+                className={`panel-cut-sm hard-hover relative flex items-center gap-3 border p-4 text-left transition-colors ${active ? "border-crimson/60 bg-crimson/8" : "border-paper/12 bg-ink/50"
+                  }`}>
+                <span aria-hidden className={`font-display text-3xl font-black ${active ? "text-crimson" : "text-paper/15"}`}>
+                  {family.id === "noir" ? "コマ" : "色"}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-display text-xs font-black uppercase tracking-tight text-paper">{t(family.nameKey)}</span>
+                  <span className="mt-0.5 block font-mono text-[9px] uppercase tracking-wider text-paper/40">{t(family.descKey)}</span>
+                </span>
+                {active && <span aria-hidden className="absolute right-3 top-3 h-2 w-2 bg-crimson" />}
+              </button>
+            );
+          })}
+        </div>
+      </Sec>
+
       {/* ═══ THEME ═══ */}
       <Sec icon={<Moon size={14} />} title={t("settings.theme.title")} desc={t("settings.theme.description")}>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -169,8 +196,8 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
               <button key={ch} type="button" disabled={a.busy} onClick={() => void a.handleChannel(ch)}
                 aria-pressed={active}
                 className={`panel-cut-sm hard-hover flex items-start gap-3 border p-4 text-left transition-colors disabled:opacity-40 ${active
-                    ? tone === "gold" ? "border-gold/60 bg-gold/8" : "border-mint/60 bg-mint/8"
-                    : "border-paper/12 bg-ink/50"
+                  ? tone === "gold" ? "border-gold/60 bg-gold/8" : "border-mint/60 bg-mint/8"
+                  : "border-paper/12 bg-ink/50"
                   }`}>
                 <span aria-hidden className={`mt-1 h-2 w-2 ${active ? (tone === "gold" ? "blink bg-gold" : "bg-mint") : "bg-paper/20"}`} />
                 <span>
