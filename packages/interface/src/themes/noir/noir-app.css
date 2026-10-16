@@ -14237,31 +14237,6 @@
   letter-spacing: 0.08em;
 }
 
-:root[data-theme-family='noir'] .koma-legal-inline {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-left: 6px;
-}
-
-:root[data-theme-family='noir'] .koma-legal-inline__sep {
-  color: color-mix(in srgb, var(--color-paper) 22%, transparent);
-}
-
-:root[data-theme-family='noir'] .koma-legal-inline__link {
-  padding: 0;
-  min-height: auto;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  color: var(--noir-crimson);
-}
-
-:root[data-theme-family='noir'] .koma-legal-inline__link:hover,
-:root[data-theme-family='noir'] .koma-legal-inline__link:focus-visible {
-  color: color-mix(in srgb, var(--noir-crimson) 65%, #fff);
-}
-
 :root[data-theme-family='noir'] .auth-check--legal {
   margin-top: 4px;
   align-items: flex-start;
@@ -15593,11 +15568,6 @@
   background: var(--color-crimson);
   border-color: var(--color-crimson);
   color: var(--color-ink);
-}
-
-:root[data-theme-family='noir'] .koma-noir .manhwa-float__bar {
-  background: transparent;
-  border: none;
 }
 
 :root[data-theme-family='noir'] .koma-noir .manhwa-float__handle {

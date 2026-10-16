@@ -1078,11 +1078,6 @@ body::before {
   color: var(--color-ink);
 }
 
-:root[data-theme-family='noir'] .koma-noir .manhwa-float__bar {
-  background: transparent;
-  border: none;
-}
-
 :root[data-theme-family='noir'] .koma-noir .manhwa-float__handle {
   background: var(--color-crimson);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-crimson) 60%, transparent);
