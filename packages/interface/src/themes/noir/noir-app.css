@@ -14246,7 +14246,7 @@
 }
 
 :root[data-theme-family='noir'] .koma-legal-inline__sep {
-  color: rgba(148, 163, 184, 0.75);
+  color: color-mix(in srgb, var(--color-paper) 22%, transparent);
 }
 
 :root[data-theme-family='noir'] .koma-legal-inline__link {

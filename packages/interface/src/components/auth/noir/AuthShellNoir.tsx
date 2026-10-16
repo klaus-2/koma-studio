@@ -217,8 +217,9 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
 
             <footer className="mt-7 border-t border-paper/10 pt-4">
               <p className="font-mono text-[10px] leading-relaxed tracking-wide text-paper/35">
+                <span aria-hidden className="mr-2 text-crimson/50">//</span>
                 Ao continuar você concorda com os{" "}
-                <LegalInlineLinks />
+                <LegalInlineLinks className="koma-legal-inline" />
               </p>
             </footer>
           </div>

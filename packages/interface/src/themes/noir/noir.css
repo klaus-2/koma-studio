@@ -494,13 +494,23 @@
   color: var(--color-crimson);
 }
 
-.koma-noir .koma-legal-inline a {
-  color: color-mix(in srgb, var(--color-paper) 62%, transparent);
-  text-decoration-color: color-mix(in srgb, var(--color-crimson) 45%, transparent);
+:root[data-theme-family='noir'] .koma-legal-inline__sep {
+  color: color-mix(in srgb, var(--color-paper) 22%, transparent);
 }
 
-.koma-noir .koma-legal-inline a:hover {
+:root[data-theme-family='noir'] .koma-legal-inline .koma-legal-inline__link {
+  color: color-mix(in srgb, var(--color-paper) 55%, transparent);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+:root[data-theme-family='noir'] .koma-legal-inline .koma-legal-inline__link:hover,
+:root[data-theme-family='noir'] .koma-legal-inline .koma-legal-inline__link:focus-visible {
   color: var(--color-crimson);
+  text-decoration-color: color-mix(in srgb, var(--color-crimson) 55%, transparent);
 }
 
 .koma-noir .auth-stat__number {
