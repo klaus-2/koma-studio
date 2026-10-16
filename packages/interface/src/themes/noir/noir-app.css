@@ -16669,3 +16669,21 @@
   color: var(--noir-paper);
   border-color: color-mix(in srgb, var(--noir-crimson) 50%, transparent);
 }
+
+:root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--stop {
+  position: relative;
+  z-index: 1;
+  background: var(--color-ink-3, #151522);
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--processing {
+  position: relative;
+  z-index: 0;
+  margin-top: -46px;
+  padding-top: 30px;
+  padding-bottom: 8px;
+  background: color-mix(in srgb, var(--color-crimson) 32%, var(--color-ink-3, #151522));
+  border-color: color-mix(in srgb, var(--color-crimson) 45%, transparent);
+  animation: none;
+  pointer-events: none;
+}
