@@ -31,7 +31,15 @@ export const DetectTextModelControl = ({
     <div className="koma-stage-config">
       <div className={styles.headerRow}>
         <label className="koma-field__label">{t("aio.stage.detectText")}</label>
-        <button type="button" className={styles.manageButton} onClick={onOpenManager}>
+        <button
+          type="button"
+          className={
+            noir
+              ? "panel-cut-sm hard-hover inline-flex items-center gap-1.5 border border-crimson/40 bg-crimson/10 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-crimson focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
+              : styles.manageButton
+          }
+          onClick={onOpenManager}
+        >
           <HardDrive size={12} /> {t("aio.model.manage")}
         </button>
       </div>
