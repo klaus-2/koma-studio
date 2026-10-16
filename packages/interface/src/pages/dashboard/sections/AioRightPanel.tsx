@@ -249,21 +249,18 @@ export default memo(function AioRightPanel({
   /* ── Image collection ── */
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
-
   const resolvedActiveId = useMemo(
     () =>
       (images.find((img) => img.id === activeId) ?? images[0] ?? null)?.id ??
       null,
     [activeId, images],
   );
-
   const selectManualStageByIndex = useCallback(
     (index: number) => {
       void setManualStageForActiveImage(index);
     },
     [setManualStageForActiveImage],
   );
-
   const {
     activeImageDetections,
     activeSelectedRegion,
@@ -1586,6 +1583,11 @@ export default memo(function AioRightPanel({
             className="koma-aio-execute__btn koma-aio-execute__btn--stop"
             onClick={stopAioExecution}
           >
+            <span
+              className="auth-spinner"
+              style={{ width: 14, height: 14 }}
+              aria-hidden="true"
+            />
             <X size={14} />
             {t("dashboard.dashboardExecute.stop")}
           </button>

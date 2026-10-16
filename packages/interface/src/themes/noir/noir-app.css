@@ -16684,6 +16684,27 @@
   padding-bottom: 8px;
   background: color-mix(in srgb, var(--color-crimson) 32%, var(--color-ink-3, #151522));
   border-color: color-mix(in srgb, var(--color-crimson) 45%, transparent);
-  animation: none;
   pointer-events: none;
+  /* pure effect layer: hide the run button's own spinner/label children */
+  color: transparent;
+}
+:root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--processing > * {
+  visibility: hidden;
+}
+
+@keyframes noir-underlayer-hover {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-crimson) 30%, transparent));
+  }
+
+  50% {
+    transform: translate(-3px, -3px);
+    filter: drop-shadow(6px 6px 0 color-mix(in srgb, var(--color-crimson) 55%, transparent));
+  }
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--processing {
+  animation: noir-underlayer-hover 2.4s ease-in-out infinite;
 }
