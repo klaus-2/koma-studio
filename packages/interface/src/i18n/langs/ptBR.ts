@@ -213,6 +213,7 @@ export const ptBrMessages: TranslationCatalog = {
     'A alteração é aplicada imediatamente e salva neste dispositivo para dev e build empacotado.',
   'auth.tabs.login': 'Entrar',
   'auth.tabs.register': 'Criar conta',
+  'auth.tabs.ariaLabel': 'Autenticação',
   'auth.legal.reviewDocs': 'Ao continuar, revise nossa documentação jurídica:',
   'auth.quote.line1': 'Cada grande história',
   'auth.quote.line2': 'começa com',

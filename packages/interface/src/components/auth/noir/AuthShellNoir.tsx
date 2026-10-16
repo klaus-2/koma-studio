@@ -184,7 +184,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
 
             <div
               role="tablist"
-              aria-label="Autenticação"
+              aria-label={t("auth.tabs.ariaLabel")}
               className="panel-cut-sm mb-7 grid grid-cols-2 gap-1 border border-paper/10 bg-ink/60 p-1"
             >
               {(["login", "register"] as const).map((tab) => {
@@ -207,7 +207,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
                         transition={{ type: "spring", bounce: 0.18, duration: 0.5 }}
                       />
                     )}
-                    <span className="relative z-10">{tab === "login" ? "Entrar" : "Registrar"}</span>
+                    <span className="relative z-10">{tab === "login" ? t("auth.tabs.login") : t("auth.tabs.register")}</span>
                   </button>
                 );
               })}
@@ -218,7 +218,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
             <footer className="mt-7 border-t border-paper/10 pt-4">
               <p className="font-mono text-[10px] leading-relaxed tracking-wide text-paper/35">
                 <span aria-hidden className="mr-2 text-crimson/50">//</span>
-                Ao continuar você concorda com os{" "}
+                {t("auth.legal.reviewDocs")}{" "}
                 <LegalInlineLinks className="koma-legal-inline" />
               </p>
             </footer>

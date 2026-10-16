@@ -206,6 +206,7 @@ export const enMessages = {
     'Changes are applied immediately and saved on this device for dev and packaged builds.',
   'auth.tabs.login': 'Sign In',
   'auth.tabs.register': 'Create Account',
+  'auth.tabs.ariaLabel': 'Authentication',
   'auth.legal.reviewDocs':
     'By continuing, please review our legal documentation:',
   'auth.quote.line1': 'Every great story',
