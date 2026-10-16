@@ -16673,6 +16673,7 @@
 :root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--stop {
   position: relative;
   z-index: 1;
+  order: -1;
   background: var(--color-ink-3, #151522);
 }
 
@@ -16688,11 +16689,13 @@
   /* pure effect layer: hide the run button's own spinner/label children */
   color: transparent;
 }
-:root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--processing > * {
+
+:root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--processing>* {
   visibility: hidden;
 }
 
 @keyframes noir-underlayer-hover {
+
   0%,
   100% {
     transform: translate(0, 0);

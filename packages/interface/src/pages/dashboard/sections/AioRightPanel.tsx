@@ -90,7 +90,6 @@ interface AioRightPanelProps {
   stopAioExecution: () => void;
   processAIO: AioPipelineExecutionApi['processAIO'];
   aioExecuteButtonProcessingLabel: string;
-
   normalizedAioSourceLanguage: AioPresetEditorApi['normalizedAioSourceLanguage'];
   presetsForCurrentLanguage: AioPresetEditorApi['presetsForCurrentLanguage'];
   activePresetForCurrentLanguage: AioPresetEditorApi['activePresetForCurrentLanguage'];
@@ -106,7 +105,6 @@ interface AioRightPanelProps {
   handleSaveCurrentSelectionAsPreset: AioPresetEditorApi['handleSaveCurrentSelectionAsPreset'];
   handleSavePresetEditor: AioPresetEditorApi['handleSavePresetEditor'];
   openSettingsOnPresetsTab: () => void;
-
   availableDetectStageOptions: AioStageOption[];
   availableOcrStageOptions: AioStageOption[];
   availableTranslationStageOptions: AioStageOption[];
@@ -239,7 +237,6 @@ export default memo(function AioRightPanel({
     },
     [setManualStageForActiveImage],
   );
-
   const {
     activeSelectedRegion,
     activeSelectedRenderMode,
@@ -745,11 +742,7 @@ export default memo(function AioRightPanel({
                   <span className="koma-field__label">{t('dashboard.aio.customAi.name')}</span>
                   <input
                     type="text"
-                    className={
-                      noir
-                        ? "panel-cut-sm w-full border border-paper/12 bg-ink px-2.5 py-2 font-mono text-[11px] text-paper placeholder:text-paper/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
-                        : "koma-input"
-                    }
+                    className="koma-input"
                     value={aioPresetEditorDraft.name}
                     onChange={(e) =>
                       setAioPresetEditorDraft((prev) => ({
@@ -973,7 +966,11 @@ export default memo(function AioRightPanel({
                           }),
                         )
                       }
-                      className="koma-input"
+                      className={
+                        noir
+                          ? "panel-cut-sm w-full border border-paper/12 bg-ink px-2.5 py-2 font-mono text-[11px] text-paper placeholder:text-paper/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
+                          : "koma-input"
+                      }
                       rows={3}
                       placeholder={t("dashboard.dashboardLlm.extraContextPlaceholder")}
                     />
@@ -1460,21 +1457,6 @@ export default memo(function AioRightPanel({
 
       {/* ═══════════════════ EXECUTE BAR ═══════════════════ */}
       <div className="koma-aio-execute">
-        {processing && (
-          <button
-            type="button"
-            className="koma-aio-execute__btn koma-aio-execute__btn--stop"
-            onClick={stopAioExecution}
-          >
-            <span
-              className="auth-spinner"
-              style={{ width: 14, height: 14 }}
-              aria-hidden="true"
-            />
-            <X size={14} />
-            {t("dashboard.dashboardExecute.stop")}
-          </button>
-        )}
         <button
           type="button"
           className={cn(
@@ -1529,6 +1511,21 @@ export default memo(function AioRightPanel({
             </>
           )}
         </button>
+        {processing && (
+          <button
+            type="button"
+            className="koma-aio-execute__btn koma-aio-execute__btn--stop"
+            onClick={stopAioExecution}
+          >
+            <span
+              className="auth-spinner"
+              style={{ width: 14, height: 14 }}
+              aria-hidden="true"
+            />
+            <X size={14} />
+            {t("dashboard.dashboardExecute.stop")}
+          </button>
+        )}
       </div>
     </div>
   );
