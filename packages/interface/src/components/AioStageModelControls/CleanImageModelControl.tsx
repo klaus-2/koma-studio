@@ -5,6 +5,7 @@ import { useI18n } from "../../i18n";
 import { useThemeStore } from "@koma/ui/stores/theme-store";
 import FieldInfoTooltip from "../dashboard/FieldInfoTooltip";
 import type { AioStageModelOption } from "./types";
+import { MANAGE_BUTTON_NOIR, STAGE_SELECT_NOIR } from "./noirClasses";
 import styles from "./styles.module.css";
 
 interface CleanImageModelControlProps {
@@ -58,11 +59,7 @@ export const CleanImageModelControl = ({
         </label>
         <button
           type="button"
-          className={
-            noir
-              ? "panel-cut-sm hard-hover inline-flex items-center gap-1.5 border border-crimson/40 bg-crimson/10 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-crimson focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
-              : styles.manageButton
-          }
+          className={noir ? MANAGE_BUTTON_NOIR : styles.manageButton}
           onClick={onOpenManager}
         >
           <HardDrive size={12} /> {t("aio.model.manage")}
@@ -72,7 +69,7 @@ export const CleanImageModelControl = ({
       <select
         value={selectedValue}
         onChange={(event) => onSelectModel(event.target.value)}
-        className={noir ? "panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson" : "koma-select"}
+        className={noir ? STAGE_SELECT_NOIR : "koma-select"}
         disabled={options.length === 0}
       >
         {options.length === 0 ? (
