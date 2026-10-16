@@ -1257,8 +1257,6 @@ export default memo(function DashboardMainLayout({
               llmSettingsSupportSummary={llmSettingsSupportSummary}
               // ── Region editor / render stage (not yet migrated) ──
               updateActiveRenderMode={updateActiveRenderMode}
-              removeSelectedAioRegion={removeSelectedAioRegion}
-              duplicateSelectedTypographerRegion={duplicateSelectedTypographerRegion}
               applyActiveRenderStyleToAllRegions={applyActiveRenderStyleToAllRegions}
               activeImageRenderStageActive={activeImageRenderStageActive}
               // ── Typographer — render fonts (not yet migrated) ──

@@ -5,7 +5,6 @@ import { useThemeStore } from '@koma/ui/stores/theme-store';
 import {
   ArrowRight,
   Bookmark,
-  Box,
   Eraser,
   ExternalLink,
   Eye,
@@ -91,6 +90,7 @@ interface AioRightPanelProps {
   stopAioExecution: () => void;
   processAIO: AioPipelineExecutionApi['processAIO'];
   aioExecuteButtonProcessingLabel: string;
+
   normalizedAioSourceLanguage: AioPresetEditorApi['normalizedAioSourceLanguage'];
   presetsForCurrentLanguage: AioPresetEditorApi['presetsForCurrentLanguage'];
   activePresetForCurrentLanguage: AioPresetEditorApi['activePresetForCurrentLanguage'];
@@ -106,6 +106,7 @@ interface AioRightPanelProps {
   handleSaveCurrentSelectionAsPreset: AioPresetEditorApi['handleSaveCurrentSelectionAsPreset'];
   handleSavePresetEditor: AioPresetEditorApi['handleSavePresetEditor'];
   openSettingsOnPresetsTab: () => void;
+
   availableDetectStageOptions: AioStageOption[];
   availableOcrStageOptions: AioStageOption[];
   availableTranslationStageOptions: AioStageOption[];
@@ -136,8 +137,6 @@ interface AioRightPanelProps {
   showLlmSettingsPanel: boolean;
   llmSettingsSupportSummary: string;
   updateActiveRenderMode: (nextMode: RenderTextMode) => void;
-  removeSelectedAioRegion: () => void;
-  duplicateSelectedTypographerRegion: () => void;
   applyActiveRenderStyleToAllRegions: () => void;
   activeImageRenderStageActive: boolean;
   loadRenderFontCatalog: RenderFontCatalogApi['loadRenderFontCatalog'];
@@ -212,8 +211,6 @@ export default memo(function AioRightPanel({
   showLlmSettingsPanel,
   llmSettingsSupportSummary,
   updateActiveRenderMode,
-  removeSelectedAioRegion,
-  duplicateSelectedTypographerRegion,
   applyActiveRenderStyleToAllRegions,
   activeImageRenderStageActive,
   loadRenderFontCatalog,
@@ -230,14 +227,12 @@ export default memo(function AioRightPanel({
   /* ── Image collection ── */
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
-
   const resolvedActiveId = useMemo(
     () =>
       (images.find((img) => img.id === activeId) ?? images[0] ?? null)?.id ??
       null,
     [activeId, images],
   );
-
   const selectManualStageByIndex = useCallback(
     (index: number) => {
       void setManualStageForActiveImage(index);
@@ -246,9 +241,7 @@ export default memo(function AioRightPanel({
   );
 
   const {
-    activeImageDetections,
     activeSelectedRegion,
-    activeSelectedTranslationNotes,
     activeSelectedRenderMode,
     activeSelectedResolvedRenderMode,
   } = useActiveAioRegionState({ resolvedActiveId: activeId });
@@ -1449,110 +1442,6 @@ export default memo(function AioRightPanel({
             </label>
           </div>
         </AioSection>
-      </AioSection>
-
-      {/* ═══════════════════ REGION ═══════════════════ */}
-      <AioSection
-        icon={Box}
-        title={t("dashboard.dashboardRegion.title")}
-        defaultOpen={aioSteps.render || !!activeSelectedRegion}
-      >
-        <div className="koma-aio-region">
-          <div className="koma-aio-region__grid">
-            <span className="koma-aio-region__key">{t("dashboard.dashboardRegion.blocks")}</span>
-            <span className="koma-aio-region__val">
-              {activeImageDetections.length}
-            </span>
-
-            <span className="koma-aio-region__key">{t("dashboard.dashboardRegion.selection")}</span>
-            <span
-              className={cn(
-                'koma-aio-region__val',
-                !activeSelectedRegion && 'koma-aio-region__val--muted',
-              )}
-            >
-              {activeSelectedRegion ? activeSelectedRegion.id : t("aio.region.noSelection")}
-            </span>
-
-            {!aioSteps.render && activeSelectedRegion && (
-              <>
-                <span className="koma-aio-region__key">{t("dashboard.dashboardRegion.ocr")}</span>
-                <span
-                  className={cn(
-                    'koma-aio-region__val',
-                    !activeSelectedRegion.recognizedText &&
-                    'koma-aio-region__val--muted',
-                  )}
-                >
-                  {activeSelectedRegion.recognizedText
-                    ? `"${activeSelectedRegion.recognizedText.slice(0, 80)}"`
-                    : aioSteps.recognizeText
-                      ? '—'
-                      : t("dashboard.dashboardRegion.disabled")}
-                </span>
-
-                <span className="koma-aio-region__key">{t("dashboard.dashboardRegion.translation")}</span>
-                <span
-                  className={cn(
-                    'koma-aio-region__val',
-                    !activeSelectedRegion.translatedText &&
-                    'koma-aio-region__val--muted',
-                  )}
-                >
-                  {activeSelectedRegion.translatedText
-                    ? `"${activeSelectedRegion.translatedText.slice(0, 80)}"`
-                    : aioSteps.getTranslations
-                      ? '—'
-                      : t("dashboard.dashboardRegion.disabled")}
-                </span>
-
-                {activeSelectedTranslationNotes.length > 0 && (
-                  <>
-                    <span className="koma-aio-region__key">{t("dashboard.dashboardRegion.notes")}</span>
-                    <span className="koma-aio-region__val">
-                      {activeSelectedTranslationNotes.join(' | ')}
-                    </span>
-                  </>
-                )}
-
-                <span className="koma-aio-region__key">{t("dashboard.dashboardRegion.segments")}</span>
-                <span className="koma-aio-region__val">
-                  {activeSelectedRegion
-                    ? `${activeSelectedRegion.mergedSegmentBoxes?.length ?? activeSelectedRegion.segmentBoxes?.length ?? 0} caixa(s)`
-                    : '—'}
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="koma-aio-region__actions">
-            <button
-              type="button"
-              className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--ghost"}
-              disabled={!activeSelectedRegion}
-              onClick={removeSelectedAioRegion}
-            >
-              {t("aio.region.removeSelected")}
-            </button>
-            <button
-              type="button"
-              className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--ghost"}
-              disabled={!activeSelectedRegion}
-              onClick={duplicateSelectedTypographerRegion}
-            >
-              {t("aio.region.duplicateSelected")}
-            </button>
-          </div>
-
-          {subMode === 'manual' && !aioSteps.render && (
-            <p className="koma-aio-hint">
-              {subMode === 'manual'
-                ? t("dashboard.dashboardRegion.manualHint")
-                : t("dashboard.dashboardRegion.manualModeHint")}
-            </p>
-          )}
-        </div>
       </AioSection>
 
       {/* ═══════════════════ MANUAL HINT ═══════════════════ */}
