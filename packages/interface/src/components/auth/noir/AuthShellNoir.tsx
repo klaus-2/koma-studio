@@ -168,17 +168,6 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
           <PrintTicks />
 
           <div className="glass panel-cut relative p-7 sm:p-9">
-            <div className="mb-7 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.25em] text-paper/40">
-              <span>
-                <span className="text-crimson">Cap.</span>{" "}
-                {activeTab === "login" ? "01 — Entrar" : "02 — Registrar"}
-              </span>
-              <span className="flex items-center gap-2">
-                <span aria-hidden className="inline-block h-1.5 w-1.5 animate-blink bg-crimson" />
-                Servidor online
-              </span>
-            </div>
-
             <header className="mb-7 flex items-start gap-4">
               <Hanko />
               <div>
