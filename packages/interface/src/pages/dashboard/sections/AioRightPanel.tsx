@@ -345,14 +345,12 @@ export default memo(function AioRightPanel({
   const aioPipelineSnapshotIndex = useAioPipelineStore(
     (s) => s.aioPipelineSnapshotIndex,
   );
-
   const activeAioPipelineSnapshot = useAioPipelineStore((s) => {
     const index = s.aioPipelineSnapshotIndex;
     return index >= 0 && index < s.aioPipelineSnapshots.length
       ? (s.aioPipelineSnapshots[index] ?? null)
       : null;
   });
-
   const activeManualProgress = useAioPipelineStore((s) =>
     resolvedActiveId
       ? (s.aioManualProgressByImage[resolvedActiveId] ?? null)
@@ -1582,6 +1580,16 @@ export default memo(function AioRightPanel({
 
       {/* ═══════════════════ EXECUTE BAR ═══════════════════ */}
       <div className="koma-aio-execute">
+        {processing && (
+          <button
+            type="button"
+            className="koma-aio-execute__btn koma-aio-execute__btn--stop"
+            onClick={stopAioExecution}
+          >
+            <X size={14} />
+            {t("dashboard.dashboardExecute.stop")}
+          </button>
+        )}
         <button
           type="button"
           className={cn(
@@ -1636,16 +1644,6 @@ export default memo(function AioRightPanel({
             </>
           )}
         </button>
-        {processing && (
-          <button
-            type="button"
-            className="koma-aio-execute__btn koma-aio-execute__btn--stop"
-            onClick={stopAioExecution}
-          >
-            <X size={14} />
-            {t("dashboard.dashboardExecute.stop")}
-          </button>
-        )}
       </div>
     </div>
   );

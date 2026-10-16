@@ -550,7 +550,7 @@
   border: 0;
   background: transparent;
   padding: 0;
-  color: var(--auth-purple);
+  color: var(--noir-crimson);
   font-family: var(--auth-font-body);
   font-size: 13px;
   font-weight: 600;
@@ -559,7 +559,7 @@
 }
 
 :root[data-theme-family='noir'] .auth-link:hover {
-  color: #c084fc;
+  color: color-mix(in srgb, var(--noir-crimson) 65%, #fff);
 }
 
 /* ============================================================
@@ -14254,6 +14254,12 @@
   min-height: auto;
   text-decoration: underline;
   text-underline-offset: 3px;
+  color: var(--noir-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-legal-inline__link:hover,
+:root[data-theme-family='noir'] .koma-legal-inline__link:focus-visible {
+  color: color-mix(in srgb, var(--noir-crimson) 65%, #fff);
 }
 
 :root[data-theme-family='noir'] .auth-check--legal {

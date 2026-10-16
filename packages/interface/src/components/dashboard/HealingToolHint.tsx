@@ -8,7 +8,6 @@ import { useThemeStore } from "@koma/ui/stores/theme-store";
 const HINT_ID = 'healing-tool-first-use';
 
 interface HealingToolHintProps {
-  /** Increment this value to attempt showing the hint */
   trigger: number;
 }
 
@@ -16,10 +15,7 @@ export function HealingToolHint({ trigger }: HealingToolHintProps) {
   const { shouldShow, dismiss } = useToolTips();
   const { t } = useI18n();
   const theme = useThemeStore((s) => s.theme);
-  // ponytail: `dismiss()` mutates a non-reactive seen-set, so visibility needs a
-  // local dismissal latch; otherwise it derives from trigger + shouldShow.
-  // Ceiling: toggling tooltip settings while the hint is on screen now hides it
-  // (settings only change on the Settings route, where this component is unmounted).
+  const family = useThemeStore((s) => s.family);
   const [dismissed, setDismissed] = useState(false);
   const visible = trigger > 0 && !dismissed && shouldShow(HINT_ID);
 
@@ -28,12 +24,23 @@ export function HealingToolHint({ trigger }: HealingToolHintProps) {
     setDismissed(true);
   };
 
-  const isLight = theme === 'light';
+  const isNoir = family === 'noir';
+  const isLight = !isNoir && theme === 'light';
+
+  const surfaceClass = isNoir
+    ? 'border border-purple-500/15 bg-[rgba(10,12,24,0.96)] shadow-[0_32px_80px_rgba(0,0,0,0.6),0_0_60px_rgba(168,85,247,0.04),inset_0_1px_0_rgba(255,255,255,0.025)]'
+    : isLight
+      ? 'border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.98)] text-slate-900 shadow-[0_24px_56px_rgba(15,23,42,0.12),0_0_40px_rgba(168,85,247,0.04),inset_0_1px_0_rgba(255,255,255,0.72)]'
+      : 'border border-purple-500/15 bg-[rgba(10,12,24,0.96)] shadow-[0_32px_80px_rgba(0,0,0,0.6),0_0_60px_rgba(168,85,247,0.04),inset_0_1px_0_rgba(255,255,255,0.025)]';
+  const bodyClass = isNoir ? 'text-slate-400' : isLight ? 'text-slate-600' : 'text-text-muted';
+  const footerClass = isNoir ? 'text-slate-500' : isLight ? 'text-slate-500/80' : 'text-text-muted/60';
+  const dismissClass = isNoir
+    ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:bg-white/[0.06] hover:text-slate-200'
+    : isLight
+      ? 'border-black/8 bg-black/[0.02] text-slate-500 hover:bg-black/[0.05] hover:text-slate-900'
+      : 'border-white/6 bg-white/[0.02] text-text-muted hover:bg-white/[0.06] hover:text-text';
 
   return (
-    // ponytail: render-rule fix — `m` + LazyMotion(domAnimation) instead of the
-    // full `motion` component trims ~30kb from the dashboard bundle; this hint
-    // only animates opacity/position/scale, which domAnimation covers.
     <LazyMotion features={domAnimation}>
       <AnimatePresence>
         {visible && (
@@ -42,11 +49,7 @@ export function HealingToolHint({ trigger }: HealingToolHintProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.96 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className={`fixed bottom-24 right-6 z-[200] w-72 rounded-xl border backdrop-blur-[32px] ${
-              isLight
-                ? 'border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.98)] text-slate-900 shadow-[0_24px_56px_rgba(15,23,42,0.12),0_0_40px_rgba(168,85,247,0.04),inset_0_1px_0_rgba(255,255,255,0.72)]'
-                : 'border border-purple-500/15 bg-[rgba(10,12,24,0.96)] shadow-[0_32px_80px_rgba(0,0,0,0.6),0_0_60px_rgba(168,85,247,0.04),inset_0_1px_0_rgba(255,255,255,0.025)]'
-            }`}
+            className={`fixed bottom-24 right-6 z-[200] w-72 rounded-xl border backdrop-blur-[32px] ${surfaceClass}`}
             role="dialog"
             aria-label={t('dashboard.hint.healing.ariaLabel')}
           >
@@ -58,16 +61,14 @@ export function HealingToolHint({ trigger }: HealingToolHintProps) {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <div
-                    className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                      isLight ? 'bg-purple-500/10' : 'bg-purple-500/14'
-                    }`}
+                    className={`flex h-7 w-7 items-center justify-center rounded-lg ${isLight ? 'bg-purple-500/10' : 'bg-purple-500/14'
+                      }`}
                   >
                     <Sparkles size={14} className={isLight ? 'text-purple-600' : 'text-purple-300'} />
                   </div>
                   <span
-                    className={`text-xs font-bold tracking-wide font-heading uppercase ${
-                      isLight ? 'text-purple-700/90' : 'text-purple-200/90'
-                    }`}
+                    className={`text-xs font-bold tracking-wide font-heading uppercase ${isLight ? 'text-purple-700/90' : 'text-purple-200/90'
+                      }`}
                   >
                     {t('dashboard.hint.healing.eyebrow')}
                   </span>
@@ -75,11 +76,7 @@ export function HealingToolHint({ trigger }: HealingToolHintProps) {
                 <button
                   type="button"
                   onClick={handleDismiss}
-                  className={`flex h-6 w-6 items-center justify-center rounded-md border transition-colors ${
-                    isLight
-                      ? 'border-black/8 bg-black/[0.02] text-slate-500 hover:bg-black/[0.05] hover:text-slate-900'
-                      : 'border-white/6 bg-white/[0.02] text-text-muted hover:bg-white/[0.06] hover:text-text'
-                  }`}
+                  className={`flex h-6 w-6 items-center justify-center rounded-md border transition-colors ${dismissClass}`}
                   aria-label={t('common.close')}
                 >
                   <X size={12} />
@@ -87,12 +84,12 @@ export function HealingToolHint({ trigger }: HealingToolHintProps) {
               </div>
 
               {/* Body */}
-              <p className={`mt-3 text-[13px] leading-relaxed ${isLight ? 'text-slate-600' : 'text-text-muted'}`}>
+              <p className={`mt-3 text-[13px] leading-relaxed ${bodyClass}`}>
                 {t('dashboard.hint.healing.body')}
               </p>
 
               {/* Footer hint */}
-              <p className={`mt-3 text-[11px] ${isLight ? 'text-slate-500/80' : 'text-text-muted/60'}`}>
+              <p className={`mt-3 text-[11px] ${footerClass}`}>
                 {t('dashboard.hint.healing.footer')}
               </p>
             </div>
