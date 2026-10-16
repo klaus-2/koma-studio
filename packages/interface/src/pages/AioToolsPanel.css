@@ -986,11 +986,6 @@
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
 }
 
-/* ── SubMode toggle override (more compact) ────────────────────── */
-.koma-aio-tools .koma-submode-toggle {
-  margin: 0;
-}
-
 /* ── Render font row ───────────────────────────────────────────── */
 .koma-aio-font-row {
   display: flex;

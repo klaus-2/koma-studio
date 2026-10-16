@@ -447,8 +447,7 @@
   padding: 10px;
 }
 
-.koma-tour-preview__tab,
-.koma-tour-preview__toggle {
+.koma-tour-preview__tab {
   flex: 1;
   padding: 6px 8px;
   border: 1px solid rgba(242, 237, 227, 0.1);
@@ -463,8 +462,7 @@
   text-align: center;
 }
 
-.koma-tour-preview__tab--active,
-.koma-tour-preview__toggle--active {
+.koma-tour-preview__tab--active {
   background: var(--tour-crimson);
   color: var(--tour-ink);
   border-color: var(--tour-crimson);
@@ -738,14 +736,12 @@
   border-color: rgba(20, 19, 26, 0.18);
 }
 
-[data-theme="light"] .koma-tour-preview__tab,
-[data-theme="light"] .koma-tour-preview__toggle {
+[data-theme="light"] .koma-tour-preview__tab {
   border-color: rgba(20, 19, 26, 0.14);
   color: rgba(20, 19, 26, 0.5);
 }
 
-[data-theme="light"] .koma-tour-preview__tab--active,
-[data-theme="light"] .koma-tour-preview__toggle--active {
+[data-theme="light"] .koma-tour-preview__tab--active {
   background: #ff2e63;
   color: #faf7f0;
   border-color: #ff2e63;

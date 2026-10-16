@@ -253,14 +253,6 @@ const buildStepsForCurrentMode = (
   if (mode === 'aio' && subMode === 'auto') {
     return [
       {
-        selector: '[data-tour="dashboard-submode-toggle"]',
-        title: t('dashboard.coachmark.aioAuto.pipelineTitle'),
-        body: t('dashboard.coachmark.aioAuto.pipelineBody'),
-        accent: t('dashboard.coachmark.aioAuto.pipelineAccent'),
-        side: 'left',
-        align: 'center',
-      },
-      {
         selector: '[data-tour="dashboard-aio-pipeline"]',
         title: t('dashboard.coachmark.aioAuto.stagesTitle'),
         body: t('dashboard.coachmark.aioAuto.stagesBody'),
@@ -282,14 +274,6 @@ const buildStepsForCurrentMode = (
 
   if (mode === 'aio' && subMode === 'manual') {
     return [
-      {
-        selector: '[data-tour="dashboard-submode-toggle"]',
-        title: t('dashboard.coachmark.aioManual.title'),
-        body: t('dashboard.coachmark.aioManual.body'),
-        accent: t('dashboard.coachmark.aioManual.accent'),
-        side: 'left',
-        align: 'center',
-      },
       common.stageStep,
       !isCompactViewport
         ? {
@@ -308,16 +292,6 @@ const buildStepsForCurrentMode = (
 
   if (mode === 'typesetter') {
     return [
-      {
-        selector: '[data-tour="dashboard-submode-toggle"]',
-        title: subMode === 'manual' ? t('dashboard.coachmark.typesetter.titleManual') : t('dashboard.coachmark.typesetter.titleAuto'),
-        body: subMode === 'manual'
-          ? t('dashboard.coachmark.typesetter.bodyManual')
-          : t('dashboard.coachmark.typesetter.bodyAuto'),
-        accent: subMode === 'manual' ? t('dashboard.coachmark.typesetter.accentManual') : t('dashboard.coachmark.typesetter.accentAuto'),
-        side: 'left',
-        align: 'center',
-      },
       common.stageStep,
       common.toolsStep,
       common.downloadStep ?? common.stageStep,

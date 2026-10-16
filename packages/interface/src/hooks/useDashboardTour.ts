@@ -55,7 +55,6 @@ export type DashboardTourStepId =
   | 'modes'
   | 'production'
   | 'utils'
-  | 'submode'
   | 'pipeline'
   | 'stage-config'
   | 'stage'
@@ -70,7 +69,6 @@ export type DashboardTourPreviewKind =
   | 'modes'
   | 'production'
   | 'utils'
-  | 'submode'
   | 'pipeline'
   | 'config'
   | 'stage-empty'
@@ -288,13 +286,6 @@ const renderPreviewMarkup = (
           <span class="koma-tour-preview__miniCard">${escapeHtml(t('dashboard.mode.split'))}</span>
           <span class="koma-tour-preview__miniCard">${escapeHtml(t('dashboard.mode.watermark'))}</span>
           <span class="koma-tour-preview__miniCard">${escapeHtml(t('dashboard.mode.enhance'))}</span>
-        </div>
-      `;
-    case 'submode':
-      return `
-        <div class="koma-tour-preview koma-tour-preview--submode" aria-hidden="true">
-          <span class="koma-tour-preview__toggle koma-tour-preview__toggle--active">${escapeHtml(t('common.automatic'))}</span>
-          <span class="koma-tour-preview__toggle">${escapeHtml(t('common.manual'))}</span>
         </div>
       `;
     case 'pipeline':
@@ -560,18 +551,6 @@ export const useDashboardTour = ({
         align: 'center',
         prepare: async () => {
           await ensureDropdown('utils');
-        },
-      },
-      {
-        id: 'submode',
-        selector: '[data-tour="dashboard-submode-toggle"]',
-        title: t('dashboard.tour.submode.title'),
-        body: t('dashboard.tour.submode.body'),
-        previewKind: 'submode',
-        side: 'left',
-        align: 'center',
-        prepare: async () => {
-          await ensureAio('auto');
         },
       },
       {

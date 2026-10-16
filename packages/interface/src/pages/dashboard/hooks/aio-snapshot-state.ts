@@ -102,7 +102,6 @@ export function useAioPipelineSnapshotState({
 
   const navigation = useAioSnapshotNavigation(
     aioPipelineStageLabels,
-    resolvedActiveId,
   );
   const patchAioSnapshotStageForImage = useCallback(
     (

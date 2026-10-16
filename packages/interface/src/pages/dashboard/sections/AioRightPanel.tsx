@@ -28,7 +28,6 @@ import { AioSection } from '../../AioSection';
 import { AioPipelineChip } from '../../AioPipelineChip';
 import { AioTimelineStep } from '../../AioTimelineStep';
 import { AioStageTabBar, type StageTabDef } from '../../AioStageTabBar';
-import SubModeToggle from '../../../components/dashboard/SubModeToggle';
 import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
 import KlSlider from '../../../components/dashboard/KlSlider';
 import DetectTextModelControl from '../../../components/AioStageModelControls/DetectTextModelControl.tsx';
@@ -54,7 +53,6 @@ import {
 } from '../../../constants/dashboard.constants';
 import type {
   AioManualStageStatus,
-  SubMode,
 } from '../../../types/dashboard.types';
 import type { AioStageKey } from '../../../types/aioModelPresets';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
@@ -83,8 +81,6 @@ type AioPresetEditorApi = ReturnType<typeof useAioPresetEditor>;
 type AioPipelineExecutionApi = ReturnType<typeof useAioPipelineExecution>;
 
 interface AioRightPanelProps {
-  /* ── AIO pipeline — sub-mode & execution (not yet migrated) ── */
-  handleAioSubModeChange: (nextMode: SubMode) => void;
   rewindAioPipeline: () => void;
   forwardAioPipeline: () => void;
   setManualStageForActiveImage: AioManualExecutionApi['setManualStageForActiveImage'];
@@ -95,8 +91,6 @@ interface AioRightPanelProps {
   stopAioExecution: () => void;
   processAIO: AioPipelineExecutionApi['processAIO'];
   aioExecuteButtonProcessingLabel: string;
-
-  /* ── AIO pipeline — preset editor (not yet migrated) ── */
   normalizedAioSourceLanguage: AioPresetEditorApi['normalizedAioSourceLanguage'];
   presetsForCurrentLanguage: AioPresetEditorApi['presetsForCurrentLanguage'];
   activePresetForCurrentLanguage: AioPresetEditorApi['activePresetForCurrentLanguage'];
@@ -112,8 +106,6 @@ interface AioRightPanelProps {
   handleSaveCurrentSelectionAsPreset: AioPresetEditorApi['handleSaveCurrentSelectionAsPreset'];
   handleSavePresetEditor: AioPresetEditorApi['handleSavePresetEditor'];
   openSettingsOnPresetsTab: () => void;
-
-  /* ── AIO pipeline — model selection & catalogs (not yet migrated) ── */
   availableDetectStageOptions: AioStageOption[];
   availableOcrStageOptions: AioStageOption[];
   availableTranslationStageOptions: AioStageOption[];
@@ -139,31 +131,21 @@ interface AioRightPanelProps {
   | null;
   selectedCustomTranslationProfile: CustomLlmProfile | null;
   selectedLegacyTranslationOption: AioStageOption | null;
-
-  /* ── AIO pipeline — labels & stage tabs (page memos) ── */
   aioStageLabels: Record<AioStageKey, string>;
   STAGE_TABS: StageTabDef[];
-
-  /* ── LLM settings (not yet migrated) ── */
   showLlmSettingsPanel: boolean;
   llmSettingsSupportSummary: string;
-
-  /* ── Region editor / render stage (not yet migrated) ── */
   updateActiveRenderMode: (nextMode: RenderTextMode) => void;
   removeSelectedAioRegion: () => void;
   duplicateSelectedTypographerRegion: () => void;
   applyActiveRenderStyleToAllRegions: () => void;
   activeImageRenderStageActive: boolean;
-
-  /* ── Typographer — render fonts (not yet migrated) ── */
   loadRenderFontCatalog: RenderFontCatalogApi['loadRenderFontCatalog'];
   fontCatalogLoading: RenderFontCatalogApi['fontCatalogLoading'];
   fontCatalogImporting: RenderFontCatalogApi['fontCatalogImporting'];
   fontCatalogError: RenderFontCatalogApi['fontCatalogError'];
   fontCatalogInputRef: React.RefObject<HTMLInputElement | null>;
   handleRenderFontImport: RenderFontCatalogApi['handleRenderFontImport'];
-
-  /* ── Shell (not yet migrated) ── */
   isDesktopRuntime: boolean;
 }
 
@@ -177,7 +159,6 @@ const SELECT_NOIR =
 const SELECT_FLEX_NOIR = SELECT_NOIR.replace('w-full', 'flex-1 min-w-0');
 
 export default memo(function AioRightPanel({
-  handleAioSubModeChange,
   rewindAioPipeline,
   forwardAioPipeline,
   setManualStageForActiveImage,
@@ -249,18 +230,21 @@ export default memo(function AioRightPanel({
   /* ── Image collection ── */
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
+
   const resolvedActiveId = useMemo(
     () =>
       (images.find((img) => img.id === activeId) ?? images[0] ?? null)?.id ??
       null,
     [activeId, images],
   );
+
   const selectManualStageByIndex = useCallback(
     (index: number) => {
       void setManualStageForActiveImage(index);
     },
     [setManualStageForActiveImage],
   );
+
   const {
     activeImageDetections,
     activeSelectedRegion,
@@ -406,12 +390,6 @@ export default memo(function AioRightPanel({
           </span>
         }
       >
-        {/* SubMode Toggle */}
-        <SubModeToggle
-          value={subMode}
-          onChange={handleAioSubModeChange}
-        />
-
         {subMode === 'auto' ? (
           <>
             {/* Auto: compact 3×2 chip grid */}

@@ -964,8 +964,15 @@
   animation: koma-aio-blink 1.4s steps(2, jump-none) infinite;
 }
 
-:root[data-theme-family='noir'] .koma-aio-tools .koma-submode-toggle {
-  margin: 0;
+:root[data-theme-family='noir'] .koma-aio-font-row {
+  display: flex;
+  gap: 6px;
+}
+
+:root[data-theme-family='noir'] .koma-aio-font-row .koma-btn {
+  flex: 1;
+  font-size: 11px;
+  padding: 7px 10px;
 }
 
 :root[data-theme-family='noir'] .koma-aio-font-row {
