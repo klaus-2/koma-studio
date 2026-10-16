@@ -139,7 +139,7 @@ export const RuntimeStartupToastNoir = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 340, damping: 28 }}
-        className="glass panel-cut-sm fixed bottom-5 left-5 z-[125] w-[min(300px,calc(100vw-2rem))] border border-paper/10 p-3.5"
+        className="glass panel-cut-sm fixed bottom-5 right-5 z-[125] w-[min(300px,calc(100vw-2rem))] border border-paper/10 p-3.5"
         role="status" aria-live="polite"
       >
         <span aria-hidden className="absolute left-0 top-0 h-full w-[3px] bg-azure" />
