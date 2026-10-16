@@ -745,7 +745,11 @@ export default memo(function AioRightPanel({
                   <span className="koma-field__label">{t('dashboard.aio.customAi.name')}</span>
                   <input
                     type="text"
-                    className="koma-input"
+                    className={
+                      noir
+                        ? "panel-cut-sm w-full border border-paper/12 bg-ink px-2.5 py-2 font-mono text-[11px] text-paper placeholder:text-paper/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
+                        : "koma-input"
+                    }
                     value={aioPresetEditorDraft.name}
                     onChange={(e) =>
                       setAioPresetEditorDraft((prev) => ({
