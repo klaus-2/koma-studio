@@ -982,9 +982,13 @@ export default memo(function AioRightPanel({
                     />
 
                     <div className="koma-aio-llm-toggles">
-                      <label className="koma-checklist__item">
+                      <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
+                        <span className={noir ? (llmTranslationNotesEnabled ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
+                          {noir && llmTranslationNotesEnabled && <span className="h-1.5 w-1.5 bg-ink" />}
+                        </span>
                         <input
                           type="checkbox"
+                          className={noir ? 'sr-only' : undefined}
                           checked={llmTranslationNotesEnabled}
                           onChange={(e) =>
                             setLlmSettings((prev) =>
@@ -995,11 +999,15 @@ export default memo(function AioRightPanel({
                             )
                           }
                         />
-                        <span>{t("dashboard.aio.translation.notesToggle")}</span>
+                        <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t("dashboard.aio.translation.notesToggle")}</span>
                       </label>
-                      <label className="koma-checklist__item">
+                      <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
+                        <span className={noir ? (llmNeighborContextEnabled ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
+                          {noir && llmNeighborContextEnabled && <span className="h-1.5 w-1.5 bg-ink" />}
+                        </span>
                         <input
                           type="checkbox"
+                          className={noir ? 'sr-only' : undefined}
                           checked={llmNeighborContextEnabled}
                           onChange={(e) =>
                             setLlmSettings((prev) =>
@@ -1010,11 +1018,15 @@ export default memo(function AioRightPanel({
                             )
                           }
                         />
-                        <span>{t("dashboard.aio.translation.neighborContextToggle")}</span>
+                        <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t("dashboard.aio.translation.neighborContextToggle")}</span>
                       </label>
-                      <label className="koma-checklist__item">
+                      <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
+                        <span className={noir ? (llmImageInputEnabled ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
+                          {noir && llmImageInputEnabled && <span className="h-1.5 w-1.5 bg-ink" />}
+                        </span>
                         <input
                           type="checkbox"
+                          className={noir ? 'sr-only' : undefined}
                           checked={llmImageInputEnabled}
                           onChange={(e) =>
                             setLlmSettings((prev) =>
@@ -1025,7 +1037,7 @@ export default memo(function AioRightPanel({
                             )
                           }
                         />
-                        <span>{t("dashboard.aio.translation.multimodalToggle")}</span>
+                        <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t("dashboard.aio.translation.multimodalToggle")}</span>
                       </label>
                     </div>
 
