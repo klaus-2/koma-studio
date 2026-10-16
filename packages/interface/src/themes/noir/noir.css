@@ -477,8 +477,8 @@
 }
 
 .koma-noir .manhwa-float__bar {
-  background: color-mix(in srgb, var(--color-ink) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-paper) 18%, transparent);
+  background: transparent;
+  border: none;
 }
 
 .koma-noir .manhwa-float__handle {
