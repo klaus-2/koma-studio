@@ -11,9 +11,6 @@ import type {
 } from '@/models/aioStageCatalog';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 
-export { useAioStageCatalogBuild } from '@/pages/dashboard/hooks/aio-pipeline.catalog.build';
-export { useAioModelSelection } from '@/pages/dashboard/hooks/aio-pipeline.catalog.selection';
-
 export function useAioSelectedStageModels() {
   const options = useAioPipelineStore((state) => state.aioStageOptions);
   const selection = useAioPipelineStore((state) => state.aioStageSelection);

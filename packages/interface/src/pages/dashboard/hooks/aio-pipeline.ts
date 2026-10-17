@@ -38,7 +38,11 @@ import {
 export { useAioPresetEditor } from '@/pages/dashboard/hooks/aio-pipeline.preset';
 export {
   useAioModelSelection,
+} from '@/pages/dashboard/hooks/aio-pipeline.catalog.selection';
+export {
   useAioStageCatalogBuild,
+} from '@/pages/dashboard/hooks/aio-pipeline.catalog.build';
+export {
   useAioSelectedStageModels,
   useAioStageAvailability,
 } from '@/pages/dashboard/hooks/aio-pipeline.catalog';
