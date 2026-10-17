@@ -521,7 +521,6 @@ export const ruMessages: TranslationCatalog = {
   'aio.region.translation': 'Перевод выбранной области: {value}',
   'aio.region.notes': 'Заметки выбранной области: {value}',
   'aio.region.segmentation': 'Сегментация выбранной области: {value}',
-  'aio.region.noSelection': 'нет',
   'aio.region.noRecognizedText': 'текст не распознан',
   'aio.region.ocrDisabled': 'Этап OCR отключён',
   'aio.region.noTranslation': 'перевод недоступен',
@@ -530,8 +529,6 @@ export const ruMessages: TranslationCatalog = {
   'aio.region.notesDisabled': 'заметки отключены',
   'aio.region.noSelectedRegion': 'область не выбрана',
   'aio.region.segmentedBoxes': '{count} сегментированных блоков',
-  'aio.region.removeSelected': 'Удалить выбранное',
-  'aio.region.duplicateSelected': 'Дублировать выбранное',
   'aio.manual.toolsHintPrimary':
     'Используйте плавающую панель на холсте для выбора области, очистки страницы и редактирования сегментации/ручного режима.',
   'aio.manual.toolsHintSecondary':
@@ -790,8 +787,6 @@ export const ruMessages: TranslationCatalog = {
     'AIO вперёд ({imageName}): этап «{label}» ({current}/{total}).',
   'dashboard.llm.translation': 'Перевод',
   'dashboard.llm.ocr': 'OCR',
-  'dashboard.aio.manualScope': 'AIO ручной',
-  'dashboard.aio.autoScope': 'AIO автоматический',
   'dashboard.aio.executing': 'Выполнение',
   'dashboard.cleaner.selectProfile':
     'Выберите сохранённый визуальный профиль для автоматической ИИ-очистки.',
@@ -1216,8 +1211,6 @@ export const ruMessages: TranslationCatalog = {
   'splitter.strategy.fixedHeightHint': 'Разделение по высоте.',
   'splitter.strategy.count': 'N частей',
   'splitter.strategy.countHint': 'Равномерное деление.',
-  'dashboard.aio.autoScopeTitle': 'Автоматичес��ая обработка без вмешательства',
-  'dashboard.aio.manualScopeTitle': 'Ручное управление каждым этапом',
   'detectionPreview.recognized': 'Распознано:',
   'detectionPreview.translated': 'Переведено:',
   'detectionPreview.note': 'ПП:',
@@ -1925,18 +1918,6 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.dashboardLlm.resizeLimit': 'Лимит масштабирования',
   'dashboard.dashboardLlm.cropMargin': 'Отступ обрезки',
   'dashboard.dashboardLlm.cropTriggerSize': 'Порог активации обрезки',
-  'dashboard.dashboardRegion.title': 'Область',
-  'dashboard.dashboardRegion.blocks': 'Блоки',
-  'dashboard.dashboardRegion.selection': 'Выделение',
-  'dashboard.dashboardRegion.ocr': 'OCR',
-  'dashboard.dashboardRegion.translation': 'Перевод',
-  'dashboard.dashboardRegion.notes': 'Заметки',
-  'dashboard.dashboardRegion.segments': 'Сегменты',
-  'dashboard.dashboardRegion.disabled': 'отключено',
-  'dashboard.dashboardRegion.manualHint':
-    'Перетащите на превью для добавления областей. Используйте углы для изменения размера.',
-  'dashboard.dashboardRegion.manualModeHint':
-    'Ручной режим для корректировки блоков.',
   'dashboard.dashboardRegion.dockHint':
     'Используйте плавающую панель на холсте для выбора области, очистки и редактирования. Инструменты включаются в зависимости от активного этапа.',
   'dashboard.translator.workspace.ariaLabel': 'Режим переводчика',
@@ -3564,11 +3545,6 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.coachmark.organize.orderBody':
     'В левой панели вы выбираете активное изображение, меняете порядок страниц, удаляете некачественные элементы и проверяете готовность главы к обработке.',
   'dashboard.coachmark.organize.orderAccent': 'Пакет',
-  'dashboard.coachmark.aioAuto.pipelineTitle':
-    'Автоматический AIO: запустите конвейер',
-  'dashboard.coachmark.aioAuto.pipelineBody':
-    'В автоматическом режиме вы настраиваете один раз и обрабатываете пакет последовательно. Идеально для потока, пост-проверки и более повторяющихся рабочих процессов.',
-  'dashboard.coachmark.aioAuto.pipelineAccent': 'Авто',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'Автоматический AIO: включайте только нужное',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -3579,23 +3555,11 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.coachmark.aioAuto.configBody':
     'Выберите языки, пресеты и модели перед запуском. Именно эта часть больше всего влияет на скорость, качество и стоимость обработки.',
   'dashboard.coachmark.aioAuto.configAccent': 'Настройка',
-  'dashboard.coachmark.aioManual.title': 'Ручной AIO: работайте поэтапно',
-  'dashboard.coachmark.aioManual.body':
-    'В ручном режиме вы запускаете, проверяете и исправляете каждый этап с большим контролем. Идеальный режим для тонкой доработки и сложных случаев.',
-  'dashboard.coachmark.aioManual.accent': 'Ручной',
   'dashboard.coachmark.aioManual.dockTitle':
     'Ручной AIO: используйте док как верстак',
   'dashboard.coachmark.aioManual.dockBody':
     'Плавающий док объединяет выделение, сегментацию, кисть, палочку и восстановление. Считайте его мини-панелью быстрого вмешательства поверх превью.',
   'dashboard.coachmark.aioManual.dockAccent': 'Док',
-  'dashboard.coachmark.typesetter.titleManual': 'Ручной наборщик',
-  'dashboard.coachmark.typesetter.titleAuto': 'Автоматический наборщик',
-  'dashboard.coachmark.typesetter.bodyManual':
-    'Ручной режим лучше всего подходит для микрокоррекций баллонов, форм, шрифтов и визуального ритма на каждой странице.',
-  'dashboard.coachmark.typesetter.bodyAuto':
-    'Автоматический режим ускоряет черновики и большие пакеты. Выполните быструю визуальную проверку для обеспечения единообразия.',
-  'dashboard.coachmark.typesetter.accentManual': 'Ручной',
-  'dashboard.coachmark.typesetter.accentAuto': 'Авто',
   'dashboard.coachmark.cleaner.dockTitle':
     'Клинер: локальная коррекция без ухода с изображения',
   'dashboard.coachmark.cleaner.dockBody':
@@ -4139,9 +4103,6 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.tour.utils.title': 'Утилиты и поддержка',
   'dashboard.tour.utils.body':
     'Склейка, разделение, водяные знаки и улучшение обрабатывают быструю подготовку и экспорт. Руководства и ресурсы дополняют область поддержки для справки.',
-  'dashboard.tour.submode.title': 'Автоматический AIO vs. ручной',
-  'dashboard.tour.submode.body':
-    'Автоматический запускает полный конвейер пакетно. Ручной разблокирует каждый этап для каждого изображения для детальной проверки, навигации назад/вперёд и контролируемого визуального редактирования.',
   'dashboard.tour.pipeline.title': 'Конвейер AIO',
   'dashboard.tour.pipeline.body':
     'Эта карточка управляет последовательностью Обнаружение > OCR > Перевод > Сегментация > Очистка > Рендер. Вы можете включать или отключать этапы и в ручном режиме запускать только текущий этап.',

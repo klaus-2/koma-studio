@@ -514,7 +514,6 @@ export const enMessages = {
   'aio.region.translation': 'Translation of selected region: {value}',
   'aio.region.notes': 'Notes of selected region: {value}',
   'aio.region.segmentation': 'Segmentation of selected region: {value}',
-  'aio.region.noSelection': 'none',
   'aio.region.noRecognizedText': 'no recognized text',
   'aio.region.ocrDisabled': 'OCR stage disabled',
   'aio.region.noTranslation': 'no translation available',
@@ -523,8 +522,6 @@ export const enMessages = {
   'aio.region.notesDisabled': 'notes disabled',
   'aio.region.noSelectedRegion': 'no region selected',
   'aio.region.segmentedBoxes': '{count} segmented box(es)',
-  'aio.region.removeSelected': 'Remove Selected',
-  'aio.region.duplicateSelected': 'Duplicate Selected',
   'aio.manual.toolsHintPrimary':
     'Use the floating dock on the canvas for Select Area, Clean Page, and edit segmentation/manual.',
   'aio.manual.toolsHintSecondary':
@@ -781,8 +778,6 @@ export const enMessages = {
     'AIO forward ({imageName}): stage "{label}" ({current}/{total}).',
   'dashboard.llm.translation': 'Translation',
   'dashboard.llm.ocr': 'OCR',
-  'dashboard.aio.manualScope': 'AIO manual',
-  'dashboard.aio.autoScope': 'AIO automatic',
   'dashboard.aio.executing': 'Running',
   'dashboard.cleaner.selectProfile':
     'Select a saved visual profile to use with Automatic AI Clean.',
@@ -1204,8 +1199,6 @@ export const enMessages = {
   'splitter.strategy.fixedHeightHint': 'Segments by height.',
   'splitter.strategy.count': 'N parts',
   'splitter.strategy.countHint': 'Equal division.',
-  'dashboard.aio.autoScopeTitle': 'Automatic processing without intervention',
-  'dashboard.aio.manualScopeTitle': 'Manual control of each stage',
   'detectionPreview.recognized': 'Recognized:',
   'detectionPreview.translated': 'Translated:',
   'detectionPreview.note': 'TN:',
@@ -1897,17 +1890,6 @@ export const enMessages = {
   'dashboard.dashboardLlm.resizeLimit': 'Resize Limit',
   'dashboard.dashboardLlm.cropMargin': 'Crop Margin',
   'dashboard.dashboardLlm.cropTriggerSize': 'Crop Trigger Size',
-  'dashboard.dashboardRegion.title': 'Region',
-  'dashboard.dashboardRegion.blocks': 'Blocks',
-  'dashboard.dashboardRegion.selection': 'Selection',
-  'dashboard.dashboardRegion.ocr': 'OCR',
-  'dashboard.dashboardRegion.translation': 'Translation',
-  'dashboard.dashboardRegion.notes': 'Notes',
-  'dashboard.dashboardRegion.segments': 'Segments',
-  'dashboard.dashboardRegion.disabled': 'disabled',
-  'dashboard.dashboardRegion.manualHint':
-    'Drag on the preview to add areas. Use corners to resize.',
-  'dashboard.dashboardRegion.manualModeHint': 'Manual mode to adjust boxes.',
   'dashboard.dashboardRegion.dockHint':
     'Use the floating dock on the canvas to select area, clean, and edit. Tools are enabled based on the active stage.',
   'dashboard.translator.workspace.ariaLabel': 'Translator mode',
@@ -3084,10 +3066,6 @@ export const enMessages = {
   'dashboard.coachmark.organize.orderBody':
     'In the left sidebar you choose the active image, reorder pages, remove bad items, and check if the chapter is ready to proceed.',
   'dashboard.coachmark.organize.orderAccent': 'Batch',
-  'dashboard.coachmark.aioAuto.pipelineTitle': 'Auto AIO: let the pipeline run',
-  'dashboard.coachmark.aioAuto.pipelineBody':
-    'In automatic mode, you configure once and process the batch in sequence. Ideal for throughput, post-review, and more repetitive workflows.',
-  'dashboard.coachmark.aioAuto.pipelineAccent': 'Auto',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'Auto AIO: enable only what you need',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -3098,23 +3076,11 @@ export const enMessages = {
   'dashboard.coachmark.aioAuto.configBody':
     'Choose languages, presets, and models before running. This is the part that most influences processing speed, quality, and cost.',
   'dashboard.coachmark.aioAuto.configAccent': 'Setup',
-  'dashboard.coachmark.aioManual.title': 'Manual AIO: work stage by stage',
-  'dashboard.coachmark.aioManual.body':
-    "In manual mode, you run, review, and fix each stage with more control. It's the ideal mode for fine finishing and recovering difficult cases.",
-  'dashboard.coachmark.aioManual.accent': 'Manual',
   'dashboard.coachmark.aioManual.dockTitle':
     'Manual AIO: use the dock as your workbench',
   'dashboard.coachmark.aioManual.dockBody':
     'The floating dock brings together selection, segmentation, paint, wand, and healing. Think of it as the mini quick-intervention panel on top of the preview.',
   'dashboard.coachmark.aioManual.dockAccent': 'Dock',
-  'dashboard.coachmark.typesetter.titleManual': 'Manual Typesetter',
-  'dashboard.coachmark.typesetter.titleAuto': 'Auto Typesetter',
-  'dashboard.coachmark.typesetter.bodyManual':
-    'Manual is best for micro-adjustments to balloons, shapes, fonts, and visual rhythm per page.',
-  'dashboard.coachmark.typesetter.bodyAuto':
-    'Auto speeds up drafts and large batches. Follow up with a quick visual review to ensure consistency.',
-  'dashboard.coachmark.typesetter.accentManual': 'Manual',
-  'dashboard.coachmark.typesetter.accentAuto': 'Auto',
   'dashboard.coachmark.cleaner.dockTitle':
     'Cleaner: local correction without leaving the image',
   'dashboard.coachmark.cleaner.dockBody':
@@ -3642,9 +3608,6 @@ export const enMessages = {
   'dashboard.tour.utils.title': 'Utilities and support',
   'dashboard.tour.utils.body':
     'Stitch, Split, Watermark, and Enhance handle quick preparation and export tasks. Guides and Resources complete the support area for reference.',
-  'dashboard.tour.submode.title': 'Auto AIO vs. manual',
-  'dashboard.tour.submode.body':
-    'Auto runs the full pipeline in batch. Manual unlocks each stage per image for fine review, rewind/forward, and controlled visual editing.',
   'dashboard.tour.pipeline.title': 'AIO Pipeline',
   'dashboard.tour.pipeline.body':
     'This card controls the Detect > OCR > Translate > Segment > Clean > Render sequence. You can enable or disable stages and, in manual mode, run only the current stage.',

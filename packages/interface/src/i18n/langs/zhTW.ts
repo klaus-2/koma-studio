@@ -466,7 +466,6 @@ export const zhMessages: TranslationCatalog = {
   'aio.region.translation': '所選區域的翻譯：{value}',
   'aio.region.notes': '所選區域的備註：{value}',
   'aio.region.segmentation': '所選區域的分割：{value}',
-  'aio.region.noSelection': '無',
   'aio.region.noRecognizedText': '無辨識文字',
   'aio.region.ocrDisabled': 'OCR 階段已停用',
   'aio.region.noTranslation': '無可用翻譯',
@@ -475,8 +474,6 @@ export const zhMessages: TranslationCatalog = {
   'aio.region.notesDisabled': '備註已停用',
   'aio.region.noSelectedRegion': '未選取區域',
   'aio.region.segmentedBoxes': '{count} 個分割方塊',
-  'aio.region.removeSelected': '移除所選',
-  'aio.region.duplicateSelected': '複製所選',
   'aio.manual.toolsHintPrimary':
     '使用畫布上的浮動操作列進行「選取區域」、「清除頁面」以及編輯分割／手動操作。',
   'aio.manual.toolsHintSecondary': '工具會根據圖片的當前階段自動啟用。',
@@ -697,8 +694,6 @@ export const zhMessages: TranslationCatalog = {
     'AIO 前進（{imageName}）：階段「{label}」（{current}/{total}）。',
   'dashboard.llm.translation': '翻譯',
   'dashboard.llm.ocr': 'OCR',
-  'dashboard.aio.manualScope': 'AIO 手動',
-  'dashboard.aio.autoScope': 'AIO 自動',
   'dashboard.aio.executing': '執行中',
   'dashboard.cleaner.selectProfile':
     '選擇已儲存的視覺設定檔以用於「自動 AI 清除」。',
@@ -1089,8 +1084,6 @@ export const zhMessages: TranslationCatalog = {
   'splitter.strategy.fixedHeightHint': '按高度分割。',
   'splitter.strategy.count': 'N 等分',
   'splitter.strategy.countHint': '等量分割。',
-  'dashboard.aio.autoScopeTitle': '無需干預的自動處理',
-  'dashboard.aio.manualScopeTitle': '手動控制每個階段',
   'detectionPreview.recognized': '辨識：',
   'detectionPreview.translated': '翻譯：',
   'detectionPreview.note': '譯註：',
@@ -1754,17 +1747,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.dashboardLlm.resizeLimit': '縮放上限',
   'dashboard.dashboardLlm.cropMargin': '裁切邊距',
   'dashboard.dashboardLlm.cropTriggerSize': '裁切觸發尺寸',
-  'dashboard.dashboardRegion.title': '區域',
-  'dashboard.dashboardRegion.blocks': '區塊',
-  'dashboard.dashboardRegion.selection': '選取',
-  'dashboard.dashboardRegion.ocr': 'OCR',
-  'dashboard.dashboardRegion.translation': '翻譯',
-  'dashboard.dashboardRegion.notes': '備註',
-  'dashboard.dashboardRegion.segments': '分割區段',
-  'dashboard.dashboardRegion.disabled': '已停用',
-  'dashboard.dashboardRegion.manualHint':
-    '在預覽中拖曳以新增區域。拖曳角落可調整大小。',
-  'dashboard.dashboardRegion.manualModeHint': '手動模式以調整方塊。',
   'dashboard.dashboardRegion.dockHint':
     '使用畫布上的浮動操作列來選取區域、清除和編輯。工具會根據當前階段自動啟用。',
   'dashboard.translator.workspace.ariaLabel': '翻譯器模式',
@@ -3253,10 +3235,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.coachmark.organize.orderBody':
     '在左側邊欄中選擇啟用的圖片、重新排序頁面、移除不良項目，並確認章節是否準備好繼續。',
   'dashboard.coachmark.organize.orderAccent': '批次',
-  'dashboard.coachmark.aioAuto.pipelineTitle': '自動 AIO：讓管線執行',
-  'dashboard.coachmark.aioAuto.pipelineBody':
-    '在自動模式中，您只需設定一次即可依序處理批次。適用於高產量、後續審核和重複性較高的工作流程。',
-  'dashboard.coachmark.aioAuto.pipelineAccent': '自動',
   'dashboard.coachmark.aioAuto.stagesTitle': '自動 AIO：僅啟用所需階段',
   'dashboard.coachmark.aioAuto.stagesBody':
     '僅啟用對此批次有意義的階段。較少的階段意味著更低的成本、更短的時間和更少的故障點。',
@@ -3265,22 +3243,10 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.coachmark.aioAuto.configBody':
     '在執行前選擇語言、預設和模型。這是最影響處理速度、品質和成本的部分。',
   'dashboard.coachmark.aioAuto.configAccent': '設定',
-  'dashboard.coachmark.aioManual.title': '手動 AIO：逐階段操作',
-  'dashboard.coachmark.aioManual.body':
-    '在手動模式中，您可以更有控制地執行、審核和修正每個階段。這是精緻修飾和處理困難案例的理想模式。',
-  'dashboard.coachmark.aioManual.accent': '手動',
   'dashboard.coachmark.aioManual.dockTitle': '手動 AIO：使用操作列作為工作台',
   'dashboard.coachmark.aioManual.dockBody':
     '浮動操作列整合了選取、分割、繪圖、魔術棒和修復功能。將其視為預覽上方的迷你快速干預面板。',
   'dashboard.coachmark.aioManual.dockAccent': '操作列',
-  'dashboard.coachmark.typesetter.titleManual': '手動排版器',
-  'dashboard.coachmark.typesetter.titleAuto': '自動排版器',
-  'dashboard.coachmark.typesetter.bodyManual':
-    '手動模式最適合對每頁的對話框、形狀、字型和視覺節奏進行微調。',
-  'dashboard.coachmark.typesetter.bodyAuto':
-    '自動模式可加速草稿和大批次處理。之後進行快速視覺審核以確保一致性。',
-  'dashboard.coachmark.typesetter.accentManual': '手動',
-  'dashboard.coachmark.typesetter.accentAuto': '自動',
   'dashboard.coachmark.cleaner.dockTitle': '清除器：不離開圖片的本機修正',
   'dashboard.coachmark.cleaner.dockBody':
     '當操作列可見時，使用繪圖、橡皮擦和修復來修飾細節，而不會失去頁面上下文。',
@@ -3733,9 +3699,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.tour.utils.title': '工具和支援',
   'dashboard.tour.utils.body':
     '拼接、分割、浮水印和增強處理快速的準備和匯出任務。指南和資源作為參考完善支援區域。',
-  'dashboard.tour.submode.title': '自動 AIO vs. 手動',
-  'dashboard.tour.submode.body':
-    '自動模式批次執行完整管線。手動模式解鎖每張圖片的逐階段精細審核、倒回/前進和受控的視覺編輯。',
   'dashboard.tour.pipeline.title': 'AIO 管線',
   'dashboard.tour.pipeline.body':
     '此卡片控制「偵測 > OCR > 翻譯 > 分割 > 清除 > 渲染」的序列。您可以啟用或停用階段，在手動模式中僅執行當前階段。',

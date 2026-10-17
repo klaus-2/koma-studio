@@ -495,7 +495,6 @@ export const arMessages: TranslationCatalog = {
   'aio.region.translation': 'ترجمة المنطقة المحددة: {value}',
   'aio.region.notes': 'ملاحظات المنطقة المحددة: {value}',
   'aio.region.segmentation': 'تقسيم المنطقة المحددة: {value}',
-  'aio.region.noSelection': 'لا شيء',
   'aio.region.noRecognizedText': 'لا يوجد نص مُتعرّف عليه',
   'aio.region.ocrDisabled': 'مرحلة OCR معطّلة',
   'aio.region.noTranslation': 'لا تتوفر ترجمة',
@@ -504,8 +503,6 @@ export const arMessages: TranslationCatalog = {
   'aio.region.notesDisabled': 'الملاحظات معطّلة',
   'aio.region.noSelectedRegion': 'لم يتم تحديد منطقة',
   'aio.region.segmentedBoxes': '{count} مربع/مربعات مُقسّمة',
-  'aio.region.removeSelected': 'إزالة المحدد',
-  'aio.region.duplicateSelected': 'تكرار المحدد',
   'aio.manual.toolsHintPrimary':
     'استخدم الشريط العائم على اللوحة لتحديد المنطقة وتنظيف الصفحة وتعديل التقسيم/اليدوي.',
   'aio.manual.toolsHintSecondary':
@@ -738,8 +735,6 @@ export const arMessages: TranslationCatalog = {
     'تقدم AIO ({imageName}): المرحلة "{label}" ({current}/{total}).',
   'dashboard.llm.translation': 'ترجمة',
   'dashboard.llm.ocr': 'OCR',
-  'dashboard.aio.manualScope': 'AIO يدوي',
-  'dashboard.aio.autoScope': 'AIO تلقائي',
   'dashboard.aio.executing': 'جارٍ التشغيل',
   'dashboard.cleaner.selectProfile':
     'حدد ملف تعريف مرئي محفوظ لاستخدامه مع التنظيف التلقائي بالذكاء الاصطناعي.',
@@ -1153,8 +1148,6 @@ export const arMessages: TranslationCatalog = {
   'splitter.strategy.fixedHeightHint': 'تقسيم حسب الارتفاع.',
   'splitter.strategy.count': 'N أجزاء',
   'splitter.strategy.countHint': 'تقسيم متساوٍ.',
-  'dashboard.aio.autoScopeTitle': 'معالجة تلقائية بدون تدخل',
-  'dashboard.aio.manualScopeTitle': 'تحكم يدوي بكل مرحلة',
   'detectionPreview.recognized': 'مُتعرّف عليه:',
   'detectionPreview.translated': 'مُترجم:',
   'detectionPreview.note': 'م.ت:',
@@ -1833,17 +1826,6 @@ export const arMessages: TranslationCatalog = {
   'dashboard.dashboardLlm.resizeLimit': 'حد تغيير الحجم',
   'dashboard.dashboardLlm.cropMargin': 'هامش الاقتصاص',
   'dashboard.dashboardLlm.cropTriggerSize': 'حجم تفعيل الاقتصاص',
-  'dashboard.dashboardRegion.title': 'المنطقة',
-  'dashboard.dashboardRegion.blocks': 'الكتل',
-  'dashboard.dashboardRegion.selection': 'التحديد',
-  'dashboard.dashboardRegion.ocr': 'OCR',
-  'dashboard.dashboardRegion.translation': 'الترجمة',
-  'dashboard.dashboardRegion.notes': 'الملاحظات',
-  'dashboard.dashboardRegion.segments': 'الأجزاء',
-  'dashboard.dashboardRegion.disabled': 'معطّل',
-  'dashboard.dashboardRegion.manualHint':
-    'اسحب على المعاينة لإضافة مناطق. استخدم الزوايا لتغيير الحجم.',
-  'dashboard.dashboardRegion.manualModeHint': 'الوضع اليدوي لتعديل المربعات.',
   'dashboard.dashboardRegion.dockHint':
     'استخدم الشريط العائم على اللوحة لتحديد المنطقة والتنظيف والتعديل. تُفعّل الأدوات بناءً على المرحلة النشطة.',
   'dashboard.translator.workspace.ariaLabel': 'وضع المترجم',
@@ -3403,11 +3385,6 @@ export const arMessages: TranslationCatalog = {
   'dashboard.coachmark.organize.orderBody':
     'في الشريط الجانبي الأيسر تختار الصورة النشطة، وتُعيد ترتيب الصفحات، وتزيل العناصر السيئة، وتتحقق مما إذا كان الفصل جاهزًا للمتابعة.',
   'dashboard.coachmark.organize.orderAccent': 'الدفعة',
-  'dashboard.coachmark.aioAuto.pipelineTitle':
-    'AIO تلقائي: دع خط الأنابيب يعمل',
-  'dashboard.coachmark.aioAuto.pipelineBody':
-    'في الوضع التلقائي، تُكوّن مرة واحدة وتُعالج الدفعة بالتتابع. مثالي للإنتاجية والمراجعة اللاحقة وسير العمل المتكرر.',
-  'dashboard.coachmark.aioAuto.pipelineAccent': 'تلقائي',
   'dashboard.coachmark.aioAuto.stagesTitle': 'AIO تلقائي: فعّل فقط ما تحتاجه',
   'dashboard.coachmark.aioAuto.stagesBody':
     'فعّل فقط المراحل المنطقية لهذه الدفعة. مراحل أقل تعني تكلفة أقل ووقت أقل ونقاط فشل أقل.',
@@ -3416,23 +3393,11 @@ export const arMessages: TranslationCatalog = {
   'dashboard.coachmark.aioAuto.configBody':
     'اختر اللغات والإعدادات المسبقة والنماذج قبل التشغيل. هذا الجزء يؤثر أكثر على سرعة المعالجة والجودة والتكلفة.',
   'dashboard.coachmark.aioAuto.configAccent': 'الإعداد',
-  'dashboard.coachmark.aioManual.title': 'AIO يدوي: اعمل مرحلة بمرحلة',
-  'dashboard.coachmark.aioManual.body':
-    'في الوضع اليدوي، تُشغّل وتُراجع وتُصلح كل مرحلة بتحكم أكبر. إنه الوضع المثالي للتشطيب الدقيق واستعادة الحالات الصعبة.',
-  'dashboard.coachmark.aioManual.accent': 'يدوي',
   'dashboard.coachmark.aioManual.dockTitle':
     'AIO يدوي: استخدم الشريط كطاولة عملك',
   'dashboard.coachmark.aioManual.dockBody':
     'الشريط العائم يجمع التحديد والتقسيم والرسم والعصا والترميم. فكّر فيه كلوحة التدخل السريع المصغرة فوق المعاينة.',
   'dashboard.coachmark.aioManual.dockAccent': 'الشريط',
-  'dashboard.coachmark.typesetter.titleManual': 'محرر الطباعة اليدوي',
-  'dashboard.coachmark.typesetter.titleAuto': 'محرر الطباعة التلقائي',
-  'dashboard.coachmark.typesetter.bodyManual':
-    'اليدوي أفضل للتعديلات الدقيقة على البالونات والأشكال والخطوط والإيقاع المرئي لكل صفحة.',
-  'dashboard.coachmark.typesetter.bodyAuto':
-    'التلقائي يُسرّع المسودات والدفعات الكبيرة. تابع بمراجعة مرئية سريعة لضمان التناسق.',
-  'dashboard.coachmark.typesetter.accentManual': 'يدوي',
-  'dashboard.coachmark.typesetter.accentAuto': 'تلقائي',
   'dashboard.coachmark.cleaner.dockTitle':
     'المنظف: تصحيح محلي بدون مغادرة الصورة',
   'dashboard.coachmark.cleaner.dockBody':
@@ -3926,9 +3891,6 @@ export const arMessages: TranslationCatalog = {
   'dashboard.tour.utils.title': 'الأدوات المساعدة والدعم',
   'dashboard.tour.utils.body':
     'الدمج والتقسيم والعلامة المائية والتحسين تتعامل مع مهام التجهيز والتصدير السريعة. الأدلة والموارد تكمل منطقة الدعم للمرجع.',
-  'dashboard.tour.submode.title': 'AIO تلقائي مقابل يدوي',
-  'dashboard.tour.submode.body':
-    'التلقائي يشغّل خط الأنابيب الكامل دفعيًا. اليدوي يفتح كل مرحلة لكل صورة للمراجعة الدقيقة والرجوع/التقدم والتحرير المرئي المتحكم فيه.',
   'dashboard.tour.pipeline.title': 'خط أنابيب AIO',
   'dashboard.tour.pipeline.body':
     'هذه البطاقة تتحكم في تسلسل اكتشاف > OCR > ترجمة > تقسيم > تنظيف > عرض. يمكنك تفعيل أو تعطيل المراحل وفي الوضع اليدوي تشغيل المرحلة الحالية فقط.',

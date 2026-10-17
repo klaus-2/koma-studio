@@ -502,7 +502,6 @@ export const koMessages: TranslationCatalog = {
   'aio.region.translation': '선택된 영역의 번역: {value}',
   'aio.region.notes': '선택된 영역의 메모: {value}',
   'aio.region.segmentation': '선택된 영역의 분할: {value}',
-  'aio.region.noSelection': '없음',
   'aio.region.noRecognizedText': '인식된 텍스트 없음',
   'aio.region.ocrDisabled': 'OCR 단계 비활성화됨',
   'aio.region.noTranslation': '사용 가능한 번역 없음',
@@ -511,8 +510,6 @@ export const koMessages: TranslationCatalog = {
   'aio.region.notesDisabled': '메모 비활성화됨',
   'aio.region.noSelectedRegion': '선택된 영역 없음',
   'aio.region.segmentedBoxes': '{count}개 분할된 상자',
-  'aio.region.removeSelected': '선택 항목 제거',
-  'aio.region.duplicateSelected': '선택 항목 복제',
   'aio.manual.toolsHintPrimary':
     '캔버스의 플로팅 독에서 영역 선택, 페이지 클린, 분할/수동 편집을 사용하세요.',
   'aio.manual.toolsHintSecondary':
@@ -756,8 +753,6 @@ export const koMessages: TranslationCatalog = {
     'AIO 앞으로 ({imageName}): "{label}" 단계 ({current}/{total}).',
   'dashboard.llm.translation': '번역',
   'dashboard.llm.ocr': 'OCR',
-  'dashboard.aio.manualScope': 'AIO 수동',
-  'dashboard.aio.autoScope': 'AIO 자동',
   'dashboard.aio.executing': '실행 중',
   'dashboard.cleaner.selectProfile':
     '자동 AI 클린에 사용할 저장된 비주얼 프로필을 선택하세요.',
@@ -1164,8 +1159,6 @@ export const koMessages: TranslationCatalog = {
   'splitter.strategy.fixedHeightHint': '높이별 분할.',
   'splitter.strategy.count': 'N등분',
   'splitter.strategy.countHint': '균등 분할.',
-  'dashboard.aio.autoScopeTitle': '개입 없는 자동 처리',
-  'dashboard.aio.manualScopeTitle': '각 단계의 수동 제어',
   'detectionPreview.recognized': '인식됨:',
   'detectionPreview.translated': '번역됨:',
   'detectionPreview.note': 'TN:',
@@ -1849,18 +1842,6 @@ export const koMessages: TranslationCatalog = {
   'dashboard.dashboardLlm.resizeLimit': '크기 조정 한도',
   'dashboard.dashboardLlm.cropMargin': '자르기 여백',
   'dashboard.dashboardLlm.cropTriggerSize': '자르기 트리거 크기',
-  'dashboard.dashboardRegion.title': '영역',
-  'dashboard.dashboardRegion.blocks': '블록',
-  'dashboard.dashboardRegion.selection': '선택',
-  'dashboard.dashboardRegion.ocr': 'OCR',
-  'dashboard.dashboardRegion.translation': '번역',
-  'dashboard.dashboardRegion.notes': '메모',
-  'dashboard.dashboardRegion.segments': '세그먼트',
-  'dashboard.dashboardRegion.disabled': '비활성화됨',
-  'dashboard.dashboardRegion.manualHint':
-    '미리보기에서 드래그하여 영역을 추가합니다. 모서리를 사용하여 크기를 조정합니다.',
-  'dashboard.dashboardRegion.manualModeHint':
-    '상자를 조정하려면 수동 모드로 전환.',
   'dashboard.dashboardRegion.dockHint':
     '캔버스의 플로팅 독을 사용하여 영역 선택, 클린 및 편집합니다. 도구는 활성 단계에 따라 활성화됩니다.',
   'dashboard.translator.workspace.ariaLabel': '번역기 모드',
@@ -3447,10 +3428,6 @@ export const koMessages: TranslationCatalog = {
   'dashboard.coachmark.organize.orderBody':
     '왼쪽 사이드바에서 활성 이미지를 선택하고, 페이지 순서를 변경하고, 불량 항목을 제거하고, 챕터가 진행할 준비가 되었는지 확인합니다.',
   'dashboard.coachmark.organize.orderAccent': '배치',
-  'dashboard.coachmark.aioAuto.pipelineTitle': '자동 AIO: 파이프라인 실행',
-  'dashboard.coachmark.aioAuto.pipelineBody':
-    '자동 모드에서는 한 번 설정하고 배치를 순차적으로 처리합니다. 처리량, 사후 검토 및 반복적인 워크플로에 적합합니다.',
-  'dashboard.coachmark.aioAuto.pipelineAccent': '자동',
   'dashboard.coachmark.aioAuto.stagesTitle': '자동 AIO: 필요한 것만 활성화',
   'dashboard.coachmark.aioAuto.stagesBody':
     '이 배치에 적합한 단계만 활성화하세요. 단계가 적으면 비용, 시간 및 실패 가능성이 줄어듭니다.',
@@ -3459,22 +3436,10 @@ export const koMessages: TranslationCatalog = {
   'dashboard.coachmark.aioAuto.configBody':
     '실행 전에 언어, 프리셋 및 모델을 선택하세요. 처리 속도, 품질 및 비용에 가장 큰 영향을 미치는 부분입니다.',
   'dashboard.coachmark.aioAuto.configAccent': '설정',
-  'dashboard.coachmark.aioManual.title': '수동 AIO: 단계별로 작업',
-  'dashboard.coachmark.aioManual.body':
-    '수동 모드에서는 각 단계를 더 많은 제어로 실행, 검토 및 수정합니다. 섬세한 마무리와 어려운 케이스를 복구하는 데 이상적인 모드입니다.',
-  'dashboard.coachmark.aioManual.accent': '수동',
   'dashboard.coachmark.aioManual.dockTitle': '수동 AIO: 독을 작업대로 사용',
   'dashboard.coachmark.aioManual.dockBody':
     '플로팅 독은 선택, 분할, 페인트, 지팡이 및 힐링을 통합합니다. 미리보기 위에 놓인 미니 빠른 개입 패널이라고 생각하세요.',
   'dashboard.coachmark.aioManual.dockAccent': '독',
-  'dashboard.coachmark.typesetter.titleManual': '수동 타이프세터',
-  'dashboard.coachmark.typesetter.titleAuto': '자동 타이프세터',
-  'dashboard.coachmark.typesetter.bodyManual':
-    '수동은 페이지별 말풍선, 모양, 폰트, 시각적 리듬의 미세 조정에 가장 적합합니다.',
-  'dashboard.coachmark.typesetter.bodyAuto':
-    '자동은 초안 및 대량 배치를 가속화합니다. 빠른 시각적 검토로 일관성을 확인하세요.',
-  'dashboard.coachmark.typesetter.accentManual': '수동',
-  'dashboard.coachmark.typesetter.accentAuto': '자동',
   'dashboard.coachmark.cleaner.dockTitle':
     '클리너: 이미지를 벗어나지 않는 로컬 수정',
   'dashboard.coachmark.cleaner.dockBody':
@@ -3989,9 +3954,6 @@ export const koMessages: TranslationCatalog = {
   'dashboard.tour.utils.title': '유틸리티 및 지원',
   'dashboard.tour.utils.body':
     '이어 붙이기, 분할, 워터마크, 향상은 빠른 준비 및 내보내기 작업을 처리합니다. 가이드와 리소스가 참고를 위한 지원 영역을 완성합니다.',
-  'dashboard.tour.submode.title': '자동 AIO vs. 수동',
-  'dashboard.tour.submode.body':
-    '자동은 배치에서 전체 파이프라인을 실행합니다. 수동은 이미지별로 각 단계를 잠금 해제하여 세밀한 검토, 되감기/앞으로 및 제어된 시각적 편집을 제공합니다.',
   'dashboard.tour.pipeline.title': 'AIO 파이프라인',
   'dashboard.tour.pipeline.body':
     '이 카드는 감지 > OCR > 번역 > 분할 > 클린 > 렌더 시퀀스를 제어합니다. 단계를 활성화하거나 비활성화할 수 있으며, 수동 모드에서는 현재 단계만 실행할 수 있습니다.',

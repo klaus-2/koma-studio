@@ -513,7 +513,6 @@ export const hiMessages: TranslationCatalog = {
   'aio.region.translation': 'Terjemahan area terpilih: {value}',
   'aio.region.notes': 'Catatan area terpilih: {value}',
   'aio.region.segmentation': 'Segmentasi area terpilih: {value}',
-  'aio.region.noSelection': 'tidak ada',
   'aio.region.noRecognizedText': 'tidak ada teks yang dikenali',
   'aio.region.ocrDisabled': 'Tahap OCR dinonaktifkan',
   'aio.region.noTranslation': 'tidak ada terjemahan tersedia',
@@ -522,8 +521,6 @@ export const hiMessages: TranslationCatalog = {
   'aio.region.notesDisabled': 'catatan dinonaktifkan',
   'aio.region.noSelectedRegion': 'tidak ada area terpilih',
   'aio.region.segmentedBoxes': '{count} kotak tersegmentasi',
-  'aio.region.removeSelected': 'Hapus Terpilih',
-  'aio.region.duplicateSelected': 'Duplikat Terpilih',
   'aio.manual.toolsHintPrimary':
     'Gunakan dock mengambang di kanvas untuk Pilih Area, Bersihkan Halaman, dan edit segmentasi/manual.',
   'aio.manual.toolsHintSecondary':
@@ -775,8 +772,6 @@ export const hiMessages: TranslationCatalog = {
     'AIO maju ({imageName}): tahap "{label}" ({current}/{total}).',
   'dashboard.llm.translation': 'Terjemahan',
   'dashboard.llm.ocr': 'OCR',
-  'dashboard.aio.manualScope': 'AIO manual',
-  'dashboard.aio.autoScope': 'AIO otomatis',
   'dashboard.aio.executing': 'Memproses',
   'dashboard.cleaner.selectProfile':
     'Pilih profil visual tersimpan untuk digunakan dengan Pembersihan AI Otomatis.',
@@ -1195,8 +1190,6 @@ export const hiMessages: TranslationCatalog = {
   'splitter.strategy.fixedHeightHint': 'Segmentasi berdasarkan tinggi.',
   'splitter.strategy.count': 'N bagian',
   'splitter.strategy.countHint': 'Pembagian rata.',
-  'dashboard.aio.autoScopeTitle': 'Pemrosesan otomatis tanpa intervensi',
-  'dashboard.aio.manualScopeTitle': 'Kontrol manual setiap tahap',
   'detectionPreview.recognized': 'Dikenali:',
   'detectionPreview.translated': 'Diterjemahkan:',
   'detectionPreview.note': 'TN:',
@@ -1893,18 +1886,6 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.dashboardLlm.resizeLimit': 'Batas Ukuran',
   'dashboard.dashboardLlm.cropMargin': 'Margin Potong',
   'dashboard.dashboardLlm.cropTriggerSize': 'Ukuran Pemicu Potong',
-  'dashboard.dashboardRegion.title': 'Area',
-  'dashboard.dashboardRegion.blocks': 'Blok',
-  'dashboard.dashboardRegion.selection': 'Pilihan',
-  'dashboard.dashboardRegion.ocr': 'OCR',
-  'dashboard.dashboardRegion.translation': 'Terjemahan',
-  'dashboard.dashboardRegion.notes': 'Catatan',
-  'dashboard.dashboardRegion.segments': 'Segmen',
-  'dashboard.dashboardRegion.disabled': 'dinonaktifkan',
-  'dashboard.dashboardRegion.manualHint':
-    'Seret pada pratinjau untuk menambah area. Gunakan sudut untuk mengubah ukuran.',
-  'dashboard.dashboardRegion.manualModeHint':
-    'Mode manual untuk menyesuaikan kotak.',
   'dashboard.dashboardRegion.dockHint':
     'Gunakan dock mengambang di kanvas untuk memilih area, membersihkan, dan mengedit. Alat diaktifkan berdasarkan tahap aktif.',
   'dashboard.translator.workspace.ariaLabel': 'Mode translator',
@@ -3502,11 +3483,6 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.coachmark.organize.orderBody':
     'Di sidebar kiri Anda memilih gambar aktif, menyusun ulang halaman, menghapus item buruk, dan memeriksa apakah chapter siap untuk dilanjutkan.',
   'dashboard.coachmark.organize.orderAccent': 'Batch',
-  'dashboard.coachmark.aioAuto.pipelineTitle':
-    'AIO Otomatis: biarkan pipeline berjalan',
-  'dashboard.coachmark.aioAuto.pipelineBody':
-    'Dalam mode otomatis, Anda mengonfigurasi sekali dan memproses batch secara berurutan. Ideal untuk throughput, tinjauan pasca, dan alur kerja yang lebih repetitif.',
-  'dashboard.coachmark.aioAuto.pipelineAccent': 'Otomatis',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'AIO Otomatis: aktifkan hanya yang Anda butuhkan',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -3517,24 +3493,11 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.coachmark.aioAuto.configBody':
     'Pilih bahasa, preset, dan model sebelum menjalankan. Ini adalah bagian yang paling memengaruhi kecepatan, kualitas, dan biaya pemrosesan.',
   'dashboard.coachmark.aioAuto.configAccent': 'Pengaturan',
-  'dashboard.coachmark.aioManual.title':
-    'AIO Manual: kerjakan tahap demi tahap',
-  'dashboard.coachmark.aioManual.body':
-    'Dalam mode manual, Anda menjalankan, meninjau, dan memperbaiki setiap tahap dengan kontrol lebih. Ini adalah mode ideal untuk finishing halus dan memulihkan kasus yang sulit.',
-  'dashboard.coachmark.aioManual.accent': 'Manual',
   'dashboard.coachmark.aioManual.dockTitle':
     'AIO Manual: gunakan dock sebagai meja kerja Anda',
   'dashboard.coachmark.aioManual.dockBody':
     'Dock mengambang menggabungkan seleksi, segmentasi, cat, tongkat, dan perbaikan. Anggap sebagai panel intervensi cepat mini di atas pratinjau.',
   'dashboard.coachmark.aioManual.dockAccent': 'Dock',
-  'dashboard.coachmark.typesetter.titleManual': 'Typesetter Manual',
-  'dashboard.coachmark.typesetter.titleAuto': 'Typesetter Otomatis',
-  'dashboard.coachmark.typesetter.bodyManual':
-    'Manual paling baik untuk penyesuaian mikro pada balon, bentuk, font, dan ritme visual per halaman.',
-  'dashboard.coachmark.typesetter.bodyAuto':
-    'Otomatis mempercepat draf dan batch besar. Lanjutkan dengan tinjauan visual cepat untuk memastikan konsistensi.',
-  'dashboard.coachmark.typesetter.accentManual': 'Manual',
-  'dashboard.coachmark.typesetter.accentAuto': 'Otomatis',
   'dashboard.coachmark.cleaner.dockTitle':
     'Cleaner: koreksi lokal tanpa meninggalkan gambar',
   'dashboard.coachmark.cleaner.dockBody':
@@ -4064,9 +4027,6 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.tour.utils.title': 'Utilitas dan dukungan',
   'dashboard.tour.utils.body':
     'Gabung, Potong, Watermark, dan Tingkatkan menangani tugas persiapan dan ekspor cepat. Panduan dan Sumber Daya melengkapi area dukungan untuk referensi.',
-  'dashboard.tour.submode.title': 'AIO Otomatis vs. manual',
-  'dashboard.tour.submode.body':
-    'Otomatis menjalankan pipeline lengkap secara batch. Manual membuka setiap tahap per gambar untuk tinjauan halus, mundur/maju, dan pengeditan visual terkontrol.',
   'dashboard.tour.pipeline.title': 'Pipeline AIO',
   'dashboard.tour.pipeline.body':
     'Kartu ini mengontrol urutan Deteksi > OCR > Terjemahkan > Segmentasi > Bersihkan > Render. Anda dapat mengaktifkan atau menonaktifkan tahap dan, dalam mode manual, menjalankan hanya tahap saat ini.',

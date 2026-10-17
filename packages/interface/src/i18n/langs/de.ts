@@ -534,7 +534,6 @@ export const deMessages: TranslationCatalog = {
   'aio.region.translation': 'Übersetzung des ausgewählten Bereichs: {value}',
   'aio.region.notes': 'Notizen des ausgewählten Bereichs: {value}',
   'aio.region.segmentation': 'Segmentierung des ausgewählten Bereichs: {value}',
-  'aio.region.noSelection': 'keine',
   'aio.region.noRecognizedText': 'kein erkannter Text',
   'aio.region.ocrDisabled': 'OCR-Phase deaktiviert',
   'aio.region.noTranslation': 'keine Übersetzung verfügbar',
@@ -543,8 +542,6 @@ export const deMessages: TranslationCatalog = {
   'aio.region.notesDisabled': 'Notizen deaktiviert',
   'aio.region.noSelectedRegion': 'kein Bereich ausgewählt',
   'aio.region.segmentedBoxes': '{count} segmentierte Box(en)',
-  'aio.region.removeSelected': 'Ausgewählte entfernen',
-  'aio.region.duplicateSelected': 'Ausgewählte duplizieren',
   'aio.manual.toolsHintPrimary':
     'Verwende das schwebende Dock auf der Leinwand für Bereich auswählen, Seite bereinigen und Segmentierung/manuell bearbeiten.',
   'aio.manual.toolsHintSecondary':
@@ -807,8 +804,6 @@ export const deMessages: TranslationCatalog = {
     'AIO vorwärts ({imageName}): Phase „{label}" ({current}/{total}).',
   'dashboard.llm.translation': 'Übersetzung',
   'dashboard.llm.ocr': 'OCR',
-  'dashboard.aio.manualScope': 'AIO manuell',
-  'dashboard.aio.autoScope': 'AIO automatisch',
   'dashboard.aio.executing': 'Wird ausgeführt',
   'dashboard.cleaner.selectProfile':
     'Wähle ein gespeichertes visuelles Profil für die automatische KI-Bereinigung.',
@@ -1237,8 +1232,6 @@ export const deMessages: TranslationCatalog = {
   'splitter.strategy.fixedHeightHint': 'Segmentierung nach Höhe.',
   'splitter.strategy.count': 'N Teile',
   'splitter.strategy.countHint': 'Gleichmäßige Aufteilung.',
-  'dashboard.aio.autoScopeTitle': 'Automatische Verarbeitung ohne Eingriff',
-  'dashboard.aio.manualScopeTitle': 'Manuelle Steuerung jeder Phase',
   'detectionPreview.recognized': 'Erkannt:',
   'detectionPreview.translated': 'Übersetzt:',
   'detectionPreview.note': 'TN:',
@@ -1953,18 +1946,6 @@ export const deMessages: TranslationCatalog = {
   'dashboard.dashboardLlm.resizeLimit': 'Skalierungslimit',
   'dashboard.dashboardLlm.cropMargin': 'Zuschneiderand',
   'dashboard.dashboardLlm.cropTriggerSize': 'Zuschneide-Auslösegröße',
-  'dashboard.dashboardRegion.title': 'Bereich',
-  'dashboard.dashboardRegion.blocks': 'Blöcke',
-  'dashboard.dashboardRegion.selection': 'Auswahl',
-  'dashboard.dashboardRegion.ocr': 'OCR',
-  'dashboard.dashboardRegion.translation': 'Übersetzung',
-  'dashboard.dashboardRegion.notes': 'Notizen',
-  'dashboard.dashboardRegion.segments': 'Segmente',
-  'dashboard.dashboardRegion.disabled': 'deaktiviert',
-  'dashboard.dashboardRegion.manualHint':
-    'Ziehe in der Vorschau, um Bereiche hinzuzufügen. Verwende die Ecken zum Ändern der Größe.',
-  'dashboard.dashboardRegion.manualModeHint':
-    'Manueller Modus zum Anpassen der Boxen.',
   'dashboard.dashboardRegion.dockHint':
     'Verwende das schwebende Dock auf der Leinwand für Bereich auswählen, Bereinigen und Bearbeiten. Werkzeuge werden basierend auf der aktiven Phase aktiviert.',
   'dashboard.translator.workspace.ariaLabel': 'Übersetzer-Modus',
@@ -3606,11 +3587,6 @@ export const deMessages: TranslationCatalog = {
   'dashboard.coachmark.organize.orderBody':
     'In der linken Seitenleiste wählst du das aktive Bild, ordnest Seiten neu, entfernst fehlerhafte Elemente und prüfst, ob das Kapitel bereit ist fortzufahren.',
   'dashboard.coachmark.organize.orderAccent': 'Stapel',
-  'dashboard.coachmark.aioAuto.pipelineTitle':
-    'Auto-AIO: die Pipeline laufen lassen',
-  'dashboard.coachmark.aioAuto.pipelineBody':
-    'Im automatischen Modus konfigurierst du einmal und verarbeitest den Stapel der Reihe nach. Ideal für Durchsatz, Nachbearbeitung und repetitivere Workflows.',
-  'dashboard.coachmark.aioAuto.pipelineAccent': 'Auto',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'Auto-AIO: nur aktivieren, was du brauchst',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -3621,24 +3597,11 @@ export const deMessages: TranslationCatalog = {
   'dashboard.coachmark.aioAuto.configBody':
     'Wähle Sprachen, Vorlagen und Modelle vor dem Ausführen. Dieser Teil beeinflusst Verarbeitungsgeschwindigkeit, Qualität und Kosten am meisten.',
   'dashboard.coachmark.aioAuto.configAccent': 'Einrichtung',
-  'dashboard.coachmark.aioManual.title':
-    'Manuelles AIO: Phase für Phase arbeiten',
-  'dashboard.coachmark.aioManual.body':
-    'Im manuellen Modus führst du jede Phase mit mehr Kontrolle aus, überprüfst und korrigierst sie. Der ideale Modus für Feinschliff und schwierige Fälle.',
-  'dashboard.coachmark.aioManual.accent': 'Manuell',
   'dashboard.coachmark.aioManual.dockTitle':
     'Manuelles AIO: das Dock als Werkbank nutzen',
   'dashboard.coachmark.aioManual.dockBody':
     'Das schwebende Dock vereint Auswahl, Segmentierung, Malerei, Zauberstab und Reparatur. Betrachte es als das Mini-Schnelleingriffspanel über der Vorschau.',
   'dashboard.coachmark.aioManual.dockAccent': 'Dock',
-  'dashboard.coachmark.typesetter.titleManual': 'Manueller Typesetter',
-  'dashboard.coachmark.typesetter.titleAuto': 'Automatischer Typesetter',
-  'dashboard.coachmark.typesetter.bodyManual':
-    'Manuell ist am besten für Feinjustierungen an Sprechblasen, Formen, Schriften und visuellem Rhythmus pro Seite.',
-  'dashboard.coachmark.typesetter.bodyAuto':
-    'Auto beschleunigt Entwürfe und große Stapel. Folge mit einer schnellen visuellen Überprüfung, um Konsistenz sicherzustellen.',
-  'dashboard.coachmark.typesetter.accentManual': 'Manuell',
-  'dashboard.coachmark.typesetter.accentAuto': 'Auto',
   'dashboard.coachmark.cleaner.dockTitle':
     'Cleaner: lokale Korrektur, ohne das Bild zu verlassen',
   'dashboard.coachmark.cleaner.dockBody':
@@ -4184,9 +4147,6 @@ export const deMessages: TranslationCatalog = {
   'dashboard.tour.utils.title': 'Hilfsmittel und Support',
   'dashboard.tour.utils.body':
     'Zusammenfügen, Teilen, Wasserzeichen und Verbessern übernehmen schnelle Vorbereitungs- und Exportaufgaben. Anleitungen und Ressourcen vervollständigen den Supportbereich als Referenz.',
-  'dashboard.tour.submode.title': 'Auto-AIO vs. manuell',
-  'dashboard.tour.submode.body':
-    'Auto führt die vollständige Pipeline im Stapel aus. Manuell schaltet jede Phase pro Bild für feine Überprüfung, Zurück/Vorwärts und kontrollierte visuelle Bearbeitung frei.',
   'dashboard.tour.pipeline.title': 'AIO-Pipeline',
   'dashboard.tour.pipeline.body':
     'Diese Karte steuert die Erkennen > OCR > Übersetzen > Segmentieren > Bereinigen > Rendern-Sequenz. Du kannst Phasen aktivieren oder deaktivieren und im manuellen Modus nur die aktuelle Phase ausführen.',

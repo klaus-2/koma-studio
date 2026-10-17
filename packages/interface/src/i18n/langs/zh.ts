@@ -463,7 +463,6 @@ export const zhMessages: TranslationCatalog = {
   'aio.region.translation': '选中区域的翻译：{value}',
   'aio.region.notes': '选中区域的备注：{value}',
   'aio.region.segmentation': '选中区域的分割：{value}',
-  'aio.region.noSelection': '无',
   'aio.region.noRecognizedText': '无识别文字',
   'aio.region.ocrDisabled': 'OCR 阶段已禁用',
   'aio.region.noTranslation': '暂无翻译',
@@ -472,8 +471,6 @@ export const zhMessages: TranslationCatalog = {
   'aio.region.notesDisabled': '备注已禁用',
   'aio.region.noSelectedRegion': '未选择区域',
   'aio.region.segmentedBoxes': '{count} 个分割框',
-  'aio.region.removeSelected': '删除选中',
-  'aio.region.duplicateSelected': '复制选中',
   'aio.manual.toolsHintPrimary':
     '使用画布上的浮动工具栏进行区域选择、页面清理以及编辑分割/手动操作。',
   'aio.manual.toolsHintSecondary': '工具会根据图片的当前阶段自动启用。',
@@ -693,8 +690,6 @@ export const zhMessages: TranslationCatalog = {
     'AIO 前进（{imageName}）：阶段 "{label}"（{current}/{total}）。',
   'dashboard.llm.translation': '翻译',
   'dashboard.llm.ocr': 'OCR',
-  'dashboard.aio.manualScope': 'AIO 手动',
-  'dashboard.aio.autoScope': 'AIO 自动',
   'dashboard.aio.executing': '运行中',
   'dashboard.cleaner.selectProfile':
     '选择已保存的视觉配置文件用于自动 AI 清理。',
@@ -1085,8 +1080,6 @@ export const zhMessages: TranslationCatalog = {
   'splitter.strategy.fixedHeightHint': '按高度分段。',
   'splitter.strategy.count': 'N 等分',
   'splitter.strategy.countHint': '等分切割。',
-  'dashboard.aio.autoScopeTitle': '无需干预的自动处理',
-  'dashboard.aio.manualScopeTitle': '每个阶段的手动控制',
   'detectionPreview.recognized': '识别结果：',
   'detectionPreview.translated': '翻译结果：',
   'detectionPreview.note': '译注：',
@@ -1748,17 +1741,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.dashboardLlm.resizeLimit': '缩放限制',
   'dashboard.dashboardLlm.cropMargin': '裁剪边距',
   'dashboard.dashboardLlm.cropTriggerSize': '裁剪触发尺寸',
-  'dashboard.dashboardRegion.title': '区域',
-  'dashboard.dashboardRegion.blocks': '文本块',
-  'dashboard.dashboardRegion.selection': '选区',
-  'dashboard.dashboardRegion.ocr': 'OCR',
-  'dashboard.dashboardRegion.translation': '翻译',
-  'dashboard.dashboardRegion.notes': '备注',
-  'dashboard.dashboardRegion.segments': '分割区',
-  'dashboard.dashboardRegion.disabled': '已禁用',
-  'dashboard.dashboardRegion.manualHint':
-    '在预览上拖拽可添加区域。使用角点可调整大小。',
-  'dashboard.dashboardRegion.manualModeHint': '手动模式以调整框体。',
   'dashboard.dashboardRegion.dockHint':
     '使用画布上的浮动停靠栏进行区域选择、清理和编辑。工具会根据当前阶段自动启用。',
   'dashboard.translator.workspace.ariaLabel': '翻译器模式',
@@ -3243,10 +3225,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.coachmark.organize.orderBody':
     '在左侧边栏中选择活跃图片、重新排序页面、移除不良项目，并检查章节是否准备就绪。',
   'dashboard.coachmark.organize.orderAccent': '批次',
-  'dashboard.coachmark.aioAuto.pipelineTitle': '自动 AIO：让流水线运行',
-  'dashboard.coachmark.aioAuto.pipelineBody':
-    '在自动模式下，您只需配置一次即可按顺序处理批次。适合追求产量、后期审查和重复性工作流。',
-  'dashboard.coachmark.aioAuto.pipelineAccent': '自动',
   'dashboard.coachmark.aioAuto.stagesTitle': '自动 AIO：仅启用所需阶段',
   'dashboard.coachmark.aioAuto.stagesBody':
     '仅启用对此批次有意义的阶段。更少的阶段意味着更低的成本、更少的时间和更少的故障点。',
@@ -3255,22 +3233,10 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.coachmark.aioAuto.configBody':
     '在运行前选择语言、预设和模型。这是最影响处理速度、质量和成本的部分。',
   'dashboard.coachmark.aioAuto.configAccent': '设置',
-  'dashboard.coachmark.aioManual.title': '手动 AIO：逐阶段工作',
-  'dashboard.coachmark.aioManual.body':
-    '在手动模式下，您可以运行、审查和修复每个阶段以获得更多控制。这是精细处理和恢复困难情况的理想模式。',
-  'dashboard.coachmark.aioManual.accent': '手动',
   'dashboard.coachmark.aioManual.dockTitle': '手动 AIO：将停靠栏用作工作台',
   'dashboard.coachmark.aioManual.dockBody':
     '浮动停靠栏集合了选择、分割、绘制、魔棒和修复功能。将其视为预览上方的迷你快速操作面板。',
   'dashboard.coachmark.aioManual.dockAccent': '停靠栏',
-  'dashboard.coachmark.typesetter.titleManual': '手动排版',
-  'dashboard.coachmark.typesetter.titleAuto': '自动排版',
-  'dashboard.coachmark.typesetter.bodyManual':
-    '手动模式最适合对气泡、形状、字体和每页视觉节奏进行微调。',
-  'dashboard.coachmark.typesetter.bodyAuto':
-    '自动模式加速草稿和大批量处理。之后进行快速视觉审查以确保一致性。',
-  'dashboard.coachmark.typesetter.accentManual': '手动',
-  'dashboard.coachmark.typesetter.accentAuto': '自动',
   'dashboard.coachmark.cleaner.dockTitle': '清理器：无需离开图片即可局部修正',
   'dashboard.coachmark.cleaner.dockBody':
     '当停靠栏可见时，使用画笔、橡皮擦和修复工具来处理细节，而不会丢失页面上下文。',
@@ -3726,9 +3692,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.tour.utils.title': '实用工具和支持',
   'dashboard.tour.utils.body':
     '拼接、分割、水印和增强处理快速的准备和导出任务。指南和资源完善了参考支持区域。',
-  'dashboard.tour.submode.title': '自动 AIO 与手动',
-  'dashboard.tour.submode.body':
-    '自动模式批量运行完整流水线。手动模式为每张图片解锁各阶段，用于精细审查、后退/前进和可控的可视化编辑。',
   'dashboard.tour.pipeline.title': 'AIO 流水线',
   'dashboard.tour.pipeline.body':
     '此面板控制"检测 > OCR > 翻译 > 分割 > 清理 > 渲染"序列。您可以启用或禁用阶段，在手动模式下可仅运行当前阶段。',

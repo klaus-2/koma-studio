@@ -521,7 +521,6 @@ export const jaMessages: TranslationCatalog = {
   'aio.region.translation': '選択領域の翻訳：{value}',
   'aio.region.notes': '選択領域のメモ：{value}',
   'aio.region.segmentation': '選択領域のセグメンテーション：{value}',
-  'aio.region.noSelection': 'なし',
   'aio.region.noRecognizedText': '認識されたテキストなし',
   'aio.region.ocrDisabled': 'OCRステージ無効',
   'aio.region.noTranslation': '翻訳なし',
@@ -530,8 +529,6 @@ export const jaMessages: TranslationCatalog = {
   'aio.region.notesDisabled': 'メモ無効',
   'aio.region.noSelectedRegion': '領域が選択されていません',
   'aio.region.segmentedBoxes': '{count} セグメント済みボックス',
-  'aio.region.removeSelected': '選択を削除',
-  'aio.region.duplicateSelected': '選択を複製',
   'aio.manual.toolsHintPrimary':
     'キャンバス上のフローティングドックで、領域選択、ページクリーン、セグメンテーション/手動編集を行えます。',
   'aio.manual.toolsHintSecondary':
@@ -785,8 +782,6 @@ export const jaMessages: TranslationCatalog = {
     'AIO進む（{imageName}）：ステージ「{label}」（{current}/{total}）。',
   'dashboard.llm.translation': '翻訳',
   'dashboard.llm.ocr': 'OCR',
-  'dashboard.aio.manualScope': 'AIO手動',
-  'dashboard.aio.autoScope': 'AIO自動',
   'dashboard.aio.executing': '実行中',
   'dashboard.cleaner.selectProfile':
     '自動AIクリーンで使用する保存済みビジュアルプロファイルを選択してください。',
@@ -1203,8 +1198,6 @@ export const jaMessages: TranslationCatalog = {
   'splitter.strategy.fixedHeightHint': '高さでセグメント分割。',
   'splitter.strategy.count': 'N分割',
   'splitter.strategy.countHint': '均等分割。',
-  'dashboard.aio.autoScopeTitle': '介入なしの自動処理',
-  'dashboard.aio.manualScopeTitle': '各ステージの手動制御',
   'detectionPreview.recognized': '認識：',
   'detectionPreview.translated': '翻訳：',
   'detectionPreview.note': 'TN：',
@@ -1900,18 +1893,6 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.dashboardLlm.resizeLimit': 'リサイズ上限',
   'dashboard.dashboardLlm.cropMargin': 'クロップマージン',
   'dashboard.dashboardLlm.cropTriggerSize': 'クロップトリガーサイズ',
-  'dashboard.dashboardRegion.title': '領域',
-  'dashboard.dashboardRegion.blocks': 'ブロック',
-  'dashboard.dashboardRegion.selection': '選択',
-  'dashboard.dashboardRegion.ocr': 'OCR',
-  'dashboard.dashboardRegion.translation': '翻訳',
-  'dashboard.dashboardRegion.notes': 'メモ',
-  'dashboard.dashboardRegion.segments': 'セグメント',
-  'dashboard.dashboardRegion.disabled': '無効',
-  'dashboard.dashboardRegion.manualHint':
-    'プレビュー上でドラッグして領域を追加。角をドラッグしてリサイズ。',
-  'dashboard.dashboardRegion.manualModeHint':
-    'ボックスを調整するには手動モードへ。',
   'dashboard.dashboardRegion.dockHint':
     'キャンバス上のフローティングドックで領域選択、クリーン、編集を行えます。ツールはアクティブなステージに基づいて有効になります。',
   'dashboard.translator.workspace.ariaLabel': 'トランスレーターモード',
@@ -3538,10 +3519,6 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.coachmark.organize.orderBody':
     '左サイドバーでアクティブ画像を選択し、ページを並べ替え、不良アイテムを削除し、チャプターの進行準備ができているか確認します。',
   'dashboard.coachmark.organize.orderAccent': 'バッチ',
-  'dashboard.coachmark.aioAuto.pipelineTitle': '自動AIO：パイプラインを実行',
-  'dashboard.coachmark.aioAuto.pipelineBody':
-    '自動モードでは、一度設定するとバッチを順番に処理します。スループット、事後レビュー、より定型的なワークフローに最適です。',
-  'dashboard.coachmark.aioAuto.pipelineAccent': '自動',
   'dashboard.coachmark.aioAuto.stagesTitle': '自動AIO：必要なものだけ有効に',
   'dashboard.coachmark.aioAuto.stagesBody':
     'このバッチに意味のあるステージのみを有効にします。ステージが少ないほど、コスト、時間、障害ポイントが減ります。',
@@ -3550,23 +3527,11 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.coachmark.aioAuto.configBody':
     '実行前に言語、プリセット、モデルを選択します。処理速度、品質、コストに最も影響する部分です。',
   'dashboard.coachmark.aioAuto.configAccent': 'セットアップ',
-  'dashboard.coachmark.aioManual.title': '手動AIO：ステージごとに作業',
-  'dashboard.coachmark.aioManual.body':
-    '手動モードでは、各ステージをより細かく制御しながら実行、レビュー、修正します。仕上げや困難なケースの回復に最適なモードです。',
-  'dashboard.coachmark.aioManual.accent': '手動',
   'dashboard.coachmark.aioManual.dockTitle':
     '手動AIO：ドックをワークベンチとして使用',
   'dashboard.coachmark.aioManual.dockBody':
     'フローティングドックは選択、セグメンテーション、ペイント、ワンド、修復をまとめています。プレビュー上のミニクイック介入パネルと考えてください。',
   'dashboard.coachmark.aioManual.dockAccent': 'ドック',
-  'dashboard.coachmark.typesetter.titleManual': '手動タイプセッター',
-  'dashboard.coachmark.typesetter.titleAuto': '自動タイプセッター',
-  'dashboard.coachmark.typesetter.bodyManual':
-    '手動はページごとの吹き出し、形状、フォント、視覚的リズムの微調整に最適です。',
-  'dashboard.coachmark.typesetter.bodyAuto':
-    '自動はドラフトや大きなバッチを高速化します。一貫性を確保するために素早い視覚的レビューでフォローアップしてください。',
-  'dashboard.coachmark.typesetter.accentManual': '手動',
-  'dashboard.coachmark.typesetter.accentAuto': '自動',
   'dashboard.coachmark.cleaner.dockTitle':
     'クリーナー：画像を離れずにローカル修正',
   'dashboard.coachmark.cleaner.dockBody':
@@ -4105,9 +4070,6 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.tour.utils.title': 'ユーティリティとサポート',
   'dashboard.tour.utils.body':
     'スティッチ、スプリット、ウォーターマーク、エンハンスが素早い準備とエクスポートタスクを処理します。ガイドとリソースが参照用のサポートエリアを完成させます。',
-  'dashboard.tour.submode.title': '自動AIO vs. 手動',
-  'dashboard.tour.submode.body':
-    '自動はバッチでフルパイプラインを実行します。手動は画像ごとに各ステージを解放し、詳細なレビュー、戻る/進む、制御されたビジュアル編集が可能です。',
   'dashboard.tour.pipeline.title': 'AIOパイプライン',
   'dashboard.tour.pipeline.body':
     'このカードは検出 > OCR > 翻訳 > セグメント > クリーン > レンダーのシーケンスを制御します。ステージの有効/無効を切り替え、手動モードでは現在のステージのみを実行できます。',
