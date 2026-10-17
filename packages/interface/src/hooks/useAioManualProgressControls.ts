@@ -10,30 +10,23 @@ import {
   cloneRenderStyle,
 } from '../utils/dashboard.utils';
 import type {
-  AioManualImageProgress,
-  AioPipelineSnapshot,
   AioPipelineSnapshotKey,
   AioTextRegion,
 } from '../types/dashboard.types';
 
+import {
+  applyAioPipelineSnapshotToImage,
+  syncManualStagePreviewToNextStage,
+} from '../pages/dashboard/hooks/aio-snapshot.commands';
 import { useAioPipelineStore } from '../pages/dashboard/stores/aio-pipeline-store';
 import { useRegionEditorStore } from '../pages/dashboard/stores/region-editor-store';
-
-interface UseAioManualProgressControlsArgs {
-  activeId: string | null;
-  applyAioPipelineSnapshotToImage: (imageId: string, index: number) => AioPipelineSnapshot | null;
-  syncManualStagePreviewToNextStage: (imageId: string, fromIndex: number, toIndex: number) => void;
-  setAioManualProgressByImage: React.Dispatch<React.SetStateAction<Record<string, AioManualImageProgress>>>;
-  setStatusMessage: (value: string) => void;
-}
+import { useStatusStore } from '../pages/dashboard/stores/status-store';
 
 export function useAioManualProgressControls({
   activeId,
-  applyAioPipelineSnapshotToImage,
-  syncManualStagePreviewToNextStage,
-  setAioManualProgressByImage,
-  setStatusMessage,
-}: UseAioManualProgressControlsArgs) {
+}: {
+  activeId: string | null;
+}) {
   const getAioRegionsFromSnapshot = useCallback((stageKey: AioPipelineSnapshotKey, imageId: string): AioTextRegion[] => {
     const snapshots = useAioPipelineStore.getState().aioPipelineSnapshots;
     const stageIndex = AIO_MANUAL_STAGE_ORDER.indexOf(stageKey);
@@ -50,7 +43,7 @@ export function useAioManualProgressControls({
     if (bounded > progress.unlockedMaxIndex) return;
     const snapshot = applyAioPipelineSnapshotToImage(activeId, bounded);
     if (!snapshot) return;
-    setAioManualProgressByImage((prev) => {
+    useAioPipelineStore.getState().setAioManualProgressByImage((prev) => {
       const current = prev[activeId];
       if (!current || current.currentIndex === bounded) return prev;
       return {
@@ -61,8 +54,8 @@ export function useAioManualProgressControls({
         },
       };
     });
-    setStatusMessage(`Modo manual: etapa "${snapshot.label}" selecionada.`);
-  }, [activeId, applyAioPipelineSnapshotToImage, setAioManualProgressByImage, setStatusMessage]);
+    useStatusStore.getState().setStatusMessage(`Modo manual: etapa "${snapshot.label}" selecionada.`);
+  }, [activeId]);
 
   const completeManualStageForImage = useCallback((imageId: string, stageIndex: number, status: 'done' | 'skipped') => {
     const progress =
@@ -92,7 +85,7 @@ export function useAioManualProgressControls({
       nextStatusByStage[nextStageKey] = 'pending';
     }
 
-    setAioManualProgressByImage((prev) => ({
+    useAioPipelineStore.getState().setAioManualProgressByImage((prev) => ({
       ...prev,
       [imageId]: {
         ...progress,
@@ -102,11 +95,7 @@ export function useAioManualProgressControls({
       },
     }));
     void applyAioPipelineSnapshotToImage(imageId, nextIndex);
-  }, [
-    applyAioPipelineSnapshotToImage,
-    setAioManualProgressByImage,
-    syncManualStagePreviewToNextStage,
-  ]);
+  }, []);
 
   let isSyncingActiveManualStage = false;
   const syncActiveManualStageSnapshot = useCallback(() => {
@@ -140,10 +129,7 @@ export function useAioManualProgressControls({
     } finally {
       isSyncingActiveManualStage = false;
     }
-  }, [
-    activeId,
-    applyAioPipelineSnapshotToImage,
-  ]);
+  }, [activeId]);
 
   return {
     getAioRegionsFromSnapshot,

@@ -34,14 +34,12 @@ import {
 } from '@/utils/dashboardRenderUtils';
 
 type ExecutorArgs = Parameters<typeof useAioManualStageExecutor>[0];
-type ProgressArgs = Parameters<typeof useAioManualProgressControls>[0];
 
 interface UseAioManualExecutionArgs
   extends Pick<
     ExecutorArgs,
     | 'renderDefaultStyle'
     | 'getAioManualImageEditState'
-    | 'patchAioSnapshotStageForImage'
     | 'getAioStageOption'
     | 'recordProcessedPages'
     | 'syncDiscordForTab'
@@ -50,11 +48,6 @@ interface UseAioManualExecutionArgs
     | 'compatibleTranslationModelIds'
     | 'selectedCustomOcrProfile'
     | 'selectedCustomTranslationProfile'
-  >,
-  Pick<
-    ProgressArgs,
-    | 'applyAioPipelineSnapshotToImage'
-    | 'syncManualStagePreviewToNextStage'
   > {
   readonly activeManualProgress: AioManualImageProgress | null;
   readonly resolvedActiveId: string | null;
@@ -176,12 +169,6 @@ export function useAioManualExecution(args: UseAioManualExecutionArgs) {
 
   const progressControls = useAioManualProgressControls({
     activeId,
-    applyAioPipelineSnapshotToImage: args.applyAioPipelineSnapshotToImage,
-    syncManualStagePreviewToNextStage:
-      args.syncManualStagePreviewToNextStage,
-    setAioManualProgressByImage:
-      useAioPipelineStore.getState().setAioManualProgressByImage,
-    setStatusMessage: useStatusStore.getState().setStatusMessage,
   });
 
   useAioManualSnapshotSync({
@@ -218,7 +205,6 @@ export function useAioManualExecution(args: UseAioManualExecutionArgs) {
     parseApiError,
     getAioRegionsFromSnapshot: progressControls.getAioRegionsFromSnapshot,
     getAioManualImageEditState: args.getAioManualImageEditState,
-    patchAioSnapshotStageForImage: args.patchAioSnapshotStageForImage,
     completeManualStageForImage: progressControls.completeManualStageForImage,
     recordProcessedPages: args.recordProcessedPages,
     syncDiscordForTab: () => runAioNotification(args.syncDiscordForTab),

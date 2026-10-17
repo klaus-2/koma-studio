@@ -1,11 +1,9 @@
-import { useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useI18n } from '@/i18n';
 import {
   applyAioPipelineSnapshotToImage,
-  patchAioSnapshotStageForImage as patchSnapshotStage,
-  refreshActiveSnapshotImage,
+  patchAioSnapshotStageForImage,
   syncManualStagePreviewToNextStage,
 } from '@/pages/dashboard/hooks/aio-snapshot.commands';
 import { useAioSnapshotNavigation } from '@/pages/dashboard/hooks/aio-snapshot.navigation';
@@ -22,10 +20,8 @@ import type { AioImageSnapshotMeta } from '@/pages/dashboard/hooks/aio-snapshot.
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import type {
-  AioDownloadEntry,
   AioManualStageStatus,
   AioPipelineSnapshotKey,
-  AioTextRegion,
 } from '@/types/dashboard.types';
 import { capitalizeStageLabel } from '@/utils/dashboardRenderUtils';
 
@@ -103,22 +99,6 @@ export function useAioPipelineSnapshotState({
   const navigation = useAioSnapshotNavigation(
     aioPipelineStageLabels,
   );
-  const patchAioSnapshotStageForImage = useCallback(
-    (
-      imageId: string,
-      stageIndex: number,
-      nextRegions: AioTextRegion[],
-      downloadEntry?: AioDownloadEntry | null,
-    ): void => {
-      patchSnapshotStage(imageId, stageIndex, nextRegions, downloadEntry);
-
-      if (getAioImageSnapshotIndex(imageId) === stageIndex) {
-        refreshActiveSnapshotImage(imageId, stageIndex);
-      }
-    },
-    [],
-  );
-
   const activeManualStageStatus: AioManualStageStatus | null =
     active.manualProgress?.statusByStage[active.stageKey] ?? null;
 

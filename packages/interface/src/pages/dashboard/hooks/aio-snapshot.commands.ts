@@ -214,6 +214,14 @@ export function patchAioSnapshotStageForImage(
 
     return { aioPipelineSnapshots: snapshots };
   });
+
+  // Canonical patch also refreshes the live stage preview when the patched
+  // stage is the one currently shown — callers never need a second step.
+  const currentIndex =
+    useAioPipelineStore.getState().aioImageSnapshotIndexById[imageId];
+  if (currentIndex === stageIndex) {
+    refreshActiveSnapshotImage(imageId, stageIndex);
+  }
 }
 
 export function syncManualStagePreviewToNextStage(

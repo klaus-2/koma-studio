@@ -46,6 +46,7 @@ import type {
 import type { AioStageOption } from '../models/aioStageCatalog';
 import { useAioPipelineStore } from '../pages/dashboard/stores/aio-pipeline-store';
 import { useRegionEditorStore } from '../pages/dashboard/stores/region-editor-store';
+import { patchAioSnapshotStageForImage } from '../pages/dashboard/hooks/aio-snapshot.commands';
 
 interface ModelManagerEntryLike {
   status: string;
@@ -94,12 +95,6 @@ interface UseAioManualStageExecutorArgs {
   parseApiError: (response: Response) => Promise<string>;
   getAioRegionsFromSnapshot: (stageKey: AioPipelineSnapshotKey, imageId: string) => AioTextRegion[];
   getAioManualImageEditState: (imageId: string) => AioManualImageEditState;
-  patchAioSnapshotStageForImage: (
-    imageId: string,
-    stageIndex: number,
-    regions: AioTextRegion[],
-    downloadEntry?: AioDownloadEntry | null,
-  ) => void;
   completeManualStageForImage: (imageId: string, stageIndex: number, status: 'done' | 'skipped') => void;
   recordProcessedPages: (pages: number) => void;
   syncDiscordForTab: () => Promise<void> | void;
@@ -184,7 +179,6 @@ export function useAioManualStageExecutor({
   parseApiError,
   getAioRegionsFromSnapshot,
   getAioManualImageEditState,
-  patchAioSnapshotStageForImage,
   completeManualStageForImage,
   recordProcessedPages,
   syncDiscordForTab,
