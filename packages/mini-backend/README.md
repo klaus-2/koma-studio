@@ -82,6 +82,32 @@ experimentation:
 
 See `core/config.py` and `core/cloud_registry.py` for the complete list.
 
+## Request settings (`llm_settings`)
+
+Per-request knobs travel in the `llm_settings` form field (JSON object), parsed
+by `clamp_llm_request_settings` in `core/config.py`. Translation-specific ones:
+
+- `translation_notes_enabled` (bool, default `true`)
+- `translation_fallback_chain` (list of engine keys, default empty — **inert
+  until a client sends it**, which no UI does today). When present, `POST
+  /translate` tries the requested engine first and then each key in order,
+  moving to the next one only on transport-level failures (unavailable, bad
+  response, broken local runtime); configuration errors and unsupported
+  language pairs fail fast with the original 400. The parser keeps at most 4
+  keys, drops non-strings and duplicates, and every key is validated against
+  the registry (`GET /translate/models`) before any engine is resolved — an
+  unknown key is a loud 400, never a silent `google_translate` attempt. The
+  `custom:` request-scoped path never chains. `model_used` reports the engine
+  that actually answered, and the attempts are logged at WARNING only (the
+  response schema is unchanged). Implementation: `models/translation/fallback.py`.
+- Engine keys are case-insensitive: they go through `normalize_stage_model_key`,
+  so `a` and `A` are the same key, and a free endpoint already ships at
+  `models/translation/providers/google.py` (`google_translate`, no API key).
+
+A provider that was unreachable stays blocked **for the local calendar day** in
+the in-memory `QuotaBlocklist` (`models/translation/fallback.py`); the block is
+per process, resets on the next day or a restart, and is not a quota server.
+
 ## Tests
 
 ```bash

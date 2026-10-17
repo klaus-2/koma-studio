@@ -54,6 +54,30 @@ def _as_int(value: object, fallback: int, minimum: int, maximum: int) -> int:
     return fallback
 
 
+_TRANSLATION_FALLBACK_CHAIN_MAX = 4
+
+
+def _as_str_tuple(value: object, maximum: int) -> tuple[str, ...]:
+    """Ordered, de-duplicated strings taken from a JSON list of strings.
+
+    Anything that is not a list yields an empty tuple, which keeps a request
+    without the key on the single-engine path.
+    """
+    if not isinstance(value, list):
+        return ()
+    items: list[str] = []
+    for entry in value:
+        if not isinstance(entry, str):
+            continue
+        cleaned = entry.strip()
+        if not cleaned or cleaned in items:
+            continue
+        items.append(cleaned)
+        if len(items) >= maximum:
+            break
+    return tuple(items)
+
+
 _MODEL_NAME_PATTERN = re.compile(r"[^a-z0-9]+")
 
 
@@ -145,6 +169,7 @@ class LLMRequestSettings:
     max_tokens: int = 4096
     translation_notes_enabled: bool = True
     neighbor_image_context_enabled: bool = False
+    translation_fallback_chain: tuple[str, ...] = ()
 
 
 def clamp_llm_request_settings(
@@ -170,6 +195,9 @@ def clamp_llm_request_settings(
     temperature = _as_float(raw.get("temperature"), 0.2, 0.0, 2.0)
     top_p = _as_float(raw.get("top_p"), 0.95, 0.0, 1.0)
     max_tokens = _as_int(raw.get("max_tokens"), 4096, 128, 8192)
+    translation_fallback_chain = _as_str_tuple(
+        raw.get("translation_fallback_chain"), _TRANSLATION_FALLBACK_CHAIN_MAX
+    )
 
     return LLMRequestSettings(
         extra_context=extra_context,
@@ -179,6 +207,7 @@ def clamp_llm_request_settings(
         max_tokens=max_tokens,
         translation_notes_enabled=translation_notes_enabled,
         neighbor_image_context_enabled=neighbor_image_context_enabled,
+        translation_fallback_chain=translation_fallback_chain,
     )
 
 

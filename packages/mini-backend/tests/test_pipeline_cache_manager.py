@@ -181,6 +181,23 @@ class PipelineCacheManagerTests(unittest.TestCase):
 
         self.assertNotEqual(base_key, notes_off_key)
 
+    def test_translation_cache_key_hashes_tuple_settings(self) -> None:
+        # LLMRequestSettings is a frozen dataclass: callers hash asdict()
+        # output, which carries tuples rather than JSON lists.
+        manager = CacheManager(ttl_seconds=1800, max_entries=16, bbox_tolerance_px=5)
+
+        def key_for(chain: object) -> str:
+            return manager.build_translation_cache_key(
+                model_key="gpt_4_1_mini",
+                source_language="ja",
+                target_language="pt-br",
+                extra_context="ctx",
+                llm_settings={"translation_fallback_chain": chain},
+            )
+
+        self.assertEqual(key_for(("deepl", "claude")), key_for(["deepl", "claude"]))
+        self.assertNotEqual(key_for(("deepl", "claude")), key_for(()))
+
     def test_cache_evicts_oldest_entries_when_limit_is_exceeded(self) -> None:
         manager = CacheManager(ttl_seconds=1800, max_entries=1, bbox_tolerance_px=5)
         key_a = manager.build_ocr_cache_key(

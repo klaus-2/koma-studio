@@ -161,8 +161,24 @@ def _hash_image_bytes(image_bytes: bytes) -> str:
     return hashlib.blake2b(image_bytes, digest_size=32).hexdigest()
 
 
+def _json_ready(value: object) -> object:
+    """Turn tuple-valued payload entries (frozen dataclasses) into JSON lists.
+
+    Callers hash `dataclasses.asdict(...)` results directly; a tuple in such a
+    payload is rejected by the strict JSON adapter below, so it is normalized
+    here instead of at every call site.
+    """
+    if isinstance(value, tuple):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, list):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_ready(item) for key, item in value.items()}
+    return value
+
+
 def _json_bytes(payload: object) -> bytes:
-    validated = _JSON_ADAPTER.validate_python(payload, strict=True)
+    validated = _JSON_ADAPTER.validate_python(_json_ready(payload), strict=True)
     return json.dumps(
         validated,
         ensure_ascii=False,
