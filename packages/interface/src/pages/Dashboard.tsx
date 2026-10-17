@@ -235,13 +235,11 @@ export const DashboardPage = ({
   const setMode = useUiShellStore((s) => s.setMode);
   const subMode = useUiShellStore((s) => s.subMode);
   const setSubMode = useUiShellStore((s) => s.setSubMode);
-  const cleanerMode = useCleanerStore((s) => s.cleanerMode);
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
   const setActiveId = useImageCollectionStore((s) => s.setActiveId);
   const rotateImage = useImageCollectionStore((s) => s.rotateImage);
   const processing = useUiShellStore((s) => s.processing);
-  const setProcessing = useUiShellStore((s) => s.setProcessing);
   const setZoom = useUiShellStore((s) => s.setZoom);
 
   // ── Mobile State ──
@@ -366,7 +364,6 @@ export const DashboardPage = ({
   const outQuality = useExportStore((s) => s.outQuality);
   const batchThreadsEnabled = useAioPipelineStore((s) => s.batchThreadsEnabled);
   const batchThreads = useAioPipelineStore((s) => s.batchThreads);
-  const setProgress = useUiShellStore((s) => s.setProgress);
 
   // Enhance
 
@@ -479,9 +476,6 @@ export const DashboardPage = ({
   );
   const cleanerAiModelKey = useCleanerStore((s) => s.cleanerAiModelKey);
   const setCleanerAiModelKey = useCleanerStore((s) => s.setCleanerAiModelKey);
-  const cleanerAiAdditionalInstructions = useCleanerStore(
-    (s) => s.cleanerAiAdditionalInstructions,
-  );
   const translatorSfxCleanModelKey = useTranslatorStore(
     (s) => s.translatorSfxCleanModelKey,
   );
@@ -503,9 +497,6 @@ export const DashboardPage = ({
     statusState.clearStatusToneExplicit();
   }, [statusMessage]);
   const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
-  const setRuntimeExecutionNotice = useStatusStore(
-    (s) => s.setRuntimeExecutionNotice,
-  );
   const workspaceRestoreToken = useWorkspacePersistenceStore(
     (s) => s.workspaceRestoreToken,
   );
@@ -1982,10 +1973,7 @@ export const DashboardPage = ({
     ocrSelectionKey: aioStageSelection.recognizeText,
     segmentSelectionKey: aioStageSelection.segmentText,
     cleanSelectionKey: aioStageSelection.cleanImage,
-    cleanerMode,
-    cleanerAiModelKey,
     selectedCleanerCustomProfile,
-    cleanerAiAdditionalInstructions,
     sourceLanguage: aioSrcLang,
     llmSettings,
     maskDilation: aioMaskDilation,
@@ -2008,16 +1996,6 @@ export const DashboardPage = ({
     emitProcessCompleteWebhook: emitProcessCompleteWebhookWrapped,
     emitProcessErrorWebhook: emitProcessErrorWebhookWrapped,
     syncDiscordForTab,
-    setCleanerDetectionsByImage,
-    setCleanerSelectedRegionByImage,
-    setCleanerProcessedBaseByImage,
-    setCleanerRunMetaByImage,
-    setCleanerManualImageEditsByImage,
-    setCleanerHealingBusyByImage,
-    setProcessing,
-    setProgress,
-    setStatusMessage,
-    setRuntimeExecutionNotice,
     onRunComplete: handleCleanRunComplete,
   });
 
