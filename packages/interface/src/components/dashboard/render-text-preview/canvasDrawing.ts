@@ -213,9 +213,12 @@ export const preloadRegionCanvasFonts = (
 
 /** Paints the rendered text of every region onto the preview canvas. */
 type RegionCanvasLayout = ReturnType<typeof computeRenderTextLayout>;
-type CachedRegionLayout = { renderStageActive: boolean; layout: RegionCanvasLayout };
+type CachedRegionLayout = {
+  renderStageActive: boolean;
+  layout: RegionCanvasLayout;
+  shape: TypographyShape | undefined;
+};
 let regionLayoutCache = new WeakMap<object, CachedRegionLayout>();
-let regionRenderShapeCache = new WeakMap<AioTextRegion, TypographyShape | undefined>();
 let regionLayoutCacheStyle: RenderTextStyle | null = null;
 
 export const drawRegionsToCanvas = (
@@ -237,7 +240,6 @@ export const drawRegionsToCanvas = (
   if (regionLayoutCacheStyle !== fallbackStyle) {
     regionLayoutCacheStyle = fallbackStyle;
     regionLayoutCache = new WeakMap();
-    regionRenderShapeCache = new WeakMap();
   }
 
   for (const region of regions) {
@@ -248,11 +250,13 @@ export const drawRegionsToCanvas = (
     const text = renderStageActive ? (region.renderText ?? '').trim() : '';
     if (!text.trim()) continue;
     let layout: RegionCanvasLayout;
+    let shape: TypographyShape | undefined;
     const cached = regionLayoutCache.get(region);
     if (cached && cached.renderStageActive === renderStageActive) {
       layout = cached.layout;
+      shape = cached.shape;
     } else {
-      const shape = resolveRegionRenderShape(region);
+      shape = resolveRegionRenderShape(region);
       try {
         layout = computeRenderTextLayout(
           ctx,
@@ -278,9 +282,8 @@ export const drawRegionsToCanvas = (
         if (!fallback) throw new RenderTextLayoutError();
         layout = fallback;
       }
-      regionLayoutCache.set(region, { renderStageActive, layout });
-      regionRenderShapeCache.set(region, shape);
+      regionLayoutCache.set(region, { renderStageActive, layout, shape });
     }
-    drawRenderedTextInRegion(ctx, region.bbox, layout, style, regionRenderShapeCache.get(region) ?? resolveRegionRenderShape(region));
+    drawRenderedTextInRegion(ctx, region.bbox, layout, style, shape);
   }
 };
