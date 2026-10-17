@@ -12,6 +12,8 @@ export interface ThemeFamilyDef {
   /** i18n keys for name/description */
   nameKey: string;
   descKey: string;
+  /** Display glyph identifying the family in switchers/settings. */
+  glyph: string;
 }
 
 export const DEFAULT_THEME_FAMILY: KomaThemeFamily = 'classic';
@@ -21,11 +23,13 @@ export const THEME_FAMILIES: readonly ThemeFamilyDef[] = [
     id: 'classic',
     nameKey: 'settings.theme.family.classic',
     descKey: 'settings.theme.family.classicDesc',
+    glyph: '色',
   },
   {
     id: 'noir',
     nameKey: 'settings.theme.family.noir',
     descKey: 'settings.theme.family.noirDesc',
+    glyph: 'コマ',
   },
 ];
 

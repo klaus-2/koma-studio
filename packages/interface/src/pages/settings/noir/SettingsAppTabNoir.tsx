@@ -84,7 +84,7 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
                 className={`panel-cut-sm hard-hover relative flex items-center gap-3 border p-4 text-left transition-colors ${active ? "border-crimson/60 bg-crimson/8" : "border-paper/12 bg-ink/50"
                   }`}>
                 <span aria-hidden className={`font-display text-3xl font-black ${active ? "text-crimson" : "text-paper/15"}`}>
-                  {family.id === "noir" ? "コマ" : "色"}
+                  {family.glyph}
                 </span>
                 <span className="min-w-0">
                   <span className="block font-display text-xs font-black uppercase tracking-tight text-paper">{t(family.nameKey)}</span>

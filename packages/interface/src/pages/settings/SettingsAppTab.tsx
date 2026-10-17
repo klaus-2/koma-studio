@@ -135,7 +135,7 @@ export const renderSettingsAppTab = ({
           onClick={() => setCurrentFamily(family.id)}
         >
           <div className={`koma-stg-theme__preview koma-stg-theme__preview--${family.id}`}>
-            {family.id === "noir" ? "\u30B3\u30DE" : "\u{1F3A8}"}
+            {family.glyph}
           </div>
           <div className="koma-stg-theme__info">
             <span className="koma-stg-theme__name">{t(family.nameKey)}</span>
