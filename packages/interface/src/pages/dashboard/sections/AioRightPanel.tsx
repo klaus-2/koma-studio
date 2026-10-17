@@ -29,11 +29,11 @@ import { AioTimelineStep } from '../../AioTimelineStep';
 import { AioStageTabBar, type StageTabDef } from '../../AioStageTabBar';
 import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
 import KlSlider from '../../../components/dashboard/KlSlider';
-import DetectTextModelControl from '../../../components/AioStageModelControls/DetectTextModelControl.tsx';
-import RecognizeTextModelControl from '../../../components/AioStageModelControls/RecognizeTextModelControl.tsx';
+import StageModelSelect, {
+  STAGE_HINTS_CLEAN,
+  STAGE_HINTS_RECOGNIZE,
+} from '../../../components/AioStageModelControls/StageModelSelect.tsx';
 import TranslationModelControl from '../../../components/AioStageModelControls/TranslationModelControl.tsx';
-import SegmentTextModelControl from '../../../components/AioStageModelControls/SegmentTextModelControl.tsx';
-import CleanImageModelControl from '../../../components/AioStageModelControls/CleanImageModelControl.tsx';
 import { useI18n } from '../../../i18n';
 import { cn } from '../../../utils/dashboard.utils';
 import {
@@ -878,7 +878,8 @@ export default memo(function AioRightPanel({
         <div className="koma-aio-stage-content" key={activeStageTab}>
           {/* ── Detect ──────────────────────────────────────────── */}
           {activeStageTab === 'detectText' && (
-            <DetectTextModelControl
+            <StageModelSelect
+              label={t('aio.stage.detectText')}
               value={aioStageSelection.detectText}
               options={availableDetectStageOptions}
               selectedModel={selectedDetectModel}
@@ -897,7 +898,8 @@ export default memo(function AioRightPanel({
 
           {/* ── OCR ─────────────────────────────────────────────── */}
           {activeStageTab === 'recognizeText' && (
-            <RecognizeTextModelControl
+            <StageModelSelect
+              label={t('aio.stage.recognizeText')}
               value={aioStageSelection.recognizeText}
               options={availableOcrStageOptions}
               selectedModel={selectedOcrModel}
@@ -912,6 +914,7 @@ export default memo(function AioRightPanel({
                   ),
                 })
               }
+              hints={STAGE_HINTS_RECOGNIZE}
             />
           )}
 
@@ -1099,7 +1102,8 @@ export default memo(function AioRightPanel({
 
           {/* ── Segment ─────────────────────────────────────────── */}
           {activeStageTab === 'segmentText' && (
-            <SegmentTextModelControl
+            <StageModelSelect
+              label={t('aio.stage.segmentText')}
               value={aioStageSelection.segmentText}
               options={availableSegmentStageOptions}
               selectedModel={selectedSegmentModel}
@@ -1118,7 +1122,18 @@ export default memo(function AioRightPanel({
 
           {/* ── Clean ───────────────────────────────────────────── */}
           {activeStageTab === 'cleanImage' && (
-            <CleanImageModelControl
+            <StageModelSelect
+              label={t('aio.stage.cleanImage')}
+              labelTooltip={{
+                content: resolveTooltipText(
+                  'dashboard.aio.cleanImage.tooltip',
+                  'Clean Image is the cleanup and inpainting stage. It removes text and selected artifacts before the final render/edit pass.',
+                ),
+                ariaLabel: resolveTooltipText(
+                  'dashboard.aio.cleanImage.tooltipAria',
+                  'What Clean Image is used for',
+                ),
+              }}
               value={aioStageSelection.cleanImage}
               options={availableCleanStageOptions}
               selectedModel={selectedCleanModel}
@@ -1132,6 +1147,7 @@ export default memo(function AioRightPanel({
                   focusedModelId: aioStageSelection.cleanImage,
                 })
               }
+              hints={STAGE_HINTS_CLEAN}
             >
               <KlSlider
                 label={(
@@ -1250,7 +1266,7 @@ export default memo(function AioRightPanel({
                   />
                 </>
               )}
-            </CleanImageModelControl>
+            </StageModelSelect>
           )}
 
           {/* ── Render ──────────────────────────────────────────── */}

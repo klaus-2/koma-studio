@@ -3,29 +3,10 @@ import { useMemo } from "react";
 
 import { modelSupportsLanguage, TRANSLATION_MODELS_REGISTRY } from "../../models/translation-models-registry";
 import type { ModelInstallState } from "../../models/types";
-import type { LlmCapabilities } from "../../utils/customLlm";
 import { useI18n } from "../../i18n";
-import { useThemeStore } from "@koma/ui/stores/theme-store";
-import { MANAGE_BUTTON_NOIR, STAGE_SELECT_NOIR } from "./noirClasses";
+import type { LegacyTranslationOption } from "./types";
+import { useStageControlTokens } from "./stageControlTokens";
 import styles from "./styles.module.css";
-
-interface LegacyTranslationOption {
-  key: string;
-  name: string;
-  available: boolean;
-  implemented: boolean;
-  provider_id?: string;
-  provider_name?: string;
-  provider_status?: "integrated" | "catalog_only";
-  requires_user_api_key?: boolean;
-  default_api_base?: string;
-  default_model?: string;
-  docs_url?: string;
-  limits_summary?: string;
-  rate_limit_summary?: string;
-  setup_summary?: string;
-  llm_capabilities?: LlmCapabilities;
-}
 
 interface TranslationModelControlProps {
   selectedModelId: string;
@@ -55,7 +36,7 @@ export const TranslationModelControl = ({
   onOpenManager,
 }: TranslationModelControlProps) => {
   const { t } = useI18n();
-  const noir = useThemeStore((s) => s.family === "noir");
+  const tokens = useStageControlTokens();
 
   const compatibleLocalModels = useMemo(
     () =>
@@ -111,7 +92,7 @@ export const TranslationModelControl = ({
         <label className="koma-field__label">{t("aio.stage.getTranslations")}</label>
         <button
           type="button"
-          className={noir ? MANAGE_BUTTON_NOIR : styles.manageButton}
+          className={tokens.manageButton}
           onClick={() => onOpenManager({ language: sourceLanguage, focusedModelId: selectedModelId || null })}
         >
           <HardDrive size={12} /> {t("aio.model.manage")}
@@ -134,7 +115,7 @@ export const TranslationModelControl = ({
       <select
         value={selectedValue}
         onChange={(event) => onSelectModel(event.target.value)}
-        className={noir ? STAGE_SELECT_NOIR : "koma-select"}
+        className={tokens.select}
         disabled={availableLocalModels.length === 0 && availableLegacyOptions.length === 0}
       >
         {availableLocalModels.length === 0 && availableLegacyOptions.length === 0 ? (
