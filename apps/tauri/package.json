@@ -33,7 +33,7 @@
     "build:react": "vite build --mode production",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "node scripts/mini-dev-gate.mjs && tauri dev",
     "tauri:build": "tauri build",
     "lint": "eslint .",
     "lint:strict": "eslint . --max-warnings 0",

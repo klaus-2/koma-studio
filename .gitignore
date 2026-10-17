@@ -99,3 +99,4 @@ desktop.ini
 .zcode-e2e/
 react-doctor-*.json
 /apps/tauri/tests
+/.sisyphus

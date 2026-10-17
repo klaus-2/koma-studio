@@ -4,6 +4,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { readEnvFileValue, shouldSkipMiniBootstrap } from "./mini-dev-env.mjs";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
@@ -33,6 +35,17 @@ ensureEnvFile(
 // The marker fast-path inside ensure-mini-venv.mjs makes this a no-op
 // (a few milliseconds) whenever dependencies are already installed.
 const ensureMiniDeps = () => {
+  const { skip, source } = shouldSkipMiniBootstrap(process.env);
+  if (skip) {
+    console.warn(
+      "[dev] mini-backend venv not provisioned, but auto-install is disabled " +
+        `by ${source}. ` +
+        "The dev stack will start, but the Python backend will fail until you run " +
+        "`bun run mini:install-deps`.",
+    );
+    return;
+  }
+
   const markerPath = path.join(rootDir, ".venv-mini", ".koma-mini-deps-marker");
   if (!fs.existsSync(markerPath)) {
     console.log("[dev] First run detected: installing mini-backend Python dependencies (mini:install-deps).");
@@ -49,7 +62,9 @@ const ensureMiniDeps = () => {
   );
   if (result.status !== 0) {
     throw new Error(
-      "Failed to install mini-backend dependencies (mini:install-deps). Check Python 3.12 and try again.",
+      `Failed to install mini-backend dependencies (mini:install-deps, exit ${result.status ?? "unknown"}): ` +
+        "the provisioner printed its own cause above — read the last error line. " +
+        "Fallback (use only if the provisioner printed no cause above): Check Python 3.12 and try again.",
     );
   }
 };
@@ -65,25 +80,7 @@ const readAuthDisabledFlag = () => {
     return false;
   }
 
-  // Same file precedence Vite uses in development mode (first hit wins).
-  const envCandidates = [
-    path.join(rootDir, ".env.development.local"),
-    path.join(rootDir, ".env.local"),
-    path.join(rootDir, ".env.development"),
-    path.join(rootDir, ".env"),
-  ];
-  for (const envPath of envCandidates) {
-    if (!fs.existsSync(envPath)) {
-      continue;
-    }
-    const match = fs
-      .readFileSync(envPath, "utf8")
-      .match(/^\s*VITE_AUTH_DISABLED\s*=\s*["']?([^"'\r\n#]+)["']?/m);
-    if (match) {
-      return isTruthyFlag(match[1]);
-    }
-  }
-  return false;
+  return isTruthyFlag(readEnvFileValue(rootDir, "VITE_AUTH_DISABLED"));
 };
 const authDisabled = readAuthDisabledFlag();
 if (authDisabled) {

@@ -112,9 +112,9 @@ so only a dependency change triggers reinstallation.
 Manual control, when you want it:
 
 ```bash
-bun run mini:check          # is the sidecar ready? exit 0 = yes, 1 = needs provisioning
-bun run mini:ensure         # provision only if needed (what tauri:dev calls)
-bun run mini:install-deps   # force a full reinstall
+bun run mini:check          # is the sidecar ready? exit 0 = yes, 1 = needs provisioning; 4 = unusable (tauri:dev refuses to start)
+bun run mini:ensure         # provision only if needed (what dev:desktop fans out in parallel; tauri:dev calls the gate)
+bun run mini:install-deps   # force a full reinstall; a provably unusable venv is deleted and recreated once, automatically
 
 # Provision a GPU profile instead of the CPU set (see "Release builds" below)
 bun run mini:install-deps --profile nvidia-cuda

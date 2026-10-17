@@ -7,7 +7,7 @@ import platform
 import shutil
 import sys
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib.metadata import distributions
 from pathlib import Path
@@ -99,9 +99,86 @@ if sys.platform == "win32" and profile.startswith("nvidia-"):
         raise SystemExit(12)
 """
 
+_ENVIRONMENT_QUERY = r"""
+import importlib
+import re
+import sys
+
+if len(sys.argv) != 3:
+    raise SystemExit(2)
+
+
+def normalized(name):
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+try:
+    from importlib.metadata import distributions
+
+    metadata_names = {
+        normalized(distribution.metadata.get("Name") or "")
+        for distribution in distributions()
+    }
+except Exception:
+    raise SystemExit(20)
+
+if normalized(sys.argv[2]) not in metadata_names:
+    raise SystemExit(22)
+
+for module_name in ("numpy", "fastapi", "onnxruntime"):
+    try:
+        importlib.import_module(module_name)
+    except Exception:
+        raise SystemExit(21)
+"""
+
+
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_INTERRUPTED = 130
+EXIT_RECREATE_REQUIRED = 4
+
+MAX_CHILD_OUTPUT_BYTES = 4096
+NO_CHILD_OUTPUT = "<no output captured>"
+
+Verdict = Literal["prerequisite", "transient", "unusable", "unclassified"]
+
+_QUERY_STAGE = "environment-query"
+_PROBE_STAGES = frozenset({"probe", "probe-repaired"})
+_NETWORK_STAGES = frozenset({"resolve", "remove-conflicts", "install"})
+_PREREQUISITE_STAGES = frozenset({"guard", "uv-discovery", "lock-held"})
+_PROBE_UNUSABLE_CODES = frozenset({10, 11, 12})
+_QUERY_MEANINGS = {
+    20: "the environment's distribution metadata cannot be enumerated",
+    21: "a required module is not importable",
+    22: "the pinned ONNX distribution is absent from that metadata",
+}
+_UNUSABLE_AFTER_REPAIR = "Runtime remains unusable after one repair"
+
+
+def _classify(stage: str, exit_code: int) -> Verdict:
+    if stage in _PREREQUISITE_STAGES:
+        return "prerequisite"
+    if stage == _QUERY_STAGE:
+        if exit_code in _QUERY_MEANINGS:
+            return "unusable"
+        if exit_code == 0:
+            return "transient"
+        return "unclassified"
+    if stage in _PROBE_STAGES:
+        return "unusable" if exit_code in _PROBE_UNUSABLE_CODES else "unclassified"
+    return "unclassified"
+
 
 class DependencyError(RuntimeError):
     """Provisioning failed without a verified dependency environment."""
+
+
+@dataclass(slots=True)
+class CommandResult:
+    exit_code: int
+    stdout_tail: str
+    stderr_tail: str
 
 
 class Settings(BaseModel):
@@ -160,6 +237,14 @@ def _installed_names() -> set[str]:
         if name:
             names.add(canonicalize_name(name))
     return names
+
+
+def _installed_version(name: str) -> str | None:
+    wanted = canonicalize_name(name)
+    for distribution in distributions():
+        if canonicalize_name(distribution.metadata.get("Name") or "") == wanted:
+            return distribution.version
+    return None
 
 
 def _read_requirements(
@@ -261,20 +346,87 @@ def _effective_requirements(
     return result
 
 
+def _output_tail(data: bytes) -> str:
+    text = data.decode("utf-8", errors="replace").replace("\r\n", "\n").strip()
+    if not text:
+        return NO_CHILD_OUTPUT
+    return text[-MAX_CHILD_OUTPUT_BYTES:].replace("\n", "⏎")
+
+
+def _joined_output(result: CommandResult) -> str:
+    return f"stdout: {result.stdout_tail} | stderr: {result.stderr_tail}"
+
+
+def _fail_stage(stage: str, cause: str, result: CommandResult, verdict: Verdict) -> int:
+    logger.error(
+        "dependencies.failed",
+        extra={
+            "stage": stage,
+            "verdict": verdict,
+            "exit_code": result.exit_code,
+            "stdout_tail": result.stdout_tail,
+            "stderr_tail": result.stderr_tail,
+            "error": (
+                f"{cause} (exit {result.exit_code}): {_joined_output(result)}"
+            ),
+        },
+    )
+    return EXIT_FAILED
+
+
+def _locked_version(lock_path: Path, name: str) -> str | None:
+    try:
+        lines = lock_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    prefix = f"{name}=="
+    for line in lines:
+        entry = line.strip().removesuffix("\\").strip()
+        if entry.startswith(prefix):
+            return entry.removeprefix(prefix).split(" ", maxsplit=1)[0] or None
+    return None
+
+
+def _fail_unusable(
+    stage: str,
+    result: CommandResult,
+    hazard: str | None,
+    reason: str = _UNUSABLE_AFTER_REPAIR,
+) -> int:
+    if hazard is not None:
+        reason = f"{reason}: {hazard}"
+    logger.error(
+        "dependencies.unusable",
+        extra={
+            "stage": stage,
+            "verdict": "unusable",
+            "exit_code": result.exit_code,
+            "stdout_tail": result.stdout_tail,
+            "stderr_tail": result.stderr_tail,
+            "reason": reason,
+            "error": (
+                f"{reason} (exit {result.exit_code}): {_joined_output(result)}"
+            ),
+        },
+    )
+    return EXIT_RECREATE_REQUIRED
+
+
 async def _command(
     arguments: list[str],
     *,
     timeout_seconds: int,
     stage: str,
-) -> int:
+) -> CommandResult:
     process = await asyncio.create_subprocess_exec(
         *arguments,
         stdin=asyncio.subprocess.DEVNULL,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
     try:
         async with asyncio.timeout(timeout_seconds):
+            stdout_data, stderr_data = await process.communicate()
             code = await process.wait()
     except (TimeoutError, asyncio.CancelledError):
         if process.returncode is None:
@@ -294,22 +446,47 @@ async def _command(
         raise
 
     logger.info("dependencies.command", extra={"stage": stage, "exit_code": code})
-    return code
+    return CommandResult(
+        exit_code=code,
+        stdout_tail=_output_tail(stdout_data),
+        stderr_tail=_output_tail(stderr_data),
+    )
+
+
+async def _retry_command(
+    arguments: list[str],
+    *,
+    timeout_seconds: int,
+    stage: str,
+    settings: Settings,
+) -> CommandResult:
+    for attempt in range(settings.attempts):
+        result = await _command(
+            arguments,
+            timeout_seconds=timeout_seconds,
+            stage=stage,
+        )
+        if result.exit_code == 0:
+            return result
+        if attempt + 1 < settings.attempts:
+            await asyncio.sleep(min(20, 5 * (attempt + 1)))
+    return result
 
 
 async def _install(
-    uv: Path,
+    uv_argv: Sequence[str],
     lock_path: Path,
     *,
+    target_python: Path,
     settings: Settings,
     reinstall: set[str],
-) -> None:
+) -> CommandResult:
     arguments = [
-        str(uv),
+        *uv_argv,
         "pip",
         "install",
         "--python",
-        str(Path(sys.executable).resolve()),
+        str(target_python),
         "--require-hashes",
         "--no-deps",
         "--requirement",
@@ -318,34 +495,145 @@ async def _install(
     for name in sorted(reinstall):
         arguments.extend(("--reinstall-package", name))
 
-    for attempt in range(settings.attempts):
-        code = await _command(
-            arguments,
-            timeout_seconds=settings.timeout_seconds,
-            stage="install",
+    return await _retry_command(
+        arguments,
+        timeout_seconds=settings.timeout_seconds,
+        stage="install",
+        settings=settings,
+    )
+
+
+def _probe_child(
+    interpreter_argv: Sequence[str] | None,
+    target_python: Path,
+    stage: str,
+    profile: str,
+) -> list[str]:
+    if interpreter_argv is not None:
+        return [*interpreter_argv, stage, profile]
+    return [str(target_python), "-I", "-c", _PROBE, profile]
+
+
+def _environment_query_child(
+    interpreter_argv: Sequence[str] | None,
+    target_python: Path,
+    profile: str,
+    expected_onnx: str,
+) -> list[str]:
+    if interpreter_argv is not None:
+        return [*interpreter_argv, _QUERY_STAGE, profile, expected_onnx]
+    return [
+        str(target_python),
+        "-I",
+        "-c",
+        _ENVIRONMENT_QUERY,
+        profile,
+        expected_onnx,
+    ]
+
+
+async def _query_environment(
+    interpreter_argv: Sequence[str] | None,
+    target_python: Path,
+    profile: str,
+    expected_onnx: str,
+) -> CommandResult | None:
+    try:
+        return await _command(
+            _environment_query_child(
+                interpreter_argv, target_python, profile, expected_onnx
+            ),
+            timeout_seconds=120,
+            stage=_QUERY_STAGE,
         )
-        if code == 0:
-            return
-        if attempt + 1 < settings.attempts:
-            await asyncio.sleep(min(20, 5 * (attempt + 1)))
-    raise DependencyError("Locked dependency installation failed")
+    except OSError:
+        return None
+
+
+async def _query_and_decide(
+    stage: str,
+    cause: str,
+    result: CommandResult,
+    *,
+    interpreter_argv: Sequence[str] | None,
+    target_python: Path,
+    profile: str,
+    expected_onnx: str,
+) -> int:
+    query = await _query_environment(
+        interpreter_argv, target_python, profile, expected_onnx
+    )
+    if query is None:
+        return _fail_stage(
+            stage,
+            f"{cause}; {_QUERY_STAGE} could not be launched",
+            result,
+            "unclassified",
+        )
+
+    verdict = _classify(_QUERY_STAGE, query.exit_code)
+    if verdict == "unusable":
+        meaning = _QUERY_MEANINGS[query.exit_code]
+        return _fail_unusable(
+            _QUERY_STAGE,
+            query,
+            None,
+            f"Unusable environment: {stage} failed and {meaning} (exit {query.exit_code})",
+        )
+    if verdict == "transient" and stage in _NETWORK_STAGES:
+        return _fail_stage(stage, cause, result, verdict)
+    return _fail_stage(
+        stage,
+        f"{cause}; {_QUERY_STAGE} exited {query.exit_code}: {_joined_output(query)}",
+        result,
+        "unclassified",
+    )
 
 
 async def provision(
     root: Path,
     mapping: Mapping[tuple[str, str], str],
     settings: Settings,
+    *,
+    environment_root: Path | None = None,
+    target_python: Path | None = None,
+    installed_distributions: Callable[[], set[str]] | None = None,
+    installed_version: Callable[[str], str | None] | None = None,
+    uv_argv: Sequence[str] | None = None,
+    interpreter_argv: Sequence[str] | None = None,
 ) -> int:
     root = root.resolve(strict=True)
-    if sys.prefix == sys.base_prefix:
+    resolved_environment_root = (
+        Path(sys.prefix).resolve()
+        if environment_root is None
+        else environment_root.resolve(strict=True)
+    )
+    resolved_target_python = (
+        Path(sys.executable).resolve()
+        if target_python is None
+        else target_python.resolve(strict=True)
+    )
+    environment_bin = resolved_environment_root / Path(
+        "Scripts" if platform.system() == "Windows" else "bin"
+    )
+    if environment_root is None and sys.prefix == sys.base_prefix:
+        raise DependencyError("Provisioning requires an isolated virtual environment")
+    if not (resolved_environment_root / "pyvenv.cfg").is_file():
+        raise DependencyError("Provisioning requires an isolated virtual environment")
+    if not resolved_target_python.is_relative_to(environment_bin):
         raise DependencyError("Provisioning requires an isolated virtual environment")
 
-    located_uv = shutil.which("uv")
-    if located_uv is None:
-        raise DependencyError("uv executable is required")
-    uv = Path(located_uv).resolve(strict=True)
+    if uv_argv is None:
+        located_uv = shutil.which("uv")
+        if located_uv is None:
+            raise DependencyError("uv executable is required")
+        uv_head = [str(Path(located_uv).resolve(strict=True))]
+    else:
+        uv_head = list(uv_argv)
 
-    installed = await asyncio.to_thread(_installed_names)
+    installed = await asyncio.to_thread(
+        _installed_names if installed_distributions is None else installed_distributions
+    )
     selected = settings.profile
     variants = installed & _ONNX_VARIANTS
     if selected == "auto":
@@ -389,14 +677,26 @@ async def provision(
         for item in effective.requirements
     )
 
-    environment_root = Path(sys.prefix).resolve()
+    async def decide(stage: str, cause: str, result: CommandResult) -> int:
+        return await _query_and_decide(
+            stage,
+            cause,
+            result,
+            interpreter_argv=interpreter_argv,
+            target_python=resolved_target_python,
+            profile=selected,
+            expected_onnx=expected,
+        )
+
     lock = FileLock(
-        environment_root / Path(".mini-dependencies.lock"),
+        resolved_environment_root / Path(".mini-dependencies.lock"),
         timeout=0,
         mode=0o600,
     )
+    # filelock keeps its holder in thread-local state, so a release from another worker is a
+    # silent no-op: both calls stay on this thread, and timeout=0 means this never blocks.
     try:
-        await asyncio.to_thread(lock.acquire)
+        lock.acquire()
     except Timeout as exc:
         raise DependencyError("Another process is provisioning this environment") from exc
 
@@ -418,14 +718,14 @@ async def provision(
                 encoding="utf-8",
             )
             arguments = [
-                str(uv),
+                *uv_head,
                 "pip",
                 "compile",
                 str(source),
                 "--constraint",
                 str(constraints),
                 "--python",
-                str(Path(sys.executable).resolve()),
+                str(resolved_target_python),
                 "--generate-hashes",
                 "--output-file",
                 str(resolved),
@@ -433,12 +733,18 @@ async def provision(
             if effective.index is not None:
                 arguments.extend(("--index-url", effective.index))
 
-            if await _command(
+            resolve_result = await _retry_command(
                 arguments,
                 timeout_seconds=settings.timeout_seconds,
                 stage="resolve",
-            ):
-                raise DependencyError("Dependency resolution failed; environment unchanged")
+                settings=settings,
+            )
+            if resolve_result.exit_code:
+                return await decide(
+                    "resolve",
+                    "Dependency resolution failed; environment unchanged",
+                    resolve_result,
+                )
 
             conflicting = variants - {expected}
             if selected in _NVIDIA_PROFILES:
@@ -450,19 +756,25 @@ async def provision(
                 }
 
             if conflicting:
-                if await _command(
+                uninstall_result = await _retry_command(
                     [
-                        str(uv),
+                        *uv_head,
                         "pip",
                         "uninstall",
                         "--python",
-                        str(Path(sys.executable).resolve()),
+                        str(resolved_target_python),
                         *sorted(conflicting),
                     ],
                     timeout_seconds=settings.timeout_seconds,
                     stage="remove-conflicts",
-                ):
-                    raise DependencyError("Conflicting package removal failed")
+                    settings=settings,
+                )
+                if uninstall_result.exit_code:
+                    return await decide(
+                        "remove-conflicts",
+                        "Conflicting package removal failed",
+                        uninstall_result,
+                    )
 
             reinstall = {expected} if (conflicting and onnx_pinned) else set()
             if conflicting:
@@ -471,51 +783,132 @@ async def provision(
                     for item in effective.requirements
                     if canonicalize_name(item.name).startswith("nvidia-")
                 }
-            await _install(uv, resolved, settings=settings, reinstall=reinstall)
-
-            probe = [
-                str(Path(sys.executable).resolve()),
-                "-I",
-                "-c",
-                _PROBE,
-                selected,
-            ]
-            if not onnx_pinned:
-                pass
-            elif await _command(probe, timeout_seconds=120, stage="probe"):
-                await _install(
-                    uv,
-                    resolved,
-                    settings=settings,
-                    reinstall={
-                        expected,
-                        *(
-                            canonicalize_name(item.name)
-                            for item in effective.requirements
-                            if canonicalize_name(item.name).startswith("nvidia-")
-                        ),
-                    },
+            install_result = await _install(
+                uv_head,
+                resolved,
+                target_python=resolved_target_python,
+                settings=settings,
+                reinstall=reinstall,
+            )
+            if install_result.exit_code:
+                return await decide(
+                    "install",
+                    "Locked dependency installation failed",
+                    install_result,
                 )
-                if await _command(probe, timeout_seconds=120, stage="probe-repaired"):
-                    raise DependencyError("Runtime remains unusable after one repair")
 
-            if await _command(
+            if variants or onnx_pinned:
+                probe_result = await _command(
+                    _probe_child(
+                        interpreter_argv, resolved_target_python, "probe", selected
+                    ),
+                    timeout_seconds=120,
+                    stage="probe",
+                )
+                if probe_result.exit_code:
+                    repair_install_result = await _install(
+                        uv_head,
+                        resolved,
+                        target_python=resolved_target_python,
+                        settings=settings,
+                        reinstall={
+                            expected,
+                            *(
+                                canonicalize_name(item.name)
+                                for item in effective.requirements
+                                if canonicalize_name(item.name).startswith("nvidia-")
+                            ),
+                        },
+                    )
+                    if repair_install_result.exit_code:
+                        return await decide(
+                            "install",
+                            "Locked dependency installation failed",
+                            repair_install_result,
+                        )
+                    repaired_result = await _command(
+                        _probe_child(
+                            interpreter_argv,
+                            resolved_target_python,
+                            "probe-repaired",
+                            selected,
+                        ),
+                        timeout_seconds=120,
+                        stage="probe-repaired",
+                    )
+                    if repaired_result.exit_code:
+                        probe_verdict = _classify(
+                            "probe-repaired", repaired_result.exit_code
+                        )
+                        if probe_verdict != "unusable":
+                            return await decide(
+                                "probe-repaired",
+                                "Runtime probe failed after the one repair attempt",
+                                repaired_result,
+                            )
+                        lookup = (
+                            _installed_version
+                            if installed_version is None
+                            else installed_version
+                        )
+                        installed_numpy = await asyncio.to_thread(lookup, "numpy")
+                        locked_numpy = await asyncio.to_thread(
+                            _locked_version, resolved, "numpy"
+                        )
+                        hazard = None
+                        if (
+                            installed_numpy is not None
+                            and locked_numpy is not None
+                            and installed_numpy != locked_numpy
+                        ):
+                            hazard = (
+                                f"numpy installed {installed_numpy} "
+                                f"but resolved {locked_numpy}"
+                            )
+                        return _fail_unusable(
+                            "probe-repaired", repaired_result, hazard
+                        )
+
+            check_result = await _retry_command(
                 [
-                    str(uv),
+                    *uv_head,
                     "pip",
                     "check",
                     "--python",
-                    str(Path(sys.executable).resolve()),
+                    str(resolved_target_python),
                 ],
                 timeout_seconds=120,
                 stage="check",
-            ):
-                logger.warning("dependencies.metadata_inconsistent")
+                settings=settings,
+            )
+            if check_result.exit_code:
+                logger.warning(
+                    "dependencies.metadata_inconsistent",
+                    extra={
+                        "exit_code": check_result.exit_code,
+                        "stdout_tail": check_result.stdout_tail,
+                        "stderr_tail": check_result.stderr_tail,
+                        "error": _joined_output(check_result),
+                    },
+                )
     finally:
-        await asyncio.to_thread(lock.release)
+        lock.release()
 
     logger.info("dependencies.ready", extra={"profile": selected})
-    return 0
+    return EXIT_OK
+
+
+def _fixture_seam_argv(name: str) -> list[str] | None:
+    raw = os.environ.get(name)
+    if not raw:
+        return None
+    argv = raw.split(";")
+    if any(not item for item in argv):
+        raise DependencyError(
+            f"{name} must be a ';'-joined argv list with no empty element; "
+            "a ';' inside a path is not supported"
+        )
+    return argv
 
 
 def run_provisioning(
@@ -524,10 +917,25 @@ def run_provisioning(
 ) -> int:
     try:
         settings = load_settings(os.environ)
-        return asyncio.run(provision(root, mapping, settings))
+        uv_argv = _fixture_seam_argv("MINI_DEPS_FAKE_UV_ARGV")
+        interpreter_argv = _fixture_seam_argv("MINI_DEPS_FAKE_PYTHON_ARGV")
+        if uv_argv is not None or interpreter_argv is not None:
+            logger.warning(
+                "dependencies.fixture_seam_active",
+                extra={"uv": uv_argv is not None, "python": interpreter_argv is not None},
+            )
+        return asyncio.run(
+            provision(
+                root,
+                mapping,
+                settings,
+                uv_argv=uv_argv,
+                interpreter_argv=interpreter_argv,
+            )
+        )
     except KeyboardInterrupt:
         logger.warning("dependencies.interrupted")
-        return 130
+        return EXIT_INTERRUPTED
     except (
         DependencyError,
         ValidationError,
@@ -537,6 +945,6 @@ def run_provisioning(
     ) as exc:
         logger.error(
             "dependencies.failed",
-            extra={"error_type": type(exc).__name__},
+            extra={"error_type": type(exc).__name__, "error": str(exc)},
         )
-        return 1
+        return EXIT_FAILED

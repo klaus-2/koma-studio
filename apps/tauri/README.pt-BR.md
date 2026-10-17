@@ -112,9 +112,9 @@ modo que só uma mudança de dependência dispara reinstalação.
 Controle manual, quando você quiser:
 
 ```bash
-bun run mini:check          # o sidecar está pronto? saída 0 = sim, 1 = precisa provisionar
-bun run mini:ensure         # provisiona só se necessário (o que o tauri:dev chama)
-bun run mini:install-deps   # força uma reinstalação completa
+bun run mini:check          # o sidecar está pronto? saída 0 = sim, 1 = precisa provisionar; 4 = inutilizável (o tauri:dev se recusa a iniciar)
+bun run mini:ensure         # provisiona só se necessário (o que o dev:desktop dispara em paralelo; o tauri:dev chama o gate)
+bun run mini:install-deps   # força uma reinstalação completa; um venv comprovadamente inutilizável é apagado e recriado uma vez, sozinho
 
 # Provisiona um perfil de GPU em vez do conjunto de CPU (veja "Builds de release" abaixo)
 bun run mini:install-deps --profile nvidia-cuda

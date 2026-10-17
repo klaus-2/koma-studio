@@ -112,9 +112,9 @@ bun run tauri:dev           # デスクトップアプリ全体（初回に Pyth
 手動で操作したい場合:
 
 ```bash
-bun run mini:check          # サイドカーは準備済みか? 終了コード 0 = はい、1 = 構築が必要
-bun run mini:ensure         # 必要な場合のみ構築（tauri:dev が呼ぶもの）
-bun run mini:install-deps   # 完全な再インストールを強制
+bun run mini:check          # サイドカーは準備済みか? 終了コード 0 = はい、1 = 構築が必要、4 = 使用不能（tauri:dev は起動を拒否）
+bun run mini:ensure         # 必要な場合のみ構築（dev:desktop が並列で起動するもの。tauri:dev はゲートを呼ぶ）
+bun run mini:install-deps   # 完全な再インストールを強制。使用不能と証明された venv は一度だけ自動で削除・再作成
 
 # CPU セットの代わりに GPU プロファイルを構築（下の「リリースビルド」を参照）
 bun run mini:install-deps --profile nvidia-cuda

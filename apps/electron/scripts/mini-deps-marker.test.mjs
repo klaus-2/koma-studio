@@ -74,6 +74,29 @@ test("marker hash changes when the acceleration profile changes", () => {
   );
 });
 
+test("the auto and detected digests differ only by the profile line, and are byte-stable", () => {
+  const rootDir = buildFakeProject({
+    requirementsBodies: { "requirements.txt": "fastapi==1.0\n" },
+  });
+  const inputs = listMiniDepsInputFiles(rootDir).map((filePath) =>
+    path.basename(filePath),
+  );
+
+  const autoFirst = computeMiniDepsMarkerHash(rootDir, { profile: "" });
+  const autoSecond = computeMiniDepsMarkerHash(rootDir, { profile: "" });
+  const detectedFirst = computeMiniDepsMarkerHash(rootDir, {
+    profile: "nvidia-cuda-legacy",
+  });
+  const detectedSecond = computeMiniDepsMarkerHash(rootDir, {
+    profile: "nvidia-cuda-legacy",
+  });
+
+  assert.equal(autoFirst, autoSecond);
+  assert.equal(detectedFirst, detectedSecond);
+  assert.notEqual(autoFirst, detectedFirst);
+  assert.deepEqual(inputs, ["ensure-mini-deps.py", "requirements.txt"]);
+});
+
 test("marker round trip: write, read, freshness", () => {
   const venvDir = fs.mkdtempSync(path.join(os.tmpdir(), "koma-venv-"));
   assert.equal(readMiniDepsMarker(venvDir), null);

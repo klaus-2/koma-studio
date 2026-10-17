@@ -6,7 +6,8 @@
  *   node scripts/mini-venv.mjs                # create .venv-mini if missing
  *   node scripts/mini-venv.mjs --install      # also install requirements + hardening deps
  *   node scripts/mini-venv.mjs --ensure       # no-op when already provisioned (auto-bootstrap)
- *   node scripts/mini-venv.mjs --check        # exit 0 = ready, 1 = needs provisioning
+ *   node scripts/mini-venv.mjs --check        # exit 0 = ready, 1 = needs provisioning,
+ *                                             # 4 = provably unusable (what tauri:dev blocks on)
  *   node scripts/mini-venv.mjs --install --profile nvidia-cuda
  *
  * Hardware profiles: `--profile <id>` (or $KOMA_BUILD_PROFILE) selects which
@@ -38,6 +39,17 @@ import {
   platformKeyFromNodePlatform,
   resolveProfileRequirements,
 } from "./lib/hardware-profiles.mjs";
+import {
+  ACCELERATION_PROFILE_KEY,
+  readEnvFileValue,
+  resolveActiveProfile,
+} from "./lib/mini-dev-env.mjs";
+import {
+  EXIT_UNUSABLE,
+  classifyTauriVerdict,
+  runImportQuery,
+  runRecreateOnce,
+} from "./lib/mini-venv-verdict.mjs";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const venvDir = path.join(rootDir, ".venv-mini");
@@ -53,6 +65,9 @@ const stampPath = path.join(venvDir, ".koma-install-stamp.json");
 // this lock to wait instead of spawning a sidecar that is doomed to crash.
 const provisioningLockPath = path.join(venvDir, ".koma-provisioning.json");
 
+const QUERY_MODULES = ["fastapi", "onnxruntime", "torch"];
+const QUERY_TIMEOUT_MS = 120_000;
+
 const withInstall = process.argv.includes("--install");
 const withEnsure = process.argv.includes("--ensure");
 const withCheck = process.argv.includes("--check");
@@ -66,10 +81,14 @@ const withCheck = process.argv.includes("--check");
 const readProfileArg = () => {
   const index = process.argv.indexOf("--profile");
   if (index >= 0) return process.argv[index + 1] ?? null;
-  return process.env.KOMA_BUILD_PROFILE ?? null;
+  return null;
 };
 
-const activeProfile = normalizeProfile(readProfileArg()) ?? DEFAULT_PROFILE;
+const activeProfile = resolveActiveProfile({
+  argvProfile: readProfileArg(),
+  envProfile: process.env.KOMA_BUILD_PROFILE ?? null,
+  fileValue: readEnvFileValue(rootDir, ACCELERATION_PROFILE_KEY),
+});
 const platformKey = platformKeyFromNodePlatform(process.platform);
 
 let resolvedRequirements;
@@ -214,14 +233,15 @@ const writeStamp = (hash) => {
  * sidecar's own entry dependency (fastapi): if those three import cleanly the
  * venv is usable, and forcing a multi-GB reinstall would be pure waste.
  */
-const hasInstalledDependencies = () => {
-  const result = spawnSync(
-    venvPython,
-    ["-c", "import fastapi, onnxruntime, torch"],
-    { stdio: "ignore", timeout: 120_000 },
-  );
-  return !result.error && result.status === 0;
-};
+const queryVenv = (pythonPath) =>
+  runImportQuery({
+    pythonPath,
+    modules: QUERY_MODULES,
+    spawnSync,
+    timeout: QUERY_TIMEOUT_MS,
+  });
+
+const hasInstalledDependencies = () => queryVenv(venvPython).ok;
 
 /**
  * "Ready" means: the interpreter exists AND the recorded fingerprint matches
@@ -279,7 +299,11 @@ const inspectReadiness = ({ adopt = false } = {}) => {
       reason: `mini-backend/${resolvedRequirements.relativePath} changed since the last install`,
     };
   }
-  return { ready: true, reason: `up to date (profile "${activeProfile}")` };
+  return {
+    ready: true,
+    reason: `up to date (profile "${activeProfile}")`,
+    stampedMatch: true,
+  };
 };
 
 const run = (command, args, label) => {
@@ -295,6 +319,24 @@ const run = (command, args, label) => {
 const probe = (command, args) => {
   const result = spawnSync(command, args, { stdio: "ignore" });
   return !result.error && result.status === 0;
+};
+
+const directoryBytes = (directory) => {
+  let total = 0;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      total += directoryBytes(entryPath);
+    } else if (entry.isFile()) {
+      total += fs.statSync(entryPath).size;
+    }
+  }
+  return total;
+};
+
+const createVenvCommand = () => {
+  const host = resolveHostPython();
+  return { command: host.command, args: [...host.args, "-m", "venv", venvDir] };
 };
 
 const resolveHostPython = () => {
@@ -324,12 +366,16 @@ const readiness = inspectReadiness({ adopt: !withCheck });
 
 // `--check` is a pure query used by other scripts; it must never mutate state.
 if (withCheck) {
-  console.log(
-    readiness.ready
-      ? `✓ mini-backend venv ready: ${path.relative(rootDir, venvPython)}`
-      : `✖ mini-backend venv not ready: ${readiness.reason}`,
-  );
-  process.exit(readiness.ready ? 0 : 1);
+  const query = readiness.ready && readiness.stampedMatch ? queryVenv(venvPython) : null;
+  const outcome = classifyTauriVerdict({ readiness, query });
+  if (outcome.verdict === "ready") {
+    console.log(`✓ mini-backend venv ready: ${path.relative(rootDir, venvPython)}`);
+  } else if (outcome.verdict === "unusable") {
+    console.log(`✖ mini-backend venv is provably unusable: ${outcome.reason}`);
+  } else {
+    console.log(`✖ mini-backend venv not ready: ${outcome.reason}`);
+  }
+  process.exit(outcome.exitCode);
 }
 
 // `--ensure` is the auto-bootstrap entry point: do nothing when the cached
@@ -369,22 +415,11 @@ if (!fs.existsSync(venvPython)) {
   console.log("▸ .venv-mini already present");
 }
 
-if (withInstall || withEnsure) {
-  console.log(
-    `▸ installing mini-backend requirements for profile "${activeProfile}" ` +
-    `from mini-backend/${resolvedRequirements.relativePath} (first run downloads several GB)`,
-  );
+const installRequirements = () => {
   // Publish the lock before the first byte is downloaded and clear it on every
   // exit path, so a crashed or cancelled install never leaves a stale lock that
   // would make the app wait forever.
   writeProvisioningLock();
-  process.on("exit", clearProvisioningLock);
-  for (const signal of ["SIGINT", "SIGTERM"]) {
-    process.on(signal, () => {
-      clearProvisioningLock();
-      process.exit(1);
-    });
-  }
   const pipCache = path.join(rootDir, ".cache", "pip");
 
   // llama-cpp-python ships no wheel on PyPI, so a plain install downloads a
@@ -444,6 +479,51 @@ if (withInstall || withEnsure) {
   const hash = computeRequirementsHash();
   if (hash) writeStamp(hash);
   clearProvisioningLock();
+};
+
+const provisionAndVerify = () => {
+  installRequirements();
+  return classifyTauriVerdict({
+    readiness: inspectReadiness({ adopt: false }),
+    query: queryVenv(venvPython),
+  });
+};
+
+if (withInstall || withEnsure) {
+  console.log(
+    `▸ installing mini-backend requirements for profile "${activeProfile}" ` +
+    `from mini-backend/${resolvedRequirements.relativePath} (first run downloads several GB)`,
+  );
+  process.on("exit", clearProvisioningLock);
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.on(signal, () => {
+      clearProvisioningLock();
+      process.exit(1);
+    });
+  }
+
+  let outcome = provisionAndVerify();
+  if (outcome.exitCode === EXIT_UNUSABLE) {
+    const create = createVenvCommand();
+    outcome = runRecreateOnce({
+      venvDir,
+      allowedVenvDir: path.resolve(venvDir),
+      pythonPath: venvPython,
+      reason: outcome.reason,
+      rmSync: fs.rmSync,
+      existsSync: fs.existsSync,
+      sizeOf: directoryBytes,
+      createCommand: create.command,
+      createArgs: create.args,
+      run: (command, args) => run(command, args, "venv recreate"),
+      install: provisionAndVerify,
+      log: console.log,
+    });
+  }
+  if (outcome.exitCode !== 0) {
+    console.error(`✖ mini-backend venv is not usable: ${outcome.reason}`);
+    process.exit(outcome.exitCode);
+  }
 }
 
 console.log(`✓ mini-backend venv ready: ${path.relative(rootDir, venvPython)}`);
