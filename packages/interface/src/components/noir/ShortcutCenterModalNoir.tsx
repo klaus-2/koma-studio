@@ -1,172 +1,34 @@
-import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Keyboard, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { btnGhost, btnPrimary } from "../system/v2/kit";
+import { KEYBOARD_SHORTCUT_STORAGE_KEY, SHORTCUT_CATEGORY_LABELS } from "../../shortcuts/keyboardShortcuts";
 import {
-  clearShortcutActionCombo,
-  collectShortcutStateFromKeyboardEvent,
-  FIXED_CONTEXT_SHORTCUTS,
-  getShortcutConflict,
-  getShortcutDisplayLabel,
-  isCompleteShortcutCombo,
-  KEYBOARD_SHORTCUT_STORAGE_KEY,
-  resetKeyboardShortcutConfig,
-  restoreShortcutActionCombo,
-  saveKeyboardShortcutConfig,
-  setShortcutActionCombo,
-  SHORTCUT_ACTIONS,
-  SHORTCUT_CATEGORY_LABELS,
-  type KeyboardShortcutConfigV2,
-  type ShortcutActionDefinition,
-  type ShortcutActionId,
-} from "../../shortcuts/keyboardShortcuts";
-
-interface ShortcutCenterModalProps {
-  open: boolean;
-  config: KeyboardShortcutConfigV2;
-  onConfigChange: (next: KeyboardShortcutConfigV2) => void;
-  onClose: () => void;
-}
-
-const CATEGORY_ORDER = ["global", "modes", "typesetter", "palette"] as const;
+  CATEGORY_ORDER,
+  useShortcutCenterModel,
+  type ShortcutCenterModalProps,
+} from "../../shortcuts/useShortcutCenterModel";
 
 const searchCls =
   "panel-cut-sm w-full border border-paper/12 bg-ink py-2 pl-8 pr-3 font-mono text-[11px] text-paper placeholder:text-paper/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson";
 const keycapCls =
   "panel-cut-sm inline-flex min-h-[26px] items-center border border-paper/15 bg-ink px-2 font-mono text-[10px] font-bold tracking-[0.04em] text-paper";
-const ShortcutCenterModalNoir = ({
-  open,
-  config,
-  onConfigChange,
-  onClose,
-}: ShortcutCenterModalProps) => {
+const ShortcutCenterModalNoir = (props: ShortcutCenterModalProps) => {
+  const { open, config, onClose } = props;
   const { t } = useI18n();
-  const [recordingId, setRecordingId] = useState<ShortcutActionId | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [error, setError] = useState<{
-    id: ShortcutActionId | null;
-    msg: string | null;
-  }>({ id: null, msg: null });
-  const [rowsVisible, setRowsVisible] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    const handle = window.setTimeout(() => setRowsVisible(true), 0);
-    return () => window.clearTimeout(handle);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (recordingId) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.key === "Escape") {
-          setRecordingId(null);
-          setError({ id: null, msg: null });
-          return;
-        }
-        const combo = collectShortcutStateFromKeyboardEvent(e);
-        if (!isCompleteShortcutCombo(combo)) return;
-        const conflict = getShortcutConflict(config, recordingId, combo);
-        if (conflict) {
-          setError({
-            id: recordingId,
-            msg: t("shortcutModal.conflict", { label: t(conflict.label as any), combo: getShortcutDisplayLabel(config.shortcuts[conflict.id] ?? [], t("shortcuts.noShortcut")) }),
-          });
-          return;
-        }
-        onConfigChange(
-          saveKeyboardShortcutConfig(
-            setShortcutActionCombo(config, recordingId, combo),
-          ),
-        );
-        setRecordingId(null);
-        setError({ id: null, msg: null });
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handler, true);
-    return () => window.removeEventListener("keydown", handler, true);
-  }, [config, onClose, onConfigChange, open, recordingId, t]);
-
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-
-  const grouped = useMemo(() => {
-    const m = new Map<string, ShortcutActionDefinition[]>();
-    CATEGORY_ORDER.forEach((c) =>
-      m.set(
-        c,
-        SHORTCUT_ACTIONS.filter((a) => {
-          if (a.category !== c) return false;
-          if (!normalizedSearchQuery) return true;
-          const haystack = [
-            t(a.label as any),
-            t(a.description as any),
-            t(SHORTCUT_CATEGORY_LABELS[a.category] as any),
-            getShortcutDisplayLabel(config.shortcuts[a.id] ?? [], t("shortcuts.noShortcut")),
-          ]
-            .join(" ")
-            .toLowerCase();
-          return haystack.includes(normalizedSearchQuery);
-        }),
-      ),
-    );
-    return m;
-  }, [config.shortcuts, normalizedSearchQuery, t]);
-
-  const filteredFixedShortcuts = useMemo(
-    () =>
-      FIXED_CONTEXT_SHORTCUTS.filter((shortcut) => {
-        if (!normalizedSearchQuery) return true;
-        return [
-          t(shortcut.label as any),
-          t(shortcut.description as any),
-          getShortcutDisplayLabel(shortcut.combo, t("shortcuts.noShortcut")),
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedSearchQuery);
-      }),
-    [normalizedSearchQuery, t],
-  );
-
-  const visibleShortcutCount = useMemo(() => {
-    const groupedCount = CATEGORY_ORDER.reduce(
-      (total, category) => total + (grouped.get(category)?.length ?? 0),
-      0,
-    );
-    return groupedCount + filteredFixedShortcuts.length;
-  }, [filteredFixedShortcuts.length, grouped]);
-
-  const startRecord = (id: ShortcutActionId) => {
-    setRecordingId(id);
-    setError({ id: null, msg: null });
-  };
-  const clearCombo = (id: ShortcutActionId) => {
-    onConfigChange(
-      saveKeyboardShortcutConfig(clearShortcutActionCombo(config, id)),
-    );
-    if (recordingId === id) setRecordingId(null);
-    setError({ id: null, msg: null });
-  };
-  const restoreCombo = (id: ShortcutActionId) => {
-    onConfigChange(
-      saveKeyboardShortcutConfig(restoreShortcutActionCombo(config, id)),
-    );
-    if (recordingId === id) setRecordingId(null);
-    setError({ id: null, msg: null });
-  };
-  const restoreAll = () => {
-    onConfigChange(resetKeyboardShortcutConfig());
-    setRecordingId(null);
-    setError({ id: null, msg: null });
-  };
+  const {
+    recordingId,
+    searchQuery,
+    setSearchQuery,
+    error,
+    rowsVisible,
+    grouped,
+    filteredFixedShortcuts,
+    visibleShortcutCount,
+    startRecord,
+    clearCombo,
+    restoreCombo,
+    restoreAll,
+  } = useShortcutCenterModel(props);
 
   if (!open) return null;
 
