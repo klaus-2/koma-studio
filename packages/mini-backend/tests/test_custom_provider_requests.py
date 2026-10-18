@@ -18,6 +18,7 @@ IMPORT_ERROR: Exception | None = None
 try:
     from models.translation import http as translation_http
     from models.translation import providers
+    from models.translation import stage as translation_stage
     from pipelines.cache_manager import CacheManager
     from routers import translation as translation_router
 except Exception as exc:  # pragma: no cover - optional runtime deps
@@ -98,7 +99,7 @@ class MiniBackendCustomProviderTests(unittest.TestCase):
 
         with (
             patch.object(
-                translation_router,
+                translation_stage,
                 "get_translation_engine",
                 side_effect=AssertionError(
                     "registry path should not be used for request-scoped custom providers"
@@ -174,7 +175,7 @@ class MiniBackendCustomProviderTests(unittest.TestCase):
 
         with (
             patch.object(
-                translation_router,
+                translation_stage,
                 "get_translation_engine",
                 side_effect=AssertionError(
                     "registry path should not be used for request-scoped custom providers"

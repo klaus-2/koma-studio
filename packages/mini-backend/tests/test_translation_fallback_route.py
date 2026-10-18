@@ -32,6 +32,7 @@ try:
     )
     from models.translation.factory import TranslationModelOption
     from models.translation.fallback import QuotaBlocklist
+    from models.translation import stage as translation_stage
     from pipelines.cache_manager import get_pipeline_cache
     from routers import translation as translation_router
 except Exception as exc:  # pragma: no cover - optional runtime deps
@@ -123,7 +124,7 @@ class TranslationFallbackRouteTests(unittest.TestCase):
         # The handler always reads the process-wide singleton; the router module
         # attribute can be rebound by other test modules, so clear the instance.
         get_pipeline_cache().clear()
-        translation_router._TRANSLATION_QUOTA = QuotaBlocklist()  # noqa: SLF001
+        translation_stage._TRANSLATION_QUOTA = QuotaBlocklist()  # noqa: SLF001
 
     @staticmethod
     def _registry(*keys: str) -> patch:
@@ -141,7 +142,7 @@ class TranslationFallbackRouteTests(unittest.TestCase):
         engine = _FakeEngine("fake_translation_model")
         resolver = _Resolver({"fake": engine})
 
-        with patch.object(translation_router, "get_translation_engine", side_effect=resolver):
+        with patch.object(translation_stage, "get_translation_engine", side_effect=resolver):
             response = client.post(
                 "/translate",
                 data={
@@ -160,7 +161,7 @@ class TranslationFallbackRouteTests(unittest.TestCase):
         unrequested = _FakeEngine("fake_translation_model")
         bare_resolver = _Resolver({"google_translate": unrequested})
         with patch.object(
-            translation_router, "get_translation_engine", side_effect=bare_resolver
+            translation_stage, "get_translation_engine", side_effect=bare_resolver
         ):
             bare = client.post(
                 "/translate",
@@ -183,8 +184,8 @@ class TranslationFallbackRouteTests(unittest.TestCase):
 
         with (
             self._registry("a", "b"),
-            patch.object(translation_router, "get_translation_engine", side_effect=resolver),
-            self.assertLogs(translation_router.logger, level="WARNING") as logs,
+            patch.object(translation_stage, "get_translation_engine", side_effect=resolver),
+            self.assertLogs(translation_stage.logger, level="WARNING") as logs,
         ):
             response = client.post(
                 "/translate",
@@ -219,7 +220,7 @@ class TranslationFallbackRouteTests(unittest.TestCase):
 
         with (
             self._registry("a", "b"),
-            patch.object(translation_router, "get_translation_engine", side_effect=resolver),
+            patch.object(translation_stage, "get_translation_engine", side_effect=resolver),
         ):
             response = client.post(
                 "/translate",
@@ -243,7 +244,7 @@ class TranslationFallbackRouteTests(unittest.TestCase):
 
         with (
             self._registry("a"),
-            patch.object(translation_router, "get_translation_engine", side_effect=resolver),
+            patch.object(translation_stage, "get_translation_engine", side_effect=resolver),
         ):
             response = client.post(
                 "/translate",

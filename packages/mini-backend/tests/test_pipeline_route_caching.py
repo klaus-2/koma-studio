@@ -23,6 +23,7 @@ try:
     import app as mini_app
     from models.ocr.base_ocr import OCRInputRegion, OCRTextResult
     from models.translation.base_translator import TranslationInputRegion, TranslationTextResult
+    from models.translation import stage as translation_stage
     from pipelines.cache_manager import CacheManager
     from routers import ocr as ocr_router
     from routers import translation as translation_router
@@ -157,7 +158,7 @@ class PipelineRouteCachingTests(unittest.TestCase):
             },
         ]
 
-        with patch.object(translation_router, "get_translation_engine", return_value=fake_engine):
+        with patch.object(translation_stage, "get_translation_engine", return_value=fake_engine):
             first = client.post(
                 "/translate",
                 data={
