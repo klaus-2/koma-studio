@@ -33,7 +33,6 @@ try:
     from models.translation.factory import TranslationModelOption
     from models.translation.fallback import QuotaBlocklist
     from models.translation import stage as translation_stage
-    from pipelines.cache_manager import get_pipeline_cache
     from routers import translation as translation_router
 except Exception as exc:  # pragma: no cover - optional runtime deps
     IMPORT_ERROR = exc
@@ -121,9 +120,9 @@ class _Resolver:
 )
 class TranslationFallbackRouteTests(unittest.TestCase):
     def setUp(self) -> None:
-        # The handler always reads the process-wide singleton; the router module
-        # attribute can be rebound by other test modules, so clear the instance.
-        get_pipeline_cache().clear()
+        # The route injects the router's CACHE_MANAGER, which other test modules
+        # rebind with their own instance; clear what the handler actually reads.
+        translation_router.CACHE_MANAGER.clear()
         translation_stage._TRANSLATION_QUOTA = QuotaBlocklist()  # noqa: SLF001
 
     @staticmethod
