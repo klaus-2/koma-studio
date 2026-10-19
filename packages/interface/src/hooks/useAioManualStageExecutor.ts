@@ -6,18 +6,22 @@ import {
   AIO_PIPELINE_STAGE_LABELS,
   AIO_STAGE_LABELS,
 } from '../constants/dashboard.constants';
-import { fetchWithTimeoutAndRetry } from '../utils/http';
+import {
+  finishStageRun,
+  runCleanImageStage,
+  runDetectTextStage,
+  runGetTranslationsStage,
+  runRecognizeTextStage,
+  runSegmentTextStage,
+} from '../aio-stages';
 import {
   applyRenderDefaultsToRegion,
   clamp,
-  normalizeDetectedGradient,
-  readExecutionRuntimeNotice,
-  normalizeTranslationNotes,
   toApiIntegerBbox,
 } from '../utils/dashboard.utils';
-import { regionsFromDetectPayload } from '../utils/detectTextRegions';
 import {
   type CustomLlmProfile,
+  type LlmRequestSettings,
   getCustomLlmRuntimeRestriction,
   hasAnyLlmCapability,
   inferLlmCapabilitiesForModelSelection,
@@ -26,7 +30,6 @@ import {
   isCloudTranslationModelKey,
   requiresCustomLlmApiKey,
   shouldUseLocalDesktopTranslationForCustomProfile,
-  toCustomLlmRequestPayload,
 } from '../utils/customLlm';
 import type { RenderTextStyle } from '../utils/renderText';
 import type {
@@ -34,12 +37,8 @@ import type {
   AioManualImageEditState,
   AioPipelineSnapshotKey,
   AioTextRegion,
-  DetectApiResponse,
   LoadedImage,
-  OcrApiResponse,
   RuntimeExecutionNotice,
-  SegmentApiResponse,
-  TranslationApiResponse,
 } from '../types/dashboard.types';
 import type { AioStageOption } from '../models/aioStageCatalog';
 import { useAioPipelineStore } from '../pages/dashboard/stores/aio-pipeline-store';
@@ -81,7 +80,7 @@ interface UseAioManualStageExecutorArgs {
   aioHdCropTriggerSize: number;
   gpuStages?: { detectText: boolean; recognizeText: boolean; segmentText: boolean; cleanImage: boolean };
   minRegionSize: number;
-  llmSettings: unknown;
+  llmSettings: LlmRequestSettings;
   renderDefaultStyle: RenderTextStyle;
   localApiUrl: string;
   modelEntries: Record<string, ModelManagerEntryLike | undefined>;
@@ -110,45 +109,6 @@ interface UseAioManualStageExecutorArgs {
  * into a binary grayscale mask Blob (painted pixels = white, unpainted = black).
  * This gives pixel-exact inpainting — only the brushed pixels are cleaned.
  */
-async function brushDataUrlToMaskBlob(
-  dataUrl: string,
-  imageWidth: number,
-  imageHeight: number,
-): Promise<Blob | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = imageWidth;
-        canvas.height = imageHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { resolve(null); return; }
-        ctx.drawImage(img, 0, 0, imageWidth, imageHeight);
-        const srcData = ctx.getImageData(0, 0, imageWidth, imageHeight).data;
-
-        // Build a grayscale mask: any painted pixel (alpha > 8) -> white (255), rest -> black (0)
-        const maskData = new Uint8ClampedArray(imageWidth * imageHeight * 4);
-        for (let i = 0; i < imageWidth * imageHeight; i++) {
-          const val = srcData[i * 4 + 3]! > 8 ? 255 : 0;
-          maskData[i * 4] = val;
-          maskData[i * 4 + 1] = val;
-          maskData[i * 4 + 2] = val;
-          maskData[i * 4 + 3] = 255;
-        }
-
-        const maskImageData = new ImageData(maskData, imageWidth, imageHeight);
-        ctx.putImageData(maskImageData, 0, 0);
-        canvas.toBlob((blob) => resolve(blob), 'image/png');
-      } catch {
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = dataUrl;
-  });
-}
-
 export function useAioManualStageExecutor({
   activeId,
   processing,
@@ -221,6 +181,7 @@ export function useAioManualStageExecutor({
     const stageKey = AIO_MANUAL_STAGE_ORDER[stageIndex]!;
     const stageLabel = AIO_PIPELINE_STAGE_LABELS[stageKey];
     const signal = getAbortSignal();
+    const stageRuntime = { localApiUrl, signal };
     const assertNotAborted = (): void => {
       if (!signal?.aborted) {
         return;
@@ -298,33 +259,26 @@ export function useAioManualStageExecutor({
             return;
           }
 
-          const detectFormData = new FormData();
-          detectFormData.append('file', activeImageData.file);
-          detectFormData.append('model_key', selectedDetectorKey);
-          detectFormData.append('language', aioSrcLang);
-          detectFormData.append('source_language', aioSrcLang);
-          if (gpuStages) detectFormData.append('use_gpu', String(gpuStages.detectText));
-
-          const detectResponse = await fetchWithTimeoutAndRetry(
-            `${localApiUrl}/detect`,
-            { method: 'POST', body: detectFormData },
-            { timeoutMs: 90_000, retryCount: 0, signal: signal ?? undefined },
+          const detectRun = await runDetectTextStage(
+            {
+              image: activeImageData,
+              modelKey: selectedDetectorKey,
+              sourceLanguage: aioSrcLang,
+              gpu: gpuStages,
+              minRegionSize,
+            },
+            stageRuntime,
+            'Failed to detect text',
           );
-          if (!detectResponse.ok) {
-            executionNotice = await readExecutionRuntimeNotice(detectResponse, stageLabel);
-            if (executionNotice) setRuntimeExecutionNotice(executionNotice);
-            const message = await parseApiError(detectResponse);
-            throw new Error(`Failed to detect text: ${message}`);
-          }
-          executionNotice = await readExecutionRuntimeNotice(detectResponse, stageLabel);
+          const detectDone = await finishStageRun(detectRun, {
+            stageLabel,
+            failurePrefix: 'Failed to detect text',
+            parseApiError,
+          });
+          executionNotice = detectDone.notice;
           if (executionNotice) setRuntimeExecutionNotice(executionNotice);
 
-          const payload = (await detectResponse.json()) as DetectApiResponse;
-          const detections = regionsFromDetectPayload(payload, activeImageData, {
-            minRegionSize,
-          });
-
-          patchAioSnapshotStageForImage(activeId, stageIndex, detections);
+          patchAioSnapshotStageForImage(activeId, stageIndex, detectDone.value);
         }
       } else if (stageKey === 'recognizeText') {
         assertNotAborted();
@@ -361,63 +315,28 @@ export function useAioManualStageExecutor({
         if (detectRegions.length === 0) {
           patchAioSnapshotStageForImage(activeId, stageIndex, []);
         } else {
-          const ocrFormData = new FormData();
-          ocrFormData.append('file', activeImageData.file);
-          ocrFormData.append('model_key', selectedOcrKey);
-          ocrFormData.append('language', aioSrcLang);
-          ocrFormData.append(
-            'regions',
-            JSON.stringify(
-              detectRegions.map((region) => ({
-                id: region.id,
-                bbox: toApiIntegerBbox(region.bbox, activeImageData.width, activeImageData.height),
-                source: region.source,
-                detector_model_key: region.detectorModelKey ?? region.modelKey,
-              })),
-            ),
+          const ocrRun = await runRecognizeTextStage(
+            {
+              image: activeImageData,
+              modelKey: selectedOcrKey,
+              sourceLanguage: aioSrcLang,
+              regions: detectRegions,
+              gpu: gpuStages,
+              useCloudOcr,
+              llmSettings: useLlmSettingsForOcr ? llmSettings : null,
+              customProfile: useLlmSettingsForOcr ? selectedCustomOcrProfile : null,
+            },
+            stageRuntime,
+            'Failed to recognize text',
           );
-          if (useLlmSettingsForOcr) {
-            ocrFormData.append('llm_settings', JSON.stringify(llmSettings));
-            const customPayload = toCustomLlmRequestPayload(selectedCustomOcrProfile);
-            if (customPayload) {
-              ocrFormData.append('custom_llm', JSON.stringify(customPayload));
-            }
-          }
-          if (gpuStages && !useCloudOcr) ocrFormData.append('use_gpu', String(gpuStages.recognizeText));
-
-          const ocrRequestUrl = `${localApiUrl}/ocr`;
-          const ocrResponse = await fetchWithTimeoutAndRetry(
-            ocrRequestUrl,
-            { method: 'POST', body: ocrFormData },
-            { timeoutMs: 480_000, retryCount: 0, signal: signal ?? undefined },
-          );
-          if (!ocrResponse.ok) {
-            executionNotice = await readExecutionRuntimeNotice(ocrResponse, stageLabel);
-            if (executionNotice) setRuntimeExecutionNotice(executionNotice);
-            const message = await parseApiError(ocrResponse);
-            throw new Error(`Failed to recognize text: ${message}`);
-          }
-          executionNotice = await readExecutionRuntimeNotice(ocrResponse, stageLabel);
-          if (executionNotice) setRuntimeExecutionNotice(executionNotice);
-
-          const ocrPayload = (await ocrResponse.json()) as OcrApiResponse;
-          const ocrById = new Map(ocrPayload.regions.map((region) => [String(region.id), region]));
-          const mergedRegions = detectRegions.map((region, index) => {
-            const match = ocrById.get(String(region.id)) ?? ocrPayload.regions[index] ?? null;
-            if (!match) return region;
-            const normalizedRenderText = typeof region.renderText === 'string' && region.renderText.trim().length === 0
-              ? undefined
-              : region.renderText;
-            return {
-              ...region,
-              renderText: normalizedRenderText,
-              recognizedText: match.text,
-              ocrScore: match.score,
-              ocrModelKey: match.ocr_model_key,
-              detectedGradient: normalizeDetectedGradient(match.foreground_gradient),
-            };
+          const ocrDone = await finishStageRun(ocrRun, {
+            stageLabel,
+            failurePrefix: 'Failed to recognize text',
+            parseApiError,
           });
-          patchAioSnapshotStageForImage(activeId, stageIndex, mergedRegions);
+          executionNotice = ocrDone.notice;
+          if (executionNotice) setRuntimeExecutionNotice(executionNotice);
+          patchAioSnapshotStageForImage(activeId, stageIndex, ocrDone.value);
         }
       } else if (stageKey === 'getTranslations') {
         assertNotAborted();
@@ -464,60 +383,29 @@ export function useAioManualStageExecutor({
         if (!hasTextForTranslation) {
           patchAioSnapshotStageForImage(activeId, stageIndex, ocrRegions);
         } else {
-          const translationFormData = new FormData();
-          translationFormData.append('model_key', selectedTranslationKey);
-          translationFormData.append('source_language', aioSrcLang);
-          translationFormData.append('target_language', aioTgtLang);
-          if (useLlmSettingsForTranslation) {
-            translationFormData.append('file', activeImageData.file);
-            translationFormData.append('llm_settings', JSON.stringify(llmSettings));
-            const customPayload = toCustomLlmRequestPayload(selectedCustomTranslationProfile);
-            if (customPayload) {
-              translationFormData.append('custom_llm', JSON.stringify(customPayload));
-            }
-          }
-          translationFormData.append(
-            'regions',
-            JSON.stringify(
-              ocrRegions.map((region) => ({
-                id: region.id,
-                text: region.recognizedText ?? '',
-                source: region.source,
-                detector_model_key: region.detectorModelKey ?? region.modelKey,
-                ocr_model_key: region.ocrModelKey ?? selectedOcrKey,
-              })),
-            ),
+          const translateRun = await runGetTranslationsStage(
+            {
+              image: activeImageData,
+              modelKey: selectedTranslationKey,
+              sourceLanguage: aioSrcLang,
+              targetLanguage: aioTgtLang,
+              regions: ocrRegions,
+              fallbackOcrModelKey: selectedOcrKey,
+              llmSettings: useLlmSettingsForTranslation ? llmSettings : null,
+              customProfile: useLlmSettingsForTranslation ? selectedCustomTranslationProfile : null,
+              includeImagePayload: useLlmSettingsForTranslation,
+            },
+            stageRuntime,
+            'Failed to translate text',
           );
-
-          const translationRequestUrl = `${localApiUrl}/translate`;
-          const translationResponse = await fetchWithTimeoutAndRetry(
-            translationRequestUrl,
-            { method: 'POST', body: translationFormData },
-            { timeoutMs: 120_000, retryCount: 0, signal: signal ?? undefined },
-          );
-          if (!translationResponse.ok) {
-            const message = await parseApiError(translationResponse);
-            throw new Error(`Failed to translate text: ${message}`);
-          }
-
-          const translationPayload = (await translationResponse.json()) as TranslationApiResponse;
-          const translationById = new Map(translationPayload.regions.map((region) => [region.id, region]));
-          const mergedRegions = ocrRegions.map((region) => {
-            const match = translationById.get(region.id);
-            if (!match) return region;
-            const normalizedRenderText = typeof region.renderText === 'string' && region.renderText.trim().length === 0
-              ? undefined
-              : region.renderText;
-            return {
-              ...region,
-              renderText: normalizedRenderText,
-              translatedText: match.translated_text,
-              translationNotes: normalizeTranslationNotes(match.translation_notes),
-              translationNoteOverlay: undefined,
-              translatorModelKey: match.translator_model_key,
-            };
+          const translateDone = await finishStageRun(translateRun, {
+            stageLabel,
+            failurePrefix: 'Failed to translate text',
+            parseApiError,
           });
-          patchAioSnapshotStageForImage(activeId, stageIndex, mergedRegions);
+          executionNotice = translateDone.notice;
+          if (executionNotice) setRuntimeExecutionNotice(executionNotice);
+          patchAioSnapshotStageForImage(activeId, stageIndex, translateDone.value);
         }
       } else if (stageKey === 'segmentText') {
         assertNotAborted();
@@ -535,48 +423,26 @@ export function useAioManualStageExecutor({
         if (sourceRegions.length === 0) {
           patchAioSnapshotStageForImage(activeId, stageIndex, []);
         } else {
-          const segmentFormData = new FormData();
-          segmentFormData.append('file', activeImageData.file);
-          segmentFormData.append('model_key', selectedSegmentKey);
-          if (gpuStages) segmentFormData.append('use_gpu', String(gpuStages.segmentText));
-          segmentFormData.append(
-            'regions',
-            JSON.stringify(
-              sourceRegions.map((region) => ({
-                id: region.id,
-                bbox: toApiIntegerBbox(region.bbox, activeImageData.width, activeImageData.height),
-                source: region.source,
-                detector_model_key: region.detectorModelKey ?? region.modelKey,
-                ocr_model_key: region.ocrModelKey ?? selectedOcrKey,
-                translator_model_key: region.translatorModelKey ?? selectedTranslationKey,
-              })),
-            ),
+          const segmentRun = await runSegmentTextStage(
+            {
+              image: activeImageData,
+              modelKey: selectedSegmentKey,
+              regions: sourceRegions,
+              fallbackOcrModelKey: selectedOcrKey,
+              fallbackTranslatorModelKey: selectedTranslationKey,
+              gpu: gpuStages,
+            },
+            stageRuntime,
+            'Failed to segment text',
           );
-
-          const segmentResponse = await fetchWithTimeoutAndRetry(
-            `${localApiUrl}/segment`,
-            { method: 'POST', body: segmentFormData },
-            { timeoutMs: 120_000, retryCount: 0, signal: signal ?? undefined },
-          );
-          if (!segmentResponse.ok) {
-            const message = await parseApiError(segmentResponse);
-            throw new Error(`Failed to segment text: ${message}`);
-          }
-
-          const segmentPayload = (await segmentResponse.json()) as SegmentApiResponse;
-          const segmentById = new Map(segmentPayload.regions.map((region) => [region.id, region]));
-          const mergedRegions = sourceRegions.map((region) => {
-            const match = segmentById.get(region.id);
-            if (!match) return region;
-            return {
-              ...region,
-              segmentBoxes: match.segment_boxes,
-              mergedSegmentBoxes: match.merged_boxes,
-              segmentModelKey: match.segment_model_key,
-              maskBase64: match.mask_base64 ?? undefined,
-            };
+          const segmentDone = await finishStageRun(segmentRun, {
+            stageLabel,
+            failurePrefix: 'Failed to segment text',
+            parseApiError,
           });
-          patchAioSnapshotStageForImage(activeId, stageIndex, mergedRegions);
+          executionNotice = segmentDone.notice;
+          if (executionNotice) setRuntimeExecutionNotice(executionNotice);
+          patchAioSnapshotStageForImage(activeId, stageIndex, segmentDone.value);
         }
       } else if (stageKey === 'cleanImage') {
         assertNotAborted();
@@ -595,61 +461,35 @@ export function useAioManualStageExecutor({
         // binary mask blob and send it alongside the auto-detected regions. This ensures
         // inpainting only touches the exact painted pixels (not their bounding boxes).
         const manualEditState = getAioManualImageEditState(activeId);
-        const brushDataUrl = manualEditState.segmentBrushDataUrl;
-        let brushMaskBlob: Blob | null = null;
-        if (brushDataUrl) {
-          brushMaskBlob = await brushDataUrlToMaskBlob(
-            brushDataUrl,
-            activeImageData.width,
-            activeImageData.height,
-          );
-        }
-
-        const inpaintFormData = new FormData();
-        inpaintFormData.append('file', activeImageData.file);
-        if (brushMaskBlob) {
-          inpaintFormData.append('brush_mask', brushMaskBlob, 'brush_mask.png');
-        }
-        inpaintFormData.append('model_key', selectedCleanKey);
-        if (gpuStages) inpaintFormData.append('use_gpu', String(gpuStages.cleanImage));
-        inpaintFormData.append('mask_dilation', String(aioMaskDilation));
-        inpaintFormData.append('hd_strategy', aioHdStrategy);
-        inpaintFormData.append('hd_strategy_resize_limit', String(aioHdResizeLimit));
-        inpaintFormData.append('hd_strategy_crop_margin', String(aioHdCropMargin));
-        inpaintFormData.append('hd_strategy_crop_trigger_size', String(aioHdCropTriggerSize));
-        inpaintFormData.append(
-          'regions',
-          JSON.stringify(
-            sourceRegions.map((region) => ({
-              id: region.id,
-              bbox: toApiIntegerBbox(region.bbox, activeImageData.width, activeImageData.height),
-              source: region.source,
-              detector_model_key: region.detectorModelKey ?? region.modelKey,
-              ocr_model_key: region.ocrModelKey ?? selectedOcrKey,
-              translator_model_key: region.translatorModelKey ?? selectedTranslationKey,
-              segment_model_key: region.segmentModelKey ?? selectedSegmentKey,
-              segment_boxes: region.segmentBoxes ?? [],
-              merged_boxes: region.mergedSegmentBoxes ?? [],
-              mask_base64: region.maskBase64 ?? '',
-            })),
-          ),
+        const cleanRun = await runCleanImageStage(
+          {
+            image: activeImageData,
+            modelKey: selectedCleanKey,
+            regions: sourceRegions,
+            fallbackOcrModelKey: selectedOcrKey,
+            fallbackSegmentModelKey: selectedSegmentKey,
+            options: {
+              maskDilation: aioMaskDilation,
+              hdStrategy: aioHdStrategy,
+              hdResizeLimit: aioHdResizeLimit,
+              hdCropMargin: aioHdCropMargin,
+              hdCropTriggerSize: aioHdCropTriggerSize,
+              brushDataUrl: manualEditState.segmentBrushDataUrl,
+            },
+            gpu: gpuStages,
+          },
+          stageRuntime,
+          'Failed to clean the image',
         );
-
-        const cleanResponse = await fetchWithTimeoutAndRetry(
-          `${localApiUrl}/inpaint`,
-          { method: 'POST', body: inpaintFormData },
-          { timeoutMs: 180_000, retryCount: 0, signal: signal ?? undefined },
-        );
-        if (!cleanResponse.ok) {
-          executionNotice = await readExecutionRuntimeNotice(cleanResponse, stageLabel);
-          if (executionNotice) setRuntimeExecutionNotice(executionNotice);
-          const message = await parseApiError(cleanResponse);
-          throw new Error(`Failed to clean the image: ${message}`);
-        }
-        executionNotice = await readExecutionRuntimeNotice(cleanResponse, stageLabel);
+        const cleanDone = await finishStageRun(cleanRun, {
+          stageLabel,
+          failurePrefix: 'Failed to clean the image',
+          parseApiError,
+        });
+        executionNotice = cleanDone.notice;
         if (executionNotice) setRuntimeExecutionNotice(executionNotice);
 
-        const cleanBlob = await cleanResponse.blob();
+        const cleanBlob = cleanDone.value;
         if (!cleanBlob.type.startsWith('image/')) {
           throw new Error(t('aioManual.invalidCleanResponse'));
         }

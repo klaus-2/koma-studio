@@ -1,4 +1,5 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
+import { finishStageRun, runDetectTextStage } from '../../../aio-stages';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   blobToDataUrl,
@@ -7,7 +8,6 @@ import {
   cloneRenderStyle,
   toApiIntegerBbox,
 } from '../../../utils/dashboard.utils';
-import { regionsFromDetectPayload } from '../../../utils/detectTextRegions';
 import {
   normalizeKnownCustomLlmApiBase,
   requiresCustomLlmApiKey,
@@ -24,7 +24,6 @@ import {
 import type {
   AioTextRegion,
   CleanerRunMeta,
-  DetectApiResponse,
   LoadedImage,
 } from '../../../types/dashboard.types';
 import type { CleanerRunContext, I18nTranslate } from './cleaner.types';
@@ -151,29 +150,27 @@ export async function runAutomaticCleanerWorkflow(
             state: translate('discord.presence.batch.state', { current: index + 1, total: images.length }),
           });
 
-          const detectFormData = new FormData();
-          detectFormData.append('file', imgData.file);
-          detectFormData.append('model_key', detectSelectionKey);
-          detectFormData.append('language', sourceLanguage);
-          detectFormData.append('source_language', sourceLanguage);
-
-          const detectResponse = await fetchWithTimeoutAndRetry(
-            `${localApiUrl}/detect`,
-            { method: 'POST', body: detectFormData },
-            { timeoutMs: 90_000, retryCount: 0 },
+          const detectRun = await runDetectTextStage(
+            {
+              image: imgData,
+              modelKey: detectSelectionKey,
+              sourceLanguage,
+              minRegionSize,
+            },
+            { localApiUrl },
           );
-          if (!detectResponse.ok) {
-            const apiMessage = await parseApiError(detectResponse);
+          if (!detectRun.ok) {
+            const apiMessage = await parseApiError(detectRun.response);
             throw new Error(
               t('cleanerActions.detectFailed', { fileName: imgData.file.name, message: apiMessage }),
             );
           }
-
-          const detectPayload =
-            (await detectResponse.json()) as DetectApiResponse;
-          const detectDetections = regionsFromDetectPayload(detectPayload, imgData, {
-            minRegionSize,
+          const detectDone = await finishStageRun(detectRun, {
+            stageLabel: AIO_STAGE_LABELS.detectText,
+            failurePrefix: 'Failed to detect text',
+            parseApiError,
           });
+          const detectDetections = detectDone.value;
 
           let outputRegions = detectDetections;
           let candidateCount = detectDetections.length;
