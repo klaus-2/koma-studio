@@ -1,5 +1,5 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
-import { finishStageRun, runDetectTextStage } from '../../../aio-stages';
+import { runDetectTextStage } from '../../../aio-stages';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   blobToDataUrl,
@@ -150,7 +150,7 @@ export async function runAutomaticCleanerWorkflow(
             state: translate('discord.presence.batch.state', { current: index + 1, total: images.length }),
           });
 
-          const detectRun = await runDetectTextStage(
+          const detectDone = await runDetectTextStage(
             {
               image: imgData,
               modelKey: detectSelectionKey,
@@ -158,18 +158,17 @@ export async function runAutomaticCleanerWorkflow(
               minRegionSize,
             },
             { localApiUrl },
+            {
+              stageLabel: AIO_STAGE_LABELS.detectText,
+              failurePrefix: 'Failed to detect text',
+              parseApiError,
+              formatError: (message) =>
+                t('cleanerActions.detectFailed', {
+                  fileName: imgData.file.name,
+                  message,
+                }),
+            },
           );
-          if (!detectRun.ok) {
-            const apiMessage = await parseApiError(detectRun.response);
-            throw new Error(
-              t('cleanerActions.detectFailed', { fileName: imgData.file.name, message: apiMessage }),
-            );
-          }
-          const detectDone = await finishStageRun(detectRun, {
-            stageLabel: AIO_STAGE_LABELS.detectText,
-            failurePrefix: 'Failed to detect text',
-            parseApiError,
-          });
           const detectDetections = detectDone.value;
 
           let outputRegions = detectDetections;

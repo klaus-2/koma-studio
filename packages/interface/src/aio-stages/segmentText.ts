@@ -2,8 +2,13 @@
 import type { AioTextRegion, SegmentApiResponse } from '../types/dashboard.types';
 import { mergeSegmentIntoRegions } from './merge';
 import { toSegmentRegionsJson } from './payloads';
-import { STAGE_TIMEOUT_MS, postStageForm } from './transport';
-import type { RegionList, StageGpuFlags, StageImageRef, StageRunResult, StageRuntime } from './types';
+import { STAGE_TIMEOUT_MS, runStageForm, type StageRunOptions } from './transport';
+import type {
+  FinishedStageRun,
+  RegionList,
+  StageImageRef,
+  StageRuntime,
+} from './types';
 
 export interface SegmentTextStageArgs {
   image: StageImageRef;
@@ -11,18 +16,18 @@ export interface SegmentTextStageArgs {
   regions: RegionList;
   fallbackOcrModelKey: string;
   fallbackTranslatorModelKey: string;
-  gpu?: StageGpuFlags;
+  useGpu?: boolean;
 }
 
-export async function runSegmentTextStage(
+export function runSegmentTextStage(
   args: SegmentTextStageArgs,
   runtime: StageRuntime,
-  failurePrefix = 'Failed to segment text',
-): Promise<StageRunResult<AioTextRegion[]>> {
+  options: StageRunOptions,
+): Promise<FinishedStageRun<AioTextRegion[]>> {
   const form = new FormData();
   form.append('file', args.image.file);
   form.append('model_key', args.modelKey);
-  if (args.gpu) form.append('use_gpu', String(Boolean(args.gpu.segmentText)));
+  if (args.useGpu !== undefined) form.append('use_gpu', String(args.useGpu));
   form.append(
     'regions',
     toSegmentRegionsJson(
@@ -33,19 +38,13 @@ export async function runSegmentTextStage(
     ),
   );
 
-  const posted = await postStageForm(
-    runtime,
-    '/segment',
+  return runStageForm(runtime, options, {
+    path: '/segment',
     form,
-    STAGE_TIMEOUT_MS.segmentText,
-    failurePrefix,
-  );
-  if (!posted.ok) return posted;
-
-  const payload = (await posted.value.json()) as SegmentApiResponse;
-  return {
-    ok: true,
-    response: posted.response,
-    value: mergeSegmentIntoRegions(args.regions, payload),
-  };
+    timeoutMs: STAGE_TIMEOUT_MS.segmentText,
+    parse: async (response) => {
+      const payload = (await response.json()) as SegmentApiResponse;
+      return mergeSegmentIntoRegions(args.regions, payload);
+    },
+  });
 }

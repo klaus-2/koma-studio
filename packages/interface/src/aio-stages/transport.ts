@@ -1,7 +1,7 @@
-/** Shared stage-run transport helpers. */
-import { fetchWithTimeoutAndRetry } from '../utils/http';
+/** Shared stage-run transport: one form POST → finished run (or throw). */
 import { readExecutionRuntimeNotice } from '../utils/dashboard.utils';
-import type { StageRunResult, StageRuntime } from './types';
+import { fetchWithTimeoutAndRetry } from '../utils/http';
+import type { FinishedStageRun, StageRunNotice, StageRuntime } from './types';
 
 export const STAGE_TIMEOUT_MS = {
   detectText: 90_000,
@@ -11,55 +11,42 @@ export const STAGE_TIMEOUT_MS = {
   cleanImage: 180_000,
 } as const;
 
-export async function postStageForm(
-  runtime: StageRuntime,
-  path: string,
-  form: FormData,
-  timeoutMs: number,
-  failurePrefix: string,
-): Promise<StageRunResult<Response>> {
-  const response = await fetchWithTimeoutAndRetry(
-    `${runtime.localApiUrl}${path}`,
-    { method: 'POST', body: form },
-    { timeoutMs, retryCount: 0, signal: runtime.signal ?? undefined },
-  );
-  if (!response.ok) {
-    return { ok: false, response, error: new Error(failurePrefix) };
-  }
-  return { ok: true, response, value: response };
-}
-
-export interface StageRunNotice {
-  title: string;
-  detail: string;
-  tone: 'fallback' | 'legacy';
-}
-
-export interface FinishedStageRun<T> {
-  value: T;
-  response: Response;
-  notice: StageRunNotice | null;
+export interface StageRunOptions {
+  stageLabel: string;
+  failurePrefix: string;
+  parseApiError: (response: Response) => Promise<string>;
+  /** Replaces `` `${failurePrefix}: ${apiMessage}` `` when the caller owns the copy. */
+  formatError?: (apiMessage: string) => string;
 }
 
 /**
- * Read runtime notices, then either throw a formatted failure or hand back the
- * stage value. Callers stop re-implementing notice/parse ordering.
+ * POST a stage form, read runtime notices, then either throw a formatted
+ * failure or hand back the parsed stage value.
  */
-export async function finishStageRun<T>(
-  result: StageRunResult<T>,
-  options: {
-    stageLabel: string;
-    failurePrefix: string;
-    parseApiError: (response: Response) => Promise<string>;
+export async function runStageForm<T>(
+  runtime: StageRuntime,
+  options: StageRunOptions,
+  spec: {
+    path: string;
+    form: FormData;
+    timeoutMs: number;
+    parse: (response: Response) => Promise<T>;
   },
 ): Promise<FinishedStageRun<T>> {
+  const response = await fetchWithTimeoutAndRetry(
+    `${runtime.localApiUrl}${spec.path}`,
+    { method: 'POST', body: spec.form },
+    { timeoutMs: spec.timeoutMs, retryCount: 0, signal: runtime.signal ?? undefined },
+  );
   const notice = (await readExecutionRuntimeNotice(
-    result.response,
+    response,
     options.stageLabel,
   )) as StageRunNotice | null;
-  if (!result.ok) {
-    const apiMessage = await options.parseApiError(result.response);
-    throw new Error(`${options.failurePrefix}: ${apiMessage}`);
+  if (!response.ok) {
+    const apiMessage = await options.parseApiError(response);
+    throw new Error(
+      options.formatError?.(apiMessage) ?? `${options.failurePrefix}: ${apiMessage}`,
+    );
   }
-  return { value: result.value, response: result.response, notice };
+  return { value: await spec.parse(response), response, notice };
 }

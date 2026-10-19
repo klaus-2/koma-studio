@@ -700,17 +700,26 @@ export const inferLlmCapabilitiesForModelSelection = (
     : null;
 };
 
+/** Lean profile shape accepted by request payload builders. */
+export type CustomLlmRequestProfile = {
+  apiBase: string;
+  apiKey: string;
+  model?: string | null;
+};
+
 export const toCustomLlmRequestPayload = (
-  profile: CustomLlmProfile | null | undefined,
+  profile: CustomLlmRequestProfile | null | undefined,
 ): Record<string, string> | null => {
   if (!profile) {
     return null;
   }
 
+  const model = (profile.model ?? '').trim();
+  const apiKey = profile.apiKey.trim();
   return {
     api_base: profile.apiBase,
-    model: profile.model,
-    ...(profile.apiKey ? { api_key: profile.apiKey } : {}),
+    model,
+    ...(apiKey ? { api_key: apiKey } : {}),
   };
 };
 

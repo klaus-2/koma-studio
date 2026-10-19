@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 import { useI18n } from '../i18n';
 import {
-  finishStageRun,
   runCleanImageStage,
   runDetectTextStage,
   runGetTranslationsStage,
@@ -139,23 +138,22 @@ export function useAioSingleImageProcessor({
 
     assertNotAborted();
     onStageStart('detectText', imgData, index);
-    const detectRun = await runDetectTextStage(
+    const detectDone = await runDetectTextStage(
       {
         image: imgData,
         modelKey: detectSelectionKey,
         sourceLanguage,
-        gpu: gpuStages,
+        useGpu: gpuStages?.detectText,
         minRegionSize,
         maxAreaRatio: 0.75,
       },
       stageRuntime,
-      `Failed to detect text in "${imgData.file.name}"`,
+      {
+        stageLabel: 'Detectar Texto',
+        failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
+        parseApiError,
+      },
     );
-    const detectDone = await finishStageRun(detectRun, {
-      stageLabel: 'Detectar Texto',
-      failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
-      parseApiError,
-    });
     pushNotice(detectDone.notice);
     const normalizedDetections = detectDone.value;
 
@@ -165,25 +163,24 @@ export function useAioSingleImageProcessor({
     if (aioSteps.recognizeText && normalizedDetections.length > 0) {
       assertNotAborted();
       onStageStart('recognizeText', imgData, index);
-      const ocrRun = await runRecognizeTextStage(
+      const ocrDone = await runRecognizeTextStage(
         {
           image: imgData,
           modelKey: ocrSelectionKey,
           sourceLanguage,
           regions: normalizedDetections,
-          gpu: gpuStages,
+          useGpu: gpuStages?.recognizeText,
           useCloudOcr,
           llmSettings: useLlmSettingsForOcr ? llmSettings : null,
           customProfile: useLlmSettingsForOcr ? selectedCustomOcrProfile : null,
         },
         stageRuntime,
-        `Failed to recognize text in "${imgData.file.name}"`,
+        {
+          stageLabel: 'Reconhecer Texto',
+          failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
+          parseApiError,
+        },
       );
-      const ocrDone = await finishStageRun(ocrRun, {
-        stageLabel: 'Reconhecer Texto',
-        failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
-        parseApiError,
-      });
       pushNotice(ocrDone.notice);
       enrichedDetections = ocrDone.value;
     }
@@ -194,7 +191,7 @@ export function useAioSingleImageProcessor({
     if (aioSteps.getTranslations && hasTextForTranslation) {
       assertNotAborted();
       onStageStart('getTranslations', imgData, index);
-      const translateRun = await runGetTranslationsStage(
+      const translateDone = await runGetTranslationsStage(
         {
           image: imgData,
           modelKey: translationSelectionKey,
@@ -204,16 +201,14 @@ export function useAioSingleImageProcessor({
           fallbackOcrModelKey: ocrSelectionKey,
           llmSettings: useLlmSettingsForTranslation ? llmSettings : null,
           customProfile: useLlmSettingsForTranslation ? selectedCustomTranslationProfile : null,
-          includeImagePayload: useLlmSettingsForTranslation,
         },
         stageRuntime,
-        `Failed to translate text in "${imgData.file.name}"`,
+        {
+          stageLabel: 'Obter Traduções',
+          failurePrefix: `Failed to translate text in "${imgData.file.name}"`,
+          parseApiError,
+        },
       );
-      const translateDone = await finishStageRun(translateRun, {
-        stageLabel: 'Obter Traduções',
-        failurePrefix: `Failed to translate text in "${imgData.file.name}"`,
-        parseApiError,
-      });
       pushNotice(translateDone.notice);
       enrichedDetections = translateDone.value;
     }
@@ -223,23 +218,22 @@ export function useAioSingleImageProcessor({
     if (aioSteps.segmentText && enrichedDetections.length > 0) {
       assertNotAborted();
       onStageStart('segmentText', imgData, index);
-      const segmentRun = await runSegmentTextStage(
+      const segmentDone = await runSegmentTextStage(
         {
           image: imgData,
           modelKey: segmentSelectionKey,
           regions: enrichedDetections,
           fallbackOcrModelKey: ocrSelectionKey,
           fallbackTranslatorModelKey: translationSelectionKey,
-          gpu: gpuStages,
+          useGpu: gpuStages?.segmentText,
         },
         stageRuntime,
-        `Failed to segment text in "${imgData.file.name}"`,
+        {
+          stageLabel: 'Segmentar Texto',
+          failurePrefix: `Failed to segment text in "${imgData.file.name}"`,
+          parseApiError,
+        },
       );
-      const segmentDone = await finishStageRun(segmentRun, {
-        stageLabel: 'Segmentar Texto',
-        failurePrefix: `Failed to segment text in "${imgData.file.name}"`,
-        parseApiError,
-      });
       pushNotice(segmentDone.notice);
       enrichedDetections = segmentDone.value;
     }
@@ -250,7 +244,7 @@ export function useAioSingleImageProcessor({
     if (aioSteps.cleanImage) {
       assertNotAborted();
       onStageStart('cleanImage', imgData, index);
-      const cleanRun = await runCleanImageStage(
+      const cleanDone = await runCleanImageStage(
         {
           image: imgData,
           modelKey: cleanSelectionKey,
@@ -264,16 +258,15 @@ export function useAioSingleImageProcessor({
             hdCropMargin,
             hdCropTriggerSize,
           },
-          gpu: gpuStages,
+          useGpu: gpuStages?.cleanImage,
         },
         stageRuntime,
-        `Failed to clean the image "${imgData.file.name}"`,
+        {
+          stageLabel: 'Clean Image',
+          failurePrefix: `Failed to clean the image "${imgData.file.name}"`,
+          parseApiError,
+        },
       );
-      const cleanDone = await finishStageRun(cleanRun, {
-        stageLabel: 'Clean Image',
-        failurePrefix: `Failed to clean the image "${imgData.file.name}"`,
-        parseApiError,
-      });
       pushNotice(cleanDone.notice);
 
       const inpaintBlob = cleanDone.value;

@@ -12,34 +12,16 @@ export interface StageRuntime {
   signal?: AbortSignal | null;
 }
 
-export type StageRunResult<T> =
-  | { ok: true; response: Response; value: T }
-  | { ok: false; response: Response; error: Error };
-
-export interface StageGpuFlags {
-  detectText?: boolean;
-  recognizeText?: boolean;
-  segmentText?: boolean;
-  cleanImage?: boolean;
+export interface StageRunNotice {
+  title: string;
+  detail: string;
+  tone: 'fallback' | 'legacy';
 }
 
-/** Lean Custom AI profile shape accepted by stage-run modules. */
-export interface StageCustomLlmProfile {
-  apiBase: string;
-  apiKey: string;
-  model?: string;
-}
-
-export function toStageCustomLlmPayload(
-  profile: StageCustomLlmProfile | null | undefined,
-): Record<string, string> | null {
-  if (!profile) return null;
-  const apiKey = profile.apiKey.trim();
-  return {
-    api_base: profile.apiBase,
-    model: (profile.model ?? '').trim(),
-    ...(apiKey ? { api_key: apiKey } : {}),
-  };
+export interface FinishedStageRun<T> {
+  value: T;
+  response: Response;
+  notice: StageRunNotice | null;
 }
 
 export interface CleanImageStageOptions {

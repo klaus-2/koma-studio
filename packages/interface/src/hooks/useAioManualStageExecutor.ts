@@ -7,7 +7,6 @@ import {
   AIO_STAGE_LABELS,
 } from '../constants/dashboard.constants';
 import {
-  finishStageRun,
   runCleanImageStage,
   runDetectTextStage,
   runGetTranslationsStage,
@@ -259,22 +258,17 @@ export function useAioManualStageExecutor({
             return;
           }
 
-          const detectRun = await runDetectTextStage(
+          const detectDone = await runDetectTextStage(
             {
               image: activeImageData,
               modelKey: selectedDetectorKey,
               sourceLanguage: aioSrcLang,
-              gpu: gpuStages,
+              useGpu: gpuStages?.detectText,
               minRegionSize,
             },
             stageRuntime,
-            'Failed to detect text',
+            { stageLabel, failurePrefix: 'Failed to detect text', parseApiError },
           );
-          const detectDone = await finishStageRun(detectRun, {
-            stageLabel,
-            failurePrefix: 'Failed to detect text',
-            parseApiError,
-          });
           executionNotice = detectDone.notice;
           if (executionNotice) setRuntimeExecutionNotice(executionNotice);
 
@@ -315,25 +309,20 @@ export function useAioManualStageExecutor({
         if (detectRegions.length === 0) {
           patchAioSnapshotStageForImage(activeId, stageIndex, []);
         } else {
-          const ocrRun = await runRecognizeTextStage(
+          const ocrDone = await runRecognizeTextStage(
             {
               image: activeImageData,
               modelKey: selectedOcrKey,
               sourceLanguage: aioSrcLang,
               regions: detectRegions,
-              gpu: gpuStages,
+              useGpu: gpuStages?.recognizeText,
               useCloudOcr,
               llmSettings: useLlmSettingsForOcr ? llmSettings : null,
               customProfile: useLlmSettingsForOcr ? selectedCustomOcrProfile : null,
             },
             stageRuntime,
-            'Failed to recognize text',
+            { stageLabel, failurePrefix: 'Failed to recognize text', parseApiError },
           );
-          const ocrDone = await finishStageRun(ocrRun, {
-            stageLabel,
-            failurePrefix: 'Failed to recognize text',
-            parseApiError,
-          });
           executionNotice = ocrDone.notice;
           if (executionNotice) setRuntimeExecutionNotice(executionNotice);
           patchAioSnapshotStageForImage(activeId, stageIndex, ocrDone.value);
@@ -383,7 +372,7 @@ export function useAioManualStageExecutor({
         if (!hasTextForTranslation) {
           patchAioSnapshotStageForImage(activeId, stageIndex, ocrRegions);
         } else {
-          const translateRun = await runGetTranslationsStage(
+          const translateDone = await runGetTranslationsStage(
             {
               image: activeImageData,
               modelKey: selectedTranslationKey,
@@ -393,16 +382,10 @@ export function useAioManualStageExecutor({
               fallbackOcrModelKey: selectedOcrKey,
               llmSettings: useLlmSettingsForTranslation ? llmSettings : null,
               customProfile: useLlmSettingsForTranslation ? selectedCustomTranslationProfile : null,
-              includeImagePayload: useLlmSettingsForTranslation,
             },
             stageRuntime,
-            'Failed to translate text',
+            { stageLabel, failurePrefix: 'Failed to translate text', parseApiError },
           );
-          const translateDone = await finishStageRun(translateRun, {
-            stageLabel,
-            failurePrefix: 'Failed to translate text',
-            parseApiError,
-          });
           executionNotice = translateDone.notice;
           if (executionNotice) setRuntimeExecutionNotice(executionNotice);
           patchAioSnapshotStageForImage(activeId, stageIndex, translateDone.value);
@@ -423,23 +406,18 @@ export function useAioManualStageExecutor({
         if (sourceRegions.length === 0) {
           patchAioSnapshotStageForImage(activeId, stageIndex, []);
         } else {
-          const segmentRun = await runSegmentTextStage(
+          const segmentDone = await runSegmentTextStage(
             {
               image: activeImageData,
               modelKey: selectedSegmentKey,
               regions: sourceRegions,
               fallbackOcrModelKey: selectedOcrKey,
               fallbackTranslatorModelKey: selectedTranslationKey,
-              gpu: gpuStages,
+              useGpu: gpuStages?.segmentText,
             },
             stageRuntime,
-            'Failed to segment text',
+            { stageLabel, failurePrefix: 'Failed to segment text', parseApiError },
           );
-          const segmentDone = await finishStageRun(segmentRun, {
-            stageLabel,
-            failurePrefix: 'Failed to segment text',
-            parseApiError,
-          });
           executionNotice = segmentDone.notice;
           if (executionNotice) setRuntimeExecutionNotice(executionNotice);
           patchAioSnapshotStageForImage(activeId, stageIndex, segmentDone.value);
@@ -461,7 +439,7 @@ export function useAioManualStageExecutor({
         // binary mask blob and send it alongside the auto-detected regions. This ensures
         // inpainting only touches the exact painted pixels (not their bounding boxes).
         const manualEditState = getAioManualImageEditState(activeId);
-        const cleanRun = await runCleanImageStage(
+        const cleanDone = await runCleanImageStage(
           {
             image: activeImageData,
             modelKey: selectedCleanKey,
@@ -476,16 +454,11 @@ export function useAioManualStageExecutor({
               hdCropTriggerSize: aioHdCropTriggerSize,
               brushDataUrl: manualEditState.segmentBrushDataUrl,
             },
-            gpu: gpuStages,
+            useGpu: gpuStages?.cleanImage,
           },
           stageRuntime,
-          'Failed to clean the image',
+          { stageLabel, failurePrefix: 'Failed to clean the image', parseApiError },
         );
-        const cleanDone = await finishStageRun(cleanRun, {
-          stageLabel,
-          failurePrefix: 'Failed to clean the image',
-          parseApiError,
-        });
         executionNotice = cleanDone.notice;
         if (executionNotice) setRuntimeExecutionNotice(executionNotice);
 

@@ -3,33 +3,27 @@ import type { AioTextRegion } from '../types/dashboard.types';
 import { toApiIntegerBbox } from '../utils/dashboard.utils';
 import type { StageImageRef } from './types';
 
-const bboxFor = (region: AioTextRegion, image: StageImageRef): number[] =>
-  toApiIntegerBbox(region.bbox, image.width, image.height);
-
 const base = (region: AioTextRegion, image: StageImageRef) => ({
   id: region.id,
-  bbox: bboxFor(region, image),
+  bbox: toApiIntegerBbox(region.bbox, image.width, image.height),
   source: region.source,
   detector_model_key: region.detectorModelKey ?? region.modelKey,
 });
 
-export function toOcrRegionsJson(regions: readonly AioTextRegion[], image: StageImageRef): string {
-  return JSON.stringify(
-    regions.map((region) => ({
-      id: region.id,
-      bbox: bboxFor(region, image),
-      source: region.source,
-      detector_model_key: region.detectorModelKey ?? region.modelKey,
-    })),
-  );
+const toJson = (items: readonly object[]): string => JSON.stringify(items);
+
+export function toOcrRegionsJson(
+  regions: readonly AioTextRegion[],
+  image: StageImageRef,
+): string {
+  return toJson(regions.map((region) => base(region, image)));
 }
 
 export function toTranslateRegionsJson(
   regions: readonly AioTextRegion[],
-  _image: StageImageRef,
   fallbackOcrModelKey: string,
 ): string {
-  return JSON.stringify(
+  return toJson(
     regions.map((region) => ({
       id: region.id,
       text: region.recognizedText ?? '',
@@ -46,7 +40,7 @@ export function toSegmentRegionsJson(
   fallbackOcrModelKey: string,
   fallbackTranslatorModelKey: string,
 ): string {
-  return JSON.stringify(
+  return toJson(
     regions.map((region) => ({
       ...base(region, image),
       ocr_model_key: region.ocrModelKey ?? fallbackOcrModelKey,
@@ -61,7 +55,7 @@ export function toCleanRegionsJson(
   fallbackOcrModelKey: string,
   fallbackSegmentModelKey: string,
 ): string {
-  return JSON.stringify(
+  return toJson(
     regions.map((region) => ({
       ...base(region, image),
       ocr_model_key: region.ocrModelKey ?? fallbackOcrModelKey,

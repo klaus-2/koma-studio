@@ -1,17 +1,19 @@
 /** Get Translations stage-run. */
 import type { AioTextRegion, TranslationApiResponse } from '../types/dashboard.types';
-import type { LlmRequestSettings } from '../utils/customLlm';
+import {
+  toCustomLlmRequestPayload,
+  type CustomLlmRequestProfile,
+  type LlmRequestSettings,
+} from '../utils/customLlm';
 import { mergeTranslationIntoRegions } from './merge';
 import { toTranslateRegionsJson } from './payloads';
-import { STAGE_TIMEOUT_MS, postStageForm } from './transport';
+import { STAGE_TIMEOUT_MS, runStageForm, type StageRunOptions } from './transport';
 import type {
+  FinishedStageRun,
   RegionList,
-  StageCustomLlmProfile,
   StageImageRef,
-  StageRunResult,
   StageRuntime,
 } from './types';
-import { toStageCustomLlmPayload } from './types';
 
 export interface GetTranslationsStageArgs {
   image: StageImageRef;
@@ -20,44 +22,35 @@ export interface GetTranslationsStageArgs {
   targetLanguage: string;
   regions: RegionList;
   fallbackOcrModelKey: string;
+  /** Presence sends image + llm_settings + custom_llm (LLM / custom providers). */
   llmSettings?: LlmRequestSettings | null;
-  customProfile?: StageCustomLlmProfile | null;
-  includeImagePayload?: boolean;
+  customProfile?: CustomLlmRequestProfile | null;
 }
 
-export async function runGetTranslationsStage(
+export function runGetTranslationsStage(
   args: GetTranslationsStageArgs,
   runtime: StageRuntime,
-  failurePrefix = 'Failed to translate text',
-): Promise<StageRunResult<AioTextRegion[]>> {
+  options: StageRunOptions,
+): Promise<FinishedStageRun<AioTextRegion[]>> {
   const form = new FormData();
   form.append('model_key', args.modelKey);
   form.append('source_language', args.sourceLanguage);
   form.append('target_language', args.targetLanguage);
-  if (args.includeImagePayload && args.llmSettings) {
+  if (args.llmSettings) {
     form.append('file', args.image.file);
     form.append('llm_settings', JSON.stringify(args.llmSettings));
-    const customPayload = toStageCustomLlmPayload(args.customProfile);
+    const customPayload = toCustomLlmRequestPayload(args.customProfile);
     if (customPayload) form.append('custom_llm', JSON.stringify(customPayload));
   }
-  form.append(
-    'regions',
-    toTranslateRegionsJson(args.regions, args.image, args.fallbackOcrModelKey),
-  );
+  form.append('regions', toTranslateRegionsJson(args.regions, args.fallbackOcrModelKey));
 
-  const posted = await postStageForm(
-    runtime,
-    '/translate',
+  return runStageForm(runtime, options, {
+    path: '/translate',
     form,
-    STAGE_TIMEOUT_MS.getTranslations,
-    failurePrefix,
-  );
-  if (!posted.ok) return posted;
-
-  const payload = (await posted.value.json()) as TranslationApiResponse;
-  return {
-    ok: true,
-    response: posted.response,
-    value: mergeTranslationIntoRegions(args.regions, payload),
-  };
+    timeoutMs: STAGE_TIMEOUT_MS.getTranslations,
+    parse: async (response) => {
+      const payload = (await response.json()) as TranslationApiResponse;
+      return mergeTranslationIntoRegions(args.regions, payload);
+    },
+  });
 }

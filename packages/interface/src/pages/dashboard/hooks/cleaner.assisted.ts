@@ -1,6 +1,5 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import {
-  finishStageRun,
   runCleanImageStage,
   runDetectTextStage,
   runRecognizeTextStage,
@@ -166,7 +165,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
           }
         };
 
-        const detectRun = await runDetectTextStage(
+        const detectDone = await runDetectTextStage(
           {
             image: imgData,
             modelKey: selectedDetectorKey,
@@ -174,20 +173,19 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
             minRegionSize,
           },
           stageRuntime,
-          `Failed to detect text in "${imgData.file.name}"`,
+          {
+            stageLabel: AIO_STAGE_LABELS.detectText,
+            failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
+            parseApiError,
+          },
         );
-        const detectDone = await finishStageRun(detectRun, {
-          stageLabel: AIO_STAGE_LABELS.detectText,
-          failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
-          parseApiError,
-        });
         pushNotice(detectDone.notice);
         const detectDetections = detectDone.value;
 
         let enrichedDetections = cloneAioRegions(detectDetections, cloneRenderStyle);
 
         if (detectDetections.length > 0) {
-          const ocrRun = await runRecognizeTextStage(
+          const ocrDone = await runRecognizeTextStage(
             {
               image: imgData,
               modelKey: selectedOcrKey,
@@ -197,13 +195,12 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
               customProfile: useLlmSettingsForOcr ? selectedCustomOcrProfile : null,
             },
             stageRuntime,
-            `Failed to recognize text in "${imgData.file.name}"`,
+            {
+              stageLabel: AIO_STAGE_LABELS.recognizeText,
+              failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
+              parseApiError,
+            },
           );
-          const ocrDone = await finishStageRun(ocrRun, {
-            stageLabel: AIO_STAGE_LABELS.recognizeText,
-            failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
-            parseApiError,
-          });
           pushNotice(ocrDone.notice);
           enrichedDetections = ocrDone.value;
         }
@@ -211,7 +208,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
         const segmentInputRegions = enrichedDetections.length > 0 ? enrichedDetections : detectDetections;
         let segmentDetections = cloneAioRegions(segmentInputRegions, cloneRenderStyle);
         if (segmentInputRegions.length > 0) {
-          const segmentRun = await runSegmentTextStage(
+          const segmentDone = await runSegmentTextStage(
             {
               image: imgData,
               modelKey: selectedSegmentKey,
@@ -220,13 +217,12 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
               fallbackTranslatorModelKey: '',
             },
             stageRuntime,
-            `Failed to segment text in "${imgData.file.name}"`,
+            {
+              stageLabel: AIO_STAGE_LABELS.segmentText,
+              failurePrefix: `Failed to segment text in "${imgData.file.name}"`,
+              parseApiError,
+            },
           );
-          const segmentDone = await finishStageRun(segmentRun, {
-            stageLabel: AIO_STAGE_LABELS.segmentText,
-            failurePrefix: `Failed to segment text in "${imgData.file.name}"`,
-            parseApiError,
-          });
           pushNotice(segmentDone.notice);
           segmentDetections = segmentDone.value;
         }
@@ -234,7 +230,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
         const cleanInputRegions = segmentDetections.length > 0 ? segmentDetections : detectDetections;
         const manualEditState =
           useCleanerStore.getState().cleanerManualImageEditsByImage[imgData.id];
-        const cleanRun = await runCleanImageStage(
+        const cleanDone = await runCleanImageStage(
           {
             image: imgData,
             modelKey: selectedCleanKey,
@@ -251,13 +247,12 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
             },
           },
           stageRuntime,
-          `Failed to clean "${imgData.file.name}"`,
+          {
+            stageLabel: AIO_STAGE_LABELS.cleanImage,
+            failurePrefix: `Failed to clean "${imgData.file.name}"`,
+            parseApiError,
+          },
         );
-        const cleanDone = await finishStageRun(cleanRun, {
-          stageLabel: AIO_STAGE_LABELS.cleanImage,
-          failurePrefix: `Failed to clean "${imgData.file.name}"`,
-          parseApiError,
-        });
         pushNotice(cleanDone.notice);
         const blob = cleanDone.value;
         if (!blob.type.startsWith('image/')) {

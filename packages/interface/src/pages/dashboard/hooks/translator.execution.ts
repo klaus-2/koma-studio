@@ -549,9 +549,7 @@ export function useTranslatorRetranslate({
               : llmSettings,
           ),
         );
-        const customPayload = toCustomLlmRequestPayload(
-          selectedCustomTranslationProfile as unknown as Parameters<typeof toCustomLlmRequestPayload>[0],
-        );
+        const customPayload = toCustomLlmRequestPayload(selectedCustomTranslationProfile);
         if (customPayload) {
           translationFormData.append('custom_llm', JSON.stringify(customPayload));
         }
