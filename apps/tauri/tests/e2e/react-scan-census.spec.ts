@@ -272,10 +272,9 @@ test("react-scan census — full dashboard interactive walk", async ({ page }) =
   for (const mode of MODES) {
     await actionWindow(page, `mode:${mode}`, () => setShellMode(page, mode), 800);
   }
-  // Cleaner has NO manual/auto sub-mode toggle (MODES_WITH_SUBMODE = aio,
-  // typesetter only) — recorded here, not faked.
+  // Cleaner has NO manual/auto sub-mode toggle — recorded here, not faked.
   console.log(
-    "CENSUS submode:cleaner SKIPPED: cleaner has no sub-mode toggle (MODES_WITH_SUBMODE=[aio,typesetter])",
+    "CENSUS submode:cleaner SKIPPED: cleaner has no sub-mode toggle",
   );
 
   // ═══════════ 2. Sub-mode toggles (REAL clicks; aio + typesetter) ═══════════

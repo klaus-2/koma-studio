@@ -239,8 +239,6 @@ export const UNDER_DEVELOPMENT_MODES: ToolMode[] = [];
 export const UNDER_DEVELOPMENT_TOOLTIP_KEY: TranslationKey = "dashboard.mode.underDevelopment";
 
 
-export const MODES_WITH_SUBMODE: ToolMode[] = ["aio", "typesetter"];
-
 export const INFO_MODES: ToolMode[] = ["guides", "resources"];
 
 export const MODE_LABEL_KEYS: Record<ToolMode, TranslationKey> = {
