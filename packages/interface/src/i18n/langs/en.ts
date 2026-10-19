@@ -771,6 +771,10 @@ export const enMessages = {
   'dashboard.sections.presets': 'Presets',
   'dashboard.sections.region': 'Region',
   'dashboard.aio.rewind': 'AIO rewind: stage "{label}" ({current}/{total}).',
+  'dashboard.aio.manualScope': 'AIO manual',
+  'dashboard.aio.autoScope': 'AIO automatic',
+  'dashboard.aio.autoScopeTitle': 'Automatic processing without intervention',
+  'dashboard.aio.manualScopeTitle': 'Manual control of each stage',
   'dashboard.aio.forward': 'AIO forward: stage "{label}" ({current}/{total}).',
   'dashboard.aio.rewindImage':
     'AIO rewind ({imageName}): stage "{label}" ({current}/{total}).',

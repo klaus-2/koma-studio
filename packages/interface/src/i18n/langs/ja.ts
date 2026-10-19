@@ -774,6 +774,10 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.sections.presets': 'プリセット',
   'dashboard.sections.region': '領域',
   'dashboard.aio.rewind': 'AIO戻る：ステージ「{label}」（{current}/{total}）。',
+  'dashboard.aio.manualScope': 'AIO手動',
+  'dashboard.aio.autoScope': 'AIO自動',
+  'dashboard.aio.autoScopeTitle': '介入なしの自動処理',
+  'dashboard.aio.manualScopeTitle': '各ステージの手動制御',
   'dashboard.aio.forward':
     'AIO進む：ステージ「{label}」（{current}/{total}）。',
   'dashboard.aio.rewindImage':

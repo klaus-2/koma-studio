@@ -797,6 +797,10 @@ export const deMessages: TranslationCatalog = {
   'dashboard.sections.presets': 'Vorlagen',
   'dashboard.sections.region': 'Bereich',
   'dashboard.aio.rewind': 'AIO zurück: Phase „{label}" ({current}/{total}).',
+  'dashboard.aio.manualScope': 'AIO manuell',
+  'dashboard.aio.autoScope': 'AIO automatisch',
+  'dashboard.aio.autoScopeTitle': 'Automatische Verarbeitung ohne Eingriff',
+  'dashboard.aio.manualScopeTitle': 'Manuelle Steuerung jeder Phase',
   'dashboard.aio.forward': 'AIO vorwärts: Phase „{label}" ({current}/{total}).',
   'dashboard.aio.rewindImage':
     'AIO zurück ({imageName}): Phase „{label}" ({current}/{total}).',

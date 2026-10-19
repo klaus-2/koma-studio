@@ -728,6 +728,10 @@ export const arMessages: TranslationCatalog = {
   'dashboard.sections.presets': 'الإعدادات المسبقة',
   'dashboard.sections.region': 'المنطقة',
   'dashboard.aio.rewind': 'رجوع AIO: المرحلة "{label}" ({current}/{total}).',
+  'dashboard.aio.manualScope': 'AIO يدوي',
+  'dashboard.aio.autoScope': 'AIO تلقائي',
+  'dashboard.aio.autoScopeTitle': 'معالجة تلقائية بدون تدخل',
+  'dashboard.aio.manualScopeTitle': 'تحكم يدوي بكل مرحلة',
   'dashboard.aio.forward': 'تقدم AIO: المرحلة "{label}" ({current}/{total}).',
   'dashboard.aio.rewindImage':
     'رجوع AIO ({imageName}): المرحلة "{label}" ({current}/{total}).',

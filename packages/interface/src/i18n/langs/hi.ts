@@ -765,6 +765,10 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.sections.presets': 'Preset',
   'dashboard.sections.region': 'Area',
   'dashboard.aio.rewind': 'AIO mundur: tahap "{label}" ({current}/{total}).',
+  'dashboard.aio.manualScope': 'AIO manual',
+  'dashboard.aio.autoScope': 'AIO otomatis',
+  'dashboard.aio.autoScopeTitle': 'Pemrosesan otomatis tanpa intervensi',
+  'dashboard.aio.manualScopeTitle': 'Kontrol manual setiap tahap',
   'dashboard.aio.forward': 'AIO maju: tahap "{label}" ({current}/{total}).',
   'dashboard.aio.rewindImage':
     'AIO mundur ({imageName}): tahap "{label}" ({current}/{total}).',

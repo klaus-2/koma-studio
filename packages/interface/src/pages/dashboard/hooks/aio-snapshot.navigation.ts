@@ -13,6 +13,7 @@ import type { SnapshotLabels } from '@/pages/dashboard/hooks/aio-snapshot.normal
 import {
   isManualAioMode,
   isSnapshotIndex,
+  resolveImageSnapshotIndex,
   resolveImageSnapshotMeta,
 } from '@/pages/dashboard/hooks/aio-snapshot.queries';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
@@ -25,6 +26,7 @@ import type {
   AioDownloadEntry,
   AioManualImageProgress,
   AioPipelineSnapshot,
+  SubMode,
 } from '@/types/dashboard.types';
 
 export function buildAioImageSnapshotIndexMap(
@@ -53,6 +55,7 @@ function readCurrentAioDownloads(): AioDownloadEntry[] {
 
 export function useAioSnapshotNavigation(
   labels: SnapshotLabels,
+  resolvedActiveId: string | null,
 ) {
   const { t } = useI18n();
 
@@ -89,6 +92,76 @@ export function useAioSnapshotNavigation(
           useAioPipelineStore.getState().aioAutoHistoryAvailable,
       }),
     [],
+  );
+
+  const handleAioSubModeChange = useCallback(
+    (nextMode: SubMode): void => {
+      const shell = useUiShellStore.getState();
+      if (shell.processing || nextMode === shell.subMode) return;
+
+      if (nextMode === 'manual') {
+        const pipeline = useAioPipelineStore.getState();
+        const collection = useImageCollectionStore.getState();
+
+        const originalIndices = Object.fromEntries(
+          collection.images.map((image) => [
+            image.id,
+            pipeline.aioAutoHistoryAvailable
+              ? resolveImageSnapshotIndex(image.id, pipeline, shell)
+              : -1,
+          ]),
+        );
+        const snapshots = normalizeAioPipelineSnapshotsForManualMode(
+          pipeline.aioPipelineSnapshots,
+        );
+        const progress = initializeManualProgressFromSnapshots(
+          pipeline.aioPipelineSnapshots.length > 0
+            ? pipeline.aioPipelineSnapshots
+            : snapshots,
+          originalIndices,
+        );
+        const indices = Object.fromEntries(
+          collection.images.map((image) => [
+            image.id,
+            progress[image.id]?.currentIndex ?? 0,
+          ]),
+        );
+        const autoProcessed = Object.fromEntries(
+          collection.images
+            .filter((image) => (originalIndices[image.id] ?? -1) >= 0)
+            .map((image) => [image.id, true]),
+        );
+        const requestedActiveId = resolvedActiveId ?? collection.activeId;
+        const activeId = collection.images.some(
+          (image) => image.id === requestedActiveId,
+        )
+          ? requestedActiveId
+          : null;
+        const activeIndex = activeId ? (indices[activeId] ?? 0) : -1;
+
+        useAioPipelineStore.setState((state) => ({
+          aioPipelineSnapshots: snapshots,
+          aioImageSnapshotIndexById: indices,
+          aioManualProgressByImage: progress,
+          aioAutoProcessedImageById: {
+            ...state.aioAutoProcessedImageById,
+            ...autoProcessed,
+          },
+          aioPipelineSnapshotIndex: activeIndex,
+        }));
+
+        if (activeId && activeIndex >= 0) {
+          applyAioPipelineSnapshotToImage(activeId, activeIndex);
+        }
+      }
+
+      useUiShellStore.getState().setSubMode(nextMode);
+    },
+    [
+      initializeManualProgressFromSnapshots,
+      normalizeAioPipelineSnapshotsForManualMode,
+      resolvedActiveId,
+    ],
   );
 
   const navigatePipeline = useCallback(
@@ -204,6 +277,7 @@ export function useAioSnapshotNavigation(
     buildAioImageSnapshotIndexMap,
     normalizeAioPipelineSnapshotsForManualMode,
     initializeManualProgressFromSnapshots,
+    handleAioSubModeChange,
     rewindAioPipeline,
     forwardAioPipeline,
     rewindAioPipelineForImage,

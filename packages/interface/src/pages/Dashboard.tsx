@@ -743,6 +743,7 @@ export const DashboardPage = ({
     resolveAioStageKeyForImage,
     normalizeAioPipelineSnapshotsForManualMode,
     initializeManualProgressFromSnapshots,
+    handleAioSubModeChange,
     rewindAioPipeline,
     forwardAioPipeline,
     rewindAioPipelineForImage,
@@ -2432,6 +2433,7 @@ export const DashboardPage = ({
       activeHasManualPaintLayer={activeHasManualPaintLayer}
       activeHasManualEdits={activeHasManualEdits}
       // ── AIO right panel ──
+      handleAioSubModeChange={handleAioSubModeChange}
       rewindAioPipeline={rewindAioPipeline}
       forwardAioPipeline={forwardAioPipeline}
       setManualStageForActiveImage={setManualStageForActiveImage}

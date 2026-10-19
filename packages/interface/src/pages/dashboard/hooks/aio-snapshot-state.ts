@@ -98,6 +98,7 @@ export function useAioPipelineSnapshotState({
 
   const navigation = useAioSnapshotNavigation(
     aioPipelineStageLabels,
+    resolvedActiveId,
   );
   const activeManualStageStatus: AioManualStageStatus | null =
     active.manualProgress?.statusByStage[active.stageKey] ?? null;

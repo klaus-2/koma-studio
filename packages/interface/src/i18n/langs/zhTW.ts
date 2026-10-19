@@ -687,6 +687,10 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.sections.presets': '預設設定',
   'dashboard.sections.region': '區域',
   'dashboard.aio.rewind': 'AIO 倒回：階段「{label}」（{current}/{total}）。',
+  'dashboard.aio.manualScope': 'AIO 手動',
+  'dashboard.aio.autoScope': 'AIO 自動',
+  'dashboard.aio.autoScopeTitle': '無需干預的自動處理',
+  'dashboard.aio.manualScopeTitle': '手動控制每個階段',
   'dashboard.aio.forward': 'AIO 前進：階段「{label}」（{current}/{total}）。',
   'dashboard.aio.rewindImage':
     'AIO 倒回（{imageName}）：階段「{label}」（{current}/{total}）。',

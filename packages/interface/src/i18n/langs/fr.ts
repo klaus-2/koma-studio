@@ -761,6 +761,10 @@ export const frMessages: TranslationCatalog = {
   'dashboard.sections.presets': 'Préréglages',
   'dashboard.sections.region': 'Région',
   'dashboard.aio.rewind': 'AIO retour : étape « {label} » ({current}/{total}).',
+  'dashboard.aio.manualScope': 'AIO manuel',
+  'dashboard.aio.autoScope': 'AIO automatique',
+  'dashboard.aio.autoScopeTitle': 'Traitement automatique sans intervention',
+  'dashboard.aio.manualScopeTitle': 'Contrôle manuel de chaque étape',
   'dashboard.aio.forward':
     'AIO avance : étape « {label} » ({current}/{total}).',
   'dashboard.aio.rewindImage':

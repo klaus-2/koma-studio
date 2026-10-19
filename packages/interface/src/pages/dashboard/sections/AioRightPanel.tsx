@@ -27,6 +27,7 @@ import { AioSection } from '../../AioSection';
 import { AioPipelineChip } from '../../AioPipelineChip';
 import { AioTimelineStep } from '../../AioTimelineStep';
 import { AioStageTabBar, type StageTabDef } from '../../AioStageTabBar';
+import SubModeToggle from '../../../components/dashboard/SubModeToggle';
 import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
 import KlSlider from '../../../components/dashboard/KlSlider';
 import StageModelSelect, {
@@ -52,6 +53,7 @@ import {
 } from '../../../constants/dashboard.constants';
 import type {
   AioManualStageStatus,
+  SubMode,
 } from '../../../types/dashboard.types';
 import type { AioStageKey } from '../../../types/aioModelPresets';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
@@ -80,6 +82,7 @@ type AioPresetEditorApi = ReturnType<typeof useAioPresetEditor>;
 type AioPipelineExecutionApi = ReturnType<typeof useAioPipelineExecution>;
 
 interface AioRightPanelProps {
+  handleAioSubModeChange: (nextMode: SubMode) => void;
   rewindAioPipeline: () => void;
   forwardAioPipeline: () => void;
   setManualStageForActiveImage: AioManualExecutionApi['setManualStageForActiveImage'];
@@ -156,6 +159,7 @@ const SELECT_NOIR =
 const SELECT_FLEX_NOIR = SELECT_NOIR.replace('w-full', 'flex-1 min-w-0');
 
 export default memo(function AioRightPanel({
+  handleAioSubModeChange,
   rewindAioPipeline,
   forwardAioPipeline,
   setManualStageForActiveImage,
@@ -380,6 +384,11 @@ export default memo(function AioRightPanel({
           </span>
         }
       >
+        <SubModeToggle
+          value={subMode}
+          onChange={handleAioSubModeChange}
+        />
+
         {subMode === 'auto' ? (
           <>
             {/* Auto: compact 3×2 chip grid */}

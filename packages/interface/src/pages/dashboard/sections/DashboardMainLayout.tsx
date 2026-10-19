@@ -7,6 +7,7 @@ import KomaTopbar from '../../KomaTopbar.tsx';
 import DashboardMobileBackdrop from '../../../components/dashboard/DashboardMobileBackdrop';
 import DashboardRightSidebar from '../../../components/dashboard/DashboardRightSidebar';
 import DashboardLazyFallback from '../../../components/dashboard/DashboardLazyFallback';
+import SubModeToggle from '../../../components/dashboard/SubModeToggle';
 import OrganizeToolsHint from '../../../components/dashboard/OrganizeToolsHint';
 import InfoModesToolsPanel from '../../../components/dashboard/InfoModesToolsPanel';
 import ReviewRawToolsPanel from '../../../components/dashboard/ReviewRawToolsPanel';
@@ -47,6 +48,7 @@ import { useI18n } from '../../../i18n';
 import { getApiConfig } from '../../../config/api';
 import { importOnnxModelFromStorage } from '../../../models/model-storage';
 import {
+  MODES_WITH_SUBMODE,
   SIDEBAR_RESIZE_STEP,
 } from '../../../constants/dashboard.constants';
 import { useImageCollectionStore } from '../stores/image-collection-store';
@@ -125,6 +127,7 @@ import type {
   DashboardPageProps,
   DownloadItem,
   ProcessableMode,
+  SubMode,
   ToolMode,
 } from '../../../types/dashboard.types';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
@@ -338,6 +341,7 @@ export interface DashboardMainLayoutProps {
   activeHasManualEdits: boolean;
 
   /* ── AIO right panel ── */
+  handleAioSubModeChange: (nextMode: SubMode) => void;
   rewindAioPipeline: () => void;
   forwardAioPipeline: () => void;
   setManualStageForActiveImage: AioManualExecutionApi['setManualStageForActiveImage'];
@@ -600,6 +604,7 @@ export default memo(function DashboardMainLayout({
   activeManualHealingBusy,
   activeHasManualPaintLayer,
   activeHasManualEdits,
+  handleAioSubModeChange,
   rewindAioPipeline,
   forwardAioPipeline,
   setManualStageForActiveImage,
@@ -1193,12 +1198,16 @@ export default memo(function DashboardMainLayout({
         resizeRightSidebarBy={resizeRightSidebarBy}
         sidebarResizeStep={SIDEBAR_RESIZE_STEP}
       >
+        {MODES_WITH_SUBMODE.includes(mode) && (
+          <SubModeToggle value={subMode} onChange={handleAioSubModeChange} />
+        )}
         {mode === 'organize' && <OrganizeToolsHint />}
         {/* ─── AIO — ALL IN ONE ─── */}
         {deferredStageMode === 'aio' && (
           <Suspense fallback={<DashboardLazyFallback />}>
             <AioRightPanel
-              // ── AIO pipeline — execution (not yet migrated) ──
+              // ── AIO pipeline — sub-mode & execution (not yet migrated) ──
+              handleAioSubModeChange={handleAioSubModeChange}
               rewindAioPipeline={rewindAioPipeline}
               forwardAioPipeline={forwardAioPipeline}
               setManualStageForActiveImage={setManualStageForActiveImage}

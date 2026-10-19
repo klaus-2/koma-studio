@@ -783,6 +783,10 @@ export const itMessages: TranslationCatalog = {
   'dashboard.sections.presets': 'Preset',
   'dashboard.sections.region': 'Regione',
   'dashboard.aio.rewind': 'AIO indietro: fase "{label}" ({current}/{total}).',
+  'dashboard.aio.manualScope': 'AIO manuale',
+  'dashboard.aio.autoScope': 'AIO automatico',
+  'dashboard.aio.autoScopeTitle': 'Elaborazione automatica senza intervento',
+  'dashboard.aio.manualScopeTitle': 'Controllo manuale di ogni fase',
   'dashboard.aio.forward': 'AIO avanti: fase "{label}" ({current}/{total}).',
   'dashboard.aio.rewindImage':
     'AIO indietro ({imageName}): fase "{label}" ({current}/{total}).',

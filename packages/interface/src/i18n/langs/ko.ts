@@ -746,6 +746,10 @@ export const koMessages: TranslationCatalog = {
   'dashboard.sections.presets': '프리셋',
   'dashboard.sections.region': '영역',
   'dashboard.aio.rewind': 'AIO 되감기: "{label}" 단계 ({current}/{total}).',
+  'dashboard.aio.manualScope': 'AIO 수동',
+  'dashboard.aio.autoScope': 'AIO 자동',
+  'dashboard.aio.autoScopeTitle': '개입 없는 자동 처리',
+  'dashboard.aio.manualScopeTitle': '각 단계의 수동 제어',
   'dashboard.aio.forward': 'AIO 앞으로: "{label}" 단계 ({current}/{total}).',
   'dashboard.aio.rewindImage':
     'AIO 되감기 ({imageName}): "{label}" 단계 ({current}/{total}).',

@@ -768,6 +768,10 @@ export const ptBrMessages: TranslationCatalog = {
   'dashboard.sections.presets': 'Presets',
   'dashboard.sections.region': 'Região',
   'dashboard.aio.rewind': 'AIO rewind: etapa "{label}" ({current}/{total}).',
+  'dashboard.aio.manualScope': 'AIO manual',
+  'dashboard.aio.autoScope': 'AIO automático',
+  'dashboard.aio.autoScopeTitle': 'Processamento automático sem intervenção',
+  'dashboard.aio.manualScopeTitle': 'Controle manual de cada etapa',
   'dashboard.aio.forward': 'AIO forward: etapa "{label}" ({current}/{total}).',
   'dashboard.aio.rewindImage':
     'AIO rewind ({imageName}): etapa "{label}" ({current}/{total}).',

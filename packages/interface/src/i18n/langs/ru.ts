@@ -780,6 +780,10 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.sections.presets': 'Пресеты',
   'dashboard.sections.region': 'Область',
   'dashboard.aio.rewind': 'AIO назад: этап «{label}» ({current}/{total}).',
+  'dashboard.aio.manualScope': 'AIO ручной',
+  'dashboard.aio.autoScope': 'AIO автоматический',
+  'dashboard.aio.autoScopeTitle': 'Автоматичес��ая обработка без вмешательства',
+  'dashboard.aio.manualScopeTitle': 'Ручное управление каждым этапом',
   'dashboard.aio.forward': 'AIO вперёд: этап «{label}» ({current}/{total}).',
   'dashboard.aio.rewindImage':
     'AIO назад ({imageName}): этап «{label}» ({current}/{total}).',
