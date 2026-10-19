@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from collections.abc import Awaitable, Callable
 from typing import cast
 
@@ -298,6 +298,9 @@ async def run_translation_stage(
     if not ocr_regions:
         return StageOutput(model_used=model_key or "", regions=[])
 
+    if extra_context and not settings.extra_context:
+        settings = replace(settings, extra_context=extra_context)
+
     result = await run_cached_translation(
         CachedTranslationRequest(
             model_key=model_key,
@@ -307,11 +310,10 @@ async def run_translation_stage(
             translation_mode="default",
             settings=settings,
             custom_llm=dict(custom_llm) if custom_llm is not None else None,
-            extra_context=extra_context,
             neighbor_context=neighbor_context,
         )
     )
-    return StageOutput(model_used=result.response.model_used, regions=list(result.records))
+    return StageOutput(model_used=result.model_used, regions=list(result.records))
 
 
 # --------------------------------------------------------------------------- segment

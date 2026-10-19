@@ -23,6 +23,7 @@ from models.translation.stage import (
     CachedTranslationRequest,
     run_cached_translation,
     seed_from_request,
+    to_region_result,
 )
 from pipelines.cache_manager import get_pipeline_cache
 from schemas.translation import (
@@ -122,4 +123,9 @@ async def translate_text(
         logger.exception("translation failed unexpectedly", extra={"model_key": model_key})
         raise HTTPException(status_code=500, detail="Translation failed") from exc
 
-    return result.response
+    return TranslationResponse(
+        source_language=result.source_language,
+        target_language=result.target_language,
+        model_used=result.model_used,
+        regions=[to_region_result(record) for record in result.records],
+    )

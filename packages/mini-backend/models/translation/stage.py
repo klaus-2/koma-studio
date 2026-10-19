@@ -1,18 +1,16 @@
 """Get Translations stage — one deep module behind /translate and AIO batch.
 
 Owns seed mapping, cache key composition, chain/single engine execution and
-record mapping. The HTTP router only parses multipart and maps errors; the
-batch orchestrator only maps OCR records to seeds and wraps StageOutput.
+record mapping. The HTTP router only parses multipart and maps records onto
+the response schema; the batch orchestrator only maps OCR records to seeds.
 """
 
 from __future__ import annotations
 
 import dataclasses
-import inspect
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import cache
 from typing import Callable
 
 from core.config import LLMRequestSettings, normalize_stage_model_key
@@ -45,7 +43,6 @@ from pipelines.cache_manager import CacheManager, get_pipeline_cache
 from schemas.translation import (
     TranslationRegionRequest,
     TranslationRegionResult,
-    TranslationResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,14 +60,15 @@ class CachedTranslationRequest:
     translation_mode: str
     settings: LLMRequestSettings
     custom_llm: dict[str, object] | None
-    # Batch AIO fills these; HTTP leaves them empty.
-    extra_context: str = ""
+    # Batch AIO neighbouring-page context; HTTP leaves it empty.
     neighbor_context: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class CachedTranslationResult:
-    response: TranslationResponse
+    source_language: str
+    target_language: str
+    model_used: str
     engine_key: str
     records: tuple[TranslationRecord, ...]
 
@@ -152,34 +150,6 @@ def _is_request_scoped(requested_key: str) -> bool:
     return requested_key == "custom" or requested_key.startswith("custom:")
 
 
-@cache
-def _translate_accepts_param(engine_type: type, param: str) -> bool:
-    try:
-        params = inspect.signature(engine_type.translate).parameters
-    except (TypeError, ValueError):
-        return True
-    if param in params:
-        return True
-    return any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
-
-
-def _optional_translate_kwargs(
-    engine: BaseTranslator,
-    *,
-    translation_notes_enabled: bool,
-    translation_mode: str,
-) -> dict[str, object]:
-    extra: dict[str, object] = {
-        "translation_notes_enabled": translation_notes_enabled,
-        "translation_mode": translation_mode,
-    }
-    return {
-        key: value
-        for key, value in extra.items()
-        if _translate_accepts_param(type(engine), key)
-    }
-
-
 async def run_cached_translation(
     request: CachedTranslationRequest,
     *,
@@ -199,7 +169,7 @@ async def run_cached_translation(
     request_scoped = _is_request_scoped(requested_key)
 
     effective_context = compose_translation_extra_context(
-        settings.extra_context or request.extra_context,
+        settings.extra_context,
         build_current_image_translation_context([to_input_region(s) for s in seeds]),
         request.neighbor_context,
     )
@@ -245,11 +215,8 @@ async def run_cached_translation(
             source_language=request.source_language,
             target_language=request.target_language,
             extra_context=effective_context,
-            **_optional_translate_kwargs(
-                translator,
-                translation_notes_enabled=settings.translation_notes_enabled,
-                translation_mode=request.translation_mode,
-            ),
+            translation_notes_enabled=settings.translation_notes_enabled,
+            translation_mode=request.translation_mode,
         )
 
     fresh_by_id: dict[str, TranslationRecord] = {}
@@ -302,14 +269,11 @@ async def run_cached_translation(
         fresh_by_id.get(seed["id"]) or cached_by_id.get(seed["id"]) or empty_record(seed, engine_key)
         for seed in seeds
     ]
-    response = TranslationResponse(
+    model_used = engine_key if chain_keys else (requested_key or engine_key)
+    return CachedTranslationResult(
         source_language=request.source_language,
         target_language=request.target_language,
-        model_used=engine_key if chain_keys else (requested_key or engine_key),
-        regions=[to_region_result(record) for record in records],
-    )
-    return CachedTranslationResult(
-        response=response,
+        model_used=model_used,
         engine_key=engine_key,
         records=tuple(records),
     )

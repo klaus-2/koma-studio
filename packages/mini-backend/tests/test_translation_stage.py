@@ -121,7 +121,7 @@ class RunCachedTranslationSeamTests(unittest.TestCase):
         self.assertEqual(engine.calls, 1)
         self.assertEqual(result.engine_key, "fake")
         self.assertEqual(
-            result.response.regions[0].translated_text,
+            result.records[0]["translated_text"],
             "ok-konnichiwa",
         )
 
@@ -147,7 +147,7 @@ class RunCachedTranslationSeamTests(unittest.TestCase):
         self.assertEqual(first.calls, 1)
         self.assertEqual(second.calls, 1)
         self.assertEqual(result.engine_key, "b")
-        self.assertEqual(result.response.model_used, "b")
+        self.assertEqual(result.model_used, "b")
 
     def test_second_call_is_served_from_cache_without_resolver(self) -> None:
         engine = _FakeEngine("fake")
@@ -159,7 +159,7 @@ class RunCachedTranslationSeamTests(unittest.TestCase):
         self.assertEqual(engine.calls, 1)
         self.assertEqual(resolver.resolved, ["fake"])
 
-    def test_neighbor_and_batch_extra_context_reach_the_engine(self) -> None:
+    def test_neighbor_and_user_extra_context_reach_the_engine(self) -> None:
         seen: list[str] = []
 
         class _Capture(_FakeEngine):
@@ -169,7 +169,7 @@ class RunCachedTranslationSeamTests(unittest.TestCase):
 
         self._run(
             _Resolver({"fake": _Capture("fake")}),
-            extra_context="batch-glossary",
+            settings=clamp_llm_request_settings({"extra_context": "batch-glossary"}),
             neighbor_context="Next page context: …",
         )
 
