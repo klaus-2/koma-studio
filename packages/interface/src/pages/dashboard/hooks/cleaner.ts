@@ -1,11 +1,4 @@
-/**
- * Cleaner domain — entry point. Hosts the assisted-clean run orchestration
- * (useCleanerActions + the automatic AI clean / AI SFX workflow) and
- * re-exports the per-concern sibling modules split out in T10, so consumer
- * imports from 'hooks/cleaner' stay valid.
- */
-import { useCallback, useEffect, useRef, type RefObject } from 'react';
-
+import { useCallback, useEffect } from 'react';
 import { useI18n } from '../../../i18n';
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
@@ -30,6 +23,7 @@ import {
   isCloudOcrModelKey,
   normalizeKnownCustomLlmApiBase,
   requiresCustomLlmApiKey,
+  type LlmRequestSettings,
 } from '../../../utils/customLlm';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
 import { useCleanerStore } from '../stores/cleaner-store';
@@ -126,7 +120,7 @@ export interface UseCleanerActionsArgs {
   cleanSelectionKey: string;
   selectedCleanerCustomProfile: CustomProfileLike | null;
   sourceLanguage: string;
-  llmSettings: unknown;
+  llmSettings: LlmRequestSettings;
   maskDilation: number;
   hdStrategy: string;
   hdResizeLimit: number;
@@ -157,13 +151,27 @@ type CleanerStoreBits = ReturnType<typeof resolveCleanerRunStores>;
 type CleanerRunContext = UseCleanerActionsArgs &
   CleanerStoreBits & {
     t: ReturnType<typeof useI18n>["t"];
-    noticeTimeoutRef: RefObject<number | null>;
   };
 
-/**
- * Store-backed Cleaner runtime — the seam between the run and the domain stores.
- * Call sites never inject these setters; the deep module owns the write path.
- */
+let noticeClearTimer: number | null = null;
+
+function scheduleNoticeClear(clear: () => void, ms = 4500): void {
+  if (noticeClearTimer !== null) {
+    window.clearTimeout(noticeClearTimer);
+  }
+  noticeClearTimer = window.setTimeout(() => {
+    noticeClearTimer = null;
+    clear();
+  }, ms);
+}
+
+export function cancelCleanerNoticeTimer(): void {
+  if (noticeClearTimer !== null) {
+    window.clearTimeout(noticeClearTimer);
+    noticeClearTimer = null;
+  }
+}
+
 function resolveCleanerRunStores() {
   const cleaner = useCleanerStore.getState();
   const status = useStatusStore.getState();
@@ -220,13 +228,10 @@ export function useCleanerActions(args: UseCleanerActionsArgs) {
     onRunComplete,
   } = args;
   const { t } = useI18n();
-  const noticeTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
-      if (noticeTimeoutRef.current) {
-        window.clearTimeout(noticeTimeoutRef.current);
-      }
+      cancelCleanerNoticeTimer();
     };
   }, []);
 
@@ -240,7 +245,6 @@ export function useCleanerActions(args: UseCleanerActionsArgs) {
       ...args,
       ...storeBits,
       t,
-      noticeTimeoutRef,
     });
   }, [
     activeImage,
@@ -331,7 +335,6 @@ async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promise<void>
     setRuntimeExecutionNotice,
     onRunComplete,
     t,
-    noticeTimeoutRef,
   } = ctx;
 
   let selectedDetectorKey = detectSelectionKey;
@@ -743,11 +746,7 @@ async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promise<void>
     setStatusMessage(executionNotices.length > 0 ? `${doneMessage} ${executionNotices.join(' ')}` : doneMessage);
     onRunComplete?.();
     if (executionNotices.length > 0) {
-      if (noticeTimeoutRef.current) window.clearTimeout(noticeTimeoutRef.current);
-      noticeTimeoutRef.current = window.setTimeout(() => {
-        setRuntimeExecutionNotice(null);
-        noticeTimeoutRef.current = null;
-      }, 4500);
+      scheduleNoticeClear(() => setRuntimeExecutionNotice(null));
     }
   } catch (error) {
     emitProcessErrorWebhook('Cleaner Assistido', images.length, error, {
