@@ -12,8 +12,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Callable
 
-from core.config import LLMRequestSettings, clamp_llm_request_settings, normalize_stage_model_key
-from models.errors import ModelError
+from core.config import LLMRequestSettings, normalize_stage_model_key
 from models.translation.base_translator import (
     BaseTranslator,
     TranslationInputRegion,
@@ -62,9 +61,6 @@ class CachedTranslationRequest:
 class CachedTranslationResult:
     response: TranslationResponse
     engine_key: str
-    cache_key_model: str
-    from_cache: int
-    fresh: int
 
 
 def seed_from_request(region: TranslationRegionRequest) -> TranslationSeed:
@@ -254,7 +250,4 @@ async def run_cached_translation(
     return CachedTranslationResult(
         response=response,
         engine_key=engine_key,
-        cache_key_model=cache_key_model,
-        from_cache=len(seeds) - len(missing),
-        fresh=len(fresh_by_id),
     )
