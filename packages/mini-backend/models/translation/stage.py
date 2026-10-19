@@ -166,11 +166,14 @@ async def run_cached_translation(
         chain_keys = validate_translation_chain_keys(
             fallback_candidates(requested_key, chain)
         )
-    else:
-        engine = resolve(model_key=request.model_key)
 
-    engine_key = chain_keys[0] if engine is None else engine.key
-    cache_key_model = requested_key or engine_key
+    provisional_engine_key = (
+        chain_keys[0]
+        if chain_keys
+        else (engine.key if engine is not None else (requested_key or DEFAULT_TRANSLATION_MODEL))
+    )
+    cache_key_model = requested_key or provisional_engine_key
+    engine_key = provisional_engine_key
     cache_key = pipeline_cache.build_translation_cache_key(
         model_key=cache_key_model,
         source_language=request.source_language,
@@ -196,6 +199,9 @@ async def run_cached_translation(
 
     fresh_by_id: dict[str, TranslationRecord] = {}
     if missing:
+        if engine is None and not chain_keys:
+            engine = resolve(model_key=request.model_key)
+            engine_key = engine.key
         if engine is None:
             result = await translate_with_fallback(
                 chain_keys,
@@ -244,7 +250,7 @@ async def run_cached_translation(
     response = TranslationResponse(
         source_language=request.source_language,
         target_language=request.target_language,
-        model_used=engine_key if chain_keys else cache_key_model,
+        model_used=engine_key if chain_keys else (requested_key or engine_key),
         regions=[to_region_result(record) for record in records],
     )
     return CachedTranslationResult(
