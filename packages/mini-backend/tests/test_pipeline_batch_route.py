@@ -27,6 +27,7 @@ try:
 
     from models.ocr.base_ocr import OCRInputRegion, OCRTextResult
     from models.translation.base_translator import TranslationInputRegion, TranslationTextResult
+    from models.translation import stage as translation_stage
     from pipelines.batch import stages as stages_module
     from pipelines.cache_manager import CacheManager
     from routers import ocr as ocr_router
@@ -197,9 +198,15 @@ class PipelineBatchRouteTests(unittest.TestCase):
                 stages_module,
                 get_detector=lambda **_: self.fake_detector,
                 get_ocr_engine=lambda **_: self.fake_ocr,
-                get_translation_engine=lambda **_: self.fake_translation,
                 get_segmenter=lambda **_: self.fake_segmenter,
                 get_inpainter=lambda **_: self.fake_inpainter,
+            )
+        )
+        stack.enter_context(
+            patch.object(
+                translation_stage,
+                "get_translation_engine",
+                lambda **_: self.fake_translation,
             )
         )
         stack.enter_context(

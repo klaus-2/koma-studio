@@ -159,6 +159,30 @@ class RunCachedTranslationSeamTests(unittest.TestCase):
         self.assertEqual(engine.calls, 1)
         self.assertEqual(resolver.resolved, ["fake"])
 
+    def test_neighbor_and_batch_extra_context_reach_the_engine(self) -> None:
+        seen: list[str] = []
+
+        class _Capture(_FakeEngine):
+            async def translate(self, *args: object, **kwargs: object):  # type: ignore[override]
+                seen.append(str(kwargs.get("extra_context") or ""))
+                return await super().translate(*args, **kwargs)  # type: ignore[arg-type]
+
+        self._run(
+            _Resolver({"fake": _Capture("fake")}),
+            extra_context="batch-glossary",
+            neighbor_context="Next page context: …",
+        )
+
+        self.assertEqual(len(seen), 1)
+        self.assertIn("batch-glossary", seen[0])
+        self.assertIn("Next page context", seen[0])
+
+    def test_result_exposes_records_for_the_batch_adapter(self) -> None:
+        engine = _FakeEngine("fake")
+        result = self._run(_Resolver({"fake": engine}))
+        self.assertEqual(len(result.records), 1)
+        self.assertEqual(result.records[0]["translated_text"], "ok-konnichiwa")
+
     def _run(
         self,
         resolver: _Resolver,

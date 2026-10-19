@@ -1,15 +1,18 @@
-"""Cached translation stage — one deep module behind the /translate seam.
+"""Get Translations stage — one deep module behind /translate and AIO batch.
 
 Owns seed mapping, cache key composition, chain/single engine execution and
-record mapping. The HTTP router only parses multipart and maps errors.
+record mapping. The HTTP router only parses multipart and maps errors; the
+batch orchestrator only maps OCR records to seeds and wraps StageOutput.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import inspect
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cache
 from typing import Callable
 
 from core.config import LLMRequestSettings, normalize_stage_model_key
@@ -32,7 +35,12 @@ from models.translation.providers import (
     build_request_scoped_custom_translation_engine,
     compose_translation_extra_context,
 )
-from pipelines.batch.records import TranslationRecord, TranslationSeed, normalize_stage_source
+from pipelines.batch.records import (
+    OCRRecord,
+    TranslationRecord,
+    TranslationSeed,
+    normalize_stage_source,
+)
 from pipelines.cache_manager import CacheManager, get_pipeline_cache
 from schemas.translation import (
     TranslationRegionRequest,
@@ -55,12 +63,27 @@ class CachedTranslationRequest:
     translation_mode: str
     settings: LLMRequestSettings
     custom_llm: dict[str, object] | None
+    # Batch AIO fills these; HTTP leaves them empty.
+    extra_context: str = ""
+    neighbor_context: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class CachedTranslationResult:
     response: TranslationResponse
     engine_key: str
+    records: tuple[TranslationRecord, ...]
+
+
+def seed_from_ocr(record: OCRRecord) -> TranslationSeed:
+    """Map a batch OCRRecord onto the translation seed shape."""
+    return TranslationSeed(
+        id=record["id"],
+        text=record["text"],
+        source=normalize_stage_source(record["source"]),
+        detector_model_key=record["detector_model_key"],
+        ocr_model_key=record["ocr_model_key"],
+    )
 
 
 def seed_from_request(region: TranslationRegionRequest) -> TranslationSeed:
@@ -129,6 +152,34 @@ def _is_request_scoped(requested_key: str) -> bool:
     return requested_key == "custom" or requested_key.startswith("custom:")
 
 
+@cache
+def _translate_accepts_param(engine_type: type, param: str) -> bool:
+    try:
+        params = inspect.signature(engine_type.translate).parameters
+    except (TypeError, ValueError):
+        return True
+    if param in params:
+        return True
+    return any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+
+def _optional_translate_kwargs(
+    engine: BaseTranslator,
+    *,
+    translation_notes_enabled: bool,
+    translation_mode: str,
+) -> dict[str, object]:
+    extra: dict[str, object] = {
+        "translation_notes_enabled": translation_notes_enabled,
+        "translation_mode": translation_mode,
+    }
+    return {
+        key: value
+        for key, value in extra.items()
+        if _translate_accepts_param(type(engine), key)
+    }
+
+
 async def run_cached_translation(
     request: CachedTranslationRequest,
     *,
@@ -148,8 +199,9 @@ async def run_cached_translation(
     request_scoped = _is_request_scoped(requested_key)
 
     effective_context = compose_translation_extra_context(
-        settings.extra_context,
+        settings.extra_context or request.extra_context,
         build_current_image_translation_context([to_input_region(s) for s in seeds]),
+        request.neighbor_context,
     )
 
     chain = settings.translation_fallback_chain
@@ -193,8 +245,11 @@ async def run_cached_translation(
             source_language=request.source_language,
             target_language=request.target_language,
             extra_context=effective_context,
-            translation_notes_enabled=settings.translation_notes_enabled,
-            translation_mode=request.translation_mode,
+            **_optional_translate_kwargs(
+                translator,
+                translation_notes_enabled=settings.translation_notes_enabled,
+                translation_mode=request.translation_mode,
+            ),
         )
 
     fresh_by_id: dict[str, TranslationRecord] = {}
@@ -256,4 +311,5 @@ async def run_cached_translation(
     return CachedTranslationResult(
         response=response,
         engine_key=engine_key,
+        records=tuple(records),
     )

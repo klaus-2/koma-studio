@@ -6,16 +6,15 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from functools import cache
-import inspect
 from collections.abc import Awaitable, Callable
-from typing import Protocol, cast
+from typing import cast
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
+from core.config import LLMRequestSettings
 from core.device import DeviceInfo, release_gpu_memory
 from models.detection.base_detector import TextDetection
 from models.detection.factory import get_detector
@@ -25,12 +24,10 @@ from models.ocr.base_ocr import OCRInputRegion
 from models.ocr.factory import get_ocr_engine
 from models.segmentation.base_segmenter import SegmentInputRegion
 from models.segmentation.factory import get_segmenter
-from models.translation.base_translator import TranslationInputRegion
-from models.translation.factory import get_translation_engine
-from models.translation.providers import (
-    build_current_image_translation_context,
-    build_request_scoped_custom_translation_engine,
-    compose_translation_extra_context,
+from models.translation.stage import (
+    CachedTranslationRequest,
+    run_cached_translation,
+    seed_from_ocr,
 )
 from pipelines.batch.errors import ImageEncodeError, InvalidImageError
 from pipelines.batch.records import (
@@ -40,7 +37,6 @@ from pipelines.batch.records import (
     SegmentRecord,
     SegmentSeed,
     TranslationRecord,
-    TranslationSeed,
     normalize_bbox,
     normalize_boxes,
     normalize_stage_source,
@@ -61,17 +57,6 @@ from utils.ocr_fallback import recognize_with_fallbacks
 
 type RGBArray = NDArray[np.uint8]
 type MaskArray = NDArray[np.uint8]
-
-
-class LLMRequestSettings(Protocol):
-    """Structural view of the object returned by ``clamp_llm_request_settings``."""
-
-    @property
-    def extra_context(self) -> str | None: ...
-    @property
-    def translation_notes_enabled(self) -> bool: ...
-    @property
-    def neighbor_image_context_enabled(self) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,53 +283,6 @@ async def run_ocr_stage(
 # --------------------------------------------------------------------------- translate
 
 
-@cache
-def _translate_accepts_notes_flag(engine_type: type) -> bool:
-    try:
-        params = inspect.signature(engine_type.translate).parameters
-    except (TypeError, ValueError):
-        return False
-    return "translation_notes_enabled" in params or any(
-        p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
-    )
-
-
-def translation_seed_from_ocr(record: OCRRecord) -> TranslationSeed:
-    return TranslationSeed(
-        id=record["id"],
-        text=record["text"],
-        source=record["source"],
-        detector_model_key=record["detector_model_key"],
-        ocr_model_key=record["ocr_model_key"],
-    )
-
-
-def translation_input(seed: TranslationSeed) -> TranslationInputRegion:
-    return TranslationInputRegion(
-        id=seed["id"],
-        text=seed["text"],
-        source=seed["source"],
-        detector_model_key=seed["detector_model_key"],
-        ocr_model_key=seed["ocr_model_key"],
-        detected_render_mode=seed.get("detected_render_mode", ""),
-        structural_type=seed.get("structural_type", ""),
-        sfx_requires_redraw=seed.get("sfx_requires_redraw", False),
-    )
-
-
-def empty_translation_record(seed: TranslationSeed, engine_key: str) -> TranslationRecord:
-    return TranslationRecord(
-        id=seed["id"],
-        source_text=seed["text"].strip(),
-        translated_text="",
-        translation_notes=[],
-        source=seed["source"],
-        detector_model_key=seed["detector_model_key"],
-        ocr_model_key=seed["ocr_model_key"],
-        translator_model_key=engine_key,
-    )
-
-
 async def run_translation_stage(
     *,
     model_key: str | None,
@@ -356,79 +294,24 @@ async def run_translation_stage(
     custom_llm: Mapping[str, object] | None,
     neighbor_context: str,
 ) -> StageOutput[TranslationRecord]:
+    """Batch adapter over the Get Translations stage module."""
     if not ocr_regions:
         return StageOutput(model_used=model_key or "", regions=[])
 
-    requested_key = (model_key or "").strip()
-    settings_payload = dict(vars(settings))
-    custom_payload = dict(custom_llm) if custom_llm is not None else None
-    if requested_key == "custom" or requested_key.startswith("custom:"):
-        engine = build_request_scoped_custom_translation_engine(
-            selected_model_key=requested_key,
-            custom_llm=custom_payload,
-            llm_settings=settings_payload,
+    result = await run_cached_translation(
+        CachedTranslationRequest(
+            model_key=model_key,
+            source_language=source_language,
+            target_language=target_language,
+            seeds=tuple(seed_from_ocr(record) for record in ocr_regions),
+            translation_mode="default",
+            settings=settings,
+            custom_llm=dict(custom_llm) if custom_llm is not None else None,
+            extra_context=extra_context,
+            neighbor_context=neighbor_context,
         )
-    else:
-        engine = get_translation_engine(model_key=model_key)
-
-    seeds = [translation_seed_from_ocr(record) for record in ocr_regions]
-    effective_context = compose_translation_extra_context(
-        settings.extra_context or extra_context,
-        build_current_image_translation_context([translation_input(s) for s in seeds]),
-        neighbor_context,
     )
-    cache = get_pipeline_cache()
-    cache_key = cache.build_translation_cache_key(
-        model_key=requested_key or engine.key,
-        source_language=source_language,
-        target_language=target_language,
-        extra_context=effective_context,
-        llm_settings=settings_payload,
-        custom_llm=custom_payload,
-    )
-    cached_by_id, missing = cache.get_cached_translations_for_regions(cache_key, seeds)
-
-    fresh_by_id: dict[str, TranslationRecord] = {}
-    if missing:
-        missing_inputs = [translation_input(seed) for seed in missing]
-        if _translate_accepts_notes_flag(type(engine)):
-            translated = await engine.translate(
-                regions=missing_inputs,
-                source_language=source_language,
-                target_language=target_language,
-                extra_context=effective_context,
-                translation_notes_enabled=settings.translation_notes_enabled,
-            )
-        else:
-            translated = await engine.translate(
-                regions=missing_inputs,
-                source_language=source_language,
-                target_language=target_language,
-                extra_context=effective_context,
-            )
-        fresh = [
-            TranslationRecord(
-                id=item.id,
-                source_text=item.source_text,
-                translated_text=item.translated_text,
-                translation_notes=list(item.translation_notes),
-                source=normalize_stage_source(item.source),
-                detector_model_key=item.detector_model_key,
-                ocr_model_key=item.ocr_model_key,
-                translator_model_key=item.translator_model_key or engine.key,
-            )
-            for item in translated
-        ]
-        fresh_by_id = {record["id"]: record for record in fresh}
-        cache.cache_translation_results(cache_key, fresh)
-
-    merged = [
-        fresh_by_id.get(seed["id"])
-        or cached_by_id.get(seed["id"])
-        or empty_translation_record(seed, engine.key)
-        for seed in seeds
-    ]
-    return StageOutput(model_used=requested_key or engine.key, regions=merged)
+    return StageOutput(model_used=result.response.model_used, regions=list(result.records))
 
 
 # --------------------------------------------------------------------------- segment

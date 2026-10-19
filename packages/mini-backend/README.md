@@ -88,9 +88,9 @@ Per-request knobs travel in the `llm_settings` form field (JSON object), parsed
 by `clamp_llm_request_settings` in `core/config.py`. Translation-specific ones:
 
 - `translation_notes_enabled` (bool, default `true`)
-- `translation_fallback_chain` (list of engine keys, default empty — **inert
-  until a client sends it**, which no UI does today). When present, `POST
-  /translate` tries the requested engine first and then each key in order,
+- `translation_fallback_chain` (list of engine keys, default empty). When
+  present, both `POST /translate` **and** the AIO batch Get Translations stage
+  try the requested engine first and then each key in order,
   moving to the next one only on transport-level failures (unavailable, bad
   response, broken local runtime); configuration errors and unsupported
   language pairs fail fast with the original 400. The parser keeps at most 4
