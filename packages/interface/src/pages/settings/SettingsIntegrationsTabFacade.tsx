@@ -1,11 +1,16 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { currentFamilySkin } from '@koma/ui/themes/family-skins';
 import { renderSettingsIntegrationsTab as renderSettingsIntegrationsTabClassic } from './SettingsIntegrationsTab';
 import { renderSettingsIntegrationsTabNoir } from './noir/SettingsIntegrationsTabNoir';
 
-export const renderSettingsIntegrationsTab = (args: Parameters<typeof renderSettingsIntegrationsTabClassic>[0]) => {
-  const family = useThemeStore.getState().family;
+type SettingsIntegrationsTabArgs = Parameters<typeof renderSettingsIntegrationsTabClassic>[0];
 
-  return family === 'noir' ? renderSettingsIntegrationsTabNoir(args as Parameters<typeof renderSettingsIntegrationsTabNoir>[0]) : renderSettingsIntegrationsTabClassic(args);
+export const renderSettingsIntegrationsTab = (args: SettingsIntegrationsTabArgs) => {
+  const render = currentFamilySkin({
+    classic: renderSettingsIntegrationsTabClassic,
+    noir: (bag: SettingsIntegrationsTabArgs) => renderSettingsIntegrationsTabNoir(bag),
+  });
+
+  return render(args);
 };
 
 export default renderSettingsIntegrationsTab;

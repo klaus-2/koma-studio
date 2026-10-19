@@ -1,12 +1,15 @@
-import { useThemeStore } from "@koma/ui/stores/theme-store";
+import type { ComponentType } from "react";
+import { useFamilySkin } from "@koma/ui/themes/family-skins";
 import { AuthShellClassic } from "./AuthShellClassic";
 import { AuthShellNoir } from "./noir/AuthShellNoir";
 
 type AuthShellProps = React.ComponentProps<typeof AuthShellClassic>;
 
-/** Facade: picks the auth shell for the active theme family. Props contract unchanged. */
 export const AuthShell = (props: AuthShellProps) => {
-  const family = useThemeStore((s) => s.family);
+  const Shell = useFamilySkin<ComponentType<AuthShellProps>>({
+    classic: AuthShellClassic,
+    noir: AuthShellNoir,
+  });
 
-  return family === "noir" ? <AuthShellNoir {...props} /> : <AuthShellClassic {...props} />;
+  return <Shell {...props} />;
 };

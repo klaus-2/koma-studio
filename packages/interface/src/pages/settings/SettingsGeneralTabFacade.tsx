@@ -1,11 +1,16 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { currentFamilySkin } from '@koma/ui/themes/family-skins';
 import { renderSettingsGeneralTab as renderSettingsGeneralTabClassic } from './SettingsGeneralTab';
 import { renderSettingsGeneralTabNoir } from './noir/SettingsGeneralTabNoir';
 
-export const renderSettingsGeneralTab = (args: Parameters<typeof renderSettingsGeneralTabClassic>[0]) => {
-  const family = useThemeStore.getState().family;
+type SettingsGeneralTabArgs = Parameters<typeof renderSettingsGeneralTabClassic>[0];
 
-  return family === 'noir' ? renderSettingsGeneralTabNoir(args as Parameters<typeof renderSettingsGeneralTabNoir>[0]) : renderSettingsGeneralTabClassic(args);
+export const renderSettingsGeneralTab = (args: SettingsGeneralTabArgs) => {
+  const render = currentFamilySkin({
+    classic: renderSettingsGeneralTabClassic,
+    noir: (bag: SettingsGeneralTabArgs) => renderSettingsGeneralTabNoir(bag),
+  });
+
+  return render(args);
 };
 
 export default renderSettingsGeneralTab;

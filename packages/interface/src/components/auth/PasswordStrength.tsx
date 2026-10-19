@@ -1,4 +1,5 @@
-import { useThemeStore } from "@koma/ui/stores/theme-store";
+import type { ComponentType } from "react";
+import { useFamilySkin } from "@koma/ui/themes/family-skins";
 import { PasswordStrengthClassic } from "./PasswordStrengthClassic";
 import { PasswordStrengthNoir } from "./noir/PasswordStrengthNoir";
 
@@ -7,7 +8,10 @@ interface PasswordStrengthProps {
 }
 
 export const PasswordStrength = ({ password }: PasswordStrengthProps) => {
-  const family = useThemeStore((s) => s.family);
+  const Meter = useFamilySkin<ComponentType<PasswordStrengthProps>>({
+    classic: PasswordStrengthClassic,
+    noir: PasswordStrengthNoir,
+  });
 
-  return family === "noir" ? <PasswordStrengthNoir password={password} /> : <PasswordStrengthClassic password={password} />;
+  return <Meter password={password} />;
 };
