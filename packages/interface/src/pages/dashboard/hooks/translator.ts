@@ -14,11 +14,11 @@ import {
   cloneAioRegions,
   cloneRenderStyle,
   normalizeDetectedGradient,
-  normalizeRgbTriplet,
   normalizeTranslationNotes,
   resolveSelectedRegionForRegions,
   toApiIntegerBbox,
 } from '../../../utils/dashboard.utils';
+import { regionsFromDetectPayload } from '../../../utils/detectTextRegions';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   applySfxDecisionsToRegions,
@@ -29,7 +29,6 @@ import {
   isLikelySfxCandidate,
   type SfxClassificationResponse,
 } from '../../../utils/sfx';
-import { normalizeDetectedRenderMode } from '../../../utils/renderModes';
 import type {
   AioTextRegion,
   DetectApiResponse,
@@ -214,39 +213,9 @@ export function useTranslatorVisualActions({
         }
 
         const detectPayload = (await detectResponse.json()) as DetectApiResponse;
-        const sourceWidth = detectPayload.image_width > 0 ? detectPayload.image_width : imgData.width;
-        const sourceHeight = detectPayload.image_height > 0 ? detectPayload.image_height : imgData.height;
-        const scaleX = imgData.width / Math.max(1, sourceWidth);
-        const scaleY = imgData.height / Math.max(1, sourceHeight);
-        let detectedRegions = detectPayload.detections
-          .map((item): AioTextRegion | null => {
-            const [bx1, by1, bx2, by2] = item.bbox;
-            const rawX1 = Math.max(0, Math.min(sourceWidth, Math.min(bx1, bx2)));
-            const rawY1 = Math.max(0, Math.min(sourceHeight, Math.min(by1, by2)));
-            const rawX2 = Math.max(0, Math.min(sourceWidth, Math.max(bx1, bx2)));
-            const rawY2 = Math.max(0, Math.min(sourceHeight, Math.max(by1, by2)));
-            const x1 = Math.round(Math.max(0, Math.min(imgData.width, rawX1 * scaleX)));
-            const y1 = Math.round(Math.max(0, Math.min(imgData.height, rawY1 * scaleY)));
-            const x2 = Math.round(Math.max(0, Math.min(imgData.width, rawX2 * scaleX)));
-            const y2 = Math.round(Math.max(0, Math.min(imgData.height, rawY2 * scaleY)));
-            if ((x2 - x1) < minRegionSize || (y2 - y1) < minRegionSize) return null;
-            return {
-              id: item.id,
-              bbox: [x1, y1, x2, y2],
-              score: item.score,
-              source: item.source,
-              modelKey: item.model_key,
-              detectorModelKey: item.model_key,
-              detectedForegroundRgb: normalizeRgbTriplet(item.foreground_rgb),
-              structuralType: item.structural_type ?? undefined,
-              structuralConfidence: item.structural_confidence ?? undefined,
-              structuralSource: item.structural_source ?? undefined,
-              matchedReferenceImage: item.matched_reference_image ?? undefined,
-              detectedRenderMode: normalizeDetectedRenderMode(item.label) ?? 'text_bubble',
-              renderMode: 'auto',
-            };
-          })
-          .filter((item): item is AioTextRegion => item !== null);
+        let detectedRegions = regionsFromDetectPayload(detectPayload, imgData, {
+          minRegionSize,
+        });
 
         let processedBaseDataUrl: string | null = null;
         let sfxCandidateCount = 0;

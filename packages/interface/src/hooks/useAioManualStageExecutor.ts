@@ -11,13 +11,11 @@ import {
   applyRenderDefaultsToRegion,
   clamp,
   normalizeDetectedGradient,
-  normalizeRgbTriplet,
   readExecutionRuntimeNotice,
   normalizeTranslationNotes,
   toApiIntegerBbox,
 } from '../utils/dashboard.utils';
-import { createDefaultTypographyShape } from '../typography/types';
-import { normalizeDetectedRenderMode } from '../utils/renderModes';
+import { regionsFromDetectPayload } from '../utils/detectTextRegions';
 import {
   type CustomLlmProfile,
   getCustomLlmRuntimeRestriction,
@@ -322,50 +320,9 @@ export function useAioManualStageExecutor({
           if (executionNotice) setRuntimeExecutionNotice(executionNotice);
 
           const payload = (await detectResponse.json()) as DetectApiResponse;
-          const sourceWidth = payload.image_width > 0 ? payload.image_width : activeImageData.width;
-          const sourceHeight = payload.image_height > 0 ? payload.image_height : activeImageData.height;
-          const scaleX = activeImageData.width / Math.max(1, sourceWidth);
-          const scaleY = activeImageData.height / Math.max(1, sourceHeight);
-          const detections = payload.detections
-            .map((item): AioTextRegion | null => {
-              const [bx1, by1, bx2, by2] = item.bbox;
-              const rawX1 = clamp(Math.min(bx1, bx2), 0, sourceWidth);
-              const rawY1 = clamp(Math.min(by1, by2), 0, sourceHeight);
-              const rawX2 = clamp(Math.max(bx1, bx2), 0, sourceWidth);
-              const rawY2 = clamp(Math.max(by1, by2), 0, sourceHeight);
-              const x1 = Math.round(clamp(rawX1 * scaleX, 0, activeImageData.width));
-              const y1 = Math.round(clamp(rawY1 * scaleY, 0, activeImageData.height));
-              const x2 = Math.round(clamp(rawX2 * scaleX, 0, activeImageData.width));
-              const y2 = Math.round(clamp(rawY2 * scaleY, 0, activeImageData.height));
-              const boxWidth = x2 - x1;
-              const boxHeight = y2 - y1;
-              if (boxWidth < minRegionSize || boxHeight < minRegionSize) return null;
-
-              const detectedRenderMode = normalizeDetectedRenderMode(item.label) ?? 'text_bubble';
-
-              return {
-                id: item.id,
-                bbox: [x1, y1, x2, y2],
-                score: item.score,
-                source: item.source,
-                modelKey: item.model_key,
-                detectorModelKey: item.model_key,
-                detectedForegroundRgb: normalizeRgbTriplet(item.foreground_rgb),
-                structuralType: item.structural_type ?? undefined,
-                structuralConfidence: item.structural_confidence ?? undefined,
-                structuralSource: item.structural_source ?? undefined,
-                matchedReferenceImage: item.matched_reference_image ?? undefined,
-                detectedRenderMode,
-                renderMode: 'auto',
-                shape: createDefaultTypographyShape(
-                  x2 - x1,
-                  y2 - y1,
-                  detectedRenderMode === 'text_bubble' || detectedRenderMode === 'text_inside_black_bubble' ? 'rounded' : 'square',
-                  'detected',
-                ),
-              };
-            })
-            .filter((item): item is AioTextRegion => item !== null);
+          const detections = regionsFromDetectPayload(payload, activeImageData, {
+            minRegionSize,
+          });
 
           patchAioSnapshotStageForImage(activeId, stageIndex, detections);
         }

@@ -16,10 +16,20 @@ function makeImage(id: string): LoadedImage {
   return {
     id,
     file: new File(['x'], `${id}.png`, { type: 'image/png' }),
+    url: 'data:image/png;base64,AA==',
     width: 4,
     height: 4,
-    dataUrl: 'data:image/png;base64,AA==',
-  } as LoadedImage;
+    rotation: 0,
+    filters: {
+      brightness: 0,
+      contrast: 0,
+      saturation: 0,
+      sharpen: 0,
+      levels: { black: 0, white: 255, gamma: 1 },
+      grayscale: false,
+      inverted: false,
+    },
+  };
 }
 
 function makeContext(overrides: Partial<CleanerRunContext> = {}): CleanerRunContext {
@@ -49,6 +59,8 @@ function makeContext(overrides: Partial<CleanerRunContext> = {}): CleanerRunCont
     getAioStageOption: () => ({
       key: 'ocr',
       name: 'OCR',
+      device: 'cpu',
+      use_case: 'ocr',
       implemented: true,
       available: true,
     }),
@@ -91,13 +103,13 @@ afterEach(() => {
 
 describe('runCleaner seam', () => {
   it('routes assisted mode to /detect and never to /sfx/classify', async () => {
-    const fetchMock = vi.fn(async () => new Response('bad', { status: 500 }));
+    const fetchMock = vi.fn(async (..._args: Parameters<typeof fetch>) => new Response('bad', { status: 500 }));
     vi.stubGlobal('fetch', fetchMock);
 
     const ctx = makeContext({ cleanerMode: 'assisted' });
     await runCleaner(ctx);
 
-    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    const urls = fetchMock.mock.calls.map((call) => String(call[0] ?? ''));
     expect(urls.some((url) => url.includes('/detect'))).toBe(true);
     expect(urls.some((url) => url.includes('/sfx/classify'))).toBe(false);
     expect(ctx.emitProcessStartWebhook).toHaveBeenCalledWith(
@@ -108,8 +120,8 @@ describe('runCleaner seam', () => {
   });
 
   it('routes ai_sfx mode through the SFX classify path', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      const url = String(args[0] ?? '');
       if (url.includes('/detect')) {
         return new Response(
           JSON.stringify({
@@ -141,7 +153,7 @@ describe('runCleaner seam', () => {
     });
     await runCleaner(ctx);
 
-    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    const urls = fetchMock.mock.calls.map((call) => String(call[0] ?? ''));
     expect(urls.some((url) => url.includes('/detect'))).toBe(true);
     expect(ctx.emitProcessStartWebhook).toHaveBeenCalledWith(
       'AI SFX Cleaner',

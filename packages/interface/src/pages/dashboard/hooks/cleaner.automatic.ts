@@ -3,19 +3,16 @@ import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   blobToDataUrl,
   buildAioSelectionMapFromDetections,
-  clamp,
   cloneAioRegions,
   cloneRenderStyle,
-  normalizeRgbTriplet,
   toApiIntegerBbox,
 } from '../../../utils/dashboard.utils';
-import { normalizeDetectedRenderMode } from '../../../utils/renderModes';
+import { regionsFromDetectPayload } from '../../../utils/detectTextRegions';
 import {
   normalizeKnownCustomLlmApiBase,
   requiresCustomLlmApiKey,
 } from '../../../utils/customLlm';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
-import { createDefaultTypographyShape } from '../../../typography/types';
 import {
   applySfxDecisionsToRegions,
   buildSfxClassifierInstructions,
@@ -174,60 +171,9 @@ export async function runAutomaticCleanerWorkflow(
 
           const detectPayload =
             (await detectResponse.json()) as DetectApiResponse;
-          const sourceWidth =
-            detectPayload.image_width > 0
-              ? detectPayload.image_width
-              : imgData.width;
-          const sourceHeight =
-            detectPayload.image_height > 0
-              ? detectPayload.image_height
-              : imgData.height;
-          const scaleX = imgData.width / Math.max(1, sourceWidth);
-          const scaleY = imgData.height / Math.max(1, sourceHeight);
-          const detectDetections = detectPayload.detections
-            .map((item): AioTextRegion | null => {
-              const [bx1, by1, bx2, by2] = item.bbox;
-              const rawX1 = clamp(Math.min(bx1, bx2), 0, sourceWidth);
-              const rawY1 = clamp(Math.min(by1, by2), 0, sourceHeight);
-              const rawX2 = clamp(Math.max(bx1, bx2), 0, sourceWidth);
-              const rawY2 = clamp(Math.max(by1, by2), 0, sourceHeight);
-              const x1 = Math.round(clamp(rawX1 * scaleX, 0, imgData.width));
-              const y1 = Math.round(clamp(rawY1 * scaleY, 0, imgData.height));
-              const x2 = Math.round(clamp(rawX2 * scaleX, 0, imgData.width));
-              const y2 = Math.round(clamp(rawY2 * scaleY, 0, imgData.height));
-              if ((x2 - x1) < minRegionSize || (y2 - y1) < minRegionSize) {
-                return null;
-              }
-              const detectedRenderMode = normalizeDetectedRenderMode(item.label) ?? 'text_bubble';
-
-              return {
-                id: item.id,
-                bbox: [x1, y1, x2, y2],
-                score: item.score,
-                source: item.source,
-                modelKey: item.model_key,
-                detectorModelKey: item.model_key,
-                detectedForegroundRgb: normalizeRgbTriplet(
-                  item.foreground_rgb,
-                ),
-                structuralType: item.structural_type ?? undefined,
-                structuralConfidence: item.structural_confidence ?? undefined,
-                structuralSource: item.structural_source ?? undefined,
-                matchedReferenceImage:
-                  item.matched_reference_image ?? undefined,
-                detectedRenderMode,
-                renderMode: 'auto',
-                shape: createDefaultTypographyShape(
-                  x2 - x1,
-                  y2 - y1,
-                  detectedRenderMode === 'text_bubble' || detectedRenderMode === 'text_inside_black_bubble'
-                    ? 'rounded'
-                    : 'square',
-                  'detected',
-                ),
-              };
-            })
-            .filter((item): item is AioTextRegion => item !== null);
+          const detectDetections = regionsFromDetectPayload(detectPayload, imgData, {
+            minRegionSize,
+          });
 
           let outputRegions = detectDetections;
           let candidateCount = detectDetections.length;

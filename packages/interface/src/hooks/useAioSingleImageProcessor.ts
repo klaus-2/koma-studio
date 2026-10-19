@@ -4,23 +4,19 @@ import { useI18n } from '../i18n';
 import { fetchWithTimeoutAndRetry } from '../utils/http';
 import {
   applyRenderDefaultsToRegion,
-  clamp,
   cloneAioRegions,
   cloneRenderStyle,
   normalizeDetectedGradient,
-  normalizeRgbTriplet,
   normalizeTranslationNotes,
   readExecutionRuntimeNotice,
 } from '../utils/dashboard.utils';
-import { createDefaultTypographyShape } from '../typography/types';
-import { normalizeDetectedRenderMode } from '../utils/renderModes';
+import { regionsFromDetectPayload } from '../utils/detectTextRegions';
 import { type CustomLlmProfile, toCustomLlmRequestPayload } from '../utils/customLlm';
 import type { RenderTextStyle } from '../utils/renderText';
 import type {
   AioBatchImageResult,
   AioDownloadEntry,
   AioPipelineSnapshotKey,
-  AioTextRegion,
   DetectApiResponse,
   LoadedImage,
   OcrApiResponse,
@@ -163,54 +159,11 @@ export function useAioSingleImageProcessor({
     }
 
     const payload = (await response.json()) as DetectApiResponse;
-    const sourceWidth = payload.image_width > 0 ? payload.image_width : imgData.width;
-    const sourceHeight = payload.image_height > 0 ? payload.image_height : imgData.height;
-    const scaleX = imgData.width / Math.max(1, sourceWidth);
-    const scaleY = imgData.height / Math.max(1, sourceHeight);
-    const normalizedDetections = payload.detections
-      .map((item): AioTextRegion | null => {
-        const [bx1, by1, bx2, by2] = item.bbox;
-        const rawX1 = clamp(Math.min(bx1, bx2), 0, sourceWidth);
-        const rawY1 = clamp(Math.min(by1, by2), 0, sourceHeight);
-        const rawX2 = clamp(Math.max(bx1, bx2), 0, sourceWidth);
-        const rawY2 = clamp(Math.max(by1, by2), 0, sourceHeight);
-
-        const x1 = Math.round(clamp(rawX1 * scaleX, 0, imgData.width));
-        const y1 = Math.round(clamp(rawY1 * scaleY, 0, imgData.height));
-        const x2 = Math.round(clamp(rawX2 * scaleX, 0, imgData.width));
-        const y2 = Math.round(clamp(rawY2 * scaleY, 0, imgData.height));
-        const boxWidth = x2 - x1;
-        const boxHeight = y2 - y1;
-        if (boxWidth < minRegionSize || boxHeight < minRegionSize) return null;
-
-        const areaRatio = ((rawX2 - rawX1) * (rawY2 - rawY1)) / Math.max(1, sourceWidth * sourceHeight);
-        if (areaRatio > 0.75 && item.score < 0.9) return null;
-
-        return {
-          id: item.id,
-          bbox: [x1, y1, x2, y2],
-          score: item.score,
-          source: item.source,
-          modelKey: item.model_key,
-          detectorModelKey: item.model_key,
-          detectedForegroundRgb: normalizeRgbTriplet(item.foreground_rgb),
-          structuralType: item.structural_type ?? undefined,
-          structuralConfidence: item.structural_confidence ?? undefined,
-          structuralSource: item.structural_source ?? undefined,
-          matchedReferenceImage: item.matched_reference_image ?? undefined,
-          detectedRenderMode: normalizeDetectedRenderMode(item.label) ?? 'text_bubble',
-          renderMode: 'auto',
-          shape: createDefaultTypographyShape(
-            x2 - x1,
-            y2 - y1,
-            normalizeDetectedRenderMode(item.label) === 'text_bubble' || normalizeDetectedRenderMode(item.label) === 'text_inside_black_bubble'
-              ? 'rounded'
-              : 'square',
-            'detected',
-          ),
-        };
-      })
-      .filter((item): item is AioTextRegion => item !== null);
+    const normalizedDetections = regionsFromDetectPayload(payload, imgData, {
+      minRegionSize,
+      maxAreaRatio: 0.75,
+      minScoreForMaxArea: 0.9,
+    });
 
     const detectDetections = cloneAioRegions(normalizedDetections, cloneRenderStyle);
     let enrichedDetections = cloneAioRegions(normalizedDetections, cloneRenderStyle);
