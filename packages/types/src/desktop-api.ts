@@ -393,6 +393,7 @@ export const desktopCommandChannels = {
   workspace: {
     loadAutosave: "desktop-workspace:load-autosave",
     saveAutosave: "desktop-workspace:save-autosave",
+    sendAutosave: "desktop-workspace:send-autosave",
     clearAutosave: "desktop-workspace:clear-autosave",
     exportCurrent: "desktop-workspace:export-current",
     importFile: "desktop-workspace:import-file",
@@ -515,6 +516,12 @@ export interface DesktopWorkspaceApi {
   saveAutosave(
     payload: WorkspaceAutosaveSavePayload,
   ): Promise<WorkspaceAutosaveSaveResult>;
+  /**
+   * Fire-and-forget autosave for teardown (unmount / beforeunload).
+   * Electron uses ipcRenderer.send so the message is queued before the
+   * renderer dies.
+   */
+  sendAutosave(payload: WorkspaceAutosaveSavePayload): void;
   clearAutosave(
     payload?: WorkspaceAutosaveClearPayload,
   ): Promise<WorkspaceAutosaveClearResult>;

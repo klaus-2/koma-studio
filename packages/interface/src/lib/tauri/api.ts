@@ -293,6 +293,13 @@ const tauriDesktopBridge: IDesktopBridge = {
         userId: payload.userId ?? null,
         payload: payload.payload,
       }),
+    sendAutosave: (payload) => {
+      // Fire-and-forget for teardown — do not await.
+      void invokeCommand(desktopCommandChannels.workspace.saveAutosave, {
+        userId: payload.userId ?? null,
+        payload: payload.payload,
+      }).catch(() => undefined);
+    },
     clearAutosave: (payload) =>
       invokeCommand(desktopCommandChannels.workspace.clearAutosave, {
         userId:

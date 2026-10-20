@@ -238,6 +238,45 @@ export function useWorkspacePersistence({
     };
   }, [workspaceAutosaveSettings.enabled]);
 
+  // Fire-and-forget save on app close / tab hide — async saveAutosave can be
+  // torn down mid-flight during flushSync navigation.
+  useEffect(() => {
+    if (!desktopBridge.desktop?.workspace || !workspaceAutosaveSettings.enabled) {
+      return;
+    }
+    const sendDirtyAutosave = () => {
+      const persistence = useWorkspacePersistenceStore.getState();
+      const desktopWorkspace = desktopBridge.desktop?.workspace;
+      if (
+        !desktopWorkspace ||
+        !persistence.workspaceAutosaveDirty ||
+        persistence.workspaceAutosaveSaving ||
+        !persistence.latestWorkspaceCaptureState
+      ) {
+        return;
+      }
+      void captureWorkspaceDocument(persistence.latestWorkspaceCaptureState)
+        .then((payload) => {
+          desktopWorkspace.sendAutosave({
+            userId: authUser?.id ?? null,
+            payload,
+          });
+        })
+        .catch(() => undefined);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        sendDirtyAutosave();
+      }
+    };
+    window.addEventListener('beforeunload', sendDirtyAutosave);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', sendDirtyAutosave);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [authUser?.id, captureWorkspaceDocument, workspaceAutosaveSettings.enabled]);
+
   const exportCurrentWorkspace = useCallback(async () => {
     const desktopWorkspace = desktopBridge.desktop?.workspace;
     if (!desktopWorkspace) return;
