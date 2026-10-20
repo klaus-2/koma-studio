@@ -26,7 +26,7 @@ import {
 import { AioSection } from '../../AioSection';
 import { AioPipelineChip } from '../../AioPipelineChip';
 import { AioTimelineStep } from '../../AioTimelineStep';
-import { AioStageTabBar, type StageTabDef } from '../../AioStageTabBar';
+import { AioStageTabBar, type StageTabDef, type StageTabKey } from '../../AioStageTabBar';
 import SubModeToggle from '../../../components/dashboard/SubModeToggle';
 import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
 import KlSlider from '../../../components/dashboard/KlSlider';
@@ -287,6 +287,17 @@ export default memo(function AioRightPanel({
   /* ── AIO pipeline ── */
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
   const setAioSteps = useAioPipelineStore((s) => s.setAioSteps);
+  const handleToggleAioStep = useCallback(
+    (stageKey: StageTabKey) => {
+      setAioSteps((prev) => {
+        if (stageKey === 'detectText') {
+          return { ...prev, detectText: true };
+        }
+        return { ...prev, [stageKey]: !prev[stageKey] };
+      });
+    },
+    [setAioSteps],
+  );
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
   const setAioStageSelection = useAioPipelineStore(
     (s) => s.setAioStageSelection,
@@ -401,9 +412,8 @@ export default memo(function AioRightPanel({
                 label={t('dashboard.stage.detectText.short')}
                 subtitle={t('dashboard.aio.pipeline.detect.subtitle')}
                 enabled={aioSteps.detectText}
-                onToggle={() =>
-                  setAioSteps((p) => ({ ...p, detectText: true }))
-                }
+                stageKey="detectText"
+                onToggle={handleToggleAioStep}
                 disabled
               />
               <AioPipelineChip
@@ -411,57 +421,40 @@ export default memo(function AioRightPanel({
                 label={t('dashboard.stage.recognizeText.short')}
                 subtitle={t('dashboard.aio.pipeline.ocr.subtitle')}
                 enabled={aioSteps.recognizeText}
-                onToggle={() =>
-                  setAioSteps((p) => ({
-                    ...p,
-                    recognizeText: !p.recognizeText,
-                  }))
-                }
+                stageKey="recognizeText"
+                onToggle={handleToggleAioStep}
               />
               <AioPipelineChip
                 icon={Languages}
                 label={t('dashboard.stage.getTranslations.short')}
                 subtitle={t('dashboard.aio.pipeline.translate.subtitle')}
                 enabled={aioSteps.getTranslations}
-                onToggle={() =>
-                  setAioSteps((p) => ({
-                    ...p,
-                    getTranslations: !p.getTranslations,
-                  }))
-                }
+                stageKey="getTranslations"
+                onToggle={handleToggleAioStep}
               />
               <AioPipelineChip
                 icon={Replace}
                 label={t('dashboard.stage.segmentText.short')}
                 subtitle={t('dashboard.aio.pipeline.segment.subtitle')}
                 enabled={aioSteps.segmentText}
-                onToggle={() =>
-                  setAioSteps((p) => ({
-                    ...p,
-                    segmentText: !p.segmentText,
-                  }))
-                }
+                stageKey="segmentText"
+                onToggle={handleToggleAioStep}
               />
               <AioPipelineChip
                 icon={Eraser}
                 label={t('dashboard.stage.cleanImage.short')}
                 subtitle={t('dashboard.aio.pipeline.clean.subtitle')}
                 enabled={aioSteps.cleanImage}
-                onToggle={() =>
-                  setAioSteps((p) => ({
-                    ...p,
-                    cleanImage: !p.cleanImage,
-                  }))
-                }
+                stageKey="cleanImage"
+                onToggle={handleToggleAioStep}
               />
               <AioPipelineChip
                 icon={Paintbrush}
                 label={t('dashboard.stage.render.short')}
                 subtitle={t('dashboard.aio.pipeline.render.subtitle')}
                 enabled={aioSteps.render}
-                onToggle={() =>
-                  setAioSteps((p) => ({ ...p, render: !p.render }))
-                }
+                stageKey="render"
+                onToggle={handleToggleAioStep}
               />
             </div>
 
