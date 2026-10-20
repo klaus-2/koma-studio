@@ -68,6 +68,7 @@ import {
   parseDesktopRefreshSkewSec,
   parseDesktopTokenTtlSec,
 } from "./modules/desktop-auth-constants.ts";
+import { normalizeLoopbackUrl, parseConfiguredPort } from "./modules/app-urls.ts";
 import {
   listMiniBackendRuntimeArtifactOptions,
   sanitizeMiniBackendProfile,
@@ -287,19 +288,6 @@ const authApiUrl = (() => {
 const isAuthDisabled = ["true", "1", "yes"].includes(
   (resolveDesktopEnvValue("VITE_AUTH_DISABLED") ?? "").trim().toLowerCase(),
 );
-const normalizeLoopbackUrl = (rawUrl: string): string => {
-  try {
-    const parsed = new URL(rawUrl);
-    if (parsed.hostname.trim().toLowerCase() !== "localhost") {
-      return rawUrl;
-    }
-
-    parsed.hostname = "127.0.0.1";
-    return parsed.toString().replace(/\/$/, "");
-  } catch {
-    return rawUrl;
-  }
-};
 
 let localApiUrl = normalizeLoopbackUrl(
   resolveDesktopEnvValue("VITE_LOCAL_API_URL") ?? "http://127.0.0.1:8001",
@@ -307,22 +295,6 @@ let localApiUrl = normalizeLoopbackUrl(
 const miniBackendArtifactsUrl =
   resolveDesktopEnvValue("MINI_BACKEND_ARTIFACTS_URL")
   ?? resolveDesktopEnvValue("UPDATE_SERVER_URL");
-const parseConfiguredPort = (rawUrl: string | null): number | null => {
-  if (!rawUrl) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(rawUrl);
-    const port = Number(parsed.port);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      return null;
-    }
-    return port;
-  } catch {
-    return null;
-  }
-};
 const desktopBootstrapSecret = resolveDesktopEnvValue("DESKTOP_BOOTSTRAP_SECRET") ?? "";
 
 let miniBackendRuntimeState: MiniBackendRuntimeState = {
