@@ -85,6 +85,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Per-locale i18n chunks so the initial bundle does not ship
+          // every language catalog.
+          if (id.includes('/i18n/langs/') && !id.includes('/i18n/langs/en')) {
+            const localeChunk = path.basename(id, path.extname(id));
+            return `app-i18n-${localeChunk}`;
+          }
           if (id.includes('/i18n/langs/')) {
             return 'app-i18n';
           }
