@@ -5,7 +5,6 @@ import {
   protocol,
   session as electronSession,
   shell,
-  type Cookie,
   type Session,
 } from "electron";
 import path from "node:path";
@@ -61,6 +60,10 @@ import {
   isAllowedExternalUrl,
   registerAllowedExternalHostFromUrl,
 } from "./modules/external-hosts.ts";
+import {
+  clearDesktopAuthCookies,
+  hasDesktopAuthCookie,
+} from "./modules/desktop-auth-cookies.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -122,7 +125,6 @@ import {
   sleep,
   normalizeHttpMethod,
   normalizeAccessToken,
-  normalizeHost,
   sanitizeSessionLogText,
   registerSecureIpcHandler,
   fetchWithTimeoutAndRetry,
@@ -914,76 +916,6 @@ const getDesktopHttpSession = (): Session => {
   return mainWindow?.webContents.session ?? electronSession.defaultSession;
 };
 
-const normalizeCookieDomain = (value: string): string => value.replace(/^\./, "").trim().toLowerCase();
-
-const cookieMatchesHost = (cookieDomain: string, host: string): boolean => {
-  const normalizedCookieDomain = normalizeCookieDomain(cookieDomain);
-  if (!normalizedCookieDomain || !host) {
-    return false;
-  }
-
-  return normalizedCookieDomain === host || host.endsWith(`.${normalizedCookieDomain}`);
-};
-
-const buildCookieRemovalUrl = (cookie: Cookie): string | null => {
-  const cookieHost = normalizeCookieDomain(cookie.domain ?? "");
-  if (!cookieHost) {
-    return null;
-  }
-
-  const protocol = cookie.secure ? "https" : "http";
-  const cookiePath = cookie.path && cookie.path.startsWith("/") ? cookie.path : "/";
-  return `${protocol}://${cookieHost}${cookiePath}`;
-};
-
-const clearDesktopAuthCookies = async (): Promise<void> => {
-  let authHost = "";
-  try {
-    authHost = normalizeHost(new URL(authApiUrl).hostname);
-  } catch {
-    return;
-  }
-
-  if (!authHost) {
-    return;
-  }
-
-  const sessionClient = getDesktopHttpSession();
-  const cookies = await sessionClient.cookies.get({});
-  const authCookies = cookies.filter((cookie) => cookieMatchesHost(cookie.domain ?? "", authHost));
-  await Promise.all(
-    authCookies.map(async (cookie) => {
-      const removalUrl = buildCookieRemovalUrl(cookie);
-      if (!removalUrl) {
-        return;
-      }
-
-      try {
-        await sessionClient.cookies.remove(removalUrl, cookie.name);
-      } catch {
-        console.warn("[desktop] Failed to remove auth cookie:", cookie.name);
-      }
-    }),
-  );
-};
-
-const hasDesktopAuthCookie = async (): Promise<boolean> => {
-  let authHost = "";
-  try {
-    authHost = normalizeHost(new URL(authApiUrl).hostname);
-  } catch {
-    return false;
-  }
-
-  if (!authHost) {
-    return false;
-  }
-
-  const sessionClient = getDesktopHttpSession();
-  const cookies = await sessionClient.cookies.get({});
-  return cookies.some((cookie) => cookieMatchesHost(cookie.domain ?? "", authHost));
-};
-
 // Source-only model: no native updater state — infer the channel from the app
 // version (same heuristic as the renderer's inferChannelFromVersion).
 const getDesktopUpdateChannel = (): "stable" | "beta" => {
@@ -1153,7 +1085,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
   });
 
   registerSecureIpcHandler<DesktopApiEnvelope>("desktop-api:auth:session", async () => {
-    if (!(await hasDesktopAuthCookie())) {
+    if (!(await hasDesktopAuthCookie(authApiUrl, getDesktopHttpSession()))) {
       debugDesktopInfo("[desktop-auth] session request skipped because no auth cookie is present.");
       return {
         ok: true,
@@ -1215,7 +1147,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
     }
 
     clearDesktopSessionState(true);
-    await clearDesktopAuthCookies();
+    await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
     if (travelToken) {
       desktopPendingTravelToken = travelToken;
     }
@@ -1245,7 +1177,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
     );
 
     if (!response.ok) {
-      await clearDesktopAuthCookies();
+      await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
       clearDesktopSessionState(true);
       return response;
     }
@@ -1259,7 +1191,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
         (error.code === "DESKTOP_TRAVEL_TOKEN_REQUIRED" ||
           error.code === "DESKTOP_TRAVEL_TOKEN_INVALID")
       ) {
-        await clearDesktopAuthCookies();
+        await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
         clearDesktopSessionState(true);
         debugDesktopWarn(
           `[desktop-auth] post-login bootstrap requires travel token; returning auth error (${error.code}).`,
@@ -1340,7 +1272,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
         (error.code === "DESKTOP_TRAVEL_TOKEN_REQUIRED" ||
           error.code === "DESKTOP_TRAVEL_TOKEN_INVALID")
       ) {
-        await clearDesktopAuthCookies();
+        await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
         clearDesktopSessionState(true);
         debugDesktopWarn(
           `[desktop-auth] post-register bootstrap requires travel token; returning auth error (${error.code}).`,
@@ -1503,7 +1435,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
       body: JSON.stringify({}),
     }, { requireDesktopSession: false });
 
-    await clearDesktopAuthCookies();
+    await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
     clearDesktopSessionState(true);
     return response;
   });
@@ -2873,7 +2805,7 @@ const setupNavigationHardening = (window: BrowserWindow): void => {
 
 const createWindow = async (): Promise<void> => {
   await prepareMiniBackendLaunchContext();
-  if (!isAuthDisabled && (await hasDesktopAuthCookie())) {
+  if (!isAuthDisabled && (await hasDesktopAuthCookie(authApiUrl, getDesktopHttpSession()))) {
     try {
       await registerDesktopDeviceKey("startup");
       await ensureDesktopSessionToken("startup");
@@ -2882,7 +2814,7 @@ const createWindow = async (): Promise<void> => {
         isDesktopStructuredError(error) &&
         (error.code === "DESKTOP_TRAVEL_TOKEN_REQUIRED" || error.code === "DESKTOP_TRAVEL_TOKEN_INVALID")
       ) {
-        await clearDesktopAuthCookies();
+        await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
         clearDesktopSessionState(true);
       }
       debugDesktopWarn(
