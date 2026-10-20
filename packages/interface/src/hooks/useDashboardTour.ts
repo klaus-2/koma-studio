@@ -291,17 +291,17 @@ const renderPreviewMarkup = (
     case 'pipeline':
       return `
         <div class="koma-tour-preview koma-tour-preview--pipeline" aria-hidden="true">
-          <span>Detectar</span>
+          <span>${escapeHtml(t('aio.stage.detectText'))}</span>
           <i></i>
-          <span>OCR</span>
+          <span>${escapeHtml(t('aio.stage.recognizeText'))}</span>
           <i></i>
-          <span>Traduzir</span>
+          <span>${escapeHtml(t('aio.stage.getTranslations'))}</span>
           <i></i>
-          <span>Segmentar</span>
+          <span>${escapeHtml(t('aio.stage.segmentText'))}</span>
           <i></i>
-          <span>Limpar</span>
+          <span>${escapeHtml(t('aio.stage.cleanImage'))}</span>
           <i></i>
-          <span>Render</span>
+          <span>${escapeHtml(t('aio.stage.render'))}</span>
         </div>
       `;
     case 'config':
@@ -395,6 +395,7 @@ export const useDashboardTour = ({
   const persistIntentRef = useRef<DashboardTourStatus | 'restart' | null>(null);
   const snapshotRef = useRef<DashboardTourSnapshot | null>(null);
   const mountedRef = useRef(true);
+  const navigatingRef = useRef(false);
   const latestStateRef = useRef<DashboardTourSnapshot>({
     mode,
     subMode,
@@ -654,9 +655,15 @@ export const useDashboardTour = ({
 
   const navigateToStep = useCallback(
     async (currentDriver: Driver, targetIndex: number, direction: 1 | -1) => {
+      // Re-entry guard: double-click races could stack prepare() calls.
+      if (navigatingRef.current) {
+        return;
+      }
+
       const currentSteps = stepsRef.current;
 
       if (targetIndex < 0) {
+        currentDriver.moveTo(0);
         return;
       }
 
@@ -667,18 +674,34 @@ export const useDashboardTour = ({
         return;
       }
 
+      if (!currentDriver.isActive()) {
+        return;
+      }
+
       const nextStep = currentSteps[targetIndex];
       if (!nextStep) return;
-      await nextStep.prepare?.();
+
+      navigatingRef.current = true;
+      try {
+        await nextStep.prepare?.();
+      } catch {
+        return;
+      } finally {
+        navigatingRef.current = false;
+      }
+
+      if (!currentDriver.isActive()) {
+        return;
+      }
 
       if (nextStep.selector) {
         const element = await waitForVisibleElement(nextStep.selector);
         if (!element) {
-          await navigateToStep(
-            currentDriver,
-            targetIndex + direction,
-            direction,
-          );
+          // Only skip when still inside bounds — do not close the tour.
+          const skipIndex = targetIndex + direction;
+          if (skipIndex >= 0 && skipIndex < currentSteps.length) {
+            await navigateToStep(currentDriver, skipIndex, direction);
+          }
           return;
         }
       }
@@ -688,8 +711,6 @@ export const useDashboardTour = ({
       }
 
       currentDriver.moveTo(targetIndex);
-      await waitForNextPaint();
-      currentDriver.refresh();
     },
     [],
   );
