@@ -10,19 +10,7 @@ import { useI18n } from '../../../i18n';
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import {
-  TRANSLATION_MODELS_BY_ID,
-  modelSupportsLanguage,
-} from '../../../models/translation-models-registry';
-import {
   type CustomLlmProfile,
-  getCustomLlmRuntimeRestriction,
-  hasAnyLlmCapability,
-  inferLlmCapabilitiesForModelSelection,
-  isCustomModelSelectionKey,
-  isCloudOcrModelKey,
-  isCloudTranslationModelKey,
-  requiresCustomLlmApiKey,
-  shouldUseLocalDesktopTranslationForCustomProfile,
   toCustomLlmRequestPayload,
 } from '../../../utils/customLlm';
 import {
@@ -30,7 +18,10 @@ import {
 } from '../../../utils/dashboard.utils';
 import {
   mergeTranslationIntoRegions,
+  resolveGetTranslationsReadiness,
+  resolveRecognizeTextReadiness,
   toTranslateRegionsJson,
+  type StageReadiness,
 } from '../../../aio-stages';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import { buildSfxTranslationInstructions } from '../../../utils/sfx';
@@ -85,67 +76,47 @@ export function useTranslatorExecutionResolvers({
   const srcLang = useTranslatorStore((s) => s.srcLang);
   const tgtLang = useTranslatorStore((s) => s.tgtLang);
 
-  const resolveTranslatorTranslationExecution = useCallback(async () => {
-    let selectedTranslationKey = translationSelectionKey;
+  const ensureLocalModelReady = validateManualLocalStageModel;
+  const throwReadinessRefusal = (
+    readiness: Extract<StageReadiness, { ok: false }>,
+  ): never => {
+    throw new Error(
+      readiness.message
+      || t('translator.installCompatibleOcrModel'),
+    );
+  };
 
-    const selectedLocalModelState = modelEntries[selectedTranslationKey] ?? null;
+  const resolveTranslatorTranslationExecution = useCallback(async () => {
+    const selectedTranslationKey = translationSelectionKey;
     const selectedTranslationOption = translationStageOptionsForSelect.find(
       (option) => option.key === selectedTranslationKey,
     ) ?? null;
 
-    if (selectedLocalModelState) {
-      const selectedModelInstalled =
-        selectedLocalModelState.status === 'installed'
-        || selectedLocalModelState.status === 'update_available';
-      if (!selectedModelInstalled) {
-        throw new Error(t('aioExec.installTranslationModel'));
-      }
-      const modelDefinition = TRANSLATION_MODELS_BY_ID[selectedLocalModelState.model.id] ?? null;
-      if (modelDefinition && !modelSupportsLanguage(modelDefinition, srcLang, tgtLang)) {
-        throw new Error(t('translator.localModelIncompatible'));
-      }
-    } else {
-      if (!selectedTranslationOption) {
-        throw new Error(t('translator.selectValidTranslationModel'));
-      }
-      if (!selectedTranslationOption.implemented) {
-        throw new Error(t('aioModel.status.inRoadmap', { name: selectedTranslationOption.name }));
-      }
-      if (!selectedTranslationOption.available) {
-        throw new Error(t('aioModel.status.requiresConfig', { name: selectedTranslationOption.name }));
-      }
-      if (isCustomModelSelectionKey(selectedTranslationKey) && !selectedCustomTranslationProfile) {
-        throw new Error(t('translator.selectCustomAiTranslationProfile'));
-      }
-      if (
-        isCustomModelSelectionKey(selectedTranslationKey)
-        && selectedCustomTranslationProfile
-        && requiresCustomLlmApiKey(selectedCustomTranslationProfile.apiBase)
-        && !selectedCustomTranslationProfile.apiKey.trim()
-      ) {
-        throw new Error(t('aioExec.translationRequiresApiKey'));
-      }
-      if (isCustomModelSelectionKey(selectedTranslationKey) && selectedCustomTranslationProfile) {
-        const runtimeRestriction = getCustomLlmRuntimeRestriction(selectedCustomTranslationProfile.apiBase);
-        if (runtimeRestriction) {
-          throw new Error(runtimeRestriction);
-        }
-      }
+    const readiness = resolveGetTranslationsReadiness({
+      modelKey: selectedTranslationKey,
+      options: translationStageOptionsForSelect,
+      modelEntries,
+      customProfile: selectedCustomTranslationProfile,
+      sourceLanguage: srcLang,
+      targetLanguage: tgtLang,
+      messages: {
+        invalidSelection: t('translator.selectValidTranslationModel'),
+        selectCustomProfile: t('translator.selectCustomAiTranslationProfile'),
+        requiresApiKey: t('aioExec.translationRequiresApiKey'),
+        installTranslationModel: t('aioExec.installTranslationModel'),
+        incompatibleLanguage: t('translator.localModelIncompatible'),
+      },
+      t,
+    });
+    if (!readiness.ok) {
+      return throwReadinessRefusal(readiness);
     }
-
-    const useCloudTranslation = isCustomModelSelectionKey(selectedTranslationKey)
-      ? !shouldUseLocalDesktopTranslationForCustomProfile(selectedCustomTranslationProfile)
-      : isCloudTranslationModelKey(selectedTranslationKey);
-    const useLlmSettingsForTranslation = (useCloudTranslation || isCustomModelSelectionKey(selectedTranslationKey)) && hasAnyLlmCapability(
-      selectedTranslationOption?.llm_capabilities
-      ?? inferLlmCapabilitiesForModelSelection('translation', selectedTranslationKey),
-    );
 
     return {
       selectedTranslationKey,
       selectedTranslationOption,
-      useCloudTranslation,
-      useLlmSettingsForTranslation,
+      useCloudTranslation: readiness.useCloud,
+      useLlmSettingsForTranslation: readiness.useLlmSettings,
     };
   }, [
     modelEntries,
@@ -158,61 +129,43 @@ export function useTranslatorExecutionResolvers({
   ]);
 
   const resolveTranslatorOcrExecution = useCallback(async () => {
-    let selectedOcrKey = ocrSelectionKey;
-
+    const selectedOcrKey = ocrSelectionKey;
     const selectedOcrOption = translatorOcrStageOptionsForSelect.find(
       (option) => option.key === selectedOcrKey,
     ) ?? null;
 
-    if (modelEntries[selectedOcrKey]) {
-      if (!selectedOcrOption) {
-        throw new Error(t('translator.localOcrModelIncompatible'));
-      }
-      if (!validateManualLocalStageModel('recognizeText', AIO_STAGE_LABELS.recognizeText, selectedOcrKey)) {
-        throw new Error(t('translator.installCompatibleOcrModel'));
-      }
-    } else {
-      if (!selectedOcrOption) {
-        throw new Error(t('translator.selectValidOcrModel'));
-      }
-      if (!selectedOcrOption.implemented) {
-        throw new Error(t('aioModel.status.inRoadmap', { name: selectedOcrOption.name }));
-      }
-      if (!selectedOcrOption.available) {
-        throw new Error(t('aioModel.status.requiresConfig', { name: selectedOcrOption.name }));
-      }
-      if (isCustomModelSelectionKey(selectedOcrKey) && !selectedCustomOcrProfile) {
-        throw new Error(t('aioExec.selectCustomOcrProfile'));
-      }
-      if (
-        isCustomModelSelectionKey(selectedOcrKey)
-        && selectedCustomOcrProfile
-        && requiresCustomLlmApiKey(selectedCustomOcrProfile.apiBase)
-        && !selectedCustomOcrProfile.apiKey.trim()
-      ) {
-        throw new Error(t('aioExec.ocrRequiresApiKey'));
-      }
+    const readiness = resolveRecognizeTextReadiness({
+      modelKey: selectedOcrKey,
+      stageLabel: AIO_STAGE_LABELS.recognizeText,
+      options: translatorOcrStageOptionsForSelect,
+      modelEntries,
+      customProfile: selectedCustomOcrProfile,
+      ensureLocalModelReady,
+      requireOptionWithLocal: true,
+      messages: {
+        invalidSelection: t('translator.selectValidOcrModel'),
+        selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
+        requiresApiKey: t('aioExec.ocrRequiresApiKey'),
+      },
+      t,
+    });
+    if (!readiness.ok) {
+      return throwReadinessRefusal(readiness);
     }
-
-    const useCloudOcr = isCloudOcrModelKey(selectedOcrKey);
-    const useLlmSettingsForOcr = useCloudOcr && hasAnyLlmCapability(
-      selectedOcrOption?.llm_capabilities
-      ?? inferLlmCapabilitiesForModelSelection('ocr', selectedOcrKey),
-    );
 
     return {
       selectedOcrKey,
       selectedOcrOption,
-      useCloudOcr,
-      useLlmSettingsForOcr,
+      useCloudOcr: readiness.useCloud,
+      useLlmSettingsForOcr: readiness.useLlmSettings,
     };
   }, [
+    ensureLocalModelReady,
     modelEntries,
     ocrSelectionKey,
     selectedCustomOcrProfile,
     t,
     translatorOcrStageOptionsForSelect,
-    validateManualLocalStageModel,
   ]);
 
   return {

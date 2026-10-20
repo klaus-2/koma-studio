@@ -45,7 +45,6 @@ interface UseAioManualExecutionArgs
     | 'syncDiscordForTab'
     | 'localApiUrl'
     | 'modelEntries'
-    | 'compatibleTranslationModelIds'
     | 'selectedCustomOcrProfile'
     | 'selectedCustomTranslationProfile'
   > {
@@ -197,7 +196,6 @@ export function useAioManualExecution(args: UseAioManualExecutionArgs) {
     renderDefaultStyle: args.renderDefaultStyle,
     localApiUrl: args.localApiUrl,
     modelEntries: args.modelEntries,
-    compatibleTranslationModelIds: args.compatibleTranslationModelIds,
     selectedCustomOcrProfile: args.selectedCustomOcrProfile,
     selectedCustomTranslationProfile: args.selectedCustomTranslationProfile,
     validateManualLocalStageModel: validateStageModel,

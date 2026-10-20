@@ -1,9 +1,12 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import {
+  resolveLocalStageModelReadiness,
+  resolveRecognizeTextReadiness,
   runCleanImageStage,
   runDetectTextStage,
   runRecognizeTextStage,
   runSegmentTextStage,
+  type StageReadiness,
   type StageRunNotice,
 } from '../../../aio-stages';
 import {
@@ -12,13 +15,6 @@ import {
   cloneAioRegions,
   cloneRenderStyle,
 } from '../../../utils/dashboard.utils';
-import {
-  hasAnyLlmCapability,
-  inferLlmCapabilitiesForModelSelection,
-  isCustomModelSelectionKey,
-  isCloudOcrModelKey,
-  requiresCustomLlmApiKey,
-} from '../../../utils/customLlm';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
 import { useCleanerStore } from '../stores/cleaner-store';
 import type {
@@ -78,50 +74,70 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
   let selectedOcrKey = ocrSelectionKey;
   const selectedSegmentKey = segmentSelectionKey;
   const selectedCleanKey = cleanSelectionKey;
-  const selectedOcrOption = getAioStageOption('recognizeText', selectedOcrKey);
-  const useCloudOcr = isCloudOcrModelKey(selectedOcrKey);
-  const useLlmSettingsForOcr = useCloudOcr && hasAnyLlmCapability(
-    selectedOcrOption?.llm_capabilities ?? inferLlmCapabilitiesForModelSelection('ocr', selectedOcrKey),
-  );
+  const ensureLocalModelReady = validateManualLocalStageModel;
+  const applyReadinessRefusal = (
+    readiness: Extract<StageReadiness, { ok: false }>,
+  ): void => {
+    if (readiness.kind === 'local_not_ready') {
+      return;
+    }
+    setStatusMessage(readiness.message);
+  };
 
-  if (!validateManualLocalStageModel('detectText', AIO_STAGE_LABELS.detectText, selectedDetectorKey)) {
+  const detectReadiness = resolveLocalStageModelReadiness({
+    stage: 'detectText',
+    stageLabel: AIO_STAGE_LABELS.detectText,
+    modelKey: selectedDetectorKey,
+    ensureLocalModelReady,
+    invalidSelection: t('aioManual.selectValidDetectModel'),
+  });
+  if (!detectReadiness.ok) {
+    applyReadinessRefusal(detectReadiness);
     return;
   }
-  if (modelEntries[selectedOcrKey]) {
-    if (!validateManualLocalStageModel('recognizeText', AIO_STAGE_LABELS.recognizeText, selectedOcrKey)) {
-      return;
-    }
-  } else {
-    if (!selectedOcrOption) {
-      setStatusMessage(t('cleanerActions.selectValidOcrModel'));
-      return;
-    }
-    if (!selectedOcrOption.implemented) {
-      setStatusMessage(t('aioModel.status.inRoadmap', { name: selectedOcrOption.name }));
-      return;
-    }
-    if (!selectedOcrOption.available) {
-      setStatusMessage(t('aioModel.status.requiresConfig', { name: selectedOcrOption.name }));
-      return;
-    }
-    if (isCustomModelSelectionKey(selectedOcrKey) && !selectedCustomOcrProfile) {
-      setStatusMessage('Select or save a Custom AI OCR profile before running the Cleaner.');
-      return;
-    }
-    if (
-      isCustomModelSelectionKey(selectedOcrKey)
-      && selectedCustomOcrProfile
-      && requiresCustomLlmApiKey(selectedCustomOcrProfile.apiBase)
-      && !selectedCustomOcrProfile.apiKey.trim()
-    ) {
-      setStatusMessage('This OCR provider requires an API key. Configure the key before running.');
-      return;
-    }
-  }
-  if (!validateManualLocalStageModel('segmentText', AIO_STAGE_LABELS.segmentText, selectedSegmentKey)) {
+
+  const ocrReadiness = resolveRecognizeTextReadiness({
+    modelKey: selectedOcrKey,
+    stageLabel: AIO_STAGE_LABELS.recognizeText,
+    options: [
+      getAioStageOption('recognizeText', selectedOcrKey),
+    ].filter((option): option is NonNullable<typeof option> => option !== null),
+    modelEntries,
+    customProfile: selectedCustomOcrProfile,
+    ensureLocalModelReady,
+    messages: {
+      invalidSelection: t('cleanerActions.selectValidOcrModel'),
+      selectCustomProfile: 'Select or save a Custom AI OCR profile before running the Cleaner.',
+      requiresApiKey: 'This OCR provider requires an API key. Configure the key before running.',
+    },
+    t,
+  });
+  if (!ocrReadiness.ok) {
+    applyReadinessRefusal(ocrReadiness);
     return;
   }
-  if (!validateManualLocalStageModel('cleanImage', AIO_STAGE_LABELS.cleanImage, selectedCleanKey)) {
+  const useLlmSettingsForOcr = ocrReadiness.useLlmSettings;
+
+  const segmentReadiness = resolveLocalStageModelReadiness({
+    stage: 'segmentText',
+    stageLabel: AIO_STAGE_LABELS.segmentText,
+    modelKey: selectedSegmentKey,
+    ensureLocalModelReady,
+    invalidSelection: t('aioManual.selectValidSegmentModel'),
+  });
+  if (!segmentReadiness.ok) {
+    applyReadinessRefusal(segmentReadiness);
+    return;
+  }
+  const cleanReadiness = resolveLocalStageModelReadiness({
+    stage: 'cleanImage',
+    stageLabel: AIO_STAGE_LABELS.cleanImage,
+    modelKey: selectedCleanKey,
+    ensureLocalModelReady,
+    invalidSelection: t('aioManual.selectValidCleanModel'),
+  });
+  if (!cleanReadiness.ok) {
+    applyReadinessRefusal(cleanReadiness);
     return;
   }
 
@@ -192,7 +208,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
               sourceLanguage,
               regions: detectDetections,
               llmSettings: useLlmSettingsForOcr ? llmSettings : null,
-              customProfile: useLlmSettingsForOcr ? selectedCustomOcrProfile : null,
+              customProfile: useLlmSettingsForOcr ? ocrReadiness.customProfile : null,
             },
             stageRuntime,
             {

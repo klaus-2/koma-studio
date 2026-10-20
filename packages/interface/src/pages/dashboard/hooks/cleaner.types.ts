@@ -43,7 +43,7 @@ export interface UseCleanerActionsArgs {
   hdCropTriggerSize: number;
   effectiveBatchConcurrency: number;
   minRegionSize: number;
-  modelEntries: Record<string, unknown>;
+  modelEntries: Record<string, { status: string; model: { id: string; name: string } } | null | undefined>;
   selectedCustomOcrProfile: CustomProfileLike | null;
   discord: DiscordLike;
   ensureVerifiedEmailOrNotify: () => boolean;

@@ -1,19 +1,16 @@
 import { useCallback } from 'react';
 
 import { useI18n } from '../i18n';
+import {
+  resolveGetTranslationsReadiness,
+  resolveLocalStageModelReadiness,
+  resolveRecognizeTextReadiness,
+  type EnsureLocalModelReady,
+  type StageReadiness,
+} from '../aio-stages';
 import type { AioStageKey } from '../types/aioModelPresets';
 import type { AioStageOption } from '../models/aioStageCatalog';
-import {
-  type CustomLlmProfile,
-  inferLlmCapabilitiesForModelSelection,
-  hasAnyLlmCapability,
-  isCustomModelSelectionKey,
-  isCloudOcrModelKey,
-  isCloudTranslationModelKey,
-  requiresCustomLlmApiKey,
-  shouldUseLocalDesktopTranslationForCustomProfile,
-  getCustomLlmRuntimeRestriction,
-} from '../utils/customLlm';
+import type { CustomLlmProfile } from '../utils/customLlm';
 
 interface ModelEntryLike {
   status: string;
@@ -27,6 +24,7 @@ interface UseAioExecutionPreparationArgs {
   imagesCount: number;
   aioSteps: Record<string, boolean>;
   aioSrcLang: string;
+  aioTgtLang: string;
   detectSelectionKey: string;
   ocrSelectionKey: string;
   translationSelectionKey: string;
@@ -34,7 +32,6 @@ interface UseAioExecutionPreparationArgs {
   cleanSelectionKey: string;
   effectiveBatchConcurrency: number;
   modelEntries: Record<string, ModelEntryLike | undefined>;
-  compatibleTranslationModelIds: Set<string>;
   selectedCustomOcrProfile: CustomLlmProfile | null;
   selectedCustomTranslationProfile: CustomLlmProfile | null;
   getAioStageOption: (stageKey: 'recognizeText' | 'getTranslations', key: string) => AioStageOption | null;
@@ -55,6 +52,7 @@ export function useAioExecutionPreparation({
   imagesCount,
   aioSteps,
   aioSrcLang,
+  aioTgtLang,
   detectSelectionKey,
   ocrSelectionKey,
   translationSelectionKey,
@@ -62,7 +60,6 @@ export function useAioExecutionPreparation({
   cleanSelectionKey,
   effectiveBatchConcurrency,
   modelEntries,
-  compatibleTranslationModelIds,
   selectedCustomOcrProfile,
   selectedCustomTranslationProfile,
   getAioStageOption,
@@ -87,147 +84,175 @@ export function useAioExecutionPreparation({
       return null;
     }
 
-    let selectedDetectorKey = detectSelectionKey;
-    let selectedOcrKey = ocrSelectionKey;
-    let selectedTranslationKey = translationSelectionKey;
+    const selectedDetectorKey = detectSelectionKey;
+    const selectedOcrKey = ocrSelectionKey;
+    const selectedTranslationKey = translationSelectionKey;
     const selectedSegmentKey = segmentSelectionKey;
     const selectedCleanKey = cleanSelectionKey;
 
     const selectedOcrOption = getAioStageOption('recognizeText', selectedOcrKey);
     const selectedTranslationOption = getAioStageOption('getTranslations', selectedTranslationKey);
-    const useCloudOcr = aioSteps.recognizeText && isCloudOcrModelKey(selectedOcrKey);
-    const useCloudTranslation = aioSteps.getTranslations && (
-      isCustomModelSelectionKey(selectedTranslationKey)
-        ? !shouldUseLocalDesktopTranslationForCustomProfile(selectedCustomTranslationProfile)
-        : isCloudTranslationModelKey(selectedTranslationKey)
-    );
-    const useLocalBatchPipeline = !(useCloudOcr || useCloudTranslation);
-    const useLlmSettingsForOcr = useCloudOcr && hasAnyLlmCapability(
-      selectedOcrOption?.llm_capabilities ?? inferLlmCapabilitiesForModelSelection('ocr', selectedOcrKey),
-    );
-    const useLlmSettingsForTranslation = (useCloudTranslation || isCustomModelSelectionKey(selectedTranslationKey)) && hasAnyLlmCapability(
-      selectedTranslationOption?.llm_capabilities
-      ?? inferLlmCapabilitiesForModelSelection('translation', selectedTranslationKey),
-    );
 
-    const validateLocalStageModel = (
-      stage: AioStageKey,
-      stageLabel: string,
-      selectedKey: string,
-      enabled: boolean,
-    ): boolean => {
-      if (!enabled) return true;
+    const ensureLocalModelReady: EnsureLocalModelReady = (
+      stage,
+      stageLabel,
+      selectedKey,
+    ) => {
       const localEntry = modelEntries[selectedKey];
       if (!localEntry) {
         setStatusMessage(t('aioExec.selectAndInstallStage', { stageLabel }));
-        const focusedModelId = resolveLocalModelFocusForStage(stage as Exclude<AioStageKey, 'getTranslations'>, selectedKey);
+        const focusedModelId = resolveLocalModelFocusForStage(
+          stage,
+          selectedKey,
+        );
         openModelManagerForStage(stage, { focusedModelId });
         return false;
       }
-      const installed = localEntry.status === 'installed' || localEntry.status === 'update_available';
+      const installed =
+        localEntry.status === 'installed'
+        || localEntry.status === 'update_available';
       if (!installed) {
-        setStatusMessage(t('aioExec.installBeforeStage', { name: localEntry.model.name, stageLabel }));
-        openModelManagerForStage(stage, { focusedModelId: localEntry.model.id });
+        setStatusMessage(
+          t('aioExec.installBeforeStage', {
+            name: localEntry.model.name,
+            stageLabel,
+          }),
+        );
+        openModelManagerForStage(stage, {
+          focusedModelId: localEntry.model.id,
+        });
         return false;
       }
       return true;
     };
 
-    if (!validateLocalStageModel('detectText', 'Detectar Texto', selectedDetectorKey, true)) {
+    const applyReadinessRefusal = (
+      readiness: Extract<StageReadiness, { ok: false }>,
+    ): void => {
+      if (readiness.kind === 'local_not_ready') {
+        return;
+      }
+      setStatusMessage(readiness.message);
+    };
+
+    const detectReadiness = resolveLocalStageModelReadiness({
+      stage: 'detectText',
+      stageLabel: 'Detectar Texto',
+      modelKey: selectedDetectorKey,
+      ensureLocalModelReady,
+      invalidSelection: t('aioManual.selectValidDetectModel'),
+    });
+    if (!detectReadiness.ok) {
+      applyReadinessRefusal(detectReadiness);
       return null;
     }
 
+    let useCloudOcr = false;
+    let useLlmSettingsForOcr = false;
     if (aioSteps.recognizeText) {
-      if (modelEntries[selectedOcrKey]) {
-        if (!validateLocalStageModel('recognizeText', 'Reconhecer Texto', selectedOcrKey, true)) {
-          return null;
-        }
-      } else {
-        if (!selectedOcrOption) {
-          setStatusMessage(t('aioExec.selectValidOcrModel'));
-          return null;
-        }
-        if (!selectedOcrOption.implemented) {
-          setStatusMessage(t('aioModel.status.inRoadmap', { name: selectedOcrOption.name }));
-          return null;
-        }
-        if (!selectedOcrOption.available) {
-          setStatusMessage(t('aioModel.status.requiresConfig', { name: selectedOcrOption.name }));
-          return null;
-        }
-        if (isCustomModelSelectionKey(selectedOcrKey) && !selectedCustomOcrProfile) {
-          setStatusMessage(t('aioExec.selectCustomOcrProfile'));
-          return null;
-        }
-        if (
-          isCustomModelSelectionKey(selectedOcrKey)
-          && selectedCustomOcrProfile
-          && requiresCustomLlmApiKey(selectedCustomOcrProfile.apiBase)
-          && !selectedCustomOcrProfile.apiKey.trim()
-        ) {
-          setStatusMessage(t('aioExec.ocrRequiresApiKey'));
-          return null;
-        }
+      const ocrReadiness = resolveRecognizeTextReadiness({
+        modelKey: selectedOcrKey,
+        stageLabel: 'Reconhecer Texto',
+        options: [selectedOcrOption].filter(
+          (option): option is AioStageOption => option !== null,
+        ),
+        modelEntries,
+        customProfile: selectedCustomOcrProfile,
+        ensureLocalModelReady,
+        messages: {
+          invalidSelection: t('aioExec.selectValidOcrModel'),
+          selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
+          requiresApiKey: t('aioExec.ocrRequiresApiKey'),
+        },
+        t,
+      });
+      if (!ocrReadiness.ok) {
+        applyReadinessRefusal(ocrReadiness);
+        return null;
+      }
+      useCloudOcr = ocrReadiness.useCloud;
+      useLlmSettingsForOcr = ocrReadiness.useLlmSettings;
+    }
+
+    if (aioSteps.segmentText) {
+      const segmentReadiness = resolveLocalStageModelReadiness({
+        stage: 'segmentText',
+        stageLabel: 'Segmentar Texto',
+        modelKey: selectedSegmentKey,
+        ensureLocalModelReady,
+        invalidSelection: t('aioManual.selectValidSegmentModel'),
+      });
+      if (!segmentReadiness.ok) {
+        applyReadinessRefusal(segmentReadiness);
+        return null;
+      }
+    }
+    if (aioSteps.cleanImage) {
+      const cleanReadiness = resolveLocalStageModelReadiness({
+        stage: 'cleanImage',
+        stageLabel: 'Clean Image',
+        modelKey: selectedCleanKey,
+        ensureLocalModelReady,
+        invalidSelection: t('aioManual.selectValidCleanModel'),
+      });
+      if (!cleanReadiness.ok) {
+        applyReadinessRefusal(cleanReadiness);
+        return null;
       }
     }
 
-    if (!validateLocalStageModel('segmentText', 'Segmentar Texto', selectedSegmentKey, Boolean(aioSteps.segmentText))) {
-      return null;
-    }
-    if (!validateLocalStageModel('cleanImage', 'Clean Image', selectedCleanKey, Boolean(aioSteps.cleanImage))) {
-      return null;
-    }
-
+    let useCloudTranslation = false;
+    let useLlmSettingsForTranslation = false;
     if (aioSteps.getTranslations) {
-      const selectedLocalModelState = modelEntries[selectedTranslationKey];
-      if (selectedLocalModelState) {
-        const selectedModelInstalled =
-          selectedLocalModelState.status === 'installed'
-          || selectedLocalModelState.status === 'update_available';
-        if (!selectedModelInstalled) {
+      const translationReadiness = resolveGetTranslationsReadiness({
+        modelKey: selectedTranslationKey,
+        options: [selectedTranslationOption].filter(
+          (option): option is AioStageOption => option !== null,
+        ),
+        modelEntries,
+        customProfile: selectedCustomTranslationProfile,
+        sourceLanguage: aioSrcLang,
+        targetLanguage: aioTgtLang,
+        messages: {
+          invalidSelection: t('aioExec.selectValidTranslation'),
+          selectCustomProfile: t('aioExec.selectCustomAiProfile'),
+          requiresApiKey: t('aioExec.translationRequiresApiKey'),
+          installTranslationModel: t('aioExec.installTranslationModel'),
+          incompatibleLanguage: t('aioExec.translationModelIncompatible', {
+            modelName: modelEntries[selectedTranslationKey]?.model.name
+              ?? selectedTranslationKey,
+          }),
+        },
+        t,
+      });
+      if (!translationReadiness.ok) {
+        if (translationReadiness.kind === 'install_translation_model') {
           setStatusMessage(t('aioExec.installTranslationModel'));
-          openModelManagerForStage('getTranslations', { language: aioSrcLang, focusedModelId: selectedTranslationKey || null });
+          openModelManagerForStage('getTranslations', {
+            language: aioSrcLang,
+            focusedModelId: selectedTranslationKey || null,
+          });
           return null;
         }
-        if (!compatibleTranslationModelIds.has(selectedLocalModelState.model.id)) {
-          setStatusMessage(t('aioExec.translationModelIncompatible', { modelName: selectedLocalModelState.model.name }));
+        if (translationReadiness.kind === 'incompatible_language') {
+          setStatusMessage(
+            t('aioExec.translationModelIncompatible', {
+              modelName:
+                translationReadiness.name
+                ?? modelEntries[selectedTranslationKey]?.model.name
+                ?? selectedTranslationKey,
+            }),
+          );
           return null;
         }
-      } else {
-        if (!selectedTranslationOption) {
-          setStatusMessage(t('aioExec.selectValidTranslation'));
-          return null;
-        }
-        if (!selectedTranslationOption.implemented) {
-          setStatusMessage(t('aioModel.status.inRoadmap', { name: selectedTranslationOption.name }));
-          return null;
-        }
-        if (!selectedTranslationOption.available) {
-          setStatusMessage(t('aioModel.status.requiresConfig', { name: selectedTranslationOption.name }));
-          return null;
-        }
-        if (isCustomModelSelectionKey(selectedTranslationKey) && !selectedCustomTranslationProfile) {
-          setStatusMessage(t('aioExec.selectCustomAiProfile'));
-          return null;
-        }
-        if (
-          isCustomModelSelectionKey(selectedTranslationKey)
-          && selectedCustomTranslationProfile
-          && requiresCustomLlmApiKey(selectedCustomTranslationProfile.apiBase)
-          && !selectedCustomTranslationProfile.apiKey.trim()
-        ) {
-          setStatusMessage(t('aioExec.translationRequiresApiKey'));
-          return null;
-        }
-        if (isCustomModelSelectionKey(selectedTranslationKey) && selectedCustomTranslationProfile) {
-          const runtimeRestriction = getCustomLlmRuntimeRestriction(selectedCustomTranslationProfile.apiBase);
-          if (runtimeRestriction) {
-            setStatusMessage(runtimeRestriction);
-            return null;
-          }
-        }
+        applyReadinessRefusal(translationReadiness);
+        return null;
       }
+      useCloudTranslation = translationReadiness.useCloud;
+      useLlmSettingsForTranslation = translationReadiness.useLlmSettings;
     }
+
+    const useLocalBatchPipeline = !(useCloudOcr || useCloudTranslation);
 
     if (useCloudOcr || useCloudTranslation) {
       const sessionToken = (await refreshSession()) ?? getAuthToken();
@@ -276,9 +301,9 @@ export function useAioExecutionPreparation({
     };
   }, [
     aioSrcLang,
+    aioTgtLang,
     aioSteps,
     cleanSelectionKey,
-    compatibleTranslationModelIds,
     detectSelectionKey,
     effectiveBatchConcurrency,
     emitProcessStartWebhook,

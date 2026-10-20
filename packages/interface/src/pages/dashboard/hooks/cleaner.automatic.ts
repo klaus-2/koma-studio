@@ -1,5 +1,10 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
-import { runDetectTextStage, toStructuralRegionsJson } from '../../../aio-stages';
+import {
+  resolveCleanerAiProfileReadiness,
+  resolveLocalStageModelReadiness,
+  runDetectTextStage,
+  toStructuralRegionsJson,
+} from '../../../aio-stages';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   blobToDataUrl,
@@ -7,10 +12,6 @@ import {
   cloneAioRegions,
   cloneRenderStyle,
 } from '../../../utils/dashboard.utils';
-import {
-  normalizeKnownCustomLlmApiBase,
-  requiresCustomLlmApiKey,
-} from '../../../utils/customLlm';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
 import {
   applySfxDecisionsToRegions,
@@ -69,48 +70,35 @@ export async function runAutomaticCleanerWorkflow(
   const normalizedCleanerAiInstructions = cleanerAiAdditionalInstructions.trim();
 
   if (isAutomaticAiMode || isAiSfxMode) {
-    if (
-      !validateManualLocalStageModel(
-        'detectText',
-        AIO_STAGE_LABELS.detectText,
-        detectSelectionKey,
-      )
-    ) {
+    const detectReadiness = resolveLocalStageModelReadiness({
+      stage: 'detectText',
+      stageLabel: AIO_STAGE_LABELS.detectText,
+      modelKey: detectSelectionKey,
+      ensureLocalModelReady: validateManualLocalStageModel,
+      invalidSelection: t('aioManual.selectValidDetectModel'),
+    });
+    if (!detectReadiness.ok) {
+      if (detectReadiness.kind !== 'local_not_ready' && detectReadiness.message) {
+        setStatusMessage(detectReadiness.message);
+      }
       return;
     }
 
-    const normalizedCustomApiBase = normalizeKnownCustomLlmApiBase(
-      selectedCleanerCustomProfile?.apiBase ?? '',
-    );
-    const normalizedCustomModel = selectedCleanerCustomProfile?.model?.trim() ?? '';
-    const normalizedCustomApiKey = selectedCleanerCustomProfile?.apiKey.trim() ?? '';
-    const customCleanerPayload = isCustomCleanerAi
-      ? {
-        api_base: normalizedCustomApiBase,
-        model: normalizedCustomModel,
-        ...(normalizedCustomApiKey
-          ? { api_key: normalizedCustomApiKey }
-          : {}),
-      }
-      : null;
-
-    if (isCustomCleanerAi) {
-      if (!normalizedCustomApiBase || !normalizedCustomModel) {
-        setStatusMessage(
+    const cleanerAiReadiness = resolveCleanerAiProfileReadiness({
+      isCustomCleanerAi,
+      profile: selectedCleanerCustomProfile,
+      messages: {
+        incomplete:
           'Fill in API Base and Model before running Automatic AI Clean with AI Custom.',
-        );
-        return;
-      }
-      if (
-        requiresCustomLlmApiKey(normalizedCustomApiBase)
-        && !normalizedCustomApiKey
-      ) {
-        setStatusMessage(
+        requiresApiKey:
           'This AI Custom provider requires an API key for Automatic AI Clean.',
-        );
-        return;
-      }
+      },
+    });
+    if (!cleanerAiReadiness.ok) {
+      setStatusMessage(cleanerAiReadiness.message);
+      return;
     }
+    const customCleanerPayload = cleanerAiReadiness.customPayload;
 
     setCleanerManualImageEditsByImage({});
     setCleanerHealingBusyByImage({});

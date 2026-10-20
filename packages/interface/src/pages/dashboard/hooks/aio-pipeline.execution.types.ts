@@ -17,7 +17,6 @@ export interface UseAioPipelineExecutionArgs
       PreparationArgs,
       | 'effectiveBatchConcurrency'
       | 'modelEntries'
-      | 'compatibleTranslationModelIds'
       | 'selectedCustomOcrProfile'
       | 'selectedCustomTranslationProfile'
       | 'getAioStageOption'

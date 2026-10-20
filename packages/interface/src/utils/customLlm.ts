@@ -401,7 +401,7 @@ export const getCustomLlmRuntimeRestriction = (apiBase: string): string | null =
 };
 
 export const shouldUseLocalDesktopTranslationForCustomProfile = (
-  profile: CustomLlmProfile | null | undefined,
+  profile: { apiBase: string } | null | undefined,
 ): boolean => Boolean(profile && isLocalCustomLlmApiBase(profile.apiBase) && isDesktopRuntime());
 
 const buildCustomLlmApiKeyError = (apiBase: string): string => {

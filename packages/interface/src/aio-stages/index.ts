@@ -3,6 +3,7 @@ export * from './detectText';
 export * from './getTranslations';
 export * from './merge';
 export * from './payloads';
+export * from './readiness';
 export * from './recognizeText';
 export * from './segmentText';
 export * from './transport';
