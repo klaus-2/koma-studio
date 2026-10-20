@@ -30,6 +30,24 @@ export function toTranslateRegionsJson(
       source: region.source,
       detector_model_key: region.detectorModelKey ?? region.modelKey,
       ocr_model_key: region.ocrModelKey ?? fallbackOcrModelKey,
+      detected_render_mode: region.detectedRenderMode ?? '',
+      structural_type: region.structuralType ?? '',
+      sfx_requires_redraw: region.sfxRequiresRedraw ?? false,
+    })),
+  );
+}
+
+/** Structural-region payload for /clean/ai and /sfx/* (score + structure fields). */
+export function toStructuralRegionsJson(regions: readonly AioTextRegion[], image: StageImageRef): string {
+  return toJson(
+    regions.map((region) => ({
+      ...base(region, image),
+      score: region.score ?? 0,
+      structural_type: region.structuralType ?? null,
+      structural_confidence: region.structuralConfidence ?? null,
+      structural_source: region.structuralSource ?? null,
+      matched_reference_image: region.matchedReferenceImage ?? null,
+      detected_render_mode: region.detectedRenderMode ?? null,
     })),
   );
 }

@@ -11,8 +11,8 @@ import numpy as np
 from PIL import Image
 
 from utils import image_variants as iv
-from utils.image_codec import MAX_IMAGE_PIXELS, RGBImage, validate_rgb
-from utils.image_variants import BBox, PixelSize
+from utils.image_codec import MAX_IMAGE_PIXELS, RGBImage
+from utils.image_variants import BBox, PixelSize, to_rgb_array
 from utils.workers import run_native
 
 logger = logging.getLogger(__name__)
@@ -89,13 +89,6 @@ def _iter_variants(rgb: RGBImage) -> Iterator[DetectionVariant]:
     )
 
 
-def _to_rgb_array(image: Image.Image) -> RGBImage:
-    with image.convert("RGB") as converted:
-        rgb: RGBImage = np.array(converted, dtype=np.uint8, copy=True)
-    validate_rgb(rgb)
-    return rgb
-
-
 def _materialize(variant: DetectionVariant) -> Image.Image:
     return Image.fromarray(variant.build())
 
@@ -127,7 +120,7 @@ async def detect_with_fallbacks[T: BBoxDetection](
 
     The detector may use each supplied variant only until its await returns.
     """
-    rgb = await run_native(_to_rgb_array, image)
+    rgb = await run_native(to_rgb_array, image)
     size: PixelSize = rgb.shape[1], rgb.shape[0]
     copier = copy_detection if copy_detection is not None else _copy_detection
 

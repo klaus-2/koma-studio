@@ -12,10 +12,15 @@ import logging
 from dataclasses import dataclass
 from typing import Final, Literal
 
-from core.device import DeviceInfo, build_cpu_device_info, release_gpu_memory
+from core.device import DeviceInfo
 from core.runtime_errors import is_insufficient_memory_error
 from models.inpainting.base_inpainter import InpaintConfig
 from models.inpainting.factory import get_inpainter
+from services.device_fallback import (
+    CpuFallbackFailedError,
+    ExecutionFailedError,
+    run_with_cpu_fallback,
+)
 from utils.image_codec import MaskImage, RGBImage
 from utils.inpaint_heuristics import apply_need_inpaint_heuristic
 
@@ -136,6 +141,18 @@ async def inpaint_masked_image(
     )
 
 
+def _as_inpaint_error(error: BaseException) -> InpaintError:
+    if isinstance(error, InpaintError):
+        return error
+    return InpaintRuntimeError(str(error))
+
+
+def _as_gpu_oom(error: BaseException) -> GpuOutOfMemoryError:
+    if isinstance(error, GpuOutOfMemoryError):
+        return error
+    return GpuOutOfMemoryError(error)
+
+
 async def _inpaint_with_cpu_fallback(
     *,
     image_rgb: RGBImage,
@@ -145,38 +162,36 @@ async def _inpaint_with_cpu_fallback(
     device: DeviceInfo,
     has_gpu: bool,
 ) -> _Execution:
-    try:
-        image, key = await _run_inpainter(
-            has_gpu=has_gpu,
-            device=device,
+    async def operation(device_info: DeviceInfo, use_gpu: bool) -> tuple[RGBImage, str]:
+        return await _run_inpainter(
+            has_gpu=use_gpu,
+            device=device_info,
             model_key=model_key,
             image_rgb=image_rgb,
             mask=mask,
             config=config,
         )
-    except GpuOutOfMemoryError as gpu_error:
-        if not has_gpu:
-            raise
-        logger.warning(
-            "inpaint.gpu_oom_fallback",
-            extra={"stage": STAGE, "model_key": model_key, "fallback": "gpu_oom_to_cpu"},
+
+    try:
+        outcome = await run_with_cpu_fallback(
+            operation,
+            device=device,
+            use_gpu=has_gpu,
+            stage=STAGE,
         )
-        cpu_device = build_cpu_device_info(device, fallback_reason="gpu_runtime_out_of_memory")
-        try:
-            image, key = await _run_inpainter(
-                has_gpu=False,
-                device=cpu_device,
-                model_key=model_key,
-                image_rgb=image_rgb,
-                mask=mask,
-                config=config,
-            )
-        except InpaintError as cpu_error:
-            raise InpaintFallbackFailedError(
-                gpu_error=gpu_error, cpu_error=cpu_error
-            ) from cpu_error
-        return _Execution(image_rgb=image, model_key=key, fallback="gpu_oom_to_cpu")
-    return _Execution(image_rgb=image, model_key=key, fallback=None)
+    except CpuFallbackFailedError as exc:
+        raise InpaintFallbackFailedError(
+            gpu_error=_as_gpu_oom(exc.gpu_error),
+            cpu_error=_as_inpaint_error(exc.cpu_error),
+        ) from exc
+    except ExecutionFailedError as exc:
+        raise _as_inpaint_error(exc.original) from exc
+
+    return _Execution(
+        image_rgb=outcome.result[0],
+        model_key=outcome.result[1],
+        fallback="gpu_oom_to_cpu" if outcome.fell_back_to_cpu else None,
+    )
 
 
 async def _run_inpainter(
@@ -207,6 +222,4 @@ async def _run_inpainter(
         if isinstance(exc, RuntimeError):
             raise InpaintInvalidRequestError(str(exc)) from exc
         raise InpaintRuntimeError(f"Inpainting failed: {exc}") from exc
-    finally:
-        release_gpu_memory()
     return result, inpainter.key

@@ -7,13 +7,12 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Final
 
-import numpy as np
 from PIL import Image
 
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
 from utils import image_variants as iv
-from utils.image_codec import RGBImage, validate_rgb
-from utils.image_variants import PixelSize
+from utils.image_codec import RGBImage
+from utils.image_variants import PixelSize, to_rgb_array
 from utils.workers import run_native
 
 logger = logging.getLogger(__name__)
@@ -72,13 +71,6 @@ def _needs_retry(result: OCRTextResult | None) -> bool:
 def _check_cancelled(event: asyncio.Event | None) -> None:
     if event is not None and event.is_set():
         raise asyncio.CancelledError
-
-
-def _to_rgb_array(image: Image.Image) -> RGBImage:
-    with image.convert("RGB") as converted:
-        rgb: RGBImage = np.array(converted, dtype=np.uint8, copy=True)
-    validate_rgb(rgb)
-    return rgb
 
 
 def _materialize(ocr_pass: _OCRPass) -> Image.Image:
@@ -153,7 +145,7 @@ async def recognize_with_fallbacks(
     if not pending:
         return _finalize(regions, best_by_id, engine)
 
-    rgb = await run_native(_to_rgb_array, image)
+    rgb = await run_native(to_rgb_array, image)
 
     for ocr_pass in _fallback_passes(rgb, image.size):
         _check_cancelled(cancellation_event)

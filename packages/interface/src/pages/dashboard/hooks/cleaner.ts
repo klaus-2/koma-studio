@@ -1,10 +1,13 @@
 import { useCallback, useEffect } from 'react';
 import { useI18n } from '../../../i18n';
-import type { UseCleanerActionsArgs, CleanerRun } from './cleaner.types';
+import {
+  type CleanerRun,
+  type UseCleanerActionsArgs,
+} from './cleaner.types';
 import {
   cancelCleanerNoticeTimer,
   resolveCleanerRunStores,
-} from './cleaner.types';
+} from './cleaner.runtime';
 import { runAssistedCleanerWorkflow } from './cleaner.assisted';
 import { runAutomaticCleanerWorkflow } from './cleaner.automatic';
 
@@ -24,7 +27,7 @@ export type {
   CleanerRun,
   UseCleanerActionsArgs,
 } from './cleaner.types';
-export { cancelCleanerNoticeTimer } from './cleaner.types';
+export { cancelCleanerNoticeTimer, resolveCleanerRunStores } from './cleaner.runtime';
 
 export function useCleanerActions(args: UseCleanerActionsArgs): CleanerRun {
   const {

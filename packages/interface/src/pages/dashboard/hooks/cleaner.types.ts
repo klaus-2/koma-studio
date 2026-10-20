@@ -7,9 +7,7 @@ import type {
   LoadedImage,
 } from '../../../types/dashboard.types';
 import { useI18n } from '../../../i18n';
-import { useCleanerStore } from '../stores/cleaner-store';
-import { useStatusStore } from '../stores/status-store';
-import { useUiShellStore } from '../stores/ui-shell-store';
+import type { CleanerStoreBits } from './cleaner.runtime';
 
 export interface CustomProfileLike {
   apiBase: string;
@@ -63,52 +61,12 @@ export interface UseCleanerActionsArgs {
 
 export type CleanerRun = () => Promise<void>;
 
-export type CleanerStoreBits = ReturnType<typeof resolveCleanerRunStores>;
+export type { CleanerStoreBits };
 
 export type CleanerRunContext = UseCleanerActionsArgs &
   CleanerStoreBits & {
     t: ReturnType<typeof useI18n>['t'];
   };
-
-let noticeClearTimer: number | null = null;
-
-export function scheduleNoticeClear(clear: () => void, ms = 4500): void {
-  if (noticeClearTimer !== null) {
-    window.clearTimeout(noticeClearTimer);
-  }
-  noticeClearTimer = window.setTimeout(() => {
-    noticeClearTimer = null;
-    clear();
-  }, ms);
-}
-
-export function cancelCleanerNoticeTimer(): void {
-  if (noticeClearTimer !== null) {
-    window.clearTimeout(noticeClearTimer);
-    noticeClearTimer = null;
-  }
-}
-
-export function resolveCleanerRunStores() {
-  const cleaner = useCleanerStore.getState();
-  const status = useStatusStore.getState();
-  const uiShell = useUiShellStore.getState();
-  return {
-    cleanerMode: cleaner.cleanerMode,
-    cleanerAiModelKey: cleaner.cleanerAiModelKey,
-    cleanerAiAdditionalInstructions: cleaner.cleanerAiAdditionalInstructions,
-    setCleanerDetectionsByImage: cleaner.setCleanerDetectionsByImage,
-    setCleanerSelectedRegionByImage: cleaner.setCleanerSelectedRegionByImage,
-    setCleanerProcessedBaseByImage: cleaner.setCleanerProcessedBaseByImage,
-    setCleanerRunMetaByImage: cleaner.setCleanerRunMetaByImage,
-    setCleanerManualImageEditsByImage: cleaner.setCleanerManualImageEditsByImage,
-    setCleanerHealingBusyByImage: cleaner.setCleanerHealingBusyByImage,
-    setProcessing: uiShell.setProcessing,
-    setProgress: uiShell.setProgress,
-    setStatusMessage: status.setStatusMessage,
-    setRuntimeExecutionNotice: status.setRuntimeExecutionNotice,
-  };
-}
 
 export type { AioTextRegion, CleanerRunMeta };
 

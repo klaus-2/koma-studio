@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel
 
-from core.bounded_cache import CacheStats
+from models.engine_cache import CacheStats
 from core.memory import ProcessMemory, collect_process_memory
 from models.detection.factory import get_detector_cache_size
 from models.inpainting.factory import get_inpainter_cache_size

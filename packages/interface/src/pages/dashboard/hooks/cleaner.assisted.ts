@@ -28,7 +28,7 @@ import type {
   RuntimeExecutionNotice,
 } from '../../../types/dashboard.types';
 import type { CleanerRunContext } from './cleaner.types';
-import { scheduleNoticeClear } from './cleaner.types';
+import { scheduleNoticeClear } from './cleaner.runtime';
 
 
 export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promise<void> {

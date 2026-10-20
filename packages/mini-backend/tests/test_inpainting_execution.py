@@ -13,6 +13,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 
 from models.inpainting.base_inpainter import HDStrategy  # noqa: E402
 from schemas.inpainting import InpaintOptions  # noqa: E402
+from services import device_fallback  # noqa: E402
 from services import inpainting_execution as execution  # noqa: E402
 
 
@@ -55,9 +56,9 @@ def mask() -> np.ndarray:
 def _stub_runtime(
     monkeypatch: pytest.MonkeyPatch, image: np.ndarray, mask: np.ndarray
 ) -> None:
-    monkeypatch.setattr(execution, "release_gpu_memory", lambda: None)
+    monkeypatch.setattr(device_fallback, "release_gpu_memory", lambda: None)
     monkeypatch.setattr(
-        execution, "build_cpu_device_info", lambda device, fallback_reason: _Device(False)
+        device_fallback, "build_cpu_device_info", lambda device, fallback_reason: _Device(False)
     )
     monkeypatch.setattr(
         execution, "is_insufficient_memory_error", lambda exc: "out of memory" in str(exc)

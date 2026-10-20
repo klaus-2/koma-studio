@@ -13,7 +13,16 @@ from collections.abc import Callable, Hashable
 from concurrent.futures import Future
 from dataclasses import dataclass
 
+from pydantic import BaseModel
+
 logger = logging.getLogger(__name__)
+
+
+class CacheStats(BaseModel):
+    name: str
+    entries: int
+    max_entries: int
+    keys: list[str]
 
 
 class RecursiveEngineBuildError(RuntimeError):

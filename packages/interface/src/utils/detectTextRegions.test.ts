@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { regionsFromDetectPayload } from './detectTextRegions';
-import type { DetectApiResponse } from '../types/dashboard.types';
+import { normalizeManualRegions, regionsFromDetectPayload } from './detectTextRegions';
+import type { AioTextRegion, DetectApiResponse } from '../types/dashboard.types';
 
 const payload = (
   detections: DetectApiResponse['detections'],
@@ -66,5 +66,38 @@ describe('regionsFromDetectPayload', () => {
       minRegionSize: 4,
     });
     expect(unfiltered).toHaveLength(1);
+  });
+});
+
+describe('normalizeManualRegions', () => {
+  const manual = (overrides: Partial<AioTextRegion> = {}): AioTextRegion =>
+    ({
+      id: 'm1',
+      bbox: [1.2, 2.8, 40.1, 50.9],
+      score: Number.NaN,
+      source: undefined,
+      modelKey: '',
+      ...overrides,
+    }) as AioTextRegion;
+
+  it('clamps bbox and fills manual defaults', () => {
+    const next = normalizeManualRegions([manual()], { width: 100, height: 100 }, {
+      minRegionSize: 4,
+    });
+    expect(next).toHaveLength(1);
+    expect(next[0]?.bbox).toEqual([1, 2, 41, 51]);
+    expect(next[0]?.source).toBe('manual');
+    expect(next[0]?.score).toBe(1);
+    expect(next[0]?.modelKey).toBe('manual');
+    expect(next[0]?.detectorModelKey).toBe('manual');
+  });
+
+  it('drops boxes below minRegionSize', () => {
+    const next = normalizeManualRegions(
+      [manual({ id: 'tiny', bbox: [0, 0, 2, 20] }), manual({ id: 'ok' })],
+      { width: 100, height: 100 },
+      { minRegionSize: 4 },
+    );
+    expect(next.map((region) => region.id)).toEqual(['ok']);
   });
 });

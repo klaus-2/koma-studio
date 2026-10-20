@@ -16,8 +16,8 @@ import {
 import {
   applyRenderDefaultsToRegion,
   clamp,
-  toApiIntegerBbox,
 } from '../utils/dashboard.utils';
+import { normalizeManualRegions } from '../utils/detectTextRegions';
 import {
   type CustomLlmProfile,
   type LlmRequestSettings,
@@ -223,30 +223,11 @@ export function useAioManualStageExecutor({
         assertNotAborted();
         const currentDetectRegions =
           useRegionEditorStore.getState().aioDetectionsByImage[activeId] ?? [];
-        const normalizedSelectedRegions = currentDetectRegions
-          .map((region): AioTextRegion | null => {
-            const normalizedBbox = toApiIntegerBbox(
-              region.bbox,
-              activeImageData.width,
-              activeImageData.height,
-            );
-            const [x1, y1, x2, y2] = normalizedBbox;
-            const width = x2 - x1;
-            const height = y2 - y1;
-            if (width < minRegionSize || height < minRegionSize) {
-              return null;
-            }
-            const resolvedModelKey = region.modelKey || 'manual';
-            return {
-              ...region,
-              bbox: normalizedBbox,
-              source: region.source ?? 'manual',
-              score: Number.isFinite(region.score) ? region.score : 1,
-              modelKey: resolvedModelKey,
-              detectorModelKey: region.detectorModelKey || resolvedModelKey,
-            };
-          })
-          .filter((region): region is AioTextRegion => region !== null);
+        const normalizedSelectedRegions = normalizeManualRegions(
+          currentDetectRegions,
+          activeImageData,
+          { minRegionSize },
+        );
 
         if (normalizedSelectedRegions.length > 0) {
           patchAioSnapshotStageForImage(activeId, stageIndex, normalizedSelectedRegions);

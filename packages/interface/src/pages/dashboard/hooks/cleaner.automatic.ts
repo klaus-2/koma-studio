@@ -1,12 +1,11 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
-import { runDetectTextStage } from '../../../aio-stages';
+import { runDetectTextStage, toStructuralRegionsJson } from '../../../aio-stages';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   blobToDataUrl,
   buildAioSelectionMapFromDetections,
   cloneAioRegions,
   cloneRenderStyle,
-  toApiIntegerBbox,
 } from '../../../utils/dashboard.utils';
 import {
   normalizeKnownCustomLlmApiBase,
@@ -16,7 +15,6 @@ import { runConcurrentBatch } from '../../../utils/concurrentBatch';
 import {
   applySfxDecisionsToRegions,
   buildSfxClassifierInstructions,
-  buildSfxClassifierRegionsPayload,
   buildSfxCleanInstructions,
   isLikelySfxCandidate,
   type SfxClassificationResponse,
@@ -195,7 +193,7 @@ export async function runAutomaticCleanerWorkflow(
               classifyFormData.append('model_key', cleanerAiModelKey);
               classifyFormData.append(
                 'regions',
-                JSON.stringify(buildSfxClassifierRegionsPayload(candidateRegions, imgData)),
+                toStructuralRegionsJson(candidateRegions, imgData),
               );
               classifyFormData.append(
                 'additional_instructions',
@@ -236,7 +234,7 @@ export async function runAutomaticCleanerWorkflow(
               cleanFormData.append('model_key', cleanerAiModelKey);
               cleanFormData.append(
                 'regions',
-                JSON.stringify(buildSfxClassifierRegionsPayload(outputRegions, imgData)),
+                toStructuralRegionsJson(outputRegions, imgData),
               );
               cleanFormData.append(
                 'additional_instructions',
@@ -270,24 +268,7 @@ export async function runAutomaticCleanerWorkflow(
             cleanFormData.append('model_key', cleanerAiModelKey);
             cleanFormData.append(
               'regions',
-              JSON.stringify(
-                detectDetections.map((region) => ({
-                  id: region.id,
-                  bbox: toApiIntegerBbox(
-                    region.bbox,
-                    imgData.width,
-                    imgData.height,
-                  ),
-                  source: region.source,
-                  detector_model_key: region.detectorModelKey ?? region.modelKey,
-                  score: region.score ?? 0,
-                  structural_type: region.structuralType ?? null,
-                  structural_confidence: region.structuralConfidence ?? null,
-                  structural_source: region.structuralSource ?? null,
-                  matched_reference_image: region.matchedReferenceImage ?? null,
-                  detected_render_mode: region.detectedRenderMode ?? null,
-                })),
-              ),
+              toStructuralRegionsJson(detectDetections, imgData),
             );
             if (normalizedCleanerAiInstructions) {
               cleanFormData.append(

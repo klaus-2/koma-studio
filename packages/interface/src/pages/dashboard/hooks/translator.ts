@@ -13,17 +13,20 @@ import {
   blobToDataUrl,
   cloneAioRegions,
   cloneRenderStyle,
-  normalizeDetectedGradient,
-  normalizeTranslationNotes,
   resolveSelectedRegionForRegions,
-  toApiIntegerBbox,
 } from '../../../utils/dashboard.utils';
+import {
+  mergeOcrIntoRegions,
+  mergeTranslationIntoRegions,
+  toOcrRegionsJson,
+  toStructuralRegionsJson,
+  toTranslateRegionsJson,
+} from '../../../aio-stages';
 import { regionsFromDetectPayload } from '../../../utils/detectTextRegions';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   applySfxDecisionsToRegions,
   buildSfxClassifierInstructions,
-  buildSfxClassifierRegionsPayload,
   buildSfxCleanInstructions,
   buildSfxTranslationInstructions,
   isLikelySfxCandidate,
@@ -242,7 +245,7 @@ export function useTranslatorVisualActions({
             classifyFormData.append('model_key', translatorSfxCleanModelKey);
             classifyFormData.append(
               'regions',
-              JSON.stringify(buildSfxClassifierRegionsPayload(candidateRegions, imgData)),
+              toStructuralRegionsJson(candidateRegions, imgData),
             );
             classifyFormData.append(
               'additional_instructions',
@@ -285,17 +288,7 @@ export function useTranslatorVisualActions({
           ocrFormData.append('file', imgData.file);
           ocrFormData.append('model_key', selectedOcrKey);
           ocrFormData.append('language', srcLang);
-          ocrFormData.append(
-            'regions',
-            JSON.stringify(
-              detectedRegions.map((region) => ({
-                id: region.id,
-                bbox: toApiIntegerBbox(region.bbox, imgData.width, imgData.height),
-                source: region.source,
-                detector_model_key: region.detectorModelKey ?? region.modelKey,
-              })),
-            ),
-          );
+          ocrFormData.append('regions', toOcrRegionsJson(detectedRegions, imgData));
           if (useLlmSettingsForOcr) {
             ocrFormData.append('llm_settings', JSON.stringify(llmSettings));
             const customPayload = toCustomLlmRequestPayload(selectedCustomOcrProfile);
@@ -316,18 +309,7 @@ export function useTranslatorVisualActions({
           }
 
           const ocrPayload = (await ocrResponse.json()) as OcrApiResponse;
-          const ocrById = new Map(ocrPayload.regions.map((region) => [String(region.id), region]));
-          detectedRegions = detectedRegions.map((region) => {
-            const match = ocrById.get(String(region.id)) ?? null;
-            if (!match) return region;
-            return {
-              ...region,
-              recognizedText: match.text,
-              ocrScore: match.score,
-              ocrModelKey: match.ocr_model_key,
-              detectedGradient: normalizeDetectedGradient(match.foreground_gradient),
-            };
-          });
+          detectedRegions = mergeOcrIntoRegions(detectedRegions, ocrPayload);
           totalRecognized += detectedRegions.filter((region) => (region.recognizedText ?? '').trim().length > 0).length;
         }
 
@@ -349,18 +331,7 @@ export function useTranslatorVisualActions({
           }
           translationFormData.append(
             'regions',
-            JSON.stringify(
-              detectedRegions.map((region) => ({
-                id: region.id,
-                text: region.recognizedText ?? '',
-                source: region.source,
-                detector_model_key: region.detectorModelKey ?? region.modelKey,
-                ocr_model_key: region.ocrModelKey ?? selectedOcrKey,
-                detected_render_mode: region.detectedRenderMode ?? '',
-                structural_type: region.structuralType ?? '',
-                sfx_requires_redraw: region.sfxRequiresRedraw ?? false,
-              })),
-            ),
+            toTranslateRegionsJson(detectedRegions, selectedOcrKey),
           );
           if (useLlmSettingsForTranslation) {
             translationFormData.append('file', imgData.file);
@@ -397,18 +368,7 @@ export function useTranslatorVisualActions({
           }
 
           const translationPayload = (await translationResponse.json()) as TranslationApiResponse;
-          const translationById = new Map(translationPayload.regions.map((region) => [region.id, region]));
-          detectedRegions = detectedRegions.map((region) => {
-            const match = translationById.get(region.id) ?? null;
-            if (!match) return region;
-            return {
-              ...region,
-              translatedText: match.translated_text,
-              translationNotes: normalizeTranslationNotes(match.translation_notes),
-              translationNoteOverlay: undefined,
-              translatorModelKey: match.translator_model_key,
-            };
-          });
+          detectedRegions = mergeTranslationIntoRegions(detectedRegions, translationPayload);
           totalTranslated += detectedRegions.filter((region) => (region.translatedText ?? '').trim().length > 0).length;
         }
 
@@ -418,7 +378,7 @@ export function useTranslatorVisualActions({
           cleanFormData.append('model_key', translatorSfxCleanModelKey);
           cleanFormData.append(
             'regions',
-            JSON.stringify(buildSfxClassifierRegionsPayload(detectedRegions, imgData)),
+            toStructuralRegionsJson(detectedRegions, imgData),
           );
           cleanFormData.append(
             'additional_instructions',

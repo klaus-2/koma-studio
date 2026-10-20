@@ -1,7 +1,7 @@
 /** Detect Text → Region adapter — the one place a Bubble is born from Detect output. */
 import { createDefaultTypographyShape } from '../typography/types';
 import type { AioTextRegion, DetectApiResponse } from '../types/dashboard.types';
-import { clamp, normalizeRgbTriplet } from './dashboard.utils';
+import { clamp, normalizeRgbTriplet, toApiIntegerBbox } from './dashboard.utils';
 import { normalizeDetectedRenderMode } from './renderModes';
 
 type DetectionItem = DetectApiResponse['detections'][number];
@@ -75,6 +75,34 @@ function detectionToRegion(
     renderMode: 'auto',
     shape: createDefaultTypographyShape(boxWidth, boxHeight, shapeKind, 'detected'),
   };
+}
+
+/**
+ * Normalize hand-edited Regions before a Detect Text re-run: clamp bbox into
+ * image bounds, drop boxes below `minRegionSize`, and fill manual defaults.
+ * Lives next to `regionsFromDetectPayload` so both Detect entry paths share
+ * one size/clamp policy (locality).
+ */
+export function normalizeManualRegions(
+  regions: readonly AioTextRegion[],
+  image: ImageSize,
+  options: Pick<RegionsFromDetectOptions, 'minRegionSize'>,
+): AioTextRegion[] {
+  const normalized: AioTextRegion[] = [];
+  for (const region of regions) {
+    const [x1, y1, x2, y2] = toApiIntegerBbox(region.bbox, image.width, image.height);
+    if (x2 - x1 < options.minRegionSize || y2 - y1 < options.minRegionSize) continue;
+    const resolvedModelKey = region.modelKey || 'manual';
+    normalized.push({
+      ...region,
+      bbox: [x1, y1, x2, y2],
+      source: region.source ?? 'manual',
+      score: Number.isFinite(region.score) ? region.score : 1,
+      modelKey: resolvedModelKey,
+      detectorModelKey: region.detectorModelKey || resolvedModelKey,
+    });
+  }
+  return normalized;
 }
 
 /**

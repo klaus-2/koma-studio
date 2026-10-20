@@ -26,9 +26,12 @@ import {
   toCustomLlmRequestPayload,
 } from '../../../utils/customLlm';
 import {
-  normalizeTranslationNotes,
   parseTranslatorStructuredTextInput,
 } from '../../../utils/dashboard.utils';
+import {
+  mergeTranslationIntoRegions,
+  toTranslateRegionsJson,
+} from '../../../aio-stages';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import { buildSfxTranslationInstructions } from '../../../utils/sfx';
 import type {
@@ -519,18 +522,7 @@ export function useTranslatorRetranslate({
       }
       translationFormData.append(
         'regions',
-        JSON.stringify(
-          targetRegions.map((region) => ({
-            id: region.id,
-            text: region.recognizedText ?? '',
-            source: region.source,
-            detector_model_key: region.detectorModelKey ?? region.modelKey,
-            ocr_model_key: region.ocrModelKey ?? ocrSelectionKey,
-            detected_render_mode: region.detectedRenderMode ?? '',
-            structural_type: region.structuralType ?? '',
-            sfx_requires_redraw: region.sfxRequiresRedraw ?? false,
-          })),
-        ),
+        toTranslateRegionsJson(targetRegions, ocrSelectionKey),
       );
       if (useLlmSettingsForTranslation) {
         translationFormData.append('file', imgData.file);
@@ -567,18 +559,7 @@ export function useTranslatorRetranslate({
       }
 
       const translationPayload = (await translationResponse.json()) as TranslationApiResponse;
-      const translationById = new Map(translationPayload.regions.map((region) => [region.id, region]));
-      const nextRegions = regions.map((region) => {
-        const match = translationById.get(region.id);
-        if (!match) return region;
-        return {
-          ...region,
-          translatedText: match.translated_text,
-          translationNotes: normalizeTranslationNotes(match.translation_notes),
-          translationNoteOverlay: undefined,
-          translatorModelKey: match.translator_model_key,
-        };
-      });
+      const nextRegions = mergeTranslationIntoRegions(regions, translationPayload);
       updateTranslatorRegionsForImage(
         imageId,
         nextRegions,

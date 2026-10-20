@@ -1,6 +1,4 @@
 import type { AioTextRegion } from "../types/dashboard.types";
-import type { LoadedImage } from "../types/dashboard.types";
-import { toApiIntegerBbox } from "./dashboard.utils";
 
 export interface SfxClassificationResult {
   id: string;
@@ -76,23 +74,6 @@ export const isLikelySfxCandidate = (region: AioTextRegion): boolean => {
   }
   return false;
 };
-
-export const buildSfxClassifierRegionsPayload = (
-  regions: AioTextRegion[],
-  image: LoadedImage,
-): Array<Record<string, unknown>> =>
-  regions.map((region) => ({
-    id: region.id,
-    bbox: toApiIntegerBbox(region.bbox, image.width, image.height),
-    source: region.source,
-    detector_model_key: region.detectorModelKey ?? region.modelKey,
-    score: region.score ?? 0,
-    structural_type: region.structuralType ?? null,
-    structural_confidence: region.structuralConfidence ?? null,
-    structural_source: region.structuralSource ?? null,
-    matched_reference_image: region.matchedReferenceImage ?? null,
-    detected_render_mode: region.detectedRenderMode ?? null,
-  }));
 
 export const applySfxDecisionsToRegions = (
   regions: AioTextRegion[],

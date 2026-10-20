@@ -5,6 +5,7 @@ from typing import Final
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from utils.image_codec import RGBImage, validate_rgb, validate_shape
 
@@ -103,3 +104,10 @@ def clip_bbox(bbox: BBox, size: PixelSize) -> BBox | None:
     if right <= left or bottom <= top:
         return None
     return left, top, right, bottom
+
+
+def to_rgb_array(image: Image.Image) -> RGBImage:
+    with image.convert("RGB") as converted:
+        rgb: RGBImage = np.array(converted, dtype=np.uint8, copy=True)
+    validate_rgb(rgb)
+    return rgb
