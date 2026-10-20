@@ -174,6 +174,53 @@ export function useAioManualStageExecutor({
     const stageIndex = clamp(progress.currentIndex, 0, AIO_MANUAL_STAGE_ORDER.length - 1);
     const stageKey = AIO_MANUAL_STAGE_ORDER[stageIndex]!;
     const stageLabel = AIO_PIPELINE_STAGE_LABELS[stageKey];
+    // Abort with a toast instead of firing a stage with empty upstream regions.
+    const prereqMissing = ((): { missing: boolean; key: string } => {
+      switch (stageKey) {
+        case 'recognizeText':
+          return getAioRegionsFromSnapshot('detectText', activeId).length === 0
+            ? { missing: true, key: 'aioManual.prereqMissing.recognizeText' }
+            : { missing: false, key: '' };
+        case 'getTranslations': {
+          const rec = getAioRegionsFromSnapshot('recognizeText', activeId);
+          const hasText = rec.some((region) => (region.recognizedText ?? '').trim().length > 0);
+          return hasText
+            ? { missing: false, key: '' }
+            : { missing: true, key: 'aioManual.prereqMissing.getTranslations' };
+        }
+        case 'segmentText': {
+          const a = getAioRegionsFromSnapshot('getTranslations', activeId);
+          const b = a.length > 0 ? a : getAioRegionsFromSnapshot('recognizeText', activeId);
+          return b.length === 0
+            ? { missing: true, key: 'aioManual.prereqMissing.segmentText' }
+            : { missing: false, key: '' };
+        }
+        case 'cleanImage': {
+          const seg = getAioRegionsFromSnapshot('segmentText', activeId);
+          const rec = seg.length > 0 ? seg : getAioRegionsFromSnapshot('recognizeText', activeId);
+          const det = rec.length > 0 ? rec : getAioRegionsFromSnapshot('detectText', activeId);
+          return det.length === 0
+            ? { missing: true, key: 'aioManual.prereqMissing.cleanImage' }
+            : { missing: false, key: '' };
+        }
+        case 'render': {
+          const c = getAioRegionsFromSnapshot('cleanImage', activeId);
+          const s = c.length > 0 ? c : getAioRegionsFromSnapshot('segmentText', activeId);
+          const t2 = s.length > 0 ? s : getAioRegionsFromSnapshot('getTranslations', activeId);
+          const r = t2.length > 0 ? t2 : getAioRegionsFromSnapshot('recognizeText', activeId);
+          const d = r.length > 0 ? r : getAioRegionsFromSnapshot('detectText', activeId);
+          return d.length === 0
+            ? { missing: true, key: 'aioManual.prereqMissing.render' }
+            : { missing: false, key: '' };
+        }
+        default:
+          return { missing: false, key: '' };
+      }
+    })();
+    if (prereqMissing.missing) {
+      setStatusMessage(t(prereqMissing.key));
+      return;
+    }
     const signal = getAbortSignal();
     const stageRuntime = { localApiUrl, signal };
     const assertNotAborted = (): void => {

@@ -3553,6 +3553,16 @@ export const ptBrMessages: TranslationCatalog = {
     'Este provider de tradução exige API key. Configure a key antes de executar.',
   'aioManual.selectImage': 'Selecione uma imagem para executar no modo manual.',
   'aioManual.imageNotFound': 'Imagem ativa não encontrada.',
+  'aioManual.prereqMissing.recognizeText':
+    'Execute Detect Text antes para o Recognize Text ter regiões para ler.',
+  'aioManual.prereqMissing.getTranslations':
+    'Execute Recognize Text antes para o Get Translations ter texto para traduzir.',
+  'aioManual.prereqMissing.segmentText':
+    'Execute um estágio anterior para o Segment Text ter regiões para dividir.',
+  'aioManual.prereqMissing.cleanImage':
+    'Execute um estágio anterior para o Clean Image ter regiões para inpaint.',
+  'aioManual.prereqMissing.render':
+    'Execute um estágio anterior para o Render ter regiões para diagramar.',
   'aioManual.progressNotInitialized':
     'Progressão manual não inicializada para a imagem ativa.',
   'aioManual.selectValidDetectModel':

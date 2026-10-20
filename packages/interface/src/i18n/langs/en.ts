@@ -3135,6 +3135,16 @@ export const enMessages = {
     'This translation provider requires an API key. Configure the key before running.',
   'aioManual.selectImage': 'Select an image to run in manual mode.',
   'aioManual.imageNotFound': 'Active image not found.',
+  'aioManual.prereqMissing.recognizeText':
+    'Run Detect Text first so Recognize Text has regions to read.',
+  'aioManual.prereqMissing.getTranslations':
+    'Run Recognize Text first so Get Translations has text to translate.',
+  'aioManual.prereqMissing.segmentText':
+    'Run a prior stage first so Segment Text has regions to split.',
+  'aioManual.prereqMissing.cleanImage':
+    'Run a prior stage first so Clean Image has regions to inpaint.',
+  'aioManual.prereqMissing.render':
+    'Run a prior stage first so Render has regions to typeset.',
   'aioManual.progressNotInitialized':
     'Manual progression not initialized for the active image.',
   'aioManual.selectValidDetectModel': 'Select a valid model for Detect Text.',
