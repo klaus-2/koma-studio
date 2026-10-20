@@ -314,6 +314,10 @@ const tauriDesktopBridge: IDesktopBridge = {
       }),
     importFile: () => invokeCommand(desktopCommandChannels.workspace.importFile),
   },
+  files: {
+    // Tauri native save-blob not wired yet — cancel so the browser fallback runs.
+    saveBlob: async () => ({ cancelled: true, filePath: null }),
+  },
   api: {
     auth: {
       config: () =>

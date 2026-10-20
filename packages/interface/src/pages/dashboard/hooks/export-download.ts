@@ -7,6 +7,7 @@
 import { useCallback } from 'react';
 
 import { AIO_STAGE_BADGE_LABELS } from '../../../constants/dashboard.constants';
+import { desktopBridge } from '../../../lib/desktop-bridge';
 import {
   buildRegionNotesDump,
   buildRegionTextDump,
@@ -34,6 +35,28 @@ export { useExportDownloadLifecycle, useExportDownloadAvailability } from './exp
 
 /** Anchor download of a generated blob (object-URL lifecycle 1:1). */
 export function triggerBlobDownload(blob: Blob, fileName: string) {
+  const desktopFiles = desktopBridge.desktop?.files;
+  if (desktopFiles?.saveBlob) {
+    // Native save dialog on desktop; browser fallback if the dialog is
+    // cancelled or the IPC fails.
+    void (async () => {
+      try {
+        const data = await blob.arrayBuffer();
+        const result = await desktopFiles.saveBlob({ defaultFileName: fileName, data });
+        if (!result.cancelled) {
+          return;
+        }
+      } catch {
+        // fall through to anchor download
+      }
+      anchorBlobDownload(blob, fileName);
+    })();
+    return;
+  }
+  anchorBlobDownload(blob, fileName);
+}
+
+function anchorBlobDownload(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

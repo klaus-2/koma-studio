@@ -398,6 +398,9 @@ export const desktopCommandChannels = {
     exportCurrent: "desktop-workspace:export-current",
     importFile: "desktop-workspace:import-file",
   },
+  files: {
+    saveBlob: "desktop:files:save-blob",
+  },
   api: {
     auth: {
       config: "desktop-api:auth:config",
@@ -647,6 +650,16 @@ export interface DesktopDiscordRpcApi {
   getPresetAssets(): Promise<Record<string, string>>;
 }
 
+export interface DesktopFilesApi {
+  /**
+   * Native save dialog + write. Returns cancelled when the user dismisses.
+   */
+  saveBlob(payload: {
+    defaultFileName: string;
+    data: ArrayBuffer;
+  }): Promise<{ cancelled: boolean; filePath: string | null }>;
+}
+
 export interface IDesktopBridge {
   getRuntimeConfig(): RuntimeConfig;
   getMiniBackendRuntimeState(): Promise<MiniBackendRuntimeStatePayload | null>;
@@ -669,6 +682,7 @@ export interface IDesktopBridge {
   openCommunityLink(url: string): Promise<void>;
   models: DesktopModelsApi;
   workspace: DesktopWorkspaceApi;
+  files: DesktopFilesApi;
   api: DesktopApiNamespace;
   images: DesktopImagesApi;
   discordRPC: DesktopDiscordRpcApi;

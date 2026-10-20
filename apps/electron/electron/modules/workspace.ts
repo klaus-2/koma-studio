@@ -264,6 +264,49 @@ const setupDesktopWorkspaceIpcHandlers = (deps: WorkspaceDeps): void => {
       console.warn("[desktop] sendAutosave failed:", error instanceof Error ? error.message : error);
     }
   });
+
+  // Native save dialog for generated download blobs.
+  registerSecureIpcHandler<{ cancelled: boolean; filePath: string | null }>(
+    "desktop:files:save-blob",
+    async (value) => {
+      const payload = (value ?? {}) as {
+        defaultFileName?: string;
+        data?: ArrayBuffer | Uint8Array | number[];
+      };
+      if (!payload.data) {
+        throw new Error("Invalid save-blob payload.");
+      }
+
+      const bytes =
+        payload.data instanceof ArrayBuffer
+          ? Buffer.from(payload.data)
+          : Buffer.from(
+              payload.data instanceof Uint8Array
+                ? payload.data
+                : Uint8Array.from(payload.data),
+            );
+
+      const ownerWindow = getMainWindow();
+      const defaultFileName = payload.defaultFileName || "download.bin";
+      const ext = path.extname(defaultFileName).replace(/^\./, "") || "bin";
+      const saveOptions: SaveDialogOptions = {
+        title: "Salvar arquivo",
+        buttonLabel: "Salvar",
+        defaultPath: defaultFileName,
+        filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
+      };
+      const result = ownerWindow
+        ? await dialog.showSaveDialog(ownerWindow, saveOptions)
+        : await dialog.showSaveDialog(saveOptions);
+
+      if (result.canceled || !result.filePath) {
+        return { cancelled: true, filePath: null };
+      }
+
+      fs.writeFileSync(result.filePath, bytes);
+      return { cancelled: false, filePath: result.filePath };
+    },
+  );
 };
 
 // ---------------------------------------------------------------------------

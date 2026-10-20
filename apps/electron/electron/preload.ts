@@ -557,6 +557,16 @@ contextBridge.exposeInMainWorld("desktop", {
     importFile: async (): Promise<unknown> =>
       invokeSecureDesktopApi("desktop-workspace:import-file"),
   },
+  files: {
+    saveBlob: async (payload: {
+      defaultFileName: string;
+      data: ArrayBuffer;
+    }): Promise<{ cancelled: boolean; filePath: string | null }> =>
+      (await invokeSecureDesktopApi("desktop:files:save-blob", {
+        defaultFileName: payload.defaultFileName,
+        data: payload.data,
+      })) as { cancelled: boolean; filePath: string | null },
+  },
   api: {
     auth: {
       config: async (): Promise<unknown> => invokeSecureDesktopApi("desktop-api:auth:config"),
