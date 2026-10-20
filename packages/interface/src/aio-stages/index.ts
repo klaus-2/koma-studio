@@ -8,3 +8,4 @@ export * from './recognizeText';
 export * from './segmentText';
 export * from './transport';
 export * from './types';
+export * from './upstreamRegions';

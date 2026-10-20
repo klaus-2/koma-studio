@@ -2,11 +2,13 @@ import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import {
   resolveLocalStageModelReadiness,
   resolveRecognizeTextReadiness,
+  resolveUpstreamRegions,
   runCleanImageStage,
   runDetectTextStage,
   runRecognizeTextStage,
   runSegmentTextStage,
   type StageReadiness,
+  type StageRegionKey,
   type StageRunNotice,
 } from '../../../aio-stages';
 import {
@@ -197,6 +199,9 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
         );
         pushNotice(detectDone.notice);
         const detectDetections = detectDone.value;
+        const stageRegions: Partial<Record<StageRegionKey, AioTextRegion[]>> = {
+          detectText: detectDetections,
+        };
 
         let enrichedDetections = cloneAioRegions(detectDetections, cloneRenderStyle);
 
@@ -219,9 +224,13 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
           );
           pushNotice(ocrDone.notice);
           enrichedDetections = ocrDone.value;
+          stageRegions.recognizeText = enrichedDetections;
         }
 
-        const segmentInputRegions = enrichedDetections.length > 0 ? enrichedDetections : detectDetections;
+        const segmentInputRegions = resolveUpstreamRegions(
+          'segmentText',
+          (key) => stageRegions[key] ?? [],
+        );
         let segmentDetections = cloneAioRegions(segmentInputRegions, cloneRenderStyle);
         if (segmentInputRegions.length > 0) {
           const segmentDone = await runSegmentTextStage(
@@ -241,9 +250,13 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
           );
           pushNotice(segmentDone.notice);
           segmentDetections = segmentDone.value;
+          stageRegions.segmentText = segmentDetections;
         }
 
-        const cleanInputRegions = segmentDetections.length > 0 ? segmentDetections : detectDetections;
+        const cleanInputRegions = resolveUpstreamRegions(
+          'cleanImage',
+          (key) => stageRegions[key] ?? [],
+        );
         const manualEditState =
           useCleanerStore.getState().cleanerManualImageEditsByImage[imgData.id];
         const cleanDone = await runCleanImageStage(

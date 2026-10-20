@@ -10,6 +10,7 @@ import {
   resolveGetTranslationsReadiness,
   resolveLocalStageModelReadiness,
   resolveRecognizeTextReadiness,
+  resolveUpstreamRegions,
   runCleanImageStage,
   runDetectTextStage,
   runGetTranslationsStage,
@@ -317,7 +318,9 @@ export function useAioManualStageExecutor({
           return;
         }
 
-        const ocrRegions = getAioRegionsFromSnapshot('recognizeText', activeId);
+        const ocrRegions = resolveUpstreamRegions('getTranslations', (key) =>
+          getAioRegionsFromSnapshot(key, activeId),
+        );
         const hasTextForTranslation = ocrRegions.some((region) => (region.recognizedText ?? '').trim().length > 0);
         if (!hasTextForTranslation) {
           patchAioSnapshotStageForImage(activeId, stageIndex, ocrRegions);
@@ -357,10 +360,9 @@ export function useAioManualStageExecutor({
           return;
         }
 
-        let sourceRegions = getAioRegionsFromSnapshot('getTranslations', activeId);
-        if (sourceRegions.length === 0) {
-          sourceRegions = getAioRegionsFromSnapshot('recognizeText', activeId);
-        }
+        const sourceRegions = resolveUpstreamRegions('segmentText', (key) =>
+          getAioRegionsFromSnapshot(key, activeId),
+        );
         if (sourceRegions.length === 0) {
           patchAioSnapshotStageForImage(activeId, stageIndex, []);
         } else {
@@ -395,9 +397,9 @@ export function useAioManualStageExecutor({
           return;
         }
 
-        let sourceRegions = getAioRegionsFromSnapshot('segmentText', activeId);
-        if (sourceRegions.length === 0) sourceRegions = getAioRegionsFromSnapshot('recognizeText', activeId);
-        if (sourceRegions.length === 0) sourceRegions = getAioRegionsFromSnapshot('detectText', activeId);
+        const sourceRegions = resolveUpstreamRegions('cleanImage', (key) =>
+          getAioRegionsFromSnapshot(key, activeId),
+        );
 
         // If the user manually painted brush areas, convert the canvas to a pixel-exact
         // binary mask blob and send it alongside the auto-detected regions. This ensures
@@ -440,11 +442,9 @@ export function useAioManualStageExecutor({
         // so downstream stages don't show a giant full-image bounding box.
         patchAioSnapshotStageForImage(activeId, stageIndex, sourceRegions, cleanEntry);
       } else {
-        let sourceRegions = getAioRegionsFromSnapshot('cleanImage', activeId);
-        if (sourceRegions.length === 0) sourceRegions = getAioRegionsFromSnapshot('segmentText', activeId);
-        if (sourceRegions.length === 0) sourceRegions = getAioRegionsFromSnapshot('getTranslations', activeId);
-        if (sourceRegions.length === 0) sourceRegions = getAioRegionsFromSnapshot('recognizeText', activeId);
-        if (sourceRegions.length === 0) sourceRegions = getAioRegionsFromSnapshot('detectText', activeId);
+        const sourceRegions = resolveUpstreamRegions('render', (key) =>
+          getAioRegionsFromSnapshot(key, activeId),
+        );
         const renderRegions = sourceRegions.map((region) => applyRenderDefaultsToRegion(region, renderDefaultStyle, applyDetectedGradientToStyle, undefined, aioTgtLang));
         patchAioSnapshotStageForImage(activeId, stageIndex, renderRegions);
       }
