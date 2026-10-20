@@ -99,10 +99,20 @@ export const RuntimeStartupToastNoir = () => {
     const percent = total > 0
       ? Math.max(0, Math.min(100, (transferred / total) * 100))
       : Math.max(0, Math.min(100, runtimeState.progress?.percent ?? 0));
+    // resolving/checking are warmup without byte counts — a fake 0% bar misleads.
+    const indeterminate =
+      (runtimeState.status === "resolving" || runtimeState.status === "checking") &&
+      total === 0;
+    const description = indeterminate && !runtimeState.statusMessage
+      ? "Starting local runtime — the first start may take a few minutes."
+      : runtimeState.statusMessage ?? "Preparing local runtime.";
     return {
       title: buildProgressTitle(runtimeState),
-      description: runtimeState.statusMessage ?? "Preparing local runtime.",
-      percent, transferred, total,
+      description,
+      indeterminate,
+      percent,
+      transferred,
+      total,
       speed: runtimeState.progress?.speedBytesPerSecond ?? 0,
       attempt: runtimeState.attempt,
       maxAttempts: runtimeState.maxAttempts,
@@ -154,11 +164,24 @@ export const RuntimeStartupToastNoir = () => {
           )}
         </div>
 
-        <StripeBar percent={progressToast.percent} />
+        {progressToast.indeterminate ? (
+          <div
+            className="halftone-red h-2 w-full animate-pulse border border-paper/10 bg-ink-3"
+            aria-busy="true"
+          />
+        ) : (
+          <StripeBar percent={progressToast.percent} />
+        )}
 
         <div className="mt-1.5 flex justify-between font-mono text-[9px] text-paper/50">
-          <span className="font-bold text-azure">{progressToast.percent.toFixed(1)}%</span>
-          <span>{formatBytes(progressToast.transferred)} / {formatBytes(progressToast.total)}</span>
+          {progressToast.indeterminate ? (
+            <span className="text-azure">warmup…</span>
+          ) : (
+            <span className="font-bold text-azure">{progressToast.percent.toFixed(1)}%</span>
+          )}
+          {!progressToast.indeterminate && (
+            <span>{formatBytes(progressToast.transferred)} / {formatBytes(progressToast.total)}</span>
+          )}
         </div>
         <p className="mt-1 font-mono text-[9px] text-paper/40">{progressToast.description}</p>
         {progressToast.speed > 0 && (

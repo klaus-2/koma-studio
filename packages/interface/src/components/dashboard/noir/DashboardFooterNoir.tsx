@@ -104,9 +104,16 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
     if (['resolving', 'checking', 'downloading', 'verifying', 'extracting'].includes(s)) {
       const progressLabel = s === 'downloading' && miniBackendRuntimeState.progress
         ? ` ${Math.round(miniBackendRuntimeState.progress.percent)}%` : '';
+      const warmupWithoutBytes =
+        (s === 'resolving' || s === 'checking') && !miniBackendRuntimeState.progress;
       return {
-        label: `Runtime${progressLabel}`, tone: 'progress' as const, title: 'Preparing local runtime',
-        detail: normalizeMessage(miniBackendRuntimeState.statusMessage) ?? 'Preparing local runtime.', icon: Rocket
+        label: `Runtime${progressLabel}`,
+        tone: 'progress' as const,
+        title: 'Preparing local runtime',
+        detail: warmupWithoutBytes
+          ? 'Starting local runtime — the first start may take a few minutes.'
+          : normalizeMessage(miniBackendRuntimeState.statusMessage) ?? 'Preparing local runtime.',
+        icon: Rocket,
       };
     }
     const hasFallback = s === 'fallback' || miniBackendRuntimeState.requestedProfile !== miniBackendRuntimeState.activeProfile;
