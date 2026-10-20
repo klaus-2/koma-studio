@@ -10,6 +10,7 @@
     "./stores/*": "./src/stores/*.ts",
     "./themes/*": "./src/themes/*.ts",
     "./utils/*": "./src/utils/*.ts",
+    "./tokens/*": "./src/tokens/*.ts",
     "./i18n-port": "./src/i18n-port.ts",
     "./assets/*": "./assets/*"
   },
