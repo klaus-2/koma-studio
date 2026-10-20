@@ -50,7 +50,7 @@ const buildWorkspaceDownloadLookupKey = (
   fileName: string,
 ): string => `${sourceImageId}::${fileName}`;
 
-const cloneArrayBufferLike = (value: unknown): ArrayBuffer | null => {
+export const cloneArrayBufferLike = (value: unknown): ArrayBuffer | null => {
   if (value instanceof ArrayBuffer) {
     return value.slice(0);
   }
@@ -555,7 +555,16 @@ const toFileFromAsset = (
   assetId: string,
 ): File => {
   const asset = requireAsset(assetMap, assetId);
-  return new File([asset.buffer.slice(0)], asset.fileName, {
+  // `asset.buffer` may arrive as an ArrayBuffer (in-memory / browser zip), an
+  // ArrayBufferView, or a plain number[] (Tauri serializes Vec<u8> as a JSON
+  // number array over IPC). `new File([numberArray])` stringifies the array
+  // instead of treating it as bytes, yielding a corrupt (broken) image on
+  // restore — so normalize to a real binary buffer first.
+  const buffer = cloneArrayBufferLike(asset.buffer);
+  if (!buffer) {
+    throw new Error(`Buffer binário inválido no asset de workspace: ${assetId}`);
+  }
+  return new File([buffer], asset.fileName, {
     type: asset.mimeType,
     lastModified: Date.now(),
   });
@@ -566,7 +575,11 @@ const toBlobFromAsset = (
   assetId: string,
 ): Blob => {
   const asset = requireAsset(assetMap, assetId);
-  return new Blob([asset.buffer.slice(0)], { type: asset.mimeType });
+  const buffer = cloneArrayBufferLike(asset.buffer);
+  if (!buffer) {
+    throw new Error(`Buffer binário inválido no asset de workspace: ${assetId}`);
+  }
+  return new Blob([buffer], { type: asset.mimeType });
 };
 
 const toDataUrlFromAsset = async (
