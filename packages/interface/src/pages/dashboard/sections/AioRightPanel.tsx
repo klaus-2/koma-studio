@@ -298,6 +298,24 @@ export default memo(function AioRightPanel({
     },
     [setAioSteps],
   );
+  const enabledStepsForTabs = useMemo(
+    () => ({
+      detectText: aioSteps.detectText,
+      recognizeText: aioSteps.recognizeText,
+      getTranslations: aioSteps.getTranslations,
+      segmentText: aioSteps.segmentText,
+      cleanImage: aioSteps.cleanImage,
+      render: aioSteps.render,
+    }),
+    [
+      aioSteps.detectText,
+      aioSteps.recognizeText,
+      aioSteps.getTranslations,
+      aioSteps.segmentText,
+      aioSteps.cleanImage,
+      aioSteps.render,
+    ],
+  );
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
   const setAioStageSelection = useAioPipelineStore(
     (s) => s.setAioStageSelection,
@@ -865,14 +883,7 @@ export default memo(function AioRightPanel({
         <AioStageTabBar
           tabs={STAGE_TABS}
           activeTab={activeStageTab}
-          enabledSteps={{
-            detectText: aioSteps.detectText,
-            recognizeText: aioSteps.recognizeText,
-            getTranslations: aioSteps.getTranslations,
-            segmentText: aioSteps.segmentText,
-            cleanImage: aioSteps.cleanImage,
-            render: aioSteps.render,
-          }}
+          enabledSteps={enabledStepsForTabs}
           onSelect={setActiveStageTab}
         />
 

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { cn } from '../lib/utils';
 import { useI18n } from '../i18n';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
@@ -54,8 +55,8 @@ const AioStageTabBarClassic = ({
   );
 };
 
-export const AioStageTabBar = (props: AioStageTabBarProps) => {
+export const AioStageTabBar = memo(function AioStageTabBar(props: AioStageTabBarProps) {
   const family = useThemeStore((s) => s.family);
 
   return family === 'noir' ? <AioStageTabBarNoir {...props} /> : <AioStageTabBarClassic {...props} />;
-};
+});
