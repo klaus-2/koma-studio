@@ -141,6 +141,9 @@ export const renderSettingsPresetsTab = ({
     handleRemoveTextFillSwatch,
     handleResetTextFillSwatches,
   } = textFill;
+  // One list per render: three inline listTextFillSwatches calls allocate
+  // three arrays and churn FillStylePopover props.
+  const textFillSwatchList = listTextFillSwatches(textFillSwatches);
   const {
     renderModePresetFeedback,
     renderModePresetError,
@@ -360,7 +363,7 @@ export const renderSettingsPresetsTab = ({
         <FillStylePopover
           label={t("settings.pickerPalette.newPreset")}
           value={textFillDraftValue}
-          swatches={listTextFillSwatches(textFillSwatches)}
+          swatches={textFillSwatchList}
           onChange={(v) => { setTextFillDraftValue(v); setTextFillError(null); setTextFillFeedback(null); }}
         />
       </div>
@@ -475,7 +478,7 @@ export const renderSettingsPresetsTab = ({
         </div>
         <div className="koma-fine-field koma-fine-field--full">
           <div className="koma-color-row">
-            <FillStylePopover label={t("settings.modePresets.textColor")} value={buildRenderModeColorPickerValue(renderModePresetForm.style)} allowGradient={false} swatches={listTextFillSwatches(textFillSwatches)} onChange={(v) => { const f = parseFillPickerValue(v, renderModePresetForm.style.color); handleRenderModePresetFieldChange("color", f.color); }} />
+            <FillStylePopover label={t("settings.modePresets.textColor")} value={buildRenderModeColorPickerValue(renderModePresetForm.style)} allowGradient={false} swatches={textFillSwatchList} onChange={(v) => { const f = parseFillPickerValue(v, renderModePresetForm.style.color); handleRenderModePresetFieldChange("color", f.color); }} />
             <HexColorPopover label={t("settings.modePresets.outlineColor")} value={renderModePresetForm.style.outlineColor} disabled={!renderModePresetForm.style.outlineEnabled} onChange={(v) => handleRenderModePresetFieldChange("outlineColor", v)} />
           </div>
         </div>
@@ -614,7 +617,7 @@ export const renderSettingsPresetsTab = ({
           </div>
           <div className="koma-fine-field">
             <div className="koma-color-row">
-              <FillStylePopover label={t("renderPreview.fill")} value={buildFillPickerValue(typographyPresetForm.style)} swatches={listTextFillSwatches(textFillSwatches)} onChange={(v) => { const f = parseFillPickerValue(v, typographyPresetForm.style.color); handleTypographyPresetStyleChange("color", f.color); handleTypographyPresetStyleChange("fillCssValue", f.fillCssValue); handleTypographyPresetStyleChange("gradientEnabled", f.gradientEnabled); handleTypographyPresetStyleChange("gradientStartColor", f.gradientStartColor); handleTypographyPresetStyleChange("gradientEndColor", f.gradientEndColor); handleTypographyPresetStyleChange("gradientAngle", f.gradientAngle); handleTypographyPresetStyleChange("detectGradient", false); }} />
+              <FillStylePopover label={t("renderPreview.fill")} value={buildFillPickerValue(typographyPresetForm.style)} swatches={textFillSwatchList} onChange={(v) => { const f = parseFillPickerValue(v, typographyPresetForm.style.color); handleTypographyPresetStyleChange("color", f.color); handleTypographyPresetStyleChange("fillCssValue", f.fillCssValue); handleTypographyPresetStyleChange("gradientEnabled", f.gradientEnabled); handleTypographyPresetStyleChange("gradientStartColor", f.gradientStartColor); handleTypographyPresetStyleChange("gradientEndColor", f.gradientEndColor); handleTypographyPresetStyleChange("gradientAngle", f.gradientAngle); handleTypographyPresetStyleChange("detectGradient", false); }} />
               <HexColorPopover label={t("renderPreview.outline")} value={typographyPresetForm.style.outlineColor} onChange={(v) => handleTypographyPresetStyleChange("outlineColor", v)} />
             </div>
           </div>
