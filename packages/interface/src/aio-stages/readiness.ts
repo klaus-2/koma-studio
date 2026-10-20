@@ -1,10 +1,10 @@
 /**
  * Stage readiness — one policy for “can this AIO stage model run?”
  *
- * `resolveStageModelReadiness`: selection keys in → ready plan or typed
- * refusal (always a non-empty `message`). Local-model manager opens ride
- * on `openModelManager`; `applyStageReadinessRefusal` / `raiseStageReadinessRefusal`
- * are the only place that turns a refusal into UI / throw.
+ * `resolveStageModelReadiness` / `ensureStageModelReadiness` /
+ * `requireStageModelReadiness`: selection keys in → ready plan or typed
+ * refusal (always a non-empty `message`). Model-manager opens ride on
+ * `openModelManager`.
  */
 import type { AioStageOption } from '../models/aioStageCatalog.types';
 import {
@@ -18,10 +18,8 @@ import {
   isCloudOcrModelKey,
   isCloudTranslationModelKey,
   isCustomModelSelectionKey,
-  normalizeKnownCustomLlmApiBase,
   requiresCustomLlmApiKey,
   shouldUseLocalDesktopTranslationForCustomProfile,
-  type LlmRequestSettings,
 } from '../utils/customLlm';
 
 export type StageReadinessStage =
@@ -30,8 +28,6 @@ export type StageReadinessStage =
   | 'getTranslations'
   | 'segmentText'
   | 'cleanImage';
-
-export type LocalStageName = Exclude<StageReadinessStage, 'getTranslations'>;
 
 export interface LocalModelEntry {
   status: string;
@@ -62,9 +58,7 @@ export type StageReadinessRefusalKind =
   | 'custom_api_key_missing'
   | 'runtime_restriction'
   | 'install_translation_model'
-  | 'incompatible_language'
-  | 'custom_cleaner_incomplete'
-  | 'custom_cleaner_requires_api_key';
+  | 'incompatible_language';
 
 export interface StageReadinessReady {
   ok: true;
@@ -90,21 +84,20 @@ export interface StageReadinessRefusal {
 
 export type StageReadiness = StageReadinessReady | StageReadinessRefusal;
 
-/** Call-site copy for the three strings that already diverge per tool. */
-export interface StageReadinessMessages {
-  invalidSelection: string;
-  selectCustomProfile: string;
-  requiresApiKey: string;
-}
+/**
+ * Catalog input — never a silent tri-state.
+ * `skip` when the call site has no stage catalog; `lookup` with `null` when
+ * the key was looked up and missing.
+ */
+export type StageCatalogInput =
+  | { readonly kind: 'skip' }
+  | { readonly kind: 'lookup'; readonly option: AioStageOption | null };
 
-export interface CleanerAiProfileReadinessReady {
-  ok: true;
-  customPayload: ReadinessCustomProfile | null;
-}
+export const skipStageCatalog = (): StageCatalogInput => ({ kind: 'skip' });
 
-export type CleanerAiProfileReadiness =
-  | CleanerAiProfileReadinessReady
-  | StageReadinessRefusal;
+export const stageCatalogOption = (
+  option: AioStageOption | null,
+): StageCatalogInput => ({ kind: 'lookup', option });
 
 export interface ReadinessRefusalSink {
   setStatusMessage?: (message: string) => void;
@@ -113,6 +106,14 @@ export interface ReadinessRefusalSink {
     options?: Record<string, unknown>,
   ) => void;
 }
+
+const INVALID_SELECTION_KEYS: Record<StageReadinessStage, string> = {
+  detectText: 'aioManual.selectValidDetectModel',
+  recognizeText: 'aioExec.selectValidOcrModel',
+  getTranslations: 'aioExec.selectValidTranslation',
+  segmentText: 'aioManual.selectValidSegmentModel',
+  cleanImage: 'aioManual.selectValidCleanModel',
+};
 
 const isLocalModelInstalled = (entry: LocalModelEntry): boolean =>
   entry.status === 'installed' || entry.status === 'update_available';
@@ -126,15 +127,15 @@ const localReadyPlan = (modelKey: string): StageReadinessReady => ({
 });
 
 function refuseCatalogOption(
+  stage: StageReadinessStage,
   option: AioStageOption | null,
-  messages: StageReadinessMessages,
   t: Translate,
 ): StageReadinessRefusal | null {
   if (!option) {
     return {
       ok: false,
       kind: 'option_missing',
-      message: messages.invalidSelection,
+      message: t(INVALID_SELECTION_KEYS[stage]),
     };
   }
   if (!option.implemented) {
@@ -157,19 +158,24 @@ function refuseCatalogOption(
 }
 
 function refuseCustomProfile(
+  stage: StageReadinessStage,
   modelKey: string,
   customProfile: ReadinessCustomProfile | null,
-  messages: StageReadinessMessages,
-  options: { enforceRuntimeRestriction?: boolean } = {},
+  t: Translate,
 ): StageReadinessRefusal | null {
   if (!isCustomModelSelectionKey(modelKey)) {
     return null;
   }
+  const isTranslation = stage === 'getTranslations';
   if (!customProfile) {
     return {
       ok: false,
       kind: 'custom_profile_missing',
-      message: messages.selectCustomProfile,
+      message: t(
+        isTranslation
+          ? 'aioExec.selectCustomAiProfile'
+          : 'aioExec.selectCustomOcrProfile',
+      ),
     };
   }
   if (
@@ -179,10 +185,14 @@ function refuseCustomProfile(
     return {
       ok: false,
       kind: 'custom_api_key_missing',
-      message: messages.requiresApiKey,
+      message: t(
+        isTranslation
+          ? 'aioExec.translationRequiresApiKey'
+          : 'aioExec.ocrRequiresApiKey',
+      ),
     };
   }
-  if (options.enforceRuntimeRestriction) {
+  if (isTranslation) {
     const runtimeRestriction = getCustomLlmRuntimeRestriction(customProfile.apiBase);
     if (runtimeRestriction) {
       return {
@@ -244,39 +254,32 @@ const LOCAL_ONLY_STAGES: ReadonlySet<StageReadinessStage> = new Set([
   'cleanImage',
 ]);
 
-/**
- * One readiness policy for every AIO stage.
- *
- * `option`: `undefined` skips the catalog check; `null` means looked-up and
- * missing; a value runs the catalog cascade on the cloud/custom path.
- */
 export function resolveStageModelReadiness(args: {
   stage: StageReadinessStage;
   stageLabel: string;
   modelKey: string;
-  option?: AioStageOption | null;
+  catalog: StageCatalogInput;
   modelEntries: Readonly<Record<string, LocalModelEntry | null | undefined>>;
   customProfile?: ReadinessCustomProfile | null;
   languages?: { source: string; target: string };
-  messages: StageReadinessMessages;
   t: Translate;
 }): StageReadiness {
   const {
     stage,
     stageLabel,
     modelKey,
-    option,
+    catalog,
     modelEntries,
     customProfile = null,
-    messages,
     t,
   } = args;
 
-  if (option === null) {
+  const option = catalog.kind === 'lookup' ? catalog.option : undefined;
+  if (catalog.kind === 'lookup' && option === null) {
     return {
       ok: false,
       kind: 'option_missing',
-      message: messages.invalidSelection,
+      message: t(INVALID_SELECTION_KEYS[stage]),
     };
   }
 
@@ -345,15 +348,10 @@ export function resolveStageModelReadiness(args: {
     return localReadyPlan(modelKey);
   }
 
-  const catalogRefusal = refuseCatalogOption(option ?? null, messages, t);
+  const catalogRefusal = refuseCatalogOption(stage, option ?? null, t);
   if (catalogRefusal) return catalogRefusal;
 
-  const customRefusal = refuseCustomProfile(
-    modelKey,
-    customProfile,
-    messages,
-    { enforceRuntimeRestriction: stage === 'getTranslations' },
-  );
+  const customRefusal = refuseCustomProfile(stage, modelKey, customProfile, t);
   if (customRefusal) return customRefusal;
 
   return readyPlanFor(stage, modelKey, option ?? null, customProfile);
@@ -361,7 +359,7 @@ export function resolveStageModelReadiness(args: {
 
 /** Surface a refusal as status message + optional model-manager open. */
 export function applyStageReadinessRefusal(
-  refusal: Extract<StageReadiness, { ok: false }>,
+  refusal: StageReadinessRefusal,
   sink: ReadinessRefusalSink,
 ): void {
   sink.setStatusMessage?.(refusal.message);
@@ -375,76 +373,26 @@ export function applyStageReadinessRefusal(
   }
 }
 
-/** Surface a refusal and throw (manual / Translator resolvers). */
-export function raiseStageReadinessRefusal(
-  refusal: Extract<StageReadiness, { ok: false }>,
+/** Resolve + surface refusal as UI. Returns the ready plan or `null`. */
+export function ensureStageModelReadiness(
+  args: Parameters<typeof resolveStageModelReadiness>[0],
+  sink: ReadinessRefusalSink,
+): StageReadinessReady | null {
+  const readiness = resolveStageModelReadiness(args);
+  if (readiness.ok) return readiness;
+  applyStageReadinessRefusal(readiness, sink);
+  return null;
+}
+
+/** Resolve + throw on refusal (manual / Translator resolvers). */
+export function requireStageModelReadiness(
+  args: Parameters<typeof resolveStageModelReadiness>[0],
   sink: ReadinessRefusalSink = {},
-): never {
-  applyStageReadinessRefusal(refusal, {
+): StageReadinessReady {
+  const readiness = resolveStageModelReadiness(args);
+  if (readiness.ok) return readiness;
+  applyStageReadinessRefusal(readiness, {
     openModelManagerForStage: sink.openModelManagerForStage,
   });
-  throw new Error(refusal.message);
-}
-
-/** SFX translation rewrites extra_context and disables notes. */
-export function withSfxTranslationSettings(
-  base: LlmRequestSettings,
-  extraContext: string,
-): LlmRequestSettings {
-  return {
-    ...base,
-    extra_context: extraContext,
-    translation_notes_enabled: false,
-  };
-}
-
-/**
- * Cleaner AI Custom profile — API Base + Model + API key policy for
- * Automatic AI Clean / AI SFX.
- */
-export function resolveCleanerAiProfileReadiness(args: {
-  isCustomCleanerAi: boolean;
-  profile: {
-    apiBase: string;
-    model?: string;
-    apiKey: string;
-  } | null;
-  messages: {
-    incomplete: string;
-    requiresApiKey: string;
-  };
-}): CleanerAiProfileReadiness {
-  if (!args.isCustomCleanerAi) {
-    return { ok: true, customPayload: null };
-  }
-
-  const normalizedApiBase = normalizeKnownCustomLlmApiBase(
-    args.profile?.apiBase ?? '',
-  );
-  const normalizedModel = args.profile?.model?.trim() ?? '';
-  const normalizedApiKey = args.profile?.apiKey.trim() ?? '';
-
-  if (!normalizedApiBase || !normalizedModel) {
-    return {
-      ok: false,
-      kind: 'custom_cleaner_incomplete',
-      message: args.messages.incomplete,
-    };
-  }
-  if (requiresCustomLlmApiKey(normalizedApiBase) && !normalizedApiKey) {
-    return {
-      ok: false,
-      kind: 'custom_cleaner_requires_api_key',
-      message: args.messages.requiresApiKey,
-    };
-  }
-
-  return {
-    ok: true,
-    customPayload: {
-      apiBase: normalizedApiBase,
-      model: normalizedModel,
-      apiKey: normalizedApiKey,
-    },
-  };
+  throw new Error(readiness.message);
 }

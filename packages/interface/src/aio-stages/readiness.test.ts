@@ -4,20 +4,28 @@ import { setDesktopBridgeProvider } from '../lib/desktop-bridge';
 import type { AioStageOption } from '../models/aioStageCatalog.types';
 import {
   applyStageReadinessRefusal,
-  resolveCleanerAiProfileReadiness,
+  ensureStageModelReadiness,
+  requireStageModelReadiness,
   resolveStageModelReadiness,
+  skipStageCatalog,
+  stageCatalogOption,
   type LocalModelEntry,
   type Translate,
-  withSfxTranslationSettings,
 } from './readiness';
-import { DEFAULT_LLM_REQUEST_SETTINGS } from '../utils/customLlm';
+import { resolveCleanerAiProfileReadiness } from './cleanerAiProfile';
+import {
+  DEFAULT_LLM_REQUEST_SETTINGS,
+  withSfxTranslationSettings,
+} from '../utils/customLlm';
 
 afterEach(() => {
   setDesktopBridgeProvider(null);
 });
 
 const t: Translate = (key, params) =>
-  params?.name ? `${key}:${String(params.name)}` : key;
+  params?.name || params?.modelName
+    ? `${key}:${String(params.name ?? params.modelName)}`
+    : key;
 
 function option(overrides: Partial<AioStageOption> = {}): AioStageOption {
   return {
@@ -36,37 +44,26 @@ const installed: LocalModelEntry = {
   model: { id: 'm1', name: 'Local M1' },
 };
 
-const messages = {
-  invalidSelection: 'pick model',
-  selectCustomProfile: 'pick profile',
-  requiresApiKey: 'need key',
-};
-
 describe('resolveStageModelReadiness', () => {
-  it('refuses when the catalog option was looked up and missing', () => {
+  it('refuses when the catalog lookup found nothing', () => {
     const result = resolveStageModelReadiness({
       stage: 'detectText',
       stageLabel: 'Detect Text',
       modelKey: 'ghost',
-      option: null,
+      catalog: stageCatalogOption(null),
       modelEntries: {},
-      messages,
       t,
     });
-    expect(result).toMatchObject({
-      ok: false,
-      kind: 'option_missing',
-      message: 'pick model',
-    });
+    expect(result).toMatchObject({ ok: false, kind: 'option_missing' });
   });
 
-  it('skips the catalog check when option is omitted', () => {
+  it('skips the catalog when asked', () => {
     const result = resolveStageModelReadiness({
       stage: 'detectText',
       stageLabel: 'Detect Text',
       modelKey: 'local-key',
+      catalog: skipStageCatalog(),
       modelEntries: { 'local-key': installed },
-      messages,
       t,
     });
     expect(result).toEqual({
@@ -83,8 +80,8 @@ describe('resolveStageModelReadiness', () => {
       stage: 'cleanImage',
       stageLabel: 'Clean Image',
       modelKey: 'missing',
+      catalog: skipStageCatalog(),
       modelEntries: {},
-      messages,
       t,
     });
     expect(result).toMatchObject({
@@ -100,13 +97,13 @@ describe('resolveStageModelReadiness', () => {
       stage: 'segmentText',
       stageLabel: 'Segment Text',
       modelKey: 'local-key',
+      catalog: skipStageCatalog(),
       modelEntries: {
         'local-key': {
           status: 'available',
           model: { id: 'm1', name: 'Local M1' },
         },
       },
-      messages,
       t,
     });
     expect(result).toMatchObject({
@@ -121,36 +118,32 @@ describe('resolveStageModelReadiness', () => {
       stage: 'recognizeText',
       stageLabel: 'Recognize Text',
       modelKey: 'custom_ocr:abc',
-      option: option({ key: 'custom_ocr:abc' }),
+      catalog: stageCatalogOption(option({ key: 'custom_ocr:abc' })),
       modelEntries: {},
       customProfile: null,
-      messages,
       t,
     });
     expect(missingProfile).toMatchObject({
       ok: false,
       kind: 'custom_profile_missing',
-      message: 'pick profile',
     });
 
     const missingKey = resolveStageModelReadiness({
       stage: 'recognizeText',
       stageLabel: 'Recognize Text',
       modelKey: 'custom_ocr:abc',
-      option: option({ key: 'custom_ocr:abc' }),
+      catalog: stageCatalogOption(option({ key: 'custom_ocr:abc' })),
       modelEntries: {},
       customProfile: {
         apiBase: 'https://api.groq.com/openai/v1',
         apiKey: '  ',
         model: 'm',
       },
-      messages,
       t,
     });
     expect(missingKey).toMatchObject({
       ok: false,
       kind: 'custom_api_key_missing',
-      message: 'need key',
     });
   });
 
@@ -159,19 +152,20 @@ describe('resolveStageModelReadiness', () => {
       stage: 'recognizeText',
       stageLabel: 'Recognize Text',
       modelKey: 'gpt_4o',
-      option: option({
-        key: 'gpt_4o',
-        llm_capabilities: {
-          extra_context: true,
-          image_input_enabled: true,
-          temperature: true,
-          top_p: true,
-          max_tokens: true,
-        },
-      }),
+      catalog: stageCatalogOption(
+        option({
+          key: 'gpt_4o',
+          llm_capabilities: {
+            extra_context: true,
+            image_input_enabled: true,
+            temperature: true,
+            top_p: true,
+            max_tokens: true,
+          },
+        }),
+      ),
       modelEntries: {},
       customProfile: null,
-      messages,
       t,
     });
     expect(result).toMatchObject({ ok: true, useCloud: true, useLlmSettings: true });
@@ -182,6 +176,7 @@ describe('resolveStageModelReadiness', () => {
       stage: 'getTranslations',
       stageLabel: 'Get Translations',
       modelKey: 'local-key',
+      catalog: skipStageCatalog(),
       modelEntries: {
         'local-key': {
           status: 'available',
@@ -189,7 +184,6 @@ describe('resolveStageModelReadiness', () => {
         },
       },
       languages: { source: 'ja', target: 'en' },
-      messages,
       t,
     });
     expect(result).toMatchObject({
@@ -205,7 +199,7 @@ describe('resolveStageModelReadiness', () => {
       stage: 'getTranslations',
       stageLabel: 'Get Translations',
       modelKey: 'custom:profile-1',
-      option: option({ key: 'custom:profile-1' }),
+      catalog: stageCatalogOption(option({ key: 'custom:profile-1' })),
       modelEntries: {},
       customProfile: {
         apiBase: 'http://127.0.0.1:11434/v1',
@@ -213,7 +207,6 @@ describe('resolveStageModelReadiness', () => {
         model: 'm',
       },
       languages: { source: 'ja', target: 'en' },
-      messages,
       t,
     });
     expect(result).toMatchObject({ ok: false, kind: 'runtime_restriction' });
@@ -224,29 +217,72 @@ describe('resolveStageModelReadiness', () => {
       stage: 'getTranslations',
       stageLabel: 'Get Translations',
       modelKey: 'gpt_4o_mini',
-      option: option({ key: 'gpt_4o_mini' }),
+      catalog: stageCatalogOption(option({ key: 'gpt_4o_mini' })),
       modelEntries: {},
       languages: { source: 'ja', target: 'en' },
-      messages,
       t,
     });
     expect(result).toMatchObject({ ok: true, useCloud: true, modelKey: 'gpt_4o_mini' });
   });
 });
 
-describe('applyStageReadinessRefusal', () => {
-  it('surfaces the message and opens the model manager when asked', () => {
-    const setStatusMessage = (_message: string) => {};
+describe('ensure / require / apply', () => {
+  it('ensure surfaces the refusal and returns null', () => {
+    const messages: string[] = [];
+    const ready = ensureStageModelReadiness(
+      {
+        stage: 'detectText',
+        stageLabel: 'Detect Text',
+        modelKey: 'missing',
+        catalog: skipStageCatalog(),
+        modelEntries: {},
+        t,
+      },
+      { setStatusMessage: (message) => messages.push(message) },
+    );
+    expect(ready).toBeNull();
+    expect(messages[0]?.length).toBeGreaterThan(0);
+  });
+
+  it('require throws after opening the model manager', () => {
+    const opened: unknown[] = [];
+    expect(() =>
+      requireStageModelReadiness(
+        {
+          stage: 'detectText',
+          stageLabel: 'Detect Text',
+          modelKey: 'm1',
+          catalog: skipStageCatalog(),
+          modelEntries: {
+            m1: { status: 'available', model: { id: 'm1', name: 'Local M1' } },
+          },
+          t,
+        },
+        {
+          openModelManagerForStage: (stage, options) => {
+            opened.push([stage, options]);
+          },
+        },
+      ),
+    ).toThrow();
+    expect(opened[0]).toBeDefined();
+    expect((opened[0] as unknown[])[0]).toBe('detectText');
+  });
+
+  it('apply maps openModelManager intent to the sink', () => {
     const opened: unknown[] = [];
     applyStageReadinessRefusal(
       {
         ok: false,
         kind: 'local_not_ready',
         message: 'install it',
-        openModelManager: { stage: 'detectText', focusedModelId: 'm1', language: 'ja' },
+        openModelManager: {
+          stage: 'detectText',
+          focusedModelId: 'm1',
+          language: 'ja',
+        },
       },
       {
-        setStatusMessage,
         openModelManagerForStage: (stage, options) => {
           opened.push([stage, options]);
         },
@@ -262,7 +298,11 @@ describe('withSfxTranslationSettings', () => {
   it('rewrites extra_context and disables notes', () => {
     expect(
       withSfxTranslationSettings(
-        { ...DEFAULT_LLM_REQUEST_SETTINGS, extra_context: 'base', translation_notes_enabled: true },
+        {
+          ...DEFAULT_LLM_REQUEST_SETTINGS,
+          extra_context: 'base',
+          translation_notes_enabled: true,
+        },
         'sfx ctx',
       ),
     ).toMatchObject({
@@ -273,17 +313,11 @@ describe('withSfxTranslationSettings', () => {
 });
 
 describe('resolveCleanerAiProfileReadiness', () => {
-  const cleanerMessages = {
-    incomplete: 'fill api base and model',
-    requiresApiKey: 'need key',
-  };
-
   it('passes through non-custom cleaner AI', () => {
     expect(
       resolveCleanerAiProfileReadiness({
         isCustomCleanerAi: false,
         profile: null,
-        messages: cleanerMessages,
       }),
     ).toEqual({ ok: true, customPayload: null });
   });
@@ -293,7 +327,6 @@ describe('resolveCleanerAiProfileReadiness', () => {
       resolveCleanerAiProfileReadiness({
         isCustomCleanerAi: true,
         profile: { apiBase: '', model: '', apiKey: '' },
-        messages: cleanerMessages,
       }),
     ).toMatchObject({ ok: false, kind: 'custom_cleaner_incomplete' });
   });
@@ -307,7 +340,6 @@ describe('resolveCleanerAiProfileReadiness', () => {
           model: '  m  ',
           apiKey: 'k',
         },
-        messages: cleanerMessages,
       }),
     ).toEqual({
       ok: true,

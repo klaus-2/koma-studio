@@ -2,8 +2,10 @@ import { useCallback } from 'react';
 
 import { useI18n } from '../i18n';
 import {
-  applyStageReadinessRefusal,
-  resolveStageModelReadiness,
+  ensureStageModelReadiness,
+  skipStageCatalog,
+  stageCatalogOption,
+  type StageReadinessReady,
 } from '../aio-stages';
 import type { AioStageKey } from '../types/aioModelPresets';
 import type { AioStageOption } from '../models/aioStageCatalog';
@@ -89,43 +91,35 @@ export function useAioExecutionPreparation({
     const selectedTranslationOption = getAioStageOption('getTranslations', selectedTranslationKey);
 
     const readinessSink = { setStatusMessage, openModelManagerForStage };
+    const ensureReady = (
+      args: Parameters<typeof ensureStageModelReadiness>[0],
+    ): StageReadinessReady | null => ensureStageModelReadiness(args, readinessSink);
 
-    const detectReadiness = resolveStageModelReadiness({
+    const detectReadiness = ensureReady({
       stage: 'detectText',
       stageLabel: 'Detectar Texto',
       modelKey: selectedDetectorKey,
+      catalog: skipStageCatalog(),
       modelEntries,
-      messages: {
-        invalidSelection: t('aioManual.selectValidDetectModel'),
-        selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-        requiresApiKey: t('aioExec.ocrRequiresApiKey'),
-      },
       t,
     });
-    if (!detectReadiness.ok) {
-      applyStageReadinessRefusal(detectReadiness, readinessSink);
+    if (!detectReadiness) {
       return null;
     }
 
     let useCloudOcr = false;
     let useLlmSettingsForOcr = false;
     if (aioSteps.recognizeText) {
-      const ocrReadiness = resolveStageModelReadiness({
+      const ocrReadiness = ensureReady({
         stage: 'recognizeText',
         stageLabel: 'Reconhecer Texto',
         modelKey: selectedOcrKey,
-        option: selectedOcrOption,
+        catalog: stageCatalogOption(selectedOcrOption),
         modelEntries,
         customProfile: selectedCustomOcrProfile,
-        messages: {
-          invalidSelection: t('aioExec.selectValidOcrModel'),
-          selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-          requiresApiKey: t('aioExec.ocrRequiresApiKey'),
-        },
         t,
       });
-      if (!ocrReadiness.ok) {
-        applyStageReadinessRefusal(ocrReadiness, readinessSink);
+      if (!ocrReadiness) {
         return null;
       }
       useCloudOcr = ocrReadiness.useCloud;
@@ -133,38 +127,28 @@ export function useAioExecutionPreparation({
     }
 
     if (aioSteps.segmentText) {
-      const segmentReadiness = resolveStageModelReadiness({
+      const segmentReadiness = ensureReady({
         stage: 'segmentText',
         stageLabel: 'Segmentar Texto',
         modelKey: selectedSegmentKey,
+        catalog: skipStageCatalog(),
         modelEntries,
-        messages: {
-          invalidSelection: t('aioManual.selectValidSegmentModel'),
-          selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-          requiresApiKey: t('aioExec.ocrRequiresApiKey'),
-        },
         t,
       });
-      if (!segmentReadiness.ok) {
-        applyStageReadinessRefusal(segmentReadiness, readinessSink);
+      if (!segmentReadiness) {
         return null;
       }
     }
     if (aioSteps.cleanImage) {
-      const cleanReadiness = resolveStageModelReadiness({
+      const cleanReadiness = ensureReady({
         stage: 'cleanImage',
         stageLabel: 'Clean Image',
         modelKey: selectedCleanKey,
+        catalog: skipStageCatalog(),
         modelEntries,
-        messages: {
-          invalidSelection: t('aioManual.selectValidCleanModel'),
-          selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-          requiresApiKey: t('aioExec.ocrRequiresApiKey'),
-        },
         t,
       });
-      if (!cleanReadiness.ok) {
-        applyStageReadinessRefusal(cleanReadiness, readinessSink);
+      if (!cleanReadiness) {
         return null;
       }
     }
@@ -172,23 +156,17 @@ export function useAioExecutionPreparation({
     let useCloudTranslation = false;
     let useLlmSettingsForTranslation = false;
     if (aioSteps.getTranslations) {
-      const translationReadiness = resolveStageModelReadiness({
+      const translationReadiness = ensureReady({
         stage: 'getTranslations',
         stageLabel: 'Obter Traduções',
         modelKey: selectedTranslationKey,
-        option: selectedTranslationOption,
+        catalog: stageCatalogOption(selectedTranslationOption),
         modelEntries,
         customProfile: selectedCustomTranslationProfile,
         languages: { source: aioSrcLang, target: aioTgtLang },
-        messages: {
-          invalidSelection: t('aioExec.selectValidTranslation'),
-          selectCustomProfile: t('aioExec.selectCustomAiProfile'),
-          requiresApiKey: t('aioExec.translationRequiresApiKey'),
-        },
         t,
       });
-      if (!translationReadiness.ok) {
-        applyStageReadinessRefusal(translationReadiness, readinessSink);
+      if (!translationReadiness) {
         return null;
       }
       useCloudTranslation = translationReadiness.useCloud;

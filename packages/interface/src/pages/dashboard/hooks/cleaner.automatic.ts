@@ -1,11 +1,11 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import {
-  applyStageReadinessRefusal,
+  ensureStageModelReadiness,
   resolveCleanerAiProfileReadiness,
-  resolveStageModelReadiness,
   runCleanImageAiStage,
   runDetectTextStage,
   runSfxClassifyStage,
+  skipStageCatalog,
   type StageRuntime,
 } from '../../../aio-stages';
 import {
@@ -72,35 +72,24 @@ export async function runAutomaticCleanerWorkflow(
   const normalizedCleanerAiInstructions = cleanerAiAdditionalInstructions.trim();
 
   if (isAutomaticAiMode || isAiSfxMode) {
-    const detectReadiness = resolveStageModelReadiness({
-      stage: 'detectText',
-      stageLabel: AIO_STAGE_LABELS.detectText,
-      modelKey: detectSelectionKey,
-      modelEntries,
-      messages: {
-        invalidSelection: t('aioManual.selectValidDetectModel'),
-        selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-        requiresApiKey: t('aioExec.ocrRequiresApiKey'),
+    const detectReadiness = ensureStageModelReadiness(
+      {
+        stage: 'detectText',
+        stageLabel: AIO_STAGE_LABELS.detectText,
+        modelKey: detectSelectionKey,
+        catalog: skipStageCatalog(),
+        modelEntries,
+        t,
       },
-      t,
-    });
-    if (!detectReadiness.ok) {
-      applyStageReadinessRefusal(detectReadiness, {
-        setStatusMessage,
-        openModelManagerForStage,
-      });
+      { setStatusMessage, openModelManagerForStage },
+    );
+    if (!detectReadiness) {
       return;
     }
 
     const cleanerAiReadiness = resolveCleanerAiProfileReadiness({
       isCustomCleanerAi,
       profile: selectedCleanerCustomProfile,
-      messages: {
-        incomplete:
-          'Fill in API Base and Model before running Automatic AI Clean with AI Custom.',
-        requiresApiKey:
-          'This AI Custom provider requires an API key for Automatic AI Clean.',
-      },
     });
     if (!cleanerAiReadiness.ok) {
       setStatusMessage(cleanerAiReadiness.message);

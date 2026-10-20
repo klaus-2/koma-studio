@@ -1,5 +1,6 @@
 export * from './cleanImage';
 export * from './cleanImageAi';
+export * from './cleanerAiProfile';
 export * from './detectText';
 export * from './getTranslations';
 export * from './merge';

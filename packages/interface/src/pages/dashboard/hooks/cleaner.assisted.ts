@@ -1,12 +1,14 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import {
-  applyStageReadinessRefusal,
-  resolveStageModelReadiness,
+  ensureStageModelReadiness,
   resolveUpstreamRegions,
   runCleanImageStage,
   runDetectTextStage,
   runRecognizeTextStage,
   runSegmentTextStage,
+  skipStageCatalog,
+  stageCatalogOption,
+  type StageReadinessReady,
   type StageRegions,
   type StageRunNotice,
 } from '../../../aio-stages';
@@ -76,74 +78,56 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
   const selectedSegmentKey = segmentSelectionKey;
   const selectedCleanKey = cleanSelectionKey;
   const readinessSink = { setStatusMessage, openModelManagerForStage };
+  const ensureReady = (
+    args: Parameters<typeof ensureStageModelReadiness>[0],
+  ): StageReadinessReady | null => ensureStageModelReadiness(args, readinessSink);
 
-  const detectReadiness = resolveStageModelReadiness({
+  const detectReadiness = ensureReady({
     stage: 'detectText',
     stageLabel: AIO_STAGE_LABELS.detectText,
     modelKey: selectedDetectorKey,
+    catalog: skipStageCatalog(),
     modelEntries,
-    messages: {
-      invalidSelection: t('aioManual.selectValidDetectModel'),
-      selectCustomProfile: t('cleanerActions.selectValidOcrModel'),
-      requiresApiKey: t('cleanerActions.selectValidOcrModel'),
-    },
     t,
   });
-  if (!detectReadiness.ok) {
-    applyStageReadinessRefusal(detectReadiness, readinessSink);
+  if (!detectReadiness) {
     return;
   }
 
-  const ocrReadiness = resolveStageModelReadiness({
+  const ocrReadiness = ensureReady({
     stage: 'recognizeText',
     stageLabel: AIO_STAGE_LABELS.recognizeText,
     modelKey: selectedOcrKey,
-    option: getAioStageOption('recognizeText', selectedOcrKey),
+    catalog: stageCatalogOption(getAioStageOption('recognizeText', selectedOcrKey)),
     modelEntries,
     customProfile: selectedCustomOcrProfile,
-    messages: {
-      invalidSelection: t('cleanerActions.selectValidOcrModel'),
-      selectCustomProfile: 'Select or save a Custom AI OCR profile before running the Cleaner.',
-      requiresApiKey: 'This OCR provider requires an API key. Configure the key before running.',
-    },
     t,
   });
-  if (!ocrReadiness.ok) {
-    applyStageReadinessRefusal(ocrReadiness, readinessSink);
+  if (!ocrReadiness) {
     return;
   }
   const useLlmSettingsForOcr = ocrReadiness.useLlmSettings;
 
-  const segmentReadiness = resolveStageModelReadiness({
+  const segmentReadiness = ensureReady({
     stage: 'segmentText',
     stageLabel: AIO_STAGE_LABELS.segmentText,
     modelKey: selectedSegmentKey,
+    catalog: skipStageCatalog(),
     modelEntries,
-    messages: {
-      invalidSelection: t('aioManual.selectValidSegmentModel'),
-      selectCustomProfile: 'Select or save a Custom AI OCR profile before running the Cleaner.',
-      requiresApiKey: 'This OCR provider requires an API key. Configure the key before running.',
-    },
     t,
   });
-  if (!segmentReadiness.ok) {
-    applyStageReadinessRefusal(segmentReadiness, readinessSink);
+  if (!segmentReadiness) {
     return;
   }
-  const cleanReadiness = resolveStageModelReadiness({
+  const cleanReadiness = ensureReady({
     stage: 'cleanImage',
     stageLabel: AIO_STAGE_LABELS.cleanImage,
     modelKey: selectedCleanKey,
+    catalog: skipStageCatalog(),
     modelEntries,
-    messages: {
-      invalidSelection: t('aioManual.selectValidCleanModel'),
-      selectCustomProfile: 'Select or save a Custom AI OCR profile before running the Cleaner.',
-      requiresApiKey: 'This OCR provider requires an API key. Configure the key before running.',
-    },
     t,
   });
-  if (!cleanReadiness.ok) {
-    applyStageReadinessRefusal(cleanReadiness, readinessSink);
+  if (!cleanReadiness) {
     return;
   }
 

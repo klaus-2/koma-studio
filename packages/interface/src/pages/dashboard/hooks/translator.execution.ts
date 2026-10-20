@@ -11,16 +11,16 @@ import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import {
   type CustomLlmProfile,
+  withSfxTranslationSettings,
 } from '../../../utils/customLlm';
 import {
   parseTranslatorStructuredTextInput,
 } from '../../../utils/dashboard.utils';
 import {
-  raiseStageReadinessRefusal,
-  resolveStageModelReadiness,
+  requireStageModelReadiness,
   runGetTranslationsStage,
   runTranslateTextStage,
-  withSfxTranslationSettings,
+  stageCatalogOption,
   type StageRuntime,
 } from '../../../aio-stages';
 import { buildSfxTranslationInstructions } from '../../../utils/sfx';
@@ -82,24 +82,19 @@ export function useTranslatorExecutionResolvers({
       (option) => option.key === selectedTranslationKey,
     ) ?? null;
 
-    const readiness = resolveStageModelReadiness({
-      stage: 'getTranslations',
-      stageLabel: 'Obter Traduções',
-      modelKey: selectedTranslationKey,
-      option: selectedTranslationOption,
-      modelEntries,
-      customProfile: selectedCustomTranslationProfile,
-      languages: { source: srcLang, target: tgtLang },
-      messages: {
-        invalidSelection: t('translator.selectValidTranslationModel'),
-        selectCustomProfile: t('translator.selectCustomAiTranslationProfile'),
-        requiresApiKey: t('aioExec.translationRequiresApiKey'),
+    const readiness = requireStageModelReadiness(
+      {
+        stage: 'getTranslations',
+        stageLabel: 'Obter Traduções',
+        modelKey: selectedTranslationKey,
+        catalog: stageCatalogOption(selectedTranslationOption),
+        modelEntries,
+        customProfile: selectedCustomTranslationProfile,
+        languages: { source: srcLang, target: tgtLang },
+        t,
       },
-      t,
-    });
-    if (!readiness.ok) {
-      return raiseStageReadinessRefusal(readiness, readinessSink);
-    }
+      readinessSink,
+    );
 
     return {
       selectedTranslationKey,
@@ -124,23 +119,18 @@ export function useTranslatorExecutionResolvers({
       (option) => option.key === selectedOcrKey,
     ) ?? null;
 
-    const readiness = resolveStageModelReadiness({
-      stage: 'recognizeText',
-      stageLabel: AIO_STAGE_LABELS.recognizeText,
-      modelKey: selectedOcrKey,
-      option: selectedOcrOption,
-      modelEntries,
-      customProfile: selectedCustomOcrProfile,
-      messages: {
-        invalidSelection: t('translator.selectValidOcrModel'),
-        selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-        requiresApiKey: t('aioExec.ocrRequiresApiKey'),
+    const readiness = requireStageModelReadiness(
+      {
+        stage: 'recognizeText',
+        stageLabel: AIO_STAGE_LABELS.recognizeText,
+        modelKey: selectedOcrKey,
+        catalog: stageCatalogOption(selectedOcrOption),
+        modelEntries,
+        customProfile: selectedCustomOcrProfile,
+        t,
       },
-      t,
-    });
-    if (!readiness.ok) {
-      return raiseStageReadinessRefusal(readiness, readinessSink);
-    }
+      readinessSink,
+    );
 
     return {
       selectedOcrKey,

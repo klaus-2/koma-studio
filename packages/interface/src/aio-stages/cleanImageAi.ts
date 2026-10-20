@@ -13,15 +13,8 @@ import type {
   StageRuntime,
 } from './types';
 
-export interface CleanImageAiStageArgs {
-  image: StageImageRef;
-  modelKey: string;
-  regions: RegionList;
-  additionalInstructions: string;
-  customProfile?: CustomLlmRequestProfile | null;
-}
-
-export interface SfxClassifyStageArgs {
+/** Shared args for structural Clean Image (AI) / SFX stage-runs. */
+export interface StructuralCleanStageArgs {
   image: StageImageRef;
   modelKey: string;
   regions: RegionList;
@@ -31,13 +24,7 @@ export interface SfxClassifyStageArgs {
 
 function appendStructuralCleanFields(
   form: FormData,
-  args: {
-    image: StageImageRef;
-    modelKey: string;
-    regions: RegionList;
-    additionalInstructions: string;
-    customProfile?: CustomLlmRequestProfile | null;
-  },
+  args: StructuralCleanStageArgs,
 ): void {
   form.append('file', args.image.file);
   form.append('model_key', args.modelKey);
@@ -51,7 +38,7 @@ function appendStructuralCleanFields(
 
 /** POST /sfx/classify — structural SFX decisions for candidate Regions. */
 export function runSfxClassifyStage(
-  args: SfxClassifyStageArgs,
+  args: StructuralCleanStageArgs,
   runtime: StageRuntime,
   options: StageRunOptions,
 ): Promise<FinishedStageRun<SfxClassificationResponse>> {
@@ -71,7 +58,7 @@ export function runSfxClassifyStage(
  * callers assert `type.startsWith('image/')`.
  */
 export function runCleanImageAiStage(
-  args: CleanImageAiStageArgs,
+  args: StructuralCleanStageArgs,
   runtime: StageRuntime,
   options: StageRunOptions,
 ): Promise<FinishedStageRun<Blob>> {

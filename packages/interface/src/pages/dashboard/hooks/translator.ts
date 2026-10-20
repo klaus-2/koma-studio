@@ -10,6 +10,7 @@ import { useI18n } from '../../../i18n';
 import { AIO_STAGE_LABELS, MIN_REGION_SIZE } from '../../../constants/dashboard.constants';
 import {
   type CustomLlmProfile,
+  withSfxTranslationSettings,
 } from '../../../utils/customLlm';
 import {
   blobToDataUrl,
@@ -18,14 +19,13 @@ import {
   resolveSelectedRegionForRegions,
 } from '../../../utils/dashboard.utils';
 import {
-  applyStageReadinessRefusal,
-  resolveStageModelReadiness,
+  ensureStageModelReadiness,
   runCleanImageAiStage,
   runDetectTextStage,
   runGetTranslationsStage,
   runRecognizeTextStage,
   runSfxClassifyStage,
-  withSfxTranslationSettings,
+  skipStageCatalog,
   type StageRuntime,
 } from '../../../aio-stages';
 import {
@@ -156,23 +156,18 @@ export function useTranslatorVisualActions({
       setStatusMessage(t('translatorVisual.noImages'));
       return;
     }
-    const detectReadiness = resolveStageModelReadiness({
-      stage: 'detectText',
-      stageLabel: AIO_STAGE_LABELS.detectText,
-      modelKey: detectSelectionKey,
-      modelEntries,
-      messages: {
-        invalidSelection: t('aioManual.selectValidDetectModel'),
-        selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-        requiresApiKey: t('aioExec.ocrRequiresApiKey'),
+    const detectReadiness = ensureStageModelReadiness(
+      {
+        stage: 'detectText',
+        stageLabel: AIO_STAGE_LABELS.detectText,
+        modelKey: detectSelectionKey,
+        catalog: skipStageCatalog(),
+        modelEntries,
+        t,
       },
-      t,
-    });
-    if (!detectReadiness.ok) {
-      applyStageReadinessRefusal(detectReadiness, {
-        setStatusMessage,
-        openModelManagerForStage,
-      });
+      { setStatusMessage, openModelManagerForStage },
+    );
+    if (!detectReadiness) {
       return;
     }
 

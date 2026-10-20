@@ -723,6 +723,18 @@ export const toCustomLlmRequestPayload = (
   };
 };
 
+/** SFX translation rewrites extra_context and disables notes. */
+export function withSfxTranslationSettings(
+  base: LlmRequestSettings,
+  extraContext: string,
+): LlmRequestSettings {
+  return {
+    ...base,
+    extra_context: extraContext,
+    translation_notes_enabled: false,
+  };
+}
+
 export const findCustomProfileForSelection = (
   selectionKey: string,
   profiles: CustomLlmProfile[],

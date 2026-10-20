@@ -7,15 +7,16 @@ import {
   AIO_STAGE_LABELS,
 } from '../constants/dashboard.constants';
 import {
-  applyStageReadinessRefusal,
-  resolveStageModelReadiness,
+  ensureStageModelReadiness,
   resolveUpstreamRegions,
   runCleanImageStage,
   runDetectTextStage,
   runGetTranslationsStage,
   runRecognizeTextStage,
   runSegmentTextStage,
+  stageCatalogOption,
   type StageRegions,
+  type StageReadinessReady,
 } from '../aio-stages';
 import {
   applyRenderDefaultsToRegion,
@@ -193,6 +194,9 @@ export function useAioManualStageExecutor({
     let selectedCleanKey = aioStageSelection.cleanImage;
 
     const readinessSink = { setStatusMessage, openModelManagerForStage };
+    const ensureReady = (
+      args: Parameters<typeof ensureStageModelReadiness>[0],
+    ): StageReadinessReady | null => ensureStageModelReadiness(args, readinessSink);
     const stageRegionsFromSnapshot = (): StageRegions => ({
       detectText: getAioRegionsFromSnapshot('detectText', activeId),
       recognizeText: getAioRegionsFromSnapshot('recognizeText', activeId),
@@ -221,21 +225,17 @@ export function useAioManualStageExecutor({
         if (normalizedSelectedRegions.length > 0) {
           patchAioSnapshotStageForImage(activeId, stageIndex, normalizedSelectedRegions);
         } else {
-          const detectReadiness = resolveStageModelReadiness({
+          const detectReadiness = ensureReady({
             stage: 'detectText',
             stageLabel: AIO_STAGE_LABELS.detectText,
             modelKey: selectedDetectorKey,
-            option: aioStageOptions.detectText.find((item) => item.key === selectedDetectorKey) ?? null,
+            catalog: stageCatalogOption(
+              aioStageOptions.detectText.find((item) => item.key === selectedDetectorKey) ?? null,
+            ),
             modelEntries,
-            messages: {
-              invalidSelection: t('aioManual.selectValidDetectModel'),
-              selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-              requiresApiKey: t('aioExec.ocrRequiresApiKey'),
-            },
             t,
           });
-          if (!detectReadiness.ok) {
-            applyStageReadinessRefusal(detectReadiness, readinessSink);
+          if (!detectReadiness) {
             return;
           }
 
@@ -257,22 +257,18 @@ export function useAioManualStageExecutor({
         }
       } else if (stageKey === 'recognizeText') {
         assertNotAborted();
-        const ocrReadiness = resolveStageModelReadiness({
+        const ocrReadiness = ensureReady({
           stage: 'recognizeText',
           stageLabel: AIO_STAGE_LABELS.recognizeText,
           modelKey: selectedOcrKey,
-          option: aioStageOptions.recognizeText.find((item) => item.key === selectedOcrKey) ?? null,
+          catalog: stageCatalogOption(
+            aioStageOptions.recognizeText.find((item) => item.key === selectedOcrKey) ?? null,
+          ),
           modelEntries,
           customProfile: selectedCustomOcrProfile,
-          messages: {
-            invalidSelection: t('aioExec.selectValidOcrModel'),
-            selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-            requiresApiKey: t('aioExec.ocrRequiresApiKey'),
-          },
           t,
         });
-        if (!ocrReadiness.ok) {
-          applyStageReadinessRefusal(ocrReadiness, readinessSink);
+        if (!ocrReadiness) {
           return;
         }
 
@@ -300,23 +296,19 @@ export function useAioManualStageExecutor({
         }
       } else if (stageKey === 'getTranslations') {
         assertNotAborted();
-        const translationReadiness = resolveStageModelReadiness({
+        const translationReadiness = ensureReady({
           stage: 'getTranslations',
           stageLabel: AIO_STAGE_LABELS.getTranslations,
           modelKey: selectedTranslationKey,
-          option: getAioStageOption('getTranslations', selectedTranslationKey),
+          catalog: stageCatalogOption(
+            getAioStageOption('getTranslations', selectedTranslationKey),
+          ),
           modelEntries,
           customProfile: selectedCustomTranslationProfile,
           languages: { source: aioSrcLang, target: aioTgtLang },
-          messages: {
-            invalidSelection: t('aioExec.selectValidTranslation'),
-            selectCustomProfile: t('aioExec.selectCustomAiProfile'),
-            requiresApiKey: t('aioExec.translationRequiresApiKey'),
-          },
           t,
         });
-        if (!translationReadiness.ok) {
-          applyStageReadinessRefusal(translationReadiness, readinessSink);
+        if (!translationReadiness) {
           return;
         }
 
@@ -347,21 +339,17 @@ export function useAioManualStageExecutor({
         }
       } else if (stageKey === 'segmentText') {
         assertNotAborted();
-        const segmentReadiness = resolveStageModelReadiness({
+        const segmentReadiness = ensureReady({
           stage: 'segmentText',
           stageLabel: AIO_STAGE_LABELS.segmentText,
           modelKey: selectedSegmentKey,
-          option: aioStageOptions.segmentText.find((item) => item.key === selectedSegmentKey) ?? null,
+          catalog: stageCatalogOption(
+            aioStageOptions.segmentText.find((item) => item.key === selectedSegmentKey) ?? null,
+          ),
           modelEntries,
-          messages: {
-            invalidSelection: t('aioManual.selectValidSegmentModel'),
-            selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-            requiresApiKey: t('aioExec.ocrRequiresApiKey'),
-          },
           t,
         });
-        if (!segmentReadiness.ok) {
-          applyStageReadinessRefusal(segmentReadiness, readinessSink);
+        if (!segmentReadiness) {
           return;
         }
 
@@ -387,21 +375,17 @@ export function useAioManualStageExecutor({
         }
       } else if (stageKey === 'cleanImage') {
         assertNotAborted();
-        const cleanReadiness = resolveStageModelReadiness({
+        const cleanReadiness = ensureReady({
           stage: 'cleanImage',
           stageLabel: AIO_STAGE_LABELS.cleanImage,
           modelKey: selectedCleanKey,
-          option: aioStageOptions.cleanImage.find((item) => item.key === selectedCleanKey) ?? null,
+          catalog: stageCatalogOption(
+            aioStageOptions.cleanImage.find((item) => item.key === selectedCleanKey) ?? null,
+          ),
           modelEntries,
-          messages: {
-            invalidSelection: t('aioManual.selectValidCleanModel'),
-            selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
-            requiresApiKey: t('aioExec.ocrRequiresApiKey'),
-          },
           t,
         });
-        if (!cleanReadiness.ok) {
-          applyStageReadinessRefusal(cleanReadiness, readinessSink);
+        if (!cleanReadiness) {
           return;
         }
 
