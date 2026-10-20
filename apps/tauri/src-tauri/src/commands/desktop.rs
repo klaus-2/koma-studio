@@ -968,10 +968,10 @@ fn normalize_runtime_artifacts_url(raw_url: &str, channel: UpdateChannel) -> Str
 }
 
 fn normalize_runtime_artifacts_path(path: &str, channel: UpdateChannel) -> String {
-    if path
-        .to_ascii_lowercase()
-        .contains("/mini-backend-artifacts/")
-    {
+    // Match the segment itself, with or without a trailing slash: a path
+    // ending in "mini-backend-artifacts" must not get a duplicate channel
+    // segment appended.
+    if path.to_ascii_lowercase().contains("mini-backend-artifacts") {
         return if path.ends_with('/') {
             path.to_owned()
         } else {
@@ -1460,6 +1460,15 @@ mod tests {
         assert_eq!(
             normalize_runtime_artifacts_url(
                 "https://cdn.example.com/x/mini-backend-artifacts/",
+                UpdateChannel::Stable
+            ),
+            "https://cdn.example.com/x/mini-backend-artifacts/"
+        );
+        // Regression: a path ending in the segment without a trailing slash
+        // must not get a duplicate channel segment.
+        assert_eq!(
+            normalize_runtime_artifacts_url(
+                "https://cdn.example.com/x/mini-backend-artifacts",
                 UpdateChannel::Stable
             ),
             "https://cdn.example.com/x/mini-backend-artifacts/"
