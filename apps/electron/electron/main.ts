@@ -47,7 +47,10 @@ import {
   INTERNAL_APP_HOST,
   INTERNAL_APP_PROTOCOL,
 } from "./modules/app-protocols.ts";
-import { enforcePackagedRuntimeIntegrity } from "./modules/security.ts";
+import {
+  enforcePackagedRuntimeIntegrity,
+  setupPermissionHardening,
+} from "./modules/security.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -124,7 +127,6 @@ import {
   DESKTOP_FETCH_RETRY_COUNT,
   assertTrustedIpcSender,
   isInternalAppUrl,
-  isTrustedRendererUrl,
   getDevServerOrigin,
 } from "./modules/shared.ts";
 import { setupDesktopFontIpcHandlers } from "./modules/fonts.ts";
@@ -322,37 +324,6 @@ const CERT_PIN_ERROR = -2;
 const CERT_PIN_USE_CHROMIUM_VALIDATION = -3;
 let certificatePinningConfigured = false;
 let cachedCertificatePinsByHost: Map<string, Set<string>> | null = null;
-let permissionHardeningConfigured = false;
-
-
-const isAllowedPermission = (permission: string): boolean => {
-  // Keep scope minimal. Add permissions here only when renderer features require them.
-  return permission === "clipboard-sanitized-write";
-};
-
-const setupPermissionHardening = (targetSession: Session): void => {
-  if (permissionHardeningConfigured) {
-    return;
-  }
-
-  targetSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
-    const originToCheck = requestingOrigin || webContents?.getURL() || "";
-    if (!isTrustedRendererUrl(originToCheck)) {
-      return false;
-    }
-
-    return isAllowedPermission(permission);
-  });
-
-  targetSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-    const originToCheck = details.requestingUrl || webContents?.getURL() || "";
-    const allowed = isTrustedRendererUrl(originToCheck) && isAllowedPermission(permission);
-    callback(allowed);
-  });
-
-  permissionHardeningConfigured = true;
-};
-
 const resolveAppProtocolAssetPath = (requestPathname: string): string | null => {
   const distRoot = path.resolve(__dirname, "../dist");
   const decodedPathname = (() => {

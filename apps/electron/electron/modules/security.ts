@@ -1,9 +1,10 @@
 /**
- * Production runtime integrity guards.
+ * Production runtime integrity guards + permission hardening.
  */
-import { app } from "electron";
+import { app, type Session } from "electron";
 import fs from "node:fs";
 import path from "node:path";
+import { isTrustedRendererUrl } from "./shared.ts";
 
 /** Block unpackaged asar, debugger switches, and remote debugging in prod. */
 const enforcePackagedRuntimeIntegrity = (isDev: boolean): void => {
@@ -36,4 +37,34 @@ const enforcePackagedRuntimeIntegrity = (isDev: boolean): void => {
   }
 };
 
-export { enforcePackagedRuntimeIntegrity };
+let permissionHardeningConfigured = false;
+
+const isAllowedPermission = (permission: string): boolean => {
+  // Keep scope minimal. Add permissions here only when renderer features require them.
+  return permission === "clipboard-sanitized-write";
+};
+
+const setupPermissionHardening = (targetSession: Session): void => {
+  if (permissionHardeningConfigured) {
+    return;
+  }
+
+  targetSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    const originToCheck = requestingOrigin || webContents?.getURL() || "";
+    if (!isTrustedRendererUrl(originToCheck)) {
+      return false;
+    }
+
+    return isAllowedPermission(permission);
+  });
+
+  targetSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    const originToCheck = details.requestingUrl || webContents?.getURL() || "";
+    const allowed = isTrustedRendererUrl(originToCheck) && isAllowedPermission(permission);
+    callback(allowed);
+  });
+
+  permissionHardeningConfigured = true;
+};
+
+export { enforcePackagedRuntimeIntegrity, setupPermissionHardening };
