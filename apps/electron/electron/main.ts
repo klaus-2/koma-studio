@@ -7,8 +7,6 @@ import {
   session as electronSession,
   shell,
   type Cookie,
-  type IpcMainEvent,
-  type IpcMainInvokeEvent,
   type Session,
 } from "electron";
 import path from "node:path";
@@ -124,6 +122,10 @@ import {
   toDesktopAuthErrorEnvelope,
   DESKTOP_FETCH_TIMEOUT_MS,
   DESKTOP_FETCH_RETRY_COUNT,
+  assertTrustedIpcSender,
+  isInternalAppUrl,
+  isTrustedRendererUrl,
+  getDevServerOrigin,
 } from "./modules/shared.ts";
 import { setupDesktopFontIpcHandlers } from "./modules/fonts.ts";
 import { setupDesktopLlmProfilesIpcHandlers } from "./modules/llm-profiles.ts";
@@ -322,60 +324,6 @@ let certificatePinningConfigured = false;
 let cachedCertificatePinsByHost: Map<string, Set<string>> | null = null;
 let permissionHardeningConfigured = false;
 
-
-const getDevServerOrigin = (): string | null => {
-  if (!process.env.VITE_DEV_SERVER_URL) {
-    return null;
-  }
-
-  try {
-    return new URL(process.env.VITE_DEV_SERVER_URL).origin;
-  } catch {
-    return null;
-  }
-};
-
-const isInternalAppUrl = (rawUrl: string): boolean => {
-  try {
-    const parsed = new URL(rawUrl);
-    return parsed.protocol === `${INTERNAL_APP_PROTOCOL}:` && parsed.hostname === INTERNAL_APP_HOST;
-  } catch {
-    return false;
-  }
-};
-
-const isTrustedRendererUrl = (rawUrl: string): boolean => {
-  if (!rawUrl) {
-    return false;
-  }
-
-  const devOrigin = getDevServerOrigin();
-  if (devOrigin) {
-    try {
-      return new URL(rawUrl).origin === devOrigin;
-    } catch {
-      return false;
-    }
-  }
-
-  return isInternalAppUrl(rawUrl);
-};
-
-const assertTrustedIpcSender = (
-  event: IpcMainInvokeEvent | IpcMainEvent,
-  channel: string,
-): void => {
-  const senderFrameUrl = event.senderFrame?.url ?? "";
-  const senderWebContentsUrl = event.sender.getURL();
-  const candidateUrl = senderFrameUrl || senderWebContentsUrl;
-  if (isTrustedRendererUrl(candidateUrl)) {
-    return;
-  }
-
-  throw new Error(
-    `Blocked IPC on "${channel}" from untrusted sender (${candidateUrl || "unknown-url"}).`,
-  );
-};
 
 const isAllowedPermission = (permission: string): boolean => {
   // Keep scope minimal. Add permissions here only when renderer features require them.
