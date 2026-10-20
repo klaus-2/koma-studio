@@ -257,7 +257,8 @@ export function useAioManualStageExecutor({
     onStageStart(stageKey, activeImageData, 0);
     setStatusMessage(`Modo manual: executando "${stageLabel}" em "${activeImageData.file.name}"...`);
 
-    try {
+    // Named stage body keeps the try/catch shallow around error mapping.
+    const runStageBody = async (): Promise<RuntimeExecutionNotice | null> => {
       let executionNotice: RuntimeExecutionNotice | null = null;
       if (stageKey === 'detectText') {
         assertNotAborted();
@@ -283,7 +284,7 @@ export function useAioManualStageExecutor({
             t,
           });
           if (!detectReadiness) {
-            return;
+            return null;
           }
 
           const detectDone = await runDetectTextStage(
@@ -316,7 +317,7 @@ export function useAioManualStageExecutor({
           t,
         });
         if (!ocrReadiness) {
-          return;
+          return null;
         }
 
         const detectRegions = getAioRegionsFromSnapshot('detectText', activeId);
@@ -356,7 +357,7 @@ export function useAioManualStageExecutor({
           t,
         });
         if (!translationReadiness) {
-          return;
+          return null;
         }
 
         const ocrRegions = resolveUpstreamRegions('getTranslations', stageRegionsFromSnapshot());
@@ -397,7 +398,7 @@ export function useAioManualStageExecutor({
           t,
         });
         if (!segmentReadiness) {
-          return;
+          return null;
         }
 
         const sourceRegions = resolveUpstreamRegions('segmentText', stageRegionsFromSnapshot());
@@ -433,7 +434,7 @@ export function useAioManualStageExecutor({
           t,
         });
         if (!cleanReadiness) {
-          return;
+          return null;
         }
 
         const sourceRegions = resolveUpstreamRegions('cleanImage', stageRegionsFromSnapshot());
@@ -490,6 +491,11 @@ export function useAioManualStageExecutor({
 
       completeManualStageForImage(activeId, stageIndex, 'done');
       setProgress(100);
+      return executionNotice;
+    };
+
+    try {
+      const executionNotice = await runStageBody();
       const doneMessage = t('aioManual.stageDone', { stageLabel, fileName: activeImageData.file.name });
       setStatusMessage(executionNotice ? `${doneMessage} ${executionNotice.detail}` : doneMessage);
       if (executionNotice) {
