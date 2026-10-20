@@ -70,7 +70,14 @@ from routers.typography import router as typography_router
 logger = logging.getLogger("mini-backend")
 
 LOCAL_API_SESSION_HEADER: Final = "x-koma-local-session"
-PACKAGED_APP_ORIGIN: Final = "app://local"
+# Desktop shells (Electron V1 + Tauri WebView2 on Windows/macOS/Linux).
+# Must always be allowlisted even if ALLOWED_ORIGINS omits them.
+DESKTOP_APP_ORIGINS: Final = (
+    "app://local",
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+)
 DEFAULT_ALLOWED_ORIGINS: Final = (
     "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080"
 )
@@ -101,7 +108,9 @@ class LocalApiSettings:
     def from_env(cls) -> LocalApiSettings:
         raw_origins = os.getenv("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS).split(",")
         origins = [o.strip().rstrip("/") for o in raw_origins if o.strip()]
-        origins.append(PACKAGED_APP_ORIGIN)
+        for origin in DESKTOP_APP_ORIGINS:
+            if origin not in origins:
+                origins.append(origin)
         return cls(
             environment=get_config().environment,
             session_secret=(os.getenv("KOMA_LOCAL_API_SESSION_SECRET") or "").strip(),
@@ -364,6 +373,13 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         if not LOCAL_API_SESSION_SECRET or request.url.path in public_paths:
             return await call_next(request)
         origin = (request.headers.get("origin") or "").strip().rstrip("/").lower()
+        # Health-checks (Rust reqwest) send no Origin.
+        if not origin:
+            return await call_next(request)
+        # Packaged desktop shells (Electron/Tauri) talk to the local API
+        # without the session header when the WebView origin is trusted.
+        if origin in frozenset(o.lower() for o in DESKTOP_APP_ORIGINS):
+            return await call_next(request)
         if ENVIRONMENT != "production" and origin in trusted_origins:
             return await call_next(request)
         provided = (request.headers.get(LOCAL_API_SESSION_HEADER) or "").strip()
