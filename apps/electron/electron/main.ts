@@ -32,6 +32,13 @@ import { discordRPC } from "./discord-rpc.ts";
 import { registerUpdaterSyncService } from "./updater/sync-service";
 import { resolveDesktopShortcutAction } from "./app-shortcuts.ts";
 import {
+  initializeAppSessionLog,
+  installMainProcessConsoleSessionLogging,
+  isDesktopDebugLogsEnabled,
+  recordSessionLog,
+  setDesktopDebugLogsEnabled,
+} from "./modules/session-log.ts";
+import {
   listMiniBackendRuntimeArtifactOptions,
   sanitizeMiniBackendProfile,
   type MiniBackendRuntimeArtifactOption,
@@ -182,9 +189,6 @@ const RUNTIME_ARCHIVE_EXTRACT_TIMEOUT_MS = 60 * 60_000;
 const RUNTIME_RETRYABLE_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 
 const MINI_BACKEND_RUNTIME_LOG_LIMIT = 600;
-const APP_SESSION_LOG_FILE_NAME = "desktop-session.log";
-const APP_SESSION_LOG_MAX_BYTES = 1_500_000;
-const APP_SESSION_LOG_BUFFER_LIMIT = 500;
 const DESKTOP_SHORTCUT_ACTION_CHANNEL = "desktop:shortcut-action";
 
 let miniBackendRuntimeLogBuffer: Array<{
@@ -192,156 +196,6 @@ let miniBackendRuntimeLogBuffer: Array<{
   stream: "stdout" | "stderr";
   message: string;
 }> = [];
-
-let appSessionLogPath: string | null = null;
-let appSessionLogInitialized = false;
-let appSessionLogTruncated = false;
-let pendingAppSessionLogLines: string[] = [];
-let desktopDebugLogsEnabled = false;
-
-const stringifySessionLogArg = (value: unknown): string => {
-  if (value instanceof Error) {
-    return value.stack || value.message || value.name;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "object" && value !== null) {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
-  }
-  return String(value ?? "");
-};
-
-const resolveAppSessionLogPath = (): string | null => {
-  try {
-    const logsDir = path.join(app.getPath("userData"), "logs");
-    fs.mkdirSync(logsDir, { recursive: true });
-    return path.join(logsDir, APP_SESSION_LOG_FILE_NAME);
-  } catch {
-    return null;
-  }
-};
-
-const writeSessionLogLine = (line: string): void => {
-  if (!appSessionLogPath) {
-    return;
-  }
-
-  const payload = `${line}\n`;
-  const byteLength = Buffer.byteLength(payload, "utf8");
-  let currentSize = 0;
-  try {
-    currentSize = fs.existsSync(appSessionLogPath) ? fs.statSync(appSessionLogPath).size : 0;
-  } catch {
-    currentSize = 0;
-  }
-
-  if (currentSize + byteLength > APP_SESSION_LOG_MAX_BYTES) {
-    if (appSessionLogTruncated) {
-      return;
-    }
-    appSessionLogTruncated = true;
-    try {
-      fs.appendFileSync(
-        appSessionLogPath,
-        `[${new Date().toISOString()}] [warn] [main] Session log limit reached; additional lines were omitted.\n`,
-        "utf8",
-      );
-    } catch {
-      // no-op
-    }
-    return;
-  }
-
-  try {
-    fs.appendFileSync(appSessionLogPath, payload, "utf8");
-  } catch {
-    // no-op
-  }
-};
-
-const appendSessionLogLine = (line: string): void => {
-  if (!appSessionLogInitialized || !appSessionLogPath) {
-    pendingAppSessionLogLines.push(line);
-    if (pendingAppSessionLogLines.length > APP_SESSION_LOG_BUFFER_LIMIT) {
-      pendingAppSessionLogLines = pendingAppSessionLogLines.slice(-APP_SESSION_LOG_BUFFER_LIMIT);
-    }
-    return;
-  }
-  writeSessionLogLine(line);
-};
-
-const recordSessionLog = (
-  level: "log" | "info" | "warn" | "error" | "debug",
-  source: "main" | "renderer",
-  args: unknown[],
-): void => {
-  if (!desktopDebugLogsEnabled) {
-    return;
-  }
-  const message = sanitizeSessionLogText(args.map((item) => stringifySessionLogArg(item)).join(" "));
-  if (!message) {
-    return;
-  }
-  appendSessionLogLine(`[${new Date().toISOString()}] [${level}] [${source}] ${message}`);
-};
-
-const initializeAppSessionLog = (): void => {
-  appSessionLogPath = resolveAppSessionLogPath();
-  if (!appSessionLogPath) {
-    return;
-  }
-
-  appSessionLogTruncated = false;
-  try {
-    fs.writeFileSync(
-      appSessionLogPath,
-      `[${new Date().toISOString()}] [info] [main] Session log started for KŌMA Studio ${app.getVersion()}\n`,
-      "utf8",
-    );
-    appSessionLogInitialized = true;
-    const bufferedLines = pendingAppSessionLogLines;
-    pendingAppSessionLogLines = [];
-    bufferedLines.forEach((line) => writeSessionLogLine(line));
-  } catch {
-    appSessionLogInitialized = false;
-  }
-};
-
-const installMainProcessConsoleSessionLogging = (): void => {
-  const originalConsole = {
-    log: console.log.bind(console),
-    info: console.info.bind(console),
-    warn: console.warn.bind(console),
-    error: console.error.bind(console),
-    debug: console.debug.bind(console),
-  };
-
-  console.log = (...args: unknown[]) => {
-    originalConsole.log(...args);
-    recordSessionLog("log", "main", args);
-  };
-  console.info = (...args: unknown[]) => {
-    originalConsole.info(...args);
-    recordSessionLog("info", "main", args);
-  };
-  console.warn = (...args: unknown[]) => {
-    originalConsole.warn(...args);
-    recordSessionLog("warn", "main", args);
-  };
-  console.error = (...args: unknown[]) => {
-    originalConsole.error(...args);
-    recordSessionLog("error", "main", args);
-  };
-  console.debug = (...args: unknown[]) => {
-    originalConsole.debug(...args);
-    recordSessionLog("debug", "main", args);
-  };
-};
 
 installMainProcessConsoleSessionLogging();
 
@@ -359,7 +213,7 @@ const isExplicitDebugLoggingEnabled =
   normalizedEnableDebugLogs === "true" ||
   process.argv.includes("--enable-debug-logs");
 const areDevToolsEnabled = isDev || isProdDebugEnabled;
-desktopDebugLogsEnabled = isDev || isProdDebugEnabled || isExplicitDebugLoggingEnabled;
+setDesktopDebugLogsEnabled(isDev || isProdDebugEnabled || isExplicitDebugLoggingEnabled);
 const APP_PROTOCOL = "komastudio";
 const INTERNAL_APP_PROTOCOL = "app";
 const INTERNAL_APP_HOST = "local";
@@ -367,7 +221,7 @@ const INTERNAL_APP_ORIGIN = `${INTERNAL_APP_PROTOCOL}://${INTERNAL_APP_HOST}`;
 const INTERNAL_APP_ENTRY_URL = `${INTERNAL_APP_ORIGIN}/index.html`;
 
 const attachRendererDiagnostics = (window: BrowserWindow): void => {
-  if (!desktopDebugLogsEnabled) {
+  if (!isDesktopDebugLogsEnabled()) {
     return;
   }
 
@@ -426,25 +280,25 @@ const resolveRendererCorsOrigin = (currentUrl: string, fallbackOrigin: string): 
 };
 
 const debugDesktopLog = (...args: unknown[]): void => {
-  if (desktopDebugLogsEnabled) {
+  if (isDesktopDebugLogsEnabled()) {
     console.log(...args);
   }
 };
 
 const debugDesktopInfo = (...args: unknown[]): void => {
-  if (desktopDebugLogsEnabled) {
+  if (isDesktopDebugLogsEnabled()) {
     console.info(...args);
   }
 };
 
 const debugDesktopWarn = (...args: unknown[]): void => {
-  if (desktopDebugLogsEnabled) {
+  if (isDesktopDebugLogsEnabled()) {
     console.warn(...args);
   }
 };
 
 const debugDesktopError = (...args: unknown[]): void => {
-  if (desktopDebugLogsEnabled) {
+  if (isDesktopDebugLogsEnabled()) {
     console.error(...args);
   }
 };
@@ -4066,7 +3920,7 @@ if (!gotTheLock) {
     // Strip Electron and App specific strings from user agent to bypass Turnstile bot detection
     app.userAgentFallback = app.userAgentFallback.replace(/Electron\/\S+\s?/, "").replace(/koma-studio\/\S+\s?/, "").replace(/ScanlatorPro\/\S+\s?/, "").trim();
 
-    if (desktopDebugLogsEnabled) {
+    if (isDesktopDebugLogsEnabled()) {
       initializeAppSessionLog();
     }
     enforcePackagedRuntimeIntegrity();
