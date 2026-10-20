@@ -56,7 +56,7 @@ export interface DesktopMiniBackendRuntimeState {
   statusMessage: string | null;
   requestedProfile: string;
   activeProfile: string;
-  source: "bundled-core" | "downloaded-runtime";
+  source: "bundled-core" | "downloaded-runtime" | "no-runtime-installed";
   runtimeArtifactsUrl: string | null;
   runtimeManifestUrl: string | null;
   runtimeArchiveUrl: string | null;
