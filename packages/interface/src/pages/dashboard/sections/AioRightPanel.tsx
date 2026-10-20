@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { useShallowStableObject } from '../../../utils/shallowStable';
 
 import {
   ArrowRight,
@@ -298,24 +299,14 @@ export default memo(function AioRightPanel({
     },
     [setAioSteps],
   );
-  const enabledStepsForTabs = useMemo(
-    () => ({
-      detectText: aioSteps.detectText,
-      recognizeText: aioSteps.recognizeText,
-      getTranslations: aioSteps.getTranslations,
-      segmentText: aioSteps.segmentText,
-      cleanImage: aioSteps.cleanImage,
-      render: aioSteps.render,
-    }),
-    [
-      aioSteps.detectText,
-      aioSteps.recognizeText,
-      aioSteps.getTranslations,
-      aioSteps.segmentText,
-      aioSteps.cleanImage,
-      aioSteps.render,
-    ],
-  );
+  const enabledStepsForTabs = useShallowStableObject({
+    detectText: aioSteps.detectText,
+    recognizeText: aioSteps.recognizeText,
+    getTranslations: aioSteps.getTranslations,
+    segmentText: aioSteps.segmentText,
+    cleanImage: aioSteps.cleanImage,
+    render: aioSteps.render,
+  });
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
   const setAioStageSelection = useAioPipelineStore(
     (s) => s.setAioStageSelection,

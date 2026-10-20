@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 
 /** True when both values are Object.is-equal or shallow-equal as records. */
 export function shallowEqual(
@@ -36,7 +36,7 @@ export function useShallowStableObject<T extends Record<string, unknown>>(
   return ref.current;
 }
 
-/** Always-current ref for callbacks that must not go stale. */
+/** Always-current ref — prefer over `ref.current = value` in effects. */
 export function useLatestRef<T>(value: T) {
   const ref = useRef(value);
   ref.current = value;
@@ -44,23 +44,9 @@ export function useLatestRef<T>(value: T) {
 }
 
 /** Stable callback identity that always invokes the latest implementation. */
-export function useStableCallback<A extends unknown[], R>(
+export function useLatestCallback<A extends unknown[], R>(
   fn: (...args: A) => R,
 ): (...args: A) => R {
   const fnRef = useLatestRef(fn);
   return useCallback((...args: A) => fnRef.current(...args), [fnRef]);
-}
-
-/** Shallow-equal object state that only commits when values actually change. */
-export function useShallowStableState<T extends Record<string, unknown>>(
-  initial: T,
-): [T, (patch: Partial<T>) => void] {
-  const [value, setValue] = useState<T>(initial);
-  const set = useCallback((patch: Partial<T>) => {
-    setValue((prev) => {
-      const next = { ...prev, ...patch } as T;
-      return shallowEqual(prev, next) ? prev : next;
-    });
-  }, []);
-  return [value, set];
 }

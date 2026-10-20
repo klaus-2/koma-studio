@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useLatestRef } from '../utils/shallowStable';
 
 import {
   driver,
@@ -396,21 +397,12 @@ export const useDashboardTour = ({
   const snapshotRef = useRef<DashboardTourSnapshot | null>(null);
   const mountedRef = useRef(true);
   const navigatingRef = useRef(false);
-  const latestStateRef = useRef<DashboardTourSnapshot>({
+  const latestStateRef = useLatestRef<DashboardTourSnapshot>({
     mode,
     subMode,
     activeId,
     toolsPanelVisible,
   });
-
-  useEffect(() => {
-    latestStateRef.current = {
-      mode,
-      subMode,
-      activeId,
-      toolsPanelVisible,
-    };
-  }, [activeId, mode, subMode, toolsPanelVisible]);
 
   const restoreSnapshot = useCallback(() => {
     const snapshot = snapshotRef.current;

@@ -9,6 +9,7 @@ import type {
 } from '../../../types';
 import './ChapterOptimizerWorkspace.css';
 import { useI18n } from '../../../i18n';
+import { useLatestCallback } from '../../../utils/shallowStable';
 import { useHorizontalDragScroll } from '../../../hooks/useHorizontalDragScroll';
 import ChapterOptimizerControlPanel from './ChapterOptimizerControlPanel';
 import ChapterOptimizerHero from './ChapterOptimizerHero';
@@ -379,19 +380,23 @@ export default function ChapterOptimizerWorkspaceClassic({
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(recipe));
   }, [recipe]);
 
+  const pushWorkspaceState = useLatestCallback(() => {
+    onWorkspaceStateChange?.({
+      recipe,
+      selectedPreset,
+      activeImageId: effectiveActiveImageId,
+      results,
+    });
+  });
+
   useEffect(() => {
     if (!onWorkspaceStateChange) return;
     // Debounce push-up (300ms) so slider ticks don't thrash the parent.
     const timer = window.setTimeout(() => {
-      onWorkspaceStateChange({
-        recipe,
-        selectedPreset,
-        activeImageId: effectiveActiveImageId,
-        results,
-      });
+      pushWorkspaceState();
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [effectiveActiveImageId, onWorkspaceStateChange, recipe, results, selectedPreset]);
+  }, [effectiveActiveImageId, onWorkspaceStateChange, recipe, results, selectedPreset, pushWorkspaceState]);
 
   // Generate preview — debounced to avoid thrashing during rapid slider changes
   useEffect(() => {

@@ -53,6 +53,7 @@ import type {
   RawOutputFormat,
 } from '../../../../types';
 import { useI18n } from '../../../../i18n';
+import { useLatestCallback } from '../../../../utils/shallowStable';
 
 interface OptimizerImageInput {
   id: string;
@@ -895,17 +896,21 @@ export default function ChapterOptimizerWorkspace({
     }
   }, [recipe]);
 
+  const pushWorkspaceState = useLatestCallback(() => {
+    onWorkspaceStateChange?.({
+      recipe,
+      selectedPreset,
+      activeImageId,
+      results,
+    });
+  });
+
   useEffect(() => {
     if (!onWorkspaceStateChange) return;
 
     // Debounce push-up (300ms) so slider ticks don't thrash the parent.
     const timer = window.setTimeout(() => {
-      onWorkspaceStateChange({
-        recipe,
-        selectedPreset,
-        activeImageId,
-        results,
-      });
+      pushWorkspaceState();
     }, 300);
     return () => window.clearTimeout(timer);
   }, [
@@ -914,6 +919,7 @@ export default function ChapterOptimizerWorkspace({
     recipe,
     results,
     selectedPreset,
+    pushWorkspaceState,
   ]);
 
   useEffect(() => {

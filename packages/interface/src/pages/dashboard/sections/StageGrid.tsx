@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useMemo } from 'react';
+import { useShallowStableObject } from '../../../utils/shallowStable';
 
 import { memoLoad } from '../../../utils/lazyModule';
 
@@ -334,6 +335,41 @@ export default function DashboardStageSection({
   );
   const downloadItems = useExportStore((s) => s.downloadItems);
 
+  const stageItemRenderDeps = useShallowStableObject({
+    aioDetectionsByImage,
+    aioSelectedRegionByImage,
+    aioStepsRender: aioSteps.render,
+    applyAioHealingMaskForImage,
+    applyAutoDetectedShapeToActiveRegion,
+    applyAutoDetectedShapeToRegionById,
+    applyTypographyPresetToRegionById,
+    areaSelectionToolActive,
+    availableRenderFonts,
+    convertRegionShapeById,
+    getAioManualImageEditState,
+    getPreviewSrc,
+    inlineEditorShortcutRequestKey,
+    isCompactViewport,
+    patchAioManualImageEditState,
+    refineActiveTypographerShape,
+    renderFontRefreshToken,
+    resolvedActiveId,
+    resolvedAioAreaSelectionShapeKind,
+    rewindAioPipelineForImage,
+    runAioMagicWandForImage,
+    selectAioRegionForImage,
+    setActiveId,
+    subMode,
+    textFillSwatches,
+    translationNotesEnabled,
+    typographyFolderList,
+    typographyPresetList,
+    updateAioRegionsForImage,
+    viewMode,
+    zoom,
+    forwardAioPipelineForImage,
+  });
+
   const renderAioStageItem = useCallback(
     (
       img: (typeof images)[number],
@@ -506,40 +542,7 @@ export default function DashboardStageSection({
         />
       );
     },
-    [
-      aioDetectionsByImage,
-      aioSelectedRegionByImage,
-      aioSteps.render,
-      applyAioHealingMaskForImage,
-      applyAutoDetectedShapeToActiveRegion,
-      applyAutoDetectedShapeToRegionById,
-      applyTypographyPresetToRegionById,
-      areaSelectionToolActive,
-      availableRenderFonts,
-      convertRegionShapeById,
-      getAioManualImageEditState,
-      getPreviewSrc,
-      inlineEditorShortcutRequestKey,
-      isCompactViewport,
-      patchAioManualImageEditState,
-      refineActiveTypographerShape,
-      renderFontRefreshToken,
-      resolvedActiveId,
-      resolvedAioAreaSelectionShapeKind,
-      rewindAioPipelineForImage,
-      runAioMagicWandForImage,
-      selectAioRegionForImage,
-      setActiveId,
-      subMode,
-      textFillSwatches,
-      translationNotesEnabled,
-      typographyFolderList,
-      typographyPresetList,
-      updateAioRegionsForImage,
-      viewMode,
-      zoom,
-      forwardAioPipelineForImage,
-    ],
+    [stageItemRenderDeps],
   );
   const stageItemKey = useCallback(
     (index: number) => images[index]?.id ?? `${index}`,
