@@ -35,6 +35,10 @@ class KomaSupportBot(commands.Bot):
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
+        # discord.py 2.x dispatches app-command errors through tree.error,
+        # not Bot.on_app_command_error.
+        self.tree.error(self.on_app_command_error)
+
         self.rag_engine = RAGEngine(self.settings)
         self.chat_handler = ChatHandler(self, self.settings, self.rag_engine)
         self.admin_handler = AdminHandler(self.settings, self.rag_engine)
@@ -82,6 +86,22 @@ class KomaSupportBot(commands.Bot):
             return
         self.logger.exception("Unhandled command error", exc_info=error)
         await ctx.send("⚠️ Something went wrong while processing that command. Please try again shortly.")
+
+    async def on_app_command_error(
+        self,
+        interaction: discord.Interaction,
+        error: discord.app_commands.AppCommandError,
+    ) -> None:
+        """Surface slash-command failures with a friendly, localized message."""
+        from language_utils import localized_unknown_message, normalize_locale_code
+
+        locale = normalize_locale_code(str(interaction.locale), default="pt-br")
+        message = localized_unknown_message(locale)
+        self.logger.exception("Unhandled app command error", exc_info=error)
+        if interaction.response.is_done():
+            await interaction.followup.send(message, ephemeral=True)
+        else:
+            await interaction.response.send_message(message, ephemeral=True)
 
     async def _warm_up_index(self) -> None:
         """Warm up the RAG engine in the background."""
