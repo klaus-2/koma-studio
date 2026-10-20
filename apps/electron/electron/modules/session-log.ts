@@ -166,7 +166,35 @@ const installMainProcessConsoleSessionLogging = (): void => {
   };
 };
 
+const debugDesktopLog = (...args: unknown[]): void => {
+  if (desktopDebugLogsEnabled) {
+    console.log(...args);
+  }
+};
+
+const debugDesktopInfo = (...args: unknown[]): void => {
+  if (desktopDebugLogsEnabled) {
+    console.info(...args);
+  }
+};
+
+const debugDesktopWarn = (...args: unknown[]): void => {
+  if (desktopDebugLogsEnabled) {
+    console.warn(...args);
+  }
+};
+
+const debugDesktopError = (...args: unknown[]): void => {
+  if (desktopDebugLogsEnabled) {
+    console.error(...args);
+  }
+};
+
 export {
+  debugDesktopError,
+  debugDesktopInfo,
+  debugDesktopLog,
+  debugDesktopWarn,
   initializeAppSessionLog,
   installMainProcessConsoleSessionLogging,
   isDesktopDebugLogsEnabled,

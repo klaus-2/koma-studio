@@ -32,6 +32,10 @@ import { discordRPC } from "./discord-rpc.ts";
 import { registerUpdaterSyncService } from "./updater/sync-service";
 import { resolveDesktopShortcutAction } from "./app-shortcuts.ts";
 import {
+  debugDesktopError,
+  debugDesktopInfo,
+  debugDesktopLog,
+  debugDesktopWarn,
   initializeAppSessionLog,
   installMainProcessConsoleSessionLogging,
   isDesktopDebugLogsEnabled,
@@ -279,29 +283,6 @@ const resolveRendererCorsOrigin = (currentUrl: string, fallbackOrigin: string): 
   return fallbackOrigin;
 };
 
-const debugDesktopLog = (...args: unknown[]): void => {
-  if (isDesktopDebugLogsEnabled()) {
-    console.log(...args);
-  }
-};
-
-const debugDesktopInfo = (...args: unknown[]): void => {
-  if (isDesktopDebugLogsEnabled()) {
-    console.info(...args);
-  }
-};
-
-const debugDesktopWarn = (...args: unknown[]): void => {
-  if (isDesktopDebugLogsEnabled()) {
-    console.warn(...args);
-  }
-};
-
-const debugDesktopError = (...args: unknown[]): void => {
-  if (isDesktopDebugLogsEnabled()) {
-    console.error(...args);
-  }
-};
 let pendingDeepLink: string | null = null;
 
 const navigateMainWindowFromDeepLink = (urlValue: string): void => {
