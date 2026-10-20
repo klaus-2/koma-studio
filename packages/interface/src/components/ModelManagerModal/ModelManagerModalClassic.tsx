@@ -380,7 +380,7 @@ export const ModelManagerModalClassic = ({
                 type="button"
                 className={styles.warningButton}
                 onClick={() => setShowConfirm(true)}
-                disabled={batch.active}
+                disabled={batch.active || scopedSummary.eligibleModelIds.length === 0}
               >
                 {t('modelManager.modal.installAll')}
               </button>

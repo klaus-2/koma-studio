@@ -409,7 +409,9 @@ export const ModelManagerModalNoir = ({
                       : t('modelManager.modal.checkUpdates')}
                   </button>
 
-                  <button type="button" disabled={batch.active}
+                  <button
+                    type="button"
+                    disabled={batch.active || scopedSummary.eligibleModelIds.length === 0}
                     onClick={() => setShowConfirm(true)}
                     className="panel-cut-sm hard-hover bg-crimson px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-ink disabled:cursor-not-allowed disabled:opacity-40">
                     {t('modelManager.modal.installAll')}
