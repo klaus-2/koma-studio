@@ -7,20 +7,39 @@ import type { UpdaterStatus } from "../../types";
 import { sendDiscordWebhookEvent } from "../../services/discordWebhook";
 import { useI18n } from "../../i18n";
 
+const DISMISSAL_STORAGE_KEY = "koma-update-toast-dismissed";
+
+const getDismissedVersion = (): string | null => {
+  try {
+    return localStorage.getItem(DISMISSAL_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const setDismissedVersion = (version: string): void => {
+  try {
+    localStorage.setItem(DISMISSAL_STORAGE_KEY, version);
+  } catch {
+    // restricted browser modes
+  }
+};
+
 export const UpdateToastClassic = () => {
   const { t } = useI18n();
   const updater = useUpdater();
   const sync = useUpdaterSync();
   const [modalOpen, setModalOpen] = useState(false);
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<string | null>(() => getDismissedVersion());
   const previousStatusRef = useRef<UpdaterStatus>(updater.status);
   const emittedWebhookKeysRef = useRef<Set<string>>(new Set());
 
   const dismissedKey = updater.newVersion ?? "unknown";
 
-  useEffect(() => {
-    if (dismissed && dismissed !== dismissedKey) setDismissed(null);
-  }, [dismissed, dismissedKey]);
+  const dismissToast = () => {
+    setDismissedVersion(dismissedKey);
+    setDismissed(dismissedKey);
+  };
 
   useEffect(() => {
     if (previousStatusRef.current === updater.status) {
@@ -86,7 +105,7 @@ export const UpdateToastClassic = () => {
 
           <button
             type="button"
-            onClick={() => setDismissed(dismissedKey)}
+            onClick={dismissToast}
             className="koma-toast__close"
             aria-label={t("update.toast.closeAria")}
           >

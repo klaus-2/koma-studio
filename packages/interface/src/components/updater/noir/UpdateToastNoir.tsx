@@ -11,20 +11,40 @@ import { btnPrimary, btnGhost } from "../../system/v2/kit";
 
 // Noir variant — source-only update model (single "available" state; primary
 // action opens the update modal with the sync panel).
+const DISMISSAL_STORAGE_KEY = "koma-update-toast-dismissed";
+
+const getDismissedVersion = (): string | null => {
+  try {
+    return localStorage.getItem(DISMISSAL_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const setDismissedVersion = (version: string): void => {
+  try {
+    localStorage.setItem(DISMISSAL_STORAGE_KEY, version);
+  } catch {
+    // restricted browser modes
+  }
+};
+
 export const UpdateToastNoir = () => {
   const { t } = useI18n();
   const updater = useUpdater();
   const sync = useUpdaterSync();
   const [modalOpen, setModalOpen] = useState(false);
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  // Persisted by advertised version — survives recheck/restart.
+  const [dismissed, setDismissed] = useState<string | null>(() => getDismissedVersion());
   const previousStatusRef = useRef<UpdaterStatus>(updater.status);
   const emittedWebhookKeysRef = useRef<Set<string>>(new Set());
 
   const dismissedKey = updater.newVersion ?? "unknown";
 
-  useEffect(() => {
-    if (dismissed && dismissed !== dismissedKey) setDismissed(null);
-  }, [dismissed, dismissedKey]);
+  const dismissToast = () => {
+    setDismissedVersion(dismissedKey);
+    setDismissed(dismissedKey);
+  };
 
   /* Webhook dedupe — lógica V1 intacta */
   useEffect(() => {
@@ -86,7 +106,7 @@ export const UpdateToastNoir = () => {
               通信
             </span>
 
-            <button type="button" onClick={() => setDismissed(dismissedKey)}
+            <button type="button" onClick={dismissToast}
               aria-label={t("update.toast.closeAria")}
               className="absolute right-2 top-2 p-1 text-paper/35 transition-colors hover:text-crimson">
               <X size={12} />
