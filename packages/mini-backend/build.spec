@@ -81,6 +81,12 @@ torch_hiddenimports = collect_submodules('torch')
 torchvision_hiddenimports = collect_submodules('torchvision')
 onnxruntime_hiddenimports = collect_submodules('onnxruntime')
 onnxruntime_datas = collect_data_files('onnxruntime')
+# The provider DLLs above are collected as data; they also need binary
+# handling so the packaged runtime can load them.
+try:
+    onnxruntime_binaries = collect_dynamic_libs('onnxruntime')
+except Exception:
+    onnxruntime_binaries = []
 
 # ---------------------------------------------------------------------------
 # NVIDIA CUDA libraries (bundled via pip for nvidia-cuda / nvidia-cuda-legacy)
@@ -112,7 +118,7 @@ for _pkg in _NVIDIA_PACKAGES:
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=[*nvidia_binaries, *local_binaries],
+    binaries=[*onnxruntime_binaries, *nvidia_binaries, *local_binaries],
     datas=[*psd_datas, *photoshop_datas, *pdfium_datas, *py7zr_datas, *transformers_datas, *tokenizers_datas, *onnxruntime_datas, *nvidia_datas],
     hiddenimports=['uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto', 'uvicorn.protocols', 'uvicorn.protocols.http', 'uvicorn.protocols.http.auto', 'uvicorn.protocols.websockets', 'uvicorn.protocols.websockets.auto', 'uvicorn.lifespan', 'uvicorn.lifespan.on', 'multipart', *local_hiddenimports, *psd_hiddenimports, *photoshop_hiddenimports, *pdfium_hiddenimports, *py7zr_hiddenimports, *transformers_hiddenimports, *tokenizers_hiddenimports, *sentencepiece_hiddenimports, *torch_hiddenimports, *torchvision_hiddenimports, *onnxruntime_hiddenimports],
     hookspath=[],
