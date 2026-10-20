@@ -64,6 +64,7 @@ import {
   clearDesktopAuthCookies,
   hasDesktopAuthCookie,
 } from "./modules/desktop-auth-cookies.ts";
+import { resolveDesktopDeviceId } from "./modules/desktop-device-id.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -361,28 +362,6 @@ type DesktopSessionState = {
   expiresAtMs: number;
   refreshTimeout: NodeJS.Timeout | null;
   refreshInFlight: Promise<void> | null;
-};
-
-// Stable per-install device id (random, persisted in userData — no hardware fingerprinting).
-// Cleared by resetDesktopLocalSettings alongside the other local state files.
-const resolveDesktopDeviceId = (): string => {
-  const filePath = path.join(app.getPath("userData"), "desktop-device-id.json");
-  try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as { deviceId?: unknown };
-    if (typeof parsed.deviceId === "string" && parsed.deviceId.trim().length > 0) {
-      return parsed.deviceId.trim();
-    }
-  } catch {
-    // Missing or malformed file — generate a new id below.
-  }
-  const deviceId = `desktop-${randomUUID()}`;
-  try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, `${JSON.stringify({ deviceId }, null, 2)}\n`, "utf8");
-  } catch {
-    // Best effort persistence; the id still works for this session.
-  }
-  return deviceId;
 };
 
 const desktopSessionState: DesktopSessionState = {
