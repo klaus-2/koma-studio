@@ -43,6 +43,12 @@ import {
   setDesktopDebugLogsEnabled,
 } from "./modules/session-log.ts";
 import { resolveAppFlags } from "./modules/app-flags.ts";
+import {
+  APP_PROTOCOL,
+  INTERNAL_APP_ENTRY_URL,
+  INTERNAL_APP_HOST,
+  INTERNAL_APP_PROTOCOL,
+} from "./modules/app-protocols.ts";
 import { enforcePackagedRuntimeIntegrity } from "./modules/security.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -212,11 +218,6 @@ const isProdDebugEnabled = appFlags.isProdDebugEnabled;
 const areDevToolsEnabled = appFlags.areDevToolsEnabled;
 setDesktopIsDev(isDev);
 setDesktopDebugLogsEnabled(appFlags.debugLogsEnabled);
-const APP_PROTOCOL = "komastudio";
-const INTERNAL_APP_PROTOCOL = "app";
-const INTERNAL_APP_HOST = "local";
-const INTERNAL_APP_ORIGIN = `${INTERNAL_APP_PROTOCOL}://${INTERNAL_APP_HOST}`;
-const INTERNAL_APP_ENTRY_URL = `${INTERNAL_APP_ORIGIN}/index.html`;
 
 const attachRendererDiagnostics = (window: BrowserWindow): void => {
   if (!isDesktopDebugLogsEnabled()) {
