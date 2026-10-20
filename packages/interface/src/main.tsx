@@ -34,14 +34,18 @@ const runWhenIdle = (callback: () => void): void => {
   (globalThis as { setTimeout: typeof setTimeout }).setTimeout(callback, 0);
 };
 
-const hydrateRuntimeServicesAfterFirstPaint = (): void => {
-  runWhenIdle(() => {
-    void desktopBridge.hydrateRuntimeConfig()
-      .catch(() => undefined)
-      .then(() => import("./services/contentCatalog"))
-      .then(({ primeRemoteContentCatalog }) => primeRemoteContentCatalog())
-      .catch(() => undefined);
-  });
+/** First-launch MSI/Tauri IPC may not be ready — retry with backoff. */
+const hydrateRuntimeConfigWithRetry = async (): Promise<void> => {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await desktopBridge.hydrateRuntimeConfig();
+      return;
+    } catch {
+      if (attempt < 4) {
+        await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+      }
+    }
+  }
 };
 
 const appendKomaFontStylesheet = (): void => {
@@ -81,8 +85,15 @@ const preloadCriticalBrandAsset = (): void => {
   document.head.append(preload);
 };
 
-const bootstrap = (): void => {
+const bootstrap = async (): Promise<void> => {
   preloadCriticalBrandAsset();
+
+  // Eager hydration BEFORE React render: on first launch after MSI install
+  // the IPC bridge may not be ready; a single-shot call leaves localhost
+  // defaults and breaks the first sign-in.
+  if (desktopBridge.isDesktopRuntime()) {
+    await hydrateRuntimeConfigWithRetry();
+  }
 
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement, {
     onUncaughtError: (error, errorInfo) => {
@@ -106,7 +117,12 @@ const bootstrap = (): void => {
   } else if (!import.meta.env.PROD) {
     appendKomaFontStylesheet();
   }
-  hydrateRuntimeServicesAfterFirstPaint();
+  // Content catalog prime can stay lazy; config itself is already hydrated.
+  runWhenIdle(() => {
+    void import("./services/contentCatalog")
+      .then(({ primeRemoteContentCatalog }) => primeRemoteContentCatalog())
+      .catch(() => undefined);
+  });
 };
 
-bootstrap();
+void bootstrap();
