@@ -64,6 +64,10 @@ import {
   clearDesktopAuthCookies,
   hasDesktopAuthCookie,
 } from "./modules/desktop-auth-cookies.ts";
+import {
+  buildDesktopSessionHeaders,
+  getDesktopUpdateChannel,
+} from "./modules/desktop-session-headers.ts";
 import { resolveDesktopDeviceId } from "./modules/desktop-device-id.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
@@ -895,30 +899,6 @@ const getDesktopHttpSession = (): Session => {
   return mainWindow?.webContents.session ?? electronSession.defaultSession;
 };
 
-// Source-only model: no native updater state — infer the channel from the app
-// version (same heuristic as the renderer's inferChannelFromVersion).
-const getDesktopUpdateChannel = (): "stable" | "beta" => {
-  return app.getVersion().includes("-") ? "beta" : "stable";
-};
-
-const buildDesktopSessionHeaders = (
-  headersInit: HeadersInit | undefined,
-  accessToken?: string,
-): Headers => {
-  const headers = new Headers(headersInit);
-  headers.set(DESKTOP_APP_VERSION_HEADER, app.getVersion());
-  headers.set(DESKTOP_UPDATE_CHANNEL_HEADER, getDesktopUpdateChannel());
-  if (accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
-  if (desktopSessionState.token) {
-    headers.set(DESKTOP_CLIENT_TOKEN_HEADER, desktopSessionState.token);
-    headers.set(DESKTOP_SESSION_ID_HEADER, desktopSessionState.sessionId);
-    headers.set(DESKTOP_DEVICE_ID_HEADER, desktopSessionState.deviceId);
-  }
-  return headers;
-};
-
 const recoverDesktopSession = async (
   action: DesktopSessionRecoveryAction,
 ): Promise<boolean> => {
@@ -970,7 +950,7 @@ const desktopSessionApiFetch = async (
     const sendRequest = async (): Promise<{ response: globalThis.Response; payload: unknown }> => {
       const requestInit: RequestInit = {
         ...init,
-        headers: buildDesktopSessionHeaders(init.headers),
+        headers: buildDesktopSessionHeaders(init.headers, undefined, desktopSessionState, app.getVersion()),
       };
 
       const response = await fetchWithTimeoutAndRetry(
@@ -2627,7 +2607,7 @@ const setupDesktopClientHeaderInjection = (window: BrowserWindow): void => {
             details.requestHeaders[DESKTOP_DEVICE_ID_HEADER] = desktopSessionState.deviceId;
           }
           details.requestHeaders[DESKTOP_APP_VERSION_HEADER] = app.getVersion();
-          details.requestHeaders[DESKTOP_UPDATE_CHANNEL_HEADER] = getDesktopUpdateChannel();
+          details.requestHeaders[DESKTOP_UPDATE_CHANNEL_HEADER] = getDesktopUpdateChannel(app.getVersion());
 
         }
 
@@ -2960,7 +2940,7 @@ setupDesktopDiscordWebhookIpcHandlers();
 setupDesktopBugReportIpcHandlers({
   getMainWindow: () => mainWindow,
   resolveDesktopEnvValue,
-  getDesktopUpdateChannel,
+  getDesktopUpdateChannel: () => getDesktopUpdateChannel(app.getVersion()),
   miniBackendRuntimeLogBuffer: miniBackendRuntimeLogBuffer,
   miniBackendProcessRef: () => miniBackendProcess,
   authApiUrl,
