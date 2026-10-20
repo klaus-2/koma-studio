@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useI18n } from "../../i18n";
 import { EMPTY_REGIONS, EMPTY_SELECTED_REGION_IDS } from "../../utils/dashboardRenderUtils";
 import type { RenderTextStyle } from "../../utils/renderText";
@@ -41,7 +42,7 @@ interface TypesetterStageItemProps {
   onMultiSelectToggle: (imageId: string, regionId: string) => void;
 }
 
-export function TypesetterStageItem({
+export const TypesetterStageItem = memo(function TypesetterStageItem({
   img,
   index,
   getAioDownloadItemForImage,
@@ -159,4 +160,4 @@ export function TypesetterStageItem({
       }}
     />
   );
-}
+});

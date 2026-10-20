@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { cn } from "../../lib/utils";
 import type { LoadedImage } from "../../types/dashboard.types";
 
@@ -11,7 +12,7 @@ interface PreviewStageItemProps {
   getPreviewSrc: (img: LoadedImage) => string;
 }
 
-export function PreviewStageItem({
+export const PreviewStageItem = memo(function PreviewStageItem({
   img,
   index,
   viewMode,
@@ -69,4 +70,4 @@ export function PreviewStageItem({
       </div>
     </div>
   );
-}
+});

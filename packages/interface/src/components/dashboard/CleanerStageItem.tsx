@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useI18n } from "../../i18n";
 import { EMPTY_REGIONS } from "../../utils/dashboardRenderUtils";
 import type { RenderTextStyle } from "../../utils/renderText";
@@ -60,7 +61,7 @@ interface CleanerStageItemProps {
   onManualHealingMaskCommit: (imageId: string, maskDataUrl: string) => Promise<void>;
 }
 
-export function CleanerStageItem({
+export const CleanerStageItem = memo(function CleanerStageItem({
   img,
   index,
   cleanerRunMetaByImage,
@@ -177,4 +178,4 @@ export function CleanerStageItem({
       showRegionOverlays={cleanerShowOverlays}
     />
   );
-}
+});

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useI18n } from "../../i18n";
 import { EMPTY_REGIONS } from "../../utils/dashboardRenderUtils";
 import type { LoadedImage } from "../../types/dashboard.types";
@@ -31,7 +32,7 @@ interface TranslatorVisualStageItemProps {
   ) => void;
 }
 
-export function TranslatorVisualStageItem({
+export const TranslatorVisualStageItem = memo(function TranslatorVisualStageItem({
   img,
   index,
   translatorRunMetaByImage,
@@ -107,4 +108,4 @@ export function TranslatorVisualStageItem({
       translationNotesEnabled={translationNotesEnabled}
     />
   );
-}
+});

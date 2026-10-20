@@ -34,6 +34,7 @@ import type {
   WatermarkWorkspaceRuntimeState,
 } from "./dashboardWorkspace";
 import { blobToDataUrl, dataUrlToBlob } from "../utils/dashboard.utils";
+import { createThumbnailFromUrl } from "../utils/imagePerformance";
 
 interface WorkspaceAssetSourceLike {
   fileName: string;
@@ -587,15 +588,19 @@ const toDataUrlFromAsset = async (
   assetId: string,
 ): Promise<string> => blobToDataUrl(toBlobFromAsset(assetMap, assetId));
 
-const restoreLoadedImage = (
+const restoreLoadedImage = async (
   assetMap: Map<string, WorkspaceBinaryAssetPayload>,
   item: WorkspaceLoadedImageDocument,
-): LoadedImage => {
+): Promise<LoadedImage> => {
   const file = toFileFromAsset(assetMap, item.source.assetId);
   // Owned by the restored image collection; revoked on image removal
   // (revokeLoadedImageUrls).
   const url = URL.createObjectURL(file);
-  const image = {
+  // Regenerate thumbnail so the sidebar does not decode full-res images.
+  const thumbnailUrl = await createThumbnailFromUrl(url, 400, 600, 0.7).catch(
+    () => url,
+  );
+  const image: LoadedImage = {
     id: item.id,
     file,
     url,
@@ -604,6 +609,9 @@ const restoreLoadedImage = (
     rotation: item.rotation,
     filters: item.filters as ImageFilters,
   };
+  if (thumbnailUrl !== url) {
+    image.thumbnailUrl = thumbnailUrl;
+  }
   return image;
 };
 
@@ -719,7 +727,9 @@ export const restoreWorkspaceDocument = async (
   const assetMap = buildAssetMap(payload);
   const document = payload.manifest.document;
 
-  const images = document.images.map((item) => restoreLoadedImage(assetMap, item));
+  const images = await Promise.all(
+    document.images.map((item) => restoreLoadedImage(assetMap, item)),
+  );
   const downloadItems = document.downloadItems.map((item) => restoreDownloadItem(assetMap, item));
   const aioManualImageEditsByImage = await restoreManualImageEditMap(assetMap, document.aio.manualImageEditsByImage);
   const cleanerManualImageEditsByImage = await restoreManualImageEditMap(assetMap, document.cleaner.manualImageEditsByImage);
