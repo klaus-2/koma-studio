@@ -12,7 +12,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import Settings
-from language_utils import normalize_locale_code
+from language_utils import localized_unknown_message, normalize_locale_code
 from rag_engine import RAGEngine
 from utils.formatter import build_embeds, default_help_embed
 from utils.logger import get_logger
@@ -185,13 +185,18 @@ class ChatHandler:
     ) -> None:
         """Run the RAG engine and deliver the embeds."""
         self.logger.info("Received interaction", extra={"intent": intent, "question_length": len(question)})
-        async with destination.typing():
-            result = await self.rag_engine.answer_question(
-                user_id=user_id,
-                question=question,
-                intent=intent,
-                preferred_locale=preferred_locale,
-            )
+        try:
+            async with destination.typing():
+                result = await self.rag_engine.answer_question(
+                    user_id=user_id,
+                    question=question,
+                    intent=intent,
+                    preferred_locale=preferred_locale,
+                )
+        except Exception:  # noqa: BLE001
+            self.logger.exception("Answer generation failed", extra={"user_id": user_id, "intent": intent})
+            await self._send_fallback(destination, interaction, preferred_locale)
+            return
 
         embeds = build_embeds(
             result.answer,
@@ -212,6 +217,23 @@ class ChatHandler:
         await destination.send(embed=embeds[0])
         for embed in embeds[1:]:
             await destination.send(embed=embed)
+
+    async def _send_fallback(
+        self,
+        destination: discord.abc.Messageable,
+        interaction: discord.Interaction | None,
+        preferred_locale: str | None,
+    ) -> None:
+        """Send a localized generic-error message as a slash- or channel-reply."""
+        locale = normalize_locale_code(preferred_locale, default="pt-br")
+        message = localized_unknown_message(locale)
+        if interaction is not None:
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+            return
+        await destination.send(message)
 
     async def _ensure_channel_allowed(
         self,
