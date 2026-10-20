@@ -42,6 +42,7 @@ import {
   recordSessionLog,
   setDesktopDebugLogsEnabled,
 } from "./modules/session-log.ts";
+import { resolveAppFlags } from "./modules/app-flags.ts";
 import { enforcePackagedRuntimeIntegrity } from "./modules/security.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -205,22 +206,12 @@ let miniBackendRuntimeLogBuffer: Array<{
 
 installMainProcessConsoleSessionLogging();
 
-const isDev = !app.isPackaged;
+const appFlags = resolveAppFlags();
+const isDev = appFlags.isDev;
+const isProdDebugEnabled = appFlags.isProdDebugEnabled;
+const areDevToolsEnabled = appFlags.areDevToolsEnabled;
 setDesktopIsDev(isDev);
-const shouldOpenDevTools = process.env.ELECTRON_OPEN_DEVTOOLS;
-const normalizedShouldOpenDevTools = (shouldOpenDevTools ?? "").trim().toLowerCase();
-const rawEnableDebugLogs = process.env.ELECTRON_ENABLE_DEBUG_LOGS;
-const normalizedEnableDebugLogs = (rawEnableDebugLogs ?? "").trim().toLowerCase();
-const isProdDebugEnabled =
-  normalizedShouldOpenDevTools === "1" ||
-  normalizedShouldOpenDevTools === "true" ||
-  process.argv.includes("--open-devtools");
-const isExplicitDebugLoggingEnabled =
-  normalizedEnableDebugLogs === "1" ||
-  normalizedEnableDebugLogs === "true" ||
-  process.argv.includes("--enable-debug-logs");
-const areDevToolsEnabled = isDev || isProdDebugEnabled;
-setDesktopDebugLogsEnabled(isDev || isProdDebugEnabled || isExplicitDebugLoggingEnabled);
+setDesktopDebugLogsEnabled(appFlags.debugLogsEnabled);
 const APP_PROTOCOL = "komastudio";
 const INTERNAL_APP_PROTOCOL = "app";
 const INTERNAL_APP_HOST = "local";
