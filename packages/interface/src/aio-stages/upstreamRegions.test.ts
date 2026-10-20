@@ -3,9 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { AioTextRegion } from '../types/dashboard.types';
 import {
   resolveUpstreamRegions,
-  upstreamRegionChain,
-  type GetStageRegions,
   type StageRegionKey,
+  type StageRegions,
 } from './upstreamRegions';
 
 function region(id: string): AioTextRegion {
@@ -20,35 +19,35 @@ function region(id: string): AioTextRegion {
 
 function sources(
   map: Partial<Record<StageRegionKey, AioTextRegion[]>>,
-): GetStageRegions {
-  return (stage) => map[stage] ?? [];
+): StageRegions {
+  return map;
 }
 
 describe('resolveUpstreamRegions', () => {
   it('prefers the first non-empty stage on the chain', () => {
-    const getRegions = sources({
+    const stageRegions = sources({
       detectText: [region('d1')],
       recognizeText: [region('o1')],
       getTranslations: [region('t1')],
     });
-    expect(resolveUpstreamRegions('segmentText', getRegions).map((r) => r.id)).toEqual([
+    expect(resolveUpstreamRegions('segmentText', stageRegions).map((r) => r.id)).toEqual([
       't1',
     ]);
-    expect(resolveUpstreamRegions('cleanImage', getRegions).map((r) => r.id)).toEqual([
+    expect(resolveUpstreamRegions('cleanImage', stageRegions).map((r) => r.id)).toEqual([
       't1',
     ]);
-    expect(resolveUpstreamRegions('render', getRegions).map((r) => r.id)).toEqual([
+    expect(resolveUpstreamRegions('render', stageRegions).map((r) => r.id)).toEqual([
       't1',
     ]);
   });
 
   it('falls back down the chain when preferred stages are empty', () => {
-    const getRegions = sources({
+    const stageRegions = sources({
       detectText: [region('d1')],
       recognizeText: [],
       getTranslations: [],
     });
-    expect(resolveUpstreamRegions('segmentText', getRegions).map((r) => r.id)).toEqual([
+    expect(resolveUpstreamRegions('segmentText', stageRegions).map((r) => r.id)).toEqual([
       'd1',
     ]);
   });
@@ -58,14 +57,13 @@ describe('resolveUpstreamRegions', () => {
   });
 
   it('Get Translations only reads Recognize Text', () => {
-    expect(upstreamRegionChain('getTranslations')).toEqual(['recognizeText']);
-    const getRegions = sources({
+    const stageRegions = sources({
       detectText: [region('d1')],
       recognizeText: [region('o1')],
     });
-    expect(resolveUpstreamRegions('getTranslations', getRegions).map((r) => r.id)).toEqual([
-      'o1',
-    ]);
+    expect(
+      resolveUpstreamRegions('getTranslations', stageRegions).map((r) => r.id),
+    ).toEqual(['o1']);
   });
 
   it('does not alias the source array', () => {

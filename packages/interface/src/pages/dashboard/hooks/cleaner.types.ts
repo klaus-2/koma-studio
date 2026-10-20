@@ -47,7 +47,7 @@ export interface UseCleanerActionsArgs {
   selectedCustomOcrProfile: CustomProfileLike | null;
   discord: DiscordLike;
   ensureVerifiedEmailOrNotify: () => boolean;
-  validateManualLocalStageModel: (stageKey: string, stageLabel: string, modelKey: string) => boolean;
+  openModelManagerForStage: (stage: string, options?: Record<string, unknown>) => void;
   getAioStageOption: (stageKey: 'recognizeText', key: string) => AioStageOption | null;
   parseApiError: (response: Response) => Promise<string>;
   registerDownloads: (items: CleanerDownloadEntry[], scope: 'cleaner') => void;

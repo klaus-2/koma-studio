@@ -52,7 +52,7 @@ export function useCleanerActions(args: UseCleanerActionsArgs): CleanerRun {
     selectedCustomOcrProfile,
     discord,
     ensureVerifiedEmailOrNotify,
-    validateManualLocalStageModel,
+    openModelManagerForStage,
     getAioStageOption,
     parseApiError,
     registerDownloads,
@@ -114,7 +114,7 @@ export function useCleanerActions(args: UseCleanerActionsArgs): CleanerRun {
     syncDiscordForTab,
     recordProcessedPages,
     t,
-    validateManualLocalStageModel,
+    openModelManagerForStage,
   ]);
 }
 

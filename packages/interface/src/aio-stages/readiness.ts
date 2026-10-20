@@ -1,8 +1,10 @@
 /**
  * Stage readiness — one policy for “can this AIO stage model run?”
  *
- * Selection keys in → ready plan or typed refusal. Local-model manager
- * opens stay behind `ensureLocalModelReady` (the side-effecting adapter).
+ * `resolveStageModelReadiness`: selection keys in → ready plan or typed
+ * refusal (always a non-empty `message`). Local-model manager opens ride
+ * on `openModelManager`; `applyStageReadinessRefusal` / `raiseStageReadinessRefusal`
+ * are the only place that turns a refusal into UI / throw.
  */
 import type { AioStageOption } from '../models/aioStageCatalog.types';
 import {
@@ -19,13 +21,17 @@ import {
   normalizeKnownCustomLlmApiBase,
   requiresCustomLlmApiKey,
   shouldUseLocalDesktopTranslationForCustomProfile,
+  type LlmRequestSettings,
 } from '../utils/customLlm';
 
-export type LocalStageName =
+export type StageReadinessStage =
   | 'detectText'
   | 'recognizeText'
+  | 'getTranslations'
   | 'segmentText'
   | 'cleanImage';
+
+export type LocalStageName = Exclude<StageReadinessStage, 'getTranslations'>;
 
 export interface LocalModelEntry {
   status: string;
@@ -41,13 +47,6 @@ export interface ReadinessCustomProfile {
   apiKey: string;
   model?: string | null;
 }
-
-/** Side-effecting local-model gate (install prompt + model manager). */
-export type EnsureLocalModelReady = (
-  stage: LocalStageName,
-  stageLabel: string,
-  modelKey: string,
-) => boolean;
 
 export type Translate = (
   key: string,
@@ -75,23 +74,27 @@ export interface StageReadinessReady {
   customProfile: ReadinessCustomProfile | null;
 }
 
+export interface OpenModelManagerIntent {
+  stage: StageReadinessStage;
+  focusedModelId?: string | null;
+  language?: string;
+}
+
 export interface StageReadinessRefusal {
   ok: false;
   kind: StageReadinessRefusalKind;
-  /** Empty when `ensureLocalModelReady` already surfaced the refusal. */
   message: string;
   name?: string;
-  detail?: string;
+  openModelManager?: OpenModelManagerIntent;
 }
 
 export type StageReadiness = StageReadinessReady | StageReadinessRefusal;
 
+/** Call-site copy for the three strings that already diverge per tool. */
 export interface StageReadinessMessages {
   invalidSelection: string;
   selectCustomProfile: string;
   requiresApiKey: string;
-  installTranslationModel?: string;
-  incompatibleLanguage?: string;
 }
 
 export interface CleanerAiProfileReadinessReady {
@@ -102,6 +105,14 @@ export interface CleanerAiProfileReadinessReady {
 export type CleanerAiProfileReadiness =
   | CleanerAiProfileReadinessReady
   | StageReadinessRefusal;
+
+export interface ReadinessRefusalSink {
+  setStatusMessage?: (message: string) => void;
+  openModelManagerForStage?: (
+    stage: StageReadinessStage,
+    options?: Record<string, unknown>,
+  ) => void;
+}
 
 const isLocalModelInstalled = (entry: LocalModelEntry): boolean =>
   entry.status === 'installed' || entry.status === 'update_available';
@@ -114,25 +125,17 @@ const localReadyPlan = (modelKey: string): StageReadinessReady => ({
   customProfile: null,
 });
 
-const optionMissing = (message: string): StageReadinessRefusal => ({
-  ok: false,
-  kind: 'option_missing',
-  message,
-});
-
-const findOption = (
-  options: readonly AioStageOption[],
-  modelKey: string,
-): AioStageOption | null =>
-  options.find((option) => option.key === modelKey) ?? null;
-
 function refuseCatalogOption(
   option: AioStageOption | null,
-  messages: Pick<StageReadinessMessages, 'invalidSelection'>,
+  messages: StageReadinessMessages,
   t: Translate,
 ): StageReadinessRefusal | null {
   if (!option) {
-    return optionMissing(messages.invalidSelection);
+    return {
+      ok: false,
+      kind: 'option_missing',
+      message: messages.invalidSelection,
+    };
   }
   if (!option.implemented) {
     return {
@@ -156,10 +159,8 @@ function refuseCatalogOption(
 function refuseCustomProfile(
   modelKey: string,
   customProfile: ReadinessCustomProfile | null,
-  messages: Pick<StageReadinessMessages, 'selectCustomProfile' | 'requiresApiKey'>,
-  options: {
-    enforceRuntimeRestriction?: boolean;
-  } = {},
+  messages: StageReadinessMessages,
+  options: { enforceRuntimeRestriction?: boolean } = {},
 ): StageReadinessRefusal | null {
   if (!isCustomModelSelectionKey(modelKey)) {
     return null;
@@ -188,183 +189,213 @@ function refuseCustomProfile(
         ok: false,
         kind: 'runtime_restriction',
         message: runtimeRestriction,
-        detail: runtimeRestriction,
       };
     }
   }
   return null;
 }
 
-function ocrReadyPlan(
+function readyPlanFor(
+  stage: StageReadinessStage,
   modelKey: string,
   option: AioStageOption | null,
   customProfile: ReadinessCustomProfile | null,
 ): StageReadinessReady {
-  const useCloud = isCloudOcrModelKey(modelKey);
-  const useLlmSettings =
-    useCloud
-    && hasAnyLlmCapability(
-      option?.llm_capabilities ?? inferLlmCapabilitiesForModelSelection('ocr', modelKey),
-    );
-  return {
-    ok: true,
-    modelKey,
-    useCloud,
-    useLlmSettings,
-    customProfile: useLlmSettings ? customProfile : null,
-  };
+  if (stage === 'recognizeText') {
+    const useCloud = isCloudOcrModelKey(modelKey);
+    const useLlmSettings =
+      useCloud
+      && hasAnyLlmCapability(
+        option?.llm_capabilities
+        ?? inferLlmCapabilitiesForModelSelection('ocr', modelKey),
+      );
+    return {
+      ok: true,
+      modelKey,
+      useCloud,
+      useLlmSettings,
+      customProfile: useLlmSettings ? customProfile : null,
+    };
+  }
+  if (stage === 'getTranslations') {
+    const useCloud = isCustomModelSelectionKey(modelKey)
+      ? !shouldUseLocalDesktopTranslationForCustomProfile(customProfile)
+      : isCloudTranslationModelKey(modelKey);
+    const useLlmSettings =
+      (useCloud || isCustomModelSelectionKey(modelKey))
+      && hasAnyLlmCapability(
+        option?.llm_capabilities
+        ?? inferLlmCapabilitiesForModelSelection('translation', modelKey),
+      );
+    return {
+      ok: true,
+      modelKey,
+      useCloud,
+      useLlmSettings,
+      customProfile: useLlmSettings ? customProfile : null,
+    };
+  }
+  return localReadyPlan(modelKey);
 }
 
-function translationReadyPlan(
-  modelKey: string,
-  option: AioStageOption | null,
-  customProfile: ReadinessCustomProfile | null,
-): StageReadinessReady {
-  const useCloud = isCustomModelSelectionKey(modelKey)
-    ? !shouldUseLocalDesktopTranslationForCustomProfile(customProfile)
-    : isCloudTranslationModelKey(modelKey);
-  const useLlmSettings =
-    (useCloud || isCustomModelSelectionKey(modelKey))
-    && hasAnyLlmCapability(
-      option?.llm_capabilities
-      ?? inferLlmCapabilitiesForModelSelection('translation', modelKey),
-    );
-  return {
-    ok: true,
-    modelKey,
-    useCloud,
-    useLlmSettings,
-    customProfile: useLlmSettings ? customProfile : null,
-  };
-}
+const LOCAL_ONLY_STAGES: ReadonlySet<StageReadinessStage> = new Set([
+  'detectText',
+  'segmentText',
+  'cleanImage',
+]);
 
 /**
- * Detect Text / Segment Text / Clean Image — catalog key + local install gate.
- * Pass `options` when the call site owns a stage catalog list.
+ * One readiness policy for every AIO stage.
+ *
+ * `option`: `undefined` skips the catalog check; `null` means looked-up and
+ * missing; a value runs the catalog cascade on the cloud/custom path.
  */
-export function resolveLocalStageModelReadiness(args: {
-  stage: LocalStageName;
+export function resolveStageModelReadiness(args: {
+  stage: StageReadinessStage;
   stageLabel: string;
   modelKey: string;
-  options?: readonly AioStageOption[];
-  ensureLocalModelReady: EnsureLocalModelReady;
-  invalidSelection: string;
-}): StageReadiness {
-  if (args.options && !findOption(args.options, args.modelKey)) {
-    return optionMissing(args.invalidSelection);
-  }
-  if (!args.ensureLocalModelReady(args.stage, args.stageLabel, args.modelKey)) {
-    return { ok: false, kind: 'local_not_ready', message: '' };
-  }
-  return localReadyPlan(args.modelKey);
-}
-
-/**
- * Recognize Text — local install gate, or catalog + Custom AI cascade.
- * Capability plan (useCloud / useLlmSettings) rides on the ready arm.
- */
-export function resolveRecognizeTextReadiness(args: {
-  modelKey: string;
-  stageLabel: string;
-  options: readonly AioStageOption[];
+  option?: AioStageOption | null;
   modelEntries: Readonly<Record<string, LocalModelEntry | null | undefined>>;
-  customProfile: ReadinessCustomProfile | null;
-  ensureLocalModelReady: EnsureLocalModelReady;
-  messages: StageReadinessMessages;
-  t: Translate;
-  /** Translator also requires a catalog option on the local path. */
-  requireOptionWithLocal?: boolean;
-}): StageReadiness {
-  const option = findOption(args.options, args.modelKey);
-  const localEntry = args.modelEntries[args.modelKey];
-
-  if (localEntry) {
-    if (args.requireOptionWithLocal && !option) {
-      return optionMissing(args.messages.invalidSelection);
-    }
-    if (
-      !args.ensureLocalModelReady(
-        'recognizeText',
-        args.stageLabel,
-        args.modelKey,
-      )
-    ) {
-      return { ok: false, kind: 'local_not_ready', message: '' };
-    }
-    return localReadyPlan(args.modelKey);
-  }
-
-  const catalogRefusal = refuseCatalogOption(option, args.messages, args.t);
-  if (catalogRefusal) return catalogRefusal;
-
-  const customRefusal = refuseCustomProfile(
-    args.modelKey,
-    args.customProfile,
-    args.messages,
-  );
-  if (customRefusal) return customRefusal;
-
-  return ocrReadyPlan(args.modelKey, option, args.customProfile);
-}
-
-/**
- * Get Translations — local install + language pair, or catalog + Custom AI
- * cascade with runtime restriction. Capability plan rides on the ready arm.
- */
-export function resolveGetTranslationsReadiness(args: {
-  modelKey: string;
-  options: readonly AioStageOption[];
-  modelEntries: Readonly<Record<string, LocalModelEntry | null | undefined>>;
-  customProfile: ReadinessCustomProfile | null;
-  sourceLanguage: string;
-  targetLanguage: string;
+  customProfile?: ReadinessCustomProfile | null;
+  languages?: { source: string; target: string };
   messages: StageReadinessMessages;
   t: Translate;
 }): StageReadiness {
-  const option = findOption(args.options, args.modelKey);
-  const localEntry = args.modelEntries[args.modelKey];
+  const {
+    stage,
+    stageLabel,
+    modelKey,
+    option,
+    modelEntries,
+    customProfile = null,
+    messages,
+    t,
+  } = args;
 
-  if (localEntry) {
+  if (option === null) {
+    return {
+      ok: false,
+      kind: 'option_missing',
+      message: messages.invalidSelection,
+    };
+  }
+
+  const localEntry = modelEntries[modelKey];
+  const requiresLocal = LOCAL_ONLY_STAGES.has(stage) || localEntry != null;
+
+  if (requiresLocal) {
+    if (stage === 'getTranslations' && localEntry) {
+      if (!isLocalModelInstalled(localEntry)) {
+        return {
+          ok: false,
+          kind: 'install_translation_model',
+          message: t('aioExec.installTranslationModel'),
+          name: localEntry.model.name,
+          openModelManager: {
+            stage: 'getTranslations',
+            focusedModelId: modelKey,
+            language: args.languages?.source,
+          },
+        };
+      }
+      const modelDefinition = TRANSLATION_MODELS_BY_ID[localEntry.model.id] ?? null;
+      if (
+        modelDefinition
+        && args.languages
+        && !modelSupportsLanguage(
+          modelDefinition,
+          args.languages.source,
+          args.languages.target,
+        )
+      ) {
+        return {
+          ok: false,
+          kind: 'incompatible_language',
+          message: t('aioExec.translationModelIncompatible', {
+            modelName: localEntry.model.name,
+          }),
+          name: localEntry.model.name,
+        };
+      }
+      return localReadyPlan(modelKey);
+    }
+
+    if (!localEntry) {
+      return {
+        ok: false,
+        kind: 'local_not_ready',
+        message: t('aioExec.selectAndInstallStage', { stageLabel }),
+        openModelManager: { stage, focusedModelId: modelKey },
+      };
+    }
     if (!isLocalModelInstalled(localEntry)) {
       return {
         ok: false,
-        kind: 'install_translation_model',
-        message: args.messages.installTranslationModel ?? '',
-        name: localEntry.model.name,
+        kind: 'local_not_ready',
+        message: t('aioExec.installBeforeStage', {
+          name: localEntry.model.name,
+          stageLabel,
+        }),
+        openModelManager: {
+          stage,
+          focusedModelId: localEntry.model.id,
+        },
       };
     }
-    const modelDefinition =
-      TRANSLATION_MODELS_BY_ID[localEntry.model.id] ?? null;
-    if (
-      modelDefinition
-      && !modelSupportsLanguage(
-        modelDefinition,
-        args.sourceLanguage,
-        args.targetLanguage,
-      )
-    ) {
-      return {
-        ok: false,
-        kind: 'incompatible_language',
-        message: args.messages.incompatibleLanguage ?? '',
-        name: localEntry.model.name,
-      };
-    }
-    return localReadyPlan(args.modelKey);
+    return localReadyPlan(modelKey);
   }
 
-  const catalogRefusal = refuseCatalogOption(option, args.messages, args.t);
+  const catalogRefusal = refuseCatalogOption(option ?? null, messages, t);
   if (catalogRefusal) return catalogRefusal;
 
   const customRefusal = refuseCustomProfile(
-    args.modelKey,
-    args.customProfile,
-    args.messages,
-    { enforceRuntimeRestriction: true },
+    modelKey,
+    customProfile,
+    messages,
+    { enforceRuntimeRestriction: stage === 'getTranslations' },
   );
   if (customRefusal) return customRefusal;
 
-  return translationReadyPlan(args.modelKey, option, args.customProfile);
+  return readyPlanFor(stage, modelKey, option ?? null, customProfile);
+}
+
+/** Surface a refusal as status message + optional model-manager open. */
+export function applyStageReadinessRefusal(
+  refusal: Extract<StageReadiness, { ok: false }>,
+  sink: ReadinessRefusalSink,
+): void {
+  sink.setStatusMessage?.(refusal.message);
+  if (refusal.openModelManager) {
+    sink.openModelManagerForStage?.(refusal.openModelManager.stage, {
+      focusedModelId: refusal.openModelManager.focusedModelId ?? null,
+      ...(refusal.openModelManager.language != null
+        ? { language: refusal.openModelManager.language }
+        : {}),
+    });
+  }
+}
+
+/** Surface a refusal and throw (manual / Translator resolvers). */
+export function raiseStageReadinessRefusal(
+  refusal: Extract<StageReadiness, { ok: false }>,
+  sink: ReadinessRefusalSink = {},
+): never {
+  applyStageReadinessRefusal(refusal, {
+    openModelManagerForStage: sink.openModelManagerForStage,
+  });
+  throw new Error(refusal.message);
+}
+
+/** SFX translation rewrites extra_context and disables notes. */
+export function withSfxTranslationSettings(
+  base: LlmRequestSettings,
+  extraContext: string,
+): LlmRequestSettings {
+  return {
+    ...base,
+    extra_context: extraContext,
+    translation_notes_enabled: false,
+  };
 }
 
 /**

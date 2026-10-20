@@ -10,7 +10,6 @@ import { useI18n } from '../../../i18n';
 import { AIO_STAGE_LABELS, MIN_REGION_SIZE } from '../../../constants/dashboard.constants';
 import {
   type CustomLlmProfile,
-  type LlmRequestSettings,
 } from '../../../utils/customLlm';
 import {
   blobToDataUrl,
@@ -19,11 +18,14 @@ import {
   resolveSelectedRegionForRegions,
 } from '../../../utils/dashboard.utils';
 import {
+  applyStageReadinessRefusal,
+  resolveStageModelReadiness,
   runCleanImageAiStage,
   runDetectTextStage,
   runGetTranslationsStage,
   runRecognizeTextStage,
   runSfxClassifyStage,
+  withSfxTranslationSettings,
   type StageRuntime,
 } from '../../../aio-stages';
 import {
@@ -70,11 +72,12 @@ interface OcrExecutionResult {
 interface UseTranslatorVisualActionsArgs {
   /* Cross-domain values (image-collection, page memos & callbacks, export-download T10) */
   images: LoadedImage[];
+  modelEntries: Record<string, { status: string; model: { id: string; name: string } } | null | undefined>;
   selectedCustomOcrProfile: CustomLlmProfile | null;
   selectedCustomTranslationProfile: CustomLlmProfile | null;
   selectedTranslatorSfxCleanCustomProfile: CustomLlmProfile | null;
   ensureVerifiedEmailOrNotify: () => boolean;
-  validateManualLocalStageModel: (stageKey: string, stageLabel: string, modelKey: string) => boolean;
+  openModelManagerForStage: (stage: string, options?: Record<string, unknown>) => void;
   resolveTranslatorOcrExecution: () => Promise<OcrExecutionResult>;
   resolveTranslatorTranslationExecution: () => Promise<TranslationExecutionResult>;
   emitProcessStartWebhook: (processName: string, pages: number, context?: Record<string, unknown>) => void;
@@ -89,11 +92,12 @@ interface UseTranslatorVisualActionsArgs {
 
 export function useTranslatorVisualActions({
   images,
+  modelEntries,
   selectedCustomOcrProfile,
   selectedCustomTranslationProfile,
   selectedTranslatorSfxCleanCustomProfile,
   ensureVerifiedEmailOrNotify,
-  validateManualLocalStageModel,
+  openModelManagerForStage,
   resolveTranslatorOcrExecution,
   resolveTranslatorTranslationExecution,
   emitProcessStartWebhook,
@@ -140,9 +144,8 @@ export function useTranslatorVisualActions({
   const setTranslatorProcessedBaseByImage = useTranslatorStore(
     (s) => s.setTranslatorProcessedBaseByImage,
   );
-  // Same `unknown` local type the hook's args interface declared (the SFX
-  // branches narrow it with casts).
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings) as LlmRequestSettings;
+  // Store is typed as LlmRequestSettings — no cast.
+  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
   const setProcessing = useUiShellStore((s) => s.setProcessing);
   const setProgress = useUiShellStore((s) => s.setProgress);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
@@ -153,7 +156,23 @@ export function useTranslatorVisualActions({
       setStatusMessage(t('translatorVisual.noImages'));
       return;
     }
-    if (!validateManualLocalStageModel('detectText', AIO_STAGE_LABELS.detectText, detectSelectionKey)) {
+    const detectReadiness = resolveStageModelReadiness({
+      stage: 'detectText',
+      stageLabel: AIO_STAGE_LABELS.detectText,
+      modelKey: detectSelectionKey,
+      modelEntries,
+      messages: {
+        invalidSelection: t('aioManual.selectValidDetectModel'),
+        selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
+        requiresApiKey: t('aioExec.ocrRequiresApiKey'),
+      },
+      t,
+    });
+    if (!detectReadiness.ok) {
+      applyStageReadinessRefusal(detectReadiness, {
+        setStatusMessage,
+        openModelManagerForStage,
+      });
       return;
     }
 
@@ -299,13 +318,6 @@ export function useTranslatorVisualActions({
                 translatorSfxAdditionalInstructions,
             )
           : undefined;
-        const llmSettingsOverride = isSfxTranslate
-          ? {
-              ...llmSettings,
-              extra_context: sfxExtraContext ?? '',
-              translation_notes_enabled: false,
-            }
-          : llmSettings;
 
           const translateDone = await runGetTranslationsStage(
             {
@@ -315,9 +327,11 @@ export function useTranslatorVisualActions({
               targetLanguage: tgtLang,
               regions: detectedRegions,
               fallbackOcrModelKey: selectedOcrKey,
-              sfxExtraContext,
-              llmSettingsOverride: useLlmSettingsForTranslation
-                ? llmSettingsOverride
+              sfx: sfxExtraContext != null ? { extraContext: sfxExtraContext } : undefined,
+              llmSettings: useLlmSettingsForTranslation
+                ? (isSfxTranslate && sfxExtraContext != null
+                    ? withSfxTranslationSettings(llmSettings, sfxExtraContext)
+                    : llmSettings)
                 : null,
               customProfile: useLlmSettingsForTranslation
                 ? selectedCustomTranslationProfile
@@ -466,6 +480,7 @@ export function useTranslatorVisualActions({
     recordProcessedPages,
     t,
     tgtLang,
-    validateManualLocalStageModel,
+    openModelManagerForStage,
+    modelEntries,
   ]);
 }

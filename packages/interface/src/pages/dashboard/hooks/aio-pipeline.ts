@@ -106,7 +106,6 @@ export function useAioPipelineExecution(
     selectedCustomTranslationProfile: args.selectedCustomTranslationProfile,
     getAioStageOption: args.getAioStageOption,
     openModelManagerForStage: args.openModelManagerForStage,
-    resolveLocalModelFocusForStage: args.resolveLocalModelFocusForStage,
     refreshSession: args.refreshSession,
     getAuthToken: args.getAuthToken,
     invalidateAioPipelineHistory:

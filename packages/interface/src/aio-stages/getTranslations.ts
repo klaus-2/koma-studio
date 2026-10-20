@@ -25,10 +25,8 @@ export interface GetTranslationsStageArgs {
   /** Presence sends image + llm_settings + custom_llm (LLM / custom providers). */
   llmSettings?: LlmRequestSettings | null;
   customProfile?: CustomLlmRequestProfile | null;
-  /** AI SFX mode: translation_mode + extra_context on the form. */
-  sfxExtraContext?: string;
-  /** Replace llm_settings wholesale (SFX rewrites extra_context / notes). */
-  llmSettingsOverride?: LlmRequestSettings | null;
+  /** AI SFX mode: sets translation_mode + extra_context on the form. */
+  sfx?: { extraContext: string };
 }
 
 export function runGetTranslationsStage(
@@ -40,17 +38,13 @@ export function runGetTranslationsStage(
   form.append('model_key', args.modelKey);
   form.append('source_language', args.sourceLanguage);
   form.append('target_language', args.targetLanguage);
-  if (args.sfxExtraContext !== undefined) {
+  if (args.sfx) {
     form.append('translation_mode', 'sfx');
-    form.append('extra_context', args.sfxExtraContext);
+    form.append('extra_context', args.sfx.extraContext);
   }
-  const effectiveLlmSettings =
-    args.llmSettingsOverride !== undefined
-      ? args.llmSettingsOverride
-      : args.llmSettings;
-  if (effectiveLlmSettings) {
+  if (args.llmSettings) {
     form.append('file', args.image.file);
-    form.append('llm_settings', JSON.stringify(effectiveLlmSettings));
+    form.append('llm_settings', JSON.stringify(args.llmSettings));
     const customPayload = toCustomLlmRequestPayload(args.customProfile);
     if (customPayload) form.append('custom_llm', JSON.stringify(customPayload));
   }

@@ -21,7 +21,6 @@ import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collecti
 import { useLlmProvidersStore } from '@/pages/dashboard/stores/llm-providers-store';
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
-import type { AioStageKey } from '@/types/aioModelPresets';
 import type {
   AioManualImageProgress,
   AioPipelineSnapshotKey,
@@ -47,15 +46,10 @@ interface UseAioManualExecutionArgs
     | 'modelEntries'
     | 'selectedCustomOcrProfile'
     | 'selectedCustomTranslationProfile'
+    | 'openModelManagerForStage'
   > {
   readonly activeManualProgress: AioManualImageProgress | null;
   readonly resolvedActiveId: string | null;
-
-  readonly validateManualLocalStageModel: (
-    stage: Exclude<AioStageKey, 'getTranslations'>,
-    stageLabel: string,
-    selectedKey: string,
-  ) => boolean;
 
   readonly beginAioExecution: (
     scope: AioExecutionScope,
@@ -70,17 +64,6 @@ interface UseAioManualExecutionArgs
     index: number,
     totalImages: number,
   ) => void;
-}
-
-function isLocalStage(
-  stage: string,
-): stage is Exclude<AioStageKey, 'getTranslations'> {
-  return (
-    stage === 'detectText' ||
-    stage === 'recognizeText' ||
-    stage === 'segmentText' ||
-    stage === 'cleanImage'
-  );
 }
 
 export function useAioManualExecution(args: UseAioManualExecutionArgs) {
@@ -144,13 +127,6 @@ export function useAioManualExecution(args: UseAioManualExecutionArgs) {
     [args.updateAioExecutionStage],
   );
 
-  const validateStageModel = useCallback(
-    (stageKey: string, stageLabel: string, modelKey: string): boolean =>
-      isLocalStage(stageKey) &&
-      args.validateManualLocalStageModel(stageKey, stageLabel, modelKey),
-    [args.validateManualLocalStageModel],
-  );
-
   const executorStageOptions = useMemo(
     () => ({
       detectText: stageOptions.detectText,
@@ -198,7 +174,7 @@ export function useAioManualExecution(args: UseAioManualExecutionArgs) {
     modelEntries: args.modelEntries,
     selectedCustomOcrProfile: args.selectedCustomOcrProfile,
     selectedCustomTranslationProfile: args.selectedCustomTranslationProfile,
-    validateManualLocalStageModel: validateStageModel,
+    openModelManagerForStage: args.openModelManagerForStage,
     getAioStageOption: args.getAioStageOption,
     parseApiError,
     getAioRegionsFromSnapshot: progressControls.getAioRegionsFromSnapshot,

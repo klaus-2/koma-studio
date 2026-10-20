@@ -17,9 +17,8 @@ export type UpstreamStage =
   | 'cleanImage'
   | 'render';
 
-export type GetStageRegions = (
-  stage: StageRegionKey,
-) => readonly AioTextRegion[];
+/** Stage → Regions written so far (snapshot map or linear pipeline map). */
+export type StageRegions = Partial<Record<StageRegionKey, readonly AioTextRegion[]>>;
 
 /**
  * Preferred upstream order per stage. First non-empty snapshot wins.
@@ -48,20 +47,13 @@ const UPSTREAM_REGION_CHAINS: Record<
  */
 export function resolveUpstreamRegions(
   stage: UpstreamStage,
-  getRegions: GetStageRegions,
+  stageRegions: StageRegions,
 ): AioTextRegion[] {
   for (const key of UPSTREAM_REGION_CHAINS[stage]) {
-    const regions = getRegions(key);
-    if (regions.length > 0) {
+    const regions = stageRegions[key];
+    if (regions && regions.length > 0) {
       return [...regions];
     }
   }
   return [];
-}
-
-/** Visible for tests and documentation. */
-export function upstreamRegionChain(
-  stage: UpstreamStage,
-): readonly StageRegionKey[] {
-  return UPSTREAM_REGION_CHAINS[stage];
 }

@@ -11,17 +11,16 @@ import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import {
   type CustomLlmProfile,
-  type LlmRequestSettings,
 } from '../../../utils/customLlm';
 import {
   parseTranslatorStructuredTextInput,
 } from '../../../utils/dashboard.utils';
 import {
-  resolveGetTranslationsReadiness,
-  resolveRecognizeTextReadiness,
+  raiseStageReadinessRefusal,
+  resolveStageModelReadiness,
   runGetTranslationsStage,
   runTranslateTextStage,
-  type StageReadiness,
+  withSfxTranslationSettings,
   type StageRuntime,
 } from '../../../aio-stages';
 import { buildSfxTranslationInstructions } from '../../../utils/sfx';
@@ -54,7 +53,7 @@ interface UseTranslatorExecutionResolversArgs {
   translatorOcrStageOptionsForSelect: AioStageOption[];
   selectedCustomTranslationProfile: CustomLlmProfile | null;
   selectedCustomOcrProfile: CustomLlmProfile | null;
-  validateManualLocalStageModel: (stageKey: string, stageLabel: string, modelKey: string) => boolean;
+  openModelManagerForStage: (stage: string, options?: Record<string, unknown>) => void;
 }
 
 export function useTranslatorExecutionResolvers({
@@ -63,7 +62,7 @@ export function useTranslatorExecutionResolvers({
   translatorOcrStageOptionsForSelect,
   selectedCustomTranslationProfile,
   selectedCustomOcrProfile,
-  validateManualLocalStageModel,
+  openModelManagerForStage,
 }: UseTranslatorExecutionResolversArgs) {
   const { t } = useI18n();
   const translationSelectionKey = useAioPipelineStore(
@@ -75,15 +74,7 @@ export function useTranslatorExecutionResolvers({
   const srcLang = useTranslatorStore((s) => s.srcLang);
   const tgtLang = useTranslatorStore((s) => s.tgtLang);
 
-  const ensureLocalModelReady = validateManualLocalStageModel;
-  const throwReadinessRefusal = (
-    readiness: Extract<StageReadiness, { ok: false }>,
-  ): never => {
-    throw new Error(
-      readiness.message
-      || t('translator.installCompatibleOcrModel'),
-    );
-  };
+  const readinessSink = { openModelManagerForStage };
 
   const resolveTranslatorTranslationExecution = useCallback(async () => {
     const selectedTranslationKey = translationSelectionKey;
@@ -91,24 +82,23 @@ export function useTranslatorExecutionResolvers({
       (option) => option.key === selectedTranslationKey,
     ) ?? null;
 
-    const readiness = resolveGetTranslationsReadiness({
+    const readiness = resolveStageModelReadiness({
+      stage: 'getTranslations',
+      stageLabel: 'Obter Traduções',
       modelKey: selectedTranslationKey,
-      options: translationStageOptionsForSelect,
+      option: selectedTranslationOption,
       modelEntries,
       customProfile: selectedCustomTranslationProfile,
-      sourceLanguage: srcLang,
-      targetLanguage: tgtLang,
+      languages: { source: srcLang, target: tgtLang },
       messages: {
         invalidSelection: t('translator.selectValidTranslationModel'),
         selectCustomProfile: t('translator.selectCustomAiTranslationProfile'),
         requiresApiKey: t('aioExec.translationRequiresApiKey'),
-        installTranslationModel: t('aioExec.installTranslationModel'),
-        incompatibleLanguage: t('translator.localModelIncompatible'),
       },
       t,
     });
     if (!readiness.ok) {
-      return throwReadinessRefusal(readiness);
+      return raiseStageReadinessRefusal(readiness, readinessSink);
     }
 
     return {
@@ -119,6 +109,7 @@ export function useTranslatorExecutionResolvers({
     };
   }, [
     modelEntries,
+    openModelManagerForStage,
     selectedCustomTranslationProfile,
     srcLang,
     t,
@@ -133,14 +124,13 @@ export function useTranslatorExecutionResolvers({
       (option) => option.key === selectedOcrKey,
     ) ?? null;
 
-    const readiness = resolveRecognizeTextReadiness({
-      modelKey: selectedOcrKey,
+    const readiness = resolveStageModelReadiness({
+      stage: 'recognizeText',
       stageLabel: AIO_STAGE_LABELS.recognizeText,
-      options: translatorOcrStageOptionsForSelect,
+      modelKey: selectedOcrKey,
+      option: selectedOcrOption,
       modelEntries,
       customProfile: selectedCustomOcrProfile,
-      ensureLocalModelReady,
-      requireOptionWithLocal: true,
       messages: {
         invalidSelection: t('translator.selectValidOcrModel'),
         selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
@@ -149,7 +139,7 @@ export function useTranslatorExecutionResolvers({
       t,
     });
     if (!readiness.ok) {
-      return throwReadinessRefusal(readiness);
+      return raiseStageReadinessRefusal(readiness, readinessSink);
     }
 
     return {
@@ -159,9 +149,9 @@ export function useTranslatorExecutionResolvers({
       useLlmSettingsForOcr: readiness.useLlmSettings,
     };
   }, [
-    ensureLocalModelReady,
     modelEntries,
     ocrSelectionKey,
+    openModelManagerForStage,
     selectedCustomOcrProfile,
     t,
     translatorOcrStageOptionsForSelect,
@@ -224,9 +214,8 @@ export function useTranslatorTextActions({
   const setTranslatorTextDirty = useTranslatorStore(
     (s) => s.setTranslatorTextDirty,
   );
-  // Same `unknown` local type the hook's args interface declared (the SFX
-  // branches narrow it with casts).
-  const llmSettings: unknown = useLlmProvidersStore((s) => s.llmSettings);
+  // Store is typed as LlmRequestSettings — no cast.
+  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
   const setProcessing = useUiShellStore((s) => s.setProcessing);
   const setProgress = useUiShellStore((s) => s.setProgress);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
@@ -274,9 +263,7 @@ export function useTranslatorTextActions({
           sourceLanguage: srcLang,
           targetLanguage: tgtLang,
           requestRegions,
-          llmSettings: useLlmSettingsForTranslation
-            ? (llmSettings as LlmRequestSettings | null)
-            : null,
+          llmSettings: useLlmSettingsForTranslation ? llmSettings : null,
           customProfile: useLlmSettingsForTranslation
             ? selectedCustomTranslationProfile
             : null,
@@ -414,9 +401,8 @@ export function useTranslatorRetranslate({
   const setTranslatorVisualRunning = useTranslatorStore(
     (s) => s.setTranslatorVisualRunning,
   );
-  // Same `unknown` local type the hook's args interface declared (the SFX
-  // branches narrow it with casts).
-  const llmSettings: unknown = useLlmProvidersStore((s) => s.llmSettings);
+  // Store is typed as LlmRequestSettings — no cast.
+  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
   const setProcessing = useUiShellStore((s) => s.setProcessing);
   const setProgress = useUiShellStore((s) => s.setProgress);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
@@ -457,17 +443,10 @@ export function useTranslatorRetranslate({
       const isSfxRetranslate = translatorVisualProcessingMode === 'ai_sfx';
       const sfxExtraContext = isSfxRetranslate
         ? buildSfxTranslationInstructions(
-            String((llmSettings as { extra_context?: string } | null)?.extra_context ?? ''),
+            llmSettings.extra_context ?? '',
             translatorSfxAdditionalInstructions,
         )
       : undefined;
-    const llmSettingsOverride = isSfxRetranslate
-      ? {
-          ...(llmSettings as LlmRequestSettings),
-          extra_context: sfxExtraContext ?? '',
-          translation_notes_enabled: false,
-        }
-      : (llmSettings as LlmRequestSettings | null);
 
     const translateDone = await runGetTranslationsStage(
       {
@@ -477,9 +456,11 @@ export function useTranslatorRetranslate({
         targetLanguage: tgtLang,
         regions: targetRegions,
         fallbackOcrModelKey: ocrSelectionKey,
-        sfxExtraContext,
-        llmSettingsOverride: useLlmSettingsForTranslation
-          ? llmSettingsOverride
+        sfx: sfxExtraContext != null ? { extraContext: sfxExtraContext } : undefined,
+        llmSettings: useLlmSettingsForTranslation
+          ? (isSfxRetranslate && sfxExtraContext != null
+              ? withSfxTranslationSettings(llmSettings, sfxExtraContext)
+              : llmSettings)
           : null,
         customProfile: useLlmSettingsForTranslation
           ? selectedCustomTranslationProfile

@@ -21,7 +21,6 @@ export interface UseAioPipelineExecutionArgs
       | 'selectedCustomTranslationProfile'
       | 'getAioStageOption'
       | 'openModelManagerForStage'
-      | 'resolveLocalModelFocusForStage'
       | 'refreshSession'
       | 'getAuthToken'
       | 'setAioManualImageEditsByImage'

@@ -8,7 +8,7 @@ import {
   runGetTranslationsStage,
   runRecognizeTextStage,
   runSegmentTextStage,
-  type StageRegionKey,
+  type StageRegions,
   type StageRunNotice,
 } from '../aio-stages';
 import {
@@ -22,7 +22,6 @@ import type {
   AioBatchImageResult,
   AioDownloadEntry,
   AioPipelineSnapshotKey,
-  AioTextRegion,
   LoadedImage,
   RuntimeExecutionNotice,
 } from '../types/dashboard.types';
@@ -159,7 +158,7 @@ export function useAioSingleImageProcessor({
     );
     pushNotice(detectDone.notice);
     const normalizedDetections = detectDone.value;
-    const stageRegions: Partial<Record<StageRegionKey, AioTextRegion[]>> = {
+    let stageRegions: StageRegions = {
       detectText: normalizedDetections,
     };
 
@@ -189,7 +188,7 @@ export function useAioSingleImageProcessor({
       );
       pushNotice(ocrDone.notice);
       enrichedDetections = ocrDone.value;
-      stageRegions.recognizeText = enrichedDetections;
+      stageRegions = { ...stageRegions, recognizeText: enrichedDetections };
     }
 
     const ocrDetections = cloneAioRegions(enrichedDetections, cloneRenderStyle);
@@ -200,7 +199,7 @@ export function useAioSingleImageProcessor({
       onStageStart('getTranslations', imgData, index);
       const translationSourceRegions = resolveUpstreamRegions(
         'getTranslations',
-        (key) => stageRegions[key] ?? [],
+        stageRegions,
       );
       const translateDone = await runGetTranslationsStage(
         {
@@ -222,7 +221,7 @@ export function useAioSingleImageProcessor({
       );
       pushNotice(translateDone.notice);
       enrichedDetections = translateDone.value;
-      stageRegions.getTranslations = enrichedDetections;
+      stageRegions = { ...stageRegions, getTranslations: enrichedDetections };
     }
 
     const translationDetections = cloneAioRegions(enrichedDetections, cloneRenderStyle);
@@ -232,7 +231,7 @@ export function useAioSingleImageProcessor({
       onStageStart('segmentText', imgData, index);
       const segmentSourceRegions = resolveUpstreamRegions(
         'segmentText',
-        (key) => stageRegions[key] ?? [],
+        stageRegions,
       );
       const segmentDone = await runSegmentTextStage(
         {
@@ -252,7 +251,7 @@ export function useAioSingleImageProcessor({
       );
       pushNotice(segmentDone.notice);
       enrichedDetections = segmentDone.value;
-      stageRegions.segmentText = enrichedDetections;
+      stageRegions = { ...stageRegions, segmentText: enrichedDetections };
     }
 
     const segmentDetections = cloneAioRegions(enrichedDetections, cloneRenderStyle);
@@ -263,7 +262,7 @@ export function useAioSingleImageProcessor({
       onStageStart('cleanImage', imgData, index);
       const cleanSourceRegions = resolveUpstreamRegions(
         'cleanImage',
-        (key) => stageRegions[key] ?? [],
+        stageRegions,
       );
       const cleanDone = await runCleanImageStage(
         {
@@ -300,11 +299,11 @@ export function useAioSingleImageProcessor({
         blob: inpaintBlob,
         sourceImageId: imgData.id,
       };
-      stageRegions.cleanImage = cleanSourceRegions;
+      stageRegions = { ...stageRegions, cleanImage: cleanSourceRegions };
     }
 
     const cleanDetections = cloneAioRegions(
-      resolveUpstreamRegions('cleanImage', (key) => stageRegions[key] ?? []),
+      resolveUpstreamRegions('cleanImage', stageRegions),
       cloneRenderStyle,
     );
 
@@ -313,7 +312,7 @@ export function useAioSingleImageProcessor({
       onStageStart('render', imgData, index);
       const renderSourceRegions = resolveUpstreamRegions(
         'render',
-        (key) => stageRegions[key] ?? [],
+        stageRegions,
       );
       enrichedDetections = renderSourceRegions.map((region) =>
         applyRenderDefaultsToRegion(region, renderDefaultStyle, applyDetectedGradientToStyle, undefined, targetLanguage));

@@ -1,7 +1,8 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import {
+  applyStageReadinessRefusal,
   resolveCleanerAiProfileReadiness,
-  resolveLocalStageModelReadiness,
+  resolveStageModelReadiness,
   runCleanImageAiStage,
   runDetectTextStage,
   runSfxClassifyStage,
@@ -41,8 +42,9 @@ export async function runAutomaticCleanerWorkflow(
     sourceLanguage,
     effectiveBatchConcurrency,
     minRegionSize,
+    modelEntries,
     discord,
-    validateManualLocalStageModel,
+    openModelManagerForStage,
     parseApiError,
     registerDownloads,
     emitProcessStartWebhook,
@@ -70,17 +72,23 @@ export async function runAutomaticCleanerWorkflow(
   const normalizedCleanerAiInstructions = cleanerAiAdditionalInstructions.trim();
 
   if (isAutomaticAiMode || isAiSfxMode) {
-    const detectReadiness = resolveLocalStageModelReadiness({
+    const detectReadiness = resolveStageModelReadiness({
       stage: 'detectText',
       stageLabel: AIO_STAGE_LABELS.detectText,
       modelKey: detectSelectionKey,
-      ensureLocalModelReady: validateManualLocalStageModel,
-      invalidSelection: t('aioManual.selectValidDetectModel'),
+      modelEntries,
+      messages: {
+        invalidSelection: t('aioManual.selectValidDetectModel'),
+        selectCustomProfile: t('aioExec.selectCustomOcrProfile'),
+        requiresApiKey: t('aioExec.ocrRequiresApiKey'),
+      },
+      t,
     });
     if (!detectReadiness.ok) {
-      if (detectReadiness.kind !== 'local_not_ready' && detectReadiness.message) {
-        setStatusMessage(detectReadiness.message);
-      }
+      applyStageReadinessRefusal(detectReadiness, {
+        setStatusMessage,
+        openModelManagerForStage,
+      });
       return;
     }
 

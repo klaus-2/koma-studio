@@ -1,5 +1,4 @@
 /** Clean Image (AI) / SFX stage-runs behind the shared transport seam. */
-import type { AioTextRegion } from '../types/dashboard.types';
 import {
   toCustomLlmRequestPayload,
   type CustomLlmRequestProfile,
@@ -85,5 +84,3 @@ export function runCleanImageAiStage(
     parse: (response) => response.blob(),
   });
 }
-
-export type { AioTextRegion };

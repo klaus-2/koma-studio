@@ -1,14 +1,13 @@
 import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import {
-  resolveLocalStageModelReadiness,
-  resolveRecognizeTextReadiness,
+  applyStageReadinessRefusal,
+  resolveStageModelReadiness,
   resolveUpstreamRegions,
   runCleanImageStage,
   runDetectTextStage,
   runRecognizeTextStage,
   runSegmentTextStage,
-  type StageReadiness,
-  type StageRegionKey,
+  type StageRegions,
   type StageRunNotice,
 } from '../../../aio-stages';
 import {
@@ -49,7 +48,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
     modelEntries,
     selectedCustomOcrProfile,
     discord,
-    validateManualLocalStageModel,
+    openModelManagerForStage,
     getAioStageOption,
     parseApiError,
     registerDownloads,
@@ -76,37 +75,32 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
   let selectedOcrKey = ocrSelectionKey;
   const selectedSegmentKey = segmentSelectionKey;
   const selectedCleanKey = cleanSelectionKey;
-  const ensureLocalModelReady = validateManualLocalStageModel;
-  const applyReadinessRefusal = (
-    readiness: Extract<StageReadiness, { ok: false }>,
-  ): void => {
-    if (readiness.kind === 'local_not_ready') {
-      return;
-    }
-    setStatusMessage(readiness.message);
-  };
+  const readinessSink = { setStatusMessage, openModelManagerForStage };
 
-  const detectReadiness = resolveLocalStageModelReadiness({
+  const detectReadiness = resolveStageModelReadiness({
     stage: 'detectText',
     stageLabel: AIO_STAGE_LABELS.detectText,
     modelKey: selectedDetectorKey,
-    ensureLocalModelReady,
-    invalidSelection: t('aioManual.selectValidDetectModel'),
+    modelEntries,
+    messages: {
+      invalidSelection: t('aioManual.selectValidDetectModel'),
+      selectCustomProfile: t('cleanerActions.selectValidOcrModel'),
+      requiresApiKey: t('cleanerActions.selectValidOcrModel'),
+    },
+    t,
   });
   if (!detectReadiness.ok) {
-    applyReadinessRefusal(detectReadiness);
+    applyStageReadinessRefusal(detectReadiness, readinessSink);
     return;
   }
 
-  const ocrReadiness = resolveRecognizeTextReadiness({
-    modelKey: selectedOcrKey,
+  const ocrReadiness = resolveStageModelReadiness({
+    stage: 'recognizeText',
     stageLabel: AIO_STAGE_LABELS.recognizeText,
-    options: [
-      getAioStageOption('recognizeText', selectedOcrKey),
-    ].filter((option): option is NonNullable<typeof option> => option !== null),
+    modelKey: selectedOcrKey,
+    option: getAioStageOption('recognizeText', selectedOcrKey),
     modelEntries,
     customProfile: selectedCustomOcrProfile,
-    ensureLocalModelReady,
     messages: {
       invalidSelection: t('cleanerActions.selectValidOcrModel'),
       selectCustomProfile: 'Select or save a Custom AI OCR profile before running the Cleaner.',
@@ -115,31 +109,41 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
     t,
   });
   if (!ocrReadiness.ok) {
-    applyReadinessRefusal(ocrReadiness);
+    applyStageReadinessRefusal(ocrReadiness, readinessSink);
     return;
   }
   const useLlmSettingsForOcr = ocrReadiness.useLlmSettings;
 
-  const segmentReadiness = resolveLocalStageModelReadiness({
+  const segmentReadiness = resolveStageModelReadiness({
     stage: 'segmentText',
     stageLabel: AIO_STAGE_LABELS.segmentText,
     modelKey: selectedSegmentKey,
-    ensureLocalModelReady,
-    invalidSelection: t('aioManual.selectValidSegmentModel'),
+    modelEntries,
+    messages: {
+      invalidSelection: t('aioManual.selectValidSegmentModel'),
+      selectCustomProfile: 'Select or save a Custom AI OCR profile before running the Cleaner.',
+      requiresApiKey: 'This OCR provider requires an API key. Configure the key before running.',
+    },
+    t,
   });
   if (!segmentReadiness.ok) {
-    applyReadinessRefusal(segmentReadiness);
+    applyStageReadinessRefusal(segmentReadiness, readinessSink);
     return;
   }
-  const cleanReadiness = resolveLocalStageModelReadiness({
+  const cleanReadiness = resolveStageModelReadiness({
     stage: 'cleanImage',
     stageLabel: AIO_STAGE_LABELS.cleanImage,
     modelKey: selectedCleanKey,
-    ensureLocalModelReady,
-    invalidSelection: t('aioManual.selectValidCleanModel'),
+    modelEntries,
+    messages: {
+      invalidSelection: t('aioManual.selectValidCleanModel'),
+      selectCustomProfile: 'Select or save a Custom AI OCR profile before running the Cleaner.',
+      requiresApiKey: 'This OCR provider requires an API key. Configure the key before running.',
+    },
+    t,
   });
   if (!cleanReadiness.ok) {
-    applyReadinessRefusal(cleanReadiness);
+    applyStageReadinessRefusal(cleanReadiness, readinessSink);
     return;
   }
 
@@ -199,7 +203,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
         );
         pushNotice(detectDone.notice);
         const detectDetections = detectDone.value;
-        const stageRegions: Partial<Record<StageRegionKey, AioTextRegion[]>> = {
+        let stageRegions: StageRegions = {
           detectText: detectDetections,
         };
 
@@ -224,13 +228,10 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
           );
           pushNotice(ocrDone.notice);
           enrichedDetections = ocrDone.value;
-          stageRegions.recognizeText = enrichedDetections;
+          stageRegions = { ...stageRegions, recognizeText: enrichedDetections };
         }
 
-        const segmentInputRegions = resolveUpstreamRegions(
-          'segmentText',
-          (key) => stageRegions[key] ?? [],
-        );
+        const segmentInputRegions = resolveUpstreamRegions('segmentText', stageRegions);
         let segmentDetections = cloneAioRegions(segmentInputRegions, cloneRenderStyle);
         if (segmentInputRegions.length > 0) {
           const segmentDone = await runSegmentTextStage(
@@ -250,13 +251,10 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
           );
           pushNotice(segmentDone.notice);
           segmentDetections = segmentDone.value;
-          stageRegions.segmentText = segmentDetections;
+          stageRegions = { ...stageRegions, segmentText: segmentDetections };
         }
 
-        const cleanInputRegions = resolveUpstreamRegions(
-          'cleanImage',
-          (key) => stageRegions[key] ?? [],
-        );
+        const cleanInputRegions = resolveUpstreamRegions('cleanImage', stageRegions);
         const manualEditState =
           useCleanerStore.getState().cleanerManualImageEditsByImage[imgData.id];
         const cleanDone = await runCleanImageStage(

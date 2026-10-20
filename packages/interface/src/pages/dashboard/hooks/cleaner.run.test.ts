@@ -51,11 +51,15 @@ function makeContext(overrides: Partial<CleanerRunContext> = {}): CleanerRunCont
     hdCropTriggerSize: 512,
     effectiveBatchConcurrency: 1,
     minRegionSize: 8,
-    modelEntries: {},
+    modelEntries: {
+      det: { status: 'installed', model: { id: 'det', name: 'Detector' } },
+      seg: { status: 'installed', model: { id: 'seg', name: 'Segmenter' } },
+      clean: { status: 'installed', model: { id: 'clean', name: 'Cleaner' } },
+    },
     selectedCustomOcrProfile: null,
     discord: { setPreset: vi.fn(async () => undefined) },
     ensureVerifiedEmailOrNotify: () => true,
-    validateManualLocalStageModel: () => true,
+    openModelManagerForStage: vi.fn(),
     getAioStageOption: () => ({
       key: 'ocr',
       name: 'OCR',
@@ -168,7 +172,8 @@ describe('runCleaner seam', () => {
 
     const ctx = makeContext({
       cleanerMode: 'assisted',
-      validateManualLocalStageModel: () => false,
+      modelEntries: {},
+      openModelManagerForStage: vi.fn(),
     });
     await runCleaner(ctx);
 

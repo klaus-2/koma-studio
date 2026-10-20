@@ -93,7 +93,7 @@ import {
 import { useDashboardExternalActions } from '../hooks/useDashboardExternalActions';
 import { useDashboardMenus } from '../hooks/useDashboardMenus';
 import { useDashboardModelManager } from '../hooks/useDashboardModelManager';
-import { useDashboardLocalStageValidation } from '../hooks/useDashboardLocalStageValidation';
+
 import { useRenderFontCatalog } from '../hooks/useRenderFontCatalog';
 import { useDashboardShellLayout } from '../hooks/useDashboardShellLayout';
 import { useDashboardUsageAndPresence } from '../hooks/useDashboardUsageAndPresence';
@@ -1224,23 +1224,14 @@ export const DashboardPage = ({
     openModelManagerForStage,
     setStatusMessage,
   });
-  const {
-    validateManualLocalStageModel,
-  } = useDashboardLocalStageValidation({
-    modelEntries: modelManagerState.entries,
-    openModelManagerForStage,
-    resolveLocalModelFocusForStage,
-    setStatusMessage,
-  });
-
-  const validateManualLocalStageModelNarrowed = useCallback(
-    (stageKey: string, stageLabel: string, modelKey: string) =>
-      validateManualLocalStageModel(
-        stageKey as Exclude<AioStageKey, 'getTranslations'>,
-        stageLabel,
-        modelKey,
-      ),
-    [validateManualLocalStageModel],
+  // FPS-1: stable narrowed adapter — inline arrows in hook-arg objects below
+  // re-created this dep per render and churned handleClean /
+  // processTranslatorVisual / the execution resolvers through the memoized
+  // layout.
+  const openModelManagerForStageStable = useCallback(
+    (stageKey: string, options?: Record<string, unknown>) =>
+      openModelManagerForStage(stageKey as AioStageKey, options),
+    [openModelManagerForStage],
   );
   const {
     freeProviderDrafts,
@@ -1985,7 +1976,7 @@ export const DashboardPage = ({
     selectedCustomOcrProfile,
     discord,
     ensureVerifiedEmailOrNotify,
-    validateManualLocalStageModel: validateManualLocalStageModelNarrowed,
+    openModelManagerForStage: openModelManagerForStageStable,
     getAioStageOption,
     parseApiError,
     registerDownloads: registerCleanerDownloads,
@@ -2030,7 +2021,7 @@ export const DashboardPage = ({
   } = useAioManualExecution({
     renderDefaultStyle,
     getAioManualImageEditState,
-    validateManualLocalStageModel,
+    openModelManagerForStage: openModelManagerForStageStable,
     getAioStageOption,
     recordProcessedPages,
     syncDiscordForTab,
@@ -2060,7 +2051,6 @@ export const DashboardPage = ({
     setAioManualHealingBusyByImage,
     getAioStageOption,
     openModelManagerForStage,
-    resolveLocalModelFocusForStage,
     refreshSession,
     getAuthToken,
     buildAioImageSnapshotIndexMap,
@@ -2084,7 +2074,7 @@ export const DashboardPage = ({
     translatorOcrStageOptionsForSelect,
     selectedCustomTranslationProfile,
     selectedCustomOcrProfile,
-    validateManualLocalStageModel: validateManualLocalStageModelNarrowed,
+    openModelManagerForStage: openModelManagerForStageStable,
   });
 
   const runTranslatorText = useTranslatorTextActions({
@@ -2103,11 +2093,12 @@ export const DashboardPage = ({
 
   const processTranslatorVisual = useTranslatorVisualActions({
     images,
+    modelEntries: modelManagerState.entries,
     selectedCustomOcrProfile,
     selectedCustomTranslationProfile,
     selectedTranslatorSfxCleanCustomProfile,
     ensureVerifiedEmailOrNotify,
-    validateManualLocalStageModel: validateManualLocalStageModelNarrowed,
+    openModelManagerForStage: openModelManagerForStageStable,
     resolveTranslatorOcrExecution,
     resolveTranslatorTranslationExecution,
     emitProcessStartWebhook: emitProcessStartWebhookWrapped,
