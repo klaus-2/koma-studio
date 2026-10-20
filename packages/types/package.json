@@ -9,7 +9,8 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "test": "node --test \"src/*.test.ts\""
+    "test": "node --test \"src/*.test.ts\"",
+    "prepublishOnly": "npm test"
   },
   "dependencies": {
     "fflate": "^0.8.2"
