@@ -1,23 +1,10 @@
-import { type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useI18n } from '../i18n';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { AioStageTabBarNoir } from './aio-noir/AioStageTabBarNoir';
+import type { StageTabDef, StageTabKey } from './AioStageTabBar.types';
 
-export type StageTabKey =
-  | 'detectText'
-  | 'recognizeText'
-  | 'getTranslations'
-  | 'segmentText'
-  | 'cleanImage'
-  | 'render';
-
-export interface StageTabDef {
-  key: StageTabKey;
-  icon: LucideIcon;
-  label: string;
-  shortLabel: string;
-}
+export type { StageTabDef, StageTabKey } from './AioStageTabBar.types';
 
 interface AioStageTabBarProps {
   tabs: StageTabDef[];

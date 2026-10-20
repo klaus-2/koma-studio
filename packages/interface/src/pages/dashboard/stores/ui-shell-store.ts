@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
-import type { StageTabKey } from '../../AioStageTabBar';
+import type { StageTabKey } from '../../AioStageTabBar.types';
 import type { DashboardTourForcedDropdown } from '../../../hooks/useDashboardTour';
 import {
   loadKeyboardShortcutConfig,

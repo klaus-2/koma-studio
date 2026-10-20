@@ -37,7 +37,8 @@
     "build:landing": "bun run --elide-lines=0 --filter @koma/landing build",
     "dev:auth": "bun run --elide-lines=0 --filter @koma/auth-server dev",
     "prepare": "husky",
-    "doctor": "bunx react-doctor"
+    "doctor": "bunx react-doctor",
+    "audit:deps:packages": "node apps/tauri/node_modules/dependency-cruiser/bin/dependency-cruise.mjs packages/ui/src packages/interface/src packages/types/src --config packages/dependency-cruiser.cjs"
   },
   "devDependencies": {
     "@types/react": "^19",

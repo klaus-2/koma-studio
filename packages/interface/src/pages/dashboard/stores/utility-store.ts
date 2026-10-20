@@ -9,7 +9,7 @@ import type {
 } from '../../../components/dashboard/stitch/types';
 import type { SplitterWorkspaceState } from '../../../components/dashboard/splitter/types';
 import type { WatermarkWorkspaceState } from '../../../components/dashboard/watermark/watermarkTypes';
-import type { ChapterOptimizerWorkspaceState } from '../../../components/dashboard/optimizer/ChapterOptimizerWorkspace';
+import type { ChapterOptimizerWorkspaceState } from '../../../components/dashboard/optimizer/ChapterOptimizerWorkspace.types';
 
 /**
  * Utility workspaces domain: stitcher planning config plus the splitter,
