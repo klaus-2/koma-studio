@@ -281,9 +281,9 @@ describe('resolveCleanerAiProfileReadiness', () => {
     expect(result).toEqual({
       ok: true,
       customPayload: {
-        api_base: 'https://api.example.com/v1',
+        apiBase: 'https://api.example.com/v1',
         model: 'm',
-        api_key: 'k',
+        apiKey: 'k',
       },
     });
   });

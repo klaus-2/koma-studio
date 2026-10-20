@@ -1,4 +1,5 @@
 export * from './cleanImage';
+export * from './cleanImageAi';
 export * from './detectText';
 export * from './getTranslations';
 export * from './merge';
@@ -7,5 +8,6 @@ export * from './readiness';
 export * from './recognizeText';
 export * from './segmentText';
 export * from './transport';
+export * from './translateText';
 export * from './types';
 export * from './upstreamRegions';

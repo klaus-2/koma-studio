@@ -11,24 +11,23 @@ import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import {
   type CustomLlmProfile,
-  toCustomLlmRequestPayload,
+  type LlmRequestSettings,
 } from '../../../utils/customLlm';
 import {
   parseTranslatorStructuredTextInput,
 } from '../../../utils/dashboard.utils';
 import {
-  mergeTranslationIntoRegions,
   resolveGetTranslationsReadiness,
   resolveRecognizeTextReadiness,
-  toTranslateRegionsJson,
+  runGetTranslationsStage,
+  runTranslateTextStage,
   type StageReadiness,
+  type StageRuntime,
 } from '../../../aio-stages';
-import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import { buildSfxTranslationInstructions } from '../../../utils/sfx';
 import type {
   AioTextRegion,
   LoadedImage,
-  TranslationApiResponse,
   TranslatorTextRequestRegion,
 } from '../../../types/dashboard.types';
 import { parseApiError } from '../helpers';
@@ -269,32 +268,28 @@ export function useTranslatorTextActions({
         },
       ];
 
-      const translationFormData = new FormData();
-      translationFormData.append('model_key', selectedTranslationKey);
-      translationFormData.append('source_language', srcLang);
-      translationFormData.append('target_language', tgtLang);
-      translationFormData.append('regions', JSON.stringify(requestRegions));
-      if (useLlmSettingsForTranslation) {
-        translationFormData.append('llm_settings', JSON.stringify(llmSettings));
-        const customPayload = toCustomLlmRequestPayload(selectedCustomTranslationProfile);
-        if (customPayload) {
-          translationFormData.append('custom_llm', JSON.stringify(customPayload));
-        }
-      }
-
-      setProgress(50);
-      const translationRequestUrl = `${localApiUrl}/translate`;
-      const translationResponse = await fetchWithTimeoutAndRetry(
-        translationRequestUrl,
-        { method: 'POST', body: translationFormData },
-        { timeoutMs: 120_000, retryCount: 0 },
+      const translationDone = await runTranslateTextStage(
+        {
+          modelKey: selectedTranslationKey,
+          sourceLanguage: srcLang,
+          targetLanguage: tgtLang,
+          requestRegions,
+          llmSettings: useLlmSettingsForTranslation
+            ? (llmSettings as LlmRequestSettings | null)
+            : null,
+          customProfile: useLlmSettingsForTranslation
+            ? selectedCustomTranslationProfile
+            : null,
+        },
+        { localApiUrl } satisfies StageRuntime,
+        {
+          stageLabel: 'Tradutor Texto',
+          failurePrefix: 'Failed to translate free text',
+          parseApiError,
+        },
       );
-      if (!translationResponse.ok) {
-        const message = await parseApiError(translationResponse);
-        throw new Error(`Failed to translate free text: ${message}`);
-      }
 
-      const translationPayload = (await translationResponse.json()) as TranslationApiResponse;
+      const translationPayload = translationDone.value;
       const translatedById = new Map(
         translationPayload.regions.map((region) => [region.id, region.translated_text]),
       );
@@ -459,60 +454,49 @@ export function useTranslatorRetranslate({
         t(regionIds?.length ? 'translatorRetranslate.retranslatingRegion' : 'translatorRetranslate.retranslatingActive'),
       );
 
-      const translationFormData = new FormData();
-      translationFormData.append('model_key', selectedTranslationKey);
-      translationFormData.append('source_language', srcLang);
-      translationFormData.append('target_language', tgtLang);
-      if (translatorVisualProcessingMode === 'ai_sfx') {
-        translationFormData.append('translation_mode', 'sfx');
-        translationFormData.append(
-          'extra_context',
-          buildSfxTranslationInstructions(
+      const isSfxRetranslate = translatorVisualProcessingMode === 'ai_sfx';
+      const sfxExtraContext = isSfxRetranslate
+        ? buildSfxTranslationInstructions(
             String((llmSettings as { extra_context?: string } | null)?.extra_context ?? ''),
             translatorSfxAdditionalInstructions,
-          ),
-        );
-      }
-      translationFormData.append(
-        'regions',
-        toTranslateRegionsJson(targetRegions, ocrSelectionKey),
-      );
-      if (useLlmSettingsForTranslation) {
-        translationFormData.append('file', imgData.file);
-        translationFormData.append(
-          'llm_settings',
-          JSON.stringify(
-            translatorVisualProcessingMode === 'ai_sfx'
-              ? {
-                ...(llmSettings as Record<string, unknown>),
-                extra_context: buildSfxTranslationInstructions(
-                  String((llmSettings as { extra_context?: string } | null)?.extra_context ?? ''),
-                  translatorSfxAdditionalInstructions,
-                ),
-                translation_notes_enabled: false,
-              }
-              : llmSettings,
-          ),
-        );
-        const customPayload = toCustomLlmRequestPayload(selectedCustomTranslationProfile);
-        if (customPayload) {
-          translationFormData.append('custom_llm', JSON.stringify(customPayload));
+        )
+      : undefined;
+    const llmSettingsOverride = isSfxRetranslate
+      ? {
+          ...(llmSettings as LlmRequestSettings),
+          extra_context: sfxExtraContext ?? '',
+          translation_notes_enabled: false,
         }
-      }
+      : (llmSettings as LlmRequestSettings | null);
 
-      const translationRequestUrl = `${localApiUrl}/translate`;
-      const translationResponse = await fetchWithTimeoutAndRetry(
-        translationRequestUrl,
-        { method: 'POST', body: translationFormData },
-        { timeoutMs: 120_000, retryCount: 0 },
+    const translateDone = await runGetTranslationsStage(
+      {
+        image: imgData,
+        modelKey: selectedTranslationKey,
+        sourceLanguage: srcLang,
+        targetLanguage: tgtLang,
+        regions: targetRegions,
+        fallbackOcrModelKey: ocrSelectionKey,
+        sfxExtraContext,
+        llmSettingsOverride: useLlmSettingsForTranslation
+          ? llmSettingsOverride
+          : null,
+        customProfile: useLlmSettingsForTranslation
+          ? selectedCustomTranslationProfile
+          : null,
+      },
+      { localApiUrl } satisfies StageRuntime,
+      {
+        stageLabel: 'Tradutor Visual',
+        failurePrefix: `Failed to retranslate "${imgData.file.name}"`,
+        parseApiError,
+      },
       );
-      if (!translationResponse.ok) {
-        const message = await parseApiError(translationResponse);
-        throw new Error(`Failed to retranslate "${imgData.file.name}": ${message}`);
-      }
 
-      const translationPayload = (await translationResponse.json()) as TranslationApiResponse;
-      const nextRegions = mergeTranslationIntoRegions(regions, translationPayload);
+      const nextRegions = regions.map((region) => {
+        const updated = translateDone.value.find((item) => item.id === region.id);
+        return updated ?? region;
+      });
       updateTranslatorRegionsForImage(
         imageId,
         nextRegions,

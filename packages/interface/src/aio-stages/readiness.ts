@@ -96,11 +96,7 @@ export interface StageReadinessMessages {
 
 export interface CleanerAiProfileReadinessReady {
   ok: true;
-  customPayload: {
-    api_base: string;
-    model: string;
-    api_key?: string;
-  } | null;
+  customPayload: ReadinessCustomProfile | null;
 }
 
 export type CleanerAiProfileReadiness =
@@ -415,9 +411,9 @@ export function resolveCleanerAiProfileReadiness(args: {
   return {
     ok: true,
     customPayload: {
-      api_base: normalizedApiBase,
+      apiBase: normalizedApiBase,
       model: normalizedModel,
-      ...(normalizedApiKey ? { api_key: normalizedApiKey } : {}),
+      apiKey: normalizedApiKey,
     },
   };
 }

@@ -8,7 +8,10 @@ import { useCallback } from 'react';
 
 import { useI18n } from '../../../i18n';
 import { AIO_STAGE_LABELS, MIN_REGION_SIZE } from '../../../constants/dashboard.constants';
-import { toCustomLlmRequestPayload, type CustomLlmProfile } from '../../../utils/customLlm';
+import {
+  type CustomLlmProfile,
+  type LlmRequestSettings,
+} from '../../../utils/customLlm';
 import {
   blobToDataUrl,
   cloneAioRegions,
@@ -16,28 +19,23 @@ import {
   resolveSelectedRegionForRegions,
 } from '../../../utils/dashboard.utils';
 import {
-  mergeOcrIntoRegions,
-  mergeTranslationIntoRegions,
-  toOcrRegionsJson,
-  toStructuralRegionsJson,
-  toTranslateRegionsJson,
+  runCleanImageAiStage,
+  runDetectTextStage,
+  runGetTranslationsStage,
+  runRecognizeTextStage,
+  runSfxClassifyStage,
+  type StageRuntime,
 } from '../../../aio-stages';
-import { regionsFromDetectPayload } from '../../../utils/detectTextRegions';
-import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   applySfxDecisionsToRegions,
   buildSfxClassifierInstructions,
   buildSfxCleanInstructions,
   buildSfxTranslationInstructions,
   isLikelySfxCandidate,
-  type SfxClassificationResponse,
 } from '../../../utils/sfx';
 import type {
   AioTextRegion,
-  DetectApiResponse,
   LoadedImage,
-  OcrApiResponse,
-  TranslationApiResponse,
   TranslatorVisualRunMeta,
 } from '../../../types/dashboard.types';
 import { parseApiError } from '../helpers';
@@ -144,7 +142,7 @@ export function useTranslatorVisualActions({
   );
   // Same `unknown` local type the hook's args interface declared (the SFX
   // branches narrow it with casts).
-  const llmSettings: unknown = useLlmProvidersStore((s) => s.llmSettings);
+  const llmSettings = useLlmProvidersStore((s) => s.llmSettings) as LlmRequestSettings;
   const setProcessing = useUiShellStore((s) => s.setProcessing);
   const setProgress = useUiShellStore((s) => s.setProgress);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
@@ -171,6 +169,7 @@ export function useTranslatorVisualActions({
     try {
       const {
         selectedOcrKey,
+        useCloudOcr,
         useLlmSettingsForOcr,
       } = await resolveTranslatorOcrExecution();
       const {
@@ -199,26 +198,23 @@ export function useTranslatorVisualActions({
       for (let index = 0; index < images.length; index += 1) {
         const imgData = images[index]!;
         await setDiscordTranslating(imgData.file.name, srcLang, tgtLang);
+        const stageRuntime = { localApiUrl } satisfies StageRuntime;
 
-        const detectFormData = new FormData();
-        detectFormData.append('file', imgData.file);
-        detectFormData.append('model_key', detectSelectionKey);
-        detectFormData.append('language', srcLang);
-        detectFormData.append('source_language', srcLang);
-        const detectResponse = await fetchWithTimeoutAndRetry(
-          `${localApiUrl}/detect`,
-          { method: 'POST', body: detectFormData },
-          { timeoutMs: 90_000, retryCount: 0 },
+        const detectDone = await runDetectTextStage(
+          {
+            image: imgData,
+            modelKey: detectSelectionKey,
+            sourceLanguage: srcLang,
+            minRegionSize,
+          },
+          stageRuntime,
+          {
+            stageLabel: 'Detectar Texto',
+            failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
+            parseApiError,
+          },
         );
-        if (!detectResponse.ok) {
-          const message = await parseApiError(detectResponse);
-          throw new Error(`Failed to detect text in "${imgData.file.name}": ${message}`);
-        }
-
-        const detectPayload = (await detectResponse.json()) as DetectApiResponse;
-        let detectedRegions = regionsFromDetectPayload(detectPayload, imgData, {
-          minRegionSize,
-        });
+        let detectedRegions = detectDone.value;
 
         let processedBaseDataUrl: string | null = null;
         let sfxCandidateCount = 0;
@@ -240,37 +236,26 @@ export function useTranslatorVisualActions({
           }));
 
           if (candidateRegions.length > 0) {
-            const classifyFormData = new FormData();
-            classifyFormData.append('file', imgData.file);
-            classifyFormData.append('model_key', translatorSfxCleanModelKey);
-            classifyFormData.append(
-              'regions',
-              toStructuralRegionsJson(candidateRegions, imgData),
+            const classifyDone = await runSfxClassifyStage(
+              {
+                image: imgData,
+                modelKey: translatorSfxCleanModelKey,
+                regions: candidateRegions,
+                additionalInstructions: buildSfxClassifierInstructions(
+                  translatorSfxAdditionalInstructions,
+                ),
+                customProfile: selectedTranslatorSfxCleanCustomProfile,
+              },
+              stageRuntime,
+              {
+                stageLabel: 'AI SFX',
+                failurePrefix: `Failed to classify SFX in "${imgData.file.name}"`,
+                parseApiError,
+              },
             );
-            classifyFormData.append(
-              'additional_instructions',
-              buildSfxClassifierInstructions(translatorSfxAdditionalInstructions),
-            );
-            const customCleanPayload = toCustomLlmRequestPayload(
-              selectedTranslatorSfxCleanCustomProfile,
-            );
-            if (customCleanPayload) {
-              classifyFormData.append('custom_llm', JSON.stringify(customCleanPayload));
-            }
-            const classifyResponse = await fetchWithTimeoutAndRetry(
-              `${localApiUrl}/sfx/classify`,
-              { method: 'POST', body: classifyFormData },
-              { timeoutMs: 180_000, retryCount: 0 },
-            );
-            if (!classifyResponse.ok) {
-              const message = await parseApiError(classifyResponse);
-              throw new Error(`Failed to classify SFX in "${imgData.file.name}": ${message}`);
-            }
-            const classifyPayload =
-              (await classifyResponse.json()) as SfxClassificationResponse;
             enrichedCandidates = applySfxDecisionsToRegions(
               candidateRegions,
-              classifyPayload.regions,
+              classifyDone.value.regions,
             );
           }
 
@@ -284,122 +269,90 @@ export function useTranslatorVisualActions({
         totalDetected += detectedRegions.length;
 
         if (detectedRegions.length > 0) {
-          const ocrFormData = new FormData();
-          ocrFormData.append('file', imgData.file);
-          ocrFormData.append('model_key', selectedOcrKey);
-          ocrFormData.append('language', srcLang);
-          ocrFormData.append('regions', toOcrRegionsJson(detectedRegions, imgData));
-          if (useLlmSettingsForOcr) {
-            ocrFormData.append('llm_settings', JSON.stringify(llmSettings));
-            const customPayload = toCustomLlmRequestPayload(selectedCustomOcrProfile);
-            if (customPayload) {
-              ocrFormData.append('custom_llm', JSON.stringify(customPayload));
-            }
-          }
-
-          const ocrRequestUrl = `${localApiUrl}/ocr`;
-          const ocrResponse = await fetchWithTimeoutAndRetry(
-            ocrRequestUrl,
-            { method: 'POST', body: ocrFormData },
-            { timeoutMs: 90_000, retryCount: 0 },
+          const ocrDone = await runRecognizeTextStage(
+            {
+              image: imgData,
+              modelKey: selectedOcrKey,
+              sourceLanguage: srcLang,
+              regions: detectedRegions,
+              useCloudOcr,
+              llmSettings: useLlmSettingsForOcr ? llmSettings : null,
+              customProfile: useLlmSettingsForOcr ? selectedCustomOcrProfile : null,
+            },
+            stageRuntime,
+            {
+              stageLabel: 'Reconhecer Texto',
+              failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
+              parseApiError,
+            },
           );
-          if (!ocrResponse.ok) {
-            const message = await parseApiError(ocrResponse);
-            throw new Error(`Failed to recognize text in "${imgData.file.name}": ${message}`);
-          }
-
-          const ocrPayload = (await ocrResponse.json()) as OcrApiResponse;
-          detectedRegions = mergeOcrIntoRegions(detectedRegions, ocrPayload);
+          detectedRegions = ocrDone.value;
           totalRecognized += detectedRegions.filter((region) => (region.recognizedText ?? '').trim().length > 0).length;
         }
 
         const hasTextForTranslation = detectedRegions.some((region) => (region.recognizedText ?? '').trim().length > 0);
         if (hasTextForTranslation) {
-          const translationFormData = new FormData();
-          translationFormData.append('model_key', selectedTranslationKey);
-          translationFormData.append('source_language', srcLang);
-          translationFormData.append('target_language', tgtLang);
-          if (translatorVisualProcessingMode === 'ai_sfx') {
-            translationFormData.append('translation_mode', 'sfx');
-            translationFormData.append(
-              'extra_context',
-              buildSfxTranslationInstructions(
-                String((llmSettings as { extra_context?: string } | null)?.extra_context ?? ''),
+          const isSfxTranslate = translatorVisualProcessingMode === 'ai_sfx';
+          const sfxExtraContext = isSfxTranslate
+            ? buildSfxTranslationInstructions(
+                llmSettings.extra_context ?? '',
                 translatorSfxAdditionalInstructions,
-              ),
-            );
-          }
-          translationFormData.append(
-            'regions',
-            toTranslateRegionsJson(detectedRegions, selectedOcrKey),
-          );
-          if (useLlmSettingsForTranslation) {
-            translationFormData.append('file', imgData.file);
-            translationFormData.append(
-              'llm_settings',
-              JSON.stringify(
-                translatorVisualProcessingMode === 'ai_sfx'
-                  ? {
-                    ...(llmSettings as Record<string, unknown>),
-                    extra_context: buildSfxTranslationInstructions(
-                      String((llmSettings as { extra_context?: string } | null)?.extra_context ?? ''),
-                      translatorSfxAdditionalInstructions,
-                    ),
-                    translation_notes_enabled: false,
-                  }
-                  : llmSettings,
-              ),
-            );
-            const customPayload = toCustomLlmRequestPayload(selectedCustomTranslationProfile);
-            if (customPayload) {
-              translationFormData.append('custom_llm', JSON.stringify(customPayload));
+            )
+          : undefined;
+        const llmSettingsOverride = isSfxTranslate
+          ? {
+              ...llmSettings,
+              extra_context: sfxExtraContext ?? '',
+              translation_notes_enabled: false,
             }
-          }
+          : llmSettings;
 
-          const translationRequestUrl = `${localApiUrl}/translate`;
-          const translationResponse = await fetchWithTimeoutAndRetry(
-            translationRequestUrl,
-            { method: 'POST', body: translationFormData },
-            { timeoutMs: 120_000, retryCount: 0 },
+          const translateDone = await runGetTranslationsStage(
+            {
+              image: imgData,
+              modelKey: selectedTranslationKey,
+              sourceLanguage: srcLang,
+              targetLanguage: tgtLang,
+              regions: detectedRegions,
+              fallbackOcrModelKey: selectedOcrKey,
+              sfxExtraContext,
+              llmSettingsOverride: useLlmSettingsForTranslation
+                ? llmSettingsOverride
+                : null,
+              customProfile: useLlmSettingsForTranslation
+                ? selectedCustomTranslationProfile
+                : null,
+            },
+            stageRuntime,
+            {
+              stageLabel: 'Obter Traduções',
+              failurePrefix: `Failed to translate text in "${imgData.file.name}"`,
+              parseApiError,
+            },
           );
-          if (!translationResponse.ok) {
-            const message = await parseApiError(translationResponse);
-            throw new Error(`Failed to translate text in "${imgData.file.name}": ${message}`);
-          }
-
-          const translationPayload = (await translationResponse.json()) as TranslationApiResponse;
-          detectedRegions = mergeTranslationIntoRegions(detectedRegions, translationPayload);
+          detectedRegions = translateDone.value;
           totalTranslated += detectedRegions.filter((region) => (region.translatedText ?? '').trim().length > 0).length;
         }
 
         if (translatorVisualProcessingMode === 'ai_sfx' && detectedRegions.length > 0) {
-          const cleanFormData = new FormData();
-          cleanFormData.append('file', imgData.file);
-          cleanFormData.append('model_key', translatorSfxCleanModelKey);
-          cleanFormData.append(
-            'regions',
-            toStructuralRegionsJson(detectedRegions, imgData),
+          const cleanDone = await runCleanImageAiStage(
+            {
+              image: imgData,
+              modelKey: translatorSfxCleanModelKey,
+              regions: detectedRegions,
+              additionalInstructions: buildSfxCleanInstructions(
+                translatorSfxAdditionalInstructions,
+              ),
+              customProfile: selectedTranslatorSfxCleanCustomProfile,
+            },
+            stageRuntime,
+            {
+              stageLabel: 'AI SFX',
+              failurePrefix: `Failed to clean SFX in "${imgData.file.name}"`,
+              parseApiError,
+            },
           );
-          cleanFormData.append(
-            'additional_instructions',
-            buildSfxCleanInstructions(translatorSfxAdditionalInstructions),
-          );
-          const customCleanPayload = toCustomLlmRequestPayload(
-            selectedTranslatorSfxCleanCustomProfile,
-          );
-          if (customCleanPayload) {
-            cleanFormData.append('custom_llm', JSON.stringify(customCleanPayload));
-          }
-          const cleanResponse = await fetchWithTimeoutAndRetry(
-            `${localApiUrl}/clean/ai`,
-            { method: 'POST', body: cleanFormData },
-            { timeoutMs: 240_000, retryCount: 0 },
-          );
-          if (!cleanResponse.ok) {
-            const message = await parseApiError(cleanResponse);
-            throw new Error(`Failed to clean SFX in "${imgData.file.name}": ${message}`);
-          }
-          const cleanBlob = await cleanResponse.blob();
+          const cleanBlob = cleanDone.value;
           if (!cleanBlob.type.startsWith('image/')) {
             throw new Error(t('translatorVisual.invalidSfxResponse', { fileName: imgData.file.name }));
           }

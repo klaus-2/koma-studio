@@ -2,10 +2,11 @@ import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
 import {
   resolveCleanerAiProfileReadiness,
   resolveLocalStageModelReadiness,
+  runCleanImageAiStage,
   runDetectTextStage,
-  toStructuralRegionsJson,
+  runSfxClassifyStage,
+  type StageRuntime,
 } from '../../../aio-stages';
-import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   blobToDataUrl,
   buildAioSelectionMapFromDetections,
@@ -18,7 +19,6 @@ import {
   buildSfxClassifierInstructions,
   buildSfxCleanInstructions,
   isLikelySfxCandidate,
-  type SfxClassificationResponse,
 } from '../../../utils/sfx';
 import type {
   AioTextRegion,
@@ -176,37 +176,26 @@ export async function runAutomaticCleanerWorkflow(
             }));
 
             if (candidateRegions.length > 0) {
-              const classifyFormData = new FormData();
-              classifyFormData.append('file', imgData.file);
-              classifyFormData.append('model_key', cleanerAiModelKey);
-              classifyFormData.append(
-                'regions',
-                toStructuralRegionsJson(candidateRegions, imgData),
+              const classifyDone = await runSfxClassifyStage(
+                {
+                  image: imgData,
+                  modelKey: cleanerAiModelKey,
+                  regions: candidateRegions,
+                  additionalInstructions: buildSfxClassifierInstructions(
+                    normalizedCleanerAiInstructions,
+                  ),
+                  customProfile: customCleanerPayload,
+                },
+                { localApiUrl } satisfies StageRuntime,
+                {
+                  stageLabel: 'AI SFX',
+                  failurePrefix: `Failed to classify SFX in "${imgData.file.name}"`,
+                  parseApiError,
+                },
               );
-              classifyFormData.append(
-                'additional_instructions',
-                buildSfxClassifierInstructions(normalizedCleanerAiInstructions),
-              );
-              if (customCleanerPayload) {
-                classifyFormData.append('custom_llm', JSON.stringify(customCleanerPayload));
-              }
-
-              const classifyResponse = await fetchWithTimeoutAndRetry(
-                `${localApiUrl}/sfx/classify`,
-                { method: 'POST', body: classifyFormData },
-                { timeoutMs: 180_000, retryCount: 0 },
-              );
-              if (!classifyResponse.ok) {
-                const apiMessage = await parseApiError(classifyResponse);
-                throw new Error(
-                  `Failed to classify SFX in "${imgData.file.name}": ${apiMessage}`,
-                );
-              }
-              const classifyPayload =
-                (await classifyResponse.json()) as SfxClassificationResponse;
               enrichedCandidates = applySfxDecisionsToRegions(
                 candidateRegions,
-                classifyPayload.regions,
+                classifyDone.value.regions,
               );
             }
 
@@ -217,33 +206,24 @@ export async function runAutomaticCleanerWorkflow(
             if (outputRegions.length === 0) {
               blob = imgData.file;
             } else {
-              const cleanFormData = new FormData();
-              cleanFormData.append('file', imgData.file);
-              cleanFormData.append('model_key', cleanerAiModelKey);
-              cleanFormData.append(
-                'regions',
-                toStructuralRegionsJson(outputRegions, imgData),
+              const cleanDone = await runCleanImageAiStage(
+                {
+                  image: imgData,
+                  modelKey: cleanerAiModelKey,
+                  regions: outputRegions,
+                  additionalInstructions: buildSfxCleanInstructions(
+                    normalizedCleanerAiInstructions,
+                  ),
+                  customProfile: customCleanerPayload,
+                },
+                { localApiUrl } satisfies StageRuntime,
+                {
+                  stageLabel: 'AI SFX',
+                  failurePrefix: `AI SFX Cleaner failed for "${imgData.file.name}"`,
+                  parseApiError,
+                },
               );
-              cleanFormData.append(
-                'additional_instructions',
-                buildSfxCleanInstructions(normalizedCleanerAiInstructions),
-              );
-              if (customCleanerPayload) {
-                cleanFormData.append('custom_llm', JSON.stringify(customCleanerPayload));
-              }
-
-              const cleanResponse = await fetchWithTimeoutAndRetry(
-                `${localApiUrl}/clean/ai`,
-                { method: 'POST', body: cleanFormData },
-                { timeoutMs: 240_000, retryCount: 0 },
-              );
-              if (!cleanResponse.ok) {
-                const apiMessage = await parseApiError(cleanResponse);
-                throw new Error(
-                  `AI SFX Cleaner failed for "${imgData.file.name}": ${apiMessage}`,
-                );
-              }
-              blob = await cleanResponse.blob();
+              blob = cleanDone.value;
               if (!blob.type.startsWith('image/')) {
                 throw new Error(
                   t('cleanerActions.invalidSfxResponse', { fileName: imgData.file.name }),
@@ -251,39 +231,23 @@ export async function runAutomaticCleanerWorkflow(
               }
             }
           } else {
-            const cleanFormData = new FormData();
-            cleanFormData.append('file', imgData.file);
-            cleanFormData.append('model_key', cleanerAiModelKey);
-            cleanFormData.append(
-              'regions',
-              toStructuralRegionsJson(detectDetections, imgData),
+            const cleanDone = await runCleanImageAiStage(
+              {
+                image: imgData,
+                modelKey: cleanerAiModelKey,
+                regions: detectDetections,
+                additionalInstructions: normalizedCleanerAiInstructions,
+                customProfile: customCleanerPayload,
+              },
+              { localApiUrl } satisfies StageRuntime,
+              {
+                stageLabel: 'Automatic AI Clean',
+                failurePrefix: `Automatic AI Clean failed for "${imgData.file.name}"`,
+                parseApiError,
+              },
             );
-            if (normalizedCleanerAiInstructions) {
-              cleanFormData.append(
-                'additional_instructions',
-                normalizedCleanerAiInstructions,
-              );
-            }
-            if (customCleanerPayload) {
-              cleanFormData.append(
-                'custom_llm',
-                JSON.stringify(customCleanerPayload),
-              );
-            }
 
-            const cleanResponse = await fetchWithTimeoutAndRetry(
-              `${localApiUrl}/clean/ai`,
-              { method: 'POST', body: cleanFormData },
-              { timeoutMs: 240_000, retryCount: 0 },
-            );
-            if (!cleanResponse.ok) {
-              const apiMessage = await parseApiError(cleanResponse);
-              throw new Error(
-                `Automatic AI Clean failed for "${imgData.file.name}": ${apiMessage}`,
-              );
-            }
-
-            blob = await cleanResponse.blob();
+            blob = cleanDone.value;
             if (!blob.type.startsWith('image/')) {
               throw new Error(
                 t('cleanerActions.invalidAutoCleanResponse', { fileName: imgData.file.name }),

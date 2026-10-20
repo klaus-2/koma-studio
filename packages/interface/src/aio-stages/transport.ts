@@ -9,6 +9,8 @@ export const STAGE_TIMEOUT_MS = {
   getTranslations: 120_000,
   segmentText: 120_000,
   cleanImage: 180_000,
+  cleanImageAi: 240_000,
+  sfxClassify: 180_000,
 } as const;
 
 export interface StageRunOptions {
