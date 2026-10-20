@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { flushSync } from "react-dom";
 
 import { AuthProvider, useAuthContext } from "./contexts/AuthContext";
@@ -464,9 +465,11 @@ const AppShell = () => {
   if (isProductionEnvironment && !isDesktopRuntime) {
     if (isLegalRoutePath(route)) {
       return (
-        <Suspense fallback={<div className="koma-route-shell__fallback" aria-hidden="true" />}>
-          <LegalHubPage documentId={getLegalDocumentIdForRoute(route) ?? "terms"} />
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<div className="koma-route-shell__fallback" aria-hidden="true" />}>
+            <LegalHubPage documentId={getLegalDocumentIdForRoute(route) ?? "terms"} />
+          </Suspense>
+        </ErrorBoundary>
       );
     }
 
@@ -498,25 +501,27 @@ const AppShell = () => {
         variant={showInitialSessionTransition ? "minimal" : "default"}
       />
       <div className="koma-route-shell" data-route={route}>
-        <Suspense fallback={<div className="koma-route-shell__fallback" aria-hidden="true" />}>
-          <AppRouteContent
-            activeBan={activeBan}
-            handleBannedBackLogin={handleBannedBackLogin}
-            handleConfirmNavigateDashboard={handleConfirmNavigateDashboard}
-            handleConfirmSuccess={handleConfirmSuccess}
-            isAuthenticated={isAuthenticated}
-            isLoading={isLoading}
-            navigateDashboard={navigateDashboard}
-            navigateForgotPassword={navigateForgotPassword}
-            navigateLogin={navigateLogin}
-            navigateModelRankings={navigateModelRankings}
-            navigateRegister={navigateRegister}
-            navigateScanlationFeed={navigateScanlationFeed}
-            navigateSettings={navigateSettings}
-            navigateVerifyDashboard={navigateVerifyDashboard}
-            route={route}
-          />
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<div className="koma-route-shell__fallback" aria-hidden="true" />}>
+            <AppRouteContent
+              activeBan={activeBan}
+              handleBannedBackLogin={handleBannedBackLogin}
+              handleConfirmNavigateDashboard={handleConfirmNavigateDashboard}
+              handleConfirmSuccess={handleConfirmSuccess}
+              isAuthenticated={isAuthenticated}
+              isLoading={isLoading}
+              navigateDashboard={navigateDashboard}
+              navigateForgotPassword={navigateForgotPassword}
+              navigateLogin={navigateLogin}
+              navigateModelRankings={navigateModelRankings}
+              navigateRegister={navigateRegister}
+              navigateScanlationFeed={navigateScanlationFeed}
+              navigateSettings={navigateSettings}
+              navigateVerifyDashboard={navigateVerifyDashboard}
+              route={route}
+            />
+          </Suspense>
+        </ErrorBoundary>
       </div>
       <SessionTimeout />
       <RuntimeStartupToast />
