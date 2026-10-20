@@ -131,8 +131,8 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
       return (
         <div className={cn(base, 'halftone')}>
           <span className="absolute inset-2 bg-azure/10" />
-          <motion.span className="absolute left-3 top-1/2 h-2 rounded-full bg-azure"
-            animate={{ width: ['0%', '80%'] }} transition={{ duration: 1.8, repeat: Infinity }} />
+          <motion.span className="absolute left-3 top-1/2 h-2 w-4/5 origin-left -translate-y-1/2 rounded-full bg-azure"
+            animate={{ scaleX: [0, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
         </div>
       );
     case 'segment-eraser':
@@ -146,8 +146,8 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
     case 'paint':
       return (
         <div className={cn(base, 'halftone')}>
-          <motion.span className="absolute left-3 top-1/2 h-2.5 -translate-y-1/2 bg-crimson"
-            animate={{ width: ['0%', '85%'] }} transition={{ duration: 1.8, repeat: Infinity }} />
+          <motion.span className="absolute left-3 top-1/2 h-2.5 w-5/6 origin-left -translate-y-1/2 bg-crimson"
+            animate={{ scaleX: [0, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
         </div>
       );
     case 'paint-eraser':

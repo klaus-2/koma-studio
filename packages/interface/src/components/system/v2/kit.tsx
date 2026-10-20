@@ -17,9 +17,10 @@ export const StripeBar = ({ percent, done = false, className = "" }: {
     role="progressbar" aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100}
   >
     <motion.div
-      className={`stripes-anim h-full ${done ? "bg-mint" : "bg-crimson"} bg-[repeating-linear-gradient(-45deg,rgba(7,7,12,0.3)_0_6px,transparent_6px_12px)] bg-[length:17px_17px]`}
+      className={`stripes-anim h-full w-full origin-left ${done ? "bg-mint" : "bg-crimson"} bg-[repeating-linear-gradient(-45deg,rgba(7,7,12,0.3)_0_6px,transparent_6px_12px)] bg-[length:17px_17px]`}
       initial={false}
-      animate={{ width: `${Math.max(0, Math.min(100, percent))}%` }}
+      style={{ width: "100%" }}
+      animate={{ scaleX: Math.max(0, Math.min(100, percent)) / 100 }}
       transition={{ type: "spring", stiffness: 90, damping: 22 }}
     />
   </div>

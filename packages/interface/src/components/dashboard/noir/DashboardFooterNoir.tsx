@@ -215,9 +215,9 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
         {processing && (
           <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">
             <motion.div
-              className="halftone-red absolute inset-y-0 left-0 bg-crimson"
+              className="halftone-red absolute inset-y-0 left-0 w-full origin-left bg-crimson"
               initial={false}
-              animate={{ width: `${Math.round(progress)}%` }}
+              animate={{ scaleX: Math.max(0, Math.min(100, progress)) / 100 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             />
             <span className="relative z-10 w-full text-center font-mono text-[9px] font-bold text-paper mix-blend-difference">{Math.round(progress)}%</span>

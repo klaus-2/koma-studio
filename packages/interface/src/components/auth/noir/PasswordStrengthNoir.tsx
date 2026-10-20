@@ -37,10 +37,10 @@ export function PasswordStrengthNoir({ password }: { password: string }) {
             {PASSWORD_LEVELS.map((seg, i) => (
               <div key={seg.labelKey} className="h-[5px] flex-1 bg-paper/10">
                 <m.div
-                  className="h-full"
+                  className="h-full w-full origin-left"
                   style={{ background: LEVEL_COLORS[i] }}
-                  initial={{ width: 0 }}
-                  animate={{ width: i <= level ? "100%" : "0%" }}
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: i <= level ? 1 : 0 }}
                   transition={{ duration: 0.3, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
                 />
               </div>
