@@ -56,6 +56,11 @@ import {
 import {
   setupInternalAppProtocol,
 } from "./modules/app-protocol-handler.ts";
+import {
+  configureExternalHosts,
+  isAllowedExternalUrl,
+  registerAllowedExternalHostFromUrl,
+} from "./modules/external-hosts.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -289,6 +294,7 @@ const miniBackendArtifactsUrl =
   resolveDesktopEnvValue("MINI_BACKEND_ARTIFACTS_URL")
   ?? resolveDesktopEnvValue("UPDATE_SERVER_URL");
 const desktopBootstrapSecret = resolveDesktopEnvValue("DESKTOP_BOOTSTRAP_SECRET") ?? "";
+configureExternalHosts({ authApiUrl, localApiUrl });
 
 let miniBackendRuntimeState: MiniBackendRuntimeState = {
   status: "idle",
@@ -311,20 +317,14 @@ let miniBackendRuntimeState: MiniBackendRuntimeState = {
   vramGb: null,
 };
 
-const EXTERNAL_ALLOWED_HOST_SUFFIXES = [
-  "stripe.com",
-  "mercadopago.com",
-  "mercadopago.com.br",
-  "github.com",
-  "githubusercontent.com",
-  "discord.com",
-  "discord.gg",
-  "komikkulab.com",
-  "cloudflare.com",
-  "huggingface.co",
-  "openmodeldb.info",
-];
-const externalAllowedHosts = new Set<string>();
+const desktopClientTokenTtlSec = parseDesktopTokenTtlSec(
+  resolveDesktopEnvValue("DESKTOP_CLIENT_TOKEN_TTL_SECONDS") ?? undefined,
+  600,
+);
+const desktopClientTokenRefreshSkewSec = parseDesktopRefreshSkewSec(
+  resolveDesktopEnvValue("DESKTOP_CLIENT_TOKEN_REFRESH_SKEW_SECONDS") ?? undefined,
+  90,
+);
 const parseBooleanEnv = (value: string | null, fallback: boolean): boolean => {
   if (typeof value !== "string") {
     return fallback;
@@ -339,39 +339,6 @@ const parseBooleanEnv = (value: string | null, fallback: boolean): boolean => {
   }
   return fallback;
 };
-const registerAllowedExternalHostFromUrl = (rawUrl: string | null): void => {
-  if (!rawUrl) {
-    return;
-  }
-  try {
-    const parsed = new URL(rawUrl);
-    externalAllowedHosts.add(normalizeHost(parsed.hostname));
-  } catch {
-    // Ignore malformed URLs from env/runtime overrides.
-  }
-};
-
-const hydrateAllowedExternalHosts = (): void => {
-  if (externalAllowedHosts.size > 0) {
-    return;
-  }
-
-  registerAllowedExternalHostFromUrl(authApiUrl);
-  registerAllowedExternalHostFromUrl(localApiUrl);
-  registerAllowedExternalHostFromUrl(resolveDesktopEnvValue("UPDATE_SERVER_URL"));
-  registerAllowedExternalHostFromUrl(resolveDesktopEnvValue("VITE_PROJECT_WEBSITE_URL"));
-  registerAllowedExternalHostFromUrl(resolveDesktopEnvValue("VITE_PROJECT_DISCORD_URL"));
-  registerAllowedExternalHostFromUrl(resolveDesktopEnvValue("VITE_PROJECT_BUG_URL"));
-};
-
-const desktopClientTokenTtlSec = parseDesktopTokenTtlSec(
-  resolveDesktopEnvValue("DESKTOP_CLIENT_TOKEN_TTL_SECONDS") ?? undefined,
-  600,
-);
-const desktopClientTokenRefreshSkewSec = parseDesktopRefreshSkewSec(
-  resolveDesktopEnvValue("DESKTOP_CLIENT_TOKEN_REFRESH_SKEW_SECONDS") ?? undefined,
-  90,
-);
 const enforceDesktopClient = parseBooleanEnv(
   resolveDesktopEnvValue("ENFORCE_DESKTOP_CLIENT"),
   app.isPackaged,
@@ -2837,24 +2804,6 @@ const setupDesktopClientHeaderInjection = (window: BrowserWindow): void => {
   }
 };
 
-const isAllowedExternalUrl = (rawUrl: string): boolean => {
-  try {
-    hydrateAllowedExternalHosts();
-    const parsed = new URL(rawUrl);
-    if (parsed.protocol !== "https:") {
-      return false;
-    }
-
-    const host = parsed.hostname.toLowerCase();
-    if (externalAllowedHosts.has(host)) {
-      return true;
-    }
-
-    return EXTERNAL_ALLOWED_HOST_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
-  } catch {
-    return false;
-  }
-};
 const pushMiniBackendRuntimeLog = (stream: "stdout" | "stderr", chunkText: string): void => {
   const lines = chunkText
     .replace(/\r/g, "\n")
