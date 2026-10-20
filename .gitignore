@@ -48,6 +48,19 @@ env/
 **/mini-backend/**/_cython_setup.py
 chroma_db/
 
+# ── ML model weights (never commit — GitHub 100MB limit) ──
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.gguf
+# scoped: *.bin is too broad globally (fixtures/tools may use .bin)
+packages/mini-backend/models/**/*.bin
+packages/mini-backend/models/**/weights/
+packages/mini-backend/models/**/*.onnx
+packages/mini-backend/models/**/*.pt
+
 # ── Hardening artifacts ───────────────────────────────────
 *.bspatch
 *.vcdiff

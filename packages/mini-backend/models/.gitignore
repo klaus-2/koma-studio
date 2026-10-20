@@ -2,6 +2,16 @@
 **/__pycache__/
 **/*.pyc
 
+# ML weight binaries (GitHub hard limit 100MB — never commit)
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.gguf
+# only under models/ (global *.bin would hide legitimate fixtures)
+*.bin
+
 # Legacy local model artifacts (must be downloaded to user PC at runtime)
 detection/comic_text_detector/weights/
 detection/craft/weights/
