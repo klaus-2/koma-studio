@@ -69,6 +69,7 @@ import {
   parseDesktopTokenTtlSec,
 } from "./modules/desktop-auth-constants.ts";
 import { normalizeLoopbackUrl, parseConfiguredPort } from "./modules/app-urls.ts";
+import { resolveRendererCorsOrigin } from "./modules/app-protocols.ts";
 import {
   listMiniBackendRuntimeArtifactOptions,
   sanitizeMiniBackendProfile,
@@ -236,23 +237,6 @@ const isProdDebugEnabled = appFlags.isProdDebugEnabled;
 const areDevToolsEnabled = appFlags.areDevToolsEnabled;
 setDesktopIsDev(isDev);
 setDesktopDebugLogsEnabled(appFlags.debugLogsEnabled);
-
-const resolveRendererCorsOrigin = (currentUrl: string, fallbackOrigin: string): string => {
-  try {
-    const parsed = new URL(currentUrl);
-    if (parsed.protocol === `${INTERNAL_APP_PROTOCOL}:` && parsed.hostname === INTERNAL_APP_HOST) {
-      return fallbackOrigin;
-    }
-
-    if (parsed.origin && parsed.origin !== "null") {
-      return parsed.origin;
-    }
-  } catch {
-    // fall through to the fallback origin
-  }
-
-  return fallbackOrigin;
-};
 
 let pendingDeepLink: string | null = null;
 
