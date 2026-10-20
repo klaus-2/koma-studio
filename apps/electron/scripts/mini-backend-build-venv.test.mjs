@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  CONTAMINATION_PREFIXES,
+  checkVenvForContamination,
+  findContaminatingPackage,
   resolveRuntimeArtifactBuildVenvLinkPath,
   resolveRuntimeArtifactBuildVenvPath,
 } from "./mini-backend-build-venv.mjs";
@@ -38,4 +41,38 @@ test("resolveRuntimeArtifactBuildVenvLinkPath creates a repo-local alias for the
   });
 
   assert.equal(result, "C:\\GitHub\\koma-studio\\koma-studio\\.venv-mini-build-nvidia-cuda-legacy");
+});
+
+test("findContaminatingPackage flags nvidia-* in cpu/openvino profiles", () => {
+  const pipList = [
+    "Package    Version",
+    "---------- -------",
+    "fastapi    0.115.0",
+    "nvidia-cudnn-cu12  9.1.0",
+  ].join("\n");
+  assert.deepEqual(findContaminatingPackage("cpu", pipList), {
+    package: "nvidia-cudnn-cu12",
+    prefix: "nvidia-",
+  });
+  assert.equal(findContaminatingPackage("nvidia-cuda", pipList), null);
+  assert.equal(findContaminatingPackage("cpu", "fastapi 0.1"), null);
+});
+
+test("checkVenvForContamination treats pip failure as contaminated", () => {
+  const failingExec = () => {
+    throw new Error("pip missing");
+  };
+  assert.equal(
+    checkVenvForContamination("python", "cpu", { exec: failingExec, log: () => {} }),
+    true,
+  );
+  assert.equal(
+    checkVenvForContamination("python", "nvidia-cuda", { exec: failingExec, log: () => {} }),
+    false,
+  );
+});
+
+test("CONTAMINATION_PREFIXES covers cpu and intel-openvino", () => {
+  assert.deepEqual(CONTAMINATION_PREFIXES.cpu, ["nvidia-"]);
+  assert.deepEqual(CONTAMINATION_PREFIXES["intel-openvino"], ["nvidia-"]);
 });

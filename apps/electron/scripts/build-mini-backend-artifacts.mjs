@@ -9,7 +9,10 @@ import {
   getMiniBackendArtifactProfiles,
   sanitizeMiniBackendProfile,
 } from "../electron/mini-backend-artifacts.ts";
-import { resolveRuntimeArtifactBuildVenvPath } from "./mini-backend-build-venv.mjs";
+import {
+  checkVenvForContamination,
+  resolveRuntimeArtifactBuildVenvPath,
+} from "./mini-backend-build-venv.mjs";
 import {
   computeMiniDepsMarkerHash,
   isMiniDepsMarkerFresh,
@@ -138,9 +141,27 @@ const resolveVenvPython = (venvPath) =>
     ? path.join(venvPath, "Scripts", "python.exe")
     : path.join(venvPath, "bin", "python");
 
-const ensureBuildVenv = (venvPath) => {
-  if (fs.existsSync(resolveVenvPython(venvPath))) {
-    return;
+/**
+ * Ensure a clean per-profile build venv. Recreate when packages outside the
+ * profile scope are present (e.g. nvidia-* in cpu/openvino) so PyInstaller
+ * does not ship multi-GB polluted DLLs.
+ */
+const ensureBuildVenv = (venvPath, profile) => {
+  const python = resolveVenvPython(venvPath);
+  if (fs.existsSync(python)) {
+    if (
+      checkVenvForContamination(python, profile, {
+        cwd: rootDir,
+        log: (message) => console.log(`[mini-backend-artifacts] ${message}`),
+      })
+    ) {
+      console.log(
+        `[mini-backend-artifacts] Recreating contaminated venv ${path.basename(venvPath)} ...`,
+      );
+      fs.rmSync(venvPath, { recursive: true, force: true });
+    } else {
+      return;
+    }
   }
 
   if (process.platform === "win32") {
@@ -157,7 +178,7 @@ const buildProfileHardenedSource = ({
   workDir,
   profileVenvPath,
 }) => {
-  ensureBuildVenv(profileVenvPath);
+  ensureBuildVenv(profileVenvPath, profile);
   const python = resolveVenvPython(profileVenvPath);
   const hardenedDir = path.join(workDir, `mini-backend-hardened-${profileKey}`);
   const hardenArgs = [];
