@@ -381,12 +381,16 @@ export default function ChapterOptimizerWorkspaceClassic({
 
   useEffect(() => {
     if (!onWorkspaceStateChange) return;
-    onWorkspaceStateChange({
-      recipe,
-      selectedPreset,
-      activeImageId: effectiveActiveImageId,
-      results,
-    });
+    // Debounce push-up (300ms) so slider ticks don't thrash the parent.
+    const timer = window.setTimeout(() => {
+      onWorkspaceStateChange({
+        recipe,
+        selectedPreset,
+        activeImageId: effectiveActiveImageId,
+        results,
+      });
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [effectiveActiveImageId, onWorkspaceStateChange, recipe, results, selectedPreset]);
 
   // Generate preview — debounced to avoid thrashing during rapid slider changes
