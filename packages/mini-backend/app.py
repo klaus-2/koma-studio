@@ -332,6 +332,55 @@ def _configure_stdio_utf8() -> None:
                 continue
 
 
+def _configure_crash_logging() -> None:
+    """Log unhandled exceptions and segfaults to disk.
+
+    PyInstaller builds with console=False hide crashes silently. Writes a
+    crash log next to the app data dir so 'Failed to fetch' (process died
+    mid-request) can be diagnosed.
+    """
+    import atexit
+    import faulthandler
+    import time
+    import traceback
+
+    log_dir = os.getenv("KOMA_APP_DATA_DIR") or os.path.join(
+        os.path.expanduser("~"), ".koma-studio"
+    )
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except Exception:
+        log_dir = os.path.dirname(os.path.abspath(__file__)) or "."
+    crash_log = os.path.join(log_dir, "mini-backend-crash.log")
+
+    try:
+        faulthandler.enable(open(crash_log, "a", encoding="utf-8"))
+    except Exception:
+        pass
+
+    def _global_exception_hook(exc_type, exc_value, exc_traceback):
+        with open(crash_log, "a", encoding="utf-8") as f:
+            f.write(
+                f"\n=== UNHANDLED EXCEPTION at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n"
+            )
+            traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
+            f.write("\n")
+        logger.critical(
+            "Unhandled exception: %s",
+            "".join(traceback.format_exception(exc_type, exc_value, exc_traceback)),
+        )
+
+    sys.excepthook = _global_exception_hook
+
+    def _atexit_log() -> None:
+        with open(crash_log, "a", encoding="utf-8") as f:
+            f.write(
+                f"\n=== EXIT at {time.strftime('%Y-%m-%d %H:%M:%S')} (pid={os.getpid()}) ===\n"
+            )
+
+    atexit.register(_atexit_log)
+
+
 def create_app(settings: LocalApiSettings) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -440,6 +489,7 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
 
 
 _configure_stdio_utf8()
+_configure_crash_logging()
 configure_logging()
 SETTINGS = LocalApiSettings.from_env()
 # Test-suite compatibility aliases: tests patch these module globals to flip

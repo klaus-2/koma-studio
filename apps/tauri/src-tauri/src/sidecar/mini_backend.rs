@@ -332,6 +332,10 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
         "KOMA_REFERENCE_IMAGES_DIR",
         path_to_string(&reference_images_dir),
     )
+    .env(
+        "KOMA_APP_DATA_DIR",
+        path_to_string(&models_root.parent().unwrap_or(&models_root)),
+    )
     .env("PYTHONUTF8", "1")
     .env("PYTHONIOENCODING", "utf-8")
     .env("MINI_BACKEND_ACCELERATION_PROFILE", &command_spec.profile);
