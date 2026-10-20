@@ -42,6 +42,7 @@ import {
   recordSessionLog,
   setDesktopDebugLogsEnabled,
 } from "./modules/session-log.ts";
+import { enforcePackagedRuntimeIntegrity } from "./modules/security.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
   listMiniBackendRuntimeArtifactOptions,
@@ -308,36 +309,6 @@ protocol.registerSchemesAsPrivileged([
 if (!isDev) {
   app.commandLine.appendSwitch("remote-debugging-port", "0");
 }
-
-const enforcePackagedRuntimeIntegrity = (): void => {
-  if (isDev) {
-    return;
-  }
-
-  const appPath = app.getAppPath();
-  const expectedAsarPath = path.resolve(process.resourcesPath, "app.asar");
-  const normalizedAppPath = appPath.toLowerCase();
-  if (!normalizedAppPath.includes("app.asar") || !fs.existsSync(expectedAsarPath)) {
-    console.error("[desktop-security] Packaged runtime integrity check failed (asar path mismatch).");
-    app.exit(1);
-    return;
-  }
-
-  const hasInspectArg = process.execArgv.some((arg) =>
-    /^--inspect(?:-brk)?(?:=|$)/i.test(arg.trim()),
-  );
-  if (hasInspectArg) {
-    console.error("[desktop-security] Debugger argument blocked in production runtime.");
-    app.exit(1);
-    return;
-  }
-
-  const remoteDebuggingPort = app.commandLine.getSwitchValue("remote-debugging-port");
-  if (remoteDebuggingPort && remoteDebuggingPort !== "0") {
-    console.error("[desktop-security] remote-debugging-port must remain disabled in production.");
-    app.exit(1);
-  }
-};
 
 const rawAuthApiUrl = resolveDesktopEnvValue("VITE_AUTH_API_URL") ?? "http://127.0.0.1:3001";
 const authApiUrl = (() => {
@@ -3656,7 +3627,7 @@ if (!gotTheLock) {
     if (isDesktopDebugLogsEnabled()) {
       initializeAppSessionLog();
     }
-    enforcePackagedRuntimeIntegrity();
+    enforcePackagedRuntimeIntegrity(isDev);
     setupInternalAppProtocol();
     setupPermissionHardening(electronSession.defaultSession);
     setupCertificatePinning(electronSession.defaultSession);
