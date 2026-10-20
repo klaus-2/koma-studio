@@ -1,16 +1,24 @@
 use std::{collections::HashSet, env, process::Command};
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 pub(super) fn collect_gpu_vendors() -> Vec<String> {
     if platform_key() != "win32" {
         return Vec::new();
     }
-    let output = Command::new("powershell.exe")
-        .args([
-            "-NoProfile",
-            "-Command",
-            "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterCompatibility,PNPDeviceID,VideoProcessor | ConvertTo-Json -Depth 3 -Compress",
-        ])
-        .output();
+    let mut cmd = Command::new("powershell.exe");
+    cmd.args([
+        "-NoProfile",
+        "-Command",
+        "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterCompatibility,PNPDeviceID,VideoProcessor | ConvertTo-Json -Depth 3 -Compress",
+    ]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let output = cmd.output();
     let Ok(output) = output else {
         return Vec::new();
     };

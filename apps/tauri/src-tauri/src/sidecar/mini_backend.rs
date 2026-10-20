@@ -488,8 +488,14 @@ fn kill_stale_instance(local_api_url: &str) -> bool {
         );
         return false;
     }
-    let _ = std::process::Command::new("taskkill")
-        .args(["/pid", &listener_pid.to_string(), "/t", "/f"])
+    let mut kill_listener = std::process::Command::new("taskkill");
+    kill_listener.args(["/pid", &listener_pid.to_string(), "/t", "/f"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        kill_listener.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    let _ = kill_listener
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status();
@@ -576,8 +582,14 @@ pub fn stop_mini_backend<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
         }
         if let Some(pid_value) = pid {
             if cfg!(windows) {
-                let _ = std::process::Command::new("taskkill")
-                    .args(["/pid", &pid_value.to_string(), "/t", "/f"])
+                let mut kill_child = std::process::Command::new("taskkill");
+                kill_child.args(["/pid", &pid_value.to_string(), "/t", "/f"]);
+                #[cfg(windows)]
+                {
+                    use std::os::windows::process::CommandExt;
+                    kill_child.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                }
+                let _ = kill_child
                     .stdout(std::process::Stdio::null())
                     .stderr(std::process::Stdio::null())
                     .status();
