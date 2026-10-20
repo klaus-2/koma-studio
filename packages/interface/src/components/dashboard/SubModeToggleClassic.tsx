@@ -1,12 +1,13 @@
 import { Paintbrush, Sparkles } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { memo } from "react";
 
 export interface SubModeToggleProps {
   value: "auto" | "manual";
   onChange: (value: "auto" | "manual") => void;
 }
 
-export default function SubModeToggleClassic({ value, onChange }: SubModeToggleProps) {
+export default memo(function SubModeToggleClassic({ value, onChange }: SubModeToggleProps) {
   const { t } = useI18n();
   return (
     <div className="koma-submode-toggle" data-tour="dashboard-submode-toggle">
@@ -30,4 +31,4 @@ export default function SubModeToggleClassic({ value, onChange }: SubModeToggleP
       </button>
     </div>
   );
-}
+});

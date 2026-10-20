@@ -3,6 +3,7 @@ import ShortcutCenterModal from '../ShortcutCenterModal';
 
 import type { KeyboardShortcutConfigV2 } from '../../shortcuts/keyboardShortcuts';
 import type { ToolMode } from '../../types/dashboard.types';
+import { memo } from 'react';
 
 interface DashboardOverlaysProps {
   shortcutCenterOpen: boolean;
@@ -16,7 +17,7 @@ interface DashboardOverlaysProps {
   userEmail: string;
 }
 
-export default function DashboardOverlays({
+export default memo(function DashboardOverlays({
   shortcutCenterOpen,
   keyboardShortcutConfig,
   handleKeyboardShortcutConfigChange,
@@ -54,4 +55,4 @@ export default function DashboardOverlays({
       )}
     </>
   );
-}
+});

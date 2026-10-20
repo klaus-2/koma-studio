@@ -1,6 +1,7 @@
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import DashboardEmptyStageClassic from './DashboardEmptyStageClassic';
 import DashboardEmptyStageNoir from './noir/DashboardEmptyStageNoir';
+import { memo } from 'react';
 
 interface DashboardEmptyStageProps {
   emptyPreviewTipIndex: number;
@@ -13,4 +14,4 @@ const DashboardEmptyStage = (props: DashboardEmptyStageProps) => {
   return family === 'noir' ? <DashboardEmptyStageNoir {...props} /> : <DashboardEmptyStageClassic {...props} />;
 };
 
-export default DashboardEmptyStage;
+export default memo(DashboardEmptyStage);

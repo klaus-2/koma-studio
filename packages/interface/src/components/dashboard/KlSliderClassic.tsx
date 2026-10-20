@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 
 import { useI18n } from '../../i18n';
 
@@ -12,7 +12,7 @@ export interface KlSliderProps {
   onChange: (value: number) => void;
 }
 
-export default function KlSliderClassic({
+export default memo(function KlSliderClassic({
   label,
   value,
   min,
@@ -46,4 +46,4 @@ export default function KlSliderClassic({
       />
     </div>
   );
-}
+});

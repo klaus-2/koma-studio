@@ -1,6 +1,7 @@
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import DashboardRightSidebarClassic from './DashboardRightSidebarClassic';
 import DashboardRightSidebarNoir from './noir/DashboardRightSidebarNoir';
+import { memo } from 'react';
 
 type DashboardRightSidebarProps = React.ComponentProps<typeof DashboardRightSidebarClassic>;
 
@@ -10,4 +11,4 @@ const DashboardRightSidebar = (props: DashboardRightSidebarProps) => {
   return family === 'noir' ? <DashboardRightSidebarNoir {...props} /> : <DashboardRightSidebarClassic {...props} />;
 };
 
-export default DashboardRightSidebar;
+export default memo(DashboardRightSidebar);
