@@ -92,7 +92,18 @@ export const useRenderTextPreviewTypeDock = ({
     if (!showRenderDock || !dockAnchor) return;
     const node = dockRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
+    // Compare dimensions before bumping revision — otherwise the
+    // position→resize→observe→reposition cycle can loop forever.
+    let lastWidth = node.offsetWidth;
+    let lastHeight = node.offsetHeight;
     const observer = new ResizeObserver(() => {
+      const nextWidth = node.offsetWidth;
+      const nextHeight = node.offsetHeight;
+      if (nextWidth === lastWidth && nextHeight === lastHeight) {
+        return;
+      }
+      lastWidth = nextWidth;
+      lastHeight = nextHeight;
       setDockSizeRevision((value) => value + 1);
     });
     observer.observe(node);
