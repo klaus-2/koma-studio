@@ -1366,29 +1366,35 @@ export default function ChapterOptimizerWorkspace({
     (image) => image.id === activeImageId,
   );
 
-  const listVariants = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: reduceMotion ? 0 : 0.055,
+  const listVariants = useMemo(
+    () => ({
+      hidden: {},
+      visible: {
+        transition: {
+          staggerChildren: reduceMotion ? 0 : 0.055,
+        },
       },
-    },
-  };
+    }),
+    [reduceMotion],
+  );
 
-  const cardVariants = {
-    hidden: {
-      opacity: 0,
-      y: 14,
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: reduceMotion ? 0 : 0.42,
-        ease: EASE,
+  const cardVariants = useMemo(
+    () => ({
+      hidden: {
+        opacity: 0,
+        y: 14,
       },
-    },
-  };
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: {
+          duration: reduceMotion ? 0 : 0.42,
+          ease: EASE,
+        },
+      },
+    }),
+    [reduceMotion],
+  );
 
   return (
     <section

@@ -4,6 +4,8 @@ import { Tooltip as TooltipPrimitive } from "radix-ui"
 import { cn } from "../utils/cn"
 import { useThemeStore } from "../stores/theme-store"
 
+const TOOLTIP_BASE_STYLE: React.CSSProperties = { zIndex: 220 }
+
 function TooltipProvider({
   delayDuration = 0,
   ...props
@@ -43,7 +45,7 @@ function TooltipContent({
       <TooltipPrimitive.Content
         data-slot="tooltip-content"
         sideOffset={noir ? 4 : sideOffset}
-        style={{ zIndex: 220, ...style }}
+        style={style ? { ...TOOLTIP_BASE_STYLE, ...style } : TOOLTIP_BASE_STYLE}
         className={cn(
           noir
             ? "w-fit max-w-xs border border-paper/18 bg-ink-2 px-3 py-2 text-[11px] leading-relaxed text-paper/80 " +
