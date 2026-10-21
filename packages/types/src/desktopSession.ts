@@ -3,10 +3,15 @@
  * payloads and error codes shared by the auth-server desktop-client surface,
  * the electron main bridge and the tauri commands.
  *
+ * Runtime enforcement: the auth-server consumes the header/path constants,
+ * `DesktopBootstrapResponse`, `DesktopDeviceRegisterResponse`,
+ * `DesktopSessionSnapshot` and `DESKTOP_SESSION_ERROR_CODES`. The request
+ * interfaces document the client payloads; the route tests scan the emitted
+ * error codes against the contract.
+ *
  * Server surface: apps/auth-server/src/routes/desktop.ts (register /
  * bootstrap / travel-token) plus the desktop-client enforcement middleware in
- * routes/_shared.ts. The auth-server imports the header and path constants
- * from this module; the electron bridge and the tauri commands keep their own
+ * routes/_shared.ts. The electron bridge and the tauri commands keep their own
  * runtime copies (separate bundles, and the tauri side is Rust).
  *
  * Client-side behaviors documented here on purpose:
@@ -116,35 +121,39 @@ export interface DesktopSessionSnapshot {
 /* ── Error codes (frozen — do NOT rename or invent) ── */
 
 /**
- * Every `code` the server's desktop-client surface emits (register, bootstrap,
- * travel-token, enforcement middleware, ban and auth-shared helpers).
- * Enumerated from routes/desktop.ts + routes/_shared.ts error emissions and
- * cross-checked against the renderer's branch sites
- * (packages/auth/src/context.tsx). Frozen: the renderer and the recovery
+ * Every `code` the auth-server routes emit. The contract test scans
+ * `apps/auth-server/src/routes/*.ts` and fails when a code is missing here, so
+ * the set cannot drift silently. Frozen: the renderer and the recovery
  * classifier branch on these strings.
- *
- * Note: the renderer additionally checks "AUTH_INVALID_TOKEN" defensively,
- * but no desktop-client route emits it — it is intentionally NOT part of this
- * union.
  */
-export type DesktopSessionErrorCode =
-  | "DESKTOP_REGISTER_INVALID_PAYLOAD"
-  | "AUTH_SESSION_REQUIRED"
-  | "DESKTOP_TRAVEL_TOKEN_REQUIRED"
-  | "DESKTOP_TRAVEL_TOKEN_INVALID"
-  | "DESKTOP_REGISTER_FAILED"
-  | "DESKTOP_BOOTSTRAP_INVALID_PAYLOAD"
-  | "DESKTOP_DEVICE_NOT_REGISTERED"
-  | "DESKTOP_DEVICE_KEY_INVALID"
-  | "DESKTOP_BOOTSTRAP_UNAUTHORIZED"
-  | "DESKTOP_CLIENT_REQUIRED"
-  | "DESKTOP_CLIENT_SESSION_INVALID"
-  | "DESKTOP_TRAVEL_TOKEN_INVALID_DEVICE"
-  | "DESKTOP_PRIMARY_DEVICE_REQUIRED"
-  | "DESKTOP_TRAVEL_TOKEN_PRIMARY_ONLY"
-  | "AUTH_EMAIL_DELIVERY_UNAVAILABLE"
-  | "DESKTOP_TRAVEL_TOKEN_FAILED"
-  | "AUTH_BANNED";
+export const DESKTOP_SESSION_ERROR_CODES = [
+  "DESKTOP_REGISTER_INVALID_PAYLOAD",
+  "AUTH_SESSION_REQUIRED",
+  "DESKTOP_TRAVEL_TOKEN_REQUIRED",
+  "DESKTOP_TRAVEL_TOKEN_INVALID",
+  "DESKTOP_REGISTER_FAILED",
+  "DESKTOP_BOOTSTRAP_INVALID_PAYLOAD",
+  "DESKTOP_DEVICE_NOT_REGISTERED",
+  "DESKTOP_DEVICE_KEY_INVALID",
+  "DESKTOP_BOOTSTRAP_UNAUTHORIZED",
+  "DESKTOP_CLIENT_REQUIRED",
+  "DESKTOP_CLIENT_SESSION_INVALID",
+  "DESKTOP_TRAVEL_TOKEN_INVALID_DEVICE",
+  "DESKTOP_PRIMARY_DEVICE_REQUIRED",
+  "DESKTOP_TRAVEL_TOKEN_PRIMARY_ONLY",
+  "AUTH_EMAIL_DELIVERY_UNAVAILABLE",
+  "DESKTOP_TRAVEL_TOKEN_FAILED",
+  "AUTH_BANNED",
+  "AUTH_INVALID_TOKEN",
+  "EMAIL_NOT_VERIFIED",
+  "AUTH_FORBIDDEN",
+  "AUTH_ACCOUNT_LOCKED",
+  "AUTH_INVALID_LOCALE",
+  "AUTH_MULTI_ACCOUNT_BLOCKED",
+  "WEB_DASHBOARD_DISABLED",
+] as const;
+
+export type DesktopSessionErrorCode = (typeof DESKTOP_SESSION_ERROR_CODES)[number];
 
 /** Payload shape of a desktop-client error envelope (server error emission). */
 export interface DesktopSessionErrorPayload {

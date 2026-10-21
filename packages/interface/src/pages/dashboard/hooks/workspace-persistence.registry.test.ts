@@ -568,6 +568,18 @@ describe('workspace persistence registry', () => {
     ).toBe('standard');
   });
 
+  it('lands a legacy organize workspace on AIO', async () => {
+    const payload = await captureWorkspaceDocument(buildWorkspaceCaptureState(null));
+    const legacyView: { mode: string } = payload.manifest.document.view;
+    legacyView.mode = 'organize';
+
+    const restored = await restoreWorkspaceDocument(payload);
+    applyRestored(restored);
+
+    expect(useUiShellStore.getState().mode).toBe('aio');
+    expect(buildWorkspaceCaptureState(null).mode).toBe('aio');
+  });
+
   it('reads the legacy inline translator processed-base map when the asset map is absent', async () => {
     const payload = await captureWorkspaceDocument(buildWorkspaceCaptureState(null));
     const translatorDocument: {

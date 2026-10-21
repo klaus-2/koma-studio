@@ -1,7 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 
 export type ToolMode =
-  | 'organize'
   | 'aio'
   | 'cleaner'
   | 'typesetter'

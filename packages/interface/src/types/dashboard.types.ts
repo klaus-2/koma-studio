@@ -16,7 +16,6 @@ export type EnhanceScale = 2 | 4;
 export type EnhanceProfile = "manga_scan" | "anime_art" | "general" | "high_quality_4x";
 
 export type ToolMode =
-  | "organize"
   | "aio"
   | "cleaner"
   | "typesetter"
@@ -33,7 +32,7 @@ export type ToolMode =
   | "guides"
   | "resources";
 
-export type ProcessableMode = Exclude<ToolMode, "organize" | "guides" | "resources" | "blogger" | "imgur">;
+export type ProcessableMode = Exclude<ToolMode, "guides" | "resources" | "blogger" | "imgur">;
 
 export type WebhookMetricValue = string | number | boolean | null | undefined;
 

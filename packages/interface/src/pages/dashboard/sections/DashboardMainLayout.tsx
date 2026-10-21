@@ -7,7 +7,6 @@ import KomaTopbar from '../../KomaTopbar.tsx';
 import DashboardMobileBackdrop from '../../../components/dashboard/DashboardMobileBackdrop';
 import DashboardRightSidebar from '../../../components/dashboard/DashboardRightSidebar';
 import DashboardLazyFallback from '../../../components/dashboard/DashboardLazyFallback';
-import OrganizeToolsHint from '../../../components/dashboard/OrganizeToolsHint';
 import InfoModesToolsPanel from '../../../components/dashboard/InfoModesToolsPanel';
 import ReviewRawToolsPanel from '../../../components/dashboard/ReviewRawToolsPanel';
 import DashboardOverlays from '../../../components/dashboard/DashboardOverlays';
@@ -1187,7 +1186,6 @@ export default memo(function DashboardMainLayout({
         resizeRightSidebarBy={resizeRightSidebarBy}
         sidebarResizeStep={SIDEBAR_RESIZE_STEP}
       >
-        {mode === 'organize' && <OrganizeToolsHint />}
         {/* ─── AIO — ALL IN ONE ─── */}
         {deferredStageMode === 'aio' && (
           <Suspense fallback={<DashboardLazyFallback />}>

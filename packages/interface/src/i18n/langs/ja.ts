@@ -636,7 +636,6 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': 'クリーナー/RD',
   'dashboard.nav.short.enhance': 'エンハンス',
-  'dashboard.nav.subtitle.organize': 'ファイル管理',
   'dashboard.nav.subtitle.aio': 'オールインワン',
   'dashboard.nav.subtitle.cleaner': 'クリーナー・リドローワー',
   'dashboard.nav.subtitle.typesetter': 'タイプセッター',
@@ -652,7 +651,6 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': '匿名ホスト',
   'dashboard.nav.subtitle.guides': 'チュートリアル',
   'dashboard.nav.subtitle.resources': 'リソース',
-  'dashboard.nav.tooltip.organize': '処理前に画像を整理・並び替え',
   'dashboard.nav.tooltip.aio':
     'フルパイプライン：検出、認識、翻訳、セグメント、クリーン、レンダー',
   'dashboard.nav.tooltip.cleaner': '吹き出しのクリーンと画像領域のリドロー',
@@ -674,7 +672,6 @@ export const jaMessages: TranslationCatalog = {
     'クライアントIDローテーションでImgurに画像をアップロード',
   'dashboard.nav.tooltip.guides': 'ツール使用ガイドとチュートリアル',
   'dashboard.nav.tooltip.resources': 'リソース、リンク、参考資料',
-  'dashboard.mode.organize': '整理',
   'dashboard.mode.aio': 'AIO — オールインワン',
   'dashboard.mode.cleaner': 'クリーナー / リドローワー',
   'dashboard.mode.typesetter': 'タイプセッター',
@@ -2198,10 +2195,6 @@ export const jaMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     'まずONNXに変換してから手動インポートを使用してください。',
   'common.yes': 'はい',
-  'dashboard.organize.hint.reorder':
-    '左パネルでファイルをドラッグして並び替えます。',
-  'dashboard.organize.hint.rotate':
-    '回転ボタンを使用して、横向きにスキャンされたページを修正します。',
   'guides.common.beginner': '初級',
   'guides.common.intermediate': '中級',
   'guides.common.advanced': '上級',
@@ -3371,8 +3364,6 @@ export const jaMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'ロングストリップ表示',
   'shortcuts.setViewLongStrip.description':
     'ロングストリップ表示に切り替えます。',
-  'shortcuts.setModeOrganize.label': '整理モード',
-  'shortcuts.setModeOrganize.description': '整理モードに切り替えます。',
   'shortcuts.setModeAio.label': 'AIOモード',
   'shortcuts.setModeAio.description': 'AIOモードに切り替えます。',
   'shortcuts.setModeCleaner.label': 'クリーナー / リドローワーモード',
@@ -3515,14 +3506,6 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     '結果が良好であれば、エクスポートメニューから画像、パッケージ、またはPSDをダウンロードして、現在のモードを離れずに完了します。',
   'dashboard.coachmark.download.accent': '納品',
-  'dashboard.coachmark.organize.uploadTitle': '整理：アップロードから始める',
-  'dashboard.coachmark.organize.uploadBody':
-    'ページ、チャプ��ー、またはパッケージ全体をここにドラッグします。整理モードはプロダクションに入る前のバッチ準備のためにあります。',
-  'dashboard.coachmark.organize.uploadAccent': '入力',
-  'dashboard.coachmark.organize.orderTitle': '整理：順序を確認',
-  'dashboard.coachmark.organize.orderBody':
-    '左サイドバーでアクティブ画像を選択し、ページを並べ替え、不良アイテムを削除し、チャプターの進行準備ができているか確認します。',
-  'dashboard.coachmark.organize.orderAccent': 'バッチ',
   'dashboard.coachmark.aioAuto.stagesTitle': '自動AIO：必要なものだけ有効に',
   'dashboard.coachmark.aioAuto.stagesBody':
     'このバッチに意味のあるステージのみを有効にします。ステージが少ないほど、コスト、時間、障害ポイントが減ります。',
@@ -4067,7 +4050,7 @@ export const jaMessages: TranslationCatalog = {
     'ドロップゾーンはバラの画像とフルパッケージの両方を受け付けます。チャプター、raw、アセットをドラッグしてダッシュボードの他の部分に供給する開始点です。',
   'dashboard.tour.modes.title': 'メインダッシュボードナビゲーション',
   'dashboard.tour.modes.body':
-    '整理を使用してバッチを準備し、AIOでフルパイプラインを実行します。他のトップバーグループはワークスペースを離れずに専用モードを開きます。',
+    'AIOでフルパイプラインを実行します。他のトップバーグループはワークスペースを離れずに専用モードを開きます。',
   'dashboard.tour.production.title': 'プロダクション：専用ツール',
   'dashboard.tour.production.body':
     'クリーナー、タイプセッター、トランスレーター、Raw、QCが手動および高度なワークフローをカバーします。このグループは特定のチャプターステージで作業するためのプロフェッショナルモードと考えてください。',

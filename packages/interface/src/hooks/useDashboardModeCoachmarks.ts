@@ -228,28 +228,6 @@ const buildStepsForCurrentMode = (
 ): ModeGuideStep[] => {
   const common = createCommonSteps(mode, hasImages, hasDownloadActions, t);
 
-  if (mode === 'organize') {
-    return [
-      {
-        selector: '[data-tour="dashboard-dropzone"]',
-        title: t('dashboard.coachmark.organize.uploadTitle'),
-        body: t('dashboard.coachmark.organize.uploadBody'),
-        accent: t('dashboard.coachmark.organize.uploadAccent'),
-        side: 'right',
-        align: 'center',
-      },
-      {
-        selector: '[data-tour="dashboard-sidebar"]',
-        title: t('dashboard.coachmark.organize.orderTitle'),
-        body: t('dashboard.coachmark.organize.orderBody'),
-        accent: t('dashboard.coachmark.organize.orderAccent'),
-        side: 'right',
-        align: 'start',
-      },
-      common.stageStep,
-    ];
-  }
-
   if (mode === 'aio' && subMode === 'auto') {
     return [
       {

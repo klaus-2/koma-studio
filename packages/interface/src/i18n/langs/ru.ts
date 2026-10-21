@@ -640,7 +640,6 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': 'Очистка/ПР',
   'dashboard.nav.short.enhance': 'Улучшение',
-  'dashboard.nav.subtitle.organize': 'Управление файлами',
   'dashboard.nav.subtitle.aio': 'Всё в одном',
   'dashboard.nav.subtitle.cleaner': 'Очистка и перерисовка',
   'dashboard.nav.subtitle.typesetter': 'Наборщик',
@@ -656,8 +655,6 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': 'Анонимный хостинг',
   'dashboard.nav.subtitle.guides': 'Руководства',
   'dashboard.nav.subtitle.resources': 'Ресурсы',
-  'dashboard.nav.tooltip.organize':
-    'Упорядочить и переставить изображения перед обработкой',
   'dashboard.nav.tooltip.aio':
     'Полный конвейер: обнаружение, распознавание, перевод, сегментация, очистка и рендер',
   'dashboard.nav.tooltip.cleaner':
@@ -685,7 +682,6 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.nav.tooltip.guides':
     'Руководства и обучающие материалы по инструментам',
   'dashboard.nav.tooltip.resources': 'Ресурсы, ссылки и справочные материалы',
-  'dashboard.mode.organize': 'Организация',
   'dashboard.mode.aio': 'AIO — Всё в одном',
   'dashboard.mode.cleaner': 'Очистка / Перерисовка',
   'dashboard.mode.typesetter': 'Наборщик',
@@ -2218,10 +2214,6 @@ export const ruMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     'сначала конвертируйте в ONNX, затем используйте ручной импорт.',
   'common.yes': 'Да',
-  'dashboard.organize.hint.reorder':
-    'Перетаскивайте и меняйте порядок файлов в левой панели.',
-  'dashboard.organize.hint.rotate':
-    'Используйте кнопку вращения для исправления горизонтально отсканированных страниц.',
   'guides.common.beginner': 'Начинающий',
   'guides.common.intermediate': 'Средний',
   'guides.common.advanced': 'Продвинутый',
@@ -3396,8 +3388,6 @@ export const ruMessages: TranslationCatalog = {
   'shortcuts.setViewPaginated.description': 'Переключает на постраничный вид.',
   'shortcuts.setViewLongStrip.label': 'Вид длинной ленты',
   'shortcuts.setViewLongStrip.description': 'Переключает на вид длинной ленты.',
-  'shortcuts.setModeOrganize.label': 'Режим организации',
-  'shortcuts.setModeOrganize.description': 'Переключает в режим организации.',
   'shortcuts.setModeAio.label': 'Режим AIO',
   'shortcuts.setModeAio.description': 'Переключает в режим AIO.',
   'shortcuts.setModeCleaner.label': 'Режим очистки / перерисовки',
@@ -3541,14 +3531,6 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     'Когда результат вас устроит, завершите через меню экспорта — скачайте изображения, пакеты или PSD, не покидая текущий режим.',
   'dashboard.coachmark.download.accent': 'Доставка',
-  'dashboard.coachmark.organize.uploadTitle': 'Организация: начните с загрузки',
-  'dashboard.coachmark.organize.uploadBody':
-    'Перетащите сюда страницы, главы или целые пакеты. Режим организации нужен для подготовки пакета перед производством.',
-  'dashboard.coachmark.organize.uploadAccent': 'Вход',
-  'dashboard.coachmark.organize.orderTitle': 'Организация: проверьте порядок',
-  'dashboard.coachmark.organize.orderBody':
-    'В левой панели вы выбираете активное изображение, меняете порядок страниц, удаляете некачественные элементы и проверяете готовность главы к обработке.',
-  'dashboard.coachmark.organize.orderAccent': 'Пакет',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'Автоматический AIO: включайте только нужное',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -4099,7 +4081,7 @@ export const ruMessages: TranslationCatalog = {
     'Область загрузки принимает отдельные изображения и полные пакеты. Это отправная точка для перетаскивания глав, исходников или ресурсов для остальных инструментов.',
   'dashboard.tour.modes.title': 'Основная навигация панели',
   'dashboard.tour.modes.body':
-    'Используйте «Организацию» для подготовки пакета и AIO для полного конвейера. Другие группы верхней панели открывают специализированные режимы, не покидая рабочую область.',
+    'Используйте AIO для полного конвейера. Другие группы верхней панели открывают специализированные режимы, не покидая рабочую область.',
   'dashboard.tour.production.title':
     'Производство: специализированные инструменты',
   'dashboard.tour.production.body':

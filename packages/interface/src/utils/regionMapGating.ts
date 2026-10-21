@@ -9,7 +9,6 @@ export function needsAioRegionMaps(mode: ToolMode): boolean {
   return (
     mode === "aio" ||
     mode === "typesetter" ||
-    mode === "organize" ||
     mode === "raw" ||
     mode === "proofreader"
   );

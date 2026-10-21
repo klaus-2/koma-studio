@@ -108,8 +108,7 @@ export const assertDesktopRegistrationPolicy = async (params: {
 /**
  * User-compensation delete: the registration must not leave a half-registered
  * user behind when the post-signUp persistence steps fail. Logs the delete
- * failure with the caller-provided context (verbatim pre-extraction
- * messages).
+ * failure with the caller-provided context.
  */
 const deleteRegisteredUserCompensation = async (
   userId: string,
@@ -194,8 +193,8 @@ export type RegistrationIdentityOutcome =
 /**
  * Registration-identity persistence: links the desktop identity hashes, then
  * re-checks the multi-account policy when the link collides — compensating
- * with the user delete and re-asserting which signal owns the conflict
- * (verbatim pre-extraction semantics, including the conflict security log).
+ * with the user delete and re-asserting which signal owns the conflict. The
+ * conflict path also records the security log for the conflicting user.
  */
 export const persistRegistrationIdentityWithCompensation = async (params: {
   readonly userId: string;

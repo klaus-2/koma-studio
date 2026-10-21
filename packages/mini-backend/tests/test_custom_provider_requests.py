@@ -18,7 +18,7 @@ IMPORT_ERROR: Exception | None = None
 try:
     from models.translation import http as translation_http
     from models.translation import providers
-    from models.translation import stage as translation_stage
+    from pipelines import translation_stage
     from pipelines.cache_manager import CacheManager
     from routers import translation as translation_router
 except Exception as exc:  # pragma: no cover - optional runtime deps

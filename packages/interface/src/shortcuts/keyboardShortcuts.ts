@@ -14,7 +14,6 @@ export {
 } from "./keyboardShortcutUtils";
 
 export type ShortcutToolMode =
-  | "organize"
   | "aio"
   | "cleaner"
   | "typesetter"
@@ -55,7 +54,6 @@ export type ShortcutActionId =
   | "zoomOut"
   | "setViewPaginated"
   | "setViewLongStrip"
-  | "setModeOrganize"
   | "setModeAio"
   | "setModeCleaner"
   | "setModeTypesetter"
@@ -267,12 +265,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     defaultCombo: ["ALT", "2"],
     isEnabled: () => true,
   },
-  createModeShortcut(
-    "setModeOrganize",
-    "shortcuts.setModeOrganize.label",
-    "shortcuts.setModeOrganize.description",
-    ["ALT", "SHIFT", "O"],
-  ),
   createModeShortcut(
     "setModeAio",
     "shortcuts.setModeAio.label",

@@ -645,7 +645,6 @@ export const itMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': 'Cleaner/RD',
   'dashboard.nav.short.enhance': 'Migliora',
-  'dashboard.nav.subtitle.organize': 'Gestisci file',
   'dashboard.nav.subtitle.aio': 'Tutto in uno',
   'dashboard.nav.subtitle.cleaner': 'Pulizia e ridisegno',
   'dashboard.nav.subtitle.typesetter': 'Typesetter',
@@ -661,8 +660,6 @@ export const itMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': 'Hosting anonimo',
   'dashboard.nav.subtitle.guides': 'Tutorial',
   'dashboard.nav.subtitle.resources': 'Risorse',
-  'dashboard.nav.tooltip.organize':
-    "Organizza e riordina le immagini prima dell'elaborazione",
   'dashboard.nav.tooltip.aio':
     'Pipeline completa: rileva, riconosci, traduci, segmenta, pulisci e renderizza',
   'dashboard.nav.tooltip.cleaner':
@@ -690,7 +687,6 @@ export const itMessages: TranslationCatalog = {
     'Carica immagini su Imgur con rotazione Client ID',
   'dashboard.nav.tooltip.guides': "Guide e tutorial sull'uso degli strumenti",
   'dashboard.nav.tooltip.resources': 'Risorse, link e materiali di riferimento',
-  'dashboard.mode.organize': 'Organizza',
   'dashboard.mode.aio': 'AIO — Tutto in uno',
   'dashboard.mode.cleaner': 'Cleaner / Ridisegnatore',
   'dashboard.mode.typesetter': 'Typesetter',
@@ -2212,10 +2208,6 @@ export const itMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     "converti prima in ONNX e poi usa l'importazione manuale.",
   'common.yes': 'Sì',
-  'dashboard.organize.hint.reorder':
-    'Trascina e riordina i file nel pannello sinistro.',
-  'dashboard.organize.hint.rotate':
-    'Usa il pulsante di rotazione per correggere le pagine scansionate orizzontalmente.',
   'guides.common.beginner': 'Principiante',
   'guides.common.intermediate': 'Intermedio',
   'guides.common.advanced': 'Avanzato',
@@ -3374,8 +3366,6 @@ export const itMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'Vista a striscia lunga',
   'shortcuts.setViewLongStrip.description':
     'Passa alla vista a striscia lunga.',
-  'shortcuts.setModeOrganize.label': 'Modalità Organizza',
-  'shortcuts.setModeOrganize.description': 'Passa alla modalità Organizza.',
   'shortcuts.setModeAio.label': 'Modalità AIO',
   'shortcuts.setModeAio.description': 'Passa alla modalità AIO.',
   'shortcuts.setModeCleaner.label': 'Modalità Pulitore / Ridisegnatore',
@@ -3517,15 +3507,6 @@ export const itMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     'Quando il risultato è corretto, finalizza tramite il menu di esportazione per scaricare immagini, pacchetti o PSD senza uscire dalla modalità corrente.',
   'dashboard.coachmark.download.accent': 'Consegna',
-  'dashboard.coachmark.organize.uploadTitle':
-    'Organizza: inizia con il caricamento',
-  'dashboard.coachmark.organize.uploadBody':
-    'Trascina pagine, capitoli o interi pacchetti qui. La modalità Organizza serve a preparare il batch prima di entrare in produzione.',
-  'dashboard.coachmark.organize.uploadAccent': 'Input',
-  'dashboard.coachmark.organize.orderTitle': "Organizza: controlla l'ordine",
-  'dashboard.coachmark.organize.orderBody':
-    "Nella barra laterale sinistra scegli l'immagine attiva, riordini le pagine, rimuovi elementi indesiderati e verifichi se il capitolo è pronto per procedere.",
-  'dashboard.coachmark.organize.orderAccent': 'Batch',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'AIO Automatico: abilita solo ciò che serve',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -4076,7 +4057,7 @@ export const itMessages: TranslationCatalog = {
     'La zona di rilascio accetta sia immagini singole che pacchetti completi. È il punto di partenza per trascinare capitoli, raw o risorse da utilizzare nel resto della dashboard.',
   'dashboard.tour.modes.title': 'Navigazione principale della Dashboard',
   'dashboard.tour.modes.body':
-    'Usa Organizza per preparare il batch e AIO per la pipeline completa. Gli altri gruppi nella barra superiore aprono modalità specializzate senza uscire dallo spazio di lavoro.',
+    'Usa AIO per la pipeline completa. Gli altri gruppi nella barra superiore aprono modalità specializzate senza uscire dallo spazio di lavoro.',
   'dashboard.tour.production.title': 'Produzione: strumenti specializzati',
   'dashboard.tour.production.body':
     'Pulitore, Compositore, Traduttore, Raw e QC coprono il flusso di lavoro manuale e avanzato. Pensa a questo gruppo come alle modalità professionali per lavorare su una fase specifica del capitolo.',

@@ -41,7 +41,7 @@ export default defineConfig({
     // dep-optimizer bundles of react/react-dom (different ?v= hashes) when a
     // workspace package resolves its own copy — hooks then see a dispatcher
     // from a different React instance ("Invalid hook call" / null useMemo).
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', 'scheduler'],
     alias: {
       '@': path.resolve(__dirname, '../../packages/interface/src'),
       '@shared': path.resolve(__dirname, '../../packages/types/src'),

@@ -34,10 +34,9 @@ interface UseWorkspacePersistenceArgs {
 /**
  * Workspace persistence: capture/restore of the full workspace document,
  * undo/redo history, local autosave, export/import/close and the footer
- * workspace status. The history/autosave change-signal moved from a
- * render-driven effect (the hook subscribed the page to every domain store)
- * to a single store.subscribe over the domain stores — same observed change
- * set, zero page re-renders from persistence bookkeeping.
+ * workspace status. The history/autosave change-signal is a single
+ * store.subscribe over the domain stores, so persistence bookkeeping does not
+ * re-render the page.
  */
 export function useWorkspacePersistence({
   authUser,

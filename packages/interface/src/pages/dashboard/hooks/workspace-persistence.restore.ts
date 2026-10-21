@@ -1,13 +1,12 @@
 /**
  * Workspace restore — applies a DashboardWorkspaceRestoreState back onto every
  * domain store (mode/collection/downloads, AIO, cleaner, translator,
- * typesetter, enhance, utility, LLM profiles & drafts). Split out of
- * workspace-persistence.ts; the entry file keeps the orchestration.
+ * typesetter, enhance, utility, LLM profiles & drafts). The entry file keeps
+ * the orchestration.
  *
  * The ordered apply lives in workspace-persistence.registry.ts: one
- * getState()-driven plan replaces the hand-written setter sequence and its
- * baseline deps array, so the callback deps shrink to the object-URL release
- * helper.
+ * getState()-driven plan, so the callback deps shrink to the object-URL
+ * release helper.
  */
 import { useCallback } from 'react';
 import { useI18n } from '../../../i18n';

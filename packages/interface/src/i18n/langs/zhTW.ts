@@ -569,7 +569,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': '清除/重繪',
   'dashboard.nav.short.enhance': '增強',
-  'dashboard.nav.subtitle.organize': '管理檔案',
   'dashboard.nav.subtitle.aio': '一站式',
   'dashboard.nav.subtitle.cleaner': '清除器與重繪器',
   'dashboard.nav.subtitle.typesetter': '排版器',
@@ -585,7 +584,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': '匿名託管',
   'dashboard.nav.subtitle.guides': '教學課程',
   'dashboard.nav.subtitle.resources': '素材資源',
-  'dashboard.nav.tooltip.organize': '在處理前整理並重新排序您的圖片',
   'dashboard.nav.tooltip.aio': '完整管線：偵測、辨識、翻譯、分割、清除和渲染',
   'dashboard.nav.tooltip.cleaner': '清除對話框並重繪圖片區域',
   'dashboard.nav.tooltip.typesetter': '在頁面上套用排版並設定文字樣式',
@@ -601,7 +599,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.nav.tooltip.imgur': '使用 Client ID 輪換上傳圖片至 Imgur',
   'dashboard.nav.tooltip.guides': '工具使用指南與教學課程',
   'dashboard.nav.tooltip.resources': '素材、連結與參考資料',
-  'dashboard.mode.organize': '整理',
   'dashboard.mode.aio': 'AIO — 一站式',
   'dashboard.mode.cleaner': '清除器 / 重繪器',
   'dashboard.mode.typesetter': '排版器',
@@ -2034,8 +2031,6 @@ export const zhMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     '格式，請先轉換為 ONNX，然後使用手動匯入。',
   'common.yes': '是',
-  'dashboard.organize.hint.reorder': '在左側面板中拖曳並重新排序檔案。',
-  'dashboard.organize.hint.rotate': '使用旋轉按鈕修正水平掃描的頁面。',
   'guides.common.beginner': '初學者',
   'guides.common.intermediate': '進階',
   'guides.common.advanced': '高級',
@@ -3110,8 +3105,6 @@ export const zhMessages: TranslationCatalog = {
   'shortcuts.setViewPaginated.description': '切換至分頁檢視。',
   'shortcuts.setViewLongStrip.label': '長條檢視',
   'shortcuts.setViewLongStrip.description': '切換至長條檢視。',
-  'shortcuts.setModeOrganize.label': '整理模式',
-  'shortcuts.setModeOrganize.description': '切換至整理模式。',
   'shortcuts.setModeAio.label': 'AIO 模式',
   'shortcuts.setModeAio.description': '切換至 AIO 模式。',
   'shortcuts.setModeCleaner.label': '清除器 / 重繪器模式',
@@ -3231,14 +3224,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     '當結果滿意後，透過匯出選單完成下載圖片、套件或 PSD，無需離開目前模式。',
   'dashboard.coachmark.download.accent': '交付',
-  'dashboard.coachmark.organize.uploadTitle': '整理：從上傳開始',
-  'dashboard.coachmark.organize.uploadBody':
-    '將頁面、章節或完整套件拖曳至此。整理模式用於在進入製作前準備批次。',
-  'dashboard.coachmark.organize.uploadAccent': '輸入',
-  'dashboard.coachmark.organize.orderTitle': '整理：檢閱順序',
-  'dashboard.coachmark.organize.orderBody':
-    '在左側邊欄中選擇啟用的圖片、重新排序頁面、移除不良項目，並確認章節是否準備好繼續。',
-  'dashboard.coachmark.organize.orderAccent': '批次',
   'dashboard.coachmark.aioAuto.stagesTitle': '自動 AIO：僅啟用所需階段',
   'dashboard.coachmark.aioAuto.stagesBody':
     '僅啟用對此批次有意義的階段。較少的階段意味著更低的成本、更短的時間和更少的故障點。',
@@ -3696,7 +3681,7 @@ export const zhMessages: TranslationCatalog = {
     '拖放區接受零散圖片和完整套件。這是拖曳章節、生肉或素材以供儀表板其他部分使用的起點。',
   'dashboard.tour.modes.title': '儀表板主要導覽',
   'dashboard.tour.modes.body':
-    '使用「整理」準備批次，使用「AIO」進行完整管線。頂部工具列的其他群組可在不離開工作區的情況下開啟專門模式。',
+    '使用「AIO」進行完整管線。頂部工具列的其他群組可在不離開工作區的情況下開啟專門模式。',
   'dashboard.tour.production.title': '製作：專門工具',
   'dashboard.tour.production.body':
     '清除器、排版器、翻譯器、生肉和品管涵蓋手動和進階工作流程。將此群組視為在特定章節階段上工作的專業模式。',

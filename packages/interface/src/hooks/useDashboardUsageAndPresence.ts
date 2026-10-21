@@ -104,13 +104,6 @@ export function useDashboardUsageAndPresence({
       (imagesLength > 0
         ? t('dashboard.status.imagesCount', { count: imagesLength })
         : t('dashboard.status.noImage'));
-    if (mode === 'organize') {
-      await setDiscordPreset('workspace_organize_mode', {
-        details: t('discord.presence.workspace.details' as any),
-        state: userDisplayName,
-      });
-      return;
-    }
     if (mode === 'guides') {
       await setDiscordPreset('guides_tutorials');
       return;

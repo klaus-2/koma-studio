@@ -53,7 +53,6 @@ export function useExportDownloadAvailability({ activeImage }: { activeImage: Lo
   const lastActionScope = useExportStore((s) => s.lastActionScope);
   const isProcessableMode =
     !INFO_MODES.includes(mode) &&
-    mode !== 'organize' &&
     mode !== 'blogger' &&
     mode !== 'imgur';
   const hasRenderableAioOutput =

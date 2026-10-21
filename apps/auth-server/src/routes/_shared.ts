@@ -11,6 +11,7 @@ import {
   DESKTOP_TRAVEL_TOKEN_HEADER,
   DESKTOP_TRAVEL_TOKEN_PATH,
   DESKTOP_UPDATE_CHANNEL_HEADER,
+  type DesktopSessionSnapshot,
 } from "@koma/types/desktopSession";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
@@ -174,17 +175,7 @@ export interface AuthSessionUser {
 
 export type UserRow = typeof user.$inferSelect;
 
-export interface AuthUserResponsePayload {
-  id: string;
-  email: string;
-  emailVerified: boolean;
-  name?: string;
-  locale: string;
-  appRole: AppRole;
-  feedProfileStatus: string;
-  authorNotificationWebhookConfigured: boolean;
-  activeBan: null;
-}
+export type AuthUserResponsePayload = DesktopSessionSnapshot;
 
 export const asObject = (value: unknown): Record<string, unknown> | null =>
   value !== null && typeof value === "object" ? (value as Record<string, unknown>) : null;

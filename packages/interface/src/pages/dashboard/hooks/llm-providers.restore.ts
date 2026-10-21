@@ -35,6 +35,7 @@ export const mergeRestoredCustomLlmProfiles = (
       byId.set(profile.id, profile);
     }
   }
+  // oxlint-disable-next-line unicorn/no-array-sort -- Array.from returns a fresh array
   return Array.from(byId.values()).sort((left, right) =>
     left.label.localeCompare(right.label, 'pt-BR'),
   );

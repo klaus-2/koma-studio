@@ -42,6 +42,10 @@ import {
 } from "../services/desktop-session.js";
 import { safeTokenEquals, sha256Hex } from "../utils/crypto.js";
 import { readHeaderValue } from "../utils/http.js";
+import type {
+  DesktopBootstrapResponse,
+  DesktopDeviceRegisterResponse,
+} from "@koma/types/desktopSession";
 import {
   DESKTOP_BOOTSTRAP_PATH,
   DESKTOP_BOOTSTRAP_SECRET_HEADER,
@@ -223,16 +227,18 @@ export function registerDesktopRoutes(app: express.Express): void {
             },
           );
 
-          return res.status(200).json({
+          const resolvedSlot = normalizeDesktopSlot(savedDevice.slot) ?? targetSlot;
+          const registerResponse: DesktopDeviceRegisterResponse = {
             success: true,
             deviceId,
             deviceKey,
-            slot: savedDevice.slot,
+            slot: resolvedSlot,
             travelExpiresAt:
-              normalizeDesktopSlot(savedDevice.slot) === DESKTOP_TRAVEL_SLOT && savedDevice.expiresAt
+              resolvedSlot === DESKTOP_TRAVEL_SLOT && savedDevice.expiresAt
                 ? savedDevice.expiresAt.toISOString()
                 : null,
-          });
+          };
+          return res.status(200).json(registerResponse);
         } catch (error) {
           return sendAuthError(res, 503, {
             error: tServer(resolveLocaleFromHeaders(req.headers), "auth.desktop.register.failed"),
@@ -335,14 +341,15 @@ export function registerDesktopRoutes(app: express.Express): void {
           });
         }
 
-        return res.status(200).json({
+        const bootstrapResponse: DesktopBootstrapResponse = {
           success: true,
           sessionId,
           deviceId,
           ttlSeconds,
           refreshAfterSeconds: Math.max(30, ttlSeconds - env.desktopClientTokenRefreshSkewSec),
           expiresAt: new Date(clientSession.expiresAtMs).toISOString(),
-        });
+        };
+        return res.status(200).json(bootstrapResponse);
       },
     );
 

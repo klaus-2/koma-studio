@@ -19,7 +19,7 @@ from models.errors import (
     ModelNotInstalledError,
 )
 from models.translation.factory import list_translation_models
-from models.translation.stage import (
+from pipelines.translation_stage import (
     CachedTranslationRequest,
     run_cached_translation,
     seed_from_request,

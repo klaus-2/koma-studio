@@ -17,3 +17,15 @@ export const parsePositiveInteger = (value: unknown, fallback: number): number =
   }
   return numberValue;
 };
+
+export const parseBoundedPositiveInteger = (
+  value: unknown,
+  fallback: number,
+  max: number,
+): number => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.max(1, Math.min(max, Math.round(numeric)));
+};

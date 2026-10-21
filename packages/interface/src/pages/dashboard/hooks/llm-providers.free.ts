@@ -1,8 +1,7 @@
 /**
  * LLM free provider profiles — the local backend provider-config test probes
  * and the free-provider draft state with save/validate/use-profile flows.
- * Split out of llm-providers.ts (T10); the entry file keeps the options
- * bridge and re-exports this module.
+ * The entry file keeps the options bridge and re-exports this module.
  */
 import { useCallback } from 'react';
 
@@ -351,8 +350,6 @@ export function useFreeProviderProfiles({
   }, [applyCustomProfileSelection, saveFreeProviderProfile, setStatusMessage, t]);
 
   return {
-    freeProviderDrafts,
-    setFreeProviderDrafts,
     getFreeProviderDraft,
     updateFreeProviderDraft,
     getSelectedFreeProviderProfileLabel,

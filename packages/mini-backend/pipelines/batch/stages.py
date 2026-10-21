@@ -23,12 +23,13 @@ from models.inpainting.factory import get_inpainter
 from pipelines.ocr_stage import CachedOcrRequest, run_cached_ocr
 from pipelines.detection_seeds import (
     detect_text_seeds,
+    normalize_detector_fields,
     ocr_seeds_from_detections,
     run_text_detector,
 )
 from models.segmentation.base_segmenter import SegmentInputRegion
 from models.segmentation.factory import get_segmenter
-from models.translation.stage import (
+from pipelines.translation_stage import (
     CachedTranslationRequest,
     run_cached_translation,
     seed_from_ocr,
@@ -105,17 +106,17 @@ def _encode_png(rgb: RGBArray) -> bytes:
 
 def detection_to_record(det: object, index: int, fallback_model: str) -> DetectionRecord:
     """Adapt a detector-specific result object into the wire record."""
-    bbox = normalize_bbox(getattr(det, "bbox", None))
-    if bbox is None:
+    fields = normalize_detector_fields(det, fallback_model)
+    if fields is None:
         raise InvalidImageError(f"Detector returned an invalid bbox for region {index}")
     score = optional_float(getattr(det, "score", None))
     return DetectionRecord(
         id=f"det-{index}",
-        bbox=list(bbox),
+        bbox=fields.bbox,
         score=round(1.0 if score is None else score, 4),
         label=str(getattr(det, "label", "text")),
-        source=normalize_stage_source(getattr(det, "source", "model")),
-        model_key=str(getattr(det, "model_key", "") or fallback_model),
+        source=fields.source,
+        model_key=fields.model_key,
         foreground_rgb=optional_rgb(getattr(det, "foreground_rgb", None)),
         structural_type=optional_str(getattr(det, "structural_type", None)),
         structural_confidence=optional_float(

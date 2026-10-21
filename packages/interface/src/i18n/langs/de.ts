@@ -651,7 +651,6 @@ export const deMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': 'Cleaner/RD',
   'dashboard.nav.short.enhance': 'Verbessern',
-  'dashboard.nav.subtitle.organize': 'Dateien verwalten',
   'dashboard.nav.subtitle.aio': 'Alles in Einem',
   'dashboard.nav.subtitle.cleaner': 'Cleaner & Redrawer',
   'dashboard.nav.subtitle.typesetter': 'Typesetter',
@@ -667,8 +666,6 @@ export const deMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': 'Anonymes Hosting',
   'dashboard.nav.subtitle.guides': 'Anleitungen',
   'dashboard.nav.subtitle.resources': 'Ressourcen',
-  'dashboard.nav.tooltip.organize':
-    'Bilder vor der Verarbeitung organisieren und neu ordnen',
   'dashboard.nav.tooltip.aio':
     'Vollständige Pipeline: Erkennen, Lesen, Übersetzen, Segmentieren, Bereinigen und Rendern',
   'dashboard.nav.tooltip.cleaner':
@@ -697,7 +694,6 @@ export const deMessages: TranslationCatalog = {
     'Anleitungen und Tutorials zur Werkzeugnutzung',
   'dashboard.nav.tooltip.resources':
     'Ressourcen, Links und Referenzmaterialien',
-  'dashboard.mode.organize': 'Organisieren',
   'dashboard.mode.aio': 'AIO – Alles in Einem',
   'dashboard.mode.cleaner': 'Cleaner / Redrawer',
   'dashboard.mode.typesetter': 'Typesetter',
@@ -2250,10 +2246,6 @@ export const deMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     'zuerst in ONNX konvertieren und dann den manuellen Import verwenden.',
   'common.yes': 'Ja',
-  'dashboard.organize.hint.reorder':
-    'Dateien im linken Bereich ziehen und neu ordnen.',
-  'dashboard.organize.hint.rotate':
-    'Verwende die Drehschaltfläche, um horizontal gescannte Seiten zu korrigieren.',
   'guides.common.beginner': 'Einsteiger',
   'guides.common.intermediate': 'Fortgeschritten',
   'guides.common.advanced': 'Experte',
@@ -3438,8 +3430,6 @@ export const deMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'Langer-Streifen-Ansicht',
   'shortcuts.setViewLongStrip.description':
     'Wechselt zur Langer-Streifen-Ansicht.',
-  'shortcuts.setModeOrganize.label': 'Organisieren-Modus',
-  'shortcuts.setModeOrganize.description': 'Wechselt zum Organisieren-Modus.',
   'shortcuts.setModeAio.label': 'AIO-Modus',
   'shortcuts.setModeAio.description': 'Wechselt zum AIO-Modus.',
   'shortcuts.setModeCleaner.label': 'Cleaner-/Redrawer-Modus',
@@ -3581,16 +3571,6 @@ export const deMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     'Wenn das Ergebnis passt, schließe über das Exportmenü ab, um Bilder, Pakete oder PSDs herunterzuladen, ohne den aktuellen Modus zu verlassen.',
   'dashboard.coachmark.download.accent': 'Lieferung',
-  'dashboard.coachmark.organize.uploadTitle':
-    'Organisieren: mit Upload beginnen',
-  'dashboard.coachmark.organize.uploadBody':
-    'Ziehe Seiten, Kapitel oder ganze Pakete hierher. Der Organisieren-Modus dient dazu, den Stapel vorzubereiten, bevor du in die Produktion wechselst.',
-  'dashboard.coachmark.organize.uploadAccent': 'Eingabe',
-  'dashboard.coachmark.organize.orderTitle':
-    'Organisieren: Reihenfolge überprüfen',
-  'dashboard.coachmark.organize.orderBody':
-    'In der linken Seitenleiste wählst du das aktive Bild, ordnest Seiten neu, entfernst fehlerhafte Elemente und prüfst, ob das Kapitel bereit ist fortzufahren.',
-  'dashboard.coachmark.organize.orderAccent': 'Stapel',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'Auto-AIO: nur aktivieren, was du brauchst',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -4144,7 +4124,7 @@ export const deMessages: TranslationCatalog = {
     'Die Drop-Zone akzeptiert einzelne Bilder und vollständige Pakete. Sie ist der Ausgangspunkt zum Ziehen von Kapiteln, Raws oder Assets für den Rest des Dashboards.',
   'dashboard.tour.modes.title': 'Hauptnavigation des Dashboards',
   'dashboard.tour.modes.body':
-    'Verwende Organisieren, um den Stapel vorzubereiten, und AIO für die vollständige Pipeline. Die anderen Gruppen in der oberen Leiste öffnen spezialisierte Modi, ohne den Arbeitsbereich zu verlassen.',
+    'Verwende AIO für die vollständige Pipeline. Die anderen Gruppen in der oberen Leiste öffnen spezialisierte Modi, ohne den Arbeitsbereich zu verlassen.',
   'dashboard.tour.production.title': 'Produktion: spezialisierte Werkzeuge',
   'dashboard.tour.production.body':
     'Cleaner, Typesetter, Übersetzer, Raw und QC decken den manuellen und erweiterten Workflow ab. Betrachte diese Gruppe als die professionellen Modi für die Arbeit an einer bestimmten Kapitelphase.',

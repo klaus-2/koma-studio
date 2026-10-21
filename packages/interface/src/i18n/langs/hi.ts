@@ -629,7 +629,6 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': 'Cleaner/RD',
   'dashboard.nav.short.enhance': 'Enhance',
-  'dashboard.nav.subtitle.organize': 'Kelola file',
   'dashboard.nav.subtitle.aio': 'All in One',
   'dashboard.nav.subtitle.cleaner': 'Cleaner & Redrawer',
   'dashboard.nav.subtitle.typesetter': 'Typesetter',
@@ -645,8 +644,6 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': 'Anonymous Host',
   'dashboard.nav.subtitle.guides': 'Tutorial',
   'dashboard.nav.subtitle.resources': 'Sumber Daya',
-  'dashboard.nav.tooltip.organize':
-    'Atur dan urutkan ulang gambar Anda sebelum diproses',
   'dashboard.nav.tooltip.aio':
     'Pipeline lengkap: deteksi, kenali, terjemahkan, segmentasi, bersihkan, dan render',
   'dashboard.nav.tooltip.cleaner': 'Bersihkan balon dan redraw area gambar',
@@ -673,7 +670,6 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.nav.tooltip.guides': 'Panduan penggunaan alat dan tutorial',
   'dashboard.nav.tooltip.resources':
     'Sumber daya, tautan, dan materi referensi',
-  'dashboard.mode.organize': 'Atur',
   'dashboard.mode.aio': 'AIO — All in One',
   'dashboard.mode.cleaner': 'Cleaner / Redrawer',
   'dashboard.mode.typesetter': 'Typesetter',
@@ -2186,10 +2182,6 @@ export const hiMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     'konversi ke ONNX terlebih dahulu lalu gunakan impor manual.',
   'common.yes': 'Ya',
-  'dashboard.organize.hint.reorder':
-    'Seret dan susun ulang file di panel kiri.',
-  'dashboard.organize.hint.rotate':
-    'Gunakan tombol rotasi untuk memperbaiki halaman yang dipindai secara horizontal.',
   'guides.common.beginner': 'Pemula',
   'guides.common.intermediate': 'Menengah',
   'guides.common.advanced': 'Lanjutan',
@@ -3340,8 +3332,6 @@ export const hiMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'Tampilan strip panjang',
   'shortcuts.setViewLongStrip.description':
     'Beralih ke tampilan strip panjang.',
-  'shortcuts.setModeOrganize.label': 'Mode Atur',
-  'shortcuts.setModeOrganize.description': 'Beralih ke mode Atur.',
   'shortcuts.setModeAio.label': 'Mode AIO',
   'shortcuts.setModeAio.description': 'Beralih ke mode AIO.',
   'shortcuts.setModeCleaner.label': 'Mode Cleaner / Redrawer',
@@ -3479,14 +3469,6 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     'Ketika hasilnya sudah benar, selesaikan melalui menu ekspor untuk mengunduh gambar, paket, atau PSD tanpa meninggalkan mode saat ini.',
   'dashboard.coachmark.download.accent': 'Pengiriman',
-  'dashboard.coachmark.organize.uploadTitle': 'Atur: mulai dengan upload',
-  'dashboard.coachmark.organize.uploadBody':
-    'Seret halaman, chapter, atau paket lengkap ke sini. Mode Atur ada untuk menyiapkan batch sebelum masuk ke produksi.',
-  'dashboard.coachmark.organize.uploadAccent': 'Input',
-  'dashboard.coachmark.organize.orderTitle': 'Atur: tinjau urutan',
-  'dashboard.coachmark.organize.orderBody':
-    'Di sidebar kiri Anda memilih gambar aktif, menyusun ulang halaman, menghapus item buruk, dan memeriksa apakah chapter siap untuk dilanjutkan.',
-  'dashboard.coachmark.organize.orderAccent': 'Batch',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'AIO Otomatis: aktifkan hanya yang Anda butuhkan',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -4024,7 +4006,7 @@ export const hiMessages: TranslationCatalog = {
     'Zona drop menerima gambar lepas dan paket lengkap. Ini adalah titik awal untuk menyeret chapter, raw, atau aset untuk memberi isi ke seluruh dashboard.',
   'dashboard.tour.modes.title': 'Navigasi utama Dashboard',
   'dashboard.tour.modes.body':
-    'Gunakan Atur untuk menyiapkan batch dan AIO untuk pipeline lengkap. Grup topbar lainnya membuka mode khusus tanpa meninggalkan workspace.',
+    'Gunakan AIO untuk pipeline lengkap. Grup topbar lainnya membuka mode khusus tanpa meninggalkan workspace.',
   'dashboard.tour.production.title': 'Produksi: alat khusus',
   'dashboard.tour.production.body':
     'Cleaner, Typesetter, Penerjemah, Raw, dan QC mencakup alur kerja manual dan lanjutan. Anggap grup ini sebagai mode profesional untuk mengerjakan tahap chapter tertentu.',

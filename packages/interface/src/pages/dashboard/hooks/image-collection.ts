@@ -368,7 +368,7 @@ export function useDashboardImageCollection({
 
   const getPreviewSrc = useCallback(
     (img: LoadedImage) => {
-      if (mode === 'organize' || INFO_MODES.includes(mode)) return img.url;
+      if (INFO_MODES.includes(mode)) return img.url;
       const manualToolsState = useManualToolsStore.getState();
       const cleanerState = useCleanerStore.getState();
       const translatorState = useTranslatorStore.getState();

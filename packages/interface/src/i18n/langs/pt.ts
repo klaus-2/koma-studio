@@ -628,7 +628,6 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': 'Limpador/RD',
   'dashboard.nav.short.enhance': 'Melhorar',
-  'dashboard.nav.subtitle.organize': 'Gerenciar arquivos',
   'dashboard.nav.subtitle.aio': 'Tudo em Um',
   'dashboard.nav.subtitle.cleaner': 'Cleaner & Redrawer',
   'dashboard.nav.subtitle.typesetter': 'Typesetter',
@@ -644,8 +643,6 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': 'Anonymous Host',
   'dashboard.nav.subtitle.guides': 'Tutoriais',
   'dashboard.nav.subtitle.resources': 'Materiais',
-  'dashboard.nav.tooltip.organize':
-    'Organize e reordene suas imagens antes do processamento',
   'dashboard.nav.tooltip.aio':
     'Pipeline completo: detectar, reconhecer, traduzir, segmentar, limpar e renderizar',
   'dashboard.nav.tooltip.cleaner': 'Limpar balões e redesenhar áreas da imagem',
@@ -670,7 +667,6 @@ export const ptMessages: TranslationCatalog = {
     'Enviar imagens para o Imgur com rotação de Client IDs',
   'dashboard.nav.tooltip.guides': 'Guias e tutoriais de uso da ferramenta',
   'dashboard.nav.tooltip.resources': 'Recursos, links e materiais de apoio',
-  'dashboard.mode.organize': 'Organizar',
   'dashboard.mode.aio': 'AIO — Tudo em Um',
   'dashboard.mode.cleaner': 'Limpador / Redesenhador',
   'dashboard.mode.typesetter': 'Tipógrafo',
@@ -2177,10 +2173,6 @@ export const ptMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     'converta primeiro para ONNX e depois use a importação manual.',
   'common.yes': 'Sim',
-  'dashboard.organize.hint.reorder':
-    'Arraste e reordene os arquivos no painel esquerdo.',
-  'dashboard.organize.hint.rotate':
-    'Use o botão de rotação para corrigir páginas escaneadas na horizontal.',
   'guides.common.beginner': 'Iniciante',
   'guides.common.intermediate': 'Intermediário',
   'guides.common.advanced': 'Avançado',
@@ -3333,8 +3325,6 @@ export const ptMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'Visualização tira longa',
   'shortcuts.setViewLongStrip.description':
     'Alterna para a visualização de tira longa.',
-  'shortcuts.setModeOrganize.label': 'Modo Organizar',
-  'shortcuts.setModeOrganize.description': 'Troca para o modo Organizar.',
   'shortcuts.setModeAio.label': 'Modo AIO',
   'shortcuts.setModeAio.description': 'Troca para o modo AIO.',
   'shortcuts.setModeCleaner.label': 'Modo Limpador / Redesenhador',
@@ -3473,14 +3463,6 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     'Quando o resultado estiver do jeito certo, finalize pelo menu de exportação para baixar imagens, pacotes ou PSDs sem sair do modo atual.',
   'dashboard.coachmark.download.accent': 'Entrega',
-  'dashboard.coachmark.organize.uploadTitle': 'Organizar: comece pelo upload',
-  'dashboard.coachmark.organize.uploadBody':
-    'Arraste páginas, capítulos ou pacotes inteiros aqui. O modo Organizar existe para preparar o lote antes de entrar na produção.',
-  'dashboard.coachmark.organize.uploadAccent': 'Entrada',
-  'dashboard.coachmark.organize.orderTitle': 'Organizar: revise a ordem',
-  'dashboard.coachmark.organize.orderBody':
-    'Na sidebar esquerda você escolhe a imagem ativa, reordena páginas, remove itens ruins e confere se o capítulo está pronto para seguir.',
-  'dashboard.coachmark.organize.orderAccent': 'Lote',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'AIO automático: ligue só o necessário',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -4031,7 +4013,7 @@ export const ptMessages: TranslationCatalog = {
     'O dropzone aceita imagens soltas e pacotes completos. É o ponto de partida para arrastar capítulos, raws ou assets e alimentar o restante do dashboard.',
   'dashboard.tour.modes.title': 'Navegação principal do Dashboard',
   'dashboard.tour.modes.body':
-    'Use Organizar para preparar o lote e AIO para o pipeline completo. Os outros grupos da topbar abrem modos especializados sem sair do workspace.',
+    'Use AIO para o pipeline completo. Os outros grupos da topbar abrem modos especializados sem sair do workspace.',
   'dashboard.tour.production.title': 'Produção: ferramentas especializadas',
   'dashboard.tour.production.body':
     'Cleaner, Tipógrafo, Tradutor, Raw e QC cobrem o fluxo manual e avançado. Pense nesse grupo como os modos profissionais para trabalhar uma etapa específica do capítulo.',

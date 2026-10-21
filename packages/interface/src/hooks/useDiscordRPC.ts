@@ -12,7 +12,6 @@ import { desktopBridge } from "@/lib/desktop-bridge";
 const DISCORD_RPC_STORAGE_KEY = "discord-rpc-enabled";
 const CONNECTION_POLL_INTERVAL_MS = 15_000;
 const DISCORD_MODE_LABEL_KEYS = {
-  organize: "dashboard.mode.organize",
   aio: "dashboard.mode.aio",
   cleaner: "dashboard.mode.cleaner",
   typesetter: "dashboard.mode.typesetter",
@@ -187,16 +186,6 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
           state: t("discord.presence.idle.state" as any),
           largeImageText: appName,
           smallImageText: t("discord.presence.idle.state" as any),
-          buttons: [
-            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
-            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
-          ],
-        },
-        workspace_organize_mode: {
-          details: t("discord.presence.workspace.details" as any),
-          state: modeLabels.organize,
-          largeImageText: appName,
-          smallImageText: modeLabels.organize,
           buttons: [
             { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
             { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
@@ -434,7 +423,7 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
 
   const setDashboard = useCallback(async (): Promise<void> => {
     if (user) {
-      await setPreset("workspace_organize_mode", {
+      await setPreset("idle", {
         details: t("discord.presence.workspace.details" as any),
         state: toDashboardName(user, t("dashboard.user.defaultName" as any)),
       });

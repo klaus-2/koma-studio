@@ -612,7 +612,6 @@ export const koMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': '클리너/RD',
   'dashboard.nav.short.enhance': '향상',
-  'dashboard.nav.subtitle.organize': '파일 관리',
   'dashboard.nav.subtitle.aio': '올인원',
   'dashboard.nav.subtitle.cleaner': '클리너 & 리드로어',
   'dashboard.nav.subtitle.typesetter': '타이프세터',
@@ -628,7 +627,6 @@ export const koMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': '익명 호스팅',
   'dashboard.nav.subtitle.guides': '튜토리얼',
   'dashboard.nav.subtitle.resources': '리소스',
-  'dashboard.nav.tooltip.organize': '처리 전에 이미지를 정리하고 재정렬',
   'dashboard.nav.tooltip.aio':
     '전체 파이프라인: 감지, 인식, 번역, 분할, 클린, 렌더',
   'dashboard.nav.tooltip.cleaner': '말풍선 클리닝 및 이미지 영역 리드로우',
@@ -649,7 +647,6 @@ export const koMessages: TranslationCatalog = {
   'dashboard.nav.tooltip.imgur': 'Client ID 로테이션으로 Imgur에 이미지 업로드',
   'dashboard.nav.tooltip.guides': '도구 사용 가이드 및 튜토리얼',
   'dashboard.nav.tooltip.resources': '리소스, 링크 및 참고 자료',
-  'dashboard.mode.organize': '정리',
   'dashboard.mode.aio': 'AIO — 올인원',
   'dashboard.mode.cleaner': '클리너 / 리드로어',
   'dashboard.mode.typesetter': '타이프세터',
@@ -2138,10 +2135,6 @@ export const koMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     '인 경우 먼저 ONNX로 변환한 후 수동 가져오기를 사용하세요.',
   'common.yes': '예',
-  'dashboard.organize.hint.reorder':
-    '왼쪽 패널에서 파일을 드래그하여 재정렬하세요.',
-  'dashboard.organize.hint.rotate':
-    '회전 버튼을 사용하여 가로로 스캔된 페이지를 수정하세요.',
   'guides.common.beginner': '초급',
   'guides.common.intermediate': '중급',
   'guides.common.advanced': '고급',
@@ -3286,8 +3279,6 @@ export const koMessages: TranslationCatalog = {
   'shortcuts.setViewPaginated.description': '페이지별 보기로 전환합니다.',
   'shortcuts.setViewLongStrip.label': '긴 스트립 보기',
   'shortcuts.setViewLongStrip.description': '긴 스트립 보기로 전환합니다.',
-  'shortcuts.setModeOrganize.label': '정리 모드',
-  'shortcuts.setModeOrganize.description': '정리 모드로 전환합니다.',
   'shortcuts.setModeAio.label': 'AIO 모드',
   'shortcuts.setModeAio.description': 'AIO 모드로 전환합니다.',
   'shortcuts.setModeCleaner.label': '클리너 / 리드로어 모드',
@@ -3424,14 +3415,6 @@ export const koMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     '결과가 만족스러우면 내보내기 메뉴를 통해 현재 모드를 벗어나지 않고 이미지, 패키지 또는 PSD를 다운로드하세요.',
   'dashboard.coachmark.download.accent': '전달',
-  'dashboard.coachmark.organize.uploadTitle': '정리: 업로드로 시작',
-  'dashboard.coachmark.organize.uploadBody':
-    '여기에 페이지, 챕터 또는 전체 패키지를 드래그하세요. 정리 모드는 프로덕션에 들어가기 전에 배치를 준비하기 위해 존재합니다.',
-  'dashboard.coachmark.organize.uploadAccent': '입력',
-  'dashboard.coachmark.organize.orderTitle': '정리: 순서 확인',
-  'dashboard.coachmark.organize.orderBody':
-    '왼쪽 사이드바에서 활성 이미지를 선택하고, 페이지 순서를 변경하고, 불량 항목을 제거하고, 챕터가 진행할 준비가 되었는지 확인합니다.',
-  'dashboard.coachmark.organize.orderAccent': '배치',
   'dashboard.coachmark.aioAuto.stagesTitle': '자동 AIO: 필요한 것만 활성화',
   'dashboard.coachmark.aioAuto.stagesBody':
     '이 배치에 적합한 단계만 활성화하세요. 단계가 적으면 비용, 시간 및 실패 가능성이 줄어듭니다.',
@@ -3951,7 +3934,7 @@ export const koMessages: TranslationCatalog = {
     '드롭존은 개별 이미지와 전체 패키지를 모두 허용합니다. 챕터, 원본 또는 에셋을 드래그하여 대시보드의 나머지 부분에 공급하는 시작점입니다.',
   'dashboard.tour.modes.title': '메인 대시보드 탐색',
   'dashboard.tour.modes.body':
-    '정리를 사용하여 배치를 준비하고 AIO로 전체 파이프라인을 실행하세요. 다른 상단 도구 모음 그룹은 작업 공간을 벗어나지 않고 전문 모드를 엽니다.',
+    'AIO에서 전체 파이프라인을 실행하세요. 다른 상단 도구 모음 그룹은 작업 공간을 벗어나지 않고 전문 모드를 엽니다.',
   'dashboard.tour.production.title': '프로덕션: 전문 도구',
   'dashboard.tour.production.body':
     '클리너, 타이프세터, 번역기, 원본, QC는 수동 및 고급 워크플로를 다룹니다. 이 그룹을 특정 챕터 단계에서 작업하기 위한 전문 모드로 생각하세요.',

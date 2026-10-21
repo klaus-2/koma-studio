@@ -602,7 +602,6 @@ export const arMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': 'منظف/RD',
   'dashboard.nav.short.enhance': 'تحسين',
-  'dashboard.nav.subtitle.organize': 'إدارة الملفات',
   'dashboard.nav.subtitle.aio': 'الكل في واحد',
   'dashboard.nav.subtitle.cleaner': 'منظف ومُعيد رسم',
   'dashboard.nav.subtitle.typesetter': 'محرر طباعة',
@@ -618,7 +617,6 @@ export const arMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': 'استضافة مجهولة',
   'dashboard.nav.subtitle.guides': 'شروحات',
   'dashboard.nav.subtitle.resources': 'موارد',
-  'dashboard.nav.tooltip.organize': 'تنظيم وإعادة ترتيب صورك قبل المعالجة',
   'dashboard.nav.tooltip.aio':
     'خط أنابيب كامل: اكتشاف، تعرف، ترجمة، تقسيم، تنظيف، وعرض',
   'dashboard.nav.tooltip.cleaner': 'تنظيف البالونات وإعادة رسم مناطق الصورة',
@@ -639,7 +637,6 @@ export const arMessages: TranslationCatalog = {
   'dashboard.nav.tooltip.imgur': 'رفع الصور إلى Imgur مع تدوير معرّف العميل',
   'dashboard.nav.tooltip.guides': 'أدلة استخدام الأدوات والشروحات',
   'dashboard.nav.tooltip.resources': 'موارد وروابط ومواد مرجعية',
-  'dashboard.mode.organize': 'تنظيم',
   'dashboard.mode.aio': 'AIO — الكل في واحد',
   'dashboard.mode.cleaner': 'منظف / مُعيد رسم',
   'dashboard.mode.typesetter': 'محرر الطباعة',
@@ -2118,10 +2115,6 @@ export const arMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     'حوّلها إلى ONNX أولاً ثم استخدم الاستيراد اليدوي.',
   'common.yes': 'نعم',
-  'dashboard.organize.hint.reorder':
-    'اسحب وأعد ترتيب الملفات في اللوحة اليسرى.',
-  'dashboard.organize.hint.rotate':
-    'استخدم زر التدوير لإصلاح الصفحات المسحوبة أفقيًا.',
   'guides.common.beginner': 'مبتدئ',
   'guides.common.intermediate': 'متوسط',
   'guides.common.advanced': 'متقدم',
@@ -3244,8 +3237,6 @@ export const arMessages: TranslationCatalog = {
   'shortcuts.setViewPaginated.description': 'ينتقل إلى العرض المُقسّم لصفحات.',
   'shortcuts.setViewLongStrip.label': 'عرض شريط طويل',
   'shortcuts.setViewLongStrip.description': 'ينتقل إلى عرض الشريط الطويل.',
-  'shortcuts.setModeOrganize.label': 'وضع التنظيم',
-  'shortcuts.setModeOrganize.description': 'ينتقل إلى وضع التنظيم.',
   'shortcuts.setModeAio.label': 'وضع AIO',
   'shortcuts.setModeAio.description': 'ينتقل إلى وضع AIO.',
   'shortcuts.setModeCleaner.label': 'وضع المنظف / مُعيد الرسم',
@@ -3381,14 +3372,6 @@ export const arMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     'عندما تبدو النتيجة صحيحة، أنهِ العملية عبر قائمة التصدير لتنزيل الصور أو الحزم أو ملفات PSD دون مغادرة الوضع الحالي.',
   'dashboard.coachmark.download.accent': 'التسليم',
-  'dashboard.coachmark.organize.uploadTitle': 'التنظيم: ابدأ بالرفع',
-  'dashboard.coachmark.organize.uploadBody':
-    'اسحب الصفحات أو الفصول أو الحزم الكاملة هنا. وضع التنظيم موجود لتجهيز الدفعة قبل الدخول في الإنتاج.',
-  'dashboard.coachmark.organize.uploadAccent': 'الإدخال',
-  'dashboard.coachmark.organize.orderTitle': 'التنظيم: راجع الترتيب',
-  'dashboard.coachmark.organize.orderBody':
-    'في الشريط الجانبي الأيسر تختار الصورة النشطة، وتُعيد ترتيب الصفحات، وتزيل العناصر السيئة، وتتحقق مما إذا كان الفصل جاهزًا للمتابعة.',
-  'dashboard.coachmark.organize.orderAccent': 'الدفعة',
   'dashboard.coachmark.aioAuto.stagesTitle': 'AIO تلقائي: فعّل فقط ما تحتاجه',
   'dashboard.coachmark.aioAuto.stagesBody':
     'فعّل فقط المراحل المنطقية لهذه الدفعة. مراحل أقل تعني تكلفة أقل ووقت أقل ونقاط فشل أقل.',
@@ -3888,7 +3871,7 @@ export const arMessages: TranslationCatalog = {
     'تقبل منطقة الإفلات الصور الفردية والحزم الكاملة. إنها نقطة البداية لسحب الفصول والخامات أو الأصول لتغذية بقية لوحة التحكم.',
   'dashboard.tour.modes.title': 'التنقل الرئيسي في لوحة التحكم',
   'dashboard.tour.modes.body':
-    'استخدم التنظيم لتجهيز الدفعة وAIO لخط الأنابيب الكامل. مجموعات الشريط العلوي الأخرى تفتح أوضاعًا متخصصة دون مغادرة مساحة العمل.',
+    'استخدم AIO لخط الأنابيب الكامل. مجموعات الشريط العلوي الأخرى تفتح أوضاعًا متخصصة دون مغادرة مساحة العمل.',
   'dashboard.tour.production.title': 'الإنتاج: أدوات متخصصة',
   'dashboard.tour.production.body':
     'المنظف ومحرر الطباعة والمترجم والخام ومراقبة الجودة تغطي سير العمل اليدوي والمتقدم. فكّر في هذه المجموعة كأوضاع احترافية للعمل على مرحلة فصل محددة.',

@@ -32,7 +32,7 @@ try:
     )
     from models.translation.factory import TranslationModelOption
     from models.translation.fallback import QuotaBlocklist
-    from models.translation import stage as translation_stage
+    from pipelines import translation_stage
     from routers import translation as translation_router
 except Exception as exc:  # pragma: no cover - optional runtime deps
     IMPORT_ERROR = exc

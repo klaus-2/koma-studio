@@ -28,7 +28,7 @@ try:
     from models.ocr.base_ocr import OCRInputRegion, OCRTextResult
     from pipelines import ocr_stage
     from models.translation.base_translator import TranslationInputRegion, TranslationTextResult
-    from models.translation import stage as translation_stage
+    from pipelines import translation_stage
     from pipelines.batch import stages as stages_module
     from pipelines import detection_seeds as detection_seeds_module
     from pipelines.cache_manager import CacheManager

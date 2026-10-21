@@ -6,11 +6,11 @@
  * state the signature builders stringify. Key insertion order is part of the
  * signature contract and is pinned by workspace-persistence.registry.test.ts.
  *
- * Restore applies a restored document through an ordered plan. Call order is
- * preserved from the original implementation: release object URLs FIRST,
- * setActiveId before setImages, healing/running resets in place, restore-token
- * increment LAST among field writes, processing/progress terminal. Document
- * and asset codecs stay in dashboardWorkspace.serialization.ts.
+ * Restore applies a restored document through an ordered plan. Call order:
+ * release object URLs FIRST, setActiveId before setImages, healing/running
+ * resets in place, restore-token increment LAST among field writes,
+ * processing/progress terminal. Document and asset codecs stay in
+ * dashboardWorkspace.serialization.ts.
  */
 import type {
   DashboardWorkspaceCaptureState,
@@ -96,7 +96,7 @@ export const WORKSPACE_PERSISTENCE_STORES: ReadonlyArray<{
   useUtilityStore,
   useLlmProvidersStore,
   // Hydration completion must fire the signal too: setWorkspaceHydrated(true)
-  // triggering this subscription restores the pre-surgery re-seed trigger.
+  // re-seeds history through this subscription.
   useWorkspacePersistenceStore,
 ];
 
@@ -267,8 +267,7 @@ export interface WorkspaceRestoreStep {
 
 /**
  * Ordered restore plan. All `as` casts below are forced by the frozen document
- * types in packages/types/src/workspace.ts (for example view.mode: string) and
- * mirror the pre-registry implementation — none are new.
+ * types in packages/types/src/workspace.ts (for example view.mode: string).
  */
 export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
   {
@@ -280,7 +279,12 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
   {
     id: 'view-and-active-image',
     run: (restored) => {
-      useUiShellStore.getState().setMode(restored.document.view.mode as ToolMode);
+      // Organize no longer has a tab; legacy documents land on AIO.
+      const restoredMode =
+        restored.document.view.mode === 'organize'
+          ? 'aio'
+          : (restored.document.view.mode as ToolMode);
+      useUiShellStore.getState().setMode(restoredMode);
       useUiShellStore.getState().setSubMode(restored.document.view.subMode as SubMode);
       // Legacy quirk preserved as-is: setActiveId runs before setViewMode and
       // before setImages.

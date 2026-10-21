@@ -630,7 +630,6 @@ export const enMessages = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': 'Cleaner/RD',
   'dashboard.nav.short.enhance': 'Enhance',
-  'dashboard.nav.subtitle.organize': 'Manage files',
   'dashboard.nav.subtitle.aio': 'All in One',
   'dashboard.nav.subtitle.cleaner': 'Cleaner & Redrawer',
   'dashboard.nav.subtitle.typesetter': 'Typesetter',
@@ -646,8 +645,6 @@ export const enMessages = {
   'dashboard.nav.subtitle.imgur': 'Anonymous Host',
   'dashboard.nav.subtitle.guides': 'Tutorials',
   'dashboard.nav.subtitle.resources': 'Resources',
-  'dashboard.nav.tooltip.organize':
-    'Organize and reorder your images before processing',
   'dashboard.nav.tooltip.aio':
     'Full pipeline: detect, recognize, translate, segment, clean, and render',
   'dashboard.nav.tooltip.cleaner': 'Clean balloons and redraw image areas',
@@ -672,7 +669,6 @@ export const enMessages = {
   'dashboard.nav.tooltip.guides': 'Tool usage guides and tutorials',
   'dashboard.nav.tooltip.resources':
     'Resources, links, and reference materials',
-  'dashboard.mode.organize': 'Organize',
   'dashboard.mode.aio': 'AIO — All in One',
   'dashboard.mode.cleaner': 'Cleaner / Redrawer',
   'dashboard.mode.typesetter': 'Typesetter',
@@ -2188,10 +2184,6 @@ export const enMessages = {
   'modelManager.enhance.pthHintSuffix':
     'convert to ONNX first and then use the manual import.',
   'common.yes': 'Yes',
-  'dashboard.organize.hint.reorder':
-    'Drag and reorder files in the left panel.',
-  'dashboard.organize.hint.rotate':
-    'Use the rotation button to fix horizontally scanned pages.',
   'guides.common.beginner': 'Beginner',
   'guides.common.intermediate': 'Intermediate',
   'guides.common.advanced': 'Advanced',
@@ -2924,8 +2916,6 @@ export const enMessages = {
   'shortcuts.setViewPaginated.description': 'Switches to paginated view.',
   'shortcuts.setViewLongStrip.label': 'Long strip view',
   'shortcuts.setViewLongStrip.description': 'Switches to long strip view.',
-  'shortcuts.setModeOrganize.label': 'Organize mode',
-  'shortcuts.setModeOrganize.description': 'Switches to Organize mode.',
   'shortcuts.setModeAio.label': 'AIO mode',
   'shortcuts.setModeAio.description': 'Switches to AIO mode.',
   'shortcuts.setModeCleaner.label': 'Cleaner / Redrawer mode',
@@ -3063,14 +3053,6 @@ export const enMessages = {
   'dashboard.coachmark.download.body':
     'When the result looks right, finalize through the export menu to download images, packages, or PSDs without leaving the current mode.',
   'dashboard.coachmark.download.accent': 'Delivery',
-  'dashboard.coachmark.organize.uploadTitle': 'Organize: start with upload',
-  'dashboard.coachmark.organize.uploadBody':
-    'Drag pages, chapters, or entire packages here. Organize mode exists to prepare the batch before entering production.',
-  'dashboard.coachmark.organize.uploadAccent': 'Input',
-  'dashboard.coachmark.organize.orderTitle': 'Organize: review the order',
-  'dashboard.coachmark.organize.orderBody':
-    'In the left sidebar you choose the active image, reorder pages, remove bad items, and check if the chapter is ready to proceed.',
-  'dashboard.coachmark.organize.orderAccent': 'Batch',
   'dashboard.coachmark.aioAuto.stagesTitle':
     'Auto AIO: enable only what you need',
   'dashboard.coachmark.aioAuto.stagesBody':
@@ -3623,7 +3605,7 @@ export const enMessages = {
     "The dropzone accepts loose images and full packages. It's the starting point for dragging chapters, raws, or assets to feed the rest of the dashboard.",
   'dashboard.tour.modes.title': 'Main Dashboard navigation',
   'dashboard.tour.modes.body':
-    'Use Organize to prepare the batch and AIO for the full pipeline. The other topbar groups open specialized modes without leaving the workspace.',
+    'Use AIO for the full pipeline. The other topbar groups open specialized modes without leaving the workspace.',
   'dashboard.tour.production.title': 'Production: specialized tools',
   'dashboard.tour.production.body':
     'Cleaner, Typesetter, Translator, Raw, and QC cover the manual and advanced workflow. Think of this group as the professional modes for working on a specific chapter stage.',

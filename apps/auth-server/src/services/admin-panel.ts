@@ -18,16 +18,9 @@ import { isBanActive } from "./bans.js";
 import { canManageBans, canManageModeration, isOwnerRole, type AppRole, normalizeAppRole } from "./app-roles.js";
 import type { EmailLocale } from "./locale.js";
 import { tServer } from "./server-i18n.js";
+import { parseBoundedPositiveInteger } from "../utils/http.js";
 
 const tAdmin = (locale: EmailLocale, key: string): string => tServer(locale, key);
-
-const parsePositiveInteger = (value: unknown, fallback: number, max: number): number => {
-  const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numeric)) {
-    return fallback;
-  }
-  return Math.max(1, Math.min(max, Math.round(numeric)));
-};
 
 const sanitizeQuery = (value: unknown): string =>
   typeof value === "string" ? value.trim() : "";
@@ -166,8 +159,8 @@ export const listAdminUsers = async (params: {
   page?: number;
   pageSize?: number;
 }) => {
-  const page = parsePositiveInteger(params.page, 1, 999);
-  const pageSize = parsePositiveInteger(params.pageSize, 20, 100);
+  const page = parseBoundedPositiveInteger(params.page, 1, 999);
+  const pageSize = parseBoundedPositiveInteger(params.pageSize, 20, 100);
   const query = sanitizeQuery(params.query);
   const filters = [];
 

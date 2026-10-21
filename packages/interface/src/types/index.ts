@@ -102,7 +102,6 @@ export type DiscordActivityPreset =
   | "typesetter_mode"
   | "cleaner_redraw_mode"
   | "idle"
-  | "workspace_organize_mode"
   | "raw_provider_mode"
   | "proofreader_qc_mode"
   | "stitcher_mode"

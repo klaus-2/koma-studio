@@ -233,7 +233,6 @@ export const UNDER_DEVELOPMENT_TOOLTIP_KEY: TranslationKey = "dashboard.mode.und
 export const INFO_MODES: ToolMode[] = ["guides", "resources"];
 
 export const MODE_LABEL_KEYS: Record<ToolMode, TranslationKey> = {
-  organize: "dashboard.mode.organize",
   aio: "dashboard.mode.aio",
   cleaner: "dashboard.mode.cleaner",
   typesetter: "dashboard.mode.typesetter",
@@ -252,7 +251,6 @@ export const MODE_LABEL_KEYS: Record<ToolMode, TranslationKey> = {
 };
 
 export const getModeLabels = (t: TranslateFn): Record<ToolMode, string> => ({
-  organize: t(MODE_LABEL_KEYS.organize),
   aio: t(MODE_LABEL_KEYS.aio),
   cleaner: t(MODE_LABEL_KEYS.cleaner),
   typesetter: t(MODE_LABEL_KEYS.typesetter),

@@ -205,9 +205,6 @@ export function useDashboardKeyboard({
         case 'setViewLongStrip':
           setViewMode('long_strip');
           return true;
-        case 'setModeOrganize':
-          handleModeChange('organize');
-          return true;
         case 'setModeAio':
           handleModeChange('aio');
           return true;

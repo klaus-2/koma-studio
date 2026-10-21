@@ -20,7 +20,7 @@ from models.translation.base_translator import (  # noqa: E402
 from models.translation.errors import TranslatorUnavailableError  # noqa: E402
 from models.translation.factory import TranslationModelOption  # noqa: E402
 from models.translation.fallback import QuotaBlocklist  # noqa: E402
-from models.translation.stage import (  # noqa: E402
+from pipelines.translation_stage import (  # noqa: E402
     CachedTranslationRequest,
     run_cached_translation,
     seed_from_request,

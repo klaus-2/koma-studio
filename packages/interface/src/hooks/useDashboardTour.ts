@@ -14,7 +14,6 @@ import './DashboardTour.css';
 type TFunc = ReturnType<typeof useI18n>['t'];
 
 type DashboardTourToolMode =
-  | 'organize'
   | 'aio'
   | 'cleaner'
   | 'typesetter'
@@ -266,8 +265,8 @@ const renderPreviewMarkup = (
     case 'modes':
       return `
         <div class="koma-tour-preview koma-tour-preview--modes" aria-hidden="true">
-          <span class="koma-tour-preview__tab koma-tour-preview__tab--active">${escapeHtml(t('dashboard.mode.organize'))}</span>
-          <span class="koma-tour-preview__tab">AIO</span>
+          <span class="koma-tour-preview__tab koma-tour-preview__tab--active">${escapeHtml(t('dashboard.nav.short.aio'))}</span>
+          <span class="koma-tour-preview__tab">${escapeHtml(t('dashboard.nav.short.cleaner'))}</span>
         </div>
       `;
     case 'production':
@@ -444,9 +443,8 @@ export const useDashboardTour = ({
   );
 
   const buildSteps = useCallback((): DashboardTourInternalStep[] => {
-    const ensureOrganize = async () => {
+    const settleWorkspace = async () => {
       setForcedDropdown(null);
-      setMode('organize');
       await settleTourUi();
     };
 
@@ -463,14 +461,11 @@ export const useDashboardTour = ({
 
     const ensureDropdown = async (
       dropdown: Exclude<DashboardTourForcedDropdown, null>,
-      targetMode: DashboardTourToolMode = 'organize',
     ) => {
-      setMode(targetMode);
       setForcedDropdown(dropdown);
       await settleTourUi();
     };
 
-    const currentModeForDownload = mode;
     const stageSelector = hasImages
       ? '[data-tour="dashboard-stage-grid"]'
       : '[data-tour="dashboard-stage-empty"]';
@@ -495,7 +490,7 @@ export const useDashboardTour = ({
         previewKind: 'sidebar',
         side: 'right',
         align: 'start',
-        prepare: ensureOrganize,
+        prepare: settleWorkspace,
       },
       {
         id: 'upload',
@@ -505,7 +500,7 @@ export const useDashboardTour = ({
         previewKind: 'upload',
         side: 'right',
         align: 'center',
-        prepare: ensureOrganize,
+        prepare: settleWorkspace,
       },
       {
         id: 'modes',
@@ -613,7 +608,7 @@ export const useDashboardTour = ({
         side: 'bottom',
         align: 'end',
         prepare: async () => {
-          await ensureDropdown('download', currentModeForDownload);
+          await ensureDropdown('download');
         },
       });
     }
@@ -627,7 +622,7 @@ export const useDashboardTour = ({
       side: 'left',
       align: 'start',
       prepare: async () => {
-        await ensureDropdown('user', currentModeForDownload);
+        await ensureDropdown('user');
       },
     });
 

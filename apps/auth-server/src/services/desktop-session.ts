@@ -10,12 +10,10 @@ import { tServer } from "./server-i18n.js";
 /**
  * Desktop-session service — owns the desktop-client session state, the device
  * registry, the travel-token consumption, the TTL clamps and the slot-machine
- * decision. Extracted from routes/_shared.ts (state + device registry) and
- * routes/desktop.ts (slot machine); routes stay thin over it.
+ * decision.
  *
- * The in-memory session Map is a module-global singleton (same lifetime the
- * pre-extraction export had). The cleanup timestamp is mutable module state —
- * exported getter-only (no live re-export of the mutable binding).
+ * The in-memory session Map is a module-global singleton. Session and cleanup
+ * state stay private; routes go through the functions exported below.
  */
 
 export const DESKTOP_TOKEN_MIN_TTL_SEC = 300;
@@ -47,9 +45,6 @@ export interface DesktopClientSessionRecord {
 const desktopClientSessions = new Map<string, DesktopClientSessionRecord>();
 
 let lastDesktopSessionCleanupAtMs = 0;
-
-/** Getter-only view of the mutable cleanup timestamp (no live re-export). */
-export const getLastDesktopSessionCleanupAtMs = (): number => lastDesktopSessionCleanupAtMs;
 
 export const clampDesktopTokenTtlSec = (value: unknown, fallback: number): number => {
   const ttl = parsePositiveInteger(value, fallback);

@@ -565,7 +565,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.nav.short.aio': 'AIO',
   'dashboard.nav.short.cleaner': '清理/重绘',
   'dashboard.nav.short.enhance': '增强',
-  'dashboard.nav.subtitle.organize': '管理文件',
   'dashboard.nav.subtitle.aio': '一站式',
   'dashboard.nav.subtitle.cleaner': '清理与重绘',
   'dashboard.nav.subtitle.typesetter': '排版',
@@ -581,7 +580,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.nav.subtitle.imgur': '匿名托管',
   'dashboard.nav.subtitle.guides': '教程',
   'dashboard.nav.subtitle.resources': '资源',
-  'dashboard.nav.tooltip.organize': '在处理前整理和排序您的图片',
   'dashboard.nav.tooltip.aio': '完整流水线：检测、识别、翻译、分割、清理和渲染',
   'dashboard.nav.tooltip.cleaner': '清理气泡框并重绘图片区域',
   'dashboard.nav.tooltip.typesetter': '在页面上应用排版和文字样式',
@@ -597,7 +595,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.nav.tooltip.imgur': '使用 Client ID 轮换上传图片到 Imgur',
   'dashboard.nav.tooltip.guides': '工具使用指南和教程',
   'dashboard.nav.tooltip.resources': '资源、链接和参��资料',
-  'dashboard.mode.organize': '整理',
   'dashboard.mode.aio': 'AIO — 一站式',
   'dashboard.mode.cleaner': '清理 / 重绘',
   'dashboard.mode.typesetter': '排版',
@@ -2028,8 +2025,6 @@ export const zhMessages: TranslationCatalog = {
   'modelManager.enhance.pthHintSuffix':
     '格式提供的权重，请先转换为 ONNX，然后使用手动导入。',
   'common.yes': '是',
-  'dashboard.organize.hint.reorder': '在左侧面板中拖拽重新排序文件。',
-  'dashboard.organize.hint.rotate': '使用旋转按钮修正水平扫描的页面。',
   'guides.common.beginner': '入门',
   'guides.common.intermediate': '进阶',
   'guides.common.advanced': '高级',
@@ -3100,8 +3095,6 @@ export const zhMessages: TranslationCatalog = {
   'shortcuts.setViewPaginated.description': '切换到分页视图。',
   'shortcuts.setViewLongStrip.label': '长条视图',
   'shortcuts.setViewLongStrip.description': '切换到长条视图。',
-  'shortcuts.setModeOrganize.label': '整理模式',
-  'shortcuts.setModeOrganize.description': '切换到整理模式��',
   'shortcuts.setModeAio.label': 'AIO 模式',
   'shortcuts.setModeAio.description': '切换到 AIO 模式。',
   'shortcuts.setModeCleaner.label': '清理/重绘模式',
@@ -3221,14 +3214,6 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.coachmark.download.body':
     '当结果满意时，通过导出菜单下载图片、包或 PSD，无需离开当前模式。',
   'dashboard.coachmark.download.accent': '交付',
-  'dashboard.coachmark.organize.uploadTitle': '整理：从上传开始',
-  'dashboard.coachmark.organize.uploadBody':
-    '将页面、章节或整个包拖拽到此处。整理模式用于在进入生产前准备批次。',
-  'dashboard.coachmark.organize.uploadAccent': '输入',
-  'dashboard.coachmark.organize.orderTitle': '整理：检查顺序',
-  'dashboard.coachmark.organize.orderBody':
-    '在左侧边栏中选择活跃图片、重新排序页面、移除不良项目，并检查章节是否准备就绪。',
-  'dashboard.coachmark.organize.orderAccent': '批次',
   'dashboard.coachmark.aioAuto.stagesTitle': '自动 AIO：仅启用所需阶段',
   'dashboard.coachmark.aioAuto.stagesBody':
     '仅启用对此批次有意义的阶段。更少的阶段意味着更低的成本、更少的时间和更少的故障点。',
@@ -3689,7 +3674,7 @@ export const zhMessages: TranslationCatalog = {
     '拖放区接受散图和完整包。这是拖拽章节、生肉或素材以供工作台后续使用的起点。',
   'dashboard.tour.modes.title': '工作台主导航',
   'dashboard.tour.modes.body':
-    '使用"整理"准备批次，使用"AIO"运行完整流水线。顶部工具栏的其他分组可在不离开工作区的情况下打开专用模式。',
+    '使用"AIO"运行完整流水线。顶部工具栏的其他分组可在不离开工作区的情况下打开专用模式。',
   'dashboard.tour.production.title': '生产：专用工具',
   'dashboard.tour.production.body':
     '清理、排版、翻译、生肉和质检涵盖手动和高级工作流。将此分组视为专门处理特定章节阶段的专业模式。',
