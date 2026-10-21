@@ -276,7 +276,18 @@ export function useCurrentUtilityWorkspaceStates() {
 /* ── Special-mode stage props: the memo bundle handed to DashboardSpecialModeStage
    (multi-store by design: utility stitch config + shell + translator + export +
    persistence; page-only collaborators arrive by args). Identity cadence is
-   preserved byte-identically (deps unchanged from the baseline memo). */
+   preserved byte-identically (deps unchanged from the baseline memo).
+   Outside special modes the pack identity is a frozen empty bag so
+   images/processing churn cannot invalidate Center stage packs. */
+
+const SPECIAL_MODES: ReadonlySet<string> = new Set([
+  "translator",
+  "stitch",
+  "split",
+  "watermark",
+  "optimizer",
+]);
+const EMPTY_SPECIAL_MODE_STAGE_PROPS = Object.freeze({});
 
 export function useSpecialModeStageProps({
   stitchBatchPlans,
@@ -339,38 +350,43 @@ export function useSpecialModeStageProps({
     (s) => s.workspaceRestoreToken,
   );
   const specialModeStageProps = useMemo(
-    () => ({
-      mode,
-      translatorWorkspaceMode,
-      images,
-      translatorImageImportRef,
-      stitchBatchPlans,
-      stitchSelectedBatchIndex,
-      setStitchSelectedBatchIndex,
-      stitchLayoutMode,
-      stitchGap,
-      stitchAlignMode,
-      stitchBackground,
-      stitchSingleExportFormat,
-      stitchSafeFileStem,
-      processing,
-      outQuality,
-      ensureVerifiedEmailOrNotify,
-      isDesktopRuntime,
-      registerDownloads,
-      triggerBlobDownload,
-      setProcessing,
-      setProgress,
-      setStatusMessage,
-      recordProcessedPages,
-      splitterController,
-      outFormat,
-      watermarkWorkspaceState: currentWatermarkWorkspaceState,
-      optimizerWorkspaceState: currentOptimizerWorkspaceState,
-      workspaceRestoreToken,
-      onWatermarkWorkspaceStateChange: setWatermarkWorkspaceState,
-      onOptimizerWorkspaceStateChange: setOptimizerWorkspaceState,
-    }),
+    () => {
+      if (!SPECIAL_MODES.has(mode)) {
+        return EMPTY_SPECIAL_MODE_STAGE_PROPS;
+      }
+      return {
+        mode,
+        translatorWorkspaceMode,
+        images,
+        translatorImageImportRef,
+        stitchBatchPlans,
+        stitchSelectedBatchIndex,
+        setStitchSelectedBatchIndex,
+        stitchLayoutMode,
+        stitchGap,
+        stitchAlignMode,
+        stitchBackground,
+        stitchSingleExportFormat,
+        stitchSafeFileStem,
+        processing,
+        outQuality,
+        ensureVerifiedEmailOrNotify,
+        isDesktopRuntime,
+        registerDownloads,
+        triggerBlobDownload,
+        setProcessing,
+        setProgress,
+        setStatusMessage,
+        recordProcessedPages,
+        splitterController,
+        outFormat,
+        watermarkWorkspaceState: currentWatermarkWorkspaceState,
+        optimizerWorkspaceState: currentOptimizerWorkspaceState,
+        workspaceRestoreToken,
+        onWatermarkWorkspaceStateChange: setWatermarkWorkspaceState,
+        onOptimizerWorkspaceStateChange: setOptimizerWorkspaceState,
+      };
+    },
     [
       currentOptimizerWorkspaceState,
       currentWatermarkWorkspaceState,
