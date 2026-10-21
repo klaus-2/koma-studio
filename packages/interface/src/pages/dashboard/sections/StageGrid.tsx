@@ -9,8 +9,6 @@ import DashboardSpecialModeStage from '../../../components/dashboard/DashboardSp
 import DashboardStageGrid from '../../../components/dashboard/DashboardStageGrid';
 import DashboardEmptyStage from '../../../components/dashboard/DashboardEmptyStage';
 import { PipelineStageRow } from '../../../components/dashboard/PipelineStageRow';
-import { CleanerStageItem } from '../../../components/dashboard/CleanerStageItem';
-import { TypesetterStageItem } from '../../../components/dashboard/TypesetterStageItem';
 
 const loadRenderTextPreview = memoLoad(() => import('../../../components/dashboard/RenderTextPreview'));
 const loadTextDetectionPreview = memoLoad(() => import('../../../components/dashboard/TextDetectionPreview'));
@@ -595,71 +593,78 @@ export default function DashboardStageSection({
 
       if (mode === 'typesetter') {
         return (
-          <TypesetterStageItem
-            img={img}
-            index={index}
-            getAioDownloadItemForImage={(imageId) => {
-              const item = getAioDownloadItemForImage(imageId);
-              return item ? { previewUrl: item.previewUrl } : undefined;
-            }}
-            getPreviewSrc={getPreviewSrc}
-            aioDetectionsByImage={aioDetectionsByImage}
-            aioSelectedRegionByImage={aioSelectedRegionByImage}
-            resolvedActiveId={resolvedActiveId}
-            subMode={subMode}
-            typographerSelectionTool={typographerSelectionTool}
-            renderDefaultStyle={renderDefaultStyle}
-            renderFontRefreshToken={renderFontRefreshToken}
-            availableRenderFonts={availableRenderFonts}
-            isCompactViewport={isCompactViewport}
-            inlineEditorShortcutRequestKey={inlineEditorShortcutRequestKey}
-            textFillSwatches={textFillSwatches}
-            translationNotesEnabled={translationNotesEnabled}
-            typographerMultiSelectedByImage={typographerMultiSelectedByImage}
-            typographyPresetList={typographyPresetList}
-            viewMode={viewMode}
-            zoom={zoom}
-            onSelect={(id) => setActiveId(id)}
-            onSelectRegion={(imageId, regionId) =>
-              selectAioRegionForImage(imageId, regionId)
-            }
-            onSetTypographerSelectedRegionId={(imageId, regionId) =>
-              typographerWorkspace.setSelectedRegionId(imageId, regionId)
-            }
-            onClearTypographerMultiSelect={(imageId: string) => {
-              setTypographerMultiSelectedByImage((prev: Record<string, string[]>) => {
-                const { [imageId]: _removed, ...rest } = prev;
-                return rest;
-              });
-            }}
-            onRegionsChange={(imageId, nextRegions, selectedRegionIdOverride) =>
-              updateAioRegionsForImage(imageId, nextRegions, selectedRegionIdOverride)
-            }
-            onRefineActiveShape={() => void refineActiveTypographerShape()}
-            onAutoShapeActiveRegion={applyAutoDetectedShapeToActiveRegion}
-            onApplyPresetToRegion={applyTypographyPresetToRegionById}
-            onConvertRegionShape={(imageId, regionId, kind) =>
-              convertRegionShapeById(
-                imageId,
-                regionId,
-                kind as unknown as Parameters<typeof convertRegionShapeById>[2],
-              )
-            }
-            onMultiSelectToggle={(imageId: string, regionId: string) => {
-              setActiveId(imageId);
-              setTypographerMultiSelectedByImage((prev: Record<string, string[]>) => {
-                const current = prev[imageId] ?? [];
-                const idx = current.indexOf(regionId);
-                if (idx >= 0) {
-                  const next = current.filter((id: string) => id !== regionId);
-                  if (next.length === 0) {
-                    const { [imageId]: _removed, ...rest } = prev;
-                    return rest;
+          <PipelineStageRow
+            kind="typesetter"
+            props={{
+              img,
+              index,
+              getAioDownloadItemForImage: (imageId: string) => {
+                const item = getAioDownloadItemForImage(imageId);
+                return item ? { previewUrl: item.previewUrl } : undefined;
+              },
+              getPreviewSrc,
+              aioDetectionsByImage,
+              aioSelectedRegionByImage,
+              resolvedActiveId,
+              subMode,
+              typographerSelectionTool,
+              renderDefaultStyle,
+              renderFontRefreshToken,
+              availableRenderFonts,
+              isCompactViewport,
+              inlineEditorShortcutRequestKey,
+              textFillSwatches,
+              translationNotesEnabled,
+              typographerMultiSelectedByImage,
+              typographyPresetList,
+              viewMode,
+              zoom,
+              onSelect: (id: string) => setActiveId(id),
+              onSelectRegion: (imageId: string, regionId: string | null) =>
+                selectAioRegionForImage(imageId, regionId),
+              onSetTypographerSelectedRegionId: (imageId: string, regionId: string | null) =>
+                typographerWorkspace.setSelectedRegionId(imageId, regionId),
+              onClearTypographerMultiSelect: (imageId: string) => {
+                setTypographerMultiSelectedByImage((prev: Record<string, string[]>) => {
+                  const { [imageId]: _removed, ...rest } = prev;
+                  return rest;
+                });
+              },
+              onRegionsChange: (
+                imageId: string,
+                nextRegions: Parameters<typeof updateAioRegionsForImage>[1],
+                selectedRegionIdOverride?: string | null,
+              ) =>
+                updateAioRegionsForImage(
+                  imageId,
+                  nextRegions,
+                  selectedRegionIdOverride,
+                ),
+              onRefineActiveShape: () => void refineActiveTypographerShape(),
+              onAutoShapeActiveRegion: applyAutoDetectedShapeToActiveRegion,
+              onApplyPresetToRegion: applyTypographyPresetToRegionById,
+              onConvertRegionShape: (imageId: string, regionId: string, kind: 'auto' | 'square' | 'rounded') =>
+                convertRegionShapeById(
+                  imageId,
+                  regionId,
+                  kind as unknown as Parameters<typeof convertRegionShapeById>[2],
+                ),
+              onMultiSelectToggle: (imageId: string, regionId: string) => {
+                setActiveId(imageId);
+                setTypographerMultiSelectedByImage((prev: Record<string, string[]>) => {
+                  const current = prev[imageId] ?? [];
+                  const idx = current.indexOf(regionId);
+                  if (idx >= 0) {
+                    const next = current.filter((id: string) => id !== regionId);
+                    if (next.length === 0) {
+                      const { [imageId]: _removed, ...rest } = prev;
+                      return rest;
+                    }
+                    return { ...prev, [imageId]: next };
                   }
-                  return { ...prev, [imageId]: next };
-                }
-                return { ...prev, [imageId]: [...current, regionId] };
-              });
+                  return { ...prev, [imageId]: [...current, regionId] };
+                });
+              },
             }}
           />
         );
@@ -667,59 +672,62 @@ export default function DashboardStageSection({
 
       if (mode === 'cleaner') {
         return (
-          <CleanerStageItem
-            img={img}
-            index={index}
-            cleanerRunMetaByImage={cleanerRunMetaByImage}
-            cleanerDetectionsByImage={cleanerDetectionsByImage}
-            cleanerSelectedRegionByImage={cleanerSelectedRegionByImage}
-            cleanerHealingBusyByImage={cleanerHealingBusyByImage}
-            cleanerShowOverlays={cleanerShowOverlays}
-            getCleanerManualImageEditState={getCleanerManualImageEditState}
-            getPreviewSrc={getPreviewSrc}
-            resolvedActiveId={resolvedActiveId}
-            resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKind}
-            renderDefaultStyle={renderDefaultStyle}
-            renderFontRefreshToken={renderFontRefreshToken}
-            availableRenderFonts={availableRenderFonts}
-            isCompactViewport={isCompactViewport}
-            manualImageBrushOpacity={manualImageBrushOpacity}
-            manualImageBrushBlur={manualImageBrushBlur}
-            manualImageBrushSize={manualImageBrushSize}
-            manualImagePaintColor={manualImagePaintColor}
-            manualImageTool={manualImageTool}
-            segmentEditTool={segmentEditTool}
-            segmentBrushSize={segmentBrushSize}
-            inlineEditorShortcutRequestKey={inlineEditorShortcutRequestKey}
-            textFillSwatches={textFillSwatches}
-            viewMode={viewMode}
-            zoom={zoom}
-            onSelect={(id) => setActiveId(id)}
-            onSelectRegion={(imageId, regionId) =>
-              selectCleanerRegionForImage(imageId, regionId)
-            }
-            onRegionsChange={(imageId, nextRegions, selectedRegionIdOverride) =>
-              updateCleanerRegionsForImage(
-                imageId,
-                nextRegions,
-                selectedRegionIdOverride,
-              )
-            }
-            onManualPaintLayerChange={(imageId, nextLayer) =>
-              patchCleanerManualImageEditState(imageId, {
-                paintLayerDataUrl: nextLayer,
-              })
-            }
-            onManualWandMaskChange={(imageId, nextMask) =>
-              patchCleanerManualImageEditState(imageId, {
-                wandMaskDataUrl: nextMask,
-              })
-            }
-            onManualWandRequest={async (imageId, x, y) => {
-              await runCleanerMagicWandForImage(imageId, x, y);
-            }}
-            onManualHealingMaskCommit={async (imageId, maskDataUrl) => {
-              await applyCleanerHealingMaskForImage(imageId, maskDataUrl);
+          <PipelineStageRow
+            kind="cleaner"
+            props={{
+              img,
+              index,
+              cleanerRunMetaByImage,
+              cleanerDetectionsByImage,
+              cleanerSelectedRegionByImage,
+              cleanerHealingBusyByImage,
+              cleanerShowOverlays,
+              getCleanerManualImageEditState,
+              getPreviewSrc,
+              resolvedActiveId,
+              resolvedAioAreaSelectionShapeKind,
+              renderDefaultStyle,
+              renderFontRefreshToken,
+              availableRenderFonts,
+              isCompactViewport,
+              manualImageBrushOpacity,
+              manualImageBrushBlur,
+              manualImageBrushSize,
+              manualImagePaintColor,
+              manualImageTool,
+              segmentEditTool,
+              segmentBrushSize,
+              inlineEditorShortcutRequestKey,
+              textFillSwatches,
+              viewMode,
+              zoom,
+              onSelect: (id: string) => setActiveId(id),
+              onSelectRegion: (imageId: string, regionId: string | null) =>
+                selectCleanerRegionForImage(imageId, regionId),
+              onRegionsChange: (
+                imageId: string,
+                nextRegions: Parameters<typeof updateCleanerRegionsForImage>[1],
+                selectedRegionIdOverride?: string | null,
+              ) =>
+                updateCleanerRegionsForImage(
+                  imageId,
+                  nextRegions,
+                  selectedRegionIdOverride,
+                ),
+              onManualPaintLayerChange: (imageId: string, nextLayer: string | null) =>
+                patchCleanerManualImageEditState(imageId, {
+                  paintLayerDataUrl: nextLayer,
+                }),
+              onManualWandMaskChange: (imageId: string, nextMask: string | null) =>
+                patchCleanerManualImageEditState(imageId, {
+                  wandMaskDataUrl: nextMask,
+                }),
+              onManualWandRequest: async (imageId: string, x: number, y: number) => {
+                await runCleanerMagicWandForImage(imageId, x, y);
+              },
+              onManualHealingMaskCommit: async (imageId: string, maskDataUrl: string) => {
+                await applyCleanerHealingMaskForImage(imageId, maskDataUrl);
+              },
             }}
           />
         );
