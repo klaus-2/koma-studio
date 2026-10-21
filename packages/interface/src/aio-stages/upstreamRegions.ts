@@ -57,3 +57,60 @@ export function resolveUpstreamRegions(
   }
   return [];
 }
+
+/** Every AIO stage whose runnability the provenance module can verdict. */
+export type AioStageKey = StageRegionKey | UpstreamStage;
+
+/** Why a stage cannot run with the current stage regions. */
+export type StageNotRunnableReason = 'no_regions' | 'no_recognized_text';
+
+/** Provenance verdict: can `stage` run with these stage regions? */
+export interface AioStageReadiness {
+  runnable: boolean;
+  reason: StageNotRunnableReason | null;
+}
+
+// Input chains for the two stages that are sources, not downstream consumers.
+const STAGE_INPUT_CHAINS: Record<AioStageKey, readonly StageRegionKey[]> = {
+  detectText: [],
+  recognizeText: ['detectText'],
+  ...UPSTREAM_REGION_CHAINS,
+};
+
+/**
+ * Runnable/not-runnable verdict for a stage, derived from the same fallback
+ * chains `resolveUpstreamRegions` uses — so every orchestrator (manual,
+ * auto, Cleaner) aligns on one set of rules.
+ *
+ * Intended alignment with the chains: a stage is runnable when ANY
+ * upstream source on its chain is non-empty — e.g. segmentText accepts a
+ * detect-text fallback and cleanImage accepts a getTranslations fallback
+ * (regions sourced from translations when segmentation is absent).
+ */
+export function getAioStageReadiness(
+  stage: AioStageKey,
+  stageRegions: StageRegions,
+): AioStageReadiness {
+  if (stage === 'detectText') {
+    return { runnable: true, reason: null };
+  }
+
+  if (stage === 'getTranslations') {
+    // Translating requires recognized TEXT, not just detected boxes.
+    const ocrRegions = stageRegions.recognizeText;
+    const hasText = (ocrRegions ?? []).some(
+      (region) => (region.recognizedText ?? '').trim().length > 0,
+    );
+    return hasText
+      ? { runnable: true, reason: null }
+      : { runnable: false, reason: 'no_recognized_text' };
+  }
+
+  const runnable = STAGE_INPUT_CHAINS[stage].some((key) => {
+    const regions = stageRegions[key];
+    return regions !== undefined && regions.length > 0;
+  });
+  return runnable
+    ? { runnable: true, reason: null }
+    : { runnable: false, reason: 'no_regions' };
+}

@@ -8,6 +8,7 @@ import {
 } from '../constants/dashboard.constants';
 import {
   ensureStageModelReadiness,
+  getAioStageReadiness,
   resolveUpstreamRegions,
   runCleanImageStage,
   runDetectTextStage,
@@ -175,51 +176,20 @@ export function useAioManualStageExecutor({
     const stageIndex = clamp(progress.currentIndex, 0, AIO_MANUAL_STAGE_ORDER.length - 1);
     const stageKey = AIO_MANUAL_STAGE_ORDER[stageIndex]!;
     const stageLabel = AIO_PIPELINE_STAGE_LABELS[stageKey];
-    // Abort with a toast instead of firing a stage with empty upstream regions.
-    const prereqMissing = ((): { missing: boolean; key: string } => {
-      switch (stageKey) {
-        case 'recognizeText':
-          return getAioRegionsFromSnapshot('detectText', activeId).length === 0
-            ? { missing: true, key: 'aioManual.prereqMissing.recognizeText' }
-            : { missing: false, key: '' };
-        case 'getTranslations': {
-          const rec = getAioRegionsFromSnapshot('recognizeText', activeId);
-          const hasText = rec.some((region) => (region.recognizedText ?? '').trim().length > 0);
-          return hasText
-            ? { missing: false, key: '' }
-            : { missing: true, key: 'aioManual.prereqMissing.getTranslations' };
-        }
-        case 'segmentText': {
-          const a = getAioRegionsFromSnapshot('getTranslations', activeId);
-          const b = a.length > 0 ? a : getAioRegionsFromSnapshot('recognizeText', activeId);
-          return b.length === 0
-            ? { missing: true, key: 'aioManual.prereqMissing.segmentText' }
-            : { missing: false, key: '' };
-        }
-        case 'cleanImage': {
-          const seg = getAioRegionsFromSnapshot('segmentText', activeId);
-          const rec = seg.length > 0 ? seg : getAioRegionsFromSnapshot('recognizeText', activeId);
-          const det = rec.length > 0 ? rec : getAioRegionsFromSnapshot('detectText', activeId);
-          return det.length === 0
-            ? { missing: true, key: 'aioManual.prereqMissing.cleanImage' }
-            : { missing: false, key: '' };
-        }
-        case 'render': {
-          const c = getAioRegionsFromSnapshot('cleanImage', activeId);
-          const s = c.length > 0 ? c : getAioRegionsFromSnapshot('segmentText', activeId);
-          const t2 = s.length > 0 ? s : getAioRegionsFromSnapshot('getTranslations', activeId);
-          const r = t2.length > 0 ? t2 : getAioRegionsFromSnapshot('recognizeText', activeId);
-          const d = r.length > 0 ? r : getAioRegionsFromSnapshot('detectText', activeId);
-          return d.length === 0
-            ? { missing: true, key: 'aioManual.prereqMissing.render' }
-            : { missing: false, key: '' };
-        }
-        default:
-          return { missing: false, key: '' };
-      }
-    })();
-    if (prereqMissing.missing) {
-      setStatusMessage(t(prereqMissing.key));
+    const stageRegionsFromSnapshot = (): StageRegions => ({
+      detectText: getAioRegionsFromSnapshot('detectText', activeId),
+      recognizeText: getAioRegionsFromSnapshot('recognizeText', activeId),
+      getTranslations: getAioRegionsFromSnapshot('getTranslations', activeId),
+      segmentText: getAioRegionsFromSnapshot('segmentText', activeId),
+      cleanImage: getAioRegionsFromSnapshot('cleanImage', activeId),
+    });
+    // The shared provenance module decides runnability from the stage regions.
+    // Manual now accepts the same fallback chains as the runner: detect-text
+    // for segmentText and getTranslations for cleanImage; everything else
+    // stays equally strict.
+    const readiness = getAioStageReadiness(stageKey, stageRegionsFromSnapshot());
+    if (!readiness.runnable) {
+      setStatusMessage(t(`aioManual.prereqMissing.${stageKey}`));
       return;
     }
     const signal = getAbortSignal();
@@ -245,13 +215,6 @@ export function useAioManualStageExecutor({
     const ensureReady = (
       args: Parameters<typeof ensureStageModelReadiness>[0],
     ): StageReadinessReady | null => ensureStageModelReadiness(args, readinessSink);
-    const stageRegionsFromSnapshot = (): StageRegions => ({
-      detectText: getAioRegionsFromSnapshot('detectText', activeId),
-      recognizeText: getAioRegionsFromSnapshot('recognizeText', activeId),
-      getTranslations: getAioRegionsFromSnapshot('getTranslations', activeId),
-      segmentText: getAioRegionsFromSnapshot('segmentText', activeId),
-      cleanImage: getAioRegionsFromSnapshot('cleanImage', activeId),
-    });
 
     setProcessing(true);
     setProgress(0);

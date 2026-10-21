@@ -7,7 +7,6 @@ import {
   runSfxClassifyStage,
   skipStageCatalog,
   StageTransportError,
-  type StageRuntime,
 } from '../../../aio-stages';
 import {
   blobToDataUrl,
@@ -16,6 +15,7 @@ import {
   cloneRenderStyle,
 } from '../../../utils/dashboard.utils';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
+import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import {
   applySfxDecisionsToRegions,
   buildSfxClassifierInstructions,
@@ -28,6 +28,7 @@ import type {
   LoadedImage,
 } from '../../../types/dashboard.types';
 import type { CleanerRunContext, I18nTranslate } from './cleaner.types';
+import { createAioStageRunSession } from './aio-stage-runner';
 
 export async function runAutomaticCleanerWorkflow(
   ctx: CleanerRunContext,
@@ -134,6 +135,17 @@ export async function runAutomaticCleanerWorkflow(
             state: translate('discord.presence.batch.state', { current: index + 1, total: images.length }),
           });
 
+          // The signal comes from the shared AIO pipeline AbortController so a
+          // stop request aborts in-flight cleaner stage fetches. Success
+          // notices are dropped here (automatic cleaner contract).
+          const session = createAioStageRunSession({
+            localApiUrl,
+            signal: useAioPipelineStore.getState().getActiveAioAbortSignal(),
+            collectNotices: false,
+          });
+          const { stageRuntime } = session;
+
+          session.assertNotAborted();
           const detectDone = await runDetectTextStage(
             {
               image: imgData,
@@ -141,7 +153,7 @@ export async function runAutomaticCleanerWorkflow(
               sourceLanguage,
               minRegionSize,
             },
-            { localApiUrl },
+            stageRuntime,
             {
               stageLabel: AIO_STAGE_LABELS.detectText,
               failurePrefix: 'Failed to detect text',
@@ -174,6 +186,7 @@ export async function runAutomaticCleanerWorkflow(
             }));
 
             if (candidateRegions.length > 0) {
+              session.assertNotAborted();
               const classifyDone = await runSfxClassifyStage(
                 {
                   image: imgData,
@@ -184,7 +197,7 @@ export async function runAutomaticCleanerWorkflow(
                   ),
                   customProfile: customCleanerPayload,
                 },
-                { localApiUrl } satisfies StageRuntime,
+                stageRuntime,
                 {
                   stageLabel: 'AI SFX',
                   failurePrefix: `Failed to classify SFX in "${imgData.file.name}"`,
@@ -204,6 +217,7 @@ export async function runAutomaticCleanerWorkflow(
             if (outputRegions.length === 0) {
               blob = imgData.file;
             } else {
+              session.assertNotAborted();
               const cleanDone = await runCleanImageAiStage(
                 {
                   image: imgData,
@@ -214,21 +228,20 @@ export async function runAutomaticCleanerWorkflow(
                   ),
                   customProfile: customCleanerPayload,
                 },
-                { localApiUrl } satisfies StageRuntime,
+                stageRuntime,
                 {
                   stageLabel: 'AI SFX',
                   failurePrefix: `AI SFX Cleaner failed for "${imgData.file.name}"`,
                   parseApiError,
                 },
               );
-              blob = cleanDone.value;
-              if (!blob.type.startsWith('image/')) {
-                throw new Error(
-                  t('cleanerActions.invalidSfxResponse', { fileName: imgData.file.name }),
-                );
-              }
+              blob = session.ensureStageImageBlob(
+                cleanDone.value,
+                t('cleanerActions.invalidSfxResponse', { fileName: imgData.file.name }),
+              );
             }
           } else {
+            session.assertNotAborted();
             const cleanDone = await runCleanImageAiStage(
               {
                 image: imgData,
@@ -237,7 +250,7 @@ export async function runAutomaticCleanerWorkflow(
                 additionalInstructions: normalizedCleanerAiInstructions,
                 customProfile: customCleanerPayload,
               },
-              { localApiUrl } satisfies StageRuntime,
+              stageRuntime,
               {
                 stageLabel: 'Automatic AI Clean',
                 failurePrefix: `Automatic AI Clean failed for "${imgData.file.name}"`,
@@ -245,20 +258,18 @@ export async function runAutomaticCleanerWorkflow(
               },
             );
 
-            blob = cleanDone.value;
-            if (!blob.type.startsWith('image/')) {
-              throw new Error(
-                t('cleanerActions.invalidAutoCleanResponse', { fileName: imgData.file.name }),
-              );
-            }
+            blob = session.ensureStageImageBlob(
+              cleanDone.value,
+              t('cleanerActions.invalidAutoCleanResponse', { fileName: imgData.file.name }),
+            );
           }
 
           return {
             imageId: imgData.id,
-            fileName: `${isAiSfxMode
-                ? 'koma-studio-ai-sfx-clean'
-                : 'koma-studio-automatic-ai-clean'
-              }-${imgData.file.name.replace(/\s+/g, '-')}.png`,
+            fileName: session.buildCleanDownloadName(
+              isAiSfxMode ? 'koma-studio-ai-sfx-clean' : 'koma-studio-automatic-ai-clean',
+              imgData.file.name,
+            ),
             blob,
             baseImageDataUrl: await blobToDataUrl(blob),
             regions: cloneAioRegions(outputRegions, cloneRenderStyle),

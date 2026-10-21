@@ -11,7 +11,6 @@ import {
   StageTransportError,
   type StageReadinessReady,
   type StageRegions,
-  type StageRunNotice,
 } from '../../../aio-stages';
 import {
   blobToDataUrl,
@@ -20,15 +19,16 @@ import {
   cloneRenderStyle,
 } from '../../../utils/dashboard.utils';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
+import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import type {
   AioTextRegion,
   CleanerRunMeta,
   LoadedImage,
-  RuntimeExecutionNotice,
 } from '../../../types/dashboard.types';
 import type { CleanerRunContext } from './cleaner.types';
 import { scheduleNoticeClear } from './cleaner.runtime';
+import { createAioStageRunSession } from './aio-stage-runner';
 
 
 export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promise<void> {
@@ -163,15 +163,17 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
           state: t('discord.presence.batch.state', { current: index + 1, total: images.length }),
         });
 
-        const executionNotices: string[] = [];
-        const stageRuntime = { localApiUrl };
-        const pushNotice = (notice: StageRunNotice | null): void => {
-          if (notice) {
-            executionNotices.push(notice.detail);
-            setRuntimeExecutionNotice(notice as RuntimeExecutionNotice);
-          }
-        };
+        // The signal comes from the shared AIO pipeline AbortController so a
+        // stop request aborts in-flight cleaner stage fetches.
+        const session = createAioStageRunSession({
+          localApiUrl,
+          signal: useAioPipelineStore.getState().getActiveAioAbortSignal(),
+          collectNotices: true,
+          onRuntimeNotice: setRuntimeExecutionNotice,
+        });
+        const { stageRuntime, executionNotices } = session;
 
+        session.assertNotAborted();
         const detectDone = await runDetectTextStage(
           {
             image: imgData,
@@ -186,7 +188,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
             parseApiError,
           },
         );
-        pushNotice(detectDone.notice);
+        session.pushNotice(detectDone.notice);
         const detectDetections = detectDone.value;
         let stageRegions: StageRegions = {
           detectText: detectDetections,
@@ -195,6 +197,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
         let enrichedDetections = cloneAioRegions(detectDetections, cloneRenderStyle);
 
         if (detectDetections.length > 0) {
+          session.assertNotAborted();
           const ocrDone = await runRecognizeTextStage(
             {
               image: imgData,
@@ -211,7 +214,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
               parseApiError,
             },
           );
-          pushNotice(ocrDone.notice);
+          session.pushNotice(ocrDone.notice);
           enrichedDetections = ocrDone.value;
           stageRegions = { ...stageRegions, recognizeText: enrichedDetections };
         }
@@ -219,6 +222,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
         const segmentInputRegions = resolveUpstreamRegions('segmentText', stageRegions);
         let segmentDetections = cloneAioRegions(segmentInputRegions, cloneRenderStyle);
         if (segmentInputRegions.length > 0) {
+          session.assertNotAborted();
           const segmentDone = await runSegmentTextStage(
             {
               image: imgData,
@@ -234,7 +238,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
               parseApiError,
             },
           );
-          pushNotice(segmentDone.notice);
+          session.pushNotice(segmentDone.notice);
           segmentDetections = segmentDone.value;
           stageRegions = { ...stageRegions, segmentText: segmentDetections };
         }
@@ -242,6 +246,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
         const cleanInputRegions = resolveUpstreamRegions('cleanImage', stageRegions);
         const manualEditState =
           useCleanerStore.getState().cleanerManualImageEditsByImage[imgData.id];
+        session.assertNotAborted();
         const cleanDone = await runCleanImageStage(
           {
             image: imgData,
@@ -265,15 +270,15 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
             parseApiError,
           },
         );
-        pushNotice(cleanDone.notice);
-        const blob = cleanDone.value;
-        if (!blob.type.startsWith('image/')) {
-          throw new Error(t('cleanerActions.invalidCleanResponseNamed', { name: imgData.file.name }));
-        }
+        session.pushNotice(cleanDone.notice);
+        const blob = session.ensureStageImageBlob(
+          cleanDone.value,
+          t('cleanerActions.invalidCleanResponseNamed', { name: imgData.file.name }),
+        );
 
         return {
           imageId: imgData.id,
-          fileName: `koma-studio-cleaner-clean-${imgData.file.name.replace(/\s+/g, '-')}.png`,
+          fileName: session.buildCleanDownloadName('koma-studio-cleaner-clean', imgData.file.name),
           blob,
           baseImageDataUrl: await blobToDataUrl(blob),
           regions: cloneAioRegions(segmentDetections, cloneRenderStyle),

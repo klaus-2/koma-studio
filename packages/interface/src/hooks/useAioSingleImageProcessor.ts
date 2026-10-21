@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useI18n } from '../i18n';
 import {
+  getAioStageReadiness,
   resolveUpstreamRegions,
   runCleanImageStage,
   runDetectTextStage,
@@ -9,8 +10,8 @@ import {
   runRecognizeTextStage,
   runSegmentTextStage,
   type StageRegions,
-  type StageRunNotice,
 } from '../aio-stages';
+import { createAioStageRunSession } from '../pages/dashboard/hooks/aio-stage-runner';
 import {
   applyRenderDefaultsToRegion,
   cloneAioRegions,
@@ -115,30 +116,18 @@ export function useAioSingleImageProcessor({
       gpuStages,
     }: SingleImageRunConfig,
   ): Promise<AioBatchImageResult> => {
-    const executionNotices: string[] = [];
     const signal = getAbortSignal();
+    // Shared per-image stage mechanics: abort checks, notice plumbing,
+    // blob validation, download filename template.
+    const session = createAioStageRunSession({
+      localApiUrl,
+      signal,
+      collectNotices: true,
+      onRuntimeNotice: setRuntimeExecutionNotice,
+    });
+    const { stageRuntime, executionNotices } = session;
 
-    const assertNotAborted = (): void => {
-      if (!signal?.aborted) {
-        return;
-      }
-
-      throw (
-        signal.reason instanceof Error
-          ? signal.reason
-          : new DOMException('The operation was aborted.', 'AbortError')
-      );
-    };
-
-    const stageRuntime = { localApiUrl, signal };
-    const pushNotice = (notice: StageRunNotice | null): void => {
-      if (notice) {
-        executionNotices.push(notice.detail);
-        setRuntimeExecutionNotice(notice as RuntimeExecutionNotice);
-      }
-    };
-
-    assertNotAborted();
+    session.assertNotAborted();
     onStageStart('detectText', imgData, index);
     const detectDone = await runDetectTextStage(
       {
@@ -156,7 +145,7 @@ export function useAioSingleImageProcessor({
         parseApiError,
       },
     );
-    pushNotice(detectDone.notice);
+    session.pushNotice(detectDone.notice);
     const normalizedDetections = detectDone.value;
     let stageRegions: StageRegions = {
       detectText: normalizedDetections,
@@ -165,8 +154,9 @@ export function useAioSingleImageProcessor({
     const detectDetections = cloneAioRegions(normalizedDetections, cloneRenderStyle);
     let enrichedDetections = cloneAioRegions(normalizedDetections, cloneRenderStyle);
 
-    if (aioSteps.recognizeText && normalizedDetections.length > 0) {
-      assertNotAborted();
+    // Provenance verdict gates the stage instead of an inline length check.
+    if (aioSteps.recognizeText && getAioStageReadiness('recognizeText', stageRegions).runnable) {
+      session.assertNotAborted();
       onStageStart('recognizeText', imgData, index);
       const ocrDone = await runRecognizeTextStage(
         {
@@ -186,16 +176,15 @@ export function useAioSingleImageProcessor({
           parseApiError,
         },
       );
-      pushNotice(ocrDone.notice);
+      session.pushNotice(ocrDone.notice);
       enrichedDetections = ocrDone.value;
       stageRegions = { ...stageRegions, recognizeText: enrichedDetections };
     }
 
     const ocrDetections = cloneAioRegions(enrichedDetections, cloneRenderStyle);
-    const hasTextForTranslation = enrichedDetections.some((region) => (region.recognizedText ?? '').trim().length > 0);
 
-    if (aioSteps.getTranslations && hasTextForTranslation) {
-      assertNotAborted();
+    if (aioSteps.getTranslations && getAioStageReadiness('getTranslations', stageRegions).runnable) {
+      session.assertNotAborted();
       onStageStart('getTranslations', imgData, index);
       const translationSourceRegions = resolveUpstreamRegions(
         'getTranslations',
@@ -219,15 +208,15 @@ export function useAioSingleImageProcessor({
           parseApiError,
         },
       );
-      pushNotice(translateDone.notice);
+      session.pushNotice(translateDone.notice);
       enrichedDetections = translateDone.value;
       stageRegions = { ...stageRegions, getTranslations: enrichedDetections };
     }
 
     const translationDetections = cloneAioRegions(enrichedDetections, cloneRenderStyle);
 
-    if (aioSteps.segmentText && enrichedDetections.length > 0) {
-      assertNotAborted();
+    if (aioSteps.segmentText && getAioStageReadiness('segmentText', stageRegions).runnable) {
+      session.assertNotAborted();
       onStageStart('segmentText', imgData, index);
       const segmentSourceRegions = resolveUpstreamRegions(
         'segmentText',
@@ -249,7 +238,7 @@ export function useAioSingleImageProcessor({
           parseApiError,
         },
       );
-      pushNotice(segmentDone.notice);
+      session.pushNotice(segmentDone.notice);
       enrichedDetections = segmentDone.value;
       stageRegions = { ...stageRegions, segmentText: enrichedDetections };
     }
@@ -258,7 +247,7 @@ export function useAioSingleImageProcessor({
     let cleanedDownload: AioDownloadEntry | null = null;
 
     if (aioSteps.cleanImage) {
-      assertNotAborted();
+      session.assertNotAborted();
       onStageStart('cleanImage', imgData, index);
       const cleanSourceRegions = resolveUpstreamRegions(
         'cleanImage',
@@ -287,15 +276,15 @@ export function useAioSingleImageProcessor({
           parseApiError,
         },
       );
-      pushNotice(cleanDone.notice);
+      session.pushNotice(cleanDone.notice);
 
-      const inpaintBlob = cleanDone.value;
-      if (!inpaintBlob.type.startsWith('image/')) {
-        throw new Error(t('aioSingleProcessor.invalidCleanResponse', { fileName: imgData.file.name }));
-      }
+      const inpaintBlob = session.ensureStageImageBlob(
+        cleanDone.value,
+        t('aioSingleProcessor.invalidCleanResponse', { fileName: imgData.file.name }),
+      );
 
       cleanedDownload = {
-        fileName: `koma-studio-aio-clean-${imgData.file.name.replace(/\s+/g, '-')}.png`,
+        fileName: session.buildCleanDownloadName('koma-studio-aio-clean', imgData.file.name),
         blob: inpaintBlob,
         sourceImageId: imgData.id,
       };
@@ -308,7 +297,7 @@ export function useAioSingleImageProcessor({
     );
 
     if (aioSteps.render) {
-      assertNotAborted();
+      session.assertNotAborted();
       onStageStart('render', imgData, index);
       const renderSourceRegions = resolveUpstreamRegions(
         'render',
