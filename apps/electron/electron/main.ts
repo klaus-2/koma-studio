@@ -86,6 +86,10 @@ import {
   type MiniBackendCommandSpec,
 } from "./modules/mini-backend-packaged.ts";
 import { collectMiniBackendGpuVendors } from "./modules/mini-backend-gpu.ts";
+import {
+  createMiniBackendProfileResolver,
+  normalizeAccelerationProfileOverride,
+} from "./modules/mini-backend-profile.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -117,7 +121,6 @@ import {
 } from "./mini-backend-runtime-download.ts";
 import {
   readMiniBackendRuntimeSelection,
-  resolveRequestedRuntimeProfile,
   resolveSelectedRuntimeBinaryPath,
   writeMiniBackendRuntimeSelection,
 } from "./mini-backend-runtime-selection.ts";
@@ -126,7 +129,6 @@ import {
   buildManualInstallBlockedState,
   formatRuntimeFallbackReason,
   resolveEffectiveAccelerationProfile,
-  resolveAccelerationProfile,
   resolveManifestEntry,
   type MiniBackendAccelerationProfile,
 } from "./mini-backend-runtime.ts";
@@ -491,6 +493,13 @@ const desktopAuth = createDesktopAuthSession({
   resolveDesktopEnvValue,
 });
 
+
+
+const { resolveMiniBackendAccelerationProfile } = createMiniBackendProfileResolver({
+  resolveDesktopEnvValue,
+  runtimeStore,
+  collectGpuVendors: collectMiniBackendGpuVendors,
+});
 
 const recoverDesktopSession = async (
   action: DesktopSessionRecoveryAction,
@@ -1135,57 +1144,6 @@ const resolveDevPythonRuntime = (
   }
 
   return candidates[0];
-};
-
-const normalizeAccelerationProfileOverride = (
-  value: string | null | undefined,
-): MiniBackendAccelerationProfile | "auto" => {
-  const normalized = (value ?? "").trim().toLowerCase();
-  switch (normalized) {
-    case "cpu":
-    case "nvidia-cuda":
-    case "nvidia-cuda-legacy":
-    case "nvidia-tensorrt":
-    case "apple-mps":
-    case "amd-rocm":
-    case "intel-openvino":
-      return normalized;
-    default:
-      return "auto";
-  }
-};
-
-const resolveMiniBackendAccelerationProfile = async (
-  { silent = false, ignoreManualSelection = false }: { silent?: boolean; ignoreManualSelection?: boolean } = {},
-): Promise<MiniBackendAccelerationProfile> => {
-  const envOverrideProfile = normalizeAccelerationProfileOverride(
-    resolveDesktopEnvValue("MINI_BACKEND_ACCELERATION_PROFILE")
-    ?? process.env.MINI_BACKEND_ACCELERATION_PROFILE,
-  );
-  const selectedRuntime = readMiniBackendRuntimeSelection(app.getPath("userData"));
-  const overrideProfile = resolveRequestedRuntimeProfile({
-    envOverrideProfile,
-    selectedProfile: selectedRuntime?.profile ?? null,
-    ignoreManualSelection,
-  });
-  const gpuVendors = await collectMiniBackendGpuVendors();
-  const profile = resolveAccelerationProfile({
-    platform: process.platform,
-    arch: process.arch,
-    overrideProfile,
-    gpuVendors,
-  });
-  if (!silent) {
-    runtimeStore.patch({
-      status: "resolving",
-      statusMessage: "Detecting the best local runtime profile.",
-      requestedProfile: profile,
-      attempt: 0,
-      maxAttempts: 0,
-      progress: null,
-    });
-  }
-  return profile;
 };
 
 const ensureMiniBackendDevDependencies = (spec: MiniBackendCommandSpec): void => {
