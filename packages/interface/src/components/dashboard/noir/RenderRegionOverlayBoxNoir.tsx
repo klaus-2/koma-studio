@@ -116,7 +116,8 @@ const RenderRegionOverlayBoxNoir = ({
           }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); editor.cancel(); return; }
-            if (event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); event.stopPropagation(); editor.save(); }
+            if (event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); event.stopPropagation(); editor.save(); return; }
+            if (event.key === 'Enter' || event.key === ' ') { event.stopPropagation(); }
           }}
           onBlur={(event) => {
             if (editor.dockPointerDownRef.current) return;

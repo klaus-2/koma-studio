@@ -137,6 +137,10 @@ const RenderRegionOverlayBox = ({
               event.preventDefault();
               event.stopPropagation();
               editor.save();
+              return;
+            }
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.stopPropagation();
             }
           }}
           onBlur={(event) => {

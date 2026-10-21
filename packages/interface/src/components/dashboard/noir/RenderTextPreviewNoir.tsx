@@ -624,6 +624,16 @@ const RenderTextPreviewNoir = ({
         tabIndex={0}
         onClick={onCardSelect}
         onKeyDown={(event) => {
+          const target = event.target;
+          if (
+            target instanceof HTMLElement
+            && (target.isContentEditable
+              || target.tagName === 'INPUT'
+              || target.tagName === 'TEXTAREA'
+              || target.tagName === 'SELECT')
+          ) {
+            return;
+          }
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             onCardSelect();

@@ -43,4 +43,17 @@ describe("keyboard shortcut utils", () => {
     expect(isEditableShortcutTarget(document.createElement("input"))).toBe(true);
     expect(isEditableShortcutTarget(document.createElement("button"))).toBe(false);
   });
+
+  test("treats contentEditable hosts and their children as editable", () => {
+    const editor = document.createElement("div");
+    editor.setAttribute("contenteditable", "true");
+    const child = document.createElement("div");
+    editor.appendChild(child);
+    document.body.appendChild(editor);
+
+    expect(isEditableShortcutTarget(editor)).toBe(true);
+    expect(isEditableShortcutTarget(child)).toBe(true);
+
+    editor.remove();
+  });
 });
