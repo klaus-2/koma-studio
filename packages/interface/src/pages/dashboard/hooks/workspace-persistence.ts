@@ -335,7 +335,7 @@ export function useWorkspacePersistence({
       }
       setImages([]);
       setActiveId('');
-      setMode('organize');
+      setMode('aio');
       setWorkspaceStatus('idle');
       setWorkspaceStatusDetail('');
       setWorkspaceLastSavedAt(null);

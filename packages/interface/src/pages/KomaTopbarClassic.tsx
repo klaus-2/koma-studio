@@ -63,13 +63,6 @@ export const createNavGroups = (t: TranslateFn): NavGroup[] => [
     groupIcon: Layers,
     items: [
       {
-        mode: 'organize',
-        icon: Layers,
-        label: t('dashboard.mode.organize'),
-        subtitle: t('dashboard.nav.subtitle.organize'),
-        tooltip: t('dashboard.nav.tooltip.organize'),
-      },
-      {
         mode: 'aio',
         icon: Zap,
         label: t('dashboard.nav.short.aio'),
@@ -591,11 +584,7 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
                     <button
                       type="button"
                       data-tour={
-                        item.mode === 'organize'
-                          ? 'topbar-main-organize'
-                          : item.mode === 'aio'
-                            ? 'topbar-main-aio'
-                            : undefined
+                        item.mode === 'aio' ? 'topbar-main-aio' : undefined
                       }
                       role="tab"
                       aria-selected={isActive}

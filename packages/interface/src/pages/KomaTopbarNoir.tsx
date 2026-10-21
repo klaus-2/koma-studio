@@ -138,13 +138,6 @@ const createNavGroups = (t: TranslateFn): NavGroup[] => [
     groupIcon: Layers,
     items: [
       {
-        mode: 'organize',
-        icon: Layers,
-        label: t('dashboard.mode.organize'),
-        subtitle: t('dashboard.nav.subtitle.organize'),
-        tooltip: t('dashboard.nav.tooltip.organize'),
-      },
-      {
         mode: 'aio',
         icon: Zap,
         label: t('dashboard.nav.short.aio'),
@@ -508,7 +501,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
                         aria-selected={isActive}
                         aria-disabled={isDisabled}
                         data-mode={item.mode}
-                        data-tour={item.mode === 'organize' ? 'topbar-main-organize' : item.mode === 'aio' ? 'topbar-main-aio' : undefined}
+                        data-tour={item.mode === 'aio' ? 'topbar-main-aio' : undefined}
                         onClick={() => handleModeChange(item.mode)}
                         className={cn(
                           'panel-cut-sm group relative flex items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider transition-all duration-200',

@@ -67,7 +67,7 @@ interface UiShellStore {
 export const useUiShellStore = create<UiShellStore>()(
   devtools(
     (set) => ({
-      mode: 'organize',
+      mode: 'aio',
       subMode: 'auto',
       processing: false,
       progress: 0,
