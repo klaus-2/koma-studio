@@ -34,7 +34,6 @@ import { resolveAppFlags } from "./modules/app-flags.ts";
 import {
   APP_PROTOCOL,
   INTERNAL_APP_ENTRY_URL,
-  INTERNAL_APP_HOST,
   INTERNAL_APP_PROTOCOL,
 } from "./modules/app-protocols.ts";
 import {
@@ -63,6 +62,7 @@ import {
 import { resolveDesktopDeviceId } from "./modules/desktop-device-id.ts";
 import { createDesktopAuthSession } from "./modules/desktop-auth-session.ts";
 import { createDesktopSessionApi, type DesktopApiEnvelope } from "./modules/desktop-session-api.ts";
+import { createWindowSecurity } from "./modules/window-security.ts";
 import {
   createMiniBackendRuntimeStore,
 } from "./modules/mini-backend-runtime-store.ts";
@@ -87,18 +87,11 @@ import { createManualRuntimeInstaller } from "./modules/mini-backend-manual-inst
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
-  DESKTOP_APP_VERSION_HEADER,
-  DESKTOP_CLIENT_TOKEN_HEADER,
-  DESKTOP_DEVICE_ID_HEADER,
-  DESKTOP_SESSION_ID_HEADER,
   DESKTOP_TRAVEL_TOKEN_PATH,
-  DESKTOP_UPDATE_CHANNEL_HEADER,
-  LOCAL_API_SESSION_HEADER,
   parseDesktopRefreshSkewSec,
   parseDesktopTokenTtlSec,
 } from "./modules/desktop-auth-constants.ts";
 import { normalizeLoopbackUrl, parseConfiguredPort } from "./modules/app-urls.ts";
-import { resolveRendererCorsOrigin } from "./modules/app-protocols.ts";
 import { resolveMiniBackendStartupPolicy } from "./mini-backend-runtime-startup.ts";
 import {
   formatRuntimeFallbackReason,
@@ -1110,177 +1103,20 @@ registerSecureIpcHandler<{ restarting: true }>("desktop:restart-app", async () =
   return { restarting: true };
 });
 
-const setupDesktopClientHeaderInjection = (window: BrowserWindow): void => {
-  let authOrigin = "";
-  let localOrigin = "";
-  try {
-    authOrigin = new URL(authApiUrl).origin;
-    localOrigin = new URL(localApiUrl).origin;
-  } catch {
-    return;
-  }
 
-  // Intercept outgoing requests to inject desktop client headers and strip Origin.
-  // Removing Origin prevents servers that don't have "app://local" in ALLOWED_ORIGINS
-  // from rejecting the preflight or request with a CORS error.
-  window.webContents.session.webRequest.onBeforeSendHeaders(
-    { urls: ["*://*/*"] },
-    (details, callback) => {
-      try {
-        const targetUrl = new URL(details.url);
-        const targetsDesktopSession = targetUrl.origin === authOrigin;
-        const targetsLocalBackend = targetUrl.origin === localOrigin;
-        const isPreflightRequest = details.method.toUpperCase() === "OPTIONS";
-
-        if (targetsDesktopSession) {
-          // Strip Origin on both the actual request and the Authorization preflight.
-          // Packaged renderer requests come from app://local and can otherwise trip
-          // server-side origin allowlists before our response-header patch runs.
-          delete details.requestHeaders["Origin"];
-          delete details.requestHeaders["origin"];
-        }
-
-        if (!isPreflightRequest && targetsDesktopSession) {
-          const nowMs = Date.now();
-          if (
-            desktopAuth.getState().token &&
-            desktopAuth.getState().expiresAtMs - nowMs <= desktopClientTokenRefreshSkewSec * 1_000
-          ) {
-            void desktopAuth.refreshToken("on-demand");
-          }
-
-          if (desktopAuth.getState().token) {
-            details.requestHeaders[DESKTOP_CLIENT_TOKEN_HEADER] = desktopAuth.getState().token;
-            details.requestHeaders[DESKTOP_SESSION_ID_HEADER] = desktopAuth.getState().sessionId;
-            details.requestHeaders[DESKTOP_DEVICE_ID_HEADER] = desktopAuth.getState().deviceId;
-          }
-          details.requestHeaders[DESKTOP_APP_VERSION_HEADER] = app.getVersion();
-          details.requestHeaders[DESKTOP_UPDATE_CHANNEL_HEADER] = getDesktopUpdateChannel(app.getVersion());
-
-        }
-
-        if (!isPreflightRequest && localApiSessionSecret && targetsLocalBackend) {
-          details.requestHeaders[LOCAL_API_SESSION_HEADER] = localApiSessionSecret;
-        }
-      } catch {
-        // ignore malformed URL
-      } finally {
-        // Always call callback – if the obfuscated control flow ever skips the
-        // normal exit path, the finally block guarantees the request proceeds.
-        callback({ requestHeaders: details.requestHeaders });
-      }
-    },
-  );
-
-  // Inject CORS response headers for auth API responses so the renderer
-  // accepts them. Since we strip Origin from the request, the server won't add
-  // Access-Control-Allow-Origin itself, so we add it here.
-  const fallbackDesktopOrigin = `${INTERNAL_APP_PROTOCOL}://${INTERNAL_APP_HOST}`;
-  const desktopSessionUrls = [
-    `${authOrigin}/*`,
-  ].filter((u) => u !== "/*");
-
-  if (desktopSessionUrls.length > 0) {
-    window.webContents.session.webRequest.onHeadersReceived(
-      { urls: desktopSessionUrls },
-      (details, callback) => {
-        const headers = { ...details.responseHeaders };
-        try {
-          // Determine the actual origin. In DEV, this may be http://localhost:5173 
-          // while in PROD it is app://local. It must exactly match the renderer's origin
-          // because we use Access-Control-Allow-Credentials: true.
-          let currentOrigin = fallbackDesktopOrigin;
-          try {
-            const currentUrl = window.webContents.getURL();
-            if (currentUrl) {
-              currentOrigin = resolveRendererCorsOrigin(currentUrl, fallbackDesktopOrigin);
-            }
-          } catch {
-            // keep fallback
-          }
-
-          // Inject CORS headers so the renderer accepts responses from the auth server.
-          delete headers["access-control-allow-origin"];
-          delete headers["Access-Control-Allow-Origin"];
-          delete headers["access-control-allow-credentials"];
-          delete headers["Access-Control-Allow-Credentials"];
-          delete headers["access-control-allow-headers"];
-          delete headers["Access-Control-Allow-Headers"];
-          delete headers["access-control-allow-methods"];
-          delete headers["Access-Control-Allow-Methods"];
-
-          headers["access-control-allow-origin"] = [currentOrigin];
-          headers["access-control-allow-credentials"] = ["true"];
-          headers["access-control-allow-headers"] = ["*"];
-          headers["access-control-allow-methods"] = ["GET, POST, PUT, PATCH, DELETE, OPTIONS"];
-
-          // Rewrite Set-Cookie headers to use SameSite=None; Secure so session
-          // cookies are sent on cross-origin requests from app://local.
-          // Without this, SameSite=Lax cookies are blocked on subsequent requests.
-          const rawCookies =
-            headers["set-cookie"] ?? headers["Set-Cookie"] ?? [];
-          if (rawCookies.length > 0) {
-            const patched = rawCookies.map((cookie: string) => {
-              // Replace any existing SameSite value with None
-              let c = cookie.replace(/;\s*SameSite=\w+/gi, "");
-              c += "; SameSite=None";
-              // SameSite=None requires Secure
-              if (!/;\s*Secure/i.test(c)) {
-                c += "; Secure";
-              }
-              return c;
-            });
-            headers["set-cookie"] = patched;
-            delete headers["Set-Cookie"];
-          }
-        } catch {
-          // ignore errors — callback must always be called
-        } finally {
-          callback({ responseHeaders: headers });
-        }
-      },
-    );
-  }
-};
-
-const setupNavigationHardening = (window: BrowserWindow): void => {
-  const internalOrigin = getDevServerOrigin();
-
-  const isInternalUrl = (targetUrl: string): boolean => {
-    if (!internalOrigin) {
-      return isInternalAppUrl(targetUrl);
-    }
-
-    try {
-      return new URL(targetUrl).origin === internalOrigin;
-    } catch {
-      return false;
-    }
-  };
-
-  window.webContents.on("will-navigate", (event, targetUrl) => {
-    if (isInternalUrl(targetUrl)) {
-      return;
-    }
-
-    event.preventDefault();
-    if (isAllowedExternalUrl(targetUrl)) {
-      void shell.openExternal(targetUrl);
-    }
-  });
-
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedExternalUrl(url)) {
-      void shell.openExternal(url);
-    }
-
-    return { action: "deny" };
-  });
-
-  window.webContents.on("will-attach-webview", (event) => {
-    event.preventDefault();
-  });
-};
+const {
+  setupDesktopClientHeaderInjection,
+  setupNavigationHardening,
+} = createWindowSecurity({
+  authApiUrl,
+  localApiUrl,
+  getLocalApiSessionSecret: () => localApiSessionSecret,
+  desktopAuth,
+  desktopClientTokenRefreshSkewSec,
+  isAllowedExternalUrl,
+  isInternalAppUrl,
+  getDevServerOrigin,
+});
 
 const createWindow = async (): Promise<void> => {
   await prepareMiniBackendLaunchContext();
