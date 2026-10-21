@@ -1,12 +1,10 @@
 /**
- * Desktop auth + shell-contract IPC handler registration.
+ * Desktop auth IPC handler registration.
  * The handler registration ORDER (login / register / travel-token set+create /
- * verify / confirm / forgot / reset / sign-out / refresh / identity /
- * cookie-fallback ordering) is the sequencing policy — do not reorder.
+ * verify / confirm / forgot / reset / sign-out / refresh / cookie-fallback
+ * ordering) is the sequencing policy — do not reorder.
  */
 import type { Session } from "electron";
-import fs from "node:fs";
-import path from "node:path";
 
 import {
   clearDesktopAuthCookies,
@@ -22,8 +20,6 @@ import {
   createDesktopSessionApi,
   type DesktopApiEnvelope,
 } from "./desktop-session-api.ts";
-import { resolveDesktopDeviceId } from "./desktop-device-id.ts";
-import { getCertificatePinsByHost } from "./certificate-pinning.ts";
 import {
   debugDesktopInfo,
   debugDesktopWarn,
@@ -33,17 +29,11 @@ import {
   sanitizeSessionLogText,
   registerSecureIpcHandler,
   resolveDesktopErrorCode,
-  isDesktopStructuredError,
+  isTravelTokenError,
   extractDesktopApiErrorMessage,
   summarizeDesktopApiPayload,
   toDesktopAuthErrorEnvelope,
 } from "./shared.ts";
-import {
-  extractDeepLinkFromArgv,
-  deepLinkToHashRoute,
-  formatDeepLinkForLog,
-} from "./deep-link.ts";
-import { discordRPC } from "../discord-rpc.ts";
 
 type DesktopSessionApi = ReturnType<typeof createDesktopSessionApi>;
 
@@ -53,7 +43,6 @@ interface DesktopAuthIpcDeps {
   getDesktopHttpSession: () => Session;
   desktopSessionApiFetch: DesktopSessionApi["desktopSessionApiFetch"];
   fetchDesktopCookieSessionEnvelope: DesktopSessionApi["fetchDesktopCookieSessionEnvelope"];
-  navigateMainWindowFromDeepLink: (url: string) => void;
 }
 
 const setupDesktopAuthIpcHandlers = (deps: DesktopAuthIpcDeps): void => {
@@ -63,7 +52,6 @@ const setupDesktopAuthIpcHandlers = (deps: DesktopAuthIpcDeps): void => {
     getDesktopHttpSession,
     desktopSessionApiFetch,
     fetchDesktopCookieSessionEnvelope,
-    navigateMainWindowFromDeepLink,
   } = deps;
 
   registerSecureIpcHandler<DesktopApiEnvelope>("desktop-api:auth:config", async () => {
@@ -176,11 +164,7 @@ const setupDesktopAuthIpcHandlers = (deps: DesktopAuthIpcDeps): void => {
       await desktopAuth.registerDeviceKey("login", { travelToken });
       await desktopAuth.refreshToken("on-demand");
     } catch (error) {
-      if (
-        isDesktopStructuredError(error) &&
-        (error.code === DESKTOP_TRAVEL_TOKEN_REQUIRED ||
-          error.code === DESKTOP_TRAVEL_TOKEN_INVALID)
-      ) {
+      if (isTravelTokenError(error)) {
         await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
         desktopAuth.clearSessionState(true);
         debugDesktopWarn(
@@ -257,11 +241,7 @@ const setupDesktopAuthIpcHandlers = (deps: DesktopAuthIpcDeps): void => {
       await desktopAuth.registerDeviceKey("register", { travelToken });
       await desktopAuth.refreshToken("on-demand");
     } catch (error) {
-      if (
-        isDesktopStructuredError(error) &&
-        (error.code === DESKTOP_TRAVEL_TOKEN_REQUIRED ||
-          error.code === DESKTOP_TRAVEL_TOKEN_INVALID)
-      ) {
+      if (isTravelTokenError(error)) {
         await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
         desktopAuth.clearSessionState(true);
         debugDesktopWarn(
@@ -430,10 +410,6 @@ const setupDesktopAuthIpcHandlers = (deps: DesktopAuthIpcDeps): void => {
     return response;
   });
 
-  // ─── v2 desktop shell contract: handlers that the Rust app exposes and the
-  // ─── Electron shell did not previously register. They mirror the behaviour
-  // ─── of the corresponding src-tauri commands.
-
   // auth:refresh-session — same flow as registerDesktopSessionToken
   // (POST to bootstrap with the device key or secret) to renew the session.
   registerSecureIpcHandler<DesktopApiEnvelope>("desktop-api:auth:refresh-session", async () => {
@@ -442,94 +418,6 @@ const setupDesktopAuthIpcHandlers = (deps: DesktopAuthIpcDeps): void => {
       ok: true,
       status: 200,
       payload: { refreshed: true, sessionId: desktopAuth.getState().sessionId },
-    };
-  });
-
-  // identity: stable per-install id + HMAC fingerprint (the same data the
-  // auth-server's desktop routes already consume).
-  registerSecureIpcHandler("desktop-api:identity:hardware-id", async () => {
-    return { hardwareId: resolveDesktopDeviceId() };
-  });
-  registerSecureIpcHandler("desktop-api:identity:machine-fingerprint", async () => {
-    const deviceId = resolveDesktopDeviceId();
-    // v1 does no hardware fingerprinting — the stable per-install id IS the fingerprint.
-    return { fingerprint: deviceId };
-  });
-
-  // security: snapshot of the SHA-256 pins configured per host.
-  registerSecureIpcHandler("desktop-api:security:cert-pinning:snapshot", async () => {
-    const hosts: Record<string, string[]> = {};
-    getCertificatePinsByHost(authApiUrl).forEach((pins, host) => {
-      hosts[host] = Array.from(pins);
-    });
-    return { configured: Object.keys(hosts).length > 0, hosts };
-  });
-
-  // integrations: deep link (komastudio://) — same functions as the main
-  // process's protocol flow.
-  registerSecureIpcHandler("desktop-api:integrations:deep-link:extract", async (value) => {
-    const payload = (value ?? {}) as { argv?: unknown };
-    const argv = Array.isArray(payload.argv) ? payload.argv.map(String) : [];
-    return { url: extractDeepLinkFromArgv(argv) };
-  });
-  registerSecureIpcHandler("desktop-api:integrations:deep-link:route", async (value) => {
-    const payload = (value ?? {}) as { url?: unknown };
-    const url = typeof payload.url === "string" ? payload.url : "";
-    return { hashRoute: deepLinkToHashRoute(url) };
-  });
-  registerSecureIpcHandler("desktop-api:integrations:deep-link:format", async (value) => {
-    const payload = (value ?? {}) as { url?: unknown };
-    const url = typeof payload.url === "string" ? payload.url : "";
-    return { formatted: formatDeepLinkForLog(url) };
-  });
-  registerSecureIpcHandler("desktop-api:integrations:deep-link:navigate", async (value) => {
-    const payload = (value ?? {}) as { url?: unknown };
-    const url = typeof payload.url === "string" ? payload.url : "";
-    navigateMainWindowFromDeepLink(url);
-    return { navigated: true };
-  });
-
-  // images: folder listing (the v2 contract uses it in the model manager).
-  registerSecureIpcHandler("desktop-api:images:list-folder", async (value) => {
-    const payload = (value ?? {}) as { folderPath?: unknown };
-    const folderPath = typeof payload.folderPath === "string" ? payload.folderPath : "";
-    if (!folderPath || !fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
-      return { files: [] };
-    }
-    const files = fs
-      .readdirSync(folderPath, { withFileTypes: true })
-      .filter((entry) => entry.isFile())
-      .map((entry) => {
-        const full = path.join(folderPath, entry.name);
-        return {
-          name: entry.name,
-          sizeBytes: fs.statSync(full).size,
-          modifiedAt: fs.statSync(full).mtimeMs,
-        };
-      });
-    return { folderPath, files };
-  });
-
-  // discord-rpc: clear activity (the class already supports it; the channel was missing).
-  registerSecureIpcHandler("discord-rpc:clear-activity", async () => {
-    return discordRPC.clearActivity();
-  });
-
-  // fonts: install/uninstall are not yet implemented in the electron shell —
-  // return a typed error so the UI can degrade gracefully (parity with the
-  // contract).
-  registerSecureIpcHandler("desktop-api:fonts:install", async () => {
-    return {
-      ok: false,
-      status: 501,
-      payload: { error: "Font install is not supported by this shell yet." },
-    };
-  });
-  registerSecureIpcHandler("desktop-api:fonts:uninstall", async () => {
-    return {
-      ok: false,
-      status: 501,
-      payload: { error: "Font uninstall is not supported by this shell yet." },
     };
   });
 };

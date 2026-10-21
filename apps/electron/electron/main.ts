@@ -84,8 +84,6 @@ import { createManualRuntimeInstaller } from "./modules/mini-backend-manual-inst
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
-  DESKTOP_TRAVEL_TOKEN_INVALID,
-  DESKTOP_TRAVEL_TOKEN_REQUIRED,
   parseDesktopRefreshSkewSec,
   parseDesktopTokenTtlSec,
 } from "./modules/desktop-auth-constants.ts";
@@ -97,7 +95,7 @@ import {
   // Shared utilities
   registerSecureIpcHandler,
   fetchWithTimeoutAndRetry,
-  isDesktopStructuredError,
+  isTravelTokenError,
   DESKTOP_FETCH_TIMEOUT_MS,
   DESKTOP_FETCH_RETRY_COUNT,
   assertTrustedIpcSender,
@@ -117,6 +115,7 @@ import {
 } from "./modules/workspace.ts";
 import { setupDesktopModelIpcHandlers } from "./modules/models.ts";
 import { setupDesktopAuthIpcHandlers } from "./modules/desktop-auth-ipc.ts";
+import { setupDesktopShellContractIpcHandlers } from "./modules/desktop-shell-contract-ipc.ts";
 import { setupDesktopSessionLogIpcHandler } from "./modules/logging.ts";
 import {
   extractDeepLinkFromArgv,
@@ -521,10 +520,7 @@ const createWindow = async (): Promise<void> => {
       await desktopAuth.registerDeviceKey("startup");
       await desktopAuth.ensureToken("startup");
     } catch (error) {
-      if (
-        isDesktopStructuredError(error) &&
-        (error.code === DESKTOP_TRAVEL_TOKEN_REQUIRED || error.code === DESKTOP_TRAVEL_TOKEN_INVALID)
-      ) {
+      if (isTravelTokenError(error)) {
         await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
         desktopAuth.clearSessionState(true);
       }
@@ -705,6 +701,9 @@ setupDesktopAuthIpcHandlers({
   getDesktopHttpSession,
   desktopSessionApiFetch,
   fetchDesktopCookieSessionEnvelope,
+});
+setupDesktopShellContractIpcHandlers({
+  authApiUrl,
   navigateMainWindowFromDeepLink,
 });
 setupDesktopSessionLogIpcHandler({ recordSessionLog });

@@ -7,6 +7,10 @@ import {
   type IpcMainEvent,
   type IpcMainInvokeEvent,
 } from "electron";
+import {
+  DESKTOP_TRAVEL_TOKEN_INVALID,
+  DESKTOP_TRAVEL_TOKEN_REQUIRED,
+} from "./desktop-auth-constants.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -401,6 +405,11 @@ const toDesktopStructuredError = (
 const isDesktopStructuredError = (error: unknown): error is DesktopStructuredError =>
   error instanceof DesktopStructuredError;
 
+const isTravelTokenError = (error: unknown): error is DesktopStructuredError =>
+  isDesktopStructuredError(error) &&
+  (error.code === DESKTOP_TRAVEL_TOKEN_REQUIRED ||
+    error.code === DESKTOP_TRAVEL_TOKEN_INVALID);
+
 const extractDesktopApiErrorMessage = (payload: unknown, fallback: string): string => {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return fallback;
@@ -587,6 +596,7 @@ export {
   DesktopStructuredError,
   toDesktopStructuredError,
   isDesktopStructuredError,
+  isTravelTokenError,
   extractDesktopApiErrorMessage,
   summarizeDesktopApiPayload,
   toDesktopAuthErrorEnvelope,
