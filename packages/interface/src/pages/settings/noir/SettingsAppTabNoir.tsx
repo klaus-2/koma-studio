@@ -2,7 +2,7 @@ import type React from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { Moon, Sun, Globe2, DownloadCloud, Radio, Save, Lightbulb, Keyboard, RotateCcw, FileText, Palette } from "lucide-react";
 import RuntimeProfileSection from "../../../components/runtime/RuntimeProfileSection";
-import ReleaseNotesMarkdownClassic from "../../../components/updater/ReleaseNotesMarkdownClassic";
+import ReleaseNotesMarkdown from "../../../components/updater/ReleaseNotesMarkdown";
 import SyncPanel from "../../../components/updater/SyncPanel";
 import type { AppLocale } from "../../../i18n/config";
 import type { useI18n } from "../../../i18n";
@@ -295,7 +295,7 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
       <Sec icon={<FileText size={14} />} title={t("update.modal.releaseNotes")}>
         {updater.releaseNotes ? (
           <div className="panel-cut-sm max-h-64 overflow-y-auto border border-paper/8 bg-ink/60 p-4">
-            <ReleaseNotesMarkdownClassic markdown={updater.releaseNotes} className="prose prose-invert prose-sm max-w-none" />
+            <ReleaseNotesMarkdown markdown={updater.releaseNotes} className="prose prose-invert prose-sm max-w-none" />
           </div>
         ) : (
           <p className="font-mono text-[11px] uppercase tracking-wider text-paper/30">{t("update.modal.releaseNotesEmpty")}</p>

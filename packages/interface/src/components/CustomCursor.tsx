@@ -1,9 +1,5 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { CustomCursorClassic } from './noir/CustomCursorClassic';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 import { CustomCursorNoir } from './noir/CustomCursorNoir';
 
-export const CustomCursor = () => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <CustomCursorNoir /> : <CustomCursorClassic />;
-};
+export const CustomCursor = createFamilyComponent(CustomCursorClassic, CustomCursorNoir);

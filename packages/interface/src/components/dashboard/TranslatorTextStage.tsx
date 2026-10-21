@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import TranslatorTextStageClassic from './TranslatorTextStageClassic';
 import TranslatorTextStageNoir from './noir/TranslatorTextStageNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-const TranslatorTextStage = (props: React.ComponentProps<typeof TranslatorTextStageClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <TranslatorTextStageNoir {...props} /> : <TranslatorTextStageClassic {...props} />;
-};
+const TranslatorTextStage = createFamilyComponent(TranslatorTextStageClassic, TranslatorTextStageNoir);
 
 export default TranslatorTextStage;

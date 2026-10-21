@@ -1,15 +1,7 @@
-import { useThemeStore } from "@koma/ui/stores/theme-store";
 import { ShortcutCenterModalClassic } from "./ShortcutCenterModalClassic";
 import ShortcutCenterModalNoir from "./noir/ShortcutCenterModalNoir";
-import type { ShortcutCenterModalProps } from "../shortcuts/useShortcutCenterModel";
+import { createFamilyComponent } from "@koma/ui/themes/family-skins";
 
-const ShortcutCenterModal = (props: ShortcutCenterModalProps) => {
-  const family = useThemeStore((s) => s.family);
-  return family === "noir" ? (
-    <ShortcutCenterModalNoir {...props} />
-  ) : (
-    <ShortcutCenterModalClassic {...props} />
-  );
-};
+const ShortcutCenterModal = createFamilyComponent(ShortcutCenterModalClassic, ShortcutCenterModalNoir);
 
 export default ShortcutCenterModal;

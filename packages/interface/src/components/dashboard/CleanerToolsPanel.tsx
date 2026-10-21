@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import CleanerToolsPanelClassic from './CleanerToolsPanelClassic';
 import CleanerToolsPanelNoir from './noir/CleanerToolsPanelNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-const CleanerToolsPanel = (props: React.ComponentProps<typeof CleanerToolsPanelClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <CleanerToolsPanelNoir {...props} /> : <CleanerToolsPanelClassic {...props} />;
-};
+const CleanerToolsPanel = createFamilyComponent(CleanerToolsPanelClassic, CleanerToolsPanelNoir);
 
 export default CleanerToolsPanel;

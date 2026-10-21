@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { RuntimeStartupToastClassic } from './RuntimeStartupToastClassic';
 import { RuntimeStartupToastNoir } from './noir/RuntimeStartupToastNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const RuntimeStartupToast = () => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <RuntimeStartupToastNoir /> : <RuntimeStartupToastClassic />;
-};
+export const RuntimeStartupToast = createFamilyComponent(RuntimeStartupToastClassic, RuntimeStartupToastNoir);
 
 export default RuntimeStartupToast;

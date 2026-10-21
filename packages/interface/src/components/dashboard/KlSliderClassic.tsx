@@ -1,16 +1,7 @@
-import {
-  type PointerEvent as ReactPointerEvent,
-  memo,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from 'react';
+import { memo, type ReactNode } from 'react';
 
 import { useI18n } from '../../i18n';
-import { useLatestRef } from '../../utils/shallowStable';
+import { useLocalDraftSlider } from './useLocalDraftSlider';
 
 export interface KlSliderProps {
   label: ReactNode;
@@ -34,49 +25,18 @@ export default memo(function KlSliderClassic({
   ariaLabel,
 }: KlSliderProps) {
   const { t } = useI18n();
-  const labelId = useId();
-  const inputId = useId();
-  const [draft, setDraft] = useState(value);
-  const draggingRef = useRef(false);
-  const onChangeRef = useLatestRef(onChange);
+  const {
+    labelId,
+    inputId,
+    draft,
+    display,
+    commit,
+    endDrag,
+    handlePointerDown,
+    handlePointerUp,
+    handleChange,
+  } = useLocalDraftSlider({ value, onChange });
 
-  useEffect(() => {
-    if (!draggingRef.current) {
-      setDraft(value);
-    }
-  }, [value]);
-
-  const commit = useCallback((next: number) => {
-    setDraft(next);
-    onChangeRef.current(next);
-  }, [onChangeRef]);
-
-  const handlePointerDown = useCallback(() => {
-    draggingRef.current = true;
-  }, []);
-
-  const handlePointerUp = useCallback(
-    (event: ReactPointerEvent<HTMLInputElement>) => {
-      draggingRef.current = false;
-      const next = parseFloat(event.currentTarget.value);
-      if (Number.isFinite(next)) {
-        commit(next);
-      }
-    },
-    [commit],
-  );
-
-  const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const next = parseFloat(event.target.value);
-    if (!Number.isFinite(next)) return;
-    setDraft(next);
-    // Keyboard / accessibility path commits immediately when not dragging.
-    if (!draggingRef.current) {
-      onChangeRef.current(next);
-    }
-  }, [onChangeRef]);
-
-  const display = Math.round(draft * 100) / 100;
   const stringLabel = typeof label === 'string' ? label : undefined;
 
   return (
@@ -89,7 +49,7 @@ export default memo(function KlSliderClassic({
           type="button"
           className="koma-slider__value"
           onClick={() => {
-            draggingRef.current = false;
+            endDrag();
             commit(resetVal);
           }}
           title={t('klSlider.resetValue')}

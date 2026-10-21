@@ -1,13 +1,9 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { ModelFiltersClassic } from './ModelFiltersClassic';
 import { ModelFiltersNoir } from './noir/ModelFiltersNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
 export type { ModelFiltersProps } from './ModelFiltersClassic';
 
-export const ModelFilters = (props: React.ComponentProps<typeof ModelFiltersClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <ModelFiltersNoir {...props} /> : <ModelFiltersClassic {...props} />;
-};
+export const ModelFilters = createFamilyComponent(ModelFiltersClassic, ModelFiltersNoir);
 
 export default ModelFilters;

@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { StitchSidebarToolboxClassic } from './StitchSidebarToolboxClassic';
 import { StitchSidebarToolboxNoir } from '../noir/StitchSidebarToolboxNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const StitchSidebarToolbox = (props: React.ComponentProps<typeof StitchSidebarToolboxClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <StitchSidebarToolboxNoir {...props} /> : <StitchSidebarToolboxClassic {...props} />;
-};
+export const StitchSidebarToolbox = createFamilyComponent(StitchSidebarToolboxClassic, StitchSidebarToolboxNoir);
 
 export default StitchSidebarToolbox;

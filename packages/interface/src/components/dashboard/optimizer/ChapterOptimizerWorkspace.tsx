@@ -1,13 +1,9 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import ChapterOptimizerWorkspaceClassic from './ChapterOptimizerWorkspaceClassic';
 import ChapterOptimizerWorkspaceNoir from './noir/ChapterOptimizerWorkspaceNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
 export type { ChapterOptimizerWorkspaceState } from './ChapterOptimizerWorkspace.types';
 
-const ChapterOptimizerWorkspace = (props: React.ComponentProps<typeof ChapterOptimizerWorkspaceClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <ChapterOptimizerWorkspaceNoir {...props} /> : <ChapterOptimizerWorkspaceClassic {...props} />;
-};
+const ChapterOptimizerWorkspace = createFamilyComponent(ChapterOptimizerWorkspaceClassic, ChapterOptimizerWorkspaceNoir);
 
 export default ChapterOptimizerWorkspace;

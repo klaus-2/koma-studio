@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { CircularTextPopoverClassic } from './CircularTextPopoverClassic';
 import { CircularTextPopoverNoir } from './noir/CircularTextPopoverNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const CircularTextPopover = (props: React.ComponentProps<typeof CircularTextPopoverClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <CircularTextPopoverNoir {...props} /> : <CircularTextPopoverClassic {...props} />;
-};
+export const CircularTextPopover = createFamilyComponent(CircularTextPopoverClassic, CircularTextPopoverNoir);
 
 export default CircularTextPopover;

@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { StitchWorkspaceClassic } from './StitchWorkspaceClassic';
 import { StitchWorkspaceNoir } from '../noir/StitchWorkspaceNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const StitchWorkspace = (props: React.ComponentProps<typeof StitchWorkspaceClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <StitchWorkspaceNoir {...props} /> : <StitchWorkspaceClassic {...props} />;
-};
+export const StitchWorkspace = createFamilyComponent(StitchWorkspaceClassic, StitchWorkspaceNoir);
 
 export default StitchWorkspace;

@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { TextEffectPopoverClassic } from './TextEffectPopoverClassic';
 import { TextEffectPopoverNoir } from './noir/TextEffectPopoverNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const TextEffectPopover = (props: React.ComponentProps<typeof TextEffectPopoverClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <TextEffectPopoverNoir {...props} /> : <TextEffectPopoverClassic {...props} />;
-};
+export const TextEffectPopover = createFamilyComponent(TextEffectPopoverClassic, TextEffectPopoverNoir);
 
 export default TextEffectPopover;

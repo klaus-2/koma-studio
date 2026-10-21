@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import EnhanceToolsPanelClassic from './EnhanceToolsPanelClassic';
 import EnhanceToolsPanelNoir from './noir/EnhanceToolsPanelNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-const EnhanceToolsPanel = (props: React.ComponentProps<typeof EnhanceToolsPanelClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <EnhanceToolsPanelNoir {...props} /> : <EnhanceToolsPanelClassic {...props} />;
-};
+const EnhanceToolsPanel = createFamilyComponent(EnhanceToolsPanelClassic, EnhanceToolsPanelNoir);
 
 export default EnhanceToolsPanel;

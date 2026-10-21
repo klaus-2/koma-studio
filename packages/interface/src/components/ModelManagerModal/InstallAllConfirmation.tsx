@@ -1,13 +1,9 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { InstallAllConfirmationClassic } from './InstallAllConfirmationClassic';
 import { InstallAllConfirmationNoir } from './noir/InstallAllConfirmationNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
 export type { InstallAllConfirmationProps } from './InstallAllConfirmationClassic';
 
-export const InstallAllConfirmation = (props: React.ComponentProps<typeof InstallAllConfirmationClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <InstallAllConfirmationNoir {...props} /> : <InstallAllConfirmationClassic {...props} />;
-};
+export const InstallAllConfirmation = createFamilyComponent(InstallAllConfirmationClassic, InstallAllConfirmationNoir);
 
 export default InstallAllConfirmation;

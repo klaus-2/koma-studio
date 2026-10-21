@@ -1,11 +1,7 @@
-import { useThemeStore } from "@koma/ui/stores/theme-store";
 import { FreeProviderCardClassic } from "./FreeProviderCardClassic";
 import { FreeProviderCard as FreeProviderCardNoir } from "../noir-panels/FreeProviderCardNoir";
+import { createFamilyComponent } from "@koma/ui/themes/family-skins";
 
-export const FreeProviderCard = (props: React.ComponentProps<typeof FreeProviderCardClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === "noir" ? <FreeProviderCardNoir {...props} /> : <FreeProviderCardClassic {...props} />;
-};
+export const FreeProviderCard = createFamilyComponent(FreeProviderCardClassic, FreeProviderCardNoir);
 
 export default FreeProviderCard;

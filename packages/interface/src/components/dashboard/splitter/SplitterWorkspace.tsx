@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { SplitterWorkspaceClassic } from './SplitterWorkspaceClassic';
 import { SplitterWorkspaceNoir } from '../noir/SplitterWorkspaceNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const SplitterWorkspace = () => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <SplitterWorkspaceNoir /> : <SplitterWorkspaceClassic />;
-};
+export const SplitterWorkspace = createFamilyComponent(SplitterWorkspaceClassic, SplitterWorkspaceNoir);
 
 export default SplitterWorkspace;

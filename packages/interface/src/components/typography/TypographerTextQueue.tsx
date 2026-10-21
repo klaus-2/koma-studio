@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { TypographerTextQueueClassic } from './TypographerTextQueueClassic';
 import { TypographerTextQueueNoir } from './noir/TypographerTextQueueNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const TypographerTextQueue = (props: React.ComponentProps<typeof TypographerTextQueueClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <TypographerTextQueueNoir {...props} /> : <TypographerTextQueueClassic {...props} />;
-};
+export const TypographerTextQueue = createFamilyComponent(TypographerTextQueueClassic, TypographerTextQueueNoir);
 
 export default TypographerTextQueue;

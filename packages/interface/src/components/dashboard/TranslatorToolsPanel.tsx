@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import TranslatorToolsPanelClassic from './TranslatorToolsPanelClassic';
 import TranslatorToolsPanelNoir from './noir/TranslatorToolsPanelNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-const TranslatorToolsPanel = (props: React.ComponentProps<typeof TranslatorToolsPanelClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <TranslatorToolsPanelNoir {...props} /> : <TranslatorToolsPanelClassic {...props} />;
-};
+const TranslatorToolsPanel = createFamilyComponent(TranslatorToolsPanelClassic, TranslatorToolsPanelNoir);
 
 export default TranslatorToolsPanel;

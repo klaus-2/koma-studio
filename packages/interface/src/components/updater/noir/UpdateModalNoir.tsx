@@ -3,7 +3,7 @@ import { RefreshCcw, X, FileText } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import { EASE, btnGhost } from "../../system/v2/kit";
 import SyncPanelNoir from "./SyncPanelNoir";
-import ReleaseNotesMarkdownClassic from '../ReleaseNotesMarkdownClassic';
+import ReleaseNotesMarkdown from '../ReleaseNotesMarkdown';
 
 interface UpdateModalProps {
   open: boolean;
@@ -82,7 +82,7 @@ export const UpdateModalNoir = ({
               </p>
               <div className="panel-cut-sm max-h-48 overflow-y-auto border border-paper/8 bg-ink/60 p-3.5">
                 {releaseNotes ? (
-                  <ReleaseNotesMarkdownClassic markdown={releaseNotes} />
+                  <ReleaseNotesMarkdown markdown={releaseNotes} />
                 ) : (
                   <p className="font-mono text-[10px] uppercase tracking-wider text-paper/30">
                     {t("update.modal.releaseNotesEmpty")}

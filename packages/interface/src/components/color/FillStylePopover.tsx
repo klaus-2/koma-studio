@@ -1,12 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { FillStylePopoverClassic } from './FillStylePopoverClassic';
 import { FillStylePopoverNoir } from './noir/FillStylePopoverNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const FillStylePopover = (props: React.ComponentProps<typeof FillStylePopoverClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <FillStylePopoverNoir {...props} /> : <FillStylePopoverClassic {...props} />;
-};
+export const FillStylePopover = createFamilyComponent(FillStylePopoverClassic, FillStylePopoverNoir);
 
 export default FillStylePopover;
-

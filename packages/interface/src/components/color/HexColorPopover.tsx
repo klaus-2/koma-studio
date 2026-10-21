@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { HexColorPopoverClassic } from './HexColorPopoverClassic';
 import { HexColorPopoverNoir } from './noir/HexColorPopoverNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const HexColorPopover = (props: React.ComponentProps<typeof HexColorPopoverClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <HexColorPopoverNoir {...props} /> : <HexColorPopoverClassic {...props} />;
-};
+export const HexColorPopover = createFamilyComponent(HexColorPopoverClassic, HexColorPopoverNoir);
 
 export default HexColorPopover;

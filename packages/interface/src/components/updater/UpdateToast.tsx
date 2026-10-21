@@ -1,11 +1,7 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { UpdateToastClassic } from './UpdateToastClassic';
 import { UpdateToastNoir } from './noir/UpdateToastNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-export const UpdateToast = () => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <UpdateToastNoir /> : <UpdateToastClassic />;
-};
+export const UpdateToast = createFamilyComponent(UpdateToastClassic, UpdateToastNoir);
 
 export default UpdateToast;

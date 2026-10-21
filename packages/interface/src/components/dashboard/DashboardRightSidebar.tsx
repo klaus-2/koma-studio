@@ -1,14 +1,8 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import DashboardRightSidebarClassic from './DashboardRightSidebarClassic';
 import DashboardRightSidebarNoir from './noir/DashboardRightSidebarNoir';
-import { memo } from 'react';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
+import { memo } from "react";
 
-type DashboardRightSidebarProps = React.ComponentProps<typeof DashboardRightSidebarClassic>;
-
-const DashboardRightSidebar = (props: DashboardRightSidebarProps) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <DashboardRightSidebarNoir {...props} /> : <DashboardRightSidebarClassic {...props} />;
-};
+const DashboardRightSidebar = createFamilyComponent(DashboardRightSidebarClassic, DashboardRightSidebarNoir);
 
 export default memo(DashboardRightSidebar);

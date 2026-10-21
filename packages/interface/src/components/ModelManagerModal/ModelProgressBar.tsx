@@ -1,13 +1,9 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { ModelProgressBarClassic } from './ModelProgressBarClassic';
 import { ModelProgressBarNoir } from './noir/ModelProgressBarNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
 export type { ModelProgressBarProps } from './ModelProgressBarClassic';
 
-export const ModelProgressBar = (props: React.ComponentProps<typeof ModelProgressBarClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <ModelProgressBarNoir {...props} /> : <ModelProgressBarClassic {...props} />;
-};
+export const ModelProgressBar = createFamilyComponent(ModelProgressBarClassic, ModelProgressBarNoir);
 
 export default ModelProgressBar;

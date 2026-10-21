@@ -1,12 +1,6 @@
 import { memo } from 'react';
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import VersionBadgeClassic from './VersionBadgeClassic';
 import VersionBadgeNoir from './noir/VersionBadgeNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 
-function VersionBadge() {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <VersionBadgeNoir /> : <VersionBadgeClassic />;
-}
-
-export default memo(VersionBadge);
+export default memo(createFamilyComponent(VersionBadgeClassic, VersionBadgeNoir));

@@ -60,6 +60,14 @@ module.exports = {
       from: { path: 'packages/ui/src/tokens/' },
       to: { path: '^(react|react-dom|@?react-|packages/ui/src/components/)' },
     },
+    {
+      name: 'noir-must-not-import-classic',
+      severity: 'error',
+      comment:
+        'Noir twins resolve through family facades (createFamilyComponent). A noir module importing a Classic module hard-codes the classic skin into the noir family — route through the facade instead. Compile-time-only type imports cannot render a skin and are exempt.',
+      from: { path: '/noir/' },
+      to: { path: 'Classic', dependencyTypesNot: ['type-only'] },
+    },
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
