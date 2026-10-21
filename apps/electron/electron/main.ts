@@ -1175,7 +1175,31 @@ const createWindow = async (): Promise<void> => {
   registerUpdaterSyncService();
 
   if (process.env.VITE_DEV_SERVER_URL) {
-    await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+    const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+
+    // Wait for the Vite dev server before loadURL to avoid ERR_FAILED races
+    // when Electron starts before Vite is serving.
+    const maxRetries = 30;
+    const retryDelayMs = 333;
+    for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+      try {
+        const response = await fetch(devServerUrl, {
+          method: "HEAD",
+          signal: AbortSignal.timeout(2_500),
+        });
+        if (response.ok) {
+          break;
+        }
+      } catch {
+        // Server not ready yet — will retry.
+      }
+
+      if (attempt < maxRetries) {
+        await new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    }
+
+    await mainWindow.loadURL(devServerUrl);
     if (areDevToolsEnabled) {
       mainWindow.webContents.openDevTools({ mode: "detach" });
     }
