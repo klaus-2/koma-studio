@@ -16,7 +16,7 @@ import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 // %APPDATA%.
 app.setName("koma-studio");
 
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import nodeNet from "node:net";
 import {
@@ -29,7 +29,6 @@ import { resolveDesktopShortcutAction } from "./app-shortcuts.ts";
 import {
   debugDesktopError,
   debugDesktopInfo,
-  debugDesktopLog,
   debugDesktopWarn,
   initializeAppSessionLog,
   installMainProcessConsoleSessionLogging,
@@ -69,18 +68,14 @@ import {
   getDesktopUpdateChannel,
 } from "./modules/desktop-session-headers.ts";
 import { resolveDesktopDeviceId } from "./modules/desktop-device-id.ts";
+import { createDesktopAuthSession } from "./modules/desktop-auth-session.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
   DESKTOP_APP_VERSION_HEADER,
-  DESKTOP_BOOTSTRAP_PATH,
-  DESKTOP_BOOTSTRAP_SECRET_HEADER,
   DESKTOP_CLIENT_TOKEN_HEADER,
   DESKTOP_DEVICE_ID_HEADER,
-  DESKTOP_DEVICE_KEY_HEADER,
-  DESKTOP_DEVICE_REGISTER_PATH,
   DESKTOP_SESSION_ID_HEADER,
-  DESKTOP_TRAVEL_TOKEN_HEADER,
   DESKTOP_TRAVEL_TOKEN_PATH,
   DESKTOP_UPDATE_CHANNEL_HEADER,
   LOCAL_API_SESSION_HEADER,
@@ -135,7 +130,6 @@ import {
   fetchWithTimeoutAndRetry,
   parseResponsePayload,
   resolveDesktopErrorCode,
-  toDesktopStructuredError,
   isDesktopStructuredError,
   extractDesktopApiErrorMessage,
   summarizeDesktopApiPayload,
@@ -359,27 +353,6 @@ if (!desktopBootstrapSecret) {
   }
 }
 
-type DesktopSessionState = {
-  sessionId: string;
-  deviceId: string;
-  token: string;
-  expiresAtMs: number;
-  refreshTimeout: NodeJS.Timeout | null;
-  refreshInFlight: Promise<void> | null;
-};
-
-const desktopSessionState: DesktopSessionState = {
-  sessionId: `desktop-${randomUUID()}`,
-  deviceId: resolveDesktopDeviceId(),
-  token: "",
-  expiresAtMs: 0,
-  refreshTimeout: null,
-  refreshInFlight: null,
-};
-let desktopDeviceKey = "";
-let desktopDeviceKeyRefreshInFlight: Promise<void> | null = null;
-let desktopPendingTravelToken = (resolveDesktopEnvValue("DESKTOP_TRAVEL_TOKEN") ?? "").trim() || null;
-
 const shouldDisableGpuInDev = ["1", "true", "yes"].includes(
   (process.env.ELECTRON_DISABLE_GPU ?? "").trim().toLowerCase(),
 );
@@ -391,267 +364,6 @@ if (isDev && shouldDisableGpuInDev) {
   app.commandLine.appendSwitch("disable-gpu-compositing");
 }
 
-const generateDesktopSessionToken = (): string => randomBytes(32).toString("base64url");
-
-const clearDesktopTokenRefreshTimeout = (): void => {
-  if (!desktopSessionState.refreshTimeout) {
-    return;
-  }
-
-  clearTimeout(desktopSessionState.refreshTimeout);
-  desktopSessionState.refreshTimeout = null;
-};
-
-const clearDesktopSessionState = (clearDeviceKey: boolean): void => {
-  clearDesktopTokenRefreshTimeout();
-  desktopSessionState.token = "";
-  desktopSessionState.expiresAtMs = 0;
-  desktopPendingTravelToken = null;
-  if (clearDeviceKey) {
-    desktopDeviceKey = "";
-  }
-};
-
-const scheduleDesktopSessionTokenRefresh = (expiresAtMs: number): void => {
-  clearDesktopTokenRefreshTimeout();
-
-  const refreshSkewMs = desktopClientTokenRefreshSkewSec * 1_000;
-  const refreshInMs = Math.max(15_000, expiresAtMs - Date.now() - refreshSkewMs);
-  desktopSessionState.refreshTimeout = setTimeout(() => {
-    void refreshDesktopSessionToken("scheduled");
-  }, refreshInMs);
-};
-
-const registerDesktopDeviceKey = async (
-  reason: "register" | "login" | "startup" | "session-refresh",
-  options: { travelToken?: string | null } = {},
-): Promise<void> => {
-  if (desktopDeviceKey.length > 0) {
-    return;
-  }
-
-  if (desktopDeviceKeyRefreshInFlight) {
-    await desktopDeviceKeyRefreshInFlight;
-    return;
-  }
-
-  desktopDeviceKeyRefreshInFlight = (async () => {
-    const endpoint = new URL(DESKTOP_DEVICE_REGISTER_PATH, authApiUrl).toString();
-    const sessionClient = getDesktopHttpSession();
-    const normalizedTravelToken =
-      options.travelToken?.trim() ||
-      desktopPendingTravelToken?.trim() ||
-      "";
-    const requestHeaders: Record<string, string> = {
-      "content-type": "application/json",
-    };
-    if (normalizedTravelToken) {
-      requestHeaders[DESKTOP_TRAVEL_TOKEN_HEADER] = normalizedTravelToken;
-    }
-    const requestInit: RequestInit = {
-      method: "POST",
-      headers: requestHeaders,
-      body: JSON.stringify({
-        deviceId: desktopSessionState.deviceId,
-        syncReason: reason,
-        ...(normalizedTravelToken
-          ? {
-              travelToken: normalizedTravelToken,
-            }
-          : {}),
-      }),
-    };
-
-    debugDesktopInfo(
-      `[desktop-auth] device-register start reason=${reason} endpoint=${DESKTOP_DEVICE_REGISTER_PATH} travelToken=${normalizedTravelToken ? "yes" : "no"}`,
-    );
-
-    const response = await fetchWithTimeoutAndRetry(
-      (signal) =>
-        sessionClient.fetch(endpoint, {
-          ...requestInit,
-          signal,
-        }),
-      requestInit,
-      {
-        timeoutMs: DESKTOP_FETCH_TIMEOUT_MS,
-        retryCount: 0,
-      },
-    );
-
-    if (!response.ok) {
-      const failurePayload = await parseResponsePayload(response);
-      debugDesktopWarn(
-        `[desktop-auth] device-register failed status=${response.status} endpoint=${DESKTOP_DEVICE_REGISTER_PATH} ${summarizeDesktopApiPayload(
-          failurePayload,
-        )}`,
-      );
-      throw toDesktopStructuredError(response.status, failurePayload);
-    }
-
-    const payload = (await response.json()) as { deviceKey?: string };
-    const key = typeof payload.deviceKey === "string" ? payload.deviceKey.trim() : "";
-    if (!key || key.length < 43) {
-      throw new Error("Desktop device registration returned an invalid key.");
-    }
-
-    desktopDeviceKey = key;
-    desktopPendingTravelToken = null;
-    debugDesktopInfo(
-      `[desktop-auth] device-register ok reason=${reason} endpoint=${DESKTOP_DEVICE_REGISTER_PATH}`,
-    );
-    if (reason === "login" || reason === "register") {
-      debugDesktopLog("[desktop-auth] Desktop device key registered for current session.");
-    }
-  })();
-
-  try {
-    await desktopDeviceKeyRefreshInFlight;
-  } finally {
-    desktopDeviceKeyRefreshInFlight = null;
-  }
-};
-
-const registerDesktopSessionToken = async (): Promise<void> => {
-  if (enforceDesktopClient) {
-    await registerDesktopDeviceKey("session-refresh");
-  }
-
-  const token = generateDesktopSessionToken();
-  const endpoint = new URL(DESKTOP_BOOTSTRAP_PATH, authApiUrl).toString();
-
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-  };
-  // Send BOTH when available: with ENFORCE_DESKTOP_CLIENT=true the server
-  // validates the device key; with false it requires the secret. Sending only
-  // the key (legacy flow) left the bootstrap at 401 when the server was not
-  // enforcing.
-  if (desktopDeviceKey) {
-    headers[DESKTOP_DEVICE_KEY_HEADER] = desktopDeviceKey;
-  }
-  if (desktopBootstrapSecret) {
-    headers[DESKTOP_BOOTSTRAP_SECRET_HEADER] = desktopBootstrapSecret;
-  }
-
-  const bootstrapInit: RequestInit = {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      sessionId: desktopSessionState.sessionId,
-      deviceId: desktopSessionState.deviceId,
-      token,
-      ttlSeconds: desktopClientTokenTtlSec,
-    }),
-  };
-  debugDesktopInfo(
-    `[desktop-auth] bootstrap start endpoint=${DESKTOP_BOOTSTRAP_PATH} deviceKey=${desktopDeviceKey ? "yes" : "no"} secret=${desktopBootstrapSecret ? "yes" : "no"}`,
-  );
-  const response = await fetchWithTimeoutAndRetry(
-    (signal) =>
-      fetch(endpoint, {
-        ...bootstrapInit,
-        signal,
-      }),
-    bootstrapInit,
-    {
-      timeoutMs: DESKTOP_FETCH_TIMEOUT_MS,
-      retryCount: 0,
-    },
-  );
-
-  if (!response.ok) {
-    const failurePayload = await parseResponsePayload(response);
-    debugDesktopWarn(
-      `[desktop-auth] bootstrap failed status=${response.status} endpoint=${DESKTOP_BOOTSTRAP_PATH} ${summarizeDesktopApiPayload(
-        failurePayload,
-      )}`,
-    );
-    const hint = response.status === 401 && enforceDesktopClient
-      ? " (desktop device is not registered/authenticated)"
-      : response.status === 401 && desktopBootstrapSecret
-        ? " (verify DESKTOP_BOOTSTRAP_SECRET in both koma-studio/.env.* and auth-server/.env.*)"
-        : "";
-    throw new Error(`Desktop bootstrap failed with status ${response.status}${hint}`);
-  }
-
-  const payload = (await response.json()) as { expiresAt?: string; ttlSeconds?: number };
-  const ttlSeconds =
-    typeof payload.ttlSeconds === "number" && Number.isFinite(payload.ttlSeconds)
-      ? payload.ttlSeconds
-      : desktopClientTokenTtlSec;
-  const parsedExpiresAt =
-    typeof payload.expiresAt === "string" ? Date.parse(payload.expiresAt) : Number.NaN;
-  const expiresAtMs = Number.isFinite(parsedExpiresAt)
-    ? parsedExpiresAt
-    : Date.now() + ttlSeconds * 1_000;
-
-  desktopSessionState.token = token;
-  desktopSessionState.expiresAtMs = expiresAtMs;
-  scheduleDesktopSessionTokenRefresh(expiresAtMs);
-  debugDesktopInfo(
-    `[desktop-auth] bootstrap ok endpoint=${DESKTOP_BOOTSTRAP_PATH} ttlSeconds=${ttlSeconds}`,
-  );
-};
-
-const refreshDesktopSessionToken = async (
-  reason: "startup" | "scheduled" | "on-demand",
-): Promise<boolean> => {
-  if (desktopSessionState.refreshInFlight) {
-    try {
-      await desktopSessionState.refreshInFlight;
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  let succeeded = true;
-  const hadTokenBeforeRefresh = desktopSessionState.token.length > 0;
-  desktopSessionState.refreshInFlight = (async () => {
-    try {
-      await registerDesktopSessionToken();
-    } catch (error) {
-      succeeded = false;
-      debugDesktopWarn(
-        `[desktop-auth] failed to refresh session token: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      if (reason === "scheduled" || hadTokenBeforeRefresh) {
-        scheduleDesktopSessionTokenRefresh(Date.now() + 30_000);
-      }
-    }
-  })();
-
-  try {
-    await desktopSessionState.refreshInFlight;
-    return succeeded;
-  } finally {
-    desktopSessionState.refreshInFlight = null;
-  }
-};
-
-const ensureDesktopSessionToken = async (
-  reason: "startup" | "on-demand" = "on-demand",
-): Promise<void> => {
-  const hasValidToken =
-    desktopSessionState.token.length > 0 &&
-    desktopSessionState.expiresAtMs - Date.now() > desktopClientTokenRefreshSkewSec * 1_000;
-  if (hasValidToken) {
-    return;
-  }
-
-  const refreshed = await refreshDesktopSessionToken(reason);
-  if (!refreshed) {
-    if (enforceDesktopClient) {
-      throw new Error("Desktop session token bootstrap failed");
-    }
-
-    // In non-enforced mode, continue without desktop session token headers.
-    clearDesktopSessionState(false);
-  }
-};
 
 const getDesktopRuntimeConfig = (): {
   authApiUrl: string;
@@ -899,6 +611,17 @@ const getDesktopHttpSession = (): Session => {
   return mainWindow?.webContents.session ?? electronSession.defaultSession;
 };
 
+const desktopAuth = createDesktopAuthSession({
+  authApiUrl,
+  bootstrapSecret: desktopBootstrapSecret,
+  tokenTtlSec: desktopClientTokenTtlSec,
+  refreshSkewSec: desktopClientTokenRefreshSkewSec,
+  enforceDesktopClient,
+  getDesktopHttpSession,
+  resolveDesktopEnvValue,
+});
+
+
 const recoverDesktopSession = async (
   action: DesktopSessionRecoveryAction,
 ): Promise<boolean> => {
@@ -907,8 +630,8 @@ const recoverDesktopSession = async (
   }
 
   const attemptRecovery = async (clearDeviceKey: boolean): Promise<boolean> => {
-    clearDesktopSessionState(clearDeviceKey);
-    return refreshDesktopSessionToken("on-demand");
+    desktopAuth.clearSessionState(clearDeviceKey);
+    return desktopAuth.refreshToken("on-demand");
   };
 
   const initialRecovery = await attemptRecovery(action === "refresh-device");
@@ -941,16 +664,16 @@ const desktopSessionApiFetch = async (
 
   try {
     if (requireDesktopSession) {
-      await ensureDesktopSessionToken("on-demand");
+      await desktopAuth.ensureToken("on-demand");
     }
 
     debugDesktopInfo(
-      `[desktop-auth] request start method=${method} endpoint=${endpointPath} desktopSession=${requireDesktopSession ? "required" : "optional"} token=${desktopSessionState.token ? "yes" : "no"}`,
+      `[desktop-auth] request start method=${method} endpoint=${endpointPath} desktopSession=${requireDesktopSession ? "required" : "optional"} token=${desktopAuth.getState().token ? "yes" : "no"}`,
     );
     const sendRequest = async (): Promise<{ response: globalThis.Response; payload: unknown }> => {
       const requestInit: RequestInit = {
         ...init,
-        headers: buildDesktopSessionHeaders(init.headers, undefined, desktopSessionState, app.getVersion()),
+        headers: buildDesktopSessionHeaders(init.headers, undefined, desktopAuth.getState(), app.getVersion()),
       };
 
       const response = await fetchWithTimeoutAndRetry(
@@ -1105,10 +828,10 @@ const setupDesktopAuthIpcHandlers = (): void => {
       };
     }
 
-    clearDesktopSessionState(true);
+    desktopAuth.clearSessionState(true);
     await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
     if (travelToken) {
-      desktopPendingTravelToken = travelToken;
+      desktopAuth.setPendingTravelToken(travelToken);
     }
 
     debugDesktopInfo(
@@ -1125,7 +848,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
         password,
         captchaToken,
         rememberMe,
-        desktopDeviceId: desktopSessionState.deviceId,
+        desktopDeviceId: desktopAuth.getState().deviceId,
       }),
     }, { requireDesktopSession: false });
 
@@ -1137,13 +860,13 @@ const setupDesktopAuthIpcHandlers = (): void => {
 
     if (!response.ok) {
       await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
-      clearDesktopSessionState(true);
+      desktopAuth.clearSessionState(true);
       return response;
     }
 
     try {
-      await registerDesktopDeviceKey("login", { travelToken });
-      await refreshDesktopSessionToken("on-demand");
+      await desktopAuth.registerDeviceKey("login", { travelToken });
+      await desktopAuth.refreshToken("on-demand");
     } catch (error) {
       if (
         isDesktopStructuredError(error) &&
@@ -1151,7 +874,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
           error.code === "DESKTOP_TRAVEL_TOKEN_INVALID")
       ) {
         await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
-        clearDesktopSessionState(true);
+        desktopAuth.clearSessionState(true);
         debugDesktopWarn(
           `[desktop-auth] post-login bootstrap requires travel token; returning auth error (${error.code}).`,
         );
@@ -1205,7 +928,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
         name,
         captchaToken,
         legalAcceptance,
-        desktopDeviceId: desktopSessionState.deviceId,
+        desktopDeviceId: desktopAuth.getState().deviceId,
       }),
     }, { requireDesktopSession: false });
 
@@ -1221,10 +944,10 @@ const setupDesktopAuthIpcHandlers = (): void => {
 
     try {
       if (travelToken) {
-        desktopPendingTravelToken = travelToken;
+        desktopAuth.setPendingTravelToken(travelToken);
       }
-      await registerDesktopDeviceKey("register", { travelToken });
-      await refreshDesktopSessionToken("on-demand");
+      await desktopAuth.registerDeviceKey("register", { travelToken });
+      await desktopAuth.refreshToken("on-demand");
     } catch (error) {
       if (
         isDesktopStructuredError(error) &&
@@ -1232,7 +955,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
           error.code === "DESKTOP_TRAVEL_TOKEN_INVALID")
       ) {
         await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
-        clearDesktopSessionState(true);
+        desktopAuth.clearSessionState(true);
         debugDesktopWarn(
           `[desktop-auth] post-register bootstrap requires travel token; returning auth error (${error.code}).`,
         );
@@ -1256,7 +979,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
   registerSecureIpcHandler<DesktopApiEnvelope>("desktop-api:auth:travel-token:set", async (value) => {
     const payload = (value ?? {}) as Record<string, unknown>;
     const rawToken = typeof payload.token === "string" ? payload.token.trim() : "";
-    desktopPendingTravelToken = rawToken.length > 0 ? rawToken : null;
+    desktopAuth.setPendingTravelToken(rawToken.length > 0 ? rawToken : null);
     return {
       ok: true,
       status: 200,
@@ -1395,7 +1118,7 @@ const setupDesktopAuthIpcHandlers = (): void => {
     }, { requireDesktopSession: false });
 
     await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
-    clearDesktopSessionState(true);
+    desktopAuth.clearSessionState(true);
     return response;
   });
 
@@ -1406,11 +1129,11 @@ const setupDesktopAuthIpcHandlers = (): void => {
   // auth:refresh-session — same flow as registerDesktopSessionToken
   // (POST to bootstrap with the device key or secret) to renew the session.
   registerSecureIpcHandler<DesktopApiEnvelope>("desktop-api:auth:refresh-session", async () => {
-    await registerDesktopSessionToken();
+    await desktopAuth.registerSessionToken();
     return {
       ok: true,
       status: 200,
-      payload: { refreshed: true, sessionId: desktopSessionState.sessionId },
+      payload: { refreshed: true, sessionId: desktopAuth.getState().sessionId },
     };
   });
 
@@ -2595,16 +2318,16 @@ const setupDesktopClientHeaderInjection = (window: BrowserWindow): void => {
         if (!isPreflightRequest && targetsDesktopSession) {
           const nowMs = Date.now();
           if (
-            desktopSessionState.token &&
-            desktopSessionState.expiresAtMs - nowMs <= desktopClientTokenRefreshSkewSec * 1_000
+            desktopAuth.getState().token &&
+            desktopAuth.getState().expiresAtMs - nowMs <= desktopClientTokenRefreshSkewSec * 1_000
           ) {
-            void refreshDesktopSessionToken("on-demand");
+            void desktopAuth.refreshToken("on-demand");
           }
 
-          if (desktopSessionState.token) {
-            details.requestHeaders[DESKTOP_CLIENT_TOKEN_HEADER] = desktopSessionState.token;
-            details.requestHeaders[DESKTOP_SESSION_ID_HEADER] = desktopSessionState.sessionId;
-            details.requestHeaders[DESKTOP_DEVICE_ID_HEADER] = desktopSessionState.deviceId;
+          if (desktopAuth.getState().token) {
+            details.requestHeaders[DESKTOP_CLIENT_TOKEN_HEADER] = desktopAuth.getState().token;
+            details.requestHeaders[DESKTOP_SESSION_ID_HEADER] = desktopAuth.getState().sessionId;
+            details.requestHeaders[DESKTOP_DEVICE_ID_HEADER] = desktopAuth.getState().deviceId;
           }
           details.requestHeaders[DESKTOP_APP_VERSION_HEADER] = app.getVersion();
           details.requestHeaders[DESKTOP_UPDATE_CHANNEL_HEADER] = getDesktopUpdateChannel(app.getVersion());
@@ -2766,15 +2489,15 @@ const createWindow = async (): Promise<void> => {
   await prepareMiniBackendLaunchContext();
   if (!isAuthDisabled && (await hasDesktopAuthCookie(authApiUrl, getDesktopHttpSession()))) {
     try {
-      await registerDesktopDeviceKey("startup");
-      await ensureDesktopSessionToken("startup");
+      await desktopAuth.registerDeviceKey("startup");
+      await desktopAuth.ensureToken("startup");
     } catch (error) {
       if (
         isDesktopStructuredError(error) &&
         (error.code === "DESKTOP_TRAVEL_TOKEN_REQUIRED" || error.code === "DESKTOP_TRAVEL_TOKEN_INVALID")
       ) {
         await clearDesktopAuthCookies(authApiUrl, getDesktopHttpSession());
-        clearDesktopSessionState(true);
+        desktopAuth.clearSessionState(true);
       }
       debugDesktopWarn(
         `[desktop-auth] initial bootstrap failed: ${
@@ -3093,7 +2816,7 @@ app.on("gpu-process-crashed", (_event, killed) => {
 
 app.on("window-all-closed", () => {
   void discordRPC.disconnect();
-  clearDesktopTokenRefreshTimeout();
+  desktopAuth.clearTokenRefreshTimeout();
   void stopMiniBackend().finally(() => {
     app.quit();
   });
@@ -3101,7 +2824,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", (event) => {
   void discordRPC.disconnect();
-  clearDesktopTokenRefreshTimeout();
+  desktopAuth.clearTokenRefreshTimeout();
   if (miniBackendProcess && !miniBackendProcess.killed) {
     event.preventDefault();
     void stopMiniBackend().finally(() => {
