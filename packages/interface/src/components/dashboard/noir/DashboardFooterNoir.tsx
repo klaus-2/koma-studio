@@ -8,18 +8,21 @@ import type { TranslationKey } from '../../../i18n/messages';
 import type { RuntimeExecutionNotice, StatusMessageTone } from '../../../types/dashboard.types';
 import type { AioDeviceInfo } from '../../../models/aioStageCatalog';
 import { cn } from '../../../utils/dashboard.utils';
+import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
+import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
+import { useWorkspacePersistenceStore } from '../../../pages/dashboard/stores/workspace-persistence-store';
 
 interface DashboardFooterProps {
-  statusMessage: string;
+  statusMessage?: string;
   statusMessageTone?: StatusMessageTone;
   processingLabel?: string | null;
-  workspaceStatus: 'idle' | 'saving' | 'saved' | 'error';
-  workspaceStatusDetail: string;
-  workspaceLastSavedAt: number | null;
+  workspaceStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  workspaceStatusDetail?: string;
+  workspaceLastSavedAt?: number | null;
   miniBackendRuntimeState?: DesktopMiniBackendRuntimeState | null;
   aioDeviceInfo?: AioDeviceInfo | null;
-  processing: boolean;
-  progress: number;
+  processing?: boolean;
+  progress?: number;
   openBugReportModal: (event: MouseEvent<HTMLElement>) => void;
   openProjectExternalLink: (event: MouseEvent<HTMLElement>, url: string) => void | Promise<void>;
   projectDiscordUrl: string;
@@ -43,13 +46,37 @@ const RT_TONE: Record<string, string> = {
 };
 
 const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
-  statusMessage, statusMessageTone = 'info', processingLabel, workspaceStatus,
-  workspaceStatusDetail, workspaceLastSavedAt, miniBackendRuntimeState, aioDeviceInfo,
-  processing, progress, openBugReportModal, openProjectExternalLink,
-  projectDiscordUrl, projectWebsiteUrl, runtimeExecutionNotice,
+  statusMessage: statusMessageProp,
+  statusMessageTone: statusMessageToneProp,
+  processingLabel, workspaceStatus: workspaceStatusProp,
+  workspaceStatusDetail: workspaceStatusDetailProp,
+  workspaceLastSavedAt: workspaceLastSavedAtProp,
+  miniBackendRuntimeState, aioDeviceInfo,
+  processing: processingProp, progress: progressProp,
+  openBugReportModal, openProjectExternalLink,
+  projectDiscordUrl, projectWebsiteUrl,
+  runtimeExecutionNotice: runtimeExecutionNoticeProp,
 }) => {
   const { t } = useI18n();
   const [runtimeTooltipOpen, setRuntimeTooltipOpen] = useState(false);
+
+  const statusMessageStore = useStatusStore((s) => s.statusMessage);
+  const statusMessageToneStore = useStatusStore((s) => s.statusMessageTone);
+  const runtimeExecutionNoticeStore = useStatusStore((s) => s.runtimeExecutionNotice);
+  const processingStore = useUiShellStore((s) => s.processing);
+  const progressStore = useUiShellStore((s) => s.progress);
+  const workspaceStatusStore = useWorkspacePersistenceStore((s) => s.workspaceStatus);
+  const workspaceStatusDetailStore = useWorkspacePersistenceStore((s) => s.workspaceStatusDetail);
+  const workspaceLastSavedAtStore = useWorkspacePersistenceStore((s) => s.workspaceLastSavedAt);
+
+  const statusMessage = statusMessageProp ?? statusMessageStore;
+  const statusMessageTone = statusMessageToneProp ?? statusMessageToneStore ?? 'info';
+  const processing = processingProp ?? processingStore;
+  const progress = progressProp ?? progressStore;
+  const workspaceStatus = workspaceStatusProp ?? workspaceStatusStore;
+  const workspaceStatusDetail = workspaceStatusDetailProp ?? workspaceStatusDetailStore;
+  const workspaceLastSavedAt = workspaceLastSavedAtProp ?? workspaceLastSavedAtStore;
+  const runtimeExecutionNotice = runtimeExecutionNoticeProp ?? runtimeExecutionNoticeStore;
 
   const normalizeMessage = (message?: string | null) => {
     if (!message) return message ?? '';
