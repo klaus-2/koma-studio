@@ -56,7 +56,13 @@ const enforceHttpsInProduction = (url: string, label: string): string => {
 export const getApiConfig = (): ApiConfig => {
   const runtimeConfig = getRuntimeConfig();
 
-  const rawAuthUrl = runtimeConfig?.authApiUrl ?? fromEnv.authUrl ?? "http://127.0.0.1:3001";
+  // Browser development forces the local auth server; the desktop runtime
+  // keeps the runtime-config path.
+  const isBrowserDev =
+    import.meta.env.DEV && !desktopBridge.isDesktopRuntime();
+  const rawAuthUrl = isBrowserDev
+    ? "http://127.0.0.1:3001"
+    : (runtimeConfig?.authApiUrl ?? fromEnv.authUrl ?? "http://127.0.0.1:3001");
   const rawLocalUrl = runtimeConfig?.localApiUrl ?? fromEnv.localUrl ?? "http://127.0.0.1:8001";
 
   return {
