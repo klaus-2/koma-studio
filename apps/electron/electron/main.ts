@@ -18,15 +18,10 @@ app.setName("koma-studio");
 
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
-import {
-  resolveDesktopSessionRecoveryAction,
-  type DesktopSessionRecoveryAction,
-} from "../../../packages/types/src/desktopSessionRecovery.ts";
 import { discordRPC } from "./discord-rpc.ts";
 import { registerUpdaterSyncService } from "./updater/sync-service";
 import { resolveDesktopShortcutAction } from "./app-shortcuts.ts";
 import {
-  debugDesktopError,
   debugDesktopInfo,
   debugDesktopWarn,
   initializeAppSessionLog,
@@ -63,11 +58,11 @@ import {
   hasDesktopAuthCookie,
 } from "./modules/desktop-auth-cookies.ts";
 import {
-  buildDesktopSessionHeaders,
   getDesktopUpdateChannel,
 } from "./modules/desktop-session-headers.ts";
 import { resolveDesktopDeviceId } from "./modules/desktop-device-id.ts";
 import { createDesktopAuthSession } from "./modules/desktop-auth-session.ts";
+import { createDesktopSessionApi, type DesktopApiEnvelope } from "./modules/desktop-session-api.ts";
 import {
   createMiniBackendRuntimeStore,
 } from "./modules/mini-backend-runtime-store.ts";
@@ -113,12 +108,10 @@ import {
 
 import {
   // Shared utilities
-  normalizeHttpMethod,
   normalizeAccessToken,
   sanitizeSessionLogText,
   registerSecureIpcHandler,
   fetchWithTimeoutAndRetry,
-  parseResponsePayload,
   resolveDesktopErrorCode,
   isDesktopStructuredError,
   extractDesktopApiErrorMessage,
@@ -361,140 +354,15 @@ const { resolveMiniBackendAccelerationProfile } = createMiniBackendProfileResolv
   collectGpuVendors: collectMiniBackendGpuVendors,
 });
 
-const recoverDesktopSession = async (
-  action: DesktopSessionRecoveryAction,
-): Promise<boolean> => {
-  if (!action) {
-    return false;
-  }
 
-  const attemptRecovery = async (clearDeviceKey: boolean): Promise<boolean> => {
-    desktopAuth.clearSessionState(clearDeviceKey);
-    return desktopAuth.refreshToken("on-demand");
-  };
-
-  const initialRecovery = await attemptRecovery(action === "refresh-device");
-  if (initialRecovery) {
-    return true;
-  }
-
-  if (action === "refresh-session") {
-    return attemptRecovery(true);
-  }
-
-  return false;
-};
-
-interface DesktopApiEnvelope<T = unknown> {
-  ok: boolean;
-  status: number;
-  payload: T | null;
-}
-
-const desktopSessionApiFetch = async (
-  endpointPath: string,
-  init: RequestInit = {},
-  options: { requireDesktopSession?: boolean } = {},
-): Promise<DesktopApiEnvelope> => {
-  const requireDesktopSession = options.requireDesktopSession === true;
-  const method = normalizeHttpMethod(init.method);
-  const targetUrl = new URL(endpointPath, authApiUrl).toString();
-  const sessionClient = getDesktopHttpSession();
-
-  try {
-    if (requireDesktopSession) {
-      await desktopAuth.ensureToken("on-demand");
-    }
-
-    debugDesktopInfo(
-      `[desktop-auth] request start method=${method} endpoint=${endpointPath} desktopSession=${requireDesktopSession ? "required" : "optional"} token=${desktopAuth.getState().token ? "yes" : "no"}`,
-    );
-    const sendRequest = async (): Promise<{ response: globalThis.Response; payload: unknown }> => {
-      const requestInit: RequestInit = {
-        ...init,
-        headers: buildDesktopSessionHeaders(init.headers, undefined, desktopAuth.getState(), app.getVersion()),
-      };
-
-      const response = await fetchWithTimeoutAndRetry(
-        (signal) =>
-          sessionClient.fetch(targetUrl, {
-            ...requestInit,
-            signal,
-          }),
-        requestInit,
-        {
-          timeoutMs: DESKTOP_FETCH_TIMEOUT_MS,
-          retryCount: DESKTOP_FETCH_RETRY_COUNT,
-        },
-      );
-      const payload = await parseResponsePayload(response);
-      return { response, payload };
-    };
-
-    let result = await sendRequest();
-    if (!result.response.ok) {
-      const recoveryAction = resolveDesktopSessionRecoveryAction(
-        result.response.status,
-        result.payload,
-      );
-      debugDesktopWarn(
-        `[desktop-auth] request failed method=${method} endpoint=${endpointPath} status=${result.response.status} recovery=${recoveryAction ?? "none"} ${summarizeDesktopApiPayload(
-          result.payload,
-        )}`,
-      );
-      if (await recoverDesktopSession(recoveryAction)) {
-        debugDesktopInfo(
-          `[desktop-auth] request retry after recovery method=${method} endpoint=${endpointPath} recovery=${recoveryAction}`,
-        );
-        result = await sendRequest();
-      }
-    }
-
-    debugDesktopInfo(
-      `[desktop-auth] request done method=${method} endpoint=${endpointPath} status=${result.response.status} ok=${result.response.ok}`,
-    );
-
-    return {
-      ok: result.response.ok,
-      status: result.response.status,
-      payload: result.payload,
-    };
-  } catch (error) {
-    if (isDesktopStructuredError(error)) {
-      debugDesktopWarn(
-        `[desktop-auth] request structured-failed method=${method} endpoint=${endpointPath} status=${error.status} ${summarizeDesktopApiPayload(
-          error.payload,
-        )}`,
-      );
-      return toDesktopAuthErrorEnvelope(
-        error,
-        "Desktop session failure.",
-        error.code ?? "DESKTOP_BOOTSTRAP_FAILED",
-      );
-    }
-
-    debugDesktopError(
-      `[desktop-auth] request network-failed method=${method} endpoint=${endpointPath} url=${targetUrl} error=${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-    return {
-      ok: false,
-      status: 503,
-      payload: {
-        error: error instanceof Error ? error.message : "Failed to connect to auth-server.",
-        code: "DESKTOP_API_UNAVAILABLE",
-      },
-    };
-  }
-};
-
-const fetchDesktopCookieSessionEnvelope = async (): Promise<DesktopApiEnvelope> =>
-  desktopSessionApiFetch(
-    "/api/auth/session",
-    { method: "GET" },
-    { requireDesktopSession: false },
-  );
+const {
+  desktopSessionApiFetch,
+  fetchDesktopCookieSessionEnvelope,
+} = createDesktopSessionApi({
+  desktopAuth,
+  authApiUrl,
+  getDesktopHttpSession,
+});
 
 const setupDesktopAuthIpcHandlers = (): void => {
   registerSecureIpcHandler<DesktopApiEnvelope>("desktop-api:auth:config", async () => {
