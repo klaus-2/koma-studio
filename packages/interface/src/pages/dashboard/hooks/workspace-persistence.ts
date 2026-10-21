@@ -6,6 +6,7 @@ import {
   useWorkspaceCaptureState,
 } from './workspace-persistence.capture';
 import { useWorkspaceRestoreState } from './workspace-persistence.restore';
+import { WORKSPACE_PERSISTENCE_STORES } from './workspace-persistence.registry';
 import type { AuthUser } from '../../../contexts/AuthContext';
 import { useI18n } from '../../../i18n';
 import { desktopBridge } from '../../../lib/desktop-bridge';
@@ -27,16 +28,6 @@ import type { useTypographerWorkspace } from './typographer';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
-import { useExportStore } from '../stores/export-store';
-import { useLlmProvidersStore } from '../stores/llm-providers-store';
-import { useAioPipelineStore } from '../stores/aio-pipeline-store';
-import { useRegionEditorStore } from '../stores/region-editor-store';
-import { useManualToolsStore } from '../stores/manual-tools-store';
-import { useCleanerStore } from '../stores/cleaner-store';
-import { useTranslatorStore } from '../stores/translator-store';
-import { useTypographerStore } from '../stores/typographer-store';
-import { useEnhanceStore } from '../stores/enhance-store';
-import { useUtilityStore } from '../stores/utility-store';
 import { useWorkspacePersistenceStore } from '../stores/workspace-persistence-store';
 
 interface UseWorkspacePersistenceArgs {
@@ -490,24 +481,8 @@ export function useWorkspacePersistence({
   ]);
 
   useEffect(() => {
-    const stores = [
-      useUiShellStore,
-      useImageCollectionStore,
-      useStatusStore,
-      useExportStore,
-      useAioPipelineStore,
-      useRegionEditorStore,
-      useManualToolsStore,
-      useCleanerStore,
-      useTranslatorStore,
-      useTypographerStore,
-      useEnhanceStore,
-      useUtilityStore,
-      useLlmProvidersStore,
-      useWorkspacePersistenceStore,
-    ];
     const unsubscribesAll = subscribeWorkspaceDomainStores(
-      stores,
+      WORKSPACE_PERSISTENCE_STORES,
       workspaceChangeSignal,
     );
     workspaceChangeSignal();
