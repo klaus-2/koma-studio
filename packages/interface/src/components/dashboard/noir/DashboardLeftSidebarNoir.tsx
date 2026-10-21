@@ -7,6 +7,7 @@ import {
 
 import { useI18n } from '../../../i18n';
 import VersionBadge from '../../VersionBadge';
+import { KomaMascotBadgeNoir } from './KomaMascotBadgeNoir';
 import { cn } from '../../../utils/dashboard.utils';
 import { useExportStore } from '../../../pages/dashboard/stores/export-store';
 import { useRegionEditorStore } from '../../../pages/dashboard/stores/region-editor-store';
@@ -133,14 +134,7 @@ export default function DashboardLeftSidebarNoir({
 
       <div className="relative z-10 border-b border-paper/10 p-3">
         <div className="flex items-center gap-2.5">
-          <motion.span
-            className="grid size-9 shrink-0 -rotate-3 place-items-center bg-crimson font-display text-base font-black text-ink shadow-[2px_2px_0_var(--color-gold)]"
-            whileHover={{ rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-            aria-hidden
-          >
-            コ
-          </motion.span>
+          <KomaMascotBadgeNoir />
           <div className="min-w-0 flex-1 leading-none">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="font-display text-[14px] font-black uppercase tracking-tight text-paper">
