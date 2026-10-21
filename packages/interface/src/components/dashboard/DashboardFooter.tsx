@@ -1,14 +1,8 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
 import DashboardFooterClassic from './DashboardFooterClassic';
 import DashboardFooterNoir from './noir/DashboardFooterNoir';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 import { memo } from 'react';
 
-type DashboardFooterProps = React.ComponentProps<typeof DashboardFooterClassic>;
-
-const DashboardFooter = (props: DashboardFooterProps) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <DashboardFooterNoir {...props} /> : <DashboardFooterClassic {...props} />;
-};
+const DashboardFooter = createFamilyComponent(DashboardFooterClassic, DashboardFooterNoir);
 
 export default memo(DashboardFooter);
