@@ -609,7 +609,7 @@ export default memo(function AioRightPanel({
       {(mode as string) === 'cleaner' ? (
         <AioSection icon={Languages} title={t('dashboard.sections.languages')}>
           <div className="koma-field">
-            <label className="koma-field__label">{t('dashboard.cleaner.ocr.language')}</label>
+            <span className="koma-field__label">{t('dashboard.cleaner.ocr.language')}</span>
             <select
               value={cleanerSrcLang}
               onChange={(e) => setCleanerSrcLang(e.target.value)}
@@ -1177,7 +1177,7 @@ export default memo(function AioRightPanel({
                 resetVal={5}
               />
 
-              <label className="koma-field__label">
+              <span className="koma-field__label">
                 <span className="koma-inline-label-with-info">
                   {t("dashboard.dashboardLlm.hdStrategy")}
                   <FieldInfoTooltip
@@ -1191,7 +1191,7 @@ export default memo(function AioRightPanel({
                     )}
                   />
                 </span>
-              </label>
+              </span>
               <select
                 value={aioHdStrategy}
                 onChange={(e) =>
@@ -1200,6 +1200,7 @@ export default memo(function AioRightPanel({
                   )
                 }
                 className={noir ? SELECT_NOIR : "koma-select"}
+                aria-label={t("dashboard.dashboardLlm.hdStrategy")}
               >
                 <option value="resize">{t("dashboard.dashboardLlm.resize")}</option>
                 <option value="crop">{t("dashboard.dashboardLlm.crop")}</option>
@@ -1278,9 +1279,9 @@ export default memo(function AioRightPanel({
             <div className="koma-aio-text-mode">
               {/* Text Mode */}
               <div className="koma-field">
-                <label className="koma-field__label">
+                <span className="koma-field__label">
                   {t('dashboard.status.selectionMode')}
-                </label>
+                </span>
                 <select
                   className={noir ? SELECT_NOIR : "koma-select"}
                   disabled={!canEditActiveRenderStage}
