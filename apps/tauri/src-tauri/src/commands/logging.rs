@@ -8,7 +8,7 @@ use std::{
 
 use chrono::SecondsFormat;
 use serde::{Deserialize, Serialize, Serializer};
-use tauri::{AppHandle, Manager, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime};
 
 const SESSION_LOG_FILE_NAME: &str = "desktop-session.log";
 /// Upper bound per renderer message. Anything longer is either a bug or an
@@ -162,9 +162,8 @@ impl SessionLogSource {
 }
 
 #[tauri::command(rename = "desktop:session-log")]
-pub fn session_log<R: Runtime>(
+pub async fn session_log<R: Runtime>(
     app: AppHandle<R>,
-    sink: State<'_, SessionLogSink>,
     payload: SessionLogPayload,
 ) -> Result<(), SessionLogError> {
     let message = sanitize_message(&payload.message);
@@ -184,7 +183,14 @@ pub fn session_log<R: Runtime>(
     }
 
     let line = format_line(level, source, &message);
-    sink.append(&app, line.as_bytes())
+    // File append is blocking I/O and this command fires frequently from the
+    // renderer — keep the write off the Tauri main thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        let sink = app.state::<SessionLogSink>();
+        sink.append(&app, line.as_bytes())
+    })
+    .await
+    .map_err(|error| SessionLogError::Io(std::io::Error::other(error)))?
 }
 
 fn format_line(level: SessionLogLevel, source: SessionLogSource, message: &str) -> String {
