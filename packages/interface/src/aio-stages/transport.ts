@@ -5,6 +5,9 @@ import type { FinishedStageRun, StageRunNotice, StageRuntime } from './types';
 
 export const STAGE_TIMEOUT_MS = {
   detectText: 90_000,
+  // 480 s on purpose: the assisted Cleaner used to allow only 90 s for OCR —
+  // unified with the AIO recognizeText budget deliberately.
+  // Do not split back into a per-caller timeout.
   recognizeText: 480_000,
   getTranslations: 120_000,
   segmentText: 120_000,
@@ -19,6 +22,22 @@ export interface StageRunOptions {
   parseApiError: (response: Response) => Promise<string>;
   /** Replaces `` `${failurePrefix}: ${apiMessage}` `` when the caller owns the copy. */
   formatError?: (apiMessage: string) => string;
+}
+
+/**
+ * Transport failure carrying the backend runtime notice (e.g. the
+ * INSUFFICIENT_VRAM / `X-Koma-Execution-Fallback: gpu_oom_to_cpu`
+ * explanation). Without it the notice parsed from a failed response would be
+ * discarded and never reach the user.
+ */
+export class StageTransportError extends Error {
+  readonly notice: StageRunNotice | null;
+
+  constructor(message: string, notice: StageRunNotice | null) {
+    super(message);
+    this.name = 'StageTransportError';
+    this.notice = notice;
+  }
 }
 
 /**
@@ -40,14 +59,15 @@ export async function runStageForm<T>(
     { method: 'POST', body: spec.form },
     { timeoutMs: spec.timeoutMs, retryCount: 0, signal: runtime.signal ?? undefined },
   );
-  const notice = (await readExecutionRuntimeNotice(
+  const notice = await readExecutionRuntimeNotice(
     response,
     options.stageLabel,
-  )) as StageRunNotice | null;
+  );
   if (!response.ok) {
     const apiMessage = await options.parseApiError(response);
-    throw new Error(
+    throw new StageTransportError(
       options.formatError?.(apiMessage) ?? `${options.failurePrefix}: ${apiMessage}`,
+      notice,
     );
   }
   return { value: await spec.parse(response), response, notice };

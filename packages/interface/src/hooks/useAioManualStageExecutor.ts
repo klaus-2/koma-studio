@@ -15,6 +15,7 @@ import {
   runRecognizeTextStage,
   runSegmentTextStage,
   stageCatalogOption,
+  StageTransportError,
   type StageRegions,
   type StageReadinessReady,
 } from '../aio-stages';
@@ -258,7 +259,12 @@ export function useAioManualStageExecutor({
     setStatusMessage(`Modo manual: executando "${stageLabel}" em "${activeImageData.file.name}"...`);
 
     // Named stage body keeps the try/catch shallow around error mapping.
-    const runStageBody = async (): Promise<RuntimeExecutionNotice | null> => {
+    // Tagged result: refusals already set their own status message and must not
+    // be overwritten by the "stage done" message.
+    type ManualStageBodyResult =
+      | { refused: true }
+      | { refused: false; notice: RuntimeExecutionNotice | null };
+    const runStageBody = async (): Promise<ManualStageBodyResult> => {
       let executionNotice: RuntimeExecutionNotice | null = null;
       if (stageKey === 'detectText') {
         assertNotAborted();
@@ -284,7 +290,7 @@ export function useAioManualStageExecutor({
             t,
           });
           if (!detectReadiness) {
-            return null;
+            return { refused: true };
           }
 
           const detectDone = await runDetectTextStage(
@@ -317,7 +323,7 @@ export function useAioManualStageExecutor({
           t,
         });
         if (!ocrReadiness) {
-          return null;
+          return { refused: true };
         }
 
         const detectRegions = getAioRegionsFromSnapshot('detectText', activeId);
@@ -357,7 +363,7 @@ export function useAioManualStageExecutor({
           t,
         });
         if (!translationReadiness) {
-          return null;
+          return { refused: true };
         }
 
         const ocrRegions = resolveUpstreamRegions('getTranslations', stageRegionsFromSnapshot());
@@ -398,7 +404,7 @@ export function useAioManualStageExecutor({
           t,
         });
         if (!segmentReadiness) {
-          return null;
+          return { refused: true };
         }
 
         const sourceRegions = resolveUpstreamRegions('segmentText', stageRegionsFromSnapshot());
@@ -434,7 +440,7 @@ export function useAioManualStageExecutor({
           t,
         });
         if (!cleanReadiness) {
-          return null;
+          return { refused: true };
         }
 
         const sourceRegions = resolveUpstreamRegions('cleanImage', stageRegionsFromSnapshot());
@@ -491,11 +497,15 @@ export function useAioManualStageExecutor({
 
       completeManualStageForImage(activeId, stageIndex, 'done');
       setProgress(100);
-      return executionNotice;
+      return { refused: false, notice: executionNotice };
     };
 
     try {
-      const executionNotice = await runStageBody();
+      const stageBodyResult = await runStageBody();
+      if (stageBodyResult.refused) {
+        return;
+      }
+      const executionNotice = stageBodyResult.notice;
       const doneMessage = t('aioManual.stageDone', { stageLabel, fileName: activeImageData.file.name });
       setStatusMessage(executionNotice ? `${doneMessage} ${executionNotice.detail}` : doneMessage);
       if (executionNotice) {
@@ -516,6 +526,8 @@ export function useAioManualStageExecutor({
         || (error instanceof Error && error.name === 'TimeoutError')
       ) {
         setStatusMessage(`Timed out during the "${stageLabel}" stage. The local backend took too long to respond.`);
+      } else if (error instanceof StageTransportError && error.notice) {
+        setStatusMessage(`${error.message} ${error.notice.detail}`);
       } else {
         setStatusMessage(error instanceof Error ? error.message : t('aioManual.stageFailed', { stageLabel }));
       }

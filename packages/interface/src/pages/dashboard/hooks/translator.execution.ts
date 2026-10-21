@@ -21,6 +21,7 @@ import {
   runGetTranslationsStage,
   runTranslateTextStage,
   stageCatalogOption,
+  StageTransportError,
   type StageRuntime,
 } from '../../../aio-stages';
 import { buildSfxTranslationInstructions } from '../../../utils/sfx';
@@ -298,7 +299,11 @@ export function useTranslatorTextActions({
         idioma_origem: srcLang,
         idioma_destino: tgtLang,
       });
-      setStatusMessage(error instanceof Error ? error.message : 'Failed to translate free text.');
+      const noticeDetail =
+        error instanceof StageTransportError && error.notice
+          ? ` ${error.notice.detail}`
+          : '';
+      setStatusMessage(error instanceof Error ? `${error.message}${noticeDetail}` : 'Failed to translate free text.');
     } finally {
       setTranslatorTextRunning(false);
       setProcessing(false);
@@ -496,7 +501,11 @@ export function useTranslatorRetranslate({
         ? t('translatorRetranslate.regionRetranslated')
         : 'Active image retranslated successfully.');
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Failed to retranslate in the visual Translator.');
+      const noticeDetail =
+        error instanceof StageTransportError && error.notice
+          ? ` ${error.notice.detail}`
+          : '';
+      setStatusMessage(error instanceof Error ? `${error.message}${noticeDetail}` : 'Failed to retranslate in the visual Translator.');
     } finally {
       setTranslatorVisualRunning(false);
       setProcessing(false);

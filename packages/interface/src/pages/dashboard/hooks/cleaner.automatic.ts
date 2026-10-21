@@ -6,6 +6,7 @@ import {
   runDetectTextStage,
   runSfxClassifyStage,
   skipStageCatalog,
+  StageTransportError,
   type StageRuntime,
 } from '../../../aio-stages';
 import {
@@ -340,9 +341,13 @@ export async function runAutomaticCleanerWorkflow(
         threads: effectiveBatchConcurrency,
         modelo_ai: cleanerAiModelKey,
       });
+      const noticeDetail =
+        error instanceof StageTransportError && error.notice
+          ? ` ${error.notice.detail}`
+          : '';
       setStatusMessage(
         error instanceof Error
-          ? error.message
+          ? `${error.message}${noticeDetail}`
           : `Failed to run ${isAiSfxMode ? 'AI SFX Cleaner' : 'Automatic AI Clean'}.`,
       );
     } finally {

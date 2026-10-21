@@ -8,6 +8,7 @@ import {
   runSegmentTextStage,
   skipStageCatalog,
   stageCatalogOption,
+  StageTransportError,
   type StageReadinessReady,
   type StageRegions,
   type StageRunNotice,
@@ -352,13 +353,17 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
     emitProcessErrorWebhook('Cleaner Assistido', images.length, error, {
       threads: effectiveBatchConcurrency,
     });
+    const noticeDetail =
+      error instanceof StageTransportError && error.notice
+        ? ` ${error.notice.detail}`
+        : '';
     if (
       (error instanceof DOMException && error.name === 'TimeoutError')
       || (error instanceof Error && error.name === 'TimeoutError')
     ) {
-      setStatusMessage('Tempo limite excedido durante o Cleaner Assistido. O backend local demorou demais para responder.');
+      setStatusMessage(`Tempo limite excedido durante o Cleaner Assistido. O backend local demorou demais para responder.${noticeDetail}`);
     } else {
-      setStatusMessage(error instanceof Error ? error.message : 'Failed to clean the images.');
+      setStatusMessage(error instanceof Error ? `${error.message}${noticeDetail}` : 'Failed to clean the images.');
     }
   } finally {
     setProcessing(false);
