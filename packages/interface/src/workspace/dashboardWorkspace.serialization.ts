@@ -320,11 +320,14 @@ const toManualImageEditDocument = async (
   collector: WorkspaceAssetCollector,
   imageId: string,
   state: AioManualImageEditState,
-): Promise<WorkspaceManualImageEditDocument> => ({
-  paintLayer: await collector.addDataUrl("manual-edits", `${imageId}-paint.png`, state.paintLayerDataUrl),
-  baseImage: await collector.addDataUrl("manual-edits", `${imageId}-base.png`, state.baseImageDataUrl),
-  wandMask: await collector.addDataUrl("manual-edits", `${imageId}-wand.png`, state.wandMaskDataUrl),
-});
+): Promise<WorkspaceManualImageEditDocument> => {
+  const [paintLayer, baseImage, wandMask] = await Promise.all([
+    collector.addDataUrl("manual-edits", `${imageId}-paint.png`, state.paintLayerDataUrl),
+    collector.addDataUrl("manual-edits", `${imageId}-base.png`, state.baseImageDataUrl),
+    collector.addDataUrl("manual-edits", `${imageId}-wand.png`, state.wandMaskDataUrl),
+  ]);
+  return { paintLayer, baseImage, wandMask };
+};
 
 const toAioPipelineSnapshotDocument = async (
   collector: WorkspaceAssetCollector,
@@ -432,13 +435,21 @@ export const captureWorkspaceDocument = async (
       ),
     ),
   );
-  const aioManualImageEditsByImage = await toManualImageEditsMap(collector, state.aio.manualImageEditsByImage as unknown as Record<string, AioManualImageEditState>);
-  const cleanerManualImageEditsByImage = await toManualImageEditsMap(collector, state.cleaner.manualImageEditsByImage);
-  const cleanerProcessedBaseAssetByImage = await toProcessedBaseAssetMap(collector, state.cleaner.processedBaseByImage);
-  const translatorProcessedBaseAssetByImage = await toProcessedBaseAssetMap(collector, state.translator.translatorProcessedBaseByImage);
-  const watermarkImage = state.utility.watermark.watermarkImageFile
-    ? await collector.addFile("watermark-source", state.utility.watermark.watermarkImageFile)
-    : null;
+  const [
+    aioManualImageEditsByImage,
+    cleanerManualImageEditsByImage,
+    cleanerProcessedBaseAssetByImage,
+    translatorProcessedBaseAssetByImage,
+    watermarkImage,
+  ] = await Promise.all([
+    toManualImageEditsMap(collector, state.aio.manualImageEditsByImage as unknown as Record<string, AioManualImageEditState>),
+    toManualImageEditsMap(collector, state.cleaner.manualImageEditsByImage),
+    toProcessedBaseAssetMap(collector, state.cleaner.processedBaseByImage),
+    toProcessedBaseAssetMap(collector, state.translator.translatorProcessedBaseByImage),
+    state.utility.watermark.watermarkImageFile
+      ? collector.addFile("watermark-source", state.utility.watermark.watermarkImageFile)
+      : Promise.resolve(null),
+  ]);
   const watermarkResults = await Promise.all(state.utility.watermark.results.map((item) => toWatermarkResultDocument(collector, item)));
   const optimizerResults = await Promise.all(state.utility.optimizer.results.map((item) => toOptimizerResultDocument(collector, item)));
 
@@ -645,11 +656,20 @@ const restoreAioDownloadItem = (
 const restoreManualImageEdit = async (
   assetMap: Map<string, WorkspaceBinaryAssetPayload>,
   item: WorkspaceManualImageEditDocument | null | undefined,
-): Promise<AioManualImageEditState> => ({
-  paintLayerDataUrl: item?.paintLayer ? await toDataUrlFromAsset(assetMap, item.paintLayer.assetId) : null,
-  baseImageDataUrl: item?.baseImage ? await toDataUrlFromAsset(assetMap, item.baseImage.assetId) : null,
-  wandMaskDataUrl: item?.wandMask ? await toDataUrlFromAsset(assetMap, item.wandMask.assetId) : null,
-} as AioManualImageEditState);
+): Promise<AioManualImageEditState> => {
+  const [paintLayerDataUrl, baseImageDataUrl, wandMaskDataUrl] = await Promise.all([
+    item?.paintLayer ? toDataUrlFromAsset(assetMap, item.paintLayer.assetId) : Promise.resolve(null),
+    item?.baseImage ? toDataUrlFromAsset(assetMap, item.baseImage.assetId) : Promise.resolve(null),
+    item?.wandMask ? toDataUrlFromAsset(assetMap, item.wandMask.assetId) : Promise.resolve(null),
+  ]);
+  return {
+    paintLayerDataUrl,
+    baseImageDataUrl,
+    wandMaskDataUrl,
+    // Workspace v1 does not serialize segmentBrush; restore preserves the rest.
+    segmentBrushDataUrl: null,
+  };
+};
 
 const restoreManualImageEditMap = async (
   assetMap: Map<string, WorkspaceBinaryAssetPayload>,
@@ -731,10 +751,19 @@ export const restoreWorkspaceDocument = async (
     document.images.map((item) => restoreLoadedImage(assetMap, item)),
   );
   const downloadItems = document.downloadItems.map((item) => restoreDownloadItem(assetMap, item));
-  const aioManualImageEditsByImage = await restoreManualImageEditMap(assetMap, document.aio.manualImageEditsByImage);
-  const cleanerManualImageEditsByImage = await restoreManualImageEditMap(assetMap, document.cleaner.manualImageEditsByImage);
-  const cleanerProcessedBaseByImage = await restoreProcessedBaseMap(assetMap, document.cleaner.processedBaseAssetByImage);
-  const translatorProcessedBaseByImage = await restoreProcessedBaseMap(assetMap, document.translator.translatorProcessedBaseAssetByImage ?? {});
+  const [
+    aioManualImageEditsByImage,
+    cleanerManualImageEditsByImage,
+    cleanerProcessedBaseByImage,
+    translatorProcessedBaseByImage,
+    watermark,
+  ] = await Promise.all([
+    restoreManualImageEditMap(assetMap, document.aio.manualImageEditsByImage),
+    restoreManualImageEditMap(assetMap, document.cleaner.manualImageEditsByImage),
+    restoreProcessedBaseMap(assetMap, document.cleaner.processedBaseAssetByImage),
+    restoreProcessedBaseMap(assetMap, document.translator.translatorProcessedBaseAssetByImage ?? {}),
+    restoreWatermarkState(assetMap, document.utility.watermark),
+  ]);
 
   return {
     document: toJsonClone(document),
@@ -773,7 +802,7 @@ export const restoreWorkspaceDocument = async (
         imageStates: toJsonClone(document.utility.splitter.imageStates),
         activeImageId: document.utility.splitter.activeImageId,
       },
-      watermark: await restoreWatermarkState(assetMap, document.utility.watermark),
+      watermark,
       optimizer: restoreOptimizerState(assetMap, document.utility.optimizer),
     },
   };
