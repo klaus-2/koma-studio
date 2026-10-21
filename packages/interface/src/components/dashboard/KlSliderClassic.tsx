@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react';
@@ -19,6 +20,7 @@ export interface KlSliderProps {
   step?: number;
   resetVal?: number;
   onChange: (value: number) => void;
+  ariaLabel?: string;
 }
 
 export default memo(function KlSliderClassic({
@@ -29,8 +31,11 @@ export default memo(function KlSliderClassic({
   step = 1,
   resetVal = 0,
   onChange,
+  ariaLabel,
 }: KlSliderProps) {
   const { t } = useI18n();
+  const labelId = useId();
+  const inputId = useId();
   const [draft, setDraft] = useState(value);
   const draggingRef = useRef(false);
   const onChangeRef = useLatestRef(onChange);
@@ -72,11 +77,14 @@ export default memo(function KlSliderClassic({
   }, [onChangeRef]);
 
   const display = Math.round(draft * 100) / 100;
+  const stringLabel = typeof label === 'string' ? label : undefined;
 
   return (
     <div className="koma-slider">
       <div className="koma-slider__top">
-        <span className="koma-slider__label">{label}</span>
+        <label id={labelId} htmlFor={inputId} className="koma-slider__label">
+          {label}
+        </label>
         <button
           type="button"
           className="koma-slider__value"
@@ -90,6 +98,7 @@ export default memo(function KlSliderClassic({
         </button>
       </div>
       <input
+        id={inputId}
         type="range"
         min={min}
         max={max}
@@ -99,6 +108,8 @@ export default memo(function KlSliderClassic({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onChange={handleChange}
+        aria-labelledby={ariaLabel || stringLabel ? undefined : labelId}
+        aria-label={ariaLabel ?? stringLabel}
         className="koma-range"
       />
     </div>

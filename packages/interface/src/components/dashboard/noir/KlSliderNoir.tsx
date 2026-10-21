@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react';
@@ -19,6 +20,7 @@ export interface KlSliderProps {
   step?: number;
   resetVal?: number;
   onChange: (value: number) => void;
+  ariaLabel?: string;
 }
 
 export default memo(function KlSliderNoir({
@@ -29,8 +31,11 @@ export default memo(function KlSliderNoir({
   step = 1,
   resetVal = 0,
   onChange,
+  ariaLabel,
 }: KlSliderProps) {
   const { t } = useI18n();
+  const labelId = useId();
+  const inputId = useId();
   const [draft, setDraft] = useState(value);
   const draggingRef = useRef(false);
   const onChangeRef = useLatestRef(onChange);
@@ -71,11 +76,18 @@ export default memo(function KlSliderNoir({
   }, [onChangeRef]);
 
   const display = Math.round(draft * 100) / 100;
+  const stringLabel = typeof label === 'string' ? label : undefined;
 
   return (
     <div className="panel-cut-sm flex flex-col gap-1.5 bg-ink-3/60 p-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-paper-dim">{label}</span>
+        <label
+          id={labelId}
+          htmlFor={inputId}
+          className="font-mono text-[9px] font-bold uppercase tracking-widest text-paper-dim"
+        >
+          {label}
+        </label>
         <button
           type="button"
           className="panel-cut-sm border border-paper/15 bg-ink px-1.5 py-0.5 font-mono text-[10px] font-bold text-crimson transition-colors hover:border-crimson hover:bg-crimson hover:text-ink"
@@ -89,6 +101,7 @@ export default memo(function KlSliderNoir({
         </button>
       </div>
       <input
+        id={inputId}
         type="range"
         min={min}
         max={max}
@@ -98,6 +111,8 @@ export default memo(function KlSliderNoir({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onChange={handleChange}
+        aria-labelledby={ariaLabel || stringLabel ? undefined : labelId}
+        aria-label={ariaLabel ?? stringLabel}
         className="koma-noir-range h-1 flex-1 cursor-pointer appearance-none rounded-none bg-ink accent-crimson"
       />
     </div>
