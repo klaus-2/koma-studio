@@ -15,6 +15,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@koma/types": "workspace:*",
     "@node-rs/argon2": "^2.0.2",
     "better-auth": "1.5.0",
     "cors": "^2.8.5",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveDesktopSessionRecoveryAction } from "../src/auth/desktop-session-recovery.ts";
+import { resolveDesktopSessionRecoveryAction } from "@koma/types/desktopSessionRecovery";
 
 test("refreshes the desktop session when auth-server reports an invalid desktop session code", () => {
   const action = resolveDesktopSessionRecoveryAction(403, {
@@ -36,4 +36,24 @@ test("does not retry unrelated auth failures", () => {
   });
 
   assert.equal(action, null);
+});
+
+// The canonical classifier in @koma/types is bilingual (EN + legacy v1 PT
+// server messages). The drifted vendored copy was EN-only — these cases pin
+// the PT patterns arriving at the server UNCHANGED through the canonical
+// import.
+test("refreshes the desktop session from the legacy PT session message (bilingual canonical)", () => {
+  const action = resolveDesktopSessionRecoveryAction(403, {
+    error: "Sessão desktop inválida ou expirada.",
+  });
+
+  assert.equal(action, "refresh-session");
+});
+
+test("re-registers the device from the legacy PT device message (bilingual canonical)", () => {
+  const action = resolveDesktopSessionRecoveryAction(401, {
+    error: "Dispositivo desktop não registrado.",
+  });
+
+  assert.equal(action, "refresh-device");
 });
