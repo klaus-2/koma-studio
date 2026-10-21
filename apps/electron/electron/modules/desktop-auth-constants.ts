@@ -13,6 +13,8 @@ const LOCAL_API_SESSION_HEADER = "x-koma-local-session";
 const DESKTOP_BOOTSTRAP_PATH = "/api/internal/desktop-client/bootstrap";
 const DESKTOP_DEVICE_REGISTER_PATH = "/api/internal/desktop-client/register";
 const DESKTOP_TRAVEL_TOKEN_PATH = "/api/internal/desktop-client/travel-token";
+const DESKTOP_TRAVEL_TOKEN_REQUIRED = "DESKTOP_TRAVEL_TOKEN_REQUIRED";
+const DESKTOP_TRAVEL_TOKEN_INVALID = "DESKTOP_TRAVEL_TOKEN_INVALID";
 
 const parseDesktopTokenTtlSec = (value: string | undefined, fallback: number): number => {
   const parsed = Number(value);
@@ -42,7 +44,9 @@ export {
   DESKTOP_DEVICE_REGISTER_PATH,
   DESKTOP_SESSION_ID_HEADER,
   DESKTOP_TRAVEL_TOKEN_HEADER,
+  DESKTOP_TRAVEL_TOKEN_INVALID,
   DESKTOP_TRAVEL_TOKEN_PATH,
+  DESKTOP_TRAVEL_TOKEN_REQUIRED,
   DESKTOP_UPDATE_CHANNEL_HEADER,
   LOCAL_API_SESSION_HEADER,
   parseDesktopRefreshSkewSec,
