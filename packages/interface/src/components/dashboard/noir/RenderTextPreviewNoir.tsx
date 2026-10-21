@@ -43,6 +43,7 @@ import {
   drawRegionsToCanvas,
   preloadRegionCanvasFonts,
 } from '../render-text-preview/canvasDrawing';
+import { useNonPassiveWheel } from "../../../hooks/useNonPassiveWheel";
 
 const EMPTY_TYPOGRAPHY_PRESETS: TypographyStylePreset[] = [];
 const EMPTY_TYPOGRAPHY_FOLDERS: TypographyStyleFolder[] = [];
@@ -560,7 +561,7 @@ const RenderTextPreviewNoir = ({
   });
 
   const handleOverlayWheel = useCallback(
-    (event: React.WheelEvent<HTMLDivElement>) => {
+    (event: WheelEvent) => {
       if (!editable || !renderStageActive || !areaSelectionEnabled) return;
       if (!event.shiftKey || event.ctrlKey || event.metaKey || event.altKey)
         return;
@@ -591,6 +592,8 @@ const RenderTextPreviewNoir = ({
       updateRegionRotation,
     ],
   );
+
+  useNonPassiveWheel(overlayRef, handleOverlayWheel, true);
 
   const draftBox = useMemo<[number, number, number, number] | null>(
     () =>
@@ -736,7 +739,6 @@ const RenderTextPreviewNoir = ({
               onPointerLeave={handleOverlayPointerLeave}
               onContextMenu={handleRegionContextMenuDelegated}
               onDoubleClick={handleRegionDoubleClickDelegated}
-              onWheel={handleOverlayWheel}
             >
               {showRegionOverlays && displayRegionsWithDefaults.map((region) => {
                 const multiSelectIndex = multiSelectedRegionIds.indexOf(region.id);
