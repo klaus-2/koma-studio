@@ -1,6 +1,15 @@
-import type { ReactNode } from 'react';
+import {
+  type PointerEvent as ReactPointerEvent,
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useI18n } from '../../../i18n';
+import { useLatestRef } from '../../../utils/shallowStable';
 
 export interface KlSliderProps {
   label: ReactNode;
@@ -12,7 +21,7 @@ export interface KlSliderProps {
   onChange: (value: number) => void;
 }
 
-export default function KlSliderNoir({
+export default memo(function KlSliderNoir({
   label,
   value,
   min,
@@ -22,6 +31,47 @@ export default function KlSliderNoir({
   onChange,
 }: KlSliderProps) {
   const { t } = useI18n();
+  const [draft, setDraft] = useState(value);
+  const draggingRef = useRef(false);
+  const onChangeRef = useLatestRef(onChange);
+
+  useEffect(() => {
+    if (!draggingRef.current) {
+      setDraft(value);
+    }
+  }, [value]);
+
+  const commit = useCallback((next: number) => {
+    setDraft(next);
+    onChangeRef.current(next);
+  }, [onChangeRef]);
+
+  const handlePointerDown = useCallback(() => {
+    draggingRef.current = true;
+  }, []);
+
+  const handlePointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLInputElement>) => {
+      draggingRef.current = false;
+      const next = parseFloat(event.currentTarget.value);
+      if (Number.isFinite(next)) {
+        commit(next);
+      }
+    },
+    [commit],
+  );
+
+  const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const next = parseFloat(event.target.value);
+    if (!Number.isFinite(next)) return;
+    setDraft(next);
+    if (!draggingRef.current) {
+      onChangeRef.current(next);
+    }
+  }, [onChangeRef]);
+
+  const display = Math.round(draft * 100) / 100;
+
   return (
     <div className="panel-cut-sm flex flex-col gap-1.5 bg-ink-3/60 p-2">
       <div className="flex items-center justify-between gap-2">
@@ -29,10 +79,13 @@ export default function KlSliderNoir({
         <button
           type="button"
           className="panel-cut-sm border border-paper/15 bg-ink px-1.5 py-0.5 font-mono text-[10px] font-bold text-crimson transition-colors hover:border-crimson hover:bg-crimson hover:text-ink"
-          onClick={() => onChange(resetVal)}
+          onClick={() => {
+            draggingRef.current = false;
+            commit(resetVal);
+          }}
           title={t('klSlider.resetValue')}
         >
-          {Math.round(value * 100) / 100}
+          {display}
         </button>
       </div>
       <input
@@ -40,10 +93,13 @@ export default function KlSliderNoir({
         min={min}
         max={max}
         step={step}
-        value={value}
-        onChange={(event) => onChange(parseFloat(event.target.value))}
+        value={draft}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onChange={handleChange}
         className="koma-noir-range h-1 flex-1 cursor-pointer appearance-none rounded-none bg-ink accent-crimson"
       />
     </div>
   );
-}
+});
