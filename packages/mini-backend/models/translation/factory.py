@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import os
-from collections import OrderedDict
 from collections.abc import Callable
 from typing import NotRequired, TypedDict
 
 from core.config import normalize_stage_model_key
 from core.device import register_gpu_cache_releaser
+from models.engine_cache import LruEngineCache
 from core.models_store import model_is_installed
 from models.translation.base_translator import BaseTranslator
 from models.translation.errors import TranslatorConfigurationError
@@ -250,7 +250,11 @@ if _unbuildable:
     )
 
 _TRANSLATOR_MAX_SIZE = 4
-_TRANSLATOR_CACHE: OrderedDict[str, BaseTranslator] = OrderedDict()
+# LRU eviction dereferences and drops the engine (plain popitem before); GPU
+# memory is released via the core releasers on explicit cache clear only.
+_TRANSLATOR_CACHE: LruEngineCache[str, BaseTranslator] = LruEngineCache(
+    max_size=_TRANSLATOR_MAX_SIZE
+)
 
 
 @register_gpu_cache_releaser
@@ -285,16 +289,9 @@ def get_translation_engine(model_key: str | None = None) -> BaseTranslator:
     if meta is None or not _is_available(selected_key, meta):
         selected_key = DEFAULT_TRANSLATION_MODEL
 
-    cached = _TRANSLATOR_CACHE.get(selected_key)
-    if cached is not None:
-        _TRANSLATOR_CACHE.move_to_end(selected_key)
-        return cached
-
-    engine = _ENGINE_BUILDERS[selected_key](selected_key)
-    _TRANSLATOR_CACHE[selected_key] = engine
-    while len(_TRANSLATOR_CACHE) > _TRANSLATOR_MAX_SIZE:
-        _TRANSLATOR_CACHE.popitem(last=False)
-    return engine
+    return _TRANSLATOR_CACHE.get_or_build(
+        selected_key, lambda: _ENGINE_BUILDERS[selected_key](selected_key)
+    )
 
 
 def list_translation_models() -> list[TranslationModelOption]:

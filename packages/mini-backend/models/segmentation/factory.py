@@ -8,7 +8,13 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Literal, TypedDict
 
-from core.device import register_gpu_cache_releaser
+from core.device import (
+    FrozenOnnxProviderSpec,
+    freeze_provider_specs,
+    get_device_info,
+    get_onnx_execution_providers,
+    register_gpu_cache_releaser,
+)
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
 from models.errors import ModelNotInstalledError
@@ -58,7 +64,9 @@ _BUILDERS: Mapping[str, Callable[[], BaseSegmenter]] = MappingProxyType(
     {DEFAULT_SEGMENTATION_MODEL_KEY: BakaContentSegmenter}
 )
 
-_CACHE: LruEngineCache[str, BaseSegmenter] = LruEngineCache(max_size=2)
+type SegmentationCacheKey = tuple[str, tuple[FrozenOnnxProviderSpec, ...]]
+
+_CACHE: LruEngineCache[SegmentationCacheKey, BaseSegmenter] = LruEngineCache(max_size=2)
 
 
 class SegmentationModelOption(TypedDict):
@@ -128,7 +136,12 @@ def get_segmenter(has_gpu: bool, model_key: str | None = None) -> BaseSegmenter:
             f"Segmentation model '{key}' is not installed. "
             "Install it in the Model Manager before continuing."
         )
-    return _CACHE.get_or_build(key, _BUILDERS[key])
+    # Composite key (model key + provider specs, matching detection/inpainting):
+    # a CPU-built segmenter must never be served for a GPU request.
+    device = get_device_info()
+    providers = get_onnx_execution_providers(device)
+    cache_key: SegmentationCacheKey = (key, freeze_provider_specs(providers))
+    return _CACHE.get_or_build(cache_key, _BUILDERS[key])
 
 
 @register_gpu_cache_releaser
