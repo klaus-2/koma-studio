@@ -8,7 +8,7 @@ import { useAioExecutionPreparation } from '@/hooks/useAioExecutionPreparation';
 import { useAioResultConsolidation } from '@/hooks/useAioResultConsolidation';
 import { useAioSingleImageProcessor } from '@/hooks/useAioSingleImageProcessor';
 import { useI18n } from '@/i18n';
-import { StageTransportError } from '@/aio-stages';
+import { stageTransportNoticeDetail } from '@/aio-stages';
 import { parseApiError } from '@/pages/dashboard/helpers';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
 import { useCommittedAsyncAction } from '@/pages/dashboard/hooks/use-committed-async-action';
@@ -383,10 +383,7 @@ export function useAioPipelineExecution(
           { scope: 'auto', pages: executionImages.length },
         );
 
-        const noticeDetail =
-          error instanceof StageTransportError && error.notice
-            ? ` ${error.notice.detail}`
-            : '';
+        const noticeDetail = stageTransportNoticeDetail(error);
 
         useStatusStore.getState().setTonedStatus(
           timedOut && stageLabel

@@ -71,6 +71,58 @@ describe('installRendererConsoleCapture', () => {
     session.dispose();
   });
 
+  it('swallows an async sink rejection and keeps the capture state consistent', async () => {
+    const session = installRendererConsoleCapture({
+      source: 'test-renderer',
+      sink: (entry) => {
+        entries.push(entry);
+        // A Tauri-style async sink whose invoke fails.
+        return Promise.reject(new Error('session-log invoke failed'));
+      },
+    });
+
+    // The capture path must not throw into the console patch…
+    expect(() => console.error('origin')).not.toThrow();
+
+    // …and inSink is still cleared in `finally`, so the next message is
+    // delivered (and counted) instead of being swallowed by the re-entrancy
+    // guard.
+    console.warn('still delivered');
+    expect(entries).toEqual([
+      { level: 'error', source: 'test-renderer', message: 'origin' },
+      { level: 'warn', source: 'test-renderer', message: 'still delivered' },
+    ]);
+
+    // Let the swallowed rejection settle: vitest fails the run on any
+    // unhandled rejection, so reaching this point proves it was trapped.
+    await Promise.resolve();
+
+    session.dispose();
+  });
+
+  it('swallows a synchronous sink throw and keeps the capture state consistent', () => {
+    let shouldThrow = true;
+    const session = installRendererConsoleCapture({
+      source: 'test-renderer',
+      sink: (entry) => {
+        entries.push(entry);
+        if (shouldThrow) {
+          shouldThrow = false;
+          throw new Error('session-log bridge unavailable');
+        }
+      },
+    });
+
+    expect(() => console.error('origin')).not.toThrow();
+    console.warn('still delivered');
+    expect(entries).toEqual([
+      { level: 'error', source: 'test-renderer', message: 'origin' },
+      { level: 'warn', source: 'test-renderer', message: 'still delivered' },
+    ]);
+
+    session.dispose();
+  });
+
   it('suppresses past the rate ceiling and aggregates the dropped count', () => {
     const session = capture();
 

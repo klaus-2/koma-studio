@@ -62,14 +62,22 @@ export function installRendererConsoleCapture(
   const deliver = (level: "error" | "warn", args: unknown[]): void => {
     inSink = true;
     try {
-      void sink({
-        level,
-        source,
-        message: args.map(formatArg).filter((part) => part.length > 0).join(" "),
+      // Promise.resolve traps a sink that rejects asynchronously (e.g. a
+      // failed Tauri invoke); the surrounding try/catch traps a sink that
+      // throws synchronously.
+      void Promise.resolve(
+        sink({
+          level,
+          source,
+          message: args.map(formatArg).filter((part) => part.length > 0).join(" "),
+        }),
+      ).catch(() => {
+        // Sanctioned silent swallow: the capture path must never log (it would
+        // recurse through this very patch) nor throw into the console patch.
       });
     } catch {
-      // Sanctioned silent swallow: the capture path must never log (it would
-      // recurse through this very patch) nor throw into the console patch.
+      // Sanctioned silent swallow: a synchronous sink throw must not escape
+      // into the console patch either.
     } finally {
       inSink = false;
     }

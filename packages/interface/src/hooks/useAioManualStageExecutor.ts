@@ -16,7 +16,7 @@ import {
   runRecognizeTextStage,
   runSegmentTextStage,
   stageCatalogOption,
-  StageTransportError,
+  stageTransportNoticeDetail,
   type StageRegions,
   type StageReadinessReady,
 } from '../aio-stages';
@@ -489,10 +489,8 @@ export function useAioManualStageExecutor({
         || (error instanceof Error && error.name === 'TimeoutError')
       ) {
         setStatusMessage(`Timed out during the "${stageLabel}" stage. The local backend took too long to respond.`);
-      } else if (error instanceof StageTransportError && error.notice) {
-        setStatusMessage(`${error.message} ${error.notice.detail}`);
       } else {
-        setStatusMessage(error instanceof Error ? error.message : t('aioManual.stageFailed', { stageLabel }));
+        setStatusMessage(error instanceof Error ? `${error.message}${stageTransportNoticeDetail(error)}` : t('aioManual.stageFailed', { stageLabel }));
       }
     } finally {
       setProcessing(false);

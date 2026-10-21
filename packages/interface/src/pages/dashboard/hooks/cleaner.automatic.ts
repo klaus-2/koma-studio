@@ -6,7 +6,7 @@ import {
   runDetectTextStage,
   runSfxClassifyStage,
   skipStageCatalog,
-  StageTransportError,
+  stageTransportNoticeDetail,
 } from '../../../aio-stages';
 import {
   blobToDataUrl,
@@ -352,10 +352,7 @@ export async function runAutomaticCleanerWorkflow(
         threads: effectiveBatchConcurrency,
         modelo_ai: cleanerAiModelKey,
       });
-      const noticeDetail =
-        error instanceof StageTransportError && error.notice
-          ? ` ${error.notice.detail}`
-          : '';
+      const noticeDetail = stageTransportNoticeDetail(error);
       setStatusMessage(
         error instanceof Error
           ? `${error.message}${noticeDetail}`

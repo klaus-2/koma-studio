@@ -41,6 +41,17 @@ export class StageTransportError extends Error {
 }
 
 /**
+ * Message suffix for a caught transport failure when the backend attached a
+ * runtime notice (e.g. the GPU OOM fallback) — surfaces the notice next to
+ * the transport failure text.
+ */
+export function stageTransportNoticeDetail(error: unknown): string {
+  return error instanceof StageTransportError && error.notice
+    ? ` ${error.notice.detail}`
+    : '';
+}
+
+/**
  * POST a stage form, read runtime notices, then either throw a formatted
  * failure or hand back the parsed stage value.
  */
