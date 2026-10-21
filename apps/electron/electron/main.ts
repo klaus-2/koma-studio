@@ -78,10 +78,8 @@ import {
   isRetryableRuntimeDownloadError,
 } from "./modules/mini-backend-runtime-disk.ts";
 import {
-  canRunCommand,
   readPackagedMiniBackendManifest,
   resolvePackagedMiniBackendBinary,
-  runCommand,
   type CommandSpec,
   type MiniBackendCommandSpec,
 } from "./modules/mini-backend-packaged.ts";
@@ -90,6 +88,10 @@ import {
   createMiniBackendProfileResolver,
   normalizeAccelerationProfileOverride,
 } from "./modules/mini-backend-profile.ts";
+import {
+  ensureMiniBackendDevDependencies,
+  resolveDevPythonRuntime,
+} from "./modules/mini-backend-dev-runtime.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -112,7 +114,6 @@ import {
   type MiniBackendRuntimeArtifactManifest,
   type MiniBackendRuntimeArtifactRecord,
 } from "./mini-backend-artifacts.ts";
-import { buildDevPythonRuntimePathCandidates } from "./dev-python-runtime.ts";
 import {
   downloadUrlToFileWithResume,
   resolveRuntimeTransferTimeoutMs,
@@ -1105,72 +1106,6 @@ const setupDesktopAuthIpcHandlers = (): void => {
   });
 };
 
-const resolveDevPythonRuntime = (
-  profile: MiniBackendAccelerationProfile,
-): { command: string; args: string[] } => {
-  const override = (process.env.MINI_BACKEND_PYTHON ?? "").trim();
-  if (override) {
-    return { command: override, args: [] };
-  }
-
-  const localCandidatePaths = buildDevPythonRuntimePathCandidates(
-    profile,
-    process.cwd(),
-    process.platform,
-  );
-  for (const candidatePath of localCandidatePaths) {
-    if (fs.existsSync(candidatePath)) {
-      return { command: candidatePath, args: [] };
-    }
-  }
-
-  const candidates =
-    process.platform === "win32"
-      ? [
-          { command: "py", args: ["-3.12"] },
-          { command: "python", args: [] },
-        ]
-      : [
-          { command: "python3.12", args: [] },
-          { command: "python3", args: [] },
-          { command: "python", args: [] },
-        ];
-
-  const rootDir = process.cwd();
-  for (const candidate of candidates) {
-    if (canRunCommand(candidate.command, [...candidate.args, "-c", "import sys"], rootDir)) {
-      return candidate;
-    }
-  }
-
-  return candidates[0];
-};
-
-const ensureMiniBackendDevDependencies = (spec: MiniBackendCommandSpec): void => {
-  if (!isDev || !spec.dependencyCheck || !spec.dependencyInstall) {
-    return;
-  }
-
-  if (runCommand(spec.dependencyCheck)) {
-    return;
-  }
-
-  console.warn(
-    "[mini-backend] Dependencias de exportacao PSD ausentes. Instalando psd-tools e photoshop-python-api no runtime ativo...",
-  );
-  const installOk = runCommand(spec.dependencyInstall);
-  if (!installOk) {
-    console.error(
-      `[mini-backend] Failed to install PSD dependencies automatically. Run manually: ${spec.dependencyInstall.command} ${spec.dependencyInstall.args.join(" ")}`,
-    );
-    return;
-  }
-
-  if (!runCommand(spec.dependencyCheck)) {
-    console.error("[mini-backend] Dependencias PSD continuam indisponiveis apos instalacao automatica.");
-  }
-};
-
 const getMiniBackendCommand = async (): Promise<MiniBackendCommandSpec> => {
   const profile = await resolveMiniBackendAccelerationProfile();
   if (isDev) {
@@ -1785,7 +1720,7 @@ const startMiniBackend = async (): Promise<void> => {
   await prepareMiniBackendLaunchContext();
   const commandSpec = await getMiniBackendCommand();
   const { command, args, cwd } = commandSpec;
-  ensureMiniBackendDevDependencies(commandSpec);
+  ensureMiniBackendDevDependencies(commandSpec, isDev);
   const miniBackendPort = preparedMiniBackendPort ?? (await getRandomLocalPort());
   const desktopModelsRootDir = path.join(app.getPath("userData"), "models");
   const appResourcesDir = path.join(process.resourcesPath, "resources");
