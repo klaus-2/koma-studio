@@ -2,9 +2,11 @@
 
 Owns engine resolution, cache key composition, fallback recognition and
 record enrichment/merging (the former ``routers.ocr._run_local_ocr``).
-The HTTP router only parses multipart and maps records onto the response
-schema (keeping its GPU→CPU fallback wrapper); the batch orchestrator only
-detects missing seeds and threads its cancellation event.
+The HTTP router only parses multipart, delegates missing-seed detection
+to the shared ``detect_text_seeds`` helper (``pipelines.batch.stages``)
+and maps records onto the response schema (keeping its GPU→CPU fallback
+wrapper); the batch orchestrator only detects missing seeds and threads
+its cancellation event.
 """
 
 from __future__ import annotations

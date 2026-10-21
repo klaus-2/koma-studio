@@ -167,6 +167,33 @@ async def run_detect_stage(
 # --------------------------------------------------------------------------- ocr
 
 
+async def detect_text_seeds(
+    image: Image.Image, *, has_gpu: bool, model_key: str
+) -> list[OCRSeed]:
+    """Resolve the text detector, run one detection pass, and map the
+    detections onto OCR seeds — the shared empty-seeds path of POST /ocr
+    and the batch Recognize Text stage."""
+    detector = get_detector(task="text", has_gpu=has_gpu, model_key=model_key)
+    try:
+        detections = await detector.detect(image)
+    finally:
+        release_gpu_memory()
+    seeds: list[OCRSeed] = []
+    for index, det in enumerate(detections, start=1):
+        bbox = normalize_bbox(getattr(det, "bbox", None))
+        if bbox is None:
+            continue
+        seeds.append(
+            OCRSeed(
+                id=f"det-{index}",
+                bbox=list(bbox),
+                source=normalize_stage_source(getattr(det, "source", "model")),
+                detector_model_key=str(getattr(det, "model_key", "") or model_key),
+            )
+        )
+    return seeds
+
+
 def ocr_seeds_from_detections(
     detections: Sequence[DetectionRecord], default_model: str
 ) -> list[OCRSeed]:
@@ -198,10 +225,9 @@ async def run_ocr_stage(
     fallback recognition, cancellation and enrichment."""
     resolved_seeds = list(seeds) if seeds is not None else []
     if not resolved_seeds:
-        plain = await _detect_plain(
+        resolved_seeds = await detect_text_seeds(
             image, has_gpu=has_gpu, model_key=default_detection_model
         )
-        resolved_seeds = ocr_seeds_from_detections(plain, default_detection_model)
     if not resolved_seeds:
         return StageOutput(model_used=model_key or "", regions=[])
 

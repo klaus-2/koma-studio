@@ -21,10 +21,8 @@ from core.device import (
     DeviceInfo,
     build_device_payload,
     get_device_info,
-    release_gpu_memory,
 )
 from core.languages import normalize_language_code
-from models.detection.factory import get_detector
 from models.errors import (
     InvalidModelSelectionError,
     MissingDependencyError,
@@ -40,6 +38,7 @@ from pipelines.batch.records import (
     normalize_stage_source,
     optional_float,
 )
+from pipelines.batch.stages import detect_text_seeds
 from pipelines.cache_manager import get_pipeline_cache
 from pipelines.ocr_enrichment import enrich_ocr_record_with_gradient
 from routers._boundary import execution_error_to_http
@@ -135,31 +134,6 @@ def _to_region_result(record: OCRRecord) -> OCRRegionResult:
         ),
     )
 
-
-
-# ---------------------------------------------------------------- detection
-
-
-async def _detect_seeds(image: Image.Image, *, has_gpu: bool, default_model: str) -> list[OCRSeed]:
-    detector = get_detector(task="text", has_gpu=has_gpu, model_key=default_model)
-    try:
-        detections = await detector.detect(image)
-    finally:
-        release_gpu_memory()
-    seeds: list[OCRSeed] = []
-    for index, det in enumerate(detections, start=1):
-        bbox = normalize_bbox(getattr(det, "bbox", None))
-        if bbox is None:
-            continue
-        seeds.append(
-            OCRSeed(
-                id=f"det-{index}",
-                bbox=list(bbox),
-                source=normalize_stage_source(getattr(det, "source", "model")),
-                detector_model_key=str(getattr(det, "model_key", "") or default_model),
-            )
-        )
-    return seeds
 
 
 # -------------------------------------------------------------------- cloud
@@ -278,8 +252,8 @@ async def recognize_text(
 
     if not seeds:
         try:
-            seeds = await _detect_seeds(
-                image, has_gpu=effective_has_gpu, default_model=config.default_detection_model
+            seeds = await detect_text_seeds(
+                image, has_gpu=effective_has_gpu, model_key=config.default_detection_model
             )
         except Exception as exc:  # noqa: BLE001 — HTTP boundary; detector backends raise heterogeneous errors
             raise HTTPException(
@@ -299,7 +273,8 @@ async def recognize_text(
                 model_key=model_key,
                 has_gpu=use_gpu_flag,
                 device_info=op_device,
-            )
+            ),
+            cache=CACHE_MANAGER,
         )
 
     try:
