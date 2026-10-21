@@ -71,9 +71,12 @@ import { resolveDesktopDeviceId } from "./modules/desktop-device-id.ts";
 import { createDesktopAuthSession } from "./modules/desktop-auth-session.ts";
 import {
   createMiniBackendRuntimeStore,
-  formatRuntimeBytes,
 } from "./modules/mini-backend-runtime-store.ts";
 import { createMiniBackendRuntimeLogBuffer } from "./modules/mini-backend-runtime-log.ts";
+import {
+  ensureMiniBackendRuntimeDiskSpace,
+  isRetryableRuntimeDownloadError,
+} from "./modules/mini-backend-runtime-disk.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -99,8 +102,6 @@ import {
 import { buildDevPythonRuntimePathCandidates } from "./dev-python-runtime.ts";
 import {
   downloadUrlToFileWithResume,
-  estimateRuntimeInstallRequiredBytes,
-  resolveExistingPathForStatfs,
   resolveRuntimeTransferTimeoutMs,
   runWithRetry,
   RUNTIME_DOWNLOAD_RETRY_COUNT,
@@ -199,7 +200,6 @@ interface MiniBackendDeviceInfoPayload {
 
 const MINI_BACKEND_RUNTIME_EVENT_CHANNEL = "mini-backend-runtime:event";
 const RUNTIME_ARCHIVE_EXTRACT_TIMEOUT_MS = 60 * 60_000;
-const RUNTIME_RETRYABLE_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 
 const MINI_BACKEND_RUNTIME_LOG_LIMIT = 600;
 const DESKTOP_SHORTCUT_ACTION_CHANNEL = "desktop:shortcut-action";
@@ -470,63 +470,6 @@ const prepareMiniBackendLaunchContext = async (): Promise<void> => {
   localApiSessionSecret = randomBytes(32).toString("hex");
   localApiUrl = `http://127.0.0.1:${preparedMiniBackendPort}`;
   registerAllowedExternalHostFromUrl(localApiUrl);
-};
-
-const getAvailableDiskBytes = (targetPath: string): number => {
-  const statfsPath = resolveExistingPathForStatfs(targetPath);
-  if (!statfsPath) {
-    return 0;
-  }
-  try {
-    const stats = fs.statfsSync(statfsPath);
-    const statsWithOptionalFrsize = stats as typeof stats & { frsize?: number };
-    const blockSize = Number(stats.bsize || statsWithOptionalFrsize.frsize || 0);
-    const availableBlocks = Number(stats.bavail ?? stats.blocks ?? 0);
-    if (!Number.isFinite(blockSize) || !Number.isFinite(availableBlocks)) {
-      return 0;
-    }
-    return Math.max(0, Math.trunc(blockSize * availableBlocks));
-  } catch {
-    return 0;
-  }
-};
-
-const ensureMiniBackendRuntimeDiskSpace = (
-  archivePath: string,
-  installDir: string,
-  archiveBytes: number,
-): void => {
-  const requiredBytes = estimateRuntimeInstallRequiredBytes(archiveBytes);
-  for (const targetPath of [archivePath, installDir]) {
-    const availableBytes = getAvailableDiskBytes(targetPath);
-    if (availableBytes > 0 && availableBytes < requiredBytes) {
-      throw new Error(
-        `Insufficient disk space for runtime artifact. Need ${formatRuntimeBytes(requiredBytes)} free, found ${formatRuntimeBytes(availableBytes)}.`,
-      );
-    }
-  }
-};
-
-const isRetryableRuntimeDownloadError = (error: unknown): boolean => {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  const message = error.message.trim();
-  if (!message) {
-    return true;
-  }
-
-  if (error.name === "AbortError" || error.name === "TimeoutError") {
-    return true;
-  }
-
-  const httpMatch = message.match(/HTTP\s+(\d{3})/i);
-  if (httpMatch) {
-    return RUNTIME_RETRYABLE_HTTP_STATUSES.has(Number(httpMatch[1]));
-  }
-
-  return /fetch failed|network|socket|timed out|timeout|temporar/i.test(message);
 };
 
 const getDesktopHttpSession = (): Session => {
