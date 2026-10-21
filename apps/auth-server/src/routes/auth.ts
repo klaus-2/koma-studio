@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 
 import { auth } from "../auth/config.js";
@@ -6,9 +5,6 @@ import { buildAuthForwardHeaders } from "../auth/forward-headers.js";
 import { authenticateBearerToken, issueAccessToken } from "../auth/middleware.js";
 import { normalizeEmail, sanitizeName } from "../auth/validators.js";
 import { env, isWebRequest } from "../config/env.js";
-import { db } from "../db/client.js";
-import { legalAcceptance, user } from "../db/schema.js";
-import { eq } from "drizzle-orm";
 import { parseLegalAcceptancePayload } from "../legal/acceptance.js";
 import {
   clearFailedLoginAttempts,
@@ -18,16 +14,12 @@ import {
   increaseFailedLoginAttempts,
   isUserLocked,
   lockUserForBruteForce,
-  recordSecurityLog,
   updateUserLoginMeta,
 } from "../security/anomaly.js";
 import { getClientIp } from "../security/client-ip.js";
 import { validatePassword } from "../security/password.js";
 import {
-  assertRegistrationAllowed,
   extractDesktopRegistrationSignals,
-  isRegistrationIdentityConflictError,
-  persistRegistrationIdentity,
 } from "../security/registration-guard.js";
 import {
   dashboardLaunchLimiter,
@@ -46,6 +38,12 @@ import {
 import { isEmailDeliveryEnabled } from "../services/email.js";
 import { buildBanCheckSignalsForRequest, findActiveBanForSignals } from "../services/ban-enforcement.js";
 import { resolveLocaleFromHeaders, tServer } from "../services/server-i18n.js";
+import {
+  assertDesktopRegistrationPolicy,
+  bootstrapOwnerRoleIfNeeded,
+  persistRegistrationIdentityWithCompensation,
+  recordRegistrationLegalAcceptance,
+} from "../services/registration.js";
 import { logger } from "../utils/logger.js";
 
 import type { AuthUserResponsePayload } from "./_shared.js";
@@ -53,7 +51,6 @@ import type { AuthUserResponsePayload } from "./_shared.js";
 import {
   appendHeaders,
   asObject,
-  bootstrapOwnerRoleIfNeeded,
   BRUTE_FORCE_LOCK_MINUTES,
   BRUTE_FORCE_LOCK_THRESHOLD,
   buildAuthenticatedUserResponse,
@@ -122,43 +119,10 @@ export function registerAuthRoutes(app: express.Express): void {
         if (requestBan) {
           return sendActiveBanResponse(res, "/api/auth/register", requestBan);
         }
-        let registrationIdentityHashes:
-          | {
-              desktopHwidHmac: string;
-              desktopMacHmac: string;
-              ipSubnetHmac: string;
-            }
-          | null = null;
 
         if (!parsedLegalAcceptance.ok) {
           return sendAuthError(res, 400, { error: parsedLegalAcceptance.error });
         }
-
-        const blockMultiAccountRegistration = async (
-          signal: "desktop_hwid" | "desktop_mac" | "ip_subnet",
-          conflictingUserId?: string,
-        ): Promise<Response> => {
-
-          if (conflictingUserId) {
-            await recordSecurityLog(
-              conflictingUserId,
-              "register_blocked_multi_account",
-              "warning",
-              ipAddress,
-              userAgent,
-              { signal },
-            );
-          }
-
-          return sendAuthError(
-            res,
-            403,
-            {
-              error: tServer(resolveLocaleFromHeaders(req.headers), "auth.error.multiAccountBlocked"),
-              code: "AUTH_MULTI_ACCOUNT_BLOCKED",
-            },
-          );
-        };
 
         const passwordValidation = validatePassword(password);
         if (!passwordValidation.isValid) {
@@ -174,37 +138,38 @@ export function registerAuthRoutes(app: express.Express): void {
 
         const desktopRegistrationEnforced =
           env.enforceDesktopRegistration && !(env.devWebLoginAllowed && isWebRequest(req));
-        if (desktopRegistrationEnforced) {
-          if (!desktopSignalValidation.ok) {
+        const policy = await assertDesktopRegistrationPolicy({
+          desktopSignalValidation,
+          desktopRegistrationEnforced,
+          ipAddress,
+          userAgent,
+        });
+        if (!policy.ok) {
+          if (policy.reason === "identity-missing" || policy.reason === "identity-invalid") {
             return sendAuthError(
               res,
               403,
               {
                 error:
-                  desktopSignalValidation.error === "missing"
+                  policy.reason === "identity-missing"
                     ? tServer(resolveLocaleFromHeaders(req.headers), "auth.error.desktopIdentityRequired")
                     : tServer(resolveLocaleFromHeaders(req.headers), "auth.error.desktopIdentityInvalid"),
                 code:
-                  desktopSignalValidation.error === "missing"
+                  policy.reason === "identity-missing"
                     ? "AUTH_DESKTOP_IDENTITY_REQUIRED"
                     : "AUTH_DESKTOP_IDENTITY_INVALID",
               },
             );
           }
 
-          registrationIdentityHashes = {
-            desktopHwidHmac: desktopSignalValidation.signals.desktopHwidHmac,
-            desktopMacHmac: desktopSignalValidation.signals.desktopMacHmac,
-            ipSubnetHmac: desktopSignalValidation.signals.ipSubnetHmac,
-          };
-
-          const registrationAllowed = await assertRegistrationAllowed(registrationIdentityHashes);
-          if (!registrationAllowed.allowed) {
-            return blockMultiAccountRegistration(
-              registrationAllowed.signal,
-              registrationAllowed.conflictingUserId,
-            );
-          }
+          return sendAuthError(
+            res,
+            403,
+            {
+              error: tServer(resolveLocaleFromHeaders(req.headers), "auth.error.multiAccountBlocked"),
+              code: "AUTH_MULTI_ACCOUNT_BLOCKED",
+            },
+          );
         }
 
         const requestLocale = detectRequestLocale(req, body);
@@ -250,52 +215,14 @@ export function registerAuthRoutes(app: express.Express): void {
             );
           }
 
-          try {
-            await db.insert(legalAcceptance).values({
-              id: randomUUID(),
-              userId: createdUserId,
-              source: "register",
-              termsVersion: parsedLegalAcceptance.value.termsVersion,
-              privacyVersion: parsedLegalAcceptance.value.privacyVersion,
-              cookiesVersion: parsedLegalAcceptance.value.cookiesVersion,
-              contentVersion: parsedLegalAcceptance.value.contentVersion,
-              ipAddress,
-              userAgent,
-              metadata: {
-                route: "/api/auth/register",
-                desktopRegistration: Boolean(registrationIdentityHashes),
-              },
-            });
-            await recordSecurityLog(
-              createdUserId,
-              "legal_acceptance_recorded",
-              "info",
-              ipAddress,
-              userAgent,
-              {
-                source: "register",
-                termsVersion: parsedLegalAcceptance.value.termsVersion,
-                privacyVersion: parsedLegalAcceptance.value.privacyVersion,
-              },
-            );
-          } catch (error) {
-            try {
-              await db.delete(user).where(eq(user.id, createdUserId));
-            } catch (deleteError) {
-              logger.error("failed_to_delete_user_after_legal_acceptance_error", {
-                userId: createdUserId,
-                error:
-                  deleteError instanceof Error
-                    ? { message: deleteError.message, stack: deleteError.stack }
-                    : deleteError,
-              });
-            }
-
-            logger.error("failed_to_persist_legal_acceptance", {
-              userId: createdUserId,
-              error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
-            });
-
+          const legalOutcome = await recordRegistrationLegalAcceptance({
+            userId: createdUserId,
+            legalAcceptance: parsedLegalAcceptance.value,
+            ipAddress,
+            userAgent,
+            desktopRegistration: Boolean(policy.identityHashes),
+          });
+          if (!legalOutcome.ok) {
             return sendAuthError(
               res,
               500,
@@ -305,41 +232,22 @@ export function registerAuthRoutes(app: express.Express): void {
             );
           }
 
-          if (registrationIdentityHashes) {
-            try {
-              await persistRegistrationIdentity(createdUserId, registrationIdentityHashes);
-              await bootstrapOwnerRoleIfNeeded(createdUserId);
-              await recordSecurityLog(
-                createdUserId,
-                "register_identity_linked",
-                "info",
-                ipAddress,
-                userAgent,
+          if (policy.identityHashes) {
+            const identityOutcome = await persistRegistrationIdentityWithCompensation({
+              userId: createdUserId,
+              identityHashes: policy.identityHashes,
+              ipAddress,
+              userAgent,
+            });
+            if (!identityOutcome.ok) {
+              return sendAuthError(
+                res,
+                403,
                 {
-                  identityTypes: ["desktop_hwid", "desktop_mac", "ip_subnet"],
+                  error: tServer(resolveLocaleFromHeaders(req.headers), "auth.error.multiAccountBlocked"),
+                  code: "AUTH_MULTI_ACCOUNT_BLOCKED",
                 },
               );
-            } catch (error) {
-              if (isRegistrationIdentityConflictError(error)) {
-                try {
-                  await db.delete(user).where(eq(user.id, createdUserId));
-                } catch (deleteError) {
-                  logger.error("failed_to_delete_user_after_registration_identity_conflict", {
-                    userId: createdUserId,
-                    error:
-                      deleteError instanceof Error
-                        ? { message: deleteError.message, stack: deleteError.stack }
-                        : deleteError,
-                  });
-                }
-
-                const conflict = await assertRegistrationAllowed(registrationIdentityHashes);
-                const signal = conflict.allowed ? error.signal : conflict.signal;
-                const conflictingUserId = conflict.allowed ? undefined : conflict.conflictingUserId;
-                return blockMultiAccountRegistration(signal, conflictingUserId);
-              }
-
-              throw error;
             }
           } else {
             await bootstrapOwnerRoleIfNeeded(createdUserId);

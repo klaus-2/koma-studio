@@ -1,7 +1,7 @@
-import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
-import { and, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { toNodeHandler } from "better-auth/node";
 
 import { auth } from "../auth/config.js";
@@ -12,8 +12,6 @@ import { normalizeEmail, sanitizeName } from "../auth/validators.js";
 import { env, validateEnv } from "../config/env.js";
 import { db } from "../db/client.js";
 import {
-  desktopAuthDevice,
-  desktopTravelToken,
   legalAcceptance,
   session,
   type FeedReportEvidence,
@@ -68,6 +66,9 @@ import {
   resolvePreferredEmailLocale,
 } from "../services/locale.js";
 import { resolveLocaleFromHeaders, tServer } from "../services/server-i18n.js";
+import { readHeaderValue } from "../services/desktop-session.js";
+
+export { parsePositiveInteger, purgeDesktopClientSessionsForUser } from "../services/desktop-session.js";
 import {
   deleteModelReview,
   getModelReviewDetail,
@@ -255,14 +256,6 @@ export const shouldEnforceCaptcha = async (email: string, ipAddress: string): Pr
   return failedAttempts >= 3;
 };
 
-export const parsePositiveInteger = (value: unknown, fallback: number): number => {
-  const numberValue = typeof value === "number" ? value : Number(value);
-  if (!Number.isInteger(numberValue) || numberValue <= 0) {
-    return fallback;
-  }
-  return numberValue;
-};
-
 export const parseTrimmedQuery = (value: unknown, fallback = ""): string =>
   typeof value === "string" ? value.trim() : fallback;
 
@@ -407,26 +400,6 @@ export const ensureFeedViewerContext = async (userId: string): Promise<FeedViewe
     locale: userRow.locale ?? null,
     user: userRow,
   };
-};
-
-export const bootstrapOwnerRoleIfNeeded = async (userId: string): Promise<void> => {
-  const [staffUser] = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(inArray(user.appRole, ["owner", "admin"]))
-    .limit(1);
-
-  if (staffUser) {
-    return;
-  }
-
-  await db
-    .update(user)
-    .set({
-      appRole: "owner",
-      updatedAt: new Date(),
-    })
-    .where(eq(user.id, userId));
 };
 
 export const getRequestDesktopDeviceId = (_req: Request, _body?: Record<string, unknown> | null): string | null =>
@@ -664,45 +637,6 @@ export const DESKTOP_BOOTSTRAP_SECRET_HEADER = "x-desktop-bootstrap-secret";
 export const DESKTOP_DEVICE_KEY_HEADER = "x-desktop-device-key";
 export const DESKTOP_TRAVEL_TOKEN_HEADER = "x-desktop-travel-token";
 
-export const DESKTOP_TOKEN_MIN_TTL_SEC = 300;
-export const DESKTOP_TOKEN_MAX_TTL_SEC = 900;
-export const DESKTOP_TRAVEL_TOKEN_MIN_TTL_MINUTES = 5;
-export const DESKTOP_TRAVEL_TOKEN_MAX_TTL_MINUTES = 180;
-export const DESKTOP_TRAVEL_DEVICE_MIN_DAYS = 1;
-export const DESKTOP_TRAVEL_DEVICE_MAX_DAYS = 60;
-export const DESKTOP_PRIMARY_SLOT = "primary";
-export const DESKTOP_TRAVEL_SLOT = "travel";
-
-export type DesktopDeviceSlot = typeof DESKTOP_PRIMARY_SLOT | typeof DESKTOP_TRAVEL_SLOT;
-export type DesktopTravelTokenDeliveryMode = "copy" | "email";
-export type DesktopAuthDeviceRow = typeof desktopAuthDevice.$inferSelect;
-export type DesktopTravelTokenRow = typeof desktopTravelToken.$inferSelect;
-
-export interface DesktopClientSessionRecord {
-  sessionId: string;
-  deviceId: string;
-  userId: string | null;
-  tokenHash: string;
-  previousTokenHash: string | null;
-  previousTokenValidUntilMs: number;
-  expiresAtMs: number;
-  createdAtMs: number;
-  updatedAtMs: number;
-}
-
-export const desktopClientSessions = new Map<string, DesktopClientSessionRecord>();
-export let lastDesktopSessionCleanupAtMs = 0;
-
-export const readHeaderValue = (value: string | string[] | undefined): string | null => {
-  const normalized = Array.isArray(value) ? value[0] : value;
-  if (typeof normalized !== "string") {
-    return null;
-  }
-
-  const trimmed = normalized.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
-
 export const ADMIN_WEB_CLIENT_HEADER = "x-koma-admin-client";
 
 export const isAdminWebRequest = (req: Request): boolean =>
@@ -718,246 +652,6 @@ export const isDesktopCaptchaBypassRequest = (req: Request, body: unknown): bool
     getRequestDesktopDeviceId(req, bodyRecord) || getRequestDesktopMacFingerprint(bodyRecord),
   );
   return hasDesktopIdentityPayload && (Boolean(getDesktopClientVersion(req)) || desktopSignalValidation.ok);
-};
-
-export const safeTokenEquals = (left: string, right: string): boolean => {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  if (leftBuffer.length !== rightBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(leftBuffer, rightBuffer);
-};
-
-export const clampDesktopTokenTtlSec = (value: unknown, fallback: number): number => {
-  const ttl = parsePositiveInteger(value, fallback);
-  return Math.max(DESKTOP_TOKEN_MIN_TTL_SEC, Math.min(DESKTOP_TOKEN_MAX_TTL_SEC, ttl));
-};
-
-export const clampDesktopTravelTokenTtlMinutes = (value: unknown, fallback: number): number => {
-  const ttl = parsePositiveInteger(value, fallback);
-  return Math.max(
-    DESKTOP_TRAVEL_TOKEN_MIN_TTL_MINUTES,
-    Math.min(DESKTOP_TRAVEL_TOKEN_MAX_TTL_MINUTES, ttl),
-  );
-};
-
-export const clampDesktopTravelDurationDays = (value: unknown, fallback: number): number => {
-  const days = parsePositiveInteger(value, fallback);
-  return Math.max(DESKTOP_TRAVEL_DEVICE_MIN_DAYS, Math.min(DESKTOP_TRAVEL_DEVICE_MAX_DAYS, days));
-};
-
-export const normalizeDesktopTravelTokenDeliveryMode = (
-  value: unknown,
-): DesktopTravelTokenDeliveryMode => (value === "email" ? "email" : "copy");
-
-export const maskEmailAddress = (value: string): string => {
-  const [localPartRaw, domainRaw] = value.split("@");
-  const localPart = localPartRaw?.trim() ?? "";
-  const domain = domainRaw?.trim() ?? "";
-  if (!localPart || !domain) {
-    return value;
-  }
-
-  const maskedLocalPart =
-    localPart.length <= 2
-      ? `${localPart[0] ?? "*"}*`
-      : `${localPart.slice(0, 2)}${"*".repeat(Math.max(2, localPart.length - 2))}`;
-  return `${maskedLocalPart}@${domain}`;
-};
-
-export const isSafeDesktopIdentifier = (value: string): boolean =>
-  /^[A-Za-z0-9:_-]{12,128}$/.test(value);
-
-export const normalizeDesktopSlot = (value: string | null | undefined): DesktopDeviceSlot | null => {
-  if (value === DESKTOP_PRIMARY_SLOT || value === DESKTOP_TRAVEL_SLOT) {
-    return value;
-  }
-  return null;
-};
-
-
-export const isDesktopTravelDeviceActive = (
-  device: DesktopAuthDeviceRow | null | undefined,
-  nowMs: number = Date.now(),
-): boolean => {
-  if (!device || normalizeDesktopSlot(device.slot) !== DESKTOP_TRAVEL_SLOT) {
-    return false;
-  }
-  if (!device.expiresAt) {
-    return false;
-  }
-  return device.expiresAt.getTime() > nowMs;
-};
-
-export const getDesktopDeviceByUserAndSlot = async (
-  userId: string,
-  slot: DesktopDeviceSlot,
-): Promise<DesktopAuthDeviceRow | null> => {
-  const [device] = await db
-    .select()
-    .from(desktopAuthDevice)
-    .where(and(eq(desktopAuthDevice.userId, userId), eq(desktopAuthDevice.slot, slot)))
-    .limit(1);
-  return device ?? null;
-};
-
-export const getDesktopDeviceByUserAndHwid = async (
-  userId: string,
-  deviceHmac: string,
-  nowMs: number = Date.now(),
-): Promise<DesktopAuthDeviceRow | null> => {
-  const primaryDevice = await getDesktopDeviceByUserAndSlot(userId, DESKTOP_PRIMARY_SLOT);
-  if (primaryDevice && safeTokenEquals(primaryDevice.hwidHmac, deviceHmac)) {
-    return primaryDevice;
-  }
-
-  const travelDevice = await getDesktopDeviceByUserAndSlot(userId, DESKTOP_TRAVEL_SLOT);
-  if (isDesktopTravelDeviceActive(travelDevice, nowMs) && travelDevice && safeTokenEquals(travelDevice.hwidHmac, deviceHmac)) {
-    return travelDevice;
-  }
-
-  return null;
-};
-
-export const upsertDesktopDevice = async (params: {
-  userId: string;
-  slot: DesktopDeviceSlot;
-  deviceHmac: string;
-  deviceKeyHash: string;
-  expiresAt?: Date | null;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}): Promise<DesktopAuthDeviceRow> => {
-  const now = new Date();
-  const existing = await getDesktopDeviceByUserAndSlot(params.userId, params.slot);
-  const values = {
-    hwidHmac: params.deviceHmac,
-    deviceKeyHash: params.deviceKeyHash,
-    expiresAt: params.slot === DESKTOP_TRAVEL_SLOT ? params.expiresAt ?? null : null,
-    lastSeenAt: now,
-    lastSeenIp: params.ipAddress ?? null,
-    lastSeenUserAgent: params.userAgent ?? null,
-    updatedAt: now,
-  };
-
-  if (!existing) {
-    const [created] = await db
-      .insert(desktopAuthDevice)
-      .values({
-        id: randomUUID(),
-        userId: params.userId,
-        slot: params.slot,
-        createdAt: now,
-        ...values,
-      })
-      .returning();
-    if (!created) {
-      throw new Error(tServer("en", "auth.desktop.linkCreateFailed"));
-    }
-    return created;
-  }
-
-  const [updated] = await db
-    .update(desktopAuthDevice)
-    .set(values)
-    .where(eq(desktopAuthDevice.id, existing.id))
-    .returning();
-  if (!updated) {
-    throw new Error(tServer("en", "auth.desktop.linkUpdateFailed"));
-  }
-  return updated;
-};
-
-export const sha256Hex = (payload: string | Buffer): string =>
-  createHash("sha256").update(payload).digest("hex");
-
-export const consumeDesktopTravelToken = async (params: {
-  userId: string;
-  token: string;
-  consumedByHwidHmac: string;
-}): Promise<DesktopTravelTokenRow | null> => {
-  const tokenHash = sha256Hex(params.token);
-  const now = new Date();
-  const [row] = await db
-    .select()
-    .from(desktopTravelToken)
-    .where(
-      and(
-        eq(desktopTravelToken.userId, params.userId),
-        eq(desktopTravelToken.tokenHash, tokenHash),
-        isNull(desktopTravelToken.consumedAt),
-        gt(desktopTravelToken.expiresAt, now),
-      ),
-    )
-    .limit(1);
-
-  if (!row) {
-    return null;
-  }
-
-  const [consumed] = await db
-    .update(desktopTravelToken)
-    .set({
-      consumedAt: now,
-      consumedByHwidHmac: params.consumedByHwidHmac,
-      updatedAt: now,
-    })
-    .where(eq(desktopTravelToken.id, row.id))
-    .returning();
-
-  return consumed ?? null;
-};
-
-export const findDesktopDeviceByCredential = async (params: {
-  deviceHmac: string;
-  deviceKeyHash: string;
-  nowMs: number;
-}): Promise<DesktopAuthDeviceRow | null> => {
-  const [device] = await db
-    .select()
-    .from(desktopAuthDevice)
-    .where(
-      and(
-        eq(desktopAuthDevice.hwidHmac, params.deviceHmac),
-        eq(desktopAuthDevice.deviceKeyHash, params.deviceKeyHash),
-      ),
-    )
-    .limit(1);
-  if (!device) {
-    return null;
-  }
-
-  const slot = normalizeDesktopSlot(device.slot);
-  if (slot === DESKTOP_TRAVEL_SLOT && !isDesktopTravelDeviceActive(device, params.nowMs)) {
-    return null;
-  }
-
-  return device;
-};
-
-export const cleanupExpiredDesktopClientSessions = (nowMs: number = Date.now()): void => {
-  for (const [sessionId, record] of desktopClientSessions.entries()) {
-    if (record.expiresAtMs <= nowMs) {
-      desktopClientSessions.delete(sessionId);
-    }
-  }
-  lastDesktopSessionCleanupAtMs = nowMs;
-};
-
-export const cleanupDesktopClientSessionsIfNeeded = (nowMs: number = Date.now()): void => {
-  if (nowMs - lastDesktopSessionCleanupAtMs > 60_000) {
-    cleanupExpiredDesktopClientSessions(nowMs);
-  }
-};
-
-export const purgeDesktopClientSessionsForUser = (userId: string): void => {
-  for (const [sessionId, record] of desktopClientSessions.entries()) {
-    if (record.userId === userId) {
-      desktopClientSessions.delete(sessionId);
-    }
-  }
 };
 
 export const DESKTOP_ENFORCEMENT_BYPASS_AUTH_PATHS = new Set<string>([

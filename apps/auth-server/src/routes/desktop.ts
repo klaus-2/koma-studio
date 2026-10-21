@@ -19,42 +19,45 @@ import { normalizeEmailLocale } from "../services/locale.js";
 import { resolveLocaleFromHeaders, tServer } from "../services/server-i18n.js";
 
 import {
-  DESKTOP_BOOTSTRAP_SECRET_HEADER,
-  DESKTOP_CLIENT_TOKEN_HEADER,
-  DESKTOP_DEVICE_ID_HEADER,
-  DESKTOP_DEVICE_KEY_HEADER,
   DESKTOP_PRIMARY_SLOT,
-  DESKTOP_SESSION_ID_HEADER,
   DESKTOP_TRAVEL_SLOT,
-  DESKTOP_TRAVEL_TOKEN_HEADER,
-  asObject,
   clampDesktopTokenTtlSec,
   clampDesktopTravelDurationDays,
   clampDesktopTravelTokenTtlMinutes,
   cleanupDesktopClientSessionsIfNeeded,
   consumeDesktopTravelToken,
   desktopClientSessions,
-  detectRequestLocale,
   findDesktopDeviceByCredential,
   getDesktopDeviceByUserAndSlot,
-  getUserById,
-  isAdminWebRequest,
-  isDesktopTravelDeviceActive,
   isSafeDesktopIdentifier,
-  jsonParser,
   maskEmailAddress,
   normalizeDesktopSlot,
   normalizeDesktopTravelTokenDeliveryMode,
   purgeDesktopClientSessionsForUser,
   readHeaderValue,
-  resolveSessionUser,
+  resolveDesktopSlotDecision,
   safeTokenEquals,
+  sha256Hex,
+  upsertDesktopDevice,
+  type DesktopDeviceSlot,
+} from "../services/desktop-session.js";
+import {
+  DESKTOP_BOOTSTRAP_SECRET_HEADER,
+  DESKTOP_CLIENT_TOKEN_HEADER,
+  DESKTOP_DEVICE_ID_HEADER,
+  DESKTOP_DEVICE_KEY_HEADER,
+  DESKTOP_SESSION_ID_HEADER,
+  DESKTOP_TRAVEL_TOKEN_HEADER,
+  asObject,
+  detectRequestLocale,
+  getUserById,
+  isAdminWebRequest,
+  jsonParser,
+  resolveSessionUser,
   sendActiveBanResponse,
   sendAuthError,
-  sha256Hex,
   shouldBypassDesktopClientEnforcement,
   syncUserLocaleIfNeeded,
-  upsertDesktopDevice,
 } from "./_shared.js";
 
 const computeDesktopHwidHmac = (deviceId: string): string =>
@@ -120,35 +123,33 @@ export function registerDesktopRoutes(app: express.Express): void {
             DESKTOP_PRIMARY_SLOT,
           );
           const travelDevice = await getDesktopDeviceByUserAndSlot(sessionUser.id, DESKTOP_TRAVEL_SLOT);
-          const activeTravelDevice = isDesktopTravelDeviceActive(travelDevice, nowMs) ? travelDevice : null;
+          const decision = resolveDesktopSlotDecision({
+            primaryDevice,
+            travelDevice,
+            deviceHmac,
+            nowMs,
+            hasProvidedTravelToken: Boolean(providedTravelToken),
+            disableTravelTokenEnforcement: env.disableTravelTokenEnforcement,
+          });
 
-          let targetSlot: "primary" | "travel" = DESKTOP_PRIMARY_SLOT;
+          if (decision.action === "deny-travel-token-required") {
+            return res.status(403).json({
+              error:
+                tServer(resolveLocaleFromHeaders(req.headers), "auth.error.desktopTravelTokenRequired"),
+              code: "DESKTOP_TRAVEL_TOKEN_REQUIRED",
+            });
+          }
+
+          let targetSlot: DesktopDeviceSlot = DESKTOP_PRIMARY_SLOT;
           let travelExpiresAt: Date | null = null;
 
-          if (!primaryDevice) {
-            targetSlot = DESKTOP_PRIMARY_SLOT;
-          } else if (safeTokenEquals(primaryDevice.hwidHmac, deviceHmac)) {
-            targetSlot = DESKTOP_PRIMARY_SLOT;
-          } else if (activeTravelDevice && safeTokenEquals(activeTravelDevice.hwidHmac, deviceHmac)) {
+          if (decision.action === "register-travel-reuse") {
             targetSlot = DESKTOP_TRAVEL_SLOT;
-            travelExpiresAt = activeTravelDevice.expiresAt;
-          } else if (env.disableTravelTokenEnforcement) {
-            // Travel-token enforcement disabled (e.g. desktop clients that no
-            // longer issue travel tokens): register the new device on the
-            // primary slot without requiring a travel token.
-            targetSlot = DESKTOP_PRIMARY_SLOT;
-          } else {
-            if (!providedTravelToken) {
-              return res.status(403).json({
-                error:
-                  tServer(resolveLocaleFromHeaders(req.headers), "auth.error.desktopTravelTokenRequired"),
-                code: "DESKTOP_TRAVEL_TOKEN_REQUIRED",
-              });
-            }
-
+            travelExpiresAt = decision.travelExpiresAt;
+          } else if (decision.action === "consume-travel-token") {
             const consumedTravelToken = await consumeDesktopTravelToken({
               userId: sessionUser.id,
-              token: providedTravelToken,
+              token: providedTravelToken ?? "",
               consumedByHwidHmac: deviceHmac,
             });
             if (!consumedTravelToken) {
