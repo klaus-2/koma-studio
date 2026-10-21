@@ -14,7 +14,7 @@ use super::{
         api_error, bool_field, now_iso, number_field, raw_string_field, response_envelope,
         string_field, string_api, ApiEnvelope, AUTH_API_BASE,
     },
-    identity::{collect_machine_profile, resolve_hardware_id, resolve_mac_fingerprint},
+    identity::{resolve_hardware_id, resolve_mac_fingerprint},
 };
 
 const DESKTOP_CLIENT_TOKEN_HEADER: &str = "x-desktop-client-token";
@@ -167,7 +167,6 @@ pub async fn login<R: Runtime>(
     if response.ok {
         let _ = register_device_key(&app, &store, "login", Some(travel_token)).await;
         let _ = refresh_session_token(&app, &store).await;
-        let _ = sync_machine_profile(&app, &store, "login").await;
     }
 
     Ok(response)
@@ -225,7 +224,6 @@ pub async fn register<R: Runtime>(
         }
         let _ = register_device_key(&app, &store, "register", Some(travel_token)).await;
         let _ = refresh_session_token(&app, &store).await;
-        let _ = sync_machine_profile(&app, &store, "register").await;
     }
 
     Ok(response)
@@ -482,12 +480,18 @@ async fn refresh_session_token<R: Runtime>(
 
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    // Send BOTH when available (electron-conformant): with
+    // ENFORCE_DESKTOP_CLIENT=true the server validates the device key; with
+    // false it requires the bootstrap secret when one is configured. The
+    // previous either/or strategy left the bootstrap at 401 when the device
+    // key was present but the server expected the secret.
     if !device_key.is_empty() {
         headers.insert(
             HeaderName::from_static(DESKTOP_DEVICE_KEY_HEADER),
             HeaderValue::from_str(&device_key).map_err(|error| error.to_string())?,
         );
-    } else if let Ok(secret) = std::env::var("DESKTOP_BOOTSTRAP_SECRET") {
+    }
+    if let Ok(secret) = std::env::var("DESKTOP_BOOTSTRAP_SECRET") {
         let trimmed = secret.trim();
         if !trimmed.is_empty() {
             headers.insert(
@@ -562,13 +566,11 @@ async fn register_device_key<R: Runtime>(
     }
 
     let device_id = resolve_hardware_id(app)?;
-    let machine_profile = collect_machine_profile(app)?;
     let response = string_api::http_client_for_app(app)?
         .post(string_api::api_url(app, AUTH_API_BASE, DESKTOP_DEVICE_REGISTER_PATH)?)
         .headers(headers)
         .json(&json!({
             "deviceId": device_id,
-            "machineProfile": machine_profile,
             "syncReason": reason,
             "travelToken": normalized_travel,
         }))
@@ -583,31 +585,14 @@ async fn register_device_key<R: Runtime>(
         .unwrap_or_default()
         .trim()
         .to_string();
-    if device_key.len() < 16 {
+    // The server generates 43-char base64url keys (randomBytes(32)).
+    if device_key.len() < 43 {
         return Err("Desktop device registration returned an invalid key.".to_string());
     }
 
     let mut state = store.state.lock().map_err(|error| error.to_string())?;
     state.device_key = device_key;
     state.pending_travel_token = None;
-    Ok(())
-}
-
-async fn sync_machine_profile<R: Runtime>(
-    app: &AppHandle<R>,
-    store: &DesktopAuthStore,
-    reason: &str,
-) -> Result<(), String> {
-    let profile = collect_machine_profile(app)?;
-    let _ = auth_api_json(
-        app,
-        store,
-        "/api/internal/desktop-client/machine-profile/sync",
-        "POST",
-        Some(json!({ "machineProfile": profile, "syncReason": reason, "collectedAt": now_iso() })),
-        "",
-    )
-    .await;
     Ok(())
 }
 
