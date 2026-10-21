@@ -77,12 +77,6 @@ import {
   ensureMiniBackendRuntimeDiskSpace,
   isRetryableRuntimeDownloadError,
 } from "./modules/mini-backend-runtime-disk.ts";
-import {
-  readPackagedMiniBackendManifest,
-  resolvePackagedMiniBackendBinary,
-  type CommandSpec,
-  type MiniBackendCommandSpec,
-} from "./modules/mini-backend-packaged.ts";
 import { collectMiniBackendGpuVendors } from "./modules/mini-backend-gpu.ts";
 import {
   resolveMiniBackendRuntimeManifestUrl,
@@ -94,8 +88,8 @@ import {
 } from "./modules/mini-backend-profile.ts";
 import {
   ensureMiniBackendDevDependencies,
-  resolveDevPythonRuntime,
 } from "./modules/mini-backend-dev-runtime.ts";
+import { createMiniBackendCommandBuilder } from "./modules/mini-backend-command.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -125,8 +119,6 @@ import {
   RUNTIME_DOWNLOAD_RETRY_COUNT,
 } from "./mini-backend-runtime-download.ts";
 import {
-  readMiniBackendRuntimeSelection,
-  resolveSelectedRuntimeBinaryPath,
   writeMiniBackendRuntimeSelection,
 } from "./mini-backend-runtime-selection.ts";
 import { resolveMiniBackendStartupPolicy } from "./mini-backend-runtime-startup.ts";
@@ -134,7 +126,6 @@ import {
   buildManualInstallBlockedState,
   formatRuntimeFallbackReason,
   resolveEffectiveAccelerationProfile,
-  resolveManifestEntry,
   type MiniBackendAccelerationProfile,
 } from "./mini-backend-runtime.ts";
 
@@ -1110,119 +1101,13 @@ const setupDesktopAuthIpcHandlers = (): void => {
   });
 };
 
-const getMiniBackendCommand = async (): Promise<MiniBackendCommandSpec> => {
-  const profile = await resolveMiniBackendAccelerationProfile();
-  if (isDev) {
-    const runtime = resolveDevPythonRuntime(profile);
-    // monorepo: the mini-backend source lives in packages/mini-backend
-    const miniBackendDir = path.join(process.cwd(), "..", "..", "packages", "mini-backend");
-    const appPath = path.join(miniBackendDir, "app.py");
-    runtimeStore.patch({
-      requestedProfile: profile,
-      activeProfile: profile,
-      source: "bundled-core",
-      installDir: miniBackendDir,
-      version: app.getVersion(),
-      lastError: null,
-      status: "checking",
-      statusMessage: "Starting local development runtime.",
-      attempt: 0,
-      maxAttempts: 0,
-      progress: null,
-    });
-    const dependencyCheck: CommandSpec = {
-      command: runtime.command,
-      args: [...runtime.args, "-c", "import psd_tools, photoshop"],
-      cwd: miniBackendDir,
-    };
-    const dependencyInstall: CommandSpec = {
-      command: runtime.command,
-      args: [
-        ...runtime.args,
-        "-m",
-        "pip",
-        "install",
-        "psd-tools>=1.12.0",
-        "photoshop-python-api>=0.24.1",
-        "pywin32>=306",
-      ],
-      cwd: miniBackendDir,
-    };
 
-    return {
-      command: runtime.command,
-      args: [...runtime.args, appPath],
-      cwd: process.cwd(),
-      dependencyCheck,
-      dependencyInstall,
-      env: {
-        MINI_BACKEND_ACCELERATION_PROFILE: profile,
-        // DEV: same env contract as the production spawn — without it the
-        // backend runs blind (no models/reference images) and the profile
-        // warmup fails.
-        KOMA_MODELS_ROOT: path.join(app.getPath("userData"), "models"),
-        KOMA_APP_RESOURCES_DIR: path.join(process.cwd(), "resources"),
-        KOMA_REFERENCE_IMAGES_DIR: path.join(process.cwd(), "resources", "reference_images"),
-      },
-      runtimeSource: "bundled-core",
-      installDir: miniBackendDir,
-      version: app.getVersion(),
-    };
-  }
-
-  const manifest = readPackagedMiniBackendManifest();
-  const selectedRuntime = readMiniBackendRuntimeSelection(app.getPath("userData"));
-  const selectedRuntimeBinaryPath = resolveSelectedRuntimeBinaryPath(app.getPath("userData"));
-  if (selectedRuntime && selectedRuntime.profile === profile && selectedRuntimeBinaryPath) {
-    return {
-      command: selectedRuntimeBinaryPath,
-      args: [],
-      cwd: path.dirname(selectedRuntimeBinaryPath),
-      env: {
-        MINI_BACKEND_ACCELERATION_PROFILE: profile,
-      },
-      runtimeSource: "downloaded-runtime",
-      installDir: path.dirname(selectedRuntimeBinaryPath),
-      version: selectedRuntime.version,
-    };
-  }
-
-  const manifestEntry = manifest ? resolveManifestEntry(manifest, profile) : null;
-  const binaryPath = resolvePackagedMiniBackendBinary(manifestEntry?.entry);
-  runtimeStore.patch({
-    requestedProfile: profile,
-    activeProfile: manifestEntry?.profile ?? "cpu",
-    source: "bundled-core",
-    runtimeManifestUrl: resolveMiniBackendRuntimeManifestUrl(miniBackendArtifactsUrl),
-    runtimeArchiveUrl: null,
-    installDir: path.dirname(binaryPath),
-    version: app.getVersion(),
-    lastError: runtimeStore.getState().lastError,
-    status:
-      runtimeStore.getState().lastError || (manifestEntry?.profile ?? "cpu") !== profile
-        ? "fallback"
-        : "ready",
-    statusMessage:
-      runtimeStore.getState().lastError || (manifestEntry?.profile ?? "cpu") !== profile
-        ? "Running with embedded fallback runtime."
-        : "Embedded runtime ready.",
-    attempt: 0,
-    maxAttempts: 0,
-    progress: null,
-  });
-    return {
-      command: binaryPath,
-      args: [],
-      cwd: path.dirname(binaryPath),
-      env: {
-        MINI_BACKEND_ACCELERATION_PROFILE: manifestEntry?.env.MINI_BACKEND_ACCELERATION_PROFILE ?? profile,
-        ...manifestEntry?.env,
-      },
-      runtimeSource: "bundled-core",
-      installDir: path.dirname(binaryPath),
-      version: app.getVersion(),
-    };
-  };
+const { getMiniBackendCommand } = createMiniBackendCommandBuilder({
+  isDev,
+  runtimeStore,
+  miniBackendArtifactsUrl,
+  resolveAccelerationProfile: resolveMiniBackendAccelerationProfile,
+});
 
 const getRandomLocalPort = async (): Promise<number> =>
   new Promise((resolve, reject) => {
