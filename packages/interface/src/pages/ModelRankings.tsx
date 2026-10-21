@@ -1,11 +1,10 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 import ModelRankingsPageClassic from './ModelRankingsClassic';
 import { ModelRankingsPage as ModelRankingsPageNoir } from './noir/ModelRankingsNoir';
 
-export const ModelRankingsPage = (props: React.ComponentProps<typeof ModelRankingsPageClassic>) => {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <ModelRankingsPageNoir {...props} /> : <ModelRankingsPageClassic {...props} />;
-};
+export const ModelRankingsPage = createFamilyComponent(
+  ModelRankingsPageClassic,
+  ModelRankingsPageNoir,
+);
 
 export default ModelRankingsPage;

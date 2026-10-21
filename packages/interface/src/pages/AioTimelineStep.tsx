@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { AioManualStageStatus } from '../types/dashboard.types';
 import { useI18n } from '../i18n';
-import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 import { AioTimelineStepNoir } from './aio-noir/AioTimelineStepNoir';
 
 interface AioTimelineStepProps {
@@ -67,8 +67,6 @@ const AioTimelineStepClassic = memo(function AioTimelineStepClassic({
   );
 });
 
-export const AioTimelineStep = memo(function AioTimelineStep(props: AioTimelineStepProps) {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <AioTimelineStepNoir {...props} /> : <AioTimelineStepClassic {...props} />;
-});
+export const AioTimelineStep = memo(
+  createFamilyComponent(AioTimelineStepClassic, AioTimelineStepNoir),
+);

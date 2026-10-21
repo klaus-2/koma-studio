@@ -2,6 +2,8 @@ import { isIP } from "node:net";
 
 import type { Request } from "express";
 
+import { readHeaderValue } from "../utils/http.js";
+
 const trimIpCandidate = (value: string): string => {
   const normalized = value.trim();
   if (!normalized) {
@@ -33,16 +35,6 @@ const trimIpCandidate = (value: string): string => {
   }
 
   return normalized;
-};
-
-const readHeaderValue = (value: string | string[] | undefined): string | null => {
-  const normalized = Array.isArray(value) ? value[0] : value;
-  if (typeof normalized !== "string") {
-    return null;
-  }
-
-  const trimmed = normalized.trim();
-  return trimmed.length > 0 ? trimmed : null;
 };
 
 const extractForwardedIp = (headerValue: string | null): string | null => {

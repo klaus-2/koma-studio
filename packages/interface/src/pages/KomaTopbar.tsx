@@ -1,12 +1,8 @@
 import { memo } from 'react';
-import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 import KomaTopbarClassic from './KomaTopbarClassic';
 import KomaTopbarNoir from './KomaTopbarNoir';
 
-const KomaTopbar = memo(function KomaTopbar(props: React.ComponentProps<typeof KomaTopbarClassic>) {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <KomaTopbarNoir {...props} /> : <KomaTopbarClassic {...props} />;
-});
+const KomaTopbar = memo(createFamilyComponent(KomaTopbarClassic, KomaTopbarNoir));
 
 export default KomaTopbar;

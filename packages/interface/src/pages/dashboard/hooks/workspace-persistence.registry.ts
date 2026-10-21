@@ -1,40 +1,21 @@
 /**
- * Workspace persistence registry — the single source of truth for the
- * workspace capture state.
+ * Workspace persistence: one live capture builder and one ordered restore
+ * plan.
  *
- * Owns, per capture slice: the field descriptor table (capture key, owning
- * store, asset codec kind, restore-apply mode), ONE capture builder shared by
- * the live-store path and the restored-document path (the two hand-written
- * mirrors this module replaces), ONE ordered restore apply (replacing the
- * hand-written setter sequence and its baseline deps array) and the unified
- * domain-store subscription list (previously duplicated between the capture
- * mirror and the change-signal effect).
+ * Capture reads every domain store plus the auth user id and produces the
+ * state the signature builders stringify. Key insertion order is part of the
+ * signature contract and is pinned by workspace-persistence.registry.test.ts.
  *
- * Binding contracts preserved verbatim from the pre-registry implementation:
- * - Capture-state key insertion order per slice (the signature builders
- *   stringify the capture state — order is part of the signature contract;
- *   pinned by workspace-persistence.registry.test.ts).
- * - The 10 asset-bearing fields keep their codec semantics in
- *   dashboardWorkspace.serialization.ts (collector addFile/addBlob/addDataUrl
- *   on capture; toFileFromAsset/toBlobFromAsset/toDataUrlFromAsset on
- *   restore). This registry only documents which fields are asset-bearing;
- *   codecs stay in serialization until the codec slice moves them.
- * - The LLM block applies as a MERGE (profiles merged byId with
- *   updatedAt-newer-wins NaN-tolerant then pt-BR label sort; profiles mode
- *   refuses desktop_secure/desktop_local downgrade; drafts per-stage
- *   defaults). The three existing `as` casts in that block are preserved
- *   verbatim (grandfathered — their underlying document types live in frozen
- *   packages/types/src/workspace.ts). The same applies to every other cast
- *   below: each one is relocated from the pre-registry implementation, forced
- *   by the frozen document types (e.g. view.mode: string) — none are new.
- * - Restore call order: releaseWorkspaceObjectUrls FIRST; the
- *   setActiveId-before-setImages quirk preserved as-is; healing/running
- *   resets in place; restore-token increment LAST among field writes;
- *   setProcessing(false)/setProgress(0) terminal.
- * - The manualQuotaChargedByImage v1 synthesis (v2 does not charge manual
- *   quota; the unified-contract field is built as {}).
+ * Restore applies a restored document through an ordered plan. Call order is
+ * preserved from the original implementation: release object URLs FIRST,
+ * setActiveId before setImages, healing/running resets in place, restore-token
+ * increment LAST among field writes, processing/progress terminal. Document
+ * and asset codecs stay in dashboardWorkspace.serialization.ts.
  */
-import type { DashboardWorkspaceCaptureState, DashboardWorkspaceRestoreState } from '../../../workspace/dashboardWorkspace';
+import type {
+  DashboardWorkspaceCaptureState,
+  DashboardWorkspaceRestoreState,
+} from '../../../workspace/dashboardWorkspace';
 import type {
   AioManualImageEditState,
   AioManualImageProgress,
@@ -56,15 +37,7 @@ import type {
   AioModelPresetStateV2,
   AioStageSelection,
 } from '../../../types/aioModelPresets';
-import type { TypographySession } from '../../../typography/types';
-import {
-  createEmptyCustomLlmDraft,
-  type CustomLlmProfile,
-  type CustomLlmProfileDraft,
-  type CustomLlmStage,
-  type LlmProfilesPersistenceMode,
-  type LlmRequestSettings,
-} from '../../../utils/customLlm';
+import type { CustomLlmStage, LlmRequestSettings } from '../../../utils/customLlm';
 import type { SplitterWorkspaceState } from '../../../components/dashboard/splitter/types';
 import type { WatermarkWorkspaceState } from '../../../components/dashboard/watermark/watermarkTypes';
 import type { ChapterOptimizerWorkspaceState } from '../../../components/dashboard/optimizer/ChapterOptimizerWorkspace';
@@ -88,213 +61,23 @@ import { useEnhanceStore } from '../stores/enhance-store';
 import { useUtilityStore } from '../stores/utility-store';
 import { useWorkspacePersistenceStore } from '../stores/workspace-persistence-store';
 import { resolveUtilityWorkspaceSnapshots } from './utility-workspaces';
+import {
+  buildRestoredCustomLlmDrafts,
+  mergeRestoredCustomLlmProfiles,
+  resolveRestoredCustomLlmProfilesMode,
+} from './llm-providers.restore';
 
 /* ── Store state type aliases (type-level queries, no casts) ── */
 
 type AioPipelineStoreState = ReturnType<typeof useAioPipelineStore.getState>;
 type TypographerStoreState = ReturnType<typeof useTypographerStore.getState>;
 
-/* ── Registry metadata ── */
-
-/** How serialization treats the field's binary content (documentary metadata; codecs live in dashboardWorkspace.serialization.ts). */
-export type WorkspaceAssetCodecKind =
-  | 'plain'
-  | 'file'
-  | 'blob'
-  | 'dataUrl'
-  | 'edits';
-
-/** How the restore apply writes the field back onto the stores. */
-export type WorkspaceFieldApplyMode = 'set' | 'merge' | 'derived';
-
-export interface WorkspaceFieldDescriptor {
-  /** Capture-state key (also the restore source key unless noted). */
-  readonly key: string;
-  /** Owning store (or non-store source) of the field. */
-  readonly store: string;
-  /** Asset codec kind used by the serialization collector. */
-  readonly asset: WorkspaceAssetCodecKind;
-  /** Restore-apply mode. */
-  readonly apply: WorkspaceFieldApplyMode;
-  /** Preserved quirk/contract note, if any. */
-  readonly note?: string;
-}
-
-export interface WorkspaceSliceDescriptor {
-  /** Capture-state group key ('' for the root scalar run). */
-  readonly key: string;
-  readonly fields: ReadonlyArray<WorkspaceFieldDescriptor>;
-}
-
-/**
- * Root capture-state key order. The signature builders stringify the capture
- * state — this order is part of the signature contract and is pinned by the
- * registry test.
- */
-export const WORKSPACE_CAPTURE_ROOT_KEYS: ReadonlyArray<string> = [
-  'autosaveScope',
-  'autosaveUserId',
-  'mode',
-  'subMode',
-  'activeImageId',
-  'viewMode',
-  'translatorWorkspaceMode',
-  'translatorVisualProcessingMode',
-  'statusMessage',
-  'lastActionScope',
-  'images',
-  'downloadItems',
-  'batchThreadsEnabled',
-  'batchThreads',
-  'aio',
-  'cleaner',
-  'translator',
-  'typesetter',
-  'enhance',
-  'utility',
-  'llm',
-];
-
-/** Per-slice field descriptor tables, in capture-state key order. */
-export const WORKSPACE_CAPTURE_SLICES: ReadonlyArray<WorkspaceSliceDescriptor> = [
-  {
-    key: '',
-    fields: [
-      { key: 'autosaveScope', store: 'derived(authUser.id)', asset: 'plain', apply: 'derived' },
-      { key: 'autosaveUserId', store: 'react-state(authUser)', asset: 'plain', apply: 'derived' },
-      { key: 'mode', store: 'ui-shell-store', asset: 'plain', apply: 'set' },
-      { key: 'subMode', store: 'ui-shell-store', asset: 'plain', apply: 'set' },
-      { key: 'activeImageId', store: 'image-collection-store', asset: 'plain', apply: 'set', note: 'legacy quirk: applied before setImages and before setViewMode — preserved as-is' },
-      { key: 'viewMode', store: 'ui-shell-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorWorkspaceMode', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorVisualProcessingMode', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'statusMessage', store: 'status-store', asset: 'plain', apply: 'set', note: 'restore falls back to the localized workspaceRestored message when the document value is empty' },
-      { key: 'lastActionScope', store: 'export-store', asset: 'plain', apply: 'set' },
-      { key: 'images', store: 'image-collection-store', asset: 'file', apply: 'set' },
-      { key: 'downloadItems', store: 'export-store', asset: 'blob', apply: 'set' },
-      { key: 'batchThreadsEnabled', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'batchThreads', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-    ],
-  },
-  {
-    key: 'aio',
-    fields: [
-      { key: 'steps', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'stageSelection', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'presetState', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'maskDilation', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'hdStrategy', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'hdResizeLimit', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'hdCropMargin', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'hdCropTriggerSize', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'detectionsByImage', store: 'region-editor-store', asset: 'plain', apply: 'set' },
-      { key: 'selectedRegionByImage', store: 'region-editor-store', asset: 'plain', apply: 'set' },
-      { key: 'pipelineSnapshots', store: 'aio-pipeline-store', asset: 'blob', apply: 'set', note: 'aioDownloads blobs are collected per snapshot' },
-      { key: 'pipelineSnapshotIndex', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'imageSnapshotIndexById', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'autoHistoryAvailable', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'autoProcessedImageById', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'manualQuotaChargedByImage', store: 'synthesized', asset: 'plain', apply: 'derived', note: 'v2 does not charge manual quota; unified-contract v1 field built as {}' },
-      { key: 'manualProgressByImage', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'manualImageEditsByImage', store: 'manual-tools-store', asset: 'edits', apply: 'set' },
-    ],
-  },
-  {
-    key: 'cleaner',
-    fields: [
-      { key: 'detectionsByImage', store: 'cleaner-store', asset: 'plain', apply: 'set' },
-      { key: 'selectedRegionByImage', store: 'cleaner-store', asset: 'plain', apply: 'set' },
-      { key: 'processedBaseByImage', store: 'cleaner-store', asset: 'dataUrl', apply: 'set' },
-      { key: 'runMetaByImage', store: 'cleaner-store', asset: 'plain', apply: 'set' },
-      { key: 'manualImageEditsByImage', store: 'cleaner-store', asset: 'edits', apply: 'set' },
-    ],
-  },
-  {
-    key: 'translator',
-    fields: [
-      { key: 'srcLang', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'tgtLang', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'aioSrcLang', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'aioTgtLang', store: 'aio-pipeline-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorDraftText', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorTranslatedText', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorLastTextModelUsed', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorTextDirty', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorDetectionsByImage', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorSelectedRegionByImage', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorRunMetaByImage', store: 'translator-store', asset: 'plain', apply: 'set' },
-      { key: 'translatorProcessedBaseByImage', store: 'translator-store', asset: 'dataUrl', apply: 'set', note: 'restored-side keeps the legacy document fallback chain (document copy, then legacy asset map) — document-only asset keys are NOT leaked into the capture state' },
-    ],
-  },
-  {
-    key: 'typesetter',
-    fields: [
-      { key: 'selectionTool', store: 'typographer-store', asset: 'plain', apply: 'set' },
-      { key: 'queueSelectedId', store: 'typographer-store', asset: 'plain', apply: 'set' },
-      { key: 'snapshotName', store: 'typographer-store', asset: 'plain', apply: 'set' },
-      { key: 'selectedSnapshotId', store: 'typographer-store', asset: 'plain', apply: 'set' },
-      { key: 'sessionsByImage', store: 'typographer-workspace-handle', asset: 'plain', apply: 'set', note: 'written via typographerWorkspace.replaceSessionsByImage, grouped after the typographer setters' },
-    ],
-  },
-  {
-    key: 'enhance',
-    fields: [
-      { key: 'scale', store: 'enhance-store', asset: 'plain', apply: 'set' },
-      { key: 'profile', store: 'enhance-store', asset: 'plain', apply: 'set' },
-      { key: 'modelId', store: 'enhance-store', asset: 'plain', apply: 'set' },
-      { key: 'outputFormat', store: 'enhance-store', asset: 'plain', apply: 'set' },
-    ],
-  },
-  {
-    key: 'utility',
-    fields: [
-      { key: 'stitch.stitchLayoutMode', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchBatchStrategy', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchBatchSize', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchTargetPrimaryAxis', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchGap', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchAlignMode', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchBackground', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchSingleExportFormat', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchFileBaseName', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchSelectedBatchIndex', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'stitch.stitchBatchIndexes', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'splitter', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'watermark.draft', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'watermark.activeImageId', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'watermark.compareMode', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'watermark.compareValue', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'watermark.selectedPresetId', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'watermark.autoSuggestion', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'watermark.userPresets', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'watermark.watermarkImageFile', store: 'utility-store', asset: 'file', apply: 'set' },
-      { key: 'watermark.results', store: 'utility-store', asset: 'blob', apply: 'set' },
-      { key: 'watermark.textZoneCache', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'optimizer.recipe', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'optimizer.selectedPreset', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'optimizer.activeImageId', store: 'utility-store', asset: 'plain', apply: 'set' },
-      { key: 'optimizer.results', store: 'utility-store', asset: 'blob', apply: 'set' },
-    ],
-  },
-  {
-    key: 'llm',
-    fields: [
-      { key: 'llmSettings', store: 'llm-providers-store', asset: 'plain', apply: 'set' },
-      { key: 'customLlmProfiles', store: 'llm-providers-store', asset: 'plain', apply: 'merge', note: 'prev+restored merged byId, updatedAt-newer-wins (NaN-tolerant), pt-BR label sort' },
-      { key: 'customLlmProfilesMode', store: 'llm-providers-store', asset: 'plain', apply: 'merge', note: 'refuses desktop_secure/desktop_local downgrade' },
-      { key: 'pendingCustomSelections', store: 'llm-providers-store', asset: 'plain', apply: 'set' },
-      { key: 'customLlmDrafts', store: 'llm-providers-store', asset: 'plain', apply: 'merge', note: 'per-stage createEmptyCustomLlmDraft defaults' },
-      { key: 'freeProviderDrafts', store: 'react-state(setFreeProviderDrafts)', asset: 'plain', apply: 'set' },
-    ],
-  },
-];
-
 /* ── Unified domain-store subscription list ── */
 
 /**
- * The 14 domain stores whose changes drive BOTH the capture mirror and the
- * history/autosave change signal (previously two hand-written identical
- * lists). Order is byte-equivalent to the pre-registry lists.
+ * The domain stores whose changes drive both the capture mirror and the
+ * history/autosave change signal. Order is part of the pre-existing
+ * subscription order.
  */
 export const WORKSPACE_PERSISTENCE_STORES: ReadonlyArray<{
   subscribe: (listener: () => void) => () => void;
@@ -317,92 +100,11 @@ export const WORKSPACE_PERSISTENCE_STORES: ReadonlyArray<{
   useWorkspacePersistenceStore,
 ];
 
-/* ── Capture sources (one builder, two source kinds) ── */
+/* ── Capture ── */
 
-export interface WorkspaceLiveCaptureValues {
-  /** authUser?.id — drives autosaveScope/autosaveUserId. */
-  readonly authUserId: string | null;
-  /** Free-provider drafts are React state (LLM free profiles domain). */
-  readonly freeProviderDrafts: FreeProviderDraftMap;
-}
-
-export type WorkspaceCaptureSource =
-  | { readonly kind: 'live'; readonly values: WorkspaceLiveCaptureValues }
-  | { readonly kind: 'restored'; readonly restored: DashboardWorkspaceRestoreState };
-
-/**
- * Builds the whole capture state from ONE source descriptor. The restored
- * path selects the SAME field set as the live path (the legacy spread of
- * document blocks leaked document-only asset keys — e.g.
- * translatorProcessedBaseAssetByImage — into the restored capture state,
- * which is the within-session signature-duality this builder fixes).
- */
 export const buildWorkspaceCaptureState = (
-  source: WorkspaceCaptureSource,
+  authUserId: string | null,
 ): DashboardWorkspaceCaptureState => {
-  if (source.kind === 'restored') {
-    const restored = source.restored;
-    const legacyTranslatorDocument = restored.document.translator as unknown as {
-      translatorProcessedBaseByImage?: Record<string, string>;
-      translatorProcessedBaseAssetByImage?: Record<string, string>;
-    };
-    return {
-      autosaveScope: restored.document.autosaveScope,
-      autosaveUserId: restored.document.autosaveUserId,
-      mode: restored.document.view.mode,
-      subMode: restored.document.view.subMode,
-      activeImageId: restored.document.view.activeImageId,
-      viewMode: restored.document.view.viewMode,
-      translatorWorkspaceMode: restored.document.view.translatorWorkspaceMode,
-      translatorVisualProcessingMode:
-        (restored.document.view.translatorVisualProcessingMode ??
-          'sequential') as DashboardWorkspaceCaptureState['translatorVisualProcessingMode'],
-      statusMessage: restored.document.footer.statusMessage,
-      lastActionScope: restored.document.footer.lastActionScope,
-      images: restored.images,
-      downloadItems: restored.downloadItems,
-      batchThreadsEnabled: restored.document.batchThreadsEnabled,
-      batchThreads: restored.document.batchThreads,
-      aio: {
-        ...restored.aio,
-        pipelineSnapshots: toRuntimeOrderedRestoredSnapshots(restored),
-      },
-      cleaner: {
-        detectionsByImage: restored.cleaner.detectionsByImage,
-        selectedRegionByImage: restored.cleaner.selectedRegionByImage,
-        processedBaseByImage: restored.cleaner.processedBaseByImage,
-        runMetaByImage: restored.document.cleaner.runMetaByImage as Record<string, CleanerRunMeta>,
-        manualImageEditsByImage: restored.cleaner.manualImageEditsByImage,
-      },
-      translator: {
-        srcLang: restored.document.translator.srcLang,
-        tgtLang: restored.document.translator.tgtLang,
-        aioSrcLang: restored.document.translator.aioSrcLang,
-        aioTgtLang: restored.document.translator.aioTgtLang,
-        translatorDraftText: restored.document.translator.translatorDraftText,
-        translatorTranslatedText: restored.document.translator.translatorTranslatedText,
-        translatorLastTextModelUsed: restored.document.translator.translatorLastTextModelUsed,
-        translatorTextDirty: restored.document.translator.translatorTextDirty,
-        translatorDetectionsByImage: restored.document.translator.translatorDetectionsByImage,
-        translatorSelectedRegionByImage: restored.document.translator.translatorSelectedRegionByImage,
-        translatorRunMetaByImage: restored.document.translator.translatorRunMetaByImage,
-        translatorProcessedBaseByImage:
-          legacyTranslatorDocument.translatorProcessedBaseByImage ??
-          legacyTranslatorDocument.translatorProcessedBaseAssetByImage ??
-          {},
-      },
-      typesetter: restored.typesetter,
-      enhance: restored.document.enhance,
-      utility: {
-        stitch: restored.document.utility.stitch,
-        splitter: restored.utility.splitter,
-        watermark: restored.utility.watermark,
-        optimizer: restored.utility.optimizer,
-      },
-      llm: restored.document.llm,
-    };
-  }
-
   const uiShellStore = useUiShellStore.getState();
   const imageCollectionStore = useImageCollectionStore.getState();
   const statusStore = useStatusStore.getState();
@@ -421,8 +123,8 @@ export const buildWorkspaceCaptureState = (
   );
 
   return {
-    autosaveScope: source.values.authUserId ? 'user' : 'guest',
-    autosaveUserId: source.values.authUserId ?? null,
+    autosaveScope: authUserId ? 'user' : 'guest',
+    autosaveUserId: authUserId ?? null,
     mode: uiShellStore.mode,
     subMode: uiShellStore.subMode,
     activeImageId: imageCollectionStore.activeId,
@@ -516,22 +218,18 @@ export const buildWorkspaceCaptureState = (
       customLlmProfilesMode: llmStore.customLlmProfilesMode,
       pendingCustomSelections: llmStore.pendingCustomSelections,
       customLlmDrafts: llmStore.customLlmDrafts,
-      freeProviderDrafts: source.values.freeProviderDrafts,
+      freeProviderDrafts: llmStore.freeProviderDrafts,
     },
   };
 };
 
 /**
- * Restored-side pipeline snapshots: rebuilds the entries into the RUNTIME
- * shape/order the live capture produces (AioDownloadEntry: fileName, blob,
- * sourceImageId — restoreWorkspaceDocument emits document order: fileName,
- * sourceImageId, blob). Whole-object key order is signature-visible, the
- * rebuilt capture state must match what the same workspace would capture
- * live, and the stores must hold what their own runtime type declares — this
- * is part of the within-session signature-duality fix. The terminal cast
- * mirrors serialization.ts's existing restored-aio cast (the restore-state
- * type declares asset refs where the runtime value is a resolved Blob) — no
- * new type lie.
+ * Rebuilds restored pipeline snapshots into the runtime shape/order the
+ * stores declare (AioDownloadEntry: fileName, blob, sourceImageId). Restore
+ * emits document order (fileName, sourceImageId, blob), and whole-object key
+ * order is signature-visible. The terminal cast mirrors the restored-aio cast
+ * in serialization.ts (the restore-state type declares asset refs where the
+ * runtime value is a resolved Blob).
  */
 const toRuntimeOrderedRestoredSnapshots = (
   restored: DashboardWorkspaceRestoreState,
@@ -553,80 +251,11 @@ const toRuntimeOrderedRestoredSnapshots = (
 export interface WorkspaceRestoreContext {
   /** MUST run first — releases the object URLs the restore is about to replace. */
   readonly releaseWorkspaceObjectUrls: () => void;
-  /** Typographer workspace handle (sessions write path). */
-  readonly typographerWorkspace: {
-    readonly replaceSessionsByImage: (
-      sessions: Record<string, TypographySession>,
-    ) => void;
-  };
-  /** Free-provider drafts are React state — written through the hook arg. */
-  readonly setFreeProviderDrafts: (value: FreeProviderDraftMap) => void;
   /** Localized fallback when the document statusMessage is empty. */
   readonly statusMessageFallback: string;
-  /** Footer workspace status detail (defaults to the legacy PT literal). */
-  readonly statusDetail?: string;
+  /** Localized footer workspace status detail for this restore. */
+  readonly statusDetail: string;
 }
-
-/**
- * LLM profiles MERGE: prev + restored merged byId, dedupe with
- * updatedAt-newer-wins (NaN-tolerant), then pt-BR label sort. Cast
- * grandfathered (frozen document types).
- */
-const mergeRestoredCustomLlmProfiles = (
-  restored: DashboardWorkspaceRestoreState,
-): ((prev: CustomLlmProfile[]) => CustomLlmProfile[]) =>
-(prev) => {
-  const restoredProfiles =
-    (restored.document.llm.customLlmProfiles as CustomLlmProfile[]) ?? [];
-  const byId = new Map<string, CustomLlmProfile>();
-  for (const profile of [...prev, ...restoredProfiles]) {
-    if (!profile?.id) {
-      continue;
-    }
-    const current = byId.get(profile.id);
-    if (!current) {
-      byId.set(profile.id, profile);
-      continue;
-    }
-    const currentTime = Date.parse(current.updatedAt || current.createdAt || '');
-    const nextTime = Date.parse(profile.updatedAt || profile.createdAt || '');
-    if (Number.isNaN(currentTime) || (!Number.isNaN(nextTime) && nextTime >= currentTime)) {
-      byId.set(profile.id, profile);
-    }
-  }
-  return Array.from(byId.values()).sort((left, right) =>
-    left.label.localeCompare(right.label, 'pt-BR'),
-  );
-};
-
-/**
- * LLM profiles mode MERGE: refuses desktop_secure/desktop_local downgrade.
- * Cast grandfathered (frozen document types).
- */
-const resolveRestoredCustomLlmProfilesMode = (
-  restored: DashboardWorkspaceRestoreState,
-): ((prev: LlmProfilesPersistenceMode) => LlmProfilesPersistenceMode) =>
-(prev) => {
-  if (prev === 'desktop_secure' || prev === 'desktop_local') {
-    return prev;
-  }
-  return restored.document.llm.customLlmProfilesMode as LlmProfilesPersistenceMode;
-};
-
-/**
- * LLM drafts MERGE: per-stage defaults via createEmptyCustomLlmDraft.
- * Cast grandfathered (frozen document types).
- */
-const buildRestoredCustomLlmDrafts = (
-  restored: DashboardWorkspaceRestoreState,
-): Record<CustomLlmStage, CustomLlmProfileDraft> => {
-  const restoredDrafts = restored.document.llm.customLlmDrafts as Record<CustomLlmStage, CustomLlmProfileDraft> | undefined;
-  return {
-    translation: restoredDrafts?.translation ?? createEmptyCustomLlmDraft(),
-    ocr: restoredDrafts?.ocr ?? createEmptyCustomLlmDraft(),
-    clean: restoredDrafts?.clean ?? createEmptyCustomLlmDraft(),
-  };
-};
 
 export interface WorkspaceRestoreStep {
   readonly id: string;
@@ -637,11 +266,9 @@ export interface WorkspaceRestoreStep {
 }
 
 /**
- * Ordered restore plan — call order preserved verbatim from the pre-registry
- * implementation (release FIRST, setActiveId quirk as-is, healing/running
- * resets in place, token increment LAST among field writes, processing/
- * progress terminal). All `as` casts below are relocated from that
- * implementation (forced by the frozen document types) — none are new.
+ * Ordered restore plan. All `as` casts below are forced by the frozen document
+ * types in packages/types/src/workspace.ts (for example view.mode: string) and
+ * mirror the pre-registry implementation — none are new.
  */
 export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
   {
@@ -804,7 +431,7 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
   },
   {
     id: 'typographer-fields',
-    run: (restored, ctx) => {
+    run: (restored) => {
       const typographer = useTypographerStore.getState();
       typographer.setTypographerSelectionTool(
         restored.typesetter.selectionTool as TypographerStoreState['typographerSelectionTool'],
@@ -812,9 +439,7 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
       typographer.setTypographerQueueSelectedId(restored.typesetter.queueSelectedId);
       typographer.setTypographerSnapshotName(restored.typesetter.snapshotName);
       typographer.setTypographerSelectedSnapshotId(restored.typesetter.selectedSnapshotId);
-      ctx.typographerWorkspace.replaceSessionsByImage(
-        restored.typesetter.sessionsByImage,
-      );
+      typographer.setTypographerSessionsByImage(restored.typesetter.sessionsByImage);
     },
   },
   {
@@ -876,7 +501,7 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
   },
   {
     id: 'llm-fields',
-    run: (restored, ctx) => {
+    run: (restored) => {
       const llm = useLlmProvidersStore.getState();
       llm.setLlmSettings(
         restored.document.llm.llmSettings as LlmRequestSettings,
@@ -890,7 +515,7 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
         >,
       );
       llm.setCustomLlmDrafts(buildRestoredCustomLlmDrafts(restored));
-      ctx.setFreeProviderDrafts(
+      llm.setFreeProviderDrafts(
         restored.document.llm.freeProviderDrafts as FreeProviderDraftMap,
       );
     },
@@ -902,7 +527,7 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
       useWorkspacePersistenceStore.getState().setWorkspaceRestoreToken((prev) => prev + 1);
       useWorkspacePersistenceStore.getState().setWorkspaceStatus('idle');
       useWorkspacePersistenceStore.getState().setWorkspaceStatusDetail(
-        ctx.statusDetail ?? 'Workspace local restaurado.',
+        ctx.statusDetail,
       );
       useUiShellStore.getState().setProcessing(false);
       useUiShellStore.getState().setProgress(0);
@@ -913,8 +538,7 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
 /**
  * Applies a restored workspace document to every store through the ordered
  * registry plan. Uses getState() accessor writes (zustand setters are stable
- * identities — the previous hook-captured setters were identical values), so
- * the baseline ~90-entry deps array collapses to the hook-level collaborators.
+ * identities), so the hook-level collaborators are the only context.
  */
 export const applyRestoredWorkspaceToStores = (
   restored: DashboardWorkspaceRestoreState,

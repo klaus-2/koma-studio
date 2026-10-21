@@ -381,29 +381,6 @@ pub async fn sign_out<R: Runtime>(
     Ok(response)
 }
 
-pub async fn auth_api_json<R: Runtime>(
-    app: &AppHandle<R>,
-    store: &DesktopAuthStore,
-    endpoint_path: &str,
-    method_name: &str,
-    body: Option<Value>,
-    access_token: &str,
-) -> Result<Value, String> {
-    ensure_session_token(app, store).await?;
-    let target_url = string_api::api_url(app, AUTH_API_BASE, endpoint_path)?;
-    let client = string_api::http_client_for_app(app)?;
-    let mut request = client
-        .request(string_api::method(method_name)?, target_url)
-        .headers(build_session_headers(store, Some(access_token))?);
-    if let Some(value) = body {
-        request = request
-            .header(CONTENT_TYPE, "application/json")
-            .json(&value);
-    }
-    let response = request.send().await.map_err(|error| error.to_string())?;
-    string_api::response_json_or_error(response).await
-}
-
 async fn session_api_fetch<R: Runtime>(
     app: &AppHandle<R>,
     store: &DesktopAuthStore,

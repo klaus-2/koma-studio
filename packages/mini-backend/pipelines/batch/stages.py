@@ -20,7 +20,12 @@ from models.detection.base_detector import TextDetection
 from models.detection.factory import get_detector
 from models.inpainting.base_inpainter import HDStrategy, InpaintConfig
 from models.inpainting.factory import get_inpainter
-from models.ocr.stage import CachedOcrRequest, run_cached_ocr
+from pipelines.ocr_stage import CachedOcrRequest, run_cached_ocr
+from pipelines.detection_seeds import (
+    detect_text_seeds,
+    ocr_seeds_from_detections,
+    run_text_detector,
+)
 from models.segmentation.base_segmenter import SegmentInputRegion
 from models.segmentation.factory import get_segmenter
 from models.translation.stage import (
@@ -126,11 +131,7 @@ def detection_to_record(det: object, index: int, fallback_model: str) -> Detecti
 async def _detect_plain(
     image: Image.Image, *, has_gpu: bool, model_key: str
 ) -> list[DetectionRecord]:
-    detector = get_detector(task="text", has_gpu=has_gpu, model_key=model_key)
-    try:
-        detections = await detector.detect(image)
-    finally:
-        release_gpu_memory()
+    detections = await run_text_detector(image, has_gpu=has_gpu, model_key=model_key)
     return [
         detection_to_record(det, index, model_key)
         for index, det in enumerate(detections, start=1)
@@ -167,47 +168,6 @@ async def run_detect_stage(
 # --------------------------------------------------------------------------- ocr
 
 
-async def detect_text_seeds(
-    image: Image.Image, *, has_gpu: bool, model_key: str
-) -> list[OCRSeed]:
-    """Resolve the text detector, run one detection pass, and map the
-    detections onto OCR seeds — the shared empty-seeds path of POST /ocr
-    and the batch Recognize Text stage."""
-    detector = get_detector(task="text", has_gpu=has_gpu, model_key=model_key)
-    try:
-        detections = await detector.detect(image)
-    finally:
-        release_gpu_memory()
-    seeds: list[OCRSeed] = []
-    for index, det in enumerate(detections, start=1):
-        bbox = normalize_bbox(getattr(det, "bbox", None))
-        if bbox is None:
-            continue
-        seeds.append(
-            OCRSeed(
-                id=f"det-{index}",
-                bbox=list(bbox),
-                source=normalize_stage_source(getattr(det, "source", "model")),
-                detector_model_key=str(getattr(det, "model_key", "") or model_key),
-            )
-        )
-    return seeds
-
-
-def ocr_seeds_from_detections(
-    detections: Sequence[DetectionRecord], default_model: str
-) -> list[OCRSeed]:
-    return [
-        OCRSeed(
-            id=det["id"],
-            bbox=list(det["bbox"]),
-            source=det["source"],
-            detector_model_key=det["model_key"] or default_model,
-        )
-        for det in detections
-    ]
-
-
 async def run_ocr_stage(
     *,
     image: Image.Image,
@@ -220,7 +180,7 @@ async def run_ocr_stage(
     cancellation_event: asyncio.Event | None = None,
     device_info: DeviceInfo | None = None,
 ) -> StageOutput[OCRRecord]:
-    """Thin adapter over the Recognize Text stage module (``models.ocr.stage``).
+    """Thin adapter over the Recognize Text stage module (``pipelines.ocr_stage``).
     Detects regions when none are supplied; the stage module owns the cache,
     fallback recognition, cancellation and enrichment."""
     resolved_seeds = list(seeds) if seeds is not None else []

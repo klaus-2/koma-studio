@@ -1,16 +1,13 @@
-import type { JsonRecord } from "./desktop-api";
-
 /**
  * Desktop-session wire contract — the single home for the names, paths,
  * payloads and error codes shared by the auth-server desktop-client surface,
  * the electron main bridge and the tauri commands.
  *
  * Server surface: apps/auth-server/src/routes/desktop.ts (register /
- * bootstrap / travel-token) plus the desktop-client enforcement middleware and
- * header constants in routes/_shared.ts. The server does NOT import this
- * module yet (it has no @koma/types dependency); until then this module
- * documents the contract those routes implement and drift guards (tests) pin
- * the shared values.
+ * bootstrap / travel-token) plus the desktop-client enforcement middleware in
+ * routes/_shared.ts. The auth-server imports the header and path constants
+ * from this module; the electron bridge and the tauri commands keep their own
+ * runtime copies (separate bundles, and the tauri side is Rust).
  *
  * Client-side behaviors documented here on purpose:
  * - Cookie fallback is CLIENT-ONLY: the electron/tauri bridges may fall back
@@ -150,7 +147,8 @@ export type DesktopSessionErrorCode =
   | "AUTH_BANNED";
 
 /** Payload shape of a desktop-client error envelope (server error emission). */
-export interface DesktopSessionErrorPayload extends JsonRecord {
+export interface DesktopSessionErrorPayload {
   error: string;
   code: DesktopSessionErrorCode;
+  [key: string]: unknown;
 }

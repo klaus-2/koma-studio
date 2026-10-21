@@ -13,13 +13,13 @@ import {
 } from "../services/model-reviews.js";
 import { resolveLocaleFromHeaders, tServer } from "../services/server-i18n.js";
 import { logger } from "../utils/logger.js";
+import { parsePositiveInteger } from "../utils/http.js";
 
 import {
   jsonParser,
   parseModelReviewRankingMetric,
   parseModelReviewStage,
   parseModelReviewSource,
-  parsePositiveInteger,
   parseTrimmedQuery,
   requireNoActiveBan,
   requireVerifiedEmail,

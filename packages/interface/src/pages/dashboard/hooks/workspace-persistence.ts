@@ -1,5 +1,4 @@
 import { useCallback, useEffect } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
 
 import {
   subscribeWorkspaceDomainStores,
@@ -23,8 +22,6 @@ import {
   type DashboardWorkspaceCaptureState,
   type DashboardWorkspaceHistorySnapshot,
 } from '../../../workspace/dashboardWorkspace';
-import type { FreeProviderDraftMap } from '../../../types/dashboard.types';
-import type { useTypographerWorkspace } from './typographer';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
@@ -32,9 +29,6 @@ import { useWorkspacePersistenceStore } from '../stores/workspace-persistence-st
 
 interface UseWorkspacePersistenceArgs {
   authUser: AuthUser | null;
-  typographerWorkspace: ReturnType<typeof useTypographerWorkspace>;
-  freeProviderDrafts: FreeProviderDraftMap;
-  setFreeProviderDrafts: Dispatch<SetStateAction<FreeProviderDraftMap>>;
 }
 
 /**
@@ -47,9 +41,6 @@ interface UseWorkspacePersistenceArgs {
  */
 export function useWorkspacePersistence({
   authUser,
-  typographerWorkspace,
-  freeProviderDrafts,
-  setFreeProviderDrafts,
 }: UseWorkspacePersistenceArgs) {
   const { t } = useI18n();
   const workspaceAutosaveSettings = useWorkspacePersistenceStore(
@@ -77,34 +68,30 @@ export function useWorkspacePersistence({
   const {
     releaseWorkspaceObjectUrls,
     buildCurrentWorkspaceCaptureState,
-    buildCaptureStateFromRestored,
   } = useWorkspaceCaptureState({
     authUser,
-    freeProviderDrafts,
   });
 
   const { applyRestoredWorkspaceState } = useWorkspaceRestoreState({
     releaseWorkspaceObjectUrls,
-    typographerWorkspace,
-    setFreeProviderDrafts,
   });
 
   const handleHistoryRestore = useCallback(
     async (snapshot: DashboardWorkspaceHistorySnapshot) => {
       useWorkspacePersistenceStore.getState().workspaceHistoryReady = false;
       const restored = await restoreWorkspaceHistorySnapshot(snapshot);
-      const restoredCaptureState = buildCaptureStateFromRestored(restored);
+      await applyRestoredWorkspaceState(restored, {
+        statusDetail: t('dashboard.status.historyRestored'),
+      });
+      const restoredCaptureState = buildCurrentWorkspaceCaptureState();
       useWorkspacePersistenceStore.getState().workspaceHistorySignature =
         buildWorkspaceHistorySignature(restoredCaptureState);
       useWorkspacePersistenceStore.getState().workspaceAutosaveSignature =
         buildWorkspaceAutosaveSignature(restoredCaptureState);
-      await applyRestoredWorkspaceState(restored, {
-        statusDetail: t('dashboard.status.historyRestored'),
-      });
     },
     [
       applyRestoredWorkspaceState,
-      buildCaptureStateFromRestored,
+      buildCurrentWorkspaceCaptureState,
       t,
     ],
   );
@@ -117,19 +104,15 @@ export function useWorkspacePersistence({
   );
 
 
-  const seedWorkspaceHistory = useCallback((
-    snapshot?: DashboardWorkspaceHistorySnapshot,
-    captureStateOverride?: DashboardWorkspaceCaptureState,
-  ) => {
+  const seedWorkspaceHistory = useCallback(() => {
     useWorkspacePersistenceStore.getState().workspaceHistoryReady = false;
     useWorkspacePersistenceStore.getState().workspaceAutosaveDirty = false;
-    const captureState = captureStateOverride ?? buildCurrentWorkspaceCaptureState();
+    const captureState = buildCurrentWorkspaceCaptureState();
     useWorkspacePersistenceStore.getState().workspaceHistorySignature =
       buildWorkspaceHistorySignature(captureState);
     useWorkspacePersistenceStore.getState().workspaceAutosaveSignature =
       buildWorkspaceAutosaveSignature(captureState);
     workspaceHistory.setBaseline(
-      snapshot ??
       captureWorkspaceHistorySnapshot(captureState),
     );
   }, [buildCurrentWorkspaceCaptureState, workspaceHistory.setBaseline]);
@@ -168,7 +151,7 @@ export function useWorkspacePersistence({
         useWorkspacePersistenceStore.getState().latestWorkspaceCaptureState ??
         buildCurrentWorkspaceCaptureState();
       setWorkspaceStatus('saving');
-      setWorkspaceStatusDetail('Saving local workspace...');
+      setWorkspaceStatusDetail(t('dashboard.footer.workspace.saving'));
       const payload = await captureWorkspaceDocument(captureState);
       await desktopWorkspace.saveAutosave({
         userId: authUser?.id ?? null,
@@ -177,7 +160,7 @@ export function useWorkspacePersistence({
       useWorkspacePersistenceStore.getState().workspaceAutosaveSignature =
         buildWorkspaceAutosaveSignature(captureState);
       setWorkspaceStatus('saved');
-      setWorkspaceStatusDetail('Workspace saved locally.');
+      setWorkspaceStatusDetail(t('dashboard.status.saved'));
       setWorkspaceLastSavedAt(
         Date.parse(payload.manifest.document.savedAt) || Date.now(),
       );
@@ -193,7 +176,7 @@ export function useWorkspacePersistence({
     } finally {
       useWorkspacePersistenceStore.getState().workspaceAutosaveSaving = false;
     }
-  }, [authUser?.id, buildCurrentWorkspaceCaptureState, setWorkspaceLastSavedAt, setWorkspaceStatus, setWorkspaceStatusDetail, workspaceHistory.isRestoringRef]);
+  }, [authUser?.id, buildCurrentWorkspaceCaptureState, setWorkspaceLastSavedAt, setWorkspaceStatus, setWorkspaceStatusDetail, t, workspaceHistory.isRestoringRef]);
 
   useEffect(() => {
     useWorkspacePersistenceStore.getState().saveWorkspaceAutosaveImpl =
@@ -268,7 +251,7 @@ export function useWorkspacePersistence({
         setTonedStatus(t('dashboard.status.exportCancelled'), 'warning');
         return;
       }
-      setTonedStatus('Workspace exported successfully.', 'success');
+      setTonedStatus(t('dashboard.status.exportSuccess'), 'success');
     } catch (error) {
       setTonedStatus(
         error instanceof Error
@@ -277,7 +260,7 @@ export function useWorkspacePersistence({
         'error',
       );
     }
-  }, [buildCurrentWorkspaceCaptureState, setTonedStatus]);
+  }, [buildCurrentWorkspaceCaptureState, setTonedStatus, t]);
 
   const importWorkspaceFile = useCallback(async () => {
     const desktopWorkspace = desktopBridge.desktop?.workspace;
@@ -295,17 +278,11 @@ export function useWorkspacePersistence({
         return;
       }
       const restored = await restoreWorkspaceDocument(result.payload);
-      const restoredCaptureState = buildCaptureStateFromRestored(restored);
       await applyRestoredWorkspaceState(restored, {
-        statusDetail: 'Workspace importado.',
+        statusDetail: t('dashboard.status.importSuccess'),
       });
-      seedWorkspaceHistory(
-        captureWorkspaceHistorySnapshot(
-          restoredCaptureState,
-        ),
-        restoredCaptureState,
-      );
-      setTonedStatus('Workspace imported successfully.', 'success');
+      seedWorkspaceHistory();
+      setTonedStatus(t('dashboard.status.importSuccess'), 'success');
       if (workspaceAutosaveSettings.enabled) {
         await desktopWorkspace.saveAutosave({
           userId: authUser?.id ?? null,
@@ -315,7 +292,7 @@ export function useWorkspacePersistence({
           Date.parse(result.payload.manifest.document.savedAt) || Date.now(),
         );
         setWorkspaceStatus('saved');
-        setWorkspaceStatusDetail('Workspace imported and saved locally.');
+        setWorkspaceStatusDetail(t('dashboard.status.importSaved'));
       } else {
         setWorkspaceLastSavedAt(null);
         setWorkspaceStatus('idle');
@@ -334,13 +311,13 @@ export function useWorkspacePersistence({
   }, [
     applyRestoredWorkspaceState,
     authUser?.id,
-    buildCaptureStateFromRestored,
     images.length,
     seedWorkspaceHistory,
     setTonedStatus,
     setWorkspaceLastSavedAt,
     setWorkspaceStatus,
     setWorkspaceStatusDetail,
+    t,
     workspaceAutosaveSettings.enabled,
   ]);
 
@@ -398,16 +375,10 @@ export function useWorkspacePersistence({
         }
         const restored = await restoreWorkspaceDocument(result.payload);
         if (cancelled) return;
-        const restoredCaptureState = buildCaptureStateFromRestored(restored);
         await applyRestoredWorkspaceState(restored, {
           statusDetail: t('dashboard.status.workspaceRestoredFromAutosave'),
         });
-        seedWorkspaceHistory(
-          captureWorkspaceHistorySnapshot(
-            restoredCaptureState,
-          ),
-          restoredCaptureState,
-        );
+        seedWorkspaceHistory();
         setWorkspaceLastSavedAt(
           Date.parse(result.payload.manifest.document.savedAt) || Date.now(),
         );
@@ -487,7 +458,7 @@ export function useWorkspacePersistence({
     );
     workspaceChangeSignal();
     return unsubscribesAll;
-  }, [workspaceChangeSignal, freeProviderDrafts]);
+  }, [workspaceChangeSignal]);
 
   useEffect(() => {
     if (!useWorkspacePersistenceStore.getState().workspaceHydrated) return;

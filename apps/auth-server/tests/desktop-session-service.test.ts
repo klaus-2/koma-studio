@@ -5,14 +5,17 @@ import {
   clampDesktopTokenTtlSec,
   clampDesktopTravelDurationDays,
   clampDesktopTravelTokenTtlMinutes,
+  invalidateDesktopClientSession,
   isSafeDesktopIdentifier,
   maskEmailAddress,
   normalizeDesktopSlot,
   normalizeDesktopTravelTokenDeliveryMode,
-  readHeaderValue,
+  readDesktopClientSession,
   resolveDesktopSlotDecision,
+  upsertDesktopClientSession,
   type DesktopSlotDeviceInput,
 } from "../src/services/desktop-session.js";
+import { readHeaderValue } from "../src/utils/http.js";
 
 const NOW_MS = 1_700_000_000_000;
 const HOUR_MS = 3_600_000;
@@ -175,4 +178,121 @@ test("readHeaderValue reads the first header value and trims it", () => {
   assert.equal(readHeaderValue(["first", "second"]), "first");
   assert.equal(readHeaderValue("   "), null);
   assert.equal(readHeaderValue(undefined), null);
+});
+
+test("session upsert/read validates the device and the current token", () => {
+  const token = "a".repeat(43);
+  upsertDesktopClientSession({
+    sessionId: "sess-1",
+    deviceId: "device-1",
+    userId: "user-1",
+    token,
+    ttlSeconds: 600,
+    refreshSkewSec: 30,
+    nowMs: NOW_MS,
+  });
+
+  assert.equal(
+    readDesktopClientSession({
+      sessionId: "sess-1",
+      deviceId: "device-1",
+      token,
+      nowMs: NOW_MS + 1,
+    }).ok,
+    true,
+  );
+  assert.equal(
+    readDesktopClientSession({
+      sessionId: "sess-1",
+      deviceId: "device-2",
+      token,
+      nowMs: NOW_MS + 1,
+    }).ok,
+    false,
+  );
+  assert.equal(
+    readDesktopClientSession({
+      sessionId: "sess-1",
+      deviceId: "device-1",
+      token: "b".repeat(43),
+      nowMs: NOW_MS + 1,
+    }).ok,
+    false,
+  );
+  invalidateDesktopClientSession("sess-1");
+});
+
+test("session read accepts the previous token inside the refresh skew only", () => {
+  const firstToken = "a".repeat(43);
+  const secondToken = "b".repeat(43);
+  const base = {
+    sessionId: "sess-2",
+    deviceId: "device-1",
+    userId: "user-1",
+    ttlSeconds: 600,
+    refreshSkewSec: 30,
+  };
+  upsertDesktopClientSession({ ...base, token: firstToken, nowMs: NOW_MS });
+  upsertDesktopClientSession({ ...base, token: secondToken, nowMs: NOW_MS });
+
+  assert.equal(
+    readDesktopClientSession({
+      sessionId: "sess-2",
+      deviceId: "device-1",
+      token: firstToken,
+      nowMs: NOW_MS + 1_000,
+    }).ok,
+    true,
+  );
+  assert.equal(
+    readDesktopClientSession({
+      sessionId: "sess-2",
+      deviceId: "device-1",
+      token: firstToken,
+      nowMs: NOW_MS + 31_000,
+    }).ok,
+    false,
+  );
+  assert.equal(
+    readDesktopClientSession({
+      sessionId: "sess-2",
+      deviceId: "device-1",
+      token: secondToken,
+      nowMs: NOW_MS + 31_000,
+    }).ok,
+    true,
+  );
+  invalidateDesktopClientSession("sess-2");
+});
+
+test("expired sessions are rejected and removed", () => {
+  const token = "a".repeat(43);
+  upsertDesktopClientSession({
+    sessionId: "sess-3",
+    deviceId: "device-1",
+    userId: null,
+    token,
+    ttlSeconds: 300,
+    refreshSkewSec: 30,
+    nowMs: NOW_MS,
+  });
+
+  assert.equal(
+    readDesktopClientSession({
+      sessionId: "sess-3",
+      deviceId: "device-1",
+      token,
+      nowMs: NOW_MS + 300_000,
+    }).ok,
+    false,
+  );
+  assert.equal(
+    readDesktopClientSession({
+      sessionId: "sess-3",
+      deviceId: "device-1",
+      token,
+      nowMs: NOW_MS + 300_001,
+    }).ok,
+    false,
+  );
 });

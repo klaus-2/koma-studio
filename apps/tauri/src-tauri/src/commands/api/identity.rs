@@ -77,47 +77,6 @@ pub fn resolve_mac_fingerprint<R: Runtime>(app: &AppHandle<R>) -> Result<String,
     Ok(format!("macf-{}", stable_hash("koma-studio:mac:v1", &source)))
 }
 
-pub fn collect_machine_profile<R: Runtime>(app: &AppHandle<R>) -> Result<Value, String> {
-    let hardware_id = resolve_hardware_id(app)?;
-    let mac_fingerprint = resolve_mac_fingerprint(app)?;
-    let cpu_count = std::thread::available_parallelism()
-        .map(|count| count.get())
-        .unwrap_or(1);
-    let os_version = os_version();
-    Ok(json!({
-        "schemaVersion": 1_u8,
-        "desktopDeviceId": hardware_id,
-        "desktopMacFingerprint": mac_fingerprint,
-        "platform": std::env::consts::OS,
-        "os": std::env::consts::OS,
-        "osVersion": os_version,
-        "osRelease": os_version,
-        "osMachine": std::env::consts::ARCH,
-        "arch": std::env::consts::ARCH,
-        "processorModel": std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_default(),
-        "cpuCount": cpu_count,
-        "cpuFrequencyMHz": Value::Null,
-        "totalMemoryBytes": 0_u64,
-        "hyperVEnabled": Value::Null,
-        "collectedAt": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-        "screenMetrics": {
-            "primary": { "x": 0, "y": 0, "width": 0, "height": 0 },
-            "displays": [],
-        },
-    }))
-}
-
-fn os_version() -> String {
-    #[cfg(target_os = "windows")]
-    {
-        sysinfo::System::long_os_version().unwrap_or_else(|| std::env::consts::OS.to_string())
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        sysinfo::System::long_os_version().unwrap_or_else(|| std::env::consts::OS.to_string())
-    }
-}
-
 /// v1 identity cache: a plain JSON object at app_data_dir with optional
 /// hardwareId/macFingerprint keys. Kept only so registered device ids remain
 /// stable for the auth server.

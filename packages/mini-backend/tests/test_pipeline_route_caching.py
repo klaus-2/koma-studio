@@ -22,7 +22,7 @@ IMPORT_ERROR: Exception | None = None
 try:
     import app as mini_app
     from models.ocr.base_ocr import OCRInputRegion, OCRTextResult
-    from models.ocr import stage as ocr_stage
+    from pipelines import ocr_stage
     from models.translation.base_translator import TranslationInputRegion, TranslationTextResult
     from models.translation import stage as translation_stage
     from pipelines.cache_manager import CacheManager

@@ -1,9 +1,5 @@
-import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 import GuidesPageClassic from './GuidesPageClassic';
 import GuidesPageV2 from '../koma/guides/GuidesPageV2';
 
-export default function GuidesPage() {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <GuidesPageV2 /> : <GuidesPageClassic />;
-}
+export default createFamilyComponent(GuidesPageClassic, GuidesPageV2);

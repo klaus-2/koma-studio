@@ -123,6 +123,7 @@ class _ImageState:
     translation_payload: StagePayload | None = None
     segment_payload: StagePayload | None = None
     clean_payload: StagePayload | None = None
+    fell_back_stages: set[StageName] = field(default_factory=set)
     cleaned: CleanedImage | None = None
 
     def fail(self, stage: StageName, message: str) -> None:
@@ -305,6 +306,7 @@ class BatchOrchestrator:
             stage=stage,
         )
         if execution.fell_back_to_cpu:
+            state.fell_back_stages.add(stage)
             logger.warning(
                 "batch.gpu_oom_fallback",
                 extra={"stage": stage, "image_index": state.task.index},
@@ -349,8 +351,6 @@ class BatchOrchestrator:
                         "image_height": image.height,
                         "detections": out.regions,
                     }
-                    if execution.fell_back_to_cpu:
-                        state.detect_payload["fell_back_to_cpu"] = True
                     state.successful_stages += 1
                 except Exception as exc:  # noqa: BLE001 — per-stage fault isolation
                     state.fail_from("detect", exc)
@@ -381,8 +381,6 @@ class BatchOrchestrator:
                         "image_height": image.height,
                         "regions": out.regions,
                     }
-                    if execution.fell_back_to_cpu:
-                        state.ocr_payload["fell_back_to_cpu"] = True
                     state.successful_stages += 1
                 except Exception as exc:  # noqa: BLE001 — per-stage fault isolation
                     state.fail_from("ocr", exc)
@@ -463,8 +461,6 @@ class BatchOrchestrator:
             "image_height": height,
             "regions": out.regions,
         }
-        if execution.fell_back_to_cpu:
-            state.segment_payload["fell_back_to_cpu"] = True
         state.successful_stages += 1
 
     async def _clean(self, state: _ImageState) -> None:
@@ -507,13 +503,18 @@ class BatchOrchestrator:
             "hd_strategy_crop_margin": cfg.clean.hd_strategy_crop_margin,
             "hd_strategy_crop_trigger_size": cfg.clean.hd_strategy_crop_trigger_size,
         }
-        if execution.fell_back_to_cpu:
-            state.clean_payload["fell_back_to_cpu"] = True
         state.successful_stages += 1
 
     # ----------------------------------------------------------------- report
 
     def _to_item_result(self, state: _ImageState) -> BatchItemResult:
+        def with_fallback(
+            stage: StageName, payload: StagePayload | None
+        ) -> StagePayload | None:
+            if payload is None or stage not in state.fell_back_stages:
+                return payload
+            return {**payload, "fell_back_to_cpu": True}
+
         return BatchItemResult(
             index=state.task.index,
             filename=state.task.filename,
@@ -522,10 +523,10 @@ class BatchOrchestrator:
                 self._config.selected_stage_count,
                 bool(state.errors),
             ),
-            detect=state.detect_payload,
-            ocr=state.ocr_payload,
+            detect=with_fallback("detect", state.detect_payload),
+            ocr=with_fallback("ocr", state.ocr_payload),
             translation=state.translation_payload,
-            segment=state.segment_payload,
-            clean=state.clean_payload,
+            segment=with_fallback("segment", state.segment_payload),
+            clean=with_fallback("clean", state.clean_payload),
             errors=state.errors,
         )

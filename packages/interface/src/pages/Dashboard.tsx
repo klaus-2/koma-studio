@@ -1232,8 +1232,6 @@ export const DashboardPage = ({
     [openModelManagerForStage],
   );
   const {
-    freeProviderDrafts,
-    setFreeProviderDrafts,
     getFreeProviderDraft,
     updateFreeProviderDraft,
     getSelectedFreeProviderProfileLabel,
@@ -2126,9 +2124,6 @@ export const DashboardPage = ({
     handleWorkspaceManualSave,
   } = useWorkspacePersistence({
     authUser,
-    typographerWorkspace,
-    freeProviderDrafts,
-    setFreeProviderDrafts,
   });
 
   const handleModeChange = useCallback(

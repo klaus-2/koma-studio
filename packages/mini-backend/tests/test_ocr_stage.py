@@ -13,7 +13,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(MINI_BACKEND_DIR))
 
 from models.ocr.base_ocr import OCRTextResult  # noqa: E402
-from models.ocr.stage import (  # noqa: E402
+from pipelines.ocr_stage import (  # noqa: E402
     CachedOcrRequest,
     run_cached_ocr,
 )
@@ -94,9 +94,9 @@ class RunCachedOcrTests(unittest.IsolatedAsyncioTestCase):
             raise AssertionError("recognize must not run on a full cache hit")
 
         with (
-            patch("models.ocr.stage.recognize_with_fallbacks", _fail_recognize),
+            patch("pipelines.ocr_stage.recognize_with_fallbacks", _fail_recognize),
             patch(
-                "models.ocr.stage.enrich_ocr_record_with_gradient",
+                "pipelines.ocr_stage.enrich_ocr_record_with_gradient",
                 lambda image, record: _mark_enriched(record),
             ),
         ):
@@ -129,9 +129,9 @@ class RunCachedOcrTests(unittest.IsolatedAsyncioTestCase):
             ]
 
         with (
-            patch("models.ocr.stage.recognize_with_fallbacks", _fake_recognize),
+            patch("pipelines.ocr_stage.recognize_with_fallbacks", _fake_recognize),
             patch(
-                "models.ocr.stage.enrich_ocr_record_with_gradient",
+                "pipelines.ocr_stage.enrich_ocr_record_with_gradient",
                 lambda image, record: _mark_enriched(record),
             ),
         ):
@@ -169,9 +169,9 @@ class RunCachedOcrTests(unittest.IsolatedAsyncioTestCase):
             ]
 
         with (
-            patch("models.ocr.stage.recognize_with_fallbacks", _recognize_only_r1),
+            patch("pipelines.ocr_stage.recognize_with_fallbacks", _recognize_only_r1),
             patch(
-                "models.ocr.stage.enrich_ocr_record_with_gradient",
+                "pipelines.ocr_stage.enrich_ocr_record_with_gradient",
                 lambda image, record: _mark_enriched(record),
             ),
         ):
@@ -222,8 +222,8 @@ class RunCachedOcrTests(unittest.IsolatedAsyncioTestCase):
             raise AssertionError("recognize must not run when everything is cached")
 
         with (
-            patch("models.ocr.stage.recognize_with_fallbacks", _fail_recognize),
-            patch("models.ocr.stage.enrich_ocr_record_with_gradient", _fake_enrich),
+            patch("pipelines.ocr_stage.recognize_with_fallbacks", _fail_recognize),
+            patch("pipelines.ocr_stage.enrich_ocr_record_with_gradient", _fake_enrich),
         ):
             result = await run_cached_ocr(
                 _request((_seed("with-gradient"), _seed("stale")), cache),
@@ -252,12 +252,12 @@ class RunCachedOcrTests(unittest.IsolatedAsyncioTestCase):
             device_info=type("DeviceInfoStub", (), {"name": "cpu-test"})(),
         )
         with (
-            patch("models.ocr.stage.recognize_with_fallbacks", _fail_recognize),
+            patch("pipelines.ocr_stage.recognize_with_fallbacks", _fail_recognize),
             patch(
-                "models.ocr.stage.enrich_ocr_record_with_gradient",
+                "pipelines.ocr_stage.enrich_ocr_record_with_gradient",
                 lambda image, record: _mark_enriched(record),
             ),
-            self.assertLogs("models.ocr.stage", level="INFO") as logs,
+            self.assertLogs("pipelines.ocr_stage", level="INFO") as logs,
         ):
             await run_cached_ocr(
                 request, cache=cache, resolve_engine=lambda **_: _FakeEngine()

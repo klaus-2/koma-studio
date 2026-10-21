@@ -159,6 +159,65 @@ const SELECT_NOIR =
   'panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson';
 const SELECT_FLEX_NOIR = SELECT_NOIR.replace('w-full', 'flex-1 min-w-0');
 
+const AIO_PANEL_CLASSIC = {
+  ghostButton: 'koma-btn koma-btn--ghost',
+  primaryButton: 'koma-btn koma-btn--primary',
+  actionButton: 'koma-btn koma-btn--ghost',
+  primaryFullButton: 'koma-btn koma-btn--ghost koma-btn--full',
+  select: 'koma-select',
+  langPresetSelect: 'koma-select koma-aio-lang-preset-row__select',
+} as const;
+
+const AIO_PANEL_NOIR = {
+  ghostButton: BTN_GHOST_NOIR,
+  primaryButton: BTN_PRIMARY_NOIR,
+  actionButton: BTN_PRIMARY_NOIR,
+  primaryFullButton: BTN_PRIMARY_FULL_NOIR,
+  select: SELECT_NOIR,
+  langPresetSelect: `${SELECT_FLEX_NOIR} koma-aio-lang-preset-row__select`,
+} as const;
+
+const aioPanelClasses = (noir: boolean) =>
+  noir ? AIO_PANEL_NOIR : AIO_PANEL_CLASSIC;
+
+interface AioChecklistOptionProps {
+  noir: boolean;
+  checked: boolean;
+  label: string;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+const AioChecklistOption = ({
+  noir,
+  checked,
+  label,
+  disabled,
+  onChange,
+}: AioChecklistOptionProps) => (
+  <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
+    <span
+      className={
+        noir
+          ? checked
+            ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson'
+            : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink'
+          : undefined
+      }
+    >
+      {noir && checked && <span className="h-1.5 w-1.5 bg-ink" />}
+    </span>
+    <input
+      type="checkbox"
+      className={noir ? 'sr-only' : undefined}
+      checked={checked}
+      disabled={disabled}
+      onChange={(event) => onChange(event.target.checked)}
+    />
+    <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{label}</span>
+  </label>
+);
+
 export default memo(function AioRightPanel({
   handleAioSubModeChange,
   rewindAioPipeline,
@@ -226,6 +285,7 @@ export default memo(function AioRightPanel({
 }: AioRightPanelProps) {
   const { t } = useI18n();
   const noir = useThemeStore((s) => s.family === 'noir');
+  const skin = aioPanelClasses(noir);
 
   /* ── Image collection ── */
   const images = useImageCollectionStore((s) => s.images);
@@ -471,7 +531,7 @@ export default memo(function AioRightPanel({
             <div className="koma-aio-pipeline-controls">
               <button
                 type="button"
-                className={noir ? BTN_GHOST_NOIR : "koma-btn koma-btn--ghost"}
+                className={skin.ghostButton}
                 onClick={rewindAioPipeline}
                 disabled={processing || !canAioRewind}
                 title={t('dashboard.pipeline.prevStep.title')}
@@ -481,7 +541,7 @@ export default memo(function AioRightPanel({
               </button>
               <button
                 type="button"
-                className={noir ? BTN_GHOST_NOIR : "koma-btn koma-btn--ghost"}
+                className={skin.ghostButton}
                 onClick={forwardAioPipeline}
                 disabled={processing || !canAioForward}
                 title={t('dashboard.pipeline.nextStep.title')}
@@ -534,7 +594,7 @@ export default memo(function AioRightPanel({
             <div className="koma-aio-pipeline-controls">
               <button
                 type="button"
-                className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--primary"}
+                className={skin.primaryButton}
                 onClick={() => void executeManualStageForActiveImage()}
                 disabled={
                   processing ||
@@ -564,7 +624,7 @@ export default memo(function AioRightPanel({
               </button>
               <button
                 type="button"
-                className={noir ? BTN_GHOST_NOIR : "koma-btn koma-btn--ghost"}
+                className={skin.ghostButton}
                 onClick={skipManualStageForActiveImage}
                 disabled={
                   processing ||
@@ -613,7 +673,7 @@ export default memo(function AioRightPanel({
             <select
               value={cleanerSrcLang}
               onChange={(e) => setCleanerSrcLang(e.target.value)}
-              className={noir ? SELECT_NOIR : "koma-select"}
+              className={skin.select}
               aria-label={t('dashboard.cleaner.ocr.languageAria')}
             >
               {aioLanguageOptions.source.map((opt) => (
@@ -631,7 +691,7 @@ export default memo(function AioRightPanel({
             <select
               value={aioSrcLang}
               onChange={(e) => setAioSrcLang(e.target.value)}
-              className={noir ? SELECT_NOIR : "koma-select"}
+              className={skin.select}
               aria-label={t('dashboard.aio.config.sourceLanguage')}
             >
               {aioLanguageOptions.source.map((opt) => (
@@ -646,7 +706,7 @@ export default memo(function AioRightPanel({
             <select
               value={aioTgtLang}
               onChange={(e) => setAioTgtLang(e.target.value)}
-              className={noir ? SELECT_NOIR : "koma-select"}
+              className={skin.select}
               aria-label={t('dashboard.aio.config.targetLanguage')}
             >
               {aioLanguageOptions.target.map((opt) => (
@@ -675,7 +735,7 @@ export default memo(function AioRightPanel({
               />
             </span>
             <select
-              className={noir ? SELECT_FLEX_NOIR + ' koma-aio-lang-preset-row__select' : "koma-select koma-aio-lang-preset-row__select"}
+              className={skin.langPresetSelect}
               value={
                 aioPresetState.activePresetBySourceLanguage[
                 normalizedAioSourceLanguage
@@ -791,7 +851,7 @@ export default memo(function AioRightPanel({
                         {aioStageLabels[stageKey]}
                       </span>
                       <select
-                        className={noir ? SELECT_NOIR : "koma-select"}
+                        className={skin.select}
                         value={selectedModel}
                         disabled={stageOptions.length === 0}
                         onChange={(e) =>
@@ -983,63 +1043,45 @@ export default memo(function AioRightPanel({
                     />
 
                     <div className="koma-aio-llm-toggles">
-                      <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
-                        <span className={noir ? (llmTranslationNotesEnabled ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
-                          {noir && llmTranslationNotesEnabled && <span className="h-1.5 w-1.5 bg-ink" />}
-                        </span>
-                        <input
-                          type="checkbox"
-                          className={noir ? 'sr-only' : undefined}
-                          checked={llmTranslationNotesEnabled}
-                          onChange={(e) =>
-                            setLlmSettings((prev) =>
-                              clampLlmRequestSettings({
-                                ...prev,
-                                translation_notes_enabled: e.target.checked,
-                              }),
-                            )
-                          }
-                        />
-                        <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t("dashboard.aio.translation.notesToggle")}</span>
-                      </label>
-                      <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
-                        <span className={noir ? (llmNeighborContextEnabled ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
-                          {noir && llmNeighborContextEnabled && <span className="h-1.5 w-1.5 bg-ink" />}
-                        </span>
-                        <input
-                          type="checkbox"
-                          className={noir ? 'sr-only' : undefined}
-                          checked={llmNeighborContextEnabled}
-                          onChange={(e) =>
-                            setLlmSettings((prev) =>
-                              clampLlmRequestSettings({
-                                ...prev,
-                                neighbor_image_context_enabled: e.target.checked,
-                              }),
-                            )
-                          }
-                        />
-                        <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t("dashboard.aio.translation.neighborContextToggle")}</span>
-                      </label>
-                      <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
-                        <span className={noir ? (llmImageInputEnabled ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
-                          {noir && llmImageInputEnabled && <span className="h-1.5 w-1.5 bg-ink" />}
-                        </span>
-                        <input
-                          type="checkbox"
-                          className={noir ? 'sr-only' : undefined}
-                          checked={llmImageInputEnabled}
-                          onChange={(e) =>
-                            setLlmSettings((prev) =>
-                              clampLlmRequestSettings({
-                                ...prev,
-                                image_input_enabled: e.target.checked,
-                              }),
-                            )
-                          }
-                        />
-                        <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t("dashboard.aio.translation.multimodalToggle")}</span>
-                      </label>
+                      <AioChecklistOption
+                        noir={noir}
+                        checked={llmTranslationNotesEnabled}
+                        label={t("dashboard.aio.translation.notesToggle")}
+                        onChange={(checked) =>
+                          setLlmSettings((prev) =>
+                            clampLlmRequestSettings({
+                              ...prev,
+                              translation_notes_enabled: checked,
+                            }),
+                          )
+                        }
+                      />
+                      <AioChecklistOption
+                        noir={noir}
+                        checked={llmNeighborContextEnabled}
+                        label={t("dashboard.aio.translation.neighborContextToggle")}
+                        onChange={(checked) =>
+                          setLlmSettings((prev) =>
+                            clampLlmRequestSettings({
+                              ...prev,
+                              neighbor_image_context_enabled: checked,
+                            }),
+                          )
+                        }
+                      />
+                      <AioChecklistOption
+                        noir={noir}
+                        checked={llmImageInputEnabled}
+                        label={t("dashboard.aio.translation.multimodalToggle")}
+                        onChange={(checked) =>
+                          setLlmSettings((prev) =>
+                            clampLlmRequestSettings({
+                              ...prev,
+                              image_input_enabled: checked,
+                            }),
+                          )
+                        }
+                      />
                     </div>
 
                     <div className="koma-aio-llm-sliders">
@@ -1199,7 +1241,7 @@ export default memo(function AioRightPanel({
                     e.target.value as 'original' | 'resize' | 'crop',
                   )
                 }
-                className={noir ? SELECT_NOIR : "koma-select"}
+                className={skin.select}
                 aria-label={t("dashboard.dashboardLlm.hdStrategy")}
               >
                 <option value="resize">{t("dashboard.dashboardLlm.resize")}</option>
@@ -1283,7 +1325,7 @@ export default memo(function AioRightPanel({
                   {t('dashboard.status.selectionMode')}
                 </span>
                 <select
-                  className={noir ? SELECT_NOIR : "koma-select"}
+                  className={skin.select}
                   disabled={!canEditActiveRenderStage}
                   value={activeSelectedRenderMode}
                   onChange={(e) =>
@@ -1317,7 +1359,7 @@ export default memo(function AioRightPanel({
               <div className="koma-aio-font-row">
                 <button
                   type="button"
-                  className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--ghost"}
+                  className={skin.actionButton}
                   onClick={() => void loadRenderFontCatalog()}
                   disabled={fontCatalogLoading}
                 >
@@ -1327,7 +1369,7 @@ export default memo(function AioRightPanel({
                 </button>
                 <button
                   type="button"
-                  className={noir ? BTN_PRIMARY_NOIR : "koma-btn koma-btn--ghost"}
+                  className={skin.actionButton}
                   onClick={() => fontCatalogInputRef.current?.click()}
                   disabled={!isDesktopRuntime || fontCatalogImporting}
                   title={
@@ -1359,7 +1401,7 @@ export default memo(function AioRightPanel({
               {/* Apply style */}
               <button
                 type="button"
-                className={noir ? BTN_PRIMARY_FULL_NOIR : "koma-btn koma-btn--ghost koma-btn--full"}
+                className={skin.primaryFullButton}
                 disabled={!canEditActiveRenderStage}
                 onClick={applyActiveRenderStyleToAllRegions}
                 title={t('dashboard.typesetter.applyStyleAll.title')}
@@ -1410,58 +1452,34 @@ export default memo(function AioRightPanel({
             </p>
           )}
           <div className="koma-aio-llm-toggles">
-            <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
-              <span className={noir ? (aioGpuStages.detectText ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
-                {noir && aioGpuStages.detectText && <span className="h-1.5 w-1.5 bg-ink" />}
-              </span>
-              <input
-                type="checkbox"
-                className={noir ? 'sr-only' : undefined}
-                checked={aioGpuStages.detectText}
-                disabled={!aioHasGpuExecutionProfile}
-                onChange={(e) => updateAioGpuStage('detectText', e.target.checked)}
-              />
-              <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t('dashboard.aio.gpuStages.detect')}</span>
-            </label>
-            <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
-              <span className={noir ? (aioGpuStages.recognizeText ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
-                {noir && aioGpuStages.recognizeText && <span className="h-1.5 w-1.5 bg-ink" />}
-              </span>
-              <input
-                type="checkbox"
-                className={noir ? 'sr-only' : undefined}
-                checked={aioGpuStages.recognizeText}
-                disabled={!aioHasGpuExecutionProfile}
-                onChange={(e) => updateAioGpuStage('recognizeText', e.target.checked)}
-              />
-              <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t('dashboard.aio.gpuStages.ocr')}</span>
-            </label>
-            <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
-              <span className={noir ? (aioGpuStages.segmentText ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
-                {noir && aioGpuStages.segmentText && <span className="h-1.5 w-1.5 bg-ink" />}
-              </span>
-              <input
-                type="checkbox"
-                className={noir ? 'sr-only' : undefined}
-                checked={aioGpuStages.segmentText}
-                disabled={!aioHasGpuExecutionProfile}
-                onChange={(e) => updateAioGpuStage('segmentText', e.target.checked)}
-              />
-              <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t('dashboard.aio.gpuStages.segment')}</span>
-            </label>
-            <label className={noir ? 'flex cursor-pointer items-center gap-2' : 'koma-checklist__item'}>
-              <span className={noir ? (aioGpuStages.cleanImage ? 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-crimson bg-crimson' : 'panel-cut-sm grid h-4 w-4 place-items-center border transition-colors border-paper/25 bg-ink') : undefined}>
-                {noir && aioGpuStages.cleanImage && <span className="h-1.5 w-1.5 bg-ink" />}
-              </span>
-              <input
-                type="checkbox"
-                className={noir ? 'sr-only' : undefined}
-                checked={aioGpuStages.cleanImage}
-                disabled={!aioHasGpuExecutionProfile}
-                onChange={(e) => updateAioGpuStage('cleanImage', e.target.checked)}
-              />
-              <span className={noir ? 'font-mono text-[10px] text-paper' : undefined}>{t('dashboard.aio.gpuStages.clean')}</span>
-            </label>
+            <AioChecklistOption
+              noir={noir}
+              checked={aioGpuStages.detectText}
+              disabled={!aioHasGpuExecutionProfile}
+              label={t('dashboard.aio.gpuStages.detect')}
+              onChange={(checked) => updateAioGpuStage('detectText', checked)}
+            />
+            <AioChecklistOption
+              noir={noir}
+              checked={aioGpuStages.recognizeText}
+              disabled={!aioHasGpuExecutionProfile}
+              label={t('dashboard.aio.gpuStages.ocr')}
+              onChange={(checked) => updateAioGpuStage('recognizeText', checked)}
+            />
+            <AioChecklistOption
+              noir={noir}
+              checked={aioGpuStages.segmentText}
+              disabled={!aioHasGpuExecutionProfile}
+              label={t('dashboard.aio.gpuStages.segment')}
+              onChange={(checked) => updateAioGpuStage('segmentText', checked)}
+            />
+            <AioChecklistOption
+              noir={noir}
+              checked={aioGpuStages.cleanImage}
+              disabled={!aioHasGpuExecutionProfile}
+              label={t('dashboard.aio.gpuStages.clean')}
+              onChange={(checked) => updateAioGpuStage('cleanImage', checked)}
+            />
           </div>
         </AioSection>
       </AioSection>

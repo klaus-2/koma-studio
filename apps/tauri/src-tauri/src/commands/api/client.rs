@@ -21,10 +21,6 @@ pub mod string_api {
         inner::api_url(app, base, endpoint_path).map_err(|error| error.to_string())
     }
 
-    pub fn method(name: &str) -> Result<reqwest::Method, String> {
-        inner::method(name).map_err(|error| error.to_string())
-    }
-
     pub fn access_token(payload: &serde_json::Value) -> Result<String, String> {
         inner::access_token(payload).map_err(|error| error.to_string())
     }

@@ -16,12 +16,13 @@ export const subscribeWorkspaceDomainStores = (
 /**
  * Workspace capture state — builds the DashboardWorkspaceCaptureState snapshot
  * from every domain store (the change-signal of the history/autosave
- * interlock), the object-URL release helper, the capture-state mirror effect
- * and the capture-state rebuilt from a restored document.
+ * interlock), the object-URL release helper and the capture-state mirror
+ * effect.
  *
- * The capture/restore state building lives in the per-slice registry
- * (workspace-persistence.registry.ts): one builder serves the live-store path
- * and the restored-document path, so both produce the same key set/order.
+ * The builder lives in workspace-persistence.registry.ts and reads every
+ * domain store plus the auth user id. Restores apply the document first and
+ * then re-capture through this same builder, so there is no second field
+ * list to keep in sync.
  *
  * The capture deps are DELIBERATE (they are the change-signal of the
  * history/autosave interlock — see the entry file) even where the body reads
@@ -29,11 +30,7 @@ export const subscribeWorkspaceDomainStores = (
  */
 import { useCallback, useEffect } from 'react';
 import type { AuthUser } from '../../../contexts/AuthContext';
-import type {
-  DashboardWorkspaceCaptureState,
-  DashboardWorkspaceRestoreState,
-} from '../../../workspace/dashboardWorkspace';
-import type { FreeProviderDraftMap } from '../../../types/dashboard.types';
+import type { DashboardWorkspaceCaptureState } from '../../../workspace/dashboardWorkspace';
 import {
   WORKSPACE_PERSISTENCE_STORES,
   buildWorkspaceCaptureState,
@@ -45,12 +42,10 @@ import { useWorkspacePersistenceStore } from '../stores/workspace-persistence-st
 
 interface UseWorkspaceCaptureStateArgs {
   authUser: AuthUser | null;
-  freeProviderDrafts: FreeProviderDraftMap;
 }
 
 export function useWorkspaceCaptureState({
   authUser,
-  freeProviderDrafts,
 }: UseWorkspaceCaptureStateArgs) {
   const releaseWorkspaceObjectUrls = useCallback(() => {
     useImageCollectionStore.getState().images.forEach((image) => {
@@ -71,11 +66,8 @@ export function useWorkspaceCaptureState({
 
   const buildCurrentWorkspaceCaptureState = useCallback(
     (): DashboardWorkspaceCaptureState =>
-      buildWorkspaceCaptureState({
-        kind: 'live',
-        values: { authUserId: authUser?.id ?? null, freeProviderDrafts },
-      }),
-    [authUser?.id, freeProviderDrafts],
+      buildWorkspaceCaptureState(authUser?.id ?? null),
+    [authUser?.id],
   );
 
   const mirrorWorkspaceCaptureState = useCallback(() => {
@@ -98,15 +90,8 @@ export function useWorkspaceCaptureState({
     return unsubscribesAll;
   }, [mirrorWorkspaceCaptureState]);
 
-  const buildCaptureStateFromRestored = useCallback(
-    (restored: DashboardWorkspaceRestoreState): DashboardWorkspaceCaptureState =>
-      buildWorkspaceCaptureState({ kind: 'restored', restored }),
-    [],
-  );
-
   return {
     releaseWorkspaceObjectUrls,
     buildCurrentWorkspaceCaptureState,
-    buildCaptureStateFromRestored,
   };
 }

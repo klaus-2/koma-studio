@@ -1,20 +1,15 @@
 /**
- * Workspace persistence registry parity tests.
+ * Workspace persistence parity tests.
  *
- * Pins the two binding contracts of the registry:
- * 1. SIGNATURE PARITY across a synthetic restore cycle — the capture state
- *    built from the live stores and the capture state rebuilt from the
- *    restored document (and the capture state re-built from the stores after
- *    the registry apply) produce IDENTICAL buildWorkspaceHistorySignature and
- *    buildWorkspaceAutosaveSignature strings (full string equality — order +
- *    presence, not deep-equality). This is the within-session
- *    signature-duality fix proof: the legacy restored-side builder leaked
- *    document-only keys (translatorProcessedBaseAssetByImage) into the
- *    rebuilt state.
- * 2. STRUCTURE — the built capture state's key order matches the registry's
- *    declared field tables, the v1 manualQuotaChargedByImage synthesis is
- *    present, the document-only asset keys are absent from the rebuilt state,
- *    and the unified store list is the expected 14-store set.
+ * Pins the binding contracts:
+ * 1. SIGNATURE PARITY across a synthetic restore cycle: capture → serialize →
+ *    restore document → apply to stores → capture again yields IDENTICAL
+ *    buildWorkspaceHistorySignature and buildWorkspaceAutosaveSignature
+ *    strings (full string equality — order + presence, not deep equality).
+ * 2. STRUCTURE: capture key order (part of the signature contract), the v1
+ *    manualQuotaChargedByImage synthesis, absence of document-only asset keys
+ *    in the applied stores, the optional legacy-field defaults, and the
+ *    unified store subscription list.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildWorkspaceAutosaveSignature, buildWorkspaceHistorySignature } from '../../../workspace/dashboardWorkspace.signature';
@@ -25,7 +20,6 @@ import {
 import type {
   AioManualImageEditState,
   DownloadItem,
-  FreeProviderDraftMap,
   ImageFilters,
   LoadedImage,
 } from '../../../types/dashboard.types';
@@ -33,8 +27,6 @@ import type { TypographySession } from '../../../typography/types';
 import { createDefaultSplitterRecipe } from '../../../components/dashboard/splitter/splitterUtils';
 import { createDefaultWatermarkDraft } from '../../../components/dashboard/watermark/watermark-core.js';
 import {
-  WORKSPACE_CAPTURE_ROOT_KEYS,
-  WORKSPACE_CAPTURE_SLICES,
   WORKSPACE_PERSISTENCE_STORES,
   applyRestoredWorkspaceToStores,
   buildWorkspaceCaptureState,
@@ -114,6 +106,117 @@ const DOWNLOAD_BYTES = [10, 20, 30, 40, 50];
 const AIO_DOWNLOAD_BYTES = [100, 101, 102];
 const WATERMARK_BYTES = [200, 201, 202];
 const OPTIMIZER_BYTES = [250, 251, 252];
+
+/** Capture key order is signature-visible; this fixture pins the contract. */
+const EXPECTED_CAPTURE_KEYS = {
+  root: [
+    'autosaveScope',
+    'autosaveUserId',
+    'mode',
+    'subMode',
+    'activeImageId',
+    'viewMode',
+    'translatorWorkspaceMode',
+    'translatorVisualProcessingMode',
+    'statusMessage',
+    'lastActionScope',
+    'images',
+    'downloadItems',
+    'batchThreadsEnabled',
+    'batchThreads',
+    'aio',
+    'cleaner',
+    'translator',
+    'typesetter',
+    'enhance',
+    'utility',
+    'llm',
+  ],
+  aio: [
+    'steps',
+    'stageSelection',
+    'presetState',
+    'maskDilation',
+    'hdStrategy',
+    'hdResizeLimit',
+    'hdCropMargin',
+    'hdCropTriggerSize',
+    'detectionsByImage',
+    'selectedRegionByImage',
+    'pipelineSnapshots',
+    'pipelineSnapshotIndex',
+    'imageSnapshotIndexById',
+    'autoHistoryAvailable',
+    'autoProcessedImageById',
+    'manualQuotaChargedByImage',
+    'manualProgressByImage',
+    'manualImageEditsByImage',
+  ],
+  cleaner: [
+    'detectionsByImage',
+    'selectedRegionByImage',
+    'processedBaseByImage',
+    'runMetaByImage',
+    'manualImageEditsByImage',
+  ],
+  translator: [
+    'srcLang',
+    'tgtLang',
+    'aioSrcLang',
+    'aioTgtLang',
+    'translatorDraftText',
+    'translatorTranslatedText',
+    'translatorLastTextModelUsed',
+    'translatorTextDirty',
+    'translatorDetectionsByImage',
+    'translatorSelectedRegionByImage',
+    'translatorRunMetaByImage',
+    'translatorProcessedBaseByImage',
+  ],
+  typesetter: [
+    'selectionTool',
+    'queueSelectedId',
+    'snapshotName',
+    'selectedSnapshotId',
+    'sessionsByImage',
+  ],
+  enhance: ['scale', 'profile', 'modelId', 'outputFormat'],
+  utility: ['stitch', 'splitter', 'watermark', 'optimizer'],
+  stitch: [
+    'stitchLayoutMode',
+    'stitchBatchStrategy',
+    'stitchBatchSize',
+    'stitchTargetPrimaryAxis',
+    'stitchGap',
+    'stitchAlignMode',
+    'stitchBackground',
+    'stitchSingleExportFormat',
+    'stitchFileBaseName',
+    'stitchSelectedBatchIndex',
+    'stitchBatchIndexes',
+  ],
+  watermark: [
+    'draft',
+    'activeImageId',
+    'compareMode',
+    'compareValue',
+    'selectedPresetId',
+    'autoSuggestion',
+    'userPresets',
+    'watermarkImageFile',
+    'results',
+    'textZoneCache',
+  ],
+  optimizer: ['recipe', 'selectedPreset', 'activeImageId', 'results'],
+  llm: [
+    'llmSettings',
+    'customLlmProfiles',
+    'customLlmProfilesMode',
+    'pendingCustomSelections',
+    'customLlmDrafts',
+    'freeProviderDrafts',
+  ],
+} as const;
 
 const makeWorkspaceFile = (name: string): File =>
   new File([new Uint8Array(IMAGE_BYTES)], name, {
@@ -396,6 +499,16 @@ const seedWorkspaceStores = (): void => {
   });
 };
 
+const applyRestored = (
+  restored: Awaited<ReturnType<typeof restoreWorkspaceDocument>>,
+): void => {
+  applyRestoredWorkspaceToStores(restored, {
+    releaseWorkspaceObjectUrls: () => undefined,
+    statusMessageFallback: 'fallback-status',
+    statusDetail: 'parity-test-status-detail',
+  });
+};
+
 describe('workspace persistence registry', () => {
   beforeEach(() => {
     vi.spyOn(Date, 'now').mockReturnValue(FROZEN_NOW_MS);
@@ -406,14 +519,12 @@ describe('workspace persistence registry', () => {
     vi.restoreAllMocks();
   });
 
-  it('produces identical signatures for the live state and the restored-cycle rebuild', async () => {
-    const liveState = buildWorkspaceCaptureState({
-      kind: 'live',
-      values: { authUserId: null, freeProviderDrafts: {} },
-    });
+  it('produces identical signatures for the live state and the state re-captured after restore', async () => {
+    const liveState = buildWorkspaceCaptureState(null);
     const payload = await captureWorkspaceDocument(liveState);
     const restored = await restoreWorkspaceDocument(payload);
-    const rebuiltState = buildWorkspaceCaptureState({ kind: 'restored', restored });
+    applyRestored(restored);
+    const rebuiltState = buildWorkspaceCaptureState(null);
 
     expect(buildWorkspaceHistorySignature(rebuiltState)).toBe(
       buildWorkspaceHistorySignature(liveState),
@@ -423,50 +534,11 @@ describe('workspace persistence registry', () => {
     );
   });
 
-  it('keeps signature parity when the stores are re-captured after the registry apply', async () => {
-    const liveState = buildWorkspaceCaptureState({
-      kind: 'live',
-      values: { authUserId: null, freeProviderDrafts: {} },
-    });
-    const payload = await captureWorkspaceDocument(liveState);
+  it('does not leak document-only asset keys into the applied stores', async () => {
+    const payload = await captureWorkspaceDocument(buildWorkspaceCaptureState(null));
     const restored = await restoreWorkspaceDocument(payload);
-
-    let freeProviderDrafts: FreeProviderDraftMap = {};
-    applyRestoredWorkspaceToStores(restored, {
-      releaseWorkspaceObjectUrls: () => undefined,
-      typographerWorkspace: {
-        replaceSessionsByImage: (sessions) => {
-          useTypographerStore.getState().setTypographerSessionsByImage(sessions);
-        },
-      },
-      setFreeProviderDrafts: (value) => {
-        freeProviderDrafts = value;
-      },
-      statusMessageFallback: 'fallback-status',
-      statusDetail: 'parity-test-status-detail',
-    });
-
-    const rebuiltFromStores = buildWorkspaceCaptureState({
-      kind: 'live',
-      values: { authUserId: null, freeProviderDrafts },
-    });
-
-    expect(buildWorkspaceHistorySignature(rebuiltFromStores)).toBe(
-      buildWorkspaceHistorySignature(liveState),
-    );
-    expect(buildWorkspaceAutosaveSignature(rebuiltFromStores)).toBe(
-      buildWorkspaceAutosaveSignature(liveState),
-    );
-  });
-
-  it('does not leak document-only asset keys into the rebuilt capture state', async () => {
-    const liveState = buildWorkspaceCaptureState({
-      kind: 'live',
-      values: { authUserId: null, freeProviderDrafts: {} },
-    });
-    const payload = await captureWorkspaceDocument(liveState);
-    const restored = await restoreWorkspaceDocument(payload);
-    const rebuiltState = buildWorkspaceCaptureState({ kind: 'restored', restored });
+    applyRestored(restored);
+    const rebuiltState = buildWorkspaceCaptureState(null);
 
     expect(Object.keys(rebuiltState.translator)).not.toContain(
       'translatorProcessedBaseAssetByImage',
@@ -475,64 +547,81 @@ describe('workspace persistence registry', () => {
       'processedBaseAssetByImage',
     );
     expect(Object.keys(rebuiltState.translator)).toEqual(
-      Object.keys(liveState.translator),
+      EXPECTED_CAPTURE_KEYS.translator,
     );
   });
 
-  it('keeps the v1 manualQuotaChargedByImage synthesis', () => {
-    const liveState = buildWorkspaceCaptureState({
-      kind: 'live',
-      values: { authUserId: null, freeProviderDrafts: {} },
+  it('defaults a legacy document without translatorVisualProcessingMode to standard', async () => {
+    const payload = await captureWorkspaceDocument(buildWorkspaceCaptureState(null));
+    const legacyView: { translatorVisualProcessingMode?: string } =
+      payload.manifest.document.view;
+    delete legacyView.translatorVisualProcessingMode;
+
+    const restored = await restoreWorkspaceDocument(payload);
+    applyRestored(restored);
+
+    expect(useTranslatorStore.getState().translatorVisualProcessingMode).toBe(
+      'standard',
+    );
+    expect(
+      buildWorkspaceCaptureState(null).translatorVisualProcessingMode,
+    ).toBe('standard');
+  });
+
+  it('reads the legacy inline translator processed-base map when the asset map is absent', async () => {
+    const payload = await captureWorkspaceDocument(buildWorkspaceCaptureState(null));
+    const translatorDocument: {
+      translatorProcessedBaseAssetByImage?: Record<string, unknown>;
+      translatorProcessedBaseByImage?: Record<string, string>;
+    } = payload.manifest.document.translator;
+    delete translatorDocument.translatorProcessedBaseAssetByImage;
+    translatorDocument.translatorProcessedBaseByImage = {
+      'img-1': DATA_URL_TEXT,
+    };
+
+    const restored = await restoreWorkspaceDocument(payload);
+
+    expect(restored.translator.translatorProcessedBaseByImage).toEqual({
+      'img-1': DATA_URL_TEXT,
     });
+  });
+
+  it('keeps the v1 manualQuotaChargedByImage synthesis', () => {
+    const liveState = buildWorkspaceCaptureState(null);
 
     expect(liveState.aio.manualQuotaChargedByImage).toEqual({});
   });
 
-  it('builds the capture state in the registry-declared key order', () => {
-    const liveState = buildWorkspaceCaptureState({
-      kind: 'live',
-      values: { authUserId: null, freeProviderDrafts: {} },
-    });
+  it('builds the capture state in the signature-visible key order', () => {
+    const liveState = buildWorkspaceCaptureState(null);
 
-    expect(Object.keys(liveState)).toEqual([...WORKSPACE_CAPTURE_ROOT_KEYS]);
-
-    const keysByGroup = new Map<string, string[]>();
-    for (const slice of WORKSPACE_CAPTURE_SLICES) {
-      if (slice.key === '') {
-        for (const field of slice.fields) {
-          expect(Object.keys(liveState)).toContain(field.key);
-        }
-        continue;
-      }
-      keysByGroup.set(
-        slice.key,
-        slice.fields.map((field) => field.key),
-      );
-    }
-
-    expect(Object.keys(liveState.aio)).toEqual(keysByGroup.get('aio'));
-    expect(Object.keys(liveState.cleaner)).toEqual(keysByGroup.get('cleaner'));
-    expect(Object.keys(liveState.translator)).toEqual(keysByGroup.get('translator'));
-    expect(Object.keys(liveState.typesetter)).toEqual(keysByGroup.get('typesetter'));
-    expect(Object.keys(liveState.enhance)).toEqual(keysByGroup.get('enhance'));
-    expect(Object.keys(liveState.llm)).toEqual(keysByGroup.get('llm'));
-
-    // utility: dotted descriptors — top-level groups + nested stitch keys.
-    const utilityFields = keysByGroup.get('utility') ?? [];
-    const utilityGroups = utilityFields.map((key) => key.split('.')[0]);
-    expect(Object.keys(liveState.utility)).toEqual([
-      ...new Set(utilityGroups),
+    expect(Object.keys(liveState)).toEqual([...EXPECTED_CAPTURE_KEYS.root]);
+    expect(Object.keys(liveState.aio)).toEqual([...EXPECTED_CAPTURE_KEYS.aio]);
+    expect(Object.keys(liveState.cleaner)).toEqual([
+      ...EXPECTED_CAPTURE_KEYS.cleaner,
     ]);
-    expect(Object.keys(liveState.utility.stitch)).toEqual(
-      utilityFields
-        .filter((key) => key.startsWith('stitch.'))
-        .map((key) => key.slice('stitch.'.length)),
-    );
-    expect(Object.keys(liveState.utility.watermark)).toEqual(
-      utilityFields
-        .filter((key) => key.startsWith('watermark.'))
-        .map((key) => key.slice('watermark.'.length)),
-    );
+    expect(Object.keys(liveState.translator)).toEqual([
+      ...EXPECTED_CAPTURE_KEYS.translator,
+    ]);
+    expect(Object.keys(liveState.typesetter)).toEqual([
+      ...EXPECTED_CAPTURE_KEYS.typesetter,
+    ]);
+    expect(Object.keys(liveState.enhance)).toEqual([
+      ...EXPECTED_CAPTURE_KEYS.enhance,
+    ]);
+    expect(Object.keys(liveState.utility)).toEqual([
+      ...EXPECTED_CAPTURE_KEYS.utility,
+    ]);
+    expect(Object.keys(liveState.utility.stitch)).toEqual([
+      ...EXPECTED_CAPTURE_KEYS.stitch,
+    ]);
+    expect(Object.keys(liveState.utility.watermark)).toEqual([
+      ...EXPECTED_CAPTURE_KEYS.watermark,
+    ]);
+    expect(Object.keys(liveState.utility.optimizer)).toEqual([
+      ...EXPECTED_CAPTURE_KEYS.optimizer,
+    ]);
+    expect(Object.keys(liveState.llm)).toEqual([...EXPECTED_CAPTURE_KEYS.llm]);
   });
 
   it('exposes the unified 14-store subscription list', () => {

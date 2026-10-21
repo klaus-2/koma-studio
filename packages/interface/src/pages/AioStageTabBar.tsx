@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { cn } from '../lib/utils';
 import { useI18n } from '../i18n';
-import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 import { AioStageTabBarNoir } from './aio-noir/AioStageTabBarNoir';
 import type { StageTabDef, StageTabKey } from './AioStageTabBar.types';
 
@@ -55,8 +55,6 @@ const AioStageTabBarClassic = ({
   );
 };
 
-export const AioStageTabBar = memo(function AioStageTabBar(props: AioStageTabBarProps) {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <AioStageTabBarNoir {...props} /> : <AioStageTabBarClassic {...props} />;
-});
+export const AioStageTabBar = memo(
+  createFamilyComponent(AioStageTabBarClassic, AioStageTabBarNoir),
+);

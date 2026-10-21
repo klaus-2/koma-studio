@@ -22,7 +22,7 @@ export default defineConfig(async ({ mode }) => {
       // dep-optimizer bundles of react/react-dom (different ?v= hashes) when a
       // workspace package resolves its own copy — hooks then see a dispatcher
       // from a different React instance ("Invalid hook call" / null useMemo).
-      dedupe: ["react", "react-dom", "scheduler"],
+      dedupe: ["react", "react-dom"],
       alias: {
         "@": path.resolve(__dirname, "../../packages/interface/src"),
         "@shared": path.resolve(__dirname, "../../packages/types/src"),
@@ -32,7 +32,7 @@ export default defineConfig(async ({ mode }) => {
     // Pre-bundle the react entry points together so every importer (shell and
     // workspace packages) shares one optimized chunk and one ?v= hash.
     optimizeDeps: {
-      include: ["react", "react-dom", "react-dom/client", "scheduler"],
+      include: ["react", "react-dom", "react-dom/client"],
     },
 
     // Tauri keeps the default app-only dev host. Playwright opt-in mode binds

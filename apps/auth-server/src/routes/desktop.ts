@@ -24,30 +24,34 @@ import {
   clampDesktopTokenTtlSec,
   clampDesktopTravelDurationDays,
   clampDesktopTravelTokenTtlMinutes,
-  cleanupDesktopClientSessionsIfNeeded,
   consumeDesktopTravelToken,
-  desktopClientSessions,
   findDesktopDeviceByCredential,
   getDesktopDeviceByUserAndSlot,
+  invalidateDesktopClientSession,
   isSafeDesktopIdentifier,
   maskEmailAddress,
   normalizeDesktopSlot,
   normalizeDesktopTravelTokenDeliveryMode,
   purgeDesktopClientSessionsForUser,
-  readHeaderValue,
+  readDesktopClientSession,
   resolveDesktopSlotDecision,
-  safeTokenEquals,
-  sha256Hex,
+  touchDesktopDeviceSeen,
+  upsertDesktopClientSession,
   upsertDesktopDevice,
   type DesktopDeviceSlot,
 } from "../services/desktop-session.js";
+import { safeTokenEquals, sha256Hex } from "../utils/crypto.js";
+import { readHeaderValue } from "../utils/http.js";
 import {
+  DESKTOP_BOOTSTRAP_PATH,
   DESKTOP_BOOTSTRAP_SECRET_HEADER,
   DESKTOP_CLIENT_TOKEN_HEADER,
   DESKTOP_DEVICE_ID_HEADER,
   DESKTOP_DEVICE_KEY_HEADER,
+  DESKTOP_DEVICE_REGISTER_PATH,
   DESKTOP_SESSION_ID_HEADER,
   DESKTOP_TRAVEL_TOKEN_HEADER,
+  DESKTOP_TRAVEL_TOKEN_PATH,
   asObject,
   detectRequestLocale,
   getUserById,
@@ -67,7 +71,7 @@ const computeDesktopHwidHmac = (deviceId: string): string =>
 
 export function registerDesktopRoutes(app: express.Express): void {
     app.post(
-      "/api/internal/desktop-client/register",
+      DESKTOP_DEVICE_REGISTER_PATH,
       jsonParser,
       desktopBootstrapLimiter,
       async (req: Request, res: Response) => {
@@ -106,7 +110,7 @@ export function registerDesktopRoutes(app: express.Express): void {
             }),
           );
           if (activeBan) {
-            return sendActiveBanResponse(res, "/api/internal/desktop-client/register", activeBan);
+            return sendActiveBanResponse(res, DESKTOP_DEVICE_REGISTER_PATH, activeBan);
           }
 
           const userAgent =
@@ -239,7 +243,7 @@ export function registerDesktopRoutes(app: express.Express): void {
     );
 
     app.post(
-      "/api/internal/desktop-client/bootstrap",
+      DESKTOP_BOOTSTRAP_PATH,
       jsonParser,
       desktopBootstrapLimiter,
       async (req: Request, res: Response) => {
@@ -301,7 +305,6 @@ export function registerDesktopRoutes(app: express.Express): void {
 
         const ttlSeconds = clampDesktopTokenTtlSec(body.ttlSeconds, env.desktopClientTokenTtlSec);
         const nowMs = Date.now();
-        const expiresAtMs = nowMs + ttlSeconds * 1_000;
         const activeBan = await findActiveBanForSignals(
           buildBanCheckSignalsForRequest(req, {
             userId: validatedDevice?.userId ?? null,
@@ -309,35 +312,27 @@ export function registerDesktopRoutes(app: express.Express): void {
           }),
         );
         if (activeBan) {
-          return sendActiveBanResponse(res, "/api/internal/desktop-client/bootstrap", activeBan);
+          return sendActiveBanResponse(res, DESKTOP_BOOTSTRAP_PATH, activeBan);
         }
 
-        cleanupDesktopClientSessionsIfNeeded(nowMs);
-        const existingSession = desktopClientSessions.get(sessionId);
-        desktopClientSessions.set(sessionId, {
+        const clientSession = upsertDesktopClientSession({
           sessionId,
           deviceId,
-          userId: validatedDevice?.userId ?? existingSession?.userId ?? null,
-          tokenHash: sha256Hex(token),
-          previousTokenHash: existingSession?.tokenHash ?? null,
-          previousTokenValidUntilMs:
-            nowMs + Math.max(15_000, env.desktopClientTokenRefreshSkewSec * 1_000),
-          expiresAtMs,
-          createdAtMs: existingSession?.createdAtMs ?? nowMs,
-          updatedAtMs: nowMs,
+          userId: validatedDevice?.userId ?? null,
+          token,
+          ttlSeconds,
+          refreshSkewSec: env.desktopClientTokenRefreshSkewSec,
+          nowMs,
         });
         if (validatedDevice) {
           const userAgent =
             typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : "unknown";
-          await db
-            .update(desktopAuthDevice)
-            .set({
-              lastSeenAt: new Date(nowMs),
-              lastSeenIp: getClientIp(req),
-              lastSeenUserAgent: userAgent,
-              updatedAt: new Date(nowMs),
-            })
-            .where(eq(desktopAuthDevice.id, validatedDevice.id));
+          await touchDesktopDeviceSeen({
+            deviceRowId: validatedDevice.id,
+            ipAddress: getClientIp(req),
+            userAgent,
+            nowMs,
+          });
         }
 
         return res.status(200).json({
@@ -346,7 +341,7 @@ export function registerDesktopRoutes(app: express.Express): void {
           deviceId,
           ttlSeconds,
           refreshAfterSeconds: Math.max(30, ttlSeconds - env.desktopClientTokenRefreshSkewSec),
-          expiresAt: new Date(expiresAtMs).toISOString(),
+          expiresAt: new Date(clientSession.expiresAtMs).toISOString(),
         });
       },
     );
@@ -386,39 +381,20 @@ export function registerDesktopRoutes(app: express.Express): void {
         return;
       }
 
-      cleanupDesktopClientSessionsIfNeeded();
-      const record = desktopClientSessions.get(sessionId);
-      const nowMs = Date.now();
-      if (!record || record.deviceId !== deviceId || record.expiresAtMs <= nowMs) {
-        if (record && record.expiresAtMs <= nowMs) {
-          desktopClientSessions.delete(sessionId);
-        }
+      const sessionLookup = readDesktopClientSession({
+        sessionId,
+        deviceId,
+        token,
+      });
+      if (!sessionLookup.ok) {
         sendAuthError(res, 403, {
           error: tServer(resolveLocaleFromHeaders(req.headers), "auth.desktop.clientSessionInvalid"),
           code: "DESKTOP_CLIENT_SESSION_INVALID",
         });
         return;
       }
+      const record = sessionLookup.record;
 
-      const providedTokenHash = sha256Hex(token);
-      const currentTokenMatches = safeTokenEquals(record.tokenHash, providedTokenHash);
-      const previousTokenMatches =
-        typeof record.previousTokenHash === "string" &&
-        record.previousTokenValidUntilMs > nowMs &&
-        safeTokenEquals(record.previousTokenHash, providedTokenHash);
-      if (!currentTokenMatches && !previousTokenMatches) {
-        sendAuthError(res, 403, {
-          error: tServer(resolveLocaleFromHeaders(req.headers), "auth.desktop.clientSessionInvalid"),
-          code: "DESKTOP_CLIENT_SESSION_INVALID",
-        });
-        return;
-      }
-
-      if (record.previousTokenValidUntilMs <= nowMs) {
-        record.previousTokenHash = null;
-        record.previousTokenValidUntilMs = 0;
-      }
-      record.updatedAtMs = nowMs;
       const activeBan = await findActiveBanForSignals(
         buildBanCheckSignalsForRequest(req, {
           userId: record.userId,
@@ -429,7 +405,7 @@ export function registerDesktopRoutes(app: express.Express): void {
         if (record.userId) {
           purgeDesktopClientSessionsForUser(record.userId);
         } else {
-          desktopClientSessions.delete(sessionId);
+          invalidateDesktopClientSession(sessionId);
         }
         sendActiveBanResponse(res, req.path, activeBan);
         return;
@@ -439,7 +415,7 @@ export function registerDesktopRoutes(app: express.Express): void {
     });
 
     app.post(
-      "/api/internal/desktop-client/travel-token",
+      DESKTOP_TRAVEL_TOKEN_PATH,
       jsonParser,
       desktopBootstrapLimiter,
       async (req: Request, res: Response) => {
@@ -483,7 +459,7 @@ export function registerDesktopRoutes(app: express.Express): void {
             }),
           );
           if (activeBan) {
-            return sendActiveBanResponse(res, "/api/internal/desktop-client/travel-token", activeBan);
+            return sendActiveBanResponse(res, DESKTOP_TRAVEL_TOKEN_PATH, activeBan);
           }
 
           const primaryDevice = await getDesktopDeviceByUserAndSlot(

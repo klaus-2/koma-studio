@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
 import {
+  getDefaultFreeProviderDraft,
+  getFreeProvidersForStage,
+} from '../../../models/freeAiProviderCatalog';
+import type { FreeProviderDraftMap } from '../../../types/dashboard.types';
+import { toFreeProviderDraftKey } from '../../../utils/dashboard.utils';
+import {
   createEmptyCustomLlmDraft,
   loadPersistedLlmSettings,
   type CustomLlmProfile,
@@ -13,6 +19,24 @@ import {
 
 type PendingCustomSelections = Record<CustomLlmStage, string | null>;
 type CustomLlmDraftsByStage = Record<CustomLlmStage, CustomLlmProfileDraft>;
+
+const buildInitialFreeProviderDrafts = (): FreeProviderDraftMap => {
+  const seed: FreeProviderDraftMap = {};
+  const providers = [
+    ...getFreeProvidersForStage('translation'),
+    ...getFreeProvidersForStage('ocr'),
+    ...getFreeProvidersForStage('clean'),
+  ];
+  for (const provider of providers) {
+    for (const stage of ['translation', 'ocr', 'clean'] as const) {
+      if (provider.stages[stage]) {
+        seed[toFreeProviderDraftKey(stage, provider.id)] =
+          getDefaultFreeProviderDraft(provider.id, stage);
+      }
+    }
+  }
+  return seed;
+};
 
 interface LlmProvidersStore {
   /* ── LLM request settings (persisted) ── */
@@ -30,6 +54,9 @@ interface LlmProvidersStore {
 
   /* ── Per-stage profile editor drafts ── */
   customLlmDrafts: CustomLlmDraftsByStage;
+
+  /* ── Free-provider drafts (captured by workspace persistence) ── */
+  freeProviderDrafts: FreeProviderDraftMap;
 
   setLlmSettings: (
     llmSettings:
@@ -59,6 +86,11 @@ interface LlmProvidersStore {
       | CustomLlmDraftsByStage
       | ((prev: CustomLlmDraftsByStage) => CustomLlmDraftsByStage),
   ) => void;
+  setFreeProviderDrafts: (
+    drafts:
+      | FreeProviderDraftMap
+      | ((prev: FreeProviderDraftMap) => FreeProviderDraftMap),
+  ) => void;
 }
 
 export const useLlmProvidersStore = create<LlmProvidersStore>()(
@@ -82,6 +114,7 @@ export const useLlmProvidersStore = create<LlmProvidersStore>()(
         ocr: createEmptyCustomLlmDraft(),
         clean: createEmptyCustomLlmDraft(),
       },
+      freeProviderDrafts: buildInitialFreeProviderDrafts(),
 
       setLlmSettings: (llmSettings) =>
         set((state) => ({
@@ -137,6 +170,13 @@ export const useLlmProvidersStore = create<LlmProvidersStore>()(
         set((state) => ({
           customLlmDrafts:
             typeof drafts === 'function' ? drafts(state.customLlmDrafts) : drafts,
+        })),
+      setFreeProviderDrafts: (drafts) =>
+        set((state) => ({
+          freeProviderDrafts:
+            typeof drafts === 'function'
+              ? drafts(state.freeProviderDrafts)
+              : drafts,
         })),
     }),
     { name: 'llm-providers-store' },

@@ -1,8 +1,10 @@
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { db } from "../db/client.js";
 import { desktopAuthDevice, desktopTravelToken } from "../db/schema.js";
+import { safeTokenEquals, sha256Hex } from "../utils/crypto.js";
+import { parsePositiveInteger } from "../utils/http.js";
 import { tServer } from "./server-i18n.js";
 
 /**
@@ -42,40 +44,12 @@ export interface DesktopClientSessionRecord {
   updatedAtMs: number;
 }
 
-export const desktopClientSessions = new Map<string, DesktopClientSessionRecord>();
+const desktopClientSessions = new Map<string, DesktopClientSessionRecord>();
 
 let lastDesktopSessionCleanupAtMs = 0;
 
 /** Getter-only view of the mutable cleanup timestamp (no live re-export). */
 export const getLastDesktopSessionCleanupAtMs = (): number => lastDesktopSessionCleanupAtMs;
-
-export const readHeaderValue = (value: string | string[] | undefined): string | null => {
-  const normalized = Array.isArray(value) ? value[0] : value;
-  if (typeof normalized !== "string") {
-    return null;
-  }
-
-  const trimmed = normalized.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
-
-export const parsePositiveInteger = (value: unknown, fallback: number): number => {
-  const numberValue = typeof value === "number" ? value : Number(value);
-  if (!Number.isInteger(numberValue) || numberValue <= 0) {
-    return fallback;
-  }
-  return numberValue;
-};
-
-export const safeTokenEquals = (left: string, right: string): boolean => {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  if (leftBuffer.length !== rightBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(leftBuffer, rightBuffer);
-};
 
 export const clampDesktopTokenTtlSec = (value: unknown, fallback: number): number => {
   const ttl = parsePositiveInteger(value, fallback);
@@ -223,9 +197,6 @@ export const upsertDesktopDevice = async (params: {
   return updated;
 };
 
-export const sha256Hex = (payload: string | Buffer): string =>
-  createHash("sha256").update(payload).digest("hex");
-
 export const consumeDesktopTravelToken = async (params: {
   userId: string;
   token: string;
@@ -311,6 +282,108 @@ export const purgeDesktopClientSessionsForUser = (userId: string): void => {
       desktopClientSessions.delete(sessionId);
     }
   }
+};
+
+export interface DesktopClientSessionUpsertInput {
+  readonly sessionId: string;
+  readonly deviceId: string;
+  readonly userId: string | null;
+  readonly token: string;
+  readonly ttlSeconds: number;
+  readonly refreshSkewSec: number;
+  readonly nowMs?: number;
+}
+
+/**
+ * Creates or refreshes the in-memory session record. The previous token stays
+ * valid for the refresh skew so an in-flight request can finish after the
+ * client rotates its token.
+ */
+export const upsertDesktopClientSession = (
+  input: DesktopClientSessionUpsertInput,
+): DesktopClientSessionRecord => {
+  const nowMs = input.nowMs ?? Date.now();
+  cleanupDesktopClientSessionsIfNeeded(nowMs);
+  const existing = desktopClientSessions.get(input.sessionId);
+  const record: DesktopClientSessionRecord = {
+    sessionId: input.sessionId,
+    deviceId: input.deviceId,
+    userId: input.userId ?? existing?.userId ?? null,
+    tokenHash: sha256Hex(input.token),
+    previousTokenHash: existing?.tokenHash ?? null,
+    previousTokenValidUntilMs:
+      nowMs + Math.max(15_000, input.refreshSkewSec * 1_000),
+    expiresAtMs: nowMs + input.ttlSeconds * 1_000,
+    createdAtMs: existing?.createdAtMs ?? nowMs,
+    updatedAtMs: nowMs,
+  };
+  desktopClientSessions.set(input.sessionId, record);
+  return record;
+};
+
+export type DesktopClientSessionLookup =
+  | { readonly ok: true; readonly record: DesktopClientSessionRecord }
+  | { readonly ok: false };
+
+/**
+ * Validates a session header triple (session id, device id, token), accepting
+ * the previous token while it is inside the refresh skew. Expired records are
+ * dropped on read.
+ */
+export const readDesktopClientSession = (input: {
+  readonly sessionId: string;
+  readonly deviceId: string;
+  readonly token: string;
+  readonly nowMs?: number;
+}): DesktopClientSessionLookup => {
+  const nowMs = input.nowMs ?? Date.now();
+  cleanupDesktopClientSessionsIfNeeded(nowMs);
+  const record = desktopClientSessions.get(input.sessionId);
+  if (!record || record.deviceId !== input.deviceId || record.expiresAtMs <= nowMs) {
+    if (record && record.expiresAtMs <= nowMs) {
+      desktopClientSessions.delete(input.sessionId);
+    }
+    return { ok: false };
+  }
+
+  const providedTokenHash = sha256Hex(input.token);
+  const currentTokenMatches = safeTokenEquals(record.tokenHash, providedTokenHash);
+  const previousTokenMatches =
+    typeof record.previousTokenHash === "string" &&
+    record.previousTokenValidUntilMs > nowMs &&
+    safeTokenEquals(record.previousTokenHash, providedTokenHash);
+  if (!currentTokenMatches && !previousTokenMatches) {
+    return { ok: false };
+  }
+
+  if (record.previousTokenValidUntilMs <= nowMs) {
+    record.previousTokenHash = null;
+    record.previousTokenValidUntilMs = 0;
+  }
+  record.updatedAtMs = nowMs;
+  return { ok: true, record };
+};
+
+export const invalidateDesktopClientSession = (sessionId: string): void => {
+  desktopClientSessions.delete(sessionId);
+};
+
+export const touchDesktopDeviceSeen = async (params: {
+  readonly deviceRowId: string;
+  readonly ipAddress: string;
+  readonly userAgent: string;
+  readonly nowMs?: number;
+}): Promise<void> => {
+  const nowMs = params.nowMs ?? Date.now();
+  await db
+    .update(desktopAuthDevice)
+    .set({
+      lastSeenAt: new Date(nowMs),
+      lastSeenIp: params.ipAddress,
+      lastSeenUserAgent: params.userAgent,
+      updatedAt: new Date(nowMs),
+    })
+    .where(eq(desktopAuthDevice.id, params.deviceRowId));
 };
 
 /* ── Slot machine (extracted pure decision from routes/desktop.ts register) ── */

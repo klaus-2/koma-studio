@@ -26,10 +26,11 @@ try:
     from contextlib import ExitStack
 
     from models.ocr.base_ocr import OCRInputRegion, OCRTextResult
-    from models.ocr import stage as ocr_stage
+    from pipelines import ocr_stage
     from models.translation.base_translator import TranslationInputRegion, TranslationTextResult
     from models.translation import stage as translation_stage
     from pipelines.batch import stages as stages_module
+    from pipelines import detection_seeds as detection_seeds_module
     from pipelines.cache_manager import CacheManager
     from routers import ocr as ocr_router
     from routers import pipeline as pipeline_router
@@ -203,6 +204,15 @@ class PipelineBatchRouteTests(unittest.TestCase):
                 get_detector=lambda **_: self.fake_detector,
                 get_segmenter=lambda **_: self.fake_segmenter,
                 get_inpainter=lambda **_: self.fake_inpainter,
+            )
+        )
+        # Seed detection (batch OCR without supplied seeds) resolves the
+        # detector through the shared detection_seeds module.
+        stack.enter_context(
+            patch.object(
+                detection_seeds_module,
+                "get_detector",
+                lambda **_: self.fake_detector,
             )
         )
         # Engine resolution lives in the Recognize Text stage module now.

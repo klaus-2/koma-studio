@@ -1,4 +1,17 @@
 import { createHmac, randomBytes } from "node:crypto";
+import {
+  DESKTOP_APP_VERSION_HEADER,
+  DESKTOP_BOOTSTRAP_PATH,
+  DESKTOP_BOOTSTRAP_SECRET_HEADER,
+  DESKTOP_CLIENT_TOKEN_HEADER,
+  DESKTOP_DEVICE_ID_HEADER,
+  DESKTOP_DEVICE_KEY_HEADER,
+  DESKTOP_DEVICE_REGISTER_PATH,
+  DESKTOP_SESSION_ID_HEADER,
+  DESKTOP_TRAVEL_TOKEN_HEADER,
+  DESKTOP_TRAVEL_TOKEN_PATH,
+  DESKTOP_UPDATE_CHANNEL_HEADER,
+} from "@koma/types/desktopSession";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { and, eq, or } from "drizzle-orm";
@@ -66,9 +79,9 @@ import {
   resolvePreferredEmailLocale,
 } from "../services/locale.js";
 import { resolveLocaleFromHeaders, tServer } from "../services/server-i18n.js";
-import { readHeaderValue } from "../services/desktop-session.js";
+import { readHeaderValue } from "../utils/http.js";
 
-export { parsePositiveInteger, purgeDesktopClientSessionsForUser } from "../services/desktop-session.js";
+export { purgeDesktopClientSessionsForUser } from "../services/desktop-session.js";
 import {
   deleteModelReview,
   getModelReviewDetail,
@@ -628,14 +641,19 @@ export const buildAuthenticatedUserResponse = async (
   };
 };
 
-export const DESKTOP_CLIENT_TOKEN_HEADER = "x-desktop-client-token";
-export const DESKTOP_SESSION_ID_HEADER = "x-desktop-session-id";
-export const DESKTOP_DEVICE_ID_HEADER = "x-desktop-device-id";
-export const DESKTOP_APP_VERSION_HEADER = "x-desktop-app-version";
-export const DESKTOP_UPDATE_CHANNEL_HEADER = "x-desktop-update-channel";
-export const DESKTOP_BOOTSTRAP_SECRET_HEADER = "x-desktop-bootstrap-secret";
-export const DESKTOP_DEVICE_KEY_HEADER = "x-desktop-device-key";
-export const DESKTOP_TRAVEL_TOKEN_HEADER = "x-desktop-travel-token";
+export {
+  DESKTOP_APP_VERSION_HEADER,
+  DESKTOP_BOOTSTRAP_PATH,
+  DESKTOP_BOOTSTRAP_SECRET_HEADER,
+  DESKTOP_CLIENT_TOKEN_HEADER,
+  DESKTOP_DEVICE_ID_HEADER,
+  DESKTOP_DEVICE_KEY_HEADER,
+  DESKTOP_DEVICE_REGISTER_PATH,
+  DESKTOP_SESSION_ID_HEADER,
+  DESKTOP_TRAVEL_TOKEN_HEADER,
+  DESKTOP_TRAVEL_TOKEN_PATH,
+  DESKTOP_UPDATE_CHANNEL_HEADER,
+};
 
 export const ADMIN_WEB_CLIENT_HEADER = "x-koma-admin-client";
 
@@ -693,10 +711,10 @@ export const shouldBypassDesktopClientEnforcement = (requestPath: string): boole
     return true;
   }
 
-  if (requestPath.startsWith("/api/internal/desktop-client/bootstrap")) {
+  if (requestPath.startsWith(DESKTOP_BOOTSTRAP_PATH)) {
     return true;
   }
-  if (requestPath.startsWith("/api/internal/desktop-client/register")) {
+  if (requestPath.startsWith(DESKTOP_DEVICE_REGISTER_PATH)) {
     return true;
   }
 

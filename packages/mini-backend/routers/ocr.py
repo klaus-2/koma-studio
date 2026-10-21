@@ -1,5 +1,5 @@
 """OCR endpoints. The local recognition path exists exactly once
-(``models.ocr.stage.run_cached_ocr``); the GPU→CPU retry wraps it instead of
+(``pipelines.ocr_stage.run_cached_ocr``); the GPU→CPU retry wraps it instead of
 copying it."""
 
 from __future__ import annotations
@@ -30,7 +30,8 @@ from models.errors import (
     ModelNotInstalledError,
 )
 from models.ocr.factory import list_ocr_models
-from models.ocr.stage import CachedOcrRequest, CachedOcrResult, run_cached_ocr
+from pipelines.detection_seeds import detect_text_seeds
+from pipelines.ocr_stage import CachedOcrRequest, CachedOcrResult, run_cached_ocr
 from pipelines.batch.records import (
     OCRRecord,
     OCRSeed,
@@ -38,7 +39,6 @@ from pipelines.batch.records import (
     normalize_stage_source,
     optional_float,
 )
-from pipelines.batch.stages import detect_text_seeds
 from pipelines.cache_manager import get_pipeline_cache
 from pipelines.ocr_enrichment import enrich_ocr_record_with_gradient
 from routers._boundary import execution_error_to_http

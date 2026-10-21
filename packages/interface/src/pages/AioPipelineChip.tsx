@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useThemeStore } from '@koma/ui/stores/theme-store';
+import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 import { AioPipelineChipNoir } from './aio-noir/AioPipelineChipNoir';
 import type { StageTabKey } from './AioStageTabBar.types';
 
@@ -46,8 +46,6 @@ const AioPipelineChipClassic = memo(function AioPipelineChipClassic({
   );
 });
 
-export const AioPipelineChip = memo(function AioPipelineChip(props: AioPipelineChipProps) {
-  const family = useThemeStore((s) => s.family);
-
-  return family === 'noir' ? <AioPipelineChipNoir {...props} /> : <AioPipelineChipClassic {...props} />;
-});
+export const AioPipelineChip = memo(
+  createFamilyComponent(AioPipelineChipClassic, AioPipelineChipNoir),
+);

@@ -9,7 +9,7 @@ use std::{
 };
 
 use futures_util::StreamExt;
-use reqwest::{Client, Method, Response, redirect::Policy};
+use reqwest::{Client, Response, redirect::Policy};
 use serde::Serialize;
 use serde_json::{Value, json};
 use tauri::{AppHandle, Manager, Runtime};
@@ -295,21 +295,6 @@ fn sanitize_remote_message(value: &str) -> String {
         "Desktop API request failed.".to_string()
     } else {
         normalized
-    }
-}
-
-/// Explicit allowlist: the frontend never decides which HTTP methods this
-/// process emits (blocks TRACE/CONNECT and arbitrary custom methods).
-pub fn method(name: &str) -> AppResult<Method> {
-    match name.trim().to_ascii_uppercase().as_str() {
-        "GET" => Ok(Method::GET),
-        "POST" => Ok(Method::POST),
-        "PUT" => Ok(Method::PUT),
-        "PATCH" => Ok(Method::PATCH),
-        "DELETE" => Ok(Method::DELETE),
-        "HEAD" => Ok(Method::HEAD),
-        "OPTIONS" => Ok(Method::OPTIONS),
-        _ => Err(AppError::invalid_input("Invalid HTTP method.")),
     }
 }
 

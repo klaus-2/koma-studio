@@ -1,4 +1,6 @@
-export type AppRole = "user" | "moderator" | "admin" | "owner";
+import type { AppRole as DesktopSessionAppRole } from "@koma/types/desktopSession";
+
+export type AppRole = DesktopSessionAppRole;
 
 const APP_ROLES: AppRole[] = ["user", "moderator", "admin", "owner"];
 

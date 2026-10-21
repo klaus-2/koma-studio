@@ -615,6 +615,21 @@ const restoreProcessedBaseMap = async (
   return Object.fromEntries(entries);
 };
 
+// Documents written before the asset-map split can carry the processed-base
+// dataUrls inline; the frozen document type only declares the asset field.
+type LegacyTranslatorProcessedBaseDocument = {
+  translatorProcessedBaseByImage?: Record<string, string>;
+};
+
+const legacyTranslatorProcessedBaseByImage = (
+  document: WorkspaceDocumentV1,
+): Record<string, string> => {
+  const translator =
+    document.translator as WorkspaceDocumentV1["translator"] &
+      LegacyTranslatorProcessedBaseDocument;
+  return translator.translatorProcessedBaseByImage ?? {};
+};
+
 export const restoreWorkspaceDocument = async (
   payload: WorkspacePackagePayload,
 ): Promise<DashboardWorkspaceRestoreState> => {
@@ -629,6 +644,8 @@ export const restoreWorkspaceDocument = async (
     resolveFile: (assetId) => toFileFromAsset(assetMap, assetId),
     resolveBlob: (assetId) => toBlobFromAsset(assetMap, assetId),
   };
+  const translatorProcessedBaseAssetByImage =
+    document.translator.translatorProcessedBaseAssetByImage;
   const [
     aioManualImageEditsByImage,
     cleanerManualImageEditsByImage,
@@ -639,7 +656,9 @@ export const restoreWorkspaceDocument = async (
     restoreManualImageEditMap(assetMap, document.aio.manualImageEditsByImage),
     restoreManualImageEditMap(assetMap, document.cleaner.manualImageEditsByImage),
     restoreProcessedBaseMap(assetMap, document.cleaner.processedBaseAssetByImage),
-    restoreProcessedBaseMap(assetMap, document.translator.translatorProcessedBaseAssetByImage ?? {}),
+    translatorProcessedBaseAssetByImage
+      ? restoreProcessedBaseMap(assetMap, translatorProcessedBaseAssetByImage)
+      : Promise.resolve(legacyTranslatorProcessedBaseByImage(document)),
     watermarkWorkspaceCodec.toRuntime(document.utility.watermark, codecAssetSource),
   ]);
 

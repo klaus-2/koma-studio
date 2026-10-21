@@ -4,7 +4,7 @@
  * Split out of llm-providers.ts (T10); the entry file keeps the options
  * bridge and re-exports this module.
  */
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { getApiConfig } from '../../../config/api';
 import { useI18n } from '../../../i18n';
@@ -168,24 +168,10 @@ export function useFreeProviderProfiles({
     (s) => s.setCustomLlmProfilesError,
   );
 
-  const [freeProviderDrafts, setFreeProviderDrafts] = useState<FreeProviderDraftMap>(() => {
-    const seed: FreeProviderDraftMap = {};
-    const translationProviders = getFreeProvidersForStage('translation');
-    const ocrProviders = getFreeProvidersForStage('ocr');
-    const cleanProviders = getFreeProvidersForStage('clean');
-    [...translationProviders, ...ocrProviders, ...cleanProviders].forEach((provider) => {
-      if (provider.stages.translation) {
-        seed[toFreeProviderDraftKey('translation', provider.id)] = getDefaultFreeProviderDraft(provider.id, 'translation');
-      }
-      if (provider.stages.ocr) {
-        seed[toFreeProviderDraftKey('ocr', provider.id)] = getDefaultFreeProviderDraft(provider.id, 'ocr');
-      }
-      if (provider.stages.clean) {
-        seed[toFreeProviderDraftKey('clean', provider.id)] = getDefaultFreeProviderDraft(provider.id, 'clean');
-      }
-    });
-    return seed;
-  });
+  const freeProviderDrafts = useLlmProvidersStore((s) => s.freeProviderDrafts);
+  const setFreeProviderDrafts = useLlmProvidersStore(
+    (s) => s.setFreeProviderDrafts,
+  );
 
   const syncFreeProviderDraftsFromProfiles = useCallback(
     (profiles: CustomLlmProfile[]) => {

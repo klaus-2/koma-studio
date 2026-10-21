@@ -953,6 +953,17 @@ enum BackendLogLevel {
 /// stays at error level so genuine tracebacks are never quietly downgraded.
 fn classify_backend_log(raw_text: &str) -> BackendLogLevel {
     let text = raw_text.trim();
+    // The backend's structured logger writes one JSON object per line with
+    // the level inside; uvicorn and plain logging keep the `LEVEL:` prefix.
+    if let Ok(serde_json::Value::Object(record)) = serde_json::from_str::<serde_json::Value>(text) {
+        if let Some(level) = record.get("level").and_then(serde_json::Value::as_str) {
+            return match level.trim().to_ascii_uppercase().as_str() {
+                "DEBUG" | "INFO" => BackendLogLevel::Info,
+                "WARNING" | "WARN" => BackendLogLevel::Warn,
+                _ => BackendLogLevel::Error,
+            };
+        }
+    }
     // uvicorn writes `INFO:     Started server process [123]`, while the
     // backend's own logger writes `INFO:mini-backend:...`; both start with the
     // level name, so a prefix test covers the two shapes.
@@ -1099,6 +1110,23 @@ mod tests {
         // mentioning INFO would be silently downgraded.
         assert_eq!(
             classify_backend_log("RuntimeError: INFO was not found"),
+            BackendLogLevel::Error
+        );
+        // The structured logger writes JSON with the level inside the object.
+        assert_eq!(
+            classify_backend_log(r#"{"ts":"2026-10-21T17:08:53-0300","level":"INFO","msg":"server.starting"}"#),
+            BackendLogLevel::Info
+        );
+        assert_eq!(
+            classify_backend_log(r#"{"level":"WARNING","msg":"slow"}"#),
+            BackendLogLevel::Warn
+        );
+        assert_eq!(
+            classify_backend_log(r#"{"level":"ERROR","msg":"boom"}"#),
+            BackendLogLevel::Error
+        );
+        assert_eq!(
+            classify_backend_log(r#"{"msg":"no level field"}"#),
             BackendLogLevel::Error
         );
     }
