@@ -1109,7 +1109,7 @@ const {
   setupNavigationHardening,
 } = createWindowSecurity({
   authApiUrl,
-  localApiUrl,
+  getLocalApiUrl: () => localApiUrl,
   getLocalApiSessionSecret: () => localApiSessionSecret,
   desktopAuth,
   desktopClientTokenRefreshSkewSec,
@@ -1183,13 +1183,11 @@ const createWindow = async (): Promise<void> => {
     const retryDelayMs = 333;
     for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
       try {
-        const response = await fetch(devServerUrl, {
+        await fetch(devServerUrl, {
           method: "HEAD",
           signal: AbortSignal.timeout(2_500),
         });
-        if (response.ok) {
-          break;
-        }
+        break;
       } catch {
         // Server not ready yet — will retry.
       }

@@ -14,10 +14,12 @@ import { INTERNAL_APP_HOST, INTERNAL_APP_PROTOCOL } from "./app-protocols.ts";
 import { resolveRendererCorsOrigin } from "./app-protocols.ts";
 import type { DesktopAuthSession } from "./desktop-auth-session.ts";
 import { getDesktopUpdateChannel } from "./desktop-session-headers.ts";
+import { shouldAttachLocalSessionHeader } from "./window-security-headers.ts";
 
 interface WindowSecurityDeps {
   authApiUrl: string;
-  localApiUrl: string;
+  // Resolved per request: the URL can be rewritten after this module is constructed.
+  getLocalApiUrl: () => string;
   getLocalApiSessionSecret: () => string;
   desktopAuth: DesktopAuthSession;
   desktopClientTokenRefreshSkewSec: number;
@@ -29,7 +31,7 @@ interface WindowSecurityDeps {
 const createWindowSecurity = (deps: WindowSecurityDeps) => {
   const {
     authApiUrl,
-    localApiUrl,
+    getLocalApiUrl,
     getLocalApiSessionSecret,
     desktopAuth,
     desktopClientTokenRefreshSkewSec,
@@ -37,10 +39,8 @@ const createWindowSecurity = (deps: WindowSecurityDeps) => {
 
   const setupDesktopClientHeaderInjection = (window: BrowserWindow): void => {
     let authOrigin = "";
-    let localOrigin = "";
     try {
       authOrigin = new URL(authApiUrl).origin;
-      localOrigin = new URL(localApiUrl).origin;
     } catch {
       return;
     }
@@ -54,7 +54,6 @@ const createWindowSecurity = (deps: WindowSecurityDeps) => {
         try {
           const targetUrl = new URL(details.url);
           const targetsDesktopSession = targetUrl.origin === authOrigin;
-          const targetsLocalBackend = targetUrl.origin === localOrigin;
           const isPreflightRequest = details.method.toUpperCase() === "OPTIONS";
 
           if (targetsDesktopSession) {
@@ -85,7 +84,11 @@ const createWindowSecurity = (deps: WindowSecurityDeps) => {
           }
 
           const localApiSessionSecret = getLocalApiSessionSecret();
-          if (!isPreflightRequest && localApiSessionSecret && targetsLocalBackend) {
+          if (
+            !isPreflightRequest &&
+            localApiSessionSecret &&
+            shouldAttachLocalSessionHeader(details.url, getLocalApiUrl())
+          ) {
             details.requestHeaders[LOCAL_API_SESSION_HEADER] = localApiSessionSecret;
           }
         } catch {
