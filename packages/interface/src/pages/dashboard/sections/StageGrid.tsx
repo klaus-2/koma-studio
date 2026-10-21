@@ -9,7 +9,6 @@ import DashboardSpecialModeStage from '../../../components/dashboard/DashboardSp
 import DashboardStageGrid from '../../../components/dashboard/DashboardStageGrid';
 import DashboardEmptyStage from '../../../components/dashboard/DashboardEmptyStage';
 import { PipelineStageRow } from '../../../components/dashboard/PipelineStageRow';
-import { TranslatorVisualStageItem } from '../../../components/dashboard/TranslatorVisualStageItem';
 import { CleanerStageItem } from '../../../components/dashboard/CleanerStageItem';
 import { TypesetterStageItem } from '../../../components/dashboard/TypesetterStageItem';
 
@@ -728,30 +727,35 @@ export default function DashboardStageSection({
 
       if (mode === 'translator' && translatorWorkspaceMode === 'visual') {
         return (
-          <TranslatorVisualStageItem
-            img={img}
-            index={index}
-            translatorRunMetaByImage={translatorRunMetaByImage}
-            translatorDetectionsByImage={translatorDetectionsByImage}
-            translatorSelectedRegionByImage={translatorSelectedRegionByImage}
-            resolvedActiveId={resolvedActiveId}
-            resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKind}
-            segmentBrushSize={segmentBrushSize}
-            translationNotesEnabled={translationNotesEnabled}
-            viewMode={viewMode}
-            zoom={zoom}
-            getPreviewSrc={getPreviewSrc}
-            onSelect={(id) => setActiveId(id)}
-            onSelectRegion={(imageId, regionId) =>
-              selectTranslatorRegionForImage(imageId, regionId)
-            }
-            onRegionsChange={(imageId, nextRegions, selectedRegionIdOverride) =>
-              updateTranslatorRegionsForImage(
-                imageId,
-                nextRegions,
-                selectedRegionIdOverride,
-              )
-            }
+          <PipelineStageRow
+            kind="translator"
+            props={{
+              img,
+              index,
+              translatorRunMetaByImage,
+              translatorDetectionsByImage,
+              translatorSelectedRegionByImage,
+              resolvedActiveId,
+              resolvedAioAreaSelectionShapeKind,
+              segmentBrushSize,
+              translationNotesEnabled,
+              viewMode,
+              zoom,
+              getPreviewSrc,
+              onSelect: (id: string) => setActiveId(id),
+              onSelectRegion: (imageId: string, regionId: string | null) =>
+                selectTranslatorRegionForImage(imageId, regionId),
+              onRegionsChange: (
+                imageId: string,
+                nextRegions: Parameters<typeof updateTranslatorRegionsForImage>[1],
+                selectedRegionIdOverride?: string | null,
+              ) =>
+                updateTranslatorRegionsForImage(
+                  imageId,
+                  nextRegions,
+                  selectedRegionIdOverride,
+                ),
+            }}
           />
         );
       }
