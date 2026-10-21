@@ -3,7 +3,7 @@
 //
 //   import "./register-electron-bridge";
 //
-// Bridge: window.desktop/window.updater (preload v1) — the contract payload is
+// Bridge: window.desktop (preload v1) — the contract payload is
 // the format the v1 main process already reads (pass-through, no normalization).
 // Auth adapter v1: auth-disabled mode (VITE_AUTH_DISABLED / runtimeConfig.
 // authDisabled) is exclusive to this shell.
@@ -40,7 +40,6 @@ type ElectronUpdaterSync = {
 declare global {
   interface Window {
     desktop?: ElectronDesktop & Record<string, unknown>;
-    updater?: Record<string, (...args: unknown[]) => Promise<unknown>>;
     updaterSync?: ElectronUpdaterSync;
   }
 }
@@ -63,9 +62,6 @@ const FALLBACK_RUNTIME_CONFIG = {
 setDesktopBridgeProvider({
   get desktop() {
     return electronDesktop();
-  },
-  get updater() {
-    return (typeof window !== "undefined" ? window.updater : null) ?? null;
   },
   get updaterSync() {
     return electronUpdaterSync();

@@ -15,7 +15,6 @@ import { SessionTimeout } from "@koma/auth/SessionTimeout";
 import { PageTransition } from "./components/PageTransition";
 import { usePageTransition } from "./hooks/usePageTransition";
 import { useDiscordRPC } from "./hooks/useDiscordRPC";
-import { useDesktopDeepLink } from "./hooks/useDesktopDeepLink";
 import { useI18n } from "./i18n";
 import {
   type RoutePath,
@@ -221,7 +220,6 @@ const AppShell = () => {
     (s: { family: import("@koma/ui/stores/theme-store").KomaThemeFamily }) => s.family,
   );
   const discord = useDiscordRPC(user);
-  useDesktopDeepLink();
 
   useEffect(() => {
     applyTheme(theme, themeFamily);

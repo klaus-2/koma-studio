@@ -2,9 +2,10 @@
  * Desktop env / protected runtime-config resolution.
  */
 import { app } from "electron";
-import { createDecipheriv } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+
+import { decodeProtectedConfig } from "./runtime-config-decode.ts";
 
 let desktopIsDev = false;
 
@@ -46,49 +47,6 @@ const readValueFromEnvFile = (filePath: string, key: string): string | null => {
   return null;
 };
 
-// AES-256 key fragments for runtime-config decryption (recombined at runtime, obfuscated at build time)
-// Fragments stored in scrambled order — reassembled via _rco index map
-const _rck: string[] = [
-  "8fbd7712", // fragment index 4
-  "331225c7", // fragment index 0
-  "9b5684f4", // fragment index 7
-  "868ff43e", // fragment index 1
-  "d55fe1ba", // fragment index 5
-  "9783e807", // fragment index 2
-  "7126d4d6", // fragment index 6
-  "37c1fc2a", // fragment index 3
-];
-const _rco = [1, 3, 5, 7, 0, 4, 6, 2]; // reassembly order
-
-const decodeProtectedRuntimeConfig = (
-  parsed: Record<string, unknown>,
-): Record<string, string> => {
-  const version = parsed._v as number | undefined;
-  const key = Buffer.from(_rco.map((i) => _rck[i]!).join(""), "hex");
-
-  if (version === 2) {
-    const cfg = parsed as { _d: string; _iv: string; _tag: string };
-    const iv = Buffer.from(cfg._iv, "hex");
-    const encrypted = Buffer.from(cfg._d, "base64");
-    const authTag = Buffer.from(cfg._tag, "hex");
-
-    const decipher = createDecipheriv("aes-256-gcm", key, iv);
-    decipher.setAuthTag(authTag);
-    let decrypted = decipher.update(encrypted);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return JSON.parse(decrypted.toString("utf-8"));
-  }
-
-  // v1 XOR fallback (legacy configs)
-  const cfg = parsed as { _d: string; _k: number };
-  const xored = Buffer.from(cfg._d, "base64");
-  for (let i = 0; i < xored.length; i++) {
-    xored[i]! ^= cfg._k;
-  }
-  const json = Buffer.from(xored.toString("utf-8"), "base64").toString("utf-8");
-  return JSON.parse(json);
-};
-
 const readRuntimeConfigFile = (filePath: string): Record<string, string> | null => {
   if (!fs.existsSync(filePath)) {
     return null;
@@ -103,7 +61,7 @@ const readRuntimeConfigFile = (filePath: string): Record<string, string> | null 
 
     const maybeProtected = parsed as Record<string, unknown>;
     if (maybeProtected._protected === true && typeof maybeProtected._d === "string") {
-      return decodeProtectedRuntimeConfig(maybeProtected);
+      return decodeProtectedConfig(maybeProtected);
     }
 
     const normalized: Record<string, string> = {};

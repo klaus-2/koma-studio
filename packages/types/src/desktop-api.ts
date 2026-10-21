@@ -2,9 +2,6 @@ import type {
   MiniBackendRuntimeListener,
   ModelManagerListener,
   MiniBackendRuntimeStatePayload,
-  UpdaterEventName,
-  UpdaterListener,
-  UpdaterStatusPayload,
 } from "./desktop-events";
 import type { UpdaterSyncLogListener } from "./updaterSync";
 import type {
@@ -483,19 +480,7 @@ export const desktopCommandChannels = {
   },
 } as const;
 
-export const updaterCommandChannels = {
-  check: "updater_check",
-  download: "updater_download_incremental",
-  install: "updater_apply",
-  rollback: "updater_rollback",
-  postpone: "updater_postpone",
-  getStatus: "updater:get-status",
-  setChannel: "updater:set-channel",
-  setAutoInstall: "updater:set-auto-install",
-} as const;
-
 export type DesktopCommandName = LeafValue<typeof desktopCommandChannels>;
-export type UpdaterCommandName = LeafValue<typeof updaterCommandChannels>;
 
 export interface DesktopModelsApi {
   listInstalled(): Promise<DesktopInstalledModelRecord[]>;
@@ -686,20 +671,6 @@ export interface IDesktopBridge {
   api: DesktopApiNamespace;
   images: DesktopImagesApi;
   discordRPC: DesktopDiscordRpcApi;
-}
-
-export interface IUpdaterBridge {
-  check(manifestUrl?: string): Promise<UpdaterStatusPayload>;
-  download(): Promise<UpdaterStatusPayload>;
-  install(): Promise<UpdaterStatusPayload>;
-  rollback(): Promise<UpdaterStatusPayload>;
-  postpone(): Promise<UpdaterStatusPayload>;
-  getStatus(): Promise<UpdaterStatusPayload>;
-  setChannel(channel: "stable" | "beta"): Promise<UpdaterStatusPayload>;
-  setAutoInstall(enabled: boolean): Promise<UpdaterStatusPayload>;
-  on(eventName: UpdaterEventName, listener: UpdaterListener): void;
-  off(eventName: UpdaterEventName, listener: UpdaterListener): void;
-  offAll(eventName?: UpdaterEventName): void;
 }
 
 export interface IUpdaterSyncBridge {

@@ -309,7 +309,7 @@ const protectRuntimeConfig = () => {
 
   const content = fs.readFileSync(configPath, "utf-8");
 
-  // AES-256 key split into fragments (must produce same key as _rck in main.ts and _kp in runtime-config-loader.ts)
+  // AES-256 key split into fragments (must produce same key as the fragments in electron/modules/runtime-config-decode.ts)
   // Different storage order — reassembled via index map
   const keyFragments = [
     "7126d4d6", // index 6

@@ -6,7 +6,6 @@
 
 import type {
   IDesktopBridge,
-  IUpdaterBridge,
   IUpdaterSyncBridge,
   RuntimeConfig,
 } from "@shared/desktop-api";
@@ -17,16 +16,11 @@ import type {
 
 export interface DesktopBridgeProvider {
   desktop: IDesktopBridge | null;
-  updater: IUpdaterBridge | null;
   /** Source-sync bridge (git pull pipeline). Electron-only; null elsewhere. */
   updaterSync?: IUpdaterSyncBridge | null;
   isDesktopRuntime(): boolean;
   getRuntimeConfig(): RuntimeConfig;
   hydrateRuntimeConfig(): Promise<RuntimeConfig>;
-  /** Deep link: launch URL (cold start) or null. Tauri: plugin-deep-link. */
-  getLaunchUrl?(): Promise<string | null>;
-  /** Deep link: warm start — returns an unsubscribe. Electron: no-op for now. */
-  onOpenUrl?(listener: (urls: string[]) => void): () => void;
   /** Low-level: raw invoke/listen (used by tests and rare cases). */
   invokeCommand?<TResponse = unknown>(
     channel: string,
@@ -61,9 +55,6 @@ export const desktopBridge = {
   get desktop(): IDesktopBridge | null {
     return getDesktopBridgeProvider().desktop ?? null;
   },
-  get updater(): IUpdaterBridge | null {
-    return getDesktopBridgeProvider().updater ?? null;
-  },
   get updaterSync(): IUpdaterSyncBridge | null {
     return getDesktopBridgeProvider().updaterSync ?? null;
   },
@@ -71,10 +62,6 @@ export const desktopBridge = {
   getRuntimeConfig: (): RuntimeConfig => getDesktopBridgeProvider().getRuntimeConfig?.() ?? ({} as RuntimeConfig),
   hydrateRuntimeConfig: (): Promise<RuntimeConfig> =>
     getDesktopBridgeProvider().hydrateRuntimeConfig?.() ?? Promise.resolve({} as RuntimeConfig),
-  getLaunchUrl: (): Promise<string | null> =>
-    getDesktopBridgeProvider().getLaunchUrl?.() ?? Promise.resolve(null),
-  onOpenUrl: (listener: (urls: string[]) => void): (() => void) | null =>
-    getDesktopBridgeProvider().onOpenUrl?.(listener) ?? null,
   invokeCommand: <TResponse = unknown>(
     channel: string,
     args?: Record<string, unknown>,

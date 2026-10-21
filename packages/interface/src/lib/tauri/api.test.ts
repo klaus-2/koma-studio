@@ -102,8 +102,6 @@ describe("tauri api wrapper", () => {
 
     try {
       expect(isTauriRuntime()).toBe(true);
-      // Source-only update model: the Tauri shell has no native updater bridge.
-      expect(tauriApi.updater).toBeNull();
       expect(tauriApi.desktop).not.toBeNull();
     } finally {
       if (internals === undefined) {

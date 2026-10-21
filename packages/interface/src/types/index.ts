@@ -92,7 +92,6 @@ export type {
   UpdaterEventPayload,
   UpdaterListener,
 } from "@shared/desktop-events";
-export type { IUpdaterBridge } from "@shared/desktop-api";
 
 
 export type DiscordProcessingMode = "basic" | "advanced";

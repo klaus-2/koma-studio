@@ -32,7 +32,6 @@ import type {
   FontInstallPayload,
   FontUninstallPayload,
   IDesktopBridge,
-  IUpdaterBridge,
   JsonRecord,
   LlmProfilePayload,
   RuntimeConfig,
@@ -534,9 +533,6 @@ const resolveDesktopBridge = (): IDesktopBridge | null => {
 export const tauriApi = {
   get desktop(): IDesktopBridge | null {
     return resolveDesktopBridge();
-  },
-  get updater(): IUpdaterBridge | null {
-    return null;
   },
   isDesktopRuntime: isTauriRuntime,
   getRuntimeConfig: getCachedTauriRuntimeConfig,

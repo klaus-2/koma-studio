@@ -107,7 +107,6 @@ export const runModelDownloadManagerMockTests = async (): Promise<void> => {
 
   setDesktopBridgeProvider({
     desktop: { models: mockDesktopModelsApi } as unknown as IDesktopBridge,
-    updater: null,
   });
 
   try {
