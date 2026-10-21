@@ -34,6 +34,12 @@ type SpecialModeStageProps = ReturnType<typeof useSpecialModeStageProps>['specia
 import { useI18n } from '../../../i18n';
 import { cn } from '../../../utils/dashboard.utils';
 import { EMPTY_REGIONS } from '../../../utils/dashboardRenderUtils';
+import {
+  EMPTY_REGION_MAP,
+  needsAioRegionMaps,
+  needsCleanerRegionMaps,
+  needsTranslatorRegionMaps,
+} from '../../../utils/regionMapGating';
 import { AIO_STAGE_BADGE_LABELS } from '../../../constants/dashboard.constants';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
@@ -209,11 +215,14 @@ export default function DashboardStageSection({
   const { t } = useI18n();
 
   // ── Stage-owned store slices ──
+  const trackAioMaps = needsAioRegionMaps(mode);
+  const trackCleanerMaps = needsCleanerRegionMaps(mode);
+  const trackTranslatorMaps = needsTranslatorRegionMaps(mode);
   const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
+    (s) => (trackAioMaps ? s.aioDetectionsByImage : EMPTY_REGION_MAP),
   );
   const aioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.aioSelectedRegionByImage,
+    (s) => (trackAioMaps ? s.aioSelectedRegionByImage : EMPTY_REGION_MAP),
   );
   const renderDefaultStyle = useRegionEditorStore(
     (s) => s.renderDefaultStyle,
@@ -297,10 +306,10 @@ export default function DashboardStageSection({
   );
   const cleanerRunMetaByImage = useCleanerStore((s) => s.cleanerRunMetaByImage);
   const cleanerDetectionsByImage = useCleanerStore(
-    (s) => s.cleanerDetectionsByImage,
+    (s) => (trackCleanerMaps ? s.cleanerDetectionsByImage : EMPTY_REGION_MAP),
   );
   const cleanerSelectedRegionByImage = useCleanerStore(
-    (s) => s.cleanerSelectedRegionByImage,
+    (s) => (trackCleanerMaps ? s.cleanerSelectedRegionByImage : EMPTY_REGION_MAP),
   );
   const cleanerHealingBusyByImage = useCleanerStore(
     (s) => s.cleanerHealingBusyByImage,
@@ -310,10 +319,10 @@ export default function DashboardStageSection({
     (s) => s.translatorRunMetaByImage,
   );
   const translatorDetectionsByImage = useTranslatorStore(
-    (s) => s.translatorDetectionsByImage,
+    (s) => (trackTranslatorMaps ? s.translatorDetectionsByImage : EMPTY_REGION_MAP),
   );
   const translatorSelectedRegionByImage = useTranslatorStore(
-    (s) => s.translatorSelectedRegionByImage,
+    (s) => (trackTranslatorMaps ? s.translatorSelectedRegionByImage : EMPTY_REGION_MAP),
   );
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
@@ -322,16 +331,16 @@ export default function DashboardStageSection({
   // and the per-item manual-edit getters; these slices keep the grade's
   // re-render cadence in sync with those reads (T4.2).
   const aioManualImageEditsByImage = useManualToolsStore(
-    (s) => s.aioManualImageEditsByImage,
+    (s) => (trackAioMaps ? s.aioManualImageEditsByImage : EMPTY_REGION_MAP),
   );
   const cleanerManualImageEditsByImage = useCleanerStore(
-    (s) => s.cleanerManualImageEditsByImage,
+    (s) => (trackCleanerMaps ? s.cleanerManualImageEditsByImage : EMPTY_REGION_MAP),
   );
   const cleanerProcessedBaseByImage = useCleanerStore(
-    (s) => s.cleanerProcessedBaseByImage,
+    (s) => (trackCleanerMaps ? s.cleanerProcessedBaseByImage : EMPTY_REGION_MAP),
   );
   const translatorProcessedBaseByImage = useTranslatorStore(
-    (s) => s.translatorProcessedBaseByImage,
+    (s) => (trackTranslatorMaps ? s.translatorProcessedBaseByImage : EMPTY_REGION_MAP),
   );
   const downloadItems = useExportStore((s) => s.downloadItems);
 
