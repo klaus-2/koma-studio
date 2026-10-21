@@ -85,6 +85,10 @@ import {
 } from "./modules/mini-backend-packaged.ts";
 import { collectMiniBackendGpuVendors } from "./modules/mini-backend-gpu.ts";
 import {
+  resolveMiniBackendRuntimeManifestUrl,
+  resolveMiniBackendRuntimeUrl,
+} from "./modules/mini-backend-runtime-urls.ts";
+import {
   createMiniBackendProfileResolver,
   normalizeAccelerationProfileOverride,
 } from "./modules/mini-backend-profile.ts";
@@ -1189,7 +1193,7 @@ const getMiniBackendCommand = async (): Promise<MiniBackendCommandSpec> => {
     requestedProfile: profile,
     activeProfile: manifestEntry?.profile ?? "cpu",
     source: "bundled-core",
-    runtimeManifestUrl: resolveMiniBackendRuntimeManifestUrl(),
+    runtimeManifestUrl: resolveMiniBackendRuntimeManifestUrl(miniBackendArtifactsUrl),
     runtimeArchiveUrl: null,
     installDir: path.dirname(binaryPath),
     version: app.getVersion(),
@@ -1330,39 +1334,6 @@ const waitForMiniBackendProcessExit = async (
   }
 };
 
-const normalizeRuntimeArtifactsBaseUrl = (rawUrl: string | null): string | null => {
-  if (!rawUrl) {
-    return null;
-  }
-
-  const trimmed = rawUrl.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
-};
-
-const resolveMiniBackendRuntimeManifestUrl = (): string | null => {
-  const configuredUrl = normalizeRuntimeArtifactsBaseUrl(miniBackendArtifactsUrl);
-  if (!configuredUrl) {
-    return null;
-  }
-
-  if (configuredUrl.toLowerCase().endsWith(".json")) {
-    return configuredUrl;
-  }
-
-  if (configuredUrl.toLowerCase().includes("/mini-backend-artifacts/")) {
-    return `${configuredUrl}latest.json`;
-  }
-
-  return `${configuredUrl}mini-backend-artifacts/latest.json`;
-};
-
-const resolveMiniBackendRuntimeUrl = (manifestUrl: string, relativeUrl: string): string => {
-  return new URL(relativeUrl, manifestUrl).toString();
-};
 
 const computeSha512Base64ForFile = async (filePath: string): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -1376,7 +1347,7 @@ const computeSha512Base64ForFile = async (filePath: string): Promise<string> =>
 const readMiniBackendRuntimeManifest = async (
   { silent = false }: { silent?: boolean } = {},
 ): Promise<MiniBackendRuntimeArtifactManifest | null> => {
-  const manifestUrl = resolveMiniBackendRuntimeManifestUrl();
+  const manifestUrl = resolveMiniBackendRuntimeManifestUrl(miniBackendArtifactsUrl);
   if (!manifestUrl) {
     return null;
   }
@@ -1577,7 +1548,7 @@ const ensureMiniBackendDownloadedRuntime = async (
   }
 
   const manifest = await readMiniBackendRuntimeManifest();
-  const manifestUrl = resolveMiniBackendRuntimeManifestUrl();
+  const manifestUrl = resolveMiniBackendRuntimeManifestUrl(miniBackendArtifactsUrl);
   if (!manifest || !manifestUrl) {
     return null;
   }
