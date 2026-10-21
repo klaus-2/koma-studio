@@ -19,13 +19,11 @@ from core.cloud_registry import get_ocr_model_spec, list_cloud_ocr_models
 from core.config import get_config, normalize_stage_model_key
 from core.device import (
     DeviceInfo,
-    build_cpu_device_info,
     build_device_payload,
     get_device_info,
     release_gpu_memory,
 )
 from core.languages import normalize_language_code
-from core.runtime_errors import build_runtime_error_detail, is_insufficient_memory_error
 from models.detection.factory import get_detector
 from models.errors import (
     InvalidModelSelectionError,
@@ -44,6 +42,7 @@ from pipelines.batch.records import (
 )
 from pipelines.cache_manager import get_pipeline_cache
 from pipelines.ocr_enrichment import enrich_ocr_record_with_gradient
+from routers._boundary import execution_error_to_http
 from routers.uploads import decode_upload, read_upload_limited
 from schemas.ocr import (
     OCRForegroundGradient,
@@ -52,6 +51,7 @@ from schemas.ocr import (
     OCRResponse,
 )
 from services.cloud_ocr import recognize_text_regions as recognize_text_regions_cloud
+from services.device_fallback import ExecutionError, run_with_cpu_fallback
 from utils.ocr_fallback import recognize_with_fallbacks
 
 router = APIRouter(tags=["ocr"])
@@ -164,13 +164,6 @@ def _to_region_result(record: OCRRecord) -> OCRRegionResult:
         ),
     )
 
-
-def _to_http_error(exc: Exception) -> HTTPException:
-    if isinstance(exc, _CLIENT_FIXABLE_MODEL_ERRORS):
-        return HTTPException(status_code=400, detail=str(exc))
-    if isinstance(exc, (RuntimeError, FileNotFoundError)):
-        return HTTPException(status_code=500, detail=str(exc))
-    return HTTPException(status_code=500, detail=f"OCR failed: {exc}")
 
 
 # ---------------------------------------------------------------- detection
@@ -403,52 +396,37 @@ async def recognize_text(
                 status_code=500, detail=f"Failed to detect regions for OCR: {exc}"
             ) from exc
 
-    execution_device = device
-    try:
-        outcome = await _run_local_ocr(
+    async def _run_with_device(
+        op_device: DeviceInfo,
+        use_gpu_flag: bool,
+    ) -> _LocalOcrOutcome:
+        return await _run_local_ocr(
             image=image,
             image_bytes=image_bytes,
             seeds=seeds,
             language=source_language,
             model_key=model_key,
-            has_gpu=effective_has_gpu,
-            device_info=device,
+            has_gpu=use_gpu_flag,
+            device_info=op_device,
         )
-    except Exception as gpu_exc:  # noqa: BLE001 — HTTP boundary; OOM detection needs the raw backend error
-        release_gpu_memory()
-        if not (effective_has_gpu and is_insufficient_memory_error(gpu_exc)):
-            raise _to_http_error(gpu_exc) from gpu_exc
-        cpu_device = build_cpu_device_info(device, fallback_reason="gpu_runtime_out_of_memory")
-        logger.warning("ocr gpu out of memory, retrying on cpu", extra={"model_key": model_key})
-        try:
-            outcome = await _run_local_ocr(
-                image=image,
-                image_bytes=image_bytes,
-                seeds=seeds,
-                language=source_language,
-                model_key=model_key,
-                has_gpu=False,
-                device_info=cpu_device,
-            )
-        except Exception as cpu_exc:  # noqa: BLE001 — HTTP boundary
-            raise HTTPException(
-                status_code=500,
-                detail=build_runtime_error_detail(
-                    error=gpu_exc,
-                    stage="ocr",
-                    model_key=model_key,
-                    used_gpu=True,
-                    cpu_fallback_attempted=True,
-                    cpu_fallback_error=cpu_exc,
-                ),
-            ) from cpu_exc
-        execution_device = cpu_device
-        response.headers["X-Koma-Execution-Fallback"] = "gpu_oom_to_cpu"
-        response.headers["X-Koma-Execution-Stage"] = "ocr"
-        response.headers["X-Koma-Execution-Model"] = outcome.engine_key
+
+    try:
+        execution = await run_with_cpu_fallback(
+            _run_with_device,
+            device=device,
+            use_gpu=effective_has_gpu,
+            stage="ocr",
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ExecutionError as exc:
+        raise execution_error_to_http(exc, model_key=model_key) from exc
+
+    outcome = execution.result
+    response.headers.update(execution.fallback_headers(model_key=outcome.engine_key))
 
     return OCRResponse(
-        device=execution_device.name,
+        device=execution.device.name,
         language=source_language,
         model_used=outcome.engine_key,
         image_width=image.width,
