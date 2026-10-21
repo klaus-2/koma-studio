@@ -26,6 +26,7 @@ try:
     from contextlib import ExitStack
 
     from models.ocr.base_ocr import OCRInputRegion, OCRTextResult
+    from models.ocr import stage as ocr_stage
     from models.translation.base_translator import TranslationInputRegion, TranslationTextResult
     from models.translation import stage as translation_stage
     from pipelines.batch import stages as stages_module
@@ -200,10 +201,13 @@ class PipelineBatchRouteTests(unittest.TestCase):
             patch.multiple(
                 stages_module,
                 get_detector=lambda **_: self.fake_detector,
-                get_ocr_engine=lambda **_: self.fake_ocr,
                 get_segmenter=lambda **_: self.fake_segmenter,
                 get_inpainter=lambda **_: self.fake_inpainter,
             )
+        )
+        # Engine resolution lives in the Recognize Text stage module now.
+        stack.enter_context(
+            patch.object(ocr_stage, "get_ocr_engine", lambda **_: self.fake_ocr)
         )
         stack.enter_context(
             patch.object(

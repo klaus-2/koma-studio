@@ -1,5 +1,6 @@
 """OCR endpoints. The local recognition path exists exactly once
-(``_run_local_ocr``); the GPU→CPU retry wraps it instead of copying it."""
+(``models.ocr.stage.run_cached_ocr``); the GPU→CPU retry wraps it instead of
+copying it."""
 
 from __future__ import annotations
 
@@ -7,7 +8,6 @@ import asyncio
 import json
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from typing import Annotated
 
 import httpx
@@ -31,8 +31,8 @@ from models.errors import (
     ModelConfigurationError,
     ModelNotInstalledError,
 )
-from models.ocr.base_ocr import OCRInputRegion
-from models.ocr.factory import get_ocr_engine, list_ocr_models
+from models.ocr.factory import list_ocr_models
+from models.ocr.stage import CachedOcrRequest, CachedOcrResult, run_cached_ocr
 from pipelines.batch.records import (
     OCRRecord,
     OCRSeed,
@@ -52,7 +52,6 @@ from schemas.ocr import (
 )
 from services.cloud_ocr import recognize_text_regions as recognize_text_regions_cloud
 from services.device_fallback import ExecutionError, run_with_cpu_fallback
-from utils.ocr_fallback import recognize_with_fallbacks
 
 router = APIRouter(tags=["ocr"])
 logger = logging.getLogger(__name__)
@@ -70,12 +69,6 @@ _CLIENT_FIXABLE_MODEL_ERRORS = (
     ModelConfigurationError,
     MissingDependencyError,
 )
-
-
-@dataclass(frozen=True, slots=True)
-class _LocalOcrOutcome:
-    engine_key: str
-    records: list[OCRRecord]  # one per seed, seed order
 
 
 # ------------------------------------------------------------------ parsing
@@ -127,28 +120,6 @@ def _is_cloud_ocr_model(model_key: str | None) -> bool:
 # ----------------------------------------------------------------- records
 
 
-def _to_input_region(seed: OCRSeed) -> OCRInputRegion:
-    b = seed["bbox"]
-    return OCRInputRegion(
-        id=seed["id"],
-        bbox=(b[0], b[1], b[2], b[3]),
-        source=seed["source"],
-        detector_model_key=seed["detector_model_key"],
-    )
-
-
-def _empty_record(seed: OCRSeed, engine_key: str) -> OCRRecord:
-    return OCRRecord(
-        id=seed["id"],
-        bbox=list(seed["bbox"]),
-        text="",
-        score=0.0,
-        source=seed["source"],
-        detector_model_key=seed["detector_model_key"],
-        ocr_model_key=engine_key,
-    )
-
-
 def _to_region_result(record: OCRRecord) -> OCRRegionResult:
     gradient = record.get("foreground_gradient")
     return OCRRegionResult(
@@ -189,87 +160,6 @@ async def _detect_seeds(image: Image.Image, *, has_gpu: bool, default_model: str
             )
         )
     return seeds
-
-
-# -------------------------------------------------------------------- local
-
-
-async def _run_local_ocr(
-    *,
-    image: Image.Image,
-    image_bytes: bytes,
-    seeds: Sequence[OCRSeed],
-    language: str,
-    model_key: str | None,
-    has_gpu: bool,
-    device_info: DeviceInfo,
-) -> _LocalOcrOutcome:
-    engine = get_ocr_engine(
-        language=language, has_gpu=has_gpu, model_key=model_key, device_info=device_info
-    )
-    cache = get_pipeline_cache()
-    cache_key = cache.build_ocr_cache_key(
-        image_bytes=image_bytes, language=language, model_key=engine.key
-    )
-    cached_by_id, missing = cache.get_cached_ocr_for_regions(cache_key, seeds)
-
-    fresh_by_id: dict[str, OCRRecord] = {}
-    if missing:
-        try:
-            results = await recognize_with_fallbacks(
-                engine=engine,
-                image=image,
-                regions=[_to_input_region(seed) for seed in missing],
-                language=language,
-            )
-        finally:
-            release_gpu_memory()
-        raw = [
-            OCRRecord(
-                id=result.id,
-                bbox=[int(v) for v in result.bbox],
-                text=result.text,
-                score=float(result.score),
-                source=normalize_stage_source(result.source),
-                detector_model_key=result.detector_model_key,
-                ocr_model_key=result.model_key or engine.key,
-            )
-            for result in results
-        ]
-        fresh = await asyncio.to_thread(
-            lambda: [enrich_ocr_record_with_gradient(image, record) for record in raw]
-        )
-        fresh_by_id = {record["id"]: record for record in fresh}
-        cache.cache_ocr_results(cache_key, fresh)
-
-    logger.info(
-        "ocr finished",
-        extra={
-            "engine": engine.key,
-            "device": device_info.name,
-            "fresh": len(fresh_by_id),
-            "cached": len(cached_by_id),
-        },
-    )
-
-    def merge() -> list[OCRRecord]:
-        # Fresh and cached records already went through the enricher; only
-        # records with no gradient at all (empty seeds, stale cache entries)
-        # are computed here.
-        merged: list[OCRRecord] = []
-        for seed in seeds:
-            record = fresh_by_id.get(seed["id"])
-            if record is None:
-                record = cached_by_id.get(seed["id"])
-            if record is None:
-                record = _empty_record(seed, engine.key)
-            if "foreground_gradient" in record:
-                merged.append(record)
-            else:
-                merged.append(enrich_ocr_record_with_gradient(image, record))
-        return merged
-
-    return _LocalOcrOutcome(engine_key=engine.key, records=await asyncio.to_thread(merge))
 
 
 # -------------------------------------------------------------------- cloud
@@ -399,15 +289,17 @@ async def recognize_text(
     async def _run_with_device(
         op_device: DeviceInfo,
         use_gpu_flag: bool,
-    ) -> _LocalOcrOutcome:
-        return await _run_local_ocr(
-            image=image,
-            image_bytes=image_bytes,
-            seeds=seeds,
-            language=source_language,
-            model_key=model_key,
-            has_gpu=use_gpu_flag,
-            device_info=op_device,
+    ) -> CachedOcrResult:
+        return await run_cached_ocr(
+            CachedOcrRequest(
+                image=image,
+                image_bytes=image_bytes,
+                seeds=tuple(seeds),
+                language=source_language,
+                model_key=model_key,
+                has_gpu=use_gpu_flag,
+                device_info=op_device,
+            )
         )
 
     try:
