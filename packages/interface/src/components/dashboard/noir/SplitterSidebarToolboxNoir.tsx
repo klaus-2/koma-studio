@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import { SPLITTER_PRESET_LABELS } from '../splitter/splitterUtils';
-import type { SplitterController } from '../splitter/useSplitterController';
+import { useSplitterControllerContext } from '../splitter/SplitterControllerContext';
 import type { SplitStrategy } from '../splitter/types';
 import { AioSection } from '../../../pages/AioSection';
 import KlSlider from '../KlSlider';
@@ -21,7 +21,6 @@ import {
 } from '../../noir-panels/NoirPrimitives';
 
 interface SplitterSidebarToolboxProps {
-  controller: SplitterController;
   imagesCount: number;
   processing: boolean;
   hasQuotaForCurrentBatch?: boolean;
@@ -29,13 +28,13 @@ interface SplitterSidebarToolboxProps {
 }
 
 export const SplitterSidebarToolboxNoir = ({
-  controller,
   imagesCount,
   processing,
   hasQuotaForCurrentBatch = true,
   quotaLimitButtonTitle = '',
 }: SplitterSidebarToolboxProps) => {
   const { t } = useI18n();
+  const controller = useSplitterControllerContext();
 
   const STRATEGIES: Array<{ value: SplitStrategy; label: string; hint: string }> = [
     { value: 'smart', label: t('splitter.strategy.smart'), hint: t('splitter.strategy.smartHint') },

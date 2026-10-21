@@ -194,6 +194,7 @@ import {
   useStitchWorkspace,
   useUtilitySplitterController,
 } from './dashboard/hooks/utility-workspaces';
+import { SplitterControllerProvider } from '../components/dashboard/splitter/SplitterControllerContext';
 import {
   useAuthAccountProcessingStats,
   useDiscordPresence,
@@ -2218,7 +2219,6 @@ export const DashboardPage = ({
   const { specialModeStageProps } = useSpecialModeStageProps({
     stitchBatchPlans,
     stitchSafeFileStem,
-    splitterController,
     ensureVerifiedEmailOrNotify,
     registerDownloads,
     recordProcessedPages,
@@ -2279,6 +2279,7 @@ export const DashboardPage = ({
   const translationNotesEnabled = llmSettings.translation_notes_enabled;
   // ══════════════ RENDER ══════════════
   return (
+    <SplitterControllerProvider controller={splitterController}>
     <DashboardMainLayout
       // ── Stage section (page-derived values forwarded to StageGrid) ──
       resolvedActiveId={resolvedActiveId}
@@ -2516,7 +2517,6 @@ export const DashboardPage = ({
       // ── Utility / enhance panels ──
       stitchBatchPlans={stitchBatchPlans}
       stitchAutoBatchIndexes={stitchAutoBatchIndexes}
-      splitterController={splitterController}
       selectedEnhanceModel={selectedEnhanceModel}
       selectedEnhanceInstallState={selectedEnhanceInstallState}
       filteredEnhanceModels={filteredEnhanceModels}
@@ -2547,6 +2547,7 @@ export const DashboardPage = ({
       enhanceModelManagerOpen={enhanceModelManagerOpen}
       refreshModelState={refreshModelState}
     />
+    </SplitterControllerProvider>
   );
 };
 

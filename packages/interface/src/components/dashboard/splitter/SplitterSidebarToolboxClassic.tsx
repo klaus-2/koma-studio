@@ -9,25 +9,24 @@ import {
 } from 'lucide-react';
 
 import { SPLITTER_PRESET_LABELS } from './splitterUtils';
-import type { SplitterController } from './useSplitterController';
 import type { SplitStrategy } from './types';
 import { AioSection } from '../../../pages/AioSection';
 import KlSlider from '../KlSlider';
 import '../../../pages/UtilityToolsPanel.css';
 import { useI18n } from '../../../i18n';
+import { useSplitterControllerContext } from './SplitterControllerContext';
 
 interface SplitterSidebarToolboxProps {
-  controller: SplitterController;
   imagesCount: number;
   processing: boolean;
 }
 
 export const SplitterSidebarToolboxClassic = ({
-  controller,
   imagesCount,
   processing,
 }: SplitterSidebarToolboxProps) => {
   const { t } = useI18n();
+  const controller = useSplitterControllerContext();
 
   const STRATEGIES: Array<{ value: SplitStrategy; label: string; hint: string }> =
     [

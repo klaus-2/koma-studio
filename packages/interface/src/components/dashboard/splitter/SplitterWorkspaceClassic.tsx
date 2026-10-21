@@ -2,13 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Eye, EyeOff, Layers3, Lock, Plus, RefreshCcw, Scissors, Trash2, Unlock, ZoomIn, ZoomOut } from 'lucide-react';
 import './SplitterWorkspace.css';
 import { buildProcessedCanvasForImage } from './splitterUtils';
-import type { SplitterController } from './useSplitterController';
+import { useSplitterControllerContext } from './SplitterControllerContext';
 import type { SplitterSegmentPreview } from './types';
 import { useI18n } from '../../../i18n';
-
-interface SplitterWorkspaceProps {
-  controller: SplitterController;
-}
 
 interface SegmentThumb {
   id: string;
@@ -46,8 +42,9 @@ const generateSegmentThumbs = async (
   return thumbs;
 };
 
-export const SplitterWorkspaceClassic = ({ controller }: SplitterWorkspaceProps) => {
+export const SplitterWorkspaceClassic = () => {
   const { t } = useI18n();
+  const controller = useSplitterControllerContext();
   const {
     activeImage,
     activeImageState,

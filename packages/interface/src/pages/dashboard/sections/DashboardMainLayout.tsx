@@ -102,7 +102,6 @@ import {
 } from '../hooks/image-collection';
 import {
   useStitchWorkspace,
-  useUtilitySplitterController,
 } from '../hooks/utility-workspaces';
 import { useAuthAccountProcessingStats } from '../hooks/auth-account';
 import {
@@ -163,7 +162,6 @@ type AioPipelineExecutionApi = ReturnType<typeof useAioPipelineExecution>;
 type AioPresetEditorApi = ReturnType<typeof useAioPresetEditor>;
 type CleanerModelSelectionApi = ReturnType<typeof useCleanerModelSelection>;
 type StitchWorkspaceApi = ReturnType<typeof useStitchWorkspace>;
-type SplitterApi = ReturnType<typeof useUtilitySplitterController>;
 type ImageCollectionApi = ReturnType<typeof useDashboardImageCollection>;
 type UploadsApi = ReturnType<typeof useDashboardUploads>;
 type AccountStatsApi = ReturnType<typeof useAuthAccountProcessingStats>;
@@ -436,7 +434,6 @@ export interface DashboardMainLayoutProps {
   /* ── Utility / enhance panels ── */
   stitchBatchPlans: StitchWorkspaceApi['stitchBatchPlans'];
   stitchAutoBatchIndexes: StitchWorkspaceApi['stitchAutoBatchIndexes'];
-  splitterController: SplitterApi['splitterController'];
   selectedEnhanceModel: EnhanceSelectionApi['selectedEnhanceModel'];
   selectedEnhanceInstallState: EnhanceSelectionApi['selectedEnhanceInstallState'];
   filteredEnhanceModels: EnhanceSelectionApi['filteredEnhanceModels'];
@@ -695,7 +692,6 @@ export default memo(function DashboardMainLayout({
   handleUpdateTypographyPreset,
   stitchBatchPlans,
   stitchAutoBatchIndexes,
-  splitterController,
   selectedEnhanceModel,
   selectedEnhanceInstallState,
   filteredEnhanceModels,
@@ -1363,7 +1359,6 @@ export default memo(function DashboardMainLayout({
         <WorkflowSidebarPanelsSection
           stitchBatchPlans={stitchBatchPlans}
           stitchAutoBatchIndexes={stitchAutoBatchIndexes}
-          splitterController={splitterController}
         />
         <InfoModesToolsPanel mode={mode} />
         {/* ─── MELHORAR (ENHANCE) ─── */}

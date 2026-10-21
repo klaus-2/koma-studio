@@ -29,7 +29,6 @@ interface WorkflowSidebarPanelsProps {
   moveLastToNext: () => void;
   pullFirstFromNext: () => void;
   resetPlanning: () => void;
-  splitterController: any;
   processing: boolean;
 }
 
@@ -60,7 +59,6 @@ export default function WorkflowSidebarPanels({
   moveLastToNext,
   pullFirstFromNext,
   resetPlanning,
-  splitterController,
   processing,
 }: WorkflowSidebarPanelsProps) {
   if (mode === 'stitch') {
@@ -98,7 +96,6 @@ export default function WorkflowSidebarPanels({
   if (mode === 'split') {
     return (
       <SplitterSidebarToolbox
-        controller={splitterController}
         imagesCount={imagesCount}
         processing={processing}
       />

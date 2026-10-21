@@ -25,7 +25,7 @@ import { useSplitterStore } from '../../../pages/dashboard/stores/splitter-store
 import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
 
-interface SplitterControllerOptions {
+export interface SplitterControllerOptions {
   images: SplitterImageInput[];
   activeImageId: string | null;
   setActiveImageId: (value: string | null) => void;

@@ -292,7 +292,6 @@ const EMPTY_SPECIAL_MODE_STAGE_PROPS = Object.freeze({});
 export function useSpecialModeStageProps({
   stitchBatchPlans,
   stitchSafeFileStem,
-  splitterController,
   ensureVerifiedEmailOrNotify,
   registerDownloads,
   recordProcessedPages,
@@ -303,7 +302,6 @@ export function useSpecialModeStageProps({
 }: {
   stitchBatchPlans: ReturnType<typeof useStitchWorkspace>['stitchBatchPlans'];
   stitchSafeFileStem: ReturnType<typeof useStitchWorkspace>['stitchSafeFileStem'];
-  splitterController: ReturnType<typeof useUtilitySplitterController>['splitterController'];
   ensureVerifiedEmailOrNotify: EnsureVerifiedEmailOrNotifyFn;
   registerDownloads: RegisterDownloadsFn;
   recordProcessedPages: RecordProcessedPagesFn;
@@ -378,7 +376,6 @@ export function useSpecialModeStageProps({
         setProgress,
         setStatusMessage,
         recordProcessedPages,
-        splitterController,
         outFormat,
         watermarkWorkspaceState: currentWatermarkWorkspaceState,
         optimizerWorkspaceState: currentOptimizerWorkspaceState,
@@ -404,7 +401,6 @@ export function useSpecialModeStageProps({
       setStatusMessage,
       setStitchSelectedBatchIndex,
       setWatermarkWorkspaceState,
-      splitterController,
       stitchAlignMode,
       stitchBackground,
       stitchBatchPlans,

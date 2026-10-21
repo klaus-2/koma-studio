@@ -4,25 +4,18 @@ import {
   pullFirstImageFromNextBatch,
 } from '../../../components/dashboard/stitch/stitchUtils';
 import WorkflowSidebarPanels from '../../../components/dashboard/WorkflowSidebarPanels';
-import type {
-  useStitchWorkspace,
-  useUtilitySplitterController,
-} from '../hooks/utility-workspaces';
+import type { useStitchWorkspace } from '../hooks/utility-workspaces';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { useUtilityStore } from '../stores/utility-store';
 
 type StitchWorkspaceApi = ReturnType<typeof useStitchWorkspace>;
-type UtilitySplitterControllerApi = ReturnType<
-  typeof useUtilitySplitterController
->;
 
 interface WorkflowSidebarPanelsSectionProps {
   /* ── Stitch planning memos + splitter controller (dashboard/hooks/utility-workspaces) ── */
   stitchBatchPlans: StitchWorkspaceApi['stitchBatchPlans'];
   stitchAutoBatchIndexes: StitchWorkspaceApi['stitchAutoBatchIndexes'];
-  splitterController: UtilitySplitterControllerApi['splitterController'];
 }
 
 /**
@@ -34,7 +27,6 @@ interface WorkflowSidebarPanelsSectionProps {
 export default function WorkflowSidebarPanelsSection({
   stitchBatchPlans,
   stitchAutoBatchIndexes,
-  splitterController,
 }: WorkflowSidebarPanelsSectionProps) {
   const { t } = useI18n();
   const mode = useUiShellStore((s) => s.mode);
@@ -129,7 +121,6 @@ export default function WorkflowSidebarPanelsSection({
           'Stitcher plan recalculated automatically.',
         );
       }}
-      splitterController={splitterController}
       processing={processing}
     />
   );

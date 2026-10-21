@@ -90,7 +90,6 @@ const DashboardSpecialModeStage = ({
     setProgress,
     setStatusMessage,
     recordProcessedPages,
-    splitterController,
     outFormat,
     watermarkWorkspaceState,
     optimizerWorkspaceState,
@@ -153,7 +152,7 @@ const DashboardSpecialModeStage = ({
   if (mode === 'split') {
     return (
       <Suspense fallback={<LazyFallback />}>
-        <SplitterWorkspace controller={splitterController} />
+        <SplitterWorkspace />
       </Suspense>
     );
   }
