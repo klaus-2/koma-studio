@@ -191,6 +191,16 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
             { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
           ],
         },
+        workspace_idle: {
+          details: t("discord.presence.workspace.details" as any),
+          state: appName,
+          largeImageText: appName,
+          smallImageText: appName,
+          buttons: [
+            { label: t("discord.presence.button.website" as any), url: "https://koma-studio.site" },
+            { label: t("discord.presence.button.download" as any), url: "https://koma-studio.site/download/windows" },
+          ],
+        },
         aio_pipeline_automatic: {
           details: t("discord.presence.aio.details" as any),
           state: t("discord.presence.mode.automatic" as any),
@@ -423,7 +433,7 @@ export const useDiscordRPC = (user: DiscordDashboardUser): DiscordRpcController 
 
   const setDashboard = useCallback(async (): Promise<void> => {
     if (user) {
-      await setPreset("idle", {
+      await setPreset("workspace_idle", {
         details: t("discord.presence.workspace.details" as any),
         state: toDashboardName(user, t("dashboard.user.defaultName" as any)),
       });

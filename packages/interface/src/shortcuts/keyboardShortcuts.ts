@@ -13,22 +13,9 @@ export {
   normalizeShortcutCombo,
 } from "./keyboardShortcutUtils";
 
-export type ShortcutToolMode =
-  | "aio"
-  | "cleaner"
-  | "typesetter"
-  | "translator"
-  | "raw"
-  | "proofreader"
-  | "stitch"
-  | "split"
-  | "watermark"
-  | "enhance"
-  | "optimizer"
-  | "blogger"
-  | "imgur"
-  | "guides"
-  | "resources";
+import type { ToolMode } from "../types/dashboard.types";
+
+export type ShortcutToolMode = ToolMode;
 
 export type ShortcutSubMode = "auto" | "manual";
 export type ShortcutTranslatorWorkspaceMode = "text" | "visual" | null;

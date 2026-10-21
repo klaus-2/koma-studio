@@ -1,21 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 
-export type ToolMode =
-  | 'aio'
-  | 'cleaner'
-  | 'typesetter'
-  | 'translator'
-  | 'raw'
-  | 'proofreader'
-  | 'stitch'
-  | 'split'
-  | 'watermark'
-  | 'enhance'
-  | 'optimizer'
-  | 'blogger'
-  | 'imgur'
-  | 'guides'
-  | 'resources';
+import type { ToolMode } from '../../types/dashboard.types';
+
+export type { ToolMode };
 
 export type ViewMode = 'paginated' | 'long_strip';
 export type DropdownId = 'production' | 'utils' | 'info' | 'download' | 'user' | null;

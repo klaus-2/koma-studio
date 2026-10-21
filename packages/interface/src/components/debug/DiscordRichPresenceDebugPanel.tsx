@@ -13,6 +13,7 @@ const PRESET_ORDER: DiscordActivityPreset[] = [
   "typesetter_mode",
   "cleaner_redraw_mode",
   "idle",
+  "workspace_idle",
   "raw_provider_mode",
   "proofreader_qc_mode",
   "stitcher_mode",

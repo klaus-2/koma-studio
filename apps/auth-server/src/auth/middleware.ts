@@ -8,6 +8,10 @@ import { user } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { resolveLocaleFromHeaders, tServer } from "../services/server-i18n.js";
 import { isTokenRevoked, isUserTokenRevoked } from "../services/token-blocklist.js";
+import type {
+  AuthServerErrorCode,
+  AuthServerErrorPayload,
+} from "@koma/types/desktopSession";
 
 export interface AuthTokenPayload {
   sub: string;
@@ -42,6 +46,14 @@ const resolveJwtVerificationKeys = (): Secret[] => {
 
   return [env.jwtSecret, ...env.jwtPreviousSecrets];
 };
+
+const sendAuthError = (
+  res: Response,
+  status: number,
+  error: string,
+  code: AuthServerErrorCode,
+): Response =>
+  res.status(status).json({ error, code } satisfies AuthServerErrorPayload);
 
 export const issueAccessToken = (payload: AuthTokenPayload): string =>
   jwt.sign(payload, resolveJwtSigningKey(), {
@@ -83,45 +95,30 @@ export const authenticateBearerToken = async (
   const locale = resolveLocaleFromHeaders(req.headers);
   const raw = req.headers.authorization;
   if (!raw?.startsWith("Bearer ")) {
-    return res.status(401).json({
-      error: tServer(locale, "auth.error.tokenMissing"),
-      code: "AUTH_SESSION_REQUIRED",
-    });
+    return sendAuthError(res, 401, tServer(locale, "auth.error.tokenMissing"), "AUTH_SESSION_REQUIRED");
   }
 
   const token = raw.replace("Bearer ", "").trim();
   if (!token) {
-    return res.status(401).json({
-      error: tServer(locale, "auth.error.tokenMissing"),
-      code: "AUTH_SESSION_REQUIRED",
-    });
+    return sendAuthError(res, 401, tServer(locale, "auth.error.tokenMissing"), "AUTH_SESSION_REQUIRED");
   }
 
   try {
     req.authUser = verifyAccessToken(token);
   } catch {
-    return res.status(401).json({
-      error: tServer(locale, "auth.error.invalidToken"),
-      code: "AUTH_INVALID_TOKEN",
-    });
+    return sendAuthError(res, 401, tServer(locale, "auth.error.invalidToken"), "AUTH_INVALID_TOKEN");
   }
 
   // Check session-level revocation (logout)
   const sessionRevoked = await isTokenRevoked(req.authUser.sessionId);
   if (sessionRevoked) {
-    return res.status(401).json({
-      error: tServer(locale, "auth.error.sessionRevoked"),
-      code: "AUTH_SESSION_REVOKED",
-    });
+    return sendAuthError(res, 401, tServer(locale, "auth.error.sessionRevoked"), "AUTH_SESSION_REVOKED");
   }
 
   // Check user-level revocation (ban, manual revoke)
   const userRevoked = await isUserTokenRevoked(req.authUser.sub);
   if (userRevoked) {
-    return res.status(401).json({
-      error: tServer(locale, "auth.error.sessionRevoked"),
-      code: "AUTH_SESSION_REVOKED",
-    });
+    return sendAuthError(res, 401, tServer(locale, "auth.error.sessionRevoked"), "AUTH_SESSION_REVOKED");
   }
 
   // Check password change — if password was changed after token was issued, reject
@@ -137,10 +134,12 @@ export const authenticateBearerToken = async (
       if (row?.passwordChangedAt) {
         const pwdChangedMs = row.passwordChangedAt.getTime();
         if (tokenIssuedAt * 1000 < pwdChangedMs) {
-          return res.status(401).json({
-            error: tServer(locale, "auth.error.sessionRevoked"),
-            code: "AUTH_SESSION_REVOKED",
-          });
+          return sendAuthError(
+            res,
+            401,
+            tServer(locale, "auth.error.sessionRevoked"),
+            "AUTH_SESSION_REVOKED",
+          );
         }
       }
     } catch {

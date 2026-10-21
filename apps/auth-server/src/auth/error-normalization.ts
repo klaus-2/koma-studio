@@ -1,7 +1,7 @@
 import type { EmailLocale } from "../services/locale.js";
 import { tServer } from "../services/server-i18n.js";
 
-const PROJECT_AUTH_ERROR_MESSAGES = {
+export const PROJECT_AUTH_ERROR_MESSAGES = {
   AUTH_INVALID_CREDENTIALS: "auth.error.invalidCredentials",
   AUTH_USER_ALREADY_EXISTS: "auth.error.userAlreadyExists",
   AUTH_PASSWORD_COMPROMISED: "auth.error.passwordCompromised",

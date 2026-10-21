@@ -13,22 +13,9 @@ import './DashboardTour.css';
 
 type TFunc = ReturnType<typeof useI18n>['t'];
 
-type DashboardTourToolMode =
-  | 'aio'
-  | 'cleaner'
-  | 'typesetter'
-  | 'translator'
-  | 'raw'
-  | 'proofreader'
-  | 'stitch'
-  | 'split'
-  | 'watermark'
-  | 'enhance'
-  | 'optimizer'
-  | 'blogger'
-  | 'imgur'
-  | 'guides'
-  | 'resources';
+import type { ToolMode } from '../types/dashboard.types';
+
+type DashboardTourToolMode = ToolMode;
 
 type DashboardTourSubMode = 'auto' | 'manual';
 

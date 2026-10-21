@@ -159,7 +159,6 @@ export function useDashboardUsageAndPresence({
     t,
     translatorWorkspaceMode,
     modeLabels,
-    userDisplayName,
   ]);
 
   return {

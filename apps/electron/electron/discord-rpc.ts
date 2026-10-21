@@ -12,6 +12,7 @@ export type DiscordActivityPreset =
   | "typesetter_mode"
   | "cleaner_redraw_mode"
   | "idle"
+  | "workspace_idle"
   | "raw_provider_mode"
   | "proofreader_qc_mode"
   | "stitcher_mode"
@@ -167,6 +168,14 @@ const DISCORD_ACTIVITY_PRESETS: Record<DiscordActivityPreset, {
     largeImageText: "KŌMA Studio",
     smallImageKey: "idle",
     smallImageText: "Idle",
+  },
+  workspace_idle: {
+    details: "Workspace",
+    state: "Idle",
+    largeImageKey: "koma_logo",
+    largeImageText: "KŌMA Studio",
+    smallImageKey: "idle",
+    smallImageText: "Workspace",
   },
   raw_provider_mode: {
     details: "Provider Console",
@@ -991,7 +1000,7 @@ export class DiscordRPCService {
   }
 
   async setDashboardActivity(userName: string): Promise<void> {
-    await this.setPresetActivity("idle", {
+    await this.setPresetActivity("workspace_idle", {
       details: "In the Workspace",
       state: toSafeText(userName, 32) ?? "User",
       startTimestamp: APP_START_TIMESTAMP,

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { AioSection } from '../../AioSection';
 import { AioChecklistOption, aioPanelClasses } from './AioRightPanel.skin';
+import { AioRightPanelGpuSection } from './AioRightPanelGpuSection';
 import { AioPipelineChip } from '../../AioPipelineChip';
 import { AioTimelineStep } from '../../AioTimelineStep';
 import { AioStageTabBar, type StageTabDef, type StageTabKey } from '../../AioStageTabBar';
@@ -1371,50 +1372,12 @@ export default memo(function AioRightPanel({
         </div>
 
         {/* GPU per-stage toggles */}
-        <AioSection
-          icon={Zap}
-          title={t('dashboard.aio.gpuStages.title')}
-          defaultOpen={false}
-        >
-          <p className="koma-aio-hint">
-            {t('dashboard.aio.gpuStages.hint')}
-          </p>
-          {!aioHasGpuExecutionProfile && (
-            <p className="koma-aio-hint">
-              {t('dashboard.aio.gpuStages.noActiveProfile')}
-            </p>
-          )}
-          <div className="koma-aio-llm-toggles">
-            <AioChecklistOption
-              noir={noir}
-              checked={aioGpuStages.detectText}
-              disabled={!aioHasGpuExecutionProfile}
-              label={t('dashboard.aio.gpuStages.detect')}
-              onChange={(checked) => updateAioGpuStage('detectText', checked)}
-            />
-            <AioChecklistOption
-              noir={noir}
-              checked={aioGpuStages.recognizeText}
-              disabled={!aioHasGpuExecutionProfile}
-              label={t('dashboard.aio.gpuStages.ocr')}
-              onChange={(checked) => updateAioGpuStage('recognizeText', checked)}
-            />
-            <AioChecklistOption
-              noir={noir}
-              checked={aioGpuStages.segmentText}
-              disabled={!aioHasGpuExecutionProfile}
-              label={t('dashboard.aio.gpuStages.segment')}
-              onChange={(checked) => updateAioGpuStage('segmentText', checked)}
-            />
-            <AioChecklistOption
-              noir={noir}
-              checked={aioGpuStages.cleanImage}
-              disabled={!aioHasGpuExecutionProfile}
-              label={t('dashboard.aio.gpuStages.clean')}
-              onChange={(checked) => updateAioGpuStage('cleanImage', checked)}
-            />
-          </div>
-        </AioSection>
+        <AioRightPanelGpuSection
+          noir={noir}
+          aioGpuStages={aioGpuStages}
+          aioHasGpuExecutionProfile={aioHasGpuExecutionProfile}
+          updateAioGpuStage={updateAioGpuStage}
+        />
       </AioSection>
 
       {/* ═══════════════════ MANUAL HINT ═══════════════════ */}
