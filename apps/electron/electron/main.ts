@@ -18,7 +18,6 @@ app.setName("koma-studio");
 
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
-import nodeNet from "node:net";
 import {
   resolveDesktopSessionRecoveryAction,
   type DesktopSessionRecoveryAction,
@@ -90,6 +89,11 @@ import {
   ensureMiniBackendDevDependencies,
 } from "./modules/mini-backend-dev-runtime.ts";
 import { createMiniBackendCommandBuilder } from "./modules/mini-backend-command.ts";
+import {
+  getRandomLocalPort,
+  waitForMiniBackend,
+  waitForMiniBackendProcessExit,
+} from "./modules/mini-backend-process-utils.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -131,7 +135,6 @@ import {
 
 import {
   // Shared utilities
-  sleep,
   normalizeHttpMethod,
   normalizeAccessToken,
   sanitizeSessionLogText,
@@ -1109,53 +1112,6 @@ const { getMiniBackendCommand } = createMiniBackendCommandBuilder({
   resolveAccelerationProfile: resolveMiniBackendAccelerationProfile,
 });
 
-const getRandomLocalPort = async (): Promise<number> =>
-  new Promise((resolve, reject) => {
-    const server = nodeNet.createServer();
-    server.once("error", (error) => {
-      reject(error);
-    });
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        server.close(() => reject(new Error("Failed to allocate random local port")));
-        return;
-      }
-
-      const port = address.port;
-      server.close((closeError) => {
-        if (closeError) {
-          reject(closeError);
-          return;
-        }
-        resolve(port);
-      });
-    });
-  });
-
-const waitForMiniBackend = async (
-  baseUrl: string,
-  {
-    attempts = 20,
-    delayMs = 500,
-  }: { attempts?: number; delayMs?: number } = {},
-): Promise<boolean> => {
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      const response = await fetch(`${baseUrl}/health`);
-      if (response.ok) {
-        return true;
-      }
-    } catch {
-      // backend still booting
-    }
-
-    await sleep(delayMs);
-  }
-
-  return false;
-};
-
 const syncMiniBackendRuntimeStateFromApi = async (): Promise<void> => {
   if (!localApiUrl || !localApiSessionSecret) {
     return;
@@ -1200,25 +1156,6 @@ const syncMiniBackendRuntimeStateFromApi = async (): Promise<void> => {
     // Best-effort sync only.
   }
 };
-
-const waitForMiniBackendProcessExit = async (
-  exitPromise: Promise<void> | null,
-  timeoutMs: number,
-): Promise<boolean> => {
-  if (!exitPromise) {
-    return true;
-  }
-
-  try {
-    return await Promise.race([
-      exitPromise.then(() => true),
-      sleep(timeoutMs).then(() => false),
-    ]);
-  } catch {
-    return false;
-  }
-};
-
 
 const computeSha512Base64ForFile = async (filePath: string): Promise<string> =>
   new Promise((resolve, reject) => {
