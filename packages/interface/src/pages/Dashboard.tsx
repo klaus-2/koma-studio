@@ -195,10 +195,8 @@ import {
   useUtilitySplitterController,
 } from './dashboard/hooks/utility-workspaces';
 import { SplitterControllerProvider } from '../components/dashboard/splitter/SplitterControllerContext';
-import {
-  useAuthAccountProcessingStats,
-  useDiscordPresence,
-} from './dashboard/hooks/auth-account';
+import { useDiscordPresence } from './dashboard/hooks/auth-account';
+import { recordProcessedPages as recordProcessedPagesAction } from './dashboard/stores/processing-stats-store';
 import { useWorkspacePersistence } from './dashboard/hooks/workspace-persistence';
 import { useDashboardKeyboard } from './dashboard/hooks/use-dashboard-keyboard';
 import { useDashboardIdlePreload } from './dashboard/hooks/use-dashboard-idle-preload';
@@ -529,10 +527,10 @@ export const DashboardPage = ({
   // Download settings
   const user = useAuthAccountStore((s) => s.user);
   const setUser = useAuthAccountStore((s) => s.setUser);
-  const { processingStats, recordProcessedPages } =
-    useAuthAccountProcessingStats({
-      authUser,
-    });
+  // Leaf-isolated stats clock: the page only calls the imperative
+  // action so 30s countdown ticks do not re-render this tree. The sidebar
+  // leaf mounts `useAuthAccountProcessingStats`.
+  const recordProcessedPages = recordProcessedPagesAction;
 
   const {
     state: modelManagerState,
@@ -2354,7 +2352,6 @@ export const DashboardPage = ({
       resetRightSidebarWidth={resetRightSidebarWidth}
       handleToolsToggle={handleToolsToggle}
       // ── Sidebar / uploads / collection hooks ──
-      processingStats={processingStats}
       getRootProps={getRootProps}
       getInputProps={getInputProps}
       isDragActive={isDragActive}

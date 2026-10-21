@@ -1,13 +1,12 @@
 import React, { useMemo } from 'react';
 
+import { useAuthContext } from '../../../contexts/AuthContext';
 import DashboardLeftSidebar, {
   type AioImageHistoryMeta,
 } from '../../../components/dashboard/DashboardLeftSidebar';
 import { SIDEBAR_RESIZE_STEP } from '../../../constants/dashboard.constants';
 import { getRotatedDims } from '../../../utils/dashboard.utils';
-import type {
-  DashboardProcessingStatsSummary,
-} from '../../../types/dashboard.types';
+import { useAuthAccountProcessingStats } from '../hooks/auth-account';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
@@ -24,9 +23,6 @@ interface ImageCollectionSidebarProps {
   startSidebarResize: (side: 'left' | 'right', clientX: number) => void;
   resetLeftSidebarWidth: () => void;
   resizeLeftSidebarBy: (delta: number) => void;
-
-  /* ── Processing stats (not yet migrated) ── */
-  processingStats: DashboardProcessingStatsSummary;
 
   /* ── Uploads hook (dropzone bindings) ── */
   getRootProps: () => Record<string, unknown>;
@@ -56,7 +52,6 @@ export default function ImageCollectionSidebar({
   startSidebarResize,
   resetLeftSidebarWidth,
   resizeLeftSidebarBy,
-  processingStats,
   getRootProps,
   getInputProps,
   isDragActive,
@@ -78,6 +73,10 @@ export default function ImageCollectionSidebar({
   const mode = useUiShellStore((s) => s.mode);
   const processing = useUiShellStore((s) => s.processing);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
+  // Leaf-mounted stats clock: countdown ticks re-render only this
+  // sidebar tree, not DashboardPage.
+  const { user: authUser } = useAuthContext();
+  const { processingStats } = useAuthAccountProcessingStats({ authUser });
 
   // Same derivation as the page-level `activeImage` memo: the active selection
   // falls back to the first loaded image.

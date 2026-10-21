@@ -103,7 +103,6 @@ import {
 import {
   useStitchWorkspace,
 } from '../hooks/utility-workspaces';
-import { useAuthAccountProcessingStats } from '../hooks/auth-account';
 import {
   useTypographerControls,
   useTypographerWorkspace,
@@ -164,7 +163,6 @@ type CleanerModelSelectionApi = ReturnType<typeof useCleanerModelSelection>;
 type StitchWorkspaceApi = ReturnType<typeof useStitchWorkspace>;
 type ImageCollectionApi = ReturnType<typeof useDashboardImageCollection>;
 type UploadsApi = ReturnType<typeof useDashboardUploads>;
-type AccountStatsApi = ReturnType<typeof useAuthAccountProcessingStats>;
 type DownloadActionsApi = ReturnType<typeof useDashboardDownloadActions>;
 type PsdDownloadApi = ReturnType<typeof useDashboardPsdDownload>;
 type TranslatorTextActionsApi = ReturnType<typeof useTranslatorTextActions>;
@@ -263,7 +261,6 @@ export interface DashboardMainLayoutProps {
   handleToolsToggle: ShellLayoutApi['handleToolsToggle'];
 
   /* ── Sidebar / uploads / collection hooks ── */
-  processingStats: AccountStatsApi['processingStats'];
   getRootProps: UploadsApi['getRootProps'];
   getInputProps: UploadsApi['getInputProps'];
   isDragActive: boolean;
@@ -537,7 +534,6 @@ export default memo(function DashboardMainLayout({
   resetLeftSidebarWidth,
   resetRightSidebarWidth,
   handleToolsToggle,
-  processingStats,
   getRootProps,
   getInputProps,
   isDragActive,
@@ -925,7 +921,6 @@ export default memo(function DashboardMainLayout({
         leftSidebarWidth={leftSidebarWidth}
         sidebarRef={leftSidebarRef}
         desktopSidebarToggleRef={desktopSidebarToggleRef}
-        processingStats={processingStats}
         getRootProps={getRootProps}
         getInputProps={getInputProps}
         isDragActive={isDragActive}
