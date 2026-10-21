@@ -9,7 +9,7 @@ import { buildUrl } from "../config/api";
 import { fetchWithTimeoutAndRetry } from "../utils/http";
 import { useI18n } from "../i18n";
 
-import { desktopBridge } from "@/lib/desktop-bridge";
+import { getRuntimeAdapter } from "@koma/auth/runtime-adapter";
 interface ConfirmEmailPageProps {
   onNavigateLogin: () => void;
   onNavigateDashboard: () => void;
@@ -39,12 +39,9 @@ export const ConfirmEmailPage = ({ onNavigateLogin, onNavigateDashboard, onConfi
     const confirm = async (): Promise<void> => {
       setIsVerifying(true);
       try {
-        const desktopAuthApi = desktopBridge.desktop?.api?.auth;
-        if (desktopAuthApi?.confirmEmail) {
-          const envelope = (await desktopAuthApi.confirmEmail(token)) as {
-            ok: boolean;
-            payload?: Record<string, unknown> | null;
-          };
+        const desktopAuthApi = getRuntimeAdapter().getDesktopAuthApi();
+        if (desktopAuthApi) {
+          const envelope = await desktopAuthApi.confirmEmail(token);
           if (!envelope.ok) {
             const payload = envelope.payload ?? {};
             const codeFromPayload =

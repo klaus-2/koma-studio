@@ -11,6 +11,10 @@ import {
   DESKTOP_TRAVEL_TOKEN_INVALID,
   DESKTOP_TRAVEL_TOKEN_REQUIRED,
 } from "./desktop-auth-constants.ts";
+import type {
+  DesktopApiEnvelope,
+  JsonRecord,
+} from "../../../../packages/types/src/desktop-api.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -34,12 +38,6 @@ const RETRYABLE_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 interface SecureIpcMeta {
   nonce: string;
   timestampMs: number;
-}
-
-interface DesktopApiEnvelope<T = unknown> {
-  ok: boolean;
-  status: number;
-  payload: T | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -325,7 +323,7 @@ const parseDesktopApiError = async (response: globalThis.Response): Promise<stri
   }
 };
 
-const parseResponsePayload = async (response: globalThis.Response): Promise<unknown> => {
+const parseResponsePayload = async (response: globalThis.Response): Promise<JsonRecord | null> => {
   let rawPayload = "";
   try {
     rawPayload = await response.text();
@@ -338,7 +336,7 @@ const parseResponsePayload = async (response: globalThis.Response): Promise<unkn
   }
 
   try {
-    return JSON.parse(rawPayload) as unknown;
+    return JSON.parse(rawPayload);
   } catch {
     return { error: rawPayload };
   }

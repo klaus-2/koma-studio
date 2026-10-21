@@ -6,6 +6,10 @@ import {
   resolveDesktopSessionRecoveryAction,
   type DesktopSessionRecoveryAction,
 } from "../../../../packages/types/src/desktopSessionRecovery.ts";
+import type {
+  DesktopApiEnvelope,
+  JsonRecord,
+} from "../../../../packages/types/src/desktop-api.ts";
 import {
   DESKTOP_FETCH_RETRY_COUNT,
   DESKTOP_FETCH_TIMEOUT_MS,
@@ -23,12 +27,6 @@ import {
 } from "./session-log.ts";
 import type { DesktopAuthSession } from "./desktop-auth-session.ts";
 import { buildDesktopSessionHeaders } from "./desktop-session-headers.ts";
-
-interface DesktopApiEnvelope<T = unknown> {
-  ok: boolean;
-  status: number;
-  payload: T | null;
-}
 
 interface DesktopSessionApiDeps {
   desktopAuth: DesktopAuthSession;
@@ -82,7 +80,7 @@ const createDesktopSessionApi = (deps: DesktopSessionApiDeps) => {
       debugDesktopInfo(
         `[desktop-auth] request start method=${method} endpoint=${endpointPath} desktopSession=${requireDesktopSession ? "required" : "optional"} token=${desktopAuth.getState().token ? "yes" : "no"}`,
       );
-      const sendRequest = async (): Promise<{ response: globalThis.Response; payload: unknown }> => {
+      const sendRequest = async (): Promise<{ response: globalThis.Response; payload: JsonRecord | null }> => {
         const requestInit: RequestInit = {
           ...init,
           headers: buildDesktopSessionHeaders(init.headers, undefined, desktopAuth.getState(), app.getVersion()),

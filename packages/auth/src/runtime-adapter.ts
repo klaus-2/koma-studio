@@ -3,23 +3,45 @@
 //
 // Registration: setRuntimeAdapter(adapter) in main.tsx, before rendering.
 
+import type {
+  AuthConfigPayload,
+  AuthLoginPayload,
+  AuthRegisterPayload,
+  AuthTravelTokenPayload,
+  AuthTravelTokenRequest,
+  DesktopApiEnvelope,
+  DesktopAuthSessionSnapshot,
+  JsonRecord,
+} from "@koma/types/desktop-api";
+
+export type { DesktopAuthSessionSnapshot };
+
+/**
+ * The renderer-facing desktop auth port. Typed end to end — both bridges
+ * (electron preload, tauri commands) implement these exact envelopes:
+ * - session()'s payload is null when no session exists (the electron bridge
+ *   skips the fetch without an auth cookie — desktop-auth-ipc.ts).
+ * - refreshSession() payloads carry at least { refreshed: boolean }; the
+ *   tauri bridge adds tokenExpiresAt, electron adds sessionId — no renderer
+ *   consumer reads either, so the port pins the common denominator.
+ * - signOut() resolves void (the envelope, when the bridge emits one, is
+ *   consumed inside the bridge).
+ */
 export interface DesktopAuthApiPort {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  config: (...args: any[]) => Promise<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  login: (...args: any[]) => Promise<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  register: (...args: any[]) => Promise<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  session: (...args: any[]) => Promise<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  forgotPassword: (...args: any[]) => Promise<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  resetPassword: (...args: any[]) => Promise<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  signOut: (...args: any[]) => Promise<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  verifyEmail: (...args: any[]) => Promise<any>;
+  config: () => Promise<DesktopApiEnvelope<AuthConfigPayload>>;
+  session: () => Promise<DesktopApiEnvelope<DesktopAuthSessionSnapshot | null>>;
+  refreshSession: () => Promise<DesktopApiEnvelope<{ refreshed: boolean }>>;
+  login: (payload: AuthLoginPayload) => Promise<DesktopApiEnvelope<DesktopAuthSessionSnapshot>>;
+  register: (payload: AuthRegisterPayload) => Promise<DesktopApiEnvelope<DesktopAuthSessionSnapshot>>;
+  setTravelToken: (token: string) => Promise<DesktopApiEnvelope<JsonRecord>>;
+  createTravelToken: (
+    payload?: AuthTravelTokenRequest,
+  ) => Promise<DesktopApiEnvelope<AuthTravelTokenPayload>>;
+  verifyEmail: (accessToken: string) => Promise<DesktopApiEnvelope<JsonRecord>>;
+  confirmEmail: (token: string) => Promise<DesktopApiEnvelope<JsonRecord>>;
+  forgotPassword: (email: string) => Promise<DesktopApiEnvelope<JsonRecord>>;
+  resetPassword: (token: string, password: string) => Promise<DesktopApiEnvelope<JsonRecord>>;
+  signOut: () => Promise<void>;
 }
 
 export interface KomaRuntimeAdapter {

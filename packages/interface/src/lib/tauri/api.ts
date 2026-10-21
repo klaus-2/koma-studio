@@ -27,6 +27,7 @@ import type {
   DesktopModelDownloadPayload,
   DesktopModelImportOnnxPayload,
   DesktopSessionLogPayload,
+  DesktopAuthSessionSnapshot,
   DiscordWebhookPayload,
   FontImportPayload,
   FontInstallPayload,
@@ -323,39 +324,65 @@ const tauriDesktopBridge: IDesktopBridge = {
         invokeCommand<DesktopApiEnvelope<AuthConfigPayload>>(
           desktopCommandChannels.api.auth.config,
         ),
-      session: () => invokeCommand(desktopCommandChannels.api.auth.session),
+      session: () =>
+        invokeCommand<DesktopApiEnvelope<DesktopAuthSessionSnapshot | null>>(
+          desktopCommandChannels.api.auth.session,
+        ),
       refreshSession: () =>
-        invokeCommand(desktopCommandChannels.api.auth.refreshSession),
+        invokeCommand<DesktopApiEnvelope<{ refreshed: boolean }>>(
+          desktopCommandChannels.api.auth.refreshSession,
+        ),
       login: (payload: AuthLoginPayload) =>
-        invokeCommand(desktopCommandChannels.api.auth.login, { payload }),
+        invokeCommand<DesktopApiEnvelope<DesktopAuthSessionSnapshot>>(
+          desktopCommandChannels.api.auth.login,
+          { payload },
+        ),
       register: (payload: AuthRegisterPayload) =>
-        invokeCommand(desktopCommandChannels.api.auth.register, { payload }),
+        invokeCommand<DesktopApiEnvelope<DesktopAuthSessionSnapshot>>(
+          desktopCommandChannels.api.auth.register,
+          { payload },
+        ),
       setTravelToken: (token: string) =>
-        invokeCommand(desktopCommandChannels.api.auth.setTravelToken, {
-          payload: { token },
-        }),
+        invokeCommand<DesktopApiEnvelope<JsonRecord>>(
+          desktopCommandChannels.api.auth.setTravelToken,
+          {
+            payload: { token },
+          },
+        ),
       createTravelToken: (payload?: AuthTravelTokenRequest) =>
         invokeCommand<DesktopApiEnvelope<AuthTravelTokenPayload>>(
           desktopCommandChannels.api.auth.createTravelToken,
           { payload: payload ?? {} },
         ),
       verifyEmail: (accessToken: string) =>
-        invokeCommand(desktopCommandChannels.api.auth.verifyEmail, {
-          payload: { accessToken },
-        }),
+        invokeCommand<DesktopApiEnvelope<JsonRecord>>(
+          desktopCommandChannels.api.auth.verifyEmail,
+          {
+            payload: { accessToken },
+          },
+        ),
       confirmEmail: (token: string) =>
-        invokeCommand(desktopCommandChannels.api.auth.confirmEmail, {
-          payload: { token },
-        }),
+        invokeCommand<DesktopApiEnvelope<JsonRecord>>(
+          desktopCommandChannels.api.auth.confirmEmail,
+          {
+            payload: { token },
+          },
+        ),
       forgotPassword: (email: string) =>
-        invokeCommand(desktopCommandChannels.api.auth.forgotPassword, {
-          payload: { email },
-        }),
+        invokeCommand<DesktopApiEnvelope<JsonRecord>>(
+          desktopCommandChannels.api.auth.forgotPassword,
+          {
+            payload: { email },
+          },
+        ),
       resetPassword: (token: string, password: string) =>
-        invokeCommand(desktopCommandChannels.api.auth.resetPassword, {
-          payload: { token, password },
-        }),
-      signOut: () => invokeCommand(desktopCommandChannels.api.auth.signOut),
+        invokeCommand<DesktopApiEnvelope<JsonRecord>>(
+          desktopCommandChannels.api.auth.resetPassword,
+          {
+            payload: { token, password },
+          },
+        ),
+      signOut: () => invokeCommand<void>(desktopCommandChannels.api.auth.signOut),
     },
     fonts: {
       list: async () =>

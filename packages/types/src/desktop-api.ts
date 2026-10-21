@@ -526,21 +526,45 @@ export interface DesktopWorkspaceApi {
   importFile(): Promise<WorkspaceImportResult>;
 }
 
+/**
+ * Session user as the desktop bridges deliver it (better-auth user plus the
+ * workspace/profile fields the server attaches when present). Mirrors the
+ * renderer's AuthUser (@koma/auth context) so bridge payloads assign to it.
+ */
+export interface DesktopAuthSessionUser {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  name?: string;
+  locale?: string;
+  appRole?: "user" | "moderator" | "admin" | "owner";
+  feedProfileStatus?: "pending_setup" | "active" | "suspended";
+  authorNotificationWebhookConfigured?: boolean;
+}
+
+/** Session/login/register snapshot payload: the user plus the access token. */
+export interface DesktopAuthSessionSnapshot {
+  user: DesktopAuthSessionUser;
+  accessToken: string;
+}
+
 export interface DesktopAuthApi {
   config(): Promise<DesktopApiEnvelope<AuthConfigPayload>>;
-  session(): Promise<unknown>;
-  refreshSession(): Promise<unknown>;
-  login(payload: AuthLoginPayload): Promise<unknown>;
-  register(payload: AuthRegisterPayload): Promise<unknown>;
-  setTravelToken(token: string): Promise<unknown>;
+  /** payload is null when the bridge has no session (electron skips the
+   * fetch without an auth cookie — desktop-auth-ipc.ts). */
+  session(): Promise<DesktopApiEnvelope<DesktopAuthSessionSnapshot | null>>;
+  refreshSession(): Promise<DesktopApiEnvelope<{ refreshed: boolean }>>;
+  login(payload: AuthLoginPayload): Promise<DesktopApiEnvelope<DesktopAuthSessionSnapshot>>;
+  register(payload: AuthRegisterPayload): Promise<DesktopApiEnvelope<DesktopAuthSessionSnapshot>>;
+  setTravelToken(token: string): Promise<DesktopApiEnvelope<JsonRecord>>;
   createTravelToken(
     payload?: AuthTravelTokenRequest,
   ): Promise<DesktopApiEnvelope<AuthTravelTokenPayload>>;
-  verifyEmail(accessToken: string): Promise<unknown>;
-  confirmEmail(token: string): Promise<unknown>;
-  forgotPassword(email: string): Promise<unknown>;
-  resetPassword(token: string, password: string): Promise<unknown>;
-  signOut(): Promise<unknown>;
+  verifyEmail(accessToken: string): Promise<DesktopApiEnvelope<JsonRecord>>;
+  confirmEmail(token: string): Promise<DesktopApiEnvelope<JsonRecord>>;
+  forgotPassword(email: string): Promise<DesktopApiEnvelope<JsonRecord>>;
+  resetPassword(token: string, password: string): Promise<DesktopApiEnvelope<JsonRecord>>;
+  signOut(): Promise<void>;
 }
 
 export interface DesktopApiNamespace {

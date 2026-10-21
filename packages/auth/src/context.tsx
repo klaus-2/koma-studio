@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { resolveDesktopSessionRecoveryAction } from "@koma/types/desktopSessionRecovery";
 import type { RegistrationLegalAcceptancePayload } from "@koma/types/legal";
+import type { DesktopApiEnvelope } from "@koma/types/desktop-api";
 import { appQueryKeys } from "./query/client";
 import { fetchWithTimeoutAndRetry } from "./utils/http";
 import { useUiI18n } from "@koma/ui/i18n-port";
@@ -68,12 +69,6 @@ interface AuthErrorPayload {
   retryAfterSeconds?: number;
   verificationHint?: string;
   activeBan?: ActiveBanInfo;
-}
-
-interface DesktopApiEnvelope<T = Record<string, unknown>> {
-  ok: boolean;
-  status: number;
-  payload: T | null;
 }
 
 interface AuthSessionSnapshot {
@@ -273,10 +268,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const desktopAuthApi = adapter.getDesktopAuthApi();
       if (desktopAuthApi) {
-        const envelope = (await desktopAuthApi.session()) as DesktopApiEnvelope<{
-          user?: AuthUser;
-          accessToken?: string;
-        }>;
+        const envelope = await desktopAuthApi.session();
 
         if (!envelope.ok) {
           const payload = extractErrorPayloadFromEnvelope(envelope, t);
@@ -567,14 +559,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const desktopAuthApi = adapter.getDesktopAuthApi();
       if (desktopAuthApi) {
-        const envelope = (await desktopAuthApi.login({
+        const envelope = await desktopAuthApi.login({
           email,
           password,
           captchaToken,
           rememberMe,
           travelToken,
           locale,
-        })) as DesktopApiEnvelope<AuthSessionSnapshot>;
+        });
 
         if (!envelope.ok) {
           const payload = extractErrorPayloadFromEnvelope(envelope, t);
@@ -687,14 +679,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     ) => {
       const desktopAuthApi = adapter.getDesktopAuthApi();
       if (desktopAuthApi) {
-        const envelope = (await desktopAuthApi.register({
+        const envelope = await desktopAuthApi.register({
           email,
           password,
           name,
           captchaToken,
           legalAcceptance,
           locale,
-        })) as DesktopApiEnvelope;
+        });
 
         if (!envelope.ok) {
           const payload = extractErrorPayloadFromEnvelope(envelope, t);
@@ -746,7 +738,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const desktopAuthApi = adapter.getDesktopAuthApi();
     if (desktopAuthApi) {
-      const envelope = (await desktopAuthApi.verifyEmail(tokenValue)) as DesktopApiEnvelope;
+      const envelope = await desktopAuthApi.verifyEmail(tokenValue);
       if (!envelope.ok) {
         const payload = extractErrorPayloadFromEnvelope(envelope, t);
         throw authErrorFrom(payload);
@@ -778,7 +770,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const requestPasswordReset = useCallback(async (email: string) => {
     const desktopAuthApi = adapter.getDesktopAuthApi();
     if (desktopAuthApi) {
-      const envelope = (await desktopAuthApi.forgotPassword(email)) as DesktopApiEnvelope;
+      const envelope = await desktopAuthApi.forgotPassword(email);
       if (!envelope.ok) {
         const payload = extractErrorPayloadFromEnvelope(envelope, t);
         throw new Error(payload.message);
@@ -805,7 +797,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const resetPassword = useCallback(async (resetToken: string, password: string) => {
     const desktopAuthApi = adapter.getDesktopAuthApi();
     if (desktopAuthApi) {
-      const envelope = (await desktopAuthApi.resetPassword(resetToken, password)) as DesktopApiEnvelope;
+      const envelope = await desktopAuthApi.resetPassword(resetToken, password);
       if (!envelope.ok) {
         const payload = extractErrorPayloadFromEnvelope(envelope, t);
         throw new Error(payload.message);
