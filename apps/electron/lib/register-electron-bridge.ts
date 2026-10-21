@@ -12,6 +12,7 @@ import { setDesktopBridgeProvider } from "@koma/interface/lib/desktop-bridge";
 import { setUiI18n } from "@koma/ui/i18n-port";
 import { setRuntimeAdapter, type DesktopAuthApiPort } from "@koma/auth/runtime-adapter";
 import { desktopBridge } from "@koma/interface/lib/desktop-bridge";
+import { installRendererConsoleCapture } from "@koma/interface/lib/install-renderer-console-capture";
 import { buildUrl } from "@koma/interface/config/api";
 import { getDesktopUpdatePolicyHeaders } from "@koma/interface/config/desktopClient";
 import { useUpdaterBlocking } from "@koma/interface/hooks/useUpdater";
@@ -87,3 +88,12 @@ setRuntimeAdapter({
 });
 
 setUiI18n(useI18n);
+
+// Renderer console capture: forward console.error/warn into the desktop
+// session log. Null-safe when the preload bridge is unavailable.
+installRendererConsoleCapture({
+  source: "electron-renderer",
+  sink: (payload) => {
+    void desktopBridge.desktop?.sessionLog(payload);
+  },
+});

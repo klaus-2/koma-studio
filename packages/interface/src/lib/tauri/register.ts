@@ -12,6 +12,7 @@ import { setUiI18n } from "@koma/ui/i18n-port";
 import { tauriApi } from "./api";
 import { setRuntimeAdapter } from "@koma/auth/runtime-adapter";
 import { desktopBridge } from "../desktop-bridge";
+import { installRendererConsoleCapture } from "../install-renderer-console-capture";
 import { buildUrl } from "../../config/api";
 import { getDesktopUpdatePolicyHeaders } from "../../config/desktopClient";
 import { useUpdaterBlocking } from "../../hooks/useUpdater";
@@ -23,6 +24,15 @@ setDesktopBridgeProvider(tauriApi);
 // i18n port: the interface consumes useUiI18n (the actual hook lives in the
 // interface itself, registered by the shell before render).
 setUiI18n(useI18n);
+
+// Renderer console capture: forward console.error/warn into the Tauri
+// session-log command.
+installRendererConsoleCapture({
+  source: "tauri-renderer",
+  sink: (payload) => {
+    void desktopBridge.desktop?.sessionLog(payload);
+  },
+});
 
 // Auth adapter for the Tauri (v2) runtime. The VITE_AUTH_DISABLED bypass
 // exists only for development / automated tests (same lever as the electron
