@@ -200,7 +200,7 @@ export const hiMessages: TranslationCatalog = {
   'settings.theme.styleLabel': 'थीम शैली',
   'settings.theme.styleDescription': 'पूरे इंटरफ़ेस पर लागू डिज़ाइन सिस्टम चुनें।',
   'settings.theme.family.classic': 'क्लासिक',
-  'settings.theme.family.classicDesc': 'मूल KŌMA डिज़ाइन',
+  'settings.theme.family.classicDesc': 'मूल KŌMA डिज़ाइन (लेगेसी)',
   'settings.theme.family.noir': 'नॉयर',
   'settings.theme.family.noirDesc': 'एडिटोरियल मंगा नॉयर रीडिज़ाइन',
   'settings.language.title': 'Bahasa antarmuka',

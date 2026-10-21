@@ -202,7 +202,7 @@ export const jaMessages: TranslationCatalog = {
   'settings.theme.styleLabel': 'テーマスタイル',
   'settings.theme.styleDescription': 'インターフェース全体に適用するデザインシステムを選択します。',
   'settings.theme.family.classic': 'クラシック',
-  'settings.theme.family.classicDesc': 'KŌMAのオリジナルデザイン',
+  'settings.theme.family.classicDesc': 'KŌMAのオリジナルデザイン（レガシー）',
   'settings.theme.family.noir': 'ノワール',
   'settings.theme.family.noirDesc': 'エディトリアル・マンガ・ノワールのリデザイン',
   'settings.language.title': 'インターフェース言語',

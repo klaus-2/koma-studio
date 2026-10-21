@@ -201,7 +201,7 @@ export const ptMessages: TranslationCatalog = {
   'settings.theme.styleLabel': 'Estilo do tema',
   'settings.theme.styleDescription': 'Escolha o sistema de design aplicado em toda a interface.',
   'settings.theme.family.classic': 'Clássico',
-  'settings.theme.family.classicDesc': 'Design original do KŌMA',
+  'settings.theme.family.classicDesc': 'Design original do KŌMA (legado)',
   'settings.theme.family.noir': 'Noir',
   'settings.theme.family.noirDesc': 'Redesign editorial manga noir',
   'settings.language.title': 'Idioma da interface',

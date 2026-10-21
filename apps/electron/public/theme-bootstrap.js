@@ -9,9 +9,15 @@
 (function () {
   try {
     var raw = localStorage.getItem('koma_theme');
-    var state = (raw && JSON.parse(raw).state) || {};
+    var parsed = raw ? JSON.parse(raw) : null;
+    var state = (parsed && parsed.state) || {};
+    var version = (parsed && parsed.version) || 0;
     var theme = state.theme === 'light' ? 'light' : 'dark';
-    var family = state.family === 'noir' ? 'noir' : 'classic';
+    // Noir is the shipped default and classic is opt-in from settings.
+    // Persisted states older than version 2 predate that switch and are
+    // treated as noir, matching the store migration.
+    var family =
+      version < 2 ? 'noir' : state.family === 'classic' ? 'classic' : 'noir';
     var root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.setAttribute('data-theme-family', family);

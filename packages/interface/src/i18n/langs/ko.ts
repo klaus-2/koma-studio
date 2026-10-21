@@ -194,7 +194,7 @@ export const koMessages: TranslationCatalog = {
   'settings.theme.styleLabel': '테마 스타일',
   'settings.theme.styleDescription': '전체 인터페이스에 적용될 디자인 시스템을 선택하세요.',
   'settings.theme.family.classic': '클래식',
-  'settings.theme.family.classicDesc': 'KŌMA 오리지널 디자인',
+  'settings.theme.family.classicDesc': 'KŌMA 오리지널 디자인 (레거시)',
   'settings.theme.family.noir': '누아르',
   'settings.theme.family.noirDesc': '에디토리얼 만화 누아르 리디자인',
   'settings.language.title': '인터페이스 언어',

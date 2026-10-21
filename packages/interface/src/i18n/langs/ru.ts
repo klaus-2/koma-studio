@@ -206,7 +206,7 @@ export const ruMessages: TranslationCatalog = {
   'settings.theme.styleLabel': 'Стиль темы',
   'settings.theme.styleDescription': 'Выберите дизайн-систему, применяемую во всём интерфейсе.',
   'settings.theme.family.classic': 'Классический',
-  'settings.theme.family.classicDesc': 'Оригинальный дизайн KŌMA',
+  'settings.theme.family.classicDesc': 'Оригинальный дизайн KŌMA (устаревший)',
   'settings.theme.family.noir': 'Нуар',
   'settings.theme.family.noirDesc': 'Редизайн в стиле editorial manga noir',
   'settings.language.title': 'Язык интерфейса',

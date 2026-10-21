@@ -194,7 +194,7 @@ export const enMessages = {
   'settings.theme.styleLabel': 'Theme style',
   'settings.theme.styleDescription': 'Choose the design system applied across the interface.',
   'settings.theme.family.classic': 'Classic',
-  'settings.theme.family.classicDesc': 'Original KŌMA design',
+  'settings.theme.family.classicDesc': 'Original KŌMA design (legacy)',
   'settings.theme.family.noir': 'Noir',
   'settings.theme.family.noirDesc': 'Editorial manga noir redesign',
   'settings.language.title': 'Interface language',

@@ -179,7 +179,7 @@ export const zhMessages: TranslationCatalog = {
   'settings.theme.styleLabel': '主題風格',
   'settings.theme.styleDescription': '選擇套用於整個介面的設計系統。',
   'settings.theme.family.classic': '經典',
-  'settings.theme.family.classicDesc': 'KŌMA 原始設計',
+  'settings.theme.family.classicDesc': 'KŌMA 原始設計（舊版）',
   'settings.theme.family.noir': 'Noir',
   'settings.theme.family.noirDesc': '編輯漫畫黑色風重新設計',
   'settings.language.title': '介面語言',

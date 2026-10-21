@@ -203,7 +203,7 @@ export const itMessages: TranslationCatalog = {
   'settings.theme.styleLabel': 'Stile del tema',
   'settings.theme.styleDescription': 'Scegli il sistema di design applicato in tutta l\'interfaccia.',
   'settings.theme.family.classic': 'Classico',
-  'settings.theme.family.classicDesc': 'Design originale di KŌMA',
+  'settings.theme.family.classicDesc': 'Design originale di KŌMA (legacy)',
   'settings.theme.family.noir': 'Noir',
   'settings.theme.family.noirDesc': 'Redesign editoriale manga noir',
   'settings.language.title': "Lingua dell'interfaccia",

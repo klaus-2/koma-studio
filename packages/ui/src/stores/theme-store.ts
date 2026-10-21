@@ -7,10 +7,13 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
+import { DEFAULT_THEME_FAMILY } from '../themes/registry';
+
 export type KomaTheme = 'dark' | 'light';
 export type KomaThemeFamily = 'classic' | 'noir';
 
 const THEME_STORAGE_KEY = 'koma_theme';
+const THEME_STORAGE_VERSION = 2;
 
 interface ThemeStore {
   theme: KomaTheme;
@@ -30,14 +33,22 @@ export const useThemeStore = create<ThemeStore>()(
     persist(
       (set) => ({
         theme: detectInitialTheme(),
-        // New state dimension: persisted stores without `family` keep this
-        // default via zustand's shallow merge — no migration needed.
-        family: 'classic',
+        // Noir is the shipped design system; classic stays reachable from
+        // settings as the legacy family.
+        family: DEFAULT_THEME_FAMILY,
         setTheme: (theme) => set({ theme }),
         setFamily: (family) => set({ family }),
       }),
       {
         name: THEME_STORAGE_KEY,
+        version: THEME_STORAGE_VERSION,
+        migrate: (persisted, version) => {
+          const state = persisted as Partial<ThemeStore>;
+          if (version < 2) {
+            return { ...state, family: DEFAULT_THEME_FAMILY };
+          }
+          return state;
+        },
       },
     ),
     { name: 'theme-store' },
@@ -48,7 +59,7 @@ export const useThemeStore = create<ThemeStore>()(
  * Apply the current theme (mode + family) to the document root.
  * Must be called once on mount and whenever theme/family changes.
  */
-export function applyTheme(theme: KomaTheme, family: KomaThemeFamily = 'classic'): void {
+export function applyTheme(theme: KomaTheme, family: KomaThemeFamily = DEFAULT_THEME_FAMILY): void {
   const root = document.documentElement;
   root.setAttribute('data-theme', theme);
   root.setAttribute('data-theme-family', family);

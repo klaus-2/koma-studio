@@ -210,7 +210,7 @@ export const deMessages: TranslationCatalog = {
   'settings.theme.styleLabel': 'Design-Stil',
   'settings.theme.styleDescription': 'Wähle das Designsystem, das in der gesamten Oberfläche verwendet wird.',
   'settings.theme.family.classic': 'Klassisch',
-  'settings.theme.family.classicDesc': 'Originäres KŌMA-Design',
+  'settings.theme.family.classicDesc': 'Originäres KŌMA-Design (veraltet)',
   'settings.theme.family.noir': 'Noir',
   'settings.theme.family.noirDesc': 'Editorial-Manga-Noir-Redesign',
   'settings.language.title': 'Sprache der Benutzeroberfläche',

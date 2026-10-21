@@ -16,7 +16,7 @@ export interface ThemeFamilyDef {
   glyph: string;
 }
 
-export const DEFAULT_THEME_FAMILY: KomaThemeFamily = 'classic';
+export const DEFAULT_THEME_FAMILY: KomaThemeFamily = 'noir';
 
 export const THEME_FAMILIES: readonly ThemeFamilyDef[] = [
   {

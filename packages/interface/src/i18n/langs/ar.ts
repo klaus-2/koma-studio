@@ -188,7 +188,7 @@ export const arMessages: TranslationCatalog = {
   'settings.theme.styleLabel': 'نمط السمة',
   'settings.theme.styleDescription': 'اختر نظام التصميم المطبق على الواجهة بأكملها.',
   'settings.theme.family.classic': 'كلاسيكي',
-  'settings.theme.family.classicDesc': 'تصميم كوما الأصلي',
+  'settings.theme.family.classicDesc': 'تصميم كوما الأصلي (قديم)',
   'settings.theme.family.noir': 'نوار',
   'settings.theme.family.noirDesc': 'إعادة تصميم تحريرية بأسلوب المانجا',
   'settings.language.title': 'لغة الواجهة',

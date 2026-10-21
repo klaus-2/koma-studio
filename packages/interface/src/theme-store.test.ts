@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_THEME_FAMILY, THEME_FAMILIES, isThemeFamilyId } from "@koma/ui/themes/registry";
 
@@ -41,7 +41,7 @@ describe("theme family registry", () => {
       expect(family.nameKey).toMatch(/^settings\.theme\.family\./);
       expect(family.descKey).toMatch(/^settings\.theme\.family\./);
     }
-    expect(DEFAULT_THEME_FAMILY).toBe("classic");
+    expect(DEFAULT_THEME_FAMILY).toBe("noir");
   });
 
   it("guards family ids", () => {
@@ -53,10 +53,14 @@ describe("theme family registry", () => {
 });
 
 describe("theme store family persistence", () => {
-  it("falls back to classic family for legacy persisted state without family", async () => {
+  beforeEach(() => {
     // jsdom has no matchMedia; the store uses it for initial detection only.
     window.matchMedia ??= matchMediaStub;
+    storageMap.clear();
+    vi.resetModules();
+  });
 
+  it("defaults to the noir family for persisted state without family", async () => {
     window.localStorage.setItem(
       "koma_theme",
       JSON.stringify({ state: { theme: "light" }, version: 0 }),
@@ -65,6 +69,29 @@ describe("theme store family persistence", () => {
     const { useThemeStore } = await import("@koma/ui/stores/theme-store");
 
     expect(useThemeStore.getState().theme).toBe("light");
+    expect(useThemeStore.getState().family).toBe("noir");
+  });
+
+  it("migrates a pre-noir persisted classic family to noir", async () => {
+    window.localStorage.setItem(
+      "koma_theme",
+      JSON.stringify({ state: { theme: "dark", family: "classic" }, version: 0 }),
+    );
+
+    const { useThemeStore } = await import("@koma/ui/stores/theme-store");
+
+    expect(useThemeStore.getState().family).toBe("noir");
+    expect(window.localStorage.getItem("koma_theme")).toContain('"version":2');
+  });
+
+  it("keeps a classic family chosen on the current storage version", async () => {
+    window.localStorage.setItem(
+      "koma_theme",
+      JSON.stringify({ state: { theme: "dark", family: "classic" }, version: 2 }),
+    );
+
+    const { useThemeStore } = await import("@koma/ui/stores/theme-store");
+
     expect(useThemeStore.getState().family).toBe("classic");
   });
 });
@@ -80,14 +107,14 @@ describe("applyTheme", () => {
 
     applyTheme("dark");
     expect(root.getAttribute("data-theme")).toBe("dark");
-    expect(root.getAttribute("data-theme-family")).toBe("classic");
+    expect(root.getAttribute("data-theme-family")).toBe("noir");
     expect(root.classList.contains("dark")).toBe(true);
     expect(root.classList.contains("light")).toBe(false);
     expect(root.style.getPropertyValue("background-color")).toBe("");
 
-    applyTheme("light", "noir");
+    applyTheme("light", "classic");
     expect(root.getAttribute("data-theme")).toBe("light");
-    expect(root.getAttribute("data-theme-family")).toBe("noir");
+    expect(root.getAttribute("data-theme-family")).toBe("classic");
     expect(root.classList.contains("light")).toBe(true);
     expect(root.classList.contains("dark")).toBe(false);
   });
