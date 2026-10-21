@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   BookOpen, Check, ChevronDown, Copy, FolderPlus, Layout, Palette,
   Pencil, Plus, RotateCcw, Sliders, Star, Trash2, X,
@@ -25,6 +25,7 @@ import {
   Sec, Field, Alert, RangeField, InkToggle, EASE,
   inputCls, selectCls, btnPrimary, btnGhost, iconBtn, iconBtnDanger, chip,
 } from "./primitives";
+import { cn } from "../../../lib/utils";
 
 type TranslationFn = ReturnType<typeof useI18n>["t"];
 type PresetGroup = {
@@ -169,13 +170,18 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
           {aio.presetError && <Alert tone="error">{aio.presetError}</Alert>}
         </div>
 
-        {/* ── Form inline ── */}
-        <AnimatePresence>
-          {aio.presetForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35, ease: EASE }}
-              className="mt-3 overflow-hidden">
+        <div
+          className={cn(
+            'mt-3 grid transition-[grid-template-rows,opacity] duration-300',
+            '[transition-timing-function:cubic-bezier(0.22,1,0.36,1)]',
+            aio.presetForm
+              ? 'grid-rows-[1fr] opacity-100'
+              : 'grid-rows-[0fr] opacity-0 pointer-events-none',
+          )}
+          aria-hidden={!aio.presetForm}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {aio.presetForm && (
               <div className="panel-cut-sm border border-crimson/25 bg-crimson/[0.03] p-4">
                 <p className="kicker mb-3">
                   // {aio.presetForm.presetId ? t("settings.aioPresets.editPreset") : t("settings.aioPresets.newPreset")}
@@ -247,9 +253,9 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
                   </button>
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </div>
+        </div>
 
         {aio.groupedPresets.length === 0 ? (
           <div className="mt-4 panel-cut-sm flex flex-col items-center gap-3 border border-dashed border-paper/15 p-8">
@@ -533,11 +539,18 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
           </div>
         </div>
 
-        <AnimatePresence>
-          {tf && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35, ease: EASE }}
-              className="mt-3 overflow-hidden">
+        <div
+          className={cn(
+            'mt-3 grid transition-[grid-template-rows,opacity] duration-300',
+            '[transition-timing-function:cubic-bezier(0.22,1,0.36,1)]',
+            tf
+              ? 'grid-rows-[1fr] opacity-100'
+              : 'grid-rows-[0fr] opacity-0 pointer-events-none',
+          )}
+          aria-hidden={!tf}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {tf && (
               <div className="panel-cut-sm border border-crimson/25 bg-crimson/[0.03] p-4">
                 <p className="kicker mb-3">
                   // {tf.presetId ? t("settings.typographerLibrary.edit") : t("settings.typographerLibrary.new")}{" "}
@@ -630,9 +643,9 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
                   </button>
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </div>
+        </div>
 
         <div className="mt-5 space-y-4">
           {[
@@ -714,13 +727,18 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
                   )}
                 </div>
 
-                {/* Chapter body */}
-                <AnimatePresence initial={false}>
-                  {!isCollapsed && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: EASE }}
-                      className="overflow-hidden">
-                      <div className="space-y-2 p-3">
+                <div
+                  className={cn(
+                    'grid transition-[grid-template-rows,opacity] duration-300',
+                    '[transition-timing-function:cubic-bezier(0.22,1,0.36,1)]',
+                    isCollapsed
+                      ? 'grid-rows-[0fr] opacity-0 pointer-events-none'
+                      : 'grid-rows-[1fr] opacity-100',
+                  )}
+                  aria-hidden={isCollapsed}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="space-y-2 p-3">
                         {presets.length === 0 && (
                           <p className="py-4 text-center font-mono text-[10px] uppercase tracking-wider text-paper/30">
                             {t("settings.typographerLibrary.emptyFolder")}
@@ -766,9 +784,8 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
                           );
                         })}
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    </div>
+                  </div>
               </div>
             );
           })}

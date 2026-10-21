@@ -300,8 +300,8 @@ export const ToggleSwitch = memo(function ToggleSwitch({
         style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}
       >
         <motion.span
-          className={`absolute top-[3px] h-2.5 w-2.5 ${checked ? 'bg-crimson' : 'bg-paper/35'}`}
-          animate={{ left: checked ? 21 : 3 }}
+          className={`absolute left-[3px] top-[3px] h-2.5 w-2.5 ${checked ? 'bg-crimson' : 'bg-paper/35'}`}
+          animate={{ x: checked ? 18 : 0 }}
           transition={
             reduce ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 30 }
           }

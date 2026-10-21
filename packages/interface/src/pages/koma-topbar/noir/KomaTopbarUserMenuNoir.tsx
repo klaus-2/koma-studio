@@ -131,38 +131,38 @@ export default function KomaTopbarUserMenuNoir({
               </button>
             </div>
 
-            <AnimatePresence>
-              {langPickerOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="relative mb-2 overflow-hidden"
-                >
-                  <div className="flex flex-col gap-1 border-b border-paper/10 pb-2">
-                    {supportedLocales.map((loc) => (
-                      <button
-                        key={loc}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLocale(loc as typeof locale);
-                          setLangPickerOpen(false);
-                        }}
-                        className={cn(
-                          'panel-cut-sm flex items-center gap-2 px-2.5 py-1.5 text-left transition-colors',
-                          locale === loc ? 'bg-crimson text-ink' : 'text-paper hover:bg-ink-3',
-                        )}
-                      >
-                        <span className="font-mono text-[10px] font-bold">{loc === 'pt-br' ? 'BR' : loc.toUpperCase()}</span>
-                        <span className="font-mono text-[11px]">{localeLabels[loc]}</span>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
+            <div
+              className={cn(
+                'grid transition-[grid-template-rows,opacity] duration-200',
+                langPickerOpen
+                  ? 'mb-2 grid-rows-[1fr] opacity-100'
+                  : 'grid-rows-[0fr] opacity-0 pointer-events-none',
               )}
-            </AnimatePresence>
+              aria-hidden={!langPickerOpen}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="flex flex-col gap-1 border-b border-paper/10 pb-2">
+                  {supportedLocales.map((loc) => (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLocale(loc as typeof locale);
+                        setLangPickerOpen(false);
+                      }}
+                      className={cn(
+                        'panel-cut-sm flex items-center gap-2 px-2.5 py-1.5 text-left transition-colors',
+                        locale === loc ? 'bg-crimson text-ink' : 'text-paper hover:bg-ink-3',
+                      )}
+                    >
+                      <span className="font-mono text-[10px] font-bold">{loc === 'pt-br' ? 'BR' : loc.toUpperCase()}</span>
+                      <span className="font-mono text-[11px]">{localeLabels[loc]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             <div className="relative mb-2 flex gap-1.5 border-b border-paper/10 px-1 pb-2">
               <ThemePill active={currentTheme === 'dark'} onClick={() => setCurrentTheme('dark')} label={t('settings.theme.dark')}>

@@ -11,6 +11,7 @@ import type { RenderTextStyle } from "../../../typography/renderStyle";
 import { btnGhost, btnPrimary, inputCls, selectCls } from "../../../pages/settings/noir/primitives";
 import { FontFamilySelect } from "../../fonts/FontFamilySelect";
 import { EASE } from "../../system/v2/kit";
+import { cn } from "../../../lib/utils";
 
 interface TypographerPresetBrowserProps {
   presets: TypographyStylePreset[];
@@ -172,16 +173,22 @@ export const TypographerPresetBrowserNoir = ({
           <span className="min-w-0 flex-1 truncate text-left">{node.folder.name}</span>
           <span className="border border-paper/15 px-1 text-[8px] text-paper/35">{presetCount}</span>
         </button>
-        <AnimatePresence initial={false}>
-          {isExpanded && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}
-              className="space-y-1 overflow-hidden border-l border-paper/8 pl-2">
+        <div
+          className={cn(
+            'grid transition-[grid-template-rows,opacity] duration-200',
+            isExpanded
+              ? 'grid-rows-[1fr] opacity-100'
+              : 'grid-rows-[0fr] opacity-0 pointer-events-none',
+          )}
+          aria-hidden={!isExpanded}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="space-y-1 border-l border-paper/8 pl-2">
               {node.presets.map(renderPresetItem)}
               {node.children.map((child) => renderFolderNode(child, depth + 1))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };

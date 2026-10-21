@@ -139,8 +139,11 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
       return (
         <div className={base}>
           <span className="absolute inset-2 bg-azure/25" />
-          <motion.span className="absolute top-1/2 h-3 w-3 -translate-y-1/2 bg-ink"
-            animate={{ left: ['10%', '80%'] }} transition={{ duration: 1.6, repeat: Infinity }} />
+          <motion.span
+            className="absolute left-[10%] top-1/2 h-3 w-3 -translate-y-1/2 bg-ink"
+            animate={{ x: [0, 180] }}
+            transition={{ duration: 1.6, repeat: Infinity }}
+          />
         </div>
       );
     case 'paint':
@@ -154,8 +157,11 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
       return (
         <div className={base}>
           <span className="absolute inset-2 bg-crimson/25" />
-          <motion.span className="absolute top-1/2 h-3 w-4 -translate-y-1/2 bg-ink"
-            animate={{ left: ['5%', '80%'] }} transition={{ duration: 1.6, repeat: Infinity }} />
+          <motion.span
+            className="absolute left-[5%] top-1/2 h-3 w-4 -translate-y-1/2 bg-ink"
+            animate={{ x: [0, 180] }}
+            transition={{ duration: 1.6, repeat: Infinity }}
+          />
         </div>
       );
     case 'magic-wand':

@@ -3,12 +3,12 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import {
-  AnimatePresence,
   motion,
   useReducedMotion,
   type Variants,
 } from 'framer-motion';
 import { HardDrive, ChevronDown, type LucideIcon } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 import type {
   InputHTMLAttributes,
@@ -151,19 +151,27 @@ export function NoirSection({
       )}
 
       {collapsible ? (
-        <AnimatePresence initial={false}>
-          {isOpen && (
-            <motion.div
-              initial={reduce ? false : { height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={reduce ? undefined : { height: 0, opacity: 0 }}
-              transition={{ duration: 0.32, ease: EASE }}
-              className="overflow-hidden"
-            >
-              <div className="pt-4">{children}</div>
-            </motion.div>
+        <div
+          className={cn(
+            'grid',
+            reduce
+              ? isOpen
+                ? 'grid-rows-[1fr] opacity-100'
+                : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+              : [
+                  'transition-[grid-template-rows,opacity] duration-300',
+                  '[transition-timing-function:cubic-bezier(0.22,1,0.36,1)]',
+                  isOpen
+                    ? 'grid-rows-[1fr] opacity-100'
+                    : 'grid-rows-[0fr] opacity-0 pointer-events-none',
+                ],
           )}
-        </AnimatePresence>
+          aria-hidden={!isOpen}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="pt-4">{children}</div>
+          </div>
+        </div>
       ) : (
         <div className="pt-4">{children}</div>
       )}
