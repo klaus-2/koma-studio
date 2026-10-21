@@ -85,6 +85,7 @@ import {
   type CommandSpec,
   type MiniBackendCommandSpec,
 } from "./modules/mini-backend-packaged.ts";
+import { collectMiniBackendGpuVendors } from "./modules/mini-backend-gpu.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -123,8 +124,6 @@ import {
 import { resolveMiniBackendStartupPolicy } from "./mini-backend-runtime-startup.ts";
 import {
   buildManualInstallBlockedState,
-  extractGpuVendors,
-  extractGpuVendorsFromWindowsVideoControllers,
   formatRuntimeFallbackReason,
   resolveEffectiveAccelerationProfile,
   resolveAccelerationProfile,
@@ -1154,42 +1153,6 @@ const normalizeAccelerationProfileOverride = (
     default:
       return "auto";
   }
-};
-
-const readWindowsVideoControllerDescriptors = (): string[] => {
-  if (process.platform !== "win32") {
-    return [];
-  }
-
-  try {
-    const rawOutput = execFileSync(
-      "powershell.exe",
-      [
-        "-NoProfile",
-        "-Command",
-        "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterCompatibility,PNPDeviceID,VideoProcessor | ConvertTo-Json -Depth 3 -Compress",
-      ],
-      {
-        encoding: "utf8",
-        windowsHide: true,
-        timeout: 10_000,
-      },
-    );
-    if (typeof rawOutput !== "string" || rawOutput.trim().length === 0) {
-      return [];
-    }
-
-    return extractGpuVendorsFromWindowsVideoControllers(JSON.parse(rawOutput));
-  } catch {
-    return [];
-  }
-};
-
-const collectMiniBackendGpuVendors = async (): Promise<string[]> => {
-  const gpuInfo = await app.getGPUInfo("complete").catch(() => null);
-  const electronDescriptors = extractGpuVendors(gpuInfo);
-  const windowsDescriptors = readWindowsVideoControllerDescriptors();
-  return Array.from(new Set([...electronDescriptors, ...windowsDescriptors]));
 };
 
 const resolveMiniBackendAccelerationProfile = async (
