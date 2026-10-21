@@ -67,10 +67,10 @@ import {
   createMiniBackendRuntimeStore,
 } from "./modules/mini-backend-runtime-store.ts";
 import { createMiniBackendRuntimeLogBuffer } from "./modules/mini-backend-runtime-log.ts";
+import { createMiniBackendStateSync } from "./modules/mini-backend-state-sync.ts";
 import { collectMiniBackendGpuVendors } from "./modules/mini-backend-gpu.ts";
 import {
   createMiniBackendProfileResolver,
-  normalizeAccelerationProfileOverride,
 } from "./modules/mini-backend-profile.ts";
 import {
   ensureMiniBackendDevDependencies,
@@ -102,7 +102,6 @@ import { resolveRendererCorsOrigin } from "./modules/app-protocols.ts";
 import { resolveMiniBackendStartupPolicy } from "./mini-backend-runtime-startup.ts";
 import {
   formatRuntimeFallbackReason,
-  resolveEffectiveAccelerationProfile,
   type MiniBackendAccelerationProfile,
 } from "./mini-backend-runtime.ts";
 
@@ -161,14 +160,6 @@ let miniBackendProcessForExitCleanup: ChildProcess | null = null;
 let localApiSessionSecret = randomBytes(32).toString("hex");
 let preparedMiniBackendPort: number | null = null;
 
-interface MiniBackendDeviceInfoPayload {
-  profile?: string;
-  active_profile?: string;
-  provider?: string;
-  fallback_reason?: string | null;
-  name?: string;
-  vram_gb?: number | null;
-}
 
 const MINI_BACKEND_RUNTIME_EVENT_CHANNEL = "mini-backend-runtime:event";
 
@@ -303,6 +294,13 @@ const runtimeStore = createMiniBackendRuntimeStore({
     gpuName: null,
     vramGb: null,
   },
+});
+
+
+const { syncMiniBackendRuntimeStateFromApi } = createMiniBackendStateSync({
+  getLocalApiUrl: () => localApiUrl,
+  getLocalApiSessionSecret: () => localApiSessionSecret,
+  runtimeStore,
 });
 
 const getDesktopRuntimeConfig = (): {
@@ -840,52 +838,6 @@ const { getMiniBackendCommand } = createMiniBackendCommandBuilder({
   miniBackendArtifactsUrl,
   resolveAccelerationProfile: resolveMiniBackendAccelerationProfile,
 });
-
-const syncMiniBackendRuntimeStateFromApi = async (): Promise<void> => {
-  if (!localApiUrl || !localApiSessionSecret) {
-    return;
-  }
-
-  try {
-    const response = await fetch(`${localApiUrl}/device/info`, {
-      method: "GET",
-      headers: {
-        [LOCAL_API_SESSION_HEADER]: localApiSessionSecret,
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) {
-      return;
-    }
-
-    const payload = (await response.json()) as MiniBackendDeviceInfoPayload;
-    const requestedProfileOverride = normalizeAccelerationProfileOverride(payload.profile);
-    const requestedProfile = requestedProfileOverride === "auto"
-      ? runtimeStore.getState().requestedProfile
-      : (requestedProfileOverride as MiniBackendAccelerationProfile);
-    const activeProfileOverride = normalizeAccelerationProfileOverride(payload.active_profile);
-    const activeProfile = activeProfileOverride !== "auto"
-      ? (activeProfileOverride as MiniBackendAccelerationProfile)
-      : resolveEffectiveAccelerationProfile({
-        requestedProfile,
-        provider: payload.provider,
-      });
-    const fallbackReason = formatRuntimeFallbackReason(payload.fallback_reason);
-
-    runtimeStore.patch({
-      requestedProfile,
-      activeProfile,
-      lastError: fallbackReason,
-      gpuName: typeof payload.name === "string" && payload.name.trim().length > 0 ? payload.name : null,
-      vramGb: typeof payload.vram_gb === "number" && payload.vram_gb > 0 ? payload.vram_gb : null,
-      status: fallbackReason ? "fallback" : "ready",
-      statusMessage: fallbackReason,
-    });
-  } catch {
-    // Best-effort sync only.
-  }
-};
-
 
 const {
   listMiniBackendRuntimeArtifacts,
