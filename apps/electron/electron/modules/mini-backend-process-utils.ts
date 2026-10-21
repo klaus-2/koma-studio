@@ -51,26 +51,7 @@ const waitForMiniBackend = async (
   return false;
 };
 
-const waitForMiniBackendProcessExit = async (
-  exitPromise: Promise<void> | null,
-  timeoutMs: number,
-): Promise<boolean> => {
-  if (!exitPromise) {
-    return true;
-  }
-
-  try {
-    return await Promise.race([
-      exitPromise.then(() => true),
-      sleep(timeoutMs).then(() => false),
-    ]);
-  } catch {
-    return false;
-  }
-};
-
 export {
   getRandomLocalPort,
   waitForMiniBackend,
-  waitForMiniBackendProcessExit,
 };

@@ -8,7 +8,7 @@ import {
   type Session,
 } from "electron";
 import path from "node:path";
-import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
 
 // Monorepo: the package was renamed to @koma/electron, but Electron's userData
 // directory is derived from the package name — pin it to "koma-studio" to
@@ -68,6 +68,7 @@ import {
 } from "./modules/mini-backend-runtime-store.ts";
 import { createMiniBackendRuntimeLogBuffer } from "./modules/mini-backend-runtime-log.ts";
 import { createMiniBackendStateSync } from "./modules/mini-backend-state-sync.ts";
+import { createMiniBackendSupervisor } from "./modules/mini-backend-supervisor.ts";
 import { collectMiniBackendGpuVendors } from "./modules/mini-backend-gpu.ts";
 import {
   createMiniBackendProfileResolver,
@@ -79,7 +80,6 @@ import { createMiniBackendCommandBuilder } from "./modules/mini-backend-command.
 import {
   getRandomLocalPort,
   waitForMiniBackend,
-  waitForMiniBackendProcessExit,
 } from "./modules/mini-backend-process-utils.ts";
 import { createMiniBackendManifestReader } from "./modules/mini-backend-runtime-manifest.ts";
 import { createMiniBackendRuntimeInstaller } from "./modules/mini-backend-runtime-install.ts";
@@ -93,10 +93,7 @@ import {
 } from "./modules/desktop-auth-constants.ts";
 import { normalizeLoopbackUrl, parseConfiguredPort } from "./modules/app-urls.ts";
 import { resolveMiniBackendStartupPolicy } from "./mini-backend-runtime-startup.ts";
-import {
-  formatRuntimeFallbackReason,
-  type MiniBackendAccelerationProfile,
-} from "./mini-backend-runtime.ts";
+import type { MiniBackendAccelerationProfile } from "./mini-backend-runtime.ts";
 
 import {
   // Shared utilities
@@ -143,13 +140,6 @@ import {
 app.commandLine.appendSwitch("disable-extensions");
 
 let mainWindow: BrowserWindow | null = null;
-let miniBackendProcess: ChildProcess | null = null;
-let miniBackendShutdownPromise: Promise<void> | null = null;
-let miniBackendExitPromise: Promise<void> | null = null;
-// Stable reference for the synchronous process.once("exit") handler.
-// stopMiniBackend() nulls miniBackendProcess before kill completes, so the
-// exit handler needs its own copy to guarantee the child is killed.
-let miniBackendProcessForExitCleanup: ChildProcess | null = null;
 let localApiSessionSecret = randomBytes(32).toString("hex");
 let preparedMiniBackendPort: number | null = null;
 
@@ -294,6 +284,11 @@ const { syncMiniBackendRuntimeStateFromApi } = createMiniBackendStateSync({
   getLocalApiUrl: () => localApiUrl,
   getLocalApiSessionSecret: () => localApiSessionSecret,
   runtimeStore,
+});
+
+const miniBackendSupervisor = createMiniBackendSupervisor({
+  patchRuntimeState: (patch) => runtimeStore.patch(patch),
+  pushRuntimeLog: (stream, text) => miniBackendRuntimeLog.push(stream, text),
 });
 
 const getDesktopRuntimeConfig = (): {
@@ -852,32 +847,6 @@ const {
 });
 
 
-const forceStopMiniBackendProcess = (processRef: ChildProcess | null): void => {
-  if (!processRef || processRef.killed) {
-    return;
-  }
-
-  const pid = processRef.pid;
-  if (process.platform === "win32" && typeof pid === "number" && Number.isInteger(pid) && pid > 0) {
-    try {
-      execFileSync("taskkill.exe", ["/PID", String(pid), "/T", "/F"], {
-        stdio: "ignore",
-        windowsHide: true,
-        timeout: 3_000,
-      });
-      return;
-    } catch {
-      // Fall back to generic kill below.
-    }
-  }
-
-  try {
-    processRef.kill("SIGKILL");
-  } catch {
-    // Ignore process termination race conditions.
-  }
-};
-
 const startMiniBackend = async (): Promise<void> => {
   await prepareMiniBackendLaunchContext();
   const commandSpec = await getMiniBackendCommand();
@@ -908,7 +877,7 @@ const startMiniBackend = async (): Promise<void> => {
     progress: null,
   });
 
-  miniBackendProcess = spawn(command, args, {
+  const child = spawn(command, args, {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
     env: {
@@ -924,101 +893,7 @@ const startMiniBackend = async (): Promise<void> => {
       PYTHONIOENCODING: "utf-8",
     },
   });
-  miniBackendProcessForExitCleanup = miniBackendProcess;
-
-  const shouldIgnoreMiniBackendProgressNoise = (rawText: string): boolean => {
-    const text = rawText.trim();
-    if (!text) {
-      return true;
-    }
-    return (
-      /Progress:\s*\|/i.test(text) ||
-      /onnxruntime is not built with CUDA 12\.x support/i.test(text)
-    );
-  };
-
-  const decodeMiniBackendChunk = (chunk: Buffer): string => {
-    const utf8 = chunk.toString("utf8");
-    if (!utf8.includes("\uFFFD")) {
-      return utf8;
-    }
-
-    // Some Windows-native provider stacks emit non-UTF8 bytes on stderr.
-    // Prefer a permissive decode so diagnostics keep flowing instead of
-    // polluting the app with unreadable chunks.
-    return chunk.toString("latin1");
-  };
-
-  const syncMiniBackendRuntimeStateFromLog = (rawText: string): void => {
-    const text = rawText.trim();
-    if (!text) {
-      return;
-    }
-
-    const warmupFallbackReason = formatRuntimeFallbackReason("runtime_warmup_fallback_to_cpu");
-
-    // These must stay in sync with the English log markers emitted by
-    // packages/mini-backend/app.py (guarded by
-    // ../tests/mini-backend-fallback-markers.test.ts).
-    if (text.includes("Falling back to CPU automatically")) {
-      runtimeStore.patch({
-        activeProfile: "cpu",
-        lastError: warmupFallbackReason,
-        status: "fallback",
-        statusMessage: warmupFallbackReason,
-      });
-      return;
-    }
-
-    if (text.includes("Detector warmup successfully redone on CPU")) {
-      runtimeStore.patch({
-        activeProfile: "cpu",
-        lastError: warmupFallbackReason,
-        status: "fallback",
-        statusMessage: warmupFallbackReason,
-      });
-    }
-  };
-
-  miniBackendProcess.stdout?.on("data", (chunk: Buffer) => {
-    const text = decodeMiniBackendChunk(chunk);
-    if (shouldIgnoreMiniBackendProgressNoise(text)) {
-      return;
-    }
-    miniBackendRuntimeLog.push("stdout", text);
-    syncMiniBackendRuntimeStateFromLog(text);
-    console.log(`[mini-backend] ${text.trim()}`);
-  });
-
-  miniBackendProcess.stderr?.on("data", (chunk: Buffer) => {
-    const text = decodeMiniBackendChunk(chunk);
-    if (shouldIgnoreMiniBackendProgressNoise(text)) {
-      return;
-    }
-    miniBackendRuntimeLog.push("stderr", text);
-    syncMiniBackendRuntimeStateFromLog(text);
-    console.error(`[mini-backend:err] ${text.trim()}`);
-  });
-
-  const currentProcess = miniBackendProcess;
-  const currentExitPromise = new Promise<void>((resolve) => {
-    currentProcess.once("exit", () => {
-      resolve();
-    });
-  });
-  miniBackendExitPromise = currentExitPromise;
-  miniBackendProcess.on("exit", (code) => {
-    console.log(`[mini-backend] exited with code ${code ?? "unknown"}`);
-    if (miniBackendProcess === currentProcess) {
-      miniBackendProcess = null;
-    }
-    if (miniBackendProcessForExitCleanup === currentProcess) {
-      miniBackendProcessForExitCleanup = null;
-    }
-    if (miniBackendExitPromise === currentExitPromise) {
-      miniBackendExitPromise = null;
-    }
-  });
+  miniBackendSupervisor.register(child);
 
   const startupPolicy = resolveMiniBackendStartupPolicy({
     isDev,
@@ -1261,43 +1136,7 @@ const createWindow = async (): Promise<void> => {
   }, 2_000);
 };
 
-const stopMiniBackend = async (): Promise<void> => {
-  if (miniBackendShutdownPromise) {
-    await miniBackendShutdownPromise;
-    return;
-  }
-
-  const processRef = miniBackendProcess;
-  const exitPromise = miniBackendExitPromise;
-  miniBackendProcess = null;
-  miniBackendExitPromise = null;
-
-  if (!processRef || processRef.killed) {
-    return;
-  }
-
-  miniBackendShutdownPromise = (async () => {
-    try {
-      processRef.kill("SIGTERM");
-    } catch {
-      // Ignore process termination race conditions.
-    }
-
-    const exitedGracefully = await waitForMiniBackendProcessExit(exitPromise, 2_500);
-    if (exitedGracefully) {
-      return;
-    }
-
-    forceStopMiniBackendProcess(processRef);
-    await waitForMiniBackendProcessExit(exitPromise, 2_000);
-  })();
-
-  try {
-    await miniBackendShutdownPromise;
-  } finally {
-    miniBackendShutdownPromise = null;
-  }
-};
+const stopMiniBackend = (): Promise<void> => miniBackendSupervisor.stop();
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -1335,7 +1174,7 @@ setupDesktopBugReportIpcHandlers({
   resolveDesktopEnvValue,
   getDesktopUpdateChannel: () => getDesktopUpdateChannel(app.getVersion()),
   miniBackendRuntimeLogBuffer: miniBackendRuntimeLog.getEntries(),
-  miniBackendProcessRef: () => miniBackendProcess,
+  miniBackendProcessRef: () => miniBackendSupervisor.getProcess(),
   authApiUrl,
   localApiUrl,
 });
@@ -1399,10 +1238,7 @@ ipcMain.handle("desktop:restart-local-backend", async (event) => {
 });
 
 process.once("exit", () => {
-  forceStopMiniBackendProcess(miniBackendProcessForExitCleanup);
-  miniBackendProcessForExitCleanup = null;
-  miniBackendProcess = null;
-  miniBackendExitPromise = null;
+  miniBackendSupervisor.runExitCleanup();
 });
 
 if (process.platform === "win32") {
@@ -1495,7 +1331,8 @@ app.on("window-all-closed", () => {
 app.on("before-quit", (event) => {
   void discordRPC.disconnect();
   desktopAuth.clearTokenRefreshTimeout();
-  if (miniBackendProcess && !miniBackendProcess.killed) {
+  const runningBackendProcess = miniBackendSupervisor.getProcess();
+  if (runningBackendProcess && !runningBackendProcess.killed) {
     event.preventDefault();
     void stopMiniBackend().finally(() => {
       app.quit();
