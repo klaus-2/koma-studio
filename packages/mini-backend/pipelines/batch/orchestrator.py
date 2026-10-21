@@ -23,7 +23,7 @@ from pipelines.batch.records import (
     normalize_bbox,
     safe_output_filename,
 )
-from pipelines.batch.stages import CleanSettings, LLMRequestSettings
+from pipelines.batch.stages import CleanSettings, LLMRequestSettings, StageOutput
 from pipelines.queue_processor import QueueProcessor
 from schemas.pipeline_batch import (
     BatchItemError,
@@ -31,10 +31,14 @@ from schemas.pipeline_batch import (
     BatchReport,
     BatchStageConfig,
 )
+from core.device import get_device_info
+from services.device_fallback import ExecutionOutcome, run_with_cpu_fallback
 
 logger = logging.getLogger(__name__)
 
 type StagePayload = dict[str, object]
+
+type GpuStageRun[T] = Callable[[bool], Awaitable[T]]
 
 # Per-image, per-phase budget. A dense page can need 50+ ONNX calls
 # (17 regions × 3 OCR fallback passes), so this must stay generous.
@@ -205,12 +209,13 @@ def _mask_source_records(state: _ImageState) -> Sequence[Mapping[str, object]]:
 
 
 class BatchOrchestrator:
-    __slots__ = ("_cancellation", "_config", "_ocr_by_index")
+    __slots__ = ("_cancellation", "_config", "_ocr_by_index", "_device")
 
     def __init__(self, config: BatchRunConfig, cancellation_event: asyncio.Event) -> None:
         self._config = config
         self._cancellation = cancellation_event
         self._ocr_by_index: dict[int, list[OCRRecord]] = {}
+        self._device = get_device_info()
 
     async def run(self, tasks: Sequence[BatchImageTask]) -> BatchOutcome:
         states = [_ImageState(task=task) for task in tasks]
@@ -281,6 +286,31 @@ class BatchOrchestrator:
 
     # ----------------------------------------------------------------- phases
 
+    async def _run_gpu_stage[T](
+        self,
+        state: _ImageState,
+        stage: StageName,
+        use_gpu: bool,
+        run: GpuStageRun[T],
+    ) -> ExecutionOutcome[T]:
+        """Run a GPU stage with the shared single GPU-OOM → CPU retry.
+
+        Batch has no HTTP header channel: a fallback is reported by setting
+        ``fell_back_to_cpu`` on the stage payload and emitting the batch-scoped
+        ``batch.gpu_oom_fallback`` event."""
+        execution = await run_with_cpu_fallback(
+            lambda _device, stage_use_gpu: run(stage_use_gpu),
+            device=self._device,
+            use_gpu=use_gpu,
+            stage=stage,
+        )
+        if execution.fell_back_to_cpu:
+            logger.warning(
+                "batch.gpu_oom_fallback",
+                extra={"stage": stage, "image_index": state.task.index},
+            )
+        return execution
+
     async def _single_pass(self, state: _ImageState) -> None:
         await self._phase_one(state)
         await self._phase_two(state)
@@ -298,12 +328,18 @@ class BatchOrchestrator:
             state.image_size = image.size
             if cfg.stages.detect:
                 try:
-                    out = await stages.run_detect_stage(
-                        image=image,
-                        has_gpu=cfg.gpu.detect,
-                        model_key=cfg.detect_model_key,
-                        default_detection_model=cfg.default_detection_model,
+                    execution = await self._run_gpu_stage(
+                        state,
+                        "detect",
+                        cfg.gpu.detect,
+                        lambda use_gpu: stages.run_detect_stage(
+                            image=image,
+                            has_gpu=use_gpu,
+                            model_key=cfg.detect_model_key,
+                            default_detection_model=cfg.default_detection_model,
+                        ),
                     )
+                    out = execution.result
                     await asyncio.to_thread(enrich_regions_with_font_style, image, out.regions)
                     state.detected = out.regions
                     state.detect_payload = {
@@ -313,24 +349,30 @@ class BatchOrchestrator:
                         "image_height": image.height,
                         "detections": out.regions,
                     }
+                    if execution.fell_back_to_cpu:
+                        state.detect_payload["fell_back_to_cpu"] = True
                     state.successful_stages += 1
                 except Exception as exc:  # noqa: BLE001 — per-stage fault isolation
                     state.fail_from("detect", exc)
 
             if cfg.stages.ocr:
                 try:
-                    out = await stages.run_ocr_stage(
-                        image=image,
-                        image_bytes=await asyncio.to_thread(state.task.read_bytes),
-                        source_language=cfg.source_language,
-                        model_key=cfg.ocr_model_key,
-                        has_gpu=cfg.gpu.ocr,
-                        default_detection_model=cfg.default_detection_model,
-                        seeds=stages.ocr_seeds_from_detections(
-                            state.detected, cfg.default_detection_model
-                        ),
-                        cancellation_event=self._cancellation,
-                    )
+                    async def run_ocr(use_gpu: bool) -> StageOutput[OCRRecord]:
+                        return await stages.run_ocr_stage(
+                            image=image,
+                            image_bytes=await asyncio.to_thread(state.task.read_bytes),
+                            source_language=cfg.source_language,
+                            model_key=cfg.ocr_model_key,
+                            has_gpu=use_gpu,
+                            default_detection_model=cfg.default_detection_model,
+                            seeds=stages.ocr_seeds_from_detections(
+                                state.detected, cfg.default_detection_model
+                            ),
+                            cancellation_event=self._cancellation,
+                        )
+
+                    execution = await self._run_gpu_stage(state, "ocr", cfg.gpu.ocr, run_ocr)
+                    out = execution.result
                     state.ocr = out.regions
                     state.ocr_payload = {
                         "regions_count": len(out.regions),
@@ -339,6 +381,8 @@ class BatchOrchestrator:
                         "image_height": image.height,
                         "regions": out.regions,
                     }
+                    if execution.fell_back_to_cpu:
+                        state.ocr_payload["fell_back_to_cpu"] = True
                     state.successful_stages += 1
                 except Exception as exc:  # noqa: BLE001 — per-stage fault isolation
                     state.fail_from("ocr", exc)
@@ -395,12 +439,18 @@ class BatchOrchestrator:
             state.fail("segment", "No regions to segment for this image.")
             return
         try:
-            out = await stages.run_segment_stage(
-                image_bytes=await asyncio.to_thread(state.task.read_bytes),
-                has_gpu=cfg.gpu.segment,
-                model_key=cfg.segment_model_key,
-                seeds=seeds,
+            async def run_segment(use_gpu: bool) -> StageOutput[SegmentRecord]:
+                return await stages.run_segment_stage(
+                    image_bytes=await asyncio.to_thread(state.task.read_bytes),
+                    has_gpu=use_gpu,
+                    model_key=cfg.segment_model_key,
+                    seeds=seeds,
+                )
+
+            execution = await self._run_gpu_stage(
+                state, "segment", cfg.gpu.segment, run_segment
             )
+            out = execution.result
         except Exception as exc:  # noqa: BLE001 — per-stage fault isolation
             state.fail_from("segment", exc)
             return
@@ -413,6 +463,8 @@ class BatchOrchestrator:
             "image_height": height,
             "regions": out.regions,
         }
+        if execution.fell_back_to_cpu:
+            state.segment_payload["fell_back_to_cpu"] = True
         state.successful_stages += 1
 
     async def _clean(self, state: _ImageState) -> None:
@@ -423,13 +475,19 @@ class BatchOrchestrator:
             state.fail("clean", f"Invalid image for the clean stage: {exc}")
             return
         try:
-            result = await stages.run_clean_stage(
-                image=image,
-                has_gpu=cfg.gpu.clean,
-                settings=cfg.clean,
-                regions_for_mask=_mask_source_records(state),
-                default_detection_model=cfg.default_detection_model,
+            execution = await self._run_gpu_stage(
+                state,
+                "clean",
+                cfg.gpu.clean,
+                lambda use_gpu: stages.run_clean_stage(
+                    image=image,
+                    has_gpu=use_gpu,
+                    settings=cfg.clean,
+                    regions_for_mask=_mask_source_records(state),
+                    default_detection_model=cfg.default_detection_model,
+                ),
             )
+            result = execution.result
         except Exception as exc:  # noqa: BLE001 — per-stage fault isolation
             state.fail_from("clean", exc)
             return
@@ -449,6 +507,8 @@ class BatchOrchestrator:
             "hd_strategy_crop_margin": cfg.clean.hd_strategy_crop_margin,
             "hd_strategy_crop_trigger_size": cfg.clean.hd_strategy_crop_trigger_size,
         }
+        if execution.fell_back_to_cpu:
+            state.clean_payload["fell_back_to_cpu"] = True
         state.successful_stages += 1
 
     # ----------------------------------------------------------------- report

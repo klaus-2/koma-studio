@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from io import BytesIO
 import os
 from pathlib import Path
@@ -209,6 +210,43 @@ class BatchOrchestratorTests(unittest.TestCase):
             stages.run_ocr_stage = original_ocr
             stages.run_translation_stage = original_translate
             stages.run_clean_stage = original_clean
+
+    def test_gpu_oom_falls_back_to_cpu_and_flags_payload(self) -> None:
+        calls: list[bool] = []
+
+        async def fake_detect(**kwargs: object):
+            has_gpu = cast(bool, kwargs["has_gpu"])
+            calls.append(has_gpu)
+            if has_gpu:
+                raise MemoryError("CUDA error: out of memory")
+            return StageOutput("det-cpu", [])
+
+        original_detect = stages.run_detect_stage
+        stages.run_detect_stage = fake_detect
+        try:
+            png = _png_bytes()
+            tasks = [BatchImageTask(0, "a.png", str(_spool(png)))]
+            config = dataclasses.replace(
+                _config(neighbor=False),
+                stages=BatchStageConfig(
+                    detect=True, ocr=False, translation=False, segment=False, clean=False
+                ),
+                gpu=GpuFlags(detect=True, ocr=False, segment=False, clean=False),
+            )
+            with self.assertLogs("pipelines.batch.orchestrator", level="WARNING") as logs:
+                outcome = _run(BatchOrchestrator(config, asyncio.Event()).run(tasks))
+
+            result = outcome.report.results[0]
+            self.assertEqual(result.status, "success")
+            detect_payload = result.detect
+            self.assertIsNotNone(detect_payload)
+            self.assertIs(detect_payload.get("fell_back_to_cpu"), True)
+            self.assertTrue(
+                any("batch.gpu_oom_fallback" in message for message in logs.output)
+            )
+            self.assertEqual(calls, [True, False])
+        finally:
+            stages.run_detect_stage = original_detect
 
 
 if __name__ == "__main__":
