@@ -16,7 +16,7 @@ import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 // %APPDATA%.
 app.setName("koma-studio");
 
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import {
   resolveDesktopSessionRecoveryAction,
@@ -94,6 +94,11 @@ import {
   waitForMiniBackend,
   waitForMiniBackendProcessExit,
 } from "./modules/mini-backend-process-utils.ts";
+import {
+  computeSha512Base64ForFile,
+  getMiniBackendRuntimeInstallDir,
+  isMiniBackendRuntimeInstalled,
+} from "./modules/mini-backend-runtime-integrity.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -111,7 +116,6 @@ import { normalizeLoopbackUrl, parseConfiguredPort } from "./modules/app-urls.ts
 import { resolveRendererCorsOrigin } from "./modules/app-protocols.ts";
 import {
   listMiniBackendRuntimeArtifactOptions,
-  sanitizeMiniBackendProfile,
   type MiniBackendRuntimeArtifactOption,
   type MiniBackendRuntimeArtifactManifest,
   type MiniBackendRuntimeArtifactRecord,
@@ -1157,15 +1161,6 @@ const syncMiniBackendRuntimeStateFromApi = async (): Promise<void> => {
   }
 };
 
-const computeSha512Base64ForFile = async (filePath: string): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const hash = createHash("sha512");
-    const stream = fs.createReadStream(filePath);
-    stream.on("error", reject);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("end", () => resolve(hash.digest("base64")));
-  });
-
 const readMiniBackendRuntimeManifest = async (
   { silent = false }: { silent?: boolean } = {},
 ): Promise<MiniBackendRuntimeArtifactManifest | null> => {
@@ -1224,23 +1219,6 @@ const readMiniBackendRuntimeManifest = async (
     return null;
   }
 };
-
-const getMiniBackendRuntimeInstallDir = (
-  version: string,
-  profile: MiniBackendAccelerationProfile,
-): string =>
-  path.join(
-    app.getPath("userData"),
-    "mini-backend-runtimes",
-    version,
-    sanitizeMiniBackendProfile(profile),
-  );
-
-const isMiniBackendRuntimeInstalled = (
-  version: string,
-  profile: MiniBackendAccelerationProfile,
-  entry: string,
-): boolean => fs.existsSync(path.join(getMiniBackendRuntimeInstallDir(version, profile), entry));
 
 const listMiniBackendRuntimeArtifacts = async (): Promise<MiniBackendRuntimeArtifactOption[]> => {
   const manifest = await readMiniBackendRuntimeManifest({ silent: true });
