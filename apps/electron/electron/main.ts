@@ -88,6 +88,7 @@ import {
 } from "./modules/mini-backend-process-utils.ts";
 import { createMiniBackendManifestReader } from "./modules/mini-backend-runtime-manifest.ts";
 import { createMiniBackendRuntimeInstaller } from "./modules/mini-backend-runtime-install.ts";
+import { createManualRuntimeInstaller } from "./modules/mini-backend-manual-install.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -103,12 +104,8 @@ import {
 } from "./modules/desktop-auth-constants.ts";
 import { normalizeLoopbackUrl, parseConfiguredPort } from "./modules/app-urls.ts";
 import { resolveRendererCorsOrigin } from "./modules/app-protocols.ts";
-import {
-  writeMiniBackendRuntimeSelection,
-} from "./mini-backend-runtime-selection.ts";
 import { resolveMiniBackendStartupPolicy } from "./mini-backend-runtime-startup.ts";
 import {
-  buildManualInstallBlockedState,
   formatRuntimeFallbackReason,
   resolveEffectiveAccelerationProfile,
   type MiniBackendAccelerationProfile,
@@ -170,11 +167,6 @@ let miniBackendExitPromise: Promise<void> | null = null;
 let miniBackendProcessForExitCleanup: ChildProcess | null = null;
 let localApiSessionSecret = randomBytes(32).toString("hex");
 let preparedMiniBackendPort: number | null = null;
-let miniBackendRuntimeInstallPromise: Promise<{
-  ok: boolean;
-  profile: string;
-  reason: string | null;
-}> | null = null;
 
 interface MiniBackendDeviceInfoPayload {
   profile?: string;
@@ -333,117 +325,6 @@ const getDesktopRuntimeConfig = (): {
   appPackaged: app.isPackaged,
   authDisabled: isAuthDisabled,
 });
-
-const installRecommendedMiniBackendRuntime = async (): Promise<{
-  ok: boolean;
-  profile: string;
-  reason: string | null;
-}> => {
-  if (miniBackendRuntimeInstallPromise) {
-    return miniBackendRuntimeInstallPromise;
-  }
-
-  miniBackendRuntimeInstallPromise = (async () => {
-    const profile = await resolveMiniBackendAccelerationProfile();
-    if (isDev) {
-      runtimeStore.patch(buildManualInstallBlockedState({
-        reason: "dev-only-unavailable",
-        requestedProfile: profile,
-        activeProfile: runtimeStore.getState().activeProfile,
-        source: runtimeStore.getState().source,
-      }));
-      return { ok: false, profile, reason: "runtime_manual_install_dev_only_unavailable" };
-    }
-    if (profile === "cpu") {
-      runtimeStore.patch(buildManualInstallBlockedState({
-        reason: "cpu-not-required",
-        requestedProfile: profile,
-        activeProfile: runtimeStore.getState().activeProfile,
-        source: runtimeStore.getState().source,
-      }));
-      return { ok: false, profile, reason: "runtime_manual_install_cpu_not_required" };
-    }
-
-    const installedRuntime = await ensureMiniBackendDownloadedRuntime(profile);
-    if (!installedRuntime) {
-      return {
-        ok: false,
-        profile,
-        reason: runtimeStore.getState().lastError ?? "runtime_manual_install_failed",
-      };
-    }
-
-    writeMiniBackendRuntimeSelection(app.getPath("userData"), {
-      profile,
-      version: installedRuntime.version,
-      entry: path.basename(installedRuntime.binaryPath),
-    });
-    await stopMiniBackend();
-    await startMiniBackend();
-    return { ok: true, profile, reason: null };
-  })();
-
-  try {
-    return await miniBackendRuntimeInstallPromise;
-  } finally {
-    miniBackendRuntimeInstallPromise = null;
-  }
-};
-
-const installMiniBackendRuntimeProfile = async (
-  profileInput: string,
-): Promise<{
-  ok: boolean;
-  profile: string;
-  reason: string | null;
-}> => {
-  if (miniBackendRuntimeInstallPromise) {
-    return miniBackendRuntimeInstallPromise;
-  }
-
-  miniBackendRuntimeInstallPromise = (async () => {
-    const normalizedProfile = normalizeAccelerationProfileOverride(profileInput);
-    if (normalizedProfile === "auto") {
-      return { ok: false, profile: profileInput, reason: "runtime_manual_install_invalid_profile" };
-    }
-
-    if (isDev) {
-      runtimeStore.patch(buildManualInstallBlockedState({
-        reason: "dev-only-unavailable",
-        requestedProfile: normalizedProfile,
-        activeProfile: runtimeStore.getState().activeProfile,
-        source: runtimeStore.getState().source,
-      }));
-      return { ok: false, profile: normalizedProfile, reason: "runtime_manual_install_dev_only_unavailable" };
-    }
-
-    const installedRuntime = await ensureMiniBackendDownloadedRuntime(normalizedProfile, {
-      allowCpuDownload: true,
-    });
-    if (!installedRuntime) {
-      return {
-        ok: false,
-        profile: normalizedProfile,
-        reason: runtimeStore.getState().lastError ?? "runtime_manual_install_failed",
-      };
-    }
-
-    writeMiniBackendRuntimeSelection(app.getPath("userData"), {
-      profile: normalizedProfile,
-      version: installedRuntime.version,
-      entry: path.basename(installedRuntime.binaryPath),
-    });
-    await stopMiniBackend();
-    await startMiniBackend();
-    return { ok: true, profile: normalizedProfile, reason: null };
-  })();
-
-  try {
-    return await miniBackendRuntimeInstallPromise;
-  } finally {
-    miniBackendRuntimeInstallPromise = null;
-  }
-};
 
 const prepareMiniBackendLaunchContext = async (): Promise<void> => {
   const configuredPort = isDev ? null : parseConfiguredPort(resolveDesktopEnvValue("VITE_LOCAL_API_URL"));
@@ -1743,6 +1624,21 @@ const stopMiniBackend = async (): Promise<void> => {
 const gotTheLock = app.requestSingleInstanceLock();
 
 // Module-based IPC handler registration
+
+const {
+  installMiniBackendRuntimeProfile,
+  installRecommendedMiniBackendRuntime,
+} = createManualRuntimeInstaller({
+  isDev,
+  runtimeStore,
+  resolveAccelerationProfile: () => resolveMiniBackendAccelerationProfile(),
+  ensureDownloadedRuntime: ensureMiniBackendDownloadedRuntime,
+  restartBackend: async () => {
+    await stopMiniBackend();
+    await startMiniBackend();
+  },
+});
+
 setupDiscordIpcHandlers();
 setupDesktopExternalIpcHandlers();
 setupDesktopWorkspaceIpcHandlers({ getMainWindow: () => mainWindow });
