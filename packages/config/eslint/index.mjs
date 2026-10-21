@@ -269,6 +269,14 @@ export function defineKomaEslintConfig({
       },
     },
 
+    // Scripts de public/: rodam no browser, não no Node
+    {
+      files: ["public/**/*.{js,mjs}"],
+      languageOptions: {
+        globals: COMMON_GLOBALS,
+      },
+    },
+
     // Configs de root (vite/vitest/playwright): TS parser + globals Node
     {
       files: ["*.config.{ts,mts,cts}", "vite.config.{ts,mts}", "vitest.config.ts", "playwright.config.ts"],

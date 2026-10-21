@@ -25,7 +25,7 @@
         : theme === 'light'
           ? '#f0f2f5'
           : '#060810';
-  } catch (e) {
+  } catch {
     /* storage unavailable — defaults apply after hydration */
   }
 })();
