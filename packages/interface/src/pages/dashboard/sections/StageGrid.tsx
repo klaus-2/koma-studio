@@ -8,7 +8,7 @@ import DashboardInfoModeStage from '../../../components/dashboard/DashboardInfoM
 import DashboardSpecialModeStage from '../../../components/dashboard/DashboardSpecialModeStage';
 import DashboardStageGrid from '../../../components/dashboard/DashboardStageGrid';
 import DashboardEmptyStage from '../../../components/dashboard/DashboardEmptyStage';
-import { PreviewStageItem } from '../../../components/dashboard/PreviewStageItem';
+import { PipelineStageRow } from '../../../components/dashboard/PipelineStageRow';
 import { TranslatorVisualStageItem } from '../../../components/dashboard/TranslatorVisualStageItem';
 import { CleanerStageItem } from '../../../components/dashboard/CleanerStageItem';
 import { TypesetterStageItem } from '../../../components/dashboard/TypesetterStageItem';
@@ -757,14 +757,17 @@ export default function DashboardStageSection({
       }
 
       return (
-        <PreviewStageItem
-          img={img}
-          index={index}
-          viewMode={viewMode}
-          zoom={zoom}
-          resolvedActiveId={resolvedActiveId}
-          onSelect={(id) => setActiveId(id)}
-          getPreviewSrc={getPreviewSrc}
+        <PipelineStageRow
+          kind="preview"
+          props={{
+            img,
+            index,
+            viewMode,
+            zoom,
+            resolvedActiveId,
+            onSelect: (id) => setActiveId(id),
+            getPreviewSrc,
+          }}
         />
       );
     },
