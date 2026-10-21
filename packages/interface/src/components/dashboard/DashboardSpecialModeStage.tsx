@@ -3,6 +3,7 @@ import { Languages, Upload } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { memoLoad } from '../../utils/lazyModule';
 import { useExportStore } from '../../pages/dashboard/stores/export-store';
+import { useCurrentUtilityWorkspaceStates } from '../../pages/dashboard/hooks/utility-workspaces';
 import { getModeLabels } from '../../constants/dashboard.constants';
 import type { ToolMode } from '../../types/dashboard.types';
 
@@ -91,12 +92,16 @@ const DashboardSpecialModeStage = ({
     setStatusMessage,
     recordProcessedPages,
     outFormat,
-    watermarkWorkspaceState,
-    optimizerWorkspaceState,
     workspaceRestoreToken,
     onWatermarkWorkspaceStateChange,
     onOptimizerWorkspaceStateChange,
   } = props;
+  // Leaf-subscribed utility workspaces: recipe ticks re-render only
+  // this stage, not DashboardPage.
+  const {
+    currentWatermarkWorkspaceState: watermarkWorkspaceState,
+    currentOptimizerWorkspaceState: optimizerWorkspaceState,
+  } = useCurrentUtilityWorkspaceStates();
 
   // Branch on the mode this mount belongs to, not the immediate store mode
   // (which flips mid-deferral while the old workspace must stay mounted).

@@ -189,7 +189,6 @@ import {
   TranslationFreeProviderManagerSection,
 } from './dashboard/sections/LlmManagerSections';
 import {
-  useCurrentUtilityWorkspaceStates,
   useSpecialModeStageProps,
   useStitchWorkspace,
   useUtilitySplitterController,
@@ -1885,12 +1884,6 @@ export const DashboardPage = ({
     ensureVerifiedEmailOrNotify,
     recordProcessedPages,
   });
-  const {
-    currentSplitterWorkspaceState,
-    currentWatermarkWorkspaceState,
-    currentOptimizerWorkspaceState,
-  } = useCurrentUtilityWorkspaceStates();
-
   const bundleGetTypographerSessionsByImage = useCallback(
     () => useTypographerStore.getState().typographerSessionsByImage,
     [],
@@ -2134,9 +2127,6 @@ export const DashboardPage = ({
   } = useWorkspacePersistence({
     authUser,
     typographerWorkspace,
-    currentSplitterWorkspaceState,
-    currentWatermarkWorkspaceState,
-    currentOptimizerWorkspaceState,
     freeProviderDrafts,
     setFreeProviderDrafts,
   });
@@ -2222,8 +2212,6 @@ export const DashboardPage = ({
     recordProcessedPages,
     translatorImageImportRef,
     isDesktopRuntime,
-    currentWatermarkWorkspaceState,
-    currentOptimizerWorkspaceState,
   });
 
   // ── Render Helpers ──

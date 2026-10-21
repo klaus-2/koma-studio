@@ -273,6 +273,82 @@ export function useCurrentUtilityWorkspaceStates() {
 }
 
 
+/** Default splitter workspace state (store-null fallback). */
+export function defaultSplitterWorkspaceState(
+  activeId: string | null,
+): SplitterWorkspaceState {
+  return {
+    recipe: createDefaultSplitterRecipe(),
+    imageStates: {},
+    activeImageId: activeId,
+  };
+}
+
+/** Default watermark workspace state (store-null fallback). */
+export function defaultWatermarkWorkspaceState(
+  activeId: string | null,
+): WatermarkWorkspaceState {
+  return {
+    draft: createDefaultWatermarkDraft(),
+    activeImageId: activeId,
+    compareMode: 'split',
+    compareValue: 58,
+    selectedPresetId: '',
+    autoSuggestion: 'Use Smart Placement para sugerir posicionamento.',
+    userPresets: [],
+    watermarkImageFile: null,
+    results: [],
+    textZoneCache: {},
+  };
+}
+
+/** Default optimizer workspace state (store-null fallback). */
+export function defaultOptimizerWorkspaceState(
+  activeId: string | null,
+): ChapterOptimizerWorkspaceState {
+  return {
+    recipe: {
+      preset: 'web-light',
+      outputFormat: 'webp',
+      quality: 0.78,
+      resizeEnabled: true,
+      maxWidth: 1600,
+      maxHeight: 2400,
+      trimBorders: true,
+      trimTolerance: 18,
+    },
+    selectedPreset: 'web-light',
+    activeImageId: activeId,
+    results: [],
+  };
+}
+
+/**
+ * Imperative snapshot for autosave/export/history — never subscribe.
+ * Capture paths read via getState() so DashboardPage stays cold on
+ * special-tool recipe ticks.
+ */
+export function resolveUtilityWorkspaceSnapshots(activeId: string | null): {
+  currentSplitterWorkspaceState: SplitterWorkspaceState;
+  currentWatermarkWorkspaceState: WatermarkWorkspaceState;
+  currentOptimizerWorkspaceState: ChapterOptimizerWorkspaceState;
+} {
+  const splitterWorkspaceState =
+    useUtilityStore.getState().splitterWorkspaceState;
+  const watermarkWorkspaceState =
+    useUtilityStore.getState().watermarkWorkspaceState;
+  const optimizerWorkspaceState =
+    useUtilityStore.getState().optimizerWorkspaceState;
+  return {
+    currentSplitterWorkspaceState:
+      splitterWorkspaceState ?? defaultSplitterWorkspaceState(activeId),
+    currentWatermarkWorkspaceState:
+      watermarkWorkspaceState ?? defaultWatermarkWorkspaceState(activeId),
+    currentOptimizerWorkspaceState:
+      optimizerWorkspaceState ?? defaultOptimizerWorkspaceState(activeId),
+  };
+}
+
 /* ── Special-mode stage props: the memo bundle handed to DashboardSpecialModeStage
    (multi-store by design: utility stitch config + shell + translator + export +
    persistence; page-only collaborators arrive by args). Identity cadence is
@@ -297,8 +373,6 @@ export function useSpecialModeStageProps({
   recordProcessedPages,
   translatorImageImportRef,
   isDesktopRuntime,
-  currentWatermarkWorkspaceState,
-  currentOptimizerWorkspaceState,
 }: {
   stitchBatchPlans: ReturnType<typeof useStitchWorkspace>['stitchBatchPlans'];
   stitchSafeFileStem: ReturnType<typeof useStitchWorkspace>['stitchSafeFileStem'];
@@ -307,12 +381,6 @@ export function useSpecialModeStageProps({
   recordProcessedPages: RecordProcessedPagesFn;
   translatorImageImportRef: RefObject<HTMLInputElement | null>;
   isDesktopRuntime: boolean;
-  currentWatermarkWorkspaceState: ReturnType<
-    typeof useCurrentUtilityWorkspaceStates
-  >['currentWatermarkWorkspaceState'];
-  currentOptimizerWorkspaceState: ReturnType<
-    typeof useCurrentUtilityWorkspaceStates
-  >['currentOptimizerWorkspaceState'];
 }) {
   const mode = useUiShellStore((s) => s.mode);
   const processing = useUiShellStore((s) => s.processing);
@@ -377,16 +445,12 @@ export function useSpecialModeStageProps({
         setStatusMessage,
         recordProcessedPages,
         outFormat,
-        watermarkWorkspaceState: currentWatermarkWorkspaceState,
-        optimizerWorkspaceState: currentOptimizerWorkspaceState,
         workspaceRestoreToken,
         onWatermarkWorkspaceStateChange: setWatermarkWorkspaceState,
         onOptimizerWorkspaceStateChange: setOptimizerWorkspaceState,
       };
     },
     [
-      currentOptimizerWorkspaceState,
-      currentWatermarkWorkspaceState,
       ensureVerifiedEmailOrNotify,
       images,
       isDesktopRuntime,

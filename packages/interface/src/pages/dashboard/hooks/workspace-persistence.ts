@@ -23,9 +23,6 @@ import {
   type DashboardWorkspaceHistorySnapshot,
 } from '../../../workspace/dashboardWorkspace';
 import type { FreeProviderDraftMap } from '../../../types/dashboard.types';
-import type { WatermarkWorkspaceState } from '../../../components/dashboard/watermark/watermarkTypes';
-import type { ChapterOptimizerWorkspaceState } from '../../../components/dashboard/optimizer/ChapterOptimizerWorkspace';
-import type { SplitterWorkspaceState } from '../../../components/dashboard/splitter/types';
 import type { useTypographerWorkspace } from './typographer';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
@@ -45,9 +42,6 @@ import { useWorkspacePersistenceStore } from '../stores/workspace-persistence-st
 interface UseWorkspacePersistenceArgs {
   authUser: AuthUser | null;
   typographerWorkspace: ReturnType<typeof useTypographerWorkspace>;
-  currentSplitterWorkspaceState: SplitterWorkspaceState;
-  currentWatermarkWorkspaceState: WatermarkWorkspaceState;
-  currentOptimizerWorkspaceState: ChapterOptimizerWorkspaceState;
   freeProviderDrafts: FreeProviderDraftMap;
   setFreeProviderDrafts: Dispatch<SetStateAction<FreeProviderDraftMap>>;
 }
@@ -63,9 +57,6 @@ interface UseWorkspacePersistenceArgs {
 export function useWorkspacePersistence({
   authUser,
   typographerWorkspace,
-  currentSplitterWorkspaceState,
-  currentWatermarkWorkspaceState,
-  currentOptimizerWorkspaceState,
   freeProviderDrafts,
   setFreeProviderDrafts,
 }: UseWorkspacePersistenceArgs) {
@@ -98,9 +89,6 @@ export function useWorkspacePersistence({
     buildCaptureStateFromRestored,
   } = useWorkspaceCaptureState({
     authUser,
-    currentSplitterWorkspaceState,
-    currentWatermarkWorkspaceState,
-    currentOptimizerWorkspaceState,
     freeProviderDrafts,
   });
 
@@ -524,7 +512,7 @@ export function useWorkspacePersistence({
     );
     workspaceChangeSignal();
     return unsubscribesAll;
-  }, [workspaceChangeSignal, freeProviderDrafts, currentOptimizerWorkspaceState, currentSplitterWorkspaceState, currentWatermarkWorkspaceState]);
+  }, [workspaceChangeSignal, freeProviderDrafts]);
 
   useEffect(() => {
     if (!useWorkspacePersistenceStore.getState().workspaceHydrated) return;

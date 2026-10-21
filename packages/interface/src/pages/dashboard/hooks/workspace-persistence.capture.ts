@@ -31,9 +31,7 @@ import {
   type DashboardWorkspaceRestoreState,
 } from '../../../workspace/dashboardWorkspace';
 import type { CleanerRunMeta, FreeProviderDraftMap } from '../../../types/dashboard.types';
-import type { WatermarkWorkspaceState } from '../../../components/dashboard/watermark/watermarkTypes';
-import type { ChapterOptimizerWorkspaceState } from '../../../components/dashboard/optimizer/ChapterOptimizerWorkspace';
-import type { SplitterWorkspaceState } from '../../../components/dashboard/splitter/types';
+import { resolveUtilityWorkspaceSnapshots } from './utility-workspaces';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
@@ -51,17 +49,11 @@ import { useWorkspacePersistenceStore } from '../stores/workspace-persistence-st
 
 interface UseWorkspaceCaptureStateArgs {
   authUser: AuthUser | null;
-  currentSplitterWorkspaceState: SplitterWorkspaceState;
-  currentWatermarkWorkspaceState: WatermarkWorkspaceState;
-  currentOptimizerWorkspaceState: ChapterOptimizerWorkspaceState;
   freeProviderDrafts: FreeProviderDraftMap;
 }
 
 export function useWorkspaceCaptureState({
   authUser,
-  currentSplitterWorkspaceState,
-  currentWatermarkWorkspaceState,
-  currentOptimizerWorkspaceState,
   freeProviderDrafts,
 }: UseWorkspaceCaptureStateArgs) {
   const releaseWorkspaceObjectUrls = useCallback(() => {
@@ -74,10 +66,12 @@ export function useWorkspaceCaptureState({
     useExportStore.getState().downloadItems.forEach((item) => {
       URL.revokeObjectURL(item.previewUrl);
     });
-    currentWatermarkWorkspaceState.results.forEach((item) => {
+    resolveUtilityWorkspaceSnapshots(
+      useImageCollectionStore.getState().activeId,
+    ).currentWatermarkWorkspaceState.results.forEach((item) => {
       URL.revokeObjectURL(item.previewUrl);
     });
-  }, [currentWatermarkWorkspaceState.results]);
+  }, []);
 
   const buildCurrentWorkspaceCaptureState =
     useCallback((): DashboardWorkspaceCaptureState => ({
@@ -173,27 +167,32 @@ export function useWorkspaceCaptureState({
         modelId: useEnhanceStore.getState().enhanceModelId,
         outputFormat: useEnhanceStore.getState().enhanceOutputFormat,
       },
-      utility: {
-        stitch: {
-          stitchLayoutMode: useUtilityStore.getState().stitchLayoutMode,
-          stitchBatchStrategy: useUtilityStore.getState().stitchBatchStrategy,
-          stitchBatchSize: useUtilityStore.getState().stitchBatchSize,
-          stitchTargetPrimaryAxis:
-            useUtilityStore.getState().stitchTargetPrimaryAxis,
-          stitchGap: useUtilityStore.getState().stitchGap,
-          stitchAlignMode: useUtilityStore.getState().stitchAlignMode,
-          stitchBackground: useUtilityStore.getState().stitchBackground,
-          stitchSingleExportFormat:
-            useUtilityStore.getState().stitchSingleExportFormat,
-          stitchFileBaseName: useUtilityStore.getState().stitchFileBaseName,
-          stitchSelectedBatchIndex:
-            useUtilityStore.getState().stitchSelectedBatchIndex,
-          stitchBatchIndexes: useUtilityStore.getState().stitchBatchIndexes,
-        },
-        splitter: currentSplitterWorkspaceState,
-        watermark: currentWatermarkWorkspaceState,
-        optimizer: currentOptimizerWorkspaceState,
-      },
+      utility: (() => {
+        const utilitySnapshots = resolveUtilityWorkspaceSnapshots(
+          useImageCollectionStore.getState().activeId,
+        );
+        return {
+          stitch: {
+            stitchLayoutMode: useUtilityStore.getState().stitchLayoutMode,
+            stitchBatchStrategy: useUtilityStore.getState().stitchBatchStrategy,
+            stitchBatchSize: useUtilityStore.getState().stitchBatchSize,
+            stitchTargetPrimaryAxis:
+              useUtilityStore.getState().stitchTargetPrimaryAxis,
+            stitchGap: useUtilityStore.getState().stitchGap,
+            stitchAlignMode: useUtilityStore.getState().stitchAlignMode,
+            stitchBackground: useUtilityStore.getState().stitchBackground,
+            stitchSingleExportFormat:
+              useUtilityStore.getState().stitchSingleExportFormat,
+            stitchFileBaseName: useUtilityStore.getState().stitchFileBaseName,
+            stitchSelectedBatchIndex:
+              useUtilityStore.getState().stitchSelectedBatchIndex,
+            stitchBatchIndexes: useUtilityStore.getState().stitchBatchIndexes,
+          },
+          splitter: utilitySnapshots.currentSplitterWorkspaceState,
+          watermark: utilitySnapshots.currentWatermarkWorkspaceState,
+          optimizer: utilitySnapshots.currentOptimizerWorkspaceState,
+        };
+      })(),
       llm: {
         llmSettings: useLlmProvidersStore.getState().llmSettings,
         customLlmProfiles: useLlmProvidersStore.getState().customLlmProfiles,
@@ -206,9 +205,6 @@ export function useWorkspaceCaptureState({
       },
     }), [
       authUser?.id,
-      currentOptimizerWorkspaceState,
-      currentSplitterWorkspaceState,
-      currentWatermarkWorkspaceState,
       freeProviderDrafts,
     ]);
 
