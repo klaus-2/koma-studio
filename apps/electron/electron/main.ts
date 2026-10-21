@@ -73,6 +73,7 @@ import {
   createMiniBackendRuntimeStore,
   formatRuntimeBytes,
 } from "./modules/mini-backend-runtime-store.ts";
+import { createMiniBackendRuntimeLogBuffer } from "./modules/mini-backend-runtime-log.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -203,11 +204,8 @@ const RUNTIME_RETRYABLE_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 const MINI_BACKEND_RUNTIME_LOG_LIMIT = 600;
 const DESKTOP_SHORTCUT_ACTION_CHANNEL = "desktop:shortcut-action";
 
-let miniBackendRuntimeLogBuffer: Array<{
-  timestamp: string;
-  stream: "stdout" | "stderr";
-  message: string;
-}> = [];
+
+const miniBackendRuntimeLog = createMiniBackendRuntimeLogBuffer(MINI_BACKEND_RUNTIME_LOG_LIMIT);
 
 installMainProcessConsoleSessionLogging();
 
@@ -2091,7 +2089,7 @@ const startMiniBackend = async (): Promise<void> => {
     if (shouldIgnoreMiniBackendProgressNoise(text)) {
       return;
     }
-    pushMiniBackendRuntimeLog("stdout", text);
+    miniBackendRuntimeLog.push("stdout", text);
     syncMiniBackendRuntimeStateFromLog(text);
     console.log(`[mini-backend] ${text.trim()}`);
   });
@@ -2101,7 +2099,7 @@ const startMiniBackend = async (): Promise<void> => {
     if (shouldIgnoreMiniBackendProgressNoise(text)) {
       return;
     }
-    pushMiniBackendRuntimeLog("stderr", text);
+    miniBackendRuntimeLog.push("stderr", text);
     syncMiniBackendRuntimeStateFromLog(text);
     console.error(`[mini-backend:err] ${text.trim()}`);
   });
@@ -2342,34 +2340,6 @@ const setupDesktopClientHeaderInjection = (window: BrowserWindow): void => {
   }
 };
 
-const pushMiniBackendRuntimeLog = (stream: "stdout" | "stderr", chunkText: string): void => {
-  const lines = chunkText
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-    .slice(0, 120);
-
-  if (lines.length === 0) {
-    return;
-  }
-
-  const timestamp = new Date().toISOString();
-  for (const line of lines) {
-    miniBackendRuntimeLogBuffer.push({
-      timestamp,
-      stream,
-      message: line.slice(0, 2_000),
-    });
-  }
-
-  if (miniBackendRuntimeLogBuffer.length > MINI_BACKEND_RUNTIME_LOG_LIMIT) {
-    miniBackendRuntimeLogBuffer = miniBackendRuntimeLogBuffer.slice(
-      miniBackendRuntimeLogBuffer.length - MINI_BACKEND_RUNTIME_LOG_LIMIT,
-    );
-  }
-};
-
 const setupNavigationHardening = (window: BrowserWindow): void => {
   const internalOrigin = getDevServerOrigin();
 
@@ -2588,7 +2558,7 @@ setupDesktopBugReportIpcHandlers({
   getMainWindow: () => mainWindow,
   resolveDesktopEnvValue,
   getDesktopUpdateChannel: () => getDesktopUpdateChannel(app.getVersion()),
-  miniBackendRuntimeLogBuffer: miniBackendRuntimeLogBuffer,
+  miniBackendRuntimeLogBuffer: miniBackendRuntimeLog.getEntries(),
   miniBackendProcessRef: () => miniBackendProcess,
   authApiUrl,
   localApiUrl,
