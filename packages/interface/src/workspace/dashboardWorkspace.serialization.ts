@@ -9,9 +9,6 @@ import type {
   WorkspaceManualImageEditDocument,
   WorkspacePackageManifestV1,
   WorkspacePackagePayload,
-  WorkspaceUtilityStateDocument,
-  WorkspaceWatermarkResultDocument,
-  WorkspaceOptimizerResultDocument,
 } from "../../../../packages/types/src/workspace";
 import {
   WORKSPACE_DOCUMENT_VERSION,
@@ -25,26 +22,24 @@ import type {
   ImageFilters,
   LoadedImage,
 } from "../types/dashboard.types";
-import type { OptimizationResult } from "../types";
 import type { TypographySession } from "../typography/types";
 import type {
   DashboardWorkspaceCaptureState,
   DashboardWorkspaceRestoreState,
-  OptimizerWorkspaceRuntimeState,
-  WatermarkWorkspaceRuntimeState,
 } from "./dashboardWorkspace";
+import { jsonSafeClone as toJsonClone } from "./jsonSafeClone";
 import { blobToDataUrl, dataUrlToBlob } from "../utils/dashboard.utils";
 import { createThumbnailFromUrl } from "../utils/imagePerformance";
+import { stitchWorkspaceCodec } from "../components/dashboard/stitch/workspaceCodec";
+import { splitterWorkspaceCodec } from "../components/dashboard/splitter/workspaceCodec";
+import { watermarkWorkspaceCodec, type WorkspaceCodecAssetSource } from "../components/dashboard/watermark/workspaceCodec";
+import { optimizerWorkspaceCodec } from "../components/dashboard/optimizer/workspaceCodec";
 
 interface WorkspaceAssetSourceLike {
   fileName: string;
   mimeType: string;
   toBuffer: () => Promise<ArrayBuffer>;
 }
-
-type WorkspaceWatermarkDocumentWithTextZoneCache = WorkspaceUtilityStateDocument["watermark"] & {
-  textZoneCache?: WatermarkWorkspaceRuntimeState["textZoneCache"];
-};
 
 const buildWorkspaceDownloadLookupKey = (
   sourceImageId: string,
@@ -113,28 +108,6 @@ const fetchWorkspaceBinaryFromUrl = async (
     throw new Error(`Failed to rebuild the workspace binary for "${fileLabel}".`);
   }
   return response.arrayBuffer();
-};
-
-const toJsonClone = <T>(value: T): T => {
-  if (typeof structuredClone === "function") {
-    try {
-      return structuredClone(value);
-    } catch {
-      // Fall through to the JSON-safe clone path below.
-    }
-  }
-
-  return JSON.parse(
-    JSON.stringify(value, (_key, entry) => {
-      if (typeof entry === "function") {
-        return undefined;
-      }
-      if (typeof window !== "undefined" && entry === window) {
-        return undefined;
-      }
-      return entry;
-    }),
-  ) as T;
 };
 
 const createWorkspaceAssetId = (): string => {
@@ -374,35 +347,6 @@ const toManualImageEditsMap = async (
   return Object.fromEntries(entries);
 };
 
-const toWatermarkResultDocument = async (
-  collector: WorkspaceAssetCollector,
-  item: WatermarkWorkspaceRuntimeState["results"][number],
-): Promise<WorkspaceWatermarkResultDocument> => {
-  const blob = await collector.addBlob("watermark-results", item.name, item.blob);
-  return {
-    sourceImageId: item.sourceImageId,
-    name: item.name,
-    resolvedAnchor: item.resolvedAnchor,
-    blob,
-  };
-};
-
-const toOptimizerResultDocument = async (
-  collector: WorkspaceAssetCollector,
-  item: OptimizationResult,
-): Promise<WorkspaceOptimizerResultDocument> => {
-  const blob = await collector.addBlob("optimizer-results", item.fileName, item.blob);
-  return {
-    sourceImageId: item.sourceImageId,
-    fileName: item.fileName,
-    originalBytes: item.originalBytes,
-    optimizedBytes: item.optimizedBytes,
-    width: item.width,
-    height: item.height,
-    blob,
-  };
-};
-
 export const buildWorkspaceExportDefaultFileName = (
   mode: string,
   activeImage: LoadedImage | null,
@@ -440,18 +384,18 @@ export const captureWorkspaceDocument = async (
     cleanerManualImageEditsByImage,
     cleanerProcessedBaseAssetByImage,
     translatorProcessedBaseAssetByImage,
-    watermarkImage,
   ] = await Promise.all([
     toManualImageEditsMap(collector, state.aio.manualImageEditsByImage as unknown as Record<string, AioManualImageEditState>),
     toManualImageEditsMap(collector, state.cleaner.manualImageEditsByImage),
     toProcessedBaseAssetMap(collector, state.cleaner.processedBaseByImage),
     toProcessedBaseAssetMap(collector, state.translator.translatorProcessedBaseByImage),
-    state.utility.watermark.watermarkImageFile
-      ? collector.addFile("watermark-source", state.utility.watermark.watermarkImageFile)
-      : Promise.resolve(null),
   ]);
-  const watermarkResults = await Promise.all(state.utility.watermark.results.map((item) => toWatermarkResultDocument(collector, item)));
-  const optimizerResults = await Promise.all(state.utility.optimizer.results.map((item) => toOptimizerResultDocument(collector, item)));
+  // Special-tool document groups are built by their colocated codecs (same
+  // collector call order as the pre-codec implementation).
+  const stitchDocument = stitchWorkspaceCodec.toDocument(state.utility.stitch);
+  const splitterDocument = splitterWorkspaceCodec.toDocument(state.utility.splitter);
+  const watermarkDocument = await watermarkWorkspaceCodec.toDocument(state.utility.watermark, collector);
+  const optimizerDocument = await optimizerWorkspaceCodec.toDocument(state.utility.optimizer, collector);
 
   const document: WorkspaceDocumentV1 = {
     version: WORKSPACE_DOCUMENT_VERSION,
@@ -499,30 +443,10 @@ export const captureWorkspaceDocument = async (
     },
     enhance: toJsonClone(state.enhance),
     utility: {
-      stitch: toJsonClone(state.utility.stitch),
-      splitter: {
-        recipe: toJsonClone(state.utility.splitter.recipe),
-        imageStates: toJsonClone(state.utility.splitter.imageStates),
-        activeImageId: state.utility.splitter.activeImageId,
-      },
-      watermark: {
-        draft: toJsonClone(state.utility.watermark.draft),
-        activeImageId: state.utility.watermark.activeImageId,
-        compareMode: state.utility.watermark.compareMode,
-        compareValue: state.utility.watermark.compareValue,
-        selectedPresetId: state.utility.watermark.selectedPresetId,
-        autoSuggestion: state.utility.watermark.autoSuggestion,
-        userPresets: toJsonClone(state.utility.watermark.userPresets),
-        watermarkImage,
-        results: watermarkResults,
-        textZoneCache: toJsonClone(state.utility.watermark.textZoneCache ?? {}),
-      },
-      optimizer: {
-        recipe: toJsonClone(state.utility.optimizer.recipe),
-        selectedPreset: state.utility.optimizer.selectedPreset,
-        activeImageId: state.utility.optimizer.activeImageId,
-        results: optimizerResults,
-      },
+      stitch: stitchDocument,
+      splitter: splitterDocument,
+      watermark: watermarkDocument,
+      optimizer: optimizerDocument,
     },
     llm: toJsonClone(state.llm),
   };
@@ -691,56 +615,6 @@ const restoreProcessedBaseMap = async (
   return Object.fromEntries(entries);
 };
 
-const restoreWatermarkState = async (
-  assetMap: Map<string, WorkspaceBinaryAssetPayload>,
-  utility: WorkspaceUtilityStateDocument["watermark"],
-): Promise<WatermarkWorkspaceRuntimeState> => {
-  const results: WatermarkWorkspaceRuntimeState["results"] = [];
-  for (const item of utility.results) {
-    const blob = toBlobFromAsset(assetMap, item.blob.assetId);
-    const previewUrl = URL.createObjectURL(blob);
-    results.push({
-      sourceImageId: item.sourceImageId,
-      name: item.name,
-      blob,
-      previewUrl,
-      resolvedAnchor: item.resolvedAnchor,
-    });
-  }
-  return {
-  draft: toJsonClone(utility.draft),
-  activeImageId: utility.activeImageId,
-  compareMode: utility.compareMode,
-  compareValue: utility.compareValue,
-  selectedPresetId: utility.selectedPresetId,
-  autoSuggestion: utility.autoSuggestion,
-  userPresets: toJsonClone(utility.userPresets),
-  watermarkImageFile: utility.watermarkImage
-    ? toFileFromAsset(assetMap, utility.watermarkImage.assetId)
-    : null,
-  results,
-  textZoneCache: (utility as WorkspaceWatermarkDocumentWithTextZoneCache).textZoneCache ?? {},
-  };
-};
-
-const restoreOptimizerState = (
-  assetMap: Map<string, WorkspaceBinaryAssetPayload>,
-  utility: WorkspaceUtilityStateDocument["optimizer"],
-): OptimizerWorkspaceRuntimeState => ({
-  recipe: toJsonClone(utility.recipe),
-  selectedPreset: utility.selectedPreset,
-  activeImageId: utility.activeImageId,
-  results: utility.results.map((item) => ({
-    sourceImageId: item.sourceImageId,
-    fileName: item.fileName,
-    blob: toBlobFromAsset(assetMap, item.blob.assetId),
-    originalBytes: item.originalBytes,
-    optimizedBytes: item.optimizedBytes,
-    width: item.width,
-    height: item.height,
-  })) as OptimizerWorkspaceRuntimeState["results"],
-});
-
 export const restoreWorkspaceDocument = async (
   payload: WorkspacePackagePayload,
 ): Promise<DashboardWorkspaceRestoreState> => {
@@ -751,6 +625,10 @@ export const restoreWorkspaceDocument = async (
     document.images.map((item) => restoreLoadedImage(assetMap, item)),
   );
   const downloadItems = document.downloadItems.map((item) => restoreDownloadItem(assetMap, item));
+  const codecAssetSource: WorkspaceCodecAssetSource = {
+    resolveFile: (assetId) => toFileFromAsset(assetMap, assetId),
+    resolveBlob: (assetId) => toBlobFromAsset(assetMap, assetId),
+  };
   const [
     aioManualImageEditsByImage,
     cleanerManualImageEditsByImage,
@@ -762,7 +640,7 @@ export const restoreWorkspaceDocument = async (
     restoreManualImageEditMap(assetMap, document.cleaner.manualImageEditsByImage),
     restoreProcessedBaseMap(assetMap, document.cleaner.processedBaseAssetByImage),
     restoreProcessedBaseMap(assetMap, document.translator.translatorProcessedBaseAssetByImage ?? {}),
-    restoreWatermarkState(assetMap, document.utility.watermark),
+    watermarkWorkspaceCodec.toRuntime(document.utility.watermark, codecAssetSource),
   ]);
 
   return {
@@ -797,13 +675,9 @@ export const restoreWorkspaceDocument = async (
       sessionsByImage: toJsonClone(document.typesetter.sessionsByImage) as Record<string, TypographySession>,
     },
     utility: {
-      splitter: {
-        recipe: toJsonClone(document.utility.splitter.recipe),
-        imageStates: toJsonClone(document.utility.splitter.imageStates),
-        activeImageId: document.utility.splitter.activeImageId,
-      },
+      splitter: splitterWorkspaceCodec.toRuntime(document.utility.splitter),
       watermark,
-      optimizer: restoreOptimizerState(assetMap, document.utility.optimizer),
+      optimizer: optimizerWorkspaceCodec.toRuntime(document.utility.optimizer, codecAssetSource),
     },
   };
 };

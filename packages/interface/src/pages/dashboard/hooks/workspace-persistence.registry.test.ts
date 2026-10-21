@@ -366,8 +366,9 @@ const seedWorkspaceStores = (): void => {
       recipe: { quality: 80 },
       selectedPreset: 'web-light',
       activeImageId: 'img-1',
-      // previewUrl is omitted: restore never produces it, and the whole
-      // optimizer object is signature-visible.
+      // previewUrl: '' — the canonical blank-keep value the restore path
+      // emits (the derived previewUrl is never captured); the whole optimizer
+      // object is signature-visible, so both sides must agree on it.
       results: [
         {
           sourceImageId: 'img-1',
@@ -377,6 +378,7 @@ const seedWorkspaceStores = (): void => {
           optimizedBytes: 400,
           width: 640,
           height: 480,
+          previewUrl: '',
         },
       ],
     },

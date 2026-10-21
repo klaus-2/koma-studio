@@ -11,40 +11,18 @@ import type {
   LoadedImage,
   TranslatorVisualProcessingMode,
 } from "../types/dashboard.types";
-import type { OptimizationResult } from "../types";
 import type { TypographySession } from "../typography/types";
+import type {
+  OptimizerWorkspaceRuntimeState,
+  SplitterWorkspaceRuntimeState,
+  WatermarkWorkspaceRuntimeState,
+} from "./workspaceUtilityRuntimeStates";
 
-export interface WatermarkWorkspaceRuntimeState {
-  draft: unknown;
-  activeImageId: string | null;
-  compareMode: "split" | "preview";
-  compareValue: number;
-  selectedPresetId: string;
-  autoSuggestion: string;
-  userPresets: unknown[];
-  watermarkImageFile: File | null;
-  results: Array<{
-    sourceImageId: string;
-    name: string;
-    blob: Blob;
-    previewUrl: string;
-    resolvedAnchor: string;
-  }>;
-  textZoneCache?: Record<string, Array<{ id: string; bbox: [number, number, number, number]; score: number; label: string }>>;
-}
-
-export interface OptimizerWorkspaceRuntimeState {
-  recipe: unknown;
-  selectedPreset: string;
-  activeImageId: string | null;
-  results: OptimizationResult[];
-}
-
-export interface SplitterWorkspaceRuntimeState {
-  recipe: unknown;
-  imageStates: Record<string, unknown>;
-  activeImageId: string | null;
-}
+export type {
+  OptimizerWorkspaceRuntimeState,
+  SplitterWorkspaceRuntimeState,
+  WatermarkWorkspaceRuntimeState,
+} from "./workspaceUtilityRuntimeStates";
 
 export interface DashboardWorkspaceCaptureState {
   autosaveScope: WorkspaceAutosaveScope;

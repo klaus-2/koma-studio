@@ -649,7 +649,7 @@ describe('workspace document round trip', () => {
     expect(result.previewUrl).toMatch(/^blob:/);
   });
 
-  it('round-trips optimizer results with blob bytes and drops the leaked previewUrl', async () => {
+  it('round-trips optimizer results with blob bytes and blank-keep previewUrl', async () => {
     const { restored } = await roundTrip();
 
     expect(restored.utility.optimizer.recipe).toEqual({ quality: 80 });
@@ -667,9 +667,9 @@ describe('workspace document round trip', () => {
     expect(result.width).toBe(640);
     expect(result.height).toBe(480);
     expect(await readBlobBytes(result.blob)).toEqual(OPTIMIZER_BYTES);
-    // Current behavior: the optimizer previewUrl is never captured and never
-    // restored (S3 canonicalizes this as blank-keep).
-    expect(result.previewUrl).toBeUndefined();
+    // Current behavior: the optimizer previewUrl is never captured; restore
+    // canonicalizes it as blank-keep ("" — matches the history variant).
+    expect(result.previewUrl).toBe('');
   });
 
   it('round-trips the llm block', async () => {
