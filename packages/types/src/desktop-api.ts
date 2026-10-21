@@ -180,6 +180,15 @@ export interface AuthTravelTokenRequest {
   deliveryMode?: "copy" | "email";
 }
 
+/**
+ * Uniform bridge envelope for desktop auth/API calls.
+ *
+ * `status` mirrors the server HTTP status; `status: 0` is the BRIDGE-FAILURE
+ * sentinel — the tauri transport emits it when the request could not reach
+ * the server at all (see auth.rs session_api_fetch's ensure_session_token
+ * failure path), so `ok === false` + `status === 0` means transport-level
+ * failure rather than a server rejection.
+ */
 export interface DesktopApiEnvelope<TPayload = JsonRecord> {
   ok: boolean;
   status: number;

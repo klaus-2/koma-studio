@@ -1,5 +1,6 @@
 export * from "./blogger";
 export * from "./desktop-api";
+export * from "./desktopSession";
 export * from "./desktop-events";
 export * from "./desktopSessionRecovery";
 export * from "./imgur";
