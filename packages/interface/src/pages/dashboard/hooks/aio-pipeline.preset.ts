@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
-import { AIO_STAGE_LABELS } from '@/constants/dashboard.constants';
+import { AIO_STAGE_LABEL_KEYS } from '@/constants/dashboard.constants';
 import { useI18n } from '@/i18n';
 import type { AioStageOption } from '@/models/aioStageCatalog';
 import {
@@ -80,7 +80,7 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
       new Map(
         languageOptions.map((option) => [
           normalizePresetLanguage(option.value),
-          option.label,
+          t(option.label),
         ]),
       ),
     [languageOptions],
@@ -173,7 +173,7 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
         t('dashboard.status.preset.appliedPartial', {
           name: activePresetForCurrentLanguage.name,
           stages: result.unappliedStages
-            .map((stage) => AIO_STAGE_LABELS[stage])
+            .map((stage) => t(AIO_STAGE_LABEL_KEYS[stage]))
             .join(', '),
         }),
       );
@@ -239,7 +239,9 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
     }
 
     args.setStatusMessage(
-      `Select an available model for the "${AIO_STAGE_LABELS[unavailable]}" stage.`,
+      t('aioModel.status.selectAvailableForStage', {
+        stage: t(AIO_STAGE_LABEL_KEYS[unavailable]),
+      }),
     );
 
     return false;

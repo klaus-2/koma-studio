@@ -1,3 +1,4 @@
+import type { TranslationKey } from '@/i18n/messages';
 import type { AioStageKey } from '@/types/aioModelPresets';
 import type { LlmCapabilities } from '@/utils/customLlm';
 
@@ -24,7 +25,8 @@ export interface AioStageOption {
 
 export interface AioLanguageOption {
   value: string;
-  label: string;
+  /** i18n key (aioStage.lang.*) — translated at the render site only. */
+  label: TranslationKey;
 }
 
 export interface AioDeviceInfo {

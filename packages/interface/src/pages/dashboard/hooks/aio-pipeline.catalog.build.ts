@@ -123,14 +123,8 @@ export function useAioStageCatalogBuild({
       };
 
       const languageOptions = {
-        source: SOURCE_LANGUAGE_OPTIONS.map((option) => ({
-          ...option,
-          label: t(option.label),
-        })),
-        target: TARGET_LANGUAGE_OPTIONS.map((option) => ({
-          ...option,
-          label: t(option.label),
-        })),
+        source: [...SOURCE_LANGUAGE_OPTIONS],
+        target: [...TARGET_LANGUAGE_OPTIONS],
       };
 
       useAioPipelineStore.setState((state) => {

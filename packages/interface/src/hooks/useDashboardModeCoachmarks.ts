@@ -8,7 +8,7 @@ import {
 } from 'driver.js';
 
 import { useI18n } from '../i18n';
-import { MODE_LABELS } from '../constants/dashboard.constants';
+import { getModeLabels } from '../constants/dashboard.constants';
 import type { SubMode, ToolMode } from '../types/dashboard.types';
 import { readDashboardTourState } from './useDashboardTour';
 import './DashboardTour.css';
@@ -42,7 +42,7 @@ interface UseDashboardModeCoachmarksOptions {
   isCompactViewport: boolean;
 }
 
-type TFunc = (key: string, params?: Record<string, string | number>) => string;
+type TFunc = (key: string, params?: Record<string, string | number | null | undefined>) => string;
 
 const MODE_GUIDE_STORAGE_PREFIX = 'koma-studio.dashboard-mode-guide.v1';
 const MODE_GUIDE_VERSION = '2026-03-dashboard-context-guides';
@@ -183,7 +183,7 @@ const createCommonSteps = (
   hasDownloadActions: boolean,
   t: TFunc,
 ): { stageStep: ModeGuideStep; toolsStep: ModeGuideStep; downloadStep?: ModeGuideStep } => {
-  const modeLabel = MODE_LABELS[mode];
+  const modeLabel = getModeLabels(t)[mode];
   return {
     stageStep: {
       selector: buildStageSelector(hasImages),
@@ -328,7 +328,7 @@ const buildStepsForCurrentMode = (
     return [
       {
         selector: '[data-tour="dashboard-stage"]',
-        title: `${MODE_LABELS[mode]}: ${t('dashboard.coachmark.content.titleSuffix')}`,
+        title: `${getModeLabels(t)[mode]}: ${t('dashboard.coachmark.content.titleSuffix')}`,
         body: t('dashboard.coachmark.content.body'),
         accent: t('dashboard.coachmark.content.accent'),
         side: 'top',

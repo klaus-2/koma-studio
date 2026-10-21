@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useI18n } from '../i18n';
 import {
   AIO_MANUAL_STAGE_ORDER,
-  AIO_PIPELINE_STAGE_LABELS,
+  getAioPipelineStageLabels,
 } from '../constants/dashboard.constants';
 import { clamp } from '../utils/dashboard.utils';
 import { useAioPipelineStore } from '../pages/dashboard/stores/aio-pipeline-store';
@@ -35,8 +35,8 @@ export function useAioManualStageSkip({
       return;
     }
     const stageIndex = clamp(progress.currentIndex, 0, AIO_MANUAL_STAGE_ORDER.length - 1);
-    const stageLabel = AIO_PIPELINE_STAGE_LABELS[AIO_MANUAL_STAGE_ORDER[stageIndex]!];
+    const stageLabel = getAioPipelineStageLabels(t)[AIO_MANUAL_STAGE_ORDER[stageIndex]!];
     completeManualStageForImage(activeId, stageIndex, 'skipped');
-    setStatusMessage(`Modo manual: etapa "${stageLabel}" pulada.`);
+    setStatusMessage(t('dashboard.aio.manualStageSkipped', { stage: stageLabel }));
   }, [activeId, completeManualStageForImage, setStatusMessage, t]);
 }

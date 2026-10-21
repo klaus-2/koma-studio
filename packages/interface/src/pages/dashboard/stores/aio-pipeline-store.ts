@@ -1,15 +1,9 @@
 import { create } from 'zustand';
 
-import { DEFAULT_APP_LOCALE } from '@/i18n/config';
-import {
-  translateMessage,
-  type TranslationKey,
-} from '@/i18n/messages';
 import {
   DEFAULT_AIO_STAGE_OPTIONS,
   SOURCE_LANGUAGE_OPTIONS,
   TARGET_LANGUAGE_OPTIONS,
-  type AioLanguageOption,
 } from '@/models/aioStageCatalog';
 import { createAioExecutionActions } from '@/pages/dashboard/stores/aio-pipeline-execution';
 import {
@@ -37,15 +31,6 @@ function isStateUpdater<T>(
   update: StateUpdate<T>,
 ): update is (previous: T) => T {
   return typeof update === 'function';
-}
-
-function translateLanguageOptions(
-  options: ReadonlyArray<AioLanguageOption>,
-): AioLanguageOption[] {
-  return options.map((option) => ({
-    ...option,
-    label: translateMessage(DEFAULT_APP_LOCALE, option.label as TranslationKey),
-  }));
 }
 
 export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
@@ -91,8 +76,8 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     },
 
     aioLanguageOptions: {
-      source: translateLanguageOptions(SOURCE_LANGUAGE_OPTIONS),
-      target: translateLanguageOptions(TARGET_LANGUAGE_OPTIONS),
+      source: [...SOURCE_LANGUAGE_OPTIONS],
+      target: [...TARGET_LANGUAGE_OPTIONS],
     },
 
     aioSrcLang: 'ja',

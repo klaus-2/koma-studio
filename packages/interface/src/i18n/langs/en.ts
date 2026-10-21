@@ -470,6 +470,7 @@ export const enMessages = {
   'aio.stage.getTranslations': 'Get Translations',
   'aio.stage.segmentText': 'Segment Text',
   'aio.stage.cleanImage': 'Clean Image',
+  'aio.stage.render': 'Render',
   'aio.stage.tabsBarAria': 'Stage configuration',
   'aio.render.title': 'Rendered Text',
   'aio.render.description.manual':
@@ -3107,6 +3108,13 @@ export const enMessages = {
   'aioModel.status.installBeforeUse':
     'Install the model "{name}" before using this stage.',
   'aioModel.status.selectValidOcr': 'Select a valid model for OCR.',
+  'aioModel.status.selectAvailableForStage': 'Select an available model for the "{stage}" stage.',
+  'dashboard.aio.manualStageSkipped': 'Manual mode: stage "{stage}" skipped.',
+  'aio.singleImage.detectFailed': 'Failed to detect text in "{fileName}": {message}',
+  'aio.singleImage.recognizeFailed': 'Failed to recognize text in "{fileName}": {message}',
+  'aio.singleImage.translateFailed': 'Failed to translate text in "{fileName}": {message}',
+  'aio.singleImage.segmentFailed': 'Failed to segment text in "{fileName}": {message}',
+  'aio.singleImage.cleanFailed': 'Failed to clean the image "{fileName}": {message}',
   'aioModel.status.inRoadmap': 'The model "{name}" is still on the roadmap.',
   'aioModel.status.requiresConfig':
     'The model "{name}" requires configuration before use.',

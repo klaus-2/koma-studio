@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { AIO_STAGE_LABELS } from '@/constants/dashboard.constants';
+import { AIO_STAGE_LABEL_KEYS } from '@/constants/dashboard.constants';
 import { useI18n } from '@/i18n';
 import {
   isInstalledLocalModel,
@@ -134,7 +134,7 @@ export function useAioModelSelection({
       if (!option || !entry) {
         setStatusMessage(
           t('aioModel.status.selectAndInstall', {
-            stage: AIO_STAGE_LABELS[stage],
+            stage: t(AIO_STAGE_LABEL_KEYS[stage]),
           }),
         );
         openModelManagerForStage(stage, {

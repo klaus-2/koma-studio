@@ -10,6 +10,7 @@ import TranslationModelControl from '../../AioStageModelControls/TranslationMode
 
 import KlSlider from '../KlSlider';
 import { useI18n } from '../../../i18n';
+import type { TranslationKey } from '../../../i18n/messages';
 import { AioSection } from '../../../pages/AioSection';
 import { TranslatorWorkspaceToggle } from '../../../pages/TranslatorWorkspaceToggle';
 import {
@@ -23,8 +24,8 @@ interface TranslatorToolsPanelProps {
   setTranslatorVisualProcessingMode: (value: 'standard' | 'ai_sfx') => void;
   srcLang: string; setSrcLang: (v: string) => void;
   tgtLang: string; setTgtLang: (v: string) => void;
-  sourceLanguageOptions: Array<{ value: string; label: string }>;
-  targetLanguageOptions: Array<{ value: string; label: string }>;
+  sourceLanguageOptions: Array<{ value: string; label: TranslationKey }>;
+  targetLanguageOptions: Array<{ value: string; label: TranslationKey }>;
   aioRecognizeTextValue: string;
   translatorAvailableOcrStageOptions: any[];
   selectedTranslatorOcrCloudOption: any;
@@ -117,11 +118,11 @@ export default function TranslatorToolsPanel(props: TranslatorToolsPanelProps) {
         {/* Language pair */}
         <div className="flex items-center gap-2">
           <select value={srcLang} onChange={(e) => setSrcLang(e.target.value)} className="noir-select panel-cut-sm" aria-label={t('dashboard.language.source')}>
-            {sourceLanguageOptions.map((opt) => (<option key={opt.value} value={opt.value}>{t(opt.label as any)}</option>))}
+            {sourceLanguageOptions.map((opt) => (<option key={opt.value} value={opt.value}>{t(opt.label)}</option>))}
           </select>
           <span className="flex h-6 w-6 shrink-0 items-center justify-center bg-crimson/12 text-crimson panel-cut-sm" aria-hidden="true"><ArrowRight size={11} /></span>
           <select value={tgtLang} onChange={(e) => setTgtLang(e.target.value)} className="noir-select panel-cut-sm" aria-label={t('dashboard.language.target')}>
-            {targetLanguageOptions.map((opt) => (<option key={opt.value} value={opt.value}>{t(opt.label as any)}</option>))}
+            {targetLanguageOptions.map((opt) => (<option key={opt.value} value={opt.value}>{t(opt.label)}</option>))}
           </select>
         </div>
       </AioSection>

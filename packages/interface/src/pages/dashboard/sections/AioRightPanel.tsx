@@ -618,7 +618,7 @@ export default memo(function AioRightPanel({
             >
               {aioLanguageOptions.source.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {t(opt.label as any)}
+                  {t(opt.label)}
                 </option>
               ))}
             </select>
@@ -636,7 +636,7 @@ export default memo(function AioRightPanel({
             >
               {aioLanguageOptions.source.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {t(opt.label as any)}
+                  {t(opt.label)}
                 </option>
               ))}
             </select>
@@ -651,7 +651,7 @@ export default memo(function AioRightPanel({
             >
               {aioLanguageOptions.target.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {t(opt.label as any)}
+                  {t(opt.label)}
                 </option>
               ))}
             </select>

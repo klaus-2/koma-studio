@@ -7,7 +7,7 @@
 import { useCallback } from 'react';
 
 import { useI18n } from '../../../i18n';
-import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
+import { AIO_STAGE_LABEL_KEYS } from '../../../constants/dashboard.constants';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import {
   type CustomLlmProfile,
@@ -123,7 +123,7 @@ export function useTranslatorExecutionResolvers({
     const readiness = requireStageModelReadiness(
       {
         stage: 'recognizeText',
-        stageLabel: AIO_STAGE_LABELS.recognizeText,
+        stageLabel: t(AIO_STAGE_LABEL_KEYS.recognizeText),
         modelKey: selectedOcrKey,
         catalog: stageCatalogOption(selectedOcrOption),
         modelEntries,

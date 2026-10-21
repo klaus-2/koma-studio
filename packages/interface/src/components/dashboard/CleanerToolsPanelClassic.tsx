@@ -19,13 +19,14 @@ import type { AioStageOption } from '../../models/aioStageCatalog';
 import KlSlider from './KlSlider';
 import '../../pages/CleanerTranslatorTools.css';
 import { useI18n } from '../../i18n';
+import type { TranslationKey } from '../../i18n/messages';
 
 interface CleanerToolsPanelProps {
   cleanerMode: CleanerMode;
   setCleanerMode: (value: CleanerMode) => void;
   cleanerSrcLang: string;
   setCleanerSrcLang: (value: string) => void;
-  sourceLanguageOptions: Array<{ value: string; label: string }>;
+  sourceLanguageOptions: Array<{ value: string; label: TranslationKey }>;
   recognizeTextValue: string;
   segmentTextValue: string;
   cleanImageValue: string;
@@ -201,7 +202,7 @@ export default function CleanerToolsPanelClassic({
                 >
                   {sourceLanguageOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
-                      {t(opt.label as any)}
+                      {t(opt.label)}
                     </option>
                   ))}
                 </select>

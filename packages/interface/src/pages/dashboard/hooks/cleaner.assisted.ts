@@ -1,4 +1,4 @@
-import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
+import { getAioStageLabels } from '../../../constants/dashboard.constants';
 import {
   ensureStageModelReadiness,
   resolveUpstreamRegions,
@@ -32,6 +32,7 @@ import { createAioStageRunSession } from './aio-stage-runner';
 
 
 export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promise<void> {
+  const stageLabels = getAioStageLabels(ctx.t);
   const {
     images,
     localApiUrl,
@@ -85,7 +86,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
 
   const detectReadiness = ensureReady({
     stage: 'detectText',
-    stageLabel: AIO_STAGE_LABELS.detectText,
+    stageLabel: stageLabels.detectText,
     modelKey: selectedDetectorKey,
     catalog: skipStageCatalog(),
     modelEntries,
@@ -97,7 +98,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
 
   const ocrReadiness = ensureReady({
     stage: 'recognizeText',
-    stageLabel: AIO_STAGE_LABELS.recognizeText,
+    stageLabel: stageLabels.recognizeText,
     modelKey: selectedOcrKey,
     catalog: stageCatalogOption(getAioStageOption('recognizeText', selectedOcrKey)),
     modelEntries,
@@ -111,7 +112,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
 
   const segmentReadiness = ensureReady({
     stage: 'segmentText',
-    stageLabel: AIO_STAGE_LABELS.segmentText,
+    stageLabel: stageLabels.segmentText,
     modelKey: selectedSegmentKey,
     catalog: skipStageCatalog(),
     modelEntries,
@@ -122,7 +123,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
   }
   const cleanReadiness = ensureReady({
     stage: 'cleanImage',
-    stageLabel: AIO_STAGE_LABELS.cleanImage,
+    stageLabel: stageLabels.cleanImage,
     modelKey: selectedCleanKey,
     catalog: skipStageCatalog(),
     modelEntries,
@@ -183,7 +184,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
           },
           stageRuntime,
           {
-            stageLabel: AIO_STAGE_LABELS.detectText,
+            stageLabel: stageLabels.detectText,
             failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
             parseApiError,
           },
@@ -209,7 +210,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
             },
             stageRuntime,
             {
-              stageLabel: AIO_STAGE_LABELS.recognizeText,
+              stageLabel: stageLabels.recognizeText,
               failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
               parseApiError,
             },
@@ -233,7 +234,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
             },
             stageRuntime,
             {
-              stageLabel: AIO_STAGE_LABELS.segmentText,
+              stageLabel: stageLabels.segmentText,
               failurePrefix: `Failed to segment text in "${imgData.file.name}"`,
               parseApiError,
             },
@@ -265,7 +266,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
           },
           stageRuntime,
           {
-            stageLabel: AIO_STAGE_LABELS.cleanImage,
+            stageLabel: stageLabels.cleanImage,
             failurePrefix: `Failed to clean "${imgData.file.name}"`,
             parseApiError,
           },

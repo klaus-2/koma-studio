@@ -7,6 +7,7 @@ import {
 import { AioSection } from '../../../pages/AioSection';
 import KlSlider from '../KlSlider';
 import { useI18n } from '../../../i18n';
+import type { TranslationKey } from '../../../i18n/messages';
 import type { CleanerMode } from '@/types/dashboard.types';
 import type { AioStageOption } from '@/models/aioStageCatalog';
 import {
@@ -19,7 +20,7 @@ interface CleanerToolsPanelProps {
   setCleanerMode: (value: CleanerMode) => void;
   cleanerSrcLang: string;
   setCleanerSrcLang: (value: string) => void;
-  sourceLanguageOptions: Array<{ value: string; label: string }>;
+  sourceLanguageOptions: Array<{ value: string; label: TranslationKey }>;
   recognizeTextValue: string;
   segmentTextValue: string;
   cleanImageValue: string;
@@ -123,7 +124,7 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
 
             <Field label={t('dashboard.cleaner.ocr.language')}>
               <select value={cleanerSrcLang} onChange={(e) => setCleanerSrcLang(e.target.value)} className="noir-select panel-cut-sm" aria-label={t('dashboard.cleaner.ocr.languageAria')}>
-                {sourceLanguageOptions.map((opt) => (<option key={opt.value} value={opt.value}>{t(opt.label as any)}</option>))}
+                {sourceLanguageOptions.map((opt) => (<option key={opt.value} value={opt.value}>{t(opt.label)}</option>))}
               </select>
             </Field>
 

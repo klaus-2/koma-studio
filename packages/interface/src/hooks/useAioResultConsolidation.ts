@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
-import { AIO_STAGE_LABELS } from '../constants/dashboard.constants';
+import { useI18n } from '../i18n';
+import { AIO_STAGE_LABEL_KEYS } from '../constants/dashboard.constants';
 import {
   buildAioSelectionMapFromDetections,
   buildDefaultRegionRenderText,
@@ -48,6 +49,8 @@ export function useAioResultConsolidation({
   setAioAutoHistoryAvailable,
   setAioDownloadItems,
 }: UseAioResultConsolidationArgs) {
+  const { t } = useI18n();
+
   return useCallback((imageResults: AioBatchImageResult[]) => {
     const nextDetections: Record<string, AioTextRegion[]> = {};
     const detectStageDetections: Record<string, AioTextRegion[]> = {};
@@ -119,12 +122,12 @@ export function useAioResultConsolidation({
       detections: Record<string, AioTextRegion[]>;
       aioDownloads: AioDownloadEntry[];
     }> = [
-      { key: 'detectText', label: AIO_STAGE_LABELS.detectText, detections: detectStageDetections, aioDownloads: [] },
+      { key: 'detectText', label: t(AIO_STAGE_LABEL_KEYS.detectText), detections: detectStageDetections, aioDownloads: [] },
     ];
     if (aioSteps.recognizeText) {
       timelineDraft.push({
         key: 'recognizeText',
-        label: AIO_STAGE_LABELS.recognizeText,
+        label: t(AIO_STAGE_LABEL_KEYS.recognizeText),
         detections: ocrStageDetections,
         aioDownloads: [],
       });
@@ -132,7 +135,7 @@ export function useAioResultConsolidation({
     if (aioSteps.getTranslations) {
       timelineDraft.push({
         key: 'getTranslations',
-        label: AIO_STAGE_LABELS.getTranslations,
+        label: t(AIO_STAGE_LABEL_KEYS.getTranslations),
         detections: translationStageDetections,
         aioDownloads: [],
       });
@@ -140,7 +143,7 @@ export function useAioResultConsolidation({
     if (aioSteps.segmentText) {
       timelineDraft.push({
         key: 'segmentText',
-        label: AIO_STAGE_LABELS.segmentText,
+        label: t(AIO_STAGE_LABEL_KEYS.segmentText),
         detections: segmentStageDetections,
         aioDownloads: [],
       });
@@ -148,7 +151,7 @@ export function useAioResultConsolidation({
     if (aioSteps.cleanImage) {
       timelineDraft.push({
         key: 'cleanImage',
-        label: AIO_STAGE_LABELS.cleanImage,
+        label: t(AIO_STAGE_LABEL_KEYS.cleanImage),
         detections: cleanStageDetections,
         aioDownloads: cleanedDownloads,
       });
@@ -222,5 +225,6 @@ export function useAioResultConsolidation({
     setAioPipelineSnapshotIndex,
     setAioPipelineSnapshots,
     setAioSelectedRegionByImage,
+    t,
   ]);
 }

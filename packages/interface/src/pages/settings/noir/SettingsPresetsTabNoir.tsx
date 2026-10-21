@@ -197,7 +197,7 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
                     <select className={selectCls} value={aio.presetForm.sourceLanguage}
                       onChange={(e) => aio.handlePresetSourceLanguageChange(e.target.value)}>
                       {aio.presetLanguageOptions.map((o: AioLanguageOption) => (
-                        <option key={o.value} value={normalizeLanguageCode(o.value)}>{t(o.label as any)}</option>
+                        <option key={o.value} value={normalizeLanguageCode(o.value)}>{t(o.label)}</option>
                       ))}
                     </select>
                   </Field>

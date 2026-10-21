@@ -8,8 +8,6 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { TranslationKey } from "../i18n/messages";
-import { translateMessage } from "../i18n/messages";
-import { DEFAULT_APP_LOCALE } from "../i18n/config";
 
 import type {
   AioPipelineSnapshotKey,
@@ -139,10 +137,6 @@ export const getAioStageLabels = (t: TranslateFn): Record<AioStageKey, string> =
   cleanImage: t(AIO_STAGE_LABEL_KEYS.cleanImage),
 });
 
-export const AIO_STAGE_LABELS: Record<AioStageKey, string> = getAioStageLabels((key, vars) =>
-  translateMessage(DEFAULT_APP_LOCALE, key, vars),
-);
-
 export const AIO_STAGE_BADGE_LABELS: Record<AioPipelineSnapshotKey, string> = {
   detectText: "DETECT",
   recognizeText: "OCR",
@@ -165,9 +159,6 @@ export const getAioPipelineStageLabels = (t: TranslateFn): Record<AioPipelineSna
   ...getAioStageLabels(t),
   render: t("aio.pipeline.render"),
 });
-
-export const AIO_PIPELINE_STAGE_LABELS: Record<AioPipelineSnapshotKey, string> =
-  getAioPipelineStageLabels((key, vars) => translateMessage(DEFAULT_APP_LOCALE, key, vars));
 
 export const getAioPipelineStageProgressLabels = (t: TranslateFn): Record<AioPipelineSnapshotKey, string> => ({
   detectText: t("dashboard.aio.progress.detectText"),
@@ -278,10 +269,6 @@ export const getModeLabels = (t: TranslateFn): Record<ToolMode, string> => ({
   guides: t(MODE_LABEL_KEYS.guides),
   resources: t(MODE_LABEL_KEYS.resources),
 });
-
-export const MODE_LABELS: Record<ToolMode, string> = getModeLabels((key, vars) =>
-  translateMessage(DEFAULT_APP_LOCALE, key, vars),
-);
 
 
 export const DEFAULT_RENDER_FONT_FAMILIES = [

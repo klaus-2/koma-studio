@@ -475,6 +475,7 @@ export const ptBrMessages: TranslationCatalog = {
   'aio.stage.getTranslations': 'Obter Traduções',
   'aio.stage.segmentText': 'Segmentar Texto',
   'aio.stage.cleanImage': 'Limpar Imagem',
+  'aio.stage.render': 'Renderizar',
   'aio.stage.tabsBarAria': 'Configuração por etapa',
   'aio.render.title': 'Texto Renderizado',
   'aio.render.description.manual':
@@ -3524,6 +3525,13 @@ export const ptBrMessages: TranslationCatalog = {
   'aioModel.status.installBeforeUse':
     'Instale o modelo "{name}" antes de usar esta etapa.',
   'aioModel.status.selectValidOcr': 'Selecione um modelo válido para OCR.',
+  'aioModel.status.selectAvailableForStage': 'Selecione um modelo disponível para a etapa "{stage}".',
+  'dashboard.aio.manualStageSkipped': 'Modo manual: etapa "{stage}" pulada.',
+  'aio.singleImage.detectFailed': 'Falha ao detectar texto em "{fileName}": {message}',
+  'aio.singleImage.recognizeFailed': 'Falha ao reconhecer texto em "{fileName}": {message}',
+  'aio.singleImage.translateFailed': 'Falha ao traduzir texto em "{fileName}": {message}',
+  'aio.singleImage.segmentFailed': 'Falha ao segmentar texto em "{fileName}": {message}',
+  'aio.singleImage.cleanFailed': 'Falha ao limpar a imagem "{fileName}": {message}',
   'aioModel.status.inRoadmap': 'O modelo "{name}" ainda está em roadmap.',
   'aioModel.status.requiresConfig':
     'O modelo "{name}" requer configuração antes do uso.',

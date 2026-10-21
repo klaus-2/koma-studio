@@ -340,10 +340,10 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   const languageLabelByCode = useMemo(() => {
     const map = new Map<string, string>();
     SOURCE_LANGUAGE_OPTIONS.forEach((option) => {
-      map.set(normalizeLanguageCode(option.value), t(option.label as any));
+      map.set(normalizeLanguageCode(option.value), t(option.label));
     });
     presetLanguageOptions.forEach((option) => {
-      map.set(normalizeLanguageCode(option.value), t(option.label as any));
+      map.set(normalizeLanguageCode(option.value), t(option.label));
     });
     return map;
   }, [presetLanguageOptions, t]);

@@ -7,7 +7,7 @@
 import { useCallback } from 'react';
 
 import { useI18n } from '../../../i18n';
-import { AIO_STAGE_LABELS, MIN_REGION_SIZE } from '../../../constants/dashboard.constants';
+import { AIO_STAGE_LABEL_KEYS, MIN_REGION_SIZE } from '../../../constants/dashboard.constants';
 import {
   type CustomLlmProfile,
   withSfxTranslationSettings,
@@ -159,7 +159,7 @@ export function useTranslatorVisualActions({
     const detectReadiness = ensureStageModelReadiness(
       {
         stage: 'detectText',
-        stageLabel: AIO_STAGE_LABELS.detectText,
+        stageLabel: t(AIO_STAGE_LABEL_KEYS.detectText),
         modelKey: detectSelectionKey,
         catalog: skipStageCatalog(),
         modelEntries,

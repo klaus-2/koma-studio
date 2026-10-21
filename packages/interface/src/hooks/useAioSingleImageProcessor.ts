@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useI18n } from '../i18n';
+import { AIO_STAGE_LABEL_KEYS } from '../constants/dashboard.constants';
 import {
   getAioStageReadiness,
   resolveUpstreamRegions,
@@ -140,9 +141,11 @@ export function useAioSingleImageProcessor({
       },
       stageRuntime,
       {
-        stageLabel: 'Detectar Texto',
+        stageLabel: t(AIO_STAGE_LABEL_KEYS.detectText),
         failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
         parseApiError,
+        formatError: (message) =>
+          t('aio.singleImage.detectFailed', { fileName: imgData.file.name, message }),
       },
     );
     session.pushNotice(detectDone.notice);
@@ -171,9 +174,11 @@ export function useAioSingleImageProcessor({
         },
         stageRuntime,
         {
-          stageLabel: 'Reconhecer Texto',
+          stageLabel: t(AIO_STAGE_LABEL_KEYS.recognizeText),
           failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
           parseApiError,
+          formatError: (message) =>
+            t('aio.singleImage.recognizeFailed', { fileName: imgData.file.name, message }),
         },
       );
       session.pushNotice(ocrDone.notice);
@@ -203,9 +208,11 @@ export function useAioSingleImageProcessor({
         },
         stageRuntime,
         {
-          stageLabel: 'Obter Traduções',
+          stageLabel: t(AIO_STAGE_LABEL_KEYS.getTranslations),
           failurePrefix: `Failed to translate text in "${imgData.file.name}"`,
           parseApiError,
+          formatError: (message) =>
+            t('aio.singleImage.translateFailed', { fileName: imgData.file.name, message }),
         },
       );
       session.pushNotice(translateDone.notice);
@@ -233,9 +240,11 @@ export function useAioSingleImageProcessor({
         },
         stageRuntime,
         {
-          stageLabel: 'Segmentar Texto',
+          stageLabel: t(AIO_STAGE_LABEL_KEYS.segmentText),
           failurePrefix: `Failed to segment text in "${imgData.file.name}"`,
           parseApiError,
+          formatError: (message) =>
+            t('aio.singleImage.segmentFailed', { fileName: imgData.file.name, message }),
         },
       );
       session.pushNotice(segmentDone.notice);
@@ -271,9 +280,11 @@ export function useAioSingleImageProcessor({
         },
         stageRuntime,
         {
-          stageLabel: 'Clean Image',
+          stageLabel: t(AIO_STAGE_LABEL_KEYS.cleanImage),
           failurePrefix: `Failed to clean the image "${imgData.file.name}"`,
           parseApiError,
+          formatError: (message) =>
+            t('aio.singleImage.cleanFailed', { fileName: imgData.file.name, message }),
         },
       );
       session.pushNotice(cleanDone.notice);

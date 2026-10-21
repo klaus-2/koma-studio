@@ -318,5 +318,12 @@ export const fallbackDefaultMessages: Record<string, string> = Object.freeze({
   "dashboard.view.pipeline": "dashboard.view.pipeline",
   "dashboard.view.cleaner": "dashboard.view.cleaner",
   "dashboard.view.translator": "dashboard.view.translator",
-  "dashboard.view.typesetter": "dashboard.view.typesetter",
+  "aioModel.status.selectValidOcr": "aioModel.status.selectValidOcr",
+  "aioModel.status.selectAvailableForStage": "aioModel.status.selectAvailableForStage",
+  "dashboard.aio.manualStageSkipped": "dashboard.aio.manualStageSkipped",
+  "aio.singleImage.detectFailed": "aio.singleImage.detectFailed",
+  "aio.singleImage.recognizeFailed": "aio.singleImage.recognizeFailed",
+  "aio.singleImage.translateFailed": "aio.singleImage.translateFailed",
+  "aio.singleImage.segmentFailed": "aio.singleImage.segmentFailed",
+  "aio.singleImage.cleanFailed": "aio.singleImage.cleanFailed",
 });

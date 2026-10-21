@@ -1,4 +1,4 @@
-import { AIO_STAGE_LABELS } from '../../../constants/dashboard.constants';
+import { getAioStageLabels } from '../../../constants/dashboard.constants';
 import {
   ensureStageModelReadiness,
   resolveCleanerAiProfileReadiness,
@@ -33,6 +33,7 @@ import { createAioStageRunSession } from './aio-stage-runner';
 export async function runAutomaticCleanerWorkflow(
   ctx: CleanerRunContext,
 ): Promise<void> {
+  const stageLabels = getAioStageLabels(ctx.t);
   const {
     images,
     localApiUrl,
@@ -77,7 +78,7 @@ export async function runAutomaticCleanerWorkflow(
     const detectReadiness = ensureStageModelReadiness(
       {
         stage: 'detectText',
-        stageLabel: AIO_STAGE_LABELS.detectText,
+        stageLabel: stageLabels.detectText,
         modelKey: detectSelectionKey,
         catalog: skipStageCatalog(),
         modelEntries,
@@ -155,7 +156,7 @@ export async function runAutomaticCleanerWorkflow(
             },
             stageRuntime,
             {
-              stageLabel: AIO_STAGE_LABELS.detectText,
+              stageLabel: stageLabels.detectText,
               failurePrefix: 'Failed to detect text',
               parseApiError,
               formatError: (message) =>

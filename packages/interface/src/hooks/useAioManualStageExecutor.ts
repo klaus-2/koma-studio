@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useI18n } from '../i18n';
 import {
   AIO_MANUAL_STAGE_ORDER,
-  AIO_PIPELINE_STAGE_LABELS,
-  AIO_STAGE_LABELS,
+  AIO_STAGE_LABEL_KEYS,
+  getAioPipelineStageLabels,
 } from '../constants/dashboard.constants';
 import {
   ensureStageModelReadiness,
@@ -175,7 +175,7 @@ export function useAioManualStageExecutor({
     }
     const stageIndex = clamp(progress.currentIndex, 0, AIO_MANUAL_STAGE_ORDER.length - 1);
     const stageKey = AIO_MANUAL_STAGE_ORDER[stageIndex]!;
-    const stageLabel = AIO_PIPELINE_STAGE_LABELS[stageKey];
+    const stageLabel = getAioPipelineStageLabels(t)[stageKey];
     const stageRegionsFromSnapshot = (): StageRegions => ({
       detectText: getAioRegionsFromSnapshot('detectText', activeId),
       recognizeText: getAioRegionsFromSnapshot('recognizeText', activeId),
@@ -244,7 +244,7 @@ export function useAioManualStageExecutor({
         } else {
           const detectReadiness = ensureReady({
             stage: 'detectText',
-            stageLabel: AIO_STAGE_LABELS.detectText,
+            stageLabel: t(AIO_STAGE_LABEL_KEYS.detectText),
             modelKey: selectedDetectorKey,
             catalog: stageCatalogOption(
               aioStageOptions.detectText.find((item) => item.key === selectedDetectorKey) ?? null,
@@ -276,7 +276,7 @@ export function useAioManualStageExecutor({
         assertNotAborted();
         const ocrReadiness = ensureReady({
           stage: 'recognizeText',
-          stageLabel: AIO_STAGE_LABELS.recognizeText,
+          stageLabel: t(AIO_STAGE_LABEL_KEYS.recognizeText),
           modelKey: selectedOcrKey,
           catalog: stageCatalogOption(
             aioStageOptions.recognizeText.find((item) => item.key === selectedOcrKey) ?? null,
@@ -315,7 +315,7 @@ export function useAioManualStageExecutor({
         assertNotAborted();
         const translationReadiness = ensureReady({
           stage: 'getTranslations',
-          stageLabel: AIO_STAGE_LABELS.getTranslations,
+          stageLabel: t(AIO_STAGE_LABEL_KEYS.getTranslations),
           modelKey: selectedTranslationKey,
           catalog: stageCatalogOption(
             getAioStageOption('getTranslations', selectedTranslationKey),
@@ -358,7 +358,7 @@ export function useAioManualStageExecutor({
         assertNotAborted();
         const segmentReadiness = ensureReady({
           stage: 'segmentText',
-          stageLabel: AIO_STAGE_LABELS.segmentText,
+          stageLabel: t(AIO_STAGE_LABEL_KEYS.segmentText),
           modelKey: selectedSegmentKey,
           catalog: stageCatalogOption(
             aioStageOptions.segmentText.find((item) => item.key === selectedSegmentKey) ?? null,
@@ -394,7 +394,7 @@ export function useAioManualStageExecutor({
         assertNotAborted();
         const cleanReadiness = ensureReady({
           stage: 'cleanImage',
-          stageLabel: AIO_STAGE_LABELS.cleanImage,
+          stageLabel: t(AIO_STAGE_LABEL_KEYS.cleanImage),
           modelKey: selectedCleanKey,
           catalog: stageCatalogOption(
             aioStageOptions.cleanImage.find((item) => item.key === selectedCleanKey) ?? null,

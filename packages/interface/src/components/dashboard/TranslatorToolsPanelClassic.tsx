@@ -17,6 +17,7 @@ import {
 import TranslationModelControl from '../AioStageModelControls/TranslationModelControl';
 import KlSlider from './KlSlider';
 import { useI18n } from '../../i18n';
+import type { TranslationKey } from '../../i18n/messages';
 
 import { AioSection } from '../../pages/AioSection';
 import { cn } from '../../utils/dashboard.utils';
@@ -31,8 +32,8 @@ interface TranslatorToolsPanelProps {
   setSrcLang: (value: string) => void;
   tgtLang: string;
   setTgtLang: (value: string) => void;
-  sourceLanguageOptions: Array<{ value: string; label: string }>;
-  targetLanguageOptions: Array<{ value: string; label: string }>;
+  sourceLanguageOptions: Array<{ value: string; label: TranslationKey }>;
+  targetLanguageOptions: Array<{ value: string; label: TranslationKey }>;
   aioRecognizeTextValue: string;
   translatorAvailableOcrStageOptions: any[];
   selectedTranslatorOcrCloudOption: any;
@@ -206,7 +207,7 @@ export default function TranslatorToolsPanelClassic({
           >
             {sourceLanguageOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {t(opt.label as any)}
+                {t(opt.label)}
               </option>
             ))}
           </select>
@@ -223,7 +224,7 @@ export default function TranslatorToolsPanelClassic({
           >
             {targetLanguageOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {t(opt.label as any)}
+                {t(opt.label)}
               </option>
             ))}
           </select>

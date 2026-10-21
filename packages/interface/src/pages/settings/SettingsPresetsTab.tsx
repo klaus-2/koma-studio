@@ -238,7 +238,7 @@ export const renderSettingsPresetsTab = ({
           <div className="koma-pf">
             <label className="koma-pf__label">{t("settings.aioPresets.sourceLanguage")}</label>
             <select className="koma-pf__select" value={presetForm.sourceLanguage} onChange={(e) => handlePresetSourceLanguageChange(e.target.value)}>
-              {presetLanguageOptions.map((o) => <option key={o.value} value={normalizeLanguageCode(o.value)}>{t(o.label as any)}</option>)}
+              {presetLanguageOptions.map((o) => <option key={o.value} value={normalizeLanguageCode(o.value)}>{t(o.label)}</option>)}
             </select>
           </div>
         </div>
