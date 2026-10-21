@@ -69,6 +69,10 @@ import {
 } from "./modules/desktop-session-headers.ts";
 import { resolveDesktopDeviceId } from "./modules/desktop-device-id.ts";
 import { createDesktopAuthSession } from "./modules/desktop-auth-session.ts";
+import {
+  createMiniBackendRuntimeStore,
+  formatRuntimeBytes,
+} from "./modules/mini-backend-runtime-store.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -183,45 +187,6 @@ let miniBackendRuntimeInstallPromise: Promise<{
   reason: string | null;
 }> | null = null;
 
-type MiniBackendRuntimeStatus =
-  | "idle"
-  | "resolving"
-  | "checking"
-  | "downloading"
-  | "verifying"
-  | "extracting"
-  | "ready"
-  | "fallback"
-  | "error";
-
-interface MiniBackendRuntimeProgressState {
-  transferredBytes: number;
-  totalBytes: number;
-  percent: number;
-  speedBytesPerSecond: number;
-}
-
-interface MiniBackendRuntimeState {
-  status: MiniBackendRuntimeStatus;
-  statusMessage: string | null;
-  requestedProfile: MiniBackendAccelerationProfile;
-  activeProfile: MiniBackendAccelerationProfile;
-  source: MiniBackendRuntimeSource;
-  runtimeArtifactsUrl: string | null;
-  runtimeManifestUrl: string | null;
-  runtimeArchiveUrl: string | null;
-  installDir: string | null;
-  downloadCacheDir: string | null;
-  version: string | null;
-  lastError: string | null;
-  attempt: number;
-  maxAttempts: number;
-  progress: MiniBackendRuntimeProgressState | null;
-  updatedAt: number | null;
-  gpuName: string | null;
-  vramGb: number | null;
-}
-
 interface MiniBackendDeviceInfoPayload {
   profile?: string;
   active_profile?: string;
@@ -297,26 +262,6 @@ const miniBackendArtifactsUrl =
 const desktopBootstrapSecret = resolveDesktopEnvValue("DESKTOP_BOOTSTRAP_SECRET") ?? "";
 configureExternalHosts({ authApiUrl, localApiUrl });
 
-let miniBackendRuntimeState: MiniBackendRuntimeState = {
-  status: "idle",
-  statusMessage: null,
-  requestedProfile: "cpu",
-  activeProfile: "cpu",
-  source: "bundled-core",
-  runtimeArtifactsUrl: miniBackendArtifactsUrl,
-  runtimeManifestUrl: null,
-  runtimeArchiveUrl: null,
-  installDir: null,
-  downloadCacheDir: path.join(app.getPath("temp"), "koma-runtime-downloads"),
-  version: null,
-  lastError: null,
-  attempt: 0,
-  maxAttempts: 0,
-  progress: null,
-  updatedAt: Date.now(),
-  gpuName: null,
-  vramGb: null,
-};
 
 const desktopClientTokenTtlSec = parseDesktopTokenTtlSec(
   resolveDesktopEnvValue("DESKTOP_CLIENT_TOKEN_TTL_SECONDS") ?? undefined,
@@ -365,6 +310,32 @@ if (isDev && shouldDisableGpuInDev) {
 }
 
 
+
+const runtimeStore = createMiniBackendRuntimeStore({
+  eventChannel: MINI_BACKEND_RUNTIME_EVENT_CHANNEL,
+  getMainWindow: () => mainWindow,
+  initialState: {
+    status: "idle",
+    statusMessage: null,
+    requestedProfile: "cpu",
+    activeProfile: "cpu",
+    source: "bundled-core",
+    runtimeArtifactsUrl: miniBackendArtifactsUrl,
+    runtimeManifestUrl: null,
+    runtimeArchiveUrl: null,
+    installDir: null,
+    downloadCacheDir: path.join(app.getPath("temp"), "koma-runtime-downloads"),
+    version: null,
+    lastError: null,
+    attempt: 0,
+    maxAttempts: 0,
+    progress: null,
+    updatedAt: Date.now(),
+    gpuName: null,
+    vramGb: null,
+  },
+});
+
 const getDesktopRuntimeConfig = (): {
   authApiUrl: string;
   localApiUrl: string;
@@ -391,20 +362,20 @@ const installRecommendedMiniBackendRuntime = async (): Promise<{
   miniBackendRuntimeInstallPromise = (async () => {
     const profile = await resolveMiniBackendAccelerationProfile();
     if (isDev) {
-      patchMiniBackendRuntimeState(buildManualInstallBlockedState({
+      runtimeStore.patch(buildManualInstallBlockedState({
         reason: "dev-only-unavailable",
         requestedProfile: profile,
-        activeProfile: miniBackendRuntimeState.activeProfile,
-        source: miniBackendRuntimeState.source,
+        activeProfile: runtimeStore.getState().activeProfile,
+        source: runtimeStore.getState().source,
       }));
       return { ok: false, profile, reason: "runtime_manual_install_dev_only_unavailable" };
     }
     if (profile === "cpu") {
-      patchMiniBackendRuntimeState(buildManualInstallBlockedState({
+      runtimeStore.patch(buildManualInstallBlockedState({
         reason: "cpu-not-required",
         requestedProfile: profile,
-        activeProfile: miniBackendRuntimeState.activeProfile,
-        source: miniBackendRuntimeState.source,
+        activeProfile: runtimeStore.getState().activeProfile,
+        source: runtimeStore.getState().source,
       }));
       return { ok: false, profile, reason: "runtime_manual_install_cpu_not_required" };
     }
@@ -414,7 +385,7 @@ const installRecommendedMiniBackendRuntime = async (): Promise<{
       return {
         ok: false,
         profile,
-        reason: miniBackendRuntimeState.lastError ?? "runtime_manual_install_failed",
+        reason: runtimeStore.getState().lastError ?? "runtime_manual_install_failed",
       };
     }
 
@@ -453,11 +424,11 @@ const installMiniBackendRuntimeProfile = async (
     }
 
     if (isDev) {
-      patchMiniBackendRuntimeState(buildManualInstallBlockedState({
+      runtimeStore.patch(buildManualInstallBlockedState({
         reason: "dev-only-unavailable",
         requestedProfile: normalizedProfile,
-        activeProfile: miniBackendRuntimeState.activeProfile,
-        source: miniBackendRuntimeState.source,
+        activeProfile: runtimeStore.getState().activeProfile,
+        source: runtimeStore.getState().source,
       }));
       return { ok: false, profile: normalizedProfile, reason: "runtime_manual_install_dev_only_unavailable" };
     }
@@ -469,7 +440,7 @@ const installMiniBackendRuntimeProfile = async (
       return {
         ok: false,
         profile: normalizedProfile,
-        reason: miniBackendRuntimeState.lastError ?? "runtime_manual_install_failed",
+        reason: runtimeStore.getState().lastError ?? "runtime_manual_install_failed",
       };
     }
 
@@ -488,53 +459,6 @@ const installMiniBackendRuntimeProfile = async (
   } finally {
     miniBackendRuntimeInstallPromise = null;
   }
-};
-
-const emitMiniBackendRuntimeState = (): void => {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return;
-  }
-
-  mainWindow.webContents.send(MINI_BACKEND_RUNTIME_EVENT_CHANNEL, getMiniBackendRuntimeStateSnapshot());
-};
-
-const commitMiniBackendRuntimeState = (nextState: MiniBackendRuntimeState): MiniBackendRuntimeState => {
-  miniBackendRuntimeState = {
-    ...nextState,
-    progress: nextState.progress ? { ...nextState.progress } : null,
-    updatedAt: Date.now(),
-  };
-  emitMiniBackendRuntimeState();
-  return miniBackendRuntimeState;
-};
-
-const patchMiniBackendRuntimeState = (
-  patch: Partial<MiniBackendRuntimeState>,
-): MiniBackendRuntimeState =>
-  commitMiniBackendRuntimeState({
-    ...miniBackendRuntimeState,
-    ...patch,
-  });
-
-const getMiniBackendRuntimeStateSnapshot = (): MiniBackendRuntimeState => ({
-  ...miniBackendRuntimeState,
-  progress: miniBackendRuntimeState.progress ? { ...miniBackendRuntimeState.progress } : null,
-});
-
-const formatRuntimeBytes = (value: number): string => {
-  if (!Number.isFinite(value) || value <= 0) {
-    return "0 B";
-  }
-
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let size = value;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 };
 
 const prepareMiniBackendLaunchContext = async (): Promise<void> => {
@@ -1413,7 +1337,7 @@ const resolveMiniBackendAccelerationProfile = async (
     gpuVendors,
   });
   if (!silent) {
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       status: "resolving",
       statusMessage: "Detecting the best local runtime profile.",
       requestedProfile: profile,
@@ -1457,7 +1381,7 @@ const getMiniBackendCommand = async (): Promise<MiniBackendCommandSpec> => {
     // monorepo: the mini-backend source lives in packages/mini-backend
     const miniBackendDir = path.join(process.cwd(), "..", "..", "packages", "mini-backend");
     const appPath = path.join(miniBackendDir, "app.py");
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       requestedProfile: profile,
       activeProfile: profile,
       source: "bundled-core",
@@ -1529,7 +1453,7 @@ const getMiniBackendCommand = async (): Promise<MiniBackendCommandSpec> => {
 
   const manifestEntry = manifest ? resolveManifestEntry(manifest, profile) : null;
   const binaryPath = resolvePackagedMiniBackendBinary(manifestEntry?.entry);
-  patchMiniBackendRuntimeState({
+  runtimeStore.patch({
     requestedProfile: profile,
     activeProfile: manifestEntry?.profile ?? "cpu",
     source: "bundled-core",
@@ -1537,13 +1461,13 @@ const getMiniBackendCommand = async (): Promise<MiniBackendCommandSpec> => {
     runtimeArchiveUrl: null,
     installDir: path.dirname(binaryPath),
     version: app.getVersion(),
-    lastError: miniBackendRuntimeState.lastError,
+    lastError: runtimeStore.getState().lastError,
     status:
-      miniBackendRuntimeState.lastError || (manifestEntry?.profile ?? "cpu") !== profile
+      runtimeStore.getState().lastError || (manifestEntry?.profile ?? "cpu") !== profile
         ? "fallback"
         : "ready",
     statusMessage:
-      miniBackendRuntimeState.lastError || (manifestEntry?.profile ?? "cpu") !== profile
+      runtimeStore.getState().lastError || (manifestEntry?.profile ?? "cpu") !== profile
         ? "Running with embedded fallback runtime."
         : "Embedded runtime ready.",
     attempt: 0,
@@ -1631,7 +1555,7 @@ const syncMiniBackendRuntimeStateFromApi = async (): Promise<void> => {
     const payload = (await response.json()) as MiniBackendDeviceInfoPayload;
     const requestedProfileOverride = normalizeAccelerationProfileOverride(payload.profile);
     const requestedProfile = requestedProfileOverride === "auto"
-      ? miniBackendRuntimeState.requestedProfile
+      ? runtimeStore.getState().requestedProfile
       : (requestedProfileOverride as MiniBackendAccelerationProfile);
     const activeProfileOverride = normalizeAccelerationProfileOverride(payload.active_profile);
     const activeProfile = activeProfileOverride !== "auto"
@@ -1642,7 +1566,7 @@ const syncMiniBackendRuntimeStateFromApi = async (): Promise<void> => {
       });
     const fallbackReason = formatRuntimeFallbackReason(payload.fallback_reason);
 
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       requestedProfile,
       activeProfile,
       lastError: fallbackReason,
@@ -1727,7 +1651,7 @@ const readMiniBackendRuntimeManifest = async (
 
   try {
     if (!silent) {
-      patchMiniBackendRuntimeState({
+      runtimeStore.patch({
         status: "checking",
         statusMessage: "Checking runtime artifact manifest.",
         runtimeManifestUrl: manifestUrl,
@@ -1738,7 +1662,7 @@ const readMiniBackendRuntimeManifest = async (
       isRetryable: isRetryableRuntimeDownloadError,
       onRetry: ({ attempt, delayMs, error }) => {
         if (!silent) {
-          patchMiniBackendRuntimeState({
+          runtimeStore.patch({
             status: "checking",
             statusMessage: `Retrying runtime manifest request (${attempt + 1}/${RUNTIME_DOWNLOAD_RETRY_COUNT + 1}) in ${Math.max(1, Math.ceil(delayMs / 1000))}s.`,
             lastError: error instanceof Error ? error.message : String(error),
@@ -1765,7 +1689,7 @@ const readMiniBackendRuntimeManifest = async (
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!silent) {
-      patchMiniBackendRuntimeState({
+      runtimeStore.patch({
         status: "checking",
         statusMessage: "Checking runtime artifact manifest.",
         runtimeManifestUrl: manifestUrl,
@@ -1829,7 +1753,7 @@ const downloadRuntimeArtifactToDisk = async (
     isRetryable: isRetryableRuntimeDownloadError,
     onRetry: ({ attempt, delayMs, error }) => {
       const nextAttempt = Math.min(maxAttempts, attempt + 1);
-      patchMiniBackendRuntimeState({
+      runtimeStore.patch({
         status: "downloading",
         statusMessage: `Retrying ${profile} runtime download (${nextAttempt}/${maxAttempts}) in ${Math.max(1, Math.ceil(delayMs / 1000))}s.`,
         lastError: error instanceof Error ? error.message : String(error),
@@ -1839,7 +1763,7 @@ const downloadRuntimeArtifactToDisk = async (
     },
     operation: async () => {
       currentAttempt += 1;
-      patchMiniBackendRuntimeState({
+      runtimeStore.patch({
         status: "downloading",
         statusMessage:
           (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0)
@@ -1865,7 +1789,7 @@ const downloadRuntimeArtifactToDisk = async (
           signal: AbortSignal.timeout(resolveRuntimeTransferTimeoutMs(record.size)),
         }),
         onProgress: (progress) => {
-          patchMiniBackendRuntimeState({
+          runtimeStore.patch({
             status: "downloading",
             progress,
             attempt: currentAttempt,
@@ -1928,7 +1852,7 @@ const ensureMiniBackendDownloadedRuntime = async (
 
   const record = manifest.profiles?.[profile] as MiniBackendRuntimeArtifactRecord | undefined;
   if (!record) {
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       status: "fallback",
       statusMessage: `Runtime profile not available in manifest: ${profile}`,
       runtimeManifestUrl: manifestUrl,
@@ -1941,7 +1865,7 @@ const ensureMiniBackendDownloadedRuntime = async (
   const binaryPath = path.join(installDir, record.entry);
   const archiveUrl = resolveMiniBackendRuntimeUrl(manifestUrl, record.url);
   if (fs.existsSync(binaryPath)) {
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       requestedProfile: profile,
       activeProfile: profile,
       source: "downloaded-runtime",
@@ -1971,7 +1895,7 @@ const ensureMiniBackendDownloadedRuntime = async (
   try {
     ensureMiniBackendRuntimeDiskSpace(tempZipPath, installDir, record.size);
     await downloadRuntimeArtifactToDisk(profile, record, archiveUrl, tempZipPath);
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       status: "verifying",
       statusMessage: `Verifying ${profile} runtime archive.`,
     });
@@ -1980,7 +1904,7 @@ const ensureMiniBackendDownloadedRuntime = async (
       throw new Error("Runtime archive sha512 mismatch.");
     }
 
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       status: "extracting",
       statusMessage: `Installing ${profile} runtime.`,
     });
@@ -1988,7 +1912,7 @@ const ensureMiniBackendDownloadedRuntime = async (
     fs.rmSync(installDir, { recursive: true, force: true });
     fs.renameSync(tempExtractDir, installDir);
 
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       requestedProfile: profile,
       activeProfile: profile,
       source: "downloaded-runtime",
@@ -2012,7 +1936,7 @@ const ensureMiniBackendDownloadedRuntime = async (
   } catch (error) {
     fs.rmSync(tempExtractDir, { recursive: true, force: true });
     const message = error instanceof Error ? error.message : String(error);
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       requestedProfile: profile,
       activeProfile: "cpu",
       source: "bundled-core",
@@ -2071,16 +1995,16 @@ const startMiniBackend = async (): Promise<void> => {
   const referenceImagesDir = path.join(appResourcesDir, "reference_images");
   fs.mkdirSync(desktopModelsRootDir, { recursive: true });
 
-  patchMiniBackendRuntimeState({
+  runtimeStore.patch({
     requestedProfile: commandSpec.env?.MINI_BACKEND_ACCELERATION_PROFILE
       ? (commandSpec.env.MINI_BACKEND_ACCELERATION_PROFILE as MiniBackendAccelerationProfile)
-      : miniBackendRuntimeState.requestedProfile,
+      : runtimeStore.getState().requestedProfile,
     activeProfile: commandSpec.env?.MINI_BACKEND_ACCELERATION_PROFILE
       ? (commandSpec.env.MINI_BACKEND_ACCELERATION_PROFILE as MiniBackendAccelerationProfile)
-      : miniBackendRuntimeState.activeProfile,
-    source: commandSpec.runtimeSource ?? miniBackendRuntimeState.source,
-    installDir: commandSpec.installDir ?? miniBackendRuntimeState.installDir,
-    version: commandSpec.version ?? miniBackendRuntimeState.version,
+      : runtimeStore.getState().activeProfile,
+    source: commandSpec.runtimeSource ?? runtimeStore.getState().source,
+    installDir: commandSpec.installDir ?? runtimeStore.getState().installDir,
+    version: commandSpec.version ?? runtimeStore.getState().version,
     downloadCacheDir: path.join(app.getPath("temp"), "koma-runtime-downloads"),
     status: "checking",
     statusMessage: commandSpec.runtimeSource === "downloaded-runtime"
@@ -2143,7 +2067,7 @@ const startMiniBackend = async (): Promise<void> => {
     // packages/mini-backend/app.py (guarded by
     // ../tests/mini-backend-fallback-markers.test.ts).
     if (text.includes("Falling back to CPU automatically")) {
-      patchMiniBackendRuntimeState({
+      runtimeStore.patch({
         activeProfile: "cpu",
         lastError: warmupFallbackReason,
         status: "fallback",
@@ -2153,7 +2077,7 @@ const startMiniBackend = async (): Promise<void> => {
     }
 
     if (text.includes("Detector warmup successfully redone on CPU")) {
-      patchMiniBackendRuntimeState({
+      runtimeStore.patch({
         activeProfile: "cpu",
         lastError: warmupFallbackReason,
         status: "fallback",
@@ -2208,7 +2132,7 @@ const startMiniBackend = async (): Promise<void> => {
   });
   const healthy = await waitForMiniBackend(localApiUrl, startupPolicy.initial);
   if (!healthy) {
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       status: "error",
       statusMessage: "Mini backend did not become healthy in time.",
       lastError: "mini_backend_health_timeout",
@@ -2556,7 +2480,7 @@ const createWindow = async (): Promise<void> => {
 
   void startMiniBackend().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
-    patchMiniBackendRuntimeState({
+    runtimeStore.patch({
       status: "error",
       statusMessage: "Mini backend failed to start.",
       lastError: message,
@@ -2677,7 +2601,7 @@ ipcMain.on("desktop:get-runtime-config", (event) => {
 });
 ipcMain.handle("desktop:get-mini-backend-runtime-state", async (event) => {
   assertTrustedIpcSender(event, "desktop:get-mini-backend-runtime-state");
-  return getMiniBackendRuntimeStateSnapshot();
+  return runtimeStore.getSnapshot();
 });
 ipcMain.handle("desktop:list-mini-backend-runtime-artifacts", async (event) => {
   assertTrustedIpcSender(event, "desktop:list-mini-backend-runtime-artifacts");
