@@ -97,8 +97,8 @@ import {
 import {
   computeSha512Base64ForFile,
   getMiniBackendRuntimeInstallDir,
-  isMiniBackendRuntimeInstalled,
 } from "./modules/mini-backend-runtime-integrity.ts";
+import { createMiniBackendManifestReader } from "./modules/mini-backend-runtime-manifest.ts";
 import { attachRendererDiagnostics } from "./modules/renderer-diagnostics.ts";
 import { resolveDesktopEnvValue, setDesktopIsDev } from "./modules/runtime-env.ts";
 import {
@@ -115,9 +115,6 @@ import {
 import { normalizeLoopbackUrl, parseConfiguredPort } from "./modules/app-urls.ts";
 import { resolveRendererCorsOrigin } from "./modules/app-protocols.ts";
 import {
-  listMiniBackendRuntimeArtifactOptions,
-  type MiniBackendRuntimeArtifactOption,
-  type MiniBackendRuntimeArtifactManifest,
   type MiniBackendRuntimeArtifactRecord,
 } from "./mini-backend-artifacts.ts";
 import {
@@ -1161,86 +1158,15 @@ const syncMiniBackendRuntimeStateFromApi = async (): Promise<void> => {
   }
 };
 
-const readMiniBackendRuntimeManifest = async (
-  { silent = false }: { silent?: boolean } = {},
-): Promise<MiniBackendRuntimeArtifactManifest | null> => {
-  const manifestUrl = resolveMiniBackendRuntimeManifestUrl(miniBackendArtifactsUrl);
-  if (!manifestUrl) {
-    return null;
-  }
 
-  try {
-    if (!silent) {
-      runtimeStore.patch({
-        status: "checking",
-        statusMessage: "Checking runtime artifact manifest.",
-        runtimeManifestUrl: manifestUrl,
-      });
-    }
-    const response = await runWithRetry({
-      retryCount: RUNTIME_DOWNLOAD_RETRY_COUNT,
-      isRetryable: isRetryableRuntimeDownloadError,
-      onRetry: ({ attempt, delayMs, error }) => {
-        if (!silent) {
-          runtimeStore.patch({
-            status: "checking",
-            statusMessage: `Retrying runtime manifest request (${attempt + 1}/${RUNTIME_DOWNLOAD_RETRY_COUNT + 1}) in ${Math.max(1, Math.ceil(delayMs / 1000))}s.`,
-            lastError: error instanceof Error ? error.message : String(error),
-            attempt: Math.min(RUNTIME_DOWNLOAD_RETRY_COUNT + 1, attempt + 1),
-            maxAttempts: RUNTIME_DOWNLOAD_RETRY_COUNT + 1,
-          });
-        }
-      },
-      operation: () => fetch(manifestUrl, {
-        method: "GET",
-        signal: AbortSignal.timeout(30_000),
-      }),
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    if (!payload || typeof payload !== "object") {
-      throw new Error("Invalid runtime manifest payload");
-    }
-
-    return payload as MiniBackendRuntimeArtifactManifest;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!silent) {
-      runtimeStore.patch({
-        status: "checking",
-        statusMessage: "Checking runtime artifact manifest.",
-        runtimeManifestUrl: manifestUrl,
-        lastError: `Failed to read runtime manifest: ${message}`,
-      });
-    }
-    return null;
-  }
-};
-
-const listMiniBackendRuntimeArtifacts = async (): Promise<MiniBackendRuntimeArtifactOption[]> => {
-  const manifest = await readMiniBackendRuntimeManifest({ silent: true });
-  if (!manifest) {
-    return [];
-  }
-
-  const recommendedProfile = await resolveMiniBackendAccelerationProfile({ silent: true, ignoreManualSelection: true });
-  const installedProfiles = Object.values(manifest.profiles)
-    .filter((entry): entry is MiniBackendRuntimeArtifactRecord => Boolean(entry))
-    .flatMap((entry) => (
-      isMiniBackendRuntimeInstalled(manifest.version, entry.profile, entry.entry)
-        ? [entry.profile]
-        : []
-    ));
-
-  return listMiniBackendRuntimeArtifactOptions({
-    manifest,
-    recommendedProfile,
-    installedProfiles,
-  });
-};
+const {
+  listMiniBackendRuntimeArtifacts,
+  readMiniBackendRuntimeManifest,
+} = createMiniBackendManifestReader({
+  runtimeStore,
+  miniBackendArtifactsUrl,
+  resolveAccelerationProfile: resolveMiniBackendAccelerationProfile,
+});
 
 const downloadRuntimeArtifactToDisk = async (
   profile: MiniBackendAccelerationProfile,
