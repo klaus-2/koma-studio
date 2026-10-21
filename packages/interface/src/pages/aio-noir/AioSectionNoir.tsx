@@ -1,9 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import { ChevronDown, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
-
-const EASE = [0.22, 1, 0.36, 1] as const;
 
 interface AioSectionProps {
   icon: LucideIcon;
@@ -47,25 +45,34 @@ export const AioSectionNoir = ({
           className={cn(
             "text-paper-dim transition-transform duration-300",
             open && "rotate-180 text-crimson",
+            reduced && "transition-none",
           )}
         />
       </button>
 
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={reduced ? false : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduced ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.32, ease: EASE }}
-            style={{ overflow: "hidden" }}
-          >
-            <div className="halftone space-y-3 border-t border-paper/8 px-3.5 py-3.5">
-              {children}
-            </div>
-          </motion.div>
+      <div
+        className={cn(
+          "grid",
+          reduced
+            ? open
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0 pointer-events-none"
+            : [
+                "transition-[grid-template-rows,opacity] duration-300",
+                "[transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
+                open
+                  ? "grid-rows-[1fr] opacity-100"
+                  : "grid-rows-[0fr] opacity-0 pointer-events-none",
+              ],
         )}
-      </AnimatePresence>
+        aria-hidden={!open}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="halftone space-y-3 border-t border-paper/8 px-3.5 py-3.5">
+            {children}
+          </div>
+        </div>
+      </div>
     </section>
   );
 };
