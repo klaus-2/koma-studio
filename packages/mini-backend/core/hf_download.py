@@ -80,7 +80,6 @@ class ChecksumMismatchError(HFDownloadError):
         self.expected = expected
         self.got = got
 
-
 class DownloadCancelled(Exception):  # noqa: N818 - established wire/API name
     """Raised when the owning download job requests cancellation."""
 
@@ -95,10 +94,17 @@ class DownloadProgressBridge(Protocol):
     the active bridge travels in a ContextVar set by the worker thread.
     """
 
-    def report_download(
-        self, file_key: str, delta_bytes: int, file_total: int | None
-    ) -> None:
+    def report_download(self, file_key: str, delta_bytes: int) -> None:
         """``delta_bytes`` may be negative when a resume is discarded."""
+        ...
+
+    def declare_total(self, total_bytes: int) -> None:
+        """Declare the whole bundle size before the first byte is transferred.
+
+        The declared total is authoritative and immutable: it makes the
+        percentage monotonic across a multi-asset install and it is the only
+        denominator the UI ever needs.
+        """
         ...
 
     def report_phase(self, phase: DownloadPhase) -> None: ...
@@ -311,49 +317,107 @@ def _sleep_cancellable(delay: float, bridge: DownloadProgressBridge | None) -> N
         time.sleep(min(_CANCEL_POLL_SECONDS, remaining))
 
 
-def _remote_content_length(url: str) -> int | None:
-    head = Request(url, method="HEAD", headers={"User-Agent": _USER_AGENT})
-    try:
-        with _open(head) as response:
-            raw = response.headers.get("Content-Length")
-    except OSError:
+def _response_total(response, *, requested_offset: int) -> int | None:
+    """Total remote size disclosed by the response we already hold.
+
+    * 206 -> the total is the part after "/" in ``Content-Range``
+    * 200 -> ``Content-Length``
+    * 416 -> the total is the part after "/" in ``Content-Range`` (``bytes */N``)
+
+    A HEAD probe cannot be used for this: ModelScope answers HEAD with
+    ``200 OK`` and no ``Content-Length`` at all, which is what left every
+    install without a total (and therefore without a percentage).
+    """
+    headers = getattr(response, "headers", None)
+    if headers is None:
         return None
-    try:
-        return int(raw) if raw else None
-    except ValueError:
-        return None
+    content_range = headers.get("Content-Range")
+    if content_range:
+        total = content_range.rsplit("/", 1)[-1].strip()
+        if total.isdigit():
+            return int(total)
+    length = headers.get("Content-Length")
+    if length and length.isdigit():
+        return int(length)
+    return None
+
+
+def _response_start(response, *, requested_offset: int) -> int:
+    """Offset the response body starts at.
+
+    Some hosts answer a ranged GET with ``200`` and still send
+    ``Content-Range``, so the status code alone cannot decide whether the
+    transfer resumes or restarts.
+    """
+    if requested_offset <= 0:
+        return 0
+    headers = getattr(response, "headers", None)
+    if headers is not None:
+        content_range = headers.get("Content-Range")
+        if content_range:
+            start = content_range.split(" ", 1)[-1].split("-", 1)[0].strip()
+            if start.isdigit():
+                return int(start)
+    if getattr(response, "status", None) == 206:
+        return requested_offset
+    return 0
 
 
 def _download_once(
     url: str,
     temp_path: Path,
     existing_bytes: int,
-    total_size: int | None,
     bridge: DownloadProgressBridge | None,
-) -> None:
+) -> tuple[int | None, bool]:
+    """Transfer one file.
+
+    Returns ``(remote_total, range_satisfied)``. ``range_satisfied`` is True
+    when the server answered 416 — the local partial is already at or beyond
+    the end of the remote file — and the caller decides whether to promote it.
+    """
     headers = {"User-Agent": _USER_AGENT}
     if existing_bytes > 0:
         headers["Range"] = f"bytes={existing_bytes}-"
         logger.info("Resuming download from %d bytes: %s", existing_bytes, url)
 
-    with _open(Request(url, headers=headers)) as response:
-        resumed = existing_bytes > 0 and response.status == 206
-        if existing_bytes > 0 and not resumed:
+    try:
+        response = _open(Request(url, headers=headers))
+    except HTTPError as exc:
+        if exc.code != 416:
+            raise
+        return _response_total(exc, requested_offset=existing_bytes), True
+
+    with response:
+        total_size = _response_total(response, requested_offset=existing_bytes)
+        start = _response_start(response, requested_offset=existing_bytes)
+        if existing_bytes > 0 and start != existing_bytes:
             logger.info("Server ignored Range header; restarting from scratch: %s", url)
             if bridge is not None:
-                bridge.report_download(url, -existing_bytes, total_size)
-        with temp_path.open("ab" if resumed else "wb") as handle:
+                bridge.report_download(url, -existing_bytes)
+            start = 0
+        with temp_path.open("ab" if start == existing_bytes > 0 else "wb") as handle:
             while chunk := response.read(_CHUNK_SIZE):
                 if bridge is not None:
                     bridge.raise_if_cancelled()
                 handle.write(chunk)
                 if bridge is not None:
-                    bridge.report_download(url, len(chunk), total_size)
+                    bridge.report_download(url, len(chunk))
+    return total_size, False
 
 
-def download_file(url: str, target_path: Path, max_retries: int = 5) -> None:
+def download_file(
+    url: str,
+    target_path: Path,
+    max_retries: int = 5,
+    expected_size: int | None = None,
+) -> None:
     """Download with resume support; the ``.part`` file survives retries,
-    cancellation and even the final failure so a later job continues from it."""
+    cancellation and even the final failure so a later job continues from it.
+
+    ``expected_size`` is the declared size of the asset. When the host
+    discloses a different size the file is rejected instead of being silently
+    resized, so a stale declaration fails loudly.
+    """
     temp_path = target_path.with_suffix(f"{target_path.suffix}.part")
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -361,24 +425,22 @@ def download_file(url: str, target_path: Path, max_retries: int = 5) -> None:
     if bridge is not None:
         bridge.report_phase("downloading")
 
-    total_size = _remote_content_length(url)
     attempts = max(1, max_retries)
     resume_reported = False
+    total_size: int | None = None
 
     for attempt in range(1, attempts + 1):
         existing_bytes = temp_path.stat().st_size if temp_path.exists() else 0
-        if total_size is not None and 0 < total_size <= existing_bytes:
-            break
         if bridge is not None:
             bridge.raise_if_cancelled()
             # A .part left by a previous job is real progress; count it exactly once.
-            bridge.report_download(
-                url, 0 if resume_reported else existing_bytes, total_size
-            )
-            resume_reported = True
+            if not resume_reported:
+                bridge.report_download(url, existing_bytes)
+                resume_reported = True
         try:
-            _download_once(url, temp_path, existing_bytes, total_size, bridge)
-            break
+            total_size, range_satisfied = _download_once(
+                url, temp_path, existing_bytes, bridge
+            )
         except DownloadCancelled:
             raise
         except (OSError, HTTPException) as exc:
@@ -395,6 +457,21 @@ def download_file(url: str, target_path: Path, max_retries: int = 5) -> None:
                 # e.g. HTTP 404 — the partial is junk, nothing to resume from.
                 temp_path.unlink(missing_ok=True)
             raise _translate_failure(exc, url) from exc
+
+        if range_satisfied:
+            # 416: the remote file ends at or before our offset.
+            if total_size is not None and total_size == existing_bytes:
+                break  # the partial is already the complete file
+            temp_path.unlink(missing_ok=True)
+            continue  # the remote shrank — download it again from scratch
+        break
+
+    if expected_size is not None and total_size is not None and total_size != expected_size:
+        temp_path.unlink(missing_ok=True)
+        raise HFDownloadError(
+            f"Size mismatch for '{target_path.name}'. "
+            f"Expected: {expected_size} | Got: {total_size}"
+        )
 
     temp_path.replace(target_path)
 

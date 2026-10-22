@@ -10,6 +10,7 @@ from typing import Final, TypedDict
 
 from PIL import Image
 
+from core.hf_download import ChecksumMismatchError as CoreChecksumMismatchError
 from models.ocr.base_ocr import OCRInputRegion, OCRTextResult
 
 type BBox = tuple[int, int, int, int]
@@ -62,13 +63,21 @@ class ModelDownloadError(OcrEngineError):
         self.failures = tuple(failures)
 
 
-class ChecksumMismatchError(OcrEngineError):
-    def __init__(self, target: str, *, expected: str, actual: str) -> None:
-        super().__init__(f"SHA256 mismatch for '{target}': expected {expected}, got {actual}")
-        self.target = target
-        self.expected = expected
-        self.actual = actual
+class ChecksumMismatchError(CoreChecksumMismatchError):
+    """A downloaded asset does not match its pinned digest.
 
+    Extends the transport-level error so `core.download_jobs.classify_error`
+    maps it to `checksum_mismatch` instead of the opaque `unknown` bucket.
+    """
+
+    def __init__(self, target: str, *, expected: str, actual: str) -> None:
+        super().__init__(
+            f"SHA256 mismatch for '{target}': expected {expected}, got {actual}",
+            expected=expected,
+            got=actual,
+        )
+        self.target = target
+        self.actual = actual
 
 class InstalledFilePayload(TypedDict):
     target: str

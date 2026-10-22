@@ -171,6 +171,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pyflakes
           python -m pyflakes packages/mini-backend || true
+      - name: Model asset manifest is in sync with upstream
+        run: python packages/mini-backend/scripts/generate_model_asset_manifest.py --check
 
   hygiene:
     name: Repository hygiene

@@ -1,0 +1,96 @@
+{
+  "models": {
+    "paddleocr": {
+      "assets": [
+        {
+          "path": "onnx/PP-OCRv5/det/ch_PP-OCRv5_mobile_det.onnx",
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "size": 4819576
+        },
+        {
+          "path": "onnx/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile_infer.onnx",
+          "sha256": "08705d6721849b1347d26187f15a5e362c431963a2a62bfff4feac578c489aab",
+          "size": 7911802
+        },
+        {
+          "path": "paddle/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile_infer/ppocrv5_eslav_dict.txt",
+          "sha256": "3e95f1581557162870cacdba5af91a4c6be2890710d395b0c3c7578e7ee5e6eb",
+          "size": 1663
+        }
+      ],
+      "totalBytes": 12733041
+    },
+    "paddleocr_ch_v5": {
+      "assets": [
+        {
+          "path": "onnx/PP-OCRv5/det/ch_PP-OCRv5_mobile_det.onnx",
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "size": 4819576
+        },
+        {
+          "path": "onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile_infer.onnx",
+          "sha256": "5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5",
+          "size": 16631306
+        },
+        {
+          "path": "paddle/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile_infer/ppocrv5_dict.txt",
+          "sha256": "d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b",
+          "size": 74012
+        }
+      ],
+      "totalBytes": 21524894
+    },
+    "paddleocr_en_v5": {
+      "assets": [
+        {
+          "path": "onnx/PP-OCRv5/det/ch_PP-OCRv5_mobile_det.onnx",
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "size": 4819576
+        },
+        {
+          "path": "onnx/PP-OCRv5/rec/en_PP-OCRv5_rec_mobile_infer.onnx",
+          "sha256": "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
+          "size": 7872351
+        },
+        {
+          "path": "paddle/PP-OCRv5/rec/en_PP-OCRv5_rec_mobile_infer/ppocrv5_en_dict.txt",
+          "sha256": "e025a66d31f327ba0c232e03f407ae8d105e1e709e7ccb3f408aa778c24e70d6",
+          "size": 1416
+        }
+      ],
+      "totalBytes": 12693343
+    },
+    "paddleocr_latin_v5": {
+      "assets": [
+        {
+          "path": "onnx/PP-OCRv5/det/ch_PP-OCRv5_mobile_det.onnx",
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "size": 4819576
+        },
+        {
+          "path": "onnx/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile_infer.onnx",
+          "sha256": "b20bd37c168a570f583afbc8cd7925603890efbcdc000a59e22c269d160b5f5a",
+          "size": 7904513
+        },
+        {
+          "path": "paddle/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile_infer/ppocrv5_latin_dict.txt",
+          "sha256": "3c0a8a79b612653c25f765271714f71281e4e955962c153e272b7b8c1d2b13ff",
+          "size": 1634
+        }
+      ],
+      "totalBytes": 12725723
+    }
+  },
+  "sources": {
+    "huggingface": {
+      "api": "https://huggingface.co/api/models/{repo}/tree/{rev}",
+      "repo": "pitapo/rapidocr",
+      "revision": "main"
+    },
+    "modelscope": {
+      "api": "https://www.modelscope.cn/api/v1/models/{repo}/repo/files",
+      "repo": "RapidAI/RapidOCR",
+      "revision": "v3.4.0"
+    }
+  }
+}

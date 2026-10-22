@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -26,84 +27,117 @@ logger = logging.getLogger(__name__)
 _DOWNLOAD_FAILURES: Final[tuple[type[Exception], ...]] = (HFDownloadError, OSError)
 _DOWNLOAD_MAX_RETRIES: Final = 3
 
+# Two independent hosts that serve the SAME upstream tree with the SAME relative
+# paths and byte-identical content. The previous mirror served a different model
+# family (server-grade detector/recogniser under the mobile filenames), which
+# turned any transient failure into a hard checksum error.
 _MODELSCOPE_BASE: Final = "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0"
-_HF_MIRROR_BASE: Final = "https://huggingface.co/monkt/paddleocr-onnx/resolve/main"
+_HF_MIRROR_BASE: Final = "https://huggingface.co/pitapo/rapidocr/resolve/main"
+_MIRROR_BASES: Final = (_MODELSCOPE_BASE, _HF_MIRROR_BASE)
 _SHARED_DETECTOR_REPO: Final = "RapidAI/RapidOCR"
+
+# The generated manifest owns every path, size and digest. Regenerate with
+#   python packages/mini-backend/scripts/generate_model_asset_manifest.py
+_MANIFEST_PATH: Final = (
+    Path(__file__).resolve().parents[2] / "manifests" / "model-assets.json"
+)
+
+# On-disk file names are a RUNTIME contract (paddleocr/engine.py hardcodes
+# them), not an upstream fact: the English recogniser is published as
+# `en_PP-OCRv5_rec_mobile_infer.onnx` but the runtime loads
+# `en_PP-OCRv5_mobile_rec.onnx`.
+_DETECTOR_TARGET: Final = "ch_PP-OCRv5_mobile_det.onnx"
+_RECOGNIZER_TARGETS: Final[Mapping[str, str]] = {
+    "paddleocr": "eslav_PP-OCRv5_rec_mobile_infer.onnx",
+    "paddleocr_latin_v5": "latin_PP-OCRv5_rec_mobile_infer.onnx",
+    "paddleocr_ch_v5": "ch_PP-OCRv5_rec_mobile_infer.onnx",
+    "paddleocr_en_v5": "en_PP-OCRv5_mobile_rec.onnx",
+}
+_DICTIONARY_TARGETS: Final[Mapping[str, str]] = {
+    "paddleocr": "ppocrv5_eslav_dict.txt",
+    "paddleocr_latin_v5": "ppocrv5_latin_dict.txt",
+    "paddleocr_ch_v5": "ppocrv5_dict.txt",
+    "paddleocr_en_v5": "ppocrv5_en_dict.txt",
+}
 
 
 @dataclass(frozen=True, slots=True)
 class RemoteAsset:
     target: str
-    urls: tuple[str, ...]
-    sha256: str | None = None  # None = upstream publishes no pin (plain-text dictionaries)
+    path: str
+    size: int
+    sha256: str
+
+    @property
+    def urls(self) -> tuple[str, ...]:
+        """Every candidate that must serve byte-identical content."""
+        return tuple(f"{base}/{self.path}" for base in _MIRROR_BASES)
 
 
-_DETECTOR: Final = RemoteAsset(
-    target="ch_PP-OCRv5_mobile_det.onnx",
-    sha256="4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
-    urls=(
-        f"{_MODELSCOPE_BASE}/onnx/PP-OCRv5/det/ch_PP-OCRv5_mobile_det.onnx",
-        f"{_HF_MIRROR_BASE}/detection/v5/det.onnx",
-    ),
-)
+def _load_manifest() -> Mapping[str, object]:
+    try:
+        payload = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ModelDownloadError(
+            "paddleocr manifest", [f"{_MANIFEST_PATH}: {exc}"]
+        ) from exc
+    models = payload.get("models")
+    if not isinstance(models, dict):
+        raise ModelDownloadError("paddleocr manifest", ["no models section"])
+    return models
 
 
-def _recognizer_bundle(
-    *,
-    upstream_name: str,
-    rec_target: str,
-    rec_sha256: str,
-    dict_target: str,
-    mirror_language: str,
-) -> tuple[RemoteAsset, RemoteAsset, RemoteAsset]:
-    recognizer = RemoteAsset(
-        target=rec_target,
-        sha256=rec_sha256,
-        urls=(
-            f"{_MODELSCOPE_BASE}/onnx/PP-OCRv5/rec/{upstream_name}.onnx",
-            f"{_HF_MIRROR_BASE}/languages/{mirror_language}/rec.onnx",
-        ),
-    )
-    dictionary = RemoteAsset(
-        target=dict_target,
-        urls=(
-            f"{_MODELSCOPE_BASE}/paddle/PP-OCRv5/rec/{upstream_name}/{dict_target}",
-            f"{_HF_MIRROR_BASE}/languages/{mirror_language}/dict.txt",
-        ),
-    )
-    return _DETECTOR, recognizer, dictionary
+def _build_manifests() -> Mapping[str, tuple[RemoteAsset, ...]]:
+    models = _load_manifest()
+    manifests: dict[str, tuple[RemoteAsset, ...]] = {}
+    for model_id, entry in models.items():
+        if model_id not in _RECOGNIZER_TARGETS:
+            continue
+        assets = entry.get("assets") if isinstance(entry, dict) else None
+        if not isinstance(assets, list) or len(assets) != 3:
+            raise ModelDownloadError("paddleocr manifest", [f"{model_id}: expected 3 assets"])
+        built: list[RemoteAsset] = []
+        for asset in assets:
+            if not isinstance(asset, dict):
+                raise ModelDownloadError("paddleocr manifest", [f"{model_id}: bad asset entry"])
+            path = str(asset.get("path") or "")
+            size = int(asset.get("size") or 0)
+            sha256 = str(asset.get("sha256") or "").lower()
+            if not path or size <= 0 or len(sha256) != 64:
+                raise ModelDownloadError(
+                    "paddleocr manifest", [f"{model_id}: incomplete asset {path!r}"]
+                )
+            built.append(RemoteAsset(target=path.rsplit("/", 1)[-1], path=path, size=size, sha256=sha256))
+        # Apply the runtime file-name contract on top of the upstream names.
+        renamed = []
+        for asset in built:
+            if asset.target == _DETECTOR_TARGET:
+                renamed.append(asset)
+            elif asset.target.endswith(".onnx"):
+                renamed.append(
+                    RemoteAsset(
+                        target=_RECOGNIZER_TARGETS[model_id],
+                        path=asset.path,
+                        size=asset.size,
+                        sha256=asset.sha256,
+                    )
+                )
+            else:
+                renamed.append(
+                    RemoteAsset(
+                        target=_DICTIONARY_TARGETS[model_id],
+                        path=asset.path,
+                        size=asset.size,
+                        sha256=asset.sha256,
+                    )
+                )
+        manifests[model_id] = tuple(renamed)
+    if not manifests:
+        raise ModelDownloadError("paddleocr manifest", ["no paddleocr models declared"])
+    return manifests
 
 
-PADDLEOCR_MANIFESTS: Final[Mapping[str, tuple[RemoteAsset, ...]]] = {
-    "paddleocr": _recognizer_bundle(
-        upstream_name="eslav_PP-OCRv5_rec_mobile_infer",
-        rec_target="eslav_PP-OCRv5_rec_mobile_infer.onnx",
-        rec_sha256="08705d6721849b1347d26187f15a5e362c431963a2a62bfff4feac578c489aab",
-        dict_target="ppocrv5_eslav_dict.txt",
-        mirror_language="eslav",
-    ),
-    "paddleocr_latin_v5": _recognizer_bundle(
-        upstream_name="latin_PP-OCRv5_rec_mobile_infer",
-        rec_target="latin_PP-OCRv5_rec_mobile_infer.onnx",
-        rec_sha256="b20bd37c168a570f583afbc8cd7925603890efbcdc000a59e22c269d160b5f5a",
-        dict_target="ppocrv5_latin_dict.txt",
-        mirror_language="latin",
-    ),
-    "paddleocr_ch_v5": _recognizer_bundle(
-        upstream_name="ch_PP-OCRv5_rec_mobile_infer",
-        rec_target="ch_PP-OCRv5_rec_mobile_infer.onnx",
-        rec_sha256="5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5",
-        dict_target="ppocrv5_dict.txt",
-        mirror_language="chinese",
-    ),
-    "paddleocr_en_v5": _recognizer_bundle(
-        upstream_name="en_PP-OCRv5_rec_mobile_infer",
-        rec_target="en_PP-OCRv5_mobile_rec.onnx",
-        rec_sha256="c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
-        dict_target="ppocrv5_en_dict.txt",
-        mirror_language="english",
-    ),
-}
+PADDLEOCR_MANIFESTS: Final[Mapping[str, tuple[RemoteAsset, ...]]] = _build_manifests()
 
 
 def _normalize_model_id(model_id: str) -> str:
@@ -132,15 +166,25 @@ def _download_atomically(asset: RemoteAsset, target_path: Path) -> tuple[str, st
     """Download to a sibling `.part` file and rename on success; returns (source_url, sha256).
 
     A crash mid-download can never leave a partial file under the final name,
-    so `paddleocr_runtime_ready` cannot report a corrupt install.
+    so `paddleocr_runtime_ready` cannot report a corrupt install. The partial
+    survives a failed attempt so the next job resumes instead of restarting.
     """
     partial_path = target_path.with_name(f"{target_path.name}.part")
     failures: list[str] = []
     try:
         for url in asset.urls:
-            partial_path.unlink(missing_ok=True)
             try:
-                download_file(url, partial_path, max_retries=_DOWNLOAD_MAX_RETRIES)
+                download_file(
+                    url,
+                    partial_path,
+                    max_retries=_DOWNLOAD_MAX_RETRIES,
+                    expected_size=asset.size,
+                )
+            except ChecksumMismatchError:
+                # A pinned-hash mismatch is a supply-chain signal, not a
+                # transient error: never silently fall through to another
+                # mirror. Re-raised so the type system enforces the invariant.
+                raise
             except _DOWNLOAD_FAILURES as exc:
                 failures.append(f"{url}: {exc}")
                 logger.warning(
@@ -149,14 +193,18 @@ def _download_atomically(asset: RemoteAsset, target_path: Path) -> tuple[str, st
                 )
                 continue
             digest = sha256_file(partial_path).lower()
-            # A pinned-hash mismatch is a supply-chain signal, not a transient error:
-            # never silently fall through to another mirror.
-            if asset.sha256 is not None and digest != asset.sha256:
-                raise ChecksumMismatchError(asset.target, expected=asset.sha256, actual=digest)
+            if digest != asset.sha256:
+                raise ChecksumMismatchError(
+                    f"Invalid SHA256 checksum for '{asset.target}'. "
+                    f"Expected: {asset.sha256} | Got: {digest}",
+                    expected=asset.sha256,
+                    actual=digest,
+                )
             partial_path.replace(target_path)
             return url, digest
     finally:
-        partial_path.unlink(missing_ok=True)
+        if partial_path.exists():
+            partial_path.unlink(missing_ok=True)
     raise ModelDownloadError(asset.target, failures)
 
 
@@ -164,7 +212,8 @@ def _ensure_asset(model_dir: Path, asset: RemoteAsset) -> InstalledFilePayload:
     target_path = model_dir / asset.target
     if target_path.is_file():
         digest = sha256_file(target_path).lower()
-        if asset.sha256 is None or digest == asset.sha256:
+        if digest == asset.sha256:
+            _report_cached_bytes(asset)
             return InstalledFilePayload(
                 target=asset.target, source="local-cache", sha256=digest, downloaded=False
             )
@@ -175,12 +224,25 @@ def _ensure_asset(model_dir: Path, asset: RemoteAsset) -> InstalledFilePayload:
         target_path.unlink()
 
     source_url, digest = _download_atomically(asset, target_path)
-    if asset.sha256 is None:
-        logger.warning(
-            "paddleocr_installed_unverified",
-            extra={"target": asset.target, "sha256": digest},
-        )
     return InstalledFilePayload(target=asset.target, source=source_url, sha256=digest, downloaded=True)
+
+
+def _report_cached_bytes(asset: RemoteAsset) -> None:
+    """Count a cached asset as already-present bytes.
+
+    Without it a retried install reports 0 bytes until the first byte of the
+    next asset arrives, which makes the bar jump backwards.
+    """
+    bridge = _active_bridge()
+    if bridge is None:
+        return
+    bridge.report_download(asset.path, asset.size)
+
+
+def _active_bridge():
+    from core.hf_download import progress_bridge_var
+
+    return progress_bridge_var.get()
 
 
 def ensure_paddleocr_models_installed(model_id: str) -> InstallPayload:
@@ -191,6 +253,13 @@ def ensure_paddleocr_models_installed(model_id: str) -> InstallPayload:
         raise ModelsRootNotConfiguredError(normalized_id)
 
     model_dir.mkdir(parents=True, exist_ok=True)
+
+    bridge = _active_bridge()
+    if bridge is not None:
+        # The bundle size is known before the first byte: declare it so the
+        # percentage is monotonic for the whole install.
+        bridge.declare_total(sum(asset.size for asset in manifest))
+
     files = [_ensure_asset(model_dir, asset) for asset in manifest]
     return InstallPayload(
         modelId=normalized_id,

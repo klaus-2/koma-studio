@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -25,7 +25,7 @@ try:
 except Exception as exc:  # pragma: no cover - optional runtime deps
     IMPORT_ERROR = exc
 
-# core.download_jobs does not depend on onnxruntime/fastapi — unit tests
+# core.download_jobs does not depend on onnxruntime/fastapi â€” unit tests
 # run on any Python.
 JOBS_IMPORT_ERROR: Exception | None = None
 try:
@@ -291,26 +291,41 @@ class QueuedCancelUnitTests(unittest.TestCase):
 
 @unittest.skipIf(JOBS_IMPORT_ERROR is not None, f"download_jobs import failed: {JOBS_IMPORT_ERROR}")
 class ProgressBridgeTests(unittest.TestCase):
-    def test_multi_file_totals_accumulate_and_percent_is_honest(self) -> None:
+    def test_declared_total_is_stable_and_percent_is_monotonic(self) -> None:
         job = DownloadJob(model_id="bridge")
         bridge = JobProgressBridge(job)
 
-        bridge.report_download("file-a.gguf", 0, 100)
-        bridge.report_download("file-a.gguf", 40, 100)
-        bridge.report_download("file-b.bin", 0, 50)
-        bridge.report_download("file-b.bin", 25, 50)
+        # The installer declares the whole bundle before the first byte.
+        bridge.declare_total(150)
+        bridge.report_download("file-a.gguf", 0)
+        bridge.report_download("file-a.gguf", 40)
+        bridge.report_download("file-b.bin", 0)
+        bridge.report_download("file-b.bin", 25)
 
         snapshot = job.snapshot()
         self.assertEqual(snapshot["bytesDownloaded"], 65)
         self.assertEqual(snapshot["totalBytes"], 150)
-        self.assertLess(snapshot["percent"], 45.0)
-        self.assertGreaterEqual(snapshot["percent"], 43.0)
+        self.assertAlmostEqual(snapshot["percent"], 43.33, places=2)
         self.assertEqual(snapshot["state"], "downloading")
+
+    def test_percent_never_goes_backwards_across_assets(self) -> None:
+        job = DownloadJob(model_id="bundle")
+        bridge = JobProgressBridge(job)
+
+        bridge.declare_total(12_725_723)
+        seen: list[float] = []
+        for chunk in range(0, 12_725_723, 512_000):
+            bridge.report_download("asset", chunk)
+            seen.append(job.snapshot()["percent"])
+
+        self.assertEqual(seen, sorted(seen))
+        self.assertAlmostEqual(seen[-1], 100.0, places=2)
+        self.assertEqual(job.snapshot()["totalBytes"], 12_725_723)
 
     def test_unknown_total_keeps_percent_at_zero(self) -> None:
         job = DownloadJob(model_id="opaque")
         bridge = JobProgressBridge(job)
-        bridge.report_download("file", 1024, None)
+        bridge.report_download("file", 1024)
         snapshot = job.snapshot()
         self.assertEqual(snapshot["percent"], 0.0)
         self.assertIsNone(snapshot["totalBytes"])
@@ -354,3 +369,4 @@ def tempfile_models_root():
 
 if __name__ == "__main__":
     unittest.main()
+

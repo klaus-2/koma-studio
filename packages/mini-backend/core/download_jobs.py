@@ -78,7 +78,11 @@ ERROR_RATE_LIMITED, ERROR_CANCELLED, ERROR_UNKNOWN = (
 
 SPEED_WINDOW_SECONDS = 5.0
 SPEED_SAMPLE_CAP = 1024
-DISK_CHECK_SLACK_BYTES = 256 * 1024 * 1024
+# The precheck margin covers concurrent installs and filesystem overhead, so it
+# scales with the requirement instead of being a flat 256 MB — that constant was
+# 21x the size of a whole PaddleOCR bundle and blocked installs that fitted.
+DISK_CHECK_SLACK_RATIO = 0.10
+DISK_CHECK_SLACK_FLOOR_BYTES = 64 * 1024 * 1024
 FINISHED_JOB_HISTORY = 20
 _DIRECTORY_SAMPLE_INTERVAL_SECONDS = 0.5
 
@@ -149,8 +153,16 @@ def classify_error(exc: BaseException) -> tuple[DownloadErrorCode, int | None]:
 
 
 def _speed_from_samples(samples: deque[tuple[float, int]]) -> float:
+    """Bytes per second over the recent window.
+
+    Falls back to the last two samples when the window holds fewer than two:
+    without it the rate reads 0 B/s for the whole run of anything slower than
+    one chunk per window, and for the first chunk of every transfer.
+    """
     cutoff = time.monotonic() - SPEED_WINDOW_SECONDS
     recent = [item for item in samples if item[0] >= cutoff]
+    if len(recent) < 2:
+        recent = list(samples)[-2:]
     if len(recent) < 2:
         return 0.0
     span = recent[-1][0] - recent[0][0]
@@ -192,7 +204,6 @@ class DownloadJob:
     _speed_samples: deque[tuple[float, int]] = field(
         default_factory=lambda: deque(maxlen=SPEED_SAMPLE_CAP), repr=False
     )
-    _files_with_known_total: set[str] = field(default_factory=set, repr=False)
 
     # ------------------------------------------------------------------ query
 
@@ -238,13 +249,15 @@ class DownloadJob:
 
     # -------------------------------------------------------------- progress
 
-    def record_download(self, file_key: str, delta_bytes: int, file_total: int | None) -> None:
-        """Multi-file aware: totals accumulate as each Content-Length appears;
-        until then percent stays at 0 while bytes/speed advance — no fake bar."""
+    def record_download(self, file_key: str, delta_bytes: int) -> None:
+        """Accumulate transferred bytes.
+
+        The total is NOT derived here: it is declared once by the installer
+        (see ``declare_total``) so it stays constant for the whole job. A
+        per-file running sum made the percentage jump backwards whenever a
+        later asset revealed its size.
+        """
         with self.lock:
-            if file_total and file_total > 0 and file_key not in self._files_with_known_total:
-                self._files_with_known_total.add(file_key)
-                self.total_bytes = (self.total_bytes or 0) + file_total
             if delta_bytes < 0:
                 # A resume was discarded by the server: rewind and drop stale speed.
                 self.bytes_downloaded = max(0, self.bytes_downloaded + delta_bytes)
@@ -254,6 +267,19 @@ class DownloadJob:
                 self._speed_samples.append((time.monotonic(), self.bytes_downloaded))
             if self.state is JobState.QUEUED:
                 self.state = JobState.DOWNLOADING
+
+    def declare_total(self, total_bytes: int) -> None:
+        """Declare the whole bundle size before the first byte is transferred.
+
+        The first declaration wins: the installer owns the asset manifest, so
+        the total is a fact, not something the transport discovers halfway
+        through the transfer.
+        """
+        if total_bytes <= 0:
+            return
+        with self.lock:
+            if self.total_bytes is None:
+                self.total_bytes = total_bytes
 
     def set_phase(self, phase: DownloadPhase) -> None:
         with self.lock:
@@ -333,7 +359,11 @@ class DownloadJob:
         if root is None:
             return
         available = shutil.disk_usage(root).free
-        needed = self.required_disk_bytes + DISK_CHECK_SLACK_BYTES
+        slack = max(
+            DISK_CHECK_SLACK_FLOOR_BYTES,
+            int(self.required_disk_bytes * DISK_CHECK_SLACK_RATIO),
+        )
+        needed = self.required_disk_bytes + slack
         if available < needed:
             raise InsufficientDiskError(
                 f"Insufficient disk space for '{self.model_id}'. "
@@ -351,8 +381,11 @@ class JobProgressBridge:
     def __init__(self, job: DownloadJob) -> None:
         self._job = job
 
-    def report_download(self, file_key: str, delta_bytes: int, file_total: int | None) -> None:
-        self._job.record_download(file_key, delta_bytes, file_total)
+    def report_download(self, file_key: str, delta_bytes: int) -> None:
+        self._job.record_download(file_key, delta_bytes)
+
+    def declare_total(self, total_bytes: int) -> None:
+        self._job.declare_total(total_bytes)
 
     def report_phase(self, phase: DownloadPhase) -> None:
         self._job.set_phase(phase)
@@ -377,9 +410,9 @@ def _dir_size(path: Path) -> int:
 def directory_download_progress(directory: Path) -> Iterator[None]:
     """Report REAL bytes written to *directory* by the active job's bridge.
 
-    For installers with opaque third-party downloaders (EasyOCR/Pororo/
-    PaddleOCR). Bytes and speed are real; the total is unknown, so percent
-    stays at 0 until completion — honest, no synthetic bar.
+    For installers with opaque third-party downloaders (EasyOCR). Bytes and
+    speed are real; the total is unknown, so percent stays at 0 until
+    completion — honest, no synthetic bar.
     """
     bridge = progress_bridge_var.get()
     if bridge is None:
@@ -392,10 +425,15 @@ def directory_download_progress(directory: Path) -> Iterator[None]:
     def sample() -> None:
         previous = _dir_size(directory)
         while not stop.wait(_DIRECTORY_SAMPLE_INTERVAL_SECONDS):
+            if bridge is not None:
+                try:
+                    bridge.raise_if_cancelled()
+                except DownloadCancelled:
+                    return
             current = _dir_size(directory)
             delta = current - previous
             if delta > 0:
-                bridge.report_download(key, delta, None)
+                bridge.report_download(key, delta)
                 previous = current
 
     sampler = threading.Thread(target=sample, name="dir-progress-sampler", daemon=True)

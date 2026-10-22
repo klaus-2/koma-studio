@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import errno
 import threading
@@ -10,6 +10,7 @@ from core.download_jobs import (
     DownloadJob,
     InsufficientDiskError,
     JobManager,
+    JobProgressBridge,
     JobState,
     classify_error,
 )
@@ -49,13 +50,41 @@ class DownloadJobUnitTests(unittest.TestCase):
 
     def test_resume_rewind_never_goes_negative_and_percent_is_honest(self) -> None:
         job = DownloadJob(model_id="m")
-        job.record_download("f", 500, 1000)
-        job.record_download("f", -500, 1000)
-        job.record_download("f", 250, 1000)
+        job.declare_total(1000)
+        job.record_download("f", 500)
+        job.record_download("f", -500)
+        job.record_download("f", 250)
         snap = job.snapshot()
         self.assertEqual(snap["bytesDownloaded"], 250)
         self.assertEqual(snap["totalBytes"], 1000)
         self.assertEqual(snap["percent"], 25.0)
+
+    def test_declared_total_is_immutable_and_percent_is_monotonic(self) -> None:
+        job = DownloadJob(model_id="m")
+        bridge = JobProgressBridge(job)
+
+        bridge.declare_total(1000)
+        bridge.report_download("a", 250)
+        first = job.snapshot()
+        bridge.declare_total(9999)  # a later declaration must not win
+        bridge.report_download("b", 250)
+        second = job.snapshot()
+
+        self.assertEqual(first["totalBytes"], 1000)
+        self.assertEqual(second["totalBytes"], 1000)
+        self.assertEqual(first["percent"], 25.0)
+        self.assertEqual(second["percent"], 50.0)
+        self.assertGreaterEqual(second["percent"], first["percent"])
+
+    def test_speed_falls_back_to_the_last_two_samples(self) -> None:
+        job = DownloadJob(model_id="m")
+        job.declare_total(1000)
+        clock = iter([0.0, 0.5, 1.0])
+        with unittest.mock.patch("core.download_jobs.time.monotonic", lambda: next(clock)):
+            job.record_download("f", 100)
+            job.record_download("f", 200)
+            snap = job.snapshot()
+        self.assertGreater(snap["speedBytesPerSecond"], 0.0)
 
     def test_reads_are_safe_while_worker_prunes(self) -> None:
         manager = JobManager()
@@ -105,3 +134,5 @@ class ClassifyErrorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
