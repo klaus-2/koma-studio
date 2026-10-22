@@ -67,7 +67,15 @@ const stampPath = path.join(venvDir, ".koma-install-stamp.json");
 // this lock to wait instead of spawning a sidecar that is doomed to crash.
 const provisioningLockPath = path.join(venvDir, ".koma-provisioning.json");
 
-const QUERY_MODULES = ["fastapi", "onnxruntime", "torch"];
+const QUERY_MODULES = ["fastapi", "onnxruntime", "torch", "cv2"];
+// A `cv2` directory that lost its `__init__.py` still imports as a namespace
+// package and only fails at the first attribute read — which happens at import
+// time in routers/enhance.py (IMWRITE_WEBP_QUALITY), so the sidecar dies on
+// boot. That state comes from two opencv distributions (opencv-python and
+// opencv-python-headless) overwriting each other's files, so the query asserts
+// a native symbol instead of trusting that the import succeeded.
+const QUERY_PROBE =
+  "if not hasattr(cv2, 'imencode'):\n    raise SystemExit('cv2 has no native module: conflicting opencv distributions?')";
 const QUERY_TIMEOUT_MS = 120_000;
 
 const withInstall = process.argv.includes("--install");
@@ -240,6 +248,7 @@ const queryVenv = (pythonPath) =>
   runImportQuery({
     pythonPath,
     modules: QUERY_MODULES,
+    probe: QUERY_PROBE,
     spawnSync,
     timeout: QUERY_TIMEOUT_MS,
   });

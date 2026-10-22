@@ -41,12 +41,20 @@ const PROVISIONING_LOCK_FILE: &str = ".koma-provisioning.json";
 const PROVISIONING_WAIT: Duration = Duration::from_secs(90 * 60);
 const PROVISIONING_POLL_INTERVAL: Duration = Duration::from_secs(2);
 
-// Modules `mini-backend/app.py` imports at module scope. If all of these
+/// Modules `mini-backend/app.py` imports at module scope. If all of these
 /// resolve, the sidecar can boot and serve — optional extras such as
 /// `llama_cpp` (imported lazily inside the GGUF translator) may still be
 /// installing, and waiting for them would needlessly delay every other
 /// feature. Keep in sync with the imports at the top of `app.py`.
-const REQUIRED_SIDECAR_MODULES: &str = "import uvicorn, fastapi, PIL";
+///
+/// `cv2` is probed for a native symbol instead of being imported alone: a
+/// `cv2/` directory that lost its `__init__.py` still imports as a namespace
+/// package, and the break only surfaces where `routers/enhance.py` reads
+/// `IMWRITE_WEBP_QUALITY` at module scope, killing the sidecar on boot.
+const REQUIRED_SIDECAR_MODULES: &str = concat!(
+    "import uvicorn, fastapi, PIL, cv2; ",
+    "assert hasattr(cv2, 'imencode'), 'cv2 has no native module (conflicting opencv distributions?)'",
+);
 
 /// Log fragment the mini-backend prints when it downgrades a GPU profile to
 /// CPU. Emitted by `_switch_to_cpu_profile` in `mini-backend/app.py`, the one
@@ -1029,13 +1037,19 @@ mod tests {
         // the slowest package to install (source build) and blocking on it kept
         // the whole backend offline.
         assert!(!REQUIRED_SIDECAR_MODULES.contains("llama_cpp"));
-        // The three modules app.py imports at module scope must all be probed.
-        for module in ["uvicorn", "fastapi", "PIL"] {
+        // The modules app.py imports at module scope must all be probed.
+        for module in ["uvicorn", "fastapi", "PIL", "cv2"] {
             assert!(
                 REQUIRED_SIDECAR_MODULES.contains(module),
                 "{module} is imported by app.py but not probed before startup"
             );
         }
+        // Importing cv2 alone cannot see a namespace package left behind by two
+        // conflicting opencv distributions; the probe must read a native symbol.
+        assert!(
+            REQUIRED_SIDECAR_MODULES.contains("hasattr(cv2, 'imencode')"),
+            "cv2 must be probed for a native symbol, not merely imported"
+        );
     }
 
     #[test]

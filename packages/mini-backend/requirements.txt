@@ -2,7 +2,9 @@ fastapi==0.115.0
 uvicorn==0.30.6
 python-multipart==0.0.9
 httpx>=0.27.0
-opencv-python==4.10.0.84
+# Headless only: easyocr pulls opencv-python-headless, and having both opencv
+# distributions installed makes them overwrite each other's cv2/ files.
+opencv-python-headless==4.10.0.84
 numpy>=2.0.0
 Pillow>=11.0.0
 psd-tools>=1.12.0

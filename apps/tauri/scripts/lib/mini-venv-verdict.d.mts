@@ -40,6 +40,12 @@ export type SpawnSyncLike = (
 export interface ImportQueryInput {
     pythonPath: string;
     modules: readonly string[];
+    /**
+     * Extra Python source appended after the imports, used to assert what a
+     * plain import cannot see (for example, a `cv2` that imports as an empty
+     * namespace package). A non-zero exit fails the query.
+     */
+    probe?: string;
     spawnSync: SpawnSyncLike;
     timeout: number;
 }

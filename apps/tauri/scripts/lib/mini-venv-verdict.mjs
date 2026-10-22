@@ -11,8 +11,11 @@ const outputTail = (data) => {
   return text.slice(-MAX_CHILD_OUTPUT_CHARS).replace(/\n/g, "⏎");
 };
 
-export const runImportQuery = ({ pythonPath, modules, spawnSync, timeout }) => {
-  const result = spawnSync(pythonPath, ["-c", `import ${modules.join(", ")}`], {
+export const runImportQuery = ({ pythonPath, modules, probe = "", spawnSync, timeout }) => {
+  const source = [`import ${modules.join(", ")}`, probe]
+    .filter((part) => part !== "")
+    .join("\n");
+  const result = spawnSync(pythonPath, ["-c", source], {
     stdio: ["ignore", "pipe", "pipe"],
     timeout,
   });
