@@ -103,7 +103,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4.2.1",
-    "electron": "^40.6.0",
+    "electron": "^44.9.3",
     "electron-builder": "^26.4.1",
     "eslint": "^9.39.5",
     "javascript-obfuscator": "^4.2.2",
