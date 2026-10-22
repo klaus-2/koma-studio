@@ -131,6 +131,7 @@ class _OcrModelSpec:
     quality: str
     use_case: str
     implemented: bool = True
+    min_vram_gb: float | None = None
 
 
 _SPECS: tuple[_OcrModelSpec, ...] = (
@@ -159,7 +160,7 @@ _SPECS: tuple[_OcrModelSpec, ...] = (
     _OcrModelSpec("paddleocr_vl_manga", "PaddleOCR-VL Manga", ("ja",), "gpu", "VLM manga",
                   "OCR local VLM focado em manga japonesa."),
     _OcrModelSpec("got_ocr2", "GOT-OCR2", (_MULTI,), "gpu", "VLM OCR geral",
-                  "OCR local multimodal via GOT-OCR 2.0."),
+                  "OCR local multimodal via GOT-OCR 2.0.", min_vram_gb=8.0),
     _OcrModelSpec("qwen2_5_vl_3b", "Qwen2.5-VL 3B", (_MULTI,), "gpu_8gb+", "VLM OCR geral",
                   "OCR local via Qwen2.5-VL-3B-Instruct."),
     _OcrModelSpec("mangalmm", "MangaLMM", ("ja",), "gpu_8gb+", "VLM manga",
@@ -202,6 +203,12 @@ class _OcrModelsMapping(Mapping[str, dict[str, Any]]):
 
 
 OCR_MODELS: Mapping[str, dict[str, Any]] = _OcrModelsMapping()
+
+# `OCR_MODELS` keeps its historical shape (snapshot-tested); the VRAM
+# declaration is surfaced through `list_ocr_models` only.
+_SPEC_MIN_VRAM_GB: Mapping[str, float | None] = {
+    spec.key: spec.min_vram_gb for spec in _SPECS
+}
 
 _OCR_CACHE: LruEngineCache[tuple[str, str, str], BaseOCR] = LruEngineCache(6)
 
@@ -409,6 +416,7 @@ def list_ocr_models(has_gpu: bool, language: str | None = None) -> list[dict[str
                 "languages": model_languages,
                 "available": available,
                 "implemented": implemented,
+                "min_vram_gb": _SPEC_MIN_VRAM_GB.get(key),
             }
         )
     return options

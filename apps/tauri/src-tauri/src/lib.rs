@@ -99,7 +99,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .manage(runtime::profiles::MiniBackendRuntimeStore::default())
-        .manage(sidecar::mini_backend::MiniBackendSidecarStore::default())
+        .manage(sidecar::recovery::MiniBackendSidecarStore::default())
         .manage(state::ModelDownloadStore::default())
         .manage(commands::api::auth::DesktopAuthStore::default())
         .manage(commands::logging::SessionLogSink::default())
@@ -229,6 +229,9 @@ pub fn run() {
                 event,
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
             ) {
+                // Latched before the kill so the sidecar's own exit event
+                // cannot schedule a recovery attempt into a dying process.
+                let _ = sidecar::recovery::mark_app_exiting(app_handle);
                 let _ = sidecar::mini_backend::stop_mini_backend(app_handle);
             }
         });

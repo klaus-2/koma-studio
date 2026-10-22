@@ -5,7 +5,10 @@ import {
 } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import type { ModelInstallState } from "../../../models/types";
-import { modelStageLabel } from "../../../models/translation-models-registry";
+import {
+  isDownloadOnlyModel,
+  modelStageLabel,
+} from "../../../models/translation-models-registry";
 import { ModelInfoTooltipNoir } from "./ModelInfoTooltipNoir";
 import { ModelProgressBarNoir } from "./ModelProgressBarNoir";
 
@@ -18,7 +21,7 @@ const SPEED_LABEL_KEY: Record<string, string> = {
   excellent: "modelManager.tooltip.speed.excellent",
 };
 
-const Stamp = ({ tone, children }: { tone: "mint" | "gold" | "crimson" | "azure" | "neutral"; children: React.ReactNode }) => {
+const Stamp = ({ tone, title, children }: { tone: "mint" | "gold" | "crimson" | "azure" | "neutral"; title?: string; children: React.ReactNode }) => {
   const tones = {
     mint: "border-mint/50 bg-mint/10 text-mint",
     gold: "border-gold/50 bg-gold/10 text-gold",
@@ -27,7 +30,7 @@ const Stamp = ({ tone, children }: { tone: "mint" | "gold" | "crimson" | "azure"
     neutral: "border-paper/20 bg-paper/5 text-paper/50",
   };
   return (
-    <span className={`inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] ${tones[tone]}`}>
+    <span title={title} className={`inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] ${tones[tone]}`}>
       {children}
     </span>
   );
@@ -125,6 +128,13 @@ export const ModelCardNoir = ({
               </span>
             )}
           </h4>
+          {isDownloadOnlyModel(model) && (
+            <div className="mt-2">
+              <Stamp tone="azure" title={t("modelCard.badge.downloadOnly")}>
+                {t("modelCard.badge.downloadOnly")}
+              </Stamp>
+            </div>
+          )}
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-wider text-paper/45">
             <span>{modelStageLabel(model.stage)}</span>
             <span aria-hidden className="text-crimson/60">/</span>

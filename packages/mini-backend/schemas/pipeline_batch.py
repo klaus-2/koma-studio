@@ -51,6 +51,10 @@ class BatchReport(SchemaModel):
     partial: int
     stages: BatchStageConfig
     results: list[BatchItemResult] = Field(default_factory=list)
+    batch_id: str = ""
+    requested_concurrency: int = 0
+    effective_concurrency: int = 0
+    concurrency_note: str | None = None
     usage_consumed_pages: int | None = None
     usage_failures: int | None = None
     usage_last_snapshot: dict[str, Any] | None = None

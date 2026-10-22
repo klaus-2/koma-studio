@@ -11,7 +11,10 @@ import {
 import { useI18n } from '../../i18n';
 
 import type { ModelInstallState } from '../../models/types';
-import { modelStageLabel } from '../../models/translation-models-registry';
+import {
+  isDownloadOnlyModel,
+  modelStageLabel,
+} from '../../models/translation-models-registry';
 import { ModelInfoTooltipClassic } from './ModelInfoTooltipClassic';
 import { ModelProgressBarClassic } from './ModelProgressBarClassic';
 import styles from './styles.module.css';
@@ -197,6 +200,14 @@ export const ModelCardClassic = ({
               </span>
             )}
           </h4>
+          {isDownloadOnlyModel(model) && (
+            <span
+              className={styles.downloadOnlyBadge}
+              title={t('modelCard.badge.downloadOnly')}
+            >
+              {t('modelCard.badge.downloadOnly')}
+            </span>
+          )}
           <p className={styles.modelCardMeta}>
             {modelStageLabel(model.stage)}
             <span className={styles.metaDot} aria-hidden="true" />

@@ -10,6 +10,11 @@ interface RunAioBatchOptions<T, R> {
   readonly controller: AbortController;
   readonly worker: (input: AioBatchWorkerInput<T>) => Promise<R>;
   readonly onProgress?: (completed: number, total: number) => void;
+  /**
+   * Converts a per-item worker failure into a result so the batch keeps going.
+   * An aborted signal (or a throwing handler) still stops the run.
+   */
+  readonly onItemError?: (error: unknown, item: T, index: number) => R;
 }
 
 type ResultSlot<T> =
@@ -32,6 +37,7 @@ export async function runAioBatch<T, R>({
   controller,
   worker,
   onProgress,
+  onItemError,
 }: RunAioBatchOptions<T, R>): Promise<R[]> {
   if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
     throw new RangeError('AIO concurrency must be a positive safe integer.');
@@ -77,13 +83,39 @@ export async function runAioBatch<T, R>({
         completed += 1;
         onProgress?.(completed, items.length);
       } catch (error: unknown) {
-        failures.push(error);
+        if (controller.signal.aborted) {
+          failures.push(error);
 
-        if (!controller.signal.aborted) {
-          controller.abort(createAioAbortError());
+          return;
         }
 
-        return;
+        if (!onItemError) {
+          failures.push(error);
+
+          controller.abort(createAioAbortError());
+
+          return;
+        }
+
+        try {
+          const value = onItemError(error, queued.item, queued.index);
+
+          results[queued.index] = {
+            status: 'fulfilled',
+            value,
+          };
+
+          completed += 1;
+          onProgress?.(completed, items.length);
+        } catch (fallbackError: unknown) {
+          failures.push(fallbackError);
+
+          if (!controller.signal.aborted) {
+            controller.abort(createAioAbortError());
+          }
+
+          return;
+        }
       }
     }
   };

@@ -1,7 +1,7 @@
 import { AlertTriangle, HardDrive, Lock } from "lucide-react";
 import { useMemo } from "react";
 
-import { modelSupportsLanguage, TRANSLATION_MODELS_REGISTRY } from "../../models/translation-models-registry";
+import { modelSupportsLanguage, isDownloadOnlyModel, TRANSLATION_MODELS_REGISTRY } from "../../models/translation-models-registry";
 import type { ModelInstallState } from "../../models/types";
 import { useI18n } from "../../i18n";
 import type { LegacyTranslationOption } from "./types";
@@ -53,6 +53,7 @@ export const TranslationModelControl = ({
   const availableLocalModels = useMemo(
     () =>
       compatibleLocalModels.filter((model) => {
+        if (isDownloadOnlyModel(model)) return false;
         const entry = entries[model.id];
         if (!entry) return false;
         return (
@@ -60,6 +61,11 @@ export const TranslationModelControl = ({
         );
       }),
     [compatibleLocalModels, entries],
+  );
+
+  const downloadOnlyLocalModels = useMemo(
+    () => compatibleLocalModels.filter(isDownloadOnlyModel),
+    [compatibleLocalModels],
   );
 
   const availableLegacyOptions = useMemo(
@@ -78,6 +84,11 @@ export const TranslationModelControl = ({
       availableLegacyOptions.some((option) => option.key === selectedModelId)
       ? selectedModelId
       : "";
+
+  const hasSelectableOptions =
+    availableLocalModels.length > 0 || availableLegacyOptions.length > 0;
+  const hasAnyOptions =
+    hasSelectableOptions || downloadOnlyLocalModels.length > 0;
 
   const selectedLocalModel = TRANSLATION_MODELS_REGISTRY.find(
     (model) => model.id === selectedModelId,
@@ -116,9 +127,9 @@ export const TranslationModelControl = ({
         value={selectedValue}
         onChange={(event) => onSelectModel(event.target.value)}
         className={tokens.select}
-        disabled={availableLocalModels.length === 0 && availableLegacyOptions.length === 0}
+        disabled={!hasAnyOptions}
       >
-        {availableLocalModels.length === 0 && availableLegacyOptions.length === 0 ? (
+        {!hasAnyOptions ? (
           <option value="" disabled>
             {t("toolbar.modelSelect.emptyState", {
               source: sourceLanguage.toUpperCase(),
@@ -147,6 +158,11 @@ export const TranslationModelControl = ({
                 {`${t("toolbar.modelSelect.cloudPrefix")} ${option.name}`}
               </option>
             ))}
+            {downloadOnlyLocalModels.map((model) => (
+              <option key={model.id} value={model.id} disabled>
+                {`${t("toolbar.modelSelect.localPrefix")} ${model.name} — ${t("modelCard.badge.downloadOnly")}`}
+              </option>
+            ))}
           </>
         )}
       </select>
@@ -166,7 +182,7 @@ export const TranslationModelControl = ({
           : t("toolbar.modelSelect.noUpdates")}
       </p>
 
-      {availableLocalModels.length === 0 && availableLegacyOptions.length === 0 ? (
+      {!hasAnyOptions ? (
         <div className={styles.emptyState}>
           <Lock size={14} />
           {t("toolbar.modelSelect.emptyState", {

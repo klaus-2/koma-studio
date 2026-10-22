@@ -46,3 +46,12 @@ class TranslatorResponseError(TranslationError):
 
 class LocalModelError(TranslationError):
     """Local runtime (ctranslate2 / llama.cpp) missing or model files absent."""
+
+
+class InvalidModelSelectionError(TranslationError):
+    """The caller explicitly selected a local model that cannot run here."""
+
+    def __init__(self, model_key: str, reason: str) -> None:
+        self.model_key = model_key
+        self.reason = reason
+        super().__init__(f"Translation model {model_key!r} cannot be used: {reason}")

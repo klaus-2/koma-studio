@@ -66,6 +66,7 @@ import {
 import { createMiniBackendRuntimeLogBuffer } from "./modules/mini-backend-runtime-log.ts";
 import { createMiniBackendStateSync } from "./modules/mini-backend-state-sync.ts";
 import { createMiniBackendSupervisor } from "./modules/mini-backend-supervisor.ts";
+import { MiniBackendRestartError } from "./modules/mini-backend-restart-policy.ts";
 import { collectMiniBackendGpuVendors } from "./modules/mini-backend-gpu.ts";
 import {
   createMiniBackendProfileResolver,
@@ -132,6 +133,9 @@ app.commandLine.appendSwitch("disable-extensions");
 let mainWindow: BrowserWindow | null = null;
 let localApiSessionSecret = randomBytes(32).toString("hex");
 let preparedMiniBackendPort: number | null = null;
+// Latched before-quit / window-all-closed: the supervisor must never respawn
+// the backend once shutdown has started.
+let appExiting = false;
 
 
 const MINI_BACKEND_RUNTIME_EVENT_CHANNEL = "mini-backend-runtime:event";
@@ -262,6 +266,9 @@ const runtimeStore = createMiniBackendRuntimeStore({
     lastError: null,
     attempt: 0,
     maxAttempts: 0,
+    exitCode: null,
+    lastStderr: null,
+    crashLogPath: null,
     progress: null,
     updatedAt: Date.now(),
     gpuName: null,
@@ -279,6 +286,8 @@ const { syncMiniBackendRuntimeStateFromApi } = createMiniBackendStateSync({
 const miniBackendSupervisor = createMiniBackendSupervisor({
   patchRuntimeState: (patch) => runtimeStore.patch(patch),
   pushRuntimeLog: (stream, text) => miniBackendRuntimeLog.push(stream, text),
+  restart: () => startMiniBackend({ throwOnUnhealthy: true }),
+  isAppExiting: () => appExiting,
 });
 
 const getDesktopRuntimeConfig = (): {
@@ -367,7 +376,12 @@ const {
 });
 
 
-const startMiniBackend = async (): Promise<void> => {
+interface StartMiniBackendOptions {
+  /** Supervisor restarts: surface a health timeout so recovery can count it. */
+  throwOnUnhealthy?: boolean;
+}
+
+const startMiniBackend = async (options: StartMiniBackendOptions = {}): Promise<void> => {
   await prepareMiniBackendLaunchContext();
   const commandSpec = await getMiniBackendCommand();
   const { command, args, cwd } = commandSpec;
@@ -427,8 +441,18 @@ const startMiniBackend = async (): Promise<void> => {
       lastError: "mini_backend_health_timeout",
     });
     console.warn("Mini backend did not report healthy state in time");
+    if (options.throwOnUnhealthy) {
+      // The unhealthy child is still registered; stop it before the
+      // supervisor schedules the next attempt so only one child can run.
+      await miniBackendSupervisor.stop();
+      throw new MiniBackendRestartError(
+        "health-timeout",
+        "Mini backend did not become healthy in time.",
+      );
+    }
     return;
   }
+  miniBackendSupervisor.markHealthy();
   await syncMiniBackendRuntimeStateFromApi();
 };
 
@@ -848,6 +872,8 @@ app.on("gpu-process-crashed", (_event, killed) => {
 });
 
 app.on("window-all-closed", () => {
+  appExiting = true;
+  miniBackendSupervisor.markAppExiting();
   void discordRPC.disconnect();
   desktopAuth.clearTokenRefreshTimeout();
   void stopMiniBackend().finally(() => {
@@ -856,6 +882,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", (event) => {
+  appExiting = true;
+  miniBackendSupervisor.markAppExiting();
   void discordRPC.disconnect();
   desktopAuth.clearTokenRefreshTimeout();
   const runningBackendProcess = miniBackendSupervisor.getProcess();

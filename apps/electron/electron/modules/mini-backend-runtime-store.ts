@@ -15,7 +15,9 @@ type MiniBackendRuntimeStatus =
   | "verifying"
   | "extracting"
   | "ready"
+  | "starting"
   | "fallback"
+  | "crashed"
   | "error";
 
 interface MiniBackendRuntimeProgressState {
@@ -40,6 +42,12 @@ interface MiniBackendRuntimeState {
   lastError: string | null;
   attempt: number;
   maxAttempts: number;
+  /** Exit code of the last unexpected child exit, when it is known. */
+  exitCode: number | null;
+  /** Redacted tail (last 50 lines / 2000 chars) of the crashed child's stderr. */
+  lastStderr: string | null;
+  /** Crash post-mortem file, when the shell writes one. */
+  crashLogPath: string | null;
   progress: MiniBackendRuntimeProgressState | null;
   updatedAt: number | null;
   gpuName: string | null;

@@ -178,4 +178,107 @@ describe('runAioBatch', () => {
 
     expect(controller.signal.aborted).toBe(true);
   });
+
+  it('continues after an item failure when onItemError is provided', async () => {
+    const controller = new AbortController();
+    const progress = vi.fn();
+    const failure = new Error('Item 3 failed');
+    const onItemError = vi.fn(
+      (error: unknown, item: number, index: number): string => {
+        expect(error).toBe(failure);
+        return `failed-${item}-${index}`;
+      },
+    );
+
+    const results = await runAioBatch({
+      items: [0, 1, 2, 3, 4],
+      concurrency: 2,
+      controller,
+      worker: async ({ item }) => {
+        if (item === 2) {
+          throw failure;
+        }
+
+        return `ok-${item}`;
+      },
+      onItemError,
+      onProgress: progress,
+    });
+
+    expect(results).toEqual(['ok-0', 'ok-1', 'failed-2-2', 'ok-3', 'ok-4']);
+    expect(controller.signal.aborted).toBe(false);
+    expect(onItemError).toHaveBeenCalledTimes(1);
+    expect(onItemError).toHaveBeenCalledWith(failure, 2, 2);
+    expect(progress).toHaveBeenCalledTimes(5);
+    expect(progress).toHaveBeenLastCalledWith(5, 5);
+  });
+
+  it('does not route user cancellation through onItemError', async () => {
+    const controller = new AbortController();
+    const started = deferred<void>();
+    const release = deferred<void>();
+    const onItemError = vi.fn(() => 0);
+    let calls = 0;
+
+    const result = runAioBatch({
+      items: [1, 2, 3],
+      concurrency: 1,
+      controller,
+      worker: async ({ signal }) => {
+        calls += 1;
+        started.resolve(undefined);
+        await release.promise;
+
+        if (signal.aborted) {
+          throw createAioAbortError();
+        }
+
+        return 1;
+      },
+      onItemError,
+    });
+
+    const rejection = expect(result).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+
+    await started.promise;
+    controller.abort(createAioAbortError());
+    release.resolve(undefined);
+
+    await rejection;
+    expect(onItemError).not.toHaveBeenCalled();
+    expect(calls).toBe(1);
+    expect(controller.signal.aborted).toBe(true);
+  });
+
+  it('aborts when the onItemError handler throws', async () => {
+    const controller = new AbortController();
+    const itemFailure = new Error('Worker failed');
+    const handlerFailure = new Error('Handler failed');
+    let calls = 0;
+
+    await expect(
+      runAioBatch({
+        items: [0, 1, 2],
+        concurrency: 1,
+        controller,
+        worker: async ({ item }) => {
+          calls += 1;
+
+          if (item === 0) {
+            throw itemFailure;
+          }
+
+          return item;
+        },
+        onItemError: () => {
+          throw handlerFailure;
+        },
+      }),
+    ).rejects.toBe(handlerFailure);
+
+    expect(controller.signal.aborted).toBe(true);
+    expect(calls).toBe(1);
+  });
 });

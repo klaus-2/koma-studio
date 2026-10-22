@@ -65,6 +65,9 @@ type MaskArray = NDArray[np.uint8]
 class StageOutput[T]:
     model_used: str
     regions: list[T]
+    # Set when the stage chose CPU before loading (the OCR device decision);
+    # None on the normal path. A GPU-OOM retry is reported by the orchestrator.
+    fallback_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,7 +207,11 @@ async def run_ocr_stage(
             cancellation_event=cancellation_event,
         )
     )
-    return StageOutput(model_used=result.engine_key, regions=list(result.records))
+    return StageOutput(
+        model_used=result.engine_key,
+        regions=list(result.records),
+        fallback_reason=result.device_decision,
+    )
 
 
 # --------------------------------------------------------------------------- translate
@@ -246,6 +253,12 @@ async def run_translation_stage(
 # --------------------------------------------------------------------------- segment
 
 
+def _mask_base64(result: object) -> str | None:
+    """Map the segmenter's empty-string default to an explicit null."""
+    value = getattr(result, "mask_base64", "")
+    return value if isinstance(value, str) and value else None
+
+
 async def run_segment_stage(
     *,
     image_bytes: bytes,
@@ -282,6 +295,7 @@ async def run_segment_stage(
             ocr_model_key=result.ocr_model_key,
             translator_model_key=result.translator_model_key,
             segment_model_key=result.segment_model_key or model_key or segmenter.key,
+            mask_base64=_mask_base64(result),
         )
         for result in results
     ]

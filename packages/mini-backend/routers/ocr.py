@@ -291,6 +291,10 @@ async def recognize_text(
 
     outcome = execution.result
     response.headers.update(execution.fallback_headers(model_key=outcome.engine_key))
+    if outcome.device_decision == "vram_to_cpu" and not execution.fell_back_to_cpu:
+        response.headers["X-Koma-Execution-Fallback"] = "vram_to_cpu"
+        response.headers["X-Koma-Execution-Stage"] = "ocr"
+        response.headers["X-Koma-Execution-Model"] = outcome.engine_key
 
     return OCRResponse(
         device=execution.device.name,

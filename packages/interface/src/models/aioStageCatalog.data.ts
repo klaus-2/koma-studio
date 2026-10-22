@@ -1,9 +1,16 @@
 import { OFFICIAL_CLOUD_STAGE_OPTIONS } from '@/models/officialModelCatalog';
-import { TRANSLATION_MODELS_REGISTRY } from '@/models/translation-models-registry';
+import {
+  getModelRuntimeSupport,
+  TRANSLATION_MODELS_REGISTRY,
+} from '@/models/translation-models-registry';
 import type {
   AioLanguageOption,
   AioStageOptionMap,
 } from '@/models/aioStageCatalog.types';
+
+/** Shown on the disabled option so the UI never leaks "N/A" or a raw key. */
+const DOWNLOAD_ONLY_USE_CASE =
+  'Download only — no local runtime yet; not selectable in AIO.';
 
 export const SOURCE_LANGUAGE_OPTIONS: AioLanguageOption[] = [
   { value: 'ko', label: 'aioStage.lang.ko' },
@@ -242,15 +249,19 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
       available: false,
       implemented: true,
     },
-    ...TRANSLATION_MODELS_REGISTRY.map((model) => ({
-      key: model.id,
-      name: model.name,
-      device: model.requirements.gpu ? 'gpu' : 'cpu_gpu',
-      use_case: model.description,
-      languages: [...model.sourceLanguages],
-      available: true,
-      implemented: true,
-    })),
+    ...TRANSLATION_MODELS_REGISTRY.map((model) => {
+      const downloadOnly = getModelRuntimeSupport(model) === 'download_only';
+
+      return {
+        key: model.id,
+        name: model.name,
+        device: model.requirements.gpu ? 'gpu' : 'cpu_gpu',
+        use_case: downloadOnly ? DOWNLOAD_ONLY_USE_CASE : model.description,
+        languages: [...model.sourceLanguages],
+        available: !downloadOnly,
+        implemented: !downloadOnly,
+      };
+    }),
     ...OFFICIAL_CLOUD_STAGE_OPTIONS.getTranslations,
   ],
   segmentText: [

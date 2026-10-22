@@ -5,11 +5,13 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 import json
+import re
 import shutil
 import tempfile
 from pathlib import Path
 import logging
 from typing import Annotated, BinaryIO, cast
+import uuid
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -23,6 +25,7 @@ from core.languages import (
     normalize_language_code,
 )
 from models.detection.factory import list_detection_models
+from models.execution import get_inference_worker_capacity
 from models.inpainting.factory import list_inpainting_models
 from models.ocr.factory import list_ocr_models
 from models.segmentation.factory import list_segmentation_models
@@ -30,11 +33,13 @@ from models.translation.factory import list_translation_models
 from pipelines.batch.archive import build_batch_archive, iter_file_chunks
 from pipelines.batch.font_style import clear_font_style_detector
 from pipelines.batch.orchestrator import (
+    PER_IMAGE_TIMEOUT_SECONDS,
     BatchImageTask,
     BatchOrchestrator,
     BatchRunConfig,
     GpuFlags,
 )
+from pipelines.batch.progress import get_batch_progress_registry
 from pipelines.batch.stages import CleanSettings
 from schemas.pipeline_batch import BatchStageConfig
 
@@ -45,12 +50,40 @@ logger = logging.getLogger(__name__)
 
 _DISCONNECT_CHECK_INTERVAL_SECONDS = 2.0
 # Manga/comic scans top out well below this; anything larger is abuse or a mistake.
-_MAX_IMAGE_BYTES = 32 * 1024 * 1024
+_MAX_IMAGE_BYTES = 50 * 1024 * 1024
 _UPLOAD_CHUNK_BYTES = 1024 * 1024
+_BATCH_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
 def _clamp_int(value: int | None, *, fallback: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(maximum, fallback if value is None else value))
+
+
+def _resolve_batch_id(raw: str | None) -> str:
+    if raw is None:
+        return str(uuid.uuid4())
+    if _BATCH_ID_PATTERN.fullmatch(raw) is None:
+        raise HTTPException(
+            status_code=400,
+            detail="batch_id must be 1-64 characters of letters, digits, '-' or '_'.",
+        )
+    return raw
+
+
+def _resolve_concurrency(requested: int | None) -> tuple[int, int]:
+    """Return (requested, effective) concurrency for the batch and preflight routes.
+
+    ``effective`` is bounded by the configured batch cap and by the inference
+    worker pool, the real limiter behind every model stage.
+    """
+    cfg = get_config()
+    requested_value = max(
+        1, cfg.batch_default_concurrency if requested is None else requested
+    )
+    effective = min(
+        requested_value, cfg.batch_max_concurrency, get_inference_worker_capacity()
+    )
+    return requested_value, effective
 
 
 def _parse_optional_custom_llm(raw: str | None) -> dict[str, object] | None:
@@ -150,6 +183,32 @@ async def get_pipeline_options(source_language: str | None = None) -> dict[str, 
     }
 
 
+@router.get("/pipeline/batch/capacity")
+async def get_batch_capacity(concurrency: int | None = None) -> dict[str, object]:
+    """Preflight contract: caps plus the concurrency and time budget that apply.
+
+    ``perImageBudgetSeconds`` is read from the orchestrator constant at request
+    time so the client never duplicates it.
+    """
+    cfg = get_config()
+    requested, effective = _resolve_concurrency(concurrency)
+    return {
+        "maxImages": cfg.batch_max_images,
+        "maxImageBytes": _MAX_IMAGE_BYTES,
+        "requestedConcurrency": requested,
+        "effectiveConcurrency": effective,
+        "perImageBudgetSeconds": PER_IMAGE_TIMEOUT_SECONDS,
+    }
+
+
+@router.get("/pipeline/batch/progress")
+async def get_batch_progress(batch_id: str) -> dict[str, object]:
+    snapshot = get_batch_progress_registry().snapshot(batch_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Unknown or expired batch id.")
+    return snapshot
+
+
 @router.post("/pipeline/batch")
 async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the endpoint
     request: Request,
@@ -170,6 +229,7 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
     run_segment: Annotated[bool, Form()] = False,
     run_clean: Annotated[bool, Form()] = True,
     concurrency: Annotated[int | None, Form()] = None,
+    batch_id: Annotated[str | None, Form()] = None,
     mask_dilation: Annotated[int | None, Form()] = None,
     hd_strategy: Annotated[str | None, Form()] = None,
     hd_strategy_resize_limit: Annotated[int | None, Form()] = None,
@@ -203,6 +263,8 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
 
     settings = clamp_llm_request_settings(llm_settings)
     device = get_device_info()
+    resolved_batch_id = _resolve_batch_id(batch_id)
+    requested_concurrency, effective_concurrency = _resolve_concurrency(concurrency)
     run_config = BatchRunConfig(
         stages=stage_config,
         source_language=normalize_language_code(source_language, default="ja", allow_auto=False),
@@ -211,12 +273,7 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
         extra_context=settings.extra_context or (extra_context or ""),
         custom_llm=_parse_optional_custom_llm(translation_custom_llm),
         default_detection_model=cfg.default_detection_model,
-        concurrency=_clamp_int(
-            concurrency,
-            fallback=cfg.batch_default_concurrency,
-            minimum=1,
-            maximum=cfg.batch_max_concurrency,
-        ),
+        concurrency=effective_concurrency,
         detect_model_key=detect_model_key,
         ocr_model_key=ocr_model_key,
         translation_model_key=translation_model_key,
@@ -241,14 +298,25 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
             segment=device.has_gpu if use_gpu_segment is None else use_gpu_segment,
             clean=device.has_gpu if use_gpu_clean is None else use_gpu_clean,
         ),
+        batch_id=resolved_batch_id,
+        requested_concurrency=requested_concurrency,
     )
 
     tasks = await _spool_uploads(files, limit_bytes=_MAX_IMAGE_BYTES)
 
     cancellation_event = asyncio.Event()
+    progress = get_batch_progress_registry()
+    progress.start(resolved_batch_id, len(tasks))
     monitor = asyncio.create_task(_monitor_client_disconnect(request, cancellation_event))
     try:
-        outcome = await BatchOrchestrator(run_config, cancellation_event).run(tasks)
+        outcome = await BatchOrchestrator(
+            run_config, cancellation_event, progress=progress
+        ).run(tasks)
+    except BaseException:
+        # A run that never produced a report (request cancelled, hard failure)
+        # must still terminate progress polling instead of leaving it running.
+        progress.cancel(resolved_batch_id)
+        raise
     finally:
         cancellation_event.set()
         monitor.cancel()
@@ -259,13 +327,17 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
             await asyncio.to_thread(shutil.rmtree, spool_dir, ignore_errors=True)
 
     report_payload = outcome.report.model_dump(mode="json")
+    headers = {"X-Koma-Batch-Id": resolved_batch_id}
     if not run_clean:
-        return JSONResponse(report_payload)
+        return JSONResponse(report_payload, headers=headers)
 
     archive = await asyncio.to_thread(build_batch_archive, outcome.cleaned, report_payload)
     return StreamingResponse(
         iter_file_chunks(archive),
         media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=pipeline-batch.zip"},
+        headers={
+            **headers,
+            "Content-Disposition": "attachment; filename=pipeline-batch.zip",
+        },
         background=BackgroundTask(archive.close),
     )

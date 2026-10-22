@@ -2150,6 +2150,7 @@ export const ptBrMessages: TranslationCatalog = {
   'modelCard.action.retry': 'Retry',
   'modelCard.action.active': 'Ativo',
   'modelCard.action.use': 'Usar',
+  'modelCard.badge.downloadOnly': 'Somente download — ainda sem runtime local',
   'modelManager.stage.translate': 'Obter Traduções',
   'modelManager.installAll.attention': 'Atenção',
   'modelManager.installAll.warning':

@@ -125,8 +125,10 @@ export type MiniBackendRuntimeStatus =
   | "downloading"
   | "verifying"
   | "extracting"
+  | "starting"
   | "ready"
   | "fallback"
+  | "crashed"
   | "error";
 
 export interface MiniBackendRuntimeProgressPayload {
@@ -151,6 +153,9 @@ export interface MiniBackendRuntimeStatePayload {
   lastError: string | null;
   attempt: number;
   maxAttempts: number;
+  exitCode: number | null;
+  lastStderr: string | null;
+  crashLogPath: string | null;
   progress: MiniBackendRuntimeProgressPayload | null;
   updatedAt: number | null;
   gpuName: string | null;

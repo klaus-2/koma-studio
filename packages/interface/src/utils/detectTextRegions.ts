@@ -4,7 +4,23 @@ import type { AioTextRegion, DetectApiResponse } from '../types/dashboard.types'
 import { clamp, normalizeRgbTriplet, toApiIntegerBbox } from './dashboard.utils';
 import { normalizeDetectedRenderMode } from './renderModes';
 
-type DetectionItem = DetectApiResponse['detections'][number];
+type DetectionItem = DetectRegionsPayloadItem;
+
+/**
+ * Structural Detect payload shared by the single-image API response and the
+ * batch report. `label` is optional because batch detections may omit it; the
+ * adapter falls back to `text_bubble` exactly like the single-image path.
+ */
+export interface DetectRegionsPayloadItem
+  extends Omit<DetectApiResponse['detections'][number], 'label'> {
+  label?: string;
+}
+
+export interface DetectRegionsPayload {
+  image_width: number;
+  image_height: number;
+  detections: ReadonlyArray<DetectRegionsPayloadItem>;
+}
 
 export interface ImageSize {
   width: number;
@@ -110,7 +126,7 @@ export function normalizeManualRegions(
  * Owns bbox scale/clamp, min-size filtering and the default Typographer shape.
  */
 export function regionsFromDetectPayload(
-  payload: DetectApiResponse,
+  payload: DetectRegionsPayload,
   target: ImageSize,
   options: RegionsFromDetectOptions,
 ): AioTextRegion[] {

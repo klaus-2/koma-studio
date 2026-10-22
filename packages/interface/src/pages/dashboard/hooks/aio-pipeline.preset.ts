@@ -9,6 +9,7 @@ import {
   buildPresetStageAvailability,
   findUnavailablePresetStage,
   getPresetApplicationSignature,
+  repairDownloadOnlyPresetTranslation,
 } from '@/pages/dashboard/lib/aio-preset-selection';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
@@ -151,8 +152,12 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
     }
 
     const state = useAioPipelineStore.getState();
-    const result = applyPresetToStageSelection(
+    const repair = repairDownloadOnlyPresetTranslation(
       activePresetForCurrentLanguage,
+      state.aioStageOptions.getTranslations,
+    );
+    const result = applyPresetToStageSelection(
+      repair.preset,
       state.aioStageSelection,
       availability,
     );
@@ -168,7 +173,14 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
       state.setAioStageSelection(result.selection);
     }
 
-    if (result.unappliedStages.length > 0) {
+    if (repair.replacedKey !== null) {
+      args.setStatusMessage(
+        t('dashboard.status.preset.downloadOnlyRepaired', {
+          name: activePresetForCurrentLanguage.name,
+          model: repair.replacementName,
+        }),
+      );
+    } else if (result.unappliedStages.length > 0) {
       args.setStatusMessage(
         t('dashboard.status.preset.appliedPartial', {
           name: activePresetForCurrentLanguage.name,

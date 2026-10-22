@@ -3,17 +3,18 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
     time::Duration,
 };
 
 use tauri::{AppHandle, Manager, Runtime};
-use tauri_plugin_shell::{
-    process::{CommandChild, CommandEvent},
-    ShellExt,
-};
+use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 
+use super::recovery::{
+    fold_sidecar_failure, now_millis, wait_until_start_settles, MiniBackendSidecarStore,
+    RestartTrigger, StartOutcome,
+};
 use crate::{
     commands::desktop::{build_runtime_config, check_local_backend_health},
     runtime::profiles::{
@@ -85,21 +86,6 @@ fn mini_venv_provisioning(python: &Path) -> bool {
         .unwrap_or(false)
 }
 
-#[derive(Debug, Default)]
-pub struct MiniBackendSidecarStore {
-    child: Mutex<Option<CommandChild>>,
-    pid: Mutex<Option<u32>>,
-    starting: AtomicBool,
-}
-
-struct StartupGuard<'a>(&'a AtomicBool);
-
-impl Drop for StartupGuard<'_> {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::SeqCst);
-    }
-}
-
 #[derive(Debug, Clone)]
 struct MiniBackendCommandSpec {
     program: PathBuf,
@@ -112,33 +98,40 @@ struct MiniBackendCommandSpec {
     use_sidecar: bool,
 }
 
-pub async fn restart_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Result<bool, String> {
+pub async fn restart_mini_backend<R: Runtime + 'static>(
+    app: AppHandle<R>,
+) -> Result<bool, String> {
+    // A manual restart supersedes any pending recovery attempt.
+    {
+        let sidecar_store = app.state::<MiniBackendSidecarStore>();
+        sidecar_store.cancel_restart_supervisor()?;
+    }
     stop_mini_backend(&app)?;
-    start_mini_backend(app).await?;
+    let outcome = start_mini_backend(app.clone()).await?;
+    if outcome == StartOutcome::AlreadyStarting {
+        // Somebody else holds the transition; report only once it settles.
+        wait_until_start_settles(&app).await;
+    }
     Ok(true)
 }
 
-pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Result<(), String> {
+pub async fn start_mini_backend<R: Runtime + 'static>(
+    app: AppHandle<R>,
+) -> Result<StartOutcome, String> {
     let sidecar_store = app.state::<MiniBackendSidecarStore>();
 
-    if sidecar_store
-        .starting
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
-        // Another start is in flight; it will finish the job.
-        return Ok(());
-    }
-    let _start_guard = StartupGuard(&sidecar_store.starting);
+    let Some(_start_guard) = sidecar_store.lock_start() else {
+        // Another start is in flight; it will finish the job and report its own
+        // failures. `AlreadyStarting` is never success.
+        return Ok(StartOutcome::AlreadyStarting);
+    };
 
-    if sidecar_store
-        .child
-        .lock()
-        .map_err(|error| error.to_string())?
-        .is_some()
-    {
-        return Ok(());
+    if sidecar_store.has_child()? {
+        return Ok(StartOutcome::AlreadyRunning);
     }
+    // The next start is deliberate: a stop latch left over from a previous
+    // restart must not classify its failures as expected stops.
+    sidecar_store.mark_restart_intent();
 
     // Reuse: if a healthy mini-backend is already listening on the default
     // port (e.g. started by another shell in the monorepo), don't try to bind
@@ -169,7 +162,7 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
                     ..Default::default()
                 },
             )?;
-            return Ok(());
+            return Ok(StartOutcome::AlreadyRunning);
         }
     }
 
@@ -221,7 +214,7 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
                 ..Default::default()
             },
         )?;
-        return Ok(());
+        return Ok(StartOutcome::NoRuntime);
     }
 
     // The dev bootstrap (`bun run dev:desktop`) provisions the virtualenv in
@@ -350,16 +343,16 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
         command = command.env("PATH", path_value);
     }
 
-    let (mut receiver, child) = command.spawn().map_err(|error| error.to_string())?;
-    let pid = child.pid();
-    *sidecar_store
-        .pid
-        .lock()
-        .map_err(|error| error.to_string())? = Some(pid);
-    *sidecar_store
-        .child
-        .lock()
-        .map_err(|error| error.to_string())? = Some(child);
+    let (mut receiver, child) = match command.spawn() {
+        Ok(spawned) => spawned,
+        Err(error) => {
+            let message = error.to_string();
+            // No child exists, so no `Terminated` will ever report this one.
+            let _ = fold_sidecar_failure(&app, RestartTrigger::SpawnError);
+            return Err(message);
+        }
+    };
+    let (generation, pid) = sidecar_store.register_child(child)?;
 
     // Ownership marker: lets a future instance tell "sidecar spawned by a
     // dead app run" (stale → kill it) apart from "started by another live
@@ -381,7 +374,7 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
             if matches!(event, CommandEvent::Terminated(_)) {
                 event_exited.store(true, Ordering::SeqCst);
             }
-            handle_command_event(&event_app, pid, event).await;
+            handle_command_event(&event_app, pid, generation, event).await;
         }
     });
 
@@ -392,37 +385,22 @@ pub async fn start_mini_backend<R: Runtime + 'static>(app: AppHandle<R>) -> Resu
     )
     .await;
     if !healthy {
-        let crashed = exited.load(Ordering::SeqCst);
-        let (message, error_code) = if crashed {
-            (
-                if cfg!(debug_assertions) {
-                    "Mini backend process exited during startup. Check the log above for the \
-                     Python traceback — the usual cause is a missing dependency; run \
-                     `bun run mini:install-deps` to create `.venv-mini` and install them."
-                        .to_string()
-                } else {
-                    "Mini backend process exited during startup.".to_string()
-                },
-                "mini_backend_startup_crash",
-            )
-        } else {
-            (
-                "Mini backend did not become healthy in time.".to_string(),
-                "mini_backend_health_timeout",
-            )
-        };
-        patch_runtime_state(
-            &app,
-            &runtime_store,
-            MiniBackendRuntimePatch {
-                status: Some("error".to_string()),
-status_message: Some(Some(message.clone())),
-                last_error: Some(Some(error_code.to_string())),
-                ..Default::default()
-            },
-        )?;
-         return Err(message);
+        if exited.load(Ordering::SeqCst) {
+            // The child's own `Terminated` event folds the failure and drives
+            // recovery: it is the only path that sees the exit code. Patching
+            // state here would race that post-mortem.
+            if cfg!(debug_assertions) {
+                log::warn!(
+                    "mini-backend: process exited during startup. Check the log above for the                      Python traceback - the usual cause is a missing dependency; run                      `bun run mini:install-deps` to create `.venv-mini` and install them."
+                );
+            }
+            return Err("Mini backend process exited during startup.".to_string());
+        }
+        let message = "Mini backend did not become healthy in time.".to_string();
+        fold_sidecar_failure(&app, RestartTrigger::HealthTimeout)?;
+        return Err(message);
     }
+    sidecar_store.mark_healthy(now_millis())?;
 
     // The /device/info sync is EVENTUAL: the single uvicorn worker stays
     // blocked during ONNX warmup (minutes on slow machines), so the sync runs
@@ -449,7 +427,7 @@ status_message: Some(Some(message.clone())),
             }
         }
     });
-    Ok(())
+    Ok(StartOutcome::Started)
 }
 
 /// PIDfile of the app instance that spawned the current sidecar, if any.
@@ -563,19 +541,12 @@ fn listener_looks_like_our_backend(pid: u32) -> bool {
 
 pub fn stop_mini_backend<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     let store = app.state::<MiniBackendSidecarStore>();
+    // Deliberate kill: the `Terminated` this produces must not be read as a
+    // crash. Cleared again by the next start, so the latch cannot survive.
+    store.mark_expected_stop();
 
-    // Single lock scope per mutex; lock order (pid -> child) matches
-    // handle_command_event so the two can never deadlock.
-    let pid = store
-        .pid
-        .lock()
-        .map_err(|error| error.to_string())?
-        .take();
-    let child = store
-        .child
-        .lock()
-        .map_err(|error| error.to_string())?
-        .take();
+    let (child, pid) = store.take_child()?;
+    drop(store);
     if let Some(child) = child {
         // TerminateProcess via tauri-plugin-shell only kills the immediate
         // child (python.exe). On Windows the sidecar is spawned without a Job
@@ -698,6 +669,7 @@ fn embedded_mini_backend_enabled() -> bool {
 async fn handle_command_event<R: Runtime + 'static>(
     app: &AppHandle<R>,
     pid: u32,
+    generation: u64,
     event: CommandEvent,
 ) {
     match event {
@@ -712,6 +684,10 @@ async fn handle_command_event<R: Runtime + 'static>(
             let text = decode_output(&line);
             if !should_ignore_progress_noise(&text) {
                 sync_runtime_state_from_log(app, &text);
+                {
+                    let store = app.state::<MiniBackendSidecarStore>();
+                    store.push_stderr(text.trim_end());
+                }
                 // Python's logging and uvicorn both write *everything* to
                 // stderr, including routine INFO lines, so the stream alone
                 // says nothing about severity. Read the level the backend
@@ -725,23 +701,32 @@ async fn handle_command_event<R: Runtime + 'static>(
             }
         }
         CommandEvent::Terminated(payload) => {
-            let store = app.state::<MiniBackendSidecarStore>();
-            let mut stored_pid = match store.pid.lock() {
-                Ok(guard) => guard,
-                Err(_) => return,
-            };
-            if stored_pid.as_ref() == Some(&pid) {
-                *stored_pid = None;
-                if let Ok(mut child) = store.child.lock() {
-                    *child = None;
+            let exit_code = payload.code;
+            let (is_current, health_confirmed) = {
+                let store = app.state::<MiniBackendSidecarStore>();
+                let is_current = store.is_current_generation(generation);
+                if is_current {
+                    store.clear_child_for_pid(pid);
                 }
+                (is_current, store.health_confirmed())
+            };
+            if !is_current {
+                log::info!(
+                    "mini-backend: ignored exit (code {}) from a superseded process",
+                    exit_code
+                        .map_or_else(|| "unknown".to_string(), |code| code.to_string())
+                );
+                return;
             }
-            log::warn!(
-                "mini-backend exited with code {}",
-                payload
-                    .code
-                    .map_or_else(|| "unknown".to_string(), |code| code.to_string())
-            );
+            if let Err(error) = fold_sidecar_failure(
+                app,
+                RestartTrigger::UnexpectedExit {
+                    code: exit_code,
+                    health_confirmed,
+                },
+            ) {
+                log::error!("mini-backend: crash post-mortem failed: {error}");
+            }
         }
         CommandEvent::Error(error) => {
             let runtime_store = app.state::<MiniBackendRuntimeStore>();
@@ -1156,23 +1141,6 @@ mod tests {
             option_env!("KOMA_EMBEDDED_MINI_BACKEND"),
             Some("0") | Some("1")
         ));
-    }
-
-    #[test]
-    fn startup_guard_releases_the_latch_on_drop() {
-        let flag = AtomicBool::new(false);
-        assert!(flag
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_ok());
-        {
-            let _guard = StartupGuard(&flag);
-            // A second start must be refused while the guard is alive.
-            assert!(flag
-                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                .is_err());
-        }
-        // Any exit path (success, `?`, panic unwind) re-arms the latch.
-        assert!(!flag.load(Ordering::SeqCst));
     }
 
     #[test]

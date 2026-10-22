@@ -12,6 +12,12 @@ export type AioLocalModelStage =
 
 export type ModelInstallStrategy = "direct_download" | "backend_managed" | "manual_import";
 
+/**
+ * Whether this delivery ships a runtime for the model. Missing means runnable,
+ * so only the entries without a runtime have to declare themselves.
+ */
+export type ModelRuntimeSupport = "runnable" | "download_only";
+
 export type ModelRuntimeFamily =
   | "onnx"
   | "onnx_bundle"
@@ -20,6 +26,7 @@ export type ModelRuntimeFamily =
   | "ctranslate2"
   | "gguf"
   | "safetensors_bundle"
+  | "transformers"
   | "transformers_vlm"
   | "transformers_vlm_paddleocr_manga"
   | "managed_runtime";
@@ -64,6 +71,7 @@ export interface TranslationModel {
   fileSize: string;
   installStrategy?: ModelInstallStrategy;
   runtimeFamily?: ModelRuntimeFamily;
+  runtimeSupport?: ModelRuntimeSupport;
   backendInstallEndpoint?: string;
   docsUrl?: string;
   licenseNotes?: string;

@@ -1,4 +1,9 @@
-"""Typed region records exchanged between pipeline stages and their normalizers."""
+"""Typed region records exchanged between pipeline stages and their normalizers.
+
+Segment records may carry ``mask_base64``: a PNG mask encoded as base64, whose
+size is proportional to the region's bbox area (a 1024x1024 1-bit mask is tens
+of KiB). The batch cap of 64 images bounds the aggregate payload.
+"""
 
 from __future__ import annotations
 
@@ -97,6 +102,9 @@ class SegmentRecord(TypedDict):
     ocr_model_key: str
     translator_model_key: str
     segment_model_key: str
+    # Set by run_segment_stage; the segment payload always emits the key,
+    # null when the segmenter produced no mask.
+    mask_base64: NotRequired[str | None]
 
 
 def normalize_stage_source(value: object) -> StageSource:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import TYPE_CHECKING, Final, Protocol, cast
 from PIL import Image
 
 from core.device import get_device_info
+from models.errors import GpuOutOfMemoryError
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
 from models.ocr.common import (
     LazyRuntime,
@@ -19,6 +21,7 @@ from models.ocr.common import (
     crop_region,
     normalize_generated_text,
 )
+from models.ocr.transformers_vlm.storage import transformers_vlm_min_vram_bytes
 
 if TYPE_CHECKING:
     import torch
@@ -169,6 +172,14 @@ class TransformersVlmOcrEngine(BaseOCR):
         self.profile: VlmProfile = profile or VLM_PROFILES.get(key, _DEFAULT_PROFILE)
         self._use_gpu = use_gpu
         self._runtime: LazyRuntime[_LoadedRuntime] = LazyRuntime(self._load_runtime)
+        # torch models are not reentrant: one generate at a time per engine.
+        self._generate_lock = threading.Lock()
+        self._device_decision_reason: str | None = None
+
+    @property
+    def device_decision_reason(self) -> str | None:
+        """Why the engine chose its current device before load; None by default."""
+        return self._device_decision_reason
 
     def _load_runtime(self) -> _LoadedRuntime:
         try:
@@ -182,6 +193,30 @@ class TransformersVlmOcrEngine(BaseOCR):
 
         use_gpu = self._use_gpu if self._use_gpu is not None else get_device_info().has_gpu
         device = "cuda" if use_gpu and torch.cuda.is_available() else "cpu"
+        device_decision_reason: str | None = None
+        required_vram_bytes = transformers_vlm_min_vram_bytes(self.key)
+        if device == "cuda" and required_vram_bytes is not None:
+            try:
+                free_vram_bytes, total_vram_bytes = torch.cuda.mem_get_info()
+            except Exception:
+                # Best-effort probe: an unavailable driver keeps the GPU choice.
+                logger.warning("vlm_vram_probe_failed", extra={"engine": self.key})
+            else:
+                if free_vram_bytes < required_vram_bytes:
+                    device = "cpu"
+                    device_decision_reason = "vram_to_cpu"
+                    logger.warning(
+                        "vlm_device_decision",
+                        extra={
+                            "engine": self.key,
+                            "device": device,
+                            "reason": device_decision_reason,
+                            "free_vram_bytes": free_vram_bytes,
+                            "total_vram_bytes": total_vram_bytes,
+                            "required_vram_bytes": required_vram_bytes,
+                        },
+                    )
+        self._device_decision_reason = device_decision_reason
         dtype = torch.float16 if device == "cuda" else torch.float32
 
         processor = cast(
@@ -245,7 +280,39 @@ class TransformersVlmOcrEngine(BaseOCR):
         )
         return processor(text=[rendered], images=[crop], padding=True, return_tensors="pt")
 
+    def release(self) -> None:
+        """Drop the loaded model and return cached CUDA memory."""
+        self._runtime = LazyRuntime(self._load_runtime)
+        self._device_decision_reason = None
+        try:
+            import torch
+        except (ImportError, OSError):
+            return
+        try:
+            torch.cuda.empty_cache()
+        except RuntimeError:
+            logger.debug("vlm_cuda_empty_cache_failed", exc_info=True)
+
     def _generate(self, runtime: _LoadedRuntime, crop: Image.Image, prompt: str) -> tuple[str, float]:
+        import torch
+
+        try:
+            with self._generate_lock:
+                return self._generate_locked(runtime, crop, prompt)
+        except GpuOutOfMemoryError:
+            raise
+        except torch.cuda.OutOfMemoryError as exc:
+            self.release()
+            raise GpuOutOfMemoryError(str(exc)) from exc
+        except RuntimeError as exc:
+            if "out of memory" not in str(exc).lower():
+                raise
+            self.release()
+            raise GpuOutOfMemoryError(str(exc)) from exc
+
+    def _generate_locked(
+        self, runtime: _LoadedRuntime, crop: Image.Image, prompt: str
+    ) -> tuple[str, float]:
         import torch
 
         inputs = self._build_inputs(runtime.processor, crop, prompt)

@@ -45,5 +45,35 @@ class ModelInstallRouteTests(unittest.TestCase):
         ensure_mock.assert_called_once_with("waifu2x_swin_unet_art_scan_2x")
 
 
+@unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
+class TranslationManagedInstallDispatchTests(unittest.TestCase):
+    def test_translation_bundles_use_the_local_translation_installer(self) -> None:
+        model_ids = ("opus-mt-ja-en", "opus-mt-zh-en", "nllb-200-3.3b")
+
+        for model_id in model_ids:
+            with patch.object(
+                model_install_router,
+                "ensure_local_translation_model_installed",
+                return_value={"modelId": model_id, "fileCount": 1},
+            ) as installer:
+                payload = model_install_router.install_managed_model_sync(model_id, None)
+
+            installer.assert_called_once_with(model_id)
+            self.assertEqual(payload["modelId"], model_id)
+
+    def test_translation_bundles_do_not_fall_back_to_generic_download(self) -> None:
+        with (
+            patch.object(
+                model_install_router,
+                "ensure_local_translation_model_installed",
+                return_value={"modelId": "opus-mt-ja-en", "fileCount": 1},
+            ),
+            patch.object(model_install_router, "_download_generic_model") as generic_mock,
+        ):
+            model_install_router.install_managed_model_sync("opus-mt-ja-en", None)
+
+        generic_mock.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

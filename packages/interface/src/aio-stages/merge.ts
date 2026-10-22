@@ -13,13 +13,38 @@ import {
 const normalizedRenderText = (value: string | undefined): string | undefined =>
   typeof value === 'string' && value.trim().length === 0 ? undefined : value;
 
+/**
+ * Structural payloads shared by the single-image stage responses and the
+ * batch report. The batch report may omit `regions` on a stage that ran but
+ * produced nothing, so the merge helpers treat a missing list as empty.
+ */
+export interface OcrRegionsMergePayload {
+  regions?: ReadonlyArray<OcrApiResponse['regions'][number]>;
+}
+
+export interface TranslationRegionsMergePayload {
+  regions?: ReadonlyArray<TranslationApiResponse['regions'][number]>;
+}
+
+export type SegmentRegionMergePayload = Omit<
+  SegmentApiResponse['regions'][number],
+  'mask_base64'
+> & {
+  mask_base64?: string | null;
+};
+
+export interface SegmentRegionsMergePayload {
+  regions?: ReadonlyArray<SegmentRegionMergePayload>;
+}
+
 export function mergeOcrIntoRegions(
   regions: readonly AioTextRegion[],
-  payload: OcrApiResponse,
+  payload: OcrRegionsMergePayload,
 ): AioTextRegion[] {
-  const byId = new Map(payload.regions.map((region) => [String(region.id), region]));
+  const payloadRegions = payload.regions ?? [];
+  const byId = new Map(payloadRegions.map((region) => [String(region.id), region]));
   return regions.map((region, index) => {
-    const match = byId.get(String(region.id)) ?? payload.regions[index] ?? null;
+    const match = byId.get(String(region.id)) ?? payloadRegions[index] ?? null;
     if (!match) return { ...region };
     return {
       ...region,
@@ -34,9 +59,9 @@ export function mergeOcrIntoRegions(
 
 export function mergeTranslationIntoRegions(
   regions: readonly AioTextRegion[],
-  payload: TranslationApiResponse,
+  payload: TranslationRegionsMergePayload,
 ): AioTextRegion[] {
-  const byId = new Map(payload.regions.map((region) => [region.id, region]));
+  const byId = new Map((payload.regions ?? []).map((region) => [region.id, region]));
   return regions.map((region) => {
     const match = byId.get(region.id);
     if (!match) return { ...region };
@@ -53,9 +78,9 @@ export function mergeTranslationIntoRegions(
 
 export function mergeSegmentIntoRegions(
   regions: readonly AioTextRegion[],
-  payload: SegmentApiResponse,
+  payload: SegmentRegionsMergePayload,
 ): AioTextRegion[] {
-  const byId = new Map(payload.regions.map((region) => [region.id, region]));
+  const byId = new Map((payload.regions ?? []).map((region) => [region.id, region]));
   return regions.map((region) => {
     const match = byId.get(region.id);
     if (!match) return { ...region };

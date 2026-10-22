@@ -51,6 +51,7 @@ class CachedOcrRequest:
 class CachedOcrResult:
     engine_key: str
     records: tuple[OCRRecord, ...]
+    device_decision: str | None = None
 
 
 def _to_input_region(seed: OCRSeed) -> OCRInputRegion | None:
@@ -75,6 +76,12 @@ def _empty_record(seed: OCRSeed, engine_key: str) -> OCRRecord:
         detector_model_key=seed["detector_model_key"],
         ocr_model_key=engine_key,
     )
+
+
+def _device_decision(engine: BaseOCR) -> str | None:
+    # Duck-typed fakes in tests predate the BaseOCR property.
+    reason = getattr(engine, "device_decision_reason", None)
+    return reason if isinstance(reason, str) else None
 
 
 async def run_cached_ocr(
@@ -157,4 +164,8 @@ async def run_cached_ocr(
                 merged.append(enrich_ocr_record_with_gradient(request.image, record))
         return merged
 
-    return CachedOcrResult(engine_key=engine.key, records=tuple(await asyncio.to_thread(merge)))
+    return CachedOcrResult(
+        engine_key=engine.key,
+        records=tuple(await asyncio.to_thread(merge)),
+        device_decision=_device_decision(engine),
+    )

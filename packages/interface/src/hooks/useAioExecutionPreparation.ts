@@ -7,6 +7,10 @@ import {
   stageCatalogOption,
   type StageReadinessReady,
 } from '../aio-stages';
+import {
+  LOCAL_AIO_BATCH_CHUNK_SIZE,
+  resolveBatchCapacity,
+} from '@/pages/dashboard/lib/local-aio-batch';
 import type { AioStageKey } from '../types/aioModelPresets';
 import type { AioStageOption } from '../models/aioStageCatalog';
 import type { CustomLlmProfile } from '../utils/customLlm';
@@ -21,6 +25,7 @@ interface ModelEntryLike {
 
 interface UseAioExecutionPreparationArgs {
   imagesCount: number;
+  localApiUrl: string;
   aioSteps: Record<string, boolean>;
   aioSrcLang: string;
   aioTgtLang: string;
@@ -48,6 +53,7 @@ interface UseAioExecutionPreparationArgs {
 
 export function useAioExecutionPreparation({
   imagesCount,
+  localApiUrl,
   aioSteps,
   aioSrcLang,
   aioTgtLang,
@@ -183,6 +189,31 @@ export function useAioExecutionPreparation({
       }
     }
 
+    // One capacity preflight per run (never per chunk). The local batch and the
+    // status message below reuse this single result.
+    const capacityOutcome = useLocalBatchPipeline
+      ? await resolveBatchCapacity({
+          localApiUrl,
+          concurrency: effectiveBatchConcurrency,
+        })
+      : null;
+    const runConcurrency = capacityOutcome
+      ? capacityOutcome.capacity.effectiveConcurrency
+      : effectiveBatchConcurrency;
+    const requestedConcurrency = capacityOutcome
+      ? capacityOutcome.capacity.requestedConcurrency
+      : effectiveBatchConcurrency;
+    const threadNote =
+      runConcurrency < requestedConcurrency
+        ? `${runConcurrency} effective ${runConcurrency === 1 ? 'thread' : 'threads'}`
+        : runConcurrency > 1
+          ? `${runConcurrency} threads`
+          : '';
+    const chunkNote =
+      useLocalBatchPipeline && imagesCount > LOCAL_AIO_BATCH_CHUNK_SIZE
+        ? ' Neighbor-image context applies within each 20-image chunk.'
+        : '';
+
     invalidateAioPipelineHistory();
     setAioManualImageEditsByImage({});
     setAioManualHealingBusyByImage({});
@@ -195,9 +226,9 @@ export function useAioExecutionPreparation({
     if (aioSteps.cleanImage) runningStages.push('cleaning image');
     if (aioSteps.render) runningStages.push('preparing render');
     setStatusMessage(
-      effectiveBatchConcurrency > 1
-        ? `AIO: ${runningStages.join(', ')} on the images with ${effectiveBatchConcurrency} threads...`
-        : `AIO: ${runningStages.join(', ')} on the images...`,
+      threadNote
+        ? `AIO: ${runningStages.join(', ')} on the images with ${threadNote}...${chunkNote}`
+        : `AIO: ${runningStages.join(', ')} on the images...${chunkNote}`,
     );
     emitProcessStartWebhook('AIO', imagesCount, {
       etapas: runningStages.join(', '),
@@ -205,7 +236,7 @@ export function useAioExecutionPreparation({
       estrategia: useLocalBatchPipeline ? 'local-batch' : 'cloud-fallback',
     });
 
-    return {
+    const prepared = {
       selectedDetectorKey,
       selectedOcrKey,
       selectedTranslationKey,
@@ -215,11 +246,24 @@ export function useAioExecutionPreparation({
       selectedTranslationOption,
       useCloudOcr,
       useCloudTranslation,
-      useLocalBatchPipeline,
       useLlmSettingsForOcr,
       useLlmSettingsForTranslation,
       runningStages,
     };
+
+    return capacityOutcome
+      ? {
+          ...prepared,
+          useLocalBatchPipeline: true as const,
+          batchCapacity: capacityOutcome.capacity,
+          capacityFallback: capacityOutcome.fallback,
+        }
+      : {
+          ...prepared,
+          useLocalBatchPipeline: false as const,
+          batchCapacity: null,
+          capacityFallback: false,
+        };
   }, [
     aioSrcLang,
     aioTgtLang,
@@ -232,6 +276,7 @@ export function useAioExecutionPreparation({
     getAuthToken,
     imagesCount,
     invalidateAioPipelineHistory,
+    localApiUrl,
     modelEntries,
     ocrSelectionKey,
     openModelManagerForStage,

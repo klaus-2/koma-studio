@@ -23,6 +23,7 @@ import {
   resolveAccelerationProfile,
   withAccelerationProfile,
 } from "./mini-dev-env.mjs";
+import { queryVenv } from "./mini-venv-probe.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -100,16 +101,39 @@ if (!existsSync(pythonBin)) {
   run(basePython, createArgs);
 }
 
+let needsProvisioning = true;
+
 if (isMiniDepsMarkerFresh(venvDir, depsMarkerHash)) {
-  console.log(
-    `[mini:deps] Dependencies already installed — ${profileDescription} (marker match). Skipping.`,
-  );
+  // The marker says deps are installed, but a broken cv2 (e.g. conflicting
+  // opencv distributions) imports as a namespace package and only fails at
+  // first attribute read. Probe before trusting the marker.
+  const markerQuery = queryVenv(pythonBin, spawnSync);
+  if (markerQuery.ok) {
+    console.log(
+      `[mini:deps] Dependencies already installed — ${profileDescription} (marker match, probe passed). Skipping.`,
+    );
+    needsProvisioning = false;
+  } else if (markerQuery.errored || markerQuery.status === null) {
+    console.log(
+      `[mini:deps] Marker is fresh but the import probe could not run ` +
+        `(${markerQuery.stderrTail}) — continuing without rebuilding.`,
+    );
+    needsProvisioning = false;
+  } else {
+    console.log(
+      `[mini:deps] Marker is fresh but the venv failed the import probe ` +
+        `(${markerQuery.stderrTail}) — rebuilding.`,
+    );
+  }
 } else {
   if (existsSync(pythonBin)) {
     console.log(
       `[mini:deps] Dependencies or profile changed since the last install — ${profileDescription}. Updating...`,
     );
   }
+}
+
+if (needsProvisioning) {
   const provisionStatus = runProvisionerWithRecreate({
     venvDir,
     allowedVenvDir: path.resolve(venvDir),
@@ -139,6 +163,13 @@ if (flag === "--run" || flag === "--exec") {
   const guardStatus = missingInterpreterStatus({ pythonBin, existsSync, log: console.log });
   if (guardStatus !== 0) {
     process.exit(guardStatus);
+  }
+  const runQuery = queryVenv(pythonBin, spawnSync);
+  if (!runQuery.ok) {
+    console.log(
+      `[mini:deps] Warning: the venv failed the import probe (${runQuery.stderrTail}) — ` +
+        `the sidecar may fail at runtime.`,
+    );
   }
 }
 

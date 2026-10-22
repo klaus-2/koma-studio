@@ -170,6 +170,9 @@ def _install_managed_model(
         "sakura_galtransl_7b_v3_7",
         "sakura_1_5b_qwen2_5_v1_0",
         "hunyuan_7b_mt_v1_0",
+        "opus-mt-ja-en",
+        "opus-mt-zh-en",
+        "nllb-200-3.3b",
     }:
         return ensure_local_translation_model_installed(normalized_model_id)
     if normalized_model_id == "pp_doclayout_v3":

@@ -21,6 +21,10 @@ export interface AioStageRunSessionOptions {
   onRuntimeNotice?: (notice: RuntimeExecutionNotice) => void;
 }
 
+/** `koma-studio-*-clean-*.png` download template (single source). */
+export const buildAioCleanDownloadName = (prefix: string, fileName: string): string =>
+  `${prefix}-${fileName.replace(/\s+/g, '-')}.png`;
+
 export interface AioStageRunSession {
   /** StageRuntime for the stage-run modules (`{ localApiUrl, signal }`). */
   readonly stageRuntime: StageRuntime;
@@ -70,6 +74,6 @@ export function createAioStageRunSession(
       return blob;
     },
     buildCleanDownloadName: (prefix: string, fileName: string): string =>
-      `${prefix}-${fileName.replace(/\s+/g, '-')}.png`,
+      buildAioCleanDownloadName(prefix, fileName),
   };
 }

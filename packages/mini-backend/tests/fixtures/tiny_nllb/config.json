@@ -1,0 +1,6 @@
+{
+  "architectures": [
+    "M2M100ForConditionalGeneration"
+  ],
+  "model_type": "m2m_100"
+}

@@ -59,8 +59,27 @@ type MiniBackendRuntimeStatus =
   | "verifying"
   | "extracting"
   | "ready"
+  | "starting"
   | "fallback"
+  | "crashed"
   | "error";
+
+const MINI_BACKEND_RUNTIME_STATUSES: ReadonlySet<string> = new Set<MiniBackendRuntimeStatus>([
+  "idle",
+  "resolving",
+  "checking",
+  "downloading",
+  "verifying",
+  "extracting",
+  "ready",
+  "starting",
+  "fallback",
+  "crashed",
+  "error",
+]);
+
+const isMiniBackendRuntimeStatus = (value: string): value is MiniBackendRuntimeStatus =>
+  MINI_BACKEND_RUNTIME_STATUSES.has(value);
 
 interface MiniBackendRuntimeProgressPayload {
   transferredBytes: number;
@@ -84,6 +103,9 @@ interface MiniBackendRuntimeStatePayload {
   lastError: string | null;
   attempt: number;
   maxAttempts: number;
+  exitCode: number | null;
+  lastStderr: string | null;
+  crashLogPath: string | null;
   progress: MiniBackendRuntimeProgressPayload | null;
   updatedAt: number | null;
   gpuName: string | null;
@@ -233,8 +255,8 @@ const normalizeMiniBackendRuntimeState = (value: unknown): MiniBackendRuntimeSta
   }
 
   const payload = value as Record<string, unknown>;
-  const status = typeof payload.status === "string" ? (payload.status as MiniBackendRuntimeStatus) : null;
-  if (!status) {
+  const status = typeof payload.status === "string" ? payload.status : null;
+  if (!status || !isMiniBackendRuntimeStatus(status)) {
     return null;
   }
 
@@ -253,6 +275,9 @@ const normalizeMiniBackendRuntimeState = (value: unknown): MiniBackendRuntimeSta
     lastError: typeof payload.lastError === "string" ? payload.lastError : null,
     attempt: Number(payload.attempt ?? 0),
     maxAttempts: Number(payload.maxAttempts ?? 0),
+    exitCode: typeof payload.exitCode === "number" ? payload.exitCode : null,
+    lastStderr: typeof payload.lastStderr === "string" ? payload.lastStderr : null,
+    crashLogPath: typeof payload.crashLogPath === "string" ? payload.crashLogPath : null,
     progress:
       payload.progress && typeof payload.progress === "object"
         ? {

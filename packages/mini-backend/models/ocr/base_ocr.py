@@ -91,6 +91,11 @@ class BaseOCR(ABC):
     def release(self) -> None:
         """Drop loaded weights. Overridden by engines that hold device memory."""
 
+    @property
+    def device_decision_reason(self) -> str | None:
+        """Why the engine chose its current device before load, when it decided."""
+        return None
+
     @abstractmethod
     def _recognize(
         self,

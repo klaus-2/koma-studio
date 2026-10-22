@@ -2,20 +2,24 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from typing import NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from core.config import normalize_stage_model_key
 from core.device import register_gpu_cache_releaser
 from models.engine_cache import LruEngineCache
 from core.models_store import model_is_installed
 from models.translation.base_translator import BaseTranslator
-from models.translation.errors import TranslatorConfigurationError
+from models.translation.errors import (
+    InvalidModelSelectionError,
+    TranslatorConfigurationError,
+)
 from models.translation.local_ctranslate2 import M2M100LocalTranslator, SugoiLocalTranslator
 from models.translation.local_gguf import GGUFLocalTranslator
 from models.translation.local_storage import (
     local_translation_runtime_ready,
     resolve_local_translation_model_dir,
 )
+from models.translation.local_transformers import Nllb200Translator, OpusMtTranslator
 from models.translation.providers import (
     ClaudeTranslatorEngine,
     CustomTranslatorEngine,
@@ -36,6 +40,7 @@ class TranslationModelMeta(TypedDict):
     kind: str
     requires: list[str]
     model: NotRequired[str]
+    runtime_support: NotRequired[Literal["runnable", "download_only"]]
 
 
 class TranslationModelOption(TypedDict):
@@ -48,7 +53,7 @@ class TranslationModelOption(TypedDict):
 
 
 DEFAULT_TRANSLATION_MODEL = "google_translate"
-_LOCAL_KINDS = frozenset({"local_ctranslate2", "local_gguf"})
+_LOCAL_KINDS = frozenset({"local_ctranslate2", "local_gguf", "local_transformers"})
 
 TRANSLATION_MODELS: dict[str, TranslationModelMeta] = {
     "google_translate": {
@@ -112,6 +117,42 @@ TRANSLATION_MODELS: dict[str, TranslationModelMeta] = {
         "name": "Hunyuan MT 7B v1.0", "device": "cpu_gpu",
         "use_case": "Local multilingual translation (44 languages) via GGUF (~6.3GB).",
         "implemented": True, "kind": "local_gguf", "requires": [],
+    },
+    "opus-mt-ja-en": {
+        "name": "OPUS-MT JA→EN", "device": "cpu",
+        "use_case": "Offline local Japanese to English translation via Marian (OPUS-MT).",
+        "implemented": True, "kind": "local_transformers", "requires": [],
+    },
+    "opus-mt-zh-en": {
+        "name": "OPUS-MT ZH→EN", "device": "cpu",
+        "use_case": "Offline local Chinese to English translation via Marian (OPUS-MT).",
+        "implemented": True, "kind": "local_transformers", "requires": [],
+    },
+    "nllb-200-3.3b": {
+        "name": "NLLB-200 3.3B", "device": "cpu",
+        "use_case": "Local multilingual translation via NLLB-200 3.3B (CPU, fp32).",
+        "implemented": True, "kind": "local_transformers", "requires": [],
+    },
+    # Direct-download catalog entries kept installable and visible, but with no
+    # runtime in this backend. They are never runnable, never selectable, and
+    # never silently swapped for a cloud engine when asked for explicitly.
+    "nllb-200-600m-int8": {
+        "name": "NLLB-200 600M int8", "device": "cpu",
+        "use_case": "Download only: no local runtime is implemented for this model.",
+        "implemented": False, "kind": "local_transformers", "requires": [],
+        "runtime_support": "download_only",
+    },
+    "nllb-200-1.3b": {
+        "name": "NLLB-200 1.3B", "device": "cpu",
+        "use_case": "Download only: no local runtime is implemented for this model.",
+        "implemented": False, "kind": "local_transformers", "requires": [],
+        "runtime_support": "download_only",
+    },
+    "nllb-200-1.3b-int8-ct2": {
+        "name": "NLLB-200 1.3B int8 CT2", "device": "cpu",
+        "use_case": "Download only: no local runtime is implemented for this model.",
+        "implemented": False, "kind": "local_transformers", "requires": [],
+        "runtime_support": "download_only",
     },
     "gpt_4_1": {
         "name": "GPT-4.1", "device": "cpu_gpu",
@@ -200,6 +241,23 @@ def _gguf(key: str) -> BaseTranslator:
     return GGUFLocalTranslator(model_key=key, model_dir=resolve_local_translation_model_dir(key))
 
 
+def _opus(model_key: str) -> EngineBuilder:
+    return lambda _key: OpusMtTranslator(
+        model_key=model_key, model_dir=resolve_local_translation_model_dir(model_key)
+    )
+
+
+def _download_only(model_key: str) -> EngineBuilder:
+    """Keep the registry/builder invariant without pretending to build a runtime."""
+
+    def _reject(_key: str) -> BaseTranslator:
+        raise InvalidModelSelectionError(
+            model_key, "no local runtime is implemented for this model"
+        )
+
+    return _reject
+
+
 _ENGINE_BUILDERS: dict[str, EngineBuilder] = {
     "google_translate": lambda _key: GoogleTranslatorEngine(),
     "microsoft_translator": lambda _key: MicrosoftTranslatorEngine(),
@@ -217,6 +275,14 @@ _ENGINE_BUILDERS: dict[str, EngineBuilder] = {
     "sakura_galtransl_7b_v3_7": _gguf,
     "sakura_1_5b_qwen2_5_v1_0": _gguf,
     "hunyuan_7b_mt_v1_0": _gguf,
+    "opus-mt-ja-en": _opus("opus-mt-ja-en"),
+    "opus-mt-zh-en": _opus("opus-mt-zh-en"),
+    "nllb-200-3.3b": lambda key: Nllb200Translator(
+        model_dir=resolve_local_translation_model_dir(key)
+    ),
+    "nllb-200-600m-int8": _download_only("nllb-200-600m-int8"),
+    "nllb-200-1.3b": _download_only("nllb-200-1.3b"),
+    "nllb-200-1.3b-int8-ct2": _download_only("nllb-200-1.3b-int8-ct2"),
     "gpt_4_1": _openai("gpt-4.1"),
     "gpt_4_1_mini": _openai("gpt-4.1-mini"),
     "gemini_2_5_flash": _gemini("gemini-2.5-flash"),
@@ -275,19 +341,48 @@ def _has_required_env(required: list[str]) -> bool:
 
 
 def _is_available(key: str, meta: TranslationModelMeta) -> bool:
-    if not meta["implemented"]:
+    if not meta["implemented"] or meta.get("runtime_support") == "download_only":
         return False
     if meta["kind"] in _LOCAL_KINDS:
         return model_is_installed(key) and local_translation_runtime_ready(key)
     return _has_required_env(meta["requires"])
 
 
+def _unavailable_reason(meta: TranslationModelMeta) -> str:
+    if not meta["implemented"] or meta.get("runtime_support") == "download_only":
+        return "no local runtime is implemented for this model"
+    return "the local model files are not installed or are incomplete"
+
+
+def _resolve_requested_key(requested: str) -> str:
+    """Registry IDs win over slugification; aliases still resolve through it.
+
+    Hyphenated registry keys (``nllb-200-600m-int8``) slugify to underscores,
+    which is not a registry key, so a verbatim match must be tried first or an
+    explicit selection would silently fall through to the default engine.
+    """
+    if requested in TRANSLATION_MODELS:
+        return requested
+    return normalize_stage_model_key("translation", requested)
+
+
 def get_translation_engine(model_key: str | None = None) -> BaseTranslator:
-    requested = (model_key or "").strip() or DEFAULT_TRANSLATION_MODEL
-    selected_key = normalize_stage_model_key("translation", requested)
-    meta = TRANSLATION_MODELS.get(selected_key)
-    if meta is None or not _is_available(selected_key, meta):
+    requested = (model_key or "").strip()
+    if not requested:
         selected_key = DEFAULT_TRANSLATION_MODEL
+    else:
+        selected_key = _resolve_requested_key(requested)
+        meta = TRANSLATION_MODELS.get(selected_key)
+        if (
+            meta is not None
+            and meta["kind"] in _LOCAL_KINDS
+            and not _is_available(selected_key, meta)
+        ):
+            raise InvalidModelSelectionError(
+                selected_key, _unavailable_reason(meta)
+            )
+        if meta is None or not _is_available(selected_key, meta):
+            selected_key = DEFAULT_TRANSLATION_MODEL
 
     return _TRANSLATOR_CACHE.get_or_build(
         selected_key, lambda: _ENGINE_BUILDERS[selected_key](selected_key)

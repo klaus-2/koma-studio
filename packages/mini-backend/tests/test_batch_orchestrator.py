@@ -38,6 +38,7 @@ try:
         LLMRequestSettings,
         StageOutput,
     )
+    from models import execution as execution_module
     from schemas.pipeline_batch import BatchStageConfig
 except Exception as exc:  # pragma: no cover - optional runtime deps
     IMPORT_ERROR = exc
@@ -137,6 +138,11 @@ class BatchRecordsTests(unittest.TestCase):
                 self.assertEqual(archive.read("cleaned/000-a.png"), b"png-a")
         finally:
             handle.close()
+
+    def test_inference_worker_capacity_matches_the_pool(self) -> None:
+        capacity = execution_module.get_inference_worker_capacity()
+        self.assertGreaterEqual(capacity, 1)
+        self.assertEqual(capacity, execution_module._MAX_WORKERS)
 
 
 @unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
@@ -241,6 +247,7 @@ class BatchOrchestratorTests(unittest.TestCase):
             detect_payload = result.detect
             self.assertIsNotNone(detect_payload)
             self.assertIs(detect_payload.get("fell_back_to_cpu"), True)
+            self.assertEqual(detect_payload.get("fallback_reason"), "gpu_oom_to_cpu")
             self.assertTrue(
                 any("batch.gpu_oom_fallback" in message for message in logs.output)
             )

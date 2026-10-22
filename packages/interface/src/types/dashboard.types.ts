@@ -210,6 +210,8 @@ export interface PipelineBatchDetectResult {
   model_used?: string;
   image_width?: number;
   image_height?: number;
+  fell_back_to_cpu?: boolean;
+  fallback_reason?: string | null;
   detections?: Array<{
     id: string;
     bbox: [number, number, number, number];
@@ -230,6 +232,8 @@ export interface PipelineBatchOcrResult {
   model_used?: string;
   image_width?: number;
   image_height?: number;
+  fell_back_to_cpu?: boolean;
+  fallback_reason?: string | null;
   regions?: Array<{
     id: string;
     bbox: [number, number, number, number];
@@ -268,6 +272,8 @@ export interface PipelineBatchSegmentResult {
   model_used?: string;
   image_width?: number;
   image_height?: number;
+  fell_back_to_cpu?: boolean;
+  fallback_reason?: string | null;
   regions?: Array<{
     id: string;
     bbox: [number, number, number, number];
@@ -278,12 +284,15 @@ export interface PipelineBatchSegmentResult {
     ocr_model_key: string;
     translator_model_key: string;
     segment_model_key: string;
+    mask_base64?: string | null;
   }>;
 }
 
 export interface PipelineBatchCleanResult {
   output_file?: string;
   model_used?: string;
+  fell_back_to_cpu?: boolean;
+  fallback_reason?: string | null;
 }
 
 export interface PipelineBatchItemResult {
@@ -296,6 +305,27 @@ export interface PipelineBatchItemResult {
   segment?: PipelineBatchSegmentResult | null;
   clean?: PipelineBatchCleanResult | null;
   errors?: PipelineBatchItemError[];
+}
+
+export interface PipelineBatchStages {
+  detect: boolean;
+  ocr: boolean;
+  translation: boolean;
+  segment: boolean;
+  clean: boolean;
+}
+
+export interface PipelineBatchReport {
+  batch_id?: string;
+  total_images: number;
+  succeeded: number;
+  partial: number;
+  failed: number;
+  stages: PipelineBatchStages;
+  results: PipelineBatchItemResult[];
+  requested_concurrency?: number;
+  effective_concurrency?: number;
+  concurrency_note?: string | null;
 }
 
 export interface AioPresetEditorDraft {

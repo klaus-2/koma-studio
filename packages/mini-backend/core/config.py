@@ -97,6 +97,10 @@ TRANSLATOR_MODEL_ALIASES: dict[str, str] = {
     "grok_2_vision": "grok_2_vision",
     "z_ai_glm_4_5v": "z_ai_glm_4_5v",
     "custom": "custom",
+    # Registry ids carry hyphens/dots; normalize_stage_model_key slugs them.
+    "opus_mt_ja_en": "opus-mt-ja-en",
+    "opus_mt_zh_en": "opus-mt-zh-en",
+    "nllb_200_3_3b": "nllb-200-3.3b",
 }
 
 OCR_MODEL_ALIASES: dict[str, str] = {
@@ -262,13 +266,13 @@ def get_config() -> MiniBackendConfig:
         ),
         batch_max_concurrency=_as_int(
             os.getenv("MINI_BACKEND_BATCH_MAX_CONCURRENCY"),
-            fallback=4,
+            fallback=32,
             minimum=1,
             maximum=64,
         ),
         batch_max_images=_as_int(
             os.getenv("MINI_BACKEND_BATCH_MAX_IMAGES"),
-            fallback=20,
+            fallback=64,
             minimum=1,
             maximum=200,
         ),

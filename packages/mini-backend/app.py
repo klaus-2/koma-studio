@@ -420,6 +420,9 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # The desktop WebView is cross-origin: without this the batch client
+        # cannot read the id it must poll progress with.
+        expose_headers=["X-Koma-Batch-Id"],
     )
 
     trusted_origins = frozenset(origin.lower() for origin in settings.allowed_origins)

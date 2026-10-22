@@ -259,11 +259,15 @@ export const readExecutionFallbackNotice = (
   stageLabel: string,
 ): string | null => {
   const fallbackCode = response.headers.get("X-Koma-Execution-Fallback");
-  if (fallbackCode !== "gpu_oom_to_cpu") {
-    return null;
+  if (fallbackCode === "gpu_oom_to_cpu") {
+    const modelKey = response.headers.get("X-Koma-Execution-Model") || "auto";
+    return `Model "${modelKey}" fell back to CPU due to insufficient VRAM during the "${stageLabel}" stage. Processing continued on CPU and may be slower.`;
   }
-  const modelKey = response.headers.get("X-Koma-Execution-Model") || "auto";
-  return `Model "${modelKey}" fell back to CPU due to insufficient VRAM during the "${stageLabel}" stage. Processing continued on CPU and may be slower.`;
+  if (fallbackCode === "vram_to_cpu") {
+    const modelKey = response.headers.get("X-Koma-Execution-Model") || "auto";
+    return `Model "${modelKey}" ran on CPU because free VRAM was below the model's declared requirement (decided before load) during the "${stageLabel}" stage. Processing may be slower.`;
+  }
+  return null;
 };
 
 export const readExecutionRuntimeNotice = async (

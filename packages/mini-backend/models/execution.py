@@ -22,6 +22,12 @@ logger = logging.getLogger(__name__)
 _MAX_WORKERS: Final[int] = min(4, os.cpu_count() or 1)
 _MAX_OUTSTANDING: Final[int] = _MAX_WORKERS * 2
 
+
+def get_inference_worker_capacity() -> int:
+    """Worker threads shared by every model stage; the real concurrency limiter."""
+    return _MAX_WORKERS
+
+
 _lock = threading.Lock()
 _admission = threading.BoundedSemaphore(_MAX_OUTSTANDING)
 _executor: ThreadPoolExecutor | None = None

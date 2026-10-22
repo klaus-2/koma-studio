@@ -1,4 +1,4 @@
-import type { AioLocalModelStage, TranslationModel } from "./types";
+import type { AioLocalModelStage, ModelRuntimeSupport, TranslationModel } from "./types";
 
 import {
   BASE_TRANSLATION_MODELS_REGISTRY,
@@ -41,6 +41,15 @@ export const TRANSLATION_MODELS_BY_ID: Record<string, TranslationModel> =
 
 export const getTranslationModelById = (modelId: string): TranslationModel | null =>
   TRANSLATION_MODELS_BY_ID[modelId] ?? null;
+
+/** Missing capability means runnable: only download-only entries declare it. */
+export const getModelRuntimeSupport = (
+  model: Readonly<Pick<TranslationModel, "runtimeSupport">>,
+): ModelRuntimeSupport => model.runtimeSupport ?? "runnable";
+
+export const isDownloadOnlyModel = (
+  model: Readonly<Pick<TranslationModel, "runtimeSupport">>,
+): boolean => getModelRuntimeSupport(model) === "download_only";
 
 export const getLocalAioModelById = (modelId: string): TranslationModel | null =>
   LOCAL_AIO_MODELS_BY_ID[modelId] ?? null;

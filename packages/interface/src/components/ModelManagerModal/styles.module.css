@@ -1143,6 +1143,22 @@
   color: #c4b5fd;
 }
 
+/* ── Download-only badge ──────────────────────────────────────── */
+.downloadOnlyBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border: 1px solid var(--mm-accent-line, rgba(148, 163, 184, 0.35));
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.1);
+  font-family: var(--auth-font-body);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--auth-text-muted);
+}
+
 /* ── Speed badge ──────────────────────────────────────────────── */
 .speedBadge {
   display: inline-flex;

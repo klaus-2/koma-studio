@@ -57,6 +57,7 @@ export type ModelRuntimeFamily =
   | "ctranslate2"
   | "gguf"
   | "safetensors_bundle"
+  | "transformers"
   | "transformers_vlm"
   | "transformers_vlm_paddleocr_manga"
   | "managed_runtime";

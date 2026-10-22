@@ -351,6 +351,86 @@
       ],
       "totalBytes": 92591623
     },
+    "opus-mt-ja-en": {
+      "assets": [
+        {
+          "path": "config.json",
+          "sha256": "e289b397c417050d9be37049677abf8929c35b16397389ad591a8d008e6db340",
+          "size": 1381
+        },
+        {
+          "path": "generation_config.json",
+          "sha256": "2a2ada2b87855613701872484737458add1c5d3a4330185e7fa4a3d1f6888f48",
+          "size": 293
+        },
+        {
+          "path": "pytorch_model.bin",
+          "sha256": "ed649116c143fc2d7aea690246f4b2b7caa814e9e00a8d5bbe047822b18de022",
+          "size": 303294189
+        },
+        {
+          "path": "source.spm",
+          "sha256": "d0b5c3b10b5959f056ff2c86e2f2356129242ff1fc72d3a4a34d6a8c0eee4e57",
+          "size": 781853
+        },
+        {
+          "path": "target.spm",
+          "sha256": "35d89c704e270d441fade716a3931d49c43179400682edcca7f180694982a2f6",
+          "size": 801883
+        },
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "9db10a7f6e536bc53ecdd33bb23fa7ba610d20ee7959059a9deee5f33d636e54",
+          "size": 42
+        },
+        {
+          "path": "vocab.json",
+          "sha256": "0483c9c2b3deade6d6fbfe149eccf9cd3c44c77b348232030ae2d81400d65b61",
+          "size": 1501341
+        }
+      ],
+      "totalBytes": 306380982
+    },
+    "opus-mt-zh-en": {
+      "assets": [
+        {
+          "path": "config.json",
+          "sha256": "d84104da12fa90da59acf5f0ed30428e43cc92574ad4b9dfa88f29eeeb2b0eb0",
+          "size": 1394
+        },
+        {
+          "path": "generation_config.json",
+          "sha256": "81f06422302b9f4666f20c6f20f43b904e38ccce9326a208f82ff97c2c9699e5",
+          "size": 293
+        },
+        {
+          "path": "pytorch_model.bin",
+          "sha256": "9d8ceb91d103ef89400c9d9d62328b4858743cf8924878aee3b8afc594242ce0",
+          "size": 312087009
+        },
+        {
+          "path": "source.spm",
+          "sha256": "e27a3a1b539f4959ec72ea60e453f49156289f95d4e6000b29332efc45616203",
+          "size": 804677
+        },
+        {
+          "path": "target.spm",
+          "sha256": "6a881f4717cd7265f53fea54fd3dc689c767c05338fac7a4590f3088cb2d7855",
+          "size": 806530
+        },
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "53cc7a6f05224f287476af4798d96b1b85da2edae60257e58633f092c7b5b823",
+          "size": 44
+        },
+        {
+          "path": "vocab.json",
+          "sha256": "c0f79ee4c413ccb24cd808a0c727eec85b2130f23c82802cc1caeb07b5f0d458",
+          "size": 1617902
+        }
+      ],
+      "totalBytes": 315317849
+    },
     "paddleocr": {
       "assets": [
         {

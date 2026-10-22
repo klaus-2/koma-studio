@@ -147,6 +147,9 @@ pub struct MiniBackendRuntimeState {
     pub download_cache_dir: Option<String>,
     pub version: Option<String>,
     pub last_error: Option<String>,
+    pub exit_code: Option<i32>,
+    pub last_stderr: Option<String>,
+    pub crash_log_path: Option<String>,
     pub attempt: u32,
     pub max_attempts: u32,
     pub progress: Option<MiniBackendRuntimeProgress>,
@@ -169,6 +172,9 @@ pub struct MiniBackendRuntimePatch {
     pub download_cache_dir: Option<Option<String>>,
     pub version: Option<Option<String>>,
     pub last_error: Option<Option<String>>,
+    pub exit_code: Option<Option<i32>>,
+    pub last_stderr: Option<Option<String>>,
+    pub crash_log_path: Option<Option<String>>,
     pub attempt: Option<u32>,
     pub max_attempts: Option<u32>,
     pub progress: Option<Option<MiniBackendRuntimeProgress>>,
@@ -534,6 +540,9 @@ fn initial_runtime_state() -> MiniBackendRuntimeState {
         ),
         version: None,
         last_error: None,
+        exit_code: None,
+        last_stderr: None,
+        crash_log_path: None,
         attempt: 0,
         max_attempts: 0,
         progress: None,
@@ -596,6 +605,15 @@ fn apply_patch(state: &mut MiniBackendRuntimeState, patch: MiniBackendRuntimePat
     }
     if let Some(value) = patch.last_error {
         state.last_error = value;
+    }
+    if let Some(value) = patch.exit_code {
+        state.exit_code = value;
+    }
+    if let Some(value) = patch.last_stderr {
+        state.last_stderr = value;
+    }
+    if let Some(value) = patch.crash_log_path {
+        state.crash_log_path = value;
     }
     if let Some(value) = patch.attempt {
         state.attempt = value;

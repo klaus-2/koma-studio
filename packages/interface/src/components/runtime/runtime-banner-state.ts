@@ -17,6 +17,20 @@ export const buildRuntimeBannerToast = (
     return null;
   }
 
+  if (runtimeState.status === "crashed") {
+    const summary =
+      runtimeState.statusMessage ??
+      (runtimeState.maxAttempts > 0
+        ? `The local AI backend stopped unexpectedly (attempt ${runtimeState.attempt} of ${runtimeState.maxAttempts}).`
+        : "The local AI backend stopped unexpectedly.");
+    return {
+      title: "Local backend stopped",
+      description: runtimeState.crashLogPath
+        ? `${summary} Post-mortem: ${runtimeState.crashLogPath}`
+        : summary,
+    };
+  }
+
   if (runtimeState.status === "error") {
     return {
       title: "Runtime startup failed",
@@ -24,7 +38,11 @@ export const buildRuntimeBannerToast = (
     };
   }
 
-  if (showReadyNotice && runtimeState.source === "downloaded-runtime") {
+  if (
+    showReadyNotice &&
+    runtimeState.status === "ready" &&
+    runtimeState.source === "downloaded-runtime"
+  ) {
     return {
       title: "Runtime ready",
       description: `${runtimeState.activeProfile} runtime installed and ready to use.`,

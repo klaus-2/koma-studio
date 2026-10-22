@@ -170,6 +170,7 @@ const buildFakeProject = () => {
     "mini-deps-marker.mjs",
     "mini-dev-env.mjs",
     "mini-venv-recreate.mjs",
+    "mini-venv-probe.mjs",
   ]) {
     fs.copyFileSync(new URL(`./${name}`, import.meta.url), path.join(scriptsDir, name));
   }
@@ -210,7 +211,14 @@ test(
     });
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
     assert.ok(result.stdout.includes("1"));
-    assert.ok(result.stdout.includes("(marker match). Skipping."));
+    // The test venv has no packages (--without-pip), so the import probe
+    // detects missing modules and falls through to the fake provisioner
+    // (which exits 0), then --exec still runs print(1) successfully.
+    assert.ok(
+      result.stdout.includes("(marker match, probe passed). Skipping.") ||
+      result.stdout.includes("Marker is fresh but the venv failed the import probe"),
+      "the script must check the marker and run the import probe",
+    );
     assert.equal(
       `${result.stdout}${result.stderr}`.includes("KOMA_SKIP_MINI_BOOTSTRAP"),
       false,

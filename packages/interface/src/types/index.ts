@@ -50,8 +50,10 @@ export interface DesktopMiniBackendRuntimeState {
     | "downloading"
     | "verifying"
     | "extracting"
+    | "starting"
     | "ready"
     | "fallback"
+    | "crashed"
     | "error";
   statusMessage: string | null;
   requestedProfile: string;
@@ -66,6 +68,9 @@ export interface DesktopMiniBackendRuntimeState {
   lastError: string | null;
   attempt: number;
   maxAttempts: number;
+  exitCode: number | null;
+  lastStderr: string | null;
+  crashLogPath: string | null;
   progress: {
     transferredBytes: number;
     totalBytes: number;

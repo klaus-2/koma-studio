@@ -12,6 +12,54 @@ export type PresetStageOptions = Readonly<
 
 export type PresetStageAvailability = Record<AioStageKey, Set<string>>;
 
+export const DEFAULT_TRANSLATION_STAGE_MODEL_KEY = 'google_translate';
+
+export interface PresetDownloadOnlyRepair {
+  readonly preset: AioLanguageModelPreset;
+  readonly replacedKey: string | null;
+  readonly replacementName: string;
+}
+
+/**
+ * A persisted preset may name a translation entry that is still in the catalog
+ * but has no runtime (download-only). Repair it to the default translation
+ * model so execution never inherits an unrunnable key. A key that is absent
+ * from the catalog keeps the existing "unapplied stage" handling, and an
+ * installable-but-not-installed key is left untouched.
+ */
+export function repairDownloadOnlyPresetTranslation(
+  preset: AioLanguageModelPreset,
+  translationOptions: readonly AioStageOption[],
+): PresetDownloadOnlyRepair {
+  const requestedKey = preset.stageModels.getTranslations.trim();
+  const requestedOption = translationOptions.find(
+    (option) => option.key === requestedKey,
+  );
+
+  if (!requestedKey || !requestedOption || requestedOption.implemented) {
+    return {
+      preset,
+      replacedKey: null,
+      replacementName: requestedOption?.name ?? requestedKey,
+    };
+  }
+
+  const replacementOption = translationOptions.find(
+    (option) => option.key === DEFAULT_TRANSLATION_STAGE_MODEL_KEY,
+  );
+  const replacementKey =
+    replacementOption?.key ?? DEFAULT_TRANSLATION_STAGE_MODEL_KEY;
+
+  return {
+    preset: {
+      ...preset,
+      stageModels: { ...preset.stageModels, getTranslations: replacementKey },
+    },
+    replacedKey: requestedKey,
+    replacementName: replacementOption?.name ?? replacementKey,
+  };
+}
+
 export function buildPresetStageAvailability(
   options: PresetStageOptions,
 ): PresetStageAvailability {

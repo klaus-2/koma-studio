@@ -17,6 +17,10 @@ import {
   runAioNotification,
 } from '@/pages/dashboard/lib/aio-observability';
 import {
+  runLocalAioBatchChunks,
+  type LocalAioBatchOptions,
+} from '@/pages/dashboard/lib/local-aio-batch';
+import {
   createAioAbortError,
   runAioBatch,
   throwIfAioAborted,
@@ -27,6 +31,7 @@ import { useLlmProvidersStore } from '@/pages/dashboard/stores/llm-providers-sto
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import type {
+  AioBatchImageResult,
   AioPipelineSnapshotKey,
   LoadedImage,
 } from '@/types/dashboard.types';
@@ -70,6 +75,47 @@ function isSameImageCollection(
   );
 }
 
+const ITEM_ERROR_NOTICE_MAX_LENGTH = 200;
+
+function itemErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  if (typeof error === 'string' && error.trim().length > 0) {
+    return error;
+  }
+  return 'Unknown error';
+}
+
+function buildItemErrorNotice(fileName: string, error: unknown): string {
+  const firstLine = itemErrorMessage(error).split(/\r?\n/, 1)[0] ?? '';
+  const collapsed = firstLine.replace(/\s+/g, ' ').trim();
+  const summary =
+    collapsed.length > ITEM_ERROR_NOTICE_MAX_LENGTH
+      ? `${collapsed.slice(0, ITEM_ERROR_NOTICE_MAX_LENGTH - 3)}...`
+      : collapsed;
+
+  return `${fileName}: ${summary.length > 0 ? summary : 'Unknown error'}`;
+}
+
+function buildFailedBatchResult(
+  image: LoadedImage,
+  error: unknown,
+): AioBatchImageResult {
+  return {
+    imageId: image.id,
+    detectDetections: [],
+    ocrDetections: [],
+    translationDetections: [],
+    segmentDetections: [],
+    cleanDetections: [],
+    renderDetections: [],
+    cleanedDownload: null,
+    countAsProcessed: false,
+    executionNotices: [buildItemErrorNotice(image.file.name, error)],
+  };
+}
+
 export function useAioPipelineExecution(
   args: UseAioPipelineExecutionArgs,
 ): Readonly<{ processAIO: () => Promise<void> }> {
@@ -93,6 +139,7 @@ export function useAioPipelineExecution(
 
   const prepare = useAioExecutionPreparation({
     imagesCount: images.length,
+    localApiUrl: args.localApiUrl,
     aioSteps,
     aioSrcLang,
     aioTgtLang: useAioPipelineStore((state) => state.aioTgtLang),
@@ -291,26 +338,74 @@ export function useAioPipelineExecution(
         concurrency: args.effectiveBatchConcurrency,
       });
 
-      const results = await runAioBatch({
-        items: executionImages,
-        concurrency: args.effectiveBatchConcurrency,
-        controller: executionController,
-        worker: async ({ item, index }) => {
-          try {
-            return await processImage(item, index, options);
-          } catch (error: unknown) {
-            const stage =
-              useAioPipelineStore.getState().aioExecutionStatus?.stageKey;
+      let results: AioBatchImageResult[];
+      if (prepared.useLocalBatchPipeline) {
+        const localOptions: LocalAioBatchOptions = {
+          sourceLanguage: options.sourceLanguage,
+          targetLanguage: options.targetLanguage,
+          detectModelKey: options.detectSelectionKey,
+          ocrModelKey: options.ocrSelectionKey,
+          translationModelKey: options.translationSelectionKey,
+          segmentModelKey: options.segmentSelectionKey,
+          cleanModelKey: options.cleanSelectionKey,
+          aioSteps: options.aioSteps,
+          llmSettings: options.llmSettings,
+          maskDilation: options.maskDilation,
+          hdStrategy: options.hdStrategy,
+          hdResizeLimit: options.hdResizeLimit,
+          hdCropMargin: options.hdCropMargin,
+          hdCropTriggerSize: options.hdCropTriggerSize,
+          gpuStages: options.gpuStages,
+          renderDefaultStyle: args.renderDefaultStyle,
+          applyDetectedGradientToStyle,
+          minRegionSize: MIN_REGION_SIZE,
+          maxAreaRatio: 0.75,
+          parseApiError,
+        };
 
-            lastStage =
-              AIO_MANUAL_STAGE_ORDER.find(
-                (candidate) => candidate === stage,
-              ) ?? null;
+        const localRun = await runLocalAioBatchChunks({
+          localApiUrl: args.localApiUrl,
+          images: executionImages,
+          options: localOptions,
+          capacity: prepared.batchCapacity,
+          signal: executionController.signal,
+          onProgress: (completed, total) => {
+            useUiShellStore
+              .getState()
+              .setProgress(Math.round((completed / total) * 100));
+          },
+          onChunkState: (chunkNumber, chunkCount, currentName) => {
+            useStatusStore
+              .getState()
+              .setStatusMessage(
+                `AIO batch ${chunkNumber}/${chunkCount} · ${currentName}`,
+              );
+          },
+        });
+        results = localRun.results;
+      } else {
+        results = await runAioBatch({
+          items: executionImages,
+          concurrency: args.effectiveBatchConcurrency,
+          controller: executionController,
+          worker: async ({ item, index }) => {
+            try {
+              return await processImage(item, index, options);
+            } catch (error: unknown) {
+              const stage =
+                useAioPipelineStore.getState().aioExecutionStatus?.stageKey;
 
-            throw error;
-          }
-        },
-      });
+              lastStage =
+                AIO_MANUAL_STAGE_ORDER.find(
+                  (candidate) => candidate === stage,
+                ) ?? null;
+
+              throw error;
+            }
+          },
+          onItemError: (error, item) => buildFailedBatchResult(item, error),
+        });
+      }
 
       throwIfAioAborted(executionController.signal);
 

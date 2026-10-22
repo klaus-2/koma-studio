@@ -10,6 +10,14 @@ import type {
   AioStageOption,
   LocalModelEntries,
 } from '@/models/aioStageCatalog';
+import { getTranslationModelById } from '@/models/translation-models-registry';
+import type { ModelInstallState } from '@/models/types';
+
+const DOWNLOAD_ONLY_IDS = [
+  'nllb-200-600m-int8',
+  'nllb-200-1.3b',
+  'nllb-200-1.3b-int8-ct2',
+] as const;
 
 function createOption(
   overrides: Partial<AioStageOption> = {},
@@ -177,5 +185,70 @@ describe('buildAioStageCatalog', () => {
         (candidate) => candidate.key === 'manga_ocr',
       )?.languages,
     ).toEqual(['ja']);
+  });
+});
+
+describe('download-only translation entries', () => {
+  it('keeps them in the catalog as disabled options with the reason', () => {
+    const catalog = buildAioStageCatalog({ sourceLanguage: 'ja' });
+
+    for (const modelId of DOWNLOAD_ONLY_IDS) {
+      const option = catalog.getTranslations.find(
+        (candidate) => candidate.key === modelId,
+      );
+
+      expect(option).toBeDefined();
+      expect(option?.implemented).toBe(false);
+      expect(option?.available).toBe(false);
+      expect(option?.use_case).toContain('Download only');
+    }
+  });
+
+  it('never makes them selectable, even with an installed record', () => {
+    const installedEntry = (modelId: string): ModelInstallState => {
+      const model = getTranslationModelById(modelId);
+      if (!model) {
+        throw new Error(`Unknown test model: ${modelId}`);
+      }
+
+      return {
+        model,
+        status: 'installed',
+        installedVersion: model.version,
+        availableVersion: model.version,
+        installedAt: null,
+        checksumSHA256: null,
+        updateAvailable: false,
+        error: null,
+        errorCode: null,
+        progress: null,
+        incomplete: false,
+      };
+    };
+    const entries: Record<string, ModelInstallState> = {
+      'nllb-200-600m-int8': installedEntry('nllb-200-600m-int8'),
+      'nllb-200-1.3b-int8-ct2': installedEntry('nllb-200-1.3b-int8-ct2'),
+    };
+    const catalog = buildAioStageCatalog({
+      sourceLanguage: 'ja',
+      localModelEntries: entries,
+    });
+
+    for (const modelId of DOWNLOAD_ONLY_IDS) {
+      const option = catalog.getTranslations.find(
+        (candidate) => candidate.key === modelId,
+      );
+      expect(isStageOptionSelectable(option, entries)).toBe(false);
+    }
+  });
+
+  it('keeps the default translation model selectable', () => {
+    const catalog = buildAioStageCatalog({ sourceLanguage: 'ja' });
+    const option = catalog.getTranslations.find(
+      (candidate) => candidate.key === 'google_translate',
+    );
+
+    expect(option?.implemented).toBe(true);
+    expect(isStageOptionSelectable(option, {})).toBe(true);
   });
 });

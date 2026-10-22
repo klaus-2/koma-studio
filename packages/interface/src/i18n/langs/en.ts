@@ -688,6 +688,8 @@ export const enMessages = {
   'dashboard.status.preset.applied': 'Active preset "{name}" applied for {lang}.',
   'dashboard.status.preset.appliedPartial':
     'Active preset "{name}" partially applied. Unavailable stages: {stages}.',
+  'dashboard.status.preset.downloadOnlyRepaired':
+    'Preset "{name}" uses a download-only translation model. Switched to {model}.',
   'dashboard.status.preset.cleared': 'Active preset cleared for {lang}.',
   'dashboard.status.preset.deleted': 'Preset "{name}" deleted.',
   'dashboard.status.preset.created': 'Preset "{name}" created and set as active.',
@@ -2154,6 +2156,7 @@ export const enMessages = {
   'modelCard.action.retry': 'Retry',
   'modelCard.action.active': 'Active',
   'modelCard.action.use': 'Use',
+  'modelCard.badge.downloadOnly': 'Download only — no local runtime yet',
   'modelManager.stage.translate': 'Get Translations',
   'modelManager.installAll.attention': 'Attention',
   'modelManager.installAll.warning':

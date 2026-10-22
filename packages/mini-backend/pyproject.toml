@@ -2,8 +2,11 @@
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# The default suite is offline; slow tests download real model weights.
+addopts = "-m 'not slow'"
 markers = [
     "integration: integration without external desktop applications",
+    "slow: downloads real model weights; excluded from the default suite",
 ]
 
 [tool.pyright]

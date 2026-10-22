@@ -23,6 +23,10 @@ from pipelines.batch.records import (
     normalize_bbox,
     safe_output_filename,
 )
+from pipelines.batch.progress import (
+    NULL_BATCH_PROGRESS,
+    BatchProgressSink,
+)
 from pipelines.batch.stages import CleanSettings, LLMRequestSettings, StageOutput
 from pipelines.queue_processor import QueueProcessor
 from schemas.pipeline_batch import (
@@ -40,9 +44,10 @@ type StagePayload = dict[str, object]
 
 type GpuStageRun[T] = Callable[[bool], Awaitable[T]]
 
-# Per-image, per-phase budget. A dense page can need 50+ ONNX calls
-# (17 regions × 3 OCR fallback passes), so this must stay generous.
-PER_IMAGE_TIMEOUT_SECONDS = 600.0
+# Per-image, per-phase budget. Derived from the measured 57.6 s for 2 OCR
+# regions (~28.8 s/region): a dense ~40-region page extrapolates to ~1150 s.
+# 1200 s is an extrapolation, not a measured dense-page timing.
+PER_IMAGE_TIMEOUT_SECONDS = 1200.0
 _NEIGHBOR_MAX_ITEMS = 8
 _NEIGHBOR_MAX_CHARS = 800
 
@@ -84,6 +89,8 @@ class BatchRunConfig:
     segment_model_key: str | None
     clean: CleanSettings
     gpu: GpuFlags
+    batch_id: str = ""
+    requested_concurrency: int | None = None
 
     @property
     def selected_stage_count(self) -> int:
@@ -123,7 +130,7 @@ class _ImageState:
     translation_payload: StagePayload | None = None
     segment_payload: StagePayload | None = None
     clean_payload: StagePayload | None = None
-    fell_back_stages: set[StageName] = field(default_factory=set)
+    fell_back_stages: dict[StageName, str] = field(default_factory=dict)
     cleaned: CleanedImage | None = None
 
     def fail(self, stage: StageName, message: str) -> None:
@@ -142,6 +149,15 @@ def resolve_item_status(successful: int, selected: int, has_errors: bool) -> Ite
     if successful == selected and not has_errors:
         return "success"
     return "failed" if successful == 0 else "partial"
+
+
+def _concurrency_note(requested: int, effective: int) -> str | None:
+    if requested == effective:
+        return None
+    return (
+        f"Requested {requested} concurrent images; the local backend runs at most "
+        f"{effective} at a time (batch cap and inference worker capacity)."
+    )
 
 
 def build_neighbor_image_translation_context(
@@ -210,13 +226,20 @@ def _mask_source_records(state: _ImageState) -> Sequence[Mapping[str, object]]:
 
 
 class BatchOrchestrator:
-    __slots__ = ("_cancellation", "_config", "_ocr_by_index", "_device")
+    __slots__ = ("_cancellation", "_config", "_ocr_by_index", "_device", "_progress")
 
-    def __init__(self, config: BatchRunConfig, cancellation_event: asyncio.Event) -> None:
+    def __init__(
+        self,
+        config: BatchRunConfig,
+        cancellation_event: asyncio.Event,
+        *,
+        progress: BatchProgressSink | None = None,
+    ) -> None:
         self._config = config
         self._cancellation = cancellation_event
         self._ocr_by_index: dict[int, list[OCRRecord]] = {}
         self._device = get_device_info()
+        self._progress = progress if progress is not None else NULL_BATCH_PROGRESS
 
     async def run(self, tasks: Sequence[BatchImageTask]) -> BatchOutcome:
         states = [_ImageState(task=task) for task in tasks]
@@ -236,14 +259,30 @@ class BatchOrchestrator:
         else:
             await self._run_queue(states, self._single_pass)
 
+        if self._cancellation.is_set():
+            self._progress.cancel()
+        else:
+            self._progress.finish()
+
         results = [self._to_item_result(state) for state in states]
+        requested_concurrency = (
+            self._config.requested_concurrency
+            if self._config.requested_concurrency is not None
+            else self._config.concurrency
+        )
         report = BatchReport(
+            batch_id=self._config.batch_id,
             total_images=len(states),
             succeeded=sum(r.status == "success" for r in results),
             partial=sum(r.status == "partial" for r in results),
             failed=sum(r.status == "failed" for r in results),
             stages=self._config.stages,
             results=results,
+            requested_concurrency=requested_concurrency,
+            effective_concurrency=self._config.concurrency,
+            concurrency_note=_concurrency_note(
+                requested_concurrency, self._config.concurrency
+            ),
         )
         logger.info(
             "pipeline batch finished",
@@ -267,7 +306,11 @@ class BatchOrchestrator:
         handler: Callable[[_ImageState], Awaitable[None]],
     ) -> None:
         async def worker(state: _ImageState, _position: int) -> _ImageState:
-            await handler(state)
+            self._progress.item_started(state.task.index, state.task.filename)
+            try:
+                await handler(state)
+            finally:
+                self._progress.item_finished(state.task.index, self._item_status(state))
             return state
 
         processor: QueueProcessor[_ImageState, _ImageState] = QueueProcessor(
@@ -297,8 +340,8 @@ class BatchOrchestrator:
         """Run a GPU stage with the shared single GPU-OOM → CPU retry.
 
         Batch has no HTTP header channel: a fallback is reported by setting
-        ``fell_back_to_cpu`` on the stage payload and emitting the batch-scoped
-        ``batch.gpu_oom_fallback`` event."""
+        ``fell_back_to_cpu`` plus ``fallback_reason`` on the stage payload and
+        emitting the batch-scoped ``batch.gpu_oom_fallback`` event."""
         execution = await run_with_cpu_fallback(
             lambda _device, stage_use_gpu: run(stage_use_gpu),
             device=self._device,
@@ -306,12 +349,19 @@ class BatchOrchestrator:
             stage=stage,
         )
         if execution.fell_back_to_cpu:
-            state.fell_back_stages.add(stage)
+            state.fell_back_stages[stage] = "gpu_oom_to_cpu"
             logger.warning(
                 "batch.gpu_oom_fallback",
                 extra={"stage": stage, "image_index": state.task.index},
             )
         return execution
+
+    def _item_status(self, state: _ImageState) -> ItemStatus:
+        return resolve_item_status(
+            state.successful_stages,
+            self._config.selected_stage_count,
+            bool(state.errors),
+        )
 
     async def _single_pass(self, state: _ImageState) -> None:
         await self._phase_one(state)
@@ -373,6 +423,8 @@ class BatchOrchestrator:
 
                     execution = await self._run_gpu_stage(state, "ocr", cfg.gpu.ocr, run_ocr)
                     out = execution.result
+                    if out.fallback_reason is not None:
+                        state.fell_back_stages["ocr"] = out.fallback_reason
                     state.ocr = out.regions
                     state.ocr_payload = {
                         "regions_count": len(out.regions),
@@ -459,7 +511,11 @@ class BatchOrchestrator:
             "model_used": out.model_used,
             "image_width": width,
             "image_height": height,
-            "regions": out.regions,
+            # The key is always present: null when the engine produced no mask.
+            "regions": [
+                {**record, "mask_base64": record.get("mask_base64")}
+                for record in out.regions
+            ],
         }
         state.successful_stages += 1
 
@@ -511,18 +567,21 @@ class BatchOrchestrator:
         def with_fallback(
             stage: StageName, payload: StagePayload | None
         ) -> StagePayload | None:
-            if payload is None or stage not in state.fell_back_stages:
+            if payload is None:
+                return None
+            reason = state.fell_back_stages.get(stage)
+            if reason is None:
                 return payload
-            return {**payload, "fell_back_to_cpu": True}
+            return {
+                **payload,
+                "fell_back_to_cpu": True,
+                "fallback_reason": reason,
+            }
 
         return BatchItemResult(
             index=state.task.index,
             filename=state.task.filename,
-            status=resolve_item_status(
-                state.successful_stages,
-                self._config.selected_stage_count,
-                bool(state.errors),
-            ),
+            status=self._item_status(state),
             detect=with_fallback("detect", state.detect_payload),
             ocr=with_fallback("ocr", state.ocr_payload),
             translation=state.translation_payload,

@@ -56,6 +56,34 @@ _LOCAL_TRANSLATION_MODELS: dict[str, dict[str, Any]] = {
         "files": ["Hunyuan-MT-7B-q4_k_m.gguf"],
         "kind": "gguf",
     },
+    # The transformers runtime loads every file from the model directory, so
+    # the SentencePiece vocabs and both spm files are required, not optional.
+    "opus-mt-ja-en": {
+        "repo": "Helsinki-NLP/opus-mt-ja-en",
+        "files": [
+            "config.json",
+            "generation_config.json",
+            "pytorch_model.bin",
+            "source.spm",
+            "target.spm",
+            "tokenizer_config.json",
+            "vocab.json",
+        ],
+        "kind": "transformers",
+    },
+    "opus-mt-zh-en": {
+        "repo": "Helsinki-NLP/opus-mt-zh-en",
+        "files": [
+            "config.json",
+            "generation_config.json",
+            "pytorch_model.bin",
+            "source.spm",
+            "target.spm",
+            "tokenizer_config.json",
+            "vocab.json",
+        ],
+        "kind": "transformers",
+    },
     # A sharded checkpoint: the weights live in three shards plus an index, so
     # a single "pytorch_model.bin" URL can never describe it.
     "nllb-200-3.3b": {
@@ -92,10 +120,18 @@ def resolve_local_translation_model_dir(model_id: str) -> Path | None:
 
 
 def local_translation_runtime_ready(model_id: str) -> bool:
-    model_dir = resolve_local_translation_model_dir(model_id)
+    """True only when every managed file exists.
+
+    A key without a managed file set (the direct-download catalog entries) is
+    never ready, and a partial directory is never ready either.
+    """
+    normalized = (model_id or "").strip().lower()
+    source = _LOCAL_TRANSLATION_MODELS.get(normalized)
+    if source is None:
+        return False
+    model_dir = resolve_local_translation_model_dir(normalized)
     if model_dir is None:
         return False
-    source = _get_translation_model_source(model_id)
     return all((model_dir / path).exists() for path in source["files"])
 
 

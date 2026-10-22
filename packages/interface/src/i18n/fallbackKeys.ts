@@ -321,6 +321,7 @@ export const fallbackDefaultMessages: Record<string, string> = Object.freeze({
   "aioModel.status.selectValidOcr": "aioModel.status.selectValidOcr",
   "aioModel.status.selectAvailableForStage": "aioModel.status.selectAvailableForStage",
   "dashboard.aio.manualStageSkipped": "dashboard.aio.manualStageSkipped",
+  "modelCard.badge.downloadOnly": "modelCard.badge.downloadOnly",
   "aio.singleImage.detectFailed": "aio.singleImage.detectFailed",
   "aio.singleImage.recognizeFailed": "aio.singleImage.recognizeFailed",
   "aio.singleImage.translateFailed": "aio.singleImage.translateFailed",
