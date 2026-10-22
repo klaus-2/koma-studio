@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -9,6 +8,7 @@ from typing import Final
 
 from core.hf_download import HFDownloadError, download_file, sha256_file
 from core.models_store import resolve_model_dir
+from models.manifests import load_manifest
 from models.ocr.common import (
     ChecksumMismatchError,
     InstalledFilePayload,
@@ -36,16 +36,8 @@ _HF_MIRROR_BASE: Final = "https://huggingface.co/pitapo/rapidocr/resolve/main"
 _MIRROR_BASES: Final = (_MODELSCOPE_BASE, _HF_MIRROR_BASE)
 _SHARED_DETECTOR_REPO: Final = "RapidAI/RapidOCR"
 
-# The generated manifest owns every path, size and digest. Regenerate with
-#   python packages/mini-backend/scripts/generate_model_asset_manifest.py
-_MANIFEST_PATH: Final = (
-    Path(__file__).resolve().parents[2] / "manifests" / "model-assets.json"
-)
-
-# On-disk file names are a RUNTIME contract (paddleocr/engine.py hardcodes
-# them), not an upstream fact: the English recogniser is published as
-# `en_PP-OCRv5_rec_mobile_infer.onnx` but the runtime loads
-# `en_PP-OCRv5_mobile_rec.onnx`.
+# The generated manifest owns every asset's path, size and digest. Regenerate
+# with python packages/mini-backend/scripts/generate_model_asset_manifest.py
 _DETECTOR_TARGET: Final = "ch_PP-OCRv5_mobile_det.onnx"
 _RECOGNIZER_TARGETS: Final[Mapping[str, str]] = {
     "paddleocr": "eslav_PP-OCRv5_rec_mobile_infer.onnx",
@@ -74,21 +66,10 @@ class RemoteAsset:
         return tuple(f"{base}/{self.path}" for base in _MIRROR_BASES)
 
 
-def _load_manifest() -> Mapping[str, object]:
-    try:
-        payload = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise ModelDownloadError(
-            "paddleocr manifest", [f"{_MANIFEST_PATH}: {exc}"]
-        ) from exc
-    models = payload.get("models")
+def _build_manifests() -> Mapping[str, tuple[RemoteAsset, ...]]:
+    models = load_manifest().get("models")
     if not isinstance(models, dict):
         raise ModelDownloadError("paddleocr manifest", ["no models section"])
-    return models
-
-
-def _build_manifests() -> Mapping[str, tuple[RemoteAsset, ...]]:
-    models = _load_manifest()
     manifests: dict[str, tuple[RemoteAsset, ...]] = {}
     for model_id, entry in models.items():
         if model_id not in _RECOGNIZER_TARGETS:

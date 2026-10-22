@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
-import time
+import shutil
+import zipfile
 from typing import Sequence
 
-from core.download_jobs import directory_download_progress
+from core.hf_download import download_file, progress_bridge_var
 from core.languages import normalize_language_code
+from models.manifests import model_entry
 
 
 _MODEL_ROOT_ENV = "KOMA_MODELS_ROOT"
 _EASYOCR_SUBDIR = "easyocr-cache"
-_EASYOCR_TEMP_ARCHIVE = "temp.zip"
-_EASYOCR_INSTALL_RETRY_ATTEMPTS = 3
 _EASYOCR_DETECTION_FILE = "craft_mlt_25k.pth"
 _EASYOCR_LANGUAGE_MAP: dict[str, str] = {
     "ko": "ko",
@@ -68,11 +68,11 @@ _EASYOCR_BUCKETS: dict[str, dict[str, object]] = {
     },
     "th": {
         "languages": {"th"},
-        "recognition_file": "thai_g1.pth",
+        "recognition_file": "thai.pth",
     },
     "ar": {
         "languages": {"ar"},
-        "recognition_file": "arabic_g1.pth",
+        "recognition_file": "arabic.pth",
     },
 }
 
@@ -177,43 +177,63 @@ def _required_files_for_language(language: str) -> tuple[str, str]:
     return _EASYOCR_DETECTION_FILE, _resolve_recognition_file(language)
 
 
+def _easyocr_manifest_assets(language: str) -> list[dict[str, object]]:
+    """Manifest entries for the detection and recognition assets of a language.
+
+    The manifest owns the sizes and digests; the installed easyocr package owns
+    the URLs and the file names, so neither side duplicates the other.
+    """
+    entry = model_entry("easyocr")
+    if entry is None:
+        raise RuntimeError("The model asset manifest does not describe easyocr.")
+    detection = entry.get("detection")
+    languages = entry.get("languages")
+    if not isinstance(detection, dict) or not isinstance(languages, dict):
+        raise RuntimeError("The model asset manifest is missing the easyocr assets.")
+    recognition = languages.get(_resolve_recognition_file(language))
+    if not isinstance(recognition, dict):
+        raise RuntimeError(
+            f"The model asset manifest does not describe the easyocr assets for {language!r}."
+        )
+    return [detection, recognition]
+
+
+def _install_easyocr_asset(asset: dict[str, object], storage_dir: Path) -> None:
+    """Download one EasyOCR release archive and extract the model file.
+
+    EasyOCR's own downloader has no progress hooks and cannot be cancelled, so
+    the archive is fetched here — with resume, a size check and a digest check
+    — and the model file is extracted from it.
+    """
+    target = storage_dir / str(asset["target"])
+    if target.is_file():
+        return
+
+    archive = storage_dir / f"{target.name}.zip"
+    download_file(
+        str(asset["url"]),
+        archive,
+        max_retries=3,
+        expected_size=int(asset["size"]),
+        expected_sha256=str(asset["sha256"]) or None,
+    )
+    try:
+        with zipfile.ZipFile(archive) as bundle:
+            member = next(
+                name for name in bundle.namelist()
+                if name.rsplit("/", 1)[-1] == target.name
+            )
+            with bundle.open(member) as source, target.open("wb") as sink:
+                shutil.copyfileobj(source, sink)
+    finally:
+        archive.unlink(missing_ok=True)
+
+
 def _storage_dir_ready(storage_dir: Path | None, language: str) -> bool:
     if storage_dir is None or not storage_dir.exists():
         return False
     required_files = _required_files_for_language(language)
     return all((storage_dir / file_name).is_file() for file_name in required_files)
-
-
-def _cleanup_partial_easyocr_downloads(storage_dir: Path) -> None:
-    temp_archive = storage_dir / _EASYOCR_TEMP_ARCHIVE
-    if temp_archive.exists():
-        try:
-            temp_archive.unlink()
-        except OSError:
-            pass
-
-
-def _install_easyocr_language_with_retry(
-    easyocr_module: object,
-    language: str,
-    reader_kwargs: dict[str, object],
-) -> None:
-    storage_dir = Path(str(reader_kwargs["model_storage_directory"]))
-    last_error: Exception | None = None
-
-    for attempt in range(1, _EASYOCR_INSTALL_RETRY_ATTEMPTS + 1):
-        try:
-            getattr(easyocr_module, "Reader")([language], **reader_kwargs)
-            return
-        except Exception as exc:
-            last_error = exc
-            _cleanup_partial_easyocr_downloads(storage_dir)
-            if attempt >= _EASYOCR_INSTALL_RETRY_ATTEMPTS:
-                break
-            time.sleep(min(2.0, 0.5 * attempt))
-
-    if last_error is not None:
-        raise last_error
 
 
 def easyocr_runtime_ready(languages: Sequence[str] | None = None) -> bool:
@@ -248,17 +268,21 @@ def ensure_easyocr_models_installed(
             raise RuntimeError("EasyOCR storage directory is unavailable.")
 
         if not _storage_dir_ready(storage_dir, language):
-            reader_kwargs: dict[str, object] = {
-                "gpu": use_gpu,
-                "model_storage_directory": str(storage_dir),
-                "download_enabled": True,
-                "verbose": False,
-            }
-            # EasyOCR downloads with the library's internal downloader
-            # (no progress hooks): sample the real bytes written to the
-            # directory.
-            with directory_download_progress(Path(storage_dir)):
-                _install_easyocr_language_with_retry(easyocr, language, reader_kwargs)
+            assets = _easyocr_manifest_assets(language)
+            bridge = progress_bridge_var.get()
+            if bridge is not None:
+                bridge.declare_total(sum(int(asset["size"]) for asset in assets))
+            for asset in assets:
+                _install_easyocr_asset(asset, storage_dir)
+
+        reader_kwargs: dict[str, object] = {
+            "gpu": use_gpu,
+            "model_storage_directory": str(storage_dir),
+            # The assets are already on disk, verified and size-checked.
+            "download_enabled": False,
+            "verbose": False,
+        }
+        easyocr.Reader([language], **reader_kwargs)
 
         if _storage_dir_ready(storage_dir, language):
             installed_languages.append(language)

@@ -8,7 +8,6 @@ core.hf_download never receive callbacks (see DownloadProgressBridge).
 
 from __future__ import annotations
 
-import contextlib
 import errno
 import logging
 import queue
@@ -17,11 +16,10 @@ import threading
 import time
 import uuid
 from collections import deque
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from http.client import HTTPException
-from pathlib import Path
 from typing import NotRequired, TypedDict
 
 from core.hf_download import (
@@ -84,7 +82,6 @@ SPEED_SAMPLE_CAP = 1024
 DISK_CHECK_SLACK_RATIO = 0.10
 DISK_CHECK_SLACK_FLOOR_BYTES = 64 * 1024 * 1024
 FINISHED_JOB_HISTORY = 20
-_DIRECTORY_SAMPLE_INTERVAL_SECONDS = 0.5
 
 type InstallerExtras = Mapping[str, object]
 type InstallerResult = dict[str, object]
@@ -393,57 +390,6 @@ class JobProgressBridge:
     def raise_if_cancelled(self) -> None:
         if self._job.cancel_event.is_set():
             raise DownloadCancelled()
-
-
-def _dir_size(path: Path) -> int:
-    total = 0
-    for current, _dirs, files in path.walk():
-        for name in files:
-            try:
-                total += (current / name).stat().st_size
-            except OSError:
-                continue
-    return total
-
-
-@contextlib.contextmanager
-def directory_download_progress(directory: Path) -> Iterator[None]:
-    """Report REAL bytes written to *directory* by the active job's bridge.
-
-    For installers with opaque third-party downloaders (EasyOCR). Bytes and
-    speed are real; the total is unknown, so percent stays at 0 until
-    completion — honest, no synthetic bar.
-    """
-    bridge = progress_bridge_var.get()
-    if bridge is None:
-        yield
-        return
-
-    key = f"dir:{directory}"
-    stop = threading.Event()
-
-    def sample() -> None:
-        previous = _dir_size(directory)
-        while not stop.wait(_DIRECTORY_SAMPLE_INTERVAL_SECONDS):
-            if bridge is not None:
-                try:
-                    bridge.raise_if_cancelled()
-                except DownloadCancelled:
-                    return
-            current = _dir_size(directory)
-            delta = current - previous
-            if delta > 0:
-                bridge.report_download(key, delta)
-                previous = current
-
-    sampler = threading.Thread(target=sample, name="dir-progress-sampler", daemon=True)
-    sampler.start()
-    try:
-        yield
-    finally:
-        stop.set()
-        # Ensure no sample lands after the caller has moved on to verification.
-        sampler.join(timeout=_DIRECTORY_SAMPLE_INTERVAL_SECONDS * 2)
 
 
 class JobManager:

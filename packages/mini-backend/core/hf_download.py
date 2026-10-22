@@ -16,7 +16,7 @@ import time
 from collections.abc import Sequence
 from http.client import HTTPException, HTTPResponse
 from pathlib import Path
-from typing import Literal, NamedTuple, Protocol, TypedDict, cast
+from typing import Literal, Protocol, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -410,13 +410,13 @@ def download_file(
     target_path: Path,
     max_retries: int = 5,
     expected_size: int | None = None,
+    expected_sha256: str | None = None,
 ) -> None:
     """Download with resume support; the ``.part`` file survives retries,
     cancellation and even the final failure so a later job continues from it.
 
-    ``expected_size`` is the declared size of the asset. When the host
-    discloses a different size the file is rejected instead of being silently
-    resized, so a stale declaration fails loudly.
+    ``expected_size`` and ``expected_sha256`` are the declared facts about the
+    asset. A mismatch is rejected instead of being silently resized.
     """
     temp_path = target_path.with_suffix(f"{target_path.suffix}.part")
     target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -472,6 +472,17 @@ def download_file(
             f"Size mismatch for '{target_path.name}'. "
             f"Expected: {expected_size} | Got: {total_size}"
         )
+
+    if expected_sha256:
+        digest = sha256_file(temp_path).lower()
+        if digest != expected_sha256.lower():
+            temp_path.unlink(missing_ok=True)
+            raise ChecksumMismatchError(
+                f"Invalid SHA256 checksum for '{target_path.name}'. "
+                f"Expected: {expected_sha256} | Got: {digest}",
+                expected=expected_sha256,
+                got=digest,
+            )
 
     temp_path.replace(target_path)
 

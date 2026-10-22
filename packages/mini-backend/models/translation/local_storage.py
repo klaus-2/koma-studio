@@ -56,6 +56,24 @@ _LOCAL_TRANSLATION_MODELS: dict[str, dict[str, Any]] = {
         "files": ["Hunyuan-MT-7B-q4_k_m.gguf"],
         "kind": "gguf",
     },
+    # A sharded checkpoint: the weights live in three shards plus an index, so
+    # a single "pytorch_model.bin" URL can never describe it.
+    "nllb-200-3.3b": {
+        "repo": "facebook/nllb-200-3.3B",
+        "files": [
+            "config.json",
+            "generation_config.json",
+            "pytorch_model-00001-of-00003.bin",
+            "pytorch_model-00002-of-00003.bin",
+            "pytorch_model-00003-of-00003.bin",
+            "pytorch_model.bin.index.json",
+            "sentencepiece.bpe.model",
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ],
+        "kind": "transformers",
+    },
 }
 
 
