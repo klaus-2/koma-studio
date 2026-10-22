@@ -111,5 +111,8 @@ desktop.ini
 *.sw?
 .zcode-e2e/
 react-doctor-*.json
-/apps/tauri/tests
+# Playwright probe output, not the specs: the e2e specs are source, the
+# artifacts they produce are not.
+/apps/tauri/tests/e2e/.artifacts/
+/apps/tauri/tests/e2e/probe-out/
 /.sisyphus

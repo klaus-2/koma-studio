@@ -54,6 +54,7 @@
     "audit:deps": "depcruise interface src-tauri --config .dependency-cruiser.cjs",
     "mini:venv": "node scripts/mini-venv.mjs",
     "mini:install-deps": "node scripts/mini-venv.mjs --install",
+    "mini:repair": "node scripts/mini-venv.mjs --recreate",
     "mini:ensure": "node scripts/mini-venv.mjs --ensure",
     "mini:check": "node scripts/mini-venv.mjs --check",
     "harden:mini": "bun run mini:install-deps && node scripts/run-mini-python.mjs scripts/harden-mini-backend.py",

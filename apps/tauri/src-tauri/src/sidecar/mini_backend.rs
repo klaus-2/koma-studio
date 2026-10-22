@@ -841,7 +841,8 @@ fn resolve_dev_python_runtime(profile: &str, cwd: &Path) -> (PathBuf, Vec<String
             if !mini_venv_provisioning(&candidate) && !mini_venv_can_serve(&candidate) {
                 log::warn!(
                     "mini-backend: {} exists but cannot run `{}`; the sidecar will likely \
-                     fail to start. Run `bun run mini:install-deps` to repair it.",
+                     fail to start. Rebuild it with `bun run mini:repair` \
+                     (`bun run mini:install-deps` also repairs it, but keeps the venv).",
                     candidate.display(),
                     REQUIRED_SIDECAR_MODULES
                 );

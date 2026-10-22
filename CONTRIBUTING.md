@@ -32,6 +32,10 @@ cd apps/tauri && bun run mini:install-deps && cd ../..   # Python sidecar (sever
 bun run dev:tauri                    # or dev:electron / dev:landing / dev:auth
 ```
 
+If the sidecar venv was left half-installed (a cancelled install), rebuild it:
+`cd apps/tauri && bun run mini:repair && cd ../..`. The dev gate does this
+automatically when it finds the venv provably unusable.
+
 **Never use `npm`, `yarn` or `pnpm`.** Only `bun.lock` is committed; the other
 lockfiles are git-ignored and a PR that adds one will be rejected.
 

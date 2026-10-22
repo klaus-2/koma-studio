@@ -8,6 +8,8 @@
  *   node scripts/mini-venv.mjs --ensure       # no-op when already provisioned (auto-bootstrap)
  *   node scripts/mini-venv.mjs --check        # exit 0 = ready, 1 = needs provisioning,
  *                                             # 4 = provably unusable (what tauri:dev blocks on)
+ *   node scripts/mini-venv.mjs --recreate     # rebuild the venv from scratch (the repair for
+ *                                             # a half-installed venv, which a reinstall cannot fix)
  *   node scripts/mini-venv.mjs --install --profile nvidia-cuda
  *
  * Hardware profiles: `--profile <id>` (or $KOMA_BUILD_PROFILE) selects which
@@ -71,6 +73,7 @@ const QUERY_TIMEOUT_MS = 120_000;
 const withInstall = process.argv.includes("--install");
 const withEnsure = process.argv.includes("--ensure");
 const withCheck = process.argv.includes("--check");
+const withRecreate = process.argv.includes("--recreate");
 
 /**
  * Read `--profile <id>`. The value may also arrive as $KOMA_BUILD_PROFILE,
@@ -322,6 +325,11 @@ const probe = (command, args) => {
 };
 
 const directoryBytes = (directory) => {
+  // A missing directory is zero bytes: a rebuild may be asked for a venv that
+  // was never created, and that is not an error.
+  if (!fs.existsSync(directory)) {
+    return 0;
+  }
   let total = 0;
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const entryPath = path.join(directory, entry.name);
@@ -380,9 +388,21 @@ if (withCheck) {
 
 // `--ensure` is the auto-bootstrap entry point: do nothing when the cached
 // fingerprint still matches, otherwise fall through to a full install.
+let recreateReason = withRecreate ? "a rebuild was requested" : null;
 if (withEnsure && readiness.ready) {
-  console.log(`✓ mini-backend venv already provisioned (${readiness.reason}) — skipping install`);
-  process.exit(0);
+  // A half-installed venv still carries the install stamp, so the stamp alone
+  // cannot tell a good venv from a broken one — the import query can, and it
+  // is the same query `--check` uses.
+  const query = queryVenv(venvPython);
+  if (query.ok) {
+    console.log(`✓ mini-backend venv already provisioned (${readiness.reason}) — skipping install`);
+    process.exit(0);
+  }
+  console.log(
+    `▸ mini-backend venv is provisioned but its own interpreter fails the import query ` +
+    `(${query.stderrTail}) — rebuilding it`,
+  );
+  recreateReason = "the venv failed its own import query";
 }
 
 if (withEnsure) {
@@ -489,11 +509,44 @@ const provisionAndVerify = () => {
   });
 };
 
-if (withInstall || withEnsure) {
-  console.log(
-    `▸ installing mini-backend requirements for profile "${activeProfile}" ` +
-    `from mini-backend/${resolvedRequirements.relativePath} (first run downloads several GB)`,
-  );
+/**
+ * Rebuild the venv from scratch.
+ *
+ * A half-installed distribution cannot be repaired by reinstalling the
+ * requirements: pip sees its `dist-info` on disk and reports it as already
+ * satisfied, so the files that never landed stay missing. Deleting the venv is
+ * the only way back to a known-good state.
+ */
+const recreateVenv = (reason) => {
+  const create = createVenvCommand();
+  return runRecreateOnce({
+    venvDir,
+    allowedVenvDir: path.resolve(venvDir),
+    pythonPath: venvPython,
+    reason,
+    rmSync: fs.rmSync,
+    existsSync: fs.existsSync,
+    sizeOf: directoryBytes,
+    createCommand: create.command,
+    createArgs: create.args,
+    run: (command, args) => run(command, args, "venv recreate"),
+    install: provisionAndVerify,
+    log: console.log,
+  });
+};
+
+if (withInstall || withEnsure || withRecreate) {
+  if (recreateReason !== null) {
+    console.log(
+      `▸ rebuilding .venv-mini for profile "${activeProfile}" ` +
+      "(a half-installed venv cannot be repaired by reinstalling the requirements)",
+    );
+  } else {
+    console.log(
+      `▸ installing mini-backend requirements for profile "${activeProfile}" ` +
+      `from mini-backend/${resolvedRequirements.relativePath} (first run downloads several GB)`,
+    );
+  }
   process.on("exit", clearProvisioningLock);
   for (const signal of ["SIGINT", "SIGTERM"]) {
     process.on(signal, () => {
@@ -502,23 +555,11 @@ if (withInstall || withEnsure) {
     });
   }
 
-  let outcome = provisionAndVerify();
+  let outcome = recreateReason !== null ? recreateVenv(recreateReason) : provisionAndVerify();
   if (outcome.exitCode === EXIT_UNUSABLE) {
-    const create = createVenvCommand();
-    outcome = runRecreateOnce({
-      venvDir,
-      allowedVenvDir: path.resolve(venvDir),
-      pythonPath: venvPython,
-      reason: outcome.reason,
-      rmSync: fs.rmSync,
-      existsSync: fs.existsSync,
-      sizeOf: directoryBytes,
-      createCommand: create.command,
-      createArgs: create.args,
-      run: (command, args) => run(command, args, "venv recreate"),
-      install: provisionAndVerify,
-      log: console.log,
-    });
+    // A recreate never reports "unusable" (it already rebuilt and re-verified),
+    // so this rung is only reachable from the install path.
+    outcome = recreateVenv(outcome.reason);
   }
   if (outcome.exitCode !== 0) {
     console.error(`✖ mini-backend venv is not usable: ${outcome.reason}`);
