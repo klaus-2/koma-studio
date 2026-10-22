@@ -142,9 +142,21 @@ def _current_profile() -> str:
 
 
 def _switch_to_cpu_profile() -> None:
+    """Move the runtime to CPU and announce the downgrade.
+
+    The announcement is a cross-language contract: the desktop shell matches
+    this marker in the sidecar's stderr to raise its CPU-fallback banner
+    (FALLBACK_LOG_MARKERS in apps/tauri/src-tauri/src/sidecar/mini_backend.rs,
+    guarded by sidecar_fallback_markers_match_backend_log_strings). Announcing
+    from this single chokepoint keeps both downgrade paths — failed warmup and
+    unrecoverable native DLLs — on the same line.
+    """
+    previous = _current_profile()
     os.environ["MINI_BACKEND_ACCELERATION_PROFILE"] = "cpu"
     reset_device_runtime_cache()
     clear_detector_cache()
+    if previous != "cpu":
+        logger.warning("runtime.falling_back_to_cpu", extra={"from_profile": previous})
 
 
 def _ensure_profile_runtime(profile: str) -> str:

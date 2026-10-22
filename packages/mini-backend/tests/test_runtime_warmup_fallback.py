@@ -49,12 +49,20 @@ class RuntimeWarmupFallbackTests(unittest.IsolatedAsyncioTestCase):
                 patch.object(mini_app, "get_detector", side_effect=[detector_gpu, detector_cpu]),
                 patch.object(mini_app, "reset_device_runtime_cache") as reset_cache,
                 patch.object(mini_app, "clear_detector_cache") as clear_cache,
+                self.assertLogs("mini-backend", level="WARNING") as captured,
             ):
                 await mini_app.warmup_text_detection_model()
 
             self.assertEqual(os.environ["MINI_BACKEND_ACCELERATION_PROFILE"], "cpu")
             reset_cache.assert_called_once()
             clear_cache.assert_called_once()
+            # The desktop shell raises its CPU-fallback banner by matching this
+            # marker in the sidecar's stderr; the Rust side pins the other half
+            # of the contract in sidecar_fallback_markers_match_backend_log_strings.
+            self.assertTrue(
+                any("runtime.falling_back_to_cpu" in line for line in captured.output),
+                "the downgrade marker the desktop shell watches for was not logged",
+            )
 
 
 if __name__ == "__main__":

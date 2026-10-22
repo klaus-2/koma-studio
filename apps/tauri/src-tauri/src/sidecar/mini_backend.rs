@@ -48,13 +48,11 @@ const PROVISIONING_POLL_INTERVAL: Duration = Duration::from_secs(2);
 /// feature. Keep in sync with the imports at the top of `app.py`.
 const REQUIRED_SIDECAR_MODULES: &str = "import uvicorn, fastapi, PIL";
 
-/// Log fragments the mini-backend prints when it downgrades a GPU profile to
-/// CPU. Kept verbatim from `mini-backend/app.py`'s `warmup_text_detection_model`
-/// so the desktop UI can surface the downgrade.
-const FALLBACK_LOG_MARKERS: [&str; 2] = [
-    "Falling back to CPU automatically.",
-    "Detector warmup successfully redone on CPU",
-];
+/// Log fragment the mini-backend prints when it downgrades a GPU profile to
+/// CPU. Emitted by `_switch_to_cpu_profile` in `mini-backend/app.py`, the one
+/// place that performs the downgrade (failed warmup or unrecoverable DLLs), so
+/// the desktop UI can surface it.
+const FALLBACK_LOG_MARKERS: [&str; 1] = ["runtime.falling_back_to_cpu"];
 
 /// True once the venv can actually run the sidecar, regardless of whether the
 /// bootstrap script is still installing optional packages.
