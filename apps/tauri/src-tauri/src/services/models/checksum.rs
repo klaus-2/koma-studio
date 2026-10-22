@@ -127,6 +127,34 @@ pub fn normalize_checksum(value: &str) -> AppResult<String> {
     Ok(normalized)
 }
 
+/// Hosts that may serve a model asset.
+///
+/// The registry points at the upstream that actually hosts each file:
+/// HuggingFace for the HF-hosted models, ModelScope for the PaddleOCR ONNX
+/// bundles, and GitHub releases for the EasyOCR and comic-text-detector
+/// weights. A host outside this list is refused, so a tampered frontend
+/// cannot point the desktop at an arbitrary server.
+const ALLOWED_MODEL_DOWNLOAD_HOSTS: &[&str] = &[
+    "huggingface.co",
+    "hf.co",
+    "modelscope.cn",
+    "github.com",
+    "githubusercontent.com",
+];
+
+/// True when *host* is one of the allowed hosts or a subdomain of one.
+///
+/// The comparison is on a domain boundary: "evil-huggingface.co" is not a
+/// subdomain of "huggingface.co" and is refused.
+fn is_allowed_model_download_host(host: &str) -> bool {
+    ALLOWED_MODEL_DOWNLOAD_HOSTS.iter().any(|suffix| {
+        host == *suffix
+            || host
+                .strip_suffix(suffix)
+                .is_some_and(|prefix| prefix.ends_with('.'))
+    })
+}
+
 pub fn validate_remote_download_url(value: &str) -> AppResult<Url> {
     let url = Url::parse(value.trim())?;
     let host = url
@@ -134,10 +162,7 @@ pub fn validate_remote_download_url(value: &str) -> AppResult<Url> {
         .ok_or_else(|| AppError::invalid_input("Model download URL has no host."))?
         .to_ascii_lowercase();
 
-    let allowed_host = host == "huggingface.co"
-        || host.ends_with(".huggingface.co")
-        || host == "hf.co"
-        || host.ends_with(".hf.co");
+    let allowed_host = is_allowed_model_download_host(&host);
 
     if url.scheme() != "https"
         || !allowed_host

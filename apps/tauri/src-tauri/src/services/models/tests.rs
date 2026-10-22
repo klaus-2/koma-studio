@@ -10,13 +10,79 @@ use crate::models::model_manager::{
     ModelManagerEvent,
 };
 
-use super::{checksum, storage, validate_model_id};
+use super::{checksum, normalize_download_payload, storage, validate_model_id};
+
+// The exact payload the frontend sends for "PaddleOCR v5 English (ONNX)".
+// It was refused with a security error — its download URL points at
+// ModelScope, which the allowlist did not know — so every install attempt
+// failed before a byte was fetched.
+#[test]
+fn paddleocr_payload_from_the_frontend_is_accepted() {
+    let payload = DesktopModelDownloadPayload {
+        id: "paddleocr_en_v5".to_string(),
+        name: "PaddleOCR v5 English (ONNX)".to_string(),
+        version: "1.1.0".to_string(),
+        download_url:
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/en_PP-OCRv5_rec_mobile_infer.onnx"
+                .to_string(),
+        checksum_sha256: "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8"
+            .to_string(),
+        expected_download_bytes: 12_687_770,
+        required_disk_bytes: 12_690_611,
+        source_language: None,
+        install_strategy: None,
+        runtime_family: None,
+        backend_install_endpoint: None,
+    };
+
+    let normalized = normalize_download_payload(payload)
+        .expect("the frontend payload must be accepted by the desktop shell");
+
+    assert_eq!(normalized.install_strategy.as_deref(), Some("backend_managed"));
+    assert_eq!(
+        normalized.backend_install_endpoint.as_deref(),
+        Some("/models/install")
+    );
+}
 
 #[test]
 fn model_id_normalizes_and_rejects_path_components() {
     assert_eq!(validate_model_id(" Manga_OCR ").unwrap(), "manga_ocr");
     assert!(validate_model_id("../evil").is_err());
     assert!(validate_model_id("").is_err());
+}
+
+// Every host the model registry points at must survive the download URL
+// allowlist, and nothing else may. A host that is not on the list is refused
+// with a security error, which used to make the PaddleOCR bundles (ModelScope)
+// and the comic-text-detector weights (GitHub releases) uninstallable.
+#[test]
+fn download_url_allows_every_host_the_registry_uses() {
+    for url in [
+        "https://huggingface.co/openai/whisper/resolve/main/model.bin",
+        "https://hf.co/openai/whisper/resolve/main/model.bin",
+        "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/en_PP-OCRv5_rec_mobile_infer.onnx",
+        "https://github.com/zyddnys/manga-image-translator/releases/download/beta-0.3/comictextdetector.pt.onnx",
+        "https://raw.githubusercontent.com/terrainer/AI-Upscaling-Models/main/4xSPANkendata/4xSPANkendata_fp32.onnx",
+    ] {
+        assert!(
+            checksum::validate_remote_download_url(url).is_ok(),
+            "{url} must be an allowed model source"
+        );
+    }
+
+    for url in [
+        "https://evil.example.com/model.bin",
+        "https://huggingface.co.evil.com/model.bin",
+        "https://notmodelscope.cn/model.bin",
+        "http://huggingface.co/model.bin",
+        "https://huggingface.co:8443/model.bin",
+    ] {
+        assert!(
+            checksum::validate_remote_download_url(url).is_err(),
+            "{url} must be refused"
+        );
+    }
 }
 
 // The TS contract (shared-models/desktop-api.ts) spells checksum fields

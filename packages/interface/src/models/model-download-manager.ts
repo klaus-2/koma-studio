@@ -186,7 +186,11 @@ export class ModelDownloadManager {
           }
         }
 
-        if (lastError && !this.queuedIds.has(nextModel.id)) {
+        if (lastError) {
+          // The download never started, so nothing will ever release this id
+          // through a bridge event. Leaving it queued makes every later
+          // enqueue for the same model a silent no-op: the button appears
+          // dead and nothing is reported.
           this.queuedIds.delete(nextModel.id);
         }
       }
