@@ -196,6 +196,7 @@ const buildProfileHardenedSource = ({
     writeMiniDepsMarker(profileVenvPath, depsMarkerHash);
   }
 
+  run(`"${python}" -m pip install --upgrade pip==26.2.2 --quiet`, `upgrade-pip:${profile}`);
   run(`"${python}" -m pip install cython pyarmor --quiet`, `install-hardening-deps:${profile}`);
 
   run(

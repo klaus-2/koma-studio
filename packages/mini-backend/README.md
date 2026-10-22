@@ -56,6 +56,7 @@ The shell picks automatically on first run (you can override with
 cd packages/mini-backend
 python -m venv .venv
 source .venv/bin/activate           # or .venv\Scripts\Activate.ps1 on Windows
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 python app.py                       # serves on http://127.0.0.1:8001
 ```

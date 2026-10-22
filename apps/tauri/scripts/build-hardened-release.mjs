@@ -204,6 +204,9 @@ const buildHardenedMiniBackend = (buildProfile) => {
   });
 
   const python = resolveMiniVenvPython();
+  run(`${quote(python)} -m pip install --upgrade pip==26.2.2 --quiet`, "pip upgrade", {
+    timeout: 600_000,
+  });
   run(`${quote(python)} -m pip install cython pyarmor --quiet`, "hardening dependencies", {
     timeout: 600_000,
   });

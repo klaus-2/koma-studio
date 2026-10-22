@@ -123,6 +123,7 @@ if (!skipMini) {
   run("bun run mini:install-deps", "mini:install-deps");
 
   // Install hardening dependencies
+  run(`"${python}" -m pip install --upgrade pip==26.2.2 --quiet`, "upgrade-pip");
   run(`"${python}" -m pip install cython pyarmor --quiet`, "install-hardening-deps");
 
   // Run hardening (creates mini-backend-hardened/)
