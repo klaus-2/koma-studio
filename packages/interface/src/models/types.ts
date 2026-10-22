@@ -104,9 +104,11 @@ export interface RemoteModelUpdateCheckResult {
 export interface ModelProgress {
   modelId: string;
   bytesDownloaded: number;
-  totalBytes: number;
+  /** Total bundle size; null when the backend cannot know it yet. */
+  totalBytes: number | null;
   speedBytesPerSecond: number;
-  percent: number;
+  /** null while the total is unknown — the UI renders an indeterminate state. */
+  percent: number | null;
   attempt: number;
 }
 
@@ -133,48 +135,7 @@ export type ModelDownloadErrorCode =
   | "cancelled"
   | "unknown";
 
-export type ModelManagerEvent =
-  | {
-      type: "queued";
-      modelId: string;
-      queueLength: number;
-    }
-  | {
-      type: "started";
-      modelId: string;
-      attempt: number;
-    }
-  | {
-      type: "progress";
-      modelId: string;
-      bytesDownloaded: number;
-      totalBytes: number;
-      speedBytesPerSecond: number;
-      percent: number;
-      attempt: number;
-    }
-  | {
-      type: "verifying";
-      modelId: string;
-    }
-  | {
-      type: "completed";
-      modelId: string;
-      version: string;
-      installedAt: string;
-    }
-  | {
-      type: "failed";
-      modelId: string;
-      message: string;
-      attempt: number;
-      willRetry: boolean;
-      code?: ModelDownloadErrorCode;
-    }
-  | {
-      type: "cancelled";
-      modelId: string;
-    };
+export type { ModelManagerEvent } from "@shared/desktop-events";
 
 export interface DesktopDownloadModelPayload {
   id: string;

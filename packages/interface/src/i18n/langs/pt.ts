@@ -2097,6 +2097,7 @@ export const ptMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': 'Disponíveis na nuvem',
   'modelManager.filters.needsSetup': 'Precisam de configuração',
   'modelManager.filters.roadmap': 'Roadmap',
+  'modelManager.progress.unknownTotal': 'Tamanho desconhecido',
   'modelManager.tooltip.speed.fast': 'Rápida',
   'modelManager.tooltip.speed.good': 'Boa',
   'modelManager.tooltip.speed.excellent': 'Excelente',

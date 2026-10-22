@@ -2108,6 +2108,7 @@ export const enMessages = {
   'modelManager.filters.availableCloud': 'Available in cloud',
   'modelManager.filters.needsSetup': 'Needs setup',
   'modelManager.filters.roadmap': 'Roadmap',
+  'modelManager.progress.unknownTotal': 'Size unknown',
   'modelManager.tooltip.speed.fast': 'Fast',
   'modelManager.tooltip.speed.good': 'Good',
   'modelManager.tooltip.speed.excellent': 'Excellent',

@@ -2121,6 +2121,7 @@ export const jaMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': 'クラウドで利用可能',
   'modelManager.filters.needsSetup': '設定が必要',
   'modelManager.filters.roadmap': 'ロードマップ',
+  'modelManager.progress.unknownTotal': 'サイズ不明',
   'modelManager.tooltip.speed.fast': '高速',
   'modelManager.tooltip.speed.good': '良好',
   'modelManager.tooltip.speed.excellent': '優秀',

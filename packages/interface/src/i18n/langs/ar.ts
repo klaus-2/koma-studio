@@ -2042,6 +2042,7 @@ export const arMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': 'متاح في السحابة',
   'modelManager.filters.needsSetup': 'يحتاج إلى إعداد',
   'modelManager.filters.roadmap': 'خارطة الطريق',
+  'modelManager.progress.unknownTotal': 'الحجم غير معروف',
   'modelManager.tooltip.speed.fast': 'سريع',
   'modelManager.tooltip.speed.good': 'جيد',
   'modelManager.tooltip.speed.excellent': 'ممتاز',

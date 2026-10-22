@@ -2062,6 +2062,7 @@ export const koMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': '클라우드에서 사용 가능',
   'modelManager.filters.needsSetup': '설정 필요',
   'modelManager.filters.roadmap': '로드맵',
+  'modelManager.progress.unknownTotal': '크기 알 수 없음',
   'modelManager.tooltip.speed.fast': '빠름',
   'modelManager.tooltip.speed.good': '양호',
   'modelManager.tooltip.speed.excellent': '우수',

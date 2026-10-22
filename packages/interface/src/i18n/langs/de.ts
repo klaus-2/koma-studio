@@ -2171,6 +2171,7 @@ export const deMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': 'In der Cloud verfügbar',
   'modelManager.filters.needsSetup': 'Benötigt Einrichtung',
   'modelManager.filters.roadmap': 'Roadmap',
+  'modelManager.progress.unknownTotal': 'Größe unbekannt',
   'modelManager.tooltip.speed.fast': 'Schnell',
   'modelManager.tooltip.speed.good': 'Gut',
   'modelManager.tooltip.speed.excellent': 'Ausgezeichnet',

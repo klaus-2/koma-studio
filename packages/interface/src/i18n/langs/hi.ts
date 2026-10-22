@@ -2108,6 +2108,7 @@ export const hiMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': 'क्लाउड में उपलब्ध',
   'modelManager.filters.needsSetup': 'सेटअप आवश्यक',
   'modelManager.filters.roadmap': 'रोडमैप',
+  'modelManager.progress.unknownTotal': 'आकार अज्ञात',
   'modelManager.tooltip.speed.fast': 'Cepat',
   'modelManager.tooltip.speed.good': 'Baik',
   'modelManager.tooltip.speed.excellent': 'Sangat Baik',

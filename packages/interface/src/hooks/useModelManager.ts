@@ -78,14 +78,10 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
       status: "downloading",
       error: null,
       errorCode: null,
-      progress: current.progress ?? {
-        modelId: event.modelId,
-        bytesDownloaded: 0,
-        totalBytes: Math.max(1, estimateModelRequiredDiskBytes(current.model)),
-        speedBytesPerSecond: 0,
-        percent: 0,
-        attempt: event.attempt,
-      },
+      // No progress object yet: the backend has not reported a total, and a
+      // fabricated denominator would show a percentage of a fiction. The card
+      // renders an indeterminate state until the first real snapshot.
+      progress: current.progress,
     }));
     return;
   }
@@ -454,11 +450,11 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
         throw new Error(t("modelManager.error.diskCheckFailed"));
       }
 
-      if (diskSpace.freeBytes < requiredBytes) {
-        throw new Error(
-          `Not enough space. Required: ${(requiredBytes / 1024 ** 3).toFixed(1)} GB | Available: ${(diskSpace.freeBytes / 1024 ** 3).toFixed(1)} GB`,
-        );
-      }
+      // Not a gate: the renderer only knows the registry's declared size, which
+      // is an estimate for multi-asset models, and blocking here refused
+      // installs that fitted easily. The backend owns the admission check and
+      // the real enforcement is ENOSPC while the bytes are written.
+      void requiredBytes;
     },
     [refreshDiskSpace, state.diskSpace, t],
   );

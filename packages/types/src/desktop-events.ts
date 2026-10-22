@@ -74,7 +74,8 @@ export type ModelManagerEvent =
   | {
       type: "queued";
       modelId: string;
-      queueLength: number;
+      /** How many jobs are ahead in the backend queue; unknown for shells that cannot tell. */
+      queueLength?: number;
     }
   | {
       type: "started";
@@ -85,9 +86,11 @@ export type ModelManagerEvent =
       type: "progress";
       modelId: string;
       bytesDownloaded: number;
-      totalBytes: number;
+      /** Total bundle size; null when the backend cannot know it yet. */
+      totalBytes: number | null;
       speedBytesPerSecond: number;
-      percent: number;
+      /** null while the total is unknown — the UI renders an indeterminate state. */
+      percent: number | null;
       attempt: number;
     }
   | {

@@ -87,9 +87,9 @@ fn events_serialize_with_camel_case_tag_and_fields() {
     let event = ModelManagerEvent::Progress {
         model_id: "nllb-200".to_owned(),
         bytes_downloaded: 10,
-        total_bytes: 100,
+        total_bytes: Some(100),
         speed_bytes_per_second: 5,
-        percent: 10.0,
+        percent: Some(10.0),
         attempt: 2,
     };
     let json = serde_json::to_value(&event).expect("serialize event");
@@ -97,6 +97,21 @@ fn events_serialize_with_camel_case_tag_and_fields() {
     assert_eq!(json["modelId"], "nllb-200");
     assert_eq!(json["bytesDownloaded"], 10);
     assert_eq!(json["speedBytesPerSecond"], 5);
+    assert_eq!(json["totalBytes"], 100);
+    assert_eq!(json["percent"], 10.0);
+
+    // An unknown total must reach the renderer as null, never as a guess.
+    let unknown = ModelManagerEvent::Progress {
+        model_id: "nllb-200".to_owned(),
+        bytes_downloaded: 10,
+        total_bytes: None,
+        speed_bytes_per_second: 5,
+        percent: None,
+        attempt: 2,
+    };
+    let json = serde_json::to_value(&unknown).expect("serialize event");
+    assert!(json["totalBytes"].is_null());
+    assert!(json["percent"].is_null());
 
     let failed = ModelManagerEvent::Failed {
         model_id: "x".to_owned(),

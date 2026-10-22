@@ -60,7 +60,7 @@ export type DesktopModelManagerEvent =
   | {
       type: "queued";
       modelId: string;
-      queueLength: number;
+      queueLength?: number;
     }
   | {
       type: "started";
@@ -71,9 +71,11 @@ export type DesktopModelManagerEvent =
       type: "progress";
       modelId: string;
       bytesDownloaded: number;
-      totalBytes: number;
+      /** Total bundle size; null when the backend cannot know it yet. */
+      totalBytes: number | null;
       speedBytesPerSecond: number;
-      percent: number;
+      /** null while the total is unknown — the UI renders an indeterminate state. */
+      percent: number | null;
       attempt: number;
     }
   | {
@@ -155,7 +157,7 @@ interface ActiveDownload {
 const MAX_RETRY_ATTEMPTS = 3;
 // Poll interval for the job snapshot from the mini-backend (the backend already
 // throttles its own granularity; 1s is enough for multi-GB downloads).
-const MODEL_JOB_POLL_INTERVAL_MS = 1000;
+const MODEL_JOB_POLL_INTERVAL_MS = 200;
 const PARTIAL_FILE_NAME = "download.partial";
 const MANIFEST_FILE_NAME = "manifest.json";
 const LOCAL_API_SESSION_HEADER = "x-koma-local-session";
@@ -409,53 +411,6 @@ const readBackendErrorDetail = async (response: Response): Promise<string> => {
   } catch {
     return "";
   }
-};
-
-const checksumDirectoryTree = async (directoryPath: string): Promise<string> => {
-  const hash = createHash("sha256");
-
-  const walk = (targetPath: string, prefix = ""): string[] => {
-    if (!fs.existsSync(targetPath)) {
-      return [];
-    }
-
-    const stat = fs.statSync(targetPath);
-    if (!stat.isDirectory()) {
-      return [];
-    }
-
-    const files: string[] = [];
-    const entries = fs
-      .readdirSync(targetPath, { withFileTypes: true })
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    for (const entry of entries) {
-      const absolutePath = path.join(targetPath, entry.name);
-      const relativePath = prefix ? path.join(prefix, entry.name) : entry.name;
-      if (entry.isDirectory()) {
-        files.push(...walk(absolutePath, relativePath));
-        continue;
-      }
-
-      if (entry.isFile()) {
-        files.push(relativePath);
-      }
-    }
-
-    return files;
-  };
-
-  const filePaths = walk(directoryPath);
-  for (const relativePath of filePaths) {
-    const absolutePath = path.join(directoryPath, relativePath);
-    const fileChecksum = await checksumFile(absolutePath);
-    hash.update(relativePath);
-    hash.update(":");
-    hash.update(fileChecksum);
-    hash.update("\n");
-  }
-
-  return hash.digest("hex");
 };
 
 export class DesktopModelManagerService {
@@ -1066,14 +1021,29 @@ export class DesktopModelManagerService {
       return;
     }
 
+    // Not a gate: the shell only knows the registry's declared size, which is
+    // an estimate for multi-asset models, and blocking here refused installs
+    // that fitted easily. The backend owns the admission check and the real
+    // enforcement is ENOSPC while the bytes are written.
     if (diskSpace.freeBytes < requiredBytes) {
       const requiredGb = (requiredBytes / 1024 ** 3).toFixed(1);
       const freeGb = (diskSpace.freeBytes / 1024 ** 3).toFixed(1);
-      throw new Error(`Insufficient disk space for download. Required: ${requiredGb} GB | Available: ${freeGb} GB.`);
+      console.warn(
+        `[models] low disk space for a download: required ${requiredGb} GB, available ${freeGb} GB`,
+      );
     }
   }
 
   private writeIncompleteManifest(model: DesktopDownloadModelPayload, origin = "download"): void {
+    const manifestPath = this.getModelManifestPath(model.id);
+    // Never brand a working install as incomplete: a failed UPDATE of an
+    // installed model used to downgrade it forever. Tauri already keeps the
+    // previous manifest; the shells must agree.
+    const existing = this.readInstalledManifest(model.id);
+    if (existing?.status === "installed") {
+      return;
+    }
+
     const modelDir = this.getModelDir(model.id);
     fs.mkdirSync(modelDir, { recursive: true });
 
@@ -1086,15 +1056,28 @@ export class DesktopModelManagerService {
       origin,
     };
 
-    writeJsonFile(this.getModelManifestPath(model.id), payload);
+    writeJsonFile(manifestPath, payload);
   }
 
-  private writeInstalledManifest(model: DesktopDownloadModelPayload, checksumSHA256: string, origin = "download"): void {
+  private readInstalledManifest(modelId: string): DesktopModelManifest | null {
+    try {
+      const raw = fs.readFileSync(this.getModelManifestPath(modelId), "utf8");
+      const parsed = JSON.parse(raw) as DesktopModelManifest;
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeInstalledManifest(model: DesktopDownloadModelPayload, origin = "download"): void {
     const payload: DesktopModelManifest = {
       modelId: model.id,
       version: model.version,
       installedAt: new Date().toISOString(),
-      checksumSHA256,
+      // The registry's declared digest, copied verbatim. A locally computed
+      // tree hash can never equal the remote single-file digest, so the
+      // update check flagged every installed model as outdated forever.
+      checksumSHA256: model.checksumSHA256 ?? "",
       status: "installed",
       origin,
     };
@@ -1165,7 +1148,6 @@ export class DesktopModelManagerService {
         installStrategy: "manual_import",
         runtimeFamily: "onnx",
       },
-      checksumSHA256,
       "local_import",
     );
 
@@ -1282,15 +1264,15 @@ export class DesktopModelManagerService {
     // checksum, and a serial queue) and this process only translates the
     // job snapshot into events. Nothing is deleted before the job runs —
     // the preserved .part file allows the download to resume.
-    const installedChecksum = await this.installViaBackendJob(model, attempt, signal);
-    this.writeInstalledManifest(model, installedChecksum);
+    await this.installViaBackendJob(model, attempt, signal);
+    this.writeInstalledManifest(model);
   }
 
   private async installViaBackendJob(
     model: DesktopDownloadModelPayload,
     attempt: number,
     signal: AbortSignal,
-  ): Promise<string> {
+  ): Promise<void> {
     const backendBaseUrl = this.backendBaseUrlProvider().trim();
     if (!backendBaseUrl) {
       throw new Error("Mini backend unavailable to install the local model.");
@@ -1298,13 +1280,19 @@ export class DesktopModelManagerService {
 
     const jobId = await this.createModelDownloadJob(backendBaseUrl, model, signal);
     let lastEmittedState = "";
+    let firstSnapshot = true;
 
     while (true) {
       if (signal.aborted) {
         break;
       }
 
-      await this.sleep(MODEL_JOB_POLL_INTERVAL_MS);
+      // Poll immediately, then on a short interval: a transfer that finishes
+      // inside one interval must still be observed while it is running.
+      if (!firstSnapshot) {
+        await this.sleep(MODEL_JOB_POLL_INTERVAL_MS);
+      }
+      firstSnapshot = false;
 
       const snapshot = await this.fetchModelJobSnapshot(backendBaseUrl, jobId, signal);
       if (!snapshot) {
@@ -1316,6 +1304,9 @@ export class DesktopModelManagerService {
         if (snapshot.state === "verifying") {
           this.emit({ type: "verifying", modelId: model.id });
         }
+        if (snapshot.state === "queued") {
+          this.emit({ type: "queued", modelId: model.id });
+        }
       }
 
       if (snapshot.state === "downloading") {
@@ -1324,7 +1315,8 @@ export class DesktopModelManagerService {
       }
 
       if (snapshot.state === "ready") {
-        return await this.validateBackendInstallResult(model);
+        await this.validateBackendInstallResult(model);
+        return;
       }
 
       if (snapshot.state === "error") {
@@ -1449,29 +1441,32 @@ export class DesktopModelManagerService {
     snapshot: ModelDownloadJobSnapshot,
   ): void {
     const bytesDownloaded = Math.max(0, Math.round(snapshot.bytesDownloaded || 0));
-    const backendTotal = Math.max(0, Math.round(snapshot.totalBytes ?? 0));
-    // Until the backend has seen every Content-Length, use the registry's
-    // expected total only for display — percent stays capped at 98.
-    const hasRealTotal = backendTotal > 0;
-    const displayTotal = hasRealTotal ? backendTotal : Math.max(bytesDownloaded, model.expectedDownloadBytes);
-    const percent = hasRealTotal
-      ? snapshot.percent
-      : displayTotal > 0
-        ? Math.min(98, (bytesDownloaded / displayTotal) * 100)
-        : 0;
+    // The backend owns the total. When it does not know one yet the value
+    // stays null and the UI renders an indeterminate state — substituting the
+    // registry's estimate here would show a percentage of a fiction.
+    const totalBytes =
+      snapshot.totalBytes === null || snapshot.totalBytes === undefined
+        ? null
+        : Math.max(0, Math.round(snapshot.totalBytes));
+    const percent =
+      snapshot.percent === null || snapshot.percent === undefined
+        ? totalBytes !== null && totalBytes > 0
+          ? (bytesDownloaded / totalBytes) * 100
+          : null
+        : snapshot.percent;
 
     this.emit({
       type: "progress",
       modelId: model.id,
       bytesDownloaded,
-      totalBytes: displayTotal,
+      totalBytes,
       speedBytesPerSecond: Math.max(0, Math.round(snapshot.speedBytesPerSecond || 0)),
-      percent: Math.max(0, Math.min(hasRealTotal ? 100 : 98, percent)),
+      percent: percent === null ? null : Math.max(0, Math.min(100, percent)),
       attempt,
     });
   }
 
-  private async validateBackendInstallResult(model: DesktopDownloadModelPayload): Promise<string> {
+  private async validateBackendInstallResult(model: DesktopDownloadModelPayload): Promise<void> {
     const modelDir = this.getModelDir(model.id);
     const hasFiles = fs
       .readdirSync(modelDir, { withFileTypes: true })
@@ -1479,7 +1474,6 @@ export class DesktopModelManagerService {
     if (!hasFiles) {
       throw new Error("Model installation finished with no files in the local directory.");
     }
-    return checksumDirectoryTree(modelDir);
   }
 
   private sleep(ms: number): Promise<void> {

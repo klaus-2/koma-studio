@@ -110,7 +110,7 @@ pub async fn download(
         &app,
         ModelManagerEvent::Queued {
             model_id,
-            queue_length,
+            queue_length: Some(queue_length),
         },
     );
 
@@ -296,6 +296,13 @@ async fn process_download_task(app: &AppHandle, model: &DesktopModelDownloadPayl
         let progress_app = app.clone();
         let progress_model = model.clone();
         let observer: DownloadObserver = Arc::new(move |event| match event {
+            ModelServiceEvent::Queued => emit_model_event(
+                &progress_app,
+                ModelManagerEvent::Queued {
+                    model_id: progress_model.id.clone(),
+                    queue_length: None,
+                },
+            ),
             ModelServiceEvent::Progress {
                 bytes_downloaded,
                 total_bytes,

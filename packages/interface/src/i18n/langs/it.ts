@@ -2137,6 +2137,7 @@ export const itMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': 'Disponibili nel cloud',
   'modelManager.filters.needsSetup': 'Richiede configurazione',
   'modelManager.filters.roadmap': 'Roadmap',
+  'modelManager.progress.unknownTotal': 'Dimensione sconosciuta',
   'modelManager.tooltip.speed.fast': 'Veloce',
   'modelManager.tooltip.speed.good': 'Buono',
   'modelManager.tooltip.speed.excellent': 'Eccellente',

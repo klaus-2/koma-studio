@@ -1952,6 +1952,7 @@ export const zhMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': '云端可用',
   'modelManager.filters.needsSetup': '需要配置',
   'modelManager.filters.roadmap': '路线图',
+  'modelManager.progress.unknownTotal': '大小未知',
   'modelManager.tooltip.speed.fast': '快速',
   'modelManager.tooltip.speed.good': '良好',
   'modelManager.tooltip.speed.excellent': '极佳',

@@ -79,11 +79,12 @@ pub type DownloadObserver = Arc<dyn Fn(ModelServiceEvent) + Send + Sync + 'stati
 
 #[derive(Debug, Clone)]
 pub enum ModelServiceEvent {
+    Queued,
     Progress {
         bytes_downloaded: u64,
-        total_bytes: u64,
+        total_bytes: Option<u64>,
         speed_bytes_per_second: u64,
-        percent: f64,
+        percent: Option<f64>,
     },
     Verifying,
 }
@@ -305,8 +306,8 @@ pub async fn download_and_install(
         }
 
         match snapshot.state.as_str() {
-            "queued" => {}
-            "downloading" => emit_progress(model, &snapshot, &observer),
+            "queued" => observer(ModelServiceEvent::Queued),
+            "downloading" => emit_progress(&snapshot, &observer),
             "verifying" => observer(ModelServiceEvent::Verifying),
             "ready" => {
                 observer(ModelServiceEvent::Verifying);
@@ -435,31 +436,19 @@ pub fn max_download_attempts() -> u32 {
 }
 
 fn emit_progress(
-    model: &DesktopModelDownloadPayload,
     snapshot: &BackendJobSnapshot,
     observer: &DownloadObserver,
 ) {
     let bytes_downloaded = snapshot.bytes_downloaded;
-    let backend_total = snapshot.total_bytes.unwrap_or(0);
-    let has_real_total = backend_total > 0;
-    let total_bytes = if has_real_total {
-        backend_total.max(bytes_downloaded)
-    } else {
-        model.expected_download_bytes.max(bytes_downloaded)
-    };
-
-    let percent = if has_real_total {
-        snapshot.percent.unwrap_or_else(|| {
-            if total_bytes == 0 {
-                0.0
-            } else {
-                bytes_downloaded as f64 / total_bytes as f64 * 100.0
-            }
-        })
-    } else if total_bytes > 0 {
-        (bytes_downloaded as f64 / total_bytes as f64 * 100.0).min(98.0)
-    } else {
-        0.0
+    // The backend owns the total. When it does not know one yet the value
+    // stays `None` and the UI renders an indeterminate state — substituting the
+    // registry's estimate here would show a percentage of a fiction.
+    let total_bytes = snapshot.total_bytes;
+    let percent = match snapshot.percent {
+        Some(value) => Some(value.clamp(0.0, 100.0)),
+        None => total_bytes
+            .filter(|total| *total > 0)
+            .map(|total| (bytes_downloaded as f64 / total as f64 * 100.0).clamp(0.0, 100.0)),
     };
 
     observer(ModelServiceEvent::Progress {
@@ -469,7 +458,7 @@ fn emit_progress(
             .speed_bytes_per_second
             .unwrap_or(0.0)
             .max(0.0) as u64,
-        percent: percent.clamp(0.0, if has_real_total { 100.0 } else { 98.0 }),
+        percent,
     });
 }
 

@@ -2139,6 +2139,7 @@ export const ruMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': 'Доступно в облаке',
   'modelManager.filters.needsSetup': 'Требует настройки',
   'modelManager.filters.roadmap': 'Дорожная карта',
+  'modelManager.progress.unknownTotal': 'Размер неизвестен',
   'modelManager.tooltip.speed.fast': 'Быстрая',
   'modelManager.tooltip.speed.good': 'Хорошая',
   'modelManager.tooltip.speed.excellent': 'Отличная',

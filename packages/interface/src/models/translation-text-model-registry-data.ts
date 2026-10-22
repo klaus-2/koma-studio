@@ -599,7 +599,7 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       gpu: false,
       vramMin: "0",
       ramMin: "4GB RAM",
-      diskSpace: "300MB",
+      diskSpace: "12.14MB",
     },
     speed: "ok",
     // The real install flow runs through the mini-backend to download the required
@@ -607,7 +607,7 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
     downloadUrl:
       "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile_infer.onnx",
     checksumSHA256: "08705d6721849b1347d26187f15a5e362c431963a2a62bfff4feac578c489aab",
-    fileSize: "300MB",
+    fileSize: "12.14MB",
     installStrategy: "backend_managed",
     runtimeFamily: "onnx_bundle",
     backendInstallEndpoint: "/models/install",
@@ -625,7 +625,7 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       gpu: false,
       vramMin: "0",
       ramMin: "4GB RAM",
-      diskSpace: "300MB",
+      diskSpace: "12.14MB",
     },
     speed: "fast",
     // The real install flow runs through the mini-backend to download the required
@@ -633,7 +633,7 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
     downloadUrl:
       "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile_infer.onnx",
     checksumSHA256: "b20bd37c168a570f583afbc8cd7925603890efbcdc000a59e22c269d160b5f5a",
-    fileSize: "300MB",
+    fileSize: "12.14MB",
     installStrategy: "backend_managed",
     runtimeFamily: "onnx_bundle",
     backendInstallEndpoint: "/models/install",
@@ -651,7 +651,7 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       gpu: false,
       vramMin: "0",
       ramMin: "4GB RAM",
-      diskSpace: "300MB",
+      diskSpace: "20.53MB",
     },
     speed: "fast",
     // The real install flow runs through the mini-backend to download the required
@@ -659,7 +659,7 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
     downloadUrl:
       "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile_infer.onnx",
     checksumSHA256: "5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5",
-    fileSize: "300MB",
+    fileSize: "20.53MB",
     installStrategy: "backend_managed",
     runtimeFamily: "onnx_bundle",
     backendInstallEndpoint: "/models/install",
@@ -677,7 +677,7 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
       gpu: false,
       vramMin: "0",
       ramMin: "4GB RAM",
-      diskSpace: "300MB",
+      diskSpace: "12.1MB",
     },
     speed: "fast",
     // The real install flow runs through the mini-backend to download the required
@@ -685,7 +685,7 @@ export const RECOGNIZE_TEXT_MODELS_REGISTRY: TranslationModel[] = [
     downloadUrl:
       "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.4.0/onnx/PP-OCRv5/rec/en_PP-OCRv5_rec_mobile_infer.onnx",
     checksumSHA256: "c3461add59bb4323ecba96a492ab75e06dda42467c9e3d0c18db5d1d21924be8",
-    fileSize: "300MB",
+    fileSize: "12.1MB",
     installStrategy: "backend_managed",
     runtimeFamily: "onnx_bundle",
     backendInstallEndpoint: "/models/install",

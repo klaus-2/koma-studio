@@ -111,7 +111,8 @@ pub struct ModelQueueResult {
 pub enum ModelManagerEvent {
     Queued {
         model_id: String,
-        queue_length: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        queue_length: Option<usize>,
     },
     Started {
         model_id: String,
@@ -120,9 +121,13 @@ pub enum ModelManagerEvent {
     Progress {
         model_id: String,
         bytes_downloaded: u64,
-        total_bytes: u64,
+        /// Total bundle size; `None` when the backend cannot know it yet.
+        #[serde(default)]
+        total_bytes: Option<u64>,
         speed_bytes_per_second: u64,
-        percent: f64,
+        /// `None` while the total is unknown — the UI renders an indeterminate state.
+        #[serde(default)]
+        percent: Option<f64>,
         attempt: u32,
     },
     Verifying {

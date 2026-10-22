@@ -1958,6 +1958,7 @@ export const zhMessages: TranslationCatalog = {
   'modelManager.filters.availableCloud': '雲端可用',
   'modelManager.filters.needsSetup': '需要設定',
   'modelManager.filters.roadmap': '路線圖',
+  'modelManager.progress.unknownTotal': '大小未知',
   'modelManager.tooltip.speed.fast': '快速',
   'modelManager.tooltip.speed.good': '良好',
   'modelManager.tooltip.speed.excellent': '優秀',
