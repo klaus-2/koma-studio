@@ -10,6 +10,8 @@ import {
   Trash2,
   Type,
 } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '../../../i18n';
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import type {
@@ -108,6 +110,39 @@ const RenderTextPreviewContextMenuNoir = ({
     vars?: Record<string, string | number | null | undefined>,
   ) => string;
 
+  // The menu root is clipped by its panel-cut shape, so the preset submenu is
+  // portaled to <body> and anchored to the row it hangs off.
+  const presetRowRef = useRef<HTMLDivElement | null>(null);
+  const [presetPanelPos, setPresetPanelPos] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+
+  const openPresetSubmenu = useCallback(() => {
+    const rect = presetRowRef.current?.getBoundingClientRect();
+    if (rect) {
+      const panelWidth = 240;
+      const panelHeight = 360;
+      const margin = 8;
+      setPresetPanelPos({
+        left: Math.max(
+          margin,
+          Math.min(rect.right + 4, window.innerWidth - panelWidth - margin),
+        ),
+        top: Math.max(
+          margin,
+          Math.min(rect.top, window.innerHeight - panelHeight - margin),
+        ),
+      });
+    }
+    onContextSubmenuChange('presets');
+  }, [onContextSubmenuChange]);
+
+  const closePresetSubmenu = useCallback(() => {
+    setPresetPanelPos(null);
+    onContextSubmenuChange(null);
+  }, [onContextSubmenuChange]);
+
   if (!contextMenu || !targetRegion) return null;
 
   const hasOcr = (targetRegion.recognizedText ?? '').trim().length > 0;
@@ -141,7 +176,7 @@ const RenderTextPreviewContextMenuNoir = ({
       {availableTypographyPresets.length > 0 && (
         <>
           <div className="relative my-1 border-t border-paper/10" aria-hidden="true" />
-          <div className="relative" onMouseEnter={() => onContextSubmenuChange('presets')}>
+          <div className="relative" ref={presetRowRef} onMouseEnter={openPresetSubmenu}>
             <button
               type="button"
               className={cn(
@@ -151,7 +186,8 @@ const RenderTextPreviewContextMenuNoir = ({
               )}
               role="menuitem" disabled={!editable || !canApplyPreset}
               title={editable ? t('renderPreview.applyTypographyPreset') : t('renderPreview.manualModeRequired')}
-              onFocus={() => onContextSubmenuChange('presets')}
+              onClick={openPresetSubmenu}
+              onFocus={openPresetSubmenu}
               aria-haspopup="menu" aria-expanded={contextSubmenu === 'presets'}
             >
               <Bookmark size={11} className="shrink-0" />
@@ -159,10 +195,11 @@ const RenderTextPreviewContextMenuNoir = ({
               <ChevronRight size={12} />
             </button>
 
-            {contextSubmenu === 'presets' && (
+            {contextSubmenu === 'presets' && presetPanelPos && createPortal(
               <div
-                className="glass panel-cut absolute left-full top-0 ml-1 w-60 border-crimson/30 p-1.5 shadow-hard-crimson"
-                onMouseLeave={() => onContextSubmenuChange(null)}
+                className="glass panel-cut fixed z-[150] w-60 border-crimson/30 p-1.5 shadow-hard-crimson"
+                style={{ left: presetPanelPos.left, top: presetPanelPos.top }}
+                onMouseLeave={closePresetSubmenu}
                 role="menu" aria-label={t('renderPreview.typographyPresets')}
               >
                 <div className="kicker mb-1.5 px-1 !text-[9px]">{t('renderPreview.applyPreset')}</div>
@@ -208,7 +245,8 @@ const RenderTextPreviewContextMenuNoir = ({
                     );
                   })}
                 </div>
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
         </>
