@@ -10,8 +10,15 @@ import type {
   TranslationNoteOverlayConfig,
 } from '../../../types/dashboard.types';
 import type { RenderTextStyleRange } from '../../../typography/renderStyle';
-import { cloneRenderTextStyleRanges } from '../../../utils/renderTextStyleRanges';
-import { readInlineEditorPlainText } from '../../../utils/inlineEditor';
+import type { RenderTextStyle } from '../../../typography/renderStyle';
+import { cloneRenderStyle } from '../../../utils/dashboard.utils';
+import {
+  cloneRenderTextStyleRanges,
+} from '../../../utils/renderTextStyleRanges';
+import {
+  buildInlineEditorRuns,
+  readInlineEditorPlainText,
+} from '../../../utils/inlineEditor';
 import { restoreContentEditableSelection } from './inlineEditorSelection';
 import type { RenderTextPreviewContextMenuState } from './RenderTextPreviewContextMenu';
 
@@ -38,6 +45,7 @@ interface UseRenderTextPreviewInlineEditorParams {
   isPickerOpenRef: React.RefObject<boolean>;
   dockPointerDownRef: React.RefObject<boolean>;
   displayRegionsWithDefaults: AioTextRegion[];
+  fallbackStyle: RenderTextStyle;
   editable: boolean;
   renderStageActive: boolean;
   areaSelectionEnabled: boolean;
@@ -59,6 +67,7 @@ export const useRenderTextPreviewInlineEditor = ({
   isPickerOpenRef,
   dockPointerDownRef,
   displayRegionsWithDefaults,
+  fallbackStyle,
   editable,
   renderStageActive,
   areaSelectionEnabled,
@@ -77,6 +86,8 @@ export const useRenderTextPreviewInlineEditor = ({
   useEffect(() => {
     updateRegionTextRef.current = updateRegionText;
   }, [updateRegionText]);
+
+  const lastStyledRangesKeyRef = useRef<string | null>(null);
 
   const commitPendingInlineEditorDraft = useCallback(() => {
     const pending = pendingDraftRef.current;
@@ -314,19 +325,61 @@ export const useRenderTextPreviewInlineEditor = ({
     if (!inlineEditor) return;
     const node = inlineEditorContentEditableRef.current;
     if (!node) return;
+
+    const editedRegion =
+      displayRegionsWithDefaults.find(
+        (region) => region.id === inlineEditor.regionId,
+      ) ?? null;
+    const ranges = editedRegion?.renderTextStyleRanges ?? null;
+    // Keyed so a style change rebuilds the spans even though the text matches.
+    const rangesKey = JSON.stringify(ranges ?? null);
     const currentValue = readInlineEditorPlainText(node);
-    if (currentValue === inlineEditor.value) return;
-    node.textContent = inlineEditor.value;
-    restoreContentEditableSelection(
-      node,
-      inlineEditor.selectionStart,
-      inlineEditor.selectionEnd,
+    if (
+      currentValue === inlineEditor.value
+      && lastStyledRangesKeyRef.current === rangesKey
+    ) {
+      return;
+    }
+    lastStyledRangesKeyRef.current = rangesKey;
+
+    const baseStyle = cloneRenderStyle(
+      editedRegion?.renderStyle ?? fallbackStyle,
     );
+    const spans = buildInlineEditorRuns(
+      inlineEditor.value,
+      ranges,
+      baseStyle,
+    ).map((run) => {
+      const span = document.createElement('span');
+      span.textContent = run.text;
+      span.style.fontFamily = run.fontFamily;
+      span.style.fontWeight = run.fontWeight;
+      span.style.fontStyle = run.fontStyle;
+      span.style.textDecoration = run.textDecoration;
+      span.style.textTransform = run.textTransform;
+      span.style.color = run.color;
+      span.style.textShadow = run.textShadow;
+      return span;
+    });
+    node.replaceChildren(...spans);
+    if (
+      document.activeElement === node
+      || node.contains(document.activeElement)
+    ) {
+      restoreContentEditableSelection(
+        node,
+        inlineEditor.selectionStart,
+        inlineEditor.selectionEnd,
+      );
+    }
   }, [
+    displayRegionsWithDefaults,
+    fallbackStyle,
     inlineEditor?.regionId,
     inlineEditor?.selectionEnd,
     inlineEditor?.selectionStart,
     inlineEditor?.value,
+    restoreContentEditableSelection,
   ]);
 
   useEffect(() => {

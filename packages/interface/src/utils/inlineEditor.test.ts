@@ -6,6 +6,8 @@ import {
   buildInlineSelectionStylePatch,
   normalizeInlineEditorPlainText,
   readInlineEditorPlainText,
+  buildInlineEditorRuns,
+  resolveInlineEditorTextAppearance,
 } from './inlineEditor.ts';
 
 const baseStyle: RenderTextStyle = {
@@ -88,5 +90,61 @@ test('normalizeInlineEditorPlainText keeps existing unix line breaks intact', ()
   assert.equal(
     normalizeInlineEditorPlainText('a\nb\nc'),
     'a\nb\nc',
+  );
+});
+
+test('resolveInlineEditorTextAppearance reads the fill the canvas would paint', () => {
+  const appearance = resolveInlineEditorTextAppearance({
+    ...baseStyle,
+    color: '#101010',
+    fillCssValue: 'linear-gradient(90deg, #4ade80 0%, #22c55e 100%)',
+    gradientEnabled: true,
+  });
+
+  assert.equal(appearance.color, '#4ade80');
+  assert.match(appearance.textShadow, /rgba\(0, 0, 0/);
+});
+
+test('resolveInlineEditorTextAppearance haloes a dark fill for the dark panel', () => {
+  const appearance = resolveInlineEditorTextAppearance({
+    ...baseStyle,
+    color: '#171717',
+    fillCssValue: '#171717',
+  });
+
+  assert.equal(appearance.color, '#171717');
+  assert.match(appearance.textShadow, /rgba\(255, 255, 255/);
+});
+
+test('resolveInlineEditorTextAppearance falls back to a drop shadow it cannot read', () => {
+  const appearance = resolveInlineEditorTextAppearance({
+    ...baseStyle,
+    color: 'var(--unknown-fill)',
+    fillCssValue: 'var(--unknown-fill)',
+  });
+
+  assert.equal(appearance.color, 'var(--unknown-fill)');
+  assert.equal(appearance.textShadow, '0 1px 2px rgba(0, 0, 0, 0.65)');
+});
+
+test('buildInlineEditorRuns mirrors per-range formatting inside the editor', () => {
+  const runs = buildInlineEditorRuns(
+    'plain bold u',
+    [
+      { start: 6, end: 10, style: { bold: true } },
+      { start: 11, end: 12, style: { italic: true, underline: true } },
+    ],
+    baseStyle,
+  );
+
+  assert.deepEqual(runs.map((run) => run.text), ['plain ', 'bold', ' ', 'u']);
+  assert.equal(runs[1]?.fontWeight, '700');
+  assert.deepEqual(
+    {
+      fontWeight: runs[3]?.fontWeight,
+      fontStyle: runs[3]?.fontStyle,
+      textDecoration: runs[3]?.textDecoration,
+    },
+    { fontWeight: '400', fontStyle: 'italic', textDecoration: 'underline' },
   );
 });

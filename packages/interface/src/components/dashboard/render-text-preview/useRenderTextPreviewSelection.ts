@@ -16,6 +16,7 @@ import {
 } from '../../../utils/renderTextStyleRanges';
 import { computeRenderTextLayout } from '../../../utils/renderText';
 import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
+import { resolveInlineEditorTextAppearance } from '../../../utils/inlineEditor';
 import {
   RenderTextLayoutError,
   wrapAndMeasureStyled,
@@ -215,18 +216,24 @@ export const useRenderTextPreviewSelection = ({
       fontWeight: inlineEditorBaseStyle.bold ? 700 : 400,
       fontStyle: inlineEditorBaseStyle.italic ? 'italic' : 'normal',
       textTransform: inlineEditorBaseStyle.uppercase ? 'uppercase' : 'none',
+      textDecoration: inlineEditorBaseStyle.underline ? 'underline' : 'none',
     }),
     [inlineEditorBaseStyle, inlineEditorDisplayMetrics],
+  );
+  const inlineEditorTextAppearance = useMemo(
+    () => resolveInlineEditorTextAppearance(inlineEditorBaseStyle),
+    [inlineEditorBaseStyle],
   );
   const inlineEditorContentEditableStyle = useMemo<React.CSSProperties>(
     () => ({
       ...inlineEditorTypographyStyle,
-      color: inlineEditorBaseStyle.color || 'var(--auth-text)',
-      caretColor: inlineEditorBaseStyle.color || 'var(--auth-text)',
+      color: inlineEditorTextAppearance.color || 'var(--auth-text)',
+      caretColor: inlineEditorTextAppearance.color || 'var(--auth-text)',
+      textShadow: inlineEditorTextAppearance.textShadow,
       outline: 'none',
       overflow: 'auto',
     }),
-    [inlineEditorTypographyStyle, inlineEditorBaseStyle],
+    [inlineEditorTypographyStyle, inlineEditorTextAppearance],
   );
   const selectedInlineSelectionActive = Boolean(
     inlineEditor

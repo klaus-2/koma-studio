@@ -334,6 +334,7 @@ const RenderTextPreviewClassic = ({
     isPickerOpenRef,
     dockPointerDownRef,
     displayRegionsWithDefaults,
+    fallbackStyle,
     editable,
     renderStageActive,
     areaSelectionEnabled,

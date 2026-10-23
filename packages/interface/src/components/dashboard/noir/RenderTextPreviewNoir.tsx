@@ -329,6 +329,7 @@ const RenderTextPreviewNoir = ({
     isPickerOpenRef,
     dockPointerDownRef,
     displayRegionsWithDefaults,
+    fallbackStyle,
     editable,
     renderStageActive,
     areaSelectionEnabled,
