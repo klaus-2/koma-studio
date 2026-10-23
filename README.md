@@ -107,9 +107,9 @@ Rust toolchain (for `apps/tauri`).
 bun install                # single install for all workspaces
 
 # Dev (pick your target)
-bun run dev:electron       # v1 stack (vite + mini-backend + auth-server)
+bun run dev:electron       # v1 stack (vite + mini-backend; local mode, no auth server)
 bun run dev:tauri          # v2 web frontend (vite only)
-bun run dev:desktop        # v2 web stack (mini-backend + auth-server + vite, no window)
+bun run dev:desktop        # v2 web stack (mini-backend + vite, no window; auth server joins when login is enabled)
 bun run dev:tauri:window   # v2 with native window
 bun run dev:landing        # landing page
 bun run dev:auth           # auth-server
