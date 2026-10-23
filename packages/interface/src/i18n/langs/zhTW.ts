@@ -1592,7 +1592,7 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': '隱藏工具',
   'dashboard.topbar.showTools': '顯示工具',
   'dashboard.topbar.hide': '隱藏',
-  'dashboard.topbar.profile': '個人檔案',
+  'dashboard.topbar.profile': '設定',
   'dashboard.topbar.exportWorkspace': '匯出工作區',
   'dashboard.topbar.importWorkspace': '匯入工作區',
   'dashboard.topbar.clearLocalAutosave': '清除本機自動儲存',

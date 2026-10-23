@@ -1684,7 +1684,7 @@ export const koMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': '도구 숨기기',
   'dashboard.topbar.showTools': '도구 표시',
   'dashboard.topbar.hide': '숨기기',
-  'dashboard.topbar.profile': '프로필',
+  'dashboard.topbar.profile': '설정',
   'dashboard.topbar.exportWorkspace': '작업 공간 내보내기',
   'dashboard.topbar.importWorkspace': '작업 공간 가져오기',
   'dashboard.topbar.clearLocalAutosave': '로컬 자동 저장 지우기',

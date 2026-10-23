@@ -1733,7 +1733,7 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': 'ツールを非表示',
   'dashboard.topbar.showTools': 'ツールを表示',
   'dashboard.topbar.hide': '非表示',
-  'dashboard.topbar.profile': 'プロフィール',
+  'dashboard.topbar.profile': '設定',
   'dashboard.topbar.exportWorkspace': 'ワークスペースをエクスポート',
   'dashboard.topbar.importWorkspace': 'ワークスペースをインポート',
   'dashboard.topbar.clearLocalAutosave': 'ローカル自動保存をクリア',

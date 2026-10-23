@@ -1725,7 +1725,7 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': 'Sembunyikan alat',
   'dashboard.topbar.showTools': 'Tampilkan alat',
   'dashboard.topbar.hide': 'Sembunyikan',
-  'dashboard.topbar.profile': 'Profil',
+  'dashboard.topbar.profile': 'सेटिंग्स',
   'dashboard.topbar.exportWorkspace': 'Ekspor workspace',
   'dashboard.topbar.importWorkspace': 'Impor workspace',
   'dashboard.topbar.clearLocalAutosave': 'Hapus simpan otomatis lokal',

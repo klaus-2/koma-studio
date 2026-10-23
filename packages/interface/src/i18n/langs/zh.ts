@@ -1586,7 +1586,7 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': '隐藏工具',
   'dashboard.topbar.showTools': '显示工具',
   'dashboard.topbar.hide': '隐藏',
-  'dashboard.topbar.profile': '个人资料',
+  'dashboard.topbar.profile': '设置',
   'dashboard.topbar.exportWorkspace': '导出工作区',
   'dashboard.topbar.importWorkspace': '导入工作区',
   'dashboard.topbar.clearLocalAutosave': '清除本地自动保存',

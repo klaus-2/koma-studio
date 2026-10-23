@@ -1735,7 +1735,7 @@ export const frMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': 'Masquer les outils',
   'dashboard.topbar.showTools': 'Afficher les outils',
   'dashboard.topbar.hide': 'Masquer',
-  'dashboard.topbar.profile': 'Profil',
+  'dashboard.topbar.profile': 'Paramètres',
   'dashboard.topbar.exportWorkspace': "Exporter l'espace de travail",
   'dashboard.topbar.importWorkspace': 'Importer un espace de travail',
   'dashboard.topbar.clearLocalAutosave':

@@ -1752,7 +1752,7 @@ export const itMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': 'Nascondi strumenti',
   'dashboard.topbar.showTools': 'Mostra strumenti',
   'dashboard.topbar.hide': 'Nascondi',
-  'dashboard.topbar.profile': 'Profilo',
+  'dashboard.topbar.profile': 'Impostazioni',
   'dashboard.topbar.exportWorkspace': 'Esporta workspace',
   'dashboard.topbar.importWorkspace': 'Importa workspace',
   'dashboard.topbar.clearLocalAutosave':

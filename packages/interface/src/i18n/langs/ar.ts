@@ -1668,7 +1668,7 @@ export const arMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': 'إخفاء الأدوات',
   'dashboard.topbar.showTools': 'إظهار الأدوات',
   'dashboard.topbar.hide': 'إخفاء',
-  'dashboard.topbar.profile': 'الملف الشخصي',
+  'dashboard.topbar.profile': 'الإعدادات',
   'dashboard.topbar.exportWorkspace': 'تصدير مساحة العمل',
   'dashboard.topbar.importWorkspace': 'استيراد مساحة العمل',
   'dashboard.topbar.clearLocalAutosave': 'مسح الحفظ التلقائي المحلي',

@@ -1759,7 +1759,7 @@ export const esMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': 'Ocultar herramientas',
   'dashboard.topbar.showTools': 'Mostrar herramientas',
   'dashboard.topbar.hide': 'Ocultar',
-  'dashboard.topbar.profile': 'Perfil',
+  'dashboard.topbar.profile': 'Ajustes',
   'dashboard.topbar.exportWorkspace': 'Exportar espacio de trabajo',
   'dashboard.topbar.importWorkspace': 'Importar espacio de trabajo',
   'dashboard.topbar.clearLocalAutosave': 'Borrar autoguardado local',

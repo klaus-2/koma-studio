@@ -1782,7 +1782,7 @@ export const deMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': 'Werkzeuge ausblenden',
   'dashboard.topbar.showTools': 'Werkzeuge anzeigen',
   'dashboard.topbar.hide': 'Ausblenden',
-  'dashboard.topbar.profile': 'Profil',
+  'dashboard.topbar.profile': 'Einstellungen',
   'dashboard.topbar.exportWorkspace': 'Arbeitsbereich exportieren',
   'dashboard.topbar.importWorkspace': 'Arbeitsbereich importieren',
   'dashboard.topbar.clearLocalAutosave':

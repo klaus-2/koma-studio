@@ -1733,7 +1733,7 @@ export const enMessages = {
   'dashboard.topbar.hideTools': 'Hide tools',
   'dashboard.topbar.showTools': 'Show tools',
   'dashboard.topbar.hide': 'Hide',
-  'dashboard.topbar.profile': 'Profile',
+  'dashboard.topbar.profile': 'Settings',
   'dashboard.topbar.exportWorkspace': 'Export workspace',
   'dashboard.topbar.importWorkspace': 'Import workspace',
   'dashboard.topbar.clearLocalAutosave': 'Clear local autosave',

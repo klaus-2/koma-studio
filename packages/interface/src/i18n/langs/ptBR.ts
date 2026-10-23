@@ -1727,7 +1727,7 @@ export const ptBrMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': 'Ocultar ferramentas',
   'dashboard.topbar.showTools': 'Mostrar ferramentas',
   'dashboard.topbar.hide': 'Ocultar',
-  'dashboard.topbar.profile': 'Perfil',
+  'dashboard.topbar.profile': 'Configurações',
   'dashboard.topbar.exportWorkspace': 'Exportar workspace',
   'dashboard.topbar.importWorkspace': 'Importar workspace',
   'dashboard.topbar.clearLocalAutosave': 'Limpar autosave local',

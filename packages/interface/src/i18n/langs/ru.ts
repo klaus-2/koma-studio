@@ -1754,7 +1754,7 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.topbar.hideTools': 'Скрыть инструменты',
   'dashboard.topbar.showTools': 'Показать инструменты',
   'dashboard.topbar.hide': 'Скрыть',
-  'dashboard.topbar.profile': 'Профиль',
+  'dashboard.topbar.profile': 'Настройки',
   'dashboard.topbar.exportWorkspace': 'Экспортировать рабочую область',
   'dashboard.topbar.importWorkspace': 'Импортировать рабочую область',
   'dashboard.topbar.clearLocalAutosave': 'Очистить локальное автосохранение',
