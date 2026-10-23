@@ -42,6 +42,7 @@ export interface RuntimeConfig {
   localApiUrl: string;
   runtimeArtifactsUrl?: string;
   appPackaged: boolean;
+  authDisabled?: boolean;
 }
 
 export type ModelInstallStrategy =

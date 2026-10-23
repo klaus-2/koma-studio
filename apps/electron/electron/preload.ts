@@ -130,11 +130,16 @@ type RuntimeConfig = {
   authDisabled: boolean;
 };
 
+// Fallback for the window bridge before the main process answers the config
+// sync: `appPackaged: false` describes an unpackaged dev shell, so anything but
+// an explicit falsy value means local mode here too (same rule as main.ts).
+const authDisabledFlag = (process.env.VITE_AUTH_DISABLED ?? "").trim().toLowerCase();
+
 const fallbackRuntimeConfig: RuntimeConfig = {
   authApiUrl: process.env.VITE_AUTH_API_URL ?? "http://localhost:3001",
   localApiUrl: process.env.VITE_LOCAL_API_URL ?? "http://127.0.0.1:8001",
   appPackaged: false,
-  authDisabled: ["true", "1", "yes"].includes((process.env.VITE_AUTH_DISABLED ?? "").trim().toLowerCase()),
+  authDisabled: !["false", "0", "no"].includes(authDisabledFlag),
 };
 const RENDERER_SESSION_LOG_CHANNEL = "desktop:session-log";
 const DESKTOP_SHORTCUT_ACTION_CHANNEL = "desktop:shortcut-action";

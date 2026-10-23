@@ -15,6 +15,7 @@ export default [
     ],
     sourceGlobs: [
       "interface/**/*.{ts,tsx}",
+      "lib/**/*.ts",
       "tests/**/*.{ts,tsx}",
       "electron/**/*.ts",
     ],

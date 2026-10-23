@@ -21,8 +21,8 @@
   },
   "scripts": {
     "dev": "vite --mode development",
-    "dev:desktop": "bun run --parallel --no-exit-on-error --elide-lines=0 mini:ensure auth-server:dev dev",
-    "dev:web": "bun run --parallel --no-exit-on-error auth-server:dev dev",
+    "dev:desktop": "node scripts/dev-desktop.mjs",
+    "dev:web": "bun run dev",
     "auth-server:setup": "node scripts/setup-auth-server.mjs",
     "dev:e2e": "vite --mode e2e --host 127.0.0.1",
     "auth-server:dev": "bun run --filter @koma/auth-server dev",

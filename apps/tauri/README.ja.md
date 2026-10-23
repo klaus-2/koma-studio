@@ -227,6 +227,7 @@ bun run mini:install-deps --profile nvidia-cuda
 | 変数 | 意味 |
 | --- | --- |
 | `VITE_AUTH_API_URL` | セルフホストの認証サーバー。なくてもアプリは動作します |
+| `VITE_AUTH_DISABLED` | ローカルモード。dev で `true` または未設定ならログイン画面なし、認証機能は非表示。`false` なら認証サーバーが必要になり、`dev:desktop` が起動します |
 | `VITE_LOCAL_API_URL` | mini-backend のアドレス（既定 `http://localhost:8001`） |
 | `KOMA_MODELS_ROOT` | AI の重みの保存先。空ならアプリデータディレクトリ |
 | `KOMA_EXTERNAL_STORAGE_ROOT` | 大きなプロジェクトデータ用の外部ルート（任意） |
@@ -237,7 +238,8 @@ bun run mini:install-deps --profile nvidia-cuda
 
 アカウント、ログイン、コミュニティフィードは、`apps/auth-server/` に同梱されている**認証サーバー**が
 提供します。KŌMA Studio は認証サーバーなしでも完全にローカルモードで動作します。認証が必要な
-機能を使う場合のみ必要です。audience `"koma-studio-backend"` の JWT を発行します。環境変数の全一覧は
+機能を使う場合のみ必要です。認証を必須にするには `VITE_AUTH_DISABLED=false` を設定してください。
+`dev:desktop` は同じフラグを読み、認証サーバーも一緒に起動します。audience `"koma-studio-backend"` の JWT を発行します。環境変数の全一覧は
 [`apps/auth-server/.env.example`](../../apps/auth-server/.env.example)、セットアップは
 [`apps/auth-server/README.md`](../../apps/auth-server/README.md) を参照してください。
 

@@ -11,6 +11,7 @@ import { setDesktopBridgeProvider } from "../desktop-bridge";
 import { setUiI18n } from "@koma/ui/i18n-port";
 import { tauriApi } from "./api";
 import { setRuntimeAdapter } from "@koma/auth/runtime-adapter";
+import { isAuthDisabledFlag } from "@shared/auth-disabled";
 import { desktopBridge } from "../desktop-bridge";
 import { installRendererConsoleCapture } from "../install-renderer-console-capture";
 import { buildUrl } from "../../config/api";
@@ -34,13 +35,13 @@ installRendererConsoleCapture({
   },
 });
 
-// Auth adapter for the Tauri (v2) runtime. The VITE_AUTH_DISABLED bypass
-// exists only for development / automated tests (same lever as the electron
-// shell); in production the variable does not exist and auth is always on.
+// Same lever as the electron shell: an explicit VITE_AUTH_DISABLED wins either
+// way, and an unset one enables the bypass only on a dev server.
 setRuntimeAdapter({
   isDesktopRuntime: () => desktopBridge.isDesktopRuntime(),
   getDesktopAuthApi: () => desktopBridge.desktop?.api?.auth ?? null,
-  isAuthDisabled: () => import.meta.env.VITE_AUTH_DISABLED === "true",
+  isAuthDisabled: () =>
+    isAuthDisabledFlag(import.meta.env.VITE_AUTH_DISABLED, import.meta.env.DEV),
   buildUrl,
   getDesktopUpdatePolicyHeaders,
   useUpdaterBlocking,

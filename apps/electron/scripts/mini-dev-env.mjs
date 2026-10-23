@@ -29,6 +29,38 @@ const findEnvFileEntry = (rootDir, key) => {
 export const readEnvFileValue = (rootDir, key) =>
   findEnvFileEntry(rootDir, key)?.value ?? "";
 
+export const AUTH_DISABLED_KEY = "VITE_AUTH_DISABLED";
+
+// Same rule as packages/types/src/auth-disabled.ts with the dev fallback baked
+// in, so only the explicit falsy tokens need a list. It cannot import that
+// module: mini-bootstrap-skip.test.mjs copies this file into a throwaway
+// project under the OS temp directory, where no node_modules exists above it.
+// The parity test in mini-dev-env.test.mjs keeps the two from drifting.
+const FALSY_FLAGS = ["false", "0", "no"];
+
+/**
+ * Reads the `VITE_AUTH_DISABLED` lever for the dev stack with the renderer's
+ * three states. A dev stack that decides otherwise can start without the auth
+ * server while the app still demands a login. Unset or unreadable means
+ * local-only: a fresh clone has no PostgreSQL or Redis to run that server.
+ */
+export const resolveAuthDisabled = (rootDir, env = process.env) => {
+  const declared = [
+    env[AUTH_DISABLED_KEY] ?? "",
+    readEnvFileValue(rootDir, AUTH_DISABLED_KEY),
+  ].find((raw) => raw.trim() !== "");
+
+  if (declared === undefined) {
+    return true;
+  }
+
+  const value = declared.trim().toLowerCase();
+
+  // Anything but an explicit falsy token stays local-only, matching the
+  // renderer's fallback for an unreadable value.
+  return !FALSY_FLAGS.includes(value);
+};
+
 export const resolveAccelerationProfile = (rootDir, env = process.env) => {
   const fromProcess = (env[ACCELERATION_PROFILE_KEY] ?? "").trim();
   if (fromProcess !== "") {

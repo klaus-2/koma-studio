@@ -5,12 +5,11 @@
 //
 // Bridge: window.desktop (preload v1) — the contract payload is
 // the format the v1 main process already reads (pass-through, no normalization).
-// Auth adapter v1: auth-disabled mode (VITE_AUTH_DISABLED / runtimeConfig.
-// authDisabled) is exclusive to this shell.
-
 import { setDesktopBridgeProvider } from "@koma/interface/lib/desktop-bridge";
 import { setUiI18n } from "@koma/ui/i18n-port";
-import { setRuntimeAdapter, type DesktopAuthApiPort } from "@koma/auth/runtime-adapter";
+import { setRuntimeAdapter } from "@koma/auth/runtime-adapter";
+import { isAuthDisabledFlag } from "@shared/auth-disabled";
+import type { IDesktopBridge, IUpdaterSyncBridge } from "@shared/desktop-api";
 import { desktopBridge } from "@koma/interface/lib/desktop-bridge";
 import { installRendererConsoleCapture } from "@koma/interface/lib/install-renderer-console-capture";
 import { buildUrl } from "@koma/interface/config/api";
@@ -18,45 +17,35 @@ import { getDesktopUpdatePolicyHeaders } from "@koma/interface/config/desktopCli
 import { useUpdaterBlocking } from "@koma/interface/hooks/useUpdater";
 import { useI18n } from "@koma/interface/i18n";
 
-type ElectronDesktop = {
-  getRuntimeConfig(): {
-    authApiUrl: string;
-    localApiUrl: string;
-    authDisabled?: boolean;
-    appPackaged?: boolean;
-  };
-  api?: {
-    auth?: DesktopAuthApiPort;
-  };
-};
-
-type ElectronUpdaterSync = {
-  start: () => Promise<unknown>;
-  cancel: () => Promise<unknown>;
-  rebuildAndRestart: () => Promise<unknown>;
-  getStatus: () => Promise<unknown>;
-  on: (listener: (payload: unknown) => void) => () => void;
-};
-
 declare global {
   interface Window {
-    desktop?: ElectronDesktop & Record<string, unknown>;
-    updaterSync?: ElectronUpdaterSync;
+    desktop?: IDesktopBridge;
+    updaterSync?: IUpdaterSyncBridge;
   }
 }
 
-const electronDesktop = (): ElectronDesktop | null =>
+const electronDesktop = (): IDesktopBridge | null =>
   typeof window !== "undefined" && window.desktop ? window.desktop : null;
 
-const electronUpdaterSync = (): ElectronUpdaterSync | null =>
+const electronUpdaterSync = (): IUpdaterSyncBridge | null =>
   typeof window !== "undefined" && window.updaterSync ? window.updaterSync : null;
+
+// Local mode: an explicit VITE_AUTH_DISABLED always wins, and when nothing
+// defines it a dev server runs offline while the packaged shell defers to the
+// value the main process resolved.
+const authDisabled = isAuthDisabledFlag(
+  import.meta.env.VITE_AUTH_DISABLED,
+  import.meta.env.DEV ||
+    electronDesktop()?.getRuntimeConfig()?.authDisabled === true,
+);
 
 // Fallback for pure browser preview (no preload): keeps the Dashboard
 // working — without this, getRuntimeConfig() throws and the page goes blank.
 const FALLBACK_RUNTIME_CONFIG = {
   authApiUrl: import.meta.env.VITE_AUTH_API_URL ?? "",
   localApiUrl: import.meta.env.VITE_LOCAL_API_URL ?? "http://127.0.0.1:8001",
-  authDisabled: import.meta.env.VITE_AUTH_DISABLED === "true",
+  authDisabled,
+  appPackaged: false,
 };
 
 // Bridge provider: pass-through from preload v1.
@@ -72,11 +61,6 @@ setDesktopBridgeProvider({
   hydrateRuntimeConfig: async () =>
     electronDesktop()?.getRuntimeConfig() ?? FALLBACK_RUNTIME_CONFIG,
 });
-
-// Auth adapter v1: auth-disabled mode (offline) is exclusive to this shell.
-const authDisabled =
-  import.meta.env.VITE_AUTH_DISABLED === "true" ||
-  electronDesktop()?.getRuntimeConfig()?.authDisabled === true;
 
 setRuntimeAdapter({
   isDesktopRuntime: () => electronDesktop() !== null,

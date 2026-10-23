@@ -186,9 +186,18 @@ const authApiUrl = (() => {
   }
   return rawAuthApiUrl;
 })();
-const isAuthDisabled = ["true", "1", "yes"].includes(
-  (resolveDesktopEnvValue("VITE_AUTH_DISABLED") ?? "").trim().toLowerCase(),
-);
+// Same tri-state as `isAuthDisabledFlag` in packages/types/src/auth-disabled.ts:
+// an explicit value wins, and anything else falls back to the shell being
+// unpackaged, so a repo checkout runs without the auth server while a packaged
+// build keeps login.
+const authDisabledFlag = (resolveDesktopEnvValue("VITE_AUTH_DISABLED") ?? "")
+  .trim()
+  .toLowerCase();
+const isAuthDisabled = ["true", "1", "yes"].includes(authDisabledFlag)
+  ? true
+  : ["false", "0", "no"].includes(authDisabledFlag)
+    ? false
+    : !app.isPackaged;
 
 let localApiUrl = normalizeLoopbackUrl(
   resolveDesktopEnvValue("VITE_LOCAL_API_URL") ?? "http://127.0.0.1:8001",

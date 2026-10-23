@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { readEnvFileValue, shouldSkipMiniBootstrap } from "./mini-dev-env.mjs";
+import { resolveAuthDisabled, shouldSkipMiniBootstrap } from "./mini-dev-env.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,22 +69,11 @@ const ensureMiniDeps = () => {
   }
 };
 
-// VITE_AUTH_DISABLED=true skips the auth-server entirely (local-only mode).
-const isTruthyFlag = (value) => ["true", "1", "yes"].includes((value ?? "").trim().toLowerCase());
-const readAuthDisabledFlag = () => {
-  const fromProcess = process.env.VITE_AUTH_DISABLED;
-  if (isTruthyFlag(fromProcess)) {
-    return true;
-  }
-  if (fromProcess !== undefined && fromProcess.trim() !== "") {
-    return false;
-  }
-
-  return isTruthyFlag(readEnvFileValue(rootDir, "VITE_AUTH_DISABLED"));
-};
-const authDisabled = readAuthDisabledFlag();
+// An unset VITE_AUTH_DISABLED means local-only mode, so a fresh clone does not
+// have to run the auth server (see mini-dev-env.mjs for the rule).
+const authDisabled = resolveAuthDisabled(rootDir);
 if (authDisabled) {
-  console.log("[dev] VITE_AUTH_DISABLED=true — skipping auth-server (local-only mode).");
+  console.log("[dev] auth disabled — skipping auth-server (local-only mode).");
 }
 
 const services = [

@@ -227,6 +227,7 @@ comentada. Nada é obrigatório para rodar localmente. Destaques:
 | Variável | Significado |
 | --- | --- |
 | `VITE_AUTH_API_URL` | Auth server self-hosted; o app funciona sem ele |
+| `VITE_AUTH_DISABLED` | modo local; `true` ou ausente no dev = sem telas de login, recursos de auth ocultos; `false` exige o auth server, e o `dev:desktop` sobe ele |
 | `VITE_LOCAL_API_URL` | Endereço do mini-backend (padrão `http://localhost:8001`) |
 | `KOMA_MODELS_ROOT` | Onde os pesos de IA ficam; vazio = diretório de dados do app |
 | `KOMA_EXTERNAL_STORAGE_ROOT` | Raiz externa opcional para dados grandes de projeto |
@@ -237,7 +238,8 @@ comentada. Nada é obrigatório para rodar localmente. Destaques:
 
 Contas, login e o feed da comunidade são servidos pelo **auth server que vem no `apps/auth-server/`**.
 A KŌMA Studio funciona inteiramente em modo local sem ele — você
-só precisa dele para recursos autenticados. Ele emite JWTs com audience `"koma-studio-backend"`; veja
+só precisa dele para recursos autenticados. Defina `VITE_AUTH_DISABLED=false` para exigir o auth server;
+o `dev:desktop` lê a mesma flag e sobe o servidor para você. Ele emite JWTs com audience `"koma-studio-backend"`; veja
 [`apps/auth-server/.env.example`](../../apps/auth-server/.env.example) para a lista completa de envs e
 [`apps/auth-server/README.md`](../../apps/auth-server/README.md) para o setup.
 

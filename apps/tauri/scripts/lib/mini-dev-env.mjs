@@ -5,6 +5,8 @@ import { DEFAULT_PROFILE, normalizeProfile } from "./hardware-profiles.mjs";
 
 export const ACCELERATION_PROFILE_KEY = "MINI_BACKEND_ACCELERATION_PROFILE";
 
+export const AUTH_DISABLED_KEY = "VITE_AUTH_DISABLED";
+
 const ENV_FILE_PRECEDENCE = [
     ".env.development.local",
     ".env.local",

@@ -35,7 +35,7 @@
     "test:watermark": "node --test interface/components/dashboard/watermark/*.test.mjs",
     "test:electron-runtime": "node scripts/test-electron-runtime.mjs",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.json",
     "build:mini": "node scripts/build-mini-backend.mjs",
     "build:mini:artifacts": "node scripts/build-mini-backend-artifacts.mjs release-desktop",
     "build:react": "vite build --mode production",

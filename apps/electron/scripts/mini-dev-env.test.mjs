@@ -5,11 +5,14 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  AUTH_DISABLED_KEY,
   readEnvFileValue,
   resolveAccelerationProfile,
+  resolveAuthDisabled,
   withAccelerationProfile,
 } from "./mini-dev-env.mjs";
 import { computeMiniDepsMarkerHash } from "./mini-deps-marker.mjs";
+import { isAuthDisabledFlag } from "@koma/types/auth-disabled";
 
 const buildFakeProject = ({ envFileBodies }) => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "koma-dev-env-"));
@@ -33,6 +36,57 @@ const buildFakeProject = ({ envFileBodies }) => {
 };
 
 const PROFILE = "MINI_BACKEND_ACCELERATION_PROFILE";
+
+test("nothing declares VITE_AUTH_DISABLED, so the dev stack runs local-only", () => {
+  const rootDir = buildFakeProject({
+    envFileBodies: { ".env.development": "VITE_API_BASE=http://localhost\n" },
+  });
+
+  assert.equal(resolveAuthDisabled(rootDir, {}), true);
+});
+
+test("an explicit false keeps the auth server in the dev stack", () => {
+  const rootDir = buildFakeProject({
+    envFileBodies: { ".env.development": "VITE_AUTH_DISABLED=false\n" },
+  });
+
+  assert.equal(resolveAuthDisabled(rootDir, {}), false);
+  assert.equal(resolveAuthDisabled(rootDir, { VITE_AUTH_DISABLED: "true" }), true);
+});
+
+test("the process environment outranks the env files", () => {
+  const rootDir = buildFakeProject({
+    envFileBodies: { ".env.development": "VITE_AUTH_DISABLED=true\n" },
+  });
+
+  assert.equal(resolveAuthDisabled(rootDir, { VITE_AUTH_DISABLED: "false" }), false);
+});
+
+test("the highest-precedence env file decides the flag", () => {
+  const rootDir = buildFakeProject({
+    envFileBodies: {
+      ".env.development.local": "VITE_AUTH_DISABLED=false\n",
+      ".env.development": "VITE_AUTH_DISABLED=true\n",
+    },
+  });
+
+  assert.equal(resolveAuthDisabled(rootDir, {}), false);
+});
+
+test("the dev stack keeps the renderer's tri-state, unreadable values included", () => {
+  for (const value of ["true", "false", "1", "0", "yes", "no", "TRUE", "on", "maybe"]) {
+    const rootDir = buildFakeProject({
+      envFileBodies: { ".env.development": `${AUTH_DISABLED_KEY}=${value}\n` },
+    });
+
+    assert.equal(
+      resolveAuthDisabled(rootDir, {}),
+      isAuthDisabledFlag(value, true),
+      `the dev stack diverged from the renderer on ${JSON.stringify(value)}`,
+    );
+  }
+});
+
 
 test("nothing declares the profile, so the dev bootstrap keeps the auto behavior", () => {
   const rootDir = buildFakeProject({

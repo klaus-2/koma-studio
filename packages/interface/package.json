@@ -6,6 +6,7 @@
   "description": "Interface única KŌMA (base v2) — consumida pelos shells electron e tauri. Fase 3, waves 1+ preenchem este package.",
   "exports": {
     "./adapters/*": "./src/adapters/*.ts",
+    "./lib/*": "./src/lib/*.ts",
     "./*": "./src/*",
     "./main": "./src/main.tsx",
     "./config/api": "./src/config/api.ts",

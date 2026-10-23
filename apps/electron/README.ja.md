@@ -227,7 +227,7 @@ bun run build:mini -- --force        # または MINI_BACKEND_FORCE_REBUILD=1
 | 変数 | 意味 |
 | --- | --- |
 | `VITE_AUTH_API_URL` | セルフホストの認証サーバー。なくてもアプリは動作します |
-| `VITE_AUTH_DISABLED` | `true` = 完全ローカルモード（ログイン画面なし、認証系機能を非表示） |
+| `VITE_AUTH_DISABLED` | ローカルモード; dev で `true` または未設定 = ログイン画面なし、認証系機能を非表示; `false` = auth サーバー必須 |
 | `VITE_LOCAL_API_URL` | mini-backend のアドレス（既定 `http://localhost:8001`） |
 | `KOMA_MODELS_ROOT` | AI の重みの保存先。空ならアプリデータディレクトリ |
 | `BUG_REPORT_DISCORD_WEBHOOK_URL` | オプトインのバグ報告フォームを有効化。空なら無効 |
@@ -237,9 +237,10 @@ bun run build:mini -- --force        # または MINI_BACKEND_FORCE_REBUILD=1
 ### 任意: 認証サーバー
 
 アカウント、ログイン、コミュニティフィードは、`apps/auth-server/` に同梱されている**認証サーバー**が
-提供します。KŌMA Studio は認証サーバーなしでも完全にローカルモードで動作します。
-`VITE_AUTH_DISABLED=true` を設定すると、ログインをスキップして認証が必要な機能（フィード、モデル
-ランキング、アカウント設定）を非表示にしたまま、アプリは直接ダッシュボードから開きます。audience
+提供します。KŌMA Studio は認証サーバーなしでも完全にローカルモードで動作します。変数を設定しない
+dev サーバーがその既定で、ログインをスキップして認証が必要な機能（フィード、モデルランキング、
+アカウント設定）を非表示にし、ダッシュボードから直接開きます。auth サーバーを必須にするには
+`VITE_AUTH_DISABLED=false` を設定してください。audience
 `"koma-studio-backend"` の JWT を発行します。環境変数の全一覧は
 [`apps/auth-server/.env.example`](../../apps/auth-server/.env.example)、セットアップは
 [`apps/auth-server/README.md`](../../apps/auth-server/README.md) を参照してください。
