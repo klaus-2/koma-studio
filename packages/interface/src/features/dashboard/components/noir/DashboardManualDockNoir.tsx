@@ -316,7 +316,7 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 16, scale: 0.97 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="glass panel-cut custom-scrollbar fixed top-20 z-40 max-h-[70vh] w-64 overflow-y-auto border-crimson/30 shadow-hard-crimson"
+            className="glass panel-cut custom-scrollbar fixed top-20 z-[150] max-h-[70vh] w-64 overflow-y-auto border-crimson/30 shadow-hard-crimson"
             style={{ right: manualDockRightOffset + 62 }}
             aria-label={t('dashboard.dock.config.ariaLabel')}
           >
@@ -443,7 +443,7 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="glass panel-cut fixed top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-1 border-crimson/30 p-1.5 shadow-hard-crimson"
+          className="glass panel-cut fixed top-1/2 z-[150] flex -translate-y-1/2 flex-col items-center gap-1 border-crimson/30 p-1.5 shadow-hard-crimson"
           data-tour="dashboard-manual-dock"
           style={{ right: manualDockRightOffset }}
           role="toolbar"
