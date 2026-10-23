@@ -116,3 +116,4 @@ react-doctor-*.json
 /apps/tauri/tests/e2e/.artifacts/
 /apps/tauri/tests/e2e/probe-out/
 /.sisyphus
+/state
