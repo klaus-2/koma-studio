@@ -26,7 +26,6 @@ export const TextEffectPopoverNoir = ({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const activePreset = presets.find((preset) => preset.id === value) ?? presets[0];
-  const activePresetClass = activePreset ? `koma-effect-picker__sample--${activePreset.id}` : '';
   const filteredPresets = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return presets;
@@ -92,7 +91,7 @@ export const TextEffectPopoverNoir = ({
                   setOpen(false);
                 }}
               >
-                <span className={`font-display text-[11px] font-bold text-paper ${activePresetClass}`}>
+                <span className={`koma-effect-picker__sample koma-effect-picker__sample--${preset.id} font-display text-[11px] font-bold`}>
                   {t(preset.label as any)}
                 </span>
                 <span className="truncate text-[9px] text-paper/40">{t(preset.description as any)}</span>
