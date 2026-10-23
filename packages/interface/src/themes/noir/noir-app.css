@@ -7867,13 +7867,15 @@
   inset: 2px;
   z-index: 8;
   padding: 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(168, 85, 247, 0.36);
-  background: rgba(6, 8, 18, 0.92);
-  backdrop-filter: blur(12px) saturate(1.2);
+  /* Noir surface: chamfered corner, ink glass and a crimson edge. */
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  border: 1px solid color-mix(in srgb, var(--color-crimson, #ff2e63) 45%, transparent);
+  background: color-mix(in srgb, var(--color-ink-2, #12101c) 92%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
   box-shadow:
-    0 12px 28px rgba(2, 6, 23, 0.52),
-    0 0 0 1px rgba(168, 85, 247, 0.1);
+    inset 0 0 0 1px color-mix(in srgb, var(--color-crimson, #ff2e63) 12%, transparent),
+    0 14px 30px rgba(0, 0, 0, 0.55);
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
@@ -7883,20 +7885,21 @@
 }
 
 :root[data-theme-family='noir'] .koma-render-inline-editor:focus {
-  border-color: rgba(168, 85, 247, 0.72);
+  border-color: var(--color-crimson, #ff2e63);
+  /* The chamfer clips outer shadows, so the focus ring is drawn inside. */
   box-shadow:
-    0 0 0 3px rgba(168, 85, 247, 0.2),
-    0 18px 32px rgba(6, 182, 212, 0.2);
+    inset 0 0 0 2px color-mix(in srgb, var(--color-crimson, #ff2e63) 55%, transparent),
+    0 18px 34px rgba(0, 0, 0, 0.6);
 }
 
 :root[data-theme-family='noir'] .koma-render-inline-editor::selection {
-  background: rgba(168, 85, 247, 0.28);
+  background: color-mix(in srgb, var(--color-crimson, #ff2e63) 30%, transparent);
 }
 
 :root[data-theme-family='noir'] .koma-render-inline-editor[data-empty='true']::before {
   content: attr(data-placeholder);
   display: block;
-  color: rgba(226, 232, 240, 0.42);
+  color: color-mix(in srgb, var(--color-paper, #f1f5f9) 42%, transparent);
   pointer-events: none;
   white-space: pre-wrap;
 }
