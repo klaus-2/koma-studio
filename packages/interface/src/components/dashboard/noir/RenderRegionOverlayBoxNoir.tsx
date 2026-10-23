@@ -117,6 +117,20 @@ const RenderRegionOverlayBoxNoir = ({
           onKeyDown={(event) => {
             if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); editor.cancel(); return; }
             if (event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); event.stopPropagation(); editor.save(); return; }
+            if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+              const shortcut = event.key.toLowerCase();
+              if (shortcut === 'b' || shortcut === 'i' || shortcut === 'u') {
+                // The browser's own rich-text formatting is dropped when the
+                // value is read back as plain text, so the toggle has to go
+                // through the region style instead.
+                event.preventDefault();
+                event.stopPropagation();
+                editor.toggleFormat(
+                  shortcut === 'b' ? 'bold' : shortcut === 'i' ? 'italic' : 'underline',
+                );
+                return;
+              }
+            }
             if (event.key === 'Enter' || event.key === ' ') { event.stopPropagation(); }
           }}
           onBlur={(event) => {

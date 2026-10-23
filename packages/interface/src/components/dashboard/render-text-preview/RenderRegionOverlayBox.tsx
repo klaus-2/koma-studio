@@ -20,6 +20,8 @@ export interface RenderRegionOverlayBoxEditor {
   syncSelection: () => void;
   cancel: () => void;
   save: () => void;
+  /** Bold/italic/underline toggle for the edited text, selection-first. */
+  toggleFormat: (kind: 'bold' | 'italic' | 'underline') => void;
   setState: React.Dispatch<
     React.SetStateAction<RenderTextPreviewInlineEditorState | null>
   >;
@@ -138,6 +140,24 @@ const RenderRegionOverlayBox = ({
               event.stopPropagation();
               editor.save();
               return;
+            }
+            if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+              const shortcut = event.key.toLowerCase();
+              if (shortcut === 'b' || shortcut === 'i' || shortcut === 'u') {
+                // The browser's own rich-text formatting is dropped when the
+                // value is read back as plain text, so the toggle has to go
+                // through the region style instead.
+                event.preventDefault();
+                event.stopPropagation();
+                editor.toggleFormat(
+                  shortcut === 'b'
+                    ? 'bold'
+                    : shortcut === 'i'
+                      ? 'italic'
+                      : 'underline',
+                );
+                return;
+              }
             }
             if (event.key === 'Enter' || event.key === ' ') {
               event.stopPropagation();

@@ -750,6 +750,11 @@ const RenderTextPreviewClassic = ({
                         syncSelection: syncInlineEditorSelection,
                         cancel: cancelInlineEditor,
                         save: saveInlineEditor,
+                        toggleFormat: (kind) =>
+                          updateSelectedRegionStyle((style) => ({
+                            ...style,
+                            [kind]: !style[kind],
+                          })),
                         setState: setInlineEditor,
                         dockPointerDownRef,
                         dockRef,
