@@ -851,16 +851,14 @@ const RenderTextPreviewClassic = ({
 
               {showRenderDock && dockAnchor && selectedRegion && dockVisible && createPortal((() => {
                 const overlay = overlayRef.current;
-                const stageEl = overlay?.closest('.koma-stage');
                 const overlayRect = overlay?.getBoundingClientRect();
-                const stageRect = stageEl?.getBoundingClientRect();
-                if (!overlayRect || !stageRect || !stageEl) {
+                if (!overlayRect) {
                   return <div ref={dockRef} className="koma-type-dock" style={{ display: 'none' }} />;
                 }
-                const stageScrollLeft = stageEl.scrollLeft;
-                const stageScrollTop = stageEl.scrollTop;
-                const dockLeft = overlayRect.left - stageRect.left + stageScrollLeft + dockAnchor.x;
-                const dockTop = overlayRect.top - stageRect.top + stageScrollTop + dockAnchor.y;
+                // Viewport coordinates: the dock is portaled to <body> so the
+                // stage's overflow cannot clip it against the sidebars.
+                const dockLeft = overlayRect.left + dockAnchor.x;
+                const dockTop = overlayRect.top + dockAnchor.y;
                 return (
                   <RenderTextPreviewTypeDock
                     dockLeft={dockLeft}
@@ -887,7 +885,7 @@ const RenderTextPreviewClassic = ({
                     syncInlineEditorSelection={syncInlineEditorSelection}
                   />
                 );
-              })(), overlayRef.current?.closest('.koma-stage') ?? document.body)}
+              })(), document.body)}
 
               {draftBox && (
                 <div

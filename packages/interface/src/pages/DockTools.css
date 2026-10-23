@@ -855,8 +855,10 @@
    ================================================================ */
 
 .koma-type-dock {
-  position: absolute;
-  z-index: 55;
+  /* Portaled to <body> with viewport coordinates: fixed keeps it out of the
+     stage's scroll/clip box and above the dashboard sidebars. */
+  position: fixed;
+  z-index: 150;
   pointer-events: auto;
   border-radius: var(--auth-radius);
   border: 1px solid rgba(168, 85, 247, 0.1);

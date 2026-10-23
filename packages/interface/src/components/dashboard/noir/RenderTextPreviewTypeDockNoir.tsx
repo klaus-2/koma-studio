@@ -252,7 +252,7 @@ const RenderTextPreviewTypeDockNoir = ({
       initial={{ opacity: 0, scale: 0.94, y: -6 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-      className={cn('koma-type-dock absolute z-[60]', isCompactViewport && 'koma-type-dock--compact', dockAnchor.placement === 'left' && 'koma-type-dock--left', dockAnchor.placement === 'right' && 'koma-type-dock--right', dockAnchor.placement === 'top' && 'koma-type-dock--top', dockAnchor.placement === 'bottom' && 'koma-type-dock--bottom')}
+      className={cn('koma-type-dock fixed z-[150]', isCompactViewport && 'koma-type-dock--compact', dockAnchor.placement === 'left' && 'koma-type-dock--left', dockAnchor.placement === 'right' && 'koma-type-dock--right', dockAnchor.placement === 'top' && 'koma-type-dock--top', dockAnchor.placement === 'bottom' && 'koma-type-dock--bottom')}
       style={{ left: `${dockLeft}px`, top: `${dockTop}px`, maxWidth: dockExpanded ? 440 : 440, overflow: 'visible' }}
       onPointerDown={(e) => { dockPointerDownRef.current = true; syncInlineEditorSelection(); e.stopPropagation(); }}
       onContextMenu={(e) => e.preventDefault()}

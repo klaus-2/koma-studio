@@ -117,6 +117,16 @@ export const useRenderTextPreviewTypeDock = ({
     const overlay = overlayRef.current;
     if (!overlay) return;
 
+    // The dock lives in a body portal with viewport coordinates, so a stage
+    // scroll has to re-anchor it imperatively (no React render per tick).
+    const applyDockPosition = () => {
+      const node = dockRef.current;
+      if (!node) return;
+      const rect = overlay.getBoundingClientRect();
+      node.style.left = `${rect.left + dockAnchor.x}px`;
+      node.style.top = `${rect.top + dockAnchor.y}px`;
+    };
+
     const updateDockVisibility = () => {
       const rect = overlay.getBoundingClientRect();
       const dockHeight = dockRef.current?.offsetHeight ?? 120;
@@ -129,15 +139,20 @@ export const useRenderTextPreviewTypeDock = ({
       setDockVisible(dockWithinCard && cardInViewport);
     };
 
+    const handleStageScroll = () => {
+      applyDockPosition();
+      updateDockVisibility();
+    };
+
     const stageEl = overlay.closest('.koma-stage');
     if (stageEl) {
-      stageEl.addEventListener('scroll', updateDockVisibility, { passive: true });
-      window.addEventListener('resize', updateDockVisibility);
+      stageEl.addEventListener('scroll', handleStageScroll, { passive: true });
+      window.addEventListener('resize', handleStageScroll);
       updateDockVisibility();
     }
     return () => {
-      if (stageEl) stageEl.removeEventListener('scroll', updateDockVisibility);
-      window.removeEventListener('resize', updateDockVisibility);
+      if (stageEl) stageEl.removeEventListener('scroll', handleStageScroll);
+      window.removeEventListener('resize', handleStageScroll);
     };
   }, [showRenderDock, dockAnchor, dockSizeRevision]);
 
