@@ -44,6 +44,8 @@ import type {
   ModelManagerListener,
 } from "@shared/desktop-events";
 
+import { toBridgeRejectionError } from "./bridge-rejection";
+
 export type TauriCommandName = DesktopCommandName;
 export type TauriCommandArgs = InvokeArgs | undefined;
 
@@ -52,15 +54,16 @@ export const invokeCommand = <TResponse = unknown>(
   args?: TauriCommandArgs,
   options?: InvokeOptions,
 ): Promise<TResponse> => {
-  if (options !== undefined) {
-    return invoke<TResponse>(command, args, options);
-  }
+  const pending =
+    options !== undefined
+      ? invoke<TResponse>(command, args, options)
+      : args !== undefined
+        ? invoke<TResponse>(command, args)
+        : invoke<TResponse>(command);
 
-  if (args !== undefined) {
-    return invoke<TResponse>(command, args);
-  }
-
-  return invoke<TResponse>(command);
+  return pending.catch((rejection: unknown) => {
+    throw toBridgeRejectionError(rejection);
+  });
 };
 
 export const listenToDesktopEvent = <TName extends DesktopEventName>(

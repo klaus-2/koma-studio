@@ -77,6 +77,32 @@ describe("tauri api wrapper", () => {
     expect(mockedInvoke).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects a bridge failure with an Error carrying the command's cause", async () => {
+    mockedInvoke.mockRejectedValueOnce(
+      "error sending request for url (http://127.0.0.1:3001/api/auth/login): connection refused",
+    );
+
+    const failing = invokeCommand<{ ok: boolean }>(
+      desktopCommandChannels.api.auth.login,
+      { payload: {} },
+    );
+
+    await expect(failing).rejects.toBeInstanceOf(Error);
+    await expect(failing).rejects.toThrow(
+      "error sending request for url (http://127.0.0.1:3001/api/auth/login): connection refused",
+    );
+  });
+
+  it("keeps the code of a tagged enum rejection", async () => {
+    mockedInvoke.mockRejectedValueOnce({ code: "invalid_url" });
+
+    const failing = invokeCommand(desktopCommandChannels.links.openExternal, {
+      url: "http://insecure.example",
+    });
+
+    await expect(failing).rejects.toThrow('{"code":"invalid_url"}');
+  });
+
   it("keeps production Vite URLs when Tauri runtime config returns local defaults", async () => {
     vi.stubEnv("VITE_AUTH_API_URL", "https://auth.koma-studio.site");
     vi.stubEnv("VITE_MINI_BACKEND_ARTIFACTS_URL", "https://api.koma-studio.site/updates/");
