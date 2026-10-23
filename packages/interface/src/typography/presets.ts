@@ -12,13 +12,14 @@ import {
   type RenderModePresetMode,
 } from "../utils/renderModePresets";
 import { DEFAULT_NATIVE_TEXT_EFFECT_PRESET_ID, isNativeTextEffectPresetId } from "./textEffects";
+import { migrateRenderSizeCatalog } from "../utils/renderSizeDefaults";
 
 export const TYPOGRAPHY_PRESET_STORAGE_KEY = "koma-typography-presets-v1";
 
 const DEFAULT_STYLE: RenderTextStyle = {
   fontFamily: "Arial",
-  fontSize: 40,
-  minFontSize: 10,
+  fontSize: 160,
+  minFontSize: 6,
   autoFontSize: true,
   lineSpacing: 1,
   textOrientation: "horizontal",
@@ -267,6 +268,7 @@ const persistState = (state: TypographyPresetStateV1): void => {
 
 export const loadTypographyPresetState = (): TypographyPresetStateV1 => {
   if (typeof window === "undefined") return buildLegacyPresetState();
+  migrateRenderSizeCatalog(TYPOGRAPHY_PRESET_STORAGE_KEY);
   return sanitizeState(parseJson(window.localStorage.getItem(TYPOGRAPHY_PRESET_STORAGE_KEY), buildLegacyPresetState()));
 };
 

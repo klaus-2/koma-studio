@@ -1,4 +1,5 @@
 import type { TypographySession } from "./types";
+import { forceLegacyRenderSizesInPlace } from "../utils/renderSizeDefaults";
 
 const DB_NAME = "koma-typography-db";
 const DB_VERSION = 1;
@@ -20,10 +21,14 @@ const openDatabase = async (): Promise<IDBDatabase | null> => {
   });
 };
 
-const cloneSession = (session: TypographySession): TypographySession =>
-  typeof structuredClone === "function"
-    ? structuredClone(session)
-    : JSON.parse(JSON.stringify(session)) as TypographySession;
+const cloneSession = (session: TypographySession): TypographySession => {
+  const clone =
+    typeof structuredClone === "function"
+      ? structuredClone(session)
+      : JSON.parse(JSON.stringify(session)) as TypographySession;
+  forceLegacyRenderSizesInPlace(clone);
+  return clone;
+};
 
 const readFallbackStore = (): Record<string, TypographySession> => {
   if (typeof window === "undefined") return {};

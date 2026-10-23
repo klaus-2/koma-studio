@@ -181,8 +181,8 @@ export const AIO_PIPELINE_STAGE_ICONS: Record<AioPipelineSnapshotKey, LucideIcon
 
 export const DEFAULT_RENDER_STYLE: RenderTextStyle = {
   fontFamily: "Arial",
-  fontSize: 40,
-  minFontSize: 10,
+  fontSize: 160,
+  minFontSize: 6,
   autoFontSize: true,
   lineSpacing: 1,
   textOrientation: "horizontal",

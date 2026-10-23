@@ -1,3 +1,5 @@
+import { migrateRenderSizeCatalog } from "./renderSizeDefaults";
+
 export type RenderModePresetMode =
   | "text_bubble"
   | "text_free"
@@ -68,7 +70,7 @@ const sanitizePreset = (value: unknown, fallback?: RenderModeStylePreset): Rende
   if (!isRecord(value)) return fallback ? { ...fallback } : null;
   const nextFallback = fallback ?? {
     fontFamily: "Arial",
-    fontSize: 40,
+    fontSize: 160,
     bold: false,
     italic: false,
     color: "#111111",
@@ -121,6 +123,7 @@ const persistState = (state: RenderModePresetStateV1): void => {
 
 export const loadRenderModePresetState = (): RenderModePresetStateV1 => {
   if (typeof window === "undefined") return { ...DEFAULT_STATE };
+  migrateRenderSizeCatalog(RENDER_MODE_PRESET_STORAGE_KEY);
   return sanitizeState(
     parseJson<unknown>(window.localStorage.getItem(RENDER_MODE_PRESET_STORAGE_KEY), DEFAULT_STATE),
   );

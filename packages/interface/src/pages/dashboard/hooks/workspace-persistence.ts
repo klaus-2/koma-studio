@@ -26,6 +26,10 @@ import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { useWorkspacePersistenceStore } from '../stores/workspace-persistence-store';
+import {
+  markWorkspaceRenderSizesMigrated,
+  shouldMigrateWorkspaceRenderSizes,
+} from '../../../utils/renderSizeDefaults';
 
 interface UseWorkspacePersistenceArgs {
   authUser: AuthUser | null;
@@ -163,6 +167,8 @@ export function useWorkspacePersistence({
       setWorkspaceLastSavedAt(
         Date.parse(payload.manifest.document.savedAt) || Date.now(),
       );
+      // The live state is on disk now, so the forced render sizes are durable.
+      markWorkspaceRenderSizesMigrated();
       return true;
     } catch (error) {
       setWorkspaceStatus('error');
@@ -276,6 +282,7 @@ export function useWorkspacePersistence({
         setTonedStatus(t('dashboard.status.importCancelled'), 'warning');
         return;
       }
+      const migrateRenderSizes = shouldMigrateWorkspaceRenderSizes();
       const restored = await restoreWorkspaceDocument(result.payload);
       await applyRestoredWorkspaceState(restored, {
         statusDetail: t('dashboard.status.importSuccess'),
@@ -283,12 +290,16 @@ export function useWorkspacePersistence({
       seedWorkspaceHistory();
       setTonedStatus(t('dashboard.status.importSuccess'), 'success');
       if (workspaceAutosaveSettings.enabled) {
+        const payloadToSave = migrateRenderSizes
+          ? await captureWorkspaceDocument(buildCurrentWorkspaceCaptureState())
+          : result.payload;
         await desktopWorkspace.saveAutosave({
           userId: authUser?.id ?? null,
-          payload: result.payload,
+          payload: payloadToSave,
         });
+        if (migrateRenderSizes) markWorkspaceRenderSizesMigrated();
         setWorkspaceLastSavedAt(
-          Date.parse(result.payload.manifest.document.savedAt) || Date.now(),
+          Date.parse(payloadToSave.manifest.document.savedAt) || Date.now(),
         );
         setWorkspaceStatus('saved');
         setWorkspaceStatusDetail(t('dashboard.status.importSaved'));
@@ -310,6 +321,7 @@ export function useWorkspacePersistence({
   }, [
     applyRestoredWorkspaceState,
     authUser?.id,
+    buildCurrentWorkspaceCaptureState,
     images.length,
     seedWorkspaceHistory,
     setTonedStatus,
@@ -372,6 +384,7 @@ export function useWorkspacePersistence({
           setWorkspaceHydrated(true);
           return;
         }
+        const migrateRenderSizes = shouldMigrateWorkspaceRenderSizes();
         const restored = await restoreWorkspaceDocument(result.payload);
         if (cancelled) return;
         await applyRestoredWorkspaceState(restored, {
@@ -382,6 +395,13 @@ export function useWorkspacePersistence({
           Date.parse(result.payload.manifest.document.savedAt) || Date.now(),
         );
         setWorkspaceHydrated(true);
+        if (migrateRenderSizes) {
+          // Persist the migrated sizes so the override runs once, not on
+          // every launch against the stale autosave file.
+          void useWorkspacePersistenceStore
+            .getState()
+            .saveWorkspaceAutosaveImpl(buildCurrentWorkspaceCaptureState());
+        }
       } catch {
         seedWorkspaceHistory();
         setWorkspaceLastSavedAt(null);
@@ -392,7 +412,7 @@ export function useWorkspacePersistence({
     return () => {
       cancelled = true;
     };
-  }, [authUser?.id, setWorkspaceHydrated, setWorkspaceLastSavedAt]);
+  }, [authUser?.id, buildCurrentWorkspaceCaptureState, setWorkspaceHydrated, setWorkspaceLastSavedAt]);
 
   const workspaceChangeSignal = useCallback(() => {
     const persistence = useWorkspacePersistenceStore.getState();

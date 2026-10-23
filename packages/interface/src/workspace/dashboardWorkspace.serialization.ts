@@ -28,6 +28,10 @@ import type {
   DashboardWorkspaceRestoreState,
 } from "./dashboardWorkspace";
 import { jsonSafeClone as toJsonClone } from "./jsonSafeClone";
+import {
+  forceRenderSizesInPlace,
+  shouldMigrateWorkspaceRenderSizes,
+} from "../utils/renderSizeDefaults";
 import { blobToDataUrl, dataUrlToBlob } from "../utils/dashboard.utils";
 import { createThumbnailFromUrl } from "../utils/imagePerformance";
 import { stitchWorkspaceCodec } from "../components/dashboard/stitch/workspaceCodec";
@@ -662,7 +666,7 @@ export const restoreWorkspaceDocument = async (
     watermarkWorkspaceCodec.toRuntime(document.utility.watermark, codecAssetSource),
   ]);
 
-  return {
+  const restored: DashboardWorkspaceRestoreState = {
     document: toJsonClone(document),
     images,
     downloadItems,
@@ -699,6 +703,14 @@ export const restoreWorkspaceDocument = async (
       optimizer: optimizerWorkspaceCodec.toRuntime(document.utility.optimizer, codecAssetSource),
     },
   };
+
+  // Forced on every restore until the caller persists the migrated document
+  // (then markWorkspaceRenderSizesMigrated stops it).
+  if (shouldMigrateWorkspaceRenderSizes()) {
+    forceRenderSizesInPlace(restored);
+  }
+
+  return restored;
 };
 
 export const buildWorkspaceExportPayload = async (

@@ -41,8 +41,8 @@ export const RENDER_MODE_PRESET_OPTIONS = (Object.entries(RENDER_TEXT_MODE_LABEL
 
 export const RENDER_MODE_EDITOR_BASE_STYLE: RenderTextStyle = {
   fontFamily: "Arial",
-  fontSize: 40,
-  minFontSize: 10,
+  fontSize: 160,
+  minFontSize: 6,
   autoFontSize: true,
   lineSpacing: 1,
   textOrientation: "horizontal",
