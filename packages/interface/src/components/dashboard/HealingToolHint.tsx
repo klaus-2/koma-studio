@@ -9,9 +9,10 @@ const HINT_ID = 'healing-tool-first-use';
 
 interface HealingToolHintProps {
   trigger: number;
+  rightOffset?: number;
 }
 
-export function HealingToolHint({ trigger }: HealingToolHintProps) {
+export function HealingToolHint({ trigger, rightOffset = 24 }: HealingToolHintProps) {
   const { shouldShow, dismiss } = useToolTips();
   const { t } = useI18n();
   const theme = useThemeStore((s) => s.theme);
@@ -62,8 +63,9 @@ export function HealingToolHint({ trigger }: HealingToolHintProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.96 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className={`fixed bottom-24 right-6 z-[200] w-72 border backdrop-blur-[32px] ${isNoir ? 'panel-cut-sm' : 'rounded-xl'
+            className={`pointer-events-none fixed bottom-24 z-[200] w-72 border backdrop-blur-[32px] ${isNoir ? 'panel-cut-sm' : 'rounded-xl'
               } ${surfaceClass}`}
+            style={{ right: rightOffset }}
             role="dialog"
             aria-label={t('dashboard.hint.healing.ariaLabel')}
           >
@@ -93,7 +95,7 @@ export function HealingToolHint({ trigger }: HealingToolHintProps) {
                 <button
                   type="button"
                   onClick={handleDismiss}
-                  className={`flex h-6 w-6 items-center justify-center border transition-colors ${isNoir ? '' : 'rounded-md'
+                  className={`pointer-events-auto flex h-6 w-6 items-center justify-center border transition-colors ${isNoir ? '' : 'rounded-md'
                     } ${dismissClass}`}
                   aria-label={t('common.close')}
                 >

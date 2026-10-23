@@ -2251,7 +2251,7 @@ export const DashboardPage = ({
     Boolean(resolvedActiveId) &&
     !isCompactViewport;
   const manualDockRightOffset =
-    !isCompactViewport && !toolsPanelCollapsed ? 326 : 16;
+    !isCompactViewport && !toolsPanelCollapsed ? rightSidebarWidth + 16 : 16;
   const activeHasManualEdits =
     activeHasManualPaintLayer ||
     activeHasManualBaseOverride ||

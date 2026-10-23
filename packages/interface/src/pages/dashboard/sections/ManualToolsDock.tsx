@@ -309,7 +309,10 @@ export default function ManualToolsDockSection({
         />
       )}
 
-      <HealingToolHint trigger={healingHintTrigger} />
+      <HealingToolHint
+        trigger={healingHintTrigger}
+        rightOffset={manualDockRightOffset + 88}
+      />
     </>
   );
 }
