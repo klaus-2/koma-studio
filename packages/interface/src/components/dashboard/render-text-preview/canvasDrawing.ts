@@ -214,12 +214,68 @@ export const preloadRegionCanvasFonts = (
 /** Paints the rendered text of every region onto the preview canvas. */
 type RegionCanvasLayout = ReturnType<typeof computeRenderTextLayout>;
 type CachedRegionLayout = {
-  renderStageActive: boolean;
+  signature: string;
   layout: RegionCanvasLayout;
   shape: TypographyShape | undefined;
 };
-let regionLayoutCache = new WeakMap<object, CachedRegionLayout>();
-let regionLayoutCacheStyle: RenderTextStyle | null = null;
+
+/**
+ * Keys whose value changes glyph metrics. Color, fill, outline, shadow and the
+ * text effect change how the text looks but not how it wraps, so re-measuring
+ * on those made a style click pay for a full layout search.
+ */
+const LAYOUT_METRIC_KEYS = [
+  "fontFamily",
+  "fontSize",
+  "minFontSize",
+  "autoFontSize",
+  "lineSpacing",
+  "textOrientation",
+  "textPathMode",
+  "circularRadiusScale",
+  "circularStartAngle",
+  "circularLetterSpacing",
+  "alignment",
+  "hyphenationEnabled",
+  "hyphenationLanguage",
+  "bold",
+  "italic",
+  "uppercase",
+] as const satisfies readonly (keyof RenderTextStyle)[];
+
+const buildLayoutSignature = (
+  region: AioTextRegion,
+  text: string,
+  width: number,
+  height: number,
+  style: RenderTextStyle,
+  renderStageActive: boolean,
+): string => {
+  const metrics = LAYOUT_METRIC_KEYS.map(
+    (key) => `${key}:${String(style[key])}`,
+  ).join("|");
+  const ranges =
+    region.renderTextStyleRanges
+      ?.map((range) => `${range.start}:${range.end}:${JSON.stringify(range.style)}`)
+      .join(";") ?? "";
+  return `${region.id}|${renderStageActive ? 1 : 0}|${width}x${height}|${text}|${metrics}|${ranges}`;
+};
+
+let regionLayoutCache = new Map<string, CachedRegionLayout>();
+const REGION_LAYOUT_CACHE_LIMIT = 64;
+
+const rememberRegionLayout = (
+  regionId: string,
+  entry: CachedRegionLayout,
+): void => {
+  // Re-insert on every write so the map order doubles as LRU order.
+  regionLayoutCache.delete(regionId);
+  regionLayoutCache.set(regionId, entry);
+  if (regionLayoutCache.size > REGION_LAYOUT_CACHE_LIMIT) {
+    const oldest = regionLayoutCache.keys().next().value;
+    if (oldest !== undefined) regionLayoutCache.delete(oldest);
+  }
+};
 
 export const drawRegionsToCanvas = (
   ctx: CanvasRenderingContext2D,
@@ -228,6 +284,8 @@ export const drawRegionsToCanvas = (
   regions: AioTextRegion[],
   fallbackStyle: RenderTextStyle,
   renderStageActive: boolean,
+  /** Region hidden behind the open inline editor: its text is not visible. */
+  skipRegionId?: string | null,
 ): void => {
   const canvas = ctx.canvas;
   // Reassigning width/height reallocates the backing store — during a drag
@@ -237,24 +295,29 @@ export const drawRegionsToCanvas = (
   if (canvas.height !== imageHeight) canvas.height = imageHeight;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (regionLayoutCacheStyle !== fallbackStyle) {
-    regionLayoutCacheStyle = fallbackStyle;
-    regionLayoutCache = new WeakMap();
-  }
-
   for (const region of regions) {
+    if (skipRegionId && region.id === skipRegionId) continue;
     const [x1, y1, x2, y2] = region.bbox;
     const width = Math.max(1, x2 - x1);
     const height = Math.max(1, y2 - y1);
     const style = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
     const text = renderStageActive ? (region.renderText ?? '').trim() : '';
     if (!text.trim()) continue;
+    const signature = buildLayoutSignature(
+      region,
+      text,
+      width,
+      height,
+      style,
+      renderStageActive,
+    );
     let layout: RegionCanvasLayout;
     let shape: TypographyShape | undefined;
-    const cached = regionLayoutCache.get(region);
-    if (cached && cached.renderStageActive === renderStageActive) {
+    const cached = regionLayoutCache.get(region.id);
+    if (cached && cached.signature === signature) {
       layout = cached.layout;
       shape = cached.shape;
+      rememberRegionLayout(region.id, cached);
     } else {
       shape = resolveRegionRenderShape(region);
       try {
@@ -282,7 +345,7 @@ export const drawRegionsToCanvas = (
         if (!fallback) throw new RenderTextLayoutError();
         layout = fallback;
       }
-      regionLayoutCache.set(region, { renderStageActive, layout, shape });
+      rememberRegionLayout(region.id, { signature, layout, shape });
     }
     drawRenderedTextInRegion(ctx, region.bbox, layout, style, shape);
   }

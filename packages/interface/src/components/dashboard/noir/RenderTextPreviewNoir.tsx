@@ -397,6 +397,9 @@ const RenderTextPreviewNoir = ({
   }, [displayRegionsWithDefaults, interaction]);
 
   // Paint the rendered text of every display region onto the preview canvas.
+  // Coalesced onto one animation frame: a style click can commit more than once
+  // and every draw re-runs the effect layers.
+  const renderFrameRef = useRef(0);
   useEffect(() => {
     let cancelled = false;
     const renderPreview = async (): Promise<void> => {
@@ -415,12 +418,23 @@ const RenderTextPreviewNoir = ({
         canvasDrawRegions,
         fallbackStyle,
         renderStageActive,
+        inlineEditor?.regionId ?? null,
       );
     };
 
-    void renderPreview();
+    if (renderFrameRef.current) {
+      cancelAnimationFrame(renderFrameRef.current);
+    }
+    renderFrameRef.current = requestAnimationFrame(() => {
+      renderFrameRef.current = 0;
+      void renderPreview();
+    });
     return () => {
       cancelled = true;
+      if (renderFrameRef.current) {
+        cancelAnimationFrame(renderFrameRef.current);
+        renderFrameRef.current = 0;
+      }
     };
   }, [
     canvasDrawRegions,
@@ -428,6 +442,7 @@ const RenderTextPreviewNoir = ({
     fontRefreshToken,
     image.height,
     image.width,
+    inlineEditor?.regionId,
     renderStageActive,
   ]);
 
