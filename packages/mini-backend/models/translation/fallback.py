@@ -17,6 +17,7 @@ from typing import Final, Generic, TypeVar
 from core.config import normalize_stage_model_key
 from models.translation.base_translator import BaseTranslator
 from models.translation.errors import (
+    EmptyTranslationError,
     LocalModelError,
     TranslationError,
     TranslatorConfigurationError,
@@ -29,11 +30,13 @@ from models.translation.factory import TranslationModelOption, list_translation_
 T = TypeVar("T")
 
 # Transport/provider hedges are worth another engine; config and language-pair
-# errors are the client's to fix, so re-raising them is the honest answer.
+# errors are the client's to fix, so re-raising them is the honest answer. An
+# engine that answered with nothing usable is worth another engine too.
 _RETRYABLE_ERRORS: Final[tuple[type[TranslationError], ...]] = (
     TranslatorUnavailableError,
     TranslatorResponseError,
     LocalModelError,
+    EmptyTranslationError,
 )
 
 

@@ -48,6 +48,23 @@ class LocalModelError(TranslationError):
     """Local runtime (ctranslate2 / llama.cpp) missing or model files absent."""
 
 
+class EmptyTranslationError(TranslationError):
+    """The engine answered, but not one region came back translated.
+
+    Providers that retry per region may give up and return empty text; without
+    this the stage looks successful with zero blocks and the only trace is a
+    warning in the sidecar log.
+    """
+
+    def __init__(self, translator_key: str, region_count: int) -> None:
+        self.translator_key = translator_key
+        self.region_count = region_count
+        super().__init__(
+            f"{translator_key} returned no translation for any of the "
+            f"{region_count} region(s) it was asked to translate."
+        )
+
+
 class InvalidModelSelectionError(TranslationError):
     """The caller explicitly selected a local model that cannot run here."""
 

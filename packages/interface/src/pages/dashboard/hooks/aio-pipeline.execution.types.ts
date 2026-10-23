@@ -64,6 +64,8 @@ export interface UseAioPipelineExecutionArgs
   readonly recordProcessedPages: (pages: number) => void;
   readonly syncDiscordForTab: () => Promise<void> | void;
   readonly tryShowHealingHint: () => void;
+  /** Called after an auto run, once the shell is free to switch modes. */
+  readonly onAutoRunCompleted: () => void;
 
   readonly beginAioExecution: (
     scope: AioExecutionScope,

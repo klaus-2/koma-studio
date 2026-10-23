@@ -299,6 +299,27 @@ describe('mapBatchReportToAioResults', () => {
     });
   });
 
+  it('keeps a backend stage error visible on a partial item', () => {
+    const images = [makeImage(0)];
+    const partial = makeResult(0, {
+      status: 'partial',
+      errors: [
+        { stage: 'translation', message: 'custom: Custom AI requires api_base and model.' },
+      ],
+    });
+
+    const mapped = mapBatchReportToAioResults({
+      ...baseInput([partial]),
+      images,
+      zipEntries: { 'cleaned/000-page-0.png': new Uint8Array([7]) },
+    });
+
+    expect(mapped[0]?.countAsProcessed).toBe(true);
+    expect(mapped[0]?.executionNotices).toContain(
+      'translation: custom: Custom AI requires api_base and model.',
+    );
+  });
+
   it('fails the item when the report names a cleaned file the zip does not contain', () => {
     const images = [makeImage(0)];
     const results = [

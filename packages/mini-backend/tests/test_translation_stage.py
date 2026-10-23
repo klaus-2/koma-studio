@@ -17,7 +17,10 @@ from models.translation.base_translator import (  # noqa: E402
     TranslationInputRegion,
     TranslationTextResult,
 )
-from models.translation.errors import TranslatorUnavailableError  # noqa: E402
+from models.translation.errors import (  # noqa: E402
+    EmptyTranslationError,
+    TranslatorUnavailableError,
+)
 from models.translation.factory import TranslationModelOption  # noqa: E402
 from models.translation.fallback import QuotaBlocklist  # noqa: E402
 from pipelines.translation_stage import (  # noqa: E402
@@ -54,6 +57,37 @@ class _FakeEngine:
                 id=region.id,
                 source_text=region.text,
                 translated_text=f"ok-{region.text}",
+                source=region.source,
+                detector_model_key=region.detector_model_key,
+                ocr_model_key=region.ocr_model_key,
+                translator_model_key=self.key,
+            )
+            for region in regions
+        ]
+
+
+class _SilentEngine(_FakeEngine):
+    """Answers with empty text: what a provider does after it gave up."""
+
+    async def translate(
+        self,
+        regions: list[TranslationInputRegion],
+        source_language: str,
+        target_language: str,
+        extra_context: str = "",
+        translation_notes_enabled: bool = True,
+        translation_mode: str = "default",
+    ) -> list[TranslationTextResult]:
+        _ = source_language, target_language, extra_context
+        _ = translation_notes_enabled, translation_mode
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+        return [
+            TranslationTextResult(
+                id=region.id,
+                source_text=region.text,
+                translated_text="",
                 source=region.source,
                 detector_model_key=region.detector_model_key,
                 ocr_model_key=region.ocr_model_key,
@@ -124,6 +158,38 @@ class RunCachedTranslationSeamTests(unittest.TestCase):
             result.records[0]["translated_text"],
             "ok-konnichiwa",
         )
+
+    def test_a_silent_engine_raises_instead_of_a_zero_translation_success(self) -> None:
+        engine = _SilentEngine("fake")
+        resolver = _Resolver({"fake": engine})
+
+        with self.assertRaises(EmptyTranslationError) as raised:
+            self._run(resolver)
+
+        self.assertEqual(engine.calls, 1)
+        self.assertIn("fake", str(raised.exception))
+        self.assertIn("1 region", str(raised.exception))
+
+    def test_a_silent_first_engine_falls_back_to_the_next_in_the_chain(self) -> None:
+        first = _SilentEngine("a")
+        second = _FakeEngine("b")
+        resolver = _Resolver({"a": first, "b": second})
+
+        with patch.object(
+            fallback,
+            "list_translation_models",
+            return_value=[_option("a"), _option("b")],
+        ):
+            result = self._run(
+                resolver,
+                model_key="a",
+                settings=clamp_llm_request_settings(
+                    {"translation_fallback_chain": ["a", "b"]}
+                ),
+            )
+
+        self.assertEqual(result.engine_key, "b")
+        self.assertEqual(result.records[0]["translated_text"], "ok-konnichiwa")
 
     def test_chain_falls_back_via_injected_resolver(self) -> None:
         first = _FakeEngine("a", TranslatorUnavailableError("a", "down"))

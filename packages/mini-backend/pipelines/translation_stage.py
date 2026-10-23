@@ -19,6 +19,7 @@ from models.translation.base_translator import (
     TranslationInputRegion,
     TranslationTextResult,
 )
+from models.translation.errors import EmptyTranslationError
 from models.translation.factory import (
     DEFAULT_TRANSLATION_MODEL,
     get_translation_engine,
@@ -210,7 +211,7 @@ async def run_cached_translation(
     async def translate_missing(
         translator: BaseTranslator,
     ) -> list[TranslationTextResult]:
-        return await translator.translate(
+        results = await translator.translate(
             regions=[to_input_region(seed) for seed in missing],
             source_language=request.source_language,
             target_language=request.target_language,
@@ -218,6 +219,14 @@ async def run_cached_translation(
             translation_notes_enabled=settings.translation_notes_enabled,
             translation_mode=request.translation_mode,
         )
+        # A provider that gave up on every region answers with empty text. This
+        # has to fail inside the attempt so a fallback chain can try the next
+        # engine, instead of the stage reporting success with zero translations
+        # while the cause stays in the sidecar log.
+        translatable = [seed for seed in missing if seed["text"].strip()]
+        if translatable and not any(item.translated_text.strip() for item in results):
+            raise EmptyTranslationError(translator.key, len(translatable))
+        return results
 
     fresh_by_id: dict[str, TranslationRecord] = {}
     if missing:

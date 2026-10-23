@@ -2816,7 +2816,7 @@ export const enMessages = {
     'No wand selection to apply healing.',
   'dashboard.status.renderCanvasInitFailed':
     'Failed to initialize render canvas.',
-  'dashboard.status.aioCompleteAdjust': '{message} Adjust manually if needed.',
+  'dashboard.status.aioCompleteAdjust': '{message} Switched to AIO manual so you can adjust.',
   'dashboard.status.aioAborted': 'AIO run aborted.',
   'dashboard.alert.importWorkspaceConfirm':
     'Importing this workspace will replace the current in-memory workspace. Do you want to continue?',

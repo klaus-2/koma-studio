@@ -17,6 +17,7 @@ import {
   runAioNotification,
 } from '@/pages/dashboard/lib/aio-observability';
 import {
+  aioStageKeyForBatchStage,
   runLocalAioBatchChunks,
   type LocalAioBatchOptions,
 } from '@/pages/dashboard/lib/local-aio-batch';
@@ -36,6 +37,7 @@ import type {
   LoadedImage,
 } from '@/types/dashboard.types';
 import { applyDetectedGradientToStyle } from '@/utils/dashboard.utils';
+import { isCustomModelSelectionKey } from '@/utils/customLlm';
 import {
   isAbortError,
   isTimeoutError,
@@ -195,6 +197,7 @@ export function useAioPipelineExecution(
         !active.controller.signal.aborted &&
         useAioPipelineStore.getState().aioAbortController === active.controller
       ) {
+        useAioPipelineStore.getState().recordAioStageStarted(image, stageKey);
         args.updateAioExecutionStage(
           'auto',
           stageKey,
@@ -273,6 +276,7 @@ export function useAioPipelineExecution(
     let controller: AbortController | null = null;
     let unsubscribeImages: (() => void) | null = null;
     let lastStage: AioPipelineSnapshotKey | null = null;
+    let runCompleted = false;
 
     try {
       useStatusStore.getState().setRuntimeExecutionNotice(null);
@@ -356,6 +360,14 @@ export function useAioPipelineExecution(
           hdCropMargin: options.hdCropMargin,
           hdCropTriggerSize: options.hdCropTriggerSize,
           gpuStages: options.gpuStages,
+          // Only a Custom AI selection carries the profile: the backend folds
+          // `custom_llm` into the translation cache key, so sending it while a
+          // regular model is selected would fragment the cache for nothing.
+          translationCustomProfile: isCustomModelSelectionKey(
+            options.translationSelectionKey,
+          )
+            ? args.selectedCustomTranslationProfile
+            : null,
           renderDefaultStyle: args.renderDefaultStyle,
           applyDetectedGradientToStyle,
           minRegionSize: MIN_REGION_SIZE,
@@ -369,17 +381,38 @@ export function useAioPipelineExecution(
           options: localOptions,
           capacity: prepared.batchCapacity,
           signal: executionController.signal,
-          onProgress: (completed, total) => {
-            useUiShellStore
+          onProgress: (startedUnits, totalUnits) => {
+            useAioPipelineStore
               .getState()
-              .setProgress(Math.round((completed / total) * 100));
+              .setAioExecutionUnitsStarted(startedUnits, totalUnits);
           },
-          onChunkState: (chunkNumber, chunkCount, currentName) => {
+          onChunkState: (state) => {
             useStatusStore
               .getState()
               .setStatusMessage(
-                `AIO batch ${chunkNumber}/${chunkCount} · ${currentName}`,
+                `AIO batch ${state.chunkNumber}/${state.chunkCount} · ${state.name}`,
               );
+
+            // Stages run inside the sidecar, so polled state is the only source
+            // for the indicator the per-image path feeds directly.
+            const stageKey = aioStageKeyForBatchStage(state.stage);
+            const image = executionImages[state.imageIndex];
+            if (
+              stageKey === null ||
+              image === undefined ||
+              executionController.signal.aborted ||
+              useAioPipelineStore.getState().aioAbortController !==
+                executionController
+            ) {
+              return;
+            }
+            args.updateAioExecutionStage(
+              'auto',
+              stageKey,
+              image,
+              state.imageIndex,
+              executionImages.length,
+            );
           },
         });
         results = localRun.results;
@@ -457,6 +490,7 @@ export function useAioPipelineExecution(
       });
 
       void runAioNotification(args.tryShowHealingHint);
+      runCompleted = true;
     } catch (error: unknown) {
       if (!mountedRef.current) {
         return;
@@ -507,6 +541,11 @@ export function useAioPipelineExecution(
         useUiShellStore.getState().setProcessing(false);
         useUiShellStore.getState().setProgress(0);
         useStatusStore.getState().setRuntimeExecutionNotice(null);
+        // The handoff has to follow the release of `processing`: entering the
+        // Manual editor is refused while a run owns the shell.
+        if (runCompleted) {
+          args.onAutoRunCompleted();
+        }
       }
 
       activeRef.current = null;

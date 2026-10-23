@@ -45,8 +45,10 @@ PROGRESS_KEYS = {
     "total",
     "completed",
     "failed",
+    "stageUnitsStarted",
     "currentIndex",
     "currentName",
+    "currentStage",
     "cancelled",
     "finished",
     "updatedAt",
@@ -118,6 +120,7 @@ class BatchProgressRegistryTests(unittest.TestCase):
         registry = BatchProgressRegistry(clock=clock)
         registry.start("batch-1", 3)
         registry.item_started(0, "page0.png")
+        registry.item_stage(0, "page0.png", "detect")
 
         snapshot = registry.snapshot("batch-1")
         self.assertIsNotNone(snapshot)
@@ -128,10 +131,24 @@ class BatchProgressRegistryTests(unittest.TestCase):
         self.assertEqual(snapshot["failed"], 0)
         self.assertEqual(snapshot["currentIndex"], 0)
         self.assertEqual(snapshot["currentName"], "page0.png")
+        self.assertEqual(snapshot["currentStage"], "detect")
+        self.assertEqual(snapshot["stageUnitsStarted"], 1)
         self.assertIs(snapshot["cancelled"], False)
         self.assertIs(snapshot["finished"], False)
         parsed = datetime.fromisoformat(str(snapshot["updatedAt"]))
         self.assertIsNotNone(parsed.tzinfo)
+
+    def test_stage_events_move_progress_before_any_item_finishes(self) -> None:
+        registry = BatchProgressRegistry(clock=_FakeClock())
+        registry.start("batch-1", 2)
+        registry.item_started(0, "page0.png")
+        for stage in ("detect", "ocr", "translation"):
+            registry.item_stage(0, "page0.png", stage)
+
+        snapshot = registry.snapshot("batch-1")
+        self.assertEqual(snapshot["stageUnitsStarted"], 3)
+        self.assertEqual(snapshot["currentStage"], "translation")
+        self.assertEqual(snapshot["completed"], 0)
 
     def test_unknown_batch_returns_none(self) -> None:
         registry = BatchProgressRegistry(clock=_FakeClock())
@@ -260,6 +277,14 @@ class BatchProgressOrchestratorTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(snapshot["currentIndex"], index)
             self.assertEqual(snapshot["currentName"], f"page{index}.png")
 
+        # The bar has to move while the first page is still working: `completed`
+        # only counts finished items, so a run whose stages never reported would
+        # sit at zero for the whole batch.
+        first = observed[0]
+        self.assertEqual(first["currentStage"], "ocr")
+        self.assertGreaterEqual(int(str(first["stageUnitsStarted"])), 1)
+        self.assertEqual(first["completed"], 0)
+
         final = registry.snapshot("synthetic")
         self.assertIsNotNone(final)
         self.assertEqual(final["completed"], 5)
@@ -328,6 +353,7 @@ class BatchProgressRouteTests(unittest.TestCase):
     def test_progress_route_returns_the_contract(self) -> None:
         self.registry.start("live", 3)
         self.registry.item_started(1, "page1.png")
+        self.registry.item_stage(1, "page1.png", "ocr")
         self.registry.item_finished(0, "success")
 
         response = self.client.get(
@@ -342,6 +368,8 @@ class BatchProgressRouteTests(unittest.TestCase):
         self.assertEqual(body["completed"], 1)
         self.assertEqual(body["currentIndex"], 1)
         self.assertEqual(body["currentName"], "page1.png")
+        self.assertEqual(body["currentStage"], "ocr")
+        self.assertEqual(body["stageUnitsStarted"], 1)
         self.assertIs(body["finished"], False)
 
     def test_progress_route_404_for_unknown_batch(self) -> None:

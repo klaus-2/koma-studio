@@ -7,7 +7,10 @@ import { useAioResultConsolidation } from '@/hooks/useAioResultConsolidation';
 import { useAioSingleImageProcessor } from '@/hooks/useAioSingleImageProcessor';
 import { I18nProvider } from '@/i18n';
 import { setDesktopBridgeProvider } from '@/lib/desktop-bridge';
-import { runLocalAioBatchChunks } from '@/pages/dashboard/lib/local-aio-batch';
+import {
+  runLocalAioBatchChunks,
+  type LocalAioBatchOptions,
+} from '@/pages/dashboard/lib/local-aio-batch';
 import { useAioPipelineExecution } from '@/pages/dashboard/hooks/aio-pipeline';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
@@ -18,6 +21,7 @@ import type {
   AioBatchImageResult,
   LoadedImage,
 } from '@/types/dashboard.types';
+import type { CustomLlmProfile } from '@/utils/customLlm';
 import { cloneRenderStyle } from '@/utils/dashboard.utils';
 
 vi.mock('@/hooks/useAioExecutionPreparation', () => ({
@@ -29,9 +33,15 @@ vi.mock('@/hooks/useAioSingleImageProcessor', () => ({
 vi.mock('@/hooks/useAioResultConsolidation', () => ({
   useAioResultConsolidation: vi.fn(),
 }));
-vi.mock('@/pages/dashboard/lib/local-aio-batch', () => ({
-  runLocalAioBatchChunks: vi.fn(),
-}));
+vi.mock('@/pages/dashboard/lib/local-aio-batch', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/pages/dashboard/lib/local-aio-batch')>();
+
+  return {
+    runLocalAioBatchChunks: vi.fn(),
+    aioStageKeyForBatchStage: actual.aioStageKeyForBatchStage,
+  };
+});
 
 const mockedPreparation = vi.mocked(useAioExecutionPreparation);
 const mockedProcessor = vi.mocked(useAioSingleImageProcessor);
@@ -166,6 +176,7 @@ const makeArgs = (): UseAioPipelineExecutionArgs => ({
   recordProcessedPages: vi.fn(),
   syncDiscordForTab: vi.fn(),
   tryShowHealingHint: vi.fn(),
+  onAutoRunCompleted: vi.fn(),
   beginAioExecution: (scope, totalImages, stageKeys) => {
     useAioPipelineStore
       .getState()
@@ -174,8 +185,10 @@ const makeArgs = (): UseAioPipelineExecutionArgs => ({
   updateAioExecutionStage: vi.fn(),
 });
 
-const runProcess = async (): Promise<void> => {
-  const args = makeArgs();
+const runProcess = async (
+  overrides: Partial<UseAioPipelineExecutionArgs> = {},
+): Promise<void> => {
+  const args = { ...makeArgs(), ...overrides };
   const { result } = renderHook(() => useAioPipelineExecution(args), {
     wrapper: I18nProvider,
   });
@@ -234,10 +247,17 @@ beforeEach(() => {
 describe('useAioPipelineExecution local batch branch', () => {
   it('runs the chunked local batch and never calls the per-image processor', async () => {
     const observed: { progress?: number; status?: string } = {};
+    const updateAioExecutionStage = vi.fn();
     mockedChunks.mockImplementation(async (input) => {
       input.onProgress?.(20, 45);
       observed.progress = useUiShellStore.getState().progress;
-      input.onChunkState?.(2, 3, 'page-20.png');
+      input.onChunkState?.({
+        chunkNumber: 2,
+        chunkCount: 3,
+        imageIndex: 1,
+        stage: 'translation',
+        name: 'page-1.png',
+      });
       observed.status = useStatusStore.getState().statusMessage;
       return {
         batchIds: ['batch-1'],
@@ -245,7 +265,7 @@ describe('useAioPipelineExecution local batch branch', () => {
       };
     });
 
-    await runProcess();
+    await runProcess({ updateAioExecutionStage });
 
     expect(mockedChunks).toHaveBeenCalledTimes(1);
     const call = mockedChunks.mock.calls[0]?.[0];
@@ -273,7 +293,16 @@ describe('useAioPipelineExecution local batch branch', () => {
     expect(call?.options.renderDefaultStyle).toBe(RENDER_STYLE);
     expect(processImage).not.toHaveBeenCalled();
     expect(observed.progress).toBe(44);
-    expect(observed.status).toBe('AIO batch 2/3 · page-20.png');
+    expect(observed.status).toBe('AIO batch 2/3 · page-1.png');
+    // The polled stage is what drives the same indicator the per-image path
+    // fed from onStageStart; without it the run sits on "Preparing…".
+    expect(updateAioExecutionStage).toHaveBeenCalledWith(
+      'auto',
+      'getTranslations',
+      images[1],
+      1,
+      3,
+    );
     expect(consolidate).toHaveBeenCalledTimes(1);
   });
 });
@@ -330,5 +359,70 @@ describe('useAioPipelineExecution cloud branch', () => {
       imageId: 'img-2',
       countAsProcessed: true,
     });
+  });
+});
+
+describe('useAioPipelineExecution custom AI payload', () => {
+  const profile: CustomLlmProfile = {
+    id: 'p1',
+    stage: 'translation',
+    label: 'freeLLMAPI',
+    apiBase: 'http://127.0.0.1:31415/v1',
+    apiKey: 'local-provider-key',
+    model: 'auto',
+    createdAt: '',
+    updatedAt: '',
+  };
+
+  const captureCarriedProfile = async (
+    translationKey: string,
+  ): Promise<LocalAioBatchOptions['translationCustomProfile']> => {
+    mockedPreparation.mockReturnValue(async () => ({
+      ...makePrepared(true),
+      selectedTranslationKey: translationKey,
+    }));
+    mockedChunks.mockImplementation(async () => ({
+      batchIds: ['batch-1'],
+      results: images.map((image) => makeBatchResult(image.id)),
+    }));
+
+    await runProcess({ selectedCustomTranslationProfile: profile });
+
+    return mockedChunks.mock.calls[0]?.[0].options.translationCustomProfile ?? null;
+  };
+
+  it('carries the profile when the stage selects Custom AI', async () => {
+    await expect(captureCarriedProfile('custom:p1')).resolves.toEqual(profile);
+  });
+
+  it('withholds the profile when a regular model is selected', async () => {
+    await expect(captureCarriedProfile('opus-mt-ja-en')).resolves.toBeNull();
+  });
+});
+
+describe('useAioPipelineExecution manual handoff', () => {
+  it('hands the finished run to the editor once processing is released', async () => {
+    mockedChunks.mockImplementation(async () => ({
+      batchIds: ['batch-1'],
+      results: images.map((image) => makeBatchResult(image.id)),
+    }));
+    const processingAtHandoff: boolean[] = [];
+
+    await runProcess({
+      onAutoRunCompleted: () => {
+        processingAtHandoff.push(useUiShellStore.getState().processing);
+      },
+    });
+
+    expect(processingAtHandoff).toEqual([false]);
+  });
+
+  it('stays in the automatic editor when the run fails', async () => {
+    mockedChunks.mockRejectedValue(new Error('The cleaning image stage timed out'));
+    const onAutoRunCompleted = vi.fn();
+
+    await runProcess({ onAutoRunCompleted });
+
+    expect(onAutoRunCompleted).not.toHaveBeenCalled();
   });
 });

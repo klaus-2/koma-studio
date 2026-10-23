@@ -96,25 +96,6 @@ export function createAioExecutionActions(
       }
 
       const imageOrdinal = Math.max(1, index + 1);
-      const unitKey = `${image.id}:${stageKey}`;
-      const tracker = state.aioExecutionProgress;
-
-      if (scope === 'auto' && !tracker.completedUnits.has(unitKey)) {
-        tracker.completedUnits.add(unitKey);
-
-        // onStageStart representa início, não conclusão; 100% é exclusivo do lote.
-        const startedBeforeCurrent = Math.max(
-          0,
-          tracker.completedUnits.size - 1,
-        );
-
-        useUiShellStore
-          .getState()
-          .setProgress(
-            Math.min(99, (startedBeforeCurrent / tracker.totalUnits) * 100),
-          );
-      }
-
       const suffix =
         totalImages > 1
           ? ` ${imageOrdinal}/${totalImages} · ${image.file.name}`
@@ -130,6 +111,51 @@ export function createAioExecutionActions(
           label: `${stageProgressLabel}${suffix}`,
         },
       });
+    },
+
+    recordAioStageStarted: (image, stageKey) => {
+      const state = get();
+
+      if (
+        !state.aioAbortController ||
+        state.aioAbortController.signal.aborted ||
+        state.aioExecutionStatus?.scope !== 'auto'
+      ) {
+        return;
+      }
+
+      const tracker = state.aioExecutionProgress;
+      const unitKey = `${image.id}:${stageKey}`;
+
+      if (tracker.completedUnits.has(unitKey)) {
+        return;
+      }
+
+      tracker.completedUnits.add(unitKey);
+
+      // A stage start is not a completion, so the bar stops short of 100.
+      useUiShellStore
+        .getState()
+        .setProgress(
+          Math.min(
+            99,
+            ((tracker.completedUnits.size - 1) / tracker.totalUnits) * 100,
+          ),
+        );
+    },
+
+    setAioExecutionUnitsStarted: (startedUnits, totalUnits) => {
+      const controller = get().aioAbortController;
+
+      if (!controller || controller.signal.aborted || totalUnits <= 0) {
+        return;
+      }
+
+      useUiShellStore
+        .getState()
+        .setProgress(
+          Math.min(99, Math.round((Math.max(0, startedUnits) / totalUnits) * 100)),
+        );
     },
 
     stopAioExecution: ({

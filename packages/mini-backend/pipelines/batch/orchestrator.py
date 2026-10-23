@@ -342,6 +342,7 @@ class BatchOrchestrator:
         Batch has no HTTP header channel: a fallback is reported by setting
         ``fell_back_to_cpu`` plus ``fallback_reason`` on the stage payload and
         emitting the batch-scoped ``batch.gpu_oom_fallback`` event."""
+        self._progress.item_stage(state.task.index, state.task.filename, stage)
         execution = await run_with_cpu_fallback(
             lambda _device, stage_use_gpu: run(stage_use_gpu),
             device=self._device,
@@ -458,6 +459,7 @@ class BatchOrchestrator:
             if cfg.llm_settings.neighbor_image_context_enabled
             else ""
         )
+        self._progress.item_stage(state.task.index, state.task.filename, "translation")
         try:
             out = await stages.run_translation_stage(
                 model_key=cfg.translation_model_key,

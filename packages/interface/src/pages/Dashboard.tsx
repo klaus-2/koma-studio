@@ -2051,6 +2051,7 @@ export const DashboardPage = ({
     recordProcessedPages,
     syncDiscordForTab,
     tryShowHealingHint,
+    onAutoRunCompleted: () => handleAioSubModeChange('manual'),
     beginAioExecution,
     updateAioExecutionStage,
   });

@@ -18,7 +18,9 @@ import {
 } from './batch-wire';
 import {
   BATCH_PROGRESS_POLL_INTERVAL_MS,
+  aioStageKeyForBatchStage,
   buildFallbackBatchCapacity,
+  countBatchStageUnits,
   createBatchId,
   fetchBatchCapacity,
   fetchBatchProgress,
@@ -169,8 +171,10 @@ const makeProgress = (
   total: 20,
   completed: 0,
   failed: 0,
+  stageUnitsStarted: 0,
   currentIndex: 0,
   currentName: 'page-0.png',
+  currentStage: null,
   cancelled: false,
   finished: false,
   updatedAt: '2026-10-10T00:00:00Z',
@@ -430,6 +434,47 @@ describe('runLocalAioBatch', () => {
     expect(mockedFetch).not.toHaveBeenCalled();
   });
 
+  it('sends the Custom AI profile as translation_custom_llm', async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(reportForChunk(1, 0)));
+
+    await runLocalAioBatch({
+      localApiUrl: localBatchUrl,
+      images: [makeImage(0)],
+      options: {
+        ...jsonOnlyOptions,
+        translationCustomProfile: {
+          apiBase: 'http://127.0.0.1:31415/v1',
+          apiKey: 'local-provider-key',
+          model: 'auto',
+        },
+      },
+      capacity: makeCapacity(),
+      signal: new AbortController().signal,
+    });
+
+    const [, init] = firstCall();
+    expect(JSON.parse(stringField(formFrom(init), 'translation_custom_llm'))).toEqual({
+      api_base: 'http://127.0.0.1:31415/v1',
+      model: 'auto',
+      api_key: 'local-provider-key',
+    });
+  });
+
+  it('omits translation_custom_llm when no custom profile is in play', async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(reportForChunk(1, 0)));
+
+    await runLocalAioBatch({
+      localApiUrl: localBatchUrl,
+      images: [makeImage(0)],
+      options: jsonOnlyOptions,
+      capacity: makeCapacity(),
+      signal: new AbortController().signal,
+    });
+
+    const [, init] = firstCall();
+    expect(formFrom(init).get('translation_custom_llm')).toBeNull();
+  });
+
   it('announces the caller batch id synchronously, before sending the request', async () => {
     mockedFetch.mockResolvedValue(jsonResponse(reportForChunk(1, 0)));
     const onBatchId = vi.fn<(batchId: string) => void>();
@@ -648,17 +693,35 @@ describe('runLocalAioBatchChunks', () => {
     });
 
     expect(chunkSizes).toEqual([20]);
-    expect(onChunkState).toHaveBeenLastCalledWith(1, 3, 'page-0.png');
+    expect(onChunkState).toHaveBeenLastCalledWith({
+      chunkNumber: 1,
+      chunkCount: 3,
+      imageIndex: 0,
+      stage: null,
+      name: 'page-0.png',
+    });
 
     pending[0]?.(jsonResponse(reportForChunk(20, 0)));
     await flush();
     expect(chunkSizes).toEqual([20, 20]);
-    expect(onChunkState).toHaveBeenLastCalledWith(2, 3, 'page-20.png');
+    expect(onChunkState).toHaveBeenLastCalledWith({
+      chunkNumber: 2,
+      chunkCount: 3,
+      imageIndex: 20,
+      stage: null,
+      name: 'page-20.png',
+    });
 
     pending[1]?.(jsonResponse(reportForChunk(20, 20)));
     await flush();
     expect(chunkSizes).toEqual([20, 20, 5]);
-    expect(onChunkState).toHaveBeenLastCalledWith(3, 3, 'page-40.png');
+    expect(onChunkState).toHaveBeenLastCalledWith({
+      chunkNumber: 3,
+      chunkCount: 3,
+      imageIndex: 40,
+      stage: null,
+      name: 'page-40.png',
+    });
 
     pending[2]?.(jsonResponse(reportForChunk(5, 40)));
     const result = await runPromise;
@@ -772,5 +835,89 @@ describe('runLocalAioBatchChunks', () => {
     });
 
     expect(mockedFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('batch progress units', () => {
+  it('counts the stages the form actually asks the sidecar to run', () => {
+    const off = { render: false, segmentText: false, cleanImage: false };
+
+    expect(
+      countBatchStageUnits({ ...off, recognizeText: false, getTranslations: false }),
+    ).toBe(1);
+    expect(
+      countBatchStageUnits({ ...off, recognizeText: true, getTranslations: true }),
+    ).toBe(3);
+    expect(
+      countBatchStageUnits({
+        render: false,
+        recognizeText: true,
+        getTranslations: true,
+        segmentText: true,
+        cleanImage: true,
+      }),
+    ).toBe(5);
+  });
+
+  it('maps every reported stage onto its AIO stage key', () => {
+    expect(aioStageKeyForBatchStage('detect')).toBe('detectText');
+    expect(aioStageKeyForBatchStage('ocr')).toBe('recognizeText');
+    expect(aioStageKeyForBatchStage('translation')).toBe('getTranslations');
+    expect(aioStageKeyForBatchStage('segment')).toBe('segmentText');
+    expect(aioStageKeyForBatchStage('clean')).toBe('cleanImage');
+    expect(aioStageKeyForBatchStage(null)).toBeNull();
+    expect(aioStageKeyForBatchStage('a_stage_the_ui_does_not_know')).toBeNull();
+  });
+
+  it('moves the bar from stage events while no image has finished', async () => {
+    vi.useFakeTimers();
+    const post = deferred<Response>();
+    const onProgress = vi.fn();
+    const onChunkState = vi.fn();
+    const controller = new AbortController();
+
+    mockedFetch.mockImplementation((url) => {
+      if (url.includes('/pipeline/batch/progress')) {
+        return Promise.resolve(
+          jsonResponse(
+            makeProgress({
+              total: 2,
+              stageUnitsStarted: 1,
+              currentIndex: 1,
+              currentName: 'page-1.png',
+              currentStage: 'detect',
+              finished: false,
+            }),
+          ),
+        );
+      }
+
+      return post.promise;
+    });
+
+    const runPromise = runLocalAioBatchChunks({
+      localApiUrl: localBatchUrl,
+      images: makeImages(2),
+      options: jsonOnlyOptions,
+      capacity: makeCapacity(),
+      signal: controller.signal,
+      onProgress,
+      onChunkState,
+    });
+
+    await vi.advanceTimersByTimeAsync(BATCH_PROGRESS_POLL_INTERVAL_MS);
+
+    expect(onProgress).toHaveBeenCalledWith(1, 2);
+    expect(onChunkState).toHaveBeenLastCalledWith({
+      chunkNumber: 1,
+      chunkCount: 1,
+      imageIndex: 1,
+      stage: 'detect',
+      name: 'page-1.png',
+    });
+
+    post.resolve(jsonResponse(reportForChunk(2, 0)));
+    await runPromise;
+    vi.useRealTimers();
   });
 });

@@ -3227,7 +3227,7 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.status.renderCanvasInitFailed':
     'Falha ao iniciar canvas de renderização.',
   'dashboard.status.aioCompleteAdjust':
-    '{message} Ajuste manualmente se necessário.',
+    '{message} Alternado para AIO manual para você ajustar.',
   'dashboard.status.aioAborted': 'Execução do AIO interrompida.',
   'dashboard.alert.importWorkspaceConfirm':
     'Importar este workspace vai substituir o workspace atual em memória. Deseja continuar?',

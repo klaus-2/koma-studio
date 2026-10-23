@@ -27,6 +27,8 @@ class BatchProgressSink(Protocol):
 
     def item_started(self, index: int, name: str) -> None: ...
 
+    def item_stage(self, index: int, name: str, stage: str) -> None: ...
+
     def item_finished(self, index: int, status: str) -> None: ...
 
     def finish(self) -> None: ...
@@ -39,6 +41,9 @@ class _NullProgressSink:
 
     def item_started(self, index: int, name: str) -> None:
         _ = index, name
+
+    def item_stage(self, index: int, name: str, stage: str) -> None:
+        _ = index, name, stage
 
     def item_finished(self, index: int, status: str) -> None:
         _ = index, status
@@ -65,9 +70,14 @@ class _ProgressEntry:
     updated_at: float
     current_index: int = 0
     current_name: str = ""
+    current_stage: str = ""
     cancelled: bool = False
     finished: bool = False
     finished_at: float | None = None
+    # Stage-start events seen so far. The UI's unit of progress is
+    # images × selected stages, so this is what makes the bar move while the
+    # first image is still mid-run instead of stuck at zero completed items.
+    stage_units_started: int = 0
     # Last known status per item index; a two-phase run finishes an item twice
     # and the later phase owns the final status.
     statuses: dict[int, str] = field(default_factory=dict)
@@ -86,8 +96,10 @@ class _ProgressEntry:
             "total": self.total,
             "completed": self.completed,
             "failed": self.failed,
+            "stageUnitsStarted": self.stage_units_started,
             "currentIndex": self.current_index,
             "currentName": self.current_name,
+            "currentStage": self.current_stage,
             "cancelled": self.cancelled,
             "finished": self.finished,
             "updatedAt": _isoformat(self.updated_at),
@@ -145,6 +157,21 @@ class BatchProgressRegistry:
                 return
             entry.current_index = index
             entry.current_name = name
+            entry.updated_at = now
+
+    def item_stage(self, index: int, name: str, stage: str) -> None:
+        batch_id = self._active_batch.get()
+        if batch_id is None:
+            return
+        now = self._clock()
+        with self._lock:
+            entry = self._entries.get(batch_id)
+            if entry is None or entry.finished:
+                return
+            entry.current_index = index
+            entry.current_name = name
+            entry.current_stage = stage
+            entry.stage_units_started += 1
             entry.updated_at = now
 
     def item_finished(self, index: int, status: str) -> None:

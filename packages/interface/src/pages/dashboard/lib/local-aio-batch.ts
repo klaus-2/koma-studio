@@ -26,10 +26,15 @@ import {
 import { createAioAbortError } from '@/pages/dashboard/lib/run-aio-batch';
 import type {
   AioBatchImageResult,
+  AioPipelineSnapshotKey,
   AioTextRegion,
   PipelineBatchReport,
 } from '@/types/dashboard.types';
-import type { LlmRequestSettings } from '@/utils/customLlm';
+import type {
+  CustomLlmRequestProfile,
+  LlmRequestSettings,
+} from '@/utils/customLlm';
+import { toCustomLlmRequestPayload } from '@/utils/customLlm';
 import { parseResponseErrorMessage } from '@/utils/dashboard.utils';
 import { fetchWithTimeoutAndRetry } from '@/utils/http';
 import type { RenderTextStyle } from '@/utils/renderText';
@@ -78,6 +83,8 @@ export interface LocalAioBatchOptions {
   hdCropMargin: number;
   hdCropTriggerSize: number;
   gpuStages?: LocalAioBatchGpuStages;
+  /** Request-scoped Custom AI profile; empty api_base/model is a backend error. */
+  translationCustomProfile?: CustomLlmRequestProfile | null;
   renderDefaultStyle: RenderTextStyle;
   applyDetectedGradientToStyle: (
     region: AioTextRegion,
@@ -104,6 +111,48 @@ export interface RunLocalAioBatchInput {
   onBatchId?: (batchId: string) => void;
   /** Fired once the mapped results are ready (no polling in this helper). */
   onProgress?: (completed: number, total: number) => void;
+}
+
+/**
+ * Stage names the batch route reports, mapped onto the AIO stage keys the UI
+ * draws. Kept here because this module owns the wire contract.
+ */
+const BATCH_STAGE_TO_AIO_KEY: Record<string, AioPipelineSnapshotKey> = {
+  detect: 'detectText',
+  ocr: 'recognizeText',
+  translation: 'getTranslations',
+  segment: 'segmentText',
+  clean: 'cleanImage',
+};
+
+export const aioStageKeyForBatchStage = (
+  stage: string | null,
+): AioPipelineSnapshotKey | null =>
+  stage === null ? null : (BATCH_STAGE_TO_AIO_KEY[stage] ?? null);
+
+/**
+ * Progress units the sidecar will report per image: detect always runs, the
+ * rest follow the requested steps — the same rule that decides the `run_*`
+ * fields this module puts on the form.
+ */
+export const countBatchStageUnits = (aioSteps: BatchMappingAioSteps): number =>
+  1 +
+  [
+    aioSteps.recognizeText,
+    aioSteps.getTranslations,
+    aioSteps.segmentText,
+    aioSteps.cleanImage,
+  ].filter(Boolean).length;
+
+/** What the AIO shell needs to draw one polled moment of a chunk. */
+export interface BatchChunkState {
+  chunkNumber: number;
+  chunkCount: number;
+  /** Run-wide index of the image the sidecar reported. */
+  imageIndex: number;
+  /** In-flight backend stage, or null until the first stage event. */
+  stage: string | null;
+  name: string;
 }
 
 export interface FetchBatchProgressInput {
@@ -140,11 +189,7 @@ export interface RunLocalAioBatchChunksInput {
   /** Run-wide completed/total, offset by the finished chunks. */
   onProgress?: (completed: number, total: number) => void;
   /** Current chunk (`1..chunkCount`) plus the image the backend is working on. */
-  onChunkState?: (
-    chunkNumber: number,
-    chunkCount: number,
-    currentName: string,
-  ) => void;
+  onChunkState?: (state: BatchChunkState) => void;
 }
 
 export interface LocalAioBatchChunksResult {
@@ -394,6 +439,13 @@ const buildBatchForm = (
   form.append('hd_strategy_crop_trigger_size', String(options.hdCropTriggerSize));
   form.append('llm_settings', JSON.stringify(options.llmSettings));
 
+  const translationCustomPayload = toCustomLlmRequestPayload(
+    options.translationCustomProfile,
+  );
+  if (translationCustomPayload) {
+    form.append('translation_custom_llm', JSON.stringify(translationCustomPayload));
+  }
+
   if (options.gpuStages) {
     appendBoolean(form, 'use_gpu_detect', options.gpuStages.detectText);
     appendBoolean(form, 'use_gpu_ocr', options.gpuStages.recognizeText);
@@ -567,6 +619,8 @@ export async function runLocalAioBatchChunks({
   }
 
   const chunkCount = Math.ceil(total / LOCAL_AIO_BATCH_CHUNK_SIZE);
+  const stageUnitsPerImage = countBatchStageUnits(options.aioSteps);
+  const totalUnits = total * stageUnitsPerImage;
 
   for (let chunkNumber = 1; chunkNumber <= chunkCount; chunkNumber += 1) {
     if (signal.aborted) {
@@ -577,16 +631,35 @@ export async function runLocalAioBatchChunks({
     const chunk = images.slice(offset, offset + LOCAL_AIO_BATCH_CHUNK_SIZE);
     const batchId = createBatchId();
     batchIds.push(batchId);
-    onChunkState?.(chunkNumber, chunkCount, chunk[0]?.file.name ?? '');
+    onChunkState?.({
+      chunkNumber,
+      chunkCount,
+      imageIndex: offset,
+      stage: null,
+      name: chunk[0]?.file.name ?? '',
+    });
 
     const stopPolling = startBatchProgressPolling({
       localApiUrl,
       batchId,
       signal,
       onUpdate: (progress) => {
-        onProgress?.(Math.min(total, offset + progress.completed), total);
+        // Units, not finished images: a 20-page run with one slow translation
+        // would otherwise sit at 0% until the first page fully completes.
+        const chunkUnits = Math.min(
+          progress.stageUnitsStarted ??
+            progress.completed * stageUnitsPerImage,
+          chunk.length * stageUnitsPerImage,
+        );
+        onProgress?.(offset * stageUnitsPerImage + chunkUnits, totalUnits);
         if (progress.currentName.length > 0) {
-          onChunkState?.(chunkNumber, chunkCount, progress.currentName);
+          onChunkState?.({
+            chunkNumber,
+            chunkCount,
+            imageIndex: offset + progress.currentIndex,
+            stage: progress.currentStage,
+            name: progress.currentName,
+          });
         }
       },
     });
@@ -601,7 +674,7 @@ export async function runLocalAioBatchChunks({
         batchId,
       });
       results.push(...chunkResult.results);
-      onProgress?.(Math.min(total, offset + chunk.length), total);
+      onProgress?.((offset + chunk.length) * stageUnitsPerImage, totalUnits);
     } finally {
       stopPolling();
     }

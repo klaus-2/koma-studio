@@ -88,6 +88,18 @@ export interface AioExecutionActions {
     stageProgressLabel: string,
   ) => void;
 
+  /** Counts one stage start of the concurrent path and moves the bar. */
+  recordAioStageStarted: (
+    image: LoadedImage,
+    stageKey: AioPipelineSnapshotKey,
+  ) => void;
+
+  /** Moves the bar from the batch sidecar's started-stage count. */
+  setAioExecutionUnitsStarted: (
+    startedUnits: number,
+    totalUnits: number,
+  ) => void;
+
   stopAioExecution: (payload: {
     stopping: string;
     abortedByUser: string;

@@ -41,8 +41,15 @@ export interface BatchProgress {
   total: number;
   completed: number;
   failed: number;
+  /**
+   * Stage-start events so far; the AIO bar counts images × selected stages,
+   * so this is what moves it while the first page is still working. `null` when
+   * a sidecar predates the field.
+   */
+  stageUnitsStarted: number | null;
   currentIndex: number;
   currentName: string;
+  currentStage: string | null;
   cancelled: boolean;
   finished: boolean;
   updatedAt: string;
@@ -533,6 +540,10 @@ export function parseBatchProgress(payload: unknown, status: number): BatchProgr
   const completed = readNumber(payload, 'completed');
   const failed = readNumber(payload, 'failed');
   const currentIndex = readNumber(payload, 'currentIndex');
+  // Absent on a sidecar older than this field; the caller then falls back to
+  // counting finished items instead of failing the run.
+  const reportedStageUnits = readNumber(payload, 'stageUnitsStarted');
+  const reportedStage = readString(payload, 'currentStage');
   const currentName = readString(payload, 'currentName');
   const cancelled = readBoolean(payload, 'cancelled');
   const finished = readBoolean(payload, 'finished');
@@ -567,8 +578,10 @@ export function parseBatchProgress(payload: unknown, status: number): BatchProgr
     total,
     completed,
     failed,
+    stageUnitsStarted: reportedStageUnits,
     currentIndex,
     currentName,
+    currentStage: reportedStage === '' ? null : reportedStage,
     cancelled,
     finished,
     updatedAt,

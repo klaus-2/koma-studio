@@ -348,7 +348,10 @@ export function mapBatchReportToAioResults(
       minRegionSize: input.minRegionSize,
       maxAreaRatio: input.maxAreaRatio,
     });
-    const notices = [...mapped.notices];
+    // A stage that failed inside an otherwise usable item is still a fact the
+    // operator needs: the report carries it in `errors` for partial items too,
+    // and dropping it is what makes "0 translation(s) generated" read as fine.
+    const notices = [...mapped.notices, ...backendErrorNotices(result)];
     let cleanedDownload: AioDownloadEntry | null = null;
 
     if (aioSteps.cleanImage) {
