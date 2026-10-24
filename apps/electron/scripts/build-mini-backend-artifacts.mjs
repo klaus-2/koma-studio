@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, createPrivateKey, sign } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -213,6 +213,43 @@ const buildProfileHardenedSource = ({
   return hardenedDir;
 };
 
+const resolveManifestSigningKey = () => {
+  const raw = (process.env.MINI_BACKEND_ARTIFACTS_SIGNING_KEY || "").trim();
+  if (!raw) {
+    return null;
+  }
+  if (raw.includes("BEGIN")) {
+    return createPrivateKey(raw.replace(/\\n/g, "\n"));
+  }
+  return createPrivateKey({
+    key: Buffer.from(raw, "base64"),
+    format: "der",
+    type: "pkcs8",
+  });
+};
+
+/**
+ * Writes `latest.json` and, when a signing key is provisioned, a detached
+ * `latest.json.sig` over the exact published bytes. Consumers pin the public
+ * key at build time, so the feed no longer relies on TLS alone.
+ */
+const writeRuntimeArtifactsManifest = (manifest) => {
+  const body = `${JSON.stringify(manifest, null, 2)}\n`;
+  fs.writeFileSync(path.join(outputRootDir, "latest.json"), body, "utf-8");
+
+  const signaturePath = path.join(outputRootDir, "latest.json.sig");
+  const signingKey = resolveManifestSigningKey();
+  if (!signingKey) {
+    fs.rmSync(signaturePath, { force: true });
+    console.warn(
+      "[mini-backend-artifacts] MINI_BACKEND_ARTIFACTS_SIGNING_KEY is unset; manifest is unsigned",
+    );
+    return;
+  }
+  const signature = sign(null, Buffer.from(body, "utf-8"), signingKey);
+  fs.writeFileSync(signaturePath, `ed25519-${signature.toString("base64")}\n`, "utf-8");
+};
+
 const main = async () => {
   fs.mkdirSync(outputRootDir, { recursive: true });
   fs.rmSync(workRootDir, { recursive: true, force: true });
@@ -225,11 +262,7 @@ const main = async () => {
       arch: process.arch,
       profiles: {},
     });
-    fs.writeFileSync(
-      path.join(outputRootDir, "latest.json"),
-      `${JSON.stringify(manifest, null, 2)}\n`,
-      "utf-8",
-    );
+    writeRuntimeArtifactsManifest(manifest);
     fs.rmSync(workRootDir, { recursive: true, force: true });
     console.log("[mini-backend-artifacts] runtime artifacts skipped by configuration");
     return;
@@ -338,11 +371,7 @@ const main = async () => {
     profiles: manifestProfiles,
   });
 
-  fs.writeFileSync(
-    path.join(outputRootDir, "latest.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    "utf-8",
-  );
+  writeRuntimeArtifactsManifest(manifest);
   fs.rmSync(workRootDir, { recursive: true, force: true });
   console.log(
     `[mini-backend-artifacts] completed with ${Object.keys(manifestProfiles).length} profile artifact(s)`,

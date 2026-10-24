@@ -98,6 +98,31 @@ struct MiniBackendCommandSpec {
     use_sidecar: bool,
 }
 
+/// Wire contract with the mini-backend gate: keep in sync with
+/// `localApiSessionHeader` in packages/types, `LOCAL_API_SESSION_HEADER` in
+/// the Electron shell and `app.py`.
+pub(crate) const LOCAL_API_SESSION_HEADER: &str = "x-koma-local-session";
+
+/// Per-launch secret forwarded to the sidecar as
+/// `KOMA_LOCAL_API_SESSION_SECRET`. Mirrors the Electron shell's
+/// `randomBytes(32)` provisioning; release builds only, so the dev server
+/// keeps its no-auth loopback behavior.
+pub fn local_api_session_secret<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
+    app.state::<MiniBackendSidecarStore>().session_secret()
+}
+
+/// Attaches the local-API session header to a shell-issued request when a
+/// secret is active (release builds).
+pub fn with_local_api_session<R: Runtime>(
+    app: &AppHandle<R>,
+    builder: reqwest::RequestBuilder,
+) -> reqwest::RequestBuilder {
+    match local_api_session_secret(app) {
+        Some(secret) => builder.header(LOCAL_API_SESSION_HEADER, secret),
+        None => builder,
+    }
+}
+
 pub async fn restart_mini_backend<R: Runtime + 'static>(
     app: AppHandle<R>,
 ) -> Result<bool, String> {
@@ -153,6 +178,17 @@ pub async fn start_mini_backend<R: Runtime + 'static>(
             );
             // Fall through to the normal spawn path below.
         } else {
+            if !cfg!(debug_assertions) {
+                // Release builds authenticate to the sidecar with a per-launch
+                // secret, so a foreign instance (started without it) cannot be
+                // reused: every request would be rejected. Debug keeps the
+                // monorepo reuse behavior because the dev gate stays open.
+                return Err(format!(
+                    "A local backend is already running on {} without this app's session secret. \
+                     Close it and restart the app.",
+                    reuse_config.local_api_url
+                ));
+            }
             log::info!("mini-backend: healthy instance already on {} — reusing it", reuse_config.local_api_url);
             patch_runtime_state(
                 &app,
@@ -271,6 +307,17 @@ pub async fn start_mini_backend<R: Runtime + 'static>(
     let resources_dir = resolve_resources_dir(&app);
     let reference_images_dir = resources_dir.join("reference_images");
 
+    let session_secret = if cfg!(debug_assertions) {
+        None
+    } else {
+        Some(format!(
+            "{}{}",
+            uuid::Uuid::new_v4().simple(),
+            uuid::Uuid::new_v4().simple()
+        ))
+    };
+    sidecar_store.set_session_secret(session_secret.clone())?;
+
     patch_runtime_state(
         &app,
         &runtime_store,
@@ -324,7 +371,7 @@ pub async fn start_mini_backend<R: Runtime + 'static>(
     .env("KOMA_MODELS_ROOT", path_to_string(&models_root))
     .env(
         "KOMA_LOCAL_API_SESSION_SECRET",
-        env::var("KOMA_LOCAL_API_SESSION_SECRET").unwrap_or_default(),
+        session_secret.clone().unwrap_or_default(),
     )
     .env("KOMA_APP_RESOURCES_DIR", path_to_string(&resources_dir))
     .env(
@@ -544,6 +591,7 @@ pub fn stop_mini_backend<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     // Deliberate kill: the `Terminated` this produces must not be read as a
     // crash. Cleared again by the next start, so the latch cannot survive.
     store.mark_expected_stop();
+    store.set_session_secret(None)?;
 
     let (child, pid) = store.take_child()?;
     drop(store);

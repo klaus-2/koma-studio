@@ -478,7 +478,11 @@ fn service_context(app: &AppHandle) -> AppResult<ModelServiceContext> {
         ));
     }
 
-    ModelServiceContext::new(models_root(app)?, &runtime.local_api_url)
+    ModelServiceContext::new(
+        models_root(app)?,
+        &runtime.local_api_url,
+        crate::sidecar::mini_backend::local_api_session_secret(app),
+    )
 }
 
 fn models_root(app: &AppHandle) -> AppResult<PathBuf> {

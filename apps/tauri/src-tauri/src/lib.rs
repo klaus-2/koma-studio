@@ -121,6 +121,7 @@ pub fn run() {
             commands::desktop::get_mini_backend_runtime_state,
             commands::desktop::check_local_backend,
             commands::desktop::restart_local_backend,
+            commands::desktop::get_local_api_session,
             commands::desktop::open_external,
             commands::desktop::open_community_link,
             commands::logging::session_log,

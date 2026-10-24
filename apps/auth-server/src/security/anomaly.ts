@@ -131,19 +131,44 @@ export const detectLoginAnomaly = async (
   };
 };
 
-export const increaseFailedLoginAttempts = async (email: string, ipAddress: string): Promise<number> => {
-  const key = `login:failed:${email}:${ipAddress}`;
-  const attempts = await redisClient.incr(key);
-  await redisClient.expire(key, 15 * 60);
-  return attempts;
+export interface FailedLoginCounts {
+  account: number;
+  client: number;
+}
+
+const failedAccountKey = (email: string): string => `login:failed:account:${email}`;
+const failedClientKey = (email: string, ipAddress: string): string =>
+  `login:failed:client:${email}:${ipAddress}`;
+
+/**
+ * Counts a failure twice: per account (so rotating the source address cannot
+ * reset the brute-force threshold) and per (account, client) (so the 423 gate
+ * can be scoped to the client that actually failed).
+ */
+export const increaseFailedLoginAttempts = async (
+  email: string,
+  ipAddress: string,
+): Promise<FailedLoginCounts> => {
+  const [account, client] = await Promise.all([
+    redisClient.incr(failedAccountKey(email)),
+    redisClient.incr(failedClientKey(email, ipAddress)),
+  ]);
+  await Promise.all([
+    redisClient.expire(failedAccountKey(email), 15 * 60),
+    redisClient.expire(failedClientKey(email, ipAddress), 15 * 60),
+  ]);
+  return { account, client };
 };
 
 export const clearFailedLoginAttempts = async (email: string, ipAddress: string): Promise<void> => {
-  await redisClient.del(`login:failed:${email}:${ipAddress}`);
+  await Promise.all([
+    redisClient.del(failedAccountKey(email)),
+    redisClient.del(failedClientKey(email, ipAddress)),
+  ]);
 };
 
 export const getFailedLoginAttempts = async (email: string, ipAddress: string): Promise<number> => {
-  const raw = await redisClient.get(`login:failed:${email}:${ipAddress}`);
+  const raw = await redisClient.get(failedClientKey(email, ipAddress));
   return raw ? Number(raw) : 0;
 };
 

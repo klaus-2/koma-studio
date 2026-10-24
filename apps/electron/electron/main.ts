@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   ipcMain,
+  net as electronNet,
   protocol,
   session as electronSession,
   shell,
@@ -365,12 +366,20 @@ const { getMiniBackendCommand } = createMiniBackendCommandBuilder({
   resolveAccelerationProfile: resolveMiniBackendAccelerationProfile,
 });
 
+// Runtime artifact traffic goes through Chromium's stack (electronNet) instead
+// of Node's undici fetch so the session's certificate pin verify proc applies.
+// Request objects pass through untouched (method/headers/body intact); only a
+// URL needs converting, because net.fetch's input union has no URL.
+const runtimeArtifactsFetch: typeof fetch = (input, init) =>
+  electronNet.fetch(input instanceof URL ? input.toString() : input, init);
+
 const {
   listMiniBackendRuntimeArtifacts,
   readMiniBackendRuntimeManifest,
 } = createMiniBackendManifestReader({
   runtimeStore,
   miniBackendArtifactsUrl,
+  fetchImpl: runtimeArtifactsFetch,
   resolveAccelerationProfile: resolveMiniBackendAccelerationProfile,
 });
 
@@ -381,6 +390,7 @@ const {
   isDev,
   runtimeStore,
   miniBackendArtifactsUrl,
+  fetchImpl: runtimeArtifactsFetch,
   readManifest: readMiniBackendRuntimeManifest,
 });
 

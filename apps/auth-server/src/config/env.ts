@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "path";
 
 import { tServer } from "../services/server-i18n.js";
+import { resolveTrustProxy, type TrustProxySetting } from "../security/client-ip.js";
 
 const nodeEnvFromProcess = process.env.NODE_ENV === "production" ? "production" : "development";
 const loadEnvFileIfExists = (filePath: string): void => {
@@ -219,6 +220,7 @@ export interface EnvConfig {
   crossSubDomainCookieDomain?: string;
   rateLimitWindow: number;
   rateLimitMax: number;
+  trustProxy: TrustProxySetting;
   turnstileSecretKey?: string;
   turnstileSiteKey?: string;
   appBaseUrl: string;
@@ -263,6 +265,7 @@ export const env: EnvConfig = {
   ),
   rateLimitWindow: parseNumber(process.env.RATE_LIMIT_WINDOW, 60_000),
   rateLimitMax: parseNumber(process.env.RATE_LIMIT_MAX, 100),
+  trustProxy: resolveTrustProxy(process.env.TRUST_PROXY),
   turnstileSecretKey: process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY,
   turnstileSiteKey: process.env.CLOUDFLARE_TURNSTILE_SITE_KEY,
   appBaseUrl: process.env.APP_BASE_URL ?? "http://localhost:5173",

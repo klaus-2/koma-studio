@@ -9,6 +9,7 @@ import type {
   MiniBackendRuntimeArtifactManifest,
   MiniBackendRuntimeArtifactRecord,
 } from "../mini-backend-artifacts.ts";
+import { isSafeManifestPathSegment } from "../mini-backend-artifacts.ts";
 import type { MiniBackendAccelerationProfile } from "../mini-backend-runtime.ts";
 import {
   downloadUrlToFileWithResume,
@@ -29,14 +30,27 @@ import {
 
 const RUNTIME_ARCHIVE_EXTRACT_TIMEOUT_MS = 60 * 60_000;
 
+const ensurePathInsideRoot = (rootDir: string, candidatePath: string): void => {
+  const root = path.resolve(rootDir);
+  const candidate = path.resolve(candidatePath);
+  const relative = path.relative(root, candidate);
+  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`Runtime manifest path escapes the expected root: ${candidatePath}`);
+  }
+};
+
+const quote = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+
 const createMiniBackendRuntimeInstaller = (deps: {
   isDev: boolean;
   runtimeStore: MiniBackendRuntimeStore;
   miniBackendArtifactsUrl: string | null;
+  fetchImpl?: typeof fetch;
   readManifest: (
     options?: { silent?: boolean },
   ) => Promise<MiniBackendRuntimeArtifactManifest | null>;
 }) => {
+  const fetchImpl = deps.fetchImpl ?? fetch;
   const downloadRuntimeArtifactToDisk = async (
     profile: MiniBackendAccelerationProfile,
     record: MiniBackendRuntimeArtifactRecord,
@@ -82,7 +96,7 @@ const createMiniBackendRuntimeInstaller = (deps: {
 
         await downloadUrlToFileWithResume(downloadUrl, outputPath, {
           expectedTotalBytes: record.size,
-          fetchImpl: (url, init) => fetch(url, {
+          fetchImpl: (url, init) => fetchImpl(url, {
             ...init,
             signal: AbortSignal.timeout(resolveRuntimeTransferTimeoutMs(record.size)),
           }),
@@ -108,18 +122,24 @@ const createMiniBackendRuntimeInstaller = (deps: {
     fs.mkdirSync(destinationDir, { recursive: true });
 
     if (process.platform === "win32") {
-      execFileSync(
+      // powershell.exe joins everything after -Command into one script string,
+      // so manifest-controlled paths could inject statements. Encode a fixed
+      // script instead (single-quoted literals, quotes doubled) and invoke the
+      // system binary by absolute path so PATH cannot shadow it either.
+      const powershellPath = path.join(
+        process.env.SystemRoot ?? "C:\\Windows",
+        "System32",
+        "WindowsPowerShell",
+        "v1.0",
         "powershell.exe",
-        [
-          "-NoProfile",
-          "-Command",
-          "Expand-Archive",
-          "-LiteralPath",
-          archivePath,
-          "-DestinationPath",
-          destinationDir,
-          "-Force",
-        ],
+      );
+      const script =
+        `Expand-Archive -LiteralPath ${quote(archivePath)} `
+        + `-DestinationPath ${quote(destinationDir)} -Force`;
+      const encodedCommand = Buffer.from(script, "utf16le").toString("base64");
+      execFileSync(
+        powershellPath,
+        ["-NoProfile", "-NonInteractive", "-EncodedCommand", encodedCommand],
         {
           stdio: "ignore",
           windowsHide: true,
@@ -152,6 +172,15 @@ const createMiniBackendRuntimeInstaller = (deps: {
     }
 
     const record = manifest.profiles?.[profile] as MiniBackendRuntimeArtifactRecord | undefined;
+    const failToFallback = (message: string): null => {
+      deps.runtimeStore.patch({
+        status: "fallback",
+        statusMessage: message,
+        runtimeManifestUrl: manifestUrl,
+        lastError: message,
+      });
+      return null;
+    };
     if (!record) {
       deps.runtimeStore.patch({
         status: "fallback",
@@ -162,9 +191,36 @@ const createMiniBackendRuntimeInstaller = (deps: {
       return null;
     }
 
+    // Defense in depth: the manifest reader already rejects these segments
+    // (isMiniBackendRuntimeArtifactManifest); re-checking here keeps install
+    // safe even if a future caller passes an unvalidated manifest.
+    if (
+      !isSafeManifestPathSegment(manifest.version)
+      || !isSafeManifestPathSegment(record.entry)
+      || !isSafeManifestPathSegment(record.fileName)
+    ) {
+      return failToFallback("Runtime manifest contains unsafe path segments.");
+    }
     const installDir = getMiniBackendRuntimeInstallDir(manifest.version, profile);
+    const runtimeRoot = path.join(app.getPath("userData"), "mini-backend-runtimes");
+    ensurePathInsideRoot(runtimeRoot, installDir);
     const binaryPath = path.join(installDir, record.entry);
+    ensurePathInsideRoot(installDir, binaryPath);
     const archiveUrl = resolveMiniBackendRuntimeUrl(manifestUrl, record.url);
+    const manifestOrigin = new URL(manifestUrl);
+    const archiveOrigin = new URL(archiveUrl);
+    const insecureLocalAllowed =
+      deps.isDev
+      && archiveOrigin.protocol === "http:"
+      && (archiveOrigin.hostname === "127.0.0.1"
+        || archiveOrigin.hostname === "localhost"
+        || archiveOrigin.hostname === "::1");
+    if (
+      archiveOrigin.host !== manifestOrigin.host
+      || (archiveOrigin.protocol !== "https:" && !insecureLocalAllowed)
+    ) {
+      return failToFallback("Runtime archive URL must stay on the manifest origin over https.");
+    }
     if (fs.existsSync(binaryPath)) {
       deps.runtimeStore.patch({
         requestedProfile: profile,
@@ -191,7 +247,9 @@ const createMiniBackendRuntimeInstaller = (deps: {
 
     const tempDir = path.join(app.getPath("temp"), "koma-runtime-downloads");
     const tempZipPath = path.join(tempDir, record.fileName);
+    ensurePathInsideRoot(tempDir, tempZipPath);
     const tempExtractDir = `${installDir}.tmp`;
+    ensurePathInsideRoot(runtimeRoot, tempExtractDir);
 
     try {
       ensureMiniBackendRuntimeDiskSpace(tempZipPath, installDir, record.size);
@@ -253,9 +311,9 @@ const createMiniBackendRuntimeInstaller = (deps: {
       console.warn(`[mini-backend-runtime] ${message}`);
       return null;
     } finally {
-      if (fs.existsSync(binaryPath)) {
-        fs.rmSync(tempZipPath, { force: true });
-      }
+      // The downloaded archive must never outlive the install attempt,
+      // regardless of whether the entry binary was produced.
+      fs.rmSync(tempZipPath, { force: true });
     }
   };
 

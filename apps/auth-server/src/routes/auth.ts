@@ -11,6 +11,7 @@ import {
   clearUserLock,
   detectLoginAnomaly,
   findUserByEmail,
+  getFailedLoginAttempts,
   increaseFailedLoginAttempts,
   isUserLocked,
   lockUserForBruteForce,
@@ -32,6 +33,7 @@ import {
   forgotPasswordValidation,
   handleValidationErrors,
   loginValidation,
+  preventPathTraversal,
   resetPasswordValidation,
   registerValidation,
 } from "../security/waf.js";
@@ -302,15 +304,21 @@ export function registerAuthRoutes(app: express.Express): void {
             return sendActiveBanResponse(res, "/api/auth/login", requestBan);
           }
           if (existingUser && isUserLocked(existingUser.accountLockedUntil)) {
-            return sendAuthError(
-              res,
-              423,
-              {
-                error: tServer(resolveLocaleFromHeaders(req.headers), "auth.error.accountLockedAttempts"),
-                code: "AUTH_ACCOUNT_LOCKED",
-                retryAt: existingUser.accountLockedUntil,
-              }
-            );
+            // Only the client whose own failure bucket tripped the threshold
+            // is denied. A third party that locked the account on purpose
+            // must not be able to keep the owner out of it.
+            const clientFailedAttempts = await getFailedLoginAttempts(email, ipAddress);
+            if (clientFailedAttempts >= BRUTE_FORCE_LOCK_THRESHOLD) {
+              return sendAuthError(
+                res,
+                423,
+                {
+                  error: tServer(resolveLocaleFromHeaders(req.headers), "auth.error.accountLockedAttempts"),
+                  code: "AUTH_ACCOUNT_LOCKED",
+                  retryAt: existingUser.accountLockedUntil,
+                }
+              );
+            }
           }
 
           const response = await auth.api.signInEmail({
@@ -332,7 +340,7 @@ export function registerAuthRoutes(app: express.Express): void {
               fallbackCode: "AUTH_INVALID_CREDENTIALS",
               locale: resolveLocaleFromHeaders(req.headers),
             });
-            const attempts = await increaseFailedLoginAttempts(email, ipAddress);
+            const { account: attempts } = await increaseFailedLoginAttempts(email, ipAddress);
 
             if (existingUser?.id) {
               await updateUserLoginMeta(existingUser.id, ipAddress, false);
@@ -772,7 +780,11 @@ export function registerAuthFallbackRoutes(app: express.Express): void {
       res.status(404).json({ error: tServer(resolveLocaleFromHeaders(_req.headers), "auth.error.registerRouteHint") });
     });
 
-    app.all("/api/auth/*", (req: Request, res: Response) => {
+    // Express matches these stubs against the raw path; Better Auth re-parses
+    // the URL and resolves dot segments, which used to reopen the native
+    // credential endpoints through the wildcard below. Reject dot-segment
+    // paths before the handler sees them.
+    app.all("/api/auth/*", preventPathTraversal, (req: Request, res: Response) => {
       betterAuthHandler(req, res);
     });
 

@@ -122,10 +122,14 @@ impl DownloadTaskError {
 }
 
 impl ModelServiceContext {
-    pub fn new(root: PathBuf, backend_url: &str) -> AppResult<Self> {
+    pub fn new(
+        root: PathBuf,
+        backend_url: &str,
+        session_secret: Option<String>,
+    ) -> AppResult<Self> {
         Ok(Self {
             root,
-            backend: LocalModelBackend::new(backend_url)?,
+            backend: LocalModelBackend::new(backend_url, session_secret)?,
         })
     }
 }

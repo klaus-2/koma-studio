@@ -1,6 +1,10 @@
 use std::time::Instant;
 
 use super::*;
+use crate::runtime::manifest_trust::{
+    PINNED_ARTIFACTS_PUBKEY, ensure_runtime_archive_url, validate_manifest_relative_path,
+    verify_artifacts_manifest_signature,
+};
 
 /// Progress emit cadence. bytes_stream() yields far faster than the UI (or the
 /// IPC bus) can consume; throttle to ~10 updates/s and always emit a final one.
@@ -192,9 +196,16 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         return Ok(None);
     };
 
+    // Defense in depth: the manifest reader and runtime_install_dir already
+    // validate these segments; re-checking here keeps install safe even if a
+    // future caller passes a manifest that skipped the reader.
+    validate_manifest_relative_path(&manifest.version)?;
+    validate_manifest_relative_path(&record.entry)?;
+    validate_manifest_relative_path(&record.file_name)?;
     let install_dir = runtime_install_dir(app, &manifest.version, profile)?;
     let binary_path = install_dir.join(&record.entry);
     let archive_url = resolve_runtime_url(&manifest_url, &record.url)?;
+    ensure_runtime_archive_url(&manifest_url, &archive_url)?;
     if binary_path.exists() {
         patch_runtime_state(
             app,
@@ -369,7 +380,8 @@ async fn read_runtime_manifest<R: Runtime>(
         )?;
     }
 
-    let client = reqwest::Client::new();
+    let client = crate::security::cert_pinning::pinned_http_client(app, Duration::from_secs(30))
+        .map_err(|error| RuntimeError::Message(error.to_string()))?;
     for attempt in 1..=RUNTIME_DOWNLOAD_RETRY_COUNT + 1 {
         match client
             .get(&manifest_url)
@@ -378,7 +390,26 @@ async fn read_runtime_manifest<R: Runtime>(
             .await
         {
             Ok(response) if response.status().is_success() => {
-                let manifest = response.json::<MiniBackendRuntimeArtifactManifest>().await?;
+                let body = response.text().await?;
+                if let Some(public_key) =
+                    PINNED_ARTIFACTS_PUBKEY.filter(|key| !key.trim().is_empty())
+                {
+                    let signature_url = format!("{manifest_url}.sig");
+                    let signature_response = client
+                        .get(&signature_url)
+                        .timeout(Duration::from_secs(30))
+                        .send()
+                        .await?;
+                    if !signature_response.status().is_success() {
+                        return Err(RuntimeError::Integrity(format!(
+                            "runtime manifest signature unavailable (HTTP {})",
+                            signature_response.status()
+                        )));
+                    }
+                    let signature = signature_response.text().await?;
+                    verify_artifacts_manifest_signature(public_key, body.as_bytes(), &signature)?;
+                }
+                let manifest: MiniBackendRuntimeArtifactManifest = serde_json::from_str(&body)?;
                 return Ok(Some(manifest));
             }
             Ok(response) if is_retryable_status(response.status().as_u16()) => {
@@ -504,7 +535,11 @@ async fn download_url_to_file_with_resume<R: Runtime>(
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let client = reqwest::Client::new();
+    let client = crate::security::cert_pinning::pinned_http_client(
+        app,
+        resolve_runtime_transfer_timeout(record.size),
+    )
+    .map_err(|error| RuntimeError::Message(error.to_string()))?;
     let mut request = client
         .get(archive_url)
         .timeout(resolve_runtime_transfer_timeout(record.size));

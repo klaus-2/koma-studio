@@ -130,6 +130,19 @@ class LocalApiSettings:
         return frozenset(paths)
 
     @property
+    def allowed_hosts(self) -> frozenset[str]:
+        """Host header values a legitimate loopback client can produce.
+
+        A rebound browser page still sends the attacker's domain here, so the
+        guard rejects it even though the TCP connection lands on 127.0.0.1.
+        """
+        names = ("127.0.0.1", "localhost", "[::1]")
+        hosts = {*names, *(f"{name}:{self.port}" for name in names)}
+        if not self.is_production:
+            hosts.add("testserver")
+        return frozenset(hosts)
+
+    @property
     def is_production(self) -> bool:
         return self.environment == "production"
 
@@ -432,20 +445,59 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
     async def enforce_local_api_session(
         request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
+        if request.url.path in public_paths:
+            return await call_next(request)
+
         # Reads the module globals, not the frozen settings: the test suite
         # flips auth/environment by patching these names at request time.
-        if not LOCAL_API_SESSION_SECRET or request.url.path in public_paths:
-            return await call_next(request)
+        if ENVIRONMENT == "production":
+            host = (request.headers.get("host") or "").strip().lower()
+            if host not in settings.allowed_hosts:
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": "Access is only allowed from the desktop application.",
+                        "code": "LOCAL_API_HOST_REJECTED",
+                    },
+                )
+
         origin = (request.headers.get("origin") or "").strip().rstrip("/").lower()
-        # Health-checks (Rust reqwest) send no Origin.
-        if not origin:
-            return await call_next(request)
-        # Packaged desktop shells (Electron/Tauri) talk to the local API
-        # without the session header when the WebView origin is trusted.
-        if origin in frozenset(o.lower() for o in DESKTOP_APP_ORIGINS):
-            return await call_next(request)
+
+        # CORS preflight never carries the session header; CORSMiddleware
+        # (inside this layer) answers it. Everything else must present the
+        # per-launch secret, including requests without an Origin header:
+        # local processes used to be waved through by that missing header.
+        if request.method == "OPTIONS":
+            if origin in trusted_origins or origin in frozenset(
+                o.lower() for o in DESKTOP_APP_ORIGINS
+            ):
+                return await call_next(request)
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "Cross-origin preflight rejected.",
+                    "code": "LOCAL_API_ORIGIN_REJECTED",
+                },
+            )
+
+        # Development-only convenience: the Vite origin stays usable without a
+        # header even when a secret is set (the packaged shells always send it).
         if ENVIRONMENT != "production" and origin in trusted_origins:
             return await call_next(request)
+
+        if not LOCAL_API_SESSION_SECRET:
+            # Fail closed in production: an unprovisioned secret must not
+            # silently disable the loopback session gate (CWE-306).
+            if ENVIRONMENT != "production":
+                return await call_next(request)
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "Local API session secret is not configured.",
+                    "code": "LOCAL_API_SESSION_SECRET_REQUIRED",
+                },
+            )
+
         provided = (request.headers.get(LOCAL_API_SESSION_HEADER) or "").strip()
         if not provided or not hmac.compare_digest(
             provided.encode("utf-8"), LOCAL_API_SESSION_SECRET.encode("utf-8")

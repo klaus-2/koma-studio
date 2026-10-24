@@ -24,10 +24,24 @@ def resolve_models_root() -> Path | None:
     return root
 
 
-def resolve_model_dir(model_id: str) -> Path | None:
+def is_valid_model_id(model_id: str) -> bool:
+    """Single validator for client-supplied model ids; the HTTP routes and
+    ``resolve_model_dir`` must agree on this invariant."""
     normalized = model_id.strip().lower()
     if not _MODEL_ID_PATTERN.match(normalized) or ".." in normalized:
+        return False
+    if normalized.rstrip(". ") != normalized:
+        # Win32 strips trailing dots/spaces from every path component, so an
+        # id such as "m2m100_1_2b_ct2." aliases the dedicated directory on
+        # Windows. Reject ids that rely on that equivalence.
+        return False
+    return True
+
+
+def resolve_model_dir(model_id: str) -> Path | None:
+    if not is_valid_model_id(model_id):
         return None
+    normalized = model_id.strip().lower()
     root = resolve_models_root()
     if root is None:
         return None

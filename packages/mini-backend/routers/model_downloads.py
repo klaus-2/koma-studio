@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from core.download_jobs import ACTIVE_STATES, get_job_manager
+from core.models_store import is_valid_model_id
 from routers.model_install import install_managed_model_sync
 
 
@@ -43,22 +44,39 @@ async def create_model_download(payload: ModelDownloadRequest) -> dict[str, Any]
     model_id = payload.model_id.strip().lower()
     if not model_id:
         raise HTTPException(status_code=400, detail="model_id is required.")
+    # The HTTP route is the trust boundary: the shells' IPC-layer payload
+    # checks never apply to a direct HTTP caller, so the canonical validator
+    # runs here too (checksum shape is already enforced by the pydantic field
+    # pattern above).
+    if not is_valid_model_id(model_id):
+        raise HTTPException(status_code=400, detail="Invalid model_id.")
+
+    checksum = (payload.checksum_sha256 or "").strip().lower()
+
+    try:
+        declared_bytes = int(payload.expected_download_bytes or 0)
+    except (TypeError, ValueError):
+        declared_bytes = 0
 
     extras = {
         key: value
         for key, value in {
-            "download_url": payload.download_url,
-            "checksum_sha256": payload.checksum_sha256,
+            "download_url": str(payload.download_url) if payload.download_url else None,
+            "checksum_sha256": checksum or None,
             "expected_download_bytes": payload.expected_download_bytes,
         }.items()
         if value is not None
     }
 
+    # The disk precheck must cover at least the declared transfer size, so a
+    # caller cannot zero it out and then stream more than it declared.
+    required_disk_bytes = max(int(payload.required_disk_bytes or 0), declared_bytes)
+
     manager = _MANAGED_JOB_MANAGER
     job, created = manager.submit(
         model_id,
         payload.source_language,
-        int(payload.required_disk_bytes or 0),
+        required_disk_bytes,
         extras,
     )
     snapshot = job.snapshot()

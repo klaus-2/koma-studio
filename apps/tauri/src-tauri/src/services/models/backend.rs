@@ -35,6 +35,7 @@ static LOCAL_HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 pub struct LocalModelBackend {
     base_url: Url,
     client: Client,
+    session_secret: Option<String>,
 }
 
 /// Wire shape of `GET /models/downloads/{job_id}` (camelCase, see
@@ -74,7 +75,7 @@ struct CreateJobRequest<'a> {
 }
 
 impl LocalModelBackend {
-    pub fn new(base_url: &str) -> AppResult<Self> {
+    pub fn new(base_url: &str, session_secret: Option<String>) -> AppResult<Self> {
         let mut base_url = Url::parse(base_url.trim())?;
         let host = base_url
             .host_str()
@@ -105,14 +106,25 @@ impl LocalModelBackend {
         Ok(Self {
             base_url,
             client: local_http_client()?,
+            session_secret: session_secret
+                .map(|secret| secret.trim().to_string())
+                .filter(|secret| !secret.is_empty()),
         })
+    }
+
+    /// Adds the per-launch local-API session header when the shell provisioned
+    /// one (release builds). Debug builds keep talking to the open dev server.
+    fn request(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match self.session_secret.as_deref() {
+            Some(secret) => builder.header(crate::sidecar::mini_backend::LOCAL_API_SESSION_HEADER, secret),
+            None => builder,
+        }
     }
 
     pub async fn create_job(&self, model: &DesktopModelDownloadPayload) -> AppResult<String> {
         let endpoint = self.endpoint(&["models", "downloads"])?;
         let response = self
-            .client
-            .post(endpoint)
+            .request(self.client.post(endpoint))
             .timeout(Duration::from_secs(20))
             .json(&CreateJobRequest {
                 model_id: &model.id,
@@ -147,8 +159,7 @@ impl LocalModelBackend {
         let endpoint = self.endpoint(&["models", "downloads", job_id])?;
 
         let response = self
-            .client
-            .get(endpoint)
+            .request(self.client.get(endpoint))
             .timeout(Duration::from_secs(15))
             .send()
             .await
@@ -172,8 +183,7 @@ impl LocalModelBackend {
         let endpoint = self.endpoint(&["models", "downloads", job_id, "cancel"])?;
 
         let response = self
-            .client
-            .post(endpoint)
+            .request(self.client.post(endpoint))
             .timeout(Duration::from_secs(10))
             .send()
             .await
@@ -238,8 +248,7 @@ impl LocalModelBackend {
         let endpoint = self.endpoint(&["enhance", "validate-model"])?;
 
         let response = self
-            .client
-            .post(endpoint)
+            .request(self.client.post(endpoint))
             .timeout(Duration::from_secs(30 * 60))
             .multipart(form)
             .send()

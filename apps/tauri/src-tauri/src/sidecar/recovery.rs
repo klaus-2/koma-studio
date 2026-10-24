@@ -337,6 +337,9 @@ pub struct MiniBackendSidecarStore {
     restart_epoch: Mutex<u64>,
     /// Whether the current generation answered `/health` at least once.
     health_confirmed: AtomicBool,
+    /// Per-launch secret forwarded to the sidecar and to every shell/renderer
+    /// request. `None` in debug builds (dev server stays open).
+    session_secret: Mutex<Option<String>>,
 }
 
 impl MiniBackendSidecarStore {
@@ -382,6 +385,16 @@ impl MiniBackendSidecarStore {
 
     pub(crate) fn has_child(&self) -> Result<bool, String> {
         Ok(lock_store(&self.child)?.is_some())
+    }
+
+    /// Stores the per-launch local-API secret (or clears it on stop).
+    pub(crate) fn set_session_secret(&self, secret: Option<String>) -> Result<(), String> {
+        *lock_store(&self.session_secret)? = secret;
+        Ok(())
+    }
+
+    pub(crate) fn session_secret(&self) -> Option<String> {
+        self.session_secret.lock().ok().and_then(|guard| guard.clone())
     }
 
     pub(crate) fn current_generation(&self) -> Result<u64, String> {

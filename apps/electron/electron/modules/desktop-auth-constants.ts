@@ -9,6 +9,9 @@ const DESKTOP_UPDATE_CHANNEL_HEADER = "x-desktop-update-channel";
 const DESKTOP_BOOTSTRAP_SECRET_HEADER = "x-desktop-bootstrap-secret";
 const DESKTOP_DEVICE_KEY_HEADER = "x-desktop-device-key";
 const DESKTOP_TRAVEL_TOKEN_HEADER = "x-desktop-travel-token";
+// Wire contract with the mini-backend gate: keep in sync with
+// `localApiSessionHeader` in packages/types/src/desktop-api.ts, the Tauri
+// sidecar modules and app.py.
 const LOCAL_API_SESSION_HEADER = "x-koma-local-session";
 const DESKTOP_BOOTSTRAP_PATH = "/api/internal/desktop-client/bootstrap";
 const DESKTOP_DEVICE_REGISTER_PATH = "/api/internal/desktop-client/register";

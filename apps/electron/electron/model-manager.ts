@@ -4,6 +4,8 @@ import path from "node:path";
 
 import type { BrowserWindow } from "electron";
 
+import { LOCAL_API_SESSION_HEADER } from "./modules/desktop-auth-constants.ts";
+
 export interface DesktopDownloadModelPayload {
   id: string;
   name: string;
@@ -160,7 +162,6 @@ const MAX_RETRY_ATTEMPTS = 3;
 const MODEL_JOB_POLL_INTERVAL_MS = 200;
 const PARTIAL_FILE_NAME = "download.partial";
 const MANIFEST_FILE_NAME = "manifest.json";
-const LOCAL_API_SESSION_HEADER = "x-koma-local-session";
 const EASYOCR_MODEL_ID = "easyocr";
 const PORORO_MODEL_ID = "pororo";
 const MANGA_OCR_MODEL_ID = "manga_ocr";

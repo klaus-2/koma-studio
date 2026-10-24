@@ -19,6 +19,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use zip::ZipArchive;
 
 use crate::commands::desktop::build_runtime_config;
+use crate::runtime::manifest_trust::validate_manifest_relative_path;
 
 use super::gpu::{
     collect_gpu_vendors, has_vendor_match, is_amd_vendor, is_intel_vendor,
@@ -377,6 +378,7 @@ pub fn resolve_selected_runtime_binary_path<R: Runtime>(
     let Some(selection) = read_runtime_selection(app)? else {
         return Ok(None);
     };
+    validate_manifest_relative_path(&selection.entry)?;
     let binary_path =
         runtime_install_dir(app, &selection.version, &selection.profile)?.join(selection.entry);
     Ok(binary_path.exists().then_some(binary_path))
@@ -388,12 +390,15 @@ pub async fn sync_runtime_state_from_api<R: Runtime>(
 ) -> Result<(), RuntimeError> {
     let config = build_runtime_config(app);
     let endpoint = format!("{}/device/info", config.local_api_url.trim_end_matches('/'));
-    let response = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()?
-        .get(endpoint)
-        .send()
-        .await
+    let response = match crate::sidecar::mini_backend::with_local_api_session(
+        app,
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()?
+            .get(endpoint),
+    )
+    .send()
+    .await
     {
         Ok(response) if response.status().is_success() => response,
         _ => return Ok(()),
@@ -461,6 +466,8 @@ pub fn runtime_install_dir<R: Runtime>(
     version: &str,
     profile: &str,
 ) -> Result<PathBuf, RuntimeError> {
+    validate_manifest_relative_path(version)?;
+    validate_manifest_relative_path(profile)?;
     Ok(app
         .path()
         .app_data_dir()?

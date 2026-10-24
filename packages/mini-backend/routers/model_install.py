@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -30,6 +31,10 @@ from models.translation.local_storage import ensure_local_translation_model_inst
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["model-install"])
+
+# CWE-400 ceiling for generic registry downloads that do not declare a size;
+# the managed installers for fixed hosts use their own resolvers.
+_GENERIC_DOWNLOAD_MAX_BYTES = 32 * 1024**3
 
 
 class EasyOCRInstallRequest(BaseModel):
@@ -82,6 +87,18 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
     if not url:
         raise RuntimeError(f"Invalid managed model: {model_id}")
 
+    # The URL is client-supplied over HTTP; the shell-side payload checks
+    # never see a direct API caller.
+    parts = urlsplit(url)
+    if parts.scheme not in {"http", "https"} or not parts.netloc:
+        raise RuntimeError("Unsupported download URL scheme.")
+
+    try:
+        declared_bytes = int(extras.get("expected_download_bytes") or 0)
+    except (TypeError, ValueError):
+        declared_bytes = 0
+    max_bytes = declared_bytes if declared_bytes > 0 else _GENERIC_DOWNLOAD_MAX_BYTES
+
     target_dir = resolve_model_dir(model_id)
     if target_dir is None:
         raise RuntimeError("KOMA_MODELS_ROOT is not configured for managed installs.")
@@ -104,7 +121,7 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
                 "downloaded": False,
             }
 
-    download_file(url, target_path)
+    download_file(url, target_path, max_bytes=max_bytes)
     bridge = progress_bridge_var.get()
     if bridge is not None:
         bridge.report_phase("verifying")
@@ -112,8 +129,11 @@ def _download_generic_model(model_id: str, extras: dict[str, Any]) -> dict[str, 
     actual = sha256_file(target_path)
     if expected_sha and actual.lower() != expected_sha.lower():
         target_path.unlink(missing_ok=True)
+        # Never echo the computed digest: with a caller-chosen expected digest
+        # the mismatch message would disclose the content SHA-256 to whoever
+        # submitted the job.
         raise ChecksumMismatchError(
-            f"Invalid SHA256 checksum for '{model_id}'. Expected: {expected_sha} | Got: {actual}",
+            f"Invalid SHA256 checksum for '{model_id}'.",
             expected=expected_sha,
             got=actual,
         )

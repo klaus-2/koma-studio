@@ -248,6 +248,11 @@ pub async fn restart_local_backend<R: Runtime + 'static>(
         })
 }
 
+#[tauri::command(rename = "desktop:get-local-api-session")]
+pub fn get_local_api_session<R: Runtime>(app: AppHandle<R>) -> Option<String> {
+    crate::sidecar::mini_backend::local_api_session_secret(&app)
+}
+
 #[tauri::command(rename = "desktop:open-external")]
 pub async fn open_external<R: Runtime>(
     app: AppHandle<R>,

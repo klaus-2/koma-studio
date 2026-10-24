@@ -13,7 +13,7 @@ import json
 import logging
 import random
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from http.client import HTTPException, HTTPResponse
 from pathlib import Path
 from typing import Literal, Protocol, cast
@@ -62,6 +62,10 @@ class DiskWriteError(HFDownloadError):
     def __init__(self, message: str, *, os_errno: int | None) -> None:
         super().__init__(message)
         self.os_errno = os_errno
+
+
+class DownloadSizeExceededError(HFDownloadError):
+    """Transfer exceeded the caller-declared maximum size (CWE-400 guard)."""
 
 
 class RateLimitedError(HFDownloadError):
@@ -368,6 +372,7 @@ def _download_once(
     temp_path: Path,
     existing_bytes: int,
     bridge: DownloadProgressBridge | None,
+    max_bytes: int | None = None,
 ) -> tuple[int | None, bool]:
     """Transfer one file.
 
@@ -396,10 +401,19 @@ def _download_once(
                 bridge.report_download(url, -existing_bytes)
             start = 0
         with temp_path.open("ab" if start == existing_bytes > 0 else "wb") as handle:
+            written = 0
             while chunk := response.read(_CHUNK_SIZE):
                 if bridge is not None:
                     bridge.raise_if_cancelled()
+                if max_bytes is not None and start + written + len(chunk) > max_bytes:
+                    # Enforce the declared ceiling while streaming: a remote
+                    # that ignores Content-Length (or file:///dev/zero) must
+                    # never fill the volume before the post-hoc size check.
+                    raise DownloadSizeExceededError(
+                        f"Download exceeded the declared size limit of {max_bytes} bytes: {url}"
+                    )
                 handle.write(chunk)
+                written += len(chunk)
                 if bridge is not None:
                     bridge.report_download(url, len(chunk))
     return total_size, False
@@ -411,12 +425,15 @@ def download_file(
     max_retries: int = 5,
     expected_size: int | None = None,
     expected_sha256: str | None = None,
+    max_bytes: int | None = None,
 ) -> None:
     """Download with resume support; the ``.part`` file survives retries,
     cancellation and even the final failure so a later job continues from it.
 
     ``expected_size`` and ``expected_sha256`` are the declared facts about the
     asset. A mismatch is rejected instead of being silently resized.
+    ``max_bytes`` bounds the bytes written even when the remote lies about (or
+    omits) its length.
     """
     temp_path = target_path.with_suffix(f"{target_path.suffix}.part")
     target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -439,7 +456,7 @@ def download_file(
                 resume_reported = True
         try:
             total_size, range_satisfied = _download_once(
-                url, temp_path, existing_bytes, bridge
+                url, temp_path, existing_bytes, bridge, max_bytes
             )
         except DownloadCancelled:
             raise
@@ -557,6 +574,7 @@ def ensure_files_from_hf(
     files: Sequence[str],
     target_dir: Path,
     revision: str = "main",
+    sha256_by_file: Mapping[str, str] | None = None,
 ) -> list[dict[str, object]]:
     target_dir.mkdir(parents=True, exist_ok=True)
     payloads: list[dict[str, object]] = []
@@ -567,6 +585,7 @@ def ensure_files_from_hf(
             candidate_paths=[relative_path],
             target_path=target_path,
             revision=revision,
+            expected_sha256=(sha256_by_file or {}).get(relative_path),
         )
         payloads.append(
             {

@@ -2,8 +2,6 @@ import { isIP } from "node:net";
 
 import type { Request } from "express";
 
-import { readHeaderValue } from "../utils/http.js";
-
 const trimIpCandidate = (value: string): string => {
   const normalized = value.trim();
   if (!normalized) {
@@ -21,73 +19,93 @@ const trimIpCandidate = (value: string): string => {
     }
   }
 
-  if (isIP(normalized) !== 0) {
-    return normalized;
-  }
-
-  // Handle IPv4 addresses that may include port (e.g. 203.0.113.4:54321).
-  const lastColonIndex = normalized.lastIndexOf(":");
-  if (lastColonIndex > 0) {
-    const maybeIpv4 = normalized.slice(0, lastColonIndex);
-    if (isIP(maybeIpv4) === 4) {
-      return maybeIpv4;
-    }
-  }
-
-  return normalized;
+  return isIP(normalized) !== 0 ? normalized : "";
 };
 
-const extractForwardedIp = (headerValue: string | null): string | null => {
-  if (!headerValue) {
-    return null;
-  }
-
-  const candidates = headerValue
-    .split(",")
-    .map((entry) => trimIpCandidate(entry))
-    .filter((entry) => entry.length > 0);
-
-  for (const candidate of candidates) {
-    if (isIP(candidate) !== 0) {
-      return candidate;
-    }
-  }
-
-  return null;
+const isPrivateOrLoopbackIpv4 = (address: string): boolean => {
+  const [first = -1, second = -1] = address.split(".").map((part) => Number(part));
+  return (
+    first === 10 ||
+    first === 127 ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
+  );
 };
 
+/**
+ * Loopback or RFC1918/link-local peer. Used as the default "is this hop a
+ * reverse proxy we control" test: a directly exposed client can never pass
+ * it, so forwarded headers are ignored until a local proxy adds them.
+ */
+export const isPrivateOrLoopbackAddress = (address: string): boolean => {
+  const normalized = trimIpCandidate(address).toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const family = isIP(normalized);
+  if (family === 4) {
+    return isPrivateOrLoopbackIpv4(normalized);
+  }
+  if (family === 6) {
+    return (
+      normalized === "::1" ||
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      normalized.startsWith("fe8") ||
+      normalized.startsWith("fe9") ||
+      normalized.startsWith("fea") ||
+      normalized.startsWith("feb")
+    );
+  }
+  return false;
+};
+
+export type TrustProxySetting = boolean | number | ((address: string) => boolean);
+
+/**
+ * `TRUST_PROXY`:
+ * - unset/`auto` (default): trust a single hop only when the socket peer is
+ *   loopback/private, i.e. the documented nginx/Caddy deployment. A client
+ *   connecting straight to the server has a public peer, so its
+ *   `X-Forwarded-For` is ignored.
+ * - `false`/`0`: never trust forwarding headers.
+ * - `true`: trust every hop (only for deployments where the origin is
+ *   unreachable except through the proxy chain).
+ * - a positive integer (including `1`): trust that many hops, exactly like
+ *   Express.
+ */
+export const resolveTrustProxy = (rawValue: string | undefined): TrustProxySetting => {
+  const value = (rawValue ?? "").trim().toLowerCase();
+  if (!value || value === "auto") {
+    return isPrivateOrLoopbackAddress;
+  }
+  if (["0", "false", "no", "off"].includes(value)) {
+    return false;
+  }
+  if (["true", "yes", "on"].includes(value)) {
+    return true;
+  }
+  const hops = Number(value);
+  if (Number.isSafeInteger(hops) && hops > 0) {
+    return hops;
+  }
+  return isPrivateOrLoopbackAddress;
+};
+
+/**
+ * Client address derived from Express's `req.ip`, which applies the
+ * `trust proxy` policy above. Forwarded headers are never parsed here: with a
+ * direct connection the socket address wins, and behind a trusted proxy the
+ * rightmost hop that proxy appended wins (the client-supplied prefix cannot).
+ */
 export const getClientIp = (request: Request): string => {
-  const headers = request.headers ?? {};
-  const cfConnectingIp = trimIpCandidate(
-    readHeaderValue(headers["cf-connecting-ip"] as string | string[] | undefined) ?? "",
-  );
-  if (isIP(cfConnectingIp) !== 0) {
-    return cfConnectingIp;
-  }
-
-  const xRealIp = trimIpCandidate(
-    readHeaderValue(headers["x-real-ip"] as string | string[] | undefined) ?? "",
-  );
-  if (isIP(xRealIp) !== 0) {
-    return xRealIp;
-  }
-
-  const xForwardedFor = extractForwardedIp(
-    readHeaderValue(headers["x-forwarded-for"] as string | string[] | undefined),
-  );
-  if (xForwardedFor) {
-    return xForwardedFor;
-  }
-
-  const requestIp = trimIpCandidate(request.ip ?? "");
-  if (isIP(requestIp) !== 0) {
-    return requestIp;
+  const resolved = trimIpCandidate(request.ip ?? "");
+  if (resolved) {
+    return resolved;
   }
 
   const socketIp = trimIpCandidate(request.socket?.remoteAddress ?? "");
-  if (isIP(socketIp) !== 0) {
-    return socketIp;
-  }
-
-  return "unknown";
+  return socketIp || "unknown";
 };

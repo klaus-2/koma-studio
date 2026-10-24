@@ -51,6 +51,18 @@ const crossSubDomainCookieDomain = deriveCrossSubDomainCookieDomain();
 export const auth = betterAuth({
   secret: env.betterAuthSecret,
   baseURL: env.betterAuthUrl,
+  // Only the custom /api/auth/* wrappers may drive credentials or send
+  // transactional email: they carry the rate limiters, validation, ban gate
+  // and email-delivery gate. Better Auth matches these on the normalized
+  // path, so dot-segment variants are disabled as well. Internal
+  // `auth.api.*` calls from the wrappers do not go through the router and
+  // are unaffected.
+  disabledPaths: [
+    "/sign-in/email",
+    "/sign-up/email",
+    "/request-password-reset",
+    "/send-verification-email",
+  ],
   trustedOrigins: env.allowedOrigins,
   database: drizzleAdapter(db, {
     provider: "pg",

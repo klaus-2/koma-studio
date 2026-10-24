@@ -99,7 +99,11 @@ export async function createServer(): Promise<express.Express> {
 
   const app = express();
   app.disable("x-powered-by");
-  app.set("trust proxy", 1);
+  // A bare `1` trusted the socket hop unconditionally, so a client reaching
+  // the server directly could pick its own req.ip through X-Forwarded-For.
+  // The default now trusts forwarded headers only from a loopback/private
+  // proxy peer; see TRUST_PROXY in config/env.ts.
+  app.set("trust proxy", env.trustProxy);
   app.use(cors(corsOptions));
 
   app.use(async (req: Request, res: Response, next: NextFunction) => {

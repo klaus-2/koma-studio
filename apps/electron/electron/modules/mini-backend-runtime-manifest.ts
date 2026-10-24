@@ -2,6 +2,7 @@
  * Mini-backend runtime artifact manifest fetch + listing.
  */
 import {
+  isMiniBackendRuntimeArtifactManifest,
   listMiniBackendRuntimeArtifactOptions,
   type MiniBackendRuntimeArtifactManifest,
   type MiniBackendRuntimeArtifactOption,
@@ -14,17 +15,24 @@ import {
 } from "../mini-backend-runtime-download.ts";
 import { isRetryableRuntimeDownloadError } from "./mini-backend-runtime-disk.ts";
 import { isMiniBackendRuntimeInstalled } from "./mini-backend-runtime-integrity.ts";
+import { verifyMiniBackendRuntimeManifestSignature } from "./mini-backend-manifest-signature.ts";
+import { resolveDesktopEnvValue } from "./runtime-env.ts";
 import type { MiniBackendRuntimeStore } from "./mini-backend-runtime-store.ts";
 import { resolveMiniBackendRuntimeManifestUrl } from "./mini-backend-runtime-urls.ts";
 
 const createMiniBackendManifestReader = (deps: {
   runtimeStore: MiniBackendRuntimeStore;
   miniBackendArtifactsUrl: string | null;
+  fetchImpl?: typeof fetch;
   resolveAccelerationProfile: (options?: {
     silent?: boolean;
     ignoreManualSelection?: boolean;
   }) => Promise<MiniBackendAccelerationProfile>;
 }) => {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const pinnedPublicKey = (
+    resolveDesktopEnvValue("MINI_BACKEND_ARTIFACTS_PUBKEY") ?? ""
+  ).trim();
   const readMiniBackendRuntimeManifest = async (
     { silent = false }: { silent?: boolean } = {},
   ): Promise<MiniBackendRuntimeArtifactManifest | null> => {
@@ -55,7 +63,7 @@ const createMiniBackendManifestReader = (deps: {
             });
           }
         },
-        operation: () => fetch(manifestUrl, {
+        operation: () => fetchImpl(manifestUrl, {
           method: "GET",
           signal: AbortSignal.timeout(30_000),
         }),
@@ -64,12 +72,27 @@ const createMiniBackendManifestReader = (deps: {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const payload = await response.json();
-      if (!payload || typeof payload !== "object") {
-        throw new Error("Invalid runtime manifest payload");
+      const rawBody = await response.text();
+      if (pinnedPublicKey) {
+        const signatureResponse = await fetchImpl(`${manifestUrl}.sig`, {
+          method: "GET",
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (!signatureResponse.ok) {
+          throw new Error(`Runtime manifest signature unavailable (HTTP ${signatureResponse.status})`);
+        }
+        verifyMiniBackendRuntimeManifestSignature(
+          rawBody,
+          await signatureResponse.text(),
+          pinnedPublicKey,
+        );
       }
 
-      return payload as MiniBackendRuntimeArtifactManifest;
+      const payload: unknown = JSON.parse(rawBody);
+      if (!isMiniBackendRuntimeArtifactManifest(payload)) {
+        throw new Error("Invalid runtime manifest payload");
+      }
+      return payload;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (!silent) {

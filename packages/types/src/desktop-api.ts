@@ -29,6 +29,14 @@ import type {
   WorkspaceImportResult,
 } from "./workspace";
 
+/**
+ * Local-API session header shared by the desktop shells and the mini-backend
+ * gate. Wire contract: keep in sync with `LOCAL_API_SESSION_HEADER` in the
+ * Electron shell's desktop-auth-constants, the Tauri sidecar modules and
+ * `app.py`.
+ */
+export const localApiSessionHeader = "x-koma-local-session";
+
 export type JsonRecord = Record<string, unknown>;
 
 type LeafValue<T> = T extends string
@@ -380,6 +388,7 @@ export const desktopCommandChannels = {
   localBackend: {
     check: "desktop:check-local-backend",
     restart: "desktop:restart-local-backend",
+    getSessionSecret: "desktop:get-local-api-session",
   },
   links: {
     openExternal: "desktop:open-external",

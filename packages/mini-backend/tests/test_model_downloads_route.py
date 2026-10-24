@@ -231,7 +231,12 @@ class GenericUrlDownloadTests(unittest.TestCase):
 
         calls: list[tuple[str, Path]] = []
 
-        def fake_download(url: str, target_path: Path, max_retries: int = 5) -> None:
+        def fake_download(
+            url: str,
+            target_path: Path,
+            max_retries: int = 5,
+            max_bytes: int | None = None,
+        ) -> None:
             calls.append((url, target_path))
             target_path.parent.mkdir(parents=True, exist_ok=True)
             target_path.write_bytes(b"payload")
