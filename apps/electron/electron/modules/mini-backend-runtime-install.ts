@@ -1,34 +1,33 @@
 /**
- * Mini-backend downloaded runtime install pipeline (download → verify → extract).
+ * Mini-backend downloaded runtime install pipeline (download parts → verify
+ * each part → extract all parts into one temp dir → atomic rename).
  */
 import { app } from "electron";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type {
-  MiniBackendRuntimeArtifactManifest,
-  MiniBackendRuntimeArtifactRecord,
-} from "../mini-backend-artifacts.ts";
-import { isSafeManifestPathSegment } from "../mini-backend-artifacts.ts";
-import type { MiniBackendAccelerationProfile } from "../mini-backend-runtime.ts";
+import { Unzip, UnzipInflate } from "fflate";
 import {
-  downloadUrlToFileWithResume,
-  resolveRuntimeTransferTimeoutMs,
-  runWithRetry,
-  RUNTIME_DOWNLOAD_RETRY_COUNT,
-} from "../mini-backend-runtime-download.ts";
-import { ensureMiniBackendRuntimeDiskSpace, isRetryableRuntimeDownloadError } from "./mini-backend-runtime-disk.ts";
+  isSafeManifestPathSegment,
+  type MiniBackendRuntimeArtifactManifest,
+  type MiniBackendRuntimeArtifactRecord,
+} from "../mini-backend-artifacts.ts";
+import type { MiniBackendAccelerationProfile } from "../mini-backend-runtime.ts";
+import { estimateRuntimeInstallRequiredBytes } from "../mini-backend-runtime-download.ts";
+import { isRetryableRuntimeDownloadError } from "./mini-backend-runtime-disk.ts";
+import { ensureMiniBackendRuntimeDiskSpace } from "./mini-backend-runtime-disk.ts";
 import {
   computeSha512Base64ForFile,
   getMiniBackendRuntimeInstallDir,
 } from "./mini-backend-runtime-integrity.ts";
-import type { MiniBackendRuntimeStore } from "./mini-backend-runtime-store.ts";
 import {
-  resolveMiniBackendRuntimeManifestUrl,
-  resolveMiniBackendRuntimeUrl,
-} from "./mini-backend-runtime-urls.ts";
-
-const RUNTIME_ARCHIVE_EXTRACT_TIMEOUT_MS = 60 * 60_000;
+  buildRuntimePartDownloadPlan,
+  computeRuntimePartsTotalBytes,
+  downloadRuntimeParts,
+  isRuntimeManifestForCurrentPlatform,
+  resolveExistingRuntimePartBytes,
+} from "./mini-backend-runtime-parts.ts";
+import type { MiniBackendRuntimeStore } from "./mini-backend-runtime-store.ts";
+import { resolveMiniBackendRuntimeManifestUrl } from "./mini-backend-runtime-urls.ts";
 
 const ensurePathInsideRoot = (rootDir: string, candidatePath: string): void => {
   const root = path.resolve(rootDir);
@@ -39,7 +38,117 @@ const ensurePathInsideRoot = (rootDir: string, candidatePath: string): void => {
   }
 };
 
-const quote = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+/**
+ * Zip entry names are producer-controlled; forward slashes are the only
+ * accepted separator (our zips are produced with forward slashes on every
+ * platform) and traversal or absolute segments are rejected.
+ */
+const resolveSafeZipEntryTarget = (destinationDir: string, entryName: string): string | null => {
+  if (
+    entryName.length === 0
+    || entryName.length > 400
+    || entryName.includes("\\")
+    || entryName.includes("\0")
+    || entryName.startsWith("/")
+  ) {
+    return null;
+  }
+  const segments = entryName.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    return null;
+  }
+  return path.join(destinationDir, ...segments);
+};
+
+/**
+ * Streams one part zip into the destination directory without wiping it, so
+ * consecutive parts of the same runtime land in the same extraction tree.
+ */
+const extractZipStreamToDir = (archivePath: string, destinationDir: string): Promise<void> =>
+  new Promise<void>((resolve, reject) => {
+    const unzip = new Unzip();
+    unzip.register(UnzipInflate);
+    const activeWrites = new Set<fs.WriteStream>();
+    let settled = false;
+
+    const fail = (error: Error): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      activeWrites.forEach((stream) => {
+        stream.destroy();
+      });
+      reject(error);
+    };
+
+    unzip.onfile = (file) => {
+      if (file.name.endsWith("/")) {
+        return;
+      }
+      const target = resolveSafeZipEntryTarget(destinationDir, file.name);
+      if (!target) {
+        fail(new Error(`Runtime archive contains an unsafe entry name: ${file.name}`));
+        return;
+      }
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      const output = fs.createWriteStream(target);
+      activeWrites.add(output);
+      output.on("error", fail);
+      output.on("close", () => {
+        activeWrites.delete(output);
+      });
+      file.ondata = (chunk, final) => {
+        // fflate reports decompression failures through this handler with the
+        // error object in place of data and final=true.
+        if (!(chunk instanceof Uint8Array)) {
+          fail(chunk instanceof Error ? chunk : new Error("Runtime part extraction stream failed."));
+          return;
+        }
+        const buffered = output.write(Buffer.from(chunk));
+        if (!buffered) {
+          readStream.pause();
+          output.once("drain", () => readStream.resume());
+        }
+        if (final) {
+          output.end();
+        }
+      };
+      file.start();
+    };
+
+    const readStream = fs.createReadStream(archivePath);
+    readStream.on("data", (chunk) => {
+      try {
+        unzip.push(chunk instanceof Uint8Array ? chunk : Buffer.from(chunk));
+      } catch (error) {
+        fail(error instanceof Error ? error : new Error(String(error)));
+        readStream.destroy();
+      }
+    });
+    readStream.on("error", fail);
+    readStream.on("close", () => {
+      if (settled) {
+        return;
+      }
+      try {
+        unzip.push(new Uint8Array(0), true);
+      } catch (error) {
+        fail(error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
+      const finish = (): void => {
+        if (!settled && activeWrites.size === 0) {
+          settled = true;
+          resolve();
+        }
+      };
+      finish();
+      activeWrites.forEach((stream) => {
+        stream.once("close", finish);
+      });
+    });
+  });
 
 const createMiniBackendRuntimeInstaller = (deps: {
   isDev: boolean;
@@ -51,106 +160,6 @@ const createMiniBackendRuntimeInstaller = (deps: {
   ) => Promise<MiniBackendRuntimeArtifactManifest | null>;
 }) => {
   const fetchImpl = deps.fetchImpl ?? fetch;
-  const downloadRuntimeArtifactToDisk = async (
-    profile: MiniBackendAccelerationProfile,
-    record: MiniBackendRuntimeArtifactRecord,
-    downloadUrl: string,
-    outputPath: string,
-  ): Promise<void> => {
-    const maxAttempts = RUNTIME_DOWNLOAD_RETRY_COUNT + 1;
-    let currentAttempt = 0;
-
-    await runWithRetry({
-      retryCount: RUNTIME_DOWNLOAD_RETRY_COUNT,
-      isRetryable: isRetryableRuntimeDownloadError,
-      onRetry: ({ attempt, delayMs, error }) => {
-        const nextAttempt = Math.min(maxAttempts, attempt + 1);
-        deps.runtimeStore.patch({
-          status: "downloading",
-          statusMessage: `Retrying ${profile} runtime download (${nextAttempt}/${maxAttempts}) in ${Math.max(1, Math.ceil(delayMs / 1000))}s.`,
-          lastError: error instanceof Error ? error.message : String(error),
-          attempt: nextAttempt,
-          maxAttempts,
-        });
-      },
-      operation: async () => {
-        currentAttempt += 1;
-        deps.runtimeStore.patch({
-          status: "downloading",
-          statusMessage:
-            (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0)
-              ? `Resuming ${profile} runtime download (${currentAttempt}/${maxAttempts}).`
-              : `Downloading ${profile} runtime (${currentAttempt}/${maxAttempts}).`,
-          lastError: null,
-          attempt: currentAttempt,
-          maxAttempts,
-          progress: {
-            transferredBytes: fs.existsSync(outputPath) ? fs.statSync(outputPath).size : 0,
-            totalBytes: Math.max(0, record.size),
-            percent: record.size > 0 && fs.existsSync(outputPath)
-              ? Math.max(0, Math.min(100, (fs.statSync(outputPath).size / record.size) * 100))
-              : 0,
-            speedBytesPerSecond: 0,
-          },
-        });
-
-        await downloadUrlToFileWithResume(downloadUrl, outputPath, {
-          expectedTotalBytes: record.size,
-          fetchImpl: (url, init) => fetchImpl(url, {
-            ...init,
-            signal: AbortSignal.timeout(resolveRuntimeTransferTimeoutMs(record.size)),
-          }),
-          onProgress: (progress) => {
-            deps.runtimeStore.patch({
-              status: "downloading",
-              progress,
-              attempt: currentAttempt,
-              maxAttempts,
-              lastError: null,
-            });
-          },
-        });
-      },
-    });
-  };
-
-  const extractRuntimeArchive = async (
-    archivePath: string,
-    destinationDir: string,
-  ): Promise<void> => {
-    fs.rmSync(destinationDir, { recursive: true, force: true });
-    fs.mkdirSync(destinationDir, { recursive: true });
-
-    if (process.platform === "win32") {
-      // powershell.exe joins everything after -Command into one script string,
-      // so manifest-controlled paths could inject statements. Encode a fixed
-      // script instead (single-quoted literals, quotes doubled) and invoke the
-      // system binary by absolute path so PATH cannot shadow it either.
-      const powershellPath = path.join(
-        process.env.SystemRoot ?? "C:\\Windows",
-        "System32",
-        "WindowsPowerShell",
-        "v1.0",
-        "powershell.exe",
-      );
-      const script =
-        `Expand-Archive -LiteralPath ${quote(archivePath)} `
-        + `-DestinationPath ${quote(destinationDir)} -Force`;
-      const encodedCommand = Buffer.from(script, "utf16le").toString("base64");
-      execFileSync(
-        powershellPath,
-        ["-NoProfile", "-NonInteractive", "-EncodedCommand", encodedCommand],
-        {
-          stdio: "ignore",
-          windowsHide: true,
-          timeout: RUNTIME_ARCHIVE_EXTRACT_TIMEOUT_MS,
-        },
-      );
-      return;
-    }
-
-    throw new Error("Runtime archive extraction is currently supported only on Windows builds.");
-  };
 
   const ensureMiniBackendDownloadedRuntime = async (
     profile: MiniBackendAccelerationProfile,
@@ -171,7 +180,6 @@ const createMiniBackendRuntimeInstaller = (deps: {
       return null;
     }
 
-    const record = manifest.profiles?.[profile] as MiniBackendRuntimeArtifactRecord | undefined;
     const failToFallback = (message: string): null => {
       deps.runtimeStore.patch({
         status: "fallback",
@@ -181,6 +189,17 @@ const createMiniBackendRuntimeInstaller = (deps: {
       });
       return null;
     };
+
+    if (!isRuntimeManifestForCurrentPlatform(manifest, {
+      platform: process.platform,
+      arch: process.arch,
+    })) {
+      return failToFallback(
+        `Runtime manifest platform mismatch: manifest is ${manifest.platform}/${manifest.arch}, build is ${process.platform}/${process.arch}.`,
+      );
+    }
+
+    const record = manifest.profiles?.[profile] as MiniBackendRuntimeArtifactRecord | undefined;
     if (!record) {
       deps.runtimeStore.patch({
         status: "fallback",
@@ -197,7 +216,7 @@ const createMiniBackendRuntimeInstaller = (deps: {
     if (
       !isSafeManifestPathSegment(manifest.version)
       || !isSafeManifestPathSegment(record.entry)
-      || !isSafeManifestPathSegment(record.fileName)
+      || record.parts.some((part) => !isSafeManifestPathSegment(part.file))
     ) {
       return failToFallback("Runtime manifest contains unsafe path segments.");
     }
@@ -206,20 +225,22 @@ const createMiniBackendRuntimeInstaller = (deps: {
     ensurePathInsideRoot(runtimeRoot, installDir);
     const binaryPath = path.join(installDir, record.entry);
     ensurePathInsideRoot(installDir, binaryPath);
-    const archiveUrl = resolveMiniBackendRuntimeUrl(manifestUrl, record.url);
+    const archiveUrl = record.parts[0]?.url ?? "";
     const manifestOrigin = new URL(manifestUrl);
-    const archiveOrigin = new URL(archiveUrl);
-    const insecureLocalAllowed =
-      deps.isDev
-      && archiveOrigin.protocol === "http:"
-      && (archiveOrigin.hostname === "127.0.0.1"
-        || archiveOrigin.hostname === "localhost"
-        || archiveOrigin.hostname === "::1");
-    if (
-      archiveOrigin.host !== manifestOrigin.host
-      || (archiveOrigin.protocol !== "https:" && !insecureLocalAllowed)
-    ) {
-      return failToFallback("Runtime archive URL must stay on the manifest origin over https.");
+    for (const part of record.parts) {
+      const partOrigin = new URL(part.url);
+      const insecureLocalAllowed =
+        deps.isDev
+        && partOrigin.protocol === "http:"
+        && (partOrigin.hostname === "127.0.0.1"
+          || partOrigin.hostname === "localhost"
+          || partOrigin.hostname === "::1");
+      if (
+        partOrigin.host !== manifestOrigin.host
+        || (partOrigin.protocol !== "https:" && !insecureLocalAllowed)
+      ) {
+        return failToFallback("Runtime part URLs must stay on the manifest origin over https.");
+      }
     }
     if (fs.existsSync(binaryPath)) {
       deps.runtimeStore.patch({
@@ -246,30 +267,78 @@ const createMiniBackendRuntimeInstaller = (deps: {
     }
 
     const tempDir = path.join(app.getPath("temp"), "koma-runtime-downloads");
-    const tempZipPath = path.join(tempDir, record.fileName);
-    ensurePathInsideRoot(tempDir, tempZipPath);
+    const partItems = buildRuntimePartDownloadPlan(record, tempDir);
+    for (const item of partItems) {
+      ensurePathInsideRoot(tempDir, item.outputPath);
+    }
     const tempExtractDir = `${installDir}.tmp`;
     ensurePathInsideRoot(runtimeRoot, tempExtractDir);
+    const totalPartsBytes = computeRuntimePartsTotalBytes(record);
+    const requiredBytes = Math.max(
+      0,
+      Math.max(estimateRuntimeInstallRequiredBytes(0), totalPartsBytes * 3)
+        - resolveExistingRuntimePartBytes(partItems),
+    );
 
     try {
-      ensureMiniBackendRuntimeDiskSpace(tempZipPath, installDir, record.size);
-      await downloadRuntimeArtifactToDisk(profile, record, archiveUrl, tempZipPath);
-      deps.runtimeStore.patch({
-        status: "verifying",
-        statusMessage: `Verifying ${profile} runtime archive.`,
+      ensureMiniBackendRuntimeDiskSpace([tempDir, installDir], requiredBytes);
+      await downloadRuntimeParts({
+        record,
+        tempDir,
+        fetchImpl,
+        sha512ForFile: computeSha512Base64ForFile,
+        isRetryable: isRetryableRuntimeDownloadError,
+        onEvent: (event) => {
+          if (event.type === "download-start") {
+            deps.runtimeStore.patch({
+              status: "downloading",
+              statusMessage: event.resuming
+                ? `Resuming ${profile} runtime part ${event.file} (${event.attempt}/${event.maxAttempts}).`
+                : `Downloading ${profile} runtime part ${event.file} (${event.attempt}/${event.maxAttempts}).`,
+              lastError: null,
+              attempt: event.attempt,
+              maxAttempts: event.maxAttempts,
+            });
+          } else if (event.type === "download-retry") {
+            deps.runtimeStore.patch({
+              status: "downloading",
+              statusMessage: `Retrying ${profile} runtime part ${event.file} (${event.attempt}/${event.maxAttempts}) in ${Math.max(1, Math.ceil(event.delayMs / 1000))}s.`,
+              lastError: event.error instanceof Error ? event.error.message : String(event.error),
+              attempt: event.attempt,
+              maxAttempts: event.maxAttempts,
+            });
+          } else if (event.type === "download-progress") {
+            deps.runtimeStore.patch({
+              status: "downloading",
+              progress: event.progress,
+              lastError: null,
+            });
+          } else if (event.type === "verifying-part") {
+            deps.runtimeStore.patch({
+              status: "verifying",
+              statusMessage: `Verifying ${profile} runtime part ${event.file}.`,
+            });
+          }
+        },
       });
-      const currentSha512 = await computeSha512Base64ForFile(tempZipPath);
-      if (currentSha512 !== record.sha512) {
-        throw new Error("Runtime archive sha512 mismatch.");
-      }
 
       deps.runtimeStore.patch({
         status: "extracting",
-        statusMessage: `Installing ${profile} runtime.`,
+        statusMessage: `Installing ${profile} runtime (${record.parts.length} part${record.parts.length === 1 ? "" : "s"}).`,
       });
-      await extractRuntimeArchive(tempZipPath, tempExtractDir);
+      // One clean slate for the whole runtime; each part then extracts into
+      // the same tree without wiping the previous part's files.
+      fs.rmSync(tempExtractDir, { recursive: true, force: true });
+      for (const item of partItems) {
+        await extractZipStreamToDir(item.outputPath, tempExtractDir);
+      }
       fs.rmSync(installDir, { recursive: true, force: true });
       fs.renameSync(tempExtractDir, installDir);
+      // Part files are the cross-restart resume ledger until the install
+      // commits; only then may they go away.
+      for (const item of partItems) {
+        fs.rmSync(item.outputPath, { force: true });
+      }
 
       deps.runtimeStore.patch({
         requestedProfile: profile,
@@ -293,6 +362,8 @@ const createMiniBackendRuntimeInstaller = (deps: {
         archiveUrl,
       };
     } catch (error) {
+      // Part files survive a failed attempt so the next one resumes from the
+      // verified bytes; only the extraction tree is discarded.
       fs.rmSync(tempExtractDir, { recursive: true, force: true });
       const message = error instanceof Error ? error.message : String(error);
       deps.runtimeStore.patch({
@@ -310,17 +381,12 @@ const createMiniBackendRuntimeInstaller = (deps: {
       });
       console.warn(`[mini-backend-runtime] ${message}`);
       return null;
-    } finally {
-      // The downloaded archive must never outlive the install attempt,
-      // regardless of whether the entry binary was produced.
-      fs.rmSync(tempZipPath, { force: true });
     }
   };
 
   return {
-    downloadRuntimeArtifactToDisk,
     ensureMiniBackendDownloadedRuntime,
-    extractRuntimeArchive,
+    extractZipStreamToDir,
   };
 };
 

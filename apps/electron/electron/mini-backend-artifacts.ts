@@ -5,20 +5,24 @@ export interface MiniBackendRuntimeArtifactProfile {
   optional?: boolean;
 }
 
+export interface MiniBackendRuntimeArtifactPart {
+  file: string;
+  url: string;
+  sha512: string;
+  size: number;
+}
+
 export interface MiniBackendRuntimeArtifactRecord {
   profile: MiniBackendAccelerationProfile;
   version: string;
   platform: NodeJS.Platform;
   arch: string;
-  fileName: string;
-  url: string;
-  sha512: string;
-  size: number;
   entry: string;
+  parts: MiniBackendRuntimeArtifactPart[];
 }
 
 export interface MiniBackendRuntimeArtifactManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   version: string;
   generatedAt: string;
   platform: NodeJS.Platform;
@@ -61,9 +65,23 @@ export const isSafeManifestPathSegment = (value: unknown): value is string => {
   );
 };
 
+const isAbsoluteUrl = (value: unknown): value is string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return false;
+  }
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Rejects a manifest that would escape the runtime install/temp directories
- * through its own fields before any path is built from it.
+ * through its own fields before any path is built from it. Part URLs must be
+ * absolute (tag-pinned release URLs), never relative: relative URLs resolved
+ * against a `releases/latest` manifest re-enter the moving latest slot.
  */
 export const isMiniBackendRuntimeArtifactManifest = (
   payload: unknown,
@@ -71,7 +89,16 @@ export const isMiniBackendRuntimeArtifactManifest = (
   if (!isRecord(payload)) {
     return false;
   }
+  if (payload.schemaVersion !== 2) {
+    return false;
+  }
   if (!isSafeManifestPathSegment(payload.version)) {
+    return false;
+  }
+  if (typeof payload.platform !== "string" || payload.platform.length === 0) {
+    return false;
+  }
+  if (typeof payload.arch !== "string" || payload.arch.length === 0) {
     return false;
   }
   if (typeof payload.defaultProfile !== "string" || payload.defaultProfile.length === 0) {
@@ -84,18 +111,27 @@ export const isMiniBackendRuntimeArtifactManifest = (
     if (!isRecord(record)) {
       return false;
     }
-    if (
-      !isSafeManifestPathSegment(record.entry)
-      || !isSafeManifestPathSegment(record.fileName)
-      || typeof record.url !== "string"
-      || record.url.trim().length === 0
-      || typeof record.sha512 !== "string"
-      || record.sha512.length === 0
-      || typeof record.size !== "number"
-      || !Number.isFinite(record.size)
-      || record.size <= 0
-    ) {
+    if (!isSafeManifestPathSegment(record.entry)) {
       return false;
+    }
+    if (!Array.isArray(record.parts) || record.parts.length === 0) {
+      return false;
+    }
+    for (const part of record.parts) {
+      if (!isRecord(part)) {
+        return false;
+      }
+      if (
+        !isSafeManifestPathSegment(part.file)
+        || !isAbsoluteUrl(part.url)
+        || typeof part.sha512 !== "string"
+        || part.sha512.length === 0
+        || typeof part.size !== "number"
+        || !Number.isFinite(part.size)
+        || part.size <= 0
+      ) {
+        return false;
+      }
     }
   }
   return true;
@@ -150,7 +186,7 @@ export const buildMiniBackendRuntimeArtifactManifest = ({
   arch: string;
   profiles: MiniBackendRuntimeArtifactManifest["profiles"];
 }): MiniBackendRuntimeArtifactManifest => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   version,
   generatedAt: new Date().toISOString(),
   platform,
@@ -158,6 +194,10 @@ export const buildMiniBackendRuntimeArtifactManifest = ({
   defaultProfile: "cpu",
   profiles,
 });
+
+const sumMiniBackendRuntimeArtifactRecordBytes = (
+  record: MiniBackendRuntimeArtifactRecord,
+): number => record.parts.reduce((total, part) => total + part.size, 0);
 
 export const listMiniBackendRuntimeArtifactOptions = ({
   manifest,
@@ -189,8 +229,10 @@ export const listMiniBackendRuntimeArtifactOptions = ({
     .map((entry) => ({
       profile: entry.profile,
       version: entry.version,
-      size: entry.size,
+      size: sumMiniBackendRuntimeArtifactRecordBytes(entry),
       installed: installedProfileSet.has(entry.profile),
       recommended: entry.profile === recommendedProfile,
     }));
 };
+
+export { sumMiniBackendRuntimeArtifactRecordBytes };

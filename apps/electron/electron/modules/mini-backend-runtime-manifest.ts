@@ -15,6 +15,7 @@ import {
 } from "../mini-backend-runtime-download.ts";
 import { isRetryableRuntimeDownloadError } from "./mini-backend-runtime-disk.ts";
 import { isMiniBackendRuntimeInstalled } from "./mini-backend-runtime-integrity.ts";
+import { isRuntimeManifestForCurrentPlatform } from "./mini-backend-runtime-parts.ts";
 import { verifyMiniBackendRuntimeManifestSignature } from "./mini-backend-manifest-signature.ts";
 import { resolveDesktopEnvValue } from "./runtime-env.ts";
 import type { MiniBackendRuntimeStore } from "./mini-backend-runtime-store.ts";
@@ -110,6 +111,14 @@ const createMiniBackendManifestReader = (deps: {
   const listMiniBackendRuntimeArtifacts = async (): Promise<MiniBackendRuntimeArtifactOption[]> => {
     const manifest = await readMiniBackendRuntimeManifest({ silent: true });
     if (!manifest) {
+      return [];
+    }
+    // A foreign-platform manifest (e.g. win32 feed read by a linux build)
+    // must not be offered for install at all.
+    if (!isRuntimeManifestForCurrentPlatform(manifest, {
+      platform: process.platform,
+      arch: process.arch,
+    })) {
       return [];
     }
 

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 2,
+  "version": "1.2.0",
+  "generatedAt": "2026-10-25T00:00:00.000Z",
+  "platform": "win32",
+  "arch": "x64",
+  "defaultProfile": "cpu",
+  "profiles": {
+    "cpu": {
+      "profile": "cpu",
+      "version": "1.2.0",
+      "platform": "win32",
+      "arch": "x64",
+      "entry": "mini-backend.exe",
+      "parts": [
+        {
+          "file": "mini-backend-runtime-cpu-1.2.0-win32-x64.part-1-of-1.zip",
+          "url": "https://github.com/klaus-2/koma-studio/releases/download/runtime-v1.2.0/mini-backend-runtime-cpu-1.2.0-win32-x64.part-1-of-1.zip",
+          "sha512": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "size": 912345678
+        }
+      ]
+    },
+    "nvidia-cuda": {
+      "profile": "nvidia-cuda",
+      "version": "1.2.0",
+      "platform": "win32",
+      "arch": "x64",
+      "entry": "mini-backend.exe",
+      "parts": [
+        {
+          "file": "mini-backend-runtime-nvidia-cuda-1.2.0-win32-x64.part-1-of-2.zip",
+          "url": "https://github.com/klaus-2/koma-studio/releases/download/runtime-v1.2.0/mini-backend-runtime-nvidia-cuda-1.2.0-win32-x64.part-1-of-2.zip",
+          "sha512": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB==",
+          "size": 1985759267
+        },
+        {
+          "file": "mini-backend-runtime-nvidia-cuda-1.2.0-win32-x64.part-2-of-2.zip",
+          "url": "https://github.com/klaus-2/koma-studio/releases/download/runtime-v1.2.0/mini-backend-runtime-nvidia-cuda-1.2.0-win32-x64.part-2-of-2.zip",
+          "sha512": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC==",
+          "size": 644245094
+        }
+      ]
+    }
+  }
+}

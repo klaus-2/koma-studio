@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { Readable, Transform } from "node:stream";
-import { pipeline as streamPipeline } from "node:stream/promises";
+import { once } from "node:events";
 
 const MIN_RUNTIME_INSTALL_REQUIRED_BYTES = 512 * 1024 * 1024;
 
@@ -119,16 +118,33 @@ export const downloadResponseToFile = async (
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   const writable = fs.createWriteStream(outputPath, append ? { flags: "a" } : undefined);
-  const tracker = new Transform({
-    transform(chunk, _encoding, callback) {
-      transferredBytes += Buffer.isBuffer(chunk) ? chunk.byteLength : Buffer.byteLength(String(chunk));
-      emitProgress();
-      callback(null, chunk);
-    },
-  });
+  const endWritable = (): Promise<void> =>
+    new Promise<void>((resolve) => {
+      writable.end(() => resolve());
+    });
 
   emitProgress();
-  await streamPipeline(Readable.fromWeb(response.body as never), tracker, writable);
+  const bodyReader = (response.body as ReadableStream<Uint8Array>).getReader();
+  try {
+    // Writes are handed to the stream (with backpressure) before the next
+    // read, so on a mid-body error every received byte is already inside the
+    // writable; ending it flushes them to disk as the Range resume point.
+    while (true) {
+      const { done, value } = await bodyReader.read();
+      if (done) {
+        break;
+      }
+      transferredBytes += value.byteLength;
+      emitProgress();
+      if (!writable.write(Buffer.from(value))) {
+        await once(writable, "drain");
+      }
+    }
+  } catch (error) {
+    await endWritable();
+    throw error;
+  }
+  await endWritable();
   return emitProgress();
 };
 

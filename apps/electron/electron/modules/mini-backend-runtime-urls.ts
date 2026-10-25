@@ -14,7 +14,22 @@ const normalizeRuntimeArtifactsBaseUrl = (rawUrl: string | null): string | null 
   return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
 };
 
-const resolveMiniBackendRuntimeManifestUrl = (artifactsUrl: string | null): string | null => {
+/**
+ * GitHub release assets are flat and per-platform manifests live side by side,
+ * so each platform claims its own manifest filename under the feed base.
+ */
+const buildMiniBackendRuntimeManifestFileName = (
+  platform: NodeJS.Platform,
+  arch: string,
+): string => `mini-backend-latest-${platform}-${arch}.json`;
+
+const resolveMiniBackendRuntimeManifestUrl = (
+  artifactsUrl: string | null,
+  {
+    platform = process.platform,
+    arch = process.arch,
+  }: { platform?: NodeJS.Platform; arch?: string } = {},
+): string | null => {
   const configuredUrl = normalizeRuntimeArtifactsBaseUrl(artifactsUrl);
   if (!configuredUrl) {
     return null;
@@ -24,19 +39,11 @@ const resolveMiniBackendRuntimeManifestUrl = (artifactsUrl: string | null): stri
     return configuredUrl;
   }
 
-  if (configuredUrl.toLowerCase().includes("/mini-backend-artifacts/")) {
-    return `${configuredUrl}latest.json`;
-  }
-
-  return `${configuredUrl}mini-backend-artifacts/latest.json`;
-};
-
-const resolveMiniBackendRuntimeUrl = (manifestUrl: string, relativeUrl: string): string => {
-  return new URL(relativeUrl, manifestUrl).toString();
+  return `${configuredUrl}${buildMiniBackendRuntimeManifestFileName(platform, arch)}`;
 };
 
 export {
+  buildMiniBackendRuntimeManifestFileName,
   normalizeRuntimeArtifactsBaseUrl,
   resolveMiniBackendRuntimeManifestUrl,
-  resolveMiniBackendRuntimeUrl,
 };

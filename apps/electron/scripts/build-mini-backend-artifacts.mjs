@@ -69,26 +69,60 @@ const run = (command, label, envOverrides = {}) => {
   }
 };
 
-const compressDirectoryToZip = (sourceDir, outputZipPath) => {
-  if (process.platform === "win32") {
-    const escapedSource = sourceDir.replace(/'/g, "''");
-    const escapedZip = outputZipPath.replace(/'/g, "''");
-    run(
-      `powershell -NoProfile -Command "Compress-Archive -Path '${escapedSource}\\*' -DestinationPath '${escapedZip}' -Force"`,
-      `zip:${path.basename(outputZipPath)}`,
-    );
-    return;
-  }
+const RUNTIME_PART_BUDGET_BYTES = Math.floor(1.9 * 1024 ** 3);
+// Parts live on immutable runtime-v<version> releases; the manifest embeds
+// absolute tag-pinned URLs so a "latest" flip can never redirect a download.
+const RUNTIME_PARTS_URL_BASE =
+  "https://github.com/klaus-2/koma-studio/releases/download/";
 
-  const escapedSource = sourceDir.replace(/\\/g, "/").replace(/'/g, "\\'");
-  const escapedZipBase = outputZipPath
-    .replace(/\\/g, "/")
-    .replace(/'/g, "\\'")
-    .replace(/\.zip$/i, "");
+const resolveZipPythonCommand = () =>
+  process.platform === "win32" ? "py -3.12" : "python3";
+
+// GitHub release assets are flat; reject anything that could become a path.
+const isFlatAssetName = (name) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name);
+
+const removeStalePartOutputs = (zipBaseName) => {
+  for (const name of fs.readdirSync(outputRootDir)) {
+    if (
+      name === `${zipBaseName}.zip`
+      || name === `${zipBaseName}.partition-plan.json`
+      || (name.startsWith(`${zipBaseName}.part-`) && name.endsWith(".zip"))
+    ) {
+      fs.rmSync(path.join(outputRootDir, name), { force: true });
+    }
+  }
+};
+
+const loadRuntimePartsFromPlan = async (zipBasePath) => {
+  const planPath = `${zipBasePath}.partition-plan.json`;
+  const plan = JSON.parse(fs.readFileSync(planPath, "utf-8"));
+  const parts = [];
+  for (const part of plan.parts) {
+    if (!isFlatAssetName(part.file)) {
+      throw new Error(`runtime part asset name is not flat: ${part.file}`);
+    }
+    parts.push({
+      file: part.file,
+      url: `${RUNTIME_PARTS_URL_BASE}runtime-v${version}/${part.file}`,
+      sha512: await computeSha512Base64(path.join(outputRootDir, part.file)),
+      size: fs.statSync(path.join(outputRootDir, part.file)).size,
+    });
+  }
+  return parts;
+};
+
+// Zips are produced by the python partitioner on every platform: forward-slash
+// entries, one independent zip per part, each under the byte budget.
+const partitionDistIntoRuntimeParts = async ({ distDir, zipBasePath }) => {
+  const zipBaseName = path.basename(zipBasePath);
+  removeStalePartOutputs(zipBaseName);
   run(
-    `python3 -c "import shutil; shutil.make_archive('${escapedZipBase}', 'zip', '${escapedSource}')"`,
-    `zip:${path.basename(outputZipPath)}`,
+    `${resolveZipPythonCommand()} "${path.join(__dirname, "zip-runtime-parts.py")}" `
+      + `--source-dir "${distDir}" --output-base "${zipBasePath}" `
+      + `--budget-bytes ${RUNTIME_PART_BUDGET_BYTES}`,
+    `partition:${zipBaseName}`,
   );
+  return loadRuntimePartsFromPlan(zipBasePath);
 };
 
 const computeSha512Base64 = (filePath) =>
@@ -229,20 +263,28 @@ const resolveManifestSigningKey = () => {
 };
 
 /**
- * Writes `latest.json` and, when a signing key is provisioned, a detached
- * `latest.json.sig` over the exact published bytes. Consumers pin the public
- * key at build time, so the feed no longer relies on TLS alone.
+ * Writes the per-platform manifest `mini-backend-latest-{platform}-{arch}.json`
+ * and, when a signing key is provisioned, its detached `.sig` twin over the
+ * exact published bytes. Consumers pin the public key at build time, so the
+ * feed no longer relies on TLS alone. Publishing an unsigned manifest is
+ * rejected later by the publish choreography, not here: CI legitimately
+ * produces unsigned manifests that the local signing machine finalizes.
  */
+const runtimeManifestFileName = `mini-backend-latest-${process.platform}-${process.arch}.json`;
 const writeRuntimeArtifactsManifest = (manifest) => {
   const body = `${JSON.stringify(manifest, null, 2)}\n`;
-  fs.writeFileSync(path.join(outputRootDir, "latest.json"), body, "utf-8");
+  fs.writeFileSync(path.join(outputRootDir, runtimeManifestFileName), body, "utf-8");
 
-  const signaturePath = path.join(outputRootDir, "latest.json.sig");
+  for (const staleName of ["latest.json", "latest.json.sig"]) {
+    fs.rmSync(path.join(outputRootDir, staleName), { force: true });
+  }
+
+  const signaturePath = path.join(outputRootDir, `${runtimeManifestFileName}.sig`);
   const signingKey = resolveManifestSigningKey();
   if (!signingKey) {
     fs.rmSync(signaturePath, { force: true });
     console.warn(
-      "[mini-backend-artifacts] MINI_BACKEND_ARTIFACTS_SIGNING_KEY is unset; manifest is unsigned",
+      "[mini-backend-artifacts] MINI_BACKEND_ARTIFACTS_SIGNING_KEY is unset; manifest is unsigned (finalize with the local signing step before publishing)",
     );
     return;
   }
@@ -290,8 +332,18 @@ const main = async () => {
       externalStorageRoot,
       rootDir,
     });
-    const zipFileName = `mini-backend-runtime-${profileKey}-${version}-${process.platform}-${process.arch}.zip`;
-    const zipFilePath = path.join(outputRootDir, zipFileName);
+    const zipBaseName = `mini-backend-runtime-${profileKey}-${version}-${process.platform}-${process.arch}`;
+    const zipBasePath = path.join(outputRootDir, zipBaseName);
+    const planPath = `${zipBasePath}.partition-plan.json`;
+    const readCachedPlanPartFiles = () => {
+      try {
+        const files = JSON.parse(fs.readFileSync(planPath, "utf-8")).parts.map((part) => part.file);
+        return files.length > 0 ? files : null;
+      } catch {
+        return null;
+      }
+    };
+    const cachedPartFiles = readCachedPlanPartFiles();
 
     const cacheDir = getCacheDir(rootDir, getProfileCacheKey(profileKey));
     const cachedHash = readCachedHash(cacheDir);
@@ -299,7 +351,8 @@ const main = async () => {
       !HARDENED_RUNTIME_ARTIFACTS &&
       !FORCE_REBUILD &&
       cachedHash === currentSourceHash &&
-      fs.existsSync(zipFilePath);
+      cachedPartFiles !== null &&
+      cachedPartFiles.every((file) => fs.existsSync(path.join(outputRootDir, file)));
 
     if (cacheValid) {
       console.log(`[mini-backend-artifacts] CACHE HIT profile=${profile} (reusing cached zip)`);
@@ -343,7 +396,7 @@ const main = async () => {
         continue;
       }
 
-      compressDirectoryToZip(distDir, zipFilePath);
+      await partitionDistIntoRuntimeParts({ distDir, zipBasePath });
 
       writeCachedHash(cacheDir, currentSourceHash);
       console.log(`[mini-backend-artifacts] profile=${profile} built and cached`);
@@ -356,11 +409,8 @@ const main = async () => {
       version,
       platform: process.platform,
       arch: process.arch,
-      fileName: zipFileName,
-      url: zipFileName,
-      sha512: await computeSha512Base64(zipFilePath),
-      size: fs.statSync(zipFilePath).size,
       entry: process.platform === "win32" ? "mini-backend.exe" : "mini-backend",
+      parts: await loadRuntimePartsFromPlan(zipBasePath),
     };
   }
 

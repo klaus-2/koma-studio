@@ -203,9 +203,14 @@ const isAuthDisabled = ["true", "1", "yes"].includes(authDisabledFlag)
 let localApiUrl = normalizeLoopbackUrl(
   resolveDesktopEnvValue("VITE_LOCAL_API_URL") ?? "http://127.0.0.1:8001",
 );
+// Canonical runtime feed is GitHub Releases; env keys keep overriding it for
+// channels/mirrors (VPS espelho) e testes locais.
+const DEFAULT_RUNTIME_ARTIFACTS_URL =
+  "https://github.com/klaus-2/koma-studio/releases/latest/download/";
 const miniBackendArtifactsUrl =
   resolveDesktopEnvValue("MINI_BACKEND_ARTIFACTS_URL")
-  ?? resolveDesktopEnvValue("UPDATE_SERVER_URL");
+  ?? resolveDesktopEnvValue("UPDATE_SERVER_URL")
+  ?? DEFAULT_RUNTIME_ARTIFACTS_URL;
 const desktopBootstrapSecret = resolveDesktopEnvValue("DESKTOP_BOOTSTRAP_SECRET") ?? "";
 configureExternalHosts({ authApiUrl, localApiUrl });
 

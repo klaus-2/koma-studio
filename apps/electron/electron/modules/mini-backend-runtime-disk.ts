@@ -3,7 +3,6 @@
  */
 import fs from "node:fs";
 import {
-  estimateRuntimeInstallRequiredBytes,
   resolveExistingPathForStatfs,
 } from "../mini-backend-runtime-download.ts";
 import { formatRuntimeBytes } from "./mini-backend-runtime-store.ts";
@@ -30,12 +29,10 @@ const getAvailableDiskBytes = (targetPath: string): number => {
 };
 
 const ensureMiniBackendRuntimeDiskSpace = (
-  archivePath: string,
-  installDir: string,
-  archiveBytes: number,
+  targetPaths: string[],
+  requiredBytes: number,
 ): void => {
-  const requiredBytes = estimateRuntimeInstallRequiredBytes(archiveBytes);
-  for (const targetPath of [archivePath, installDir]) {
+  for (const targetPath of targetPaths) {
     const availableBytes = getAvailableDiskBytes(targetPath);
     if (availableBytes > 0 && availableBytes < requiredBytes) {
       throw new Error(
