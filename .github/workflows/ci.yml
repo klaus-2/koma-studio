@@ -28,6 +28,7 @@ jobs:
       auth: ${{ steps.filter.outputs.auth }}
       landing: ${{ steps.filter.outputs.landing }}
       python: ${{ steps.filter.outputs.python }}
+      interface: ${{ steps.filter.outputs.interface }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -73,7 +74,10 @@ jobs:
       - name: Tests (vitest)
         run: bun run --filter @koma/interface test
       - name: Build (vite)
-        run: bun run --filter @koma/interface exec vite build --mode production
+        # @koma/interface is a source-exported library (no index.html), so it is
+        # built through the consuming tauri shell. `bun run --filter` cannot
+        # resolve workspace packages when invoked from a member directory.
+        run: bun run build:react
         working-directory: apps/tauri
 
   electron:
