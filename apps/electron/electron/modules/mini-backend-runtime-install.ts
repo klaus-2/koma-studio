@@ -5,7 +5,6 @@
 import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-import { Unzip, UnzipInflate } from "fflate";
 import {
   isSafeManifestPathSegment,
   type MiniBackendRuntimeArtifactManifest,
@@ -23,6 +22,7 @@ import {
   buildRuntimePartDownloadPlan,
   computeRuntimePartsTotalBytes,
   downloadRuntimeParts,
+  extractZipStreamToDir,
   isRuntimeManifestForCurrentPlatform,
   resolveExistingRuntimePartBytes,
 } from "./mini-backend-runtime-parts.ts";
@@ -37,118 +37,6 @@ const ensurePathInsideRoot = (rootDir: string, candidatePath: string): void => {
     throw new Error(`Runtime manifest path escapes the expected root: ${candidatePath}`);
   }
 };
-
-/**
- * Zip entry names are producer-controlled; forward slashes are the only
- * accepted separator (our zips are produced with forward slashes on every
- * platform) and traversal or absolute segments are rejected.
- */
-const resolveSafeZipEntryTarget = (destinationDir: string, entryName: string): string | null => {
-  if (
-    entryName.length === 0
-    || entryName.length > 400
-    || entryName.includes("\\")
-    || entryName.includes("\0")
-    || entryName.startsWith("/")
-  ) {
-    return null;
-  }
-  const segments = entryName.split("/");
-  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
-    return null;
-  }
-  return path.join(destinationDir, ...segments);
-};
-
-/**
- * Streams one part zip into the destination directory without wiping it, so
- * consecutive parts of the same runtime land in the same extraction tree.
- */
-const extractZipStreamToDir = (archivePath: string, destinationDir: string): Promise<void> =>
-  new Promise<void>((resolve, reject) => {
-    const unzip = new Unzip();
-    unzip.register(UnzipInflate);
-    const activeWrites = new Set<fs.WriteStream>();
-    let settled = false;
-
-    const fail = (error: Error): void => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      activeWrites.forEach((stream) => {
-        stream.destroy();
-      });
-      reject(error);
-    };
-
-    unzip.onfile = (file) => {
-      if (file.name.endsWith("/")) {
-        return;
-      }
-      const target = resolveSafeZipEntryTarget(destinationDir, file.name);
-      if (!target) {
-        fail(new Error(`Runtime archive contains an unsafe entry name: ${file.name}`));
-        return;
-      }
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      const output = fs.createWriteStream(target);
-      activeWrites.add(output);
-      output.on("error", fail);
-      output.on("close", () => {
-        activeWrites.delete(output);
-      });
-      file.ondata = (chunk, final) => {
-        // fflate reports decompression failures through this handler with the
-        // error object in place of data and final=true.
-        if (!(chunk instanceof Uint8Array)) {
-          fail(chunk instanceof Error ? chunk : new Error("Runtime part extraction stream failed."));
-          return;
-        }
-        const buffered = output.write(Buffer.from(chunk));
-        if (!buffered) {
-          readStream.pause();
-          output.once("drain", () => readStream.resume());
-        }
-        if (final) {
-          output.end();
-        }
-      };
-      file.start();
-    };
-
-    const readStream = fs.createReadStream(archivePath);
-    readStream.on("data", (chunk) => {
-      try {
-        unzip.push(chunk instanceof Uint8Array ? chunk : Buffer.from(chunk));
-      } catch (error) {
-        fail(error instanceof Error ? error : new Error(String(error)));
-        readStream.destroy();
-      }
-    });
-    readStream.on("error", fail);
-    readStream.on("close", () => {
-      if (settled) {
-        return;
-      }
-      try {
-        unzip.push(new Uint8Array(0), true);
-      } catch (error) {
-        fail(error instanceof Error ? error : new Error(String(error)));
-        return;
-      }
-      const finish = (): void => {
-        if (!settled && activeWrites.size === 0) {
-          settled = true;
-          resolve();
-        }
-      };
-      finish();
-      activeWrites.forEach((stream) => {
-        stream.once("close", finish);
-      });
-    });
-  });
 
 const createMiniBackendRuntimeInstaller = (deps: {
   isDev: boolean;

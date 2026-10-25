@@ -13,6 +13,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { pipeline as streamPipeline } from "node:stream/promises";
+import { createInflateRaw } from "node:zlib";
 import {
   isSafeManifestPathSegment,
   type MiniBackendRuntimeArtifactManifest,
@@ -173,10 +175,158 @@ const downloadRuntimeParts = async ({
   return items;
 };
 
+/**
+ * Zip entry names are producer-controlled; forward slashes are the only
+ * accepted separator (our zips are produced with forward slashes on every
+ * platform) and traversal or absolute segments are rejected.
+ */
+const resolveSafeZipEntryTarget = (destinationDir: string, entryName: string): string | null => {
+  if (
+    entryName.length === 0
+    || entryName.length > 400
+    || entryName.includes("\\")
+    || entryName.includes("\0")
+    || entryName.startsWith("/")
+  ) {
+    return null;
+  }
+  const segments = entryName.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    return null;
+  }
+  return path.join(destinationDir, ...segments);
+};
+
+interface ZipCentralDirectoryEntry {
+  name: string;
+  compressionMethod: number;
+  compressedSize: number;
+  localHeaderOffset: number;
+}
+
+const readZipTail = (archivePath: string, maxTailBytes: number): Buffer => {
+  const fileDescriptor = fs.openSync(archivePath, "r");
+  try {
+    const fileSize = fs.fstatSync(fileDescriptor).size;
+    const tailSize = Math.min(fileSize, maxTailBytes);
+    const tail = Buffer.alloc(tailSize);
+    fs.readSync(fileDescriptor, tail, 0, tailSize, fileSize - tailSize);
+    return tail;
+  } finally {
+    fs.closeSync(fileDescriptor);
+  }
+};
+
+/**
+ * Parses the zip central directory (fixed tail of the archive). Producer zips
+ * stay below the zip64 thresholds (parts < 2 GiB, < 65 535 entries), so a
+ * missing EOCD or a zip64 marker is a hard, loud error.
+ */
+const parseZipCentralDirectory = (archivePath: string): ZipCentralDirectoryEntry[] => {
+  const tail = readZipTail(archivePath, 65_557);
+  let eocdOffset = -1;
+  for (let index = tail.length - 22; index >= 0; index -= 1) {
+    if (tail.readUInt32LE(index) === 0x06054b50) {
+      eocdOffset = index;
+      break;
+    }
+  }
+  if (eocdOffset < 0) {
+    throw new Error(`Runtime part is not a valid zip (no end-of-central-directory): ${path.basename(archivePath)}`);
+  }
+  const entryCount = tail.readUInt16LE(eocdOffset + 10);
+  const directoryOffset = tail.readUInt32LE(eocdOffset + 16);
+  const directorySize = tail.readUInt32LE(eocdOffset + 12);
+  if (directoryOffset === 0xffffffff || directorySize === 0xffffffff || entryCount === 0xffff) {
+    throw new Error(`Runtime part uses zip64 extensions, which are unsupported: ${path.basename(archivePath)}`);
+  }
+
+  const directory = Buffer.alloc(directorySize);
+  const fileDescriptor = fs.openSync(archivePath, "r");
+  try {
+    fs.readSync(fileDescriptor, directory, 0, directorySize, directoryOffset);
+  } finally {
+    fs.closeSync(fileDescriptor);
+  }
+
+  const entries: ZipCentralDirectoryEntry[] = [];
+  let cursor = 0;
+  for (let index = 0; index < entryCount; index += 1) {
+    if (cursor + 46 > directory.length || directory.readUInt32LE(cursor) !== 0x02014b50) {
+      throw new Error(`Runtime part has a corrupt central directory: ${path.basename(archivePath)}`);
+    }
+    const compressionMethod = directory.readUInt16LE(cursor + 10);
+    const compressedSize = directory.readUInt32LE(cursor + 20);
+    const nameLength = directory.readUInt16LE(cursor + 28);
+    const extraLength = directory.readUInt16LE(cursor + 30);
+    const commentLength = directory.readUInt16LE(cursor + 32);
+    const localHeaderOffset = directory.readUInt32LE(cursor + 42);
+    const name = directory.subarray(cursor + 46, cursor + 46 + nameLength).toString("utf8");
+    entries.push({ name, compressionMethod, compressedSize, localHeaderOffset });
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+  return entries;
+};
+
+const readZipLocalHeaderDataOffset = (archivePath: string, localHeaderOffset: number): number => {
+  const header = Buffer.alloc(30);
+  const fileDescriptor = fs.openSync(archivePath, "r");
+  try {
+    fs.readSync(fileDescriptor, header, 0, 30, localHeaderOffset);
+  } finally {
+    fs.closeSync(fileDescriptor);
+  }
+  if (header.readUInt32LE(0) !== 0x04034b50) {
+    throw new Error(`Runtime part has a corrupt local header: ${path.basename(archivePath)}`);
+  }
+  const nameLength = header.readUInt16LE(26);
+  const extraLength = header.readUInt16LE(28);
+  return localHeaderOffset + 30 + nameLength + extraLength;
+};
+
+/**
+ * Streams one part zip into the destination directory without wiping it, so
+ * consecutive parts of the same runtime land in the same extraction tree.
+ * Entry ranges come straight from the central directory (deterministic; the
+ * last entry of a producer zip finalizes exactly like every other one).
+ */
+const extractZipStreamToDir = async (archivePath: string, destinationDir: string): Promise<void> => {
+  const entries = parseZipCentralDirectory(archivePath);
+  fs.mkdirSync(destinationDir, { recursive: true });
+
+  for (const entry of entries) {
+    if (entry.name.endsWith("/")) {
+      continue;
+    }
+    const target = resolveSafeZipEntryTarget(destinationDir, entry.name);
+    if (!target) {
+      throw new Error(`Runtime archive contains an unsafe entry name: ${entry.name}`);
+    }
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    const dataOffset = readZipLocalHeaderDataOffset(archivePath, entry.localHeaderOffset);
+    const compressed = fs
+      .createReadStream(archivePath, {
+        start: dataOffset,
+        end: dataOffset + entry.compressedSize - 1,
+      });
+    const output = fs.createWriteStream(target);
+    if (entry.compressionMethod === 0) {
+      await streamPipeline(compressed, output);
+    } else if (entry.compressionMethod === 8) {
+      await streamPipeline(compressed, createInflateRaw(), output);
+    } else {
+      throw new Error(
+        `Runtime part uses unsupported compression method ${entry.compressionMethod}: ${entry.name}`,
+      );
+    }
+  }
+};
+
 export {
   buildRuntimePartDownloadPlan,
   computeRuntimePartsTotalBytes,
   downloadRuntimeParts,
+  extractZipStreamToDir,
   isRuntimeManifestForCurrentPlatform,
   resolveExistingRuntimePartBytes,
 };
