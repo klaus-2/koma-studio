@@ -8,6 +8,104 @@ Version headings carry no `v`; the git tags do.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-25
+
+264 commits since v1.1.0. This is the first release with compiled artifacts
+on GitHub: the Windows installer ships in the release and the mini-backend
+runtime arrives as signed multi-part downloads that the app fetches on
+demand, so a GitHub patch release no longer needs to re-upload gigabytes of
+GPU runtimes.
+
+### Added
+
+**Compiled releases with a multi-part runtime feed.** The mini-backend is now
+published as independent per-part zips (each under the 2 GiB release-asset
+limit, forward-slash entries, per-part sha512) described by per-platform
+manifests `mini-backend-latest-{platform}-{arch}.json` (schema v2, absolute
+tag-pinned part URLs) with detached Ed25519 `.sig` twins. Both shells
+download part by part with Range resume, verify each part's sha512 as it
+lands, keep finished parts as their own cross-restart ledger, extract every
+part into one tree and commit it with a single atomic rename; the Electron
+extractor is now a portable streaming implementation instead of a
+PowerShell-only path, and the Tauri extractor restores unix execute bits.
+A foreign-platform manifest is rejected before any network request, and
+progress stays aggregated across parts.
+([`a7b690c`](https://github.com/klaus-2/koma-studio/commit/a7b690c),
+[`8912445`](https://github.com/klaus-2/koma-studio/commit/8912445),
+[`d7a24f6`](https://github.com/klaus-2/koma-studio/commit/d7a24f6))
+
+**Runtime release choreography.** `publish-runtime-artifacts.mjs` creates a
+draft `runtime-v<version>` release, uploads parts first, verifies them and
+attaches manifests and signatures to the app release last, rolling the draft
+back on any partial failure; unsigned manifests refuse to publish without an
+explicit override. A dispatch workflow builds, extract-and-smokes and appends
+the Linux and macOS cpu parts to the same draft via `GITHUB_TOKEN`, and the
+signing key never leaves the local machine. `verify-release.mjs` grew a
+remote mode that validates manifests, signatures and part sizes on a
+published release.
+([`3d6b238`](https://github.com/klaus-2/koma-studio/commit/3d6b238),
+[`080a431`](https://github.com/klaus-2/koma-studio/commit/080a431))
+
+**Security hardening of the local API and runtime feed.** The local API gate
+fails closed, `x-koma-local-session` became the multi-language session
+contract, runtime manifests carry an Ed25519 signature and archive URLs are
+held to the manifest origin over https.
+([`79dfa60`](https://github.com/klaus-2/koma-studio/commit/79dfa60))
+
+**Inline text editing with formatting.** The inline editor draws its
+selection from the canvas layout, renders bold, italic and underline live and
+carries the noir skin.
+([`e3143ab`](https://github.com/klaus-2/koma-studio/commit/e3143ab),
+[`b3b3167`](https://github.com/klaus-2/koma-studio/commit/b3b3167))
+
+**AIO translation stages.** OPUS-MT and NLLB run as pipeline stages with
+batch progress tracked by stage, and the sidecar self-heals after a crash.
+([`c5d45c3`](https://github.com/klaus-2/koma-studio/commit/c5d45c3),
+[`dfa239d`](https://github.com/klaus-2/koma-studio/commit/dfa239d))
+
+### Changed
+
+**The mini-backend dev/runtime pipeline.** Runtime profile venvs are
+recreated when contaminated by out-of-scope packages, the provisioner
+bootstraps its own tool dependencies into fresh venvs, one opencv
+distribution installs instead of two, and pip/certifi are pinned off known
+bad releases.
+([`f56161f`](https://github.com/klaus-2/koma-studio/commit/f56161f),
+[`42861b4`](https://github.com/klaus-2/koma-studio/commit/42861b4),
+[`f31bb34`](https://github.com/klaus-2/koma-studio/commit/f31bb34),
+[`076a17d`](https://github.com/klaus-2/koma-studio/commit/076a17d))
+
+**Electron main process decomposed into modules** (security, runtime
+pipeline, auth, protocols, session log), interface stage modules unified
+behind shared seams, and a long run of render-performance work (memoized
+stage rows, transform-only animations, leaf-isolated subscriptions) landed
+across the dashboard.
+
+**The runtime feed moved to GitHub Releases.** The default artifacts URL is
+now `https://github.com/klaus-2/koma-studio/releases/latest/download/`; the
+previous `api.koma-studio.site` update feed is no longer updated and the
+landing docs point at the new URLs.
+([`d4a8538`](https://github.com/klaus-2/koma-studio/commit/d4a8538))
+
+### Fixed
+
+**The CI interface job and the release embed chain.** The `changes` job now
+exports the `interface` area output, the interface build runs through the
+consuming shell, six Windows-path script tests became platform-portable, and
+release-desktop builds embed the mini-backend core by building it before the
+app; the Windows installer no longer requires a signing certificate.
+([`44b4c1a`](https://github.com/klaus-2/koma-studio/commit/44b4c1a),
+[`0f968f9`](https://github.com/klaus-2/koma-studio/commit/0f968f9),
+[`b91e401`](https://github.com/klaus-2/koma-studio/commit/b91e401))
+
+A half-installed mini-backend venv rebuilds instead of dead-ending, model
+downloads work again from ModelScope and GitHub, GPU-OOM falls back to CPU
+for batch stages, and the CPU-fallback banner reports the downgrade again.
+([`6970aaf`](https://github.com/klaus-2/koma-studio/commit/6970aaf),
+[`affa058`](https://github.com/klaus-2/koma-studio/commit/affa058),
+[`e8005a3`](https://github.com/klaus-2/koma-studio/commit/e8005a3),
+[`3b4d160`](https://github.com/klaus-2/koma-studio/commit/3b4d160))
+
 ## [1.1.0] - 2026-10-10
 
 89 commits since v1.0.3. The app gained a second theme family, Noir, and the
