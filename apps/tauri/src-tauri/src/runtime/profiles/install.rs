@@ -180,20 +180,37 @@ async fn ensure_downloaded_runtime<R: Runtime>(
     let Some(manifest) = read_runtime_manifest(app, store, false).await? else {
         return Ok(None);
     };
-    let Some(record) = manifest.profiles.get(profile).cloned() else {
-        let message = format!("Runtime profile not available in manifest: {profile}");
+
+    let fail_to_fallback = |message: String| -> Result<Option<InstalledRuntime>, RuntimeError> {
         patch_runtime_state(
             app,
             store,
             MiniBackendRuntimePatch {
                 status: Some("fallback".to_string()),
                 status_message: Some(Some(message.clone())),
-                runtime_manifest_url: Some(Some(manifest_url)),
+                runtime_manifest_url: Some(Some(manifest_url.clone())),
                 last_error: Some(Some(message)),
                 ..Default::default()
             },
         )?;
-        return Ok(None);
+        Ok(None)
+    };
+
+    // A foreign-platform manifest (e.g. win32 feed read by a linux build) must
+    // not produce any download: profiles like cpu resolve platform-agnostically,
+    // so without this gate a thin linux build would fetch a win32 zip.
+    if !is_manifest_for_current_platform(&manifest) {
+        return fail_to_fallback(format!(
+            "Runtime manifest platform mismatch: manifest is {}/{}, build is {}/{}.",
+            manifest.platform,
+            manifest.arch,
+            node_platform(),
+            node_arch()
+        ));
+    }
+
+    let Some(record) = manifest.profiles.get(profile).cloned() else {
+        return fail_to_fallback(format!("Runtime profile not available in manifest: {profile}"));
     };
 
     // Defense in depth: the manifest reader and runtime_install_dir already
@@ -201,11 +218,19 @@ async fn ensure_downloaded_runtime<R: Runtime>(
     // future caller passes a manifest that skipped the reader.
     validate_manifest_relative_path(&manifest.version)?;
     validate_manifest_relative_path(&record.entry)?;
-    validate_manifest_relative_path(&record.file_name)?;
+    for part in &record.parts {
+        validate_manifest_relative_path(&part.file)?;
+        // Part URLs are absolute tag-pinned release URLs; origin policy is the
+        // same anti-misdirection check the single-file flow always enforced.
+        ensure_runtime_archive_url(&manifest_url, &part.url)?;
+    }
     let install_dir = runtime_install_dir(app, &manifest.version, profile)?;
     let binary_path = install_dir.join(&record.entry);
-    let archive_url = resolve_runtime_url(&manifest_url, &record.url)?;
-    ensure_runtime_archive_url(&manifest_url, &archive_url)?;
+    let archive_url = record
+        .parts
+        .first()
+        .map(|part| part.url.clone())
+        .unwrap_or_default();
     if binary_path.exists() {
         patch_runtime_state(
             app,
@@ -234,38 +259,109 @@ async fn ensure_downloaded_runtime<R: Runtime>(
     }
 
     let temp_dir = env::temp_dir().join(RUNTIME_DOWNLOAD_DIR);
-    let temp_zip_path = temp_dir.join(&record.file_name);
     let temp_extract_dir = PathBuf::from(format!("{}.tmp", install_dir.to_string_lossy()));
+    let part_paths: Vec<PathBuf> = record
+        .parts
+        .iter()
+        .map(|part| temp_dir.join(&part.file))
+        .collect();
+    let total_bytes = record.total_part_bytes();
+    // Verified part files already on disk are the cross-restart resume ledger;
+    // they do not count against the space this attempt still needs.
+    let existing_part_bytes: u64 = record
+        .parts
+        .iter()
+        .zip(&part_paths)
+        .map(|(part, path)| {
+            fs::metadata(path)
+                .map(|meta| meta.len().min(part.size))
+                .unwrap_or(0)
+        })
+        .sum();
+    let required_bytes = estimate_runtime_install_required_bytes(0)
+        .max(total_bytes.saturating_mul(3))
+        .saturating_sub(existing_part_bytes);
+    let disk_targets: Vec<&Path> = part_paths
+        .iter()
+        .map(PathBuf::as_path)
+        .chain(std::iter::once(install_dir.as_path()))
+        .collect();
 
     match async {
-        ensure_runtime_disk_space(&temp_zip_path, &install_dir, record.size)?;
-        download_runtime_artifact(app, store, profile, &record, &archive_url, &temp_zip_path)
+        ensure_runtime_disk_space(&disk_targets, required_bytes)?;
+        let mut completed_bytes: u64 = 0;
+        for (part, part_path) in record.parts.iter().zip(&part_paths) {
+            // Skip parts that are already fully on disk and hash-verified.
+            if fs::metadata(part_path).map(|meta| meta.len()).ok() == Some(part.size)
+                && sha512_base64_file(part_path)? == part.sha512
+            {
+                completed_bytes += part.size;
+                continue;
+            }
+            download_runtime_part(
+                app,
+                store,
+                profile,
+                part,
+                &part.url,
+                part_path,
+                completed_bytes,
+                total_bytes,
+            )
             .await?;
-        patch_runtime_state(
-            app,
-            store,
-            MiniBackendRuntimePatch {
-                status: Some("verifying".to_string()),
-                status_message: Some(Some(format!("Verifying {profile} runtime archive."))),
-                ..Default::default()
-            },
-        )?;
-        let actual_sha512 = sha512_base64_file(&temp_zip_path)?;
-        if actual_sha512 != record.sha512 {
-            return Err(RuntimeError::Integrity(
-                "Runtime archive sha512 mismatch.".to_string(),
-            ));
+            patch_runtime_state(
+                app,
+                store,
+                MiniBackendRuntimePatch {
+                    status: Some("verifying".to_string()),
+                    status_message: Some(Some(format!(
+                        "Verifying {profile} runtime part {}.",
+                        part.file
+                    ))),
+                    ..Default::default()
+                },
+            )?;
+            let actual_sha512 = sha512_base64_file(part_path)?;
+            if actual_sha512 != part.sha512 {
+                return Err(RuntimeError::Integrity(format!(
+                    "Runtime part sha512 mismatch: {}",
+                    part.file
+                )));
+            }
+            completed_bytes += part.size;
         }
+
         patch_runtime_state(
             app,
             store,
             MiniBackendRuntimePatch {
                 status: Some("extracting".to_string()),
-                status_message: Some(Some(format!("Installing {profile} runtime."))),
+                status_message: Some(Some(format!(
+                    "Installing {profile} runtime ({} part{}).",
+                    record.parts.len(),
+                    if record.parts.len() == 1 { "" } else { "s" }
+                ))),
                 ..Default::default()
             },
         )?;
-        extract_runtime_archive(&temp_zip_path, &temp_extract_dir)?;
+        // One clean slate for the whole runtime; each part then extracts into
+        // the same tree without wiping the previous part's files.
+        if temp_extract_dir.exists() {
+            fs::remove_dir_all(&temp_extract_dir)?;
+        }
+        for part_path in &part_paths {
+            extract_runtime_archive(part_path, &temp_extract_dir)?;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let entry_path = temp_extract_dir.join(&record.entry);
+            let mut permissions = fs::metadata(&entry_path)?.permissions();
+            if permissions.mode() & 0o111 == 0 {
+                permissions.set_mode(permissions.mode() | 0o755);
+                fs::set_permissions(&entry_path, permissions)?;
+            }
+        }
         if install_dir.exists() {
             fs::remove_dir_all(&install_dir)?;
         }
@@ -297,8 +393,11 @@ async fn ensure_downloaded_runtime<R: Runtime>(
                     ..Default::default()
                 },
             )?;
-            // The archive is redundant once extracted; always reclaim the space.
-            let _ = fs::remove_file(&temp_zip_path);
+            // Part files are the resume ledger until the install commits;
+            // only then may they go away.
+            for part_path in &part_paths {
+                let _ = fs::remove_file(part_path);
+            }
             Ok(Some(InstalledRuntime {
                 version: manifest.version,
                 entry: record.entry,
@@ -306,6 +405,8 @@ async fn ensure_downloaded_runtime<R: Runtime>(
         }
         Err(error) => {
             let message = error.to_string();
+            // Part files survive a failed attempt so the next one resumes from
+            // the verified bytes; only the extraction tree is discarded.
             let _ = fs::remove_dir_all(&temp_extract_dir);
             patch_runtime_state(
                 app,
@@ -340,6 +441,10 @@ pub(super) async fn list_runtime_artifacts<R: Runtime>(
     let Some(manifest) = read_runtime_manifest(app, store, true).await? else {
         return Ok(Vec::new());
     };
+    // A foreign-platform manifest must not be offered for install at all.
+    if !is_manifest_for_current_platform(&manifest) {
+        return Ok(Vec::new());
+    }
     let recommended = resolve_runtime_profile(app, store, true, true)?;
     let installed_profiles = manifest
         .profiles
@@ -410,6 +515,7 @@ async fn read_runtime_manifest<R: Runtime>(
                     verify_artifacts_manifest_signature(public_key, body.as_bytes(), &signature)?;
                 }
                 let manifest: MiniBackendRuntimeArtifactManifest = serde_json::from_str(&body)?;
+                ensure_manifest_schema_v2(&manifest)?;
                 return Ok(Some(manifest));
             }
             Ok(response) if is_retryable_status(response.status().as_u16()) => {
@@ -470,37 +576,58 @@ async fn read_runtime_manifest<R: Runtime>(
     Ok(None)
 }
 
-async fn download_runtime_artifact<R: Runtime>(
+#[allow(clippy::too_many_arguments)]
+async fn download_runtime_part<R: Runtime>(
     app: &AppHandle<R>,
     store: &MiniBackendRuntimeStore,
     profile: &str,
-    record: &MiniBackendRuntimeArtifactRecord,
-    archive_url: &str,
+    part: &MiniBackendRuntimeArtifactPart,
+    part_url: &str,
     output_path: &Path,
+    completed_bytes: u64,
+    total_bytes: u64,
 ) -> Result<(), RuntimeError> {
     let max_attempts = RUNTIME_DOWNLOAD_RETRY_COUNT + 1;
     for attempt in 1..=max_attempts {
-        let existing = existing_download_bytes(output_path, record.size)?;
+        let existing = existing_download_bytes(output_path, part.size)?;
         patch_runtime_state(
             app,
             store,
             MiniBackendRuntimePatch {
                 status: Some("downloading".to_string()),
                 status_message: Some(Some(if existing > 0 {
-                    format!("Resuming {profile} runtime download ({attempt}/{max_attempts}).")
+                    format!(
+                        "Resuming {profile} runtime part {} ({attempt}/{max_attempts}).",
+                        part.file
+                    )
                 } else {
-                    format!("Downloading {profile} runtime ({attempt}/{max_attempts}).")
+                    format!(
+                        "Downloading {profile} runtime part {} ({attempt}/{max_attempts}).",
+                        part.file
+                    )
                 })),
                 last_error: Some(None),
                 attempt: Some(attempt),
                 max_attempts: Some(max_attempts),
-                progress: Some(Some(progress_snapshot(existing, record.size, 0.0))),
+                progress: Some(Some(progress_snapshot(
+                    completed_bytes + existing,
+                    total_bytes,
+                    0.0,
+                ))),
                 ..Default::default()
             },
         )?;
 
-        match download_url_to_file_with_resume(app, store, archive_url, output_path, record, existing)
-            .await
+        match download_url_to_file_with_resume(
+            app,
+            store,
+            part_url,
+            output_path,
+            part.size,
+            completed_bytes,
+            total_bytes,
+        )
+        .await
         {
             Ok(()) => return Ok(()),
             Err(error) => {
@@ -529,20 +656,22 @@ async fn download_url_to_file_with_resume<R: Runtime>(
     store: &MiniBackendRuntimeStore,
     archive_url: &str,
     output_path: &Path,
-    record: &MiniBackendRuntimeArtifactRecord,
-    existing: u64,
+    part_size: u64,
+    completed_bytes: u64,
+    total_bytes: u64,
 ) -> Result<(), RuntimeError> {
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent)?;
     }
     let client = crate::security::cert_pinning::pinned_http_client(
         app,
-        resolve_runtime_transfer_timeout(record.size),
+        resolve_runtime_transfer_timeout(part_size),
     )
     .map_err(|error| RuntimeError::Message(error.to_string()))?;
     let mut request = client
         .get(archive_url)
-        .timeout(resolve_runtime_transfer_timeout(record.size));
+        .timeout(resolve_runtime_transfer_timeout(part_size));
+    let existing = existing_download_bytes(output_path, part_size)?;
     if existing > 0 {
         request = request.header(reqwest::header::RANGE, format!("bytes={existing}-"));
     }
@@ -572,16 +701,31 @@ async fn download_url_to_file_with_resume<R: Runtime>(
         writer.write_all(&chunk)?;
         transferred += chunk.len() as u64;
 
-        // Throttle IPC to ~10 updates/s instead of one per chunk.
+        // Throttle IPC to ~10 updates/s instead of one per chunk; progress is
+        // aggregated across all parts of the runtime.
         if last_emit.elapsed() >= PROGRESS_EMIT_INTERVAL {
             last_emit = Instant::now();
-            emit_download_progress(app, store, transferred, record.size, started_at)?;
+            emit_download_progress(
+                app,
+                store,
+                completed_bytes + transferred,
+                total_bytes,
+                started_at,
+                transferred,
+            )?;
         }
     }
     writer.flush()?;
     // Guarantee the final (100%) frame lands even if the last chunk arrived
     // inside the throttle window; sha512_base64_file reopens the path next.
-    emit_download_progress(app, store, transferred, record.size, started_at)?;
+    emit_download_progress(
+        app,
+        store,
+        completed_bytes + transferred,
+        total_bytes,
+        started_at,
+        transferred,
+    )?;
     Ok(())
 }
 
@@ -591,8 +735,9 @@ fn emit_download_progress<R: Runtime>(
     transferred: u64,
     total: u64,
     started_at: u64,
+    part_transferred: u64,
 ) -> Result<(), RuntimeError> {
-    let speed = compute_speed(transferred, started_at);
+    let speed = compute_speed(part_transferred, started_at);
     patch_runtime_state(
         app,
         store,
