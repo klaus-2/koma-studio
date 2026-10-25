@@ -34,7 +34,7 @@ test("resolveRuntimeArtifactBuildVenvPath falls back to a repo-local build venv 
   assert.equal(result, "/workspace/koma-studio/.venv-mini-build-cpu");
 });
 
-test("resolveRuntimeArtifactBuildVenvLinkPath creates a repo-local alias for the dedicated build venv", () => {
+test("resolveRuntimeArtifactBuildVenvLinkPath creates a repo-local alias for the dedicated build venv", { skip: process.platform !== "win32" ? "pins the Windows alias path; the link path is host-native (no platform parameter)" : false }, () => {
   const result = resolveRuntimeArtifactBuildVenvLinkPath({
     profileKey: "nvidia-cuda-legacy",
     rootDir: "C:\\GitHub\\koma-studio\\koma-studio",

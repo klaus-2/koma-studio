@@ -14,13 +14,13 @@ export const buildDevPythonRuntimePathCandidates = (
 
   if (platform === "win32") {
     const candidates = [
-      path.join(cwd, `.venv-mini-${profileKey}`, "Scripts", "python.exe"),
-      path.join(cwd, ".venv-mini", "Scripts", "python.exe"),
+      path.win32.join(cwd, `.venv-mini-${profileKey}`, "Scripts", "python.exe"),
+      path.win32.join(cwd, ".venv-mini", "Scripts", "python.exe"),
     ];
     const externalRoot = windowsExternalStorageRoot();
     if (externalRoot) {
       candidates.unshift(
-        path.join(externalRoot, `.venv-mini-${profileKey}`, "Scripts", "python.exe"),
+        path.win32.join(externalRoot, `.venv-mini-${profileKey}`, "Scripts", "python.exe"),
       );
     }
     return candidates;

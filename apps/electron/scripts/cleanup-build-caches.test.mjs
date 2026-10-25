@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 
 import {
   cleanupPyInstallerTempDirs,
@@ -49,7 +50,7 @@ test("cleanupPyInstallerTempDirs removes only _MEI folders", () => {
   });
 
   assert.equal(results.length, 1);
-  assert.deepEqual(removed, ["C:\\Temp\\_MEI111"]);
+  assert.deepEqual(removed, [path.join("C:\\Temp", "_MEI111")]);
   assert.equal(results[0].removed, true);
 });
 

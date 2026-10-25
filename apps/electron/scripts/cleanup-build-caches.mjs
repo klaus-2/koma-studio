@@ -72,7 +72,7 @@ export const cleanupPyInstallerTempDirs = ({
 
 export const resolvePipCacheDir = ({ platform = process.platform, homeDir = os.homedir() } = {}) => {
   if (platform === "win32") {
-    return path.join(homeDir, "AppData", "Local", "pip", "Cache");
+    return path.win32.join(homeDir, "AppData", "Local", "pip", "Cache");
   }
 
   return path.join(homeDir, ".cache", "pip");
