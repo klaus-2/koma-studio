@@ -3,13 +3,96 @@ import fs from "node:fs";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-const releaseDir = process.argv[2];
+import { isMiniBackendRuntimeArtifactManifest } from "../electron/mini-backend-artifacts.ts";
 
-if (!releaseDir) {
-  throw new Error("Usage: node scripts/verify-release.mjs <release-output-dir>");
+const releaseArg = process.argv[2];
+
+if (!releaseArg) {
+  throw new Error(
+    "Usage: node scripts/verify-release.mjs <release-output-dir> | <X.Y.Z|vX.Y.Z|runtime-vX.Y.Z>",
+  );
 }
 
-const normalizedReleaseDir = path.resolve(releaseDir);
+/**
+ * Remote mode: validates runtime feed assets on a published GitHub release —
+ * every per-platform manifest parses as schema v2, each has its .sig twin,
+ * and every part URL answers with the exact expected size.
+ */
+const verifyRemoteRuntimeRelease = async (tag) => {
+  const assetsJson = execSync(`gh release view ${tag} --json assets`, {
+    encoding: "utf8",
+    shell: true,
+  });
+  const assets = JSON.parse(assetsJson).assets ?? [];
+  const assetByName = new Map(assets.map((asset) => [asset.name, asset]));
+  const manifestAssets = assets.filter((asset) =>
+    /^mini-backend-latest-[a-z0-9]+-[a-z0-9]+\.json$/.test(asset.name),
+  );
+
+  if (manifestAssets.length === 0) {
+    throw new Error(`${tag}: no per-platform runtime manifests found on the release`);
+  }
+
+  const partChecks = [];
+  for (const manifestAsset of manifestAssets) {
+    if (!assetByName.has(`${manifestAsset.name}.sig`)) {
+      throw new Error(`${manifestAsset.name}: missing .sig twin on ${tag}`);
+    }
+    const response = await fetch(manifestAsset.url, { redirect: "follow" });
+    if (!response.ok) {
+      throw new Error(`${manifestAsset.name}: HTTP ${response.status}`);
+    }
+    const payload = JSON.parse(await response.text());
+    if (!isMiniBackendRuntimeArtifactManifest(payload)) {
+      throw new Error(`${manifestAsset.name}: failed the v2 manifest guard`);
+    }
+    for (const profile of Object.values(payload.profiles ?? {})) {
+      for (const part of profile.parts ?? []) {
+        partChecks.push({ manifest: manifestAsset.name, part });
+      }
+    }
+  }
+
+  if (partChecks.length === 0) {
+    throw new Error(`${tag}: manifests contain no parts`);
+  }
+
+  for (const { manifest, part } of partChecks) {
+    const partResponse = await fetch(part.url, { headers: { range: "bytes=0-0" } });
+    if (!partResponse.ok && partResponse.status !== 206) {
+      throw new Error(`${manifest}: part not fetchable (${partResponse.status}): ${part.file}`);
+    }
+    const contentRange = partResponse.headers.get("content-range");
+    const totalFromRange = contentRange?.match(/\/(\d+)$/)?.[1];
+    const total = totalFromRange
+      ? Number(totalFromRange)
+      : Number(partResponse.headers.get("content-length") ?? 0);
+    if (total !== part.size) {
+      throw new Error(
+        `${manifest}: part size mismatch for ${part.file} (manifest ${part.size}, remote ${total})`,
+      );
+    }
+  }
+
+  console.log(
+    `[verify-release] ${tag}: ${manifestAssets.length} manifest(s), ${partChecks.length} part(s) verified`,
+  );
+};
+
+const looksLikeReleaseTag = /^(runtime-)?v?\d+\.\d+\.\d+/.test(releaseArg);
+
+if (looksLikeReleaseTag && !fs.existsSync(path.resolve(releaseArg))) {
+  const tag = releaseArg.startsWith("runtime-") || releaseArg.startsWith("v")
+    ? releaseArg
+    : `v${releaseArg}`;
+  verifyRemoteRuntimeRelease(tag)
+    .catch((error) => {
+      console.error(`[verify-release] error: ${error.message}`);
+      process.exit(1);
+    });
+} else {
+  const releaseDir = releaseArg;
+  const normalizedReleaseDir = path.resolve(releaseDir);
 const resolveUnpackedResourcesDir = () => {
   if (process.platform === "darwin") {
     const macDir = path.join(normalizedReleaseDir, "mac");
@@ -150,3 +233,4 @@ main().catch((error) => {
   console.error(`[verify-release] error: ${error.message}`);
   process.exit(1);
 });
+}
