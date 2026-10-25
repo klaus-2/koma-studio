@@ -117,3 +117,6 @@ react-doctor-*.json
 /apps/tauri/tests/e2e/probe-out/
 /.sisyphus
 /state
+
+# PyInstaller workdir junction (see ensureWindowsJunction in build-mini-backend.mjs)
+packages/mini-backend/build/
