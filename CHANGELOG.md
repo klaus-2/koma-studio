@@ -89,6 +89,25 @@ landing docs point at the new URLs.
 
 ### Fixed
 
+**Packaged runtimes booted into a crash.** The PyInstaller bundle never
+shipped `model-assets.json`, so every packaged mini-backend executable exited
+at startup with FileNotFoundError — first caught by extract-and-smoking the
+real multi-part artifacts locally, now bundled for every profile and proven
+by a healthy `/health` from all four Windows profiles.
+([`38f7eae`](https://github.com/klaus-2/koma-studio/commit/38f7eae))
+
+**Deterministic multi-part extraction.** The Electron extractor now reads
+each part's central directory and streams entries through `zlib` directly;
+the previous streaming approach never finalized the last entry of a
+producer zip, and the one before it mistook directory markers for errors.
+Proven end to end against real parts served over local HTTP.
+([`6354b57`](https://github.com/klaus-2/koma-studio/commit/6354b57))
+
+**The hardened Tauri build referenced a removed helper.** The
+`updater-tools` feature and its `make_bsdiff` binary were dropped with the
+native updater, but the release script still tried to build them.
+([`0fbdc32`](https://github.com/klaus-2/koma-studio/commit/0fbdc32))
+
 **The CI interface job and the release embed chain.** The `changes` job now
 exports the `interface` area output, the interface build runs through the
 consuming shell, six Windows-path script tests became platform-portable, and
