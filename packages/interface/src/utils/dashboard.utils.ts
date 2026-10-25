@@ -368,11 +368,17 @@ export const resetLoadedCanvasFontCache = (): void => {
   loadedCanvasFontKeys.clear();
 };
 
+/**
+ * Ensures the fonts referenced by the style are available to canvas measureText.
+ * Resolves to true when any family became newly usable (or was re-keyed after a
+ * catalog reset), meaning cached text layouts measured with fallback metrics
+ * must be discarded and re-measured.
+ */
 export const ensureCanvasFontLoaded = async (
   style: RenderTextStyle,
   ranges?: { style: Partial<RenderTextStyle> }[],
-): Promise<void> => {
-  if (typeof document === "undefined" || !("fonts" in document)) return;
+): Promise<boolean> => {
+  if (typeof document === "undefined" || !("fonts" in document)) return false;
   const families = new Set<string>([
     normalizeFontFamilyForCanvas(style.fontFamily),
     ...collectInlineRenderTextFontFamilies(ranges).map((family) =>
@@ -380,7 +386,7 @@ export const ensureCanvasFontLoaded = async (
     ),
   ]);
 
-  await Promise.all(
+  const newlyAvailable = await Promise.all(
     [...families]
       .filter(Boolean)
       .map(async (family) => {
@@ -388,10 +394,12 @@ export const ensureCanvasFontLoaded = async (
         const key = `${family.toLowerCase()}|${style.bold ? "700" : "400"}|${style.italic ? "italic" : "normal"}`;
         const fontRequest = `${style.italic ? "italic " : ""}${style.bold ? "700 " : "400 "}16px "${escapedFamily}"`;
 
-        if (loadedCanvasFontKeys.has(key) && document.fonts.check(fontRequest)) return;
+        if (loadedCanvasFontKeys.has(key) && document.fonts.check(fontRequest)) {
+          return false;
+        }
         if (document.fonts.check(fontRequest)) {
           loadedCanvasFontKeys.add(key);
-          return;
+          return true;
         }
 
         try {
@@ -403,14 +411,16 @@ export const ensureCanvasFontLoaded = async (
           ]);
           if ((loadedFaces?.length ?? 0) > 0 && document.fonts.check(fontRequest)) {
             loadedCanvasFontKeys.add(key);
-            return;
+            return true;
           }
         } catch {
           // Ignore load errors; canvas will fallback if font is unavailable.
         }
         loadedCanvasFontKeys.delete(key);
+        return false;
       }),
   );
+  return newlyAvailable.some(Boolean);
 };
 
 export const copyTextToClipboardSafe = async (text: string): Promise<void> => {

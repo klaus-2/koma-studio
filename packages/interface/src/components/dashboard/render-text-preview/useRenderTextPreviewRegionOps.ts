@@ -1,13 +1,13 @@
 // Region mutation callbacks for RenderTextPreview: box/text/skew/rotation/
 // style/style-ranges updates that work for both regular regions and
-// translation-note overlay parents. Moved verbatim from RenderTextPreview.tsx
-// (T07 split); hook order preserved.
+// translation-note overlay parents.
 
 import { useCallback } from 'react';
 import type {
   AioTextRegion,
   TranslationNoteOverlayConfig,
 } from '../../../types/dashboard.types';
+import type { RenderTextStyleRange } from '../../../typography/renderStyle';
 import type { RenderTextStyle } from '../../../utils/renderText';
 import {
   clamp,
@@ -31,6 +31,25 @@ interface UseRenderTextPreviewRegionOpsParams {
   ) => TranslationNoteOverlayConfig | null;
   fallbackStyle: RenderTextStyle;
 }
+
+// Explicit ranges win ("null" clears them); otherwise the previous ranges
+// are remapped onto the edited text.
+const resolveNextStyleRanges = (
+  nextStyleRanges: RenderTextStyleRange[] | null | undefined,
+  previousText: string,
+  nextText: string,
+  baseStyle: RenderTextStyle,
+  previousRanges: RenderTextStyleRange[] | undefined,
+): RenderTextStyleRange[] | undefined =>
+  nextStyleRanges === null
+    ? undefined
+    : nextStyleRanges
+    ?? remapRenderTextStyleRangesAfterTextEdit(
+      previousText,
+      nextText,
+      baseStyle,
+      previousRanges,
+    );
 
 export const useRenderTextPreviewRegionOps = ({
   updateRegions,
@@ -74,7 +93,11 @@ export const useRenderTextPreviewRegionOps = ({
   );
 
   const updateRegionText = useCallback(
-    (regionId: string, nextText: string) => {
+    (
+      regionId: string,
+      nextText: string,
+      nextStyleRanges?: RenderTextStyleRange[] | null,
+    ) => {
       const parentId = getTranslationNoteOverlayParentId(regionId);
       updateRegions((region) => {
         if (!parentId) {
@@ -84,7 +107,8 @@ export const useRenderTextPreviewRegionOps = ({
             ...region,
             renderText: nextText,
             renderStyle: baseStyle,
-            renderTextStyleRanges: remapRenderTextStyleRangesAfterTextEdit(
+            renderTextStyleRanges: resolveNextStyleRanges(
+              nextStyleRanges,
               region.renderText ?? '',
               nextText,
               baseStyle,
@@ -103,7 +127,8 @@ export const useRenderTextPreviewRegionOps = ({
             ...overlay,
             renderText: nextText,
             renderStyle: baseStyle,
-            renderTextStyleRanges: remapRenderTextStyleRangesAfterTextEdit(
+            renderTextStyleRanges: resolveNextStyleRanges(
+              nextStyleRanges,
               overlay.renderText ?? '',
               nextText,
               baseStyle,

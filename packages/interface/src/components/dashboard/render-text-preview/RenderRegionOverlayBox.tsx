@@ -8,28 +8,13 @@ import {
   cloneRenderStyle,
   cn,
 } from '../../../utils/dashboard.utils';
-import { readInlineEditorPlainText } from '../../../utils/inlineEditor';
 import { getRegionRotation } from './regionGeometry';
-import type { RenderTextPreviewInlineEditorState } from './useRenderTextPreviewInlineEditor';
+import InlineTextEditorSurface, {
+  type InlineTextEditorHandle,
+} from './InlineTextEditorSurface';
+import InlineTextSelectionOverlay from './InlineTextSelectionOverlay';
 
-export interface RenderRegionOverlayBoxEditor {
-  state: RenderTextPreviewInlineEditorState;
-  contentEditableRef: React.RefObject<HTMLDivElement | null>;
-  contentEditableStyle: React.CSSProperties;
-  onInput: (nextValue: string) => void;
-  syncSelection: () => void;
-  cancel: () => void;
-  save: () => void;
-  /** Bold/italic/underline toggle for the edited text, selection-first. */
-  toggleFormat: (kind: 'bold' | 'italic' | 'underline') => void;
-  setState: React.Dispatch<
-    React.SetStateAction<RenderTextPreviewInlineEditorState | null>
-  >;
-  dockPointerDownRef: React.RefObject<boolean>;
-  dockRef: React.RefObject<HTMLDivElement | null>;
-}
-
-interface RenderRegionOverlayBoxProps {
+export interface RenderRegionOverlayBoxProps {
   region: AioTextRegion;
   imageWidth: number;
   imageHeight: number;
@@ -42,7 +27,7 @@ interface RenderRegionOverlayBoxProps {
   showHandles: boolean;
   dragBox?: [number, number, number, number] | null;
   removeRegionById?: (regionId: string) => void;
-  editor?: RenderRegionOverlayBoxEditor;
+  editor?: InlineTextEditorHandle;
 }
 
 const RenderRegionOverlayBox = ({
@@ -88,6 +73,7 @@ const RenderRegionOverlayBox = ({
         isNoteOverlay && 'koma-render-box--note',
         selected && 'koma-render-box--selected',
         isMultiSelected && 'koma-render-box--multi-selected',
+        editor && 'koma-render-box--inline-editing',
       )}
       style={boxStyle}
       data-region-id={region.id}
@@ -97,91 +83,27 @@ const RenderRegionOverlayBox = ({
           {multiSelectIndex + 1}
         </span>
       )}
-      <span className="koma-render-box__meta">
-        {isNoteOverlay
-          ? 'NT'
-          : previewText.trim().length > 0
-            ? previewText.slice(0, 32)
-            : renderStageActive
-              ? t('dashboard.renderText.dblClickToEdit')
-              : t('dashboard.renderText.renderNotApplied')}
-      </span>
+      {!editor && (
+        <span className="koma-render-box__meta">
+          {isNoteOverlay
+            ? 'NT'
+            : previewText.trim().length > 0
+              ? previewText.slice(0, 32)
+              : renderStageActive
+                ? t('dashboard.renderText.dblClickToEdit')
+                : t('dashboard.renderText.renderNotApplied')}
+        </span>
+      )}
       {editor && (
-        <div
-          ref={editor.contentEditableRef}
-          className="koma-render-inline-editor"
-          contentEditable
-          suppressContentEditableWarning
-          style={editor.contentEditableStyle}
-          onPointerDown={(event) => event.stopPropagation()}
-          data-empty={editor.state.value.length === 0 ? 'true' : undefined}
-          data-placeholder={t('dashboard.renderText.editPlaceholder')}
-          onInput={(event) => {
-            const nextValue = readInlineEditorPlainText(
-              event.currentTarget,
-            );
-            if (nextValue.length > 0) {
-              event.currentTarget.removeAttribute('data-empty');
-            } else {
-              event.currentTarget.setAttribute('data-empty', 'true');
-            }
-            editor.onInput(nextValue);
-            editor.syncSelection();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
-              editor.cancel();
-              return;
-            }
-            if (event.key === 'Enter' && event.ctrlKey) {
-              event.preventDefault();
-              event.stopPropagation();
-              editor.save();
-              return;
-            }
-            if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-              const shortcut = event.key.toLowerCase();
-              if (shortcut === 'b' || shortcut === 'i' || shortcut === 'u') {
-                // The browser's own rich-text formatting is dropped when the
-                // value is read back as plain text, so the toggle has to go
-                // through the region style instead.
-                event.preventDefault();
-                event.stopPropagation();
-                editor.toggleFormat(
-                  shortcut === 'b'
-                    ? 'bold'
-                    : shortcut === 'i'
-                      ? 'italic'
-                      : 'underline',
-                );
-                return;
-              }
-            }
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.stopPropagation();
-            }
-          }}
-          onBlur={(event) => {
-            if (editor.dockPointerDownRef.current) {
-              return;
-            }
-            const nextTarget = event.relatedTarget as Node | null;
-            if (nextTarget && editor.dockRef.current?.contains(nextTarget)) {
-              return;
-            }
-            if (!editor.state.isDirty) {
-              editor.setState(null);
-              return;
-            }
-            editor.save();
-          }}
-          onSelect={editor.syncSelection}
-          onKeyUp={editor.syncSelection}
-          onMouseUp={editor.syncSelection}
-          aria-label={t('dashboard.renderText.editAria')}
-        />
+        <>
+          <InlineTextSelectionOverlay
+            selectionStart={editor.state.selectionStart}
+            selectionEnd={editor.state.selectionEnd}
+            lines={editor.selectionLines}
+            caretColor={editor.caretColor}
+          />
+          <InlineTextEditorSurface editor={editor} />
+        </>
       )}
       {showHandles && (
         <>

@@ -1,5 +1,4 @@
 import React, {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -23,7 +22,7 @@ import type {
   TypographyStylePreset,
 } from '../../../typography/types';
 import type { RenderTextStyle } from '../../../utils/renderText';
-import { cn, isTranslationNoteOverlayRegion } from '../../../utils/dashboard.utils';
+import { cn } from '../../../utils/dashboard.utils';
 import type { RenderTextPreviewContextMenuState } from '../render-text-preview/RenderTextPreviewContextMenu';
 import RenderTextPreviewContextMenuNoir from './RenderTextPreviewContextMenuNoir';
 import RenderRegionOverlayBoxNoir from './RenderRegionOverlayBoxNoir';
@@ -39,11 +38,12 @@ import { useRenderTextPreviewContextMenu } from '../render-text-preview/useRende
 import { useRenderTextPreviewPointer } from '../render-text-preview/useRenderTextPreviewPointer';
 import { useRenderTextPreviewSelection } from '../render-text-preview/useRenderTextPreviewSelection';
 import { useRenderTextPreviewTypeDock } from '../render-text-preview/useRenderTextPreviewTypeDock';
-import {
-  drawRegionsToCanvas,
-  preloadRegionCanvasFonts,
-} from '../render-text-preview/canvasDrawing';
-import { useNonPassiveWheel } from "../../../hooks/useNonPassiveWheel";
+import { useInlineEditorSpanSync } from '../render-text-preview/useInlineEditorSpanSync';
+import { buildInlineEditorHandle } from '../render-text-preview/inlineEditorHandle';
+import RenderRegionOverlayList from '../render-text-preview/RenderRegionOverlayList';
+import { renderRegionsToCanvas } from '../render-text-preview/canvasDrawing';
+import { useRenderTextPreviewCanvasRegions } from '../render-text-preview/useRenderTextPreviewCanvasRegions';
+import { useRenderTextPreviewOverlayWheel } from '../render-text-preview/useRenderTextPreviewOverlayWheel';
 
 const EMPTY_TYPOGRAPHY_PRESETS: TypographyStylePreset[] = [];
 const EMPTY_TYPOGRAPHY_FOLDERS: TypographyStyleFolder[] = [];
@@ -320,6 +320,12 @@ const RenderTextPreviewNoir = ({
     syncInlineEditorSelection,
     saveCurrentSelection,
     clearPickerState,
+    beginComposition,
+    endComposition,
+    isComposingRef,
+    compositionStyleRevision,
+    setInlineEditorSelection,
+    applyInlineEditorDraftStyle,
   } = useRenderTextPreviewInlineEditor({
     inlineEditor,
     setInlineEditor,
@@ -378,73 +384,12 @@ const RenderTextPreviewNoir = ({
     updateRegions,
   });
 
-  const canvasDrawRegions = useMemo(() => {
-    if (interaction?.kind !== 'move' || !interaction.currentBox) {
-      return displayRegionsWithDefaults;
-    }
-    const currentBox = interaction.currentBox;
-    let dragged: (typeof displayRegionsWithDefaults)[number] | null = null;
-    for (const region of displayRegionsWithDefaults) {
-      if (region.id === interaction.regionId) {
-        dragged = region;
-        break;
-      }
-    }
-    if (!dragged) return displayRegionsWithDefaults;
-    return displayRegionsWithDefaults.map((region) =>
-      region === dragged ? { ...region, bbox: currentBox } : region,
-    );
-  }, [displayRegionsWithDefaults, interaction]);
-
-  // Paint the rendered text of every display region onto the preview canvas.
-  // Coalesced onto one animation frame: a style click can commit more than once
-  // and every draw re-runs the effect layers.
-  const renderFrameRef = useRef(0);
-  useEffect(() => {
-    let cancelled = false;
-    const renderPreview = async (): Promise<void> => {
-      const canvas = renderCanvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      await preloadRegionCanvasFonts(canvasDrawRegions, fallbackStyle);
-      if (cancelled) return;
-
-      drawRegionsToCanvas(
-        ctx,
-        image.width,
-        image.height,
-        canvasDrawRegions,
-        fallbackStyle,
-        renderStageActive,
-        inlineEditor?.regionId ?? null,
-      );
-    };
-
-    if (renderFrameRef.current) {
-      cancelAnimationFrame(renderFrameRef.current);
-    }
-    renderFrameRef.current = requestAnimationFrame(() => {
-      renderFrameRef.current = 0;
-      void renderPreview();
-    });
-    return () => {
-      cancelled = true;
-      if (renderFrameRef.current) {
-        cancelAnimationFrame(renderFrameRef.current);
-        renderFrameRef.current = 0;
-      }
-    };
-  }, [
-    canvasDrawRegions,
+  const canvasDrawRegions = useRenderTextPreviewCanvasRegions({
+    displayRegionsWithDefaults,
+    interaction,
+    inlineEditor,
     fallbackStyle,
-    fontRefreshToken,
-    image.height,
-    image.width,
-    inlineEditor?.regionId,
-    renderStageActive,
-  ]);
+  });
 
   const {
     handlePointerDown,
@@ -519,6 +464,9 @@ const RenderTextPreviewNoir = ({
     filteredTypographyPresets,
     groupedTypographyPresets,
     inlineEditorContentEditableStyle,
+    inlineEditorLineBoxes,
+    inlineEditorPaint,
+    inlineEditorUsesCanvasSelection,
     selectedInlineSelectionActive,
     selectedRegionStyle,
     selectedRegionIsNoteOverlay,
@@ -541,8 +489,72 @@ const RenderTextPreviewNoir = ({
     editable,
     areaSelectionEnabled,
     inlineEditorRequestKey,
+    inlineEditorDisplayScale: rotationScaleFactor,
     openInlineEditorForRegion,
   });
+
+  // Keeps the contentEditable's DOM (native formatting spans, trailing <br>
+  // sentinel) in sync with the draft; needs the layout-aware selection mode.
+  useInlineEditorSpanSync({
+    inlineEditor,
+    canvasSelection: inlineEditorUsesCanvasSelection,
+    isComposingRef,
+    compositionStyleRevision,
+    contentEditableRef: inlineEditorContentEditableRef,
+    displayRegionsWithDefaults,
+    fallbackStyle,
+    inlineEditorDisplayScale: rotationScaleFactor,
+  });
+
+  // Paint the rendered text of every display region onto the preview canvas.
+  // Coalesced onto one animation frame: a style click can commit more than once
+  // and every draw re-runs the effect layers.
+  const renderFrameRef = useRef(0);
+  useEffect(() => {
+    let cancelled = false;
+    const renderPreview = async (): Promise<void> => {
+      const canvas = renderCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      await renderRegionsToCanvas(ctx, {
+        imageWidth: image.width,
+        imageHeight: image.height,
+        regions: canvasDrawRegions,
+        fallbackStyle,
+        renderStageActive,
+        skipRegionId: inlineEditor && !inlineEditorUsesCanvasSelection
+          ? inlineEditor.regionId
+          : null,
+        isCancelled: () => cancelled,
+      });
+    };
+
+    if (renderFrameRef.current) {
+      cancelAnimationFrame(renderFrameRef.current);
+    }
+    renderFrameRef.current = requestAnimationFrame(() => {
+      renderFrameRef.current = 0;
+      void renderPreview();
+    });
+    return () => {
+      cancelled = true;
+      if (renderFrameRef.current) {
+        cancelAnimationFrame(renderFrameRef.current);
+        renderFrameRef.current = 0;
+      }
+    };
+  }, [
+    canvasDrawRegions,
+    fallbackStyle,
+    fontRefreshToken,
+    image.height,
+    image.width,
+    inlineEditor?.regionId,
+    inlineEditorUsesCanvasSelection,
+    renderStageActive,
+  ]);
 
   const {
     updateSelectedRegionStyle,
@@ -571,45 +583,48 @@ const RenderTextPreviewNoir = ({
     fallbackStyle,
     savedSelectionRef,
     restoreInlineEditorSelection,
+    applyInlineEditorDraftStyle,
     updateRegionStyle,
     updateRegionTextStyleRanges,
     updateRegions,
   });
 
-  const handleOverlayWheel = useCallback(
-    (event: WheelEvent) => {
-      if (!editable || !renderStageActive || !areaSelectionEnabled) return;
-      if (!event.shiftKey || event.ctrlKey || event.metaKey || event.altKey)
-        return;
-      if (!selectedRegionId) return;
+  const inlineEditorHandle = inlineEditor
+    ? buildInlineEditorHandle({
+      inlineEditor,
+      selection: {
+        contentEditableStyle: inlineEditorContentEditableStyle,
+        lineBoxes: inlineEditorLineBoxes,
+        caretColor: inlineEditorPaint.color,
+        canvasSelection: inlineEditorUsesCanvasSelection,
+      },
+      refs: {
+        contentEditableRef: inlineEditorContentEditableRef,
+        dockRef,
+        dockPointerDownRef,
+      },
+      actions: {
+        onInput: handleInlineEditorInput,
+        syncSelection: syncInlineEditorSelection,
+        cancel: cancelInlineEditor,
+        save: saveInlineEditor,
+        toggleRegionStyle: updateSelectedRegionStyle,
+        setState: setInlineEditor,
+        beginComposition,
+        endComposition,
+        setSelection: setInlineEditorSelection,
+      },
+    })
+    : null;
 
-      const dominantDelta =
-        Math.abs(event.deltaY) >= Math.abs(event.deltaX)
-          ? event.deltaY
-          : event.deltaX;
-      if (Math.abs(dominantDelta) < 0.5) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      const direction = dominantDelta < 0 ? 1 : -1;
-      const steps = Math.max(
-        1,
-        Math.min(12, Math.round(Math.abs(dominantDelta) / 90)),
-      );
-      const rotationDelta = direction * steps * 2;
-      updateRegionRotation(selectedRegionId, rotationDelta);
-    },
-    [
-      areaSelectionEnabled,
-      editable,
-      renderStageActive,
-      selectedRegionId,
-      updateRegionRotation,
-    ],
-  );
-
-  useNonPassiveWheel(overlayRef, handleOverlayWheel, true);
+  useRenderTextPreviewOverlayWheel({
+    overlayRef,
+    editable,
+    renderStageActive,
+    areaSelectionEnabled,
+    selectedRegionId,
+    updateRegionRotation,
+  });
 
   const draftBox = useMemo<[number, number, number, number] | null>(
     () =>
@@ -766,55 +781,23 @@ const RenderTextPreviewNoir = ({
               onContextMenu={handleRegionContextMenuDelegated}
               onDoubleClick={handleRegionDoubleClickDelegated}
             >
-              {showRegionOverlays && displayRegionsWithDefaults.map((region) => {
-                const multiSelectIndex = multiSelectedRegionIds.indexOf(region.id);
-                const regionIsSelected = region.id === selectedRegionId;
-                const showHandles = regionIsSelected && editable && areaSelectionEnabled;
-                // Live drag position of the region being moved (store commits once
-                // on pointerup; the dragged box renders from interaction state).
-                const dragBox =
-                  interaction &&
-                    interaction.kind === 'move' &&
-                    interaction.regionId === region.id
-                    ? interaction.currentBox
-                    : undefined;
-                return (
-                  <RenderRegionOverlayBoxNoir
-                    key={region.id}
-                    region={region}
-                    imageWidth={image.width}
-                    imageHeight={image.height}
-                    isNoteOverlay={isTranslationNoteOverlayRegion(region)}
-                    selected={regionIsSelected}
-                    isMultiSelected={multiSelectIndex >= 0}
-                    multiSelectIndex={multiSelectIndex}
-                    renderStageActive={renderStageActive}
-                    fallbackStyle={fallbackStyle}
-                    showHandles={showHandles}
-                    dragBox={dragBox}
-                    removeRegionById={showHandles ? removeRegionById : undefined}
-                    editor={inlineEditor && inlineEditor.regionId === region.id
-                      ? {
-                        state: inlineEditor,
-                        contentEditableRef: inlineEditorContentEditableRef,
-                        contentEditableStyle: inlineEditorContentEditableStyle,
-                        onInput: handleInlineEditorInput,
-                        syncSelection: syncInlineEditorSelection,
-                        cancel: cancelInlineEditor,
-                        save: saveInlineEditor,
-                        toggleFormat: (kind) =>
-                          updateSelectedRegionStyle((style) => ({
-                            ...style,
-                            [kind]: !style[kind],
-                          })),
-                        setState: setInlineEditor,
-                        dockPointerDownRef,
-                        dockRef,
-                      }
-                      : undefined}
-                  />
-                );
-              })}
+              {showRegionOverlays && (
+                <RenderRegionOverlayList
+                  BoxComponent={RenderRegionOverlayBoxNoir}
+                  regions={displayRegionsWithDefaults}
+                  imageWidth={image.width}
+                  imageHeight={image.height}
+                  renderStageActive={renderStageActive}
+                  fallbackStyle={fallbackStyle}
+                  editable={editable}
+                  areaSelectionEnabled={areaSelectionEnabled}
+                  selectedRegionId={selectedRegionId}
+                  multiSelectedRegionIds={multiSelectedRegionIds}
+                  interaction={interaction}
+                  removeRegionById={removeRegionById}
+                  editorHandle={inlineEditorHandle}
+                />
+              )}
 
               {showRegionOverlays && showSegmentOverlay &&
                 segmentOverlayBoxes.map(({ key, box }) => {

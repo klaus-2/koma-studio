@@ -1,7 +1,6 @@
 // Type dock behavior for RenderTextPreview: dock visibility tracking,
 // selected-region style/shape mutation with inline-selection patch support,
-// and the dock anchor placement solver. Moved verbatim from
-// RenderTextPreview.tsx (T07 split); hook order preserved.
+// and the dock anchor placement solver.
 
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
@@ -51,6 +50,11 @@ interface UseRenderTextPreviewTypeDockParams {
   fallbackStyle: RenderTextStyle;
   savedSelectionRef: React.RefObject<{ start: number; end: number } | null>;
   restoreInlineEditorSelection: () => void;
+  applyInlineEditorDraftStyle: (
+    start: number,
+    end: number,
+    patch: Partial<RenderTextStyle>,
+  ) => boolean;
   updateRegionStyle: (
     regionId: string,
     updater: (style: RenderTextStyle) => RenderTextStyle,
@@ -84,6 +88,7 @@ export const useRenderTextPreviewTypeDock = ({
   fallbackStyle,
   savedSelectionRef,
   restoreInlineEditorSelection,
+  applyInlineEditorDraftStyle,
   updateRegionStyle,
   updateRegionTextStyleRanges,
   updateRegions,
@@ -182,6 +187,8 @@ export const useRenderTextPreviewTypeDock = ({
           ? inlineEditor.selectionEnd
           : saved!.end;
 
+        // The style patch is applied against the store text. If the draft has
+        // new text, flush it first so the offsets address the same string.
         // CRITICAL: Use the ORIGINAL style (not selectedRegionStyle which may already be modified)
         // to compute the diff correctly
         const selectionPatch = buildInlineSelectionStylePatch(
@@ -189,6 +196,17 @@ export const useRenderTextPreviewTypeDock = ({
           updater,
         );
         if (selectionPatch) {
+          if (
+            inlineEditor.value !== inlineEditor.originalValue
+            && applyInlineEditorDraftStyle(
+              selectionStart,
+              selectionEnd,
+              selectionPatch,
+            )
+          ) {
+            restoreInlineEditorSelection();
+            return;
+          }
           updateRegionTextStyleRanges(
             selectedRegionId,
             selectionStart,
@@ -202,6 +220,7 @@ export const useRenderTextPreviewTypeDock = ({
       updateRegionStyle(selectedRegionId, updater);
     },
     [
+      applyInlineEditorDraftStyle,
       inlineEditor,
       restoreInlineEditorSelection,
       selectedInlineSelectionActive,

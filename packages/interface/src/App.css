@@ -7813,41 +7813,109 @@ body {
 
 .koma-render-inline-editor {
   position: absolute;
-  inset: 2px;
+  inset: 0;
   z-index: 8;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(168, 85, 247, 0.36);
-  background: rgba(6, 8, 18, 0.92);
-  backdrop-filter: blur(12px) saturate(1.2);
-  box-shadow:
-    0 12px 28px rgba(2, 6, 23, 0.52),
-    0 0 0 1px rgba(168, 85, 247, 0.1);
-  overflow: auto;
+  box-sizing: border-box;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: visible;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: break-word;
   cursor: text;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+  paint-order: stroke fill;
+  user-select: text;
+  -webkit-user-select: text;
+  scrollbar-width: none;
 }
 
 .koma-render-inline-editor:focus {
-  border-color: rgba(168, 85, 247, 0.72);
-  box-shadow:
-    0 0 0 3px rgba(168, 85, 247, 0.2),
-    0 18px 32px rgba(6, 182, 212, 0.2);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.koma-render-inline-editor::-webkit-scrollbar {
+  display: none;
 }
 
 .koma-render-inline-editor::selection {
-  background: rgba(168, 85, 247, 0.28);
+  background: rgba(168, 85, 247, 0.32);
+}
+
+.koma-render-inline-editor--canvas-selection {
+  caret-color: transparent;
+}
+
+/* Keep pointer hit-testing on the editor itself so offsetX/offsetY stay in
+   the region's coordinate space; inline/block children would report the
+   fragment under the pointer instead. */
+.koma-render-inline-editor--canvas-selection > * {
+  pointer-events: none;
+}
+
+.koma-render-inline-editor--canvas-selection::selection {
+  background: transparent;
+  color: transparent;
 }
 
 .koma-render-inline-editor[data-empty='true']::before {
   content: attr(data-placeholder);
   display: block;
-  color: rgba(226, 232, 240, 0.42);
+  color: rgba(148, 163, 184, 0.9);
+  opacity: 1;
   pointer-events: none;
   white-space: pre-wrap;
+}
+
+.koma-render-box--inline-editing,
+.koma-render-box--inline-editing.koma-render-box--selected,
+.koma-render-box--inline-editing.koma-render-box--multi-selected,
+.koma-render-box--inline-editing.koma-render-box--manual.koma-render-box--selected,
+.koma-render-box--inline-editing.koma-render-box--note.koma-render-box--selected {
+  background-color: transparent;
+  background-image: none;
+  transition-property: border-color, box-shadow;
+}
+
+.koma-render-inline-selection {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.koma-render-inline-selection__range {
+  position: absolute;
+  border-radius: 2px;
+  background: rgba(168, 85, 247, 0.34);
+}
+
+.koma-render-inline-selection__caret {
+  position: absolute;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  animation: koma-inline-caret-blink 1s steps(1, end) infinite;
+}
+
+@keyframes koma-inline-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .koma-render-dock {

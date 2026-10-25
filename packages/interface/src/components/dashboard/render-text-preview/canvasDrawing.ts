@@ -1,4 +1,5 @@
 import type { AioTextRegion } from '../../../types/dashboard.types';
+import type { RenderTextStyleRange } from '../../../typography/renderStyle';
 import type { RenderTextStyle } from '../../../utils/renderText';
 import {
   clamp,
@@ -200,16 +201,16 @@ export const createWandFrameCanvas = (
 };
 
 /** Preloads the fonts referenced by every region style before painting. */
-export const preloadRegionCanvasFonts = (
-  regions: AioTextRegion[],
+const preloadRegionCanvasFonts = (
+  regions: readonly AioTextRegion[],
   fallbackStyle: RenderTextStyle,
-): Promise<void> =>
+): Promise<boolean> =>
   Promise.all(
     regions.map(async (region) => {
       const style = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
-      await ensureCanvasFontLoaded(style, region.renderTextStyleRanges);
+      return ensureCanvasFontLoaded(style, region.renderTextStyleRanges);
     }),
-  ).then(() => undefined);
+  ).then((fontsLoaded) => fontsLoaded.some(Boolean));
 
 /** Paints the rendered text of every region onto the preview canvas. */
 type RegionCanvasLayout = ReturnType<typeof computeRenderTextLayout>;
@@ -218,6 +219,11 @@ type CachedRegionLayout = {
   layout: RegionCanvasLayout;
   shape: TypographyShape | undefined;
 };
+
+export interface RegionTextLayoutResult {
+  readonly layout: RegionCanvasLayout;
+  readonly shape: TypographyShape | undefined;
+}
 
 /**
  * Keys whose value changes glyph metrics. Color, fill, outline, shadow and the
@@ -243,26 +249,43 @@ const LAYOUT_METRIC_KEYS = [
   "uppercase",
 ] as const satisfies readonly (keyof RenderTextStyle)[];
 
+// The resolved shape derives from region.shape (refined) or from
+// detectedRenderMode + bbox (auto); both inputs must key the cache so a shape
+// change invalidates layouts measured for the previous geometry.
+const buildShapeSignature = (region: AioTextRegion): string =>
+  `${region.detectedRenderMode ?? ""}|${JSON.stringify(region.shape ?? null)}`;
+
 const buildLayoutSignature = (
-  region: AioTextRegion,
+  regionId: string,
   text: string,
   width: number,
   height: number,
   style: RenderTextStyle,
   renderStageActive: boolean,
+  ranges: readonly RenderTextStyleRange[] | null | undefined,
+  shapeSignature: string,
 ): string => {
   const metrics = LAYOUT_METRIC_KEYS.map(
     (key) => `${key}:${String(style[key])}`,
   ).join("|");
-  const ranges =
-    region.renderTextStyleRanges
+  const rangeKey =
+    ranges
       ?.map((range) => `${range.start}:${range.end}:${JSON.stringify(range.style)}`)
       .join(";") ?? "";
-  return `${region.id}|${renderStageActive ? 1 : 0}|${width}x${height}|${text}|${metrics}|${ranges}`;
+  return `${regionId}|${renderStageActive ? 1 : 0}|${width}x${height}|${text}|${metrics}|${rangeKey}|${shapeSignature}`;
 };
 
 let regionLayoutCache = new Map<string, CachedRegionLayout>();
 const REGION_LAYOUT_CACHE_LIMIT = 64;
+
+/**
+ * Discards cached region layouts: entries measured before a font finished
+ * loading hold fallback-font metrics, which no longer match what the loaded
+ * font produces.
+ */
+export const clearRegionLayoutCache = (): void => {
+  regionLayoutCache = new Map();
+};
 
 const rememberRegionLayout = (
   regionId: string,
@@ -277,14 +300,90 @@ const rememberRegionLayout = (
   }
 };
 
+export interface RegionTextLayoutRequest {
+  readonly region: AioTextRegion;
+  /** Raw region text; measured as the renderer paints it (trimmed). */
+  readonly text: string;
+  readonly style: RenderTextStyle;
+  readonly styleRanges: readonly RenderTextStyleRange[] | null | undefined;
+  readonly renderStageActive: boolean;
+}
+
+/**
+ * Single source of truth for a region's text layout. The canvas painter and
+ * the inline editor must consume the same (cached) layout, otherwise the
+ * editor's selection line boxes drift away from the painted glyphs.
+ */
+export const resolveRegionTextLayout = (
+  ctx: CanvasRenderingContext2D,
+  {
+    region,
+    text: rawText,
+    style,
+    styleRanges,
+    renderStageActive,
+  }: RegionTextLayoutRequest,
+): RegionTextLayoutResult => {
+  const [x1, y1, x2, y2] = region.bbox;
+  const width = Math.max(1, x2 - x1);
+  const height = Math.max(1, y2 - y1);
+  const text = renderStageActive ? rawText.trim() : "";
+  if (!text) throw new RenderTextLayoutError();
+  const signature = buildLayoutSignature(
+    region.id,
+    text,
+    width,
+    height,
+    style,
+    renderStageActive,
+    styleRanges,
+    buildShapeSignature(region),
+  );
+  const cached = regionLayoutCache.get(region.id);
+  if (cached && cached.signature === signature) {
+    rememberRegionLayout(region.id, cached);
+    return cached;
+  }
+
+  const shape = resolveRegionRenderShape(region);
+  let layout: RegionCanvasLayout;
+  try {
+    layout = computeRenderTextLayout(
+      ctx,
+      text,
+      width,
+      height,
+      style,
+      shape,
+      styleRanges ?? [],
+    );
+  } catch {
+    const fallback = wrapAndMeasureStyled(
+      ctx,
+      text,
+      width,
+      height,
+      style,
+      style.autoFontSize === false ? style.fontSize : style.minFontSize,
+      shape,
+      styleRanges ?? [],
+      false,
+    );
+    if (!fallback) throw new RenderTextLayoutError();
+    layout = fallback;
+  }
+  const entry: CachedRegionLayout = { signature, layout, shape };
+  rememberRegionLayout(region.id, entry);
+  return entry;
+};
+
 export const drawRegionsToCanvas = (
   ctx: CanvasRenderingContext2D,
   imageWidth: number,
   imageHeight: number,
-  regions: AioTextRegion[],
+  regions: readonly AioTextRegion[],
   fallbackStyle: RenderTextStyle,
   renderStageActive: boolean,
-  /** Region hidden behind the open inline editor: its text is not visible. */
   skipRegionId?: string | null,
 ): void => {
   const canvas = ctx.canvas;
@@ -297,56 +396,59 @@ export const drawRegionsToCanvas = (
 
   for (const region of regions) {
     if (skipRegionId && region.id === skipRegionId) continue;
-    const [x1, y1, x2, y2] = region.bbox;
-    const width = Math.max(1, x2 - x1);
-    const height = Math.max(1, y2 - y1);
-    const style = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
-    const text = renderStageActive ? (region.renderText ?? '').trim() : '';
+    const text = renderStageActive ? (region.renderText ?? "") : "";
     if (!text.trim()) continue;
-    const signature = buildLayoutSignature(
+    const style = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
+    const { layout, shape } = resolveRegionTextLayout(ctx, {
       region,
       text,
-      width,
-      height,
       style,
+      styleRanges: region.renderTextStyleRanges,
       renderStageActive,
-    );
-    let layout: RegionCanvasLayout;
-    let shape: TypographyShape | undefined;
-    const cached = regionLayoutCache.get(region.id);
-    if (cached && cached.signature === signature) {
-      layout = cached.layout;
-      shape = cached.shape;
-      rememberRegionLayout(region.id, cached);
-    } else {
-      shape = resolveRegionRenderShape(region);
-      try {
-        layout = computeRenderTextLayout(
-          ctx,
-          text,
-          width,
-          height,
-          style,
-          shape,
-          region.renderTextStyleRanges,
-        );
-      } catch {
-        const fallback = wrapAndMeasureStyled(
-          ctx,
-          text,
-          width,
-          height,
-          style,
-          style.autoFontSize === false ? style.fontSize : style.minFontSize,
-          shape,
-          region.renderTextStyleRanges ?? [],
-          false,
-        );
-        if (!fallback) throw new RenderTextLayoutError();
-        layout = fallback;
-      }
-      rememberRegionLayout(region.id, { signature, layout, shape });
-    }
+    });
     drawRenderedTextInRegion(ctx, region.bbox, layout, style, shape);
   }
+};
+
+export interface RegionCanvasRenderRequest {
+  readonly imageWidth: number;
+  readonly imageHeight: number;
+  readonly regions: readonly AioTextRegion[];
+  readonly fallbackStyle: RenderTextStyle;
+  readonly renderStageActive: boolean;
+  readonly skipRegionId?: string | null;
+  /** Checked after the async font preload so a stale frame is not painted. */
+  readonly isCancelled?: () => boolean;
+}
+
+/**
+ * Full paint step: preload fonts, discard layouts that were measured with
+ * fallback-font metrics when a font just became available, then paint.
+ * Owning the invalidation here keeps every caller on the same protocol
+ * instead of re-implementing (and eventually forgetting) the cache reset.
+ */
+export const renderRegionsToCanvas = async (
+  ctx: CanvasRenderingContext2D,
+  {
+    imageWidth,
+    imageHeight,
+    regions,
+    fallbackStyle,
+    renderStageActive,
+    skipRegionId,
+    isCancelled,
+  }: RegionCanvasRenderRequest,
+): Promise<void> => {
+  const fontsLoaded = await preloadRegionCanvasFonts(regions, fallbackStyle);
+  if (isCancelled?.()) return;
+  if (fontsLoaded) clearRegionLayoutCache();
+  drawRegionsToCanvas(
+    ctx,
+    imageWidth,
+    imageHeight,
+    regions,
+    fallbackStyle,
+    renderStageActive,
+    skipRegionId,
+  );
 };

@@ -12,16 +12,17 @@ import {
 } from '../../../utils/dashboard.utils';
 import {
   cloneRenderTextStyleRanges,
+  remapRenderTextStyleRangesAfterTextEdit,
   resolveRenderTextSelectionStyle,
 } from '../../../utils/renderTextStyleRanges';
-import { computeRenderTextLayout } from '../../../utils/renderText';
-import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
-import { resolveInlineEditorTextAppearance } from '../../../utils/inlineEditor';
+import { resolveInlineEditorTextPaint } from '../../../utils/inlineEditor';
+import { resolveRegionTextLayout } from './canvasDrawing';
 import {
-  RenderTextLayoutError,
-  wrapAndMeasureStyled,
-} from '../../../utils/renderText.measure';
-import type { RenderTextLayout } from '../../../utils/renderText.types';
+  resolveInlineEditorLayoutFrame,
+  resolveInlineEditorLineBoxes,
+  type InlineEditorLayoutFrame,
+  type InlineEditorLineBox,
+} from '../../../utils/inlineEditorLayout';
 import type { RenderTextPreviewContextMenuState } from './RenderTextPreviewContextMenu';
 import type { RenderTextPreviewInlineEditorState } from './useRenderTextPreviewInlineEditor';
 
@@ -42,6 +43,7 @@ interface UseRenderTextPreviewSelectionParams {
   editable: boolean;
   areaSelectionEnabled: boolean;
   inlineEditorRequestKey: string | null;
+  inlineEditorDisplayScale: number;
   openInlineEditorForRegion: (region: AioTextRegion) => void;
 }
 
@@ -62,6 +64,7 @@ export const useRenderTextPreviewSelection = ({
   editable,
   areaSelectionEnabled,
   inlineEditorRequestKey,
+  inlineEditorDisplayScale,
   openInlineEditorForRegion,
 }: UseRenderTextPreviewSelectionParams) => {
   const selectedRegion = useMemo(
@@ -89,64 +92,76 @@ export const useRenderTextPreviewSelection = ({
       cloneRenderStyle(inlineEditorRegion?.renderStyle ?? fallbackStyle),
     [fallbackStyle, inlineEditorRegion],
   );
-  const inlineEditorDisplayMetrics = useMemo(() => {
+  const inlineEditorLayout = useMemo<{
+    frame: InlineEditorLayoutFrame;
+    lines: InlineEditorLineBox[];
+  }>(() => {
+    const fallbackFrame: InlineEditorLayoutFrame = {
+      fontSize: 12,
+      lineHeight: 17,
+      paddingTop: 0,
+      paddingLeft: 0,
+      paddingRight: 0,
+      textAlign: 'left',
+    };
     if (
       !inlineEditor
       || !inlineEditorRegion
       || typeof document === 'undefined'
     ) {
-      return { fontSize: 12, lineHeight: 17 };
+      return { frame: fallbackFrame, lines: [] };
     }
-    const [x1, y1, x2, y2] = inlineEditorRegion.bbox;
-    const width = Math.max(1, x2 - x1);
-    const height = Math.max(1, y2 - y1);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      return { fontSize: 12, lineHeight: 17 };
+      return { frame: fallbackFrame, lines: [] };
     }
-    let layout: RenderTextLayout;
-    try {
-      layout = computeRenderTextLayout(
-        ctx,
+    // Same measure source the painter uses (trimmed text, shared layout
+    // cache): selection line boxes must sit exactly on the painted glyphs.
+    // Draft ranges are derived, never stored: the region's ranges remapped
+    // onto the edited text (identity once a format flush reset originalValue).
+    const { layout, shape } = resolveRegionTextLayout(ctx, {
+      region: inlineEditorRegion,
+      text: inlineEditor.value,
+      style: inlineEditorBaseStyle,
+      styleRanges: remapRenderTextStyleRangesAfterTextEdit(
+        inlineEditor.originalValue,
         inlineEditor.value,
-        width,
-        height,
         inlineEditorBaseStyle,
-        resolveRegionRenderShape(inlineEditorRegion),
         inlineEditorRegion.renderTextStyleRanges,
-      );
-    } catch {
-      const fallback = wrapAndMeasureStyled(
-        ctx,
-        inlineEditor.value,
-        width,
-        height,
-        inlineEditorBaseStyle,
-        inlineEditorBaseStyle.autoFontSize === false
-          ? inlineEditorBaseStyle.fontSize
-          : inlineEditorBaseStyle.minFontSize,
-        resolveRegionRenderShape(inlineEditorRegion),
-        inlineEditorRegion.renderTextStyleRanges ?? [],
-        false,
-      );
-      if (!fallback) throw new RenderTextLayoutError();
-      layout = fallback;
-    }
+      ),
+      renderStageActive: true,
+    });
     // Free GPU texture memory immediately.
     canvas.width = 0;
     canvas.height = 0;
     return {
-      fontSize: layout.fontSize,
-      lineHeight: Math.max(layout.lineHeight, layout.fontSize * 1.05),
+      frame: resolveInlineEditorLayoutFrame({
+        bbox: inlineEditorRegion.bbox,
+        layout,
+        style: inlineEditorBaseStyle,
+        shape,
+        displayScale: inlineEditorDisplayScale,
+      }),
+      lines: resolveInlineEditorLineBoxes({
+        text: inlineEditor.value,
+        bbox: inlineEditorRegion.bbox,
+        layout,
+        style: inlineEditorBaseStyle,
+        shape,
+      }),
     };
   }, [
+    inlineEditor?.originalValue,
     inlineEditor?.value,
     inlineEditorBaseStyle,
+    inlineEditorDisplayScale,
     inlineEditorRegion?.bbox,
     inlineEditorRegion?.renderTextStyleRanges,
     inlineEditorRegion?.shape,
   ]);
+  const inlineEditorLayoutFrame = inlineEditorLayout.frame;
+  const inlineEditorLineBoxes = inlineEditorLayout.lines;
   const segmentOverlayBoxes = useMemo(
     () =>
       displayRegionsWithDefaults.flatMap((region) => {
@@ -208,32 +223,50 @@ export const useRenderTextPreviewSelection = ({
 
     return Array.from(grouped.entries());
   }, [filteredTypographyPresets]);
-  const inlineEditorTypographyStyle = useMemo<React.CSSProperties>(
+  const inlineEditorPaint = useMemo(
+    () =>
+      resolveInlineEditorTextPaint(
+        inlineEditorBaseStyle,
+        inlineEditorDisplayScale,
+      ),
+    [inlineEditorBaseStyle, inlineEditorDisplayScale],
+  );
+  const inlineEditorUsesCanvasSelection = inlineEditorLineBoxes.length > 0;
+  const inlineEditorContentEditableStyle = useMemo<React.CSSProperties>(
     () => ({
       fontFamily: inlineEditorBaseStyle.fontFamily,
-      fontSize: `${inlineEditorDisplayMetrics.fontSize}px`,
-      lineHeight: `${inlineEditorDisplayMetrics.lineHeight}px`,
+      fontSize: `${inlineEditorLayoutFrame.fontSize}px`,
+      lineHeight: `${inlineEditorLayoutFrame.lineHeight}px`,
       fontWeight: inlineEditorBaseStyle.bold ? 700 : 400,
       fontStyle: inlineEditorBaseStyle.italic ? 'italic' : 'normal',
       textTransform: inlineEditorBaseStyle.uppercase ? 'uppercase' : 'none',
       textDecoration: inlineEditorBaseStyle.underline ? 'underline' : 'none',
+      textAlign: inlineEditorLayoutFrame.textAlign,
+      paddingTop: `${inlineEditorLayoutFrame.paddingTop}px`,
+      paddingLeft: `${inlineEditorLayoutFrame.paddingLeft}px`,
+      paddingRight: `${inlineEditorLayoutFrame.paddingRight}px`,
+      color: inlineEditorUsesCanvasSelection
+        ? 'transparent'
+        : inlineEditorPaint.color,
+      WebkitTextFillColor: inlineEditorUsesCanvasSelection
+        ? 'transparent'
+        : inlineEditorPaint.color,
+      caretColor: inlineEditorUsesCanvasSelection
+        ? 'transparent'
+        : inlineEditorPaint.color,
+      textShadow: inlineEditorUsesCanvasSelection
+        ? undefined
+        : inlineEditorPaint.textShadow,
+      WebkitTextStroke: inlineEditorUsesCanvasSelection
+        ? undefined
+        : inlineEditorPaint.textStroke,
     }),
-    [inlineEditorBaseStyle, inlineEditorDisplayMetrics],
-  );
-  const inlineEditorTextAppearance = useMemo(
-    () => resolveInlineEditorTextAppearance(inlineEditorBaseStyle),
-    [inlineEditorBaseStyle],
-  );
-  const inlineEditorContentEditableStyle = useMemo<React.CSSProperties>(
-    () => ({
-      ...inlineEditorTypographyStyle,
-      color: inlineEditorTextAppearance.color || 'var(--auth-text)',
-      caretColor: inlineEditorTextAppearance.color || 'var(--auth-text)',
-      textShadow: inlineEditorTextAppearance.textShadow,
-      outline: 'none',
-      overflow: 'auto',
-    }),
-    [inlineEditorTypographyStyle, inlineEditorTextAppearance],
+    [
+      inlineEditorBaseStyle,
+      inlineEditorLayoutFrame,
+      inlineEditorPaint,
+      inlineEditorUsesCanvasSelection,
+    ],
   );
   const selectedInlineSelectionActive = Boolean(
     inlineEditor
@@ -306,18 +339,17 @@ export const useRenderTextPreviewSelection = ({
 
   return {
     selectedRegion,
-    inlineEditorRegion,
     selectedRegionTextStyleRanges,
-    inlineEditorBaseStyle,
-    inlineEditorDisplayMetrics,
     segmentOverlayBoxes,
     hoveredRegion,
     contextMenuTargetRegion,
     typographyFolderNameById,
     filteredTypographyPresets,
     groupedTypographyPresets,
-    inlineEditorTypographyStyle,
     inlineEditorContentEditableStyle,
+    inlineEditorLineBoxes,
+    inlineEditorPaint,
+    inlineEditorUsesCanvasSelection,
     selectedInlineSelectionActive,
     selectedRegionStyle,
     selectedRegionIsNoteOverlay,

@@ -1,9 +1,13 @@
 // Inline text editor (double-click editing) for RenderTextPreview.
-// Moved verbatim from RenderTextPreview.tsx (T07 split); hook order preserved.
-// Note: the dock pointer-state effect logically belongs to the type dock
-// cluster but sits here to preserve the original hook order.
+// The dock pointer-state effect logically belongs to the type dock cluster
+// but sits here so the hook order stays stable.
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+} from 'react';
 import type React from 'react';
 import type {
   AioTextRegion,
@@ -13,12 +17,10 @@ import type { RenderTextStyleRange } from '../../../typography/renderStyle';
 import type { RenderTextStyle } from '../../../typography/renderStyle';
 import { cloneRenderStyle } from '../../../utils/dashboard.utils';
 import {
+  applyInlineRenderTextStylePatch,
   cloneRenderTextStyleRanges,
+  remapRenderTextStyleRangesAfterTextEdit,
 } from '../../../utils/renderTextStyleRanges';
-import {
-  buildInlineEditorRuns,
-  readInlineEditorPlainText,
-} from '../../../utils/inlineEditor';
 import { restoreContentEditableSelection } from './inlineEditorSelection';
 import type { RenderTextPreviewContextMenuState } from './RenderTextPreviewContextMenu';
 
@@ -26,7 +28,8 @@ export interface RenderTextPreviewInlineEditorState {
   regionId: string;
   value: string;
   originalValue: string;
-  originalStyleRanges?: RenderTextStyleRange[];
+  sessionOriginalValue: string;
+  sessionOriginalStyleRanges?: RenderTextStyleRange[];
   isDirty: boolean;
   selectionStart: number;
   selectionEnd: number;
@@ -50,7 +53,11 @@ interface UseRenderTextPreviewInlineEditorParams {
   renderStageActive: boolean;
   areaSelectionEnabled: boolean;
   onSelectRegion: (regionId: string | null) => void;
-  updateRegionText: (regionId: string, nextText: string) => void;
+  updateRegionText: (
+    regionId: string,
+    nextText: string,
+    nextStyleRanges?: RenderTextStyleRange[] | null,
+  ) => void;
   updateRegions: (updater: (region: AioTextRegion) => AioTextRegion) => void;
   getTranslationNoteOverlayParentId: (regionId: string) => string | null;
   resolveTranslationNoteOverlayConfig: (
@@ -87,7 +94,11 @@ export const useRenderTextPreviewInlineEditor = ({
     updateRegionTextRef.current = updateRegionText;
   }, [updateRegionText]);
 
-  const lastStyledRangesKeyRef = useRef<string | null>(null);
+  const isComposingRef = useRef(false);
+  const [compositionStyleRevision, refreshCompositionStyles] = useReducer(
+    (revision: number) => revision + 1,
+    0,
+  );
 
   const commitPendingInlineEditorDraft = useCallback(() => {
     const pending = pendingDraftRef.current;
@@ -113,12 +124,16 @@ export const useRenderTextPreviewInlineEditor = ({
   const openInlineEditorForRegion = useCallback(
     (region: AioTextRegion) => {
       if (!editable || !renderStageActive) return;
+      isComposingRef.current = false;
       const pendingDraft = pendingDraftRef.current;
       const pendingSameRegionText =
         pendingDraft && pendingDraft.regionId === region.id
           ? pendingDraft.value
           : null;
       const initialText = pendingSameRegionText ?? (region.renderText ?? '');
+      const initialStyleRanges = cloneRenderTextStyleRanges(
+        region.renderTextStyleRanges,
+      );
       commitPendingInlineEditorDraft();
       onSelectRegion(region.id);
       setContextMenu(null);
@@ -126,9 +141,8 @@ export const useRenderTextPreviewInlineEditor = ({
         regionId: region.id,
         value: initialText,
         originalValue: initialText,
-        originalStyleRanges: cloneRenderTextStyleRanges(
-          region.renderTextStyleRanges,
-        ),
+        sessionOriginalValue: initialText,
+        sessionOriginalStyleRanges: initialStyleRanges,
         isDirty: false,
         selectionStart: initialText.length,
         selectionEnd: initialText.length,
@@ -144,6 +158,7 @@ export const useRenderTextPreviewInlineEditor = ({
 
   const saveInlineEditor = useCallback(() => {
     if (!inlineEditor) return;
+    isComposingRef.current = false;
     savedSelectionRef.current = null;
     isPickerOpenRef.current = false;
     // The one terminal store commit for the whole typing session.
@@ -153,10 +168,11 @@ export const useRenderTextPreviewInlineEditor = ({
 
   const cancelInlineEditor = useCallback(() => {
     if (!inlineEditor) return;
+    isComposingRef.current = false;
     savedSelectionRef.current = null;
     isPickerOpenRef.current = false;
-    // Escape reverts: drop the draft (store still holds originalValue, which
-    // the updateRegions write below re-commits as the revert).
+    // Escape reverts the whole session, even if formatting flushed the draft
+    // to the store mid-edit.
     pendingDraftRef.current = null;
     const parentId = getTranslationNoteOverlayParentId(inlineEditor.regionId);
     updateRegions((region) => {
@@ -164,9 +180,9 @@ export const useRenderTextPreviewInlineEditor = ({
         if (region.id !== inlineEditor.regionId) return region;
         return {
           ...region,
-          renderText: inlineEditor.originalValue,
+          renderText: inlineEditor.sessionOriginalValue,
           renderTextStyleRanges: cloneRenderTextStyleRanges(
-            inlineEditor.originalStyleRanges,
+            inlineEditor.sessionOriginalStyleRanges,
           ),
         };
       }
@@ -177,9 +193,9 @@ export const useRenderTextPreviewInlineEditor = ({
         ...region,
         translationNoteOverlay: {
           ...overlay,
-          renderText: inlineEditor.originalValue,
+          renderText: inlineEditor.sessionOriginalValue,
           renderTextStyleRanges: cloneRenderTextStyleRanges(
-            inlineEditor.originalStyleRanges,
+            inlineEditor.sessionOriginalStyleRanges,
           ),
         },
       };
@@ -191,6 +207,61 @@ export const useRenderTextPreviewInlineEditor = ({
     resolveTranslationNoteOverlayConfig,
     updateRegions,
   ]);
+
+  const applyInlineEditorDraftStyle = useCallback(
+    (
+      start: number,
+      end: number,
+      patch: Partial<RenderTextStyle>,
+    ) => {
+      if (!inlineEditor) return false;
+      if (inlineEditor.value === inlineEditor.originalValue) return false;
+      const editedRegion = displayRegionsWithDefaults.find(
+        (region) => region.id === inlineEditor.regionId,
+      );
+      const baseStyle = cloneRenderStyle(
+        editedRegion?.renderStyle ?? fallbackStyle,
+      );
+      // Draft ranges are derived from the region's ranges remapped onto the
+      // draft text (see buildInlineEditorTextDraft).
+      const draftStyleRanges = remapRenderTextStyleRangesAfterTextEdit(
+        inlineEditor.originalValue,
+        inlineEditor.value,
+        baseStyle,
+        editedRegion?.renderTextStyleRanges,
+      );
+      const nextRanges = applyInlineRenderTextStylePatch(
+        inlineEditor.value,
+        baseStyle,
+        draftStyleRanges,
+        start,
+        end,
+        patch,
+      );
+      updateRegionTextRef.current(
+        inlineEditor.regionId,
+        inlineEditor.value,
+        nextRanges ?? null,
+      );
+      pendingDraftRef.current = null;
+      setInlineEditor((prev) =>
+        prev && prev.regionId === inlineEditor.regionId
+          ? {
+            ...prev,
+            originalValue: inlineEditor.value,
+            isDirty: false,
+          }
+          : prev,
+      );
+      return true;
+    },
+    [
+      displayRegionsWithDefaults,
+      fallbackStyle,
+      inlineEditor,
+      setInlineEditor,
+    ],
+  );
 
   const handleInlineEditorInput = useCallback(
     (nextValue: string) => {
@@ -216,6 +287,25 @@ export const useRenderTextPreviewInlineEditor = ({
     [inlineEditor],
   );
 
+  const setInlineEditorSelection = useCallback(
+    (start: number, end: number) => {
+      if (!inlineEditor) return;
+      const node = inlineEditorContentEditableRef.current;
+      if (!node) return;
+      const length = inlineEditor.value.length;
+      const selectionStart = Math.max(0, Math.min(length, Math.floor(start)));
+      const selectionEnd = Math.max(0, Math.min(length, Math.floor(end)));
+      node.focus();
+      restoreContentEditableSelection(node, selectionStart, selectionEnd);
+      setInlineEditor((prev) =>
+        prev
+          ? { ...prev, selectionStart, selectionEnd }
+          : prev,
+      );
+    },
+    [inlineEditor, setInlineEditor],
+  );
+
   const getInlineEditorSelection = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return null;
@@ -238,7 +328,6 @@ export const useRenderTextPreviewInlineEditor = ({
     // Don't clear saved selection while picker is open
     if (!isPickerOpenRef.current) {
       savedSelectionRef.current = null;
-    } else {
     }
 
     setInlineEditor((prev) =>
@@ -257,7 +346,6 @@ export const useRenderTextPreviewInlineEditor = ({
     isPickerOpenRef.current = true;
     if (selection && selection.start !== selection.end) {
       savedSelectionRef.current = selection;
-    } else {
     }
     return savedSelectionRef.current;
   }, [getInlineEditorSelection]);
@@ -265,6 +353,15 @@ export const useRenderTextPreviewInlineEditor = ({
   const clearPickerState = useCallback(() => {
     isPickerOpenRef.current = false;
     savedSelectionRef.current = null;
+  }, []);
+
+  const beginComposition = useCallback(() => {
+    isComposingRef.current = true;
+  }, []);
+
+  const endComposition = useCallback(() => {
+    isComposingRef.current = false;
+    refreshCompositionStyles();
   }, []);
 
   useEffect(() => {
@@ -301,6 +398,7 @@ export const useRenderTextPreviewInlineEditor = ({
   );
 
   const closeInlineEditor = useCallback(() => {
+    isComposingRef.current = false;
     commitPendingInlineEditorDraft();
     setInlineEditor(null);
   }, [commitPendingInlineEditorDraft, setInlineEditor]);
@@ -319,67 +417,6 @@ export const useRenderTextPreviewInlineEditor = ({
     });
   }, [
     inlineEditor?.regionId,
-  ]);
-
-  useLayoutEffect(() => {
-    if (!inlineEditor) return;
-    const node = inlineEditorContentEditableRef.current;
-    if (!node) return;
-
-    const editedRegion =
-      displayRegionsWithDefaults.find(
-        (region) => region.id === inlineEditor.regionId,
-      ) ?? null;
-    const ranges = editedRegion?.renderTextStyleRanges ?? null;
-    // Keyed so a style change rebuilds the spans even though the text matches.
-    const rangesKey = JSON.stringify(ranges ?? null);
-    const currentValue = readInlineEditorPlainText(node);
-    if (
-      currentValue === inlineEditor.value
-      && lastStyledRangesKeyRef.current === rangesKey
-    ) {
-      return;
-    }
-    lastStyledRangesKeyRef.current = rangesKey;
-
-    const baseStyle = cloneRenderStyle(
-      editedRegion?.renderStyle ?? fallbackStyle,
-    );
-    const spans = buildInlineEditorRuns(
-      inlineEditor.value,
-      ranges,
-      baseStyle,
-    ).map((run) => {
-      const span = document.createElement('span');
-      span.textContent = run.text;
-      span.style.fontFamily = run.fontFamily;
-      span.style.fontWeight = run.fontWeight;
-      span.style.fontStyle = run.fontStyle;
-      span.style.textDecoration = run.textDecoration;
-      span.style.textTransform = run.textTransform;
-      span.style.color = run.color;
-      span.style.textShadow = run.textShadow;
-      return span;
-    });
-    node.replaceChildren(...spans);
-    if (
-      document.activeElement === node
-      || node.contains(document.activeElement)
-    ) {
-      restoreContentEditableSelection(
-        node,
-        inlineEditor.selectionStart,
-        inlineEditor.selectionEnd,
-      );
-    }
-  }, [
-    displayRegionsWithDefaults,
-    fallbackStyle,
-    inlineEditor?.regionId,
-    inlineEditor?.selectionEnd,
-    inlineEditor?.selectionStart,
-    inlineEditor?.value,
-    restoreContentEditableSelection,
   ]);
 
   useEffect(() => {
@@ -405,5 +442,11 @@ export const useRenderTextPreviewInlineEditor = ({
     syncInlineEditorSelection,
     saveCurrentSelection,
     clearPickerState,
+    beginComposition,
+    endComposition,
+    isComposingRef,
+    compositionStyleRevision,
+    setInlineEditorSelection,
+    applyInlineEditorDraftStyle,
   };
 };

@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fireEvent, render } from '@testing-library/react';
 
 import { setDesktopBridgeProvider } from '@/lib/desktop-bridge';
 import { I18nProvider } from '@/i18n';
 import { DEFAULT_RENDER_STYLE } from '@/constants/dashboard.constants';
 import RenderRegionOverlayBoxNoir from './RenderRegionOverlayBoxNoir';
+import {
+  buildInlineEditorHandle,
+  buildInlineEditorState,
+} from '../render-text-preview/inlineTextEditorTestFactory';
 
 setDesktopBridgeProvider({ desktop: null, isDesktopRuntime: () => false });
 
@@ -26,26 +30,17 @@ const region = {
   locked: false,
 };
 
-const buildEditor = () => ({
-  state: {
-    regionId: 'r1',
-    value: 'hello',
-    originalValue: 'hello',
-    isDirty: false,
-    selectionStart: 0,
-    selectionEnd: 5,
-  },
-  contentEditableRef: { current: null },
-  contentEditableStyle: {},
-  onInput: vi.fn(),
-  syncSelection: vi.fn(),
-  cancel: vi.fn(),
-  save: vi.fn(),
-  toggleFormat: vi.fn(),
-  setState: vi.fn(),
-  dockPointerDownRef: { current: false },
-  dockRef: { current: null },
-});
+const buildEditor = () =>
+  buildInlineEditorHandle({
+    state: buildInlineEditorState({
+      value: 'hello',
+      originalValue: 'hello',
+      sessionOriginalValue: 'hello',
+      selectionStart: 0,
+      selectionEnd: 5,
+    }),
+    canvasSelection: false,
+  });
 
 describe('inline editor formatting shortcuts', () => {
   it('routes ctrl+b, ctrl+i and ctrl+u to the region style toggle', () => {
@@ -80,5 +75,66 @@ describe('inline editor formatting shortcuts', () => {
     ]);
     // The native rich-text toggle would be dropped when the value is read back.
     expect(editor.onInput).not.toHaveBeenCalled();
+  });
+});
+
+describe('inline editor commit and composition', () => {
+  const renderEditor = (editor: ReturnType<typeof buildEditor>) =>
+    render(
+      <I18nProvider>
+        <RenderRegionOverlayBoxNoir
+          region={region as never}
+          imageWidth={800}
+          imageHeight={1200}
+          isNoteOverlay={false}
+          selected
+          isMultiSelected={false}
+          multiSelectIndex={-1}
+          renderStageActive
+          fallbackStyle={DEFAULT_RENDER_STYLE}
+          showHandles={false}
+          editor={editor}
+        />
+      </I18nProvider>,
+    );
+
+  it('commits with ctrl+enter and cancels with escape', () => {
+    const editor = buildEditor();
+    const { getByRole } = renderEditor(editor);
+    const textbox = getByRole('textbox');
+
+    fireEvent.keyDown(textbox, { key: 'Enter', ctrlKey: true });
+    fireEvent.keyDown(textbox, { key: 'Escape' });
+
+    expect(editor.save).toHaveBeenCalledTimes(1);
+    expect(editor.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands composition to the hook and keeps the composed text', () => {
+    const editor = buildEditor();
+    const { getByRole } = renderEditor(editor);
+    const textbox = getByRole('textbox');
+
+    fireEvent.compositionStart(textbox);
+    textbox.textContent = '日本語';
+    fireEvent.compositionEnd(textbox);
+
+    expect(editor.beginComposition).toHaveBeenCalledTimes(1);
+    expect(editor.endComposition).toHaveBeenCalledTimes(1);
+    expect(editor.onInput).toHaveBeenLastCalledWith('日本語');
+  });
+
+  it('commits dirty text on blur and closes a clean editor', () => {
+    const dirtyEditor = buildEditor();
+    dirtyEditor.state = { ...dirtyEditor.state, isDirty: true };
+    const dirty = renderEditor(dirtyEditor);
+    fireEvent.blur(dirty.getByRole('textbox'));
+    expect(dirtyEditor.save).toHaveBeenCalledTimes(1);
+    dirty.unmount();
+
+    const cleanEditor = buildEditor();
+    const clean = renderEditor(cleanEditor);
+    fireEvent.blur(clean.getByRole('textbox'));
+    expect(cleanEditor.setState).toHaveBeenCalledWith(null);
   });
 });

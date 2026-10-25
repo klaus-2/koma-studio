@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 
 import type { RenderTextStyle } from './renderText.ts';
 import {
+  applyInlineEditorTextDraft,
   buildInlineSelectionStylePatch,
   normalizeInlineEditorPlainText,
   readInlineEditorPlainText,
   buildInlineEditorRuns,
-  resolveInlineEditorTextAppearance,
+  resolveInlineEditorFillColor,
+  resolveInlineEditorTextPaint,
+  resolveInlineEditorWordRange,
 } from './inlineEditor.ts';
 
 const baseStyle: RenderTextStyle = {
@@ -93,38 +96,46 @@ test('normalizeInlineEditorPlainText keeps existing unix line breaks intact', ()
   );
 });
 
-test('resolveInlineEditorTextAppearance reads the fill the canvas would paint', () => {
-  const appearance = resolveInlineEditorTextAppearance({
-    ...baseStyle,
-    color: '#101010',
-    fillCssValue: 'linear-gradient(90deg, #4ade80 0%, #22c55e 100%)',
-    gradientEnabled: true,
-  });
-
-  assert.equal(appearance.color, '#4ade80');
-  assert.match(appearance.textShadow, /rgba\(0, 0, 0/);
+test('resolveInlineEditorFillColor reads the fill the canvas would paint', () => {
+  assert.equal(
+    resolveInlineEditorFillColor({
+      ...baseStyle,
+      color: '#101010',
+      fillCssValue: 'linear-gradient(90deg, #4ade80 0%, #22c55e 100%)',
+      gradientEnabled: true,
+    }),
+    '#4ade80',
+  );
 });
 
-test('resolveInlineEditorTextAppearance haloes a dark fill for the dark panel', () => {
-  const appearance = resolveInlineEditorTextAppearance({
-    ...baseStyle,
-    color: '#171717',
-    fillCssValue: '#171717',
-  });
-
-  assert.equal(appearance.color, '#171717');
-  assert.match(appearance.textShadow, /rgba\(255, 255, 255/);
+test('resolveInlineEditorFillColor falls back to the flat color without a fill', () => {
+  assert.equal(
+    resolveInlineEditorFillColor({
+      ...baseStyle,
+      color: '#171717',
+      fillCssValue: '',
+    }),
+    '#171717',
+  );
 });
 
-test('resolveInlineEditorTextAppearance falls back to a drop shadow it cannot read', () => {
-  const appearance = resolveInlineEditorTextAppearance({
+test('resolveInlineEditorTextPaint mirrors outline and shadow layers', () => {
+  const paint = resolveInlineEditorTextPaint({
     ...baseStyle,
-    color: 'var(--unknown-fill)',
-    fillCssValue: 'var(--unknown-fill)',
-  });
+    outlineWidth: 2,
+    outlineColor: '#ffffff',
+    shadowEnabled: true,
+    shadowColor: '#000000',
+    shadowFillCssValue: '#000000',
+    shadowOpacity: 0.5,
+    shadowBlur: 4,
+    shadowOffsetX: 2,
+    shadowOffsetY: 3,
+  }, 0.5);
 
-  assert.equal(appearance.color, 'var(--unknown-fill)');
-  assert.equal(appearance.textShadow, '0 1px 2px rgba(0, 0, 0, 0.65)');
+  assert.equal(paint.textStroke, '2px #ffffff');
+  assert.match(paint.textShadow ?? '', /^1\.35px 2\.03px 2px /);
+  assert.match(paint.textShadow ?? '', /color-mix/);
 });
 
 test('buildInlineEditorRuns mirrors per-range formatting inside the editor', () => {
@@ -146,5 +157,53 @@ test('buildInlineEditorRuns mirrors per-range formatting inside the editor', () 
       textDecoration: runs[3]?.textDecoration,
     },
     { fontWeight: '400', fontStyle: 'italic', textDecoration: 'underline' },
+  );
+});
+
+test('applyInlineEditorTextDraft replaces text and ranges for the edited region', () => {
+  const regions = [
+    { id: 'a', renderText: 'first', renderTextStyleRanges: undefined },
+    { id: 'b', renderText: 'second', renderTextStyleRanges: undefined },
+  ];
+  const ranges = [{ start: 0, end: 5, style: { bold: true } }];
+  const draft = applyInlineEditorTextDraft(regions, {
+    regionId: 'b',
+    value: 'draft',
+    styleRanges: ranges,
+  });
+
+  assert.equal(draft[0], regions[0]);
+  assert.equal(draft[1]?.renderText, 'draft');
+  assert.equal(draft[1]?.renderTextStyleRanges, ranges);
+});
+
+test('resolveInlineEditorWordRange expands around a double-click offset', () => {
+  const text = 'Por favor, segredo...';
+
+  assert.deepEqual(resolveInlineEditorWordRange(text, 14), {
+    start: 11,
+    end: 18,
+  });
+  assert.deepEqual(resolveInlineEditorWordRange(text, 18), {
+    start: 11,
+    end: 18,
+  });
+  assert.deepEqual(resolveInlineEditorWordRange(text, 9), {
+    start: 4,
+    end: 9,
+  });
+});
+
+test('buildInlineEditorRuns keeps an absolute range font size', () => {
+  const runs = buildInlineEditorRuns(
+    'big',
+    [{ start: 0, end: 3, style: { fontSize: 48 } }],
+    baseStyle,
+  );
+
+  assert.equal(runs[0]?.fontSize, 48);
+  assert.equal(
+    buildInlineEditorRuns('small', null, baseStyle)[0]?.fontSize,
+    undefined,
   );
 });

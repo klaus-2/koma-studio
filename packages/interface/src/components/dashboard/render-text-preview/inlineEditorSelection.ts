@@ -1,5 +1,19 @@
 // Pure DOM helpers for the contentEditable inline text editor.
-// Moved verbatim from RenderTextPreview.tsx (T07 split).
+
+// A trailing newline needs a following <br> to own a caret on the empty
+// last line; an unnecessary sentinel is removed once text follows it.
+export const syncTrailingLineBreak = (node: HTMLElement): void => {
+  const last = node.lastChild;
+  if ((node.textContent ?? '').endsWith('\n')) {
+    if (last?.nodeName !== 'BR') {
+      node.appendChild(document.createElement('br'));
+    }
+    return;
+  }
+  if (last?.nodeName === 'BR') {
+    last.remove();
+  }
+};
 
 const normalizeInlineEditorSelectionBounds = (
   start: number,
