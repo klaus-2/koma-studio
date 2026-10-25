@@ -49,7 +49,7 @@
     "preview": "vite preview",
     "release": "bun run build:all && electron-builder --publish always",
     "release:dry": "node scripts/build-release.mjs",
-    "release:win": "bun run build:all && electron-builder --win --publish always",
+    "release:win": "bun run build:all && electron-builder --win --publish always --config.forceCodeSigning=false",
     "release:linux": "bun run build:all && electron-builder --linux --publish always --config.forceCodeSigning=false",
     "release:mac": "bun run build:all && electron-builder --mac --publish always --config.forceCodeSigning=false",
     "harden:mini": "node scripts/ensure-mini-venv.mjs && node scripts/run-python-script.mjs scripts/harden-mini-backend.py",
