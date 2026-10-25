@@ -21,9 +21,12 @@ Common Better Auth routes live under:
 
 ## Update and artifact distribution
 
-- Stable Windows ZIP: [latest.json](https://api.koma-studio.site/updates/stable/latest.json) (index of current stable artifacts)
-- Stable archive: `https://api.koma-studio.site/updates/stable/koma-studio-latest-x64.nsis.7z`
-- Stable mini-backend artifacts index: `https://api.koma-studio.site/updates/stable/mini-backend-artifacts/latest.json`
+- Releases (compiled installers + checksums): https://github.com/klaus-2/koma-studio/releases/latest
+- Runtime feed manifests (per platform, schema v2 multi-part):
+  `https://github.com/klaus-2/koma-studio/releases/latest/download/mini-backend-latest-{platform}-{arch}.json`
+  (each with its `.sig` Ed25519 twin; the multi-GB parts live on immutable
+  `runtime-v<version>` releases)
+- The previous `api.koma-studio.site` update feed is no longer updated
 
 ## Open source
 
