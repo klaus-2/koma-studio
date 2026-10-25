@@ -422,28 +422,6 @@ const runTauriBuild = () => {
   signWindowsArtifact(path.join(resolveCargoReleaseDir(), "koma-studio-v2.exe"), "tauri app executable");
 };
 
-const buildRustHelperBinaries = () => {
-  const cargoArgs = [
-    "build",
-    "--release",
-    "--manifest-path",
-    quote(path.join(rootDir, "src-tauri", "Cargo.toml")),
-    "--bin",
-    "make_bsdiff",
-    "--features",
-    "updater-tools",
-  ];
-  if (explicitTargetTriple) cargoArgs.push("--target", explicitTargetTriple);
-
-  run(`cargo ${cargoArgs.join(" ")}`, "rust helper binaries", {
-    timeout: 900_000,
-    env: {
-      ...resolveTauriEnv(),
-      TAURI_CONFIG: resolveHardenedTauriConfigJson(),
-    },
-  });
-};
-
 const hasSourceMaps = (dir) => {
   if (!fs.existsSync(dir)) return false;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -568,7 +546,6 @@ hardenFrontend();
 
 if (!skipTauri) {
   logStep(4, "Build signed Tauri bundles");
-  buildRustHelperBinaries();
   runTauriBuild();
 } else {
   logStep(4, "Skipping Tauri bundle (--skip-tauri)");
