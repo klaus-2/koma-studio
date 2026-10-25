@@ -13873,8 +13873,9 @@
 
 /* ── generic dark-on-light text fix ──
    Catch-all for hardcoded light text (rgba 186,199,247 / 241,245,249 / 226,232,240 / 255,255,255)
-   applied via muted-text utility classes */
-:root[data-theme-family='noir'] [data-theme="light"] [class*="koma-"] {
+   applied via muted-text utility classes. :where() keeps the subject at zero
+   specificity so an explicit noir light color override still wins. */
+:root[data-theme-family='noir'] [data-theme="light"] :where([class*="koma-"]) {
   color: inherit;
 }
 

@@ -13867,9 +13867,7 @@ html[data-theme="light"] #root {
   background: rgba(0, 0, 0, 0.04);
 }
 
-/* error boundary — the `.koma-error-boundary` ancestor is load-bearing:
-   `[data-theme="light"] [class*="koma-"] { color: inherit }` below ties with a
-   two-part selector on specificity and wins by source order. */
+/* error boundary */
 [data-theme="light"] .koma-error-boundary {
   background:
     radial-gradient(circle at 50% 0%, rgba(225, 29, 72, 0.06), transparent 55%),
@@ -13880,57 +13878,57 @@ html[data-theme="light"] #root {
   background-image: radial-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__card {
+[data-theme="light"] .koma-error-boundary__card {
   border-color: rgba(225, 29, 72, 0.16);
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__icon {
+[data-theme="light"] .koma-error-boundary__icon {
   border-color: rgba(225, 29, 72, 0.14);
   background: rgba(225, 29, 72, 0.06);
   color: var(--auth-rose);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__tag {
+[data-theme="light"] .koma-error-boundary__tag {
   border-color: rgba(225, 29, 72, 0.14);
   background: rgba(225, 29, 72, 0.05);
   color: #9f1239;
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__title {
+[data-theme="light"] .koma-error-boundary__title {
   color: var(--auth-text);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__desc {
+[data-theme="light"] .koma-error-boundary__desc {
   color: rgba(51, 65, 85, 0.75);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__toggle {
+[data-theme="light"] .koma-error-boundary__toggle {
   color: rgba(51, 65, 85, 0.6);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__toggle:hover {
+[data-theme="light"] .koma-error-boundary__toggle:hover {
   color: var(--auth-text);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__rule {
+[data-theme="light"] .koma-error-boundary__rule {
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.08), transparent);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__trace {
+[data-theme="light"] .koma-error-boundary__trace {
   border-color: rgba(0, 0, 0, 0.07);
   background: rgba(248, 250, 252, 0.9);
   color: rgba(30, 41, 59, 0.85);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__copy {
+[data-theme="light"] .koma-error-boundary__copy {
   border-color: rgba(0, 0, 0, 0.08);
   background: rgba(0, 0, 0, 0.02);
   color: rgba(51, 65, 85, 0.7);
 }
 
-[data-theme="light"] .koma-error-boundary .koma-error-boundary__copy:hover {
+[data-theme="light"] .koma-error-boundary__copy:hover {
   border-color: rgba(147, 51, 234, 0.25);
   color: var(--auth-text);
 }
@@ -14236,8 +14234,9 @@ html[data-theme="light"] #root {
 
 /* ── generic dark-on-light text fix ──
    Catch-all for hardcoded light text (rgba 186,199,247 / 241,245,249 / 226,232,240 / 255,255,255)
-   applied via muted-text utility classes */
-[data-theme="light"] [class*="koma-"] {
+   applied via muted-text utility classes. :where() keeps it at zero specificity on
+   the subject so an explicit `[data-theme="light"] .koma-x` color still wins. */
+[data-theme="light"] :where([class*="koma-"]) {
   color: inherit;
 }
 
