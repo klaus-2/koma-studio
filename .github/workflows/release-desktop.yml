@@ -29,6 +29,13 @@ jobs:
       - name: Install JS dependencies (workspace root)
         working-directory: .
         run: bun install
+      - name: Build mini-backend core
+        # build:mini must precede build:app: extraResources copies
+        # packages/mini-backend/dist into the installer, and without this step
+        # that directory does not exist in CI (empty fallback).
+        run: bun run build:mini
+        env:
+          MINI_BACKEND_ACCELERATION_PROFILE: cpu
       - name: Build application
         run: bun run build:app
         env:

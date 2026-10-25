@@ -360,7 +360,12 @@ const main = async () => {
       `[build:mini] Python dependencies already installed for profile '${profile}' (compatible marker + onnxruntime variant). Skipping mini:install-deps.`,
     );
   } else {
-    run(`"${getMiniVenvPython()}" scripts/ensure-mini-deps.py`, "mini:install-deps");
+    // ensure-mini-deps.py lives in the backend package, not in apps/electron.
+    run(
+      `"${getMiniVenvPython()}" scripts/ensure-mini-deps.py`,
+      "mini:install-deps",
+      backendDir,
+    );
     writeMiniDepsMarker(getMiniVenvPath(), depsMarkerHash);
   }
 
