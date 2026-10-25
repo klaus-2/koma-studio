@@ -1,0 +1,75 @@
+name: Runtime artifacts (linux/mac cpu)
+
+# Builds the cpu runtime parts on linux and macOS, extract-and-smokes every
+# part (partitioning bugs detonate here, not on user machines) and, when a
+# draft runtime-v<version> release is provided, appends the parts to it via
+# GITHUB_TOKEN. The signing key never enters CI: manifests are finalized by
+# the local signing machine through publish-runtime-artifacts.mjs (GATE-1
+# hybrid).
+on:
+  workflow_dispatch:
+    inputs:
+      runtime_tag:
+        description: "Draft runtime-v<version> release to append parts to (empty = build + smoke only)"
+        required: false
+        default: ""
+
+env:
+  BUN_VERSION: "1.4.0"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install JS dependencies (workspace root)
+        run: bun install
+      - name: Build cpu runtime parts
+        working-directory: apps/electron
+        env:
+          MINI_BACKEND_ARTIFACT_PROFILES: cpu
+        run: node scripts/build-mini-backend-artifacts.mjs runtime-artifacts
+      - name: Extract and smoke every part
+        working-directory: apps/electron
+        run: node scripts/smoke-runtime-parts.mjs runtime-artifacts/mini-backend-artifacts
+      - name: Append parts to the draft runtime release
+        if: inputs.runtime_tag != ''
+        working-directory: apps/electron
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUNTIME_TAG: ${{ inputs.runtime_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for part in runtime-artifacts/mini-backend-artifacts/*.part-*.zip; do
+            name="$(basename "$part")"
+            # Runtime releases are immutable once published, but a re-dispatched
+            # job replacing its OWN draft asset is delete-before-reupload.
+            asset_id="$(gh release view "$RUNTIME_TAG" --json assets --jq ".assets[] | select(.name == \"$name\") | .id")"
+            if [ -n "$asset_id" ]; then
+              echo "replacing draft asset $name"
+              gh api "repos/{owner}/{repo}/releases/assets/$asset_id" -X DELETE
+            fi
+            gh release upload "$RUNTIME_TAG" "$part"
+          done
+          echo "appended parts to $RUNTIME_TAG"
+      - name: Export manifests for local signing (no-tag mode)
+        if: inputs.runtime_tag == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-manifests-${{ matrix.os }}
+          path: apps/electron/runtime-artifacts/mini-backend-artifacts/*.json
+          retention-days: 7
