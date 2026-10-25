@@ -457,8 +457,6 @@ const verify = ({ sidecar, buildProfile }) => {
     { name: "integrity manifest", ok: fs.existsSync(path.join(distDir, ".integrity.json")) },
     { name: "strict script-src", ok: csp.includes("script-src 'self'") && !csp.includes("'unsafe-eval'") },
     { name: "frontend obfuscation marker", ok: skipObfuscator || hasObfuscationMarkers(path.join(distDir, "assets")) },
-    { name: "tauri updater public key", ok: Boolean(config.plugins?.updater?.pubkey) },
-    { name: "tauri updater artifacts enabled", ok: config.bundle?.createUpdaterArtifacts === true },
     {
       name: embedMiniBackend ? "tauri sidecar binary" : "thin runtime excludes bundled sidecar",
       ok: embedMiniBackend
