@@ -375,7 +375,10 @@ const main = async () => {
             workDir,
             profileVenvPath,
           })
-        : "mini-backend";
+        // Absolute path: MINI_BACKEND_SOURCE_DIR resolves relative values
+        // against apps/electron, so a bare "mini-backend" would point at a
+        // nonexistent directory and break install-deps/pyinstaller cwd.
+        : path.join(rootDir, "..", "..", "packages", "mini-backend");
 
       try {
         run("node scripts/build-mini-backend.mjs", `build-mini-backend:${profile}`, {
