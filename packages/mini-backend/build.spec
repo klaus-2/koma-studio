@@ -119,7 +119,13 @@ a = Analysis(
     ['app.py'],
     pathex=[],
     binaries=[*onnxruntime_binaries, *nvidia_binaries, *local_binaries],
-    datas=[*psd_datas, *photoshop_datas, *pdfium_datas, *py7zr_datas, *transformers_datas, *tokenizers_datas, *onnxruntime_datas, *nvidia_datas],
+    datas=[
+        # The model-asset manifest is runtime data read next to its loader
+        # module; without this entry every packaged exe crashes at boot with
+        # FileNotFoundError for model-assets.json.
+        (str(PROJECT_ROOT / 'models' / 'manifests' / 'model-assets.json'), 'models/manifests'),
+        *psd_datas, *photoshop_datas, *pdfium_datas, *py7zr_datas, *transformers_datas, *tokenizers_datas, *onnxruntime_datas, *nvidia_datas,
+    ],
     hiddenimports=['uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto', 'uvicorn.protocols', 'uvicorn.protocols.http', 'uvicorn.protocols.http.auto', 'uvicorn.protocols.websockets', 'uvicorn.protocols.websockets.auto', 'uvicorn.lifespan', 'uvicorn.lifespan.on', 'multipart', *local_hiddenimports, *psd_hiddenimports, *photoshop_hiddenimports, *pdfium_hiddenimports, *py7zr_hiddenimports, *transformers_hiddenimports, *tokenizers_hiddenimports, *sentencepiece_hiddenimports, *torch_hiddenimports, *torchvision_hiddenimports, *onnxruntime_hiddenimports],
     hookspath=[],
     hooksconfig={},

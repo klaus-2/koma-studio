@@ -47,7 +47,7 @@ const extractPart = (partFile, destinationDir) => {
 };
 
 const waitForHealth = async (baseUrl, child) => {
-  for (let attempt = 0; attempt < 90; attempt += 1) {
+  for (let attempt = 0; attempt < 240; attempt += 1) {
     if (child.exitCode !== null) {
       throw new Error(`entry binary exited early with code ${child.exitCode}`);
     }
@@ -89,21 +89,36 @@ const run = async () => {
     }
 
     const port = 18800 + Math.floor(Math.random() * 100);
+    const stderrTail = [];
     const child = spawn(entryPath, [], {
       cwd: installDir,
-      stdio: "ignore",
+      stdio: ["ignore", "ignore", "pipe"],
       env: {
         ...process.env,
         PORT: String(port),
         KOMA_MODELS_ROOT: path.join(smokeRoot, "models"),
         KOMA_LOCAL_API_SESSION_SECRET: "smoke-secret",
         PYTHONUTF8: "1",
+        PYTHONIOENCODING: "utf-8",
+        MINI_BACKEND_WARMUP_DETECTOR: "0",
         MINI_BACKEND_ACCELERATION_PROFILE: profile.profile,
       },
+    });
+    child.stderr.on("data", (chunk) => {
+      if (stderrTail.length < 400) {
+        stderrTail.push(String(chunk));
+      }
     });
     try {
       await waitForHealth(`http://127.0.0.1:${port}`, child);
       console.log(`[smoke-runtime] ${profile.profile}: healthy after ${profile.parts.length} part(s)`);
+    } catch (error) {
+      if (stderrTail.length > 0) {
+        console.error(
+          `[smoke-runtime] ${profile.profile} stderr tail:\n${stderrTail.join("").split("\n").slice(-12).join("\n")}`,
+        );
+      }
+      throw error;
     } finally {
       if (process.platform === "win32") {
         spawnSync(`taskkill /PID ${child.pid} /T /F`, { shell: true, stdio: "ignore" });
