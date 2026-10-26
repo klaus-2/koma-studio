@@ -8,6 +8,27 @@ Version headings carry no `v`; the git tags do.
 
 ## [Unreleased]
 
+### Added
+
+**Focus Mode (Modo Foco / Zen).** The dashboard can now collapse into a
+single distraction-free line — add pages → run AIO → fix → export — via the
+new topbar button, `Alt+Z` (configurable in the shortcut center) or
+Settings → App → Dashboard layout. Focus is a persisted *display mode*,
+orthogonal to tool mode and theme family: the dashboard page and its hooks
+stay mounted, so the AIO pipeline, workspace autosave, undo history and
+exports behave exactly as in Studio while the layout shows only the page
+rail, the language pair, the render canvas, a canvas-synced fix list
+(original → editable translation, `Ctrl+Enter` advances) and one primary
+action per step. Progress is derived from real pipeline state and includes
+a per-page review queue with empty-bubble QC counts; preflight banners
+surface disabled stage toggles and the first blocked model (opening the
+standard model manager) before a run. Entering stashes the Studio shell
+(mode/sub-mode/view) and enforces AIO + manual through the page's own
+callbacks; leaving restores it. Tour coachmarks, the custom cursor and
+decorative motion are suppressed, and the shortcut layer only resolves
+Focus-safe actions while Focus is active. Spec: `docs/focus-mode.md`.
+([`d87ecb5`](https://github.com/klaus-2/koma-studio/commit/d87ecb5))
+
 ## [1.2.0] - 2026-10-25
 
 264 commits since v1.1.0. This is the first release with compiled artifacts
