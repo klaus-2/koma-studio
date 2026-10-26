@@ -608,10 +608,13 @@ async def provision(
         if environment_root is None
         else environment_root.resolve(strict=True)
     )
+    # POSIX venvs expose bin/python as a symlink to the base interpreter;
+    # resolving it would move the target outside the venv and trip the
+    # containment check below.
     resolved_target_python = (
-        Path(sys.executable).resolve()
+        Path(sys.executable)
         if target_python is None
-        else target_python.resolve(strict=True)
+        else Path(target_python).absolute()
     )
     environment_bin = resolved_environment_root / Path(
         "Scripts" if platform.system() == "Windows" else "bin"
