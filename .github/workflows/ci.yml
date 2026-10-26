@@ -139,7 +139,7 @@ jobs:
       - name: Install dependencies (workspace root)
         run: bun install --frozen-lockfile
       - name: Typecheck
-        run: bun run --filter @koma/auth-server typecheck --if-present
+        run: bun run --filter @koma/auth-server typecheck
       - name: Tests
         run: bun run --filter @koma/auth-server test
 
