@@ -69,6 +69,7 @@
   "dependencies": {
     "@koma/auth": "workspace:*",
     "@koma/interface": "workspace:*",
+    "@koma/types": "workspace:*",
     "@koma/ui": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "@tauri-apps/api": "^2.11.1",
