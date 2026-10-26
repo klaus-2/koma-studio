@@ -65,20 +65,7 @@
         "type": "embedBootstrapper",
         "silent": true
       },
-      "allowDowngrades": false,
-      "signCommand": {
-        "cmd": "powershell",
-        "args": [
-          "-NoProfile",
-          "-ExecutionPolicy",
-          "Bypass",
-          "-File",
-          "../scripts/sign-windows.ps1",
-          "%1"
-        ]
-      },
-      "digestAlgorithm": "sha256",
-      "timestampUrl": "http://timestamp.digicert.com"
+      "allowDowngrades": false
     },
     "macOS": {
       "frameworks": [],
