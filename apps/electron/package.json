@@ -3,7 +3,10 @@
   "version": "1.2.0",
   "description": "KŌMA Studio - The Ultimate Scanlation Toolkit",
   "main": "dist-electron/main.js",
-  "author": "KŌMA Studio",
+  "author": {
+    "name": "KŌMA Studio",
+    "email": "support@koma-studio.site"
+  },
   "license": "MIT",
   "packageManager": "bun@1.4.0",
   "repository": {
