@@ -63,6 +63,7 @@
   "dependencies": {
     "@koma/auth": "workspace:*",
     "@koma/interface": "workspace:*",
+    "@koma/types": "workspace:*",
     "@koma/ui": "workspace:*",
     "@nich87/discord-rpc": "^1.0.0",
     "@tailwindcss/vite": "^4.1.0",
