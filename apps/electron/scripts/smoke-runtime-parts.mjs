@@ -87,6 +87,11 @@ const run = async () => {
         `union-completeness violation: entry ${profile.entry} missing after extracting ${profile.parts.length} part(s) of ${profile.profile}`,
       );
     }
+    if (process.platform !== "win32") {
+      // Python's zipfile extraction drops the executable bit; restore it
+      // before spawning the packaged entry.
+      fs.chmodSync(entryPath, 0o755);
+    }
 
     const port = 18800 + Math.floor(Math.random() * 100);
     const stderrTail = [];
