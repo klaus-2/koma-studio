@@ -381,13 +381,20 @@ const main = async () => {
 
   // PyInstaller onedir creates distDir/mini-backend/<files>.
   // Flatten the subdirectory so files sit directly in distDir (same layout the
-  // rest of the pipeline expects from the old onefile mode).
+  // rest of the pipeline expects from the old onefile mode). On POSIX the
+  // folder and the executable share the name, so stage the folder aside
+  // before moving its entries.
   const onedirSubdir = path.join(distDir, "mini-backend");
   if (fs.existsSync(onedirSubdir) && fs.statSync(onedirSubdir).isDirectory()) {
+    const stagingDir = fs.mkdtempSync(path.join(distDir, ".mini-backend-"));
     for (const entry of fs.readdirSync(onedirSubdir)) {
-      fs.renameSync(path.join(onedirSubdir, entry), path.join(distDir, entry));
+      fs.renameSync(path.join(onedirSubdir, entry), path.join(stagingDir, entry));
     }
     fs.rmSync(onedirSubdir, { recursive: true, force: true });
+    for (const entry of fs.readdirSync(stagingDir)) {
+      fs.renameSync(path.join(stagingDir, entry), path.join(distDir, entry));
+    }
+    fs.rmSync(stagingDir, { recursive: true, force: true });
   }
 
   writeLaunchManifest(profile);
