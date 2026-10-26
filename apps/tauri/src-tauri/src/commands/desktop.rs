@@ -572,10 +572,9 @@ impl UpdateChannel {
     }
 }
 
-/// Legacy free-function name still imported by `commands::bug_report`.
-pub(crate) fn update_channel_from_version(version: &str) -> String {
-    UpdateChannel::from_version(version).as_str().to_owned()
-}
+/// Channel reported by desktop diagnostics; runtime artifacts keep using the
+/// build-derived channel.
+pub(crate) const DESKTOP_UPDATE_CHANNEL: &str = UpdateChannel::Stable.as_str();
 
 /// Filesystem anchors used to discover configuration files.
 #[derive(Debug, Clone, Default)]

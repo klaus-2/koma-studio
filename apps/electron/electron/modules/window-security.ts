@@ -13,7 +13,7 @@ import {
 import { INTERNAL_APP_HOST, INTERNAL_APP_PROTOCOL } from "./app-protocols.ts";
 import { resolveRendererCorsOrigin } from "./app-protocols.ts";
 import type { DesktopAuthSession } from "./desktop-auth-session.ts";
-import { getDesktopUpdateChannel } from "./desktop-session-headers.ts";
+import { DESKTOP_UPDATE_CHANNEL } from "./desktop-session-headers.ts";
 import { shouldAttachLocalSessionHeader } from "./window-security-headers.ts";
 
 interface WindowSecurityDeps {
@@ -79,7 +79,7 @@ const createWindowSecurity = (deps: WindowSecurityDeps) => {
               details.requestHeaders[DESKTOP_DEVICE_ID_HEADER] = desktopAuth.getState().deviceId;
             }
             details.requestHeaders[DESKTOP_APP_VERSION_HEADER] = app.getVersion();
-            details.requestHeaders[DESKTOP_UPDATE_CHANNEL_HEADER] = getDesktopUpdateChannel(app.getVersion());
+            details.requestHeaders[DESKTOP_UPDATE_CHANNEL_HEADER] = DESKTOP_UPDATE_CHANNEL;
 
           }
 

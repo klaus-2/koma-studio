@@ -9,11 +9,7 @@ import {
   DESKTOP_UPDATE_CHANNEL_HEADER,
 } from "./desktop-auth-constants.ts";
 
-// Source-only model: no native updater state — infer the channel from the app
-// version (same heuristic as the renderer's inferChannelFromVersion).
-const getDesktopUpdateChannel = (appVersion: string): "stable" | "beta" => {
-  return appVersion.includes("-") ? "beta" : "stable";
-};
+const DESKTOP_UPDATE_CHANNEL = "stable";
 
 interface DesktopSessionHeaderState {
   token: string;
@@ -29,7 +25,7 @@ const buildDesktopSessionHeaders = (
 ): Headers => {
   const headers = new Headers(headersInit);
   headers.set(DESKTOP_APP_VERSION_HEADER, appVersion);
-  headers.set(DESKTOP_UPDATE_CHANNEL_HEADER, getDesktopUpdateChannel(appVersion));
+  headers.set(DESKTOP_UPDATE_CHANNEL_HEADER, DESKTOP_UPDATE_CHANNEL);
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
@@ -41,4 +37,4 @@ const buildDesktopSessionHeaders = (
   return headers;
 };
 
-export { buildDesktopSessionHeaders, getDesktopUpdateChannel };
+export { buildDesktopSessionHeaders, DESKTOP_UPDATE_CHANNEL };

@@ -56,7 +56,7 @@ import {
   hasDesktopAuthCookie,
 } from "./modules/desktop-auth-cookies.ts";
 import {
-  getDesktopUpdateChannel,
+  DESKTOP_UPDATE_CHANNEL,
 } from "./modules/desktop-session-headers.ts";
 import { createDesktopAuthSession } from "./modules/desktop-auth-session.ts";
 import { createDesktopSessionApi } from "./modules/desktop-session-api.ts";
@@ -737,7 +737,7 @@ setupDesktopDiscordWebhookIpcHandlers();
 setupDesktopBugReportIpcHandlers({
   getMainWindow: () => mainWindow,
   resolveDesktopEnvValue,
-  getDesktopUpdateChannel: () => getDesktopUpdateChannel(app.getVersion()),
+  getDesktopUpdateChannel: () => DESKTOP_UPDATE_CHANNEL,
   miniBackendRuntimeLogBuffer: miniBackendRuntimeLog.getEntries(),
   miniBackendProcessRef: () => miniBackendSupervisor.getProcess(),
   authApiUrl,

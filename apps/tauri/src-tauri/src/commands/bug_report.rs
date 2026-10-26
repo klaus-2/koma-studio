@@ -18,7 +18,7 @@ use crate::commands::{
     api::client::{http_client, stable_hash},
     desktop::{
         build_runtime_config, check_local_backend_health, resolve_desktop_internal_value,
-        update_channel_from_version,
+        DESKTOP_UPDATE_CHANNEL,
     },
 };
 
@@ -752,7 +752,7 @@ async fn diagnostics<R: Runtime>(app: &AppHandle<R>) -> Result<BugReportDiagnost
         } else {
             "production"
         },
-        update_channel: update_channel_from_version(&package.version.to_string()),
+        update_channel: DESKTOP_UPDATE_CHANNEL.to_owned(),
         mini_backend_running,
         auth_api_url: config.auth_api_url,
         local_api_url: config.local_api_url,
