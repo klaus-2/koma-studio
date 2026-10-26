@@ -129,7 +129,7 @@
     },
     "apps/tauri": {
       "name": "@koma/tauri",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "dependencies": {
         "@koma/auth": "workspace:*",
         "@koma/interface": "workspace:*",
@@ -157,6 +157,7 @@
         "react-idle-timer": "^5.7.3",
         "react-markdown": "^10.1.0",
         "remark-gfm": "^4.0.1",
+        "scheduler": "^0.27.0",
         "tailwind-merge": "^2.6.1",
         "uuid": "^13.0.2",
         "zustand": "^5.0.15",

@@ -70,6 +70,17 @@ export default defineConfig(async ({ mode }) => {
       sourcemap: false,
       chunkSizeWarningLimit: 3500,
       rollupOptions: {
+        // An unresolved bare specifier is externalized into the bundle;
+        // WebView2 cannot resolve it and the whole module graph fails
+        // (blank window). Fail the build instead of shipping it.
+        onwarn(warning, warn) {
+          if (warning.code === "UNRESOLVED_IMPORT") {
+            throw new Error(
+              `Unresolved import reached the production bundle: ${warning.message}`,
+            );
+          }
+          warn(warning);
+        },
         output: {
           manualChunks(id: string) {
             if (
