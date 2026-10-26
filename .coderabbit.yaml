@@ -82,8 +82,9 @@ reviews:
           runtime part is on the release; clients cannot retry a 404.
         - Flag any build that enables hardening. This repository is public; installers
           and runtime profiles use the normal build path.
-        - The CI install uses `bun install --frozen-lockfile`; a workspace version bump
-          must update `bun.lock` in the same PR.
+        - The ci.yml jobs install with `bun install --frozen-lockfile`
+          (runtime-artifacts.yml uses a plain `bun install`); a workspace version
+          bump must update `bun.lock` in the same PR.
 
     - path: "apps/electron/scripts/**"
       instructions: |
@@ -97,6 +98,29 @@ reviews:
           consumer in the same PR.
         - Never enable hardened builds (`MINI_BACKEND_ARTIFACTS_HARDENED` or
           `build:hardened:*`); releases are clean builds.
+
+    - path: "apps/tauri/scripts/**"
+      instructions: |
+        Release scripts for the Tauri shell; the Windows installers are built
+        locally and the Linux/macOS ones by release-desktop.yml, both through
+        these scripts.
+        - `rename-tauri-installers.mjs` appends `-tauri` to bundle names and must
+          stay in sync with the download CTA matcher in
+          `apps/landing/src/components/LatestDownloadButton.tsx`; flag a change to
+          one without the other.
+        - The renamer must leave no bundle folder holding both the plain and the
+          `-tauri` installer name.
+        - Flag a script behaviour change without a covering test; scripts are
+          tested with `node:test` (`scripts/*.test.mjs`, like the Electron
+          scripts) or the vitest unit tests.
+
+    - path: "apps/landing/src/components/LatestDownloadButton.tsx"
+      instructions: |
+        The CTA resolves the Tauri installer by filename suffix against the
+        latest release assets. The suffixes are coupled to the artifact names the
+        builds actually produce (`rename-tauri-installers.mjs` for Tauri, the
+        electron-builder `artifactName` for Electron); flag a change that accepts
+        a name no build produces or drops a name still published.
 
 knowledge_base:
   code_guidelines:

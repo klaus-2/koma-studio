@@ -38,6 +38,9 @@ export default function LatestDownloadButton() {
         const release: LatestRelease = await response.json();
         if (!alive || typeof release.tag_name !== "string" || !Array.isArray(release.assets)) return;
 
+        // Two naming eras: releases up to v1.2.0 shipped the Tauri NSIS with its
+        // default `..._x64-setup.exe` name; rename-tauri-installers.mjs now
+        // appends `-tauri`. Match both while a pre-rename release is the latest.
         const asset = release.assets.find(
           (entry) =>
             typeof entry.name === "string" &&

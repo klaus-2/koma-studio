@@ -41,7 +41,7 @@
     "lint": "eslint .",
     "lint:strict": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "node --test \"scripts/*.test.mjs\" && vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:browser": "vitest run --config vitest.browser.config.ts",
