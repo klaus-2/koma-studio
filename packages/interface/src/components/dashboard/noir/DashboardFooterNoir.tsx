@@ -92,8 +92,12 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
     ? new Date(workspaceLastSavedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : t('dashboard.footer.lastSave.never');
 
-  const runtimeSourceLabel = (source: DesktopMiniBackendRuntimeState['source']) =>
-    source === 'downloaded-runtime' ? t('dashboard.footer.runtime.downloaded') : t('dashboard.footer.runtime.embedded');
+  const runtimeSourceLabel = (source: DesktopMiniBackendRuntimeState['source']) => {
+    if (source === 'no-runtime-installed') return 'Not installed';
+    return source === 'downloaded-runtime'
+      ? t('dashboard.footer.runtime.downloaded')
+      : t('dashboard.footer.runtime.embedded');
+  };
 
   const gpuInfoLabel = (() => {
     const gpuName = miniBackendRuntimeState?.gpuName ?? aioDeviceInfo?.name;
@@ -107,7 +111,10 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
         'nvidia-tensorrt': 'NVIDIA TensorRT', 'amd-rocm': 'AMD ROCm',
         'intel-openvino': 'Intel OpenVINO', 'apple-mps': 'Apple Silicon GPU',
       };
-      return names[activeProfile] ?? activeProfile;
+      const label = names[activeProfile] ?? activeProfile;
+      return miniBackendRuntimeState?.source === 'no-runtime-installed'
+        ? `Recommended profile: ${label}`
+        : label;
     }
     return 'CPU';
   })();
@@ -158,6 +165,15 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
           requested: formatProfileLabel(miniBackendRuntimeState.requestedProfile),
           active: formatProfileLabel(miniBackendRuntimeState.activeProfile),
         }), icon: AlertTriangle
+      };
+    }
+    if (miniBackendRuntimeState.source === 'no-runtime-installed') {
+      return {
+        label: 'Not installed', tone: 'fallback' as const,
+        title: 'Local runtime not installed',
+        detail: normalizeMessage(miniBackendRuntimeState.statusMessage)
+          ?? 'Install the local runtime from Settings → Runtime to enable AI/OCR features.',
+        icon: AlertTriangle,
       };
     }
     switch (miniBackendRuntimeState.activeProfile) {

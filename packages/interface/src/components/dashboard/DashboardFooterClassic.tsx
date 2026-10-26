@@ -92,10 +92,12 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
     })
     : t('dashboard.footer.lastSave.never');
 
-  const runtimeSourceLabel = (source: DesktopMiniBackendRuntimeState['source']) =>
-    source === 'downloaded-runtime'
+  const runtimeSourceLabel = (source: DesktopMiniBackendRuntimeState['source']) => {
+    if (source === 'no-runtime-installed') return 'Not installed';
+    return source === 'downloaded-runtime'
       ? t('dashboard.footer.runtime.downloaded')
       : t('dashboard.footer.runtime.embedded');
+  };
 
   const gpuInfoLabel = (() => {
     const runtimeGpuName = miniBackendRuntimeState?.gpuName;
@@ -119,7 +121,10 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
         'intel-openvino': 'Intel OpenVINO',
         'apple-mps': 'Apple Silicon GPU',
       };
-      return profileNames[activeProfile] ?? activeProfile;
+      const label = profileNames[activeProfile] ?? activeProfile;
+      return miniBackendRuntimeState?.source === 'no-runtime-installed'
+        ? `Recommended profile: ${label}`
+        : label;
     }
     return 'CPU';
   })();
@@ -209,6 +214,18 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
           requested: formatProfileLabel(miniBackendRuntimeState.requestedProfile),
           active: formatProfileLabel(miniBackendRuntimeState.activeProfile),
         }),
+        icon: AlertTriangle,
+      };
+    }
+
+    if (miniBackendRuntimeState.source === 'no-runtime-installed') {
+      return {
+        label: 'Not installed',
+        tone: 'fallback' as const,
+        title: 'Local runtime not installed',
+        detail:
+          normalizeMessage(miniBackendRuntimeState.statusMessage) ??
+          'Install the local runtime from Settings → Runtime to enable AI/OCR features.',
         icon: AlertTriangle,
       };
     }
