@@ -92,9 +92,6 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 # Optional: Discord Rich Presence (CHECK feature flag at runtime)
 discord-rich-presence = { version = "0.2", optional = true }
 
-[target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_FileSystem", "Win32_UI_WindowsAndMessaging"] }
-
 # Secrets hygiene (zeroized on drop)
 zeroize = "1"
 
@@ -103,6 +100,9 @@ sysinfo = "0.33"
 
 # Async stream helpers (imgur upload body)
 tokio-util = { version = "0.7", features = ["io"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_FileSystem", "Win32_UI_WindowsAndMessaging"] }
 
 [features]
 default = ["discord-rpc"]

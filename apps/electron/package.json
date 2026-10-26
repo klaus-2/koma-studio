@@ -196,6 +196,8 @@
         "AppImage",
         "deb"
       ],
+      "executableName": "koma-studio",
+      "packageName": "koma-studio",
       "category": "Utility",
       "icon": "resources/linux/icons/512x512.png"
     },
