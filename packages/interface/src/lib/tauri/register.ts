@@ -13,7 +13,7 @@ import { invokeCommand, tauriApi } from "./api";
 import { setRuntimeAdapter } from "@koma/auth/runtime-adapter";
 import { isAuthDisabledFlag } from "@shared/auth-disabled";
 import { desktopCommandChannels, localApiSessionHeader } from "@shared/desktop-api";
-import { installRendererConsoleCapture } from "../install-renderer-console-capture";
+import { installRendererConsoleCapture, type SessionLogSink } from "../install-renderer-console-capture";
 import { buildUrl } from "../../config/api";
 import { getDesktopUpdatePolicyHeaders } from "../../config/desktopClient";
 import { useUpdaterBlocking } from "../../hooks/useUpdater";
@@ -99,11 +99,32 @@ setUiI18n(useI18n);
 
 // Renderer console capture: forward console.error/warn into the Tauri
 // session-log command.
+const forwardToSessionLog: SessionLogSink = (payload) => {
+  void desktopBridge.desktop?.sessionLog(payload);
+};
 installRendererConsoleCapture({
   source: "tauri-renderer",
-  sink: (payload) => {
-    void desktopBridge.desktop?.sessionLog(payload);
-  },
+  sink: forwardToSessionLog,
+});
+
+// console.error hooks miss uncaught errors and rejections that bypass the
+// console; route them through the same session-log sink.
+window.addEventListener("error", (event) => {
+  forwardToSessionLog({
+    source: "tauri-renderer",
+    level: "error",
+    message: `uncaught error: ${event.message} (${event.filename}:${event.lineno}:${event.colno})`,
+  });
+});
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason instanceof Error
+    ? `${event.reason.name}: ${event.reason.message}`
+    : String(event.reason);
+  forwardToSessionLog({
+    source: "tauri-renderer",
+    level: "error",
+    message: `unhandled rejection: ${reason}`,
+  });
 });
 
 // Same lever as the electron shell: an explicit VITE_AUTH_DISABLED wins either
