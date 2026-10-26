@@ -115,6 +115,7 @@ import './SettingsPresets.css';
 import './SettingsIntegrations.css';
 import { useI18n } from "../i18n";
 import { useThemeStore } from "@koma/ui/stores/theme-store";
+import { useFocusModeStore } from "./dashboard/stores/focus-mode-store";
 import type { RenderTextStyle } from "../utils/renderText";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
@@ -185,6 +186,10 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   const setCurrentTheme = useThemeStore((s) => s.setTheme);
   const currentFamily = useThemeStore((s) => s.family);
   const setCurrentFamily = useThemeStore((s) => s.setFamily);
+  // Display mode is applied by the dashboard's transition effect on
+  // mount; Settings only flips the persisted preference.
+  const displayMode = useFocusModeStore((s) => s.displayMode);
+  const setDisplayMode = useFocusModeStore((s) => s.setDisplayMode);
 
   /* state — profile */
   const [verificationBusy, setVerificationBusy] = useState(false);
@@ -1623,6 +1628,8 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       setCurrentTheme,
       currentFamily,
       setCurrentFamily,
+      displayMode,
+      setDisplayMode,
       locale,
       localeLabels,
       setLocale,

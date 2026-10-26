@@ -20,6 +20,7 @@ import type {
   LocalResetFeedbackState,
   WorkspaceAutosaveFeedbackState,
 } from "./settings.types";
+import type { KomaDisplayMode } from "../dashboard/stores/focus-mode-store";
 
 type TranslationFn = ReturnType<typeof useI18n>["t"];
 type UpdaterStatusInfo = { labelKey: string; color: string; dot: string };
@@ -30,6 +31,8 @@ interface SettingsAppTabArgs {
   setCurrentTheme: (theme: KomaTheme) => void;
   currentFamily: KomaThemeFamily;
   setCurrentFamily: (family: KomaThemeFamily) => void;
+  displayMode: KomaDisplayMode;
+  setDisplayMode: (mode: KomaDisplayMode) => void;
   locale: AppLocale;
   localeLabels: Record<AppLocale, string>;
   setLocale: (locale: AppLocale) => void;
@@ -76,6 +79,8 @@ export const renderSettingsAppTab = ({
   setCurrentTheme,
   currentFamily,
   setCurrentFamily,
+  displayMode,
+  setDisplayMode,
   locale,
   localeLabels,
   setLocale,
@@ -166,6 +171,39 @@ export const renderSettingsAppTab = ({
           type="button"
           className={`koma-stg-theme ${currentTheme === opt.id ? "koma-stg-theme--active" : ""}`}
           onClick={() => setCurrentTheme(opt.id)}
+        >
+          <div className={`koma-stg-theme__preview koma-stg-theme__preview--${opt.id}`}>
+            {opt.icon}
+          </div>
+          <div className="koma-stg-theme__info">
+            <span className="koma-stg-theme__name">{t(opt.nameKey)}</span>
+            <span className="koma-stg-theme__desc">{t(opt.descKey)}</span>
+          </div>
+        </button>
+      ))}
+    </div>
+  </section>
+
+  <section className="koma-stg-section">
+    <div className="koma-stg-section__head">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
+        <path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 3h-2.07A7.99 7.99 0 0013 5.07V3h-2v2.07A7.99 7.99 0 005.07 11H3v2h2.07A7.99 7.99 0 0011 18.93V21h2v-2.07A7.99 7.99 0 0018.93 13H21v-2z" />
+      </svg>
+      <h3 className="koma-stg-section__title">{t("settings.displayMode.title")}</h3>
+    </div>
+    <p className="koma-stg-section__desc">{t("settings.displayMode.description")}</p>
+
+    <div className="koma-stg-themes">
+      {([
+        { id: "studio" as KomaDisplayMode, icon: "全", nameKey: "settings.displayMode.studio", descKey: "settings.displayMode.studioDesc" },
+        { id: "focus" as KomaDisplayMode, icon: "静", nameKey: "settings.displayMode.focus", descKey: "settings.displayMode.focusDesc" },
+      ] as const).map((opt) => (
+        <button
+          key={opt.id}
+          type="button"
+          className={`koma-stg-theme ${displayMode === opt.id ? "koma-stg-theme--active" : ""}`}
+          aria-pressed={displayMode === opt.id}
+          onClick={() => setDisplayMode(opt.id)}
         >
           <div className={`koma-stg-theme__preview koma-stg-theme__preview--${opt.id}`}>
             {opt.icon}

@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  Suspense,
+  lazy,
   useRef,
   useEffect,
   useCallback,
@@ -200,6 +202,16 @@ import { useWorkspacePersistence } from './dashboard/hooks/workspace-persistence
 import { useDashboardKeyboard } from './dashboard/hooks/use-dashboard-keyboard';
 import { useDashboardIdlePreload } from './dashboard/hooks/use-dashboard-idle-preload';
 import DashboardMainLayout from './dashboard/sections/DashboardMainLayout';
+import DashboardModelManagers from '../components/dashboard/DashboardModelManagers';
+import DashboardLazyFallback from '../components/dashboard/DashboardLazyFallback';
+import { useFocusModeStore } from './dashboard/stores/focus-mode-store';
+import { useEnhanceStore } from './dashboard/stores/enhance-store';
+import { memoLoad } from '../utils/lazyModule';
+
+const loadFocusLayout = memoLoad(
+  () => import('./dashboard/sections/focus/FocusLayout'),
+);
+const FocusLayout = lazy(loadFocusLayout);
 
 // ── UI Sub-components ──
 // ── Main Component ──
@@ -229,6 +241,9 @@ export const DashboardPage = ({
   const modeLabels = useMemo(() => getModeLabels(t), [t]);
   const underDevelopmentTooltip = t(UNDER_DEVELOPMENT_TOOLTIP_KEY);
   // ── Core State ──
+  const displayMode = useFocusModeStore((s) => s.displayMode);
+  const enhanceModelId = useEnhanceStore((s) => s.enhanceModelId);
+  const setEnhanceModelId = useEnhanceStore((s) => s.setEnhanceModelId);
   const mode = useUiShellStore((s) => s.mode);
   const setMode = useUiShellStore((s) => s.setMode);
   const subMode = useUiShellStore((s) => s.subMode);
@@ -2223,7 +2238,9 @@ export const DashboardPage = ({
 
   const { replayTour } = useDashboardTour({
     userId: authUser?.id ?? null,
-    isReady: !authLoading,
+    // Focus Mode has none of the tour's DOM anchors — and no interruptions
+    // by design. The tour resumes normally back in Studio.
+    isReady: !authLoading && displayMode !== 'focus',
     mode,
     subMode,
     activeId,
@@ -2240,7 +2257,7 @@ export const DashboardPage = ({
   });
   useDashboardModeCoachmarks({
     userId: authUser?.id ?? null,
-    isReady: !authLoading,
+    isReady: !authLoading && displayMode !== 'focus',
     mode,
     subMode,
     hasImages: images.length > 0,
@@ -2259,7 +2276,139 @@ export const DashboardPage = ({
     activeHasManualWandSelection;
 
   const translationNotesEnabled = llmSettings.translation_notes_enabled;
+
+  // ── Focus Mode (Zen) shell transitions ──────────────────────────
+  // `useFocusMode` only flips the persisted display mode (and stashes
+  // the Studio shell on entry); the page owns the effects because they
+  // must go through `handleModeChange` / `handleAioSubModeChange` —
+  // the latter normalises manual snapshot progress, which region
+  // editing depends on. All operations below are idempotent, so
+  // booting straight into a persisted Focus session is safe.
+  const prevDisplayModeRef = useRef(displayMode);
+  useEffect(() => {
+    const prevDisplayMode = prevDisplayModeRef.current;
+    prevDisplayModeRef.current = displayMode;
+
+    if (displayMode === 'focus') {
+      const shell = useUiShellStore.getState();
+      if (shell.mode !== 'aio') handleModeChange('aio');
+      handleAioSubModeChange('manual');
+      if (useUiShellStore.getState().viewMode !== 'paginated') {
+        useUiShellStore.getState().setViewMode('paginated');
+      }
+      // Written after handleModeChange's own status so the Focus
+      // message is the one that sticks — only on a real transition.
+      if (prevDisplayMode !== 'focus') {
+        setStatusMessage(t('focus.entered'));
+      }
+      return;
+    }
+
+    if (prevDisplayMode !== 'focus') return;
+
+    const stash = useFocusModeStore.getState().shellStash;
+    useFocusModeStore.getState().setShellStash(null);
+    const shell = useUiShellStore.getState();
+    if (!stash) {
+      // Booted into Focus from the persisted preference: no Studio
+      // session to restore, fall back to the Studio defaults.
+      handleAioSubModeChange('auto');
+      useUiShellStore.getState().setViewMode('long_strip');
+      setStatusMessage(t('focus.exited'));
+      return;
+    }
+    if (!shell.processing && stash.mode !== shell.mode) {
+      handleModeChange(stash.mode);
+    }
+    if (
+      stash.subMode === 'manual' &&
+      shell.subMode === 'manual' &&
+      !shell.processing
+    ) {
+      // An AIO run inside Focus happens already-manual and skips the
+      // auto→manual hand-off; toggle through auto so manual progress
+      // is re-initialised from the fresh snapshots.
+      handleAioSubModeChange('auto');
+      handleAioSubModeChange('manual');
+    } else {
+      handleAioSubModeChange(stash.subMode);
+    }
+    if (stash.viewMode !== useUiShellStore.getState().viewMode) {
+      useUiShellStore.getState().setViewMode(stash.viewMode);
+    }
+    setStatusMessage(t('focus.exited'));
+  }, [displayMode, handleAioSubModeChange, handleModeChange, setStatusMessage, t]);
+
   // ══════════════ RENDER ══════════════
+  if (displayMode === 'focus') {
+    return (
+      <SplitterControllerProvider controller={splitterController}>
+        <Suspense fallback={<DashboardLazyFallback />}>
+          <FocusLayout
+            processAIO={processAIO}
+            stopAioExecution={stopAioExecution}
+            getRootProps={getRootProps}
+            getInputProps={getInputProps}
+            onDropFiles={onDrop}
+            removeImage={removeImage}
+            getPreviewSrc={getPreviewSrc}
+            selectAioRegionForImage={selectAioRegionForImage}
+            updateAioRegionsForImage={updateAioRegionsForImage}
+            refineActiveTypographerShape={refineActiveTypographerShape}
+            renderFontRefreshToken={renderFontRefreshToken}
+            availableRenderFonts={availableRenderFonts}
+            translationNotesEnabled={translationNotesEnabled}
+            isCompactViewport={isCompactViewport}
+            handleStageWheelZoom={handleStageWheelZoom}
+            handleDownload={handleDownload}
+            modelEntries={modelManagerState.entries}
+            getAioStageOption={getAioStageOption}
+            openModelManagerForStage={openModelManagerForStage}
+            selectedCustomOcrProfile={selectedCustomOcrProfile}
+            selectedCustomTranslationProfile={selectedCustomTranslationProfile}
+            modelManagerOpen={modelManagerState.modalOpen}
+            onOpenSettings={onOpenSettings}
+            modelManagers={(
+              <DashboardModelManagers
+                activeModelManagerStage={activeModelManagerStage}
+                modelManagerState={modelManagerState}
+                modelSummary={modelSummary}
+                aioSrcLang={aioSrcLang}
+                aioStageSelection={aioStageSelection}
+                aioStageOptions={aioStageOptions}
+                aioOcrStageOptions={ocrStageOptionsForSelect}
+                installAllSummary={installAllSummary}
+                translationFreeProviderManagerSection={translationFreeProviderManagerSection}
+                ocrFreeProviderManagerSection={ocrFreeProviderManagerSection}
+                translationCustomProfilesManagerSection={translationCustomProfilesManagerSection}
+                ocrCustomProfilesManagerSection={ocrCustomProfilesManagerSection}
+                closeModelManagerForStage={closeModelManagerForStage}
+                setModelModalLanguageFilter={setModelModalLanguageFilter}
+                installTranslationModel={installTranslationModel}
+                updateTranslationModel={updateTranslationModel}
+                uninstallTranslationModel={uninstallTranslationModel}
+                retryTranslationModel={retryTranslationModel}
+                cancelTranslationModel={cancelTranslationModel}
+                installAllTranslationModels={installAllTranslationModels}
+                cancelAllTranslationModels={cancelAllTranslationModels}
+                checkModelUpdatesNow={checkModelUpdatesNow}
+                setAioStageSelection={setAioStageSelection}
+                selectAioRecognizeTextModel={selectAioRecognizeTextModel}
+                setStatusMessage={setStatusMessage}
+                enhanceModelManagerOpen={enhanceModelManagerOpen}
+                setEnhanceModelManagerOpen={setEnhanceModelManagerOpen}
+                enhanceModelId={enhanceModelId}
+                setEnhanceModelId={setEnhanceModelId}
+                importOnnxModelFromStorage={importOnnxModelFromStorage}
+                refreshModelState={refreshModelState}
+              />
+            )}
+          />
+        </Suspense>
+      </SplitterControllerProvider>
+    );
+  }
+
   return (
     <SplitterControllerProvider controller={splitterController}>
     <DashboardMainLayout

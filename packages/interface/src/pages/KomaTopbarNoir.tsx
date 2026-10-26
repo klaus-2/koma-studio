@@ -10,6 +10,7 @@ import {
   ZoomIn,
   LayoutGrid,
   Keyboard,
+  Focus,
   Undo2,
   Redo2,
   Eraser,
@@ -33,6 +34,7 @@ import {
   TooltipProvider,
 } from "@koma/ui/components/tooltip";
 import { useI18n } from '../i18n';
+import { useFocusMode } from './dashboard/hooks/use-focus-mode';
 import { UNDER_DEVELOPMENT_TOOLTIP_KEY } from '../constants/dashboard.constants';
 import KomaMobileDrawerNoir from './koma-topbar/noir/KomaMobileDrawerNoir';
 import KomaNavGroupDropdownNoir from './koma-topbar/noir/KomaNavGroupDropdownNoir';
@@ -364,6 +366,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
     onStatusMessage,
   } = props;
   const { t } = useI18n();
+  const { enterFocusMode } = useFocusMode();
   const underDevelopmentTooltip = t(UNDER_DEVELOPMENT_TOOLTIP_KEY);
   const navGroups = useMemo(() => createNavGroups(t), [t]);
   const allNavItems = useMemo(() => navGroups.flatMap((group) => group.items), [navGroups]);
@@ -706,6 +709,16 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
             onDownloadPsd={onDownloadPsd}
             onToggle={() => toggleDropdown('download')}
           />
+
+          {/* Focus Mode */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <TopIconBtn onClick={() => enterFocusMode()} label={t('focus.enter')}>
+                <Focus size={13} />
+              </TopIconBtn>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="glass panel-cut-sm">{t('focus.enterHint')}</TooltipContent>
+          </Tooltip>
 
           {/* Shortcuts */}
           <Tooltip>

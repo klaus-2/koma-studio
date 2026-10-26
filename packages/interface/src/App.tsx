@@ -11,6 +11,7 @@ import { getLegalDocumentIdForRoute, isLegalRoutePath } from "./legal/navigation
 import { UpdateToast } from "./components/updater/UpdateToast";
 import { RuntimeStartupToast } from "./components/runtime/RuntimeStartupToast";
 import { CustomCursor } from "./components/CustomCursor";
+import { useFocusModeStore } from "./pages/dashboard/stores/focus-mode-store";
 import { SessionTimeout } from "@koma/auth/SessionTimeout";
 import { PageTransition } from "./components/PageTransition";
 import { usePageTransition } from "./hooks/usePageTransition";
@@ -528,10 +529,26 @@ const AppShell = () => {
   );
 };
 
+/**
+ * Cursor layer + display-mode mirror on <html>. Focus Mode runs on the
+ * native cursor (effects off by design); `data-display-mode` lets any
+ * stylesheet react to the shell without prop drilling.
+ */
+const CursorLayer = () => {
+  const displayMode = useFocusModeStore((s) => s.displayMode);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (root.dataset.displayMode !== displayMode) {
+      root.dataset.displayMode = displayMode;
+    }
+  }, [displayMode]);
+  return displayMode === "focus" ? null : <CustomCursor />;
+};
+
 const App = () => (
   <UpdaterProvider>
     <AuthProvider>
-      <CustomCursor />
+      <CursorLayer />
       <AppShell />
     </AuthProvider>
   </UpdaterProvider>

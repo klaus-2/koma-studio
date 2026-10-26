@@ -16,6 +16,8 @@ import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useManualToolsStore } from '../stores/manual-tools-store';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import { useFocusModeStore } from '../stores/focus-mode-store';
+import { useFocusMode } from './use-focus-mode';
 import {
   readActiveAioSelectedRegion,
   readActiveSelectedRegionIdForMode,
@@ -157,6 +159,8 @@ export function useDashboardKeyboard({
   rotateImage,
 }: UseDashboardKeyboardArgs) {
   // Shell state read at the same cadence as the page's own selectors
+  const displayMode = useFocusModeStore((s) => s.displayMode);
+  const { toggleFocusMode } = useFocusMode();
   const mode = useUiShellStore((s) => s.mode);
   const subMode = useUiShellStore((s) => s.subMode);
   const processing = useUiShellStore((s) => s.processing);
@@ -180,6 +184,8 @@ export function useDashboardKeyboard({
         case 'toggleToolsPanel':
           handleToolsToggle();
           return true;
+        case 'toggleFocusMode':
+          return toggleFocusMode();
         case 'rotateActiveImage':
           if (!activeId || processing) return false;
           rotateImage(activeId);
@@ -392,6 +398,7 @@ export function useDashboardKeyboard({
       setSegmentEditTool,
       setViewMode,
       setZoom,
+      toggleFocusMode,
       toggleManualImageTool,
       toggleManualToolsConfig,
     ],
@@ -450,6 +457,7 @@ export function useDashboardKeyboard({
   }, [
     activeId,
     dispatchKeyboardShortcutAction,
+    displayMode,
     keyboardShortcutConfig,
     mode,
     processing,

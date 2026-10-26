@@ -22,6 +22,7 @@ import {
   RotateCw,
   LayoutGrid,
   Keyboard,
+  Focus,
   Wrench,
   Sparkles,
   Undo2,
@@ -34,6 +35,7 @@ import {
   TooltipProvider,
 } from "@koma/ui/components/tooltip";
 import { useI18n } from '../i18n';
+import { useFocusMode } from './dashboard/hooks/use-focus-mode';
 import VersionBadge from '../components/VersionBadge';
 import { UNDER_DEVELOPMENT_TOOLTIP_KEY } from '../constants/dashboard.constants';
 import './KomaTopbar.css';
@@ -386,6 +388,7 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
     onStatusMessage,
   } = props;
   const { t } = useI18n();
+  const { enterFocusMode } = useFocusMode();
   const underDevelopmentTooltip = t(UNDER_DEVELOPMENT_TOOLTIP_KEY);
   const navGroups = useMemo(() => createNavGroups(t), [t]);
   const mainGroup = navGroups[0];
@@ -862,6 +865,20 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
                 </button>
               </TooltipTrigger>
               <TooltipContent>{t('dashboard.topbar.redoShortcut')}</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="koma-topbar__iconbtn"
+                  onClick={() => enterFocusMode()}
+                  aria-label={t('focus.enter')}
+                >
+                  <Focus size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t('focus.enterHint')}</TooltipContent>
             </Tooltip>
 
             <Tooltip>

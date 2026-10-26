@@ -14,6 +14,7 @@ import type {
   DesktopMiniBackendRuntimeArtifactOption, DesktopMiniBackendRuntimeState, UpdaterChannel,
 } from "../../../types";
 import type { LocalResetFeedbackState, WorkspaceAutosaveFeedbackState } from "../settings.types";
+import type { KomaDisplayMode } from "../../dashboard/stores/focus-mode-store";
 import {
   Sec, Field, SpecGrid, SpecRow, Alert, ToggleRow,
   inputCls, selectCls, btnPrimary, btnGhost, btnDanger,
@@ -28,6 +29,8 @@ interface SettingsAppTabArgs {
   setCurrentTheme: (theme: KomaTheme) => void;
   currentFamily: KomaThemeFamily;
   setCurrentFamily: (family: KomaThemeFamily) => void;
+  displayMode: KomaDisplayMode;
+  setDisplayMode: (mode: KomaDisplayMode) => void;
   locale: AppLocale;
   localeLabels: Record<AppLocale, string>;
   setLocale: (locale: AppLocale) => void;
@@ -115,6 +118,33 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
                   <span className="flex items-center gap-1.5 font-display text-xs font-black uppercase tracking-tight text-paper">
                     <opt.Icon size={12} className={active ? "text-crimson" : "text-paper/40"} /> {t(opt.nameKey)}
                   </span>
+                  <span className="mt-0.5 block font-mono text-[9px] uppercase tracking-wider text-paper/40">{t(opt.descKey)}</span>
+                </span>
+                {active && <span aria-hidden className="absolute right-3 top-3 h-2 w-2 bg-crimson" />}
+              </button>
+            );
+          })}
+        </div>
+      </Sec>
+
+      {/* ═══ DISPLAY MODE ═══ */}
+      <Sec icon={<Keyboard size={14} />} title={t("settings.displayMode.title")} desc={t("settings.displayMode.description")}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {([
+            { id: "studio" as KomaDisplayMode, nameKey: "settings.displayMode.studio", descKey: "settings.displayMode.studioDesc", jp: "全" },
+            { id: "focus" as KomaDisplayMode, nameKey: "settings.displayMode.focus", descKey: "settings.displayMode.focusDesc", jp: "静" },
+          ] as const).map((opt) => {
+            const active = a.displayMode === opt.id;
+            return (
+              <button key={opt.id} type="button" onClick={() => a.setDisplayMode(opt.id)}
+                aria-pressed={active}
+                className={`panel-cut-sm hard-hover relative flex items-center gap-3 border p-4 text-left transition-colors ${active ? "border-crimson/60 bg-crimson/8" : "border-paper/12 bg-ink/50"
+                  }`}>
+                <span aria-hidden className={`font-display text-3xl font-black ${active ? "text-crimson" : "text-paper/15"}`}>
+                  {opt.jp}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-display text-xs font-black uppercase tracking-tight text-paper">{t(opt.nameKey)}</span>
                   <span className="mt-0.5 block font-mono text-[9px] uppercase tracking-wider text-paper/40">{t(opt.descKey)}</span>
                 </span>
                 {active && <span aria-hidden className="absolute right-3 top-3 h-2 w-2 bg-crimson" />}

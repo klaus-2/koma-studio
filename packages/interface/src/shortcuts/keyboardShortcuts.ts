@@ -33,6 +33,7 @@ export type ShortcutModeGuard =
 export type ShortcutActionId =
   | "openShortcutModal"
   | "toggleToolsPanel"
+  | "toggleFocusMode"
   | "rotateActiveImage"
   | "workspaceSave"
   | "workspaceUndo"
@@ -104,6 +105,9 @@ type LegacyTypographyShortcutId =
   | "deleteRegion"
   | "editInline";
 
+/** Dashboard shell the shortcut is being resolved in. */
+export type ShortcutDisplayMode = "studio" | "focus";
+
 export interface ShortcutContext {
   mode: ShortcutToolMode;
   subMode: ShortcutSubMode;
@@ -112,6 +116,11 @@ export interface ShortcutContext {
   activeSelectedRegionId: string | null;
   aioRenderReady: boolean;
   processing: boolean;
+  /**
+   * Optional so existing callers keep working; in `focus` only actions
+   * flagged `focusModeAllowed` resolve (see findMatchingShortcutAction).
+   */
+  displayMode?: ShortcutDisplayMode;
 }
 
 export interface ShortcutActionDefinition {
@@ -122,6 +131,12 @@ export interface ShortcutActionDefinition {
   modeGuard: ShortcutModeGuard;
   defaultCombo: string[];
   isEnabled: (context: ShortcutContext) => boolean;
+  /**
+   * Focus Mode is a reduced shell (pages → AIO → fix → export): only
+   * actions explicitly flagged here stay reachable while it is active,
+   * so a shortcut can never yank a hidden Studio panel into the flow.
+   */
+  focusModeAllowed?: boolean;
 }
 
 export interface FixedShortcutDefinition {
@@ -172,6 +187,16 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     isEnabled: () => true,
   },
   {
+    id: "toggleFocusMode",
+    label: "shortcuts.toggleFocusMode.label",
+    description: "shortcuts.toggleFocusMode.description",
+    category: "global",
+    modeGuard: "dashboard",
+    defaultCombo: ["ALT", "Z"],
+    isEnabled: () => true,
+    focusModeAllowed: true,
+  },
+  {
     id: "toggleToolsPanel",
     label: "shortcuts.toggleToolsPanel.label",
     description: "shortcuts.toggleToolsPanel.description",
@@ -187,6 +212,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "global",
     modeGuard: "requires-active-image",
     defaultCombo: ["ALT", "R"],
+    focusModeAllowed: true,
     isEnabled: (context) => Boolean(context.activeId) && !context.processing,
   },
   {
@@ -196,6 +222,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "global",
     modeGuard: "dashboard",
     defaultCombo: ["CTRL", "S"],
+    focusModeAllowed: true,
     isEnabled: () => true,
   },
   {
@@ -205,6 +232,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "global",
     modeGuard: "dashboard",
     defaultCombo: ["CTRL", "Z"],
+    focusModeAllowed: true,
     isEnabled: () => true,
   },
   {
@@ -214,6 +242,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "global",
     modeGuard: "dashboard",
     defaultCombo: ["CTRL", "SHIFT", "Z"],
+    focusModeAllowed: true,
     isEnabled: () => true,
   },
   {
@@ -223,6 +252,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "global",
     modeGuard: "dashboard",
     defaultCombo: ["CTRL", "="],
+    focusModeAllowed: true,
     isEnabled: () => true,
   },
   {
@@ -232,6 +262,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "global",
     modeGuard: "dashboard",
     defaultCombo: ["CTRL", "-"],
+    focusModeAllowed: true,
     isEnabled: () => true,
   },
   {
@@ -342,6 +373,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "typesetter",
     modeGuard: "aio-or-typesetter-manual",
     defaultCombo: ["CTRL", "TAB"],
+    focusModeAllowed: true,
     isEnabled: (context) =>
       context.subMode === "manual"
       && (context.mode === "typesetter" || context.mode === "aio"),
@@ -353,6 +385,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "typesetter",
     modeGuard: "aio-or-typesetter-manual",
     defaultCombo: ["CTRL", "SHIFT", "TAB"],
+    focusModeAllowed: true,
     isEnabled: (context) =>
       context.subMode === "manual"
       && (context.mode === "typesetter" || context.mode === "aio"),
@@ -386,6 +419,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "typesetter",
     modeGuard: "aio-or-typesetter-manual-selection",
     defaultCombo: ["R"],
+    focusModeAllowed: true,
     isEnabled: (context) =>
       context.subMode === "manual"
       && Boolean(context.activeSelectedRegionId)
@@ -488,6 +522,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "typesetter",
     modeGuard: "aio-or-typesetter-manual-selection",
     defaultCombo: ["CTRL", "ALT", "A"],
+    focusModeAllowed: true,
     isEnabled: (context) =>
       Boolean(context.activeSelectedRegionId)
       && context.subMode === "manual"
@@ -503,6 +538,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "typesetter",
     modeGuard: "aio-or-typesetter-manual-selection",
     defaultCombo: ["CTRL", "ALT", "S"],
+    focusModeAllowed: true,
     isEnabled: (context) =>
       Boolean(context.activeSelectedRegionId)
       && context.subMode === "manual"
@@ -518,6 +554,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "typesetter",
     modeGuard: "aio-or-typesetter-manual-selection",
     defaultCombo: ["CTRL", "ALT", "O"],
+    focusModeAllowed: true,
     isEnabled: (context) =>
       Boolean(context.activeSelectedRegionId)
       && context.subMode === "manual"
@@ -533,6 +570,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "typesetter",
     modeGuard: "aio-or-typesetter-manual-selection",
     defaultCombo: ["DELETE"],
+    focusModeAllowed: true,
     isEnabled: (context) =>
       Boolean(context.activeSelectedRegionId)
       && context.subMode === "manual"
@@ -550,6 +588,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "typesetter",
     modeGuard: "aio-or-typesetter-manual-selection",
     defaultCombo: ["ENTER"],
+    focusModeAllowed: true,
     isEnabled: (context) =>
       Boolean(context.activeSelectedRegionId)
       && context.subMode === "manual"
@@ -567,6 +606,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     category: "palette",
     modeGuard: "manual-dock-selection",
     defaultCombo: ["CTRL", "D"],
+    focusModeAllowed: true,
     isEnabled: (context) =>
       Boolean(context.activeSelectedRegionId)
       && context.subMode === "manual"
@@ -917,8 +957,10 @@ export const findMatchingShortcutAction = (
   const normalizedPressed = normalizeShortcutCombo(pressed);
   if (!isCompleteShortcutCombo(normalizedPressed)) return null;
 
+  const focusActive = context.displayMode === "focus";
   return SHORTCUT_ACTIONS.find((action) =>
-    action.isEnabled(context)
+    (!focusActive || action.focusModeAllowed === true)
+    && action.isEnabled(context)
     && isShortcutMatch(normalizedPressed, state.shortcuts[action.id] ?? [])
   ) ?? null;
 };
