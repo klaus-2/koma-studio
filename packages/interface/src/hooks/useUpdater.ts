@@ -29,12 +29,16 @@ const ZERO_PROGRESS: UpdaterProgress = Object.freeze({
   speed: 0,
 });
 
-const inferChannelFromVersion = (version: string | null): UpdaterChannel =>
+const DEFAULT_UPDATER_CHANNEL: UpdaterChannel = "stable";
+
+const inferBuildChannel = (version: string | null): UpdaterChannel =>
   version !== null && version.includes("-") ? "beta" : "stable";
+
+const hasExplicitChannelChoice = (): boolean =>
+  localStorage.getItem(CHANNEL_STORAGE_EXPLICIT_KEY) === "true";
 
 const createInitialState = (): UpdaterState => {
   const currentVersion = getDesktopAppVersion();
-  const channel = inferChannelFromVersion(currentVersion);
 
   return {
     status: "idle",
@@ -44,10 +48,10 @@ const createInitialState = (): UpdaterState => {
     blocking: false,
     blockingReason: null,
     releaseNotes: null,
-    channel,
+    channel: DEFAULT_UPDATER_CHANNEL,
     provider: "github",
     autoInstallOnQuit: false,
-    allowPrerelease: channel === "beta",
+    allowPrerelease: false,
     progress: null,
     checkedAt: null,
     downloadedAt: null,
@@ -287,7 +291,8 @@ const useProvideUpdater = (): UseUpdaterApi => {
           : null;
 
       const compareResult = compareVersions(latestVersion, installedVersion);
-      const manualChannelOverrideActive = effectiveChannel !== inferChannelFromVersion(installedVersion);
+      const manualChannelOverrideActive =
+        hasExplicitChannelChoice() && effectiveChannel !== inferBuildChannel(installedVersion);
       const shouldOfferRelease =
         compareResult > 0 ||
         (manualChannelOverrideActive && normalizeVersion(latestVersion) !== normalizeVersion(installedVersion));
@@ -332,8 +337,7 @@ const useProvideUpdater = (): UseUpdaterApi => {
 
   useEffect(() => {
     const storedChannel = localStorage.getItem(CHANNEL_STORAGE_KEY);
-    const storedChannelExplicit = localStorage.getItem(CHANNEL_STORAGE_EXPLICIT_KEY) === "true";
-    if (storedChannelExplicit && isUpdaterChannel(storedChannel)) {
+    if (hasExplicitChannelChoice() && isUpdaterChannel(storedChannel)) {
       patchState({
         channel: storedChannel,
         allowPrerelease: storedChannel === "beta",

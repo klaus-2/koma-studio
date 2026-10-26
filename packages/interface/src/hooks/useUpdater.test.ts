@@ -94,6 +94,38 @@ describe("useUpdater", () => {
     window.localStorage.clear();
   });
 
+  it("defaults to the stable channel for a prerelease shell version", () => {
+    getAppVersionMock.mockReturnValue("2.0.0-alpha.3");
+
+    const view = renderUpdater();
+
+    expect(view.result.current.channel).toBe("stable");
+  });
+
+  it("does not offer a stale stable release to a prerelease install on the default channel", async () => {
+    getAppVersionMock.mockReturnValue("2.0.0-alpha.3");
+
+    const result = await checkForUpdate();
+
+    expect(result.current.channel).toBe("stable");
+    expect(result.current.status).toBe("not-available");
+    expect(result.current.newVersion).toBeNull();
+  });
+
+  it("offers the stable release when stable is chosen explicitly on a prerelease install", async () => {
+    getAppVersionMock.mockReturnValue("2.0.0-alpha.3");
+    const view = renderUpdater();
+
+    await act(async () => {
+      await view.result.current.setChannel("stable");
+    });
+
+    expect(fetchReleaseMock).toHaveBeenCalledTimes(1);
+    expect(view.result.current.channel).toBe("stable");
+    expect(view.result.current.status).toBe("available");
+    expect(view.result.current.newVersion).toBe("1.1.0");
+  });
+
   it("performs no fetch and never reaches 'available' without a shell version", async () => {
     getAppVersionMock.mockReturnValue(null);
     const result = await checkForUpdate();
