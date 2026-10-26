@@ -120,6 +120,7 @@
   "build": {
     "appId": "com.komastudio.desktop",
     "productName": "KŌMA Studio",
+    "artifactName": "KOMA-Studio-${version}-${os}-${arch}-electron.${ext}",
     "asar": true,
     "asarUnpack": [
       "**/*.jsc",

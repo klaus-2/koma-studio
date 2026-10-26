@@ -41,7 +41,7 @@ export default function LatestDownloadButton() {
         const asset = release.assets.find(
           (entry) =>
             typeof entry.name === "string" &&
-            entry.name.endsWith("_x64-setup.exe") &&
+            (entry.name.endsWith("_x64-setup.exe") || entry.name.endsWith("-setup-tauri.exe")) &&
             typeof entry.browser_download_url === "string" &&
             entry.browser_download_url.startsWith(INSTALLER_URL_PREFIX) &&
             typeof entry.size === "number",
