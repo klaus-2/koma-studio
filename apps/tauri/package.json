@@ -36,6 +36,8 @@
     "tauri:dev": "node scripts/mini-dev-gate.mjs && tauri dev",
     "tauri:build": "tauri build",
     "release:win": "tauri build --bundles msi nsis && node scripts/rename-tauri-installers.mjs",
+    "release:linux": "tauri build --bundles appimage deb && node scripts/rename-tauri-installers.mjs",
+    "release:mac": "tauri build --bundles dmg && node scripts/rename-tauri-installers.mjs",
     "lint": "eslint .",
     "lint:strict": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",

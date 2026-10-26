@@ -1,51 +1,119 @@
-name: Release Build (Electron)
+name: Release installers (Linux/macOS)
 
 on:
   workflow_dispatch:
-    inputs:
-      platform:
-        description: "Platform to build"
-        required: true
-        default: win
-        type: choice
-        options: [win, linux, mac]
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: "1.4.0"
+  VITE_AUTH_DISABLED: "true"
+  # Public keys pinned into release builds; they are not secrets.
+  MINI_BACKEND_ARTIFACTS_PUBKEY: "HdJwZKhP6eGVAVUrWh5QdYtlEPW5kzqsbD9xRNlN98w="
+  KOMA_MINI_BACKEND_ARTIFACTS_PUBKEY: "HdJwZKhP6eGVAVUrWh5QdYtlEPW5kzqsbD9xRNlN98w="
+  KOMA_EMBEDDED_MINI_BACKEND: "0"
+  CSC_IDENTITY_AUTO_DISCOVERY: "false"
+  APPIMAGE_EXTRACT_AND_RUN: "1"
 
 jobs:
-  build:
-    name: Build (${{ inputs.platform }})
-    runs-on: ${{ inputs.platform == 'win' && 'windows-latest' || inputs.platform == 'mac' && 'macos-latest' || 'ubuntu-latest' }}
-    timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: apps/electron
+  electron:
+    name: Electron (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            artifact: koma-electron-linux-x64
+            paths: |
+              apps/electron/release-desktop/ci/*.AppImage
+              apps/electron/release-desktop/ci/*.deb
+              apps/electron/release-desktop/ci/latest-linux.yml
+              apps/electron/release-desktop/ci/*.blockmap
+          - os: macos-14
+            platform: mac
+            artifact: koma-electron-macos-arm64
+            paths: |
+              apps/electron/release-desktop/ci/*.dmg
+              apps/electron/release-desktop/ci/*.zip
+              apps/electron/release-desktop/ci/latest-mac.yml
+              apps/electron/release-desktop/ci/*.blockmap
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.0"
+          bun-version: ${{ env.BUN_VERSION }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install uv
+        run: python -m pip install uv
       - name: Install JS dependencies (workspace root)
-        working-directory: .
-        run: bun install
-      - name: Build mini-backend core
-        # build:mini must precede build:app: extraResources copies
-        # packages/mini-backend/dist into the installer, and without this step
-        # that directory does not exist in CI (empty fallback).
-        run: bun run build:mini
+        run: bun install --frozen-lockfile
+      - name: Build embedded CPU runtime
+        working-directory: apps/electron
         env:
           MINI_BACKEND_ACCELERATION_PROFILE: cpu
+        run: bun run build:mini
       - name: Build application
+        working-directory: apps/electron
         run: bun run build:app
-        env:
-          # CI builds don't need real secrets; app builds are unsigned here.
-          VITE_ENV: production
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Build installers
+        working-directory: apps/electron
+        run: npx electron-builder --${{ matrix.platform }} --publish never --config.forceCodeSigning=false --config.directories.output=release-desktop/ci
+      - uses: actions/upload-artifact@v4
         with:
-          name: koma-studio-${{ inputs.platform }}
-          path: |
-            apps/electron/release-desktop/*
-          if-no-files-found: warn
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.paths }}
+          if-no-files-found: error
+          retention-days: 14
+
+  tauri:
+    name: Tauri (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            script: release:linux
+            artifact: koma-tauri-linux-x64
+            paths: |
+              apps/tauri/src-tauri/target/release/bundle/deb/*.deb
+              apps/tauri/src-tauri/target/release/bundle/appimage/*.AppImage
+          - os: macos-14
+            platform: mac
+            script: release:mac
+            artifact: koma-tauri-macos-arm64
+            paths: |
+              apps/tauri/src-tauri/target/release/bundle/dmg/*.dmg
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf pkg-config
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/tauri/src-tauri -> target
+      - name: Install JS dependencies (workspace root)
+        run: bun install --frozen-lockfile
+      - name: Build installers
+        working-directory: apps/tauri
+        run: bun run ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.paths }}
+          if-no-files-found: error
           retention-days: 14
