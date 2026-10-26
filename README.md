@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join%20us-5865F2?logo=discord)](https://discord.gg/tzaV2efD4e)
 [![Website](https://img.shields.io/badge/website-koma--studio.site-111827)](https://koma-studio.site/)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/klaus-2/koma-studio?utm_source=oss&utm_medium=github&utm_campaign=klaus-2%2Fkoma-studio&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 ![KŌMA Studio — 15s preview](docs/media/koma-studio-promo.gif)
 
