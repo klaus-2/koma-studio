@@ -44,11 +44,11 @@ jobs:
     env:
       NODE_OPTIONS: "--max-old-space-size=5120"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install uv
@@ -66,7 +66,7 @@ jobs:
       - name: Build installers
         working-directory: apps/electron
         run: npx electron-builder --${{ matrix.platform }} --publish never --config.forceCodeSigning=false --config.directories.output=release-desktop/ci
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.paths }}
@@ -95,7 +95,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -113,7 +113,7 @@ jobs:
       - name: Build installers
         working-directory: apps/tauri
         run: bun run ${{ matrix.script }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.paths }}

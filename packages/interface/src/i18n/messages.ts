@@ -32,7 +32,7 @@ export const defaultMessages = Object.freeze({
 type LazyLocale = Exclude<AppLocale, typeof DEFAULT_APP_LOCALE>;
 type CatalogLoader = () => Promise<unknown>;
 
-const catalogSchema = z.record(z.string());
+const catalogSchema = z.record(z.string(), z.string());
 
 const lazyCatalogLoaders = {
   ar: () => import("@/i18n/langs/ar").then((module) => module.arMessages),
