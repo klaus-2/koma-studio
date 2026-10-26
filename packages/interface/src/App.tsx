@@ -34,6 +34,7 @@ import {
   VerifyEmailPage,
   ConfirmEmailPage,
 } from "./app-router";
+import { resolveRoutePresence } from "./discord-route-presence";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
 
@@ -413,51 +414,42 @@ const AppShell = () => {
     }
   }, [activeBan, isAuthenticated, isLoading, navigateInstant, route]);
 
+  const {
+    setDashboard: setDiscordDashboard,
+    setIdle: setDiscordIdle,
+    setPreset: setDiscordPreset,
+  } = discord;
+
   useEffect(() => {
     if (isLoading || !discord.enabled || !discord.isAvailable) {
       return;
     }
 
-    const syncRoutePresence = async () => {
-      switch (route) {
-        case "login":
-        case "register":
-        case "forgot-password":
-        case "reset-password":
-        case "verify-email":
-        case "confirm-email":
-          await discord.setPreset("login_register");
-          return;
-        case "settings":
-          await discord.setPreset("settings");
-          return;
-        case "model-rankings":
-          await discord.setPreset("rankings");
-          return;
-        case "scanlation-feed":
-          await discord.setPreset("scanlation_feed");
-          return;
-        case "dashboard":
-          return;
-        case "banned":
-          if (isAuthenticated) {
-            await discord.setDashboard();
-          } else {
-            await discord.setIdle();
-          }
-          return;
-        default:
-          if (isAuthenticated) {
-            await discord.setDashboard();
-          } else {
-            await discord.setIdle();
-          }
-          return;
+    const syncRoutePresence = async (): Promise<void> => {
+      const presence = resolveRoutePresence(route, isAuthenticated);
+
+      if (presence.kind === "preset") {
+        await setDiscordPreset(presence.preset);
+        return;
       }
+      if (presence.kind === "dashboard") {
+        await setDiscordDashboard();
+        return;
+      }
+      await setDiscordIdle();
     };
 
     void syncRoutePresence();
-  }, [discord, isAuthenticated, isLoading, route]);
+  }, [
+    discord.enabled,
+    discord.isAvailable,
+    isAuthenticated,
+    isLoading,
+    route,
+    setDiscordDashboard,
+    setDiscordIdle,
+    setDiscordPreset,
+  ]);
 
 
   if (isProductionEnvironment && !isDesktopRuntime) {
