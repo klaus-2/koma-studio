@@ -184,7 +184,10 @@ const main = () => {
         throw new Error(`uploaded part asset size mismatch: ${part.file}`);
       }
     }
-    runGh(`release edit ${plan.runtimeTag} --draft=false`);
+    // The runtime release must stay a prerelease; otherwise it becomes the
+    // repository's latest release and releases/latest/download serves the
+    // runtime release instead of the app release that holds the manifests.
+    runGh(`release edit ${plan.runtimeTag} --draft=false --prerelease`);
 
     // Manifests land on the app release LAST, after every part is live.
     for (const manifest of plan.manifestUploads) {
