@@ -142,7 +142,7 @@ const installStoreRecorder = async (page: Page): Promise<void> => {
           const log = window as unknown as {
             __komaStoreWrites?: Array<{ t: number; store: string; keys: string }>;
           };
-          let keys = "?";
+          let keys: string;
           try {
             const changed: string[] = [];
             const s = state as Record<string, unknown>;

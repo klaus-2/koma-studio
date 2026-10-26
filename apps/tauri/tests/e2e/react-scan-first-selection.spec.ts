@@ -163,7 +163,7 @@ const installRecorder = async (page: Page): Promise<void> => {
               keys: string;
             }>;
           };
-          let keys = "?";
+          let keys: string;
           try {
             const changed: string[] = [];
             const s = state as Record<string, unknown>;
