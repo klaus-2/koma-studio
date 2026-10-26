@@ -125,6 +125,16 @@ for batch stages, and the CPU-fallback banner reports the downgrade again.
 [`e8005a3`](https://github.com/klaus-2/koma-studio/commit/e8005a3),
 [`3b4d160`](https://github.com/klaus-2/koma-studio/commit/3b4d160))
 
+**The packaged Tauri shell opened a blank window.** The production bundle
+externalized `scheduler`, so the WebView module graph failed before React
+mounted; the shell now declares the dependency, fails the build on unresolved
+imports, and allows the Windows IPC endpoint in the CSP. The runtime feed
+defaults to the GitHub release, and a shell without an installed runtime
+reports it instead of showing a detected profile.
+([`20e0114`](https://github.com/klaus-2/koma-studio/commit/20e0114),
+[`cb57f80`](https://github.com/klaus-2/koma-studio/commit/cb57f80),
+[`20d1591`](https://github.com/klaus-2/koma-studio/commit/20d1591))
+
 ## [1.1.0] - 2026-10-10
 
 89 commits since v1.0.3. The app gained a second theme family, Noir, and the
