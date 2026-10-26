@@ -29,7 +29,8 @@ use crate::runtime::profiles::{
 
 const DEFAULT_AUTH_API_URL: &str = "http://127.0.0.1:3001";
 const DEFAULT_LOCAL_API_URL: &str = "http://127.0.0.1:8001";
-const DEFAULT_UPDATE_SERVER_URL: &str = "https://api.koma-studio.site/updates/";
+const DEFAULT_RUNTIME_ARTIFACTS_URL: &str =
+    "https://github.com/klaus-2/koma-studio/releases/latest/download/";
 const DEFAULT_APP_LOCALE: &str = "pt-BR";
 
 const DESKTOP_FETCH_TIMEOUT: Duration = Duration::from_secs(12);
@@ -937,17 +938,13 @@ fn resolve_runtime_artifacts_url(sources: &ConfigSources) -> String {
         .iter()
         .find_map(|key| sources.resolve(key))
         .map_or_else(
-            || default_runtime_artifacts_url(sources.channel),
+            || default_runtime_artifacts_url(),
             |raw| normalize_runtime_artifacts_url(&raw, sources.channel),
         )
 }
 
-fn default_runtime_artifacts_url(channel: UpdateChannel) -> String {
-    format!(
-        "{}/{}/",
-        DEFAULT_UPDATE_SERVER_URL.trim_end_matches('/'),
-        channel.as_str()
-    )
+fn default_runtime_artifacts_url() -> String {
+    DEFAULT_RUNTIME_ARTIFACTS_URL.to_string()
 }
 
 fn normalize_runtime_artifacts_url(raw_url: &str, channel: UpdateChannel) -> String {
@@ -956,15 +953,27 @@ fn normalize_runtime_artifacts_url(raw_url: &str, channel: UpdateChannel) -> Str
     let Ok(mut parsed) = parse_https_url(trimmed) else {
         tracing::warn!(
             operation = "resolve_runtime_artifacts_url",
-            "invalid artifacts endpoint; using channel default"
+            "invalid artifacts endpoint; using the default feed"
         );
 
-        return default_runtime_artifacts_url(channel);
+        return default_runtime_artifacts_url();
     };
 
     // A direct manifest URL is used verbatim.
     if parsed.path().to_ascii_lowercase().ends_with(".json") {
         return trimmed.to_owned();
+    }
+
+    // GitHub release assets are flat: appending the release channel would
+    // point at a directory that does not exist.
+    if parsed.host_str() == Some("github.com") && parsed.path().contains("/releases/") {
+        parsed.set_query(None);
+        parsed.set_fragment(None);
+        if !parsed.path().ends_with('/') {
+            let path = format!("{}/", parsed.path());
+            parsed.set_path(&path);
+        }
+        return parsed.to_string();
     }
 
     let path = normalize_runtime_artifacts_path(parsed.path(), channel);
@@ -1482,21 +1491,32 @@ mod tests {
             normalize_runtime_artifacts_url("https://cdn.example.com", UpdateChannel::Stable),
             "https://cdn.example.com/stable/"
         );
+        // GitHub release assets are flat: the channel must not be appended.
+        assert_eq!(
+            normalize_runtime_artifacts_url(
+                "https://github.com/klaus-2/koma-studio/releases/latest/download",
+                UpdateChannel::Stable
+            ),
+            "https://github.com/klaus-2/koma-studio/releases/latest/download/"
+        );
+        assert_eq!(
+            normalize_runtime_artifacts_url(
+                "https://github.com/klaus-2/koma-studio/releases/download/runtime-v1.2.0/",
+                UpdateChannel::Beta
+            ),
+            "https://github.com/klaus-2/koma-studio/releases/download/runtime-v1.2.0/"
+        );
         assert_eq!(
             normalize_runtime_artifacts_url("not a url", UpdateChannel::Beta),
-            default_runtime_artifacts_url(UpdateChannel::Beta)
+            default_runtime_artifacts_url()
         );
     }
 
     #[test]
-    fn resolves_default_runtime_artifacts_url_by_channel() {
+    fn defaults_to_the_github_runtime_feed() {
         assert_eq!(
-            default_runtime_artifacts_url(UpdateChannel::Beta),
-            "https://api.koma-studio.site/updates/beta/"
-        );
-        assert_eq!(
-            default_runtime_artifacts_url(UpdateChannel::Stable),
-            "https://api.koma-studio.site/updates/stable/"
+            default_runtime_artifacts_url(),
+            "https://github.com/klaus-2/koma-studio/releases/latest/download/"
         );
         assert_eq!(UpdateChannel::from_version("1.2.3"), UpdateChannel::Stable);
         assert_eq!(
@@ -1699,7 +1719,7 @@ mod tests {
         assert_eq!(resolved.runtime.local_api_url, "http://127.0.0.1:8001");
         assert_eq!(
             resolved.runtime.runtime_artifacts_url,
-            "https://api.koma-studio.site/updates/beta/"
+            "https://github.com/klaus-2/koma-studio/releases/latest/download/"
         );
         assert!(resolved
             .allowed_external_hosts
