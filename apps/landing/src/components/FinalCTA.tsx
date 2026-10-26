@@ -1,6 +1,7 @@
-import { Download, BookOpen } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import Reveal from "./Reveal";
 import StarButton from "./StarButton";
+import LatestDownloadButton from "./LatestDownloadButton";
 import { SITE_CONFIG } from "@/lib/data";
 
 export default function FinalCta() {
@@ -23,13 +24,13 @@ export default function FinalCta() {
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <StarButton />
-              <a href={SITE_CONFIG.releases} target="_blank" rel="noreferrer" className="btn-ghost"><Download size={18} /> Download Free</a>
+              <LatestDownloadButton />
             </div>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
               <a href={SITE_CONFIG.contributing} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/50 transition-colors hover:text-mint">
                 <BookOpen size={14} /> Read the contributing guide
               </a>
-              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/35">Windows · macOS · Linux</span>
+              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/35">Windows installer · macOS and Linux from source</span>
             </div>
           </div>
         </div>
