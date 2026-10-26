@@ -68,8 +68,7 @@ jobs:
             gh release upload "$RUNTIME_TAG" "$part"
           done
           echo "appended parts to $RUNTIME_TAG"
-      - name: Export manifests for local signing (no-tag mode)
-        if: inputs.runtime_tag == ''
+      - name: Export manifests for local signing
         uses: actions/upload-artifact@v4
         with:
           name: runtime-manifests-${{ matrix.os }}
