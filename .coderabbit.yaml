@@ -1,0 +1,108 @@
+# Only non-default values are set here. Keys verified against
+# https://docs.coderabbit.ai/reference/configuration
+
+reviews:
+  # The main ruleset sets required_review_thread_resolution, so every inline
+  # thread has to be resolved before a merge. quiet posts only the most
+  # important findings inline and groups the rest into the summary.
+  profile: quiet
+
+  path_filters:
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.gif"
+    - "!**/*.webp"
+    - "!**/*.ico"
+    - "!**/*.icns"
+    - "!**/*.mp4"
+    - "!**/*.webm"
+
+  path_instructions:
+    - path: "apps/electron/electron/**"
+      instructions: |
+        This is the Electron main process and the preload bridge, not renderer code.
+        - Flag any `ipcMain` handler added without a matching binding exposed from
+          `electron/preload.ts`, and any renderer-facing channel that returns more
+          than the preload contract declares.
+        - Flag Node or filesystem access reaching renderer code; privileged work
+          belongs behind an IPC handler.
+
+    - path: "apps/tauri/src-tauri/**"
+      instructions: |
+        Rust command layer for the Tauri v2 app.
+        - A `#[tauri::command]` is only reachable if it is registered in the invoke
+          handler; flag a new command that is defined but never registered, and a
+          command whose TypeScript caller has no Rust counterpart.
+        - Errors surface through `src/error.rs`. Flag `unwrap()`/`expect()` on a
+          fallible result inside a command body instead of propagating.
+
+    - path: "packages/interface/src/components/**"
+      instructions: |
+        The interface ships two independent skin trees: `*Classic.tsx` files and
+        `noir/*Noir.tsx` files. They are separate components, not one component with
+        a theme prop.
+        - Do not report the markup overlap between a Classic component and its Noir
+          counterpart as duplication or dead code; that is the intended structure.
+        - Do flag a behaviour, state or prop change applied to one tree without the
+          equivalent change in the other, since the two drift silently.
+
+    - path: "packages/interface/src/i18n/langs/**"
+      instructions: |
+        `en.ts` is the reference locale and the application default.
+        - Flag any key added to a non-`en` locale that does not exist in `en.ts`.
+        - Flag a translation that alters or drops a `{placeholder}` token.
+        - Locales other than `en` are lazy-loaded; do not flag a locale file for
+          being unimported at module scope.
+
+    - path: "packages/mini-backend/**"
+      instructions: |
+        Python sidecar packaged with PyInstaller.
+        - The `requirements-*.txt` files are a per-platform matrix, not duplicates.
+          Flag a pin changed in one variant without the corresponding change in the
+          variants that share that platform, and treat an intentional single-variant
+          change as acceptable when the PR says why.
+        - The default test run uses `-m 'not slow'`, so tests marked `slow` are not
+          executed in CI. Do not treat a passing CI run as evidence that a `slow`
+          test passed.
+
+    - path: "**/*.lock"
+      instructions: |
+        Lockfiles are part of the CI gate.
+        - Flag a lockfile entry that does not match the manifest versions changed in the
+          same PR (workspace package versions in `bun.lock`, crate versions in `Cargo.lock`).
+        - Flag a manifest version bump that leaves the matching lockfile entry stale.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        These workflows build, smoke-test and publish release artifacts.
+        - Flag a change that would make the runtime release the repository's latest
+          release; it must stay a prerelease so `releases/latest/download/<manifest>`
+          keeps resolving to the app release.
+        - Flag a publish order where manifests or `.sig` twins attach before every
+          runtime part is on the release; clients cannot retry a 404.
+        - Flag any build that enables hardening. This repository is public; installers
+          and runtime profiles use the normal build path.
+        - The CI install uses `bun install --frozen-lockfile`; a workspace version bump
+          must update `bun.lock` in the same PR.
+
+    - path: "apps/electron/scripts/**"
+      instructions: |
+        These scripts are the local release and runtime pipeline; some are copied to a
+        temporary directory by tests.
+        - Flag a new import in a copied script unless its package is declared in
+          `apps/electron/package.json` and present in `bun.lock`; the copies do not
+          resolve undeclared workspace packages.
+        - Flag a change to artifact names, output layout or manifest fields consumed by
+          `verify-release.mjs` or `publish-runtime-artifacts.mjs` without updating that
+          consumer in the same PR.
+        - Never enable hardened builds (`MINI_BACKEND_ARTIFACTS_HARDENED` or
+          `build:hardened:*`); releases are clean builds.
+
+knowledge_base:
+  code_guidelines:
+    # CONTRIBUTING.md is not in CodeRabbit's auto-detected pattern list
+    # (AGENTS.md, CLAUDE.md, .cursorrules, copilot-instructions.md), and this
+    # repository has none of those. Without this entry the reviewer has no
+    # project standards to check against.
+    filePatterns:
+      - "CONTRIBUTING.md"
