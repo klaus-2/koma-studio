@@ -1,6 +1,15 @@
+import { runInThisContext } from "node:vm";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_THEME_FAMILY, THEME_FAMILIES, isThemeFamilyId } from "@koma/ui/themes/registry";
+import electronThemeBootstrap from "../../../apps/electron/public/theme-bootstrap.js?raw";
+import tauriThemeBootstrap from "../../../apps/tauri/public/theme-bootstrap.js?raw";
+
+const THEME_BOOTSTRAP_SOURCES = {
+  electron: electronThemeBootstrap,
+  tauri: tauriThemeBootstrap,
+} as const;
 
 // The vitest jsdom env has no storage backend (same as
 // useDashboardProcessingStats.test.ts) — Map-backed stub keeps the
@@ -22,18 +31,6 @@ Object.defineProperty(window, "localStorage", {
   },
 });
 
-const matchMediaStub = ((query: string) =>
-  ({
-    matches: false,
-    media: query,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    onchange: null,
-    dispatchEvent: () => false,
-  }) as unknown as MediaQueryList) as typeof window.matchMedia;
-
 describe("theme family registry", () => {
   it("exposes classic and noir with i18n keys", () => {
     expect(THEME_FAMILIES.map((f) => f.id)).toEqual(["classic", "noir"]);
@@ -54,10 +51,23 @@ describe("theme family registry", () => {
 
 describe("theme store family persistence", () => {
   beforeEach(() => {
-    // jsdom has no matchMedia; the store uses it for initial detection only.
-    window.matchMedia ??= matchMediaStub;
+    // A light OS preference must not change the default; the stub makes any
+    // color-scheme read observable by the assertion below.
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (query: string) => ({
+        matches: query.includes("prefers-color-scheme: light"),
+        media: query,
+      }),
+    });
     storageMap.clear();
     vi.resetModules();
+  });
+
+  it("defaults to dark when nothing is persisted, even with a light OS preference", async () => {
+    const { useThemeStore } = await import("@koma/ui/stores/theme-store");
+
+    expect(useThemeStore.getState().theme).toBe("dark");
   });
 
   it("defaults to the noir family for persisted state without family", async () => {
@@ -98,8 +108,6 @@ describe("theme store family persistence", () => {
 
 describe("applyTheme", () => {
   it("applies mode + family attributes and clears the pre-paint background", async () => {
-    window.matchMedia ??= matchMediaStub;
-
     const { applyTheme } = await import("@koma/ui/stores/theme-store");
     const root = document.documentElement;
 
@@ -118,4 +126,28 @@ describe("applyTheme", () => {
     expect(root.classList.contains("light")).toBe(true);
     expect(root.classList.contains("dark")).toBe(false);
   });
+});
+
+describe("pre-paint theme bootstrap", () => {
+  beforeEach(() => {
+    storageMap.clear();
+    vi.resetModules();
+  });
+
+  it.each(["electron", "tauri"] as const)(
+    "paints the store default before hydration in apps/%s",
+    async (shell) => {
+      const { useThemeStore } = await import("@koma/ui/stores/theme-store");
+      const source = THEME_BOOTSTRAP_SOURCES[shell];
+      const root = document.documentElement;
+      root.removeAttribute("data-theme");
+      root.removeAttribute("data-theme-family");
+      root.classList.remove("dark", "light");
+
+      runInThisContext(source, { filename: `apps/${shell}/public/theme-bootstrap.js` });
+
+      expect(root.getAttribute("data-theme")).toBe(useThemeStore.getState().theme);
+      expect(root.getAttribute("data-theme-family")).toBe(useThemeStore.getState().family);
+    },
+  );
 });

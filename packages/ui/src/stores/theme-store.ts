@@ -22,17 +22,15 @@ interface ThemeStore {
   setFamily: (family: KomaThemeFamily) => void;
 }
 
-const detectInitialTheme = (): KomaTheme => {
-  if (typeof window === 'undefined') return 'dark';
-  const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-  return prefersLight ? 'light' : 'dark';
-};
+// Dark is the shipped default; light is opt-in from settings, independent of
+// the OS color scheme.
+const DEFAULT_THEME: KomaTheme = 'dark';
 
 export const useThemeStore = create<ThemeStore>()(
   devtools(
     persist(
       (set) => ({
-        theme: detectInitialTheme(),
+        theme: DEFAULT_THEME,
         // Noir is the shipped design system; classic stays reachable from
         // settings as the legacy family.
         family: DEFAULT_THEME_FAMILY,
