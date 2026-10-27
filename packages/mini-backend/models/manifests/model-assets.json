@@ -286,6 +286,86 @@
       ],
       "totalBytes": 16600352841
     },
+    "nllb-200-1.3b": {
+      "assets": [
+        {
+          "path": "config.json",
+          "sha256": "6918d76e923d6b372a14b8d1d837f27b809bd009943c4ebe943f8e34b2226233",
+          "size": 808
+        },
+        {
+          "path": "generation_config.json",
+          "sha256": "0bb604cdb8392649176935a447ce994128f170a6908c135a17d0e3dfb8113cb2",
+          "size": 189
+        },
+        {
+          "path": "pytorch_model.bin",
+          "sha256": "7e40f838a5aad3d60e9254632ab876bda44340386ca7ebad3e099db7432b04e1",
+          "size": 5482882236
+        },
+        {
+          "path": "sentencepiece.bpe.model",
+          "sha256": "14bb8dfb35c0ffdea7bc01e56cea38b9e3d5efcdcb9c251d6b40538e1aab555a",
+          "size": 4852054
+        },
+        {
+          "path": "special_tokens_map.json",
+          "sha256": "992bd4ed610d644d6823081937bcc91bb8878dd556cea4ae5327f2480361330e",
+          "size": 3548
+        },
+        {
+          "path": "tokenizer.json",
+          "sha256": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+          "size": 17331176
+        },
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "d1aa8c3697d3e35674f97b5b7e9c99d22b010f528e80140257d97316be90d044",
+          "size": 564
+        }
+      ],
+      "totalBytes": 5505070575
+    },
+    "nllb-200-1.3b-int8-ct2": {
+      "assets": [
+        {
+          "path": "config.json",
+          "sha256": "bb11352c2579e31d4251500cd3d813beb6ab083c8a60268db52e9698c1c9cda2",
+          "size": 1071
+        },
+        {
+          "path": "generation_config.json",
+          "sha256": "0bb604cdb8392649176935a447ce994128f170a6908c135a17d0e3dfb8113cb2",
+          "size": 189
+        },
+        {
+          "path": "model.bin",
+          "sha256": "89dc4b9eb7f4dcd3ff36023c9b1c55fcecb47ddc0df97ab31b068ef9cf194940",
+          "size": 1377755738
+        },
+        {
+          "path": "shared_vocabulary.json",
+          "sha256": "af53bfd0e6f726209e7325e45b87ab3b14e5856f7d42d7b9be91de3287c45267",
+          "size": 5921176
+        },
+        {
+          "path": "special_tokens_map.json",
+          "sha256": "992bd4ed610d644d6823081937bcc91bb8878dd556cea4ae5327f2480361330e",
+          "size": 3548
+        },
+        {
+          "path": "tokenizer.json",
+          "sha256": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+          "size": 17331176
+        },
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "d1aa8c3697d3e35674f97b5b7e9c99d22b010f528e80140257d97316be90d044",
+          "size": 564
+        }
+      ],
+      "totalBytes": 1401013462
+    },
     "nllb-200-3.3b": {
       "assets": [
         {
@@ -340,6 +420,46 @@
         }
       ],
       "totalBytes": 17599743779
+    },
+    "nllb-200-600m-int8": {
+      "assets": [
+        {
+          "path": "config.json",
+          "sha256": "0c2f6fa2057c7264d052fb4a62ba3476eeae70487acddfa8e779a53a00cbf44c",
+          "size": 159
+        },
+        {
+          "path": "model.bin",
+          "sha256": "ed1beaf75134de7505315a5223162f56acff397eff6b50638a500d3936fe707b",
+          "size": 622595991
+        },
+        {
+          "path": "sentencepiece.bpe.model",
+          "sha256": "14bb8dfb35c0ffdea7bc01e56cea38b9e3d5efcdcb9c251d6b40538e1aab555a",
+          "size": 4852054
+        },
+        {
+          "path": "shared_vocabulary.txt",
+          "sha256": "a132a83330f45514c2476eb81d1d69b3c41762264d16ce0a7ea982e5d6c728e5",
+          "size": 2568098
+        },
+        {
+          "path": "special_tokens_map.json",
+          "sha256": "992bd4ed610d644d6823081937bcc91bb8878dd556cea4ae5327f2480361330e",
+          "size": 3548
+        },
+        {
+          "path": "tokenizer.json",
+          "sha256": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+          "size": 17331176
+        },
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "d1aa8c3697d3e35674f97b5b7e9c99d22b010f528e80140257d97316be90d044",
+          "size": 564
+        }
+      ],
+      "totalBytes": 647351590
     },
     "opencv_lama": {
       "assets": [

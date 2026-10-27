@@ -13,13 +13,21 @@ from models.translation.errors import (
     InvalidModelSelectionError,
     TranslatorConfigurationError,
 )
-from models.translation.local_ctranslate2 import M2M100LocalTranslator, SugoiLocalTranslator
+from models.translation.local_ctranslate2 import (
+    M2M100LocalTranslator,
+    NllbCt2LocalTranslator,
+    SugoiLocalTranslator,
+)
 from models.translation.local_gguf import GGUFLocalTranslator
 from models.translation.local_storage import (
     local_translation_runtime_ready,
     resolve_local_translation_model_dir,
 )
-from models.translation.local_transformers import Nllb200Translator, OpusMtTranslator
+from models.translation.local_transformers import (
+    Nllb200Distilled13BTranslator,
+    Nllb200Translator,
+    OpusMtTranslator,
+)
 from models.translation.providers import (
     ClaudeTranslatorEngine,
     CustomTranslatorEngine,
@@ -133,26 +141,20 @@ TRANSLATION_MODELS: dict[str, TranslationModelMeta] = {
         "use_case": "Local multilingual translation via NLLB-200 3.3B (CPU, fp32).",
         "implemented": True, "kind": "local_transformers", "requires": [],
     },
-    # Direct-download catalog entries kept installable and visible, but with no
-    # runtime in this backend. They are never runnable, never selectable, and
-    # never silently swapped for a cloud engine when asked for explicitly.
     "nllb-200-600m-int8": {
         "name": "NLLB-200 600M int8", "device": "cpu",
-        "use_case": "Download only: no local runtime is implemented for this model.",
-        "implemented": False, "kind": "local_transformers", "requires": [],
-        "runtime_support": "download_only",
+        "use_case": "Offline local multilingual translation via NLLB-200 600M (CT2 int8, CPU).",
+        "implemented": True, "kind": "local_ctranslate2", "requires": [],
     },
     "nllb-200-1.3b": {
         "name": "NLLB-200 1.3B", "device": "cpu",
-        "use_case": "Download only: no local runtime is implemented for this model.",
-        "implemented": False, "kind": "local_transformers", "requires": [],
-        "runtime_support": "download_only",
+        "use_case": "Offline local multilingual translation via NLLB-200 1.3B distilled (CPU, fp32).",
+        "implemented": True, "kind": "local_transformers", "requires": [],
     },
     "nllb-200-1.3b-int8-ct2": {
         "name": "NLLB-200 1.3B int8 CT2", "device": "cpu",
-        "use_case": "Download only: no local runtime is implemented for this model.",
-        "implemented": False, "kind": "local_transformers", "requires": [],
-        "runtime_support": "download_only",
+        "use_case": "Offline local multilingual translation via NLLB-200 1.3B (CT2 int8, CPU).",
+        "implemented": True, "kind": "local_ctranslate2", "requires": [],
     },
     "gpt_4_1": {
         "name": "GPT-4.1", "device": "cpu_gpu",
@@ -247,17 +249,6 @@ def _opus(model_key: str) -> EngineBuilder:
     )
 
 
-def _download_only(model_key: str) -> EngineBuilder:
-    """Keep the registry/builder invariant without pretending to build a runtime."""
-
-    def _reject(_key: str) -> BaseTranslator:
-        raise InvalidModelSelectionError(
-            model_key, "no local runtime is implemented for this model"
-        )
-
-    return _reject
-
-
 _ENGINE_BUILDERS: dict[str, EngineBuilder] = {
     "google_translate": lambda _key: GoogleTranslatorEngine(),
     "microsoft_translator": lambda _key: MicrosoftTranslatorEngine(),
@@ -280,9 +271,15 @@ _ENGINE_BUILDERS: dict[str, EngineBuilder] = {
     "nllb-200-3.3b": lambda key: Nllb200Translator(
         model_dir=resolve_local_translation_model_dir(key)
     ),
-    "nllb-200-600m-int8": _download_only("nllb-200-600m-int8"),
-    "nllb-200-1.3b": _download_only("nllb-200-1.3b"),
-    "nllb-200-1.3b-int8-ct2": _download_only("nllb-200-1.3b-int8-ct2"),
+    "nllb-200-600m-int8": lambda key: NllbCt2LocalTranslator(
+        model_key=key, model_dir=resolve_local_translation_model_dir(key)
+    ),
+    "nllb-200-1.3b": lambda key: Nllb200Distilled13BTranslator(
+        model_dir=resolve_local_translation_model_dir(key)
+    ),
+    "nllb-200-1.3b-int8-ct2": lambda key: NllbCt2LocalTranslator(
+        model_key=key, model_dir=resolve_local_translation_model_dir(key)
+    ),
     "gpt_4_1": _openai("gpt-4.1"),
     "gpt_4_1_mini": _openai("gpt-4.1-mini"),
     "gemini_2_5_flash": _gemini("gemini-2.5-flash"),

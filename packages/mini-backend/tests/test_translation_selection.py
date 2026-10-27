@@ -18,7 +18,7 @@ from models.translation.base_translator import BaseTranslator  # noqa: E402
 from models.translation.errors import InvalidModelSelectionError  # noqa: E402
 from models.translation.providers import GoogleTranslatorEngine  # noqa: E402
 
-DOWNLOAD_ONLY_MODEL_IDS = (
+NLLB_RUNNABLE_MODEL_IDS = (
     "nllb-200-600m-int8",
     "nllb-200-1.3b",
     "nllb-200-1.3b-int8-ct2",
@@ -65,15 +65,15 @@ class TranslationSelectionTests(unittest.TestCase):
         )
         return stack
 
-    def test_explicit_download_only_keys_raise_without_a_cloud_call(self) -> None:
-        for key in DOWNLOAD_ONLY_MODEL_IDS:
+    def test_explicit_uninstalled_nllb_keys_raise_without_a_cloud_call(self) -> None:
+        for key in NLLB_RUNNABLE_MODEL_IDS:
             spy = _GoogleEngineSpy()
             with self._unavailable_local(spy):
                 with self.assertRaises(InvalidModelSelectionError) as ctx:
                     translation_factory.get_translation_engine(key)
 
             self.assertEqual(ctx.exception.model_key, key)
-            self.assertIn("no local runtime is implemented", ctx.exception.reason)
+            self.assertIn("not installed", ctx.exception.reason)
             self.assertEqual(spy.calls, 0)
             self.assertEqual(translation_factory.get_translator_cache_size(), 0)
 

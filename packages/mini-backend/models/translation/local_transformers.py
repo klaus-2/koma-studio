@@ -317,3 +317,23 @@ class Nllb200Translator(LocalTransformersTranslator):
             for region in request.non_empty_regions()
         ]
         return self._results_in_order(request, translations)
+
+
+class Nllb200Distilled13BTranslator(Nllb200Translator):
+    """Single-file checkpoint, no index — the upstream repo ships one plain
+    ``pytorch_model.bin`` instead of the 3.3B's shards plus index."""
+
+    key = "nllb-200-1.3b"
+    name = "NLLB-200 1.3B"
+    required_files: tuple[str, ...] = (
+        "config.json",
+        "generation_config.json",
+        "pytorch_model.bin",
+        "sentencepiece.bpe.model",
+        "special_tokens_map.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+    )
+
+    def _required_files(self) -> tuple[str, ...]:
+        return self.required_files

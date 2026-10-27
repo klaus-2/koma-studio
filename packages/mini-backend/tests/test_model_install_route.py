@@ -48,7 +48,14 @@ class ModelInstallRouteTests(unittest.TestCase):
 @unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
 class TranslationManagedInstallDispatchTests(unittest.TestCase):
     def test_translation_bundles_use_the_local_translation_installer(self) -> None:
-        model_ids = ("opus-mt-ja-en", "opus-mt-zh-en", "nllb-200-3.3b")
+        model_ids = (
+            "opus-mt-ja-en",
+            "opus-mt-zh-en",
+            "nllb-200-3.3b",
+            "nllb-200-600m-int8",
+            "nllb-200-1.3b",
+            "nllb-200-1.3b-int8-ct2",
+        )
 
         for model_id in model_ids:
             with patch.object(

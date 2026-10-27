@@ -226,7 +226,7 @@ class ModelDownloadsRouteTests(unittest.TestCase):
 
 class GenericUrlDownloadTests(unittest.TestCase):
     def test_unknown_model_with_url_downloads_generic_payload(self) -> None:
-        """Registry direct_download models (nllb/opus) fall through to the fallback."""
+        """Unknown ids with a client URL still fall through to the generic payload."""
         from routers import model_install
 
         calls: list[tuple[str, Path]] = []
@@ -248,7 +248,7 @@ class GenericUrlDownloadTests(unittest.TestCase):
             # the patch must target the router's bound names, not the source module.
             with tempfile.TemporaryDirectory() as models_root,                 patch.dict(os.environ, {"KOMA_MODELS_ROOT": models_root}),                 patch.object(model_install, "download_file", side_effect=fake_download),                 patch.object(model_install, "sha256_file", return_value="a" * 64):
                 job, created = manager.submit(
-                    "nllb-200-600m-int8",
+                    "modelo_generico_url",
                     extras={
                         "download_url": "https://example.invalid/model.bin",
                         "checksum_sha256": "a" * 64,
@@ -261,6 +261,44 @@ class GenericUrlDownloadTests(unittest.TestCase):
             self.assertEqual(snapshot["state"], "ready")
             self.assertEqual(len(calls), 1)
             self.assertTrue(calls[0][1].name.endswith("model.bin"))
+        finally:
+            manager.installer = original
+
+    def test_nllb_600m_uses_the_local_translation_installer(self) -> None:
+        """The managed dispatch intercepts nllb ids before the URL fallback."""
+        from routers import model_install
+
+        installer_calls: list[str] = []
+
+        def fake_installer(model_id: str) -> dict[str, object]:
+            installer_calls.append(model_id)
+            return {"modelId": model_id, "fileCount": 7}
+
+        manager = _manager()
+        original = manager.installer
+        try:
+            # The managed dispatch lives inside the router's installer, so the
+            # hoisted translation storage import must be patched on the router
+            # module, not on the source module.
+            with patch.object(
+                model_install,
+                "ensure_local_translation_model_installed",
+                side_effect=fake_installer,
+            ), patch.object(model_install, "_download_generic_model") as generic_mock:
+                job, created = manager.submit(
+                    "nllb-200-600m-int8",
+                    extras={
+                        "download_url": "https://example.invalid/model.bin",
+                        "checksum_sha256": "a" * 64,
+                    },
+                )
+                self.assertTrue(created)
+                self.assertTrue(job.wait(5))
+
+            snapshot = job.snapshot()
+            self.assertEqual(snapshot["state"], "ready")
+            self.assertEqual(installer_calls, ["nllb-200-600m-int8"])
+            generic_mock.assert_not_called()
         finally:
             manager.installer = original
 

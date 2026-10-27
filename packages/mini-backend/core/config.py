@@ -101,6 +101,9 @@ TRANSLATOR_MODEL_ALIASES: dict[str, str] = {
     "opus_mt_ja_en": "opus-mt-ja-en",
     "opus_mt_zh_en": "opus-mt-zh-en",
     "nllb_200_3_3b": "nllb-200-3.3b",
+    "nllb_200_600m_int8": "nllb-200-600m-int8",
+    "nllb_200_1_3b": "nllb-200-1.3b",
+    "nllb_200_1_3b_int8_ct2": "nllb-200-1.3b-int8-ct2",
 }
 
 OCR_MODEL_ALIASES: dict[str, str] = {

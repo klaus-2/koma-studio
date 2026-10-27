@@ -13,7 +13,7 @@ import type {
 import { getTranslationModelById } from '@/models/translation-models-registry';
 import type { ModelInstallState } from '@/models/types';
 
-const DOWNLOAD_ONLY_IDS = [
+const NLLB_LOCAL_IDS = [
   'nllb-200-600m-int8',
   'nllb-200-1.3b',
   'nllb-200-1.3b-int8-ct2',
@@ -188,23 +188,23 @@ describe('buildAioStageCatalog', () => {
   });
 });
 
-describe('download-only translation entries', () => {
-  it('keeps them in the catalog as disabled options with the reason', () => {
+describe('managed NLLB translation entries', () => {
+  it('offers them as implemented local options', () => {
     const catalog = buildAioStageCatalog({ sourceLanguage: 'ja' });
 
-    for (const modelId of DOWNLOAD_ONLY_IDS) {
+    for (const modelId of NLLB_LOCAL_IDS) {
       const option = catalog.getTranslations.find(
         (candidate) => candidate.key === modelId,
       );
 
       expect(option).toBeDefined();
-      expect(option?.implemented).toBe(false);
+      expect(option?.implemented).toBe(true);
       expect(option?.available).toBe(false);
-      expect(option?.use_case).toContain('Download only');
+      expect(option?.use_case).not.toContain('Download only');
     }
   });
 
-  it('never makes them selectable, even with an installed record', () => {
+  it('makes them selectable once installed and not before', () => {
     const installedEntry = (modelId: string): ModelInstallState => {
       const model = getTranslationModelById(modelId);
       if (!model) {
@@ -227,18 +227,24 @@ describe('download-only translation entries', () => {
     };
     const entries: Record<string, ModelInstallState> = {
       'nllb-200-600m-int8': installedEntry('nllb-200-600m-int8'),
+      'nllb-200-1.3b': installedEntry('nllb-200-1.3b'),
       'nllb-200-1.3b-int8-ct2': installedEntry('nllb-200-1.3b-int8-ct2'),
     };
-    const catalog = buildAioStageCatalog({
+    const installedCatalog = buildAioStageCatalog({
       sourceLanguage: 'ja',
       localModelEntries: entries,
     });
+    const emptyCatalog = buildAioStageCatalog({ sourceLanguage: 'ja' });
 
-    for (const modelId of DOWNLOAD_ONLY_IDS) {
-      const option = catalog.getTranslations.find(
+    for (const modelId of NLLB_LOCAL_IDS) {
+      const installedOption = installedCatalog.getTranslations.find(
         (candidate) => candidate.key === modelId,
       );
-      expect(isStageOptionSelectable(option, entries)).toBe(false);
+      const notInstalledOption = emptyCatalog.getTranslations.find(
+        (candidate) => candidate.key === modelId,
+      );
+      expect(isStageOptionSelectable(installedOption, entries)).toBe(true);
+      expect(isStageOptionSelectable(notInstalledOption, {})).toBe(false);
     }
   });
 

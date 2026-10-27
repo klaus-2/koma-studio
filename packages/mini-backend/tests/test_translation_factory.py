@@ -17,11 +17,10 @@ try:
     from core.config import normalize_stage_model_key
     from models.translation import factory as translation_factory
     from models.translation import local_storage as translation_storage
-    from models.translation.errors import InvalidModelSelectionError
 except Exception as exc:  # pragma: no cover - optional runtime deps
     IMPORT_ERROR = exc
 
-DOWNLOAD_ONLY_MODEL_IDS = (
+NLLB_RUNNABLE_MODEL_IDS = (
     "nllb-200-600m-int8",
     "nllb-200-1.3b",
     "nllb-200-1.3b-int8-ct2",
@@ -29,7 +28,7 @@ DOWNLOAD_ONLY_MODEL_IDS = (
 
 
 class TranslationFactoryModuleImportTests(unittest.TestCase):
-    def test_factory_module_imports_with_download_only_keys_registered(self) -> None:
+    def test_factory_module_imports_with_nllb_runnable_keys_registered(self) -> None:
         if IMPORT_ERROR is not None:
             self.fail(f"models.translation.factory failed to import: {IMPORT_ERROR}")
 
@@ -38,7 +37,7 @@ class TranslationFactoryModuleImportTests(unittest.TestCase):
             set(imported.TRANSLATION_MODELS),
             set(imported._ENGINE_BUILDERS),
         )
-        for key in DOWNLOAD_ONLY_MODEL_IDS:
+        for key in NLLB_RUNNABLE_MODEL_IDS:
             self.assertIn(key, imported.TRANSLATION_MODELS)
             self.assertIn(key, imported._ENGINE_BUILDERS)
 
@@ -109,18 +108,34 @@ class TranslationFactoryTransformersTests(unittest.TestCase):
 
 
 @unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
-class TranslationDownloadOnlyTests(unittest.TestCase):
-    MODEL_IDS = DOWNLOAD_ONLY_MODEL_IDS
+class TranslationNllbRunnableTests(unittest.TestCase):
+    MODEL_IDS = NLLB_RUNNABLE_MODEL_IDS
+    EXPECTED_KINDS = {
+        "nllb-200-600m-int8": "local_ctranslate2",
+        "nllb-200-1.3b": "local_transformers",
+        "nllb-200-1.3b-int8-ct2": "local_ctranslate2",
+    }
 
-    def test_download_only_models_are_declared_unimplemented(self) -> None:
+    def test_nllb_runnable_variants_are_declared_implemented(self) -> None:
         for key in self.MODEL_IDS:
             meta = translation_factory.TRANSLATION_MODELS[key]
-            self.assertFalse(meta["implemented"])
-            self.assertEqual(meta["kind"], "local_transformers")
+            self.assertTrue(meta["implemented"])
+            self.assertEqual(meta["kind"], self.EXPECTED_KINDS[key])
             self.assertEqual(meta["requires"], [])
-            self.assertEqual(meta.get("runtime_support"), "download_only")
+            self.assertNotIn("runtime_support", meta)
 
-    def test_download_only_models_are_never_available(self) -> None:
+    def test_nllb_variants_require_installation(self) -> None:
+        for key in self.MODEL_IDS:
+            meta = translation_factory.TRANSLATION_MODELS[key]
+            with (
+                patch.object(translation_factory, "model_is_installed", return_value=False),
+                patch.object(
+                    translation_factory, "local_translation_runtime_ready", return_value=False
+                ),
+            ):
+                self.assertFalse(translation_factory._is_available(key, meta))
+
+    def test_nllb_variants_are_available_once_installed(self) -> None:
         for key in self.MODEL_IDS:
             meta = translation_factory.TRANSLATION_MODELS[key]
             with (
@@ -129,18 +144,24 @@ class TranslationDownloadOnlyTests(unittest.TestCase):
                     translation_factory, "local_translation_runtime_ready", return_value=True
                 ),
             ):
-                self.assertFalse(translation_factory._is_available(key, meta))
+                self.assertTrue(translation_factory._is_available(key, meta))
 
-    def test_download_only_builders_raise_the_typed_selection_error(self) -> None:
+    def test_nllb_variants_build_real_engines_once_installed(self) -> None:
         for key in self.MODEL_IDS:
-            builder = translation_factory._ENGINE_BUILDERS[key]
-            with self.assertRaises(InvalidModelSelectionError) as ctx:
-                builder(key)
-            self.assertEqual(ctx.exception.model_key, key)
-            self.assertIn(
-                "no local runtime is implemented for this model",
-                ctx.exception.reason,
-            )
+            with (
+                patch.object(translation_factory, "model_is_installed", return_value=True),
+                patch.object(
+                    translation_factory, "local_translation_runtime_ready", return_value=True
+                ),
+                patch.object(
+                    translation_factory,
+                    "resolve_local_translation_model_dir",
+                    return_value=Path("."),
+                ),
+            ):
+                engine = translation_factory._ENGINE_BUILDERS[key](key)
+
+            self.assertEqual(engine.key, key)
 
     def test_partial_nllb_600m_directory_is_not_ready(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -157,16 +178,18 @@ class TranslationDownloadOnlyTests(unittest.TestCase):
                     )
                 )
 
-    def test_complete_directory_of_an_unmanaged_key_is_not_ready(self) -> None:
+    def test_complete_directory_of_the_nllb_1_3b_ct2_bundle_is_ready(self) -> None:
+        files = translation_storage._LOCAL_TRANSLATION_MODELS["nllb-200-1.3b-int8-ct2"]["files"]
         with tempfile.TemporaryDirectory() as directory:
             model_dir = Path(directory)
-            (model_dir / "model.bin").write_bytes(b"checksum-valid")
+            for relative_path in files:
+                (model_dir / relative_path).write_bytes(b"stub")
             with patch.object(
                 translation_storage,
                 "resolve_local_translation_model_dir",
                 return_value=model_dir,
             ):
-                self.assertFalse(
+                self.assertTrue(
                     translation_storage.local_translation_runtime_ready(
                         "nllb-200-1.3b-int8-ct2"
                     )
@@ -185,9 +208,32 @@ class TranslationDownloadOnlyTests(unittest.TestCase):
                     )
                 )
 
+    def test_nllb_runnable_slug_aliases_resolve_to_registry_ids(self) -> None:
+        for slug, key in (
+            ("nllb_200_600m_int8", "nllb-200-600m-int8"),
+            ("nllb_200_1_3b", "nllb-200-1.3b"),
+            ("nllb_200_1_3b_int8_ct2", "nllb-200-1.3b-int8-ct2"),
+        ):
+            self.assertEqual(normalize_stage_model_key("translation", slug), key)
+
 
 @unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
 class TranslationRegistrySnapshotTests(unittest.TestCase):
+    def test_nllb_600m_metadata_is_managed_runnable(self) -> None:
+        self.assertEqual(
+            translation_factory.TRANSLATION_MODELS["nllb-200-600m-int8"],
+            {
+                "name": "NLLB-200 600M int8",
+                "device": "cpu",
+                "use_case": (
+                    "Offline local multilingual translation via NLLB-200 600M (CT2 int8, CPU)."
+                ),
+                "implemented": True,
+                "kind": "local_ctranslate2",
+                "requires": [],
+            },
+        )
+
     def test_hunyuan_metadata_is_unchanged(self) -> None:
         self.assertEqual(
             translation_factory.TRANSLATION_MODELS["hunyuan_7b_mt_v1_0"],

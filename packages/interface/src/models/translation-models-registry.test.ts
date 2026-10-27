@@ -16,11 +16,17 @@ import {
 } from "./translation-models-registry";
 
 const TRANSFORMERS_MODEL_IDS = ["opus-mt-ja-en", "opus-mt-zh-en", "nllb-200-3.3b"] as const;
-const DOWNLOAD_ONLY_MODEL_IDS = [
+const NLLB_MANAGED_MODEL_IDS = [
   "nllb-200-600m-int8",
   "nllb-200-1.3b",
   "nllb-200-1.3b-int8-ct2",
 ] as const;
+const NLLB_MANAGED_RUNTIME_FAMILIES = [
+  { id: "nllb-200-600m-int8", runtimeFamily: "ctranslate2" },
+  { id: "nllb-200-1.3b", runtimeFamily: "transformers" },
+  { id: "nllb-200-1.3b-int8-ct2", runtimeFamily: "ctranslate2" },
+] as const;
+const VERSION_BUMPED_MODEL_IDS = [...TRANSFORMERS_MODEL_IDS, ...NLLB_MANAGED_MODEL_IDS];
 const PREVIOUS_REGISTRY_VERSION = "1.1.0";
 
 describe("translation models registry", () => {
@@ -58,14 +64,25 @@ describe("translation models registry", () => {
     }
   });
 
-  test("bumps the version only for the three transformers entries", () => {
+  test("routes the three NLLB variants through the backend installer", () => {
+    for (const { id, runtimeFamily } of NLLB_MANAGED_RUNTIME_FAMILIES) {
+      const model = getTranslationModelById(id);
+      expect(model).not.toBeNull();
+      expect(model?.installStrategy).toBe("backend_managed");
+      expect(model?.runtimeFamily).toBe(runtimeFamily);
+      expect(model?.backendInstallEndpoint).toBe("/models/install");
+      expect(model?.version).toBe("1.2.0");
+    }
+  });
+
+  test("bumps the version only for the three transformers entries and the three NLLB variants", () => {
     const bumped = TRANSLATION_MODELS_REGISTRY.filter((model) => model.version === "1.2.0")
       .map((model) => model.id)
       .sort();
-    expect(bumped).toEqual([...TRANSFORMERS_MODEL_IDS].sort());
+    expect(bumped).toEqual([...VERSION_BUMPED_MODEL_IDS].sort());
   });
 
-  test("marks only the three transformers entries as update_available", () => {
+  test("marks only the transformers entries and the NLLB variants as update_available", () => {
     const installedModels: InstalledModelRecord[] = TRANSLATION_MODELS_REGISTRY.map((model) => ({
       modelId: model.id,
       version: PREVIOUS_REGISTRY_VERSION,
@@ -82,19 +99,17 @@ describe("translation models registry", () => {
       .map((result) => result.modelId)
       .sort();
 
-    expect(updateIds).toEqual([...TRANSFORMERS_MODEL_IDS].sort());
+    expect(updateIds).toEqual([...VERSION_BUMPED_MODEL_IDS].sort());
   });
 
-  test("declares download_only exactly on the three direct NLLB variants", () => {
+  test("no longer flags any translation model as download_only", () => {
     const flagged = TRANSLATION_MODELS_REGISTRY.filter(
       (model) => getModelRuntimeSupport(model) === "download_only",
-    )
-      .map((model) => model.id)
-      .sort();
+    ).map((model) => model.id);
 
-    expect(flagged).toEqual([...DOWNLOAD_ONLY_MODEL_IDS].sort());
+    expect(flagged).toEqual([]);
 
-    for (const modelId of TRANSFORMERS_MODEL_IDS) {
+    for (const modelId of [...TRANSFORMERS_MODEL_IDS, ...NLLB_MANAGED_MODEL_IDS]) {
       const model = getTranslationModelById(modelId);
       expect(model).not.toBeNull();
       expect(model && isDownloadOnlyModel(model)).toBe(false);
@@ -102,13 +117,11 @@ describe("translation models registry", () => {
     }
   });
 
-  test("carries runtimeSupport into the install states", () => {
+  test("carries no download-only runtimeSupport into the install states", () => {
     const states = buildModelInstallStates(TRANSLATION_MODELS_REGISTRY, []);
 
-    for (const modelId of DOWNLOAD_ONLY_MODEL_IDS) {
-      expect(states[modelId]?.model.runtimeSupport).toBe("download_only");
+    for (const model of TRANSLATION_MODELS_REGISTRY) {
+      expect(states[model.id]?.model.runtimeSupport).toBeUndefined();
     }
-    expect(states["hunyuan_7b_mt_v1_0"]?.model.runtimeSupport).toBeUndefined();
-    expect(states["opus-mt-ja-en"]?.model.runtimeSupport).toBeUndefined();
   });
 });

@@ -193,6 +193,9 @@ def _install_managed_model(
         "opus-mt-ja-en",
         "opus-mt-zh-en",
         "nllb-200-3.3b",
+        "nllb-200-600m-int8",
+        "nllb-200-1.3b",
+        "nllb-200-1.3b-int8-ct2",
     }:
         return ensure_local_translation_model_installed(normalized_model_id)
     if normalized_model_id == "pp_doclayout_v3":

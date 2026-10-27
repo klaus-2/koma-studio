@@ -7,6 +7,10 @@ from typing import Protocol, cast
 from models.translation.base_translator import TranslationRequest, TranslationTextResult
 from models.translation.errors import LocalModelError, UnsupportedLanguagePairError
 from models.translation.local_base import LocalTranslatorBase, normalize_output_whitespace
+from models.translation.local_transformers import (
+    _NLLB_LANGUAGE_CODES,
+    canonical_language,
+)
 
 
 class _TranslationResult(Protocol):
@@ -37,6 +41,15 @@ class _SentencePieceProcessor(Protocol):
 class _M2M100Tokenizer(Protocol):
     src_lang: str
     lang_code_to_token: dict[str, str]
+
+    def encode(self, text: str) -> list[int]: ...
+    def convert_ids_to_tokens(self, ids: Sequence[int]) -> list[str]: ...
+    def convert_tokens_to_ids(self, tokens: Sequence[str]) -> list[int]: ...
+    def decode(self, token_ids: Sequence[int]) -> str: ...
+
+
+class _NllbCt2Tokenizer(Protocol):
+    src_lang: str
 
     def encode(self, text: str) -> list[int]: ...
     def convert_ids_to_tokens(self, ids: Sequence[int]) -> list[str]: ...
@@ -164,6 +177,98 @@ class M2M100LocalTranslator(LocalTranslatorBase):
         ]
         outputs = translator.translate_batch(
             tokenized, target_prefix=[[target_token]] * len(tokenized)
+        )
+        translated = [
+            normalize_output_whitespace(
+                tokenizer.decode(
+                    tokenizer.convert_tokens_to_ids(result.hypotheses[0][1:])
+                )
+            )
+            if result.hypotheses
+            else ""
+            for result in outputs
+        ]
+        return [
+            self._result(region, text)
+            for region, text in zip(request.regions, translated, strict=True)
+        ]
+
+
+_NLLB_CT2_NAMES: dict[str, str] = {
+    "nllb-200-600m-int8": "NLLB-200 600M int8 (CT2)",
+    "nllb-200-1.3b-int8-ct2": "NLLB-200 1.3B int8 (CT2)",
+}
+
+
+class NllbCt2LocalTranslator(LocalTranslatorBase):
+    def __init__(
+        self, model_key: str, model_dir: str | Path | None = None, device: str = "cpu"
+    ) -> None:
+        if model_key not in _NLLB_CT2_NAMES:
+            raise LocalModelError(f"Unknown NLLB CT2 model: {model_key}")
+        super().__init__(key=model_key, model_dir=model_dir)
+        self.key = model_key
+        self.name = _NLLB_CT2_NAMES[model_key]
+        self.device = device
+        self._translator: _CT2Translator | None = None
+        self._tokenizer: _NllbCt2Tokenizer | None = None
+
+    def _validate_language_pair(self, request: TranslationRequest) -> None:
+        if (
+            canonical_language(request.source_language) not in _NLLB_LANGUAGE_CODES
+            or canonical_language(request.target_language) not in _NLLB_LANGUAGE_CODES
+        ):
+            raise UnsupportedLanguagePairError(
+                self.key, request.source_language, request.target_language
+            )
+
+    def _nllb_code(self, language: str, request: TranslationRequest) -> str:
+        code = _NLLB_LANGUAGE_CODES.get(canonical_language(language))
+        if code is None:
+            raise UnsupportedLanguagePairError(
+                self.key, request.source_language, request.target_language
+            )
+        return code
+
+    def _ensure_runtime(self) -> None:
+        if self._translator is not None and self._tokenizer is not None:
+            return
+        try:
+            import ctranslate2  # pyright: ignore[reportMissingImports, reportMissingTypeStubs]
+            from transformers import (  # pyright: ignore[reportMissingImports, reportMissingTypeStubs]
+                AutoTokenizer,
+            )
+        except ImportError as exc:
+            raise LocalModelError(
+                "Local translation dependencies (ctranslate2/transformers) are not installed."
+            ) from exc
+
+        if not (self.model_dir / "model.bin").is_file():
+            raise LocalModelError(f"{self.key} model not found in {self.model_dir}")
+
+        self._translator = cast(
+            _CT2Translator, ctranslate2.Translator(str(self.model_dir), device=self.device)
+        )
+        self._tokenizer = cast(
+            _NllbCt2Tokenizer,
+            AutoTokenizer.from_pretrained(str(self.model_dir), clean_up_tokenization_spaces=True),
+        )
+
+    def _runtime(self) -> tuple[_CT2Translator, _NllbCt2Tokenizer]:
+        if self._translator is None or self._tokenizer is None:
+            raise LocalModelError(f"{self.key} runtime is not loaded.")
+        return self._translator, self._tokenizer
+
+    def _infer(self, request: TranslationRequest) -> list[TranslationTextResult]:
+        translator, tokenizer = self._runtime()
+        tokenizer.src_lang = self._nllb_code(request.source_language, request)
+        target_code = self._nllb_code(request.target_language, request)
+        tokenized = [
+            tokenizer.convert_ids_to_tokens(tokenizer.encode(region.text))
+            for region in request.regions
+        ]
+        outputs = translator.translate_batch(
+            tokenized, target_prefix=[[target_code]] * len(tokenized)
         )
         translated = [
             normalize_output_whitespace(

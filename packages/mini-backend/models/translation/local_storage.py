@@ -102,6 +102,46 @@ _LOCAL_TRANSLATION_MODELS: dict[str, dict[str, Any]] = {
         ],
         "kind": "transformers",
     },
+    # CT2 int8 repos keep the vocab outside model.bin, and the filename differs
+    # per repo (600M: plain-text shared_vocabulary.txt; 1.3B: JSON). The
+    # transformers 1.3B repo is a plain single-file checkpoint (no index).
+    "nllb-200-600m-int8": {
+        "repo": "JustFrederik/nllb-200-distilled-600M-ct2-int8",
+        "files": [
+            "config.json",
+            "model.bin",
+            "sentencepiece.bpe.model",
+            "shared_vocabulary.txt",
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ],
+    },
+    "nllb-200-1.3b": {
+        "repo": "facebook/nllb-200-distilled-1.3B",
+        "files": [
+            "config.json",
+            "generation_config.json",
+            "pytorch_model.bin",
+            "sentencepiece.bpe.model",
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ],
+        "kind": "transformers",
+    },
+    "nllb-200-1.3b-int8-ct2": {
+        "repo": "OpenNMT/nllb-200-distilled-1.3B-ct2-int8",
+        "files": [
+            "config.json",
+            "generation_config.json",
+            "model.bin",
+            "shared_vocabulary.json",
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ],
+    },
 }
 
 
