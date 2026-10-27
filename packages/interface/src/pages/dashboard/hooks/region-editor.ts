@@ -5,7 +5,6 @@
  * 'hooks/region-editor' stay valid.
  */
 import { useCallback, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 
 import { useI18n } from '../../../i18n';
 import { TRANSLATION_NOTE_REGION_PREFIX } from '../../../constants/dashboard.constants';
@@ -318,7 +317,7 @@ export function useAioRegionEditing({
     const offsetY = 18;
     const nextRegion: AioTextRegion = {
       ...cloneAioRegion(activeSelectedRegion, cloneRenderStyle),
-      id: `manual-${uuidv4()}`,
+      id: `manual-${crypto.randomUUID()}`,
       bbox: normalizeRegion(
         x1 + offsetX,
         y1 + offsetY,

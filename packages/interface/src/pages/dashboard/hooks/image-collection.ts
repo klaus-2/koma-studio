@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { v4 as uuidv4 } from 'uuid';
 
 import {
   DASHBOARD_UPLOAD_ACCEPT,
@@ -72,7 +71,7 @@ export function useDashboardUploads({
         // Generate thumbnail for list/grid display to reduce memory
         createThumbnailFromUrl(url, 400, 600, 0.7).then((thumbUrl) => {
           resolve({
-            id: uuidv4(),
+            id: crypto.randomUUID(),
             file,
             url,
             thumbnailUrl: thumbUrl,
@@ -84,7 +83,7 @@ export function useDashboardUploads({
         }).catch(() => {
           // Thumbnail generation failed, still resolve without it
           resolve({
-            id: uuidv4(),
+            id: crypto.randomUUID(),
             file,
             url,
             width,

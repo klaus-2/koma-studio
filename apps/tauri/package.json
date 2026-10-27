@@ -96,7 +96,6 @@
     "remark-gfm": "^4.0.1",
     "scheduler": "^0.27.0",
     "tailwind-merge": "^2.6.1",
-    "uuid": "^13.0.2",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

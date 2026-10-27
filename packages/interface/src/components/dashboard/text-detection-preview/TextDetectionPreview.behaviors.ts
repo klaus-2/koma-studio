@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { MIN_REGION_SIZE } from '../../../constants/dashboard.constants';
 import type {
   AioTextRegion,
@@ -704,7 +703,7 @@ export const useTextDetectionPreviewBehaviors = ({
         );
         if (x2 - x1 >= MIN_REGION_SIZE && y2 - y1 >= MIN_REGION_SIZE) {
           const manualRegion: AioTextRegion = {
-            id: `manual-${uuidv4()}`,
+            id: `manual-${crypto.randomUUID()}`,
             bbox: [x1, y1, x2, y2],
             score: 1,
             source: 'manual',

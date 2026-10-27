@@ -6,7 +6,6 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import type React from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import type {
   AioTextRegion,
   LoadedImage,
@@ -952,7 +951,7 @@ export const useRenderTextPreviewPointer = ({
         const rawY2 = Math.max(interaction.startY, finalY);
         if (rawX2 - rawX1 >= MIN_REGION_SIZE && rawY2 - rawY1 >= MIN_REGION_SIZE) {
           const manualRegion: AioTextRegion = {
-            id: `manual-${uuidv4()}`,
+            id: `manual-${crypto.randomUUID()}`,
             bbox: [rawX1, rawY1, rawX2, rawY2],
             score: 1,
             source: 'manual',
