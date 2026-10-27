@@ -414,14 +414,12 @@ export default function GuidesHomeV2() {
                   initial={
                     reduceMotion
                       ? false
-                      : { width: 0 }
+                      : { scaleX: 0 }
                   }
                   animate={{
-                    width: `${((inProgressGuide.flatStep +
+                    scaleX: (inProgressGuide.flatStep +
                         1) /
-                        inProgressGuide.totalSteps) *
-                      100
-                      }%`,
+                        inProgressGuide.totalSteps,
                   }}
                   transition={{
                     duration:
@@ -430,7 +428,7 @@ export default function GuidesHomeV2() {
                         : 0.8,
                     ease: GUIDE_EASE,
                   }}
-                  className="h-full bg-crimson"
+                  className="h-full w-full origin-left bg-crimson"
                 />
               </div>
             </div>

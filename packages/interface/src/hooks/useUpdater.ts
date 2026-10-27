@@ -348,10 +348,12 @@ const useProvideUpdater = (): UseUpdaterApi => {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const tick = (): void => {
       void runGithubCheck().finally(() => {
+        if (cancelled) return;
         const attempts = githubBackoffAttemptsRef.current;
         const delay = Math.min(PERIODIC_CHECK_MS * 2 ** attempts, PERIODIC_CHECK_MS * 8);
         timer = setTimeout(tick, delay);
@@ -361,6 +363,7 @@ const useProvideUpdater = (): UseUpdaterApi => {
     timer = setTimeout(tick, CHECK_DELAY_MS);
 
     return () => {
+      cancelled = true;
       if (timer) {
         clearTimeout(timer);
       }

@@ -176,4 +176,36 @@ describe("useUpdater", () => {
 
     expect(badges.container.textContent).toBe("v1.1.0v1.1.0");
   });
+
+  it("stops the periodic check chain after unmount", async () => {
+    getAppVersionMock.mockReturnValue("1.0.0");
+    vi.useFakeTimers();
+    try {
+      let releaseFetch: ((value: ReleaseResponse) => void) | null = null;
+      fetchReleaseMock.mockReset();
+      fetchReleaseMock.mockImplementation(
+        () => new Promise<ReleaseResponse>((resolve) => { releaseFetch = resolve; }),
+      );
+
+      const view = renderUpdater();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8_000);
+      });
+      expect(fetchReleaseMock.mock.calls.length).toBe(1);
+
+      // Unmount while the check is in flight: resolving it must not re-arm
+      // the periodic chain after cleanup already ran.
+      view.unmount();
+      if (!releaseFetch) throw new Error("periodic check did not start");
+      await act(async () => {
+        releaseFetch({ ok: true, json: async () => LATEST_RELEASE });
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5 * 60_000);
+      });
+      expect(fetchReleaseMock.mock.calls.length).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

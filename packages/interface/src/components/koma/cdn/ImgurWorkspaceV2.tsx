@@ -665,11 +665,11 @@ export function ImgurWorkspaceV2({
                     reduceMotion
                       ? false
                       : {
-                        width: 0,
+                        scaleX: 0,
                       }
                   }
                   animate={{
-                    width: `${rateUsagePercent}%`,
+                    scaleX: rateUsagePercent / 100,
                   }}
                   transition={{
                     duration:
@@ -680,6 +680,8 @@ export function ImgurWorkspaceV2({
                   }}
                   className={[
                     'h-full',
+                    'w-full',
+                    'origin-left',
                     rateUsagePercent > 80
                       ? 'bg-crimson'
                       : rateUsagePercent >

@@ -381,7 +381,7 @@ export default function GuideReaderV2({
       >
         <motion.div
           animate={{
-            width: `${progress}%`,
+            scaleX: progress / 100,
           }}
           transition={{
             duration: reduceMotion
@@ -391,6 +391,8 @@ export default function GuideReaderV2({
           }}
           className={[
             'h-full',
+            'w-full',
+            'origin-left',
             toneStyles.solid,
           ].join(' ')}
         />

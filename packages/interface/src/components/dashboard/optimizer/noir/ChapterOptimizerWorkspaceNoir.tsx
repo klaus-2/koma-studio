@@ -1099,7 +1099,6 @@ export default function ChapterOptimizerWorkspace({
           key !== 'preset'
         ) {
           nextRecipe.preset = 'custom';
-          setSelectedPreset('custom');
         }
 
         return nextRecipe;
@@ -1107,6 +1106,15 @@ export default function ChapterOptimizerWorkspace({
     },
     [],
   );
+
+  // Recipe edits on a named preset flip it to custom; the chip follows via
+  // state sync because state updaters must stay pure (StrictMode runs them
+  // twice in dev).
+  useEffect(() => {
+    if (recipe.preset === 'custom' && selectedPreset !== 'custom') {
+      setSelectedPreset('custom');
+    }
+  }, [recipe.preset, selectedPreset]);
 
   const handleOptimizeAll = useCallback(
     async (saveToDirectory: boolean) => {
@@ -1324,7 +1332,6 @@ export default function ChapterOptimizerWorkspace({
         currentRecipe.preset !== 'custom'
       ) {
         nextRecipe.preset = 'custom';
-        setSelectedPreset('custom');
       }
 
       return nextRecipe;
@@ -2151,12 +2158,10 @@ export default function ChapterOptimizerWorkspace({
               >
                 <div className="h-1.5 overflow-hidden bg-paper/[0.055] panel-cut-sm">
                   <motion.div
-                    className="h-full bg-crimson"
+                    className="h-full w-full origin-left bg-crimson"
                     animate={{
-                      width: `${(batchProgress.current /
-                        batchProgress.total) *
-                        100
-                        }%`,
+                      scaleX: batchProgress.current /
+                        batchProgress.total,
                     }}
                     transition={{
                       duration: reduceMotion
@@ -2744,11 +2749,11 @@ export default function ChapterOptimizerWorkspace({
                         reduceMotion
                           ? false
                           : {
-                            width: '100%',
+                            scaleX: 1,
                           }
                       }
                       whileInView={{
-                        width: `${remainingWidth}%`,
+                        scaleX: remainingWidth / 100,
                       }}
                       viewport={{ once: true }}
                       transition={{
@@ -2760,7 +2765,7 @@ export default function ChapterOptimizerWorkspace({
                           : index * 0.04,
                         ease: EASE,
                       }}
-                      className="h-full"
+                      className="h-full w-full origin-left"
                       style={{
                         background:
                           savingsColor(percentage),
