@@ -1,13 +1,9 @@
-import { lazy, Suspense } from "react";
 import { m, AnimatePresence } from "framer-motion";
 import { RefreshCcw, X, FileText } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import { EASE, btnGhost } from "../../system/v2/kit";
 import SyncPanelNoir from "./SyncPanelNoir";
-
-// The markdown stack (react-markdown + remark-gfm) is only needed once notes
-// are actually rendered; lazy keeps it out of the eager entry graph.
-const ReleaseNotesMarkdown = lazy(() => import("../ReleaseNotesMarkdown"));
+import { LazyReleaseNotesMarkdown } from "../LazyReleaseNotesMarkdown";
 
 interface UpdateModalProps {
   open: boolean;
@@ -86,9 +82,7 @@ export const UpdateModalNoir = ({
               </p>
               <div className="panel-cut-sm max-h-48 overflow-y-auto border border-paper/8 bg-ink/60 p-3.5">
                 {releaseNotes ? (
-                  <Suspense fallback={null}>
-                    <ReleaseNotesMarkdown markdown={releaseNotes} />
-                  </Suspense>
+                  <LazyReleaseNotesMarkdown markdown={releaseNotes} />
                 ) : (
                   <p className="font-mono text-[10px] uppercase tracking-wider text-paper/30">
                     {t("update.modal.releaseNotesEmpty")}

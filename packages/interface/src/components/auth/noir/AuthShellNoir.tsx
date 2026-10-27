@@ -1,10 +1,11 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { m, useReducedMotion } from "framer-motion";
 import loginBackgroundVideo from "@koma/ui/assets/login-background.mp4";
 import loginBackgroundPoster from "@koma/ui/assets/login-background-poster.webp";
 import { Hanko, PrintTicks } from "./koma-ui";
+import { useDecorativeMediaDelay } from "../useDecorativeMediaDelay";
 import { LegalInlineLinks } from "../../legal/LegalInlineLinks";
 import { ThemeFamilySwitch } from "../ThemeFamilySwitch";
 import { useI18n } from "../../../i18n";
@@ -13,10 +14,6 @@ import { AuthSideContent, ManhwaCovers } from "../AuthSideDecor";
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 type AuthTab = "login" | "register";
-
-// Same decorative-media policy as AuthShellClassic: the login backdrop is
-// content-free decoration, so it never competes with first paint.
-const DECORATIVE_MEDIA_DELAY_MS = import.meta.env.PROD ? 15_000 : 0;
 
 interface AuthShellProps {
   activeTab: AuthTab;
@@ -36,19 +33,7 @@ const stagger = {
 export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subtitle, children }: AuthShellProps) => {
   const reduced = useReducedMotion();
   const { t } = useI18n();
-  const [showMotionBackground, setShowMotionBackground] = useState(() => DECORATIVE_MEDIA_DELAY_MS === 0);
-
-  useEffect(() => {
-    if (DECORATIVE_MEDIA_DELAY_MS === 0) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setShowMotionBackground(true);
-    }, DECORATIVE_MEDIA_DELAY_MS);
-
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+  const showMotionBackground = useDecorativeMediaDelay();
 
   return (
     <div className="koma-noir relative flex min-h-dvh overflow-hidden">

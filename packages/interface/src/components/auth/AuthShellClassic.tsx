@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import loginBackgroundVideo from "@koma/ui/assets/login-background.mp4";
 import loginBackgroundPoster from "@koma/ui/assets/login-background-poster.webp";
 import brandLogo from "@koma/ui/assets/logo-1.webp";
@@ -7,13 +7,13 @@ import brandLogo3 from "@koma/ui/assets/logo-3.webp";
 import brandLogo4 from "@koma/ui/assets/logo-4.webp";
 import brandLogo5 from "@koma/ui/assets/logo-5.webp";
 import '@koma/ui/styles/NekoLogo.css';
+import { useDecorativeMediaDelay } from "./useDecorativeMediaDelay";
 import { LegalInlineLinks } from "../legal/LegalInlineLinks";
 import { useI18n } from "../../i18n";
 import { ThemeFamilySwitch } from "./ThemeFamilySwitch";
 import { AuthSideContent, ManhwaCovers } from "./AuthSideDecor";
 
 type AuthTab = "login" | "register";
-const DECORATIVE_MEDIA_DELAY_MS = import.meta.env.PROD ? 15_000 : 0;
 
 interface AuthShellProps {
   activeTab: AuthTab;
@@ -45,19 +45,7 @@ export const BrandMark = ({ animated = false }: BrandMarkProps) => (
 
 export const AuthShellClassic = ({ activeTab, onSelectLogin, onSelectRegister, subtitle, children }: AuthShellProps) => {
   const { locale, localeLabels, setLocale, supportedLocales, t } = useI18n();
-  const [showMotionBackground, setShowMotionBackground] = useState(() => DECORATIVE_MEDIA_DELAY_MS === 0);
-
-  useEffect(() => {
-    if (DECORATIVE_MEDIA_DELAY_MS === 0) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setShowMotionBackground(true);
-    }, DECORATIVE_MEDIA_DELAY_MS);
-
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+  const showMotionBackground = useDecorativeMediaDelay();
 
   return (
     <div className="auth-shell">
