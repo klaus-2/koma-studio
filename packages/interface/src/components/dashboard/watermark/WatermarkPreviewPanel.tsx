@@ -177,6 +177,8 @@ export default function WatermarkPreviewPanel({
                 <img
                   src={resultsById.get(image.id)?.previewUrl ?? image.url}
                   alt={image.file.name}
+                  loading="lazy"
+                  decoding="async"
                 />
                 <span className="koma-wm-thumb__num">{index + 1}</span>
                 {textZoneCache[image.id] && (

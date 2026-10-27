@@ -1,4 +1,4 @@
-import type { ChangeEvent } from 'react';
+import { memo, type ChangeEvent } from 'react';
 import { Plus } from 'lucide-react';
 
 import { useI18n } from '../../i18n';
@@ -62,7 +62,7 @@ type ScanlationFeedContentProps = {
   onCreateBan: () => void;
 };
 
-export default function ScanlationFeedContent({
+function ScanlationFeedContent({
   tab,
   canModerate,
   heroTitle,
@@ -188,3 +188,5 @@ export default function ScanlationFeedContent({
     </>
   );
 }
+
+export default memo(ScanlationFeedContent);

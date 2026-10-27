@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import {
   DEFAULT_APP_LOCALE,
-  resolveLocaleChain,
+  getLocaleFallbackChain,
 } from "@/i18n/config";
 import type { AppLocale } from "@/i18n/config";
 import { fallbackDefaultMessages } from "@/i18n/fallbackKeys";
@@ -107,7 +107,7 @@ const findMessage = (
   key: string,
   catalogs: TranslationCatalogMap,
 ): string | undefined => {
-  for (const candidate of resolveLocaleChain(locale)) {
+  for (const candidate of getLocaleFallbackChain(locale)) {
     const catalog =
       candidate === DEFAULT_APP_LOCALE
         ? defaultMessages

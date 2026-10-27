@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   dedupeLocales,
+  getLocaleFallbackChain,
   isRtlLocale,
   normalizeLocale,
   resolveLocaleChain,
@@ -56,6 +57,13 @@ describe("locale fallbacks", () => {
     chain.push("fr");
 
     expect(resolveLocaleChain("en")).toEqual(["en"]);
+  });
+
+  it("exposes the frozen internal fallback chain", () => {
+    const chain = getLocaleFallbackChain("pt-br");
+
+    expect(chain).toEqual(["pt-br", "pt", "en"]);
+    expect(Object.isFrozen(chain)).toBe(true);
   });
 
   it("provides HTML language tags and direction", () => {

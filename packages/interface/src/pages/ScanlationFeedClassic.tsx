@@ -862,6 +862,26 @@ const ScanlationFeedPageClassic = ({
     setComposerOpen(true);
   }, []);
 
+  /* Stable adapters for the memoized content panel: inline arrows here would
+     invalidate every content prop on each composer keystroke. */
+  const handleModerationPostFromPanel = useCallback(
+    (post: FeedPost, status: FeedPost['moderationStatus']) => {
+      void handleModerationPost(post, status);
+    },
+    [handleModerationPost],
+  );
+  const handleSaveProfileFromPanel = useCallback(() => {
+    void handleSaveProfile();
+  }, [handleSaveProfile]);
+  const handleResolveReportFromPanel = useCallback(
+    (report: FeedReport, status: FeedReport['status']) => {
+      void handleResolveReport(report, status);
+    },
+    [handleResolveReport],
+  );
+  const handleCreateBanFromPanel = useCallback(() => {
+    void handleCreateBan();
+  }, [handleCreateBan]);
 
   const composerTypeLabel =
     tab === 'recruitment' ? t('feed.composer.typeRecruit') : t('feed.composer.typeShowcase');
@@ -900,21 +920,17 @@ const ScanlationFeedPageClassic = ({
           onOpenComposer={openComposer}
           onApplyPost={setApplyingPost}
           onReportPost={setReportingPost}
-          onModerationPost={(post, status) =>
-            void handleModerationPost(post, status)
-          }
+          onModerationPost={handleModerationPostFromPanel}
           onStartBanFromPost={handleStartBanFromPost}
           onRulesAcceptedChange={handleRulesAcceptedChange}
           onProfileWebhookEnabledChange={handleProfileWebhookEnabledChange}
           onProfileWebhookChange={handleProfileWebhookChange}
-          onSaveProfile={() => void handleSaveProfile()}
+          onSaveProfile={handleSaveProfileFromPanel}
           setBanTargetUserId={setBanTargetUserId}
           setBanReason={setBanReason}
           setBanScope={setBanScope}
-          onResolveReport={(report, status) =>
-            void handleResolveReport(report, status)
-          }
-          onCreateBan={() => void handleCreateBan()}
+          onResolveReport={handleResolveReportFromPanel}
+          onCreateBan={handleCreateBanFromPanel}
         />
 
         <ScanlationFeedComposerModal

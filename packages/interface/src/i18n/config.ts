@@ -131,8 +131,16 @@ const localeFallbacks = {
   "zh-tw": ["zh-tw", "zh", "en"],
 } as const satisfies Readonly<Record<AppLocale, readonly AppLocale[]>>;
 
+for (const chain of Object.values(localeFallbacks)) {
+  Object.freeze(chain);
+}
+
+export const getLocaleFallbackChain = (
+  locale: AppLocale,
+): readonly AppLocale[] => localeFallbacks[locale];
+
 export const resolveLocaleChain = (locale: AppLocale): AppLocale[] => [
-  ...localeFallbacks[locale],
+  ...getLocaleFallbackChain(locale),
 ];
 
 export const toHtmlLang = (locale: AppLocale): string => {

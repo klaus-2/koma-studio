@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { ArrowDownToLine, Layers3, Sparkles } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
@@ -20,7 +22,7 @@ type ChapterOptimizerResultsPanelProps = {
   onDownloadSingle: (result: OptimizationResult) => void;
 };
 
-export default function ChapterOptimizerResultsPanel({
+function ChapterOptimizerResultsPanel({
   results,
   totals,
   formatBytes,
@@ -104,3 +106,5 @@ export default function ChapterOptimizerResultsPanel({
     </div>
   );
 }
+
+export default memo(ChapterOptimizerResultsPanel);
