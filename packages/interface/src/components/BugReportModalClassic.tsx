@@ -16,12 +16,11 @@ import {
   X,
 } from 'lucide-react';
 import type {
-  DesktopBugReportDiagnostics,
-  DesktopBugReportPrepareResult,
   DesktopBugReportSubmitPayload,
 } from '@shared/desktop-api';
 import { useI18n } from '../i18n';
 import { LegalInlineLinks } from './legal/LegalInlineLinks';
+import { useBugReportPrepare } from './useBugReportPrepare';
 import '@koma/ui/styles/KomaModals.css';
 
 import { desktopBridge } from "@/lib/desktop-bridge";
@@ -93,33 +92,6 @@ const cropDataUrl = async (
   ctx.drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch);
   return c.toDataURL('image/png', 1);
 };
-const emptyDiag = (): DesktopBugReportDiagnostics => ({
-  timestamp: new Date(0).toISOString(),
-  appVersion: '',
-  platform: '',
-  release: '',
-  arch: '',
-  nodeVersion: '',
-  electronVersion: '',
-  chromeVersion: '',
-  appPackaged: false,
-  envMode: '',
-  updateChannel: '',
-  miniBackendRunning: false,
-  miniBackendRuntimeLineCount: 0,
-  authApiUrl: '',
-  localApiUrl: '',
-  machineProfileSchemaVersion: 1,
-  machineProfile: null,
-  machineProfileSync: {
-    lastSyncedAt: null,
-    lastChangedAt: null,
-    lastError: null,
-    profileHash: null,
-    changedFields: [],
-    lastReason: null,
-  },
-});
 
 const BugReportModalClassic = ({
   open,
@@ -127,8 +99,7 @@ const BugReportModalClassic = ({
   context,
 }: BugReportModalProps): JSX.Element | null => {
   const { t } = useI18n();
-  const [prep, setPrep] = useState<DesktopBugReportPrepareResult | null>(null);
-  const [prepLoading, setPrepLoading] = useState(false);
+  const { prep, prepLoading } = useBugReportPrepare(open);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [sev, setSev] = useState<BugSeverity>('medium');
@@ -162,43 +133,29 @@ const BugReportModalClassic = ({
     Boolean(prep?.ready) &&
     !loading;
 
+  // Parity with the noir twin: every open starts from a clean form.
+  const reset = useCallback(() => {
+    setTitle('');
+    setDesc('');
+    setSev('medium');
+    setSteps('');
+    setExpected('');
+    setActual('');
+    setContact('');
+    setCrop(null);
+    setDrag(null);
+    draggingRef.current = false;
+    dragStart.current = null;
+    setAttachments([]);
+    setAttachErr(null);
+    setErr(null);
+    setSuccess(null);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    setPrepLoading(true);
-    let cancelled = false;
-    void (async () => {
-      if (!api) {
-        if (cancelled) return;
-        setPrep({
-          screenshotDataUrl: null,
-          autoLogs: [],
-          diagnostics: emptyDiag(),
-          ready: false,
-          error: t('bugReport.error.bridgeUnavailable'),
-        });
-        setPrepLoading(false);
-        return;
-      }
-      try {
-        const nextPrep = await api.prepare();
-        if (!cancelled) setPrep(nextPrep);
-      } catch (e) {
-        if (cancelled) return;
-        setPrep({
-          screenshotDataUrl: null,
-          autoLogs: [],
-          diagnostics: emptyDiag(),
-          ready: false,
-          error: e instanceof Error ? e.message : t('bugReport.error.prepareFailed'),
-        });
-      } finally {
-        if (!cancelled) setPrepLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [api, open, t]);
+    reset();
+  }, [open, reset]);
 
   const addFiles = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

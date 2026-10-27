@@ -2,13 +2,10 @@ import type { JSX } from "react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, Bug, CheckCircle2, Paperclip, Send, X } from "lucide-react";
-import type {
-  DesktopBugReportDiagnostics,
-  DesktopBugReportPrepareResult,
-  DesktopBugReportSubmitPayload,
-} from "@shared/desktop-api";
+import type { DesktopBugReportSubmitPayload } from "@shared/desktop-api";
 import { useI18n } from "../../i18n";
 import { LegalInlineLinks } from "../legal/LegalInlineLinks";
+import { useBugReportPrepare } from "../useBugReportPrepare";
 import { EASE, btnPrimary, btnGhost } from "../system/v2/kit";
 import { desktopBridge } from "@/lib/desktop-bridge";
 
@@ -65,14 +62,6 @@ const cropDataUrl = async (src: string, rect: CropRect, size: { width: number; h
   ctx.drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch);
   return c.toDataURL("image/png", 1);
 };
-const emptyDiag = (): DesktopBugReportDiagnostics => ({
-  timestamp: new Date(0).toISOString(), appVersion: "", platform: "", release: "", arch: "",
-  nodeVersion: "", electronVersion: "", chromeVersion: "", appPackaged: false, envMode: "",
-  updateChannel: "", miniBackendRunning: false, miniBackendRuntimeLineCount: 0,
-  authApiUrl: "", localApiUrl: "", machineProfileSchemaVersion: 1,
-  machineProfile: null,
-  machineProfileSync: { lastSyncedAt: null, lastChangedAt: null, lastError: null, profileHash: null, changedFields: [], lastReason: null },
-});
 
 /* ── UI locals ──────────────────────────────────────────────── */
 const inputCls =
@@ -100,8 +89,7 @@ const MiniAlert = ({ tone, children }: { tone: "info" | "warn" | "error" | "succ
 
 const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JSX.Element | null => {
   const { t } = useI18n();
-  const [prep, setPrep] = useState<DesktopBugReportPrepareResult | null>(null);
-  const [prepLoading, setPrepLoading] = useState(false);
+  const { prep, prepLoading } = useBugReportPrepare(open);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [sev, setSev] = useState<BugSeverity>("medium");
@@ -138,32 +126,7 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
   useEffect(() => {
     if (!open) return;
     reset();
-    setPrepLoading(true);
-    let cancelled = false;
-    void (async () => {
-      if (!api) {
-        if (cancelled) return;
-        setPrep({
-          screenshotDataUrl: null, autoLogs: [], diagnostics: emptyDiag(), ready: false,
-          error: t("bugReport.error.bridgeUnavailable")
-        });
-        setPrepLoading(false);
-        return;
-      }
-      try {
-        const nextPrep = await api.prepare();
-        if (!cancelled) setPrep(nextPrep);
-      }
-      catch (e) {
-        if (cancelled) return;
-        setPrep({
-          screenshotDataUrl: null, autoLogs: [], diagnostics: emptyDiag(), ready: false,
-          error: e instanceof Error ? e.message : t("bugReport.error.prepareFailed")
-        });
-      } finally { if (!cancelled) setPrepLoading(false); }
-    })();
-    return () => { cancelled = true; };
-  }, [api, open, reset, t]);
+  }, [open, reset]);
 
   const addFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
