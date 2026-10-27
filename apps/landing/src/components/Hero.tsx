@@ -35,7 +35,7 @@ export default function Hero() {
       </span>
 
       <div className="relative mx-auto w-full max-w-7xl px-6 py-24">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+        <motion.div initial={{ y: 20 }} animate={{ y: 0 }} transition={{ duration: 0.6 }}>
           <span className="stamp animate-float">
             <span className="h-1.5 w-1.5 animate-blink bg-mint" /> 100% open source — MIT licensed
           </span>
@@ -43,7 +43,7 @@ export default function Hero() {
 
         <motion.h1
           className="mt-8 text-[13vw] font-black uppercase leading-[0.88] tracking-tighter sm:text-7xl md:text-8xl lg:text-[7.5rem]"
-          initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1 }}
+          initial={{ y: 40 }} animate={{ y: 0 }} transition={{ duration: 0.7, delay: 0.1 }}
         >
           Raw chapter,
           <br />
@@ -67,25 +67,25 @@ export default function Hero() {
 
         <motion.p
           className="mt-8 max-w-xl text-lg text-paper/60"
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
+          initial={{ y: 8 }} animate={{ y: 0 }} transition={{ delay: 0.35 }}
         >
           KOMA Studio is a free, open-source scanlation pipeline — translate, clean, typeset
           and publish without leaving one window. <em className="font-[family-name:var(--font-accent)] italic text-paper">From raw to release</em>,
           owned by its community.
         </motion.p>
 
-        <motion.div className="mt-10 flex flex-wrap items-center gap-4" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+        <motion.div className="mt-10 flex flex-wrap items-center gap-4" initial={{ y: 16 }} animate={{ y: 0 }} transition={{ delay: 0.45 }}>
           <StarButton />
           <a href="#download" className="btn-ghost"><Download size={18} /> Download Free</a>
           <a href="#contribute" className="group inline-flex items-center gap-1 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/50 transition-colors hover:text-mint">
             or contribute <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
           </a>
         </motion.div>
-        <motion.p className="mt-4 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/35" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}>
+        <motion.p className="mt-4 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-paper/35" initial={{ y: 8 }} animate={{ y: 0 }} transition={{ delay: 0.55 }}>
           Windows · macOS · Linux — binaries on every release
         </motion.p>
 
-        <motion.div className="mt-12 grid max-w-2xl grid-cols-3 gap-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+        <motion.div className="mt-12 grid max-w-2xl grid-cols-3 gap-3" initial={{ y: 12 }} animate={{ y: 0 }} transition={{ delay: 0.6 }}>
           {STATS.map(([n, label]) => (
             <div key={label} className="glass panel-cut-sm p-5 transition-transform hover:-translate-y-1">
               <p className="text-3xl font-black text-mint">{n}</p>

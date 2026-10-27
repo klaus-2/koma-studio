@@ -84,8 +84,8 @@ export default function OpenSource() {
             <motion.article
               key={p.title}
               className={`glass panel-cut-sm group p-6 transition-all duration-200 hover:-translate-x-1 hover:-translate-y-1 ${c.border} ${c.shadow}`}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ y: 24 }}
+              whileInView={{ y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.5, delay: (i % 3) * 0.08 }}
             >

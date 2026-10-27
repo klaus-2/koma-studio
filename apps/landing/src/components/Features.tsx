@@ -26,8 +26,8 @@ export default function Features() {
             <motion.article
               key={f.n}
               className={`glass panel-cut group p-7 transition-all duration-200 hover:-translate-x-1 hover:-translate-y-1 ${c.border} ${c.shadow} ${SPANS[i]}`}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ y: 24 }}
+              whileInView={{ y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.5, delay: (i % 3) * 0.08 }}
             >
