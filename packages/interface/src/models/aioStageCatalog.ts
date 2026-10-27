@@ -1,10 +1,9 @@
-import { z } from 'zod';
-
 import {
   BASE_AIO_STAGE_OPTIONS,
   isLocalModelOptionKey,
 } from '@/models/aioStageCatalog.data';
 import type {
+  AioDeviceInfo,
   AioStageOption,
   AioStageOptionMap,
 } from '@/models/aioStageCatalog.types';
@@ -30,24 +29,80 @@ export type {
   AioStageOptionMap,
 } from '@/models/aioStageCatalog.types';
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isOptionalBoolean = (value: unknown): value is boolean | undefined =>
+  value === undefined || typeof value === 'boolean';
+
 /**
  * Matches the `/device/info` payload (mini-backend `build_device_payload`).
  * Unknown backend fields are stripped; `vram_gb`/`profile`/`fallback_reason`
  * may be null on CPU-only machines.
  */
-export const aioDeviceInfoSchema = z.object({
-  name: z.string(),
-  has_gpu: z.boolean(),
-  provider: z.string(),
-  vram_gb: z.number().nullable(),
-  profile: z.string().nullable().optional(),
-  fallback_reason: z.string().nullable().optional(),
-  available_providers: z.array(z.string()).optional(),
-  nvidia_cuda_available: z.boolean().optional(),
-  nvidia_tensorrt_available: z.boolean().optional(),
-  intel_openvino_available: z.boolean().optional(),
-  amd_rocm_available: z.boolean().optional(),
-});
+const parseAioDeviceInfo = (value: unknown): AioDeviceInfo => {
+  if (
+    !isRecord(value) ||
+    typeof value.name !== 'string' ||
+    typeof value.has_gpu !== 'boolean' ||
+    typeof value.provider !== 'string' ||
+    !(value.vram_gb === null || typeof value.vram_gb === 'number') ||
+    !(
+      value.profile === undefined ||
+      value.profile === null ||
+      typeof value.profile === 'string'
+    ) ||
+    !(
+      value.fallback_reason === undefined ||
+      value.fallback_reason === null ||
+      typeof value.fallback_reason === 'string'
+    ) ||
+    !(
+      value.available_providers === undefined ||
+      (Array.isArray(value.available_providers) &&
+        value.available_providers.every((entry) => typeof entry === 'string'))
+    ) ||
+    !isOptionalBoolean(value.nvidia_cuda_available) ||
+    !isOptionalBoolean(value.nvidia_tensorrt_available) ||
+    !isOptionalBoolean(value.intel_openvino_available) ||
+    !isOptionalBoolean(value.amd_rocm_available)
+  ) {
+    throw new Error('Invalid AIO device info payload.');
+  }
+
+  const info: AioDeviceInfo = {
+    name: value.name,
+    has_gpu: value.has_gpu,
+    provider: value.provider,
+    vram_gb: value.vram_gb,
+  };
+
+  if (typeof value.profile === 'string' || value.profile === null) {
+    info.profile = value.profile;
+  }
+  if (typeof value.fallback_reason === 'string' || value.fallback_reason === null) {
+    info.fallback_reason = value.fallback_reason;
+  }
+  if (Array.isArray(value.available_providers)) {
+    info.available_providers = value.available_providers;
+  }
+  if (value.nvidia_cuda_available !== undefined) {
+    info.nvidia_cuda_available = value.nvidia_cuda_available;
+  }
+  if (value.nvidia_tensorrt_available !== undefined) {
+    info.nvidia_tensorrt_available = value.nvidia_tensorrt_available;
+  }
+  if (value.intel_openvino_available !== undefined) {
+    info.intel_openvino_available = value.intel_openvino_available;
+  }
+  if (value.amd_rocm_available !== undefined) {
+    info.amd_rocm_available = value.amd_rocm_available;
+  }
+
+  return info;
+};
+
+export const aioDeviceInfoSchema = { parse: parseAioDeviceInfo };
 
 export type LocalModelEntry = Readonly<{
   status: ModelInstallState['status'];

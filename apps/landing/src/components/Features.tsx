@@ -1,7 +1,6 @@
-"use client";
-import { motion } from "framer-motion";
 import { Languages, Eraser, Type, Wand2, FolderOpen, ShieldCheck, Check } from "lucide-react";
 import SectionHeader from "./SectionHeader";
+import Reveal from "./Reveal";
 import { FEATURES } from "@/lib/data";
 
 const ICONS = [Languages, Eraser, Type, Wand2, FolderOpen, ShieldCheck];
@@ -15,7 +14,7 @@ const COLORS: Record<string, { text: string; border: string; shadow: string }> =
 
 export default function Features() {
   return (
-    <section id="features" className="relative mx-auto max-w-7xl scroll-mt-24 px-6 py-32">
+    <section id="features" className="defer-render relative mx-auto max-w-7xl scroll-mt-24 px-6 py-32">
       <SectionHeader index="01" kicker="Features" title="Six tools." accent="One ink." sub="Everything a scanlation team needs — engineered as a single pipeline instead of a folder full of apps." />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -23,13 +22,9 @@ export default function Features() {
           const Icon = ICONS[i];
           const c = COLORS[f.color];
           return (
-            <motion.article
+            <Reveal
               key={f.n}
               className={`glass panel-cut group p-7 transition-all duration-200 hover:-translate-x-1 hover:-translate-y-1 ${c.border} ${c.shadow} ${SPANS[i]}`}
-              initial={{ y: 24 }}
-              whileInView={{ y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.5, delay: (i % 3) * 0.08 }}
             >
               <div className="flex items-start justify-between">
                 <span className={`panel-cut-sm border border-paper/10 bg-ink p-3 ${c.text}`}><Icon size={22} /></span>
@@ -44,7 +39,7 @@ export default function Features() {
                   </li>
                 ))}
               </ul>
-            </motion.article>
+            </Reveal>
           );
         })}
       </div>

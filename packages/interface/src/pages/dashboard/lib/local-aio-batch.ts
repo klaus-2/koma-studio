@@ -8,8 +8,6 @@
  * so progress is observable while the request is still in flight) and the
  * server echoes it as `X-Koma-Batch-Id`.
  */
-import { strFromU8, unzipSync } from 'fflate';
-
 import {
   mapBatchReportToAioResults,
   type BatchMappingAioSteps,
@@ -488,6 +486,7 @@ const resolveTimeoutMs = (
 const readZipReport = (
   entries: Record<string, Uint8Array>,
   status: number,
+  decode: (bytes: Uint8Array) => string,
 ): PipelineBatchReport => {
   const reportBytes = entries[BATCH_REPORT_FILENAME];
   if (!reportBytes) {
@@ -498,7 +497,7 @@ const readZipReport = (
   }
   let payload: unknown;
   try {
-    payload = JSON.parse(strFromU8(reportBytes));
+    payload = JSON.parse(decode(reportBytes));
   } catch {
     throw new LocalAioBatchError(
       `${BATCH_REPORT_FILENAME} is not valid JSON.`,
@@ -552,6 +551,9 @@ export async function runLocalAioBatch({
   let zipEntries: Readonly<Record<string, Uint8Array>> | null = null;
 
   if (options.aioSteps.cleanImage) {
+    // Archive extraction is only needed for clean batches; keep the
+    // inflater out of the dashboard boot graph.
+    const { strFromU8, unzipSync } = await import('fflate');
     let entries: Record<string, Uint8Array>;
     try {
       entries = unzipSync(new Uint8Array(await response.arrayBuffer()));
@@ -561,7 +563,7 @@ export async function runLocalAioBatch({
         response.status,
       );
     }
-    report = readZipReport(entries, response.status);
+    report = readZipReport(entries, response.status, strFromU8);
     zipEntries = entries;
   } else {
     const payload = await readJsonBody(

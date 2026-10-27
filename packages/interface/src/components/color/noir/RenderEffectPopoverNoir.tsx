@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { HexColorInput, HexColorPicker } from 'react-colorful';
-import ReactGPicker from 'react-gcolor-picker';
+import { GColorPicker } from '../GColorPicker';
 
 import { useI18n } from '../../../i18n';
 import { Popover, PopoverContent, PopoverTrigger } from '@koma/ui/components/popover';
@@ -78,7 +78,7 @@ export const RenderEffectPopoverNoir = ({
           />
           {allowGradient ? (
             <div className="noir-picker-wrap">
-              <ReactGPicker
+              <GColorPicker
                 key={pickerKey}
                 value={value}
                 onChange={onColorChange}

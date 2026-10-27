@@ -19,7 +19,7 @@ function Row({ items, reverse = false }: { items: string[]; reverse?: boolean })
 
 export default function Marquee() {
   return (
-    <section aria-label="Open source highlights" className="border-y border-paper/10 bg-ink-2/60 py-6">
+    <section aria-label="Open source highlights" className="defer-render border-y border-paper/10 bg-ink-2/60 py-6">
       <Row items={ROW_A} />
       <div className="mt-4"><Row items={ROW_B} reverse /></div>
     </section>

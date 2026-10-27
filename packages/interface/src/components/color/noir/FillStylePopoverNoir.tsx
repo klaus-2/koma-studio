@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import ReactGPicker from 'react-gcolor-picker';
 
+import { GColorPicker } from '../GColorPicker';
 import { useI18n } from '../../../i18n';
 import { Popover, PopoverContent, PopoverTrigger } from '@koma/ui/components/popover';
 import { parseFillPickerValue } from '../../../utils/textFillPicker';
@@ -91,7 +91,7 @@ export const FillStylePopoverNoir = ({
           hint={allowGradient ? t('fillStylePopover.hint.gradient') : t('fillStylePopover.hint.solid')}
         >
           <div className="noir-picker-wrap">
-            <ReactGPicker
+            <GColorPicker
               key={`${pickerKey}-${activeTab}-${gradientActive ? 'gradient' : 'solid'}`}
               value={activeTab === 'gradient' ? gradientValue : solidValue}
               onChange={(v) => {

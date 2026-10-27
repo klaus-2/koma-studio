@@ -1,7 +1,7 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
-import ReactGPicker from "react-gcolor-picker";
 
+import { GColorPicker } from "./GColorPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@koma/ui/components/popover";
 import { useI18n } from "../../i18n";
 
@@ -86,7 +86,7 @@ export const RenderEffectPopoverClassic = memo(function RenderEffectPopover({
           </label>
           {allowGradient ? (
             <div className="koma-color-popover__pickerWrap">
-              <ReactGPicker
+              <GColorPicker
                 key={pickerKey}
                 value={value}
                 onChange={onColorChange}

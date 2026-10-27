@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import type { z } from 'zod';
 
 import { desktopBridge } from '@/lib/desktop-bridge';
 import type {
@@ -99,9 +98,13 @@ function getDeviceInfoEndpoint(baseUrl: string): URL {
  * O contrato é fornecido pelo módulo que conhece o payload real do backend.
  * Um cast de response.json() não substitui essa validação.
  */
+export interface AioDeviceInfoParser {
+  parse(value: unknown): AioDeviceInfo;
+}
+
 export function useAioDeviceInfoSync(
   localApiUrl: string,
-  deviceInfoSchema: z.ZodType<AioDeviceInfo>,
+  deviceInfoSchema: AioDeviceInfoParser,
 ): void {
   const mode = useUiShellStore((state) => state.mode);
   const setDeviceInfo = useAioPipelineStore(

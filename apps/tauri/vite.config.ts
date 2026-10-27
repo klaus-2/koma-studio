@@ -81,46 +81,15 @@ export default defineConfig(async ({ mode }) => {
           }
           warn(warning);
         },
+        // No manualChunks: a catch-all vendor group hoisted every
+        // node_modules module into the eager entry graph, including deps that
+        // only route chunks import dynamically (ProseMirror, pako, pdf-lib,
+        // the color picker, dropzone, virtual). Let Rollup split along the
+        // real static/dynamic import graph so route-only deps stay lazy.
         output: {
-          manualChunks(id: string) {
-            if (
-              id.includes("/i18n/langs/") &&
-              !id.includes("/i18n/langs/en")
-            ) {
-              const localeChunk = path.basename(id, path.extname(id));
-              return `app-i18n-${localeChunk}`;
-            }
-            if (!id.includes("node_modules")) return undefined;
-            // Dynamically-imported-only deps must NOT be forced into an eager
-            // manual chunk: the catch-all "vendor" would hoist them into the
-            // entry graph and defeat their dynamic import sites.
-            if (id.includes("/pdf-lib/") || id.includes("/culori/")) return undefined;
-            if (
-              /\/(react-markdown|remark-|mdast-|micromark|unified|unist-|hast-|vfile|bail|trough|zwitch|property-information|space-separated-tokens|comma-separated-tokens|character-entities|decode-named)/.test(
-                id,
-              )
-            ) {
-              return "vendor-markdown";
-            }
-            if (id.includes("/@tiptap/")) return "vendor-tiptap";
-            if (
-              id.includes("/react-markdown/") ||
-              id.includes("/remark-gfm/")
-            )
-              return "vendor-markdown";
-            if (id.includes("/@tanstack/react-query/")) return "vendor-query";
-            if (id.includes("/driver.js/")) return "vendor-driver";
-            if (id.includes("/framer-motion/") || id.includes("/motion-dom/"))
-              return "vendor-motion";
-            if (
-              id.includes("/lucide-react/") ||
-              id.includes("/@radix-ui/") ||
-              id.includes("/radix-ui/")
-            ) {
-              return "vendor-ui";
-            }
-            return "vendor";
-          },
+          // Shared leaf modules (icons, tiny motion helpers) otherwise each
+          // become their own request; on 3G every request pays a full RTT.
+          experimentalMinChunkSize: 20_000,
         },
       },
     },

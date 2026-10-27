@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useState } from "react";
-import ReactGPicker from "react-gcolor-picker";
 
+import { GColorPicker } from "./GColorPicker";
 import { useI18n } from '../../i18n';
 import { Popover, PopoverContent, PopoverTrigger } from "@koma/ui/components/popover";
 import { parseFillPickerValue } from "../../utils/textFillPicker";
@@ -99,7 +99,7 @@ export const FillStylePopoverClassic = memo(function FillStylePopover({
             </div>
           </div>
           <div className="koma-color-popover__pickerWrap">
-            <ReactGPicker
+            <GColorPicker
               key={`${pickerKey}-${activeTab}-${gradientActive ? "gradient" : "solid"}`}
               value={activeTab === "gradient" ? gradientValue : solidValue}
               onChange={(v) => {

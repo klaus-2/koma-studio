@@ -5,7 +5,7 @@ import { landingFaqs } from "@/content/site-faqs";
 
 export default function Faq() {
   return (
-    <section id="faq" className="mx-auto max-w-4xl scroll-mt-24 px-6 py-32">
+    <section id="faq" className="defer-render mx-auto max-w-4xl scroll-mt-24 px-6 py-32">
       <SectionHeader index="07" kicker="FAQ" title="Questions," accent="answered." />
       <div className="space-y-3">
         {landingFaqs.map((f, i) => (

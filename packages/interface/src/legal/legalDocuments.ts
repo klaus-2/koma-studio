@@ -1,4 +1,5 @@
 import { DEFAULT_APP_LOCALE, normalizeLocale, resolveLocaleChain, type AppLocale } from "../i18n/config";
+import { LEGAL_DOCUMENT_IDS, LEGAL_DOCUMENT_VERSIONS } from "./metadata";
 import { legalContentEn } from "./legalContent.en";
 import { legalContentAr } from "./legalContent.ar";
 import { legalContentDe } from "./legalContent.de";
@@ -16,6 +17,7 @@ import { legalContentZh } from "./legalContent.zh";
 import { legalContentZhTw } from "./legalContent.zhTW";
 
 export type { LegalDocumentId, LegalDocumentSection } from "./legalContent.types";
+export { LEGAL_DOCUMENT_IDS, LEGAL_DOCUMENT_VERSIONS } from "./metadata";
 
 export interface LegalDocument {
   id: LegalDocumentId;
@@ -37,8 +39,6 @@ export interface RegistrationLegalAcceptancePayload {
   contentVersion: string;
 }
 
-const LEGAL_VERSION = "2026-03-10";
-
 const LEGAL_CONTENT_BUNDLES = {
   ar: legalContentAr,
   de: legalContentDe,
@@ -55,13 +55,6 @@ const LEGAL_CONTENT_BUNDLES = {
   zh: legalContentZh,
   "zh-tw": legalContentZhTw,
 } satisfies Record<AppLocale, LegalContentBundle>;
-
-export const LEGAL_DOCUMENT_VERSIONS = {
-  terms: LEGAL_VERSION,
-  privacy: LEGAL_VERSION,
-  cookies: LEGAL_VERSION,
-  content: LEGAL_VERSION,
-} as const;
 
 const DEFAULT_WEBSITE_URL = "https://komastudio.com";
 
@@ -85,8 +78,6 @@ const createSupportUrl = (value: string | undefined): string => {
 
 export const LEGAL_WEBSITE_URL = normalizeBaseUrl(import.meta.env.VITE_PROJECT_WEBSITE_URL as string | undefined);
 export const LEGAL_SUPPORT_URL = createSupportUrl(import.meta.env.VITE_PROJECT_WEBSITE_URL as string | undefined);
-
-export const LEGAL_DOCUMENT_IDS: LegalDocumentId[] = ["terms", "privacy", "cookies", "content"];
 
 const resolveLegalBundle = (locale: AppLocale | string): LegalContentBundle => {
   const resolvedLocale = typeof locale === "string" ? normalizeLocale(locale) : locale;
@@ -121,6 +112,9 @@ export const createRegistrationLegalAcceptance = (): RegistrationLegalAcceptance
   cookiesVersion: LEGAL_DOCUMENT_VERSIONS.cookies,
   contentVersion: LEGAL_DOCUMENT_VERSIONS.content,
 });
+
+export const getOrderedLegalDocuments = (locale: string) =>
+  LEGAL_DOCUMENT_IDS.map((documentId) => getLegalDocuments(locale)[documentId]);
 
 export const getLegalDocuments = (locale: AppLocale | string): Record<LegalDocumentId, LegalDocument> => {
   const bundle = resolveLegalBundle(locale);

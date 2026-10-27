@@ -8,7 +8,7 @@ const STEP_COLORS = ["#4dc9ff", "#3ef2b0", "#ffc857", "#ff2e63"];
 
 export default function Contribute() {
   return (
-    <section id="contribute" className="mx-auto max-w-7xl scroll-mt-24 px-6 py-32">
+    <section id="contribute" className="defer-render mx-auto max-w-7xl scroll-mt-24 px-6 py-32">
       <SectionHeader index="06" kicker="Contribute" title="Built by" accent="readers like you."
         sub="Every panel of this studio is drawn by the community. Here's how to pick up the pen." />
 

@@ -110,7 +110,6 @@
       "name": "@koma/landing",
       "version": "0.1.0",
       "dependencies": {
-        "framer-motion": "^12.38.0",
         "lucide-react": "^1.8.0",
         "next": "16.4.3",
         "react": "19.3.0",
@@ -280,7 +279,6 @@
         "react-markdown": "^10.1.0",
         "remark-gfm": "^4.0.1",
         "tailwind-merge": "^2.6.1",
-        "zod": "^4.6.7",
         "zustand": "^5.0.15",
       },
       "devDependencies": {

@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import { createFamilyComponent } from '@koma/ui/themes/family-skins';
-import { copyTextToClipboardSafe } from '../utils/dashboard.utils';
+import { copyTextToClipboardSafe } from '../utils/clipboard';
 import type { ErrorFallbackProps } from './ErrorBoundary.types';
 import { ErrorBoundaryClassic } from './ErrorBoundaryClassic';
 import { ErrorBoundaryNoir } from './noir/ErrorBoundaryNoir';

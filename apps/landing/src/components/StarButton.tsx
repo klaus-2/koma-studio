@@ -37,6 +37,7 @@ export default function StarButton({ compact = false }: { compact?: boolean }) {
         <GitHubIcon size={14} />
         <Star size={12} className="text-gold" fill="currentColor" />
         {stars !== null && <span className="text-gold">{formatStars(stars)}</span>}
+        <span data-github-stars data-stars-format="compact" className="text-gold" hidden />
       </a>
     );
   }
@@ -50,6 +51,12 @@ export default function StarButton({ compact = false }: { compact?: boolean }) {
           <Star size={13} fill="currentColor" /> {formatStars(stars)}
         </span>
       )}
+      <span
+        data-github-stars
+        data-stars-format="full"
+        className="ml-1 inline-flex items-center gap-1 border-l border-ink/25 pl-3 font-[family-name:var(--font-mono)] text-sm"
+        hidden
+      />
     </a>
   );
 }

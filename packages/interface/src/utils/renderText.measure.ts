@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type {
   RenderTextStyle,
   RenderTextStyleRange,
@@ -16,11 +15,6 @@ import {
   measureCircularText,
   measureVerticalText,
 } from "@/utils/renderText.measure.paths";
-
-const fontConstraintsSchema = z.object({
-  fontSize: z.number().finite().positive(),
-  minFontSize: z.number().finite().positive(),
-});
 
 export class RenderTextLayoutError extends Error {
   readonly code = "TEXT_DOES_NOT_FIT";
@@ -202,10 +196,15 @@ export const computeRenderTextLayout = (
   shape?: TypographyShape,
   ranges?: readonly RenderTextStyleRange[],
 ): RenderTextLayout => {
-  const constraints = fontConstraintsSchema.parse({
-    fontSize: style.fontSize,
-    minFontSize: style.minFontSize,
-  });
+  const constraints = { fontSize: style.fontSize, minFontSize: style.minFontSize };
+  if (
+    !Number.isFinite(constraints.fontSize) ||
+    constraints.fontSize <= 0 ||
+    !Number.isFinite(constraints.minFontSize) ||
+    constraints.minFontSize <= 0
+  ) {
+    throw new Error("Invalid font constraints.");
+  }
 
   if (constraints.minFontSize > constraints.fontSize) {
     throw new RangeError("Minimum font size exceeds maximum font size.");

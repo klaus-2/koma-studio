@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { RenderTextStyle } from "@/typography/renderStyle";
 import type { TypographyShape } from "@/typography/types";
 import type {
@@ -14,13 +13,6 @@ import {
   resolveRenderTextVisualPadding,
   resolveStrictSafeZoneMode,
 } from "@/utils/renderText.core";
-
-const measurementInputSchema = z.object({
-  text: z.string(),
-  roiWidth: z.number().finite().positive(),
-  roiHeight: z.number().finite().positive(),
-  fontSize: z.number().finite().positive(),
-});
 
 export interface MeasurementBox {
   readonly x: number;
@@ -51,7 +43,17 @@ export const createMeasurementBox = (
   fontSize: number,
   shape?: TypographyShape,
 ): MeasurementBox => {
-  measurementInputSchema.parse({ text, roiWidth, roiHeight, fontSize });
+  if (
+    typeof text !== "string" ||
+    !Number.isFinite(roiWidth) ||
+    roiWidth <= 0 ||
+    !Number.isFinite(roiHeight) ||
+    roiHeight <= 0 ||
+    !Number.isFinite(fontSize) ||
+    fontSize <= 0
+  ) {
+    throw new Error("Invalid measurement input.");
+  }
 
   const normalized = normalizeShape(shape, roiWidth, roiHeight);
   const strict = resolveStrictSafeZoneMode(normalized, roiWidth, roiHeight);

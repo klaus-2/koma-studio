@@ -1,4 +1,4 @@
-import { LEGAL_DOCUMENT_IDS, getLegalDocuments, type LegalDocumentId } from "./legalDocuments";
+import type { LegalDocumentId } from "./legalContent.types";
 
 export type LegalRoutePath = "legal-terms" | "legal-privacy" | "legal-cookies" | "legal-content";
 
@@ -34,6 +34,3 @@ export const navigateToLegalDocument = (documentId: LegalDocumentId): void => {
 
   window.location.hash = `/${getLegalRouteForDocument(documentId)}`;
 };
-
-export const getOrderedLegalDocuments = (locale: string) =>
-  LEGAL_DOCUMENT_IDS.map((documentId) => getLegalDocuments(locale)[documentId]);

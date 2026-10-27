@@ -1,5 +1,10 @@
-import { LEGAL_SUPPORT_URL, getLegalDocuments, type LegalDocumentId } from "../legal/legalDocuments";
-import { getOrderedLegalDocuments, navigateToLegalDocument } from "../legal/navigation";
+import {
+  LEGAL_SUPPORT_URL,
+  getLegalDocuments,
+  getOrderedLegalDocuments,
+  type LegalDocumentId,
+} from "../legal/legalDocuments";
+import { navigateToLegalDocument } from "../legal/navigation";
 import { useI18n } from "../i18n";
 import ResourceExternalAnchor from "../components/resources/ResourceExternalAnchor";
 

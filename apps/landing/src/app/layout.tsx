@@ -1,26 +1,35 @@
 import type { Metadata } from "next";
-import { Archivo, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { SITE_CHAT_URL, SITE_DISCORD_URL, SITE_GITHUB_URL } from "@/lib/site";
 import "./globals.css";
 
-const archivo = Archivo({
-  subsets: ["latin"],
+const archivo = localFont({
+  src: "../fonts/archivo-var.woff2",
   variable: "--font-archivo",
+  weight: "100 900",
   display: "swap",
+  preload: false,
+  adjustFontFallback: "Arial",
 });
 
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
+const instrumentSerif = localFont({
+  src: [
+    { path: "../fonts/instrument-serif.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/instrument-serif-italic.woff2", weight: "400", style: "italic" },
+  ],
   variable: "--font-instrument",
-  weight: "400",
-  style: ["normal", "italic"],
   display: "swap",
+  preload: false,
+  adjustFontFallback: "Times New Roman",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
+const jetbrainsMono = localFont({
+  src: "../fonts/jetbrains-mono-var.woff2",
   variable: "--font-jetbrains",
+  weight: "100 800",
   display: "swap",
+  preload: false,
+  adjustFontFallback: "Arial",
 });
 
 const siteUrl = "https://koma-studio.site";

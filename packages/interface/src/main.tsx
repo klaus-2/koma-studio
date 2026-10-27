@@ -12,6 +12,7 @@ import "@koma/ui/styles/page-transition.css";
 import { I18nProvider } from "./i18n";
 import { appQueryClient } from "./query/client";
 import { desktopBridge } from "@/lib/desktop-bridge";
+import { isConstrainedConnection } from "@/lib/network";
 import { KOMA_FONT_STYLESHEET_URL } from "./constants/app-webfonts";
 import brandLogoPreload from "@koma/ui/assets/logo-1.webp";
 
@@ -112,16 +113,21 @@ const bootstrap = async (): Promise<void> => {
   );
 
   if (import.meta.env.PROD && !desktopBridge.isDesktopRuntime()) {
-    loadFontsAfterFirstPaint();
+    if (!isConstrainedConnection()) {
+      loadFontsAfterFirstPaint();
+    }
   } else if (!import.meta.env.PROD) {
     appendKomaFontStylesheet();
   }
   // Content catalog prime can stay lazy; config itself is already hydrated.
-  runWhenIdle(() => {
-    void import("./services/contentCatalog")
-      .then(({ primeRemoteContentCatalog }) => primeRemoteContentCatalog())
-      .catch(() => undefined);
-  });
+  // On constrained links it would race the first route chunk, so skip it.
+  if (!isConstrainedConnection()) {
+    runWhenIdle(() => {
+      void import("./services/contentCatalog")
+        .then(({ primeRemoteContentCatalog }) => primeRemoteContentCatalog())
+        .catch(() => undefined);
+    });
+  }
 };
 
 void bootstrap();

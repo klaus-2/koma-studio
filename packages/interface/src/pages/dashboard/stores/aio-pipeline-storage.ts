@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 import type { GpuStagePreferences } from '@/hooks/useAioSingleImageProcessor';
 import { reportAioEvent } from '@/pages/dashboard/lib/aio-observability';
 import {
@@ -10,12 +8,31 @@ import { loadPresetState } from '@/utils/aioModelPresets';
 
 export const GPU_STAGES_STORAGE_KEY = 'koma-aio-gpu-stages';
 
-const gpuStagePreferencesSchema = z.object({
-  detectText: z.boolean().default(true),
-  recognizeText: z.boolean().default(true),
-  segmentText: z.boolean().default(true),
-  cleanImage: z.boolean().default(true),
-});
+const GPU_STAGE_KEYS = [
+  'detectText',
+  'recognizeText',
+  'segmentText',
+  'cleanImage',
+] as const;
+
+const parseGpuStagePreferences = (
+  value: unknown,
+): GpuStagePreferences | null => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const preferences = {} as GpuStagePreferences;
+  for (const key of GPU_STAGE_KEYS) {
+    const entry = record[key];
+    if (entry !== undefined && typeof entry !== 'boolean') {
+      return null;
+    }
+    preferences[key] = typeof entry === 'boolean' ? entry : true;
+  }
+  return preferences;
+};
 
 export function readAioStorage(key: string): string | null {
   if (typeof window === 'undefined') {
@@ -43,7 +60,11 @@ export function writeAioStorage(key: string, value: string): void {
 }
 
 export function loadGpuStagePreferences(): GpuStagePreferences {
-  const defaults = gpuStagePreferencesSchema.parse({});
+  const defaults = parseGpuStagePreferences({});
+  if (defaults === null) {
+    throw new Error('Unable to build the default GPU stage preferences.');
+  }
+
   const saved = readAioStorage(GPU_STAGES_STORAGE_KEY);
 
   if (saved === null) {
@@ -51,11 +72,9 @@ export function loadGpuStagePreferences(): GpuStagePreferences {
   }
 
   try {
-    const payload: unknown = JSON.parse(saved);
-    const result = gpuStagePreferencesSchema.safeParse(payload);
-
-    if (result.success) {
-      return result.data;
+    const preferences = parseGpuStagePreferences(JSON.parse(saved));
+    if (preferences !== null) {
+      return preferences;
     }
   } catch {
     reportAioEvent('storage-validation-failed');

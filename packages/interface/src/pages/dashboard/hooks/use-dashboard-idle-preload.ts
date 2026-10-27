@@ -5,33 +5,22 @@ import { preloadModeToolPanels } from '../sections/DashboardMainLayout';
 import { preloadSpecialWorkspaces } from '../../../components/dashboard/DashboardSpecialModeStage';
 import { preloadInfoModeModules } from '../../../components/dashboard/DashboardInfoModeStage';
 
-const IDLE_FALLBACK_TIMEOUT_MS = 1500;
-
-function scheduleIdle(callback: () => void): number {
-  if (typeof window.requestIdleCallback === 'function') {
-    return window.requestIdleCallback(callback, {
-      timeout: IDLE_FALLBACK_TIMEOUT_MS,
-    });
-  }
-  return window.setTimeout(callback, IDLE_FALLBACK_TIMEOUT_MS) as unknown as number;
-}
-
-function cancelIdle(handle: number) {
-  if (typeof window.cancelIdleCallback === 'function') {
-    window.cancelIdleCallback(handle);
-  } else {
-    window.clearTimeout(handle);
-  }
-}
-
 export function useDashboardIdlePreload() {
   useEffect(() => {
-    const handle = scheduleIdle(() => {
+    // Optional workspaces are fetched on intent, never during boot: on slow
+    // links those prefetches compete with the route chunk and the first paint.
+    const preload = () => {
       preloadStageHeavyModules();
       preloadModeToolPanels();
       preloadSpecialWorkspaces();
       preloadInfoModeModules();
-    });
-    return () => cancelIdle(handle);
+    };
+
+    window.addEventListener('pointerdown', preload, { once: true, passive: true });
+    window.addEventListener('keydown', preload, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', preload);
+      window.removeEventListener('keydown', preload);
+    };
   }, []);
 }

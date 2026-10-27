@@ -3,8 +3,8 @@
 import { m } from 'framer-motion';
 import { ArrowLeft, FileSignature, LifeBuoy, ScrollText } from 'lucide-react';
 
-import { LEGAL_SUPPORT_URL, getLegalDocuments } from '../../legal/legalDocuments';
-import { getOrderedLegalDocuments, navigateToLegalDocument } from '../../legal/navigation';
+import { LEGAL_SUPPORT_URL, getLegalDocuments, getOrderedLegalDocuments } from '../../legal/legalDocuments';
+import { navigateToLegalDocument } from '../../legal/navigation';
 import type { LegalDocumentId } from '../../legal/legalContent.types';
 import { useI18n } from '../../i18n';
 import ResourceExternalAnchor from '../../components/resources/ResourceExternalAnchorNoir';

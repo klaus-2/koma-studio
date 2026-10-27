@@ -30,7 +30,7 @@ const COLS: [string, [string, string][]][] = [
 
 export default function Footer() {
   return (
-    <footer className="border-t border-paper/10 bg-ink-2/60">
+    <footer className="defer-render border-t border-paper/10 bg-ink-2/60">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 md:grid-cols-4">
         <div>
           <div className="flex items-center gap-3">

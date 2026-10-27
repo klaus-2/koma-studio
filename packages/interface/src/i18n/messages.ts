@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import {
   DEFAULT_APP_LOCALE,
   getLocaleFallbackChain,
@@ -32,7 +30,13 @@ export const defaultMessages = Object.freeze({
 type LazyLocale = Exclude<AppLocale, typeof DEFAULT_APP_LOCALE>;
 type CatalogLoader = () => Promise<unknown>;
 
-const catalogSchema = z.record(z.string(), z.string());
+const isTranslationCatalog = (value: unknown): value is TranslationCatalog => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.values(value).every((entry) => typeof entry === "string");
+};
 
 const lazyCatalogLoaders = {
   ar: () => import("@/i18n/langs/ar").then((module) => module.arMessages),
@@ -161,13 +165,11 @@ export const loadTranslationCatalog = (
   const pending = Promise.resolve()
     .then(() => lazyCatalogLoaders[locale]())
     .then((payload): TranslationCatalog => {
-      const result = catalogSchema.safeParse(payload);
-
-      if (!result.success) {
+      if (!isTranslationCatalog(payload)) {
         throw new TranslationCatalogLoadError(locale);
       }
 
-      return Object.freeze(result.data);
+      return Object.freeze(payload);
     })
     .catch((): never => {
       pendingCatalogs.delete(locale);

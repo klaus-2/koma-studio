@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Download } from "lucide-react";
 import StarButton from "./StarButton";
 
@@ -24,7 +23,7 @@ export default function Navbar() {
   }, []);
 
   return (
-    <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled ? "glass" : "bg-transparent"}`}>
+    <header data-navbar className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled ? "glass" : "bg-transparent"}`}>
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6" aria-label="Main">
         <a href="#" className="group flex items-center gap-3">
           <span className="panel-cut-sm flex h-9 w-9 items-center justify-center bg-crimson font-black text-ink transition-transform group-hover:-rotate-6">コ</span>
@@ -51,37 +50,41 @@ export default function Navbar() {
           </a>
         </div>
 
-        <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
+        <button data-menu-open className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
           <Menu />
         </button>
       </nav>
 
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div className="fixed inset-0 z-50 bg-ink/80" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)} />
-            <motion.aside
-              className="glass fixed right-0 top-0 z-50 flex h-dvh w-[82%] max-w-sm flex-col gap-2 p-8"
-              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 260 }}
-            >
-              <button className="mb-8 self-end" onClick={() => setOpen(false)} aria-label="Close menu"><X /></button>
-              {LINKS.map(([label, href], i) => (
-                <motion.a key={href} href={href} onClick={() => setOpen(false)}
-                  className="border-b border-paper/10 py-4 text-2xl font-black uppercase tracking-wide hover:text-crimson"
-                  initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.06 * i }}
-                >
-                  {label}
-                </motion.a>
-              ))}
-              <a href="#download" onClick={() => setOpen(false)} className="btn-primary mt-8 justify-center"><Download size={16} /> Download Free</a>
-              <div className="mt-3 flex justify-center" onClick={() => setOpen(false)}>
-                <StarButton compact />
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+      <div
+        data-menu-backdrop
+        className={`fixed inset-0 z-50 bg-ink/80 transition-opacity duration-300 lg:hidden ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        aria-hidden={!open}
+        onClick={() => setOpen(false)}
+      />
+      <aside
+        data-menu-panel
+        className={`glass fixed right-0 top-0 z-50 flex h-dvh w-[82%] max-w-sm flex-col gap-2 p-8 transition-transform duration-300 ease-out lg:hidden ${open ? "translate-x-0" : "translate-x-full"}`}
+        aria-hidden={!open}
+        inert={!open}
+      >
+        <button data-menu-close className="mb-8 self-end" onClick={() => setOpen(false)} aria-label="Close menu"><X /></button>
+        {LINKS.map(([label, href], i) => (
+          <a
+            key={href}
+            href={href}
+            data-menu-link
+            onClick={() => setOpen(false)}
+            className={`border-b border-paper/10 py-4 text-2xl font-black uppercase tracking-wide transition-all duration-300 hover:text-crimson ${open ? "translate-x-0 opacity-100" : "translate-x-6 opacity-0"}`}
+            style={{ transitionDelay: open ? `${0.05 + 0.06 * i}s` : "0s" }}
+          >
+            {label}
+          </a>
+        ))}
+        <a href="#download" data-menu-link onClick={() => setOpen(false)} className="btn-primary mt-8 justify-center"><Download size={16} /> Download Free</a>
+        <div className="mt-3 flex justify-center" onClick={() => setOpen(false)}>
+          <StarButton compact />
+        </div>
+      </aside>
     </header>
   );
 }

@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
 
 import {
   DASHBOARD_UPLOAD_ACCEPT,
@@ -37,6 +36,7 @@ import { useExportStore } from '../stores/export-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useManualToolsStore } from '../stores/manual-tools-store';
 import { useTranslatorStore } from '../stores/translator-store';
+import { useUploadDropzone } from './useUploadDropzone';
 
 interface UseDashboardUploadsArgs {
   localApiUrl: string;
@@ -228,7 +228,7 @@ export function useDashboardUploads({
     setStatusMessage,
   ]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useUploadDropzone({
     onDrop,
     accept: DASHBOARD_UPLOAD_ACCEPT,
     disabled: isExtractingUploads,

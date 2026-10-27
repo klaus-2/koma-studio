@@ -73,6 +73,7 @@ export default function LatestDownloadButton() {
 
   return (
     <a
+      data-latest-download
       href={installer?.url ?? SITE_RELEASES_URL}
       target="_blank"
       rel="noreferrer"
@@ -84,6 +85,11 @@ export default function LatestDownloadButton() {
           Tauri · {installer.version} · {formatSize(installer.size)}
         </span>
       )}
+      <span
+        data-latest-meta
+        className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-paper/50"
+        hidden
+      />
     </a>
   );
 }

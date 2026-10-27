@@ -176,6 +176,146 @@
   }
 }
 
+/* Hero + scroll reveal run on CSS only: no runtime animation library. */
+@keyframes koma-rise {
+  from {
+    transform: translateY(20px);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@keyframes koma-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.hero-rise {
+  animation: koma-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-rise-2 {
+  animation-delay: 0.1s;
+}
+
+.hero-rise-3 {
+  animation-delay: 0.25s;
+}
+
+.hero-rise-4 {
+  animation-delay: 0.35s;
+}
+
+.hero-rise-5 {
+  animation-delay: 0.5s;
+}
+
+.hero-rise-6 {
+  animation-delay: 0.55s;
+}
+
+.hero-word {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  animation: koma-word-cycle 11s linear infinite;
+}
+
+@keyframes koma-word-cycle {
+  0% {
+    opacity: 0;
+    transform: translateY(60%) rotateX(40deg);
+  }
+
+  2% {
+    opacity: 1;
+    transform: none;
+  }
+
+  18% {
+    opacity: 1;
+    transform: none;
+  }
+
+  20% {
+    opacity: 0;
+    transform: translateY(-60%) rotateX(-40deg);
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+[data-revealed="false"] {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+[data-revealed="true"] {
+  animation: koma-reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes koma-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.panel-in {
+  animation: koma-panel-in 0.35s ease-out both;
+}
+
+/* Skip layout/paint for sections that start below the fold; the browser
+   renders them when they approach the viewport. */
+.defer-render {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+/* Phones pay for blurred compositing on every frame; keep the same palette
+   with cheaper layers. */
+@media (max-width: 767px) {
+  body {
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --font-accent: Georgia, "Times New Roman", serif;
+  }
+
+  .hero-rise {
+    animation: none;
+  }
+
+  body::before {
+    display: none;
+  }
+
+  .glass {
+    background: rgba(13, 13, 22, 0.94);
+    backdrop-filter: none;
+  }
+
+  .hero-glow,
+  .hero-halftone {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   *,
@@ -187,5 +327,14 @@
 
   html {
     scroll-behavior: auto;
+  }
+
+  .hero-word {
+    animation: none !important;
+    opacity: 0;
+  }
+
+  .hero-word:first-child {
+    opacity: 1;
   }
 }

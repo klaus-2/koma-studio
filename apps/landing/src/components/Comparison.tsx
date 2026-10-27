@@ -41,7 +41,7 @@ function TiltCard({ children }: { children: React.ReactNode }) {
 
 export default function Comparison() {
   return (
-    <section id="compare" className="relative scroll-mt-24 border-y border-paper/10 bg-ink-2/40 py-32">
+    <section id="compare" className="defer-render relative scroll-mt-24 border-y border-paper/10 bg-ink-2/40 py-32">
       <div aria-hidden className="absolute left-1/4 top-0 h-64 w-64 rounded-full bg-mint/10 blur-[100px]" />
       <div className="relative mx-auto max-w-7xl px-6">
         <SectionHeader index="05" kicker="Open vs Closed" title="Why open" accent="wins." sub="Proprietary tools rent you a workflow. KOMA hands you the press." />

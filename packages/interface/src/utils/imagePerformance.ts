@@ -1,16 +1,6 @@
-import { z } from "zod";
-
 const THUMBNAIL_MAX_DIMENSION = 800;
 const THUMBNAIL_QUALITY = 0.6;
 const THUMBNAIL_CONCURRENCY = 2;
-
-const thumbnailInputSchema = z.object({
-  srcUrl: z.string().min(1),
-  maxWidth: z.number().finite().int().positive().max(16_384),
-  maxHeight: z.number().finite().int().positive().max(16_384),
-  quality: z.number().finite().min(0).max(1),
-  timeoutMs: z.number().finite().int().positive().max(120_000),
-});
 
 export type ThumbnailFailureCode =
   | "IMAGE_LOAD_FAILED"
@@ -165,13 +155,24 @@ export const createThumbnailFromUrl = async (
   quality = THUMBNAIL_QUALITY,
   options: ThumbnailOptions = {},
 ): Promise<string> => {
-  const input = thumbnailInputSchema.parse({
-    srcUrl,
-    maxWidth,
-    maxHeight,
-    quality,
-    timeoutMs: options.timeoutMs ?? 30_000,
-  });
+  const timeoutMs = options.timeoutMs ?? 30_000;
+  const isDimensionValid = (value: number): boolean =>
+    Number.isFinite(value) && Number.isInteger(value) && value > 0 && value <= 16_384;
+  if (
+    typeof srcUrl !== "string" ||
+    srcUrl.length === 0 ||
+    !isDimensionValid(maxWidth) ||
+    !isDimensionValid(maxHeight) ||
+    !Number.isFinite(quality) ||
+    quality < 0 ||
+    quality > 1 ||
+    !Number.isFinite(timeoutMs) ||
+    !Number.isInteger(timeoutMs) ||
+    timeoutMs <= 0 ||
+    timeoutMs > 120_000
+  ) {
+    throw new Error("Invalid thumbnail input.");
+  }
 
   options.signal?.throwIfAborted();
 
@@ -183,7 +184,7 @@ export const createThumbnailFromUrl = async (
     controller.abort(
       new DOMException("Thumbnail generation timed out.", "TimeoutError"),
     );
-  }, input.timeoutMs);
+  }, timeoutMs);
 
   options.signal?.addEventListener("abort", onAbort, { once: true });
   if (options.signal?.aborted) onAbort();
@@ -194,19 +195,19 @@ export const createThumbnailFromUrl = async (
 
   try {
     release = await acquirePermit(controller.signal);
-    image = await loadImage(input.srcUrl, controller.signal);
+    image = await loadImage(srcUrl, controller.signal);
     controller.signal.throwIfAborted();
 
     if (
-      image.naturalWidth <= input.maxWidth &&
-      image.naturalHeight <= input.maxHeight
+      image.naturalWidth <= maxWidth &&
+      image.naturalHeight <= maxHeight
     ) {
-      return input.srcUrl;
+      return srcUrl;
     }
 
     const scale = Math.min(
-      input.maxWidth / image.naturalWidth,
-      input.maxHeight / image.naturalHeight,
+      maxWidth / image.naturalWidth,
+      maxHeight / image.naturalHeight,
     );
 
     canvas = document.createElement("canvas");
@@ -220,7 +221,7 @@ export const createThumbnailFromUrl = async (
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-    const blob = await encodeCanvas(canvas, input.quality, controller.signal);
+    const blob = await encodeCanvas(canvas, quality, controller.signal);
     controller.signal.throwIfAborted();
 
     return URL.createObjectURL(blob);
@@ -233,7 +234,7 @@ export const createThumbnailFromUrl = async (
         : "IMAGE_ENCODING_FAILED";
 
     options.onFailure?.(code);
-    return input.srcUrl;
+    return srcUrl;
   } finally {
     globalThis.clearTimeout(timeout);
     options.signal?.removeEventListener("abort", onAbort);

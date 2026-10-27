@@ -6,7 +6,7 @@ import { SITE_CONFIG } from "@/lib/data";
 
 export default function FinalCta() {
   return (
-    <section id="download" className="scroll-mt-24 px-6 pb-32">
+    <section id="download" className="defer-render scroll-mt-24 px-6 pb-32">
       <Reveal>
         <div className="glass panel-cut relative mx-auto max-w-5xl overflow-hidden p-12 text-center md:p-20">
           <div aria-hidden className="halftone-red absolute inset-0 opacity-10" />
