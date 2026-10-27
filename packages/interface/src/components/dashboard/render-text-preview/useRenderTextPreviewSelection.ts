@@ -26,6 +26,21 @@ import {
 import type { RenderTextPreviewContextMenuState } from './RenderTextPreviewContextMenu';
 import type { RenderTextPreviewInlineEditorState } from './useRenderTextPreviewInlineEditor';
 
+// Measurement-only canvas reused across edits: creating a canvas + context per
+// keystroke churned GC and GPU textures. Layout measurement ignores copy
+// transforms and canvas dimensions; resolveRegionTextLayout saves/restores the
+// context around every measure.
+let scratchMeasureCanvas: HTMLCanvasElement | null = null;
+let scratchMeasureContext: CanvasRenderingContext2D | null = null;
+const getScratchMeasureContext = (): CanvasRenderingContext2D | null => {
+  if (typeof document === 'undefined') return null;
+  if (!scratchMeasureCanvas) {
+    scratchMeasureCanvas = document.createElement('canvas');
+    scratchMeasureContext = scratchMeasureCanvas.getContext('2d');
+  }
+  return scratchMeasureContext;
+};
+
 interface UseRenderTextPreviewSelectionParams {
   selectedRegionId: string | null;
   hoveredRegionId: string | null;
@@ -104,15 +119,10 @@ export const useRenderTextPreviewSelection = ({
       paddingRight: 0,
       textAlign: 'left',
     };
-    if (
-      !inlineEditor
-      || !inlineEditorRegion
-      || typeof document === 'undefined'
-    ) {
+    if (!inlineEditor || !inlineEditorRegion) {
       return { frame: fallbackFrame, lines: [] };
     }
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = getScratchMeasureContext();
     if (!ctx) {
       return { frame: fallbackFrame, lines: [] };
     }
@@ -132,9 +142,6 @@ export const useRenderTextPreviewSelection = ({
       ),
       renderStageActive: true,
     });
-    // Free GPU texture memory immediately.
-    canvas.width = 0;
-    canvas.height = 0;
     return {
       frame: resolveInlineEditorLayoutFrame({
         bbox: inlineEditorRegion.bbox,

@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { useI18n } from '../../../i18n';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import { SOURCE_LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '../../../models/aioStageCatalog';
 import type { useDashboardModelManager } from '../../../hooks/useDashboardModelManager';
-import type { useModelManager } from '../../../hooks/useModelManager';
+import { useModelManagerStatusSnapshot } from '../../../hooks/useModelManager';
+import { summarizeInstalledModels } from '../../../models/model-storage';
 import type { CustomLlmProfile } from '../../../utils/customLlm';
 import { clampLlmRequestSettings } from '../../../utils/customLlm';
 import type { useAioModelSelection } from '../hooks/aio-pipeline';
@@ -20,7 +22,6 @@ import { useUiShellStore } from '../stores/ui-shell-store';
 import TranslatorToolsPanel from '../../../components/dashboard/TranslatorToolsPanel';
 
 type AioModelSelectionApi = ReturnType<typeof useAioModelSelection>;
-type ModelManagerApi = ReturnType<typeof useModelManager>;
 type DashboardModelManagerApi = ReturnType<typeof useDashboardModelManager>;
 
 interface TranslationModelEntryLike {
@@ -46,8 +47,6 @@ interface TranslatorToolsPanelSectionProps {
   /* ── AIO model selection / model manager hooks (not yet migrated) ── */
   formatAioStageOptionLabel: AioModelSelectionApi['formatAioStageOptionLabel'];
   resolveLocalModelFocusForStage: AioModelSelectionApi['resolveLocalModelFocusForStage'];
-  modelEntries: ModelManagerApi['state']['entries'];
-  modelSummary: ModelManagerApi['summary'];
   openModelManagerForStage: DashboardModelManagerApi['openModelManagerForStage'];
 
   /* ── Cleaner options memo + SFX select callback (cleaner domain) ── */
@@ -88,8 +87,6 @@ export default function TranslatorToolsPanelSection({
   selectedTranslatorSfxCleanOption,
   formatAioStageOptionLabel,
   resolveLocalModelFocusForStage,
-  modelEntries,
-  modelSummary,
   openModelManagerForStage,
   cleanerAiOptionsForSelect,
   selectTranslatorSfxCleanModel,
@@ -104,6 +101,11 @@ export default function TranslatorToolsPanelSection({
   retranslateTranslatorRegions,
 }: TranslatorToolsPanelSectionProps) {
   const { t } = useI18n();
+  const modelManagerState = useModelManagerStatusSnapshot();
+  const modelSummary = useMemo(
+    () => summarizeInstalledModels(modelManagerState.entries),
+    [modelManagerState.entries],
+  );
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
   );
@@ -189,7 +191,7 @@ export default function TranslatorToolsPanelSection({
         });
       }}
       translationSelectedModelId={aioStageSelection.getTranslations}
-      modelEntries={modelEntries}
+      modelEntries={modelManagerState.entries}
       availableTranslationStageOptions={availableTranslationStageOptions}
       installedCount={modelSummary.installedCount}
       updatesCount={modelSummary.updateCount}

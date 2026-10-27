@@ -153,6 +153,8 @@ export default function ScanlationFeedPostsPanel({
                           src={media.directUrl}
                           alt={media.altText}
                           className="panel-cut-sm h-24 w-auto border border-paper/12 object-cover"
+                          loading="lazy"
+                          decoding="async"
                         />
                       ))}
                     </div>

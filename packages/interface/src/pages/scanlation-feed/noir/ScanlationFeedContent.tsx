@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChangeEvent } from 'react';
+import { memo, type ChangeEvent } from 'react';
 import { Plus } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
@@ -53,7 +53,7 @@ type ScanlationFeedContentProps = {
   onCreateBan: () => void;
 };
 
-export default function ScanlationFeedContent(props: ScanlationFeedContentProps) {
+function ScanlationFeedContent(props: ScanlationFeedContentProps) {
   const { t } = useI18n();
   const { tab, composerTypeLabel, onOpenComposer } = props;
 
@@ -142,3 +142,5 @@ export default function ScanlationFeedContent(props: ScanlationFeedContentProps)
     </>
   );
 }
+
+export default memo(ScanlationFeedContent);

@@ -173,6 +173,12 @@ export const useRenderTextPreviewPointer = ({
 }: UseRenderTextPreviewPointerParams) => {
   const pendingRegionCommitRef = useRef<PendingRegionCommit | null>(null);
   const pendingRegionCommitFrameRef = useRef<number | null>(null);
+  const pendingDrawPointRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const pendingDrawFrameRef = useRef<number | null>(null);
 
   const lastMoveVisualBoxRef = useRef<{
     pointerId: number;
@@ -231,6 +237,22 @@ export const useRenderTextPreviewPointer = ({
     lastMoveVisualBoxRef.current = null;
   }, []);
 
+  // Reads and cancels the frame-pending draw position so pointerup can commit
+  // the exact last pointer position (same contract as lastMoveVisualBoxRef).
+  const takePendingDrawPoint = useCallback((): {
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null => {
+    if (pendingDrawFrameRef.current !== null) {
+      cancelAnimationFrame(pendingDrawFrameRef.current);
+      pendingDrawFrameRef.current = null;
+    }
+    const pending = pendingDrawPointRef.current;
+    pendingDrawPointRef.current = null;
+    return pending;
+  }, []);
+
   useEffect(
     () => () => {
       if (pendingRegionCommitFrameRef.current !== null) {
@@ -238,6 +260,11 @@ export const useRenderTextPreviewPointer = ({
         pendingRegionCommitFrameRef.current = null;
       }
       pendingRegionCommitRef.current = null;
+      if (pendingDrawFrameRef.current !== null) {
+        cancelAnimationFrame(pendingDrawFrameRef.current);
+        pendingDrawFrameRef.current = null;
+      }
+      pendingDrawPointRef.current = null;
     },
     [],
   );
@@ -668,11 +695,26 @@ export const useRenderTextPreviewPointer = ({
       }
 
       if (interaction.kind === 'draw') {
-        setInteraction({
-          ...interaction,
-          currentX: point.x,
-          currentY: point.y,
-        });
+        pendingDrawPointRef.current = {
+          pointerId: interaction.pointerId,
+          x: point.x,
+          y: point.y,
+        };
+        if (pendingDrawFrameRef.current === null) {
+          pendingDrawFrameRef.current = requestAnimationFrame(() => {
+            pendingDrawFrameRef.current = null;
+            const pending = pendingDrawPointRef.current;
+            pendingDrawPointRef.current = null;
+            if (!pending) return;
+            setInteraction((prev) =>
+              prev &&
+                prev.kind === 'draw' &&
+                prev.pointerId === pending.pointerId
+                ? { ...prev, currentX: pending.x, currentY: pending.y }
+                : prev,
+            );
+          });
+        }
         return;
       }
 
@@ -895,10 +937,19 @@ export const useRenderTextPreviewPointer = ({
       }
 
       if (interaction.kind === 'draw') {
-        const rawX1 = Math.min(interaction.startX, interaction.currentX);
-        const rawY1 = Math.min(interaction.startY, interaction.currentY);
-        const rawX2 = Math.max(interaction.startX, interaction.currentX);
-        const rawY2 = Math.max(interaction.startY, interaction.currentY);
+        const pendingDraw = takePendingDrawPoint();
+        const finalX =
+          pendingDraw && pendingDraw.pointerId === interaction.pointerId
+            ? pendingDraw.x
+            : interaction.currentX;
+        const finalY =
+          pendingDraw && pendingDraw.pointerId === interaction.pointerId
+            ? pendingDraw.y
+            : interaction.currentY;
+        const rawX1 = Math.min(interaction.startX, finalX);
+        const rawY1 = Math.min(interaction.startY, finalY);
+        const rawX2 = Math.max(interaction.startX, finalX);
+        const rawY2 = Math.max(interaction.startY, finalY);
         if (rawX2 - rawX1 >= MIN_REGION_SIZE && rawY2 - rawY1 >= MIN_REGION_SIZE) {
           const manualRegion: AioTextRegion = {
             id: `manual-${uuidv4()}`,
@@ -958,9 +1009,16 @@ export const useRenderTextPreviewPointer = ({
       image.height,
       image.width,
       interaction,
-      allowRegionCreation,
+      manualInteractionRef,
+      newRegionShapeKind,
       onRegionsChange,
-      onSelectRegion,
+      onSegmentBrushChange,
+      regionsWithDefaultsRef,
+      segBrushCanvasRef,
+      segBrushDataUrlRef,
+      segBrushLastRef,
+      setInteraction,
+      takePendingDrawPoint,
       toImagePoint,
       updateRegionBox,
       updateRegionRotation,
@@ -1034,12 +1092,21 @@ export const useRenderTextPreviewPointer = ({
 
   const handleOverlayPointerCancel = useCallback(() => {
     cancelPendingRegionCommit();
+    takePendingDrawPoint();
     setInteraction(null);
     setHoveredRegionId(null);
     setContextMenu(null);
     closeInlineEditor();
     hideBrushCursor();
-  }, [cancelPendingRegionCommit, closeInlineEditor, hideBrushCursor]);
+  }, [
+    cancelPendingRegionCommit,
+    closeInlineEditor,
+    hideBrushCursor,
+    setContextMenu,
+    setHoveredRegionId,
+    setInteraction,
+    takePendingDrawPoint,
+  ]);
 
   return {
     handlePointerDown,

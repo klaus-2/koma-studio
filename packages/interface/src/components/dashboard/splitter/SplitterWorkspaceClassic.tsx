@@ -159,26 +159,42 @@ export const SplitterWorkspaceClassic = () => {
   }, [activeImageIdForEffect]);
 
   useEffect(() => {
-    const handlePointerMove = (event: MouseEvent) => {
-      if (!dragCutRef.current || !previewStageRef.current) return;
+    let frameId: number | null = null;
+    let pendingPoint: { clientX: number; clientY: number } | null = null;
+    const applyPendingMove = () => {
+      frameId = null;
+      const point = pendingPoint;
+      pendingPoint = null;
+      if (!point || !dragCutRef.current || !previewStageRef.current) return;
       const ctrl = controllerRef.current;
       if (!ctrl.activeImageState?.analysis) return;
       const rect = previewStageRef.current.getBoundingClientRect();
       const axis = ctrl.activeRecipe.axis;
       const ratio = axis === 'vertical'
-        ? (event.clientY - rect.top) / rect.height
-        : (event.clientX - rect.left) / rect.width;
+        ? (point.clientY - rect.top) / rect.height
+        : (point.clientX - rect.left) / rect.width;
       const el = previewStageRef.current.querySelector('.koma-split-stage__img') as HTMLImageElement | null;
       if (!el) return;
       const axisLength = axis === 'vertical' ? el.naturalHeight : el.naturalWidth;
       ctrl.moveActiveCut(dragCutRef.current, ratio * axisLength);
     };
+    const handlePointerMove = (event: MouseEvent) => {
+      if (!dragCutRef.current) return;
+      pendingPoint = { clientX: event.clientX, clientY: event.clientY };
+      if (frameId === null) frameId = requestAnimationFrame(applyPendingMove);
+    };
     const handlePointerUp = () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+        applyPendingMove();
+      }
+      pendingPoint = null;
       dragCutRef.current = null;
     };
     window.addEventListener('mousemove', handlePointerMove);
     window.addEventListener('mouseup', handlePointerUp);
     return () => {
+      if (frameId !== null) cancelAnimationFrame(frameId);
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', handlePointerUp);
     };

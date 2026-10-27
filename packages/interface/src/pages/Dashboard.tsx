@@ -77,9 +77,6 @@ import {
   isModeUnderDevelopment,
   MIN_REGION_SIZE,
   UNDER_DEVELOPMENT_TOOLTIP_KEY,
-  ZOOM_MAX,
-  ZOOM_MIN,
-  ZOOM_STEP,
 } from '../constants/dashboard.constants';
 import { useDashboardAccountSync } from '../hooks/useDashboardAccountSync';
 import {
@@ -191,9 +188,10 @@ import {
 import {
   useSpecialModeStageProps,
   useStitchWorkspace,
-  useUtilitySplitterController,
 } from './dashboard/hooks/utility-workspaces';
-import { SplitterControllerProvider } from '../components/dashboard/splitter/SplitterControllerContext';
+import { SplitterControllerScope } from '../components/dashboard/splitter/SplitterControllerScope';
+import { StatusToneResetEffect } from '../components/dashboard/StatusToneResetEffect';
+import { useStageWheelZoom } from './dashboard/hooks/useStageWheelZoom';
 import { useDiscordPresence } from './dashboard/hooks/auth-account';
 import { recordProcessedPages as recordProcessedPagesAction } from './dashboard/stores/processing-stats-store';
 import { useWorkspacePersistence } from './dashboard/hooks/workspace-persistence';
@@ -485,23 +483,11 @@ export const DashboardPage = ({
   // Downloads & Status
   const setDownloadItems = useExportStore((s) => s.setDownloadItems);
   const setLastActionScope = useExportStore((s) => s.setLastActionScope);
-  const statusMessage = useStatusStore((s) => s.statusMessage);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
-  useEffect(() => {
-    const statusState = useStatusStore.getState();
-    if (!statusState.statusToneExplicit) {
-      statusState.setStatusMessageTone('info');
-    }
-    statusState.clearStatusToneExplicit();
-  }, [statusMessage]);
   const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
-  const workspaceRestoreToken = useWorkspacePersistenceStore(
-    (s) => s.workspaceRestoreToken,
-  );
   const setWorkspaceAutosaveSettings = useWorkspacePersistenceStore(
     (s) => s.setWorkspaceAutosaveSettings,
   );
-  const emptyPreviewTipIndex = useUiShellStore((s) => s.emptyPreviewTipIndex);
   const setEmptyPreviewTipIndex = useUiShellStore(
     (s) => s.setEmptyPreviewTipIndex,
   );
@@ -533,8 +519,6 @@ export const DashboardPage = ({
 
   const {
     state: modelManagerState,
-    summary: modelSummary,
-    installAllSummary,
     openManager: openModelManager,
     closeManager: closeModelManager,
     setModalLanguageFilter: setModelModalLanguageFilter,
@@ -1582,9 +1566,6 @@ export const DashboardPage = ({
     setUser,
   });
 
-  const currentEmptyPreviewTip =
-    emptyPreviewTips[emptyPreviewTipIndex % emptyPreviewTips.length];
-
   const updateModeTabsScroll = useCallback(() => {
     const node = modeTabsRef.current;
     if (!node) return;
@@ -1600,22 +1581,7 @@ export const DashboardPage = ({
     });
   }, [setModeTabsScroll]);
 
-  const handleStageWheelZoom = useCallback(
-    (event: React.WheelEvent<HTMLElement>) => {
-      if (!event.ctrlKey) return;
-
-      event.preventDefault();
-      const direction = event.deltaY < 0 ? 1 : -1;
-      const steps = Math.max(
-        1,
-        Math.min(6, Math.round(Math.abs(event.deltaY) / 100)),
-      );
-      setZoom((prev) =>
-        clamp(prev + direction * ZOOM_STEP * steps, ZOOM_MIN, ZOOM_MAX),
-      );
-    },
-    [setZoom],
-  );
+  const handleStageWheelZoom = useStageWheelZoom(setZoom);
 
   useEffect(() => {
     void syncDiscordForTab();
@@ -1874,14 +1840,6 @@ export const DashboardPage = ({
     outQuality,
   });
 
-  const { splitterController } = useUtilitySplitterController({
-    workspaceRestoreToken,
-    isDesktopRuntime,
-    localApiBase: apiConfig.localUrl,
-    registerDownloads,
-    ensureVerifiedEmailOrNotify,
-    recordProcessedPages,
-  });
   const bundleGetTypographerSessionsByImage = useCallback(
     () => useTypographerStore.getState().typographerSessionsByImage,
     [],
@@ -2261,12 +2219,18 @@ export const DashboardPage = ({
   const translationNotesEnabled = llmSettings.translation_notes_enabled;
   // ══════════════ RENDER ══════════════
   return (
-    <SplitterControllerProvider controller={splitterController}>
+    <SplitterControllerScope
+      isDesktopRuntime={isDesktopRuntime}
+      localApiBase={apiConfig.localUrl}
+      registerDownloads={registerDownloads}
+      ensureVerifiedEmailOrNotify={ensureVerifiedEmailOrNotify}
+      recordProcessedPages={recordProcessedPages}
+    >
+    <StatusToneResetEffect />
     <DashboardMainLayout
       // ── Stage section (page-derived values forwarded to StageGrid) ──
       resolvedActiveId={resolvedActiveId}
       translationNotesEnabled={translationNotesEnabled}
-      currentEmptyPreviewTip={currentEmptyPreviewTip}
       handleStageWheelZoom={handleStageWheelZoom}
       specialModeStageProps={specialModeStageProps}
       onOpenSettings={onOpenSettings}
@@ -2446,8 +2410,7 @@ export const DashboardPage = ({
       selectedSegmentStatusText={selectedSegmentStatusText}
       selectedCleanStatusText={selectedCleanStatusText}
       openModelManagerForStage={openModelManagerForStage}
-      modelManagerState={modelManagerState}
-      modelSummary={modelSummary}
+      modelModalLanguageFilter={modelManagerState.modalLanguageFilter}
       selectedTranslationModelState={selectedTranslationModelState}
       selectedCustomTranslationProfile={selectedCustomTranslationProfile}
       selectedLegacyTranslationOption={selectedLegacyTranslationOption}
@@ -2508,7 +2471,6 @@ export const DashboardPage = ({
       // ── Model managers modal ──
       activeModelManagerStage={activeModelManagerStage}
       ocrStageOptionsForSelect={ocrStageOptionsForSelect}
-      installAllSummary={installAllSummary}
       translationFreeProviderManagerSection={translationFreeProviderManagerSection}
       ocrFreeProviderManagerSection={ocrFreeProviderManagerSection}
       translationCustomProfilesManagerSection={translationCustomProfilesManagerSection}
@@ -2528,7 +2490,7 @@ export const DashboardPage = ({
       enhanceModelManagerOpen={enhanceModelManagerOpen}
       refreshModelState={refreshModelState}
     />
-    </SplitterControllerProvider>
+    </SplitterControllerScope>
   );
 };
 

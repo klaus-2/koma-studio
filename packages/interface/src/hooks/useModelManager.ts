@@ -9,7 +9,6 @@ import {
   estimateModelRequiredDiskBytes,
   getDiskSpace,
   listInstalledModels,
-  summarizeInstalledModels,
   uninstallModelFromStorage,
 } from "../models/model-storage";
 import {
@@ -27,6 +26,7 @@ import type {
   TranslationModel,
 } from "../models/types";
 import { modelStore } from "../stores/model-store";
+import type { ModelStoreState } from "../stores/model-store";
 
 interface UseModelManagerOptions {
   sourceLanguage: string;
@@ -39,6 +39,61 @@ interface OpenModelManagerArgs {
 }
 
 const getStoreSnapshot = () => modelStore.getState();
+
+/** Live snapshot: re-renders on every store patch, including download progress. */
+export const useModelManagerLiveState = (): ModelStoreState =>
+  useSyncExternalStore(modelStore.subscribe, getStoreSnapshot, getStoreSnapshot);
+
+interface ModelManagerStatusSnapshotCache {
+  signature: string;
+  state: ModelStoreState;
+}
+
+let statusSnapshotCache: ModelManagerStatusSnapshotCache | null = null;
+
+const buildStatusSignature = (state: ModelStoreState): string =>
+  JSON.stringify([
+    state.initialized,
+    state.loading,
+    state.checkingRemoteUpdates,
+    state.lastRemoteCheckAt,
+    state.diskSpace,
+    state.installedSizeBytes,
+    state.error,
+    state.modalOpen,
+    state.modalLanguageFilter,
+    state.focusedModelId,
+    state.batch,
+    Object.keys(state.entries).map((modelId) => {
+      const entry = state.entries[modelId];
+      return entry
+        ? [modelId, entry.status, entry.error, entry.errorCode]
+        : [modelId, null, null, null];
+    }),
+  ]);
+
+/**
+ * Snapshot that keeps its identity across progress-only patches: root
+ * consumers read status/model identity, while the manager modal subscribes to
+ * the live state for the progress bar.
+ */
+export const getModelManagerStatusSnapshot = (): ModelStoreState => {
+  const state = modelStore.getState();
+  if (statusSnapshotCache?.state === state) return state;
+  const signature = buildStatusSignature(state);
+  if (statusSnapshotCache?.signature === signature) {
+    return statusSnapshotCache.state;
+  }
+  statusSnapshotCache = { signature, state };
+  return state;
+};
+
+export const useModelManagerStatusSnapshot = (): ModelStoreState =>
+  useSyncExternalStore(
+    modelStore.subscribe,
+    getModelManagerStatusSnapshot,
+    getModelManagerStatusSnapshot,
+  );
 
 const patchEntry = (
   modelId: string,
@@ -200,7 +255,7 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
   });
 };
 
-const computeInstallAllSummary = (
+export const computeInstallAllSummary = (
   entries: Record<string, ModelInstallState>,
   modelIds?: string[],
 ): InstallAllSummary => {
@@ -230,7 +285,7 @@ const computeInstallAllSummary = (
 
 export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelManagerOptions) => {
   const { t } = useI18n();
-  const state = useSyncExternalStore(modelStore.subscribe, getStoreSnapshot, getStoreSnapshot);
+  const state = useModelManagerStatusSnapshot();
 
   const manager = useMemo(() => getModelDownloadManager(), []);
 
@@ -497,11 +552,6 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
     [manager],
   );
 
-  const installAllSummary = useMemo(
-    () => computeInstallAllSummary(state.entries),
-    [state.entries],
-  );
-
   const installAll = useCallback(async (modelIds?: string[]): Promise<InstallAllSummary> => {
     const currentState = modelStore.getState();
     const summary = computeInstallAllSummary(currentState.entries, modelIds);
@@ -552,14 +602,10 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
     [compatibleModels],
   );
 
-  const summary = useMemo(() => summarizeInstalledModels(state.entries), [state.entries]);
-
   return {
     state,
-    summary,
     compatibleModels,
     compatibleModelIds,
-    installAllSummary,
     openManager,
     closeManager,
     setModalLanguageFilter,

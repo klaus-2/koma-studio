@@ -25,7 +25,6 @@ interface DashboardFooterProps {
   miniBackendRuntimeState?: DesktopMiniBackendRuntimeState | null;
   aioDeviceInfo?: AioDeviceInfo | null;
   processing?: boolean;
-  progress?: number;
   openBugReportModal: (event: MouseEvent<HTMLElement>) => void;
   openProjectExternalLink: (
     event: MouseEvent<HTMLElement>,
@@ -46,7 +45,6 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   miniBackendRuntimeState,
   aioDeviceInfo,
   processing: processingProp,
-  progress: progressProp,
   openBugReportModal,
   openProjectExternalLink,
   projectDiscordUrl,
@@ -66,7 +64,6 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   const statusMessage = statusMessageProp ?? statusMessageStore;
   const statusMessageTone = statusMessageToneProp ?? statusMessageToneStore ?? 'info';
   const processing = processingProp ?? processingStore;
-  const progress = progressProp ?? progressStore;
   const workspaceStatus = workspaceStatusProp ?? workspaceStatusStore;
   const workspaceStatusDetail = workspaceStatusDetailProp ?? workspaceStatusDetailStore;
   const workspaceLastSavedAt = workspaceLastSavedAtProp ?? workspaceLastSavedAtStore;
@@ -397,9 +394,9 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
           <div className="koma-footerbar__progress">
             <div
               className="koma-footerbar__progressBar"
-              style={{ width: `${Math.round(progress)}%` }}
+              style={{ width: `${Math.round(progressStore)}%` }}
             />
-            <span className="koma-footerbar__meta">{Math.round(progress)}%</span>
+            <span className="koma-footerbar__meta">{Math.round(progressStore)}%</span>
           </div>
         )}
         <TooltipProvider delayDuration={120}>

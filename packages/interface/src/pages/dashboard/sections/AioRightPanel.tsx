@@ -72,6 +72,8 @@ import type {
   useAioPipelineExecution,
   useAioPresetEditor,
 } from '../hooks/aio-pipeline';
+import { useModelManagerStatusSnapshot } from '../../../hooks/useModelManager';
+import { summarizeInstalledModels } from '../../../models/model-storage';
 import type { useModelManager } from '../../../hooks/useModelManager';
 import type { useDashboardModelManager } from '../../../hooks/useDashboardModelManager';
 import type { useRenderFontCatalog } from '../../../hooks/useRenderFontCatalog';
@@ -129,8 +131,6 @@ interface AioRightPanelProps {
   selectedSegmentStatusText: AioModelSelectionApi['selectedSegmentStatusText'];
   selectedCleanStatusText: AioModelSelectionApi['selectedCleanStatusText'];
   openModelManagerForStage: ModelManagerPanelApi['openModelManagerForStage'];
-  modelManagerState: ModelManagerApi['state'];
-  modelSummary: ModelManagerApi['summary'];
   selectedTranslationModelState:
   | ModelManagerApi['state']['entries'][string]
   | null;
@@ -197,8 +197,6 @@ export default memo(function AioRightPanel({
   selectedSegmentStatusText,
   selectedCleanStatusText,
   openModelManagerForStage,
-  modelManagerState,
-  modelSummary,
   selectedTranslationModelState,
   selectedCustomTranslationProfile,
   selectedLegacyTranslationOption,
@@ -217,6 +215,11 @@ export default memo(function AioRightPanel({
   handleRenderFontImport,
   isDesktopRuntime,
 }: AioRightPanelProps) {
+  const modelManagerState = useModelManagerStatusSnapshot();
+  const modelSummary = useMemo(
+    () => summarizeInstalledModels(modelManagerState.entries),
+    [modelManagerState.entries],
+  );
   const { t } = useI18n();
   const noir = useThemeStore((s) => s.family === 'noir');
   const skin = aioPanelClasses(noir);

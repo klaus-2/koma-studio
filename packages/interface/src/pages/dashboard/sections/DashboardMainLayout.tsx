@@ -180,7 +180,6 @@ export interface DashboardMainLayoutProps {
   /* ── Stage section (page-derived values forwarded to StageGrid) ── */
   resolvedActiveId: string | null;
   translationNotesEnabled: boolean;
-  currentEmptyPreviewTip: string | undefined;
   handleStageWheelZoom: (event: React.WheelEvent<HTMLElement>) => void;
   specialModeStageProps: SpecialModeStageProps;
   onOpenSettings: DashboardPageProps['onOpenSettings'];
@@ -376,8 +375,7 @@ export interface DashboardMainLayoutProps {
   selectedSegmentStatusText: AioModelSelectionApi['selectedSegmentStatusText'];
   selectedCleanStatusText: AioModelSelectionApi['selectedCleanStatusText'];
   openModelManagerForStage: ModelManagerPanelApi['openModelManagerForStage'];
-  modelManagerState: ModelManagerApi['state'];
-  modelSummary: ModelManagerApi['summary'];
+  modelModalLanguageFilter: string;
   selectedTranslationModelState: ModelManagerApi['state']['entries'][string] | null;
   selectedCustomTranslationProfile: CustomLlmProfile | null;
   selectedLegacyTranslationOption: AioStageOption | null;
@@ -441,7 +439,6 @@ export interface DashboardMainLayoutProps {
   /* ── Model managers modal ── */
   activeModelManagerStage: ModelManagerPanelApi['activeModelManagerStage'];
   ocrStageOptionsForSelect: AioStageOption[];
-  installAllSummary: ModelManagerApi['installAllSummary'];
   translationFreeProviderManagerSection: React.ReactNode;
   ocrFreeProviderManagerSection: React.ReactNode;
   translationCustomProfilesManagerSection: React.ReactNode;
@@ -465,7 +462,6 @@ export interface DashboardMainLayoutProps {
 export default memo(function DashboardMainLayout({
   resolvedActiveId,
   translationNotesEnabled,
-  currentEmptyPreviewTip,
   handleStageWheelZoom,
   specialModeStageProps,
   onOpenSettings,
@@ -637,8 +633,7 @@ export default memo(function DashboardMainLayout({
   selectedSegmentStatusText,
   selectedCleanStatusText,
   openModelManagerForStage,
-  modelManagerState,
-  modelSummary,
+  modelModalLanguageFilter,
   selectedTranslationModelState,
   selectedCustomTranslationProfile,
   selectedLegacyTranslationOption,
@@ -694,7 +689,6 @@ export default memo(function DashboardMainLayout({
   importSelectedEnhanceModel,
   installSelectedEnhanceModel,
   processEnhance,
-  installAllSummary,
   translationFreeProviderManagerSection,
   ocrFreeProviderManagerSection,
   translationCustomProfilesManagerSection,
@@ -724,7 +718,6 @@ export default memo(function DashboardMainLayout({
   const deferredStageMode = useDeferredValue(mode);
   const subMode = useUiShellStore((s) => s.subMode);
   const processing = useUiShellStore((s) => s.processing);
-  const progress = useUiShellStore((s) => s.progress);
   const zoom = useUiShellStore((s) => s.zoom);
   const setZoom = useUiShellStore((s) => s.setZoom);
   const viewMode = useUiShellStore((s) => s.viewMode);
@@ -1101,7 +1094,6 @@ export default memo(function DashboardMainLayout({
           applyTypographyPresetToRegionById={applyTypographyPresetToRegionById}
           convertRegionShapeById={convertRegionShapeById}
           translationNotesEnabled={translationNotesEnabled}
-          currentEmptyPreviewTip={currentEmptyPreviewTip}
           isCompactViewport={isCompactViewport}
           renderFontRefreshToken={renderFontRefreshToken}
           availableRenderFonts={availableRenderFonts}
@@ -1126,7 +1118,6 @@ export default memo(function DashboardMainLayout({
           miniBackendRuntimeState={aioMiniBackendRuntimeState}
           aioDeviceInfo={aioDeviceInfo}
           processing={processing}
-          progress={progress}
           openBugReportModal={openBugReportModal}
           openProjectExternalLink={openProjectExternalLink}
           projectDiscordUrl={projectDiscordUrl}
@@ -1237,8 +1228,6 @@ export default memo(function DashboardMainLayout({
               selectedSegmentStatusText={selectedSegmentStatusText}
               selectedCleanStatusText={selectedCleanStatusText}
               openModelManagerForStage={openModelManagerForStage}
-              modelManagerState={modelManagerState}
-              modelSummary={modelSummary}
               selectedTranslationModelState={selectedTranslationModelState}
               selectedCustomTranslationProfile={selectedCustomTranslationProfile}
               selectedLegacyTranslationOption={selectedLegacyTranslationOption}
@@ -1332,8 +1321,6 @@ export default memo(function DashboardMainLayout({
               }
               formatAioStageOptionLabel={formatAioStageOptionLabel}
               resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
-              modelEntries={modelManagerState.entries}
-              modelSummary={modelSummary}
               openModelManagerForStage={openModelManagerForStage}
               cleanerAiOptionsForSelect={cleanerAiOptionsForSelect}
               selectTranslatorSfxCleanModel={selectTranslatorSfxCleanModel}
@@ -1391,13 +1378,10 @@ export default memo(function DashboardMainLayout({
       />
       <DashboardModelManagers
         activeModelManagerStage={activeModelManagerStage}
-        modelManagerState={modelManagerState}
-        modelSummary={modelSummary}
         aioSrcLang={aioSrcLang}
         aioStageSelection={aioStageSelection}
         aioStageOptions={aioStageOptions}
         aioOcrStageOptions={ocrStageOptionsForSelect}
-        installAllSummary={installAllSummary}
         translationFreeProviderManagerSection={
           translationFreeProviderManagerSection
         }
@@ -1429,7 +1413,7 @@ export default memo(function DashboardMainLayout({
       <CleanerAiRecognizeTextModelManagerModal
         freeProviderSection={cleanerAiFreeProviderManagerSection}
         customProfilesSection={cleanerAiCustomProfilesManagerSection}
-        defaultLanguageFilter={modelManagerState.modalLanguageFilter || aioSrcLang}
+        defaultLanguageFilter={modelModalLanguageFilter || aioSrcLang}
         selectCleanerAiModel={selectCleanerAiModel}
       />
     </div>

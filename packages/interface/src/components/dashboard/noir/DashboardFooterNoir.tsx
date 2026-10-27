@@ -22,7 +22,6 @@ interface DashboardFooterProps {
   miniBackendRuntimeState?: DesktopMiniBackendRuntimeState | null;
   aioDeviceInfo?: AioDeviceInfo | null;
   processing?: boolean;
-  progress?: number;
   openBugReportModal: (event: MouseEvent<HTMLElement>) => void;
   openProjectExternalLink: (event: MouseEvent<HTMLElement>, url: string) => void | Promise<void>;
   projectDiscordUrl: string;
@@ -52,7 +51,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
   workspaceStatusDetail: workspaceStatusDetailProp,
   workspaceLastSavedAt: workspaceLastSavedAtProp,
   miniBackendRuntimeState, aioDeviceInfo,
-  processing: processingProp, progress: progressProp,
+  processing: processingProp,
   openBugReportModal, openProjectExternalLink,
   projectDiscordUrl, projectWebsiteUrl,
   runtimeExecutionNotice: runtimeExecutionNoticeProp,
@@ -72,7 +71,6 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
   const statusMessage = statusMessageProp ?? statusMessageStore;
   const statusMessageTone = statusMessageToneProp ?? statusMessageToneStore ?? 'info';
   const processing = processingProp ?? processingStore;
-  const progress = progressProp ?? progressStore;
   const workspaceStatus = workspaceStatusProp ?? workspaceStatusStore;
   const workspaceStatusDetail = workspaceStatusDetailProp ?? workspaceStatusDetailStore;
   const workspaceLastSavedAt = workspaceLastSavedAtProp ?? workspaceLastSavedAtStore;
@@ -267,10 +265,10 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
             <motion.div
               className="halftone-red absolute inset-y-0 left-0 w-full origin-left bg-crimson"
               initial={false}
-              animate={{ scaleX: Math.max(0, Math.min(100, progress)) / 100 }}
+              animate={{ scaleX: Math.max(0, Math.min(100, progressStore)) / 100 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             />
-            <span className="relative z-10 w-full text-center font-mono text-[9px] font-bold text-paper mix-blend-difference">{Math.round(progress)}%</span>
+            <span className="relative z-10 w-full text-center font-mono text-[9px] font-bold text-paper mix-blend-difference">{Math.round(progressStore)}%</span>
           </div>
         )}
         <span aria-hidden className="mx-0.5 select-none font-mono text-[10px] text-paper-faint">/</span>

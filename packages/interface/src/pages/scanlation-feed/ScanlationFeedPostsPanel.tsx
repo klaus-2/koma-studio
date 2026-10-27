@@ -159,6 +159,8 @@ export default function ScanlationFeedPostsPanel({
                             className="koma-feed-media__img"
                             src={media.directUrl}
                             alt={media.altText}
+                            loading="lazy"
+                            decoding="async"
                           />
                         </div>
                       ))}

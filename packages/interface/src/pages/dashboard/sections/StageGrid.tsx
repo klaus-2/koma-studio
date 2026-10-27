@@ -37,7 +37,10 @@ import {
   needsCleanerRegionMaps,
   needsTranslatorRegionMaps,
 } from '../../../utils/regionMapGating';
-import { AIO_STAGE_BADGE_LABELS } from '../../../constants/dashboard.constants';
+import {
+  AIO_STAGE_BADGE_LABELS,
+  getEmptyPreviewTips,
+} from '../../../constants/dashboard.constants';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
@@ -137,7 +140,6 @@ export interface DashboardStageSectionProps {
   applyTypographyPresetToRegionById: AioRegionEditingApi['applyTypographyPresetToRegionById'];
   convertRegionShapeById: AioRegionEditingApi['convertRegionShapeById'];
   translationNotesEnabled: boolean;
-  currentEmptyPreviewTip: string | undefined;
 
   /* ── Shell / fonts ── */
   isCompactViewport: boolean;
@@ -195,7 +197,6 @@ export default function DashboardStageSection({
   applyTypographyPresetToRegionById,
   convertRegionShapeById,
   translationNotesEnabled,
-  currentEmptyPreviewTip,
   isCompactViewport,
   renderFontRefreshToken,
   availableRenderFonts,
@@ -259,6 +260,9 @@ export default function DashboardStageSection({
     (s) => s.aioPipelineSnapshots,
   );
   const emptyPreviewTipIndex = useUiShellStore((s) => s.emptyPreviewTipIndex);
+  const emptyPreviewTips = useMemo(() => getEmptyPreviewTips(t), [t]);
+  const currentEmptyPreviewTip =
+    emptyPreviewTips[emptyPreviewTipIndex % emptyPreviewTips.length];
   const aioManualHealingBusyByImage = useManualToolsStore(
     (s) => s.aioManualHealingBusyByImage,
   );

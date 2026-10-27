@@ -7,33 +7,21 @@ import { EnhanceImageModelManagerModal } from '../ModelManagerModal/EnhanceImage
 import { useCallback, useMemo, useRef } from 'react';
 import { useI18n } from '../../i18n';
 import { getAioStageLabels } from '../../constants/dashboard.constants';
+import {
+  computeInstallAllSummary,
+  useModelManagerLiveState,
+} from '../../hooks/useModelManager';
+import { summarizeInstalledModels } from '../../models/model-storage';
 
 import type { AioStageKey, AioStageSelection } from '../../types/aioModelPresets';
 import type { AioStageOption, AioStageOptionMap } from '../../models/aioStageCatalog';
 
 interface DashboardModelManagersProps {
   activeModelManagerStage: AioStageKey;
-  modelManagerState: {
-    modalOpen: boolean;
-    entries: Record<string, any>;
-    diskSpace: any;
-    installedSizeBytes: number;
-    checkingRemoteUpdates: boolean;
-    lastRemoteCheckAt: number | null;
-    modalLanguageFilter: string | null;
-    focusedModelId: string | null;
-    batch: any;
-  };
-  modelSummary: {
-    installedCount: number;
-    totalCount: number;
-    updateCount: number;
-  };
   aioSrcLang: string;
   aioStageSelection: AioStageSelection;
   aioStageOptions: AioStageOptionMap;
   aioOcrStageOptions: readonly AioStageOption[];
-  installAllSummary: any;
   translationFreeProviderManagerSection: React.ReactNode;
   ocrFreeProviderManagerSection: React.ReactNode;
   translationCustomProfilesManagerSection: React.ReactNode;
@@ -59,15 +47,25 @@ interface DashboardModelManagersProps {
   refreshModelState: () => Promise<unknown>;
 }
 
+const useModelManagerSummaries = () => {
+  const modelManagerState = useModelManagerLiveState();
+  const modelSummary = useMemo(
+    () => summarizeInstalledModels(modelManagerState.entries),
+    [modelManagerState.entries],
+  );
+  const installAllSummary = useMemo(
+    () => computeInstallAllSummary(modelManagerState.entries),
+    [modelManagerState.entries],
+  );
+  return { modelManagerState, modelSummary, installAllSummary };
+};
+
 export default function DashboardModelManagers({
   activeModelManagerStage,
-  modelManagerState,
-  modelSummary,
   aioSrcLang,
   aioStageSelection,
   aioStageOptions,
   aioOcrStageOptions,
-  installAllSummary,
   translationFreeProviderManagerSection,
   ocrFreeProviderManagerSection,
   translationCustomProfilesManagerSection,
@@ -93,6 +91,8 @@ export default function DashboardModelManagers({
   refreshModelState,
 }: DashboardModelManagersProps) {
   const { t } = useI18n();
+  const { modelManagerState, modelSummary, installAllSummary } =
+    useModelManagerSummaries();
   const aioStageLabels = useMemo(() => getAioStageLabels(t), [t]);
 
   const openedOnceRef = useRef({
