@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { useReducedMotion } from 'framer-motion';
@@ -258,7 +259,7 @@ export const ScanlationFeedPage = ({
 
   /* state */
   const [tab, setTab] = useState<FeedTab>('recruitment');
-  const [previousReceivedCount, setPreviousReceivedCount] = useState(0);
+  const previousReceivedCountRef = useRef(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -386,13 +387,11 @@ export const ScanlationFeedPage = ({
   }, [profile]);
 
   useEffect(() => {
-    if (
-      receivedApplications.length > previousReceivedCount &&
-      previousReceivedCount > 0
-    )
+    const previousCount = previousReceivedCountRef.current;
+    if (receivedApplications.length > previousCount && previousCount > 0)
       setFeedback(t('feed.feedback.newApplication'));
-    setPreviousReceivedCount(receivedApplications.length);
-  }, [previousReceivedCount, receivedApplications.length, t]);
+    previousReceivedCountRef.current = receivedApplications.length;
+  }, [receivedApplications.length, t]);
 
   const visiblePosts = useMemo(
     () =>

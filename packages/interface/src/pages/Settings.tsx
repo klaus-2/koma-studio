@@ -82,7 +82,6 @@ import type {
   TypographyStylePreset,
 } from "../typography/types";
 import {
-  DEFAULT_WEBHOOK_CONFIG,
   loadWebhookConfig,
   normalizeWebhookConfig,
   saveWebhookConfig,
@@ -252,7 +251,9 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   }, []);
 
   /* state — webhook */
-  const [webhook, setWebhook] = useState<DiscordWebhookConfig>(DEFAULT_WEBHOOK_CONFIG);
+  // Lazy read: a mount effect filled this after paint, flashing the empty form
+  // for one frame (react-doctor rendering-hydration-no-flicker).
+  const [webhook, setWebhook] = useState<DiscordWebhookConfig>(() => loadWebhookConfig());
   const [webhookTestStatus, setWebhookTestStatus] = useState<WebhookTestStatus>("idle");
   const [webhookSaved, setWebhookSaved] = useState(false);
   const [webhookFeedback, setWebhookFeedback] = useState<WebhookFeedbackState>(null);
@@ -512,10 +513,6 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
     return `${v} ${v === 1 ? t("settings.plan.day") : t("settings.plan.days")}`;
   }, [t]);
 
-
-  useEffect(() => {
-    setWebhook(loadWebhookConfig());
-  }, []);
 
   useEffect(() => {
     let cancelled = false;

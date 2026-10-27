@@ -761,10 +761,14 @@ export default function ChapterOptimizerWorkspace({
 
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  const [
-    directoryPickerAvailable,
-    setDirectoryPickerAvailable,
-  ] = useState(false);
+  // Feature-detect up front: a mount effect set this after paint, flashing the
+  // fallback button for one frame (react-doctor rendering-hydration-no-flicker).
+  const [directoryPickerAvailable] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof (window as DirectoryPickerWindow).showDirectoryPicker ===
+        'function',
+  );
 
   const previewTicketRef = useRef(0);
 
@@ -921,15 +925,6 @@ export default function ChapterOptimizerWorkspace({
     selectedPreset,
     pushWorkspaceState,
   ]);
-
-  useEffect(() => {
-    setDirectoryPickerAvailable(
-      typeof window !== 'undefined' &&
-      typeof (
-        window as DirectoryPickerWindow
-      ).showDirectoryPicker === 'function',
-    );
-  }, []);
 
   useEffect(() => {
     if (!activeSourceBlob) {

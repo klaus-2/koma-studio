@@ -213,7 +213,10 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
   const [defaultLabels, setDefaultLabels] = useState('');
   const [uploadDrafts, setUploadDrafts] = useState<UploadDraftItem[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
-  const [uploadedItems, setUploadedItems] = useState<BloggerUploadResult[]>([]);
+  // Upload results are consumed only by publish — never rendered — so a ref
+  // keeps batch completions from re-rendering the whole workspace
+  // (react.dev "Referencing Values with Refs").
+  const uploadedItemsRef = useRef<BloggerUploadResult[]>([]);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [batchOptimizerEnabled, setBatchOptimizerEnabled] = useState(true);
   const [bulkPreferOptimizedUrl, setBulkPreferOptimizedUrl] = useState(true);
@@ -379,7 +382,7 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
 
         const result = await uploadBloggerImages({ items: preparedItems });
 
-        setUploadedItems((current) => mergeUploadedItems(current, result.items));
+        uploadedItemsRef.current = mergeUploadedItems(uploadedItemsRef.current, result.items);
         insertUploadedImagesIntoEditor(result.items, position);
         setWorkspaceFeedback(
           result.items.length === 1
@@ -481,7 +484,7 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
           return { ...item, status: 'uploaded', result, error: null };
         }),
       );
-      setUploadedItems((current) => mergeUploadedItems(current, effectiveItems));
+      uploadedItemsRef.current = mergeUploadedItems(uploadedItemsRef.current, effectiveItems);
       setWorkspaceFeedback(
         effectiveItems.length === 1
           ? t('blogger.batchUploadSuccessSingle')
@@ -552,7 +555,7 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
         html: editorView === 'html' ? editorHtml : (editor?.getHTML() ?? editorHtml),
         labels,
         publish: publishLive,
-        uploadedImages: uploadedItems,
+        uploadedImages: uploadedItemsRef.current,
       });
 
       const verb = result.isDraft
@@ -577,7 +580,6 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
     postTitle,
     publishLive,
     t,
-    uploadedItems,
   ]);
 
   const publishLabelPreview = useMemo(

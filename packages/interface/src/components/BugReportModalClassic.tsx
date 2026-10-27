@@ -165,8 +165,10 @@ const BugReportModalClassic = ({
   useEffect(() => {
     if (!open) return;
     setPrepLoading(true);
+    let cancelled = false;
     void (async () => {
       if (!api) {
+        if (cancelled) return;
         setPrep({
           screenshotDataUrl: null,
           autoLogs: [],
@@ -178,8 +180,10 @@ const BugReportModalClassic = ({
         return;
       }
       try {
-        setPrep(await api.prepare());
+        const nextPrep = await api.prepare();
+        if (!cancelled) setPrep(nextPrep);
       } catch (e) {
+        if (cancelled) return;
         setPrep({
           screenshotDataUrl: null,
           autoLogs: [],
@@ -188,10 +192,13 @@ const BugReportModalClassic = ({
           error: e instanceof Error ? e.message : t('bugReport.error.prepareFailed'),
         });
       } finally {
-        setPrepLoading(false);
+        if (!cancelled) setPrepLoading(false);
       }
     })();
-  }, [api, open]);
+    return () => {
+      cancelled = true;
+    };
+  }, [api, open, t]);
 
   const addFiles = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

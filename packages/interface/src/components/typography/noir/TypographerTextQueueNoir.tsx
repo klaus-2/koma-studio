@@ -35,11 +35,15 @@ const STATUS_CHIP: Record<TextQueueItem["status"], string> = {
   pending: "border-gold/50 bg-gold/10 text-gold",
 };
 
+// Stable identity: an inline `= []` default broke memo equality on every
+// parent render that omits the prop (react-doctor rerender-memo-with-default-value).
+const EMPTY_MULTI_BUBBLE_REGIONS: MultiBubbleRegion[] = [];
+
 export const TypographerTextQueueNoir = ({
   draftText, queue, selectedQueueItemId, multiBubbleEnabled,
   onDraftTextChange, onBuildQueue, onClearQueue, onApplySelected, onApplyNext,
   onSelectQueueItem, onToggleMultiBubble, onImportText,
-  multiBubbleRegions = [], onReorderMultiBubbleRegions,
+  multiBubbleRegions = EMPTY_MULTI_BUBBLE_REGIONS, onReorderMultiBubbleRegions,
 }: TypographerTextQueueProps) => {
   const { t } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);

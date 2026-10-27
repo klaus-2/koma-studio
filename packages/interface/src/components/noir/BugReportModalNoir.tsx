@@ -111,7 +111,9 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
   const [contact, setContact] = useState("");
   const [crop, setCrop] = useState<CropRect | null>(null);
   const [drag, setDrag] = useState<CropRect | null>(null);
-  const [dragging, setDragging] = useState(false);
+  // Handler-only: never rendered, so a ref avoids re-rendering the modal on
+  // crop-drag start/end (react.dev "Referencing Values with Refs").
+  const draggingRef = useRef(false);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -129,7 +131,7 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
 
   const reset = useCallback(() => {
     setTitle(""); setDesc(""); setSev("medium"); setSteps(""); setExpected(""); setActual(""); setContact("");
-    setCrop(null); setDrag(null); setDragging(false); dragStart.current = null;
+    setCrop(null); setDrag(null); draggingRef.current = false; dragStart.current = null;
     setAttachments([]); setAttachErr(null); setErr(null); setSuccess(null);
   }, []);
 
@@ -137,8 +139,10 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
     if (!open) return;
     reset();
     setPrepLoading(true);
+    let cancelled = false;
     void (async () => {
       if (!api) {
+        if (cancelled) return;
         setPrep({
           screenshotDataUrl: null, autoLogs: [], diagnostics: emptyDiag(), ready: false,
           error: t("bugReport.error.bridgeUnavailable")
@@ -146,14 +150,19 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
         setPrepLoading(false);
         return;
       }
-      try { setPrep(await api.prepare()); }
+      try {
+        const nextPrep = await api.prepare();
+        if (!cancelled) setPrep(nextPrep);
+      }
       catch (e) {
+        if (cancelled) return;
         setPrep({
           screenshotDataUrl: null, autoLogs: [], diagnostics: emptyDiag(), ready: false,
           error: e instanceof Error ? e.message : t("bugReport.error.prepareFailed")
         });
-      } finally { setPrepLoading(false); }
+      } finally { if (!cancelled) setPrepLoading(false); }
     })();
+    return () => { cancelled = true; };
   }, [api, open, reset, t]);
 
   const addFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,20 +204,20 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
     if (!p) return;
     dragStart.current = { x: p.x, y: p.y };
     setDrag({ x: p.x, y: p.y, width: 0, height: 0 });
-    setDragging(true);
+    draggingRef.current = true;
   }, [relPt, screenshot]);
   const onMove = useCallback((e: React.MouseEvent) => {
-    if (!dragging || !dragStart.current) return;
+    if (!draggingRef.current || !dragStart.current) return;
     const p = relPt(e.clientX, e.clientY);
     if (!p) return;
     setDrag({
       x: Math.min(dragStart.current.x, p.x), y: Math.min(dragStart.current.y, p.y),
       width: Math.abs(p.x - dragStart.current.x), height: Math.abs(p.y - dragStart.current.y),
     });
-  }, [dragging, relPt]);
+  }, [relPt]);
   const onUp = useCallback(() => {
     if (drag) setCrop(drag.width >= 8 && drag.height >= 8 ? drag : null);
-    setDrag(null); setDragging(false); dragStart.current = null;
+    setDrag(null); draggingRef.current = false; dragStart.current = null;
   }, [drag]);
 
   const getScreenshot = useCallback(async () => {
