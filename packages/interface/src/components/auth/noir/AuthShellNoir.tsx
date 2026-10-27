@@ -1,7 +1,9 @@
 "use client";
 
-import { ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { ReactNode, useEffect, useState } from "react";
+import { m, useReducedMotion } from "framer-motion";
+import loginBackgroundVideo from "@koma/ui/assets/login-background.mp4";
+import loginBackgroundPoster from "@koma/ui/assets/login-background-poster.webp";
 import { Hanko, PrintTicks } from "./koma-ui";
 import { LegalInlineLinks } from "../../legal/LegalInlineLinks";
 import { ThemeFamilySwitch } from "../ThemeFamilySwitch";
@@ -11,6 +13,10 @@ import { AuthSideContent, ManhwaCovers } from "../AuthSideDecor";
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 type AuthTab = "login" | "register";
+
+// Same decorative-media policy as AuthShellClassic: the login backdrop is
+// content-free decoration, so it never competes with first paint.
+const DECORATIVE_MEDIA_DELAY_MS = import.meta.env.PROD ? 15_000 : 0;
 
 interface AuthShellProps {
   activeTab: AuthTab;
@@ -30,6 +36,19 @@ const stagger = {
 export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subtitle, children }: AuthShellProps) => {
   const reduced = useReducedMotion();
   const { t } = useI18n();
+  const [showMotionBackground, setShowMotionBackground] = useState(() => DECORATIVE_MEDIA_DELAY_MS === 0);
+
+  useEffect(() => {
+    if (DECORATIVE_MEDIA_DELAY_MS === 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShowMotionBackground(true);
+    }, DECORATIVE_MEDIA_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   return (
     <div className="koma-noir relative flex min-h-dvh overflow-hidden">
@@ -38,7 +57,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
       <main className="relative z-10 flex w-full items-center justify-center px-5 py-12 lg:w-[46%] lg:px-12">
         <div aria-hidden className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-crimson/10 blur-[130px]" />
 
-        <motion.section
+        <m.section
           initial={reduced ? false : { opacity: 0, y: 26 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE }}
@@ -79,7 +98,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
                       }`}
                   >
                     {active && (
-                      <motion.span
+                      <m.span
                         layoutId="koma-tab"
                         aria-hidden
                         className="absolute inset-0 bg-crimson"
@@ -102,19 +121,23 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
               </p>
             </footer>
           </div>
-        </motion.section>
+        </m.section>
       </main>
 
       <aside aria-hidden className="relative hidden min-h-dvh flex-1 overflow-hidden border-l border-paper/10 lg:block">
-        <video
-          className="koma-bg-video"
-          src="/resources/login-background.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          aria-hidden="true"
-        />
+        {showMotionBackground ? (
+          <video
+            className="koma-bg-video"
+            src={loginBackgroundVideo}
+            poster={loginBackgroundPoster}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="none"
+            aria-hidden="true"
+          />
+        ) : null}
         <div className="halftone absolute inset-0 opacity-60" />
         <div className="absolute -right-24 top-20 h-96 w-96 rounded-full bg-crimson/15 blur-[130px]" />
         <div className="absolute bottom-16 -left-16 h-80 w-80 rounded-full bg-azure/10 blur-[120px]" />
@@ -131,7 +154,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
           ドドド!!
         </span>
 
-        <motion.div
+        <m.div
           variants={stagger}
           initial={reduced ? "show" : "hidden"}
           animate="show"
@@ -140,7 +163,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
           <ManhwaCovers />
 
           <AuthSideContent />
-        </motion.div>
+        </m.div>
 
         <div className="absolute inset-x-0 bottom-0 border-t border-paper/10 bg-ink/80 py-3 backdrop-blur-sm [mask-image:linear-gradient(90deg,transparent,black_8%,black_92%,transparent)]">
           <div className="flex w-max animate-marquee gap-10 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.3em] text-paper/40">

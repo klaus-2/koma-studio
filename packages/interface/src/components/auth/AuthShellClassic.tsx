@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import loginBackgroundVideo from "@koma/ui/assets/login-background.mp4";
+import loginBackgroundPoster from "@koma/ui/assets/login-background-poster.webp";
 import brandLogo from "@koma/ui/assets/logo-1.webp";
 import brandLogo2 from "@koma/ui/assets/logo-2.webp";
 import brandLogo3 from "@koma/ui/assets/logo-3.webp";
@@ -62,7 +63,7 @@ export const AuthShellClassic = ({ activeTab, onSelectLogin, onSelectRegister, s
     <div className="auth-shell">
     <ThemeFamilySwitch variant="classic" />
     {showMotionBackground ? (
-      <video className="auth-shell__video" autoPlay loop muted playsInline preload="none" aria-hidden="true">
+      <video className="auth-shell__video" autoPlay loop muted playsInline preload="none" poster={loginBackgroundPoster} aria-hidden="true">
         <source src={loginBackgroundVideo} type="video/mp4" />
       </video>
     ) : null}
