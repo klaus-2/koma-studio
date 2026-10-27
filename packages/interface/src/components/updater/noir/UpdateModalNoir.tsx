@@ -1,9 +1,13 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { lazy, Suspense } from "react";
+import { m, AnimatePresence } from "framer-motion";
 import { RefreshCcw, X, FileText } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import { EASE, btnGhost } from "../../system/v2/kit";
 import SyncPanelNoir from "./SyncPanelNoir";
-import ReleaseNotesMarkdown from '../ReleaseNotesMarkdown';
+
+// The markdown stack (react-markdown + remark-gfm) is only needed once notes
+// are actually rendered; lazy keeps it out of the eager entry graph.
+const ReleaseNotesMarkdown = lazy(() => import("../ReleaseNotesMarkdown"));
 
 interface UpdateModalProps {
   open: boolean;
@@ -23,12 +27,12 @@ export const UpdateModalNoir = ({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           className="fixed inset-0 z-[150] flex items-center justify-center bg-ink/85 p-4 backdrop-blur-md"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={onClose}
         >
-          <motion.div
+          <m.div
             role="dialog" aria-modal="true"
             className="glass panel-cut halftone relative w-full max-w-lg p-6"
             initial={{ opacity: 0, y: 28, scale: 0.96 }}
@@ -44,12 +48,12 @@ export const UpdateModalNoir = ({
 
             {/* Header */}
             <div className="flex items-start gap-3.5 pr-6">
-              <motion.span aria-hidden
+              <m.span aria-hidden
                 initial={{ rotate: -8, scale: 0.8 }} animate={{ rotate: 0, scale: 1 }}
                 transition={{ type: "spring", stiffness: 320, damping: 18, delay: 0.12 }}
                 className="panel-cut-sm flex h-11 w-11 shrink-0 items-center justify-center border-2 border-crimson bg-crimson/10 text-crimson">
                 <RefreshCcw size={17} strokeWidth={2.5} />
-              </motion.span>
+              </m.span>
               <div className="min-w-0">
                 <p className="kicker">// PATCH INBOUND</p>
                 <h2 className="font-display text-lg font-black uppercase tracking-tight text-paper">
@@ -82,7 +86,9 @@ export const UpdateModalNoir = ({
               </p>
               <div className="panel-cut-sm max-h-48 overflow-y-auto border border-paper/8 bg-ink/60 p-3.5">
                 {releaseNotes ? (
-                  <ReleaseNotesMarkdown markdown={releaseNotes} />
+                  <Suspense fallback={null}>
+                    <ReleaseNotesMarkdown markdown={releaseNotes} />
+                  </Suspense>
                 ) : (
                   <p className="font-mono text-[10px] uppercase tracking-wider text-paper/30">
                     {t("update.modal.releaseNotesEmpty")}
@@ -103,8 +109,8 @@ export const UpdateModalNoir = ({
                 {t("update.modal.laterAction")}
               </button>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

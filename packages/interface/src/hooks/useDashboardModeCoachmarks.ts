@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
+// Coachmark CSS rides the lazy driver.js chunk instead of the entry bundle.
+import 'driver.js/dist/driver.css';
 import {
   driver,
   type Alignment,

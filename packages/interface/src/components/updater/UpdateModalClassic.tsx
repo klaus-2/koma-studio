@@ -1,6 +1,11 @@
+import { lazy, Suspense } from "react";
+
 import { useI18n } from "../../i18n";
 import SyncPanelClassic from "./SyncPanelClassic";
-import ReleaseNotesMarkdownClassic from "./ReleaseNotesMarkdownClassic";
+
+// The markdown stack (react-markdown + remark-gfm) is only needed once notes
+// are actually rendered; lazy keeps it out of the eager entry graph.
+const ReleaseNotesMarkdownClassic = lazy(() => import("./ReleaseNotesMarkdownClassic"));
 
 interface UpdateModalProps {
   open: boolean;
@@ -73,7 +78,9 @@ export const UpdateModalClassic = ({
           </div>
           <div className="koma-modal__notes-body">
             {releaseNotes ? (
-              <ReleaseNotesMarkdownClassic markdown={releaseNotes} className="koma-modal__markdown" />
+              <Suspense fallback={null}>
+                <ReleaseNotesMarkdownClassic markdown={releaseNotes} className="koma-modal__markdown" />
+              </Suspense>
             ) : (
               <p className="koma-modal__notes-empty">{t("update.modal.releaseNotesEmpty")}</p>
             )}

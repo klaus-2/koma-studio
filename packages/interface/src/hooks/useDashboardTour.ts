@@ -9,6 +9,8 @@ import {
   type Side,
 } from 'driver.js';
 import { useI18n } from '../i18n';
+// Coachmark CSS rides the lazy driver.js chunk instead of the entry bundle.
+import 'driver.js/dist/driver.css';
 import './DashboardTour.css';
 
 type TFunc = ReturnType<typeof useI18n>['t'];

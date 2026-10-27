@@ -2,7 +2,6 @@
    KŌMA STUDIO — DESIGN SYSTEM
    ============================================================ */
 
-@import 'driver.js/dist/driver.css';
 @import 'tailwindcss';
 /* monorepo: the scanner needs to see shared package sources */
 @source "./";

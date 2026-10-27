@@ -9,7 +9,6 @@ import "./App.css";
 import "@koma/ui/styles/cursor.css";
 import "@koma/ui/styles/cursor-noir.css";
 import "@koma/ui/styles/page-transition.css";
-import "./pages/guides-resources.css";
 import { I18nProvider } from "./i18n";
 import { appQueryClient } from "./query/client";
 import { desktopBridge } from "@/lib/desktop-bridge";

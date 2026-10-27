@@ -90,16 +90,18 @@ export default defineConfig(async ({ mode }) => {
               const localeChunk = path.basename(id, path.extname(id));
               return `app-i18n-${localeChunk}`;
             }
-            if (
-              id.includes("/models/freeAiProviderCatalog") ||
-              id.includes("/models/officialModelCatalog") ||
-              id.includes("/models/translation-models-registry") ||
-              id.includes("/models/aioStageCatalog") ||
-              id.includes("/utils/customLlm")
-            ) {
-              return "app-model-catalog";
-            }
             if (!id.includes("node_modules")) return undefined;
+            // Dynamically-imported-only deps must NOT be forced into an eager
+            // manual chunk: the catch-all "vendor" would hoist them into the
+            // entry graph and defeat their dynamic import sites.
+            if (id.includes("/pdf-lib/") || id.includes("/culori/")) return undefined;
+            if (
+              /\/(react-markdown|remark-|mdast-|micromark|unified|unist-|hast-|vfile|bail|trough|zwitch|property-information|space-separated-tokens|comma-separated-tokens|character-entities|decode-named)/.test(
+                id,
+              )
+            ) {
+              return "vendor-markdown";
+            }
             if (id.includes("/@tiptap/")) return "vendor-tiptap";
             if (
               id.includes("/react-markdown/") ||
@@ -108,7 +110,6 @@ export default defineConfig(async ({ mode }) => {
               return "vendor-markdown";
             if (id.includes("/@tanstack/react-query/")) return "vendor-query";
             if (id.includes("/driver.js/")) return "vendor-driver";
-            if (id.includes("/uuid/")) return "vendor-utils";
             if (id.includes("/framer-motion/") || id.includes("/motion-dom/"))
               return "vendor-motion";
             if (
