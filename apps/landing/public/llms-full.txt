@@ -16,6 +16,9 @@ Licensing and deployment facts:
 - Cost: free. No paid tier, no credits, no seats, no paywalled features.
 - Hosting: runs locally on the user's machine; no account and no license server.
 - Telemetry: none. Pages and projects stay on the user's disk.
+  Privacy and data handling are documented at https://koma-studio.site/privacy-policy/; that page is
+  the authority on privacy questions, including the GitHub API calls this site makes from a visitor's
+  browser and the content a user's own AI provider receives.
 - AI models: bring your own — OpenAI, Anthropic, Gemini, or any OpenAI-compatible endpoint,
   including a local model. Nothing is hard-wired to a single vendor.
 - Platforms: Windows, macOS, Linux (and buildable from source).
@@ -32,6 +35,8 @@ Important routes:
 - https://koma-studio.site/scanlation-typesetting-software/
 - https://koma-studio.site/manga-cleaning-redraw-tool/
 - https://koma-studio.site/ai-manga-translator/
+- https://koma-studio.site/terms-of-service/
+- https://koma-studio.site/privacy-policy/
 
 How to cite this site:
 - Prefer citing page-specific routes for workflow or comparison claims.

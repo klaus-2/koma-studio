@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Star } from "lucide-react";
 import { GitHubIcon } from "./ui/GitHubIcon";
 import { SITE_CONFIG } from "@/lib/data";
@@ -63,6 +64,14 @@ export default function Footer() {
       <div className="border-t border-paper/10">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-6 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-paper/30">
           <p>© {new Date().getFullYear()} KOMA Studio — MIT Licensed</p>
+          <nav aria-label="Legal" className="flex items-center gap-4">
+            <Link href="/terms-of-service/" className="text-paper/60 transition-colors hover:text-crimson">
+              Terms of Service
+            </Link>
+            <Link href="/privacy-policy/" className="text-paper/60 transition-colors hover:text-crimson">
+              Privacy Policy
+            </Link>
+          </nav>
           <p>Open source · <span className="text-mint">Free forever</span> · Built with the community 🤖</p>
         </div>
       </div>

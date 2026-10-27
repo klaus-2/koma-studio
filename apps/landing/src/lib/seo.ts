@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import type { FaqItem } from "@/types";
 import {
   SITE_DESCRIPTION,
+  SITE_DISCORD_URL,
   SITE_GITHUB_URL,
   SITE_LICENSE_URL,
   SITE_NAME,
   SITE_SAME_AS,
-  SITE_SUPPORT_EMAIL,
   SITE_URL,
 } from "@/lib/site";
 
@@ -127,7 +127,7 @@ export function buildWebPageJsonLd({
       contactPoint: {
         "@type": "ContactPoint",
         contactType: "customer support",
-        email: SITE_SUPPORT_EMAIL,
+        url: SITE_DISCORD_URL,
       },
     },
     about: {
@@ -139,6 +139,8 @@ export function buildWebPageJsonLd({
       url: SITE_URL,
       codeRepository: SITE_GITHUB_URL,
       license: SITE_LICENSE_URL,
+      termsOfService: `${SITE_URL}/terms-of-service/`,
+      privacyPolicy: `${SITE_URL}/privacy-policy/`,
       isAccessibleForFree: true,
     },
   };
@@ -174,7 +176,7 @@ export function buildArticleJsonLd({
       contactPoint: {
         "@type": "ContactPoint",
         contactType: "customer support",
-        email: SITE_SUPPORT_EMAIL,
+        url: SITE_DISCORD_URL,
       },
     },
     mainEntityOfPage: url,
@@ -199,7 +201,7 @@ export function buildWebSiteJsonLd() {
       contactPoint: {
         "@type": "ContactPoint",
         contactType: "customer support",
-        email: SITE_SUPPORT_EMAIL,
+        url: SITE_DISCORD_URL,
       },
     },
     potentialAction: {

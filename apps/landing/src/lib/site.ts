@@ -1,4 +1,5 @@
 import { comparePages } from "@/content/compare-pages";
+import { LEGAL_PATHS } from "@/content/legal";
 import { seoPages } from "@/content/seo-pages";
 import { SITE_CHAT_URL, SITE_DISCORD_URL, SITE_GITHUB_URL } from "@/lib/project";
 
@@ -26,7 +27,6 @@ export {
   SITE_RELEASES_URL,
   SITE_REPO_NAME,
   SITE_REPO_OWNER,
-  SITE_SUPPORT_EMAIL,
   SITE_URL,
 } from "@/lib/project";
 
@@ -46,4 +46,5 @@ export const ALL_ROUTES = [
   "/",
   ...seoPages.map((page) => `/${page.slug}`),
   ...comparePages.map((page) => `/${page.slug}`),
+  ...LEGAL_PATHS,
 ];

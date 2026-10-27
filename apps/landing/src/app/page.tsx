@@ -52,6 +52,8 @@ const softwareJsonLd = {
   url: SITE_URL,
   codeRepository: SITE_GITHUB_URL,
   license: SITE_LICENSE_URL,
+  termsOfService: `${SITE_URL}/terms-of-service/`,
+  privacyPolicy: `${SITE_URL}/privacy-policy/`,
   isAccessibleForFree: true,
   featureList: [
     "AI translation with page context",
@@ -96,7 +98,7 @@ const organizationJsonLd = {
   contactPoint: {
     "@type": "ContactPoint",
     contactType: "customer support",
-    email: "support@koma-studio.site",
+    url: SITE_DISCORD_URL,
   },
 };
 

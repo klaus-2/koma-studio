@@ -9,7 +9,6 @@ export const SITE_URL = "https://koma-studio.site";
 
 export const SITE_DISCORD_URL = "https://discord.gg/tzaV2efD4e";
 export const SITE_CHAT_URL = "https://chat.koma-studio.site";
-export const SITE_SUPPORT_EMAIL = "support@koma-studio.site";
 
 export const SITE_NAME = "KOMA Studio";
 export const SITE_LICENSE = "MIT";
