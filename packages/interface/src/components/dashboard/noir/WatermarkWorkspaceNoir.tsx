@@ -158,18 +158,26 @@ const loadImageBitmapSource = async (file: File): Promise<ImageBitmap | HTMLImag
   });
 };
 
-// Replaces the current blob URL, revoking the previous one before commit.
-// State updaters must stay pure (StrictMode double-invokes them in dev), so
-// URL.createObjectURL never runs inside one; the ref tracks the live URL.
-const swapBlobUrl = (
-  setUrl: (next: string | null) => void,
-  ref: { current: string | null },
-  next: string | null,
-): void => {
-  const previous = ref.current;
-  ref.current = next;
-  if (previous) URL.revokeObjectURL(previous);
-  setUrl(next);
+// Blob URL state whose whole lifecycle is owned here: every set revokes the
+// previous URL before commit and unmount revokes whatever is current. State
+// updaters must stay pure (StrictMode double-invokes them in dev), so
+// URL.createObjectURL never runs inside one.
+const useBlobUrlState = (): [string | null, (next: string | null) => void] => {
+  const [url, setUrl] = useState<string | null>(null);
+  const urlRef = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    },
+    [],
+  );
+  const swap = useCallback((next: string | null) => {
+    const previous = urlRef.current;
+    urlRef.current = next;
+    if (previous) URL.revokeObjectURL(previous);
+    setUrl(next);
+  }, []);
+  return [url, swap];
 };
 
 const defaultAnalyzeSmartSuggestion = async (
@@ -276,16 +284,14 @@ const WatermarkWorkspaceNoir = ({
   const [activeImageId, setActiveImageId] = useState<string | null>(
     workspaceState?.activeImageId ?? images[0]?.id ?? null,
   );
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useBlobUrlState();
   const [previewAnchor, setPreviewAnchor] =
     useState<WatermarkAnchor>('bottom-right');
   const [previewBusy, setPreviewBusy] = useState(false);
   const [watermarkImageFile, setWatermarkImageFile] = useState<File | null>(
     workspaceState?.watermarkImageFile ?? null,
   );
-  const [watermarkImagePreview, setWatermarkImagePreview] = useState<
-    string | null
-  >(null);
+  const [watermarkImagePreview, setWatermarkImagePreview] = useBlobUrlState();
   const [userPresets, setUserPresets] = useState<WatermarkPresetV1[]>(() => {
     if (workspaceState?.userPresets) return workspaceState.userPresets;
     if (typeof window === 'undefined') return [];
@@ -415,27 +421,8 @@ const WatermarkWorkspaceNoir = ({
     setToolboxHost(document.getElementById(toolboxHostId));
   }, [toolboxHostId]);
 
-  // ── Blob URL lifecycle: refs track the live URLs (swapped at write sites,
-  // synced on commit) and unmount revokes whatever is current. ──
-  const previewUrlRef = useRef(previewUrl);
   useEffect(() => {
-    previewUrlRef.current = previewUrl;
-  }, [previewUrl]);
-  const wmImagePreviewRef = useRef(watermarkImagePreview);
-  useEffect(() => {
-    wmImagePreviewRef.current = watermarkImagePreview;
-  }, [watermarkImagePreview]);
-  useEffect(() => {
-    return () => {
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-      if (wmImagePreviewRef.current) URL.revokeObjectURL(wmImagePreviewRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    swapBlobUrl(
-      setWatermarkImagePreview,
-      wmImagePreviewRef,
+    setWatermarkImagePreview(
       watermarkImageFile ? URL.createObjectURL(watermarkImageFile) : null,
     );
   }, [watermarkImageFile]);
@@ -663,7 +650,7 @@ const WatermarkWorkspaceNoir = ({
     if (previewTimeoutRef.current !== null)
       window.clearTimeout(previewTimeoutRef.current);
     if (!activeImage || !hasRenderableLayer) {
-      swapBlobUrl(setPreviewUrl, previewUrlRef, null);
+      setPreviewUrl(null);
       return;
     }
     previewTimeoutRef.current = window.setTimeout(() => {
@@ -673,7 +660,7 @@ const WatermarkWorkspaceNoir = ({
         .then((r) => {
           if (previewRequestRef.current !== rid) return;
           setPreviewAnchor(r.resolvedAnchor);
-          swapBlobUrl(setPreviewUrl, previewUrlRef, URL.createObjectURL(r.blob));
+          setPreviewUrl(URL.createObjectURL(r.blob));
         })
         .catch((e) => {
           if (previewRequestRef.current === rid)
@@ -765,11 +752,7 @@ const WatermarkWorkspaceNoir = ({
     (ev: ChangeEvent<HTMLInputElement>) => {
       const f = ev.target.files?.[0] ?? null;
       setWatermarkImageFile(f);
-      swapBlobUrl(
-        setWatermarkImagePreview,
-        wmImagePreviewRef,
-        f ? URL.createObjectURL(f) : null,
-      );
+      setWatermarkImagePreview(f ? URL.createObjectURL(f) : null);
       updateDraft((c) => ({
         ...c,
         imageLayer: {
@@ -1003,7 +986,7 @@ const WatermarkWorkspaceNoir = ({
           {watermarkImagePreview && (
             <div className="relative h-12 w-12 shrink-0 panel-cut-sm border border-paper/15 bg-ink">
               <img src={watermarkImagePreview} alt={t('watermark.logo.alt')} className="h-full w-full object-contain p-1" />
-              <button type="button" onClick={() => { setWatermarkImageFile(null); swapBlobUrl(setWatermarkImagePreview, wmImagePreviewRef, null); updateDraft((c) => ({ ...c, imageLayer: { ...c.imageLayer, enabled: false } })); }}
+              <button type="button" onClick={() => { setWatermarkImageFile(null); setWatermarkImagePreview(null); updateDraft((c) => ({ ...c, imageLayer: { ...c.imageLayer, enabled: false } })); }}
                 aria-label={t('watermark.logo.remove')} className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center panel-cut-sm bg-crimson text-ink"><X size={8} /></button>
             </div>
           )}

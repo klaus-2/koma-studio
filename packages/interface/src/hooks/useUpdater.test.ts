@@ -181,10 +181,12 @@ describe("useUpdater", () => {
     getAppVersionMock.mockReturnValue("1.0.0");
     vi.useFakeTimers();
     try {
-      let releaseFetch: ((value: ReleaseResponse) => void) | null = null;
+      const inFlight: { resolve: ((value: ReleaseResponse) => void) | null } = {
+        resolve: null,
+      };
       fetchReleaseMock.mockReset();
       fetchReleaseMock.mockImplementation(
-        () => new Promise<ReleaseResponse>((resolve) => { releaseFetch = resolve; }),
+        () => new Promise<ReleaseResponse>((resolve) => { inFlight.resolve = resolve; }),
       );
 
       const view = renderUpdater();
@@ -196,9 +198,10 @@ describe("useUpdater", () => {
       // Unmount while the check is in flight: resolving it must not re-arm
       // the periodic chain after cleanup already ran.
       view.unmount();
-      if (!releaseFetch) throw new Error("periodic check did not start");
+      const resolveInFlight = inFlight.resolve;
+      if (!resolveInFlight) throw new Error("periodic check did not start");
       await act(async () => {
-        releaseFetch({ ok: true, json: async () => LATEST_RELEASE });
+        resolveInFlight({ ok: true, json: async () => LATEST_RELEASE });
       });
       await act(async () => {
         await vi.advanceTimersByTimeAsync(5 * 60_000);
