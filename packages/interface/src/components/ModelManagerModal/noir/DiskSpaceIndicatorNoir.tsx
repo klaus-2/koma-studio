@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { AlertTriangle, HardDrive } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import { formatBytes } from "../../../models/model-storage";
@@ -37,7 +37,7 @@ export const DiskSpaceIndicatorNoir = ({
 
       {diskSpace ? (
         <div aria-hidden className="panel-cut-sm h-1.5 overflow-hidden border border-paper/10 bg-ink">
-          <motion.div
+          <m.div
             className={`h-full w-full origin-left ${fillColor}`}
             initial={{ scaleX: 0 }}
             animate={{ scaleX: usagePercent / 100 }}

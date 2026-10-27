@@ -1,5 +1,5 @@
 import React, { MouseEvent, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { AlertTriangle, Bug, Cpu, Globe, Rocket, Zap } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@koma/ui/components/tooltip';
 import type { DesktopMiniBackendRuntimeState } from '../../../types';
@@ -262,7 +262,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
         )}
         {processing && (
           <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">
-            <motion.div
+            <m.div
               className="halftone-red absolute inset-y-0 left-0 w-full origin-left bg-crimson"
               initial={false}
               animate={{ scaleX: Math.max(0, Math.min(100, progressStore)) / 100 }}

@@ -1,10 +1,6 @@
 'use client';
 
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import { useInfoNavStore } from '@/stores/info-nav-store';
 
@@ -44,7 +40,7 @@ export default function GuidesPageV2() {
         mode="wait"
         initial={false}
       >
-        <motion.div
+        <m.div
           key={viewKey}
           initial={
             reduceMotion
@@ -88,7 +84,7 @@ export default function GuidesPageV2() {
           ) : (
             <GuidesHomeV2 />
           )}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
     </div>
   );

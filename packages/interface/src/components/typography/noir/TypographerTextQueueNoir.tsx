@@ -1,5 +1,5 @@
 import { useRef, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import {
   ClipboardPaste, ListOrdered, FileUp, Eraser, SkipForward,
   CheckSquare, Rows3, ChevronUp, ChevronDown, GripVertical,
@@ -201,7 +201,7 @@ export const TypographerTextQueueNoir = ({
                     ? t("typo.queue.statusSkipped")
                     : t("typo.queue.statusPending");
                 return (
-                  <motion.button key={item.id} type="button" role="listitem" aria-pressed={sel}
+                  <m.button key={item.id} type="button" role="listitem" aria-pressed={sel}
                     initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 8 }} transition={{ duration: 0.2, ease: EASE }}
                     onClick={() => onSelectQueueItem(item.id)}
@@ -221,7 +221,7 @@ export const TypographerTextQueueNoir = ({
                       {item.status === "pending" && <span className="blink mr-0.5">●</span>}
                       {statusLabel}
                     </span>
-                  </motion.button>
+                  </m.button>
                 );
               })}
             </AnimatePresence>

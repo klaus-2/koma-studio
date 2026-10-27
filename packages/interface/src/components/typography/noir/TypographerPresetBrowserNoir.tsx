@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import {
   Search, ChevronRight, FolderOpen, Folder,
   Palette, Pencil, X, Check, Bold, Italic, Type,
@@ -166,9 +166,9 @@ export const TypographerPresetBrowserNoir = ({
         <button type="button" aria-expanded={isExpanded}
           onClick={() => toggleFolder(node.folder.id)}
           className="flex w-full items-center gap-1.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-paper/50 transition-colors hover:text-paper">
-          <motion.span animate={{ rotate: isExpanded ? 90 : 0 }} transition={{ duration: 0.15, ease: EASE }}>
+          <m.span animate={{ rotate: isExpanded ? 90 : 0 }} transition={{ duration: 0.15, ease: EASE }}>
             <ChevronRight size={10} />
-          </motion.span>
+          </m.span>
           {isExpanded ? <FolderOpen size={10} className="text-gold" /> : <Folder size={10} />}
           <span className="min-w-0 flex-1 truncate text-left">{node.folder.name}</span>
           <span className="border border-paper/15 px-1 text-[8px] text-paper/35">{presetCount}</span>
@@ -319,7 +319,7 @@ const PresetQuickEdit = React.forwardRef<HTMLDivElement, PresetQuickEditProps>(
     const lbl = "font-mono text-[8px] uppercase tracking-[0.2em] text-paper/40";
 
     return (
-      <motion.div ref={ref}
+      <m.div ref={ref}
         initial={{ opacity: 0, scale: 0.95, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 6 }}
@@ -416,7 +416,7 @@ const PresetQuickEdit = React.forwardRef<HTMLDivElement, PresetQuickEditProps>(
             <Check size={10} /> Save
           </button>
         </div>
-      </motion.div>
+      </m.div>
     );
   },
 );

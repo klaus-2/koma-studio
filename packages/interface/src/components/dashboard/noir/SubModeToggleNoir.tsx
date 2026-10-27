@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Paintbrush, Sparkles } from "lucide-react";
 import { useI18n } from "../../../i18n";
 
@@ -36,7 +36,7 @@ export default function SubModeToggleNoir({ value, onChange }: SubModeToggleProp
             }`}
           >
             {active && (
-              <motion.span
+              <m.span
                 layoutId="koma-submode-ink"
                 aria-hidden
                 className="panel-cut-sm absolute inset-0 bg-crimson"

@@ -6,10 +6,7 @@ import {
   Database,
   Layers3,
 } from 'lucide-react';
-import {
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 
 import {
   RESOURCE_CATEGORIES,
@@ -89,7 +86,7 @@ export default function ResourcesHomeV2() {
           }
         />
 
-        <motion.div
+        <m.div
           initial="hidden"
           animate="visible"
           variants={{
@@ -147,7 +144,7 @@ export default function ResourcesHomeV2() {
                   : translatedDescription;
 
               return (
-                <motion.button
+                <m.button
                   key={category.id}
                   type="button"
                   variants={{
@@ -244,11 +241,11 @@ export default function ResourcesHomeV2() {
                       }
                     />
                   </footer>
-                </motion.button>
+                </m.button>
               );
             },
           )}
-        </motion.div>
+        </m.div>
       </div>
     </div>
   );

@@ -7,7 +7,7 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import { CheckCircle2, ChevronDown, Flag, X, type LucideIcon } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
@@ -205,14 +205,14 @@ export const FeedModal = ({
       aria-label={title}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
-      <motion.div
+      <m.div
         aria-hidden
         onClick={onClose}
         initial={reduce ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         className="absolute inset-0 bg-ink/80 backdrop-blur-sm"
       />
-      <motion.div
+      <m.div
         initial={reduce ? false : { opacity: 0, y: 24, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.32, ease: EASE }}
@@ -249,7 +249,7 @@ export const FeedModal = ({
         </div>
 
         <div className="noir-scroll min-h-0 flex-1 overflow-y-auto">{children}</div>
-      </motion.div>
+      </m.div>
     </div>
   );
 };
@@ -299,7 +299,7 @@ export const ToggleSwitch = memo(function ToggleSwitch({
           }`}
         style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}
       >
-        <motion.span
+        <m.span
           className={`absolute left-[3px] top-[3px] h-2.5 w-2.5 ${checked ? 'bg-crimson' : 'bg-paper/35'}`}
           animate={{ x: checked ? 18 : 0 }}
           transition={

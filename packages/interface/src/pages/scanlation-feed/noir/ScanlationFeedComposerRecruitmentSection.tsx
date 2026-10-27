@@ -1,7 +1,7 @@
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Briefcase, Clock, DollarSign, FileText, MessageCircle, Star } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
@@ -81,7 +81,7 @@ export default function ScanlationFeedComposerRecruitmentSection({
 
       <AnimatePresence>
         {recruitmentForm.candidateRequirements.availability && (
-          <motion.div
+          <m.div
             initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -141,7 +141,7 @@ export default function ScanlationFeedComposerRecruitmentSection({
                 {recruitmentForm.candidateRequirements.availabilityDescription.length}/500
               </span>
             </FeedField>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </ComposerSection>

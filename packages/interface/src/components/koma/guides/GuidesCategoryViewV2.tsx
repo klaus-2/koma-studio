@@ -8,10 +8,7 @@ import {
   FileText,
   Search,
 } from 'lucide-react';
-import {
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import {
   useMemo,
   useState,
@@ -264,7 +261,7 @@ export default function GuidesCategoryViewV2({
           }
         />
       ) : (
-        <motion.div
+        <m.div
           initial="hidden"
           animate="visible"
           variants={{
@@ -316,7 +313,7 @@ export default function GuidesCategoryViewV2({
                     );
 
               return (
-                <motion.button
+                <m.button
                   key={guide.id}
                   type="button"
                   variants={{
@@ -435,11 +432,11 @@ export default function GuidesCategoryViewV2({
                       }
                     />
                   </span>
-                </motion.button>
+                </m.button>
               );
             },
           )}
-        </motion.div>
+        </m.div>
       )}
     </div>
   );

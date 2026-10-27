@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Sparkles, X } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { useToolTips } from '@/hooks/useToolTips';
@@ -55,7 +55,6 @@ export function HealingToolHint({ trigger, rightOffset = 24 }: HealingToolHintPr
       : 'text-purple-200/90';
 
   return (
-    <LazyMotion features={domAnimation}>
       <AnimatePresence>
         {visible && (
           <m.div
@@ -116,6 +115,5 @@ export function HealingToolHint({ trigger, rightOffset = 24 }: HealingToolHintPr
           </m.div>
         )}
       </AnimatePresence>
-    </LazyMotion>
   );
 }

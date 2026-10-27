@@ -1,10 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import {
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArchiveX,
@@ -137,7 +134,7 @@ export function EditorialCdnHero({
       };
 
   return (
-    <motion.header
+    <m.header
       initial={
         reduceMotion
           ? false
@@ -273,7 +270,7 @@ export function EditorialCdnHero({
           </div>
         ) : null}
       </div>
-    </motion.header>
+    </m.header>
   );
 }
 
@@ -345,7 +342,7 @@ export function EditorialCdnPanel({
   const reduceMotion = useReducedMotion();
 
   return (
-    <motion.section
+    <m.section
       initial={
         reduceMotion
           ? false
@@ -420,7 +417,7 @@ export function EditorialCdnPanel({
       <div className="relative z-10">
         {children}
       </div>
-    </motion.section>
+    </m.section>
   );
 }
 
@@ -448,7 +445,7 @@ export function WorkspaceNotice({
   }[tone];
 
   return (
-    <motion.div
+    <m.div
       initial={{
         opacity: 0,
         y: -8,
@@ -486,7 +483,7 @@ export function WorkspaceNotice({
       {action ? (
         <div className="shrink-0">{action}</div>
       ) : null}
-    </motion.div>
+    </m.div>
   );
 }
 

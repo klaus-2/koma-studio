@@ -1,5 +1,5 @@
 import React, { cloneElement, isValidElement, useEffect, useId, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   AlignCenter,
   AlignLeft,
@@ -247,7 +247,7 @@ const RenderTextPreviewTypeDockNoir = ({
   );
 
   return (
-    <motion.div
+    <m.div
       ref={dockRef}
       initial={{ opacity: 0, scale: 0.94, y: -6 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -361,7 +361,7 @@ const RenderTextPreviewTypeDockNoir = ({
 
       {/* ═══ Expanded Fine-Tune Panel ═══ */}
       {dockExpanded && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
           className="glass panel-cut custom-scrollbar relative mt-1.5 max-h-[50vh] w-full max-w-full overflow-y-auto border-azure/30 p-2.5 shadow-hard-crimson"
@@ -609,9 +609,9 @@ const RenderTextPreviewTypeDockNoir = ({
               </div>
             </CircularTextPopover>
           </div>
-        </motion.div>
+        </m.div>
       )}
-    </motion.div>
+    </m.div>
   );
 };
 

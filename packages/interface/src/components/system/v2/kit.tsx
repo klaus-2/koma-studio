@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 export const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -16,7 +16,7 @@ export const StripeBar = ({ percent, done = false, className = "" }: {
     className={`panel-cut-sm h-2 overflow-hidden border border-paper/10 bg-ink ${className}`}
     role="progressbar" aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100}
   >
-    <motion.div
+    <m.div
       className={`stripes-anim h-full w-full origin-left ${done ? "bg-mint" : "bg-crimson"} bg-[repeating-linear-gradient(-45deg,rgba(7,7,12,0.3)_0_6px,transparent_6px_12px)] bg-[length:17px_17px]`}
       initial={false}
       style={{ width: "100%" }}

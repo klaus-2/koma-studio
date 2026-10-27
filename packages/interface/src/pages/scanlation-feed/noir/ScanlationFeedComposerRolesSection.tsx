@@ -1,7 +1,7 @@
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Briefcase, Check, DollarSign, Plus, X } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
@@ -41,7 +41,7 @@ export default function ScanlationFeedComposerRolesSection({
             {recruitmentForm.roleOpenings.map((entry, idx) => {
               const meta = recruitmentRoleByValue.get(entry.role);
               return (
-                <motion.div
+                <m.div
                   key={entry.id}
                   layout
                   initial={prefersReducedMotion ? {} : { opacity: 0, x: -20 }}
@@ -78,7 +78,7 @@ export default function ScanlationFeedComposerRolesSection({
                   >
                     <X size={12} />
                   </button>
-                </motion.div>
+                </m.div>
               );
             })}
           </div>
@@ -87,7 +87,7 @@ export default function ScanlationFeedComposerRolesSection({
 
       <AnimatePresence>
         {recruitmentForm.showRoleInput && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -157,7 +157,7 @@ export default function ScanlationFeedComposerRolesSection({
                 </button>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

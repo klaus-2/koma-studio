@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
+import { m, useReducedMotion, AnimatePresence } from "framer-motion";
 import {
   Wand2,
   AlertTriangle,
@@ -252,7 +252,7 @@ export default function EnhanceToolsPanel({
     };
 
   return (
-    <motion.div className="koma-mode-tools relative" {...containerAnim}>
+    <m.div className="koma-mode-tools relative" {...containerAnim}>
       {/* Decorative vertical katakana accent */}
       <span
         className="v-text absolute -left-5 top-8 font-mono text-[10px] tracking-[0.4em] text-crimson/30 select-none pointer-events-none"
@@ -262,7 +262,7 @@ export default function EnhanceToolsPanel({
       </span>
 
       {/* ═══ MODE TAG ═══ */}
-      <motion.div
+      <m.div
         {...itemAnim}
         className="flex items-center justify-between mb-4 pb-3 border-b border-paper/8"
       >
@@ -279,11 +279,11 @@ export default function EnhanceToolsPanel({
         <span className="font-mono text-[10px] text-paper/40 uppercase tracking-[0.18em]">
           v2.0 // upscaler
         </span>
-      </motion.div>
+      </m.div>
 
       {/* ═══ CONFIG ═══ */}
       <AioSection icon={Wand2} title={t("dashboard.enhance.title")}>
-        <motion.div {...itemAnim} className="flex flex-col gap-4">
+        <m.div {...itemAnim} className="flex flex-col gap-4">
           <InfoNote variant="info" icon={Wand2}>
             {isDesktopRuntime
               ? t("dashboard.enhance.localHint")
@@ -331,9 +331,9 @@ export default function EnhanceToolsPanel({
                 disabled={filteredEnhanceModels.length === 0}
                 ariaLabel={t("dashboard.enhance.model")}
               >
-                {filteredEnhanceModels.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
+                {filteredEnhanceModels.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
                   </option>
                 ))}
               </BrutalSelect>
@@ -355,7 +355,7 @@ export default function EnhanceToolsPanel({
               </BrutalSelect>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       </AioSection>
 
       {/* ═══ MODEL STATUS ═══ */}
@@ -366,7 +366,7 @@ export default function EnhanceToolsPanel({
       >
         <AnimatePresence mode="wait">
           {selectedEnhanceModel ? (
-            <motion.div
+            <m.div
               key="model-card"
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -498,9 +498,9 @@ export default function EnhanceToolsPanel({
                   </div>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               key="empty"
               initial={reduceMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -514,17 +514,17 @@ export default function EnhanceToolsPanel({
               <p className="koma-tools-hint text-center text-paper/40">
                 {t("dashboard.enhance.selectAboveHint")}
               </p>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </AioSection>
 
       {/* ═══ EXECUTE BAR ═══ */}
-      <motion.div
+      <m.div
         {...itemAnim}
         className="koma-execute-bar mt-4"
       >
-        <motion.button
+        <m.button
           type="button"
           disabled={!canExecute}
           title={quotaLimitButtonTitle}
@@ -564,8 +564,8 @@ export default function EnhanceToolsPanel({
               </span>
             </>
           )}
-        </motion.button>
-      </motion.div>
+        </m.button>
+      </m.div>
 
       {/* Decorative footer ticker */}
       <div
@@ -578,6 +578,6 @@ export default function EnhanceToolsPanel({
           koma_studio_v2
         </span>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

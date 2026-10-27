@@ -7,7 +7,7 @@ import {
   type ChangeEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   Download,
   Eye,
@@ -1035,12 +1035,12 @@ const WatermarkWorkspaceNoir = ({
 
         {/* Placement chips */}
         <div className="flex flex-wrap gap-1.5">
-          {(Object.keys(PLACEMENT_LABELS) as Array<WatermarkDraft['placementMode']>).map((m) => {
-            const active = draft.placementMode === m;
+          {(Object.keys(PLACEMENT_LABELS) as Array<WatermarkDraft['placementMode']>).map((mode) => {
+            const active = draft.placementMode === mode;
             return (
-              <button key={m} type="button" onClick={() => updateDraft((c) => ({ ...c, placementMode: m }))}
+              <button key={mode} type="button" onClick={() => updateDraft((c) => ({ ...c, placementMode: mode }))}
                 className={`panel-cut-sm px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors duration-150 ${active ? 'bg-crimson text-ink' : 'bg-ink text-paper-dim border border-paper/12 hover:text-paper'}`}>
-                {PLACEMENT_LABELS[m]}
+                {PLACEMENT_LABELS[mode]}
               </button>
             );
           })}
@@ -1123,13 +1123,13 @@ const WatermarkWorkspaceNoir = ({
             <div className="flex items-center gap-2">
               {activeImage && hasRenderableLayer && (
                 <div className="relative flex gap-0.5 panel-cut-sm bg-ink p-0.5">
-                  {(['split', 'preview'] as const).map((m) => {
-                    const active = compareMode === m;
+                  {(['split', 'preview'] as const).map((mode) => {
+                    const active = compareMode === mode;
                     return (
-                      <button key={m} type="button" onClick={() => setCompareMode(m)}
+                      <button key={mode} type="button" onClick={() => setCompareMode(mode)}
                         className={`relative px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-wider transition-colors ${active ? 'text-ink' : 'text-paper-dim hover:text-paper'}`}>
-                        {active && <motion.span layoutId="wm-compare" className="absolute inset-0 panel-cut-sm bg-crimson" transition={{ duration: 0.25, ease: EASE }} />}
-                        <span className="relative z-10">{m === 'split' ? t('watermark.preview.compare') : t('watermark.preview.mode')}</span>
+                        {active && <m.span layoutId="wm-compare" className="absolute inset-0 panel-cut-sm bg-crimson" transition={{ duration: 0.25, ease: EASE }} />}
+                        <span className="relative z-10">{mode === 'split' ? t('watermark.preview.compare') : t('watermark.preview.mode')}</span>
                       </button>
                     );
                   })}

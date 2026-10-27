@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { AlertTriangle, ChevronLeft, ChevronRight, Download, FolderOutput, Layers3, Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 import type { StitchAlignMode, StitchBatchPlan, StitchExportFormat, StitchImageInput, StitchLayoutMode } from '../stitch/types';
 import { formatBytes } from '../stitch/stitchUtils';
@@ -118,7 +118,7 @@ export const StitchWorkspaceNoir = ({
                 <span>{t('stitch.workspace.generatingPreview', { progress: Math.round(previewProgress) })}</span>
               </div>
               <div className="h-1.5 overflow-hidden bg-ink">
-                <motion.div className="h-full w-full origin-left bg-crimson" animate={{ scaleX: previewProgress / 100 }} transition={{ ease: EASE }} />
+                <m.div className="h-full w-full origin-left bg-crimson" animate={{ scaleX: previewProgress / 100 }} transition={{ ease: EASE }} />
               </div>
             </div>
           )}

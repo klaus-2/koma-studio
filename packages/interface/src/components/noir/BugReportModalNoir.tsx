@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Bug, CheckCircle2, Paperclip, Send, X } from "lucide-react";
 import type { DesktopBugReportSubmitPayload } from "@shared/desktop-api";
 import { useI18n } from "../../i18n";
@@ -224,12 +224,12 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
   if (!open) return null;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       className="fixed inset-0 z-[150] flex items-center justify-center bg-ink/85 p-3 backdrop-blur-md sm:p-6"
       onClick={loading ? undefined : onClose}
     >
-      <motion.div
+      <m.div
         role="dialog" aria-modal="true" aria-labelledby="bug-title"
         initial={{ opacity: 0, y: 28, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -245,12 +245,12 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
         {/* Header */}
         <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-5 sm:px-6">
           <div className="flex items-start gap-3">
-            <motion.span aria-hidden
+            <m.span aria-hidden
               initial={{ rotate: -10, scale: 0.7 }} animate={{ rotate: 0, scale: 1 }}
               transition={{ type: "spring", stiffness: 320, damping: 16, delay: 0.1 }}
               className="panel-cut-sm flex h-10 w-10 items-center justify-center border-2 border-crimson bg-crimson/10 text-crimson">
               <Bug size={16} strokeWidth={2.5} />
-            </motion.span>
+            </m.span>
             <div>
               <p className="kicker">// INCIDENT REPORT</p>
               <h2 id="bug-title" className="font-display text-lg font-black uppercase tracking-tight text-paper">
@@ -397,7 +397,7 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
                 <ul className="space-y-1.5">
                   <AnimatePresence>
                     {attachments.map((a, i) => (
-                      <motion.li key={a.id}
+                      <m.li key={a.id}
                         initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}
                         className="panel-cut-sm flex items-center gap-2 border border-paper/10 bg-ink/50 px-2.5 py-1.5">
                         <span aria-hidden className="font-display text-xs font-black text-paper/20">
@@ -411,7 +411,7 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
                           className="p-1 text-paper/30 hover:text-crimson">
                           <X size={10} />
                         </button>
-                      </motion.li>
+                      </m.li>
                     ))}
                   </AnimatePresence>
                 </ul>
@@ -443,8 +443,8 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
             </button>
           </div>
         </footer>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 };
 

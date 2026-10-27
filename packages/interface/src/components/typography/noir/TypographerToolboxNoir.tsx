@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   Circle, Square, ScanSearch, Copy, Trash2, Save, Library, Paintbrush, RotateCcw,
 } from "lucide-react";
@@ -104,7 +104,7 @@ export const TypographerToolboxNoir = (props: TypographerToolboxProps) => {
                 className={`relative flex-1 panel-cut-sm px-2 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em] transition-colors ${active ? "text-ink" : "text-paper/45 hover:text-paper"
                   }`}>
                 {active && (
-                  <motion.span layoutId="koma-typo-tool-ink" aria-hidden
+                  <m.span layoutId="koma-typo-tool-ink" aria-hidden
                     className="panel-cut-sm absolute inset-0 bg-crimson"
                     transition={{ type: "spring", stiffness: 520, damping: 38 }} />
                 )}

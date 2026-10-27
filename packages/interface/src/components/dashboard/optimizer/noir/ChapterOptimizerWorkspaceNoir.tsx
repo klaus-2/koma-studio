@@ -11,11 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   ArrowDownToLine,
   ChevronDown,
@@ -502,7 +498,7 @@ function ControlSection({
 
       <AnimatePresence initial={false}>
         {expanded ? (
-          <motion.div
+          <m.div
             id={contentId}
             initial={
               reduceMotion
@@ -529,7 +525,7 @@ function ControlSection({
             <div className="px-4 pb-5">
               {children}
             </div>
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </section>
@@ -569,7 +565,7 @@ function ToggleControl({
         ].join(' ')}
         aria-hidden="true"
       >
-        <motion.span
+        <m.span
           layout
           transition={{ ease: EASE, duration: 0.2 }}
           className={[
@@ -1405,7 +1401,7 @@ export default function ChapterOptimizerWorkspace({
       data-coauthor="OpenAI ChatGPT; model ID from API response.model"
     >
       {/* Hero */}
-      <motion.header
+      <m.header
         initial={
           reduceMotion
             ? false
@@ -1555,11 +1551,11 @@ export default function ChapterOptimizerWorkspace({
             </div>
           </div>
         </div>
-      </motion.header>
+      </m.header>
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(350px,430px)_minmax(0,1fr)]">
         {/* Configuration press */}
-        <motion.aside
+        <m.aside
           initial={
             reduceMotion
               ? false
@@ -2152,7 +2148,7 @@ export default function ChapterOptimizerWorkspace({
                 }
               >
                 <div className="h-1.5 overflow-hidden bg-paper/[0.055] panel-cut-sm">
-                  <motion.div
+                  <m.div
                     className="h-full w-full origin-left bg-crimson"
                     animate={{
                       scaleX: batchProgress.current /
@@ -2181,10 +2177,10 @@ export default function ChapterOptimizerWorkspace({
               </div>
             ) : null}
           </div>
-        </motion.aside>
+        </m.aside>
 
         {/* Preview press */}
-        <motion.main
+        <m.main
           initial={
             reduceMotion
               ? false
@@ -2590,7 +2586,7 @@ export default function ChapterOptimizerWorkspace({
               </div>
             </div>
           )}
-        </motion.main>
+        </m.main>
       </div>
 
       {/* Results press */}
@@ -2648,7 +2644,7 @@ export default function ChapterOptimizerWorkspace({
         </header>
 
         {results.length > 0 ? (
-          <motion.div
+          <m.div
             variants={listVariants}
             initial={
               reduceMotion ? false : 'hidden'
@@ -2676,7 +2672,7 @@ export default function ChapterOptimizerWorkspace({
               );
 
               return (
-                <motion.article
+                <m.article
                   key={result.sourceImageId}
                   variants={cardVariants}
                   className="offset-card panel-cut-sm relative overflow-hidden border border-paper/10 bg-ink/50 p-4"
@@ -2739,7 +2735,7 @@ export default function ChapterOptimizerWorkspace({
                   </div>
 
                   <div className="relative z-10 mt-3 h-1.5 overflow-hidden bg-paper/[0.055] panel-cut-sm">
-                    <motion.div
+                    <m.div
                       initial={
                         reduceMotion
                           ? false
@@ -2790,10 +2786,10 @@ export default function ChapterOptimizerWorkspace({
                       saved
                     </span>
                   </div>
-                </motion.article>
+                </m.article>
               );
             })}
-          </motion.div>
+          </m.div>
         ) : (
           <div className="halftone grid min-h-52 place-items-center p-6 text-center">
             <div>

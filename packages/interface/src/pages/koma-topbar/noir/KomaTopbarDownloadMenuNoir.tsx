@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Download } from 'lucide-react';
 
 import {
@@ -144,7 +144,7 @@ export default function KomaTopbarDownloadMenuNoir({
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
@@ -236,7 +236,7 @@ export default function KomaTopbarDownloadMenuNoir({
                 />
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

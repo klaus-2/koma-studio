@@ -7,6 +7,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+// Components render `m` against the app-root LazyMotion provider; tests render
+// components without that tree, so map `m` to the full `motion` runtime and
+// keep real animation semantics without a provider.
+vi.mock("framer-motion", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("framer-motion")>();
+  return { ...actual, m: actual.motion };
+});
+
 // Mock @tauri-apps/api/core invoke globally; tests can override per case.
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async () => undefined),

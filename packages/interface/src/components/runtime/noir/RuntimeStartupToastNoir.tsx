@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { CheckCircle2, AlertTriangle, X, Zap } from "lucide-react";
 import type { DesktopMiniBackendRuntimeState } from "../../../types";
 import { buildRuntimeBannerToast } from "../runtime-banner-state";
@@ -146,7 +146,7 @@ export const RuntimeStartupToastNoir = () => {
   /* ── Progress HUD ── */
   if (progressToast) {
     return (
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 340, damping: 28 }}
         className="glass panel-cut-sm fixed bottom-5 right-5 z-[125] w-[min(300px,calc(100vw-2rem))] border border-paper/10 p-3.5"
@@ -189,7 +189,7 @@ export const RuntimeStartupToastNoir = () => {
             <Zap size={9} fill="currentColor" /> {formatSpeed(progressToast.speed)}
           </p>
         )}
-      </motion.div>
+      </m.div>
     );
   }
 
@@ -203,7 +203,7 @@ export const RuntimeStartupToastNoir = () => {
   /* ── Banner ── */
   return (
     <AnimatePresence>
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 24, x: 8 }} animate={{ opacity: 1, y: 0, x: 0 }} exit={{ opacity: 0, y: 12 }}
         transition={{ type: "spring", stiffness: 340, damping: 28 }}
         className="glass panel-cut fixed bottom-5 right-5 z-[125] w-[min(360px,calc(100vw-2rem))] border border-paper/10 p-4"
@@ -225,12 +225,12 @@ export const RuntimeStartupToastNoir = () => {
         </button>
 
         <div className="flex items-start gap-3 pr-5">
-          <motion.span aria-hidden
+          <m.span aria-hidden
             initial={{ rotate: -10, scale: 0.7 }} animate={{ rotate: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 320, damping: 16 }}
             className={`panel-cut-sm flex h-9 w-9 shrink-0 items-center justify-center border ${tone.icon}`}>
             <tone.Icon size={15} />
-          </motion.span>
+          </m.span>
           <div className="min-w-0">
             <p className="kicker !text-[9px]">// RUNTIME</p>
             <h3 className="font-display text-sm font-black uppercase tracking-tight text-paper">
@@ -239,7 +239,7 @@ export const RuntimeStartupToastNoir = () => {
             <p className="mt-0.5 font-mono text-[10px] text-paper/50">{bannerToast.description}</p>
           </div>
         </div>
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 };

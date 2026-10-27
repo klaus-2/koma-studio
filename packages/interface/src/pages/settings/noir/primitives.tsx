@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 
@@ -24,7 +24,7 @@ export const Sec = ({ icon, title, accent, desc, actions, children, className = 
   icon: ReactNode; title: string; accent?: string; desc?: string;
   actions?: ReactNode; children: ReactNode; className?: string;
 }) => (
-  <motion.section
+  <m.section
     initial={{ opacity: 0, y: 16 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true, margin: "-30px" }}
@@ -47,7 +47,7 @@ export const Sec = ({ icon, title, accent, desc, actions, children, className = 
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </header>
     {children}
-  </motion.section>
+  </m.section>
 );
 
 /* ── Fields ───────────────────────────────────────────────── */
@@ -72,7 +72,7 @@ export const InkToggle = ({ checked, onChange, disabled, label }: {
     <input type="checkbox" role="switch" aria-checked={checked} aria-label={label}
       className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
       checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-    <motion.span aria-hidden layout
+    <m.span aria-hidden layout
       transition={{ type: "spring", stiffness: 520, damping: 34 }}
       className={`absolute top-[3px] h-3 w-3 ${checked ? "right-1 bg-crimson" : "left-1 bg-paper/35"}`} />
   </span>
@@ -116,12 +116,12 @@ export const Alert = ({ tone, children }: { tone: "success" | "error" | "info" |
     info: { c: "border-azure bg-azure/8 text-azure", I: Info, role: "status" as const },
   }[tone];
   return (
-    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+    <m.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3, ease: EASE }} role={cfg.role}
       className={`flex items-start gap-2 border-l-2 px-3 py-2 font-mono text-[11px] ${cfg.c}`}>
       <cfg.I size={12} className="mt-0.5 shrink-0" />
       <div className="min-w-0 text-paper/80">{children}</div>
-    </motion.div>
+    </m.div>
   );
 };
 

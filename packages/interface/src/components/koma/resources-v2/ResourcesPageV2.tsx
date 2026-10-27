@@ -13,11 +13,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   useCallback,
   useEffect,
@@ -481,7 +477,7 @@ export default function ResourcesPageV2({
                   }
                 >
                   {selected ? (
-                    <motion.span
+                    <m.span
                       layoutId="resource-active-tab"
                       className={[
                         'absolute inset-x-0 bottom-0 h-[3px]',
@@ -537,7 +533,7 @@ export default function ResourcesPageV2({
             mode="wait"
             initial={false}
           >
-            <motion.div
+            <m.div
               key={activeTab}
               initial={
                 reduceMotion
@@ -603,7 +599,7 @@ export default function ResourcesPageV2({
                   search={search}
                 />
               ) : null}
-            </motion.div>
+            </m.div>
           </AnimatePresence>
         </div>
       </div>

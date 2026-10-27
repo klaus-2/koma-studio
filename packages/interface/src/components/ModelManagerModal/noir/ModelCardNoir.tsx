@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   AlertTriangle, CheckCircle2, Download, RefreshCcw,
   Trash2, XCircle, Zap, Star,
@@ -106,7 +106,7 @@ export const ModelCardNoir = ({
     (entry.status === "installed" || entry.status === "update_available");
 
   return (
-    <motion.article
+    <m.article
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: EASE }}
@@ -178,7 +178,7 @@ export const ModelCardNoir = ({
           {entry.error ? t(entry.error as Parameters<typeof t>[0]) : null}
         </p>
       )}
-    </motion.article>
+    </m.article>
   );
 };
 

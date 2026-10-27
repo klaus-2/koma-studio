@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 import {
   Bold,
@@ -187,7 +187,7 @@ const ToolbarButton = ({
 
 export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) => {
   const { localeTag, t } = useI18n();
-  const m = useNoirMotion();
+  const motionProps = useNoirMotion();
 
   const defaultEditorTemplate = useMemo(
     () =>
@@ -599,14 +599,14 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
   ];
 
   return (
-    <motion.div
-      variants={m.container}
-      initial={m.initial}
-      animate={m.animate}
+    <m.div
+      variants={motionProps.container}
+      initial={motionProps.initial}
+      animate={motionProps.animate}
       className="flex flex-col gap-4"
     >
       {/* ── Hero ── */}
-      <motion.header variants={m.item} className="glass panel-cut relative overflow-hidden p-5">
+      <m.header variants={motionProps.item} className="glass panel-cut relative overflow-hidden p-5">
         <span
           aria-hidden
           className="text-outline pointer-events-none absolute -top-7 right-4 select-none font-display text-[100px] font-black leading-none"
@@ -635,11 +635,11 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
             {configReady ? t('blogger.ready') : t('blogger.configureInSettings')}
           </Stamp>
         </div>
-      </motion.header>
+      </m.header>
 
       {/* ── Tabs (hanko stamps) ── */}
-      <motion.div
-        variants={m.item}
+      <m.div
+        variants={motionProps.item}
         role="tablist"
         aria-label={t('blogger.title')}
         className="flex flex-wrap items-center gap-2"
@@ -670,7 +670,7 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
         <button type="button" className="btn-ghost ml-auto" onClick={() => onOpenSettings?.()}>
           <Settings2 size={11} /> {t('blogger.settings')}
         </button>
-      </motion.div>
+      </m.div>
 
       {/* ── Alerts ── */}
       <NoirAlertStack>
@@ -694,7 +694,7 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
       {workspaceTab === 'publish' ? (
         <div className="grid items-start gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
           {/* ═══ Post config ═══ */}
-          <motion.section variants={m.item} className="glass panel-cut relative p-4">
+          <m.section variants={motionProps.item} className="glass panel-cut relative p-4">
             <span
               aria-hidden
               className="text-outline pointer-events-none absolute right-3 top-2 select-none font-display text-3xl font-black"
@@ -757,10 +757,10 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
                 </div>
               )}
             </div>
-          </motion.section>
+          </m.section>
 
           {/* ═══ Editor ═══ */}
-          <motion.section variants={m.item} className="glass panel-cut relative min-w-0 p-4">
+          <m.section variants={motionProps.item} className="glass panel-cut relative min-w-0 p-4">
             <span
               aria-hidden
               className="text-outline pointer-events-none absolute right-3 top-2 select-none font-display text-3xl font-black"
@@ -971,12 +971,12 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
                 </span>
               </button>
             </div>
-          </motion.section>
+          </m.section>
         </div>
       ) : (
         <div className="grid items-start gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
           {/* ═══ Upload config ═══ */}
-          <motion.section variants={m.item} className="glass panel-cut relative p-4">
+          <m.section variants={motionProps.item} className="glass panel-cut relative p-4">
             <span
               aria-hidden
               className="text-outline pointer-events-none absolute right-3 top-2 select-none font-display text-3xl font-black"
@@ -1082,10 +1082,10 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
                 e.currentTarget.value = '';
               }}
             />
-          </motion.section>
+          </m.section>
 
           {/* ═══ Queue ═══ */}
-          <motion.section variants={m.item} className="glass panel-cut relative min-w-0 p-4">
+          <m.section variants={motionProps.item} className="glass panel-cut relative min-w-0 p-4">
             <span
               aria-hidden
               className="text-outline pointer-events-none absolute right-3 top-2 select-none font-display text-3xl font-black"
@@ -1194,10 +1194,10 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
                 ))
               )}
             </div>
-          </motion.section>
+          </m.section>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 };
 

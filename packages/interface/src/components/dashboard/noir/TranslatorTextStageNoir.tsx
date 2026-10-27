@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { AlertTriangle, Copy, Download, Eraser, FolderOpen, Languages, Type } from 'lucide-react';
 import { useI18n } from '../../../i18n';
 import { EASE } from '../../noir-panels/NoirPrimitives';
@@ -38,7 +38,7 @@ export default function TranslatorTextStage(props: TranslatorTextStageProps) {
   return (
     <div className="grid gap-4 font-display text-paper lg:grid-cols-2">
       {/* ═══ SOURCE PANEL ═══ */}
-      <motion.section
+      <m.section
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }}
         className="glass panel-cut halftone flex flex-col border-l-2 border-l-crimson"
       >
@@ -65,10 +65,10 @@ export default function TranslatorTextStage(props: TranslatorTextStageProps) {
           </button>
         </div>
         <input ref={translatorTextImportRef} type="file" accept=".txt,.md,text/plain,text/markdown" hidden onChange={handleTranslatorTextImport} />
-      </motion.section>
+      </m.section>
 
       {/* ═══ RESULT PANEL ═══ */}
-      <motion.section
+      <m.section
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.08, ease: EASE }}
         className="glass panel-cut halftone flex flex-col border-l-2 border-l-mint"
       >
@@ -107,7 +107,7 @@ export default function TranslatorTextStage(props: TranslatorTextStageProps) {
             <Download size={12} /> {t('dashboard.translator.downloadTxt')}
           </button>
         </div>
-      </motion.section>
+      </m.section>
     </div>
   );
 }

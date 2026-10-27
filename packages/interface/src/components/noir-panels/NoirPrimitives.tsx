@@ -2,11 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import {
-  motion,
-  useReducedMotion,
-  type Variants,
-} from 'framer-motion';
+import { m, useReducedMotion, type Variants } from 'framer-motion';
 import { HardDrive, ChevronDown, type LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -423,7 +419,7 @@ export function SegToggle({ items, value, onChange, ariaLabel }: {
             className={`relative flex flex-1 items-center justify-center gap-1.5 px-2.5 py-2 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors duration-200 ${active ? 'text-ink' : 'text-paper-dim hover:text-paper'
               }`}>
             {active && (
-              <motion.span layoutId={`seg-${ariaLabel ?? 'x'}`} className="absolute inset-0 panel-cut-sm bg-crimson"
+              <m.span layoutId={`seg-${ariaLabel ?? 'x'}`} className="absolute inset-0 panel-cut-sm bg-crimson"
                 transition={{ duration: 0.28, ease: EASE }} />
             )}
             <span className="relative z-10 flex items-center gap-1.5">

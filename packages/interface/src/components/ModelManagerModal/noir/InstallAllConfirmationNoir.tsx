@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import { formatBytes } from "../../../models/model-storage";
@@ -24,12 +24,12 @@ export const InstallAllConfirmationNoir = ({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           className="fixed inset-0 z-[160] flex items-center justify-center bg-ink/80 p-4 backdrop-blur-sm"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={onCancel}
         >
-          <motion.div
+          <m.div
             role="alertdialog" aria-modal="true"
             className="glass panel-cut relative w-full max-w-md p-6"
             initial={{ opacity: 0, scale: 0.92, rotate: -1 }}
@@ -87,8 +87,8 @@ export const InstallAllConfirmationNoir = ({
                 {t("modelManager.installAll.confirmDownload")}
               </button>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   ChevronLeft,
   ChevronRight,
@@ -99,7 +99,7 @@ const TextDetectionPreviewView = ({
 
   return (
     <>
-      <motion.div
+      <m.div
         onClick={onCardSelect}
         data-tour={active ? 'dashboard-active-preview-card' : undefined}
         initial={{ opacity: 0, y: 14 }}
@@ -549,7 +549,7 @@ const TextDetectionPreviewView = ({
             </div>
           </div>
         </div>
-      </motion.div>
+      </m.div>
       {brushCursorPortal}
     </>
   );

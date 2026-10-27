@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, forwardRef, type ReactNode } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   PanelLeftOpen,
   PanelRightClose,
@@ -426,14 +426,14 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
   );
 
   const handleModeChange = useCallback(
-    (m: ToolMode) => {
-      if (isModeUnderDevelopment(m)) {
+    (mode: ToolMode) => {
+      if (isModeUnderDevelopment(mode)) {
         onStatusMessage?.(
-          `${allNavItems.find((item) => item.mode === m)?.label ?? t('dashboard.topbar.thisTab')}: ${underDevelopmentTooltip}`,
+          `${allNavItems.find((item) => item.mode === mode)?.label ?? t('dashboard.topbar.thisTab')}: ${underDevelopmentTooltip}`,
         );
         return;
       }
-      onModeChange(m);
+      onModeChange(mode);
       setActiveDropdown(null);
       setMobileNavOpen(false);
     },
@@ -473,7 +473,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <motion.header
+      <m.header
         initial={{ y: -24, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
@@ -756,7 +756,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
             onLogout={onLogout}
           />
         </div>
-      </motion.header>
+      </m.header>
 
       {/* ═══ Mobile Drawer ═══ */}
       <AnimatePresence>

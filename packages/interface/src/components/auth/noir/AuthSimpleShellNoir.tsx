@@ -1,4 +1,4 @@
-import { LazyMotion, domAnimation, m, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { ReactNode } from "react";
 import { Hanko, PrintTicks } from "./koma-ui";
 import { useI18n } from "../../../i18n";
@@ -17,7 +17,6 @@ export const AuthSimpleShellNoir = ({ title, accent, subtitle, children }: AuthS
   const reduced = useReducedMotion();
 
   return (
-    <LazyMotion features={domAnimation}>
       <div className="koma-noir relative flex min-h-dvh items-center justify-center overflow-hidden px-5 py-14">
         <div aria-hidden className="halftone absolute inset-0 opacity-40" />
         <div aria-hidden className="absolute -top-24 right-1/4 h-96 w-96 rounded-full bg-crimson/10 blur-[130px]" />
@@ -55,6 +54,5 @@ export const AuthSimpleShellNoir = ({ title, accent, subtitle, children }: AuthS
           </div>
         </m.section>
       </div>
-    </LazyMotion>
   );
 };

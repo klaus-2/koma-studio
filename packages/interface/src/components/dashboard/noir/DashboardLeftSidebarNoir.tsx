@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Upload, Image as ImageIcon, Trash2, RotateCw, ArrowUp, ArrowDown,
   X, PanelLeftOpen, ChevronLeft, ChevronRight, SkipBack, SkipForward, RefreshCcw,
@@ -232,7 +232,7 @@ export default function DashboardLeftSidebarNoir({
                   const meta = getAioImageSnapshotMeta(img.id);
                   const isActive = activeId === img.id;
                   return (
-                    <motion.li
+                    <m.li
                       key={img.id}
                       layout
                       initial={{ opacity: 0, x: -12 }}
@@ -281,7 +281,7 @@ export default function DashboardLeftSidebarNoir({
                           <X size={12} />
                         </MiniBtn>
                       </div>
-                    </motion.li>
+                    </m.li>
                   );
                 })}
               </AnimatePresence>

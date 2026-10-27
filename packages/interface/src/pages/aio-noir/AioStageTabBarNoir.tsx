@@ -1,5 +1,5 @@
 import type { StageTabDef, StageTabKey } from "../AioStageTabBar";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";
 
@@ -43,7 +43,7 @@ export const AioStageTabBarNoir = ({
             onClick={() => onSelect(tab.key)}
           >
             {isActive && (
-              <motion.span
+              <m.span
                 layoutId="koma-aio-stage-ink"
                 className="koma-aio-stage-tab__ink"
                 aria-hidden="true"

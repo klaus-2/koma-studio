@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Layers, X, CheckCircle2, AlertTriangle, Sparkles, Plus } from 'lucide-react';
 import { useI18n } from '../../../i18n';
 
@@ -228,13 +228,13 @@ export const ModelManagerModalNoir = ({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-ink/85 p-3 backdrop-blur-md sm:p-6"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
           onClick={onClose}
         >
-          <motion.div
+          <m.div
             role="dialog" aria-modal="true" aria-labelledby="mm-title"
             className="glass panel-cut halftone relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden"
             initial={{ opacity: 0, y: 32, scale: 0.97 }}
@@ -252,7 +252,7 @@ export const ModelManagerModalNoir = ({
             {/* ═══ HEADER ═══ */}
             <header className="relative flex items-start justify-between gap-4 px-5 pb-4 pt-5 sm:px-6">
               <div className="flex items-start gap-3.5">
-                <motion.span
+                <m.span
                   aria-hidden
                   initial={{ rotate: -8, scale: 0.8, opacity: 0 }}
                   animate={{ rotate: 0, scale: 1, opacity: 1 }}
@@ -260,7 +260,7 @@ export const ModelManagerModalNoir = ({
                   className="panel-cut-sm flex h-11 w-11 items-center justify-center border-2 border-crimson bg-crimson/10 text-crimson"
                 >
                   <Layers size={18} strokeWidth={2.5} />
-                </motion.span>
+                </m.span>
 
                 <div>
                   <p className="kicker">// MODEL VAULT</p>
@@ -327,7 +327,7 @@ export const ModelManagerModalNoir = ({
                     title={<>{t('modelManager.modal.localModels')}</>}
                     desc={t('modelManager.modal.localDesc')} />
 
-                  <motion.div variants={stagger} initial="hidden" animate="show"
+                  <m.div variants={stagger} initial="hidden" animate="show"
                     className="grid gap-3 md:grid-cols-2">
                     {filteredLocal.map((entry) => (
                       <ModelCard key={entry.model.id} entry={entry}
@@ -336,7 +336,7 @@ export const ModelManagerModalNoir = ({
                         selectable={entry.model.stage === selectionStage}
                         {...cardProps} />
                     ))}
-                  </motion.div>
+                  </m.div>
 
                   {!hasLocal && (
                     <div className="panel-cut-sm border border-dashed border-paper/15 p-8 text-center font-mono text-[11px] uppercase tracking-wider text-paper/35">
@@ -363,7 +363,7 @@ export const ModelManagerModalNoir = ({
 
                   <AnimatePresence>
                     {showCustom && customProfilesSection && (
-                      <motion.div
+                      <m.div
                         initial={{ opacity: 0, scaleY: 0.96 }}
                         animate={{ opacity: 1, scaleY: 1 }}
                         exit={{ opacity: 0, scaleY: 0.96 }}
@@ -371,7 +371,7 @@ export const ModelManagerModalNoir = ({
                         style={{ transformOrigin: 'top' }}
                         className="mb-4 overflow-hidden">
                         {customProfilesSection}
-                      </motion.div>
+                      </m.div>
                     )}
                   </AnimatePresence>
 
@@ -423,7 +423,7 @@ export const ModelManagerModalNoir = ({
                         {batch.completed}<span className="text-paper/40">/{batch.total}</span>
                       </span>
                       <div className="panel-cut-sm h-1.5 w-24 overflow-hidden border border-paper/10 bg-ink" aria-hidden>
-                        <motion.div
+                        <m.div
                           className="stripes-anim h-full w-full origin-left bg-crimson bg-[repeating-linear-gradient(-45deg,rgba(7,7,12,0.3)_0_6px,transparent_6px_12px)] bg-[length:17px_17px]"
                           animate={{
                             scaleX:
@@ -441,7 +441,7 @@ export const ModelManagerModalNoir = ({
                 </div>
               </footer>
             )}
-          </motion.div>
+          </m.div>
 
           {!hideFooter && (
             <InstallAllConfirmation
@@ -453,7 +453,7 @@ export const ModelManagerModalNoir = ({
               onConfirm={() => { setShowConfirm(false); void onInstallAll(scopedSummary.eligibleModelIds); }}
             />
           )}
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

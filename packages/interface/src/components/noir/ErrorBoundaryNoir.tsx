@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   AlertTriangle,
   Check,
@@ -50,7 +50,7 @@ export const ErrorBoundaryNoir = ({
         クラッシュ
       </span>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: EASE }}
@@ -97,7 +97,7 @@ export const ErrorBoundaryNoir = ({
         </button>
 
         {detailsOpen && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, ease: EASE }}
@@ -114,7 +114,7 @@ export const ErrorBoundaryNoir = ({
               {copied ? <Check size={11} aria-hidden /> : <Copy size={11} aria-hidden />}
               {t(copied ? 'errorBoundary.copied' : 'errorBoundary.copy')}
             </button>
-          </motion.div>
+          </m.div>
         )}
 
         <div className="mt-8 flex flex-wrap gap-3">
@@ -127,7 +127,7 @@ export const ErrorBoundaryNoir = ({
             {t('errorBoundary.reload')}
           </button>
         </div>
-      </motion.div>
+      </m.div>
     </div>
   );
 };

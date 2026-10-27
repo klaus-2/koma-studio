@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { useI18n } from "../i18n";
 import brandLogo from "@koma/ui/assets/logo-1.webp";
 import { EASE } from "./system/v2/kit";
@@ -107,7 +107,7 @@ const PageTransitionNoir = ({
 
       <div className="absolute inset-0 flex" aria-hidden>
         {Array.from({ length: STRIPS }).map((_, i) => (
-          <motion.div
+          <m.div
             key={i}
             className="halftone h-full flex-1 border-r border-paper/[0.04] bg-ink last:border-r-0"
             initial={{ scaleY: 0 }}
@@ -118,7 +118,7 @@ const PageTransitionNoir = ({
         ))}
       </div>
 
-      <motion.span aria-hidden
+      <m.span aria-hidden
         className="absolute left-0 top-0 h-[3px] w-full bg-gradient-to-r from-crimson via-crimson/50 to-transparent"
         initial={{ y: "0vh" }}
         animate={{ y: exiting ? "100vh" : "0vh" }}
@@ -132,7 +132,7 @@ const PageTransitionNoir = ({
       {variant !== "minimal" && (
         <div aria-hidden className="pointer-events-none absolute inset-0">
           {SFX.map((sfx, i) => (
-            <motion.span key={sfx}
+            <m.span key={sfx}
               className="absolute select-none font-display font-black text-crimson/15"
               style={{
                 fontSize: `${3 + i}rem`,
@@ -145,33 +145,33 @@ const PageTransitionNoir = ({
               transition={{ delay: 0.25 + i * 0.12, duration: 0.4, ease: EASE }}
             >
               {sfx}
-            </motion.span>
+            </m.span>
           ))}
         </div>
       )}
 
       {/* ── Centro ── */}
-      <motion.div
+      <m.div
         className="absolute inset-0 flex flex-col items-center justify-center gap-5"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: exiting ? 0 : 1, y: exiting ? -12 : 0 }}
         transition={{ duration: 0.35, delay: exiting ? 0 : 0.3, ease: EASE }}
       >
         {/* Logo hanko */}
-        <motion.div
+        <m.div
           className="panel-cut-sm relative flex h-20 w-20 items-center justify-center border-2 border-crimson bg-crimson/8"
           initial={{ rotate: -8, scale: 0.7 }}
           animate={{ rotate: 0, scale: 1 }}
           transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.35 }}
         >
           <img src={brandLogo} alt="" className="h-11 w-11 object-contain" />
-          <motion.span aria-hidden
+          <m.span aria-hidden
             className="absolute -inset-1.5 border border-crimson/40"
             animate={{ rotate: 360 }}
             transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
             style={{ clipPath: "polygon(0 0, 30% 0, 30% 2px, 2px 2px, 2px 30%, 0 30%)" }}
           />
-        </motion.div>
+        </m.div>
 
         <p className="font-display text-xl font-black uppercase tracking-tight text-paper">
           {t("brand.name")}
@@ -179,20 +179,20 @@ const PageTransitionNoir = ({
         </p>
 
         <div className="panel-cut-sm h-1.5 w-48 overflow-hidden border border-paper/10 bg-ink-2" aria-hidden>
-          <motion.div
+          <m.div
             className="stripes-anim h-full w-1/3 bg-crimson bg-[repeating-linear-gradient(-45deg,rgba(7,7,12,0.3)_0_6px,transparent_6px_12px)] bg-[length:17px_17px]"
             animate={{ x: ["-100%", "300%"] }}
             transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
           />
         </div>
 
-        <motion.p key={displayedMessage}
+        <m.p key={displayedMessage}
           initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: EASE }}
           className="font-mono text-[10px] uppercase tracking-[0.24em] text-paper/45">
           <span aria-hidden className="text-crimson">//</span> {displayedMessage}
-        </motion.p>
-      </motion.div>
+        </m.p>
+      </m.div>
 
       {/* ── Crop marks ── */}
       {(["left-5 top-5 border-l border-t", "right-5 top-5 border-r border-t",

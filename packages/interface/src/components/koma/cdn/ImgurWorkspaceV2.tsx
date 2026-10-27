@@ -9,11 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 import {
   AlertTriangle,
@@ -660,7 +656,7 @@ export function ImgurWorkspaceV2({
                   rateLimit.usedThisHour
                 }
               >
-                <motion.div
+                <m.div
                   initial={
                     reduceMotion
                       ? false
@@ -912,14 +908,14 @@ export function ImgurWorkspaceV2({
               )}
             />
           ) : (
-            <motion.div
+            <m.div
               layout
               className="grid gap-3 p-4"
             >
               <AnimatePresence initial={false}>
                 {uploadDrafts.map(
                   (item, index) => (
-                    <motion.article
+                    <m.article
                       layout
                       key={item.id}
                       initial={
@@ -1116,11 +1112,11 @@ export function ImgurWorkspaceV2({
                           </button>
                         </div>
                       </div>
-                    </motion.article>
+                    </m.article>
                   ),
                 )}
               </AnimatePresence>
-            </motion.div>
+            </m.div>
           )}
         </EditorialCdnPanel>
       </div>

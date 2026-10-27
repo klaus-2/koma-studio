@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { ArrowLeft, FileSignature, LifeBuoy, ScrollText } from 'lucide-react';
 
 import { LEGAL_SUPPORT_URL, getLegalDocuments } from '../../legal/legalDocuments';
@@ -16,7 +16,7 @@ interface LegalHubPageProps {
 
 export const LegalHubPage = ({ documentId }: LegalHubPageProps) => {
   const { locale, t } = useI18n();
-  const m = useNoirMotion();
+  const motionProps = useNoirMotion();
   const documentsById = getLegalDocuments(locale);
   const document = documentsById[documentId];
   const documents = getOrderedLegalDocuments(locale);
@@ -32,14 +32,14 @@ export const LegalHubPage = ({ documentId }: LegalHubPageProps) => {
 
   return (
     <div className="halftone min-h-screen bg-ink px-4 py-8 sm:px-8">
-      <motion.div
-        variants={m.container}
-        initial={m.initial}
-        animate={m.animate}
+      <m.div
+        variants={motionProps.container}
+        initial={motionProps.initial}
+        animate={motionProps.animate}
         className="mx-auto flex max-w-6xl flex-col gap-5"
       >
         {/* ── Hero ── */}
-        <motion.header variants={m.item} className="glass panel-cut relative overflow-hidden p-6">
+        <m.header variants={motionProps.item} className="glass panel-cut relative overflow-hidden p-6">
           <span
             aria-hidden
             className="text-outline pointer-events-none absolute -top-9 right-4 select-none font-display text-[130px] font-black leading-none"
@@ -69,11 +69,11 @@ export const LegalHubPage = ({ documentId }: LegalHubPageProps) => {
               <ArrowLeft size={11} /> {t('legalHub.back')}
             </button>
           </div>
-        </motion.header>
+        </m.header>
 
         {/* ── Highlights strip ── */}
-        <motion.section
-          variants={m.item}
+        <m.section
+          variants={motionProps.item}
           className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
         >
           {document.highlights.map((highlight) => (
@@ -85,12 +85,12 @@ export const LegalHubPage = ({ documentId }: LegalHubPageProps) => {
               <p className="text-[11px] leading-relaxed text-paper/65">{highlight}</p>
             </div>
           ))}
-        </motion.section>
+        </m.section>
 
         {/* ── Layout ── */}
         <div className="grid items-start gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
           {/* Sidebar */}
-          <motion.aside variants={m.item} className="glass panel-cut lg:sticky lg:top-6 p-4">
+          <m.aside variants={motionProps.item} className="glass panel-cut lg:sticky lg:top-6 p-4">
             <p className="mb-3 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.25em] text-paper/40">
               <FileSignature size={10} aria-hidden />
               {t('legalHub.sidebarTitle')}
@@ -141,10 +141,10 @@ export const LegalHubPage = ({ documentId }: LegalHubPageProps) => {
                 <LifeBuoy size={11} /> {t('legalHub.supportCta')}
               </ResourceExternalAnchor>
             </div>
-          </motion.aside>
+          </m.aside>
 
           {/* Document */}
-          <motion.article variants={m.item} className="glass panel-cut noir-doc relative min-w-0 p-6 sm:p-8">
+          <m.article variants={motionProps.item} className="glass panel-cut noir-doc relative min-w-0 p-6 sm:p-8">
             <span
               aria-hidden
               className="v-text pointer-events-none absolute right-3 top-6 select-none font-display text-3xl font-black tracking-[0.3em] text-paper/[0.05]"
@@ -166,9 +166,9 @@ export const LegalHubPage = ({ documentId }: LegalHubPageProps) => {
                 )}
               </section>
             ))}
-          </motion.article>
+          </m.article>
         </div>
-      </motion.div>
+      </m.div>
     </div>
   );
 };

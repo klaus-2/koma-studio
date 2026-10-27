@@ -7,10 +7,7 @@ import {
   Check,
   FileQuestion,
 } from 'lucide-react';
-import {
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import type {
   ReactNode,
 } from 'react';
@@ -129,7 +126,7 @@ export function GuidesEditorialHero({
     GUIDE_TONE_STYLES[tone];
 
   return (
-    <motion.header
+    <m.header
       initial={
         reduceMotion
           ? false
@@ -240,7 +237,7 @@ export function GuidesEditorialHero({
           </div>
         ) : null}
       </div>
-    </motion.header>
+    </m.header>
   );
 }
 

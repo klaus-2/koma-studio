@@ -6,10 +6,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import {
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import {
   useCallback,
   useEffect,
@@ -426,7 +423,7 @@ export default function GuideSearchV2({
   if (!mounted) return null;
 
   return createPortal(
-    <motion.div
+    <m.div
       initial={
         reduceMotion
           ? false
@@ -445,7 +442,7 @@ export default function GuideSearchV2({
         }
       }}
     >
-      <motion.div
+      <m.div
         ref={modalRef}
         initial={
           reduceMotion
@@ -748,8 +745,8 @@ export default function GuideSearchV2({
             KOMA Archive Index
           </span>
         </footer>
-      </motion.div>
-    </motion.div>,
+      </m.div>
+    </m.div>,
     document.body,
   );
 }

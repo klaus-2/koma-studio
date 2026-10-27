@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Check, X } from "lucide-react";
 import { useI18n } from "../../i18n";
 import {
@@ -45,7 +45,6 @@ export const PasswordStrengthClassic = ({ password }: PasswordStrengthProps) => 
   const config = level >= 0 ? LEVEL_STYLES[level] : null;
 
   return (
-    <LazyMotion features={domAnimation}>
       <AnimatePresence>
         <m.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="koma-strength">
           <div className="koma-strength__bars">
@@ -66,6 +65,5 @@ export const PasswordStrengthClassic = ({ password }: PasswordStrengthProps) => 
           </ul>
         </m.div>
       </AnimatePresence>
-    </LazyMotion>
   );
 };

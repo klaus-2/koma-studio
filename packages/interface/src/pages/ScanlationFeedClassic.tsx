@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { LazyMotion, domMax, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
 import {
   AtSign,
   Camera,
@@ -870,7 +870,6 @@ const ScanlationFeedPageClassic = ({
      ═══════════════════════════════════════════ */
   return (
     <div className="koma-feed">
-      <LazyMotion features={domMax}>
         {/* ScanlationFeedContent is memoized — every prop here must stay
             referentially stable across composer keystrokes (no inline arrows). */}
         <ScanlationFeedContent
@@ -962,7 +961,6 @@ const ScanlationFeedPageClassic = ({
           onApply={() => void handleApply()}
           onReport={() => void handleReport()}
         />
-      </LazyMotion>
     </div>
   );
 };

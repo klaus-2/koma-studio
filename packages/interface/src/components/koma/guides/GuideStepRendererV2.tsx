@@ -11,10 +11,7 @@ import {
   Quote,
   ShieldAlert,
 } from 'lucide-react';
-import {
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import {
   useCallback,
   useEffect,
@@ -81,7 +78,7 @@ function EditorialCallout({
   const Icon = config.icon;
 
   return (
-    <motion.aside
+    <m.aside
       initial={
         reduceMotion
           ? false
@@ -133,7 +130,7 @@ function EditorialCallout({
           </div>
         </div>
       </div>
-    </motion.aside>
+    </m.aside>
   );
 }
 
@@ -381,7 +378,7 @@ function CodeBlock({
     code.snippet.split('\n');
 
   return (
-    <motion.div
+    <m.div
       initial={
         reduceMotion
           ? false
@@ -495,7 +492,7 @@ function CodeBlock({
           )}
         </code>
       </pre>
-    </motion.div>
+    </m.div>
   );
 }
 

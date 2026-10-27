@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 
 import { KOMA_CAT_FRAMES } from '../../../assets/koma-cat';
 
@@ -44,7 +44,7 @@ export function KomaMascotBadgeNoir() {
   }, []);
 
   return (
-    <motion.img
+    <m.img
       key={frame}
       src={KOMA_CAT_FRAMES[frame]}
       alt=""

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { useI18n } from "../../../i18n";
 import {
   PASSWORD_LEVELS,
@@ -25,7 +25,6 @@ export function PasswordStrengthNoir({ password }: { password: string }) {
   const cfgColor = LEVEL_COLORS[Math.max(level, 0)]!;
 
   return (
-    <LazyMotion features={domAnimation}>
       <AnimatePresence>
         <m.div
           initial={{ opacity: 0, height: 0 }}
@@ -61,6 +60,5 @@ export function PasswordStrengthNoir({ password }: { password: string }) {
           </ul>
         </m.div>
       </AnimatePresence>
-    </LazyMotion>
   );
 }

@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 
 const EASE_NOIR = [0.22, 1, 0.36, 1] as const;
 
@@ -1698,7 +1698,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
         <span aria-hidden className="fixed left-0 top-0 z-30 h-[3px] w-full bg-gradient-to-r from-crimson via-crimson/40 to-transparent" />
 
         <div className="relative mx-auto max-w-6xl px-4 py-10 sm:px-8">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: EASE_NOIR }}
             className="mb-8 flex items-center justify-between"
@@ -1708,9 +1708,9 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
               <ArrowLeft size={12} /> {t('settings.backToDashboard')}
             </button>
             <span className="kicker hidden sm:block">// CONTROL ROOM · 設定</span>
-          </motion.div>
+          </m.div>
 
-          <motion.header
+          <m.header
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: EASE_NOIR, delay: 0.05 }}
             className="glass panel-cut relative mb-8 overflow-hidden border border-paper/8 p-6 sm:p-8"
@@ -1721,7 +1721,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
             <span aria-hidden className="absolute left-0 top-0 h-full w-[3px] bg-crimson" />
 
             <div className="relative flex flex-wrap items-center gap-5">
-              <motion.div
+              <m.div
                 aria-hidden
                 initial={{ rotate: -12, scale: 0.7, opacity: 0 }}
                 animate={{ rotate: -3, scale: 1, opacity: 1 }}
@@ -1729,7 +1729,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
                 className="panel-cut-sm flex h-16 w-16 items-center justify-center border-2 border-crimson bg-crimson/10 font-display text-xl font-black text-crimson"
               >
                 {initials}
-              </motion.div>
+              </m.div>
 
               <div className="min-w-0 flex-1">
                 <h1 className="truncate font-display text-2xl font-black uppercase tracking-tight text-paper sm:text-3xl">
@@ -1751,7 +1751,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
                 </span>
               </div>
             ) : null}
-          </motion.header>
+          </m.header>
 
           <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
             <nav role="tablist" aria-label={t('settings.tabs.ariaLabel')}
@@ -1770,7 +1770,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
                       }`}
                   >
                     {active && (
-                      <motion.span
+                      <m.span
                         layoutId="koma-stg-tab-ink"
                         aria-hidden
                         className="panel-cut-sm absolute inset-0 border border-crimson/50 bg-crimson/10"
@@ -1805,7 +1805,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
 
             <div role="tabpanel" className="min-w-0">
               <AnimatePresence mode="wait">
-                <motion.div
+                <m.div
                   key={activeTab}
                   initial={{ opacity: 0, x: 24, clipPath: 'inset(0 0 0 12%)' }}
                   animate={{ opacity: 1, x: 0, clipPath: 'inset(0 0 0 0%)' }}
@@ -1813,7 +1813,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
                   transition={{ duration: 0.35, ease: EASE_NOIR }}
                 >
                   {tabContent[activeTab]()}
-                </motion.div>
+                </m.div>
               </AnimatePresence>
             </div>
           </div>

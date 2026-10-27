@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 import {
   Check,
@@ -81,7 +81,7 @@ const rateColor = (remaining: number, limit: number): string => {
 
 export const ImgurWorkspaceNoir = ({ onOpenSettings }: ImgurWorkspaceProps) => {
   const { t } = useI18n();
-  const m = useNoirMotion();
+  const motionProps = useNoirMotion();
 
   const [configReady, setConfigReady] = useState(false);
   const [rateLimit, setRateLimit] = useState<ImgurRateLimitStatus>({
@@ -261,14 +261,14 @@ export const ImgurWorkspaceNoir = ({ onOpenSettings }: ImgurWorkspaceProps) => {
   const rateTint = rateColor(rateLimit.remainingThisHour, rateLimit.limitPerHour);
 
   return (
-    <motion.div
-      variants={m.container}
-      initial={m.initial}
-      animate={m.animate}
+    <m.div
+      variants={motionProps.container}
+      initial={motionProps.initial}
+      animate={motionProps.animate}
       className="flex flex-col gap-4"
     >
       {/* ── Hero ── */}
-      <motion.header variants={m.item} className="glass panel-cut relative overflow-hidden p-5">
+      <m.header variants={motionProps.item} className="glass panel-cut relative overflow-hidden p-5">
         <span
           aria-hidden
           className="text-outline pointer-events-none absolute -top-7 right-4 select-none font-display text-[100px] font-black leading-none"
@@ -320,7 +320,7 @@ export const ImgurWorkspaceNoir = ({ onOpenSettings }: ImgurWorkspaceProps) => {
             )}
           </div>
         </div>
-      </motion.header>
+      </m.header>
 
       {/* ── Alerts ── */}
       <NoirAlertStack>
@@ -343,7 +343,7 @@ export const ImgurWorkspaceNoir = ({ onOpenSettings }: ImgurWorkspaceProps) => {
 
       <div className="grid items-start gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
         {/* ═══ Upload config ═══ */}
-        <motion.section variants={m.item} className="glass panel-cut relative p-4">
+        <m.section variants={motionProps.item} className="glass panel-cut relative p-4">
           <span
             aria-hidden
             className="text-outline pointer-events-none absolute right-3 top-2 select-none font-display text-3xl font-black"
@@ -450,10 +450,10 @@ export const ImgurWorkspaceNoir = ({ onOpenSettings }: ImgurWorkspaceProps) => {
               e.currentTarget.value = '';
             }}
           />
-        </motion.section>
+        </m.section>
 
         {/* ═══ Queue ═══ */}
-        <motion.section variants={m.item} className="glass panel-cut relative min-w-0 p-4">
+        <m.section variants={motionProps.item} className="glass panel-cut relative min-w-0 p-4">
           <span
             aria-hidden
             className="text-outline pointer-events-none absolute right-3 top-2 select-none font-display text-3xl font-black"
@@ -554,9 +554,9 @@ export const ImgurWorkspaceNoir = ({ onOpenSettings }: ImgurWorkspaceProps) => {
               ))
             )}
           </div>
-        </motion.section>
+        </m.section>
       </div>
-    </motion.div>
+    </m.div>
   );
 };
 

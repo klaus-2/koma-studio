@@ -10,11 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 import {
   AlertTriangle,
@@ -1344,7 +1340,7 @@ export function BloggerWorkspaceV2({
 
       <AnimatePresence mode="wait">
         {workspaceTab === 'publish' ? (
-          <motion.div
+          <m.div
             key="publish"
             id="blogger-panel-publish"
             role="tabpanel"
@@ -1576,7 +1572,7 @@ export function BloggerWorkspaceV2({
             >
               <AnimatePresence mode="wait">
                 {editorView === 'visual' ? (
-                  <motion.div
+                  <m.div
                     key="visual"
                     initial={{
                       opacity: 0,
@@ -1847,11 +1843,11 @@ export function BloggerWorkspaceV2({
                         editor={editor}
                       />
                     </div>
-                  </motion.div>
+                  </m.div>
                 ) : null}
 
                 {editorView === 'html' ? (
-                  <motion.div
+                  <m.div
                     key="html"
                     initial={{
                       opacity: 0,
@@ -1882,11 +1878,11 @@ export function BloggerWorkspaceV2({
                       spellCheck={false}
                       aria-label="HTML"
                     />
-                  </motion.div>
+                  </m.div>
                 ) : null}
 
                 {editorView === 'preview' ? (
-                  <motion.div
+                  <m.div
                     key="preview"
                     initial={{
                       opacity: 0,
@@ -1920,7 +1916,7 @@ export function BloggerWorkspaceV2({
                         'blogger.editor.preview',
                       )}
                     />
-                  </motion.div>
+                  </m.div>
                 ) : null}
               </AnimatePresence>
 
@@ -2014,9 +2010,9 @@ export function BloggerWorkspaceV2({
                 </div>
               </footer>
             </EditorialCdnPanel>
-          </motion.div>
+          </m.div>
         ) : (
-          <motion.div
+          <m.div
             key="upload"
             id="blogger-panel-upload"
             role="tabpanel"
@@ -2313,14 +2309,14 @@ export function BloggerWorkspaceV2({
                   )}
                 />
               ) : (
-                <motion.div
+                <m.div
                   layout
                   className="grid gap-3 p-4"
                 >
                   <AnimatePresence initial={false}>
                     {uploadDrafts.map(
                       (item, index) => (
-                        <motion.article
+                        <m.article
                           layout
                           key={item.id}
                           initial={
@@ -2603,14 +2599,14 @@ export function BloggerWorkspaceV2({
                               </button>
                             </div>
                           </div>
-                        </motion.article>
+                        </m.article>
                       ),
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </m.div>
               )}
             </EditorialCdnPanel>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

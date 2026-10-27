@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   BookOpen, Check, ChevronDown, Copy, FolderPlus, Layout, Palette,
   Pencil, Plus, RotateCcw, Sliders, Star, Trash2, X,
@@ -414,7 +414,7 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
             <Field label={t("settings.modePresets.targetMode")}>
               <select className={selectCls} value={rf.mode}
                 onChange={(e) => renderMode.handleRenderModePresetModeChange(e.target.value as RenderModePresetMode)}>
-                {RENDER_MODE_PRESET_OPTIONS.map(([m, l]) => <option key={m} value={m}>{l}</option>)}
+                {RENDER_MODE_PRESET_OPTIONS.map(([mode, l]) => <option key={mode} value={mode}>{l}</option>)}
               </select>
             </Field>
             <Field label={t("renderPreview.typographyStyle")}>
@@ -669,10 +669,10 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
                       aria-label={isCollapsed ? t("common.expand") : t("common.collapse")}
                       aria-expanded={!isCollapsed}
                       className="text-paper/40 transition-colors hover:text-paper">
-                      <motion.span className="block" animate={{ rotate: isCollapsed ? -90 : 0 }}
+                      <m.span className="block" animate={{ rotate: isCollapsed ? -90 : 0 }}
                         transition={{ duration: 0.2, ease: EASE }}>
                         <ChevronDown size={13} />
-                      </motion.span>
+                      </m.span>
                     </button>
                   )}
 

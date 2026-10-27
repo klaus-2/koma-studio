@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import type { ModelFilterState } from "../../../models/types";
 import { useI18n } from "../../../i18n";
 
@@ -46,7 +46,7 @@ export const ModelFiltersNoir = ({
                 onClick={() => onSourceChange(src)}
                 className={`relative panel-cut-sm px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors ${active ? "text-ink" : "text-paper/45 hover:text-paper"}`}>
                 {active && (
-                  <motion.span layoutId="koma-source-ink" aria-hidden
+                  <m.span layoutId="koma-source-ink" aria-hidden
                     className="panel-cut-sm absolute inset-0 bg-crimson"
                     transition={{ type: "spring", stiffness: 520, damping: 38 }} />
                 )}

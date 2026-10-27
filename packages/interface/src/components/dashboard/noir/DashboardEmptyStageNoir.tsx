@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Image as ImageIcon, Sparkles } from 'lucide-react';
 import { useI18n } from '../../../i18n';
 
@@ -26,7 +26,7 @@ const DashboardEmptyStage = ({ emptyPreviewTipIndex, currentEmptyPreviewTip }: D
       <span className="pointer-events-none absolute right-6 top-6 font-display text-[10rem] font-black leading-none text-outline opacity-40 md:text-[16rem]" aria-hidden="true">00</span>
       <span className="v-text pointer-events-none absolute left-8 top-1/2 -translate-y-1/2 font-display text-6xl font-black text-outline opacity-25" aria-hidden="true">スタート</span>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
@@ -42,10 +42,10 @@ const DashboardEmptyStage = ({ emptyPreviewTipIndex, currentEmptyPreviewTip }: D
         <p className="mt-3 font-mono text-sm leading-relaxed text-paper-dim">
           {t('dashboard.emptyStage.desc')}
         </p>
-      </motion.div>
+      </m.div>
 
       <AnimatePresence mode="wait">
-        <motion.div
+        <m.div
           key={`tip-${emptyPreviewTipIndex}`}
           initial={{ opacity: 0, y: 12, rotate: -1 }}
           animate={{ opacity: 1, y: 0, rotate: -1 }}
@@ -68,7 +68,7 @@ const DashboardEmptyStage = ({ emptyPreviewTipIndex, currentEmptyPreviewTip }: D
           <span className="mt-2 block text-right font-serif-accent text-[11px] italic text-paper-faint">
             — {t('dashboard.emptyStage.tipMeta')}
           </span>
-        </motion.div>
+        </m.div>
       </AnimatePresence>
     </div>
   );

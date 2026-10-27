@@ -10,11 +10,7 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react';
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   useCallback,
   useEffect,
@@ -320,7 +316,7 @@ export default function GuidesHomeV2() {
 
       {/* Continue */}
       {inProgressGuide ? (
-        <motion.button
+        <m.button
           type="button"
           initial={
             reduceMotion
@@ -410,7 +406,7 @@ export default function GuidesHomeV2() {
                   1
                 }
               >
-                <motion.div
+                <m.div
                   initial={
                     reduceMotion
                       ? false
@@ -440,7 +436,7 @@ export default function GuidesHomeV2() {
               <ChevronRight size={15} />
             </span>
           </div>
-        </motion.button>
+        </m.button>
       ) : null}
 
       {/* Categories */}
@@ -453,7 +449,7 @@ export default function GuidesHomeV2() {
           )}
         />
 
-        <motion.div
+        <m.div
           initial="hidden"
           whileInView="visible"
           viewport={{
@@ -501,7 +497,7 @@ export default function GuidesHomeV2() {
                 category.icon;
 
               return (
-                <motion.button
+                <m.button
                   key={category.id}
                   type="button"
                   variants={{
@@ -589,11 +585,11 @@ export default function GuidesHomeV2() {
                       }
                     />
                   </div>
-                </motion.button>
+                </m.button>
               );
             },
           )}
-        </motion.div>
+        </m.div>
       </section>
 
       {/* Bookmarks */}

@@ -1,5 +1,5 @@
 import { useState, type ReactNode, type RefObject } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   BookOpen,
   Download,
@@ -93,7 +93,7 @@ export default function KomaTopbarUserMenuNoir({
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
@@ -184,7 +184,7 @@ export default function KomaTopbarUserMenuNoir({
               <div className="my-1 border-t border-paper/10" />
               <MenuItem icon={LogOut} label={t('dashboard.topbar.logout')} danger onClick={() => { onClose(); onLogout(); }} />
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

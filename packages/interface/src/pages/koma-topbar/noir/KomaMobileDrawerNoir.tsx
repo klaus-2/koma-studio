@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { ChevronRight, X } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
@@ -31,7 +31,7 @@ export default function KomaMobileDrawerNoir({
 
   return (
     <div className="fixed inset-0 z-[100]">
-      <motion.div
+      <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -39,7 +39,7 @@ export default function KomaMobileDrawerNoir({
         aria-hidden="true"
         className="absolute inset-0 bg-ink/80 backdrop-blur-sm"
       />
-      <motion.aside
+      <m.aside
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
@@ -126,7 +126,7 @@ export default function KomaMobileDrawerNoir({
             </div>
           </div>
         </div>
-      </motion.aside>
+      </m.aside>
     </div>
   );
 }

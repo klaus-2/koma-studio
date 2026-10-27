@@ -1,7 +1,7 @@
 'use client';
 
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AlertTriangle, Check, type LucideIcon } from 'lucide-react';
 import { EASE } from './NoirPrimitives';
 
@@ -27,7 +27,7 @@ export function NoirAlert({
   const Icon = s.icon;
   const reduce = useReducedMotion();
   return (
-    <motion.div
+    <m.div
       role={tone === 'success' ? 'status' : 'alert'}
       initial={reduce ? false : { opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
@@ -44,7 +44,7 @@ export function NoirAlert({
         )}
         {children}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { DownloadCloud, X } from "lucide-react";
 import { useUpdater } from "../../../hooks/useUpdater";
 import { useUpdaterSync } from "../../../hooks/useUpdaterSync";
@@ -93,7 +93,7 @@ export const UpdateToastNoir = () => {
     <>
       <AnimatePresence>
         {shouldShowBanner && toastContent && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 32, x: 12 }}
             animate={{ opacity: 1, y: 0, x: 0 }}
             exit={{ opacity: 0, y: 16 }}
@@ -113,12 +113,12 @@ export const UpdateToastNoir = () => {
             </button>
 
             <div className="flex items-start gap-3 pr-5">
-              <motion.span aria-hidden
+              <m.span aria-hidden
                 initial={{ rotate: -10, scale: 0.7 }} animate={{ rotate: 0, scale: 1 }}
                 transition={{ type: "spring", stiffness: 320, damping: 16, delay: 0.1 }}
                 className={`panel-cut-sm flex h-9 w-9 shrink-0 items-center justify-center border ${toneCls.icon}`}>
                 {toastContent.icon}
-              </motion.span>
+              </m.span>
               <div className="min-w-0">
                 <p className="kicker !text-[9px]">// TRANSMISSION</p>
                 <h3 className="font-display text-sm font-black uppercase tracking-tight text-paper">
@@ -136,7 +136,7 @@ export const UpdateToastNoir = () => {
                 {t("update.button.details")}
               </button>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

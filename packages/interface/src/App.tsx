@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LazyMotion, domMax } from "framer-motion";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { flushSync } from "react-dom";
 
@@ -521,12 +522,16 @@ const AppShell = () => {
 };
 
 const App = () => (
-  <UpdaterProvider>
-    <AuthProvider>
-      <CustomCursor />
-      <AppShell />
-    </AuthProvider>
-  </UpdaterProvider>
+  // Root motion feature provider: every animated component uses `m` against
+  // this single domMax bundle instead of shipping the full `motion` runtime.
+  <LazyMotion features={domMax} strict>
+    <UpdaterProvider>
+      <AuthProvider>
+        <CustomCursor />
+        <AppShell />
+      </AuthProvider>
+    </UpdaterProvider>
+  </LazyMotion>
 );
 
 export default App;

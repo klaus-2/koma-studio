@@ -4,10 +4,7 @@ import {
   SearchX,
   type LucideIcon,
 } from 'lucide-react';
-import {
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import type {
   ReactNode,
 } from 'react';
@@ -118,7 +115,7 @@ export function ResourceNexusHero({
     useReducedMotion();
 
   return (
-    <motion.header
+    <m.header
       initial={
         reduceMotion
           ? false
@@ -211,7 +208,7 @@ export function ResourceNexusHero({
           </div>
         ) : null}
       </div>
-    </motion.header>
+    </m.header>
   );
 }
 
@@ -423,7 +420,7 @@ export function ResourceEmptyState({
   description: string;
 }) {
   return (
-    <motion.div
+    <m.div
       initial={{
         opacity: 0,
         y: 10,
@@ -464,7 +461,7 @@ export function ResourceEmptyState({
           </code>
         ) : null}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -481,7 +478,7 @@ export function ResourceCardReveal({
     useReducedMotion();
 
   return (
-    <motion.div
+    <m.div
       initial={
         reduceMotion
           ? false
@@ -510,6 +507,6 @@ export function ResourceCardReveal({
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useI18n } from '../../../../i18n';
 import {
@@ -113,7 +113,7 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
     case 'area-select':
       return (
         <div className={cn(base, 'halftone-red')}>
-          <motion.span className="absolute left-1/2 top-1/2 h-8 w-12 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-azure"
+          <m.span className="absolute left-1/2 top-1/2 h-8 w-12 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-azure"
             animate={{ scale: [0.85, 1, 0.85] }} transition={{ duration: 2, repeat: Infinity }} />
           <span className="absolute right-3 bottom-3 h-2 w-2 border-r-2 border-b-2 border-crimson" />
         </div>
@@ -123,7 +123,7 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
         <div className={base}>
           <span className="absolute left-4 top-4 h-6 w-8 border-2 border-paper/30" />
           <span className="absolute right-4 bottom-4 h-5 w-7 border-2 border-paper/30" />
-          <motion.span className="absolute inset-y-0 left-0 w-1/2 bg-crimson/40"
+          <m.span className="absolute inset-y-0 left-0 w-1/2 bg-crimson/40"
             animate={{ x: ['0%', '200%'] }} transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }} />
         </div>
       );
@@ -131,7 +131,7 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
       return (
         <div className={cn(base, 'halftone')}>
           <span className="absolute inset-2 bg-azure/10" />
-          <motion.span className="absolute left-3 top-1/2 h-2 w-4/5 origin-left -translate-y-1/2 rounded-full bg-azure"
+          <m.span className="absolute left-3 top-1/2 h-2 w-4/5 origin-left -translate-y-1/2 rounded-full bg-azure"
             animate={{ scaleX: [0, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
         </div>
       );
@@ -139,7 +139,7 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
       return (
         <div className={base}>
           <span className="absolute inset-2 bg-azure/25" />
-          <motion.span
+          <m.span
             className="absolute left-[10%] top-1/2 h-3 w-3 -translate-y-1/2 bg-ink"
             animate={{ x: [0, 180] }}
             transition={{ duration: 1.6, repeat: Infinity }}
@@ -149,7 +149,7 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
     case 'paint':
       return (
         <div className={cn(base, 'halftone')}>
-          <motion.span className="absolute left-3 top-1/2 h-2.5 w-5/6 origin-left -translate-y-1/2 bg-crimson"
+          <m.span className="absolute left-3 top-1/2 h-2.5 w-5/6 origin-left -translate-y-1/2 bg-crimson"
             animate={{ scaleX: [0, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
         </div>
       );
@@ -157,7 +157,7 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
       return (
         <div className={base}>
           <span className="absolute inset-2 bg-crimson/25" />
-          <motion.span
+          <m.span
             className="absolute left-[5%] top-1/2 h-3 w-4 -translate-y-1/2 bg-ink"
             animate={{ x: [0, 180] }}
             transition={{ duration: 1.6, repeat: Infinity }}
@@ -167,18 +167,18 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
     case 'magic-wand':
       return (
         <div className={cn(base, 'halftone-red')}>
-          <motion.span className="absolute left-1/2 top-1/2 h-7 w-9 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-gold"
+          <m.span className="absolute left-1/2 top-1/2 h-7 w-9 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-gold"
             animate={{ rotate: [0, 3, -3, 0] }} transition={{ duration: 2, repeat: Infinity }} />
-          <motion.span className="absolute left-4 top-4 text-gold" animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1.2, repeat: Infinity }}>
+          <m.span className="absolute left-4 top-4 text-gold" animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1.2, repeat: Infinity }}>
             <Sparkles size={10} />
-          </motion.span>
+          </m.span>
         </div>
       );
     case 'healing':
       return (
         <div className={base}>
           <span className="absolute left-1/2 top-3 h-10 w-0.5 -translate-x-1/2 bg-crimson/50" />
-          <motion.span className="absolute left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-mint"
+          <m.span className="absolute left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-mint"
             animate={{ top: ['12%', '78%'], opacity: [1, 0.3] }} transition={{ duration: 1.6, repeat: Infinity }} />
         </div>
       );
@@ -186,16 +186,16 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
       return (
         <div className={base}>
           <span className="absolute inset-2 bg-crimson/40" />
-          <motion.span className="absolute inset-y-0 left-0 w-1/3 bg-ink"
+          <m.span className="absolute inset-y-0 left-0 w-1/3 bg-ink"
             animate={{ x: ['0%', '300%'] }} transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }} />
         </div>
       );
     case 'reset-edits':
       return (
         <div className={cn(base, 'grid place-items-center')}>
-          <motion.span className="text-crimson" animate={{ rotate: -360 }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}>
+          <m.span className="text-crimson" animate={{ rotate: -360 }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}>
             <RefreshCcw size={22} />
-          </motion.span>
+          </m.span>
         </div>
       );
   }
@@ -311,7 +311,7 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
       {/* ═══ Tool Config Flyout ═══ */}
       <AnimatePresence>
         {manualToolsConfigVisible && (
-          <motion.aside
+          <m.aside
             initial={{ opacity: 0, x: 16, scale: 0.97 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 16, scale: 0.97 }}
@@ -433,13 +433,13 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
                 </div>
               )}
             </div>
-          </motion.aside>
+          </m.aside>
         )}
       </AnimatePresence>
 
       {/* ═══ Tool Palette Bar ═══ */}
       <TooltipProvider delayDuration={1000} skipDelayDuration={120}>
-        <motion.div
+        <m.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
@@ -629,7 +629,7 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
               <RefreshCcw size={14} />
             </DockTooltipButton>
           </div>
-        </motion.div>
+        </m.div>
       </TooltipProvider>
     </>
   );

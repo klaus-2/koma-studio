@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { AnimatePresence, m } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Briefcase,
   Check,

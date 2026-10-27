@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import type { ModelProgress } from "../../../models/types";
 import { useI18n } from "../../../i18n";
 
@@ -41,7 +41,7 @@ export const ModelProgressBarNoir = ({ progress, onCancel, compact = false }: Mo
         aria-valuemax={100}
         aria-valuetext={determinate ? undefined : t("modelManager.progress.unknownTotal")}
       >
-        <motion.div
+        <m.div
           className={`stripes-anim h-full w-full origin-left bg-crimson bg-[repeating-linear-gradient(-45deg,rgba(7,7,12,0.3)_0_6px,transparent_6px_12px)] bg-[length:17px_17px] ${determinate ? "" : "animate-pulse"}`}
           initial={false}
           animate={{ scaleX: scale }}

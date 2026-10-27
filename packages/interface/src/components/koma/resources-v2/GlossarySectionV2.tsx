@@ -4,11 +4,7 @@ import {
   BookOpen,
   ChevronDown,
 } from 'lucide-react';
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   useCallback,
   useMemo,
@@ -436,7 +432,7 @@ export default function GlossarySectionV2({
 
                               <AnimatePresence initial={false}>
                                 {expanded ? (
-                                  <motion.div
+                                  <m.div
                                     initial={
                                       reduceMotion
                                         ? false
@@ -506,7 +502,7 @@ export default function GlossarySectionV2({
                                         </div>
                                       ) : null}
                                     </div>
-                                  </motion.div>
+                                  </m.div>
                                 ) : null}
                               </AnimatePresence>
                             </article>

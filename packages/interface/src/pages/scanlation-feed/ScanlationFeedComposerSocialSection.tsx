@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { AnimatePresence, m } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Check, Globe, Plus, X } from 'lucide-react';
 
 import { useI18n } from '../../i18n';

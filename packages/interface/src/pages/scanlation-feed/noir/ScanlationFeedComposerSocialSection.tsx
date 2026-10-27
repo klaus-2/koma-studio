@@ -1,7 +1,7 @@
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Check, Globe, Plus, X, type LucideIcon } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
@@ -47,7 +47,7 @@ export default function ScanlationFeedComposerSocialSection({
                   ? `@${item.value.replace(/^@/, '')}`
                   : item.value;
               return (
-                <motion.div
+                <m.div
                   key={item.id}
                   layout
                   initial={prefersReducedMotion ? {} : { opacity: 0, x: -20 }}
@@ -75,7 +75,7 @@ export default function ScanlationFeedComposerSocialSection({
                   >
                     <X size={12} />
                   </button>
-                </motion.div>
+                </m.div>
               );
             })}
           </div>
@@ -85,7 +85,7 @@ export default function ScanlationFeedComposerSocialSection({
       {/* Inline form */}
       <AnimatePresence>
         {recruitmentForm.showSocialInput && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -159,7 +159,7 @@ export default function ScanlationFeedComposerSocialSection({
                 </button>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

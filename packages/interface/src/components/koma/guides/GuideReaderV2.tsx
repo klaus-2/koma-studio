@@ -10,11 +10,7 @@ import {
   Clock,
   FileText,
 } from 'lucide-react';
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   useCallback,
   useEffect,
@@ -379,7 +375,7 @@ export default function GuideReaderV2({
           'guides.reader.progressAria',
         )}
       >
-        <motion.div
+        <m.div
           animate={{
             scaleX: progress / 100,
           }}
@@ -756,7 +752,7 @@ export default function GuideReaderV2({
               <AnimatePresence
                 mode="wait"
               >
-                <motion.article
+                <m.article
                   key={`${current.sectionIdx}-${current.stepIdx}`}
                   initial={
                     reduceMotion
@@ -790,7 +786,7 @@ export default function GuideReaderV2({
                   <GuideStepRendererV2
                     step={current.step}
                   />
-                </motion.article>
+                </m.article>
               </AnimatePresence>
 
               <footer className="grid gap-3 border-t border-paper/[0.065] pt-6 sm:grid-cols-2">
