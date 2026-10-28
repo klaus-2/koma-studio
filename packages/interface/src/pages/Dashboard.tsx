@@ -6,15 +6,7 @@ import {
   useCallback,
   useMemo,
 } from 'react';
-import {
-  Languages,
-  Eraser,
-  Eye,
-  ScanText,
-  Replace,
-  Paintbrush,
-} from 'lucide-react';
-import type { StageTabKey, StageTabDef } from './AioStageTabBar';
+import type { StageTabKey } from './AioStageTabBar';
 import { getApiConfig } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
 import { useDashboardTour } from '../hooks/useDashboardTour';
@@ -22,41 +14,22 @@ import { useDashboardModeCoachmarks } from '../hooks/useDashboardModeCoachmarks'
 
 import { useModelManager } from '../hooks/useModelManager';
 import {
-  clamp,
-  cloneAioRegions,
-  cloneRenderStyle,
-} from '../utils/dashboard.utils';
-import {
-  createAioManualProgressForIndex,
-  createAioManualProgressFromAutoIndex,
   parseApiError,
-  resolveSnapshotSelectionForImage,
 } from './dashboard/helpers';
 import { useI18n } from '../i18n';
 import { importOnnxModelFromStorage } from '../models/model-storage';
 import { aioDeviceInfoSchema } from '../models/aioStageCatalog';
 import {
-  isCustomModelSelectionKey,
-  toCustomModelSelectionKey,
   OLLAMA_LOCAL_API_BASE,
 } from '../utils/customLlm';
-import {
-  BATCH_THREADS_COUNT_STORAGE_KEY,
-  BATCH_THREADS_ENABLED_STORAGE_KEY,
-  clampBatchThreads,
-} from '../utils/concurrentBatch';
-import { loadWorkspaceAutosaveSettings } from '../utils/workspaceAutosaveSettings';
 import type {
   AioStageKey,
 } from '../types/aioModelPresets';
 import type {
-  AioManualImageProgress,
   AioPipelineSnapshotKey,
   AioTextRegion,
   DashboardPageProps,
-  DownloadItem,
   LoadedImage,
-  ToolMode,
   WebhookMetrics,
 } from '../types/dashboard.types';
 
@@ -68,13 +41,11 @@ import {
 import {
   AIO_MANUAL_STAGE_ORDER,
   EMPTY_PREVIEW_TIP_ROTATION_MS,
-  INFO_MODES,
   getAioPipelineStageLabels,
   getAioPipelineStageProgressLabels,
   getAioStageLabels,
   getEmptyPreviewTips,
   getModeLabels,
-  isModeUnderDevelopment,
   MIN_REGION_SIZE,
   UNDER_DEVELOPMENT_TOOLTIP_KEY,
 } from '../constants/dashboard.constants';
@@ -176,15 +147,13 @@ import {
   useLlmSettingsPersistence,
   useLlmStageProfileOptions,
 } from './dashboard/hooks/llm-providers';
-// Lazy-loaded workspace components — only loaded when their mode is active
-import {
-  CleanerAiCustomProfilesManagerSection,
-  CleanerAiFreeProviderManagerSection,
-  OcrCustomProfilesManagerSection,
-  OcrFreeProviderManagerSection,
-  TranslationCustomProfilesManagerSection,
-  TranslationFreeProviderManagerSection,
-} from './dashboard/sections/LlmManagerSections';
+import { getAioDownloadItemForImage, getCleanerDownloadItemForImage } from './dashboard/lib/download-item-lookup';
+import { useDashboardModeChange } from './dashboard/hooks/use-dashboard-mode-change';
+import { useDashboardPersistedSettings } from './dashboard/hooks/use-dashboard-persisted-settings';
+import { useStageTabs } from './dashboard/hooks/use-stage-tabs';
+import { useAioManualProgressSync } from './dashboard/hooks/use-aio-manual-progress-sync';
+import { useCustomSelectionReconcile } from './dashboard/hooks/use-custom-selection-reconcile';
+import { useLlmManagerSections } from './dashboard/hooks/use-llm-manager-sections';
 import {
   useSpecialModeStageProps,
   useStitchWorkspace,
@@ -630,46 +599,11 @@ export const DashboardPage = ({
     }
   }, [clearAioExecutionState, processing]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    localStorage.setItem(
-      BATCH_THREADS_ENABLED_STORAGE_KEY,
-      String(batchThreadsEnabled),
-    );
-  }, [batchThreadsEnabled]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    localStorage.setItem(
-      BATCH_THREADS_COUNT_STORAGE_KEY,
-      String(clampBatchThreads(batchThreads)),
-    );
-  }, [batchThreads]);
-
-  useEffect(() => {
-    const syncWorkspaceAutosaveSettings = () => {
-      setWorkspaceAutosaveSettings(loadWorkspaceAutosaveSettings());
-    };
-
-    window.addEventListener(
-      'koma:workspace-autosave-settings-changed',
-      syncWorkspaceAutosaveSettings,
-    );
-    window.addEventListener('focus', syncWorkspaceAutosaveSettings);
-    return () => {
-      window.removeEventListener(
-        'koma:workspace-autosave-settings-changed',
-        syncWorkspaceAutosaveSettings,
-      );
-      window.removeEventListener('focus', syncWorkspaceAutosaveSettings);
-    };
-  }, [setWorkspaceAutosaveSettings]);
+  useDashboardPersistedSettings({
+    batchThreadsEnabled,
+    batchThreads,
+    setWorkspaceAutosaveSettings,
+  });
 
   useEffect(() => {
     if (images.length > 0) {
@@ -740,26 +674,6 @@ export const DashboardPage = ({
     aioPipelineStageProgressLabels,
   });
 
-  const getAioDownloadItemForImage = useCallback(
-    (imageId: string): DownloadItem | null =>
-      useExportStore
-        .getState()
-        .downloadItems.find(
-          (item) => item.scope === 'aio' && item.sourceImageId === imageId,
-        ) ?? null,
-    [],
-  );
-
-  const getCleanerDownloadItemForImage = useCallback(
-    (imageId: string): DownloadItem | null =>
-      useExportStore
-        .getState()
-        .downloadItems.find(
-          (item) => item.scope === 'cleaner' && item.sourceImageId === imageId,
-        ) ?? null,
-    [],
-  );
-
   const { updateCleanerRegionsForImage, selectCleanerRegionForImage } =
     useCleanerRegionEditing();
 
@@ -805,38 +719,6 @@ export const DashboardPage = ({
     [mode, patchAioManualImageEditState, patchCleanerManualImageEditState],
   );
 
-  useEffect(() => {
-    const imageIds = new Set(images.map((item) => item.id));
-    setAioManualImageEditsByImage((prev) => {
-      const nextEntries = Object.entries(prev).filter(([imageId]) =>
-        imageIds.has(imageId),
-      );
-      if (nextEntries.length === Object.keys(prev).length) return prev;
-      return Object.fromEntries(nextEntries);
-    });
-    setAioManualHealingBusyByImage((prev) => {
-      const nextEntries = Object.entries(prev).filter(([imageId]) =>
-        imageIds.has(imageId),
-      );
-      if (nextEntries.length === Object.keys(prev).length) return prev;
-      return Object.fromEntries(nextEntries);
-    });
-    setAioManualProgressByImage((prev) => {
-      const nextEntries = Object.entries(prev).filter(([imageId]) =>
-        imageIds.has(imageId),
-      );
-      if (nextEntries.length === Object.keys(prev).length) return prev;
-      return Object.fromEntries(nextEntries);
-    });
-    setAioAutoProcessedImageById((prev) => {
-      const nextEntries = Object.entries(prev).filter(([imageId]) =>
-        imageIds.has(imageId),
-      );
-      if (nextEntries.length === Object.keys(prev).length) return prev;
-      return Object.fromEntries(nextEntries);
-    });
-  }, [images, setAioManualImageEditsByImage, setAioManualHealingBusyByImage, setAioManualProgressByImage, setAioAutoProcessedImageById]);
-
   const invalidateAioPipelineHistory = useAioPipelineStore(
     (s) => s.invalidateAioPipelineHistory,
   );
@@ -846,123 +728,24 @@ export const DashboardPage = ({
     (s) => s.setAioDownloadItemForImage,
   );
 
-
-  useEffect(() => {
-    if (mode !== 'aio' || subMode !== 'manual') return;
-    if (images.length === 0) return;
-
-    const pipelineState = useAioPipelineStore.getState();
-    const regionState = useRegionEditorStore.getState();
-    const aioPipelineSnapshots = pipelineState.aioPipelineSnapshots;
-    const snapshotsNeedNormalization =
-      aioPipelineSnapshots.length === 0 ||
-      aioPipelineSnapshots.length !== AIO_MANUAL_STAGE_ORDER.length ||
-      AIO_MANUAL_STAGE_ORDER.some(
-        (stageKey, index) => aioPipelineSnapshots[index]?.key !== stageKey,
-      );
-
-    if (snapshotsNeedNormalization) {
-      const normalizedSnapshots =
-        normalizeAioPipelineSnapshotsForManualMode(aioPipelineSnapshots);
-      const normalizedImageIndexById: Record<string, number> = {};
-      images.forEach((image) => {
-        const explicitIndex = pipelineState.aioAutoHistoryAvailable
-          ? pipelineState.aioImageSnapshotIndexById[image.id]
-          : undefined;
-        normalizedImageIndexById[image.id] =
-          typeof explicitIndex === 'number' && explicitIndex >= 0
-            ? clamp(
-              explicitIndex,
-              0,
-              Math.max(0, normalizedSnapshots.length - 1),
-            )
-            : 0;
-      });
-      const manualProgress = initializeManualProgressFromSnapshots(
-        normalizedSnapshots,
-        normalizedImageIndexById,
-      );
-      setAioPipelineSnapshots(normalizedSnapshots);
-      setAioImageSnapshotIndexById(normalizedImageIndexById);
-      setAioManualProgressByImage(manualProgress);
-      const activeManualIndex = activeId
-        ? (manualProgress[activeId]?.currentIndex ?? 0)
-        : 0;
-      setAioPipelineSnapshotIndex(activeManualIndex);
-
-      if (activeId) {
-        const snapshot = normalizedSnapshots[activeManualIndex] ?? null;
-        if (snapshot) {
-          const activeRegions = cloneAioRegions(
-            snapshot.detectionsByImage[activeId] ?? [],
-            cloneRenderStyle,
-          );
-          const activeSelected = resolveSnapshotSelectionForImage(
-            snapshot,
-            activeId,
-            activeRegions,
-            regionState.aioSelectedRegionByImage[activeId] ?? null,
-          );
-          setAioDetectionsByImage((prev) => ({
-            ...prev,
-            [activeId]: activeRegions,
-          }));
-          setAioSelectedRegionByImage((prev) => ({
-            ...prev,
-            [activeId]: activeSelected,
-          }));
-          const activeDownload =
-            snapshot.aioDownloads.find(
-              (entry) => entry.sourceImageId === activeId,
-            ) ?? null;
-          setAioDownloadItemForImage(activeId, activeDownload);
-        }
-      }
-      return;
-    }
-
-    setAioManualProgressByImage((prev) => {
-      const imageIds = new Set(images.map((item) => item.id));
-      let changed = false;
-      const next: Record<string, AioManualImageProgress> = {};
-      Object.entries(prev).forEach(([imageId, progress]) => {
-        if (!imageIds.has(imageId)) {
-          changed = true;
-          return;
-        }
-        next[imageId] = progress;
-      });
-      images.forEach((image) => {
-        if (next[image.id]) return;
-        changed = true;
-        const explicitIndex = pipelineState.aioAutoHistoryAvailable
-          ? pipelineState.aioImageSnapshotIndexById[image.id]
-          : undefined;
-        if (typeof explicitIndex === 'number' && explicitIndex >= 0) {
-          next[image.id] = createAioManualProgressFromAutoIndex(
-            clamp(explicitIndex, 0, AIO_MANUAL_STAGE_ORDER.length - 1),
-          );
-          return;
-        }
-        next[image.id] = createAioManualProgressForIndex(0);
-      });
-      return changed ? next : prev;
-    });
-  }, [
+  useAioManualProgressSync({
     activeId,
     images,
-    initializeManualProgressFromSnapshots,
     mode,
+    subMode,
+    initializeManualProgressFromSnapshots,
     normalizeAioPipelineSnapshotsForManualMode,
     setAioDetectionsByImage,
+    setAioSelectedRegionByImage,
     setAioDownloadItemForImage,
     setAioImageSnapshotIndexById,
     setAioManualProgressByImage,
     setAioPipelineSnapshotIndex,
     setAioPipelineSnapshots,
-    setAioSelectedRegionByImage,
-    subMode,
-  ]);
+    setAioAutoProcessedImageById,
+    setAioManualImageEditsByImage,
+    setAioManualHealingBusyByImage,
+  });
 
   const {
     selectedDetectModel,
@@ -1001,132 +784,17 @@ export const DashboardPage = ({
     (s) => s.markPendingCustomSelection,
   );
 
-  useEffect(() => {
-    const selectedKey = aioStageSelection.getTranslations;
-    const pendingSelection = pendingCustomSelections.translation;
-    if (!isCustomModelSelectionKey(selectedKey)) {
-      if (pendingSelection) {
-        markPendingCustomSelection('translation', null);
-      }
-      return;
-    }
-    if (!customLlmProfilesHydrated || customLlmProfilesLoading) {
-      return;
-    }
-    const optionStillPresent = aioStageOptions.getTranslations.some(
-      (option) => option.key === selectedKey,
-    );
-    if (
-      pendingSelection === selectedKey ||
-      selectedCustomTranslationProfile ||
-      optionStillPresent
-    ) {
-      return;
-    }
-
-    const fallbackTranslationOption = aioStageOptions.getTranslations.find(
-      (option) => option.available && option.implemented,
-    );
-    setAioStageSelection((prev) => ({
-      ...prev,
-      getTranslations: fallbackTranslationOption?.key ?? '',
-    }));
-  }, [
-    aioStageSelection.getTranslations,
-    aioStageOptions.getTranslations,
+  useCustomSelectionReconcile({
+    aioStageSelection,
+    aioStageOptions,
+    setAioStageSelection,
+    pendingCustomSelections,
+    markPendingCustomSelection,
     customLlmProfilesHydrated,
     customLlmProfilesLoading,
-    markPendingCustomSelection,
-    pendingCustomSelections.translation,
     selectedCustomTranslationProfile,
-    setAioStageSelection,
-  ]);
-
-  useEffect(() => {
-    const selectedKey = aioStageSelection.recognizeText;
-    const pendingSelection = pendingCustomSelections.ocr;
-    if (!isCustomModelSelectionKey(selectedKey)) {
-      if (pendingSelection) {
-        markPendingCustomSelection('ocr', null);
-      }
-      return;
-    }
-    if (!customLlmProfilesHydrated || customLlmProfilesLoading) {
-      return;
-    }
-    const optionStillPresent = aioStageOptions.recognizeText.some(
-      (option) => option.key === selectedKey,
-    );
-    if (
-      pendingSelection === selectedKey ||
-      selectedCustomOcrProfile ||
-      optionStillPresent
-    ) {
-      return;
-    }
-
-    const fallbackOcrOption = aioStageOptions.recognizeText.find(
-      (option) => option.available && option.implemented,
-    );
-    setAioStageSelection((prev) => ({
-      ...prev,
-      recognizeText: fallbackOcrOption?.key ?? '',
-    }));
-  }, [
-    aioStageSelection.recognizeText,
-    aioStageOptions.recognizeText,
-    customLlmProfilesHydrated,
-    customLlmProfilesLoading,
-    markPendingCustomSelection,
-    pendingCustomSelections.ocr,
     selectedCustomOcrProfile,
-    setAioStageSelection,
-  ]);
-
-  useEffect(() => {
-    const pendingSelection = pendingCustomSelections.translation;
-    if (!pendingSelection) {
-      return;
-    }
-    if (pendingSelection !== aioStageSelection.getTranslations) {
-      markPendingCustomSelection('translation', null);
-      return;
-    }
-    if (
-      selectedCustomTranslationProfile &&
-      toCustomModelSelectionKey(selectedCustomTranslationProfile) ===
-      pendingSelection
-    ) {
-      markPendingCustomSelection('translation', null);
-    }
-  }, [
-    aioStageSelection.getTranslations,
-    markPendingCustomSelection,
-    pendingCustomSelections.translation,
-    selectedCustomTranslationProfile,
-  ]);
-
-  useEffect(() => {
-    const pendingSelection = pendingCustomSelections.ocr;
-    if (!pendingSelection) {
-      return;
-    }
-    if (pendingSelection !== aioStageSelection.recognizeText) {
-      markPendingCustomSelection('ocr', null);
-      return;
-    }
-    if (
-      selectedCustomOcrProfile &&
-      toCustomModelSelectionKey(selectedCustomOcrProfile) === pendingSelection
-    ) {
-      markPendingCustomSelection('ocr', null);
-    }
-  }, [
-    aioStageSelection.recognizeText,
-    markPendingCustomSelection,
-    pendingCustomSelections.ocr,
-    selectedCustomOcrProfile,
-  ]);
+  });
 
   const {
     isInstalledLocalAioEntry,
@@ -1259,132 +927,6 @@ export const DashboardPage = ({
   });
   const { testFreeProviderConfig, testCustomProfileConfig } = useLlmProviderTest();
 
-  const llmProfilesPersistenceHint = useMemo(() => {
-    if (customLlmProfilesMode === 'desktop_secure') {
-      return t('dashboard.status.profilesPersistedDesktopSecure');
-    }
-    if (customLlmProfilesMode === 'desktop_local') {
-      return t('dashboard.status.profilesPersistedDesktopLocal');
-    }
-    return t('dashboard.status.profilesPersistedBrowser');
-  }, [customLlmProfilesMode, t]);
-
-  const translationFreeProviderManagerSection = useMemo(
-    () => (
-      <TranslationFreeProviderManagerSection
-        translationStandaloneCustomProfiles={translationStandaloneCustomProfiles}
-        getFreeProviderDraft={getFreeProviderDraft}
-        getSelectedFreeProviderProfileLabel={getSelectedFreeProviderProfileLabel}
-        updateFreeProviderDraft={updateFreeProviderDraft}
-        saveFreeProviderProfile={saveFreeProviderProfile}
-        useFreeProviderProfile={useFreeProviderProfile}
-        testFreeProviderConfig={testFreeProviderConfig}
-        useCustomProfileById={useCustomProfileById}
-        testCustomProfileConfig={testCustomProfileConfig}
-        saveCustomProfileInline={saveCustomProfileInline}
-        removeCustomLlmProfileById={removeCustomLlmProfileById}
-      />
-    ),
-    [
-      translationStandaloneCustomProfiles,
-      getFreeProviderDraft,
-      getSelectedFreeProviderProfileLabel,
-      updateFreeProviderDraft,
-      saveFreeProviderProfile,
-      useFreeProviderProfile,
-      testFreeProviderConfig,
-      useCustomProfileById,
-      testCustomProfileConfig,
-      saveCustomProfileInline,
-      removeCustomLlmProfileById,
-    ],
-  );
-  const ocrFreeProviderManagerSection = useMemo(
-    () => (
-      <OcrFreeProviderManagerSection
-        ocrStandaloneCustomProfiles={ocrStandaloneCustomProfiles}
-        getFreeProviderDraft={getFreeProviderDraft}
-        getSelectedFreeProviderProfileLabel={getSelectedFreeProviderProfileLabel}
-        updateFreeProviderDraft={updateFreeProviderDraft}
-        saveFreeProviderProfile={saveFreeProviderProfile}
-        useFreeProviderProfile={useFreeProviderProfile}
-        testFreeProviderConfig={testFreeProviderConfig}
-        useCustomProfileById={useCustomProfileById}
-        testCustomProfileConfig={testCustomProfileConfig}
-        saveCustomProfileInline={saveCustomProfileInline}
-        removeCustomLlmProfileById={removeCustomLlmProfileById}
-      />
-    ),
-    [
-      ocrStandaloneCustomProfiles,
-      getFreeProviderDraft,
-      getSelectedFreeProviderProfileLabel,
-      updateFreeProviderDraft,
-      saveFreeProviderProfile,
-      useFreeProviderProfile,
-      testFreeProviderConfig,
-      useCustomProfileById,
-      testCustomProfileConfig,
-      saveCustomProfileInline,
-      removeCustomLlmProfileById,
-    ],
-  );
-  const translationCustomProfilesManagerSection = useMemo(
-    () => (
-      <TranslationCustomProfilesManagerSection
-        translationStandaloneCustomProfiles={translationStandaloneCustomProfiles}
-        translationCustomProviderNotice={translationCustomProviderNotice}
-        llmProfilesPersistenceHint={llmProfilesPersistenceHint}
-        loadCustomLlmDraftFromProfile={loadCustomLlmDraftFromProfile}
-        updateCustomLlmDraft={updateCustomLlmDraft}
-        useExistingCustomProfile={useExistingCustomProfile}
-        resetCustomLlmDraft={resetCustomLlmDraft}
-        removeCustomLlmDraftProfile={removeCustomLlmDraftProfile}
-        saveCustomLlmDraftProfile={saveCustomLlmDraftProfile}
-        applyOllamaPresetToTranslationDraft={applyOllamaPresetToTranslationDraft}
-      />
-    ),
-    [
-      translationStandaloneCustomProfiles,
-      translationCustomProviderNotice,
-      llmProfilesPersistenceHint,
-      loadCustomLlmDraftFromProfile,
-      updateCustomLlmDraft,
-      useExistingCustomProfile,
-      resetCustomLlmDraft,
-      removeCustomLlmDraftProfile,
-      saveCustomLlmDraftProfile,
-      applyOllamaPresetToTranslationDraft,
-    ],
-  );
-  const ocrCustomProfilesManagerSection = useMemo(
-    () => (
-      <OcrCustomProfilesManagerSection
-        ocrStandaloneCustomProfiles={ocrStandaloneCustomProfiles}
-        ocrCustomProviderNotice={ocrCustomProviderNotice}
-        llmProfilesPersistenceHint={llmProfilesPersistenceHint}
-        loadCustomLlmDraftFromProfile={loadCustomLlmDraftFromProfile}
-        updateCustomLlmDraft={updateCustomLlmDraft}
-        useExistingCustomProfile={useExistingCustomProfile}
-        resetCustomLlmDraft={resetCustomLlmDraft}
-        removeCustomLlmDraftProfile={removeCustomLlmDraftProfile}
-        saveCustomLlmDraftProfile={saveCustomLlmDraftProfile}
-      />
-    ),
-    [
-      ocrStandaloneCustomProfiles,
-      ocrCustomProviderNotice,
-      llmProfilesPersistenceHint,
-      loadCustomLlmDraftFromProfile,
-      updateCustomLlmDraft,
-      useExistingCustomProfile,
-      resetCustomLlmDraft,
-      removeCustomLlmDraftProfile,
-      saveCustomLlmDraftProfile,
-    ],
-  );
-
-
   const {
     availableRenderFonts,
     fontCatalogLoading,
@@ -1404,102 +946,45 @@ export const DashboardPage = ({
       cleanStandaloneCustomProfiles,
     });
 
-  const cleanerAiCustomProfilesManagerSection = useMemo(
-    () => (
-      <CleanerAiCustomProfilesManagerSection
-        cleanStandaloneCustomProfiles={cleanStandaloneCustomProfiles}
-        cleanerAiCustomProviderNotice={cleanerAiCustomProviderNotice}
-        llmProfilesPersistenceHint={llmProfilesPersistenceHint}
-        loadCustomLlmDraftFromProfile={loadCustomLlmDraftFromProfile}
-        updateCustomLlmDraft={updateCustomLlmDraft}
-        useExistingCleanerCustomProfile={useExistingCleanerCustomProfile}
-        resetCustomLlmDraft={resetCustomLlmDraft}
-        removeCleanerCustomDraftProfile={removeCleanerCustomDraftProfile}
-        saveCleanerCustomDraftProfile={saveCleanerCustomDraftProfile}
-      />
-    ),
-    [
-      cleanStandaloneCustomProfiles,
-      cleanerAiCustomProviderNotice,
-      llmProfilesPersistenceHint,
-      loadCustomLlmDraftFromProfile,
-      updateCustomLlmDraft,
-      useExistingCleanerCustomProfile,
-      resetCustomLlmDraft,
-      removeCleanerCustomDraftProfile,
-      saveCleanerCustomDraftProfile,
-    ],
-  );
-  const cleanerAiFreeProviderManagerSection = useMemo(
-    () => (
-      <CleanerAiFreeProviderManagerSection
-        cleanStandaloneCustomProfiles={cleanStandaloneCustomProfiles}
-        getFreeProviderDraft={getFreeProviderDraft}
-        getSelectedFreeProviderProfileLabel={getSelectedFreeProviderProfileLabel}
-        updateFreeProviderDraft={updateFreeProviderDraft}
-        saveFreeProviderProfile={saveFreeProviderProfile}
-        testFreeProviderConfig={testFreeProviderConfig}
-        testCustomProfileConfig={testCustomProfileConfig}
-        saveCustomProfileInline={saveCustomProfileInline}
-        removeCustomLlmProfileById={removeCustomLlmProfileById}
-      />
-    ),
-    [
-      cleanStandaloneCustomProfiles,
-      getFreeProviderDraft,
-      getSelectedFreeProviderProfileLabel,
-      updateFreeProviderDraft,
-      saveFreeProviderProfile,
-      testFreeProviderConfig,
-      testCustomProfileConfig,
-      saveCustomProfileInline,
-      removeCustomLlmProfileById,
-    ],
-  );
+  const {
+    translationFreeProviderManagerSection,
+    ocrFreeProviderManagerSection,
+    translationCustomProfilesManagerSection,
+    ocrCustomProfilesManagerSection,
+    cleanerAiCustomProfilesManagerSection,
+    cleanerAiFreeProviderManagerSection,
+  } = useLlmManagerSections({
+    customLlmProfilesMode,
+    t,
+    translationStandaloneCustomProfiles,
+    ocrStandaloneCustomProfiles,
+    cleanStandaloneCustomProfiles,
+    getFreeProviderDraft,
+    getSelectedFreeProviderProfileLabel,
+    updateFreeProviderDraft,
+    saveFreeProviderProfile,
+    useFreeProviderProfile,
+    testFreeProviderConfig,
+    testCustomProfileConfig,
+    useCustomProfileById,
+    saveCustomProfileInline,
+    removeCustomLlmProfileById,
+    translationCustomProviderNotice,
+    ocrCustomProviderNotice,
+    cleanerAiCustomProviderNotice,
+    loadCustomLlmDraftFromProfile,
+    updateCustomLlmDraft,
+    useExistingCustomProfile,
+    resetCustomLlmDraft,
+    removeCustomLlmDraftProfile,
+    saveCustomLlmDraftProfile,
+    applyOllamaPresetToTranslationDraft,
+    useExistingCleanerCustomProfile,
+    removeCleanerCustomDraftProfile,
+    saveCleanerCustomDraftProfile,
+  });
 
-  // ── Tab definitions ──────────────────────────────────────────────
-  const STAGE_TABS: StageTabDef[] = useMemo(
-    () =>
-      [
-        {
-          key: 'detectText',
-          icon: ScanText,
-          label: t('dashboard.stage.detectText.label'),
-          shortLabel: t('dashboard.stage.detectText.short'),
-        },
-        {
-          key: 'recognizeText',
-          icon: Eye,
-          label: t('dashboard.stage.recognizeText.label'),
-          shortLabel: t('dashboard.stage.recognizeText.short'),
-        },
-        {
-          key: 'getTranslations',
-          icon: Languages,
-          label: t('dashboard.stage.getTranslations.label'),
-          shortLabel: t('dashboard.stage.getTranslations.short'),
-        },
-        {
-          key: 'segmentText',
-          icon: Replace,
-          label: t('dashboard.stage.segmentText.label'),
-          shortLabel: t('dashboard.stage.segmentText.short'),
-        },
-        {
-          key: 'cleanImage',
-          icon: Eraser,
-          label: t('dashboard.stage.cleanImage.label'),
-          shortLabel: t('dashboard.stage.cleanImage.short'),
-        },
-        {
-          key: 'render',
-          icon: Paintbrush,
-          label: t('dashboard.stage.render.label'),
-          shortLabel: t('dashboard.stage.render.short'),
-        },
-      ] as StageTabDef[],
-    [t],
-  );
+  const STAGE_TABS = useStageTabs();
 
   const setActiveStageTab = useUiShellStore((s) => s.setActiveStageTab);
 
@@ -2052,44 +1537,19 @@ export const DashboardPage = ({
     authUser,
   });
 
-  const handleModeChange = useCallback(
-    (newMode: ToolMode) => {
-      if (isModeUnderDevelopment(newMode)) {
-        setTonedStatus(
-          t('dashboard.status.underDevelopment', {
-            mode: modeLabels[newMode],
-            tooltip: underDevelopmentTooltip,
-          }),
-          'error',
-        );
-        return;
-      }
-      setMode(newMode);
-      if (newMode === 'typesetter') {
-        setSubMode('manual');
-      }
-      setMobileNavOpen(false);
-      setMobileToolsOpen(false);
-      setUtilsMenuOpen(false);
-      setDownloadMenuOpen(false);
-      if (!INFO_MODES.includes(newMode)) {
-        setStatusMessage(
-          t('dashboard.status.modeChanged', {
-            mode: modeLabels[newMode],
-          }),
-        );
-      }
-    },
-    [
-      modeLabels,
-      setMode,
-      setStatusMessage,
-      setSubMode,
-      setTonedStatus,
-      t,
-      underDevelopmentTooltip,
-    ],
-  );
+  const handleModeChange = useDashboardModeChange({
+    modeLabels,
+    t,
+    underDevelopmentTooltip,
+    setMode,
+    setSubMode,
+    setTonedStatus,
+    setStatusMessage,
+    setMobileNavOpen,
+    setMobileToolsOpen,
+    setUtilsMenuOpen,
+    setDownloadMenuOpen,
+  });
 
   useDashboardKeyboard({
     activeId,
