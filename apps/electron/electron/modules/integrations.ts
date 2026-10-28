@@ -90,6 +90,10 @@ const setupDiscordIpcHandlers = (): void => {
     await discordRPC.setIdleActivity();
   });
 
+  registerIpcHandler("discord-rpc:clear-activity", async () => {
+    return discordRPC.clearActivity();
+  });
+
   registerIpcHandler("discord-rpc:is-connected", async () => {
     return discordRPC.isConnected();
   });
