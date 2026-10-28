@@ -11,6 +11,7 @@ import './ChapterOptimizerWorkspace.css';
 import { useI18n } from '../../../i18n';
 import { useLatestCallback } from '../../../utils/shallowStable';
 import { useHorizontalDragScroll } from '../../../hooks/useHorizontalDragScroll';
+import { useRafCoalescedState } from '../../../hooks/useRafCoalescedState';
 import ChapterOptimizerControlPanel from './ChapterOptimizerControlPanel';
 import ChapterOptimizerHero from './ChapterOptimizerHero';
 import ChapterOptimizerPreviewPanel from './ChapterOptimizerPreviewPanel';
@@ -317,7 +318,8 @@ export default function ChapterOptimizerWorkspaceClassic({
   const [busy, setBusy] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [showCompare, setShowCompare] = useState(false);
-  const [comparePosition, setComparePosition] = useState(50);
+  const { value: comparePosition, schedule: scheduleComparePosition } =
+    useRafCoalescedState(50);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -325,8 +327,6 @@ export default function ChapterOptimizerWorkspaceClassic({
   const previewTicketRef = useRef(0);
   const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const compareRef = useRef<HTMLDivElement>(null);
-  const comparePositionRafRef = useRef(0);
-  const pendingComparePositionRef = useRef(50);
   const thumbStripRef = useHorizontalDragScroll<HTMLDivElement>();
 
   const variantsByImage = useMemo(() => {
@@ -609,35 +609,17 @@ export default function ChapterOptimizerWorkspaceClassic({
     };
   }, [results]);
 
-  const flushComparePosition = useCallback(() => {
-    comparePositionRafRef.current = 0;
-    setComparePosition(pendingComparePositionRef.current);
-  }, []);
-
   const handleCompareMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
       if (!compareRef.current) return;
       const rect = compareRef.current.getBoundingClientRect();
       const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
       if (clientX === undefined) return;
-      pendingComparePositionRef.current = Math.max(
-        0,
-        Math.min(100, ((clientX - rect.left) / rect.width) * 100),
+      scheduleComparePosition(
+        Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
       );
-      if (comparePositionRafRef.current === 0) {
-        comparePositionRafRef.current = window.requestAnimationFrame(flushComparePosition);
-      }
     },
-    [flushComparePosition],
-  );
-
-  useEffect(
-    () => () => {
-      if (comparePositionRafRef.current !== 0) {
-        window.cancelAnimationFrame(comparePositionRafRef.current);
-      }
-    },
-    [],
+    [scheduleComparePosition],
   );
 
   // Zoom controls

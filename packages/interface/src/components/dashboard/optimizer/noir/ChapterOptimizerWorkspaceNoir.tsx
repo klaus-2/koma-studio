@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { useRafCoalescedState } from '../../../../hooks/useRafCoalescedState';
 import {
   ArrowDownToLine,
   ChevronDown,
@@ -743,32 +744,11 @@ export default function ChapterOptimizerWorkspace({
   const [showCompare, setShowCompare] =
     useState(false);
 
-  const [comparePosition, setComparePosition] =
-    useState(50);
-
-  const comparePositionRafRef = useRef(0);
-  const pendingComparePositionRef = useRef(50);
-
-  const flushComparePosition = useCallback(() => {
-    comparePositionRafRef.current = 0;
-    setComparePosition(pendingComparePositionRef.current);
-  }, []);
-
-  const scheduleComparePosition = useCallback((value: number) => {
-    pendingComparePositionRef.current = value;
-    if (comparePositionRafRef.current === 0) {
-      comparePositionRafRef.current = window.requestAnimationFrame(flushComparePosition);
-    }
-  }, [flushComparePosition]);
-
-  useEffect(
-    () => () => {
-      if (comparePositionRafRef.current !== 0) {
-        window.cancelAnimationFrame(comparePositionRafRef.current);
-      }
-    },
-    [],
-  );
+  const {
+    value: comparePosition,
+    schedule: scheduleComparePosition,
+    setNow: setComparePositionNow,
+  } = useRafCoalescedState(50);
 
   const [filtersExpanded, setFiltersExpanded] =
     useState(false);
@@ -957,12 +937,7 @@ export default function ChapterOptimizerWorkspace({
 
     setOriginalPreviewUrl(nextUrl);
     setPreviewStats(null);
-    if (comparePositionRafRef.current !== 0) {
-      window.cancelAnimationFrame(comparePositionRafRef.current);
-      comparePositionRafRef.current = 0;
-    }
-    pendingComparePositionRef.current = 50;
-    setComparePosition(50);
+    setComparePositionNow(50);
     setZoomLevel(1);
   }, [activeSourceBlob]);
 
