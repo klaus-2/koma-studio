@@ -337,7 +337,7 @@ def refresh_custom_gguf_models() -> None:
             )
             continue
         TRANSLATION_MODELS[key] = {
-            "name": config.name or key.replace("_", " ").title(),
+            "name": config.name,
             "device": "cpu_gpu",
             "use_case": "Local GGUF translation from a user manifest (bring your own weights).",
             "implemented": True,

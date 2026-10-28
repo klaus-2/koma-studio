@@ -57,11 +57,17 @@ def _model(model_id: str, **overrides: object) -> dict[str, object]:
 
 
 class _ManifestTestCase(unittest.TestCase):
+    uses_registry = False
+
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.root = Path(self._tmp.name)
         self.manifest = self.root / "gguf-manifests.json"
+        # Registered before the env patch applies, so it runs after the
+        # ambient environment is restored (cleanup order is LIFO).
+        if self.uses_registry:
+            self.addCleanup(self._refresh_registry)
         self._env = patch.dict(
             os.environ,
             {
@@ -72,6 +78,12 @@ class _ManifestTestCase(unittest.TestCase):
         self._env.start()
         self.addCleanup(self._env.stop)
         self.addCleanup(gguf_manifests.clear_gguf_manifest_cache)
+        if self.uses_registry:
+            self.addCleanup(translation_factory.clear_translator_cache)
+
+    def _refresh_registry(self) -> None:
+        gguf_manifests.clear_gguf_manifest_cache()
+        translation_factory.refresh_custom_gguf_models()
 
     def write_manifest(self, models: list[object]) -> None:
         self.manifest.write_text(
@@ -247,29 +259,7 @@ class CustomGGUFManifestTests(_ManifestTestCase):
 
 @unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
 class CustomGGUFRegistryTests(_ManifestTestCase):
-    def setUp(self) -> None:
-        self._tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmp.cleanup)
-        self.root = Path(self._tmp.name)
-        self.manifest = self.root / "gguf-manifests.json"
-        # Registered before the env patch starts, so this runs *after* the
-        # ambient environment is restored.
-        self.addCleanup(self._refresh_registry)
-        self._env = patch.dict(
-            os.environ,
-            {
-                "KOMA_MODELS_ROOT": str(self.root),
-                "KOMA_GGUF_MANIFESTS": str(self.manifest),
-            },
-        )
-        self._env.start()
-        self.addCleanup(self._env.stop)
-        self.addCleanup(translation_factory.clear_translator_cache)
-        self.addCleanup(gguf_manifests.clear_gguf_manifest_cache)
-
-    def _refresh_registry(self) -> None:
-        gguf_manifests.clear_gguf_manifest_cache()
-        translation_factory.refresh_custom_gguf_models()
+    uses_registry = True
 
     def test_manifest_entries_are_registered(self) -> None:
         self.write_manifest([_model("my-model", name="My Model")])
@@ -338,29 +328,7 @@ class CustomGGUFRegistryTests(_ManifestTestCase):
 
 @unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
 class CustomGGUFTranslatorTests(_ManifestTestCase):
-    def setUp(self) -> None:
-        self._tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmp.cleanup)
-        self.root = Path(self._tmp.name)
-        self.manifest = self.root / "gguf-manifests.json"
-        # Registered before the env patch starts, so this runs *after* the
-        # ambient environment is restored.
-        self.addCleanup(self._refresh_registry)
-        self._env = patch.dict(
-            os.environ,
-            {
-                "KOMA_MODELS_ROOT": str(self.root),
-                "KOMA_GGUF_MANIFESTS": str(self.manifest),
-            },
-        )
-        self._env.start()
-        self.addCleanup(self._env.stop)
-        self.addCleanup(translation_factory.clear_translator_cache)
-        self.addCleanup(gguf_manifests.clear_gguf_manifest_cache)
-
-    def _refresh_registry(self) -> None:
-        gguf_manifests.clear_gguf_manifest_cache()
-        translation_factory.refresh_custom_gguf_models()
+    uses_registry = True
 
     def test_translator_uses_the_manifest_language_pairs(self) -> None:
         self.write_manifest([_model("my-model")])
