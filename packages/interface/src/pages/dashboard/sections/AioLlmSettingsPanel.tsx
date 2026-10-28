@@ -12,8 +12,7 @@ interface AioLlmSettingsPanelProps {
   supportSummary: string;
 }
 
-// Isolated island: owns the llm-providers-store subscription, so llm commits
-// re-render this panel only.
+// Isolated island: owns the llm-providers-store subscription, so llm commits re-render it alone.
 export default memo(function AioLlmSettingsPanel({
   supportSummary,
 }: AioLlmSettingsPanelProps) {
