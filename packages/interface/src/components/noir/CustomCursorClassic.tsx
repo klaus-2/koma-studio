@@ -16,6 +16,7 @@ export const CustomCursorClassic = () => {
   const moveRafRef = useRef(0);
   const visibleRef = useRef(false);
   const variantRef = useRef<CursorVariant>("default");
+  const lastTargetRef = useRef<EventTarget | null>(null);
 
   const [variant, setVariant] = useState<CursorVariant>("default");
   const [visible, setVisible] = useState(false);
@@ -74,10 +75,13 @@ export const CustomCursorClassic = () => {
         setVisible(true);
       }
 
-      const nextVariant = detectVariant(event.target);
-      if (variantRef.current !== nextVariant) {
-        variantRef.current = nextVariant;
-        setVariant(nextVariant);
+      if (event.target !== lastTargetRef.current) {
+        lastTargetRef.current = event.target;
+        const nextVariant = detectVariant(event.target);
+        if (variantRef.current !== nextVariant) {
+          variantRef.current = nextVariant;
+          setVariant(nextVariant);
+        }
       }
     },
     [detectVariant, scheduleDotPosition],
