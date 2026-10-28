@@ -251,7 +251,7 @@ async fn process_download_task(app: &AppHandle, model: &DesktopModelDownloadPayl
                     message: error.to_string(),
                     attempt: 0,
                     will_retry: false,
-                    code: Some("backend_unavailable".to_string()),
+                    code: Some("network".to_string()),
                 },
             );
             return;
