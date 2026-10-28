@@ -431,6 +431,12 @@ export class DesktopModelManagerService {
   // not recreate the directory the uninstall just removed.
   private readonly deliberatelyRemovedModelIds = new Set<string>();
 
+  // A cancel clicked between attempts has no active AbortController to abort;
+  // remember the request so the next attempt can observe it.
+  private readonly cancelRequested = new Set<string>();
+
+  private readonly retryGapModelIds = new Set<string>();
+
   protected jobPollIntervalMs: number = MODEL_JOB_POLL_INTERVAL_MS;
 
   // 150 × 200 ms ≈ 30 s of a local backend that never answers a job poll.
@@ -828,8 +834,11 @@ export class DesktopModelManagerService {
   enqueueDownload(model: DesktopDownloadModelPayload): { queued: boolean; queueLength: number } {
     const normalizedModelId = sanitizeModelId(model.id);
     // A fresh download is a new intent: an earlier uninstall must not keep
-    // suppressing this task's incomplete manifest.
+    // suppressing this task's incomplete manifest, and a stale cancel from a
+    // finished task must not kill it on the first attempt.
     this.deliberatelyRemovedModelIds.delete(normalizedModelId);
+    this.cancelRequested.delete(normalizedModelId);
+    this.retryGapModelIds.delete(normalizedModelId);
     const normalizedModel: DesktopDownloadModelPayload = {
       ...model,
       id: normalizedModelId,
@@ -884,7 +893,12 @@ export class DesktopModelManagerService {
 
     if (this.activeDownload?.modelId === normalizedModelId) {
       this.activeDownload.abortController.abort();
+      return;
     }
+
+    // Between retry attempts there is no active download to abort; the retry
+    // loop observes this flag before starting the next attempt.
+    this.cancelRequested.add(normalizedModelId);
   }
 
   cancelAllDownloads(): void {
@@ -893,6 +907,11 @@ export class DesktopModelManagerService {
     queuedIds.forEach((modelId) => {
       this.emit({ type: "cancelled", modelId });
     });
+
+    // Retry gaps carry no active controller, so they need the explicit flag.
+    for (const modelId of Array.from(this.retryGapModelIds)) {
+      this.cancelRequested.add(modelId);
+    }
 
     if (this.activeDownload) {
       this.activeDownload.abortController.abort();
@@ -956,6 +975,18 @@ export class DesktopModelManagerService {
 
   private async executeDownloadTask(task: DownloadTask): Promise<void> {
     for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt += 1) {
+      this.retryGapModelIds.delete(task.model.id);
+
+      if (this.cancelRequested.has(task.model.id)) {
+        this.cancelRequested.delete(task.model.id);
+        this.writeIncompleteManifest(task.model);
+        this.emit({
+          type: "cancelled",
+          modelId: task.model.id,
+        });
+        return;
+      }
+
       const abortController = new AbortController();
       this.activeDownload = {
         modelId: task.model.id,
@@ -978,22 +1009,28 @@ export class DesktopModelManagerService {
           installedAt: new Date().toISOString(),
         });
 
+        this.cancelRequested.delete(task.model.id);
         this.activeDownload = null;
         return;
       } catch (error) {
         const isCancelled = abortController.signal.aborted;
         const normalizedError =
           error instanceof Error ? error : new Error("Failed to download model.");
+        // The attempt is over: clear the active slot before notifying listeners
+        // so a cancel from the `failed` event lands in the retry gap instead of
+        // aborting an already-finished attempt.
+        this.activeDownload = null;
 
         if (isCancelled) {
           if (!this.deliberatelyRemovedModelIds.has(task.model.id)) {
             this.writeIncompleteManifest(task.model);
           }
+          this.cancelRequested.delete(task.model.id);
+          this.retryGapModelIds.delete(task.model.id);
           this.emit({
             type: "cancelled",
             modelId: task.model.id,
           });
-          this.activeDownload = null;
           return;
         }
 
@@ -1009,12 +1046,13 @@ export class DesktopModelManagerService {
         });
 
         this.writeIncompleteManifest(task.model);
-        this.activeDownload = null;
 
         if (willRetry) {
+          this.retryGapModelIds.add(task.model.id);
           continue;
         }
 
+        this.cancelRequested.delete(task.model.id);
         break;
       }
     }
