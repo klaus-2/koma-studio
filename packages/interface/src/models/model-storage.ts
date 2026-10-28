@@ -161,15 +161,19 @@ export const buildModelInstallStates = (
   const versionByModel = new Map(versionCheck.map((item) => [item.modelId, item]));
 
   const state: Record<string, ModelInstallState> = {};
+  const normalizedSourceLanguage = sourceLanguage
+    ? normalizeLanguageCode(sourceLanguage)
+    : "";
 
   models.forEach((model) => {
     const installed = installedById.get(model.id);
     const versionMeta = versionByModel.get(model.id);
-    const normalizedSourceLanguage = sourceLanguage ? normalizeLanguageCode(sourceLanguage) : "";
     const easyocrLanguageInstalled =
       model.id !== EASYOCR_MODEL_ID ||
       !normalizedSourceLanguage ||
-      (installed?.installedLanguages ?? []).map(normalizeLanguageCode).includes(normalizedSourceLanguage);
+      (installed?.installedLanguages ?? []).some(
+        (language) => normalizeLanguageCode(language) === normalizedSourceLanguage,
+      );
     const incomplete =
       installed?.status === "incomplete" ||
       Boolean(installed?.status === "installed" && model.id === EASYOCR_MODEL_ID && !easyocrLanguageInstalled);
