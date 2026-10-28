@@ -30,7 +30,7 @@
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
     "../../packages/interface/src/pages/Dashboard.tsx": {
-      "maxLines": 2462,
+      "maxLines": 1922,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
     "../../packages/interface/src/pages/dashboard/sections/AioRightPanel.tsx": {
