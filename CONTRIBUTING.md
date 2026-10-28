@@ -65,7 +65,8 @@ The essentials — the bar for the codebase:
    of the PR. Don't reformat, rename or "improve" adjacent code. If you spot
    unrelated dead code, mention it in the PR instead of deleting it.
 3. **No file over 1000 lines** (`.ts`/`.tsx`); components warn above 300.
-   Enforced by `apps/tauri/scripts/audit-line-counts.mjs`.
+   Enforced by `apps/tauri/scripts/audit-line-counts.mjs` (CI hygiene job +
+   lint-staged).
 4. **No `any`, `unknown` escape hatches, `as any` or `@ts-ignore`.** If the types
    fight you, fix the types.
 5. **Never leave the build or tests broken**, and never delete a failing test
