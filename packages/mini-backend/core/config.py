@@ -55,6 +55,9 @@ def _as_int(value: object, fallback: int, minimum: int, maximum: int) -> int:
 
 
 _TRANSLATION_FALLBACK_CHAIN_MAX = 4
+_GLOSSARY_MAX_TERMS = 200
+_GLOSSARY_SOURCE_MAX_CHARS = 120
+_GLOSSARY_TARGET_MAX_CHARS = 240
 
 
 def _as_str_tuple(value: object, maximum: int) -> tuple[str, ...]:
@@ -78,8 +81,27 @@ def _as_str_tuple(value: object, maximum: int) -> tuple[str, ...]:
     return tuple(items)
 
 
-_MODEL_NAME_PATTERN = re.compile(r"[^a-z0-9]+")
+def _as_glossary(value: object) -> tuple[GlossaryTerm, ...]:
+    """Trimmed, de-duplicated (by source) exact-term pairs from a JSON list."""
+    if not isinstance(value, list):
+        return ()
+    terms: list[GlossaryTerm] = []
+    seen: set[str] = set()
+    for entry in value:
+        if not isinstance(entry, dict):
+            continue
+        source = str(entry.get("source") or "").strip()[:_GLOSSARY_SOURCE_MAX_CHARS]
+        target = str(entry.get("target") or "").strip()[:_GLOSSARY_TARGET_MAX_CHARS]
+        if not source or not target or source in seen:
+            continue
+        seen.add(source)
+        terms.append(GlossaryTerm(source=source, target=target))
+        if len(terms) >= _GLOSSARY_MAX_TERMS:
+            break
+    return tuple(terms)
 
+
+_MODEL_NAME_PATTERN = re.compile(r"[^a-z0-9]+")
 
 TRANSLATOR_MODEL_ALIASES: dict[str, str] = {
     "gpt_4o": "gpt_4_1",
@@ -168,6 +190,12 @@ class MiniBackendConfig:
 
 
 @dataclass(frozen=True)
+class GlossaryTerm:
+    source: str
+    target: str
+
+
+@dataclass(frozen=True)
 class LLMRequestSettings:
     extra_context: str = ""
     image_input_enabled: bool = True
@@ -177,6 +205,7 @@ class LLMRequestSettings:
     translation_notes_enabled: bool = True
     neighbor_image_context_enabled: bool = False
     translation_fallback_chain: tuple[str, ...] = ()
+    glossary: tuple[GlossaryTerm, ...] = ()
 
 
 def clamp_llm_request_settings(
@@ -205,6 +234,7 @@ def clamp_llm_request_settings(
     translation_fallback_chain = _as_str_tuple(
         raw.get("translation_fallback_chain"), _TRANSLATION_FALLBACK_CHAIN_MAX
     )
+    glossary = _as_glossary(raw.get("glossary"))
 
     return LLMRequestSettings(
         extra_context=extra_context,
@@ -215,6 +245,7 @@ def clamp_llm_request_settings(
         translation_notes_enabled=translation_notes_enabled,
         neighbor_image_context_enabled=neighbor_image_context_enabled,
         translation_fallback_chain=translation_fallback_chain,
+        glossary=glossary,
     )
 
 
