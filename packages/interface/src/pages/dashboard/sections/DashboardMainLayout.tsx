@@ -1,4 +1,4 @@
-import { Suspense, lazy, memo, useDeferredValue, useCallback } from 'react';
+import { Suspense, lazy, memo, useCallback } from 'react';
 
 import { memoLoad } from '../../../utils/lazyModule';
 import { AlertTriangle } from 'lucide-react';
@@ -182,6 +182,7 @@ export interface DashboardMainLayoutProps {
   translationNotesEnabled: boolean;
   handleStageWheelZoom: (event: React.WheelEvent<HTMLElement>) => void;
   specialModeStageProps: SpecialModeStageProps;
+  deferredStageMode: ToolMode;
   onOpenSettings: DashboardPageProps['onOpenSettings'];
   onOpenModelRankings: DashboardPageProps['onOpenModelRankings'];
   onOpenScanlationFeed: DashboardPageProps['onOpenScanlationFeed'];
@@ -461,7 +462,7 @@ export default memo(function DashboardMainLayout({
   resolvedActiveId,
   translationNotesEnabled,
   handleStageWheelZoom,
-  specialModeStageProps,
+  specialModeStageProps, deferredStageMode,
   onOpenSettings,
   onOpenModelRankings,
   onOpenScanlationFeed,
@@ -711,7 +712,6 @@ export default memo(function DashboardMainLayout({
 
   // ── Store-backed values (granular selectors) ──
   const mode = useUiShellStore((s) => s.mode);
-  const deferredStageMode = useDeferredValue(mode);
   const subMode = useUiShellStore((s) => s.subMode);
   const processing = useUiShellStore((s) => s.processing);
   const zoom = useUiShellStore((s) => s.zoom);

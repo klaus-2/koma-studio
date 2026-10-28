@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo } from 'react';
 import type { RefObject } from 'react';
 
 import type {
@@ -383,6 +383,10 @@ export function useSpecialModeStageProps({
   isDesktopRuntime: boolean;
 }) {
   const mode = useUiShellStore((s) => s.mode);
+  // The stage renders the deferred mode; the props bag must gate and label
+  // itself with the SAME value, or a mid-deferral render hands the still-
+  // mounted special workspace the frozen empty bag.
+  const deferredStageMode = useDeferredValue(mode);
   const processing = useUiShellStore((s) => s.processing);
   const setProcessing = useUiShellStore((s) => s.setProcessing);
   const setProgress = useUiShellStore((s) => s.setProgress);
@@ -417,11 +421,11 @@ export function useSpecialModeStageProps({
   );
   const specialModeStageProps = useMemo(
     () => {
-      if (!SPECIAL_MODES.has(mode)) {
+      if (!SPECIAL_MODES.has(deferredStageMode)) {
         return EMPTY_SPECIAL_MODE_STAGE_PROPS;
       }
       return {
-        mode,
+        mode: deferredStageMode,
         translatorWorkspaceMode,
         images,
         translatorImageImportRef,
@@ -452,9 +456,9 @@ export function useSpecialModeStageProps({
     },
     [
       ensureVerifiedEmailOrNotify,
+      deferredStageMode,
       images,
       isDesktopRuntime,
-      mode,
       outFormat,
       outQuality,
       processing,
@@ -480,5 +484,5 @@ export function useSpecialModeStageProps({
       workspaceRestoreToken,
     ],
   );
-  return { specialModeStageProps };
+  return { specialModeStageProps, deferredStageMode };
 }

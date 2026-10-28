@@ -559,7 +559,7 @@ export const DashboardPage = ({
           : t('dashboard.aio.preparingAuto'),
       );
     },
-    [],
+    [t],
   );
 
   const updateAioExecutionStage = useCallback(
@@ -1585,7 +1585,7 @@ export const DashboardPage = ({
     rotateImage,
   });
 
-  const { specialModeStageProps } = useSpecialModeStageProps({
+  const { specialModeStageProps, deferredStageMode } = useSpecialModeStageProps({
     stitchBatchPlans,
     stitchSafeFileStem,
     ensureVerifiedEmailOrNotify,
@@ -1659,7 +1659,7 @@ export const DashboardPage = ({
       resolvedActiveId={resolvedActiveId}
       translationNotesEnabled={translationNotesEnabled}
       handleStageWheelZoom={handleStageWheelZoom}
-      specialModeStageProps={specialModeStageProps}
+      specialModeStageProps={specialModeStageProps} deferredStageMode={deferredStageMode}
       onOpenSettings={onOpenSettings}
       onOpenModelRankings={onOpenModelRankings}
       onOpenScanlationFeed={onOpenScanlationFeed}
