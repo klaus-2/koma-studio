@@ -173,6 +173,7 @@ async def run_cached_translation(
         settings.extra_context,
         build_current_image_translation_context([to_input_region(s) for s in seeds]),
         request.neighbor_context,
+        glossary=settings.glossary,
     )
 
     chain = settings.translation_fallback_chain
