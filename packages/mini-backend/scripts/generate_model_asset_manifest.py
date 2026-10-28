@@ -7,6 +7,8 @@ protects it.
 
 The asset LISTS come from the backend's own registries (they already own the
 asset lists); this script only resolves the sizes and digests from upstream.
+The ``install`` map records, per model id, the install routing the backend
+registry declares, so the desktop shells can read it instead of re-encoding it.
 
 Sources:
   * HuggingFace ``GET /api/models/{repo}/tree/{rev}?recursive=true``
@@ -54,6 +56,9 @@ TIMEOUT_SECONDS = 120
 _MAX_INLINE_HASH_BYTES = 8 * 1024 * 1024
 
 DETECTOR_PATH = "onnx/PP-OCRv5/det/ch_PP-OCRv5_mobile_det.onnx"
+
+INSTALL_ENDPOINT = "/models/install"
+MANAGED_INSTALL_STRATEGY = "backend_managed"
 
 # model id -> (recognizer upstream name, dictionary file name)
 PADDLEOCR_MODELS: dict[str, tuple[str, str]] = {
@@ -399,6 +404,30 @@ BUILDERS = (
 )
 
 
+def _install_metadata(models: dict[str, dict[str, Any]]) -> dict[str, dict[str, str]]:
+    """model id -> install routing, derived from the backend's own registries.
+
+    A model with an asset builder is backend-managed by construction: the
+    builder wraps the registry the ``/models/install`` dispatch reads. The
+    enhance registry also lists models with no pinned assets, so those declare
+    their strategy explicitly; a registry that leaves it unset is reported as
+    ``unknown`` instead of guessed.
+    """
+    from models.enhance.storage import ENHANCE_MODEL_SPECS
+
+    install: dict[str, dict[str, str]] = {
+        model_id: {"strategy": MANAGED_INSTALL_STRATEGY, "endpoint": INSTALL_ENDPOINT}
+        for model_id in models
+    }
+    for model_id, spec in ENHANCE_MODEL_SPECS.items():
+        strategy = str(spec.get("install_strategy") or "").strip() or "unknown"
+        entry = {"strategy": strategy}
+        if strategy == MANAGED_INSTALL_STRATEGY:
+            entry["endpoint"] = INSTALL_ENDPOINT
+        install[model_id] = entry
+    return install
+
+
 def build_snapshot(*, verify: bool) -> dict[str, object]:
     models: dict[str, Any] = {}
     for _group, builder in BUILDERS:
@@ -410,6 +439,7 @@ def build_snapshot(*, verify: bool) -> dict[str, object]:
             "github": {"api": GITHUB_RELEASE_API},
         },
         "models": models,
+        "install": _install_metadata(models),
     }
 
 
