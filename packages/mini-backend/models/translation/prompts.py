@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from core.config import GlossaryTerm
 from core.languages import get_language_label, normalize_language_code
 from models.translation.base_translator import TranslationInputRegion
 
@@ -206,13 +207,28 @@ def build_current_image_translation_context(
     return "Current page balloon context:\n" + "\n".join(truncated_lines)
 
 
+_GLOSSARY_HEADING = (
+    "Glossary — when a source term below appears, translate it exactly as given:"
+)
+
+
+def format_glossary_block(glossary: tuple[GlossaryTerm, ...]) -> str:
+    if not glossary:
+        return ""
+    lines = [f"- {term.source} => {term.target}" for term in glossary]
+    return _GLOSSARY_HEADING + "\n" + "\n".join(lines)
+
+
 def compose_translation_extra_context(
     user_extra_context: str,
     current_image_context: str,
     neighbor_context: str = "",
+    *,
+    glossary: tuple[GlossaryTerm, ...] = (),
 ) -> str:
     blocks = [
         str(user_extra_context or "").strip(),
+        format_glossary_block(glossary),
         str(current_image_context or "").strip(),
         str(neighbor_context or "").strip(),
     ]
