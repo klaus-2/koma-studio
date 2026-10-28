@@ -13,12 +13,6 @@ import type {
   ViewMode,
 } from '../../../types/dashboard.types';
 
-interface ModeTabsScrollState {
-  left: boolean;
-  right: boolean;
-  hasOverflow: boolean;
-}
-
 interface UiShellStore {
   /* ── Tool mode ── */
   mode: ToolMode;
@@ -35,7 +29,6 @@ interface UiShellStore {
 
   /* ── Tour / mobile ── */
   forcedTourDropdown: DashboardTourForcedDropdown;
-  modeTabsScroll: ModeTabsScrollState;
 
   /* ── Keyboard shortcuts ── */
   keyboardShortcutConfig: KeyboardShortcutConfigV2;
@@ -56,7 +49,6 @@ interface UiShellStore {
   setForcedTourDropdown: (
     forcedTourDropdown: DashboardTourForcedDropdown,
   ) => void;
-  setModeTabsScroll: (modeTabsScroll: ModeTabsScrollState) => void;
   setKeyboardShortcutConfig: (config: KeyboardShortcutConfigV2) => void;
   setEmptyPreviewTipIndex: (
     index: number | ((prev: number) => number),
@@ -75,7 +67,6 @@ export const useUiShellStore = create<UiShellStore>()(
       viewMode: 'long_strip',
       activeStageTab: 'detectText',
       forcedTourDropdown: null,
-      modeTabsScroll: { left: false, right: false, hasOverflow: false },
       keyboardShortcutConfig: loadKeyboardShortcutConfig(),
       emptyPreviewTipIndex: 0,
       inlineEditorShortcutRequestKey: null,
@@ -107,7 +98,6 @@ export const useUiShellStore = create<UiShellStore>()(
         ),
       setForcedTourDropdown: (forcedTourDropdown) =>
         set({ forcedTourDropdown }),
-      setModeTabsScroll: (modeTabsScroll) => set({ modeTabsScroll }),
       setKeyboardShortcutConfig: (keyboardShortcutConfig) =>
         set({ keyboardShortcutConfig }),
       setEmptyPreviewTipIndex: (emptyPreviewTipIndex) =>

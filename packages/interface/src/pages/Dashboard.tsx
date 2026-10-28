@@ -240,7 +240,6 @@ export const DashboardPage = ({
 
   // ── Mobile State ──
   const setForcedTourDropdown = useUiShellStore((s) => s.setForcedTourDropdown);
-  const setModeTabsScroll = useUiShellStore((s) => s.setModeTabsScroll);
   const desktopSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const topbarSidebarRevealRef = useRef<HTMLButtonElement | null>(null);
   const desktopToolsToggleRef = useRef<HTMLButtonElement | null>(null);
@@ -553,7 +552,6 @@ export const DashboardPage = ({
 
   // Refs
   const { setUtilsMenuOpen, setDownloadMenuOpen } = useDashboardMenus();
-  const modeTabsRef = useRef<HTMLElement | null>(null);
   const fontCatalogInputRef = useRef<HTMLInputElement | null>(null);
   const translatorTextImportRef = useRef<HTMLInputElement>(null);
   const translatorImageImportRef = useRef<HTMLInputElement>(null);
@@ -1566,21 +1564,6 @@ export const DashboardPage = ({
     setUser,
   });
 
-  const updateModeTabsScroll = useCallback(() => {
-    const node = modeTabsRef.current;
-    if (!node) return;
-    const maxLeft = node.scrollWidth - node.clientWidth;
-    if (maxLeft <= 4) {
-      setModeTabsScroll({ left: false, right: false, hasOverflow: false });
-      return;
-    }
-    setModeTabsScroll({
-      hasOverflow: true,
-      left: node.scrollLeft > 4,
-      right: node.scrollLeft < maxLeft - 4,
-    });
-  }, [setModeTabsScroll]);
-
   const handleStageWheelZoom = useStageWheelZoom(setZoom);
 
   useEffect(() => {
@@ -1680,20 +1663,6 @@ export const DashboardPage = ({
     setMobileNavOpen(false);
     setUtilsMenuOpen(false);
   }, [mode]);
-
-  useEffect(() => {
-    updateModeTabsScroll();
-    const node = modeTabsRef.current;
-    if (!node) return undefined;
-
-    const onScroll = () => updateModeTabsScroll();
-    node.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      node.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    };
-  }, [updateModeTabsScroll]);
 
   // ── Processing helpers ──
 
