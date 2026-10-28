@@ -3,13 +3,13 @@
 // curated source tree exceeds the line budget defined by the V2 plan.
 //
 // Modes:
-//   default   — scan the full source tree (interface/, shared-models/, src-tauri/src/)
+//   default   — scan the full source tree (shared UI, shared types, Electron, src-tauri/src/)
 //   --staged  — only audit files staged in git (used by lint-staged pre-commit)
 //   --json    — emit machine-readable output instead of human text
 //
 // Limits (matches AGENTS.md golden rules):
 //   - 1000 lines per .ts/.tsx file (HARD)
-//   - 300  lines per component file under interface/components/, interface/pages/, interface/domains/<x>/components/ (WARN by default; HARD with --enforce-component-limit)
+//   - 300  lines per component file under packages/interface/src/components/, src/pages/, src/domains/<x>/components/ (WARN by default; HARD with --enforce-component-limit)
 //
 // Baseline:
 //   `scripts/line-count-baseline.json` grandfathers pre-existing god-files so the
@@ -37,14 +37,17 @@ import { readdirSync } from "node:fs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(SCRIPT_DIR, "..");
+// git prints paths relative to the worktree root (two levels above apps/tauri).
+const REPO_ROOT = resolve(ROOT, "..", "..");
 
 const HARD_FILE_LIMIT = 1000;
 const COMPONENT_LIMIT = 300;
 const BASELINE_PATH = resolve(SCRIPT_DIR, "line-count-baseline.json");
 
 const SCAN_ROOTS = [
-  "interface",
+  "../../packages/interface/src",
   "../../packages/types/src",
+  "../../apps/electron/electron",
   "src-tauri/src",
 ];
 
@@ -68,9 +71,9 @@ const EXCLUDED_DIR_NAMES = new Set([
 const EXTENSIONS = new Set([".ts", ".tsx", ".rs"]);
 
 const COMPONENT_PATH_PATTERNS = [
-  /[\\/]interface[\\/]components[\\/]/,
-  /[\\/]interface[\\/]pages[\\/]/,
-  /[\\/]interface[\\/]domains[\\/][^\\/]+[\\/]components[\\/]/,
+  /[\\/]packages[\\/]interface[\\/]src[\\/]components[\\/]/,
+  /[\\/]packages[\\/]interface[\\/]src[\\/]pages[\\/]/,
+  /[\\/]packages[\\/]interface[\\/]src[\\/]domains[\\/][^\\/]+[\\/]components[\\/]/,
 ];
 
 const argv = process.argv.slice(2);
@@ -137,7 +140,7 @@ function collectFiles() {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((rel) => resolve(ROOT, rel));
+      .map((rel) => resolve(REPO_ROOT, rel));
     const fromArgs = mode.files.map((f) => resolve(ROOT, f));
     const combined = [...new Set([...fromGit, ...fromArgs])];
     return combined.filter((p) => {
@@ -235,7 +238,7 @@ function main() {
       } else {
         grandfathered.push({ path: rel, lines, limit: allowance });
       }
-    } else if (rel.startsWith("interface/") && isComponentPath(filePath) && lines > COMPONENT_LIMIT) {
+    } else if (rel.startsWith("../../packages/interface/src/") && isComponentPath(filePath) && lines > COMPONENT_LIMIT) {
       violations.component.push({ path: rel, lines, limit: COMPONENT_LIMIT });
     }
   }

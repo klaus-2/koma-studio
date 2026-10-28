@@ -54,7 +54,7 @@
     "benchmark:phase1": "node scripts/benchmark-phase1-performance.mjs",
     "audit:lines": "node scripts/audit-line-counts.mjs",
     "audit:lines:update-baseline": "node scripts/audit-line-counts.mjs --update-baseline",
-    "audit:deps": "depcruise interface src-tauri --config .dependency-cruiser.cjs",
+    "audit:deps": "cd ../.. && bun run audit:deps:packages",
     "mini:venv": "node scripts/mini-venv.mjs",
     "mini:install-deps": "node scripts/mini-venv.mjs --install",
     "mini:repair": "node scripts/mini-venv.mjs --recreate",

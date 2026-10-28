@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| `2.x` (Tauri shell) | ✅ Actively developed — fixes land here |
-| `1.x` (Electron shell) | ✅ Critical fixes only |
+| Tauri shell (currently 1.2.x) | ✅ Actively developed — fixes land here |
+| Electron shell (currently 1.2.x) | ✅ Critical fixes only |
 
 The current release is pre-release software. It has not been through a formal
 security audit. Treat it accordingly: don't run it against sensitive data or

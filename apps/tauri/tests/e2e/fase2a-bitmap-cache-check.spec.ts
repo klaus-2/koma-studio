@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Fase-2a remount probe (refactor-queue.md section 6) — temporary, untracked.
+// Fase-2a remount probe — temporary, untracked.
 // The interaction sweep visits each mode once, so it cannot see remount-path
 // effects. This probe measures the aio ⇄ typesetter REMOUNT path for the
 // RenderTextPreview stage: long tasks per switch, pixel-exact reproduction

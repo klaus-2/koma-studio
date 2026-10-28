@@ -205,6 +205,11 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
+      - name: Line-count ratchet
+        # Exit 2 means only advisory >300-line component warnings; a hard-limit
+        # breach or a baselined file growing past its allowance exits 1.
+        run: bun run --filter @koma/tauri audit:lines || [ $? -eq 2 ]
+
       - name: Reject foreign lockfiles
         # A single bun.lock at the monorepo root.
         run: |
