@@ -94,7 +94,6 @@ details.
 
 - Code refactoring and cleanup (the biggest pain point today: giant components with thousands of lines)
 - React performance optimization (Electron/Tauri)
-- `tauri-async` optimization
 - Complete UI redesign + theming system
 - New local model support
 - General local-model performance improvements
