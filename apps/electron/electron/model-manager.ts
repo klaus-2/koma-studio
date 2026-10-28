@@ -427,6 +427,10 @@ export class DesktopModelManagerService {
 
   private processing = false;
 
+  // Model ids the user uninstalled mid-download: their aborted cleanup must
+  // not recreate the directory the uninstall just removed.
+  private readonly deliberatelyRemovedModelIds = new Set<string>();
+
   protected jobPollIntervalMs: number = MODEL_JOB_POLL_INTERVAL_MS;
 
   // 150 × 200 ms ≈ 30 s of a local backend that never answers a job poll.
@@ -823,6 +827,9 @@ export class DesktopModelManagerService {
 
   enqueueDownload(model: DesktopDownloadModelPayload): { queued: boolean; queueLength: number } {
     const normalizedModelId = sanitizeModelId(model.id);
+    // A fresh download is a new intent: an earlier uninstall must not keep
+    // suppressing this task's incomplete manifest.
+    this.deliberatelyRemovedModelIds.delete(normalizedModelId);
     const normalizedModel: DesktopDownloadModelPayload = {
       ...model,
       id: normalizedModelId,
@@ -894,6 +901,9 @@ export class DesktopModelManagerService {
 
   uninstallModel(modelId: string): void {
     const normalizedModelId = sanitizeModelId(modelId);
+    // Record the removal before the abort: the aborted download's cleanup runs
+    // after this and must not write an "incomplete" manifest back.
+    this.deliberatelyRemovedModelIds.add(normalizedModelId);
 
     if (this.activeDownload?.modelId === normalizedModelId) {
       this.activeDownload.abortController.abort();
@@ -976,7 +986,9 @@ export class DesktopModelManagerService {
           error instanceof Error ? error : new Error("Failed to download model.");
 
         if (isCancelled) {
-          this.writeIncompleteManifest(task.model);
+          if (!this.deliberatelyRemovedModelIds.has(task.model.id)) {
+            this.writeIncompleteManifest(task.model);
+          }
           this.emit({
             type: "cancelled",
             modelId: task.model.id,
@@ -1062,6 +1074,12 @@ export class DesktopModelManagerService {
   }
 
   private writeIncompleteManifest(model: DesktopDownloadModelPayload, origin = "download"): void {
+    // An uninstall during the download removed the directory on purpose;
+    // recreating it with an "incomplete" manifest resurrected a broken model.
+    if (this.deliberatelyRemovedModelIds.has(model.id)) {
+      return;
+    }
+
     const manifestPath = this.getModelManifestPath(model.id);
     // Never brand a working install as incomplete: a failed UPDATE of an
     // installed model used to downgrade it forever. Tauri already keeps the
