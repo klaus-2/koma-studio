@@ -427,6 +427,11 @@ export class DesktopModelManagerService {
 
   private processing = false;
 
+  protected jobPollIntervalMs: number = MODEL_JOB_POLL_INTERVAL_MS;
+
+  // 150 × 200 ms ≈ 30 s of a local backend that never answers a job poll.
+  protected maxConsecutivePollFailures: number = 150;
+
   // Declared as fields (not constructor parameter properties) so the service
   // stays loadable by Node's strip-only TypeScript loader in `node --test`.
   private readonly userDataDirProvider: () => string;
@@ -1303,6 +1308,7 @@ export class DesktopModelManagerService {
     const jobId = await this.createModelDownloadJob(backendBaseUrl, model, signal);
     let lastEmittedState = "";
     let firstSnapshot = true;
+    let consecutivePollFailures = 0;
 
     while (true) {
       if (signal.aborted) {
@@ -1312,14 +1318,24 @@ export class DesktopModelManagerService {
       // Poll immediately, then on a short interval: a transfer that finishes
       // inside one interval must still be observed while it is running.
       if (!firstSnapshot) {
-        await this.sleep(MODEL_JOB_POLL_INTERVAL_MS);
+        await this.sleep(this.jobPollIntervalMs);
       }
       firstSnapshot = false;
 
       const snapshot = await this.fetchModelJobSnapshot(backendBaseUrl, jobId, signal);
       if (!snapshot) {
+        consecutivePollFailures += 1;
+        if (consecutivePollFailures > this.maxConsecutivePollFailures) {
+          const error = new Error(
+            "The local backend stopped responding during the model download.",
+          ) as Error & { code?: string };
+          error.code = "network";
+          throw error;
+        }
         continue;
       }
+
+      consecutivePollFailures = 0;
 
       if (snapshot.state !== lastEmittedState) {
         lastEmittedState = snapshot.state;

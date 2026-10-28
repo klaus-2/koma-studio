@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { BrowserWindow } from "electron";
-import type { ModelManagerEvent } from "../../../packages/types/src/desktop-events.ts";
+import type { ModelManagerEvent } from "../../../../packages/types/src/desktop-events.ts";
 import {
   DesktopModelManagerService,
   type DesktopDownloadModelPayload,
@@ -18,6 +18,14 @@ interface ModelManagerHarness {
   events: ModelManagerEvent[];
   userDataDir: string;
   cleanup: () => void;
+}
+
+// Keep the tests in milliseconds: the production poll cadence (200 ms) and
+// dead-backend budget (150 polls) are far too slow for a unit test.
+class TestModelManagerService extends DesktopModelManagerService {
+  protected jobPollIntervalMs = 1;
+
+  protected maxConsecutivePollFailures = 4;
 }
 
 const TEST_MODEL: DesktopDownloadModelPayload = {
@@ -95,7 +103,7 @@ const createHarness = (
     },
   } as BrowserWindow;
 
-  const service = new DesktopModelManagerService(
+  const service = new TestModelManagerService(
     () => userDataDir,
     () => windowStub,
     () => "http://127.0.0.1:9",
