@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// Fase-0 interaction sweep probe (refactor-queue.md section 6) — temporary,
+// Fase-0 interaction sweep probe — temporary,
 // untracked. Walks the dashboard switching tool modes, selecting regions and
 // navigating routes while a PerformanceObserver longtask collector measures
 // the slow main-thread tasks each interaction produces. Measurement-only:

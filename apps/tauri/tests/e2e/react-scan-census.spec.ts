@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// T4.1 census probe (refactor-queue.md section 7) — temporary, untracked.
+// T4.1 census probe — temporary, untracked.
 // Walks the ENTIRE dashboard like a real user while react-scan mirrors every
 // render into window.__komaReactScan and a PerformanceObserver('longtask')
 // collector measures blocking tasks. Each scenario = one window:
