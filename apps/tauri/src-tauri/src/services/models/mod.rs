@@ -119,7 +119,7 @@ impl DownloadTaskError {
     pub fn should_retry(&self) -> bool {
         matches!(
             self.code.as_str(),
-            CODE_NETWORK | CODE_RATE_LIMITED | "job_lost" | "backend_unavailable"
+            CODE_NETWORK | CODE_RATE_LIMITED | "job_lost"
         )
     }
 }
