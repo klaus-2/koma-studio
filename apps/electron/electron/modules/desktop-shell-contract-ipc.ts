@@ -14,7 +14,6 @@ import {
   formatDeepLinkForLog,
 } from "./deep-link.ts";
 import { registerSecureIpcHandler } from "./shared.ts";
-import { discordRPC } from "../discord-rpc.ts";
 
 interface DesktopShellContractIpcDeps {
   authApiUrl: string;
@@ -87,11 +86,6 @@ const setupDesktopShellContractIpcHandlers = (deps: DesktopShellContractIpcDeps)
         };
       });
     return { folderPath, files };
-  });
-
-  // discord-rpc: clear activity (the class already supports it; the channel was missing).
-  registerSecureIpcHandler("discord-rpc:clear-activity", async () => {
-    return discordRPC.clearActivity();
   });
 
   // fonts: install/uninstall are not yet implemented in the electron shell —

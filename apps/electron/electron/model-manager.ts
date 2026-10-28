@@ -427,12 +427,42 @@ export class DesktopModelManagerService {
 
   private processing = false;
 
+  // Model ids the user uninstalled mid-download: their aborted cleanup must
+  // not recreate the directory the uninstall just removed.
+  private readonly deliberatelyRemovedModelIds = new Set<string>();
+
+  // A cancel clicked between attempts has no active AbortController to abort;
+  // remember the request so the next attempt can observe it.
+  private readonly cancelRequested = new Set<string>();
+
+  private readonly retryGapModelIds = new Set<string>();
+
+  protected jobPollIntervalMs: number = MODEL_JOB_POLL_INTERVAL_MS;
+
+  // 150 × 200 ms ≈ 30 s of a local backend that never answers a job poll.
+  protected maxConsecutivePollFailures: number = 150;
+
+  // Declared as fields (not constructor parameter properties) so the service
+  // stays loadable by Node's strip-only TypeScript loader in `node --test`.
+  private readonly userDataDirProvider: () => string;
+
+  private readonly windowProvider: () => BrowserWindow | null;
+
+  private readonly backendBaseUrlProvider: () => string;
+
+  private readonly localApiSessionSecretProvider: () => string;
+
   constructor(
-    private readonly userDataDirProvider: () => string,
-    private readonly windowProvider: () => BrowserWindow | null,
-    private readonly backendBaseUrlProvider: () => string,
-    private readonly localApiSessionSecretProvider: () => string = () => "",
-  ) {}
+    userDataDirProvider: () => string,
+    windowProvider: () => BrowserWindow | null,
+    backendBaseUrlProvider: () => string,
+    localApiSessionSecretProvider: () => string = () => "",
+  ) {
+    this.userDataDirProvider = userDataDirProvider;
+    this.windowProvider = windowProvider;
+    this.backendBaseUrlProvider = backendBaseUrlProvider;
+    this.localApiSessionSecretProvider = localApiSessionSecretProvider;
+  }
 
   private createLocalBackendHeaders(contentType = true): Record<string, string> {
     const headers: Record<string, string> = {};
@@ -803,6 +833,12 @@ export class DesktopModelManagerService {
 
   enqueueDownload(model: DesktopDownloadModelPayload): { queued: boolean; queueLength: number } {
     const normalizedModelId = sanitizeModelId(model.id);
+    // A fresh download is a new intent: an earlier uninstall must not keep
+    // suppressing this task's incomplete manifest, and a stale cancel from a
+    // finished task must not kill it on the first attempt.
+    this.deliberatelyRemovedModelIds.delete(normalizedModelId);
+    this.cancelRequested.delete(normalizedModelId);
+    this.retryGapModelIds.delete(normalizedModelId);
     const normalizedModel: DesktopDownloadModelPayload = {
       ...model,
       id: normalizedModelId,
@@ -857,7 +893,12 @@ export class DesktopModelManagerService {
 
     if (this.activeDownload?.modelId === normalizedModelId) {
       this.activeDownload.abortController.abort();
+      return;
     }
+
+    // Between retry attempts there is no active download to abort; the retry
+    // loop observes this flag before starting the next attempt.
+    this.cancelRequested.add(normalizedModelId);
   }
 
   cancelAllDownloads(): void {
@@ -867,6 +908,11 @@ export class DesktopModelManagerService {
       this.emit({ type: "cancelled", modelId });
     });
 
+    // Retry gaps carry no active controller, so they need the explicit flag.
+    for (const modelId of Array.from(this.retryGapModelIds)) {
+      this.cancelRequested.add(modelId);
+    }
+
     if (this.activeDownload) {
       this.activeDownload.abortController.abort();
     }
@@ -874,6 +920,9 @@ export class DesktopModelManagerService {
 
   uninstallModel(modelId: string): void {
     const normalizedModelId = sanitizeModelId(modelId);
+    // Record the removal before the abort: the aborted download's cleanup runs
+    // after this and must not write an "incomplete" manifest back.
+    this.deliberatelyRemovedModelIds.add(normalizedModelId);
 
     if (this.activeDownload?.modelId === normalizedModelId) {
       this.activeDownload.abortController.abort();
@@ -926,6 +975,18 @@ export class DesktopModelManagerService {
 
   private async executeDownloadTask(task: DownloadTask): Promise<void> {
     for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt += 1) {
+      this.retryGapModelIds.delete(task.model.id);
+
+      if (this.cancelRequested.has(task.model.id)) {
+        this.cancelRequested.delete(task.model.id);
+        this.writeIncompleteManifest(task.model);
+        this.emit({
+          type: "cancelled",
+          modelId: task.model.id,
+        });
+        return;
+      }
+
       const abortController = new AbortController();
       this.activeDownload = {
         modelId: task.model.id,
@@ -948,20 +1009,28 @@ export class DesktopModelManagerService {
           installedAt: new Date().toISOString(),
         });
 
+        this.cancelRequested.delete(task.model.id);
         this.activeDownload = null;
         return;
       } catch (error) {
         const isCancelled = abortController.signal.aborted;
         const normalizedError =
           error instanceof Error ? error : new Error("Failed to download model.");
+        // The attempt is over: clear the active slot before notifying listeners
+        // so a cancel from the `failed` event lands in the retry gap instead of
+        // aborting an already-finished attempt.
+        this.activeDownload = null;
 
         if (isCancelled) {
-          this.writeIncompleteManifest(task.model);
+          if (!this.deliberatelyRemovedModelIds.has(task.model.id)) {
+            this.writeIncompleteManifest(task.model);
+          }
+          this.cancelRequested.delete(task.model.id);
+          this.retryGapModelIds.delete(task.model.id);
           this.emit({
             type: "cancelled",
             modelId: task.model.id,
           });
-          this.activeDownload = null;
           return;
         }
 
@@ -977,12 +1046,13 @@ export class DesktopModelManagerService {
         });
 
         this.writeIncompleteManifest(task.model);
-        this.activeDownload = null;
 
         if (willRetry) {
+          this.retryGapModelIds.add(task.model.id);
           continue;
         }
 
+        this.cancelRequested.delete(task.model.id);
         break;
       }
     }
@@ -1042,6 +1112,12 @@ export class DesktopModelManagerService {
   }
 
   private writeIncompleteManifest(model: DesktopDownloadModelPayload, origin = "download"): void {
+    // An uninstall during the download removed the directory on purpose;
+    // recreating it with an "incomplete" manifest resurrected a broken model.
+    if (this.deliberatelyRemovedModelIds.has(model.id)) {
+      return;
+    }
+
     const manifestPath = this.getModelManifestPath(model.id);
     // Never brand a working install as incomplete: a failed UPDATE of an
     // installed model used to downgrade it forever. Tauri already keeps the
@@ -1288,6 +1364,7 @@ export class DesktopModelManagerService {
     const jobId = await this.createModelDownloadJob(backendBaseUrl, model, signal);
     let lastEmittedState = "";
     let firstSnapshot = true;
+    let consecutivePollFailures = 0;
 
     while (true) {
       if (signal.aborted) {
@@ -1297,14 +1374,24 @@ export class DesktopModelManagerService {
       // Poll immediately, then on a short interval: a transfer that finishes
       // inside one interval must still be observed while it is running.
       if (!firstSnapshot) {
-        await this.sleep(MODEL_JOB_POLL_INTERVAL_MS);
+        await this.sleep(this.jobPollIntervalMs);
       }
       firstSnapshot = false;
 
       const snapshot = await this.fetchModelJobSnapshot(backendBaseUrl, jobId, signal);
       if (!snapshot) {
+        consecutivePollFailures += 1;
+        if (consecutivePollFailures > this.maxConsecutivePollFailures) {
+          const error = new Error(
+            "The local backend stopped responding during the model download.",
+          ) as Error & { code?: string };
+          error.code = "network";
+          throw error;
+        }
         continue;
       }
+
+      consecutivePollFailures = 0;
 
       if (snapshot.state !== lastEmittedState) {
         lastEmittedState = snapshot.state;
