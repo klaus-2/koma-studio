@@ -61,10 +61,6 @@
       "maxLines": 1449,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
-    "src-tauri/src/commands/desktop.rs": {
-      "maxLines": 1786,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
     "src-tauri/src/runtime/profiles.rs": {
       "maxLines": 1252,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
