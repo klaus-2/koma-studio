@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -15,20 +14,14 @@ from models.translation.base_translator import (
     TranslationTextResult,
 )
 from models.translation.errors import LocalModelError, UnsupportedLanguagePairError
+from models.translation.gguf_manifests import (
+    GGUFModelConfig,
+    load_custom_gguf_configs,
+)
 from models.translation.json_types import JsonValue
 from models.translation.local_base import LocalTranslatorBase
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True, slots=True)
-class GGUFModelConfig:
-    gguf_file: str
-    source_languages: frozenset[str]
-    target_languages: frozenset[str]
-    n_ctx: int = 2048
-    n_gpu_layers: int = -1
-
 
 _JA = frozenset({"ja"})
 _EN = frozenset({"en"})
@@ -110,12 +103,14 @@ def _completion_text(output: JsonValue) -> str:
 
 class GGUFLocalTranslator(LocalTranslatorBase):
     def __init__(self, model_key: str, model_dir: str | Path | None = None) -> None:
-        config = GGUF_MODEL_CONFIGS.get(model_key)
+        config = GGUF_MODEL_CONFIGS.get(model_key) or load_custom_gguf_configs().get(
+            model_key
+        )
         if config is None:
             raise LocalModelError(f"Unknown GGUF model: {model_key}")
         super().__init__(key=model_key, model_dir=model_dir)
         self.key = model_key
-        self.name = model_key.replace("_", " ").title()
+        self.name = config.name or model_key.replace("_", " ").title()
         self._config = config
         self._llm: _ChatModel | None = None
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Callable
 from typing import Literal, NotRequired, TypedDict
@@ -19,6 +20,11 @@ from models.translation.local_ctranslate2 import (
     SugoiLocalTranslator,
 )
 from models.translation.local_gguf import GGUFLocalTranslator
+from models.translation.gguf_manifests import (
+    clear_gguf_manifest_cache,
+    custom_gguf_ready,
+    load_custom_gguf_configs,
+)
 from models.translation.local_storage import (
     local_translation_runtime_ready,
     resolve_local_translation_model_dir,
@@ -38,6 +44,8 @@ from models.translation.providers import (
     OpenAIGPTTranslatorEngine,
     YandexTranslatorEngine,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TranslationModelMeta(TypedDict):
@@ -306,6 +314,42 @@ _ENGINE_BUILDERS: dict[str, EngineBuilder] = {
     ),
 }
 
+_CUSTOM_GGUF_KEYS: set[str] = set()
+
+
+def refresh_custom_gguf_models() -> None:
+    """Register the current user manifest on top of the builtin registry.
+
+    Safe to call repeatedly: previous custom keys are removed from both dicts
+    before the manifest is re-read, so a deleted manifest entry disappears on
+    the next refresh instead of leaving a dangling builder.
+    """
+    for key in tuple(_CUSTOM_GGUF_KEYS):
+        TRANSLATION_MODELS.pop(key, None)
+        _ENGINE_BUILDERS.pop(key, None)
+    _CUSTOM_GGUF_KEYS.clear()
+    clear_gguf_manifest_cache()
+
+    for key, config in load_custom_gguf_configs().items():
+        if key in TRANSLATION_MODELS:
+            logger.warning(
+                "translation.custom_gguf.key_collision", extra={"model_key": key}
+            )
+            continue
+        TRANSLATION_MODELS[key] = {
+            "name": config.name or key.replace("_", " ").title(),
+            "device": "cpu_gpu",
+            "use_case": "Local GGUF translation from a user manifest (bring your own weights).",
+            "implemented": True,
+            "kind": "local_gguf",
+            "requires": [],
+        }
+        _ENGINE_BUILDERS[key] = _gguf
+        _CUSTOM_GGUF_KEYS.add(key)
+
+
+refresh_custom_gguf_models()
+
 _unbuildable = TRANSLATION_MODELS.keys() ^ _ENGINE_BUILDERS.keys()
 if _unbuildable:
     raise TranslatorConfigurationError(
@@ -341,13 +385,17 @@ def _is_available(key: str, meta: TranslationModelMeta) -> bool:
     if not meta["implemented"] or meta.get("runtime_support") == "download_only":
         return False
     if meta["kind"] in _LOCAL_KINDS:
+        if key in _CUSTOM_GGUF_KEYS:
+            return custom_gguf_ready(key)
         return model_is_installed(key) and local_translation_runtime_ready(key)
     return _has_required_env(meta["requires"])
 
 
-def _unavailable_reason(meta: TranslationModelMeta) -> str:
+def _unavailable_reason(key: str, meta: TranslationModelMeta) -> str:
     if not meta["implemented"] or meta.get("runtime_support") == "download_only":
         return "no local runtime is implemented for this model"
+    if key in _CUSTOM_GGUF_KEYS:
+        return "the .gguf file named by the user manifest is missing under the models root"
     return "the local model files are not installed or are incomplete"
 
 
@@ -376,7 +424,7 @@ def get_translation_engine(model_key: str | None = None) -> BaseTranslator:
             and not _is_available(selected_key, meta)
         ):
             raise InvalidModelSelectionError(
-                selected_key, _unavailable_reason(meta)
+                selected_key, _unavailable_reason(selected_key, meta)
             )
         if meta is None or not _is_available(selected_key, meta):
             selected_key = DEFAULT_TRANSLATION_MODEL
