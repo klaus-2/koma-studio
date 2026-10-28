@@ -87,6 +87,7 @@ logs/
 .kilocode/
 .openclaude/
 .playwright-mcp/
+.qoder/
 .qwen/
 .opencode/
 .windsurf/
