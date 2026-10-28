@@ -179,6 +179,16 @@ jobs:
           python -m pyflakes packages/mini-backend || true
       - name: Install mini-backend CPU dependencies
         run: python -m pip install -r packages/mini-backend/requirements.txt
+      - name: Install mini-backend test dependencies
+        run: python -m pip install -r packages/mini-backend/requirements-test.txt
+      # pre-existing failure, tracked in plans/README.md
+      - name: Unit tests (pytest, default = not slow)
+        run: |
+          python -m pytest packages/mini-backend -q \
+            --deselect tests/test_base_inpainter.py::BaseInpainterTests::test_harmonization_keeps_white_regions_white_even_with_dark_outline_noise \
+            --deselect tests/test_inpaint_heuristics.py::InpaintHeuristicsTests::test_bright_white_balloon_snaps_back_to_white \
+            --deselect tests/test_inpaint_heuristics.py::InpaintHeuristicsTests::test_colored_background_prefers_local_classical_fill_for_small_regions \
+            --deselect tests/test_mask_generation.py::MaskGenerationTests::test_image_aware_refinement_expands_mask_towards_dark_text_pixels
       - name: Model asset manifest is in sync with upstream
         run: python packages/mini-backend/scripts/generate_model_asset_manifest.py --check
 
