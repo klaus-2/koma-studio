@@ -5,7 +5,6 @@ import type {
   OptimizationPreset,
   OptimizationRecipe,
   OptimizationResult,
-  RawOutputFormat,
 } from '../../../types';
 import './ChapterOptimizerWorkspace.css';
 import { useI18n } from '../../../i18n';
@@ -27,10 +26,16 @@ import {
   savingsPercent,
   ZOOM_LEVELS,
 } from './ChapterOptimizerWorkspace.utils';
+import { runOptimizerJob } from './optimizerJob';
+import { buildOutputName } from './optimizerOutputName';
+import {
+  normalizeRecipe,
+  PRESET_RECIPES,
+  STORAGE_KEY,
+  type OptimizerPersistedRecipe,
+} from './optimizerRecipe';
 
 export type { ChapterOptimizerWorkspaceState } from './ChapterOptimizerWorkspace.types';
-
-type TranslateFn = ReturnType<typeof useI18n>['t'];
 
 interface ChapterOptimizerWorkspaceProps {
   workspaceState?: ChapterOptimizerWorkspaceState | null;
@@ -45,101 +50,6 @@ interface ChapterOptimizerWorkspaceProps {
   triggerBlobDownload: (blob: Blob, fileName: string) => void;
   setStatusMessage: (message: string) => void;
 }
-
-const STORAGE_KEY = 'koma-studio.chapter-optimizer.recipe.v2';
-type OptimizerPersistedRecipe = Omit<Partial<OptimizationRecipe>, 'preset' | 'sharpen'> & {
-  preset?: OptimizationPreset | 'manga';
-  sharpen?: boolean | number;
-};
-
-const DEFAULT_NEW_FIELDS = {
-  brightness: 0,
-  contrast: 0,
-  noiseReduction: false,
-  noiseReductionStrength: 0.5,
-  rotation: 0 as const,
-  renamePattern: '{name}',
-};
-
-const PRESET_RECIPES: Record<OptimizationPreset, OptimizationRecipe> = {
-  'web-light': {
-    preset: 'web-light',
-    outputFormat: 'webp',
-    quality: 0.78,
-    resizeEnabled: true,
-    maxWidth: 1600,
-    maxHeight: 2400,
-    trimBorders: true,
-    trimTolerance: 18,
-    sharpen: false,
-    sharpenStrength: 0.5,
-    grayscale: false,
-    autoLevels: false,
-    ...DEFAULT_NEW_FIELDS,
-  },
-  reading: {
-    preset: 'reading',
-    outputFormat: 'webp',
-    quality: 0.9,
-    resizeEnabled: true,
-    maxWidth: 2200,
-    maxHeight: 3200,
-    trimBorders: false,
-    trimTolerance: 16,
-    sharpen: false,
-    sharpenStrength: 0.3,
-    grayscale: false,
-    autoLevels: false,
-    ...DEFAULT_NEW_FIELDS,
-  },
-  archive: {
-    preset: 'archive',
-    outputFormat: 'png',
-    quality: 1,
-    resizeEnabled: false,
-    maxWidth: 2600,
-    maxHeight: 3600,
-    trimBorders: false,
-    trimTolerance: 10,
-    sharpen: false,
-    sharpenStrength: 0,
-    grayscale: false,
-    autoLevels: false,
-    ...DEFAULT_NEW_FIELDS,
-  },
-  social: {
-    preset: 'social',
-    outputFormat: 'jpeg',
-    quality: 0.85,
-    resizeEnabled: true,
-    maxWidth: 1080,
-    maxHeight: 1350,
-    trimBorders: true,
-    trimTolerance: 14,
-    sharpen: true,
-    sharpenStrength: 0.4,
-    grayscale: false,
-    autoLevels: true,
-    ...DEFAULT_NEW_FIELDS,
-    brightness: 5,
-    contrast: 8,
-  },
-  custom: {
-    preset: 'custom',
-    outputFormat: 'webp',
-    quality: 0.85,
-    resizeEnabled: false,
-    maxWidth: 2000,
-    maxHeight: 3000,
-    trimBorders: false,
-    trimTolerance: 16,
-    sharpen: false,
-    sharpenStrength: 0.5,
-    grayscale: false,
-    autoLevels: false,
-    ...DEFAULT_NEW_FIELDS,
-  },
-};
 
 interface OptimizerWritableFile {
   write: (data: Blob) => Promise<void>;
@@ -169,112 +79,6 @@ const getDirectoryPicker = (): OptimizerDirectoryPicker | null => {
 };
 
 const canUseDirectoryPicker = (): boolean => getDirectoryPicker() !== null;
-
-const normalizeRecipe = (
-  input?: OptimizerPersistedRecipe | null,
-): OptimizationRecipe => {
-  const preset =
-    input?.preset && input.preset in PRESET_RECIPES && input.preset !== 'manga'
-      ? input.preset
-      : 'web-light';
-  const base = PRESET_RECIPES[preset];
-  return {
-    ...base,
-    ...input,
-    preset,
-    sharpen: typeof input?.sharpen === 'number'
-      ? input.sharpen > 0
-      : input?.sharpen ?? base.sharpen,
-    sharpenStrength:
-      typeof input?.sharpen === 'number'
-        ? input.sharpen
-        : input?.sharpenStrength ?? base.sharpenStrength,
-  };
-};
-
-const getExtension = (format: RawOutputFormat): string =>
-  format === 'jpeg' ? 'jpg' : format;
-
-const sanitizeStem = (fileName: string): string =>
-  fileName
-    .replace(/\.[^.]+$/u, '')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-zA-Z0-9_-]+/g, '-');
-
-const buildOutputName = (
-  fileName: string,
-  format: RawOutputFormat,
-  pattern: string,
-  index: number,
-): string => {
-  const stem = sanitizeStem(fileName);
-  const ext = getExtension(format);
-  const padIdx = String(index + 1).padStart(3, '0');
-  const resolved = pattern
-    .replace(/\{name\}/g, stem)
-    .replace(/\{index\}/g, padIdx)
-    .replace(/\{ext\}/g, ext);
-  // If pattern produced something meaningful, use it; otherwise fallback
-  const finalStem = resolved.trim() || stem;
-  return `${finalStem}.${ext}`;
-};
-
-type WorkerSuccess = { blob: Blob; width: number; height: number };
-
-const runOptimizerJob = (
-  payload: {
-    sourceBuffer: ArrayBuffer;
-    sourceMimeType: string;
-  } & OptimizationRecipe,
-  t: TranslateFn,
-): Promise<WorkerSuccess> => {
-  if (typeof Worker === 'undefined') {
-    return Promise.reject(
-      new Error(t('optimizer.error.worker')),
-    );
-  }
-  const worker = new Worker(new URL('./optimizerWorker.ts', import.meta.url), {
-    type: 'module',
-  });
-  const requestId = `optimizer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return new Promise((resolve, reject) => {
-    worker.onmessage = (
-      event: MessageEvent<{
-        id: string;
-        ok: boolean;
-        blob?: Blob;
-        width?: number;
-        height?: number;
-        error?: string;
-      }>,
-    ) => {
-      if (event.data.id !== requestId) return;
-      worker.terminate();
-      if (
-        !event.data.ok ||
-        !event.data.blob ||
-        !event.data.width ||
-        !event.data.height
-      ) {
-        reject(new Error(event.data.error || t('optimizer.error.failed')));
-        return;
-      }
-      resolve({
-        blob: event.data.blob,
-        width: event.data.width,
-        height: event.data.height,
-      });
-    };
-    worker.onerror = () => {
-      worker.terminate();
-      reject(new Error(t('optimizer.error.worker')));
-    };
-    worker.postMessage({
-      id: requestId,
-      ...payload,
-    });
-  });
-};
 
 export default function ChapterOptimizerWorkspaceClassic({
   workspaceState,

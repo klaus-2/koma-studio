@@ -9,10 +9,6 @@
       "maxLines": 1290,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
-    "../../packages/interface/src/components/dashboard/optimizer/noir/ChapterOptimizerWorkspaceNoir.tsx": {
-      "maxLines": 2817,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
     "../../packages/interface/src/components/dashboard/render-text-preview/RenderTextPreviewTypeDock.tsx": {
       "maxLines": 1272,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
