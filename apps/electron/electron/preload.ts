@@ -5,64 +5,14 @@ import {
   type UpdaterSyncEventPayload,
   type UpdaterSyncLogListener,
 } from "../../../packages/types/src/updaterSync.ts";
-
-type ModelManagerEvent =
-  | {
-      type: "queued";
-      modelId: string;
-      queueLength: number;
-    }
-  | {
-      type: "started";
-      modelId: string;
-      attempt: number;
-    }
-  | {
-      type: "progress";
-      modelId: string;
-      bytesDownloaded: number;
-      totalBytes: number;
-      speedBytesPerSecond: number;
-      percent: number;
-      attempt: number;
-    }
-  | {
-      type: "verifying";
-      modelId: string;
-    }
-  | {
-      type: "completed";
-      modelId: string;
-      version: string;
-      installedAt: string;
-    }
-  | {
-      type: "failed";
-      modelId: string;
-      message: string;
-      attempt: number;
-      willRetry: boolean;
-      code?: string;
-    }
-  | {
-      type: "cancelled";
-      modelId: string;
-    };
-
-type ModelManagerListener = (event: ModelManagerEvent) => void;
-
-type MiniBackendRuntimeStatus =
-  | "idle"
-  | "resolving"
-  | "checking"
-  | "downloading"
-  | "verifying"
-  | "extracting"
-  | "ready"
-  | "starting"
-  | "fallback"
-  | "crashed"
-  | "error";
+import {
+  type MiniBackendRuntimeListener,
+  type MiniBackendRuntimeStatePayload,
+  type MiniBackendRuntimeStatus,
+  type ModelDownloadErrorCode,
+  type ModelManagerEvent,
+  type ModelManagerListener,
+} from "../../../packages/types/src/desktop-events.ts";
 
 const MINI_BACKEND_RUNTIME_STATUSES: ReadonlySet<string> = new Set<MiniBackendRuntimeStatus>([
   "idle",
@@ -80,39 +30,6 @@ const MINI_BACKEND_RUNTIME_STATUSES: ReadonlySet<string> = new Set<MiniBackendRu
 
 const isMiniBackendRuntimeStatus = (value: string): value is MiniBackendRuntimeStatus =>
   MINI_BACKEND_RUNTIME_STATUSES.has(value);
-
-interface MiniBackendRuntimeProgressPayload {
-  transferredBytes: number;
-  totalBytes: number;
-  percent: number;
-  speedBytesPerSecond: number;
-}
-
-interface MiniBackendRuntimeStatePayload {
-  status: MiniBackendRuntimeStatus;
-  statusMessage: string | null;
-  requestedProfile: string;
-  activeProfile: string;
-  source: "bundled-core" | "downloaded-runtime";
-  runtimeArtifactsUrl: string | null;
-  runtimeManifestUrl: string | null;
-  runtimeArchiveUrl: string | null;
-  installDir: string | null;
-  downloadCacheDir: string | null;
-  version: string | null;
-  lastError: string | null;
-  attempt: number;
-  maxAttempts: number;
-  exitCode: number | null;
-  lastStderr: string | null;
-  crashLogPath: string | null;
-  progress: MiniBackendRuntimeProgressPayload | null;
-  updatedAt: number | null;
-  gpuName: string | null;
-  vramGb: number | null;
-}
-
-type MiniBackendRuntimeListener = (state: MiniBackendRuntimeStatePayload) => void;
 
 interface MiniBackendRuntimeArtifactOptionPayload {
   profile: string;
@@ -270,7 +187,12 @@ const normalizeMiniBackendRuntimeState = (value: unknown): MiniBackendRuntimeSta
     statusMessage: typeof payload.statusMessage === "string" ? payload.statusMessage : null,
     requestedProfile: typeof payload.requestedProfile === "string" ? payload.requestedProfile : "cpu",
     activeProfile: typeof payload.activeProfile === "string" ? payload.activeProfile : "cpu",
-    source: payload.source === "downloaded-runtime" ? "downloaded-runtime" : "bundled-core",
+    source:
+      payload.source === "downloaded-runtime"
+        ? "downloaded-runtime"
+        : payload.source === "no-runtime-installed"
+          ? "no-runtime-installed"
+          : "bundled-core",
     runtimeArtifactsUrl: typeof payload.runtimeArtifactsUrl === "string" ? payload.runtimeArtifactsUrl : null,
     runtimeManifestUrl: typeof payload.runtimeManifestUrl === "string" ? payload.runtimeManifestUrl : null,
     runtimeArchiveUrl: typeof payload.runtimeArchiveUrl === "string" ? payload.runtimeArchiveUrl : null,
@@ -335,7 +257,7 @@ const MODEL_DOWNLOAD_ERROR_CODES: ReadonlySet<string> = new Set([
   "unknown",
 ]);
 
-const isModelDownloadErrorCode = (value: unknown): value is string =>
+const isModelDownloadErrorCode = (value: unknown): value is ModelDownloadErrorCode =>
   typeof value === "string" && MODEL_DOWNLOAD_ERROR_CODES.has(value);
 
 const normalizeModelManagerEvent = (value: unknown): ModelManagerEvent | null => {
@@ -368,9 +290,15 @@ const normalizeModelManagerEvent = (value: unknown): ModelManagerEvent | null =>
         type,
         modelId,
         bytesDownloaded: Number(payload.bytesDownloaded ?? 0),
-        totalBytes: Number(payload.totalBytes ?? 0),
+        totalBytes:
+          typeof payload.totalBytes === "number" && Number.isFinite(payload.totalBytes)
+            ? payload.totalBytes
+            : null,
         speedBytesPerSecond: Number(payload.speedBytesPerSecond ?? 0),
-        percent: Number(payload.percent ?? 0),
+        percent:
+          typeof payload.percent === "number" && Number.isFinite(payload.percent)
+            ? payload.percent
+            : null,
         attempt: Number(payload.attempt ?? 1),
       };
     case "verifying":
