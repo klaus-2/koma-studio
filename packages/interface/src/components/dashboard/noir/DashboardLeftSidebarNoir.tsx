@@ -53,6 +53,97 @@ interface DashboardLeftSidebarProps {
   removeImage: (imageId: string) => void;
 }
 
+interface SidebarImageItemProps {
+  img: LoadedImage;
+  idx: number;
+  count: number;
+  isActive: boolean;
+  canRewind: boolean;
+  canForward: boolean;
+  processing: boolean;
+  isAioMode: boolean;
+  getRotatedDims: (image: LoadedImage) => { width: number; height: number };
+  setActiveId: (id: string | null) => void;
+  rotateImage: (imageId: string) => void;
+  moveImage: (index: number, direction: 'up' | 'down') => void;
+  removeImage: (imageId: string) => void;
+  rewindAioPipelineForImage: (imageId: string) => void;
+  forwardAioPipelineForImage: (imageId: string) => void;
+  t: ReturnType<typeof useI18n>['t'];
+}
+
+const SidebarImageItem = React.memo(function SidebarImageItem({
+  img,
+  idx,
+  count,
+  isActive,
+  canRewind,
+  canForward,
+  processing,
+  isAioMode,
+  getRotatedDims,
+  setActiveId,
+  rotateImage,
+  moveImage,
+  removeImage,
+  rewindAioPipelineForImage,
+  forwardAioPipelineForImage,
+  t,
+}: SidebarImageItemProps) {
+  const rotated = getRotatedDims(img);
+  return (
+    <m.li
+      layout
+      initial={{ opacity: 0, x: -12 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -12 }}
+      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      onClick={() => setActiveId(img.id)}
+      className={cn(
+        'panel-cut-sm group flex cursor-pointer items-center gap-2 p-1.5 transition-all',
+        isActive
+          ? 'bg-crimson/15 shadow-hard-crimson ring-1 ring-crimson/40'
+          : 'bg-ink-3/60 hover:-translate-x-0.5 hover:bg-ink-3 hover:shadow-hard-paper',
+      )}
+    >
+      <div className="panel-cut-sm relative h-11 w-11 shrink-0 overflow-hidden bg-ink">
+        <img src={img.thumbnailUrl ?? img.url} alt="thumb" loading="lazy" decoding="async" style={{ contain: 'content' }} className="h-full w-full object-cover" />
+        {isActive && <span className="absolute left-1 top-1 h-1.5 w-1.5 bg-crimson blink-noir" aria-hidden="true" />}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <p className="truncate font-mono text-[11px] font-medium text-paper" title={img.file.name}>{img.file.name}</p>
+        <p className="font-mono text-[9px] text-paper-dim">{rotated.width}×{rotated.height}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        {isAioMode && (
+          <>
+            <MiniBtn title={t('dashboard.sidebar.rewindImage')} disabled={processing || !canRewind} onClick={(e) => { e.stopPropagation(); rewindAioPipelineForImage(img.id); }}>
+              <SkipBack size={11} />
+            </MiniBtn>
+            <MiniBtn title={t('dashboard.sidebar.forwardImage')} disabled={processing || !canForward} onClick={(e) => { e.stopPropagation(); forwardAioPipelineForImage(img.id); }}>
+              <SkipForward size={11} />
+            </MiniBtn>
+          </>
+        )}
+        <MiniBtn title={t('dashboard.sidebar.rotate90')} disabled={processing} onClick={(e) => { e.stopPropagation(); rotateImage(img.id); }}>
+          <RotateCw size={12} />
+        </MiniBtn>
+        <div className="flex flex-col">
+          <MiniBtn title={t('dashboard.sidebar.moveUp')} disabled={idx === 0} onClick={(e) => { e.stopPropagation(); moveImage(idx, 'up'); }}>
+            <ArrowUp size={10} />
+          </MiniBtn>
+          <MiniBtn title={t('dashboard.sidebar.moveDown')} disabled={idx === count - 1} onClick={(e) => { e.stopPropagation(); moveImage(idx, 'down'); }}>
+            <ArrowDown size={10} />
+          </MiniBtn>
+        </div>
+        <MiniBtn danger title={t('dashboard.sidebar.remove')} onClick={(e) => { e.stopPropagation(); removeImage(img.id); }}>
+          <X size={12} />
+        </MiniBtn>
+      </div>
+    </m.li>
+  );
+});
+
 export default function DashboardLeftSidebarNoir({
   mobileSidebarOpen,
   isCompactViewport,
@@ -228,60 +319,27 @@ export default function DashboardLeftSidebarNoir({
             <ul className="flex flex-col gap-1.5">
               <AnimatePresence initial={false}>
                 {images.map((img, idx) => {
-                  const rotated = getRotatedDims(img);
                   const meta = getAioImageSnapshotMeta(img.id);
-                  const isActive = activeId === img.id;
                   return (
-                    <m.li
+                    <SidebarImageItem
                       key={img.id}
-                      layout
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -12 }}
-                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                      onClick={() => setActiveId(img.id)}
-                      className={cn(
-                        'panel-cut-sm group flex cursor-pointer items-center gap-2 p-1.5 transition-all',
-                        isActive
-                          ? 'bg-crimson/15 shadow-hard-crimson ring-1 ring-crimson/40'
-                          : 'bg-ink-3/60 hover:-translate-x-0.5 hover:bg-ink-3 hover:shadow-hard-paper',
-                      )}
-                    >
-                      <div className="panel-cut-sm relative h-11 w-11 shrink-0 overflow-hidden bg-ink">
-                        <img src={img.thumbnailUrl ?? img.url} alt="thumb" loading="lazy" decoding="async" style={{ contain: 'content' }} className="h-full w-full object-cover" />
-                        {isActive && <span className="absolute left-1 top-1 h-1.5 w-1.5 bg-crimson blink-noir" aria-hidden="true" />}
-                      </div>
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <p className="truncate font-mono text-[11px] font-medium text-paper" title={img.file.name}>{img.file.name}</p>
-                        <p className="font-mono text-[9px] text-paper-dim">{rotated.width}×{rotated.height}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                        {mode === 'aio' && (
-                          <>
-                            <MiniBtn title={t('dashboard.sidebar.rewindImage')} disabled={processing || !meta.canRewind} onClick={(e) => { e.stopPropagation(); rewindAioPipelineForImage(img.id); }}>
-                              <SkipBack size={11} />
-                            </MiniBtn>
-                            <MiniBtn title={t('dashboard.sidebar.forwardImage')} disabled={processing || !meta.canForward} onClick={(e) => { e.stopPropagation(); forwardAioPipelineForImage(img.id); }}>
-                              <SkipForward size={11} />
-                            </MiniBtn>
-                          </>
-                        )}
-                        <MiniBtn title={t('dashboard.sidebar.rotate90')} disabled={processing} onClick={(e) => { e.stopPropagation(); rotateImage(img.id); }}>
-                          <RotateCw size={12} />
-                        </MiniBtn>
-                        <div className="flex flex-col">
-                          <MiniBtn title={t('dashboard.sidebar.moveUp')} disabled={idx === 0} onClick={(e) => { e.stopPropagation(); moveImage(idx, 'up'); }}>
-                            <ArrowUp size={10} />
-                          </MiniBtn>
-                          <MiniBtn title={t('dashboard.sidebar.moveDown')} disabled={idx === images.length - 1} onClick={(e) => { e.stopPropagation(); moveImage(idx, 'down'); }}>
-                            <ArrowDown size={10} />
-                          </MiniBtn>
-                        </div>
-                        <MiniBtn danger title={t('dashboard.sidebar.remove')} onClick={(e) => { e.stopPropagation(); removeImage(img.id); }}>
-                          <X size={12} />
-                        </MiniBtn>
-                      </div>
-                    </m.li>
+                      img={img}
+                      idx={idx}
+                      count={images.length}
+                      isActive={activeId === img.id}
+                      canRewind={meta.canRewind}
+                      canForward={meta.canForward}
+                      processing={processing}
+                      isAioMode={mode === 'aio'}
+                      getRotatedDims={getRotatedDims}
+                      setActiveId={setActiveId}
+                      rotateImage={rotateImage}
+                      moveImage={moveImage}
+                      removeImage={removeImage}
+                      rewindAioPipelineForImage={rewindAioPipelineForImage}
+                      forwardAioPipelineForImage={forwardAioPipelineForImage}
+                      t={t}
+                    />
                   );
                 })}
               </AnimatePresence>

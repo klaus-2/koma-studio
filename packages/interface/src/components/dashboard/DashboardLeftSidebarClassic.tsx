@@ -70,6 +70,146 @@ interface DashboardLeftSidebarProps {
   removeImage: (imageId: string) => void;
 }
 
+interface SidebarImageItemProps {
+  img: LoadedImage;
+  idx: number;
+  count: number;
+  isActive: boolean;
+  canRewind: boolean;
+  canForward: boolean;
+  processing: boolean;
+  isAioMode: boolean;
+  getRotatedDims: (image: LoadedImage) => { width: number; height: number };
+  setActiveId: (id: string | null) => void;
+  rotateImage: (imageId: string) => void;
+  moveImage: (index: number, direction: 'up' | 'down') => void;
+  removeImage: (imageId: string) => void;
+  rewindAioPipelineForImage: (imageId: string) => void;
+  forwardAioPipelineForImage: (imageId: string) => void;
+  t: ReturnType<typeof useI18n>['t'];
+}
+
+const SidebarImageItem = React.memo(function SidebarImageItem({
+  img,
+  idx,
+  count,
+  isActive,
+  canRewind,
+  canForward,
+  processing,
+  isAioMode,
+  getRotatedDims,
+  setActiveId,
+  rotateImage,
+  moveImage,
+  removeImage,
+  rewindAioPipelineForImage,
+  forwardAioPipelineForImage,
+  t,
+}: SidebarImageItemProps) {
+  const rotated = getRotatedDims(img);
+  return (
+    <li
+      onClick={() => setActiveId(img.id)}
+      className={cn(
+        'koma-fileitem',
+        isActive && 'koma-fileitem--active',
+      )}
+    >
+      <div className="koma-fileitem__thumb">
+        <img src={img.thumbnailUrl ?? img.url} alt="thumb" loading="lazy" decoding="async" style={{ contain: "content" }} />
+      </div>
+      <div className="koma-fileitem__info">
+        <p className="koma-fileitem__name" title={img.file.name}>
+          {img.file.name}
+        </p>
+        <p className="koma-fileitem__dims">
+          {rotated.width}x{rotated.height}
+        </p>
+      </div>
+      <div className="koma-fileitem__actions">
+        {isAioMode && (
+          <>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                rewindAioPipelineForImage(img.id);
+              }}
+              className="koma-iconbtn koma-iconbtn--xs"
+              title={t('dashboard.sidebar.rewindImage')}
+              disabled={processing || !canRewind}
+            >
+              <SkipBack size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                forwardAioPipelineForImage(img.id);
+              }}
+              className="koma-iconbtn koma-iconbtn--xs"
+              title={t('dashboard.sidebar.forwardImage')}
+              disabled={processing || !canForward}
+            >
+              <SkipForward size={12} />
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            rotateImage(img.id);
+          }}
+          className="koma-iconbtn koma-iconbtn--xs"
+          title={t('dashboard.sidebar.rotate90')}
+          disabled={processing}
+        >
+          <RotateCw size={13} />
+        </button>
+        <div className="koma-fileitem__reorder">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              moveImage(idx, 'up');
+            }}
+            disabled={idx === 0}
+            className="koma-iconbtn koma-iconbtn--xs"
+            title={t('dashboard.sidebar.moveUp')}
+          >
+            <ArrowUp size={12} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              moveImage(idx, 'down');
+            }}
+            disabled={idx === count - 1}
+            className="koma-iconbtn koma-iconbtn--xs"
+            title={t('dashboard.sidebar.moveDown')}
+          >
+            <ArrowDown size={12} />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            removeImage(img.id);
+          }}
+          className="koma-iconbtn koma-iconbtn--xs koma-iconbtn--danger"
+          title={t('dashboard.sidebar.remove')}
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </li>
+  );
+});
+
 export default function DashboardLeftSidebarClassic({
   mobileSidebarOpen,
   isCompactViewport,
@@ -260,108 +400,27 @@ export default function DashboardLeftSidebarClassic({
           ) : (
             <ul className="koma-filelist">
               {images.map((img, idx) => {
-                const rotated = getRotatedDims(img);
                 const imageHistoryMeta = getAioImageSnapshotMeta(img.id);
                 return (
-                  <li
+                  <SidebarImageItem
                     key={img.id}
-                    onClick={() => setActiveId(img.id)}
-                    className={cn(
-                      'koma-fileitem',
-                      activeId === img.id && 'koma-fileitem--active',
-                    )}
-                  >
-                    <div className="koma-fileitem__thumb">
-                      <img src={img.thumbnailUrl ?? img.url} alt="thumb" loading="lazy" decoding="async" style={{ contain: "content" }} />
-                    </div>
-                    <div className="koma-fileitem__info">
-                      <p className="koma-fileitem__name" title={img.file.name}>
-                        {img.file.name}
-                      </p>
-                      <p className="koma-fileitem__dims">
-                        {rotated.width}x{rotated.height}
-                      </p>
-                    </div>
-                    <div className="koma-fileitem__actions">
-                      {mode === 'aio' && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              rewindAioPipelineForImage(img.id);
-                            }}
-                            className="koma-iconbtn koma-iconbtn--xs"
-                            title={t('dashboard.sidebar.rewindImage')}
-                            disabled={processing || !imageHistoryMeta.canRewind}
-                          >
-                            <SkipBack size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              forwardAioPipelineForImage(img.id);
-                            }}
-                            className="koma-iconbtn koma-iconbtn--xs"
-                            title={t('dashboard.sidebar.forwardImage')}
-                            disabled={processing || !imageHistoryMeta.canForward}
-                          >
-                            <SkipForward size={12} />
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          rotateImage(img.id);
-                        }}
-                        className="koma-iconbtn koma-iconbtn--xs"
-                        title={t('dashboard.sidebar.rotate90')}
-                        disabled={processing}
-                      >
-                        <RotateCw size={13} />
-                      </button>
-                      <div className="koma-fileitem__reorder">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            moveImage(idx, 'up');
-                          }}
-                          disabled={idx === 0}
-                          className="koma-iconbtn koma-iconbtn--xs"
-                          title={t('dashboard.sidebar.moveUp')}
-                        >
-                          <ArrowUp size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            moveImage(idx, 'down');
-                          }}
-                          disabled={idx === images.length - 1}
-                          className="koma-iconbtn koma-iconbtn--xs"
-                          title={t('dashboard.sidebar.moveDown')}
-                        >
-                          <ArrowDown size={12} />
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeImage(img.id);
-                        }}
-                        className="koma-iconbtn koma-iconbtn--xs koma-iconbtn--danger"
-                        title={t('dashboard.sidebar.remove')}
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </li>
+                    img={img}
+                    idx={idx}
+                    count={images.length}
+                    isActive={activeId === img.id}
+                    canRewind={imageHistoryMeta.canRewind}
+                    canForward={imageHistoryMeta.canForward}
+                    processing={processing}
+                    isAioMode={mode === 'aio'}
+                    getRotatedDims={getRotatedDims}
+                    setActiveId={setActiveId}
+                    rotateImage={rotateImage}
+                    moveImage={moveImage}
+                    removeImage={removeImage}
+                    rewindAioPipelineForImage={rewindAioPipelineForImage}
+                    forwardAioPipelineForImage={forwardAioPipelineForImage}
+                    t={t}
+                  />
                 );
               })}
             </ul>
