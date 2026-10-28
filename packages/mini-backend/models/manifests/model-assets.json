@@ -1,4 +1,162 @@
 {
+  "install": {
+    "2x_anifilm_compact": {
+      "strategy": "manual_import"
+    },
+    "2x_digitalfilm_superultracompact": {
+      "strategy": "manual_import"
+    },
+    "2x_hfa2kcompact": {
+      "strategy": "manual_import"
+    },
+    "2xnomosuni_span_multijpg_ldl": {
+      "strategy": "manual_import"
+    },
+    "4xhfa2kludvaeswinir_light": {
+      "strategy": "manual_import"
+    },
+    "4xnomos2_hq_mosr": {
+      "strategy": "direct_download"
+    },
+    "4xspankendata": {
+      "strategy": "direct_download"
+    },
+    "aot": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "comic_text_detector": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "easyocr": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "got_ocr2": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "hunyuan_7b_mt_v1_0": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "lama_fp32": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "lama_manga": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "lfm2_350m_enjp_mt": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "m2m100_1_2b_ct2": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "mangalmm": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "nllb-200-1.3b": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "nllb-200-1.3b-int8-ct2": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "nllb-200-3.3b": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "nllb-200-600m-int8": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "opencv_lama": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "opus-mt-ja-en": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "opus-mt-zh-en": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "paddleocr": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "paddleocr_ch_v5": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "paddleocr_en_v5": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "paddleocr_latin_v5": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "paddleocr_vl_1_5": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "pororo": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "pp_doclayout_v3": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "qwen2_5_vl_3b": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "realesrgan_x4plus": {
+      "strategy": "manual_import"
+    },
+    "rolmocr": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "sakura_1_5b_qwen2_5_v1_0": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "sakura_galtransl_7b_v3_7": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "sugoi_v4_ja_en_ct2": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "vntl_llama3_8b_v2": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "waifu2x_swin_unet_art_2x": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "waifu2x_swin_unet_art_scan_2x": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
+    "waifu2x_swin_unet_art_scan_4x": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    }
+  },
   "models": {
     "aot": {
       "assets": [
