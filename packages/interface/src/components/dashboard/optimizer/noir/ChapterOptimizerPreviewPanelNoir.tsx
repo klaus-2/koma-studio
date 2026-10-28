@@ -91,7 +91,7 @@ export default function ChapterOptimizerPreviewPanelNoir({
         delay: reduceMotion ? 0 : 0.12,
         ease: EASE,
       }}
-      className="glass panel-cut overflow-hidden xl:sticky xl:top-5"
+      className="glass panel-cut overflow-hidden"
     >
       <header className="flex flex-col gap-3 border-b border-paper/[0.065] p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
