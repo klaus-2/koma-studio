@@ -746,6 +746,30 @@ export default function ChapterOptimizerWorkspace({
   const [comparePosition, setComparePosition] =
     useState(50);
 
+  const comparePositionRafRef = useRef(0);
+  const pendingComparePositionRef = useRef(50);
+
+  const flushComparePosition = useCallback(() => {
+    comparePositionRafRef.current = 0;
+    setComparePosition(pendingComparePositionRef.current);
+  }, []);
+
+  const scheduleComparePosition = useCallback((value: number) => {
+    pendingComparePositionRef.current = value;
+    if (comparePositionRafRef.current === 0) {
+      comparePositionRafRef.current = window.requestAnimationFrame(flushComparePosition);
+    }
+  }, [flushComparePosition]);
+
+  useEffect(
+    () => () => {
+      if (comparePositionRafRef.current !== 0) {
+        window.cancelAnimationFrame(comparePositionRafRef.current);
+      }
+    },
+    [],
+  );
+
   const [filtersExpanded, setFiltersExpanded] =
     useState(false);
 
@@ -933,6 +957,11 @@ export default function ChapterOptimizerWorkspace({
 
     setOriginalPreviewUrl(nextUrl);
     setPreviewStats(null);
+    if (comparePositionRafRef.current !== 0) {
+      window.cancelAnimationFrame(comparePositionRafRef.current);
+      comparePositionRafRef.current = 0;
+    }
+    pendingComparePositionRef.current = 50;
     setComparePosition(50);
     setZoomLevel(1);
   }, [activeSourceBlob]);
@@ -2466,7 +2495,7 @@ export default function ChapterOptimizerWorkspace({
                       )}%`}
                       className="panel-cut-sm absolute inset-0 z-30 size-full cursor-ew-resize appearance-none bg-transparent opacity-0"
                       onChange={(event) =>
-                        setComparePosition(
+                        scheduleComparePosition(
                           Number(
                             event.target.value,
                           ),

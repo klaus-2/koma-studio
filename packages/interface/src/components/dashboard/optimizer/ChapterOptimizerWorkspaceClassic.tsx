@@ -325,6 +325,8 @@ export default function ChapterOptimizerWorkspaceClassic({
   const previewTicketRef = useRef(0);
   const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const compareRef = useRef<HTMLDivElement>(null);
+  const comparePositionRafRef = useRef(0);
+  const pendingComparePositionRef = useRef(50);
   const thumbStripRef = useHorizontalDragScroll<HTMLDivElement>();
 
   const variantsByImage = useMemo(() => {
@@ -607,14 +609,33 @@ export default function ChapterOptimizerWorkspaceClassic({
     };
   }, [results]);
 
+  const flushComparePosition = useCallback(() => {
+    comparePositionRafRef.current = 0;
+    setComparePosition(pendingComparePositionRef.current);
+  }, []);
+
   const handleCompareMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
       if (!compareRef.current) return;
       const rect = compareRef.current.getBoundingClientRect();
       const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
       if (clientX === undefined) return;
-      const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-      setComparePosition(pct);
+      pendingComparePositionRef.current = Math.max(
+        0,
+        Math.min(100, ((clientX - rect.left) / rect.width) * 100),
+      );
+      if (comparePositionRafRef.current === 0) {
+        comparePositionRafRef.current = window.requestAnimationFrame(flushComparePosition);
+      }
+    },
+    [flushComparePosition],
+  );
+
+  useEffect(
+    () => () => {
+      if (comparePositionRafRef.current !== 0) {
+        window.cancelAnimationFrame(comparePositionRafRef.current);
+      }
     },
     [],
   );
