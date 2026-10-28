@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import KlSlider from '../../../../components/dashboard/KlSlider';
 import type {
-  AioTextRegion,
   AreaSelectionCreateMode,
   SegmentEditTool,
   ManualImageEditTool,
@@ -41,7 +40,7 @@ export interface DashboardManualDockProps {
   areaSelectionCreateMode: AreaSelectionCreateMode;
   setAreaSelectionCreateMode: (mode: AreaSelectionCreateMode) => void;
   resolvedAioAreaSelectionShapeKind: string;
-  activeSelectedRegion: AioTextRegion | null;
+  hasActiveSelectedRegion: boolean;
   duplicateSelectedTypographerRegion: () => void;
   applyAutoDetectedShapeToActiveRegion: () => void;
   convertActiveTypographerShape: (kind: 'square' | 'rounded') => void;
@@ -178,8 +177,8 @@ const renderDockTooltipPreview = (kind: DockTooltipPreviewKind): React.ReactNode
       return (
         <div className={base}>
           <span className="absolute left-1/2 top-3 h-10 w-0.5 -translate-x-1/2 bg-crimson/50" />
-          <m.span className="absolute left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-mint"
-            animate={{ top: ['12%', '78%'], opacity: [1, 0.3] }} transition={{ duration: 1.6, repeat: Infinity }} />
+          <m.span className="absolute left-1/2 top-[12%] h-3 w-3 -translate-x-1/2 rounded-full bg-mint"
+            animate={{ y: [0, 42], opacity: [1, 0.3] }} transition={{ duration: 1.6, repeat: Infinity }} />
         </div>
       );
     case 'clear-paint':
@@ -286,7 +285,7 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
   const {
     manualDockRightOffset, manualToolsConfigVisible, manualToolsConfigTitle,
     setManualToolsConfigOpen, areaSelectionToolHasConfig, areaSelectionCreateMode,
-    setAreaSelectionCreateMode, resolvedAioAreaSelectionShapeKind, activeSelectedRegion,
+    setAreaSelectionCreateMode, resolvedAioAreaSelectionShapeKind, hasActiveSelectedRegion,
     duplicateSelectedTypographerRegion, applyAutoDetectedShapeToActiveRegion,
     convertActiveTypographerShape, activeStageAllowsSegmentTools, segmentEditTool,
     segmentBrushSize, setSegmentBrushSize, activeStageAllowsManualImageTools,
@@ -360,10 +359,10 @@ export const DashboardManualDockNoir: React.FC<DashboardManualDockProps> = (prop
                       : t('dashboard.dock.areaSelection.hintFixed').replace('{mode}', areaSelectionCreateMode)}
                   </Hint>
                   <div className="grid grid-cols-2 gap-1.5">
-                    <GhostBtn disabled={!activeSelectedRegion} onClick={duplicateSelectedTypographerRegion}>{t('dashboard.dock.areaSelection.btnDuplicate')}</GhostBtn>
-                    <GhostBtn disabled={!activeSelectedRegion} onClick={applyAutoDetectedShapeToActiveRegion}>{t('dashboard.dock.areaSelection.btnToAuto')}</GhostBtn>
-                    <GhostBtn disabled={!activeSelectedRegion} onClick={() => convertActiveTypographerShape('square')}>{t('dashboard.dock.areaSelection.btnToSquare')}</GhostBtn>
-                    <GhostBtn disabled={!activeSelectedRegion} onClick={() => convertActiveTypographerShape('rounded')}>{t('dashboard.dock.areaSelection.btnToRounded')}</GhostBtn>
+                    <GhostBtn disabled={!hasActiveSelectedRegion} onClick={duplicateSelectedTypographerRegion}>{t('dashboard.dock.areaSelection.btnDuplicate')}</GhostBtn>
+                    <GhostBtn disabled={!hasActiveSelectedRegion} onClick={applyAutoDetectedShapeToActiveRegion}>{t('dashboard.dock.areaSelection.btnToAuto')}</GhostBtn>
+                    <GhostBtn disabled={!hasActiveSelectedRegion} onClick={() => convertActiveTypographerShape('square')}>{t('dashboard.dock.areaSelection.btnToSquare')}</GhostBtn>
+                    <GhostBtn disabled={!hasActiveSelectedRegion} onClick={() => convertActiveTypographerShape('rounded')}>{t('dashboard.dock.areaSelection.btnToRounded')}</GhostBtn>
                   </div>
                 </ConfigSection>
               )}

@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import KlSlider from '../../../components/dashboard/KlSlider';
 import type {
-  AioTextRegion,
   AreaSelectionCreateMode,
   SegmentEditTool,
   ManualImageEditTool,
@@ -40,7 +39,7 @@ export interface DashboardManualDockProps {
   areaSelectionCreateMode: AreaSelectionCreateMode;
   setAreaSelectionCreateMode: (mode: AreaSelectionCreateMode) => void;
   resolvedAioAreaSelectionShapeKind: string;
-  activeSelectedRegion: AioTextRegion | null;
+  hasActiveSelectedRegion: boolean;
   duplicateSelectedTypographerRegion: () => void;
   applyAutoDetectedShapeToActiveRegion: () => void;
   convertActiveTypographerShape: (kind: 'square' | 'rounded') => void;
@@ -282,7 +281,7 @@ export const DashboardManualDockClassic: React.FC<DashboardManualDockProps> = ({
   areaSelectionCreateMode,
   setAreaSelectionCreateMode,
   resolvedAioAreaSelectionShapeKind,
-  activeSelectedRegion,
+  hasActiveSelectedRegion,
   duplicateSelectedTypographerRegion,
   applyAutoDetectedShapeToActiveRegion,
   convertActiveTypographerShape,
@@ -440,7 +439,7 @@ export const DashboardManualDockClassic: React.FC<DashboardManualDockProps> = ({
                   <button
                     type="button"
                     className="koma-btn koma-btn--ghost"
-                    disabled={!activeSelectedRegion}
+                    disabled={!hasActiveSelectedRegion}
                     onClick={duplicateSelectedTypographerRegion}
                   >
                     {t('dashboard.dock.areaSelection.btnDuplicate')}
@@ -448,7 +447,7 @@ export const DashboardManualDockClassic: React.FC<DashboardManualDockProps> = ({
                   <button
                     type="button"
                     className="koma-btn koma-btn--ghost"
-                    disabled={!activeSelectedRegion}
+                    disabled={!hasActiveSelectedRegion}
                     onClick={applyAutoDetectedShapeToActiveRegion}
                   >
                     {t('dashboard.dock.areaSelection.btnToAuto')}
@@ -456,7 +455,7 @@ export const DashboardManualDockClassic: React.FC<DashboardManualDockProps> = ({
                   <button
                     type="button"
                     className="koma-btn koma-btn--ghost"
-                    disabled={!activeSelectedRegion}
+                    disabled={!hasActiveSelectedRegion}
                     onClick={() => convertActiveTypographerShape('square')}
                   >
                     {t('dashboard.dock.areaSelection.btnToSquare')}
@@ -464,7 +463,7 @@ export const DashboardManualDockClassic: React.FC<DashboardManualDockProps> = ({
                   <button
                     type="button"
                     className="koma-btn koma-btn--ghost"
-                    disabled={!activeSelectedRegion}
+                    disabled={!hasActiveSelectedRegion}
                     onClick={() => convertActiveTypographerShape('rounded')}
                   >
                     {t('dashboard.dock.areaSelection.btnToRounded')}

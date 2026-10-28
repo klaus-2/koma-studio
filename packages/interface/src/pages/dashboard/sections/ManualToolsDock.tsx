@@ -254,7 +254,7 @@ export default function ManualToolsDockSection({
           areaSelectionCreateMode={areaSelectionCreateMode}
           setAreaSelectionCreateMode={setAreaSelectionCreateMode}
           resolvedAioAreaSelectionShapeKind={resolvedAioAreaSelectionShapeKindLocal}
-          activeSelectedRegion={activeSelectedRegion}
+          hasActiveSelectedRegion={activeSelectedRegion !== null}
           duplicateSelectedTypographerRegion={
             duplicateSelectedTypographerRegion
           }
