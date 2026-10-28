@@ -37,6 +37,8 @@ import { readdirSync } from "node:fs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(SCRIPT_DIR, "..");
+// git prints paths relative to the worktree root (two levels above apps/tauri).
+const REPO_ROOT = resolve(ROOT, "..", "..");
 
 const HARD_FILE_LIMIT = 1000;
 const COMPONENT_LIMIT = 300;
@@ -138,7 +140,7 @@ function collectFiles() {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((rel) => resolve(ROOT, rel));
+      .map((rel) => resolve(REPO_ROOT, rel));
     const fromArgs = mode.files.map((f) => resolve(ROOT, f));
     const combined = [...new Set([...fromGit, ...fromArgs])];
     return combined.filter((p) => {
