@@ -41,10 +41,6 @@
       "maxLines": 1065,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
-    "../electron/electron/model-manager.ts": {
-      "maxLines": 1578,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
     "../electron/electron/modules/bug-report.ts": {
       "maxLines": 1022,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
