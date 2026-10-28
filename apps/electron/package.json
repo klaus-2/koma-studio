@@ -34,7 +34,7 @@
     "tauri:dev": "bun run dev",
     "dev:all": "bun run dev",
     "test": "node --test \"electron/tests/*.test.ts\" \"scripts/*.test.mjs\"",
-    "test:python": "node scripts/ensure-mini-venv.mjs --exec -m pytest ../../packages/mini-backend/tests scripts/test_electron_ensure_mini_deps_contract.py -q",
+    "test:python": "node scripts/ensure-mini-venv.mjs --exec -m pip install -q -r ../../packages/mini-backend/requirements-test.txt && node scripts/ensure-mini-venv.mjs --exec -m pytest ../../packages/mini-backend/tests scripts/test_electron_ensure_mini_deps_contract.py -q",
     "test:watermark": "node --test interface/components/dashboard/watermark/*.test.mjs",
     "test:electron-runtime": "node scripts/test-electron-runtime.mjs",
     "lint": "eslint .",
