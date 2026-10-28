@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ArrowUpRight, Sparkles, TrendingDown, TrendingUp } from "lucide-react";
 
 import type { ModelLeaderboardRow, RankingMetric } from "../../services/modelReviews";
@@ -19,6 +20,11 @@ export const LeaderboardTable = ({
   onSelectModel,
 }: LeaderboardTableProps) => {
   const { t } = useI18n();
+
+  const reviewedModelIdSet = useMemo(
+    () => new Set(viewerReviewedModelIds),
+    [viewerReviewedModelIds],
+  );
 
   const METRIC_LABELS: Record<RankingMetric, string> = {
     overall: t('ranking.metric.overall'),
@@ -72,7 +78,7 @@ export const LeaderboardTable = ({
         ) : (
           rows.map((row, index) => {
             const isSelected = row.modelId === selectedModelId;
-            const isReviewedByViewer = viewerReviewedModelIds.includes(row.modelId);
+            const isReviewedByViewer = reviewedModelIdSet.has(row.modelId);
             const trendIcon =
               row.trend30d === null || row.trend30d === 0 ? null : row.trend30d > 0 ? (
                 <TrendingUp size={14} />
