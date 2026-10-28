@@ -7,6 +7,11 @@ export type LlmProfilesPersistenceMode =
   | "desktop_local"
   | "browser_local";
 
+export interface GlossaryTerm {
+  source: string;
+  target: string;
+}
+
 export interface LlmRequestSettings {
   extra_context: string;
   image_input_enabled: boolean;
@@ -15,6 +20,7 @@ export interface LlmRequestSettings {
   max_tokens: number;
   translation_notes_enabled: boolean;
   neighbor_image_context_enabled: boolean;
+  glossary: GlossaryTerm[];
 }
 
 export interface LlmCapabilities {
@@ -127,6 +133,7 @@ export const DEFAULT_LLM_REQUEST_SETTINGS: LlmRequestSettings = {
   max_tokens: 4096,
   translation_notes_enabled: true,
   neighbor_image_context_enabled: false,
+  glossary: [],
 };
 
 export const hasAnyLlmCapability = (
@@ -151,6 +158,30 @@ const slugifyModelKey = (value: string): string =>
 
 const clampNumber = (value: number, minimum: number, maximum: number): number =>
   Math.min(Math.max(value, minimum), maximum);
+
+const GLOSSARY_MAX_TERMS = 200;
+const GLOSSARY_SOURCE_MAX_CHARS = 120;
+const GLOSSARY_TARGET_MAX_CHARS = 240;
+
+export const clampGlossary = (
+  terms: ReadonlyArray<GlossaryTerm>,
+): GlossaryTerm[] => {
+  const seen = new Set<string>();
+  const result: GlossaryTerm[] = [];
+  for (const term of terms) {
+    const source = String(term.source ?? '')
+      .trim()
+      .slice(0, GLOSSARY_SOURCE_MAX_CHARS);
+    const target = String(term.target ?? '')
+      .trim()
+      .slice(0, GLOSSARY_TARGET_MAX_CHARS);
+    if (!source || !target || seen.has(source)) continue;
+    seen.add(source);
+    result.push({ source, target });
+    if (result.length >= GLOSSARY_MAX_TERMS) break;
+  }
+  return result;
+};
 
 const safeJsonParse = <T>(value: string | null, fallback: T): T => {
   if (!value) {
@@ -770,6 +801,7 @@ export const clampLlmRequestSettings = (
   ),
   translation_notes_enabled: partial.translation_notes_enabled !== false,
   neighbor_image_context_enabled: partial.neighbor_image_context_enabled === true,
+  glossary: clampGlossary(partial.glossary ?? []),
 });
 
 export const loadPersistedLlmSettings = (): LlmRequestSettings => {

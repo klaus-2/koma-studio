@@ -1617,6 +1617,14 @@ export const enMessages = {
     'Send the page image as multimodal context',
   'dashboard.aio.translation.activeConfigFor':
     'Active configuration for: {value}.',
+  'dashboard.aio.glossary.title': 'Glossary',
+  'dashboard.aio.glossary.hint':
+    'Exact source → target terms sent with every translation request.',
+  'dashboard.aio.glossary.empty': 'No terms yet.',
+  'dashboard.aio.glossary.sourcePlaceholder': 'Source term',
+  'dashboard.aio.glossary.targetPlaceholder': 'Target term',
+  'dashboard.aio.glossary.add': 'Add term',
+  'dashboard.aio.glossary.remove': 'Remove term',
   'dashboard.aio.customAi.title': 'Custom AI',
   'dashboard.aio.customAi.loadingProfiles': 'Loading custom profiles...',
   'dashboard.aio.customAi.savedTranslationProfile': 'Saved Translation profile',

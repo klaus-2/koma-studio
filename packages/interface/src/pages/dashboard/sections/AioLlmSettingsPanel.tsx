@@ -6,6 +6,7 @@ import KlSlider from '../../../components/dashboard/KlSlider';
 import { useI18n } from '../../../i18n';
 import { clampLlmRequestSettings } from '../../../utils/customLlm';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
+import { AioGlossaryEditor } from './AioGlossaryEditor';
 import { AioChecklistOption } from './AioRightPanel.skin';
 
 interface AioLlmSettingsPanelProps {
@@ -26,6 +27,7 @@ export default memo(function AioLlmSettingsPanel({
     llmTemperature,
     llmTopP,
     llmMaxTokens,
+    llmGlossary,
   } = useLlmProvidersStore(
     useShallow((s) => ({
       llmExtraContext: s.llmSettings.extra_context,
@@ -35,6 +37,7 @@ export default memo(function AioLlmSettingsPanel({
       llmTemperature: s.llmSettings.temperature,
       llmTopP: s.llmSettings.top_p,
       llmMaxTokens: s.llmSettings.max_tokens,
+      llmGlossary: s.llmSettings.glossary,
     })),
   );
   const setLlmSettings = useLlmProvidersStore((s) => s.setLlmSettings);
@@ -156,6 +159,15 @@ export default memo(function AioLlmSettingsPanel({
             resetVal={4096}
           />
         </div>
+
+        <AioGlossaryEditor
+          glossary={llmGlossary}
+          onChange={(next) =>
+            setLlmSettings((prev) =>
+              clampLlmRequestSettings({ ...prev, glossary: next }),
+            )
+          }
+        />
 
         <p className="koma-aio-hint">
           {t("dashboard.aio.translation.activeConfigFor", {

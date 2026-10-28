@@ -120,6 +120,7 @@ const makeOptions = (
     max_tokens: 1024,
     translation_notes_enabled: false,
     neighbor_image_context_enabled: false,
+    glossary: [],
   },
   maskDilation: 5,
   hdStrategy: 'original',

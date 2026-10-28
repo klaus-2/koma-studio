@@ -279,6 +279,7 @@ const makeLlmSettings = () => ({
   max_tokens: 2048,
   translation_notes_enabled: false,
   neighbor_image_context_enabled: false,
+  glossary: [],
 });
 
 const makeLlmProfiles = () => [
