@@ -5,7 +5,7 @@ import {
   X, PanelLeftOpen, ChevronLeft, ChevronRight, SkipBack, SkipForward, RefreshCcw,
 } from 'lucide-react';
 
-import { useI18n } from '../../../i18n';
+import { useI18n, type TranslateFn } from '../../../i18n';
 import VersionBadge from '../../VersionBadge';
 import { KomaMascotBadgeNoir } from './KomaMascotBadgeNoir';
 import { cn } from '../../../utils/dashboard.utils';
@@ -69,7 +69,7 @@ interface SidebarImageItemProps {
   removeImage: (imageId: string) => void;
   rewindAioPipelineForImage: (imageId: string) => void;
   forwardAioPipelineForImage: (imageId: string) => void;
-  t: ReturnType<typeof useI18n>['t'];
+  t: TranslateFn;
 }
 
 const SidebarImageItem = React.memo(function SidebarImageItem({

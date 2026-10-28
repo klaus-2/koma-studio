@@ -47,6 +47,8 @@ interface I18nContextValue {
   setLocale: (locale: AppLocale) => void;
 }
 
+export type TranslateFn = I18nContextValue["t"];
+
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 const readStoredLocale = (): AppLocale | null => {
