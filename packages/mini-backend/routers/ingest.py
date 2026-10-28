@@ -80,10 +80,10 @@ def _build_output_name(sequence: int, source_file: str, original_name: str) -> s
 _MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 _MAX_ENTRY_BYTES = 64 * 1024 * 1024
 _MAX_ENTRIES = 2000
-# Decoded pages are retained until the request finishes, so the per-entry cap alone
-# does not bound memory: the sum of the members does.
-_MAX_ARCHIVE_OUTPUT_BYTES = 1024 * 1024 * 1024
-_OUTPUT_BUDGET_EXCEEDED = "{source_file}: archive output exceeds the supported size, remaining entries skipped"
+# Decoded pages are retained for the whole request, so the sum across every upload
+# is what bounds memory.
+_MAX_REQUEST_OUTPUT_BYTES = 1024 * 1024 * 1024
+_OUTPUT_BUDGET_EXCEEDED = "{source_file}: output exceeds the supported size, remaining items skipped"
 
 
 def _select_image_entries(
@@ -154,7 +154,12 @@ def _decode_archive_entry(
     }
 
 
-def _extract_from_zip_payload(payload: bytes, source_file: str) -> tuple[list[dict[str, Any]], list[str]]:
+def _extract_from_zip_payload(
+    payload: bytes,
+    source_file: str,
+    *,
+    budget_bytes: int = _MAX_REQUEST_OUTPUT_BYTES,
+) -> tuple[list[dict[str, Any]], list[str]]:
     extracted_items: list[dict[str, Any]] = []
     warnings: list[str] = []
     try:
@@ -176,7 +181,7 @@ def _extract_from_zip_payload(payload: bytes, source_file: str) -> tuple[list[di
                 if item is None:
                     continue
                 consumed_bytes += len(item["payload"])
-                if consumed_bytes > _MAX_ARCHIVE_OUTPUT_BYTES:
+                if consumed_bytes > budget_bytes:
                     warnings.append(_OUTPUT_BUDGET_EXCEEDED.format(source_file=source_file))
                     break
                 extracted_items.append(item)
@@ -185,7 +190,12 @@ def _extract_from_zip_payload(payload: bytes, source_file: str) -> tuple[list[di
     return extracted_items, warnings
 
 
-def _extract_from_7z_payload(payload: bytes, source_file: str) -> tuple[list[dict[str, Any]], list[str]]:
+def _extract_from_7z_payload(
+    payload: bytes,
+    source_file: str,
+    *,
+    budget_bytes: int = _MAX_REQUEST_OUTPUT_BYTES,
+) -> tuple[list[dict[str, Any]], list[str]]:
     if py7zr is None:
         raise RuntimeError("CB7 support is unavailable (missing py7zr dependency)")
 
@@ -209,7 +219,7 @@ def _extract_from_7z_payload(payload: bytes, source_file: str) -> tuple[list[dic
 
         # The header can understate member sizes, and every extracted member is held
         # in memory at once, so the extraction is capped at what the selection allows.
-        output_ceiling = min(_MAX_ARCHIVE_OUTPUT_BYTES, _MAX_ENTRY_BYTES * len(entry_names))
+        output_ceiling = min(budget_bytes, _MAX_ENTRY_BYTES * len(entry_names))
         with py7zr.SevenZipFile(BytesIO(payload), mode="r", max_extract_size=output_ceiling) as archive:
             factory = BytesIOFactory(limit=_MAX_ENTRY_BYTES)
             archive.extract(targets=entry_names, factory=factory)
@@ -230,7 +240,7 @@ def _extract_from_7z_payload(payload: bytes, source_file: str) -> tuple[list[dic
                 if item is None:
                     continue
                 consumed_bytes += len(item["payload"])
-                if consumed_bytes > _MAX_ARCHIVE_OUTPUT_BYTES:
+                if consumed_bytes > budget_bytes:
                     warnings.append(_OUTPUT_BUDGET_EXCEEDED.format(source_file=source_file))
                     break
                 extracted_items.append(item)
@@ -243,11 +253,18 @@ def _extract_from_7z_payload(payload: bytes, source_file: str) -> tuple[list[dic
     return extracted_items, warnings
 
 
-def _extract_from_pdf_payload(payload: bytes, source_file: str) -> list[dict[str, Any]]:
+def _extract_from_pdf_payload(
+    payload: bytes,
+    source_file: str,
+    *,
+    budget_bytes: int = _MAX_REQUEST_OUTPUT_BYTES,
+) -> tuple[list[dict[str, Any]], list[str]]:
     if pdfium is None:
         raise RuntimeError("PDF support is unavailable (missing pypdfium2 dependency)")
 
     extracted_items: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    consumed_bytes = 0
     try:
         document = pdfium.PdfDocument(payload)
     except Exception as exc:  # noqa: BLE001
@@ -262,24 +279,29 @@ def _extract_from_pdf_payload(payload: bytes, source_file: str) -> list[dict[str
                 pil_image = bitmap.to_pil()
                 buffer = BytesIO()
                 pil_image.convert("RGB").save(buffer, format="PNG")
-                extracted_items.append(
-                    {
-                        "source_file": source_file,
-                        "original_name": f"page-{page_index + 1}.png",
-                        "mime_type": "image/png",
-                        "payload": buffer.getvalue(),
-                    }
-                )
+                page_payload = buffer.getvalue()
             finally:
                 if bitmap is not None and hasattr(bitmap, "close"):
                     bitmap.close()
                 if hasattr(page, "close"):
                     page.close()
+            consumed_bytes += len(page_payload)
+            if consumed_bytes > budget_bytes:
+                warnings.append(_OUTPUT_BUDGET_EXCEEDED.format(source_file=source_file))
+                break
+            extracted_items.append(
+                {
+                    "source_file": source_file,
+                    "original_name": f"page-{page_index + 1}.png",
+                    "mime_type": "image/png",
+                    "payload": page_payload,
+                }
+            )
     finally:
         if hasattr(document, "close"):
             document.close()
 
-    return extracted_items
+    return extracted_items, warnings
 
 
 def _extract_from_psd_payload(payload: bytes, source_file: str) -> list[dict[str, Any]]:
@@ -304,6 +326,41 @@ def _extract_from_psd_payload(payload: bytes, source_file: str) -> list[dict[str
     ]
 
 
+async def _read_upload_items(
+    payload: bytes,
+    *,
+    source_file: str,
+    file_ext: str,
+    budget_bytes: int,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Turn one uploaded payload into PNG items, within the remaining request budget."""
+    if file_ext in SUPPORTED_IMAGE_EXTENSIONS:
+        return [
+            {
+                "source_file": source_file,
+                "original_name": source_file,
+                "mime_type": "image/png",
+                "payload": _to_png_bytes(payload),
+            }
+        ], []
+    if file_ext in ZIP_ARCHIVE_EXTENSIONS:
+        return await asyncio.to_thread(
+            _extract_from_zip_payload, payload, source_file, budget_bytes=budget_bytes
+        )
+    if file_ext in SEVEN_Z_ARCHIVE_EXTENSIONS:
+        return await asyncio.to_thread(
+            _extract_from_7z_payload, payload, source_file, budget_bytes=budget_bytes
+        )
+    if file_ext == ".pdf":
+        return await asyncio.to_thread(
+            _extract_from_pdf_payload, payload, source_file, budget_bytes=budget_bytes
+        )
+    if file_ext == ".psd":
+        items = await asyncio.to_thread(_extract_from_psd_payload, payload, source_file)
+        return items, []
+    return [], [f"{source_file}: unsupported format ({file_ext or 'unknown'})."]
+
+
 @router.post("/ingest/images")
 async def ingest_images(files: list[UploadFile] = File(...)):
     if not files:
@@ -311,6 +368,7 @@ async def ingest_images(files: list[UploadFile] = File(...)):
 
     extracted_items: list[dict[str, Any]] = []
     warnings: list[str] = []
+    remaining_bytes = _MAX_REQUEST_OUTPUT_BYTES
     for index, upload in enumerate(files):
         source_file = upload.filename or f"file-{index + 1}"
         file_ext = _file_extension(source_file)
@@ -318,57 +376,39 @@ async def ingest_images(files: list[UploadFile] = File(...)):
         if not payload:
             warnings.append(f"{source_file}: empty file.")
             continue
+        if remaining_bytes <= 0:
+            warnings.append(_OUTPUT_BUDGET_EXCEEDED.format(source_file=source_file))
+            continue
 
         try:
-            if file_ext in SUPPORTED_IMAGE_EXTENSIONS:
-                normalized = _to_png_bytes(payload)
-                extracted_items.append(
-                    {
-                        "source_file": source_file,
-                        "original_name": source_file,
-                        "mime_type": "image/png",
-                        "payload": normalized,
-                    }
-                )
-                continue
-
-            if file_ext in ZIP_ARCHIVE_EXTENSIONS:
-                archive_items, archive_warnings = await asyncio.to_thread(
-                    _extract_from_zip_payload, payload, source_file
-                )
-                extracted_items.extend(archive_items)
-                warnings.extend(archive_warnings)
-                continue
-
-            if file_ext in SEVEN_Z_ARCHIVE_EXTENSIONS:
-                archive_items, archive_warnings = await asyncio.to_thread(
-                    _extract_from_7z_payload, payload, source_file
-                )
-                extracted_items.extend(archive_items)
-                warnings.extend(archive_warnings)
-                continue
-
-            if file_ext == ".pdf":
-                extracted_items.extend(
-                    await asyncio.to_thread(_extract_from_pdf_payload, payload, source_file)
-                )
-                continue
-
-            if file_ext == ".psd":
-                extracted_items.extend(
-                    await asyncio.to_thread(_extract_from_psd_payload, payload, source_file)
-                )
-                continue
-
-            warnings.append(f"{source_file}: unsupported format ({file_ext or 'unknown'}).")
+            file_items, file_warnings = await _read_upload_items(
+                payload,
+                source_file=source_file,
+                file_ext=file_ext,
+                budget_bytes=remaining_bytes,
+            )
         except RuntimeError as exc:
             warnings.append(f"{source_file}: {exc}")
+            continue
         except ValueError as exc:
             warnings.append(f"{source_file}: {exc}")
+            continue
         except UnidentifiedImageError:
             warnings.append(f"{source_file}: invalid image.")
+            continue
         except Exception as exc:  # noqa: BLE001
             warnings.append(f"{source_file}: failed to process file ({exc}).")
+            continue
+
+        warnings.extend(file_warnings)
+        for item in file_items:
+            item_bytes = len(item["payload"])
+            if item_bytes > remaining_bytes:
+                warnings.append(_OUTPUT_BUDGET_EXCEEDED.format(source_file=source_file))
+                remaining_bytes = 0
+                break
+            extracted_items.append(item)
+            remaining_bytes -= item_bytes
 
     if not extracted_items:
         detail = warnings[0] if warnings else "No valid image was found."
