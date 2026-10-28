@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 
 from io import BytesIO
 import json
@@ -79,6 +80,78 @@ def _build_output_name(sequence: int, source_file: str, original_name: str) -> s
 _MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 _MAX_ENTRY_BYTES = 64 * 1024 * 1024
 _MAX_ENTRIES = 2000
+# Decoded pages are retained until the request finishes, so the per-entry cap alone
+# does not bound memory: the sum of the members does.
+_MAX_ARCHIVE_OUTPUT_BYTES = 1024 * 1024 * 1024
+_OUTPUT_BUDGET_EXCEEDED = "{source_file}: archive output exceeds the supported size, remaining entries skipped"
+
+
+def _select_image_entries(
+    candidates: list[str],
+    *,
+    source_file: str,
+    declared_size: Callable[[str], int | None],
+    warnings: list[str],
+) -> list[str]:
+    """Image members in stable order, within the entry count and size caps."""
+    entry_names = sorted(
+        [
+            name
+            for name in candidates
+            if name and not name.endswith("/") and _file_extension(name) in SUPPORTED_IMAGE_EXTENSIONS
+        ],
+        key=lambda value: value.lower(),
+    )
+    if len(entry_names) > _MAX_ENTRIES:
+        warnings.append(
+            f"{source_file}: too many archive entries ({len(entry_names)}), "
+            f"processing only the first {_MAX_ENTRIES}."
+        )
+        entry_names = entry_names[:_MAX_ENTRIES]
+
+    kept: list[str] = []
+    for entry_name in entry_names:
+        size = declared_size(entry_name)
+        if size is not None and size > _MAX_ENTRY_BYTES:
+            warnings.append(f"{source_file}: entry too large, skipped: {entry_name}")
+            continue
+        kept.append(entry_name)
+    return kept
+
+
+def _read_factory_payload(entry_file: Any) -> bytes:
+    """Rewind a py7zr writer before reading its payload."""
+    entry_file.seek(0)
+    return entry_file.read()
+
+
+def _decode_archive_entry(
+    source_file: str,
+    entry_name: str,
+    read_payload: Callable[[], bytes],
+    warnings: list[str],
+) -> dict[str, Any] | None:
+    """Decode one archive member into a PNG item, or record why it was skipped."""
+    try:
+        entry_payload = read_payload()
+        # The declared size is advisory, and py7zr's factory limit stops only after
+        # the chunk that crosses it, so the produced byte count is the real cap.
+        if len(entry_payload) > _MAX_ENTRY_BYTES:
+            warnings.append(f"{source_file}: entry too large, skipped: {entry_name}")
+            return None
+        normalized = _to_png_bytes(entry_payload)
+    except UnidentifiedImageError:
+        warnings.append(f"{source_file}: item skipped (invalid image): {entry_name}")
+        return None
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"{source_file}: failed to read item {entry_name}: {exc}")
+        return None
+    return {
+        "source_file": source_file,
+        "original_name": entry_name,
+        "mime_type": "image/png",
+        "payload": normalized,
+    }
 
 
 def _extract_from_zip_payload(payload: bytes, source_file: str) -> tuple[list[dict[str, Any]], list[str]]:
@@ -86,41 +159,27 @@ def _extract_from_zip_payload(payload: bytes, source_file: str) -> tuple[list[di
     warnings: list[str] = []
     try:
         with zipfile.ZipFile(BytesIO(payload), mode="r") as archive:
-            entry_names = sorted(
-                [
-                    name
-                    for name in archive.namelist()
-                    if name and not name.endswith("/") and _file_extension(name) in SUPPORTED_IMAGE_EXTENSIONS
-                ],
-                key=lambda value: value.lower(),
+            entry_names = _select_image_entries(
+                archive.namelist(),
+                source_file=source_file,
+                declared_size=lambda name: archive.getinfo(name).file_size,
+                warnings=warnings,
             )
-            if len(entry_names) > _MAX_ENTRIES:
-                warnings.append(
-                    f"{source_file}: too many archive entries ({len(entry_names)}), "
-                    f"processing only the first {_MAX_ENTRIES}."
-                )
-                entry_names = entry_names[:_MAX_ENTRIES]
+            consumed_bytes = 0
             for entry_name in entry_names:
-                if archive.getinfo(entry_name).file_size > _MAX_ENTRY_BYTES:
-                    warnings.append(f"{source_file}: entry too large, skipped: {entry_name}")
-                    continue
-                try:
-                    entry_payload = archive.read(entry_name)
-                    normalized = _to_png_bytes(entry_payload)
-                except UnidentifiedImageError:
-                    warnings.append(f"{source_file}: item skipped (invalid image): {entry_name}")
-                    continue
-                except Exception as exc:  # noqa: BLE001
-                    warnings.append(f"{source_file}: failed to read item {entry_name}: {exc}")
-                    continue
-                extracted_items.append(
-                    {
-                        "source_file": source_file,
-                        "original_name": entry_name,
-                        "mime_type": "image/png",
-                        "payload": normalized,
-                    }
+                item = _decode_archive_entry(
+                    source_file,
+                    entry_name,
+                    lambda name=entry_name: archive.read(name),
+                    warnings,
                 )
+                if item is None:
+                    continue
+                consumed_bytes += len(item["payload"])
+                if consumed_bytes > _MAX_ARCHIVE_OUTPUT_BYTES:
+                    warnings.append(_OUTPUT_BUDGET_EXCEEDED.format(source_file=source_file))
+                    break
+                extracted_items.append(item)
     except zipfile.BadZipFile as exc:
         raise ValueError(f"invalid ZIP/CBZ file: {exc}") from exc
     return extracted_items, warnings
@@ -133,76 +192,48 @@ def _extract_from_7z_payload(payload: bytes, source_file: str) -> tuple[list[dic
     extracted_items: list[dict[str, Any]] = []
     warnings: list[str] = []
     try:
-        # max_extract_size aborts a stream that expands past what the entry caps
-        # allow, even when the archive header understates the real member sizes.
-        with py7zr.SevenZipFile(
-            BytesIO(payload),
-            mode="r",
-            max_extract_size=_MAX_ENTRIES * _MAX_ENTRY_BYTES,
-        ) as archive:
+        with py7zr.SevenZipFile(BytesIO(payload), mode="r") as header:
             declared_sizes = {
                 info.filename: info.uncompressed
-                for info in archive.list()
+                for info in header.list()
                 if not info.is_directory
             }
-            entry_names = sorted(
-                [
-                    name
-                    for name in archive.getnames()
-                    if name and not name.endswith("/") and _file_extension(name) in SUPPORTED_IMAGE_EXTENSIONS
-                ],
-                key=lambda value: value.lower(),
+            entry_names = _select_image_entries(
+                header.getnames(),
+                source_file=source_file,
+                declared_size=declared_sizes.get,
+                warnings=warnings,
             )
-            if len(entry_names) > _MAX_ENTRIES:
-                warnings.append(
-                    f"{source_file}: too many archive entries ({len(entry_names)}), "
-                    f"processing only the first {_MAX_ENTRIES}."
-                )
-                entry_names = entry_names[:_MAX_ENTRIES]
+        if not entry_names:
+            return extracted_items, warnings
 
-            kept_names: list[str] = []
-            for entry_name in entry_names:
-                declared_size = declared_sizes.get(entry_name)
-                if declared_size is not None and declared_size > _MAX_ENTRY_BYTES:
-                    warnings.append(f"{source_file}: entry too large, skipped: {entry_name}")
-                    continue
-                kept_names.append(entry_name)
-            entry_names = kept_names
-            if not entry_names:
-                return extracted_items, warnings
-
+        # The header can understate member sizes, and every extracted member is held
+        # in memory at once, so the extraction is capped at what the selection allows.
+        output_ceiling = min(_MAX_ARCHIVE_OUTPUT_BYTES, _MAX_ENTRY_BYTES * len(entry_names))
+        with py7zr.SevenZipFile(BytesIO(payload), mode="r", max_extract_size=output_ceiling) as archive:
             factory = BytesIOFactory(limit=_MAX_ENTRY_BYTES)
             archive.extract(targets=entry_names, factory=factory)
 
+            consumed_bytes = 0
             for entry_name in entry_names:
                 try:
                     entry_file = factory.get(entry_name)
                 except KeyError:
                     warnings.append(f"{source_file}: item not found in the CB7 archive: {entry_name}")
                     continue
-                try:
-                    entry_file.seek(0)
-                    entry_payload = entry_file.read()
-                    # The factory limit is a soft per-chunk stop, so the produced
-                    # byte count is what actually enforces the cap.
-                    if len(entry_payload) > _MAX_ENTRY_BYTES:
-                        warnings.append(f"{source_file}: entry too large, skipped: {entry_name}")
-                        continue
-                    normalized = _to_png_bytes(entry_payload)
-                except UnidentifiedImageError:
-                    warnings.append(f"{source_file}: item skipped (invalid image): {entry_name}")
-                    continue
-                except Exception as exc:  # noqa: BLE001
-                    warnings.append(f"{source_file}: failed to read item {entry_name}: {exc}")
-                    continue
-                extracted_items.append(
-                    {
-                        "source_file": source_file,
-                        "original_name": entry_name,
-                        "mime_type": "image/png",
-                        "payload": normalized,
-                    }
+                item = _decode_archive_entry(
+                    source_file,
+                    entry_name,
+                    lambda entry_file=entry_file: _read_factory_payload(entry_file),
+                    warnings,
                 )
+                if item is None:
+                    continue
+                consumed_bytes += len(item["payload"])
+                if consumed_bytes > _MAX_ARCHIVE_OUTPUT_BYTES:
+                    warnings.append(_OUTPUT_BUDGET_EXCEEDED.format(source_file=source_file))
+                    break
+                extracted_items.append(item)
     except DecompressionBombError as exc:
         raise ValueError(
             f"CB7 archive expands beyond the supported limit: {source_file}"

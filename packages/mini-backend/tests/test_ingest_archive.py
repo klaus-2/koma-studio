@@ -93,6 +93,15 @@ class SevenZipIngestTests(unittest.TestCase):
         self.assertEqual(items, [])
         self.assertEqual(warnings, ["chapter.cb7: entry too large, skipped: big.png"])
 
+    def test_output_budget_is_enforced_during_extraction(self) -> None:
+        payload = _build_7z([("p0.png", _png_bytes(12)), ("p1.png", _png_bytes(13))])
+
+        with patch.object(ingest, "_MAX_ARCHIVE_OUTPUT_BYTES", 1):
+            with self.assertRaises(ValueError) as caught:
+                ingest._extract_from_7z_payload(payload, "chapter.cb7")
+
+        self.assertIn("CB7 archive expands beyond the supported limit", str(caught.exception))
+
     def test_corrupt_cb7_raises_value_error(self) -> None:
         with self.assertRaises(ValueError) as caught:
             ingest._extract_from_7z_payload(b"not a seven zip archive", "chapter.cb7")
@@ -147,6 +156,29 @@ class ZipIngestTests(unittest.TestCase):
             ingest._extract_from_zip_payload(b"not a zip archive", "chapter.cbz")
 
         self.assertIn("invalid ZIP/CBZ file", str(caught.exception))
+
+    def test_entry_count_cap_keeps_the_first_entries_and_warns(self) -> None:
+        members = [(f"p{index}.png", _png_bytes(index)) for index in range(3)]
+        payload = _build_zip(members)
+
+        with patch.object(ingest, "_MAX_ENTRIES", 2):
+            items, warnings = ingest._extract_from_zip_payload(payload, "chapter.cbz")
+
+        self.assertEqual([item["original_name"] for item in items], ["p0.png", "p1.png"])
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("too many archive entries (3)", warnings[0])
+
+    def test_output_budget_stops_before_the_first_page(self) -> None:
+        payload = _build_zip([("p0.png", _png_bytes(14)), ("p1.png", _png_bytes(15))])
+
+        with patch.object(ingest, "_MAX_ARCHIVE_OUTPUT_BYTES", 1):
+            items, warnings = ingest._extract_from_zip_payload(payload, "chapter.cbz")
+
+        self.assertEqual(items, [])
+        self.assertEqual(
+            warnings,
+            ["chapter.cbz: archive output exceeds the supported size, remaining entries skipped"],
+        )
 
 
 if __name__ == "__main__":
