@@ -1,7 +1,7 @@
 import { memo, useState } from 'react';
 
 import { useI18n } from '@/i18n';
-import { clampGlossary, type GlossaryTerm } from '../../../utils/customLlm';
+import { clampGlossary, type GlossaryTerm } from '../../../utils/glossary';
 
 interface AioGlossaryEditorProps {
   glossary: GlossaryTerm[];

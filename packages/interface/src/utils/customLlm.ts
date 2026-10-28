@@ -1,16 +1,14 @@
 import "../types";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
+import { clampGlossary, type GlossaryTerm } from "./glossary";
+import { isRecord } from "./guards";
+
 export type CustomLlmStage = "translation" | "ocr" | "clean";
 export type LlmProfilesPersistenceMode =
   | "desktop_secure"
   | "desktop_local"
   | "browser_local";
-
-export interface GlossaryTerm {
-  source: string;
-  target: string;
-}
 
 export interface LlmRequestSettings {
   extra_context: string;
@@ -158,30 +156,6 @@ const slugifyModelKey = (value: string): string =>
 
 const clampNumber = (value: number, minimum: number, maximum: number): number =>
   Math.min(Math.max(value, minimum), maximum);
-
-const GLOSSARY_MAX_TERMS = 200;
-const GLOSSARY_SOURCE_MAX_CHARS = 120;
-const GLOSSARY_TARGET_MAX_CHARS = 240;
-
-export const clampGlossary = (
-  terms: ReadonlyArray<GlossaryTerm>,
-): GlossaryTerm[] => {
-  const seen = new Set<string>();
-  const result: GlossaryTerm[] = [];
-  for (const term of terms) {
-    const source = String(term.source ?? '')
-      .trim()
-      .slice(0, GLOSSARY_SOURCE_MAX_CHARS);
-    const target = String(term.target ?? '')
-      .trim()
-      .slice(0, GLOSSARY_TARGET_MAX_CHARS);
-    if (!source || !target || seen.has(source)) continue;
-    seen.add(source);
-    result.push({ source, target });
-    if (result.length >= GLOSSARY_MAX_TERMS) break;
-  }
-  return result;
-};
 
 const safeJsonParse = <T>(value: string | null, fallback: T): T => {
   if (!value) {
@@ -790,19 +764,35 @@ export const findCustomProfileForSelection = (
 };
 
 export const clampLlmRequestSettings = (
-  partial: Partial<LlmRequestSettings>,
-): LlmRequestSettings => ({
-  extra_context: String(partial.extra_context ?? "").trim(),
-  image_input_enabled: partial.image_input_enabled !== false,
-  temperature: clampNumber(Number(partial.temperature ?? DEFAULT_LLM_REQUEST_SETTINGS.temperature), 0, 2),
-  top_p: clampNumber(Number(partial.top_p ?? DEFAULT_LLM_REQUEST_SETTINGS.top_p), 0, 1),
-  max_tokens: Math.round(
-    clampNumber(Number(partial.max_tokens ?? DEFAULT_LLM_REQUEST_SETTINGS.max_tokens), 128, 8192),
-  ),
-  translation_notes_enabled: partial.translation_notes_enabled !== false,
-  neighbor_image_context_enabled: partial.neighbor_image_context_enabled === true,
-  glossary: clampGlossary(partial.glossary ?? []),
-});
+  partial: unknown,
+): LlmRequestSettings => {
+  const source = isRecord(partial) ? partial : {};
+  return {
+    extra_context: String(source.extra_context ?? "").trim(),
+    image_input_enabled: source.image_input_enabled !== false,
+    temperature: clampNumber(
+      Number(source.temperature ?? DEFAULT_LLM_REQUEST_SETTINGS.temperature),
+      0,
+      2,
+    ),
+    top_p: clampNumber(
+      Number(source.top_p ?? DEFAULT_LLM_REQUEST_SETTINGS.top_p),
+      0,
+      1,
+    ),
+    max_tokens: Math.round(
+      clampNumber(
+        Number(source.max_tokens ?? DEFAULT_LLM_REQUEST_SETTINGS.max_tokens),
+        128,
+        8192,
+      ),
+    ),
+    translation_notes_enabled: source.translation_notes_enabled !== false,
+    neighbor_image_context_enabled:
+      source.neighbor_image_context_enabled === true,
+    glossary: clampGlossary(source.glossary),
+  };
+};
 
 export const loadPersistedLlmSettings = (): LlmRequestSettings => {
   if (!isBrowser()) {
@@ -810,7 +800,7 @@ export const loadPersistedLlmSettings = (): LlmRequestSettings => {
   }
 
   return clampLlmRequestSettings(
-    safeJsonParse<Partial<LlmRequestSettings>>(
+    safeJsonParse<unknown>(
       window.localStorage.getItem(LLM_SETTINGS_STORAGE_KEY),
       DEFAULT_LLM_REQUEST_SETTINGS,
     ),

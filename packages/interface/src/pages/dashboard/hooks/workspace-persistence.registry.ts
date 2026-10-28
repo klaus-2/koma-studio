@@ -38,7 +38,7 @@ import type {
   AioStageSelection,
 } from '../../../types/aioModelPresets';
 import { clampLlmRequestSettings } from '../../../utils/customLlm';
-import type { CustomLlmStage, LlmRequestSettings } from '../../../utils/customLlm';
+import type { CustomLlmStage } from '../../../utils/customLlm';
 import type { SplitterWorkspaceState } from '../../../components/dashboard/splitter/types';
 import type { WatermarkWorkspaceState } from '../../../components/dashboard/watermark/watermarkTypes';
 import type { ChapterOptimizerWorkspaceState } from '../../../components/dashboard/optimizer/ChapterOptimizerWorkspace';
@@ -509,9 +509,7 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
     run: (restored) => {
       const llm = useLlmProvidersStore.getState();
       llm.setLlmSettings(
-        clampLlmRequestSettings(
-          restored.document.llm.llmSettings as Partial<LlmRequestSettings>,
-        ),
+        clampLlmRequestSettings(restored.document.llm.llmSettings),
       );
       llm.setCustomLlmProfiles(mergeRestoredCustomLlmProfiles(restored));
       llm.setCustomLlmProfilesMode(resolveRestoredCustomLlmProfilesMode(restored));
