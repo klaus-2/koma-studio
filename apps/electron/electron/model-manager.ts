@@ -427,12 +427,27 @@ export class DesktopModelManagerService {
 
   private processing = false;
 
+  // Declared as fields (not constructor parameter properties) so the service
+  // stays loadable by Node's strip-only TypeScript loader in `node --test`.
+  private readonly userDataDirProvider: () => string;
+
+  private readonly windowProvider: () => BrowserWindow | null;
+
+  private readonly backendBaseUrlProvider: () => string;
+
+  private readonly localApiSessionSecretProvider: () => string;
+
   constructor(
-    private readonly userDataDirProvider: () => string,
-    private readonly windowProvider: () => BrowserWindow | null,
-    private readonly backendBaseUrlProvider: () => string,
-    private readonly localApiSessionSecretProvider: () => string = () => "",
-  ) {}
+    userDataDirProvider: () => string,
+    windowProvider: () => BrowserWindow | null,
+    backendBaseUrlProvider: () => string,
+    localApiSessionSecretProvider: () => string = () => "",
+  ) {
+    this.userDataDirProvider = userDataDirProvider;
+    this.windowProvider = windowProvider;
+    this.backendBaseUrlProvider = backendBaseUrlProvider;
+    this.localApiSessionSecretProvider = localApiSessionSecretProvider;
+  }
 
   private createLocalBackendHeaders(contentType = true): Record<string, string> {
     const headers: Record<string, string> = {};
