@@ -14,6 +14,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 
 from core.config import (  # noqa: E402
     GlossaryTerm,
+    LLMRequestSettings,
     clamp_llm_request_settings,
 )
 from models.translation.base_translator import (  # noqa: E402
@@ -176,7 +177,7 @@ class _Resolver:
         return self._engines[key]
 
 
-def _request(**overrides: object) -> CachedTranslationRequest:
+def _request(*, settings: LLMRequestSettings | None = None) -> CachedTranslationRequest:
     region = TranslationRegionRequest(
         id="r1",
         text="konnichiwa",
@@ -184,17 +185,15 @@ def _request(**overrides: object) -> CachedTranslationRequest:
         detector_model_key="det",
         ocr_model_key="ocr",
     )
-    base: dict[str, object] = {
-        "model_key": "fake",
-        "source_language": "ja",
-        "target_language": "en",
-        "seeds": (seed_from_request(region),),
-        "translation_mode": "default",
-        "settings": clamp_llm_request_settings({}),
-        "custom_llm": None,
-    }
-    base.update(overrides)
-    return CachedTranslationRequest(**base)  # pyright: ignore[reportCallIssue]
+    return CachedTranslationRequest(
+        model_key="fake",
+        source_language="ja",
+        target_language="en",
+        seeds=(seed_from_request(region),),
+        translation_mode="default",
+        settings=settings if settings is not None else clamp_llm_request_settings({}),
+        custom_llm=None,
+    )
 
 
 class GlossaryStageAndCacheTests(unittest.TestCase):
