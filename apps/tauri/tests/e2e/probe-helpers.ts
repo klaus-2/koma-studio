@@ -1,8 +1,7 @@
 import type { Page } from "@playwright/test";
 
-// Temporary Fase-0 measurement probes (refactor-queue.md section 6) — untracked
-// on purpose. Shared helpers for the GPU-mode interaction sweep and the
-// text-follow drag probe.
+// Temporary Fase-0 measurement probes — untracked on purpose. Shared helpers
+// for the GPU-mode interaction sweep and the text-follow drag probe.
 
 export const GPU_ARGS = [
   "--enable-gpu",

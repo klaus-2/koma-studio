@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Refactor smoke for the Dashboard decomposition (refactor-queue.md):
+// Refactor smoke for the Dashboard decomposition:
 // DashboardPage was extracted into 15 zustand stores + 15 hook files + 12
 // section components. Runs with auth disabled (.env.e2e → VITE_AUTH_DISABLED),
 // walking the protected routes and failing on any uncaught exception, React

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Fase-0 drag probe (refactor-queue.md section 6) — temporary, untracked.
+// Fase-0 drag probe — temporary, untracked.
 // Documents that the canvas rendered text follows the koma-render-box live
 // during a drag (alpha-pixel mass decays in the origin window and grows in
 // the destination window) and measures the drag vs pointerup-commit long
