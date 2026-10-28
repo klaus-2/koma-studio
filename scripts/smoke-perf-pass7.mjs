@@ -107,9 +107,9 @@ if (presetRowVisible) {
       );
     } else {
       const statusLine = await page.evaluate(() => {
-        const node = [...document.querySelectorAll("p, span")].find(
-          (el) => el.children.length === 0 && /preset|modelo|model/i.test(el.textContent ?? ""),
-        );
+        const node =
+          document.querySelector(".koma-footerbar__msg") ??
+          document.querySelector("[role='status']");
         return node?.textContent?.trim() ?? "";
       });
       step("editor closes after create", false, statusLine);
