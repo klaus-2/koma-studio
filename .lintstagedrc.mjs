@@ -27,5 +27,10 @@ export default async function lintStaged(files) {
     commands.push(`bunx oxlint ${relAll}`);
   }
 
+  const auditable = files.filter((f) => /\.(ts|tsx|rs)$/.test(f));
+  if (auditable.length > 0) {
+    commands.push("cd apps/tauri && node scripts/audit-line-counts.mjs --staged");
+  }
+
   return commands;
 }
