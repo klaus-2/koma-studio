@@ -41,10 +41,6 @@
       "maxLines": 1415,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
-    "../../packages/interface/src/pages/Settings.tsx": {
-      "maxLines": 1901,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
     "../electron/electron/discord-rpc.ts": {
       "maxLines": 1065,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
