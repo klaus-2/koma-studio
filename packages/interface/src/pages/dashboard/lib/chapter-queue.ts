@@ -12,6 +12,7 @@ import type { BatchMappingImage } from '@/pages/dashboard/lib/batch-mapping';
 import {
   resolveBatchCapacity,
   runLocalAioBatchChunks,
+  type LocalAioBatchChunksResult,
   type LocalAioBatchOptions,
   type ResolvedBatchCapacity,
 } from '@/pages/dashboard/lib/local-aio-batch';
@@ -39,10 +40,7 @@ export interface ChapterSource {
   options: LocalAioBatchOptions;
 }
 
-export interface ChapterRunResult {
-  batchIds: string[];
-  results: AioBatchImageResult[];
-}
+export type ChapterRunResult = LocalAioBatchChunksResult;
 
 export type RunChapter = (
   chapter: ChapterSource,
@@ -97,17 +95,15 @@ export async function runChapterQueue({
   let aborted = false;
   let stopRequested = false;
 
-  for (let index = 0; index < chapters.length; index += 1) {
-    const chapter = chapters[index];
-    if (chapter === undefined) {
-      continue;
-    }
+  const settle = (outcome: ChapterOutcome, index: number): void => {
+    outcomes.push(outcome);
+    onChapterSettled?.(outcome, index);
+  };
 
+  for (const [index, chapter] of chapters.entries()) {
     if (stopRequested || signal.aborted) {
       aborted = aborted || signal.aborted;
-      const outcome = skippedOutcome(chapter.id);
-      outcomes.push(outcome);
-      onChapterSettled?.(outcome, index);
+      settle(skippedOutcome(chapter.id), index);
       continue;
     }
 
@@ -117,31 +113,33 @@ export async function runChapterQueue({
       const run = await runChapter(chapter, signal, (completedUnits, totalUnits) => {
         onChapterProgress?.(chapter.id, completedUnits, totalUnits);
       });
-      const outcome: ChapterOutcome = {
-        chapterId: chapter.id,
-        status: 'done',
-        batchIds: run.batchIds,
-        results: run.results,
-        error: null,
-      };
-      outcomes.push(outcome);
-      onChapterSettled?.(outcome, index);
+      settle(
+        {
+          chapterId: chapter.id,
+          status: 'done',
+          batchIds: run.batchIds,
+          results: run.results,
+          error: null,
+        },
+        index,
+      );
     } catch (cause) {
       // Abort is a queue-level stop, not a chapter failure. Checking the signal
       // (instead of the error type) also covers a transport abort that throws
       // before its own AbortError reaches us.
       aborted = aborted || signal.aborted;
-      const outcome = signal.aborted
-        ? skippedOutcome(chapter.id)
-        : {
-            chapterId: chapter.id,
-            status: 'failed' as const,
-            batchIds: [],
-            results: [],
-            error: cause instanceof Error ? cause : new Error(String(cause)),
-          };
-      outcomes.push(outcome);
-      onChapterSettled?.(outcome, index);
+      settle(
+        signal.aborted
+          ? skippedOutcome(chapter.id)
+          : {
+              chapterId: chapter.id,
+              status: 'failed',
+              batchIds: [],
+              results: [],
+              error: cause instanceof Error ? cause : new Error(String(cause)),
+            },
+        index,
+      );
     }
 
     if (stopAfterChapterId !== undefined && chapter.id === stopAfterChapterId) {
