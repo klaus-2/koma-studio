@@ -18,7 +18,6 @@ import {
   type AioLanguageModelPreset,
   type AioStageSelection,
 } from '@/types/aioModelPresets';
-import type { AioPresetEditorDraft } from '@/types/dashboard.types';
 import {
   applyPresetToStageSelection,
   createPreset as createAioPreset,
@@ -69,12 +68,10 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
     sourceLanguage: normalizedAioSourceLanguage,
   }));
 
-  const [aioPresetEditorDraft, setAioPresetEditorDraft] =
-    useState<AioPresetEditorDraft>(() =>
-      createEmptyAioPresetEditorDraft({
-        ...useAioPipelineStore.getState().aioStageSelection,
-      }),
-    );
+  // Keystrokes in the editor island re-render only the island, not the dashboard.
+  const setAioPresetEditorDraft = useAioPipelineStore(
+    (state) => state.setAioPresetEditorDraft,
+  );
 
   const sourceLanguageLabelByCode = useMemo(
     () =>
@@ -414,11 +411,12 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
       return;
     }
 
+    const draft = useAioPipelineStore.getState().aioPresetEditorDraft;
     const input = createAioPresetInputSchema.safeParse({
-      name: aioPresetEditorDraft.name,
-      description: aioPresetEditorDraft.description,
+      name: draft.name,
+      description: draft.description,
       sourceLanguage: session.sourceLanguage,
-      stageModels: aioPresetEditorDraft.stageModels,
+      stageModels: draft.stageModels,
     });
 
     if (!input.success) {
@@ -432,9 +430,9 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
       return;
     }
 
-    const result = aioPresetEditorDraft.presetId
+    const result = draft.presetId
       ? updateAioPreset(
-        aioPresetEditorDraft.presetId,
+        draft.presetId,
         input.data,
         state.aioPresetState,
       )
@@ -447,7 +445,7 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
       return;
     }
 
-    const nextState = aioPresetEditorDraft.setAsActive
+    const nextState = draft.setAsActive
       ? setActivePresetForLanguage(
         session.sourceLanguage,
         savedPreset.id,
@@ -471,8 +469,6 @@ export function useAioPresetEditor(args: UseAioPresetEditorArgs) {
     presetEditorStageOptions,
     aioPresetEditorOpen: session.open,
     setAioPresetEditorOpen,
-    aioPresetEditorDraft,
-    setAioPresetEditorDraft,
     handlePresetSelectionChange,
     openCreatePresetEditor,
     openEditPresetEditor,

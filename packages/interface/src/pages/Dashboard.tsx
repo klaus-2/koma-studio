@@ -1169,8 +1169,6 @@ export const DashboardPage = ({
     activePresetForCurrentLanguage,
     presetEditorStageOptions,
     aioPresetEditorOpen,
-    aioPresetEditorDraft,
-    setAioPresetEditorDraft,
     handlePresetSelectionChange,
     openCreatePresetEditor,
     openEditPresetEditor,
@@ -2352,8 +2350,6 @@ export const DashboardPage = ({
       activePresetForCurrentLanguage={activePresetForCurrentLanguage}
       presetEditorStageOptions={presetEditorStageOptions}
       aioPresetEditorOpen={aioPresetEditorOpen}
-      aioPresetEditorDraft={aioPresetEditorDraft}
-      setAioPresetEditorDraft={setAioPresetEditorDraft}
       handlePresetSelectionChange={handlePresetSelectionChange}
       openCreatePresetEditor={openCreatePresetEditor}
       openEditPresetEditor={openEditPresetEditor}

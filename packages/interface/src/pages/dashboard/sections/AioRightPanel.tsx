@@ -1,5 +1,4 @@
 import React, { memo, useCallback, useMemo } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { useShallowStableObject } from '../../../utils/shallowStable';
 
@@ -25,7 +24,9 @@ import {
   Zap,
 } from 'lucide-react';
 import { AioSection } from '../../AioSection';
-import { AioChecklistOption, aioPanelClasses } from './AioRightPanel.skin';
+import { aioPanelClasses } from './AioRightPanel.skin';
+import AioLlmSettingsPanel from './AioLlmSettingsPanel';
+import AioPresetEditorForm from './AioPresetEditorForm';
 import { AioRightPanelGpuSection } from './AioRightPanelGpuSection';
 import { AioPipelineChip } from '../../AioPipelineChip';
 import { AioTimelineStep } from '../../AioTimelineStep';
@@ -40,10 +41,7 @@ import StageModelSelect, {
 import TranslationModelControl from '../../../components/AioStageModelControls/TranslationModelControl.tsx';
 import { useI18n } from '../../../i18n';
 import { cn } from '../../../utils/dashboard.utils';
-import {
-  clampLlmRequestSettings,
-  type CustomLlmProfile,
-} from '../../../utils/customLlm';
+import type { CustomLlmProfile } from '../../../utils/customLlm';
 import {
   RENDER_TEXT_MODE_LABELS,
   type RenderTextMode,
@@ -51,7 +49,6 @@ import {
 import {
   AIO_MANUAL_STAGE_ORDER,
   AIO_PIPELINE_STAGE_ICONS,
-  AIO_PRESET_STAGE_KEYS,
   getAioPipelineStageLabels,
 } from '../../../constants/dashboard.constants';
 import type {
@@ -64,7 +61,6 @@ import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useActiveAioRegionState } from '../hooks/region-editor';
-import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import type {
   useAioManualExecution,
@@ -103,8 +99,6 @@ interface AioRightPanelProps {
   activePresetForCurrentLanguage: AioPresetEditorApi['activePresetForCurrentLanguage'];
   presetEditorStageOptions: AioPresetEditorApi['presetEditorStageOptions'];
   aioPresetEditorOpen: AioPresetEditorApi['aioPresetEditorOpen'];
-  aioPresetEditorDraft: AioPresetEditorApi['aioPresetEditorDraft'];
-  setAioPresetEditorDraft: AioPresetEditorApi['setAioPresetEditorDraft'];
   handlePresetSelectionChange: AioPresetEditorApi['handlePresetSelectionChange'];
   openCreatePresetEditor: AioPresetEditorApi['openCreatePresetEditor'];
   openEditPresetEditor: AioPresetEditorApi['openEditPresetEditor'];
@@ -169,8 +163,6 @@ export default memo(function AioRightPanel({
   activePresetForCurrentLanguage,
   presetEditorStageOptions,
   aioPresetEditorOpen,
-  aioPresetEditorDraft,
-  setAioPresetEditorDraft,
   handlePresetSelectionChange,
   openCreatePresetEditor,
   openEditPresetEditor,
@@ -259,28 +251,6 @@ export default memo(function AioRightPanel({
     activeImageRenderStageActive &&
     subMode === 'manual' &&
     Boolean(activeSelectedRegion);
-
-  /* ── LLM providers ── */
-  const {
-    llmExtraContext,
-    llmTranslationNotesEnabled,
-    llmNeighborContextEnabled,
-    llmImageInputEnabled,
-    llmTemperature,
-    llmTopP,
-    llmMaxTokens,
-  } = useLlmProvidersStore(
-    useShallow((s) => ({
-      llmExtraContext: s.llmSettings.extra_context,
-      llmTranslationNotesEnabled: s.llmSettings.translation_notes_enabled,
-      llmNeighborContextEnabled: s.llmSettings.neighbor_image_context_enabled,
-      llmImageInputEnabled: s.llmSettings.image_input_enabled,
-      llmTemperature: s.llmSettings.temperature,
-      llmTopP: s.llmSettings.top_p,
-      llmMaxTokens: s.llmSettings.max_tokens,
-    })),
-  );
-  const setLlmSettings = useLlmProvidersStore((s) => s.setLlmSettings);
 
   /* ── AIO pipeline ── */
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
@@ -744,111 +714,15 @@ export default memo(function AioRightPanel({
 
           {/* Inline preset editor */}
           {aioPresetEditorOpen && (
-            <div className="koma-aio-preset-editor">
-              <div className="koma-aio-preset-editor__grid">
-                <label className="koma-field">
-                  <span className="koma-field__label">{t('dashboard.aio.customAi.name')}</span>
-                  <input
-                    type="text"
-                    className="koma-input"
-                    value={aioPresetEditorDraft.name}
-                    onChange={(e) =>
-                      setAioPresetEditorDraft((prev) => ({
-                        ...prev,
-                        name: e.target.value,
-                      }))
-                    }
-                    placeholder={t('dashboard.aio.presets.namePlaceholder')}
-                  />
-                </label>
-                <label className="koma-field">
-                  <span className="koma-field__label">{t('dashboard.aio.presets.description')}</span>
-                  <input
-                    type="text"
-                    className="koma-input"
-                    value={aioPresetEditorDraft.description}
-                    onChange={(e) =>
-                      setAioPresetEditorDraft((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                    placeholder={t('dashboard.aio.presets.optional')}
-                  />
-                </label>
-              </div>
-              <div className="koma-aio-preset-editor__stages">
-                {AIO_PRESET_STAGE_KEYS.map((stageKey) => {
-                  const stageOptions = presetEditorStageOptions[stageKey];
-                  const selectedModel =
-                    aioPresetEditorDraft.stageModels[stageKey];
-                  return (
-                    <label key={stageKey} className="koma-field">
-                      <span className="koma-field__label">
-                        {aioStageLabels[stageKey]}
-                      </span>
-                      <select
-                        className={skin.select}
-                        value={selectedModel}
-                        disabled={stageOptions.length === 0}
-                        onChange={(e) =>
-                          setAioPresetEditorDraft((prev) => ({
-                            ...prev,
-                            stageModels: {
-                              ...prev.stageModels,
-                              [stageKey]: e.target.value,
-                            },
-                          }))
-                        }
-                      >
-                        {stageOptions.length === 0 && (
-                          <option value="">{t('aio.model.noneAvailable')}</option>
-                        )}
-                        {stageOptions.map((opt) => (
-                          <option key={opt.key} value={opt.key}>
-                            {formatAioStageOptionLabel(opt)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  );
-                })}
-              </div>
-              <label className="koma-checklist__item">
-                <input
-                  type="checkbox"
-                  checked={aioPresetEditorDraft.setAsActive}
-                  onChange={(e) =>
-                    setAioPresetEditorDraft((prev) => ({
-                      ...prev,
-                      setAsActive: e.target.checked,
-                    }))
-                  }
-                />
-                <span>
-                  {t('dashboard.aio.presets.setActiveFor')}{' '}
-                  {normalizedAioSourceLanguage.toUpperCase()}
-                </span>
-              </label>
-              <div className="koma-aio-preset-editor__footer">
-                <button
-                  type="button"
-                  className="koma-btn koma-btn--ghost koma-btn--sm"
-                  onClick={closePresetEditor}
-                >
-                  {t('dashboard.aio.presets.cancel')}
-                </button>
-                <button
-                  type="button"
-                  className="koma-btn koma-btn--primary koma-btn--sm"
-                  onClick={handleSavePresetEditor}
-                >
-                  {aioPresetEditorDraft.presetId
-                    ? t('dashboard.aio.presets.update')
-                    : t('dashboard.aio.presets.create')}
-                </button>
-              </div>
-            </div>
+            <AioPresetEditorForm
+              noir={noir}
+              presetEditorStageOptions={presetEditorStageOptions}
+              aioStageLabels={aioStageLabels}
+              formatAioStageOptionLabel={formatAioStageOptionLabel}
+              normalizedAioSourceLanguage={normalizedAioSourceLanguage}
+              onClose={closePresetEditor}
+              onSave={handleSavePresetEditor}
+            />
           )}
 
           <p className="koma-aio-hint">{t('dashboard.aio.config.langHint')}</p>
@@ -955,130 +829,7 @@ export default memo(function AioRightPanel({
               />
 
               {showLlmSettingsPanel && (
-                <div className="koma-aio-translation-extras">
-                  <span className="koma-field__label">
-                    {t('dashboard.aio.customAi.title')}
-                  </span>
-                  <div className="koma-aio-llm-panel">
-                    <textarea
-                      value={llmExtraContext}
-                      onChange={(e) =>
-                        setLlmSettings((prev) =>
-                          clampLlmRequestSettings({
-                            ...prev,
-                            extra_context: e.target.value,
-                          }),
-                        )
-                      }
-                      className={
-                        noir
-                          ? "panel-cut-sm w-full border border-paper/12 bg-ink px-2.5 py-2 font-mono text-[11px] text-paper placeholder:text-paper/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
-                          : "koma-input"
-                      }
-                      rows={3}
-                      placeholder={t("dashboard.dashboardLlm.extraContextPlaceholder")}
-                    />
-
-                    <div className="koma-aio-llm-toggles">
-                      <AioChecklistOption
-                        noir={noir}
-                        checked={llmTranslationNotesEnabled}
-                        label={t("dashboard.aio.translation.notesToggle")}
-                        onChange={(checked) =>
-                          setLlmSettings((prev) =>
-                            clampLlmRequestSettings({
-                              ...prev,
-                              translation_notes_enabled: checked,
-                            }),
-                          )
-                        }
-                      />
-                      <AioChecklistOption
-                        noir={noir}
-                        checked={llmNeighborContextEnabled}
-                        label={t("dashboard.aio.translation.neighborContextToggle")}
-                        onChange={(checked) =>
-                          setLlmSettings((prev) =>
-                            clampLlmRequestSettings({
-                              ...prev,
-                              neighbor_image_context_enabled: checked,
-                            }),
-                          )
-                        }
-                      />
-                      <AioChecklistOption
-                        noir={noir}
-                        checked={llmImageInputEnabled}
-                        label={t("dashboard.aio.translation.multimodalToggle")}
-                        onChange={(checked) =>
-                          setLlmSettings((prev) =>
-                            clampLlmRequestSettings({
-                              ...prev,
-                              image_input_enabled: checked,
-                            }),
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div className="koma-aio-llm-sliders">
-                      <KlSlider
-                        label={t("dashboard.dashboardLlm.temperature")}
-                        value={llmTemperature}
-                        min={0}
-                        max={2}
-                        step={0.05}
-                        onChange={(v) =>
-                          setLlmSettings((prev) =>
-                            clampLlmRequestSettings({
-                              ...prev,
-                              temperature: v,
-                            }),
-                          )
-                        }
-                        resetVal={0.2}
-                      />
-                      <KlSlider
-                        label={t("dashboard.dashboardLlm.topP")}
-                        value={llmTopP}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onChange={(v) =>
-                          setLlmSettings((prev) =>
-                            clampLlmRequestSettings({
-                              ...prev,
-                              top_p: v,
-                            }),
-                          )
-                        }
-                        resetVal={0.95}
-                      />
-                      <KlSlider
-                        label={t("dashboard.dashboardLlm.maxTokens")}
-                        value={llmMaxTokens}
-                        min={128}
-                        max={8192}
-                        step={64}
-                        onChange={(v) =>
-                          setLlmSettings((prev) =>
-                            clampLlmRequestSettings({
-                              ...prev,
-                              max_tokens: v,
-                            }),
-                          )
-                        }
-                        resetVal={4096}
-                      />
-                    </div>
-
-                    <p className="koma-aio-hint">
-                      {t("dashboard.aio.translation.activeConfigFor", {
-                        value: llmSettingsSupportSummary,
-                      })}
-                    </p>
-                  </div>
-                </div>
+                <AioLlmSettingsPanel supportSummary={llmSettingsSupportSummary} />
               )}
             </>
           )}

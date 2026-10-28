@@ -24,8 +24,17 @@ import {
   parseStoredBatchThreads,
   parseStoredBatchThreadsEnabled,
 } from '@/utils/concurrentBatch';
+import { createEmptyAioPresetEditorDraft } from '@/utils/dashboard.utils';
 
 export type { AioStepToggles } from '@/pages/dashboard/stores/aio-pipeline-store.types';
+
+const INITIAL_AIO_STAGE_SELECTION = {
+  detectText: 'font_rtdetr_v2',
+  recognizeText: 'manga_ocr',
+  getTranslations: 'google_translate',
+  segmentText: 'baka_content_cc',
+  cleanImage: 'aot',
+} as const;
 
 function isStateUpdater<T>(
   update: StateUpdate<T>,
@@ -67,13 +76,7 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
       cleanImage: [...DEFAULT_AIO_STAGE_OPTIONS.cleanImage],
     },
 
-    aioStageSelection: {
-      detectText: 'font_rtdetr_v2',
-      recognizeText: 'manga_ocr',
-      getTranslations: 'google_translate',
-      segmentText: 'baka_content_cc',
-      cleanImage: 'aot',
-    },
+    aioStageSelection: { ...INITIAL_AIO_STAGE_SELECTION },
 
     aioLanguageOptions: {
       source: [...SOURCE_LANGUAGE_OPTIONS],
@@ -84,6 +87,10 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     aioTgtLang: 'pt-br',
     aioOptionsLoading: false,
     aioPresetState: loadValidatedPresetState(),
+    // Dead value by design: openCreate/openEdit replace it before the editor opens.
+    aioPresetEditorDraft: createEmptyAioPresetEditorDraft({
+      ...INITIAL_AIO_STAGE_SELECTION,
+    }),
 
     aioMaskDilation: 10,
     aioHdStrategy: 'original',
@@ -126,6 +133,7 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     setAioTgtLang: setter('aioTgtLang'),
     setAioOptionsLoading: setter('aioOptionsLoading'),
     setAioPresetState: setter('aioPresetState'),
+    setAioPresetEditorDraft: setter('aioPresetEditorDraft'),
 
     setAioMaskDilation: setter('aioMaskDilation'),
     setAioHdStrategy: setter('aioHdStrategy'),

@@ -131,4 +131,29 @@ describe('useAioPipelineStore', () => {
     expect(notified).toBe(false);
     expect(useAioPipelineStore.getState().aioMaskDilation).toBe(before);
   });
+
+  it('stores a preset editor draft passed as a direct value', () => {
+    const nextDraft = {
+      ...useAioPipelineStore.getState().aioPresetEditorDraft,
+      name: 'Direct draft',
+    };
+
+    useAioPipelineStore.getState().setAioPresetEditorDraft(nextDraft);
+
+    expect(useAioPipelineStore.getState().aioPresetEditorDraft).toBe(nextDraft);
+  });
+
+  it('applies a functional preset editor draft update against the previous draft', () => {
+    const before = useAioPipelineStore.getState().aioPresetEditorDraft;
+
+    useAioPipelineStore.getState().setAioPresetEditorDraft((prev) => ({
+      ...prev,
+      description: 'Functional draft',
+    }));
+
+    const after = useAioPipelineStore.getState().aioPresetEditorDraft;
+    expect(after).not.toBe(before);
+    expect(after.description).toBe('Functional draft');
+    expect(after.name).toBe(before.name);
+  });
 });

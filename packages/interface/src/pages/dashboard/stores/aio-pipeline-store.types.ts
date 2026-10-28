@@ -13,6 +13,7 @@ import type {
   AioManualImageProgress,
   AioPipelineSnapshot,
   AioPipelineSnapshotKey,
+  AioPresetEditorDraft,
   LoadedImage,
 } from '@/types/dashboard.types';
 import type {
@@ -43,6 +44,7 @@ export interface AioEditableState {
   aioTgtLang: string;
   aioOptionsLoading: boolean;
   aioPresetState: AioModelPresetStateV2;
+  aioPresetEditorDraft: AioPresetEditorDraft;
   aioMaskDilation: number;
   aioHdStrategy: 'original' | 'resize' | 'crop';
   aioHdResizeLimit: number;

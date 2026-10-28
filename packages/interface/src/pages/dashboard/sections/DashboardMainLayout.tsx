@@ -348,8 +348,6 @@ export interface DashboardMainLayoutProps {
   activePresetForCurrentLanguage: AioPresetEditorApi['activePresetForCurrentLanguage'];
   presetEditorStageOptions: AioPresetEditorApi['presetEditorStageOptions'];
   aioPresetEditorOpen: AioPresetEditorApi['aioPresetEditorOpen'];
-  aioPresetEditorDraft: AioPresetEditorApi['aioPresetEditorDraft'];
-  setAioPresetEditorDraft: AioPresetEditorApi['setAioPresetEditorDraft'];
   handlePresetSelectionChange: AioPresetEditorApi['handlePresetSelectionChange'];
   openCreatePresetEditor: AioPresetEditorApi['openCreatePresetEditor'];
   openEditPresetEditor: AioPresetEditorApi['openEditPresetEditor'];
@@ -606,8 +604,6 @@ export default memo(function DashboardMainLayout({
   activePresetForCurrentLanguage,
   presetEditorStageOptions,
   aioPresetEditorOpen,
-  aioPresetEditorDraft,
-  setAioPresetEditorDraft,
   handlePresetSelectionChange,
   openCreatePresetEditor,
   openEditPresetEditor,
@@ -1199,8 +1195,6 @@ export default memo(function DashboardMainLayout({
               activePresetForCurrentLanguage={activePresetForCurrentLanguage}
               presetEditorStageOptions={presetEditorStageOptions}
               aioPresetEditorOpen={aioPresetEditorOpen}
-              aioPresetEditorDraft={aioPresetEditorDraft}
-              setAioPresetEditorDraft={setAioPresetEditorDraft}
               handlePresetSelectionChange={handlePresetSelectionChange}
               openCreatePresetEditor={openCreatePresetEditor}
               openEditPresetEditor={openEditPresetEditor}
