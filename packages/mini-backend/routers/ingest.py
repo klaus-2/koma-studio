@@ -17,8 +17,12 @@ from routers._boundary import read_upload_bytes
 
 try:
     import py7zr  # type: ignore[import-not-found]
+    from py7zr.exceptions import DecompressionBombError  # type: ignore[import-not-found]
+    from py7zr.io import BytesIOFactory  # type: ignore[import-not-found]
 except Exception:  # noqa: BLE001
     py7zr = None
+    DecompressionBombError = None
+    BytesIOFactory = None
 
 try:
     import pypdfium2 as pdfium  # type: ignore[import-not-found]
@@ -129,7 +133,18 @@ def _extract_from_7z_payload(payload: bytes, source_file: str) -> tuple[list[dic
     extracted_items: list[dict[str, Any]] = []
     warnings: list[str] = []
     try:
-        with py7zr.SevenZipFile(BytesIO(payload), mode="r") as archive:
+        # max_extract_size aborts a stream that expands past what the entry caps
+        # allow, even when the archive header understates the real member sizes.
+        with py7zr.SevenZipFile(
+            BytesIO(payload),
+            mode="r",
+            max_extract_size=_MAX_ENTRIES * _MAX_ENTRY_BYTES,
+        ) as archive:
+            declared_sizes = {
+                info.filename: info.uncompressed
+                for info in archive.list()
+                if not info.is_directory
+            }
             entry_names = sorted(
                 [
                     name
@@ -138,25 +153,41 @@ def _extract_from_7z_payload(payload: bytes, source_file: str) -> tuple[list[dic
                 ],
                 key=lambda value: value.lower(),
             )
+            if len(entry_names) > _MAX_ENTRIES:
+                warnings.append(
+                    f"{source_file}: too many archive entries ({len(entry_names)}), "
+                    f"processing only the first {_MAX_ENTRIES}."
+                )
+                entry_names = entry_names[:_MAX_ENTRIES]
+
+            kept_names: list[str] = []
+            for entry_name in entry_names:
+                declared_size = declared_sizes.get(entry_name)
+                if declared_size is not None and declared_size > _MAX_ENTRY_BYTES:
+                    warnings.append(f"{source_file}: entry too large, skipped: {entry_name}")
+                    continue
+                kept_names.append(entry_name)
+            entry_names = kept_names
             if not entry_names:
                 return extracted_items, warnings
 
-            try:
-                extracted_map = archive.read(targets=entry_names)
-            except TypeError:
-                extracted_map = archive.readall()
+            factory = BytesIOFactory(limit=_MAX_ENTRY_BYTES)
+            archive.extract(targets=entry_names, factory=factory)
+
             for entry_name in entry_names:
-                entry_file = extracted_map.get(entry_name)
-                if entry_file is None:
+                try:
+                    entry_file = factory.get(entry_name)
+                except KeyError:
                     warnings.append(f"{source_file}: item not found in the CB7 archive: {entry_name}")
                     continue
                 try:
-                    if hasattr(entry_file, "read"):
-                        entry_payload = entry_file.read()
-                    elif isinstance(entry_file, (bytes, bytearray)):
-                        entry_payload = bytes(entry_file)
-                    else:
-                        raise TypeError("unsupported entry type")
+                    entry_file.seek(0)
+                    entry_payload = entry_file.read()
+                    # The factory limit is a soft per-chunk stop, so the produced
+                    # byte count is what actually enforces the cap.
+                    if len(entry_payload) > _MAX_ENTRY_BYTES:
+                        warnings.append(f"{source_file}: entry too large, skipped: {entry_name}")
+                        continue
                     normalized = _to_png_bytes(entry_payload)
                 except UnidentifiedImageError:
                     warnings.append(f"{source_file}: item skipped (invalid image): {entry_name}")
@@ -172,6 +203,10 @@ def _extract_from_7z_payload(payload: bytes, source_file: str) -> tuple[list[dic
                         "payload": normalized,
                     }
                 )
+    except DecompressionBombError as exc:
+        raise ValueError(
+            f"CB7 archive expands beyond the supported limit: {source_file}"
+        ) from exc
     except Exception as exc:  # noqa: BLE001
         raise ValueError(f"invalid CB7 file: {exc}") from exc
     return extracted_items, warnings
