@@ -32,7 +32,10 @@ const webServer = process.env.PLAYWRIGHT_REUSE_SERVER
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  outputDir: "./tests/e2e/.artifacts",
+  // Keep Playwright's wipe-out directory away from the probe outputs tracked
+  // under .artifacts/ (react-scan census): cleaning the run dir used to delete
+  // those files on every e2e invocation.
+  outputDir: "./tests/e2e/.artifacts/playwright",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
