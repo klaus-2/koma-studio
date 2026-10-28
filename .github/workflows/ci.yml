@@ -179,9 +179,9 @@ jobs:
           python -m pyflakes packages/mini-backend || true
       - name: Install mini-backend CPU dependencies
         run: python -m pip install -r packages/mini-backend/requirements.txt
-      # pre-existing failure, tracked in plans/README.md
       - name: Install mini-backend test dependencies
         run: python -m pip install -r packages/mini-backend/requirements-test.txt
+      # pre-existing failure, tracked in plans/README.md
       - name: Unit tests (pytest, default = not slow)
         run: |
           python -m pytest packages/mini-backend -q \
