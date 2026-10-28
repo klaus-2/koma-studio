@@ -6,10 +6,10 @@ import {
   type UpdaterSyncLogListener,
 } from "../../../packages/types/src/updaterSync.ts";
 import {
+  isModelDownloadErrorCode,
   type MiniBackendRuntimeListener,
   type MiniBackendRuntimeStatePayload,
   type MiniBackendRuntimeStatus,
-  type ModelDownloadErrorCode,
   type ModelManagerEvent,
   type ModelManagerListener,
 } from "../../../packages/types/src/desktop-events.ts";
@@ -246,19 +246,6 @@ const normalizeMiniBackendRuntimeArtifactOptions = (
     }];
   });
 };
-
-// Taxonomia espelha packages/mini-backend/core/download_jobs.py.
-const MODEL_DOWNLOAD_ERROR_CODES: ReadonlySet<string> = new Set([
-  "network",
-  "disk_full",
-  "checksum_mismatch",
-  "rate_limited",
-  "cancelled",
-  "unknown",
-]);
-
-const isModelDownloadErrorCode = (value: unknown): value is ModelDownloadErrorCode =>
-  typeof value === "string" && MODEL_DOWNLOAD_ERROR_CODES.has(value);
 
 const normalizeModelManagerEvent = (value: unknown): ModelManagerEvent | null => {
   if (!value || typeof value !== "object") {

@@ -62,13 +62,23 @@ export type UpdaterListener = (payload: UpdaterEventPayload) => void;
 // Model download error taxonomy (authority: mini-backend
 // core/download_jobs.py classify_error). The UI resolves a friendly message
 // via i18n (modelManager.downloadError.<code>).
-export type ModelDownloadErrorCode =
-  | "network"
-  | "disk_full"
-  | "checksum_mismatch"
-  | "rate_limited"
-  | "cancelled"
-  | "unknown";
+export const modelDownloadErrorCodes = [
+  "network",
+  "disk_full",
+  "checksum_mismatch",
+  "rate_limited",
+  "cancelled",
+  "unknown",
+] as const;
+
+export type ModelDownloadErrorCode = (typeof modelDownloadErrorCodes)[number];
+
+const MODEL_DOWNLOAD_ERROR_CODES: ReadonlySet<string> = new Set(modelDownloadErrorCodes);
+
+export const isModelDownloadErrorCode = (
+  value: unknown,
+): value is ModelDownloadErrorCode =>
+  typeof value === "string" && MODEL_DOWNLOAD_ERROR_CODES.has(value);
 
 export type ModelManagerEvent =
   | {

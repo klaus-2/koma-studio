@@ -1,3 +1,5 @@
+import type { ModelDownloadErrorCode } from "../../../../packages/types/src/desktop-events.ts";
+
 export interface DesktopDownloadModelPayload {
   id: string;
   name: string;
@@ -96,25 +98,10 @@ export type DesktopModelManagerEvent =
     };
 
 // Taxonomy mirrors packages/mini-backend/core/download_jobs.py.
-export type ModelDownloadErrorCode =
-  | "network"
-  | "disk_full"
-  | "checksum_mismatch"
-  | "rate_limited"
-  | "cancelled"
-  | "unknown";
-
-const MODEL_DOWNLOAD_ERROR_CODES: ReadonlySet<string> = new Set([
-  "network",
-  "disk_full",
-  "checksum_mismatch",
-  "rate_limited",
-  "cancelled",
-  "unknown",
-]);
-
-export const isModelDownloadErrorCode = (value: unknown): value is ModelDownloadErrorCode =>
-  typeof value === "string" && MODEL_DOWNLOAD_ERROR_CODES.has(value);
+export {
+  isModelDownloadErrorCode,
+  type ModelDownloadErrorCode,
+} from "../../../../packages/types/src/desktop-events.ts";
 
 export interface ModelDownloadJobSnapshot {
   jobId: string;
