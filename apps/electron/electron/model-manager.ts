@@ -500,12 +500,13 @@ export class DesktopModelManagerService {
   }
 
   private writeIncompleteManifest(model: DesktopDownloadModelPayload, origin = "download"): void {
-    persistIncompleteManifest(
-      this.userDataDirProvider(),
-      model,
-      this.deliberatelyRemovedModelIds.has(model.id),
-      origin,
-    );
+    // An uninstall during the download removed the directory on purpose;
+    // recreating it with an "incomplete" manifest resurrected a broken model.
+    if (this.deliberatelyRemovedModelIds.has(model.id)) {
+      return;
+    }
+
+    persistIncompleteManifest(this.userDataDirProvider(), model, origin);
   }
 
   private writeInstalledManifest(model: DesktopDownloadModelPayload, origin = "download"): void {

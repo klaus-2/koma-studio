@@ -68,15 +68,8 @@ const readInstalledManifest = (
 const writeIncompleteManifest = (
   userDataDir: string,
   model: DesktopDownloadModelPayload,
-  skip: boolean,
   origin = "download",
 ): void => {
-  // An uninstall during the download removed the directory on purpose;
-  // recreating it with an "incomplete" manifest resurrected a broken model.
-  if (skip) {
-    return;
-  }
-
   const manifestPath = getModelManifestPath(userDataDir, model.id);
   // Never brand a working install as incomplete: a failed UPDATE of an
   // installed model used to downgrade it forever. Tauri already keeps the
