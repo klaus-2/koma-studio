@@ -1416,13 +1416,14 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 30%;
+  left: 0;
+  width: 100%;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   animation: preview-bar 5s ease-in-out infinite;
-  will-change: left;
+  will-change: transform;
   pointer-events: none;
 }
 
@@ -1611,17 +1612,17 @@
 
   0%,
   12% {
-    left: 30%;
+    transform: translateX(-20%);
   }
 
   44%,
   56% {
-    left: 70%;
+    transform: translateX(20%);
   }
 
   88%,
   100% {
-    left: 30%;
+    transform: translateX(-20%);
   }
 }
 

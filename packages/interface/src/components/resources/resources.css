@@ -817,16 +817,22 @@
   }
   
   .koma-res-glossary-item__body {
-    max-height: 0;
+    display: grid;
+    grid-template-rows: 0fr;
     overflow: hidden;
-    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1),
                 padding 0.25s ease;
     padding: 0 16px;
   }
-  
+
   .koma-res-glossary-item--expanded .koma-res-glossary-item__body {
-    max-height: 400px;
+    grid-template-rows: 1fr;
     padding: 0 16px 16px;
+  }
+
+  .koma-res-glossary-item__body-inner {
+    min-height: 0;
+    overflow: hidden;
   }
   
   .koma-res-glossary-item__definition {

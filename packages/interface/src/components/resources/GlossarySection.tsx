@@ -191,39 +191,41 @@ export default function GlossarySection({ search }: GlossarySectionProps) {
                            />
                          </button>
                          <div className="koma-res-glossary-item__body">
-                           <p className="koma-res-glossary-item__definition">
-                             {entry.definition}
-                           </p>
-                           {entry.relatedTerms &&
-                             entry.relatedTerms.length > 0 && (
-                               <div className="koma-res-glossary-item__related">
-                                 <span className="koma-res-glossary-item__related-label">
-                                   {t('resources.glossary.related')}
-                                 </span>
-                                 {entry.relatedTerms.map((rt) => (
-                                   <span
-                                     key={rt}
-                                     className="koma-res-glossary-item__related-pill"
-                                     role="button"
-                                     tabIndex={0}
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       /* Could scroll to the related term */
-                                     }}
-                                     onKeyDown={(e) => {
-                                       if (
-                                         e.key === 'Enter' ||
-                                         e.key === ' '
-                                       ) {
-                                         e.preventDefault();
-                                       }
-                                     }}
-                                   >
-                                     {rt}
+                           <div className="koma-res-glossary-item__body-inner">
+                             <p className="koma-res-glossary-item__definition">
+                               {entry.definition}
+                             </p>
+                             {entry.relatedTerms &&
+                               entry.relatedTerms.length > 0 && (
+                                 <div className="koma-res-glossary-item__related">
+                                   <span className="koma-res-glossary-item__related-label">
+                                     {t('resources.glossary.related')}
                                    </span>
-                                 ))}
-                               </div>
-                             )}
+                                   {entry.relatedTerms.map((rt) => (
+                                     <span
+                                       key={rt}
+                                       className="koma-res-glossary-item__related-pill"
+                                       role="button"
+                                       tabIndex={0}
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         /* Could scroll to the related term */
+                                       }}
+                                       onKeyDown={(e) => {
+                                         if (
+                                           e.key === 'Enter' ||
+                                           e.key === ' '
+                                         ) {
+                                           e.preventDefault();
+                                         }
+                                       }}
+                                     >
+                                       {rt}
+                                     </span>
+                                   ))}
+                                 </div>
+                               )}
+                           </div>
                          </div>
                        </div>
                      );
