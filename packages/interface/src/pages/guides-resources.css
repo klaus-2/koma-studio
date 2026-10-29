@@ -337,7 +337,7 @@
     font-family: var(--auth-font-body);
     font-size: 12.5px;
     cursor: pointer;
-    transition: all .2s ease;
+    transition: color .2s ease, border-color .2s ease, background .2s ease;
   }
   .koma-gr-back:hover {
     color: var(--auth-text);
@@ -362,7 +362,7 @@
     background: var(--auth-card-bg);
     backdrop-filter: blur(16px) saturate(1.3);
     cursor: pointer;
-    transition: all .25s ease;
+    transition: border-color .25s ease, transform .25s ease, box-shadow .25s ease;
     overflow: hidden;
   }
   .koma-gr-card::before {
@@ -468,7 +468,7 @@
     align-items: center;
     gap: 18px;
     cursor: pointer;
-    transition: all .25s ease;
+    transition: border-color .25s ease, box-shadow .25s ease;
   }
   .koma-gr-continue:hover {
     border-color: rgba(168,85,247,0.25);
@@ -521,7 +521,7 @@
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    transition: all .2s ease;
+    transition: filter .2s ease, transform .2s ease;
     box-shadow: 0 6px 18px rgba(168,85,247,0.2);
   }
   .koma-gr-continue__btn:hover {
@@ -568,7 +568,7 @@
     border: 1px solid rgba(255,255,255,0.04);
     background: rgba(255,255,255,0.015);
     cursor: pointer;
-    transition: all .2s ease;
+    transition: border-color .2s ease, background .2s ease;
   }
   .koma-gr-guide-item:hover {
     border-color: rgba(168,85,247,0.15);
@@ -610,7 +610,7 @@
   }
   .koma-gr-guide-item__arrow {
     color: rgba(186,199,247,0.15);
-    transition: all .2s ease;
+    transition: color .2s ease, transform .2s ease;
     flex-shrink: 0;
   }
   .koma-gr-guide-item:hover .koma-gr-guide-item__arrow {
@@ -741,7 +741,7 @@
     gap: 10px;
     padding: 9px 18px;
     cursor: pointer;
-    transition: all .15s ease;
+    transition: background .15s ease, border-left-color .15s ease;
     border-left: 2px solid transparent;
     position: relative;
   }
@@ -768,7 +768,7 @@
     flex-shrink: 0;
     border: 1.5px solid rgba(186,199,247,0.15);
     color: var(--auth-text-muted);
-    transition: all .2s ease;
+    transition: background .2s ease, border-color .2s ease, color .2s ease;
   }
   .koma-gr-sidebar__step--active .koma-gr-sidebar__step-num {
     background: var(--auth-purple);
@@ -922,7 +922,7 @@
     color: var(--auth-text-muted);
     font-size: 10.5px;
     cursor: pointer;
-    transition: all .15s ease;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
   }
   .koma-gr-code__copy:hover {
     color: var(--auth-text);
@@ -1024,7 +1024,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: all .2s ease;
+    transition: background .2s ease, border-color .2s ease, color .2s ease;
     cursor: pointer;
     padding: 0;
   }
@@ -1036,7 +1036,7 @@
   .koma-gr-checklist-label {
     font-size: 13px;
     color: rgba(186,199,247,0.7);
-    transition: all .15s ease;
+    transition: opacity .15s ease;
   }
   .koma-gr-checklist-label--checked {
     text-decoration: line-through;
@@ -1062,7 +1062,7 @@
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: all .2s ease;
+    transition: color .2s ease, border-color .2s ease, background .2s ease;
     border: none;
   }
   .koma-gr-step-nav__btn--prev {
@@ -1089,12 +1089,13 @@
   .koma-gr-step-nav__btn--next::after {
     content: '';
     position: absolute;
-    top: 0; left: -100%;
+    top: 0; left: 0;
     width: 100%; height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-    transition: left .5s ease;
+    transition: transform .5s ease;
+    transform: translateX(-100%);
   }
-  .koma-gr-step-nav__btn--next:hover::after { left: 100%; }
+  .koma-gr-step-nav__btn--next:hover::after { transform: translateX(100%); }
   
   .koma-gr-step-nav__btn--complete {
     background: linear-gradient(135deg, #059669, var(--auth-emerald) 50%, #34d399);
@@ -1132,7 +1133,7 @@
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: all .2s ease;
+    transition: color .2s ease, border-bottom-color .2s ease;
     white-space: nowrap;
     position: relative;
   }
@@ -1172,7 +1173,7 @@
     font-family: var(--auth-font-body);
     font-size: 11.5px;
     cursor: pointer;
-    transition: all .15s ease;
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
   }
   .koma-res-filter-btn:hover {
     border-color: rgba(168,85,247,0.15);
@@ -1196,7 +1197,7 @@
     border: 1px solid var(--auth-card-border);
     background: var(--auth-card-bg);
     backdrop-filter: blur(14px) saturate(1.3);
-    transition: all .25s ease;
+    transition: border-color .25s ease, transform .25s ease, box-shadow .25s ease;
   }
   .koma-res-font-card:hover {
     border-color: rgba(168,85,247,0.2);
@@ -1289,7 +1290,7 @@
     border: 1px solid rgba(168,85,247,0.07);
     background: var(--auth-card-bg);
     backdrop-filter: blur(12px);
-    transition: all .25s ease;
+    transition: border-color .25s ease;
   }
   .koma-res-sfx-card:hover {
     border-color: rgba(168,85,247,0.18);
@@ -1340,7 +1341,7 @@
     color: var(--auth-text-muted);
     font-size: 10px;
     cursor: pointer;
-    transition: all .15s ease;
+    transition: color .15s ease, border-color .15s ease;
   }
   .koma-res-sfx-copy:hover {
     color: var(--auth-purple);
@@ -1377,7 +1378,7 @@
     border: 1px solid rgba(168,85,247,0.06);
     background: rgba(10,12,24,0.45);
     overflow: hidden;
-    transition: all .25s ease;
+    transition: border-color .25s ease, background .25s ease;
   }
   .koma-res-glossary-item:hover {
     border-color: rgba(168,85,247,0.12);
@@ -1454,7 +1455,7 @@
     border: 1px solid rgba(168,85,247,0.1);
     color: var(--auth-purple);
     cursor: pointer;
-    transition: all .15s ease;
+    transition: background .15s ease, border-color .15s ease;
   }
   .koma-res-glossary-related__tag:hover {
     background: rgba(168,85,247,0.14);
@@ -1472,7 +1473,7 @@
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,0.05);
     background: rgba(10,12,24,0.55);
-    transition: all .25s ease;
+    transition: border-color .25s ease, background .25s ease;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -1536,7 +1537,7 @@
     color: var(--auth-text-muted);
     font-size: 12px;
     cursor: pointer;
-    transition: all .2s ease;
+    transition: color .2s ease, border-color .2s ease, background .2s ease;
     align-self: flex-start;
     margin-top: auto;
   }
@@ -1557,7 +1558,7 @@
     border: 1px solid rgba(168,85,247,0.06);
     background: rgba(10,12,24,0.45);
     overflow: hidden;
-    transition: all .25s ease;
+    transition: border-color .25s ease;
   }
   .koma-res-changelog-entry--expanded {
     border-color: rgba(168,85,247,0.15);
