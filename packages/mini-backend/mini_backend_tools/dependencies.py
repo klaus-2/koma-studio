@@ -8,15 +8,31 @@ import shutil
 import sys
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from importlib.metadata import distributions
 from pathlib import Path
 from typing import Literal
 
 from filelock import FileLock, Timeout
-from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from mini_backend_tools.requirements import (
+    DependencyError,
+    ONNX_VARIANTS,
+    RequirementSet,
+    effective_requirements,
+    read_requirements,
+)
+from mini_backend_tools.torch_wheels import (
+    TORCH_CUDA_INDEX_URL,
+    TORCH_INSTALL_STAGE,
+    TORCH_QUERY_STAGE,
+    NVIDIA_PROFILES,
+    drop_torch_entries_from_lock,
+    torch_cuda_query_child,
+    windows_cuda_torch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +49,6 @@ Profile = Literal[
     "apple-mps",
 ]
 
-_ONNX_VARIANTS = frozenset(
-    {
-        "onnxruntime",
-        "onnxruntime-gpu",
-        "onnxruntime-directml",
-        "onnxruntime-openvino",
-        "onnxruntime-rocm",
-    }
-)
 _EXPECTED_ONNX = {
     "cpu": "onnxruntime",
     "nvidia-cuda": "onnxruntime-gpu",
@@ -51,9 +58,6 @@ _EXPECTED_ONNX = {
     "intel-openvino": "onnxruntime-openvino",
     "apple-mps": "onnxruntime",
 }
-_NVIDIA_PROFILES = frozenset(
-    {"nvidia-cuda", "nvidia-cuda-legacy", "nvidia-tensorrt"}
-)
 
 _PROBE = r"""
 import importlib
@@ -170,10 +174,6 @@ def _classify(stage: str, exit_code: int) -> Verdict:
     return "unclassified"
 
 
-class DependencyError(RuntimeError):
-    """Provisioning failed without a verified dependency environment."""
-
-
 @dataclass(slots=True)
 class CommandResult:
     exit_code: int
@@ -194,30 +194,6 @@ class Settings(BaseModel):
         if isinstance(value, str):
             return value.strip().lower() or "auto"
         return value
-
-
-class IndexSettings(BaseModel):
-    url: HttpUrl
-
-    @field_validator("url")
-    @classmethod
-    def secure_url(cls, value: HttpUrl) -> HttpUrl:
-        if (
-            value.scheme != "https"
-            or value.username
-            or value.password
-            or value.query
-            or value.fragment
-        ):
-            raise ValueError("Index must be HTTPS without embedded credentials")
-        return value
-
-
-@dataclass(slots=True)
-class RequirementSet:
-    requirements: list[Requirement] = field(default_factory=list)
-    constraints: list[Requirement] = field(default_factory=list)
-    index: str | None = None
 
 
 def load_settings(environment: Mapping[str, str]) -> Settings:
@@ -245,105 +221,6 @@ def _installed_version(name: str) -> str | None:
         if canonicalize_name(distribution.metadata.get("Name") or "") == wanted:
             return distribution.version
     return None
-
-
-def _read_requirements(
-    path: Path,
-    *,
-    root: Path,
-    result: RequirementSet,
-    stack: frozenset[Path] = frozenset(),
-    constraint: bool = False,
-) -> None:
-    resolved = path.resolve(strict=True)
-    if not resolved.is_relative_to(root):
-        raise DependencyError("Requirement include escapes the project")
-    if resolved in stack or len(stack) >= 32:
-        raise DependencyError("Cyclic or excessively deep requirement includes")
-    if resolved.stat().st_size > 2 * 1024 * 1024:
-        raise DependencyError("Requirements file exceeds the size budget")
-
-    with resolved.open(encoding="utf-8") as handle:
-        for raw in handle:
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            line = line.split(" #", maxsplit=1)[0].strip()
-
-            directive, separator, argument = line.partition(" ")
-            if directive in {"-r", "--requirement", "-c", "--constraint"}:
-                if not separator or not argument.strip():
-                    raise DependencyError("Empty requirement include")
-                _read_requirements(
-                    resolved.parent / Path(argument.strip()),
-                    root=root,
-                    result=result,
-                    stack=stack | {resolved},
-                    constraint=constraint or directive in {"-c", "--constraint"},
-                )
-                continue
-
-            if directive == "--index-url":
-                index = str(IndexSettings.model_validate({"url": argument.strip()}).url)
-                if result.index is not None and result.index != index:
-                    raise DependencyError("Conflicting primary package indexes")
-                result.index = index
-                continue
-
-            if line.startswith("-") or line.endswith("\\"):
-                raise DependencyError("Unsupported requirement-file directive")
-
-            try:
-                requirement = Requirement(line)
-            except InvalidRequirement as exc:
-                raise DependencyError("Invalid PEP 508 requirement") from exc
-            if requirement.url is not None:
-                raise DependencyError("Direct URL requirements require an explicit lock workflow")
-
-            target = result.constraints if constraint else result.requirements
-            target.append(requirement)
-
-
-def _active(requirement: Requirement) -> bool:
-    return requirement.marker is None or requirement.marker.evaluate()
-
-
-def _effective_requirements(
-    base: RequirementSet,
-    profile: RequirementSet,
-    *,
-    selected: str,
-    expected_onnx: str,
-    require_pinned_onnx: bool = True,
-) -> RequirementSet:
-    legacy_windows = selected == "nvidia-cuda-legacy" and sys.platform == "win32"
-    result = RequirementSet(index=profile.index or base.index)
-    result.constraints.extend(base.constraints)
-    result.constraints.extend(profile.constraints)
-
-    for requirement in [*base.requirements, *profile.requirements]:
-        if not _active(requirement):
-            continue
-        name = canonicalize_name(requirement.name)
-        if name in _ONNX_VARIANTS and name != expected_onnx:
-            continue
-        if legacy_windows and name == "numpy" and requirement in base.requirements:
-            continue
-        result.requirements.append(requirement)
-
-    names = {canonicalize_name(item.name) for item in result.requirements}
-    if require_pinned_onnx and expected_onnx not in names:
-        raise DependencyError("Selected profile does not pin its ONNX runtime")
-
-    if legacy_windows:
-        numpy_specs = [
-            item for item in profile.requirements
-            if canonicalize_name(item.name) == "numpy" and _active(item)
-        ]
-        if not numpy_specs:
-            raise DependencyError("Legacy Windows profile must explicitly constrain NumPy")
-
-    return result
 
 
 def _output_tail(data: bytes) -> str:
@@ -590,6 +467,92 @@ async def _query_and_decide(
     )
 
 
+async def _ensure_torch_cuda(
+    *,
+    uv_argv: Sequence[str],
+    interpreter_argv: Sequence[str] | None,
+    target_python: Path,
+    settings: Settings,
+    profile: str,
+) -> int:
+    """Restore a CUDA-enabled torch for the Windows CUDA profiles.
+
+    Self-gated: on any other platform/profile this is a no-op. The compiled
+    lock never carries torch (torch_wheels.drop_torch_entries_from_lock), so a
+    venv without prior CUDA torch — or one whose torch was replaced by the CPU
+    wheel — would stay CPU-only forever. Query torch.version.cuda in the
+    target interpreter and, when missing, reinstall torch+torchvision from the
+    PyTorch CUDA index once; fail the environment when the reinstall does not
+    stick.
+    """
+    if not windows_cuda_torch(profile):
+        return EXIT_OK
+
+    async def query_torch() -> CommandResult:
+        return await _command(
+            torch_cuda_query_child(interpreter_argv, target_python, profile),
+            timeout_seconds=120,
+            stage=TORCH_QUERY_STAGE,
+        )
+
+    query = await query_torch()
+    if query.exit_code == 0:
+        return EXIT_OK
+    if query.exit_code != 1:
+        return _fail_stage(
+            TORCH_QUERY_STAGE,
+            (
+                f"torch CUDA query exited {query.exit_code}: "
+                f"{_joined_output(query)}"
+            ),
+            query,
+            "unclassified",
+        )
+
+    logger.info(
+        "dependencies.torch_cpu_detected",
+        extra={"profile": profile, "stdout_tail": query.stdout_tail},
+    )
+    install = await _retry_command(
+        [
+            *uv_argv,
+            "pip",
+            "install",
+            "--python",
+            str(target_python),
+            "--index-url",
+            TORCH_CUDA_INDEX_URL,
+            "--reinstall-package",
+            "torch",
+            "--reinstall-package",
+            "torchvision",
+            "torch",
+            "torchvision",
+        ],
+        timeout_seconds=settings.timeout_seconds,
+        stage=TORCH_INSTALL_STAGE,
+        settings=settings,
+    )
+    if install.exit_code:
+        return _fail_stage(
+            TORCH_INSTALL_STAGE,
+            "torch CUDA wheel install failed",
+            install,
+            "transient",
+        )
+
+    requery = await query_torch()
+    if requery.exit_code == 0:
+        logger.info("dependencies.torch_cuda_restored", extra={"profile": profile})
+        return EXIT_OK
+    return _fail_unusable(
+        TORCH_QUERY_STAGE,
+        requery,
+        None,
+        "torch remains CPU-only after the CUDA wheel install",
+    )
+
+
 async def provision(
     root: Path,
     mapping: Mapping[tuple[str, str], str],
@@ -638,7 +601,7 @@ async def provision(
         _installed_names if installed_distributions is None else installed_distributions
     )
     selected = settings.profile
-    variants = installed & _ONNX_VARIANTS
+    variants = installed & ONNX_VARIANTS
     if selected == "auto":
         if len(variants) > 1:
             raise DependencyError("Ambiguous existing ONNX variants require an explicit profile")
@@ -649,7 +612,7 @@ async def provision(
     base = RequirementSet()
     extra = RequirementSet()
     await asyncio.to_thread(
-        _read_requirements,
+        read_requirements,
         root / Path("requirements.txt"),
         root=root,
         result=base,
@@ -659,7 +622,7 @@ async def provision(
         raise DependencyError("Acceleration profile is unsupported on this platform")
     if relative is not None:
         await asyncio.to_thread(
-            _read_requirements,
+            read_requirements,
             root / Path(relative),
             root=root,
             result=extra,
@@ -667,7 +630,7 @@ async def provision(
 
     auto_keep_installed = selected == "auto" and expected != "onnxruntime"
 
-    effective = _effective_requirements(
+    effective = effective_requirements(
         base,
         extra,
         selected=selected,
@@ -749,10 +712,29 @@ async def provision(
                     resolve_result,
                 )
 
+            if windows_cuda_torch(selected) and resolved.is_file():
+                # easyocr/transformers pull torch transitively, so the compiled
+                # lock pins PyPI's CPU-only Windows wheel even though the direct
+                # torch lines are filtered out — and uv's index precedence
+                # cannot be overridden per-package. Torch is owned by
+                # _ensure_torch_cuda (the PyTorch CUDA index); dropping its
+                # entries keeps the install stage from clobbering the CUDA
+                # build on every run.
+                trimmed = drop_torch_entries_from_lock(
+                    resolved.read_text(encoding="utf-8")
+                )
+                await asyncio.to_thread(resolved.write_text, trimmed, encoding="utf-8")
+
             conflicting = variants - {expected}
-            if selected in _NVIDIA_PROFILES:
+            if selected in NVIDIA_PROFILES:
                 legacy = selected == "nvidia-cuda-legacy" and sys.platform == "win32"
-                suffix = "-cu11" if legacy else "-cu12"
+                # The OFF-family suffix: the legacy Windows profile runs on the
+                # cu11 (CUDA 11.8 + cuDNN 8) wheels and must not co-exist with
+                # cu12, whose cuDNN 9 DLLs the Windows loader pairs by module
+                # name and crashes the provider. Everywhere else (including a
+                # Linux legacy profile, which uses the cu12-based file) the
+                # cu11 wheels are the off-family.
+                suffix = "-cu12" if legacy else "-cu11"
                 conflicting |= {
                     name for name in installed
                     if name.startswith("nvidia-") and name.endswith(suffix)
@@ -871,6 +853,16 @@ async def provision(
                         return _fail_unusable(
                             "probe-repaired", repaired_result, hazard
                         )
+
+            torch_exit = await _ensure_torch_cuda(
+                uv_argv=uv_head,
+                interpreter_argv=interpreter_argv,
+                target_python=resolved_target_python,
+                settings=settings,
+                profile=selected,
+            )
+            if torch_exit != EXIT_OK:
+                return torch_exit
 
             check_result = await _retry_command(
                 [

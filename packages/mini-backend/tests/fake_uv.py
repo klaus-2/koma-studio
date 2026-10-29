@@ -8,7 +8,7 @@ USAGE_EXIT = 2
 USAGE = (
     "usage: fake_uv.py --mode <succeed|fail:<exit>|fail-once:<exit>|"
     "fail-on:<uv-subcommand>:<exit>> [--state <path>] [--record <path>]"
-    " [--lock <lock-contents>] -- <uv argv...>"
+    " [--lock <lock-contents>] [--snapshot-requirement <path>] -- <uv argv...>"
 )
 
 
@@ -67,6 +67,22 @@ def _record(record_path: str, child_argv: list[str]) -> None:
         handle.write(json.dumps(child_argv) + "\n")
 
 
+def _snapshot_requirement(snapshot_path: str, child_argv: list[str]) -> None:
+    """Copy the `--requirement` file the uv invocation received, if any.
+
+    The provisioner resolves into a TemporaryDirectory that is gone by the
+    time the test can inspect it, so the install's requirement file has to be
+    captured while the fake uv is still running.
+    """
+    if "--requirement" not in child_argv:
+        return
+    source = Path(child_argv[child_argv.index("--requirement") + 1])
+    if source.is_file():
+        Path(snapshot_path).write_text(
+            source.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+
+
 def _fail_first_time(state_path: str, exit_code: int) -> int:
     Path(state_path).write_text("attempted\n", encoding="utf-8")
     return _fail(exit_code)
@@ -77,6 +93,8 @@ def main(argv: list[str]) -> int:
         flags, child_argv = _parse(argv)
         if "record" in flags:
             _record(flags["record"], child_argv)
+        if "snapshot-requirement" in flags:
+            _snapshot_requirement(flags["snapshot-requirement"], child_argv)
         mode = flags.get("mode")
         if mode is None:
             raise ValueError("missing --mode")
