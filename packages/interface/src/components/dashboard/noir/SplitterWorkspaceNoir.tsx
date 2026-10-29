@@ -4,6 +4,7 @@ import { buildProcessedCanvasForImage } from '../splitter/splitterUtils';
 import { useSplitterControllerContext } from '../splitter/SplitterControllerContext';
 import type { SplitterSegmentPreview } from '../splitter/types';
 import { useI18n } from '../../../i18n';
+import { useRafWheelZoom } from '../../../hooks/useRafWheelZoom';
 import { WsPanel, StatCard, ToolBtn, InfoNote } from '../../noir-panels/NoirPrimitives';
 
 interface SegmentThumb {
@@ -229,20 +230,16 @@ export const SplitterWorkspaceNoir = () => {
   }, []);
 
   /* ── Wheel zoom on preview ── */
-  useEffect(() => {
-    const el = previewStageRef.current?.parentElement;
-    if (!el) return;
-    const handler = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
+  const flushWheelZoom = useCallback((deltas: readonly number[]) => {
+    for (const deltaY of deltas) {
       setZoom(c => {
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const delta = deltaY > 0 ? -0.1 : 0.1;
         return Math.min(3, Math.max(0.2, Number((c + delta).toFixed(2))));
       });
-    };
-    el.addEventListener('wheel', handler, { passive: false });
-    return () => el.removeEventListener('wheel', handler);
-  }, [activeImageIdForEffect]);
+    }
+  }, []);
+  const resolveWheelStage = useCallback(() => previewStageRef.current?.parentElement ?? null, []);
+  useRafWheelZoom(resolveWheelStage, flushWheelZoom, activeImageIdForEffect);
 
   if (!activeImage) {
     return (

@@ -40,7 +40,7 @@ export const StitchWorkspaceClassic = ({
 
   const {
     previewUrl, previewDimensions, previewZoom, setPreviewZoom, previewBusy,
-    previewProgress, renderError, stageRef, handleStageWheel,
+    previewProgress, renderError, stageRef,
     selectedBatch, selectedBatchHasPrevious, selectedBatchHasNext,
     exportDisabled, cancelExportTask, exportCurrentBatch, exportAllBatchesAsZip,
     exportAllBatchesToDirectory,
@@ -177,7 +177,7 @@ export const StitchWorkspaceClassic = ({
         </div>
 
         {/* Stage */}
-        <div className="koma-stitch-stage" ref={stageRef} onWheel={handleStageWheel}>
+        <div className="koma-stitch-stage" ref={stageRef}>
           {!selectedBatch && (
             <div className="koma-stitch-empty">
               <Layers3 size={36} className="koma-stitch-empty__icon" />

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type React from 'react';
 
 import { useI18n } from '../../../i18n';
+import { useRafWheelZoom } from '../../../hooks/useRafWheelZoom';
 import { getExtensionFromMimeType, getMimeTypeFromExportFormat } from './stitchUtils';
 import { buildRequestId, canUseDirectoryPicker, runRenderJob, type ActiveTask } from './stitchRender';
 import type {
@@ -69,12 +69,14 @@ export function useStitchExport(args: UseStitchExportArgs) {
   const stageRef = useRef<HTMLDivElement>(null);
   const previewUrlCleanupRef = useRef<string | null>(null);
 
-  const handleStageWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    if (!e.ctrlKey && !e.metaKey) return;
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    setPreviewZoom((c) => Math.min(5, Math.max(0.1, Number((c + delta).toFixed(2)))));
+  const flushPreviewWheelZoom = useCallback((deltas: readonly number[]) => {
+    for (const deltaY of deltas) {
+      const delta = deltaY > 0 ? -0.05 : 0.05;
+      setPreviewZoom((c) => Math.min(5, Math.max(0.1, Number((c + delta).toFixed(2)))));
+    }
   }, []);
+  const resolveWheelStage = useCallback(() => stageRef.current, []);
+  useRafWheelZoom(resolveWheelStage, flushPreviewWheelZoom, null);
 
   const selectedBatch = batchPlans[selectedBatchIndex] ?? null;
   const selectedBatchImageIndexesKey = selectedBatch?.imageIndexes.join(',') ?? '';
@@ -294,7 +296,6 @@ export function useStitchExport(args: UseStitchExportArgs) {
     renderError,
     setRenderError,
     stageRef,
-    handleStageWheel,
     // derivados de lote
     selectedBatch,
     selectedBatchImages,

@@ -44,7 +44,7 @@ export const StitchWorkspaceNoir = ({
 
   const {
     previewUrl, previewDimensions, previewZoom, setPreviewZoom, previewBusy,
-    previewProgress, renderError, stageRef, handleStageWheel,
+    previewProgress, renderError, stageRef,
     selectedBatch, selectedBatchHasPrevious, selectedBatchHasNext,
     exportDisabled, cancelExportTask, exportCurrentBatch, exportAllBatchesAsZip,
     exportAllBatchesToDirectory, hasQuotaForCurrentBatch, quotaLimitButtonTitle,
@@ -102,7 +102,7 @@ export const StitchWorkspaceNoir = ({
         </div>
 
         {/* Stage */}
-        <div ref={stageRef} onWheel={handleStageWheel} className="halftone relative flex min-h-[420px] flex-1 items-start justify-center overflow-auto bg-ink/50 p-6">
+        <div ref={stageRef} className="halftone relative flex min-h-[420px] flex-1 items-start justify-center overflow-auto bg-ink/50 p-6">
           {!selectedBatch && (
             <div className="m-auto flex flex-col items-center gap-3 text-center">
               <span className="flex h-16 w-16 items-center justify-center panel-cut bg-crimson/8 text-crimson"><Layers3 size={30} /></span>

@@ -7,6 +7,7 @@ import {
   useState,
   type ChangeEvent,
 } from 'react';
+import { useRafWheelZoom } from '../../../hooks/useRafWheelZoom';
 import { createPortal } from 'react-dom';
 import { zipSync, strToU8 } from 'fflate';
 
@@ -409,23 +410,19 @@ const WatermarkWorkspaceClassic = ({
   ]);
 
   // ── Zoom (Ctrl+Wheel) ──
-  useEffect(() => {
-    const el = previewStageRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
+  const flushWheelZoom = useCallback((deltas: readonly number[]) => {
+    for (const deltaY of deltas) {
       setZoom((prev) => {
         const idx = ZOOM_STEPS.findIndex((z) => z >= prev);
-        const next = e.deltaY < 0
+        const next = deltaY < 0
           ? ZOOM_STEPS[Math.min((idx === -1 ? ZOOM_STEPS.length - 1 : idx) + 1, ZOOM_STEPS.length - 1)]
           : ZOOM_STEPS[Math.max((idx === -1 ? 0 : idx) - 1, 0)];
         return next ?? prev;
       });
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+    }
   }, []);
+  const resolveWheelStage = useCallback(() => previewStageRef.current, []);
+  useRafWheelZoom(resolveWheelStage, flushWheelZoom, null);
 
   useEffect(() => {
     if (!thumbsStripRef.current || !activeImageId) return;
