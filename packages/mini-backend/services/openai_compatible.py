@@ -7,7 +7,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from core.http_retry import post_with_429_retry
+from core.http_retry import post_with_retry
 
 _REDIRECT_STATUSES = {301, 302, 307, 308}
 _HUGGINGFACE_ROUTER_API_BASE = "https://router.huggingface.co/v1"
@@ -318,7 +318,7 @@ async def post_openai_compatible_json(
     async with httpx.AsyncClient(timeout=timeout) as client:
         redirects_followed = 0
         while True:
-            response = await post_with_429_retry(
+            response = await post_with_retry(
                 client,
                 request_url,
                 max_retries=3,

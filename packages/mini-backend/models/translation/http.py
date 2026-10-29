@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from core.http_retry import post_with_429_retry
+from core.http_retry import post_with_retry
 from models.translation.errors import (
     TranslatorResponseError,
     TranslatorUnavailableError,
@@ -110,7 +110,7 @@ async def post_json(
     request_headers = {"Content-Type": "application/json", **(headers or {})}
     return await _send(
         provider_label,
-        lambda client: post_with_429_retry(
+        lambda client: post_with_retry(
             client,
             url,
             max_retries=max_retries,
@@ -132,7 +132,7 @@ async def post_form(
 ) -> JsonValue:
     return await _send(
         provider_label,
-        lambda client: post_with_429_retry(
+        lambda client: post_with_retry(
             client,
             url,
             max_retries=max_retries,
