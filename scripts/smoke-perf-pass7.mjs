@@ -191,7 +191,119 @@ if (llmPanelSeen) {
   );
 }
 
-// ── 4. errors ──
+// ── 4. AIO stage tab walk (stage-config island parity) ──
+const stageContent = page.locator(".koma-aio-stage-content");
+if ((await stageTabs.count()) >= 6) {
+  for (let index = 0; index < 6; index += 1) {
+    await stageTabs.nth(index).click();
+    await page.waitForTimeout(400);
+    const childCount = await stageContent.evaluate((node) => node.children.length);
+    step(`aio stage tab ${index} renders its body`, childCount > 0, `children=${childCount}`);
+  }
+
+  // Clean tab (index 4): the mask-dilation slider value must survive a tab
+  // round-trip (store-backed island) and the HD strategy select must swap
+  // the crop sliders in and out.
+  const cleanTab = stageTabs.nth(4);
+  await cleanTab.click();
+  await page.waitForTimeout(400);
+  const sliders = stageContent.locator("input[type='range']");
+  const sliderCount = await sliders.count();
+  if (sliderCount > 0) {
+    // KlSlider commits to the store on pointer-up (local draft while
+    // dragging) — replicate the full user gesture.
+    await sliders.first().evaluate((el) => {
+      el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      el.value = "12";
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+    });
+    await page.waitForTimeout(200);
+    await stageTabs.nth(0).click();
+    await page.waitForTimeout(300);
+    await cleanTab.click();
+    await page.waitForTimeout(400);
+    const valueAfterRoundTrip = await sliders.first().inputValue();
+    step(
+      "mask dilation value survives a tab round-trip",
+      valueAfterRoundTrip === "12",
+      valueAfterRoundTrip,
+    );
+
+    const selects = stageContent.locator("select");
+    const selectCount = await selects.count();
+    let hdSelect = null;
+    for (let index = 0; index < selectCount; index += 1) {
+      if (await selects.nth(index).locator("option[value='crop']").count()) {
+        hdSelect = selects.nth(index);
+        break;
+      }
+    }
+    if (hdSelect) {
+      await hdSelect.selectOption("crop");
+      await page.waitForTimeout(300);
+      const cropSliderCount = await sliders.count();
+      step(
+        "HD crop strategy shows the crop sliders",
+        cropSliderCount > sliderCount,
+        `${sliderCount} -> ${cropSliderCount}`,
+      );
+      await hdSelect.selectOption("resize");
+      await page.waitForTimeout(300);
+    } else {
+      step("HD crop strategy shows the crop sliders", false, "select with crop option not found");
+    }
+  } else {
+    console.log("SKIP mask dilation steps — no range slider on the clean tab");
+  }
+
+  await page.screenshot({ path: path.join(OUT_DIR, "p7-stage-tabs.png") });
+} else {
+  console.log("SKIP aio stage tab walk — fewer than 6 stage tabs available");
+}
+
+// ── 5. Glossary accordion (grid-template-rows transition) ──
+const resourcesButton = page
+  .getByRole("button", { name: /Resources & Materials|Recursos & Materiais/i })
+  .first();
+let glossaryReached = false;
+if (await resourcesButton.count()) {
+  await resourcesButton.click({ timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  if ((await page.locator(".koma-res-glossary-item").count()) === 0) {
+    const glossaryTab = page
+      .getByRole("button", { name: /Glossary|Glossário/i })
+      .first();
+    if (await glossaryTab.count()) {
+      await glossaryTab.click({ timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(600);
+    }
+  }
+  glossaryReached = (await page.locator(".koma-res-glossary-item").count()) > 0;
+}
+
+if (glossaryReached) {
+  const item = page.locator(".koma-res-glossary-item").first();
+  await item.locator("button").first().click();
+  await page.waitForTimeout(500);
+  const expanded = await item.evaluate((el) =>
+    el.classList.contains("koma-res-glossary-item--expanded"),
+  );
+  step("glossary accordion expands", expanded);
+
+  await item.locator("button").first().click();
+  await page.waitForTimeout(500);
+  const collapsed = await item.evaluate(
+    (el) => !el.classList.contains("koma-res-glossary-item--expanded"),
+  );
+  step("glossary accordion collapses", collapsed);
+  await page.screenshot({ path: path.join(OUT_DIR, "p7-glossary.png") });
+} else {
+  console.log("SKIP glossary accordion — resources mode not reachable in web e2e");
+}
+
+// ── 6. errors ──
 const ENV_NOISE =
   /fetch|Failed to fetch|net::|ERR_CONNECTION|404|401|ECONNREFUSED|NetworkError|Failed to load resource|AbortError|signal is aborted/i;
 const BROWSER_RUNTIME_NOISE =
