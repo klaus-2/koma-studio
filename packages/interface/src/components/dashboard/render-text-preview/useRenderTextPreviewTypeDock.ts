@@ -124,14 +124,6 @@ export const useRenderTextPreviewTypeDock = ({
 
     // The dock lives in a body portal with viewport coordinates, so a stage
     // scroll has to re-anchor it imperatively (no React render per tick).
-    const applyDockPosition = () => {
-      const node = dockRef.current;
-      if (!node) return;
-      const rect = overlay.getBoundingClientRect();
-      node.style.left = `${rect.left + dockAnchor.x}px`;
-      node.style.top = `${rect.top + dockAnchor.y}px`;
-    };
-
     const updateDockVisibility = () => {
       const rect = overlay.getBoundingClientRect();
       const dockHeight = dockRef.current?.offsetHeight ?? 120;
@@ -144,9 +136,28 @@ export const useRenderTextPreviewTypeDock = ({
       setDockVisible(dockWithinCard && cardInViewport);
     };
 
+    // One frame per scroll/resize burst: batch every layout read before the
+    // style writes, otherwise each event forces a reflow mid-handler.
+    let frameId: number | null = null;
+
+    const applyDockFrame = () => {
+      frameId = null;
+      const node = dockRef.current;
+      if (!node) return;
+      const rect = overlay.getBoundingClientRect();
+      const dockHeight = node.offsetHeight;
+      node.style.left = `${rect.left + dockAnchor.x}px`;
+      node.style.top = `${rect.top + dockAnchor.y}px`;
+      const dockBottom = rect.top + dockAnchor.y + dockHeight;
+      const dockTop = rect.top + dockAnchor.y;
+      const dockWithinCard = dockTop >= rect.top && dockBottom <= rect.bottom;
+      const cardInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+      setDockVisible(dockWithinCard && cardInViewport);
+    };
+
     const handleStageScroll = () => {
-      applyDockPosition();
-      updateDockVisibility();
+      if (frameId !== null) return;
+      frameId = requestAnimationFrame(applyDockFrame);
     };
 
     const stageEl = overlay.closest('.koma-stage');
@@ -156,6 +167,7 @@ export const useRenderTextPreviewTypeDock = ({
       updateDockVisibility();
     }
     return () => {
+      if (frameId !== null) cancelAnimationFrame(frameId);
       if (stageEl) stageEl.removeEventListener('scroll', handleStageScroll);
       window.removeEventListener('resize', handleStageScroll);
     };
