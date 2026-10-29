@@ -1,10 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { CUDA_PROVIDER_PROBE_SNIPPET } from "../../tauri/scripts/lib/mini-venv-gpu.mjs";
 import {
+  buildQueryProbe,
   queryVenv,
   QUERY_MODULES,
   QUERY_PROBE,
   QUERY_TIMEOUT_MS,
+  requiresNvidiaProviderProbe,
 } from "./mini-venv-probe.mjs";
 
 const PYTHON_PATH = "/usr/bin/python";
@@ -170,4 +173,69 @@ test("QUERY_PROBE checks for the cv2.imencode symbol", () => {
 
 test("QUERY_TIMEOUT_MS is 120 seconds", () => {
   assert.equal(QUERY_TIMEOUT_MS, 120_000);
+});
+
+// ---------------------------------------------------------------------------
+// NVIDIA provider probe
+//
+// onnxruntime (CPU) and onnxruntime-gpu share one package namespace: a venv
+// whose GPU wheel was clobbered by the CPU package still imports cleanly, so
+// the CUDA-profile probe must assert the execution provider itself.
+// ---------------------------------------------------------------------------
+
+test("requiresNvidiaProviderProbe is true only for nvidia-* profiles", () => {
+  assert.equal(requiresNvidiaProviderProbe("nvidia-cuda"), true);
+  assert.equal(requiresNvidiaProviderProbe("nvidia-cuda-legacy"), true);
+  assert.equal(requiresNvidiaProviderProbe("nvidia-tensorrt"), true);
+  assert.equal(requiresNvidiaProviderProbe("cpu"), false);
+  assert.equal(requiresNvidiaProviderProbe("amd-rocm"), false);
+  assert.equal(requiresNvidiaProviderProbe(""), false);
+  assert.equal(requiresNvidiaProviderProbe(undefined), false);
+});
+
+test("buildQueryProbe keeps the base probe for non-NVIDIA profiles", () => {
+  assert.equal(buildQueryProbe("cpu"), QUERY_PROBE);
+  assert.equal(buildQueryProbe(""), QUERY_PROBE);
+  assert.equal(buildQueryProbe(undefined), QUERY_PROBE);
+});
+
+test("buildQueryProbe asserts the CUDA provider for NVIDIA profiles", () => {
+  const probe = buildQueryProbe("nvidia-cuda-legacy");
+  assert.ok(probe.startsWith(QUERY_PROBE), "the cv2 check must stay in front");
+  assert.ok(probe.includes("get_available_providers"));
+  assert.ok(probe.includes("CUDAExecutionProvider"));
+  assert.ok(probe.includes("raise SystemExit"));
+});
+
+test("queryVenv forwards the profile into the probe source", () => {
+  const spawn = fakeSpawnSync({ status: 0 });
+  queryVenv(PYTHON_PATH, spawn, "nvidia-cuda-legacy");
+  assert.equal(spawn.calls.length, 1);
+  assert.ok(
+    spawn.calls[0].args[1].includes("CUDAExecutionProvider"),
+    "the NVIDIA profile must extend the probe with the provider assertion",
+  );
+
+  const plainSpawn = fakeSpawnSync({ status: 0 });
+  queryVenv(PYTHON_PATH, plainSpawn, "cpu");
+  assert.equal(
+    plainSpawn.calls[0].args[1].includes("CUDAExecutionProvider"),
+    false,
+    "non-NVIDIA profiles must keep the base probe",
+  );
+});
+
+test("the CUDA provider probe stays in lockstep with the Tauri shell", () => {
+  const probe = buildQueryProbe("nvidia-cuda-legacy");
+  assert.ok(
+    probe.includes(CUDA_PROVIDER_PROBE_SNIPPET),
+    "the Electron probe must embed the Tauri shell's canonical CUDA snippet " +
+    "verbatim (apps/tauri/scripts/lib/mini-venv-gpu.mjs) — the two shells " +
+    "detect the same clobbered-ort state or neither does",
+  );
+  assert.equal(
+    buildQueryProbe("cpu").includes(CUDA_PROVIDER_PROBE_SNIPPET),
+    false,
+    "the snippet is NVIDIA-only in both shells",
+  );
 });

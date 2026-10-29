@@ -42,6 +42,15 @@ import {
   resolveProfileRequirements,
 } from "./lib/hardware-profiles.mjs";
 import {
+  CUDA_PROVIDER_PROBE_SNIPPET,
+  TORCH_CUDA_INDEX_URL,
+  conflictingOnnxruntimeVariant,
+  onnxruntimeVariantOf,
+  requiresNvidiaProviderProbe,
+  resolveOnnxruntimeRequirement,
+  withoutTorchLines,
+} from "./lib/mini-venv-gpu.mjs";
+import {
   ACCELERATION_PROFILE_KEY,
   readEnvFileValue,
   resolveActiveProfile,
@@ -112,6 +121,14 @@ try {
 
 const requirementsPath = path.join(rootDir, "..", "..", "packages", "mini-backend", resolvedRequirements.relativePath);
 
+// onnxruntime and onnxruntime-gpu share one package namespace, so a venv can
+// import a CPU-only runtime while its GPU dist-info still looks installed —
+// the exact state that silently strips the CUDA provider from a CUDA-profile
+// venv. NVIDIA profiles therefore assert the provider, not just the import.
+const queryProbe = requiresNvidiaProviderProbe(activeProfile)
+  ? `${QUERY_PROBE}${CUDA_PROVIDER_PROBE_SNIPPET}`
+  : QUERY_PROBE;
+
 /** Maintainer-published index of prebuilt CPU wheels for llama-cpp-python. */
 const LLAMA_WHEEL_INDEX = "https://abetlen.github.io/llama-cpp-python/whl/cpu";
 
@@ -153,15 +170,13 @@ const readRequirementLines = (filePath, seen = new Set()) => {
 };
 
 /**
- * Read the llama-cpp-python line out of the resolved requirements so the wheel
- * pass installs exactly the pinned range. Returning the requirement verbatim
- * keeps the requirements files the single source of truth: bump the pin there
- * and this follows.
+ * Read the llama-cpp-python line out of the already-expanded requirements so
+ * the wheel pass installs exactly the pinned range. Returning the requirement
+ * verbatim keeps the requirements files the single source of truth: bump the
+ * pin there and this follows.
  */
-const readLlamaRequirement = () =>
-  readRequirementLines(requirementsPath).find((entry) =>
-    /^llama[-_]cpp[-_]python\b/i.test(entry),
-  ) ?? null;
+const readLlamaRequirement = (lines) =>
+  lines.find((entry) => /^llama[-_]cpp[-_]python\b/i.test(entry)) ?? null;
 
 /**
  * Fingerprint of the inputs that decide whether a reinstall is needed.
@@ -248,7 +263,7 @@ const queryVenv = (pythonPath) =>
   runImportQuery({
     pythonPath,
     modules: QUERY_MODULES,
-    probe: QUERY_PROBE,
+    probe: queryProbe,
     spawnSync,
     timeout: QUERY_TIMEOUT_MS,
   });
@@ -451,6 +466,77 @@ const installRequirements = () => {
   writeProvisioningLock();
   const pipCache = path.join(rootDir, ".cache", "pip");
 
+  const requirementLines = readRequirementLines(requirementsPath);
+
+  // PyPI's Windows torch wheels are CPU-only, and a CPU torch in a CUDA-profile
+  // venv silently downgrades every torch-backed model. Pre-install the CUDA
+  // build from the PyTorch index so the requirements pass below sees torch
+  // satisfied, and filter the torch lines out of that pass entirely so a future
+  // requirements bump can never quietly reintroduce the CPU wheel.
+  const needsWindowsCudaTorch = isWindows && requiresNvidiaProviderProbe(activeProfile);
+  let pipRequirementsPath = requirementsPath;
+  if (needsWindowsCudaTorch) {
+    const torchQuery = spawnSync(
+      venvPython,
+      ["-c", "import torch; print(torch.version.cuda or '')"],
+      { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8", timeout: QUERY_TIMEOUT_MS },
+    );
+    const torchCuda = torchQuery.status === 0 ? (torchQuery.stdout ?? "").trim() : "";
+    if (torchCuda === "") {
+      console.log(
+        `▸ installing torch with CUDA support from ${TORCH_CUDA_INDEX_URL} (PyPI Windows wheels are CPU-only)`,
+      );
+      run(
+        venvPython,
+        [
+          "-m", "pip", "install",
+          "--cache-dir", pipCache,
+          "--index-url", TORCH_CUDA_INDEX_URL,
+          "--force-reinstall",
+          "torch", "torchvision",
+        ],
+        "torch CUDA install",
+      );
+    }
+    // A generated control file, next to the other `.koma-*` venv controls —
+    // the shape guard in mini-venv-verdict.test.ts forbids extra deletion
+    // targets in this script, so the file is simply overwritten per install.
+    pipRequirementsPath = path.join(venvDir, ".koma-requirements-nvidia-windows.txt");
+    fs.writeFileSync(pipRequirementsPath, `${withoutTorchLines(requirementLines).join("\n")}\n`);
+  }
+
+  // onnxruntime and onnxruntime-gpu share one package namespace: a leftover
+  // variant of the wrong family overwrites the shared files and silently
+  // strips the CUDA provider. Remove it and restore the pinned wheel so the
+  // namespace always matches the active profile.
+  const onnxruntimeRequirement = resolveOnnxruntimeRequirement(requirementLines);
+  const onnxruntimeConflict = conflictingOnnxruntimeVariant(
+    onnxruntimeVariantOf(onnxruntimeRequirement),
+  );
+  if (onnxruntimeConflict) {
+    const uninstall = spawnSync(
+      venvPython,
+      ["-m", "pip", "uninstall", "-y", onnxruntimeConflict],
+      { stdio: "inherit", cwd: rootDir },
+    );
+    if (uninstall.error || uninstall.status !== 0) {
+      throw new Error(
+        `pip uninstall ${onnxruntimeConflict} failed (exit ${uninstall.status ?? "spawn error"}) — ` +
+        "the shared onnxruntime namespace would stay clobbered",
+      );
+    }
+    run(
+      venvPython,
+      [
+        "-m", "pip", "install",
+        "--cache-dir", pipCache,
+        "--force-reinstall", "--no-deps",
+        onnxruntimeRequirement,
+      ],
+      "onnxruntime restore",
+    );
+  }
+
   // llama-cpp-python ships no wheel on PyPI, so a plain install downloads a
   // 74.9 MB sdist and compiles llama.cpp — tens of minutes, and it requires a
   // C++ toolchain (MSVC on Windows) most contributors do not have. The
@@ -461,7 +547,7 @@ const installRequirements = () => {
   // the main install, on purpose: an extra index is consulted for every package
   // name, which is the classic dependency-confusion footgun. Scoping it to the
   // single package that needs it keeps the other 26 pinned to PyPI.
-  const llamaSpec = readLlamaRequirement();
+  const llamaSpec = readLlamaRequirement(requirementLines);
   if (llamaSpec) {
     console.log(`▸ installing ${llamaSpec} from the prebuilt CPU wheel index (skips a source build)`);
     const wheelResult = spawnSync(
@@ -499,7 +585,7 @@ const installRequirements = () => {
       "--cache-dir",
       pipCache,
       "-r",
-      requirementsPath,
+      pipRequirementsPath,
       "cython",
       "pyarmor",
     ],

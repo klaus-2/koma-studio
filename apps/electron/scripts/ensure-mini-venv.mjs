@@ -106,8 +106,10 @@ let needsProvisioning = true;
 if (isMiniDepsMarkerFresh(venvDir, depsMarkerHash)) {
   // The marker says deps are installed, but a broken cv2 (e.g. conflicting
   // opencv distributions) imports as a namespace package and only fails at
-  // first attribute read. Probe before trusting the marker.
-  const markerQuery = queryVenv(pythonBin, spawnSync);
+  // first attribute read. Probe before trusting the marker. NVIDIA profiles
+  // additionally assert the CUDA provider: a co-installed CPU onnxruntime
+  // imports cleanly while silently stripping the GPU runtime.
+  const markerQuery = queryVenv(pythonBin, spawnSync, activeProfile);
   if (markerQuery.ok) {
     console.log(
       `[mini:deps] Dependencies already installed — ${profileDescription} (marker match, probe passed). Skipping.`,
@@ -164,7 +166,7 @@ if (flag === "--run" || flag === "--exec") {
   if (guardStatus !== 0) {
     process.exit(guardStatus);
   }
-  const runQuery = queryVenv(pythonBin, spawnSync);
+  const runQuery = queryVenv(pythonBin, spawnSync, activeProfile);
   if (!runQuery.ok) {
     console.log(
       `[mini:deps] Warning: the venv failed the import probe (${runQuery.stderrTail}) — ` +
