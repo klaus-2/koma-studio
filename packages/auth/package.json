@@ -13,15 +13,23 @@
     "./utils/*": "./src/utils/*.ts",
     "./runtime-adapter": "./src/runtime-adapter.ts"
   },
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@koma/types": "workspace:*",
     "@koma/ui": "workspace:*"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.101.4",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^26.1.0",
     "react": "^19.2.0",
-    "react-idle-timer": "^5.7.3"
+    "react-dom": "^19.2.0",
+    "react-idle-timer": "^5.7.3",
+    "vitest": "^4.1.12"
   },
   "peerDependencies": {
     "@tanstack/react-query": ">=5",
