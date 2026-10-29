@@ -45,6 +45,7 @@ import {
   CUDA_PROVIDER_PROBE_SNIPPET,
   TORCH_CUDA_INDEX_URL,
   conflictingOnnxruntimeVariant,
+  isPackageInstalled,
   onnxruntimeVariantOf,
   requiresNvidiaProviderProbe,
   resolveOnnxruntimeRequirement,
@@ -507,13 +508,18 @@ const installRequirements = () => {
 
   // onnxruntime and onnxruntime-gpu share one package namespace: a leftover
   // variant of the wrong family overwrites the shared files and silently
-  // strips the CUDA provider. Remove it and restore the pinned wheel so the
-  // namespace always matches the active profile.
+  // strips the CUDA provider. The repair only pays for itself when the
+  // conflicting variant is actually installed — otherwise the pinned wheel is
+  // already satisfied and a force-reinstall would churn every install pass.
   const onnxruntimeRequirement = resolveOnnxruntimeRequirement(requirementLines);
   const onnxruntimeConflict = conflictingOnnxruntimeVariant(
     onnxruntimeVariantOf(onnxruntimeRequirement),
   );
-  if (onnxruntimeConflict) {
+  if (onnxruntimeConflict && isPackageInstalled({
+    pythonPath: venvPython,
+    name: onnxruntimeConflict,
+    spawnSync,
+  })) {
     const uninstall = spawnSync(
       venvPython,
       ["-m", "pip", "uninstall", "-y", onnxruntimeConflict],

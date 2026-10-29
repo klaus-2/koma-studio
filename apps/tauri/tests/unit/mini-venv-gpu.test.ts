@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+    CUDA_PROVIDER_PROBE_SNIPPET,
     TORCH_CUDA_INDEX_URL,
     conflictingOnnxruntimeVariant,
+    isPackageInstalled,
     onnxruntimeVariantOf,
     requiresNvidiaProviderProbe,
     resolveOnnxruntimeRequirement,
@@ -119,5 +121,48 @@ describe("TORCH_CUDA_INDEX_URL", () => {
         );
         const match = source.match(/TORCH_CUDA_INDEX_URL = "([^"]+)"/);
         expect(match?.[1]).toBe(TORCH_CUDA_INDEX_URL);
+    });
+});
+
+describe("isPackageInstalled", () => {
+    const fakeSpawn = (status: number | null, error?: Error) => {
+        const calls: Array<{ args: string[] }> = [];
+        return Object.assign(
+            ((command: string, args: string[]) => {
+                calls.push({ args });
+                return { status, error };
+            }) as unknown as typeof import("node:child_process").spawnSync,
+            { calls },
+        );
+    };
+
+    it("reports a package whose dist-info resolves as installed", () => {
+        const spawn = fakeSpawn(0);
+        expect(isPackageInstalled({ pythonPath: "py", name: "onnxruntime", spawnSync: spawn })).toBe(true);
+    });
+
+    it("reports an absent package as not installed (exit 1)", () => {
+        const spawn = fakeSpawn(1);
+        expect(
+            isPackageInstalled({ pythonPath: "py", name: "onnxruntime-gpu", spawnSync: spawn }),
+        ).toBe(false);
+    });
+
+    it("treats a spawn failure (timeout, ENOENT) as not installed", () => {
+        const spawn = fakeSpawn(null, new Error("ETIMEDOUT"));
+        expect(
+            isPackageInstalled({ pythonPath: "py", name: "onnxruntime", spawnSync: spawn }),
+        ).toBe(false);
+    });
+
+    it("passes the package name as argv, not interpolated into the script", () => {
+        const spawn = fakeSpawn(0);
+        isPackageInstalled({ pythonPath: "py", name: "onnxruntime-gpu", spawnSync: spawn });
+
+        const args = spawn.calls[0].args;
+        const script = args[1];
+        expect(script).toContain("metadata.version(sys.argv[1])");
+        expect(script).not.toContain("onnxruntime");
+        expect(args[2]).toBe("onnxruntime-gpu");
     });
 });

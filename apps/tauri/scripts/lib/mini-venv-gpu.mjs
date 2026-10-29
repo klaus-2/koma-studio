@@ -60,5 +60,25 @@ export const conflictingOnnxruntimeVariant = (variant) => {
 export const withoutTorchLines = (lines) =>
     lines.filter((entry) => !/^(torch|torchvision)\b/i.test(entry));
 
+/**
+ * Whether *name* resolves in the venv's installed distribution metadata.
+ *
+ * Deliberately dist-info presence, not importability: the clobbered state
+ * keeps its dist-info readable while the shared `onnxruntime/` files belong
+ * to the other variant, which is exactly the state the repair exists for.
+ */
+export const isPackageInstalled = ({ pythonPath, name, spawnSync }) => {
+    const result = spawnSync(
+        pythonPath,
+        [
+            "-c",
+            "import importlib.metadata as metadata\nimport sys\ntry:\n    metadata.version(sys.argv[1])\nexcept metadata.PackageNotFoundError:\n    raise SystemExit(1)",
+            name,
+        ],
+        { stdio: "ignore", timeout: 120_000 },
+    );
+    return !result.error && result.status === 0;
+};
+
 /** Maintained CUDA wheel index for torch on Windows (Pascal-era GPUs included). */
 export const TORCH_CUDA_INDEX_URL = "https://download.pytorch.org/whl/cu124";
