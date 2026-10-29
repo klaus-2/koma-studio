@@ -86,9 +86,9 @@ export default function ScanlationFeedComposerSocialSection({
       <AnimatePresence>
         {recruitmentForm.showSocialInput && (
           <m.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
             className="overflow-hidden"
           >
             <div className="halftone panel-cut-sm flex flex-col gap-3 border border-paper/10 bg-ink/50 p-3.5">

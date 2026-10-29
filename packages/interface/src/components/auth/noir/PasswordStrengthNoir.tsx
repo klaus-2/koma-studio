@@ -27,9 +27,9 @@ export function PasswordStrengthNoir({ password }: { password: string }) {
   return (
       <AnimatePresence>
         <m.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
           className="panel-cut-sm overflow-hidden border border-paper/10 bg-ink/50 px-4 py-3.5"
         >
           <div className="flex gap-1.5" aria-hidden>

@@ -437,19 +437,19 @@ export default function GlossarySectionV2({
                                       reduceMotion
                                         ? false
                                         : {
-                                            height:
-                                              0,
+                                            y:
+                                              -4,
                                             opacity:
                                               0,
                                           }
                                     }
                                     animate={{
-                                      height:
-                                        'auto',
+                                      y:
+                                        0,
                                       opacity: 1,
                                     }}
                                     exit={{
-                                      height: 0,
+                                      y: -4,
                                       opacity: 0,
                                     }}
                                     transition={{

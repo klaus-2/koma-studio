@@ -82,9 +82,9 @@ export default function ScanlationFeedComposerRecruitmentSection({
       <AnimatePresence>
         {recruitmentForm.candidateRequirements.availability && (
           <m.div
-            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
             className="halftone panel-cut-sm flex flex-col gap-3 border-l-[3px] border-l-azure bg-azure/5 p-3.5"
           >
             <div className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-azure">
