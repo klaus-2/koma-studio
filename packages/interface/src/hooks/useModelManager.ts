@@ -44,6 +44,21 @@ const getStoreSnapshot = () => modelStore.getState();
 export const useModelManagerLiveState = (): ModelStoreState =>
   useSyncExternalStore(modelStore.subscribe, getStoreSnapshot, getStoreSnapshot);
 
+const subscribeNoop = (): (() => void) => () => {};
+
+/**
+ * Store state that tracks status-relevant changes only while no manager modal
+ * is open, and goes fully live (progress ticks) once one opens: modalOpen is
+ * part of the status signature, so opening/closing a modal flips the snapshot
+ * and the subscription upgrades/downgrades on the next render.
+ */
+export const useModelManagerGatedState = (live: boolean): ModelStoreState =>
+  useSyncExternalStore(
+    live ? modelStore.subscribe : subscribeNoop,
+    live ? getStoreSnapshot : getModelManagerStatusSnapshot,
+    getModelManagerStatusSnapshot,
+  );
+
 interface ModelManagerStatusSnapshotCache {
   signature: string;
   state: ModelStoreState;

@@ -145,6 +145,10 @@ export const ModelManagerModalClassic = ({
   const languageFilter = defaultLanguageFilter || 'all';
   const effectiveSource = enableCloudCatalog ? sourceFilter : 'local';
   const languageOptions = useMemo(() => listRegistryLanguages(), []);
+  const filters = useMemo(
+    () => ({ source: effectiveSource, language: languageFilter, status: statusFilter }),
+    [effectiveSource, languageFilter, statusFilter],
+  );
 
   const [prevOpen, setPrevOpen] = useState(open);
   const [prevCustomProfiles, setPrevCustomProfiles] =
@@ -251,11 +255,7 @@ export const ModelManagerModalClassic = ({
 
         {/* ═══ Filters ═══ */}
         <ModelFilters
-          filters={{
-            source: effectiveSource,
-            language: languageFilter,
-            status: statusFilter,
-          }}
+          filters={filters}
           languages={languageOptions}
           allowCloud={enableCloudCatalog}
           hideSourceToggle={hideSourceToggle}

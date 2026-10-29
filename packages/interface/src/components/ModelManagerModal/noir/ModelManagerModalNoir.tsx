@@ -169,6 +169,10 @@ export const ModelManagerModalNoir = ({
   const languageFilter = defaultLanguageFilter || 'all';
   const effectiveSource = enableCloudCatalog ? sourceFilter : 'local';
   const languageOptions = useMemo(() => listRegistryLanguages(), []);
+  const filters = useMemo(
+    () => ({ source: effectiveSource, language: languageFilter, status: statusFilter }),
+    [effectiveSource, languageFilter, statusFilter],
+  );
 
   useEffect(() => {
     if (!enableCloudCatalog && sourceFilter !== 'local') setSourceFilter('local');
@@ -307,7 +311,7 @@ export const ModelManagerModalNoir = ({
 
             {/* ═══ FILTERS ═══ */}
             <ModelFilters
-              filters={{ source: effectiveSource, language: languageFilter, status: statusFilter }}
+              filters={filters}
               languages={languageOptions}
               allowCloud={enableCloudCatalog}
               hideSourceToggle={hideSourceToggle}

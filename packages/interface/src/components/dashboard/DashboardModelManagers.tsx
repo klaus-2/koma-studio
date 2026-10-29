@@ -9,7 +9,8 @@ import { useI18n } from '../../i18n';
 import { getAioStageLabels } from '../../constants/dashboard.constants';
 import {
   computeInstallAllSummary,
-  useModelManagerLiveState,
+  useModelManagerGatedState,
+  useModelManagerStatusSnapshot,
 } from '../../hooks/useModelManager';
 import { summarizeInstalledModels } from '../../models/model-storage';
 
@@ -47,15 +48,20 @@ interface DashboardModelManagersProps {
   refreshModelState: () => Promise<unknown>;
 }
 
-const useModelManagerSummaries = () => {
-  const modelManagerState = useModelManagerLiveState();
+const useModelManagerSummaries = (enhanceModelManagerOpen: boolean) => {
+  // Status snapshot drives the summaries and the closed-modal render; the
+  // gated subscription goes live (progress ticks) only while a modal is open.
+  const snapshotState = useModelManagerStatusSnapshot();
+  const modelManagerState = useModelManagerGatedState(
+    snapshotState.modalOpen || enhanceModelManagerOpen,
+  );
   const modelSummary = useMemo(
-    () => summarizeInstalledModels(modelManagerState.entries),
-    [modelManagerState.entries],
+    () => summarizeInstalledModels(snapshotState.entries),
+    [snapshotState.entries],
   );
   const installAllSummary = useMemo(
-    () => computeInstallAllSummary(modelManagerState.entries),
-    [modelManagerState.entries],
+    () => computeInstallAllSummary(snapshotState.entries),
+    [snapshotState.entries],
   );
   return { modelManagerState, modelSummary, installAllSummary };
 };
@@ -92,7 +98,7 @@ export default function DashboardModelManagers({
 }: DashboardModelManagersProps) {
   const { t } = useI18n();
   const { modelManagerState, modelSummary, installAllSummary } =
-    useModelManagerSummaries();
+    useModelManagerSummaries(enhanceModelManagerOpen);
   const aioStageLabels = useMemo(() => getAioStageLabels(t), [t]);
 
   const openedOnceRef = useRef({
@@ -133,6 +139,119 @@ export default function DashboardModelManagers({
     },
     [getAioStageOption],
   );
+
+  // Stable modal handlers: memoized cards must see identical callback props
+  // across download-progress re-renders to bail out.
+  const handleInstallModel = useCallback(
+    async (modelId: string) => { await installTranslationModel(modelId); },
+    [installTranslationModel],
+  );
+  const handleUpdateModel = useCallback(
+    async (modelId: string) => { await updateTranslationModel(modelId); },
+    [updateTranslationModel],
+  );
+  const handleUninstallModel = useCallback(
+    async (modelId: string) => { await uninstallTranslationModel(modelId); },
+    [uninstallTranslationModel],
+  );
+  const handleRetryModel = useCallback(
+    async (modelId: string) => { await retryTranslationModel(modelId); },
+    [retryTranslationModel],
+  );
+  const handleCancelModel = useCallback(
+    async (modelId: string) => { await cancelTranslationModel(modelId); },
+    [cancelTranslationModel],
+  );
+  const handleInstallAll = useCallback(
+    async (modelIds?: string[]) => { await installAllTranslationModels(modelIds); },
+    [installAllTranslationModels],
+  );
+  const handleCancelAll = useCallback(
+    async () => { await cancelAllTranslationModels(); },
+    [cancelAllTranslationModels],
+  );
+  const handleCheckUpdatesNow = useCallback(
+    async () => { await checkModelUpdatesNow(); },
+    [checkModelUpdatesNow],
+  );
+  const handleSelectTranslationModel = useCallback(
+    (modelKey: string) => {
+      setAioStageSelection((prev) => ({ ...prev, getTranslations: modelKey }));
+      setStatusMessage(
+        t('dashboard.status.modelSelected', {
+          stage: aioStageLabels.getTranslations,
+          model: modelLabelFor('getTranslations', modelKey),
+        }),
+      );
+    },
+    [setAioStageSelection, setStatusMessage, t, aioStageLabels, modelLabelFor],
+  );
+  const handleSelectDetectModel = useCallback(
+    (modelKey: string) => {
+      setAioStageSelection((prev) => ({ ...prev, detectText: modelKey }));
+      setStatusMessage(
+        t('dashboard.status.modelSelected', {
+          stage: aioStageLabels.detectText,
+          model: modelLabelFor('detectText', modelKey),
+        }),
+      );
+    },
+    [setAioStageSelection, setStatusMessage, t, aioStageLabels, modelLabelFor],
+  );
+  const handleSelectRecognizeModel = useCallback(
+    (modelKey: string) => {
+      selectAioRecognizeTextModel(modelKey);
+      setStatusMessage(
+        t('dashboard.status.modelSelected', {
+          stage: aioStageLabels.recognizeText,
+          model: modelLabelFor('recognizeText', modelKey),
+        }),
+      );
+    },
+    [selectAioRecognizeTextModel, setStatusMessage, t, aioStageLabels, modelLabelFor],
+  );
+  const handleSelectSegmentModel = useCallback(
+    (modelKey: string) => {
+      setAioStageSelection((prev) => ({ ...prev, segmentText: modelKey }));
+      setStatusMessage(
+        t('dashboard.status.modelSelected', {
+          stage: aioStageLabels.segmentText,
+          model: modelLabelFor('segmentText', modelKey),
+        }),
+      );
+    },
+    [setAioStageSelection, setStatusMessage, t, aioStageLabels, modelLabelFor],
+  );
+  const handleSelectCleanModel = useCallback(
+    (modelKey: string) => {
+      setAioStageSelection((prev) => ({ ...prev, cleanImage: modelKey }));
+      setStatusMessage(
+        t('dashboard.status.modelSelected', {
+          stage: aioStageLabels.cleanImage,
+          model: modelLabelFor('cleanImage', modelKey),
+        }),
+      );
+    },
+    [setAioStageSelection, setStatusMessage, t, aioStageLabels, modelLabelFor],
+  );
+  const handleEnhanceClose = useCallback(
+    () => { setEnhanceModelManagerOpen(false); },
+    [setEnhanceModelManagerOpen],
+  );
+  const handleEnhanceSelect = useCallback(
+    (modelId: string) => {
+      setEnhanceModelId(modelId);
+      setEnhanceModelManagerOpen(false);
+    },
+    [setEnhanceModelId, setEnhanceModelManagerOpen],
+  );
+  const handleEnhanceImport = useCallback(
+    async (model: Parameters<typeof importOnnxModelFromStorage>[0]) => {
+      await importOnnxModelFromStorage(model);
+      await refreshModelState();
+    },
+    [importOnnxModelFromStorage, refreshModelState],
+  );
   return (
     <>
       {openedOnce.getTranslations && (
@@ -155,23 +274,15 @@ export default function DashboardModelManagers({
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}
-          onInstallModel={async (modelId) => { await installTranslationModel(modelId); }}
-          onUpdateModel={async (modelId) => { await updateTranslationModel(modelId); }}
-          onUninstallModel={async (modelId) => { await uninstallTranslationModel(modelId); }}
-          onRetryModel={async (modelId) => { await retryTranslationModel(modelId); }}
-          onCancelModel={async (modelId) => { await cancelTranslationModel(modelId); }}
-          onSelectModel={(modelKey) => {
-            setAioStageSelection((prev) => ({ ...prev, getTranslations: modelKey }));
-            setStatusMessage(
-              t('dashboard.status.modelSelected', {
-                stage: aioStageLabels.getTranslations,
-                model: modelLabelFor('getTranslations', modelKey),
-              }),
-            );
-          }}
-          onInstallAll={async (modelIds) => { await installAllTranslationModels(modelIds); }}
-          onCancelAll={async () => { await cancelAllTranslationModels(); }}
-          onCheckUpdatesNow={async () => { await checkModelUpdatesNow(); }}
+          onInstallModel={handleInstallModel}
+          onUpdateModel={handleUpdateModel}
+          onUninstallModel={handleUninstallModel}
+          onRetryModel={handleRetryModel}
+          onCancelModel={handleCancelModel}
+          onSelectModel={handleSelectTranslationModel}
+          onInstallAll={handleInstallAll}
+          onCancelAll={handleCancelAll}
+          onCheckUpdatesNow={handleCheckUpdatesNow}
         />
       )}
 
@@ -193,23 +304,15 @@ export default function DashboardModelManagers({
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}
-          onInstallModel={async (modelId) => { await installTranslationModel(modelId); }}
-          onUpdateModel={async (modelId) => { await updateTranslationModel(modelId); }}
-          onUninstallModel={async (modelId) => { await uninstallTranslationModel(modelId); }}
-          onRetryModel={async (modelId) => { await retryTranslationModel(modelId); }}
-          onCancelModel={async (modelId) => { await cancelTranslationModel(modelId); }}
-          onSelectModel={(modelKey) => {
-            setAioStageSelection((prev) => ({ ...prev, detectText: modelKey }));
-            setStatusMessage(
-              t('dashboard.status.modelSelected', {
-                stage: aioStageLabels.detectText,
-                model: modelLabelFor('detectText', modelKey),
-              }),
-            );
-          }}
-          onInstallAll={async (modelIds) => { await installAllTranslationModels(modelIds); }}
-          onCancelAll={async () => { await cancelAllTranslationModels(); }}
-          onCheckUpdatesNow={async () => { await checkModelUpdatesNow(); }}
+          onInstallModel={handleInstallModel}
+          onUpdateModel={handleUpdateModel}
+          onUninstallModel={handleUninstallModel}
+          onRetryModel={handleRetryModel}
+          onCancelModel={handleCancelModel}
+          onSelectModel={handleSelectDetectModel}
+          onInstallAll={handleInstallAll}
+          onCancelAll={handleCancelAll}
+          onCheckUpdatesNow={handleCheckUpdatesNow}
         />
       )}
 
@@ -233,23 +336,15 @@ export default function DashboardModelManagers({
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}
-          onInstallModel={async (modelId) => { await installTranslationModel(modelId); }}
-          onUpdateModel={async (modelId) => { await updateTranslationModel(modelId); }}
-          onUninstallModel={async (modelId) => { await uninstallTranslationModel(modelId); }}
-          onRetryModel={async (modelId) => { await retryTranslationModel(modelId); }}
-          onCancelModel={async (modelId) => { await cancelTranslationModel(modelId); }}
-          onSelectModel={(modelKey) => {
-            selectAioRecognizeTextModel(modelKey);
-            setStatusMessage(
-              t('dashboard.status.modelSelected', {
-                stage: aioStageLabels.recognizeText,
-                model: modelLabelFor('recognizeText', modelKey),
-              }),
-            );
-          }}
-          onInstallAll={async (modelIds) => { await installAllTranslationModels(modelIds); }}
-          onCancelAll={async () => { await cancelAllTranslationModels(); }}
-          onCheckUpdatesNow={async () => { await checkModelUpdatesNow(); }}
+          onInstallModel={handleInstallModel}
+          onUpdateModel={handleUpdateModel}
+          onUninstallModel={handleUninstallModel}
+          onRetryModel={handleRetryModel}
+          onCancelModel={handleCancelModel}
+          onSelectModel={handleSelectRecognizeModel}
+          onInstallAll={handleInstallAll}
+          onCancelAll={handleCancelAll}
+          onCheckUpdatesNow={handleCheckUpdatesNow}
         />
       )}
 
@@ -271,23 +366,15 @@ export default function DashboardModelManagers({
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}
-          onInstallModel={async (modelId) => { await installTranslationModel(modelId); }}
-          onUpdateModel={async (modelId) => { await updateTranslationModel(modelId); }}
-          onUninstallModel={async (modelId) => { await uninstallTranslationModel(modelId); }}
-          onRetryModel={async (modelId) => { await retryTranslationModel(modelId); }}
-          onCancelModel={async (modelId) => { await cancelTranslationModel(modelId); }}
-          onSelectModel={(modelKey) => {
-            setAioStageSelection((prev) => ({ ...prev, segmentText: modelKey }));
-            setStatusMessage(
-              t('dashboard.status.modelSelected', {
-                stage: aioStageLabels.segmentText,
-                model: modelLabelFor('segmentText', modelKey),
-              }),
-            );
-          }}
-          onInstallAll={async (modelIds) => { await installAllTranslationModels(modelIds); }}
-          onCancelAll={async () => { await cancelAllTranslationModels(); }}
-          onCheckUpdatesNow={async () => { await checkModelUpdatesNow(); }}
+          onInstallModel={handleInstallModel}
+          onUpdateModel={handleUpdateModel}
+          onUninstallModel={handleUninstallModel}
+          onRetryModel={handleRetryModel}
+          onCancelModel={handleCancelModel}
+          onSelectModel={handleSelectSegmentModel}
+          onInstallAll={handleInstallAll}
+          onCancelAll={handleCancelAll}
+          onCheckUpdatesNow={handleCheckUpdatesNow}
         />
       )}
 
@@ -309,23 +396,15 @@ export default function DashboardModelManagers({
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}
-          onInstallModel={async (modelId) => { await installTranslationModel(modelId); }}
-          onUpdateModel={async (modelId) => { await updateTranslationModel(modelId); }}
-          onUninstallModel={async (modelId) => { await uninstallTranslationModel(modelId); }}
-          onRetryModel={async (modelId) => { await retryTranslationModel(modelId); }}
-          onCancelModel={async (modelId) => { await cancelTranslationModel(modelId); }}
-          onSelectModel={(modelKey) => {
-            setAioStageSelection((prev) => ({ ...prev, cleanImage: modelKey }));
-            setStatusMessage(
-              t('dashboard.status.modelSelected', {
-                stage: aioStageLabels.cleanImage,
-                model: modelLabelFor('cleanImage', modelKey),
-              }),
-            );
-          }}
-          onInstallAll={async (modelIds) => { await installAllTranslationModels(modelIds); }}
-          onCancelAll={async () => { await cancelAllTranslationModels(); }}
-          onCheckUpdatesNow={async () => { await checkModelUpdatesNow(); }}
+          onInstallModel={handleInstallModel}
+          onUpdateModel={handleUpdateModel}
+          onUninstallModel={handleUninstallModel}
+          onRetryModel={handleRetryModel}
+          onCancelModel={handleCancelModel}
+          onSelectModel={handleSelectCleanModel}
+          onInstallAll={handleInstallAll}
+          onCancelAll={handleCancelAll}
+          onCheckUpdatesNow={handleCheckUpdatesNow}
         />
       )}
 
@@ -335,20 +414,14 @@ export default function DashboardModelManagers({
           diskSpace={modelManagerState.diskSpace}
           entries={modelManagerState.entries}
           selectedModelId={enhanceModelId}
-          onClose={() => setEnhanceModelManagerOpen(false)}
-          onSelectModel={(modelId) => {
-            setEnhanceModelId(modelId);
-            setEnhanceModelManagerOpen(false);
-          }}
-          onInstallModel={async (modelId) => { await installTranslationModel(modelId); }}
-          onUpdateModel={async (modelId) => { await updateTranslationModel(modelId); }}
-          onUninstallModel={async (modelId) => { await uninstallTranslationModel(modelId); }}
-          onRetryModel={async (modelId) => { await retryTranslationModel(modelId); }}
-          onCancelModel={async (modelId) => { await cancelTranslationModel(modelId); }}
-          onImportModel={async (model) => {
-            await importOnnxModelFromStorage(model);
-            await refreshModelState();
-          }}
+          onClose={handleEnhanceClose}
+          onSelectModel={handleEnhanceSelect}
+          onInstallModel={handleInstallModel}
+          onUpdateModel={handleUpdateModel}
+          onUninstallModel={handleUninstallModel}
+          onRetryModel={handleRetryModel}
+          onCancelModel={handleCancelModel}
+          onImportModel={handleEnhanceImport}
         />
       )}
     </>
