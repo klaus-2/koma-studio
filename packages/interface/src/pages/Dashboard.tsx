@@ -40,11 +40,9 @@ import {
 
 import {
   AIO_MANUAL_STAGE_ORDER,
-  EMPTY_PREVIEW_TIP_ROTATION_MS,
   getAioPipelineStageLabels,
   getAioPipelineStageProgressLabels,
   getAioStageLabels,
-  getEmptyPreviewTips,
   getModeLabels,
   MIN_REGION_SIZE,
   UNDER_DEVELOPMENT_TOOLTIP_KEY,
@@ -192,7 +190,6 @@ export const DashboardPage = ({
     [t],
   );
   const aioStageLabels = useMemo(() => getAioStageLabels(t), [t]);
-  const emptyPreviewTips = useMemo(() => getEmptyPreviewTips(t), [t]);
   const modeLabels = useMemo(() => getModeLabels(t), [t]);
   const underDevelopmentTooltip = t(UNDER_DEVELOPMENT_TOOLTIP_KEY);
   // ── Core State ──
@@ -456,9 +453,6 @@ export const DashboardPage = ({
   const setWorkspaceAutosaveSettings = useWorkspacePersistenceStore(
     (s) => s.setWorkspaceAutosaveSettings,
   );
-  const setEmptyPreviewTipIndex = useUiShellStore(
-    (s) => s.setEmptyPreviewTipIndex,
-  );
   const {
     shortcutCenterOpen,
     bugReportModalOpen,
@@ -604,18 +598,6 @@ export const DashboardPage = ({
     batchThreads,
     setWorkspaceAutosaveSettings,
   });
-
-  useEffect(() => {
-    if (images.length > 0) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setEmptyPreviewTipIndex((prev) => (prev + 1) % emptyPreviewTips.length);
-    }, EMPTY_PREVIEW_TIP_ROTATION_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, [images.length, setEmptyPreviewTipIndex]);
 
   const { discord, setDiscordPreset, setDiscordTranslating } =
     useDiscordPresence({

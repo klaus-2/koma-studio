@@ -39,7 +39,6 @@ import {
 } from '../../../utils/regionMapGating';
 import {
   AIO_STAGE_BADGE_LABELS,
-  getEmptyPreviewTips,
 } from '../../../constants/dashboard.constants';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
@@ -259,10 +258,6 @@ export default function DashboardStageSection({
   const aioPipelineSnapshots = useAioPipelineStore(
     (s) => s.aioPipelineSnapshots,
   );
-  const emptyPreviewTipIndex = useUiShellStore((s) => s.emptyPreviewTipIndex);
-  const emptyPreviewTips = useMemo(() => getEmptyPreviewTips(t), [t]);
-  const currentEmptyPreviewTip =
-    emptyPreviewTips[emptyPreviewTipIndex % emptyPreviewTips.length];
   const aioManualHealingBusyByImage = useManualToolsStore(
     (s) => s.aioManualHealingBusyByImage,
   );
@@ -567,6 +562,132 @@ export default function DashboardStageSection({
     (index: number) => images[index]?.id ?? `${index}`,
     [images],
   );
+  // Stable row callbacks: memoized PipelineStageRow rows bail out unless
+  // their own data (or one of these identities) actually changed.
+  const handleStageImageSelect = useCallback(
+    (id: string) => setActiveId(id),
+    [setActiveId],
+  );
+  const handleAioRegionSelect = useCallback(
+    (imageId: string, regionId: string | null) =>
+      selectAioRegionForImage(imageId, regionId),
+    [selectAioRegionForImage],
+  );
+  const handleCleanerRegionSelect = useCallback(
+    (imageId: string, regionId: string | null) =>
+      selectCleanerRegionForImage(imageId, regionId),
+    [selectCleanerRegionForImage],
+  );
+  const handleTranslatorRegionSelect = useCallback(
+    (imageId: string, regionId: string | null) =>
+      selectTranslatorRegionForImage(imageId, regionId),
+    [selectTranslatorRegionForImage],
+  );
+  const handleAioRegionsChange = useCallback(
+    (
+      imageId: string,
+      nextRegions: Parameters<typeof updateAioRegionsForImage>[1],
+      selectedRegionIdOverride?: string | null,
+    ) =>
+      updateAioRegionsForImage(imageId, nextRegions, selectedRegionIdOverride),
+    [updateAioRegionsForImage],
+  );
+  const handleCleanerRegionsChange = useCallback(
+    (
+      imageId: string,
+      nextRegions: Parameters<typeof updateCleanerRegionsForImage>[1],
+      selectedRegionIdOverride?: string | null,
+    ) =>
+      updateCleanerRegionsForImage(imageId, nextRegions, selectedRegionIdOverride),
+    [updateCleanerRegionsForImage],
+  );
+  const handleTranslatorRegionsChange = useCallback(
+    (
+      imageId: string,
+      nextRegions: Parameters<typeof updateTranslatorRegionsForImage>[1],
+      selectedRegionIdOverride?: string | null,
+    ) =>
+      updateTranslatorRegionsForImage(imageId, nextRegions, selectedRegionIdOverride),
+    [updateTranslatorRegionsForImage],
+  );
+  const handleCleanerPaintLayerChange = useCallback(
+    (imageId: string, nextLayer: string | null) =>
+      patchCleanerManualImageEditState(imageId, {
+        paintLayerDataUrl: nextLayer,
+      }),
+    [patchCleanerManualImageEditState],
+  );
+  const handleCleanerWandMaskChange = useCallback(
+    (imageId: string, nextMask: string | null) =>
+      patchCleanerManualImageEditState(imageId, {
+        wandMaskDataUrl: nextMask,
+      }),
+    [patchCleanerManualImageEditState],
+  );
+  const handleCleanerWandRequest = useCallback(
+    async (imageId: string, x: number, y: number) => {
+      await runCleanerMagicWandForImage(imageId, x, y);
+    },
+    [runCleanerMagicWandForImage],
+  );
+  const handleCleanerHealingMaskCommit = useCallback(
+    async (imageId: string, maskDataUrl: string) => {
+      await applyCleanerHealingMaskForImage(imageId, maskDataUrl);
+    },
+    [applyCleanerHealingMaskForImage],
+  );
+  const handleTypographerDownloadPreview = useCallback(
+    (imageId: string) => {
+      const item = getAioDownloadItemForImage(imageId);
+      return item ? { previewUrl: item.previewUrl } : undefined;
+    },
+    [getAioDownloadItemForImage],
+  );
+  const handleTypographerRegionSelect = useCallback(
+    (imageId: string, regionId: string | null) =>
+      typographerWorkspace.setSelectedRegionId(imageId, regionId),
+    [typographerWorkspace],
+  );
+  const handleClearTypographerMultiSelect = useCallback(
+    (imageId: string) => {
+      setTypographerMultiSelectedByImage((prev: Record<string, string[]>) => {
+        const { [imageId]: _removed, ...rest } = prev;
+        return rest;
+      });
+    },
+    [setTypographerMultiSelectedByImage],
+  );
+  const handleRefineTypographerShape = useCallback(() => {
+    void refineActiveTypographerShape();
+  }, [refineActiveTypographerShape]);
+  const handleConvertRegionShape = useCallback(
+    (imageId: string, regionId: string, kind: 'auto' | 'square' | 'rounded') =>
+      convertRegionShapeById(
+        imageId,
+        regionId,
+        kind as unknown as Parameters<typeof convertRegionShapeById>[2],
+      ),
+    [convertRegionShapeById],
+  );
+  const handleTypographerMultiSelectToggle = useCallback(
+    (imageId: string, regionId: string) => {
+      setActiveId(imageId);
+      setTypographerMultiSelectedByImage((prev: Record<string, string[]>) => {
+        const current = prev[imageId] ?? [];
+        const idx = current.indexOf(regionId);
+        if (idx >= 0) {
+          const next = current.filter((id: string) => id !== regionId);
+          if (next.length === 0) {
+            const { [imageId]: _removed, ...rest } = prev;
+            return rest;
+          }
+          return { ...prev, [imageId]: next };
+        }
+        return { ...prev, [imageId]: [...current, regionId] };
+      });
+    },
+    [setActiveId, setTypographerMultiSelectedByImage],
+  );
   const renderStageItem = useCallback(
     (index: number) => {
       const img = images[index];
@@ -611,10 +732,7 @@ export default function DashboardStageSection({
             props={{
               img,
               index,
-              getAioDownloadItemForImage: (imageId: string) => {
-                const item = getAioDownloadItemForImage(imageId);
-                return item ? { previewUrl: item.previewUrl } : undefined;
-              },
+              getAioDownloadItemForImage: handleTypographerDownloadPreview,
               getPreviewSrc,
               aioDetectionsByImage,
               aioSelectedRegionByImage,
@@ -632,52 +750,16 @@ export default function DashboardStageSection({
               typographyPresetList,
               viewMode,
               zoom,
-              onSelect: (id: string) => setActiveId(id),
-              onSelectRegion: (imageId: string, regionId: string | null) =>
-                selectAioRegionForImage(imageId, regionId),
-              onSetTypographerSelectedRegionId: (imageId: string, regionId: string | null) =>
-                typographerWorkspace.setSelectedRegionId(imageId, regionId),
-              onClearTypographerMultiSelect: (imageId: string) => {
-                setTypographerMultiSelectedByImage((prev: Record<string, string[]>) => {
-                  const { [imageId]: _removed, ...rest } = prev;
-                  return rest;
-                });
-              },
-              onRegionsChange: (
-                imageId: string,
-                nextRegions: Parameters<typeof updateAioRegionsForImage>[1],
-                selectedRegionIdOverride?: string | null,
-              ) =>
-                updateAioRegionsForImage(
-                  imageId,
-                  nextRegions,
-                  selectedRegionIdOverride,
-                ),
-              onRefineActiveShape: () => void refineActiveTypographerShape(),
+              onSelect: handleStageImageSelect,
+              onSelectRegion: handleAioRegionSelect,
+              onSetTypographerSelectedRegionId: handleTypographerRegionSelect,
+              onClearTypographerMultiSelect: handleClearTypographerMultiSelect,
+              onRegionsChange: handleAioRegionsChange,
+              onRefineActiveShape: handleRefineTypographerShape,
               onAutoShapeActiveRegion: applyAutoDetectedShapeToActiveRegion,
               onApplyPresetToRegion: applyTypographyPresetToRegionById,
-              onConvertRegionShape: (imageId: string, regionId: string, kind: 'auto' | 'square' | 'rounded') =>
-                convertRegionShapeById(
-                  imageId,
-                  regionId,
-                  kind as unknown as Parameters<typeof convertRegionShapeById>[2],
-                ),
-              onMultiSelectToggle: (imageId: string, regionId: string) => {
-                setActiveId(imageId);
-                setTypographerMultiSelectedByImage((prev: Record<string, string[]>) => {
-                  const current = prev[imageId] ?? [];
-                  const idx = current.indexOf(regionId);
-                  if (idx >= 0) {
-                    const next = current.filter((id: string) => id !== regionId);
-                    if (next.length === 0) {
-                      const { [imageId]: _removed, ...rest } = prev;
-                      return rest;
-                    }
-                    return { ...prev, [imageId]: next };
-                  }
-                  return { ...prev, [imageId]: [...current, regionId] };
-                });
-              },
+              onConvertRegionShape: handleConvertRegionShape,
+              onMultiSelectToggle: handleTypographerMultiSelectToggle,
             }}
           />
         );
@@ -714,33 +796,13 @@ export default function DashboardStageSection({
               textFillSwatches,
               viewMode,
               zoom,
-              onSelect: (id: string) => setActiveId(id),
-              onSelectRegion: (imageId: string, regionId: string | null) =>
-                selectCleanerRegionForImage(imageId, regionId),
-              onRegionsChange: (
-                imageId: string,
-                nextRegions: Parameters<typeof updateCleanerRegionsForImage>[1],
-                selectedRegionIdOverride?: string | null,
-              ) =>
-                updateCleanerRegionsForImage(
-                  imageId,
-                  nextRegions,
-                  selectedRegionIdOverride,
-                ),
-              onManualPaintLayerChange: (imageId: string, nextLayer: string | null) =>
-                patchCleanerManualImageEditState(imageId, {
-                  paintLayerDataUrl: nextLayer,
-                }),
-              onManualWandMaskChange: (imageId: string, nextMask: string | null) =>
-                patchCleanerManualImageEditState(imageId, {
-                  wandMaskDataUrl: nextMask,
-                }),
-              onManualWandRequest: async (imageId: string, x: number, y: number) => {
-                await runCleanerMagicWandForImage(imageId, x, y);
-              },
-              onManualHealingMaskCommit: async (imageId: string, maskDataUrl: string) => {
-                await applyCleanerHealingMaskForImage(imageId, maskDataUrl);
-              },
+              onSelect: handleStageImageSelect,
+              onSelectRegion: handleCleanerRegionSelect,
+              onRegionsChange: handleCleanerRegionsChange,
+              onManualPaintLayerChange: handleCleanerPaintLayerChange,
+              onManualWandMaskChange: handleCleanerWandMaskChange,
+              onManualWandRequest: handleCleanerWandRequest,
+              onManualHealingMaskCommit: handleCleanerHealingMaskCommit,
             }}
           />
         );
@@ -763,19 +825,9 @@ export default function DashboardStageSection({
               viewMode,
               zoom,
               getPreviewSrc,
-              onSelect: (id: string) => setActiveId(id),
-              onSelectRegion: (imageId: string, regionId: string | null) =>
-                selectTranslatorRegionForImage(imageId, regionId),
-              onRegionsChange: (
-                imageId: string,
-                nextRegions: Parameters<typeof updateTranslatorRegionsForImage>[1],
-                selectedRegionIdOverride?: string | null,
-              ) =>
-                updateTranslatorRegionsForImage(
-                  imageId,
-                  nextRegions,
-                  selectedRegionIdOverride,
-                ),
+              onSelect: handleStageImageSelect,
+              onSelectRegion: handleTranslatorRegionSelect,
+              onRegionsChange: handleTranslatorRegionsChange,
             }}
           />
         );
@@ -790,7 +842,7 @@ export default function DashboardStageSection({
             viewMode,
             zoom,
             resolvedActiveId,
-            onSelect: (id) => setActiveId(id),
+            onSelect: handleStageImageSelect,
             getPreviewSrc,
           }}
         />
@@ -918,10 +970,7 @@ export default function DashboardStageSection({
           </Suspense>
         </div>
       ) : (
-        <DashboardEmptyStage
-          emptyPreviewTipIndex={emptyPreviewTipIndex}
-          currentEmptyPreviewTip={currentEmptyPreviewTip ?? ''}
-        />
+        <DashboardEmptyStage />
       )}
     </section>
   );

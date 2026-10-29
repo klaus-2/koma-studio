@@ -33,4 +33,30 @@ const PipelineStageRowComponent = (value: PipelineStageRowProps): ReactElement =
   }
 };
 
-export const PipelineStageRow = memo(PipelineStageRowComponent);
+/**
+ * The row's `props` object is rebuilt per item render, so the default
+ * reference equality always fails. Compare the kind and the inner props
+ * shallowly instead — stable callbacks and unchanged data bail the row out.
+ */
+const areStageRowPropsEqual = (
+  previous: PipelineStageRowProps,
+  next: PipelineStageRowProps,
+): boolean => {
+  if (previous.kind !== next.kind) return false;
+  const previousProps = previous.props;
+  const nextProps = next.props;
+  for (const key of Object.keys(nextProps)) {
+    if (
+      previousProps[key as keyof typeof previousProps] !==
+      nextProps[key as keyof typeof nextProps]
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+export const PipelineStageRow = memo(
+  PipelineStageRowComponent,
+  areStageRowPropsEqual,
+);
