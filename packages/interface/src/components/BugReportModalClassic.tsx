@@ -496,6 +496,7 @@ const BugReportModalClassic = ({
                       ref={imgRef}
                       src={screenshot}
                       alt={t('bugReport.screenshot.alt')}
+                      decoding="async"
                       draggable={false}
                     />
                     {rect && (

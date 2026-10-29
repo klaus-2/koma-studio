@@ -49,7 +49,7 @@ export default function WatermarkLogoPanel({
         </label>
         {watermarkImagePreview && (
           <div className="koma-wm-logo-preview">
-            <img src={watermarkImagePreview} alt={t('watermark.logo.alt')} />
+            <img src={watermarkImagePreview} alt={t('watermark.logo.alt')} decoding="async" />
             <button
               type="button"
               className="koma-wm-logo-preview__remove"

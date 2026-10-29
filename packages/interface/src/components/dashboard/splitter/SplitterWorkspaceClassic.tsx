@@ -282,7 +282,7 @@ export const SplitterWorkspaceClassic = () => {
               }}
             >
               {previewSrc && (
-                <img src={previewSrc} alt={t("splitter.workspace.previewAlt", { name: activeImage.file.name })} className="koma-split-stage__img" />
+                <img src={previewSrc} alt={t("splitter.workspace.previewAlt", { name: activeImage.file.name })} className="koma-split-stage__img" decoding="async" />
               )}
 
               {/* Segment highlight bands */}
@@ -477,6 +477,8 @@ export const SplitterWorkspaceClassic = () => {
                       src={thumb.src}
                       alt={t("splitter.workspace.segmentAlt", { index: idx + 1 })}
                       className="koma-split-card__thumb"
+                      loading="lazy"
+                      decoding="async"
                       style={{
                         aspectRatio: `${thumb.aspectRatio}`,
                       }}

@@ -188,6 +188,8 @@ export const BloggerUploadPanel = ({
                       src={item.previewUrl}
                       alt={item.altText}
                       className="koma-cdn__thumb"
+                      loading="lazy"
+                      decoding="async"
                     />
                     <div className="koma-cdn__meta">
                       <div className="koma-cdn__meta-top">

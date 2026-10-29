@@ -208,6 +208,7 @@ export const StitchWorkspaceClassic = ({
               src={previewUrl}
               alt={t('stitch.workspace.previewAlt')}
               className="koma-stitch-stage__img"
+              decoding="async"
               style={{
                 zoom: previewZoom,
                 maxWidth: layoutMode === "webtoon" ? 720 : undefined,

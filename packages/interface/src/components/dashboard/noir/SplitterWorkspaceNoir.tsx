@@ -278,7 +278,7 @@ export const SplitterWorkspaceNoir = () => {
                 void addCutToActive(ratio * primaryAxisLength);
               }}>
               {previewSrc && (
-                <img src={previewSrc} alt={t('splitter.workspace.previewAlt', { name: activeImage.file.name })} className="koma-split-stage__img block panel-cut-sm border border-paper/10 shadow-[6px_6px_0_rgba(0,0,0,0.4)]" />
+                <img src={previewSrc} alt={t('splitter.workspace.previewAlt', { name: activeImage.file.name })} className="koma-split-stage__img block panel-cut-sm border border-paper/10 shadow-[6px_6px_0_rgba(0,0,0,0.4)]" decoding="async" />
               )}
 
               {/* Segment bands */}
@@ -415,7 +415,7 @@ export const SplitterWorkspaceNoir = () => {
                     <span className="panel-cut-sm bg-mint/15 px-2 py-0.5 font-display text-[10px] font-black text-mint">S{idx + 1}</span>
                   </div>
                   {thumb ? (
-                    <img src={thumb.src} alt={t('splitter.workspace.segmentAlt', { index: idx + 1 })} className="w-full panel-cut-sm border border-paper/10" style={{ aspectRatio: `${thumb.aspectRatio}` }} />
+                    <img src={thumb.src} alt={t('splitter.workspace.segmentAlt', { index: idx + 1 })} className="w-full panel-cut-sm border border-paper/10" loading="lazy" decoding="async" style={{ aspectRatio: `${thumb.aspectRatio}` }} />
                   ) : (
                     <div className="w-full animate-pulse panel-cut-sm bg-paper/5" style={{ aspectRatio: '3/4' }} />
                   )}

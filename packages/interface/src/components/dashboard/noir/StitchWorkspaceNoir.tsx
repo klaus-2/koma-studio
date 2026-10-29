@@ -125,6 +125,7 @@ export const StitchWorkspaceNoir = ({
 
           {previewUrl && (
             <img src={previewUrl} alt={t('stitch.workspace.previewAlt')} className="panel-cut-sm border border-paper/10 shadow-[6px_6px_0_rgba(0,0,0,0.4)]"
+              decoding="async"
               style={{ zoom: previewZoom, maxWidth: layoutMode === 'webtoon' ? 720 : undefined }} />
           )}
         </div>

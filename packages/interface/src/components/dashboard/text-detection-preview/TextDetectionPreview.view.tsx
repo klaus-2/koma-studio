@@ -187,6 +187,7 @@ const TextDetectionPreviewView = ({
               className="koma-preview-card__img"
               style={{ maxWidth: `${imgElemW}px` }}
               alt={image.file.name}
+              decoding="async"
             />
             <div
               ref={overlayRef as React.Ref<HTMLDivElement>}

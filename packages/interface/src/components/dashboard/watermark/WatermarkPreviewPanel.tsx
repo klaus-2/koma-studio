@@ -202,6 +202,7 @@ export default function WatermarkPreviewPanel({
                         src={activeImage.url}
                         alt={t('watermark.preview.original')}
                         className="koma-wm-stage__img"
+                        decoding="async"
                       />
                       <div
                         className="koma-wm-stage__overlay"
@@ -213,6 +214,7 @@ export default function WatermarkPreviewPanel({
                           src={previewUrl}
                           alt={t('watermark.preview.watermark')}
                           className="koma-wm-stage__img"
+                          decoding="async"
                         />
                       </div>
                       {showTextZoneOverlay && activeTextZones.length > 0 && (
@@ -242,6 +244,7 @@ export default function WatermarkPreviewPanel({
                         src={previewUrl ?? activeImage.url}
                         alt={t('watermark.panel.preview')}
                         className="koma-wm-stage__img"
+                        decoding="async"
                       />
                       {showTextZoneOverlay && activeTextZones.length > 0 && (
                         <WatermarkTextZoneOverlay

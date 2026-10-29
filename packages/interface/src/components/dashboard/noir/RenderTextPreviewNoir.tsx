@@ -749,6 +749,7 @@ const RenderTextPreviewNoir = ({
               className="block h-auto w-full select-none"
               style={{ maxWidth: `${imgElemW}px` }}
               alt={image.file.name}
+              decoding="async"
               draggable={false}
             />
             <canvas ref={paintCanvasRef} className="koma-manual-paint-canvas" />

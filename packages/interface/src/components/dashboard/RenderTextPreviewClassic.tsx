@@ -713,6 +713,7 @@ const RenderTextPreviewClassic = ({
               className="koma-preview-card__img"
               style={{ maxWidth: `${imgElemW}px` }}
               alt={image.file.name}
+              decoding="async"
             />
             <canvas ref={paintCanvasRef} className="koma-manual-paint-canvas" />
             <canvas
