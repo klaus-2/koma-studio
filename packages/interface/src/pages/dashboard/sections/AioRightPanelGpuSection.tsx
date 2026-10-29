@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Zap } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
@@ -14,7 +15,7 @@ interface AioRightPanelGpuSectionProps {
   updateAioGpuStage: AioPipelineState['updateAioGpuStage'];
 }
 
-export const AioRightPanelGpuSection = ({
+const AioRightPanelGpuSectionBase = ({
   noir,
   aioGpuStages,
   aioHasGpuExecutionProfile,
@@ -69,3 +70,5 @@ export const AioRightPanelGpuSection = ({
     </AioSection>
   );
 };
+
+export const AioRightPanelGpuSection = memo(AioRightPanelGpuSectionBase);

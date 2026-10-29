@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { HardDrive } from "lucide-react";
 
 import { useI18n } from "../../i18n";
@@ -38,7 +38,7 @@ export const STAGE_HINTS_CLEAN: readonly StageModelHint[] = ["useCase", "status"
  * One select + manage + meta-hints for an AIO stage model.
  * Theme family tokens stay inside `useStageControlTokens` — callers never branch on family.
  */
-export const StageModelSelect = ({
+const StageModelSelectBase = ({
   label,
   labelTooltip,
   value,
@@ -122,5 +122,7 @@ export const StageModelSelect = ({
     </div>
   );
 };
+
+export const StageModelSelect = memo(StageModelSelectBase);
 
 export default StageModelSelect;

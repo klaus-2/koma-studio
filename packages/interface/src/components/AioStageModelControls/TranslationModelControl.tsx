@@ -1,5 +1,5 @@
 import { AlertTriangle, HardDrive, Lock } from "lucide-react";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
 import { modelSupportsLanguage, isDownloadOnlyModel, TRANSLATION_MODELS_REGISTRY } from "../../models/translation-models-registry";
 import type { ModelInstallState } from "../../models/types";
@@ -22,7 +22,7 @@ interface TranslationModelControlProps {
   onOpenManager: (args?: { language?: string; focusedModelId?: string | null }) => void;
 }
 
-export const TranslationModelControl = ({
+const TranslationModelControlBase = ({
   selectedModelId,
   sourceLanguage,
   targetLanguage,
@@ -194,5 +194,7 @@ export const TranslationModelControl = ({
     </div>
   );
 };
+
+export const TranslationModelControl = memo(TranslationModelControlBase);
 
 export default TranslationModelControl;
