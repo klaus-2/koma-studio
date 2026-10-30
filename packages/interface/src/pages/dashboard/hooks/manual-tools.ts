@@ -571,6 +571,14 @@ export function useActiveManualEditState({
   getCleanerManualImageEditState,
 }: UseActiveManualEditStateArgs) {
   const mode = useUiShellStore((s) => s.mode);
+  const activeAioEditEntry = useManualToolsStore((s) =>
+    resolvedActiveId ? s.aioManualImageEditsByImage[resolvedActiveId] : undefined,
+  );
+  const activeCleanerEditEntry = useCleanerStore((s) =>
+    resolvedActiveId
+      ? s.cleanerManualImageEditsByImage[resolvedActiveId]
+      : undefined,
+  );
   const aioManualHealingBusyByImage = useManualToolsStore(
     (s) => s.aioManualHealingBusyByImage,
   );
@@ -580,9 +588,16 @@ export function useActiveManualEditState({
   const activeManualImageEditState = useMemo(() => {
     if (!resolvedActiveId) return EMPTY_AIO_MANUAL_EDIT_STATE;
     if (mode === 'cleaner')
-      return getCleanerManualImageEditState(resolvedActiveId);
-    return getAioManualImageEditState(resolvedActiveId);
+      return (
+        activeCleanerEditEntry ??
+        getCleanerManualImageEditState(resolvedActiveId)
+      );
+    return (
+      activeAioEditEntry ?? getAioManualImageEditState(resolvedActiveId)
+    );
   }, [
+    activeAioEditEntry,
+    activeCleanerEditEntry,
     getAioManualImageEditState,
     getCleanerManualImageEditState,
     mode,
