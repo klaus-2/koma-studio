@@ -284,3 +284,47 @@ fn head_checksum_is_extracted_without_accepting_short_etags() {
         )
     );
 }
+
+#[test]
+fn font_rtdetr_payload_is_backend_managed() {
+    let payload = DesktopModelDownloadPayload {
+        id: "font_rtdetr_v2".to_string(),
+        name: "RT-DETR v2 (Detector)".to_string(),
+        version: "1.0.0".to_string(),
+        download_url:
+            "https://huggingface.co/ogkalu/comic-text-and-bubble-detector/resolve/main/detector.onnx"
+                .to_string(),
+        checksum_sha256:
+            "065744e91c0594ad8663aa8b870ce3fb27222942eded5a3cc388ce23421bd195".to_string(),
+        expected_download_bytes: 168_481_531,
+        required_disk_bytes: 300_000_000,
+        source_language: None,
+        install_strategy: None,
+        runtime_family: None,
+        backend_install_endpoint: None,
+    };
+
+    let normalized = normalize_download_payload(payload)
+        .expect("the frontend payload must be accepted by the desktop shell");
+
+    assert_eq!(normalized.install_strategy.as_deref(), Some("backend_managed"));
+    assert_eq!(
+        normalized.backend_install_endpoint.as_deref(),
+        Some("/models/install")
+    );
+}
+
+#[test]
+fn font_rtdetr_requires_detector_onnx() {
+    let temporary = tempfile::tempdir().unwrap();
+    let directory = temporary.path().join("font_rtdetr_v2");
+    fs::create_dir_all(&directory).unwrap();
+
+    assert!(!storage::is_installed_payload_present("font_rtdetr_v2", &directory).unwrap());
+
+    fs::write(directory.join("model.bin"), b"weights").unwrap();
+    assert!(!storage::is_installed_payload_present("font_rtdetr_v2", &directory).unwrap());
+
+    fs::write(directory.join("detector.onnx"), b"weights").unwrap();
+    assert!(storage::is_installed_payload_present("font_rtdetr_v2", &directory).unwrap());
+}

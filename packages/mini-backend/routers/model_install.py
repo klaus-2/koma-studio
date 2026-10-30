@@ -172,7 +172,7 @@ def _install_managed_model(
         return ensure_enhance_model_installed(normalized_model_id)
     if normalized_model_id == "baka_content_cc":
         return ensure_segmentation_model_installed(normalized_model_id)
-    if normalized_model_id == "comic_text_detector":
+    if normalized_model_id in {"comic_text_detector", "font_rtdetr_v2"}:
         return ensure_detection_model_installed(normalized_model_id)
     if normalized_model_id == "meiki_ocr":
         return ensure_meiki_models_installed()

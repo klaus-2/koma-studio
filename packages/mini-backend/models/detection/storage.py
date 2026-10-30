@@ -15,6 +15,13 @@ _DETECTION_MODEL_SOURCES: dict[str, dict[str, Any]] = {
             "https://github.com/zyddnys/manga-image-translator/releases/download/beta-0.3/comictextdetector.pt.onnx",
         ],
     },
+    "font_rtdetr_v2": {
+        "target": "detector.onnx",
+        "sha256": "065744e91c0594ad8663aa8b870ce3fb27222942eded5a3cc388ce23421bd195",
+        "urls": [
+            "https://huggingface.co/ogkalu/comic-text-and-bubble-detector/resolve/main/detector.onnx",
+        ],
+    },
     "pp_doclayout_v3": {
         "repo": "PaddlePaddle/PP-DocLayoutV3_safetensors",
         "files": ["config.json", "preprocessor_config.json", "model.safetensors"],

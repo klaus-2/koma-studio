@@ -76,6 +76,7 @@ const BACKEND_MANAGED_MODEL_IDS = new Set<string>([
   INPAINT_LAMA_FP32_MODEL_ID,
   SEGMENT_BAKA_MODEL_ID,
   "comic_text_detector",
+  FONT_RTDETR_MODEL_ID,
 ]);
 
 export {

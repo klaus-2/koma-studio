@@ -78,9 +78,8 @@ class DetectionModelOption(TypedDict):
 
 
 def _font_weights_ready() -> bool:
-    # font_rtdetr_v2 has no entry in _DETECTION_MODEL_SOURCES, so
-    # detection_runtime_ready would always be False here; the repaired
-    # manifest plus payload check IS the readiness contract for this model.
+    # The managed source installs detector.onnx; the repaired manifest plus
+    # payload check IS the readiness contract for this model.
     installed = model_is_installed(DEFAULT_DETECTOR_KEY)
     if not installed:
         installed = repair_font_detector_manifest_if_payload_present()

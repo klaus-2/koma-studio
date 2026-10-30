@@ -82,5 +82,24 @@ class TranslationManagedInstallDispatchTests(unittest.TestCase):
         generic_mock.assert_not_called()
 
 
+@unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
+class DetectionManagedInstallDispatchTests(unittest.TestCase):
+    def test_detection_models_use_the_managed_detection_installer(self) -> None:
+        for model_id in ("comic_text_detector", "font_rtdetr_v2"):
+            with (
+                patch.object(
+                    model_install_router,
+                    "ensure_detection_model_installed",
+                    return_value={"modelId": model_id, "fileCount": 1},
+                ) as installer,
+                patch.object(model_install_router, "_download_generic_model") as generic_mock,
+            ):
+                payload = model_install_router.install_managed_model_sync(model_id, None)
+
+            installer.assert_called_once_with(model_id)
+            generic_mock.assert_not_called()
+            self.assertEqual(payload["modelId"], model_id)
+
+
 if __name__ == "__main__":
     unittest.main()

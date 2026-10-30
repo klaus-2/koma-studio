@@ -77,6 +77,7 @@ const BACKEND_MANAGED_MODEL_IDS: &[&str] = &[
     "lama_fp32",
     "baka_content_cc",
     "comic_text_detector",
+    "font_rtdetr_v2",
 ];
 
 pub type TransferObserver = Arc<dyn Fn(crate::models::model_manager::ModelTransferProgress) + Send + Sync + 'static>;
