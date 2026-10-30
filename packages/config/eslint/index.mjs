@@ -91,6 +91,9 @@ const NODE_GLOBALS = {
   __filename: "readonly",
 };
 
+// Exported so app configs can extend Node-run surfaces (e.g. the Playwright harness).
+export { NODE_GLOBALS as KOMA_NODE_GLOBALS };
+
 // interface/ legacy surfaces: hooks downgraded to warn until the large legacy
 // files are rewritten. Inherited from the v1 line — same in both apps.
 export const DEFAULT_LEGACY_DIRS = [

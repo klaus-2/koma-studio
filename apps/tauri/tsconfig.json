@@ -35,7 +35,7 @@
 
     "types": ["vite/client", "node"]
   },
-  "include": ["main.tsx", "tests", "src-tauri", "../../packages/interface/src"],
+  "include": ["main.tsx", "e2e", "tests", "src-tauri", "../../packages/interface/src"],
   "exclude": ["node_modules", "dist", "src-tauri", "release-desktop", "mini-backend"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

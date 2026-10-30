@@ -110,6 +110,8 @@ export const ModelCardNoir = ({
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: EASE }}
+      data-model-id={model.id}
+      data-install-status={entry.status}
       style={{ "--card-shadow": "rgba(62,242,176,0.85)" } as React.CSSProperties}
       className={`panel-cut-sm group relative flex flex-col gap-3 border p-4 transition-[transform,filter,border-color] duration-200 hover:-translate-x-[3px] hover:-translate-y-[3px] hover:[filter:drop-shadow(6px_6px_0_var(--card-shadow))] ${selected || focused ? "border-crimson/60 bg-ink-3" : "border-paper/10 bg-ink-2"
         }`}

@@ -58,6 +58,7 @@ export default defineConfig(async ({ mode }) => {
           "**/dist/**",
           "**/release-desktop/**",
           "**/mini-backend/dist/**",
+          "**/e2e/**",
         ],
       },
     },
