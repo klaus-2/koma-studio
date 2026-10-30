@@ -35,6 +35,65 @@ interface UseAioRegionSnapshotSyncArgs {
   typographerWorkspace: TypographerWorkspaceApi;
 }
 
+interface SnapshotRegionMerge {
+  readonly regions: AioTextRegion[];
+  readonly changed: boolean;
+}
+
+export const mergeSnapshotRegionsForEdit = (
+  snapshotRegions: AioTextRegion[],
+  nextRegions: AioTextRegion[],
+): SnapshotRegionMerge => {
+  const snapshotById = new Map(
+    snapshotRegions.map((region) => [region.id, region]),
+  );
+  // Identity fast path: regions the snapshot already shares with the
+  // committed state are reused as-is; only genuinely merged regions are
+  // copied. A merge that reuses every element identity is content-equal by
+  // construction and skips the deep compare — but a shorter list (clearing or
+  // deleting regions) has no merged element to flip that flag, so the length
+  // change must trigger the compare on its own.
+  let mergedChanged = false;
+  const regions = nextRegions.map((region) => {
+    const existing = snapshotById.get(region.id);
+    if (existing === region) return existing;
+    mergedChanged = true;
+    if (!existing) return cloneAioRegion(region, cloneRenderStyle);
+    const merged = {
+      ...existing,
+      ...region,
+      bbox: [...region.bbox] as [number, number, number, number],
+      segmentBoxes:
+        region.segmentBoxes?.map(
+          (box) => [...box] as [number, number, number, number],
+        ) ??
+        existing.segmentBoxes?.map(
+          (box) => [...box] as [number, number, number, number],
+        ),
+      mergedSegmentBoxes:
+        region.mergedSegmentBoxes?.map(
+          (box) => [...box] as [number, number, number, number],
+        ) ??
+        existing.mergedSegmentBoxes?.map(
+          (box) => [...box] as [number, number, number, number],
+        ),
+      renderStyle: region.renderStyle
+        ? cloneRenderStyle(region.renderStyle)
+        : existing.renderStyle
+          ? cloneRenderStyle(existing.renderStyle)
+          : undefined,
+    };
+    return areAioRegionsEqual([existing], [merged], cloneRenderStyle)
+      ? existing
+      : merged;
+  });
+  const changed =
+    mergedChanged || snapshotRegions.length !== regions.length
+      ? !areAioRegionsEqual(snapshotRegions, regions, cloneRenderStyle)
+      : false;
+  return { regions, changed };
+};
+
 export function useAioRegionSnapshotSync({
   getAioImageSnapshotIndex,
   syncManualStagePreviewToNextStage,
@@ -73,56 +132,10 @@ export function useAioRegionSnapshotSync({
           const snapshotRegions = snapshot.detectionsByImage[imageId] ?? [];
           const snapshotSelected =
             snapshot.selectedRegionByImage[imageId] ?? null;
-          const snapshotById = new Map(
-            snapshotRegions.map((region) => [region.id, region]),
-          );
-          // Identity fast path: regions the snapshot already shares with the
-          // committed state are reused as-is; only genuinely merged regions
-          // are copied. A merge that reuses every element identity is
-          // content-equal by construction and skips the deep compare.
-          let mergedChanged = false;
-          const mergedSnapshotRegions = nextRegions.map((region) => {
-            const existing = snapshotById.get(region.id);
-            if (existing === region) return existing;
-            mergedChanged = true;
-            if (!existing) return cloneAioRegion(region, cloneRenderStyle);
-            const merged = {
-              ...existing,
-              ...region,
-              bbox: [...region.bbox] as [number, number, number, number],
-              segmentBoxes:
-                region.segmentBoxes?.map(
-                  (box) => [...box] as [number, number, number, number],
-                ) ??
-                existing.segmentBoxes?.map(
-                  (box) => [...box] as [number, number, number, number],
-                ),
-              mergedSegmentBoxes:
-                region.mergedSegmentBoxes?.map(
-                  (box) => [...box] as [number, number, number, number],
-                ) ??
-                existing.mergedSegmentBoxes?.map(
-                  (box) => [...box] as [number, number, number, number],
-                ),
-              renderStyle: region.renderStyle
-                ? cloneRenderStyle(region.renderStyle)
-                : existing.renderStyle
-                  ? cloneRenderStyle(existing.renderStyle)
-                  : undefined,
-            };
-            return areAioRegionsEqual([existing], [merged], cloneRenderStyle)
-              ? existing
-              : merged;
-          });
+          const { regions: mergedSnapshotRegions, changed: regionsChanged } =
+            mergeSnapshotRegionsForEdit(snapshotRegions, nextRegions);
           const resolvedSelected =
             selectedRegionId === null ? null : selectedRegionId;
-          const regionsChanged = mergedChanged
-            ? !areAioRegionsEqual(
-                snapshotRegions,
-                mergedSnapshotRegions,
-                cloneRenderStyle,
-              )
-            : false;
           const selectedChanged = snapshotSelected !== resolvedSelected;
           if (!regionsChanged && !selectedChanged) return snapshot;
           changed = true;
