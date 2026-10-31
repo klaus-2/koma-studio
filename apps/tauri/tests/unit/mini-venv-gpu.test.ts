@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
-    CUDA_PROVIDER_PROBE_SNIPPET,
     TORCH_CUDA_INDEX_URL,
     conflictingOnnxruntimeVariant,
     isPackageInstalled,
@@ -13,6 +12,7 @@ import {
     requiresNvidiaProviderProbe,
     resolveOnnxruntimeRequirement,
     withoutTorchLines,
+    type SpawnSyncLike,
 } from "../../scripts/lib/mini-venv-gpu.mjs";
 
 const tauriRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -126,14 +126,12 @@ describe("TORCH_CUDA_INDEX_URL", () => {
 
 describe("isPackageInstalled", () => {
     const fakeSpawn = (status: number | null, error?: Error) => {
-        const calls: Array<{ args: string[] }> = [];
-        return Object.assign(
-            ((command: string, args: string[]) => {
-                calls.push({ args });
-                return { status, error };
-            }) as unknown as typeof import("node:child_process").spawnSync,
-            { calls },
-        );
+        const calls: Array<{ args: readonly string[] }> = [];
+        const spawn: SpawnSyncLike = (_command, args) => {
+            calls.push({ args });
+            return { status, error };
+        };
+        return Object.assign(spawn, { calls });
     };
 
     it("reports a package whose dist-info resolves as installed", () => {
@@ -159,10 +157,11 @@ describe("isPackageInstalled", () => {
         const spawn = fakeSpawn(0);
         isPackageInstalled({ pythonPath: "py", name: "onnxruntime-gpu", spawnSync: spawn });
 
-        const args = spawn.calls[0].args;
-        const script = args[1];
+        const call = spawn.calls[0];
+        if (!call) throw new Error("expected the probe spawn to run");
+        const script = call.args[1] ?? "";
         expect(script).toContain("metadata.version(sys.argv[1])");
         expect(script).not.toContain("onnxruntime");
-        expect(args[2]).toBe("onnxruntime-gpu");
+        expect(call.args[2]).toBe("onnxruntime-gpu");
     });
 });
