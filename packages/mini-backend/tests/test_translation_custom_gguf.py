@@ -304,6 +304,27 @@ class CustomGGUFRegistryTests(_ManifestTestCase):
             set(translation_factory._ENGINE_BUILDERS),
         )
 
+    def test_catalog_listing_picks_up_a_manifest_written_after_import(self) -> None:
+        # No refresh call here: the catalog listing itself must re-read the
+        # manifest, so models added while the backend is running appear
+        # (and removed ones disappear) without a restart.
+        self.make_model_dir("my-model", "my-model-q4_k_m.gguf")
+        self.write_manifest([_model("my-model", name="My Model")])
+
+        listed = {
+            option["key"]: option
+            for option in translation_factory.list_translation_models()
+        }
+        self.assertIs(listed["my-model"]["available"], True)
+
+        self.write_manifest([])
+
+        listed = {
+            option["key"]: option
+            for option in translation_factory.list_translation_models()
+        }
+        self.assertNotIn("my-model", listed)
+
     def test_listing_reports_custom_availability(self) -> None:
         self.make_model_dir("my-model", "my-model-q4_k_m.gguf")
         self.write_manifest([_model("my-model", name="My Model")])

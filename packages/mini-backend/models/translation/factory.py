@@ -323,6 +323,10 @@ def refresh_custom_gguf_models() -> None:
     Safe to call repeatedly: previous custom keys are removed from both dicts
     before the manifest is re-read, so a deleted manifest entry disappears on
     the next refresh instead of leaving a dangling builder.
+
+    Called once at import and by every catalog listing
+    (`list_translation_models`), so manifest edits show up without a backend
+    restart. The parse cost is bounded by the mtime cache in gguf_manifests.
     """
     for key in tuple(_CUSTOM_GGUF_KEYS):
         TRANSLATION_MODELS.pop(key, None)
@@ -435,6 +439,9 @@ def get_translation_engine(model_key: str | None = None) -> BaseTranslator:
 
 
 def list_translation_models() -> list[TranslationModelOption]:
+    # Re-read the user manifest first: registration is otherwise frozen at
+    # import time, and availability alone cannot surface a newly added entry.
+    refresh_custom_gguf_models()
     return [
         {
             "key": key,
