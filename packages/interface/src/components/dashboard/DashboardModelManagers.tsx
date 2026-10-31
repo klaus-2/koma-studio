@@ -174,66 +174,38 @@ export default function DashboardModelManagers({
     async () => { await checkModelUpdatesNow(); },
     [checkModelUpdatesNow],
   );
-  const handleSelectTranslationModel = useCallback(
-    (modelKey: string) => {
-      setAioStageSelection((prev) => ({ ...prev, getTranslations: modelKey }));
-      setStatusMessage(
-        t('dashboard.status.modelSelected', {
-          stage: aioStageLabels.getTranslations,
-          model: modelLabelFor('getTranslations', modelKey),
-        }),
-      );
+  // One stable applier for all five stages: recognizeText keeps its dedicated
+  // selector (it resolves OCR variants), the others write the selection store.
+  const applyStageSelection = useCallback(
+    (stage: AioStageKey, modelKey: string) => {
+      if (stage === 'recognizeText') {
+        selectAioRecognizeTextModel(modelKey);
+        return;
+      }
+      setAioStageSelection((prev) => ({ ...prev, [stage]: modelKey }));
     },
-    [setAioStageSelection, setStatusMessage, t, aioStageLabels, modelLabelFor],
+    [selectAioRecognizeTextModel, setAioStageSelection],
   );
-  const handleSelectDetectModel = useCallback(
-    (modelKey: string) => {
-      setAioStageSelection((prev) => ({ ...prev, detectText: modelKey }));
-      setStatusMessage(
-        t('dashboard.status.modelSelected', {
-          stage: aioStageLabels.detectText,
-          model: modelLabelFor('detectText', modelKey),
-        }),
-      );
-    },
-    [setAioStageSelection, setStatusMessage, t, aioStageLabels, modelLabelFor],
-  );
-  const handleSelectRecognizeModel = useCallback(
-    (modelKey: string) => {
-      selectAioRecognizeTextModel(modelKey);
-      setStatusMessage(
-        t('dashboard.status.modelSelected', {
-          stage: aioStageLabels.recognizeText,
-          model: modelLabelFor('recognizeText', modelKey),
-        }),
-      );
-    },
-    [selectAioRecognizeTextModel, setStatusMessage, t, aioStageLabels, modelLabelFor],
-  );
-  const handleSelectSegmentModel = useCallback(
-    (modelKey: string) => {
-      setAioStageSelection((prev) => ({ ...prev, segmentText: modelKey }));
-      setStatusMessage(
-        t('dashboard.status.modelSelected', {
-          stage: aioStageLabels.segmentText,
-          model: modelLabelFor('segmentText', modelKey),
-        }),
-      );
-    },
-    [setAioStageSelection, setStatusMessage, t, aioStageLabels, modelLabelFor],
-  );
-  const handleSelectCleanModel = useCallback(
-    (modelKey: string) => {
-      setAioStageSelection((prev) => ({ ...prev, cleanImage: modelKey }));
-      setStatusMessage(
-        t('dashboard.status.modelSelected', {
-          stage: aioStageLabels.cleanImage,
-          model: modelLabelFor('cleanImage', modelKey),
-        }),
-      );
-    },
-    [setAioStageSelection, setStatusMessage, t, aioStageLabels, modelLabelFor],
-  );
+  const useStageModelSelectHandler = (
+    stage: AioStageKey,
+  ): ((modelKey: string) => void) =>
+    useCallback(
+      (modelKey) => {
+        applyStageSelection(stage, modelKey);
+        setStatusMessage(
+          t('dashboard.status.modelSelected', {
+            stage: aioStageLabels[stage],
+            model: modelLabelFor(stage, modelKey),
+          }),
+        );
+      },
+      [applyStageSelection, stage, setStatusMessage, t, aioStageLabels, modelLabelFor],
+    );
+  const handleSelectTranslationModel = useStageModelSelectHandler('getTranslations');
+  const handleSelectDetectModel = useStageModelSelectHandler('detectText');
+  const handleSelectRecognizeModel = useStageModelSelectHandler('recognizeText');
+  const handleSelectSegmentModel = useStageModelSelectHandler('segmentText');
+  const handleSelectCleanModel = useStageModelSelectHandler('cleanImage');
   const handleEnhanceClose = useCallback(
     () => { setEnhanceModelManagerOpen(false); },
     [setEnhanceModelManagerOpen],

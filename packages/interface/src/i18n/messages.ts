@@ -149,6 +149,20 @@ export const translateDynamicMessage = (
   return template === undefined ? key : interpolate(template, vars);
 };
 
+/**
+ * Resolves a key that may be absent from the catalogs (tooltip copy ships an
+ * English fallback from the owning component): returns the translation, or
+ * `fallback` when the key itself came back untranslated.
+ */
+export const translateOrFallback = (
+  locale: AppLocale,
+  key: string,
+  fallback: string,
+): string => {
+  const value = translateDynamicMessage(locale, key);
+  return value === key ? fallback : value;
+};
+
 export const loadTranslationCatalog = (
   locale: AppLocale,
 ): Promise<TranslationCatalog> => {

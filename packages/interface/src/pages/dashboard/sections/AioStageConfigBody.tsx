@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { Info } from 'lucide-react';
 
@@ -11,6 +11,7 @@ import StageModelSelect, {
 } from '../../../components/AioStageModelControls/StageModelSelect.tsx';
 import TranslationModelControl from '../../../components/AioStageModelControls/TranslationModelControl.tsx';
 import { useI18n } from '../../../i18n';
+import { translateOrFallback } from '../../../i18n/messages';
 import {
   RENDER_TEXT_MODE_LABELS,
   type RenderTextMode,
@@ -120,7 +121,7 @@ export default memo(function AioStageConfigBody({
   handleRenderFontImport,
   isDesktopRuntime,
 }: AioStageConfigBodyProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const noir = useThemeStore((s) => s.family === 'noir');
   const skin = aioPanelClasses(noir);
 
@@ -163,14 +164,6 @@ export default memo(function AioStageConfigBody({
     activeImageRenderStageActive &&
     subMode === 'manual' &&
     Boolean(activeSelectedRegion);
-
-  const resolveTooltipText = useCallback(
-    (key: string, fallback: string) => {
-      const value = t(key as any) as string;
-      return value === key ? fallback : value;
-    },
-    [t],
-  );
 
   return (
     <>
@@ -282,11 +275,11 @@ export default memo(function AioStageConfigBody({
         <StageModelSelect
           label={t('aio.stage.cleanImage')}
           labelTooltip={{
-            content: resolveTooltipText(
+            content: translateOrFallback(locale,
               'dashboard.aio.cleanImage.tooltip',
               'Clean Image is the cleanup and inpainting stage. It removes text and selected artifacts before the final render/edit pass.',
             ),
-            ariaLabel: resolveTooltipText(
+            ariaLabel: translateOrFallback(locale,
               'dashboard.aio.cleanImage.tooltipAria',
               'What Clean Image is used for',
             ),
@@ -311,11 +304,11 @@ export default memo(function AioStageConfigBody({
               <span className="koma-inline-label-with-info">
                 {t("dashboard.aio.clean.maskDilation")}
                 <FieldInfoTooltip
-                  content={resolveTooltipText(
+                  content={translateOrFallback(locale,
                     'dashboard.aio.clean.maskDilation.tooltip',
                     'Expands the cleanup mask before inpainting. Raise it when text edges remain; keep it lower to preserve nearby artwork.',
                   )}
-                  ariaLabel={resolveTooltipText(
+                  ariaLabel={translateOrFallback(locale,
                     'dashboard.aio.clean.maskDilation.tooltipAria',
                     'What Mask Dilation is used for',
                   )}
@@ -334,11 +327,11 @@ export default memo(function AioStageConfigBody({
             <span className="koma-inline-label-with-info">
               {t("dashboard.dashboardLlm.hdStrategy")}
               <FieldInfoTooltip
-                content={resolveTooltipText(
+                content={translateOrFallback(locale,
                   'dashboard.dashboardLlm.hdStrategy.tooltip',
                   'Defines how large images are prepared before cleanup. Resize scales the page, Crop splits it into tiles, and Original sends it as-is.',
                 )}
-                ariaLabel={resolveTooltipText(
+                ariaLabel={translateOrFallback(locale,
                   'dashboard.dashboardLlm.hdStrategy.tooltipAria',
                   'What HD Strategy is used for',
                 )}
@@ -381,11 +374,11 @@ export default memo(function AioStageConfigBody({
                   <span className="koma-inline-label-with-info">
                     {t("dashboard.dashboardLlm.cropMargin")}
                     <FieldInfoTooltip
-                      content={resolveTooltipText(
+                      content={translateOrFallback(locale,
                         'dashboard.dashboardLlm.cropMargin.tooltip',
                         'Adds extra padding around each crop tile. Increase it if borders lose context or show seams after cleanup.',
                       )}
-                      ariaLabel={resolveTooltipText(
+                      ariaLabel={translateOrFallback(locale,
                         'dashboard.dashboardLlm.cropMargin.tooltipAria',
                         'What Crop Margin is used for',
                       )}
@@ -404,11 +397,11 @@ export default memo(function AioStageConfigBody({
                   <span className="koma-inline-label-with-info">
                     {t("dashboard.dashboardLlm.cropTriggerSize")}
                     <FieldInfoTooltip
-                      content={resolveTooltipText(
+                      content={translateOrFallback(locale,
                         'dashboard.dashboardLlm.cropTriggerSize.tooltip',
                         'Minimum image size that activates crop tiling. Smaller images stay as one piece; larger ones are split into crops.',
                       )}
-                      ariaLabel={resolveTooltipText(
+                      ariaLabel={translateOrFallback(locale,
                         'dashboard.dashboardLlm.cropTriggerSize.tooltipAria',
                         'What Crop Trigger Size is used for',
                       )}

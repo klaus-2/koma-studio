@@ -32,6 +32,7 @@ import { AioStageTabBar, type StageTabDef, type StageTabKey } from '../../AioSta
 import SubModeToggle from '../../../components/dashboard/SubModeToggle';
 import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
 import { useI18n } from '../../../i18n';
+import { translateOrFallback } from '../../../i18n/messages';
 import { cn } from '../../../utils/dashboard.utils';
 import {
   AIO_MANUAL_STAGE_ORDER,
@@ -195,7 +196,7 @@ export default memo(function AioRightPanel({
   handleRenderFontImport,
   isDesktopRuntime,
 }: AioRightPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const noir = useThemeStore((s) => s.family === 'noir');
   const skin = aioPanelClasses(noir);
 
@@ -304,14 +305,6 @@ export default memo(function AioRightPanel({
       && aioMiniBackendRuntimeState.activeProfile !== 'cpu')
     || (aioMiniBackendRuntimeState?.requestedProfile
       && aioMiniBackendRuntimeState.requestedProfile !== 'cpu'),
-  );
-
-  const resolveTooltipText = useCallback(
-    (key: string, fallback: string) => {
-      const value = t(key as any) as string;
-      return value === key ? fallback : value;
-    },
-    [t],
   );
 
   return (
@@ -588,11 +581,11 @@ export default memo(function AioRightPanel({
               <Bookmark size={10} />
               {t('settings.tabs.presets')}
               <FieldInfoTooltip
-                content={resolveTooltipText(
+                content={translateOrFallback(locale,
                   'dashboard.aio.presets.tooltip',
                   'Presets save a per-language combination of models and stage choices. Use them to switch your AIO setup faster when changing source language or workflow.',
                 )}
-                ariaLabel={resolveTooltipText(
+                ariaLabel={translateOrFallback(locale,
                   'dashboard.aio.presets.tooltipAria',
                   'What language presets are used for',
                 )}
