@@ -49,7 +49,7 @@ from pipelines.translation_masking import (
     plan_masked_segment,
     reassemble_masked,
 )
-from pipelines.translation_qa import run_translation_qa
+from pipelines.translation_qa import glossary_missing, run_translation_qa
 from pipelines.translation_store import (
     CacheRow,
     TranslationStore,
@@ -517,6 +517,14 @@ async def run_cached_translation(
                 )
         else:
             translated = await translate_missing(engine)
+        # Mandatory glossary post-check: local answering engines only (cloud
+        # engines get the glossary in the prompt instead), skipped in SFX.
+        answered_local = (
+            isinstance(engine, LocalTranslatorBase)
+            if engine is not None
+            else is_local_translation_engine_key(engine_key)
+        )
+        sfx_mode = request.translation_mode.strip().lower() == "sfx"
         fresh: list[TranslationRecord] = []
         for item in translated:
             # QA runs once per unique engine answer; the verdict (and any
@@ -527,13 +535,22 @@ async def run_cached_translation(
                 target_language=request.target_language,
                 translation_mode=request.translation_mode,
             )
+            glossary_notes: tuple[str, ...] = ()
+            if answered_local and not sfx_mode and settings.glossary:
+                glossary_notes = tuple(
+                    glossary_missing(item.source_text, outcome.text, settings.glossary)
+                )
             for member in dedup_members.get(item.id, ()):
                 fresh.append(
                     TranslationRecord(
                         id=member["id"],
                         source_text=member["text"].strip(),
                         translated_text=outcome.text,
-                        translation_notes=[*item.translation_notes, *outcome.notes],
+                        translation_notes=[
+                            *item.translation_notes,
+                            *outcome.notes,
+                            *glossary_notes,
+                        ],
                         source=normalize_stage_source(member["source"]),
                         detector_model_key=member["detector_model_key"],
                         ocr_model_key=member["ocr_model_key"],

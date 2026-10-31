@@ -16,6 +16,8 @@ from dataclasses import dataclass
 import re
 import unicodedata
 
+from core.config import GlossaryTerm
+
 _WS_RUN_RE = re.compile(r"\s+")
 _WORD_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
 _NON_SPACE_RE = re.compile(r"\S+")
@@ -195,6 +197,31 @@ def _identical_to_source(source: str, target: str) -> bool:
     if scripts_de(source) == scripts_de(target):
         return False
     return _fold_for_identity(source) == _fold_for_identity(target)
+
+
+def glossary_missing(
+    source: str, target: str, terms: Sequence[GlossaryTerm]
+) -> list[str]:
+    """Mandatory-term post-check, notes only: a glossary term whose source
+    occurs in the source (case-insensitive, word-bounded) but whose expected
+    target is absent from the output. Never-translate terms are excluded —
+    their presence is proven by masking parity, not by the output text."""
+    notes: list[str] = []
+    for term in terms:
+        if term.never_translate or not term.source or not term.target:
+            continue
+        source_pattern = re.compile(
+            rf"(?<!\w){re.escape(term.source)}(?!\w)", re.IGNORECASE
+        )
+        target_pattern = re.compile(
+            rf"(?<!\w){re.escape(term.target)}(?!\w)", re.IGNORECASE
+        )
+        if source_pattern.search(source) and not target_pattern.search(target):
+            notes.append(
+                f"NT: Glossário: termo '{term.source}' ausente"
+                f" (esperado '{term.target}')"
+            )
+    return notes
 
 
 # --------------------------------------------------------------------- echo

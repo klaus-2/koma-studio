@@ -10,13 +10,16 @@ MINI_BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(MINI_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(MINI_BACKEND_DIR))
 
-from core.config import clamp_llm_request_settings  # noqa: E402
+from core.config import GlossaryTerm, clamp_llm_request_settings  # noqa: E402
 from models.translation.base_translator import (  # noqa: E402
     TranslationInputRegion,
+    TranslationRequest,
     TranslationTextResult,
 )
+from models.translation.local_base import LocalTranslatorBase  # noqa: E402
 from pipelines.cache_manager import CacheManager  # noqa: E402
 from pipelines.translation_qa import (  # noqa: E402
+    glossary_missing,
     run_translation_qa,
 )
 from pipelines.translation_stage import (  # noqa: E402
@@ -229,6 +232,181 @@ class StageQaIntegrationTests(unittest.TestCase):
             any("Resíduo" in note for note in record["translation_notes"]),
             record["translation_notes"],
         )
+
+
+class GlossaryMissingTests(unittest.TestCase):
+    def test_term_in_source_absent_from_target_is_reported(self) -> None:
+        notes = glossary_missing(
+            "Kaito fala com o time",
+            "O time conversa",
+            [GlossaryTerm("Kaito", "Kaito")],
+        )
+        self.assertEqual(
+            notes,
+            ["NT: Glossário: termo 'Kaito' ausente (esperado 'Kaito')"],
+        )
+
+    def test_term_present_in_target_passes(self) -> None:
+        self.assertEqual(
+            glossary_missing(
+                "Kaito fala com o time",
+                "Kaito conversa com o time",
+                [GlossaryTerm("Kaito", "Kaito")],
+            ),
+            [],
+        )
+
+    def test_matching_is_case_insensitive_and_word_bounded(self) -> None:
+        self.assertEqual(
+            glossary_missing(
+                "kaito appears here",
+                "KAITO stays",
+                [GlossaryTerm("Kaito", "Kaito")],
+            ),
+            [],
+        )
+        notes = glossary_missing(
+            "kaito appears here",
+            "kaito2 stays",
+            [GlossaryTerm("Kaito", "Kaito")],
+        )
+        self.assertEqual(len(notes), 1)
+
+    def test_never_translate_terms_are_excluded(self) -> None:
+        self.assertEqual(
+            glossary_missing(
+                "Kaito fala",
+                "ninguem traduziu",
+                [GlossaryTerm("Kaito", "Kaito", True)],
+            ),
+            [],
+        )
+
+
+class _GlossaryLocalEngine(LocalTranslatorBase):
+    key = "fake_local"
+
+    def __init__(self) -> None:
+        import tempfile as _tempfile
+
+        super().__init__(
+            key="fake_local", model_dir=Path(_tempfile.mkdtemp())
+        )
+        self.calls = 0
+
+    def _ensure_runtime(self) -> None:
+        return None
+
+    def _infer(self, request: TranslationRequest) -> list[TranslationTextResult]:
+        self.calls += 1
+        return [
+            self._result(region, "O time conversa") for region in request.regions
+        ]
+
+
+class _GlossaryCloudEngine:
+    key = "fake_cloud"
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def translate(
+        self,
+        regions: list[TranslationInputRegion],
+        source_language: str,
+        target_language: str,
+        extra_context: str = "",
+        translation_notes_enabled: bool = True,
+        translation_mode: str = "default",
+    ) -> list[TranslationTextResult]:
+        _ = source_language, target_language, extra_context
+        _ = translation_notes_enabled, translation_mode
+        self.calls += 1
+        return [
+            TranslationTextResult(
+                id=region.id,
+                source_text=region.text.strip(),
+                translated_text="O time conversa",
+                source=region.source,
+                detector_model_key=region.detector_model_key,
+                ocr_model_key=region.ocr_model_key,
+                translator_model_key=self.key,
+            )
+            for region in regions
+        ]
+
+
+class GlossaryStageWiringTests(unittest.TestCase):
+    def _request(self, settings: object, mode: str = "default"):
+        region = TranslationRegionRequest(
+            id="r1",
+            text="Kaito fala com o time",
+            source="model",
+            detector_model_key="det",
+            ocr_model_key="ocr",
+        )
+        return CachedTranslationRequest(
+            model_key="fake",
+            source_language="ja",
+            target_language="pt-br",
+            seeds=(seed_from_request(region),),
+            translation_mode=mode,
+            settings=settings,
+            custom_llm=None,
+        )
+
+    def _run(self, request: CachedTranslationRequest, engine: object):
+        import asyncio
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        store = TranslationStore(Path(tmp.name) / "store.sqlite3")
+        self.addCleanup(store.close)
+        return asyncio.run(
+            run_cached_translation(
+                request,
+                cache=CacheManager(ttl_seconds=60, max_entries=8, bbox_tolerance_px=2),
+                resolve_engine=lambda model_key=None: engine,
+                store=store,
+            )
+        )
+
+    def test_local_engine_gets_the_missing_term_note(self) -> None:
+        settings = clamp_llm_request_settings(
+            {"glossary": [{"source": "Kaito", "target": "Kaito"}]}
+        )
+        engine = _GlossaryLocalEngine()
+
+        result = self._run(self._request(settings), engine)
+
+        self.assertEqual(engine.calls, 1)
+        notes = result.records[0]["translation_notes"]
+        self.assertTrue(
+            any("Glossário: termo 'Kaito' ausente" in note for note in notes),
+            notes,
+        )
+
+    def test_cloud_engine_is_not_checked(self) -> None:
+        settings = clamp_llm_request_settings(
+            {"glossary": [{"source": "Kaito", "target": "Kaito"}]}
+        )
+        engine = _GlossaryCloudEngine()
+
+        result = self._run(self._request(settings), engine)
+
+        notes = result.records[0]["translation_notes"]
+        self.assertFalse(any("Glossário" in note for note in notes), notes)
+
+    def test_sfx_mode_skips_the_check(self) -> None:
+        settings = clamp_llm_request_settings(
+            {"glossary": [{"source": "Kaito", "target": "Kaito"}]}
+        )
+        engine = _GlossaryLocalEngine()
+
+        result = self._run(self._request(settings, mode="sfx"), engine)
+
+        notes = result.records[0]["translation_notes"]
+        self.assertFalse(any("Glossário" in note for note in notes), notes)
 
 
 if __name__ == "__main__":
