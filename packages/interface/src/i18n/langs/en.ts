@@ -1636,6 +1636,10 @@ export const enMessages = {
     'Use context from neighboring images in the batch',
   'dashboard.aio.translation.multimodalToggle':
     'Send the page image as multimodal context',
+  'dashboard.aio.translation.memoryToggle':
+    'Reuse translations from the local memory',
+  'dashboard.aio.translation.memory':
+    'Reads are opt-in (default off): past translations are reused from your local database only while this is on. Writing to the local memory store is always active and sends nothing off-device.',
   'dashboard.aio.translation.activeConfigFor':
     'Active configuration for: {value}.',
   'dashboard.aio.glossary.title': 'Glossary',

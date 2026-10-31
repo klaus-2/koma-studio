@@ -57,6 +57,12 @@ class TranslationStoreError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class TMEntry:
+    translation: str
+    model_key: str
+
+
+@dataclass(frozen=True)
 class CacheRow:
     key: str
     translated_text: str
@@ -212,19 +218,24 @@ class TranslationStore:
 
     # ------------------------------------------------------------------- tm
 
-    def lookup_tm(self, nfkc_key: str, src_lang: str, tgt_lang: str) -> str | None:
+    def lookup_tm(
+        self, nfkc_key: str, src_lang: str, tgt_lang: str
+    ) -> TMEntry | None:
         with self._lock:
             row = self._conn.execute(
-                "SELECT translation FROM tm"
+                "SELECT translation, model_key FROM tm"
                 " WHERE nfkc_key = ? AND src_lang = ? AND tgt_lang = ?",
                 (nfkc_key, src_lang, tgt_lang),
             ).fetchone()
         if row is None:
             return None
-        translation = row[0]
+        translation, model_key = row[0], row[1]
         if not isinstance(translation, str) or not translation:
             return None
-        return translation
+        return TMEntry(
+            translation=translation,
+            model_key=model_key if isinstance(model_key, str) else "",
+        )
 
     def put_tm(
         self,

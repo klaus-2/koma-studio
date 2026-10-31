@@ -23,6 +23,7 @@ export default memo(function AioLlmSettingsPanel({
     llmExtraContext,
     llmTranslationNotesEnabled,
     llmNeighborContextEnabled,
+    llmTranslationMemoryEnabled,
     llmImageInputEnabled,
     llmTemperature,
     llmTopP,
@@ -33,6 +34,7 @@ export default memo(function AioLlmSettingsPanel({
       llmExtraContext: s.llmSettings.extra_context,
       llmTranslationNotesEnabled: s.llmSettings.translation_notes_enabled,
       llmNeighborContextEnabled: s.llmSettings.neighbor_image_context_enabled,
+      llmTranslationMemoryEnabled: s.llmSettings.translation_memory_enabled,
       llmImageInputEnabled: s.llmSettings.image_input_enabled,
       llmTemperature: s.llmSettings.temperature,
       llmTopP: s.llmSettings.top_p,
@@ -96,6 +98,19 @@ export default memo(function AioLlmSettingsPanel({
           />
           <AioChecklistOption
             noir={noir}
+            checked={llmTranslationMemoryEnabled}
+            label={t("dashboard.aio.translation.memoryToggle")}
+            onChange={(checked) =>
+              setLlmSettings((prev) =>
+                clampLlmRequestSettings({
+                  ...prev,
+                  translation_memory_enabled: checked,
+                }),
+              )
+            }
+          />
+          <AioChecklistOption
+            noir={noir}
             checked={llmImageInputEnabled}
             label={t("dashboard.aio.translation.multimodalToggle")}
             onChange={(checked) =>
@@ -108,6 +123,10 @@ export default memo(function AioLlmSettingsPanel({
             }
           />
         </div>
+
+        <p className="koma-aio-hint">
+          {t("dashboard.aio.translation.memory")}
+        </p>
 
         <div className="koma-aio-llm-sliders">
           <KlSlider

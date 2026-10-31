@@ -57,6 +57,7 @@ from pipelines.translation_store import (
     glossary_hash,
     normalize_source_text,
     persistent_cache_key,
+    tm_key,
 )
 from schemas.translation import (
     TranslationRegionRequest,
@@ -239,6 +240,55 @@ def _consult_persistent_cache(
             translator_model_key=row.engine_key or fallback_engine_key,
         )
     return hits, remaining, keys_by_id
+
+
+def _consult_translation_memory(
+    *,
+    request: CachedTranslationRequest,
+    settings: LLMRequestSettings,
+    missing: list[TranslationSeed],
+    store: TranslationStore,
+    fallback_engine_key: str,
+) -> tuple[dict[str, TranslationRecord], list[TranslationSeed]]:
+    """Opt-in TM reads: exact NFKC key only, no fuzz matching.
+
+    Hits carry the stored engine key and are bumped in one batched statement.
+    A hit answered by a LOCAL engine obeys the same never-translate parity
+    guard as the persistent cache: a protected term missing verbatim discards
+    the hit so the fresh re-run masks the terms."""
+    protected = tuple(term.source for term in settings.glossary if term.never_translate)
+    hits: dict[str, TranslationRecord] = {}
+    remaining: list[TranslationSeed] = []
+    bumped: dict[tuple[str, str, str], None] = {}
+    for seed in missing:
+        tm_key_value = tm_key(normalize_source_text(seed["text"]))
+        entry = store.lookup_tm(
+            tm_key_value, request.source_language, request.target_language
+        )
+        if entry is None or not entry.translation.strip():
+            remaining.append(seed)
+            continue
+        if (
+            protected
+            and is_local_translation_engine_key(entry.model_key)
+            and not _contains_protected_terms(entry.translation, protected)
+        ):
+            remaining.append(seed)
+            continue
+        hits[seed["id"]] = TranslationRecord(
+            id=seed["id"],
+            source_text=seed["text"].strip(),
+            translated_text=entry.translation,
+            translation_notes=[],
+            source=seed["source"],
+            detector_model_key=seed["detector_model_key"],
+            ocr_model_key=seed["ocr_model_key"],
+            translator_model_key=entry.model_key or fallback_engine_key,
+        )
+        bumped[(tm_key_value, request.source_language, request.target_language)] = None
+    if bumped:
+        store.bump_tm_hits(list(bumped))
+    return hits, remaining
 
 
 def _persist_fresh_results(
@@ -426,6 +476,21 @@ async def run_cached_translation(
                 extra={"blocks": len(persistent_by_id), "model": engine_key},
             )
 
+    tm_by_id: dict[str, TranslationRecord] = {}
+    if missing and settings.translation_memory_enabled:
+        tm_by_id, missing = _consult_translation_memory(
+            request=request,
+            settings=settings,
+            missing=missing,
+            store=translation_store,
+            fallback_engine_key=engine_key,
+        )
+        if tm_by_id:
+            logger.info(
+                "translation.served_tm",
+                extra={"blocks": len(tm_by_id), "model": engine_key},
+            )
+
     # One engine region per unique text: remaining seeds are grouped by their
     # normalized text, the representative is translated once, and the answer is
     # replicated to every group member keeping each seed's own metadata.
@@ -526,6 +591,7 @@ async def run_cached_translation(
         )
         sfx_mode = request.translation_mode.strip().lower() == "sfx"
         fresh: list[TranslationRecord] = []
+        tm_writes: list[tuple[str, str, str, str, str]] = []
         for item in translated:
             # QA runs once per unique engine answer; the verdict (and any
             # deterministic echo repair) is replicated to the group members.
@@ -539,6 +605,26 @@ async def run_cached_translation(
             if answered_local and not sfx_mode and settings.glossary:
                 glossary_notes = tuple(
                     glossary_missing(item.source_text, outcome.text, settings.glossary)
+                )
+            # TM writes are ALWAYS on outside SFX (D2) — only the reads are
+            # toggle-gated. Echo-repaired results and results identical to
+            # their source (direct text comparison) never enter the memory.
+            if (
+                not sfx_mode
+                and not outcome.repaired
+                and "repeated_word" not in outcome.flags
+                and outcome.text.strip()
+                and normalize_source_text(item.source_text)
+                != normalize_source_text(outcome.text)
+            ):
+                tm_writes.append(
+                    (
+                        tm_key(normalize_source_text(item.source_text)),
+                        request.source_language,
+                        request.target_language,
+                        outcome.text,
+                        item.translator_model_key or engine_key,
+                    )
                 )
             for member in dedup_members.get(item.id, ()):
                 fresh.append(
@@ -557,6 +643,12 @@ async def run_cached_translation(
                         translator_model_key=item.translator_model_key or engine_key,
                     )
                 )
+        for nfkc_key, src_lang, tgt_lang, translation, model_key in tm_writes:
+            translation_store.put_tm(nfkc_key, src_lang, tgt_lang, translation, model_key)
+        if tm_writes:
+            logger.info(
+                "translation.tm_written", extra={"blocks": len(tm_writes), "model": engine_key}
+            )
         fresh_by_id = {record["id"]: record for record in fresh}
         # Cache layers store one entry per unique text (the representative).
         unique_fresh = [
@@ -575,6 +667,7 @@ async def run_cached_translation(
         fresh_by_id.get(seed["id"])
         or cached_by_id.get(seed["id"])
         or persistent_by_id.get(seed["id"])
+        or tm_by_id.get(seed["id"])
         or passthrough_by_id.get(seed["id"])
         or empty_record(seed, engine_key)
         for seed in seeds

@@ -18,6 +18,7 @@ export interface LlmRequestSettings {
   max_tokens: number;
   translation_notes_enabled: boolean;
   neighbor_image_context_enabled: boolean;
+  translation_memory_enabled: boolean;
   glossary: GlossaryTerm[];
 }
 
@@ -131,6 +132,7 @@ export const DEFAULT_LLM_REQUEST_SETTINGS: LlmRequestSettings = {
   max_tokens: 4096,
   translation_notes_enabled: true,
   neighbor_image_context_enabled: false,
+  translation_memory_enabled: false,
   glossary: [],
 };
 
@@ -790,6 +792,7 @@ export const clampLlmRequestSettings = (
     translation_notes_enabled: source.translation_notes_enabled !== false,
     neighbor_image_context_enabled:
       source.neighbor_image_context_enabled === true,
+    translation_memory_enabled: source.translation_memory_enabled === true,
     glossary: clampGlossary(source.glossary),
   };
 };

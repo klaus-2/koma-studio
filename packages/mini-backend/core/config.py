@@ -213,6 +213,8 @@ class LLMRequestSettings:
     neighbor_image_context_enabled: bool = False
     translation_fallback_chain: tuple[str, ...] = ()
     glossary: tuple[GlossaryTerm, ...] = ()
+    # Opt-in TM reads (D2): writes to the local store are always on.
+    translation_memory_enabled: bool = False
 
 
 def clamp_llm_request_settings(
@@ -242,6 +244,9 @@ def clamp_llm_request_settings(
         raw.get("translation_fallback_chain"), _TRANSLATION_FALLBACK_CHAIN_MAX
     )
     glossary = _as_glossary(raw.get("glossary"))
+    translation_memory_enabled = _as_bool(
+        raw.get("translation_memory_enabled"), False
+    )
 
     return LLMRequestSettings(
         extra_context=extra_context,
@@ -253,6 +258,7 @@ def clamp_llm_request_settings(
         neighbor_image_context_enabled=neighbor_image_context_enabled,
         translation_fallback_chain=translation_fallback_chain,
         glossary=glossary,
+        translation_memory_enabled=translation_memory_enabled,
     )
 
 

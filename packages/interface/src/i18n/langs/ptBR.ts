@@ -1601,6 +1601,10 @@ export const ptBrMessages: TranslationCatalog = {
     'Usar contexto de imagens vizinhas no lote',
   'dashboard.aio.translation.multimodalToggle':
     'Enviar a imagem da página como contexto multimodal',
+  'dashboard.aio.translation.memoryToggle':
+    'Reutilizar traduções da memória local',
+  'dashboard.aio.translation.memory':
+    'Leitura opcional (desligada por padrão): traduções passadas só são reutilizadas do seu banco local com a opção ativa. A gravação na memória local está sempre ativa e nada sai do dispositivo.',
   'dashboard.aio.translation.activeConfigFor':
     'Configuração ativa para: {value}.',
   'dashboard.aio.customAi.title': 'Custom AI',

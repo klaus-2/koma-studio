@@ -131,9 +131,15 @@ class TranslationStoreTests(unittest.TestCase):
             try:
                 self.assertIsNone(store.lookup_tm("chave", "ja", "pt-br"))
                 store.put_tm("chave", "ja", "pt-br", "chave traduzida", "nllb-200-600m-int8")
-                self.assertEqual(store.lookup_tm("chave", "ja", "pt-br"), "chave traduzida")
+                entry = store.lookup_tm("chave", "ja", "pt-br")
+                self.assertIsNotNone(entry)
+                self.assertEqual(entry.translation, "chave traduzida")
+                self.assertEqual(entry.model_key, "nllb-200-600m-int8")
                 store.put_tm("chave", "ja", "pt-br", "nova tradução", "m2m100_1_2b_ct2")
-                self.assertEqual(store.lookup_tm("chave", "ja", "pt-br"), "nova tradução")
+                entry = store.lookup_tm("chave", "ja", "pt-br")
+                self.assertIsNotNone(entry)
+                self.assertEqual(entry.translation, "nova tradução")
+                self.assertEqual(entry.model_key, "m2m100_1_2b_ct2")
             finally:
                 store.close()
 

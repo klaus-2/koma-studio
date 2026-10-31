@@ -18,6 +18,10 @@ describe("DEFAULT_LLM_REQUEST_SETTINGS", () => {
     expect(DEFAULT_LLM_REQUEST_SETTINGS.glossary).toEqual([]);
   });
 
+  it("starts with translation memory reads off", () => {
+    expect(DEFAULT_LLM_REQUEST_SETTINGS.translation_memory_enabled).toBe(false);
+  });
+
   it("keeps the never_translate flag through the settings clamp", () => {
     const settings = clampLlmRequestSettings({
       glossary: [
@@ -29,6 +33,12 @@ describe("DEFAULT_LLM_REQUEST_SETTINGS", () => {
       term("先輩", "senpai", true),
       term("部長", "manager", false),
     ]);
+  });
+
+  it("coerces translation_memory_enabled to a strict boolean", () => {
+    expect(clampLlmRequestSettings({ translation_memory_enabled: true }).translation_memory_enabled).toBe(true);
+    expect(clampLlmRequestSettings({ translation_memory_enabled: "yes" }).translation_memory_enabled).toBe(false);
+    expect(clampLlmRequestSettings({}).translation_memory_enabled).toBe(false);
   });
 });
 
