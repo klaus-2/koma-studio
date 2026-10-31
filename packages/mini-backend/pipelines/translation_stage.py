@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from collections.abc import Sequence
+import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Callable
 
@@ -23,6 +24,7 @@ from models.translation.errors import EmptyTranslationError
 from models.translation.factory import (
     DEFAULT_TRANSLATION_MODEL,
     get_translation_engine,
+    is_local_translation_engine_key,
 )
 from models.translation.fallback import (
     QuotaBlocklist,
@@ -41,6 +43,14 @@ from pipelines.batch.records import (
     normalize_stage_source,
 )
 from pipelines.cache_manager import CacheManager, get_pipeline_cache
+from pipelines.translation_store import (
+    CacheRow,
+    TranslationStore,
+    get_translation_store,
+    glossary_hash,
+    normalize_source_text,
+    persistent_cache_key,
+)
 from schemas.translation import (
     TranslationRegionRequest,
     TranslationRegionResult,
@@ -151,12 +161,113 @@ def _is_request_scoped(requested_key: str) -> bool:
     return requested_key == "custom" or requested_key.startswith("custom:")
 
 
+def _contains_protected_terms(text: str, terms: Sequence[str]) -> bool:
+    """Casefold word-boundary check used by the hit-path parity guard."""
+    haystack = text.casefold()
+    for term in terms:
+        needle = re.escape(term.casefold())
+        if not re.search(rf"(?<!\w){needle}(?!\w)", haystack):
+            return False
+    return True
+
+
+def _consult_persistent_cache(
+    *,
+    request: CachedTranslationRequest,
+    settings: LLMRequestSettings,
+    missing: list[TranslationSeed],
+    model_key: str,
+    store: TranslationStore,
+    fallback_engine_key: str,
+) -> tuple[dict[str, TranslationRecord], list[TranslationSeed], dict[str, str]]:
+    """Restart-safe lookup for the in-memory misses.
+
+    Returns (hit records by seed id, remaining misses, persistent key per seed
+    id for the post-engine write-back). The persistent key is context-free by
+    design (D1): model, languages, mode, normalized text and glossary hash —
+    page context is deliberately excluded. A hit row answered by a LOCAL
+    engine must carry every never-translate term verbatim (casefold, word
+    boundary) or it is discarded as a miss so the fresh re-run can mask the
+    terms (Parity Guard).
+    """
+    gloss_hash = glossary_hash(
+        [(term.source, term.target, term.never_translate) for term in settings.glossary]
+    )
+    mode = (request.translation_mode or "").strip().lower() or "default"
+    keys_by_id = {
+        seed["id"]: persistent_cache_key(
+            model_key,
+            request.source_language,
+            request.target_language,
+            mode,
+            normalize_source_text(seed["text"]),
+            gloss_hash,
+        )
+        for seed in missing
+    }
+    rows = store.get_cached(list(keys_by_id.values()))
+    protected = tuple(term.source for term in settings.glossary if term.never_translate)
+    hits: dict[str, TranslationRecord] = {}
+    remaining: list[TranslationSeed] = []
+    for seed in missing:
+        row = rows.get(keys_by_id[seed["id"]])
+        if row is None or not row.translated_text.strip():
+            remaining.append(seed)
+            continue
+        if (
+            protected
+            and is_local_translation_engine_key(row.engine_key)
+            and not _contains_protected_terms(row.translated_text, protected)
+        ):
+            remaining.append(seed)
+            continue
+        hits[seed["id"]] = TranslationRecord(
+            id=seed["id"],
+            source_text=seed["text"].strip(),
+            translated_text=row.translated_text,
+            translation_notes=list(row.notes),
+            source=seed["source"],
+            detector_model_key=seed["detector_model_key"],
+            ocr_model_key=seed["ocr_model_key"],
+            translator_model_key=row.engine_key or fallback_engine_key,
+        )
+    return hits, remaining, keys_by_id
+
+
+def _persist_fresh_results(
+    store: TranslationStore,
+    records: Sequence[TranslationRecord],
+    keys_by_id: Mapping[str, str],
+    fallback_engine_key: str,
+) -> int:
+    """Write fresh engine answers into the persistent store; blank rows skipped."""
+    written = store.put_cached(
+        [
+            CacheRow(
+                key=keys_by_id[record["id"]],
+                translated_text=record["translated_text"],
+                notes=tuple(record["translation_notes"]),
+                engine_key=record["translator_model_key"] or fallback_engine_key,
+            )
+            for record in records
+            if record["id"] in keys_by_id and record["translated_text"].strip()
+        ]
+    )
+    if written:
+        logger.info(
+            "translation.cached_persistently",
+            extra={"blocks": written, "model": fallback_engine_key},
+        )
+    return written
+
+
 async def run_cached_translation(
     request: CachedTranslationRequest,
     *,
     cache: CacheManager | None = None,
     quota_blocklist: QuotaBlocklist | None = None,
     resolve_engine: Callable[..., BaseTranslator] | None = None,
+    store: TranslationStore | None = None,
 ) -> CachedTranslationResult:
     """Translate regions through the cache + fallback chain behind one interface."""
     # Resolved at call time so tests can patch `get_translation_engine` on this module.
@@ -208,6 +319,27 @@ async def run_cached_translation(
         translation_mode=request.translation_mode,
     )
     cached_by_id, missing = pipeline_cache.get_cached_translations_for_regions(cache_key, seeds)
+
+    # Restart-safe layer (consulted only for in-memory misses): key is
+    # context-free per D1; local-engine hits obey the never-translate parity
+    # guard, cloud-engine hits pass through unchecked.
+    translation_store = store if store is not None else get_translation_store()
+    persistent_by_id: dict[str, TranslationRecord] = {}
+    persistent_keys_by_id: dict[str, str] = {}
+    if missing:
+        persistent_by_id, missing, persistent_keys_by_id = _consult_persistent_cache(
+            request=request,
+            settings=settings,
+            missing=missing,
+            model_key=cache_key_model,
+            store=translation_store,
+            fallback_engine_key=engine_key,
+        )
+        if persistent_by_id:
+            logger.info(
+                "translation.served_persistently",
+                extra={"blocks": len(persistent_by_id), "model": engine_key},
+            )
 
     async def translate_missing(
         translator: BaseTranslator,
@@ -272,11 +404,18 @@ async def run_cached_translation(
         fresh_by_id = {record["id"]: record for record in fresh}
         stored = pipeline_cache.cache_translation_results(cache_key, fresh)
         logger.info("translation cached", extra={"blocks": stored, "model": engine_key})
+        if persistent_keys_by_id:
+            _persist_fresh_results(
+                translation_store, fresh, persistent_keys_by_id, engine_key
+            )
     else:
         logger.info("translation served from cache", extra={"blocks": len(seeds)})
 
     records = [
-        fresh_by_id.get(seed["id"]) or cached_by_id.get(seed["id"]) or empty_record(seed, engine_key)
+        fresh_by_id.get(seed["id"])
+        or cached_by_id.get(seed["id"])
+        or persistent_by_id.get(seed["id"])
+        or empty_record(seed, engine_key)
         for seed in seeds
     ]
     model_used = engine_key if chain_keys else (requested_key or engine_key)

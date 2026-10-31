@@ -300,3 +300,11 @@ def get_translation_store() -> TranslationStore:
     pruned = store.prune()
     logger.info("translation_store.ready", extra={"pruned": pruned})
     return store
+
+
+def close_translation_store() -> None:
+    """Close the process-wide store (lifespan shutdown); no-op when unopened."""
+    if get_translation_store.cache_info().currsize == 0:
+        return
+    get_translation_store().close()
+    get_translation_store.cache_clear()

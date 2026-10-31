@@ -91,6 +91,25 @@ class GlossaryClampTests(unittest.TestCase):
         self.assertEqual(len(settings.glossary), 200)
         self.assertEqual(settings.glossary[-1], GlossaryTerm("source-199", "target-199"))
 
+    def test_never_translate_flag_is_clamped_per_term(self) -> None:
+        settings = clamp_llm_request_settings(
+            {
+                "glossary": [
+                    {"source": "Kaito", "target": "Kaito", "never_translate": True},
+                    {"source": "Nao", "target": "Nao", "never_translate": "false"},
+                    {"source": "Rin", "target": "Rin"},
+                ]
+            }
+        )
+        self.assertEqual(
+            settings.glossary,
+            (
+                GlossaryTerm("Kaito", "Kaito", True),
+                GlossaryTerm("Nao", "Nao", False),
+                GlossaryTerm("Rin", "Rin", False),
+            ),
+        )
+
     def test_truncates_source_at_120_and_target_at_240_characters(self) -> None:
         settings = clamp_llm_request_settings(
             {"glossary": _terms(("s" * 500, "t" * 500))}

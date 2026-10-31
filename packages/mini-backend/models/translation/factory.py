@@ -317,6 +317,20 @@ _ENGINE_BUILDERS: dict[str, EngineBuilder] = {
 _CUSTOM_GGUF_KEYS: set[str] = set()
 
 
+def is_local_translation_engine_key(key: str) -> bool:
+    """True iff the answering engine key names a local (offline) engine.
+
+    Engine keys are registry slugs WITHOUT a ``local_`` prefix (e.g.
+    ``nllb-200-600m-int8``), so locality is decided by the catalog meta kind
+    or the custom GGUF set — never by the key text itself.
+    """
+    requested = (key or "").strip()
+    if requested in _CUSTOM_GGUF_KEYS:
+        return True
+    meta = TRANSLATION_MODELS.get(requested)
+    return meta is not None and meta["kind"] in _LOCAL_KINDS
+
+
 def refresh_custom_gguf_models() -> None:
     """Register the current user manifest on top of the builtin registry.
 

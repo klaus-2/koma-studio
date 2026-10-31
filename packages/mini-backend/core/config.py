@@ -95,7 +95,13 @@ def _as_glossary(value: object) -> tuple[GlossaryTerm, ...]:
         if not source or not target or source in seen:
             continue
         seen.add(source)
-        terms.append(GlossaryTerm(source=source, target=target))
+        terms.append(
+            GlossaryTerm(
+                source=source,
+                target=target,
+                never_translate=_as_bool(entry.get("never_translate"), False),
+            )
+        )
         if len(terms) >= _GLOSSARY_MAX_TERMS:
             break
     return tuple(terms)
@@ -193,6 +199,7 @@ class MiniBackendConfig:
 class GlossaryTerm:
     source: str
     target: str
+    never_translate: bool = False
 
 
 @dataclass(frozen=True)

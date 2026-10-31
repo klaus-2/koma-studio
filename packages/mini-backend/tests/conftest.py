@@ -9,6 +9,22 @@ FAKE_UV_SCRIPT: Path = Path(__file__).with_name("fake_uv.py")
 FAKE_INTERPRETER_SCRIPT: Path = Path(__file__).with_name("fake_interpreter.py")
 
 
+@pytest.fixture(autouse=True)
+def isolated_translation_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Resolve the persistent translation store to a throwaway DB per test.
+
+    Stage and route tests exercise run_cached_translation without injecting a
+    store; without this fixture the lazy singleton would read and write the
+    developer's real ``~/.koma-studio`` database and leak hits between runs.
+    """
+    from pipelines import translation_store as translation_store_module
+
+    monkeypatch.setenv("KOMA_APP_DATA_DIR", str(tmp_path))
+    translation_store_module.get_translation_store.cache_clear()
+
+
 @pytest.fixture
 def anyio_backend() -> str:
     return "asyncio"
