@@ -341,11 +341,27 @@ async def run_cached_translation(
                 extra={"blocks": len(persistent_by_id), "model": engine_key},
             )
 
+    # One engine region per unique text: remaining seeds are grouped by their
+    # normalized text, the representative is translated once, and the answer is
+    # replicated to every group member keeping each seed's own metadata.
+    dedup_reps: list[TranslationSeed] = []
+    dedup_members: dict[str, list[TranslationSeed]] = {}
+    rep_id_by_text: dict[str, str] = {}
+    for seed in missing:
+        normalized = normalize_source_text(seed["text"])
+        rep_id = rep_id_by_text.get(normalized)
+        if rep_id is None:
+            rep_id_by_text[normalized] = seed["id"]
+            dedup_members[seed["id"]] = [seed]
+            dedup_reps.append(seed)
+        else:
+            dedup_members[rep_id].append(seed)
+
     async def translate_missing(
         translator: BaseTranslator,
     ) -> list[TranslationTextResult]:
         results = await translator.translate(
-            regions=[to_input_region(seed) for seed in missing],
+            regions=[to_input_region(seed) for seed in dedup_reps],
             source_language=request.source_language,
             target_language=request.target_language,
             extra_context=effective_context,
@@ -356,9 +372,10 @@ async def run_cached_translation(
         # has to fail inside the attempt so a fallback chain can try the next
         # engine, instead of the stage reporting success with zero translations
         # while the cause stays in the sidecar log.
-        translatable = [seed for seed in missing if seed["text"].strip()]
-        if translatable and not any(item.translated_text.strip() for item in results):
-            raise EmptyTranslationError(translator.key, len(translatable))
+        if any(seed["text"].strip() for seed in dedup_reps) and not any(
+            item.translated_text.strip() for item in results
+        ):
+            raise EmptyTranslationError(translator.key, len(dedup_reps))
         return results
 
     fresh_by_id: dict[str, TranslationRecord] = {}
@@ -390,23 +407,28 @@ async def run_cached_translation(
             translated = await translate_missing(engine)
         fresh = [
             TranslationRecord(
-                id=item.id,
-                source_text=item.source_text,
+                id=member["id"],
+                source_text=member["text"].strip(),
                 translated_text=item.translated_text,
                 translation_notes=list(item.translation_notes),
-                source=normalize_stage_source(item.source),
-                detector_model_key=item.detector_model_key,
-                ocr_model_key=item.ocr_model_key,
+                source=normalize_stage_source(member["source"]),
+                detector_model_key=member["detector_model_key"],
+                ocr_model_key=member["ocr_model_key"],
                 translator_model_key=item.translator_model_key or engine_key,
             )
             for item in translated
+            for member in dedup_members.get(item.id, ())
         ]
         fresh_by_id = {record["id"]: record for record in fresh}
-        stored = pipeline_cache.cache_translation_results(cache_key, fresh)
+        # Cache layers store one entry per unique text (the representative).
+        unique_fresh = [
+            record for record in fresh if record["id"] in dedup_members
+        ]
+        stored = pipeline_cache.cache_translation_results(cache_key, unique_fresh)
         logger.info("translation cached", extra={"blocks": stored, "model": engine_key})
         if persistent_keys_by_id:
             _persist_fresh_results(
-                translation_store, fresh, persistent_keys_by_id, engine_key
+                translation_store, unique_fresh, persistent_keys_by_id, engine_key
             )
     else:
         logger.info("translation served from cache", extra={"blocks": len(seeds)})
