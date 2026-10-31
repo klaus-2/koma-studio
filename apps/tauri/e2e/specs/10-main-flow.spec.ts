@@ -7,7 +7,6 @@ import { runMainFlow } from "../flows/main-flow.ts";
 const adapter = (runRoot: string): LayerAdapter => ({
   canExport: true,
   canImportWorkspace: true,
-  canCaptureBlobDownloads: true,
   fullManual: true,
   workspaceAutosavePath: path.join(runRoot, "workspace"),
   modelsRoot: path.join(runRoot, "models"),

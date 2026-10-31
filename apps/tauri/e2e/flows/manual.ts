@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import type { KomaE2EManualEditState } from "../entry/e2e-state.ts";
+import { clickWithDomFallback } from "../support/dom.ts";
 
 export const DETECT_STAGE = 0;
 export const RENDER_STAGE = 5;
@@ -16,18 +17,9 @@ export const toolButton = (page: Page, name: string) =>
   palette(page).getByRole("button", { name, exact: true }).first();
 
 const clickConfigButton = async (page: Page, name: string): Promise<void> => {
-  const button = configPanel(page).getByRole("button", {
-    name,
-    exact: true,
-  });
-  try {
-    await button.click({ timeout: 10_000 });
-  } catch {
-    console.log(`[flow] config button via DOM (overlap): ${name}`);
-    await button.evaluate((element) => {
-      if (element instanceof HTMLButtonElement) element.click();
-    });
-  }
+  await clickWithDomFallback(
+    configPanel(page).getByRole("button", { name, exact: true }),
+  );
 };
 
 export const readActiveImage = (page: Page): Promise<string | null> =>

@@ -5,6 +5,7 @@ import { chromium, expect, test } from "@playwright/test";
 
 import type { LayerAdapter } from "../flows/layer-adapter.ts";
 import { runMainFlow } from "../flows/main-flow.ts";
+import { seedE2eProfile } from "../support/seed.ts";
 
 const repoRoot = process.env.E2E_REPO_ROOT ?? process.cwd();
 const stateModuleUrl = `/@fs/${repoRoot.replace(/\\/g, "/")}/apps/tauri/e2e/entry/e2e-state.ts`;
@@ -48,22 +49,7 @@ test("real Tauri main flow", async () => {
   ).toBeVisible({ timeout: 180_000 });
   await expect(page.locator(".auth-shell")).toHaveCount(0);
 
-  await page.evaluate(() => {
-    localStorage.setItem(
-      "koma_theme",
-      JSON.stringify({ state: { theme: "dark", family: "noir" }, version: 2 }),
-    );
-    localStorage.setItem("koma-studio.locale.v1", "en");
-    localStorage.setItem(
-      "koma-aio-gpu-stages",
-      JSON.stringify({
-        detectText: false,
-        recognizeText: false,
-        segmentText: false,
-        cleanImage: false,
-      }),
-    );
-  });
+  await seedE2eProfile(page);
 
   const reload = async (
     target: import("@playwright/test").Page,
@@ -83,7 +69,6 @@ test("real Tauri main flow", async () => {
   const adapter: LayerAdapter = {
     canExport: false,
     canImportWorkspace: false,
-    canCaptureBlobDownloads: false,
     fullManual: false,
     workspaceAutosavePath: path.join(appDataDir, "workspace"),
     modelsRoot: path.join(appDataDir, "models"),

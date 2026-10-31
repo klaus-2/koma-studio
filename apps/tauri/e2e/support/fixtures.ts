@@ -4,6 +4,7 @@ import path from "node:path";
 import { expect, test as base, type Page } from "@playwright/test";
 
 import { E2eBridgeHost } from "../host/bridge-host.ts";
+import { seedE2eProfile } from "./seed.ts";
 
 const SIDECAR_NOISE =
   /127\.0\.0\.1:(3001|8000|8001)|localhost:(3001|8000|8001)|Failed to fetch|net::ERR_CONNECTION_REFUSED|net::ERR_FAILED|Failed to load resource|fonts\.googleapis|fonts\.gstatic/i;
@@ -94,24 +95,7 @@ export const test = base.extend<E2eFixtures>({
       }
     });
 
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        "koma_theme",
-        JSON.stringify({ state: { theme: "dark", family: "noir" }, version: 2 }),
-      );
-      localStorage.setItem("koma-studio.locale.v1", "en");
-      // First-use tool tips overlay the canvas on a brand-new profile.
-      localStorage.setItem("koma-studio.tool-tips.v1", JSON.stringify({ enabled: false }));
-      localStorage.setItem(
-        "koma-aio-gpu-stages",
-        JSON.stringify({
-          detectText: false,
-          recognizeText: false,
-          segmentText: false,
-          cleanImage: false,
-        }),
-      );
-    });
+    await seedE2eProfile(page);
 
     await page.exposeBinding(
       "__komaE2EHostCall",

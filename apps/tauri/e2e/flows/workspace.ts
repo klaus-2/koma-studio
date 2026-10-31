@@ -6,19 +6,12 @@ import { expect, type Page } from "@playwright/test";
 import type { LayerAdapter } from "./layer-adapter.ts";
 import { imageCount } from "./aio.ts";
 import { closeManualConfig, dragCanvas, toolButton } from "./manual.ts";
+import { pollUntil } from "../support/wait.ts";
 
-const waitForFile = async (
+const waitForFile = (
   predicate: () => string | null,
   timeoutMs: number,
-): Promise<string> => {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const filePath = predicate();
-    if (filePath) return filePath;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error("E2E_WORKSPACE_TIMEOUT");
-};
+): Promise<string> => pollUntil(predicate, timeoutMs, "E2E_WORKSPACE_TIMEOUT");
 
 const newestAutosave = (directory: string): string | null => {
   if (!fs.existsSync(directory)) return null;

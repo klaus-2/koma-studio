@@ -65,11 +65,11 @@
     "build:hardened:win": "node scripts/build-hardened-release.mjs --platform win",
     "build:hardened:mac": "node scripts/build-hardened-release.mjs --platform mac",
     "build:hardened:linux": "node scripts/build-hardened-release.mjs --platform linux",
-    "e2e:main": "node e2e/run-e2e.mjs --spec=10-main-flow --wipe",
-    "e2e:contract": "node e2e/run-e2e.mjs --spec=00-contract --wipe",
-    "e2e:smoke": "node e2e/run-e2e.mjs --spec=01-smoke --wipe",
-    "e2e:desktop:spike": "node e2e/tauri/run-tauri-e2e.mjs --wipe",
-    "e2e:desktop": "node e2e/tauri/run-tauri-e2e.mjs --flow --wipe"
+    "e2e:main": "node e2e/run-e2e.mjs --spec=10-main-flow",
+    "e2e:contract": "node e2e/run-e2e.mjs --spec=00-contract",
+    "e2e:smoke": "node e2e/run-e2e.mjs --spec=01-smoke",
+    "e2e:desktop:spike": "node e2e/tauri/run-tauri-e2e.mjs",
+    "e2e:desktop": "node e2e/tauri/run-tauri-e2e.mjs --flow"
   },
   "dependencies": {
     "@koma/auth": "workspace:*",

@@ -4,6 +4,9 @@ import path from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { unzipSync } from "fflate";
 
+import { clickWithDomFallback } from "../support/dom.ts";
+import { pollUntil } from "../support/wait.ts";
+
 type Bundle = "zip" | "cbz" | "cb7" | "pdf";
 
 interface ExportCase {
@@ -23,26 +26,22 @@ const exportsDirectory = (): string => {
 const panelLocator = (page: Page) =>
   page.locator('[data-tour="topbar-download-panel"]');
 
-const waitForNewExport = async (
+const waitForNewExport = (
   directory: string,
   before: Set<string>,
   timeoutMs = 180_000,
-): Promise<string> => {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (fs.existsSync(directory)) {
-      const fresh = fs
+): Promise<string> =>
+  pollUntil(
+    () => {
+      if (!fs.existsSync(directory)) return null;
+      const [firstFresh] = fs
         .readdirSync(directory)
         .filter((file) => !before.has(file));
-      const [firstFresh] = fresh;
-      if (firstFresh) {
-        return path.join(directory, firstFresh);
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(`E2E_EXPORT_TIMEOUT: no new file in ${directory}`);
-};
+      return firstFresh ? path.join(directory, firstFresh) : null;
+    },
+    timeoutMs,
+    `E2E_EXPORT_TIMEOUT: no new file in ${directory}`,
+  );
 
 const magics = {
   zip: Buffer.from([0x50, 0x4b, 0x03, 0x04]),
@@ -132,16 +131,7 @@ const clickAndWait = async (
   directory: string,
   before: Set<string>,
 ): Promise<string> => {
-  try {
-    await button.click({ timeout: 15_000 });
-  } catch {
-    console.log("[flow] export click via DOM (detached/unstable)");
-    await button
-      .evaluate((element) => {
-        if (element instanceof HTMLButtonElement) element.click();
-      })
-      .catch(() => undefined);
-  }
+  await clickWithDomFallback(button);
   const filePath = await waitForNewExport(directory, before, 300_000);
   await page.waitForTimeout(1_200);
   return filePath;
@@ -207,12 +197,11 @@ const validateImageExport = (
 
 export interface ExportResult {
   cases: number;
-  files: string[];
 }
 
 export const runExportOptions = async (page: Page): Promise<ExportResult> => {
   fs.mkdirSync(exportsDirectory(), { recursive: true });
-  const files: string[] = [];
+  let cases = 0;
 
   for (const format of ["image/png", "image/jpeg", "image/webp"]) {
     const filePath = await runExportCase(page, {
@@ -221,7 +210,7 @@ export const runExportOptions = async (page: Page): Promise<ExportResult> => {
       bundle: "zip",
     });
     validateImageExport(filePath, format, "zip");
-    files.push(filePath);
+    cases += 1;
   }
 
   for (const bundle of ["zip", "cbz", "cb7", "pdf"] as const) {
@@ -231,7 +220,7 @@ export const runExportOptions = async (page: Page): Promise<ExportResult> => {
       bundle,
     });
     validateImageExport(filePath, "image/png", bundle);
-    files.push(filePath);
+    cases += 1;
   }
 
   for (const label of ["Raw Text", "Translated", "Inpainted"]) {
@@ -244,7 +233,7 @@ export const runExportOptions = async (page: Page): Promise<ExportResult> => {
       },
     });
     validateImageExport(filePath, "image/png", "zip");
-    files.push(filePath);
+    cases += 1;
   }
 
   const pdfFlagsPanel = await openMenu(page);
@@ -316,8 +305,8 @@ export const runExportOptions = async (page: Page): Promise<ExportResult> => {
     } else {
       assertMagic(filePath, magics.psd);
     }
-    files.push(filePath);
+    cases += 1;
   }
 
-  return { cases: files.length, files };
+  return { cases };
 };

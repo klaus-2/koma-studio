@@ -27,12 +27,8 @@ export interface KomaE2EStateBridge {
   imageCount(): number;
   imageSummaries(): KomaE2EImageSummary[];
   activeImageId(): string | null;
-  manualTool(): string;
-  segmentTool(): string;
-  manualStageIndex(): number;
   setManualStageIndex(index: number): void;
   manualToolsConfigOpen(): boolean;
-  areaCreateMode(): string;
   selectFirstRegion(): string | null;
   clearRegionSelection(): void;
   regionCount(imageId: string): number;
@@ -56,16 +52,6 @@ export const installE2eState = (): void => {
       }));
     },
     activeImageId: () => useImageCollectionStore.getState().activeId ?? null,
-    manualTool: () => useManualToolsStore.getState().manualImageTool,
-    segmentTool: () => useManualToolsStore.getState().segmentEditTool,
-    manualStageIndex: () => {
-      const imageId = useImageCollectionStore.getState().activeId;
-      if (!imageId) return 0;
-      return (
-        useAioPipelineStore.getState().aioManualProgressByImage[imageId]
-          ?.currentIndex ?? 0
-      );
-    },
     setManualStageIndex: (index: number) => {
       const imageId = useImageCollectionStore.getState().activeId;
       if (!imageId) return;
@@ -90,8 +76,6 @@ export const installE2eState = (): void => {
     },
     manualToolsConfigOpen: () =>
       useManualToolsStore.getState().manualToolsConfigOpen,
-    areaCreateMode: () =>
-      useManualToolsStore.getState().areaSelectionCreateMode,
     selectFirstRegion: () => {
       const imageId = useImageCollectionStore.getState().activeId;
       if (!imageId) return null;

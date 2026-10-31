@@ -4,6 +4,7 @@ import path from "node:path";
 import { expect, type Page } from "@playwright/test";
 
 import type { LayerAdapter } from "./layer-adapter.ts";
+import { pollUntil } from "../support/wait.ts";
 
 export interface ModelToInstall {
   stage: string;
@@ -66,18 +67,15 @@ const waitForManifest = async (
   modelId: string,
   filePath: string,
 ): Promise<void> => {
-  const deadline = Date.now() + 20 * 60_000;
   let lastStatus = "missing";
-  while (Date.now() < deadline) {
-    const status = readManifestStatus(filePath);
-    if (status !== null) {
-      lastStatus = status;
-    }
-    if (status === "installed") return;
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
-  }
-  throw new Error(
-    `E2E_INSTALL_TIMEOUT: ${modelId} manifest stayed '${lastStatus}'`,
+  await pollUntil(
+    () => {
+      const status = readManifestStatus(filePath);
+      if (status !== null) lastStatus = status;
+      return status === "installed" ? status : null;
+    },
+    20 * 60_000,
+    () => `E2E_INSTALL_TIMEOUT: ${modelId} manifest stayed '${lastStatus}'`,
   );
 };
 
