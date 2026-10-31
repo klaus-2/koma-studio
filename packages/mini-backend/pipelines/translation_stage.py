@@ -31,6 +31,7 @@ from models.translation.fallback import (
     translate_with_fallback,
     validate_translation_chain_keys,
 )
+from models.translation.local_base import LocalTranslatorBase
 from models.translation.providers import (
     build_current_image_translation_context,
     build_request_scoped_custom_translation_engine,
@@ -43,6 +44,11 @@ from pipelines.batch.records import (
     normalize_stage_source,
 )
 from pipelines.cache_manager import CacheManager, get_pipeline_cache
+from pipelines.translation_masking import (
+    MaskedSegment,
+    plan_masked_segment,
+    reassemble_masked,
+)
 from pipelines.translation_qa import run_translation_qa
 from pipelines.translation_store import (
     CacheRow,
@@ -262,6 +268,65 @@ def _persist_fresh_results(
     return written
 
 
+async def _translate_masked(
+    translator: BaseTranslator,
+    masking_plans: Mapping[str, MaskedSegment],
+    reps: Sequence[TranslationSeed],
+    *,
+    source_language: str,
+    target_language: str,
+    extra_context: str,
+    translation_notes_enabled: bool,
+    translation_mode: str,
+) -> list[TranslationTextResult]:
+    """Fresh dispatch through the never-translate mask (local engines only).
+
+    The unique prose runs of every representative go to the model in ONE
+    batched call; each representative is then reassembled with its protected
+    terms verbatim and the runs' original whitespace."""
+    global_runs: list[str] = []
+    global_pos: dict[str, int] = {}
+    for rep in reps:
+        for run in masking_plans[rep["id"]].run_texts:
+            if run not in global_pos:
+                global_pos[run] = len(global_runs)
+                global_runs.append(run)
+
+    results = await translator.translate(
+        regions=[
+            TranslationInputRegion(id=f"mask-run-{index}", text=run)
+            for index, run in enumerate(global_runs)
+        ],
+        source_language=source_language,
+        target_language=target_language,
+        extra_context=extra_context,
+        translation_notes_enabled=translation_notes_enabled,
+        translation_mode=translation_mode,
+    )
+    text_by_region_id = {result.id: result.translated_text for result in results}
+
+    translated: list[TranslationTextResult] = []
+    for rep in reps:
+        segment = masking_plans[rep["id"]]
+        run_translations = [
+            text_by_region_id[f"mask-run-{global_pos[run]}"]
+            for run in segment.run_texts
+        ]
+        translated.append(
+            TranslationTextResult(
+                id=rep["id"],
+                source_text=rep["text"].strip(),
+                translated_text=reassemble_masked(segment.steps, run_translations),
+                translation_notes=[],
+                source=rep["source"],
+                detector_model_key=rep["detector_model_key"],
+                ocr_model_key=rep["ocr_model_key"],
+                translator_model_key=translator.key,
+            )
+        )
+    return translated
+
+
 async def run_cached_translation(
     request: CachedTranslationRequest,
     *,
@@ -377,17 +442,44 @@ async def run_cached_translation(
         else:
             dedup_members[rep_id].append(seed)
 
+    # Fresh-dispatch masking plan (applies to LOCAL engines only, mode
+    # independently): unique texts are split around the never-translate terms
+    # so the terms themselves never reach the model.
+    protected_terms = tuple(
+        term.source for term in settings.glossary if term.never_translate
+    )
+    masking_plans: dict[str, MaskedSegment] = (
+        {
+            rep["id"]: plan_masked_segment(rep["text"], protected_terms)
+            for rep in dedup_reps
+        }
+        if protected_terms
+        else {}
+    )
+
     async def translate_missing(
         translator: BaseTranslator,
     ) -> list[TranslationTextResult]:
-        results = await translator.translate(
-            regions=[to_input_region(seed) for seed in dedup_reps],
-            source_language=request.source_language,
-            target_language=request.target_language,
-            extra_context=effective_context,
-            translation_notes_enabled=settings.translation_notes_enabled,
-            translation_mode=request.translation_mode,
-        )
+        if masking_plans and isinstance(translator, LocalTranslatorBase):
+            results = await _translate_masked(
+                translator,
+                masking_plans,
+                dedup_reps,
+                source_language=request.source_language,
+                target_language=request.target_language,
+                extra_context=effective_context,
+                translation_notes_enabled=settings.translation_notes_enabled,
+                translation_mode=request.translation_mode,
+            )
+        else:
+            results = await translator.translate(
+                regions=[to_input_region(seed) for seed in dedup_reps],
+                source_language=request.source_language,
+                target_language=request.target_language,
+                extra_context=effective_context,
+                translation_notes_enabled=settings.translation_notes_enabled,
+                translation_mode=request.translation_mode,
+            )
         # A provider that gave up on every region answers with empty text. This
         # has to fail inside the attempt so a fallback chain can try the next
         # engine, instead of the stage reporting success with zero translations
