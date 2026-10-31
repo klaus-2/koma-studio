@@ -320,6 +320,25 @@ async def run_cached_translation(
     )
     cached_by_id, missing = pipeline_cache.get_cached_translations_for_regions(cache_key, seeds)
 
+    # Symbol-only seeds carry nothing an engine can translate: they go straight
+    # to the output verbatim (no notes) — no engine call, no persistent/TM
+    # lookup or write, and they never reach QA as identical-to-source.
+    passthrough_by_id: dict[str, TranslationRecord] = {
+        seed["id"]: TranslationRecord(
+            id=seed["id"],
+            source_text=seed["text"].strip(),
+            translated_text=seed["text"],
+            translation_notes=[],
+            source=seed["source"],
+            detector_model_key=seed["detector_model_key"],
+            ocr_model_key=seed["ocr_model_key"],
+            translator_model_key=engine_key,
+        )
+        for seed in missing
+        if all(not ch.isalnum() for ch in seed["text"].strip())
+    }
+    missing = [seed for seed in missing if seed["id"] not in passthrough_by_id]
+
     # Restart-safe layer (consulted only for in-memory misses): key is
     # context-free per D1; local-engine hits obey the never-translate parity
     # guard, cloud-engine hits pass through unchecked.
@@ -437,6 +456,7 @@ async def run_cached_translation(
         fresh_by_id.get(seed["id"])
         or cached_by_id.get(seed["id"])
         or persistent_by_id.get(seed["id"])
+        or passthrough_by_id.get(seed["id"])
         or empty_record(seed, engine_key)
         for seed in seeds
     ]
