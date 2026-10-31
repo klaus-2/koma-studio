@@ -8,6 +8,7 @@ import { useAioSingleImageProcessor } from '@/hooks/useAioSingleImageProcessor';
 import { I18nProvider } from '@/i18n';
 import { setDesktopBridgeProvider } from '@/lib/desktop-bridge';
 import {
+  resolveBatchCapacity,
   runLocalAioBatchChunks,
   type LocalAioBatchOptions,
 } from '@/pages/dashboard/lib/local-aio-batch';
@@ -39,6 +40,7 @@ vi.mock('@/pages/dashboard/lib/local-aio-batch', async (importOriginal) => {
 
   return {
     runLocalAioBatchChunks: vi.fn(),
+    resolveBatchCapacity: vi.fn(),
     aioStageKeyForBatchStage: actual.aioStageKeyForBatchStage,
   };
 });
@@ -47,6 +49,7 @@ const mockedPreparation = vi.mocked(useAioExecutionPreparation);
 const mockedProcessor = vi.mocked(useAioSingleImageProcessor);
 const mockedConsolidation = vi.mocked(useAioResultConsolidation);
 const mockedChunks = vi.mocked(runLocalAioBatchChunks);
+const mockedCapacity = vi.mocked(resolveBatchCapacity);
 
 type PrepareResult = Awaited<
   ReturnType<ReturnType<typeof useAioExecutionPreparation>>
@@ -207,6 +210,7 @@ beforeEach(() => {
   mockedProcessor.mockReset();
   mockedConsolidation.mockReset();
   mockedChunks.mockReset();
+  mockedCapacity.mockReset();
 
   mockedProcessor.mockReturnValue(processImage);
   mockedConsolidation.mockReturnValue(consolidate);
@@ -304,6 +308,101 @@ describe('useAioPipelineExecution local batch branch', () => {
       3,
     );
     expect(consolidate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useAioPipelineExecution multi-chapter local run', () => {
+  const chapteredImages: LoadedImage[] = [
+    { ...makeImage(0), chapterId: 'archive:a.cbz', chapterLabel: 'a.cbz' },
+    { ...makeImage(1), chapterId: 'archive:a.cbz', chapterLabel: 'a.cbz' },
+    { ...makeImage(2), chapterId: 'archive:b.cbz', chapterLabel: 'b.cbz' },
+  ];
+
+  beforeEach(() => {
+    useImageCollectionStore.setState({
+      images: chapteredImages,
+      activeId: chapteredImages[0]?.id ?? null,
+      isExtractingUploads: false,
+    });
+  });
+
+  it('runs one local batch per chapter, in order, and consolidates all results', async () => {
+    const statuses: Array<string | null> = [];
+    const progresses: number[] = [];
+    mockedChunks.mockImplementation(async (input) => {
+      input.onProgress?.(1, 2);
+      progresses.push(useUiShellStore.getState().progress);
+      input.onChunkState?.({
+        chunkNumber: 1,
+        chunkCount: 1,
+        imageIndex: 0,
+        stage: 'translation',
+        name: input.images[0]?.file.name ?? '',
+      });
+      statuses.push(useStatusStore.getState().statusMessage);
+      return {
+        batchIds: [`batch-${input.images[0]?.id ?? 'unknown'}`],
+        results: input.images.map((image) => makeBatchResult(image.id)),
+      };
+    });
+    const updateAioExecutionStage = vi.fn();
+
+    await runProcess({ updateAioExecutionStage });
+
+    expect(mockedChunks).toHaveBeenCalledTimes(2);
+    expect(
+      mockedChunks.mock.calls.map(([input]) =>
+        input.images.map((image) => image.id),
+      ),
+    ).toEqual([['img-0', 'img-1'], ['img-2']]);
+    expect(mockedCapacity).not.toHaveBeenCalled();
+    expect(mockedChunks.mock.calls[0]?.[0].capacity).toEqual(CAPACITY);
+
+    expect(consolidate).toHaveBeenCalledTimes(1);
+    expect(
+      consolidate.mock.calls[0]?.[0].map((result) => result.imageId),
+    ).toEqual(['img-0', 'img-1', 'img-2']);
+    expect(progresses).toEqual([33, 83]);
+    expect(statuses.at(-1)).toBe(
+      'AIO chapter 2/2 · b.cbz · batch 1/1 · page-2.png',
+    );
+    expect(updateAioExecutionStage).toHaveBeenCalledWith(
+      'auto',
+      'getTranslations',
+      chapteredImages[2],
+      2,
+      3,
+    );
+  });
+
+  it('keeps the next chapter running after one chapter fails', async () => {
+    mockedChunks.mockImplementation(async (input) => {
+      if (input.images[0]?.id === 'img-0') {
+        throw new Error('chapter a exploded');
+      }
+      return {
+        batchIds: ['batch-b'],
+        results: input.images.map((image) => makeBatchResult(image.id)),
+      };
+    });
+
+    await runProcess();
+
+    expect(mockedChunks).toHaveBeenCalledTimes(2);
+    expect(consolidate).toHaveBeenCalledTimes(1);
+    const results = consolidate.mock.calls[0]?.[0] ?? [];
+    expect(results.map((result) => result.imageId)).toEqual([
+      'img-0',
+      'img-1',
+      'img-2',
+    ]);
+    expect(results[0]).toMatchObject({
+      imageId: 'img-0',
+      countAsProcessed: false,
+      executionNotices: ['page-0.png: chapter a exploded'],
+    });
+    expect(results[1]).toMatchObject({ imageId: 'img-1', countAsProcessed: false });
+    expect(results[2]).toMatchObject({ imageId: 'img-2', countAsProcessed: true });
   });
 });
 

@@ -261,6 +261,32 @@ describe('createLocalBatchChapterRunner', () => {
     ]);
   });
 
+  it('reuses a pre-resolved capacity without a preflight request', async () => {
+    const urls: string[] = [];
+    mockedFetch.mockImplementation((url) => {
+      urls.push(url);
+      if (isProgressUrl(url)) {
+        return Promise.resolve(jsonResponse({ detail: 'unknown' }, 404));
+      }
+      return Promise.resolve(jsonResponse(reportForChunk(1, 0)));
+    });
+    const runChapter = createLocalBatchChapterRunner({
+      localApiUrl: localBatchUrl,
+      concurrency: 4,
+      capacity: makeCapacity(),
+    });
+
+    const result = await runChapterQueue({
+      chapters: [makeChapter('chapter-1')],
+      signal: new AbortController().signal,
+      runChapter,
+    });
+
+    expect(urls.filter(isCapacityUrl)).toHaveLength(0);
+    expect(result.outcomes[0]?.status).toBe('done');
+    expect(result.outcomes[0]?.batchIds).toHaveLength(1);
+  });
+
   it('keeps running the next chapter after a transport failure', async () => {
     let postCount = 0;
     mockedFetch.mockImplementation((url) => {

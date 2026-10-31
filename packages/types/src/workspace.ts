@@ -43,6 +43,8 @@ export interface WorkspaceLoadedImageDocument {
   rotation: number;
   filters: WorkspaceImageFiltersDocument;
   source: WorkspaceAssetRef;
+  chapterId?: string;
+  chapterLabel?: string;
 }
 
 export interface WorkspaceDownloadItemDocument {

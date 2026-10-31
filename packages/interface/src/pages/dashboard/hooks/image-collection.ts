@@ -38,6 +38,16 @@ import { useManualToolsStore } from '../stores/manual-tools-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useUploadDropzone } from './useUploadDropzone';
 
+interface UploadChapter {
+  id: string;
+  label: string;
+}
+
+interface ExtractedUpload {
+  file: File;
+  chapter: UploadChapter | null;
+}
+
 interface UseDashboardUploadsArgs {
   localApiUrl: string;
   setStatusMessage: (message: string) => void;
@@ -59,48 +69,56 @@ export function useDashboardUploads({
     (s) => s.setIsExtractingUploads,
   );
 
-  const loadImageDetails = useCallback((file: File): Promise<LoadedImage> =>
-    new Promise((resolve, reject) => {
-      // The URL is owned by the created LoadedImage and revoked when the
-      // image is removed from the collection (revokeLoadedImageUrls).
-      const url = URL.createObjectURL(file);
-      loadImageFromSource(url).then((img) => {
-        const width = img.width;
-        const height = img.height;
+  const loadImageDetails = useCallback(
+    (file: File, chapter?: UploadChapter): Promise<LoadedImage> =>
+      new Promise((resolve, reject) => {
+        // The URL is owned by the created LoadedImage and revoked when the
+        // image is removed from the collection (revokeLoadedImageUrls).
+        const url = URL.createObjectURL(file);
+        const chapterFields = chapter
+          ? { chapterId: chapter.id, chapterLabel: chapter.label }
+          : {};
+        loadImageFromSource(url).then((img) => {
+          const width = img.width;
+          const height = img.height;
 
-        // Generate thumbnail for list/grid display to reduce memory
-        createThumbnailFromUrl(url, 400, 600, 0.7).then((thumbUrl) => {
-          resolve({
-            id: crypto.randomUUID(),
-            file,
-            url,
-            thumbnailUrl: thumbUrl,
-            width,
-            height,
-            rotation: 0,
-            filters: { ...DEFAULT_FILTERS },
+          // Generate thumbnail for list/grid display to reduce memory
+          createThumbnailFromUrl(url, 400, 600, 0.7).then((thumbUrl) => {
+            resolve({
+              id: crypto.randomUUID(),
+              file,
+              url,
+              thumbnailUrl: thumbUrl,
+              width,
+              height,
+              rotation: 0,
+              filters: { ...DEFAULT_FILTERS },
+              ...chapterFields,
+            });
+          }).catch(() => {
+            // Thumbnail generation failed, still resolve without it
+            resolve({
+              id: crypto.randomUUID(),
+              file,
+              url,
+              width,
+              height,
+              rotation: 0,
+              filters: { ...DEFAULT_FILTERS },
+              ...chapterFields,
+            });
           });
         }).catch(() => {
-          // Thumbnail generation failed, still resolve without it
-          resolve({
-            id: crypto.randomUUID(),
-            file,
-            url,
-            width,
-            height,
-            rotation: 0,
-            filters: { ...DEFAULT_FILTERS },
-          });
+          URL.revokeObjectURL(url);
+          reject(new Error('Failed to load the image.'));
         });
-      }).catch(() => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Failed to load the image.'));
-      });
-    }), []);
+      }),
+    [],
+  );
 
   const extractImagesFromContainerFiles = useCallback(async (
     files: File[],
-  ): Promise<{ extractedFiles: File[]; warnings: string[] }> => {
+  ): Promise<{ extractedFiles: ExtractedUpload[]; warnings: string[] }> => {
     if (files.length === 0) {
       return { extractedFiles: [], warnings: [] };
     }
@@ -143,7 +161,7 @@ export function useDashboardUploads({
       }
     }
 
-    const extractedFiles: File[] = [];
+    const extractedFiles: ExtractedUpload[] = [];
     Object.entries(unpacked).forEach(([archivePath, bytes]) => {
       if (archivePath === 'manifest.json' || archivePath.endsWith('/')) return;
       const normalizedPath = archivePath.replace(/\\/g, '/');
@@ -152,13 +170,19 @@ export function useDashboardUploads({
       const normalized = new Uint8Array(bytes.byteLength);
       normalized.set(bytes);
       const manifestEntry = manifestByPath.get(normalizedPath);
-      extractedFiles.push(
-        new File(
+      const sourceFile = typeof manifestEntry?.source_file === 'string'
+        ? manifestEntry.source_file.trim()
+        : '';
+      extractedFiles.push({
+        file: new File(
           [normalized],
           fileName,
           { type: manifestEntry?.mime_type || inferMimeTypeFromFileName(fileName) },
         ),
-      );
+        chapter: sourceFile
+          ? { id: `archive:${sourceFile}`, label: sourceFile }
+          : null,
+      });
     });
 
     if (extractedFiles.length === 0) {
@@ -171,7 +195,7 @@ export function useDashboardUploads({
   const onDrop = useCallback(async (files: File[]) => {
     const directImageFiles = files.filter(isDirectImageUploadFile);
     const containerFiles = files.filter(isContainerUploadFile);
-    let extractedContainerFiles: File[] = [];
+    let extractedContainerFiles: ExtractedUpload[] = [];
     const warnings: string[] = [];
 
     if (containerFiles.length > 0) {
@@ -192,14 +216,21 @@ export function useDashboardUploads({
       }
     }
 
-    const candidateFiles = [...directImageFiles, ...extractedContainerFiles];
-    if (candidateFiles.length === 0) {
+    const candidateUploads: ExtractedUpload[] = [
+      ...directImageFiles.map((file) => ({ file, chapter: null })),
+      ...extractedContainerFiles,
+    ];
+    if (candidateUploads.length === 0) {
       setStatusMessage(warnings[0] ?? 'No compatible file was found.');
       return;
     }
 
     try {
-      const newImgs = await Promise.all(candidateFiles.map(loadImageDetails));
+      const newImgs = await Promise.all(
+        candidateUploads.map(({ file, chapter }) =>
+          loadImageDetails(file, chapter ?? undefined),
+        ),
+      );
       addImages(newImgs);
       if (!activeId && newImgs.length > 0 && newImgs[0]) setActiveId(newImgs[0].id);
       invalidateAioPipelineHistory();

@@ -238,6 +238,8 @@ const toLoadedImageDocument = async (
     rotation: image.rotation,
     filters: toJsonClone(image.filters),
     source,
+    ...(image.chapterId ? { chapterId: image.chapterId } : {}),
+    ...(image.chapterLabel ? { chapterLabel: image.chapterLabel } : {}),
   };
 };
 
@@ -548,6 +550,8 @@ const restoreLoadedImage = async (
     rotation: item.rotation,
     filters: item.filters as ImageFilters,
   };
+  if (item.chapterId) image.chapterId = item.chapterId;
+  if (item.chapterLabel) image.chapterLabel = item.chapterLabel;
   if (thumbnailUrl !== url) {
     image.thumbnailUrl = thumbnailUrl;
   }

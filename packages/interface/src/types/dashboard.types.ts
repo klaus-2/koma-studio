@@ -99,6 +99,10 @@ export interface LoadedImage {
   height: number;
   rotation: number;
   filters: ImageFilters;
+  /** Source archive that contained this image; absent for direct uploads. */
+  chapterId?: string;
+  /** Human label for the source archive. */
+  chapterLabel?: string;
 }
 
 export interface DownloadItem {

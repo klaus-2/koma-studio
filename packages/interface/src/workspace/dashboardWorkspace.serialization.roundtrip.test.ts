@@ -152,6 +152,8 @@ const buildCaptureState = (): DashboardWorkspaceCaptureState => {
       height: 480,
       rotation: 90,
       filters,
+      chapterId: 'archive:cover.cbz',
+      chapterLabel: 'cover.cbz',
     },
   ];
   const downloadItems: DownloadItem[] = [
@@ -439,6 +441,8 @@ describe('workspace document round trip', () => {
     expect(documentImage.width).toBe(640);
     expect(documentImage.height).toBe(480);
     expect(documentImage.rotation).toBe(90);
+    expect(documentImage.chapterId).toBe('archive:cover.cbz');
+    expect(documentImage.chapterLabel).toBe('cover.cbz');
 
     expect(restored.images).toHaveLength(1);
     const image = requireValue(restored.images[0], 'restored image');
@@ -452,6 +456,8 @@ describe('workspace document round trip', () => {
     expect(image.height).toBe(480);
     expect(image.rotation).toBe(90);
     expect(image.filters).toEqual(makeFilters());
+    expect(image.chapterId).toBe('archive:cover.cbz');
+    expect(image.chapterLabel).toBe('cover.cbz');
   });
 
   it('round-trips download items with blob bytes and fresh preview urls', async () => {

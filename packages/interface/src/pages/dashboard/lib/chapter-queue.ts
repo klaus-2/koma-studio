@@ -12,6 +12,7 @@ import type { BatchMappingImage } from '@/pages/dashboard/lib/batch-mapping';
 import {
   resolveBatchCapacity,
   runLocalAioBatchChunks,
+  type BatchChunkState,
   type LocalAioBatchChunksResult,
   type LocalAioBatchOptions,
   type ResolvedBatchCapacity,
@@ -154,6 +155,10 @@ export interface LocalBatchChapterRunnerInput {
   localApiUrl: string;
   /** Requested concurrency; the preflight may lower it. */
   concurrency: number;
+  /** Capacity already resolved for this run; skips the extra preflight. */
+  capacity?: ResolvedBatchCapacity['capacity'];
+  /** Per-chunk state, tagged with the chapter that produced it. */
+  onChunkState?: (chapter: ChapterSource, state: BatchChunkState) => void;
 }
 
 /**
@@ -166,9 +171,14 @@ export interface LocalBatchChapterRunnerInput {
 export const createLocalBatchChapterRunner = ({
   localApiUrl,
   concurrency,
+  capacity: resolvedCapacity,
+  onChunkState,
 }: LocalBatchChapterRunnerInput): RunChapter => {
   let pendingCapacity: Promise<ResolvedBatchCapacity> | null = null;
   const capacity = (): Promise<ResolvedBatchCapacity> => {
+    if (resolvedCapacity) {
+      return Promise.resolve({ capacity: resolvedCapacity, fallback: false });
+    }
     pendingCapacity ??= resolveBatchCapacity({ localApiUrl, concurrency });
     return pendingCapacity;
   };
@@ -182,6 +192,9 @@ export const createLocalBatchChapterRunner = ({
       capacity: batchCapacity,
       signal,
       onProgress,
+      onChunkState: onChunkState
+        ? (state) => onChunkState(chapter, state)
+        : undefined,
     });
   };
 };

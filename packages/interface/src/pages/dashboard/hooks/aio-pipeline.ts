@@ -12,13 +12,21 @@ import { stageTransportNoticeDetail } from '@/aio-stages';
 import { parseApiError } from '@/pages/dashboard/helpers';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
 import { useCommittedAsyncAction } from '@/pages/dashboard/hooks/use-committed-async-action';
+import { groupImagesIntoAioChapters } from '@/pages/dashboard/lib/aio-chapters';
+import type { AioChapterGroup } from '@/pages/dashboard/lib/aio-chapters';
 import {
   reportAioEvent,
   runAioNotification,
 } from '@/pages/dashboard/lib/aio-observability';
 import {
+  createLocalBatchChapterRunner,
+  runChapterQueue,
+  type ChapterSource,
+} from '@/pages/dashboard/lib/chapter-queue';
+import {
   aioStageKeyForBatchStage,
   runLocalAioBatchChunks,
+  type BatchChunkState,
   type LocalAioBatchOptions,
 } from '@/pages/dashboard/lib/local-aio-batch';
 import {
@@ -375,47 +383,143 @@ export function useAioPipelineExecution(
           parseApiError,
         };
 
-        const localRun = await runLocalAioBatchChunks({
-          localApiUrl: args.localApiUrl,
-          images: executionImages,
-          options: localOptions,
-          capacity: prepared.batchCapacity,
-          signal: executionController.signal,
-          onProgress: (startedUnits, totalUnits) => {
-            useAioPipelineStore
-              .getState()
-              .setAioExecutionUnitsStarted(startedUnits, totalUnits);
-          },
-          onChunkState: (state) => {
-            useStatusStore
-              .getState()
-              .setStatusMessage(
-                `AIO batch ${state.chunkNumber}/${state.chunkCount} · ${state.name}`,
-              );
-
-            // Stages run inside the sidecar, so polled state is the only source
-            // for the indicator the per-image path feeds directly.
-            const stageKey = aioStageKeyForBatchStage(state.stage);
-            const image = executionImages[state.imageIndex];
-            if (
-              stageKey === null ||
-              image === undefined ||
-              executionController.signal.aborted ||
-              useAioPipelineStore.getState().aioAbortController !==
-                executionController
-            ) {
-              return;
-            }
-            args.updateAioExecutionStage(
-              'auto',
-              stageKey,
-              image,
-              state.imageIndex,
-              executionImages.length,
+        const totalImages = executionImages.length;
+        const globalIndexById = new Map(
+          executionImages.map((image, index) => [image.id, index]),
+        );
+        const handleChunkState = (
+          chapter: AioChapterGroup | null,
+          scopePrefix: string,
+          state: BatchChunkState,
+        ): void => {
+          useStatusStore
+            .getState()
+            .setStatusMessage(
+              `AIO ${scopePrefix}batch ${state.chunkNumber}/${state.chunkCount} · ${state.name}`,
             );
-          },
-        });
-        results = localRun.results;
+
+          // Stages run inside the sidecar, so polled state is the only source
+          // for the indicator the per-image path feeds directly.
+          const stageKey = aioStageKeyForBatchStage(state.stage);
+          const image = (chapter?.images ?? executionImages)[state.imageIndex];
+          if (
+            stageKey === null ||
+            image === undefined ||
+            executionController.signal.aborted ||
+            useAioPipelineStore.getState().aioAbortController !==
+              executionController
+          ) {
+            return;
+          }
+          args.updateAioExecutionStage(
+            'auto',
+            stageKey,
+            image,
+            globalIndexById.get(image.id) ?? state.imageIndex,
+            totalImages,
+          );
+        };
+
+        const chapterGroups = groupImagesIntoAioChapters(executionImages);
+        if (chapterGroups.length <= 1) {
+          const localRun = await runLocalAioBatchChunks({
+            localApiUrl: args.localApiUrl,
+            images: executionImages,
+            options: localOptions,
+            capacity: prepared.batchCapacity,
+            signal: executionController.signal,
+            onProgress: (startedUnits, totalUnits) => {
+              useAioPipelineStore
+                .getState()
+                .setAioExecutionUnitsStarted(startedUnits, totalUnits);
+            },
+            onChunkState: (state) => handleChunkState(null, '', state),
+          });
+          results = localRun.results;
+        } else {
+          const chapterById = new Map(
+            chapterGroups.map((chapter) => [chapter.id, chapter]),
+          );
+          const chapterPositionById = new Map<
+            string,
+            { index: number; imagesBefore: number; imageCount: number }
+          >();
+          let imagesBefore = 0;
+          chapterGroups.forEach((chapter, index) => {
+            chapterPositionById.set(chapter.id, {
+              index,
+              imagesBefore,
+              imageCount: chapter.images.length,
+            });
+            imagesBefore += chapter.images.length;
+          });
+
+          const chapters: ChapterSource[] = chapterGroups.map((chapter) => ({
+            id: chapter.id,
+            label: chapter.label,
+            images: chapter.images,
+            options: localOptions,
+          }));
+
+          const runChapter = createLocalBatchChapterRunner({
+            localApiUrl: args.localApiUrl,
+            concurrency: args.effectiveBatchConcurrency,
+            capacity: prepared.batchCapacity,
+            onChunkState: (chapter, state) => {
+              const position = chapterPositionById.get(chapter.id);
+              const scopePrefix = position
+                ? `chapter ${position.index + 1}/${chapters.length} · ${chapter.label} · `
+                : `${chapter.label} · `;
+              handleChunkState(
+                chapterById.get(chapter.id) ?? null,
+                scopePrefix,
+                state,
+              );
+            },
+          });
+
+          const queue = await runChapterQueue({
+            chapters,
+            signal: executionController.signal,
+            runChapter,
+            onChapterStart: (chapter, index) => {
+              useStatusStore
+                .getState()
+                .setStatusMessage(
+                  `AIO chapter ${index + 1}/${chapters.length} · ${chapter.label}...`,
+                );
+            },
+            onChapterProgress: (chapterId, completedUnits, totalUnits) => {
+              const position = chapterPositionById.get(chapterId);
+              if (!position || totalUnits <= 0) {
+                return;
+              }
+              const startedImages =
+                position.imagesBefore +
+                (Math.max(0, completedUnits) / totalUnits) *
+                  position.imageCount;
+              useAioPipelineStore
+                .getState()
+                .setAioExecutionUnitsStarted(startedImages, totalImages);
+            },
+          });
+
+          if (queue.aborted) {
+            throwIfAioAborted(executionController.signal);
+          }
+
+          results = queue.outcomes.flatMap((outcome, index) => {
+            if (outcome.status !== 'failed') {
+              return outcome.results;
+            }
+            const chapter = chapterGroups[index];
+            return chapter
+              ? chapter.images.map((image) =>
+                  buildFailedBatchResult(image, outcome.error),
+                )
+              : [];
+          });
+        }
       } else {
         results = await runAioBatch({
           items: executionImages,
