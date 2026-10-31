@@ -43,6 +43,7 @@ from pipelines.batch.records import (
     normalize_stage_source,
 )
 from pipelines.cache_manager import CacheManager, get_pipeline_cache
+from pipelines.translation_qa import run_translation_qa
 from pipelines.translation_store import (
     CacheRow,
     TranslationStore,
@@ -424,20 +425,29 @@ async def run_cached_translation(
                 )
         else:
             translated = await translate_missing(engine)
-        fresh = [
-            TranslationRecord(
-                id=member["id"],
-                source_text=member["text"].strip(),
-                translated_text=item.translated_text,
-                translation_notes=list(item.translation_notes),
-                source=normalize_stage_source(member["source"]),
-                detector_model_key=member["detector_model_key"],
-                ocr_model_key=member["ocr_model_key"],
-                translator_model_key=item.translator_model_key or engine_key,
+        fresh: list[TranslationRecord] = []
+        for item in translated:
+            # QA runs once per unique engine answer; the verdict (and any
+            # deterministic echo repair) is replicated to the group members.
+            outcome = run_translation_qa(
+                item.source_text,
+                item.translated_text,
+                target_language=request.target_language,
+                translation_mode=request.translation_mode,
             )
-            for item in translated
-            for member in dedup_members.get(item.id, ())
-        ]
+            for member in dedup_members.get(item.id, ()):
+                fresh.append(
+                    TranslationRecord(
+                        id=member["id"],
+                        source_text=member["text"].strip(),
+                        translated_text=outcome.text,
+                        translation_notes=[*item.translation_notes, *outcome.notes],
+                        source=normalize_stage_source(member["source"]),
+                        detector_model_key=member["detector_model_key"],
+                        ocr_model_key=member["ocr_model_key"],
+                        translator_model_key=item.translator_model_key or engine_key,
+                    )
+                )
         fresh_by_id = {record["id"]: record for record in fresh}
         # Cache layers store one entry per unique text (the representative).
         unique_fresh = [
