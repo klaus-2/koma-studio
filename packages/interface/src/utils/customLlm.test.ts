@@ -7,11 +7,28 @@ import {
 } from "@/utils/customLlm";
 import type { GlossaryTerm } from "@/utils/glossary";
 
-const term = (source: string, target: string): GlossaryTerm => ({ source, target });
+const term = (
+  source: string,
+  target: string,
+  never_translate = false,
+): GlossaryTerm => ({ source, target, never_translate });
 
 describe("DEFAULT_LLM_REQUEST_SETTINGS", () => {
   it("starts with an empty glossary", () => {
     expect(DEFAULT_LLM_REQUEST_SETTINGS.glossary).toEqual([]);
+  });
+
+  it("keeps the never_translate flag through the settings clamp", () => {
+    const settings = clampLlmRequestSettings({
+      glossary: [
+        { source: " 先輩 ", target: "senpai", never_translate: true },
+        { source: "部長", target: "manager", never_translate: false },
+      ],
+    });
+    expect(settings.glossary).toEqual([
+      term("先輩", "senpai", true),
+      term("部長", "manager", false),
+    ]);
   });
 });
 

@@ -25,7 +25,7 @@ export const AioGlossaryEditor = memo(({ glossary, onChange }: AioGlossaryEditor
         <p className="koma-aio-hint">{t('dashboard.aio.glossary.empty')}</p>
       ) : (
         draft.map((term, index) => (
-          <div key={index} style={{ display: 'flex', gap: '0.5rem' }}>
+          <div key={index} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <input
               className="koma-input koma-input--sm"
               value={term.source}
@@ -46,6 +46,21 @@ export const AioGlossaryEditor = memo(({ glossary, onChange }: AioGlossaryEditor
                 ))
               }
             />
+            <label
+              className="koma-aio-hint"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}
+            >
+              <input
+                type="checkbox"
+                checked={term.never_translate}
+                onChange={(event) =>
+                  commit(draft.map((row, rowIndex) =>
+                    rowIndex === index ? { ...row, never_translate: event.target.checked } : row,
+                  ))
+                }
+              />
+              {t('dashboard.aio.glossary.neverTranslate')}
+            </label>
             <button
               type="button"
               className="koma-btn koma-btn--ghost koma-btn--sm"
@@ -60,7 +75,7 @@ export const AioGlossaryEditor = memo(({ glossary, onChange }: AioGlossaryEditor
       <button
         type="button"
         className="koma-btn koma-btn--ghost koma-btn--sm"
-        onClick={() => setDraft([...draft, { source: '', target: '' }])}
+        onClick={() => setDraft([...draft, { source: '', target: '', never_translate: false }])}
       >
         {t('dashboard.aio.glossary.add')}
       </button>

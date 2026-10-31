@@ -1646,6 +1646,7 @@ export const enMessages = {
   'dashboard.aio.glossary.targetPlaceholder': 'Target term',
   'dashboard.aio.glossary.add': 'Add term',
   'dashboard.aio.glossary.remove': 'Remove term',
+  'dashboard.aio.glossary.neverTranslate': 'Never translate',
   'dashboard.aio.customAi.title': 'Custom AI',
   'dashboard.aio.customAi.loadingProfiles': 'Loading custom profiles...',
   'dashboard.aio.customAi.savedTranslationProfile': 'Saved Translation profile',

@@ -3,6 +3,7 @@ import { isRecord } from "./guards";
 export interface GlossaryTerm {
   source: string;
   target: string;
+  never_translate: boolean;
 }
 
 const GLOSSARY_MAX_TERMS = 200;
@@ -26,7 +27,11 @@ export const clampGlossary = (terms: unknown): GlossaryTerm[] => {
       .slice(0, GLOSSARY_TARGET_MAX_CHARS);
     if (!source || !target || seen.has(source)) continue;
     seen.add(source);
-    result.push({ source, target });
+    result.push({
+      source,
+      target,
+      never_translate: entry.never_translate === true,
+    });
     if (result.length >= GLOSSARY_MAX_TERMS) break;
   }
   return result;

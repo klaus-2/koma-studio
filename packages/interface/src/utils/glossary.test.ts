@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { clampGlossary, type GlossaryTerm } from "@/utils/glossary";
 
-const term = (source: string, target: string): GlossaryTerm => ({ source, target });
+const term = (
+  source: string,
+  target: string,
+  never_translate = false,
+): GlossaryTerm => ({ source, target, never_translate });
 
 describe("clampGlossary", () => {
   it("trims both sides and drops incomplete or non-string pairs", () => {
@@ -14,6 +18,22 @@ describe("clampGlossary", () => {
         term("   ", "y"),
       ]),
     ).toEqual([term("先輩", "senpai")]);
+  });
+
+  it("always emits never_translate, coerced to a strict boolean", () => {
+    expect(
+      clampGlossary([
+        { source: "a", target: "b", never_translate: true },
+        { source: "c", target: "d", never_translate: "yes" },
+        { source: "e", target: "f" },
+        term("g", "h", true),
+      ]),
+    ).toEqual([
+      term("a", "b", true),
+      term("c", "d", false),
+      term("e", "f", false),
+      term("g", "h", true),
+    ]);
   });
 
   it("keeps the first pair for a duplicated source", () => {
