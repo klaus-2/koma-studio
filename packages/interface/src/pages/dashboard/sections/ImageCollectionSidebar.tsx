@@ -7,6 +7,7 @@ import DashboardLeftSidebar, {
 import { SIDEBAR_RESIZE_STEP } from '../../../constants/dashboard.constants';
 import { getRotatedDims } from '../../../utils/dashboard.utils';
 import { useAuthAccountProcessingStats } from '../hooks/auth-account';
+import { useSidebarChapterSelection } from '../hooks/use-sidebar-chapter-selection';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
@@ -70,6 +71,7 @@ export default function ImageCollectionSidebar({
   const setActiveId = useImageCollectionStore((s) => s.setActiveId);
   const moveImage = useImageCollectionStore((s) => s.moveImage);
   const rotateImage = useImageCollectionStore((s) => s.rotateImage);
+  const chapterSelection = useSidebarChapterSelection();
   const mode = useUiShellStore((s) => s.mode);
   const processing = useUiShellStore((s) => s.processing);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
@@ -120,6 +122,7 @@ export default function ImageCollectionSidebar({
       rotateImage={rotateImage}
       moveImage={moveImage}
       removeImage={removeImage}
+      chapterSelection={chapterSelection}
     />
   );
 }

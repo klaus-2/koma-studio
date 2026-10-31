@@ -11,6 +11,8 @@ import { useI18n } from '../../i18n';
 import type { TranslationKey } from '../../i18n/messages';
 import type { RuntimeExecutionNotice, StatusMessageTone } from '../../types/dashboard.types';
 import type { AioDeviceInfo } from '../../models/aioStageCatalog';
+import AioBatchProgressBadge from './AioBatchProgressBadge';
+import { useAioPipelineStore } from '../../pages/dashboard/stores/aio-pipeline-store';
 import { useStatusStore } from '../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
 import { useWorkspacePersistenceStore } from '../../pages/dashboard/stores/workspace-persistence-store';
@@ -57,6 +59,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   const runtimeExecutionNoticeStore = useStatusStore((s) => s.runtimeExecutionNotice);
   const processingStore = useUiShellStore((s) => s.processing);
   const progressStore = useUiShellStore((s) => s.progress);
+  const aioBatchProgress = useAioPipelineStore((s) => s.aioBatchProgress);
   const workspaceStatusStore = useWorkspacePersistenceStore((s) => s.workspaceStatus);
   const workspaceStatusDetailStore = useWorkspacePersistenceStore((s) => s.workspaceStatusDetail);
   const workspaceLastSavedAtStore = useWorkspacePersistenceStore((s) => s.workspaceLastSavedAt);
@@ -397,6 +400,12 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
               style={{ width: `${Math.round(progressStore)}%` }}
             />
             <span className="koma-footerbar__meta">{Math.round(progressStore)}%</span>
+            {aioBatchProgress && (
+              <AioBatchProgressBadge
+                progress={aioBatchProgress}
+                className="koma-footerbar__meta"
+              />
+            )}
           </div>
         )}
         <TooltipProvider delayDuration={120}>

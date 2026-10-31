@@ -8,6 +8,8 @@ import type { TranslationKey } from '../../../i18n/messages';
 import type { RuntimeExecutionNotice, StatusMessageTone } from '../../../types/dashboard.types';
 import type { AioDeviceInfo } from '../../../models/aioStageCatalog';
 import { cn } from '../../../utils/dashboard.utils';
+import AioBatchProgressBadge from '../AioBatchProgressBadge';
+import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
 import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
 import { useWorkspacePersistenceStore } from '../../../pages/dashboard/stores/workspace-persistence-store';
@@ -64,6 +66,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
   const runtimeExecutionNoticeStore = useStatusStore((s) => s.runtimeExecutionNotice);
   const processingStore = useUiShellStore((s) => s.processing);
   const progressStore = useUiShellStore((s) => s.progress);
+  const aioBatchProgress = useAioPipelineStore((s) => s.aioBatchProgress);
   const workspaceStatusStore = useWorkspacePersistenceStore((s) => s.workspaceStatus);
   const workspaceStatusDetailStore = useWorkspacePersistenceStore((s) => s.workspaceStatusDetail);
   const workspaceLastSavedAtStore = useWorkspacePersistenceStore((s) => s.workspaceLastSavedAt);
@@ -261,15 +264,23 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
           </TooltipProvider>
         )}
         {processing && (
-          <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">
-            <m.div
-              className="halftone-red absolute inset-y-0 left-0 w-full origin-left bg-crimson"
-              initial={false}
-              animate={{ scaleX: Math.max(0, Math.min(100, progressStore)) / 100 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            />
-            <span className="relative z-10 w-full text-center font-mono text-[9px] font-bold text-paper mix-blend-difference">{Math.round(progressStore)}%</span>
-          </div>
+          <>
+            {aioBatchProgress && (
+              <AioBatchProgressBadge
+                progress={aioBatchProgress}
+                className="whitespace-nowrap font-mono text-[9px] text-paper-dim"
+              />
+            )}
+            <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">
+              <m.div
+                className="halftone-red absolute inset-y-0 left-0 w-full origin-left bg-crimson"
+                initial={false}
+                animate={{ scaleX: Math.max(0, Math.min(100, progressStore)) / 100 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              />
+              <span className="relative z-10 w-full text-center font-mono text-[9px] font-bold text-paper mix-blend-difference">{Math.round(progressStore)}%</span>
+            </div>
+          </>
         )}
         <span aria-hidden className="mx-0.5 select-none font-mono text-[10px] text-paper-faint">/</span>
         <TooltipProvider delayDuration={120}>

@@ -9,8 +9,13 @@ import {
   type MouseEvent,
 } from "react";
 
+import { collectDroppedFiles } from "@/pages/dashboard/lib/dropped-folders";
+
 interface NativeDropzoneOptions {
-  onDrop: (files: File[]) => void | Promise<void>;
+  onDrop: (
+    files: File[],
+    folders?: ReadonlyMap<File, string>,
+  ) => void | Promise<void>;
   accept: Record<string, string[]>;
   disabled?: boolean;
 }
@@ -143,9 +148,27 @@ export function useUploadDropzone({
       dragDepth.current = 0;
       setIsDragActive(false);
       if (disabled) return;
-      handleFiles(event.dataTransfer.files);
+
+      const dataTransfer = event.dataTransfer;
+
+      void collectDroppedFiles(dataTransfer, acceptsFile).then((dropped) => {
+        if (dropped.length === 0) {
+          return;
+        }
+
+        const files = dropped.map(({ file }) => file);
+        const folders = new Map<File, string>();
+
+        for (const { file, folder } of dropped) {
+          if (folder) {
+            folders.set(file, folder);
+          }
+        }
+
+        void onDrop(files, folders);
+      });
     },
-    [disabled, handleFiles],
+    [acceptsFile, disabled, onDrop],
   );
 
   const getRootProps = useCallback(

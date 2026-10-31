@@ -4,6 +4,9 @@ export const BATCH_THREADS_ENABLED_STORAGE_KEY =
   "koma-studio.batch-threads-enabled";
 export const BATCH_THREADS_COUNT_STORAGE_KEY =
   "koma-studio.batch-threads-count";
+export const BATCH_MODE_ENABLED_STORAGE_KEY = "koma-studio.batch-mode-enabled";
+export const BATCH_CHAPTER_PRESETS_STORAGE_KEY =
+  "koma-studio.batch-chapter-presets";
 
 export interface ConcurrentBatchWorkerContext<TItem> {
   readonly item: TItem;
@@ -50,6 +53,11 @@ export const parseStoredBatchThreads = (
 export const parseStoredBatchThreadsEnabled = (
   value: string | null | undefined,
 ): boolean => value?.trim().toLowerCase() !== "false";
+
+/** Batch Mode is opt-in: only an explicit stored "true" enables it. */
+export const parseStoredBatchModeEnabled = (
+  value: string | null | undefined,
+): boolean => value?.trim().toLowerCase() === "true";
 
 export const normalizeBatchConcurrency = (
   enabled: boolean,

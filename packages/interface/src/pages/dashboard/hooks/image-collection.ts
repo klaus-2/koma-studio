@@ -192,7 +192,15 @@ export function useDashboardUploads({
     return { extractedFiles, warnings };
   }, [localApiUrl]);
 
-  const onDrop = useCallback(async (files: File[]) => {
+  const onDrop = useCallback(async (
+    files: File[],
+    folders?: ReadonlyMap<File, string>,
+  ) => {
+    const folderChapterFor = (file: File): UploadChapter | null => {
+      const folder = folders?.get(file);
+
+      return folder ? { id: `folder:${folder}`, label: folder } : null;
+    };
     const directImageFiles = files.filter(isDirectImageUploadFile);
     const containerFiles = files.filter(isContainerUploadFile);
     let extractedContainerFiles: ExtractedUpload[] = [];
@@ -217,7 +225,7 @@ export function useDashboardUploads({
     }
 
     const candidateUploads: ExtractedUpload[] = [
-      ...directImageFiles.map((file) => ({ file, chapter: null })),
+      ...directImageFiles.map((file) => ({ file, chapter: folderChapterFor(file) })),
       ...extractedContainerFiles,
     ];
     if (candidateUploads.length === 0) {

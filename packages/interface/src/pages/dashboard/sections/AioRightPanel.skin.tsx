@@ -14,6 +14,8 @@ const AIO_PANEL_CLASSIC = {
   primaryFullButton: 'koma-btn koma-btn--ghost koma-btn--full',
   select: 'koma-select',
   langPresetSelect: 'koma-select koma-aio-lang-preset-row__select',
+  hint: 'koma-aio-hint',
+  label: 'koma-field__label',
 } as const;
 
 const AIO_PANEL_NOIR = {
@@ -23,6 +25,8 @@ const AIO_PANEL_NOIR = {
   primaryFullButton: BTN_PRIMARY_FULL_NOIR,
   select: SELECT_NOIR,
   langPresetSelect: `${SELECT_FLEX_NOIR} koma-aio-lang-preset-row__select`,
+  hint: 'font-mono text-[9px] text-paper-dim',
+  label: 'font-mono text-[9px] uppercase tracking-[0.16em] text-paper-dim',
 } as const;
 
 export const aioPanelClasses = (noir: boolean) =>

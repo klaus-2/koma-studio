@@ -2,13 +2,20 @@ import React from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import {
   Upload, Image as ImageIcon, Trash2, RotateCw, ArrowUp, ArrowDown,
-  X, PanelLeftOpen, ChevronLeft, ChevronRight, SkipBack, SkipForward, RefreshCcw,
+  X, Check, ListChecks, PanelLeftOpen, ChevronLeft, ChevronRight, SkipBack, SkipForward, RefreshCcw,
 } from 'lucide-react';
 
 import { useI18n, type TranslateFn } from '../../../i18n';
 import VersionBadge from '../../VersionBadge';
+import SidebarChapterHeader from '../SidebarChapterHeader';
+import SidebarChapterSelectionBar from '../SidebarChapterSelectionBar';
 import { KomaMascotBadgeNoir } from './KomaMascotBadgeNoir';
 import { cn } from '../../../utils/dashboard.utils';
+import type { SidebarChapterSelection } from '../../../pages/dashboard/hooks/use-sidebar-chapter-selection';
+import {
+  DIRECT_IMAGES_CHAPTER_ID,
+  groupImagesIntoAioChapters,
+} from '../../../pages/dashboard/lib/aio-chapters';
 import { useExportStore } from '../../../pages/dashboard/stores/export-store';
 import { useRegionEditorStore } from '../../../pages/dashboard/stores/region-editor-store';
 import { useCleanerStore } from '../../../pages/dashboard/stores/cleaner-store';
@@ -51,6 +58,7 @@ interface DashboardLeftSidebarProps {
   rotateImage: (imageId: string) => void;
   moveImage: (index: number, direction: 'up' | 'down') => void;
   removeImage: (imageId: string) => void;
+  chapterSelection: SidebarChapterSelection;
 }
 
 interface SidebarImageItemProps {
@@ -62,6 +70,9 @@ interface SidebarImageItemProps {
   canForward: boolean;
   processing: boolean;
   isAioMode: boolean;
+  selectionMode: boolean;
+  isSelected: boolean;
+  onToggleSelection: (imageId: string) => void;
   getRotatedDims: (image: LoadedImage) => { width: number; height: number };
   setActiveId: (id: string | null) => void;
   rotateImage: (imageId: string) => void;
@@ -81,6 +92,9 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   canForward,
   processing,
   isAioMode,
+  selectionMode,
+  isSelected,
+  onToggleSelection,
   getRotatedDims,
   setActiveId,
   rotateImage,
@@ -98,14 +112,30 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -12 }}
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-      onClick={() => setActiveId(img.id)}
+      onClick={() =>
+        selectionMode ? onToggleSelection(img.id) : setActiveId(img.id)
+      }
       className={cn(
         'panel-cut-sm group flex cursor-pointer items-center gap-2 p-1.5 transition-all',
         isActive
           ? 'bg-crimson/15 shadow-hard-crimson ring-1 ring-crimson/40'
           : 'bg-ink-3/60 hover:-translate-x-0.5 hover:bg-ink-3 hover:shadow-hard-paper',
+        selectionMode && isSelected && 'bg-crimson/10 ring-1 ring-crimson/70',
       )}
     >
+      {selectionMode && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'panel-cut-sm grid h-4 w-4 shrink-0 place-items-center border',
+            isSelected
+              ? 'border-crimson bg-crimson text-ink'
+              : 'border-paper/25 bg-ink',
+          )}
+        >
+          {isSelected && <Check size={11} />}
+        </span>
+      )}
       <div className="panel-cut-sm relative h-11 w-11 shrink-0 overflow-hidden bg-ink">
         <img src={img.thumbnailUrl ?? img.url} alt="thumb" loading="lazy" decoding="async" style={{ contain: 'content' }} className="h-full w-full object-cover" />
         {isActive && <span className="absolute left-1 top-1 h-1.5 w-1.5 bg-crimson blink-noir" aria-hidden="true" />}
@@ -114,7 +144,12 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
         <p className="truncate font-mono text-[11px] font-medium text-paper" title={img.file.name}>{img.file.name}</p>
         <p className="font-mono text-[9px] text-paper-dim">{rotated.width}×{rotated.height}</p>
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+      <div
+        className={cn(
+          'flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100',
+          selectionMode && 'hidden',
+        )}
+      >
         {isAioMode && (
           <>
             <MiniBtn title={t('dashboard.sidebar.rewindImage')} disabled={processing || !canRewind} onClick={(e) => { e.stopPropagation(); rewindAioPipelineForImage(img.id); }}>
@@ -176,8 +211,48 @@ export default function DashboardLeftSidebarNoir({
   rotateImage,
   moveImage,
   removeImage,
+  chapterSelection,
 }: DashboardLeftSidebarProps) {
   const { t } = useI18n();
+  const chapterGroups = React.useMemo(
+    () => groupImagesIntoAioChapters(images),
+    [images],
+  );
+  const hasChapters = chapterGroups.some(
+    (group) => group.id !== DIRECT_IMAGES_CHAPTER_ID,
+  );
+  const imageIndexById = React.useMemo(
+    () => new Map(images.map((image, index) => [image.id, index])),
+    [images],
+  );
+  const renderImageItem = (img: LoadedImage) => {
+    const meta = getAioImageSnapshotMeta(img.id);
+
+    return (
+      <SidebarImageItem
+        key={img.id}
+        img={img}
+        idx={imageIndexById.get(img.id) ?? 0}
+        count={images.length}
+        isActive={activeId === img.id}
+        canRewind={meta.canRewind}
+        canForward={meta.canForward}
+        processing={processing}
+        isAioMode={mode === 'aio'}
+        selectionMode={chapterSelection.active}
+        isSelected={chapterSelection.selectedIds.has(img.id)}
+        onToggleSelection={chapterSelection.toggleImage}
+        getRotatedDims={getRotatedDims}
+        setActiveId={setActiveId}
+        rotateImage={rotateImage}
+        moveImage={moveImage}
+        removeImage={removeImage}
+        rewindAioPipelineForImage={rewindAioPipelineForImage}
+        forwardAioPipelineForImage={forwardAioPipelineForImage}
+        t={t}
+      />
+    );
+  };
   const statsItems = [processingStats.daily, processingStats.weekly, processingStats.monthly];
 
   const formatResetCountdown = (resetInMs: number): string => {
@@ -298,16 +373,38 @@ export default function DashboardLeftSidebarNoir({
         <div className="mb-2 flex items-center justify-between">
           <span className="kicker">// {t('dashboard.sidebar.files', { count: images.length })}</span>
           {images.length > 0 && (
-            <button
-              type="button"
-              title={t('dashboard.sidebar.clearAll')}
-              onClick={handleClearAll}
-              className="panel-cut-sm grid h-6 w-6 place-items-center bg-ink-3 text-crimson transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-crimson hover:text-ink hover:shadow-hard-gold"
-            >
-              <Trash2 size={12} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title={t('dashboard.sidebar.selection.toggle')}
+                aria-label={t('dashboard.sidebar.selection.toggle')}
+                aria-pressed={chapterSelection.active}
+                disabled={chapterSelection.disabled}
+                onClick={chapterSelection.toggleMode}
+                className={cn(
+                  'panel-cut-sm grid h-6 w-6 place-items-center transition-all disabled:cursor-not-allowed disabled:opacity-30',
+                  chapterSelection.active
+                    ? 'bg-crimson text-ink'
+                    : 'bg-ink-3 text-paper-dim hover:bg-ink-2 hover:text-paper',
+                )}
+              >
+                <ListChecks size={12} />
+              </button>
+              <button
+                type="button"
+                title={t('dashboard.sidebar.clearAll')}
+                onClick={handleClearAll}
+                className="panel-cut-sm grid h-6 w-6 place-items-center bg-ink-3 text-crimson transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-crimson hover:text-ink hover:shadow-hard-gold"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
           )}
         </div>
+
+        {chapterSelection.active && (
+          <SidebarChapterSelectionBar selection={chapterSelection} noir />
+        )}
 
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
           {images.length === 0 ? (
@@ -317,32 +414,33 @@ export default function DashboardLeftSidebarNoir({
             </div>
           ) : (
             <ul className="flex flex-col gap-1.5">
-              <AnimatePresence initial={false}>
-                {images.map((img, idx) => {
-                  const meta = getAioImageSnapshotMeta(img.id);
-                  return (
-                    <SidebarImageItem
-                      key={img.id}
-                      img={img}
-                      idx={idx}
-                      count={images.length}
-                      isActive={activeId === img.id}
-                      canRewind={meta.canRewind}
-                      canForward={meta.canForward}
-                      processing={processing}
-                      isAioMode={mode === 'aio'}
-                      getRotatedDims={getRotatedDims}
-                      setActiveId={setActiveId}
-                      rotateImage={rotateImage}
-                      moveImage={moveImage}
-                      removeImage={removeImage}
-                      rewindAioPipelineForImage={rewindAioPipelineForImage}
-                      forwardAioPipelineForImage={forwardAioPipelineForImage}
-                      t={t}
-                    />
-                  );
-                })}
-              </AnimatePresence>
+              {hasChapters ? (
+                chapterGroups.map((group) => (
+                  <React.Fragment key={group.id}>
+                    <li>
+                      <SidebarChapterHeader
+                        chapterId={
+                          group.id === DIRECT_IMAGES_CHAPTER_ID
+                            ? null
+                            : group.id
+                        }
+                        label={
+                          group.id === DIRECT_IMAGES_CHAPTER_ID
+                            ? t('dashboard.sidebar.chapters.unassigned')
+                            : group.label
+                        }
+                        count={group.images.length}
+                        noir
+                      />
+                    </li>
+                    {group.images.map(renderImageItem)}
+                  </React.Fragment>
+                ))
+              ) : (
+                <AnimatePresence initial={false}>
+                  {images.map(renderImageItem)}
+                </AnimatePresence>
+              )}
             </ul>
           )}
         </div>

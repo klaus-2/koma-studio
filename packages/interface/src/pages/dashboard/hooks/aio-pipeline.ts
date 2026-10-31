@@ -12,6 +12,11 @@ import { stageTransportNoticeDetail } from '@/aio-stages';
 import { parseApiError } from '@/pages/dashboard/helpers';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
 import { useCommittedAsyncAction } from '@/pages/dashboard/hooks/use-committed-async-action';
+import { estimateRemainingSeconds } from '@/pages/dashboard/lib/aio-batch-progress';
+import {
+  findChapterPreset,
+  resolveChapterBatchOptions,
+} from '@/pages/dashboard/lib/aio-chapter-options';
 import { groupImagesIntoAioChapters } from '@/pages/dashboard/lib/aio-chapters';
 import type { AioChapterGroup } from '@/pages/dashboard/lib/aio-chapters';
 import {
@@ -288,6 +293,7 @@ export function useAioPipelineExecution(
 
     try {
       useStatusStore.getState().setRuntimeExecutionNotice(null);
+      useAioPipelineStore.getState().setAioBatchProgress(null);
       args.beginAioExecution('auto', executionImages.length, enabledStages);
 
       controller = useAioPipelineStore.getState().aioAbortController;
@@ -387,6 +393,7 @@ export function useAioPipelineExecution(
         const globalIndexById = new Map(
           executionImages.map((image, index) => [image.id, index]),
         );
+        let currentStageLabel: string | null = null;
         const handleChunkState = (
           chapter: AioChapterGroup | null,
           scopePrefix: string,
@@ -401,6 +408,10 @@ export function useAioPipelineExecution(
           // Stages run inside the sidecar, so polled state is the only source
           // for the indicator the per-image path feeds directly.
           const stageKey = aioStageKeyForBatchStage(state.stage);
+          if (stageKey !== null) {
+            currentStageLabel =
+              args.aioPipelineStageProgressLabels[stageKey];
+          }
           const image = (chapter?.images ?? executionImages)[state.imageIndex];
           if (
             stageKey === null ||
@@ -421,7 +432,9 @@ export function useAioPipelineExecution(
         };
 
         const chapterGroups = groupImagesIntoAioChapters(executionImages);
-        if (chapterGroups.length <= 1) {
+        const runAsChapterQueue =
+          pipeline.batchModeEnabled && chapterGroups.length > 1;
+        if (!runAsChapterQueue) {
           const localRun = await runLocalAioBatchChunks({
             localApiUrl: args.localApiUrl,
             images: executionImages,
@@ -454,11 +467,39 @@ export function useAioPipelineExecution(
             imagesBefore += chapter.images.length;
           });
 
+          const runStartedAt = Date.now();
+          const reportBatchProgress = (
+            chapter: AioChapterGroup,
+            startedImages: number,
+          ): void => {
+            const position = chapterPositionById.get(chapter.id);
+
+            useAioPipelineStore.getState().setAioBatchProgress({
+              chapterIndex: (position?.index ?? 0) + 1,
+              chapterCount: chapterGroups.length,
+              chapterLabel: chapter.label,
+              stageLabel: currentStageLabel,
+              etaSeconds: estimateRemainingSeconds({
+                elapsedMs: Date.now() - runStartedAt,
+                completedImages: startedImages,
+                totalImages,
+              }),
+            });
+          };
+
           const chapters: ChapterSource[] = chapterGroups.map((chapter) => ({
             id: chapter.id,
             label: chapter.label,
             images: chapter.images,
-            options: localOptions,
+            options: resolveChapterBatchOptions(
+              localOptions,
+              findChapterPreset(
+                pipeline.aioPresetState.presets,
+                pipeline.batchChapterPresetByChapterId[chapter.id],
+                pipeline.aioSrcLang,
+              ),
+              pipeline.aioStageOptions,
+            ),
           }));
 
           const runChapter = createLocalBatchChapterRunner({
@@ -483,6 +524,15 @@ export function useAioPipelineExecution(
             signal: executionController.signal,
             runChapter,
             onChapterStart: (chapter, index) => {
+              const group = chapterGroups[index];
+
+              if (group) {
+                reportBatchProgress(
+                  group,
+                  chapterPositionById.get(group.id)?.imagesBefore ?? 0,
+                );
+              }
+
               useStatusStore
                 .getState()
                 .setStatusMessage(
@@ -498,6 +548,12 @@ export function useAioPipelineExecution(
                 position.imagesBefore +
                 (Math.max(0, completedUnits) / totalUnits) *
                   position.imageCount;
+              const group = chapterGroups[position.index];
+
+              if (group) {
+                reportBatchProgress(group, startedImages);
+              }
+
               useAioPipelineStore
                 .getState()
                 .setAioExecutionUnitsStarted(startedImages, totalImages);
@@ -642,6 +698,7 @@ export function useAioPipelineExecution(
         useAioPipelineStore.getState().aioAbortController === controller
       ) {
         useAioPipelineStore.getState().clearAioExecutionState(controller);
+        useAioPipelineStore.getState().setAioBatchProgress(null);
         useUiShellStore.getState().setProcessing(false);
         useUiShellStore.getState().setProgress(0);
         useStatusStore.getState().setRuntimeExecutionNotice(null);

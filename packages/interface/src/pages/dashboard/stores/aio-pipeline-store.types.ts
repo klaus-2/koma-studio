@@ -9,6 +9,7 @@ import type {
   AioModelPresetStateV2,
   AioStageSelection,
 } from '@/types/aioModelPresets';
+import type { AioBatchProgress } from '@/pages/dashboard/lib/aio-batch-progress';
 import type {
   AioManualImageProgress,
   AioPipelineSnapshot,
@@ -55,6 +56,10 @@ export interface AioEditableState {
   aioExecutionStatus: AioExecutionStatus | null;
   batchThreadsEnabled: boolean;
   batchThreads: number;
+  batchModeEnabled: boolean;
+  /** chapterId -> preset id; an empty value follows the AIO setup. */
+  batchChapterPresetByChapterId: Record<string, string>;
+  aioBatchProgress: AioBatchProgress | null;
   aioPipelineSnapshots: AioPipelineSnapshot[];
   aioPipelineSnapshotIndex: number;
   aioImageSnapshotIndexById: Record<string, number>;

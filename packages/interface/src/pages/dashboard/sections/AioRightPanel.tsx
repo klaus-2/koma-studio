@@ -60,6 +60,7 @@ import type { useModelManager } from '../../../hooks/useModelManager';
 import type { useDashboardModelManager } from '../../../hooks/useDashboardModelManager';
 import type { useRenderFontCatalog } from '../../../hooks/useRenderFontCatalog';
 import AioStageConfigBody from './AioStageConfigBody';
+import AioBatchModePanel from '../../../components/dashboard/AioBatchModePanel';
 
 type ModelManagerApi = ReturnType<typeof useModelManager>;
 type ModelManagerPanelApi = ReturnType<typeof useDashboardModelManager>;
@@ -411,6 +412,8 @@ export default memo(function AioRightPanel({
                 Forward <SkipForward size={13} />
               </button>
             </div>
+
+            <AioBatchModePanel />
 
             {activeAioPipelineSnapshot && (
               <p className="koma-aio-hint">

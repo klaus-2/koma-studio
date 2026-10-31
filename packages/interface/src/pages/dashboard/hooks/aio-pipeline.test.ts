@@ -14,6 +14,7 @@ import {
 } from '@/pages/dashboard/lib/local-aio-batch';
 import { useAioPipelineExecution } from '@/pages/dashboard/hooks/aio-pipeline';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
+import type { AioStageOption } from '@/models/aioStageCatalog';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collection-store';
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
@@ -244,6 +245,9 @@ beforeEach(() => {
     aioAbortController: null,
     aioBackendRestarting: false,
     aioExecutionStatus: null,
+    batchModeEnabled: false,
+    batchChapterPresetByChapterId: {},
+    aioBatchProgress: null,
   });
   useUiShellStore.setState({ processing: false, progress: 0 });
 });
@@ -323,6 +327,164 @@ describe('useAioPipelineExecution multi-chapter local run', () => {
       images: chapteredImages,
       activeId: chapteredImages[0]?.id ?? null,
       isExtractingUploads: false,
+    });
+    useAioPipelineStore.setState({ batchModeEnabled: true });
+  });
+
+  it('keeps one combined batch when Batch Mode is off', async () => {
+    useAioPipelineStore.setState({ batchModeEnabled: false });
+    mockedChunks.mockImplementation(async (input) => ({
+      batchIds: ['batch-all'],
+      results: input.images.map((image) => makeBatchResult(image.id)),
+    }));
+
+    await runProcess();
+
+    expect(mockedChunks).toHaveBeenCalledTimes(1);
+    expect(mockedChunks.mock.calls[0]?.[0].images.map((image) => image.id)).toEqual([
+      'img-0',
+      'img-1',
+      'img-2',
+    ]);
+    expect(useAioPipelineStore.getState().aioBatchProgress).toBeNull();
+  });
+
+  it('applies the chapter preset models to that chapter only', async () => {
+    const option = (key: string): AioStageOption => ({
+      key,
+      name: key,
+      device: 'cpu',
+      use_case: '',
+      available: true,
+      implemented: true,
+    });
+
+    useAioPipelineStore.setState({
+      aioStageOptions: {
+        detectText: [option('detector')],
+        recognizeText: [option('ocr'), option('ocr-alt')],
+        getTranslations: [option('translation'), option('translation-alt')],
+        segmentText: [option('segment')],
+        cleanImage: [option('clean')],
+      },
+      aioPresetState: {
+        version: 2,
+        presets: [
+          {
+            id: 'preset-b',
+            name: 'Preset B',
+            description: '',
+            sourceLanguage: 'ja',
+            stageModels: {
+              detectText: 'detector',
+              recognizeText: 'ocr-alt',
+              getTranslations: 'translation-alt',
+              segmentText: 'segment',
+              cleanImage: 'clean',
+            },
+            createdAt: 0,
+            updatedAt: 0,
+          },
+        ],
+        activePresetBySourceLanguage: {},
+      },
+      batchChapterPresetByChapterId: { 'archive:b.cbz': 'preset-b' },
+    });
+    mockedChunks.mockImplementation(async (input) => ({
+      batchIds: [`batch-${input.images[0]?.id ?? 'unknown'}`],
+      results: input.images.map((image) => makeBatchResult(image.id)),
+    }));
+
+    await runProcess();
+
+    expect(mockedChunks).toHaveBeenCalledTimes(2);
+    const firstOptions = mockedChunks.mock.calls[0]?.[0].options;
+    const secondOptions = mockedChunks.mock.calls[1]?.[0].options;
+    expect(firstOptions).toMatchObject({
+      ocrModelKey: 'ocr',
+      translationModelKey: 'translation',
+    });
+    expect(secondOptions).toMatchObject({
+      detectModelKey: 'detector',
+      ocrModelKey: 'ocr-alt',
+      translationModelKey: 'translation-alt',
+      segmentModelKey: 'segment',
+      cleanModelKey: 'clean',
+    });
+  });
+
+  it('tracks the running chapter and clears the batch progress when it ends', async () => {
+    const chaptersSeen: Array<{
+      chapterIndex: number;
+      chapterCount: number;
+      chapterLabel: string;
+    }> = [];
+
+    mockedChunks.mockImplementation(async (input) => {
+      const progress = useAioPipelineStore.getState().aioBatchProgress;
+
+      if (progress) {
+        chaptersSeen.push({
+          chapterIndex: progress.chapterIndex,
+          chapterCount: progress.chapterCount,
+          chapterLabel: progress.chapterLabel,
+        });
+      }
+
+      return {
+        batchIds: [`batch-${input.images[0]?.id ?? 'unknown'}`],
+        results: input.images.map((image) => makeBatchResult(image.id)),
+      };
+    });
+
+    await runProcess();
+
+    expect(chaptersSeen).toEqual([
+      { chapterIndex: 1, chapterCount: 2, chapterLabel: 'a.cbz' },
+      { chapterIndex: 2, chapterCount: 2, chapterLabel: 'b.cbz' },
+    ]);
+    expect(useAioPipelineStore.getState().aioBatchProgress).toBeNull();
+  });
+
+  it('reports the in-flight stage and the ETA with the chapter progress', async () => {
+    const snapshots: Array<{
+      chapterIndex: number;
+      stageLabel: string | null;
+      hasEta: boolean;
+    }> = [];
+
+    mockedChunks.mockImplementation(async (input) => {
+      input.onChunkState?.({
+        chunkNumber: 1,
+        chunkCount: 1,
+        imageIndex: 0,
+        stage: 'translation',
+        name: 'page-0.png',
+      });
+      input.onProgress?.(1, 2);
+
+      const progress = useAioPipelineStore.getState().aioBatchProgress;
+
+      if (progress) {
+        snapshots.push({
+          chapterIndex: progress.chapterIndex,
+          stageLabel: progress.stageLabel,
+          hasEta: progress.etaSeconds !== null,
+        });
+      }
+
+      return {
+        batchIds: [`batch-${input.images[0]?.id ?? 'unknown'}`],
+        results: input.images.map((image) => makeBatchResult(image.id)),
+      };
+    });
+
+    await runProcess();
+
+    expect(snapshots[0]).toEqual({
+      chapterIndex: 1,
+      stageLabel: 'Translating text',
+      hasEta: true,
     });
   });
 

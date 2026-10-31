@@ -19,14 +19,52 @@ import type {
   StateUpdate,
 } from '@/pages/dashboard/stores/aio-pipeline-store.types';
 import {
+  BATCH_CHAPTER_PRESETS_STORAGE_KEY,
+  BATCH_MODE_ENABLED_STORAGE_KEY,
   BATCH_THREADS_COUNT_STORAGE_KEY,
   BATCH_THREADS_ENABLED_STORAGE_KEY,
+  parseStoredBatchModeEnabled,
   parseStoredBatchThreads,
   parseStoredBatchThreadsEnabled,
 } from '@/utils/concurrentBatch';
 import { createEmptyAioPresetEditorDraft } from '@/utils/dashboard.utils';
 
 export type { AioStepToggles } from '@/pages/dashboard/stores/aio-pipeline-store.types';
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+function loadChapterPresetAssignments(): Record<string, string> {
+  const raw = readAioStorage(BATCH_CHAPTER_PRESETS_STORAGE_KEY);
+
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+
+    if (!isRecord(parsed)) {
+      return {};
+    }
+
+    const assignments: Record<string, string> = {};
+
+    for (const [chapterId, presetId] of Object.entries(parsed)) {
+      if (
+        chapterId.trim().length > 0 &&
+        typeof presetId === 'string' &&
+        presetId.trim().length > 0
+      ) {
+        assignments[chapterId] = presetId;
+      }
+    }
+
+    return assignments;
+  } catch {
+    return {};
+  }
+}
 
 const INITIAL_AIO_STAGE_SELECTION = {
   detectText: 'font_rtdetr_v2',
@@ -117,6 +155,11 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     batchThreads: parseStoredBatchThreads(
       readAioStorage(BATCH_THREADS_COUNT_STORAGE_KEY),
     ),
+    batchModeEnabled: parseStoredBatchModeEnabled(
+      readAioStorage(BATCH_MODE_ENABLED_STORAGE_KEY),
+    ),
+    batchChapterPresetByChapterId: loadChapterPresetAssignments(),
+    aioBatchProgress: null,
 
     aioPipelineSnapshots: [],
     aioPipelineSnapshotIndex: -1,
@@ -169,6 +212,34 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
       set({ batchThreads: next });
       writeAioStorage(BATCH_THREADS_COUNT_STORAGE_KEY, String(next));
     },
+
+    setBatchModeEnabled: (update) => {
+      const previous = get().batchModeEnabled;
+      const next = isStateUpdater(update) ? update(previous) : update;
+
+      if (next === previous) {
+        return;
+      }
+
+      set({ batchModeEnabled: next });
+      writeAioStorage(BATCH_MODE_ENABLED_STORAGE_KEY, String(next));
+    },
+
+    setBatchChapterPresetByChapterId: (update) => {
+      const previous = get().batchChapterPresetByChapterId;
+      const next = isStateUpdater(update) ? update(previous) : update;
+
+      if (next === previous) {
+        return;
+      }
+
+      set({ batchChapterPresetByChapterId: next });
+      writeAioStorage(
+        BATCH_CHAPTER_PRESETS_STORAGE_KEY,
+        JSON.stringify(next),
+      );
+    },
+    setAioBatchProgress: setter('aioBatchProgress'),
 
     setAioPipelineSnapshots: setter('aioPipelineSnapshots'),
     setAioPipelineSnapshotIndex: setter('aioPipelineSnapshotIndex'),

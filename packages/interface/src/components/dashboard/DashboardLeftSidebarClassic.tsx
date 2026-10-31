@@ -8,6 +8,8 @@ import {
   ArrowUp,
   ArrowDown,
   X,
+  Check,
+  ListChecks,
   PanelLeftOpen,
   ChevronLeft,
   ChevronRight,
@@ -18,7 +20,14 @@ import {
 
 import { useI18n, type TranslateFn } from '../../i18n';
 import VersionBadge from '../VersionBadge';
+import SidebarChapterHeader from './SidebarChapterHeader';
+import SidebarChapterSelectionBar from './SidebarChapterSelectionBar';
 import { cn } from '../../utils/dashboard.utils';
+import type { SidebarChapterSelection } from '../../pages/dashboard/hooks/use-sidebar-chapter-selection';
+import {
+  DIRECT_IMAGES_CHAPTER_ID,
+  groupImagesIntoAioChapters,
+} from '../../pages/dashboard/lib/aio-chapters';
 import { useExportStore } from '../../pages/dashboard/stores/export-store';
 import { useRegionEditorStore } from '../../pages/dashboard/stores/region-editor-store';
 import { useCleanerStore } from '../../pages/dashboard/stores/cleaner-store';
@@ -68,6 +77,7 @@ interface DashboardLeftSidebarProps {
   rotateImage: (imageId: string) => void;
   moveImage: (index: number, direction: 'up' | 'down') => void;
   removeImage: (imageId: string) => void;
+  chapterSelection: SidebarChapterSelection;
 }
 
 interface SidebarImageItemProps {
@@ -79,6 +89,9 @@ interface SidebarImageItemProps {
   canForward: boolean;
   processing: boolean;
   isAioMode: boolean;
+  selectionMode: boolean;
+  isSelected: boolean;
+  onToggleSelection: (imageId: string) => void;
   getRotatedDims: (image: LoadedImage) => { width: number; height: number };
   setActiveId: (id: string | null) => void;
   rotateImage: (imageId: string) => void;
@@ -98,6 +111,9 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   canForward,
   processing,
   isAioMode,
+  selectionMode,
+  isSelected,
+  onToggleSelection,
   getRotatedDims,
   setActiveId,
   rotateImage,
@@ -110,12 +126,28 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   const rotated = getRotatedDims(img);
   return (
     <li
-      onClick={() => setActiveId(img.id)}
+      onClick={() =>
+        selectionMode ? onToggleSelection(img.id) : setActiveId(img.id)
+      }
       className={cn(
         'koma-fileitem',
         isActive && 'koma-fileitem--active',
+        selectionMode && isSelected && 'ring-1 ring-inset ring-[var(--auth-purple)]',
       )}
     >
+      {selectionMode && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border',
+            isSelected
+              ? 'border-transparent bg-[var(--auth-purple)] text-white'
+              : 'border-current opacity-40',
+          )}
+        >
+          {isSelected && <Check size={11} />}
+        </span>
+      )}
       <div className="koma-fileitem__thumb">
         <img src={img.thumbnailUrl ?? img.url} alt="thumb" loading="lazy" decoding="async" style={{ contain: "content" }} />
       </div>
@@ -127,7 +159,12 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
           {rotated.width}x{rotated.height}
         </p>
       </div>
-      <div className="koma-fileitem__actions">
+      <div
+        className={cn(
+          'koma-fileitem__actions',
+          selectionMode && 'hidden',
+        )}
+      >
         {isAioMode && (
           <>
             <button
@@ -242,9 +279,49 @@ export default function DashboardLeftSidebarClassic({
   rotateImage,
   moveImage,
   removeImage,
+  chapterSelection,
 }: DashboardLeftSidebarProps) {
   const { t } = useI18n();
   const statsItems = [processingStats.daily, processingStats.weekly, processingStats.monthly];
+  const chapterGroups = React.useMemo(
+    () => groupImagesIntoAioChapters(images),
+    [images],
+  );
+  const hasChapters = chapterGroups.some(
+    (group) => group.id !== DIRECT_IMAGES_CHAPTER_ID,
+  );
+  const imageIndexById = React.useMemo(
+    () => new Map(images.map((image, index) => [image.id, index])),
+    [images],
+  );
+  const renderImageItem = (img: LoadedImage) => {
+    const imageHistoryMeta = getAioImageSnapshotMeta(img.id);
+
+    return (
+      <SidebarImageItem
+        key={img.id}
+        img={img}
+        idx={imageIndexById.get(img.id) ?? 0}
+        count={images.length}
+        isActive={activeId === img.id}
+        canRewind={imageHistoryMeta.canRewind}
+        canForward={imageHistoryMeta.canForward}
+        processing={processing}
+        isAioMode={mode === 'aio'}
+        selectionMode={chapterSelection.active}
+        isSelected={chapterSelection.selectedIds.has(img.id)}
+        onToggleSelection={chapterSelection.toggleImage}
+        getRotatedDims={getRotatedDims}
+        setActiveId={setActiveId}
+        rotateImage={rotateImage}
+        moveImage={moveImage}
+        removeImage={removeImage}
+        rewindAioPipelineForImage={rewindAioPipelineForImage}
+        forwardAioPipelineForImage={forwardAioPipelineForImage}
+        t={t}
+      />
+    );
+  };
 
   const formatResetCountdown = (resetInMs: number): string => {
     const totalMinutes = Math.max(0, Math.ceil(resetInMs / 60_000));
@@ -365,31 +442,51 @@ export default function DashboardLeftSidebarClassic({
         <div className="koma-files__header">
           <span>{t('dashboard.sidebar.files', { count: images.length })}</span>
           {images.length > 0 && (
-            <button
-              type="button"
-              className="koma-iconbtn koma-iconbtn--danger koma-iconbtn--xs"
-              title={t('dashboard.sidebar.clearAll')}
-              onClick={() => {
-                const { downloadItems, setDownloadItems } =
-                  useExportStore.getState();
-                images.forEach((img) => { URL.revokeObjectURL(img.url); if (img.thumbnailUrl?.startsWith("blob:")) URL.revokeObjectURL(img.thumbnailUrl); });
-                downloadItems.forEach((item) =>
-                  URL.revokeObjectURL(item.previewUrl),
-                );
-                setImages([]);
-                setActiveId(null);
-                setDownloadItems([]);
-                useRegionEditorStore.getState().clearAioRegionMaps();
-                useCleanerStore.getState().clearCleanerPerImageMaps();
-                useTranslatorStore.getState().clearTranslatorPerImageMaps();
-                invalidateAioPipelineHistory();
-                setStatusMessage(t('dashboard.sidebar.cleared'));
-              }}
-            >
-              <Trash2 size={13} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className={cn(
+                  'koma-iconbtn koma-iconbtn--xs',
+                  chapterSelection.active && 'text-[var(--auth-purple)]',
+                )}
+                title={t('dashboard.sidebar.selection.toggle')}
+                aria-label={t('dashboard.sidebar.selection.toggle')}
+                aria-pressed={chapterSelection.active}
+                disabled={chapterSelection.disabled}
+                onClick={chapterSelection.toggleMode}
+              >
+                <ListChecks size={13} />
+              </button>
+              <button
+                type="button"
+                className="koma-iconbtn koma-iconbtn--danger koma-iconbtn--xs"
+                title={t('dashboard.sidebar.clearAll')}
+                onClick={() => {
+                  const { downloadItems, setDownloadItems } =
+                    useExportStore.getState();
+                  images.forEach((img) => { URL.revokeObjectURL(img.url); if (img.thumbnailUrl?.startsWith("blob:")) URL.revokeObjectURL(img.thumbnailUrl); });
+                  downloadItems.forEach((item) =>
+                    URL.revokeObjectURL(item.previewUrl),
+                  );
+                  setImages([]);
+                  setActiveId(null);
+                  setDownloadItems([]);
+                  useRegionEditorStore.getState().clearAioRegionMaps();
+                  useCleanerStore.getState().clearCleanerPerImageMaps();
+                  useTranslatorStore.getState().clearTranslatorPerImageMaps();
+                  invalidateAioPipelineHistory();
+                  setStatusMessage(t('dashboard.sidebar.cleared'));
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
           )}
         </div>
+
+        {chapterSelection.active && (
+          <SidebarChapterSelectionBar selection={chapterSelection} noir={false} />
+        )}
 
         <div className="koma-files__list custom-scrollbar">
           {images.length === 0 ? (
@@ -399,30 +496,29 @@ export default function DashboardLeftSidebarClassic({
             </div>
           ) : (
             <ul className="koma-filelist">
-              {images.map((img, idx) => {
-                const imageHistoryMeta = getAioImageSnapshotMeta(img.id);
-                return (
-                  <SidebarImageItem
-                    key={img.id}
-                    img={img}
-                    idx={idx}
-                    count={images.length}
-                    isActive={activeId === img.id}
-                    canRewind={imageHistoryMeta.canRewind}
-                    canForward={imageHistoryMeta.canForward}
-                    processing={processing}
-                    isAioMode={mode === 'aio'}
-                    getRotatedDims={getRotatedDims}
-                    setActiveId={setActiveId}
-                    rotateImage={rotateImage}
-                    moveImage={moveImage}
-                    removeImage={removeImage}
-                    rewindAioPipelineForImage={rewindAioPipelineForImage}
-                    forwardAioPipelineForImage={forwardAioPipelineForImage}
-                    t={t}
-                  />
-                );
-              })}
+              {hasChapters
+                ? chapterGroups.map((group) => (
+                    <React.Fragment key={group.id}>
+                      <li>
+                        <SidebarChapterHeader
+                          chapterId={
+                            group.id === DIRECT_IMAGES_CHAPTER_ID
+                              ? null
+                              : group.id
+                          }
+                          label={
+                            group.id === DIRECT_IMAGES_CHAPTER_ID
+                              ? t('dashboard.sidebar.chapters.unassigned')
+                              : group.label
+                          }
+                          count={group.images.length}
+                          noir={false}
+                        />
+                      </li>
+                      {group.images.map(renderImageItem)}
+                    </React.Fragment>
+                  ))
+                : images.map(renderImageItem)}
             </ul>
           )}
         </div>

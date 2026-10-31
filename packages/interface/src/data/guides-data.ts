@@ -625,7 +625,7 @@ export const GUIDES: GuideEntry[] = normalizeGuides([
     id: 'auto-batch',
     category: 'automation',
     title: 'Batch Processing',
-    subtitle: 'Automate multiple chapters at once.',
+    subtitle: 'Queue chapters one after another.',
     icon: Repeat,
     accentColor: 'rose',
     difficulty: 'advanced',
@@ -637,20 +637,30 @@ export const GUIDES: GuideEntry[] = normalizeGuides([
         title: 'Batch Processing',
         steps: [
           {
-            title: 'Setting up a batch',
+            title: 'What a chapter is',
             content:
-              'Drag several folders (one per chapter) into KOMA. In AIO mode, enable "Batch Mode" in the controls panel. The system processes each chapter in sequence.',
+              'A chapter is a group of images, not a folder on disk. Every archive you open (.cbz, .zip, .cb7, .pdf, .psd) becomes one chapter, and every folder you drag into KOMA becomes one chapter. Images added on their own share a single chapter.',
+          },
+          {
+            title: 'Grouping loose images',
+            content:
+              'Click the checklist icon in the Files header, tick the pages that belong together, then choose Create chapter and name it. Clear chapter removes the grouping from the selected pages.',
+          },
+          {
+            title: 'Running the queue',
+            content:
+              'In AIO automatic, enable Batch Mode in the controls panel and run AIO. Chapters run one at a time in the order shown. The thread control in the topbar still sets how many pages run in parallel inside each chapter.',
           },
           {
             title: 'Per-chapter presets',
             content:
-              'You can assign a different preset to each chapter in the queue. Useful when different series need different settings.',
-            tip: 'For long series with a consistent style, apply the same preset to every chapter for consistency.',
+              'Pick a different preset for each chapter in the Batch Mode list. Useful when different series need different settings.',
+            tip: 'For a long series with a consistent style, use the same preset for every chapter.',
           },
           {
             title: 'Monitoring',
             content:
-              'The progress bar shows the current stage, the current chapter and the estimated time remaining. Detailed logs live in Settings > Logs.',
+              'The footer shows the current chapter and an estimated time remaining; the status line shows the stage, the batch and the page being processed.',
           },
         ],
       },
