@@ -119,6 +119,31 @@ def _repeated_words(text: str, min_length: int) -> set[str]:
     return {w for w, n in counts.items() if n >= 2 and len(w) >= min_length}
 
 
+def _echo_signal(source: str, target: str) -> tuple[str, int] | None:
+    """The echoed content word and how many times it appears in the target."""
+    if not target or source == target:
+        return None
+    if _repeated_words(_expand_en_contractions(source), 2):
+        return None
+    counts = Counter(w.casefold() for w in _WORD_RE.findall(target))
+    repeated = {w for w, n in counts.items() if n >= 2 and len(w) >= 3}
+    content = {w for w in repeated if _strip_accents(w) not in _FUNCTION_WORDS}
+    if content:
+        word = min(content)
+        return word, counts[word]
+    # Degenerate echo: the repeated word is the target's only >= 3-letter word
+    # ("No." -> "Não. Não.") — reported so the collapse can cure it.
+    forms = Counter(
+        _strip_accents(w.casefold())
+        for w in _WORD_RE.findall(target)
+        if len(w) >= 3
+    )
+    if len(forms) == 1 and next(iter(forms.values())) >= 2:
+        word = next(iter(forms))
+        return word, forms[word]
+    return None
+
+
 def repeated_word_echo(source: str, target: str) -> str | None:
     """A content word (>= 3 letters) repeated >= 2x in the target while the
     source repeats nothing — the model-echo signature on short UI strings.
@@ -128,22 +153,8 @@ def repeated_word_echo(source: str, target: str) -> str | None:
     grammar; and the degenerate all-echo target (the repeated word is the
     only >= 3-letter word) is still reported so the collapse can cure it.
     """
-    if not target or source == target:
-        return None
-    if _repeated_words(_expand_en_contractions(source), 2):
-        return None
-    repeated = _repeated_words(target, 3)
-    content = {w for w in repeated if _strip_accents(w) not in _FUNCTION_WORDS}
-    if content:
-        return min(content)
-    forms = Counter(
-        _strip_accents(w.casefold())
-        for w in _WORD_RE.findall(target)
-        if len(w) >= 3
-    )
-    if len(forms) == 1 and next(iter(forms.values())) >= 2:
-        return next(iter(forms))
-    return None
+    signal = _echo_signal(source, target)
+    return signal[0] if signal is not None else None
 
 
 def foreign_residue(target: str, target_language: str) -> str | None:
@@ -267,9 +278,14 @@ def _render(target: str, spans: Sequence[tuple[int, int]], keep: list[int]) -> s
 
 def repair_echo(source: str, target: str, target_language: str) -> str | None:
     """Echo-free candidate for (source, target), or None when no repair is
-    trustworthy. R1 then R2; the candidate must be non-empty, differ from the
-    source, and re-run clean on the empty/residue/repetition detectors."""
-    if repeated_word_echo(source, target) is None:
+    trustworthy. A word repeated exactly twice can be honest PT-BR emphatic
+    reduplication ("Devagar devagar", "Nunca, nunca") — those are flagged,
+    never rewritten; only a >= 3x repetition is structural echo and may adopt
+    R1 (exact X+X half-split) then R2 (adjacent collapse). The candidate must
+    be non-empty, differ from the source, and re-run clean on the
+    empty/residue/repetition detectors."""
+    signal = _echo_signal(source, target)
+    if signal is None or signal[1] < 3:
         return None
     spans = [m.span() for m in _NON_SPACE_RE.finditer(target)]
     if not spans:

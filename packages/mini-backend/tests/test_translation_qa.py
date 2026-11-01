@@ -47,24 +47,23 @@ def _qa(
 
 
 class EchoCollapseTests(unittest.TestCase):
-    def test_r1_collapses_exact_doubled_halves(self) -> None:
+    def test_whole_phrase_doubling_at_count_two_is_flagged(self) -> None:
+        """R1's exact X+X structure with every word at count 2 is exactly the
+        emphatic-reduplication shape — flagged for review, never rewritten."""
         outcome = _qa("ブラック猫", "BLACK CAT BLACK CAT")
-        self.assertTrue(outcome.repaired)
-        self.assertEqual(outcome.text, "BLACK CAT")
-        self.assertEqual(
-            outcome.notes, ("NT: Eco do modelo reparado (colapso de duplicatas)",)
-        )
-        self.assertNotIn("repeated_word", outcome.flags)
+        self.assertFalse(outcome.repaired)
+        self.assertEqual(outcome.text, "BLACK CAT BLACK CAT")
+        self.assertIn("repeated_word", outcome.flags)
 
     def test_r2_collapses_adjacent_duplicates(self) -> None:
-        outcome = _qa("システム", "O SISTEMA SISTEMA")
+        outcome = _qa("システム", "O SISTEMA SISTEMA SISTEMA")
         self.assertTrue(outcome.repaired)
         self.assertEqual(outcome.text, "O SISTEMA")
 
     def test_repair_rejected_when_candidate_still_echoes(self) -> None:
-        outcome = _qa("テスト", "ALPHA BETA ALPHA BETA ALPHA BETA")
+        outcome = _qa("テスト", "ALPHA ALPHA BETA ALPHA ALPHA BETA")
         self.assertFalse(outcome.repaired)
-        self.assertEqual(outcome.text, "ALPHA BETA ALPHA BETA ALPHA BETA")
+        self.assertEqual(outcome.text, "ALPHA ALPHA BETA ALPHA ALPHA BETA")
         self.assertIn("repeated_word", outcome.flags)
         self.assertIn("NT: ", outcome.notes[0])
 
@@ -78,10 +77,25 @@ class EchoCollapseTests(unittest.TestCase):
         outcome = _qa("No, I'm not very hungry.", "Não, não estou com muita fome.")
         self.assertNotIn("repeated_word", outcome.flags)
 
-    def test_degenerate_single_word_repetition_is_repaired(self) -> None:
+    def test_degenerate_single_word_repetition_is_flagged(self) -> None:
         outcome = _qa("No.", "Não. Não.")
+        self.assertFalse(outcome.repaired)
+        self.assertEqual(outcome.text, "Não. Não.")
+        self.assertIn("repeated_word", outcome.flags)
+
+    def test_double_repetition_is_flagged_not_repaired(self) -> None:
+        """PT-BR emphatic reduplication ("Devagar devagar", "Nunca, nunca")
+        is honest: flagged for review, never rewritten."""
+        for target in ("Devagar devagar", "Nunca, nunca"):
+            outcome = _qa("Vá com calma", target)
+            self.assertFalse(outcome.repaired, target)
+            self.assertEqual(outcome.text, target, target)
+            self.assertIn("repeated_word", outcome.flags, target)
+
+    def test_triple_repetition_is_repaired(self) -> None:
+        outcome = _qa("はい", "SIM SIM SIM")
         self.assertTrue(outcome.repaired)
-        self.assertEqual(outcome.text, "Não.")
+        self.assertEqual(outcome.text, "SIM")
         self.assertNotIn("repeated_word", outcome.flags)
 
 

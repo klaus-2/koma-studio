@@ -758,12 +758,13 @@ async def run_cached_translation(
                     glossary_missing(item.source_text, outcome.text, settings.glossary)
                 )
             # TM writes are ALWAYS on outside SFX (D2) — only the reads are
-            # toggle-gated. Echo-repaired results and results identical to
-            # their source (direct text comparison) never enter the memory.
+            # toggle-gated. Echo-REPAIRED results never enter the memory (the
+            # collapse already rewrote them); a merely flagged echo does not
+            # exclude a translation. Identical-to-source is a direct text
+            # comparison, deliberately not the heuristic detector verdict.
             if (
                 not sfx_mode
                 and not outcome.repaired
-                and "repeated_word" not in outcome.flags
                 and outcome.text.strip()
                 and normalize_source_text(item.source_text)
                 != normalize_source_text(outcome.text)

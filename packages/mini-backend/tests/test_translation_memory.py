@@ -205,22 +205,27 @@ class TranslationMemoryStageTests(unittest.TestCase):
         )
 
     def test_echo_repaired_results_are_never_written(self) -> None:
-        engine = _FakeEngine("fake", translated_text="SIM SIM")
+        engine = _FakeEngine("fake", translated_text="SIM SIM SIM")
         settings = clamp_llm_request_settings({})
 
         _run(_request(settings=settings, text="はい"), engine, self.store)
 
         self.assertEqual(self.store.lookup_tm([(tm_key("はい"), "ja", "en")]), {})
 
-    def test_echo_flagged_results_are_never_written(self) -> None:
-        engine = _FakeEngine(
-            "fake", translated_text="ALPHA BETA ALPHA BETA ALPHA BETA"
-        )
+    def test_echo_flagged_results_are_still_written(self) -> None:
+        """A merely flagged (unrepairable) echo does not exclude a
+        translation from the memory — only REPAIRED results do."""
+        flagged = "ALPHA ALPHA BETA ALPHA ALPHA BETA"
+        engine = _FakeEngine("fake", translated_text=flagged)
         settings = clamp_llm_request_settings({})
 
         _run(_request(settings=settings, text="テスト"), engine, self.store)
 
-        self.assertEqual(self.store.lookup_tm([(tm_key("テスト"), "ja", "en")]), {})
+        entry = self.store.lookup_tm([(tm_key("テスト"), "ja", "en")]).get(
+            (tm_key("テスト"), "ja", "en")
+        )
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.translation, flagged)
 
     def test_local_tm_hit_missing_protected_term_is_discarded(self) -> None:
         settings = clamp_llm_request_settings(
