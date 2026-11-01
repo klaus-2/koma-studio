@@ -146,6 +146,59 @@ describe('AioBatchModePanel', () => {
     ).toEqual({ 'archive:b.cbz': 'preset-1' });
   });
 
+  it('keeps sibling chapter selects intact when assigning to one chapter', async () => {
+    const user = userEvent.setup();
+    useAioPipelineStore.setState({ batchModeEnabled: true });
+    renderPanel();
+
+    await act(async () => {
+      await user.selectOptions(
+        screen.getByLabelText('Preset for b.cbz'),
+        'preset-1',
+      );
+    });
+
+    const bSelect = screen.getByLabelText(
+      'Preset for b.cbz',
+    ) as HTMLSelectElement;
+    const aSelect = screen.getByLabelText(
+      'Preset for a.cbz',
+    ) as HTMLSelectElement;
+
+    expect(bSelect.value).toBe('preset-1');
+    expect(aSelect.value).toBe('');
+
+    await act(async () => {
+      await user.selectOptions(aSelect, '');
+    });
+
+    expect(
+      useAioPipelineStore.getState().batchChapterPresetByChapterId,
+    ).toEqual({ 'archive:b.cbz': 'preset-1' });
+  });
+
+  it('clears a chapter assignment when picking the follow-setup option', async () => {
+    const user = userEvent.setup();
+    useAioPipelineStore.setState({
+      batchModeEnabled: true,
+      batchChapterPresetByChapterId: { 'archive:a.cbz': 'preset-1' },
+    });
+    renderPanel();
+
+    const aSelect = screen.getByLabelText(
+      'Preset for a.cbz',
+    ) as HTMLSelectElement;
+    expect(aSelect.value).toBe('preset-1');
+
+    await act(async () => {
+      await user.selectOptions(aSelect, '');
+    });
+
+    expect(
+      useAioPipelineStore.getState().batchChapterPresetByChapterId,
+    ).toEqual({});
+  });
+
   it('disables the controls while an AIO run owns the shell', () => {
     useAioPipelineStore.setState({ batchModeEnabled: true });
     useUiShellStore.setState({ processing: true });

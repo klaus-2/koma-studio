@@ -1,9 +1,10 @@
-import { memo, useMemo } from 'react';
+import { useCallback, memo, useMemo } from 'react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 
 import { useI18n } from '../../i18n';
 import { isChapterPresetRunnable } from '@/pages/dashboard/lib/aio-chapter-options';
 import { groupImagesIntoAioChapters } from '@/pages/dashboard/lib/aio-chapters';
+import type { AioChapterGroup } from '@/pages/dashboard/lib/aio-chapters';
 import {
   AioChecklistOption,
   aioPanelClasses,
@@ -16,6 +17,7 @@ import {
   isCloudTranslationModelKey,
 } from '@/utils/customLlm';
 import { cn, normalizePresetLanguage } from '@/utils/dashboard.utils';
+import type { AioLanguageModelPreset } from '@/types/aioModelPresets';
 
 /**
  * Batch Mode switch and the per-chapter preset queue. Reads the collection and
@@ -56,6 +58,23 @@ export default memo(function AioBatchModePanel() {
         isChapterPresetRunnable(preset, stageOptions),
     );
   }, [presetState.presets, sourceLanguage, stageOptions]);
+
+  const assignChapterPreset = useCallback(
+    (chapterId: string, presetId: string) => {
+      setAssignmentByChapterId((previous) => {
+        const next = { ...previous };
+
+        if (presetId) {
+          next[chapterId] = presetId;
+        } else {
+          delete next[chapterId];
+        }
+
+        return next;
+      });
+    },
+    [setAssignmentByChapterId],
+  );
 
   const usesCloudPipeline =
     (aioSteps.recognizeText && isCloudOcrModelKey(selection.recognizeText)) ||
@@ -99,48 +118,73 @@ export default memo(function AioBatchModePanel() {
                 : '';
 
               return (
-                <li key={chapter.id} className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-[10px]">
-                    {index + 1}. {chapter.label} ({chapter.images.length})
-                  </span>
-                  <select
-                    value={selectedPresetId}
-                    disabled={disabled}
-                    aria-label={t('dashboard.batchMode.chapterAria', {
-                      chapter: chapter.label,
-                    })}
-                    onChange={(event) => {
-                      const presetId = event.target.value;
-
-                      setAssignmentByChapterId((previous) => {
-                        const next = { ...previous };
-
-                        if (presetId) {
-                          next[chapter.id] = presetId;
-                        } else {
-                          delete next[chapter.id];
-                        }
-
-                        return next;
-                      });
-                    }}
-                    className={cn(skin.select, 'max-w-[140px]')}
-                  >
-                    <option value="">
-                      {t('dashboard.batchMode.followSetup')}
-                    </option>
-                    {usablePresets.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.name}
-                      </option>
-                    ))}
-                  </select>
-                </li>
+                <ChapterPresetRow
+                  key={chapter.id}
+                  chapter={chapter}
+                  index={index}
+                  selectedPresetId={selectedPresetId}
+                  usablePresets={usablePresets}
+                  disabled={disabled}
+                  onAssignPreset={assignChapterPreset}
+                  selectClass={skin.select}
+                />
               );
             })}
           </ul>
         </div>
       ) : null}
     </section>
+  );
+});
+
+// A chapter's own select change must not re-render the sibling rows, so each
+// row keeps its props primitive and re-renders only when they actually change.
+interface ChapterPresetRowProps {
+  chapter: AioChapterGroup;
+  index: number;
+  selectedPresetId: string;
+  usablePresets: readonly AioLanguageModelPreset[];
+  disabled: boolean;
+  onAssignPreset: (chapterId: string, presetId: string) => void;
+  selectClass: string;
+}
+
+const ChapterPresetRow = memo(function ChapterPresetRow({
+  chapter,
+  index,
+  selectedPresetId,
+  usablePresets,
+  disabled,
+  onAssignPreset,
+  selectClass,
+}: ChapterPresetRowProps) {
+  const { t } = useI18n();
+
+  return (
+    <li className="flex items-center gap-2">
+      <span className="min-w-0 flex-1 truncate text-[10px]">
+        {index + 1}. {chapter.label} ({chapter.images.length})
+      </span>
+      <select
+        value={selectedPresetId}
+        disabled={disabled}
+        aria-label={t('dashboard.batchMode.chapterAria', {
+          chapter: chapter.label,
+        })}
+        onChange={(event) => {
+          onAssignPreset(chapter.id, event.target.value);
+        }}
+        className={cn(selectClass, 'max-w-[140px]')}
+      >
+        <option value="">
+          {t('dashboard.batchMode.followSetup')}
+        </option>
+        {usablePresets.map((preset) => (
+          <option key={preset.id} value={preset.id}>
+            {preset.name}
+          </option>
+        ))}
+      </select>
+    </li>
   );
 });
