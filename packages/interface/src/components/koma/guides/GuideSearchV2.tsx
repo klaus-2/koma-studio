@@ -662,11 +662,13 @@ export default function GuideSearchV2({
                           ? `${styles.border} ${styles.background} translate-x-1 ${styles.shadow}`
                           : 'border-transparent bg-paper/[0.018] hover:border-paper/12 hover:bg-paper/[0.035]',
                       ].join(' ')}
-                      onMouseMove={() =>
-                        setSelectedIdx(
-                          index,
-                        )
-                      }
+                      onMouseMove={() => {
+                        // setState with an unchanged value still schedules a
+                        // render pass, so skip it while hovering the selection.
+                        if (index !== selectedIdx) {
+                          setSelectedIdx(index);
+                        }
+                      }}
                       onClick={() =>
                         selectResult(
                           result,

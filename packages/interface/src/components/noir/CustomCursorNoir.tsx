@@ -10,6 +10,10 @@ const TEXT_SELECTOR =
 
 const GRAB_SELECTOR = ".koma-range, input[type='range']";
 
+// Pointer capability cannot change mid-session — match once instead of on every render.
+const IS_TOUCH_DEVICE =
+  typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+
 export const CustomCursorNoir = () => {
   const dotRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef({ x: -100, y: -100 });
@@ -21,9 +25,6 @@ export const CustomCursorNoir = () => {
   const [variant, setVariant] = useState<CursorVariant>("default");
   const [visible, setVisible] = useState(false);
   const [clicking, setClicking] = useState(false);
-
-  const isTouchDevice =
-    typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 
   const detectVariant = useCallback((target: EventTarget | null): CursorVariant => {
     if (!target || !(target instanceof HTMLElement)) {
@@ -67,7 +68,8 @@ export const CustomCursorNoir = () => {
         return;
       }
 
-      pointerRef.current = { x: event.clientX, y: event.clientY };
+      pointerRef.current.x = event.clientX;
+      pointerRef.current.y = event.clientY;
       scheduleDotPosition();
 
       if (!visibleRef.current) {
@@ -114,7 +116,7 @@ export const CustomCursorNoir = () => {
   }, []);
 
   useEffect(() => {
-    if (isTouchDevice) {
+    if (IS_TOUCH_DEVICE) {
       return;
     }
 
@@ -133,16 +135,16 @@ export const CustomCursorNoir = () => {
       document.removeEventListener("mouseleave", onPointerLeave);
       window.removeEventListener("blur", onPointerLeave);
     };
-  }, [isTouchDevice, onPointerDown, onPointerEnter, onPointerLeave, onPointerMove, onPointerUp]);
+  }, [IS_TOUCH_DEVICE, onPointerDown, onPointerEnter, onPointerLeave, onPointerMove, onPointerUp]);
 
   useEffect(() => {
-    if (isTouchDevice) {
+    if (IS_TOUCH_DEVICE) {
       return;
     }
 
     document.documentElement.classList.add("koma-custom-cursor-active");
     return () => document.documentElement.classList.remove("koma-custom-cursor-active");
-  }, [isTouchDevice]);
+  }, [IS_TOUCH_DEVICE]);
 
   useEffect(() => {
     return () => {
@@ -152,7 +154,7 @@ export const CustomCursorNoir = () => {
     };
   }, []);
 
-  if (isTouchDevice) {
+  if (IS_TOUCH_DEVICE) {
     return null;
   }
 
