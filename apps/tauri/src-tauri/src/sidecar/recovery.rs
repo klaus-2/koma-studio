@@ -24,6 +24,7 @@ use std::{
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_shell::process::CommandChild;
 
+use super::failure_report::describe_failure;
 use super::mini_backend::{start_mini_backend, stop_mini_backend};
 use crate::runtime::profiles::{
     patch_runtime_state, MiniBackendRuntimePatch, MiniBackendRuntimeStore,
@@ -32,7 +33,7 @@ use crate::runtime::profiles::{
 /// Bounded restart budget and health/reset timing for the supervisor.
 const RESTART_BACKOFF_BASE_MILLIS: u64 = 250;
 const RESTART_BACKOFF_MAX_MILLIS: u64 = 30_000;
-const RESTART_MAX_ATTEMPTS: u32 = 5;
+pub(crate) const RESTART_MAX_ATTEMPTS: u32 = 5;
 const RESTART_HEALTHY_RESET_MS: u64 = 60_000;
 const CRASH_LOOP_WINDOW_MS: u64 = 120_000;
 const CRASH_LOOP_PRE_HEALTH_EXITS: usize = 3;
@@ -621,29 +622,19 @@ pub(crate) fn fold_sidecar_failure<R: Runtime + 'static>(
     let tail = sidecar_store.stderr_tail();
     drop(sidecar_store);
 
-    let crash_log_path = write_crash_log(app, trigger, &tail);
     let cause = trigger.label();
-    let (status, attempt, message, retry_after) = match decision {
-        RestartDecision::Restart { attempt, delay } => (
-            "crashed",
-            attempt,
-            format!("Local backend {cause}; restart attempt {attempt} of {RESTART_MAX_ATTEMPTS}."),
-            Some(delay),
-        ),
-        RestartDecision::Stop { reason, attempt } => (
-            if reason == RestartStopReason::SpawnError {
-                "error"
-            } else {
-                "crashed"
-            },
-            attempt,
-            format!(
-                "Local backend {cause}; automatic recovery stopped ({}).",
-                reason.as_str()
-            ),
-            None,
-        ),
+    let report = describe_failure(&decision, &cause);
+    let attempt = match &decision {
+        RestartDecision::Restart { attempt, .. } | RestartDecision::Stop { attempt, .. } => *attempt,
     };
+    // Only a real crash gets a post-mortem file.
+    let crash_log_path = if report.expected_stop {
+        None
+    } else {
+        write_crash_log(app, trigger, &tail)
+    };
+    let (status, message, retry_after) = (report.status, report.message, report.retry_after);
+
     log::error!(
         "mini-backend {cause}; recovery attempt {attempt}/{RESTART_MAX_ATTEMPTS}{}",
         crash_log_path
@@ -659,10 +650,19 @@ pub(crate) fn fold_sidecar_failure<R: Runtime + 'static>(
         MiniBackendRuntimePatch {
             status: Some(status.to_string()),
             status_message: Some(Some(message)),
-            last_error: Some(Some(trigger.error_code())),
+            // A deliberate stop is not an error and has no exit code to show.
+            last_error: Some(if report.expected_stop {
+                None
+            } else {
+                Some(trigger.error_code())
+            }),
             attempt: Some(attempt),
             max_attempts: Some(RESTART_MAX_ATTEMPTS),
-            exit_code: Some(trigger.exit_code()),
+            exit_code: Some(if report.expected_stop {
+                None
+            } else {
+                trigger.exit_code()
+            }),
             last_stderr: Some(if tail.is_empty() { None } else { Some(tail) }),
             crash_log_path: Some(crash_log_path),
             progress: Some(None),
