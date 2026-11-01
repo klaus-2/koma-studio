@@ -30,12 +30,12 @@ local_oid=$(git rev-parse "${tag}")
 pass "local and origin tags match"
 
 git fetch origin --quiet
-git merge-base --is-ancestor "${tag}^{196}" origin/main \
+git merge-base --is-ancestor "${tag}^{commit}" origin/main \
   || die "the tag commit is not on origin/main"
 pass "tag commit is on origin/main"
 
-info=$(gh release view "${tag}" --json name,isDraft,isPrerelease,targetOid \
-  -q '"GitHub release " + .name + " (draft=" + (.isDraft|tostring) + ", prerelease=" + (.isPrerelease|tostring) + ", target " + .targetOid[0:7] + ")"') \
+info=$(gh release view "${tag}" --json name,isDraft,isPrerelease,targetCommitish \
+  -q '"GitHub release " + .name + " (draft=" + (.isDraft|tostring) + ", prerelease=" + (.isPrerelease|tostring) + ", target " + .targetCommitish + ")"') \
   || die "GitHub release ${tag} not found or still a draft"
 pass "$info"
 
