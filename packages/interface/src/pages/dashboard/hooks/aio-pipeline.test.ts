@@ -453,6 +453,15 @@ describe('useAioPipelineExecution multi-chapter local run', () => {
       hasEta: boolean;
     }> = [];
 
+    // The ETA only appears once elapsedMs > 0; a fast CI box can run the
+    // whole batch inside one wall-clock millisecond, so pin the clock and
+    // advance it on every read.
+    let fakeNow = 1_700_000_000_000;
+    const dateNowSpy = vi.spyOn(Date, 'now').mockImplementation(() => {
+      fakeNow += 1;
+      return fakeNow;
+    });
+
     mockedChunks.mockImplementation(async (input) => {
       input.onChunkState?.({
         chunkNumber: 1,
@@ -486,6 +495,7 @@ describe('useAioPipelineExecution multi-chapter local run', () => {
       stageLabel: 'Translating text',
       hasEta: true,
     });
+    dateNowSpy.mockRestore();
   });
 
   it('runs one local batch per chapter, in order, and consolidates all results', async () => {
