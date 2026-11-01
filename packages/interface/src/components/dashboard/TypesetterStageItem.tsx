@@ -25,7 +25,6 @@ interface TypesetterStageItemProps {
   typographerMultiSelectedByImage: Record<string, string[]>;
   typographyPresetList: any[];
   viewMode: "long_strip" | "paginated";
-  zoom: number;
   onSelect: (id: string) => void;
   onSelectRegion: (imageId: string, regionId: string | null) => void;
   onSetTypographerSelectedRegionId: (imageId: string, regionId: string | null) => void;
@@ -62,7 +61,6 @@ export const TypesetterStageItem = memo(function TypesetterStageItem({
   typographerMultiSelectedByImage,
   typographyPresetList,
   viewMode,
-  zoom,
   onSelect,
   onSelectRegion,
   onSetTypographerSelectedRegionId,
@@ -84,7 +82,6 @@ export const TypesetterStageItem = memo(function TypesetterStageItem({
       label={`#${index + 1} — ${img.file.name}`}
       image={img as any}
       previewSrc={typesetterPreviewSrc}
-      zoom={zoom}
       viewMode={viewMode}
       active={resolvedActiveId === img.id}
       regions={aioDetectionsByImage[img.id] ?? EMPTY_REGIONS}

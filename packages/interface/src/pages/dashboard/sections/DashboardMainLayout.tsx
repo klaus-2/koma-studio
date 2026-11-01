@@ -714,8 +714,6 @@ export default memo(function DashboardMainLayout({
   const mode = useUiShellStore((s) => s.mode);
   const subMode = useUiShellStore((s) => s.subMode);
   const processing = useUiShellStore((s) => s.processing);
-  const zoom = useUiShellStore((s) => s.zoom);
-  const setZoom = useUiShellStore((s) => s.setZoom);
   const viewMode = useUiShellStore((s) => s.viewMode);
   const setViewMode = useUiShellStore((s) => s.setViewMode);
   const keyboardShortcutConfig = useUiShellStore(
@@ -932,8 +930,6 @@ export default memo(function DashboardMainLayout({
           translatorWorkspaceMode={
             mode === 'translator' ? translatorWorkspaceMode : null
           }
-          zoom={zoom}
-          onZoomChange={setZoom}
           batchThreads={batchThreads}
           onBatchThreadsChange={setBatchThreads}
           batchThreadsEnabled={batchThreadsEnabled}
@@ -1060,7 +1056,6 @@ export default memo(function DashboardMainLayout({
           mode={deferredStageMode}
           subMode={subMode}
           viewMode={viewMode}
-          zoom={zoom}
           images={images}
           setActiveId={setActiveId}
           inlineEditorShortcutRequestKey={inlineEditorShortcutRequestKey}

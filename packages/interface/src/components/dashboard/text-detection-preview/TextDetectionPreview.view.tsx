@@ -23,6 +23,7 @@ import {
 
 export interface TextDetectionPreviewViewProps extends TextDetectionPreviewProps {
   controller: TextDetectionPreviewController;
+  zoom: number;
 }
 
 const TextDetectionPreviewView = ({

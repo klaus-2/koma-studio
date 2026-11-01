@@ -1,12 +1,12 @@
 import { memo } from "react";
 import { cn } from "../../lib/utils";
 import type { LoadedImage } from "../../types/dashboard.types";
+import { useUiShellStore } from "@/pages/dashboard/stores/ui-shell-store";
 
 interface PreviewStageItemProps {
   img: LoadedImage;
   index: number;
   viewMode: "long_strip" | "paginated";
-  zoom: number;
   resolvedActiveId: string | null;
   onSelect: (id: string) => void;
   getPreviewSrc: (img: LoadedImage) => string;
@@ -16,11 +16,13 @@ export const PreviewStageItem = memo(function PreviewStageItem({
   img,
   index,
   viewMode,
-  zoom,
   resolvedActiveId,
   onSelect,
   getPreviewSrc,
 }: PreviewStageItemProps) {
+  // Zoom is a high-frequency store value: the preview leaf subscribes itself,
+  // so a Ctrl+wheel gesture re-renders this card without the stage section.
+  const zoom = useUiShellStore((s) => s.zoom);
   const baseMaxWidth = viewMode === "paginated" ? 420 : 960;
   const isSwapped = img.rotation === 90 || img.rotation === 270;
   const scaleFactor = isSwapped

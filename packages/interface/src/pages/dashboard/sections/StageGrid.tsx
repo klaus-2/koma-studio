@@ -97,7 +97,6 @@ export interface DashboardStageSectionProps {
   mode: UiShellState['mode'];
   subMode: UiShellState['subMode'];
   viewMode: UiShellState['viewMode'];
-  zoom: UiShellState['zoom'];
   inlineEditorShortcutRequestKey: UiShellState['inlineEditorShortcutRequestKey'];
 
   /* ── Region editing / manual tools callbacks ── */
@@ -168,7 +167,6 @@ export default function DashboardStageSection({
   mode,
   subMode,
   viewMode,
-  zoom,
   inlineEditorShortcutRequestKey,
   selectAioRegionForImage,
   updateAioRegionsForImage,
@@ -380,7 +378,6 @@ export default function DashboardStageSection({
     typographyPresetList,
     updateAioRegionsForImage,
     viewMode,
-    zoom,
     forwardAioPipelineForImage,
   });
 
@@ -416,7 +413,6 @@ export default function DashboardStageSection({
             label={`#${index + 1} — ${img.file.name}`}
             image={img}
             previewSrc={getPreviewSrc(img)}
-            zoom={zoom}
             viewMode={viewMode}
             active={resolvedActiveId === img.id}
             regions={aioDetectionsByImage[img.id] ?? EMPTY_REGIONS}
@@ -514,7 +510,6 @@ export default function DashboardStageSection({
           label={`#${index + 1} — ${img.file.name}`}
           image={img}
           previewSrc={getPreviewSrc(img)}
-          zoom={zoom}
           viewMode={viewMode}
           active={resolvedActiveId === img.id}
           regions={aioDetectionsByImage[img.id] ?? EMPTY_REGIONS}
@@ -749,7 +744,6 @@ export default function DashboardStageSection({
               typographerMultiSelectedByImage,
               typographyPresetList,
               viewMode,
-              zoom,
               onSelect: handleStageImageSelect,
               onSelectRegion: handleAioRegionSelect,
               onSetTypographerSelectedRegionId: handleTypographerRegionSelect,
@@ -795,7 +789,6 @@ export default function DashboardStageSection({
               inlineEditorShortcutRequestKey,
               textFillSwatches,
               viewMode,
-              zoom,
               onSelect: handleStageImageSelect,
               onSelectRegion: handleCleanerRegionSelect,
               onRegionsChange: handleCleanerRegionsChange,
@@ -823,7 +816,6 @@ export default function DashboardStageSection({
               segmentBrushSize,
               translationNotesEnabled,
               viewMode,
-              zoom,
               getPreviewSrc,
               onSelect: handleStageImageSelect,
               onSelectRegion: handleTranslatorRegionSelect,
@@ -840,7 +832,6 @@ export default function DashboardStageSection({
             img,
             index,
             viewMode,
-            zoom,
             resolvedActiveId,
             onSelect: handleStageImageSelect,
             getPreviewSrc,
@@ -910,7 +901,6 @@ export default function DashboardStageSection({
       updateAioRegionsForImage,
       updateTranslatorRegionsForImage,
       viewMode,
-      zoom,
     ],
   );
 

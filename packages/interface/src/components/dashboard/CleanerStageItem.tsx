@@ -47,7 +47,6 @@ interface CleanerStageItemProps {
   inlineEditorShortcutRequestKey: string | null;
   textFillSwatches: any[];
   viewMode: "long_strip" | "paginated";
-  zoom: number;
   onSelect: (id: string) => void;
   onSelectRegion: (imageId: string, regionId: string | null) => void;
   onRegionsChange: (
@@ -87,7 +86,6 @@ export const CleanerStageItem = memo(function CleanerStageItem({
   inlineEditorShortcutRequestKey,
   textFillSwatches,
   viewMode,
-  zoom,
   onSelect,
   onSelectRegion,
   onRegionsChange,
@@ -114,7 +112,6 @@ export const CleanerStageItem = memo(function CleanerStageItem({
       label={`#${index + 1} — ${img.file.name}`}
       image={img as any}
       previewSrc={getPreviewSrc(img)}
-      zoom={zoom}
       viewMode={viewMode}
       active={resolvedActiveId === img.id}
       regions={cleanerDetectionsByImage[img.id] ?? EMPTY_REGIONS}

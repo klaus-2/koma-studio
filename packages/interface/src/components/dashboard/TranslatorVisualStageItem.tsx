@@ -21,7 +21,6 @@ interface TranslatorVisualStageItemProps {
   segmentBrushSize: number;
   translationNotesEnabled: boolean;
   viewMode: "long_strip" | "paginated";
-  zoom: number;
   getPreviewSrc: (img: LoadedImage) => string;
   onSelect: (id: string) => void;
   onSelectRegion: (imageId: string, regionId: string | null) => void;
@@ -43,7 +42,6 @@ export const TranslatorVisualStageItem = memo(function TranslatorVisualStageItem
   segmentBrushSize,
   translationNotesEnabled,
   viewMode,
-  zoom,
   getPreviewSrc,
   onSelect,
   onSelectRegion,
@@ -81,7 +79,6 @@ export const TranslatorVisualStageItem = memo(function TranslatorVisualStageItem
       label={`#${index + 1} — ${img.file.name}`}
       image={img as any}
       previewSrc={getPreviewSrc(img)}
-      zoom={zoom}
       viewMode={viewMode}
       active={resolvedActiveId === img.id}
       regions={translatorDetectionsByImage[img.id] ?? EMPTY_REGIONS}

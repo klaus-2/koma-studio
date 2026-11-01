@@ -33,6 +33,7 @@ import {
   TooltipProvider,
 } from "@koma/ui/components/tooltip";
 import { useI18n } from '../i18n';
+import { useUiShellStore } from './dashboard/stores/ui-shell-store';
 import { UNDER_DEVELOPMENT_TOOLTIP_KEY } from '../constants/dashboard.constants';
 import KomaMobileDrawerNoir from './koma-topbar/noir/KomaMobileDrawerNoir';
 import KomaNavGroupDropdownNoir from './koma-topbar/noir/KomaNavGroupDropdownNoir';
@@ -54,8 +55,6 @@ interface KomaTopbarProps {
   onModeChange: (mode: ToolMode) => void;
   forcedDropdown?: DropdownId;
   translatorWorkspaceMode?: 'text' | 'visual' | null;
-  zoom: number;
-  onZoomChange: (zoom: number) => void;
   batchThreads: number;
   onBatchThreadsChange: (threads: number) => void;
   batchThreadsEnabled: boolean;
@@ -285,14 +284,31 @@ function clampBatchThreads(v: number) {
   return clamp(Math.round(v), 1, MAX_BATCH_THREADS);
 }
 
+// Zoom lives in a dedicated subscriber so a Ctrl+wheel gesture re-renders
+// only this control cluster instead of the whole memoized topbar.
+function KomaZoomControls() {
+  const zoom = useUiShellStore((s) => s.zoom);
+  const setZoom = useUiShellStore((s) => s.setZoom);
+  const { t } = useI18n();
+  return (
+    <div className="panel-cut-sm flex items-center gap-0.5 bg-ink-3/70 px-1 py-0.5">
+      <IconBtn label={t('dashboard.topbar.zoomOut')} onClick={() => setZoom(clamp(zoom - ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}>
+        <ZoomOut size={12} />
+      </IconBtn>
+      <span className="min-w-[38px] text-center font-mono text-[11px] font-bold text-azure">{Math.round(zoom * 100)}%</span>
+      <IconBtn label={t('dashboard.topbar.zoomIn')} onClick={() => setZoom(clamp(zoom + ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}>
+        <ZoomIn size={12} />
+      </IconBtn>
+    </div>
+  );
+}
+
 const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
   const {
     mode,
     onModeChange,
     forcedDropdown = null,
     translatorWorkspaceMode = null,
-    zoom,
-    onZoomChange,
     batchThreads,
     onBatchThreadsChange,
     batchThreadsEnabled,
@@ -574,15 +590,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
         {/* ═══ RIGHT ACTION CLUSTER ═══ */}
         <div className="relative z-10 ml-auto flex flex-shrink-0 items-center gap-1.5">
           {/* Zoom */}
-          <div className="panel-cut-sm flex items-center gap-0.5 bg-ink-3/70 px-1 py-0.5">
-            <IconBtn label={t('dashboard.topbar.zoomOut')} onClick={() => onZoomChange(clamp(zoom - ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}>
-              <ZoomOut size={12} />
-            </IconBtn>
-            <span className="min-w-[38px] text-center font-mono text-[11px] font-bold text-azure">{Math.round(zoom * 100)}%</span>
-            <IconBtn label={t('dashboard.topbar.zoomIn')} onClick={() => onZoomChange(clamp(zoom + ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}>
-              <ZoomIn size={12} />
-            </IconBtn>
-          </div>
+          <KomaZoomControls />
 
           {/* Batch threads */}
           <div

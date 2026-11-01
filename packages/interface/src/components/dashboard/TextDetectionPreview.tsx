@@ -18,12 +18,12 @@ import {
 } from '../../utils/dashboard.utils';
 import { useTextDetectionPreviewBehaviors } from './text-detection-preview/TextDetectionPreview.behaviors';
 import TextDetectionPreviewView from './text-detection-preview/TextDetectionPreview.view';
+import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 
 export interface TextDetectionPreviewProps {
   label: string;
   image: LoadedImage;
   previewSrc: string;
-  zoom: number;
   viewMode: ViewMode;
   active: boolean;
   regions: AioTextRegion[];
@@ -63,12 +63,12 @@ export type TextDetectionPreviewController = ReturnType<
   canvasWrapW: number;
   canvasWrapH: number;
   isBrushCursorActive: boolean;
+  zoom: number;
 };
 
 export const useTextDetectionPreviewController = (
   {
     image,
-    zoom,
     viewMode,
     regions,
     selectedRegionId,
@@ -96,6 +96,10 @@ export const useTextDetectionPreviewController = (
   useEffect(() => {
     regionsRef.current = regions;
   });
+
+  // Zoom is subscribed here instead of forwarded as a prop, so a Ctrl+wheel
+  // gesture re-renders only this preview leaf and not the whole stage chain.
+  const zoom = useUiShellStore((s) => s.zoom);
 
   const imageMaxWidth = viewMode === 'paginated' ? 420 : 960;
   const isRotationSwapped = image.rotation === 90 || image.rotation === 270;
@@ -453,13 +457,14 @@ export const useTextDetectionPreviewController = (
     canvasWrapW,
     canvasWrapH,
     isBrushCursorActive,
+    zoom,
     ...behavior,
   };
 };
 
 const TextDetectionPreview = (props: TextDetectionPreviewProps) => {
   const controller = useTextDetectionPreviewController(props);
-  return <TextDetectionPreviewView {...props} controller={controller} />;
+  return <TextDetectionPreviewView {...props} zoom={controller.zoom} controller={controller} />;
 };
 
 function areEqual(
@@ -471,7 +476,6 @@ function areEqual(
     prev.selectedRegionId === next.selectedRegionId &&
     prev.image === next.image &&
     prev.previewSrc === next.previewSrc &&
-    prev.zoom === next.zoom &&
     prev.editable === next.editable &&
     prev.active === next.active &&
     prev.viewMode === next.viewMode &&

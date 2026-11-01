@@ -34,6 +34,7 @@ import {
   TooltipProvider,
 } from "@koma/ui/components/tooltip";
 import { useI18n } from '../i18n';
+import { useUiShellStore } from './dashboard/stores/ui-shell-store';
 import VersionBadge from '../components/VersionBadge';
 import { UNDER_DEVELOPMENT_TOOLTIP_KEY } from '../constants/dashboard.constants';
 import './KomaTopbar.css';
@@ -208,14 +209,41 @@ function clampBatchThreads(v: number) {
   return clamp(Math.round(v), 1, MAX_BATCH_THREADS);
 }
 
+// Zoom lives in a dedicated subscriber so a Ctrl+wheel gesture re-renders
+// only this control cluster instead of the whole memoized topbar.
+function KomaZoomControls() {
+  const zoom = useUiShellStore((s) => s.zoom);
+  const setZoom = useUiShellStore((s) => s.setZoom);
+  const { t } = useI18n();
+  return (
+    <div className="koma-zoomctl">
+      <button
+        type="button"
+        className="koma-zoomctl__btn"
+        onClick={() => setZoom(clamp(zoom - ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+        aria-label={t('dashboard.topbar.zoomOut')}
+      >
+        <ZoomOut size={12} />
+      </button>
+      <span className="koma-zoomctl__val">{Math.round(zoom * 100)}%</span>
+      <button
+        type="button"
+        className="koma-zoomctl__btn"
+        onClick={() => setZoom(clamp(zoom + ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+        aria-label={t('dashboard.topbar.zoomIn')}
+      >
+        <ZoomIn size={12} />
+      </button>
+    </div>
+  );
+}
+
 // ── Component Props ──
 interface KomaTopbarProps {
   mode: ToolMode;
   onModeChange: (mode: ToolMode) => void;
   forcedDropdown?: DropdownId;
   translatorWorkspaceMode?: 'text' | 'visual' | null;
-  zoom: number;
-  onZoomChange: (zoom: number) => void;
   batchThreads: number;
   onBatchThreadsChange: (threads: number) => void;
   batchThreadsEnabled: boolean;
@@ -311,8 +339,6 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
     onModeChange,
     forcedDropdown = null,
     translatorWorkspaceMode = null,
-    zoom,
-    onZoomChange,
     batchThreads,
     onBatchThreadsChange,
     batchThreadsEnabled,
@@ -653,31 +679,7 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
             )}
 
             {/* Zoom */}
-            <div className="koma-zoomctl">
-              <button
-                type="button"
-                className="koma-zoomctl__btn"
-                onClick={() =>
-                  onZoomChange(clamp(zoom - ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))
-                }
-                aria-label={t('dashboard.topbar.zoomOut')}
-              >
-                <ZoomOut size={12} />
-              </button>
-              <span className="koma-zoomctl__val">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                type="button"
-                className="koma-zoomctl__btn"
-                onClick={() =>
-                  onZoomChange(clamp(zoom + ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))
-                }
-                aria-label={t('dashboard.topbar.zoomIn')}
-              >
-                <ZoomIn size={12} />
-              </button>
-            </div>
+            <KomaZoomControls />
 
             {/* Batch Threads */}
             <div
