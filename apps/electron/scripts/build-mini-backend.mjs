@@ -30,6 +30,7 @@ import {
   readCachedHash,
   writeCachedHash,
 } from "./build-cache.mjs";
+import { REQUIRED_RUNTIME_DATA_FILES } from "./runtime-data-files.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -173,6 +174,52 @@ const ensureMiniVenv = () => {
   }
 
   run(`python3.12 -m venv "${venvPath}"`, "mini:venv");
+};
+
+/**
+ * Find a bundled file by its path suffix: the layout differs per platform.
+ */
+const findBundledFile = (root, suffix) => {
+  const stack = [root];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+        continue;
+      }
+      if (full.split(path.sep).join("/").endsWith(suffix)) {
+        return full;
+      }
+    }
+  }
+  return null;
+};
+
+/**
+ * Refuse to ship a bundle that misses a data file its loaders read at
+ * import time: the frozen app would die before serving anything.
+ */
+const assertRuntimeDataFiles = () => {
+  const missing = REQUIRED_RUNTIME_DATA_FILES.filter(
+    (suffix) => findBundledFile(distDir, suffix) === null,
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `the packaged backend is missing required data files: ${missing.join(", ")} — `
+        + "the frozen app would die on its first import",
+    );
+  }
+  console.log(
+    `[build:mini] runtime data files verified: ${REQUIRED_RUNTIME_DATA_FILES.join(", ")}`,
+  );
 };
 
 const writeLaunchManifest = (defaultProfile) => {
@@ -397,6 +444,7 @@ const main = async () => {
     fs.rmSync(stagingDir, { recursive: true, force: true });
   }
 
+  assertRuntimeDataFiles();
   writeLaunchManifest(profile);
   run("node scripts/cleanup-build-caches.mjs", "cleanup-build-caches");
 
