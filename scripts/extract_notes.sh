@@ -10,7 +10,7 @@ grep -qF "## [$version]" CHANGELOG.md \
   || { echo "CHANGELOG.md has no section for $version" >&2; exit 1; }
 
 awk -v ver="$version" '
-  $0 == "## [" ver "]" { print; found = 1; next }
+  index($0, "## [" ver "]") == 1 { print; found = 1; next }
   found && /^## \[/ { exit }
   found { print }
 ' CHANGELOG.md

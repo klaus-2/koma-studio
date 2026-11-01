@@ -8,6 +8,222 @@ Version headings carry no `v`; the git tags do.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-01
+
+170 commits since v1.2.0. AIO gains a batch mode that runs loaded chapters
+sequentially with per-chapter presets and an ETA, translation gained a
+glossary with never-translate masking, an opt-in translation memory and a
+persistent sqlite cache, and a series of render-performance passes stopped
+high-frequency dashboard ticks from re-rendering the page.
+
+### Added
+
+**AIO batch mode with editable chapters and an ETA.** Batch Mode owns the
+chapter flow: a sequential queue runs loaded chapters one after another over
+the local batch transport, with per-chapter options, failure isolation, abort
+handling and a single capacity preflight per queue, and progress is tracked
+per chapter and by ETA. The topbar control keeps the thread count and is
+labelled "Parallel".
+([`dd17d5a`](https://github.com/klaus-2/koma-studio/commit/dd17d5a),
+[`1f3eac1`](https://github.com/klaus-2/koma-studio/commit/1f3eac1),
+[`331ff9e`](https://github.com/klaus-2/koma-studio/commit/331ff9e),
+[`9a3ff14`](https://github.com/klaus-2/koma-studio/commit/9a3ff14))
+
+**Glossary terms reach local translation engines.** The new AIO glossary term
+editor feeds terms into llm request settings, the translation stage and the
+translation context prompt. Local-engine output runs a mandatory glossary
+post-check, and never-translate terms are masked by splitting the prose into
+runs the engines never see.
+([`c953be4`](https://github.com/klaus-2/koma-studio/commit/c953be4),
+[`38c2fe9`](https://github.com/klaus-2/koma-studio/commit/38c2fe9),
+[`575af64`](https://github.com/klaus-2/koma-studio/commit/575af64),
+[`69f8c89`](https://github.com/klaus-2/koma-studio/commit/69f8c89),
+[`91d77d3`](https://github.com/klaus-2/koma-studio/commit/91d77d3),
+[`f5cf8eb`](https://github.com/klaus-2/koma-studio/commit/f5cf8eb),
+[`0920d2e`](https://github.com/klaus-2/koma-studio/commit/0920d2e))
+
+**Opt-in translation memory and a persistent cache.** A sqlite store survives
+restarts: in-memory misses consult the persistent key (model, languages, mode,
+normalized text, glossary hash), hits clone the stored seed metadata, and
+fresh answers are written back. A persistent hit answered by a local engine is
+discarded as a miss when a never-translate term is absent verbatim, so the
+fresh re-run can mask it.
+([`ca87f32`](https://github.com/klaus-2/koma-studio/commit/ca87f32),
+[`b5a1a5d`](https://github.com/klaus-2/koma-studio/commit/b5a1a5d),
+[`3d55274`](https://github.com/klaus-2/koma-studio/commit/3d55274))
+
+**Translation QA detectors.** Deterministic echo collapse, doubled words
+flagged rather than rewritten, symbol-only seeds bypass engines and caches,
+and identical seeds are deduped per request; custom profiles are keyed and the
+store failure and masked-run paths are hardened.
+([`b5cc3f2`](https://github.com/klaus-2/koma-studio/commit/b5cc3f2),
+[`f87e966`](https://github.com/klaus-2/koma-studio/commit/f87e966),
+[`0a27ad4`](https://github.com/klaus-2/koma-studio/commit/0a27ad4),
+[`dd35934`](https://github.com/klaus-2/koma-studio/commit/dd35934),
+[`62494de`](https://github.com/klaus-2/koma-studio/commit/62494de),
+[`d3ac6f7`](https://github.com/klaus-2/koma-studio/commit/d3ac6f7))
+
+**Custom GGUF models load from a manifest.** The backend lists custom models
+from a manifest and refreshes the list when models change on disk.
+([`8d41ff0`](https://github.com/klaus-2/koma-studio/commit/8d41ff0),
+[`aa861b4`](https://github.com/klaus-2/koma-studio/commit/aa861b4))
+
+**Custom cursor toggle.** The animated cursor overlay can be disabled from the
+App settings tab in both skins; the preference persists in localStorage and
+applies live, restoring the system pointer, with `settings.customCursor.*`
+keys in all 14 locales.
+([`3808c82`](https://github.com/klaus-2/koma-studio/commit/3808c82))
+
+**The NLLB int8 and 1.3B variants are runnable.** They were download-only:
+installing one fetched a single model.bin the backend rejected. They now
+install the full file set and run on CPU engines (CTranslate2 int8 for the two
+int8 ids, transformers fp32 for the 1.3B); the version bump flags old
+incomplete installs for re-install and slug aliases keep AIO batch translation
+from falling back to Google.
+([`abb4af7`](https://github.com/klaus-2/koma-studio/commit/abb4af7))
+
+**Terms of service and privacy policy on the landing.** Static route segments
+rather than the SEO slug system, which stamps dateModified at build time and
+would restamp a legal effective date on every deploy. Contact is Discord and
+GitHub because the domain has no MX record, so the support@ address the SEO
+contactPoint advertised was undeliverable.
+([`1b3b384`](https://github.com/klaus-2/koma-studio/commit/1b3b384))
+
+**An e2e main-flow regression harness.** Playwright covers the main flow, and
+the harness host and shared helpers live in their own modules.
+([`c1ec553`](https://github.com/klaus-2/koma-studio/commit/c1ec553),
+[`425b3c0`](https://github.com/klaus-2/koma-studio/commit/425b3c0))
+
+**CI gates.** The mini-backend pytest suite runs on CI, and the line-count
+audit is meaningful again (829 files scanned) and gates PRs: a new file over
+1000 lines or a baselined file growing past its allowance fails the hygiene
+job.
+([`e9c683a`](https://github.com/klaus-2/koma-studio/commit/e9c683a),
+[`cf11364`](https://github.com/klaus-2/koma-studio/commit/cf11364),
+[`1ced177`](https://github.com/klaus-2/koma-studio/commit/1ced177))
+
+### Changed
+
+**Six god files split into focused modules.** The noir chapter optimizer
+workspace (2816 lines) and the V2 blogger workspace (2617 lines) extracted
+their panels, editors and helpers; Settings.tsx sections, Dashboard.tsx hooks,
+the Tauri desktop command helpers and the model manager download machinery
+follow the same move.
+([`fb21fc2`](https://github.com/klaus-2/koma-studio/commit/fb21fc2),
+[`d47ff4c`](https://github.com/klaus-2/koma-studio/commit/d47ff4c),
+[`f3ad75d`](https://github.com/klaus-2/koma-studio/commit/f3ad75d),
+[`9ada4dc`](https://github.com/klaus-2/koma-studio/commit/9ada4dc),
+[`f6edccd`](https://github.com/klaus-2/koma-studio/commit/f6edccd),
+[`ccd248c`](https://github.com/klaus-2/koma-studio/commit/ccd248c))
+
+**Dashboard re-renders stop at the leaves.** High-frequency state moved out of
+page-level subscriptions: stage zoom is read where it is consumed (topbar
+controls, previews, stage items), AIO progress labels became leaf components,
+preset and llm-settings drafts live in store islands, stage rows
+shallow-compare, and rAF coalescing covers compare sliders, type dock
+repositioning and workspace zoom. A Ctrl+wheel gesture and an AIO batch now
+re-render only the components that apply the change.
+([`0c92093`](https://github.com/klaus-2/koma-studio/commit/0c92093),
+[`5da43ec`](https://github.com/klaus-2/koma-studio/commit/5da43ec),
+[`58a074c`](https://github.com/klaus-2/koma-studio/commit/58a074c),
+[`2210833`](https://github.com/klaus-2/koma-studio/commit/2210833),
+[`112cbee`](https://github.com/klaus-2/koma-studio/commit/112cbee),
+[`6a710c2`](https://github.com/klaus-2/koma-studio/commit/6a710c2))
+
+**First-load payload cut across app and landing.** pdf-lib, culori and the
+markdown stack left the eager vendor graph and release notes mount lazy; one
+root LazyMotion with `m.` components everywhere tree-shakes the full motion
+runtime (70 files migrated); uuid left for native `crypto.randomUUID`. The
+landing deleted 17.3MB of unreferenced media (out/ shrank from 27MB to 7.3MB)
+and recompressed the rest; the login video went from 7.3MB to 1.06MB.
+([`a1d7300`](https://github.com/klaus-2/koma-studio/commit/a1d7300),
+[`a2c8a6d`](https://github.com/klaus-2/koma-studio/commit/a2c8a6d),
+[`3056ab0`](https://github.com/klaus-2/koma-studio/commit/3056ab0),
+[`bf68f3f`](https://github.com/klaus-2/koma-studio/commit/bf68f3f),
+[`649e8ba`](https://github.com/klaus-2/koma-studio/commit/649e8ba))
+
+**CSS animation left layout properties.** Keyframes animate transform and
+opacity, the noir height auto variants became opacity and transform,
+transitioned properties are enumerated instead of "all", and progress bars
+animate on the compositor.
+([`6133414`](https://github.com/klaus-2/koma-studio/commit/6133414),
+[`8f5ec52`](https://github.com/klaus-2/koma-studio/commit/8f5ec52),
+[`3176cb9`](https://github.com/klaus-2/koma-studio/commit/3176cb9),
+[`e38a41c`](https://github.com/klaus-2/koma-studio/commit/e38a41c))
+
+**Dependencies refreshed.** Patches better-auth, drizzle-orm, next, vite,
+vitest, zod, python-multipart and rustls, plus pending patch/minor bumps for
+GitHub Actions, Rust crates and the discord bot.
+([`250f615`](https://github.com/klaus-2/koma-studio/commit/250f615))
+
+### Fixed
+
+**A dead backend no longer keeps the model download queue latched forever.**
+Consecutive poll failures are bounded (150 x 200 ms, about 30 s) and surfaced
+as a retryable network error, so the normal retry and terminal-failure paths
+run. Uninstall no longer resurrects a removed model as an incomplete
+directory, cancel lands between download retries, clear-activity goes through
+the plain IPC handler it was being rejected by, the preload imports the shared
+event contracts so null progress stays an indeterminate bar instead of a fake
+0.0%, and backend_unavailable failures emit the taxonomy's network code.
+([`4f1ab2a`](https://github.com/klaus-2/koma-studio/commit/4f1ab2a),
+[`6764c74`](https://github.com/klaus-2/koma-studio/commit/6764c74),
+[`cc97bd7`](https://github.com/klaus-2/koma-studio/commit/cc97bd7),
+[`7063fc0`](https://github.com/klaus-2/koma-studio/commit/7063fc0),
+[`8ff6149`](https://github.com/klaus-2/koma-studio/commit/8ff6149),
+[`f068639`](https://github.com/klaus-2/koma-studio/commit/f068639))
+
+**Provisioned venvs keep their CUDA provider.** onnxruntime and
+onnxruntime-gpu share one package namespace, so a CPU install over the GPU
+wheel silently stripped the CUDA provider while the import probe still passed.
+NVIDIA profiles now assert CUDAExecutionProvider in both shells, the torch
+CUDA build installs from the PyTorch index with the CPU wheels trimmed from
+the lock, and the repair step runs only when the variant is present.
+([`5e243a1`](https://github.com/klaus-2/koma-studio/commit/5e243a1),
+[`3ac9c2d`](https://github.com/klaus-2/koma-studio/commit/3ac9c2d),
+[`ef2a12f`](https://github.com/klaus-2/koma-studio/commit/ef2a12f))
+
+**CB7 ingest works on py7zr 1.0.** SevenZipFile.read() and readall() were
+removed upstream, so a valid .cb7 or .7z upload failed with "invalid CB7
+file". Reads go through a BytesIOFactory with the entry caps the zip path
+already had, and the per-request output budget now covers every upload instead
+of per archive.
+([`d7e1381`](https://github.com/klaus-2/koma-studio/commit/d7e1381),
+[`2aba874`](https://github.com/klaus-2/koma-studio/commit/2aba874),
+[`24283f7`](https://github.com/klaus-2/koma-studio/commit/24283f7))
+
+**Transient gateway errors retry on the shared HTTP client.** The local LLM
+router answers 502 once its own failover budget is spent, and a single
+response was enough to fail the translation stage; 502, 503 and 504 now retry
+alongside 429 with its Retry-After back-off, and 500 stays non-retryable.
+([`b9b4532`](https://github.com/klaus-2/koma-studio/commit/b9b4532))
+
+**Glossary editor rows keep their identity.** Rows were keyed by list index,
+so deleting a middle row shifted every later row's identity and focus; rows
+carry stable ids now and the editor draft resyncs by content comparison,
+ignoring its own commit echo.
+([`697eda0`](https://github.com/klaus-2/koma-studio/commit/697eda0))
+
+**Interface fixes.** The stage zoom wheel listener is attached non-passive so
+the gesture stays suppressed, region removal patches snapshots, the healing
+gate follows the active image, the optimizer preview scrolls with the page,
+llm settings rebuild from untrusted payloads, and the font detector installs
+from its managed source.
+([`8594b95`](https://github.com/klaus-2/koma-studio/commit/8594b95),
+[`140ce11`](https://github.com/klaus-2/koma-studio/commit/140ce11),
+[`8115365`](https://github.com/klaus-2/koma-studio/commit/8115365),
+[`68a5290`](https://github.com/klaus-2/koma-studio/commit/68a5290),
+[`89b92a2`](https://github.com/klaus-2/koma-studio/commit/89b92a2),
+[`1f9e3dd`](https://github.com/klaus-2/koma-studio/commit/1f9e3dd))
+
+**Defaults.** The theme defaults to dark regardless of the OS preference, the
+updater defaults to and reports the stable channel, and Discord rich presence
+applies on the dashboard route.
+([`cb9cf54`](https://github.com/klaus-2/koma-studio/commit/cb9cf54),
+[`4e19ea3`](https://github.com/klaus-2/koma-studio/commit/4e19ea3),
+[`0925e06`](https://github.com/klaus-2/koma-studio/commit/0925e06),
+[`c9b14ef`](https://github.com/klaus-2/koma-studio/commit/c9b14ef))
+
 ## [1.2.0] - 2026-10-25
 
 264 commits since v1.1.0. This is the first release with compiled artifacts
