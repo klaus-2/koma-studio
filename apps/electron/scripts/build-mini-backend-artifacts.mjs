@@ -21,10 +21,10 @@ import {
 import {
   computeSourceHash,
   getCacheDir,
-  isCacheValid,
   writeCachedHash,
   readCachedHash,
 } from "./build-cache.mjs";
+import { acquireBuildLock } from "./build-lock.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -315,51 +315,30 @@ const writeRuntimeArtifactsManifest = (manifest) => {
   fs.writeFileSync(signaturePath, `ed25519-${signature.toString("base64")}\n`, "utf-8");
 };
 
-const pidAlive = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    // EPERM: the process exists but is owned by another user → still alive.
-    // Only ESRCH (no such process) means the lock is stale.
-    return error?.code === "EPERM";
-  }
+/**
+ * The build ledger records which sources produced the parts in one output
+ * dir. Adoption copies parts only when the sibling's ledger carries the same
+ * source hash: the per-profile cache hash alone cannot tell whether those
+ * bytes came from this build of the sources or from an earlier one, and two
+ * builds of the same version can differ.
+ */
+const buildLedgerPath = (artifactsDir, zipBaseName) =>
+  path.join(artifactsDir, `${zipBaseName}.build-ledger.json`);
+
+const writeBuildLedger = (zipBaseName, sourceHash, parts) => {
+  fs.writeFileSync(
+    buildLedgerPath(outputRootDir, zipBaseName),
+    `${JSON.stringify({ sourceHash, parts }, null, 2)}\n`,
+    "utf-8",
+  );
 };
 
-/**
- * One artifact build per output dir. A second run against the same dir used
- * to race the partitioner (stale plans, `part-*-of-pending` leftovers). The
- * lock records the holding PID; a dead PID is treated as stale and taken over.
- */
-const acquireBuildLock = () => {
-  const lockPath = path.join(releaseOutputDir, ".mini-backend-artifacts.lock");
-  if (fs.existsSync(lockPath)) {
-    let holder = null;
-    try {
-      holder = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
-    } catch {
-      // corrupt lock → treat as stale
-    }
-    if (
-      holder
-      && typeof holder.pid === "number"
-      && holder.pid !== process.pid
-      && pidAlive(holder.pid)
-    ) {
-      throw new Error(
-        `another artifact build holds ${lockPath} (PID ${holder.pid}, started ${holder.startedAt}) — run one build at a time`,
-      );
-    }
+const readBuildLedger = (artifactsDir, zipBaseName) => {
+  try {
+    return JSON.parse(fs.readFileSync(buildLedgerPath(artifactsDir, zipBaseName), "utf-8"));
+  } catch {
+    return null;
   }
-  fs.mkdirSync(releaseOutputDir, { recursive: true });
-  fs.writeFileSync(lockPath, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
-  process.on("exit", () => {
-    try {
-      fs.rmSync(lockPath, { force: true });
-    } catch {
-      // best-effort; a dead PID makes any leftover lock stale anyway
-    }
-  });
 };
 
 /**
@@ -369,22 +348,30 @@ const acquireBuildLock = () => {
  * same sources; part sizes are checked against the sibling plan and the plan
  * is copied LAST so a partial copy can never look complete.
  */
-const adoptSiblingParts = (profile, zipBaseName) => {
+const adoptSiblingParts = (profile, zipBaseName, sourceHash) => {
   const planName = `${zipBaseName}.partition-plan.json`;
-  const container = path.dirname(releaseOutputDir);
-  let entries;
-  try {
-    entries = fs.readdirSync(container, { withFileTypes: true });
-  } catch {
-    return false;
-  }
-  for (const entry of entries) {
-    if (!entry.isDirectory()) {
+  // The siblings live next to the output dir: the release desktop that holds
+  // every build-* dir, or the output dir itself when it is that desktop.
+  const candidates = [];
+  for (const container of new Set([path.dirname(releaseOutputDir), releaseOutputDir])) {
+    let entries;
+    try {
+      entries = fs.readdirSync(container, { withFileTypes: true });
+    } catch {
       continue;
     }
-    const siblingArtifacts = entry.name === "mini-backend-artifacts"
-      ? path.join(container, entry.name)
-      : path.join(container, entry.name, "mini-backend-artifacts");
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+      candidates.push(
+        entry.name === "mini-backend-artifacts"
+          ? path.join(container, entry.name)
+          : path.join(container, entry.name, "mini-backend-artifacts"),
+      );
+    }
+  }
+  for (const siblingArtifacts of candidates) {
     if (path.resolve(siblingArtifacts) === path.resolve(outputRootDir)) {
       continue;
     }
@@ -416,6 +403,10 @@ const adoptSiblingParts = (profile, zipBaseName) => {
     if (!intact) {
       continue;
     }
+    const ledger = readBuildLedger(siblingArtifacts, zipBaseName);
+    if (ledger?.sourceHash !== sourceHash) {
+      continue;
+    }
     for (const part of parts) {
       fs.copyFileSync(
         path.join(siblingArtifacts, part.file),
@@ -423,6 +414,10 @@ const adoptSiblingParts = (profile, zipBaseName) => {
       );
     }
     fs.copyFileSync(siblingPlan, path.join(outputRootDir, planName));
+    fs.copyFileSync(
+      buildLedgerPath(siblingArtifacts, zipBaseName),
+      buildLedgerPath(outputRootDir, zipBaseName),
+    );
     console.log(
       `[mini-backend-artifacts] ADOPTED profile=${profile} parts from ${path.relative(rootDir, siblingArtifacts)} (same sources, rebuild skipped)`,
     );
@@ -431,9 +426,28 @@ const adoptSiblingParts = (profile, zipBaseName) => {
   return false;
 };
 
+/**
+ * The manifest entry for one profile, read from the partition plan that sits
+ * next to its parts.
+ */
+const buildManifestProfile = async (profile, profileKey) => {
+  const zipBaseName = `mini-backend-runtime-${profileKey}-${version}-${process.platform}-${process.arch}`;
+  const zipBasePath = path.join(outputRootDir, zipBaseName);
+  return {
+    profile,
+    version,
+    platform: process.platform,
+    arch: process.arch,
+    entry: process.platform === "win32" ? "mini-backend.exe" : "mini-backend",
+    parts: await loadRuntimePartsFromPlan(zipBasePath),
+  };
+};
+
 const main = async () => {
   fs.mkdirSync(outputRootDir, { recursive: true });
-  acquireBuildLock();
+  acquireBuildLock(path.join(releaseOutputDir, ".mini-backend-artifacts.lock"), {
+    label: "runtime artifact build",
+  });
 
   const profiles = getMiniBackendArtifactProfiles(process.platform, {
     includeTensorRt,
@@ -442,6 +456,12 @@ const main = async () => {
   );
 
   if (MANIFEST_ONLY) {
+    if (!resolveManifestSigningKey()) {
+      throw new Error(
+        "manifest-only: MINI_BACKEND_ARTIFACTS_SIGNING_KEY is unset — refusing to "
+          + "rewrite the manifest unsigned, because the published feed is signature-pinned",
+      );
+    }
     const manifestProfiles = {};
     const missing = [];
     for (const profileConfig of profiles) {
@@ -453,14 +473,7 @@ const main = async () => {
         missing.push(profile);
         continue;
       }
-      manifestProfiles[profile] = {
-        profile,
-        version,
-        platform: process.platform,
-        arch: process.arch,
-        entry: process.platform === "win32" ? "mini-backend.exe" : "mini-backend",
-        parts: await loadRuntimePartsFromPlan(zipBasePath),
-      };
+      manifestProfiles[profile] = await buildManifestProfile(profile, profileKey);
     }
     if (missing.length > 0) {
       throw new Error(
@@ -541,7 +554,7 @@ const main = async () => {
     // first, rebuild only when there is nothing to reuse.
     let cacheValid = sourcesUnchanged && !FORCE_REBUILD && !partsMissing;
     if (!cacheValid && sourcesUnchanged && !FORCE_REBUILD && partsMissing) {
-      cacheValid = adoptSiblingParts(profile, zipBaseName);
+      cacheValid = adoptSiblingParts(profile, zipBaseName, currentSourceHash);
     }
 
     if (cacheValid) {
@@ -599,14 +612,8 @@ const main = async () => {
       fs.rmSync(workDir, { recursive: true, force: true });
     }
 
-    manifestProfiles[profile] = {
-      profile,
-      version,
-      platform: process.platform,
-      arch: process.arch,
-      entry: process.platform === "win32" ? "mini-backend.exe" : "mini-backend",
-      parts: await loadRuntimePartsFromPlan(zipBasePath),
-    };
+    manifestProfiles[profile] = await buildManifestProfile(profile, profileKey);
+    writeBuildLedger(zipBaseName, currentSourceHash, manifestProfiles[profile].parts);
   }
 
   const manifest = buildMiniBackendRuntimeArtifactManifest({
