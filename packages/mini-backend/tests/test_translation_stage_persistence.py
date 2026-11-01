@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
+import sqlite3
 import sys
 import tempfile
+import threading
 import unittest
+from unittest.mock import patch
 
 
 os.environ["MINI_BACKEND_WARMUP_DETECTOR"] = "0"
@@ -24,6 +29,7 @@ from models.translation.base_translator import (  # noqa: E402
     TranslationInputRegion,
     TranslationTextResult,
 )
+from pipelines import translation_stage  # noqa: E402
 from pipelines.cache_manager import CacheManager  # noqa: E402
 from pipelines.translation_stage import (  # noqa: E402
     CachedTranslationRequest,
@@ -32,7 +38,9 @@ from pipelines.translation_stage import (  # noqa: E402
 )
 from pipelines.translation_store import (  # noqa: E402
     CacheRow,
+    TMEntry,
     TranslationStore,
+    TranslationStoreError,
     glossary_hash,
     normalize_source_text,
     persistent_cache_key,
@@ -125,6 +133,46 @@ def _persistent_key(request: CachedTranslationRequest, text: str) -> str:
     )
 
 
+class _RaisingStore(TranslationStore):
+    """A store whose every operation fails (unreadable/corrupt sqlite file).
+
+    Bypasses the real __init__: every overridden operation raises before the
+    connection would be touched.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._closed = False
+
+    def get_cached(self, keys: Sequence[str]) -> dict[str, CacheRow]:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    def put_cached(self, rows: Sequence[CacheRow]) -> int:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    def lookup_tm(self, nfkc_key: str, src_lang: str, tgt_lang: str) -> TMEntry | None:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    def put_tm(
+        self,
+        nfkc_key: str,
+        src_lang: str,
+        tgt_lang: str,
+        translation: str,
+        model_key: str,
+    ) -> None:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    def bump_tm_hits(self, keys: Sequence[tuple[str, str, str]]) -> None:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    def prune(self, max_rows: int = 200_000) -> int:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    def close(self) -> None:
+        return None
+
+
 class PersistentCacheStageTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
@@ -133,9 +181,12 @@ class PersistentCacheStageTests(unittest.TestCase):
         self.cache = CacheManager(ttl_seconds=60, max_entries=8, bbox_tolerance_px=2)
         self.engine = _FakeEngine("fake")
         self.resolver = _Resolver(self.engine)
+        # The degrade-to-memory warning is once per process; start clean.
+        translation_stage._store_degradation_warned = False  # noqa: SLF001
+        self.addCleanup(setattr, translation_stage, "_store_degradation_warned", False)
 
     def _run(
-        self, request: CachedTranslationRequest, store: TranslationStore
+        self, request: CachedTranslationRequest, store: TranslationStore | None
     ):
         import asyncio
 
@@ -312,6 +363,48 @@ class PersistentCacheStageTests(unittest.TestCase):
             )
         finally:
             store.close()
+
+    def test_failing_store_degrades_to_memory_and_warns_once(self) -> None:
+        request = _request()
+        raising_store = _RaisingStore()
+
+        with self.assertLogs(
+            "pipelines.translation_stage", level="WARNING"
+        ) as logs:
+            result = self._run(request, raising_store)
+
+        self.assertEqual(self.engine.calls, 1)
+        self.assertEqual(result.records[0]["translated_text"], "ok-konnichiwa")
+        warnings = [
+            record for record in logs.records if record.levelno == logging.WARNING
+        ]
+        self.assertEqual(len(warnings), 1)
+        self.assertEqual(
+            warnings[0].getMessage(), "translation.store.degraded_to_memory"
+        )
+
+        # Second request also succeeds and stays silent (once per process);
+        # a fresh text forces the degraded store to be consulted again.
+        with self.assertNoLogs("pipelines.translation_stage", level="WARNING"):
+            second = self._run(_request(text="sayonara"), raising_store)
+        self.assertEqual(self.engine.calls, 2)
+        self.assertEqual(second.records[0]["translated_text"], "ok-sayonara")
+
+    def test_unopenable_store_resolution_degrades_to_memory(self) -> None:
+        request = _request()
+
+        with (
+            patch.object(
+                translation_stage,
+                "get_translation_store",
+                side_effect=TranslationStoreError("schema version 99"),
+            ),
+            self.assertLogs("pipelines.translation_stage", level="WARNING"),
+        ):
+            result = self._run(request, None)
+
+        self.assertEqual(self.engine.calls, 1)
+        self.assertEqual(result.records[0]["translated_text"], "ok-konnichiwa")
 
 
 if __name__ == "__main__":

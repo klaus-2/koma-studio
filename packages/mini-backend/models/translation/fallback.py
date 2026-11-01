@@ -17,6 +17,7 @@ from typing import Final, Generic, TypeVar
 from core.config import normalize_stage_model_key
 from models.translation.base_translator import BaseTranslator
 from models.translation.errors import (
+    BlankRunTranslationError,
     EmptyTranslationError,
     LocalModelError,
     TranslationError,
@@ -37,6 +38,7 @@ _RETRYABLE_ERRORS: Final[tuple[type[TranslationError], ...]] = (
     TranslatorResponseError,
     LocalModelError,
     EmptyTranslationError,
+    BlankRunTranslationError,
 )
 
 

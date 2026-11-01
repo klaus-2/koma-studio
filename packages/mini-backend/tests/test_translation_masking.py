@@ -107,6 +107,24 @@ class _FakeLocalEngine(LocalTranslatorBase):
         return [self._result(region, f"tr[{region.text}]") for region in request.regions]
 
 
+class _BlankRunLocalEngine(_FakeLocalEngine):
+    """Local engine that answers blank for one specific run (broken provider)."""
+
+    def __init__(self, blank_text: str) -> None:
+        super().__init__()
+        self.blank_text = blank_text
+
+    def _infer(self, request: TranslationRequest) -> list[TranslationTextResult]:
+        self.received_texts.extend(region.text for region in request.regions)
+        return [
+            self._result(
+                region,
+                "" if region.text == self.blank_text else f"tr[{region.text}]",
+            )
+            for region in request.regions
+        ]
+
+
 class _FakeCloudEngine:
     key = "fake_cloud"
 
@@ -336,6 +354,82 @@ class MaskingStageTests(unittest.TestCase):
         rows = self.store.get_cached([key])
         self.assertEqual(rows[key].engine_key, "fake_local")
         self.assertIn("Kaito", rows[key].translated_text)
+
+    def test_all_content_protected_succeeds_without_engine_call(self) -> None:
+        settings = clamp_llm_request_settings(
+            {
+                "glossary": [
+                    {"source": "Kaito", "target": "Kaito", "never_translate": True}
+                ]
+            }
+        )
+        engine = _FakeLocalEngine()
+
+        result = _run(_request(settings=settings, text="Kaito"), engine, self.store)
+
+        self.assertEqual(engine.received_texts, [])
+        self.assertEqual(result.records[0]["translated_text"], "Kaito")
+        self.assertEqual(result.records[0]["translator_model_key"], "fake_local")
+
+    def test_blank_run_translation_fails_over_to_the_next_engine(self) -> None:
+        blank_local = _BlankRunLocalEngine("juntos")
+        cloud = _FakeCloudEngine()
+        engines = {"blank_local": blank_local, "fake_cloud": cloud}
+        request = _request(
+            settings=clamp_llm_request_settings(
+                {
+                    "glossary": [
+                        {"source": name, "target": name, "never_translate": True}
+                        for name in ("Kaito", "Nao", "Bisco")
+                    ],
+                    "translation_fallback_chain": ["blank_local", "fake_cloud"],
+                }
+            ),
+            model_key="blank_local",
+        )
+
+        with patch.object(
+            translation_fallback,
+            "list_translation_models",
+            return_value=[_option("blank_local"), _option("fake_cloud")],
+        ):
+            import asyncio
+
+            result = asyncio.run(
+                run_cached_translation(
+                    request,
+                    cache=CacheManager(ttl_seconds=60, max_entries=8, bbox_tolerance_px=2),
+                    resolve_engine=lambda model_key=None: engines[
+                        (model_key or "").strip()
+                    ],
+                    store=self.store,
+                )
+            )
+
+        # The blank-run attempt failed inside the chain and the cloud engine
+        # answered unmasked; nothing truncated was persisted.
+        self.assertEqual(blank_local.received_texts, ["e", "juntos"])
+        self.assertEqual(
+            result.records[0]["translated_text"],
+            "cloud[Kaito, Nao e Bisco juntos]",
+        )
+        self.assertEqual(result.records[0]["translator_model_key"], "fake_cloud")
+        key = persistent_cache_key(
+            "blank_local",
+            "ja",
+            "pt-br",
+            "default",
+            normalize_source_text("Kaito, Nao e Bisco juntos"),
+            glossary_hash(
+                [
+                    (term.source, term.target, term.never_translate)
+                    for term in request.settings.glossary
+                ]
+            ),
+        )
+        rows = self.store.get_cached([key])
+        self.assertEqual(rows[key].translated_text, "cloud[Kaito, Nao e Bisco juntos]")
+        self.assertEqual(rows[key].engine_key, "fake_cloud")
 
 
 if __name__ == "__main__":

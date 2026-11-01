@@ -10,6 +10,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import re
+import sqlite3
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Callable
@@ -20,7 +21,10 @@ from models.translation.base_translator import (
     TranslationInputRegion,
     TranslationTextResult,
 )
-from models.translation.errors import EmptyTranslationError
+from models.translation.errors import (
+    BlankRunTranslationError,
+    EmptyTranslationError,
+)
 from models.translation.factory import (
     DEFAULT_TRANSLATION_MODEL,
     get_translation_engine,
@@ -52,7 +56,9 @@ from pipelines.translation_masking import (
 from pipelines.translation_qa import glossary_missing, run_translation_qa
 from pipelines.translation_store import (
     CacheRow,
+    TMEntry,
     TranslationStore,
+    TranslationStoreError,
     get_translation_store,
     glossary_hash,
     normalize_source_text,
@@ -68,6 +74,11 @@ logger = logging.getLogger(__name__)
 
 # Providers that were unreachable today; in-memory, process-wide.
 _TRANSLATION_QUOTA = QuotaBlocklist()
+
+# The persistent store is best-effort: the first failure warns once per
+# process and every later failure stays at debug. Requests degrade to the
+# in-memory layer, never fail, and writes are simply dropped.
+_store_degradation_warned = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,13 +190,95 @@ def _contains_protected_terms(text: str, terms: Sequence[str]) -> bool:
     return True
 
 
+def _warn_store_degraded(exc: Exception) -> None:
+    """Warn once per process; later store failures stay at debug level."""
+    global _store_degradation_warned
+    if not _store_degradation_warned:
+        _store_degradation_warned = True
+        logger.warning("translation.store.degraded_to_memory", exc_info=exc)
+    else:
+        logger.debug("translation.store.degraded_to_memory", exc_info=exc)
+
+
+def _resolve_store_safely() -> TranslationStore | None:
+    """The lazy singleton, or None when the on-disk store cannot be opened."""
+    try:
+        return get_translation_store()
+    except (TranslationStoreError, sqlite3.Error) as exc:
+        _warn_store_degraded(exc)
+        return None
+
+
+def _store_get_cached(
+    store: TranslationStore | None, keys: Sequence[str]
+) -> dict[str, CacheRow]:
+    if store is None:
+        return {}
+    try:
+        return store.get_cached(keys)
+    except (TranslationStoreError, sqlite3.Error) as exc:
+        _warn_store_degraded(exc)
+        return {}
+
+
+def _store_put_cached(
+    store: TranslationStore | None, rows: Sequence[CacheRow]
+) -> int:
+    if store is None:
+        return 0
+    try:
+        return store.put_cached(rows)
+    except (TranslationStoreError, sqlite3.Error) as exc:
+        _warn_store_degraded(exc)
+        return 0
+
+
+def _store_lookup_tm(
+    store: TranslationStore | None, nfkc_key: str, src_lang: str, tgt_lang: str
+) -> TMEntry | None:
+    if store is None:
+        return None
+    try:
+        return store.lookup_tm(nfkc_key, src_lang, tgt_lang)
+    except (TranslationStoreError, sqlite3.Error) as exc:
+        _warn_store_degraded(exc)
+        return None
+
+
+def _store_put_tm(
+    store: TranslationStore | None,
+    nfkc_key: str,
+    src_lang: str,
+    tgt_lang: str,
+    translation: str,
+    model_key: str,
+) -> None:
+    if store is None:
+        return
+    try:
+        store.put_tm(nfkc_key, src_lang, tgt_lang, translation, model_key)
+    except (TranslationStoreError, sqlite3.Error) as exc:
+        _warn_store_degraded(exc)
+
+
+def _store_bump_tm_hits(
+    store: TranslationStore | None, keys: Sequence[tuple[str, str, str]]
+) -> None:
+    if store is None:
+        return
+    try:
+        store.bump_tm_hits(keys)
+    except (TranslationStoreError, sqlite3.Error) as exc:
+        _warn_store_degraded(exc)
+
+
 def _consult_persistent_cache(
     *,
     request: CachedTranslationRequest,
     settings: LLMRequestSettings,
     missing: list[TranslationSeed],
     model_key: str,
-    store: TranslationStore,
+    store: TranslationStore | None,
     fallback_engine_key: str,
 ) -> tuple[dict[str, TranslationRecord], list[TranslationSeed], dict[str, str]]:
     """Restart-safe lookup for the in-memory misses.
@@ -213,7 +306,7 @@ def _consult_persistent_cache(
         )
         for seed in missing
     }
-    rows = store.get_cached(list(keys_by_id.values()))
+    rows = _store_get_cached(store, list(keys_by_id.values()))
     protected = tuple(term.source for term in settings.glossary if term.never_translate)
     hits: dict[str, TranslationRecord] = {}
     remaining: list[TranslationSeed] = []
@@ -227,6 +320,13 @@ def _consult_persistent_cache(
             and is_local_translation_engine_key(row.engine_key)
             and not _contains_protected_terms(row.translated_text, protected)
         ):
+            logger.debug(
+                "translation.parity.discarded",
+                extra={
+                    "engine_key": row.engine_key,
+                    "cache_key": keys_by_id[seed["id"]],
+                },
+            )
             remaining.append(seed)
             continue
         hits[seed["id"]] = TranslationRecord(
@@ -247,7 +347,7 @@ def _consult_translation_memory(
     request: CachedTranslationRequest,
     settings: LLMRequestSettings,
     missing: list[TranslationSeed],
-    store: TranslationStore,
+    store: TranslationStore | None,
     fallback_engine_key: str,
 ) -> tuple[dict[str, TranslationRecord], list[TranslationSeed]]:
     """Opt-in TM reads: exact NFKC key only, no fuzz matching.
@@ -262,8 +362,8 @@ def _consult_translation_memory(
     bumped: dict[tuple[str, str, str], None] = {}
     for seed in missing:
         tm_key_value = tm_key(normalize_source_text(seed["text"]))
-        entry = store.lookup_tm(
-            tm_key_value, request.source_language, request.target_language
+        entry = _store_lookup_tm(
+            store, tm_key_value, request.source_language, request.target_language
         )
         if entry is None or not entry.translation.strip():
             remaining.append(seed)
@@ -273,6 +373,13 @@ def _consult_translation_memory(
             and is_local_translation_engine_key(entry.model_key)
             and not _contains_protected_terms(entry.translation, protected)
         ):
+            logger.debug(
+                "translation.parity.discarded",
+                extra={
+                    "engine_key": entry.model_key,
+                    "cache_key": tm_key_value,
+                },
+            )
             remaining.append(seed)
             continue
         hits[seed["id"]] = TranslationRecord(
@@ -287,18 +394,19 @@ def _consult_translation_memory(
         )
         bumped[(tm_key_value, request.source_language, request.target_language)] = None
     if bumped:
-        store.bump_tm_hits(list(bumped))
+        _store_bump_tm_hits(store, list(bumped))
     return hits, remaining
 
 
 def _persist_fresh_results(
-    store: TranslationStore,
+    store: TranslationStore | None,
     records: Sequence[TranslationRecord],
     keys_by_id: Mapping[str, str],
     fallback_engine_key: str,
 ) -> int:
     """Write fresh engine answers into the persistent store; blank rows skipped."""
-    written = store.put_cached(
+    written = _store_put_cached(
+        store,
         [
             CacheRow(
                 key=keys_by_id[record["id"]],
@@ -342,6 +450,24 @@ async def _translate_masked(
                 global_pos[run] = len(global_runs)
                 global_runs.append(run)
 
+    if not global_runs:
+        # Every seed's alnum content is protected terms: there is nothing for
+        # the engine. The reassembly is the verbatim source text — never an
+        # engine call and never an EmptyTranslationError.
+        return [
+            TranslationTextResult(
+                id=rep["id"],
+                source_text=rep["text"].strip(),
+                translated_text=reassemble_masked(masking_plans[rep["id"]].steps, []),
+                translation_notes=[],
+                source=rep["source"],
+                detector_model_key=rep["detector_model_key"],
+                ocr_model_key=rep["ocr_model_key"],
+                translator_model_key=translator.key,
+            )
+            for rep in reps
+        ]
+
     results = await translator.translate(
         regions=[
             TranslationInputRegion(id=f"mask-run-{index}", text=run)
@@ -353,6 +479,11 @@ async def _translate_masked(
         translation_notes_enabled=translation_notes_enabled,
         translation_mode=translation_mode,
     )
+    blank_runs = [result for result in results if not result.translated_text.strip()]
+    if blank_runs:
+        # A blank run spliced into the sentence would truncate it and persist
+        # the damage; fail the attempt so the fallback chain tries instead.
+        raise BlankRunTranslationError(translator.key, len(blank_runs))
     text_by_region_id = {result.id: result.translated_text for result in results}
 
     translated: list[TranslationTextResult] = []
@@ -458,7 +589,9 @@ async def run_cached_translation(
     # Restart-safe layer (consulted only for in-memory misses): key is
     # context-free per D1; local-engine hits obey the never-translate parity
     # guard, cloud-engine hits pass through unchecked.
-    translation_store = store if store is not None else get_translation_store()
+    translation_store: TranslationStore | None = (
+        store if store is not None else _resolve_store_safely()
+    )
     persistent_by_id: dict[str, TranslationRecord] = {}
     persistent_keys_by_id: dict[str, str] = {}
     if missing:
@@ -644,7 +777,9 @@ async def run_cached_translation(
                     )
                 )
         for nfkc_key, src_lang, tgt_lang, translation, model_key in tm_writes:
-            translation_store.put_tm(nfkc_key, src_lang, tgt_lang, translation, model_key)
+            _store_put_tm(
+                translation_store, nfkc_key, src_lang, tgt_lang, translation, model_key
+            )
         if tm_writes:
             logger.info(
                 "translation.tm_written", extra={"blocks": len(tm_writes), "model": engine_key}

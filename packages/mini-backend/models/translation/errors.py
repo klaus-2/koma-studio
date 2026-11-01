@@ -65,6 +65,23 @@ class EmptyTranslationError(TranslationError):
         )
 
 
+class BlankRunTranslationError(TranslationError):
+    """A masked never-translate run came back blank.
+
+    Splicing an empty string for a prose run would truncate the sentence and
+    persist the damage into the caches, so the attempt fails (retryable) and
+    the next engine in the chain answers instead.
+    """
+
+    def __init__(self, translator_key: str, run_count: int) -> None:
+        self.translator_key = translator_key
+        self.run_count = run_count
+        super().__init__(
+            f"{translator_key} returned a blank translation for "
+            f"{run_count} protected never-translate run(s)."
+        )
+
+
 class InvalidModelSelectionError(TranslationError):
     """The caller explicitly selected a local model that cannot run here."""
 
