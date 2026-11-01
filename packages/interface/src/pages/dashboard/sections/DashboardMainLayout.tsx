@@ -181,7 +181,7 @@ export interface DashboardMainLayoutProps {
   /* ── Stage section (page-derived values forwarded to StageGrid) ── */
   resolvedActiveId: string | null;
   translationNotesEnabled: boolean;
-  handleStageWheelZoom: (event: React.WheelEvent<HTMLElement>) => void;
+  handleStageWheelZoom: (event: WheelEvent) => void;
   specialModeStageProps: SpecialModeStageProps;
   deferredStageMode: ToolMode;
   onOpenSettings: DashboardPageProps['onOpenSettings'];

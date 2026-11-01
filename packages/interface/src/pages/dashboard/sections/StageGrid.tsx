@@ -1,4 +1,4 @@
-import { Suspense, lazy, memo, useCallback, useMemo } from 'react';
+import { Suspense, lazy, memo, useCallback, useMemo, useRef } from 'react';
 import { useShallowStableObject } from '../../../utils/shallowStable';
 
 import { memoLoad } from '../../../utils/lazyModule';
@@ -56,6 +56,7 @@ import { useTranslatorRegionEditing, useTranslatorTextActions, useTranslatorImpo
 import { useTypographerWorkspace, useTypographerControls } from '../hooks/typographer';
 import { useDashboardImageCollection } from '../hooks/image-collection';
 import { useRenderFontCatalog } from '../../../hooks/useRenderFontCatalog';
+import { useNonPassiveWheel } from '../../../hooks/useNonPassiveWheel';
 import { useDashboardDownloadActions } from '../hooks/export-download';
 import type {
   AioPipelineSnapshotKey,
@@ -143,7 +144,7 @@ export interface DashboardStageSectionProps {
   isCompactViewport: boolean;
   renderFontRefreshToken: RenderFontCatalogApi['renderFontRefreshToken'];
   availableRenderFonts: RenderFontCatalogApi['availableRenderFonts'];
-  handleStageWheelZoom: (event: React.WheelEvent<HTMLElement>) => void;
+  handleStageWheelZoom: (event: WheelEvent) => void;
 
   /* ── Stage branch consumers ── */
   specialModeStageProps: SpecialModeStageProps;
@@ -208,6 +209,11 @@ function DashboardStageSection({
   typographerWorkspace,
 }: DashboardStageSectionProps) {
   const { t } = useI18n();
+
+  // React's onWheel is passive; the zoom gesture needs preventDefault, so the
+  // listener is attached directly as non-passive instead.
+  const stageRef = useRef<HTMLElement>(null);
+  useNonPassiveWheel(stageRef, handleStageWheelZoom, true);
 
   // ── Stage-owned store slices ──
   const trackAioMaps = needsAioRegionMaps(mode);
@@ -907,9 +913,9 @@ function DashboardStageSection({
   // ═══════════ CENTER STAGE ═══════════
   return (
     <section
+      ref={stageRef}
       className="koma-stage custom-scrollbar"
       data-tour="dashboard-stage"
-      onWheel={handleStageWheelZoom}
     >
       {/* Info modes show content instead of images */}
       {mode === 'guides' ||
