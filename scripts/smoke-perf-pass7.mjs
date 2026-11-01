@@ -1,8 +1,10 @@
 // Runtime smoke for the perf pass 8 changes (on top of the pass 7 steps):
-//  1. Ctrl+wheel zoom gesture on the AIO stage: the topbar zoom readout moves
-//     100% -> 110% with no page errors. Without images there are no preview
-//     cards, so visual card scale is logged as SKIP and zoom is verified via
-//     the theme-independent topbar readout.
+//  1. Ctrl+wheel zoom gesture on the AIO stage: a trusted Control+wheel
+//     gesture moves the topbar zoom readout 100% -> 110% while the browser
+//     page zoom stays suppressed (devicePixelRatio unchanged), proving the
+//     non-passive listener's preventDefault. Without images there are no
+//     preview cards, so visual card scale is logged as SKIP and zoom is
+//     verified via the theme-independent topbar readout.
 //  2. Batch Mode toggle: flips on and, with no chapters, flags the need for
 //     two chapters; the footer progress badge needs a real desktop-bridge run
 //     and is logged as SKIP.
@@ -307,8 +309,10 @@ if (glossaryReached) {
 // ── 6. ctrl+wheel zoom gesture on the AIO stage ──
 // The zoom readout (e.g. "100%") is theme- and language-independent: any span
 // ending in % whose direct parent holds at least two buttons (the zoom out/in
-// pair). A synthetic WheelEvent keeps preventDefault inert, so the Chromium
-// page zoom never fires and only the app gesture applies.
+// pair). The gesture is sent as a trusted event (Control held down while
+// Playwright dispatches the wheel), so preventDefault is observable: the
+// stage listener must be non-passive and suppress the browser page zoom,
+// which Chromium reflects in window.devicePixelRatio.
 const readZoomPct = () =>
   page.evaluate(() =>
     [...document.querySelectorAll("span")]
@@ -330,27 +334,34 @@ step(
   `readouts: ${JSON.stringify(zoomBefore)}`,
 );
 
-const zoomPageErrorsBefore = pageErrors.length;
-await page.evaluate(() => {
-  const stage = document.querySelector("section.koma-stage");
-  if (!stage) {
-    throw new Error("stage section.koma-stage not found");
-  }
-  stage.dispatchEvent(
-    new WheelEvent("wheel", { deltaY: -120, ctrlKey: true, bubbles: true, cancelable: true }),
+const stageBox = await page.locator("section.koma-stage").boundingBox();
+if (stageBox === null || stageBox.width <= 0 || stageBox.height <= 0) {
+  console.log("SKIP ctrl+wheel zoom — the stage section has no bounding box");
+} else {
+  const zoomPageErrorsBefore = pageErrors.length;
+  const devicePixelRatioBefore = await page.evaluate(() => window.devicePixelRatio);
+  await page.mouse.move(stageBox.x + stageBox.width / 2, stageBox.y + stageBox.height / 2);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -120);
+  await page.keyboard.up("Control");
+  await page.waitForTimeout(300);
+  const zoomAfter = await readZoomPct();
+  step(
+    "ctrl+wheel gesture changes zoom",
+    zoomAfter.includes("110%"),
+    `readouts: ${JSON.stringify(zoomAfter)}`,
   );
-});
-await page.waitForTimeout(300);
-const zoomAfter = await readZoomPct();
-step(
-  "ctrl+wheel gesture changes zoom",
-  zoomAfter.includes("110%"),
-  `readouts: ${JSON.stringify(zoomAfter)}`,
-);
-step(
-  "zoom gesture produced no page errors",
-  pageErrors.length === zoomPageErrorsBefore,
-);
+  const devicePixelRatioAfter = await page.evaluate(() => window.devicePixelRatio);
+  step(
+    "trusted ctrl+wheel keeps the browser page zoom suppressed",
+    devicePixelRatioAfter === devicePixelRatioBefore,
+    `devicePixelRatio ${devicePixelRatioBefore} -> ${devicePixelRatioAfter}`,
+  );
+  step(
+    "zoom gesture produced no page errors",
+    pageErrors.length === zoomPageErrorsBefore,
+  );
+}
 
 if ((await page.locator(".koma-preview-card").count()) === 0) {
   console.log(
@@ -384,6 +395,10 @@ if ((await batchSection.count()) === 0) {
 
   const needChaptersCount = await page.getByText(/needs at least two chapters/i).count();
   step("batch mode flags the need for two chapters", needChaptersCount > 0);
+
+  // Restore the store-backed flag so later sections start from a clean state.
+  await batchToggleLabel.click();
+  await page.waitForTimeout(200);
 
   console.log(
     "SKIP footer progress badge — needs a real desktop-bridge batch run with local models",
