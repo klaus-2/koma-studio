@@ -24,7 +24,7 @@ use std::{
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_shell::process::CommandChild;
 
-use super::failure_report::describe_failure;
+use super::failure_report::{describe_failure, RestartDecision, RestartStopReason};
 use super::mini_backend::{start_mini_backend, stop_mini_backend};
 use crate::runtime::profiles::{
     patch_runtime_state, MiniBackendRuntimePatch, MiniBackendRuntimeStore,
@@ -33,7 +33,7 @@ use crate::runtime::profiles::{
 /// Bounded restart budget and health/reset timing for the supervisor.
 const RESTART_BACKOFF_BASE_MILLIS: u64 = 250;
 const RESTART_BACKOFF_MAX_MILLIS: u64 = 30_000;
-pub(crate) const RESTART_MAX_ATTEMPTS: u32 = 5;
+const RESTART_MAX_ATTEMPTS: u32 = 5;
 const RESTART_HEALTHY_RESET_MS: u64 = 60_000;
 const CRASH_LOOP_WINDOW_MS: u64 = 120_000;
 const CRASH_LOOP_PRE_HEALTH_EXITS: usize = 3;
@@ -73,23 +73,6 @@ pub(crate) enum RestartTrigger {
     HealthTimeout,
     /// The child process could not be created at all. One-shot stop.
     SpawnError,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum RestartDecision {
-    Restart { attempt: u32, delay: Duration },
-    /// `attempt` is the number of failed attempts already consumed, so a
-    /// stopped recovery reports the same budget the UI saw while retrying.
-    Stop { reason: RestartStopReason, attempt: u32 },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RestartStopReason {
-    ExpectedStop,
-    AppExiting,
-    SpawnError,
-    CrashLoop,
-    AttemptsExhausted,
 }
 
 /// Pure, clock-injected restart policy. Keeping every wait out of this struct
@@ -530,17 +513,6 @@ impl MiniBackendSidecarStore {
 
 pub(crate) struct StartupGuard<'a>(&'a AtomicBool);
 
-impl RestartStopReason {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::ExpectedStop => "expected stop",
-            Self::AppExiting => "app is exiting",
-            Self::SpawnError => "spawn error",
-            Self::CrashLoop => "crash loop",
-            Self::AttemptsExhausted => "attempt limit",
-        }
-    }
-}
 
 impl RestartTrigger {
     /// Human-readable cause, used verbatim in the runtime panel message.
@@ -623,7 +595,7 @@ pub(crate) fn fold_sidecar_failure<R: Runtime + 'static>(
     drop(sidecar_store);
 
     let cause = trigger.label();
-    let report = describe_failure(&decision, &cause);
+    let report = describe_failure(&decision, &cause, RESTART_MAX_ATTEMPTS);
     let attempt = match &decision {
         RestartDecision::Restart { attempt, .. } | RestartDecision::Stop { attempt, .. } => *attempt,
     };

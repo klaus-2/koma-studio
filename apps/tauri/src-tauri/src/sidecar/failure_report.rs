@@ -6,7 +6,36 @@
 
 use std::time::Duration;
 
-use super::recovery::{RestartDecision, RestartStopReason, RESTART_MAX_ATTEMPTS};
+/// How a restart attempt ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RestartDecision {
+    Restart { attempt: u32, delay: Duration },
+    /// `attempt` is the number of failed attempts already consumed, so a
+    /// stopped recovery reports the same budget the UI saw while retrying.
+    Stop { reason: RestartStopReason, attempt: u32 },
+}
+
+/// Why recovery stopped instead of trying again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RestartStopReason {
+    ExpectedStop,
+    AppExiting,
+    SpawnError,
+    CrashLoop,
+    AttemptsExhausted,
+}
+
+impl RestartStopReason {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::ExpectedStop => "expected stop",
+            Self::AppExiting => "app is exiting",
+            Self::SpawnError => "spawn error",
+            Self::CrashLoop => "crash loop",
+            Self::AttemptsExhausted => "attempt limit",
+        }
+    }
+}
 
 /// What the runtime panel shows for one folded failure.
 pub(crate) struct FailureReport {
@@ -23,13 +52,15 @@ pub(crate) struct FailureReport {
 /// switch) must not look like a crash: the panel said "Local backend exited
 /// unexpectedly (code 1); automatic recovery stopped (expected stop)" and a
 /// post-mortem file was written for every ordinary shutdown.
-pub(crate) fn describe_failure(decision: &RestartDecision, cause: &str) -> FailureReport {
+pub(crate) fn describe_failure(
+    decision: &RestartDecision,
+    cause: &str,
+    max_attempts: u32,
+) -> FailureReport {
     match decision {
         RestartDecision::Restart { attempt, delay } => FailureReport {
             status: "crashed",
-            message: format!(
-                "Local backend {cause}; restart attempt {attempt} of {RESTART_MAX_ATTEMPTS}."
-            ),
+            message: format!("Local backend {cause}; restart attempt {attempt} of {max_attempts}."),
             retry_after: Some(*delay),
             expected_stop: false,
         },
@@ -75,7 +106,7 @@ mod tests {
             RestartStopReason::AppExiting,
         ] {
             let decision = RestartDecision::Stop { reason, attempt: 0 };
-            let report = describe_failure(&decision, "exited unexpectedly (code 1)");
+            let report = describe_failure(&decision, "exited unexpectedly (code 1)", 5);
             assert!(report.expected_stop, "{reason:?} must count as a deliberate stop");
             assert_eq!(report.status, "stopped");
             assert_eq!(report.message, "Local backend stopped.");
@@ -89,7 +120,7 @@ mod tests {
             reason: RestartStopReason::CrashLoop,
             attempt: 3,
         };
-        let report = describe_failure(&decision, "exited unexpectedly (code 1)");
+        let report = describe_failure(&decision, "exited unexpectedly (code 1)", 5);
         assert!(!report.expected_stop);
         assert_eq!(report.status, "crashed");
         assert!(report.message.contains("automatic recovery stopped (crash loop)"));
@@ -98,7 +129,7 @@ mod tests {
             attempt: 1,
             delay: Duration::from_millis(250),
         };
-        let report = describe_failure(&decision, "exited unexpectedly (code 1)");
+        let report = describe_failure(&decision, "exited unexpectedly (code 1)", 5);
         assert!(!report.expected_stop);
         assert_eq!(report.status, "crashed");
         assert_eq!(report.retry_after, Some(Duration::from_millis(250)));
