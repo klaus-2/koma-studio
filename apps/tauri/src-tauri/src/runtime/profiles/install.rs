@@ -446,12 +446,16 @@ pub(super) async fn list_runtime_artifacts<R: Runtime>(
         return Ok(Vec::new());
     }
     let recommended = resolve_runtime_profile(app, store, true, true)?;
+    // The same predicate the spawn guard uses: a profile the shell would
+    // refuse to start is not an installed profile.
     let installed_profiles = manifest
         .profiles
         .values()
         .filter(|record| {
             runtime_install_dir(app, &manifest.version, &record.profile)
-                .map(|dir| dir.join(&record.entry).exists())
+                .map(|dir| {
+                    resolve_spawnable_runtime_binary(&dir, &record.profile, &record.entry).is_some()
+                })
                 .unwrap_or(false)
         })
         .map(|record| record.profile.clone())

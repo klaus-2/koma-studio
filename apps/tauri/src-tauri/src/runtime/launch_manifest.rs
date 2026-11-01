@@ -4,6 +4,10 @@
 //! profile the build shipped. A tree without it is a partial extraction (an
 //! interrupted install, a half-copied directory), and spawning it boots a
 //! backend that dies on its first import.
+//!
+//! The install is atomic (the parts extract into a staging directory that is
+//! renamed into place), so a launch manifest in the tree means the whole
+//! payload landed with it.
 
 use std::fs;
 use std::path::{Path, PathBuf};
