@@ -13,6 +13,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 
 from pipelines.translation_store import (
     CacheRow,
+    TMWrite,
     TranslationStore,
     TranslationStoreError,
     glossary_hash,
@@ -129,17 +130,105 @@ class TranslationStoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = TranslationStore(Path(tmp) / "store.sqlite3")
             try:
-                self.assertIsNone(store.lookup_tm("chave", "ja", "pt-br"))
-                store.put_tm("chave", "ja", "pt-br", "chave traduzida", "nllb-200-600m-int8")
-                entry = store.lookup_tm("chave", "ja", "pt-br")
-                self.assertIsNotNone(entry)
+                self.assertEqual(store.lookup_tm([("chave", "ja", "pt-br")]), {})
+                store.put_tm(
+                    [
+                        TMWrite(
+                            nfkc_key="chave",
+                            src_lang="ja",
+                            tgt_lang="pt-br",
+                            translation="chave traduzida",
+                            model_key="nllb-200-600m-int8",
+                        )
+                    ]
+                )
+                entry = store.lookup_tm([("chave", "ja", "pt-br")])[
+                    ("chave", "ja", "pt-br")
+                ]
                 self.assertEqual(entry.translation, "chave traduzida")
                 self.assertEqual(entry.model_key, "nllb-200-600m-int8")
-                store.put_tm("chave", "ja", "pt-br", "nova tradução", "m2m100_1_2b_ct2")
-                entry = store.lookup_tm("chave", "ja", "pt-br")
-                self.assertIsNotNone(entry)
+                store.put_tm(
+                    [
+                        TMWrite(
+                            nfkc_key="chave",
+                            src_lang="ja",
+                            tgt_lang="pt-br",
+                            translation="nova tradução",
+                            model_key="m2m100_1_2b_ct2",
+                        )
+                    ]
+                )
+                entry = store.lookup_tm([("chave", "ja", "pt-br")])[
+                    ("chave", "ja", "pt-br")
+                ]
                 self.assertEqual(entry.translation, "nova tradução")
                 self.assertEqual(entry.model_key, "m2m100_1_2b_ct2")
+            finally:
+                store.close()
+
+    def test_tm_batch_lookup_and_single_commit_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "store.sqlite3"
+            store = TranslationStore(db_path)
+            try:
+                store.put_tm(
+                    [
+                        TMWrite("um", "ja", "pt-br", "um t", "eng"),
+                        TMWrite("dois", "ja", "pt-br", "dois t", "eng"),
+                        TMWrite("tres", "es", "pt-br", "tres t", "eng"),
+                        TMWrite("", "ja", "pt-br", "ignorado", "eng"),
+                    ]
+                )
+                found = store.lookup_tm(
+                    [
+                        ("um", "ja", "pt-br"),
+                        ("dois", "ja", "pt-br"),
+                        ("tres", "es", "pt-br"),
+                        ("ausente", "ja", "pt-br"),
+                        ("um", "en", "pt-br"),
+                    ]
+                )
+                self.assertEqual(sorted(found), [("dois", "ja", "pt-br"), ("tres", "es", "pt-br"), ("um", "ja", "pt-br")])
+                self.assertEqual(found[("um", "ja", "pt-br")].translation, "um t")
+                self.assertNotIn(("um", "en", "pt-br"), found)
+                self.assertNotIn(("ausente", "ja", "pt-br"), found)
+
+                class _CommitSpy:
+                    """Forwards to the real connection while counting commits."""
+
+                    def __init__(self, conn: sqlite3.Connection) -> None:
+                        self._inner = conn
+                        self.commit_count = 0
+
+                    def commit(self) -> None:
+                        self.commit_count += 1
+                        self._inner.commit()
+
+                    def execute(self, sql: str, parameters: object = ()) -> sqlite3.Cursor:
+                        return self._inner.execute(sql, parameters)
+
+                    def executemany(
+                        self, sql: str, parameters: object = ()
+                    ) -> sqlite3.Cursor:
+                        return self._inner.executemany(sql, parameters)
+
+                    def __getattr__(self, name: str) -> object:
+                        return getattr(self._inner, name)
+
+                store._conn = _CommitSpy(store._conn)  # noqa: SLF001 — test spy
+                assert isinstance(store._conn, _CommitSpy)
+                store.put_tm(
+                    [
+                        TMWrite(f"lote-{index}", "ja", "pt-br", f"t {index}", "eng")
+                        for index in range(5)
+                    ]
+                )
+                self.assertEqual(store._conn.commit_count, 1)
+                for index in range(5):
+                    entry = store.lookup_tm([(f"lote-{index}", "ja", "pt-br")])[
+                        (f"lote-{index}", "ja", "pt-br")
+                    ]
+                    self.assertEqual(entry.translation, f"t {index}")
             finally:
                 store.close()
 
@@ -148,8 +237,12 @@ class TranslationStoreTests(unittest.TestCase):
             db_path = Path(tmp) / "store.sqlite3"
             store = TranslationStore(db_path)
             try:
-                store.put_tm("a", "ja", "pt-br", "um", "eng")
-                store.put_tm("b", "ja", "pt-br", "dois", "eng")
+                store.put_tm(
+                    [
+                        TMWrite(nfkc_key="a", src_lang="ja", tgt_lang="pt-br", translation="um", model_key="eng"),
+                        TMWrite(nfkc_key="b", src_lang="ja", tgt_lang="pt-br", translation="dois", model_key="eng"),
+                    ]
+                )
                 store.bump_tm_hits([("a", "ja", "pt-br"), ("a", "ja", "pt-br")])
                 store.bump_tm_hits([("a", "ja", "pt-br")])
                 store.bump_tm_hits([])

@@ -8,6 +8,8 @@ the response schema; the batch orchestrator only maps OCR records to seeds.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import json
 import logging
 import re
 import sqlite3
@@ -40,6 +42,7 @@ from models.translation.providers import (
     build_current_image_translation_context,
     build_request_scoped_custom_translation_engine,
     compose_translation_extra_context,
+    request_scoped_custom_identity,
 )
 from pipelines.batch.records import (
     OCRRecord,
@@ -57,6 +60,7 @@ from pipelines.translation_qa import glossary_missing, run_translation_qa
 from pipelines.translation_store import (
     CacheRow,
     TMEntry,
+    TMWrite,
     TranslationStore,
     TranslationStoreError,
     get_translation_store,
@@ -234,29 +238,25 @@ def _store_put_cached(
 
 
 def _store_lookup_tm(
-    store: TranslationStore | None, nfkc_key: str, src_lang: str, tgt_lang: str
-) -> TMEntry | None:
+    store: TranslationStore | None,
+    keys: Sequence[tuple[str, str, str]],
+) -> dict[tuple[str, str, str], TMEntry]:
     if store is None:
-        return None
+        return {}
     try:
-        return store.lookup_tm(nfkc_key, src_lang, tgt_lang)
+        return store.lookup_tm(keys)
     except (TranslationStoreError, sqlite3.Error) as exc:
         _warn_store_degraded(exc)
-        return None
+        return {}
 
 
 def _store_put_tm(
-    store: TranslationStore | None,
-    nfkc_key: str,
-    src_lang: str,
-    tgt_lang: str,
-    translation: str,
-    model_key: str,
+    store: TranslationStore | None, rows: Sequence[TMWrite]
 ) -> None:
     if store is None:
         return
     try:
-        store.put_tm(nfkc_key, src_lang, tgt_lang, translation, model_key)
+        store.put_tm(rows)
     except (TranslationStoreError, sqlite3.Error) as exc:
         _warn_store_degraded(exc)
 
@@ -360,11 +360,18 @@ def _consult_translation_memory(
     hits: dict[str, TranslationRecord] = {}
     remaining: list[TranslationSeed] = []
     bumped: dict[tuple[str, str, str], None] = {}
-    for seed in missing:
-        tm_key_value = tm_key(normalize_source_text(seed["text"]))
-        entry = _store_lookup_tm(
-            store, tm_key_value, request.source_language, request.target_language
+    # One batched TM read for every in-memory miss (no N+1 queries).
+    wanted_keys = [
+        (
+            tm_key(normalize_source_text(seed["text"])),
+            request.source_language,
+            request.target_language,
         )
+        for seed in missing
+    ]
+    entries = _store_lookup_tm(store, wanted_keys)
+    for seed, tm_key_value in zip(missing, wanted_keys, strict=True):
+        entry = entries.get(tm_key_value)
         if entry is None or not entry.translation.strip():
             remaining.append(seed)
             continue
@@ -392,7 +399,7 @@ def _consult_translation_memory(
             ocr_model_key=seed["ocr_model_key"],
             translator_model_key=entry.model_key or fallback_engine_key,
         )
-        bumped[(tm_key_value, request.source_language, request.target_language)] = None
+        bumped[tm_key_value] = None
     if bumped:
         _store_bump_tm_hits(store, list(bumped))
     return hits, remaining
@@ -556,6 +563,17 @@ async def run_cached_translation(
     )
     cache_key_model = requested_key or provisional_engine_key
     engine_key = provisional_engine_key
+    # Request-scoped custom profiles are keyed by their resolved IDENTITY
+    # (engine kind + api base + model name — never the api key): editing the
+    # profile must stop serving the previous profile's cached answers, while
+    # rotating the key must not invalidate them.
+    custom_identity_hash = ""
+    if request_scoped:
+        kind, api_base, model_name = request_scoped_custom_identity(request.custom_llm)
+        canonical = json.dumps(
+            [kind, api_base, model_name], separators=(",", ":"), ensure_ascii=False
+        )
+        custom_identity_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     cache_key = pipeline_cache.build_translation_cache_key(
         model_key=cache_key_model,
         source_language=request.source_language,
@@ -599,7 +617,7 @@ async def run_cached_translation(
             request=request,
             settings=settings,
             missing=missing,
-            model_key=cache_key_model,
+            model_key=custom_identity_hash or cache_key_model,
             store=translation_store,
             fallback_engine_key=engine_key,
         )
@@ -724,7 +742,7 @@ async def run_cached_translation(
         )
         sfx_mode = request.translation_mode.strip().lower() == "sfx"
         fresh: list[TranslationRecord] = []
-        tm_writes: list[tuple[str, str, str, str, str]] = []
+        tm_writes: list[TMWrite] = []
         for item in translated:
             # QA runs once per unique engine answer; the verdict (and any
             # deterministic echo repair) is replicated to the group members.
@@ -751,12 +769,12 @@ async def run_cached_translation(
                 != normalize_source_text(outcome.text)
             ):
                 tm_writes.append(
-                    (
-                        tm_key(normalize_source_text(item.source_text)),
-                        request.source_language,
-                        request.target_language,
-                        outcome.text,
-                        item.translator_model_key or engine_key,
+                    TMWrite(
+                        nfkc_key=tm_key(normalize_source_text(item.source_text)),
+                        src_lang=request.source_language,
+                        tgt_lang=request.target_language,
+                        translation=outcome.text,
+                        model_key=item.translator_model_key or engine_key,
                     )
                 )
             for member in dedup_members.get(item.id, ()):
@@ -776,10 +794,7 @@ async def run_cached_translation(
                         translator_model_key=item.translator_model_key or engine_key,
                     )
                 )
-        for nfkc_key, src_lang, tgt_lang, translation, model_key in tm_writes:
-            _store_put_tm(
-                translation_store, nfkc_key, src_lang, tgt_lang, translation, model_key
-            )
+        _store_put_tm(translation_store, tm_writes)
         if tm_writes:
             logger.info(
                 "translation.tm_written", extra={"blocks": len(tm_writes), "model": engine_key}

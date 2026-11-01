@@ -63,6 +63,15 @@ class TMEntry:
 
 
 @dataclass(frozen=True)
+class TMWrite:
+    nfkc_key: str
+    src_lang: str
+    tgt_lang: str
+    translation: str
+    model_key: str
+
+
+@dataclass(frozen=True)
 class CacheRow:
     key: str
     translated_text: str
@@ -219,34 +228,55 @@ class TranslationStore:
     # ------------------------------------------------------------------- tm
 
     def lookup_tm(
-        self, nfkc_key: str, src_lang: str, tgt_lang: str
-    ) -> TMEntry | None:
+        self, keys: Sequence[tuple[str, str, str]]
+    ) -> dict[tuple[str, str, str], TMEntry]:
+        """Batched exact TM lookup: one query per language pair, one lock."""
+        wanted = [key for key in keys if key[0]]
+        if not wanted:
+            return {}
+        found: dict[tuple[str, str, str], TMEntry] = {}
+        pairs = sorted({(src, tgt) for _, src, tgt in wanted})
         with self._lock:
-            row = self._conn.execute(
-                "SELECT translation, model_key FROM tm"
-                " WHERE nfkc_key = ? AND src_lang = ? AND tgt_lang = ?",
-                (nfkc_key, src_lang, tgt_lang),
-            ).fetchone()
-        if row is None:
-            return None
-        translation, model_key = row[0], row[1]
-        if not isinstance(translation, str) or not translation:
-            return None
-        return TMEntry(
-            translation=translation,
-            model_key=model_key if isinstance(model_key, str) else "",
-        )
+            for src_lang, tgt_lang in pairs:
+                nfkc_keys = [
+                    key
+                    for key, src, tgt in wanted
+                    if src == src_lang and tgt == tgt_lang
+                ]
+                placeholders = ",".join("?" for _ in nfkc_keys)
+                cursor = self._conn.execute(
+                    "SELECT nfkc_key, translation, model_key FROM tm"
+                    " WHERE src_lang = ? AND tgt_lang = ?"
+                    f" AND nfkc_key IN ({placeholders})",
+                    [src_lang, tgt_lang, *nfkc_keys],
+                )
+                for nfkc_key, translation, model_key in cursor.fetchall():
+                    if not isinstance(translation, str) or not translation:
+                        continue
+                    found[(nfkc_key, src_lang, tgt_lang)] = TMEntry(
+                        translation=translation,
+                        model_key=model_key if isinstance(model_key, str) else "",
+                    )
+        return found
 
-    def put_tm(
-        self,
-        nfkc_key: str,
-        src_lang: str,
-        tgt_lang: str,
-        translation: str,
-        model_key: str,
-    ) -> None:
+    def put_tm(self, rows: Sequence[TMWrite]) -> None:
+        """Upsert a batch of TM translations: one executemany, one commit."""
+        payload = [
+            (
+                row.nfkc_key,
+                row.src_lang,
+                row.tgt_lang,
+                row.translation,
+                row.model_key,
+                time.time(),
+            )
+            for row in rows
+            if row.nfkc_key and row.translation
+        ]
+        if not payload:
+            return
         with self._lock:
-            self._conn.execute(
+            self._conn.executemany(
                 "INSERT INTO tm"
                 " (nfkc_key, src_lang, tgt_lang, translation, model_key, hits, updated_at)"
                 " VALUES (?, ?, ?, ?, ?, 0, ?)"
@@ -254,7 +284,7 @@ class TranslationStore:
                 " translation = excluded.translation,"
                 " model_key = excluded.model_key,"
                 " updated_at = excluded.updated_at",
-                (nfkc_key, src_lang, tgt_lang, translation, model_key, time.time()),
+                payload,
             )
             self._conn.commit()
 

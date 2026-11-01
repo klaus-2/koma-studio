@@ -32,6 +32,22 @@ def _parse_temperature(settings: Mapping[str, object] | None) -> float:
     return DEFAULT_LLM_TEMPERATURE
 
 
+def request_scoped_custom_identity(
+    custom_llm: Mapping[str, object] | None,
+) -> tuple[str, str, str]:
+    """Stable identity of a request-scoped custom profile: engine kind, api
+    base and model name. The api key is deliberately excluded — rotating it
+    must not invalidate cached answers, while editing the model or endpoint
+    must (the persistent cache keys on this identity)."""
+    resolved = resolve_request_custom_openai_config(custom_llm)
+    kind = (
+        "ollama_native"
+        if _is_ollama_cloud_host(resolved["api_base"])
+        else "openai_compatible"
+    )
+    return kind, resolved["api_base"], resolved["model"]
+
+
 def build_request_scoped_custom_translation_engine(
     *,
     selected_model_key: str,

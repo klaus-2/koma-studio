@@ -22,7 +22,11 @@ from pipelines.translation_stage import (  # noqa: E402
     run_cached_translation,
     seed_from_request,
 )
-from pipelines.translation_store import TranslationStore, tm_key  # noqa: E402
+from pipelines.translation_store import (  # noqa: E402
+    TMWrite,
+    TranslationStore,
+    tm_key,
+)
 from schemas.translation import TranslationRegionRequest  # noqa: E402
 
 
@@ -140,7 +144,9 @@ class TranslationMemoryStageTests(unittest.TestCase):
         return int(row[0]) if row is not None else 0
 
     def test_reads_are_opt_in_default_off(self) -> None:
-        self.store.put_tm(tm_key("konnichiwa"), "ja", "en", "TM translation", "m2m100_1_2b_ct2")
+        self.store.put_tm(
+            [TMWrite(tm_key("konnichiwa"), "ja", "en", "TM translation", "m2m100_1_2b_ct2")]
+        )
         engine = _FakeEngine("fake")
         settings = clamp_llm_request_settings({"translation_memory_enabled": False})
 
@@ -150,7 +156,9 @@ class TranslationMemoryStageTests(unittest.TestCase):
         self.assertEqual(result.records[0]["translated_text"], "ok-konnichiwa")
 
     def test_opt_in_read_serves_tm_without_engine_call_and_bumps(self) -> None:
-        self.store.put_tm(tm_key("konnichiwa"), "ja", "en", "TM translation", "m2m100_1_2b_ct2")
+        self.store.put_tm(
+            [TMWrite(tm_key("konnichiwa"), "ja", "en", "TM translation", "m2m100_1_2b_ct2")]
+        )
         engine = _FakeEngine("fake")
         settings = clamp_llm_request_settings({"translation_memory_enabled": True})
 
@@ -169,7 +177,9 @@ class TranslationMemoryStageTests(unittest.TestCase):
 
         _run(_request(settings=settings), engine, self.store)
 
-        entry = self.store.lookup_tm(tm_key("konnichiwa"), "ja", "en")
+        entry = self.store.lookup_tm([(tm_key("konnichiwa"), "ja", "en")]).get(
+            (tm_key("konnichiwa"), "ja", "en")
+        )
         self.assertIsNotNone(entry)
         self.assertEqual(entry.translation, "ok-konnichiwa")
         self.assertEqual(entry.model_key, "fake")
@@ -180,7 +190,9 @@ class TranslationMemoryStageTests(unittest.TestCase):
 
         _run(_request(settings=settings, mode="sfx"), engine, self.store)
 
-        self.assertIsNone(self.store.lookup_tm(tm_key("konnichiwa"), "ja", "en"))
+        self.assertEqual(
+            self.store.lookup_tm([(tm_key("konnichiwa"), "ja", "en")]), {}
+        )
 
     def test_identical_to_source_results_are_never_written(self) -> None:
         engine = _FakeEngine("fake", translated_text="konnichiwa")
@@ -188,7 +200,9 @@ class TranslationMemoryStageTests(unittest.TestCase):
 
         _run(_request(settings=settings, text="konnichiwa"), engine, self.store)
 
-        self.assertIsNone(self.store.lookup_tm(tm_key("konnichiwa"), "ja", "en"))
+        self.assertEqual(
+            self.store.lookup_tm([(tm_key("konnichiwa"), "ja", "en")]), {}
+        )
 
     def test_echo_repaired_results_are_never_written(self) -> None:
         engine = _FakeEngine("fake", translated_text="SIM SIM")
@@ -196,7 +210,7 @@ class TranslationMemoryStageTests(unittest.TestCase):
 
         _run(_request(settings=settings, text="はい"), engine, self.store)
 
-        self.assertIsNone(self.store.lookup_tm(tm_key("はい"), "ja", "en"))
+        self.assertEqual(self.store.lookup_tm([(tm_key("はい"), "ja", "en")]), {})
 
     def test_echo_flagged_results_are_never_written(self) -> None:
         engine = _FakeEngine(
@@ -206,7 +220,7 @@ class TranslationMemoryStageTests(unittest.TestCase):
 
         _run(_request(settings=settings, text="テスト"), engine, self.store)
 
-        self.assertIsNone(self.store.lookup_tm(tm_key("テスト"), "ja", "en"))
+        self.assertEqual(self.store.lookup_tm([(tm_key("テスト"), "ja", "en")]), {})
 
     def test_local_tm_hit_missing_protected_term_is_discarded(self) -> None:
         settings = clamp_llm_request_settings(
@@ -218,7 +232,11 @@ class TranslationMemoryStageTests(unittest.TestCase):
             }
         )
         self.store.put_tm(
-            tm_key("Kaito greets"), "ja", "en", "someone greets", "nllb-200-600m-int8"
+            [
+                TMWrite(
+                    tm_key("Kaito greets"), "ja", "en", "someone greets", "nllb-200-600m-int8"
+                )
+            ]
         )
         engine = _FakeEngine("fake")
 
@@ -238,7 +256,11 @@ class TranslationMemoryStageTests(unittest.TestCase):
             }
         )
         self.store.put_tm(
-            tm_key("Kaito greets"), "ja", "en", "someone greets", "google_translate"
+            [
+                TMWrite(
+                    tm_key("Kaito greets"), "ja", "en", "someone greets", "google_translate"
+                )
+            ]
         )
         engine = _FakeEngine("fake")
 

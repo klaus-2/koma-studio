@@ -39,6 +39,7 @@ from pipelines.translation_stage import (  # noqa: E402
 from pipelines.translation_store import (  # noqa: E402
     CacheRow,
     TMEntry,
+    TMWrite,
     TranslationStore,
     TranslationStoreError,
     glossary_hash,
@@ -97,6 +98,7 @@ def _request(
     settings: LLMRequestSettings | None = None,
     text: str = "konnichiwa",
     model_key: str = "fake",
+    custom_llm: dict[str, str] | None = None,
 ) -> CachedTranslationRequest:
     region = TranslationRegionRequest(
         id="r1",
@@ -112,7 +114,7 @@ def _request(
         seeds=(seed_from_request(region),),
         translation_mode="default",
         settings=settings if settings is not None else clamp_llm_request_settings({}),
-        custom_llm=None,
+        custom_llm=custom_llm,
     )
 
 
@@ -150,17 +152,12 @@ class _RaisingStore(TranslationStore):
     def put_cached(self, rows: Sequence[CacheRow]) -> int:
         raise sqlite3.OperationalError("disk I/O error")
 
-    def lookup_tm(self, nfkc_key: str, src_lang: str, tgt_lang: str) -> TMEntry | None:
+    def lookup_tm(
+        self, keys: Sequence[tuple[str, str, str]]
+    ) -> dict[tuple[str, str, str], TMEntry]:
         raise sqlite3.OperationalError("disk I/O error")
 
-    def put_tm(
-        self,
-        nfkc_key: str,
-        src_lang: str,
-        tgt_lang: str,
-        translation: str,
-        model_key: str,
-    ) -> None:
+    def put_tm(self, rows: Sequence[TMWrite]) -> None:
         raise sqlite3.OperationalError("disk I/O error")
 
     def bump_tm_hits(self, keys: Sequence[tuple[str, str, str]]) -> None:
@@ -405,6 +402,53 @@ class PersistentCacheStageTests(unittest.TestCase):
 
         self.assertEqual(self.engine.calls, 1)
         self.assertEqual(result.records[0]["translated_text"], "ok-konnichiwa")
+
+    def test_custom_profile_identity_keys_the_persistent_cache(self) -> None:
+        """Same uuid + edited model must NOT be served the old profile's row;
+        same uuid + same identity (restart) must be."""
+        store = TranslationStore(self.db_path)
+        try:
+            profile = {"api_base": "http://127.0.0.1:11434", "model": "old-model"}
+            first = _FakeEngine("custom:uuid-1")
+            second = _FakeEngine("custom:uuid-1")
+            third = _FakeEngine("custom:uuid-1")
+            engines = [first, second, third]
+
+            def run(custom_llm: dict[str, str]):
+                import asyncio
+
+                return asyncio.run(
+                    run_cached_translation(
+                        _request(
+                            model_key="custom:uuid-1", custom_llm=dict(custom_llm)
+                        ),
+                        # Fresh CacheManager per run: every run must cross the
+                        # persistent layer, like a restarted process.
+                        cache=CacheManager(
+                            ttl_seconds=60, max_entries=8, bbox_tolerance_px=2
+                        ),
+                        resolve_engine=self.resolver,
+                        store=store,
+                    )
+                )
+
+            with patch.object(
+                translation_stage,
+                "build_request_scoped_custom_translation_engine",
+                side_effect=lambda **_kwargs: engines.pop(0),
+            ):
+                run(profile)
+                self.assertEqual(first.calls, 1)
+
+                rerun = run(profile)
+                self.assertEqual(second.calls, 0)  # built, but the row answered
+                self.assertEqual(rerun.records[0]["translated_text"], "ok-konnichiwa")
+
+                edited = run({**profile, "model": "new-model"})
+                self.assertEqual(third.calls, 1)
+                self.assertEqual(edited.records[0]["translated_text"], "ok-konnichiwa")
+        finally:
+            store.close()
 
 
 if __name__ == "__main__":

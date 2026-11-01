@@ -42,7 +42,10 @@ from models.translation.providers._common import (  # noqa: F401
 from models.translation.providers.claude import ClaudeTranslatorEngine
 from models.translation.providers.custom import CustomTranslatorEngine
 from models.translation.providers.deepl import DeepLTranslatorEngine
-from models.translation.providers.factory import build_request_scoped_custom_translation_engine
+from models.translation.providers.factory import (
+    build_request_scoped_custom_translation_engine,
+    request_scoped_custom_identity,
+)
 from models.translation.providers.gemini import GeminiTranslatorEngine
 from models.translation.providers.google import GoogleTranslatorEngine
 from models.translation.providers.microsoft import MicrosoftTranslatorEngine
@@ -60,7 +63,7 @@ __all__ = [
     "GeminiTranslatorEngine", "GoogleTranslatorEngine", "MicrosoftTranslatorEngine",
     "OpenAIGPTTranslatorEngine", "RequestScopedOllamaNativeTranslatorEngine",
     "RequestScopedOpenAICompatibleTranslatorEngine", "YandexTranslatorEngine",
-    "build_request_scoped_custom_translation_engine",
+    "build_request_scoped_custom_translation_engine", "request_scoped_custom_identity",
     "build_current_image_translation_context", "compose_translation_extra_context",
     "dedupe_translation_notes_across_regions", "resolve_request_custom_openai_config",
 ]
