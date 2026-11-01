@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo } from 'react';
+import { Suspense, lazy, memo, useCallback, useMemo } from 'react';
 import { useShallowStableObject } from '../../../utils/shallowStable';
 
 import { memoLoad } from '../../../utils/lazyModule';
@@ -161,7 +161,7 @@ export interface DashboardStageSectionProps {
  * the per-image stage-item renderers (moved 1:1 from the page, deps fed by
  * same-name props).
  */
-export default function DashboardStageSection({
+function DashboardStageSection({
   images,
   setActiveId,
   mode,
@@ -965,3 +965,8 @@ export default function DashboardStageSection({
     </section>
   );
 }
+
+// The parent layout re-renders for state this section does not consume
+// (footer/badge progress ticks); memo bails those out. Its props are stable
+// by contract: store primitives, hook useCallbacks, useMemo-wrapped objects.
+export default memo(DashboardStageSection);
