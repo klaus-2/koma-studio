@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -13,14 +14,51 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 
 from models.ocr.common import ChecksumMismatchError, ModelDownloadError
 from models.ocr.paddleocr import storage
-from models.ocr.paddleocr.storage import PADDLEOCR_MANIFESTS, RemoteAsset, _ensure_asset
+from models.ocr.paddleocr.storage import RemoteAsset, _ensure_asset, paddleocr_manifests
 
 _SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
 
 class PaddleManifestTests(unittest.TestCase):
+    def test_import_survives_a_missing_manifest_data_file(self) -> None:
+        # The packaged backend used to die at boot: the manifest was read
+        # while the module was still being imported, so a bundle missing the
+        # data file took down detection, translation and every other local
+        # feature with it. The import must survive; only OCR may fail.
+        code = (
+            "import sys;"
+            f"sys.path.insert(0, {str(MINI_BACKEND_DIR)!r});"
+            "import models.manifests as manifests;"
+            "manifests.MANIFEST_PATH = manifests.MANIFEST_PATH.with_name('missing.json');"
+            "import models.ocr.paddleocr.storage as storage;"
+            "print('imported')"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("imported", result.stdout)
+
+    def test_the_manifest_is_only_read_when_a_model_is_resolved(self) -> None:
+        original = storage.load_manifest
+
+        def explode() -> dict[str, object]:
+            raise FileNotFoundError("model-assets.json")
+
+        storage.load_manifest = explode  # type: ignore[assignment]
+        paddleocr_manifests.cache_clear()
+        try:
+            with self.assertRaises(FileNotFoundError):
+                storage.paddleocr_manifests()
+        finally:
+            storage.load_manifest = original  # type: ignore[assignment]
+            paddleocr_manifests.cache_clear()
+
     def test_manifests_are_well_formed(self) -> None:
-        for model_id, assets in PADDLEOCR_MANIFESTS.items():
+        for model_id, assets in paddleocr_manifests().items():
             targets = [asset.target for asset in assets]
             self.assertEqual(len(targets), len(set(targets)), model_id)
             self.assertIn("ch_PP-OCRv5_mobile_det.onnx", targets)
@@ -33,7 +71,7 @@ class PaddleManifestTests(unittest.TestCase):
                 self.assertGreater(asset.size, 0, asset.target)
 
     def test_candidates_are_byte_identical_mirrors_of_the_same_path(self) -> None:
-        for model_id, assets in PADDLEOCR_MANIFESTS.items():
+        for model_id, assets in paddleocr_manifests().items():
             for asset in assets:
                 for url in asset.urls:
                     self.assertNotIn("monkt", url, f"{model_id}: {asset.target}")

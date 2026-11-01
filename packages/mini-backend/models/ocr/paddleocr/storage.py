@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Final
 
@@ -118,7 +119,19 @@ def _build_manifests() -> Mapping[str, tuple[RemoteAsset, ...]]:
     return manifests
 
 
-PADDLEOCR_MANIFESTS: Final[Mapping[str, tuple[RemoteAsset, ...]]] = _build_manifests()
+@lru_cache(maxsize=1)
+def paddleocr_manifests() -> Mapping[str, tuple[RemoteAsset, ...]]:
+    """The paddleocr manifest entries, built on first use.
+
+    Building them at import time made every packaged backend die at boot when
+    the manifest data file was missing from the bundle: the frozen app reads
+    it next to the loader module, so the failure was a bare
+    ``FileNotFoundError`` raised while the module was still being imported,
+    which took down detection, translation and every other local feature
+    with it. The manifests are only needed when an OCR model is resolved, so
+    both the cost and the blast radius belong there.
+    """
+    return _build_manifests()
 
 
 def _normalize_model_id(model_id: str) -> str:
@@ -126,7 +139,7 @@ def _normalize_model_id(model_id: str) -> str:
 
 
 def _manifest_for(model_id: str) -> tuple[RemoteAsset, ...]:
-    manifest = PADDLEOCR_MANIFESTS.get(_normalize_model_id(model_id))
+    manifest = paddleocr_manifests().get(_normalize_model_id(model_id))
     if manifest is None:
         raise UnknownManagedModelError(model_id)
     return manifest
