@@ -76,6 +76,9 @@ experimentation:
 - `KOMA_MODELS_ROOT` — override the on-disk model cache directory
 - `KOMA_PORORO_ALLOW_DOWNLOAD` — when `1`, the vendored Pororo OCR can fetch
   its checkpoints on first use
+- `KOMA_APP_DATA_DIR` — app-data directory for sidecar state that outlives the
+  models cache (the persistent translation store, crash logs); the Tauri shell
+  sets it to the models root's parent, dev fallback is `~/.koma-studio`
 - `PORT` — uvicorn port (default `8001`)
 - `MINI_BACKEND_EXPOSE_MEMORY_ENDPOINTS` — off by default; set to `1` or
   `true` to expose `/memory/stats` and `/memory/clear-caches` without session
@@ -101,6 +104,10 @@ by `clamp_llm_request_settings` in `core/config.py`. Translation-specific ones:
   `custom:` request-scoped path never chains. `model_used` reports the engine
   that actually answered, and the attempts are logged at WARNING only (the
   response schema is unchanged). Implementation: `models/translation/fallback.py`.
+- `translation_memory_enabled` (bool, default `false`) — gates **reads** from
+  the persistent translation memory only. Writes are not gated: every
+  successful, non-identical, non-echo-repaired engine answer is recorded (SFX
+  mode skips TM writes entirely).
 - Engine keys are case-insensitive: they go through `normalize_stage_model_key`,
   so `a` and `A` are the same key, and a free endpoint already ships at
   `models/translation/providers/google.py` (`google_translate`, no API key).
@@ -108,6 +115,41 @@ by `clamp_llm_request_settings` in `core/config.py`. Translation-specific ones:
 A provider that was unreachable stays blocked **for the local calendar day** in
 the in-memory `QuotaBlocklist` (`models/translation/fallback.py`); the block is
 per process, resets on the next day or a restart, and is not a quota server.
+
+### Persistent store, QA, and never-translate terms
+
+- **Persistent store**: translations are also written to a stdlib-sqlite store
+  at `<KOMA_APP_DATA_DIR>/translation-store.sqlite3` (dev fallback
+  `~/.koma-studio`) with a WAL journal and two tables — `translation_cache`
+  keyed by a version-pinned SHA-256 of (model, language pair, translation mode,
+  normalized source text, glossary hash) and `tm` for cross-model exact-match
+  lookups (NFKC-normalized source, no fuzz matching). It prunes each table to
+  the newest 200k rows on open, survives restarts, and is **not** cleared by
+  `/memory/clear-caches` or `_clear_all_caches` — it is closed only at process
+  shutdown. Implementation: `pipelines/translation_store.py`.
+- **Consultation order** per request: in-memory cache → symbol-only passthrough
+  (non-alphanumeric seeds skip engines, caches, and QA entirely) → persistent
+  cache → TM (only when `translation_memory_enabled`) → dedup of identical
+  seeds → engine → QA → cache/TM writes.
+- **Degradation**: if the store cannot be opened or a store operation fails,
+  the stage degrades to in-memory-only caching with a once-per-process WARNING
+  (`translation.store.degraded_to_memory`) — a store failure never 500s a
+  request.
+- **`never_translate` glossary flag** (`GlossaryTerm.never_translate`, default
+  `false`): flagged terms never reach a local model — the text is split into
+  prose runs, the runs are translated, and the terms are reassembled verbatim
+  with the original whitespace (parity guarantee). Cloud engines receive the
+  terms via prompt as before. A cache/TM hit answered by a local engine is
+  discarded when a protected term is missing (parity guard), the mandatory-term
+  post-check appends notes for local engines (skipped in SFX), and a masked run
+  that comes back blank raises `BlankRunTranslationError` — retryable in
+  fallback chains.
+  Implementation: `pipelines/translation_masking.py`.
+- **QA layer**: detectors annotate via `translation_notes` (echo / repetition,
+  foreign residue, length ratio, empty and identical-to-source); the heuristic
+  ones are skipped in SFX mode. Echo collapse only rewrites at 3+ repetitions,
+  and only when the collapsed text re-passes the same detectors.
+  Implementation: `pipelines/translation_qa.py`.
 
 ## Tests
 
