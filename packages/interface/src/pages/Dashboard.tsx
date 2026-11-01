@@ -647,12 +647,10 @@ export const DashboardPage = ({
     activeAioStageKey,
     activeManualProgress,
     activeManualStageStatus,
-    aioExecuteButtonProcessingLabel,
     activeImageRenderStageActive,
   } = useAioPipelineSnapshotState({
     resolvedActiveId,
     aioPipelineStageLabels,
-    aioPipelineStageProgressLabels,
   });
 
   const { updateCleanerRegionsForImage, selectCleanerRegionForImage } =
@@ -1784,7 +1782,8 @@ export const DashboardPage = ({
       activeManualStageStatus={activeManualStageStatus}
       stopAioExecution={stopAioExecution}
       processAIO={processAIO}
-      aioExecuteButtonProcessingLabel={aioExecuteButtonProcessingLabel}
+      activeAioStageKey={activeAioStageKey}
+      aioPipelineStageProgressLabels={aioPipelineStageProgressLabels}
       normalizedAioSourceLanguage={normalizedAioSourceLanguage}
       presetsForCurrentLanguage={presetsForCurrentLanguage}
       activePresetForCurrentLanguage={activePresetForCurrentLanguage}

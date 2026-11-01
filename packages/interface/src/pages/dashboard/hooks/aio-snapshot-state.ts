@@ -9,7 +9,6 @@ import { useAioSnapshotNavigation } from '@/pages/dashboard/hooks/aio-snapshot.n
 import type { SnapshotLabels } from '@/pages/dashboard/hooks/aio-snapshot.normalization';
 import {
   isManualAioMode,
-  isPipelineSnapshotKey,
   resolveFallbackStageKey,
   resolveImageSnapshotIndex,
   resolveImageSnapshotMeta,
@@ -24,12 +23,10 @@ import type {
   ToolMode,
 } from '@/types/dashboard.types';
 import type { AioExecutionStatus } from '@/utils/dashboardRenderUtils';
-import { capitalizeStageLabel } from '@/utils/dashboardRenderUtils';
 
 interface UseAioPipelineSnapshotStateArgs {
   readonly resolvedActiveId: string | null;
   readonly aioPipelineStageLabels: SnapshotLabels;
-  readonly aioPipelineStageProgressLabels: SnapshotLabels;
 }
 
 function getAioImageSnapshotIndex(imageId: string): number {
@@ -86,15 +83,9 @@ export function deriveAioFooterProcessingLabel({
 export function useAioPipelineSnapshotState({
   resolvedActiveId,
   aioPipelineStageLabels,
-  aioPipelineStageProgressLabels,
 }: UseAioPipelineSnapshotStateArgs) {
   const mode = useUiShellStore((state) => state.mode);
   const subMode = useUiShellStore((state) => state.subMode);
-  const processing = useUiShellStore((state) => state.processing);
-  const progress = useUiShellStore((state) => state.progress);
-  const executionStatus = useAioPipelineStore(
-    (state) => state.aioExecutionStatus,
-  );
 
   const active = useAioPipelineStore(
     useShallow((state) => {
@@ -124,21 +115,6 @@ export function useAioPipelineSnapshotState({
   const activeManualStageStatus: AioManualStageStatus | null =
     active.manualProgress?.statusByStage[active.stageKey] ?? null;
 
-  const percentage = Number.isFinite(progress)
-    ? Math.round(Math.min(100, Math.max(0, progress)))
-    : 0;
-
-  const processingStageKey =
-    mode === 'aio' &&
-      processing &&
-      isPipelineSnapshotKey(executionStatus?.stageKey)
-      ? executionStatus.stageKey
-      : active.stageKey;
-
-  const aioExecuteButtonProcessingLabel = `${capitalizeStageLabel(
-    aioPipelineStageProgressLabels[processingStageKey],
-  )} ${percentage}%`;
-
   const activeImageRenderStageActive =
     mode !== 'aio' ||
     (isManualAioMode({ mode, subMode })
@@ -160,7 +136,6 @@ export function useAioPipelineSnapshotState({
     activeAioStageKey: active.stageKey,
     activeManualProgress: active.manualProgress,
     activeManualStageStatus,
-    aioExecuteButtonProcessingLabel,
     activeImageRenderStageActive,
   };
 }

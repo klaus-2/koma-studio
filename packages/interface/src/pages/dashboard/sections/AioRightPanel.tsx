@@ -34,6 +34,7 @@ import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
 import { useI18n } from '../../../i18n';
 import { translateOrFallback } from '../../../i18n/messages';
 import { cn } from '../../../utils/dashboard.utils';
+import { capitalizeStageLabel } from '../../../utils/dashboardRenderUtils';
 import {
   AIO_MANUAL_STAGE_ORDER,
   AIO_PIPELINE_STAGE_ICONS,
@@ -41,8 +42,10 @@ import {
 } from '../../../constants/dashboard.constants';
 import type { RenderTextMode } from '../../../utils/renderModes';
 import type { CustomLlmProfile } from '../../../utils/customLlm';
+import type { SnapshotLabels } from '../hooks/aio-snapshot.normalization';
 import type {
   AioManualStageStatus,
+  AioPipelineSnapshotKey,
   SubMode,
 } from '../../../types/dashboard.types';
 import type { AioStageKey } from '../../../types/aioModelPresets';
@@ -57,6 +60,7 @@ import type {
   useAioPipelineExecution,
   useAioPresetEditor,
 } from '../hooks/aio-pipeline';
+import { isPipelineSnapshotKey } from '../hooks/aio-snapshot.queries';
 import type { useModelManager } from '../../../hooks/useModelManager';
 import type { useDashboardModelManager } from '../../../hooks/useDashboardModelManager';
 import type { useRenderFontCatalog } from '../../../hooks/useRenderFontCatalog';
@@ -82,7 +86,8 @@ interface AioRightPanelProps {
   activeManualStageStatus: AioManualStageStatus | null;
   stopAioExecution: () => void;
   processAIO: AioPipelineExecutionApi['processAIO'];
-  aioExecuteButtonProcessingLabel: string;
+  activeAioStageKey: AioPipelineSnapshotKey;
+  aioPipelineStageProgressLabels: SnapshotLabels;
   normalizedAioSourceLanguage: AioPresetEditorApi['normalizedAioSourceLanguage'];
   presetsForCurrentLanguage: AioPresetEditorApi['presetsForCurrentLanguage'];
   activePresetForCurrentLanguage: AioPresetEditorApi['activePresetForCurrentLanguage'];
@@ -146,7 +151,8 @@ export default memo(function AioRightPanel({
   activeManualStageStatus,
   stopAioExecution,
   processAIO,
-  aioExecuteButtonProcessingLabel,
+  activeAioStageKey,
+  aioPipelineStageProgressLabels,
   normalizedAioSourceLanguage,
   presetsForCurrentLanguage,
   activePresetForCurrentLanguage,
@@ -789,14 +795,10 @@ export default memo(function AioRightPanel({
           aria-busy={processing}
         >
           {processing ? (
-            <>
-              <span
-                className="auth-spinner"
-                style={{ width: 14, height: 14 }}
-                aria-hidden="true"
-              />
-              {aioExecuteButtonProcessingLabel}
-            </>
+            <AioExecuteProcessingLabel
+              activeAioStageKey={activeAioStageKey}
+              stageProgressLabels={aioPipelineStageProgressLabels}
+            />
           ) : (
             <>
               {!processing && (
@@ -834,3 +836,41 @@ export default memo(function AioRightPanel({
     </div>
   );
 });
+
+// The AIO progress tick updates several times per second during a batch: this
+// leaf subscribes itself so those updates stop re-rendering the whole panel.
+interface AioExecuteProcessingLabelProps {
+  activeAioStageKey: AioPipelineSnapshotKey;
+  stageProgressLabels: SnapshotLabels;
+}
+
+function AioExecuteProcessingLabel({
+  activeAioStageKey,
+  stageProgressLabels,
+}: AioExecuteProcessingLabelProps) {
+  const mode = useUiShellStore((s) => s.mode);
+  const processing = useUiShellStore((s) => s.processing);
+  const progress = useUiShellStore((s) => s.progress);
+  const executionStatus = useAioPipelineStore((s) => s.aioExecutionStatus);
+
+  const percentage = Number.isFinite(progress)
+    ? Math.round(Math.min(100, Math.max(0, progress)))
+    : 0;
+  const processingStageKey =
+    mode === 'aio' &&
+      processing &&
+      isPipelineSnapshotKey(executionStatus?.stageKey)
+      ? executionStatus.stageKey
+      : activeAioStageKey;
+
+  return (
+    <>
+      <span
+        className="auth-spinner"
+        style={{ width: 14, height: 14 }}
+        aria-hidden="true"
+      />
+      {`${capitalizeStageLabel(stageProgressLabels[processingStageKey])} ${percentage}%`}
+    </>
+  );
+}

@@ -130,6 +130,7 @@ import type { KeyboardShortcutConfigV2 } from '../../../shortcuts/keyboardShortc
 import type { CustomLlmProfile } from '../../../utils/customLlm';
 import type { AioStageKey } from '../../../types/aioModelPresets';
 import type { StageTabDef } from '../../AioStageTabBar';
+import type { SnapshotLabels } from '../hooks/aio-snapshot.normalization';
 
 /* Store/hook-backed prop types (same fields the page reads today). */
 type ImageCollectionState = ReturnType<typeof useImageCollectionStore.getState>;
@@ -342,7 +343,8 @@ export interface DashboardMainLayoutProps {
   activeManualStageStatus: AioManualStageStatus | null;
   stopAioExecution: () => void;
   processAIO: AioPipelineExecutionApi['processAIO'];
-  aioExecuteButtonProcessingLabel: string;
+  activeAioStageKey: AioPipelineSnapshotKey;
+  aioPipelineStageProgressLabels: SnapshotLabels;
   normalizedAioSourceLanguage: AioPresetEditorApi['normalizedAioSourceLanguage'];
   presetsForCurrentLanguage: AioPresetEditorApi['presetsForCurrentLanguage'];
   activePresetForCurrentLanguage: AioPresetEditorApi['activePresetForCurrentLanguage'];
@@ -597,7 +599,8 @@ export default memo(function DashboardMainLayout({
   activeManualStageStatus,
   stopAioExecution,
   processAIO,
-  aioExecuteButtonProcessingLabel,
+  activeAioStageKey,
+  aioPipelineStageProgressLabels,
   normalizedAioSourceLanguage,
   presetsForCurrentLanguage,
   activePresetForCurrentLanguage,
@@ -1180,7 +1183,8 @@ export default memo(function DashboardMainLayout({
               activeManualStageStatus={activeManualStageStatus}
               stopAioExecution={stopAioExecution}
               processAIO={processAIO}
-              aioExecuteButtonProcessingLabel={aioExecuteButtonProcessingLabel}
+              activeAioStageKey={activeAioStageKey}
+              aioPipelineStageProgressLabels={aioPipelineStageProgressLabels}
               // ── AIO pipeline — preset editor (not yet migrated) ──
               normalizedAioSourceLanguage={normalizedAioSourceLanguage}
               presetsForCurrentLanguage={presetsForCurrentLanguage}
