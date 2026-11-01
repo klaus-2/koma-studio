@@ -4161,6 +4161,10 @@ export const zhMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': '显示上下文提示',
   'settings.tooltips.enableDesc':
     '在每次会话中首次使用每个工具时显示动画提示。',
+  'settings.customCursor.title': '自定义光标',
+  'settings.customCursor.description': '用 Koma 的动画光标替换系统指针。',
+  'settings.customCursor.enableTitle': '使用自定义光标',
+  'settings.customCursor.enableDesc': '显示动画光标叠加层。关闭后将使用系统指针。',
   'dashboard.hint.healing.ariaLabel': '修复工具提示',
   'dashboard.hint.healing.eyebrow': '新工具',
   'dashboard.hint.healing.body':

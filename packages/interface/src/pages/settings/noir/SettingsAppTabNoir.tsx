@@ -1,6 +1,6 @@
 import type React from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { Moon, Sun, Globe2, DownloadCloud, Radio, Save, Lightbulb, Keyboard, RotateCcw, FileText, Palette } from "lucide-react";
+import { Moon, Sun, Globe2, DownloadCloud, Radio, Save, Lightbulb, Keyboard, RotateCcw, FileText, Palette, MousePointer2 } from "lucide-react";
 import RuntimeProfileSection from "../../../components/runtime/RuntimeProfileSection";
 import ReleaseNotesMarkdown from "../../../components/updater/ReleaseNotesMarkdown";
 import SyncPanel from "../../../components/updater/SyncPanel";
@@ -46,6 +46,8 @@ interface SettingsAppTabArgs {
   handleSaveWorkspaceAutosaveSettings: () => void;
   toolTipsEnabled: boolean;
   setToolTipsEnabled: (enabled: boolean) => void;
+  customCursorEnabled: boolean;
+  setCustomCursorEnabled: (enabled: boolean) => void;
   localResetBusy: boolean;
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
@@ -258,6 +260,15 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
           desc={t("settings.tooltips.enableDesc")}
           checked={a.toolTipsEnabled}
           onChange={a.setToolTipsEnabled} />
+      </Sec>
+
+      {/* ═══ CUSTOM CURSOR ═══ */}
+      <Sec icon={<MousePointer2 size={14} />} title={t("settings.customCursor.title")} desc={t("settings.customCursor.description")}>
+        <ToggleRow
+          title={t("settings.customCursor.enableTitle")}
+          desc={t("settings.customCursor.enableDesc")}
+          checked={a.customCursorEnabled}
+          onChange={a.setCustomCursorEnabled} />
       </Sec>
 
       {/* ═══ SHORTCUTS ═══ */}

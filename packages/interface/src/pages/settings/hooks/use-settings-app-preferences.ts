@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { desktopBridge } from '@/lib/desktop-bridge';
 import type { useI18n } from '../../../i18n';
+import { useCustomCursor } from '../../../hooks/useCustomCursor';
 import { useToolTips } from '../../../hooks/useToolTips';
 import { clearRendererStoredAppState } from '../../../utils/resetLocalAppState';
 import {
@@ -32,6 +33,8 @@ export const useSettingsAppPreferences = ({ t }: UseSettingsAppPreferencesArgs) 
     useState<WorkspaceAutosaveFeedbackState>(null);
   const { enabled: toolTipsEnabled, setEnabled: setToolTipsEnabled } =
     useToolTips();
+  const { enabled: customCursorEnabled, setEnabled: setCustomCursorEnabled } =
+    useCustomCursor();
 
   const handleSaveWorkspaceAutosaveSettings = useCallback(() => {
     const saved = saveWorkspaceAutosaveSettings(workspaceAutosaveSettings);
@@ -89,6 +92,8 @@ export const useSettingsAppPreferences = ({ t }: UseSettingsAppPreferencesArgs) 
     handleSaveWorkspaceAutosaveSettings,
     toolTipsEnabled,
     setToolTipsEnabled,
+    customCursorEnabled,
+    setCustomCursorEnabled,
     localResetBusy,
     handleResetLocalAppSettings,
     localResetFeedback,

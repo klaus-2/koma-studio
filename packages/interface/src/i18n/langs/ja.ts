@@ -4634,6 +4634,10 @@ export const jaMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': 'コンテキストヒントを表示',
   'settings.tooltips.enableDesc':
     'セッションごと���各ツールを初めて使用する際、アニメーション付きのヒントを表示します。',
+  'settings.customCursor.title': 'カスタムカーソル',
+  'settings.customCursor.description': 'システムのポインターをKomaのアニメーションカーソルに置き換えます。',
+  'settings.customCursor.enableTitle': 'カスタムカーソルを使用',
+  'settings.customCursor.enableDesc': 'アニメーションカーソルのオーバーレイを表示します。オフにするとシステムのポインターを使用します。',
   'dashboard.hint.healing.ariaLabel': 'Healingツールのヒント',
   'dashboard.hint.healing.eyebrow': '新しいツール',
   'dashboard.hint.healing.body':

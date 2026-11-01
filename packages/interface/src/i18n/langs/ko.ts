@@ -4517,6 +4517,10 @@ export const koMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': '상황별 도움말 표시',
   'settings.tooltips.enableDesc':
     '각 세션에서 도구를 처음 사용할 때 애니메이션 도움말을 표시합니다.',
+  'settings.customCursor.title': '사용자 지정 커서',
+  'settings.customCursor.description': '시스템 포인터를 Koma 애니메이션 커서로 대체합니다.',
+  'settings.customCursor.enableTitle': '사용자 지정 커서 사용',
+  'settings.customCursor.enableDesc': '애니메이션 커서 오버레이를 표시합니다. 끄면 시스템 포인터를 사용합니다.',
   'dashboard.hint.healing.ariaLabel': 'Healing 도구 도움말',
   'dashboard.hint.healing.eyebrow': '새로운 도구',
   'dashboard.hint.healing.body':

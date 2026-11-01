@@ -4630,6 +4630,10 @@ export const ptBrMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': 'Mostrar dicas contextuais',
   'settings.tooltips.enableDesc':
     'Exibe dicas animadas na primeira vez que você usa cada ferramenta por sessão.',
+  'settings.customCursor.title': 'Cursor personalizado',
+  'settings.customCursor.description': 'Substitui o ponteiro do sistema pelo cursor animado do Koma.',
+  'settings.customCursor.enableTitle': 'Usar cursor personalizado',
+  'settings.customCursor.enableDesc': 'Exibe o cursor animado sobreposto. Desative para usar o ponteiro do sistema.',
   'dashboard.hint.healing.ariaLabel': 'Dica da ferramenta Healing',
   'dashboard.hint.healing.eyebrow': 'Nova ferramenta',
   'dashboard.hint.healing.body':

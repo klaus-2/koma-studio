@@ -4599,6 +4599,10 @@ export const hiMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': 'Tampilkan tips kontekstual',
   'settings.tooltips.enableDesc':
     'Menampilkan tips animasi saat pertama kali Anda menggunakan setiap alat per sesi.',
+  'settings.customCursor.title': 'कस्टम कर्सर',
+  'settings.customCursor.description': 'सिस्टम पॉइंटर को Koma के एनिमेटेड कर्सर से बदलता है।',
+  'settings.customCursor.enableTitle': 'कस्टम कर्सर का उपयोग करें',
+  'settings.customCursor.enableDesc': 'एनिमेटेड कर्सर ओवरले दिखाता है। सिस्टम पॉइंटर का उपयोग करने के लिए इसे बंद करें।',
   'dashboard.hint.healing.ariaLabel': 'Tips alat Healing',
   'dashboard.hint.healing.eyebrow': 'Alat baru',
   'dashboard.hint.healing.body':

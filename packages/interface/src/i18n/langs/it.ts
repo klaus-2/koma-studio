@@ -4652,6 +4652,10 @@ export const itMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': 'Mostra suggerimenti contestuali',
   'settings.tooltips.enableDesc':
     'Mostra suggerimenti animati la prima volta che utilizzi ogni strumento per sessione.',
+  'settings.customCursor.title': 'Cursore personalizzato',
+  'settings.customCursor.description': 'Sostituisce il puntatore di sistema con il cursore animato di Koma.',
+  'settings.customCursor.enableTitle': 'Usa il cursore personalizzato',
+  'settings.customCursor.enableDesc': 'Mostra il cursore animato sovrapposto. Disattivalo per usare il puntatore di sistema.',
   'dashboard.hint.healing.ariaLabel': 'Suggerimento dello strumento Healing',
   'dashboard.hint.healing.eyebrow': 'Nuovo strumento',
   'dashboard.hint.healing.body':

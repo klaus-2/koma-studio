@@ -4174,6 +4174,10 @@ export const zhMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': '顯示情境提示',
   'settings.tooltips.enableDesc':
     '在每個工作階段中首次使用每個工具時顯示動畫提示。',
+  'settings.customCursor.title': '自訂游標',
+  'settings.customCursor.description': '以 Koma 的動態游標取代系統指標。',
+  'settings.customCursor.enableTitle': '使用自訂游標',
+  'settings.customCursor.enableDesc': '顯示動態游標疊層。關閉後將使用系統指標。',
   'dashboard.hint.healing.ariaLabel': '修復工具提示',
   'dashboard.hint.healing.eyebrow': '新工具',
   'dashboard.hint.healing.body':

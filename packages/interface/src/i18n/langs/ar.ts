@@ -4456,6 +4456,10 @@ export const arMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': 'إظهار التلميحات السياقية',
   'settings.tooltips.enableDesc':
     'يعرض تلميحات متحركة عند استخدامك لكل أداة لأول مرة في كل جلسة.',
+  'settings.customCursor.title': 'المؤشر المخصص',
+  'settings.customCursor.description': 'يستبدل مؤشر النظام بمؤشر Koma المتحرك.',
+  'settings.customCursor.enableTitle': 'استخدام المؤشر المخصص',
+  'settings.customCursor.enableDesc': 'يعرض طبقة المؤشر المتحرك. أوقفه لاستخدام مؤشر النظام.',
   'dashboard.hint.healing.ariaLabel': 'تلميح أداة Healing',
   'dashboard.hint.healing.eyebrow': 'أداة جديدة',
   'dashboard.hint.healing.body':

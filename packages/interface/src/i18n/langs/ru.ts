@@ -4675,6 +4675,10 @@ export const ruMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': 'Показывать контекстные подсказки',
   'settings.tooltips.enableDesc':
     'Отображает анимированные подсказки при первом использовании каждого инструмента за сессию.',
+  'settings.customCursor.title': 'Пользовательский курсор',
+  'settings.customCursor.description': 'Заменяет системный указатель анимированным курсором Koma.',
+  'settings.customCursor.enableTitle': 'Использовать пользовательский курсор',
+  'settings.customCursor.enableDesc': 'Показывает анимированный курсор поверх интерфейса. Отключите, чтобы использовать системный указатель.',
   'dashboard.hint.healing.ariaLabel': 'Подсказка по инструменту восстановления',
   'dashboard.hint.healing.eyebrow': 'Новый инструмент',
   'dashboard.hint.healing.body':

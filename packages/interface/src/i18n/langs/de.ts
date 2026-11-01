@@ -4719,6 +4719,10 @@ export const deMessages: TranslationCatalog = {
   'settings.tooltips.enableTitle': 'Kontextbezogene Hinweise anzeigen',
   'settings.tooltips.enableDesc':
     'Zeigt animierte Hinweise an, wenn Sie ein Werkzeug in einer Sitzung zum ersten Mal verwenden.',
+  'settings.customCursor.title': 'Benutzerdefinierter Cursor',
+  'settings.customCursor.description': 'Ersetzt den Systemzeiger durch den animierten Koma-Cursor.',
+  'settings.customCursor.enableTitle': 'Benutzerdefinierten Cursor verwenden',
+  'settings.customCursor.enableDesc': 'Zeigt das animierte Cursor-Overlay an. Deaktivieren, um den Systemzeiger zu verwenden.',
   'dashboard.hint.healing.ariaLabel': 'Hinweis zum Healing-Werkzeug',
   'dashboard.hint.healing.eyebrow': 'Neues Werkzeug',
   'dashboard.hint.healing.body':

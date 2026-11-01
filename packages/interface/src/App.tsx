@@ -12,6 +12,7 @@ import { getLegalDocumentIdForRoute, isLegalRoutePath } from "./legal/navigation
 import { UpdateToast } from "./components/updater/UpdateToast";
 import { RuntimeStartupToast } from "./components/runtime/RuntimeStartupToast";
 import { CustomCursor } from "./components/CustomCursor";
+import { useCustomCursor } from "./hooks/useCustomCursor";
 import { SessionTimeout } from "@koma/auth/SessionTimeout";
 import { PageTransition } from "./components/PageTransition";
 import { usePageTransition } from "./hooks/usePageTransition";
@@ -521,17 +522,21 @@ const AppShell = () => {
   );
 };
 
-const App = () => (
-  // Root motion feature provider: every animated component uses `m` against
-  // this single domMax bundle instead of shipping the full `motion` runtime.
-  <LazyMotion features={domMax} strict>
-    <UpdaterProvider>
-      <AuthProvider>
-        <CustomCursor />
-        <AppShell />
-      </AuthProvider>
-    </UpdaterProvider>
-  </LazyMotion>
-);
+const App = () => {
+  const { enabled: customCursorEnabled } = useCustomCursor();
+
+  return (
+    // Root motion feature provider: every animated component uses `m` against
+    // this single domMax bundle instead of shipping the full `motion` runtime.
+    <LazyMotion features={domMax} strict>
+      <UpdaterProvider>
+        <AuthProvider>
+          {customCursorEnabled ? <CustomCursor /> : null}
+          <AppShell />
+        </AuthProvider>
+      </UpdaterProvider>
+    </LazyMotion>
+  );
+};
 
 export default App;

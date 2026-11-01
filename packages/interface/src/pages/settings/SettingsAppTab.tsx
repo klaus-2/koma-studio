@@ -48,6 +48,8 @@ interface SettingsAppTabArgs {
   handleSaveWorkspaceAutosaveSettings: () => void;
   toolTipsEnabled: boolean;
   setToolTipsEnabled: (enabled: boolean) => void;
+  customCursorEnabled: boolean;
+  setCustomCursorEnabled: (enabled: boolean) => void;
   localResetBusy: boolean;
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
@@ -94,6 +96,8 @@ export const renderSettingsAppTab = ({
   handleSaveWorkspaceAutosaveSettings,
   toolTipsEnabled,
   setToolTipsEnabled,
+  customCursorEnabled,
+  setCustomCursorEnabled,
   localResetBusy,
   handleResetLocalAppSettings,
   localResetFeedback,
@@ -425,6 +429,39 @@ export const renderSettingsAppTab = ({
           className="koma-toggle__input"
           checked={toolTipsEnabled}
           onChange={(e) => setToolTipsEnabled(e.target.checked)}
+        />
+        <span className="koma-toggle__track">
+          <span className="koma-toggle__thumb" />
+        </span>
+      </div>
+    </label>
+  </section>
+
+  {/* Custom Cursor */}
+  <section className="koma-stg-section">
+    <div className="koma-stg-section__head">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
+        <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+      </svg>
+      <h3 className="koma-stg-section__title">{t("settings.customCursor.title")}</h3>
+    </div>
+    <p className="koma-stg-section__desc">
+      {t("settings.customCursor.description")}
+    </p>
+
+    <label className="koma-stg-toggle-wide">
+      <div>
+        <span className="koma-stg-toggle-wide__title">{t("settings.customCursor.enableTitle")}</span>
+        <p className="koma-stg-toggle-wide__desc">
+          {t("settings.customCursor.enableDesc")}
+        </p>
+      </div>
+      <div className={`koma-toggle ${customCursorEnabled ? "koma-toggle--on" : ""}`}>
+        <input
+          type="checkbox"
+          className="koma-toggle__input"
+          checked={customCursorEnabled}
+          onChange={(e) => setCustomCursorEnabled(e.target.checked)}
         />
         <span className="koma-toggle__track">
           <span className="koma-toggle__thumb" />

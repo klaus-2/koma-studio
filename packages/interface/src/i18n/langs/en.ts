@@ -4237,6 +4237,10 @@ export const enMessages = {
   'settings.tooltips.enableTitle': 'Show contextual tips',
   'settings.tooltips.enableDesc':
     'Displays animated tips the first time you use each tool per session.',
+  'settings.customCursor.title': 'Custom cursor',
+  'settings.customCursor.description': 'Replace the system pointer with the animated Koma cursor.',
+  'settings.customCursor.enableTitle': 'Use custom cursor',
+  'settings.customCursor.enableDesc': 'Shows the animated cursor overlay. Turn off to use your system pointer.',
   'dashboard.hint.healing.ariaLabel': 'Healing tool tip',
   'dashboard.hint.healing.eyebrow': 'New tool',
   'dashboard.hint.healing.body':
