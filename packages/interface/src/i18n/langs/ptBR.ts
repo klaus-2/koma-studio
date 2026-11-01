@@ -1607,6 +1607,15 @@ export const ptBrMessages: TranslationCatalog = {
     'Leitura opcional (desligada por padrão): traduções passadas só são reutilizadas do seu banco local com a opção ativa. A gravação na memória local está sempre ativa e nada sai do dispositivo.',
   'dashboard.aio.translation.activeConfigFor':
     'Configuração ativa para: {value}.',
+  'dashboard.aio.glossary.title': 'Glossário',
+  'dashboard.aio.glossary.hint':
+    'Pares exatos de origem → destino enviados com cada solicitação de tradução.',
+  'dashboard.aio.glossary.empty': 'Ainda não há termos.',
+  'dashboard.aio.glossary.sourcePlaceholder': 'Termo de origem',
+  'dashboard.aio.glossary.targetPlaceholder': 'Termo de destino',
+  'dashboard.aio.glossary.add': 'Adicionar termo',
+  'dashboard.aio.glossary.remove': 'Remover termo',
+  'dashboard.aio.glossary.neverTranslate': 'Nunca traduzir',
   'dashboard.aio.customAi.title': 'Custom AI',
   'dashboard.aio.customAi.loadingProfiles': 'Carregando perfis custom...',
   'dashboard.aio.customAi.savedTranslationProfile': 'Perfil salvo de Tradução',

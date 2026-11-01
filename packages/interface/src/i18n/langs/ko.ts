@@ -1559,6 +1559,17 @@ export const koMessages: TranslationCatalog = {
   'dashboard.aio.translation.multimodalToggle':
     '페이지 이미지를 멀티모달 컨텍스트로 전송',
   'dashboard.aio.translation.activeConfigFor': '활성 설정 대상: {value}.',
+  'dashboard.aio.glossary.title': '용어집',
+  'dashboard.aio.glossary.hint': '정확히 일치하는 원문 → 대역 쌍이 모든 번역 요청에 함께 전송됩니다.',
+  'dashboard.aio.glossary.empty': '아직 용어가 없습니다.',
+  'dashboard.aio.glossary.sourcePlaceholder': '원문 용어',
+  'dashboard.aio.glossary.targetPlaceholder': '대역 용어',
+  'dashboard.aio.glossary.add': '용어 추가',
+  'dashboard.aio.glossary.remove': '용어 삭제',
+  'dashboard.aio.glossary.neverTranslate': '번역하지 않음',
+  'dashboard.aio.translation.memoryToggle': '로컬 메모리의 번역 재사용',
+  'dashboard.aio.translation.memory':
+    '읽기는 옵트인(기본적으로 꺼짐): 이 설정이 켜져 있는 동안에만 이전 번역을 로컬 데이터베이스에서 재사용합니다. 로컬 메모리에 쓰기는 항상 활성화되어 있으며 기기 밖으로 아무것도 전송하지 않습니다.',
   'dashboard.aio.customAi.title': '사용자 지정 AI',
   'dashboard.aio.customAi.loadingProfiles': '사용자 지정 프로필 로딩 중...',
   'dashboard.aio.customAi.savedTranslationProfile': '저장된 번역 프로필',

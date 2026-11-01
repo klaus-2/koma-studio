@@ -1624,6 +1624,18 @@ export const itMessages: TranslationCatalog = {
     "Invia l'immagine della pagina come contesto multimodale",
   'dashboard.aio.translation.activeConfigFor':
     'Configurazione attiva per: {value}.',
+  'dashboard.aio.glossary.title': 'Glossario',
+  'dashboard.aio.glossary.hint':
+    'Le coppie esatte origine → destinazione vengono inviate con ogni richiesta di traduzione.',
+  'dashboard.aio.glossary.empty': 'Ancora nessun termine.',
+  'dashboard.aio.glossary.sourcePlaceholder': 'Termine di origine',
+  'dashboard.aio.glossary.targetPlaceholder': 'Termine di destinazione',
+  'dashboard.aio.glossary.add': 'Aggiungi termine',
+  'dashboard.aio.glossary.remove': 'Rimuovi termine',
+  'dashboard.aio.glossary.neverTranslate': 'Non tradurre mai',
+  'dashboard.aio.translation.memoryToggle': 'Riutilizza le traduzioni dalla memoria locale',
+  'dashboard.aio.translation.memory':
+    'La lettura è facoltativa (disattivata per impostazione predefinita): le traduzioni passate vengono riutilizzate dal database locale solo mentre questa opzione è attiva. La scrittura nella memoria locale è sempre attiva e non invia nulla fuori dal dispositivo.',
   'dashboard.aio.customAi.title': 'IA personalizzata',
   'dashboard.aio.customAi.loadingProfiles':
     'Caricamento profili personalizzati...',

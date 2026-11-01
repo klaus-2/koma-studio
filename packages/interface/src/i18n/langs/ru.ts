@@ -1626,6 +1626,18 @@ export const ruMessages: TranslationCatalog = {
     'Отправлять изображение страницы как мультимодальный контекст',
   'dashboard.aio.translation.activeConfigFor':
     'Активная конфигурация для: {value}.',
+  'dashboard.aio.glossary.title': 'Глоссарий',
+  'dashboard.aio.glossary.hint':
+    'Точные пары «источник → перевод» отправляются с каждым запросом перевода.',
+  'dashboard.aio.glossary.empty': 'Терминов пока нет.',
+  'dashboard.aio.glossary.sourcePlaceholder': 'Термин-источник',
+  'dashboard.aio.glossary.targetPlaceholder': 'Перевод термина',
+  'dashboard.aio.glossary.add': 'Добавить термин',
+  'dashboard.aio.glossary.remove': 'Удалить термин',
+  'dashboard.aio.glossary.neverTranslate': 'Не переводить',
+  'dashboard.aio.translation.memoryToggle': 'Повторно использовать переводы из локальной памяти',
+  'dashboard.aio.translation.memory':
+    'Чтение — по выбору (по умолчанию выключено): прошлые переводы повторно используются из локальной базы, только пока параметр включён. Запись в локальную память выполняется всегда и ничего не отправляет за пределы устройства.',
   'dashboard.aio.customAi.title': 'Пользовательский ИИ',
   'dashboard.aio.customAi.loadingProfiles':
     'Загрузка пользовательских профилей...',

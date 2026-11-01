@@ -45,6 +45,8 @@ const guardedPrefixes = [
   "freeProviderCard.",
   "modelManager.filters.",
   "dashboard.translator.",
+  "dashboard.aio.glossary.",
+  "dashboard.aio.translation.",
 ] as const;
 
 const walkTsFiles = (dir: string, acc: string[] = []): string[] => {

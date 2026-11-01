@@ -1650,6 +1650,18 @@ export const deMessages: TranslationCatalog = {
     'Seitenbild als multimodalen Kontext senden',
   'dashboard.aio.translation.activeConfigFor':
     'Aktive Konfiguration für: {value}.',
+  'dashboard.aio.glossary.title': 'Glossar',
+  'dashboard.aio.glossary.hint':
+    'Exakte Quell- → Zielpaare werden mit jeder Übersetzungsanfrage gesendet.',
+  'dashboard.aio.glossary.empty': 'Noch keine Begriffe.',
+  'dashboard.aio.glossary.sourcePlaceholder': 'Quellbegriff',
+  'dashboard.aio.glossary.targetPlaceholder': 'Zielbegriff',
+  'dashboard.aio.glossary.add': 'Begriff hinzufügen',
+  'dashboard.aio.glossary.remove': 'Begriff entfernen',
+  'dashboard.aio.glossary.neverTranslate': 'Nie übersetzen',
+  'dashboard.aio.translation.memoryToggle': 'Übersetzungen aus dem lokalen Speicher wiederverwenden',
+  'dashboard.aio.translation.memory':
+    'Lesen ist Opt-in (standardmäßig aus): Frühere Übersetzungen werden nur aus Ihrer lokalen Datenbank wiederverwendet, solange diese Option aktiv ist. Das Schreiben in den lokalen Speicher ist immer aktiv und sendet nichts vom Gerät.',
   'dashboard.aio.customAi.title': 'Benutzerdefinierte KI',
   'dashboard.aio.customAi.loadingProfiles':
     'Benutzerdefinierte Profile werden geladen...',

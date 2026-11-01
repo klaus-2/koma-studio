@@ -1607,6 +1607,17 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.aio.translation.multimodalToggle':
     'ページ画像をマルチモーダルコンテキストとして送信',
   'dashboard.aio.translation.activeConfigFor': 'アクティブ設定：{value}。',
+  'dashboard.aio.glossary.title': '用語集',
+  'dashboard.aio.glossary.hint': '完全一致する原文 → 訳語のペアが毎回の翻訳リクエストで送信されます。',
+  'dashboard.aio.glossary.empty': '用語はまだありません。',
+  'dashboard.aio.glossary.sourcePlaceholder': '原文の用語',
+  'dashboard.aio.glossary.targetPlaceholder': '訳語',
+  'dashboard.aio.glossary.add': '用語を追加',
+  'dashboard.aio.glossary.remove': '用語を削除',
+  'dashboard.aio.glossary.neverTranslate': '翻訳しない',
+  'dashboard.aio.translation.memoryToggle': 'ローカルメモリの翻訳を再利用',
+  'dashboard.aio.translation.memory':
+    '読み込みはオプトイン（既定ではオフ）：この設定が有効な間だけ、過去の翻訳をローカルデータベースから再利用します。ローカルメモリへの書き込みは常に行われ、端末の外には何も送信されません。',
   'dashboard.aio.customAi.title': 'カスタムAI',
   'dashboard.aio.customAi.loadingProfiles':
     'カスタムプロファイルを読み込み中...',

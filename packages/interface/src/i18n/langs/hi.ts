@@ -1599,6 +1599,17 @@ export const hiMessages: TranslationCatalog = {
     'Kirim gambar halaman sebagai konteks multimodal',
   'dashboard.aio.translation.activeConfigFor':
     'Konfigurasi aktif untuk: {value}.',
+  'dashboard.aio.glossary.title': 'शब्दावली',
+  'dashboard.aio.glossary.hint': 'सटीक स्रोत → लक्ष्य जोड़े हर अनुवाद अनुरोध के साथ भेजे जाते हैं।',
+  'dashboard.aio.glossary.empty': 'अभी कोई शब्द नहीं है।',
+  'dashboard.aio.glossary.sourcePlaceholder': 'स्रोत शब्द',
+  'dashboard.aio.glossary.targetPlaceholder': 'लक्ष्य शब्द',
+  'dashboard.aio.glossary.add': 'शब्द जोड़ें',
+  'dashboard.aio.glossary.remove': 'शब्द हटाएँ',
+  'dashboard.aio.glossary.neverTranslate': 'कभी अनुवाद न करें',
+  'dashboard.aio.translation.memoryToggle': 'स्थानीय मेमोरी से अनुवाद पुनः उपयोग करें',
+  'dashboard.aio.translation.memory':
+    'पढ़ना वैकल्पिक है (डिफ़ॉल्ट रूप से बंद): यह सेटिंग चालू रहने तक ही पिछले अनुवाद आपके स्थानीय डेटाबेस से पुनः उपयोग किए जाते हैं। स्थानीय मेमोरी में लिखना हमेशा सक्रिय रहता है और डिवाइस के बाहर कुछ भी नहीं भेजा जाता।',
   'dashboard.aio.customAi.title': 'AI Kustom',
   'dashboard.aio.customAi.loadingProfiles': 'Memuat profil kustom...',
   'dashboard.aio.customAi.savedTranslationProfile':
