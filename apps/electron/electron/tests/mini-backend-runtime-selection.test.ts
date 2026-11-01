@@ -38,6 +38,10 @@ test("resolveSelectedRuntimeBinaryPath returns the installed binary path for the
   const runtimeDir = path.join(userDataDir, "mini-backend-runtimes", "1.2.3", "nvidia-cuda-legacy");
   fs.mkdirSync(runtimeDir, { recursive: true });
   fs.writeFileSync(path.join(runtimeDir, "mini-backend.exe"), "binary");
+  fs.writeFileSync(
+    path.join(runtimeDir, "launch-manifest.json"),
+    JSON.stringify({ profiles: { "nvidia-cuda-legacy": { entry: "mini-backend.exe" } } }),
+  );
 
   writeMiniBackendRuntimeSelection(userDataDir, {
     profile: "nvidia-cuda-legacy",
@@ -48,6 +52,22 @@ test("resolveSelectedRuntimeBinaryPath returns the installed binary path for the
   const resolvedPath = resolveSelectedRuntimeBinaryPath(userDataDir);
 
   assert.equal(resolvedPath, path.join(runtimeDir, "mini-backend.exe"));
+});
+
+test("resolveSelectedRuntimeBinaryPath refuses a partially extracted runtime", () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "koma-runtime-selection-partial-"));
+  const runtimeDir = path.join(userDataDir, "mini-backend-runtimes", "1.2.3", "nvidia-cuda-legacy");
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  // The entry exists but the runtime never finished landing its payload.
+  fs.writeFileSync(path.join(runtimeDir, "mini-backend.exe"), "binary");
+
+  writeMiniBackendRuntimeSelection(userDataDir, {
+    profile: "nvidia-cuda-legacy",
+    version: "1.2.3",
+    entry: "mini-backend.exe",
+  });
+
+  assert.equal(resolveSelectedRuntimeBinaryPath(userDataDir), null);
 });
 
 test("resolveRequestedRuntimeProfile prefers persisted manual selection when no explicit env override exists", () => {

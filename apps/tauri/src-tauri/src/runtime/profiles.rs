@@ -29,6 +29,7 @@ use super::gpu::{
 mod install;
 pub(crate) use install::ensure_startup_runtime;
 use install::{install_recommended_runtime, install_runtime_profile, list_runtime_artifacts};
+use super::launch_manifest::resolve_spawnable_runtime_binary;
 
 const RUNTIME_DOWNLOAD_DIR: &str = "koma-runtime-downloads";
 const RUNTIME_SELECTION_FILE_NAME: &str = "mini-backend-runtime-selection.json";
@@ -391,9 +392,8 @@ pub fn resolve_selected_runtime_binary_path<R: Runtime>(
         return Ok(None);
     };
     validate_manifest_relative_path(&selection.entry)?;
-    let binary_path =
-        runtime_install_dir(app, &selection.version, &selection.profile)?.join(selection.entry);
-    Ok(binary_path.exists().then_some(binary_path))
+    let install_dir = runtime_install_dir(app, &selection.version, &selection.profile)?;
+    Ok(resolve_spawnable_runtime_binary(&install_dir, &selection.profile, &selection.entry))
 }
 
 pub async fn sync_runtime_state_from_api<R: Runtime>(
