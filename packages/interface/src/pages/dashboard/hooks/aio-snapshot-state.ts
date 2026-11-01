@@ -1,6 +1,5 @@
 import { useShallow } from 'zustand/react/shallow';
 
-import { useI18n } from '@/i18n';
 import {
   applyAioPipelineSnapshotToImage,
   patchAioSnapshotStageForImage,
@@ -22,7 +21,9 @@ import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import type {
   AioManualStageStatus,
   AioPipelineSnapshotKey,
+  ToolMode,
 } from '@/types/dashboard.types';
+import type { AioExecutionStatus } from '@/utils/dashboardRenderUtils';
 import { capitalizeStageLabel } from '@/utils/dashboardRenderUtils';
 
 interface UseAioPipelineSnapshotStateArgs {
@@ -61,12 +62,32 @@ function resolveAioStageKeyForImage(
   );
 }
 
+interface DeriveAioFooterProcessingLabelArgs {
+  readonly mode: ToolMode;
+  readonly processing: boolean;
+  readonly executionStatus: AioExecutionStatus | null;
+  readonly manualScopeLabel: string;
+  readonly autoScopeLabel: string;
+}
+
+export function deriveAioFooterProcessingLabel({
+  mode,
+  processing,
+  executionStatus,
+  manualScopeLabel,
+  autoScopeLabel,
+}: DeriveAioFooterProcessingLabelArgs): string | null {
+  if (mode !== 'aio' || !processing || !executionStatus) return null;
+  const scopeLabel =
+    executionStatus.scope === 'manual' ? manualScopeLabel : autoScopeLabel;
+  return `${scopeLabel}: ${executionStatus.label}`;
+}
+
 export function useAioPipelineSnapshotState({
   resolvedActiveId,
   aioPipelineStageLabels,
   aioPipelineStageProgressLabels,
 }: UseAioPipelineSnapshotStateArgs) {
-  const { t } = useI18n();
   const mode = useUiShellStore((state) => state.mode);
   const subMode = useUiShellStore((state) => state.subMode);
   const processing = useUiShellStore((state) => state.processing);
@@ -102,14 +123,6 @@ export function useAioPipelineSnapshotState({
   );
   const activeManualStageStatus: AioManualStageStatus | null =
     active.manualProgress?.statusByStage[active.stageKey] ?? null;
-
-  const aioFooterProcessingLabel =
-    mode === 'aio' && processing && executionStatus
-      ? `${executionStatus.scope === 'manual'
-        ? t('dashboard.status.aioScopeManual')
-        : t('dashboard.status.aioScopeAuto')
-      }: ${executionStatus.label}`
-      : null;
 
   const percentage = Number.isFinite(progress)
     ? Math.round(Math.min(100, Math.max(0, progress)))
@@ -147,7 +160,6 @@ export function useAioPipelineSnapshotState({
     activeAioStageKey: active.stageKey,
     activeManualProgress: active.manualProgress,
     activeManualStageStatus,
-    aioFooterProcessingLabel,
     aioExecuteButtonProcessingLabel,
     activeImageRenderStageActive,
   };

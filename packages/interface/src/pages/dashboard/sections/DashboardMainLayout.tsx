@@ -309,7 +309,6 @@ export interface DashboardMainLayoutProps {
   openSettingsOnPresetsTab: ExternalActionsApi['openSettingsOnPresetsTab'];
 
   /* ── Footer / dock derivations ── */
-  aioFooterProcessingLabel: string | null;
   manualDockVisible: boolean;
   manualDockRightOffset: number;
   isAioManualMode: boolean;
@@ -567,7 +566,6 @@ export default memo(function DashboardMainLayout({
   projectDiscordUrl,
   projectWebsiteUrl,
   openSettingsOnPresetsTab,
-  aioFooterProcessingLabel,
   manualDockVisible,
   manualDockRightOffset,
   isAioManualMode,
@@ -1102,7 +1100,6 @@ export default memo(function DashboardMainLayout({
         <DashboardFooter
           statusMessage={statusMessage}
           statusMessageTone={statusMessageTone}
-          processingLabel={aioFooterProcessingLabel}
           workspaceStatus={workspaceStatus}
           workspaceStatusDetail={workspaceStatusDetail}
           workspaceLastSavedAt={workspaceLastSavedAt}

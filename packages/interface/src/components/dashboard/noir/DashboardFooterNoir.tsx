@@ -9,6 +9,7 @@ import type { RuntimeExecutionNotice, StatusMessageTone } from '../../../types/d
 import type { AioDeviceInfo } from '../../../models/aioStageCatalog';
 import { cn } from '../../../utils/dashboard.utils';
 import AioBatchProgressBadge from '../AioBatchProgressBadge';
+import { deriveAioFooterProcessingLabel } from '../../../pages/dashboard/hooks/aio-snapshot-state';
 import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
 import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
@@ -17,7 +18,6 @@ import { useWorkspacePersistenceStore } from '../../../pages/dashboard/stores/wo
 interface DashboardFooterProps {
   statusMessage?: string;
   statusMessageTone?: StatusMessageTone;
-  processingLabel?: string | null;
   workspaceStatus?: 'idle' | 'saving' | 'saved' | 'error';
   workspaceStatusDetail?: string;
   workspaceLastSavedAt?: number | null;
@@ -49,7 +49,7 @@ const RT_TONE: Record<string, string> = {
 const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
   statusMessage: statusMessageProp,
   statusMessageTone: statusMessageToneProp,
-  processingLabel, workspaceStatus: workspaceStatusProp,
+  workspaceStatus: workspaceStatusProp,
   workspaceStatusDetail: workspaceStatusDetailProp,
   workspaceLastSavedAt: workspaceLastSavedAtProp,
   miniBackendRuntimeState, aioDeviceInfo,
@@ -66,7 +66,8 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
   const runtimeExecutionNoticeStore = useStatusStore((s) => s.runtimeExecutionNotice);
   const processingStore = useUiShellStore((s) => s.processing);
   const progressStore = useUiShellStore((s) => s.progress);
-  const aioBatchProgress = useAioPipelineStore((s) => s.aioBatchProgress);
+  const mode = useUiShellStore((s) => s.mode);
+  const aioExecutionStatus = useAioPipelineStore((s) => s.aioExecutionStatus);
   const workspaceStatusStore = useWorkspacePersistenceStore((s) => s.workspaceStatus);
   const workspaceStatusDetailStore = useWorkspacePersistenceStore((s) => s.workspaceStatusDetail);
   const workspaceLastSavedAtStore = useWorkspacePersistenceStore((s) => s.workspaceLastSavedAt);
@@ -79,6 +80,14 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
   const workspaceLastSavedAt = workspaceLastSavedAtProp ?? workspaceLastSavedAtStore;
   const runtimeExecutionNotice = runtimeExecutionNoticeProp ?? runtimeExecutionNoticeStore;
 
+  const aioFooterProcessingLabel = deriveAioFooterProcessingLabel({
+    mode,
+    processing,
+    executionStatus: aioExecutionStatus,
+    manualScopeLabel: t('dashboard.status.aioScopeManual'),
+    autoScopeLabel: t('dashboard.status.aioScopeAuto'),
+  });
+
   const normalizeMessage = (message?: string | null) => {
     if (!message) return message ?? '';
     if (message.includes('.')) {
@@ -88,7 +97,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
     return message;
   };
 
-  const footerMessage = processing && processingLabel ? processingLabel : normalizeMessage(statusMessage);
+  const footerMessage = processing && aioFooterProcessingLabel ? aioFooterProcessingLabel : normalizeMessage(statusMessage);
   const lastSavedLabel = workspaceLastSavedAt
     ? new Date(workspaceLastSavedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : t('dashboard.footer.lastSave.never');
@@ -197,7 +206,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
         <span className={cn('h-1.5 w-1.5 shrink-0', processing ? 'bg-azure blink-noir' : statusMessageTone === 'error' ? 'bg-crimson blink-noir' : 'bg-mint')} aria-hidden="true" />
         <span
           role={statusMessageTone === 'error' ? 'alert' : 'status'}
-          className={cn('truncate font-mono text-[11px]', processing && processingLabel ? 'text-azure' : TONE_TEXT[statusMessageTone] ?? 'text-paper')}
+          className={cn('truncate font-mono text-[11px]', processing && aioFooterProcessingLabel ? 'text-azure' : TONE_TEXT[statusMessageTone] ?? 'text-paper')}
         >
           {footerMessage}
         </span>
@@ -265,12 +274,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
         )}
         {processing && (
           <>
-            {aioBatchProgress && (
-              <AioBatchProgressBadge
-                progress={aioBatchProgress}
-                className="whitespace-nowrap font-mono text-[9px] text-paper-dim"
-              />
-            )}
+            <FooterAioBatchBadge className="whitespace-nowrap font-mono text-[9px] text-paper-dim" />
             <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">
               <m.div
                 className="halftone-red absolute inset-y-0 left-0 w-full origin-left bg-crimson"
@@ -341,5 +345,17 @@ const FooterAction = React.forwardRef<HTMLButtonElement, {
   </button>
 ));
 FooterAction.displayName = 'FooterAction';
+
+// The AIO batch badge ticks at high frequency during a batch: the leaf
+// subscribes itself so those updates stop re-rendering the whole footer.
+interface FooterAioBatchBadgeProps {
+  className?: string;
+}
+
+function FooterAioBatchBadge({ className }: FooterAioBatchBadgeProps) {
+  const aioBatchProgress = useAioPipelineStore((s) => s.aioBatchProgress);
+  if (!aioBatchProgress) return null;
+  return <AioBatchProgressBadge progress={aioBatchProgress} className={className} />;
+}
 
 export default DashboardFooterNoir;

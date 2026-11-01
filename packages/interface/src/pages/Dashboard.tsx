@@ -647,7 +647,6 @@ export const DashboardPage = ({
     activeAioStageKey,
     activeManualProgress,
     activeManualStageStatus,
-    aioFooterProcessingLabel,
     aioExecuteButtonProcessingLabel,
     activeImageRenderStageActive,
   } = useAioPipelineSnapshotState({
@@ -1753,7 +1752,6 @@ export const DashboardPage = ({
       projectWebsiteUrl={projectWebsiteUrl}
       openSettingsOnPresetsTab={openSettingsOnPresetsTab}
       // ── Footer / dock derivations ──
-      aioFooterProcessingLabel={aioFooterProcessingLabel}
       manualDockVisible={manualDockVisible}
       manualDockRightOffset={manualDockRightOffset}
       isAioManualMode={isAioManualMode}

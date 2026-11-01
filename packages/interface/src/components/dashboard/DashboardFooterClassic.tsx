@@ -12,6 +12,7 @@ import type { TranslationKey } from '../../i18n/messages';
 import type { RuntimeExecutionNotice, StatusMessageTone } from '../../types/dashboard.types';
 import type { AioDeviceInfo } from '../../models/aioStageCatalog';
 import AioBatchProgressBadge from './AioBatchProgressBadge';
+import { deriveAioFooterProcessingLabel } from '../../pages/dashboard/hooks/aio-snapshot-state';
 import { useAioPipelineStore } from '../../pages/dashboard/stores/aio-pipeline-store';
 import { useStatusStore } from '../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
@@ -20,7 +21,6 @@ import { useWorkspacePersistenceStore } from '../../pages/dashboard/stores/works
 interface DashboardFooterProps {
   statusMessage?: string;
   statusMessageTone?: StatusMessageTone;
-  processingLabel?: string | null;
   workspaceStatus?: 'idle' | 'saving' | 'saved' | 'error';
   workspaceStatusDetail?: string;
   workspaceLastSavedAt?: number | null;
@@ -40,7 +40,6 @@ interface DashboardFooterProps {
 const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   statusMessage: statusMessageProp,
   statusMessageTone: statusMessageToneProp,
-  processingLabel,
   workspaceStatus: workspaceStatusProp,
   workspaceStatusDetail: workspaceStatusDetailProp,
   workspaceLastSavedAt: workspaceLastSavedAtProp,
@@ -59,7 +58,8 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   const runtimeExecutionNoticeStore = useStatusStore((s) => s.runtimeExecutionNotice);
   const processingStore = useUiShellStore((s) => s.processing);
   const progressStore = useUiShellStore((s) => s.progress);
-  const aioBatchProgress = useAioPipelineStore((s) => s.aioBatchProgress);
+  const mode = useUiShellStore((s) => s.mode);
+  const aioExecutionStatus = useAioPipelineStore((s) => s.aioExecutionStatus);
   const workspaceStatusStore = useWorkspacePersistenceStore((s) => s.workspaceStatus);
   const workspaceStatusDetailStore = useWorkspacePersistenceStore((s) => s.workspaceStatusDetail);
   const workspaceLastSavedAtStore = useWorkspacePersistenceStore((s) => s.workspaceLastSavedAt);
@@ -72,6 +72,14 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   const workspaceLastSavedAt = workspaceLastSavedAtProp ?? workspaceLastSavedAtStore;
   const runtimeExecutionNotice = runtimeExecutionNoticeProp ?? runtimeExecutionNoticeStore;
 
+  const aioFooterProcessingLabel = deriveAioFooterProcessingLabel({
+    mode,
+    processing,
+    executionStatus: aioExecutionStatus,
+    manualScopeLabel: t('dashboard.status.aioScopeManual'),
+    autoScopeLabel: t('dashboard.status.aioScopeAuto'),
+  });
+
   const [runtimeTooltipOpen, setRuntimeTooltipOpen] = useState(false);
   const normalizeMessage = (message?: string | null) => {
     if (!message) return message ?? '';
@@ -83,7 +91,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
     }
     return message;
   };
-  const footerMessage = processing && processingLabel ? processingLabel : normalizeMessage(statusMessage);
+  const footerMessage = processing && aioFooterProcessingLabel ? aioFooterProcessingLabel : normalizeMessage(statusMessage);
   const lastSavedLabel = workspaceLastSavedAt
     ? new Date(workspaceLastSavedAt).toLocaleTimeString('pt-BR', {
       hour: '2-digit',
@@ -294,7 +302,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   return (
     <footer className="koma-footerbar">
       <span
-        className={`koma-footerbar__msg ${processing && processingLabel ? 'koma-footerbar__msg--processing' : `koma-footerbar__msg--${statusMessageTone}`}`}
+        className={`koma-footerbar__msg ${processing && aioFooterProcessingLabel ? 'koma-footerbar__msg--processing' : `koma-footerbar__msg--${statusMessageTone}`}`}
         role={statusMessageTone === 'error' ? 'alert' : 'status'}
       >
         {footerMessage}
@@ -400,12 +408,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
               style={{ width: `${Math.round(progressStore)}%` }}
             />
             <span className="koma-footerbar__meta">{Math.round(progressStore)}%</span>
-            {aioBatchProgress && (
-              <AioBatchProgressBadge
-                progress={aioBatchProgress}
-                className="koma-footerbar__meta"
-              />
-            )}
+            <FooterAioBatchBadge className="koma-footerbar__meta" />
           </div>
         )}
         <TooltipProvider delayDuration={120}>
@@ -494,5 +497,17 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
     </footer>
   );
 };
+
+// The AIO batch badge ticks at high frequency during a batch: the leaf
+// subscribes itself so those updates stop re-rendering the whole footer.
+interface FooterAioBatchBadgeProps {
+  className?: string;
+}
+
+function FooterAioBatchBadge({ className }: FooterAioBatchBadgeProps) {
+  const aioBatchProgress = useAioPipelineStore((s) => s.aioBatchProgress);
+  if (!aioBatchProgress) return null;
+  return <AioBatchProgressBadge progress={aioBatchProgress} className={className} />;
+}
 
 export default DashboardFooterClassic;
