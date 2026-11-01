@@ -131,6 +131,7 @@ def test_drop_torch_entries_from_lock_removes_whole_blocks() -> None:
     assert "--hash=sha256:dd" in trimmed, "other entries keep their hashes"
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="legacy numpy rule is Windows-only")
 def test_legacy_windows_profile_requires_explicit_numpy() -> None:
     def req(line: str) -> Requirement:
         return Requirement(line)

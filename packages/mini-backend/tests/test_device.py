@@ -166,6 +166,7 @@ class DeviceInfoTests(unittest.TestCase):
             ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
         )
 
+    @unittest.skipUnless(os.name == "nt", "Windows-only DLL path")
     @patch.object(device_module.Path, "exists", return_value=True)
     @patch.object(
         device_module.ctypes,
@@ -202,6 +203,7 @@ class DeviceInfoTests(unittest.TestCase):
     @patch.object(
         device_module.ort, "__file__", "C:\\fake\\onnxruntime\\__init__.py", create=True
     )
+    @unittest.skipUnless(os.name == "nt", "Windows-only DLL path")
     @patch.object(
         device_module.ort,
         "get_available_providers",
@@ -311,6 +313,7 @@ class DllVerificationTests(unittest.TestCase):
             )
             self.assertFalse((site_packages / "onnxruntime.libs").exists())
 
+    @unittest.skipUnless(os.name == "nt", "Windows-only DLL path")
     @patch.object(device_module, "_reload_onnxruntime_module")
     @patch.object(device_module, "_purge_broken_onnxruntime_install", return_value=True)
     @patch.object(
