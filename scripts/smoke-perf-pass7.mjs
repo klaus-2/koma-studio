@@ -1,10 +1,11 @@
-// Runtime smoke for the perf pass 7 changes:
-//  1. Preset editor island (store-backed draft): open "New", type name and
-//     description, create — the preset shows up in the language preset select.
-//  2. LLM settings island: pick an LLM-capable translation model, type in the
-//     extra-context textarea, flip a toggle and confirm the textarea keeps its
-//     value across a tab round-trip (the panel unmounts; the store owns state).
-//     SKIP when no LLM-capable option is selectable (needs a provider key).
+// Runtime smoke for the perf pass 8 changes (on top of the pass 7 steps):
+//  1. Ctrl+wheel zoom gesture on the AIO stage: the topbar zoom readout moves
+//     100% -> 110% with no page errors. Without images there are no preview
+//     cards, so visual card scale is logged as SKIP and zoom is verified via
+//     the theme-independent topbar readout.
+//  2. Batch Mode toggle: flips on and, with no chapters, flags the need for
+//     two chapters; the footer progress badge needs a real desktop-bridge run
+//     and is logged as SKIP.
 //  3. No page errors anywhere; console errors filtered to env noise.
 // Usage: node scripts/smoke-perf-pass7.mjs [url]   (default http://127.0.0.1:5173/)
 import { mkdir } from "node:fs/promises";
@@ -303,7 +304,94 @@ if (glossaryReached) {
   console.log("SKIP glossary accordion — resources mode not reachable in web e2e");
 }
 
-// ── 6. errors ──
+// ── 6. ctrl+wheel zoom gesture on the AIO stage ──
+// The zoom readout (e.g. "100%") is theme- and language-independent: any span
+// ending in % whose direct parent holds at least two buttons (the zoom out/in
+// pair). A synthetic WheelEvent keeps preventDefault inert, so the Chromium
+// page zoom never fires and only the app gesture applies.
+const readZoomPct = () =>
+  page.evaluate(() =>
+    [...document.querySelectorAll("span")]
+      .filter((span) => /^\d+%$/.test(span.textContent ?? ""))
+      .filter((span) => {
+        const parent = span.parentElement;
+        return (
+          parent !== null &&
+          [...parent.children].filter((child) => child.tagName === "BUTTON").length >= 2
+        );
+      })
+      .map((span) => span.textContent ?? ""),
+  );
+
+const zoomBefore = await readZoomPct();
+step(
+  "stage zoom readout present",
+  zoomBefore.includes("100%"),
+  `readouts: ${JSON.stringify(zoomBefore)}`,
+);
+
+const zoomPageErrorsBefore = pageErrors.length;
+await page.evaluate(() => {
+  const stage = document.querySelector("section.koma-stage");
+  if (!stage) {
+    throw new Error("stage section.koma-stage not found");
+  }
+  stage.dispatchEvent(
+    new WheelEvent("wheel", { deltaY: -120, ctrlKey: true, bubbles: true, cancelable: true }),
+  );
+});
+await page.waitForTimeout(300);
+const zoomAfter = await readZoomPct();
+step(
+  "ctrl+wheel gesture changes zoom",
+  zoomAfter.includes("110%"),
+  `readouts: ${JSON.stringify(zoomAfter)}`,
+);
+step(
+  "zoom gesture produced no page errors",
+  pageErrors.length === zoomPageErrorsBefore,
+);
+
+if ((await page.locator(".koma-preview-card").count()) === 0) {
+  console.log(
+    "SKIP stage visual scale — no preview cards without images; zoom state verified via the topbar readout",
+  );
+}
+await page.screenshot({ path: path.join(OUT_DIR, "p8-zoom.png") });
+
+// ── 7. batch mode toggle (leaf subscription) ──
+// The Batch Mode checkbox is visually covered by its label; click the label
+// itself. Without images the chapter list is empty, so enabling the mode must
+// surface the need-chapters hint; the footer progress badge needs a real
+// desktop-bridge batch run and is logged as SKIP.
+const batchSection = page.locator("[data-tour='dashboard-aio-batch-mode']");
+if ((await batchSection.count()) === 0) {
+  console.log("SKIP batch mode — AIO batch panel not mounted in web e2e");
+} else {
+  const batchToggleLabel = batchSection
+    .locator("label")
+    .filter({ hasText: /Batch Mode/i })
+    .first();
+  await batchToggleLabel.click();
+  await page.waitForTimeout(300);
+
+  const batchChecked = await page.evaluate(() => {
+    const section = document.querySelector("[data-tour='dashboard-aio-batch-mode']");
+    const input = section?.querySelector("input[type='checkbox']");
+    return input instanceof HTMLInputElement && input.checked;
+  });
+  step("batch mode toggle flips on", batchChecked);
+
+  const needChaptersCount = await page.getByText(/needs at least two chapters/i).count();
+  step("batch mode flags the need for two chapters", needChaptersCount > 0);
+
+  console.log(
+    "SKIP footer progress badge — needs a real desktop-bridge batch run with local models",
+  );
+  await page.screenshot({ path: path.join(OUT_DIR, "p8-batch.png") });
+}
+
+// ── 8. errors ──
 const ENV_NOISE =
   /fetch|Failed to fetch|net::|ERR_CONNECTION|404|401|ECONNREFUSED|NetworkError|Failed to load resource|AbortError|signal is aborted/i;
 const BROWSER_RUNTIME_NOISE =
