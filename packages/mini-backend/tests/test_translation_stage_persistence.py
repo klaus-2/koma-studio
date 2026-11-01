@@ -45,6 +45,7 @@ from pipelines.translation_store import (  # noqa: E402
     glossary_hash,
     normalize_source_text,
     persistent_cache_key,
+    tm_key,
 )
 from schemas.translation import TranslationRegionRequest  # noqa: E402
 
@@ -447,6 +448,112 @@ class PersistentCacheStageTests(unittest.TestCase):
                 edited = run({**profile, "model": "new-model"})
                 self.assertEqual(third.calls, 1)
                 self.assertEqual(edited.records[0]["translated_text"], "ok-konnichiwa")
+        finally:
+            store.close()
+
+    def test_concurrent_requests_share_store_safely(self) -> None:
+        """Two threads drive run_cached_translation through ONE shared
+        TranslationStore, like the executor interleaving HTTP requests."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        store = TranslationStore(self.db_path)
+        try:
+            texts = ("konnichiwa", "sayonara")
+            requests = [_request(text=text) for text in texts]
+            engines = [_FakeEngine("fake") for _ in texts]
+
+            def worker(index: int):
+                import asyncio
+
+                return asyncio.run(
+                    run_cached_translation(
+                        requests[index],
+                        cache=CacheManager(
+                            ttl_seconds=60, max_entries=8, bbox_tolerance_px=2
+                        ),
+                        resolve_engine=lambda model_key=None, index=index: engines[
+                            index
+                        ],
+                        store=store,
+                    )
+                )
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(worker, range(2)))
+
+            for index, result in enumerate(results):
+                self.assertEqual(
+                    result.records[0]["translated_text"], f"ok-{texts[index]}"
+                )
+            for engine in engines:
+                self.assertEqual(engine.calls, 1)
+
+            keys = [
+                _persistent_key(request, text)
+                for request, text in zip(requests, texts, strict=True)
+            ]
+            rows = store.get_cached(keys)
+            self.assertEqual(rows[keys[0]].translated_text, "ok-konnichiwa")
+            self.assertEqual(rows[keys[1]].translated_text, "ok-sayonara")
+
+            # Reopening the file (a restarted process) sees both rows.
+            reopened = TranslationStore(self.db_path)
+            try:
+                reopened_rows = reopened.get_cached(keys)
+                self.assertEqual(reopened_rows[keys[0]].engine_key, "fake")
+                self.assertEqual(reopened_rows[keys[1]].engine_key, "fake")
+            finally:
+                reopened.close()
+        finally:
+            store.close()
+
+    def test_persistent_cache_is_consulted_before_the_tm(self) -> None:
+        """Consultation order pins the persistent layer ahead of the memory:
+        a seed served by a persistent hit must not consume a TM bump."""
+        request = _request(
+            settings=clamp_llm_request_settings({"translation_memory_enabled": True})
+        )
+        key = _persistent_key(request, "konnichiwa")
+        store = TranslationStore(self.db_path)
+        try:
+            store.put_cached(
+                [
+                    CacheRow(
+                        key=key,
+                        translated_text="from persistent",
+                        notes=("NT: persistida",),
+                        engine_key="sugoi_v4_ja_en_ct2",
+                    )
+                ]
+            )
+            store.put_tm(
+                [
+                    TMWrite(
+                        tm_key("konnichiwa"),
+                        "ja",
+                        "en",
+                        "from tm",
+                        "m2m100_1_2b_ct2",
+                    )
+                ]
+            )
+
+            result = self._run(request, store)
+
+            self.assertEqual(self.engine.calls, 0)
+            self.assertEqual(result.records[0]["translated_text"], "from persistent")
+            self.assertEqual(
+                result.records[0]["translator_model_key"], "sugoi_v4_ja_en_ct2"
+            )
+            raw = sqlite3.connect(str(self.db_path))
+            try:
+                hits = raw.execute(
+                    "SELECT hits FROM tm WHERE nfkc_key = ?", (tm_key("konnichiwa"),)
+                ).fetchone()
+            finally:
+                raw.close()
+            self.assertIsNotNone(hits)
+            self.assertEqual(int(hits[0]), 0)
         finally:
             store.close()
 

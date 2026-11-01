@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 _SCHEMA_VERSION = 1
 _DEFAULT_MAX_ROWS = 200_000
+# sqlite's host-parameter cap is 999 on older builds; stay well under it so
+# very large IN (...) batches never fail (or silently drop) at the boundary.
+_QUERY_CHUNK = 500
 
 # \s on str patterns already covers NBSP and other Unicode whitespace.
 _WS_RUN_RE = re.compile(r"\s+")
@@ -180,14 +183,17 @@ class TranslationStore:
         wanted = [key for key in keys if key]
         if not wanted:
             return {}
-        placeholders = ",".join("?" for _ in wanted)
         with self._lock:
-            cursor = self._conn.execute(
-                "SELECT key, translated_text, notes, engine_key, created_at"
-                f" FROM translation_cache WHERE key IN ({placeholders})",
-                wanted,
-            )
-            rows = cursor.fetchall()
+            rows: list[tuple[object, ...]] = []
+            for start in range(0, len(wanted), _QUERY_CHUNK):
+                chunk = wanted[start : start + _QUERY_CHUNK]
+                placeholders = ",".join("?" for _ in chunk)
+                cursor = self._conn.execute(
+                    "SELECT key, translated_text, notes, engine_key, created_at"
+                    f" FROM translation_cache WHERE key IN ({placeholders})",
+                    chunk,
+                )
+                rows.extend(cursor.fetchall())
         found: dict[str, CacheRow] = {}
         for key, translated_text, notes_raw, engine_key, created_at in rows:
             found[key] = CacheRow(
@@ -243,20 +249,22 @@ class TranslationStore:
                     for key, src, tgt in wanted
                     if src == src_lang and tgt == tgt_lang
                 ]
-                placeholders = ",".join("?" for _ in nfkc_keys)
-                cursor = self._conn.execute(
-                    "SELECT nfkc_key, translation, model_key FROM tm"
-                    " WHERE src_lang = ? AND tgt_lang = ?"
-                    f" AND nfkc_key IN ({placeholders})",
-                    [src_lang, tgt_lang, *nfkc_keys],
-                )
-                for nfkc_key, translation, model_key in cursor.fetchall():
-                    if not isinstance(translation, str) or not translation:
-                        continue
-                    found[(nfkc_key, src_lang, tgt_lang)] = TMEntry(
-                        translation=translation,
-                        model_key=model_key if isinstance(model_key, str) else "",
+                for start in range(0, len(nfkc_keys), _QUERY_CHUNK):
+                    chunk = nfkc_keys[start : start + _QUERY_CHUNK]
+                    placeholders = ",".join("?" for _ in chunk)
+                    cursor = self._conn.execute(
+                        "SELECT nfkc_key, translation, model_key FROM tm"
+                        " WHERE src_lang = ? AND tgt_lang = ?"
+                        f" AND nfkc_key IN ({placeholders})",
+                        [src_lang, tgt_lang, *chunk],
                     )
+                    for nfkc_key, translation, model_key in cursor.fetchall():
+                        if not isinstance(translation, str) or not translation:
+                            continue
+                        found[(nfkc_key, src_lang, tgt_lang)] = TMEntry(
+                            translation=translation,
+                            model_key=model_key if isinstance(model_key, str) else "",
+                        )
         return found
 
     def put_tm(self, rows: Sequence[TMWrite]) -> None:

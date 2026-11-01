@@ -261,6 +261,63 @@ class TranslationStoreTests(unittest.TestCase):
                 store.close()
 
 
+    def test_get_cached_chunks_past_the_sqlite_variable_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = TranslationStore(Path(tmp) / "store.sqlite3")
+            try:
+                keys = [f"bulk-{index:04d}" for index in range(600)]
+                store.put_cached(
+                    [
+                        CacheRow(
+                            key=key,
+                            translated_text=f"texto {index}",
+                            notes=(),
+                            engine_key="eng",
+                        )
+                        for index, key in enumerate(keys)
+                    ]
+                )
+                found = store.get_cached(keys)
+                self.assertEqual(len(found), 600)
+                self.assertEqual(found["bulk-0000"].translated_text, "texto 0")
+                self.assertEqual(found["bulk-0500"].translated_text, "texto 500")
+                self.assertEqual(found["bulk-0599"].translated_text, "texto 599")
+            finally:
+                store.close()
+
+    def test_lookup_tm_chunks_past_the_sqlite_variable_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = TranslationStore(Path(tmp) / "store.sqlite3")
+            try:
+                keys = [f"clave-{index:04d}" for index in range(600)]
+                store.put_tm(
+                    [
+                        TMWrite(
+                            nfkc_key=key,
+                            src_lang="ja",
+                            tgt_lang="pt-br",
+                            translation=f"traducao {index}",
+                            model_key="eng",
+                        )
+                        for index, key in enumerate(keys)
+                    ]
+                )
+                wanted = [(key, "ja", "pt-br") for key in keys]
+                found = store.lookup_tm(wanted)
+                self.assertEqual(len(found), 600)
+                self.assertEqual(
+                    found[(keys[0], "ja", "pt-br")].translation, "traducao 0"
+                )
+                self.assertEqual(
+                    found[(keys[500], "ja", "pt-br")].translation, "traducao 500"
+                )
+                self.assertEqual(
+                    found[(keys[599], "ja", "pt-br")].translation, "traducao 599"
+                )
+            finally:
+                store.close()
+
+
 class StoreKeyHelperTests(unittest.TestCase):
     def test_normalize_source_text_nfc_and_whitespace(self) -> None:
         self.assertEqual(normalize_source_text("  foo \n bar\tbaz "), "foo bar baz")

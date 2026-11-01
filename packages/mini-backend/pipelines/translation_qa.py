@@ -283,7 +283,12 @@ def repair_echo(source: str, target: str, target_language: str) -> str | None:
     never rewritten; only a >= 3x repetition is structural echo and may adopt
     R1 (exact X+X half-split) then R2 (adjacent collapse). The candidate must
     be non-empty, differ from the source, and re-run clean on the
-    empty/residue/repetition detectors."""
+    empty/residue/repetition detectors.
+
+    Under the >= 3x gate an R1 candidate can no longer survive that mandatory
+    re-check: a clean half implies every word count of exactly 2 in the
+    target, which the gate itself blocks. R2 therefore performs all
+    adoptions; R1 is kept as a guarded candidate ordered first, as today."""
     signal = _echo_signal(source, target)
     if signal is None or signal[1] < 3:
         return None
