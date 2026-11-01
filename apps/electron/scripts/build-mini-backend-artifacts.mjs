@@ -36,7 +36,23 @@ if (!outputDirArg) {
   throw new Error("Usage: node scripts/build-mini-backend-artifacts.mjs <release-output-dir>");
 }
 
-const releaseOutputDir = path.resolve(rootDir, outputDirArg);
+// Resolve relative paths against the caller's cwd first: running from the
+// repo root with an "apps/electron/..." argument used to nest under
+// apps/electron/apps/electron/... and silently fork a second output tree.
+// A not-yet-created dir still wins when its cwd-relative parent exists.
+const releaseOutputDir = path.isAbsolute(outputDirArg)
+  ? outputDirArg
+  : (() => {
+      const fromCwd = path.resolve(process.cwd(), outputDirArg);
+      return fs.existsSync(fromCwd) || fs.existsSync(path.dirname(fromCwd))
+        ? fromCwd
+        : path.resolve(rootDir, outputDirArg);
+    })();
+if (/[\\/]apps[\\/](electron[\\/])?apps[\\/]/.test(releaseOutputDir)) {
+  throw new Error(
+    `output dir resolves into a nested apps/.../apps/... path: ${releaseOutputDir} — pass the path relative to your cwd`,
+  );
+}
 const outputRootDir = path.join(releaseOutputDir, "mini-backend-artifacts");
 const workRootDir = path.join(outputRootDir, "work");
 const externalStorageRoot =
@@ -157,6 +173,13 @@ const SKIP_HARDEN_CYTHON = ["1", "true", "yes"].includes(
 );
 const SKIP_HARDEN_PYARMOR = ["1", "true", "yes"].includes(
   String(process.env.MINI_BACKEND_HARDEN_SKIP_PYARMOR || "").trim().toLowerCase(),
+);
+// Regenerate manifest + .sig from the partition plans already in the output
+// dir without building anything. Re-running the full script just to refresh
+// the manifest used to force PyInstaller rebuilds of every profile; this flag
+// makes that a seconds-long, side-effect-free operation.
+const MANIFEST_ONLY = ["1", "true", "yes"].includes(
+  String(process.env.MINI_BACKEND_MANIFEST_ONLY || "").trim().toLowerCase(),
 );
 
 const getProfileSourceDirs = () => {
@@ -292,8 +315,173 @@ const writeRuntimeArtifactsManifest = (manifest) => {
   fs.writeFileSync(signaturePath, `ed25519-${signature.toString("base64")}\n`, "utf-8");
 };
 
+const pidAlive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but is owned by another user → still alive.
+    // Only ESRCH (no such process) means the lock is stale.
+    return error?.code === "EPERM";
+  }
+};
+
+/**
+ * One artifact build per output dir. A second run against the same dir used
+ * to race the partitioner (stale plans, `part-*-of-pending` leftovers). The
+ * lock records the holding PID; a dead PID is treated as stale and taken over.
+ */
+const acquireBuildLock = () => {
+  const lockPath = path.join(releaseOutputDir, ".mini-backend-artifacts.lock");
+  if (fs.existsSync(lockPath)) {
+    let holder = null;
+    try {
+      holder = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+    } catch {
+      // corrupt lock → treat as stale
+    }
+    if (
+      holder
+      && typeof holder.pid === "number"
+      && holder.pid !== process.pid
+      && pidAlive(holder.pid)
+    ) {
+      throw new Error(
+        `another artifact build holds ${lockPath} (PID ${holder.pid}, started ${holder.startedAt}) — run one build at a time`,
+      );
+    }
+  }
+  fs.mkdirSync(releaseOutputDir, { recursive: true });
+  fs.writeFileSync(lockPath, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+  process.on("exit", () => {
+    try {
+      fs.rmSync(lockPath, { force: true });
+    } catch {
+      // best-effort; a dead PID makes any leftover lock stale anyway
+    }
+  });
+};
+
+/**
+ * Reuse a complete same-version part set already sitting in a sibling release
+ * dir instead of rebuilding PyInstaller (~10 min per profile). Only called
+ * when the source hash already matches, so the adopted bytes come from the
+ * same sources; part sizes are checked against the sibling plan and the plan
+ * is copied LAST so a partial copy can never look complete.
+ */
+const adoptSiblingParts = (profile, zipBaseName) => {
+  const planName = `${zipBaseName}.partition-plan.json`;
+  const container = path.dirname(releaseOutputDir);
+  let entries;
+  try {
+    entries = fs.readdirSync(container, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const siblingArtifacts = entry.name === "mini-backend-artifacts"
+      ? path.join(container, entry.name)
+      : path.join(container, entry.name, "mini-backend-artifacts");
+    if (path.resolve(siblingArtifacts) === path.resolve(outputRootDir)) {
+      continue;
+    }
+    const siblingPlan = path.join(siblingArtifacts, planName);
+    if (!fs.existsSync(siblingPlan)) {
+      continue;
+    }
+    let plan;
+    try {
+      plan = JSON.parse(fs.readFileSync(siblingPlan, "utf-8"));
+    } catch {
+      continue;
+    }
+    const parts = Array.isArray(plan.parts) ? plan.parts : [];
+    if (parts.length === 0) {
+      continue;
+    }
+    const intact = parts.every((part) => {
+      if (typeof part.file !== "string" || !isFlatAssetName(part.file)) {
+        return false;
+      }
+      try {
+        const stat = fs.statSync(path.join(siblingArtifacts, part.file));
+        return stat.isFile() && stat.size === part.sizeBytes;
+      } catch {
+        return false;
+      }
+    });
+    if (!intact) {
+      continue;
+    }
+    for (const part of parts) {
+      fs.copyFileSync(
+        path.join(siblingArtifacts, part.file),
+        path.join(outputRootDir, part.file),
+      );
+    }
+    fs.copyFileSync(siblingPlan, path.join(outputRootDir, planName));
+    console.log(
+      `[mini-backend-artifacts] ADOPTED profile=${profile} parts from ${path.relative(rootDir, siblingArtifacts)} (same sources, rebuild skipped)`,
+    );
+    return true;
+  }
+  return false;
+};
+
 const main = async () => {
   fs.mkdirSync(outputRootDir, { recursive: true });
+  acquireBuildLock();
+
+  const profiles = getMiniBackendArtifactProfiles(process.platform, {
+    includeTensorRt,
+  }).filter((profileConfig) =>
+    requestedProfiles.length === 0 || requestedProfiles.includes(profileConfig.profile),
+  );
+
+  if (MANIFEST_ONLY) {
+    const manifestProfiles = {};
+    const missing = [];
+    for (const profileConfig of profiles) {
+      const profile = profileConfig.profile;
+      const profileKey = sanitizeMiniBackendProfile(profile);
+      const zipBaseName = `mini-backend-runtime-${profileKey}-${version}-${process.platform}-${process.arch}`;
+      const zipBasePath = path.join(outputRootDir, zipBaseName);
+      if (!fs.existsSync(`${zipBasePath}.partition-plan.json`)) {
+        missing.push(profile);
+        continue;
+      }
+      manifestProfiles[profile] = {
+        profile,
+        version,
+        platform: process.platform,
+        arch: process.arch,
+        entry: process.platform === "win32" ? "mini-backend.exe" : "mini-backend",
+        parts: await loadRuntimePartsFromPlan(zipBasePath),
+      };
+    }
+    if (missing.length > 0) {
+      throw new Error(
+        `manifest-only: partition plan missing for: ${missing.join(", ")} `
+          + `in ${outputRootDir} — those profiles are not built there; run a full build first`,
+      );
+    }
+    writeRuntimeArtifactsManifest(
+      buildMiniBackendRuntimeArtifactManifest({
+        version,
+        platform: process.platform,
+        arch: process.arch,
+        profiles: manifestProfiles,
+      }),
+    );
+    console.log(
+      `[mini-backend-artifacts] manifest-only: ${runtimeManifestFileName} regenerated from ${Object.keys(manifestProfiles).length} profile(s), no build`,
+    );
+    return;
+  }
+
   fs.rmSync(workRootDir, { recursive: true, force: true });
   fs.mkdirSync(workRootDir, { recursive: true });
 
@@ -310,11 +498,6 @@ const main = async () => {
     return;
   }
 
-  const profiles = getMiniBackendArtifactProfiles(process.platform, {
-    includeTensorRt,
-  }).filter((profileConfig) =>
-    requestedProfiles.length === 0 || requestedProfiles.includes(profileConfig.profile),
-  );
   const manifestProfiles = {};
 
   const sourceDirs = getProfileSourceDirs();
@@ -347,12 +530,19 @@ const main = async () => {
 
     const cacheDir = getCacheDir(rootDir, getProfileCacheKey(profileKey));
     const cachedHash = readCachedHash(cacheDir);
-    const cacheValid =
+    const sourcesUnchanged =
       !HARDENED_RUNTIME_ARTIFACTS &&
-      !FORCE_REBUILD &&
-      cachedHash === currentSourceHash &&
-      cachedPartFiles !== null &&
-      cachedPartFiles.every((file) => fs.existsSync(path.join(outputRootDir, file)));
+      cachedHash === currentSourceHash;
+    const partsMissing =
+      cachedPartFiles === null ||
+      !cachedPartFiles.every((file) => fs.existsSync(path.join(outputRootDir, file)));
+    // A fresh timestamped output dir has no parts, so "cache miss" used to be
+    // the default and every profile rebuilt; adopt an intact sibling copy
+    // first, rebuild only when there is nothing to reuse.
+    let cacheValid = sourcesUnchanged && !FORCE_REBUILD && !partsMissing;
+    if (!cacheValid && sourcesUnchanged && !FORCE_REBUILD && partsMissing) {
+      cacheValid = adoptSiblingParts(profile, zipBaseName);
+    }
 
     if (cacheValid) {
       console.log(`[mini-backend-artifacts] CACHE HIT profile=${profile} (reusing cached zip)`);
@@ -361,8 +551,10 @@ const main = async () => {
         console.log(`[mini-backend-artifacts] FORCE REBUILD profile=${profile}`);
       } else if (!cachedHash) {
         console.log(`[mini-backend-artifacts] FIRST BUILD profile=${profile} (no cache found)`);
-      } else {
+      } else if (cachedHash !== currentSourceHash) {
         console.log(`[mini-backend-artifacts] CACHE MISS profile=${profile} (sources changed, rebuilding)`);
+      } else {
+        console.log(`[mini-backend-artifacts] CACHE MISS profile=${profile} (parts missing from this output dir and no intact sibling copy, rebuilding)`);
       }
 
       fs.rmSync(workDir, { recursive: true, force: true });

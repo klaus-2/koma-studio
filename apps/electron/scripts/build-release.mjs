@@ -90,7 +90,55 @@ const shouldSkipTypeScript = () => {
 const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
 const releaseOutputDir = `release-desktop/build-${timestamp}`;
 
+const pidAlive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but is owned by another user → still alive.
+    // Only ESRCH (no such process) means the lock is stale.
+    return error?.code === "EPERM";
+  }
+};
+
+// One release build per working tree. Parallel runs used to fork duplicate
+// build-<timestamp> dirs and split the runtime profiles across them, which
+// then needed manual consolidation. A dead PID makes any leftover lock stale.
+const acquireReleaseLock = () => {
+  const lockPath = path.join(rootDir, "release-desktop", ".release-build.lock");
+  if (fs.existsSync(lockPath)) {
+    let holder = null;
+    try {
+      holder = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+    } catch {
+      // corrupt lock → treat as stale
+    }
+    if (
+      holder
+      && typeof holder.pid === "number"
+      && holder.pid !== process.pid
+      && pidAlive(holder.pid)
+    ) {
+      throw new Error(
+        `another release build is running (PID ${holder.pid}, started ${holder.startedAt}) `
+          + `— release builds must run one at a time; wait for it or kill it`,
+      );
+    }
+    console.warn(`[release] stale lock from PID ${holder?.pid ?? "unknown"} — taking over`);
+  }
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+  fs.writeFileSync(lockPath, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+  process.on("exit", () => {
+    try {
+      fs.rmSync(lockPath, { force: true });
+    } catch {
+      // best-effort; a dead PID makes any leftover lock stale anyway
+    }
+  });
+};
+
 const main = async () => {
+  acquireReleaseLock();
   console.log(`[release] output dir: ${releaseOutputDir}`);
 
   const cscLink = normalizeEnvValue(process.env.CSC_LINK);
