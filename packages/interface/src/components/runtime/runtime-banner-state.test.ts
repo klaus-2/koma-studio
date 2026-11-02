@@ -72,6 +72,7 @@ const ALL_RUNTIME_STATUSES: DesktopMiniBackendRuntimeState["status"][] = [
   "starting",
   "error",
   "crashed",
+  "stopped",
 ];
 
 test("only a settled runtime may announce that it is ready", () => {
@@ -86,6 +87,22 @@ test("only a settled runtime may announce that it is ready", () => {
     ALL_RUNTIME_STATUSES.filter((_, index) => notices[index] === "Runtime ready"),
     ["ready"],
   );
+});
+
+test("a deliberate stop raises no banner", () => {
+  // The shell stopped the backend on purpose (app closing, profile switch):
+  // that is not a crash, so the panel stays quiet.
+  const toast = buildRuntimeBannerToast(
+    createRuntimeState({
+      status: "stopped",
+      statusMessage: "Local backend stopped.",
+      attempt: 0,
+      maxAttempts: 5,
+    }),
+    false,
+  );
+
+  assert.equal(toast, null);
 });
 
 test("buildRuntimeBannerToast reports a crash with its attempt and post-mortem", () => {

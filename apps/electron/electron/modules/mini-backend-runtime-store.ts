@@ -18,6 +18,7 @@ type MiniBackendRuntimeStatus =
   | "starting"
   | "fallback"
   | "crashed"
+  | "stopped"
   | "error";
 
 interface MiniBackendRuntimeProgressState {

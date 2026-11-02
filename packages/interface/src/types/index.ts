@@ -54,6 +54,7 @@ export interface DesktopMiniBackendRuntimeState {
     | "ready"
     | "fallback"
     | "crashed"
+    | "stopped"
     | "error";
   statusMessage: string | null;
   requestedProfile: string;

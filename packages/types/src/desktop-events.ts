@@ -139,6 +139,7 @@ export type MiniBackendRuntimeStatus =
   | "ready"
   | "fallback"
   | "crashed"
+  | "stopped"
   | "error";
 
 export interface MiniBackendRuntimeProgressPayload {
