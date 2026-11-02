@@ -158,6 +158,15 @@ const main = async () => {
   await run(`npx electron-builder ${electronBuilderArgs.join(" ")}`, "electron-builder");
   await run(`node scripts/create-portable-dir.mjs ${releaseOutputDir}`, "create-portable-dir");
   await run(`node scripts/build-mini-backend-artifacts.mjs ${releaseOutputDir}`, "build-mini-backend-artifacts");
+  // Boot every packaged runtime profile the way a user machine does: extract
+  // the parts into a clean tree and start the entry binary. A bundle that
+  // cannot import its own data files dies here instead of on the user's
+  // machine. CI ran this smoke for linux/mac only; the Windows artifacts are
+  // built locally, so the local release build owns it.
+  await run(
+    `node scripts/smoke-runtime-parts.mjs ${releaseOutputDir}/mini-backend-artifacts`,
+    "smoke-runtime-parts",
+  );
   await run(`node scripts/verify-release.mjs ${releaseOutputDir}`, "verify-release");
   if (!shouldKeepWinUnpacked) {
     fs.rmSync(path.join(rootDir, releaseOutputDir, "win-unpacked"), { recursive: true, force: true });
