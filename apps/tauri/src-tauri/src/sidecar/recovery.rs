@@ -620,7 +620,7 @@ pub(crate) fn fold_sidecar_failure<R: Runtime + 'static>(
         app,
         &runtime_store,
         MiniBackendRuntimePatch {
-            status: Some(status.to_string()),
+            status: Some(status.as_str().to_string()),
             status_message: Some(Some(message)),
             // A deliberate stop is not an error and has no exit code to show.
             last_error: Some(if report.expected_stop {

@@ -37,9 +37,27 @@ impl RestartStopReason {
     }
 }
 
+/// How the runtime panel reads the failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FailureStatus {
+    Crashed,
+    Stopped,
+    Error,
+}
+
+impl FailureStatus {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Crashed => "crashed",
+            Self::Stopped => "stopped",
+            Self::Error => "error",
+        }
+    }
+}
+
 /// What the runtime panel shows for one folded failure.
 pub(crate) struct FailureReport {
-    pub(crate) status: &'static str,
+    pub(crate) status: FailureStatus,
     pub(crate) message: String,
     pub(crate) retry_after: Option<Duration>,
     /// A deliberate stop is not a crash: no post-mortem, no error code.
@@ -59,7 +77,7 @@ pub(crate) fn describe_failure(
 ) -> FailureReport {
     match decision {
         RestartDecision::Restart { attempt, delay } => FailureReport {
-            status: "crashed",
+            status: FailureStatus::Crashed,
             message: format!("Local backend {cause}; restart attempt {attempt} of {max_attempts}."),
             retry_after: Some(*delay),
             expected_stop: false,
@@ -70,12 +88,12 @@ pub(crate) fn describe_failure(
                 RestartStopReason::ExpectedStop | RestartStopReason::AppExiting
             );
             let (status, message) = if expected_stop {
-                ("stopped", "Local backend stopped.".to_string())
+                (FailureStatus::Stopped, "Local backend stopped.".to_string())
             } else {
                 let status = if *reason == RestartStopReason::SpawnError {
-                    "error"
+                    FailureStatus::Error
                 } else {
-                    "crashed"
+                    FailureStatus::Crashed
                 };
                 (
                     status,
@@ -108,7 +126,7 @@ mod tests {
             let decision = RestartDecision::Stop { reason, attempt: 0 };
             let report = describe_failure(&decision, "exited unexpectedly (code 1)", 5);
             assert!(report.expected_stop, "{reason:?} must count as a deliberate stop");
-            assert_eq!(report.status, "stopped");
+            assert_eq!(report.status, FailureStatus::Stopped);
             assert_eq!(report.message, "Local backend stopped.");
             assert!(report.retry_after.is_none());
         }
@@ -122,7 +140,7 @@ mod tests {
         };
         let report = describe_failure(&decision, "exited unexpectedly (code 1)", 5);
         assert!(!report.expected_stop);
-        assert_eq!(report.status, "crashed");
+        assert_eq!(report.status, FailureStatus::Crashed);
         assert!(report.message.contains("automatic recovery stopped (crash loop)"));
 
         let decision = RestartDecision::Restart {
@@ -131,7 +149,7 @@ mod tests {
         };
         let report = describe_failure(&decision, "exited unexpectedly (code 1)", 5);
         assert!(!report.expected_stop);
-        assert_eq!(report.status, "crashed");
+        assert_eq!(report.status, FailureStatus::Crashed);
         assert_eq!(report.retry_after, Some(Duration::from_millis(250)));
     }
 }
