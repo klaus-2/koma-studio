@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { runtimeLaunchManifestDeclaresProfile } from "./mini-backend-runtime-launch-manifest.ts";
+import { resolveSpawnableRuntimeBinary } from "./mini-backend-runtime-launch-manifest.ts";
 import type { MiniBackendAccelerationProfile } from "./mini-backend-runtime.ts";
 
 export interface MiniBackendRuntimeSelection {
@@ -88,10 +88,5 @@ export const resolveSelectedRuntimeBinaryPath = (userDataDir: string): string | 
     selection.version,
     selection.profile,
   );
-  const binaryPath = path.join(installDir, selection.entry);
-
-  if (!runtimeLaunchManifestDeclaresProfile(installDir, selection.profile)) {
-    return null;
-  }
-  return binaryPath;
+  return resolveSpawnableRuntimeBinary(installDir, selection.profile, selection.entry);
 };

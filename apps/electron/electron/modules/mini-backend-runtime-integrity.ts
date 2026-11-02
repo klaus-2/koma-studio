@@ -8,7 +8,7 @@ import path from "node:path";
 import {
   sanitizeMiniBackendProfile,
 } from "../mini-backend-artifacts.ts";
-import { runtimeLaunchManifestDeclaresProfile } from "../mini-backend-runtime-launch-manifest.ts";
+import { resolveSpawnableRuntimeBinary } from "../mini-backend-runtime-launch-manifest.ts";
 import type { MiniBackendAccelerationProfile } from "../mini-backend-runtime.ts";
 
 const computeSha512Base64ForFile = async (filePath: string): Promise<string> =>
@@ -42,10 +42,7 @@ const isMiniBackendRuntimeInstalled = (
   entry: string,
 ): boolean => {
   const installDir = getMiniBackendRuntimeInstallDir(version, profile);
-  if (!fs.existsSync(path.join(installDir, entry))) {
-    return false;
-  }
-  return runtimeLaunchManifestDeclaresProfile(installDir, profile);
+  return resolveSpawnableRuntimeBinary(installDir, profile, entry) !== null;
 };
 
 export {
