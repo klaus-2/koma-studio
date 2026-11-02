@@ -225,6 +225,7 @@ const assertRuntimeDataFiles = () => {
 const writeLaunchManifest = (defaultProfile) => {
   const manifest = buildLaunchManifest(process.platform, process.arch, getBackendExecutableName(), {
     defaultProfile,
+    requiredFiles: REQUIRED_RUNTIME_DATA_FILES,
   });
   const outputPath = path.join(distDir, "launch-manifest.json");
   fs.mkdirSync(distDir, { recursive: true });
@@ -382,6 +383,9 @@ const main = async () => {
     console.log(
       `[build:mini] CACHE HIT profile=${profile} — sources unchanged since the last build, reusing ${distDir}`,
     );
+    // The cached bundle is the one that ships, so it gets the same check a
+    // fresh build does.
+    assertRuntimeDataFiles();
     writeLaunchManifest(profile);
     return;
   }

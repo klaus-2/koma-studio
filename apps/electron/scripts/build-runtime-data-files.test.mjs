@@ -17,37 +17,36 @@ const specPath = path.resolve(
   "build.spec",
 );
 
-test("every data file the spec declares from the package tree is in the contract", () => {
+/**
+ * The data files the spec ships from the package tree, as
+ * `<destination>/<file name>` — the path the contract names them by.
+ */
+const declaredSpecDataFiles = () => {
   const spec = fs.readFileSync(specPath, "utf-8");
   // (str(PROJECT_ROOT / 'a' / 'b' / 'file.ext'), '<destination>')
-  const declared = [...spec.matchAll(/PROJECT_ROOT((?:\s*\/\s*'[^']+')+)\s*\)\s*,\s*'([^']+)'/g)].map(
-    ([, chain, destination]) => {
-      const segments = [...chain.matchAll(/'([^']+)'/g)].map(([, segment]) => segment);
-      return {
-        source: segments.join("/"),
-        suffix: `${destination}/${segments[segments.length - 1]}`,
-      };
-    },
-  );
-
-  assert.ok(declared.length > 0, "the spec must declare its package data files");
-  for (const { source, suffix } of declared) {
-    assert.ok(
-      REQUIRED_RUNTIME_DATA_FILES.includes(suffix),
-      `the spec declares ${source} -> ${suffix}; add it to REQUIRED_RUNTIME_DATA_FILES so the `
-        + "build refuses to ship a bundle that cannot import it",
-    );
-  }
-});
-
-test("the contract only names files the spec ships", () => {
-  const spec = fs.readFileSync(specPath, "utf-8");
-  const declared = [...spec.matchAll(/PROJECT_ROOT((?:\s*\/\s*'[^']+')+)\s*\)\s*,\s*'([^']+)'/g)].map(
+  return [...spec.matchAll(/PROJECT_ROOT((?:\s*\/\s*'[^']+')+)\s*\)\s*,\s*'([^']+)'/g)].map(
     ([, chain, destination]) => {
       const segments = [...chain.matchAll(/'([^']+)'/g)].map(([, segment]) => segment);
       return `${destination}/${segments[segments.length - 1]}`;
     },
   );
+};
+
+test("every data file the spec declares from the package tree is in the contract", () => {
+  const declared = declaredSpecDataFiles();
+
+  assert.ok(declared.length > 0, "the spec must declare its package data files");
+  for (const suffix of declared) {
+    assert.ok(
+      REQUIRED_RUNTIME_DATA_FILES.includes(suffix),
+      `the spec declares ${suffix}; add it to REQUIRED_RUNTIME_DATA_FILES so the build `
+        + "refuses to ship a bundle that cannot import it",
+    );
+  }
+});
+
+test("the contract only names files the spec ships", () => {
+  const declared = declaredSpecDataFiles();
   for (const suffix of REQUIRED_RUNTIME_DATA_FILES) {
     assert.ok(
       declared.includes(suffix),

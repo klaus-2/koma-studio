@@ -31,6 +31,12 @@ export interface MiniBackendLaunchManifest {
   arch: string;
   defaultProfile: MiniBackendAccelerationProfile;
   profiles: Partial<Record<MiniBackendAccelerationProfile, MiniBackendLaunchManifestEntry>>;
+  /**
+   * The data files the packaged backend reads next to its loader modules. A
+   * loader that reads one at import takes the whole backend down when the
+   * file is missing, so the shell refuses to spawn a runtime without them.
+   */
+  requiredFiles?: string[];
 }
 
 export interface ResolvedMiniBackendManifestEntry extends MiniBackendLaunchManifestEntry {
@@ -204,8 +210,10 @@ export const buildLaunchManifest = (
   entry: string,
   {
     defaultProfile = "cpu",
+    requiredFiles = [],
   }: {
     defaultProfile?: MiniBackendAccelerationProfile;
+    requiredFiles?: string[];
   } = {},
 ): MiniBackendLaunchManifest => {
   const profiles = platformProfiles[platform] ?? ["cpu"];
@@ -227,6 +235,7 @@ export const buildLaunchManifest = (
     arch,
     defaultProfile,
     profiles: profileEntries,
+    ...(requiredFiles.length > 0 ? { requiredFiles } : {}),
   };
 };
 

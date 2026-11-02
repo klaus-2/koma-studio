@@ -316,6 +316,32 @@ const writeRuntimeArtifactsManifest = (manifest) => {
 };
 
 /**
+ * The base name every runtime artifact of a profile shares: the parts, the
+ * partition plan and the build ledger.
+ */
+const runtimeArtifactBaseName = (profileKey) =>
+  `mini-backend-runtime-${profileKey}-${version}-${process.platform}-${process.arch}`;
+
+/**
+ * A fingerprint of the build environment: the interpreter and the packages
+ * the profile venv holds. The source hash alone cannot tell two builds of
+ * the same tree apart when the interpreter or the wheels changed under it.
+ */
+const computeEnvironmentFingerprint = (venvPath) => {
+  try {
+    const python = resolveVenvPython(venvPath);
+    const frozen = execSync(`"${python}" -m pip freeze --all`, {
+      encoding: "utf-8",
+      shell: true,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return createHash("sha256").update(frozen).digest("hex").slice(0, 32);
+  } catch {
+    return null;
+  }
+};
+
+/**
  * The build ledger records which sources produced the parts in one output
  * dir. Adoption copies parts only when the sibling's ledger carries the same
  * source hash: the per-profile cache hash alone cannot tell whether those
@@ -325,9 +351,9 @@ const writeRuntimeArtifactsManifest = (manifest) => {
 const buildLedgerPath = (artifactsDir, zipBaseName) =>
   path.join(artifactsDir, `${zipBaseName}.build-ledger.json`);
 
-const writeBuildLedger = (zipBaseName, sourceHash, parts) => {
+const writeBuildLedger = (artifactsDir, zipBaseName, sourceHash, parts) => {
   fs.writeFileSync(
-    buildLedgerPath(outputRootDir, zipBaseName),
+    buildLedgerPath(artifactsDir, zipBaseName),
     `${JSON.stringify({ sourceHash, parts }, null, 2)}\n`,
     "utf-8",
   );
@@ -348,7 +374,7 @@ const readBuildLedger = (artifactsDir, zipBaseName) => {
  * same sources; part sizes are checked against the sibling plan and the plan
  * is copied LAST so a partial copy can never look complete.
  */
-const adoptSiblingParts = (profile, zipBaseName, sourceHash) => {
+const adoptSiblingParts = (profile, zipBaseName, sourceHash, environment) => {
   const planName = `${zipBaseName}.partition-plan.json`;
   // The siblings live next to the output dir: the release desktop that holds
   // every build-* dir, or the output dir itself when it is that desktop.
@@ -404,7 +430,7 @@ const adoptSiblingParts = (profile, zipBaseName, sourceHash) => {
       continue;
     }
     const ledger = readBuildLedger(siblingArtifacts, zipBaseName);
-    if (ledger?.sourceHash !== sourceHash) {
+    if (ledger?.sourceHash !== sourceHash || ledger?.environment !== environment) {
       continue;
     }
     for (const part of parts) {
@@ -431,7 +457,7 @@ const adoptSiblingParts = (profile, zipBaseName, sourceHash) => {
  * next to its parts.
  */
 const buildManifestProfile = async (profile, profileKey) => {
-  const zipBaseName = `mini-backend-runtime-${profileKey}-${version}-${process.platform}-${process.arch}`;
+  const zipBaseName = runtimeArtifactBaseName(profileKey);
   const zipBasePath = path.join(outputRootDir, zipBaseName);
   return {
     profile,
@@ -467,7 +493,7 @@ const main = async () => {
     for (const profileConfig of profiles) {
       const profile = profileConfig.profile;
       const profileKey = sanitizeMiniBackendProfile(profile);
-      const zipBaseName = `mini-backend-runtime-${profileKey}-${version}-${process.platform}-${process.arch}`;
+      const zipBaseName = runtimeArtifactBaseName(profileKey);
       const zipBasePath = path.join(outputRootDir, zipBaseName);
       if (!fs.existsSync(`${zipBasePath}.partition-plan.json`)) {
         missing.push(profile);
@@ -528,7 +554,8 @@ const main = async () => {
       externalStorageRoot,
       rootDir,
     });
-    const zipBaseName = `mini-backend-runtime-${profileKey}-${version}-${process.platform}-${process.arch}`;
+    const environmentFingerprint = computeEnvironmentFingerprint(profileVenvPath);
+    const zipBaseName = runtimeArtifactBaseName(profileKey);
     const zipBasePath = path.join(outputRootDir, zipBaseName);
     const planPath = `${zipBasePath}.partition-plan.json`;
     const readCachedPlanPartFiles = () => {
@@ -554,7 +581,7 @@ const main = async () => {
     // first, rebuild only when there is nothing to reuse.
     let cacheValid = sourcesUnchanged && !FORCE_REBUILD && !partsMissing;
     if (!cacheValid && sourcesUnchanged && !FORCE_REBUILD && partsMissing) {
-      cacheValid = adoptSiblingParts(profile, zipBaseName, currentSourceHash);
+      cacheValid = adoptSiblingParts(profile, zipBaseName, currentSourceHash, environmentFingerprint);
     }
 
     if (cacheValid) {
@@ -613,7 +640,13 @@ const main = async () => {
     }
 
     manifestProfiles[profile] = await buildManifestProfile(profile, profileKey);
-    writeBuildLedger(zipBaseName, currentSourceHash, manifestProfiles[profile].parts);
+    writeBuildLedger(
+      outputRootDir,
+      zipBaseName,
+      currentSourceHash,
+      environmentFingerprint,
+      manifestProfiles[profile].parts,
+    );
   }
 
   const manifest = buildMiniBackendRuntimeArtifactManifest({
