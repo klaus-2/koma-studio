@@ -64,6 +64,60 @@ class RuntimeWarmupFallbackTests(unittest.IsolatedAsyncioTestCase):
                 "the downgrade marker the desktop shell watches for was not logged",
             )
 
+    async def test_warmup_keeps_the_profile_when_the_model_is_not_installed(self) -> None:
+        # A missing model fails the smoke test on every profile, so the old
+        # behavior (fall back to CPU) misreported the runtime: the panel showed
+        # "cpu" while the CUDA runtime was loaded, and detection would raise
+        # the same not-installed error on CPU too.
+        with patch.dict(
+            os.environ,
+            {
+                "MINI_BACKEND_ACCELERATION_PROFILE": "nvidia-cuda-legacy",
+                "MINI_BACKEND_WARMUP_DETECTOR": "1",
+            },
+            clear=False,
+        ):
+            with (
+                patch.object(
+                    mini_app,
+                    "_run_detector_smoke_test",
+                    side_effect=mini_app.DetectionModelNotInstalledError("font_rtdetr_v2"),
+                ),
+                patch.object(mini_app, "_switch_to_cpu_profile") as switch_to_cpu,
+            ):
+                await mini_app.warmup_text_detection_model()
+
+            self.assertEqual(
+                os.environ["MINI_BACKEND_ACCELERATION_PROFILE"],
+                "nvidia-cuda-legacy",
+                "a missing model must not downgrade the acceleration profile",
+            )
+            switch_to_cpu.assert_not_called()
+
+    async def test_warmup_keeps_the_profile_when_the_model_is_corrupted(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "MINI_BACKEND_ACCELERATION_PROFILE": "nvidia-cuda-legacy",
+                "MINI_BACKEND_WARMUP_DETECTOR": "1",
+            },
+            clear=False,
+        ):
+            with (
+                patch.object(
+                    mini_app,
+                    "_run_detector_smoke_test",
+                    side_effect=mini_app.DetectionModelCorruptedError(
+                        "font_rtdetr_v2", Path("models/font_rtdetr_v2"), "bad zip"
+                    ),
+                ),
+                patch.object(mini_app, "_switch_to_cpu_profile") as switch_to_cpu,
+            ):
+                await mini_app.warmup_text_detection_model()
+
+            self.assertEqual(os.environ["MINI_BACKEND_ACCELERATION_PROFILE"], "nvidia-cuda-legacy")
+            switch_to_cpu.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

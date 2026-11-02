@@ -42,6 +42,7 @@ from core.device import (
     verify_profile_dlls,
 )
 from core.logging_setup import configure_logging
+from models.detection.errors import DetectionModelCorruptedError, DetectionModelNotInstalledError
 from models.detection.factory import clear_detector_cache, get_detector, get_detector_cache_size
 from models.inpainting.factory import clear_inpainter_cache, get_inpainter_cache_size
 from models.ocr.factory import clear_ocr_cache, get_ocr_cache_size
@@ -215,6 +216,17 @@ async def warmup_text_detection_model() -> None:
     for attempt in attempts:
         try:
             await _run_detector_smoke_test()
+        except (DetectionModelNotInstalledError, DetectionModelCorruptedError) as error:
+            # A missing or corrupted model fails the smoke test on every
+            # profile, so downgrading to CPU cannot help and would misreport
+            # the runtime the user asked for (the panel showed "cpu" while the
+            # CUDA runtime was loaded). Skip the warmup and keep the profile;
+            # detection keeps raising the same actionable error when used.
+            logger.info(
+                "warmup.skipped_model_unavailable",
+                extra={"profile": attempt, "reason": str(error)},
+            )
+            return
         except Exception:  # noqa: BLE001 — native runtime boundary (onnxruntime/torch)
             logger.warning("warmup.failed", extra={"profile": attempt}, exc_info=True)
             if attempt != "cpu":
