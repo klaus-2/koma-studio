@@ -165,6 +165,11 @@ const setupDesktopModelIpcHandlers = (deps: ModelsDeps): void => {
     const manager = getDesktopModelManagerService(deps);
     manager.uninstallModel(modelId);
   });
+
+  registerSecureIpcHandler("desktop-models:list-active", async () => {
+    const manager = getDesktopModelManagerService(deps);
+    return manager.listActiveDownloadModelIds();
+  });
 };
 
 // ---------------------------------------------------------------------------

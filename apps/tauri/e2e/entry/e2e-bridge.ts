@@ -81,8 +81,10 @@ const desktop: IDesktopBridge = {
     cancel: (modelId) => call(channels.models.cancel, { modelId }),
     cancelAll: () => call(channels.models.cancelAll),
     uninstall: (modelId) => call(channels.models.uninstall, { modelId }),
-    on: (listener) => {
+    listActive: () => call(channels.models.listActive),
+    on: async (listener) => {
       modelListeners.add(listener);
+      return true;
     },
     off: (listener) => {
       modelListeners.delete(listener);

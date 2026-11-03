@@ -142,6 +142,10 @@ export class ModelHandlers {
     };
   }
 
+  listActive(): string[] {
+    return Array.from(this.jobs.keys());
+  }
+
   async download(
     payload: E2eModelDownloadPayload,
   ): Promise<DesktopModelQueueResult> {
@@ -215,12 +219,14 @@ export class ModelHandlers {
       try {
         const response = await fetch(
           `${this.backendUrl}/models/downloads/${job.jobId}`,
+          { signal: AbortSignal.timeout(15_000) },
         );
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
         snapshot = parseJobSnapshot(await response.json());
       } catch (error) {
+        this.jobs.delete(payload.id);
         await this.emitFailed(payload.id, error);
         return;
       }
@@ -241,6 +247,7 @@ export class ModelHandlers {
         continue;
       }
       if (snapshot.state === "ready") {
+        this.jobs.delete(payload.id);
         try {
           this.assertPayload(payload.id);
           const manifest = this.writeManifest(payload);
@@ -256,10 +263,12 @@ export class ModelHandlers {
         return;
       }
       if (snapshot.state === "cancelled") {
+        this.jobs.delete(payload.id);
         await this.emit({ type: "cancelled", modelId: payload.id });
         return;
       }
       if (snapshot.state === "error") {
+        this.jobs.delete(payload.id);
         await this.emitFailed(
           payload.id,
           new Error(snapshot.error ?? "Model download failed."),
@@ -267,6 +276,7 @@ export class ModelHandlers {
         return;
       }
     }
+    this.jobs.delete(payload.id);
     await this.emit({ type: "cancelled", modelId: payload.id });
   }
 

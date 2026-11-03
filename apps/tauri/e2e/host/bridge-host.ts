@@ -43,6 +43,7 @@ const buildCommandHandlers = (
     [channels.models.cancel, (args) => models.cancel(String(args.modelId ?? ""))],
     [channels.models.cancelAll, () => models.cancelAll()],
     [channels.models.uninstall, (args) => models.uninstall(String(args.modelId ?? ""))],
+    [channels.models.listActive, () => models.listActive()],
 
     // workspace + files
     [channels.workspace.loadAutosave, (args) =>

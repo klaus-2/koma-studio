@@ -140,6 +140,7 @@ pub fn run() {
             commands::models::cancel,
             commands::models::cancel_all,
             commands::models::uninstall,
+            commands::models::list_active,
             commands::workspace::load_autosave,
             commands::workspace::save_autosave,
             commands::workspace::clear_autosave,

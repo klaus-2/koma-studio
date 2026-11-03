@@ -190,6 +190,11 @@ pub async fn uninstall(
     Ok(())
 }
 
+#[tauri::command(async, rename = "desktop-models:list-active")]
+pub async fn list_active(store: State<'_, ModelDownloadStore>) -> AppResult<Vec<String>> {
+    Ok(store.active_model_ids().await)
+}
+
 async fn import_onnx_inner(
     app: &AppHandle,
     model: DesktopModelImportOnnxPayload,

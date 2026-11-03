@@ -5,6 +5,7 @@ export interface ModelStoreBatchState {
   total: number;
   completed: number;
   cancelled: boolean;
+  countedModelIds: string[];
 }
 
 export interface ModelStoreState {
@@ -40,6 +41,7 @@ function createInitialState(): ModelStoreState {
       total: 0,
       completed: 0,
       cancelled: false,
+      countedModelIds: [],
     },
   };
 }

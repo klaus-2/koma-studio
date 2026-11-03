@@ -414,6 +414,7 @@ export const desktopCommandChannels = {
     cancel: "desktop-models:cancel",
     cancelAll: "desktop-models:cancel-all",
     uninstall: "desktop-models:uninstall",
+    listActive: "desktop-models:list-active",
   },
   workspace: {
     loadAutosave: "desktop-workspace:load-autosave",
@@ -523,7 +524,8 @@ export interface DesktopModelsApi {
   cancel(modelId: string): Promise<unknown>;
   cancelAll(): Promise<unknown>;
   uninstall(modelId: string): Promise<unknown>;
-  on(listener: ModelManagerListener): void;
+  listActive(): Promise<string[] | null>;
+  on(listener: ModelManagerListener): Promise<boolean>;
   off(listener: ModelManagerListener): void;
 }
 

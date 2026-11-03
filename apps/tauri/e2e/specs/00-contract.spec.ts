@@ -22,6 +22,13 @@ test("boot bridge contract", async ({ app, problems, summary }) => {
     }
   });
   expect(failure).toContain("E2E_UNMOCKED_COMMAND");
+
+  const listActiveIsArray = await app.evaluate(async () => {
+    const active = await window.__komaE2EHostCall?.("desktop-models:list-active", {});
+    return Array.isArray(active);
+  });
+  expect(listActiveIsArray).toBe(true);
+
   expect(problems).toEqual([]);
 
   summary.record("contract", { channels });

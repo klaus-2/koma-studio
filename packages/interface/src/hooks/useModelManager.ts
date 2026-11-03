@@ -8,7 +8,9 @@ import {
   computeInstalledSizeBytes,
   estimateModelRequiredDiskBytes,
   getDiskSpace,
+  listActiveDownloadModelIds,
   listInstalledModels,
+  reconcileModelInstallStates,
   uninstallModelFromStorage,
 } from "../models/model-storage";
 import {
@@ -199,7 +201,7 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
     }));
 
     modelStore.setState((prev) => {
-      if (!prev.batch.active) {
+      if (!prev.batch.active || prev.batch.countedModelIds.includes(event.modelId)) {
         return prev;
       }
 
@@ -209,6 +211,7 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
         batch: {
           ...prev.batch,
           completed,
+          countedModelIds: [...prev.batch.countedModelIds, event.modelId],
           active: completed < prev.batch.total && !prev.batch.cancelled,
         },
       };
@@ -227,7 +230,7 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
 
     if (!event.willRetry) {
       modelStore.setState((prev) => {
-        if (!prev.batch.active) {
+        if (!prev.batch.active || prev.batch.countedModelIds.includes(event.modelId)) {
           return prev;
         }
 
@@ -237,6 +240,7 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
           batch: {
             ...prev.batch,
             completed,
+            countedModelIds: [...prev.batch.countedModelIds, event.modelId],
             active: completed < prev.batch.total && !prev.batch.cancelled,
           },
         };
@@ -254,7 +258,7 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
   }));
 
   modelStore.setState((prev) => {
-    if (!prev.batch.active) {
+    if (!prev.batch.active || prev.batch.countedModelIds.includes(event.modelId)) {
       return prev;
     }
 
@@ -264,6 +268,7 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
       batch: {
         ...prev.batch,
         completed,
+        countedModelIds: [...prev.batch.countedModelIds, event.modelId],
         active: completed < prev.batch.total && !prev.batch.cancelled,
       },
     };
@@ -310,44 +315,31 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
       modelStore.setState({ loading: true, error: null });
     }
     try {
-      const [installedModels, diskSpace] = await Promise.all([listInstalledModels(), getDiskSpace()]);
-      const entries = buildModelInstallStates(
+      const [installedModels, diskSpace, activeModelIdList] = await Promise.all([
+        listInstalledModels(),
+        getDiskSpace(),
+        listActiveDownloadModelIds(),
+      ]);
+      const diskEntries = buildModelInstallStates(
         LOCAL_AIO_MODELS_REGISTRY,
         installedModels,
         sourceLanguage,
       );
+      const reconciliation = reconcileModelInstallStates(
+        modelStore.getState().entries,
+        diskEntries,
+        activeModelIdList === null ? null : new Set(activeModelIdList),
+        manager.queuedModelIds(),
+      );
 
       modelStore.setState((prev) => {
-        const mergedEntries: Record<string, ModelInstallState> = { ...entries };
-        Object.entries(prev.entries).forEach(([modelId, previousEntry]) => {
-          const nextEntry = mergedEntries[modelId];
-          if (!nextEntry) {
-            return;
-          }
-
-          const isInFlight =
-            previousEntry.status === "queued" ||
-            previousEntry.status === "downloading" ||
-            previousEntry.status === "verifying";
-
-          if (!isInFlight) {
-            return;
-          }
-
-          mergedEntries[modelId] = {
-            ...nextEntry,
-            status: previousEntry.status,
-            progress: previousEntry.progress,
-            error: previousEntry.error,
-            errorCode: previousEntry.errorCode,
-          };
-        });
+        const reconciledEntries = reconciliation.entries;
 
         const entriesUnchanged =
-          mergedEntries === prev.entries ||
-          (Object.keys(mergedEntries).length === Object.keys(prev.entries).length &&
-            Object.keys(mergedEntries).every((modelId) => {
-              const nextEntry = mergedEntries[modelId];
+          reconciledEntries === prev.entries ||
+          (Object.keys(reconciledEntries).length === Object.keys(prev.entries).length &&
+            Object.keys(reconciledEntries).every((modelId) => {
+              const nextEntry = reconciledEntries[modelId];
               const prevEntry = prev.entries[modelId];
               return (
                 nextEntry !== undefined &&
@@ -367,7 +359,7 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
             prev.diskSpace !== null &&
             diskSpace.freeBytes === prev.diskSpace.freeBytes &&
             diskSpace.totalBytes === prev.diskSpace.totalBytes);
-        const nextEntries = entriesUnchanged ? prev.entries : mergedEntries;
+        const nextEntries = entriesUnchanged ? prev.entries : reconciledEntries;
         const nextDiskSpace = diskSpaceUnchanged ? prev.diskSpace : diskSpace;
         const installedSizeBytes = computeInstalledSizeBytes(installedModels);
         if (
@@ -390,6 +382,35 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
           initialized: true,
         };
       });
+
+      reconciliation.settledIds.forEach((modelId) => {
+        manager.markSettled(modelId);
+      });
+
+      const uncountedSettledIds = reconciliation.settledIds.filter(
+        (modelId) => !modelStore.getState().batch.countedModelIds.includes(modelId),
+      );
+      if (uncountedSettledIds.length > 0) {
+        modelStore.setState((prev) => {
+          if (!prev.batch.active) {
+            return prev;
+          }
+
+          const completed = Math.min(
+            prev.batch.total,
+            prev.batch.completed + uncountedSettledIds.length,
+          );
+          return {
+            ...prev,
+            batch: {
+              ...prev.batch,
+              completed,
+              countedModelIds: [...prev.batch.countedModelIds, ...uncountedSettledIds],
+              active: completed < prev.batch.total && !prev.batch.cancelled,
+            },
+          };
+        });
+      }
     } catch (error) {
       modelStore.setState({
         loading: false,
@@ -397,7 +418,7 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
         error: error instanceof Error ? error.message : "Failed to load the installed models.",
       });
     }
-  }, [sourceLanguage]);
+  }, [manager, sourceLanguage]);
 
   useEffect(() => {
     void refreshModelState();
@@ -493,7 +514,8 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
       modalLanguageFilter: args?.language ?? prev.modalLanguageFilter,
       focusedModelId: args?.focusedModelId ?? null,
     }));
-  }, []);
+    void refreshModelState();
+  }, [refreshModelState]);
 
   const closeManager = useCallback((): void => {
     modelStore.setState((prev) => ({
@@ -583,6 +605,7 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
         total: summary.eligibleModelIds.length,
         completed: 0,
         cancelled: false,
+        countedModelIds: [],
       },
     }));
 

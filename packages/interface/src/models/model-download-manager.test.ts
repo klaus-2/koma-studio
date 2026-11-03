@@ -37,7 +37,7 @@ interface MockDesktopModelsApi {
   cancel: (modelId: string) => Promise<void>;
   cancelAll: () => Promise<void>;
   uninstall: (modelId: string) => Promise<void>;
-  on: (listener: (event: ModelManagerEvent) => void) => void;
+  on: (listener: (event: ModelManagerEvent) => void) => Promise<boolean>;
   off: (listener: (event: ModelManagerEvent) => void) => void;
 }
 
@@ -99,6 +99,7 @@ export const runModelDownloadManagerMockTests = async (): Promise<void> => {
     },
     on: (listener) => {
       listeners.add(listener);
+      return Promise.resolve(true);
     },
     off: (listener) => {
       listeners.delete(listener);
@@ -174,6 +175,7 @@ export const runFailedDownloadMockTests = async (): Promise<void> => {
     },
     on: (listener) => {
       listeners.add(listener);
+      return Promise.resolve(true);
     },
     off: (listener) => {
       listeners.delete(listener);
@@ -213,6 +215,183 @@ export const runFailedDownloadMockTests = async (): Promise<void> => {
   }
 };
 
+export const runMarkSettledTests = async (): Promise<void> => {
+  let downloadCalls = 0;
+
+  const listeners = new Set<(event: ModelManagerEvent) => void>();
+
+  const mockDesktopModelsApi: MockDesktopModelsApi = {
+    listInstalled: async () => [],
+    getDiskSpace: async () => ({ freeBytes: 1024 ** 3, totalBytes: 1024 ** 3 * 10, path: "mock" }),
+    checkUpdates: async () => [],
+    download: async () => {
+      downloadCalls += 1;
+      return { queued: true, queueLength: 1 };
+    },
+    importOnnx: async ({ id, version }) => ({
+      modelId: id,
+      version,
+      installedAt: new Date().toISOString(),
+      checksumSHA256: "0".repeat(64),
+      status: "installed",
+      modelDir: "mock",
+      manifestPath: "mock/manifest.json",
+      sizeBytes: 1,
+    }),
+    cancel: async () => {
+      return;
+    },
+    cancelAll: async () => {
+      return;
+    },
+    uninstall: async () => {
+      return;
+    },
+    on: (listener) => {
+      listeners.add(listener);
+      return Promise.resolve(true);
+    },
+    off: (listener) => {
+      listeners.delete(listener);
+    },
+  };
+
+  setDesktopBridgeProvider({
+    desktop: { models: mockDesktopModelsApi } as unknown as IDesktopBridge,
+  });
+
+  const settle = async (): Promise<void> => {
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 900);
+    });
+  };
+
+  try {
+    const manager = new ModelDownloadManager();
+    const model = createMockModel("settled-model");
+
+    await manager.enqueue(model);
+    await settle();
+    if (!manager.queuedModelIds().has("settled-model")) {
+      throw new Error("Expected the id to stay queued while no terminal event arrived.");
+    }
+
+    manager.markSettled("settled-model");
+    if (manager.queuedModelIds().has("settled-model")) {
+      throw new Error("Expected markSettled to release the id.");
+    }
+
+    await manager.enqueue(model);
+    await settle();
+    if (downloadCalls !== 2) {
+      throw new Error(`Expected the re-enqueue to reach the bridge (2 calls), got ${downloadCalls}`);
+    }
+  } finally {
+    setDesktopBridgeProvider(null);
+  }
+};
+
+export const runBridgeSubscriptionRetryTests = async (): Promise<void> => {
+  let subscriptionCalls = 0;
+  let confirmSubscription = false;
+
+  const confirmedListeners = new Set<(event: ModelManagerEvent) => void>();
+
+  const mockDesktopModelsApi: MockDesktopModelsApi = {
+    listInstalled: async () => [],
+    getDiskSpace: async () => ({ freeBytes: 1024 ** 3, totalBytes: 1024 ** 3 * 10, path: "mock" }),
+    checkUpdates: async () => [],
+    download: async () => ({ queued: true, queueLength: 1 }),
+    importOnnx: async ({ id, version }) => ({
+      modelId: id,
+      version,
+      installedAt: new Date().toISOString(),
+      checksumSHA256: "0".repeat(64),
+      status: "installed",
+      modelDir: "mock",
+      manifestPath: "mock/manifest.json",
+      sizeBytes: 1,
+    }),
+    cancel: async () => {
+      return;
+    },
+    cancelAll: async () => {
+      return;
+    },
+    uninstall: async () => {
+      return;
+    },
+    on: (listener) => {
+      subscriptionCalls += 1;
+      if (confirmSubscription) {
+        confirmedListeners.add(listener);
+      }
+      return Promise.resolve(confirmSubscription);
+    },
+    off: (listener) => {
+      confirmedListeners.delete(listener);
+    },
+  };
+
+  const originalWarn = console.warn;
+  console.warn = () => {};
+
+  const settle = async (): Promise<void> => {
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 900);
+    });
+  };
+
+  const subscriptionCallCount = (): number => subscriptionCalls;
+
+  const emitCompleted = (): void => {
+    confirmedListeners.forEach((listener) => {
+      listener({
+        type: "completed",
+        modelId: "subscription-model",
+        version: "1.0.0",
+        installedAt: new Date().toISOString(),
+      });
+    });
+  };
+
+  try {
+    setDesktopBridgeProvider({});
+    const manager = new ModelDownloadManager();
+    await settle();
+
+    setDesktopBridgeProvider({
+      desktop: { models: mockDesktopModelsApi } as unknown as IDesktopBridge,
+    });
+
+    await manager.enqueue(createMockModel("subscription-model"));
+    await settle();
+    if (subscriptionCalls !== 1) {
+      throw new Error(`Expected 1 subscription attempt, got ${subscriptionCalls}`);
+    }
+
+    emitCompleted();
+    if (!manager.queuedModelIds().has("subscription-model")) {
+      throw new Error("A refused subscription must not release queued ids.");
+    }
+
+    confirmSubscription = true;
+    await manager.enqueue(createMockModel("subscription-model"));
+    await settle();
+    if (subscriptionCallCount() !== 2) {
+      throw new Error(`Expected the enqueue to retry the subscription (2 attempts), got ${subscriptionCalls}`);
+    }
+
+    emitCompleted();
+    if (manager.queuedModelIds().has("subscription-model")) {
+      throw new Error("A confirmed subscription must release the id on terminal events.");
+    }
+  } finally {
+    console.warn = originalWarn;
+    setDesktopBridgeProvider(null);
+  }
+};
+
 describe("ModelDownloadManager desktop bridge", () => {
   it("retries a desktop download through the Tauri bridge override", async () => {
     await runModelDownloadManagerMockTests();
@@ -220,5 +399,13 @@ describe("ModelDownloadManager desktop bridge", () => {
 
   it("accepts a new enqueue after every attempt failed", async () => {
     await runFailedDownloadMockTests();
+  });
+
+  it("releases a settled id so the re-enqueue reaches the bridge", async () => {
+    await runMarkSettledTests();
+  });
+
+  it("retries an unconfirmed bridge subscription on the next enqueue", async () => {
+    await runBridgeSubscriptionRetryTests();
   });
 });

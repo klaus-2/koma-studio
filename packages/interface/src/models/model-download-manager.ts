@@ -30,8 +30,10 @@ export class ModelDownloadManager {
 
   private bridgeSubscribed = false;
 
+  private bridgeSubscribing = false;
+
   constructor() {
-    this.subscribeBridgeEvents();
+    this.ensureBridgeSubscription();
   }
 
   subscribe(listener: ModelManagerListener): () => void {
@@ -42,6 +44,7 @@ export class ModelDownloadManager {
   }
 
   async enqueue(model: TranslationModel, sourceLanguage?: string): Promise<void> {
+    this.ensureBridgeSubscription();
     if (this.queuedIds.has(model.id)) {
       return;
     }
@@ -53,6 +56,7 @@ export class ModelDownloadManager {
   }
 
   async enqueueMany(models: TranslationModel[], sourceLanguage?: string): Promise<void> {
+    this.ensureBridgeSubscription();
     models.forEach((model) => {
       if (this.queuedIds.has(model.id)) {
         return;
@@ -94,6 +98,14 @@ export class ModelDownloadManager {
     await desktopApi.cancelAll();
   }
 
+  markSettled(modelId: string): void {
+    this.queuedIds.delete(modelId);
+  }
+
+  queuedModelIds(): ReadonlySet<string> {
+    return this.queuedIds;
+  }
+
   private emit(event: ModelManagerEvent): void {
     this.listeners.forEach((listener) => {
       try {
@@ -104,28 +116,38 @@ export class ModelDownloadManager {
     });
   }
 
-  private subscribeBridgeEvents(): void {
-    if (this.bridgeSubscribed) {
+  private ensureBridgeSubscription(): void {
+    if (this.bridgeSubscribed || this.bridgeSubscribing) {
       return;
     }
 
-    const desktopApi = desktopBridge.desktop?.models;
-    if (!desktopApi) {
-      console.warn("[model-events] bridge absent — events not subscribed");
-      return;
-    }
+    this.bridgeSubscribing = true;
+    void this.subscribeBridgeEvents();
+  }
 
-    desktopApi.on((event) => {
-      if (event.type === "completed" || event.type === "failed" || event.type === "cancelled") {
-        this.queuedIds.delete(event.modelId);
+  private async subscribeBridgeEvents(): Promise<void> {
+    try {
+      const desktopApi = desktopBridge.desktop?.models;
+      if (!desktopApi) {
+        console.warn("[model-events] bridge absent — events not subscribed");
+        return;
       }
-      this.emit(event);
-    });
 
-    this.bridgeSubscribed = true;
+      this.bridgeSubscribed = await desktopApi.on((event) => {
+        if (event.type === "completed" || event.type === "failed" || event.type === "cancelled") {
+          this.queuedIds.delete(event.modelId);
+        }
+        this.emit(event);
+      });
+    } catch {
+      return;
+    } finally {
+      this.bridgeSubscribing = false;
+    }
   }
 
   private async drainQueue(): Promise<void> {
+    this.ensureBridgeSubscription();
     if (this.draining) {
       return;
     }

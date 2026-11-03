@@ -227,6 +227,17 @@ export class DesktopModelManagerService {
     return records;
   }
 
+  listActiveDownloadModelIds(): string[] {
+    const activeModelIds = new Set<string>(this.queue.map((item) => item.model.id));
+    if (this.activeDownload) {
+      activeModelIds.add(this.activeDownload.modelId);
+    }
+    this.retryGapModelIds.forEach((modelId) => {
+      activeModelIds.add(modelId);
+    });
+    return Array.from(activeModelIds).sort();
+  }
+
   async checkRemoteUpdates(
     models: DesktopDownloadModelPayload[],
   ): Promise<DesktopRemoteModelUpdateCheckResult[]> {

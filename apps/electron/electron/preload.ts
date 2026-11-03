@@ -481,8 +481,10 @@ contextBridge.exposeInMainWorld("desktop", {
     cancelAll: async (): Promise<unknown> => invokeSecureDesktopApi("desktop-models:cancel-all"),
     uninstall: async (modelId: string): Promise<unknown> =>
       invokeSecureDesktopApi("desktop-models:uninstall", { modelId }),
-    on: (listener: ModelManagerListener): void => {
+    listActive: async (): Promise<unknown> => invokeSecureDesktopApi("desktop-models:list-active"),
+    on: (listener: ModelManagerListener): Promise<boolean> => {
       modelManagerListeners.add(listener);
+      return Promise.resolve(true);
     },
     off: (listener: ModelManagerListener): void => {
       modelManagerListeners.delete(listener);

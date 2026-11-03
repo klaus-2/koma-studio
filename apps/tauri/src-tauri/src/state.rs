@@ -337,4 +337,86 @@ impl ModelDownloadStore {
     pub(crate) async fn release(&self, model_id: &str) {
         self.inner.lock().await.reserved.remove(model_id);
     }
+
+    pub(crate) async fn active_model_ids(&self) -> Vec<String> {
+        let state = self.inner.lock().await;
+
+        let mut ids = Vec::new();
+        if let Some(active) = &state.active {
+            ids.push(active.model_id.clone());
+        }
+        ids.extend(state.queue.iter().map(|queued| queued.model.id.clone()));
+        ids.extend(state.reserved.iter().cloned());
+        ids.sort();
+        ids.dedup();
+        ids
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn payload(model_id: &str) -> DesktopModelDownloadPayload {
+        DesktopModelDownloadPayload {
+            id: model_id.to_string(),
+            name: model_id.to_string(),
+            version: "1.0.0".to_string(),
+            download_url: "https://example.com/model.bin".to_string(),
+            checksum_sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                .to_string(),
+            expected_download_bytes: 10,
+            required_disk_bytes: 10,
+            source_language: None,
+            install_strategy: None,
+            runtime_family: None,
+            backend_install_endpoint: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn active_model_ids_tracks_enqueued_active_and_drained_models() {
+        let store = ModelDownloadStore::default();
+
+        store.enqueue(payload("b_model")).await.unwrap();
+        assert_eq!(store.active_model_ids().await, vec!["b_model".to_string()]);
+
+        let task = store.pop_next().await.expect("queued task");
+        assert_eq!(store.active_model_ids().await, vec!["b_model".to_string()]);
+
+        store.clear_active(&task.model.id).await;
+        assert!(store.active_model_ids().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn active_model_ids_tracks_reserved_until_released() {
+        let store = ModelDownloadStore::default();
+
+        store.reserve("a_model").await.unwrap();
+        assert_eq!(store.active_model_ids().await, vec!["a_model".to_string()]);
+
+        store.release("a_model").await;
+        assert!(store.active_model_ids().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn active_model_ids_is_sorted_and_duplicate_free_across_sources() {
+        let store = ModelDownloadStore::default();
+
+        store.reserve("c_reserved").await.unwrap();
+        store.enqueue(payload("b_queued")).await.unwrap();
+        store.enqueue(payload("a_zz")).await.unwrap();
+
+        let task = store.pop_next().await.expect("queued task");
+        assert_eq!(task.model.id, "b_queued");
+
+        assert_eq!(
+            store.active_model_ids().await,
+            vec![
+                "a_zz".to_string(),
+                "b_queued".to_string(),
+                "c_reserved".to_string(),
+            ]
+        );
+    }
 }
