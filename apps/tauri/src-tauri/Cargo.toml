@@ -91,7 +91,7 @@ fs2 = "0.4"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 # Optional: Discord Rich Presence (CHECK feature flag at runtime)
-discord-rich-presence = { version = "0.2", optional = true }
+discord-rich-presence = { version = "1.1", optional = true }
 
 # Secrets hygiene (zeroized on drop)
 zeroize = "1"
