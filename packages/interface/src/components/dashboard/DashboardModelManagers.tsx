@@ -13,6 +13,7 @@ import {
   useModelManagerStatusSnapshot,
 } from '../../hooks/useModelManager';
 import { summarizeInstalledModels } from '../../models/model-storage';
+import { computeBatchProgress } from '../../models/model-install-reconciliation';
 
 import type { AioStageKey, AioStageSelection } from '../../types/aioModelPresets';
 import type { AioStageOption, AioStageOptionMap } from '../../models/aioStageCatalog';
@@ -63,7 +64,11 @@ const useModelManagerSummaries = (enhanceModelManagerOpen: boolean) => {
     () => computeInstallAllSummary(snapshotState.entries),
     [snapshotState.entries],
   );
-  return { modelManagerState, modelSummary, installAllSummary };
+  const batchProgress = useMemo(
+    () => computeBatchProgress(modelManagerState.batch, modelManagerState.entries),
+    [modelManagerState.batch, modelManagerState.entries],
+  );
+  return { modelManagerState, modelSummary, installAllSummary, batchProgress };
 };
 
 export default function DashboardModelManagers({
@@ -97,7 +102,7 @@ export default function DashboardModelManagers({
   refreshModelState,
 }: DashboardModelManagersProps) {
   const { t } = useI18n();
-  const { modelManagerState, modelSummary, installAllSummary } =
+  const { modelManagerState, modelSummary, installAllSummary, batchProgress } =
     useModelManagerSummaries(enhanceModelManagerOpen);
   const aioStageLabels = useMemo(() => getAioStageLabels(t), [t]);
 
@@ -242,7 +247,7 @@ export default function DashboardModelManagers({
           defaultLanguageFilter={modelManagerState.modalLanguageFilter || aioSrcLang}
           focusedModelId={modelManagerState.focusedModelId}
           selectedModelId={aioStageSelection.getTranslations}
-          batch={modelManagerState.batch}
+          batch={batchProgress}
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}
@@ -272,7 +277,7 @@ export default function DashboardModelManagers({
           defaultLanguageFilter={modelManagerState.modalLanguageFilter || aioSrcLang}
           focusedModelId={modelManagerState.focusedModelId}
           selectedModelId={aioStageSelection.detectText}
-          batch={modelManagerState.batch}
+          batch={batchProgress}
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}
@@ -304,7 +309,7 @@ export default function DashboardModelManagers({
           defaultLanguageFilter={modelManagerState.modalLanguageFilter || aioSrcLang}
           focusedModelId={modelManagerState.focusedModelId}
           selectedModelId={aioStageSelection.recognizeText}
-          batch={modelManagerState.batch}
+          batch={batchProgress}
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}
@@ -334,7 +339,7 @@ export default function DashboardModelManagers({
           defaultLanguageFilter={modelManagerState.modalLanguageFilter || aioSrcLang}
           focusedModelId={modelManagerState.focusedModelId}
           selectedModelId={aioStageSelection.segmentText}
-          batch={modelManagerState.batch}
+          batch={batchProgress}
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}
@@ -364,7 +369,7 @@ export default function DashboardModelManagers({
           defaultLanguageFilter={modelManagerState.modalLanguageFilter || aioSrcLang}
           focusedModelId={modelManagerState.focusedModelId}
           selectedModelId={aioStageSelection.cleanImage}
-          batch={modelManagerState.batch}
+          batch={batchProgress}
           installAllSummary={installAllSummary}
           onClose={closeModelManagerForStage}
           onSetLanguageFilter={setModelModalLanguageFilter}

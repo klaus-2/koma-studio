@@ -2,7 +2,6 @@ import type {
   DesktopDownloadModelPayload,
   DiskSpaceInfo,
   InstalledModelRecord,
-  ModelInstallLifecycleStatus,
   ModelInstallState,
   RemoteModelUpdateCheckResult,
   TranslationModel,
@@ -218,78 +217,6 @@ export const buildModelInstallStates = (
   });
 
   return state;
-};
-
-export interface ModelInstallReconciliation {
-  entries: Record<string, ModelInstallState>;
-  settledIds: string[];
-  batchDelta: number;
-}
-
-const DISK_WITNESSED_STATUSES: ReadonlySet<ModelInstallLifecycleStatus> = new Set([
-  "installed",
-  "incomplete",
-  "update_available",
-]);
-
-const IN_FLIGHT_STATUSES: ReadonlySet<ModelInstallLifecycleStatus> = new Set([
-  "queued",
-  "downloading",
-  "verifying",
-]);
-
-export const reconcileModelInstallStates = (
-  previousEntries: Record<string, ModelInstallState>,
-  diskEntries: Record<string, ModelInstallState>,
-  activeModelIds: ReadonlySet<string> | null,
-  locallyQueuedIds: ReadonlySet<string>,
-): ModelInstallReconciliation => {
-  const entries: Record<string, ModelInstallState> = { ...diskEntries };
-  const settledIds: string[] = [];
-  let batchDelta = 0;
-
-  Object.entries(previousEntries).forEach(([modelId, previousEntry]) => {
-    if (!IN_FLIGHT_STATUSES.has(previousEntry.status)) {
-      return;
-    }
-
-    const diskEntry = diskEntries[modelId];
-    if (!diskEntry) {
-      return;
-    }
-
-    if (activeModelIds === null || activeModelIds.has(modelId)) {
-      entries[modelId] = {
-        ...diskEntry,
-        status: previousEntry.status,
-        progress: previousEntry.progress,
-        error: previousEntry.error,
-        errorCode: previousEntry.errorCode,
-      };
-      return;
-    }
-
-    if (DISK_WITNESSED_STATUSES.has(diskEntry.status)) {
-      entries[modelId] = diskEntry;
-      settledIds.push(modelId);
-      batchDelta += 1;
-      return;
-    }
-
-    if (locallyQueuedIds.has(modelId)) {
-      entries[modelId] = {
-        ...diskEntry,
-        status: "queued",
-      };
-      return;
-    }
-
-    entries[modelId] = diskEntry;
-    settledIds.push(modelId);
-    batchDelta += 1;
-  });
-
-  return { entries, settledIds, batchDelta };
 };
 
 export const summarizeInstalledModels = (state: Record<string, ModelInstallState>): {

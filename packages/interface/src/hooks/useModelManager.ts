@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
 import { useI18n } from "../i18n";
 import { getModelDownloadManager } from "../models/model-download-manager";
+import { reconcileModelInstallStates } from "../models/model-install-reconciliation";
 import {
   buildModelInstallStates,
   checkInstalledModelsAgainstSource,
@@ -10,7 +11,6 @@ import {
   getDiskSpace,
   listActiveDownloadModelIds,
   listInstalledModels,
-  reconcileModelInstallStates,
   uninstallModelFromStorage,
 } from "../models/model-storage";
 import {
@@ -199,23 +199,6 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
       errorCode: null,
       incomplete: false,
     }));
-
-    modelStore.setState((prev) => {
-      if (!prev.batch.active || prev.batch.countedModelIds.includes(event.modelId)) {
-        return prev;
-      }
-
-      const completed = Math.min(prev.batch.total, prev.batch.completed + 1);
-      return {
-        ...prev,
-        batch: {
-          ...prev.batch,
-          completed,
-          countedModelIds: [...prev.batch.countedModelIds, event.modelId],
-          active: completed < prev.batch.total && !prev.batch.cancelled,
-        },
-      };
-    });
     return;
   }
 
@@ -228,24 +211,6 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
       errorCode: event.code ?? null,
     }));
 
-    if (!event.willRetry) {
-      modelStore.setState((prev) => {
-        if (!prev.batch.active || prev.batch.countedModelIds.includes(event.modelId)) {
-          return prev;
-        }
-
-        const completed = Math.min(prev.batch.total, prev.batch.completed + 1);
-        return {
-          ...prev,
-          batch: {
-            ...prev.batch,
-            completed,
-            countedModelIds: [...prev.batch.countedModelIds, event.modelId],
-            active: completed < prev.batch.total && !prev.batch.cancelled,
-          },
-        };
-      });
-    }
     return;
   }
 
@@ -256,23 +221,6 @@ const applyManagerEventToStore = (event: ModelManagerEvent): void => {
     error: null,
     errorCode: null,
   }));
-
-  modelStore.setState((prev) => {
-    if (!prev.batch.active || prev.batch.countedModelIds.includes(event.modelId)) {
-      return prev;
-    }
-
-    const completed = Math.min(prev.batch.total, prev.batch.completed + 1);
-    return {
-      ...prev,
-      batch: {
-        ...prev.batch,
-        completed,
-        countedModelIds: [...prev.batch.countedModelIds, event.modelId],
-        active: completed < prev.batch.total && !prev.batch.cancelled,
-      },
-    };
-  });
 };
 
 export const computeInstallAllSummary = (
@@ -386,31 +334,6 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
       reconciliation.settledIds.forEach((modelId) => {
         manager.markSettled(modelId);
       });
-
-      const uncountedSettledIds = reconciliation.settledIds.filter(
-        (modelId) => !modelStore.getState().batch.countedModelIds.includes(modelId),
-      );
-      if (uncountedSettledIds.length > 0) {
-        modelStore.setState((prev) => {
-          if (!prev.batch.active) {
-            return prev;
-          }
-
-          const completed = Math.min(
-            prev.batch.total,
-            prev.batch.completed + uncountedSettledIds.length,
-          );
-          return {
-            ...prev,
-            batch: {
-              ...prev.batch,
-              completed,
-              countedModelIds: [...prev.batch.countedModelIds, ...uncountedSettledIds],
-              active: completed < prev.batch.total && !prev.batch.cancelled,
-            },
-          };
-        });
-      }
     } catch (error) {
       modelStore.setState({
         loading: false,
@@ -601,11 +524,8 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
     modelStore.setState((prev) => ({
       ...prev,
       batch: {
-        active: true,
-        total: summary.eligibleModelIds.length,
-        completed: 0,
+        modelIds: summary.eligibleModelIds,
         cancelled: false,
-        countedModelIds: [],
       },
     }));
 
@@ -623,7 +543,6 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
       ...prev,
       batch: {
         ...prev.batch,
-        active: false,
         cancelled: true,
       },
     }));

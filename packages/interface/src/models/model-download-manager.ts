@@ -103,7 +103,7 @@ export class ModelDownloadManager {
   }
 
   queuedModelIds(): ReadonlySet<string> {
-    return this.queuedIds;
+    return new Set(this.queuedIds);
   }
 
   private emit(event: ModelManagerEvent): void {

@@ -1,11 +1,8 @@
 import type { DiskSpaceInfo, ModelInstallState } from "../models/types";
 
 export interface ModelStoreBatchState {
-  active: boolean;
-  total: number;
-  completed: number;
+  modelIds: string[];
   cancelled: boolean;
-  countedModelIds: string[];
 }
 
 export interface ModelStoreState {
@@ -37,11 +34,8 @@ function createInitialState(): ModelStoreState {
     modalLanguageFilter: "all",
     focusedModelId: null,
     batch: {
-      active: false,
-      total: 0,
-      completed: 0,
+      modelIds: [],
       cancelled: false,
-      countedModelIds: [],
     },
   };
 }

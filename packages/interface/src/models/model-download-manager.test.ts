@@ -1,45 +1,10 @@
 import { ModelDownloadManager } from "./model-download-manager";
 import type { ModelManagerEvent, TranslationModel } from "./types";
 import { setDesktopBridgeProvider } from "@/lib/desktop-bridge";
-import type { IDesktopBridge } from "@shared/desktop-api";
+import type { DesktopModelsApi, IDesktopBridge } from "@shared/desktop-api";
 import { describe, it } from "vitest";
 
-interface MockDesktopModelsApi {
-  listInstalled: () => Promise<[]>;
-  getDiskSpace: () => Promise<{ freeBytes: number; totalBytes: number; path: string }>;
-  checkUpdates: (payloads: Array<unknown>) => Promise<Array<{
-    modelId: string;
-    installedChecksumSHA256: string | null;
-    remoteChecksumSHA256: string | null;
-    registryVersion: string;
-    checked: boolean;
-    updateAvailable: boolean;
-  }>>;
-  download: (payload: {
-    id: string;
-    name: string;
-    version: string;
-    downloadUrl: string;
-    checksumSHA256: string;
-    expectedDownloadBytes: number;
-    requiredDiskBytes: number;
-  }) => Promise<{ queued: boolean; queueLength: number }>;
-  importOnnx: (payload: { id: string; name: string; version: string }) => Promise<{
-    modelId: string;
-    version: string;
-    installedAt: string;
-    checksumSHA256: string;
-    status: "installed";
-    modelDir: string;
-    manifestPath: string;
-    sizeBytes: number;
-  }>;
-  cancel: (modelId: string) => Promise<void>;
-  cancelAll: () => Promise<void>;
-  uninstall: (modelId: string) => Promise<void>;
-  on: (listener: (event: ModelManagerEvent) => void) => Promise<boolean>;
-  off: (listener: (event: ModelManagerEvent) => void) => void;
-}
+type ModelManagerListener = Parameters<DesktopModelsApi["on"]>[0];
 
 const createMockModel = (id: string): TranslationModel => ({
   id,
@@ -61,26 +26,34 @@ const createMockModel = (id: string): TranslationModel => ({
   fileSize: "100MB",
 });
 
-export const runModelDownloadManagerMockTests = async (): Promise<void> => {
+interface ManagerHarness {
+  emitted: ModelManagerEvent[];
+  listeners: Set<ModelManagerListener>;
+  setDownload: (behavior: DesktopModelsApi["download"]) => void;
+  setOn: (behavior: DesktopModelsApi["on"]) => void;
+}
+
+const createManagerHarness = (
+  initial: { on?: DesktopModelsApi["on"] } = {},
+): ManagerHarness => {
   const emitted: ModelManagerEvent[] = [];
-  let attempts = 0;
+  const listeners = new Set<ModelManagerListener>();
+  let download: DesktopModelsApi["download"] = async () => ({ queued: true, queueLength: 1 });
+  let on: DesktopModelsApi["on"] =
+    initial.on ??
+    (async (listener) => {
+      listeners.add(listener);
+      return true;
+    });
 
-  const listeners = new Set<(event: ModelManagerEvent) => void>();
-
-  const mockDesktopModelsApi: MockDesktopModelsApi = {
+  const backend: DesktopModelsApi = {
     listInstalled: async () => [],
     getDiskSpace: async () => ({ freeBytes: 1024 ** 3, totalBytes: 1024 ** 3 * 10, path: "mock" }),
     checkUpdates: async () => [],
-    download: async () => {
-      attempts += 1;
-      if (attempts < 3) {
-        throw new Error("network error");
-      }
-      return { queued: true, queueLength: 1 };
-    },
-    importOnnx: async ({ id, version }) => ({
-      modelId: id,
-      version,
+    download: async (payload) => download(payload),
+    importOnnx: async (payload) => ({
+      modelId: payload.id,
+      version: payload.version,
       installedAt: new Date().toISOString(),
       checksumSHA256: "0".repeat(64),
       status: "installed",
@@ -88,38 +61,58 @@ export const runModelDownloadManagerMockTests = async (): Promise<void> => {
       manifestPath: "mock/manifest.json",
       sizeBytes: 1,
     }),
-    cancel: async () => {
-      return;
-    },
-    cancelAll: async () => {
-      return;
-    },
-    uninstall: async () => {
-      return;
-    },
-    on: (listener) => {
-      listeners.add(listener);
-      return Promise.resolve(true);
-    },
+    cancel: async () => undefined,
+    cancelAll: async () => undefined,
+    uninstall: async () => undefined,
+    listActive: async () => null,
+    on: (listener) => on(listener),
     off: (listener) => {
       listeners.delete(listener);
     },
   };
 
   setDesktopBridgeProvider({
-    desktop: { models: mockDesktopModelsApi } as unknown as IDesktopBridge,
+    desktop: { models: backend } as unknown as IDesktopBridge,
+  });
+
+  return {
+    emitted,
+    listeners,
+    setDownload: (behavior) => {
+      download = behavior;
+    },
+    setOn: (behavior) => {
+      on = behavior;
+    },
+  };
+};
+
+const settle = async (): Promise<void> => {
+  await new Promise((resolve) => {
+    window.setTimeout(resolve, 900);
+  });
+};
+
+export const runModelDownloadManagerMockTests = async (): Promise<void> => {
+  const harness = createManagerHarness();
+  let attempts = 0;
+
+  harness.setDownload(async () => {
+    attempts += 1;
+    if (attempts < 3) {
+      throw new Error("network error");
+    }
+    return { queued: true, queueLength: 1 };
   });
 
   try {
     const manager = new ModelDownloadManager();
     const unsubscribe = manager.subscribe((event) => {
-      emitted.push(event);
+      harness.emitted.push(event);
     });
 
     await manager.enqueue(createMockModel("retry-model"));
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 900);
-    });
+    await settle();
 
     unsubscribe();
 
@@ -127,7 +120,7 @@ export const runModelDownloadManagerMockTests = async (): Promise<void> => {
       throw new Error(`Expected 3 attempts, got ${attempts}`);
     }
 
-    const failedEvents = emitted.filter((event) => event.type === "failed");
+    const failedEvents = harness.emitted.filter((event) => event.type === "failed");
     if (failedEvents.length < 2) {
       throw new Error("Expected failed events before retry success.");
     }
@@ -136,54 +129,13 @@ export const runModelDownloadManagerMockTests = async (): Promise<void> => {
   }
 };
 
-/**
- * A download that can never be queued must not wedge the model: the id is
- * released, so the next click reaches the bridge again instead of being
- * swallowed by the "already queued" guard with nothing reported.
- */
 export const runFailedDownloadMockTests = async (): Promise<void> => {
+  const harness = createManagerHarness();
   let attempts = 0;
 
-  const listeners = new Set<(event: ModelManagerEvent) => void>();
-
-  const mockDesktopModelsApi: MockDesktopModelsApi = {
-    listInstalled: async () => [],
-    getDiskSpace: async () => ({ freeBytes: 1024 ** 3, totalBytes: 1024 ** 3 * 10, path: "mock" }),
-    checkUpdates: async () => [],
-    download: async () => {
-      attempts += 1;
-      throw new Error("model provider refused the download");
-    },
-    importOnnx: async ({ id, version }) => ({
-      modelId: id,
-      version,
-      installedAt: new Date().toISOString(),
-      checksumSHA256: "0".repeat(64),
-      status: "installed",
-      modelDir: "mock",
-      manifestPath: "mock/manifest.json",
-      sizeBytes: 1,
-    }),
-    cancel: async () => {
-      return;
-    },
-    cancelAll: async () => {
-      return;
-    },
-    uninstall: async () => {
-      return;
-    },
-    on: (listener) => {
-      listeners.add(listener);
-      return Promise.resolve(true);
-    },
-    off: (listener) => {
-      listeners.delete(listener);
-    },
-  };
-
-  setDesktopBridgeProvider({
-    desktop: { models: mockDesktopModelsApi } as unknown as IDesktopBridge,
+  harness.setDownload(async () => {
+    attempts += 1;
+    throw new Error("model provider refused the download");
   });
 
   // Read through a call so the assertion is not narrowed by the previous one:
@@ -192,12 +144,6 @@ export const runFailedDownloadMockTests = async (): Promise<void> => {
     if (attempts !== expected) {
       throw new Error(`Expected ${expected} attempts ${scenario}, got ${attempts}`);
     }
-  };
-
-  const settle = async (): Promise<void> => {
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 900);
-    });
   };
 
   try {
@@ -216,55 +162,13 @@ export const runFailedDownloadMockTests = async (): Promise<void> => {
 };
 
 export const runMarkSettledTests = async (): Promise<void> => {
+  const harness = createManagerHarness();
   let downloadCalls = 0;
 
-  const listeners = new Set<(event: ModelManagerEvent) => void>();
-
-  const mockDesktopModelsApi: MockDesktopModelsApi = {
-    listInstalled: async () => [],
-    getDiskSpace: async () => ({ freeBytes: 1024 ** 3, totalBytes: 1024 ** 3 * 10, path: "mock" }),
-    checkUpdates: async () => [],
-    download: async () => {
-      downloadCalls += 1;
-      return { queued: true, queueLength: 1 };
-    },
-    importOnnx: async ({ id, version }) => ({
-      modelId: id,
-      version,
-      installedAt: new Date().toISOString(),
-      checksumSHA256: "0".repeat(64),
-      status: "installed",
-      modelDir: "mock",
-      manifestPath: "mock/manifest.json",
-      sizeBytes: 1,
-    }),
-    cancel: async () => {
-      return;
-    },
-    cancelAll: async () => {
-      return;
-    },
-    uninstall: async () => {
-      return;
-    },
-    on: (listener) => {
-      listeners.add(listener);
-      return Promise.resolve(true);
-    },
-    off: (listener) => {
-      listeners.delete(listener);
-    },
-  };
-
-  setDesktopBridgeProvider({
-    desktop: { models: mockDesktopModelsApi } as unknown as IDesktopBridge,
+  harness.setDownload(async () => {
+    downloadCalls += 1;
+    return { queued: true, queueLength: 1 };
   });
-
-  const settle = async (): Promise<void> => {
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 900);
-    });
-  };
 
   try {
     const manager = new ModelDownloadManager();
@@ -294,33 +198,9 @@ export const runMarkSettledTests = async (): Promise<void> => {
 export const runBridgeSubscriptionRetryTests = async (): Promise<void> => {
   let subscriptionCalls = 0;
   let confirmSubscription = false;
+  const confirmedListeners = new Set<ModelManagerListener>();
 
-  const confirmedListeners = new Set<(event: ModelManagerEvent) => void>();
-
-  const mockDesktopModelsApi: MockDesktopModelsApi = {
-    listInstalled: async () => [],
-    getDiskSpace: async () => ({ freeBytes: 1024 ** 3, totalBytes: 1024 ** 3 * 10, path: "mock" }),
-    checkUpdates: async () => [],
-    download: async () => ({ queued: true, queueLength: 1 }),
-    importOnnx: async ({ id, version }) => ({
-      modelId: id,
-      version,
-      installedAt: new Date().toISOString(),
-      checksumSHA256: "0".repeat(64),
-      status: "installed",
-      modelDir: "mock",
-      manifestPath: "mock/manifest.json",
-      sizeBytes: 1,
-    }),
-    cancel: async () => {
-      return;
-    },
-    cancelAll: async () => {
-      return;
-    },
-    uninstall: async () => {
-      return;
-    },
+  createManagerHarness({
     on: (listener) => {
       subscriptionCalls += 1;
       if (confirmSubscription) {
@@ -328,19 +208,10 @@ export const runBridgeSubscriptionRetryTests = async (): Promise<void> => {
       }
       return Promise.resolve(confirmSubscription);
     },
-    off: (listener) => {
-      confirmedListeners.delete(listener);
-    },
-  };
+  });
 
   const originalWarn = console.warn;
   console.warn = () => {};
-
-  const settle = async (): Promise<void> => {
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 900);
-    });
-  };
 
   const subscriptionCallCount = (): number => subscriptionCalls;
 
@@ -356,18 +227,15 @@ export const runBridgeSubscriptionRetryTests = async (): Promise<void> => {
   };
 
   try {
-    setDesktopBridgeProvider({});
     const manager = new ModelDownloadManager();
     await settle();
 
-    setDesktopBridgeProvider({
-      desktop: { models: mockDesktopModelsApi } as unknown as IDesktopBridge,
-    });
-
     await manager.enqueue(createMockModel("subscription-model"));
     await settle();
-    if (subscriptionCalls !== 1) {
-      throw new Error(`Expected 1 subscription attempt, got ${subscriptionCalls}`);
+    if (subscriptionCallCount() !== 2) {
+      throw new Error(
+        `Expected 2 subscription attempts (constructor + enqueue), got ${subscriptionCalls}`,
+      );
     }
 
     emitCompleted();
@@ -378,8 +246,10 @@ export const runBridgeSubscriptionRetryTests = async (): Promise<void> => {
     confirmSubscription = true;
     await manager.enqueue(createMockModel("subscription-model"));
     await settle();
-    if (subscriptionCallCount() !== 2) {
-      throw new Error(`Expected the enqueue to retry the subscription (2 attempts), got ${subscriptionCalls}`);
+    if (subscriptionCallCount() !== 3) {
+      throw new Error(
+        `Expected the enqueue to retry the subscription (3 attempts), got ${subscriptionCalls}`,
+      );
     }
 
     emitCompleted();

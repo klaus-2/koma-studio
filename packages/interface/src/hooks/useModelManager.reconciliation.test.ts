@@ -5,6 +5,7 @@ import { I18nProvider } from "@/i18n";
 import { setDesktopBridgeProvider } from "@/lib/desktop-bridge";
 import type { IDesktopBridge } from "@shared/desktop-api";
 import { getModelDownloadManager } from "../models/model-download-manager";
+import { computeBatchProgress } from "../models/model-install-reconciliation";
 import { LOCAL_AIO_MODELS_BY_ID } from "../models/translation-models-registry";
 import type {
   InstalledModelRecord,
@@ -109,20 +110,20 @@ const buildInstalledRecord = (model: TranslationModel): InstalledModelRecord => 
   sizeBytes: 1024,
 });
 
-const seedDownloadingEntry = (batchActive: boolean): void => {
+const seedDownloadingEntry = (): void => {
   modelStore.setState({
     entries: {
       [MODEL_ID]: buildEntry(registryModel(), "downloading", buildProgress(registryModel())),
     },
     batch: {
-      active: batchActive,
-      total: 1,
-      completed: 0,
+      modelIds: [MODEL_ID],
       cancelled: false,
-      countedModelIds: [],
     },
   });
 };
+
+const batchCompleted = (): number =>
+  computeBatchProgress(modelStore.getState().batch, modelStore.getState().entries).completed;
 
 const flushAsyncWork = async (): Promise<void> => {
   await act(async () => {
@@ -148,7 +149,7 @@ describe("useModelManager reconciliation", () => {
   it("adopts the installed disk state and counts the batch once the shell goes idle", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
     activeModelIds = [];
-    seedDownloadingEntry(true);
+    seedDownloadingEntry();
 
     const { result } = renderManager();
     await act(async () => {
@@ -157,14 +158,13 @@ describe("useModelManager reconciliation", () => {
 
     expect(modelStore.getState().entries[MODEL_ID]?.status).toBe("installed");
     expect(getModelDownloadManager().queuedModelIds().has(MODEL_ID)).toBe(false);
-    expect(modelStore.getState().batch.completed).toBe(1);
-    expect(modelStore.getState().batch.countedModelIds).toEqual([MODEL_ID]);
+    expect(batchCompleted()).toBe(1);
   });
 
   it("keeps the download in flight while the shell still reports activity", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
     activeModelIds = [MODEL_ID];
-    seedDownloadingEntry(true);
+    seedDownloadingEntry();
 
     const { result } = renderManager();
     await act(async () => {
@@ -174,13 +174,13 @@ describe("useModelManager reconciliation", () => {
     const entry = modelStore.getState().entries[MODEL_ID];
     expect(entry?.status).toBe("downloading");
     expect(entry?.progress?.percent).toBe(25);
-    expect(modelStore.getState().batch.completed).toBe(0);
+    expect(batchCompleted()).toBe(0);
   });
 
   it("counts a settled model exactly once across repeated refreshes", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
     activeModelIds = [];
-    seedDownloadingEntry(true);
+    seedDownloadingEntry();
 
     const { result } = renderManager();
     await act(async () => {
@@ -190,14 +190,13 @@ describe("useModelManager reconciliation", () => {
       await result.current.refreshModelState();
     });
 
-    expect(modelStore.getState().batch.completed).toBe(1);
-    expect(modelStore.getState().batch.countedModelIds).toEqual([MODEL_ID]);
+    expect(batchCompleted()).toBe(1);
   });
 
   it("keeps the download in flight and settles nothing when the shell truth is unknown", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
     activeModelIds = null;
-    seedDownloadingEntry(true);
+    seedDownloadingEntry();
 
     const { result } = renderManager();
     await act(async () => {
@@ -207,14 +206,13 @@ describe("useModelManager reconciliation", () => {
     const entry = modelStore.getState().entries[MODEL_ID];
     expect(entry?.status).toBe("downloading");
     expect(entry?.progress?.percent).toBe(25);
-    expect(modelStore.getState().batch.completed).toBe(0);
-    expect(modelStore.getState().batch.countedModelIds).toEqual([]);
+    expect(batchCompleted()).toBe(0);
   });
 
   it("does not double-count when a stale terminal event races the reconciliation", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
     activeModelIds = [MODEL_ID];
-    seedDownloadingEntry(true);
+    seedDownloadingEntry();
 
     const { result } = renderManager();
     await flushAsyncWork();
@@ -225,8 +223,7 @@ describe("useModelManager reconciliation", () => {
       version: registryModel().version,
       installedAt: "2026-11-03T00:00:00.000Z",
     });
-    expect(modelStore.getState().batch.completed).toBe(1);
-    expect(modelStore.getState().batch.countedModelIds).toEqual([MODEL_ID]);
+    expect(batchCompleted()).toBe(1);
 
     modelStore.setState({
       entries: {
@@ -239,8 +236,7 @@ describe("useModelManager reconciliation", () => {
       await result.current.refreshModelState();
     });
 
-    expect(modelStore.getState().batch.completed).toBe(1);
-    expect(modelStore.getState().batch.countedModelIds).toEqual([MODEL_ID]);
+    expect(batchCompleted()).toBe(1);
     expect(modelStore.getState().entries[MODEL_ID]?.status).toBe("installed");
   });
 

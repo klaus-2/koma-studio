@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { reconcileModelInstallStates } from "./model-storage";
+import { computeBatchProgress, reconcileModelInstallStates } from "./model-install-reconciliation";
 import type {
   ModelInstallLifecycleStatus,
   ModelInstallState,
@@ -79,7 +79,6 @@ describe("reconcileModelInstallStates", () => {
     expect(reconciled?.status).toBe("downloading");
     expect(reconciled?.progress).toEqual(buildDownloadingProgress("model-a"));
     expect(result.settledIds).toEqual([]);
-    expect(result.batchDelta).toBe(0);
   });
 
   it("adopts an installed disk entry and settles the model when the shell is idle", () => {
@@ -102,7 +101,6 @@ describe("reconcileModelInstallStates", () => {
 
     expect(result.entries["model-b"]).toBe(disk);
     expect(result.settledIds).toEqual(["model-b"]);
-    expect(result.batchDelta).toBe(1);
   });
 
   it("adopts an incomplete disk entry and settles the model when the shell is idle", () => {
@@ -121,7 +119,6 @@ describe("reconcileModelInstallStates", () => {
 
     expect(result.entries["model-c"]).toBe(disk);
     expect(result.settledIds).toEqual(["model-c"]);
-    expect(result.batchDelta).toBe(1);
   });
 
   it("keeps a locally queued entry when the disk has no witness", () => {
@@ -138,7 +135,6 @@ describe("reconcileModelInstallStates", () => {
 
     expect(result.entries["model-d"]?.status).toBe("queued");
     expect(result.settledIds).toEqual([]);
-    expect(result.batchDelta).toBe(0);
   });
 
   it("adopts not_installed and settles an in-flight entry nothing else holds", () => {
@@ -157,7 +153,6 @@ describe("reconcileModelInstallStates", () => {
 
     expect(result.entries["model-e"]).toBe(disk);
     expect(result.settledIds).toEqual(["model-e"]);
-    expect(result.batchDelta).toBe(1);
   });
 
   it("lets the disk win for entries that are not in flight", () => {
@@ -181,10 +176,28 @@ describe("reconcileModelInstallStates", () => {
 
     expect(result.entries["model-f"]).toBe(disk);
     expect(result.settledIds).toEqual([]);
-    expect(result.batchDelta).toBe(0);
   });
 
-  it("accumulates batchDelta across multiple adoptions without applying a ceiling", () => {
+  it("preserves every in-flight entry without settling when the shell truth is unknown", () => {
+    const model = createMockModel("model-null");
+    const previous = buildInstallState(model, "downloading", {
+      progress: buildDownloadingProgress("model-null"),
+    });
+    const disk = buildInstallState(model, "not_installed");
+
+    const result = reconcileModelInstallStates(
+      { "model-null": previous },
+      { "model-null": disk },
+      null,
+      new Set<string>(["model-null"]),
+    );
+
+    expect(result.entries["model-null"]?.status).toBe("downloading");
+    expect(result.entries["model-null"]?.progress).toEqual(buildDownloadingProgress("model-null"));
+    expect(result.settledIds).toEqual([]);
+  });
+
+  it("settles every eligible adoption across multiple models", () => {
     const modelOne = createMockModel("model-g1");
     const modelTwo = createMockModel("model-g2");
     const modelThree = createMockModel("model-g3");
@@ -213,31 +226,42 @@ describe("reconcileModelInstallStates", () => {
     );
 
     expect(result.settledIds).toEqual(["model-g1", "model-g2", "model-g3"]);
-    expect(result.batchDelta).toBe(3);
   });
+});
 
-  it("preserves every in-flight entry without settling when the shell truth is unknown", () => {
-    const model = createMockModel("model-h");
-    const previous = buildInstallState(model, "downloading", {
-      progress: buildDownloadingProgress("model-h"),
-    });
-    const disk = buildInstallState(model, "installed", {
-      installedVersion: "1.0.0",
-      installedAt: "2026-11-03T00:00:00.000Z",
-      checksumSHA256: "h".repeat(64),
-    });
+describe("computeBatchProgress", () => {
+  const model = createMockModel("batch-model");
 
-    const result = reconcileModelInstallStates(
-      { "model-h": previous },
-      { "model-h": disk },
-      null,
-      new Set<string>(["model-h"]),
+  it("derives the settled count from the entry statuses", () => {
+    const entries: Record<string, ModelInstallState> = {
+      "batch-model": buildInstallState(model, "installed"),
+      "other-model": buildInstallState(createMockModel("other-model"), "downloading"),
+    };
+
+    const progress = computeBatchProgress(
+      { modelIds: ["batch-model", "other-model"], cancelled: false },
+      entries,
     );
 
-    const reconciled = result.entries["model-h"];
-    expect(reconciled?.status).toBe("downloading");
-    expect(reconciled?.progress).toEqual(buildDownloadingProgress("model-h"));
-    expect(result.settledIds).toEqual([]);
-    expect(result.batchDelta).toBe(0);
+    expect(progress).toEqual({ total: 2, completed: 1, active: true, cancelled: false });
+  });
+
+  it("closes the batch once every model settles or the batch is cancelled", () => {
+    const entries: Record<string, ModelInstallState> = {
+      "batch-model": buildInstallState(model, "installed"),
+    };
+
+    expect(
+      computeBatchProgress({ modelIds: ["batch-model"], cancelled: false }, entries),
+    ).toEqual({ total: 1, completed: 1, active: false, cancelled: false });
+    expect(
+      computeBatchProgress({ modelIds: ["batch-model"], cancelled: true }, entries).active,
+    ).toBe(false);
+  });
+
+  it("counts models missing from the entries map as settled", () => {
+    const progress = computeBatchProgress({ modelIds: ["gone-model"], cancelled: false }, {});
+
+    expect(progress).toEqual({ total: 1, completed: 1, active: false, cancelled: false });
   });
 });
