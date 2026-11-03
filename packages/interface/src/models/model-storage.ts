@@ -6,6 +6,7 @@ import type {
   RemoteModelUpdateCheckResult,
   TranslationModel,
 } from "./types";
+import type { ModelActivityTruth } from "@shared/desktop-api";
 import { checkModelVersions } from "./model-version-checker";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
@@ -104,16 +105,16 @@ export const listInstalledModels = async (): Promise<InstalledModelRecord[]> => 
   }
 };
 
-export const listActiveDownloadModelIds = async (): Promise<string[] | null> => {
+export const listActiveDownloadModelIds = async (): Promise<ModelActivityTruth> => {
   const desktopModelsApi = desktopBridge.desktop?.models;
   if (!desktopModelsApi) {
-    return null;
+    return { known: false };
   }
 
   try {
     return await desktopModelsApi.listActive();
   } catch {
-    return null;
+    return { known: false };
   }
 };
 

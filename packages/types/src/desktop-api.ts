@@ -511,6 +511,10 @@ export const desktopCommandChannels = {
 
 export type DesktopCommandName = LeafValue<typeof desktopCommandChannels>;
 
+export type ModelActivityTruth =
+  | { known: true; activeModelIds: string[] }
+  | { known: false };
+
 export interface DesktopModelsApi {
   listInstalled(): Promise<DesktopInstalledModelRecord[]>;
   getDiskSpace(): Promise<DesktopDiskSpaceInfo>;
@@ -524,7 +528,7 @@ export interface DesktopModelsApi {
   cancel(modelId: string): Promise<unknown>;
   cancelAll(): Promise<unknown>;
   uninstall(modelId: string): Promise<unknown>;
-  listActive(): Promise<string[] | null>;
+  listActive(): Promise<ModelActivityTruth>;
   on(listener: ModelManagerListener): Promise<boolean>;
   off(listener: ModelManagerListener): void;
 }

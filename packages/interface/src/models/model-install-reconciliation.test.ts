@@ -1,60 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { computeBatchProgress, reconcileModelInstallStates } from "./model-install-reconciliation";
-import type {
-  ModelInstallLifecycleStatus,
-  ModelInstallState,
-  ModelProgress,
-  TranslationModel,
-} from "./types";
-
-const createMockModel = (id: string): TranslationModel => ({
-  id,
-  name: id,
-  description: "mock",
-  version: "1.0.0",
-  stage: "translation",
-  sourceLanguages: ["ja"],
-  targetLanguages: ["en"],
-  requirements: {
-    gpu: false,
-    vramMin: "0",
-    ramMin: "4GB",
-    diskSpace: "100MB",
-  },
-  speed: "fast",
-  downloadUrl: "https://example.com/mock.bin",
-  checksumSHA256: "54e50d7b19c16883541a0f42f2f2be3617c6597457d8a29f86dc6f5d130f8f2d",
-  fileSize: "100MB",
-});
-
-const buildInstallState = (
-  model: TranslationModel,
-  status: ModelInstallLifecycleStatus,
-  overrides: Partial<ModelInstallState> = {},
-): ModelInstallState => ({
-  model,
-  status,
-  installedVersion: null,
-  availableVersion: model.version,
-  installedAt: null,
-  checksumSHA256: null,
-  updateAvailable: status === "update_available",
-  error: null,
-  errorCode: null,
-  progress: null,
-  incomplete: status === "incomplete",
-  ...overrides,
-});
-
-const buildDownloadingProgress = (modelId: string): ModelProgress => ({
-  modelId,
-  bytesDownloaded: 1024,
-  totalBytes: 4096,
-  speedBytesPerSecond: 512,
-  percent: 25,
-  attempt: 1,
-});
+import {
+  buildDownloadingProgress,
+  buildInstallState,
+  createMockModel,
+} from "./model-install-fixtures";
+import type { ModelInstallState } from "./types";
 
 describe("reconcileModelInstallStates", () => {
   it("keeps an in-flight entry when the shell still reports activity", () => {
@@ -71,7 +23,7 @@ describe("reconcileModelInstallStates", () => {
     const result = reconcileModelInstallStates(
       { "model-a": previous },
       { "model-a": disk },
-      new Set<string>(["model-a"]),
+      { known: true, activeModelIds: ["model-a"] },
       new Set<string>(),
     );
 
@@ -95,7 +47,7 @@ describe("reconcileModelInstallStates", () => {
     const result = reconcileModelInstallStates(
       { "model-b": previous },
       { "model-b": disk },
-      new Set<string>(),
+      { known: true, activeModelIds: [] },
       new Set<string>(["model-b"]),
     );
 
@@ -113,7 +65,7 @@ describe("reconcileModelInstallStates", () => {
     const result = reconcileModelInstallStates(
       { "model-c": previous },
       { "model-c": disk },
-      new Set<string>(),
+      { known: true, activeModelIds: [] },
       new Set<string>(),
     );
 
@@ -129,7 +81,7 @@ describe("reconcileModelInstallStates", () => {
     const result = reconcileModelInstallStates(
       { "model-d": previous },
       { "model-d": disk },
-      new Set<string>(),
+      { known: true, activeModelIds: [] },
       new Set<string>(["model-d"]),
     );
 
@@ -147,7 +99,7 @@ describe("reconcileModelInstallStates", () => {
     const result = reconcileModelInstallStates(
       { "model-e": previous },
       { "model-e": disk },
-      new Set<string>(),
+      { known: true, activeModelIds: [] },
       new Set<string>(),
     );
 
@@ -170,7 +122,7 @@ describe("reconcileModelInstallStates", () => {
     const result = reconcileModelInstallStates(
       { "model-f": previous },
       { "model-f": disk },
-      new Set<string>(),
+      { known: true, activeModelIds: [] },
       new Set<string>(),
     );
 
@@ -188,12 +140,42 @@ describe("reconcileModelInstallStates", () => {
     const result = reconcileModelInstallStates(
       { "model-null": previous },
       { "model-null": disk },
-      null,
+      { known: false },
       new Set<string>(["model-null"]),
     );
 
     expect(result.entries["model-null"]?.status).toBe("downloading");
     expect(result.entries["model-null"]?.progress).toEqual(buildDownloadingProgress("model-null"));
+    expect(result.settledIds).toEqual([]);
+  });
+
+  it("keeps a locally queued entry the disk does not know about", () => {
+    const model = createMockModel("model-h");
+    const previous = buildInstallState(model, "queued");
+
+    const result = reconcileModelInstallStates(
+      { "model-h": previous },
+      {},
+      { known: true, activeModelIds: [] },
+      new Set<string>(["model-h"]),
+    );
+
+    expect(result.entries["model-h"]).toBe(previous);
+    expect(result.settledIds).toEqual([]);
+  });
+
+  it("drops an in-flight entry the disk does not know about and nothing holds", () => {
+    const model = createMockModel("model-i");
+    const previous = buildInstallState(model, "downloading");
+
+    const result = reconcileModelInstallStates(
+      { "model-i": previous },
+      {},
+      { known: true, activeModelIds: [] },
+      new Set<string>(),
+    );
+
+    expect(result.entries["model-i"]).toBeUndefined();
     expect(result.settledIds).toEqual([]);
   });
 
@@ -221,7 +203,7 @@ describe("reconcileModelInstallStates", () => {
     const result = reconcileModelInstallStates(
       previousEntries,
       diskEntries,
-      new Set<string>(),
+      { known: true, activeModelIds: [] },
       new Set<string>(),
     );
 

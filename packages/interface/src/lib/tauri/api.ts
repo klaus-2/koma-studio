@@ -280,7 +280,10 @@ const tauriDesktopBridge: IDesktopBridge = {
     cancelAll: () => invokeCommand(desktopCommandChannels.models.cancelAll),
     uninstall: (modelId: string) =>
       invokeCommand(desktopCommandChannels.models.uninstall, { modelId }),
-    listActive: () => invokeCommand<string[] | null>(desktopCommandChannels.models.listActive),
+    listActive: async () => ({
+      known: true,
+      activeModelIds: await invokeCommand<string[]>(desktopCommandChannels.models.listActive),
+    }),
     on: (listener: ModelManagerListener) => {
       const unlistenPromise = listenToDesktopEvent("model-manager:event", listener);
       registerListener(modelManagerListeners, listener, unlistenPromise);

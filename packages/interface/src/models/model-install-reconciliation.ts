@@ -1,3 +1,4 @@
+import type { ModelActivityTruth } from "@shared/desktop-api";
 import type { ModelInstallLifecycleStatus, ModelInstallState } from "./types";
 
 export interface ModelInstallReconciliation {
@@ -20,11 +21,12 @@ const IN_FLIGHT_STATUSES: ReadonlySet<ModelInstallLifecycleStatus> = new Set([
 export const reconcileModelInstallStates = (
   previousEntries: Record<string, ModelInstallState>,
   diskEntries: Record<string, ModelInstallState>,
-  activeModelIds: ReadonlySet<string> | null,
+  shellActivity: ModelActivityTruth,
   locallyQueuedIds: ReadonlySet<string>,
 ): ModelInstallReconciliation => {
   const entries: Record<string, ModelInstallState> = { ...diskEntries };
   const settledIds: string[] = [];
+  const activeModelIds = shellActivity.known ? new Set(shellActivity.activeModelIds) : null;
 
   Object.entries(previousEntries).forEach(([modelId, previousEntry]) => {
     if (!IN_FLIGHT_STATUSES.has(previousEntry.status)) {
@@ -33,6 +35,9 @@ export const reconcileModelInstallStates = (
 
     const diskEntry = diskEntries[modelId];
     if (!diskEntry) {
+      if (locallyQueuedIds.has(modelId)) {
+        entries[modelId] = previousEntry;
+      }
       return;
     }
 

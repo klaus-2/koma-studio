@@ -1,7 +1,8 @@
 import { ModelDownloadManager } from "./model-download-manager";
 import type { ModelManagerEvent, TranslationModel } from "./types";
 import { setDesktopBridgeProvider } from "@/lib/desktop-bridge";
-import type { DesktopModelsApi, IDesktopBridge } from "@shared/desktop-api";
+import { createDesktopBridgeStub } from "@/testing/desktop-bridge-stub";
+import type { DesktopModelsApi } from "@shared/desktop-api";
 import { describe, it } from "vitest";
 
 type ModelManagerListener = Parameters<DesktopModelsApi["on"]>[0];
@@ -30,7 +31,6 @@ interface ManagerHarness {
   emitted: ModelManagerEvent[];
   listeners: Set<ModelManagerListener>;
   setDownload: (behavior: DesktopModelsApi["download"]) => void;
-  setOn: (behavior: DesktopModelsApi["on"]) => void;
 }
 
 const createManagerHarness = (
@@ -39,7 +39,7 @@ const createManagerHarness = (
   const emitted: ModelManagerEvent[] = [];
   const listeners = new Set<ModelManagerListener>();
   let download: DesktopModelsApi["download"] = async () => ({ queued: true, queueLength: 1 });
-  let on: DesktopModelsApi["on"] =
+  const on: DesktopModelsApi["on"] =
     initial.on ??
     (async (listener) => {
       listeners.add(listener);
@@ -64,7 +64,7 @@ const createManagerHarness = (
     cancel: async () => undefined,
     cancelAll: async () => undefined,
     uninstall: async () => undefined,
-    listActive: async () => null,
+    listActive: async () => ({ known: false }),
     on: (listener) => on(listener),
     off: (listener) => {
       listeners.delete(listener);
@@ -72,7 +72,7 @@ const createManagerHarness = (
   };
 
   setDesktopBridgeProvider({
-    desktop: { models: backend } as unknown as IDesktopBridge,
+    desktop: createDesktopBridgeStub(backend),
   });
 
   return {
@@ -80,9 +80,6 @@ const createManagerHarness = (
     listeners,
     setDownload: (behavior) => {
       download = behavior;
-    },
-    setOn: (behavior) => {
-      on = behavior;
     },
   };
 };

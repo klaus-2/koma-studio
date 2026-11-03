@@ -1,8 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { BrowserWindow } from "electron";
-
 import { LOCAL_API_SESSION_HEADER } from "./modules/desktop-auth-constants.ts";
 import { runBackendJobInstall, shouldRetryDownload } from "./model-manager/backend-job.ts";
 import {
@@ -65,6 +63,13 @@ interface ActiveDownload {
   abortController: AbortController;
 }
 
+export interface DesktopEventWindow {
+  isDestroyed(): boolean;
+  webContents: {
+    send(channel: string, payload: DesktopModelManagerEvent): void;
+  };
+}
+
 export class DesktopModelManagerService {
   private readonly queue: DownloadTask[] = [];
 
@@ -91,7 +96,7 @@ export class DesktopModelManagerService {
   // stays loadable by Node's strip-only TypeScript loader in `node --test`.
   private readonly userDataDirProvider: () => string;
 
-  private readonly windowProvider: () => BrowserWindow | null;
+  private readonly windowProvider: () => DesktopEventWindow | null;
 
   private readonly backendBaseUrlProvider: () => string;
 
@@ -99,7 +104,7 @@ export class DesktopModelManagerService {
 
   constructor(
     userDataDirProvider: () => string,
-    windowProvider: () => BrowserWindow | null,
+    windowProvider: () => DesktopEventWindow | null,
     backendBaseUrlProvider: () => string,
     localApiSessionSecretProvider: () => string = () => "",
   ) {

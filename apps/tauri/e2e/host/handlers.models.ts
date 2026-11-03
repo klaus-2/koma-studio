@@ -212,72 +212,71 @@ export class ModelHandlers {
     payload: E2eModelDownloadPayload,
     job: { jobId: string; cancelled: boolean },
   ): Promise<void> {
-    await this.emit({ type: "started", modelId: payload.id, attempt: 1 });
-    while (!job.cancelled) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      let snapshot: JobSnapshot;
-      try {
-        const response = await fetch(
-          `${this.backendUrl}/models/downloads/${job.jobId}`,
-          { signal: AbortSignal.timeout(15_000) },
-        );
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        snapshot = parseJobSnapshot(await response.json());
-      } catch (error) {
-        this.jobs.delete(payload.id);
-        await this.emitFailed(payload.id, error);
-        return;
-      }
-      if (snapshot.state === "downloading") {
-        await this.emit({
-          type: "progress",
-          modelId: payload.id,
-          bytesDownloaded: snapshot.bytesDownloaded,
-          totalBytes: snapshot.totalBytes,
-          speedBytesPerSecond: snapshot.speedBytesPerSecond,
-          percent: snapshot.percent,
-          attempt: 1,
-        });
-        continue;
-      }
-      if (snapshot.state === "verifying") {
-        await this.emit({ type: "verifying", modelId: payload.id });
-        continue;
-      }
-      if (snapshot.state === "ready") {
-        this.jobs.delete(payload.id);
+    try {
+      await this.emit({ type: "started", modelId: payload.id, attempt: 1 });
+      while (!job.cancelled) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        let snapshot: JobSnapshot;
         try {
-          this.assertPayload(payload.id);
-          const manifest = this.writeManifest(payload);
-          await this.emit({
-            type: "completed",
-            modelId: payload.id,
-            version: manifest.version,
-            installedAt: manifest.installedAt,
-          });
+          const response = await fetch(
+            `${this.backendUrl}/models/downloads/${job.jobId}`,
+            { signal: AbortSignal.timeout(15_000) },
+          );
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          snapshot = parseJobSnapshot(await response.json());
         } catch (error) {
           await this.emitFailed(payload.id, error);
+          return;
         }
-        return;
+        if (snapshot.state === "downloading") {
+          await this.emit({
+            type: "progress",
+            modelId: payload.id,
+            bytesDownloaded: snapshot.bytesDownloaded,
+            totalBytes: snapshot.totalBytes,
+            speedBytesPerSecond: snapshot.speedBytesPerSecond,
+            percent: snapshot.percent,
+            attempt: 1,
+          });
+          continue;
+        }
+        if (snapshot.state === "verifying") {
+          await this.emit({ type: "verifying", modelId: payload.id });
+          continue;
+        }
+        if (snapshot.state === "ready") {
+          try {
+            this.assertPayload(payload.id);
+            const manifest = this.writeManifest(payload);
+            await this.emit({
+              type: "completed",
+              modelId: payload.id,
+              version: manifest.version,
+              installedAt: manifest.installedAt,
+            });
+          } catch (error) {
+            await this.emitFailed(payload.id, error);
+          }
+          return;
+        }
+        if (snapshot.state === "cancelled") {
+          await this.emit({ type: "cancelled", modelId: payload.id });
+          return;
+        }
+        if (snapshot.state === "error") {
+          await this.emitFailed(
+            payload.id,
+            new Error(snapshot.error ?? "Model download failed."),
+          );
+          return;
+        }
       }
-      if (snapshot.state === "cancelled") {
-        this.jobs.delete(payload.id);
-        await this.emit({ type: "cancelled", modelId: payload.id });
-        return;
-      }
-      if (snapshot.state === "error") {
-        this.jobs.delete(payload.id);
-        await this.emitFailed(
-          payload.id,
-          new Error(snapshot.error ?? "Model download failed."),
-        );
-        return;
-      }
+      await this.emit({ type: "cancelled", modelId: payload.id });
+    } finally {
+      this.jobs.delete(payload.id);
     }
-    this.jobs.delete(payload.id);
-    await this.emit({ type: "cancelled", modelId: payload.id });
   }
 
   private assertPayload(modelId: string): void {

@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import type { BrowserWindow } from "electron";
+import type { DesktopEventWindow } from "../model-manager.ts";
 import type { ModelManagerEvent } from "../../../../packages/types/src/desktop-events.ts";
 import {
   DesktopModelManagerService,
@@ -86,16 +86,15 @@ const createHarness = (
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "koma-models-active-"));
   const events: ModelManagerEvent[] = [];
 
-  const windowStub = {
+  const windowStub: DesktopEventWindow = {
     isDestroyed: () => false,
     webContents: {
-      send: (_channel: string, event: unknown) => {
-        const typedEvent = event as ModelManagerEvent;
-        events.push(typedEvent);
-        onEvent?.(typedEvent);
+      send: (_channel: string, event: ModelManagerEvent) => {
+        events.push(event);
+        onEvent?.(event);
       },
     },
-  } as BrowserWindow;
+  };
 
   const service = new TestModelManagerService(
     () => userDataDir,

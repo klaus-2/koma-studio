@@ -263,7 +263,7 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
       modelStore.setState({ loading: true, error: null });
     }
     try {
-      const [installedModels, diskSpace, activeModelIdList] = await Promise.all([
+      const [installedModels, diskSpace, shellActivity] = await Promise.all([
         listInstalledModels(),
         getDiskSpace(),
         listActiveDownloadModelIds(),
@@ -273,14 +273,17 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
         installedModels,
         sourceLanguage,
       );
-      const reconciliation = reconcileModelInstallStates(
-        modelStore.getState().entries,
-        diskEntries,
-        activeModelIdList === null ? null : new Set(activeModelIdList),
-        manager.queuedModelIds(),
-      );
+      const settledIds: string[] = [];
 
       modelStore.setState((prev) => {
+        const reconciliation = reconcileModelInstallStates(
+          prev.entries,
+          diskEntries,
+          shellActivity,
+          manager.queuedModelIds(),
+        );
+        settledIds.push(...reconciliation.settledIds);
+
         const reconciledEntries = reconciliation.entries;
 
         const entriesUnchanged =
@@ -331,7 +334,7 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
         };
       });
 
-      reconciliation.settledIds.forEach((modelId) => {
+      settledIds.forEach((modelId) => {
         manager.markSettled(modelId);
       });
     } catch (error) {

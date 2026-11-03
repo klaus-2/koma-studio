@@ -3,18 +3,17 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { I18nProvider } from "@/i18n";
 import { setDesktopBridgeProvider } from "@/lib/desktop-bridge";
-import type { IDesktopBridge } from "@shared/desktop-api";
+import { createDesktopBridgeStub } from "@/testing/desktop-bridge-stub";
+import type { ModelActivityTruth } from "@shared/desktop-api";
 import { getModelDownloadManager } from "../models/model-download-manager";
 import { computeBatchProgress } from "../models/model-install-reconciliation";
+import {
+  buildDownloadingProgress,
+  buildInstallState,
+  buildInstalledRecord,
+} from "../models/model-install-fixtures";
 import { LOCAL_AIO_MODELS_BY_ID } from "../models/translation-models-registry";
-import type {
-  InstalledModelRecord,
-  ModelInstallLifecycleStatus,
-  ModelInstallState,
-  ModelManagerEvent,
-  ModelProgress,
-  TranslationModel,
-} from "../models/types";
+import type { InstalledModelRecord, ModelManagerEvent, TranslationModel } from "../models/types";
 import { modelStore } from "../stores/model-store";
 import { useModelManager } from "./useModelManager";
 
@@ -29,39 +28,37 @@ const registryModel = (): TranslationModel => {
 };
 
 let installedModels: InstalledModelRecord[] = [];
-let activeModelIds: string[] | null = null;
+let shellActivity: ModelActivityTruth = { known: false };
 let listInstalledCalls = 0;
 let bridgeListener: ((event: ModelManagerEvent) => void) | null = null;
 
 beforeAll(() => {
   setDesktopBridgeProvider({
-    desktop: {
-      models: {
-        listInstalled: async () => {
-          listInstalledCalls += 1;
-          return installedModels;
-        },
-        getDiskSpace: async () => ({
-          freeBytes: 1024 ** 3,
-          totalBytes: 1024 ** 3 * 10,
-          path: "mock",
-        }),
-        checkUpdates: async () => [],
-        download: async () => ({ queued: true, queueLength: 1 }),
-        importOnnx: async () => {
-          throw new Error("not used in this suite");
-        },
-        cancel: async () => undefined,
-        cancelAll: async () => undefined,
-        uninstall: async () => undefined,
-        listActive: async () => activeModelIds,
-        on: (listener: (event: ModelManagerEvent) => void) => {
-          bridgeListener = listener;
-          return Promise.resolve(true);
-        },
-        off: () => undefined,
+    desktop: createDesktopBridgeStub({
+      listInstalled: async () => {
+        listInstalledCalls += 1;
+        return installedModels;
       },
-    } as unknown as IDesktopBridge,
+      getDiskSpace: async () => ({
+        freeBytes: 1024 ** 3,
+        totalBytes: 1024 ** 3 * 10,
+        path: "mock",
+      }),
+      checkUpdates: async () => [],
+      download: async () => ({ queued: true, queueLength: 1 }),
+      importOnnx: async () => {
+        throw new Error("not used in this suite");
+      },
+      cancel: async () => undefined,
+      cancelAll: async () => undefined,
+      uninstall: async () => undefined,
+      listActive: async () => shellActivity,
+      on: (listener) => {
+        bridgeListener = listener;
+        return Promise.resolve(true);
+      },
+      off: () => undefined,
+    }),
   });
 });
 
@@ -72,48 +69,12 @@ const emitBridgeEvent = (event: ModelManagerEvent): void => {
   bridgeListener(event);
 };
 
-const buildProgress = (model: TranslationModel): ModelProgress => ({
-  modelId: model.id,
-  bytesDownloaded: 256,
-  totalBytes: 1024,
-  speedBytesPerSecond: 64,
-  percent: 25,
-  attempt: 1,
-});
-
-const buildEntry = (
-  model: TranslationModel,
-  status: ModelInstallLifecycleStatus,
-  progress: ModelProgress | null,
-): ModelInstallState => ({
-  model,
-  status,
-  installedVersion: null,
-  availableVersion: model.version,
-  installedAt: null,
-  checksumSHA256: null,
-  updateAvailable: false,
-  error: null,
-  errorCode: null,
-  progress,
-  incomplete: false,
-});
-
-const buildInstalledRecord = (model: TranslationModel): InstalledModelRecord => ({
-  modelId: model.id,
-  version: model.version,
-  installedAt: "2026-11-03T00:00:00.000Z",
-  checksumSHA256: model.checksumSHA256,
-  status: "installed",
-  modelDir: "mock",
-  manifestPath: "mock/manifest.json",
-  sizeBytes: 1024,
-});
-
 const seedDownloadingEntry = (): void => {
   modelStore.setState({
     entries: {
-      [MODEL_ID]: buildEntry(registryModel(), "downloading", buildProgress(registryModel())),
+      [MODEL_ID]: buildInstallState(registryModel(), "downloading", {
+        progress: buildDownloadingProgress(registryModel().id),
+      }),
     },
     batch: {
       modelIds: [MODEL_ID],
@@ -141,14 +102,14 @@ const renderManager = () =>
 describe("useModelManager reconciliation", () => {
   beforeEach(() => {
     installedModels = [];
-    activeModelIds = null;
+    shellActivity = { known: false };
     listInstalledCalls = 0;
     modelStore.reset();
   });
 
   it("adopts the installed disk state and counts the batch once the shell goes idle", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
-    activeModelIds = [];
+    shellActivity = { known: true, activeModelIds: [] };
     seedDownloadingEntry();
 
     const { result } = renderManager();
@@ -163,7 +124,7 @@ describe("useModelManager reconciliation", () => {
 
   it("keeps the download in flight while the shell still reports activity", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
-    activeModelIds = [MODEL_ID];
+    shellActivity = { known: true, activeModelIds: [MODEL_ID] };
     seedDownloadingEntry();
 
     const { result } = renderManager();
@@ -179,7 +140,7 @@ describe("useModelManager reconciliation", () => {
 
   it("counts a settled model exactly once across repeated refreshes", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
-    activeModelIds = [];
+    shellActivity = { known: true, activeModelIds: [] };
     seedDownloadingEntry();
 
     const { result } = renderManager();
@@ -195,7 +156,7 @@ describe("useModelManager reconciliation", () => {
 
   it("keeps the download in flight and settles nothing when the shell truth is unknown", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
-    activeModelIds = null;
+    shellActivity = { known: false };
     seedDownloadingEntry();
 
     const { result } = renderManager();
@@ -211,7 +172,7 @@ describe("useModelManager reconciliation", () => {
 
   it("does not double-count when a stale terminal event races the reconciliation", async () => {
     installedModels = [buildInstalledRecord(registryModel())];
-    activeModelIds = [MODEL_ID];
+    shellActivity = { known: true, activeModelIds: [MODEL_ID] };
     seedDownloadingEntry();
 
     const { result } = renderManager();
@@ -227,10 +188,12 @@ describe("useModelManager reconciliation", () => {
 
     modelStore.setState({
       entries: {
-        [MODEL_ID]: buildEntry(registryModel(), "downloading", buildProgress(registryModel())),
+        [MODEL_ID]: buildInstallState(registryModel(), "downloading", {
+          progress: buildDownloadingProgress(registryModel().id),
+        }),
       },
     });
-    activeModelIds = [];
+    shellActivity = { known: true, activeModelIds: [] };
 
     await act(async () => {
       await result.current.refreshModelState();
