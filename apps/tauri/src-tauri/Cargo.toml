@@ -60,7 +60,7 @@ keyring = { version = "3.6", default-features = false, features = [
 ] }
 
 # Asset MIME sniffing for workspace imports/selection
-infer = "0.19"
+infer = "0.22"
 mime_guess = "2"
 
 # HTTP / TLS
