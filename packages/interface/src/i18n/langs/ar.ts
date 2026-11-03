@@ -402,7 +402,7 @@ export const arMessages: TranslationCatalog = {
   'session.stayConnected': 'البقاء متصلاً',
   'update.toast.availableTitle': 'تحديث جديد متاح',
   'update.toast.availableDescription':
-    'الإصدار {version} جاهز للتنزيل على قناة {channel}.',
+    'الإصدار {version} جاهز للتنزيل على قناة {channel}. افتح التفاصيل لمراجعة التغييرات والتحديث.',
   'update.toast.downloadedTitle': 'التحديث جاهز',
   'update.toast.downloadedDescription':
     'التحديث جاهز. اكتمل {percent}%. ثبّت الآن أو عند إغلاق التطبيق.',
@@ -412,6 +412,7 @@ export const arMessages: TranslationCatalog = {
   'update.channel.beta': 'تجريبي',
   'update.channel.stable': 'مستقر',
   'update.button.download': 'تنزيل',
+  'update.button.updateNow': 'تحديث الآن',
   'update.button.details': 'تفاصيل',
   'update.button.installNow': 'تثبيت الآن',
   'update.button.installLater': 'تثبيت لاحقًا',
@@ -435,6 +436,10 @@ export const arMessages: TranslationCatalog = {
   'update.modal.installAction': 'تثبيت الآن',
   'update.modal.installLaterAction': 'تثبيت لاحقًا (عند الإغلاق)',
   'update.modal.laterAction': 'لاحقًا',
+  'update.modal.updateNow': 'تحديث الآن',
+  'update.modal.downloading': 'جارٍ تنزيل التحديث… {percent}%',
+  'update.modal.restartToUpdate': 'إعادة التشغيل والتثبيت',
+  'update.modal.retryUpdate': 'حاول مجددًا',
   'dropzone.invalidImageAlert': 'يرجى رفع ملف صورة صالح (PNG/JPG).',
   'dropzone.clickOrDrag': 'انقر أو اسحب الصورة إلى هنا',
   'dropzone.supports': 'يدعم PNG و JPG',

@@ -59,6 +59,108 @@ export interface UpdaterEventPayload {
 
 export type UpdaterListener = (payload: UpdaterEventPayload) => void;
 
+const updaterStatuses = [
+  "idle",
+  "checking",
+  "available",
+  "not-available",
+  "downloading",
+  "downloaded",
+  "error",
+] as const;
+
+const isUpdaterEventName = (value: unknown): value is UpdaterEventName =>
+  typeof value === "string" && (updaterEventNames as readonly string[]).includes(value);
+
+const isUpdaterStatusValue = (value: unknown): value is UpdaterStatus =>
+  typeof value === "string" && (updaterStatuses as readonly string[]).includes(value);
+
+const isUpdaterProgressPayload = (value: unknown): value is UpdaterProgressPayload => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const progress = value as Record<string, unknown>;
+  return (
+    typeof progress.percent === "number" &&
+    Number.isFinite(progress.percent) &&
+    typeof progress.transferred === "number" &&
+    Number.isFinite(progress.transferred) &&
+    typeof progress.total === "number" &&
+    Number.isFinite(progress.total) &&
+    typeof progress.speed === "number" &&
+    Number.isFinite(progress.speed)
+  );
+};
+
+const isStringOrNull = (value: unknown): value is string | null =>
+  value === null || typeof value === "string";
+
+const isNumberOrNull = (value: unknown): value is number | null =>
+  value === null || (typeof value === "number" && Number.isFinite(value));
+
+export const parseUpdaterEventPayload = (value: unknown): UpdaterEventPayload | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const payload = value as Record<string, unknown>;
+  if (!isUpdaterEventName(payload.event)) {
+    return null;
+  }
+
+  const state = parseUpdaterStatusPayload(payload.state);
+  if (!state) {
+    return null;
+  }
+
+  return { event: payload.event, state };
+};
+
+export const parseUpdaterStatusPayload = (value: unknown): UpdaterStatusPayload | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const state = value as Record<string, unknown>;
+  if (
+    !isUpdaterStatusValue(state.status) ||
+    !isStringOrNull(state.currentVersion) ||
+    !isStringOrNull(state.newVersion) ||
+    typeof state.mandatory !== "boolean" ||
+    typeof state.blocking !== "boolean" ||
+    (state.blockingReason !== null && state.blockingReason !== "mandatory-update") ||
+    !isStringOrNull(state.releaseNotes) ||
+    (state.channel !== "stable" && state.channel !== "beta") ||
+    (state.provider !== "github" && state.provider !== "generic") ||
+    typeof state.autoInstallOnQuit !== "boolean" ||
+    typeof state.allowPrerelease !== "boolean" ||
+    (state.progress !== null && !isUpdaterProgressPayload(state.progress)) ||
+    !isNumberOrNull(state.checkedAt) ||
+    !isNumberOrNull(state.downloadedAt) ||
+    !isStringOrNull(state.error)
+  ) {
+    return null;
+  }
+
+  return {
+    status: state.status,
+    currentVersion: state.currentVersion,
+    newVersion: state.newVersion,
+    mandatory: state.mandatory,
+    blocking: state.blocking,
+    blockingReason: state.blockingReason,
+    releaseNotes: state.releaseNotes,
+    channel: state.channel,
+    provider: state.provider,
+    autoInstallOnQuit: state.autoInstallOnQuit,
+    allowPrerelease: state.allowPrerelease,
+    progress: state.progress,
+    checkedAt: state.checkedAt,
+    downloadedAt: state.downloadedAt,
+    error: state.error,
+  };
+};
+
 // Model download error taxonomy (authority: mini-backend
 // core/download_jobs.py classify_error). The UI resolves a friendly message
 // via i18n (modelManager.downloadError.<code>).

@@ -9,7 +9,11 @@ import type {
   DesktopModelDownloadPayload,
   IDesktopBridge,
 } from "@shared/desktop-api";
-import type { MiniBackendRuntimeStatePayload } from "@shared/desktop-events";
+import type {
+  MiniBackendRuntimeStatePayload,
+  UpdaterEventPayload,
+  UpdaterStatusPayload,
+} from "@shared/desktop-events";
 import {
   getCachedTauriRuntimeConfig,
   hydrateTauriRuntimeConfig,
@@ -177,4 +181,98 @@ describe("tauri api wrapper", () => {
     expectTypeOf<Parameters<IDesktopBridge["models"]["download"]>[0]>()
       .toEqualTypeOf<DesktopModelDownloadPayload>();
   });
+
+  it("exposes the updater bridge only inside the Tauri runtime", () => {
+    mockedIsTauri.mockReturnValue(false);
+    expect(tauriApi.updater).toBeNull();
+
+    mockedIsTauri.mockReturnValue(true);
+    expect(tauriApi.updater).not.toBeNull();
+    expect(tauriApi.updater?.getState).toBeTypeOf("function");
+    expect(tauriApi.updater?.on).toBeTypeOf("function");
+  });
+
+  it("maps a null updater shell state to a null bridge state", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValueOnce(null);
+
+    const state = await tauriApi.updater?.getState();
+
+    expect(mockedInvoke).toHaveBeenCalledWith("desktop:updater:get-state");
+    expect(state).toBeNull();
+  });
+
+  it("validates updater state payloads before they reach the hook", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValueOnce(updaterStatePayload);
+
+    const state = await tauriApi.updater?.getState();
+
+    expect(state).toEqual(updaterStatePayload);
+  });
+
+  it("routes download/install through the shared updater channels", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValue(updaterStatePayload);
+
+    await tauriApi.updater?.download({ channel: "stable" });
+    await tauriApi.updater?.install();
+
+    expect(mockedInvoke).toHaveBeenCalledWith("desktop:updater:download", {
+      channel: "stable",
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("desktop:updater:install");
+  });
+
+  it("dispatches only validated updater events and honors unlisten", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    const received: UpdaterEventPayload[] = [];
+    const handlers: Array<(event: Event<unknown>) => void> = [];
+
+    mockedListen.mockImplementationOnce(async (eventName, handler) => {
+      handlers.push(handler);
+      expect(eventName).toBe("updater:event");
+      const unlisten: UnlistenFn = vi.fn();
+      return unlisten;
+    });
+
+    const unsubscribe = tauriApi.updater?.on((payload) => {
+      received.push(payload);
+    });
+    expect(unsubscribe).toBeTypeOf("function");
+    await vi.waitFor(() => expect(handlers).toHaveLength(1));
+
+    const emit = (payload: unknown): void => {
+      for (const handler of handlers) {
+        handler({ event: "updater:event", id: 1, payload });
+      }
+    };
+
+    emit({ event: "progress", state: updaterStatePayload });
+    emit({ event: "cancelled", state: updaterStatePayload });
+    expect(received).toHaveLength(1);
+    expect(received[0]?.event).toBe("progress");
+
+    unsubscribe?.();
+    emit({ event: "progress", state: updaterStatePayload });
+    expect(received).toHaveLength(1);
+  });
 });
+
+const updaterStatePayload: UpdaterStatusPayload = {
+  status: "downloading",
+  currentVersion: "1.3.1",
+  newVersion: "1.4.0",
+  mandatory: false,
+  blocking: false,
+  blockingReason: null,
+  releaseNotes: null,
+  channel: "stable",
+  provider: "github",
+  autoInstallOnQuit: true,
+  allowPrerelease: false,
+  progress: { percent: 42.5, transferred: 10, total: 24, speed: 3 },
+  checkedAt: 100,
+  downloadedAt: null,
+  error: null,
+};

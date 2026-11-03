@@ -2,6 +2,9 @@ import type {
   MiniBackendRuntimeListener,
   ModelManagerListener,
   MiniBackendRuntimeStatePayload,
+  UpdaterChannel,
+  UpdaterListener,
+  UpdaterStatusPayload,
 } from "./desktop-events";
 import type { UpdaterSyncLogListener } from "./updaterSync";
 import type {
@@ -385,6 +388,11 @@ export const desktopCommandChannels = {
   locale: {
     getPreferences: "desktop:locale:get-preferences",
   },
+  updater: {
+    getState: "desktop:updater:get-state",
+    download: "desktop:updater:download",
+    install: "desktop:updater:install",
+  },
   localBackend: {
     check: "desktop:check-local-backend",
     restart: "desktop:restart-local-backend",
@@ -723,4 +731,11 @@ export interface IUpdaterSyncBridge {
   rebuildAndRestart(): Promise<unknown>;
   getStatus(): Promise<unknown>;
   on(listener: UpdaterSyncLogListener): () => void;
+}
+
+export interface IUpdaterBridge {
+  getState(): Promise<UpdaterStatusPayload | null>;
+  download(payload: { channel: UpdaterChannel }): Promise<void>;
+  install(): Promise<void>;
+  on(listener: UpdaterListener): () => void;
 }

@@ -425,7 +425,7 @@ export const ruMessages: TranslationCatalog = {
   'session.stayConnected': 'Остаться в системе',
   'update.toast.availableTitle': 'Доступно новое обновление',
   'update.toast.availableDescription':
-    'Версия {version} готова к скачиванию на канале {channel}.',
+    'Версия {version} готова к скачиванию на канале {channel}. Откройте подробности, чтобы увидеть изменения и обновиться.',
   'update.toast.downloadedTitle': 'Обновление готово',
   'update.toast.downloadedDescription':
     'Обновление готово. {percent}% загружено. Установите сейчас или при закрытии приложения.',
@@ -435,6 +435,7 @@ export const ruMessages: TranslationCatalog = {
   'update.channel.beta': 'Бета',
   'update.channel.stable': 'Стабильный',
   'update.button.download': 'Скачать',
+  'update.button.updateNow': 'Обновить сейчас',
   'update.button.details': 'Подробности',
   'update.button.installNow': 'Установить сейчас',
   'update.button.installLater': 'Установить позже',
@@ -458,6 +459,10 @@ export const ruMessages: TranslationCatalog = {
   'update.modal.installAction': 'Установить сейчас',
   'update.modal.installLaterAction': 'Установить позже (при закрытии)',
   'update.modal.laterAction': 'Позже',
+  'update.modal.updateNow': 'Обновить сейчас',
+  'update.modal.downloading': 'Загрузка обновления… {percent}%',
+  'update.modal.restartToUpdate': 'Перезапустить и установить',
+  'update.modal.retryUpdate': 'Повторить',
   'dropzone.invalidImageAlert':
     'Пожалуйста, загрузите допустимый файл изображения (PNG/JPG).',
   'dropzone.clickOrDrag': 'Нажмите или перетащите изображение сюда',

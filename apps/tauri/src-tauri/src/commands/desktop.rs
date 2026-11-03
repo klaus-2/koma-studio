@@ -28,6 +28,8 @@ mod resolved_config;
 mod runtime_artifacts_url;
 mod url_validation;
 
+pub(crate) mod updater;
+
 pub(crate) use config_sources::DESKTOP_UPDATE_CHANNEL;
 use infrastructure::{app_user_data_dir, loopback_http_client, open_url, run_blocking};
 use locale::normalize_locale_tag;
@@ -37,8 +39,6 @@ use url_validation::{host_matches_suffix, normalize_host, parse_https_url, parse
 
 const DEFAULT_AUTH_API_URL: &str = "http://127.0.0.1:3001";
 const DEFAULT_LOCAL_API_URL: &str = "http://127.0.0.1:8001";
-const DEFAULT_RUNTIME_ARTIFACTS_URL: &str =
-    "https://github.com/klaus-2/koma-studio/releases/latest/download/";
 const DEFAULT_APP_LOCALE: &str = "pt-BR";
 
 const DESKTOP_FETCH_TIMEOUT: Duration = Duration::from_secs(12);
@@ -716,10 +716,19 @@ mod tests {
 
     #[test]
     fn defaults_to_the_github_runtime_feed() {
-        assert_eq!(
-            default_runtime_artifacts_url(),
-            "https://github.com/klaus-2/koma-studio/releases/latest/download/"
-        );
+        // Packaged builds pin the feed to their own release tag; dev keeps the
+        // moving latest slot (the crate version has no matching tag there).
+        let expected = if cfg!(dev) {
+            "https://github.com/klaus-2/koma-studio/releases/latest/download/".to_owned()
+        } else {
+            concat!(
+                "https://github.com/klaus-2/koma-studio/releases/download/v",
+                env!("CARGO_PKG_VERSION"),
+                "/"
+            )
+            .to_owned()
+        };
+        assert_eq!(default_runtime_artifacts_url(), expected);
         assert_eq!(UpdateChannel::from_version("1.2.3"), UpdateChannel::Stable);
         assert_eq!(
             UpdateChannel::from_version("1.2.3-beta.4"),

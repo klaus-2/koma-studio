@@ -394,7 +394,7 @@ export const frMessages: TranslationCatalog = {
   'session.stayConnected': 'Rester connecté',
   'update.toast.availableTitle': 'Nouvelle mise à jour disponible',
   'update.toast.availableDescription':
-    'La version {version} est prête à être téléchargée sur le canal {channel}.',
+    'La version {version} est prête à être téléchargée sur le canal {channel}. Ouvrez les détails pour consulter les changements et mettre à jour.',
   'update.toast.downloadedTitle': 'Mise à jour prête',
   'update.toast.downloadedDescription':
     "Mise à jour prête. {percent}% terminé. Installez maintenant ou à la fermeture de l'application.",
@@ -404,6 +404,7 @@ export const frMessages: TranslationCatalog = {
   'update.channel.beta': 'Bêta',
   'update.channel.stable': 'Stable',
   'update.button.download': 'Télécharger',
+  'update.button.updateNow': 'Mettre à jour',
   'update.button.details': 'Détails',
   'update.button.installNow': 'Installer maintenant',
   'update.button.installLater': 'Installer plus tard',
@@ -428,6 +429,10 @@ export const frMessages: TranslationCatalog = {
   'update.modal.installAction': 'Installer maintenant',
   'update.modal.installLaterAction': 'Installer plus tard (à la fermeture)',
   'update.modal.laterAction': 'Plus tard',
+  'update.modal.updateNow': 'Mettre à jour',
+  'update.modal.downloading': 'Téléchargement de la mise à jour… {percent} %',
+  'update.modal.restartToUpdate': 'Redémarrer et installer',
+  'update.modal.retryUpdate': 'Réessayer',
   'dropzone.invalidImageAlert':
     'Veuillez envoyer un fichier image valide (PNG/JPG).',
   'dropzone.clickOrDrag': "Cliquez ou glissez l'image ici",

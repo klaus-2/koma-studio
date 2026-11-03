@@ -3,7 +3,17 @@
 
 use super::config_sources::{ConfigSources, UpdateChannel};
 use super::url_validation::parse_https_url;
-use super::{DEFAULT_RUNTIME_ARTIFACTS_URL, RUNTIME_ARTIFACTS_ENV_KEYS};
+use super::RUNTIME_ARTIFACTS_ENV_KEYS;
+
+pub(super) const DEFAULT_RUNTIME_ARTIFACTS_URL: &str = if cfg!(dev) {
+    "https://github.com/klaus-2/koma-studio/releases/latest/download/"
+} else {
+    concat!(
+        "https://github.com/klaus-2/koma-studio/releases/download/v",
+        env!("CARGO_PKG_VERSION"),
+        "/"
+    )
+};
 
 pub(super) fn resolve_runtime_artifacts_url(sources: &ConfigSources) -> String {
     RUNTIME_ARTIFACTS_ENV_KEYS

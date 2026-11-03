@@ -9,7 +9,7 @@ import { setDesktopBridgeProvider } from "@koma/interface/lib/desktop-bridge";
 import { setUiI18n } from "@koma/ui/i18n-port";
 import { setRuntimeAdapter } from "@koma/auth/runtime-adapter";
 import { isAuthDisabledFlag } from "@shared/auth-disabled";
-import type { IDesktopBridge, IUpdaterSyncBridge } from "@shared/desktop-api";
+import type { IDesktopBridge, IUpdaterBridge, IUpdaterSyncBridge } from "@shared/desktop-api";
 import { desktopBridge } from "@koma/interface/lib/desktop-bridge";
 import { installRendererConsoleCapture } from "@koma/interface/lib/install-renderer-console-capture";
 import { buildUrl } from "@koma/interface/config/api";
@@ -21,6 +21,7 @@ declare global {
   interface Window {
     desktop?: IDesktopBridge;
     updaterSync?: IUpdaterSyncBridge;
+    updater?: IUpdaterBridge;
   }
 }
 
@@ -29,6 +30,9 @@ const electronDesktop = (): IDesktopBridge | null =>
 
 const electronUpdaterSync = (): IUpdaterSyncBridge | null =>
   typeof window !== "undefined" && window.updaterSync ? window.updaterSync : null;
+
+const electronUpdater = (): IUpdaterBridge | null =>
+  typeof window !== "undefined" && window.updater ? window.updater : null;
 
 // Local mode: an explicit VITE_AUTH_DISABLED always wins, and when nothing
 // defines it a dev server runs offline while the packaged shell defers to the
@@ -55,6 +59,9 @@ setDesktopBridgeProvider({
   },
   get updaterSync() {
     return electronUpdaterSync();
+  },
+  get updater() {
+    return electronUpdater();
   },
   isDesktopRuntime: () => electronDesktop() !== null,
   getRuntimeConfig: () => electronDesktop()?.getRuntimeConfig() ?? FALLBACK_RUNTIME_CONFIG,

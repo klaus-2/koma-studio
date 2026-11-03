@@ -378,7 +378,7 @@ export const zhMessages: TranslationCatalog = {
   'session.stayConnected': '保持连接',
   'update.toast.availableTitle': '有新更新可用',
   'update.toast.availableDescription':
-    '版本 {version} 已在 {channel} 通道准备好下载。',
+    '版本 {version} 已在 {channel} 通道准备好下载。打开详情查看更新内容并更新。',
   'update.toast.downloadedTitle': '更新就绪',
   'update.toast.downloadedDescription':
     '更新就绪，已完成 {percent}%。立即安��或关闭应用时安装。',
@@ -388,6 +388,7 @@ export const zhMessages: TranslationCatalog = {
   'update.channel.beta': 'Beta',
   'update.channel.stable': '稳定版',
   'update.button.download': '下载',
+  'update.button.updateNow': '立即更新',
   'update.button.details': '详情',
   'update.button.installNow': '立即安装',
   'update.button.installLater': '稍后安装',
@@ -409,6 +410,10 @@ export const zhMessages: TranslationCatalog = {
   'update.modal.installAction': '立即安装',
   'update.modal.installLaterAction': '稍后安装（关闭时）',
   'update.modal.laterAction': '以后再说',
+  'update.modal.updateNow': '立即更新',
+  'update.modal.downloading': '正在下载更新… {percent}%',
+  'update.modal.restartToUpdate': '重启并安装',
+  'update.modal.retryUpdate': '重试',
   'dropzone.invalidImageAlert': '请上传有效的图片文件（PNG/JPG）。',
   'dropzone.clickOrDrag': '点击或拖拽图片到此处',
   'dropzone.supports': '支持 PNG 和 JPG',

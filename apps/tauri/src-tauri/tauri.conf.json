@@ -40,6 +40,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": [
       "msi",
       "nsis",
@@ -85,6 +86,13 @@
       "schemes": [
         "komastudio"
       ]
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/klaus-2/koma-studio/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI1NjcwODIxODU5MzkwNDIKUldSQ2tKT0ZJUWhudGRIcW1qd3ZmaVVTWEk0aE1QZzZmQ1FMU0dJTC9ReGwxTHlwblRpbG5EdmsK",
+      "requireSignedVersion": true
     }
   }
 }

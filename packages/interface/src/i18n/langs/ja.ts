@@ -424,7 +424,7 @@ export const jaMessages: TranslationCatalog = {
   'session.stayConnected': '接続を維持',
   'update.toast.availableTitle': '新しいアップデートがあります',
   'update.toast.availableDescription':
-    'バージョン {version} が {channel} チャンネルでダウンロード可能です。',
+    'バージョン {version} が {channel} チャンネルでダウンロード可能です。詳細を開いて変更内容を確認し、アップデートしてください。',
   'update.toast.downloadedTitle': 'アップデート準備完了',
   'update.toast.downloadedDescription':
     'アップデート準備完了。{percent}% 完了。今すぐインストールするか、アプリを閉じた際にインストールします。',
@@ -434,6 +434,7 @@ export const jaMessages: TranslationCatalog = {
   'update.channel.beta': 'ベータ',
   'update.channel.stable': '安定版',
   'update.button.download': 'ダウンロード',
+  'update.button.updateNow': '今すぐアップデート',
   'update.button.details': '詳細',
   'update.button.installNow': '今すぐインストール',
   'update.button.installLater': '後でインストール',
@@ -458,6 +459,10 @@ export const jaMessages: TranslationCatalog = {
   'update.modal.installAction': '今すぐインストール',
   'update.modal.installLaterAction': '後でインストール（終了時）',
   'update.modal.laterAction': '後で',
+  'update.modal.updateNow': '今すぐアップデート',
+  'update.modal.downloading': 'アップデートをダウンロード中… {percent}%',
+  'update.modal.restartToUpdate': '再起動してインストール',
+  'update.modal.retryUpdate': '再試行',
   'dropzone.invalidImageAlert':
     '有効な画像ファイル（PNG/JPG）をアップロードしてください。',
   'dropzone.clickOrDrag': 'クリックまたは画像をここにドラッグ',

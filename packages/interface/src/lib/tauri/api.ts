@@ -33,6 +33,7 @@ import type {
   FontInstallPayload,
   FontUninstallPayload,
   IDesktopBridge,
+  IUpdaterBridge,
   JsonRecord,
   LlmProfilePayload,
   RuntimeConfig,
@@ -42,7 +43,11 @@ import type {
   DesktopEventPayloadMap,
   MiniBackendRuntimeListener,
   ModelManagerListener,
+  UpdaterChannel,
+  UpdaterEventPayload,
+  UpdaterListener,
 } from "@shared/desktop-events";
+import { parseUpdaterEventPayload, parseUpdaterStatusPayload } from "@shared/desktop-events";
 
 import { toBridgeRejectionError } from "./bridge-rejection";
 
@@ -552,9 +557,59 @@ const tauriDesktopBridge: IDesktopBridge = {
   },
 };
 
-// Source-only update model: the Tauri shell performs no native updater IPC.
-// The renderer checks GitHub Releases directly (useUpdater) and the source
-// sync pipeline is Electron-only.
+const updaterListeners = new Set<UpdaterListener>();
+let updaterEventsBound = false;
+
+const bindUpdaterEvents = (): void => {
+  if (updaterEventsBound) return;
+  updaterEventsBound = true;
+  listenToDesktopEvent("updater:event", (payload) => {
+    const parsed: UpdaterEventPayload | null = parseUpdaterEventPayload(payload);
+    if (!parsed) {
+      console.warn("[tauri-updater] dropped malformed updater:event payload");
+      return;
+    }
+    updaterListeners.forEach((listener) => {
+      try {
+        listener(parsed);
+      } catch {
+        // Listener failures should not break event dispatch.
+      }
+    });
+  }).catch((error: unknown) => {
+    updaterEventsBound = false;
+    console.warn("[tauri-updater] failed to bind updater events:", error);
+  });
+};
+
+const assertTauriUpdaterChannel = (channel: UpdaterChannel): UpdaterChannel => {
+  if (channel === "stable" || channel === "beta") {
+    return channel;
+  }
+  throw new Error("Invalid update channel.");
+};
+
+const tauriUpdaterBridge: IUpdaterBridge = {
+  getState: async () =>
+    parseUpdaterStatusPayload(
+      await invokeCommand<unknown>(desktopCommandChannels.updater.getState),
+    ),
+  download: async (payload: { channel: UpdaterChannel }) => {
+    await invokeCommand<unknown>(desktopCommandChannels.updater.download, {
+      channel: assertTauriUpdaterChannel(payload.channel),
+    });
+  },
+  install: async () => {
+    await invokeCommand<unknown>(desktopCommandChannels.updater.install);
+  },
+  on: (listener: UpdaterListener) => {
+    bindUpdaterEvents();
+    updaterListeners.add(listener);
+    return () => {
+      updaterListeners.delete(listener);
+    };
+  },
+};
 
 const resolveDesktopBridge = (): IDesktopBridge | null => {
   return isTauriRuntime() ? tauriDesktopBridge : null;
@@ -567,4 +622,7 @@ export const tauriApi = {
   isDesktopRuntime: isTauriRuntime,
   getRuntimeConfig: getCachedTauriRuntimeConfig,
   hydrateRuntimeConfig: hydrateTauriRuntimeConfig,
+  get updater(): IUpdaterBridge | null {
+    return isTauriRuntime() ? tauriUpdaterBridge : null;
+  },
 };

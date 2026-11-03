@@ -153,8 +153,15 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
               {a.busy ? <span className="blink">{t("settings.updates.checking")}</span> : t("settings.updates.checkNow")}
             </button>
             {updater.status === "available" && (
-              <button type="button" disabled={a.busy} onClick={() => void updater.downloadUpdate()} className={btnGhost}>
-                {t("update.modal.openReleasePage")}
+              <button
+                type="button"
+                disabled={a.busy}
+                onClick={() => void updater.downloadUpdate()}
+                className={btnGhost}
+              >
+                {updater.autoInstallSupported
+                  ? t("update.modal.updateNow")
+                  : t("update.modal.openReleasePage")}
               </button>
             )}
           </div>

@@ -8,6 +8,7 @@ import type { LoginViewProps } from "./login/LoginNoir";
 import { useAuth } from "../hooks/useAuth";
 import { useAuthConfigQuery } from "../query/authConfig";
 import { useUpdater } from "../hooks/useUpdater";
+import { describeUpdaterAction } from "../components/updater/update-action";
 import { useI18n } from "../i18n";
 
 interface LoginPageProps {
@@ -79,6 +80,7 @@ export const LoginPage = ({
   const travelTokenInputRef = useRef<HTMLInputElement | null>(null);
   const { login } = useAuth();
   const updater = useUpdater();
+  const action = describeUpdaterAction(updater);
   const { data: authConfig } = useAuthConfigQuery();
   const themeFamily = useThemeStore((s) => s.family);
 
@@ -272,22 +274,45 @@ export const LoginPage = ({
             })}
           </p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-            {(updater.status === "available" || updater.status === "downloading") && (
+            {(action.kind === "update-now" ||
+              action.kind === "download-progress" ||
+              action.kind === "release-page") && (
               <button
                 type="button"
                 onClick={() => void updater.downloadUpdate()}
                 className="auth-submit"
-                disabled={updater.status === "downloading"}
+                disabled={action.kind === "download-progress"}
               >
-                {updater.status === "downloading"
+                {action.kind === "download-progress"
                   ? t("login.warning.downloadingUpdate")
                   : t("login.warning.downloadUpdate")}
               </button>
             )}
-            {updater.status === "downloaded" && (
+            {action.kind === "restart-install" && (
               <button type="button" onClick={() => void updater.installUpdate()} className="auth-submit">
                 {t("login.warning.installUpdateNow")}
               </button>
+            )}
+            {action.kind === "update-error" && (
+              <>
+                <p style={{ margin: 0, width: "100%", fontSize: 13, opacity: 0.85 }} role="alert">
+                  {action.message ?? t("updater.mandatoryUpdate")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void updater.downloadUpdate()}
+                  className="auth-submit"
+                >
+                  {t("update.modal.retryUpdate")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void updater.openReleasePage()}
+                  className="auth-submit"
+                >
+                  {t("update.modal.openReleasePage")}
+                </button>
+              </>
             )}
           </div>
         </div>

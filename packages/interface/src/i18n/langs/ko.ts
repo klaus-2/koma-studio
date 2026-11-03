@@ -409,7 +409,7 @@ export const koMessages: TranslationCatalog = {
   'session.stayConnected': '연결 유지',
   'update.toast.availableTitle': '새 업데이트 가능',
   'update.toast.availableDescription':
-    '{channel} 채널에서 버전 {version}을(를) 다운로드할 수 있습니다.',
+    '{channel} 채널에서 버전 {version}을(를) 다운로드할 수 있습니다. 세부 정보를 열어 변경 사항을 확인하고 업데이트하세요.',
   'update.toast.downloadedTitle': '업데이트 준비 완료',
   'update.toast.downloadedDescription':
     '업데이트가 준비되었습니다. {percent}% 완료. 지금 설치하거나 앱 종료 시 설치됩니다.',
@@ -419,6 +419,7 @@ export const koMessages: TranslationCatalog = {
   'update.channel.beta': '베타',
   'update.channel.stable': '안정',
   'update.button.download': '다운로드',
+  'update.button.updateNow': '지금 업데이트',
   'update.button.details': '상세',
   'update.button.installNow': '지금 설치',
   'update.button.installLater': '나중에 설치',
@@ -442,6 +443,10 @@ export const koMessages: TranslationCatalog = {
   'update.modal.installAction': '지금 설치',
   'update.modal.installLaterAction': '나중에 설치 (종료 시)',
   'update.modal.laterAction': '나중에',
+  'update.modal.updateNow': '지금 업데이트',
+  'update.modal.downloading': '업데이트 다운로드 중… {percent}%',
+  'update.modal.restartToUpdate': '재시작 후 설치',
+  'update.modal.retryUpdate': '다시 시도',
   'dropzone.invalidImageAlert': '유효한 이미지 파일(PNG/JPG)을 업로드하세요.',
   'dropzone.clickOrDrag': '클릭하거나 이미지를 여기로 드래그하세요',
   'dropzone.supports': 'PNG 및 JPG 지원',

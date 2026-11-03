@@ -420,7 +420,7 @@ export const hiMessages: TranslationCatalog = {
   'session.stayConnected': 'Tetap terhubung',
   'update.toast.availableTitle': 'Pembaruan baru tersedia',
   'update.toast.availableDescription':
-    'Versi {version} siap diunduh di kanal {channel}.',
+    'Versi {version} siap diunduh di kanal {channel}. Buka detail untuk melihat perubahan dan memperbarui.',
   'update.toast.downloadedTitle': 'Pembaruan siap',
   'update.toast.downloadedDescription':
     'Pembaruan siap. {percent}% selesai. Instal sekarang atau saat Anda menutup aplikasi.',
@@ -430,6 +430,7 @@ export const hiMessages: TranslationCatalog = {
   'update.channel.beta': 'Beta',
   'update.channel.stable': 'Stabil',
   'update.button.download': 'Unduh',
+  'update.button.updateNow': 'Perbarui sekarang',
   'update.button.details': 'Detail',
   'update.button.installNow': 'Instal sekarang',
   'update.button.installLater': 'Instal nanti',
@@ -453,6 +454,10 @@ export const hiMessages: TranslationCatalog = {
   'update.modal.installAction': 'Instal sekarang',
   'update.modal.installLaterAction': 'Instal nanti (saat ditutup)',
   'update.modal.laterAction': 'Nanti',
+  'update.modal.updateNow': 'Perbarui sekarang',
+  'update.modal.downloading': 'Mengunduh pembaruan… {percent}%',
+  'update.modal.restartToUpdate': 'Mulai ulang & instal',
+  'update.modal.retryUpdate': 'Coba lagi',
   'dropzone.invalidImageAlert':
     'Harap unggah file gambar yang valid (PNG/JPG).',
   'dropzone.clickOrDrag': 'Klik atau seret gambar ke sini',

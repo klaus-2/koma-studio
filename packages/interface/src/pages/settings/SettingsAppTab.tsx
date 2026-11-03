@@ -544,8 +544,15 @@ export const renderSettingsAppTab = ({
       )}
     </button>
     {updater.status === "available" && (
-      <button type="button" disabled={busy} onClick={() => void updater.downloadUpdate()} className="koma-btn koma-btn--ghost koma-btn--sm">
-        {t("update.modal.openReleasePage")}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void updater.downloadUpdate()}
+        className="koma-btn koma-btn--ghost koma-btn--sm"
+      >
+        {updater.autoInstallSupported
+          ? t("update.modal.updateNow")
+          : t("update.modal.openReleasePage")}
       </button>
     )}
   </div>

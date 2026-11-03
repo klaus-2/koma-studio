@@ -427,7 +427,7 @@ export const esMessages: TranslationCatalog = {
   'session.stayConnected': 'Mantener conexión',
   'update.toast.availableTitle': 'Nueva actualización disponible',
   'update.toast.availableDescription':
-    'La versión {version} está lista para descargar en el canal {channel}.',
+    'La versión {version} está lista para descargar en el canal {channel}. Abre los detalles para revisar los cambios y actualizar.',
   'update.toast.downloadedTitle': 'Actualización lista',
   'update.toast.downloadedDescription':
     'Actualización lista. {percent}% completado. Instala ahora o al cerrar la aplicación.',
@@ -437,6 +437,7 @@ export const esMessages: TranslationCatalog = {
   'update.channel.beta': 'Beta',
   'update.channel.stable': 'Estable',
   'update.button.download': 'Descargar',
+  'update.button.updateNow': 'Actualizar ahora',
   'update.button.details': 'Detalles',
   'update.button.installNow': 'Instalar ahora',
   'update.button.installLater': 'Instalar después',
@@ -461,6 +462,10 @@ export const esMessages: TranslationCatalog = {
   'update.modal.installAction': 'Instalar ahora',
   'update.modal.installLaterAction': 'Instalar después (al cerrar)',
   'update.modal.laterAction': 'Más tarde',
+  'update.modal.updateNow': 'Actualizar ahora',
+  'update.modal.downloading': 'Descargando actualización… {percent}%',
+  'update.modal.restartToUpdate': 'Reiniciar e instalar',
+  'update.modal.retryUpdate': 'Intentar de nuevo',
   'dropzone.invalidImageAlert': 'Sube un archivo de imagen válido (PNG/JPG).',
   'dropzone.clickOrDrag': 'Haz clic o arrastra la imagen aquí',
   'dropzone.supports': 'Compatible con PNG y JPG',

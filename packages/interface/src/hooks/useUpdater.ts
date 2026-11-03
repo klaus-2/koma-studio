@@ -5,6 +5,8 @@ import { fetchWithTimeoutAndRetry } from "../utils/http";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
 
+import { useInstallerUpdaterBridge } from "./useInstallerUpdaterBridge";
+import type { IUpdaterBridge } from "@shared/desktop-api";
 import type {
   UpdaterChannel,
   UpdaterProgress,
@@ -14,6 +16,13 @@ import type {
 
 const GITHUB_OWNER = "klaus-2";
 const GITHUB_REPO = "koma-studio";
+
+const UPDATER_BRIDGE_UNAVAILABLE = "Installer updater bridge is unavailable.";
+
+const installFailureMessage = (error: unknown): string =>
+  error instanceof Error
+    ? `Failed to install the update: ${error.message}`
+    : "Failed to install the update.";
 
 const CHANNEL_STORAGE_KEY = "updater-channel";
 const CHANNEL_STORAGE_EXPLICIT_KEY = "updater-channel-explicit";
@@ -220,9 +229,11 @@ export interface UseUpdaterApi {
   channel: UpdaterChannel;
   provider: "github" | "generic";
   autoInstallOnQuit: boolean;
+  autoInstallSupported: boolean;
   error: string | null;
   checkForUpdates: () => Promise<void>;
   downloadUpdate: () => Promise<void>;
+  openReleasePage: () => Promise<void>;
   installUpdate: () => Promise<void>;
   rollbackUpdate: () => Promise<void>;
   postpone: () => Promise<void>;
@@ -246,27 +257,63 @@ const useProvideUpdater = (): UseUpdaterApi => {
     dispatch(patch);
   }, []);
 
-  const runGithubCheck = useCallback(async (channelOverride?: UpdaterChannel): Promise<void> => {
+  const installStagedUpdate = useCallback((bridge: IUpdaterBridge): void => {
+    void bridge.install().catch((error: unknown) => {
+      patchState({
+        status: "error",
+        error: installFailureMessage(error),
+      });
+    });
+  }, [patchState]);
+
+  const statusRef = useRef<UpdaterStatus>(state.status);
+
+  useEffect(() => {
+    statusRef.current = state.status;
+  }, [state.status]);
+
+  const { autoInstallSupported, updaterBridgeRef } = useInstallerUpdaterBridge({
+    patchState,
+    statusRef,
+    installStagedUpdate,
+  });
+
+  const runGithubCheck = useCallback(async (
+    channelOverride?: UpdaterChannel,
+    options?: { background?: boolean },
+  ): Promise<void> => {
     const installedVersion = state.currentVersion;
     if (!installedVersion) {
       return;
     }
 
+    const lifecycleActive =
+      statusRef.current === "downloading" || statusRef.current === "downloaded";
+    if (lifecycleActive && options?.background === true) {
+      return;
+    }
+
     const effectiveChannel = channelOverride ?? state.channel;
 
-    patchState({
-      status: "checking",
-      provider: "github",
-      error: null,
-      progress: null,
-      checkedAt: Date.now(),
-    });
+    if (!lifecycleActive) {
+      patchState({
+        status: "checking",
+        provider: "github",
+        error: null,
+        progress: null,
+        checkedAt: Date.now(),
+      });
+    }
 
     try {
       const release = await fetchGithubRelease(effectiveChannel);
       githubBackoffAttemptsRef.current = 0;
 
       if (!release) {
+        if (lifecycleActive) {
+          patchState({ checkedAt: Date.now() });
+          return;
+        }
         patchState({
           status: "not-available",
           newVersion: null,
@@ -298,6 +345,14 @@ const useProvideUpdater = (): UseUpdaterApi => {
         (manualChannelOverrideActive && normalizeVersion(latestVersion) !== normalizeVersion(installedVersion));
 
       if (shouldOfferRelease) {
+        if (lifecycleActive) {
+          patchState({
+            newVersion: latestVersion,
+            releaseNotes: typeof release.body === "string" ? release.body : null,
+            checkedAt: Date.now(),
+          });
+          return;
+        }
         patchState({
           status: "available",
           newVersion: latestVersion,
@@ -308,6 +363,11 @@ const useProvideUpdater = (): UseUpdaterApi => {
           error: null,
           checkedAt: Date.now(),
         });
+        return;
+      }
+
+      if (lifecycleActive) {
+        patchState({ checkedAt: Date.now() });
         return;
       }
 
@@ -327,6 +387,10 @@ const useProvideUpdater = (): UseUpdaterApi => {
       githubBackoffAttemptsRef.current = rateLimited
         ? Math.min(githubBackoffAttemptsRef.current + 1, MAX_BACKOFF_ATTEMPTS)
         : 0;
+
+      if (lifecycleActive) {
+        return;
+      }
 
       patchState({
         status: "error",
@@ -352,7 +416,7 @@ const useProvideUpdater = (): UseUpdaterApi => {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const tick = (): void => {
-      void runGithubCheck().finally(() => {
+      void runGithubCheck(undefined, { background: true }).finally(() => {
         if (cancelled) return;
         const attempts = githubBackoffAttemptsRef.current;
         const delay = Math.min(PERIODIC_CHECK_MS * 2 ** attempts, PERIODIC_CHECK_MS * 8);
@@ -380,7 +444,7 @@ const useProvideUpdater = (): UseUpdaterApi => {
         return;
       }
 
-      void runGithubCheck();
+      void runGithubCheck(undefined, { background: true });
     };
 
     window.addEventListener("focus", handleForegroundCheck);
@@ -391,6 +455,33 @@ const useProvideUpdater = (): UseUpdaterApi => {
       document.removeEventListener("visibilitychange", handleForegroundCheck);
     };
   }, [runGithubCheck]);
+
+  const openReleasePage = useCallback(async (): Promise<void> => {
+    const releaseUrl =
+      releasePageUrlRef.current ??
+      buildReleasePageUrl(state.channel, state.newVersion);
+
+    try {
+      if (typeof window !== "undefined" && desktopBridge.desktop?.openExternal) {
+        await desktopBridge.desktop.openExternal(releaseUrl);
+      } else if (typeof window !== "undefined") {
+        const popup = window.open(releaseUrl, "_blank", "noopener,noreferrer");
+        if (!popup) {
+          throw new Error("Popup bloqueado pelo navegador.");
+        }
+      } else {
+        throw new Error("This environment does not support opening external links.");
+      }
+    } catch (error) {
+      patchState({
+        status: "error",
+        error:
+          error instanceof Error
+            ? `Failed to open the release page: ${error.message}`
+            : "Failed to open the release page.",
+      });
+    }
+  }, [patchState, state.channel, state.newVersion]);
 
   const api = useMemo<UseUpdaterApi>(() => ({
     status: state.status,
@@ -406,37 +497,64 @@ const useProvideUpdater = (): UseUpdaterApi => {
     channel: state.channel,
     provider: state.provider,
     autoInstallOnQuit: state.autoInstallOnQuit,
+    autoInstallSupported,
     error: state.error,
     checkForUpdates: async () => {
       await runGithubCheck();
     },
     downloadUpdate: async () => {
-      const releaseUrl =
-        releasePageUrlRef.current ??
-        buildReleasePageUrl(state.channel, state.newVersion);
-
-      try {
-        if (typeof window !== "undefined" && desktopBridge.desktop?.openExternal) {
-          await desktopBridge.desktop.openExternal(releaseUrl);
-        } else if (typeof window !== "undefined") {
-          const popup = window.open(releaseUrl, "_blank", "noopener,noreferrer");
-          if (!popup) {
-            throw new Error("Popup bloqueado pelo navegador.");
-          }
-        } else {
-          throw new Error("This environment does not support opening external links.");
+      if (autoInstallSupported) {
+        const bridge = updaterBridgeRef.current;
+        if (!bridge) {
+          patchState({
+            status: "error",
+            error: UPDATER_BRIDGE_UNAVAILABLE,
+          });
+          return;
         }
-      } catch (error) {
+        if (statusRef.current === "downloading") {
+          return;
+        }
         patchState({
-          status: "error",
-          error:
-            error instanceof Error
-              ? `Failed to open the release page: ${error.message}`
-              : "Failed to open the release page.",
+          status: "downloading",
+          progress: ZERO_PROGRESS,
+          error: null,
         });
+        try {
+          await bridge.download({ channel: state.channel });
+        } catch (error) {
+          patchState({
+            status: "error",
+            error: error instanceof Error
+              ? `Failed to download the update: ${error.message}`
+              : "Failed to download the update.",
+          });
+        }
+        return;
       }
+      await openReleasePage();
     },
+    openReleasePage,
     installUpdate: async () => {
+      if (autoInstallSupported) {
+        const bridge = updaterBridgeRef.current;
+        if (!bridge) {
+          patchState({
+            status: "error",
+            error: UPDATER_BRIDGE_UNAVAILABLE,
+          });
+          return;
+        }
+        try {
+          await bridge.install();
+        } catch (error) {
+          patchState({
+            status: "error",
+            error: installFailureMessage(error),
+          });
+        }
+        return;
+      }
       patchState({
         status: "error",
         error: "Source builds update through the sync pipeline, not installer downloads.",
@@ -469,6 +587,8 @@ const useProvideUpdater = (): UseUpdaterApi => {
       });
     },
   }), [
+    autoInstallSupported,
+    openReleasePage,
     patchState,
     runGithubCheck,
     state.autoInstallOnQuit,

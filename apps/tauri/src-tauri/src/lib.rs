@@ -98,11 +98,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(runtime::profiles::MiniBackendRuntimeStore::default())
         .manage(sidecar::recovery::MiniBackendSidecarStore::default())
         .manage(state::ModelDownloadStore::default())
         .manage(commands::api::auth::DesktopAuthStore::default())
         .manage(commands::logging::SessionLogSink::default())
+        .manage(commands::desktop_updater::InstallerUpdaterStore::default())
         .manage(
             // A failed spawn (thread exhaustion) is unrecoverable for presence:
             // fail loudly at startup instead of managing a dead handle.
@@ -124,8 +126,10 @@ pub fn run() {
             commands::desktop::get_local_api_session,
             commands::desktop::open_external,
             commands::desktop::open_community_link,
-            commands::logging::session_log,
-            runtime::profiles::list_mini_backend_runtime_artifacts,
+            commands::desktop_updater::get_updater_state,
+            commands::desktop_updater::download_updater,
+            commands::desktop_updater::install_updater,
+            commands::logging::session_log,            runtime::profiles::list_mini_backend_runtime_artifacts,
             runtime::profiles::install_recommended_mini_backend_runtime,
             runtime::profiles::install_mini_backend_runtime_profile,
             commands::models::list_installed,

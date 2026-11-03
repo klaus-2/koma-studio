@@ -436,7 +436,7 @@ export const deMessages: TranslationCatalog = {
   'session.stayConnected': 'Verbunden bleiben',
   'update.toast.availableTitle': 'Neues Update verfügbar',
   'update.toast.availableDescription':
-    'Version {version} steht auf dem Kanal {channel} zum Download bereit.',
+    'Version {version} steht auf dem Kanal {channel} zum Download bereit. Öffne die Details, um die Änderungen zu sehen und zu aktualisieren.',
   'update.toast.downloadedTitle': 'Update bereit',
   'update.toast.downloadedDescription':
     'Update bereit. {percent}% abgeschlossen. Jetzt installieren oder beim Schließen der App.',
@@ -446,6 +446,7 @@ export const deMessages: TranslationCatalog = {
   'update.channel.beta': 'Beta',
   'update.channel.stable': 'Stabil',
   'update.button.download': 'Herunterladen',
+  'update.button.updateNow': 'Jetzt aktualisieren',
   'update.button.details': 'Details',
   'update.button.installNow': 'Jetzt installieren',
   'update.button.installLater': 'Später installieren',
@@ -470,6 +471,10 @@ export const deMessages: TranslationCatalog = {
   'update.modal.installAction': 'Jetzt installieren',
   'update.modal.installLaterAction': 'Später installieren (beim Schließen)',
   'update.modal.laterAction': 'Später',
+  'update.modal.updateNow': 'Jetzt aktualisieren',
+  'update.modal.downloading': 'Update wird geladen… {percent} %',
+  'update.modal.restartToUpdate': 'Neu starten & installieren',
+  'update.modal.retryUpdate': 'Erneut versuchen',
   'dropzone.invalidImageAlert':
     'Bitte lade eine gültige Bilddatei hoch (PNG/JPG).',
   'dropzone.clickOrDrag': 'Klicke oder ziehe das Bild hierher',

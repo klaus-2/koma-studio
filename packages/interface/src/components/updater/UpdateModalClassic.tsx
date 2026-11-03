@@ -1,6 +1,9 @@
 import { useI18n } from "../../i18n";
+import { formatBytesI18n } from "../../utils/formatBytes";
+import { describeUpdaterAction } from "./update-action";
 import SyncPanelClassic from "./SyncPanelClassic";
 import { LazyReleaseNotesMarkdown } from "./LazyReleaseNotesMarkdown";
+import type { UseUpdaterApi } from "../../hooks/useUpdater";
 
 interface UpdateModalProps {
   open: boolean;
@@ -8,7 +11,7 @@ interface UpdateModalProps {
   newVersion: string | null;
   releaseNotes: string | null;
   onClose: () => void;
-  onOpenReleasePage: () => Promise<void>;
+  updater: UseUpdaterApi;
 }
 
 export const UpdateModalClassic = ({
@@ -17,10 +20,96 @@ export const UpdateModalClassic = ({
   newVersion,
   releaseNotes,
   onClose,
-  onOpenReleasePage,
+  updater,
 }: UpdateModalProps) => {
   const { t } = useI18n();
   if (!open) return null;
+
+  const formatBytes = (value: number): string => formatBytesI18n(value, t);
+  const action = describeUpdaterAction(updater);
+
+  const renderUpdateAction = () => {
+    switch (action.kind) {
+      case "download-progress":
+        return (
+          <div className="koma-modal__progress" role="status">
+            <div className="koma-modal__progress-head">
+              <span className="koma-modal__progress-title">
+                {t("update.modal.downloading", { percent: Math.round(action.percent) })}
+              </span>
+              <span className="koma-modal__progress-percent">{Math.round(action.percent)}%</span>
+            </div>
+            <div className="koma-progress-bar" aria-hidden="true">
+              <div
+                className="koma-progress-bar__fill"
+                style={{ width: `${action.percent}%` }}
+              />
+            </div>
+            <p className="koma-modal__progress-meta">
+              <span>{formatBytes(action.transferred)}</span>
+              <span>{formatBytes(action.total)}</span>
+            </p>
+          </div>
+        );
+      case "update-now":
+        return (
+          <button
+            type="button"
+            onClick={() => void updater.downloadUpdate()}
+            className="auth-submit"
+          >
+            {t("update.modal.updateNow")}
+          </button>
+        );
+      case "restart-install":
+        return (
+          <button
+            type="button"
+            onClick={() => void updater.installUpdate()}
+            className="auth-submit"
+          >
+            {t("update.modal.restartToUpdate")}
+          </button>
+        );
+      case "update-error":
+        return (
+          <>
+            <p
+              style={{ margin: 0, width: "100%", fontSize: 12, opacity: 0.75 }}
+              role="alert"
+            >
+              {action.message ?? t("update.modal.retryUpdate")}
+            </p>
+            <button
+              type="button"
+              onClick={() => void updater.downloadUpdate()}
+              className="auth-submit"
+            >
+              {t("update.modal.retryUpdate")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void updater.openReleasePage()}
+              className="auth-submit auth-submit--outline"
+            >
+              {t("update.modal.openReleasePage")}
+            </button>
+          </>
+        );
+      case "release-page":
+        return (
+          <button
+            type="button"
+            onClick={() => void updater.openReleasePage()}
+            className="auth-submit auth-submit--outline"
+          >
+            {t("update.modal.openReleasePage")}
+          </button>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="koma-modal-backdrop" onClick={onClose}>
@@ -85,13 +174,7 @@ export const UpdateModalClassic = ({
 
         {/* Actions */}
         <div className="koma-modal__actions">
-          <button
-            type="button"
-            onClick={() => void onOpenReleasePage()}
-            className="auth-submit auth-submit--outline"
-          >
-            {t("update.modal.openReleasePage")}
-          </button>
+          {renderUpdateAction()}
           <button
             type="button"
             onClick={onClose}

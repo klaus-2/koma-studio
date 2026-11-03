@@ -21,11 +21,15 @@
 
 import { execSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { findProfile } from "./lib/hardware-profiles.mjs";
+import {
+  hasExportedSigningKey,
+  resolveLocalSigningKeyPath,
+  updaterSigningKeyPath,
+} from "./lib/tauri-signing.mjs";
 import {
   PROFILE_ENV_VAR,
   resolveHardwareProfile,
@@ -398,6 +402,20 @@ const resolveTauriEnv = () => {
   };
   if (shouldSkipWindowsSigning()) {
     env.KOMA_CODESIGN_SKIP = "1";
+  }
+
+  if (!hasExportedSigningKey()) {
+    const keyPath = resolveLocalSigningKeyPath();
+    if (keyPath) {
+      env.TAURI_SIGNING_PRIVATE_KEY_PATH = keyPath;
+      console.log(`[hardened] signing updater artifacts with ${keyPath}`);
+    } else {
+      console.error(
+        `[hardened] updater signing key not found at ${updaterSigningKeyPath()}; ` +
+          "tauri build will refuse to emit updater artifacts (export " +
+          "TAURI_SIGNING_PRIVATE_KEY(_PATH) or run `bunx tauri signer generate`)",
+      );
+    }
   }
 
   const cargoTargetDir = resolveCargoTargetDir();

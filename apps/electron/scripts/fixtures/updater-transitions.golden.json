@@ -1,0 +1,188 @@
+{
+  "scenarios": [
+    {
+      "name": "checking clears progress, error and downloadedAt",
+      "initialVersion": "1.3.1",
+      "channel": "stable",
+      "preTransitions": [
+        { "type": "progress", "progress": { "percent": 80, "transferred": 800, "total": 1000, "speed": 0 } },
+        { "type": "error", "message": "boom" }
+      ],
+      "transition": { "type": "checking" },
+      "expectedState": {
+        "status": "checking",
+        "currentVersion": "1.3.1",
+        "newVersion": null,
+        "mandatory": false,
+        "blocking": false,
+        "blockingReason": null,
+        "releaseNotes": null,
+        "channel": "stable",
+        "provider": "github",
+        "autoInstallOnQuit": true,
+        "allowPrerelease": false,
+        "progress": null,
+        "checkedAt": null,
+        "downloadedAt": null,
+        "error": null
+      }
+    },
+    {
+      "name": "available sets availability and clears transient fields",
+      "initialVersion": "1.3.1",
+      "channel": "stable",
+      "preTransitions": [
+        { "type": "progress", "progress": { "percent": 80, "transferred": 800, "total": 1000, "speed": 0 } },
+        { "type": "error", "message": "boom" }
+      ],
+      "transition": { "type": "available", "version": "1.4.0", "releaseNotes": "notes", "checkedAt": 500 },
+      "expectedState": {
+        "status": "available",
+        "currentVersion": "1.3.1",
+        "newVersion": "1.4.0",
+        "mandatory": false,
+        "blocking": false,
+        "blockingReason": null,
+        "releaseNotes": "notes",
+        "channel": "stable",
+        "provider": "github",
+        "autoInstallOnQuit": true,
+        "allowPrerelease": false,
+        "progress": null,
+        "checkedAt": 500,
+        "downloadedAt": null,
+        "error": null
+      }
+    },
+    {
+      "name": "progress keeps availability fields",
+      "initialVersion": "1.3.1",
+      "channel": "stable",
+      "preTransitions": [
+        { "type": "available", "version": "1.4.0", "releaseNotes": "notes", "checkedAt": 500 }
+      ],
+      "transition": { "type": "progress", "progress": { "percent": 42.5, "transferred": 10, "total": 24, "speed": 3 } },
+      "expectedState": {
+        "status": "downloading",
+        "currentVersion": "1.3.1",
+        "newVersion": "1.4.0",
+        "mandatory": false,
+        "blocking": false,
+        "blockingReason": null,
+        "releaseNotes": "notes",
+        "channel": "stable",
+        "provider": "github",
+        "autoInstallOnQuit": true,
+        "allowPrerelease": false,
+        "progress": { "percent": 42.5, "transferred": 10, "total": 24, "speed": 3 },
+        "checkedAt": 500,
+        "downloadedAt": null,
+        "error": null
+      }
+    },
+    {
+      "name": "downloaded keeps the last progress payload so the bar renders 100%",
+      "initialVersion": "1.3.1",
+      "channel": "stable",
+      "preTransitions": [
+        { "type": "available", "version": "1.4.0", "releaseNotes": "notes", "checkedAt": 500 },
+        { "type": "progress", "progress": { "percent": 100, "transferred": 1000, "total": 1000, "speed": 0 } }
+      ],
+      "transition": { "type": "downloaded", "downloadedAt": 900 },
+      "expectedState": {
+        "status": "downloaded",
+        "currentVersion": "1.3.1",
+        "newVersion": "1.4.0",
+        "mandatory": false,
+        "blocking": false,
+        "blockingReason": null,
+        "releaseNotes": "notes",
+        "channel": "stable",
+        "provider": "github",
+        "autoInstallOnQuit": true,
+        "allowPrerelease": false,
+        "progress": { "percent": 100, "transferred": 1000, "total": 1000, "speed": 0 },
+        "checkedAt": 500,
+        "downloadedAt": 900,
+        "error": null
+      }
+    },
+    {
+      "name": "error keeps availability fields and progress",
+      "initialVersion": "1.3.1",
+      "channel": "stable",
+      "preTransitions": [
+        { "type": "available", "version": "1.4.0", "releaseNotes": "notes", "checkedAt": 500 },
+        { "type": "progress", "progress": { "percent": 50, "transferred": 500, "total": 1000, "speed": 0 } }
+      ],
+      "transition": { "type": "error", "message": "boom" },
+      "expectedState": {
+        "status": "error",
+        "currentVersion": "1.3.1",
+        "newVersion": "1.4.0",
+        "mandatory": false,
+        "blocking": false,
+        "blockingReason": null,
+        "releaseNotes": "notes",
+        "channel": "stable",
+        "provider": "github",
+        "autoInstallOnQuit": true,
+        "allowPrerelease": false,
+        "progress": { "percent": 50, "transferred": 500, "total": 1000, "speed": 0 },
+        "checkedAt": 500,
+        "downloadedAt": null,
+        "error": "boom"
+      }
+    },
+    {
+      "name": "checking clears a stale error",
+      "initialVersion": "1.3.1",
+      "channel": "stable",
+      "preTransitions": [
+        { "type": "error", "message": "boom" }
+      ],
+      "transition": { "type": "checking" },
+      "expectedState": {
+        "status": "checking",
+        "currentVersion": "1.3.1",
+        "newVersion": null,
+        "mandatory": false,
+        "blocking": false,
+        "blockingReason": null,
+        "releaseNotes": null,
+        "channel": "stable",
+        "provider": "github",
+        "autoInstallOnQuit": true,
+        "allowPrerelease": false,
+        "progress": null,
+        "checkedAt": null,
+        "downloadedAt": null,
+        "error": null
+      }
+    },
+    {
+      "name": "beta channel forces allowPrerelease and preserves currentVersion",
+      "initialVersion": "1.3.1",
+      "channel": "beta",
+      "preTransitions": [],
+      "transition": { "type": "checking" },
+      "expectedState": {
+        "status": "checking",
+        "currentVersion": "1.3.1",
+        "newVersion": null,
+        "mandatory": false,
+        "blocking": false,
+        "blockingReason": null,
+        "releaseNotes": null,
+        "channel": "beta",
+        "provider": "github",
+        "autoInstallOnQuit": true,
+        "allowPrerelease": true,
+        "progress": null,
+        "checkedAt": null,
+        "downloadedAt": null,
+        "error": null
+      }
+    }
+  ]
+}

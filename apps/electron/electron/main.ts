@@ -21,6 +21,7 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import { discordRPC } from "./discord-rpc.ts";
 import { registerUpdaterSyncService } from "./updater/sync-service";
+import { registerInstallerUpdaterService } from "./updater/installer-updater.ts";
 import { resolveDesktopShortcutAction } from "./app-shortcuts.ts";
 import {
   debugDesktopWarn,
@@ -205,8 +206,9 @@ let localApiUrl = normalizeLoopbackUrl(
 );
 // Canonical runtime feed is GitHub Releases; env keys keep overriding it for
 // channels/mirrors (VPS espelho) e testes locais.
-const DEFAULT_RUNTIME_ARTIFACTS_URL =
-  "https://github.com/klaus-2/koma-studio/releases/latest/download/";
+const DEFAULT_RUNTIME_ARTIFACTS_URL = app.isPackaged
+  ? `https://github.com/klaus-2/koma-studio/releases/download/v${app.getVersion()}/`
+  : "https://github.com/klaus-2/koma-studio/releases/latest/download/";
 const miniBackendArtifactsUrl =
   resolveDesktopEnvValue("MINI_BACKEND_ARTIFACTS_URL")
   ?? resolveDesktopEnvValue("UPDATE_SERVER_URL")
@@ -613,6 +615,7 @@ const createWindow = async (): Promise<void> => {
   setupDesktopClientHeaderInjection(mainWindow);
   setupNavigationHardening(mainWindow);
   registerUpdaterSyncService();
+  registerInstallerUpdaterService();
 
   if (process.env.VITE_DEV_SERVER_URL) {
     const devServerUrl = process.env.VITE_DEV_SERVER_URL;

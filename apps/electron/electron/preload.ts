@@ -7,12 +7,19 @@ import {
 } from "../../../packages/types/src/updaterSync.ts";
 import {
   isModelDownloadErrorCode,
+  parseUpdaterEventPayload,
+  parseUpdaterStatusPayload,
   type MiniBackendRuntimeListener,
   type MiniBackendRuntimeStatePayload,
   type MiniBackendRuntimeStatus,
   type ModelManagerEvent,
   type ModelManagerListener,
+  type UpdaterChannel,
+  type UpdaterEventPayload,
+  type UpdaterListener,
+  type UpdaterStatusPayload,
 } from "../../../packages/types/src/desktop-events.ts";
+import { desktopCommandChannels } from "../../../packages/types/src/desktop-api.ts";
 
 const MINI_BACKEND_RUNTIME_STATUSES: ReadonlySet<string> = new Set<MiniBackendRuntimeStatus>([
   "idle",
@@ -720,6 +727,52 @@ contextBridge.exposeInMainWorld("updaterSync", {
     syncListeners.add(listener);
     return () => {
       syncListeners.delete(listener);
+    };
+  },
+});
+
+const updaterListeners = new Set<UpdaterListener>();
+
+ipcRenderer.on("updater:event", (_event, rawPayload: unknown) => {
+  const payload: UpdaterEventPayload | null = parseUpdaterEventPayload(rawPayload);
+  if (!payload) {
+    console.warn("[updater] dropped malformed updater:event payload");
+    return;
+  }
+
+  updaterListeners.forEach((listener) => {
+    try {
+      listener(payload);
+    } catch {
+      // Listener failures should not break preload event dispatch.
+    }
+  });
+});
+
+const parseUpdaterChannel = (value: unknown): UpdaterChannel => {
+  if (value === "stable" || value === "beta") {
+    return value;
+  }
+  throw new Error("Invalid update channel.");
+};
+
+contextBridge.exposeInMainWorld("updater", {
+  getState: async (): Promise<UpdaterStatusPayload | null> => {
+    const rawState = await invokeSecureDesktopApi(desktopCommandChannels.updater.getState);
+    return parseUpdaterStatusPayload(rawState);
+  },
+  download: async (payload: { channel: UpdaterChannel }): Promise<void> => {
+    await invokeSecureDesktopApi(desktopCommandChannels.updater.download, {
+      channel: parseUpdaterChannel(payload.channel),
+    });
+  },
+  install: async (): Promise<void> => {
+    await invokeSecureDesktopApi(desktopCommandChannels.updater.install);
+  },
+  on: (listener: UpdaterListener): (() => void) => {
+    updaterListeners.add(listener);
+    return () => {
+      updaterListeners.delete(listener);
     };
   },
 });

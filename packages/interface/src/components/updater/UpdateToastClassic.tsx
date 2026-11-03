@@ -127,7 +127,7 @@ export const UpdateToastClassic = () => {
               onClick={() => setModalOpen(true)}
               className="koma-toast__btn koma-toast__btn--primary"
             >
-              {t("update.button.syncNow")}
+              {t("update.button.updateNow")}
             </button>
             <button
               type="button"
@@ -146,7 +146,7 @@ export const UpdateToastClassic = () => {
         newVersion={updater.newVersion}
         releaseNotes={updater.releaseNotes}
         onClose={() => setModalOpen(false)}
-        onOpenReleasePage={updater.downloadUpdate}
+        updater={updater}
       />
     </>
   );

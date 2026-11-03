@@ -130,7 +130,7 @@ export const UpdateToastNoir = () => {
 
             <div className="mt-3 flex gap-2 border-t border-paper/8 pt-3">
               <button type="button" onClick={() => setModalOpen(true)} className={`${btnPrimary} flex-1`}>
-                {t("update.button.syncNow")}
+                {t("update.button.updateNow")}
               </button>
               <button type="button" onClick={() => setModalOpen(true)} className={btnGhost}>
                 {t("update.button.details")}
@@ -146,7 +146,7 @@ export const UpdateToastNoir = () => {
         newVersion={updater.newVersion}
         releaseNotes={updater.releaseNotes}
         onClose={() => setModalOpen(false)}
-        onOpenReleasePage={updater.downloadUpdate}
+        updater={updater}
       />
     </>
   );

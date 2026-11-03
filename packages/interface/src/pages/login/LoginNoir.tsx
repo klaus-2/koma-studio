@@ -4,6 +4,7 @@ import { Mail, Lock, KeyRound, ArrowRight } from "lucide-react";
 import { AuthShell } from "../../components/auth/AuthShell";
 import { Alert, Field, Submit } from "../../components/auth/noir/koma-ui";
 import type { UseUpdaterApi } from "../../hooks/useUpdater";
+import { describeUpdaterAction } from "../../components/updater/update-action";
 import { useI18n } from "../../i18n";
 
 export type LoginAuthFlow = "credentials" | "travel-token";
@@ -63,6 +64,7 @@ export const LoginNoir = ({
   onNavigateForgotPassword,
 }: LoginViewProps): ReactNode => {
   const { t } = useI18n();
+  const action = describeUpdaterAction(updater);
 
   return (
     <AuthShell
@@ -84,22 +86,45 @@ export const LoginNoir = ({
               })}
             </p>
             <div className="mt-3 flex flex-wrap gap-3">
-              {(updater.status === "available" || updater.status === "downloading") && (
+              {(action.kind === "update-now" ||
+                action.kind === "download-progress" ||
+                action.kind === "release-page") && (
                 <button
                   type="button"
                   onClick={() => void updater.downloadUpdate()}
                   className="btn-ghost"
-                  disabled={updater.status === "downloading"}
+                  disabled={action.kind === "download-progress"}
                 >
-                  {updater.status === "downloading"
+                  {action.kind === "download-progress"
                     ? t("login.warning.downloadingUpdate")
                     : t("login.warning.downloadUpdate")}
                 </button>
               )}
-              {updater.status === "downloaded" && (
+              {action.kind === "restart-install" && (
                 <button type="button" onClick={() => void updater.installUpdate()} className="btn-ghost">
                   {t("login.warning.installUpdateNow")}
                 </button>
+              )}
+              {action.kind === "update-error" && (
+                <>
+                  <p className="w-full font-mono text-[11px] text-paper/70" role="alert">
+                    {action.message ?? t("updater.mandatoryUpdate")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void updater.downloadUpdate()}
+                    className="btn-ghost"
+                  >
+                    {t("update.modal.retryUpdate")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void updater.openReleasePage()}
+                    className="btn-ghost"
+                  >
+                    {t("update.modal.openReleasePage")}
+                  </button>
+                </>
               )}
             </div>
           </Alert>
