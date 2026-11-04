@@ -59,6 +59,7 @@ from routers.inpainting import router as inpainting_router
 from routers.model_downloads import router as model_downloads_router
 from routers.model_install import router as model_install_router
 from pipelines.cache_manager import CacheManagerStats
+from pipelines.stage_store import close_stage_store
 from pipelines.translation_store import close_translation_store
 from routers.ocr import CACHE_MANAGER as OCR_CACHE_MANAGER
 from routers.ocr import router as ocr_router
@@ -442,6 +443,12 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
                 await asyncio.to_thread(close_translation_store)
             except Exception:  # noqa: BLE001 — shutdown must not raise
                 logger.warning("shutdown.translation_store_close_failed", exc_info=True)
+            # The persistent stage store follows the same doctrine: closed
+            # only here at shutdown, never by _clear_all_caches.
+            try:
+                await asyncio.to_thread(close_stage_store)
+            except Exception:  # noqa: BLE001 — shutdown must not raise
+                logger.warning("shutdown.stage_store_close_failed", exc_info=True)
             if tracemalloc.is_tracing():
                 tracemalloc.stop()
 

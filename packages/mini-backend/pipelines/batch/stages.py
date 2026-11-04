@@ -29,6 +29,17 @@ from pipelines.detection_seeds import (
 )
 from models.segmentation.base_segmenter import SegmentInputRegion
 from models.segmentation.factory import get_segmenter
+from pipelines.stage_store import (
+    StageStore,
+    build_clean_cache_key,
+    build_segment_cache_key,
+    fingerprint_clean_settings,
+    fingerprint_mask_regions,
+    fingerprint_seeds,
+    get_stage_store,
+    hash_image_array,
+    hash_image_bytes,
+)
 from pipelines.translation_stage import (
     CachedTranslationRequest,
     run_cached_translation,
@@ -261,15 +272,64 @@ def _mask_base64(result: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def _cached_segment_record(raw: Mapping[str, object]) -> SegmentRecord | None:
+    """Rebuild a SegmentRecord from a cached JSON entry through the same
+    normalize/int-casting path the fresh run uses. Malformed entries (a
+    corrupt row) become None so the caller treats the entry as a miss."""
+    bbox = normalize_bbox(raw.get("bbox"))
+    segment_id = optional_str(raw.get("id"))
+    detector_model_key = optional_str(raw.get("detector_model_key"))
+    ocr_model_key = optional_str(raw.get("ocr_model_key"))
+    translator_model_key = optional_str(raw.get("translator_model_key"))
+    segment_model_key = optional_str(raw.get("segment_model_key"))
+    if (
+        bbox is None
+        or segment_id is None
+        or detector_model_key is None
+        or ocr_model_key is None
+        or translator_model_key is None
+        or segment_model_key is None
+    ):
+        return None
+    return SegmentRecord(
+        id=segment_id,
+        bbox=list(bbox),
+        segment_boxes=[list(box) for box in normalize_boxes(raw.get("segment_boxes"))],
+        merged_boxes=[list(box) for box in normalize_boxes(raw.get("merged_boxes"))],
+        source=normalize_stage_source(raw.get("source")),
+        detector_model_key=detector_model_key,
+        ocr_model_key=ocr_model_key,
+        translator_model_key=translator_model_key,
+        segment_model_key=segment_model_key,
+        mask_base64=optional_str(raw.get("mask_base64")),
+    )
+
+
 async def run_segment_stage(
     *,
     image_bytes: bytes,
     has_gpu: bool,
     model_key: str | None,
     seeds: Sequence[SegmentSeed],
+    store: StageStore | None = None,
 ) -> StageOutput[SegmentRecord]:
     if not seeds:
         return StageOutput(model_used=model_key or "", regions=[])
+    resolved_store = store if store is not None else get_stage_store()
+    cache_key = build_segment_cache_key(
+        image_hash=hash_image_bytes(image_bytes),
+        model_key=model_key or "",
+        seeds_fingerprint=fingerprint_seeds(list(seeds)),
+    )
+    cached = await asyncio.to_thread(resolved_store.get_segment, cache_key)
+    if cached is not None:
+        records = [
+            record
+            for record in (_cached_segment_record(entry) for entry in cached.records)
+            if record is not None
+        ]
+        if records:
+            return StageOutput(model_used=cached.engine_key, regions=records)
     segmenter = get_segmenter(has_gpu=has_gpu, model_key=model_key)
     inputs = [
         SegmentInputRegion(
@@ -302,6 +362,13 @@ async def run_segment_stage(
         )
         for result in results
     ]
+    if records:
+        await asyncio.to_thread(
+            resolved_store.put_segment,
+            key=cache_key,
+            records=records,
+            engine_key=segmenter.key,
+        )
     return StageOutput(model_used=segmenter.key, regions=records)
 
 
@@ -375,6 +442,7 @@ async def run_clean_stage(
     settings: CleanSettings,
     regions_for_mask: Sequence[Mapping[str, object]],
     default_detection_model: str,
+    store: StageStore | None = None,
 ) -> CleanStageResult:
     rgb = cast(RGBArray, np.asarray(image, dtype=np.uint8))
     if rgb.ndim != 3 or rgb.shape[2] != 3:
@@ -390,8 +458,35 @@ async def run_clean_stage(
         png = await asyncio.to_thread(_encode_png, rgb)
         return CleanStageResult("no-op", png, settings.hd_strategy or "resize")
 
+    resolved_store = store if store is not None else get_stage_store()
+    cache_key = build_clean_cache_key(
+        image_hash=hash_image_array(rgb),
+        mask_fingerprint=fingerprint_mask_regions(mask_regions),
+        settings_fingerprint=fingerprint_clean_settings(
+            {
+                "model_key": settings.model_key,
+                "mask_dilation": settings.mask_dilation,
+                "hd_strategy": settings.hd_strategy,
+                "hd_strategy_resize_limit": settings.hd_strategy_resize_limit,
+                "hd_strategy_crop_margin": settings.hd_strategy_crop_margin,
+                "hd_strategy_crop_trigger_size": settings.hd_strategy_crop_trigger_size,
+            }
+        ),
+        default_detection_model=default_detection_model,
+    )
+    cached = await asyncio.to_thread(resolved_store.get_clean, cache_key)
+    if cached is not None:
+        return CleanStageResult(cached.model_used, cached.png, cached.hd_strategy)
+
     prepared = await asyncio.to_thread(_prepare_clean, rgb, mask_regions, settings)
     if isinstance(prepared, CleanStageResult):
+        await asyncio.to_thread(
+            resolved_store.put_clean,
+            key=cache_key,
+            png=prepared.png,
+            model_used=prepared.model_used,
+            hd_strategy=prepared.hd_strategy,
+        )
         return prepared
 
     inpainter = get_inpainter(
@@ -413,4 +508,11 @@ async def run_clean_stage(
             release_gpu_memory()
     png = await asyncio.to_thread(_encode_png, cast(RGBArray, inpainted))
     model_used = f"hybrid:{inpainter.key}" if prepared.hybrid else inpainter.key
+    await asyncio.to_thread(
+        resolved_store.put_clean,
+        key=cache_key,
+        png=png,
+        model_used=model_used,
+        hd_strategy=prepared.hd_strategy,
+    )
     return CleanStageResult(model_used, png, prepared.hd_strategy)
