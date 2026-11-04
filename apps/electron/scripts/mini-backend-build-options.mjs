@@ -73,8 +73,6 @@ export const ONNX_RUNTIME_VARIANTS = [
   "onnxruntime-rocm",
 ];
 
-// ponytail: cache only covers the default source dir; hardened/artifact
-// pipelines override MINI_BACKEND_SOURCE_DIR and manage their own caching.
 export const shouldSkipMiniBackendBuild = ({
   forceRebuild,
   customSourceDir,

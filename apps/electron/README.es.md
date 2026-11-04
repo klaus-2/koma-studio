@@ -82,7 +82,7 @@ Este shell es una de las dos apps de escritorio del monorepo KŌMA Studio. La ot
 | Directorio | Contenido |
 | --- | --- |
 | `electron/` | Procesos main y preload: gestión de ventanas, IPC, supervisión del sidecar, updater |
-| `scripts/` | Herramientas de build, dev-stack, hardening y QA (Node ESM) |
+| `scripts/` | Herramientas de build, dev-stack y QA (Node ESM) |
 | `resources/` | Iconos, fuentes, plantillas, assets de ejemplo |
 | `tests/` | Suites `node --test` (marcadores del sidecar, comprobaciones de runtime) |
 
@@ -150,7 +150,6 @@ bun run mini:install-deps # fuerza una reinstalación completa del venv del side
 | `bun run build:all` | `build:mini` + `build:app` |
 | `bun run build:desktop` | Instaladores de escritorio |
 | `bun run build:release` | Artefactos de release |
-| `bun run build:hardened:{win,mac,linux}` | Pipeline de release endurecido |
 | `bun run release:{win,mac,linux}` | Build + publicación vía electron-builder |
 
 Tests del mini-backend:

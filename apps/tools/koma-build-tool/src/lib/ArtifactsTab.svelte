@@ -54,7 +54,7 @@
       <span class="font-accent italic text-crimson">artifacts</span>
     </h2>
     <p class="mt-1 font-mono text-xs text-paper-dim">
-      Hardened zips de cada acelerador + upload VPS.
+      Zips de cada acelerador + upload VPS.
     </p>
   </div>
 

@@ -30,11 +30,7 @@ export const DEFAULT_PROFILE = "cpu";
  * anyway because resolution must still succeed for it.
  */
 const BASE_REQUIREMENTS_FILE = "requirements.txt";
-/**
- * Platform keys used across this module. They match the `--platform` values
- * accepted by `scripts/build-hardened-release.mjs` rather than Node's
- * `process.platform`, because that is what an operator types.
- */
+/** Operator-facing platform keys, not Node's `process.platform` values. */
 export const PLATFORM_KEYS = Object.freeze(["win", "mac", "linux"]);
 /**
  * Translate a Node `process.platform` value into a platform key.

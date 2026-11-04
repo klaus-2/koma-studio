@@ -1,11 +1,6 @@
-/**
- * Desktop env / protected runtime-config resolution.
- */
 import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-
-import { decodeProtectedConfig } from "./runtime-config-decode.ts";
 
 let desktopIsDev = false;
 
@@ -57,11 +52,6 @@ const readRuntimeConfigFile = (filePath: string): Record<string, string> | null 
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object") {
       return null;
-    }
-
-    const maybeProtected = parsed as Record<string, unknown>;
-    if (maybeProtected._protected === true && typeof maybeProtected._d === "string") {
-      return decodeProtectedConfig(maybeProtected);
     }
 
     const normalized: Record<string, string> = {};

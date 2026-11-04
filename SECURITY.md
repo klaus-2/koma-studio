@@ -52,7 +52,7 @@ in the release notes and the advisory unless you prefer to stay anonymous.
 - The bundled `apps/auth-server/`
 - The update mechanism: manifest handling, signature verification, patch
   application
-- Build and hardening scripts under `apps/*/scripts/` and root `scripts/`
+- Build scripts under `apps/*/scripts/` and root `scripts/`
 - Handling of user secrets, in particular bring-your-own-key API credentials
 
 **Out of scope**

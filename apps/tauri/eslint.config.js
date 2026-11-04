@@ -19,7 +19,6 @@ export default [
       "src-tauri/target/**",
       "src-tauri/gen/**",
       "mini-backend/**",
-      "mini-backend-hardened/**",
       ".venv-mini/**",
       "tests/e2e/.artifacts/**",
       "tests/e2e/test-results/**",

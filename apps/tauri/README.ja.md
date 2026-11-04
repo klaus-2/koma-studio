@@ -70,7 +70,7 @@ ModelScope、GitHub リリース）から必要に応じてダウンロードさ
 | --- | --- |
 | `../../packages/interface/` | React アプリケーション（ページ、domains、hooks、i18n、stores） |
 | `src-tauri/` | Rust デスクトップシェル、IPC コマンド、サイドカー管理、アップデーター |
-| `scripts/` | ビルド・ハードニング・監査・QA ツール（Node ESM） |
+| `scripts/` | ビルド・監査・QA ツール（Node ESM） |
 | `resources/` | フォント、テンプレート、サンプルアセット |
 | `tests/e2e/` | Playwright シナリオと QA マトリクス |
 
@@ -138,7 +138,6 @@ KOMA_SKIP_MINI_BOOTSTRAP=1 bun run tauri:dev   # フロントエンドのみ、�
 | `bun run audit:lines` | 1 ファイル 1000 行の上限チェック |
 | `bun run audit:deps` | dependency-cruiser による境界検査 |
 | `bun run qa:e2e-plan` | E2E シナリオマトリクスの検証 |
-| `bun run build:hardened:{win,mac,linux}` | ハードニング済みリリースパイプライン |
 
 mini-backend のテスト:
 
@@ -149,29 +148,17 @@ python -m pytest tests -q
 
 ## リリースビルドとハードウェアプロファイル
 
-`bun run build:hardened:{win,mac,linux}` は最初に、どのハードウェアアクセラレーション
-プロファイルをビルドへ焼き込むかを尋ねます:
+デスクトップインストーラーは thin です: `bun run release:win`（および
+`release:linux` / `release:mac` 相当）は mini-backend サイドカーを埋め込まずに
+`tauri build` を実行します — サイドカーは後から runtime artifact としてインストール
+されます。
 
-```
-Select the hardware acceleration profile to bake into this build.
-The chosen profile's dependencies replace the CPU set entirely; the
-pipeline produces one mini-backend sidecar, not one per profile.
-
-  1) CPU only (default)
-     cpu — Portable build. Runs anywhere, no GPU drivers required.
-  2) NVIDIA CUDA
-     nvidia-cuda — onnxruntime-gpu + the CUDA 12 runtime. Turing (RTX 20xx) and newer.
-  ...
-
-Profile [1-6 or id, blank = cpu]:
-```
-
-メニュー番号かプロファイル id で答えてください。この選択によって `.venv-mini` に
-インストールされる `packages/mini-backend/requirements*.txt` が決まり、PyInstaller が凍結するのは
-その venv です。つまりプロファイルのネイティブライブラリ（CUDA の DLL、ROCm や OpenVINO の
-execution provider）が、パイプラインの出力する唯一の `mini-backend` サイドカーの**中に**
-コンパイルされます。プロファイルは CPU セットを**置き換える**ものであり、CPU 版のバイナリが
-別途生成されることはありません。
+サイドカーはハードウェアアクセラレーションプロファイルごとにビルドされます。プロファイル
+によって `.venv-mini` にプロビジョニングされる `packages/mini-backend/requirements*.txt`
+が決まり、PyInstaller が凍結するのはその venv です。つまりプロファイルのネイティブ
+ライブラリ（CUDA の DLL、ROCm や OpenVINO の execution provider）が、そのプロファイル用に
+出力される `mini-backend` サイドカーの**中に**コンパイルされます。プロファイルは CPU セット
+を**置き換える**ものであり、追加するものではありません。
 
 | プロファイル | Windows | macOS | Linux | インストール内容 |
 | --- | :-: | :-: | :-: | --- |
@@ -187,33 +174,26 @@ execution provider）が、パイプラインの出力する唯一の `mini-back
 ビルドは常に基本セット**に加えて**そのプロファイルのネイティブ wheel という構成になり、
 依存関係ツリーが分岐することはありません。
 
-### 非対話的なビルド
-
-CI にはプロンプトへ応答する端末がないため、パイプラインは stdin が TTY のときだけ
-尋ねます。質問を省略する方法は 2 つあります:
+### プロファイルの選択
 
 ```bash
-# Explicit flag
-node scripts/build-hardened-release.mjs --platform win --profile nvidia-cuda
+# 明示的なフラグ
+bun run mini:install-deps --profile nvidia-cuda
 
-# Or an environment variable
-KOMA_BUILD_PROFILE=nvidia-cuda bun run build:hardened:win
+# または環境変数
+KOMA_BUILD_PROFILE=nvidia-cuda bun run mini:install-deps
 ```
 
-優先順位は `--profile` › `$KOMA_BUILD_PROFILE` › プロンプト › `cpu` です。どちらも指定
-されていない非対話実行では `cpu` がビルドされ、無人ビルドの再現性が保たれます。対象
-プラットフォームに存在しないプロファイル（たとえば Windows での `amd-rocm`）を要求した
-場合は、黙って CPU にフォールバックせず即座に失敗します。
+優先順位は `--profile` › `$KOMA_BUILD_PROFILE` › `.env` の値 › `cpu` です。いずれも
+指定されていない実行では `cpu` がプロビジョニングされ、無人実行の再現性が保たれます。
 
-不一致のビルドを出荷できないようにするガードが 2 つあります:
+`.venv-mini/.koma-install-stamp.json` は、venv がプロビジョニングされた時点の
+プロファイルを記録します。CPU の venv の上に CUDA をビルドしようとすると、再利用では
+なく再インストールになります。
 
-- `.venv-mini/.koma-install-stamp.json` が、構築時のプロファイルを記録します。CPU の
-  venv の上に CUDA をビルドしようとすると、再利用ではなく再インストールになります。
-- パイプラインは凍結されたバイナリの隣に `mini-backend-profile.json` を書き出し、要求
-  されたプロファイルと一致しない場合は検証が失敗します。
-
-`bun run tauri:dev` は影響を受けません。開発時は常に CPU セットを使います。アクセラ
-レーション済みの venv で開発したい場合は、プロファイルを明示的に渡してください:
+`bun run tauri:dev` は影響を受けません。開発時はプロビジョニングされた venv をそのまま
+使います。アクセラレーション済みの venv で開発したい場合は、プロファイルを明示的に渡して
+ください:
 
 ```bash
 bun run mini:install-deps --profile nvidia-cuda

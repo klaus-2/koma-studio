@@ -199,7 +199,6 @@ test("readEnvFileValue returns what dev-stack.mjs's original regex returned", ()
 test("the build flows keep their own argv-first resolution", () => {
   for (const script of [
     "./build-mini-backend.mjs",
-    "../../tauri/scripts/build-hardened-release.mjs",
   ]) {
     const source = fs.readFileSync(new URL(script, import.meta.url), "utf-8");
     assert.equal(

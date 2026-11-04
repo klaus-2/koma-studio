@@ -161,7 +161,7 @@ const sizeOfTargets = (targets) => {
 };
 
 const findLatestReleaseDir = (root) =>
-  newestPath(listDirs(path.join(root, "release-desktop")).filter((dir) => path.basename(dir).startsWith("hardened-")));
+  newestPath(listDirs(path.join(root, "release-desktop")).filter((dir) => path.basename(dir).startsWith("build-")));
 
 const findV1Executable = () => {
   const releaseDir = findLatestReleaseDir(v1Root);

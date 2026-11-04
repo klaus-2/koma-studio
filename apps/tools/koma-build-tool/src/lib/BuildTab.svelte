@@ -35,10 +35,10 @@
   <div class="card p-5">
     <div class="flex items-center justify-between">
       <div>
-        <span class="font-display text-sm font-black uppercase tracking-wide text-paper">Hardened MSI</span>
+        <span class="font-display text-sm font-black uppercase tracking-wide text-paper">MSI</span>
         <div class="mt-1 flex items-center gap-2">
-          <span class="stamp">node</span>
-          <span class="font-mono text-[10px] text-paper-dim">build-hardened-release.mjs</span>
+          <span class="stamp">bun</span>
+          <span class="font-mono text-[10px] text-paper-dim">bun run release:win</span>
         </div>
       </div>
       <button class="btn-primary" disabled={busy} onclick={run}>

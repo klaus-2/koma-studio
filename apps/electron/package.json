@@ -54,14 +54,7 @@
     "release:dry": "node scripts/build-release.mjs",
     "release:win": "bun run build:all && electron-builder --win --publish always --config.forceCodeSigning=false",
     "release:linux": "bun run build:all && electron-builder --linux --publish always --config.forceCodeSigning=false",
-    "release:mac": "bun run build:all && electron-builder --mac --publish always --config.forceCodeSigning=false",
-    "harden:mini": "node scripts/ensure-mini-venv.mjs && node scripts/run-python-script.mjs scripts/harden-mini-backend.py",
-    "harden:electron": "node scripts/harden-electron.mjs",
-    "harden:frontend": "node scripts/harden-frontend.mjs",
-    "build:hardened": "node scripts/build-hardened-release.mjs",
-    "build:hardened:win": "node scripts/build-hardened-release.mjs --platform win",
-    "build:hardened:mac": "node scripts/build-hardened-release.mjs --platform mac",
-    "build:hardened:linux": "node scripts/build-hardened-release.mjs --platform linux"
+    "release:mac": "bun run build:all && electron-builder --mac --publish always --config.forceCodeSigning=false"
   },
   "dependencies": {
     "@koma/auth": "workspace:*",

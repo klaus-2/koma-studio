@@ -80,8 +80,6 @@ reviews:
           keeps resolving to the app release.
         - Flag a publish order where manifests or `.sig` twins attach before every
           runtime part is on the release; clients cannot retry a 404.
-        - Flag any build that enables hardening. This repository is public; installers
-          and runtime profiles use the normal build path.
         - The ci.yml jobs install with `bun install --frozen-lockfile`
           (runtime-artifacts.yml uses a plain `bun install`); a workspace version
           bump must update `bun.lock` in the same PR.
@@ -96,8 +94,6 @@ reviews:
         - Flag a change to artifact names, output layout or manifest fields consumed by
           `verify-release.mjs` or `publish-runtime-artifacts.mjs` without updating that
           consumer in the same PR.
-        - Never enable hardened builds (`MINI_BACKEND_ARTIFACTS_HARDENED` or
-          `build:hardened:*`); releases are clean builds.
 
     - path: "apps/tauri/scripts/**"
       instructions: |

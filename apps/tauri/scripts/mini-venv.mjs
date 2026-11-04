@@ -4,7 +4,7 @@
  *
  * Usage:
  *   node scripts/mini-venv.mjs                # create .venv-mini if missing
- *   node scripts/mini-venv.mjs --install      # also install requirements + hardening deps
+ *   node scripts/mini-venv.mjs --install
  *   node scripts/mini-venv.mjs --ensure       # no-op when already provisioned (auto-bootstrap)
  *   node scripts/mini-venv.mjs --check        # exit 0 = ready, 1 = needs provisioning,
  *                                             # 4 = provably unusable (what tauri:dev blocks on)
@@ -93,12 +93,6 @@ const withEnsure = process.argv.includes("--ensure");
 const withCheck = process.argv.includes("--check");
 const withRecreate = process.argv.includes("--recreate");
 
-/**
- * Read `--profile <id>`. The value may also arrive as $KOMA_BUILD_PROFILE,
- * which is how `build-hardened-release.mjs` forwards the operator's answer to
- * the interactive prompt without rewriting the `bun run mini:install-deps`
- * command line.
- */
 const readProfileArg = () => {
   const index = process.argv.indexOf("--profile");
   if (index >= 0) return process.argv[index + 1] ?? null;
@@ -592,8 +586,6 @@ const installRequirements = () => {
       pipCache,
       "-r",
       pipRequirementsPath,
-      "cython",
-      "pyarmor",
     ],
     "pip install",
   );

@@ -9,8 +9,6 @@ import {
 } from "./build-cache.mjs";
 
 const ELECTRON_TYPECHECK_CACHE_KEY = "typescript-electron";
-const HARDENED_MINI_BACKEND_CACHE_KEY = "mini-backend-hardened";
-const HARDENED_MINI_BACKEND_MARKER = ".hardened-build-meta.json";
 
 const resolveMiniBackendExecutablePath = (rootDir, distDir = path.join(rootDir, "mini-backend", "dist")) =>
   path.join(distDir, process.platform === "win32" ? "mini-backend.exe" : "mini-backend");
@@ -97,77 +95,4 @@ export const shouldSkipMiniBackendBuild = (rootDir) => {
     currentHash,
     cachedHash,
   };
-};
-
-export const getHardenedMiniBackendCacheDir = (rootDir) =>
-  getCacheDir(rootDir, HARDENED_MINI_BACKEND_CACHE_KEY);
-
-const getHardenedMiniBackendMarkerPath = (rootDir) =>
-  path.join(rootDir, "mini-backend", "dist", HARDENED_MINI_BACKEND_MARKER);
-
-export const resolveHardenedMiniBackendHash = (rootDir, options = {}) => {
-  const sourceHash = getMiniBackendSourceHash(rootDir);
-  return `${sourceHash}:${JSON.stringify({
-    skipCython: options.skipCython === true,
-    skipPyarmor: options.skipPyarmor === true,
-    platform: process.platform,
-    arch: process.arch,
-  })}`;
-};
-
-export const shouldSkipHardenedMiniBackendBuild = (rootDir, options = {}) => {
-  const executablePath = resolveMiniBackendExecutablePath(rootDir);
-  if (!fs.existsSync(executablePath)) {
-    return { skip: false, reason: "missing-executable" };
-  }
-
-  const cacheDir = getHardenedMiniBackendCacheDir(rootDir);
-  const currentHash = resolveHardenedMiniBackendHash(rootDir, options);
-  const cachedHash = readCachedHash(cacheDir);
-  const markerPath = getHardenedMiniBackendMarkerPath(rootDir);
-  let markerHash = null;
-  if (fs.existsSync(markerPath)) {
-    try {
-      const marker = JSON.parse(fs.readFileSync(markerPath, "utf-8"));
-      markerHash = typeof marker?.hash === "string" ? marker.hash : null;
-    } catch {
-      markerHash = null;
-    }
-  }
-
-  return {
-    skip: cachedHash === currentHash && markerHash === currentHash,
-    reason:
-      cachedHash === currentHash && markerHash === currentHash
-        ? "cache-hit"
-        : !cachedHash
-          ? "missing-cache"
-          : markerHash !== currentHash
-            ? "missing-marker"
-            : "cache-miss",
-    cacheDir,
-    currentHash,
-    cachedHash,
-    markerPath,
-    markerHash,
-  };
-};
-
-export const writeHardenedMiniBackendCache = (rootDir, options = {}) => {
-  const cacheDir = getHardenedMiniBackendCacheDir(rootDir);
-  const currentHash = resolveHardenedMiniBackendHash(rootDir, options);
-  writeCachedHash(cacheDir, currentHash);
-  const markerPath = getHardenedMiniBackendMarkerPath(rootDir);
-  fs.writeFileSync(
-    markerPath,
-    `${JSON.stringify({
-      hash: currentHash,
-      skipCython: options.skipCython === true,
-      skipPyarmor: options.skipPyarmor === true,
-      platform: process.platform,
-      arch: process.arch,
-    }, null, 2)}\n`,
-    "utf-8",
-  );
-  return { cacheDir, currentHash, markerPath };
 };

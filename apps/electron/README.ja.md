@@ -81,7 +81,7 @@ Tauri (v2) で、同じ React UI と同じ Python AI バックエンドを共有
 | ディレクトリ | 内容 |
 | --- | --- |
 | `electron/` | main と preload プロセス。ウィンドウ管理、IPC、サイドカー管理、アップデーター |
-| `scripts/` | ビルド・開発スタック・ハードニング・QA ツール（Node ESM） |
+| `scripts/` | ビルド・開発スタック・QA ツール（Node ESM） |
 | `resources/` | アイコン、フォント、テンプレート、サンプルアセット |
 | `tests/` | `node --test` スイート（サイドカーマーカー、ランタイムチェック） |
 
@@ -149,7 +149,6 @@ bun run mini:install-deps # サイドカーの venv を完全に再インスト�
 | `bun run build:all` | `build:mini` + `build:app` |
 | `bun run build:desktop` | デスクトップインストーラー |
 | `bun run build:release` | リリースアーティファクト |
-| `bun run build:hardened:{win,mac,linux}` | ハードニング済みリリースパイプライン |
 | `bun run release:{win,mac,linux}` | ビルド + electron-builder で公開 |
 
 mini-backend のテスト:

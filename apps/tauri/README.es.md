@@ -70,7 +70,7 @@ teclado, Discord Rich Presence y un actualizador incremental.
 | --- | --- |
 | `../../packages/interface/` | Aplicación React (páginas, domains, hooks, i18n, stores) |
 | `src-tauri/` | Shell Rust, comandos IPC, supervisión del sidecar, updater |
-| `scripts/` | Herramientas de build, hardening, auditoría y QA (Node ESM) |
+| `scripts/` | Herramientas de build, auditoría y QA (Node ESM) |
 | `resources/` | Fuentes, plantillas, assets de ejemplo |
 | `tests/e2e/` | Escenarios de Playwright y la matriz de QA |
 
@@ -138,7 +138,6 @@ KOMA_SKIP_MINI_BOOTSTRAP=1 bun run tauri:dev   # solo el frontend, sin el sideca
 | `bun run audit:lines` | Techo duro de 1000 líneas por archivo |
 | `bun run audit:deps` | Fronteras de dependency-cruiser |
 | `bun run qa:e2e-plan` | Valida la matriz de escenarios E2E |
-| `bun run build:hardened:{win,mac,linux}` | Pipeline de release endurecido |
 
 Tests del mini-backend:
 
@@ -149,29 +148,17 @@ python -m pytest tests -q
 
 ## Builds de release y perfiles de hardware
 
-`bun run build:hardened:{win,mac,linux}` empieza preguntando qué perfil de
-aceleración de hardware debe incrustarse en el build:
+Los instaladores de escritorio son thin: `bun run release:win` (y los
+equivalentes `release:linux` / `release:mac`) ejecutan `tauri build` sin un
+sidecar mini-backend incrustado — el sidecar se instala después como un runtime
+artifact.
 
-```
-Select the hardware acceleration profile to bake into this build.
-The chosen profile's dependencies replace the CPU set entirely; the
-pipeline produces one mini-backend sidecar, not one per profile.
-
-  1) CPU only (default)
-     cpu — Portable build. Runs anywhere, no GPU drivers required.
-  2) NVIDIA CUDA
-     nvidia-cuda — onnxruntime-gpu + the CUDA 12 runtime. Turing (RTX 20xx) and newer.
-  ...
-
-Profile [1-6 or id, blank = cpu]:
-```
-
-Responde con el número del menú o el id del perfil. La elección determina qué
-`packages/mini-backend/requirements*.txt` se instala en `.venv-mini`, y ese venv es el que
-PyInstaller congela, así que las bibliotecas nativas del perfil (las DLL de CUDA,
-el execution provider de ROCm o de OpenVINO) se compilan **dentro** del único
-sidecar `mini-backend` que emite el pipeline. El perfil **sustituye** al conjunto
-de CPU; no se produce ningún binario de CPU aparte.
+El sidecar se compila por perfil de aceleración de hardware. Un perfil determina
+qué `packages/mini-backend/requirements*.txt` se aprovisiona en `.venv-mini`, y ese venv
+es el que PyInstaller congela, así que las bibliotecas nativas del perfil (las DLL
+de CUDA, el execution provider de ROCm o de OpenVINO) se compilan **dentro** del
+sidecar `mini-backend` emitido para ese perfil. El perfil **sustituye** al
+conjunto de CPU en lugar de extenderlo.
 
 | Perfil | Windows | macOS | Linux | Instala |
 | --- | :-: | :-: | :-: | --- |
@@ -187,34 +174,27 @@ Todo archivo de perfil empieza con `-r requirements.txt`, así que un build
 acelerado es siempre el conjunto base **más** las wheels nativas de ese perfil,
 nunca un árbol de dependencias divergente.
 
-### Builds no interactivos
-
-CI no tiene terminal para responder a un prompt, así que el pipeline solo pregunta
-cuando stdin es un TTY. Evita la pregunta de dos maneras:
+### Elegir un perfil
 
 ```bash
-# Explicit flag
-node scripts/build-hardened-release.mjs --platform win --profile nvidia-cuda
+# Flag explícito
+bun run mini:install-deps --profile nvidia-cuda
 
-# Or an environment variable
-KOMA_BUILD_PROFILE=nvidia-cuda bun run build:hardened:win
+# O una variable de entorno
+KOMA_BUILD_PROFILE=nvidia-cuda bun run mini:install-deps
 ```
 
-La precedencia es `--profile` › `$KOMA_BUILD_PROFILE` › prompt › `cpu`. Una
-ejecución no interactiva sin ninguno de los dos genera `cpu`, lo que mantiene
-reproducibles los builds desatendidos. Pedir un perfil que no existe en la
-plataforma de destino, `amd-rocm` en Windows, por ejemplo, falla de inmediato en
-lugar de caer silenciosamente en CPU.
+La precedencia es `--profile` › `$KOMA_BUILD_PROFILE` › el valor del `.env` ›
+`cpu`. Una ejecución sin ninguno de estos aprovisiona `cpu`, lo que mantiene
+reproducibles las ejecuciones desatendidas.
 
-Dos guardas hacen imposible publicar un build incompatible:
+`.venv-mini/.koma-install-stamp.json` registra el perfil con el que se
+aprovisionó el venv. Compilar CUDA sobre un venv de CPU reinstala en vez de
+reutilizarlo.
 
-- `.venv-mini/.koma-install-stamp.json` registra el perfil con el que se
-  aprovisionó. Compilar CUDA sobre un venv de CPU reinstala en vez de reutilizarlo.
-- El pipeline escribe `mini-backend-profile.json` junto al binario congelado y la
-  verificación falla si no coincide con el perfil solicitado.
-
-`bun run tauri:dev` no se ve afectado: el desarrollo siempre usa el conjunto de
-CPU. Para desarrollar contra un venv acelerado, pasa el perfil explícitamente:
+`bun run tauri:dev` no se ve afectado: el desarrollo usa el venv tal como se
+aprovisionó. Para desarrollar contra un venv acelerado, pasa el perfil
+explícitamente:
 
 ```bash
 bun run mini:install-deps --profile nvidia-cuda

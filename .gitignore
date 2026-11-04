@@ -42,10 +42,8 @@ env/
 .pytest_cache/
 .ruff_cache/
 .cache/
-**/mini-backend-hardened*/
 **/mini-backend/**/*.pyd
 **/mini-backend/**/*.so
-**/mini-backend/**/_cython_setup.py
 chroma_db/
 
 # ── ML model weights (never commit — GitHub 100MB limit) ──
@@ -60,14 +58,6 @@ packages/mini-backend/models/**/*.bin
 packages/mini-backend/models/**/weights/
 packages/mini-backend/models/**/*.onnx
 packages/mini-backend/models/**/*.pt
-
-# ── Hardening artifacts ───────────────────────────────────
-*.bspatch
-*.vcdiff
-manifest.signed.json
-.pyarmor
-.pyarmor-obf
-_pyarmor_obfuscated
 
 # ── Test artifacts ────────────────────────────────────────
 test-results/

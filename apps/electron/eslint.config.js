@@ -7,7 +7,6 @@ export default [
   ...defineKomaEslintConfig({
     appIgnores: [
       "mini-backend/**",
-      "mini-backend-hardened/**",
       ".venv-mini/**",
       "resources/**",
       "release-desktop/**",

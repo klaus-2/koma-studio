@@ -165,15 +165,6 @@ const FORCE_REBUILD = ["1", "true", "yes"].includes(
 const SKIP_RUNTIME_ARTIFACTS = ["1", "true", "yes"].includes(
   String(process.env.MINI_BACKEND_SKIP_RUNTIME_ARTIFACTS || "").trim().toLowerCase(),
 );
-const HARDENED_RUNTIME_ARTIFACTS = ["1", "true", "yes"].includes(
-  String(process.env.MINI_BACKEND_ARTIFACTS_HARDENED || "").trim().toLowerCase(),
-);
-const SKIP_HARDEN_CYTHON = ["1", "true", "yes"].includes(
-  String(process.env.MINI_BACKEND_HARDEN_SKIP_CYTHON || "").trim().toLowerCase(),
-);
-const SKIP_HARDEN_PYARMOR = ["1", "true", "yes"].includes(
-  String(process.env.MINI_BACKEND_HARDEN_SKIP_PYARMOR || "").trim().toLowerCase(),
-);
 // Regenerate manifest + .sig from the partition plans already in the output
 // dir without building anything. Re-running the full script just to refresh
 // the manifest used to force PyInstaller rebuilds of every profile; this flag
@@ -190,8 +181,7 @@ const getProfileSourceDirs = () => {
   return dirs;
 };
 
-const getProfileCacheKey = (profileKey) =>
-  `mini-backend-profile-${profileKey}${HARDENED_RUNTIME_ARTIFACTS ? "-hardened" : ""}`;
+const getProfileCacheKey = (profileKey) => `mini-backend-profile-${profileKey}`;
 
 const resolveVenvPython = (venvPath) =>
   process.platform === "win32"
@@ -227,47 +217,6 @@ const ensureBuildVenv = (venvPath, profile) => {
   }
 
   run(`python3.12 -m venv "${venvPath}"`, `mini:venv:${path.basename(venvPath)}`);
-};
-
-const buildProfileHardenedSource = ({
-  profile,
-  profileKey,
-  workDir,
-  profileVenvPath,
-}) => {
-  ensureBuildVenv(profileVenvPath, profile);
-  const python = resolveVenvPython(profileVenvPath);
-  const hardenedDir = path.join(workDir, `mini-backend-hardened-${profileKey}`);
-  const hardenArgs = [];
-  if (SKIP_HARDEN_CYTHON) hardenArgs.push("--skip-cython");
-  if (SKIP_HARDEN_PYARMOR) hardenArgs.push("--skip-pyarmor");
-
-  const depsMarkerHash = computeMiniDepsMarkerHash(rootDir, { profile });
-  if (isMiniDepsMarkerFresh(profileVenvPath, depsMarkerHash)) {
-    console.log(`[mini-backend-artifacts] deps marker hit profile=${profile}, skipping mini:install-deps`);
-  } else {
-    run(`"${python}" scripts/ensure-mini-deps.py`, `mini:install-deps:${profile}`, {
-      MINI_BACKEND_ACCELERATION_PROFILE: profile,
-      MINI_BACKEND_VENV_NAME: profileVenvPath,
-    });
-    writeMiniDepsMarker(profileVenvPath, depsMarkerHash);
-  }
-
-  run(`"${python}" -m pip install --upgrade pip==26.2.2 --quiet`, `upgrade-pip:${profile}`);
-  run(`"${python}" -m pip install cython pyarmor --quiet`, `install-hardening-deps:${profile}`);
-
-  run(
-    `"${python}" scripts/harden-mini-backend.py ${hardenArgs.join(" ")}`.trim(),
-    `harden-mini-backend:${profile}`,
-    {
-      MINI_BACKEND_ACCELERATION_PROFILE: profile,
-      MINI_BACKEND_VENV_NAME: profileVenvPath,
-      MINI_BACKEND_HARDENED_DIR: hardenedDir,
-      MINI_BACKEND_DISABLE_EXTERNAL_STORAGE_JUNCTIONS: "1",
-    },
-  );
-
-  return hardenedDir;
 };
 
 const resolveManifestSigningKey = () => {
@@ -571,7 +520,6 @@ const main = async () => {
     const cacheDir = getCacheDir(rootDir, getProfileCacheKey(profileKey));
     const cachedHash = readCachedHash(cacheDir);
     const sourcesUnchanged =
-      !HARDENED_RUNTIME_ARTIFACTS &&
       cachedHash === currentSourceHash;
     const partsMissing =
       cachedPartFiles === null ||
@@ -600,17 +548,7 @@ const main = async () => {
       fs.rmSync(workDir, { recursive: true, force: true });
       fs.mkdirSync(workDir, { recursive: true });
 
-      const profileSourceDir = HARDENED_RUNTIME_ARTIFACTS
-        ? buildProfileHardenedSource({
-            profile,
-            profileKey,
-            workDir,
-            profileVenvPath,
-          })
-        // Absolute path: MINI_BACKEND_SOURCE_DIR resolves relative values
-        // against apps/electron, so a bare "mini-backend" would point at a
-        // nonexistent directory and break install-deps/pyinstaller cwd.
-        : path.join(rootDir, "..", "..", "packages", "mini-backend");
+      const profileSourceDir = path.join(rootDir, "..", "..", "packages", "mini-backend");
 
       try {
         run("node scripts/build-mini-backend.mjs", `build-mini-backend:${profile}`, {

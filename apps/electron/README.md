@@ -83,7 +83,7 @@ This shell is one of two desktop apps in the KŌMA Studio monorepo. The other
 | Directory | Contents |
 | --- | --- |
 | `electron/` | Main and preload processes: window management, IPC, sidecar supervision, updater |
-| `scripts/` | Build, dev-stack, hardening and QA tooling (Node ESM) |
+| `scripts/` | Build, dev-stack and QA tooling (Node ESM) |
 | `resources/` | Icons, fonts, templates, sample assets |
 | `tests/` | `node --test` suites (sidecar markers, runtime checks) |
 
@@ -151,7 +151,6 @@ bun run mini:install-deps # force a full reinstall of the sidecar venv
 | `bun run build:all` | `build:mini` + `build:app` |
 | `bun run build:desktop` | Desktop installers |
 | `bun run build:release` | Release artifacts |
-| `bun run build:hardened:{win,mac,linux}` | Hardened release pipeline |
 | `bun run release:{win,mac,linux}` | Build + publish via electron-builder |
 
 Mini-backend tests:
