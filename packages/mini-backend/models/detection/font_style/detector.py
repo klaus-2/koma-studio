@@ -118,9 +118,11 @@ class _OnnxBackend:
     __slots__ = ("_input_name", "_session")
 
     def __init__(self, path: Path, providers: Sequence[OnnxProviderSpec]) -> None:
-        import onnxruntime as ort  # noqa: PLC0415 - optional heavy dependency
+        from models.onnx_utils import (  # noqa: PLC0415 - optional heavy dependency
+            create_session_with_trt_fallback,
+        )
 
-        self._session = ort.InferenceSession(str(path), providers=list(providers))
+        self._session = create_session_with_trt_fallback(str(path), list(providers))
         self._input_name: str = self._session.get_inputs()[0].name
 
     def run(self, batch: NDArray[np.float32]) -> NDArray[np.float32]:

@@ -38,6 +38,7 @@ from models.detection.errors import (
 from models.detection.font.classify import classify_text_regions
 from models.detection.reading_order import sort_detections_in_reading_order
 from models.detection.slicing import SliceParams, compute_slice_bounds
+from models.onnx_utils import create_session_with_trt_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -389,7 +390,11 @@ class FontRTDetrV2Detector(BaseDetector):
             raise DetectionModelNotInstalledError(self.key)
 
         try:
-            session = ort.InferenceSession(str(self.model_path), providers=self.providers)
+            session = create_session_with_trt_fallback(
+                str(self.model_path),
+                self.providers,
+                session_factory=ort.InferenceSession,
+            )
         except _CORRUPTED_MODEL_ERRORS as exc:
             _update_manifest_status(self.model_path, "incomplete")
             raise DetectionModelCorruptedError(self.key, self.model_path, str(exc)) from exc

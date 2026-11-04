@@ -16,6 +16,7 @@ from core.device import (
     get_device_info,
     get_onnx_execution_providers,
 )
+from models.onnx_utils import create_session_with_trt_fallback
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
 from models.ocr.common import (
     LazyRuntime,
@@ -189,11 +190,11 @@ class PPOCRV5RecEngine(BaseOCR):
         )
         if missing:
             raise ModelFilesMissingError(self.model_dir, missing)
-        det_session = ort.InferenceSession(
-            str(self.det_model_path), providers=self.providers
+        det_session = create_session_with_trt_fallback(
+            str(self.det_model_path), self.providers
         )
-        session = ort.InferenceSession(
-            str(self.model_path), providers=self.providers
+        session = create_session_with_trt_fallback(
+            str(self.model_path), self.providers
         )
         model_input_shape = session.get_inputs()[0].shape
         if isinstance(model_input_shape, (list, tuple)) and len(model_input_shape) >= 4:

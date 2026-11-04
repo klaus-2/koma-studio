@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib
 import logging
 import threading
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -300,6 +300,66 @@ class LoadedImageMaskModel:
     output_range: OutputRange
 
 
+_TENSORRT_PROVIDER = "TensorrtExecutionProvider"
+
+
+def _provider_name(spec: OnnxProviderSpec) -> str:
+    return spec if isinstance(spec, str) else spec[0]
+
+
+def create_session_with_trt_fallback(
+    model_path: str,
+    providers: Sequence[OnnxProviderSpec],
+    sess_options: ort.SessionOptions | None = None,
+    session_factory: Callable[..., ort.InferenceSession] | None = None,
+) -> ort.InferenceSession:
+    """Create an ONNX session, degrading TensorRT once on failure.
+
+    The device layer trusts ORT's provider list, so a stock install without
+    a usable TensorRT runtime can fail here even though CUDA would work.
+    When TensorRT is requested and creation fails, retry exactly once with
+    it filtered out; any other failure — or a failed retry — propagates the
+    original error. Broad ``Exception`` is deliberate: provider
+    unavailability surfaces as errors outside ONNX_RUNTIME_ERRORS too.
+    ``session_factory`` lets a caller keep the construction resolved through
+    its own patchable ``ort`` name (consumer-module monkeypatch seams).
+    """
+    construct = (
+        session_factory if session_factory is not None else ort.InferenceSession
+    )
+    try:
+        return construct(
+            model_path,
+            sess_options=sess_options,
+            providers=list(providers),
+        )
+    except Exception as exc:
+        if _TENSORRT_PROVIDER not in {_provider_name(spec) for spec in providers}:
+            raise
+        degraded = [
+            spec for spec in providers if _provider_name(spec) != _TENSORRT_PROVIDER
+        ]
+        if not degraded:
+            raise
+        logger.warning(
+            "onnx.session_provider_degraded",
+            extra={
+                "model_path": model_path,
+                "dropped_provider": _TENSORRT_PROVIDER,
+                "degraded_providers": degraded,
+                "error": str(exc),
+            },
+        )
+        try:
+            return construct(
+                model_path,
+                sess_options=sess_options,
+                providers=degraded,
+            )
+        except Exception as retry_exc:
+            raise exc from retry_exc
+
+
 class ImageMaskOnnxModel:
     """Lazily-loaded, thread-safe ONNX session with (image, mask) inputs.
 
@@ -348,9 +408,9 @@ class ImageMaskOnnxModel:
             try:
                 session = cast(
                     OnnxSession,
-                    ort.InferenceSession(
+                    create_session_with_trt_fallback(
                         str(self._path),
-                        providers=list(self._providers),
+                        self._providers,
                     ),
                 )
             except ONNX_RUNTIME_ERRORS as exc:

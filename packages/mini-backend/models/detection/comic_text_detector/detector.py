@@ -6,7 +6,6 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import onnxruntime as ort
 from PIL import Image
 
 from core.config import get_config
@@ -19,6 +18,7 @@ from models.detection.base_detector import BaseDetector, TextDetection
 from models.detection.reading_order import sort_detections_in_reading_order
 from models.detection.slicing import compute_slice_bounds
 from models.detection.storage import resolve_detection_model_path
+from models.onnx_utils import create_session_with_trt_fallback
 
 
 def suppress_overlapping_detections(
@@ -82,7 +82,9 @@ class ComicTextDetector(BaseDetector):
             raise FileNotFoundError(f"ONNX detector not found: {self.model_path}")
 
         selected_providers = list(providers) if providers else get_onnx_execution_providers(get_device_info())
-        self.session = ort.InferenceSession(str(self.model_path), providers=selected_providers)
+        self.session = create_session_with_trt_fallback(
+            str(self.model_path), selected_providers
+        )
         self.input_name = self.session.get_inputs()[0].name
 
     def _detect(self, image: Image.Image) -> list[TextDetection]:

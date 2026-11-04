@@ -18,6 +18,7 @@ from core.device import (
     get_device_info,
     get_onnx_execution_providers,
 )
+from models.onnx_utils import create_session_with_trt_fallback
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
 from models.ocr.common import (
     LazyRuntime,
@@ -234,8 +235,8 @@ class MeikiOcrEngine(BaseOCR):
         if missing:
             raise ModelFilesMissingError(self.model_dir, missing)
         sessions = {
-            orientation: ort.InferenceSession(
-                str(self.model_dir / spec.model_file), providers=list(self.providers)
+            orientation: create_session_with_trt_fallback(
+                str(self.model_dir / spec.model_file), list(self.providers)
             )
             for orientation, spec in _SPECS.items()
         }

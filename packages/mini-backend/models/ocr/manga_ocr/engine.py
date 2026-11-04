@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import cast
 
 import numpy as np
-import onnxruntime as ort
 from numpy.typing import NDArray
 from PIL import Image
 
@@ -23,7 +22,11 @@ from models.ocr.manga_ocr.storage import (
     VOCAB_FILE,
     resolve_manga_ocr_model_dir,
 )
-from models.onnx_utils import ONNX_RUNTIME_ERRORS, translate_inference_error
+from models.onnx_utils import (
+    ONNX_RUNTIME_ERRORS,
+    create_session_with_trt_fallback,
+    translate_inference_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +78,8 @@ class MangaOCRONNX:
 
     def __init__(self, encoder_path, decoder_path, vocab_path, providers):
         provider_list = list(providers)
-        self._encoder = ort.InferenceSession(str(encoder_path), providers=provider_list)
-        self._decoder = ort.InferenceSession(str(decoder_path), providers=provider_list)
+        self._encoder = create_session_with_trt_fallback(str(encoder_path), provider_list)
+        self._decoder = create_session_with_trt_fallback(str(decoder_path), provider_list)
         self._vocab = vocab_path.read_text(encoding="utf-8").splitlines()
         self._encoder_image_input = _find_input_name(self._encoder, ("image", "pixel_values", "input"))
         self._decoder_token_input = _find_input_name(self._decoder, ("token_ids", "input_ids", "input"))

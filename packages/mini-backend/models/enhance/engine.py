@@ -8,6 +8,8 @@ from typing import Sequence
 import numpy as np
 import onnxruntime as ort
 
+from models.onnx_utils import create_session_with_trt_fallback
+
 from .base_engine import BaseEnhancer
 
 
@@ -45,7 +47,9 @@ def _create_session(model_path: str, providers_key: tuple) -> ort.InferenceSessi
     session_options.enable_cpu_mem_arena = True
     session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     ort_providers = [_thaw_provider_entry(p) for p in providers_key]
-    return ort.InferenceSession(model_path, sess_options=session_options, providers=ort_providers)
+    return create_session_with_trt_fallback(
+        model_path, ort_providers, sess_options=session_options
+    )
 
 
 class OnnxImageEnhancer(BaseEnhancer):
