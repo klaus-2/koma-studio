@@ -29,6 +29,7 @@ from pipelines.batch.records import (
 )
 from pipelines.cache_manager import CacheManager, get_pipeline_cache
 from pipelines.ocr_enrichment import enrich_ocr_record_with_gradient
+from services.device_fallback import should_skip_gpu_release
 from utils.ocr_fallback import recognize_with_fallbacks
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,8 @@ async def run_cached_ocr(
                 cancellation_event=request.cancellation_event,
             )
         finally:
-            release_gpu_memory()
+            if not should_skip_gpu_release():
+                release_gpu_memory()
         raw = [
             OCRRecord(
                 id=result.id,

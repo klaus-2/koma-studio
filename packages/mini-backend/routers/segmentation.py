@@ -15,6 +15,7 @@ from schemas.segmentation import (
     SegmentRegionResult,
     SegmentResponse,
 )
+from services.device_fallback import should_skip_gpu_release
 
 
 router = APIRouter(tags=["segmentation"])
@@ -108,15 +109,18 @@ async def segment_text(
             regions=input_regions,
         )
     except RuntimeError as exc:
-        release_gpu_memory()
+        if not should_skip_gpu_release():
+            release_gpu_memory()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        release_gpu_memory()
+        if not should_skip_gpu_release():
+            release_gpu_memory()
         raise HTTPException(
             status_code=500, detail=f"Segmentation failed: {exc}"
         ) from exc
     else:
-        release_gpu_memory()
+        if not should_skip_gpu_release():
+            release_gpu_memory()
 
     response_regions = [
         SegmentRegionResult(

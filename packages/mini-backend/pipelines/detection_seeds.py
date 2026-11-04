@@ -17,6 +17,7 @@ from pipelines.batch.records import (
     normalize_bbox,
     normalize_stage_source,
 )
+from services.device_fallback import should_skip_gpu_release
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +47,8 @@ async def run_text_detector(
     try:
         return await detector.detect(image)
     finally:
-        release_gpu_memory()
+        if not should_skip_gpu_release():
+            release_gpu_memory()
 
 
 async def detect_text_seeds(

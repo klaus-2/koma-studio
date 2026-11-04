@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Final
@@ -13,6 +14,18 @@ from core.runtime_errors import is_insufficient_memory_error
 logger = logging.getLogger(__name__)
 
 GPU_OOM_REASON: Final = "gpu_runtime_out_of_memory"
+
+_SKIP_GPU_RELEASE_ENV: Final = "KOMA_SKIP_GPU_RELEASE"
+
+
+def should_skip_gpu_release() -> bool:
+    """Opt-out switch for per-stage VRAM releases (measurement A/B only).
+
+    Env unset keeps every release call — identical behavior to un-gated code.
+    Never used to change the OOM hard-free path in this module.
+    """
+    return os.environ.get(_SKIP_GPU_RELEASE_ENV, "").strip().lower() in {"1", "true", "yes"}
+
 
 type DeviceOperation[T] = Callable[[DeviceInfo, bool], Awaitable[T]]
 

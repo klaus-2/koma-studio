@@ -49,6 +49,7 @@ from pipelines.batch.records import (
     optional_rgb,
     optional_str,
 )
+from services.device_fallback import should_skip_gpu_release
 from utils.detection_fallback import detect_with_fallbacks
 from utils.image_codec import ImageDecodeError, decode_pil
 from utils.inpaint_heuristics import (
@@ -157,7 +158,8 @@ async def run_detect_stage(
             cast("Callable[[Image.Image], Awaitable[Sequence[TextDetection]]]", detector.detect),
         )
     finally:
-        release_gpu_memory()
+        if not should_skip_gpu_release():
+            release_gpu_memory()
     records = [
         detection_to_record(det, index, resolved_model)
         for index, det in enumerate(detections, start=1)
@@ -283,7 +285,8 @@ async def run_segment_stage(
     try:
         results = await segmenter.segment(image_bytes=image_bytes, regions=inputs)
     finally:
-        release_gpu_memory()
+        if not should_skip_gpu_release():
+            release_gpu_memory()
     records = [
         SegmentRecord(
             id=result.id,
@@ -406,7 +409,8 @@ async def run_clean_stage(
             ),
         )
     finally:
-        release_gpu_memory()
+        if not should_skip_gpu_release():
+            release_gpu_memory()
     png = await asyncio.to_thread(_encode_png, cast(RGBArray, inpainted))
     model_used = f"hybrid:{inpainter.key}" if prepared.hybrid else inpainter.key
     return CleanStageResult(model_used, png, prepared.hd_strategy)
