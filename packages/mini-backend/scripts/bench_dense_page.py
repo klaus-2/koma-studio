@@ -66,6 +66,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument(
+        "--fixture-seed",
+        type=int,
+        default=None,
+        help="Use ONE fixed seed for every run (D3 warm-hit demonstration: "
+        "runs 2+ hit the persistent stage store). Default: unique per-run seeds.",
+    )
+    parser.add_argument(
         "--source-language",
         default="en",
         help="Batch source language (must match an installed OCR model's language).",
@@ -715,8 +722,11 @@ def main() -> int:
             if is_warmup
             else (f"skip-release-r{run_index}" if args.skip_release else f"baseline-r{run_index}")
         )
+        run_seed = (
+            args.fixture_seed if args.fixture_seed is not None else FIXTURE_SEED_BASE + run_index
+        )
         fixture_png = build_fixture_png(
-            FIXTURE_SEED_BASE + run_index,
+            run_seed,
             emit_path=args.emit_fixture if (is_warmup and args.emit_fixture is not None) else None,
         )
         print(f"[{run_id}] running batch...", flush=True)
