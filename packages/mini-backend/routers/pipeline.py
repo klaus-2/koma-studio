@@ -286,7 +286,11 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
         clean=CleanSettings(
             model_key=clean_model_key,
             mask_dilation=_clamp_int(mask_dilation, fallback=5, minimum=0, maximum=64),
-            hd_strategy=hd_strategy,
+            # GATE-3 (2026-11-04): the batch clean default resolves "resize".
+            # The complexity heuristic sent every unset request to "crop",
+            # which measured 35-42s/page vs 1.1-1.7s for resize on identical
+            # input; explicit requests still choose their own strategy.
+            hd_strategy=hd_strategy if hd_strategy and hd_strategy.strip() else "resize",
             hd_strategy_resize_limit=_clamp_int(
                 hd_strategy_resize_limit, fallback=960, minimum=256, maximum=4096
             ),

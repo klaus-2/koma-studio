@@ -760,6 +760,62 @@ class PipelineBatchRouteTests(unittest.TestCase):
 
     # -------------------------------------------------- 3.5 payload / timeout
 
+    def _post_complex_background_batch(self, extra_data: dict[str, str]) -> dict[str, object]:
+        """Run the batch with a mask that always reaches the strategy resolver."""
+        import numpy as np
+        from utils.inpaint_heuristics import HeuristicInpaintPreparation
+
+        preparation = HeuristicInpaintPreparation(
+            image_rgb=np.zeros((24, 24, 3), dtype=np.uint8),
+            remaining_mask=np.pad(
+                np.ones((10, 10), dtype=np.uint8), ((7, 7), (7, 7))
+            ),
+            filled_components=0,
+            total_components=0,
+        )
+        files = [("files", ("page.png", _png_bytes(24), "image/png"))]
+        with self._patch_pipeline_dependencies(), patch.object(
+            stages_module,
+            "apply_need_inpaint_heuristic",
+            lambda *args, **kwargs: preparation,
+        ), patch.object(
+            stages_module,
+            "detect_background_complexity",
+            lambda *args, **kwargs: "complex",
+        ):
+            response = self.client.post(
+                "/pipeline/batch",
+                files=files,
+                data={
+                    "run_detect": "true",
+                    "run_ocr": "false",
+                    "run_translation": "false",
+                    "run_segment": "true",
+                    "run_clean": "true",
+                    **extra_data,
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(BytesIO(response.content), "r") as archive:
+            report = json.loads(archive.read("batch_report.json"))
+        clean = report["results"][0]["clean"]
+        assert isinstance(clean, dict)
+        return clean
+
+    def test_clean_defaults_to_resize_strategy_for_the_batch(self) -> None:
+        """GATE-3 (2026-11-04): the batch clean default resolves "resize".
+
+        The complexity heuristic used to send every unset request to "crop"
+        (measured 35-42s/page vs 1.1-1.7s for resize on identical input).
+        "crop" stays available to explicit requests.
+        """
+        clean = self._post_complex_background_batch({})
+        self.assertEqual(clean["hd_strategy"], "resize")
+
+    def test_clean_honors_an_explicit_crop_strategy(self) -> None:
+        clean = self._post_complex_background_batch({"hd_strategy": "crop"})
+        self.assertEqual(clean["hd_strategy"], "crop")
+
     def test_segment_payload_round_trips_mask_base64(self) -> None:
         self.fake_segmenter = _FakeSegmenter(mask_base64="bWFzay1ieXRlcw==")
         files = [("files", ("page.png", _png_bytes(24), "image/png"))]
