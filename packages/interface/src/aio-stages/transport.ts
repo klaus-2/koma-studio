@@ -51,6 +51,48 @@ export function stageTransportNoticeDetail(error: unknown): string {
     : '';
 }
 
+/** HTTP status the sidecar answers with when the admission pool is saturated. */
+export const STAGE_BUSY_HTTP_STATUS = 503;
+
+/** Body code distinguishing "model busy — retry" from generic runtime failures. */
+export const STAGE_BUSY_WIRE_CODE = 'INFERENCE_BUSY';
+
+interface StageBusyDetailBody {
+  code?: string;
+}
+
+interface StageBusyResponseBody {
+  detail?: StageBusyDetailBody | string | null;
+}
+
+/**
+ * Named, retryable failure: the shared inference admission pool is saturated,
+ * so the stage call was refused instead of queued. Surfaces as the "model
+ * busy — retry" state on the per-item error display instead of a raw error.
+ */
+export class StageBusyError extends StageTransportError {
+  constructor(message: string, notice: StageRunNotice | null) {
+    super(message, notice);
+    this.name = 'StageBusyError';
+  }
+}
+
+/** Defensive read of the busy wire signal (503 + `detail.code`). */
+async function isStageBusyResponse(response: Response): Promise<boolean> {
+  if (response.status !== STAGE_BUSY_HTTP_STATUS) {
+    return false;
+  }
+  const payload = (await response.clone().json().catch(() => null)) as
+    | StageBusyResponseBody
+    | null;
+  const detail = payload?.detail;
+  return (
+    typeof detail === 'object' &&
+    detail !== null &&
+    detail.code === STAGE_BUSY_WIRE_CODE
+  );
+}
+
 /**
  * POST a stage form, read runtime notices, then either throw a formatted
  * failure or hand back the parsed stage value.
@@ -75,11 +117,14 @@ export async function runStageForm<T>(
     options.stageLabel,
   );
   if (!response.ok) {
+    // Read the busy signal from a clone first: parseApiError consumes the body.
+    const isBusy = await isStageBusyResponse(response);
     const apiMessage = await options.parseApiError(response);
-    throw new StageTransportError(
-      options.formatError?.(apiMessage) ?? `${options.failurePrefix}: ${apiMessage}`,
-      notice,
-    );
+    const message =
+      options.formatError?.(apiMessage) ?? `${options.failurePrefix}: ${apiMessage}`;
+    throw isBusy
+      ? new StageBusyError(message, notice)
+      : new StageTransportError(message, notice);
   }
   return { value: await spec.parse(response), response, notice };
 }

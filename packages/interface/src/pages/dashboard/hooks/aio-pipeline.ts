@@ -7,8 +7,8 @@ import {
 import { useAioExecutionPreparation } from '@/hooks/useAioExecutionPreparation';
 import { useAioResultConsolidation } from '@/hooks/useAioResultConsolidation';
 import { useAioSingleImageProcessor } from '@/hooks/useAioSingleImageProcessor';
-import { useI18n } from '@/i18n';
-import { stageTransportNoticeDetail } from '@/aio-stages';
+import { StageBusyError, stageTransportNoticeDetail } from '@/aio-stages';
+import { useI18n, type TranslateFn } from '@/i18n';
 import { parseApiError } from '@/pages/dashboard/helpers';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
 import { useCommittedAsyncAction } from '@/pages/dashboard/hooks/use-committed-async-action';
@@ -102,7 +102,22 @@ function itemErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
-function buildItemErrorNotice(fileName: string, error: unknown): string {
+/**
+ * The named "model busy — retry" state replaces the raw refusal text on the
+ * per-item error notice; any other failure keeps its message.
+ */
+function itemBusyMessage(error: unknown, t: TranslateFn): string | null {
+  return error instanceof StageBusyError ? t('dashboard.aio.batchItemBusy') : null;
+}
+
+function buildItemErrorNotice(
+  fileName: string,
+  error: unknown,
+  busyMessage: string | null,
+): string {
+  if (busyMessage !== null) {
+    return `${fileName}: ${busyMessage}`;
+  }
   const firstLine = itemErrorMessage(error).split(/\r?\n/, 1)[0] ?? '';
   const collapsed = firstLine.replace(/\s+/g, ' ').trim();
   const summary =
@@ -116,6 +131,7 @@ function buildItemErrorNotice(fileName: string, error: unknown): string {
 function buildFailedBatchResult(
   image: LoadedImage,
   error: unknown,
+  busyMessage: string | null,
 ): AioBatchImageResult {
   return {
     imageId: image.id,
@@ -127,7 +143,9 @@ function buildFailedBatchResult(
     renderDetections: [],
     cleanedDownload: null,
     countAsProcessed: false,
-    executionNotices: [buildItemErrorNotice(image.file.name, error)],
+    executionNotices: [
+      buildItemErrorNotice(image.file.name, error, busyMessage),
+    ],
   };
 }
 
@@ -571,7 +589,11 @@ export function useAioPipelineExecution(
             const chapter = chapterGroups[index];
             return chapter
               ? chapter.images.map((image) =>
-                  buildFailedBatchResult(image, outcome.error),
+                  buildFailedBatchResult(
+                    image,
+                    outcome.error,
+                    itemBusyMessage(outcome.error, t),
+                  ),
                 )
               : [];
           });
@@ -596,7 +618,8 @@ export function useAioPipelineExecution(
               throw error;
             }
           },
-          onItemError: (error, item) => buildFailedBatchResult(item, error),
+          onItemError: (error, item) =>
+            buildFailedBatchResult(item, error, itemBusyMessage(error, t)),
         });
       }
 

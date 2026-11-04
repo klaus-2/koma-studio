@@ -3164,6 +3164,7 @@ export const enMessages = {
   'aioModel.status.selectValidOcr': 'Select a valid model for OCR.',
   'aioModel.status.selectAvailableForStage': 'Select an available model for the "{stage}" stage.',
   'dashboard.aio.manualStageSkipped': 'Manual mode: stage "{stage}" skipped.',
+  'dashboard.aio.batchItemBusy': 'Model busy — the local engine is already processing another job. Wait for it to finish, then retry.',
   'aio.singleImage.detectFailed': 'Failed to detect text in "{fileName}": {message}',
   'aio.singleImage.recognizeFailed': 'Failed to recognize text in "{fileName}": {message}',
   'aio.singleImage.translateFailed': 'Failed to translate text in "{fileName}": {message}',

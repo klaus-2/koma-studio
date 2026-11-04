@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { readExecutionRuntimeNotice } from '../utils/dashboard.utils';
 import { fetchWithTimeoutAndRetry } from '../utils/http';
-import { runStageForm, StageTransportError } from './transport';
+import { runStageForm, StageBusyError, StageTransportError } from './transport';
 
 vi.mock('../utils/dashboard.utils', () => ({
   readExecutionRuntimeNotice: vi.fn(),
@@ -99,5 +99,61 @@ describe('runStageForm transport error contract', () => {
       message: 'Failed to recognize text: backend exploded',
       notice: null,
     });
+  });
+
+  it('throws StageBusyError for the 503 INFERENCE_BUSY admission refusal', async () => {
+    const response = new Response(
+      JSON.stringify({
+        detail: {
+          error:
+            'The inference model is busy. Wait for the current job to finish, then retry.',
+          code: 'INFERENCE_BUSY',
+          stage: 'detect',
+          model_key: 'auto',
+          raw_detail: 'Inference capacity is exhausted',
+        },
+      }),
+      { status: 503 },
+    );
+    mockedFetchWithTimeoutAndRetry.mockResolvedValue(response);
+    mockedReadExecutionRuntimeNotice.mockResolvedValue(notice);
+
+    const failing = runStageForm(runtime, options, spec);
+
+    await expect(failing).rejects.toBeInstanceOf(StageBusyError);
+    await expect(failing).rejects.toMatchObject({
+      message: 'Failed to recognize text: backend exploded',
+      notice,
+    });
+  });
+
+  it('keeps the generic transport error when a 503 body carries another code', async () => {
+    const response = new Response(
+      JSON.stringify({ detail: { error: 'boom', code: 'RUNTIME_ERROR' } }),
+      { status: 503 },
+    );
+    mockedFetchWithTimeoutAndRetry.mockResolvedValue(response);
+    mockedReadExecutionRuntimeNotice.mockResolvedValue(null);
+
+    const failing = runStageForm(runtime, options, spec);
+    const thrown = await failing.catch((caught: StageTransportError) => caught);
+
+    expect(thrown).toBeInstanceOf(StageTransportError);
+    expect(thrown).not.toBeInstanceOf(StageBusyError);
+  });
+
+  it('does not treat the busy body code as busy on other statuses', async () => {
+    const response = new Response(
+      JSON.stringify({ detail: { error: 'boom', code: 'INFERENCE_BUSY' } }),
+      { status: 500 },
+    );
+    mockedFetchWithTimeoutAndRetry.mockResolvedValue(response);
+    mockedReadExecutionRuntimeNotice.mockResolvedValue(null);
+
+    const failing = runStageForm(runtime, options, spec);
+    const thrown = await failing.catch((caught: StageTransportError) => caught);
+
+    expect(thrown).toBeInstanceOf(StageTransportError);
+    expect(thrown).not.toBeInstanceOf(StageBusyError);
   });
 });
