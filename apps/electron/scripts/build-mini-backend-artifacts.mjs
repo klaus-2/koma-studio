@@ -10,14 +10,8 @@ import {
   sanitizeMiniBackendProfile,
 } from "../electron/mini-backend-artifacts.ts";
 import {
-  checkVenvForContamination,
   resolveRuntimeArtifactBuildVenvPath,
 } from "./mini-backend-build-venv.mjs";
-import {
-  computeMiniDepsMarkerHash,
-  isMiniDepsMarkerFresh,
-  writeMiniDepsMarker,
-} from "./mini-deps-marker.mjs";
 import {
   computeSourceHash,
   getCacheDir,
@@ -187,37 +181,6 @@ const resolveVenvPython = (venvPath) =>
   process.platform === "win32"
     ? path.join(venvPath, "Scripts", "python.exe")
     : path.join(venvPath, "bin", "python");
-
-/**
- * Ensure a clean per-profile build venv. Recreate when packages outside the
- * profile scope are present (e.g. nvidia-* in cpu/openvino) so PyInstaller
- * does not ship multi-GB polluted DLLs.
- */
-const ensureBuildVenv = (venvPath, profile) => {
-  const python = resolveVenvPython(venvPath);
-  if (fs.existsSync(python)) {
-    if (
-      checkVenvForContamination(python, profile, {
-        cwd: rootDir,
-        log: (message) => console.log(`[mini-backend-artifacts] ${message}`),
-      })
-    ) {
-      console.log(
-        `[mini-backend-artifacts] Recreating contaminated venv ${path.basename(venvPath)} ...`,
-      );
-      fs.rmSync(venvPath, { recursive: true, force: true });
-    } else {
-      return;
-    }
-  }
-
-  if (process.platform === "win32") {
-    run(`py -3.12 -m venv "${venvPath}"`, `mini:venv:${path.basename(venvPath)}`);
-    return;
-  }
-
-  run(`python3.12 -m venv "${venvPath}"`, `mini:venv:${path.basename(venvPath)}`);
-};
 
 const resolveManifestSigningKey = () => {
   const raw = (process.env.MINI_BACKEND_ARTIFACTS_SIGNING_KEY || "").trim();
@@ -519,16 +482,14 @@ const main = async () => {
 
     const cacheDir = getCacheDir(rootDir, getProfileCacheKey(profileKey));
     const cachedHash = readCachedHash(cacheDir);
-    const sourcesUnchanged =
-      cachedHash === currentSourceHash;
     const partsMissing =
       cachedPartFiles === null ||
       !cachedPartFiles.every((file) => fs.existsSync(path.join(outputRootDir, file)));
     // A fresh timestamped output dir has no parts, so "cache miss" used to be
     // the default and every profile rebuilt; adopt an intact sibling copy
     // first, rebuild only when there is nothing to reuse.
-    let cacheValid = sourcesUnchanged && !FORCE_REBUILD && !partsMissing;
-    if (!cacheValid && sourcesUnchanged && !FORCE_REBUILD && partsMissing) {
+    let cacheValid = cachedHash === currentSourceHash && !FORCE_REBUILD && !partsMissing;
+    if (!cacheValid && cachedHash === currentSourceHash && !FORCE_REBUILD && partsMissing) {
       cacheValid = adoptSiblingParts(profile, zipBaseName, currentSourceHash, environmentFingerprint);
     }
 

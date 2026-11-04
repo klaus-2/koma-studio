@@ -69,7 +69,6 @@
     "@tiptap/extension-underline": "^3.20.1",
     "@tiptap/react": "^3.30.2",
     "@tiptap/starter-kit": "^3.20.1",
-    "bytenode": "^1.5.6",
     "clsx": "^2.1.1",
     "disable-devtool": "^0.3.9",
     "driver.js": "^1.4.0",
@@ -102,7 +101,6 @@
     "electron": "^44.9.3",
     "electron-builder": "^26.4.1",
     "eslint": "^9.39.5",
-    "javascript-obfuscator": "^4.2.2",
     "rollup-plugin-visualizer": "^7.1.1",
     "shadcn": "^3.8.5",
     "tailwindcss": "^4.1.0",
@@ -117,10 +115,6 @@
     "productName": "KŌMA Studio",
     "artifactName": "KOMA-Studio-${version}-${os}-${arch}-electron.${ext}",
     "asar": true,
-    "asarUnpack": [
-      "**/*.jsc",
-      "**/node_modules/bytenode/**"
-    ],
     "compression": "store",
     "disableDefaultIgnoredFiles": true,
     "forceCodeSigning": true,
@@ -158,8 +152,7 @@
         "filter": [
           "**/*"
         ]
-      },
-      "node_modules/bytenode/**"
+      }
     ],
     "extraResources": [
       {
