@@ -8,7 +8,6 @@ import DashboardInfoModeStage from '../../../components/dashboard/DashboardInfoM
 import DashboardSpecialModeStage from '../../../components/dashboard/DashboardSpecialModeStage';
 import DashboardStageGrid from '../../../components/dashboard/DashboardStageGrid';
 import DashboardEmptyStage from '../../../components/dashboard/DashboardEmptyStage';
-import { PipelineStageRow } from '../../../components/dashboard/PipelineStageRow';
 
 const loadRenderTextPreview = memoLoad(() => import('../../../components/dashboard/RenderTextPreview'));
 const loadTextDetectionPreview = memoLoad(() => import('../../../components/dashboard/TextDetectionPreview'));
@@ -24,24 +23,20 @@ export function preloadStageHeavyModules() {
   void loadTranslatorTextStage().catch(() => { });
 }
 
-import type { useSpecialModeStageProps } from '../hooks/utility-workspaces';
+import type { DashboardStageSectionProps } from './stage-grid/stageSectionProps';
+import { renderAioStageItemBody } from './stage-grid/aioStageItemRenderer';
+import { renderStageItemBody } from './stage-grid/stageItemRenderer';
 
-type SpecialModeStageProps = ReturnType<typeof useSpecialModeStageProps>['specialModeStageProps'];
+export type { DashboardStageSectionProps } from './stage-grid/stageSectionProps';
 
 import { useI18n } from '../../../i18n';
 import { cn } from '../../../utils/dashboard.utils';
-import { EMPTY_REGIONS } from '../../../utils/dashboardRenderUtils';
 import {
   EMPTY_REGION_MAP,
   needsAioRegionMaps,
   needsCleanerRegionMaps,
   needsTranslatorRegionMaps,
 } from '../../../utils/regionMapGating';
-import {
-  AIO_STAGE_BADGE_LABELS,
-} from '../../../constants/dashboard.constants';
-import { useImageCollectionStore } from '../stores/image-collection-store';
-import { useUiShellStore } from '../stores/ui-shell-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useManualToolsStore } from '../stores/manual-tools-store';
@@ -49,113 +44,12 @@ import { useTypographerStore } from '../stores/typographer-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useExportStore } from '../stores/export-store';
 import { useTranslatorStore } from '../stores/translator-store';
-import { useAioRegionSnapshotSync, useAioRegionEditing } from '../hooks/region-editor';
-import { useCleanerRegionEditing, useCleanerManualEdits, useCleanerWandHealing } from '../hooks/cleaner';
-import { useAioManualEdits, useAioWandHealing } from '../hooks/manual-tools';
-import { useTranslatorRegionEditing, useTranslatorTextActions, useTranslatorImports } from '../hooks/translator';
-import { useTypographerWorkspace, useTypographerControls } from '../hooks/typographer';
-import { useDashboardImageCollection } from '../hooks/image-collection';
-import { useRenderFontCatalog } from '../../../hooks/useRenderFontCatalog';
 import { useNonPassiveWheel } from '../../../hooks/useNonPassiveWheel';
-import { useDashboardDownloadActions } from '../hooks/export-download';
-import type {
-  AioPipelineSnapshotKey,
-  DownloadItem,
-} from '../../../types/dashboard.types';
+import type { AioPipelineSnapshotKey } from '../../../types/dashboard.types';
 import type { TypographyShapeKind } from '../../../typography/types';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
 import { listTextFillSwatches } from '../../../utils/textFillPicker';
 
-/* Store/hook-backed prop types (same fields the page reads today). */
-type ImageCollectionState = ReturnType<typeof useImageCollectionStore.getState>;
-type UiShellState = ReturnType<typeof useUiShellStore.getState>;
-type AioSnapshotSyncApi = ReturnType<typeof useAioRegionSnapshotSync>;
-type AioRegionEditingApi = ReturnType<typeof useAioRegionEditing>;
-type TypographerControlsApi = ReturnType<typeof useTypographerControls>;
-type CleanerRegionEditingApi = ReturnType<typeof useCleanerRegionEditing>;
-type TranslatorRegionEditingApi = ReturnType<typeof useTranslatorRegionEditing>;
-type CleanerManualEditsApi = ReturnType<typeof useCleanerManualEdits>;
-type AioManualEditsApi = ReturnType<typeof useAioManualEdits>;
-type CleanerWandHealingApi = ReturnType<typeof useCleanerWandHealing>;
-type AioWandHealingApi = ReturnType<typeof useAioWandHealing>;
-type TypographerWorkspaceApi = ReturnType<typeof useTypographerWorkspace>;
-type ImageCollectionApi = ReturnType<typeof useDashboardImageCollection>;
-type RenderFontCatalogApi = ReturnType<typeof useRenderFontCatalog>;
-type TranslatorTextActionsApi = ReturnType<typeof useTranslatorTextActions>;
-type TranslatorImportsApi = ReturnType<typeof useTranslatorImports>;
-type DownloadActionsApi = ReturnType<typeof useDashboardDownloadActions>;
-
-/**
- * Stage-item render helpers that feed `React.memo(..., areEqual)` previews
- * (RenderTextPreview / TextDetectionPreview). Callback identity is
- * load-bearing: every dep arrives as a same-name prop so the original
- * `useCallback` dep values (and their re-creation cadence) are preserved.
- */
-export interface DashboardStageSectionProps {
-  /* ── Store-backed values (forwarded by DashboardMainLayout selectors) ── */
-  images: ImageCollectionState['images'];
-  setActiveId: ImageCollectionState['setActiveId'];
-  mode: UiShellState['mode'];
-  subMode: UiShellState['subMode'];
-  viewMode: UiShellState['viewMode'];
-  inlineEditorShortcutRequestKey: UiShellState['inlineEditorShortcutRequestKey'];
-
-  /* ── Region editing / manual tools callbacks ── */
-  selectAioRegionForImage: AioSnapshotSyncApi['selectAioRegionForImage'];
-  updateAioRegionsForImage: AioSnapshotSyncApi['updateAioRegionsForImage'];
-  selectCleanerRegionForImage: CleanerRegionEditingApi['selectCleanerRegionForImage'];
-  updateCleanerRegionsForImage: CleanerRegionEditingApi['updateCleanerRegionsForImage'];
-  selectTranslatorRegionForImage: TranslatorRegionEditingApi['selectTranslatorRegionForImage'];
-  updateTranslatorRegionsForImage: TranslatorRegionEditingApi['updateTranslatorRegionsForImage'];
-  getAioManualImageEditState: AioManualEditsApi['getAioManualImageEditState'];
-  patchAioManualImageEditState: AioManualEditsApi['patchAioManualImageEditState'];
-  getCleanerManualImageEditState: CleanerManualEditsApi['getCleanerManualImageEditState'];
-  patchCleanerManualImageEditState: CleanerManualEditsApi['patchCleanerManualImageEditState'];
-  runAioMagicWandForImage: AioWandHealingApi['runAioMagicWandForImage'];
-  applyAioHealingMaskForImage: AioWandHealingApi['applyAioHealingMaskForImage'];
-  runCleanerMagicWandForImage: CleanerWandHealingApi['runCleanerMagicWandForImage'];
-  applyCleanerHealingMaskForImage: CleanerWandHealingApi['applyCleanerHealingMaskForImage'];
-  refineActiveTypographerShape: TypographerControlsApi['refineActiveTypographerShape'];
-
-  /* ── AIO pipeline history ── */
-  rewindAioPipelineForImage: (imageId: string) => void;
-  forwardAioPipelineForImage: (imageId: string) => void;
-  getAioImageSnapshotMeta: (
-    imageId: string,
-  ) => {
-    index: number;
-    canRewind: boolean;
-    canForward: boolean;
-    label: string | null;
-    key: AioPipelineSnapshotKey | null;
-  };
-  getAioFallbackStageKey: () => AioPipelineSnapshotKey;
-  getAioDownloadItemForImage: (imageId: string) => DownloadItem | null;
-
-  /* ── Region-editor / typographer derived values ── */
-  resolvedActiveId: string | null;
-  applyAutoDetectedShapeToActiveRegion: AioRegionEditingApi['applyAutoDetectedShapeToActiveRegion'];
-  applyAutoDetectedShapeToRegionById: AioRegionEditingApi['applyAutoDetectedShapeToRegionById'];
-  applyTypographyPresetToRegionById: AioRegionEditingApi['applyTypographyPresetToRegionById'];
-  convertRegionShapeById: AioRegionEditingApi['convertRegionShapeById'];
-  translationNotesEnabled: boolean;
-
-  /* ── Shell / fonts ── */
-  isCompactViewport: boolean;
-  renderFontRefreshToken: RenderFontCatalogApi['renderFontRefreshToken'];
-  availableRenderFonts: RenderFontCatalogApi['availableRenderFonts'];
-  handleStageWheelZoom: (event: WheelEvent) => void;
-
-  /* ── Stage branch consumers ── */
-  specialModeStageProps: SpecialModeStageProps;
-  onOpenSettings: (() => void) | undefined;
-  translatorTextImportRef: React.RefObject<HTMLInputElement | null>;
-  runTranslatorText: TranslatorTextActionsApi;
-  handleDownload: DownloadActionsApi['handleDownload'];
-  handleTranslatorTextImport: TranslatorImportsApi['handleTranslatorTextImport'];
-  getPreviewSrc: ImageCollectionApi['getPreviewSrc'];
-  typographerWorkspace: TypographerWorkspaceApi;
-}
 
 /**
  * Center-stage view: the `<section>` stage block with its mode branches and
@@ -395,168 +289,59 @@ function DashboardStageSection({
       imageStageKey: AioPipelineSnapshotKey,
       imageStageBadgeLabel: string,
       imageHistoryHint: string | null,
-    ) => {
-      const imageAllowsAreaSelection =
-        subMode === 'manual' &&
-        areaSelectionToolActive &&
-        (imageStageKey === 'detectText' || imageStageKey === 'render');
-      const imageAllowsSegmentBrush =
-        subMode === 'manual' && imageStageKey === 'segmentText';
-      const isManualEarlyStage =
-        subMode === 'manual' &&
-        (imageStageKey === 'detectText' ||
-          imageStageKey === 'recognizeText' ||
-          imageStageKey === 'getTranslations');
-      const shouldUseRenderPreview =
-        (!isManualEarlyStage && aioSteps.render) ||
-        (subMode === 'manual' && imageStageKey === 'render') ||
-        (manualImageTool !== 'none' && imageStageKey === 'render');
-
-      if (shouldUseRenderPreview) {
-        return (
-          <RenderTextPreview
-            key={`${img.id}-snapshot-${imageHistoryMeta.index}`}
-            label={`#${index + 1} — ${img.file.name}`}
-            image={img}
-            previewSrc={getPreviewSrc(img)}
-            viewMode={viewMode}
-            active={resolvedActiveId === img.id}
-            regions={aioDetectionsByImage[img.id] ?? EMPTY_REGIONS}
-            selectedRegionId={aioSelectedRegionByImage[img.id] ?? null}
-            onCardSelect={() => setActiveId(img.id)}
-            onSelectRegion={(regionId) =>
-              selectAioRegionForImage(img.id, regionId)
-            }
-            onRegionsChange={(nextRegions, selectedRegionIdOverride) =>
-              updateAioRegionsForImage(
-                img.id,
-                nextRegions,
-                selectedRegionIdOverride,
-              )
-            }
-            editable={subMode === 'manual'}
-            areaSelectionEnabled={imageAllowsAreaSelection}
-            newRegionShapeKind={resolvedAioAreaSelectionShapeKind}
-            fallbackStyle={renderDefaultStyle}
-            fontRefreshToken={renderFontRefreshToken}
-            availableRenderFonts={availableRenderFonts}
-            isCompactViewport={isCompactViewport}
-            stageBadgeKey={imageStageKey}
-            stageBadgeLabel={imageStageBadgeLabel}
-            canRewind={imageHistoryMeta.canRewind}
-            canForward={imageHistoryMeta.canForward}
-            onRewind={() => rewindAioPipelineForImage(img.id)}
-            onForward={() => forwardAioPipelineForImage(img.id)}
-            historyHint={imageHistoryHint}
-            renderStageActive={imageStageKey === 'render'}
-            onRequestRefineRegion={() => void refineActiveTypographerShape()}
-            onRequestAutoShapeRegion={applyAutoDetectedShapeToActiveRegion}
-            availableTypographyPresets={typographyPresetList}
-            availableTypographyFolders={typographyFolderList}
-            onRequestApplyPresetById={(regionId, presetId) =>
-              applyTypographyPresetToRegionById(img.id, regionId, presetId)
-            }
-            onRequestConvertShapeRegion={(regionId, kind) => {
-              if (kind === 'auto') {
-                applyAutoDetectedShapeToRegionById(img.id, regionId);
-                return;
-              }
-              convertRegionShapeById(img.id, regionId, kind);
-            }}
-            manualEditEnabled={subMode === 'manual'}
-            manualImageTool={manualImageTool}
-            manualPaintColor={manualImagePaintColor}
-            manualBrushSize={manualImageBrushSize}
-            manualBrushOpacity={manualImageBrushOpacity}
-            manualBrushBlur={manualImageBrushBlur}
-            manualPaintLayerDataUrl={
-              getAioManualImageEditState(img.id).paintLayerDataUrl
-            }
-            manualWandMaskDataUrl={
-              getAioManualImageEditState(img.id).wandMaskDataUrl
-            }
-            manualHealingPending={Boolean(aioManualHealingBusyByImage[img.id])}
-            textFillSwatches={textFillSwatches}
-            segmentEditEnabled={imageAllowsSegmentBrush}
-            segmentEditTool={segmentEditTool}
-            segmentBrushSize={segmentBrushSize}
-            segmentBrushDataUrl={
-              getAioManualImageEditState(img.id).segmentBrushDataUrl
-            }
-            onSegmentBrushChange={(nextUrl) =>
-              patchAioManualImageEditState(img.id, {
-                segmentBrushDataUrl: nextUrl,
-              })
-            }
-            inlineEditorRequestKey={inlineEditorShortcutRequestKey}
-            onManualPaintLayerChange={(nextLayer) => {
-              patchAioManualImageEditState(img.id, {
-                paintLayerDataUrl: nextLayer,
-              });
-            }}
-            onManualWandMaskChange={(nextMask) => {
-              patchAioManualImageEditState(img.id, {
-                wandMaskDataUrl: nextMask,
-              });
-            }}
-            onManualWandRequest={async (x, y) => {
-              await runAioMagicWandForImage(img.id, x, y);
-            }}
-            onManualHealingMaskCommit={async (maskDataUrl) => {
-              await applyAioHealingMaskForImage(img.id, maskDataUrl);
-            }}
-            translationNotesEnabled={translationNotesEnabled}
-          />
-        );
-      }
-
-      return (
-        <TextDetectionPreview
-          key={`${img.id}-snapshot-${imageHistoryMeta.index}`}
-          label={`#${index + 1} — ${img.file.name}`}
-          image={img}
-          previewSrc={getPreviewSrc(img)}
-          viewMode={viewMode}
-          active={resolvedActiveId === img.id}
-          regions={aioDetectionsByImage[img.id] ?? EMPTY_REGIONS}
-          selectedRegionId={aioSelectedRegionByImage[img.id] ?? null}
-          onCardSelect={() => setActiveId(img.id)}
-          onSelectRegion={(regionId) =>
-            selectAioRegionForImage(img.id, regionId)
-          }
-          onRegionsChange={(nextRegions, selectedRegionIdOverride) =>
-            updateAioRegionsForImage(
-              img.id,
-              nextRegions,
-              selectedRegionIdOverride,
-            )
-          }
-          editable={subMode === 'manual'}
-          selectionEnabled={imageAllowsAreaSelection}
-          creationEnabled={imageAllowsAreaSelection}
-          newRegionShapeKind={resolvedAioAreaSelectionShapeKind}
-          segmentEditEnabled={imageAllowsSegmentBrush}
-          segmentEditTool={segmentEditTool}
-          segmentBrushSize={segmentBrushSize}
-          segmentBrushDataUrl={
-            getAioManualImageEditState(img.id).segmentBrushDataUrl
-          }
-          onSegmentBrushChange={(nextUrl) =>
-            patchAioManualImageEditState(img.id, {
-              segmentBrushDataUrl: nextUrl,
-            })
-          }
-          stageBadgeKey={imageStageKey}
-          stageBadgeLabel={imageStageBadgeLabel}
-          canRewind={imageHistoryMeta.canRewind}
-          canForward={imageHistoryMeta.canForward}
-          onRewind={() => rewindAioPipelineForImage(img.id)}
-          onForward={() => forwardAioPipelineForImage(img.id)}
-          historyHint={imageHistoryHint}
-          translationNotesEnabled={translationNotesEnabled}
-        />
-      );
-    },
+    ) =>
+      renderAioStageItemBody(
+        {
+          RenderTextPreview,
+          TextDetectionPreview,
+          subMode,
+          areaSelectionToolActive,
+          aioSteps,
+          manualImageBrushBlur,
+          manualImageBrushOpacity,
+          manualImageBrushSize,
+          manualImagePaintColor,
+          manualImageTool,
+          getPreviewSrc,
+          viewMode,
+          resolvedActiveId,
+          aioDetectionsByImage,
+          aioSelectedRegionByImage,
+          setActiveId,
+          selectAioRegionForImage,
+          updateAioRegionsForImage,
+          resolvedAioAreaSelectionShapeKind,
+          renderDefaultStyle,
+          renderFontRefreshToken,
+          availableRenderFonts,
+          isCompactViewport,
+          rewindAioPipelineForImage,
+          forwardAioPipelineForImage,
+          refineActiveTypographerShape,
+          applyAutoDetectedShapeToActiveRegion,
+          typographyPresetList,
+          typographyFolderList,
+          applyTypographyPresetToRegionById,
+          applyAutoDetectedShapeToRegionById,
+          convertRegionShapeById,
+          getAioManualImageEditState,
+          patchAioManualImageEditState,
+          aioManualHealingBusyByImage,
+          textFillSwatches,
+          segmentEditTool,
+          segmentBrushSize,
+          inlineEditorShortcutRequestKey,
+          runAioMagicWandForImage,
+          applyAioHealingMaskForImage,
+          translationNotesEnabled,
+        },
+        img,
+        index,
+        imageHistoryMeta,
+        imageStageKey,
+        imageStageBadgeLabel,
+        imageHistoryHint,
+      ),
     [stageItemRenderDeps],
   );
   const stageItemKey = useCallback(
@@ -690,161 +475,77 @@ function DashboardStageSection({
     [setActiveId, setTypographerMultiSelectedByImage],
   );
   const renderStageItem = useCallback(
-    (index: number) => {
-      const img = images[index];
-      if (!img) return null;
-
-      if (
-        !aioManualImageEditsByImage &&
-        !cleanerManualImageEditsByImage &&
-        !cleanerProcessedBaseByImage &&
-        !translatorProcessedBaseByImage &&
-        !downloadItems
-      ) {
-        return null;
-      }
-
-      const imageHistoryMeta = getAioImageSnapshotMeta(img.id);
-      const imageStageKey = imageHistoryMeta.key ?? getAioFallbackStageKey();
-      const imageStageBadgeLabel = AIO_STAGE_BADGE_LABELS[imageStageKey];
-      const imageHistoryHint = imageHistoryMeta.label
-        ? t('dashboard.aio.historyHint', {
-          label: imageHistoryMeta.label,
-          current: imageHistoryMeta.index + 1,
-          total: aioPipelineSnapshots.length,
-        })
-        : null;
-
-      if (mode === 'aio') {
-        return renderAioStageItem(
-          img,
-          index,
-          imageHistoryMeta,
-          imageStageKey,
-          imageStageBadgeLabel,
-          imageHistoryHint,
-        );
-      }
-
-      if (mode === 'typesetter') {
-        return (
-          <PipelineStageRow
-            kind="typesetter"
-            props={{
-              img,
-              index,
-              getAioDownloadItemForImage: handleTypographerDownloadPreview,
-              getPreviewSrc,
-              aioDetectionsByImage,
-              aioSelectedRegionByImage,
-              resolvedActiveId,
-              subMode,
-              typographerSelectionTool,
-              renderDefaultStyle,
-              renderFontRefreshToken,
-              availableRenderFonts,
-              isCompactViewport,
-              inlineEditorShortcutRequestKey,
-              textFillSwatches,
-              translationNotesEnabled,
-              typographerMultiSelectedByImage,
-              typographyPresetList,
-              viewMode,
-              onSelect: handleStageImageSelect,
-              onSelectRegion: handleAioRegionSelect,
-              onSetTypographerSelectedRegionId: handleTypographerRegionSelect,
-              onClearTypographerMultiSelect: handleClearTypographerMultiSelect,
-              onRegionsChange: handleAioRegionsChange,
-              onRefineActiveShape: handleRefineTypographerShape,
-              onAutoShapeActiveRegion: applyAutoDetectedShapeToActiveRegion,
-              onApplyPresetToRegion: applyTypographyPresetToRegionById,
-              onConvertRegionShape: handleConvertRegionShape,
-              onMultiSelectToggle: handleTypographerMultiSelectToggle,
-            }}
-          />
-        );
-      }
-
-      if (mode === 'cleaner') {
-        return (
-          <PipelineStageRow
-            kind="cleaner"
-            props={{
-              img,
-              index,
-              cleanerRunMetaByImage,
-              cleanerDetectionsByImage,
-              cleanerSelectedRegionByImage,
-              cleanerHealingBusyByImage,
-              cleanerShowOverlays,
-              getCleanerManualImageEditState,
-              getPreviewSrc,
-              resolvedActiveId,
-              resolvedAioAreaSelectionShapeKind,
-              renderDefaultStyle,
-              renderFontRefreshToken,
-              availableRenderFonts,
-              isCompactViewport,
-              manualImageBrushOpacity,
-              manualImageBrushBlur,
-              manualImageBrushSize,
-              manualImagePaintColor,
-              manualImageTool,
-              segmentEditTool,
-              segmentBrushSize,
-              inlineEditorShortcutRequestKey,
-              textFillSwatches,
-              viewMode,
-              onSelect: handleStageImageSelect,
-              onSelectRegion: handleCleanerRegionSelect,
-              onRegionsChange: handleCleanerRegionsChange,
-              onManualPaintLayerChange: handleCleanerPaintLayerChange,
-              onManualWandMaskChange: handleCleanerWandMaskChange,
-              onManualWandRequest: handleCleanerWandRequest,
-              onManualHealingMaskCommit: handleCleanerHealingMaskCommit,
-            }}
-          />
-        );
-      }
-
-      if (mode === 'translator' && translatorWorkspaceMode === 'visual') {
-        return (
-          <PipelineStageRow
-            kind="translator"
-            props={{
-              img,
-              index,
-              translatorRunMetaByImage,
-              translatorDetectionsByImage,
-              translatorSelectedRegionByImage,
-              resolvedActiveId,
-              resolvedAioAreaSelectionShapeKind,
-              segmentBrushSize,
-              translationNotesEnabled,
-              viewMode,
-              getPreviewSrc,
-              onSelect: handleStageImageSelect,
-              onSelectRegion: handleTranslatorRegionSelect,
-              onRegionsChange: handleTranslatorRegionsChange,
-            }}
-          />
-        );
-      }
-
-      return (
-        <PipelineStageRow
-          kind="preview"
-          props={{
-            img,
-            index,
-            viewMode,
-            resolvedActiveId,
-            onSelect: handleStageImageSelect,
-            getPreviewSrc,
-          }}
-        />
-      );
-    },
+    (index: number) =>
+      renderStageItemBody(
+        {
+          aioDetectionsByImage,
+          aioManualImageEditsByImage,
+          aioPipelineSnapshots,
+          aioSelectedRegionByImage,
+          applyAutoDetectedShapeToActiveRegion,
+          applyTypographyPresetToRegionById,
+          availableRenderFonts,
+          cleanerDetectionsByImage,
+          cleanerHealingBusyByImage,
+          cleanerManualImageEditsByImage,
+          cleanerProcessedBaseByImage,
+          cleanerRunMetaByImage,
+          cleanerSelectedRegionByImage,
+          cleanerShowOverlays,
+          downloadItems,
+          getAioFallbackStageKey,
+          getAioImageSnapshotMeta,
+          getCleanerManualImageEditState,
+          getPreviewSrc,
+          handleAioRegionSelect,
+          handleAioRegionsChange,
+          handleCleanerHealingMaskCommit,
+          handleCleanerPaintLayerChange,
+          handleCleanerRegionSelect,
+          handleCleanerRegionsChange,
+          handleCleanerWandMaskChange,
+          handleCleanerWandRequest,
+          handleClearTypographerMultiSelect,
+          handleConvertRegionShape,
+          handleRefineTypographerShape,
+          handleStageImageSelect,
+          handleTranslatorRegionSelect,
+          handleTranslatorRegionsChange,
+          handleTypographerDownloadPreview,
+          handleTypographerMultiSelectToggle,
+          handleTypographerRegionSelect,
+          images,
+          inlineEditorShortcutRequestKey,
+          isCompactViewport,
+          manualImageBrushBlur,
+          manualImageBrushOpacity,
+          manualImageBrushSize,
+          manualImagePaintColor,
+          manualImageTool,
+          mode,
+          renderAioStageItem,
+          renderDefaultStyle,
+          renderFontRefreshToken,
+          resolvedActiveId,
+          resolvedAioAreaSelectionShapeKind,
+          segmentBrushSize,
+          segmentEditTool,
+          subMode,
+          t,
+          textFillSwatches,
+          typographyPresetList,
+          translatorDetectionsByImage,
+          translatorProcessedBaseByImage,
+          translatorRunMetaByImage,
+          translatorSelectedRegionByImage,
+          translatorWorkspaceMode,
+          translationNotesEnabled,
+          typographerMultiSelectedByImage,
+          typographerSelectionTool,
+          viewMode,
+        },
+        index,
+      ),
     [
       aioDetectionsByImage,
       aioManualImageEditsByImage,
