@@ -4,9 +4,16 @@ from io import BytesIO
 import unittest
 
 from fastapi import HTTPException, UploadFile
+from models.execution import InferenceBusyError
 from pydantic import TypeAdapter
 
-from routers._boundary import parse_json_form_field, read_upload_bytes
+from routers._boundary import (
+    INFERENCE_BUSY_HTTP_STATUS,
+    INFERENCE_BUSY_WIRE_CODE,
+    inference_busy_to_http,
+    parse_json_form_field,
+    read_upload_bytes,
+)
 
 
 class ReadUploadBytesTests(unittest.IsolatedAsyncioTestCase):
@@ -46,6 +53,38 @@ class ParseJsonFormFieldTests(unittest.TestCase):
     def test_valid_payload_round_trips(self) -> None:
         parsed = parse_json_form_field("[1, 2]", TypeAdapter(list[int]), field_name="f")
         self.assertEqual(parsed, [1, 2])
+
+
+class InferenceBusyToHttpTests(unittest.TestCase):
+    """The busy wire signal: dedicated 503 status, conventional body, own code."""
+
+    def test_maps_busy_to_dedicated_503_wire_signal(self) -> None:
+        http_exc = inference_busy_to_http(
+            InferenceBusyError("Inference capacity is exhausted"),
+            stage="detect",
+            model_key=None,
+        )
+        self.assertEqual(http_exc.status_code, INFERENCE_BUSY_HTTP_STATUS)
+        self.assertEqual(http_exc.status_code, 503)
+        detail = http_exc.detail
+        assert isinstance(detail, dict)
+        self.assertEqual(detail["code"], INFERENCE_BUSY_WIRE_CODE)
+        self.assertNotEqual(detail["code"], "RUNTIME_ERROR")
+        self.assertEqual(detail["stage"], "detect")
+        self.assertEqual(detail["model_key"], "auto")
+        self.assertEqual(detail["raw_detail"], "Inference capacity is exhausted")
+        self.assertIn("busy", str(detail["error"]).lower())
+
+    def test_keeps_the_requested_model_key_in_the_body(self) -> None:
+        http_exc = inference_busy_to_http(
+            InferenceBusyError("Inference capacity is exhausted"),
+            stage="inpaint",
+            model_key=" auto ",
+        )
+        detail = http_exc.detail
+        assert isinstance(detail, dict)
+        self.assertEqual(detail["stage"], "inpaint")
+        self.assertEqual(detail["model_key"], "auto")
 
 
 if __name__ == "__main__":

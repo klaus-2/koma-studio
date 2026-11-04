@@ -14,9 +14,11 @@ from core.config import get_config
 from core.device import DeviceInfo, build_device_payload, get_device_info
 from core.runtime_errors import build_runtime_error_detail
 from models.detection.factory import get_detector
+from models.execution import InferenceBusyError
 from models.inpainting.factory import list_inpainting_models
 from models.segmentation.base_segmenter import SegmentInputRegion
 from models.segmentation.factory import get_segmenter
+from routers._boundary import inference_busy_to_http
 from schemas.inpainting import (
     REGION_LIST_ADAPTER,
     INPAINT_CROP_FIELD,
@@ -123,6 +125,8 @@ async def _inpaint_and_respond(
         outcome = await inpaint_masked_image(
             rgb_image=rgb_image, mask=mask, options=options, device=device
         )
+    except InferenceBusyError as exc:
+        raise inference_busy_to_http(exc, stage=STAGE, model_key=options.model_key) from exc
     except InpaintError as exc:
         raise _to_http_error(exc, model_key=options.model_key) from exc
     return await _png_response(
@@ -291,11 +295,14 @@ async def inpaint(
     regions = _parse_regions(options.regions)
     has_brush = brush_mask is not None and bool(brush_mask.filename)
     if regions is None and not has_brush:
-        regions = await _auto_detect_regions(
-            image_bytes=image_bytes,
-            rgb_image=rgb_image,
-            has_gpu=resolve_has_gpu(device, options.use_gpu),
-        )
+        try:
+            regions = await _auto_detect_regions(
+                image_bytes=image_bytes,
+                rgb_image=rgb_image,
+                has_gpu=resolve_has_gpu(device, options.use_gpu),
+            )
+        except InferenceBusyError as exc:
+            raise inference_busy_to_http(exc, stage="detect", model_key=None) from exc
     region_list = regions or []
     if not region_list and not has_brush:
         return await _png_response(rgb_image)

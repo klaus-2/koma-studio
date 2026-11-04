@@ -18,7 +18,9 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import ValidationError
 
 from models.errors import ExportError, PsdExportError
+from models.execution import InferenceBusyError
 from pipelines.export_pipeline import ExportPipeline
+from routers._boundary import inference_busy_to_http
 from routers.uploads import decode_upload, read_upload_limited
 from schemas.export import CompressionType, ExportRequest, ExportResponse, TextLayerEngine
 from utils.photoshop_text_layers import SUPPORTED_PHOTOSHOP_VERSIONS
@@ -397,6 +399,10 @@ async def _run_export(
             ) from exc
         except (PsdExportError, ExportError) as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
+        except InferenceBusyError as exc:
+            # The export pipeline's clean stage runs engine-backed inference on
+            # the shared admission pool; saturation is the named 503 refusal.
+            raise inference_busy_to_http(exc, stage="export", model_key=None) from exc
         except HTTPException:
             raise
         except Exception as exc:  # noqa: BLE001 — HTTP boundary

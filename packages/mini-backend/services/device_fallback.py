@@ -10,6 +10,7 @@ from typing import Final
 
 from core.device import DeviceInfo, build_cpu_device_info, release_gpu_memory
 from core.runtime_errors import is_insufficient_memory_error
+from models.execution import InferenceBusyError
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,11 @@ async def run_with_cpu_fallback[T](
     try:
         result = await operation(device, use_gpu)
     except FileNotFoundError:
+        raise
+    except InferenceBusyError:
+        # Admission-pool saturation is not a device failure: wrapping it here
+        # (or releasing VRAM for it) would mask the named busy signal that the
+        # HTTP boundary maps to 503/INFERENCE_BUSY.
         raise
     # torch / onnxruntime / cuda raise heterogeneous exception types; OOM can
     # only be recognised by inspecting the instance, hence the broad catch here

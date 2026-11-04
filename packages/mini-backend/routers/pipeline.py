@@ -80,6 +80,11 @@ def _resolve_concurrency(requested: int | None) -> tuple[int, int]:
     requested_value = max(
         1, cfg.batch_default_concurrency if requested is None else requested
     )
+    # Batch stage concurrency clamps to the admission-pool capacity so the
+    # batch's run_inference calls (detect/segment/clean share the pool; OCR
+    # stays outside by design) never trip the non-blocking InferenceBusyError.
+    # Direct per-image calls above capacity refuse with that error (pinned by
+    # tests/test_inference_busy_contract.py).
     effective = min(
         requested_value, cfg.batch_max_concurrency, get_inference_worker_capacity()
     )

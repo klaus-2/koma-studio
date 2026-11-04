@@ -12,7 +12,12 @@ from core.config import get_config
 from core.device import DeviceInfo, build_device_payload, get_device_info
 from models.detection.base_detector import TextDetection
 from models.detection.factory import get_detector, list_detection_models
-from routers._boundary import execution_error_to_http, read_rgb_upload
+from models.execution import InferenceBusyError
+from routers._boundary import (
+    execution_error_to_http,
+    inference_busy_to_http,
+    read_rgb_upload,
+)
 from schemas.detection import DetectionBox, DetectionResponse
 from services.device_fallback import ExecutionError, resolve_use_gpu, run_with_cpu_fallback
 from utils.detection_fallback import detect_with_fallbacks
@@ -65,6 +70,8 @@ async def detect_text(
         )
     except FileNotFoundError as exc:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    except InferenceBusyError as exc:
+        raise inference_busy_to_http(exc, stage=STAGE, model_key=model_key) from exc
     except ExecutionError as exc:
         raise execution_error_to_http(exc, model_key=model_key) from exc
 

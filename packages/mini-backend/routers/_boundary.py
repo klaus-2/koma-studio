@@ -16,6 +16,7 @@ from models.errors import (
     ModelConfigurationError,
     ModelNotInstalledError,
 )
+from models.execution import InferenceBusyError
 from pydantic import TypeAdapter, ValidationError
 
 from core.runtime_errors import build_runtime_error_detail
@@ -35,6 +36,38 @@ CLIENT_FIXABLE_MODEL_ERRORS: Final = (
     ModelConfigurationError,
     MissingDependencyError,
 )
+
+# Admission-pool saturation: a dedicated, retryable wire signal (503 +
+# ``INFERENCE_BUSY``), not a generic runtime failure. ``InferenceBusyError``
+# inherits ``InferenceError``, so it can never reach
+# ``execution_error_to_http`` and each per-image router seam maps it explicitly.
+INFERENCE_BUSY_HTTP_STATUS: Final = status.HTTP_503_SERVICE_UNAVAILABLE
+INFERENCE_BUSY_WIRE_CODE: Final = "INFERENCE_BUSY"
+_INFERENCE_BUSY_MESSAGE: Final = (
+    "The inference model is busy. Wait for the current job to finish, then retry."
+)
+
+
+def inference_busy_to_http(
+    exc: InferenceBusyError, *, stage: str, model_key: str | None
+) -> HTTPException:
+    """Build the busy refusal for a per-image stage seam.
+
+    The body keeps the boundary's conventional error/code/stage/model_key
+    shape with a distinguishing code, so the frontend's defensive parser can
+    branch on ``detail.code`` alone and route the condition to the named
+    "model busy — retry" state.
+    """
+    return HTTPException(
+        INFERENCE_BUSY_HTTP_STATUS,
+        detail={
+            "error": _INFERENCE_BUSY_MESSAGE,
+            "code": INFERENCE_BUSY_WIRE_CODE,
+            "stage": stage,
+            "model_key": (model_key or "auto").strip() or "auto",
+            "raw_detail": str(exc),
+        },
+    )
 
 
 async def read_upload_bytes(

@@ -14,6 +14,7 @@ from typing import Final, Literal
 
 from core.device import DeviceInfo
 from core.runtime_errors import is_insufficient_memory_error
+from models.execution import InferenceBusyError
 from models.inpainting.base_inpainter import InpaintConfig
 from models.inpainting.factory import get_inpainter
 from services.device_fallback import (
@@ -213,6 +214,11 @@ async def _run_inpainter(
         result = await inpainter.inpaint(image_rgb, mask, config)
     except FileNotFoundError as exc:
         raise InpaintModelMissingError(str(exc)) from exc
+    except InferenceBusyError:
+        # Admission saturation must not be classified as an invalid request
+        # (busy is a RuntimeError subclass): it reaches the HTTP boundary as
+        # the named busy signal, not as a 400.
+        raise
     except Exception as exc:  # noqa: BLE001 — system boundary: torch/onnxruntime raise
         # heterogeneous types (torch.cuda.OutOfMemoryError is a RuntimeError,
         # onnxruntime's RuntimeException is not). Classify once, here, and
