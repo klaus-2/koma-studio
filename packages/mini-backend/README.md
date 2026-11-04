@@ -63,7 +63,12 @@ python app.py                       # serves on http://127.0.0.1:8001
 
 The mini-backend binds to `127.0.0.1` by design — it is intended for loopback
 use only. The shells supervise the sidecar (start / health check / restart on
-crash) and shut it down at app exit.
+crash) and shut it down at app exit. Startup is health-gated: the shells wait
+on `/health` before marking the sidecar ready — the single uvicorn worker
+blocks during ONNX warmup, which can take minutes on slow machines, and a
+startup timeout folds into the `HealthTimeout` restart path. The `/device/info`
+runtime-state sync is eventual (retried in the background); boot never waits
+for it.
 
 ## Configuration
 
@@ -127,6 +132,10 @@ per process, resets on the next day or a restart, and is not a quota server.
   the newest 200k rows on open, survives restarts, and is **not** cleared by
   `/memory/clear-caches` or `_clear_all_caches` — it is closed only at process
   shutdown. Implementation: `pipelines/translation_store.py`.
+- **Stage store**: segment and clean stage results are also cached in a
+  stdlib-sqlite store at `<KOMA_APP_DATA_DIR>/stage-store.sqlite3` (dev
+  fallback `~/.koma-studio`), fingerprint-keyed and pruned at open, closed
+  only at process shutdown. Implementation: `pipelines/stage_store.py`.
 - **Consultation order** per request: in-memory cache → symbol-only passthrough
   (non-alphanumeric seeds skip engines, caches, and QA entirely) → persistent
   cache → TM (only when `translation_memory_enabled`) → dedup of identical
