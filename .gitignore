@@ -92,6 +92,7 @@ logs/
 .opencode/
 .windsurf/
 .zcode/
+.deepwork/
 graphify-out/
 
 # ── Local working reports (not published) ────────────────
