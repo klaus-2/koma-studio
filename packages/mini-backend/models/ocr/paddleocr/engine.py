@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import math
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -52,6 +55,20 @@ class _PaddleRuntime:
     session: ort.InferenceSession
     det_session: ort.InferenceSession
     decoder: "CTCLabelDecoder"
+
+
+@dataclass(slots=True)
+class _SnippetMemo:
+    """Per-``recognize()`` holder for the page-level snippet pass.
+
+    Engines are long-lived (``LruEngineCache``), so the memo is created per
+    call and carried through the batch runner: the first batch that reaches
+    the snippet fallback computes the full-page pass once and later batches
+    reuse it. ``passes`` feeds the per-call summary log.
+    """
+
+    snippets: list[tuple[int, int, int, int, float, str]] | None = None
+    passes: int = 0
 
 
 class CTCLabelDecoder:
@@ -602,14 +619,65 @@ class PPOCRV5RecEngine(BaseOCR):
             snippets.append((x1, y1, x2, y2, float(scores[idx]), text))
         return snippets
 
+    @staticmethod
+    def _page_to_bgr(image: Image.Image) -> np.ndarray:
+        return cv2.cvtColor(np.asarray(image.convert("RGB")), cv2.COLOR_RGB2BGR)
+
+    async def recognize(
+        self,
+        image: Image.Image,
+        regions: Sequence[OCRInputRegion],
+        language: str = "en",
+        *,
+        cancellation_event: asyncio.Event | None = None,
+    ) -> list[OCRTextResult]:
+        """Page-level hoisted recognition.
+
+        The BGR conversion and the full-page snippet pass run once per call
+        regardless of batch count; batching, cancellation and the OOM
+        release policy stay in ``BaseOCR._run_batches``.
+        """
+        started = time.perf_counter()
+        bgr = await asyncio.to_thread(self._page_to_bgr, image)
+        memo = _SnippetMemo()
+        batches = math.ceil(len(regions) / self.batch_size)
+        results = await self._run_batches(
+            regions,
+            cancellation_event,
+            lambda batch: self._recognize_prepared(bgr, batch, language, memo),
+        )
+        logger.info(
+            "paddleocr_recognize_completed",
+            extra={
+                "model_key": self.key,
+                "regions": len(regions),
+                "batches": batches,
+                "snippet_passes": memo.passes,
+                "seconds": time.perf_counter() - started,
+            },
+        )
+        return results
+
     def _recognize(
         self,
         image: Image.Image,
         regions: list[OCRInputRegion],
         language: str = "en",
     ) -> list[OCRTextResult]:
+        # Legacy per-batch contract: self-converts and re-runs the snippet
+        # pass per call. recognize() hoists both; this wrapper keeps direct
+        # callers working unchanged.
+        bgr = self._page_to_bgr(image)
+        return self._recognize_prepared(bgr, regions, language, _SnippetMemo())
+
+    def _recognize_prepared(
+        self,
+        bgr: np.ndarray,
+        regions: list[OCRInputRegion],
+        language: str,
+        memo: _SnippetMemo,
+    ) -> list[OCRTextResult]:
         self._runtime.get()  # fail fast with the typed error when models are missing
-        bgr = cv2.cvtColor(np.asarray(image.convert("RGB")), cv2.COLOR_RGB2BGR)
         img_h, img_w = bgr.shape[:2]
 
         crops: list[np.ndarray] = []
@@ -653,7 +721,10 @@ class PPOCRV5RecEngine(BaseOCR):
                 idx for idx, item in enumerate(results) if (item.text or "").strip()
             ]
         if fallback_indices:
-            snippets = self._detect_and_recognize_snippets(bgr)
+            if memo.snippets is None:
+                memo.snippets = self._detect_and_recognize_snippets(bgr)
+                memo.passes += 1
+            snippets = memo.snippets
             if snippets:
                 for idx in fallback_indices:
                     current = results[idx]
