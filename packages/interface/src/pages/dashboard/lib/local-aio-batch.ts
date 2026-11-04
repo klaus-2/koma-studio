@@ -43,6 +43,12 @@ export const BATCH_REPORT_FILENAME = 'batch_report.json';
 export const LOCAL_AIO_BATCH_CHUNK_SIZE = 20;
 export const BATCH_PROGRESS_POLL_INTERVAL_MS = 500;
 
+/**
+ * Consecutive non-404 poll failures tolerated before the progress ticker stops
+ * and surfaces its typed, recoverable error state (the batch keeps running).
+ */
+export const MAX_CONSECUTIVE_POLL_FAILURES = 5;
+
 export const FALLBACK_BATCH_MAX_IMAGES = 64;
 export const FALLBACK_BATCH_MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 export const FALLBACK_BATCH_EFFECTIVE_CONCURRENCY = 4;
@@ -153,6 +159,19 @@ export interface BatchChunkState {
   name: string;
 }
 
+/**
+ * Poll-failure member of the chunk state: the progress poll gave up after
+ * `MAX_CONSECUTIVE_POLL_FAILURES` consecutive transport failures. Recoverable —
+ * the chunk request keeps running and still resolves the batch; only the live
+ * progress display stops updating until the next chunk state arrives.
+ */
+export interface BatchChunkPollFailedState extends BatchChunkState {
+  /** Always null: no in-flight stage is known once the poll stopped. */
+  stage: null;
+  /** The typed error that ended the poll. */
+  pollError: LocalAioBatchError;
+}
+
 export interface FetchBatchProgressInput {
   localApiUrl: string;
   batchId: string;
@@ -164,6 +183,12 @@ export interface StartBatchProgressPollingInput {
   batchId: string;
   signal: AbortSignal;
   onUpdate: (progress: BatchProgress) => void;
+  /**
+   * Fired once when `MAX_CONSECUTIVE_POLL_FAILURES` consecutive polls fail.
+   * Recoverable: the batch itself keeps running; only the live progress
+   * display stops updating.
+   */
+  onError?: (error: LocalAioBatchError) => void;
   intervalMs?: number;
 }
 
@@ -186,8 +211,12 @@ export interface RunLocalAioBatchChunksInput {
   signal: AbortSignal;
   /** Run-wide completed/total, offset by the finished chunks. */
   onProgress?: (completed: number, total: number) => void;
-  /** Current chunk (`1..chunkCount`) plus the image the backend is working on. */
-  onChunkState?: (state: BatchChunkState) => void;
+  /**
+   * Current chunk (`1..chunkCount`) plus the image the backend is working on.
+   * Also fires once with the poll-failed state when the chunk's progress poll
+   * gives up (recoverable — the chunk keeps running).
+   */
+  onChunkState?: (state: BatchChunkState | BatchChunkPollFailedState) => void;
 }
 
 export interface LocalAioBatchChunksResult {
@@ -325,19 +354,24 @@ export async function fetchBatchProgress({
  * aborts or the caller stops it. A 404 means the backend has not registered the
  * batch yet (uploads are spooled before registration) or the entry already
  * expired, so it must NOT stop the ticker: the chunk request's completion (or
- * its abort) stops it through the caller's `finally`. Other poll failures stop
- * the ticker without failing the batch. The returned stop function is
- * idempotent and always clears the timer.
+ * its abort) stops it through the caller's `finally`. Any other poll failure is
+ * tolerated while it stays transient; once `MAX_CONSECUTIVE_POLL_FAILURES`
+ * polls fail in a row the ticker stops, `onError` fires once with the typed
+ * error and the batch keeps running (only the live progress display stops
+ * updating). The returned stop function is idempotent and always clears the
+ * timer.
  */
 export function startBatchProgressPolling({
   localApiUrl,
   batchId,
   signal,
   onUpdate,
+  onError,
   intervalMs = BATCH_PROGRESS_POLL_INTERVAL_MS,
 }: StartBatchProgressPollingInput): () => void {
   let stopped = false;
   let inFlight = false;
+  let consecutiveFailures = 0;
 
   const stop = (): void => {
     if (stopped) {
@@ -368,6 +402,7 @@ export function startBatchProgressPolling({
         // Not registered yet (upload still spooling) or expired: keep ticking.
         return;
       }
+      consecutiveFailures = 0;
       if (stopped || signal.aborted) {
         return;
       }
@@ -376,7 +411,19 @@ export function startBatchProgressPolling({
         stop();
       }
     } catch {
+      if (stopped || signal.aborted) {
+        return;
+      }
+      consecutiveFailures += 1;
+      if (consecutiveFailures < MAX_CONSECUTIVE_POLL_FAILURES) {
+        return;
+      }
       stop();
+      onError?.(
+        new LocalAioBatchError(
+          `The batch progress poll stopped after ${MAX_CONSECUTIVE_POLL_FAILURES} consecutive failures.`,
+        ),
+      );
     } finally {
       inFlight = false;
     }
@@ -641,6 +688,9 @@ export async function runLocalAioBatchChunks({
       name: chunk[0]?.file.name ?? '',
     });
 
+    let lastPolledIndex = offset;
+    let lastPolledName = chunk[0]?.file.name ?? '';
+
     const stopPolling = startBatchProgressPolling({
       localApiUrl,
       batchId,
@@ -655,6 +705,8 @@ export async function runLocalAioBatchChunks({
         );
         onProgress?.(offset * stageUnitsPerImage + chunkUnits, totalUnits);
         if (progress.currentName.length > 0) {
+          lastPolledIndex = offset + progress.currentIndex;
+          lastPolledName = progress.currentName;
           onChunkState?.({
             chunkNumber,
             chunkCount,
@@ -663,6 +715,16 @@ export async function runLocalAioBatchChunks({
             name: progress.currentName,
           });
         }
+      },
+      onError: (pollError) => {
+        onChunkState?.({
+          chunkNumber,
+          chunkCount,
+          imageIndex: lastPolledIndex,
+          stage: null,
+          name: lastPolledName,
+          pollError,
+        });
       },
     });
 

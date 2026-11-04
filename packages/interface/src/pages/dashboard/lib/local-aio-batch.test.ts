@@ -18,6 +18,7 @@ import {
 } from './batch-wire';
 import {
   BATCH_PROGRESS_POLL_INTERVAL_MS,
+  MAX_CONSECUTIVE_POLL_FAILURES,
   aioStageKeyForBatchStage,
   buildFallbackBatchCapacity,
   countBatchStageUnits,
@@ -647,6 +648,124 @@ describe('startBatchProgressPolling', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('keeps polling through a transient fetch failure', async () => {
+    vi.useFakeTimers();
+    mockedFetch
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockResolvedValueOnce(jsonResponse(makeProgress({ completed: 1 })));
+    const onUpdate = vi.fn();
+    const onError = vi.fn();
+    const controller = new AbortController();
+
+    const stop = startBatchProgressPolling({
+      localApiUrl: localBatchUrl,
+      batchId: 'batch-1',
+      signal: controller.signal,
+      onUpdate,
+      onError,
+    });
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate.mock.calls[0]?.[0]).toMatchObject({ completed: 1 });
+    expect(vi.getTimerCount()).toBe(1);
+
+    stop();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('stops and surfaces a typed error after five consecutive failures', async () => {
+    vi.useFakeTimers();
+    mockedFetch.mockRejectedValue(new Error('backend went away'));
+    const onUpdate = vi.fn();
+    const onError = vi.fn();
+    const controller = new AbortController();
+
+    const stop = startBatchProgressPolling({
+      localApiUrl: localBatchUrl,
+      batchId: 'batch-1',
+      signal: controller.signal,
+      onUpdate,
+      onError,
+    });
+
+    await vi.advanceTimersByTimeAsync(
+      500 * (MAX_CONSECUTIVE_POLL_FAILURES - 1),
+    );
+    expect(mockedFetch).toHaveBeenCalledTimes(MAX_CONSECUTIVE_POLL_FAILURES - 1);
+    expect(onError).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(mockedFetch).toHaveBeenCalledTimes(MAX_CONSECUTIVE_POLL_FAILURES);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(LocalAioBatchError);
+    expect(onError.mock.calls[0]?.[0]).toMatchObject({
+      name: 'LocalAioBatchError',
+      status: null,
+    });
+    expect(vi.getTimerCount()).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(mockedFetch).toHaveBeenCalledTimes(MAX_CONSECUTIVE_POLL_FAILURES);
+    expect(onUpdate).not.toHaveBeenCalled();
+
+    stop();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('resets the failure counter after a successful poll', async () => {
+    vi.useFakeTimers();
+    mockedFetch
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockResolvedValueOnce(jsonResponse(makeProgress({ completed: 1 })))
+      .mockRejectedValue(new Error('connection reset'));
+    const onUpdate = vi.fn();
+    const onError = vi.fn();
+    const controller = new AbortController();
+
+    const stop = startBatchProgressPolling({
+      localApiUrl: localBatchUrl,
+      batchId: 'batch-1',
+      signal: controller.signal,
+      onUpdate,
+      onError,
+    });
+
+    await vi.advanceTimersByTimeAsync(500 * MAX_CONSECUTIVE_POLL_FAILURES);
+    expect(mockedFetch).toHaveBeenCalledTimes(MAX_CONSECUTIVE_POLL_FAILURES);
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(
+      500 * (MAX_CONSECUTIVE_POLL_FAILURES - 1),
+    );
+    expect(mockedFetch).toHaveBeenCalledTimes(
+      2 * MAX_CONSECUTIVE_POLL_FAILURES - 1,
+    );
+    expect(onError).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(mockedFetch).toHaveBeenCalledTimes(2 * MAX_CONSECUTIVE_POLL_FAILURES);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(LocalAioBatchError);
+    expect(vi.getTimerCount()).toBe(0);
+
+    stop();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('is stopped by abort and never polls afterwards', async () => {
     vi.useFakeTimers();
     mockedFetch.mockResolvedValue(jsonResponse(makeProgress()));
@@ -809,6 +928,45 @@ describe('runLocalAioBatchChunks', () => {
     await vi.advanceTimersByTimeAsync(500);
     expect(mockedFetch).toHaveBeenCalledTimes(3);
     expect(vi.getTimerCount()).toBe(1);
+
+    post.resolve(jsonResponse(reportForChunk(1, 0)));
+    const result = await runPromise;
+
+    expect(result.results).toHaveLength(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('surfaces the poll-failure chunk state and still completes the batch', async () => {
+    vi.useFakeTimers();
+    const post = deferred<Response>();
+    mockedFetch.mockImplementation((url) => {
+      if (url.includes('/pipeline/batch/progress')) {
+        return Promise.reject(new Error('progress poll failed'));
+      }
+
+      return post.promise;
+    });
+    const onChunkState = vi.fn();
+    const controller = new AbortController();
+
+    const runPromise = runLocalAioBatchChunks({
+      localApiUrl: localBatchUrl,
+      images: [makeImage(0)],
+      options: jsonOnlyOptions,
+      capacity: makeCapacity(),
+      signal: controller.signal,
+      onChunkState,
+    });
+
+    await vi.advanceTimersByTimeAsync(500 * MAX_CONSECUTIVE_POLL_FAILURES);
+    expect(onChunkState).toHaveBeenLastCalledWith({
+      chunkNumber: 1,
+      chunkCount: 1,
+      imageIndex: 0,
+      stage: null,
+      name: 'page-0.png',
+      pollError: expect.any(LocalAioBatchError),
+    });
 
     post.resolve(jsonResponse(reportForChunk(1, 0)));
     const result = await runPromise;
