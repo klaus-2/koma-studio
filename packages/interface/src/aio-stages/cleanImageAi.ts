@@ -4,6 +4,7 @@ import {
   type CustomLlmRequestProfile,
 } from '../utils/customLlm';
 import type { SfxClassificationResponse } from '../utils/sfx';
+import { createStageForm } from './formPrep';
 import { toStructuralRegionsJson } from './payloads';
 import { STAGE_TIMEOUT_MS, runStageForm, type StageRunOptions } from './transport';
 import type {
@@ -22,12 +23,11 @@ export interface StructuralCleanStageArgs {
   customProfile?: CustomLlmRequestProfile | null;
 }
 
+/** Stage-specific structural extras on top of the shared form prep. */
 function appendStructuralCleanFields(
   form: FormData,
   args: StructuralCleanStageArgs,
 ): void {
-  form.append('file', args.image.file);
-  form.append('model_key', args.modelKey);
   form.append('regions', toStructuralRegionsJson(args.regions, args.image));
   form.append('additional_instructions', args.additionalInstructions);
   const customPayload = toCustomLlmRequestPayload(args.customProfile);
@@ -42,7 +42,7 @@ export function runSfxClassifyStage(
   runtime: StageRuntime,
   options: StageRunOptions,
 ): Promise<FinishedStageRun<SfxClassificationResponse>> {
-  const form = new FormData();
+  const form = createStageForm({ file: args.image.file, modelKey: args.modelKey });
   appendStructuralCleanFields(form, args);
   return runStageForm(runtime, options, {
     path: '/sfx/classify',
@@ -62,7 +62,7 @@ export function runCleanImageAiStage(
   runtime: StageRuntime,
   options: StageRunOptions,
 ): Promise<FinishedStageRun<Blob>> {
-  const form = new FormData();
+  const form = createStageForm({ file: args.image.file, modelKey: args.modelKey });
   appendStructuralCleanFields(form, args);
   return runStageForm(runtime, options, {
     path: '/clean/ai',

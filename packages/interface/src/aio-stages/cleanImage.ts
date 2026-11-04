@@ -1,4 +1,5 @@
 /** Clean Image stage-run — brush mask + inpaint. */
+import { createStageForm } from './formPrep';
 import { toCleanRegionsJson } from './payloads';
 import { STAGE_TIMEOUT_MS, runStageForm, type StageRunOptions } from './transport';
 import type {
@@ -76,13 +77,14 @@ export async function runCleanImageStage(
     );
   }
 
-  const form = new FormData();
-  form.append('file', args.image.file);
+  const form = createStageForm({
+    file: args.image.file,
+    modelKey: args.modelKey,
+    useGpu: args.useGpu,
+  });
   if (brushMaskBlob) {
     form.append('brush_mask', brushMaskBlob, 'brush_mask.png');
   }
-  form.append('model_key', args.modelKey);
-  if (args.useGpu !== undefined) form.append('use_gpu', String(args.useGpu));
   form.append('mask_dilation', String(args.options.maskDilation));
   form.append('hd_strategy', args.options.hdStrategy);
   form.append('hd_strategy_resize_limit', String(args.options.hdResizeLimit));

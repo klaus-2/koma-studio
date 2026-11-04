@@ -80,6 +80,11 @@ export function toCleanRegionsJson(
       segment_model_key: region.segmentModelKey ?? fallbackSegmentModelKey,
       segment_boxes: region.segmentBoxes ?? [],
       merged_boxes: region.mergedSegmentBoxes ?? [],
+      // KEEP (adjudicated against the backend contract): /inpaint is stateless
+      // and consumes the client's segment masks — utils/mask.py decodes
+      // mask_base64 when present, else falls back to box rasterization
+      // (cold-run quality loss). Never drop the re-send; absence (`?? ''`) is
+      // contract, pinned by merge.test.ts + batch-mapping.test.ts.
       mask_base64: region.maskBase64 ?? '',
     })),
   );

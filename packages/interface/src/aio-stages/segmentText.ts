@@ -1,5 +1,6 @@
 /** Segment Text stage-run. */
 import type { AioTextRegion, SegmentApiResponse } from '../types/dashboard.types';
+import { createStageForm } from './formPrep';
 import { mergeSegmentIntoRegions } from './merge';
 import { toSegmentRegionsJson } from './payloads';
 import { STAGE_TIMEOUT_MS, runStageForm, type StageRunOptions } from './transport';
@@ -24,10 +25,11 @@ export function runSegmentTextStage(
   runtime: StageRuntime,
   options: StageRunOptions,
 ): Promise<FinishedStageRun<AioTextRegion[]>> {
-  const form = new FormData();
-  form.append('file', args.image.file);
-  form.append('model_key', args.modelKey);
-  if (args.useGpu !== undefined) form.append('use_gpu', String(args.useGpu));
+  const form = createStageForm({
+    file: args.image.file,
+    modelKey: args.modelKey,
+    useGpu: args.useGpu,
+  });
   form.append(
     'regions',
     toSegmentRegionsJson(

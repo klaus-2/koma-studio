@@ -5,6 +5,7 @@ import {
   type CustomLlmRequestProfile,
   type LlmRequestSettings,
 } from '../utils/customLlm';
+import { createStageForm } from './formPrep';
 import { mergeOcrIntoRegions } from './merge';
 import { toOcrRegionsJson } from './payloads';
 import { STAGE_TIMEOUT_MS, runStageForm, type StageRunOptions } from './transport';
@@ -31,9 +32,13 @@ export function runRecognizeTextStage(
   runtime: StageRuntime,
   options: StageRunOptions,
 ): Promise<FinishedStageRun<AioTextRegion[]>> {
-  const form = new FormData();
-  form.append('file', args.image.file);
-  form.append('model_key', args.modelKey);
+  // useGpu stays out of the shared prep: it is appended below, only when the
+  // caller does not force cloud OCR.
+  const form = createStageForm({
+    file: args.image.file,
+    modelKey: args.modelKey,
+    useGpu: undefined,
+  });
   form.append('language', args.sourceLanguage);
   form.append('regions', toOcrRegionsJson(args.regions, args.image));
   if (args.llmSettings) {

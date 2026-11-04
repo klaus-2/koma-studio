@@ -5,6 +5,7 @@ import {
   type CustomLlmRequestProfile,
   type LlmRequestSettings,
 } from '../utils/customLlm';
+import { createStageForm } from './formPrep';
 import { mergeTranslationIntoRegions } from './merge';
 import { toTranslateRegionsJson } from './payloads';
 import { STAGE_TIMEOUT_MS, runStageForm, type StageRunOptions } from './transport';
@@ -34,8 +35,8 @@ export function runGetTranslationsStage(
   runtime: StageRuntime,
   options: StageRunOptions,
 ): Promise<FinishedStageRun<AioTextRegion[]>> {
-  const form = new FormData();
-  form.append('model_key', args.modelKey);
+  // file stays out of the shared prep: it is appended below, only in LLM mode.
+  const form = createStageForm({ file: undefined, modelKey: args.modelKey });
   form.append('source_language', args.sourceLanguage);
   form.append('target_language', args.targetLanguage);
   if (args.sfx) {
