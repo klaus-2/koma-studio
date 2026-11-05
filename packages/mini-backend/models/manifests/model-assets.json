@@ -33,6 +33,10 @@
       "endpoint": "/models/install",
       "strategy": "backend_managed"
     },
+    "font_rtdetr_v2": {
+      "endpoint": "/models/install",
+      "strategy": "backend_managed"
+    },
     "got_ocr2": {
       "endpoint": "/models/install",
       "strategy": "backend_managed"
@@ -253,6 +257,16 @@
         }
       },
       "totalBytes": 77251756
+    },
+    "font_rtdetr_v2": {
+      "assets": [
+        {
+          "path": "detector.onnx",
+          "sha256": "065744e91c0594ad8663aa8b870ce3fb27222942eded5a3cc388ce23421bd195",
+          "size": 168481531
+        }
+      ],
+      "totalBytes": 168481531
     },
     "got_ocr2": {
       "assets": [
