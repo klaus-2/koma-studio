@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+import { isDirectExecution } from "./lib/is-direct-execution.mjs";
 
 const bundleFolders = ["msi", "nsis", "dmg", "deb", "appimage"];
 const installerExtensions = new Set([".msi", ".exe", ".dmg", ".deb", ".AppImage"]);
@@ -42,7 +44,7 @@ export function renameTauriInstallers(bundleDir) {
   return renamed;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectExecution(import.meta.url, process.argv[1])) {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const bundleDir = path.resolve(scriptDir, "..", "src-tauri", "target", "release", "bundle");
   const renamed = renameTauriInstallers(bundleDir);

@@ -2,10 +2,11 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { isAuthDisabledFlag } from "@koma/types/auth-disabled";
 
+import { isDirectExecution } from "./lib/is-direct-execution.mjs";
 import { AUTH_DISABLED_KEY, readEnvFileValue } from "./lib/mini-dev-env.mjs";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -51,7 +52,7 @@ const killChild = (child) => {
     spawnSync(kill.command, kill.args, { stdio: "ignore", timeout: 15_000 });
 };
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectExecution(import.meta.url, process.argv[1])) {
     const declared = {
         processValue: process.env[AUTH_DISABLED_KEY] ?? "",
         fileValue: readEnvFileValue(rootDir, AUTH_DISABLED_KEY),

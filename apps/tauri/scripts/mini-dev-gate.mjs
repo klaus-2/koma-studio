@@ -2,7 +2,9 @@
 
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+import { isDirectExecution } from "./lib/is-direct-execution.mjs";
 
 import { EXIT_UNUSABLE } from "./lib/mini-venv-verdict.mjs";
 
@@ -65,25 +67,13 @@ export const evaluateGate = (checkExitCode, env) => {
   return { blocked: false, exitCode: 0, notice: "" };
 };
 
-const isDirectExecution = (() => {
-  if (!process.argv[1]) {
-    return false;
-  }
-
-  try {
-    return import.meta.url === pathToFileURL(process.argv[1]).href;
-  } catch {
-    return false;
-  }
-})();
-
 const runMiniVenv = (args) =>
   spawnSync(process.execPath, [path.join(rootDir, "scripts", "mini-venv.mjs"), ...args], {
     stdio: "inherit",
     cwd: rootDir,
   });
 
-if (isDirectExecution) {
+if (isDirectExecution(import.meta.url, process.argv[1])) {
   let check = runMiniVenv(["--check"]);
   if (shouldRebuild(check.status ?? 1, process.env)) {
     console.warn(
