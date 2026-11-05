@@ -13,6 +13,7 @@ import {
   useModelManagerStatusSnapshot,
 } from '../../hooks/useModelManager';
 import { summarizeInstalledModels } from '../../models/model-storage';
+import { useAioPipelineStore } from '../../pages/dashboard/stores/aio-pipeline-store';
 import { computeBatchProgress } from '../../models/model-install-reconciliation';
 
 import type { AioStageKey, AioStageSelection } from '../../types/aioModelPresets';
@@ -104,6 +105,7 @@ export default function DashboardModelManagers({
   const { t } = useI18n();
   const { modelManagerState, modelSummary, installAllSummary, batchProgress } =
     useModelManagerSummaries(enhanceModelManagerOpen);
+  const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
   const aioStageLabels = useMemo(() => getAioStageLabels(t), [t]);
 
   const openedOnceRef = useRef({
@@ -245,6 +247,7 @@ export default function DashboardModelManagers({
           checkingRemoteUpdates={modelManagerState.checkingRemoteUpdates}
           lastRemoteCheckAt={modelManagerState.lastRemoteCheckAt}
           defaultLanguageFilter={modelManagerState.modalLanguageFilter || aioSrcLang}
+          defaultTargetLanguage={aioTgtLang}
           focusedModelId={modelManagerState.focusedModelId}
           selectedModelId={aioStageSelection.getTranslations}
           batch={batchProgress}

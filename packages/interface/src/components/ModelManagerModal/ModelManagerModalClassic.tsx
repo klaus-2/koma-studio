@@ -31,6 +31,7 @@ export interface ModelManagerModalProps {
   checkingRemoteUpdates: boolean;
   lastRemoteCheckAt: number | null;
   defaultLanguageFilter: string;
+  defaultTargetLanguage?: string;
   focusedModelId: string | null;
   selectedModelId: string;
   selectionStage: AioLocalModelStage;
@@ -105,6 +106,7 @@ export const ModelManagerModalClassic = ({
   checkingRemoteUpdates,
   lastRemoteCheckAt,
   defaultLanguageFilter,
+  defaultTargetLanguage,
   focusedModelId,
   selectedModelId,
   selectionStage,
@@ -182,10 +184,17 @@ export const ModelManagerModalClassic = ({
       entries,
       localStageFilter,
       languageFilter,
+      defaultTargetLanguage,
       installAllSummary,
       estimateModelRequiredDiskBytes,
     );
-  }, [entries, installAllSummary, languageFilter, localStageFilter]);
+  }, [
+    defaultTargetLanguage,
+    entries,
+    installAllSummary,
+    languageFilter,
+    localStageFilter,
+  ]);
 
   const blockedReason = useMemo(() => {
     if (!scopedSummary.eligibleModelIds.length)

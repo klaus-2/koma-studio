@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **"Install Recommended" now picks models for the target language and for
+  every registry language.** The recommendation engine only looked at the
+  source language, so a ja→en user was recommended a ja→zh model, and users
+  outside de/en/es/ja/ko found the button permanently disabled in the
+  recognition and translation modals. Recommendations now key on the
+  pipeline's target language — Sakura stays the pick for ja→zh, Sugoi CT2 for
+  ja→en, Hunyuan MT for the 40 language pairs it covers, M2M100 for the rest —
+  and the recognition stage recommends a PaddleOCR variant for all 20
+  languages its models accept. The curated map's unit tests were also moved
+  into the vitest suite so CI runs them (they lived outside its include
+  pattern).
+
 ## [1.3.1] - 2026-11-02
 
 19 commits since v1.3.0, all of them corrections behind the local runtime. The
