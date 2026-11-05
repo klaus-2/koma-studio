@@ -21,6 +21,7 @@ import type {
 import { useI18n } from '../i18n';
 import { LegalInlineLinks } from './legal/LegalInlineLinks';
 import { useBugReportPrepare } from './useBugReportPrepare';
+import { KomaDialog } from '@koma/ui/components/dialog';
 import '@koma/ui/styles/KomaModals.css';
 
 import { desktopBridge } from "@/lib/desktop-bridge";
@@ -326,17 +327,14 @@ const BugReportModalClassic = ({
   if (!open) return null;
 
   return (
-    <div
-      className="koma-modal-backdrop"
-      onClick={loading ? undefined : onClose}
+    <KomaDialog
+      open
+      onClose={onClose}
+      layerClassName="koma-modal-backdrop"
+      modalClassName="koma-modal koma-bug-modal"
+      labelledBy="bug-title"
+      dismissable={!loading}
     >
-      <div
-        className="koma-modal koma-bug-modal"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bug-title"
-      >
         {/* Header */}
         <div className="koma-modal__header">
           <div className="koma-modal__header-icon">
@@ -656,8 +654,7 @@ const BugReportModalClassic = ({
             )}
           </button>
         </div>
-      </div>
-    </div>
+    </KomaDialog>
   );
 };
 

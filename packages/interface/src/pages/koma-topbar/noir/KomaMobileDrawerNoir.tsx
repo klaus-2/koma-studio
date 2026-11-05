@@ -1,5 +1,6 @@
 import { m } from 'framer-motion';
 import { ChevronRight, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 import { useI18n } from '../../../i18n';
 import type { NavGroup, ToolMode } from '../KomaTopbar.shared';
@@ -25,6 +26,18 @@ export default function KomaMobileDrawerNoir({
   onClose,
 }: KomaMobileDrawerProps) {
   const { t } = useI18n();
+  const drawerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    drawerRef.current?.focus();
+    const handler = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const initial = userDisplayName?.charAt(0)?.toUpperCase() ?? 'K';
@@ -44,6 +57,8 @@ export default function KomaMobileDrawerNoir({
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        ref={drawerRef}
+        tabIndex={-1}
         role="dialog"
         aria-label={t('dashboard.topbar.navigation')}
         className="glass absolute right-0 top-0 flex h-full w-[86%] max-w-sm flex-col border-l-2 border-crimson/40 bg-ink-2/95"

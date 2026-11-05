@@ -83,14 +83,17 @@ const TONES = {
 export function Alert({
   tone = "error",
   title,
+  id,
   children,
 }: {
   tone?: keyof typeof TONES;
   title?: string;
+  id?: string;
   children: ReactNode;
 }) {
   return (
     <div
+      id={id}
       role={tone === "error" ? "alert" : "status"}
       className={`panel-cut-sm border px-4 py-3 font-mono text-[12px] leading-relaxed ${TONES[tone]}`}
     >

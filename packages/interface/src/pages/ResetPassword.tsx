@@ -95,7 +95,7 @@ export const ResetPasswordPage = ({ onNavigateLogin }: ResetPasswordPageProps) =
   return (
     <AuthSimpleShell title={t("reset.title")} subtitle={t("reset.subtitle")}>
       {errorMessage && (
-        <div className="auth-alert auth-alert--error" role="alert">
+        <div className="auth-alert auth-alert--error" role="alert" id="reset-error">
           {errorMessage}
         </div>
       )}
@@ -127,6 +127,8 @@ export const ResetPasswordPage = ({ onNavigateLogin }: ResetPasswordPageProps) =
               className="auth-field__input auth-field__input--icon"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? "reset-error" : undefined}
             />
           </div>
         </div>
@@ -154,6 +156,8 @@ export const ResetPasswordPage = ({ onNavigateLogin }: ResetPasswordPageProps) =
               className="auth-field__input auth-field__input--icon"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? "reset-error" : undefined}
             />
           </div>
         </div>

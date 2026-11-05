@@ -757,7 +757,7 @@ export default memo(function AioRightPanel({
 
       {/* ═══════════════════ MANUAL HINT ═══════════════════ */}
       {subMode === 'manual' && (
-        <div className="koma-aio-info" role="status" aria-hidden="true">
+        <div className="koma-aio-info" role="status">
           <Paintbrush size={13} className="koma-aio-info__icon" />
           <span>
             {t("dashboard.dashboardRegion.dockHint")}

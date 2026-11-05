@@ -33,6 +33,7 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@koma/ui/components/tooltip";
+import { handleTablistArrowKeys } from "@koma/ui/utils/tablist-navigation";
 import { useI18n } from '../i18n';
 import { useUiShellStore } from './dashboard/stores/ui-shell-store';
 import VersionBadge from '../components/VersionBadge';
@@ -556,6 +557,7 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
           data-tour="topbar-main-nav"
           role="tablist"
           aria-label={t('dashboard.topbar.tools')}
+          onKeyDown={handleTablistArrowKeys}
         >
           {/* Sidebar dock (collapsed state) */}
           {sidebarCollapsed && onSidebarToggle && (

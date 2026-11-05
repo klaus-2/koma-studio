@@ -7,6 +7,7 @@ import {
   useShortcutCenterModel,
   type ShortcutCenterModalProps,
 } from '../shortcuts/useShortcutCenterModel';
+import { KomaDialog } from '@koma/ui/components/dialog';
 import '@koma/ui/styles/KomaModals.css';
 
 export function ShortcutCenterModalClassic(props: ShortcutCenterModalProps) {
@@ -30,14 +31,13 @@ export function ShortcutCenterModalClassic(props: ShortcutCenterModalProps) {
   if (!open) return null;
 
   return (
-    <div className="koma-modal-backdrop" onClick={onClose}>
-      <div
-        className="koma-modal koma-shortcuts-modal"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sc-title"
-      >
+    <KomaDialog
+      open
+      onClose={onClose}
+      layerClassName="koma-modal-backdrop"
+      modalClassName="koma-modal koma-shortcuts-modal"
+      labelledBy="sc-title"
+    >
         {/* Header */}
         <div className="koma-modal__header">
           <div className="koma-modal__header-icon">
@@ -235,8 +235,7 @@ export function ShortcutCenterModalClassic(props: ShortcutCenterModalProps) {
             {t('shortcutModal.close')}
           </button>
         </div>
-      </div>
-    </div>
+    </KomaDialog>
   );
 }
 

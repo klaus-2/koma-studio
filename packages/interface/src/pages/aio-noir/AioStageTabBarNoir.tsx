@@ -2,6 +2,7 @@ import type { StageTabDef, StageTabKey } from "../AioStageTabBar";
 import { m } from "framer-motion";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";
+import { handleTablistArrowKeys } from "@koma/ui/utils/tablist-navigation";
 
 interface AioStageTabBarProps {
   tabs: StageTabDef[];
@@ -23,6 +24,7 @@ export const AioStageTabBarNoir = ({
       className="koma-aio-stage-tabs__bar"
       role="tablist"
       aria-label={t("aio.stage.tabsBarAria")}
+      onKeyDown={handleTablistArrowKeys}
     >
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;

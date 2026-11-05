@@ -3,6 +3,7 @@ import loginBackgroundVideo from "@koma/ui/assets/login-background.mp4";
 import loginBackgroundPoster from "@koma/ui/assets/login-background-poster.webp";
 import brandLogo from "@koma/ui/assets/logo-1.webp";
 import brandLogo2 from "@koma/ui/assets/logo-2.webp";
+import { handleTablistArrowKeys } from "@koma/ui/utils/tablist-navigation";
 import brandLogo3 from "@koma/ui/assets/logo-3.webp";
 import brandLogo4 from "@koma/ui/assets/logo-4.webp";
 import brandLogo5 from "@koma/ui/assets/logo-5.webp";
@@ -102,7 +103,7 @@ export const AuthShellClassic = ({ activeTab, onSelectLogin, onSelectRegister, s
             </div>
           </header>
 
-          <div className="auth-tabs" role="tablist" aria-label={t("auth.tabs.login")}>
+          <div className="auth-tabs" role="tablist" aria-label={t("auth.tabs.login")} onKeyDown={handleTablistArrowKeys}>
             <button
               type="button"
               role="tab"

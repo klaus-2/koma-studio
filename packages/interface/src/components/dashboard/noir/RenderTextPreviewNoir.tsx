@@ -562,6 +562,7 @@ const RenderTextPreviewNoir = ({
     normalizeSelectedRegionShape,
     adjustSelectedFontSize,
     adjustSelectedRotation,
+    nudgeSelectedRegion,
     dockVisible,
   } = useRenderTextPreviewTypeDock({
     showRenderDock,
@@ -587,6 +588,7 @@ const RenderTextPreviewNoir = ({
     updateRegionStyle,
     updateRegionTextStyleRanges,
     updateRegions,
+    updateRegionBox,
   });
 
   const inlineEditorHandle = inlineEditor
@@ -901,6 +903,7 @@ const RenderTextPreviewNoir = ({
                     normalizeSelectedRegionShape={normalizeSelectedRegionShape}
                     adjustSelectedFontSize={adjustSelectedFontSize}
                     adjustSelectedRotation={adjustSelectedRotation}
+                    nudgeSelectedRegion={nudgeSelectedRegion}
                     saveCurrentSelection={saveCurrentSelection}
                     clearPickerState={clearPickerState}
                     syncInlineEditorSelection={syncInlineEditorSelection}

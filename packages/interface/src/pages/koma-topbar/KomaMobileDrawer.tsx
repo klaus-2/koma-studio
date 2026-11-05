@@ -1,4 +1,5 @@
 import { ChevronRight, User, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 import { useI18n } from '../../i18n';
 import type { NavGroup, ToolMode } from './KomaTopbar.shared';
@@ -24,13 +25,24 @@ export default function KomaMobileDrawer({
   onClose,
 }: KomaMobileDrawerProps) {
   const { t } = useI18n();
+  const drawerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    drawerRef.current?.focus();
+    const handler = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, onClose]);
 
   if (!open) return null;
 
   return (
     <div className="koma-drawer-root">
       <div className="koma-drawer__backdrop" onClick={onClose} aria-hidden="true" />
-      <aside className="koma-drawer" role="dialog" aria-label={t('dashboard.topbar.navigation')}>
+      <aside ref={drawerRef} tabIndex={-1} className="koma-drawer" role="dialog" aria-label={t('dashboard.topbar.navigation')}>
         <div className="koma-drawer__orb" aria-hidden="true" />
         <div className="koma-drawer__header">
           <div className="koma-drawer__brand">

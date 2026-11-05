@@ -11,6 +11,7 @@ import type { UseUpdaterApi } from '../../../hooks/useUpdater';
 import { SettingsTabIcon as TabIcon } from '../SettingsTabIcon';
 import { TABS } from '../settings.constants';
 import type { SettingsTab } from '../settings.types';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 type TranslationFn = ReturnType<typeof useI18n>['t'];
 
@@ -115,7 +116,7 @@ export const SettingsPageShellNoir = ({
         </m.header>
 
         <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-          <nav role="tablist" aria-label={t('settings.tabs.ariaLabel')}
+          <nav role="tablist" onKeyDown={handleTablistArrowKeys} aria-label={t('settings.tabs.ariaLabel')}
             className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
             {TABS.map((tab) => {
               const active = activeTab === tab.id;

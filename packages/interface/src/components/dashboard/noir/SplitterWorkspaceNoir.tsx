@@ -408,8 +408,8 @@ export const SplitterWorkspaceNoir = () => {
               const thumb = segmentThumbs.find((th) => th.id === seg.id);
               const isSelected = selectedSegmentId === seg.id;
               return (
-                <div key={seg.id} onClick={() => setSelectedSegmentId(isSelected ? null : seg.id)}
-                  className={`panel-cut-sm w-40 shrink-0 cursor-pointer space-y-2 border p-2 transition-all duration-200 ${isSelected ? 'border-crimson/60 bg-crimson/8 -translate-y-0.5' : seg.warning ? 'border-gold/40 bg-gold/5' : 'border-paper/10 bg-ink hover:border-paper/25'
+                <button key={seg.id} type="button" aria-pressed={isSelected} onClick={() => setSelectedSegmentId(isSelected ? null : seg.id)}
+                  className={`panel-cut-sm w-40 shrink-0 cursor-pointer space-y-2 border p-2 text-left transition-all duration-200 ${isSelected ? 'border-crimson/60 bg-crimson/8 -translate-y-0.5' : seg.warning ? 'border-gold/40 bg-gold/5' : 'border-paper/10 bg-ink hover:border-paper/25'
                     }`}>
                   <div className="flex items-center justify-between">
                     <span className="panel-cut-sm bg-mint/15 px-2 py-0.5 font-display text-[10px] font-black text-mint">S{idx + 1}</span>
@@ -424,7 +424,7 @@ export const SplitterWorkspaceNoir = () => {
                     <p className="font-mono text-[8.5px] text-paper-dim">{seg.start}–{seg.end}px · {seg.size}px</p>
                     {seg.warning && <p className="font-mono text-[8.5px] text-gold">{seg.warning}</p>}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

@@ -79,11 +79,11 @@ describe('CustomLlmProfilesManagerSection save feedback', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const saving = await screen.findByRole('button', { name: 'Saving...' });
-    expect(saving.disabled).toBe(true);
+    expect(saving).toHaveProperty('disabled', true);
 
     resolveSave?.(true);
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Saved' })).toBeTruthy());
-    expect(screen.queryByRole('button', { name: 'Saved' })?.disabled).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Saved' })).toHaveProperty('disabled', false);
   });
 
   it('does not flash Saved when the save reports failure', async () => {

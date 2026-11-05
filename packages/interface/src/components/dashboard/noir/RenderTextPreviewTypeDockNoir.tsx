@@ -4,6 +4,10 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Bold,
   Italic,
   Settings,
@@ -70,6 +74,7 @@ interface RenderTextPreviewTypeDockNoirProps {
   }) => void;
   adjustSelectedFontSize: (delta: number) => void;
   adjustSelectedRotation: (deltaDegrees: number) => void;
+  nudgeSelectedRegion: (direction: 'left' | 'right' | 'up' | 'down') => void;
   saveCurrentSelection: () => { start: number; end: number } | null;
   clearPickerState: () => void;
   syncInlineEditorSelection: () => void;
@@ -224,6 +229,7 @@ const RenderTextPreviewTypeDockNoir = ({
   normalizeSelectedRegionShape,
   adjustSelectedFontSize,
   adjustSelectedRotation,
+  nudgeSelectedRegion,
   saveCurrentSelection,
   clearPickerState,
   syncInlineEditorSelection,
@@ -322,6 +328,15 @@ const RenderTextPreviewTypeDockNoir = ({
 
           <Stepper label={t('renderPreview.rotation')} onDec={() => adjustSelectedRotation(-5)} onInc={() => adjustSelectedRotation(5)}
             decLabel={t('renderPreview.rotateMinus5')} incLabel={t('renderPreview.rotatePlus5')} value={`${Math.round(selectedRegionStyle.rotation)}°`} />
+
+          <DockPipe />
+
+          <IconGroup label={t('renderPreview.nudgeGroup')}>
+            <DockIcon onClick={() => nudgeSelectedRegion('left')} label={t('renderPreview.nudgeLeft')}><ArrowLeft size={12} /></DockIcon>
+            <DockIcon onClick={() => nudgeSelectedRegion('up')} label={t('renderPreview.nudgeUp')}><ArrowUp size={12} /></DockIcon>
+            <DockIcon onClick={() => nudgeSelectedRegion('down')} label={t('renderPreview.nudgeDown')}><ArrowDown size={12} /></DockIcon>
+            <DockIcon onClick={() => nudgeSelectedRegion('right')} label={t('renderPreview.nudgeRight')}><ArrowRight size={12} /></DockIcon>
+          </IconGroup>
         </div>
 
         {/* ═══ Row 3: Transform + Actions ═══ */}

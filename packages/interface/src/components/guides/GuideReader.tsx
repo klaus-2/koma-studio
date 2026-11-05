@@ -136,7 +136,8 @@
                     {sectionLabel && (
                       <div className="koma-gr-sidebar__section-label">{sectionLabel}</div>
                     )}
-                    <div
+                    <button
+                      type="button"
                       className={[
                         'koma-gr-sidebar__step',
                         isActive && 'koma-gr-sidebar__step--active',
@@ -145,12 +146,7 @@
                         .filter(Boolean)
                         .join(' ')}
                       onClick={() => goToStep(idx)}
-                      role="button"
-                      tabIndex={0}
                       aria-current={isActive ? 'step' : undefined}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') goToStep(idx);
-                      }}
                     >
                       <span className="koma-gr-sidebar__step-num">
                         {isCompleted ? <Check size={12} /> : idx + 1}
@@ -158,7 +154,7 @@
                       <span className="koma-gr-sidebar__step-label">
                         {step.title || t('guides.reader.stepLabel', { index: idx + 1 })}
                       </span>
-                    </div>
+                    </button>
                   </li>
                 );
               })}

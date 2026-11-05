@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { m, useReducedMotion, type Variants } from 'framer-motion';
 import { HardDrive, ChevronDown, type LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 import type {
   InputHTMLAttributes,
@@ -409,7 +410,7 @@ export function SegToggle({ items, value, onChange, ariaLabel }: {
   items: SegItem[]; value: string; onChange: (v: string) => void; ariaLabel?: string;
 }) {
   return (
-    <div role="tablist" aria-label={ariaLabel} className="relative flex gap-1 p-1 panel-cut-sm bg-ink border border-paper/10">
+    <div role="tablist" aria-label={ariaLabel} onKeyDown={handleTablistArrowKeys} className="relative flex gap-1 p-1 panel-cut-sm bg-ink border border-paper/10">
       {items.map((it) => {
         const active = it.key === value;
         const Icon = it.icon;

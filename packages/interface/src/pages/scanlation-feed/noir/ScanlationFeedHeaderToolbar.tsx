@@ -8,6 +8,7 @@ import { useI18n } from '../../../i18n';
 import type { FeedTab } from '../ScanlationFeed.types';
 import { Stamp } from '../../../components/noir-panels/NoirPrimitives';
 import { feedBtn } from './ScanlationFeedPrimitives';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 type Props = {
   tab: FeedTab;
@@ -76,7 +77,7 @@ export default function ScanlationFeedHeaderToolbar({
 
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center gap-2">
-        <nav role="tablist" aria-label={t('feed.tabsAria')} className="flex flex-wrap gap-2">
+        <nav role="tablist" onKeyDown={handleTablistArrowKeys} aria-label={t('feed.tabsAria')} className="flex flex-wrap gap-2">
           {tabs.map((key) => {
             const active = tab === key;
             const { icon: Icon, jp } = TAB_META[key];

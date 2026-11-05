@@ -73,6 +73,7 @@ interface RenderTextPreviewTypeDockProps {
   }) => void;
   adjustSelectedFontSize: (delta: number) => void;
   adjustSelectedRotation: (deltaDegrees: number) => void;
+  nudgeSelectedRegion: (direction: 'left' | 'right' | 'up' | 'down') => void;
   saveCurrentSelection: () => { start: number; end: number } | null;
   clearPickerState: () => void;
   syncInlineEditorSelection: () => void;
@@ -98,6 +99,7 @@ const RenderTextPreviewTypeDock = ({
   normalizeSelectedRegionShape,
   adjustSelectedFontSize,
   adjustSelectedRotation,
+  nudgeSelectedRegion,
   saveCurrentSelection,
   clearPickerState,
   syncInlineEditorSelection,
@@ -198,6 +200,11 @@ const RenderTextPreviewTypeDock = ({
               +
             </button>
           </div>
+
+          <button type="button" className="koma-type-dock__step-btn" onClick={() => nudgeSelectedRegion('left')} aria-label={t('renderPreview.nudgeLeft')}>←</button>
+          <button type="button" className="koma-type-dock__step-btn" onClick={() => nudgeSelectedRegion('up')} aria-label={t('renderPreview.nudgeUp')}>↑</button>
+          <button type="button" className="koma-type-dock__step-btn" onClick={() => nudgeSelectedRegion('down')} aria-label={t('renderPreview.nudgeDown')}>↓</button>
+          <button type="button" className="koma-type-dock__step-btn" onClick={() => nudgeSelectedRegion('right')} aria-label={t('renderPreview.nudgeRight')}>→</button>
         </div>
 
         <div className="koma-type-dock__row-sep" aria-hidden="true" />

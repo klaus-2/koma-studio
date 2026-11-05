@@ -14,6 +14,7 @@ import {
   areDockAnchorsEqual,
   clamp,
   cloneRenderStyle,
+  normalizeRegion,
   normalizeRenderRotation,
   rebuildRegionShapeForKind,
   resolveRegionShapeKind,
@@ -66,6 +67,7 @@ interface UseRenderTextPreviewTypeDockParams {
     patch: Partial<RenderTextStyle>,
   ) => void;
   updateRegions: (updater: (region: AioTextRegion) => AioTextRegion) => void;
+  updateRegionBox: (regionId: string, nextBox: [number, number, number, number]) => void;
 }
 
 export const useRenderTextPreviewTypeDock = ({
@@ -92,6 +94,7 @@ export const useRenderTextPreviewTypeDock = ({
   updateRegionStyle,
   updateRegionTextStyleRanges,
   updateRegions,
+  updateRegionBox,
 }: UseRenderTextPreviewTypeDockParams) => {
   useEffect(() => {
     if (!showRenderDock || !dockAnchor) return;
@@ -520,12 +523,36 @@ export const useRenderTextPreviewTypeDock = ({
     showRenderDock,
   ]);
 
+  const nudgeSelectedRegion = useCallback(
+    (direction: 'left' | 'right' | 'up' | 'down'): void => {
+      const region = selectedRegion;
+      if (!region || selectedRegionIsNoteOverlay) return;
+      const stepX = Math.max(1, Math.round(image.width / 100));
+      const stepY = Math.max(1, Math.round(image.height / 100));
+      const [x1, y1, x2, y2] = region.bbox;
+      const nextBox: [number, number, number, number] =
+        direction === 'left'
+          ? [x1 - stepX, y1, x2 - stepX, y2]
+          : direction === 'right'
+            ? [x1 + stepX, y1, x2 + stepX, y2]
+            : direction === 'up'
+              ? [x1, y1 - stepY, x2, y2 - stepY]
+              : [x1, y1 + stepY, x2, y2 + stepY];
+      updateRegionBox(
+        region.id,
+        normalizeRegion(nextBox[0], nextBox[1], nextBox[2], nextBox[3], image.width, image.height),
+      );
+    },
+    [image.height, image.width, selectedRegion, selectedRegionIsNoteOverlay, updateRegionBox],
+  );
+
   return {
     updateSelectedRegionStyle,
     updateSelectedRegionShapeKind,
     normalizeSelectedRegionShape,
     adjustSelectedFontSize,
     adjustSelectedRotation,
+    nudgeSelectedRegion,
     dockVisible,
   };
 };

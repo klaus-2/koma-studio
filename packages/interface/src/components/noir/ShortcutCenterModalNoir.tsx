@@ -1,5 +1,6 @@
 import { AlertTriangle, Keyboard, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { KomaDialog } from "@koma/ui/components/dialog";
 import { btnGhost, btnPrimary } from "../system/v2/kit";
 import { KEYBOARD_SHORTCUT_STORAGE_KEY, SHORTCUT_CATEGORY_LABELS } from "../../shortcuts/keyboardShortcuts";
 import {
@@ -33,17 +34,13 @@ const ShortcutCenterModalNoir = (props: ShortcutCenterModalProps) => {
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[150] flex items-center justify-center bg-ink/85 p-3 backdrop-blur-md sm:p-6"
-      onClick={onClose}
+    <KomaDialog
+      open
+      onClose={onClose}
+      layerClassName="fixed inset-0 z-[150] flex items-center justify-center bg-ink/85 p-3 backdrop-blur-md sm:p-6"
+      modalClassName="glass panel-cut halftone relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden"
+      labelledBy="sc-title"
     >
-      <div
-        className="glass panel-cut halftone relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sc-title"
-      >
         <span aria-hidden className="absolute left-0 top-0 z-10 h-[3px] w-full bg-gradient-to-r from-crimson via-crimson/40 to-transparent" />
         <span aria-hidden className="v-text pointer-events-none absolute bottom-6 right-2 select-none font-display text-lg font-black tracking-widest text-paper/[0.06]">
           キーマップ
@@ -257,8 +254,7 @@ const ShortcutCenterModalNoir = (props: ShortcutCenterModalProps) => {
             </button>
           </div>
         </footer>
-      </div>
-    </div>
+    </KomaDialog>
   );
 };
 

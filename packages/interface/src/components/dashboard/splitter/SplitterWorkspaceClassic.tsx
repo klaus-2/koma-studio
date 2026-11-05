@@ -291,8 +291,10 @@ export const SplitterWorkspaceClassic = () => {
                 const sizePct = `${(seg.size / primaryAxisLength) * 100}%`;
                 const isSelected = selectedSegmentId === seg.id;
                 return (
-                  <div
+                  <button
                     key={seg.id}
+                    type="button"
+                    aria-pressed={isSelected}
                     className={`koma-split-segment-band${idx % 2 === 0 ? ' koma-split-segment-band--even' : ' koma-split-segment-band--odd'}${isSelected ? ' koma-split-segment-band--selected' : ''}`}
                     style={activeRecipe.axis === 'vertical'
                       ? { top: startPct, height: sizePct, left: 0, right: 0 }
@@ -301,7 +303,7 @@ export const SplitterWorkspaceClassic = () => {
                     onClick={() => setSelectedSegmentId(isSelected ? null : seg.id)}
                   >
                     <span className="koma-split-segment-band__label">S{idx + 1}</span>
-                  </div>
+                  </button>
                 );
               })}
 
@@ -466,8 +468,10 @@ export const SplitterWorkspaceClassic = () => {
               const thumb = segmentThumbs.find(t => t.id === seg.id);
               const isSelected = selectedSegmentId === seg.id;
               return (
-                <div
+                <button
                   key={seg.id}
+                  type="button"
+                  aria-pressed={isSelected}
                   className={`koma-split-card koma-split-card--segment${isSelected ? ' koma-split-card--selected' : ''}${seg.warning ? ' koma-split-card--warned' : ''}`}
                   onClick={() => setSelectedSegmentId(isSelected ? null : seg.id)}
                 >
@@ -493,7 +497,7 @@ export const SplitterWorkspaceClassic = () => {
                     </p>
                     {seg.warning && <p className="koma-split-card__warn">{seg.warning}</p>}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

@@ -32,6 +32,7 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@koma/ui/components/tooltip";
+import { handleTablistArrowKeys } from "@koma/ui/utils/tablist-navigation";
 import { useI18n } from '../i18n';
 import { useUiShellStore } from './dashboard/stores/ui-shell-store';
 import { UNDER_DEVELOPMENT_TOOLTIP_KEY } from '../constants/dashboard.constants';
@@ -502,7 +503,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
 
         {/* ═══ NAVIGATION ═══ */}
         {!isCompactViewport ? (
-          <nav className="relative z-10 flex min-w-0 flex-1 items-center gap-1.5" role="tablist" aria-label={t('dashboard.topbar.tools')}>
+          <nav className="relative z-10 flex min-w-0 flex-1 items-center gap-1.5" role="tablist" onKeyDown={handleTablistArrowKeys} aria-label={t('dashboard.topbar.tools')}>
             <div className="flex items-center gap-1">
               {primaryItems.map((item) => {
                 const Icon = item.icon;

@@ -591,9 +591,24 @@
     border-color: rgba(255, 255, 255, 0.08);
   }
   
-  .koma-swatch-item:focus-visible {
+  .koma-swatch-item:focus-visible,
+  .koma-swatch-select:focus-visible,
+  .koma-swatch-remove:focus-visible {
     outline: 2px solid rgba(168, 85, 247, 0.4);
     outline-offset: -1px;
+  }
+
+  .koma-swatch-select {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    color: inherit;
   }
   
   .koma-swatch-preview {
@@ -630,6 +645,14 @@
     flex-shrink: 0;
     padding: 0;
     line-height: 1;
+    position: relative;
+    font-family: inherit;
+  }
+
+  .koma-swatch-remove::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
   }
   
   .koma-swatch-remove:hover {

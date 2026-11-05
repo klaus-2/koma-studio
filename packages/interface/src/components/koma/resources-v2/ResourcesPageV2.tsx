@@ -35,6 +35,7 @@ import type {
 } from '@/data/guides-types';
 import { useI18n } from '@/i18n';
 import { useInfoNavStore } from '@/stores/info-nav-store';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 import CommunitiesSectionV2 from './CommunitiesSectionV2';
 import FontsSectionV2 from './FontsSectionV2';
@@ -427,6 +428,7 @@ export default function ResourcesPageV2({
             aria-label={t(
               'resources.page.tabsAria',
             )}
+            onKeyDown={handleTablistArrowKeys}
           >
             {tabs.map((tab, index) => {
               const Icon = tab.icon;

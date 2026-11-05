@@ -23,6 +23,7 @@ import { AioSection } from '../../../pages/AioSection';
 import KlSlider from '../KlSlider';
 import '../../../pages/UtilityToolsPanel.css';
 import { useI18n } from '../../../i18n';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 interface StitchSidebarToolboxProps {
   imagesCount: number;
@@ -102,6 +103,7 @@ export const StitchSidebarToolboxClassic = ({
           className="koma-stitch-layout"
           role="tablist"
           aria-label={t('stitch.sidebar.layoutMode')}
+          onKeyDown={handleTablistArrowKeys}
         >
           <button
             type="button"

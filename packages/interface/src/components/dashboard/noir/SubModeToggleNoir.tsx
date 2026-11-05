@@ -1,6 +1,7 @@
 import { m } from "framer-motion";
 import { Paintbrush, Sparkles } from "lucide-react";
 import { useI18n } from "../../../i18n";
+import { handleTablistArrowKeys } from "@koma/ui/utils/tablist-navigation";
 
 export interface SubModeToggleProps {
   value: "auto" | "manual";
@@ -18,6 +19,7 @@ export default function SubModeToggleNoir({ value, onChange }: SubModeToggleProp
     <div
       role="tablist"
       aria-label="Sub-mode"
+      onKeyDown={handleTablistArrowKeys}
       data-tour="dashboard-submode-toggle"
       className="glass panel-cut-sm inline-flex items-center gap-0.5 p-1"
     >

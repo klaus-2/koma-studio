@@ -7,6 +7,7 @@ import type { UseUpdaterApi } from '../../hooks/useUpdater';
 import { SettingsTabIcon as TabIcon } from './SettingsTabIcon';
 import { TABS } from './settings.constants';
 import type { SettingsTab } from './settings.types';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 type TranslationFn = ReturnType<typeof useI18n>['t'];
 
@@ -71,7 +72,7 @@ export const SettingsPageShellClassic = ({
           </div>
 
           {/* ── Tab navigation ── */}
-          <div className="koma-stg-tabs" role="tablist" aria-label={t("settings.tabs.ariaLabel")}>
+          <div className="koma-stg-tabs" role="tablist" aria-label={t("settings.tabs.ariaLabel")} onKeyDown={handleTablistArrowKeys}>
             {TABS.map((tab) => (
               <button
                 key={tab.id}

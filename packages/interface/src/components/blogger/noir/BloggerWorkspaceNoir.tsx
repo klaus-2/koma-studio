@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { m } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 import {
   Bold,
   Check,
@@ -642,6 +643,7 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
         variants={motionProps.item}
         role="tablist"
         aria-label={t('blogger.title')}
+        onKeyDown={handleTablistArrowKeys}
         className="flex flex-wrap items-center gap-2"
       >
         {(
@@ -772,7 +774,7 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
               title={t('blogger.editor.title')}
               desc={t('blogger.editor.description')}
               right={
-                <div className="flex gap-1.5" role="tablist">
+                <div className="flex gap-1.5" role="tablist" onKeyDown={handleTablistArrowKeys}>
                   {editorViewOptions.map(({ value, icon: Icon, label }) => {
                     const active = editorView === value;
                     return (

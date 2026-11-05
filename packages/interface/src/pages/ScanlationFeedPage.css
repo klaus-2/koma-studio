@@ -1661,6 +1661,7 @@
   overflow-y: auto;
   max-height: calc(85vh - 72px);
   overscroll-behavior: contain;
+  scroll-padding-bottom: 80px;
 }
 
 .koma-feed-modal-body {

@@ -108,7 +108,7 @@ export const RangeField = ({ label, value, display, min, max, step, disabled, on
 );
 
 /* ── Alerts ───────────────────────────────────────────────── */
-export const Alert = ({ tone, children }: { tone: "success" | "error" | "info" | "warn"; children: ReactNode }) => {
+export const Alert = ({ tone, id, children }: { tone: "success" | "error" | "info" | "warn"; id?: string; children: ReactNode }) => {
   const cfg = {
     success: { c: "border-mint bg-mint/8 text-mint", I: CheckCircle2, role: "status" as const },
     error: { c: "border-crimson bg-crimson/8 text-crimson", I: AlertTriangle, role: "alert" as const },
@@ -117,7 +117,7 @@ export const Alert = ({ tone, children }: { tone: "success" | "error" | "info" |
   }[tone];
   return (
     <m.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3, ease: EASE }} role={cfg.role}
+      transition={{ duration: 0.3, ease: EASE }} role={cfg.role} id={id}
       className={`flex items-start gap-2 border-l-2 px-3 py-2 font-mono text-[11px] ${cfg.c}`}>
       <cfg.I size={12} className="mt-0.5 shrink-0" />
       <div className="min-w-0 text-paper/80">{children}</div>

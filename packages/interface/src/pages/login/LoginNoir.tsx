@@ -74,7 +74,7 @@ export const LoginNoir = ({
       subtitle={subtitle}
     >
       <div className="space-y-4">
-        {authFlow === "credentials" && errorMessage && <Alert tone="error">{errorMessage}</Alert>}
+        {authFlow === "credentials" && errorMessage && <Alert tone="error" id="login-error-noir">{errorMessage}</Alert>}
 
         {updater.blocking && (
           <Alert tone="warning" title={t("login.warning.mandatoryUpdateTitle")}>
@@ -152,6 +152,8 @@ export const LoginNoir = ({
                 placeholder={t("login.emailPlaceholder")}
                 value={email}
                 onChange={(e) => onEmailChange(e.target.value)}
+                aria-invalid={errorMessage ? true : undefined}
+                aria-describedby={errorMessage ? "login-error-noir" : undefined}
               />
               <Field
                 id="login-password"
@@ -163,6 +165,8 @@ export const LoginNoir = ({
                 placeholder={t("login.passwordPlaceholder")}
                 value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}
+                aria-invalid={errorMessage ? true : undefined}
+                aria-describedby={errorMessage ? "login-error-noir" : undefined}
                 trailing={
                   onNavigateForgotPassword ? (
                     <button
@@ -205,7 +209,7 @@ export const LoginNoir = ({
                 </p>
               </div>
 
-              {travelError && <Alert tone="error">{travelError}</Alert>}
+              {travelError && <Alert tone="error" id="login-travel-error-noir">{travelError}</Alert>}
 
               <Field
                 id="login-travel-token"
@@ -219,6 +223,8 @@ export const LoginNoir = ({
                 placeholder={t("login.travel.tokenPlaceholder")}
                 value={travelToken}
                 onChange={(e) => onTravelTokenChange(e.target.value)}
+                aria-invalid={travelError ? true : undefined}
+                aria-describedby={travelError ? "login-travel-error-noir" : undefined}
               />
             </div>
           )}

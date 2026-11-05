@@ -40,7 +40,7 @@ export const ResetPasswordNoir = ({
   return (
     <AuthSimpleShell accent={t("auth.noir.accentReset")} title={title} subtitle={subtitle}>
       <div className="space-y-4">
-        {errorMessage && <Alert tone="error">{errorMessage}</Alert>}
+        {errorMessage && <Alert tone="error" id="reset-error-noir">{errorMessage}</Alert>}
         {successMessage && <Alert tone="success">{successMessage}</Alert>}
 
         <form className="space-y-5" onSubmit={onSubmit}>
@@ -54,6 +54,8 @@ export const ResetPasswordNoir = ({
             placeholder={t("register.passwordPlaceholder")}
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
+            aria-invalid={errorMessage ? true : undefined}
+            aria-describedby={errorMessage ? "reset-error-noir" : undefined}
           />
           <PasswordStrength password={password} />
           <Field
@@ -66,6 +68,8 @@ export const ResetPasswordNoir = ({
             placeholder={t("register.confirmPasswordPlaceholder")}
             value={confirmPassword}
             onChange={(e) => onConfirmPasswordChange(e.target.value)}
+            aria-invalid={errorMessage ? true : undefined}
+            aria-describedby={errorMessage ? "reset-error-noir" : undefined}
           />
           <Submit loading={isSubmitting} loadingLabel={t("reset.button.submitting")} disabled={!hasToken}>
             {t("reset.button.submit")} <RefreshCcw size={14} />

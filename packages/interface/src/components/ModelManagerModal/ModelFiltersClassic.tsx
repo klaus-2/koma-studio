@@ -1,6 +1,7 @@
 import type { ModelFilterState } from '../../models/types';
 import { useI18n } from '../../i18n';
 import styles from './styles.module.css';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 export interface ModelFiltersProps {
   filters: ModelFilterState;
@@ -30,7 +31,7 @@ export const ModelFiltersClassic = ({
     <div className={styles.filtersRow}>
     {/* Source segmented control */}
     {allowCloud && !hideSourceToggle && (
-      <div className={styles.sourceToggle} role="tablist" aria-label={t("modelManager.filters.catalog")}>
+      <div className={styles.sourceToggle} role="tablist" onKeyDown={handleTablistArrowKeys} aria-label={t("modelManager.filters.catalog")}>
         {(['all', 'local', 'cloud'] as const).map((src) => {
           const label =
             src === 'all' ? t("modelManager.filters.all") : src === 'local' ? t("modelManager.filters.local") : t("modelManager.filters.cloud");

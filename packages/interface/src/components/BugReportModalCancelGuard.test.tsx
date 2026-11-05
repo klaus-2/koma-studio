@@ -115,16 +115,16 @@ describe.each([
     const { prepare, resolvers } = makeDeferredPrepare();
     setDesktopBridgeProvider(bridgeWithPrepare(prepare));
 
-    const view = renderModal(Modal, true);
+    renderModal(Modal, true);
     expect(prepare).toHaveBeenCalledTimes(1);
-    expect(view.container.querySelector('img[src^="data:"]')).toBeNull();
+    expect(document.body.querySelector('img[src^="data:"]')).toBeNull();
 
     await act(async () => {
       resolvers[0]?.(readyPrep());
     });
 
     await waitFor(() =>
-      expect(view.container.querySelector('img[src^="data:"]')).not.toBeNull(),
+      expect(document.body.querySelector('img[src^="data:"]')).not.toBeNull(),
     );
   });
 
@@ -146,14 +146,14 @@ describe.each([
     });
 
     // Without the guard the stale result would paint the screenshot here.
-    expect(view.container.querySelector('img[src^="data:"]')).toBeNull();
+    expect(document.body.querySelector('img[src^="data:"]')).toBeNull();
 
     await act(async () => {
       resolvers[1]?.(readyPrep());
     });
 
     await waitFor(() =>
-      expect(view.container.querySelector('img[src^="data:"]')).not.toBeNull(),
+      expect(document.body.querySelector('img[src^="data:"]')).not.toBeNull(),
     );
   });
 });

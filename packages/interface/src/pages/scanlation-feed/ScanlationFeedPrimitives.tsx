@@ -3,6 +3,7 @@ import { m } from 'framer-motion';
 import { CheckCircle2, Flag, X, type LucideIcon } from 'lucide-react';
 
 import { useI18n } from '../../i18n';
+import { KomaDialog } from '@koma/ui/components/dialog';
 
 export const FeedModal = ({
   title,
@@ -22,11 +23,11 @@ export const FeedModal = ({
   const { t } = useI18n();
   if (!open) return null;
   return (
-    <div
-      className="koma-feed-modal-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
+    <KomaDialog
+      open
+      onClose={onClose}
+      layerClassName="koma-feed-modal-overlay"
+      label={title}
     >
       <div
         className="koma-feed-modal-backdrop"
@@ -52,7 +53,7 @@ export const FeedModal = ({
         </div>
         <div className="koma-feed-modal-scroll">{children}</div>
       </div>
-    </div>
+    </KomaDialog>
   );
 };
 

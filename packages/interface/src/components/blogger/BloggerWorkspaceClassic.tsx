@@ -38,6 +38,7 @@ import {
   uploadBloggerImages,
 } from '../../services/blogger';
 import { useI18n } from '../../i18n';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 import { BloggerEditorToolbar } from './BloggerEditorToolbar';
 import { BloggerUploadPanel } from './BloggerUploadPanel';
 import './CdnWorkspace.css';
@@ -708,7 +709,7 @@ const BloggerWorkspaceClassic = ({ onOpenSettings }: BloggerWorkspaceProps) => {
       </div>
 
       {/* Tabs */}
-      <div className="koma-cdn__tabs" role="tablist" aria-label={t('blogger.title')}>
+      <div className="koma-cdn__tabs" role="tablist" aria-label={t('blogger.title')} onKeyDown={handleTablistArrowKeys}>
         <button
           type="button"
           role="tab"

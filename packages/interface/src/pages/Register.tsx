@@ -103,7 +103,7 @@ export const RegisterPage = ({ onRegisterSuccess, onNavigateLogin }: RegisterPag
       subtitle={t("register.subtitle")}
     >
       {errorMessage && (
-        <div className="auth-alert auth-alert--error" role="alert">
+        <div className="auth-alert auth-alert--error" role="alert" id="register-error">
           {errorMessage}
         </div>
       )}
@@ -148,6 +148,8 @@ export const RegisterPage = ({ onRegisterSuccess, onNavigateLogin }: RegisterPag
               className="auth-field__input auth-field__input--icon"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? "register-error" : undefined}
             />
           </div>
         </div>
@@ -173,6 +175,8 @@ export const RegisterPage = ({ onRegisterSuccess, onNavigateLogin }: RegisterPag
               className="auth-field__input auth-field__input--icon"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? "register-error" : undefined}
             />
           </div>
         </div>
@@ -200,6 +204,8 @@ export const RegisterPage = ({ onRegisterSuccess, onNavigateLogin }: RegisterPag
               className="auth-field__input auth-field__input--icon"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? "register-error" : undefined}
             />
           </div>
         </div>

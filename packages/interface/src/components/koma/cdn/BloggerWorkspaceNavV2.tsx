@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { useI18n } from '@/i18n';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 import type {
   BloggerWorkspaceTab,
@@ -36,6 +37,7 @@ export function BloggerWorkspaceNavV2({
       className="glass panel-cut flex flex-col gap-2 p-2 sm:flex-row sm:items-center"
       role="tablist"
       aria-label={t('blogger.title')}
+      onKeyDown={handleTablistArrowKeys}
     >
       <button
         id="blogger-tab-publish"

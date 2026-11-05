@@ -152,7 +152,7 @@ export default function HomePage() {
         />
       ) : null}
       <Navbar />
-      <main>
+      <main id="top">
         <Hero />
         <Marquee />
         <Features />

@@ -45,6 +45,10 @@ body,
   background: var(--auth-bg);
 }
 
+html {
+  scroll-padding-top: 44px;
+}
+
 body {
   color: var(--auth-text);
 }
@@ -7814,6 +7818,7 @@ body {
     0 30px 80px rgba(0, 0, 0, 0.64),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   overflow-y: auto;
+  scroll-padding-top: 48px;
   z-index: 35;
   animation: toast-slide-in 0.2s ease;
 }
@@ -9587,6 +9592,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scroll-padding-bottom: 64px;
 }
 
 .koma-tools__hint {

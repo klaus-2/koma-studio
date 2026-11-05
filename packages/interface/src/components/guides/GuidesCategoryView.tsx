@@ -96,29 +96,22 @@
          ) : (
            <div className="koma-gr-guide-list koma-gr-stagger">
              {filtered.map((guide) => (
-               <div
+               <button
                  key={guide.id}
+                 type="button"
                  className="koma-gr-guide-item koma-gr-fadein"
                  onClick={() => navigateToGuideEntry(categoryId, guide.id)}
-                 role="button"
-                 tabIndex={0}
-                 onKeyDown={(e) => {
-                   if (e.key === 'Enter' || e.key === ' ') {
-                     e.preventDefault();
-                     navigateToGuideEntry(categoryId, guide.id);
-                   }
-                 }}
                >
                  <div className={`koma-gr-guide-item__icon koma-gr-card__icon--${guide.accentColor}`}>
                    <guide.icon size={16} />
                  </div>
                  <div className="koma-gr-guide-item__body">
-                   <h4 className="koma-gr-guide-item__title">
+                   <span className="koma-gr-guide-item__title">
                      {guide.title}
                      {readGuides[guide.id] && (
                        <span style={{ color: 'var(--auth-emerald)', marginLeft: 8, fontSize: 11 }}>✓ {t('guides.category.completed')}</span>
                      )}
-                   </h4>
+                   </span>
                    <p className="koma-gr-guide-item__desc">{guide.subtitle}</p>
                  </div>
                  <div className="koma-gr-guide-item__meta">
@@ -134,7 +127,7 @@
                    </span>
                  </div>
                  <ChevronRight size={14} className="koma-gr-guide-item__arrow" />
-               </div>
+               </button>
              ))}
            </div>
          )}

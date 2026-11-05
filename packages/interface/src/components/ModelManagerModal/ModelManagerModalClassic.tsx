@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Layers, X, CheckCircle2, AlertTriangle, Sparkles, Plus } from 'lucide-react';
 import { useI18n } from '../../i18n';
+import { KomaDialog } from '@koma/ui/components/dialog';
 
 import {
   estimateModelRequiredDiskBytes,
@@ -207,12 +208,13 @@ export const ModelManagerModalClassic = ({
   if (!open) return null;
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div
-        className={styles.modal}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-labelledby="mm-title"
+    <>
+      <KomaDialog
+        open
+        onClose={onClose}
+        layerClassName={styles.backdrop ?? ""}
+        modalClassName={styles.modal}
+        labelledBy="mm-title"
       >
         {/* ═══ Header ═══ */}
         <header className={styles.header}>
@@ -419,7 +421,7 @@ export const ModelManagerModalClassic = ({
             </div>
           </footer>
         )}
-      </div>
+      </KomaDialog>
 
       {!hideFooter && (
         <InstallAllConfirmation
@@ -434,7 +436,7 @@ export const ModelManagerModalClassic = ({
           }}
         />
       )}
-    </div>
+    </>
   );
 };
 

@@ -25,7 +25,7 @@ export default function Navbar() {
   return (
     <header data-navbar className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled ? "glass" : "bg-transparent"}`}>
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6" aria-label="Main">
-        <a href="#" className="group flex items-center gap-3">
+        <a href="#top" className="group flex items-center gap-3">
           <span className="panel-cut-sm flex h-9 w-9 items-center justify-center bg-crimson font-black text-ink transition-transform group-hover:-rotate-6">コ</span>
           <span className="font-black uppercase tracking-widest">
             KOMA<span className="text-crimson">.</span>

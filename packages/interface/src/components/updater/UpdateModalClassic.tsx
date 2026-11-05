@@ -1,4 +1,5 @@
 import { useI18n } from "../../i18n";
+import { KomaDialog } from "@koma/ui/components/dialog";
 import { formatBytesI18n } from "../../utils/formatBytes";
 import { describeUpdaterAction } from "./update-action";
 import SyncPanelClassic from "./SyncPanelClassic";
@@ -112,8 +113,13 @@ export const UpdateModalClassic = ({
   };
 
   return (
-    <div className="koma-modal-backdrop" onClick={onClose}>
-      <div className="koma-modal" onClick={(e) => e.stopPropagation()}>
+    <KomaDialog
+      open
+      onClose={onClose}
+      layerClassName="koma-modal-backdrop"
+      modalClassName="koma-modal"
+      labelledBy="update-modal-title"
+    >
         {/* Header */}
         <div className="koma-modal__header">
           <div className="koma-modal__header-icon">
@@ -126,7 +132,7 @@ export const UpdateModalClassic = ({
             </svg>
           </div>
           <div>
-            <h2 className="koma-modal__title">{t("update.modal.title")}</h2>
+            <h2 id="update-modal-title" className="koma-modal__title">{t("update.modal.title")}</h2>
             <p className="koma-modal__version-info">
               <span className="koma-modal__version-tag">
                 {currentVersion
@@ -183,8 +189,7 @@ export const UpdateModalClassic = ({
             {t("update.modal.laterAction")}
           </button>
         </div>
-      </div>
-    </div>
+    </KomaDialog>
   );
 };
 

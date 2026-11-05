@@ -11,6 +11,7 @@ import { m, useReducedMotion } from 'framer-motion';
 import { CheckCircle2, ChevronDown, Flag, X, type LucideIcon } from 'lucide-react';
 
 import { useI18n } from '../../../i18n';
+import { KomaDialog } from '@koma/ui/components/dialog';
 import { EASE } from '../../../components/noir-panels/NoirPrimitives';
 
 export const feedBtn = {
@@ -199,11 +200,11 @@ export const FeedModal = ({
   if (!open) return null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <KomaDialog
+      open
+      onClose={onClose}
+      layerClassName="fixed inset-0 z-50 flex items-center justify-center p-4"
+      label={title}
     >
       <m.div
         aria-hidden
@@ -250,7 +251,7 @@ export const FeedModal = ({
 
         <div className="noir-scroll min-h-0 flex-1 overflow-y-auto">{children}</div>
       </m.div>
-    </div>
+    </KomaDialog>
   );
 };
 

@@ -33,7 +33,7 @@ export const ForgotPasswordNoir = ({
   return (
     <AuthSimpleShell accent={t("auth.noir.accentForgot")} title={title} subtitle={subtitle}>
       <div className="space-y-4">
-        {errorMessage && <Alert tone="error">{errorMessage}</Alert>}
+        {errorMessage && <Alert tone="error" id="forgot-error-noir">{errorMessage}</Alert>}
         {successMessage && <Alert tone="success">{successMessage}</Alert>}
 
         <form className="space-y-5" onSubmit={onSubmit}>
@@ -47,6 +47,8 @@ export const ForgotPasswordNoir = ({
             placeholder={t("login.emailPlaceholder")}
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
+            aria-invalid={errorMessage ? true : undefined}
+            aria-describedby={errorMessage ? "forgot-error-noir" : undefined}
           />
           <Submit loading={isSubmitting} loadingLabel={t("forgot.button.sending")}>
             {t("forgot.button.send")} <Send size={14} />

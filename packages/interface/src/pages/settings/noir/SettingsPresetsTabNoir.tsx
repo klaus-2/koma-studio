@@ -131,15 +131,15 @@ const StyleToggles = ({ t, bold, italic, uppercase, onToggle }: {
   </div>
 );
 
-const SwatchChip = ({ value, onPick, onRemove }: {
-  value: string; onPick: () => void; onRemove: () => void;
+const SwatchChip = ({ value, onPick, onRemove, label }: {
+  value: string; onPick: () => void; onRemove: () => void; label: string;
 }) => (
   <span className="panel-cut-sm group inline-flex items-center gap-1.5 border border-paper/12 bg-ink/60 py-1 pl-1.5 pr-1 transition-colors hover:border-gold/50">
     <button type="button" onClick={onPick} title={value} className="inline-flex items-center gap-1.5">
       <span aria-hidden className="h-4 w-4 border border-paper/20" style={{ background: value }} />
       <span className="max-w-[110px] truncate font-mono text-[9px] text-paper/55 group-hover:text-paper">{value}</span>
     </button>
-    <button type="button" onClick={onRemove} aria-label={`Remove ${value}`}
+    <button type="button" onClick={onRemove} aria-label={label}
       className="px-1 font-mono text-[11px] text-paper/25 hover:text-crimson">×</button>
   </span>
 );
@@ -393,7 +393,8 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode, typ
                 {items.map((item) => (
                   <SwatchChip key={`${prefix}-${item}`} value={item}
                     onPick={() => textFill.setTextFillDraftValue(item)}
-                    onRemove={() => textFill.handleRemoveTextFillSwatch(item)} />
+                    onRemove={() => textFill.handleRemoveTextFillSwatch(item)}
+                    label={t("settings.pickerPalette.removeColor", { color: item })} />
                 ))}
               </div>
             </div>

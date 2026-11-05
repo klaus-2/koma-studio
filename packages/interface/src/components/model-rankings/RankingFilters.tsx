@@ -6,6 +6,7 @@ import type {
   RankingMetric,
 } from '../../services/modelReviews';
 import { useI18n } from '../../i18n';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 interface RankingFiltersProps {
   ranking: RankingMetric;
@@ -73,6 +74,7 @@ export const RankingFilters = ({
           className="koma-rank-tabs"
           role="tablist"
           aria-label={t('ranking.filters.metricAria')}
+          onKeyDown={handleTablistArrowKeys}
         >
           {RANKING_TABS.map((tab) => (
             <button

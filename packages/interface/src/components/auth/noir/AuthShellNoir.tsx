@@ -10,6 +10,7 @@ import { LegalInlineLinks } from "../../legal/LegalInlineLinks";
 import { ThemeFamilySwitch } from "../ThemeFamilySwitch";
 import { useI18n } from "../../../i18n";
 import { AuthSideContent, ManhwaCovers } from "../AuthSideDecor";
+import { handleTablistArrowKeys } from "@koma/ui/utils/tablist-navigation";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -68,6 +69,7 @@ export const AuthShellNoir = ({ activeTab, onSelectLogin, onSelectRegister, subt
             <div
               role="tablist"
               aria-label={t("auth.tabs.ariaLabel")}
+              onKeyDown={handleTablistArrowKeys}
               className="panel-cut-sm mb-7 grid grid-cols-2 gap-1 border border-paper/10 bg-ink/60 p-1"
             >
               {(["login", "register"] as const).map((tab) => {

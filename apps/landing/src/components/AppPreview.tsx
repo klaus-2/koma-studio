@@ -1,6 +1,7 @@
 import { Play, Square, Cpu, Globe, Layers } from "lucide-react";
 import SectionHeader from "./SectionHeader";
 import Reveal from "./Reveal";
+import { handleTablistArrowKeys } from "@/lib/tablist-navigation";
 
 const MODES = {
   aio: { label: "All-in-One", steps: ["Detect panels", "OCR source", "Translate (LLM)", "Inpaint & clean", "Auto typeset", "Export"] },
@@ -40,7 +41,7 @@ export default function AppPreview() {
         <SectionHeader index="02" kicker="Desktop Studio" title="This is the" accent="whole workflow." sub="A live look at the KOMA pipeline. Pick a mode, hit run, watch a raw page become a release." />
 
         <Reveal>
-          <div role="tablist" aria-label="Pipeline mode" className="mb-4 flex flex-wrap gap-2">
+          <div role="tablist" aria-label="Pipeline mode" className="mb-4 flex flex-wrap gap-2" onKeyDown={handleTablistArrowKeys}>
             {tabs.map((key) => (
               <button key={key} type="button" role="tab" data-preview-mode={key} aria-selected={key === "aio"}
                 className={`panel-cut-sm px-5 py-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest transition-all ${key === "aio" ? "bg-crimson font-bold text-ink" : "border border-paper/15 text-paper/50 hover:border-paper/40 hover:text-paper"}`}>

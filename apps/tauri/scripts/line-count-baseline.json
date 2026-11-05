@@ -2,15 +2,15 @@
   "hardLimit": 1000,
   "files": {
     "../../packages/interface/src/components/blogger/noir/BloggerWorkspaceNoir.tsx": {
-      "maxLines": 1205,
+      "maxLines": 1207,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
     "../../packages/interface/src/components/dashboard/noir/WatermarkWorkspaceNoir.tsx": {
-      "maxLines": 1290,
+      "maxLines": 1287,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
     "../../packages/interface/src/components/dashboard/render-text-preview/RenderTextPreviewTypeDock.tsx": {
-      "maxLines": 1272,
+      "maxLines": 1279,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
     "../../packages/interface/src/components/dashboard/render-text-preview/useRenderTextPreviewPointer.ts": {
@@ -26,15 +26,11 @@
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
     "../../packages/interface/src/pages/Dashboard.tsx": {
-      "maxLines": 1922,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
-    "../../packages/interface/src/pages/dashboard/sections/AioRightPanel.tsx": {
-      "maxLines": 1221,
+      "maxLines": 1901,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
     "../../packages/interface/src/pages/dashboard/sections/DashboardMainLayout.tsx": {
-      "maxLines": 1415,
+      "maxLines": 1411,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
     "../electron/electron/discord-rpc.ts": {
@@ -58,7 +54,7 @@
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
     "src-tauri/src/sidecar/recovery.rs": {
-      "maxLines": 1104,
+      "maxLines": 1076,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     }
   }

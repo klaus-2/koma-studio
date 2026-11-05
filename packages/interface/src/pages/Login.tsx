@@ -258,7 +258,7 @@ export const LoginPage = ({
       subtitle={pageSubtitle}
     >
       {authFlow === "credentials" && errorMessage && (
-        <div className="auth-alert auth-alert--error" role="alert">
+        <div className="auth-alert auth-alert--error" role="alert" id="login-error">
           {errorMessage}
         </div>
       )}
@@ -349,6 +349,8 @@ export const LoginPage = ({
                   className="auth-field__input auth-field__input--icon"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
+                  aria-invalid={errorMessage ? true : undefined}
+                  aria-describedby={errorMessage ? "login-error" : undefined}
                 />
               </div>
             </div>
@@ -381,6 +383,8 @@ export const LoginPage = ({
                   className="auth-field__input auth-field__input--icon"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  aria-invalid={errorMessage ? true : undefined}
+                  aria-describedby={errorMessage ? "login-error" : undefined}
                 />
               </div>
             </div>
@@ -414,7 +418,7 @@ export const LoginPage = ({
             </ol>
 
             {travelError && (
-              <div className="auth-alert auth-alert--error" role="alert">
+              <div className="auth-alert auth-alert--error" role="alert" id="login-travel-error">
                 {travelError}
               </div>
             )}
@@ -435,6 +439,8 @@ export const LoginPage = ({
                 className="auth-field__input"
                 value={travelToken}
                 onChange={(event) => setTravelToken(event.target.value)}
+                aria-invalid={travelError ? true : undefined}
+                aria-describedby={travelError ? "login-travel-error" : undefined}
               />
             </div>
           </div>

@@ -383,11 +383,13 @@ export const renderSettingsPresetsTab = ({
         </div>
         <div className="koma-swatch-list">
           {textFillSwatches.solid.map((item) => (
-            <button key={`s-${item}`} type="button" className="koma-swatch-item" onClick={() => setTextFillDraftValue(item)} title={item}>
-              <span className="koma-swatch-preview" style={{ background: item }} />
-              <span className="koma-swatch-value">{item}</span>
-              <span className="koma-swatch-remove" onClick={(e) => { e.stopPropagation(); handleRemoveTextFillSwatch(item); }}>×</span>
-            </button>
+            <div key={`s-${item}`} className="koma-swatch-item">
+              <button type="button" className="koma-swatch-select" onClick={() => setTextFillDraftValue(item)} title={item} aria-label={t("settings.pickerPalette.selectColor", { color: item })}>
+                <span className="koma-swatch-preview" style={{ background: item }} />
+                <span className="koma-swatch-value">{item}</span>
+              </button>
+              <button type="button" className="koma-swatch-remove" onClick={() => handleRemoveTextFillSwatch(item)} aria-label={t("settings.pickerPalette.removeColor", { color: item })}>×</button>
+            </div>
           ))}
         </div>
       </div>
@@ -399,11 +401,13 @@ export const renderSettingsPresetsTab = ({
         </div>
         <div className="koma-swatch-list">
           {textFillSwatches.gradient.map((item) => (
-            <button key={`g-${item}`} type="button" className="koma-swatch-item" onClick={() => setTextFillDraftValue(item)} title={item}>
-              <span className="koma-swatch-preview" style={{ background: item }} />
-              <span className="koma-swatch-value">{item}</span>
-              <span className="koma-swatch-remove" onClick={(e) => { e.stopPropagation(); handleRemoveTextFillSwatch(item); }}>×</span>
-            </button>
+            <div key={`g-${item}`} className="koma-swatch-item">
+              <button type="button" className="koma-swatch-select" onClick={() => setTextFillDraftValue(item)} title={item} aria-label={t("settings.pickerPalette.selectColor", { color: item })}>
+                <span className="koma-swatch-preview" style={{ background: item }} />
+                <span className="koma-swatch-value">{item}</span>
+              </button>
+              <button type="button" className="koma-swatch-remove" onClick={() => handleRemoveTextFillSwatch(item)} aria-label={t("settings.pickerPalette.removeColor", { color: item })}>×</button>
+            </div>
           ))}
         </div>
       </div>

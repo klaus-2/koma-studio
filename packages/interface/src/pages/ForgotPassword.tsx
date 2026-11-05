@@ -55,7 +55,7 @@ export const ForgotPasswordPage = ({ onNavigateLogin }: ForgotPasswordPageProps)
   return (
     <AuthSimpleShell title={t("forgot.title")} subtitle={t("forgot.subtitle")}>
       {errorMessage && (
-        <div className="auth-alert auth-alert--error" role="alert">
+        <div className="auth-alert auth-alert--error" role="alert" id="forgot-error">
           {errorMessage}
         </div>
       )}
@@ -85,6 +85,8 @@ export const ForgotPasswordPage = ({ onNavigateLogin }: ForgotPasswordPageProps)
               className="auth-field__input auth-field__input--icon"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? "forgot-error" : undefined}
             />
           </div>
         </div>

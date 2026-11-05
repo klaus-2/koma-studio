@@ -118,7 +118,7 @@ export const renderSettingsIntegrationsTab = ({
       <div className="koma-ig-field">
         <label className="koma-ig-field__label">{t("settings.integrations.discord.webhookUrl")}</label>
         <div className="koma-ig-field__row">
-          <input type="url" className="koma-ig-field__input" placeholder={t("settings.integrations.discord.webhookPlaceholder")} value={webhook.url} onChange={(e) => updateWebhook("url", e.target.value)} />
+          <input type="url" className="koma-ig-field__input" placeholder={t("settings.integrations.discord.webhookPlaceholder")} value={webhook.url} onChange={(e) => updateWebhook("url", e.target.value)} aria-invalid={webhookFeedback?.type === "error" ? true : undefined} aria-describedby={webhookFeedback?.type === "error" ? "webhook-url-error" : undefined} />
           <button
             type="button"
             className={cn("koma-btn koma-btn--ghost koma-btn--sm", webhookTestStatus === "success" && "koma-ig-test--success", webhookTestStatus === "error" && "koma-ig-test--error")}
@@ -172,7 +172,7 @@ export const renderSettingsIntegrationsTab = ({
 
     {/* Feedback */}
     {webhookFeedback && (
-      <div className={`koma-ig-alert${webhookFeedback.type === "error" ? " koma-ig-alert--error" : " koma-ig-alert--success"}`} role={webhookFeedback.type === "error" ? "alert" : "status"}>
+      <div className={`koma-ig-alert${webhookFeedback.type === "error" ? " koma-ig-alert--error" : " koma-ig-alert--success"}`} role={webhookFeedback.type === "error" ? "alert" : "status"} id={webhookFeedback.type === "error" ? "webhook-url-error" : undefined}>
         {webhookFeedback.type === "error" ? <AlertTriangle size={12} className="koma-ig-alert__icon" /> : <CheckCircle2 size={12} className="koma-ig-alert__icon" />}
         <span>{webhookFeedback.message}</span>
       </div>

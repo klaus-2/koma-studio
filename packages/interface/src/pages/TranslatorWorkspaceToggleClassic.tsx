@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { Type, ScanText } from 'lucide-react';
 import { useI18n } from '@/i18n';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 type TranslatorWorkspaceMode = 'text' | 'visual';
 
@@ -20,6 +21,7 @@ const TranslatorWorkspaceToggleClassic = ({
       className="koma-workspace-toggle"
       role="tablist"
       aria-label={t('dashboard.translator.workspace.ariaLabel')}
+      onKeyDown={handleTablistArrowKeys}
     >
       <button
         type="button"

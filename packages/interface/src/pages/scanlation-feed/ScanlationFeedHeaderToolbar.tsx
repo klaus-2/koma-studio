@@ -10,6 +10,7 @@ import {
 
 import { useI18n } from '../../i18n';
 import type { FeedTab } from './ScanlationFeed.types';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 type ScanlationFeedHeaderToolbarProps = {
   tab: FeedTab;
@@ -63,6 +64,7 @@ export default function ScanlationFeedHeaderToolbar({
           className="koma-feed__tabs"
           role="tablist"
           aria-label={t('feed.tabsAria')}
+          onKeyDown={handleTablistArrowKeys}
         >
           <button
             type="button"

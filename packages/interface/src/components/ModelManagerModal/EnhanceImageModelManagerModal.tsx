@@ -3,6 +3,7 @@ import { CheckCircle2, Download, ExternalLink, FolderOpen, Info, Layers, Refresh
 import { formatBytes, estimateModelRequiredDiskBytes } from "../../models/model-storage";
 import type { DiskSpaceInfo, ModelInstallState, TranslationModel } from "../../models/types";
 import { useI18n } from "../../i18n";
+import { KomaDialog } from "@koma/ui/components/dialog";
 import styles from "./styles.module.css";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
@@ -72,13 +73,18 @@ export const EnhanceImageModelManagerModal = ({
   const importEntries = sortEntries(enhanceEntries.filter((entry) => entry.model.installStrategy === "manual_import"));
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
+    <KomaDialog
+      open
+      onClose={onClose}
+      layerClassName={styles.backdrop ?? ""}
+      modalClassName={styles.modal}
+      labelledBy="enhance-mm-title"
+    >
         <header className={styles.header}>
           <div className={styles.headerTitle}>
             <Layers size={18} />
             <div>
-              <h2>{t("modelManager.enhance.title")}</h2>
+              <h2 id="enhance-mm-title">{t("modelManager.enhance.title")}</h2>
               <p>{t("modelManager.enhance.description")}</p>
               <p>
                 {t("modelManager.enhance.freeSpace")}: {diskSpace ? formatBytes(diskSpace.freeBytes) : t("modelManager.enhance.notChecked")}
@@ -219,8 +225,7 @@ export const EnhanceImageModelManagerModal = ({
             {t("modelManager.enhance.pthHint")} <code>.pth</code>, {t("modelManager.enhance.pthHintSuffix")}
           </div>
         </div>
-      </div>
-    </div>
+    </KomaDialog>
   );
 };
 

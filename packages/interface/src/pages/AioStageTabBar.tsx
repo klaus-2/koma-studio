@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { cn } from '../lib/utils';
 import { useI18n } from '../i18n';
 import { createFamilyComponent } from '@koma/ui/themes/family-skins';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 import { AioStageTabBarNoir } from './aio-noir/AioStageTabBarNoir';
 import type { StageTabDef, StageTabKey } from './AioStageTabBar.types';
 
@@ -27,6 +28,7 @@ const AioStageTabBarClassic = ({
       className="koma-aio-stage-tabs__bar"
       role="tablist"
       aria-label={t('aio.stage.tabsBarAria')}
+      onKeyDown={handleTablistArrowKeys}
     >
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;

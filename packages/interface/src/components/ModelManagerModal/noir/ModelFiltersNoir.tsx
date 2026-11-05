@@ -1,6 +1,7 @@
 import { m } from "framer-motion";
 import type { ModelFilterState } from "../../../models/types";
 import { useI18n } from "../../../i18n";
+import { handleTablistArrowKeys } from "@koma/ui/utils/tablist-navigation";
 
 interface ModelFiltersProps {
   filters: ModelFilterState;
@@ -36,7 +37,7 @@ export const ModelFiltersNoir = ({
   return (
     <div className="flex flex-wrap items-end gap-3 border-y border-paper/8 bg-ink/60 px-5 py-3">
       {allowCloud && !hideSourceToggle && (
-        <div role="tablist" aria-label={t("modelManager.filters.catalog")}
+        <div role="tablist" onKeyDown={handleTablistArrowKeys} aria-label={t("modelManager.filters.catalog")}
           className="panel-cut-sm inline-flex gap-0.5 border border-paper/12 bg-ink p-1">
           {(["all", "local", "cloud"] as const).map((src) => {
             const label = src === "all" ? t("modelManager.filters.all") : src === "local" ? t("modelManager.filters.local") : t("modelManager.filters.cloud");

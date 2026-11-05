@@ -86,7 +86,9 @@ export const renderSettingsIntegrationsTabNoir = (a: SettingsIntegrationsTabArgs
           <Field label={t("settings.integrations.discord.webhookUrl")}>
             <div className="flex gap-2">
               <input type="url" className={inputCls} placeholder={t("settings.integrations.discord.webhookPlaceholder")}
-                value={a.webhook.url} onChange={(e) => a.updateWebhook("url", e.target.value)} />
+                value={a.webhook.url} onChange={(e) => a.updateWebhook("url", e.target.value)}
+                aria-invalid={a.webhookFeedback?.type === "error" ? true : undefined}
+                aria-describedby={a.webhookFeedback?.type === "error" ? "webhook-url-error-noir" : undefined} />
               <button type="button"
                 className={`${btnGhost} shrink-0 ${a.webhookTestStatus === "success" ? "!border-mint/50 !text-mint" :
                   a.webhookTestStatus === "error" ? "!border-crimson/50 !text-crimson" : ""
@@ -136,7 +138,7 @@ export const renderSettingsIntegrationsTabNoir = (a: SettingsIntegrationsTabArgs
           </div>
 
           {a.webhookFeedback && (
-            <Alert tone={a.webhookFeedback.type === "error" ? "error" : "success"}>{a.webhookFeedback.message}</Alert>
+            <Alert tone={a.webhookFeedback.type === "error" ? "error" : "success"} id={a.webhookFeedback.type === "error" ? "webhook-url-error-noir" : undefined}>{a.webhookFeedback.message}</Alert>
           )}
         </div>
 

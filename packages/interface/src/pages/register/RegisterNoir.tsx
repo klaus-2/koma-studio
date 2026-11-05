@@ -52,7 +52,7 @@ export const RegisterNoir = ({
       subtitle={subtitle}
     >
       <div className="space-y-4">
-        {errorMessage && <Alert tone="error">{errorMessage}</Alert>}
+        {errorMessage && <Alert tone="error" id="register-error-noir">{errorMessage}</Alert>}
 
         <form className="space-y-5" onSubmit={onSubmit}>
           <Field
@@ -76,6 +76,8 @@ export const RegisterNoir = ({
             placeholder={t("register.emailPlaceholder")}
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
+            aria-invalid={errorMessage ? true : undefined}
+            aria-describedby={errorMessage ? "register-error-noir" : undefined}
           />
           <Field
             id="reg-password"
@@ -87,6 +89,8 @@ export const RegisterNoir = ({
             placeholder={t("register.passwordPlaceholder")}
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
+            aria-invalid={errorMessage ? true : undefined}
+            aria-describedby={errorMessage ? "register-error-noir" : undefined}
           />
 
           <PasswordStrength password={password} />
@@ -101,6 +105,8 @@ export const RegisterNoir = ({
             placeholder={t("register.confirmPasswordPlaceholder")}
             value={confirmPassword}
             onChange={(e) => onConfirmPasswordChange(e.target.value)}
+            aria-invalid={errorMessage ? true : undefined}
+            aria-describedby={errorMessage ? "register-error-noir" : undefined}
           />
 
           <label className="flex cursor-pointer items-start gap-3 font-mono text-[10.5px] leading-relaxed tracking-wide text-paper/50">

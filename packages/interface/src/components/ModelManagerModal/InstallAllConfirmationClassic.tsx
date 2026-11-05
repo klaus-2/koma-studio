@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { KomaDialog } from "@koma/ui/components/dialog";
 
 import { formatBytes } from "../../models/model-storage";
 import type { DiskSpaceInfo } from "../../models/types";
@@ -31,8 +32,13 @@ export const InstallAllConfirmationClassic = ({
   const hasEnoughSpace = diskSpace ? diskSpace.freeBytes >= totalBytes : false;
 
   return (
-    <div className={styles.confirmBackdrop} onClick={onCancel}>
-      <div className={styles.confirmCard} onClick={(event) => event.stopPropagation()}>
+    <KomaDialog
+      open
+      onClose={onCancel}
+      layerClassName={styles.confirmBackdrop ?? ""}
+      modalClassName={styles.confirmCard}
+      label={t("modelManager.installAll.attention")}
+    >
         <div className={styles.confirmTitle}>
           <AlertTriangle size={18} />
           <span>{t("modelManager.installAll.attention")}</span>
@@ -68,8 +74,7 @@ export const InstallAllConfirmationClassic = ({
             {t("modelManager.installAll.confirmDownload")}
           </button>
         </div>
-      </div>
-    </div>
+    </KomaDialog>
   );
 };
 

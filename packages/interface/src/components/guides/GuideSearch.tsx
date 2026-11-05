@@ -9,6 +9,7 @@
    import type { GuideCategoryId } from '../../data/guides-types';
    import { useInfoNavStore } from '../../stores/info-nav-store';
    import { useI18n } from '../../i18n';
+   import { KomaDialog } from '@koma/ui/components/dialog';
    
    interface Props {
      onClose: () => void;
@@ -26,13 +27,6 @@
        inputRef.current?.focus();
      }, []);
    
-     useEffect(() => {
-       const handler = (e: KeyboardEvent) => {
-         if (e.key === 'Escape') onClose();
-       };
-       window.addEventListener('keydown', handler);
-       return () => window.removeEventListener('keydown', handler);
-     }, [onClose]);
    
      const results = useMemo(() => {
        if (!query.trim()) {
@@ -86,9 +80,14 @@
        [navigateToGuideEntry, onClose],
      );
    
-     return (
-      <div className="koma-gr-search-overlay" onClick={onClose} role="dialog" aria-label={t('guides.search.dialogAria')}>
-         <div className="koma-gr-search-modal" onClick={(e) => e.stopPropagation()}>
+    return (
+      <KomaDialog
+        open
+        onClose={onClose}
+        layerClassName="koma-gr-search-overlay"
+        modalClassName="koma-gr-search-modal"
+        label={t('guides.search.dialogAria')}
+      >
            {/* Search field */}
            <div className="koma-gr-search-modal__field">
              <Search size={18} />
@@ -162,7 +161,6 @@
              <span><kbd>{t('guides.search.keyEnter')}</kbd> {t('guides.search.open')}</span>
              <span><kbd>{t('guides.search.keyEscape')}</kbd> {t('guides.search.closeVerb')}</span>
            </div>
-         </div>
-       </div>
+      </KomaDialog>
      );
    }

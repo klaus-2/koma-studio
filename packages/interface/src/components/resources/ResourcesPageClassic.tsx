@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../i18n';
+import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 import {
   COMMUNITIES_DATA,
@@ -131,7 +132,7 @@ export default function ResourcesPage() {
         </div>
 
         {/* Tabs */}
-        <div className="koma-res__tabs" role="tablist" aria-label={t('resources.page.tabsAria')}>
+        <div className="koma-res__tabs" role="tablist" aria-label={t('resources.page.tabsAria')} onKeyDown={handleTablistArrowKeys}>
           {TABS.map((tab) => (
             <button
               key={tab.id}

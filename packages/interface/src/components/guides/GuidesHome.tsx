@@ -10,7 +10,7 @@
     Search,
     Bookmark,
   } from 'lucide-react';
-  import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+  import { useMemo, useCallback, useEffect, useState } from 'react';
   
   import { GUIDE_CATEGORIES, GUIDES } from '../../data/guides-data';
   import { useInfoNavStore } from '../../stores/info-nav-store';
@@ -25,7 +25,6 @@
     const readGuides = useInfoNavStore((s) => s.readGuides);
     const bookmarks = useInfoNavStore((s) => s.bookmarks);
     const [searchOpen, setSearchOpen] = useState(false);
-    const searchInputRef = useRef<HTMLInputElement>(null);
   
     // Keyboard shortcut: Ctrl+K
     useEffect(() => {
@@ -80,31 +79,20 @@
         </div>
   
         {/* Search Bar */}
-        <div className="koma-gr-search" onClick={() => setSearchOpen(true)}>
-          <input
-            ref={searchInputRef}
-            className="koma-gr-search__input"
-            type="text"
-            placeholder={t('guides.home.searchPlaceholder')}
-            readOnly
-            aria-label={t('guides.home.searchAria')}
-          />
+        <button type="button" className="koma-gr-search" onClick={() => setSearchOpen(true)}>
+          <span className="koma-gr-search__input">{t('guides.home.searchPlaceholder')}</span>
           <Search size={14} className="koma-gr-search__icon" />
           <span className="koma-gr-search__kbd" aria-hidden="true">
             {t('guides.home.searchShortcut')}
           </span>
-        </div>
+        </button>
   
         {/* Continue Reading */}
         {inProgressGuide && (
-          <div
+          <button
+            type="button"
             className="koma-gr-continue koma-gr-fadein"
             onClick={handleContinue}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleContinue();
-            }}
           >
             <div className="koma-gr-continue__info">
               <div className="koma-gr-continue__label">{t('guides.home.continueReading')}</div>
@@ -125,10 +113,10 @@
                 />
               </div>
             </div>
-            <button type="button" className="koma-gr-continue__btn">
+            <span className="koma-gr-continue__btn" aria-hidden="true">
               {t('guides.home.continueCta')}
-            </button>
-          </div>
+            </span>
+          </button>
         )}
   
         {/* Categories */}
@@ -150,20 +138,15 @@
               <div
                 key={cat.id}
                 className={`koma-gr-card koma-gr-card--${cat.accentColor} koma-gr-fadein`}
-                onClick={() => navigateToGuideCategory(cat.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigateToGuideCategory(cat.id);
-                  }
-                }}
               >
                 <div className={`koma-gr-card__icon koma-gr-card__icon--${cat.accentColor}`}>
                   <cat.icon size={18} />
                 </div>
-                <h3 className="koma-gr-card__title">{cat.label}</h3>
+                <h3 className="koma-gr-card__title">
+                  <button type="button" className="koma-gr-card__link" onClick={() => navigateToGuideCategory(cat.id)}>
+                    {cat.label}
+                  </button>
+                </h3>
                 <p className="koma-gr-card__desc">{cat.description}</p>
                 <div className="koma-gr-card__footer">
                   <span className="koma-gr-card__count">{countLabel}</span>
@@ -186,21 +169,17 @@
             </div>
             <div className="koma-gr-guide-list">
               {bookmarkedGuides.map((guide) => (
-                <div
+                <button
                   key={guide.id}
+                  type="button"
                   className="koma-gr-guide-item"
                   onClick={() => navigateToGuideEntry(guide.category, guide.id)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') navigateToGuideEntry(guide.category, guide.id);
-                  }}
                 >
                   <div className={`koma-gr-guide-item__icon koma-gr-card__icon--${guide.accentColor}`}>
                     <guide.icon size={16} />
                   </div>
                   <div className="koma-gr-guide-item__body">
-                    <h4 className="koma-gr-guide-item__title">{guide.title}</h4>
+                    <span className="koma-gr-guide-item__title">{guide.title}</span>
                     <p className="koma-gr-guide-item__desc">{guide.subtitle}</p>
                   </div>
                   <div className="koma-gr-guide-item__meta">
@@ -216,7 +195,7 @@
                     </span>
                   </div>
                   <ChevronRight size={14} className="koma-gr-guide-item__arrow" />
-                </div>
+                </button>
               ))}
             </div>
           </>
