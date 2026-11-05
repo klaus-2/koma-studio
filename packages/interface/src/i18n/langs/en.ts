@@ -1089,6 +1089,8 @@ export const enMessages = {
   'dashboard.aio.customAi.clear': 'Clear',
   'dashboard.aio.customAi.remove': 'Remove',
   'dashboard.aio.customAi.save': 'Save',
+  'dashboard.aio.customAi.saved': 'Saved',
+  'dashboard.aio.customAi.inUse': 'In use',
   'dashboard.emptyStage.title': 'Select or load images',
   'dashboard.emptyStage.desc':
     'Use the tools in the top bar to process your manhwa pages.',

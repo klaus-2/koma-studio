@@ -1011,6 +1011,8 @@ export const arMessages: TranslationCatalog = {
   'dashboard.aio.customAi.clear': 'مسح',
   'dashboard.aio.customAi.remove': 'إزالة',
   'dashboard.aio.customAi.save': 'حفظ',
+  'dashboard.aio.customAi.saved': 'تم الحفظ',
+  'dashboard.aio.customAi.inUse': 'قيد الاستخدام',
   'dashboard.emptyStage.title': 'حدد أو حمّل صورًا',
   'dashboard.emptyStage.desc':
     'استخدم الأدوات في الشريط العلوي لمعالجة صفحات المانهوا الخاصة بك.',

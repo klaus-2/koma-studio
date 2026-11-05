@@ -1051,6 +1051,8 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.aio.customAi.clear': 'Hapus',
   'dashboard.aio.customAi.remove': 'Hapus',
   'dashboard.aio.customAi.save': 'Simpan',
+  'dashboard.aio.customAi.saved': 'सहेजा गया',
+  'dashboard.aio.customAi.inUse': 'उपयोग में',
   'dashboard.emptyStage.title': 'Pilih atau muat gambar',
   'dashboard.emptyStage.desc':
     'Gunakan alat di bilah atas untuk memproses halaman manhwa Anda.',

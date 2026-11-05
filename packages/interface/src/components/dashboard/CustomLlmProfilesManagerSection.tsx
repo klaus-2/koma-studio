@@ -1,6 +1,11 @@
+import { useEffect, useRef, useState } from 'react';
+import { Check } from 'lucide-react';
+
 import type { CustomLlmProfile, CustomLlmProfileDraft, CustomLlmStage } from '../../utils/customLlm';
 import { useI18n } from '../../i18n';
 import styles from './CustomLlmProfilesManagerSection.module.css';
+
+const FLASH_RESET_MS = 1800;
 
 interface CustomLlmProfilesManagerSectionProps {
   stage: CustomLlmStage;
@@ -17,10 +22,10 @@ interface CustomLlmProfilesManagerSectionProps {
   useLabelOverride?: string;
   onLoadProfile: (profileId: string) => void;
   onUpdateDraft: (patch: Partial<CustomLlmProfileDraft>) => void;
-  onUseExisting: () => void;
+  onUseExisting: () => boolean | void;
   onResetDraft: () => void;
   onRemoveDraft: () => Promise<void> | void;
-  onSaveDraft: () => Promise<void> | void;
+  onSaveDraft: () => Promise<boolean> | boolean | void;
   onApplyOllamaPreset?: () => void;
 }
 
@@ -52,6 +57,50 @@ export default function CustomLlmProfilesManagerSection({
   const namePlaceholder = namePlaceholderOverride ?? (isTranslation ? t('dashboard.aio.customAi.placeholderTranslation') : t('dashboard.aio.customAi.placeholderOcr'));
   const modelPlaceholder = modelPlaceholderOverride ?? (isTranslation ? t('dashboard.aio.customAi.modelPlaceholderTranslation') : t('dashboard.aio.customAi.modelPlaceholderOcr'));
   const useLabel = useLabelOverride ?? (isTranslation ? t('dashboard.aio.customAi.useTranslation') : t('dashboard.aio.customAi.useOcr'));
+
+  const [savePending, setSavePending] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [usedFlash, setUsedFlash] = useState(false);
+  const flashTimerRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (flashTimerRef.current !== null) {
+      window.clearTimeout(flashTimerRef.current);
+    }
+  }, []);
+
+  const scheduleFlashReset = () => {
+    if (flashTimerRef.current !== null) {
+      window.clearTimeout(flashTimerRef.current);
+    }
+    flashTimerRef.current = window.setTimeout(() => {
+      flashTimerRef.current = null;
+      setSavedFlash(false);
+      setUsedFlash(false);
+    }, FLASH_RESET_MS);
+  };
+
+  const handleSave = async () => {
+    if (savePending) return;
+    setSavePending(true);
+    try {
+      const ok = await onSaveDraft();
+      if (ok !== false) {
+        setSavedFlash(true);
+        scheduleFlashReset();
+      }
+    } finally {
+      setSavePending(false);
+    }
+  };
+
+  const handleUseExisting = () => {
+    const ok = onUseExisting();
+    if (ok !== false) {
+      setUsedFlash(true);
+      scheduleFlashReset();
+    }
+  };
 
   if (!draft) {
     return (
@@ -94,8 +143,13 @@ export default function CustomLlmProfilesManagerSection({
           </select>
         </div>
         <div className={styles.profileRowActions}>
-          <button type="button" className={styles.secondaryButton} onClick={onUseExisting}>
-            {useLabel}
+          <button
+            type="button"
+            className={usedFlash ? `${styles.secondaryButton} ${styles.secondaryButtonFlash}` : styles.secondaryButton}
+            onClick={handleUseExisting}
+          >
+            {usedFlash ? <Check size={12} aria-hidden /> : null}
+            {usedFlash ? t('dashboard.aio.customAi.inUse') : useLabel}
           </button>
           <button type="button" className={styles.dangerButton} onClick={() => void onRemoveDraft()}>
             {t('dashboard.aio.customAi.remove')}
@@ -157,8 +211,18 @@ export default function CustomLlmProfilesManagerSection({
         <button type="button" className={styles.secondaryButton} onClick={onResetDraft}>
           {t('dashboard.aio.customAi.clear')}
         </button>
-        <button type="button" className={styles.primaryButton} onClick={() => void onSaveDraft()}>
-          {t('dashboard.aio.customAi.save')}
+        <button
+          type="button"
+          className={savedFlash ? `${styles.primaryButton} ${styles.primaryButtonFlash}` : styles.primaryButton}
+          onClick={() => void handleSave()}
+          disabled={savePending}
+        >
+          {savePending
+            ? t('customProvider.action.saving')
+            : savedFlash
+              ? t('dashboard.aio.customAi.saved')
+              : t('dashboard.aio.customAi.save')}
+          {savedFlash && !savePending ? <Check size={12} aria-hidden /> : null}
         </button>
       </div>
     </div>

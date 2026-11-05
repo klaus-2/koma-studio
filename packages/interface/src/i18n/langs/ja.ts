@@ -1061,6 +1061,8 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.aio.customAi.clear': 'クリア',
   'dashboard.aio.customAi.remove': '削除',
   'dashboard.aio.customAi.save': '保存',
+  'dashboard.aio.customAi.saved': '保存しました',
+  'dashboard.aio.customAi.inUse': '使用中',
   'dashboard.emptyStage.title': '画像を選択または読み込み',
   'dashboard.emptyStage.desc':
     'トップバーのツールを使用してマンファページを処理します。',

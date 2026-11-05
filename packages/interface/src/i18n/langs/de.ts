@@ -1092,6 +1092,8 @@ export const deMessages: TranslationCatalog = {
   'dashboard.aio.customAi.clear': 'Leeren',
   'dashboard.aio.customAi.remove': 'Entfernen',
   'dashboard.aio.customAi.save': 'Speichern',
+  'dashboard.aio.customAi.saved': 'Gespeichert',
+  'dashboard.aio.customAi.inUse': 'In Verwendung',
   'dashboard.emptyStage.title': 'Bilder auswählen oder laden',
   'dashboard.emptyStage.desc':
     'Verwende die Werkzeuge in der oberen Leiste, um deine Manhwa-Seiten zu verarbeiten.',

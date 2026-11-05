@@ -1056,6 +1056,8 @@ export const ptBrMessages: TranslationCatalog = {
   'dashboard.aio.customAi.clear': 'Limpar',
   'dashboard.aio.customAi.remove': 'Remover',
   'dashboard.aio.customAi.save': 'Salvar',
+  'dashboard.aio.customAi.saved': 'Salvo',
+  'dashboard.aio.customAi.inUse': 'Em uso',
   'dashboard.emptyStage.title': 'Selecione ou carregue imagens',
   'dashboard.emptyStage.desc':
     'Use as ferramentas na barra superior para processar suas páginas de manhwa.',

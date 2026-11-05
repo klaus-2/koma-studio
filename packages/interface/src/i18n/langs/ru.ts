@@ -1073,6 +1073,8 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.aio.customAi.clear': 'Очистить',
   'dashboard.aio.customAi.remove': 'Удалить',
   'dashboard.aio.customAi.save': 'Сохранить',
+  'dashboard.aio.customAi.saved': 'Сохранено',
+  'dashboard.aio.customAi.inUse': 'Используется',
   'dashboard.emptyStage.title': 'Выберите или загрузите изображения',
   'dashboard.emptyStage.desc':
     'Используйте инструменты в верхней панели для обработки страниц манхвы.',

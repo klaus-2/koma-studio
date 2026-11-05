@@ -42,20 +42,21 @@ export function useCleanerModelSelection({
   const customLlmDrafts = useLlmProvidersStore((s) => s.customLlmDrafts);
   const setCleanerAiModelKey = useCleanerStore((s) => s.setCleanerAiModelKey);
 
-  const useExistingCleanerCustomProfile = useCallback(() => {
+  const useExistingCleanerCustomProfile = useCallback((): boolean => {
     const profileId = customLlmDrafts.clean?.id;
     if (!profileId) {
       setTonedStatus(t('dashboard.status.cleanerSelectProfileFirst'), 'error');
-      return;
+      return false;
     }
     const profile =
       cleanStandaloneCustomProfiles.find((item) => item.id === profileId) ?? null;
     if (!profile) {
       setTonedStatus(t('dashboard.status.cleanerProfileNotFound'), 'error');
-      return;
+      return false;
     }
     setCleanerAiModelKey(`custom_clean:${profile.id}`);
     setStatusMessage(t('dashboard.status.cleanerProfileInUse', { label: profile.label }));
+    return true;
   }, [customLlmDrafts.clean?.id, cleanStandaloneCustomProfiles, setCleanerAiModelKey, setStatusMessage, setTonedStatus]);
 
   const selectCleanerAiModel = useCallback(
@@ -166,13 +167,15 @@ export function useCleanerAiDraftProfileActions({
   const cleanerAiModelKey = useCleanerStore((s) => s.cleanerAiModelKey);
   const setCleanerAiModelKey = useCleanerStore((s) => s.setCleanerAiModelKey);
   const customLlmDrafts = useLlmProvidersStore((s) => s.customLlmDrafts);
-  const saveCleanerCustomDraftProfile = useCallback(async () => {
+  const saveCleanerCustomDraftProfile = useCallback(async (): Promise<boolean> => {
     try {
       const profile = await saveCustomProfileInline('clean', customLlmDrafts.clean);
       setCleanerAiModelKey(`custom_clean:${profile.id}`);
       setTonedStatus(t('dashboard.status.cleanerProfileSaved', { label: profile.label }), 'success');
+      return true;
     } catch {
       // saveCustomProfileInline already updates the error message
+      return false;
     }
   }, [customLlmDrafts.clean, saveCustomProfileInline, setCleanerAiModelKey, setStatusMessage, setTonedStatus]);
   const removeCleanerCustomDraftProfile = useCallback(async () => {

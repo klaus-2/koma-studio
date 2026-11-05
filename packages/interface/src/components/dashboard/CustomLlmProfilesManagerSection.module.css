@@ -174,3 +174,133 @@
 :global([data-theme="light"]) .dangerButton:hover {
   background: rgba(251, 113, 133, 0.14);
 }
+
+.primaryButton:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.secondaryButtonFlash,
+.primaryButtonFlash {
+  border-color: rgba(52, 211, 153, 0.5);
+  background: rgba(52, 211, 153, 0.1);
+  color: #6ee7b7;
+}
+
+:global([data-theme="light"]) .secondaryButtonFlash,
+:global([data-theme="light"]) .primaryButtonFlash {
+  border-color: rgba(5, 150, 105, 0.45);
+  background: rgba(16, 185, 129, 0.08);
+  color: #047857;
+}
+
+:global([data-theme-family='noir']) .newButton,
+:global([data-theme-family='noir']) .secondaryButton,
+:global([data-theme-family='noir']) .dangerButton,
+:global([data-theme-family='noir']) .primaryButton {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  transition:
+    transform 0.25s var(--ease-koma),
+    filter 0.25s var(--ease-koma),
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+:global([data-theme-family='noir']) .newButton,
+:global([data-theme-family='noir']) .secondaryButton {
+  border: 1px solid color-mix(in srgb, var(--color-paper) 22%, transparent);
+  background: transparent;
+  color: var(--color-paper);
+}
+
+:global([data-theme-family='noir']) .newButton:hover,
+:global([data-theme-family='noir']) .secondaryButton:hover {
+  transform: translate(-2px, -2px);
+  filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-paper) 25%, transparent));
+  border-color: color-mix(in srgb, var(--color-paper) 45%, transparent);
+}
+
+:global([data-theme-family='noir']) .dangerButton {
+  border: 1px solid color-mix(in srgb, var(--color-crimson) 55%, transparent);
+  background: transparent;
+  color: var(--color-crimson);
+}
+
+:global([data-theme-family='noir']) .dangerButton:hover {
+  transform: translate(-2px, -2px);
+  filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-crimson) 35%, transparent));
+}
+
+:global([data-theme-family='noir']) .primaryButton {
+  border: 1px solid var(--color-crimson);
+  background: var(--color-crimson);
+  color: var(--color-ink);
+  box-shadow: none;
+}
+
+:global([data-theme-family='noir']) .primaryButton:hover {
+  transform: translate(-3px, -3px);
+  filter: drop-shadow(4px 4px 0 var(--color-gold));
+}
+
+:global([data-theme-family='noir']) .newButton:active,
+:global([data-theme-family='noir']) .secondaryButton:active,
+:global([data-theme-family='noir']) .dangerButton:active,
+:global([data-theme-family='noir']) .primaryButton:active {
+  transform: translate(0, 0);
+  filter: none;
+}
+
+:global([data-theme-family='noir']) .newButton:focus-visible,
+:global([data-theme-family='noir']) .secondaryButton:focus-visible,
+:global([data-theme-family='noir']) .dangerButton:focus-visible,
+:global([data-theme-family='noir']) .primaryButton:focus-visible {
+  outline: 1px solid var(--color-crimson);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+:global([data-theme-family='noir']) .secondaryButtonFlash,
+:global([data-theme-family='noir']) .primaryButtonFlash {
+  border-color: var(--color-mint);
+  background: color-mix(in srgb, var(--color-mint) 12%, transparent);
+  color: var(--color-mint);
+  transform: none;
+  filter: none;
+}
+
+:global([data-theme-family='noir']) .root :global(.koma-input) {
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 12%, transparent);
+  padding: 9px 11px;
+  transition:
+    border-color 0.16s ease,
+    filter 0.18s var(--ease-noir);
+}
+
+:global([data-theme-family='noir']) .root :global(.koma-input)::placeholder {
+  color: color-mix(in srgb, var(--color-paper) 35%, transparent);
+}
+
+:global([data-theme-family='noir']) .root :global(.koma-input):focus-visible {
+  outline: none;
+  border-color: var(--color-crimson);
+  filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--color-crimson) 40%, transparent));
+}
+
+:global([data-theme-family='noir']) .root :global(.koma-field__label) {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-paper) 45%, transparent);
+}

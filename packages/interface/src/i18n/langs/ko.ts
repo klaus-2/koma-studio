@@ -1022,6 +1022,8 @@ export const koMessages: TranslationCatalog = {
   'dashboard.aio.customAi.clear': '초기화',
   'dashboard.aio.customAi.remove': '제거',
   'dashboard.aio.customAi.save': '저장',
+  'dashboard.aio.customAi.saved': '저장됨',
+  'dashboard.aio.customAi.inUse': '사용 중',
   'dashboard.emptyStage.title': '이미지를 선택하거나 불러오세요',
   'dashboard.emptyStage.desc':
     '상단 도구 모음의 도구를 사용하여 만화 페이지를 처리하세요.',

@@ -953,6 +953,8 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.aio.customAi.clear': '清除',
   'dashboard.aio.customAi.remove': '移除',
   'dashboard.aio.customAi.save': '儲存',
+  'dashboard.aio.customAi.saved': '已儲存',
+  'dashboard.aio.customAi.inUse': '使用中',
   'dashboard.emptyStage.title': '選擇或載入圖片',
   'dashboard.emptyStage.desc': '使用頂部工具列中的工具來處理您的漫畫頁面。',
   'dashboard.emptyStage.tipTitle': '實用技巧',

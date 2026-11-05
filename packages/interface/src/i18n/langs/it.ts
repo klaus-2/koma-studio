@@ -1074,6 +1074,8 @@ export const itMessages: TranslationCatalog = {
   'dashboard.aio.customAi.clear': 'Cancella',
   'dashboard.aio.customAi.remove': 'Rimuovi',
   'dashboard.aio.customAi.save': 'Salva',
+  'dashboard.aio.customAi.saved': 'Salvato',
+  'dashboard.aio.customAi.inUse': 'In uso',
   'dashboard.emptyStage.title': 'Seleziona o carica immagini',
   'dashboard.emptyStage.desc':
     'Usa gli strumenti nella barra superiore per elaborare le tue pagine manhwa.',

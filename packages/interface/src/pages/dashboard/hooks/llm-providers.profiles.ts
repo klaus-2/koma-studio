@@ -214,24 +214,25 @@ export function useCustomLlmDrafts({
     }));
   }, [customLlmProfiles, setCustomLlmDrafts]);
 
-  const useExistingCustomProfile = useCallback((stage: CustomLlmStage) => {
+  const useExistingCustomProfile = useCallback((stage: CustomLlmStage): boolean => {
     const profileId = customLlmDrafts[stage].id;
     if (!profileId) {
       setStatusMessage(t(stage === 'translation' ? 'customLlm.selectTranslationProfile' : 'customLlm.selectOcrProfile'));
-      return;
+      return false;
     }
     const profile = customLlmProfiles.find((item) => item.stage === stage && item.id === profileId);
     if (!profile) {
       setStatusMessage(t('customLlm.profileNotFound'));
-      return;
+      return false;
     }
     const runtimeRestriction = getCustomLlmRuntimeRestriction(profile.apiBase);
     if (runtimeRestriction) {
       setStatusMessage(runtimeRestriction);
-      return;
+      return false;
     }
     applyCustomProfileSelection(stage, profile);
     setStatusMessage(t(stage === 'translation' ? 'customLlm.translationProfileActive' : 'customLlm.ocrProfileActive', { label: profile.label }));
+    return true;
   }, [applyCustomProfileSelection, customLlmDrafts, customLlmProfiles, setStatusMessage, t]);
 
   const useCustomProfileById = useCallback((stage: CustomLlmStage, profileId: string) => {
@@ -322,7 +323,7 @@ export function useCustomLlmDrafts({
     [customLlmDrafts.ocr.apiBase],
   );
 
-  const saveCustomLlmDraftProfile = useCallback(async (stage: CustomLlmStage) => {
+  const saveCustomLlmDraftProfile = useCallback(async (stage: CustomLlmStage): Promise<boolean> => {
     try {
       const inputApiBase = customLlmDrafts[stage].apiBase;
       const payload = await saveCustomLlmProfile(userId, stage, customLlmDrafts[stage]);
@@ -352,9 +353,11 @@ export function useCustomLlmDrafts({
         statusParts.push(providerNotice);
       }
       setStatusMessage(statusParts.join(' '));
+      return true;
     } catch (error) {
       setCustomLlmProfilesError(error instanceof Error ? error.message : 'Failed to save the custom profile.');
       setStatusMessage(error instanceof Error ? error.message : 'Failed to save the custom profile.');
+      return false;
     }
   }, [
     applyCustomProfileSelection,
