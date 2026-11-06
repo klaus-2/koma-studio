@@ -23,6 +23,7 @@ export const useSettingsUpdaterControls = ({
     updater.channel === "beta"
       ? t("settings.updates.channelBeta")
       : t("settings.updates.channelStable");
+  const betaChannelDisabled = !updater.autoInstallSupported;
 
   const handleCheck = useCallback(async () => {
     setBusy(true);
@@ -38,6 +39,7 @@ export const useSettingsUpdaterControls = ({
     busy,
     statusInfo,
     channelLabel,
+    betaChannelDisabled,
     handleCheck,
     handleChannel,
   };

@@ -1902,6 +1902,8 @@ export const enMessages = {
   'settings.updates.channelTitle': 'Update channel',
   'settings.updates.stableDesc': 'Tested and stable releases',
   'settings.updates.betaDesc': 'Early access to features',
+  'settings.updates.betaManualOnly':
+    'In-app beta updates are not available on this shell — download beta builds from the release page.',
   'settings.updates.installOnCloseTitle': 'Install update when closing the app',
   'settings.updates.installOnCloseDesc':
     'When the package is already downloaded, the installation will start automatically on exit.',

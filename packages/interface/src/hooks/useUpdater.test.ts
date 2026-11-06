@@ -9,7 +9,7 @@ import type {
   UpdaterStatusPayload,
 } from "@shared/desktop-events";
 
-import { UpdaterProvider, useUpdater } from "./useUpdater";
+import { UpdaterProvider, compareVersions, useUpdater } from "./useUpdater";
 import VersionBadgeNoir from "../components/noir/VersionBadgeNoir";
 import VersionBadgeClassic from "../components/VersionBadgeClassic";
 
@@ -24,7 +24,7 @@ interface GithubReleaseJson {
 
 type ReleaseResponse = {
   ok: true;
-  json: () => Promise<GithubReleaseJson>;
+  json: () => Promise<GithubReleaseJson | GithubReleaseJson[]>;
 };
 
 const LATEST_RELEASE: GithubReleaseJson = {
@@ -35,6 +35,15 @@ const LATEST_RELEASE: GithubReleaseJson = {
   draft: false,
   prerelease: false,
 };
+
+const buildListedRelease = (tag: string): GithubReleaseJson => ({
+  tag_name: tag,
+  name: `KOMA Studio ${tag}`,
+  body: "notas",
+  html_url: `https://github.com/klaus-2/koma-studio/releases/tag/${tag}`,
+  draft: false,
+  prerelease: tag.includes("beta") || tag.startsWith("runtime-"),
+});
 
 const storageMap = new Map<string, string>();
 Object.defineProperty(window, "localStorage", {
@@ -192,7 +201,7 @@ describe("useUpdater", () => {
     expect(result.current.newVersion).toBeNull();
   });
 
-  it("offers the stable release when stable is chosen explicitly on a prerelease install", async () => {
+  it("refuses a semver-lower stable release even when stable is chosen explicitly on a prerelease install", async () => {
     getAppVersionMock.mockReturnValue("2.0.0-alpha.3");
     const view = renderUpdater();
 
@@ -202,8 +211,8 @@ describe("useUpdater", () => {
 
     expect(fetchReleaseMock).toHaveBeenCalledTimes(1);
     expect(view.result.current.channel).toBe("stable");
-    expect(view.result.current.status).toBe("available");
-    expect(view.result.current.newVersion).toBe("1.1.0");
+    expect(view.result.current.status).toBe("not-available");
+    expect(view.result.current.newVersion).toBeNull();
   });
 
   it("performs no fetch and never reaches 'available' without a shell version", async () => {
@@ -568,5 +577,137 @@ describe("useUpdater", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("ranks beta.10 above beta.9 with numeric prerelease identifiers", () => {
+    expect(compareVersions("1.3.2-beta.10", "1.3.2-beta.9")).toBeGreaterThan(0);
+  });
+
+  it("ranks beta.2 below beta.10 and a bare beta below beta.1", () => {
+    expect(compareVersions("1.3.2-beta.2", "1.3.2-beta.10")).toBeLessThan(0);
+    expect(compareVersions("1.3.2-beta", "1.3.2-beta.1")).toBeLessThan(0);
+  });
+
+  it("picks the beta tag from a mixed feed and offers it over an older stable", async () => {
+    getAppVersionMock.mockReturnValue("1.3.1");
+    fetchReleaseMock.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        buildListedRelease("v1.3.2-beta.1"),
+        buildListedRelease("runtime-v1.3.1"),
+        buildListedRelease("v1.3.1"),
+      ],
+    });
+
+    const view = renderUpdater();
+    await act(async () => {
+      await view.result.current.setChannel("beta");
+    });
+
+    expect(view.result.current.channel).toBe("beta");
+    expect(view.result.current.status).toBe("available");
+    expect(view.result.current.newVersion).toBe("1.3.2-beta.1");
+  });
+
+  it("ignores runtime releases listed ahead of the beta tag", async () => {
+    getAppVersionMock.mockReturnValue("1.3.1");
+    fetchReleaseMock.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        buildListedRelease("runtime-v1.3.1"),
+        buildListedRelease("v1.3.2-beta.1"),
+      ],
+    });
+
+    const view = renderUpdater();
+    await act(async () => {
+      await view.result.current.setChannel("beta");
+    });
+
+    expect(view.result.current.status).toBe("available");
+    expect(view.result.current.newVersion).toBe("1.3.2-beta.1");
+  });
+
+  it("offers no beta update when the feed carries none", async () => {
+    getAppVersionMock.mockReturnValue("1.3.1");
+    fetchReleaseMock.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        buildListedRelease("runtime-v1.3.1"),
+        buildListedRelease("v1.3.1"),
+      ],
+    });
+
+    const view = renderUpdater();
+    await act(async () => {
+      await view.result.current.setChannel("beta");
+    });
+
+    expect(view.result.current.status).toBe("not-available");
+    expect(view.result.current.newVersion).toBeNull();
+  });
+
+  it("offers the beta release to an older stable install", async () => {
+    getAppVersionMock.mockReturnValue("1.3.1");
+    fetchReleaseMock.mockResolvedValue({
+      ok: true,
+      json: async () => [buildListedRelease("v1.3.2-beta.1")],
+    });
+
+    const view = renderUpdater();
+    await act(async () => {
+      await view.result.current.setChannel("beta");
+    });
+
+    expect(view.result.current.status).toBe("available");
+    expect(view.result.current.newVersion).toBe("1.3.2-beta.1");
+  });
+
+  it("does not offer a same-base beta prerelease to a newer stable install", async () => {
+    getAppVersionMock.mockReturnValue("1.3.2");
+    fetchReleaseMock.mockResolvedValue({
+      ok: true,
+      json: async () => [buildListedRelease("v1.3.2-beta.1")],
+    });
+
+    const view = renderUpdater();
+    await act(async () => {
+      await view.result.current.setChannel("beta");
+    });
+
+    expect(view.result.current.status).toBe("not-available");
+    expect(view.result.current.newVersion).toBeNull();
+  });
+
+  it("offers the stable release to a beta install when it is semver-greater", async () => {
+    getAppVersionMock.mockReturnValue("1.3.2-beta.1");
+    fetchReleaseMock.mockResolvedValue({
+      ok: true,
+      json: async () => buildListedRelease("v1.3.2"),
+    });
+
+    const view = renderUpdater();
+    await act(async () => {
+      await view.result.current.setChannel("stable");
+    });
+
+    expect(view.result.current.status).toBe("available");
+    expect(view.result.current.newVersion).toBe("1.3.2");
+  });
+
+  it("does not offer a lower beta on the beta channel", async () => {
+    getAppVersionMock.mockReturnValue("1.3.2-beta.3");
+    fetchReleaseMock.mockResolvedValue({
+      ok: true,
+      json: async () => [buildListedRelease("v1.3.2-beta.2")],
+    });
+
+    const view = renderUpdater();
+    await act(async () => {
+      await view.result.current.setChannel("beta");
+    });
+
+    expect(view.result.current.status).toBe("not-available");
+    expect(view.result.current.newVersion).toBeNull();
   });
 });

@@ -17,6 +17,8 @@ import type {
 const GITHUB_OWNER = "klaus-2";
 const GITHUB_REPO = "koma-studio";
 
+const BETA_TAG_PATTERN = /^v\d+\.\d+\.\d+-beta\.\d+$/;
+
 const UPDATER_BRIDGE_UNAVAILABLE = "Installer updater bridge is unavailable.";
 
 const installFailureMessage = (error: unknown): string =>
@@ -39,9 +41,6 @@ const ZERO_PROGRESS: UpdaterProgress = Object.freeze({
 });
 
 const DEFAULT_UPDATER_CHANNEL: UpdaterChannel = "stable";
-
-const inferBuildChannel = (version: string | null): UpdaterChannel =>
-  version !== null && version.includes("-") ? "beta" : "stable";
 
 const hasExplicitChannelChoice = (): boolean =>
   localStorage.getItem(CHANNEL_STORAGE_EXPLICIT_KEY) === "true";
@@ -127,7 +126,57 @@ const normalizeVersion = (value: string | null | undefined): string => {
   return value.trim().replace(/^v/i, "");
 };
 
-const compareVersions = (a: string, b: string): number => {
+const comparePrereleaseIdentifier = (left: string, right: string): number => {
+  const leftIsNumeric = /^\d+$/.test(left);
+  const rightIsNumeric = /^\d+$/.test(right);
+  if (leftIsNumeric && rightIsNumeric) {
+    const leftValue = Number(left);
+    const rightValue = Number(right);
+    if (leftValue > rightValue) {
+      return 1;
+    }
+    if (leftValue < rightValue) {
+      return -1;
+    }
+    return 0;
+  }
+  if (leftIsNumeric) {
+    return -1;
+  }
+  if (rightIsNumeric) {
+    return 1;
+  }
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
+};
+
+const comparePrerelease = (left: string, right: string): number => {
+  const leftParts = left.split(".");
+  const rightParts = right.split(".");
+  const longest = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < longest; index += 1) {
+    const leftPart = leftParts[index];
+    const rightPart = rightParts[index];
+    if (leftPart === undefined) {
+      return -1;
+    }
+    if (rightPart === undefined) {
+      return 1;
+    }
+    const result = comparePrereleaseIdentifier(leftPart, rightPart);
+    if (result !== 0) {
+      return result;
+    }
+  }
+  return 0;
+};
+
+export const compareVersions = (a: string, b: string): number => {
   const parseVersion = (version: string): { numbers: number[]; prerelease: string | null } => {
     const [base = "", prereleaseRaw] = version.split("-", 2);
     const numbers = base
@@ -167,7 +216,7 @@ const compareVersions = (a: string, b: string): number => {
     return 0;
   }
 
-  return (left.prerelease ?? "").localeCompare(right.prerelease ?? "");
+  return comparePrerelease(left.prerelease ?? "", right.prerelease ?? "");
 };
 
 const fetchGithubRelease = async (
@@ -196,7 +245,12 @@ const fetchGithubRelease = async (
   }
 
   const releases = (await response.json()) as GithubReleasePayload[];
-  const match = releases.find((release) => !release.draft);
+  const match = releases.find(
+    (release) =>
+      !release.draft &&
+      typeof release.tag_name === "string" &&
+      BETA_TAG_PATTERN.test(release.tag_name),
+  );
   return match ?? null;
 };
 
@@ -338,11 +392,7 @@ const useProvideUpdater = (): UseUpdaterApi => {
           : null;
 
       const compareResult = compareVersions(latestVersion, installedVersion);
-      const manualChannelOverrideActive =
-        hasExplicitChannelChoice() && effectiveChannel !== inferBuildChannel(installedVersion);
-      const shouldOfferRelease =
-        compareResult > 0 ||
-        (manualChannelOverrideActive && normalizeVersion(latestVersion) !== normalizeVersion(installedVersion));
+      const shouldOfferRelease = compareResult > 0;
 
       if (shouldOfferRelease) {
         if (lifecycleActive) {

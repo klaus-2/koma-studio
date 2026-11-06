@@ -36,6 +36,7 @@ interface SettingsAppTabArgs {
   updater: UseUpdaterApi;
   statusInfo: UpdaterStatusInfo;
   channelLabel: string;
+  betaChannelDisabled: boolean;
   fmtDate: (value: number | string | null) => string;
   busy: boolean;
   handleChannel: (channel: UpdaterChannel) => Promise<void>;
@@ -202,7 +203,7 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
           ]).map(({ ch, name, desc, tone }) => {
             const active = updater.channel === ch;
             return (
-              <button key={ch} type="button" disabled={a.busy} onClick={() => void a.handleChannel(ch)}
+              <button key={ch} type="button" disabled={a.busy || (ch === "beta" && a.betaChannelDisabled)} onClick={() => void a.handleChannel(ch)}
                 aria-pressed={active}
                 className={`panel-cut-sm hard-hover flex items-start gap-3 border p-4 text-left transition-colors disabled:opacity-40 ${active
                   ? tone === "gold" ? "border-gold/60 bg-gold/8" : "border-mint/60 bg-mint/8"
@@ -217,6 +218,11 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
             );
           })}
         </div>
+        {a.betaChannelDisabled && (
+          <p className="mt-2 font-mono text-[9px] uppercase tracking-wider text-paper/40">
+            {t("settings.updates.betaManualOnly")}
+          </p>
+        )}
       </Sec>
 
       {/* ═══ AUTOSAVE ═══ */}

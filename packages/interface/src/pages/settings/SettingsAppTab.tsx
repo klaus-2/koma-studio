@@ -38,6 +38,7 @@ interface SettingsAppTabArgs {
   updater: UseUpdaterApi;
   statusInfo: UpdaterStatusInfo;
   channelLabel: string;
+  betaChannelDisabled: boolean;
   fmtDate: (value: number | string | null) => string;
   busy: boolean;
   handleChannel: (channel: UpdaterChannel) => Promise<void>;
@@ -86,6 +87,7 @@ export const renderSettingsAppTab = ({
   updater,
   statusInfo,
   channelLabel,
+  betaChannelDisabled,
   fmtDate,
   busy,
   handleChannel,
@@ -287,7 +289,7 @@ export const renderSettingsAppTab = ({
       </button>
       <button
         type="button"
-        disabled={busy}
+        disabled={busy || betaChannelDisabled}
         className={`koma-stg-channel ${updater.channel === "beta" ? "koma-stg-channel--active koma-stg-channel--beta" : ""}`}
         onClick={() => void handleChannel("beta")}
       >
@@ -298,6 +300,11 @@ export const renderSettingsAppTab = ({
         </div>
       </button>
     </div>
+    {betaChannelDisabled && (
+      <p className="koma-stg-section__desc" style={{ marginTop: 12 }}>
+        {t("settings.updates.betaManualOnly")}
+      </p>
+    )}
   </section>
 
   {/* Source-sync control panel */}
