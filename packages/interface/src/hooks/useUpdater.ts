@@ -18,6 +18,7 @@ const GITHUB_OWNER = "klaus-2";
 const GITHUB_REPO = "koma-studio";
 
 const BETA_TAG_PATTERN = /^v\d+\.\d+\.\d+-beta\.\d+$/;
+const STABLE_TAG_PATTERN = /^v\d+\.\d+\.\d+$/;
 
 const UPDATER_BRIDGE_UNAVAILABLE = "Installer updater bridge is unavailable.";
 
@@ -249,7 +250,7 @@ const fetchGithubRelease = async (
     (release) =>
       !release.draft &&
       typeof release.tag_name === "string" &&
-      BETA_TAG_PATTERN.test(release.tag_name),
+      (BETA_TAG_PATTERN.test(release.tag_name) || STABLE_TAG_PATTERN.test(release.tag_name)),
   );
   return match ?? null;
 };
