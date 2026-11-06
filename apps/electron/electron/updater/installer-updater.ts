@@ -12,6 +12,7 @@ import {
   applyUpdaterTransition,
   createInitialUpdaterState,
   normalizeUpdaterReleaseNotes,
+  updaterChannelConfig,
   updaterTransitionEventName,
   type UpdaterTransition,
 } from "./installer-updater-shared.ts";
@@ -70,7 +71,10 @@ class InstallerUpdaterService {
 
   private applyChannel(channel: UpdaterChannel): void {
     this.lastChannel = channel;
-    autoUpdater.allowPrerelease = channel === "beta";
+    const config = updaterChannelConfig(channel);
+    autoUpdater.allowPrerelease = config.allowPrerelease;
+    autoUpdater.channel = config.electronChannel;
+    autoUpdater.allowDowngrade = config.allowDowngrade;
   }
 
   private wireEventsOnce(): void {

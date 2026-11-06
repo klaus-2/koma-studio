@@ -46,6 +46,19 @@ export const createInitialUpdaterState = (
   error: null,
 });
 
+export interface UpdaterChannelConfig {
+  allowPrerelease: boolean;
+  electronChannel: string;
+  allowDowngrade: boolean;
+}
+
+export const updaterChannelConfig = (
+  channel: UpdaterChannel,
+): UpdaterChannelConfig =>
+  channel === "beta"
+    ? { allowPrerelease: true, electronChannel: "beta", allowDowngrade: false }
+    : { allowPrerelease: false, electronChannel: "latest", allowDowngrade: false };
+
 export type UpdaterTransition =
   | { type: "checking" }
   | { type: "available"; version: string; releaseNotes: string | null; checkedAt: number }

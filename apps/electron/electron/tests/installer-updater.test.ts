@@ -8,6 +8,7 @@ import {
   applyUpdaterTransition,
   createInitialUpdaterState,
   normalizeUpdaterReleaseNotes,
+  updaterChannelConfig,
   type UpdaterTransition,
 } from "../updater/installer-updater-shared.ts";
 
@@ -47,6 +48,41 @@ test("returns null for non-string non-array payloads", () => {
   assert.equal(normalizeUpdaterReleaseNotes(undefined), null);
   assert.equal(normalizeUpdaterReleaseNotes(42), null);
   assert.equal(normalizeUpdaterReleaseNotes({ note: "nope" }), null);
+});
+
+test("maps the beta channel to prerelease access and the beta channel file", () => {
+  assert.deepEqual(updaterChannelConfig("beta"), {
+    allowPrerelease: true,
+    electronChannel: "beta",
+    allowDowngrade: false,
+  });
+});
+
+test("maps the stable channel to the default channel file without prereleases", () => {
+  assert.deepEqual(updaterChannelConfig("stable"), {
+    allowPrerelease: false,
+    electronChannel: "latest",
+    allowDowngrade: false,
+  });
+});
+
+test("applies allowDowngrade after the channel assignment in applyChannel", () => {
+  const source = readFileSync(
+    path.resolve(scriptDir, "..", "updater", "installer-updater.ts"),
+    "utf8",
+  );
+  const applyChannelBody = source.slice(
+    source.indexOf("private applyChannel"),
+    source.indexOf("private wireEventsOnce"),
+  );
+  const channelAssignment = applyChannelBody.indexOf("autoUpdater.channel =");
+  const downgradeAssignment = applyChannelBody.indexOf("autoUpdater.allowDowngrade =");
+  assert.ok(channelAssignment !== -1, "applyChannel must assign autoUpdater.channel");
+  assert.ok(downgradeAssignment !== -1, "applyChannel must assign autoUpdater.allowDowngrade");
+  assert.ok(
+    downgradeAssignment > channelAssignment,
+    "allowDowngrade must be applied after the channel setter runs",
+  );
 });
 
 const goldenPath = path.resolve(
