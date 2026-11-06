@@ -4,9 +4,13 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri_plugin_updater::UpdaterExt;
+use url::Url;
 
 pub const UPDATER_EVENT_CHANNEL: &str = "updater:event";
 const PROGRESS_EVENT_MIN_INTERVAL_MS: u128 = 100;
+
+const BETA_UPDATER_FEED_URL: &str =
+    "https://github.com/klaus-2/koma-studio/releases/download/beta/latest.json";
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -171,6 +175,15 @@ pub fn parse_channel(value: &str) -> Result<&'static str, &'static str> {
     }
 }
 
+pub fn updater_feed_override(channel: &str) -> Result<Option<Url>, String> {
+    if channel != "beta" {
+        return Ok(None);
+    }
+    Url::parse(BETA_UPDATER_FEED_URL)
+        .map(Some)
+        .map_err(|error| error.to_string())
+}
+
 pub fn progress_percent(transferred: u64, total: Option<u64>) -> f64 {
     match total {
         Some(total) if total > 0 => (transferred.min(total) as f64 / total as f64) * 100.0,
@@ -289,10 +302,21 @@ pub async fn run_check<R: tauri::Runtime>(
         session.commit(app, UpdaterTransition::Checking);
     }
 
-    let checked: Result<Option<tauri_plugin_updater::Update>, String> = match app.updater() {
-        Ok(updater) => updater.check().await.map_err(|error| error.to_string()),
-        Err(error) => Err(error.to_string()),
-    };
+    let checked: Result<Option<tauri_plugin_updater::Update>, String> =
+        match updater_feed_override(channel) {
+            Ok(Some(feed)) => match app.updater_builder().endpoints(vec![feed]) {
+                Ok(builder) => match builder.build() {
+                    Ok(updater) => updater.check().await.map_err(|error| error.to_string()),
+                    Err(error) => Err(error.to_string()),
+                },
+                Err(error) => Err(error.to_string()),
+            },
+            Ok(None) => match app.updater() {
+                Ok(updater) => updater.check().await.map_err(|error| error.to_string()),
+                Err(error) => Err(error.to_string()),
+            },
+            Err(error) => Err(error.to_string()),
+        };
 
     let mut guard = store.lock();
     let session = ensure_session(app, &mut guard)?;
@@ -600,6 +624,28 @@ mod tests {
         assert_eq!(parse_channel("beta"), Ok("beta"));
         assert!(parse_channel("canary").is_err());
         assert!(parse_channel("").is_err());
+    }
+
+    #[test]
+    fn beta_channel_overrides_the_feed_and_stable_keeps_the_configured_endpoint() {
+        let feed = updater_feed_override("beta").expect("beta feed parses");
+        assert_eq!(
+            feed.as_ref().map(url::Url::as_str),
+            Some("https://github.com/klaus-2/koma-studio/releases/download/beta/latest.json")
+        );
+        assert_eq!(updater_feed_override("stable").expect("stable parses"), None);
+        assert_eq!(updater_feed_override("canary").expect("unknown parses"), None);
+        for channel in ["stable", "beta"] {
+            let parsed = parse_channel(channel).expect("channel accepted by parse_channel");
+            let overrides = updater_feed_override(parsed)
+                .expect("override parses")
+                .is_some();
+            assert_eq!(
+                overrides,
+                channel == "beta",
+                "channel {channel} must resolve to the beta feed iff it is beta"
+            );
+        }
     }
 
     #[test]
