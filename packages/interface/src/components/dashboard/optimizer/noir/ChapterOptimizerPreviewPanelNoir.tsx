@@ -235,7 +235,7 @@ export default function ChapterOptimizerPreviewPanelNoir({
                     }
                   >
                     <img
-                      src={image.url}
+                      src={image.thumbnailUrl ?? image.url}
                       alt=""
                       loading="lazy"
                       className="size-full object-cover"

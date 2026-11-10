@@ -55,7 +55,7 @@ export const PreviewStageItem = memo(function PreviewStageItem({
         style={{ width: wrapW, height: wrapH }}
       >
         <img
-          src={getPreviewSrc(img)}
+          src={img.thumbnailUrl ?? getPreviewSrc(img)}
           loading="lazy"
           decoding="async"
           className="koma-preview-card__img"

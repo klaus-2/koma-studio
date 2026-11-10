@@ -19,6 +19,7 @@ import {
   createThumbnailFromUrl,
   revokeLoadedImageUrls,
 } from '../../../utils/imagePerformance';
+import { runConcurrentBatch } from '../../../utils/concurrentBatch';
 import type {
   AioManualImageEditState,
   AioTextRegion,
@@ -81,6 +82,7 @@ export function useDashboardUploads({
         loadImageFromSource(url).then((img) => {
           const width = img.width;
           const height = img.height;
+          img.src = '';
 
           // Generate thumbnail for list/grid display to reduce memory
           createThumbnailFromUrl(url, 400, 600, 0.7).then((thumbUrl) => {
@@ -234,11 +236,12 @@ export function useDashboardUploads({
     }
 
     try {
-      const newImgs = await Promise.all(
-        candidateUploads.map(({ file, chapter }) =>
+      const newImgs = await runConcurrentBatch({
+        items: candidateUploads,
+        concurrency: 4,
+        worker: async ({ item: { file, chapter } }) =>
           loadImageDetails(file, chapter ?? undefined),
-        ),
-      );
+      });
       addImages(newImgs);
       if (!activeId && newImgs.length > 0 && newImgs[0]) setActiveId(newImgs[0].id);
       invalidateAioPipelineHistory();
@@ -406,7 +409,7 @@ export function useDashboardImageCollection({
 
   const getPreviewSrc = useCallback(
     (img: LoadedImage) => {
-      if (INFO_MODES.includes(mode)) return img.url;
+      if (INFO_MODES.includes(mode)) return img.thumbnailUrl ?? img.url;
       const manualToolsState = useManualToolsStore.getState();
       const cleanerState = useCleanerStore.getState();
       const translatorState = useTranslatorStore.getState();
@@ -432,6 +435,9 @@ export function useDashboardImageCollection({
         .downloadItems.find(
           (item) => item.scope === mode && item.sourceImageId === img.id,
         );
+      if (mode === 'raw') {
+        return scopedDownload?.previewUrl ?? img.thumbnailUrl ?? img.url;
+      }
       return scopedDownload?.previewUrl ?? img.url;
     },
     [mode],

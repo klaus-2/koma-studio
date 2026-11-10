@@ -108,6 +108,7 @@ export interface WatermarkLoadedImage {
   id: string;
   file: File;
   url: string;
+  thumbnailUrl?: string;
   width: number;
   height: number;
   rotation: number;

@@ -148,6 +148,70 @@ const encodeCanvas = (
     }
   });
 
+const MAX_THUMBNAIL_CACHE_SIZE = 500;
+const thumbnailCache = new Map<string, string>();
+const inFlightJobs = new Map<string, Promise<string>>();
+
+export const getThumbnailCacheKey = (
+  srcUrl: string,
+  maxWidth = THUMBNAIL_MAX_DIMENSION,
+  maxHeight = THUMBNAIL_MAX_DIMENSION,
+  quality = THUMBNAIL_QUALITY,
+): string => `${srcUrl}:${maxWidth}:${maxHeight}:${quality}`;
+
+const rememberThumbnail = (cacheKey: string, thumbUrl: string): void => {
+  thumbnailCache.delete(cacheKey);
+  thumbnailCache.set(cacheKey, thumbUrl);
+  if (thumbnailCache.size > MAX_THUMBNAIL_CACHE_SIZE) {
+    const oldestKey = thumbnailCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      const oldestUrl = thumbnailCache.get(oldestKey);
+      if (
+        oldestUrl &&
+        oldestUrl.startsWith("blob:") &&
+        !oldestKey.startsWith(`${oldestUrl}:`)
+      ) {
+        URL.revokeObjectURL(oldestUrl);
+      }
+      thumbnailCache.delete(oldestKey);
+    }
+  }
+};
+
+export const getCachedThumbnailUrl = (
+  srcUrl: string,
+  maxWidth = THUMBNAIL_MAX_DIMENSION,
+  maxHeight = THUMBNAIL_MAX_DIMENSION,
+  quality = THUMBNAIL_QUALITY,
+): string | undefined => {
+  const specific = thumbnailCache.get(
+    getThumbnailCacheKey(srcUrl, maxWidth, maxHeight, quality),
+  );
+  if (specific) return specific;
+  for (const [key, val] of thumbnailCache.entries()) {
+    if (key.startsWith(`${srcUrl}:`)) return val;
+  }
+  return undefined;
+};
+
+export const hasCachedThumbnail = (srcUrl: string): boolean => {
+  for (const key of thumbnailCache.keys()) {
+    if (key.startsWith(`${srcUrl}:`)) return true;
+  }
+  return false;
+};
+
+export const clearThumbnailCache = (): void => {
+  for (const [key, thumbUrl] of thumbnailCache.entries()) {
+    if (thumbUrl.startsWith("blob:") && !key.startsWith(`${thumbUrl}:`)) {
+      URL.revokeObjectURL(thumbUrl);
+    }
+  }
+  thumbnailCache.clear();
+};
+
+export const getThumbnailCacheSize = (): number => thumbnailCache.size;
+
 export const createThumbnailFromUrl = async (
   srcUrl: string,
   maxWidth = THUMBNAIL_MAX_DIMENSION,
@@ -174,78 +238,118 @@ export const createThumbnailFromUrl = async (
     throw new Error("Invalid thumbnail input.");
   }
 
-  options.signal?.throwIfAborted();
+  const cacheKey = getThumbnailCacheKey(srcUrl, maxWidth, maxHeight, quality);
+  const cached = thumbnailCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
 
-  const controller = new AbortController();
-  const onAbort = (): void => {
-    controller.abort(options.signal?.reason);
-  };
-  const timeout = globalThis.setTimeout(() => {
-    controller.abort(
-      new DOMException("Thumbnail generation timed out.", "TimeoutError"),
-    );
-  }, timeoutMs);
+  const existingInFlight = inFlightJobs.get(cacheKey);
+  if (existingInFlight) {
+    if (options.signal) {
+      return new Promise<string>((resolve, reject) => {
+        const onAbort = (): void => reject(options.signal?.reason);
+        options.signal?.addEventListener("abort", onAbort, { once: true });
+        existingInFlight.then(
+          (val) => {
+            options.signal?.removeEventListener("abort", onAbort);
+            resolve(val);
+          },
+          (err: unknown) => {
+            options.signal?.removeEventListener("abort", onAbort);
+            reject(err);
+          },
+        );
+      });
+    }
+    return existingInFlight;
+  }
 
-  options.signal?.addEventListener("abort", onAbort, { once: true });
-  if (options.signal?.aborted) onAbort();
+  const executeJob = async (): Promise<string> => {
+    options.signal?.throwIfAborted();
 
-  let release: (() => void) | undefined;
-  let image: HTMLImageElement | undefined;
-  let canvas: HTMLCanvasElement | undefined;
+    const controller = new AbortController();
+    const onAbort = (): void => {
+      controller.abort(options.signal?.reason);
+    };
+    const timeout = globalThis.setTimeout(() => {
+      controller.abort(
+        new DOMException("Thumbnail generation timed out.", "TimeoutError"),
+      );
+    }, timeoutMs);
 
-  try {
-    release = await acquirePermit(controller.signal);
-    image = await loadImage(srcUrl, controller.signal);
-    controller.signal.throwIfAborted();
+    options.signal?.addEventListener("abort", onAbort, { once: true });
+    if (options.signal?.aborted) onAbort();
 
-    if (
-      image.naturalWidth <= maxWidth &&
-      image.naturalHeight <= maxHeight
-    ) {
+    let release: (() => void) | undefined;
+    let image: HTMLImageElement | undefined;
+    let canvas: HTMLCanvasElement | undefined;
+
+    try {
+      release = await acquirePermit(controller.signal);
+      image = await loadImage(srcUrl, controller.signal);
+      controller.signal.throwIfAborted();
+
+      if (
+        image.naturalWidth <= maxWidth &&
+        image.naturalHeight <= maxHeight
+      ) {
+        rememberThumbnail(cacheKey, srcUrl);
+        return srcUrl;
+      }
+
+      const scale = Math.min(
+        maxWidth / image.naturalWidth,
+        maxHeight / image.naturalHeight,
+      );
+
+      canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.floor(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.floor(image.naturalHeight * scale));
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new ThumbnailError("CANVAS_UNAVAILABLE");
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      const blob = await encodeCanvas(canvas, quality, controller.signal);
+      controller.signal.throwIfAborted();
+
+      const thumbUrl = URL.createObjectURL(blob);
+      rememberThumbnail(cacheKey, thumbUrl);
+      return thumbUrl;
+    } catch (error: unknown) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+
+      const code =
+        error instanceof ThumbnailError
+          ? error.code
+          : "IMAGE_ENCODING_FAILED";
+
+      options.onFailure?.(code);
       return srcUrl;
+    } finally {
+      globalThis.clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", onAbort);
+
+      if (image) image.src = "";
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+
+      release?.();
     }
+  };
 
-    const scale = Math.min(
-      maxWidth / image.naturalWidth,
-      maxHeight / image.naturalHeight,
-    );
-
-    canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.floor(image.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.floor(image.naturalHeight * scale));
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new ThumbnailError("CANVAS_UNAVAILABLE");
-
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-    const blob = await encodeCanvas(canvas, quality, controller.signal);
-    controller.signal.throwIfAborted();
-
-    return URL.createObjectURL(blob);
-  } catch (error: unknown) {
-    if (controller.signal.aborted) throw controller.signal.reason;
-
-    const code =
-      error instanceof ThumbnailError
-        ? error.code
-        : "IMAGE_ENCODING_FAILED";
-
-    options.onFailure?.(code);
-    return srcUrl;
+  const job = executeJob();
+  inFlightJobs.set(cacheKey, job);
+  try {
+    return await job;
   } finally {
-    globalThis.clearTimeout(timeout);
-    options.signal?.removeEventListener("abort", onAbort);
-
-    if (image) image.src = "";
-    if (canvas) {
-      canvas.width = 0;
-      canvas.height = 0;
-    }
-
-    release?.();
+    inFlightJobs.delete(cacheKey);
   }
 };
 
@@ -261,6 +365,15 @@ export const revokeLoadedImageUrls = (
     if (image.url.startsWith("blob:")) urls.add(image.url);
     if (image.thumbnailUrl?.startsWith("blob:")) {
       urls.add(image.thumbnailUrl);
+    }
+
+    for (const [key, thumbUrl] of thumbnailCache.entries()) {
+      if (key.startsWith(`${image.url}:`)) {
+        if (thumbUrl.startsWith("blob:") && thumbUrl !== image.url) {
+          urls.add(thumbUrl);
+        }
+        thumbnailCache.delete(key);
+      }
     }
   }
 

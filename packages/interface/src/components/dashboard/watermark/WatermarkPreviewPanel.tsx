@@ -175,7 +175,7 @@ export default function WatermarkPreviewPanel({
                 onClick={() => setActiveImageId(image.id)}
               >
                 <img
-                  src={resultsById.get(image.id)?.previewUrl ?? image.url}
+                  src={resultsById.get(image.id)?.previewUrl ?? image.thumbnailUrl ?? image.url}
                   alt={image.file.name}
                   loading="lazy"
                   decoding="async"

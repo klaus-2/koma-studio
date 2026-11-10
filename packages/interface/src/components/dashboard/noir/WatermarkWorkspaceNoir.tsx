@@ -1155,7 +1155,7 @@ const WatermarkWorkspaceNoir = ({
                   return (
                     <button key={img.id} type="button" data-thumb-id={img.id} onClick={() => setActiveImageId(img.id)}
                       className={`relative h-16 w-14 shrink-0 overflow-hidden panel-cut-sm border transition-all duration-150 ${active ? 'border-crimson -translate-y-0.5 shadow-[3px_3px_0_rgba(255,46,99,0.3)]' : 'border-paper/12 hover:border-paper/30'}`}>
-                      <img src={resultsById.get(img.id)?.previewUrl ?? img.url} alt={img.file.name} className="h-full w-full object-cover" />
+                      <img src={resultsById.get(img.id)?.previewUrl ?? img.thumbnailUrl ?? img.url} alt={img.file.name} className="h-full w-full object-cover" />
                       <span className="absolute bottom-0 left-0 bg-ink/80 px-1 py-0.5 font-mono text-[8px] font-bold text-crimson">{i + 1}</span>
                       {textZoneCache[img.id] && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-mint animate-blink" aria-hidden="true" />}
                     </button>

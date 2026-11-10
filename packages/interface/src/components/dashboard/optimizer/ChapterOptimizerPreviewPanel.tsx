@@ -147,7 +147,7 @@ export default function ChapterOptimizerPreviewPanel({
                   title={img.file.name}
                 >
                   <img
-                    src={img.url}
+                    src={img.thumbnailUrl ?? img.url}
                     alt={img.file.name}
                     className="koma-optim__thumb-img"
                     loading="lazy"

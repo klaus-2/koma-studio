@@ -8,6 +8,7 @@ export interface OptimizerImageInput {
   id: string;
   file: File;
   url: string;
+  thumbnailUrl?: string;
   width: number;
   height: number;
 }
