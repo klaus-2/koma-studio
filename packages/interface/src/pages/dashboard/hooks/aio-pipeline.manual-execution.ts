@@ -18,7 +18,6 @@ import {
 import { createAioAbortError } from '@/pages/dashboard/lib/run-aio-batch';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collection-store';
-import { useLlmProvidersStore } from '@/pages/dashboard/stores/llm-providers-store';
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import type {
@@ -73,7 +72,6 @@ export function useAioManualExecution(args: UseAioManualExecutionArgs) {
   const mode = useUiShellStore((state) => state.mode);
   const subMode = useUiShellStore((state) => state.subMode);
   const processing = useUiShellStore((state) => state.processing);
-  const llmSettings = useLlmProvidersStore((state) => state.llmSettings);
 
   const autoProcessed = useAioPipelineStore(
     (state) => state.aioAutoProcessedImageById,
@@ -168,7 +166,6 @@ export function useAioManualExecution(args: UseAioManualExecutionArgs) {
     aioHdCropTriggerSize: hdCropTriggerSize,
     gpuStages,
     minRegionSize: MIN_REGION_SIZE,
-    llmSettings,
     renderDefaultStyle: args.renderDefaultStyle,
     localApiUrl: args.localApiUrl,
     modelEntries: args.modelEntries,

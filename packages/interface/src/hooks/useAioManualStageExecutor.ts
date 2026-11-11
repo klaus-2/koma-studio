@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useLlmProvidersStore } from '../pages/dashboard/stores/llm-providers-store';
 
 import { useI18n } from '../i18n';
 import {
@@ -32,7 +33,6 @@ import {
 } from '../utils/page-source';
 import {
   type CustomLlmProfile,
-  type LlmRequestSettings,
 } from '../utils/customLlm';
 import type { RenderTextStyle } from '../utils/renderText';
 import type {
@@ -83,7 +83,6 @@ interface UseAioManualStageExecutorArgs {
   aioHdCropTriggerSize: number;
   gpuStages?: { detectText: boolean; recognizeText: boolean; segmentText: boolean; cleanImage: boolean };
   minRegionSize: number;
-  llmSettings: LlmRequestSettings;
   renderDefaultStyle: RenderTextStyle;
   localApiUrl: string;
   modelEntries: Record<string, ModelManagerEntryLike | undefined>;
@@ -127,7 +126,6 @@ export function useAioManualStageExecutor({
   aioHdCropTriggerSize,
   gpuStages,
   minRegionSize,
-  llmSettings,
   renderDefaultStyle,
   localApiUrl,
   modelEntries,
@@ -308,7 +306,7 @@ export function useAioManualStageExecutor({
               regions: detectRegions,
               useGpu: gpuStages?.recognizeText,
               useCloudOcr: ocrReadiness.useCloud,
-              llmSettings: ocrReadiness.useLlmSettings ? llmSettings : null,
+              llmSettings: ocrReadiness.useLlmSettings ? useLlmProvidersStore.getState().llmSettings : null,
               customProfile: ocrReadiness.useLlmSettings ? ocrReadiness.customProfile : null,
             },
             stageRuntime,
@@ -349,7 +347,7 @@ export function useAioManualStageExecutor({
               targetLanguage: aioTgtLang,
               regions: ocrRegions,
               fallbackOcrModelKey: selectedOcrKey,
-              llmSettings: translationReadiness.useLlmSettings ? llmSettings : null,
+              llmSettings: translationReadiness.useLlmSettings ? useLlmProvidersStore.getState().llmSettings : null,
               customProfile: translationReadiness.useLlmSettings
                 ? translationReadiness.customProfile
                 : null,
@@ -525,7 +523,6 @@ export function useAioManualStageExecutor({
     getAioStageOption,
     gpuStages,
     images,
-    llmSettings,
     localApiUrl,
     minRegionSize,
     modelEntries,
