@@ -320,7 +320,13 @@ const parseRadialGradient = (
   };
 };
 
-export const parseCssGradientValue = (value: string): ParsedCssGradient | null => {
+const GRADIENT_PARSE_CACHE_LIMIT = 64;
+// Same discipline as regionLayoutCache: delete+re-insert on write so the map
+// order doubles as LRU order. Keys are the raw gradient strings users author;
+// same string → same parse, so no invalidation path exists.
+const gradientParseCache = new Map<string, ParsedCssGradient | null>();
+
+const parseCssGradientValueUncached = (value: string): ParsedCssGradient | null => {
   const trimmed = value.trim();
   const mode = trimmed.startsWith("radial-gradient(")
     ? "radial"
@@ -355,6 +361,23 @@ export const parseCssGradientValue = (value: string): ParsedCssGradient | null =
     position: mode === "radial" ? descriptor.trim() : "circle at center",
     stops,
   };
+};
+
+// Drag redraws resolve the same gradient strings per segment per frame; the
+// parse (string splits + per-stop color normalization) is the expensive part.
+export const parseCssGradientValue = (value: string): ParsedCssGradient | null => {
+  const cached = gradientParseCache.get(value);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const parsed = parseCssGradientValueUncached(value);
+  gradientParseCache.delete(value);
+  gradientParseCache.set(value, parsed);
+  if (gradientParseCache.size > GRADIENT_PARSE_CACHE_LIMIT) {
+    const oldest = gradientParseCache.keys().next().value;
+    if (oldest !== undefined) gradientParseCache.delete(oldest);
+  }
+  return parsed;
 };
 
 export const isGradientFillValue = (value: string): boolean =>
