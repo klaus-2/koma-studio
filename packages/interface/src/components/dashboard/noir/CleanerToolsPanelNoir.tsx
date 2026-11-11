@@ -7,6 +7,7 @@ import {
 import { AioSection } from '../../../pages/AioSection';
 import KlSlider from '../KlSlider';
 import { useI18n } from '../../../i18n';
+import { CleanerProcessingLabel } from '../CleanerProcessingLabel';
 import type { TranslationKey } from '../../../i18n/messages';
 import type { CleanerMode } from '@/types/dashboard.types';
 import type { AioStageOption } from '@/models/aioStageCatalog';
@@ -69,7 +70,6 @@ interface CleanerToolsPanelProps {
   imagesCount: number;
   hasQuotaForCurrentBatch?: boolean;
   quotaLimitButtonTitle?: string;
-  progress: number;
   handleClean: () => void;
 }
 
@@ -86,7 +86,7 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
     aioHdResizeLimit, setAioHdResizeLimit, aioHdCropMargin, setAioHdCropMargin,
     aioHdCropTriggerSize, setAioHdCropTriggerSize, cleanerAiAdditionalInstructions,
     setCleanerAiAdditionalInstructions, activeCleanerRunMeta, activeCleanerSelectedRegion,
-    processing, imagesCount, hasQuotaForCurrentBatch = true, quotaLimitButtonTitle = '', progress, handleClean,
+    processing, imagesCount, hasQuotaForCurrentBatch = true, quotaLimitButtonTitle = '', handleClean,
   } = props;
 
   const { t } = useI18n();
@@ -228,7 +228,7 @@ export default function CleanerToolsPanel(props: CleanerToolsPanelProps) {
       <div className="sticky bottom-0 z-10 border-t border-paper/8 bg-ink/90 py-3 backdrop-blur-md">
         <ExecuteButton processing={processing} disabled={processing || imagesCount === 0 || !hasQuotaForCurrentBatch} title={quotaLimitButtonTitle} onClick={handleClean} ariaBusy={processing}>
           {processing ? (
-            <><span className="auth-spinner" style={{ width: 14, height: 14 }} />{t('dashboard.cleaner.action.processing', { value: isAutomaticAi || isAiSfx ? (isAiSfx ? t('dashboard.cleaner.ai.sfxCleaner') : t('dashboard.cleaner.ai.automaticClean')) : t('dashboard.cleaner.modeTag'), percent: Math.round(progress) })}</>
+            <CleanerProcessingLabel isAutomaticAi={isAutomaticAi} isAiSfx={isAiSfx} />
           ) : (
             <><RefreshCcw size={14} />{isAutomaticAi || isAiSfx ? (isAiSfx ? t('dashboard.cleaner.action.runAiSfx') : t('dashboard.cleaner.action.runAutomatic')) : t('dashboard.cleaner.action.runAssisted')}</>
           )}

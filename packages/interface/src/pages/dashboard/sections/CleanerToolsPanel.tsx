@@ -98,7 +98,6 @@ export default function CleanerToolsPanelSection({
     (s) => s.setAioHdCropTriggerSize,
   );
   const processing = useUiShellStore((s) => s.processing);
-  const progress = useUiShellStore((s) => s.progress);
   const images = useImageCollectionStore((s) => s.images);
   const resolvedActiveId = useImageCollectionStore((s) => s.activeId);
   const { activeCleanerRunMeta, activeCleanerSelectedRegion } =
@@ -180,7 +179,6 @@ export default function CleanerToolsPanelSection({
       activeCleanerSelectedRegion={activeCleanerSelectedRegion}
       processing={processing}
       imagesCount={images.length}
-      progress={progress}
       handleClean={handleClean}
     />
   );

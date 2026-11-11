@@ -168,7 +168,6 @@ describe('CustomLlmProfilesManagerSection local draft', () => {
   });
 
   it('adopts an externally changed draft into the inputs', async () => {
-    const user = setupUser();
     const view = render(buildSection(draft));
     expect(nameInput().value).toBe(draft.label);
 

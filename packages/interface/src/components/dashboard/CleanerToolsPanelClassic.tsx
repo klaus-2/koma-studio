@@ -19,6 +19,7 @@ import type { AioStageOption } from '../../models/aioStageCatalog';
 import KlSlider from './KlSlider';
 import '../../pages/CleanerTranslatorTools.css';
 import { useI18n } from '../../i18n';
+import { CleanerProcessingLabel } from './CleanerProcessingLabel';
 import type { TranslationKey } from '../../i18n/messages';
 
 interface CleanerToolsPanelProps {
@@ -79,7 +80,6 @@ interface CleanerToolsPanelProps {
   } | null;
   processing: boolean;
   imagesCount: number;
-  progress: number;
   handleClean: () => void;
 }
 
@@ -166,7 +166,6 @@ export default function CleanerToolsPanelClassic({
   activeCleanerSelectedRegion,
   processing,
   imagesCount,
-  progress,
   handleClean,
 }: CleanerToolsPanelProps) {
   const { t } = useI18n();
@@ -636,18 +635,7 @@ export default function CleanerToolsPanelClassic({
             aria-busy={processing}
           >
             {processing ? (
-              <>
-                <span
-                  className="auth-spinner"
-                  style={{ width: 14, height: 14 }}
-                />
-                {t('dashboard.cleaner.action.processing', {
-                  value: isAutomaticAi || isAiSfx
-                    ? (isAiSfx ? t('dashboard.cleaner.ai.sfxCleaner') : t('dashboard.cleaner.ai.automaticClean'))
-                    : t('dashboard.cleaner.modeTag'),
-                  percent: Math.round(progress)
-                })}
-              </>
+              <CleanerProcessingLabel isAutomaticAi={isAutomaticAi} isAiSfx={isAiSfx} />
             ) : (
               <>
                 <RefreshCcw size={14} />
