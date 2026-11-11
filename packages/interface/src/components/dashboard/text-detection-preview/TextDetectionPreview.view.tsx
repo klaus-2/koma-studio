@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { createPortal } from 'react-dom';
 import { m } from 'framer-motion';
 import {
@@ -15,11 +15,153 @@ import type {
   TextDetectionPreviewProps,
 } from '../TextDetectionPreview';
 import { useI18n } from '../../../i18n';
+import type { AioTextRegion } from '../../../types/dashboard.types';
+import type { RenderTextStyle } from '../../../utils/renderText';
 import {
   cn,
-  cloneRenderStyle,
   getRegionTranslationNotesForDisplay,
 } from '../../../utils/dashboard.utils';
+
+interface DetectionRegionBoxProps {
+  region: AioTextRegion;
+  selected: boolean;
+  imageWidth: number;
+  imageHeight: number;
+  translationNotesEnabled: boolean;
+  fallbackStyle?: RenderTextStyle;
+  editable: boolean;
+  selectionEnabled: boolean;
+  onStopPropagationPointerDown: (event: React.PointerEvent) => void;
+  onRemoveClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}
+
+/**
+ * One detection overlay box plus its translation-notes block. Memoized so a
+ * drag frame only re-renders the box whose region object actually changed —
+ * the parent maps regions inline and re-renders per interaction tick.
+ */
+const DetectionRegionBox = memo(function DetectionRegionBox({
+  region,
+  selected,
+  imageWidth,
+  imageHeight,
+  translationNotesEnabled,
+  fallbackStyle,
+  editable,
+  selectionEnabled,
+  onStopPropagationPointerDown,
+  onRemoveClick,
+}: DetectionRegionBoxProps) {
+  const { t } = useI18n();
+  const [x1, y1, x2, y2] = region.bbox;
+  // Direct reads keep the falsy semantics of the previous full-style clone
+  // (DEFAULT_RENDER_STYLE.rotation/skewX/skewY are 0, and a missing key or 0
+  // both fall through `|| 0`).
+  const styleSource = region.renderStyle ?? fallbackStyle;
+  const regionRotation = styleSource?.rotation || 0;
+  const regionNotes = getRegionTranslationNotesForDisplay(
+    region,
+    translationNotesEnabled,
+  );
+
+  return (
+    <React.Fragment key={region.id}>
+      <div
+        className={cn(
+          'koma-detect-box',
+          region.source === 'manual' && 'koma-detect-box--manual',
+          selected && 'koma-detect-box--selected',
+        )}
+        style={{
+          left: `${(x1 / imageWidth) * 100}%`,
+          top: `${(y1 / imageHeight) * 100}%`,
+          width: `${((x2 - x1) / imageWidth) * 100}%`,
+          height: `${((y2 - y1) / imageHeight) * 100}%`,
+          transform: `rotate(${regionRotation}deg) skew(${styleSource?.skewX || 0}deg, ${styleSource?.skewY || 0}deg)`,
+          transformOrigin: 'center center',
+          borderRadius:
+            region.shape?.kind === 'rounded' ? '999px' : '14px',
+        }}
+        data-region-id={region.id}
+      >
+        <span className="koma-detect-box__meta">
+          {region.source === 'manual'
+            ? t('detectionPreview.manual')
+            : `${Math.round(region.score * 100)}%`}
+        </span>
+        {selected && editable && selectionEnabled && (
+          <>
+            <button
+              type="button"
+              className="koma-render-box__close koma-render-handle"
+              title={t('detectionPreview.removeSelection')}
+              aria-label={t('detectionPreview.removeSelection')}
+              data-render-handle="close"
+              data-region-id={region.id}
+              data-remove-region-id={region.id}
+              onPointerDown={onStopPropagationPointerDown}
+              onClick={onRemoveClick}
+            >
+              <X size={11} />
+            </button>
+            <span className="koma-render-rotate-arm" />
+            <span
+              className="koma-render-rotate-handle koma-render-handle"
+              data-render-handle="rotate"
+              data-region-id={region.id}
+            />
+            <span
+              className="koma-detect-handle koma-detect-handle--nw koma-render-handle"
+              data-render-handle="corner"
+              data-corner="nw"
+              data-region-id={region.id}
+            />
+            <span
+              className="koma-detect-handle koma-detect-handle--ne koma-render-handle"
+              data-render-handle="corner"
+              data-corner="ne"
+              data-region-id={region.id}
+            />
+            <span
+              className="koma-detect-handle koma-detect-handle--sw koma-render-handle"
+              data-render-handle="corner"
+              data-corner="sw"
+              data-region-id={region.id}
+            />
+            <span
+              className="koma-detect-handle koma-detect-handle--se koma-render-handle"
+              data-render-handle="corner"
+              data-corner="se"
+              data-region-id={region.id}
+            />
+          </>
+        )}
+      </div>
+      {regionNotes.length > 0 && (
+        <div
+          className="koma-translation-notes"
+          style={{
+            left: `${(x1 / imageWidth) * 100}%`,
+            top: `calc(${(y2 / imageHeight) * 100}% + 4px)`,
+            width: `${Math.max(
+              ((x2 - x1) / imageWidth) * 100,
+              12,
+            )}%`,
+          }}
+        >
+          {regionNotes.map((note, noteIndex) => (
+            <div
+              key={`${region.id}-note-${noteIndex}`}
+              className="koma-translation-notes__line"
+            >
+              {note}
+            </div>
+          ))}
+        </div>
+      )}
+    </React.Fragment>
+  );
+});
 
 export interface TextDetectionPreviewViewProps extends TextDetectionPreviewProps {
   controller: TextDetectionPreviewController;
@@ -220,118 +362,21 @@ const TextDetectionPreviewView = ({
               onContextMenu={handleRegionContextMenuDelegated}
               onDoubleClick={handleRegionDoubleClickDelegated}
             >
-              {regions.map((region) => {
-                const [x1, y1, x2, y2] = region.bbox;
-                const selected = region.id === selectedRegionId;
-                const regionRotation = (() => {
-                  const style = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
-                  return style.rotation || 0;
-                })();
-                const regionSkewStyle = cloneRenderStyle(
-                  region.renderStyle ?? fallbackStyle,
-                );
-                const regionNotes = getRegionTranslationNotesForDisplay(
-                  region,
-                  translationNotesEnabled,
-                );
-                return (
-                  <React.Fragment key={region.id}>
-                    <div
-                      className={cn(
-                        'koma-detect-box',
-                        region.source === 'manual' && 'koma-detect-box--manual',
-                        selected && 'koma-detect-box--selected',
-                      )}
-                      style={{
-                        left: `${(x1 / image.width) * 100}%`,
-                        top: `${(y1 / image.height) * 100}%`,
-                        width: `${((x2 - x1) / image.width) * 100}%`,
-                        height: `${((y2 - y1) / image.height) * 100}%`,
-                        transform: `rotate(${regionRotation}deg) skew(${regionSkewStyle.skewX || 0}deg, ${regionSkewStyle.skewY || 0}deg)`,
-                        transformOrigin: 'center center',
-                        borderRadius:
-                          region.shape?.kind === 'rounded' ? '999px' : '14px',
-                      }}
-                      data-region-id={region.id}
-                    >
-                      <span className="koma-detect-box__meta">
-                        {region.source === 'manual'
-                          ? t('detectionPreview.manual')
-                          : `${Math.round(region.score * 100)}%`}
-                      </span>
-                      {selected && editable && selectionEnabled && (
-                        <>
-                          <button
-                            type="button"
-                            className="koma-render-box__close koma-render-handle"
-                            title={t('detectionPreview.removeSelection')}
-                            aria-label={t('detectionPreview.removeSelection')}
-                            data-render-handle="close"
-                            data-region-id={region.id}
-                            data-remove-region-id={region.id}
-                            onPointerDown={stopPropagationPointerDown}
-                            onClick={handleRegionRemoveClick}
-                          >
-                            <X size={11} />
-                          </button>
-                          <span className="koma-render-rotate-arm" />
-                          <span
-                            className="koma-render-rotate-handle koma-render-handle"
-                            data-render-handle="rotate"
-                            data-region-id={region.id}
-                          />
-                          <span
-                            className="koma-detect-handle koma-detect-handle--nw koma-render-handle"
-                            data-render-handle="corner"
-                            data-corner="nw"
-                            data-region-id={region.id}
-                          />
-                          <span
-                            className="koma-detect-handle koma-detect-handle--ne koma-render-handle"
-                            data-render-handle="corner"
-                            data-corner="ne"
-                            data-region-id={region.id}
-                          />
-                          <span
-                            className="koma-detect-handle koma-detect-handle--sw koma-render-handle"
-                            data-render-handle="corner"
-                            data-corner="sw"
-                            data-region-id={region.id}
-                          />
-                          <span
-                            className="koma-detect-handle koma-detect-handle--se koma-render-handle"
-                            data-render-handle="corner"
-                            data-corner="se"
-                            data-region-id={region.id}
-                          />
-                        </>
-                      )}
-                    </div>
-                    {regionNotes.length > 0 && (
-                      <div
-                        className="koma-translation-notes"
-                        style={{
-                          left: `${(x1 / image.width) * 100}%`,
-                          top: `calc(${(y2 / image.height) * 100}% + 4px)`,
-                          width: `${Math.max(
-                            ((x2 - x1) / image.width) * 100,
-                            12,
-                          )}%`,
-                        }}
-                      >
-                        {regionNotes.map((note, noteIndex) => (
-                          <div
-                            key={`${region.id}-note-${noteIndex}`}
-                            className="koma-translation-notes__line"
-                          >
-                            {note}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </React.Fragment>
-                );
-              })}
+              {regions.map((region) => (
+                <DetectionRegionBox
+                  key={region.id}
+                  region={region}
+                  selected={region.id === selectedRegionId}
+                  imageWidth={image.width}
+                  imageHeight={image.height}
+                  translationNotesEnabled={translationNotesEnabled}
+                  fallbackStyle={fallbackStyle}
+                  editable={editable}
+                  selectionEnabled={selectionEnabled}
+                  onStopPropagationPointerDown={stopPropagationPointerDown}
+                  onRemoveClick={handleRegionRemoveClick}
+                />
+              ))}
               {segmentOverlayBoxes.map(({ key, box }) => {
                 const [sx1, sy1, sx2, sy2] = box;
                 return (
