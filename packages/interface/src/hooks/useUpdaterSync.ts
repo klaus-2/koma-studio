@@ -18,7 +18,10 @@ const asSyncState = (value: unknown): UpdaterSyncState =>
 // UpdaterSyncState has no percent field: observable activity is the phase,
 // each step's state, the list lengths and the timestamps. Bridge events that
 // only re-emit the same snapshot (log lines unchanged, steps unchanged) then
-// reuse the previous state reference and skip the re-render entirely.
+// reuse the previous state reference and skip the re-render entirely. The
+// log is a capped rolling buffer — once saturated, appends drop the oldest
+// line and the length stops changing — so the comparison adds its first and
+// last lines as content sentinels; dirtyFiles is small enough to join.
 const updaterSyncStateEquivalent = (
   left: UpdaterSyncState,
   right: UpdaterSyncState,
@@ -34,7 +37,10 @@ const updaterSyncStateEquivalent = (
     left.steps.every(
       (step, index) =>
         step.id === right.steps[index]?.id && step.state === right.steps[index]?.state,
-    ));
+    ) &&
+    left.logLines[0] === right.logLines[0] &&
+    left.logLines[left.logLines.length - 1] === right.logLines[right.logLines.length - 1] &&
+    left.dirtyFiles.join("\n") === right.dirtyFiles.join("\n"));
 
 export const useUpdaterSync = (): UseUpdaterSyncApi => {
   const bridge = useMemo(() => desktopBridge.updaterSync ?? null, []);
