@@ -1,9 +1,9 @@
 import { useI18n } from "../../i18n";
 import { KomaDialog } from "@koma/ui/components/dialog";
-import { formatBytesI18n } from "../../utils/formatBytes";
 import { describeUpdaterAction } from "./update-action";
 import SyncPanelClassic from "./SyncPanelClassic";
 import { LazyReleaseNotesMarkdown } from "./LazyReleaseNotesMarkdown";
+import UpdaterDownloadProgress from "./UpdaterDownloadProgress";
 import type { UseUpdaterApi } from "../../hooks/useUpdater";
 
 interface UpdateModalProps {
@@ -26,32 +26,12 @@ export const UpdateModalClassic = ({
   const { t } = useI18n();
   if (!open) return null;
 
-  const formatBytes = (value: number): string => formatBytesI18n(value, t);
   const action = describeUpdaterAction(updater);
 
   const renderUpdateAction = () => {
     switch (action.kind) {
       case "download-progress":
-        return (
-          <div className="koma-modal__progress" role="status">
-            <div className="koma-modal__progress-head">
-              <span className="koma-modal__progress-title">
-                {t("update.modal.downloading", { percent: Math.round(action.percent) })}
-              </span>
-              <span className="koma-modal__progress-percent">{Math.round(action.percent)}%</span>
-            </div>
-            <div className="koma-progress-bar" aria-hidden="true">
-              <div
-                className="koma-progress-bar__fill"
-                style={{ width: `${action.percent}%` }}
-              />
-            </div>
-            <p className="koma-modal__progress-meta">
-              <span>{formatBytes(action.transferred)}</span>
-              <span>{formatBytes(action.total)}</span>
-            </p>
-          </div>
-        );
+        return <UpdaterDownloadProgress />;
       case "update-now":
         return (
           <button

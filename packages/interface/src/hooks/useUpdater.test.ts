@@ -9,7 +9,7 @@ import type {
   UpdaterStatusPayload,
 } from "@shared/desktop-events";
 
-import { UpdaterProvider, compareVersions, useUpdater } from "./useUpdater";
+import { UpdaterProvider, compareVersions, useUpdater, useUpdaterProgress } from "./useUpdater";
 import VersionBadgeNoir from "../components/noir/VersionBadgeNoir";
 import VersionBadgeClassic from "../components/VersionBadgeClassic";
 
@@ -161,14 +161,14 @@ vi.mock("@/lib/desktop-bridge", () => ({
 const UpdaterWrapper = ({ children }: { children: ReactNode }) =>
   createElement(UpdaterProvider, null, children);
 
-const renderUpdater = () => renderHook(() => useUpdater(), { wrapper: UpdaterWrapper });
+const renderUpdater = () => renderHook(() => ({ api: useUpdater(), progress: useUpdaterProgress() }), { wrapper: UpdaterWrapper });
 
 type UpdaterResult = ReturnType<typeof renderUpdater>["result"];
 
 const checkForUpdate = async (): Promise<UpdaterResult> => {
   const view = renderUpdater();
   await act(async () => {
-    await view.result.current.checkForUpdates();
+    await view.result.current.api.checkForUpdates();
   });
   return view.result;
 };
@@ -188,7 +188,7 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
 
-    expect(view.result.current.channel).toBe("stable");
+    expect(view.result.current.api.channel).toBe("stable");
   });
 
   it("does not offer a stale stable release to a prerelease install on the default channel", async () => {
@@ -196,9 +196,9 @@ describe("useUpdater", () => {
 
     const result = await checkForUpdate();
 
-    expect(result.current.channel).toBe("stable");
-    expect(result.current.status).toBe("not-available");
-    expect(result.current.newVersion).toBeNull();
+    expect(result.current.api.channel).toBe("stable");
+    expect(result.current.api.status).toBe("not-available");
+    expect(result.current.api.newVersion).toBeNull();
   });
 
   it("refuses a semver-lower stable release even when stable is chosen explicitly on a prerelease install", async () => {
@@ -206,13 +206,13 @@ describe("useUpdater", () => {
     const view = renderUpdater();
 
     await act(async () => {
-      await view.result.current.setChannel("stable");
+      await view.result.current.api.setChannel("stable");
     });
 
     expect(fetchReleaseMock).toHaveBeenCalledTimes(1);
-    expect(view.result.current.channel).toBe("stable");
-    expect(view.result.current.status).toBe("not-available");
-    expect(view.result.current.newVersion).toBeNull();
+    expect(view.result.current.api.channel).toBe("stable");
+    expect(view.result.current.api.status).toBe("not-available");
+    expect(view.result.current.api.newVersion).toBeNull();
   });
 
   it("performs no fetch and never reaches 'available' without a shell version", async () => {
@@ -220,9 +220,9 @@ describe("useUpdater", () => {
     const result = await checkForUpdate();
 
     expect(fetchReleaseMock).toHaveBeenCalledTimes(0);
-    expect(result.current.status).toBe("idle");
-    expect(result.current.currentVersion).toBeNull();
-    expect(result.current.newVersion).toBeNull();
+    expect(result.current.api.status).toBe("idle");
+    expect(result.current.api.currentVersion).toBeNull();
+    expect(result.current.api.newVersion).toBeNull();
   });
 
   it("reports 'not-available' when the shell version equals the latest release", async () => {
@@ -230,9 +230,9 @@ describe("useUpdater", () => {
     const result = await checkForUpdate();
 
     expect(fetchReleaseMock).toHaveBeenCalledTimes(1);
-    expect(result.current.currentVersion).toBe("1.1.0");
-    expect(result.current.status).toBe("not-available");
-    expect(result.current.newVersion).toBeNull();
+    expect(result.current.api.currentVersion).toBe("1.1.0");
+    expect(result.current.api.status).toBe("not-available");
+    expect(result.current.api.newVersion).toBeNull();
   });
 
   it("reports 'available' when the latest release is newer than the shell version", async () => {
@@ -240,26 +240,26 @@ describe("useUpdater", () => {
     const result = await checkForUpdate();
 
     expect(fetchReleaseMock).toHaveBeenCalledTimes(1);
-    expect(result.current.status).toBe("available");
-    expect(result.current.newVersion).toBe("1.1.0");
+    expect(result.current.api.status).toBe("available");
+    expect(result.current.api.newVersion).toBe("1.1.0");
   });
 
   it("opens the release page when no installer updater bridge exists", async () => {
     getAppVersionMock.mockReturnValue("1.0.9");
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.checkForUpdates();
+      await view.result.current.api.checkForUpdates();
     });
-    expect(view.result.current.autoInstallSupported).toBe(false);
+    expect(view.result.current.api.autoInstallSupported).toBe(false);
 
     await act(async () => {
-      await view.result.current.downloadUpdate();
+      await view.result.current.api.downloadUpdate();
     });
 
     expect(openExternalMock).toHaveBeenCalledWith(
       "https://github.com/klaus-2/koma-studio/releases/tag/v1.1.0",
     );
-    expect(view.result.current.status).toBe("available");
+    expect(view.result.current.api.status).toBe("available");
   });
 
   it("downloads through the installer bridge and tracks progress events", async () => {
@@ -270,16 +270,16 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.checkForUpdates();
+      await view.result.current.api.checkForUpdates();
     });
-    expect(view.result.current.autoInstallSupported).toBe(true);
+    expect(view.result.current.api.autoInstallSupported).toBe(true);
 
     await act(async () => {
-      await view.result.current.downloadUpdate();
+      await view.result.current.api.downloadUpdate();
     });
 
     expect(bridge.download).toHaveBeenCalledWith({ channel: "stable" });
-    expect(view.result.current.status).toBe("downloading");
+    expect(view.result.current.api.status).toBe("downloading");
 
     await act(async () => {
       bridge.emit({
@@ -291,7 +291,7 @@ describe("useUpdater", () => {
       });
     });
 
-    expect(view.result.current.status).toBe("downloading");
+    expect(view.result.current.api.status).toBe("downloading");
     expect(view.result.current.progress.percent).toBe(42.4);
     expect(view.result.current.progress.transferred).toBe(10);
   });
@@ -304,10 +304,10 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.checkForUpdates();
+      await view.result.current.api.checkForUpdates();
     });
     await act(async () => {
-      await view.result.current.downloadUpdate();
+      await view.result.current.api.downloadUpdate();
     });
 
     await act(async () => {
@@ -321,8 +321,8 @@ describe("useUpdater", () => {
       });
     });
 
-    expect(view.result.current.status).toBe("downloaded");
-    expect(view.result.current.downloadedAt).toBe(123);
+    expect(view.result.current.api.status).toBe("downloaded");
+    expect(view.result.current.api.downloadedAt).toBe(123);
     expect(bridge.install).toHaveBeenCalledTimes(1);
   });
 
@@ -334,19 +334,19 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.checkForUpdates();
+      await view.result.current.api.checkForUpdates();
     });
     await act(async () => {
-      await view.result.current.downloadUpdate();
+      await view.result.current.api.downloadUpdate();
     });
 
     const fetchCallsAfterDownload = fetchReleaseMock.mock.calls.length;
     await act(async () => {
-      await view.result.current.checkForUpdates();
+      await view.result.current.api.checkForUpdates();
     });
 
     expect(fetchReleaseMock.mock.calls.length).toBeGreaterThan(fetchCallsAfterDownload);
-    expect(view.result.current.status).toBe("downloading");
+    expect(view.result.current.api.status).toBe("downloading");
   });
 
   it("skips background GitHub checks during the download lifecycle", async () => {
@@ -361,7 +361,7 @@ describe("useUpdater", () => {
         await vi.advanceTimersByTimeAsync(8_000);
       });
       await act(async () => {
-        await view.result.current.downloadUpdate();
+        await view.result.current.api.downloadUpdate();
       });
 
       const fetchCallsAfterDownload = fetchReleaseMock.mock.calls.length;
@@ -370,7 +370,7 @@ describe("useUpdater", () => {
       });
 
       expect(fetchReleaseMock.mock.calls.length).toBe(fetchCallsAfterDownload);
-      expect(view.result.current.status).toBe("downloading");
+      expect(view.result.current.api.status).toBe("downloading");
     } finally {
       vi.useRealTimers();
     }
@@ -385,14 +385,14 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.checkForUpdates();
+      await view.result.current.api.checkForUpdates();
     });
     await act(async () => {
-      await view.result.current.downloadUpdate();
+      await view.result.current.api.downloadUpdate();
     });
 
-    expect(view.result.current.status).toBe("error");
-    expect(view.result.current.error).toBe("Failed to download the update: feed unavailable");
+    expect(view.result.current.api.status).toBe("error");
+    expect(view.result.current.api.error).toBe("Failed to download the update: feed unavailable");
   });
 
   it("adopts the download lifecycle state from the bridge on hydration", async () => {
@@ -409,8 +409,8 @@ describe("useUpdater", () => {
     const view = renderUpdater();
     await act(async () => {});
 
-    expect(view.result.current.autoInstallSupported).toBe(true);
-    expect(view.result.current.status).toBe("downloading");
+    expect(view.result.current.api.autoInstallSupported).toBe(true);
+    expect(view.result.current.api.status).toBe("downloading");
     expect(view.result.current.progress.percent).toBe(12);
   });
 
@@ -429,7 +429,7 @@ describe("useUpdater", () => {
     const view = renderUpdater();
     await act(async () => {});
 
-    expect(view.result.current.status).toBe("downloaded");
+    expect(view.result.current.api.status).toBe("downloaded");
     expect(bridge.install).toHaveBeenCalledTimes(1);
   });
 
@@ -444,9 +444,9 @@ describe("useUpdater", () => {
     const view = renderUpdater();
     await act(async () => {});
 
-    expect(view.result.current.autoInstallSupported).toBe(true);
-    expect(view.result.current.status).toBe("idle");
-    expect(view.result.current.newVersion).toBeNull();
+    expect(view.result.current.api.autoInstallSupported).toBe(true);
+    expect(view.result.current.api.status).toBe("idle");
+    expect(view.result.current.api.newVersion).toBeNull();
   });
 
   it("surfaces an auto-install rejection as an error state", async () => {
@@ -458,10 +458,10 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.checkForUpdates();
+      await view.result.current.api.checkForUpdates();
     });
     await act(async () => {
-      await view.result.current.downloadUpdate();
+      await view.result.current.api.downloadUpdate();
     });
 
     await act(async () => {
@@ -474,8 +474,8 @@ describe("useUpdater", () => {
       });
     });
 
-    expect(view.result.current.status).toBe("error");
-    expect(view.result.current.error).toBe("Failed to install the update: no installer");
+    expect(view.result.current.api.status).toBe("error");
+    expect(view.result.current.api.error).toBe("Failed to install the update: no installer");
   });
 
   it("ignores stale installer errors outside the download lifecycle", async () => {
@@ -486,7 +486,7 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.checkForUpdates();
+      await view.result.current.api.checkForUpdates();
     });
 
     await act(async () => {
@@ -496,7 +496,7 @@ describe("useUpdater", () => {
       });
     });
 
-    expect(view.result.current.status).toBe("available");
+    expect(view.result.current.api.status).toBe("available");
   });
 
   it("maps installer errors during a download to the error state", async () => {
@@ -507,10 +507,10 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.checkForUpdates();
+      await view.result.current.api.checkForUpdates();
     });
     await act(async () => {
-      await view.result.current.downloadUpdate();
+      await view.result.current.api.downloadUpdate();
     });
 
     await act(async () => {
@@ -520,8 +520,8 @@ describe("useUpdater", () => {
       });
     });
 
-    expect(view.result.current.status).toBe("error");
-    expect(view.result.current.error).toBe("network down");
+    expect(view.result.current.api.status).toBe("error");
+    expect(view.result.current.api.error).toBe("network down");
   });
 
   it("renders no version badge without a shell version", () => {
@@ -601,12 +601,12 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.setChannel("beta");
+      await view.result.current.api.setChannel("beta");
     });
 
-    expect(view.result.current.channel).toBe("beta");
-    expect(view.result.current.status).toBe("available");
-    expect(view.result.current.newVersion).toBe("1.3.2-beta.1");
+    expect(view.result.current.api.channel).toBe("beta");
+    expect(view.result.current.api.status).toBe("available");
+    expect(view.result.current.api.newVersion).toBe("1.3.2-beta.1");
   });
 
   it("ignores runtime releases listed ahead of the beta tag", async () => {
@@ -621,11 +621,11 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.setChannel("beta");
+      await view.result.current.api.setChannel("beta");
     });
 
-    expect(view.result.current.status).toBe("available");
-    expect(view.result.current.newVersion).toBe("1.3.2-beta.1");
+    expect(view.result.current.api.status).toBe("available");
+    expect(view.result.current.api.newVersion).toBe("1.3.2-beta.1");
   });
 
   it("does not offer an equal stable release on the beta channel", async () => {
@@ -640,11 +640,11 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.setChannel("beta");
+      await view.result.current.api.setChannel("beta");
     });
 
-    expect(view.result.current.status).toBe("not-available");
-    expect(view.result.current.newVersion).toBeNull();
+    expect(view.result.current.api.status).toBe("not-available");
+    expect(view.result.current.api.newVersion).toBeNull();
   });
 
   it("promotes a beta install to a stable published after it", async () => {
@@ -660,11 +660,11 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.setChannel("beta");
+      await view.result.current.api.setChannel("beta");
     });
 
-    expect(view.result.current.status).toBe("available");
-    expect(view.result.current.newVersion).toBe("1.3.2");
+    expect(view.result.current.api.status).toBe("available");
+    expect(view.result.current.api.newVersion).toBe("1.3.2");
   });
 
   it("resolves the newest published release when a stable ships during a beta line", async () => {
@@ -679,11 +679,11 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.setChannel("beta");
+      await view.result.current.api.setChannel("beta");
     });
 
-    expect(view.result.current.status).toBe("not-available");
-    expect(view.result.current.newVersion).toBeNull();
+    expect(view.result.current.api.status).toBe("not-available");
+    expect(view.result.current.api.newVersion).toBeNull();
   });
 
   it("offers the beta release to an older stable install", async () => {
@@ -695,11 +695,11 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.setChannel("beta");
+      await view.result.current.api.setChannel("beta");
     });
 
-    expect(view.result.current.status).toBe("available");
-    expect(view.result.current.newVersion).toBe("1.3.2-beta.1");
+    expect(view.result.current.api.status).toBe("available");
+    expect(view.result.current.api.newVersion).toBe("1.3.2-beta.1");
   });
 
   it("does not offer a same-base beta prerelease to a newer stable install", async () => {
@@ -711,11 +711,11 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.setChannel("beta");
+      await view.result.current.api.setChannel("beta");
     });
 
-    expect(view.result.current.status).toBe("not-available");
-    expect(view.result.current.newVersion).toBeNull();
+    expect(view.result.current.api.status).toBe("not-available");
+    expect(view.result.current.api.newVersion).toBeNull();
   });
 
   it("offers the stable release to a beta install when it is semver-greater", async () => {
@@ -727,11 +727,11 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.setChannel("stable");
+      await view.result.current.api.setChannel("stable");
     });
 
-    expect(view.result.current.status).toBe("available");
-    expect(view.result.current.newVersion).toBe("1.3.2");
+    expect(view.result.current.api.status).toBe("available");
+    expect(view.result.current.api.newVersion).toBe("1.3.2");
   });
 
   it("does not offer a lower beta on the beta channel", async () => {
@@ -743,10 +743,10 @@ describe("useUpdater", () => {
 
     const view = renderUpdater();
     await act(async () => {
-      await view.result.current.setChannel("beta");
+      await view.result.current.api.setChannel("beta");
     });
 
-    expect(view.result.current.status).toBe("not-available");
-    expect(view.result.current.newVersion).toBeNull();
+    expect(view.result.current.api.status).toBe("not-available");
+    expect(view.result.current.api.newVersion).toBeNull();
   });
 });

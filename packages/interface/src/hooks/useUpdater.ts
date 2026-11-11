@@ -277,7 +277,6 @@ export interface UseUpdaterApi {
   mandatory: boolean;
   blocking: boolean;
   blockingReason: "mandatory-update" | null;
-  progress: UpdaterProgress;
   releaseNotes: string | null;
   checkedAt: number | null;
   downloadedAt: number | null;
@@ -301,8 +300,11 @@ const UpdaterBlockingContext = createContext<boolean>(false);
 const UpdaterVersionContext = createContext<Pick<UseUpdaterApi, "currentVersion" | "channel">>(
   Object.freeze({ currentVersion: null, channel: "stable" }),
 );
+// Progress lives in its own context: download ticks (10-50/s) change it while
+// the main api stays referentially stable, so only progress consumers render.
+const UpdaterProgressContext = createContext<UpdaterProgress>(ZERO_PROGRESS);
 
-const useProvideUpdater = (): UseUpdaterApi => {
+const useProvideUpdater = (): { api: UseUpdaterApi; progress: UpdaterProgress } => {
   const { t } = useI18n();
   const [state, dispatch] = useReducer(updaterStateReducer, null, createInitialState);
   const releasePageUrlRef = useRef<string | null>(null);
@@ -541,7 +543,6 @@ const useProvideUpdater = (): UseUpdaterApi => {
     mandatory: state.mandatory,
     blocking: state.blocking,
     blockingReason: state.blockingReason,
-    progress: state.progress ?? ZERO_PROGRESS,
     releaseNotes: state.releaseNotes,
     checkedAt: state.checkedAt,
     downloadedAt: state.downloadedAt,
@@ -652,24 +653,28 @@ const useProvideUpdater = (): UseUpdaterApi => {
     state.error,
     state.mandatory,
     state.newVersion,
-    state.progress,
     state.provider,
     state.releaseNotes,
     state.status,
     t,
   ]);
 
-  return api;
+  const progress = useMemo<UpdaterProgress>(
+    () => state.progress ?? ZERO_PROGRESS,
+    [state.progress],
+  );
+
+  return { api, progress };
 };
 
 export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
-  const updater = useProvideUpdater();
+  const { api, progress } = useProvideUpdater();
   const versionValue = useMemo(
     () => ({
-      currentVersion: updater.currentVersion,
-      channel: updater.channel,
+      currentVersion: api.currentVersion,
+      channel: api.channel,
     }),
-    [updater.channel, updater.currentVersion],
+    [api.channel, api.currentVersion],
   );
 
   return createElement(
@@ -677,8 +682,12 @@ export const UpdaterProvider = ({ children }: { children: ReactNode }) => {
     { value: versionValue },
     createElement(
       UpdaterBlockingContext.Provider,
-      { value: updater.blocking },
-      createElement(UpdaterContext.Provider, { value: updater }, children),
+      { value: api.blocking },
+      createElement(
+        UpdaterProgressContext.Provider,
+        { value: progress },
+        createElement(UpdaterContext.Provider, { value: api }, children),
+      ),
     ),
   );
 };
@@ -691,6 +700,8 @@ export const useUpdater = (): UseUpdaterApi => {
 
   return context;
 };
+
+export const useUpdaterProgress = (): UpdaterProgress => useContext(UpdaterProgressContext);
 
 export const useUpdaterBlocking = (): boolean => useContext(UpdaterBlockingContext);
 

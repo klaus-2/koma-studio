@@ -1,7 +1,10 @@
 import type { UseUpdaterApi } from "../../hooks/useUpdater";
 
+// The download-progress variant is kind-only on purpose: progress VALUES move
+// 10-50x/s during a download and must be read by the progress leaf through
+// useUpdaterProgress(), never carried through the stable updater api.
 export type UpdaterUiAction =
-  | { kind: "download-progress"; percent: number; transferred: number; total: number }
+  | { kind: "download-progress" }
   | { kind: "update-now" }
   | { kind: "restart-install" }
   | { kind: "update-error"; message: string | null }
@@ -17,15 +20,8 @@ export const describeUpdaterAction = (updater: UseUpdaterApi): UpdaterUiAction =
   }
 
   switch (updater.status) {
-    case "downloading": {
-      const percent = Math.min(100, Math.max(0, updater.progress.percent));
-      return {
-        kind: "download-progress",
-        percent,
-        transferred: updater.progress.transferred,
-        total: updater.progress.total,
-      };
-    }
+    case "downloading":
+      return { kind: "download-progress" };
     case "available":
       return { kind: "update-now" };
     case "downloaded":

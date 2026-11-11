@@ -11,7 +11,6 @@ const buildUpdater = (overrides: Partial<UseUpdaterApi>): UseUpdaterApi => ({
   mandatory: false,
   blocking: false,
   blockingReason: null,
-  progress: { percent: 0, transferred: 0, total: 0, speed: 0 },
   releaseNotes: null,
   checkedAt: null,
   downloadedAt: null,

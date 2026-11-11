@@ -1,11 +1,11 @@
 import { m, AnimatePresence } from "framer-motion";
 import { RefreshCcw, X, FileText } from "lucide-react";
 import { useI18n } from "../../../i18n";
-import { formatBytesI18n } from "../../../utils/formatBytes";
 import { EASE, btnGhost, btnPrimary } from "../../system/v2/kit";
 import { describeUpdaterAction } from "../update-action";
 import SyncPanelNoir from "./SyncPanelNoir";
 import { LazyReleaseNotesMarkdown } from "../LazyReleaseNotesMarkdown";
+import UpdaterDownloadProgress from "../UpdaterDownloadProgress";
 import type { UseUpdaterApi } from "../../../hooks/useUpdater";
 
 interface UpdateModalProps {
@@ -23,32 +23,12 @@ export const UpdateModalNoir = ({
 }: UpdateModalProps) => {
   const { t } = useI18n();
 
-  const formatBytes = (value: number): string => formatBytesI18n(value, t);
   const action = describeUpdaterAction(updater);
 
   const renderUpdateAction = () => {
     switch (action.kind) {
       case "download-progress":
-        return (
-          <div className="koma-modal__progress" role="status">
-            <div className="koma-modal__progress-head">
-              <span className="koma-modal__progress-title">
-                {t("update.modal.downloading", { percent: Math.round(action.percent) })}
-              </span>
-              <span className="koma-modal__progress-percent">{Math.round(action.percent)}%</span>
-            </div>
-            <div className="koma-progress-bar" aria-hidden="true">
-              <div
-                className="koma-progress-bar__fill"
-                style={{ width: `${action.percent}%` }}
-              />
-            </div>
-            <p className="koma-modal__progress-meta">
-              <span>{formatBytes(action.transferred)}</span>
-              <span>{formatBytes(action.total)}</span>
-            </p>
-          </div>
-        );
+        return <UpdaterDownloadProgress />;
       case "update-now":
         return (
           <button type="button" onClick={() => void updater.downloadUpdate()} className={btnPrimary}>
