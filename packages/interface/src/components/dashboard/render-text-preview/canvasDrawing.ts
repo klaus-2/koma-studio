@@ -200,6 +200,21 @@ export const createWandFrameCanvas = (
   return canvas;
 };
 
+/**
+ * Store style objects (and the caller's fallback style) are immutable, so the
+ * resolved clone is cached per source object: per-frame redraws skip the
+ * spread for every region whose style did not change. The draw path only
+ * reads the style, so sharing the clone across regions and frames is safe.
+ */
+const renderStyleCloneCache = new WeakMap<object, RenderTextStyle>();
+const cloneRenderStyleCached = (style: RenderTextStyle): RenderTextStyle => {
+  const cached = renderStyleCloneCache.get(style);
+  if (cached) return cached;
+  const cloned = cloneRenderStyle(style);
+  renderStyleCloneCache.set(style, cloned);
+  return cloned;
+};
+
 /** Preloads the fonts referenced by every region style before painting. */
 const preloadRegionCanvasFonts = (
   regions: readonly AioTextRegion[],
@@ -207,7 +222,7 @@ const preloadRegionCanvasFonts = (
 ): Promise<boolean> =>
   Promise.all(
     regions.map(async (region) => {
-      const style = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
+      const style = cloneRenderStyleCached(region.renderStyle ?? fallbackStyle);
       return ensureCanvasFontLoaded(style, region.renderTextStyleRanges);
     }),
   ).then((fontsLoaded) => fontsLoaded.some(Boolean));
@@ -252,8 +267,17 @@ const LAYOUT_METRIC_KEYS = [
 // The resolved shape derives from region.shape (refined) or from
 // detectedRenderMode + bbox (auto); both inputs must key the cache so a shape
 // change invalidates layouts measured for the previous geometry.
-const buildShapeSignature = (region: AioTextRegion): string =>
-  `${region.detectedRenderMode ?? ""}|${JSON.stringify(region.shape ?? null)}`;
+// Region objects are immutable store instances (drag builds a spread clone),
+// so the serialized shape is memoized per region identity and drag redraws
+// skip the JSON.stringify for every region that did not move.
+const shapeSignatureCache = new WeakMap<object, string>();
+const buildShapeSignature = (region: AioTextRegion): string => {
+  const cached = shapeSignatureCache.get(region);
+  if (cached !== undefined) return cached;
+  const signature = `${region.detectedRenderMode ?? ""}|${JSON.stringify(region.shape ?? null)}`;
+  shapeSignatureCache.set(region, signature);
+  return signature;
+};
 
 const buildLayoutSignature = (
   regionId: string,
@@ -398,7 +422,7 @@ export const drawRegionsToCanvas = (
     if (skipRegionId && region.id === skipRegionId) continue;
     const text = renderStageActive ? (region.renderText ?? "") : "";
     if (!text.trim()) continue;
-    const style = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
+    const style = cloneRenderStyleCached(region.renderStyle ?? fallbackStyle);
     const { layout, shape } = resolveRegionTextLayout(ctx, {
       region,
       text,
