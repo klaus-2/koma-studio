@@ -28,14 +28,19 @@ export { useLlmProviderTest, useFreeProviderProfiles } from './llm-providers.fre
 /**
  * SYNC-EXTERNAL: mirrors LLM request settings to localStorage on every change.
  * Same key and timing as the original page effect (no persist middleware —
- * the explicit sync stays the source of truth).
+ * the explicit sync stays the source of truth). Subscribes outside render so
+ * the host component never re-renders for llm-settings writes; the identity
+ * guard keeps today's write frequency (only llmSettings changes persist).
  */
 export function useLlmSettingsPersistence() {
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
-
   useEffect(() => {
-    persistLlmSettings(llmSettings);
-  }, [llmSettings]);
+    persistLlmSettings(useLlmProvidersStore.getState().llmSettings);
+    return useLlmProvidersStore.subscribe((state, prevState) => {
+      if (state.llmSettings !== prevState.llmSettings) {
+        persistLlmSettings(state.llmSettings);
+      }
+    });
+  }, []);
 }
 
 /* ── Stage profile options: custom-profile memos, stage option lists for the

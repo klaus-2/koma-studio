@@ -375,7 +375,9 @@ export const DashboardPage = ({
   const setAioManualHealingBusyByImage = useManualToolsStore(
     (s) => s.setAioManualHealingBusyByImage,
   );
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
+  const translationNotesEnabled = useLlmProvidersStore(
+    (s) => s.llmSettings.translation_notes_enabled,
+  );
   const customLlmProfilesLoading = useLlmProvidersStore(
     (s) => s.customLlmProfilesLoading,
   );
@@ -1319,7 +1321,6 @@ export const DashboardPage = ({
     cleanSelectionKey: aioStageSelection.cleanImage,
     selectedCleanerCustomProfile,
     sourceLanguage: aioSrcLang,
-    llmSettings,
     maskDilation: aioMaskDilation,
     hdStrategy: aioHdStrategy,
     hdResizeLimit: aioHdResizeLimit,
@@ -1598,7 +1599,6 @@ export const DashboardPage = ({
     activeHasManualBaseOverride ||
     activeHasManualWandSelection;
 
-  const translationNotesEnabled = llmSettings.translation_notes_enabled;
   // ══════════════ RENDER ══════════════
   return (
     <SplitterControllerScope

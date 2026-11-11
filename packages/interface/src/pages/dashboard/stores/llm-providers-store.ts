@@ -38,7 +38,7 @@ const buildInitialFreeProviderDrafts = (): FreeProviderDraftMap => {
   return seed;
 };
 
-interface LlmProvidersStore {
+export interface LlmProvidersStore {
   /* ── LLM request settings (persisted) ── */
   llmSettings: LlmRequestSettings;
 

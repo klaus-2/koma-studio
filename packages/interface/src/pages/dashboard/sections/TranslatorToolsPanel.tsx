@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useI18n } from '../../../i18n';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import { SOURCE_LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '../../../models/aioStageCatalog';
@@ -150,7 +151,18 @@ export default function TranslatorToolsPanelSection({
   const setAioStageSelection = useAioPipelineStore(
     (s) => s.setAioStageSelection,
   );
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
+  // The twins consume exactly these six fields — subscribe with useShallow so
+  // unrelated llm-settings writes (extra-context keystrokes) don't re-render.
+  const llmSettings = useLlmProvidersStore(
+    useShallow((s) => ({
+      extra_context: s.llmSettings.extra_context,
+      translation_notes_enabled: s.llmSettings.translation_notes_enabled,
+      image_input_enabled: s.llmSettings.image_input_enabled,
+      temperature: s.llmSettings.temperature,
+      top_p: s.llmSettings.top_p,
+      max_tokens: s.llmSettings.max_tokens,
+    })),
+  );
   const setLlmSettings = useLlmProvidersStore((s) => s.setLlmSettings);
   const processing = useUiShellStore((s) => s.processing);
   const images = useImageCollectionStore((s) => s.images);

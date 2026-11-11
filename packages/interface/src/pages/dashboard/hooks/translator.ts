@@ -149,7 +149,6 @@ export function useTranslatorVisualActions({
     (s) => s.setTranslatorProcessedBaseByImage,
   );
   // Store is typed as LlmRequestSettings — no cast.
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
   const setProcessing = useUiShellStore((s) => s.setProcessing);
   const setProgress = useUiShellStore((s) => s.setProgress);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
@@ -160,6 +159,7 @@ export function useTranslatorVisualActions({
       setStatusMessage(t('translatorVisual.noImages'));
       return;
     }
+    const llmSettings = useLlmProvidersStore.getState().llmSettings;
     const detectReadiness = ensureStageModelReadiness(
       {
         stage: 'detectText',
@@ -458,7 +458,6 @@ export function useTranslatorVisualActions({
     emitProcessStartWebhook,
     ensureVerifiedEmailOrNotify,
     images,
-    llmSettings,
     localApiUrl,
     minRegionSize,
     parseApiError,

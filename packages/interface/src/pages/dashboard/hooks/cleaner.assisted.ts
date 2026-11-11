@@ -1,3 +1,4 @@
+import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { getAioStageLabels } from '../../../constants/dashboard.constants';
 import {
   ensureStageModelReadiness,
@@ -45,7 +46,6 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
     segmentSelectionKey,
     cleanSelectionKey,
     sourceLanguage,
-    llmSettings,
     maskDilation,
     hdStrategy,
     hdResizeLimit,
@@ -213,7 +213,7 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
                 modelKey: selectedOcrKey,
                 sourceLanguage,
                 regions: detectDetections,
-                llmSettings: useLlmSettingsForOcr ? llmSettings : null,
+                llmSettings: useLlmSettingsForOcr ? useLlmProvidersStore.getState().llmSettings : null,
                 customProfile: useLlmSettingsForOcr ? ocrReadiness.customProfile : null,
               },
               stageRuntime,

@@ -167,7 +167,9 @@ export function useActiveTranslatorRegionState({ resolvedActiveId }: { resolvedA
       ? (s.translatorSelectedRegionByImage[resolvedActiveId] ?? null)
       : null,
   );
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
+  const translationNotesEnabled = useLlmProvidersStore(
+    (s) => s.llmSettings.translation_notes_enabled,
+  );
   const activeTranslatorSelectedRegion = useMemo(
     () =>
       activeTranslatorImageDetectionsEntry?.find(
@@ -180,10 +182,10 @@ export function useActiveTranslatorRegionState({ resolvedActiveId }: { resolvedA
       activeTranslatorSelectedRegion
         ? getRegionTranslationNotesForDisplay(
           activeTranslatorSelectedRegion,
-          llmSettings.translation_notes_enabled,
+          translationNotesEnabled,
         )
         : [],
-    [activeTranslatorSelectedRegion, llmSettings.translation_notes_enabled],
+    [activeTranslatorSelectedRegion, translationNotesEnabled],
   );
 
   return {

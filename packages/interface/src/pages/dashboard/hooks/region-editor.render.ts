@@ -139,7 +139,6 @@ export function useAioRegionRenderToBlob({
     (s) => s.renderDefaultStyle,
   );
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
 
   const renderAioImageToBlob = useCallback(
     async (imgData: LoadedImage, regions: AioTextRegion[]): Promise<Blob> => {
@@ -150,6 +149,9 @@ export function useAioRegionRenderToBlob({
         .downloadItems.find(
           (item) => item.scope === 'aio' && item.sourceImageId === imgData.id,
         );
+      // Note-overlay toggle is an event-time read, like the download item above.
+      const translationNotesEnabled =
+        useLlmProvidersStore.getState().llmSettings.translation_notes_enabled;
       const canvas = await composeAioEditableCanvas(
         imgData,
         baseItem?.previewUrl ?? imgData.url,
@@ -178,7 +180,7 @@ export function useAioRegionRenderToBlob({
           imgData.width,
           imgData.height,
           renderDefaultStyle,
-          llmSettings.translation_notes_enabled,
+          translationNotesEnabled,
         ),
       ];
       await Promise.all(
@@ -246,7 +248,6 @@ export function useAioRegionRenderToBlob({
     [
       aioTgtLang,
       composeAioEditableCanvas,
-      llmSettings.translation_notes_enabled,
       outFormat,
       outQuality,
       renderDefaultStyle,
@@ -276,7 +277,9 @@ export function useActiveAioRegionState({ resolvedActiveId }: { resolvedActiveId
   const textFillSwatchState = useRegionEditorStore(
     (s) => s.textFillSwatchState,
   );
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
+  const translationNotesEnabled = useLlmProvidersStore(
+    (s) => s.llmSettings.translation_notes_enabled,
+  );
   const textFillSwatches = useMemo(
     () => listTextFillSwatches(textFillSwatchState),
     [textFillSwatchState],
@@ -329,10 +332,10 @@ export function useActiveAioRegionState({ resolvedActiveId }: { resolvedActiveId
       activeSelectedRegion
         ? getRegionTranslationNotesForDisplay(
           activeSelectedRegion,
-          llmSettings.translation_notes_enabled,
+          translationNotesEnabled,
         )
         : [],
-    [activeSelectedRegion, llmSettings.translation_notes_enabled],
+    [activeSelectedRegion, translationNotesEnabled],
   );
 
   return {

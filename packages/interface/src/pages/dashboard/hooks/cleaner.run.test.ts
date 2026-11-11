@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runCleaner } from '@/pages/dashboard/hooks/cleaner';
 import type { CleanerRunContext } from '@/pages/dashboard/hooks/cleaner.types';
 import { useCleanerStore } from '@/pages/dashboard/stores/cleaner-store';
+import { useLlmProvidersStore } from '@/pages/dashboard/stores/llm-providers-store';
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import { DEFAULT_LLM_REQUEST_SETTINGS } from '@/utils/customLlm';
@@ -34,6 +35,8 @@ function makeImage(id: string): LoadedImage {
 }
 
 function makeContext(overrides: Partial<CleanerRunContext> = {}): CleanerRunContext {
+  // The workflows read llm settings from the store at execution time.
+  useLlmProvidersStore.setState({ llmSettings: { ...DEFAULT_LLM_REQUEST_SETTINGS } });
   return {
     images: [makeImage('img-1')],
     activeImage: null,
@@ -44,7 +47,6 @@ function makeContext(overrides: Partial<CleanerRunContext> = {}): CleanerRunCont
     cleanSelectionKey: 'clean',
     selectedCleanerCustomProfile: null,
     sourceLanguage: 'ja',
-    llmSettings: { ...DEFAULT_LLM_REQUEST_SETTINGS },
     maskDilation: 5,
     hdStrategy: 'original',
     hdResizeLimit: 960,

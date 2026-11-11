@@ -1,6 +1,5 @@
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import type { DiscordActivityPreset } from '../../../types';
-import type { LlmRequestSettings } from '../../../utils/customLlm';
 import type {
   AioTextRegion,
   CleanerRunMeta,
@@ -35,7 +34,6 @@ export interface UseCleanerActionsArgs {
   cleanSelectionKey: string;
   selectedCleanerCustomProfile: CustomProfileLike | null;
   sourceLanguage: string;
-  llmSettings: LlmRequestSettings;
   maskDilation: number;
   hdStrategy: string;
   hdResizeLimit: number;

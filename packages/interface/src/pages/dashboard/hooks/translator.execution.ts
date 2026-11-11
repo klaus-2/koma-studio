@@ -210,7 +210,6 @@ export function useTranslatorTextActions({
     (s) => s.setTranslatorTextDirty,
   );
   // Store is typed as LlmRequestSettings — no cast.
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
   const setProcessing = useUiShellStore((s) => s.setProcessing);
   const setProgress = useUiShellStore((s) => s.setProgress);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
@@ -223,6 +222,7 @@ export function useTranslatorTextActions({
       setStatusMessage('Paste or import some text before translating.');
       return;
     }
+    const llmSettings = useLlmProvidersStore.getState().llmSettings;
 
     setProcessing(true);
     setTranslatorTextRunning(true);
@@ -316,7 +316,6 @@ export function useTranslatorTextActions({
     emitProcessErrorWebhook,
     emitProcessStartWebhook,
     ensureVerifiedEmailOrNotify,
-    llmSettings,
     localApiUrl,
     parseApiError,
     resolveTranslatorTranslationExecution,
@@ -398,7 +397,6 @@ export function useTranslatorRetranslate({
     (s) => s.setTranslatorVisualRunning,
   );
   // Store is typed as LlmRequestSettings — no cast.
-  const llmSettings = useLlmProvidersStore((s) => s.llmSettings);
   const setProcessing = useUiShellStore((s) => s.setProcessing);
   const setProgress = useUiShellStore((s) => s.setProgress);
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
@@ -422,6 +420,7 @@ export function useTranslatorRetranslate({
       setStatusMessage(t('translatorRetranslate.noTextAvailable'));
       return;
     }
+    const llmSettings = useLlmProvidersStore.getState().llmSettings;
 
     setProcessing(true);
     setTranslatorVisualRunning(true);
@@ -516,7 +515,6 @@ export function useTranslatorRetranslate({
     detectSelectionKey,
     ensureVerifiedEmailOrNotify,
     images,
-    llmSettings,
     localApiUrl,
     ocrSelectionKey,
     parseApiError,
