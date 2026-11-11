@@ -7,6 +7,21 @@ import styles from './CustomLlmProfilesManagerSection.module.css';
 
 const FLASH_RESET_MS = 1800;
 
+const draftsEqual = (
+  left: CustomLlmProfileDraft | null | undefined,
+  right: CustomLlmProfileDraft | null,
+): boolean => {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return (
+    left.id === right.id &&
+    left.label === right.label &&
+    left.apiBase === right.apiBase &&
+    left.apiKey === right.apiKey &&
+    left.model === right.model
+  );
+};
+
 interface CustomLlmProfilesManagerSectionProps {
   stage: CustomLlmStage;
   profiles: CustomLlmProfile[];
@@ -63,6 +78,29 @@ export default function CustomLlmProfilesManagerSection({
   const [usedFlash, setUsedFlash] = useState(false);
   const flashTimerRef = useRef<number | null>(null);
 
+  // The draft lives locally: keystrokes never touch the llm-providers store
+  // (and therefore never re-render the Dashboard page). The store only sees
+  // the draft at commit points — save/use — and on external loads, which the
+  // effect below adopts unless it is the echo of our own commit.
+  const [localDraft, setLocalDraft] = useState<CustomLlmProfileDraft | null>(draft ?? null);
+  const lastPushedRef = useRef<CustomLlmProfileDraft | null>(null);
+
+  useEffect(() => {
+    if (draftsEqual(draft, lastPushedRef.current)) {
+      return;
+    }
+    lastPushedRef.current = null;
+    setLocalDraft(draft ?? null);
+  }, [draft]);
+
+  const commitLocalDraft = (): void => {
+    if (!localDraft || draftsEqual(localDraft, lastPushedRef.current)) {
+      return;
+    }
+    onUpdateDraft(localDraft);
+    lastPushedRef.current = localDraft;
+  };
+
   useEffect(() => () => {
     if (flashTimerRef.current !== null) {
       window.clearTimeout(flashTimerRef.current);
@@ -84,6 +122,7 @@ export default function CustomLlmProfilesManagerSection({
     if (savePending) return;
     setSavePending(true);
     try {
+      commitLocalDraft();
       const ok = await onSaveDraft();
       if (ok !== false) {
         setSavedFlash(true);
@@ -95,6 +134,7 @@ export default function CustomLlmProfilesManagerSection({
   };
 
   const handleUseExisting = () => {
+    commitLocalDraft();
     const ok = onUseExisting();
     if (ok !== false) {
       setUsedFlash(true);
@@ -102,7 +142,7 @@ export default function CustomLlmProfilesManagerSection({
     }
   };
 
-  if (!draft) {
+  if (!localDraft) {
     return (
       <div className="mb-3 space-y-2">
         <p className="koma-field__label">{title}</p>
@@ -130,7 +170,7 @@ export default function CustomLlmProfilesManagerSection({
         <div className="koma-field">
           <label className="koma-field__label">{t('dashboard.aio.customAi.savedProfile')}</label>
           <select
-            value={draft.id ?? ''}
+            value={localDraft.id ?? ''}
             onChange={(event) => onLoadProfile(event.target.value)}
             className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
           >
@@ -162,8 +202,8 @@ export default function CustomLlmProfilesManagerSection({
           <label className="koma-field__label">{t('dashboard.aio.customAi.name')}</label>
           <input
             type="text"
-            value={draft.label}
-            onChange={(event) => onUpdateDraft({ label: event.target.value })}
+            value={localDraft.label}
+            onChange={(event) => setLocalDraft((prev) => (prev ? { ...prev, label: event.target.value } : prev))}
             className="koma-input"
             placeholder={namePlaceholder}
           />
@@ -172,8 +212,8 @@ export default function CustomLlmProfilesManagerSection({
           <label className="koma-field__label">{t('dashboard.aio.customAi.model')}</label>
           <input
             type="text"
-            value={draft.model}
-            onChange={(event) => onUpdateDraft({ model: event.target.value })}
+            value={localDraft.model}
+            onChange={(event) => setLocalDraft((prev) => (prev ? { ...prev, model: event.target.value } : prev))}
             className="koma-input"
             placeholder={modelPlaceholder}
           />
@@ -182,8 +222,8 @@ export default function CustomLlmProfilesManagerSection({
           <label className="koma-field__label">{t('dashboard.aio.customAi.apiBase')}</label>
           <input
             type="text"
-            value={draft.apiBase}
-            onChange={(event) => onUpdateDraft({ apiBase: event.target.value })}
+            value={localDraft.apiBase}
+            onChange={(event) => setLocalDraft((prev) => (prev ? { ...prev, apiBase: event.target.value } : prev))}
             className="koma-input"
             placeholder={t('dashboard.aio.customAi.apiBasePlaceholder')}
           />
@@ -192,8 +232,8 @@ export default function CustomLlmProfilesManagerSection({
           <label className="koma-field__label">{t('dashboard.aio.customAi.apiKey')}</label>
           <input
             type="password"
-            value={draft.apiKey}
-            onChange={(event) => onUpdateDraft({ apiKey: event.target.value })}
+            value={localDraft.apiKey}
+            onChange={(event) => setLocalDraft((prev) => (prev ? { ...prev, apiKey: event.target.value } : prev))}
             className="koma-input"
             placeholder={t('dashboard.aio.customAi.apiKeyPlaceholder')}
           />

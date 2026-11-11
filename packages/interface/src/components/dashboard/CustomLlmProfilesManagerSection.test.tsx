@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import CustomLlmProfilesManagerSection from '@/components/dashboard/CustomLlmProfilesManagerSection';
 import type { CustomLlmProfileDraft } from '@/utils/customLlm';
@@ -119,5 +119,88 @@ describe('CustomLlmProfilesManagerSection use feedback', () => {
 
     expect(screen.queryByRole('button', { name: 'In use' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Use Translation' })).toBeTruthy();
+  });
+});
+
+describe('CustomLlmProfilesManagerSection local draft', () => {
+  const nameInput = (): HTMLInputElement =>
+    screen.getAllByRole('textbox')[0] as HTMLInputElement;
+
+  const buildSection = (
+    draftValue: CustomLlmProfileDraft,
+    overrides: SectionPropsOverrides & { onUpdateDraft?: (patch: Partial<CustomLlmProfileDraft>) => void } = {},
+  ): React.ReactElement => (
+    <I18nProvider>
+      <CustomLlmProfilesManagerSection
+        stage="translation"
+        profiles={[]}
+        draft={draftValue}
+        loading={false}
+        error={null}
+        persistenceHint="hint"
+        providerNotice={null}
+        onLoadProfile={() => undefined}
+        onUpdateDraft={() => undefined}
+        onUseExisting={() => true}
+        onResetDraft={() => undefined}
+        onRemoveDraft={() => Promise.resolve()}
+        onSaveDraft={() => Promise.resolve(true)}
+        {...overrides}
+      />
+    </I18nProvider>
+  );
+
+  it('keeps keystrokes local and pushes the whole draft to the store only on save', async () => {
+    const user = setupUser();
+    const onUpdateDraft = vi.fn();
+    const onSaveDraft = vi.fn(() => Promise.resolve(true));
+    render(buildSection(draft, { onUpdateDraft, onSaveDraft }));
+
+    await user.type(nameInput(), 'X');
+    expect(onUpdateDraft).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onSaveDraft).toHaveBeenCalledTimes(1));
+    expect(onUpdateDraft).toHaveBeenCalledTimes(1);
+    expect(onUpdateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ label: `${draft.label}X` }),
+    );
+  });
+
+  it('adopts an externally changed draft into the inputs', async () => {
+    const user = setupUser();
+    const view = render(buildSection(draft));
+    expect(nameInput().value).toBe(draft.label);
+
+    const loaded: CustomLlmProfileDraft = { ...draft, id: 'profile-2', label: 'Loaded profile' };
+    view.rerender(buildSection(loaded));
+
+    await waitFor(() => expect(nameInput().value).toBe('Loaded profile'));
+  });
+
+  it('does not clobber newer typing when the echoed draft lands after a save', async () => {
+    let resolveSave: ((ok: boolean) => void) | undefined;
+    const onUpdateDraft = vi.fn();
+    const onSaveDraft = vi.fn(
+      () => new Promise<boolean>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+    const user = setupUser();
+    const view = render(buildSection(draft, { onUpdateDraft, onSaveDraft }));
+
+    await user.type(nameInput(), 'X');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    // Save is in flight; the user keeps typing past the commit point.
+    await user.type(nameInput(), 'Y');
+
+    // The parent echoes the pushed draft back (store commit round-trip).
+    const pushed = { ...draft, label: `${draft.label}X` };
+    view.rerender(buildSection(pushed));
+
+    expect(nameInput().value).toBe(`${draft.label}XY`);
+    expect(onUpdateDraft).toHaveBeenCalledTimes(1);
+
+    resolveSave?.(true);
   });
 });
