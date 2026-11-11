@@ -4061,10 +4061,6 @@ body {
   background: linear-gradient(90deg, var(--auth-emerald), #34d399);
 }
 
-.koma-progress-bar__fill--done::after {
-  display: none;
-}
-
 @keyframes progress-shimmer {
 
   0%,

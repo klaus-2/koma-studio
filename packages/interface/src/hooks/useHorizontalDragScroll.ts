@@ -20,6 +20,10 @@ export const useHorizontalDragScroll = <T extends HTMLElement>() => {
     // scrollLeft commit is coalesced to one write per animation frame.
     let pendingDeltaX: number | null = null;
     let scrollFrameId: number | null = null;
+    // The data-drag-scrolling flag drives `cursor: grabbing` CSS on the thumb
+    // strips (optimizer/watermark) — written once per drag transition, never
+    // per move.
+    let dragFlagSet = false;
 
     const commitPendingScroll = (): void => {
       if (pendingDeltaX === null) {
@@ -45,6 +49,10 @@ export const useHorizontalDragScroll = <T extends HTMLElement>() => {
       activePointerId = null;
       pendingDeltaX = null;
       cancelScrollFrame();
+      if (dragFlagSet) {
+        dragFlagSet = false;
+        node.dataset.dragScrolling = "false";
+      }
     };
 
     const onPointerDown = (event: PointerEvent): void => {
@@ -60,6 +68,10 @@ export const useHorizontalDragScroll = <T extends HTMLElement>() => {
       startClientX = event.clientX;
       startScrollLeft = node.scrollLeft;
       suppressClick = false;
+      if (dragFlagSet) {
+        dragFlagSet = false;
+        node.dataset.dragScrolling = "false";
+      }
       node.setPointerCapture?.(event.pointerId);
     };
 
@@ -77,6 +89,10 @@ export const useHorizontalDragScroll = <T extends HTMLElement>() => {
       pendingDeltaX = deltaX;
       if (absDeltaX >= CLICK_CANCEL_THRESHOLD_PX) {
         suppressClick = true;
+      }
+      if (!dragFlagSet) {
+        dragFlagSet = true;
+        node.dataset.dragScrolling = "true";
       }
       if (scrollFrameId === null) {
         scrollFrameId = requestAnimationFrame(commitScrollFrame);
