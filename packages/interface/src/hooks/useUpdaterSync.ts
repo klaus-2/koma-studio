@@ -22,7 +22,7 @@ const asSyncState = (value: unknown): UpdaterSyncState =>
 // log is a capped rolling buffer — once saturated, appends drop the oldest
 // line and the length stops changing — so the comparison adds its first and
 // last lines as content sentinels; dirtyFiles is small enough to join.
-const updaterSyncStateEquivalent = (
+export const updaterSyncStateEquivalent = (
   left: UpdaterSyncState,
   right: UpdaterSyncState,
 ): boolean =>

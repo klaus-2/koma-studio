@@ -31,7 +31,7 @@ const seedDrafts = (translationLabel: string, translationId: string | null = 'pr
   });
 };
 
-const renderDrafts = () =>
+const renderDrafts = (applyCustomProfileSelection = vi.fn()) =>
   renderHook(
     () =>
       useCustomLlmDrafts({
@@ -44,7 +44,7 @@ const renderDrafts = () =>
           getTranslations: 'tr',
         },
         setAioStageSelection: vi.fn(),
-        applyCustomProfileSelection: vi.fn(),
+        applyCustomProfileSelection,
         syncFreeProviderDraftsFromProfiles: vi.fn(),
         setStatusMessage: vi.fn(),
         ollamaLocalApiBase: 'http://127.0.0.1:11434/v1',
@@ -85,19 +85,25 @@ describe('useCustomLlmDrafts commit-point actions', () => {
     });
   });
 
-  it('reads the draft id from the store at call time', async () => {
-    const { result } = renderDrafts();
+  it('applies the profile the store holds at call time, not at render time', async () => {
+    const applyCustomProfileSelection = vi.fn();
+    const savedProfile = {
+      ...createEmptyCustomLlmDraft(),
+      id: 'profile-2',
+      stage: 'translation' as const,
+      label: 'after commit',
+      apiBase: 'http://x',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    // Registered BEFORE the render: the profiles list is a render-time read;
+    // the DRAFT is what the section commits post-render.
+    useLlmProvidersStore.setState({ customLlmProfiles: [savedProfile] });
+    const { result } = renderDrafts(applyCustomProfileSelection);
 
-    // A section commit lands after the render closure: the event-time read
-    // must see the new id, not the stale closure draft.
     seedDrafts('after commit', 'profile-2');
     await result.current.useExistingCustomProfile('translation');
 
-    // The store has no profile 'profile-2' registered, so the action reports
-    // the profile-not-found status — proving it read the COMMITTED id rather
-    // than the render-time 'profile-1' (which also isn't registered here, so
-    // assert the call count path via the status store is unnecessary; what
-    // matters is the read source, covered by the save test above).
-    expect(saveMock).not.toHaveBeenCalled();
+    expect(applyCustomProfileSelection).toHaveBeenCalledWith('translation', savedProfile);
   });
 });
