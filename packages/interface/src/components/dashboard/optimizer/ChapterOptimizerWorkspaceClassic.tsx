@@ -116,7 +116,9 @@ export default function ChapterOptimizerWorkspaceClassic({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [originalPreviewUrl, setOriginalPreviewUrl] = useState<string | null>(null);
   // Mirrors the state URLs so the replaced ones can be revoked outside the
-  // state updater while the unmount cleanup below keeps covering the last.
+  // state updater. The cleanup effects below revoke on EVERY state change
+  // and on unmount — they are the safety net the refs rely on; do not
+  // remove them as redundant with the ref-mirror.
   const previewUrlRef = useRef<string | null>(null);
   const originalPreviewUrlRef = useRef<string | null>(null);
   const [previewStats, setPreviewStats] = useState<OptimizerPreviewStats | null>(null);

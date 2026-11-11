@@ -34,7 +34,10 @@ export const useChapterOptimizerPreviewNoir = ({
     useState<string | null>(null);
 
   // Mirrors the state URLs so the replaced ones can be revoked outside the
-  // state updater while the unmount cleanups keep covering the last.
+  // state updater. The [url]-dep cleanup effects below revoke on EVERY state
+  // change (including the null resets, which leave these refs stale on
+  // purpose) and on unmount — they are the safety net the stale refs rely
+  // on; do not remove them as redundant with the ref-mirror.
   const previewUrlRef = useRef<string | null>(null);
   const originalPreviewUrlRef = useRef<string | null>(null);
 
@@ -53,6 +56,7 @@ export const useChapterOptimizerPreviewNoir = ({
 
   useEffect(() => {
     if (!activeSourceBlob) {
+      originalPreviewUrlRef.current = null;
       setOriginalPreviewUrl(null);
       return;
     }
@@ -86,6 +90,7 @@ export const useChapterOptimizerPreviewNoir = ({
   useEffect(() => {
     if (!activeImage || !activeSourceBlob) {
       setPreviewLoading(false);
+      previewUrlRef.current = null;
       setPreviewUrl(null);
       return;
     }
