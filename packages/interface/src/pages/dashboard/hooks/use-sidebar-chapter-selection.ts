@@ -60,12 +60,12 @@ export function useSidebarChapterSelection(): SidebarChapterSelection {
   }, []);
 
   const toggleMode = useCallback(() => {
-    setActive((previous) => {
-      if (previous) {
-        setPickedIds(new Set());
-      }
-      return !previous;
-    });
+    // Side effects never belong in a state updater (React may invoke it
+    // twice). The unconditional clear matches the old semantics exactly:
+    // pickedIds can only be non-empty while selection mode is active, so
+    // clearing on enter is a no-op and clearing on leave is identical.
+    setActive((previous) => !previous);
+    setPickedIds(new Set());
   }, []);
 
   const toggleImage = useCallback((imageId: string) => {

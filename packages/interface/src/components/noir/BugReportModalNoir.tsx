@@ -103,6 +103,20 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
   // crop-drag start/end (react.dev "Referencing Values with Refs").
   const draggingRef = useRef(false);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
+  // Crop dragging coalesces to one setDrag per animation frame: mousemove
+  // fires at device rate and each setDrag re-rendered the whole modal.
+  const pendingDragRef = useRef<CropRect | null>(null);
+  const dragFrameRef = useRef<number | null>(null);
+
+  const cancelDragFrame = useCallback(() => {
+    if (dragFrameRef.current !== null) {
+      cancelAnimationFrame(dragFrameRef.current);
+      dragFrameRef.current = null;
+    }
+    pendingDragRef.current = null;
+  }, []);
+
+  useEffect(() => cancelDragFrame, [cancelDragFrame]);
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [attachments, setAttachments] = useState<ManualAttachment[]>([]);
@@ -120,8 +134,9 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
   const reset = useCallback(() => {
     setTitle(""); setDesc(""); setSev("medium"); setSteps(""); setExpected(""); setActual(""); setContact("");
     setCrop(null); setDrag(null); draggingRef.current = false; dragStart.current = null;
+    cancelDragFrame();
     setAttachments([]); setAttachErr(null); setErr(null); setSuccess(null);
-  }, []);
+  }, [cancelDragFrame]);
 
   useEffect(() => {
     if (!open) return;
@@ -165,6 +180,7 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
     if (!screenshot) return;
     const p = relPt(e.clientX, e.clientY);
     if (!p) return;
+    cancelDragFrame();
     dragStart.current = { x: p.x, y: p.y };
     setDrag({ x: p.x, y: p.y, width: 0, height: 0 });
     draggingRef.current = true;
@@ -173,15 +189,29 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
     if (!draggingRef.current || !dragStart.current) return;
     const p = relPt(e.clientX, e.clientY);
     if (!p) return;
-    setDrag({
+    pendingDragRef.current = {
       x: Math.min(dragStart.current.x, p.x), y: Math.min(dragStart.current.y, p.y),
       width: Math.abs(p.x - dragStart.current.x), height: Math.abs(p.y - dragStart.current.y),
-    });
+    };
+    if (dragFrameRef.current === null) {
+      dragFrameRef.current = requestAnimationFrame(() => {
+        dragFrameRef.current = null;
+        if (pendingDragRef.current) {
+          setDrag(pendingDragRef.current);
+          pendingDragRef.current = null;
+        }
+      });
+    }
   }, [relPt]);
   const onUp = useCallback(() => {
-    if (drag) setCrop(drag.width >= 8 && drag.height >= 8 ? drag : null);
+    // Flush the frame-in-flight rect into the crop decision so the last
+    // movement is not dropped, then tear the drag down.
+    const flushedRect = pendingDragRef.current;
+    cancelDragFrame();
+    const rect = flushedRect ?? drag;
+    if (rect) setCrop(rect.width >= 8 && rect.height >= 8 ? rect : null);
     setDrag(null); draggingRef.current = false; dragStart.current = null;
-  }, [drag]);
+  }, [cancelDragFrame, drag]);
 
   const getScreenshot = useCallback(async () => {
     if (!screenshot) throw new Error(t("bugReport.error.noScreenshot"));
@@ -358,7 +388,7 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
                     {rect && (
                       <div
                         className="pointer-events-none absolute border-2 border-dashed border-crimson bg-crimson/10 shadow-[0_0_0_9999px_rgba(7,7,12,0.6)]"
-                        style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+                        style={{ left: 0, top: 0, transform: `translate(${rect.x}px, ${rect.y}px)`, width: rect.width, height: rect.height }}
                       />
                     )}
                   </div>

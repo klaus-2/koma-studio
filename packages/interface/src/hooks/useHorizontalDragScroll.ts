@@ -16,10 +16,35 @@ export const useHorizontalDragScroll = <T extends HTMLElement>() => {
     let startClientX = 0;
     let startScrollLeft = 0;
     let suppressClick = false;
+    // pointermove fires at device rate (often more than once per frame); the
+    // scrollLeft commit is coalesced to one write per animation frame.
+    let pendingDeltaX: number | null = null;
+    let scrollFrameId: number | null = null;
+
+    const commitPendingScroll = (): void => {
+      if (pendingDeltaX === null) {
+        return;
+      }
+      node.scrollLeft = startScrollLeft - pendingDeltaX;
+      pendingDeltaX = null;
+    };
+
+    const commitScrollFrame = (): void => {
+      scrollFrameId = null;
+      commitPendingScroll();
+    };
+
+    const cancelScrollFrame = (): void => {
+      if (scrollFrameId !== null) {
+        cancelAnimationFrame(scrollFrameId);
+        scrollFrameId = null;
+      }
+    };
 
     const cleanupDragState = (): void => {
       activePointerId = null;
-      node.dataset.dragScrolling = "false";
+      pendingDeltaX = null;
+      cancelScrollFrame();
     };
 
     const onPointerDown = (event: PointerEvent): void => {
@@ -35,7 +60,6 @@ export const useHorizontalDragScroll = <T extends HTMLElement>() => {
       startClientX = event.clientX;
       startScrollLeft = node.scrollLeft;
       suppressClick = false;
-      node.dataset.dragScrolling = "false";
       node.setPointerCapture?.(event.pointerId);
     };
 
@@ -50,10 +74,12 @@ export const useHorizontalDragScroll = <T extends HTMLElement>() => {
         return;
       }
 
-      node.dataset.dragScrolling = "true";
-      node.scrollLeft = startScrollLeft - deltaX;
+      pendingDeltaX = deltaX;
       if (absDeltaX >= CLICK_CANCEL_THRESHOLD_PX) {
         suppressClick = true;
+      }
+      if (scrollFrameId === null) {
+        scrollFrameId = requestAnimationFrame(commitScrollFrame);
       }
       event.preventDefault();
     };
@@ -64,6 +90,9 @@ export const useHorizontalDragScroll = <T extends HTMLElement>() => {
       }
 
       node.releasePointerCapture?.(event.pointerId);
+      // Flush the delta of the current frame so the drag's last position is
+      // not dropped, then tear down.
+      commitPendingScroll();
       cleanupDragState();
     };
 
@@ -95,6 +124,7 @@ export const useHorizontalDragScroll = <T extends HTMLElement>() => {
       node.removeEventListener("pointercancel", onPointerCancel);
       node.removeEventListener("lostpointercapture", onPointerCancel);
       node.removeEventListener("click", onClickCapture, true);
+      cancelScrollFrame();
     };
   }, []);
 
