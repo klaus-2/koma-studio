@@ -169,7 +169,9 @@ export function useCleanerAiDraftProfileActions({
   const customLlmDrafts = useLlmProvidersStore((s) => s.customLlmDrafts);
   const saveCleanerCustomDraftProfile = useCallback(async (): Promise<boolean> => {
     try {
-      const profile = await saveCustomProfileInline('clean', customLlmDrafts.clean);
+      // Event-time read: the section commits its local draft right before
+      // calling this, and this closure may predate that commit.
+      const profile = await saveCustomProfileInline('clean', useLlmProvidersStore.getState().customLlmDrafts.clean);
       setCleanerAiModelKey(`custom_clean:${profile.id}`);
       setTonedStatus(t('dashboard.status.cleanerProfileSaved', { label: profile.label }), 'success');
       return true;
@@ -177,7 +179,7 @@ export function useCleanerAiDraftProfileActions({
       // saveCustomProfileInline already updates the error message
       return false;
     }
-  }, [customLlmDrafts.clean, saveCustomProfileInline, setCleanerAiModelKey, setStatusMessage, setTonedStatus]);
+  }, [saveCustomProfileInline, setCleanerAiModelKey, setStatusMessage, setTonedStatus]);
   const removeCleanerCustomDraftProfile = useCallback(async () => {
     const profileId = customLlmDrafts.clean?.id;
     if (!profileId) {

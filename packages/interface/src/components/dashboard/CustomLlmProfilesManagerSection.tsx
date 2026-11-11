@@ -244,7 +244,7 @@ export default function CustomLlmProfilesManagerSection({
 
       <div className={styles.actions}>
         {onApplyOllamaPreset ? (
-          <button type="button" className={styles.secondaryButton} onClick={onApplyOllamaPreset}>
+          <button type="button" className={styles.secondaryButton} onClick={() => { commitLocalDraft(); onApplyOllamaPreset(); }}>
             {t('dashboard.aio.customAi.ollamaPreset')}
           </button>
         ) : null}

@@ -215,7 +215,9 @@ export function useCustomLlmDrafts({
   }, [customLlmProfiles, setCustomLlmDrafts]);
 
   const useExistingCustomProfile = useCallback((stage: CustomLlmStage): boolean => {
-    const profileId = customLlmDrafts[stage].id;
+    // Event-time read: the section commits its local draft right before
+    // calling this, and this closure may predate that commit.
+    const profileId = useLlmProvidersStore.getState().customLlmDrafts[stage].id;
     if (!profileId) {
       setStatusMessage(t(stage === 'translation' ? 'customLlm.selectTranslationProfile' : 'customLlm.selectOcrProfile'));
       return false;
@@ -233,7 +235,7 @@ export function useCustomLlmDrafts({
     applyCustomProfileSelection(stage, profile);
     setStatusMessage(t(stage === 'translation' ? 'customLlm.translationProfileActive' : 'customLlm.ocrProfileActive', { label: profile.label }));
     return true;
-  }, [applyCustomProfileSelection, customLlmDrafts, customLlmProfiles, setStatusMessage, t]);
+  }, [applyCustomProfileSelection, customLlmProfiles, setStatusMessage, t]);
 
   const useCustomProfileById = useCallback((stage: CustomLlmStage, profileId: string) => {
     const profile = customLlmProfiles.find((item) => item.stage === stage && item.id === profileId);
@@ -325,8 +327,11 @@ export function useCustomLlmDrafts({
 
   const saveCustomLlmDraftProfile = useCallback(async (stage: CustomLlmStage): Promise<boolean> => {
     try {
-      const inputApiBase = customLlmDrafts[stage].apiBase;
-      const payload = await saveCustomLlmProfile(userId, stage, customLlmDrafts[stage]);
+      // Event-time read: the section commits its local draft right before
+      // calling this, and this closure may predate that commit.
+      const drafts = useLlmProvidersStore.getState().customLlmDrafts;
+      const inputApiBase = drafts[stage].apiBase;
+      const payload = await saveCustomLlmProfile(userId, stage, drafts[stage]);
       setCustomLlmProfiles(payload.profiles);
       setCustomLlmProfilesMode(payload.mode);
       setCustomLlmProfilesError(null);
@@ -361,7 +366,6 @@ export function useCustomLlmDrafts({
     }
   }, [
     applyCustomProfileSelection,
-    customLlmDrafts,
     setCustomLlmProfiles,
     setCustomLlmProfilesError,
     setCustomLlmProfilesMode,
