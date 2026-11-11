@@ -222,7 +222,12 @@ export default function ChapterOptimizerWorkspaceClassic({
       .then((sourceBlob) => {
         if (cancelled) return;
         const origUrl = URL.createObjectURL(sourceBlob);
-        setOriginalPreviewUrl(origUrl);
+        // Revoke-on-replace: each recipe adjustment re-renders the preview,
+        // and the previous URL holds the whole source blob alive until freed.
+        setOriginalPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return origUrl;
+        });
 
         const currentTicket = ++previewTicketRef.current;
         let jobCancelled = false;
@@ -242,7 +247,10 @@ export default function ChapterOptimizerWorkspaceClassic({
             .then((result) => {
               if (jobCancelled || currentTicket !== previewTicketRef.current) return;
               const nextUrl = URL.createObjectURL(result.blob);
-              setPreviewUrl(nextUrl);
+              setPreviewUrl((prev) => {
+                if (prev) URL.revokeObjectURL(prev);
+                return nextUrl;
+              });
               setPreviewStats({
                 originalBytes: sourceBlob.size,
                 optimizedBytes: result.blob.size,

@@ -55,7 +55,12 @@ export const useChapterOptimizerPreviewNoir = ({
     const nextUrl =
       URL.createObjectURL(activeSourceBlob);
 
-    setOriginalPreviewUrl(nextUrl);
+    // Revoke-on-replace: the previous URL holds the whole source blob alive
+    // until freed (the unmount cleanup below only covers the last one).
+    setOriginalPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return nextUrl;
+    });
     setPreviewStats(null);
     onSourceChange();
   }, [activeSourceBlob, onSourceChange]);
@@ -117,7 +122,10 @@ export const useChapterOptimizerPreviewNoir = ({
           const nextUrl =
             URL.createObjectURL(result.blob);
 
-          setPreviewUrl(nextUrl);
+          setPreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return nextUrl;
+          });
 
           setPreviewStats({
             originalBytes:
