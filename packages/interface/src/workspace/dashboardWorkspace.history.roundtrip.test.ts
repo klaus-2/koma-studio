@@ -16,6 +16,7 @@ import type {
 } from '../types/dashboard.types';
 import type { WorkspaceManualImageEditDocument } from '../../../../packages/types/src/workspace';
 import type { TypographySession } from '../typography/types';
+import { createDirectPageFile, type PageFile } from '../utils/page-source';
 
 // jsdom lacks Blob.prototype.arrayBuffer (lib.dom declares it; this runtime
 // does not ship it). The round trip reads binaries through arrayBuffer();
@@ -74,6 +75,10 @@ const makeWorkspaceFile = (name: string): File =>
     lastModified: 1700000000000,
   });
 
+/** The page fixture: `LoadedImage.file` is a `PageFile` since the lazy-page migration. */
+const makeWorkspacePageFile = (name: string): PageFile =>
+  createDirectPageFile(makeWorkspaceFile(name));
+
 const makeBlob = (bytes: number[]): Blob =>
   new Blob([new Uint8Array(bytes)], { type: 'image/png' });
 
@@ -118,7 +123,7 @@ const buildCaptureState = (): DashboardWorkspaceCaptureState => {
   const images: LoadedImage[] = [
     {
       id: 'img-1',
-      file: makeWorkspaceFile('cover-page.png'),
+      file: makeWorkspacePageFile('cover-page.png'),
       url: 'blob:loaded-image-1',
       width: 640,
       height: 480,
@@ -328,6 +333,9 @@ const buildCaptureState = (): DashboardWorkspaceCaptureState => {
 const readBlobBytes = async (blob: Blob): Promise<number[]> =>
   Array.from(new Uint8Array(await blob.arrayBuffer()));
 
+const readPageBytesArray = async (page: PageFile): Promise<number[]> =>
+  Array.from(new Uint8Array(await (await page.toBlob()).arrayBuffer()));
+
 describe('workspace history round trip', () => {
   it('captures a snapshot with pooled handles and v2 quota semantics', () => {
     const state = buildCaptureState();
@@ -490,7 +498,7 @@ describe('workspace history round trip', () => {
       expect(restoredOptimizerResult.fileName).toBe('optimized-1.png');
       expect('previewUrl' in restoredOptimizerResult).toBe(false);
 
-      expect(await readBlobBytes(restoredImage.file)).toEqual(IMAGE_BYTES);
+      expect(await readPageBytesArray(restoredImage.file)).toEqual(IMAGE_BYTES);
       expect(await readBlobBytes(restoredDownload.blob)).toEqual(DOWNLOAD_BYTES);
     } finally {
       releaseWorkspaceHistorySnapshot(snapshot);

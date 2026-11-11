@@ -2,6 +2,35 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 
+// jsdom lacks Blob.prototype.arrayBuffer / File.prototype.arrayBuffer (lib.dom
+// declares them; this runtime does not ship them). Code that reads page bytes
+// or workspace binaries goes through arrayBuffer(); polyfill both via
+// FileReader when the platform does not provide them.
+if (typeof Blob.prototype.arrayBuffer !== "function") {
+  Blob.prototype.arrayBuffer = function (this: Blob): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (): void => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(reader.result);
+          return;
+        }
+        reject(new Error("Failed to read the blob as an ArrayBuffer."));
+      };
+      reader.onerror = (): void => {
+        reject(reader.error ?? new Error("Failed to read the blob."));
+      };
+      reader.readAsArrayBuffer(this);
+    });
+  };
+}
+
+if (typeof File.prototype.arrayBuffer !== "function") {
+  // File extends Blob, so the FileReader-based implementation above is valid
+  // for File as well — the signatures are identical.
+  File.prototype.arrayBuffer = Blob.prototype.arrayBuffer;
+}
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();

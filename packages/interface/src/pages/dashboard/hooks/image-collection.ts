@@ -10,6 +10,7 @@ import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import {
   getFileExtension,
   inferMimeTypeFromFileName,
+  isChapterArchiveUploadFile,
   isContainerUploadFile,
   isDirectImageUploadFile,
   loadImageFromSource,
@@ -20,6 +21,11 @@ import {
   revokeLoadedImageUrls,
 } from '../../../utils/imagePerformance';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
+import {
+  importArchiveChapter,
+  importDirectPage,
+} from '../lib/chapter-archive-import';
+import type { PageFile } from '../../../utils/page-source';
 import type {
   AioManualImageEditState,
   AioTextRegion,
@@ -45,7 +51,8 @@ interface UploadChapter {
 }
 
 interface ExtractedUpload {
-  file: File;
+  /** The page's lazy file. */
+  file: PageFile;
   chapter: UploadChapter | null;
 }
 
@@ -71,52 +78,111 @@ export function useDashboardUploads({
   );
 
   const loadImageDetails = useCallback(
-    (file: File, chapter?: UploadChapter): Promise<LoadedImage> =>
+    (file: PageFile, chapter?: UploadChapter): Promise<LoadedImage> =>
       new Promise((resolve, reject) => {
         // The URL is owned by the created LoadedImage and revoked when the
         // image is removed from the collection (revokeLoadedImageUrls).
-        const url = URL.createObjectURL(file);
+        // For an archive-backed page there is no URL yet: the page's bytes are
+        // materialized on demand, so the preview resolves one when it is shown.
+        // The URL is owned by the created LoadedImage and revoked when the
+        // image is removed from the collection (revokeLoadedImageUrls).
+        // For an archive-backed page there is no URL yet: the page's bytes are
+        // materialized on demand, so the preview resolves one when it is shown.
+        const url = file.kind === 'direct'
+          ? URL.createObjectURL(file.resident as Blob)
+          : '';
         const chapterFields = chapter
           ? { chapterId: chapter.id, chapterLabel: chapter.label }
           : {};
-        loadImageFromSource(url).then((img) => {
-          const width = img.width;
-          const height = img.height;
-          img.src = '';
 
-          // Generate thumbnail for list/grid display to reduce memory
-          createThumbnailFromUrl(url, 400, 600, 0.7).then((thumbUrl) => {
-            resolve({
-              id: crypto.randomUUID(),
-              file,
-              url,
-              thumbnailUrl: thumbUrl,
-              width,
-              height,
-              rotation: 0,
-              filters: { ...DEFAULT_FILTERS },
-              ...chapterFields,
-            });
-          }).catch(() => {
-            // Thumbnail generation failed, still resolve without it
-            resolve({
-              id: crypto.randomUUID(),
-              file,
-              url,
-              width,
-              height,
-              rotation: 0,
-              filters: { ...DEFAULT_FILTERS },
-              ...chapterFields,
-            });
+        const resolveWith = (
+          width: number,
+          height: number,
+          thumbnailUrl?: string,
+        ): void => {
+          resolve({
+            id: crypto.randomUUID(),
+            file,
+            url,
+            ...(thumbnailUrl ? { thumbnailUrl } : {}),
+            width,
+            height,
+            rotation: 0,
+            filters: { ...DEFAULT_FILTERS },
+            ...chapterFields,
           });
-        }).catch(() => {
-          URL.revokeObjectURL(url);
-          reject(new Error('Failed to load the image.'));
-        });
+        };
+
+        if (file.kind === 'archive') {
+          // Nothing is decoded at import time: the dimensions are resolved the
+          // first time the page is materialized, and the sidebar shows `?x?`
+          // until then.
+          resolveWith(0, 0);
+          return;
+        }
+
+        loadImageFromSource(url)
+          .then((img) => {
+            const width = img.width;
+            const height = img.height;
+            img.src = '';
+
+            // Generate thumbnail for list/grid display to reduce memory
+            createThumbnailFromUrl(url, 400, 600, 0.7)
+              .then((thumbUrl) => {
+                resolveWith(width, height, thumbUrl);
+              })
+              .catch(() => {
+                // Thumbnail generation failed, still resolve without it
+                resolveWith(width, height);
+              });
+          })
+          .catch(() => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load the image.'));
+          });
       }),
     [],
   );
+
+  /**
+   * Read a `.cbz`/`.zip` chapter in the browser.
+   *
+   * Only the central directory is parsed here, so a 100-page chapter opens
+   * without decoding a single page. Each page's bytes are produced later, on
+   * demand, and released as soon as its consumer is done with them.
+   */
+  const extractImagesFromChapterArchives = useCallback(async (
+    files: File[],
+  ): Promise<{ extractedFiles: ExtractedUpload[]; warnings: string[] }> => {
+    const extractedFiles: ExtractedUpload[] = [];
+    const warnings: string[] = [];
+
+    for (const file of files) {
+      try {
+        const imported = await importArchiveChapter(file);
+        warnings.push(...imported.warnings);
+        imported.pages.forEach((page) => {
+          extractedFiles.push({
+            file: page.file,
+            chapter: { id: page.chapterId, label: page.chapterLabel },
+          });
+        });
+      } catch (error) {
+        warnings.push(
+          error instanceof Error
+            ? `Failed to read "${file.name}": ${error.message}`
+            : `Failed to read "${file.name}".`,
+        );
+      }
+    }
+
+    if (extractedFiles.length === 0) {
+      throw new Error('No valid image was extracted from the uploaded files.');
+    }
+
+    return { extractedFiles, warnings };
+  }, []);
 
   const extractImagesFromContainerFiles = useCallback(async (
     files: File[],
@@ -175,12 +241,13 @@ export function useDashboardUploads({
       const sourceFile = typeof manifestEntry?.source_file === 'string'
         ? manifestEntry.source_file.trim()
         : '';
+      const file = new File(
+        [normalized],
+        fileName,
+        { type: manifestEntry?.mime_type || inferMimeTypeFromFileName(fileName) },
+      );
       extractedFiles.push({
-        file: new File(
-          [normalized],
-          fileName,
-          { type: manifestEntry?.mime_type || inferMimeTypeFromFileName(fileName) },
-        ),
+        file: importDirectPage(file),
         chapter: sourceFile
           ? { id: `archive:${sourceFile}`, label: sourceFile }
           : null,
@@ -205,6 +272,12 @@ export function useDashboardUploads({
     };
     const directImageFiles = files.filter(isDirectImageUploadFile);
     const containerFiles = files.filter(isContainerUploadFile);
+    // `.cbz`/`.zip` are read in the browser; every other container type
+    // (`.cb7`, `.pdf`, `.psd`) still goes through the backend's ingest route.
+    const chapterArchiveFiles = containerFiles.filter(isChapterArchiveUploadFile);
+    const backendContainerFiles = containerFiles.filter(
+      (file) => !isChapterArchiveUploadFile(file),
+    );
     let extractedContainerFiles: ExtractedUpload[] = [];
     const warnings: string[] = [];
 
@@ -216,9 +289,22 @@ export function useDashboardUploads({
           : `Extracting images from ${containerFiles.length} composite files, please wait...`,
       );
       try {
-        const ingestResult = await extractImagesFromContainerFiles(containerFiles);
-        extractedContainerFiles = ingestResult.extractedFiles;
-        warnings.push(...ingestResult.warnings);
+        if (chapterArchiveFiles.length > 0) {
+          const archiveResult = await extractImagesFromChapterArchives(chapterArchiveFiles);
+          extractedContainerFiles = [
+            ...extractedContainerFiles,
+            ...archiveResult.extractedFiles,
+          ];
+          warnings.push(...archiveResult.warnings);
+        }
+        if (backendContainerFiles.length > 0) {
+          const ingestResult = await extractImagesFromContainerFiles(backendContainerFiles);
+          extractedContainerFiles = [
+            ...extractedContainerFiles,
+            ...ingestResult.extractedFiles,
+          ];
+          warnings.push(...ingestResult.warnings);
+        }
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : 'Failed to extract composite files.');
       } finally {
@@ -227,7 +313,10 @@ export function useDashboardUploads({
     }
 
     const candidateUploads: ExtractedUpload[] = [
-      ...directImageFiles.map((file) => ({ file, chapter: folderChapterFor(file) })),
+      ...directImageFiles.map((file) => ({
+        file: importDirectPage(file),
+        chapter: folderChapterFor(file),
+      })),
       ...extractedContainerFiles,
     ];
     if (candidateUploads.length === 0) {
@@ -262,6 +351,7 @@ export function useDashboardUploads({
   }, [
     activeId,
     addImages,
+    extractImagesFromChapterArchives,
     extractImagesFromContainerFiles,
     invalidateAioPipelineHistory,
     loadImageDetails,

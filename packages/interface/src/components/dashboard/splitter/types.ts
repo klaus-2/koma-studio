@@ -1,3 +1,5 @@
+import type { PageFile } from '../../../utils/page-source';
+
 export type SplitStrategy = 'count' | 'fixed_height' | 'smart' | 'advanced_desktop' | 'manual';
 
 export type SplitAxis = 'vertical' | 'horizontal';
@@ -18,7 +20,14 @@ export interface SplitterImageFilters {
 
 export interface SplitterImageInput {
   id: string;
-  file: File;
+  /**
+   * The page's lazy file.
+   *
+   * The bytes are materialized per image before they cross the worker
+   * boundary — a `PageFile` carries functions, which structured clone cannot
+   * copy, so it must never reach `worker.postMessage` as-is.
+   */
+  file: PageFile;
   url: string;
   width: number;
   height: number;

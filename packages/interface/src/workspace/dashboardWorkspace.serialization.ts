@@ -34,6 +34,7 @@ import {
 } from "../utils/renderSizeDefaults";
 import { blobToDataUrl, dataUrlToBlob } from "../utils/dashboard.utils";
 import { createThumbnailFromUrl } from "../utils/imagePerformance";
+import { createDirectPageFile } from "../utils/page-source";
 import { stitchWorkspaceCodec } from "../components/dashboard/stitch/workspaceCodec";
 import { splitterWorkspaceCodec } from "../components/dashboard/splitter/workspaceCodec";
 import { watermarkWorkspaceCodec, type WorkspaceCodecAssetSource } from "../components/dashboard/watermark/workspaceCodec";
@@ -220,8 +221,21 @@ const toLoadedImageDocument = async (
 ): Promise<WorkspaceLoadedImageDocument> => {
   const source = await (async () => {
     try {
-      return await collector.addFile("images", image.file);
-    } catch {
+      return await collector.add("images", {
+        fileName: image.file.name,
+        mimeType: image.file.type || "application/octet-stream",
+        toBuffer: async () => {
+          const blob = await image.file.toBlob();
+          return blob.arrayBuffer();
+        },
+      });
+    } catch (error) {
+      // A page without a resident URL (archive-backed, never materialized in
+      // this session) has no fallback source: the save fails with context
+      // instead of silently fetching an empty URL.
+      if (!image.url) {
+        throw error;
+      }
       return collector.add("images", {
         fileName: image.file.name,
         mimeType: image.file.type || "application/octet-stream",
@@ -534,6 +548,7 @@ const restoreLoadedImage = async (
   item: WorkspaceLoadedImageDocument,
 ): Promise<LoadedImage> => {
   const file = toFileFromAsset(assetMap, item.source.assetId);
+  const pageFile = createDirectPageFile(file);
   // Owned by the restored image collection; revoked on image removal
   // (revokeLoadedImageUrls).
   const url = URL.createObjectURL(file);
@@ -543,7 +558,7 @@ const restoreLoadedImage = async (
   );
   const image: LoadedImage = {
     id: item.id,
-    file,
+    file: pageFile,
     url,
     width: item.width,
     height: item.height,

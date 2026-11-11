@@ -15,6 +15,10 @@ import {
   cloneRenderStyle,
 } from '../../../utils/dashboard.utils';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
+import {
+  materializePageForProcessing,
+  releasePage,
+} from '../../../utils/page-source';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import {
   applySfxDecisionsToRegions,
@@ -147,138 +151,145 @@ export async function runAutomaticCleanerWorkflow(
           const { stageRuntime } = session;
 
           session.assertNotAborted();
-          const detectDone = await runDetectTextStage(
-            {
-              image: imgData,
-              modelKey: detectSelectionKey,
-              sourceLanguage,
-              minRegionSize,
-            },
-            stageRuntime,
-            {
-              stageLabel: stageLabels.detectText,
-              failurePrefix: 'Failed to detect text',
-              parseApiError,
-              formatError: (message) =>
-                t('cleanerActions.detectFailed', {
-                  fileName: imgData.file.name,
-                  message,
-                }),
-            },
-          );
-          const detectDetections = detectDone.value;
+          try {
+            // One page's bytes live only for this run: materialized on demand,
+            // released in `finally` even when a stage throws.
+            const stageImage = await materializePageForProcessing(imgData);
+            const detectDone = await runDetectTextStage(
+              {
+                image: stageImage,
+                modelKey: detectSelectionKey,
+                sourceLanguage,
+                minRegionSize,
+              },
+              stageRuntime,
+              {
+                stageLabel: stageLabels.detectText,
+                failurePrefix: 'Failed to detect text',
+                parseApiError,
+                formatError: (message) =>
+                  t('cleanerActions.detectFailed', {
+                    fileName: imgData.file.name,
+                    message,
+                  }),
+              },
+            );
+            const detectDetections = detectDone.value;
 
-          let outputRegions = detectDetections;
-          let candidateCount = detectDetections.length;
-          let approvedCount = detectDetections.length;
-          let reviewCount = 0;
-          let blob: Blob;
+            let outputRegions = detectDetections;
+            let candidateCount = detectDetections.length;
+            let approvedCount = detectDetections.length;
+            let reviewCount = 0;
+            let blob: Blob;
 
-          if (isAiSfxMode) {
-            const candidateRegions = detectDetections.filter(isLikelySfxCandidate);
-            candidateCount = candidateRegions.length;
-            let enrichedCandidates: AioTextRegion[] = candidateRegions.map((region) => ({
-              ...region,
-              sfxCandidate: true,
-              sfxApproved: false,
-              sfxConfidence: null,
-              sfxRequiresRedraw: false,
-              sfxReason: null,
-            }));
+            if (isAiSfxMode) {
+              const candidateRegions = detectDetections.filter(isLikelySfxCandidate);
+              candidateCount = candidateRegions.length;
+              let enrichedCandidates: AioTextRegion[] = candidateRegions.map((region) => ({
+                ...region,
+                sfxCandidate: true,
+                sfxApproved: false,
+                sfxConfidence: null,
+                sfxRequiresRedraw: false,
+                sfxReason: null,
+              }));
 
-            if (candidateRegions.length > 0) {
-              session.assertNotAborted();
-              const classifyDone = await runSfxClassifyStage(
-                {
-                  image: imgData,
-                  modelKey: cleanerAiModelKey,
-                  regions: candidateRegions,
-                  additionalInstructions: buildSfxClassifierInstructions(
-                    normalizedCleanerAiInstructions,
-                  ),
-                  customProfile: customCleanerPayload,
-                },
-                stageRuntime,
-                {
-                  stageLabel: 'AI SFX',
-                  failurePrefix: `Failed to classify SFX in "${imgData.file.name}"`,
-                  parseApiError,
-                },
-              );
-              enrichedCandidates = applySfxDecisionsToRegions(
-                candidateRegions,
-                classifyDone.value.regions,
-              );
-            }
+              if (candidateRegions.length > 0) {
+                session.assertNotAborted();
+                const classifyDone = await runSfxClassifyStage(
+                  {
+                    image: stageImage,
+                    modelKey: cleanerAiModelKey,
+                    regions: candidateRegions,
+                    additionalInstructions: buildSfxClassifierInstructions(
+                      normalizedCleanerAiInstructions,
+                    ),
+                    customProfile: customCleanerPayload,
+                  },
+                  stageRuntime,
+                  {
+                    stageLabel: 'AI SFX',
+                    failurePrefix: `Failed to classify SFX in "${imgData.file.name}"`,
+                    parseApiError,
+                  },
+                );
+                enrichedCandidates = applySfxDecisionsToRegions(
+                  candidateRegions,
+                  classifyDone.value.regions,
+                );
+              }
 
-            outputRegions = enrichedCandidates.filter((region) => region.sfxApproved);
-            approvedCount = outputRegions.length;
-            reviewCount = outputRegions.filter((region) => region.sfxRequiresRedraw).length;
+              outputRegions = enrichedCandidates.filter((region) => region.sfxApproved);
+              approvedCount = outputRegions.length;
+              reviewCount = outputRegions.filter((region) => region.sfxRequiresRedraw).length;
 
-            if (outputRegions.length === 0) {
-              blob = imgData.file;
+              if (outputRegions.length === 0) {
+                blob = await imgData.file.toBlob();
+              } else {
+                session.assertNotAborted();
+                const cleanDone = await runCleanImageAiStage(
+                  {
+                    image: stageImage,
+                    modelKey: cleanerAiModelKey,
+                    regions: outputRegions,
+                    additionalInstructions: buildSfxCleanInstructions(
+                      normalizedCleanerAiInstructions,
+                    ),
+                    customProfile: customCleanerPayload,
+                  },
+                  stageRuntime,
+                  {
+                    stageLabel: 'AI SFX',
+                    failurePrefix: `AI SFX Cleaner failed for "${imgData.file.name}"`,
+                    parseApiError,
+                  },
+                );
+                blob = session.ensureStageImageBlob(
+                  cleanDone.value,
+                  t('cleanerActions.invalidSfxResponse', { fileName: imgData.file.name }),
+                );
+              }
             } else {
               session.assertNotAborted();
               const cleanDone = await runCleanImageAiStage(
                 {
-                  image: imgData,
+                  image: stageImage,
                   modelKey: cleanerAiModelKey,
-                  regions: outputRegions,
-                  additionalInstructions: buildSfxCleanInstructions(
-                    normalizedCleanerAiInstructions,
-                  ),
+                  regions: detectDetections,
+                  additionalInstructions: normalizedCleanerAiInstructions,
                   customProfile: customCleanerPayload,
                 },
                 stageRuntime,
                 {
-                  stageLabel: 'AI SFX',
-                  failurePrefix: `AI SFX Cleaner failed for "${imgData.file.name}"`,
+                  stageLabel: 'Automatic AI Clean',
+                  failurePrefix: `Automatic AI Clean failed for "${imgData.file.name}"`,
                   parseApiError,
                 },
               );
+
               blob = session.ensureStageImageBlob(
                 cleanDone.value,
-                t('cleanerActions.invalidSfxResponse', { fileName: imgData.file.name }),
+                t('cleanerActions.invalidAutoCleanResponse', { fileName: imgData.file.name }),
               );
             }
-          } else {
-            session.assertNotAborted();
-            const cleanDone = await runCleanImageAiStage(
-              {
-                image: imgData,
-                modelKey: cleanerAiModelKey,
-                regions: detectDetections,
-                additionalInstructions: normalizedCleanerAiInstructions,
-                customProfile: customCleanerPayload,
-              },
-              stageRuntime,
-              {
-                stageLabel: 'Automatic AI Clean',
-                failurePrefix: `Automatic AI Clean failed for "${imgData.file.name}"`,
-                parseApiError,
-              },
-            );
 
-            blob = session.ensureStageImageBlob(
-              cleanDone.value,
-              t('cleanerActions.invalidAutoCleanResponse', { fileName: imgData.file.name }),
-            );
+            return {
+              imageId: imgData.id,
+              fileName: session.buildCleanDownloadName(
+                isAiSfxMode ? 'koma-studio-ai-sfx-clean' : 'koma-studio-automatic-ai-clean',
+                imgData.file.name,
+              ),
+              blob,
+              baseImageDataUrl: await blobToDataUrl(blob),
+              regions: cloneAioRegions(outputRegions, cloneRenderStyle),
+              detectCount: outputRegions.length,
+              candidateCount,
+              approvedCount,
+              reviewCount,
+            };
+          } finally {
+            releasePage(imgData);
           }
-
-          return {
-            imageId: imgData.id,
-            fileName: session.buildCleanDownloadName(
-              isAiSfxMode ? 'koma-studio-ai-sfx-clean' : 'koma-studio-automatic-ai-clean',
-              imgData.file.name,
-            ),
-            blob,
-            baseImageDataUrl: await blobToDataUrl(blob),
-            regions: cloneAioRegions(outputRegions, cloneRenderStyle),
-            detectCount: outputRegions.length,
-            candidateCount,
-            approvedCount,
-            reviewCount,
-          };
         },
         onProgress: ({ completed }: { completed: number }) => {
           setProgress((completed / images.length) * 100);

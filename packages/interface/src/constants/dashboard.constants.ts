@@ -50,6 +50,14 @@ export const DIRECT_IMAGE_UPLOAD_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", 
 
 export const CONTAINER_UPLOAD_EXTENSIONS = new Set([".zip", ".cbz", ".cb7", ".pdf", ".psd"]);
 
+/**
+ * Containers the browser reads directly, page by page, without the backend.
+ *
+ * A `.cbz`/`.zip` is a ZIP archive of page images, so the central directory can
+ * be parsed in the browser and each page extracted on demand.
+ */
+export const CHAPTER_ARCHIVE_UPLOAD_EXTENSIONS = new Set([".zip", ".cbz"]);
+
 export const DASHBOARD_UPLOAD_ACCEPT: Record<string, string[]> = {
   "image/*": [".png", ".jpg", ".jpeg", ".webp"],
   "application/zip": [".zip", ".cbz"],

@@ -26,6 +26,11 @@ import {
 } from '../utils/dashboard.utils';
 import { normalizeManualRegions } from '../utils/detectTextRegions';
 import {
+  materializePageForProcessing,
+  releasePage,
+  type MaterializedPage,
+} from '../utils/page-source';
+import {
   type CustomLlmProfile,
   type LlmRequestSettings,
 } from '../utils/customLlm';
@@ -227,7 +232,9 @@ export function useAioManualStageExecutor({
     type ManualStageBodyResult =
       | { refused: true }
       | { refused: false; notice: RuntimeExecutionNotice | null };
-    const runStageBody = async (): Promise<ManualStageBodyResult> => {
+    const runStageBody = async (
+      stageImage: MaterializedPage,
+    ): Promise<ManualStageBodyResult> => {
       let executionNotice: RuntimeExecutionNotice | null = null;
       if (stageKey === 'detectText') {
         assertNotAborted();
@@ -235,7 +242,7 @@ export function useAioManualStageExecutor({
           useRegionEditorStore.getState().aioDetectionsByImage[activeId] ?? [];
         const normalizedSelectedRegions = normalizeManualRegions(
           currentDetectRegions,
-          activeImageData,
+          stageImage,
           { minRegionSize },
         );
 
@@ -258,7 +265,7 @@ export function useAioManualStageExecutor({
 
           const detectDone = await runDetectTextStage(
             {
-              image: activeImageData,
+              image: stageImage,
               modelKey: selectedDetectorKey,
               sourceLanguage: aioSrcLang,
               useGpu: gpuStages?.detectText,
@@ -295,7 +302,7 @@ export function useAioManualStageExecutor({
         } else {
           const ocrDone = await runRecognizeTextStage(
             {
-              image: activeImageData,
+              image: stageImage,
               modelKey: selectedOcrKey,
               sourceLanguage: aioSrcLang,
               regions: detectRegions,
@@ -336,7 +343,7 @@ export function useAioManualStageExecutor({
         } else {
           const translateDone = await runGetTranslationsStage(
             {
-              image: activeImageData,
+              image: stageImage,
               modelKey: selectedTranslationKey,
               sourceLanguage: aioSrcLang,
               targetLanguage: aioTgtLang,
@@ -376,7 +383,7 @@ export function useAioManualStageExecutor({
         } else {
           const segmentDone = await runSegmentTextStage(
             {
-              image: activeImageData,
+              image: stageImage,
               modelKey: selectedSegmentKey,
               regions: sourceRegions,
               fallbackOcrModelKey: selectedOcrKey,
@@ -414,7 +421,7 @@ export function useAioManualStageExecutor({
         const manualEditState = getAioManualImageEditState(activeId);
         const cleanDone = await runCleanImageStage(
           {
-            image: activeImageData,
+            image: stageImage,
             modelKey: selectedCleanKey,
             regions: sourceRegions,
             fallbackOcrModelKey: selectedOcrKey,
@@ -464,7 +471,8 @@ export function useAioManualStageExecutor({
     };
 
     try {
-      const stageBodyResult = await runStageBody();
+      const stageImage = await materializePageForProcessing(activeImageData);
+      const stageBodyResult = await runStageBody(stageImage);
       if (stageBodyResult.refused) {
         return;
       }
@@ -493,6 +501,7 @@ export function useAioManualStageExecutor({
         setStatusMessage(error instanceof Error ? `${error.message}${stageTransportNoticeDetail(error)}` : t('aioManual.stageFailed', { stageLabel }));
       }
     } finally {
+      releasePage(activeImageData);
       setProcessing(false);
       setProgress(0);
       void syncDiscordForTab();

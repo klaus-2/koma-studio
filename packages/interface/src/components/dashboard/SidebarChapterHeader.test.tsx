@@ -11,12 +11,13 @@ import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collecti
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import type { LoadedImage } from '@/types/dashboard.types';
+import { createDirectPageFile } from '@/utils/page-source';
 
 const makeImage = (index: number): LoadedImage => ({
   id: `img-${index}`,
-  file: new File([`page-${index}`], `page-${index}.png`, {
+  file: createDirectPageFile(new File([`page-${index}`], `page-${index}.png`, {
     type: 'image/png',
-  }),
+  })),
   url: `data:image/png;base64,AA${index}`,
   width: 40,
   height: 30,

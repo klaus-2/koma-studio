@@ -259,10 +259,30 @@ export default function ChapterOptimizerWorkspace({
     if (!activeImage) return null;
 
     return (
-      resolveSourceVariant(activeImage.id)?.blob ??
-      activeImage.file
+      resolveSourceVariant(activeImage.id)?.blob ?? null
     );
   }, [activeImage, resolveSourceVariant]);
+
+  // The lazy page is materialized for the preview when no source variant
+  // exists; the blob lives for this active image only and is dropped when
+  // the selection changes or the component unmounts.
+  const [materializedSourceBlob, setMaterializedSourceBlob] = useState<Blob | null>(null);
+  useEffect(() => {
+    if (!activeImage || activeSourceBlob) {
+      setMaterializedSourceBlob(null);
+      return;
+    }
+    let cancelled = false;
+    void activeImage.file.toBlob().then((blob) => {
+      if (!cancelled) setMaterializedSourceBlob(blob);
+    });
+    return () => {
+      cancelled = true;
+      setMaterializedSourceBlob(null);
+    };
+  }, [activeImage, activeSourceBlob]);
+
+  const effectiveSourceBlob = activeSourceBlob ?? materializedSourceBlob;
 
   useEffect(() => {
     const imageStillExists = images.some(
@@ -339,7 +359,7 @@ export default function ChapterOptimizerWorkspace({
     previewLoading,
   } = useChapterOptimizerPreviewNoir({
     activeImage,
-    activeSourceBlob,
+    activeSourceBlob: effectiveSourceBlob,
     recipe,
     setStatusMessage,
     t,
@@ -432,7 +452,7 @@ export default function ChapterOptimizerWorkspace({
             resolveSourceVariant(image.id);
 
           const sourceBlob =
-            sourceVariant?.blob ?? image.file;
+            sourceVariant?.blob ?? (await image.file.toBlob());
 
           const result = await runOptimizerJob(
             {

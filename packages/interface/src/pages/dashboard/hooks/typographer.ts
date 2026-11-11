@@ -17,6 +17,7 @@ import { cloneTypographyRegions, createTypographyId } from '../../../typography/
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import { resolveRegionShapeKind } from '../../../utils/dashboard.utils';
 import { EMPTY_SELECTED_REGION_IDS } from '../../../utils/dashboardRenderUtils';
+import type { PageFile } from '../../../utils/page-source';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useTypographerStore } from '../stores/typographer-store';
@@ -28,7 +29,14 @@ import {
 
 interface WorkspaceImage {
   id: string;
-  file: File;
+  /**
+   * The page's lazy file.
+   *
+   * The typographer only reads the page's metadata (`name`, `size`,
+   * `lastModified`) to build the session fingerprint, so it never
+   * materializes the bytes.
+   */
+  file: PageFile;
   width: number;
   height: number;
 }

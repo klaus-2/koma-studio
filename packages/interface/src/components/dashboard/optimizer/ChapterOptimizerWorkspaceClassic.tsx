@@ -216,52 +216,64 @@ export default function ChapterOptimizerWorkspaceClassic({
     }
 
     // Set original preview URL immediately (no debounce needed)
-    const source = resolveSourceVariant(activeImage.id);
-    const sourceBlob = source?.blob ?? activeImage.file;
-    const origUrl = URL.createObjectURL(sourceBlob);
-    setOriginalPreviewUrl(origUrl);
+    let cancelled = false;
+    void activeImage.file
+      .toBlob()
+      .then((sourceBlob) => {
+        if (cancelled) return;
+        const origUrl = URL.createObjectURL(sourceBlob);
+        setOriginalPreviewUrl(origUrl);
 
-    const currentTicket = ++previewTicketRef.current;
-    let jobCancelled = false;
+        const currentTicket = ++previewTicketRef.current;
+        let jobCancelled = false;
 
-    // Debounce the actual job by 300ms
-    previewDebounceRef.current = setTimeout(() => {
-      void sourceBlob
-        .arrayBuffer()
-        .then((buffer) =>
-          runOptimizerJob({
-            sourceBuffer: buffer,
-            sourceMimeType:
-              sourceBlob.type || activeImage.file.type || 'image/png',
-            ...recipe,
-          }, t),
-        )
-        .then((result) => {
-          if (jobCancelled || currentTicket !== previewTicketRef.current) return;
-          const nextUrl = URL.createObjectURL(result.blob);
-          setPreviewUrl(nextUrl);
-          setPreviewStats({
-            originalBytes: sourceBlob.size,
-            optimizedBytes: result.blob.size,
-            width: result.width,
-            height: result.height,
-          });
-          setPreviewLoading(false);
-        })
-        .catch((error) => {
-          if (!jobCancelled) {
-            setPreviewLoading(false);
-            setStatusMessage(
-              error instanceof Error
-                ? error.message
-                : t('optimizer.error.preview'),
-            );
+        // Debounce the actual job by 300ms
+        previewDebounceRef.current = setTimeout(() => {
+          void sourceBlob
+            .arrayBuffer()
+            .then((buffer) =>
+              runOptimizerJob({
+                sourceBuffer: buffer,
+                sourceMimeType:
+                  sourceBlob.type || activeImage.file.type || 'image/png',
+                ...recipe,
+              }, t),
+            )
+            .then((result) => {
+              if (jobCancelled || currentTicket !== previewTicketRef.current) return;
+              const nextUrl = URL.createObjectURL(result.blob);
+              setPreviewUrl(nextUrl);
+              setPreviewStats({
+                originalBytes: sourceBlob.size,
+                optimizedBytes: result.blob.size,
+                width: result.width,
+                height: result.height,
+              });
+              setPreviewLoading(false);
+            })
+            .catch((error) => {
+              if (!jobCancelled) {
+                setPreviewLoading(false);
+                setStatusMessage(
+                  error instanceof Error
+                    ? error.message
+                    : t('optimizer.error.preview'),
+                );
+              }
+            });
+        }, 300);
+
+        return () => {
+          jobCancelled = true;
+          if (previewDebounceRef.current) {
+            clearTimeout(previewDebounceRef.current);
+            previewDebounceRef.current = null;
           }
-        });
-    }, 300);
+        };
+      });
 
     return () => {
-      jobCancelled = true;
+      cancelled = true;
       if (previewDebounceRef.current) {
         clearTimeout(previewDebounceRef.current);
         previewDebounceRef.current = null;
@@ -316,7 +328,7 @@ export default function ChapterOptimizerWorkspaceClassic({
           const image = images[i];
           if (!image) continue;
           const source = resolveSourceVariant(image.id);
-          const sourceBlob = source?.blob ?? image.file;
+          const sourceBlob = source?.blob ?? (await image.file.toBlob());
           const result = await runOptimizerJob({
             sourceBuffer: await sourceBlob.arrayBuffer(),
             sourceMimeType: sourceBlob.type || image.file.type || 'image/png',

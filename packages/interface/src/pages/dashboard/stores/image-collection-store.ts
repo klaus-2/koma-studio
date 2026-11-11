@@ -26,6 +26,10 @@ interface ImageCollectionStore {
   clearChapter: (chapterId: string) => void;
   moveImage: (index: number, direction: 'up' | 'down') => void;
   rotateImage: (id: string) => void;
+  updateImageDimensions: (
+    imageId: string,
+    dimensions: { width: number; height: number },
+  ) => void;
 }
 
 const withoutChapter = (image: LoadedImage): LoadedImage => {
@@ -134,6 +138,33 @@ export const useImageCollectionStore = create<ImageCollectionStore>()(
               : img,
           ),
         })),
+      updateImageDimensions: (imageId, dimensions) =>
+        set((state) => {
+          if (dimensions.width <= 0 || dimensions.height <= 0) {
+            return state;
+          }
+          const target = state.images.find((img) => img.id === imageId);
+          if (!target) {
+            return state;
+          }
+          if (
+            target.width === dimensions.width &&
+            target.height === dimensions.height
+          ) {
+            return state;
+          }
+          return {
+            images: state.images.map((img) =>
+              img.id === imageId
+                ? {
+                    ...img,
+                    width: dimensions.width,
+                    height: dimensions.height,
+                  }
+                : img,
+            ),
+          };
+        }),
     }),
     { name: 'image-collection-store' },
   ),

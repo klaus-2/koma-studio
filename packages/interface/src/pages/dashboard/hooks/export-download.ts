@@ -22,9 +22,11 @@ import type {
   AioTextRegion,
   DownloadBundleFormat,
   DownloadItem,
+  LoadedImage,
   PreparedDownloadEntry,
   ProcessableMode,
 } from '../../../types/dashboard.types';
+import { materializePageFile } from '../../../utils/page-source';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useExportStore } from '../stores/export-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
@@ -65,17 +67,11 @@ function anchorBlobDownload(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-interface ImageRef {
-  id: string;
-  file: File;
-  url: string;
-}
-
 interface UseDashboardDownloadBundleArgs {
   getTypographerSessionsByImage: () => Record<string, unknown>;
-  renderAioImageToBlob: (img: ImageRef, regions: AioTextRegion[]) => Promise<Blob>;
-  composeCleanerEditableCanvas: (img: ImageRef, fallbackBaseSource?: string) => Promise<HTMLCanvasElement>;
-  composeAioEditableCanvas: (img: ImageRef, fallbackBaseSource?: string) => Promise<HTMLCanvasElement>;
+  renderAioImageToBlob: (img: LoadedImage, regions: AioTextRegion[]) => Promise<Blob>;
+  composeCleanerEditableCanvas: (img: LoadedImage, fallbackBaseSource?: string) => Promise<HTMLCanvasElement>;
+  composeAioEditableCanvas: (img: LoadedImage, fallbackBaseSource?: string) => Promise<HTMLCanvasElement>;
   hasCleanerManualImageEdits: (imageId: string) => boolean;
   hasAioManualImageEdits: (imageId: string) => boolean;
   getAioDownloadItemForImage: (imageId: string) => DownloadItem | null;
@@ -198,7 +194,9 @@ export function useDashboardDownloadBundle({
         const normalizedStem = removeFileExtension(imgData.file.name).replace(/\s+/g, '-') || 'image';
         outputs.push({
           fileName: `koma-studio-aio-${stageToken}-${normalizedStem}.${sourceExt}`,
-          blob: imgData.file,
+          // The export owns these bytes: the archive-backed page is
+          // materialized and kept until the bundle is written.
+          blob: await materializePageFile(imgData),
           sourceImageId: imgData.id,
         });
       }

@@ -100,7 +100,7 @@ const defaultRevokeEntries = (entries: WatermarkResultEntry[]): void => {
   });
 };
 
-const loadImageBitmapSource = async (file: File): Promise<ImageBitmap | HTMLImageElement> => {
+const loadImageBitmapSource = async (file: Blob): Promise<ImageBitmap | HTMLImageElement> => {
   if (typeof createImageBitmap === 'function') {
     return createImageBitmap(file);
   }
@@ -122,7 +122,7 @@ const defaultAnalyzeSmartSuggestion = async (
   textColor: string;
   reason: string;
 }> => {
-  const source = await loadImageBitmapSource(image.file);
+  const source = await loadImageBitmapSource(await image.file.toBlob());
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, image.width);
   canvas.height = Math.max(1, image.height);
@@ -476,11 +476,11 @@ const WatermarkWorkspaceClassic = ({
   }, []);
 
   const buildAsset = useCallback(
-    (img: WatermarkLoadedImage): WatermarkRenderAsset => {
+    async (img: WatermarkLoadedImage): Promise<WatermarkRenderAsset> => {
       const { draft, textZoneCache, watermarkImageFile } =
         useWatermarkStore.getState();
       return {
-        sourceFile: img.file,
+        sourceFile: await img.file.toBlob(),
         watermarkFile: watermarkImageFile,
         image: {
           id: img.id,
@@ -504,7 +504,7 @@ const WatermarkWorkspaceClassic = ({
   const detectTextZones = useCallback(async (img: WatermarkLoadedImage) => {
     const apiConfig = getApiConfig();
     const formData = new FormData();
-    formData.append('file', img.file);
+    formData.append('file', await img.file.toBlob(), img.file.name);
     try {
       setDetectingTextZones(true);
       const response = await fetchWithTimeoutAndRetry(
@@ -547,7 +547,7 @@ const WatermarkWorkspaceClassic = ({
         const chunk = pendingImages.slice(chunkStart, chunkStart + 4);
         await Promise.all(chunk.map(async (img) => {
           const formData = new FormData();
-          formData.append('file', img.file);
+          formData.append('file', await img.file.toBlob(), img.file.name);
           const response = await fetchWithTimeoutAndRetry(
             `${apiConfig.localUrl}/detect`,
             { method: 'POST', body: formData },
@@ -597,7 +597,8 @@ const WatermarkWorkspaceClassic = ({
     previewTimeoutRef.current = window.setTimeout(() => {
       const rid = ++previewRequestRef.current;
       setPreviewBusy(true);
-      void runRender(buildAsset(activeImage))
+      void buildAsset(activeImage)
+        .then((asset) => runRender(asset))
         .then((r) => {
           if (previewRequestRef.current !== rid) return;
           setPreviewAnchor(r.resolvedAnchor);
@@ -759,7 +760,7 @@ const WatermarkWorkspaceClassic = ({
       for (let i = 0; i < images.length; i++) {
         if (cancelBatchRef.current) throw new Error(t('common.cancelled'));
         const img = images[i]!;
-        const r = await runRender(buildAsset(img));
+        const r = await runRender(await buildAsset(img));
         nr.push({
           sourceImageId: img.id,
           name: buildOutputName(img.file.name, draft, outputType),

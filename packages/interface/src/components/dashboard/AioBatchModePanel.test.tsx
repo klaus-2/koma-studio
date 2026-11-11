@@ -11,6 +11,7 @@ import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store
 import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collection-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import type { LoadedImage } from '@/types/dashboard.types';
+import { createDirectPageFile } from '@/utils/page-source';
 
 const stageOption = (key: string) => ({
   key,
@@ -27,7 +28,9 @@ const makeImage = (
   chapterLabel: string,
 ): LoadedImage => ({
   id: `img-${index}`,
-  file: new File([`page-${index}`], `page-${index}.png`, { type: 'image/png' }),
+  file: createDirectPageFile(new File([`page-${index}`], `page-${index}.png`, {
+    type: 'image/png',
+  })),
   url: `data:image/png;base64,AA${index}`,
   width: 40,
   height: 30,

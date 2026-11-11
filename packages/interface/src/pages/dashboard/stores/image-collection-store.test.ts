@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collection-store';
 import type { LoadedImage } from '@/types/dashboard.types';
+import { createDirectPageFile } from '@/utils/page-source';
 
 const makeImage = (index: number): LoadedImage => ({
   id: `img-${index}`,
-  file: new File([`page-${index}`], `page-${index}.png`, {
+  file: createDirectPageFile(new File([`page-${index}`], `page-${index}.png`, {
     type: 'image/png',
-  }),
+  })),
   url: `data:image/png;base64,AA${index}`,
   width: 40,
   height: 30,

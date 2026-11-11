@@ -6,6 +6,7 @@ import { useCleanerStore } from '@/pages/dashboard/stores/cleaner-store';
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import { DEFAULT_LLM_REQUEST_SETTINGS } from '@/utils/customLlm';
+import { createDirectPageFile } from '@/utils/page-source';
 import type { LoadedImage } from '@/types/dashboard.types';
 
 const cleanerInitial = useCleanerStore.getState();
@@ -15,7 +16,7 @@ const uiInitial = useUiShellStore.getState();
 function makeImage(id: string): LoadedImage {
   return {
     id,
-    file: new File(['x'], `${id}.png`, { type: 'image/png' }),
+    file: createDirectPageFile(new File(['x'], `${id}.png`, { type: 'image/png' })),
     url: 'data:image/png;base64,AA==',
     width: 4,
     height: 4,

@@ -10,7 +10,7 @@ import VersionBadge from '../../VersionBadge';
 import SidebarChapterHeader from '../SidebarChapterHeader';
 import SidebarChapterSelectionBar from '../SidebarChapterSelectionBar';
 import { KomaMascotBadgeNoir } from './KomaMascotBadgeNoir';
-import { cn } from '../../../utils/dashboard.utils';
+import { cn, formatImageDimensions } from '../../../utils/dashboard.utils';
 import type { SidebarChapterSelection } from '../../../pages/dashboard/hooks/use-sidebar-chapter-selection';
 import {
   DIRECT_IMAGES_CHAPTER_ID,
@@ -142,7 +142,7 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <p className="truncate font-mono text-[11px] font-medium text-paper" title={img.file.name}>{img.file.name}</p>
-        <p className="font-mono text-[9px] text-paper-dim">{rotated.width}×{rotated.height}</p>
+        <p className="font-mono text-[9px] text-paper-dim">{formatImageDimensions(rotated.width, rotated.height)}</p>
       </div>
       <div
         className={cn(

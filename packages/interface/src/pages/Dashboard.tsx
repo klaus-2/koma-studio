@@ -1275,37 +1275,13 @@ export const DashboardPage = ({
     () => useTypographerStore.getState().typographerSessionsByImage,
     [],
   );
-  const bundleRenderAioImageToBlob = useCallback(
-    (img: { id: string; file: File; url: string }, regions: AioTextRegion[]) =>
-      (renderAioImageToBlob as unknown as (
-        img: LoadedImage,
-        regions: AioTextRegion[],
-      ) => Promise<Blob>)(img as unknown as LoadedImage, regions),
-    [renderAioImageToBlob],
-  );
-  const bundleComposeCleanerEditableCanvas = useCallback(
-    (img: { id: string; file: File; url: string }, fallback?: string) =>
-      (composeCleanerEditableCanvas as unknown as (
-        img: LoadedImage,
-        fallback?: string,
-      ) => Promise<HTMLCanvasElement>)(img as unknown as LoadedImage, fallback),
-    [composeCleanerEditableCanvas],
-  );
-  const bundleComposeAioEditableCanvas = useCallback(
-    (img: { id: string; file: File; url: string }, fallback?: string) =>
-      (composeAioEditableCanvas as unknown as (
-        img: LoadedImage,
-        fallback?: string,
-      ) => Promise<HTMLCanvasElement>)(img as unknown as LoadedImage, fallback),
-    [composeAioEditableCanvas],
-  );
 
   const { prepareDownloadEntries, buildDownloadBundleBlob } =
     useDashboardDownloadBundle({
       getTypographerSessionsByImage: bundleGetTypographerSessionsByImage,
-      renderAioImageToBlob: bundleRenderAioImageToBlob,
-      composeCleanerEditableCanvas: bundleComposeCleanerEditableCanvas,
-      composeAioEditableCanvas: bundleComposeAioEditableCanvas,
+      renderAioImageToBlob,
+      composeCleanerEditableCanvas,
+      composeAioEditableCanvas,
       hasCleanerManualImageEdits,
       hasAioManualImageEdits,
       getAioDownloadItemForImage,

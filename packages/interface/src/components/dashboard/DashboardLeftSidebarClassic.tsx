@@ -22,7 +22,7 @@ import { useI18n, type TranslateFn } from '../../i18n';
 import VersionBadge from '../VersionBadge';
 import SidebarChapterHeader from './SidebarChapterHeader';
 import SidebarChapterSelectionBar from './SidebarChapterSelectionBar';
-import { cn } from '../../utils/dashboard.utils';
+import { cn, formatImageDimensions } from '../../utils/dashboard.utils';
 import type { SidebarChapterSelection } from '../../pages/dashboard/hooks/use-sidebar-chapter-selection';
 import {
   DIRECT_IMAGES_CHAPTER_ID,
@@ -156,7 +156,7 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
           {img.file.name}
         </p>
         <p className="koma-fileitem__dims">
-          {rotated.width}x{rotated.height}
+          {formatImageDimensions(rotated.width, rotated.height)}
         </p>
       </div>
       <div

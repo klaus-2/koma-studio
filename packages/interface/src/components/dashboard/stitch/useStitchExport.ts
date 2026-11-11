@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useI18n } from '../../../i18n';
 import { useRafWheelZoom } from '../../../hooks/useRafWheelZoom';
+import {
+  materializePageForProcessing,
+  releasePage,
+} from '../../../utils/page-source';
 import { getExtensionFromMimeType, getMimeTypeFromExportFormat } from './stitchUtils';
 import { buildRequestId, canUseDirectoryPicker, runRenderJob, type ActiveTask } from './stitchRender';
 import type {
@@ -10,9 +14,35 @@ import type {
   StitchExportFormat,
   StitchImageInput,
   StitchLayoutMode,
+  StitchRenderImageInput,
   StitchRenderJob,
 } from './types';
 
+
+/**
+ * Materialize one page for the worker.
+ *
+ * A `PageFile` carries functions, which structured clone cannot copy, so the
+ * job must carry a real `File`. The page's own cache is released right
+ * after: the job holds its own copy of the bytes.
+ */
+const materializeForWorker = async (
+  image: StitchImageInput,
+): Promise<StitchRenderImageInput> => {
+  const page = await materializePageForProcessing({
+    file: image.file,
+    width: image.width,
+    height: image.height,
+  });
+  releasePage(image);
+  return {
+    file: page.file,
+    width: page.width,
+    height: page.height,
+    rotation: image.rotation,
+    filters: image.filters,
+  };
+};
 
 export interface UseStitchExportArgs {
   images: StitchImageInput[];
@@ -124,33 +154,53 @@ export function useStitchExport(args: UseStitchExportArgs) {
     setPreviewBusy(true);
     setPreviewProgress(0);
     setRenderError(null);
-    const task = runRenderJob({
-      requestId: buildRequestId(),
-      images: selectedBatchImages.map((image) => ({ file: image.file, width: image.width, height: image.height, rotation: image.rotation, filters: image.filters })),
-      layoutMode,
-      gap,
-      mimeType: 'image/png',
-      quality: 1,
-      background,
-      alignMode,
-    }, (progress) => setPreviewProgress(progress));
-    previewTaskRef.current = task;
-    task.promise.then((result) => {
-      const objectUrl = URL.createObjectURL(result.blob);
-      const prevUrl = previewUrlCleanupRef.current;
-      if (prevUrl) URL.revokeObjectURL(prevUrl);
-      setPreviewUrl(objectUrl);
-      setPreviewDimensions({ width: result.width, height: result.height });
-    }).catch((error) => {
-      if (error instanceof Error && error.message === 'stitch.error.cancelled') return;
-      setRenderError(resolveStitchError(error, 'stitch.error.generatePreview'));
-    }).finally(() => {
-      if (previewTaskRef.current === task) previewTaskRef.current = null;
-      setPreviewBusy(false);
-      setPreviewProgress(0);
-    });
+    let cancelled = false;
+    void (async () => {
+      // The job is built from materialized pages: the worker receives plain
+      // data it can structured-clone.
+      const jobImages: StitchRenderImageInput[] = [];
+      for (const image of selectedBatchImages) {
+        jobImages.push(await materializeForWorker(image));
+        if (cancelled) {
+          setPreviewBusy(false);
+          return;
+        }
+      }
+      if (cancelled) {
+        setPreviewBusy(false);
+        return;
+      }
+      const task = runRenderJob({
+        requestId: buildRequestId(),
+        images: jobImages,
+        layoutMode,
+        gap,
+        mimeType: 'image/png',
+        quality: 1,
+        background,
+        alignMode,
+      }, (progress) => setPreviewProgress(progress));
+      previewTaskRef.current = task;
+      task.promise.then((result) => {
+        const objectUrl = URL.createObjectURL(result.blob);
+        const prevUrl = previewUrlCleanupRef.current;
+        if (prevUrl) URL.revokeObjectURL(prevUrl);
+        setPreviewUrl(objectUrl);
+        setPreviewDimensions({ width: result.width, height: result.height });
+      }).catch((error) => {
+        if (error instanceof Error && error.message === 'stitch.error.cancelled') return;
+        setRenderError(resolveStitchError(error, 'stitch.error.generatePreview'));
+      }).finally(() => {
+        if (previewTaskRef.current === task) previewTaskRef.current = null;
+        setPreviewBusy(false);
+        setPreviewProgress(0);
+      });
+    })();
 
-    return () => task.cancel();
+    return () => {
+      cancelled = true;
+      cancelPreviewTask();
+    };
   }, [alignMode, background, cancelPreviewTask, gap, layoutMode, resolveStitchError, selectedBatchImages]);
 
   useEffect(() => () => {
@@ -159,20 +209,24 @@ export function useStitchExport(args: UseStitchExportArgs) {
     if (previewUrlCleanupRef.current) URL.revokeObjectURL(previewUrlCleanupRef.current);
   }, [cancelExportTask, cancelPreviewTask]);
 
-  const buildRenderJobForBatch = useCallback((batch: StitchBatchPlan, format: Exclude<StitchExportFormat, 'zip'>): StitchRenderJob => ({
-    requestId: buildRequestId(),
-    images: batch.imageIndexes.flatMap((imageIndex) => {
+  const buildRenderJobForBatch = useCallback(async (batch: StitchBatchPlan, format: Exclude<StitchExportFormat, 'zip'>): Promise<StitchRenderJob> => {
+    const jobImages: StitchRenderImageInput[] = [];
+    for (const imageIndex of batch.imageIndexes) {
       const image = images[imageIndex];
-      if (!image) return [];
-      return { file: image.file, width: image.width, height: image.height, rotation: image.rotation, filters: image.filters };
-    }),
-    layoutMode,
-    gap,
-    mimeType: getMimeTypeFromExportFormat(format),
-    quality: outQuality,
-    background,
-    alignMode,
-  }), [alignMode, background, gap, images, layoutMode, outQuality]);
+      if (!image) continue;
+      jobImages.push(await materializeForWorker(image));
+    }
+    return {
+      requestId: buildRequestId(),
+      images: jobImages,
+      layoutMode,
+      gap,
+      mimeType: getMimeTypeFromExportFormat(format),
+      quality: outQuality,
+      background,
+      alignMode,
+    };
+  }, [alignMode, background, gap, images, layoutMode, outQuality]);
 
   const exportCurrentBatch = useCallback(async () => {
     if (!selectedBatch || !selectedBatchImages.length) return;
@@ -183,7 +237,7 @@ export function useStitchExport(args: UseStitchExportArgs) {
     setStatusMessage(tRef.current('stitch.workspace.renderingBatch', { current: selectedBatchIndex + 1, total: batchPlans.length }));
     setRenderError(null);
 
-    const task = runRenderJob(buildRenderJobForBatch(selectedBatch, singleExportFormat), (progress) => setProgress(progress));
+    const task = runRenderJob(await buildRenderJobForBatch(selectedBatch, singleExportFormat), (progress) => setProgress(progress));
     exportTaskRef.current = task;
     try {
       const result = await task.promise;
@@ -220,7 +274,7 @@ export function useStitchExport(args: UseStitchExportArgs) {
       for (let batchIndex = 0; batchIndex < batchPlans.length; batchIndex += 1) {
         const batch = batchPlans[batchIndex];
         if (!batch) continue;
-        const task = runRenderJob(buildRenderJobForBatch(batch, singleExportFormat), (progress) => setProgress(((batchIndex + progress / 100) / batchPlans.length) * 100));
+        const task = runRenderJob(await buildRenderJobForBatch(batch, singleExportFormat), (progress) => setProgress(((batchIndex + progress / 100) / batchPlans.length) * 100));
         exportTaskRef.current = task;
         const result = await task.promise;
         const extension = getExtensionFromMimeType(result.blob.type);
@@ -256,7 +310,7 @@ export function useStitchExport(args: UseStitchExportArgs) {
       for (let batchIndex = 0; batchIndex < batchPlans.length; batchIndex += 1) {
         const batch = batchPlans[batchIndex];
         if (!batch) continue;
-        const task = runRenderJob(buildRenderJobForBatch(batch, singleExportFormat), (progress) => setProgress(((batchIndex + progress / 100) / batchPlans.length) * 100));
+        const task = runRenderJob(await buildRenderJobForBatch(batch, singleExportFormat), (progress) => setProgress(((batchIndex + progress / 100) / batchPlans.length) * 100));
         exportTaskRef.current = task;
         const result = await task.promise;
         const extension = getExtensionFromMimeType(result.blob.type);

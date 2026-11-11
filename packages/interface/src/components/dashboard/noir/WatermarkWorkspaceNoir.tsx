@@ -43,6 +43,7 @@ import {
   suggestSmartPlacement,
 } from '../watermark/watermark-core.js';
 import { renderWatermarkAsset } from '../watermark/watermarkRenderer';
+import { loadImageFromSource } from '../../../utils/dashboard.utils';
 import { getApiConfig } from '../../../config/api';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 
@@ -139,24 +140,19 @@ const defaultRevokeEntries = (entries: WatermarkResultEntry[]): void => {
   });
 };
 
-const loadImageBitmapSource = async (file: File): Promise<ImageBitmap | HTMLImageElement> => {
+const loadImageBitmapSource = async (file: Blob): Promise<ImageBitmap | HTMLImageElement> => {
   if (typeof createImageBitmap === 'function') {
     return createImageBitmap(file);
   }
 
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('Falha ao carregar imagem para sugestao inteligente.'));
-    };
-    image.src = objectUrl;
-  });
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    return await loadImageFromSource(objectUrl);
+  } catch {
+    throw new Error('Falha ao carregar imagem para sugestao inteligente.');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 };
 
 // Blob URL state whose whole lifecycle is owned here: every set revokes the
@@ -188,7 +184,7 @@ const defaultAnalyzeSmartSuggestion = async (
   textColor: string;
   reason: string;
 }> => {
-  const source = await loadImageBitmapSource(image.file);
+  const source = await loadImageBitmapSource(await image.file.toBlob());
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, image.width);
   canvas.height = Math.max(1, image.height);
@@ -541,8 +537,8 @@ const WatermarkWorkspaceNoir = ({
   watermarkImageFileRef.current = watermarkImageFile;
 
   const buildAsset = useCallback(
-    (img: WatermarkLoadedImage): WatermarkRenderAsset => ({
-      sourceFile: img.file,
+    async (img: WatermarkLoadedImage): Promise<WatermarkRenderAsset> => ({
+      sourceFile: await img.file.toBlob(),
       watermarkFile: watermarkImageFileRef.current,
       image: {
         id: img.id,
@@ -568,7 +564,7 @@ const WatermarkWorkspaceNoir = ({
   const detectTextZones = useCallback(async (img: WatermarkLoadedImage) => {
     const apiConfig = getApiConfig();
     const formData = new FormData();
-    formData.append('file', img.file);
+    formData.append('file', await img.file.toBlob(), img.file.name);
     try {
       setDetectingTextZones(true);
       const response = await fetchWithTimeoutAndRetry(
@@ -607,7 +603,7 @@ const WatermarkWorkspaceNoir = ({
       for (const img of images) {
         if (textZoneCache[img.id]) continue;
         const formData = new FormData();
-        formData.append('file', img.file);
+        formData.append('file', await img.file.toBlob(), img.file.name);
         const response = await fetchWithTimeoutAndRetry(
           `${apiConfig.localUrl}/detect`,
           { method: 'POST', body: formData },
@@ -653,7 +649,8 @@ const WatermarkWorkspaceNoir = ({
     previewTimeoutRef.current = window.setTimeout(() => {
       const rid = ++previewRequestRef.current;
       setPreviewBusy(true);
-      void runRender(buildAsset(activeImage))
+      void buildAsset(activeImage)
+        .then((asset) => runRender(asset))
         .then((r) => {
           if (previewRequestRef.current !== rid) return;
           setPreviewAnchor(r.resolvedAnchor);
@@ -802,7 +799,7 @@ const WatermarkWorkspaceNoir = ({
       for (let i = 0; i < images.length; i++) {
         if (cancelBatchRef.current) throw new Error(t('common.cancelled'));
         const img = images[i]!;
-        const r = await runRender(buildAsset(img));
+        const r = await runRender(await buildAsset(img));
         nr.push({
           sourceImageId: img.id,
           name: buildOutputName(img.file.name, draft, outputType),

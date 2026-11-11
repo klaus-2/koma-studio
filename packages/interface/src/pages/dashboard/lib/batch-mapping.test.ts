@@ -9,6 +9,7 @@ import {
   applyDetectedGradientToStyle,
   cloneRenderStyle,
 } from '@/utils/dashboard.utils';
+import { createDirectPageFile } from '@/utils/page-source';
 import { BatchMappingError, mapBatchReportToAioResults, type BatchMappingAioSteps, type BatchMappingImage } from './batch-mapping';
 
 const steps: BatchMappingAioSteps = {
@@ -29,9 +30,9 @@ const stages: PipelineBatchStages = {
 
 const makeImage = (index: number): BatchMappingImage => ({
   id: `image-${index}`,
-  file: new File([new Uint8Array([index])], `page-${index}.png`, {
+  file: createDirectPageFile(new File([new Uint8Array([index])], `page-${index}.png`, {
     type: 'image/png',
-  }),
+  })),
   width: 400,
   height: 300,
 });

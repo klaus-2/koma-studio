@@ -25,6 +25,10 @@ import {
   type StageRuntime,
 } from '../../../aio-stages';
 import { buildSfxTranslationInstructions } from '../../../utils/sfx';
+import {
+  materializePageForProcessing,
+  releasePage,
+} from '../../../utils/page-source';
 import type {
   AioTextRegion,
   LoadedImage,
@@ -440,9 +444,10 @@ export function useTranslatorRetranslate({
         )
       : undefined;
 
+    const stageImage = await materializePageForProcessing(imgData);
     const translateDone = await runGetTranslationsStage(
       {
-        image: imgData,
+        image: stageImage,
         modelKey: selectedTranslationKey,
         sourceLanguage: srcLang,
         targetLanguage: tgtLang,
@@ -501,6 +506,7 @@ export function useTranslatorRetranslate({
       const noticeDetail = stageTransportNoticeDetail(error);
       setStatusMessage(error instanceof Error ? `${error.message}${noticeDetail}` : 'Failed to retranslate in the visual Translator.');
     } finally {
+      releasePage(imgData);
       setTranslatorVisualRunning(false);
       setProcessing(false);
       setProgress(0);

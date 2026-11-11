@@ -19,6 +19,10 @@ import {
   resolveSelectedRegionForRegions,
 } from '../../../utils/dashboard.utils';
 import {
+  materializePageForProcessing,
+  releasePage,
+} from '../../../utils/page-source';
+import {
   ensureStageModelReadiness,
   runCleanImageAiStage,
   runDetectTextStage,
@@ -214,48 +218,146 @@ export function useTranslatorVisualActions({
         await setDiscordTranslating(imgData.file.name, srcLang, tgtLang);
         const stageRuntime = { localApiUrl } satisfies StageRuntime;
 
-        const detectDone = await runDetectTextStage(
-          {
-            image: imgData,
-            modelKey: detectSelectionKey,
-            sourceLanguage: srcLang,
-            minRegionSize,
-          },
-          stageRuntime,
-          {
-            stageLabel: 'Detectar Texto',
-            failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
-            parseApiError,
-          },
-        );
-        let detectedRegions = detectDone.value;
+        try {
+          // One page's bytes live only for this iteration: materialized on
+          // demand, released in `finally` even when a stage throws.
+          const stageImage = await materializePageForProcessing(imgData);
+          const detectDone = await runDetectTextStage(
+            {
+              image: stageImage,
+              modelKey: detectSelectionKey,
+              sourceLanguage: srcLang,
+              minRegionSize,
+            },
+            stageRuntime,
+            {
+              stageLabel: 'Detectar Texto',
+              failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
+              parseApiError,
+            },
+          );
+          let detectedRegions = detectDone.value;
 
-        let processedBaseDataUrl: string | null = null;
-        let sfxCandidateCount = 0;
-        let sfxApprovedCount = 0;
-        let sfxReviewCount = 0;
+          let processedBaseDataUrl: string | null = null;
+          let sfxCandidateCount = 0;
+          let sfxApprovedCount = 0;
+          let sfxReviewCount = 0;
 
-        if (translatorVisualProcessingMode === 'ai_sfx') {
-          const candidateRegions = detectedRegions.filter(isLikelySfxCandidate);
-          sfxCandidateCount = candidateRegions.length;
-          totalSfxCandidates += sfxCandidateCount;
+          if (translatorVisualProcessingMode === 'ai_sfx') {
+            const candidateRegions = detectedRegions.filter(isLikelySfxCandidate);
+            sfxCandidateCount = candidateRegions.length;
+            totalSfxCandidates += sfxCandidateCount;
 
-          let enrichedCandidates: AioTextRegion[] = candidateRegions.map((region) => ({
-            ...region,
-            sfxCandidate: true,
-            sfxApproved: false,
-            sfxConfidence: null,
-            sfxRequiresRedraw: false,
-            sfxReason: null,
-          }));
+            let enrichedCandidates: AioTextRegion[] = candidateRegions.map((region) => ({
+              ...region,
+              sfxCandidate: true,
+              sfxApproved: false,
+              sfxConfidence: null,
+              sfxRequiresRedraw: false,
+              sfxReason: null,
+            }));
 
-          if (candidateRegions.length > 0) {
-            const classifyDone = await runSfxClassifyStage(
+            if (candidateRegions.length > 0) {
+              const classifyDone = await runSfxClassifyStage(
+                {
+                  image: stageImage,
+                  modelKey: translatorSfxCleanModelKey,
+                  regions: candidateRegions,
+                  additionalInstructions: buildSfxClassifierInstructions(
+                    translatorSfxAdditionalInstructions,
+                  ),
+                  customProfile: selectedTranslatorSfxCleanCustomProfile,
+                },
+                stageRuntime,
+                {
+                  stageLabel: 'AI SFX',
+                  failurePrefix: `Failed to classify SFX in "${imgData.file.name}"`,
+                  parseApiError,
+                },
+              );
+              enrichedCandidates = applySfxDecisionsToRegions(
+                candidateRegions,
+                classifyDone.value.regions,
+              );
+            }
+
+            detectedRegions = enrichedCandidates.filter((region) => region.sfxApproved);
+            sfxApprovedCount = detectedRegions.length;
+            sfxReviewCount = detectedRegions.filter((region) => region.sfxRequiresRedraw).length;
+            totalSfxApproved += sfxApprovedCount;
+            totalSfxReview += sfxReviewCount;
+          }
+
+          totalDetected += detectedRegions.length;
+
+          if (detectedRegions.length > 0) {
+            const ocrDone = await runRecognizeTextStage(
               {
-                image: imgData,
+                image: stageImage,
+                modelKey: selectedOcrKey,
+                sourceLanguage: srcLang,
+                regions: detectedRegions,
+                useCloudOcr,
+                llmSettings: useLlmSettingsForOcr ? llmSettings : null,
+                customProfile: useLlmSettingsForOcr ? selectedCustomOcrProfile : null,
+              },
+              stageRuntime,
+              {
+                stageLabel: 'Reconhecer Texto',
+                failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
+                parseApiError,
+              },
+            );
+            detectedRegions = ocrDone.value;
+            totalRecognized += detectedRegions.filter((region) => (region.recognizedText ?? '').trim().length > 0).length;
+          }
+
+          const hasTextForTranslation = detectedRegions.some((region) => (region.recognizedText ?? '').trim().length > 0);
+          if (hasTextForTranslation) {
+            const isSfxTranslate = translatorVisualProcessingMode === 'ai_sfx';
+            const sfxExtraContext = isSfxTranslate
+              ? buildSfxTranslationInstructions(
+                  llmSettings.extra_context ?? '',
+                  translatorSfxAdditionalInstructions,
+              )
+            : undefined;
+
+            const translateDone = await runGetTranslationsStage(
+              {
+                image: stageImage,
+                modelKey: selectedTranslationKey,
+                sourceLanguage: srcLang,
+                targetLanguage: tgtLang,
+                regions: detectedRegions,
+                fallbackOcrModelKey: selectedOcrKey,
+                sfx: sfxExtraContext != null ? { extraContext: sfxExtraContext } : undefined,
+                llmSettings: useLlmSettingsForTranslation
+                  ? (isSfxTranslate && sfxExtraContext != null
+                      ? withSfxTranslationSettings(llmSettings, sfxExtraContext)
+                      : llmSettings)
+                  : null,
+                customProfile: useLlmSettingsForTranslation
+                  ? selectedCustomTranslationProfile
+                  : null,
+              },
+              stageRuntime,
+              {
+                stageLabel: 'Obter Traduções',
+                failurePrefix: `Failed to translate text in "${imgData.file.name}"`,
+                parseApiError,
+              },
+            );
+            detectedRegions = translateDone.value;
+            totalTranslated += detectedRegions.filter((region) => (region.translatedText ?? '').trim().length > 0).length;
+          }
+
+          if (translatorVisualProcessingMode === 'ai_sfx' && detectedRegions.length > 0) {
+            const cleanDone = await runCleanImageAiStage(
+              {
+                image: stageImage,
                 modelKey: translatorSfxCleanModelKey,
-                regions: candidateRegions,
-                additionalInstructions: buildSfxClassifierInstructions(
+                regions: detectedRegions,
+                additionalInstructions: buildSfxCleanInstructions(
                   translatorSfxAdditionalInstructions,
                 ),
                 customProfile: selectedTranslatorSfxCleanCustomProfile,
@@ -263,143 +365,52 @@ export function useTranslatorVisualActions({
               stageRuntime,
               {
                 stageLabel: 'AI SFX',
-                failurePrefix: `Failed to classify SFX in "${imgData.file.name}"`,
+                failurePrefix: `Failed to clean SFX in "${imgData.file.name}"`,
                 parseApiError,
               },
             );
-            enrichedCandidates = applySfxDecisionsToRegions(
-              candidateRegions,
-              classifyDone.value.regions,
-            );
+            const cleanBlob = cleanDone.value;
+            if (!cleanBlob.type.startsWith('image/')) {
+              throw new Error(t('translatorVisual.invalidSfxResponse', { fileName: imgData.file.name }));
+            }
+            processedBaseDataUrl = await blobToDataUrl(cleanBlob);
           }
 
-          detectedRegions = enrichedCandidates.filter((region) => region.sfxApproved);
-          sfxApprovedCount = detectedRegions.length;
-          sfxReviewCount = detectedRegions.filter((region) => region.sfxRequiresRedraw).length;
-          totalSfxApproved += sfxApprovedCount;
-          totalSfxReview += sfxReviewCount;
-        }
+          processedPagesCount += 1;
 
-        totalDetected += detectedRegions.length;
-
-        if (detectedRegions.length > 0) {
-          const ocrDone = await runRecognizeTextStage(
-            {
-              image: imgData,
-              modelKey: selectedOcrKey,
-              sourceLanguage: srcLang,
-              regions: detectedRegions,
-              useCloudOcr,
-              llmSettings: useLlmSettingsForOcr ? llmSettings : null,
-              customProfile: useLlmSettingsForOcr ? selectedCustomOcrProfile : null,
-            },
-            stageRuntime,
-            {
-              stageLabel: 'Reconhecer Texto',
-              failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
-              parseApiError,
-            },
-          );
-          detectedRegions = ocrDone.value;
-          totalRecognized += detectedRegions.filter((region) => (region.recognizedText ?? '').trim().length > 0).length;
-        }
-
-        const hasTextForTranslation = detectedRegions.some((region) => (region.recognizedText ?? '').trim().length > 0);
-        if (hasTextForTranslation) {
-          const isSfxTranslate = translatorVisualProcessingMode === 'ai_sfx';
-          const sfxExtraContext = isSfxTranslate
-            ? buildSfxTranslationInstructions(
-                llmSettings.extra_context ?? '',
-                translatorSfxAdditionalInstructions,
-            )
-          : undefined;
-
-          const translateDone = await runGetTranslationsStage(
-            {
-              image: imgData,
-              modelKey: selectedTranslationKey,
-              sourceLanguage: srcLang,
-              targetLanguage: tgtLang,
-              regions: detectedRegions,
-              fallbackOcrModelKey: selectedOcrKey,
-              sfx: sfxExtraContext != null ? { extraContext: sfxExtraContext } : undefined,
-              llmSettings: useLlmSettingsForTranslation
-                ? (isSfxTranslate && sfxExtraContext != null
-                    ? withSfxTranslationSettings(llmSettings, sfxExtraContext)
-                    : llmSettings)
-                : null,
-              customProfile: useLlmSettingsForTranslation
-                ? selectedCustomTranslationProfile
-                : null,
-            },
-            stageRuntime,
-            {
-              stageLabel: 'Obter Traduções',
-              failurePrefix: `Failed to translate text in "${imgData.file.name}"`,
-              parseApiError,
-            },
-          );
-          detectedRegions = translateDone.value;
-          totalTranslated += detectedRegions.filter((region) => (region.translatedText ?? '').trim().length > 0).length;
-        }
-
-        if (translatorVisualProcessingMode === 'ai_sfx' && detectedRegions.length > 0) {
-          const cleanDone = await runCleanImageAiStage(
-            {
-              image: imgData,
-              modelKey: translatorSfxCleanModelKey,
-              regions: detectedRegions,
-              additionalInstructions: buildSfxCleanInstructions(
-                translatorSfxAdditionalInstructions,
-              ),
-              customProfile: selectedTranslatorSfxCleanCustomProfile,
-            },
-            stageRuntime,
-            {
-              stageLabel: 'AI SFX',
-              failurePrefix: `Failed to clean SFX in "${imgData.file.name}"`,
-              parseApiError,
-            },
-          );
-          const cleanBlob = cleanDone.value;
-          if (!cleanBlob.type.startsWith('image/')) {
-            throw new Error(t('translatorVisual.invalidSfxResponse', { fileName: imgData.file.name }));
-          }
-          processedBaseDataUrl = await blobToDataUrl(cleanBlob);
-        }
-
-        processedPagesCount += 1;
-
-        nextDetections[imgData.id] = cloneAioRegions(detectedRegions, cloneRenderStyle);
-        nextSelections[imgData.id] = resolveSelectedRegionForRegions(
-          detectedRegions,
-          // Event-time read of the active translator selection
-          activeId === imgData.id
-            ? (useTranslatorStore.getState().translatorSelectedRegionByImage[imgData.id] ?? null)
-            : null,
-        );
-        if (processedBaseDataUrl) {
-          nextProcessedBase[imgData.id] = processedBaseDataUrl;
-        }
-        nextMeta[imgData.id] = {
-          detected: true,
-          ocr: detectedRegions.some((region) => typeof region.ocrScore === 'number' || Boolean(region.recognizedText?.trim())),
-          translated: detectedRegions.some((region) => Boolean(region.translatedText?.trim())),
-          detectModelKey: detectSelectionKey,
-          ocrModelKey: selectedOcrKey,
-          translatorModelKey: selectedTranslationKey,
-          sourceLanguage: srcLang,
-          targetLanguage: tgtLang,
-          visualMode: translatorVisualProcessingMode,
-          sfxCandidateCount,
-          sfxApprovedCount,
-          sfxReviewCount,
-          cleanModelKey:
-            translatorVisualProcessingMode === 'ai_sfx'
-              ? translatorSfxCleanModelKey
+          nextDetections[imgData.id] = cloneAioRegions(detectedRegions, cloneRenderStyle);
+          nextSelections[imgData.id] = resolveSelectedRegionForRegions(
+            detectedRegions,
+            // Event-time read of the active translator selection
+            activeId === imgData.id
+              ? (useTranslatorStore.getState().translatorSelectedRegionByImage[imgData.id] ?? null)
               : null,
-        };
-        setProgress(((index + 1) / images.length) * 100);
+          );
+          if (processedBaseDataUrl) {
+            nextProcessedBase[imgData.id] = processedBaseDataUrl;
+          }
+          nextMeta[imgData.id] = {
+            detected: true,
+            ocr: detectedRegions.some((region) => typeof region.ocrScore === 'number' || Boolean(region.recognizedText?.trim())),
+            translated: detectedRegions.some((region) => Boolean(region.translatedText?.trim())),
+            detectModelKey: detectSelectionKey,
+            ocrModelKey: selectedOcrKey,
+            translatorModelKey: selectedTranslationKey,
+            sourceLanguage: srcLang,
+            targetLanguage: tgtLang,
+            visualMode: translatorVisualProcessingMode,
+            sfxCandidateCount,
+            sfxApprovedCount,
+            sfxReviewCount,
+            cleanModelKey:
+              translatorVisualProcessingMode === 'ai_sfx'
+                ? translatorSfxCleanModelKey
+                : null,
+          };
+          setProgress(((index + 1) / images.length) * 100);
+        } finally {
+          releasePage(imgData);
+        }
       }
 
       setTranslatorDetectionsByImage(nextDetections);

@@ -15,12 +15,13 @@ import {
   cloneRenderStyle,
 } from '@/utils/dashboard.utils';
 import { DEFAULT_LLM_REQUEST_SETTINGS } from '@/utils/customLlm';
+import { createDirectPageFile } from '@/utils/page-source';
 
 const makeImage = (index: number): BatchMappingImage => ({
   id: `image-${index}`,
-  file: new File([new Uint8Array([index])], `page-${index}.png`, {
+  file: createDirectPageFile(new File([new Uint8Array([index])], `page-${index}.png`, {
     type: 'image/png',
-  }),
+  })),
   width: 400,
   height: 300,
 });

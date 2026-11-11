@@ -19,6 +19,10 @@ import {
   cloneRenderStyle,
 } from '../../../utils/dashboard.utils';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
+import {
+  materializePageForProcessing,
+  releasePage,
+} from '../../../utils/page-source';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import type {
@@ -175,121 +179,128 @@ export async function runAssistedCleanerWorkflow(ctx: CleanerRunContext): Promis
         const { stageRuntime, executionNotices } = session;
 
         session.assertNotAborted();
-        const detectDone = await runDetectTextStage(
-          {
-            image: imgData,
-            modelKey: selectedDetectorKey,
-            sourceLanguage,
-            minRegionSize,
-          },
-          stageRuntime,
-          {
-            stageLabel: stageLabels.detectText,
-            failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
-            parseApiError,
-          },
-        );
-        session.pushNotice(detectDone.notice);
-        const detectDetections = detectDone.value;
-        let stageRegions: StageRegions = {
-          detectText: detectDetections,
-        };
-
-        let enrichedDetections = cloneAioRegions(detectDetections, cloneRenderStyle);
-
-        if (detectDetections.length > 0) {
-          session.assertNotAborted();
-          const ocrDone = await runRecognizeTextStage(
+        try {
+          // One page's bytes live only for this run: materialized on demand,
+          // released in `finally` even when a stage throws.
+          const stageImage = await materializePageForProcessing(imgData);
+          const detectDone = await runDetectTextStage(
             {
-              image: imgData,
-              modelKey: selectedOcrKey,
+              image: stageImage,
+              modelKey: selectedDetectorKey,
               sourceLanguage,
-              regions: detectDetections,
-              llmSettings: useLlmSettingsForOcr ? llmSettings : null,
-              customProfile: useLlmSettingsForOcr ? ocrReadiness.customProfile : null,
+              minRegionSize,
             },
             stageRuntime,
             {
-              stageLabel: stageLabels.recognizeText,
-              failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
+              stageLabel: stageLabels.detectText,
+              failurePrefix: `Failed to detect text in "${imgData.file.name}"`,
               parseApiError,
             },
           );
-          session.pushNotice(ocrDone.notice);
-          enrichedDetections = ocrDone.value;
-          stageRegions = { ...stageRegions, recognizeText: enrichedDetections };
-        }
+          session.pushNotice(detectDone.notice);
+          const detectDetections = detectDone.value;
+          let stageRegions: StageRegions = {
+            detectText: detectDetections,
+          };
 
-        const segmentInputRegions = resolveUpstreamRegions('segmentText', stageRegions);
-        let segmentDetections = cloneAioRegions(segmentInputRegions, cloneRenderStyle);
-        if (segmentInputRegions.length > 0) {
+          let enrichedDetections = cloneAioRegions(detectDetections, cloneRenderStyle);
+
+          if (detectDetections.length > 0) {
+            session.assertNotAborted();
+            const ocrDone = await runRecognizeTextStage(
+              {
+                image: stageImage,
+                modelKey: selectedOcrKey,
+                sourceLanguage,
+                regions: detectDetections,
+                llmSettings: useLlmSettingsForOcr ? llmSettings : null,
+                customProfile: useLlmSettingsForOcr ? ocrReadiness.customProfile : null,
+              },
+              stageRuntime,
+              {
+                stageLabel: stageLabels.recognizeText,
+                failurePrefix: `Failed to recognize text in "${imgData.file.name}"`,
+                parseApiError,
+              },
+            );
+            session.pushNotice(ocrDone.notice);
+            enrichedDetections = ocrDone.value;
+            stageRegions = { ...stageRegions, recognizeText: enrichedDetections };
+          }
+
+          const segmentInputRegions = resolveUpstreamRegions('segmentText', stageRegions);
+          let segmentDetections = cloneAioRegions(segmentInputRegions, cloneRenderStyle);
+          if (segmentInputRegions.length > 0) {
+            session.assertNotAborted();
+            const segmentDone = await runSegmentTextStage(
+              {
+                image: stageImage,
+                modelKey: selectedSegmentKey,
+                regions: segmentInputRegions,
+                fallbackOcrModelKey: selectedOcrKey,
+                fallbackTranslatorModelKey: '',
+              },
+              stageRuntime,
+              {
+                stageLabel: stageLabels.segmentText,
+                failurePrefix: `Failed to segment text in "${imgData.file.name}"`,
+                parseApiError,
+              },
+            );
+            session.pushNotice(segmentDone.notice);
+            segmentDetections = segmentDone.value;
+            stageRegions = { ...stageRegions, segmentText: segmentDetections };
+          }
+
+          const cleanInputRegions = resolveUpstreamRegions('cleanImage', stageRegions);
+          const manualEditState =
+            useCleanerStore.getState().cleanerManualImageEditsByImage[imgData.id];
           session.assertNotAborted();
-          const segmentDone = await runSegmentTextStage(
+          const cleanDone = await runCleanImageStage(
             {
-              image: imgData,
-              modelKey: selectedSegmentKey,
-              regions: segmentInputRegions,
+              image: stageImage,
+              modelKey: selectedCleanKey,
+              regions: cleanInputRegions,
               fallbackOcrModelKey: selectedOcrKey,
-              fallbackTranslatorModelKey: '',
+              fallbackSegmentModelKey: selectedSegmentKey,
+              options: {
+                maskDilation,
+                hdStrategy,
+                hdResizeLimit,
+                hdCropMargin,
+                hdCropTriggerSize,
+                brushDataUrl: manualEditState?.segmentBrushDataUrl ?? null,
+              },
             },
             stageRuntime,
             {
-              stageLabel: stageLabels.segmentText,
-              failurePrefix: `Failed to segment text in "${imgData.file.name}"`,
+              stageLabel: stageLabels.cleanImage,
+              failurePrefix: `Failed to clean "${imgData.file.name}"`,
               parseApiError,
             },
           );
-          session.pushNotice(segmentDone.notice);
-          segmentDetections = segmentDone.value;
-          stageRegions = { ...stageRegions, segmentText: segmentDetections };
+          session.pushNotice(cleanDone.notice);
+          const blob = session.ensureStageImageBlob(
+            cleanDone.value,
+            t('cleanerActions.invalidCleanResponseNamed', { name: imgData.file.name }),
+          );
+
+          return {
+            imageId: imgData.id,
+            fileName: session.buildCleanDownloadName('koma-studio-cleaner-clean', imgData.file.name),
+            blob,
+            baseImageDataUrl: await blobToDataUrl(blob),
+            regions: cloneAioRegions(segmentDetections, cloneRenderStyle),
+            detectCount: detectDetections.length,
+            ocrCount: enrichedDetections.filter((region) => (region.recognizedText ?? '').trim().length > 0).length,
+            segmentedCount: segmentDetections.filter((region) => (
+              (region.mergedSegmentBoxes?.length ?? region.segmentBoxes?.length ?? 0) > 0
+            )).length,
+            executionNotices,
+          };
+        } finally {
+          releasePage(imgData);
         }
-
-        const cleanInputRegions = resolveUpstreamRegions('cleanImage', stageRegions);
-        const manualEditState =
-          useCleanerStore.getState().cleanerManualImageEditsByImage[imgData.id];
-        session.assertNotAborted();
-        const cleanDone = await runCleanImageStage(
-          {
-            image: imgData,
-            modelKey: selectedCleanKey,
-            regions: cleanInputRegions,
-            fallbackOcrModelKey: selectedOcrKey,
-            fallbackSegmentModelKey: selectedSegmentKey,
-            options: {
-              maskDilation,
-              hdStrategy,
-              hdResizeLimit,
-              hdCropMargin,
-              hdCropTriggerSize,
-              brushDataUrl: manualEditState?.segmentBrushDataUrl ?? null,
-            },
-          },
-          stageRuntime,
-          {
-            stageLabel: stageLabels.cleanImage,
-            failurePrefix: `Failed to clean "${imgData.file.name}"`,
-            parseApiError,
-          },
-        );
-        session.pushNotice(cleanDone.notice);
-        const blob = session.ensureStageImageBlob(
-          cleanDone.value,
-          t('cleanerActions.invalidCleanResponseNamed', { name: imgData.file.name }),
-        );
-
-        return {
-          imageId: imgData.id,
-          fileName: session.buildCleanDownloadName('koma-studio-cleaner-clean', imgData.file.name),
-          blob,
-          baseImageDataUrl: await blobToDataUrl(blob),
-          regions: cloneAioRegions(segmentDetections, cloneRenderStyle),
-          detectCount: detectDetections.length,
-          ocrCount: enrichedDetections.filter((region) => (region.recognizedText ?? '').trim().length > 0).length,
-          segmentedCount: segmentDetections.filter((region) => (
-            (region.mergedSegmentBoxes?.length ?? region.segmentBoxes?.length ?? 0) > 0
-          )).length,
-          executionNotices,
-        };
       },
       onProgress: ({ completed }: { completed: number }) => {
         setProgress((completed / images.length) * 100);

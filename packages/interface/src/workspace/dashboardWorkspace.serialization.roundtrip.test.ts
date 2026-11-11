@@ -12,28 +12,7 @@ import type {
 } from '../types/dashboard.types';
 import type { WorkspaceManualImageEditDocument } from '../../../../packages/types/src/workspace';
 import type { TypographySession } from '../typography/types';
-
-// jsdom lacks Blob.prototype.arrayBuffer (lib.dom declares it; this runtime
-// does not ship it). The capture codecs read binaries through arrayBuffer();
-// polyfill it via FileReader when the platform does not provide it.
-if (typeof Blob.prototype.arrayBuffer !== 'function') {
-  Blob.prototype.arrayBuffer = function (this: Blob): Promise<ArrayBuffer> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (): void => {
-        if (reader.result instanceof ArrayBuffer) {
-          resolve(reader.result);
-          return;
-        }
-        reject(new Error('Failed to read the blob as an ArrayBuffer.'));
-      };
-      reader.onerror = (): void => {
-        reject(reader.error ?? new Error('Failed to read the blob.'));
-      };
-      reader.readAsArrayBuffer(this);
-    });
-  };
-}
+import { createDirectPageFile, type PageFile } from '../utils/page-source';
 
 // jsdom may lack URL.createObjectURL depending on the runtime wiring; the
 // restore path allocates object URLs for images/downloads/watermark results.
@@ -85,6 +64,10 @@ const makeWorkspaceFile = (name: string): File =>
     type: 'image/png',
     lastModified: 1700000000000,
   });
+
+/** The page fixture: `LoadedImage.file` is a `PageFile` since the lazy-page migration. */
+const makeWorkspacePageFile = (name: string): PageFile =>
+  createDirectPageFile(makeWorkspaceFile(name));
 
 const makeBlob = (bytes: number[]): Blob =>
   new Blob([new Uint8Array(bytes)], { type: 'image/png' });
@@ -146,7 +129,7 @@ const buildCaptureState = (): DashboardWorkspaceCaptureState => {
   const images: LoadedImage[] = [
     {
       id: 'img-1',
-      file: makeWorkspaceFile('cover-page.png'),
+      file: makeWorkspacePageFile('cover-page.png'),
       url: 'blob:loaded-image-1',
       width: 640,
       height: 480,
@@ -367,6 +350,9 @@ const buildCaptureState = (): DashboardWorkspaceCaptureState => {
 const readBlobBytes = async (blob: Blob): Promise<number[]> =>
   Array.from(new Uint8Array(await blob.arrayBuffer()));
 
+const readPageFileBytes = async (page: PageFile): Promise<number[]> =>
+  Array.from(new Uint8Array(await (await page.toBlob()).arrayBuffer()));
+
 // The restore-state types declare document asset refs for values that are
 // Blobs at runtime; verify that at runtime instead of trusting the shape.
 const requireBlob = (value: Blob | { assetId: string }, label: string): Blob => {
@@ -449,7 +435,7 @@ describe('workspace document round trip', () => {
     expect(image.id).toBe('img-1');
     expect(image.file.name).toBe('cover-page.png');
     expect(image.file.type).toBe('image/png');
-    expect(await readBlobBytes(image.file)).toEqual(IMAGE_BYTES);
+    expect(await readPageFileBytes(image.file)).toEqual(IMAGE_BYTES);
     expect(image.url).toMatch(/^blob:/);
     expect(image.thumbnailUrl).toBeUndefined();
     expect(image.width).toBe(640);

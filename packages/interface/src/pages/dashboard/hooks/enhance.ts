@@ -6,6 +6,7 @@ import { ENHANCE_IMAGE_MODELS_REGISTRY } from '../../../models/translation-model
 import type { WebhookMetrics } from '../../../types/dashboard.types';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
+import { releasePage } from '../../../utils/page-source';
 import { useEnhanceStore } from '../stores/enhance-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
@@ -225,26 +226,34 @@ export function useDashboardEnhanceActions({
         concurrency: effectiveBatchConcurrency,
         worker: async ({ item: imgData, index }) => {
           await discord.setBatch(images.length, index + 1, imgData.file.name);
-          const formData = new FormData();
-          formData.append('file', imgData.file);
-          formData.append('model_key', selectedEnhanceModel.id);
-          formData.append('output_format', enhanceOutputFormat);
+          try {
+            const formData = new FormData();
+            formData.append(
+              'file',
+              await imgData.file.toBlob(),
+              imgData.file.name,
+            );
+            formData.append('model_key', selectedEnhanceModel.id);
+            formData.append('output_format', enhanceOutputFormat);
 
-          const response = await fetchWithTimeoutAndRetry(
-            `${localApiUrl}/enhance`,
-            { method: 'POST', body: formData },
-            { timeoutMs: 180_000, retryCount: 0 },
-          );
-          if (!response.ok) {
-            const apiMessage = await response.text().catch(() => '');
-            throw new Error(`Failed to enhance "${imgData.file.name}": ${apiMessage || response.status}`);
+            const response = await fetchWithTimeoutAndRetry(
+              `${localApiUrl}/enhance`,
+              { method: 'POST', body: formData },
+              { timeoutMs: 180_000, retryCount: 0 },
+            );
+            if (!response.ok) {
+              const apiMessage = await response.text().catch(() => '');
+              throw new Error(`Failed to enhance "${imgData.file.name}": ${apiMessage || response.status}`);
+            }
+            const blob = await response.blob();
+            return {
+              fileName: `koma-studio-melhorado-${imgData.file.name.replace(/\s+/g, '-')}.${enhanceOutputFormat}`,
+              blob,
+              sourceImageId: imgData.id,
+            };
+          } finally {
+            releasePage(imgData);
           }
-          const blob = await response.blob();
-          return {
-            fileName: `koma-studio-melhorado-${imgData.file.name.replace(/\s+/g, '-')}.${enhanceOutputFormat}`,
-            blob,
-            sourceImageId: imgData.id,
-          };
         },
         onProgress: ({ completed }) => {
           setProgress((completed / images.length) * 100);

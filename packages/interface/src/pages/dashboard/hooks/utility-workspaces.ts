@@ -9,7 +9,7 @@ import {
   buildBatchPlanFromIndexes,
   sanitizeFileStem,
 } from '../../../components/dashboard/stitch/stitchUtils';
-import type { SplitterWorkspaceState } from '../../../components/dashboard/splitter/types';
+import type { SplitterImageInput, SplitterWorkspaceState } from '../../../components/dashboard/splitter/types';
 import { createDefaultSplitterRecipe } from '../../../components/dashboard/splitter/splitterUtils';
 import { useSplitterController } from '../../../components/dashboard/splitter/useSplitterController';
 import type { WatermarkWorkspaceState } from '../../../components/dashboard/watermark/watermarkTypes';
@@ -58,7 +58,19 @@ export function useStitchWorkspace() {
     (s) => s.setStitchSelectedBatchIndex,
   );
 
-  const stitchImages = images as StitchImageInput[];
+  const stitchImages = useMemo<StitchImageInput[]>(
+    () =>
+      images.map((image) => ({
+        id: image.id,
+        file: image.file,
+        url: image.url,
+        width: image.width,
+        height: image.height,
+        rotation: image.rotation,
+        filters: image.filters,
+      })),
+    [images],
+  );
   const stitchAutoBatchIndexes = useMemo(
     () =>
       buildAutoBatchIndexes(
@@ -185,8 +197,22 @@ export function useUtilitySplitterController({
     [setSplitterWorkspaceState],
   );
 
+  const splitterImages = useMemo<SplitterImageInput[]>(
+    () =>
+      images.map((image) => ({
+        id: image.id,
+        file: image.file,
+        url: image.url,
+        width: image.width,
+        height: image.height,
+        rotation: image.rotation,
+        filters: image.filters,
+      })),
+    [images],
+  );
+
   const splitterController = useSplitterController({
-    images,
+    images: splitterImages,
     activeImageId: activeId,
     setActiveImageId: setActiveId,
     initialWorkspaceState: splitterWorkspaceState,

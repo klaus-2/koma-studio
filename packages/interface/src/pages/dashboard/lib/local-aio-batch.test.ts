@@ -9,6 +9,7 @@ import {
   applyDetectedGradientToStyle,
   cloneRenderStyle,
 } from '@/utils/dashboard.utils';
+import { createDirectPageFile } from '@/utils/page-source';
 import { fetchWithTimeoutAndRetry } from '@/utils/http';
 import type { BatchMappingImage } from './batch-mapping';
 import {
@@ -40,9 +41,9 @@ const mockedFetch = vi.mocked(fetchWithTimeoutAndRetry);
 
 const makeImage = (index: number): BatchMappingImage => ({
   id: `image-${index}`,
-  file: new File([new Uint8Array([index])], `page-${index}.png`, {
+  file: createDirectPageFile(new File([new Uint8Array([index])], `page-${index}.png`, {
     type: 'image/png',
-  }),
+  })),
   width: 400,
   height: 300,
 });
@@ -794,7 +795,13 @@ describe('runLocalAioBatchChunks', () => {
       if (url.includes('/pipeline/batch/progress')) {
         return Promise.resolve(jsonResponse({ detail: 'unknown' }, 404));
       }
-      chunkSizes.push(formFrom(init).getAll('files').length);
+      // buildBatchForm is async (each page's bytes are materialized as they
+      // are appended), so the form is read once the request is dispatched.
+      const readChunk = async (): Promise<number> =>
+        formFrom(init).getAll('files').length;
+      void readChunk().then((size) => {
+        chunkSizes.push(size);
+      });
       const gate = deferred<Response>();
       pending.push(gate.resolve);
       return gate.promise;
@@ -813,7 +820,10 @@ describe('runLocalAioBatchChunks', () => {
       onChunkState,
     });
 
-    expect(chunkSizes).toEqual([20]);
+    // Let the first chunk's form build (async) complete before asserting.
+    await vi.waitFor(() => {
+      expect(chunkSizes).toEqual([20]);
+    });
     expect(onChunkState).toHaveBeenLastCalledWith({
       chunkNumber: 1,
       chunkCount: 3,
@@ -868,6 +878,8 @@ describe('runLocalAioBatchChunks', () => {
           jsonResponse(makeProgress({ total: 1, finished: true })),
         );
       }
+      // buildBatchForm is async; the body is complete once the request is
+      // dispatched, so the batch id is readable directly from the form.
       formBatchId = stringField(formFrom(init), 'batch_id');
       return post.promise;
     });
@@ -881,6 +893,10 @@ describe('runLocalAioBatchChunks', () => {
       signal: controller.signal,
     });
 
+    // The form build is async (one page's bytes are materialized), so let the
+    // fetch dispatch settle before asserting.
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
     expect(formBatchId).not.toBe('');
     await vi.advanceTimersByTimeAsync(500);
 

@@ -204,17 +204,28 @@ export function mapBatchStagePayloads(
   const stageRegions: StageRegions = {};
 
   const detectPayload: PipelineBatchDetectResult | null = result.detect ?? null;
-  const detectRegions = detectPayload
-    ? regionsFromDetectPayload(
-        {
-          image_width: detectPayload.image_width ?? image.width,
-          image_height: detectPayload.image_height ?? image.height,
-          detections: detectPayload.detections ?? [],
-        },
-        image,
-        { minRegionSize: input.minRegionSize, maxAreaRatio: input.maxAreaRatio },
-      )
-    : [];
+  // An archive-backed page's dimensions stay 0 until it is decoded; the
+  // backend reports the real size in the detect payload, which is the
+  // authoritative source — otherwise every bbox would collapse to 1px.
+  const reportedWidth = detectPayload?.image_width ?? 0;
+  const reportedHeight = detectPayload?.image_height ?? 0;
+  const targetSize =
+    image.width > 0 && image.height > 0
+      ? image
+      : { ...image, width: reportedWidth, height: reportedHeight };
+
+  const detectRegions =
+    detectPayload && targetSize.width > 0 && targetSize.height > 0
+      ? regionsFromDetectPayload(
+          {
+            image_width: detectPayload.image_width ?? image.width,
+            image_height: detectPayload.image_height ?? image.height,
+            detections: detectPayload.detections ?? [],
+          },
+          targetSize,
+          { minRegionSize: input.minRegionSize, maxAreaRatio: input.maxAreaRatio },
+        )
+      : [];
   stageRegions.detectText = detectRegions;
   const detectDetections = cloneAioRegions(detectRegions, cloneRenderStyle);
 

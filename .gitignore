@@ -112,3 +112,6 @@ react-doctor-*.json
 
 # PyInstaller workdir junction (see ensureWindowsJunction in build-mini-backend.mjs)
 packages/mini-backend/build/
+
+# benchmark scratch output
+packages/interface/.tmp-bench/

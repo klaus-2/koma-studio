@@ -10,6 +10,7 @@ import type {
   TypographyShape,
 } from "../typography/types";
 import type { RenderTextStyleRange } from "../typography/renderStyle";
+import type { PageFile } from "../utils/page-source";
 
 export type EnhanceScale = 2 | 4;
 
@@ -91,10 +92,22 @@ export interface DashboardProcessingStatsSummary {
 
 export interface LoadedImage {
   id: string;
-  file: File;
+  /**
+   * The page's file.
+   *
+   * It is a `PageFile`, not a `File`: the bytes are materialized on demand and
+   * released as soon as the consumer is done with them. Every byte consumer
+   * must call `toBlob()`; the metadata fields (`name`, `type`, `size`,
+   * `lastModified`) stay available without touching the bytes.
+   */
+  file: PageFile;
   url: string;
   thumbnailUrl?: string;
   previewUrl?: string;
+  /**
+   * Pixel size. `0` means **not yet known** — the page has not been decoded.
+   * A page's dimensions must be resolved before they are used.
+   */
   width: number;
   height: number;
   rotation: number;

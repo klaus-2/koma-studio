@@ -1,4 +1,5 @@
 import type { DashboardWorkspaceCaptureState } from "./dashboardWorkspace";
+import { isPageFile } from "../utils/page-source";
 
 const signatureReplacer = (_key: string, value: unknown): unknown => {
   if (typeof value === "string" && value.startsWith("data:")) {
@@ -18,6 +19,19 @@ const signatureReplacer = (_key: string, value: unknown): unknown => {
   if (value instanceof File) {
     return {
       __type: "File",
+      name: value.name,
+      size: value.size,
+      type: value.type,
+      lastModified: value.lastModified,
+    };
+  }
+  if (isPageFile(value)) {
+    // A lazy page must be summarized, not walked: a plain recursion would
+    // serialize the chapter object graph (archive, entries, caches) and make
+    // the signature O(pages × bytes). The metadata tuple is what makes the
+    // signature change when the page changes.
+    return {
+      __type: "PageFile",
       name: value.name,
       size: value.size,
       type: value.type,

@@ -1,4 +1,8 @@
 import {
+  materializePageForProcessing,
+  releasePage,
+} from '../../../utils/page-source';
+import {
   applyImageFiltersToContext,
   getExtensionFromMimeType,
   getMimeTypeFromExportFormat,
@@ -386,8 +390,22 @@ export const moveCut = (
 export const buildProcessedCanvasForImage = async (
   image: SplitterImageInput,
 ): Promise<HTMLCanvasElement> => {
-  const dims = getRotatedDimensions(image);
-  const imageBitmap = await createImageBitmap(image.file);
+  // The page's bytes are materialized here: `createImageBitmap` needs a real
+  // blob, and the resolved dimensions are the pixel size (`0` would produce
+  // a zero-size canvas). The page's own cache is released right after — the
+  // canvas holds its own copy.
+  const page = await materializePageForProcessing({
+    file: image.file,
+    width: image.width,
+    height: image.height,
+  });
+  releasePage(image);
+  const dims = getRotatedDimensions({
+    width: page.width,
+    height: page.height,
+    rotation: image.rotation,
+  });
+  const imageBitmap = await createImageBitmap(page.file);
   const canvas = document.createElement('canvas');
   canvas.width = dims.width;
   canvas.height = dims.height;

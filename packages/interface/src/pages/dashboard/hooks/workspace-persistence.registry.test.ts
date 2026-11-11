@@ -26,6 +26,7 @@ import type {
 import type { TypographySession } from '../../../typography/types';
 import { createDefaultSplitterRecipe } from '../../../components/dashboard/splitter/splitterUtils';
 import { createDefaultWatermarkDraft } from '../../../components/dashboard/watermark/watermark-core.js';
+import { createDirectPageFile, type PageFile } from '../../../utils/page-source';
 import {
   WORKSPACE_PERSISTENCE_STORES,
   applyRestoredWorkspaceToStores,
@@ -218,11 +219,11 @@ const EXPECTED_CAPTURE_KEYS = {
   ],
 } as const;
 
-const makeWorkspaceFile = (name: string): File =>
-  new File([new Uint8Array(IMAGE_BYTES)], name, {
+const makeWorkspaceFile = (name: string): PageFile =>
+  createDirectPageFile(new File([new Uint8Array(IMAGE_BYTES)], name, {
     type: 'image/png',
     lastModified: FROZEN_NOW_MS,
-  });
+  }));
 
 const makeBlob = (bytes: number[]): Blob =>
   new Blob([new Uint8Array(bytes)], { type: 'image/png' });

@@ -35,11 +35,19 @@ import type {
 import { toCustomLlmRequestPayload } from '@/utils/customLlm';
 import { parseResponseErrorMessage } from '@/utils/dashboard.utils';
 import { fetchWithTimeoutAndRetry } from '@/utils/http';
+import { releasePage } from '@/utils/page-source';
 import type { RenderTextStyle } from '@/utils/renderText';
 
 export const BATCH_REPORT_FILENAME = 'batch_report.json';
 
-/** The backend accepts up to 64 images; the client sends at most 20 per chunk. */
+/**
+ * The backend accepts up to 64 images; the client sends at most 20 per chunk.
+ *
+ * An archive-backed page is not resident: its bytes are materialized for the
+ * request and released right after. A chunk that holds one therefore holds
+ * exactly one page — 20 materialized pages would defeat the lazy-page
+ * contract (see `planBatchChunks`).
+ */
 export const LOCAL_AIO_BATCH_CHUNK_SIZE = 20;
 export const BATCH_PROGRESS_POLL_INTERVAL_MS = 500;
 
@@ -452,15 +460,22 @@ const appendBoolean = (
   form.append(key, value ? 'true' : 'false');
 };
 
-const buildBatchForm = (
+/**
+ * Build the multipart body for one chunk.
+ *
+ * Each page's bytes are materialized here, with the file name spelled out:
+ * the backend echoes `upload.filename` and `batch-mapping.ts` matches the
+ * report results by that name.
+ */
+const buildBatchForm = async (
   images: ReadonlyArray<BatchMappingImage>,
   options: LocalAioBatchOptions,
   capacity: BatchCapacity,
   batchId: string,
-): FormData => {
+): Promise<FormData> => {
   const form = new FormData();
   for (const image of images) {
-    form.append('files', image.file, image.file.name);
+    form.append('files', await image.file.toBlob(), image.file.name);
   }
 
   form.append('source_language', options.sourceLanguage);
@@ -580,69 +595,118 @@ export async function runLocalAioBatch({
   const timeoutMs = resolveTimeoutMs(images.length, capacity);
   const batchId = requestedBatchId?.trim() || createBatchId();
   onBatchId?.(batchId);
-  const form = buildBatchForm(images, options, capacity, batchId);
+  try {
+    const form = await buildBatchForm(images, options, capacity, batchId);
 
-  const response = await fetchWithTimeoutAndRetry(
-    joinUrl(localApiUrl, '/pipeline/batch'),
-    { method: 'POST', body: form },
-    { timeoutMs, retryCount: 0, signal },
-  );
-
-  if (!response.ok) {
-    const message = await options.parseApiError(response);
-    throw new LocalAioBatchError(message, response.status);
-  }
-
-  const headerBatchId = response.headers.get('X-Koma-Batch-Id')?.trim() || null;
-  let report: PipelineBatchReport;
-  let zipEntries: Readonly<Record<string, Uint8Array>> | null = null;
-
-  if (options.aioSteps.cleanImage) {
-    // Archive extraction is only needed for clean batches; keep the
-    // inflater out of the dashboard boot graph.
-    const { strFromU8, unzipSync } = await import('fflate');
-    let entries: Record<string, Uint8Array>;
-    try {
-      entries = unzipSync(new Uint8Array(await response.arrayBuffer()));
-    } catch {
-      throw new LocalAioBatchError(
-        'The batch archive could not be read.',
-        response.status,
-      );
-    }
-    report = readZipReport(entries, response.status, strFromU8);
-    zipEntries = entries;
-  } else {
-    const payload = await readJsonBody(
-      response,
-      'The batch response is not valid JSON.',
+    // The request owns the materialized bytes from here on; the pages' own
+    // caches are released as soon as the request settles.
+    const response = await fetchWithTimeoutAndRetry(
+      joinUrl(localApiUrl, '/pipeline/batch'),
+      { method: 'POST', body: form },
+      { timeoutMs, retryCount: 0, signal },
     );
-    report = parsePipelineBatchReport(payload);
+
+    if (!response.ok) {
+      const message = await options.parseApiError(response);
+      throw new LocalAioBatchError(message, response.status);
+    }
+
+    const headerBatchId = response.headers.get('X-Koma-Batch-Id')?.trim() || null;
+    let report: PipelineBatchReport;
+    let zipEntries: Readonly<Record<string, Uint8Array>> | null = null;
+
+    if (options.aioSteps.cleanImage) {
+      // Archive extraction is only needed for clean batches; keep the
+      // inflater out of the dashboard boot graph.
+      const { strFromU8, unzipSync } = await import('fflate');
+      let entries: Record<string, Uint8Array>;
+      try {
+        entries = unzipSync(new Uint8Array(await response.arrayBuffer()));
+      } catch {
+        throw new LocalAioBatchError(
+          'The batch archive could not be read.',
+          response.status,
+        );
+      }
+      report = readZipReport(entries, response.status, strFromU8);
+      zipEntries = entries;
+    } else {
+      const payload = await readJsonBody(
+        response,
+        'The batch response is not valid JSON.',
+      );
+      report = parsePipelineBatchReport(payload);
+    }
+
+    const results = mapBatchReportToAioResults({
+      report,
+      images,
+      zipEntries,
+      aioSteps: options.aioSteps,
+      targetLanguage: options.targetLanguage,
+      renderDefaultStyle: options.renderDefaultStyle,
+      applyDetectedGradientToStyle: options.applyDetectedGradientToStyle,
+      minRegionSize: options.minRegionSize,
+      maxAreaRatio: options.maxAreaRatio,
+      cleanFileName: options.cleanFileName,
+    });
+
+    const total = Math.max(report.total_images, report.results.length);
+    onProgress?.(results.length, total);
+
+    return {
+      batchId: headerBatchId ?? (report.batch_id?.trim() || batchId),
+      report,
+      results,
+      zipEntries,
+    };
+  } finally {
+    // The request is over: the pages' materialized bytes are not needed
+    // anymore. A direct upload owns its bytes and ignores this.
+    for (const image of images) {
+      releasePage(image);
+    }
+  }
+}
+
+/**
+ * Split the images into sequential chunks.
+ *
+ * A chunk holds up to `LOCAL_AIO_BATCH_CHUNK_SIZE` images, but an
+ * archive-backed page must be alone: its bytes are materialized for the
+ * request and released right after, so a chunk that mixed it with 19 others
+ * would hold a whole chapter's worth of pages at once. Direct uploads are
+ * already resident, so they keep the full chunk size.
+ */
+export const planBatchChunks = (
+  images: ReadonlyArray<BatchMappingImage>,
+): BatchMappingImage[][] => {
+  const chunks: BatchMappingImage[][] = [];
+  let current: BatchMappingImage[] = [];
+
+  for (const image of images) {
+    if (image.file.kind === 'archive') {
+      // Archive-backed page: its own chunk.
+      if (current.length > 0) {
+        chunks.push(current);
+        current = [];
+      }
+      chunks.push([image]);
+      continue;
+    }
+    if (current.length >= LOCAL_AIO_BATCH_CHUNK_SIZE) {
+      chunks.push(current);
+      current = [];
+    }
+    current.push(image);
   }
 
-  const results = mapBatchReportToAioResults({
-    report,
-    images,
-    zipEntries,
-    aioSteps: options.aioSteps,
-    targetLanguage: options.targetLanguage,
-    renderDefaultStyle: options.renderDefaultStyle,
-    applyDetectedGradientToStyle: options.applyDetectedGradientToStyle,
-    minRegionSize: options.minRegionSize,
-    maxAreaRatio: options.maxAreaRatio,
-    cleanFileName: options.cleanFileName,
-  });
+  if (current.length > 0) {
+    chunks.push(current);
+  }
 
-  const total = Math.max(report.total_images, report.results.length);
-  onProgress?.(results.length, total);
-
-  return {
-    batchId: headerBatchId ?? (report.batch_id?.trim() || batchId),
-    report,
-    results,
-    zipEntries,
-  };
-}
+  return chunks;
+};
 
 /**
  * Run every image through `/pipeline/batch`, one sequential chunk of at most
@@ -667,17 +731,18 @@ export async function runLocalAioBatchChunks({
     return { batchIds, results };
   }
 
-  const chunkCount = Math.ceil(total / LOCAL_AIO_BATCH_CHUNK_SIZE);
+  const chunks = planBatchChunks(images);
+  const chunkCount = chunks.length;
   const stageUnitsPerImage = countBatchStageUnits(options.aioSteps);
   const totalUnits = total * stageUnitsPerImage;
+  let offset = 0;
 
   for (let chunkNumber = 1; chunkNumber <= chunkCount; chunkNumber += 1) {
     if (signal.aborted) {
       throw createAioAbortError();
     }
 
-    const offset = (chunkNumber - 1) * LOCAL_AIO_BATCH_CHUNK_SIZE;
-    const chunk = images.slice(offset, offset + LOCAL_AIO_BATCH_CHUNK_SIZE);
+    const chunk = chunks[chunkNumber - 1] ?? [];
     const batchId = createBatchId();
     batchIds.push(batchId);
     onChunkState?.({
@@ -741,6 +806,7 @@ export async function runLocalAioBatchChunks({
       onProgress?.((offset + chunk.length) * stageUnitsPerImage, totalUnits);
     } finally {
       stopPolling();
+      offset += chunk.length;
     }
   }
 

@@ -3,10 +3,18 @@ import type {
   OptimizationRecipe,
   OptimizationResult,
 } from '../../../types';
+import type { PageFile } from '../../../utils/page-source';
 
 export interface OptimizerImageInput {
   id: string;
-  file: File;
+  /**
+   * The page's lazy file.
+   *
+   * The bytes are materialized at each read seam — a `PageFile` is not a
+   * `Blob`, so it cannot be handed to `createObjectURL`, `arrayBuffer()` or a
+   * worker directly.
+   */
+  file: PageFile;
   url: string;
   thumbnailUrl?: string;
   width: number;

@@ -484,7 +484,13 @@ export const restoreWorkspaceHistorySnapshot = async (
   // (revokeLoadedImageUrls / registerDownloads / watermark revokeEntries).
   const restoredImages: DashboardWorkspaceRestoreState["images"] = [];
   for (const item of snapshot.images) {
-    const url = URL.createObjectURL(item.file);
+    // History keeps the PageFile by reference, so the page stays materializable.
+    // A direct page still has its bytes; an archive-backed page re-extracts on
+    // demand. The URL is materialized for direct pages; an archive-backed page
+    // resolves one when it is displayed.
+    const url = item.file.kind === 'direct'
+      ? URL.createObjectURL(item.file.resident)
+      : '';
     restoredImages.push({
       id: item.id,
       file: item.file,

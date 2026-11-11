@@ -28,6 +28,7 @@ import {
 } from '../../../utils/renderText.measure';
 import type { RenderTextLayout } from '../../../utils/renderText.types';
 import type { TypographySessionSourceType } from '../../../typography/types';
+import { materializePageFile, resolvePagePreview } from '../../../utils/page-source';
 import type {
   AioPipelineSnapshotKey,
   AioTextRegion,
@@ -227,7 +228,7 @@ export function useDashboardPsdDownload({
     (s) => s.llmSettings.translation_notes_enabled,
   );
 
-  const resolveTypographerSourcePayloadForImage = useCallback((imgData: LoadedImage): { file: File; sourceType: TypographySessionSourceType } => {
+  const resolveTypographerSourcePayloadForImage = useCallback(async (imgData: LoadedImage): Promise<{ file: File; sourceType: TypographySessionSourceType }> => {
     const downloadItem = getAioDownloadItemForImage(imgData.id);
     if (downloadItem) {
       return {
@@ -238,18 +239,19 @@ export function useDashboardPsdDownload({
       };
     }
     return {
-      file: imgData.file,
+      file: await materializePageFile(imgData),
       sourceType: 'generic-upload',
     };
   }, [getAioDownloadItemForImage]);
 
-  const renderAioTextLayersForKind = useCallback(async (
+  const renderTextLayersFromSource = useCallback(async (
     imgData: LoadedImage,
     regions: AioTextRegion[],
     target: RenderTextOverlayTarget,
     targetLanguage: string,
+    sourceUrl: string,
   ): Promise<PsdTextLayerEntry[]> => {
-    const sourceImage = await loadImageFromSource(imgData.url);
+    const sourceImage = await loadImageFromSource(sourceUrl);
     const renderWidth = sourceImage.naturalWidth || sourceImage.width || imgData.width;
     const renderHeight = sourceImage.naturalHeight || sourceImage.height || imgData.height;
     if (document.fonts?.ready) {
@@ -367,6 +369,28 @@ export function useDashboardPsdDownload({
     return entries;
   }, [applyDetectedGradientToStyle, renderDefaultStyle, translationNotesEnabled]);
 
+  const renderAioTextLayersForKind = useCallback(async (
+    imgData: LoadedImage,
+    regions: AioTextRegion[],
+    target: RenderTextOverlayTarget,
+    targetLanguage: string,
+  ): Promise<PsdTextLayerEntry[]> => {
+    // An archive-backed page has no resident URL, so the page is materialized
+    // into a temporary object URL for the PSD text-layer render.
+    const preview = await resolvePagePreview(imgData);
+    try {
+      return await renderTextLayersFromSource(
+        imgData,
+        regions,
+        target,
+        targetLanguage,
+        preview.src,
+      );
+    } finally {
+      preview.release();
+    }
+  }, [renderTextLayersFromSource]);
+
   return useCallback(async () => {
     const targetImage = activeImage ?? images[0];
     if (!targetImage) {
@@ -381,7 +405,7 @@ export function useDashboardPsdDownload({
         ? resolveAioStageKeyForImage(targetImage.id)
         : (mode === 'typesetter' ? 'render' : (mode === 'translator' ? 'getTranslations' : null));
       const targetAioBaseItem = mode === 'aio' ? getAioDownloadItemForImage(targetImage.id) : null;
-      let sourceBlobForExport: Blob | File = targetAioBaseItem?.blob ?? targetImage.file;
+      let sourceBlobForExport: Blob | File = targetAioBaseItem?.blob ?? (await materializePageFile(targetImage));
       if (mode === 'aio' && hasAioManualImageEdits(targetImage.id)) {
         const composed = await composeAioEditableCanvas(
           targetImage,
@@ -390,7 +414,7 @@ export function useDashboardPsdDownload({
         sourceBlobForExport = await canvasToBlob(composed, 'image/png', 1);
       }
       if (mode === 'typesetter') {
-        const { file: sourceFile, sourceType } = resolveTypographerSourcePayloadForImage(targetImage);
+        const { file: sourceFile, sourceType } = await resolveTypographerSourcePayloadForImage(targetImage);
         setTypographerSessionSourceType(targetImage.id, sourceType);
         sourceBlobForExport = sourceFile;
       }

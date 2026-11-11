@@ -12,6 +12,7 @@ import type {
   TranslatorVisualProcessingMode,
 } from "../types/dashboard.types";
 import type { TypographySession } from "../typography/types";
+import type { PageFile } from "../utils/page-source";
 import type {
   OptimizerWorkspaceRuntimeState,
   SplitterWorkspaceRuntimeState,
@@ -144,7 +145,7 @@ export interface DashboardWorkspaceHistorySnapshot {
   lastActionScope: string | null;
   images: Array<{
     id: string;
-    file: File;
+    file: PageFile;
     width: number;
     height: number;
     rotation: number;

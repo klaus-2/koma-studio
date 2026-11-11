@@ -1,3 +1,5 @@
+import type { PageFile } from '../../../utils/page-source';
+
 export type WatermarkPlacementMode = 'single' | 'tile' | 'grid' | 'smart' | 'multi';
 export type WatermarkAnchor =
   | 'top-left'
@@ -106,7 +108,14 @@ export interface WatermarkImageFilters {
 
 export interface WatermarkLoadedImage {
   id: string;
-  file: File;
+  /**
+   * The page's lazy file.
+   *
+   * The bytes are materialized at each read seam — a `PageFile` cannot be
+   * structured-cloned into the worker, appended to a form or handed to
+   * `createImageBitmap` directly.
+   */
+  file: PageFile;
   url: string;
   thumbnailUrl?: string;
   width: number;

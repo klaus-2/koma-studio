@@ -5,13 +5,16 @@ import {
   groupImagesIntoAioChapters,
 } from '@/pages/dashboard/lib/aio-chapters';
 import type { LoadedImage } from '@/types/dashboard.types';
+import { createDirectPageFile } from '@/utils/page-source';
 
 const makeImage = (
   id: string,
   chapter?: { id: string; label: string },
 ): LoadedImage => ({
   id,
-  file: new File([id], `${id}.png`, { type: 'image/png' }),
+  file: createDirectPageFile(new File([id], `${id}.png`, {
+    type: 'image/png',
+  })),
   url: `blob:${id}`,
   width: 40,
   height: 30,

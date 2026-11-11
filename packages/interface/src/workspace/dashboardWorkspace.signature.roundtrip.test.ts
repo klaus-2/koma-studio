@@ -7,6 +7,7 @@ import type { DashboardWorkspaceCaptureState } from './dashboardWorkspace';
 import type { DownloadItem, ImageFilters, LoadedImage } from '../types/dashboard.types';
 import type { OptimizationResult } from '../types';
 import type { TypographySession } from '../typography/types';
+import { createDirectPageFile, type PageFile } from '../utils/page-source';
 
 // noUncheckedIndexedAccess makes every indexed read `T | undefined`; the
 // harness asserts on the resolved payloads, so require presence explicitly.
@@ -29,6 +30,10 @@ const makeWorkspaceFile = (name: string): File =>
     type: 'image/png',
     lastModified: 1700000000000,
   });
+
+/** The page fixture: `LoadedImage.file` is a `PageFile` since the lazy-page migration. */
+const makeWorkspacePageFile = (name: string): PageFile =>
+  createDirectPageFile(makeWorkspaceFile(name));
 
 const makeBlob = (bytes: number[]): Blob =>
   new Blob([new Uint8Array(bytes)], { type: 'image/png' });
@@ -74,7 +79,7 @@ const buildCaptureState = (): DashboardWorkspaceCaptureState => {
   const images: LoadedImage[] = [
     {
       id: 'img-1',
-      file: makeWorkspaceFile('cover-page.png'),
+      file: makeWorkspacePageFile('cover-page.png'),
       url: 'blob:loaded-image-1',
       width: 640,
       height: 480,
@@ -266,10 +271,7 @@ describe('workspace signature builders', () => {
     const secondImage = requireValue(second.images[0], 'second image');
     second.images[0] = {
       ...secondImage,
-      file: new File([new Uint8Array([1, 2, 3])], 'cover-page.png', {
-        type: 'image/png',
-        lastModified: 1700000000000,
-      }),
+      file: makeWorkspacePageFile(`cover-page-${Date.now()}.png`),
     };
 
     expect(buildWorkspaceHistorySignature(first)).not.toBe(

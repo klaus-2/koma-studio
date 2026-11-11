@@ -1,3 +1,5 @@
+import type { PageFile } from '../../../utils/page-source';
+
 export type StitchLayoutMode = 'webtoon' | 'horizontal';
 
 export type StitchBatchStrategy = 'single' | 'fixed-count' | 'target-height';
@@ -18,7 +20,14 @@ export interface StitchImageFilters {
 
 export interface StitchImageInput {
   id: string;
-  file: File;
+  /**
+   * The page's lazy file.
+   *
+   * The bytes are materialized per image at the worker-job boundary — a
+   * `PageFile` carries functions, which structured clone cannot copy, so it
+   * must never reach `worker.postMessage` as-is.
+   */
+  file: PageFile;
   url: string;
   width: number;
   height: number;
@@ -26,6 +35,13 @@ export interface StitchImageInput {
   filters: StitchImageFilters;
 }
 
+/**
+ * One page, materialized for the worker.
+ *
+ * The worker receives plain data only: `file` is a real `File` and the
+ * dimensions are the resolved pixel size (`0` would produce a zero-size
+ * canvas).
+ */
 export interface StitchRenderImageInput {
   file: File;
   width: number;

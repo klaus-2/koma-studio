@@ -4,6 +4,7 @@ import { twMerge } from "tailwind-merge";
 import {
   CONTAINER_UPLOAD_EXTENSIONS,
   DIRECT_IMAGE_UPLOAD_EXTENSIONS,
+  CHAPTER_ARCHIVE_UPLOAD_EXTENSIONS,
 } from "../constants/dashboard.constants";
 import type { LoadedImage } from "../types/dashboard.types";
 import type { TypographyDetectedGradient } from "../typography/types";
@@ -88,6 +89,18 @@ export const isContainerUploadFile = (file: File): boolean => {
   return CONTAINER_UPLOAD_EXTENSIONS.has(ext);
 };
 
+/**
+ * Whether the container is a chapter archive the browser can read directly.
+ *
+ * `.cbz`/`.zip` are ZIP archives whose members are page images, so the browser
+ * extracts them on demand. Every other container (`.cb7`, `.pdf`, `.psd`)
+ * still needs the backend's ingest route.
+ */
+export const isChapterArchiveUploadFile = (file: File): boolean => {
+  const ext = getFileExtension(file.name);
+  return CHAPTER_ARCHIVE_UPLOAD_EXTENSIONS.has(ext);
+};
+
 export const getImageExtensionFromMime = (mimeType: string): string => {
   const normalized = mimeType.toLowerCase();
   if (normalized.includes("jpeg")) return "jpg";
@@ -159,6 +172,15 @@ export const getRotatedDims = (img: LoadedImage) => {
     height: isSideways ? img.width : img.height,
   };
 };
+
+/**
+ * The dimension label shown in the sidebar.
+ *
+ * A page's pixel size is `0` until the page has been decoded, so an
+ * archive-backed page shows `?x?` until it is first materialized.
+ */
+export const formatImageDimensions = (width: number, height: number): string =>
+  width > 0 && height > 0 ? `${width}x${height}` : "?x?";
 
 export const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
