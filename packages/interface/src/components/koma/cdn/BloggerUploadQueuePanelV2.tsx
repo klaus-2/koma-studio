@@ -75,14 +75,12 @@ export function BloggerUploadQueuePanelV2({
         />
       ) : (
         <m.div
-          layout
           className="grid gap-3 p-4"
         >
           <AnimatePresence initial={false}>
             {uploadDrafts.map(
               (item, index) => (
                 <m.article
-                  layout
                   key={item.id}
                   initial={
                     reduceMotion
