@@ -3769,12 +3769,15 @@ body {
   position: absolute;
   bottom: 0;
   left: 0;
+  width: 100%;
   height: 2px;
   background: linear-gradient(90deg,
       var(--auth-amber),
       rgba(245, 158, 11, 0.3));
   border-radius: 0 999px 999px 0;
-  transition: width 1s linear;
+  transform: scaleX(var(--p, 0));
+  transform-origin: left;
+  transition: transform 1s linear;
 }
 
 .koma-session-toast__content {
@@ -4029,17 +4032,10 @@ body {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
-}
-
-.koma-progress-bar__fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
-  transition: width 0.35s ease;
   position: relative;
 }
 
-.koma-progress-bar__fill::after {
+.koma-progress-bar::after {
   content: '';
   position: absolute;
   top: 0;
@@ -4049,6 +4045,16 @@ body {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
   border-radius: 999px;
   animation: progress-shimmer 1.5s ease-in-out infinite;
+}
+
+.koma-progress-bar__fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
+  transform: scaleX(var(--p, 0));
+  transform-origin: left;
+  transition: transform 0.35s ease;
 }
 
 .koma-progress-bar__fill--done {
@@ -5423,34 +5429,6 @@ body {
 .koma-usage-card__label {
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.koma-usage-card__barWrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.koma-usage-card__ring {
-  flex-shrink: 0;
-  transform: rotate(-90deg);
-}
-
-.koma-usage-card__bar {
-  flex: 1;
-  height: 7px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.koma-usage-card__barFill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.18);
-  transition: width 0.5s ease;
 }
 
 .koma-usage-card__statsGrid {
@@ -9525,7 +9503,9 @@ body {
   height: 4px;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
-  transition: width 0.3s ease;
+  transform: scaleX(var(--p, 0));
+  transform-origin: left;
+  transition: transform 0.3s ease;
 }
 
 .koma-footerbar__meta {
@@ -11019,63 +10999,6 @@ body {
   font-weight: 800;
   color: var(--auth-text);
 }
-
-/* ─── Progress Bar ───────────────────────────────────────── */
-
-.koma-stg-bar {
-  margin-bottom: 4px;
-}
-
-.koma-stg-bar__head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--auth-text-muted);
-  margin-bottom: 8px;
-}
-
-.koma-stg-bar__track {
-  width: 100%;
-  height: 7px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-  position: relative;
-}
-
-.koma-stg-bar__fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.18);
-  transition: width 0.6s ease;
-  position: relative;
-}
-
-.koma-stg-bar__fill::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg,
-      transparent,
-      rgba(255, 255, 255, 0.15),
-      transparent);
-  animation: koma-stg-shimmer 2s ease-in-out infinite;
-}
-
-.koma-stg-bar__fill--critical {
-  background: linear-gradient(90deg, var(--auth-rose), #fb7185);
-  box-shadow: 0 0 16px rgba(244, 63, 94, 0.2);
-}
-
-@keyframes koma-stg-shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
 
   100% {
     transform: translateX(100%);
@@ -12576,10 +12499,6 @@ html[data-theme="light"] #root {
 
 [data-theme="light"] .koma-usage-card__row {
   color: rgba(51, 65, 85, 0.65);
-}
-
-[data-theme="light"] .koma-usage-card__bar {
-  background: rgba(0, 0, 0, 0.06);
 }
 
 [data-theme="light"] .koma-usage-card__foot {

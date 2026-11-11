@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type CSSProperties } from "react";
 
 import { useAuth } from "./hooks/useAuth";
 import { useSession } from "./hooks/useSession";
@@ -54,7 +54,7 @@ export const SessionTimeout = () => {
 
   return (
     <div className="koma-session-toast">
-      <div className="koma-session-toast__bar" style={{ width: `${pct}%` }} />
+      <div className="koma-session-toast__bar" style={{ "--p": pct / 100 } as CSSProperties} />
       <div className="koma-session-toast__content">
         <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="koma-session-toast__icon">
           <path

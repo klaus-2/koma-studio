@@ -24,7 +24,7 @@ export const UpdaterDownloadProgress = () => {
       <div className="koma-progress-bar" aria-hidden="true">
         <div
           className="koma-progress-bar__fill"
-          style={{ width: `${percent}%` }}
+          style={{ "--p": percent / 100 } as React.CSSProperties}
         />
       </div>
       <p className="koma-modal__progress-meta">

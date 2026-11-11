@@ -245,7 +245,7 @@ export const RuntimeStartupToastClassic = () => {
           <div className="koma-progress-bar" aria-busy="true" />
         ) : (
           <div className="koma-progress-bar">
-            <div className="koma-progress-bar__fill" style={{ width: `${progressToast.percent}%` }} />
+            <div className="koma-progress-bar__fill" style={{ "--p": progressToast.percent / 100 } as React.CSSProperties} />
           </div>
         )}
 

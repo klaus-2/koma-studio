@@ -405,7 +405,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
           <div className="koma-footerbar__progress">
             <div
               className="koma-footerbar__progressBar"
-              style={{ width: `${Math.round(progressStore)}%` }}
+              style={{ "--p": Math.round(progressStore) / 100 } as React.CSSProperties}
             />
             <span className="koma-footerbar__meta">{Math.round(progressStore)}%</span>
             <FooterAioBatchBadge className="koma-footerbar__meta" />

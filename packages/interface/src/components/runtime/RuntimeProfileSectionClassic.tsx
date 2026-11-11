@@ -122,7 +122,7 @@ export const RuntimeProfileSectionClassic = ({
       {runtimeState?.progress && (
         <div style={{ marginTop: 14 }}>
           <div className="koma-progress-bar">
-            <div className="koma-progress-bar__fill" style={{ width: `${Math.max(0, Math.min(100, runtimeState.progress.percent))}%` }} />
+            <div className="koma-progress-bar__fill" style={{ "--p": Math.max(0, Math.min(100, runtimeState.progress.percent)) / 100 } as React.CSSProperties} />
           </div>
           <p className="koma-stg-section__desc" style={{ marginTop: 8 }}>
             {`${Math.round(runtimeState.progress.percent)}% · ${(runtimeState.progress.transferredBytes / (1024 * 1024)).toFixed(1)} MB / ${(runtimeState.progress.totalBytes / (1024 * 1024)).toFixed(1)} MB`}
