@@ -11000,11 +11000,6 @@ body {
   color: var(--auth-text);
 }
 
-  100% {
-    transform: translateX(100%);
-  }
-}
-
 /* ─── Countdown ──────────────────────────────────────────── */
 
 .koma-stg-countdown {
