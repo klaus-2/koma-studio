@@ -4010,10 +4010,6 @@
   transition: transform 0.35s ease;
 }
 
-:root[data-theme-family='noir'] .koma-progress-bar__fill--done {
-  background: linear-gradient(90deg, var(--auth-emerald), #34d399);
-}
-
 @keyframes progress-shimmer {
 
   0%,

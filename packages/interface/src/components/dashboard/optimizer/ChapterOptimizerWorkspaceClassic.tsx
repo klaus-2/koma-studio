@@ -115,6 +115,10 @@ export default function ChapterOptimizerWorkspaceClassic({
   );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [originalPreviewUrl, setOriginalPreviewUrl] = useState<string | null>(null);
+  // Mirrors the state URLs so the replaced ones can be revoked outside the
+  // state updater while the unmount cleanup below keeps covering the last.
+  const previewUrlRef = useRef<string | null>(null);
+  const originalPreviewUrlRef = useRef<string | null>(null);
   const [previewStats, setPreviewStats] = useState<OptimizerPreviewStats | null>(null);
   const [results, setResults] = useState<OptimizationResult[]>(
     () => workspaceState?.results ?? [],
@@ -224,10 +228,13 @@ export default function ChapterOptimizerWorkspaceClassic({
         const origUrl = URL.createObjectURL(sourceBlob);
         // Revoke-on-replace: each recipe adjustment re-renders the preview,
         // and the previous URL holds the whole source blob alive until freed.
-        setOriginalPreviewUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return origUrl;
-        });
+        // The revoke runs outside the state updater (updaters must stay pure);
+        // the ref mirrors the currently-held URL.
+        if (originalPreviewUrlRef.current) {
+          URL.revokeObjectURL(originalPreviewUrlRef.current);
+        }
+        originalPreviewUrlRef.current = origUrl;
+        setOriginalPreviewUrl(origUrl);
 
         const currentTicket = ++previewTicketRef.current;
         let jobCancelled = false;
@@ -247,10 +254,11 @@ export default function ChapterOptimizerWorkspaceClassic({
             .then((result) => {
               if (jobCancelled || currentTicket !== previewTicketRef.current) return;
               const nextUrl = URL.createObjectURL(result.blob);
-              setPreviewUrl((prev) => {
-                if (prev) URL.revokeObjectURL(prev);
-                return nextUrl;
-              });
+              if (previewUrlRef.current) {
+                URL.revokeObjectURL(previewUrlRef.current);
+              }
+              previewUrlRef.current = nextUrl;
+              setPreviewUrl(nextUrl);
               setPreviewStats({
                 originalBytes: sourceBlob.size,
                 optimizedBytes: result.blob.size,

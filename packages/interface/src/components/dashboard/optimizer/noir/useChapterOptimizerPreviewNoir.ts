@@ -33,6 +33,11 @@ export const useChapterOptimizerPreviewNoir = ({
   const [originalPreviewUrl, setOriginalPreviewUrl] =
     useState<string | null>(null);
 
+  // Mirrors the state URLs so the replaced ones can be revoked outside the
+  // state updater while the unmount cleanups keep covering the last.
+  const previewUrlRef = useRef<string | null>(null);
+  const originalPreviewUrlRef = useRef<string | null>(null);
+
   const [previewStats, setPreviewStats] =
     useState<OptimizerPreviewStats | null>(null);
 
@@ -56,11 +61,13 @@ export const useChapterOptimizerPreviewNoir = ({
       URL.createObjectURL(activeSourceBlob);
 
     // Revoke-on-replace: the previous URL holds the whole source blob alive
-    // until freed (the unmount cleanup below only covers the last one).
-    setOriginalPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return nextUrl;
-    });
+    // until freed. The revoke runs outside the state updater (updaters must
+    // stay pure); the ref mirrors the currently-held URL.
+    if (originalPreviewUrlRef.current) {
+      URL.revokeObjectURL(originalPreviewUrlRef.current);
+    }
+    originalPreviewUrlRef.current = nextUrl;
+    setOriginalPreviewUrl(nextUrl);
     setPreviewStats(null);
     onSourceChange();
   }, [activeSourceBlob, onSourceChange]);
@@ -122,10 +129,11 @@ export const useChapterOptimizerPreviewNoir = ({
           const nextUrl =
             URL.createObjectURL(result.blob);
 
-          setPreviewUrl((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return nextUrl;
-          });
+          if (previewUrlRef.current) {
+            URL.revokeObjectURL(previewUrlRef.current);
+          }
+          previewUrlRef.current = nextUrl;
+          setPreviewUrl(nextUrl);
 
           setPreviewStats({
             originalBytes:
