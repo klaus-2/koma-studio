@@ -15,6 +15,27 @@ export interface UseUpdaterSyncApi {
 const asSyncState = (value: unknown): UpdaterSyncState =>
   parseUpdaterSyncState(value) ?? createInitialUpdaterSyncState();
 
+// UpdaterSyncState has no percent field: observable activity is the phase,
+// each step's state, the list lengths and the timestamps. Bridge events that
+// only re-emit the same snapshot (log lines unchanged, steps unchanged) then
+// reuse the previous state reference and skip the re-render entirely.
+const updaterSyncStateEquivalent = (
+  left: UpdaterSyncState,
+  right: UpdaterSyncState,
+): boolean =>
+  left === right ||
+  (left.phase === right.phase &&
+    left.error === right.error &&
+    left.startedAt === right.startedAt &&
+    left.finishedAt === right.finishedAt &&
+    left.dirtyFiles.length === right.dirtyFiles.length &&
+    left.logLines.length === right.logLines.length &&
+    left.steps.length === right.steps.length &&
+    left.steps.every(
+      (step, index) =>
+        step.id === right.steps[index]?.id && step.state === right.steps[index]?.state,
+    ));
+
 export const useUpdaterSync = (): UseUpdaterSyncApi => {
   const bridge = useMemo(() => desktopBridge.updaterSync ?? null, []);
   const [state, setState] = useState<UpdaterSyncState>(createInitialUpdaterSyncState);
@@ -27,7 +48,8 @@ export const useUpdaterSync = (): UseUpdaterSyncApi => {
     const unsubscribe = bridge.on((payload) => {
       const rawState: unknown =
         payload && typeof payload === "object" ? payload.state : null;
-      setState(parseUpdaterSyncState(rawState) ?? createInitialUpdaterSyncState());
+      const next = parseUpdaterSyncState(rawState) ?? createInitialUpdaterSyncState();
+      setState((previous) => (updaterSyncStateEquivalent(previous, next) ? previous : next));
     });
 
     let cancelled = false;

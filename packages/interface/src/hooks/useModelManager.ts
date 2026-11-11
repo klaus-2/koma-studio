@@ -62,47 +62,27 @@ export const useModelManagerGatedState = (live: boolean): ModelStoreState =>
   );
 
 interface ModelManagerStatusSnapshotCache {
-  signature: string;
-  state: ModelStoreState;
+  version: number;
+  snapshot: ModelStoreState;
 }
 
 let statusSnapshotCache: ModelManagerStatusSnapshotCache | null = null;
 
-const buildStatusSignature = (state: ModelStoreState): string =>
-  JSON.stringify([
-    state.initialized,
-    state.loading,
-    state.checkingRemoteUpdates,
-    state.lastRemoteCheckAt,
-    state.diskSpace,
-    state.installedSizeBytes,
-    state.error,
-    state.modalOpen,
-    state.modalLanguageFilter,
-    state.focusedModelId,
-    state.batch,
-    Object.keys(state.entries).map((modelId) => {
-      const entry = state.entries[modelId];
-      return entry
-        ? [modelId, entry.status, entry.error, entry.errorCode]
-        : [modelId, null, null, null];
-    }),
-  ]);
-
 /**
  * Snapshot that keeps its identity across progress-only patches: root
  * consumers read status/model identity, while the manager modal subscribes to
- * the live state for the progress bar.
+ * the live state for the progress bar. The store bumps a status version with
+ * a cheap per-patch diff (identity of entry objects + primitive root fields),
+ * so this check is O(1) per getSnapshot instead of serializing the registry.
  */
 export const getModelManagerStatusSnapshot = (): ModelStoreState => {
-  const state = modelStore.getState();
-  if (statusSnapshotCache?.state === state) return state;
-  const signature = buildStatusSignature(state);
-  if (statusSnapshotCache?.signature === signature) {
-    return statusSnapshotCache.state;
+  const version = modelStore.getStatusVersion();
+  if (statusSnapshotCache?.version === version) {
+    return statusSnapshotCache.snapshot;
   }
-  statusSnapshotCache = { signature, state };
-  return state;
+  const snapshot = modelStore.getState();
+  statusSnapshotCache = { version, snapshot };
+  return snapshot;
 };
 
 export const useModelManagerStatusSnapshot = (): ModelStoreState =>
