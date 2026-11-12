@@ -116,15 +116,15 @@ for _pkg in _NVIDIA_PACKAGES:
     except Exception:
         pass  # package not installed for this profile — skip
 
-_REQUIRED_RUNTIME_PACKAGES = ('llama_cpp', 'ctranslate2')
+_REQUIRED_RUNTIME_PACKAGES = ('llama_cpp', 'ctranslate2', 'easyocr', 'safetensors', 'comtypes')
 _RUNTIME_LIB_SUFFIXES = {'.dll', '.so', '.dylib'}
 
 for _pkg in _REQUIRED_RUNTIME_PACKAGES:
     if importlib.util.find_spec(_pkg) is None:
         raise SystemExit(
             f"build.spec preflight: '{_pkg}' is missing from the build venv. "
-            "Install requirements.txt before packaging; without it GGUF/CT2 "
-            "translation models install fine but fail at load time."
+            "Install requirements.txt before packaging; without it the packaged "
+            "backend fails at load time for the features that import it."
         )
 
 llama_cpp_hiddenimports = collect_submodules('llama_cpp')
@@ -133,6 +133,11 @@ llama_cpp_datas = collect_data_files('llama_cpp')
 ctranslate2_hiddenimports = collect_submodules('ctranslate2')
 ctranslate2_binaries = collect_dynamic_libs('ctranslate2')
 ctranslate2_datas = collect_data_files('ctranslate2')
+easyocr_hiddenimports = collect_submodules('easyocr')
+easyocr_datas = collect_data_files('easyocr')
+safetensors_hiddenimports = collect_submodules('safetensors')
+comtypes_hiddenimports = collect_submodules('comtypes')
+comtypes_datas = collect_data_files('comtypes')
 
 for _pkg, _binaries in (('llama_cpp', llama_cpp_binaries), ('ctranslate2', ctranslate2_binaries)):
     _native = {
@@ -156,9 +161,9 @@ a = Analysis(
         # module; without this entry every packaged exe crashes at boot with
         # FileNotFoundError for model-assets.json.
         (str(PROJECT_ROOT / 'models' / 'manifests' / 'model-assets.json'), 'models/manifests'),
-        *psd_datas, *photoshop_datas, *pdfium_datas, *py7zr_datas, *transformers_datas, *tokenizers_datas, *onnxruntime_datas, *nvidia_datas, *llama_cpp_datas, *ctranslate2_datas,
+        *psd_datas, *photoshop_datas, *pdfium_datas, *py7zr_datas, *transformers_datas, *tokenizers_datas, *onnxruntime_datas, *nvidia_datas, *llama_cpp_datas, *ctranslate2_datas, *easyocr_datas, *comtypes_datas,
     ],
-    hiddenimports=['uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto', 'uvicorn.protocols', 'uvicorn.protocols.http', 'uvicorn.protocols.http.auto', 'uvicorn.protocols.websockets', 'uvicorn.protocols.websockets.auto', 'uvicorn.lifespan', 'uvicorn.lifespan.on', 'multipart', *local_hiddenimports, *psd_hiddenimports, *photoshop_hiddenimports, *pdfium_hiddenimports, *py7zr_hiddenimports, *transformers_hiddenimports, *tokenizers_hiddenimports, *sentencepiece_hiddenimports, *torch_hiddenimports, *torchvision_hiddenimports, *onnxruntime_hiddenimports, *llama_cpp_hiddenimports, *ctranslate2_hiddenimports],
+    hiddenimports=['uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto', 'uvicorn.protocols', 'uvicorn.protocols.http', 'uvicorn.protocols.http.auto', 'uvicorn.protocols.websockets', 'uvicorn.protocols.websockets.auto', 'uvicorn.lifespan', 'uvicorn.lifespan.on', 'multipart', *local_hiddenimports, *psd_hiddenimports, *photoshop_hiddenimports, *pdfium_hiddenimports, *py7zr_hiddenimports, *transformers_hiddenimports, *tokenizers_hiddenimports, *sentencepiece_hiddenimports, *torch_hiddenimports, *torchvision_hiddenimports, *onnxruntime_hiddenimports, *llama_cpp_hiddenimports, *ctranslate2_hiddenimports, *easyocr_hiddenimports, *safetensors_hiddenimports, *comtypes_hiddenimports],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
