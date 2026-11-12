@@ -309,6 +309,55 @@ class TruncatedTargetJobTests(unittest.TestCase):
             self.assertIn("Invalid SHA256 checksum", snapshot["errorMessage"] or "")
             self.assertFalse(seeded.exists(), "a corrupt target must not stay installed")
 
+    def test_corrupt_small_file_is_not_blessed_when_the_hf_api_is_unreachable(self) -> None:
+        model_id = "nllb-200-600m-int8"
+        manifest_entry = translation_storage.model_entry(model_id)
+        assert manifest_entry is not None
+        assets = {str(a["path"]): a for a in manifest_entry["assets"]}
+        config_asset = assets["config.json"]
+
+        def fake_resolve_hf_file(**kwargs: object) -> tuple[str, str, str]:
+            # huggingface.co/api is unreachable: no remote digest is resolvable.
+            return (str(config_asset["path"]), "", "https://example.invalid/config.json")
+
+        def fake_download_file(
+            url: str,
+            target_path: Path,
+            max_retries: int = 5,
+            expected_size: int | None = None,
+            expected_sha256: str | None = None,
+            max_bytes: int | None = None,
+        ) -> None:
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_bytes(b"not the real asset")
+
+        with tempfile.TemporaryDirectory() as models_root, patch.dict(
+            os.environ, {"KOMA_MODELS_ROOT": models_root}
+        ):
+            seeded = Path(models_root) / model_id / "config.json"
+            seeded.parent.mkdir(parents=True, exist_ok=True)
+            seeded.write_bytes(b'{"corrupt": true}')
+
+            manager = _MANAGED_JOB_MANAGER
+            assert manager is not None
+            original = manager.installer
+            try:
+                with patch.object(
+                    hf_download, "resolve_hf_file", side_effect=fake_resolve_hf_file
+                ), patch.object(
+                    hf_download, "download_file", side_effect=fake_download_file
+                ):
+                    job, created = manager.submit(model_id, None, 0, {})
+                    self.assertTrue(created)
+                    self.assertTrue(job.wait(10), "job did not finish in time")
+            finally:
+                manager.installer = original
+
+            snapshot = job.snapshot()
+            self.assertEqual(snapshot["state"], "error")
+            self.assertEqual(snapshot["errorCode"], "checksum_mismatch")
+            self.assertFalse(seeded.exists(), "a corrupt file must not stay installed")
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
