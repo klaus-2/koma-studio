@@ -490,6 +490,7 @@ const RenderTextPreviewNoir = ({
     areaSelectionEnabled,
     inlineEditorRequestKey,
     inlineEditorDisplayScale: rotationScaleFactor,
+    fontRefreshToken,
     openInlineEditorForRegion,
   });
 

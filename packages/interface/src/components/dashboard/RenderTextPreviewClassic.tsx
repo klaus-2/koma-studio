@@ -494,6 +494,7 @@ const RenderTextPreviewClassic = ({
     areaSelectionEnabled,
     inlineEditorRequestKey,
     inlineEditorDisplayScale: rotationScaleFactor,
+    fontRefreshToken,
     openInlineEditorForRegion,
   });
 

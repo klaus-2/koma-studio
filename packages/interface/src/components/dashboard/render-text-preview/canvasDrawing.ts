@@ -2,6 +2,7 @@ import type { AioTextRegion } from '../../../types/dashboard.types';
 import type { RenderTextStyleRange } from '../../../typography/renderStyle';
 import type { RenderTextStyle } from '../../../utils/renderText';
 import {
+  areRenderTextFontsReady,
   clamp,
   cloneRenderStyle,
   ensureCanvasFontLoaded,
@@ -296,7 +297,8 @@ const buildLayoutSignature = (
     ranges
       ?.map((range) => `${range.start}:${range.end}:${JSON.stringify(range.style)}`)
       .join(";") ?? "";
-  return `${regionId}|${renderStageActive ? 1 : 0}|${width}x${height}|${text}|${metrics}|${rangeKey}|${shapeSignature}`;
+  const fontsReady = areRenderTextFontsReady(style, ranges);
+  return `${regionId}|${renderStageActive ? 1 : 0}|${width}x${height}|${text}|${metrics}|${rangeKey}|${shapeSignature}|${fontsReady ? 1 : 0}`;
 };
 
 let regionLayoutCache = new Map<string, CachedRegionLayout>();

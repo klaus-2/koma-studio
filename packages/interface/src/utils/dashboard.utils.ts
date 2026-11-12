@@ -390,6 +390,14 @@ export const resetLoadedCanvasFontCache = (): void => {
   loadedCanvasFontKeys.clear();
 };
 
+const checkFontRequestSafe = (fontRequest: string): boolean => {
+  try {
+    return document.fonts.check(fontRequest);
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Ensures the fonts referenced by the style are available to canvas measureText.
  * Resolves to true when any family became newly usable (or was re-keyed after a
@@ -416,10 +424,10 @@ export const ensureCanvasFontLoaded = async (
         const key = `${family.toLowerCase()}|${style.bold ? "700" : "400"}|${style.italic ? "italic" : "normal"}`;
         const fontRequest = `${style.italic ? "italic " : ""}${style.bold ? "700 " : "400 "}16px "${escapedFamily}"`;
 
-        if (loadedCanvasFontKeys.has(key) && document.fonts.check(fontRequest)) {
+        if (loadedCanvasFontKeys.has(key) && checkFontRequestSafe(fontRequest)) {
           return false;
         }
-        if (document.fonts.check(fontRequest)) {
+        if (checkFontRequestSafe(fontRequest)) {
           loadedCanvasFontKeys.add(key);
           return true;
         }
@@ -431,7 +439,7 @@ export const ensureCanvasFontLoaded = async (
               window.setTimeout(() => resolve([]), 1200);
             }),
           ]);
-          if ((loadedFaces?.length ?? 0) > 0 && document.fonts.check(fontRequest)) {
+          if ((loadedFaces?.length ?? 0) > 0 && checkFontRequestSafe(fontRequest)) {
             loadedCanvasFontKeys.add(key);
             return true;
           }
@@ -443,6 +451,26 @@ export const ensureCanvasFontLoaded = async (
       }),
   );
   return newlyAvailable.some(Boolean);
+};
+
+export const areRenderTextFontsReady = (
+  style: RenderTextStyle,
+  ranges?: readonly { readonly style?: { readonly fontFamily?: string } }[] | null,
+): boolean => {
+  if (typeof document === "undefined" || !("fonts" in document)) return true;
+  const families = new Set<string>([
+    normalizeFontFamilyForCanvas(style.fontFamily),
+    ...collectInlineRenderTextFontFamilies(ranges).map((family) =>
+      normalizeFontFamilyForCanvas(family),
+    ),
+  ]);
+
+  return [...families].every((family) => {
+    if (!family) return true;
+    const escapedFamily = family.replace(/["\\]/g, "\\$&");
+    const fontRequest = `${style.italic ? "italic " : ""}${style.bold ? "700 " : "400 "}16px "${escapedFamily}"`;
+    return checkFontRequestSafe(fontRequest);
+  });
 };
 
 export { copyTextToClipboardSafe } from "./clipboard";

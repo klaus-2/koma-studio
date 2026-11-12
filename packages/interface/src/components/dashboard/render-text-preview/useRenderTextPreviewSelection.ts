@@ -59,6 +59,7 @@ interface UseRenderTextPreviewSelectionParams {
   areaSelectionEnabled: boolean;
   inlineEditorRequestKey: string | null;
   inlineEditorDisplayScale: number;
+  fontRefreshToken: number;
   openInlineEditorForRegion: (region: AioTextRegion) => void;
 }
 
@@ -80,6 +81,7 @@ export const useRenderTextPreviewSelection = ({
   areaSelectionEnabled,
   inlineEditorRequestKey,
   inlineEditorDisplayScale,
+  fontRefreshToken,
   openInlineEditorForRegion,
 }: UseRenderTextPreviewSelectionParams) => {
   const selectedRegion = useMemo(
@@ -126,17 +128,23 @@ export const useRenderTextPreviewSelection = ({
     if (!ctx) {
       return { frame: fallbackFrame, lines: [] };
     }
+    const measureText = inlineEditor.value.trim()
+      ? inlineEditor.value
+      : inlineEditor.originalValue;
+    if (!measureText.trim()) {
+      return { frame: fallbackFrame, lines: [] };
+    }
     // Same measure source the painter uses (trimmed text, shared layout
     // cache): selection line boxes must sit exactly on the painted glyphs.
     // Draft ranges are derived, never stored: the region's ranges remapped
     // onto the edited text (identity once a format flush reset originalValue).
     const { layout, shape } = resolveRegionTextLayout(ctx, {
       region: inlineEditorRegion,
-      text: inlineEditor.value,
+      text: measureText,
       style: inlineEditorBaseStyle,
       styleRanges: remapRenderTextStyleRangesAfterTextEdit(
         inlineEditor.originalValue,
-        inlineEditor.value,
+        measureText,
         inlineEditorBaseStyle,
         inlineEditorRegion.renderTextStyleRanges,
       ),
@@ -150,15 +158,18 @@ export const useRenderTextPreviewSelection = ({
         shape,
         displayScale: inlineEditorDisplayScale,
       }),
-      lines: resolveInlineEditorLineBoxes({
-        text: inlineEditor.value,
-        bbox: inlineEditorRegion.bbox,
-        layout,
-        style: inlineEditorBaseStyle,
-        shape,
-      }),
+      lines: inlineEditor.value.trim()
+        ? resolveInlineEditorLineBoxes({
+          text: inlineEditor.value,
+          bbox: inlineEditorRegion.bbox,
+          layout,
+          style: inlineEditorBaseStyle,
+          shape,
+        })
+        : [],
     };
   }, [
+    fontRefreshToken,
     inlineEditor?.originalValue,
     inlineEditor?.value,
     inlineEditorBaseStyle,

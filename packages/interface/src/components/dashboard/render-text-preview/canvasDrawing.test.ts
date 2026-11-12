@@ -193,6 +193,45 @@ const withFontSet = (fonts: {
   });
 };
 
+describe('layout signature font readiness', () => {
+  beforeEach(() => {
+    clearRegionLayoutCache();
+    resetLoadedCanvasFontCache();
+  });
+
+  it('re-measures when a font becomes usable without an explicit cache clear', () => {
+    let available = false;
+    withFontSet({
+      check: () => available,
+      load: async () => [{}] as FontFace[],
+    });
+    const region = buildRegion(PAINTED_TEXT);
+    const style = { ...STYLE, fontFamily: 'Koma Test' };
+    const ctx = createMockCtx();
+    const measureSpy = vi.spyOn(ctx, 'measureText');
+    const resolve = (): void => {
+      resolveRegionTextLayout(ctx, {
+        region,
+        text: PAINTED_TEXT,
+        style,
+        styleRanges: undefined,
+        renderStageActive: true,
+      });
+    };
+
+    resolve();
+    const firstMeasure = measureSpy.mock.calls.length;
+    expect(firstMeasure).toBeGreaterThan(0);
+
+    resolve();
+    expect(measureSpy.mock.calls.length).toBe(firstMeasure);
+
+    available = true;
+    resolve();
+    expect(measureSpy.mock.calls.length).toBeGreaterThan(firstMeasure);
+  });
+});
+
 describe('ensureCanvasFontLoaded availability flag', () => {
   beforeEach(() => {
     resetLoadedCanvasFontCache();
