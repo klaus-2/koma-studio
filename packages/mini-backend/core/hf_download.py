@@ -485,9 +485,11 @@ def download_file(
 
     if expected_size is not None and total_size is not None and total_size != expected_size:
         temp_path.unlink(missing_ok=True)
-        raise HFDownloadError(
+        raise ChecksumMismatchError(
             f"Size mismatch for '{target_path.name}'. "
-            f"Expected: {expected_size} | Got: {total_size}"
+            f"Expected: {expected_size} | Got: {total_size}",
+            expected=str(expected_size),
+            got=str(total_size),
         )
 
     if expected_sha256:
@@ -511,6 +513,7 @@ def ensure_file_from_hf(
     target_path: Path,
     revision: str = "main",
     expected_sha256: str | None = None,
+    expected_size: int | None = None,
 ) -> dict[str, object]:
     configured_sha = _normalize_sha(expected_sha256)
     if expected_sha256 and configured_sha is None:
@@ -545,7 +548,7 @@ def ensure_file_from_hf(
                 "downloaded": False,
             }
 
-    download_file(download_url, target_path)
+    download_file(download_url, target_path, expected_size=expected_size)
     bridge = _active_bridge()
     if bridge is not None:
         bridge.report_phase("verifying")

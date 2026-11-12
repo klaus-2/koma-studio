@@ -13,6 +13,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 
 import core.hf_download as hf
 from core.hf_download import (
+    ChecksumMismatchError,
     DiskWriteError,
     NetworkDownloadError,
     RateLimitedError,
@@ -89,6 +90,38 @@ class RetryableTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b"AAAABBBB")
             self.assertEqual(seen_ranges, ["bytes=4-"])
             self.assertFalse(part.exists())
+
+
+class SizeMismatchTests(unittest.TestCase):
+    def test_declared_size_mismatch_raises_checksum_error_and_drops_the_part(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "model.bin"
+            part = target.with_suffix(".bin.part")
+
+            def fake_open(request: hf.Request) -> _FakeResponse:
+                return _FakeResponse(
+                    b"0123456789ABCDEF", 200, headers={"Content-Length": "16"}
+                )
+
+            original_open = hf._open
+            hf._open = fake_open  # type: ignore[assignment]
+            try:
+                with self.assertRaises(ChecksumMismatchError) as ctx:
+                    download_file(
+                        "https://huggingface.co/x/resolve/main/model.bin",
+                        target,
+                        expected_size=8,
+                    )
+            finally:
+                hf._open = original_open  # type: ignore[assignment]
+
+            self.assertIn("Size mismatch", str(ctx.exception))
+            self.assertEqual(ctx.exception.expected, "8")
+            self.assertEqual(ctx.exception.got, "16")
+            self.assertFalse(part.exists())
+            self.assertFalse(target.exists())
 
 
 if __name__ == "__main__":

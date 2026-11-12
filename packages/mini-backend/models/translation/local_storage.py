@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from core.hf_download import ensure_file_from_hf
+from core.hf_download import ensure_file_from_hf, progress_bridge_var
 from core.models_store import resolve_model_dir
+from models.manifests import model_entry
 
 
 _LOCAL_TRANSLATION_MODELS: dict[str, dict[str, Any]] = {
@@ -159,6 +160,30 @@ def resolve_local_translation_model_dir(model_id: str) -> Path | None:
     return resolve_model_dir(model_id.strip().lower())
 
 
+def _manifest_assets_by_path(model_id: str) -> dict[str, dict[str, Any]]:
+    assets_by_path: dict[str, dict[str, Any]] = {}
+    manifest_entry = model_entry(model_id)
+    if not isinstance(manifest_entry, dict):
+        return assets_by_path
+    assets = manifest_entry.get("assets")
+    if not isinstance(assets, list):
+        return assets_by_path
+    for asset in assets:
+        if isinstance(asset, dict) and "path" in asset:
+            assets_by_path[str(asset["path"])] = asset
+    return assets_by_path
+
+
+def _manifest_asset_is_valid(asset: dict[str, Any]) -> bool:
+    digest = asset.get("sha256")
+    size = asset.get("size")
+    if not isinstance(digest, str) or len(digest) != 64:
+        return False
+    if not isinstance(size, (int, float)) or isinstance(size, bool) or int(size) <= 0:
+        return False
+    return True
+
+
 def local_translation_runtime_ready(model_id: str) -> bool:
     """True only when every managed file exists.
 
@@ -172,7 +197,21 @@ def local_translation_runtime_ready(model_id: str) -> bool:
     model_dir = resolve_local_translation_model_dir(normalized)
     if model_dir is None:
         return False
-    return all((model_dir / path).exists() for path in source["files"])
+    try:
+        assets_by_path = _manifest_assets_by_path(normalized)
+        for item in source["files"]:
+            relative_path = str(item).strip()
+            file_path = model_dir / relative_path
+            if not file_path.exists():
+                return False
+            asset = assets_by_path.get(relative_path)
+            if asset is None:
+                continue
+            if file_path.stat().st_size != int(asset["size"]):
+                return False
+    except (OSError, KeyError, TypeError, ValueError):
+        return False
+    return True
 
 
 def ensure_local_translation_model_installed(model_id: str) -> dict[str, Any]:
@@ -184,15 +223,51 @@ def ensure_local_translation_model_installed(model_id: str) -> dict[str, Any]:
             "KOMA_MODELS_ROOT is not configured for managed local translation installs.",
         )
 
+    manifest_entry = model_entry(normalized)
+    if manifest_entry is None:
+        raise RuntimeError(
+            f"Managed translation model '{normalized}' has assets missing from "
+            "the model asset manifest."
+        )
+    assets_by_path = _manifest_assets_by_path(normalized)
+    managed_files = [str(item).strip() for item in source["files"]]
+    missing = [path for path in managed_files if path not in assets_by_path]
+    if missing:
+        raise RuntimeError(
+            f"Managed translation model '{normalized}' has assets missing from "
+            f"the model asset manifest: {', '.join(missing)}"
+        )
+    malformed = [
+        path for path in managed_files if not _manifest_asset_is_valid(assets_by_path[path])
+    ]
+    if malformed:
+        raise RuntimeError(
+            f"Managed translation model '{normalized}' has malformed manifest "
+            f"asset digests or sizes: {', '.join(malformed)}"
+        )
+    total_bytes = manifest_entry.get("totalBytes")
+    if not isinstance(total_bytes, (int, float)) or isinstance(total_bytes, bool) or int(total_bytes) <= 0:
+        raise RuntimeError(
+            f"Managed translation model '{normalized}' has a malformed manifest "
+            "totalBytes."
+        )
+
+    bridge = progress_bridge_var.get()
+    if bridge is not None:
+        bridge.declare_total(int(total_bytes))
+
     model_dir.mkdir(parents=True, exist_ok=True)
     files_payload: list[dict[str, Any]] = []
-    for relative_path in [str(item).strip() for item in source["files"]]:
+    for relative_path in managed_files:
         target_path = model_dir / relative_path
+        asset = assets_by_path[relative_path]
         payload = ensure_file_from_hf(
             repo=str(source["repo"]),
             candidate_paths=[relative_path],
             target_path=target_path,
             revision="main",
+            expected_sha256=str(asset["sha256"]),
+            expected_size=int(asset["size"]),
         )
         files_payload.append(
             {

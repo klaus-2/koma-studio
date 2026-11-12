@@ -179,11 +179,21 @@ class TranslationNllbRunnableTests(unittest.TestCase):
                 )
 
     def test_complete_directory_of_the_nllb_1_3b_ct2_bundle_is_ready(self) -> None:
-        files = translation_storage._LOCAL_TRANSLATION_MODELS["nllb-200-1.3b-int8-ct2"]["files"]
-        with tempfile.TemporaryDirectory() as directory:
+        model_id = "nllb-200-1.3b-int8-ct2"
+        files = translation_storage._LOCAL_TRANSLATION_MODELS[model_id]["files"]
+        stub_entry = {
+            "totalBytes": len(files) * 10,
+            "assets": [
+                {"path": relative_path, "sha256": "a" * 64, "size": 10}
+                for relative_path in files
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            translation_storage, "model_entry", return_value=stub_entry
+        ):
             model_dir = Path(directory)
             for relative_path in files:
-                (model_dir / relative_path).write_bytes(b"stub")
+                (model_dir / relative_path).write_bytes(b"0" * 10)
             with patch.object(
                 translation_storage,
                 "resolve_local_translation_model_dir",
