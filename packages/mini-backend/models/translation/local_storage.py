@@ -179,6 +179,8 @@ def _manifest_asset_is_valid(asset: dict[str, Any]) -> bool:
     size = asset.get("size")
     if not isinstance(digest, str) or len(digest) != 64:
         return False
+    if any(ch not in "0123456789abcdef" for ch in digest.lower()):
+        return False
     if not isinstance(size, (int, float)) or isinstance(size, bool) or int(size) <= 0:
         return False
     return True
