@@ -5,7 +5,10 @@ import { renderHook } from '@testing-library/react';
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import { DEFAULT_RENDER_STYLE } from '../../../constants/dashboard.constants';
 import type { RenderTextPreviewInlineEditorState } from './useRenderTextPreviewInlineEditor';
+import { clearRegionLayoutCache } from './canvasDrawing';
 import { useRenderTextPreviewSelection } from './useRenderTextPreviewSelection';
+
+const measureContexts: CanvasRenderingContext2D[] = [];
 
 const createMeasureContext = (): CanvasRenderingContext2D => {
   const ctx = {
@@ -27,7 +30,9 @@ const createMeasureContext = (): CanvasRenderingContext2D => {
       } as TextMetrics;
     },
   };
-  return ctx as unknown as CanvasRenderingContext2D;
+  const cast = ctx as unknown as CanvasRenderingContext2D;
+  measureContexts.push(cast);
+  return cast;
 };
 
 beforeAll(() => {
@@ -42,9 +47,9 @@ const MEASURE_STYLE = {
   minFontSize: 8,
 };
 
-const buildRegion = (renderText: string): AioTextRegion =>
+const buildRegion = (renderText: string, id = 'region-1'): AioTextRegion =>
   ({
-    id: 'region-1',
+    id,
     bbox: [0, 0, 320, 120],
     renderText,
     shape: {
@@ -155,14 +160,65 @@ describe('useRenderTextPreviewSelection empty draft', () => {
     expect(result.current.inlineEditorUsesCanvasSelection).toBe(true);
   });
 
-  it('a fontRefreshToken bump re-measures the editor layout', () => {
-    const editor = buildInlineEditor({ value: 'Hello world' });
-    const { result, rerender } = renderSelectionHook(editor);
-    const frameBefore = result.current.inlineEditorContentEditableStyle;
+  it('a fontRefreshToken bump re-measures with the loaded font metrics', () => {
+    let fontsAvailable = false;
+    Object.defineProperty(document, 'fonts', {
+      value: { check: (): boolean => fontsAvailable },
+      configurable: true,
+    });
+    const tokenRegion = buildRegion('Hello world', 'region-token');
+    const tokenMap = new Map([['region-token', tokenRegion]]);
+    const tokenList = [tokenRegion];
+    const renderTokenHook = (token: number) =>
+      renderHook(
+        ({ editor, token: value }: { editor: RenderTextPreviewInlineEditorState | null; token: number }) =>
+          useRenderTextPreviewSelection({
+            selectedRegionId: 'region-token',
+            hoveredRegionId: null,
+            contextMenu: null,
+            inlineEditor: editor,
+            displayRegionById: tokenMap,
+            displayRegionsWithDefaults: tokenList,
+            fallbackStyle: MEASURE_STYLE,
+            availableTypographyPresets: [],
+            availableTypographyFolders: [],
+            presetSearch: '',
+            presetFolderFilter: null,
+            renderStageActive: true,
+            active: true,
+            editable: true,
+            areaSelectionEnabled: false,
+            inlineEditorRequestKey: null,
+            inlineEditorDisplayScale: 1,
+            fontRefreshToken: value,
+            openInlineEditorForRegion: () => undefined,
+          }),
+        { initialProps: { editor: buildInlineEditor({ value: 'Hello world', regionId: 'region-token' }), token } },
+      );
 
-    rerender({ editor, token: 1 });
+    try {
+      clearRegionLayoutCache();
+      const measureSpy = vi.spyOn(measureContexts[0]!, 'measureText');
+      const { rerender } = renderTokenHook(0);
+      const measuredOnce = measureSpy.mock.calls.length;
+      expect(measuredOnce).toBeGreaterThan(0);
 
-    expect(result.current.inlineEditorContentEditableStyle).not.toBe(frameBefore);
+      rerender({
+        editor: buildInlineEditor({ value: 'Hello world', regionId: 'region-token' }),
+        token: 0,
+      });
+      expect(measureSpy.mock.calls.length).toBe(measuredOnce);
+
+      fontsAvailable = true;
+      rerender({
+        editor: buildInlineEditor({ value: 'Hello world', regionId: 'region-token' }),
+        token: 1,
+      });
+      expect(measureSpy.mock.calls.length).toBeGreaterThan(measuredOnce);
+    } finally {
+      Reflect.deleteProperty(document, 'fonts');
+      clearRegionLayoutCache();
+    }
   });
 
   it('an unchanged fontRefreshToken keeps the memoized layout', () => {
