@@ -117,6 +117,7 @@ for _pkg in _NVIDIA_PACKAGES:
         pass  # package not installed for this profile — skip
 
 _REQUIRED_RUNTIME_PACKAGES = ('llama_cpp', 'ctranslate2')
+_RUNTIME_LIB_SUFFIXES = {'.dll', '.so', '.dylib'}
 
 for _pkg in _REQUIRED_RUNTIME_PACKAGES:
     if importlib.util.find_spec(_pkg) is None:
@@ -132,6 +133,19 @@ llama_cpp_datas = collect_data_files('llama_cpp')
 ctranslate2_hiddenimports = collect_submodules('ctranslate2')
 ctranslate2_binaries = collect_dynamic_libs('ctranslate2')
 ctranslate2_datas = collect_data_files('ctranslate2')
+
+for _pkg, _binaries in (('llama_cpp', llama_cpp_binaries), ('ctranslate2', ctranslate2_binaries)):
+    _native = {
+        Path(source).name
+        for source, _destination in _binaries
+        if Path(source).suffix.lower() in _RUNTIME_LIB_SUFFIXES
+    }
+    if not _native:
+        raise SystemExit(
+            f"build.spec preflight: '{_pkg}' collected no native libraries. "
+            "The wheel layout changed and the packaged backend would fail to "
+            "load GGUF/CT2 translation models."
+        )
 
 a = Analysis(
     ['app.py'],
