@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
-from core.hf_download import download_file, ensure_file_from_hf, sha256_file
+from core.hf_download import download_file, ensure_file_from_hf, progress_bridge_var, sha256_file
 from core.models_store import resolve_model_dir
+from models.manifests import (
+    manifest_asset_is_valid,
+    manifest_assets_by_path,
+    manifest_declared_total,
+)
 
+
+logger = logging.getLogger(__name__)
 
 _DETECTION_MODEL_SOURCES: dict[str, dict[str, Any]] = {
     "comic_text_detector": {
@@ -63,10 +71,40 @@ def detection_runtime_ready(model_id: str) -> bool:
     model_dir = resolve_detection_model_dir(normalized)
     if model_dir is None:
         return False
+    normalized = (model_id or "").strip().lower()
+    assets_by_path = manifest_assets_by_path(normalized)
     if source.get("kind") == "hf_bundle":
-        return all((model_dir / f).exists() for f in source.get("files", []))
+        for name in source.get("files", []):
+            file_path = model_dir / str(name)
+            try:
+                if not file_path.exists():
+                    return False
+                asset = assets_by_path.get(str(name))
+                if asset is not None and file_path.stat().st_size != int(asset["size"]):
+                    return False
+            except OSError:
+                return False
+            except (KeyError, TypeError, ValueError):
+                logger.warning(
+                    "Detection readiness hit malformed manifest data for %s", normalized
+                )
+                return False
+        return True
     target = model_dir / str(source["target"])
-    return target.exists()
+    try:
+        if not target.exists():
+            return False
+        asset = assets_by_path.get(str(source["target"]))
+        if asset is not None and target.stat().st_size != int(asset["size"]):
+            return False
+    except OSError:
+        return False
+    except (KeyError, TypeError, ValueError):
+        logger.warning(
+            "Detection readiness hit malformed manifest data for %s", normalized
+        )
+        return False
+    return True
 
 
 def _install_hf_bundle(
@@ -74,15 +112,39 @@ def _install_hf_bundle(
     source: dict[str, Any],
     model_dir: Path,
 ) -> dict[str, Any]:
+    assets_by_path = manifest_assets_by_path(model_id)
+    managed_files = [str(f).strip() for f in source.get("files", [])]
+    missing = [path for path in managed_files if path not in assets_by_path]
+    if missing:
+        raise RuntimeError(
+            f"Managed detection model '{model_id}' has assets missing from the "
+            f"model asset manifest: {', '.join(missing)}"
+        )
+    malformed = [
+        path for path in managed_files if not manifest_asset_is_valid(assets_by_path[path])
+    ]
+    if malformed:
+        raise RuntimeError(
+            f"Managed detection model '{model_id}' has malformed manifest asset "
+            f"digests or sizes: {', '.join(malformed)}"
+        )
+    total_bytes = manifest_declared_total(model_id)
+    if total_bytes is not None:
+        bridge = progress_bridge_var.get()
+        if bridge is not None:
+            bridge.declare_total(total_bytes)
+
     model_dir.mkdir(parents=True, exist_ok=True)
     files_payload: list[dict[str, Any]] = []
-    for relative_path in [str(f).strip() for f in source.get("files", [])]:
+    for relative_path in managed_files:
         target_path = model_dir / relative_path
         payload = ensure_file_from_hf(
             repo=str(source["repo"]),
             candidate_paths=[relative_path],
             target_path=target_path,
             revision="main",
+            expected_sha256=str(assets_by_path[relative_path]["sha256"]),
+            expected_size=int(assets_by_path[relative_path]["size"]),
         )
         files_payload.append({
             "target": relative_path,
@@ -111,9 +173,21 @@ def ensure_detection_model_installed(model_id: str) -> dict[str, Any]:
     if source.get("kind") == "hf_bundle":
         return _install_hf_bundle(normalized, source, model_dir)
 
+    total_bytes = manifest_declared_total(normalized)
+    if total_bytes is not None:
+        bridge = progress_bridge_var.get()
+        if bridge is not None:
+            bridge.declare_total(total_bytes)
+
     model_dir.mkdir(parents=True, exist_ok=True)
     target_path = model_dir / str(source["target"])
     expected_sha = str(source["sha256"]).strip().lower()
+    declared_asset = manifest_assets_by_path(normalized).get(str(source["target"]))
+    declared_size = (
+        int(declared_asset["size"])
+        if declared_asset is not None and manifest_asset_is_valid(declared_asset)
+        else None
+    )
 
     if target_path.exists():
         current_sha = sha256_file(target_path).lower()
@@ -134,7 +208,7 @@ def ensure_detection_model_installed(model_id: str) -> dict[str, Any]:
     last_error: Exception | None = None
     for url in [str(item).strip() for item in source.get("urls", []) if str(item).strip()]:
         try:
-            download_file(url, target_path, max_retries=3)
+            download_file(url, target_path, max_retries=3, expected_size=declared_size)
             current_sha = sha256_file(target_path).lower()
             if expected_sha and current_sha != expected_sha:
                 target_path.unlink(missing_ok=True)
@@ -156,5 +230,5 @@ def ensure_detection_model_installed(model_id: str) -> dict[str, Any]:
             last_error = exc
 
     raise RuntimeError(
-        f"Failed to download detection model '{normalized}'.",
+        f"Failed to download detection model '{normalized}': {last_error}",
     ) from last_error

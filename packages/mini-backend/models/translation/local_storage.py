@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
 from core.hf_download import ensure_file_from_hf, progress_bridge_var
 from core.models_store import resolve_model_dir
-from models.manifests import model_entry
+from models.manifests import (
+    manifest_asset_is_valid,
+    manifest_assets_by_path,
+    manifest_declared_total,
+)
 
+
+logger = logging.getLogger(__name__)
 
 _LOCAL_TRANSLATION_MODELS: dict[str, dict[str, Any]] = {
     "sugoi_v4_ja_en_ct2": {
@@ -160,32 +167,6 @@ def resolve_local_translation_model_dir(model_id: str) -> Path | None:
     return resolve_model_dir(model_id.strip().lower())
 
 
-def _manifest_assets_by_path(model_id: str) -> dict[str, dict[str, Any]]:
-    assets_by_path: dict[str, dict[str, Any]] = {}
-    manifest_entry = model_entry(model_id)
-    if not isinstance(manifest_entry, dict):
-        return assets_by_path
-    assets = manifest_entry.get("assets")
-    if not isinstance(assets, list):
-        return assets_by_path
-    for asset in assets:
-        if isinstance(asset, dict) and "path" in asset:
-            assets_by_path[str(asset["path"])] = asset
-    return assets_by_path
-
-
-def _manifest_asset_is_valid(asset: dict[str, Any]) -> bool:
-    digest = asset.get("sha256")
-    size = asset.get("size")
-    if not isinstance(digest, str) or len(digest) != 64:
-        return False
-    if any(ch not in "0123456789abcdef" for ch in digest.lower()):
-        return False
-    if not isinstance(size, (int, float)) or isinstance(size, bool) or int(size) <= 0:
-        return False
-    return True
-
-
 def local_translation_runtime_ready(model_id: str) -> bool:
     """True only when every managed file exists.
 
@@ -199,11 +180,11 @@ def local_translation_runtime_ready(model_id: str) -> bool:
     model_dir = resolve_local_translation_model_dir(normalized)
     if model_dir is None:
         return False
-    try:
-        assets_by_path = _manifest_assets_by_path(normalized)
-        for item in source["files"]:
-            relative_path = str(item).strip()
-            file_path = model_dir / relative_path
+    assets_by_path = manifest_assets_by_path(normalized)
+    for item in source["files"]:
+        relative_path = str(item).strip()
+        file_path = model_dir / relative_path
+        try:
             if not file_path.exists():
                 return False
             asset = assets_by_path.get(relative_path)
@@ -211,8 +192,13 @@ def local_translation_runtime_ready(model_id: str) -> bool:
                 continue
             if file_path.stat().st_size != int(asset["size"]):
                 return False
-    except (OSError, KeyError, TypeError, ValueError):
-        return False
+        except OSError:
+            return False
+        except (KeyError, TypeError, ValueError):
+            logger.warning(
+                "Translation readiness hit malformed manifest data for %s", normalized
+            )
+            return False
     return True
 
 
@@ -225,13 +211,7 @@ def ensure_local_translation_model_installed(model_id: str) -> dict[str, Any]:
             "KOMA_MODELS_ROOT is not configured for managed local translation installs.",
         )
 
-    manifest_entry = model_entry(normalized)
-    if manifest_entry is None:
-        raise RuntimeError(
-            f"Managed translation model '{normalized}' has assets missing from "
-            "the model asset manifest."
-        )
-    assets_by_path = _manifest_assets_by_path(normalized)
+    assets_by_path = manifest_assets_by_path(normalized)
     managed_files = [str(item).strip() for item in source["files"]]
     missing = [path for path in managed_files if path not in assets_by_path]
     if missing:
@@ -240,15 +220,15 @@ def ensure_local_translation_model_installed(model_id: str) -> dict[str, Any]:
             f"the model asset manifest: {', '.join(missing)}"
         )
     malformed = [
-        path for path in managed_files if not _manifest_asset_is_valid(assets_by_path[path])
+        path for path in managed_files if not manifest_asset_is_valid(assets_by_path[path])
     ]
     if malformed:
         raise RuntimeError(
             f"Managed translation model '{normalized}' has malformed manifest "
             f"asset digests or sizes: {', '.join(malformed)}"
         )
-    total_bytes = manifest_entry.get("totalBytes")
-    if not isinstance(total_bytes, (int, float)) or isinstance(total_bytes, bool) or int(total_bytes) <= 0:
+    total_bytes = manifest_declared_total(normalized)
+    if total_bytes is None:
         raise RuntimeError(
             f"Managed translation model '{normalized}' has a malformed manifest "
             "totalBytes."

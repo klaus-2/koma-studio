@@ -3,9 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from core.hf_download import ensure_file_from_hf
-from core.models_store import model_is_installed, resolve_model_dir
+import logging
 
+from core.hf_download import ensure_file_from_hf, progress_bridge_var
+from core.models_store import model_is_installed, resolve_model_dir
+from models.manifests import manifest_asset_is_valid, manifest_assets_by_path, manifest_declared_total
+
+
+logger = logging.getLogger(__name__)
 
 ENHANCE_MODEL_SPECS: dict[str, dict[str, Any]] = {
     "waifu2x_swin_unet_art_scan_2x": {
@@ -145,7 +150,23 @@ def resolve_enhance_model_path(model_id: str) -> Path | None:
 
 def enhance_runtime_ready(model_id: str) -> bool:
     model_path = resolve_enhance_model_path(model_id)
-    return bool(model_path and model_path.exists() and model_is_installed(model_id))
+    if not model_path or not model_path.exists() or not model_is_installed(model_id):
+        return False
+    normalized = (model_id or "").strip().lower()
+    spec = get_enhance_model_spec(normalized)
+    if str(spec.get("install_strategy") or "") != "backend_managed":
+        return True
+    assets_by_path = manifest_assets_by_path(normalized)
+    try:
+        asset = assets_by_path.get(str(spec["source_path"]))
+        if asset is not None and model_path.stat().st_size != int(asset["size"]):
+            return False
+    except OSError:
+        return False
+    except (KeyError, TypeError, ValueError):
+        logger.warning("Enhance readiness hit malformed manifest data for %s", normalized)
+        return False
+    return True
 
 
 def ensure_enhance_model_installed(model_id: str) -> dict[str, Any]:
@@ -158,6 +179,19 @@ def ensure_enhance_model_installed(model_id: str) -> dict[str, Any]:
     if model_dir is None:
         raise RuntimeError("KOMA_MODELS_ROOT is not configured for managed enhance installs.")
 
+    total_bytes = manifest_declared_total(normalized)
+    if total_bytes is not None:
+        bridge = progress_bridge_var.get()
+        if bridge is not None:
+            bridge.declare_total(total_bytes)
+
+    declared_asset = manifest_assets_by_path(normalized).get(str(spec["source_path"]))
+    if declared_asset is None or not manifest_asset_is_valid(declared_asset):
+        raise RuntimeError(
+            f"Enhance model '{normalized}' has a missing or malformed manifest "
+            "asset digest or size."
+        )
+
     model_dir.mkdir(parents=True, exist_ok=True)
     target_path = model_dir / str(spec["target"])
     payload = ensure_file_from_hf(
@@ -165,7 +199,8 @@ def ensure_enhance_model_installed(model_id: str) -> dict[str, Any]:
         candidate_paths=[str(spec["source_path"])],
         target_path=target_path,
         revision=str(spec.get("revision", "main")),
-        expected_sha256=str(spec.get("sha256") or "") or None,
+        expected_sha256=str(declared_asset["sha256"]),
+        expected_size=int(declared_asset["size"]),
     )
 
     return {

@@ -29,3 +29,37 @@ def model_entry(model_id: str) -> dict[str, Any] | None:
         return None
     entry = models.get(model_id)
     return entry if isinstance(entry, dict) else None
+
+
+def manifest_assets_by_path(model_id: str) -> dict[str, dict[str, Any]]:
+    """Manifest assets of one model keyed by asset path; empty when unmanifested."""
+    assets_by_path: dict[str, dict[str, Any]] = {}
+    entry = model_entry(model_id)
+    assets = entry.get("assets") if isinstance(entry, dict) else None
+    if not isinstance(assets, list):
+        return assets_by_path
+    for asset in assets:
+        if isinstance(asset, dict) and "path" in asset:
+            assets_by_path[str(asset["path"])] = asset
+    return assets_by_path
+
+
+def manifest_asset_is_valid(asset: dict[str, Any]) -> bool:
+    digest = asset.get("sha256")
+    size = asset.get("size")
+    if not isinstance(digest, str) or len(digest) != 64:
+        return False
+    if any(ch not in "0123456789abcdef" for ch in digest.lower()):
+        return False
+    if not isinstance(size, (int, float)) or isinstance(size, bool) or int(size) <= 0:
+        return False
+    return True
+
+
+def manifest_declared_total(model_id: str) -> int | None:
+    """Validated totalBytes of one model, or None when absent or malformed."""
+    entry = model_entry(model_id)
+    total = entry.get("totalBytes") if isinstance(entry, dict) else None
+    if not isinstance(total, (int, float)) or isinstance(total, bool) or int(total) <= 0:
+        return None
+    return int(total)

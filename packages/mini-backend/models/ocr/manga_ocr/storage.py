@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import logging
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from core.hf_download import ensure_file_from_hf
+from core.hf_download import ensure_file_from_hf, progress_bridge_var
 from models.errors import ModelConfigurationError
+from models.manifests import (
+    manifest_asset_is_valid,
+    manifest_assets_by_path,
+    manifest_declared_total,
+)
 
+
+logger = logging.getLogger(__name__)
 _MODEL_ROOT_ENV = "KOMA_MODELS_ROOT"
 _MANGA_OCR_SUBDIR = "manga_ocr"
 _HF_REPO = "mayocream/manga-ocr-onnx"
@@ -39,9 +48,23 @@ def resolve_manga_ocr_model_dir() -> Path | None:
 
 def manga_ocr_runtime_ready() -> bool:
     model_dir = resolve_manga_ocr_model_dir()
-    return model_dir is not None and all(
-        (model_dir / item.name).is_file() for item in REQUIRED_FILES
-    )
+    if model_dir is None:
+        return False
+    assets_by_path = manifest_assets_by_path("manga_ocr")
+    for item in REQUIRED_FILES:
+        file_path = model_dir / item.name
+        try:
+            if not file_path.is_file():
+                return False
+            asset = assets_by_path.get(item.name)
+            if asset is not None and file_path.stat().st_size != int(asset["size"]):
+                return False
+        except OSError:
+            return False
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Readiness size gate hit malformed manifest data for %s", "manga_ocr")
+            return False
+    return True
 
 
 def ensure_manga_ocr_models_installed() -> dict[str, object]:
@@ -51,14 +74,30 @@ def ensure_manga_ocr_models_installed() -> dict[str, object]:
             "KOMA_MODELS_ROOT is not configured for managed Manga OCR installs."
         )
 
+    total_bytes = manifest_declared_total("manga_ocr")
+    if total_bytes is not None:
+        bridge = progress_bridge_var.get()
+        if bridge is not None:
+            bridge.declare_total(total_bytes)
+    assets_by_path = manifest_assets_by_path("manga_ocr")
+
     model_dir.mkdir(parents=True, exist_ok=True)
     for item in REQUIRED_FILES:
+        declared_asset = assets_by_path.get(item.name)
+        if declared_asset is not None and not manifest_asset_is_valid(declared_asset):
+            raise RuntimeError(
+                f"Managed OCR model 'manga_ocr' has a malformed manifest asset "
+                f"digest or size: {item.name}"
+            )
         ensure_file_from_hf(
             repo=_HF_REPO,
             candidate_paths=[item.name],
             target_path=model_dir / item.name,
             revision="main",
             expected_sha256=item.sha256,
+            expected_size=int(declared_asset["size"])
+            if declared_asset is not None
+            else None,
         )
 
     files = sorted(

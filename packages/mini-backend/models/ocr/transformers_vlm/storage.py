@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import logging
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from core.hf_download import ensure_files_from_hf
+from core.hf_download import ensure_files_from_hf, progress_bridge_var
 from core.models_store import resolve_model_dir
+from models.manifests import (
+    manifest_asset_is_valid,
+    manifest_assets_by_path,
+    manifest_declared_total,
+)
 from models.ocr.common import (
     InstalledFilePayload,
     InstallPayload,
     ModelsRootNotConfiguredError,
     UnknownManagedModelError,
-    missing_files,
 )
 
 
@@ -19,6 +25,8 @@ from models.ocr.common import (
 # `got_ocr2` spec (`min_vram_gb=8.0`). Only models declared here are checked
 # before `model.to(device)`; undeclared models keep the existing GPU choice.
 GOT_OCR2_MIN_VRAM_BYTES: Final = 8 * 1024**3
+
+logger = logging.getLogger(__name__)
 _VLM_MIN_VRAM_BYTES: Final[dict[str, int]] = {"got_ocr2": GOT_OCR2_MIN_VRAM_BYTES}
 
 
@@ -142,7 +150,23 @@ def transformers_vlm_runtime_ready(model_id: str) -> bool:
     if model_dir is None:
         return False
     source = _get_transformers_vlm_source(model_id)
-    return not missing_files(model_dir, source.files)
+    assets_by_path = manifest_assets_by_path((model_id or "").strip().lower())
+    for relative_path in source.files:
+        file_path = model_dir / relative_path
+        try:
+            if not file_path.exists():
+                return False
+            asset = assets_by_path.get(relative_path)
+            if asset is None:
+                continue
+            if file_path.stat().st_size != int(asset["size"]):
+                return False
+        except OSError:
+            return False
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Readiness size gate hit malformed manifest data for %s", "vlm")
+            return False
+    return True
 
 
 def ensure_transformers_vlm_model_installed(model_id: str) -> InstallPayload:
@@ -152,11 +176,38 @@ def ensure_transformers_vlm_model_installed(model_id: str) -> InstallPayload:
     if model_dir is None:
         raise ModelsRootNotConfiguredError(normalized)
 
+    assets_by_path = manifest_assets_by_path(normalized)
+    missing = [path for path in source.files if path not in assets_by_path]
+    if missing:
+        raise RuntimeError(
+            f"Managed VLM model '{normalized}' has assets missing from the "
+            f"model asset manifest: {', '.join(missing)}"
+        )
+    malformed = [
+        path for path in source.files if not manifest_asset_is_valid(assets_by_path[path])
+    ]
+    if malformed:
+        raise RuntimeError(
+            f"Managed VLM model '{normalized}' has malformed manifest asset "
+            f"digests or sizes: {', '.join(malformed)}"
+        )
+    total_bytes = manifest_declared_total(normalized)
+    if total_bytes is None:
+        raise RuntimeError(
+            f"Managed VLM model '{normalized}' has a malformed manifest totalBytes."
+        )
+
+    bridge = progress_bridge_var.get()
+    if bridge is not None:
+        bridge.declare_total(total_bytes)
+
     raw_files = ensure_files_from_hf(
         repo=source.repo,
         files=list(source.files),
         target_dir=model_dir,
         revision="main",
+        sha256_by_file={path: str(assets_by_path[path]["sha256"]) for path in source.files},
+        size_by_file={path: int(assets_by_path[path]["size"]) for path in source.files},
     )
     files = [
         InstalledFilePayload(

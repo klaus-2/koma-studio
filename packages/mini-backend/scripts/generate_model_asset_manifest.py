@@ -79,25 +79,34 @@ def _get_json(url: str) -> Any:
     return json.loads(_get(url).decode("utf-8"))
 
 
-def _download_sha256(url: str) -> tuple[int, str]:
+def _download_sha256(url: str, expected_size: int | None = None) -> tuple[int, str]:
     digest = hashlib.sha256()
     size = 0
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+        declared = response.headers.get("Content-Length")
+        declared_bytes = int(declared) if declared and declared.isdigit() else None
+        if expected_size is not None and declared_bytes is not None and declared_bytes != expected_size:
+            raise SystemExit(f"{url}: remote Content-Length {declared_bytes} != declared {expected_size}")
         while chunk := response.read(1024 * 1024):
             digest.update(chunk)
             size += len(chunk)
+    if expected_size is not None and size != expected_size:
+        raise SystemExit(
+            f"{url}: downloaded {size} bytes, expected {expected_size} — a truncated "
+            "transfer would otherwise be hashed as if it were the real asset"
+        )
     return size, digest.hexdigest()
 
 
 # ----------------------------------------------------------------- upstream --
 
 
-def _hf_tree(repo: str) -> list[dict[str, Any]]:
-    return _get_json(HF_TREE_API.format(repo=repo, rev=HF_REVISION) + "?recursive=true")
+def _hf_tree(repo: str, rev: str = HF_REVISION) -> list[dict[str, Any]]:
+    return _get_json(HF_TREE_API.format(repo=repo, rev=rev) + "?recursive=true")
 
 
-def _hf_assets(repo: str) -> dict[str, dict[str, Any]]:
+def _hf_assets(repo: str, rev: str = HF_REVISION) -> dict[str, dict[str, Any]]:
     """path -> {size, sha256} for a HuggingFace repo (sha256 from the LFS oid)."""
     assets: dict[str, dict[str, Any]] = {}
     for entry in _hf_tree(repo):
@@ -117,8 +126,8 @@ def _hf_assets(repo: str) -> dict[str, dict[str, Any]]:
     return assets
 
 
-def _hf_resolve_url(repo: str, path: str) -> str:
-    return f"https://huggingface.co/{repo}/resolve/{HF_REVISION}/{path}"
+def _hf_resolve_url(repo: str, path: str, rev: str = HF_REVISION) -> str:
+    return f"https://huggingface.co/{repo}/resolve/{rev}/{path}"
 
 
 def _github_release_assets(repo: str, tag: str) -> dict[str, dict[str, Any]]:
@@ -201,8 +210,9 @@ def _hf_bundle(
     *,
     targets: dict[str, str] | None = None,
     verify: bool = False,
+    revision: str = HF_REVISION,
 ) -> list[dict[str, Any]]:
-    assets = _hf_assets(repo)
+    assets = _hf_assets(repo, revision)
     bundle: list[dict[str, Any]] = []
     for path in paths:
         info = assets.get(path)
@@ -215,7 +225,7 @@ def _hf_bundle(
                 raise SystemExit(
                     f"{repo}: {path} is not LFS-backed and too large to hash inline"
                 )
-            _, sha256 = _download_sha256(_hf_resolve_url(repo, path))
+            _, sha256 = _download_sha256(_hf_resolve_url(repo, path, revision))
         entry = _asset(path, info["size"], sha256)
         if targets:
             entry["target"] = targets.get(path, path.rsplit("/", 1)[-1])
@@ -367,9 +377,7 @@ def _easyocr_models(verify: bool) -> dict[str, dict[str, Any]]:
     def resolve(spec: dict[str, Any]) -> dict[str, Any]:
         url = str(spec["url"])
         info = _github_asset(url)
-        sha256 = ""
-        if verify:
-            _, sha256 = _download_sha256(str(info["url"]))
+        _, sha256 = _download_sha256(str(info["url"]), expected_size=int(info["size"]))
         return _asset(
             url.rsplit("/", 1)[-1],
             int(info["size"]),
@@ -393,8 +401,90 @@ def _easyocr_models(verify: bool) -> dict[str, dict[str, Any]]:
     }
 
 
+def _meiki_models(verify: bool) -> dict[str, dict[str, Any]]:
+    from models.ocr.meiki.storage import MEIKI_HF_REPO, MEIKI_MODEL_FILES
+
+    models: dict[str, dict[str, Any]] = {
+        "meiki_ocr": {
+            "assets": _hf_bundle(MEIKI_HF_REPO, list(MEIKI_MODEL_FILES), verify=verify)
+        }
+    }
+    _model_total(models)
+    return models
+
+
+def _glm_ocr_onnx_models(verify: bool) -> dict[str, dict[str, Any]]:
+    from models.ocr.glm_ocr_onnx.storage import _MODEL_FILES, _MODEL_REPO
+
+    models: dict[str, dict[str, Any]] = {
+        "glm_ocr_onnx": {"assets": _hf_bundle(_MODEL_REPO, list(_MODEL_FILES), verify=verify)}
+    }
+    _model_total(models)
+    return models
+
+
+def _enhance_models(verify: bool) -> dict[str, dict[str, Any]]:
+    from models.enhance.storage import ENHANCE_MODEL_SPECS
+
+    models: dict[str, dict[str, Any]] = {}
+    for model_id, spec in ENHANCE_MODEL_SPECS.items():
+        if str(spec.get("install_strategy") or "") != MANAGED_INSTALL_STRATEGY:
+            continue
+        source_path = str(spec["source_path"])
+        models[model_id] = {
+            "assets": _hf_bundle(
+                str(spec["repo"]),
+                [source_path],
+                verify=verify,
+                revision=str(spec.get("revision", HF_REVISION)),
+                targets={source_path: str(spec["target"])},
+            )
+        }
+    _model_total(models)
+    return models
+
+
+def _manga_ocr_models(verify: bool) -> dict[str, dict[str, Any]]:
+    from models.ocr.manga_ocr.storage import REQUIRED_FILES, _HF_REPO
+
+    bundle = _hf_bundle(_HF_REPO, [item.name for item in REQUIRED_FILES], verify=verify)
+    for asset, managed in zip(bundle, REQUIRED_FILES):
+        asset["sha256"] = managed.sha256
+    models: dict[str, dict[str, Any]] = {"manga_ocr": {"assets": bundle}}
+    _model_total(models)
+    return models
+
+
+def _paddleocr_vl_manga_models(verify: bool) -> dict[str, dict[str, Any]]:
+    from models.ocr.paddleocr_vl_manga.storage import (
+        _HF_REPO,
+        _HF_REVISION,
+        _MODEL_FILES,
+        _PINNED_SHA256,
+    )
+
+    bundle = _hf_bundle(
+        _HF_REPO,
+        list(_MODEL_FILES),
+        verify=verify,
+        revision=_HF_REVISION,
+    )
+    for asset in bundle:
+        pinned = _PINNED_SHA256.get(str(asset["path"]))
+        if pinned:
+            asset["sha256"] = pinned
+    models: dict[str, dict[str, Any]] = {"paddleocr_vl_manga": {"assets": bundle}}
+    _model_total(models)
+    return models
+
+
 BUILDERS = (
     ("paddleocr", _paddleocr_models),
+    ("meiki", _meiki_models),
+    ("glm_ocr_onnx", _glm_ocr_onnx_models),
+    ("enhance", _enhance_models),
+    ("manga_ocr", _manga_ocr_models),
+    ("paddleocr_vl_manga", _paddleocr_vl_manga_models),
     ("inpainting", _inpainting_models),
     ("translation", _translation_models),
     ("pororo", _pororo_models),

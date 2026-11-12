@@ -1,18 +1,26 @@
 from __future__ import annotations
 
+import logging
+
 from pathlib import Path
 from typing import Final
 
-from core.hf_download import ensure_files_from_hf
+from core.hf_download import ensure_files_from_hf, progress_bridge_var
 from core.models_store import resolve_model_dir
+from models.manifests import (
+    manifest_asset_is_valid,
+    manifest_assets_by_path,
+    manifest_declared_total,
+)
 from models.ocr.common import (
     InstalledFilePayload,
     InstallPayload,
     ModelsRootNotConfiguredError,
-    missing_files,
 )
 
 PADDLEOCR_VL_MANGA_MODEL_ID: Final = "paddleocr_vl_manga"
+
+logger = logging.getLogger(__name__)
 _HF_REPO: Final = "jzhang533/PaddleOCR-VL-For-Manga"
 # Immutable commit: `main` is a floating ref on a third-party account, and
 # transformers executes the repo's Python (`trust_remote_code=True`).
@@ -60,7 +68,23 @@ def resolve_paddleocr_vl_manga_model_dir() -> Path | None:
 
 def paddleocr_vl_manga_runtime_ready() -> bool:
     model_dir = resolve_paddleocr_vl_manga_model_dir()
-    return model_dir is not None and not missing_files(model_dir, _MODEL_FILES)
+    if model_dir is None:
+        return False
+    assets_by_path = manifest_assets_by_path(PADDLEOCR_VL_MANGA_MODEL_ID)
+    for filename in _MODEL_FILES:
+        file_path = model_dir / filename
+        try:
+            if not file_path.exists():
+                return False
+            asset = assets_by_path.get(filename)
+            if asset is not None and file_path.stat().st_size != int(asset["size"]):
+                return False
+        except OSError:
+            return False
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Readiness size gate hit malformed manifest data for %s", "paddleocr_vl_manga")
+            return False
+    return True
 
 
 def ensure_paddleocr_vl_manga_installed() -> InstallPayload:
@@ -68,12 +92,33 @@ def ensure_paddleocr_vl_manga_installed() -> InstallPayload:
     if model_dir is None:
         raise ModelsRootNotConfiguredError(PADDLEOCR_VL_MANGA_MODEL_ID)
 
+    total_bytes = manifest_declared_total(PADDLEOCR_VL_MANGA_MODEL_ID)
+    if total_bytes is not None:
+        bridge = progress_bridge_var.get()
+        if bridge is not None:
+            bridge.declare_total(total_bytes)
+    assets_by_path = manifest_assets_by_path(PADDLEOCR_VL_MANGA_MODEL_ID)
+    sha_by_file = dict(_PINNED_SHA256)
+    size_by_file: dict[str, int] = {}
+    for filename in _MODEL_FILES:
+        if filename in _PINNED_SHA256:
+            continue
+        asset = assets_by_path.get(filename)
+        if asset is None or not manifest_asset_is_valid(asset):
+            raise RuntimeError(
+                f"Managed OCR model '{PADDLEOCR_VL_MANGA_MODEL_ID}' has an "
+                f"unpinned asset missing from the model asset manifest: {filename}"
+            )
+        sha_by_file[filename] = str(asset["sha256"])
+        size_by_file[filename] = int(asset["size"])
+
     raw_files = ensure_files_from_hf(
         repo=_HF_REPO,
         files=list(_MODEL_FILES),
         target_dir=model_dir,
         revision=_HF_REVISION,
-        sha256_by_file=_PINNED_SHA256,
+        sha256_by_file=sha_by_file,
+        size_by_file=size_by_file,
     )
     files = [
         InstalledFilePayload(

@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import logging
+
 import os
 from pathlib import Path
 from typing import Any, Iterable
 
-from core.hf_download import download_file, sha256_file
+from core.hf_download import download_file, progress_bridge_var, sha256_file
+from models.manifests import (
+    manifest_asset_is_valid,
+    manifest_assets_by_path,
+    manifest_declared_total,
+)
 
 
+
+logger = logging.getLogger(__name__)
 _MODEL_ROOT_ENV = "KOMA_MODELS_ROOT"
 _PORORO_SUBDIR = "pororo"
 _SUPPORTED_LANGUAGES = {"ko", "en"}
@@ -63,7 +72,21 @@ def pororo_runtime_ready() -> bool:
     storage_dir = resolve_pororo_storage_dir()
     if storage_dir is None:
         return False
-    return all((storage_dir / filename).exists() for filename in _REQUIRED_FILES)
+    assets_by_path = manifest_assets_by_path("pororo")
+    for filename in _REQUIRED_FILES:
+        file_path = storage_dir / filename
+        try:
+            if not file_path.exists():
+                return False
+            asset = assets_by_path.get(filename)
+            if asset is not None and file_path.stat().st_size != int(asset["size"]):
+                return False
+        except OSError:
+            return False
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Readiness size gate hit malformed manifest data for %s", "pororo")
+            return False
+    return True
 
 
 def _ensure_required_file(
@@ -72,6 +95,7 @@ def _ensure_required_file(
     storage_dir: Path,
     expected_sha256: str,
     url: str,
+    declared_size: int | None,
 ) -> None:
     target_path = storage_dir / filename
 
@@ -81,7 +105,7 @@ def _ensure_required_file(
             return
         target_path.unlink(missing_ok=True)
 
-    download_file(url, target_path, max_retries=3)
+    download_file(url, target_path, max_retries=3, expected_size=declared_size)
     downloaded_sha = sha256_file(target_path)
     if downloaded_sha.lower() != expected_sha256.lower():
         target_path.unlink(missing_ok=True)
@@ -98,12 +122,25 @@ def ensure_pororo_models_installed(languages: Iterable[str] | None = None) -> di
         )
 
     selected_languages = _normalize_languages(languages)
+    total_bytes = manifest_declared_total("pororo")
+    if total_bytes is not None:
+        bridge = progress_bridge_var.get()
+        if bridge is not None:
+            bridge.declare_total(total_bytes)
+    assets_by_path = manifest_assets_by_path("pororo")
     for filename, meta in _REQUIRED_FILES.items():
+        declared_asset = assets_by_path.get(filename)
+        declared_size = (
+            int(declared_asset["size"])
+            if declared_asset is not None and manifest_asset_is_valid(declared_asset)
+            else None
+        )
         _ensure_required_file(
             filename,
             storage_dir=storage_dir,
             expected_sha256=meta["sha256"],
             url=meta["url"],
+            declared_size=declared_size,
         )
 
     files = [path for path in storage_dir.rglob("*") if path.is_file()]

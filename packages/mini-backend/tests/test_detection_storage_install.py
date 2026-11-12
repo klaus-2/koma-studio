@@ -13,6 +13,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(MINI_BACKEND_DIR))
 
 from models.detection import storage as detection_storage
+from models import manifests as manifests_module
 
 
 FONT_RTDETR_SHA256 = "065744e91c0594ad8663aa8b870ce3fb27222942eded5a3cc388ce23421bd195"
@@ -25,11 +26,16 @@ def _write_detector(url: str, target_path: Path, **kwargs: object) -> None:
 
 class DetectionStorageInstallTests(unittest.TestCase):
     def test_font_detector_installs_as_detector_onnx(self) -> None:
+        stub_entry = {
+            "totalBytes": 16,
+            "assets": [{"path": "detector.onnx", "sha256": FONT_RTDETR_SHA256, "size": 16}],
+        }
         with (
             TemporaryDirectory() as temp_dir,
             patch.dict(os.environ, {"KOMA_MODELS_ROOT": temp_dir}, clear=False),
             patch.object(detection_storage, "download_file", _write_detector),
             patch.object(detection_storage, "sha256_file", return_value=FONT_RTDETR_SHA256),
+            patch.object(manifests_module, "model_entry", return_value=stub_entry),
         ):
             result = detection_storage.ensure_detection_model_installed("font_rtdetr_v2")
 

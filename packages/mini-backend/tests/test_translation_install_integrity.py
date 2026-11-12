@@ -17,7 +17,18 @@ IMPORT_ERROR: Exception | None = None
 try:
     from core import hf_download
     from core.download_jobs import progress_bridge_var
+    from models import manifests
+    from models.detection import storage as detection_storage
+    from models.inpainting import registry as inpainting_registry
+    from models.inpainting import storage as inpainting_storage
     from models.manifests import load_manifest
+    from models.ocr.glm_ocr_onnx import storage as glm_storage
+    from models.ocr.manga_ocr import storage as manga_ocr_storage
+    from models.ocr.meiki import storage as meiki_storage
+    from models.ocr.paddleocr_vl_manga import storage as paddleocr_vl_storage
+    from models.ocr.pororo import storage as pororo_storage
+    from models.ocr.transformers_vlm import storage as vlm_storage
+    from models.enhance import storage as enhance_storage
     from models.translation import local_storage as translation_storage
 except Exception as exc:  # pragma: no cover - optional runtime deps
     IMPORT_ERROR = exc
@@ -102,7 +113,7 @@ class TranslationInstallIntegrityTests(unittest.TestCase):
 
         self.assertEqual(result["fileCount"], 1)
         self.assertEqual(len(captured), 1)
-        manifest_entry = translation_storage.model_entry(self.HUNYUAN)
+        manifest_entry = manifests.model_entry(self.HUNYUAN)
         assert manifest_entry is not None
         asset = manifest_entry["assets"][0]
         self.assertEqual(captured[0]["expected_sha256"], str(asset["sha256"]))
@@ -133,7 +144,7 @@ class TranslationInstallIntegrityTests(unittest.TestCase):
         finally:
             progress_bridge_var.reset(token)
 
-        manifest_entry = translation_storage.model_entry(self.HUNYUAN)
+        manifest_entry = manifests.model_entry(self.HUNYUAN)
         assert manifest_entry is not None
         self.assertEqual(events[0], ("declare_total", int(manifest_entry["totalBytes"])))
         download_events = [event for event in events if event[0] == "report_download"]
@@ -144,7 +155,7 @@ class TranslationInstallIntegrityTests(unittest.TestCase):
             translation_storage,
             "resolve_local_translation_model_dir",
             return_value=Path(directory),
-        ), patch.object(translation_storage, "model_entry", return_value=None):
+        ), patch.object(manifests, "model_entry", return_value=None):
             with self.assertRaisesRegex(
                 RuntimeError,
                 r"Managed translation model 'hunyuan_7b_mt_v1_0' has assets missing "
@@ -158,7 +169,7 @@ class TranslationInstallIntegrityTests(unittest.TestCase):
             translation_storage,
             "resolve_local_translation_model_dir",
             return_value=Path(directory),
-        ), patch.object(translation_storage, "model_entry", return_value=partial_entry):
+        ), patch.object(manifests, "model_entry", return_value=partial_entry):
             with self.assertRaisesRegex(
                 RuntimeError,
                 r"assets missing from the model asset manifest: Hunyuan-MT-7B-q4_k_m\.gguf",
@@ -174,7 +185,7 @@ class TranslationInstallIntegrityTests(unittest.TestCase):
             translation_storage,
             "resolve_local_translation_model_dir",
             return_value=Path(directory),
-        ), patch.object(translation_storage, "model_entry", return_value=malformed_entry):
+        ), patch.object(manifests, "model_entry", return_value=malformed_entry):
             with self.assertRaisesRegex(
                 RuntimeError,
                 r"malformed manifest asset digests or sizes: Hunyuan-MT-7B-q4_k_m\.gguf",
@@ -192,7 +203,7 @@ class TranslationInstallIntegrityTests(unittest.TestCase):
             translation_storage,
             "resolve_local_translation_model_dir",
             return_value=Path(directory),
-        ), patch.object(translation_storage, "model_entry", return_value=malformed_entry):
+        ), patch.object(manifests, "model_entry", return_value=malformed_entry):
             with self.assertRaisesRegex(
                 RuntimeError, r"malformed manifest totalBytes"
             ):
@@ -207,7 +218,7 @@ class TranslationInstallIntegrityTests(unittest.TestCase):
             translation_storage,
             "resolve_local_translation_model_dir",
             return_value=Path(directory),
-        ), patch.object(translation_storage, "model_entry", return_value=stub_entry):
+        ), patch.object(manifests, "model_entry", return_value=stub_entry):
             model_dir = Path(directory)
             gguf = model_dir / "Hunyuan-MT-7B-q4_k_m.gguf"
             gguf.write_bytes(b"0" * 9)
@@ -248,10 +259,383 @@ class TranslationInstallIntegrityTests(unittest.TestCase):
             translation_storage,
             "resolve_local_translation_model_dir",
             return_value=Path(directory),
-        ), patch.object(translation_storage, "model_entry", return_value=broken_entry):
+        ), patch.object(manifests, "model_entry", return_value=broken_entry):
             self.assertFalse(
                 translation_storage.local_translation_runtime_ready(self.HUNYUAN)
             )
+
+
+class ManagedFamilyManifestPinTests(unittest.TestCase):
+    """Every manifest-backed installer family must join 1:1 with the manifest."""
+
+    def test_vlm_sources_are_fully_manifested(self) -> None:
+        for model_id, source in vlm_storage._TRANSFORMERS_VLM_MODEL_SOURCES.items():
+            assets = manifests.manifest_assets_by_path(model_id)
+            self.assertEqual(
+                sorted(assets), sorted(source.files), f"{model_id} asset join drifted"
+            )
+            for asset in assets.values():
+                self.assertTrue(manifests.manifest_asset_is_valid(asset), model_id)
+
+    def test_detection_inpainting_pororo_are_fully_manifested(self) -> None:
+        detection_sources = detection_storage._DETECTION_MODEL_SOURCES
+        for model_id, source in detection_sources.items():
+            assets = manifests.manifest_assets_by_path(model_id)
+            expected = (
+                sorted(str(f) for f in source.get("files", []))
+                if source.get("kind") == "hf_bundle"
+                else [str(source["target"])]
+            )
+            self.assertEqual(sorted(assets), expected, f"{model_id} asset join drifted")
+            for asset in assets.values():
+                self.assertTrue(manifests.manifest_asset_is_valid(asset), model_id)
+        for model_id in ("aot", "lama_manga", "opencv_lama", "lama_fp32"):
+            assets = manifests.manifest_assets_by_path(model_id)
+            self.assertEqual(
+                sorted(assets), [inpainting_registry.get_spec(model_id).target_file], model_id
+            )
+        self.assertEqual(
+            sorted(manifests.manifest_assets_by_path("pororo")),
+            sorted(pororo_storage._REQUIRED_FILES),
+        )
+
+    def test_vlm_installer_passes_manifest_facts_and_declares_total_first(self) -> None:
+        events: list[tuple[str, object]] = []
+        captured: list[dict[str, object]] = []
+        bridge = _fake_bridge(events)
+        token = progress_bridge_var.set(bridge)
+
+        def fake_ensure(**kwargs: object) -> list[dict[str, object]]:
+            captured.append(kwargs)
+            progress_bridge_var.get().report_download("model.safetensors", 1)
+            return []
+
+        try:
+            with tempfile.TemporaryDirectory() as directory, patch.object(
+                vlm_storage,
+                "resolve_transformers_vlm_model_dir",
+                return_value=Path(directory),
+            ), patch.object(
+                vlm_storage, "ensure_files_from_hf", side_effect=fake_ensure
+            ):
+                vlm_storage.ensure_transformers_vlm_model_installed("got_ocr2")
+        finally:
+            progress_bridge_var.reset(token)
+
+        manifest_entry = manifests.model_entry("got_ocr2")
+        assert manifest_entry is not None
+        self.assertEqual(events[0], ("declare_total", int(manifest_entry["totalBytes"])))
+        assets = {str(a["path"]): a for a in manifest_entry["assets"]}
+        self.assertEqual(
+            captured[0]["sha256_by_file"],
+            {path: str(asset["sha256"]) for path, asset in assets.items()},
+        )
+        self.assertEqual(
+            captured[0]["size_by_file"],
+            {path: int(asset["size"]) for path, asset in assets.items()},
+        )
+
+    def test_vlm_readiness_rejects_a_wrong_sized_file(self) -> None:
+        source = vlm_storage._TRANSFORMERS_VLM_MODEL_SOURCES["got_ocr2"]
+        stub_entry = {
+            "totalBytes": len(source.files) * 10,
+            "assets": [
+                {"path": name, "sha256": "a" * 64, "size": 10} for name in source.files
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            vlm_storage,
+            "resolve_transformers_vlm_model_dir",
+            return_value=Path(directory),
+        ), patch.object(manifests, "model_entry", return_value=stub_entry):
+            model_dir = Path(directory)
+            for name in source.files:
+                (model_dir / name).write_bytes(b"0" * 10)
+            config = model_dir / "config.json"
+            config.write_bytes(b"0" * 9)
+            self.assertFalse(vlm_storage.transformers_vlm_runtime_ready("got_ocr2"))
+            config.write_bytes(b"0" * 10)
+            self.assertTrue(vlm_storage.transformers_vlm_runtime_ready("got_ocr2"))
+
+    def test_detection_bundle_installer_pins_manifest_facts(self) -> None:
+        captured: list[dict[str, object]] = []
+        events: list[tuple[str, object]] = []
+        bridge = _fake_bridge(events)
+        token = progress_bridge_var.set(bridge)
+
+        def fake_ensure(**kwargs: object) -> dict[str, object]:
+            captured.append(kwargs)
+            return {
+                "path": str(kwargs["candidate_paths"]),
+                "sha256": "0" * 64,
+                "downloaded": True,
+            }
+
+        try:
+            with tempfile.TemporaryDirectory() as directory, patch.object(
+                detection_storage,
+                "resolve_detection_model_dir",
+                return_value=Path(directory),
+            ), patch.object(
+                detection_storage, "ensure_file_from_hf", side_effect=fake_ensure
+            ):
+                detection_storage.ensure_detection_model_installed("pp_doclayout_v3")
+        finally:
+            progress_bridge_var.reset(token)
+
+        manifest_entry = manifests.model_entry("pp_doclayout_v3")
+        assert manifest_entry is not None
+        self.assertEqual(events[0], ("declare_total", int(manifest_entry["totalBytes"])))
+        self.assertEqual(len(captured), 3)
+        for call in captured:
+            self.assertEqual(len(str(call["expected_sha256"])), 64)
+            self.assertGreater(int(call["expected_size"]), 0)
+
+    def test_inpainting_installer_passes_size_and_declares_total(self) -> None:
+        events: list[tuple[str, object]] = []
+        captured: list[dict[str, object]] = []
+        bridge = _fake_bridge(events)
+        token = progress_bridge_var.set(bridge)
+
+        def fake_ensure(**kwargs: object) -> dict[str, object]:
+            captured.append(kwargs)
+            return {"path": "aot.onnx", "sha256": "0" * 64, "downloaded": True}
+
+        try:
+            with tempfile.TemporaryDirectory() as directory, patch.object(
+                inpainting_storage,
+                "resolve_inpainting_model_dir",
+                return_value=Path(directory),
+            ), patch.object(
+                inpainting_storage, "ensure_file_from_hf", side_effect=fake_ensure
+            ):
+                inpainting_storage.ensure_inpainting_model_installed("aot")
+        finally:
+            progress_bridge_var.reset(token)
+
+        manifest_entry = manifests.model_entry("aot")
+        assert manifest_entry is not None
+        self.assertEqual(events[0], ("declare_total", int(manifest_entry["totalBytes"])))
+        self.assertEqual(captured[0]["expected_size"], int(manifest_entry["assets"][0]["size"]))
+
+    def test_pororo_installer_passes_size_and_declares_total(self) -> None:
+        events: list[tuple[str, object]] = []
+        captured: list[dict[str, object]] = []
+        bridge = _fake_bridge(events)
+        token = progress_bridge_var.set(bridge)
+        model_dir_holder: dict[str, Path] = {}
+
+        def fake_download(
+            url: str,
+            target_path: Path,
+            max_retries: int = 3,
+            expected_size: int | None = None,
+            max_bytes: int | None = None,
+        ) -> None:
+            captured.append({"url": url, "expected_size": expected_size})
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_bytes(b"x" * int(expected_size or 1))
+
+        try:
+            with tempfile.TemporaryDirectory() as directory, patch.dict(
+                os.environ, {"KOMA_MODELS_ROOT": directory}
+            ), patch.object(pororo_storage, "download_file", side_effect=fake_download), patch.object(
+                pororo_storage, "sha256_file", return_value="0" * 64
+            ):
+                model_dir_holder["root"] = Path(directory)
+                with self.assertRaises(RuntimeError):
+                    pororo_storage.ensure_pororo_models_installed(["ko"])
+        finally:
+            progress_bridge_var.reset(token)
+
+        manifest_entry = manifests.model_entry("pororo")
+        assert manifest_entry is not None
+        self.assertEqual(events[0], ("declare_total", int(manifest_entry["totalBytes"])))
+        sizes = {str(asset["path"]): int(asset["size"]) for asset in manifest_entry["assets"]}
+        self.assertGreater(len(captured), 0)
+        for call in captured:
+            self.assertEqual(call["expected_size"], sizes.get(Path(str(call["url"])).name))
+
+
+    def test_meiki_glm_mangaocr_paddlevlm_are_fully_manifested(self) -> None:
+        meiki_files = meiki_storage.MEIKI_MODEL_FILES
+        assets = manifests.manifest_assets_by_path("meiki_ocr")
+        self.assertEqual(sorted(assets), sorted(meiki_files))
+        glm_files = glm_storage._MODEL_FILES
+        assets = manifests.manifest_assets_by_path("glm_ocr_onnx")
+        self.assertEqual(sorted(assets), sorted(glm_files))
+        manga_names = [item.name for item in manga_ocr_storage.REQUIRED_FILES]
+        assets = manifests.manifest_assets_by_path("manga_ocr")
+        self.assertEqual(sorted(assets), sorted(manga_names))
+        assets = manifests.manifest_assets_by_path("paddleocr_vl_manga")
+        self.assertEqual(sorted(assets), sorted(paddleocr_vl_storage._MODEL_FILES))
+        for group in (assets, manifests.manifest_assets_by_path("meiki_ocr"), manifests.manifest_assets_by_path("glm_ocr_onnx")):
+            for asset in group.values():
+                self.assertTrue(manifests.manifest_asset_is_valid(asset))
+
+    def test_enhance_managed_specs_are_fully_manifested(self) -> None:
+        for model_id, spec in enhance_storage.ENHANCE_MODEL_SPECS.items():
+            if str(spec.get("install_strategy")) != "backend_managed":
+                continue
+            assets = manifests.manifest_assets_by_path(model_id)
+            self.assertEqual(
+                sorted(assets), [str(spec["source_path"])], f"{model_id} asset join drifted"
+            )
+            for asset in assets.values():
+                self.assertTrue(manifests.manifest_asset_is_valid(asset), model_id)
+
+    def test_meiki_installer_passes_manifest_facts_and_declares_total_first(self) -> None:
+        events: list[tuple[str, object]] = []
+        captured: list[dict[str, object]] = []
+        bridge = _fake_bridge(events)
+        token = progress_bridge_var.set(bridge)
+
+        def fake_ensure(**kwargs: object) -> dict[str, object]:
+            captured.append(kwargs)
+            return {"path": str(kwargs["candidate_paths"]), "sha256": "0" * 64, "downloaded": True}
+
+        try:
+            with tempfile.TemporaryDirectory() as directory, patch.object(
+                meiki_storage, "resolve_meiki_model_dir", return_value=Path(directory)
+            ), patch.object(meiki_storage, "ensure_file_from_hf", side_effect=fake_ensure):
+                meiki_storage.ensure_meiki_models_installed()
+        finally:
+            progress_bridge_var.reset(token)
+
+        manifest_entry = manifests.model_entry("meiki_ocr")
+        assert manifest_entry is not None
+        self.assertEqual(events[0], ("declare_total", int(manifest_entry["totalBytes"])))
+        assets = {str(a["path"]): a for a in manifest_entry["assets"]}
+        self.assertEqual(len(captured), len(meiki_files := meiki_storage.MEIKI_MODEL_FILES))
+        for call in captured:
+            candidate = str(call["candidate_paths"][0])
+            self.assertEqual(call["expected_sha256"], str(assets[candidate]["sha256"]))
+            self.assertEqual(call["expected_size"], int(assets[candidate]["size"]))
+        self.assertEqual(len(meiki_files), 2)
+
+    def test_glm_installer_passes_manifest_facts(self) -> None:
+        captured: list[dict[str, object]] = []
+
+        def fake_ensure(**kwargs: object) -> list[dict[str, object]]:
+            captured.append(kwargs)
+            return []
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            glm_storage, "resolve_glm_ocr_onnx_model_dir", return_value=Path(directory)
+        ), patch.object(glm_storage, "ensure_files_from_hf", side_effect=fake_ensure):
+            glm_storage.ensure_glm_ocr_onnx_installed()
+
+        manifest_entry = manifests.model_entry("glm_ocr_onnx")
+        assert manifest_entry is not None
+        assets = {str(a["path"]): a for a in manifest_entry["assets"]}
+        self.assertEqual(captured[0]["sha256_by_file"], {p: str(a["sha256"]) for p, a in assets.items()})
+        self.assertEqual(captured[0]["size_by_file"], {p: int(a["size"]) for p, a in assets.items()})
+
+    def test_enhance_installer_declares_total_and_pins_size(self) -> None:
+        events: list[tuple[str, object]] = []
+        captured: list[dict[str, object]] = []
+        bridge = _fake_bridge(events)
+        token = progress_bridge_var.set(bridge)
+
+        def fake_ensure(**kwargs: object) -> dict[str, object]:
+            captured.append(kwargs)
+            return {"path": "model.onnx", "sha256": "0" * 64, "downloaded": True}
+
+        try:
+            with tempfile.TemporaryDirectory() as directory, patch.object(
+                enhance_storage,
+                "resolve_enhance_model_dir",
+                return_value=Path(directory),
+            ), patch.object(
+                enhance_storage, "model_is_installed", return_value=False
+            ), patch.object(
+                enhance_storage, "ensure_file_from_hf", side_effect=fake_ensure
+            ):
+                enhance_storage.ensure_enhance_model_installed("waifu2x_swin_unet_art_2x")
+        finally:
+            progress_bridge_var.reset(token)
+
+        manifest_entry = manifests.model_entry("waifu2x_swin_unet_art_2x")
+        assert manifest_entry is not None
+        self.assertEqual(events[0], ("declare_total", int(manifest_entry["totalBytes"])))
+        self.assertEqual(captured[0]["expected_size"], int(manifest_entry["assets"][0]["size"]))
+        self.assertEqual(len(str(captured[0]["expected_sha256"])), 64)
+
+    def test_paddleocr_vl_manga_unpinned_file_fails_closed_without_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            paddleocr_vl_storage,
+            "resolve_paddleocr_vl_manga_model_dir",
+            return_value=Path(directory),
+        ), patch.object(manifests, "model_entry", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "unpinned asset missing"):
+                paddleocr_vl_storage.ensure_paddleocr_vl_manga_installed()
+
+    def test_paddleocr_vl_manga_covers_the_unpinned_files_from_the_manifest(self) -> None:
+        captured: list[dict[str, object]] = []
+
+        def fake_ensure(**kwargs: object) -> list[dict[str, object]]:
+            captured.append(kwargs)
+            return []
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            paddleocr_vl_storage,
+            "resolve_paddleocr_vl_manga_model_dir",
+            return_value=Path(directory),
+        ), patch.object(paddleocr_vl_storage, "ensure_files_from_hf", side_effect=fake_ensure):
+            paddleocr_vl_storage.ensure_paddleocr_vl_manga_installed()
+
+        sha_by_file = captured[0]["sha256_by_file"]
+        size_by_file = captured[0]["size_by_file"]
+        unpinned = set(paddleocr_vl_storage._MODEL_FILES) - set(paddleocr_vl_storage._PINNED_SHA256)
+        self.assertTrue(unpinned.issubset(sha_by_file))
+        self.assertTrue(unpinned.issubset(size_by_file))
+        assets = manifests.manifest_assets_by_path("paddleocr_vl_manga")
+        for filename in unpinned:
+            self.assertEqual(sha_by_file[filename], str(assets[filename]["sha256"]))
+            self.assertEqual(size_by_file[filename], int(assets[filename]["size"]))
+
+
+    def test_enhance_readiness_rejects_a_wrong_sized_file(self) -> None:
+        spec = enhance_storage.ENHANCE_MODEL_SPECS["waifu2x_swin_unet_art_2x"]
+        manifest_entry = manifests.model_entry("waifu2x_swin_unet_art_2x")
+        assert manifest_entry is not None
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            enhance_storage, "model_is_installed", return_value=True
+        ):
+            model_dir = Path(directory)
+            target = model_dir / str(spec["target"])
+            target.write_bytes(b"0" * (int(manifest_entry["assets"][0]["size"]) - 1))
+            with patch.object(
+                enhance_storage, "resolve_enhance_model_dir", return_value=model_dir
+            ):
+                self.assertFalse(
+                    enhance_storage.enhance_runtime_ready("waifu2x_swin_unet_art_2x")
+                )
+            target.write_bytes(b"0" * int(manifest_entry["assets"][0]["size"]))
+            with patch.object(
+                enhance_storage, "resolve_enhance_model_dir", return_value=model_dir
+            ):
+                self.assertTrue(
+                    enhance_storage.enhance_runtime_ready("waifu2x_swin_unet_art_2x")
+                )
+
+    def test_non_managed_enhance_specs_stay_ready_when_installed(self) -> None:
+        spec = enhance_storage.ENHANCE_MODEL_SPECS["4xnomos2_hq_mosr"]
+        assert str(spec.get("install_strategy")) != "backend_managed"
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            enhance_storage, "model_is_installed", return_value=True
+        ):
+            model_dir = Path(directory)
+            (model_dir / str(spec["target"])).write_bytes(b"weights")
+            with patch.object(
+                enhance_storage, "resolve_enhance_model_dir", return_value=model_dir
+            ):
+                self.assertTrue(enhance_storage.enhance_runtime_ready("4xnomos2_hq_mosr"))
+
+    def test_manga_ocr_manifest_digests_match_the_pinned_registry(self) -> None:
+        assets = manifests.manifest_assets_by_path("manga_ocr")
+        for item in manga_ocr_storage.REQUIRED_FILES:
+            self.assertEqual(str(assets[item.name]["sha256"]), item.sha256)
 
 
 @unittest.skipIf(
@@ -262,7 +646,7 @@ class TruncatedTargetJobTests(unittest.TestCase):
     HUNYUAN = "hunyuan_7b_mt_v1_0"
 
     def test_truncated_target_job_ends_in_checksum_error_not_ready(self) -> None:
-        manifest_entry = translation_storage.model_entry(self.HUNYUAN)
+        manifest_entry = manifests.model_entry(self.HUNYUAN)
         assert manifest_entry is not None
         asset = manifest_entry["assets"][0]
         declared_sha = str(asset["sha256"])
@@ -311,7 +695,7 @@ class TruncatedTargetJobTests(unittest.TestCase):
 
     def test_corrupt_small_file_is_not_blessed_when_the_hf_api_is_unreachable(self) -> None:
         model_id = "nllb-200-600m-int8"
-        manifest_entry = translation_storage.model_entry(model_id)
+        manifest_entry = manifests.model_entry(model_id)
         assert manifest_entry is not None
         assets = {str(a["path"]): a for a in manifest_entry["assets"]}
         config_asset = assets["config.json"]

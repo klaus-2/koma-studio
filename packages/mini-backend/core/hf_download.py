@@ -578,6 +578,7 @@ def ensure_files_from_hf(
     target_dir: Path,
     revision: str = "main",
     sha256_by_file: Mapping[str, str] | None = None,
+    size_by_file: Mapping[str, int] | None = None,
 ) -> list[dict[str, object]]:
     target_dir.mkdir(parents=True, exist_ok=True)
     payloads: list[dict[str, object]] = []
@@ -589,6 +590,7 @@ def ensure_files_from_hf(
             target_path=target_path,
             revision=revision,
             expected_sha256=(sha256_by_file or {}).get(relative_path),
+            expected_size=(size_by_file or {}).get(relative_path),
         )
         payloads.append(
             {
