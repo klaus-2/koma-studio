@@ -244,6 +244,18 @@ def easyocr_runtime_ready(languages: Sequence[str] | None = None) -> bool:
     )
 
 
+def declare_easyocr_total(languages: Sequence[str] | None) -> None:
+    bridge = progress_bridge_var.get()
+    if bridge is None:
+        return
+    total_bytes = 0
+    for language in _normalize_languages(languages):
+        total_bytes += sum(
+            int(asset["size"]) for asset in _easyocr_manifest_assets(language)
+        )
+    bridge.declare_total(total_bytes)
+
+
 def ensure_easyocr_models_installed(
     languages: Sequence[str],
     use_gpu: bool,
@@ -255,15 +267,7 @@ def ensure_easyocr_models_installed(
         )
 
     normalized_languages = _normalize_languages(languages)
-
-    total_bytes = 0
-    for language in normalized_languages:
-        total_bytes += sum(
-            int(asset["size"]) for asset in _easyocr_manifest_assets(language)
-        )
-    bridge = progress_bridge_var.get()
-    if bridge is not None:
-        bridge.declare_total(total_bytes)
+    declare_easyocr_total(normalized_languages)
 
     easyocr_imported = False
     installed_languages: list[str] = []

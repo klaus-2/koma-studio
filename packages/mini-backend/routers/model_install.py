@@ -16,7 +16,11 @@ from core.languages import normalize_language_code
 from models.detection.storage import ensure_detection_model_installed
 from models.enhance.storage import ensure_enhance_model_installed
 from models.inpainting.storage import ensure_inpainting_model_installed
-from models.ocr.easyocr.storage import ensure_easyocr_models_installed, resolve_easyocr_languages_for_source
+from models.ocr.easyocr.storage import (
+    declare_easyocr_total,
+    ensure_easyocr_models_installed,
+    resolve_easyocr_languages_for_source,
+)
 from models.ocr.glm_ocr_onnx.storage import ensure_glm_ocr_onnx_installed
 from models.ocr.meiki.storage import ensure_meiki_models_installed
 from models.ocr.manga_ocr.storage import ensure_manga_ocr_models_installed
@@ -151,6 +155,7 @@ def _install_managed_model(
         raise RuntimeError("model_id is required for a managed install.")
 
     if normalized_model_id == "easyocr":
+        declare_easyocr_total(resolve_easyocr_languages_for_source(source_language))
         device = get_device_info()
         return ensure_easyocr_models_installed(
             languages=resolve_easyocr_languages_for_source(source_language),
