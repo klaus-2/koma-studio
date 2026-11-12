@@ -254,12 +254,18 @@ def ensure_easyocr_models_installed(
             "KOMA_MODELS_ROOT is not configured for managed EasyOCR installs.",
         )
 
-    try:
-        import easyocr  # type: ignore
-    except Exception as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError("easyocr is not installed in the local environment.") from exc
-
     normalized_languages = _normalize_languages(languages)
+
+    total_bytes = 0
+    for language in normalized_languages:
+        total_bytes += sum(
+            int(asset["size"]) for asset in _easyocr_manifest_assets(language)
+        )
+    bridge = progress_bridge_var.get()
+    if bridge is not None:
+        bridge.declare_total(total_bytes)
+
+    easyocr_imported = False
     installed_languages: list[str] = []
 
     for language in normalized_languages:
@@ -269,11 +275,15 @@ def ensure_easyocr_models_installed(
 
         if not _storage_dir_ready(storage_dir, language):
             assets = _easyocr_manifest_assets(language)
-            bridge = progress_bridge_var.get()
-            if bridge is not None:
-                bridge.declare_total(sum(int(asset["size"]) for asset in assets))
             for asset in assets:
                 _install_easyocr_asset(asset, storage_dir)
+
+        if not easyocr_imported:
+            try:
+                import easyocr  # type: ignore
+            except Exception as exc:  # pragma: no cover - optional dependency
+                raise RuntimeError("easyocr is not installed in the local environment.") from exc
+            easyocr_imported = True
 
         reader_kwargs: dict[str, object] = {
             "gpu": use_gpu,

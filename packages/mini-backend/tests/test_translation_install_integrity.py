@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import builtins
 import sys
 import tempfile
 import unittest
@@ -26,6 +27,7 @@ try:
     from models.ocr.manga_ocr import storage as manga_ocr_storage
     from models.ocr.meiki import storage as meiki_storage
     from models.ocr.paddleocr_vl_manga import storage as paddleocr_vl_storage
+    from models.ocr.easyocr import storage as easyocr_storage
     from models.ocr.pororo import storage as pororo_storage
     from models.ocr.transformers_vlm import storage as vlm_storage
     from models.enhance import storage as enhance_storage
@@ -636,6 +638,53 @@ class ManagedFamilyManifestPinTests(unittest.TestCase):
         assets = manifests.manifest_assets_by_path("manga_ocr")
         for item in manga_ocr_storage.REQUIRED_FILES:
             self.assertEqual(str(assets[item.name]["sha256"]), item.sha256)
+
+
+    def test_easyocr_declares_total_and_downloads_before_importing_easyocr(self) -> None:
+        """A torch-stack import must never freeze the download card at 0%.
+
+        With easyocr unimportable, the pre-fix flow (import first, declare
+        later) failed with zero progress events; the fixed flow declares the
+        manifest total and transfers the bytes before the import is attempted.
+        """
+        events: list[tuple[str, object]] = []
+        bridge = _fake_bridge(events)
+        token = progress_bridge_var.set(bridge)
+
+        real_import = builtins.__import__
+
+        def failing_easyocr_import(name: str, *args: object, **kwargs: object):
+            if name == "easyocr":
+                raise ImportError("easyocr is not installed in the local environment.")
+            return real_import(name, *args, **kwargs)  # type: ignore[arg-type]
+
+        def fake_install(asset: dict[str, object], storage_dir: Path) -> None:
+            target_path = storage_dir / str(asset["target"])
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            size = int(asset["size"])
+            target_path.write_bytes(b"z" * size)
+            progress_bridge_var.get().report_download(str(asset["url"]), size)
+
+        manifest_entry = manifests.model_entry("easyocr")
+        assert manifest_entry is not None
+        declared = int(manifest_entry["detection"]["size"]) + int(
+            manifest_entry["languages"]["english_g2.pth"]["size"]
+        )
+
+        try:
+            with tempfile.TemporaryDirectory() as models_root, patch.dict(
+                os.environ, {"KOMA_MODELS_ROOT": models_root}
+            ), patch("builtins.__import__", side_effect=failing_easyocr_import), patch.object(
+                easyocr_storage, "_install_easyocr_asset", side_effect=fake_install
+            ):
+                with self.assertRaisesRegex(RuntimeError, "easyocr is not installed"):
+                    easyocr_storage.ensure_easyocr_models_installed(["en"], use_gpu=False)
+        finally:
+            progress_bridge_var.reset(token)
+
+        self.assertEqual(events[0], ("declare_total", declared))
+        download_events = [event for event in events if event[0] == "report_download"]
+        self.assertGreater(len(download_events), 0)
 
 
 @unittest.skipIf(
