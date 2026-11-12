@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -115,18 +116,35 @@ for _pkg in _NVIDIA_PACKAGES:
     except Exception:
         pass  # package not installed for this profile — skip
 
+_REQUIRED_RUNTIME_PACKAGES = ('llama_cpp', 'ctranslate2')
+
+for _pkg in _REQUIRED_RUNTIME_PACKAGES:
+    if importlib.util.find_spec(_pkg) is None:
+        raise SystemExit(
+            f"build.spec preflight: '{_pkg}' is missing from the build venv. "
+            "Install requirements.txt before packaging; without it GGUF/CT2 "
+            "translation models install fine but fail at load time."
+        )
+
+llama_cpp_hiddenimports = collect_submodules('llama_cpp')
+llama_cpp_binaries = collect_dynamic_libs('llama_cpp')
+llama_cpp_datas = collect_data_files('llama_cpp')
+ctranslate2_hiddenimports = collect_submodules('ctranslate2')
+ctranslate2_binaries = collect_dynamic_libs('ctranslate2')
+ctranslate2_datas = collect_data_files('ctranslate2')
+
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=[*onnxruntime_binaries, *nvidia_binaries, *local_binaries],
+    binaries=[*onnxruntime_binaries, *nvidia_binaries, *local_binaries, *llama_cpp_binaries, *ctranslate2_binaries],
     datas=[
         # The model-asset manifest is runtime data read next to its loader
         # module; without this entry every packaged exe crashes at boot with
         # FileNotFoundError for model-assets.json.
         (str(PROJECT_ROOT / 'models' / 'manifests' / 'model-assets.json'), 'models/manifests'),
-        *psd_datas, *photoshop_datas, *pdfium_datas, *py7zr_datas, *transformers_datas, *tokenizers_datas, *onnxruntime_datas, *nvidia_datas,
+        *psd_datas, *photoshop_datas, *pdfium_datas, *py7zr_datas, *transformers_datas, *tokenizers_datas, *onnxruntime_datas, *nvidia_datas, *llama_cpp_datas, *ctranslate2_datas,
     ],
-    hiddenimports=['uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto', 'uvicorn.protocols', 'uvicorn.protocols.http', 'uvicorn.protocols.http.auto', 'uvicorn.protocols.websockets', 'uvicorn.protocols.websockets.auto', 'uvicorn.lifespan', 'uvicorn.lifespan.on', 'multipart', *local_hiddenimports, *psd_hiddenimports, *photoshop_hiddenimports, *pdfium_hiddenimports, *py7zr_hiddenimports, *transformers_hiddenimports, *tokenizers_hiddenimports, *sentencepiece_hiddenimports, *torch_hiddenimports, *torchvision_hiddenimports, *onnxruntime_hiddenimports],
+    hiddenimports=['uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto', 'uvicorn.protocols', 'uvicorn.protocols.http', 'uvicorn.protocols.http.auto', 'uvicorn.protocols.websockets', 'uvicorn.protocols.websockets.auto', 'uvicorn.lifespan', 'uvicorn.lifespan.on', 'multipart', *local_hiddenimports, *psd_hiddenimports, *photoshop_hiddenimports, *pdfium_hiddenimports, *py7zr_hiddenimports, *transformers_hiddenimports, *tokenizers_hiddenimports, *sentencepiece_hiddenimports, *torch_hiddenimports, *torchvision_hiddenimports, *onnxruntime_hiddenimports, *llama_cpp_hiddenimports, *ctranslate2_hiddenimports],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
