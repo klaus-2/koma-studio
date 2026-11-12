@@ -27,6 +27,10 @@ export interface RenderModePresetStateV1 {
 
 export const RENDER_MODE_PRESET_STORAGE_KEY = "koma-render-mode-presets-v1";
 
+let presetStateRevision = 0;
+
+export const getRenderModePresetRevision = (): number => presetStateRevision;
+
 export const RENDER_MODE_PRESET_MODES: RenderModePresetMode[] = [
   "text_bubble",
   "text_free",
@@ -123,7 +127,9 @@ const persistState = (state: RenderModePresetStateV1): void => {
 
 export const loadRenderModePresetState = (): RenderModePresetStateV1 => {
   if (typeof window === "undefined") return { ...DEFAULT_STATE };
-  migrateRenderSizeCatalog(RENDER_MODE_PRESET_STORAGE_KEY);
+  if (migrateRenderSizeCatalog(RENDER_MODE_PRESET_STORAGE_KEY)) {
+    presetStateRevision += 1;
+  }
   return sanitizeState(
     parseJson<unknown>(window.localStorage.getItem(RENDER_MODE_PRESET_STORAGE_KEY), DEFAULT_STATE),
   );
@@ -132,6 +138,7 @@ export const loadRenderModePresetState = (): RenderModePresetStateV1 => {
 export const saveRenderModePresetState = (state: RenderModePresetStateV1): RenderModePresetStateV1 => {
   const sanitizedState = sanitizeState(state);
   persistState(sanitizedState);
+  presetStateRevision += 1;
   return sanitizedState;
 };
 

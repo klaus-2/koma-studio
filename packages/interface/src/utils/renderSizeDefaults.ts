@@ -86,23 +86,26 @@ const rewriteCatalog = (catalog: Record<string, unknown>): void => {
 
 /** Rewrites one persisted catalog once; call before reading it. The flag is
  *  scoped to the storage key so each catalog migrates independently. */
-export const migrateRenderSizeCatalog = (storageKey: string): void => {
-  if (typeof window === 'undefined') return;
+export const migrateRenderSizeCatalog = (storageKey: string): boolean => {
+  if (typeof window === 'undefined') return false;
   const flagKey = `${storageKey}:render-size-defaults-v2`;
-  if (window.localStorage.getItem(flagKey)) return;
+  if (window.localStorage.getItem(flagKey)) return false;
 
+  let rewrote = false;
   try {
     const raw = window.localStorage.getItem(storageKey);
     const catalog: unknown = raw ? JSON.parse(raw) : null;
     if (isPlainObject(catalog)) {
       rewriteCatalog(catalog);
       window.localStorage.setItem(storageKey, JSON.stringify(catalog));
+      rewrote = true;
     }
   } catch {
     // A corrupt catalog falls back to the in-code defaults on read.
   }
 
   window.localStorage.setItem(flagKey, '1');
+  return rewrote;
 };
 
 export const shouldMigrateWorkspaceRenderSizes = (): boolean => {

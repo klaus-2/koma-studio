@@ -12,6 +12,7 @@ import {
   cloneRenderStyle,
   normalizeTranslationNotes,
 } from '../../../utils/dashboard.utils';
+import { getRenderModePresetRevision } from '../../../utils/renderModePresets';
 import { cloneRenderTextStyleRanges } from '../../../utils/renderTextStyleRanges';
 
 interface UseRenderTextPreviewRegionModelParams {
@@ -44,6 +45,7 @@ const reuseIfSameElements = (
 };
 
 interface RegionsWithDefaultsCache {
+  revision: number;
   bySource: WeakMap<AioTextRegion, AioTextRegion>;
   prevById: Map<string, { source: AioTextRegion; derived: AioTextRegion }>;
 }
@@ -64,10 +66,11 @@ export const useRenderTextPreviewRegionModel = ({
   const regionsWithDefaultsRef = useRef<AioTextRegion[]>([]);
   const regionsWithDefaultsPrevRef = useRef<AioTextRegion[]>([]);
 
+  const presetRevision = getRenderModePresetRevision();
   const regionsWithDefaults = useMemo(() => {
     let cache = regionsWithDefaultsCaches.get(fallbackStyle);
-    if (!cache) {
-      cache = { bySource: new WeakMap(), prevById: new Map() };
+    if (!cache || cache.revision !== presetRevision) {
+      cache = { revision: presetRevision, bySource: new WeakMap(), prevById: new Map() };
       regionsWithDefaultsCaches.set(fallbackStyle, cache);
     }
     const { bySource, prevById } = cache;
@@ -94,7 +97,7 @@ export const useRenderTextPreviewRegionModel = ({
       if (region && derived) prevById.set(region.id, { source: region, derived });
     }
     return reuseIfSameElements(regionsWithDefaultsPrevRef.current, next);
-  }, [fallbackStyle, regions]);
+  }, [fallbackStyle, presetRevision, regions]);
   useEffect(() => {
     regionsWithDefaultsRef.current = regionsWithDefaults;
     regionsWithDefaultsPrevRef.current = regionsWithDefaults;
