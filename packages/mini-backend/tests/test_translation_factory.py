@@ -15,6 +15,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 IMPORT_ERROR: Exception | None = None
 try:
     from core.config import normalize_stage_model_key
+    from models import manifests as manifests_module
     from models.translation import factory as translation_factory
     from models.translation import local_storage as translation_storage
 except Exception as exc:  # pragma: no cover - optional runtime deps
@@ -188,9 +189,7 @@ class TranslationNllbRunnableTests(unittest.TestCase):
                 for relative_path in files
             ],
         }
-        with tempfile.TemporaryDirectory() as directory, patch.object(
-            translation_storage, "model_entry", return_value=stub_entry
-        ):
+        with tempfile.TemporaryDirectory() as directory, patch.object(manifests_module, "model_entry", return_value=stub_entry):
             model_dir = Path(directory)
             for relative_path in files:
                 (model_dir / relative_path).write_bytes(b"0" * 10)
