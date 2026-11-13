@@ -25,7 +25,7 @@ class DeviceFallbackTests(unittest.IsolatedAsyncioTestCase):
         # Patch at the consumer module: the runner resolves these names there.
         for patcher in (
             unittest.mock.patch.object(fallback, "build_cpu_device_info", lambda _d, *, fallback_reason: cpu),
-            unittest.mock.patch.object(fallback, "release_gpu_memory", lambda: None),
+            unittest.mock.patch.object(fallback, "release_gpu_memory", lambda *, force=False: None),
             unittest.mock.patch.object(
                 fallback, "is_insufficient_memory_error", lambda e: isinstance(e, _OOM)
             ),

@@ -15,6 +15,7 @@ from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Final
 
+from core.device import acquire_gpu_memory_lease, release_gpu_memory_lease
 from models.errors import InferenceError
 
 logger = logging.getLogger(__name__)
@@ -59,11 +60,13 @@ def _get_executor() -> ThreadPoolExecutor:
 def _execute[T](operation: Callable[[], T]) -> T:
     started_at = time.perf_counter()
     succeeded = False
+    acquire_gpu_memory_lease()
     try:
         result = operation()
         succeeded = True
         return result
     finally:
+        release_gpu_memory_lease()
         logger.info(
             "inference.completed",
             extra={

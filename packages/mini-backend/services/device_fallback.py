@@ -8,7 +8,12 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Final
 
-from core.device import DeviceInfo, build_cpu_device_info, release_gpu_memory
+from core.device import (
+    DeviceInfo,
+    build_cpu_device_info,
+    release_gpu_memory,
+    run_oom_transition_releasers,
+)
 from core.runtime_errors import is_insufficient_memory_error
 from models.execution import InferenceBusyError
 
@@ -96,7 +101,8 @@ async def run_with_cpu_fallback[T](
     # only be recognised by inspecting the instance, hence the broad catch here
     # and nowhere else.
     except Exception as gpu_error:  # noqa: BLE001
-        release_gpu_memory()
+        run_oom_transition_releasers()
+        release_gpu_memory(force=True)
         if not (use_gpu and is_insufficient_memory_error(gpu_error)):
             raise ExecutionFailedError(gpu_error, stage=stage) from gpu_error
 

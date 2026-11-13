@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+from unittest.mock import patch
 from io import BytesIO
 import os
 from pathlib import Path
@@ -254,6 +255,35 @@ class BatchOrchestratorTests(unittest.TestCase):
             self.assertEqual(calls, [True, False])
         finally:
             stages.run_detect_stage = original_detect
+
+
+class GpuLeaseBehaviorTests(unittest.TestCase):
+    def test_stage_execution_holds_gpu_memory_lease(self) -> None:
+        from core.device import (
+            acquire_gpu_memory_lease,
+            active_gpu_memory_leases,
+            release_gpu_memory,
+            release_gpu_memory_lease,
+        )
+        from models.execution import run_inference
+
+        observed_during: list[int] = []
+        observed_idle: list[int] = []
+
+        def fake_gpu_operation() -> str:
+            observed_during.append(active_gpu_memory_leases())
+            release_gpu_memory()
+            observed_during.append(active_gpu_memory_leases())
+            return "ok"
+
+        result = _run(run_inference(fake_gpu_operation))
+        self.assertEqual(result, "ok")
+        observed_idle.append(active_gpu_memory_leases())
+        self.assertTrue(
+            all(count >= 1 for count in observed_during),
+            f"lease must be held during the operation; observed {observed_during}",
+        )
+        self.assertEqual(observed_idle, [0], "lease must drop after completion")
 
 
 if __name__ == "__main__":

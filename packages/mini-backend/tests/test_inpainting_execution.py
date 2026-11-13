@@ -56,7 +56,7 @@ def mask() -> np.ndarray:
 def _stub_runtime(
     monkeypatch: pytest.MonkeyPatch, image: np.ndarray, mask: np.ndarray
 ) -> None:
-    monkeypatch.setattr(device_fallback, "release_gpu_memory", lambda: None)
+    monkeypatch.setattr(device_fallback, "release_gpu_memory", lambda *, force=False: None)
     monkeypatch.setattr(
         device_fallback, "build_cpu_device_info", lambda device, fallback_reason: _Device(False)
     )

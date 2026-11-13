@@ -26,6 +26,9 @@ LOGGER = logging.getLogger("mini-backend")
 _gpu_cache_releasers: list[Callable[[], None]] = []
 _gpu_cache_releasers_lock = threading.Lock()
 
+_oom_transition_releasers: list[Callable[[], None]] = []
+_oom_transition_releasers_lock = threading.Lock()
+
 
 def register_gpu_cache_releaser(release: Callable[[], None]) -> Callable[[], None]:
     """Decorator: modules owning InferenceSession/torch caches register their
@@ -33,6 +36,38 @@ def register_gpu_cache_releaser(release: Callable[[], None]) -> Callable[[], Non
     with _gpu_cache_releasers_lock:
         _gpu_cache_releasers.append(release)
     return release
+
+
+def unregister_gpu_cache_releaser(release: Callable[[], None]) -> None:
+    with _gpu_cache_releasers_lock:
+        try:
+            _gpu_cache_releasers.remove(release)
+        except ValueError:
+            pass
+
+
+def register_oom_transition_releaser(release: Callable[[], None]) -> Callable[[], None]:
+    with _oom_transition_releasers_lock:
+        _oom_transition_releasers.append(release)
+    return release
+
+
+def unregister_oom_transition_releaser(release: Callable[[], None]) -> None:
+    with _oom_transition_releasers_lock:
+        try:
+            _oom_transition_releasers.remove(release)
+        except ValueError:
+            pass
+
+
+def run_oom_transition_releasers() -> None:
+    with _oom_transition_releasers_lock:
+        releasers = tuple(_oom_transition_releasers)
+    for release in releasers:
+        try:
+            release()
+        except Exception:  # noqa: BLE001
+            LOGGER.exception("OOM transition releaser failed")
 
 
 def _cudnn_preload_dlls_for_profile(profile: str) -> tuple[str, ...]:
@@ -889,7 +924,28 @@ def build_cpu_device_info(
     )
 
 
-def release_gpu_memory() -> None:
+_gpu_lease_lock = threading.Lock()
+_gpu_lease_count = 0
+
+
+def acquire_gpu_memory_lease() -> None:
+    global _gpu_lease_count
+    with _gpu_lease_lock:
+        _gpu_lease_count += 1
+
+
+def release_gpu_memory_lease() -> None:
+    global _gpu_lease_count
+    with _gpu_lease_lock:
+        _gpu_lease_count -= 1
+
+
+def active_gpu_memory_leases() -> int:
+    with _gpu_lease_lock:
+        return _gpu_lease_count
+
+
+def release_gpu_memory(*, force: bool = False) -> None:
     """Release cached GPU memory after an inference operation.
 
     Calls gc.collect() to free Python-level cyclic references, then
@@ -898,6 +954,10 @@ def release_gpu_memory() -> None:
     torch is not installed or CUDA is unavailable, errors are silently
     suppressed.
     """
+    if not force:
+        with _gpu_lease_lock:
+            if _gpu_lease_count > 0:
+                return
     gc.collect()
     try:
         import torch  # noqa: PLC0415 - optional heavy dependency
@@ -926,4 +986,4 @@ def release_onnx_gpu_memory() -> None:
             release()
         except Exception:  # noqa: BLE001 - one broken cache must not block the others
             LOGGER.exception("GPU cache releaser failed")
-    release_gpu_memory()
+    release_gpu_memory(force=True)

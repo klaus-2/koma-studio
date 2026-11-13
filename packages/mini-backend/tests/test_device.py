@@ -367,5 +367,78 @@ class CudnnPreloadSelectionTests(unittest.TestCase):
         self.assertIn("cudnn/bin/cudnn64_9.dll", dlls)
 
 
+class GpuMemoryLeaseTests(unittest.TestCase):
+    def setUp(self) -> None:
+        while device_module.active_gpu_memory_leases() > 0:
+            device_module.release_gpu_memory_lease()
+        self._torch_patcher = patch.dict(
+            sys.modules, {"torch": self._make_fake_torch()}
+        )
+        self._torch_patcher.start()
+        self.addCleanup(self._torch_patcher.stop)
+
+    @staticmethod
+    def _make_fake_torch() -> SimpleNamespace:
+        cuda = SimpleNamespace(
+            is_available=lambda: True,
+            empty_cache=lambda: None,
+            ipc_collect=lambda: None,
+        )
+        return SimpleNamespace(cuda=cuda)
+
+    def test_lease_blocks_deferred_release(self) -> None:
+        device_module.acquire_gpu_memory_lease()
+        try:
+            with patch.object(device_module, "gc") as mock_gc:
+                device_module.release_gpu_memory()
+                mock_gc.collect.assert_not_called()
+        finally:
+            device_module.release_gpu_memory_lease()
+
+    def test_zero_leases_release_still_clears(self) -> None:
+        with patch.object(device_module, "gc") as mock_gc:
+            device_module.release_gpu_memory()
+            mock_gc.collect.assert_called_once_with()
+
+    def test_final_lease_holder_release_performs_clear(self) -> None:
+        device_module.acquire_gpu_memory_lease()
+        device_module.acquire_gpu_memory_lease()
+        with patch.object(device_module, "gc") as mock_gc:
+            device_module.release_gpu_memory_lease()
+            device_module.release_gpu_memory()
+            mock_gc.collect.assert_not_called()
+            device_module.release_gpu_memory_lease()
+            device_module.release_gpu_memory()
+            mock_gc.collect.assert_called_once_with()
+
+    def test_force_release_ignores_outstanding_leases(self) -> None:
+        device_module.acquire_gpu_memory_lease()
+        try:
+            with patch.object(device_module, "gc") as mock_gc:
+                device_module.release_gpu_memory(force=True)
+                mock_gc.collect.assert_called_once_with()
+        finally:
+            device_module.release_gpu_memory_lease()
+
+    def test_release_onnx_gpu_memory_forces_release(self) -> None:
+        device_module.acquire_gpu_memory_lease()
+        try:
+            releaser_calls: list[int] = []
+
+            def fake_releaser() -> None:
+                releaser_calls.append(1)
+
+            token = device_module.register_gpu_cache_releaser(fake_releaser)
+            try:
+                with patch.object(device_module, "gc") as mock_gc:
+                    device_module.release_onnx_gpu_memory()
+                    self.assertEqual(releaser_calls, [1])
+                    mock_gc.collect.assert_called_once_with()
+            finally:
+                device_module.unregister_gpu_cache_releaser(token)
+        finally:
+            device_module.release_gpu_memory_lease()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -48,7 +48,7 @@ def _install_fake_detector(monkeypatch: pytest.MonkeyPatch, events: list[str]) -
     # Patch at the consumer module: the gated site resolves these names there.
     monkeypatch.setattr(detection_seeds, "get_detector", lambda **_: _FakeDetector(events))
     monkeypatch.setattr(
-        detection_seeds, "release_gpu_memory", lambda: events.append("release")
+        detection_seeds, "release_gpu_memory", lambda *, force=False: events.append("release")
     )
 
 
@@ -103,7 +103,7 @@ async def test_oom_hard_free_still_fires_when_skip_set(
         return device.name
 
     monkeypatch.setattr(
-        fallback, "release_gpu_memory", lambda: release_calls.append(True)
+        fallback, "release_gpu_memory", lambda *, force=False: release_calls.append(True)
     )
     monkeypatch.setattr(
         fallback,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import ClassVar
 
 from PIL import Image
@@ -9,6 +9,7 @@ from PIL import Image
 from models.errors import InvalidInputImageError
 from models.execution import run_inference
 from models.geometry import BBox
+from utils.resolution_policy import stage_resolution_plan
 
 type Bbox = BBox
 type Rgb = tuple[int, int, int]
@@ -43,9 +44,35 @@ class BaseDetector(ABC):
         if width < 1 or height < 1 or width * height > _MAX_IMAGE_PIXELS:
             raise InvalidInputImageError("Image dimensions exceed detection limits")
 
+        plan = stage_resolution_plan("detection", width, height)
         with image.convert("RGB") as rgb:
             rgb.load()
-            return self._detect(rgb)
+            if not plan.downscaled:
+                return self._detect(rgb)
+            working = rgb.resize(
+                (plan.working_width, plan.working_height), Image.Resampling.BICUBIC
+            )
+            try:
+                scaled = self._detect(working)
+            finally:
+                working.close()
+            scale_x = plan.width / plan.working_width
+            scale_y = plan.height / plan.working_height
+            remapped: list[TextDetection] = []
+            for detection in scaled:
+                x1, y1, x2, y2 = detection.bbox
+                remapped.append(
+                    replace(
+                        detection,
+                        bbox=(
+                            min(plan.width, max(0, round(x1 * scale_x))),
+                            min(plan.height, max(0, round(y1 * scale_y))),
+                            min(plan.width, max(0, round(x2 * scale_x))),
+                            min(plan.height, max(0, round(y2 * scale_y))),
+                        ),
+                    )
+                )
+            return remapped
 
     @abstractmethod
     def _detect(self, image: Image.Image) -> list[TextDetection]:
