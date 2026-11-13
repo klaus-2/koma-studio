@@ -15,6 +15,7 @@ import type { RenderRegionOverlayBoxProps } from './RenderRegionOverlayBox';
 interface RenderRegionOverlayListProps {
   BoxComponent: React.ComponentType<RenderRegionOverlayBoxProps>;
   regions: readonly AioTextRegion[];
+  visibleRegionIdSet?: ReadonlySet<string>;
   imageWidth: number;
   imageHeight: number;
   renderStageActive: boolean;
@@ -32,6 +33,7 @@ interface RenderRegionOverlayListProps {
 const RenderRegionOverlayList = ({
   BoxComponent,
   regions,
+  visibleRegionIdSet,
   imageWidth,
   imageHeight,
   renderStageActive,
@@ -46,6 +48,7 @@ const RenderRegionOverlayList = ({
 }: RenderRegionOverlayListProps) => (
   <>
     {regions.map((region) => {
+      if (visibleRegionIdSet && !visibleRegionIdSet.has(region.id)) return null;
       const multiSelectIndex = multiSelectedRegionIds.indexOf(region.id);
       const regionIsSelected = region.id === selectedRegionId;
       const showHandles = regionIsSelected && editable && areaSelectionEnabled;

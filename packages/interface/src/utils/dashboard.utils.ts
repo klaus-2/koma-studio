@@ -390,9 +390,32 @@ export const resetLoadedCanvasFontCache = (): void => {
   loadedCanvasFontKeys.clear();
 };
 
-const checkFontRequestSafe = (fontRequest: string): boolean => {
+export interface CanvasFontSet {
+  check(fontRequest: string): boolean;
+  load(fontRequest: string): Promise<FontFace[]>;
+}
+
+export const getDocumentFontSet = (): CanvasFontSet => {
+  if (typeof document === "undefined" || !("fonts" in document)) {
+    throw new Error("canvas font seam: document.fonts unavailable");
+  }
+  return document.fonts as unknown as CanvasFontSet;
+};
+
+export const getWorkerFontSet = (): CanvasFontSet => {
+  const fonts = (self as { fonts?: FontFaceSet }).fonts;
+  if (!fonts) {
+    throw new Error("canvas font seam: worker fonts unavailable");
+  }
+  return fonts as unknown as CanvasFontSet;
+};
+
+const checkFontRequestSafe = (
+  fontSet: CanvasFontSet,
+  fontRequest: string,
+): boolean => {
   try {
-    return document.fonts.check(fontRequest);
+    return fontSet.check(fontRequest);
   } catch {
     return false;
   }
@@ -407,8 +430,8 @@ const checkFontRequestSafe = (fontRequest: string): boolean => {
 export const ensureCanvasFontLoaded = async (
   style: RenderTextStyle,
   ranges?: { style: Partial<RenderTextStyle> }[],
+  fontSet: CanvasFontSet = getDocumentFontSet(),
 ): Promise<boolean> => {
-  if (typeof document === "undefined" || !("fonts" in document)) return false;
   const families = new Set<string>([
     normalizeFontFamilyForCanvas(style.fontFamily),
     ...collectInlineRenderTextFontFamilies(ranges).map((family) =>
@@ -424,22 +447,22 @@ export const ensureCanvasFontLoaded = async (
         const key = `${family.toLowerCase()}|${style.bold ? "700" : "400"}|${style.italic ? "italic" : "normal"}`;
         const fontRequest = `${style.italic ? "italic " : ""}${style.bold ? "700 " : "400 "}16px "${escapedFamily}"`;
 
-        if (loadedCanvasFontKeys.has(key) && checkFontRequestSafe(fontRequest)) {
+        if (loadedCanvasFontKeys.has(key) && checkFontRequestSafe(fontSet, fontRequest)) {
           return false;
         }
-        if (checkFontRequestSafe(fontRequest)) {
+        if (checkFontRequestSafe(fontSet, fontRequest)) {
           loadedCanvasFontKeys.add(key);
           return true;
         }
 
         try {
           const loadedFaces = await Promise.race([
-            document.fonts.load(fontRequest),
+            fontSet.load(fontRequest),
             new Promise<FontFace[]>((resolve) => {
-              window.setTimeout(() => resolve([]), 1200);
+              setTimeout(() => resolve([]), 1200);
             }),
           ]);
-          if ((loadedFaces?.length ?? 0) > 0 && checkFontRequestSafe(fontRequest)) {
+          if ((loadedFaces?.length ?? 0) > 0 && checkFontRequestSafe(fontSet, fontRequest)) {
             loadedCanvasFontKeys.add(key);
             return true;
           }
@@ -469,7 +492,7 @@ export const areRenderTextFontsReady = (
     if (!family) return true;
     const escapedFamily = family.replace(/["\\]/g, "\\$&");
     const fontRequest = `${style.italic ? "italic " : ""}${style.bold ? "700 " : "400 "}16px "${escapedFamily}"`;
-    return checkFontRequestSafe(fontRequest);
+    return checkFontRequestSafe(getDocumentFontSet(), fontRequest);
   });
 };
 

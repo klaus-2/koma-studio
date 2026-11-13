@@ -6,6 +6,7 @@ import {
   clamp,
   cloneRenderStyle,
   ensureCanvasFontLoaded,
+  type CanvasFontSet,
 } from '../../../utils/dashboard.utils';
 import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
 import type { TypographyShape } from '../../../typography/types';
@@ -220,11 +221,12 @@ const cloneRenderStyleCached = (style: RenderTextStyle): RenderTextStyle => {
 const preloadRegionCanvasFonts = (
   regions: readonly AioTextRegion[],
   fallbackStyle: RenderTextStyle,
+  fontSet?: CanvasFontSet,
 ): Promise<boolean> =>
   Promise.all(
     regions.map(async (region) => {
       const style = cloneRenderStyleCached(region.renderStyle ?? fallbackStyle);
-      return ensureCanvasFontLoaded(style, region.renderTextStyleRanges);
+      return ensureCanvasFontLoaded(style, region.renderTextStyleRanges, fontSet);
     }),
   ).then((fontsLoaded) => fontsLoaded.some(Boolean));
 
@@ -403,6 +405,33 @@ export const resolveRegionTextLayout = (
   return entry;
 };
 
+export interface ViewportBand {
+  readonly top: number;
+  readonly bottom: number;
+}
+
+export interface CullableRegion {
+  readonly id: string;
+  readonly bbox: readonly [number, number, number, number];
+}
+
+export const visibleRegionIds = (
+  regions: readonly CullableRegion[],
+  band: ViewportBand | null,
+): Set<string> => {
+  const ids = new Set<string>();
+  if (!band) {
+    for (const region of regions) ids.add(region.id);
+    return ids;
+  }
+  for (const region of regions) {
+    const [_x1, y1, _x2, y2] = region.bbox;
+    if (y2 < band.top || y1 > band.bottom) continue;
+    ids.add(region.id);
+  }
+  return ids;
+};
+
 export const drawRegionsToCanvas = (
   ctx: CanvasRenderingContext2D,
   imageWidth: number,
@@ -411,6 +440,7 @@ export const drawRegionsToCanvas = (
   fallbackStyle: RenderTextStyle,
   renderStageActive: boolean,
   skipRegionId?: string | null,
+  visibleIds?: ReadonlySet<string>,
 ): void => {
   const canvas = ctx.canvas;
   // Reassigning width/height reallocates the backing store — during a drag
@@ -422,6 +452,7 @@ export const drawRegionsToCanvas = (
 
   for (const region of regions) {
     if (skipRegionId && region.id === skipRegionId) continue;
+    if (visibleIds && !visibleIds.has(region.id)) continue;
     const text = renderStageActive ? (region.renderText ?? "") : "";
     if (!text.trim()) continue;
     const style = cloneRenderStyleCached(region.renderStyle ?? fallbackStyle);
@@ -443,8 +474,9 @@ export interface RegionCanvasRenderRequest {
   readonly fallbackStyle: RenderTextStyle;
   readonly renderStageActive: boolean;
   readonly skipRegionId?: string | null;
-  /** Checked after the async font preload so a stale frame is not painted. */
   readonly isCancelled?: () => boolean;
+  readonly fontSet?: CanvasFontSet;
+  readonly viewportBand?: ViewportBand | null;
 }
 
 /**
@@ -463,9 +495,15 @@ export const renderRegionsToCanvas = async (
     renderStageActive,
     skipRegionId,
     isCancelled,
+    fontSet,
+    viewportBand,
   }: RegionCanvasRenderRequest,
 ): Promise<void> => {
-  const fontsLoaded = await preloadRegionCanvasFonts(regions, fallbackStyle);
+  const visibleIds = visibleRegionIds(regions, viewportBand ?? null);
+  const bandRegions = viewportBand
+    ? regions.filter((region) => visibleIds.has(region.id))
+    : regions;
+  const fontsLoaded = await preloadRegionCanvasFonts(bandRegions, fallbackStyle, fontSet);
   if (isCancelled?.()) return;
   if (fontsLoaded) clearRegionLayoutCache();
   drawRegionsToCanvas(
@@ -476,5 +514,6 @@ export const renderRegionsToCanvas = async (
     fallbackStyle,
     renderStageActive,
     skipRegionId,
+    viewportBand ? visibleIds : undefined,
   );
 };

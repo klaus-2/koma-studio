@@ -5517,6 +5517,9 @@ body {
 
 /* File item */
 .koma-fileitem {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 84px;
+
   display: flex;
   align-items: center;
   gap: 8px;

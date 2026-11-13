@@ -42,6 +42,7 @@ import { useInlineEditorSpanSync } from '../render-text-preview/useInlineEditorS
 import { buildInlineEditorHandle } from '../render-text-preview/inlineEditorHandle';
 import RenderRegionOverlayList from '../render-text-preview/RenderRegionOverlayList';
 import { renderRegionsToCanvas } from '../render-text-preview/canvasDrawing';
+import { overlayVisibleSet, useViewportCull } from '../render-text-preview/useViewportBand';
 import { useRenderTextPreviewCanvasRegions } from '../render-text-preview/useRenderTextPreviewCanvasRegions';
 import { useRenderTextPreviewOverlayWheel } from '../render-text-preview/useRenderTextPreviewOverlayWheel';
 
@@ -175,6 +176,11 @@ const RenderTextPreviewNoir = ({
   const { t } = useI18n();
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const renderCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const viewportBand = useViewportCull({
+    canvasRef: renderCanvasRef,
+    imageHeight: image.height,
+    zoom,
+  });
   const paintCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const wandMaskOverlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const healingMaskCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -523,6 +529,7 @@ const RenderTextPreviewNoir = ({
         imageWidth: image.width,
         imageHeight: image.height,
         regions: canvasDrawRegions,
+        viewportBand,
         fallbackStyle,
         renderStageActive,
         skipRegionId: inlineEditor && !inlineEditorUsesCanvasSelection
@@ -552,6 +559,7 @@ const RenderTextPreviewNoir = ({
     fontRefreshToken,
     image.height,
     image.width,
+    viewportBand,
     inlineEditor?.regionId,
     inlineEditorUsesCanvasSelection,
     renderStageActive,
@@ -789,6 +797,7 @@ const RenderTextPreviewNoir = ({
                 <RenderRegionOverlayList
                   BoxComponent={RenderRegionOverlayBoxNoir}
                   regions={displayRegionsWithDefaults}
+                  visibleRegionIdSet={overlayVisibleSet(displayRegionsWithDefaults, viewportBand)}
                   imageWidth={image.width}
                   imageHeight={image.height}
                   renderStageActive={renderStageActive}

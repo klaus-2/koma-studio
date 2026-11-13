@@ -10,6 +10,7 @@ import {
 } from '../../../utils/dashboard.utils';
 import {
   clearRegionLayoutCache,
+  visibleRegionIds,
   drawRegionsToCanvas,
   resolveRegionTextLayout,
 } from './canvasDrawing';
@@ -264,5 +265,41 @@ describe('ensureCanvasFontLoaded availability flag', () => {
     await expect(
       ensureCanvasFontLoaded({ ...STYLE, fontFamily: 'Koma Test' }),
     ).resolves.toBe(true);
+  });
+});
+
+describe('visibleRegionIds (plan T9 cull-first)', () => {
+  const region = (id: string, y1: number, y2: number): AioTextRegion =>
+    ({
+      id,
+      bbox: [0, y1, 100, y2],
+      score: 1,
+      source: 'manual',
+      modelKey: 'test',
+      renderText: `text-${id}`,
+    }) as AioTextRegion;
+
+  const regions = [
+    region('top', 0, 400),
+    region('mid', 9000, 9600),
+    region('bottom', 19000, 19600),
+  ];
+
+  it('keeps every region when the band is null (unchanged behavior)', () => {
+    const ids = visibleRegionIds(regions, null);
+    expect(ids.size).toBe(3);
+  });
+
+  it('keeps only regions intersecting the band', () => {
+    const ids = visibleRegionIds(regions, { top: 8800, bottom: 10200 });
+    expect(ids.has('top')).toBe(false);
+    expect(ids.has('mid')).toBe(true);
+    expect(ids.has('bottom')).toBe(false);
+  });
+
+  it('includes regions straddling a band edge', () => {
+    const ids = visibleRegionIds(regions, { top: 350, bottom: 5000 });
+    expect(ids.has('top')).toBe(true);
+    expect(ids.has('mid')).toBe(false);
   });
 });

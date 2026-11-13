@@ -44,6 +44,7 @@ import { useInlineEditorSpanSync } from './render-text-preview/useInlineEditorSp
 import { buildInlineEditorHandle } from './render-text-preview/inlineEditorHandle';
 import RenderRegionOverlayList from './render-text-preview/RenderRegionOverlayList';
 import { renderRegionsToCanvas } from './render-text-preview/canvasDrawing';
+import { overlayVisibleSet, useViewportCull } from './render-text-preview/useViewportBand';
 import { useRenderTextPreviewCanvasRegions } from './render-text-preview/useRenderTextPreviewCanvasRegions';
 import { useRenderTextPreviewOverlayWheel } from './render-text-preview/useRenderTextPreviewOverlayWheel';
 import RenderRegionOverlayBox from './render-text-preview/RenderRegionOverlayBox';
@@ -179,6 +180,11 @@ const RenderTextPreviewClassic = ({
   const { t } = useI18n();
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const renderCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const viewportBand = useViewportCull({
+    canvasRef: renderCanvasRef,
+    imageHeight: image.height,
+    zoom,
+  });
   const paintCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const wandMaskOverlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const healingMaskCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -526,6 +532,7 @@ const RenderTextPreviewClassic = ({
         imageWidth: image.width,
         imageHeight: image.height,
         regions: canvasDrawRegions,
+        viewportBand,
         fallbackStyle,
         renderStageActive,
         skipRegionId: inlineEditor && !inlineEditorUsesCanvasSelection
@@ -555,6 +562,7 @@ const RenderTextPreviewClassic = ({
     fontRefreshToken,
     image.height,
     image.width,
+    viewportBand,
     inlineEditor?.regionId,
     inlineEditorUsesCanvasSelection,
     renderStageActive,
@@ -752,6 +760,7 @@ const RenderTextPreviewClassic = ({
                 <RenderRegionOverlayList
                   BoxComponent={RenderRegionOverlayBox}
                   regions={displayRegionsWithDefaults}
+                  visibleRegionIdSet={overlayVisibleSet(displayRegionsWithDefaults, viewportBand)}
                   imageWidth={image.width}
                   imageHeight={image.height}
                   renderStageActive={renderStageActive}

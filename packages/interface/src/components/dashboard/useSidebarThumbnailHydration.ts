@@ -1,0 +1,59 @@
+import { useEffect } from 'react';
+
+import { createThumbnailFromUrl } from '../../utils/imagePerformance';
+import type { LoadedImage } from '../../types/dashboard.types';
+
+interface UseSidebarThumbnailHydrationArgs {
+  images: readonly LoadedImage[];
+  setThumbnailUrl: (imageId: string, thumbnailUrl: string) => void;
+}
+
+const THUMBNAIL_HYDRATION_BUDGET = 2;
+const MAX_ATTEMPTS_PER_IMAGE = 2;
+let activeHydrationJobs = 0;
+const hydrationQueue: LoadedImage[] = [];
+const queuedIds = new Set<string>();
+const inFlightIds = new Set<string>();
+const attemptCounts = new Map<string, number>();
+
+const pumpHydration = (
+  setThumbnailUrl: (imageId: string, thumbnailUrl: string) => void,
+): void => {
+  while (activeHydrationJobs < THUMBNAIL_HYDRATION_BUDGET && hydrationQueue.length > 0) {
+    const next = hydrationQueue.shift();
+    if (!next) return;
+    if (inFlightIds.has(next.id)) continue;
+    inFlightIds.add(next.id);
+    activeHydrationJobs += 1;
+    void createThumbnailFromUrl(next.url, 400, 600, 0.7)
+      .then((thumbnailUrl) => setThumbnailUrl(next.id, thumbnailUrl))
+      .catch(() => {
+        attemptCounts.set(next.id, (attemptCounts.get(next.id) ?? 0) + 1);
+      })
+      .finally(() => {
+        activeHydrationJobs -= 1;
+        inFlightIds.delete(next.id);
+        queuedIds.delete(next.id);
+        pumpHydration(setThumbnailUrl);
+      });
+  }
+};
+
+export const useSidebarThumbnailHydration = ({
+  images,
+  setThumbnailUrl,
+}: UseSidebarThumbnailHydrationArgs): void => {
+  useEffect(() => {
+    const pending = images.filter(
+      (img) =>
+        img.url &&
+        !img.thumbnailUrl &&
+        !queuedIds.has(img.id) &&
+        (attemptCounts.get(img.id) ?? 0) < MAX_ATTEMPTS_PER_IMAGE,
+    );
+    if (pending.length === 0) return;
+    for (const image of pending) queuedIds.add(image.id);
+    hydrationQueue.push(...pending);
+    pumpHydration(setThumbnailUrl);
+  }, [images, setThumbnailUrl]);
+};

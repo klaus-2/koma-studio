@@ -8,10 +8,11 @@ import {
   buildTranslationNoteOverlayRegions,
   canvasToBlob,
   cloneRenderStyle,
-  ensureCanvasFontLoaded,
   getRegionTranslationNotesForDisplay,
   scaleTypographyShapeForBounds,
 } from '../../../utils/dashboard.utils';
+import type { RenderTextStyle } from '../../../utils/renderText';
+import { ensureCanvasFontLoaded } from '../../../utils/dashboard.utils';
 import {
   resolveRenderTextMode,
   type RenderTextMode,
@@ -120,17 +121,36 @@ interface AioManualImageEditComposer {
   ): Promise<HTMLCanvasElement>;
 }
 
+export interface RenderFontStrategy {
+  waitReady(): Promise<void>;
+  ensureLoaded(
+    style: RenderTextStyle,
+    ranges?: { style: Partial<RenderTextStyle> }[],
+  ): Promise<boolean>;
+}
+
+const documentFontStrategy: RenderFontStrategy = {
+  waitReady: async () => {
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+  },
+  ensureLoaded: (style, ranges) => ensureCanvasFontLoaded(style, ranges),
+};
+
 /* ── Export rendering: composites the edited canvas and draws the regions ── */
 
 interface UseAioRegionRenderToBlobArgs {
   /* Page callbacks / export-download state (T10) */
   composeAioEditableCanvas: AioManualImageEditComposer;
+  fontStrategy?: RenderFontStrategy;
   outFormat: string;
   outQuality: number;
 }
 
 export function useAioRegionRenderToBlob({
   composeAioEditableCanvas,
+  fontStrategy = documentFontStrategy,
   outFormat,
   outQuality,
 }: UseAioRegionRenderToBlobArgs) {
@@ -160,9 +180,7 @@ export function useAioRegionRenderToBlob({
       const renderHeight = canvas.height;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error(t('dashboard.status.renderCanvasInitFailed'));
-      if (document.fonts?.ready) {
-        await document.fonts.ready;
-      }
+      await fontStrategy.waitReady();
 
       const baseRenderRegions = regions.map((item) =>
         applyRenderDefaultsToRegion(
@@ -188,7 +206,7 @@ export function useAioRegionRenderToBlob({
           const style = cloneRenderStyle(
             region.renderStyle ?? renderDefaultStyle,
           );
-          await ensureCanvasFontLoaded(style, region.renderTextStyleRanges);
+          await fontStrategy.ensureLoaded(style, region.renderTextStyleRanges);
         }),
       );
 
@@ -248,6 +266,7 @@ export function useAioRegionRenderToBlob({
     [
       aioTgtLang,
       composeAioEditableCanvas,
+      fontStrategy,
       outFormat,
       outQuality,
       renderDefaultStyle,

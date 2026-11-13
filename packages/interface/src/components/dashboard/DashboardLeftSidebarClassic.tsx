@@ -21,6 +21,8 @@ import {
 import { useI18n, type TranslateFn } from '../../i18n';
 import VersionBadge from '../VersionBadge';
 import SidebarChapterHeader from './SidebarChapterHeader';
+import { useSidebarThumbnailHydration } from './useSidebarThumbnailHydration';
+import { useImageCollectionStore } from '../../pages/dashboard/stores/image-collection-store';
 import SidebarChapterSelectionBar from './SidebarChapterSelectionBar';
 import { cn, formatImageDimensions } from '../../utils/dashboard.utils';
 import type { SidebarChapterSelection } from '../../pages/dashboard/hooks/use-sidebar-chapter-selection';
@@ -282,6 +284,18 @@ export default function DashboardLeftSidebarClassic({
   chapterSelection,
 }: DashboardLeftSidebarProps) {
   const { t } = useI18n();
+  const setThumbnailUrl = React.useCallback(
+    (imageId: string, thumbnailUrl: string) => {
+      const prev = useImageCollectionStore.getState().images;
+      setImages(
+        prev.map((img: LoadedImage) =>
+          img.id === imageId && !img.thumbnailUrl ? { ...img, thumbnailUrl } : img,
+        ),
+      );
+    },
+    [setImages],
+  );
+  useSidebarThumbnailHydration({ images, setThumbnailUrl });
   const statsItems = [processingStats.daily, processingStats.weekly, processingStats.monthly];
   const chapterGroups = React.useMemo(
     () => groupImagesIntoAioChapters(images),

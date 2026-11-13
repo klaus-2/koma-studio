@@ -27,6 +27,8 @@ import type {
   ProcessableMode,
 } from '../../../types/dashboard.types';
 import { materializePageFile } from '../../../utils/page-source';
+import type { WorkerPdfPage, WorkerZipEntry } from './exportPackageWorker';
+import { createExportWorkerPool, type ExportWorkerPool } from './exportWorkerPool';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useExportStore } from '../stores/export-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
@@ -34,6 +36,12 @@ import { useRegionEditorStore } from '../stores/region-editor-store';
 
 export { useDashboardDownloadActions, useDashboardPsdDownload } from './export-download.actions';
 export { useExportDownloadLifecycle, useExportDownloadAvailability } from './export-download.availability';
+
+let sharedExportPool: ExportWorkerPool | null = null;
+const getExportPool = (): ExportWorkerPool => {
+  sharedExportPool ??= createExportWorkerPool();
+  return sharedExportPool;
+};
 
 /** Anchor download of a generated blob (object-URL lifecycle 1:1). */
 export function triggerBlobDownload(blob: Blob, fileName: string) {
@@ -239,38 +247,42 @@ export function useDashboardDownloadBundle({
     };
 
     if (downloadBundleFormat === 'pdf') {
-      const { PDFDocument } = await import('pdf-lib');
-      const pdf = await PDFDocument.create();
       const orderedEntries = [...entries].sort((a, b) => {
         const ai = getImages().findIndex((item) => item.id === a.sourceImageId);
         const bi = getImages().findIndex((item) => item.id === b.sourceImageId);
         return ai - bi;
       });
-      // ponytail: sequential by design — pdf-lib embeds pages in order; each embed mutates the document
+      const pdfPages: WorkerPdfPage[] = [];
       for (const entry of orderedEntries) {
         const normalizedBlob = await normalizeBlobForPdf(entry.blob);
         const bytes = new Uint8Array(await normalizedBlob.arrayBuffer());
-        const embedded = normalizedBlob.type === 'image/jpeg'
-          ? await pdf.embedJpg(bytes)
-          : await pdf.embedPng(bytes);
-        const page = pdf.addPage([embedded.width, embedded.height]);
-        page.drawImage(embedded, {
-          x: 0,
-          y: 0,
-          width: embedded.width,
-          height: embedded.height,
+        pdfPages.push({
+          sourceImageId: entry.sourceImageId,
+          bytes,
+          isJpeg: normalizedBlob.type === 'image/jpeg',
         });
       }
-      const pdfBytes = await pdf.save();
-      const pdfBytesCopy = new Uint8Array(pdfBytes.byteLength);
-      pdfBytesCopy.set(pdfBytes);
+      const result = await getExportPool().package({
+        bundleFormat: 'pdf',
+        scope,
+        outFormat,
+        zipEntries: [],
+        pdfPages,
+        createdAt: new Date().toISOString(),
+        flags: {
+          includeRawText: false,
+          includeTranslatedText: false,
+          includeInpaintedImage: false,
+          includesTypographerSession: false,
+        },
+      });
       return {
-        blob: new Blob([pdfBytesCopy.buffer], { type: 'application/pdf' }),
+        blob: new Blob([result.blobBytes], { type: result.mimeType }),
         fileName: `koma-studio-${scope}-${timestamp}.pdf`,
       };
     }
 
-    const { zipSync, strToU8 } = await import('fflate');
+    const { strToU8 } = await import('fflate');
     const orderedEntries = [...entries].sort((a, b) => {
       const ai = getImages().findIndex((item) => item.id === a.sourceImageId);
       const bi = getImages().findIndex((item) => item.id === b.sourceImageId);
@@ -331,24 +343,25 @@ export function useDashboardDownloadBundle({
 
     await Promise.all(imageWriteJobs);
 
-    zipFiles['manifest.json'] = strToU8(JSON.stringify({
-      scope,
+    const zipEntries: WorkerZipEntry[] = Object.entries(zipFiles).map(
+      ([path, bytes]) => ({ path, bytes }),
+    );
+    const result = await getExportPool().package({
       bundleFormat: downloadBundleFormat,
-      imageFormat: outFormat,
+      scope,
+      outFormat,
+      zipEntries,
       createdAt: new Date().toISOString(),
-      includeRawText: scope === 'aio' ? downloadIncludeRawText : false,
-      includeTranslatedText: scope === 'aio' ? downloadIncludeTranslatedText : false,
-      includeInpaintedImage: scope === 'aio' ? downloadIncludeInpaintedImage : false,
-      includesTypographerSession: scope === 'typesetter',
-      files: Object.keys(zipFiles).sort(),
-    }, null, 2));
-
-    const zipped = zipSync(zipFiles, { level: 6 });
-    const zippedCopy = new Uint8Array(zipped.byteLength);
-    zippedCopy.set(zipped);
+      flags: {
+        includeRawText: scope === 'aio' ? downloadIncludeRawText : false,
+        includeTranslatedText: scope === 'aio' ? downloadIncludeTranslatedText : false,
+        includeInpaintedImage: scope === 'aio' ? downloadIncludeInpaintedImage : false,
+        includesTypographerSession: scope === 'typesetter',
+      },
+    });
     const targetExt = extensionByFormat[downloadBundleFormat];
     return {
-      blob: new Blob([zippedCopy.buffer], { type: 'application/zip' }),
+      blob: new Blob([result.blobBytes], { type: result.mimeType }),
       fileName: `koma-studio-${scope}-${timestamp}.${targetExt}`,
     };
   }, [
