@@ -1580,6 +1580,13 @@ export const arMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'فارغ',
   'dashboard.aio.review.kind.cjkLeftover': 'بقايا CJK',
   'dashboard.aio.review.kind.overflow': 'تجاوز',
+  'dashboard.aio.review.overflow.badgeTooltip': '‏{count} بالونات تتجاوز صندوق النص',
+  'dashboard.aio.review.overflow.adjustRegion': 'ملاءمة حجم الخط تلقائيًا',
+  'dashboard.aio.review.overflow.adjustPage': 'ملاءمة الخطوط تلقائيًا ({count})',
+  'dashboard.aio.review.overflow.fitted': 'تم ضبط حجم الخط إلى {size} بكسل — يناسب النص البالون الآن.',
+  'dashboard.aio.review.overflow.atBound': 'بلغ الحد الأدنى لحجم الخط بالفعل — لا يزال النص يتجاوز البالون.',
+  'dashboard.aio.review.overflow.atBoundApplied': 'تم التصغير إلى الحد الأدنى لحجم الخط ({size} بكسل) — لا يزال النص يتجاوز.',
+  'dashboard.aio.review.overflow.pageReport': 'الملاءمة التلقائية: تم إصلاح {fitted}، ولا يزال {remaining} يتجاوز الحد الأدنى للحجم.',
   'dashboard.aio.translation.memoryToggle': 'إعادة استخدام الترجمات من الذاكرة المحلية',
   'dashboard.aio.translation.memory':
     'القراءة اختيارية (معطلة افتراضيًا): تُعاد استخدام الترجمات السابقة من قاعدة بياناتك المحلية فقط أثناء تفعيل هذا الخيار. الكتابة إلى الذاكرة المحلية مفعّلة دائمًا ولا ترسل أي شيء خارج الجهاز.',

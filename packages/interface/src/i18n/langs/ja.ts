@@ -1642,6 +1642,13 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': '空',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK 残留',
   'dashboard.aio.review.kind.overflow': 'はみ出し',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count}個の吹き出しがテキストボックスからはみ出しています',
+  'dashboard.aio.review.overflow.adjustRegion': 'フォントサイズを自動調整',
+  'dashboard.aio.review.overflow.adjustPage': 'フォントを自動調整（{count}件）',
+  'dashboard.aio.review.overflow.fitted': 'フォントサイズを{size}pxに設定しました。テキストが吹き出しに収まりました。',
+  'dashboard.aio.review.overflow.atBound': '最小フォントサイズに達しています。テキストがまだはみ出しています。',
+  'dashboard.aio.review.overflow.atBoundApplied': '最小フォントサイズ（{size}px）まで縮小しましたが、テキストがまだはみ出しています。',
+  'dashboard.aio.review.overflow.pageReport': '自動調整：{fitted}件を修正、{remaining}件は最小サイズではみ出したままです。',
   'dashboard.aio.translation.memoryToggle': 'ローカルメモリの翻訳を再利用',
   'dashboard.aio.translation.memory':
     '読み込みはオプトイン（既定ではオフ）：この設定が有効な間だけ、過去の翻訳をローカルデータベースから再利用します。ローカルメモリへの書き込みは常に行われ、端末の外には何も送信されません。',

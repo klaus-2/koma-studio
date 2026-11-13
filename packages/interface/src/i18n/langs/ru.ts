@@ -1662,6 +1662,13 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'Пусто',
   'dashboard.aio.review.kind.cjkLeftover': 'Остаток CJK',
   'dashboard.aio.review.kind.overflow': 'Переполнение',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count} баллон(ов) выходят за пределы текстового блока',
+  'dashboard.aio.review.overflow.adjustRegion': 'Автоподбор размера шрифта',
+  'dashboard.aio.review.overflow.adjustPage': 'Подобрать шрифты ({count})',
+  'dashboard.aio.review.overflow.fitted': 'Размер шрифта установлен на {size}px — текст теперь помещается в баллон.',
+  'dashboard.aio.review.overflow.atBound': 'Уже минимальный размер шрифта — текст по-прежнему выходит за границы баллона.',
+  'dashboard.aio.review.overflow.atBoundApplied': 'Уменьшено до минимального размера шрифта ({size}px) — текст по-прежнему выходит за границы.',
+  'dashboard.aio.review.overflow.pageReport': 'Автоподбор: исправлено {fitted}, {remaining} по-прежнему выходят за границы при минимальном размере.',
   'dashboard.aio.translation.memoryToggle': 'Повторно использовать переводы из локальной памяти',
   'dashboard.aio.translation.memory':
     'Чтение — по выбору (по умолчанию выключено): прошлые переводы повторно используются из локальной базы, только пока параметр включён. Запись в локальную память выполняется всегда и ничего не отправляет за пределы устройства.',

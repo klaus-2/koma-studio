@@ -34,6 +34,8 @@ import { useExportStore } from '../../pages/dashboard/stores/export-store';
 import { useRegionEditorStore } from '../../pages/dashboard/stores/region-editor-store';
 import { useCleanerStore } from '../../pages/dashboard/stores/cleaner-store';
 import { useTranslatorStore } from '../../pages/dashboard/stores/translator-store';
+import { createRegionTextMeasurer } from './render-text-preview/canvasDrawing';
+import { deriveOverflowIssues } from '../../utils/region-review';
 import type {
   DashboardProcessingStatsSummary,
   LoadedImage,
@@ -101,6 +103,8 @@ interface SidebarImageItemProps {
   removeImage: (imageId: string) => void;
   rewindAioPipelineForImage: (imageId: string) => void;
   forwardAioPipelineForImage: (imageId: string) => void;
+  /** Overflowing balloons on this page (render-layout derived); 0 hides the badge. */
+  overflowCount: number;
   t: TranslateFn;
 }
 
@@ -123,6 +127,7 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   removeImage,
   rewindAioPipelineForImage,
   forwardAioPipelineForImage,
+  overflowCount,
   t,
 }: SidebarImageItemProps) {
   const rotated = getRotatedDims(img);
@@ -159,6 +164,16 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
         </p>
         <p className="koma-fileitem__dims">
           {formatImageDimensions(rotated.width, rotated.height)}
+          {overflowCount > 0 && (
+            <span
+              className="ml-1.5 inline-block rounded-full bg-[var(--auth-purple)] px-1.5 text-[9px] font-semibold leading-4 text-white"
+              title={t('dashboard.aio.review.overflow.badgeTooltip', {
+                count: overflowCount,
+              })}
+            >
+              {overflowCount}
+            </span>
+          )}
         </p>
       </div>
       <div
@@ -308,6 +323,27 @@ export default function DashboardLeftSidebarClassic({
     () => new Map(images.map((image, index) => [image.id, index])),
     [images],
   );
+  // Per-page overflowing-balloon counts, derived through the render preview's
+  // own layout resolution (LRU-cached — derivation repeats hit the cache).
+  const aioDetectionsByImage = useRegionEditorStore(
+    (s) => s.aioDetectionsByImage,
+  );
+  const renderDefaultStyle = useRegionEditorStore(
+    (s) => s.renderDefaultStyle,
+  );
+  const overflowCountByImageId = React.useMemo(() => {
+    const measure = createRegionTextMeasurer(renderDefaultStyle);
+    const counts = new Map<string, number>();
+    for (const image of images) {
+      const count = deriveOverflowIssues(
+        image.id,
+        aioDetectionsByImage[image.id] ?? [],
+        measure,
+      ).length;
+      if (count > 0) counts.set(image.id, count);
+    }
+    return counts;
+  }, [images, aioDetectionsByImage, renderDefaultStyle]);
   const renderImageItem = (img: LoadedImage) => {
     const imageHistoryMeta = getAioImageSnapshotMeta(img.id);
 
@@ -332,6 +368,7 @@ export default function DashboardLeftSidebarClassic({
         removeImage={removeImage}
         rewindAioPipelineForImage={rewindAioPipelineForImage}
         forwardAioPipelineForImage={forwardAioPipelineForImage}
+        overflowCount={overflowCountByImageId.get(img.id) ?? 0}
         t={t}
       />
     );

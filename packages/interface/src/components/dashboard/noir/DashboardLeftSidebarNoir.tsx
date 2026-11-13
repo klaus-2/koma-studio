@@ -20,6 +20,8 @@ import { useExportStore } from '../../../pages/dashboard/stores/export-store';
 import { useRegionEditorStore } from '../../../pages/dashboard/stores/region-editor-store';
 import { useCleanerStore } from '../../../pages/dashboard/stores/cleaner-store';
 import { useTranslatorStore } from '../../../pages/dashboard/stores/translator-store';
+import { createRegionTextMeasurer } from '../render-text-preview/canvasDrawing';
+import { deriveOverflowIssues } from '../../../utils/region-review';
 import type {
   DashboardProcessingStatsSummary,
   LoadedImage,
@@ -80,6 +82,8 @@ interface SidebarImageItemProps {
   removeImage: (imageId: string) => void;
   rewindAioPipelineForImage: (imageId: string) => void;
   forwardAioPipelineForImage: (imageId: string) => void;
+  /** Overflowing balloons on this page (render-layout derived); 0 hides the badge. */
+  overflowCount: number;
   t: TranslateFn;
 }
 
@@ -102,6 +106,7 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   removeImage,
   rewindAioPipelineForImage,
   forwardAioPipelineForImage,
+  overflowCount,
   t,
 }: SidebarImageItemProps) {
   const rotated = getRotatedDims(img);
@@ -139,6 +144,14 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
       <div className="panel-cut-sm relative h-11 w-11 shrink-0 overflow-hidden bg-ink">
         <img src={img.thumbnailUrl ?? img.url} alt="thumb" loading="lazy" decoding="async" style={{ contain: 'content' }} className="h-full w-full object-cover" />
         {isActive && <span className="absolute left-1 top-1 h-1.5 w-1.5 bg-crimson blink-noir" aria-hidden="true" />}
+        {overflowCount > 0 && (
+          <span
+            className="panel-cut-sm absolute bottom-0.5 right-0.5 bg-crimson px-1 font-mono text-[9px] font-bold leading-4 text-ink"
+            title={t('dashboard.aio.review.overflow.badgeTooltip', { count: overflowCount })}
+          >
+            {overflowCount}
+          </span>
+        )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <p className="truncate font-mono text-[11px] font-medium text-paper" title={img.file.name}>{img.file.name}</p>
@@ -225,6 +238,27 @@ export default function DashboardLeftSidebarNoir({
     () => new Map(images.map((image, index) => [image.id, index])),
     [images],
   );
+  // Per-page overflowing-balloon counts, derived through the render preview's
+  // own layout resolution (LRU-cached — derivation repeats hit the cache).
+  const aioDetectionsByImage = useRegionEditorStore(
+    (s) => s.aioDetectionsByImage,
+  );
+  const renderDefaultStyle = useRegionEditorStore(
+    (s) => s.renderDefaultStyle,
+  );
+  const overflowCountByImageId = React.useMemo(() => {
+    const measure = createRegionTextMeasurer(renderDefaultStyle);
+    const counts = new Map<string, number>();
+    for (const image of images) {
+      const count = deriveOverflowIssues(
+        image.id,
+        aioDetectionsByImage[image.id] ?? [],
+        measure,
+      ).length;
+      if (count > 0) counts.set(image.id, count);
+    }
+    return counts;
+  }, [images, aioDetectionsByImage, renderDefaultStyle]);
   const renderImageItem = (img: LoadedImage) => {
     const meta = getAioImageSnapshotMeta(img.id);
 
@@ -249,6 +283,7 @@ export default function DashboardLeftSidebarNoir({
         removeImage={removeImage}
         rewindAioPipelineForImage={rewindAioPipelineForImage}
         forwardAioPipelineForImage={forwardAioPipelineForImage}
+        overflowCount={overflowCountByImageId.get(img.id) ?? 0}
         t={t}
       />
     );

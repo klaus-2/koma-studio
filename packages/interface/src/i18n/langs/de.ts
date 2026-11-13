@@ -1686,6 +1686,13 @@ export const deMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'Leer',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK-Rest',
   'dashboard.aio.review.kind.overflow': 'Überlauf',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count} Sprechblase(n) überragen das Textfeld',
+  'dashboard.aio.review.overflow.adjustRegion': 'Schriftgröße automatisch anpassen',
+  'dashboard.aio.review.overflow.adjustPage': 'Schriftgrößen anpassen ({count})',
+  'dashboard.aio.review.overflow.fitted': 'Schriftgröße auf {size}px gesetzt — der Text passt nun in die Sprechblase.',
+  'dashboard.aio.review.overflow.atBound': 'Bereits bei der minimalen Schriftgröße — der Text überragt die Sprechblase weiterhin.',
+  'dashboard.aio.review.overflow.atBoundApplied': 'Auf die minimale Schriftgröße ({size}px) verkleinert — der Text überragt weiterhin.',
+  'dashboard.aio.review.overflow.pageReport': 'Auto-Anpassung: {fitted} korrigiert, {remaining} überragen weiterhin bei minimaler Größe.',
   'dashboard.aio.translation.memoryToggle': 'Übersetzungen aus dem lokalen Speicher wiederverwenden',
   'dashboard.aio.translation.memory':
     'Lesen ist Opt-in (standardmäßig aus): Frühere Übersetzungen werden nur aus Ihrer lokalen Datenbank wiederverwendet, solange diese Option aktiv ist. Das Schreiben in den lokalen Speicher ist immer aktiv und sendet nichts vom Gerät.',

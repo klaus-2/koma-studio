@@ -1688,6 +1688,18 @@ export const enMessages = {
   'dashboard.aio.review.kind.empty': 'Empty',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK leftover',
   'dashboard.aio.review.kind.overflow': 'Overflow',
+  'dashboard.aio.review.overflow.badgeTooltip':
+    '{count} balloon(s) overflow the text box',
+  'dashboard.aio.review.overflow.adjustRegion': 'Auto-fit font size',
+  'dashboard.aio.review.overflow.adjustPage': 'Auto-fit fonts ({count})',
+  'dashboard.aio.review.overflow.fitted':
+    'Font size set to {size}px — the text now fits the balloon.',
+  'dashboard.aio.review.overflow.atBound':
+    'Already at the minimum font size — the text still overflows the balloon.',
+  'dashboard.aio.review.overflow.atBoundApplied':
+    'Shrunk to the minimum font size ({size}px) — the text still overflows.',
+  'dashboard.aio.review.overflow.pageReport':
+    'Auto-fit: {fitted} fixed, {remaining} still overflow at the minimum size.',
   'dashboard.aio.customAi.title': 'Custom AI',
   'dashboard.aio.customAi.loadingProfiles': 'Loading custom profiles...',
   'dashboard.aio.customAi.savedTranslationProfile': 'Saved Translation profile',

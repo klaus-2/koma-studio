@@ -8,7 +8,9 @@ import {
   ensureCanvasFontLoaded,
   type CanvasFontSet,
 } from '../../../utils/dashboard.utils';
-import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
+import { applyRenderDefaultsToRegion, resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
+import { applyDetectedGradientToStyle } from '../../../utils/dashboard.rendering.utils';
+import type { RegionTextMeasure } from '../../../utils/region-review';
 import type { TypographyShape } from '../../../typography/types';
 import {
   computeRenderTextLayout,
@@ -403,6 +405,69 @@ export const resolveRegionTextLayout = (
   const entry: CachedRegionLayout = { signature, layout, shape };
   rememberRegionLayout(region.id, entry);
   return entry;
+};
+
+// Measurement-only canvas for the overflow reviewer (same pattern as the
+// inline editor's scratch context in useRenderTextPreviewSelection): layout
+// measurement ignores copy transforms and canvas dimensions, and
+// resolveRegionTextLayout saves/restores the context around every measure.
+let overflowMeasureCanvas: HTMLCanvasElement | null = null;
+let overflowMeasureContext: CanvasRenderingContext2D | null = null;
+const getOverflowMeasureContext = (): CanvasRenderingContext2D | null => {
+  if (typeof document === 'undefined') return null;
+  if (!overflowMeasureCanvas) {
+    overflowMeasureCanvas = document.createElement('canvas');
+    overflowMeasureContext = overflowMeasureCanvas.getContext('2d');
+  }
+  return overflowMeasureContext;
+};
+
+/**
+ * Measurement bridge for the overflow reviewer: resolves exactly what the
+ * preview painter would lay out for the region (render defaults filled,
+ * render text built) through `resolveRegionTextLayout` — the single source
+ * of truth — so overflow flags always describe the real painted text box.
+ * Layouts are LRU-cached by text+style signature, so repeated derivation
+ * hits the shared cache instead of re-measuring. Returns a measure that
+ * always yields null when no 2D context can be allocated (nothing can be
+ * painted, so nothing can overflow).
+ */
+export const createRegionTextMeasurer = (
+  fallbackStyle: RenderTextStyle,
+): RegionTextMeasure => {
+  const ctx = getOverflowMeasureContext();
+  if (!ctx) return () => null;
+  return (region, fontSizeOverride) => {
+    const effectiveRegion = applyRenderDefaultsToRegion(
+      region,
+      fallbackStyle,
+      applyDetectedGradientToStyle,
+    );
+    const text = (effectiveRegion.renderText ?? "").trim();
+    if (!text) return null;
+    const baseStyle = effectiveRegion.renderStyle ?? fallbackStyle;
+    const style =
+      fontSizeOverride === undefined
+        ? baseStyle
+        : { ...baseStyle, fontSize: fontSizeOverride };
+    try {
+      const { layout } = resolveRegionTextLayout(ctx, {
+        region: effectiveRegion,
+        text,
+        style,
+        styleRanges: effectiveRegion.renderTextStyleRanges,
+        renderStageActive: true,
+      });
+      return {
+        textWidth: layout.textWidth,
+        textHeight: layout.textHeight,
+        fontSize: layout.fontSize,
+      };
+    } catch (error) {
+      if (error instanceof RenderTextLayoutError) return null;
+      throw error;
+    }
+  };
 };
 
 export interface ViewportBand {

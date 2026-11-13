@@ -1594,6 +1594,13 @@ export const koMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': '비어 있음',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK 잔여',
   'dashboard.aio.review.kind.overflow': '넘침',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count}개의 말풍선이 텍스트 상자를 넘칩니다',
+  'dashboard.aio.review.overflow.adjustRegion': '글꼴 크기 자동 맞춤',
+  'dashboard.aio.review.overflow.adjustPage': '글꼴 자동 맞춤 ({count})',
+  'dashboard.aio.review.overflow.fitted': '글꼴 크기를 {size}px로 설정했습니다. 이제 텍스트가 말풍선에 들어갑니다.',
+  'dashboard.aio.review.overflow.atBound': '이미 최소 글꼴 크기입니다. 텍스트가 여전히 말풍선을 넘칩니다.',
+  'dashboard.aio.review.overflow.atBoundApplied': '최소 글꼴 크기({size}px)로 줄였지만 텍스트가 여전히 넘칩니다.',
+  'dashboard.aio.review.overflow.pageReport': '자동 맞춤: {fitted}개 수정, {remaining}개는 최소 크기에서도 넘칩니다.',
   'dashboard.aio.translation.memoryToggle': '로컬 메모리의 번역 재사용',
   'dashboard.aio.translation.memory':
     '읽기는 옵트인(기본적으로 꺼짐): 이 설정이 켜져 있는 동안에만 이전 번역을 로컬 데이터베이스에서 재사용합니다. 로컬 메모리에 쓰기는 항상 활성화되어 있으며 기기 밖으로 아무것도 전송하지 않습니다.',

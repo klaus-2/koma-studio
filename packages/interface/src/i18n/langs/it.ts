@@ -1660,6 +1660,13 @@ export const itMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'Vuoto',
   'dashboard.aio.review.kind.cjkLeftover': 'Residuo CJK',
   'dashboard.aio.review.kind.overflow': 'Overflow',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count} fumetto/i sconfinano dalla casella di testo',
+  'dashboard.aio.review.overflow.adjustRegion': 'Adatta automaticamente la dimensione del carattere',
+  'dashboard.aio.review.overflow.adjustPage': 'Adatta i caratteri ({count})',
+  'dashboard.aio.review.overflow.fitted': 'Dimensione del carattere impostata a {size}px — il testo ora entra nel fumetto.',
+  'dashboard.aio.review.overflow.atBound': 'Già alla dimensione minima del carattere — il testo sconfina ancora dal fumetto.',
+  'dashboard.aio.review.overflow.atBoundApplied': 'Ridotto alla dimensione minima del carattere ({size}px) — il testo sconfina ancora.',
+  'dashboard.aio.review.overflow.pageReport': 'Adattamento automatico: {fitted} corretti, {remaining} sconfinano ancora alla dimensione minima.',
   'dashboard.aio.translation.memoryToggle': 'Riutilizza le traduzioni dalla memoria locale',
   'dashboard.aio.translation.memory':
     'La lettura è facoltativa (disattivata per impostazione predefinita): le traduzioni passate vengono riutilizzate dal database locale solo mentre questa opzione è attiva. La scrittura nella memoria locale è sempre attiva e non invia nulla fuori dal dispositivo.',

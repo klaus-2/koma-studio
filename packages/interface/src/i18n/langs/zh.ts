@@ -1499,6 +1499,13 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': '空白',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK 残留',
   'dashboard.aio.review.kind.overflow': '溢出',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count} 个气泡的文字超出文本框',
+  'dashboard.aio.review.overflow.adjustRegion': '自动调整字号',
+  'dashboard.aio.review.overflow.adjustPage': '自动调整字号（{count}）',
+  'dashboard.aio.review.overflow.fitted': '字号已设为 {size}px——文字现已适合气泡。',
+  'dashboard.aio.review.overflow.atBound': '已达最小字号——文字仍超出气泡。',
+  'dashboard.aio.review.overflow.atBoundApplied': '已缩小到最小字号（{size}px）——文字仍超出气泡。',
+  'dashboard.aio.review.overflow.pageReport': '自动调整：已修复 {fitted} 处，{remaining} 处在最小字号下仍超出。',
   'dashboard.aio.translation.memoryToggle': '复用本地记忆中的翻译',
   'dashboard.aio.translation.memory': '读取为可选（默认关闭）：仅在此设置开启时，才会从本地数据库复用过往翻译。写入本地记忆始终开启，且不会向设备外发送任何内容。',
   'dashboard.aio.translation.tmHitCount':

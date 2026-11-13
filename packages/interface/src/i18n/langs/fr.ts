@@ -1640,6 +1640,13 @@ export const frMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'Vide',
   'dashboard.aio.review.kind.cjkLeftover': 'Reste CJK',
   'dashboard.aio.review.kind.overflow': 'Débordement',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count} ballon(s) débordent de la zone de texte',
+  'dashboard.aio.review.overflow.adjustRegion': 'Ajuster automatiquement la taille de police',
+  'dashboard.aio.review.overflow.adjustPage': 'Ajuster les polices ({count})',
+  'dashboard.aio.review.overflow.fitted': 'Taille de police réglée à {size}px — le texte tient désormais dans le ballon.',
+  'dashboard.aio.review.overflow.atBound': 'Déjà à la taille de police minimale — le texte déborde toujours du ballon.',
+  'dashboard.aio.review.overflow.atBoundApplied': 'Réduit à la taille de police minimale ({size}px) — le texte déborde toujours.',
+  'dashboard.aio.review.overflow.pageReport': 'Ajustement auto : {fitted} corrigés, {remaining} débordent encore à la taille minimale.',
   'dashboard.aio.translation.memoryToggle': 'Réutiliser les traductions de la mémoire locale',
   'dashboard.aio.translation.memory':
     'La lecture est facultative (désactivée par défaut) : les traductions passées ne sont réutilisées depuis votre base locale que lorsque cette option est active. L’écriture dans la mémoire locale est toujours active et n’envoie rien hors de l’appareil.',

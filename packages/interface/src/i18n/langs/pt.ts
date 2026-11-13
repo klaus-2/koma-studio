@@ -1637,6 +1637,13 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'Vazio',
   'dashboard.aio.review.kind.cjkLeftover': 'Resíduo de CJK',
   'dashboard.aio.review.kind.overflow': 'Transbordo',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count} balão(ões) transbordam a caixa de texto',
+  'dashboard.aio.review.overflow.adjustRegion': 'Ajustar automaticamente o tamanho do tipo de letra',
+  'dashboard.aio.review.overflow.adjustPage': 'Ajustar tipos de letra ({count})',
+  'dashboard.aio.review.overflow.fitted': 'Tamanho do tipo de letra definido para {size}px — o texto já cabe no balão.',
+  'dashboard.aio.review.overflow.atBound': 'Já está no tamanho mínimo do tipo de letra — o texto ainda transborda o balão.',
+  'dashboard.aio.review.overflow.atBoundApplied': 'Reduzido ao tamanho mínimo do tipo de letra ({size}px) — o texto ainda transborda.',
+  'dashboard.aio.review.overflow.pageReport': 'Ajuste automático: {fitted} corrigidos, {remaining} ainda transbordam no tamanho mínimo.',
   'dashboard.aio.translation.memoryToggle': 'Reutilizar traduções da memória local',
   'dashboard.aio.translation.memory':
     'Leitura opcional (desativada por predefinição): traduções anteriores só são reutilizadas da sua base de dados local enquanto esta opção estiver ativa. A gravação na memória local está sempre ativa e nada é enviado para fora do dispositivo.',

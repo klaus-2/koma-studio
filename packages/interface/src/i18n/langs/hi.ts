@@ -1634,6 +1634,13 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'खाली',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK शेष',
   'dashboard.aio.review.kind.overflow': 'अतिप्रवाह',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count} गुब्बारे टेक्स्ट बॉक्स से बाहर निकल रहे हैं',
+  'dashboard.aio.review.overflow.adjustRegion': 'फ़ॉन्ट आकार ऑटो-फ़िट करें',
+  'dashboard.aio.review.overflow.adjustPage': 'फ़ॉन्ट ऑटो-फ़िट करें ({count})',
+  'dashboard.aio.review.overflow.fitted': 'फ़ॉन्ट आकार {size}px पर सेट — टेक्स्ट अब गुब्बारे में फ़िट है।',
+  'dashboard.aio.review.overflow.atBound': 'पहले से ही न्यूनतम फ़ॉन्ट आकार पर — टेक्स्ट अभी भी गुब्बारे से बाहर निकल रहा है।',
+  'dashboard.aio.review.overflow.atBoundApplied': 'न्यूनतम फ़ॉन्ट आकार ({size}px) पर सिमटा — टेक्स्ट अभी भी बाहर निकल रहा है।',
+  'dashboard.aio.review.overflow.pageReport': 'ऑटो-फ़िट: {fitted} ठीक, {remaining} न्यूनतम आकार पर भी बाहर निकल रहे हैं।',
   'dashboard.aio.translation.memoryToggle': 'स्थानीय मेमोरी से अनुवाद पुनः उपयोग करें',
   'dashboard.aio.translation.memory':
     'पढ़ना वैकल्पिक है (डिफ़ॉल्ट रूप से बंद): यह सेटिंग चालू रहने तक ही पिछले अनुवाद आपके स्थानीय डेटाबेस से पुनः उपयोग किए जाते हैं। स्थानीय मेमोरी में लिखना हमेशा सक्रिय रहता है और डिवाइस के बाहर कुछ भी नहीं भेजा जाता।',

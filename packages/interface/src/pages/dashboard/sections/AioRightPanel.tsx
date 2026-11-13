@@ -38,6 +38,7 @@ import { translateOrFallback } from '../../../i18n/messages';
 import { cn } from '../../../utils/dashboard.utils';
 import { capitalizeStageLabel } from '../../../utils/dashboardRenderUtils';
 import { deriveRegionIssues, type RegionIssue } from '../../../utils/region-review';
+import { useRegionOverflowReview } from '../hooks/region-overflow-adjust';
 import {
   AIO_MANUAL_STAGE_ORDER,
   AIO_PIPELINE_STAGE_ICONS,
@@ -308,6 +309,27 @@ export default memo(function AioRightPanel({
       ),
     [images, aioDetectionsByImage, aioTgtLang],
   );
+  const {
+    overflowIssues,
+    overflowCountByImageId,
+    adjustRegion,
+    adjustPage,
+  } = useRegionOverflowReview();
+  const reviewIssues = useMemo(
+    () => [...regionIssues, ...overflowIssues],
+    [regionIssues, overflowIssues],
+  );
+  const pageOverflowActions = useMemo(
+    () =>
+      images
+        .map((image) => ({
+          imageId: image.id,
+          imageLabel: image.file.name,
+          count: overflowCountByImageId.get(image.id) ?? 0,
+        }))
+        .filter((action) => action.count > 0),
+    [images, overflowCountByImageId],
+  );
   const handleIssueSelect = useCallback(
     (issue: RegionIssue) => {
       setActiveId(issue.imageId);
@@ -315,7 +337,7 @@ export default memo(function AioRightPanel({
         ...prev,
         [issue.imageId]: issue.regionId,
       }));
-      setActiveStageTab('getTranslations');
+      setActiveStageTab(issue.kind === 'overflow' ? 'render' : 'getTranslations');
     },
     [setActiveId, setAioSelectedRegionByImage, setActiveStageTab],
   );
@@ -795,18 +817,38 @@ export default memo(function AioRightPanel({
         icon={AlertTriangle}
         title={t('dashboard.aio.review.title')}
         badge={
-          regionIssues.length > 0 ? (
+          reviewIssues.length > 0 ? (
             <span className="koma-aio-section__badge">
-              {regionIssues.length}
+              {reviewIssues.length}
             </span>
           ) : undefined
         }
         defaultOpen={false}
       >
+        {pageOverflowActions.length > 0 && (
+          <div className="koma-aio-pipeline-controls">
+            {pageOverflowActions.map((action) => (
+              <button
+                key={action.imageId}
+                type="button"
+                className={skin.ghostButton}
+                title={action.imageLabel}
+                onClick={() => adjustPage(action.imageId)}
+              >
+                {action.imageLabel}
+                {' · '}
+                {t('dashboard.aio.review.overflow.adjustPage', {
+                  count: action.count,
+                })}
+              </button>
+            ))}
+          </div>
+        )}
         <RegionIssuesPanel
           noir={noir}
-          issues={regionIssues}
+          issues={reviewIssues}
           onSelect={handleIssueSelect}
+          onAdjustOverflow={adjustRegion}
         />
       </AioSection>
 

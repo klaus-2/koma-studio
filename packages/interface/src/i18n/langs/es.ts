@@ -1666,6 +1666,13 @@ export const esMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'Vacío',
   'dashboard.aio.review.kind.cjkLeftover': 'Resto de CJK',
   'dashboard.aio.review.kind.overflow': 'Desborde',
+  'dashboard.aio.review.overflow.badgeTooltip': '{count} globo(s) desbordan el cuadro de texto',
+  'dashboard.aio.review.overflow.adjustRegion': 'Ajustar tamaño de fuente automáticamente',
+  'dashboard.aio.review.overflow.adjustPage': 'Ajustar fuentes ({count})',
+  'dashboard.aio.review.overflow.fitted': 'Tamaño de fuente fijado en {size}px: el texto ahora cabe en el globo.',
+  'dashboard.aio.review.overflow.atBound': 'Ya está en el tamaño de fuente mínimo: el texto sigue desbordando el globo.',
+  'dashboard.aio.review.overflow.atBoundApplied': 'Reducido al tamaño de fuente mínimo ({size}px): el texto sigue desbordando.',
+  'dashboard.aio.review.overflow.pageReport': 'Autoajuste: {fitted} corregidos, {remaining} siguen desbordando con el tamaño mínimo.',
   'dashboard.aio.translation.memoryToggle': 'Reutilizar traducciones de la memoria local',
   'dashboard.aio.translation.memory':
     'La lectura es opcional (desactivada de forma predeterminada): las traducciones anteriores se reutilizan de tu base de datos local solo mientras esté activada. Escribir en la memoria local siempre está activo y no envía nada fuera del dispositivo.',
