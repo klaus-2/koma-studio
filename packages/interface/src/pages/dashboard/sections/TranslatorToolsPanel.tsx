@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useI18n } from '../../../i18n';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
@@ -14,9 +14,26 @@ import type {
   useTranslatorTextActions,
   useTranslatorVisualActions,
 } from '../hooks/translator';
+import {
+  applySheetRows,
+  buildRegionLookup,
+  buildSheetRows,
+} from '../../../utils/spreadsheet-bridge';
+import type {
+  SheetAppliedRow,
+  SheetReimportReport,
+  SheetRow,
+} from '../../../utils/spreadsheet-bridge';
+import type { SheetExportFormat } from '../hooks/exportSheetWorker';
+import {
+  buildSheetExportFile,
+  parseSheetCorrections,
+  triggerBlobDownload,
+} from '../hooks/export-download';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
+import { useStatusStore } from '../stores/status-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useActiveTranslatorRegionState } from '../hooks/translator';
 import { useUiShellStore } from '../stores/ui-shell-store';
@@ -166,6 +183,161 @@ export default function TranslatorToolsPanelSection({
   const setLlmSettings = useLlmProvidersStore((s) => s.setLlmSettings);
   const processing = useUiShellStore((s) => s.processing);
   const images = useImageCollectionStore((s) => s.images);
+  const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
+  // Setter subscriptions only (stable identities): the sheet handlers read
+  // fresh region state via getState, so the panel never re-renders on
+  // unrelated region-map writes.
+  const setTranslatorDetectionsByImage = useTranslatorStore(
+    (s) => s.setTranslatorDetectionsByImage,
+  );
+
+  /* ── Bilingual spreadsheet (Feature 3): export / import corrections ── */
+
+  const [sheetReport, setSheetReport] = useState<SheetReimportReport | null>(
+    null,
+  );
+  const sheetImportRef = useRef<HTMLInputElement | null>(null);
+  // Rows of the last import, kept so a per-row conflict opt-in can re-run the
+  // ladder against fresh store state (already-applied rows then compare
+  // unchanged and stay out of the write).
+  const sheetRowsRef = useRef<readonly SheetRow[] | null>(null);
+
+  // Writes corrections through the EXISTING authoritative translator region
+  // map (the same store the visual preview edits live in) — no parallel
+  // store. Untouched regions keep their object identity; applied regions get
+  // the manual-edit provenance stamp, matching the hand-edit path.
+  const writeSheetCorrections = useCallback(
+    (appliedRows: readonly SheetAppliedRow[]): void => {
+      if (appliedRows.length === 0) return;
+      const detectionsByImage =
+        useTranslatorStore.getState().translatorDetectionsByImage;
+      const rowsByImage = new Map<string, SheetAppliedRow[]>();
+      for (const row of appliedRows) {
+        const group = rowsByImage.get(row.imageId);
+        if (group) {
+          group.push(row);
+        } else {
+          rowsByImage.set(row.imageId, [row]);
+        }
+      }
+      for (const [imageId, rows] of rowsByImage) {
+        const regions = detectionsByImage[imageId] ?? [];
+        const correctionByRegionId = new Map<string, SheetAppliedRow>();
+        for (const row of rows) {
+          correctionByRegionId.set(row.matchedRegionId, row);
+        }
+        const nextRegions = regions.map((region) => {
+          const correction = correctionByRegionId.get(region.id);
+          if (!correction) return region;
+          return {
+            ...region,
+            translatedText: correction.translation,
+            translatorModelKey: 'manual_edit',
+          };
+        });
+        setTranslatorDetectionsByImage((prev) => ({
+          ...prev,
+          [imageId]: nextRegions,
+        }));
+      }
+    },
+    [setTranslatorDetectionsByImage],
+  );
+
+  const handleSheetExport = useCallback(
+    async (format: SheetExportFormat) => {
+      const rows = buildSheetRows(
+        useImageCollectionStore.getState().images,
+        useTranslatorStore.getState().translatorDetectionsByImage,
+      );
+      if (rows.length === 0) {
+        setStatusMessage(t('dashboard.translator.sheet.noRows'));
+        return;
+      }
+      try {
+        const { blob, fileName } = await buildSheetExportFile(rows, format);
+        triggerBlobDownload(blob, fileName);
+        setStatusMessage(
+          t('dashboard.translator.sheet.exportSuccess', { name: fileName }),
+        );
+      } catch (error) {
+        setStatusMessage(
+          error instanceof Error
+            ? error.message
+            : t('dashboard.translator.sheet.exportFailed'),
+        );
+      }
+    },
+    [setStatusMessage, t],
+  );
+
+  const handleSheetImportFile = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      try {
+        const rows = await parseSheetCorrections(file);
+        const result = applySheetRows(
+          rows,
+          buildRegionLookup(
+            useImageCollectionStore.getState().images,
+            useTranslatorStore.getState().translatorDetectionsByImage,
+          ),
+        );
+        writeSheetCorrections(result.appliedRows);
+        sheetRowsRef.current = rows;
+        setSheetReport({
+          appliedRows: result.appliedRows,
+          skippedRows: result.skippedRows,
+          conflicts: result.conflicts,
+        });
+        setStatusMessage(
+          t('dashboard.translator.sheet.importSuccess', {
+            applied: result.applied,
+            skipped: result.skipped,
+            conflicts: result.conflicts.length,
+          }),
+        );
+      } catch (error) {
+        setStatusMessage(
+          error instanceof Error
+            ? error.message
+            : t('dashboard.translator.sheet.importFailed'),
+        );
+      }
+    },
+    [setStatusMessage, t, writeSheetCorrections],
+  );
+
+  const handleApplySheetConflict = useCallback(
+    (rowId: string) => {
+      const rows = sheetRowsRef.current;
+      if (rows === null) return;
+      const overrides = new Set<string>();
+      for (const entry of sheetReport?.conflicts ?? []) {
+        if (entry.resolved) overrides.add(entry.rowId);
+      }
+      overrides.add(rowId);
+      const result = applySheetRows(
+        rows,
+        buildRegionLookup(
+          useImageCollectionStore.getState().images,
+          useTranslatorStore.getState().translatorDetectionsByImage,
+        ),
+        { applyConflictRowIds: overrides },
+      );
+      writeSheetCorrections(result.appliedRows);
+      setSheetReport((prev) => ({
+        appliedRows: [...(prev?.appliedRows ?? []), ...result.appliedRows],
+        skippedRows: prev?.skippedRows ?? [],
+        conflicts: (prev?.conflicts ?? result.conflicts).map((entry) =>
+          overrides.has(entry.rowId) ? { ...entry, resolved: true } : entry,
+        ),
+      }));
+    },
+    [sheetReport, writeSheetCorrections],
+  );
 
   return (
     <TranslatorToolsPanel
@@ -270,6 +442,11 @@ export default function TranslatorToolsPanelSection({
         activeTranslatorSelectedTranslationNotes
       }
       retranslateTranslatorRegions={retranslateTranslatorRegions}
+      onSheetExport={handleSheetExport}
+      sheetImportRef={sheetImportRef}
+      handleSheetImportFile={handleSheetImportFile}
+      sheetReport={sheetReport}
+      onApplySheetConflict={handleApplySheetConflict}
     />
   );
 }

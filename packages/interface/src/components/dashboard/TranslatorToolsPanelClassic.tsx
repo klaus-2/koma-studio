@@ -3,6 +3,9 @@ import {
   ArrowRight,
   Box,
   Eye,
+  FileDown,
+  FileSpreadsheet,
+  FileUp,
   FolderOpen,
   HardDrive,
   Languages,
@@ -22,6 +25,9 @@ import type { TranslationKey } from '../../i18n/messages';
 import { AioSection } from '../../pages/AioSection';
 import { cn } from '../../utils/dashboard.utils';
 import { TranslatorWorkspaceToggle } from '../../pages/TranslatorWorkspaceToggle';
+import type { SheetReimportReport } from '../../utils/spreadsheet-bridge';
+import type { SheetExportFormat } from '../../pages/dashboard/hooks/exportSheetWorker';
+import SheetConflictReport from '../../pages/dashboard/sections/SheetConflictReport';
 
 interface TranslatorToolsPanelProps {
   translatorWorkspaceMode: 'text' | 'visual';
@@ -94,6 +100,12 @@ interface TranslatorToolsPanelProps {
     imageId: string,
     regionIds?: string[],
   ) => Promise<void> | void;
+  /* ── Bilingual spreadsheet (Feature 3): export / import corrections ── */
+  onSheetExport: (format: SheetExportFormat) => void;
+  sheetImportRef: React.RefObject<HTMLInputElement | null>;
+  handleSheetImportFile: React.ChangeEventHandler<HTMLInputElement>;
+  sheetReport: SheetReimportReport | null;
+  onApplySheetConflict: (rowId: string) => void;
 }
 
 export default function TranslatorToolsPanelClassic({
@@ -150,6 +162,11 @@ export default function TranslatorToolsPanelClassic({
   activeTranslatorSelectedRegion,
   activeTranslatorSelectedTranslationNotes,
   retranslateTranslatorRegions,
+  onSheetExport,
+  sheetImportRef,
+  handleSheetImportFile,
+  sheetReport,
+  onApplySheetConflict,
 }: TranslatorToolsPanelProps) {
   const { t } = useI18n();
   const isVisualSfxMode =
@@ -594,6 +611,51 @@ export default function TranslatorToolsPanelClassic({
                 <Sparkles size={11} /> {t("dashboard.translator.retranslateRegion")}
               </button>
             </div>
+
+            {/* ═══ Bilingual spreadsheet: export / import corrections ═══ */}
+            <div className="koma-translator-actions">
+              <button
+                type="button"
+                className="koma-btn koma-btn--ghost"
+                disabled={processing || imagesCount === 0}
+                onClick={() => onSheetExport('csv')}
+              >
+                <FileDown size={11} /> {t("dashboard.translator.sheet.exportCsv")}
+              </button>
+              <button
+                type="button"
+                className="koma-btn koma-btn--ghost"
+                disabled={processing || imagesCount === 0}
+                onClick={() => onSheetExport('xlsx')}
+              >
+                <FileSpreadsheet size={11} /> {t("dashboard.translator.sheet.exportXlsx")}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="koma-btn koma-btn--ghost koma-btn--full"
+              disabled={processing || imagesCount === 0}
+              onClick={() => sheetImportRef.current?.click()}
+            >
+              <FileUp size={11} /> {t("dashboard.translator.sheet.import")}
+            </button>
+
+            <input
+              ref={sheetImportRef}
+              type="file"
+              accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              hidden
+              onChange={handleSheetImportFile}
+            />
+
+            {sheetReport && (
+              <SheetConflictReport
+                report={sheetReport}
+                noir={false}
+                onApplyConflict={onApplySheetConflict}
+              />
+            )}
 
             <input
               ref={translatorImageImportRef}

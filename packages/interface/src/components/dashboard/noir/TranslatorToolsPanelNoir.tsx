@@ -2,8 +2,8 @@
 
 import React from 'react';
 import {
-  ArrowRight, Box, Eye, FolderOpen, Languages, RefreshCcw,
-  Settings, Sliders, Sparkles, Upload, Zap,
+  ArrowRight, Box, Eye, FileDown, FileSpreadsheet, FileUp, FolderOpen,
+  Languages, RefreshCcw, Settings, Sliders, Sparkles, Upload, Zap,
 } from 'lucide-react';
 
 import TranslationModelControl from '../../AioStageModelControls/TranslationModelControl';
@@ -16,6 +16,9 @@ import { TranslatorWorkspaceToggle } from '../../../pages/TranslatorWorkspaceTog
 import {
   ModeTag, Hint, Check, ModelSlot, SegToggle, InspectRow,
 } from '../../noir-panels/NoirPrimitives';
+import type { SheetReimportReport } from '../../../utils/spreadsheet-bridge';
+import type { SheetExportFormat } from '../../../pages/dashboard/hooks/exportSheetWorker';
+import SheetConflictReport from '../../../pages/dashboard/sections/SheetConflictReport';
 
 interface TranslatorToolsPanelProps {
   translatorWorkspaceMode: 'text' | 'visual';
@@ -71,6 +74,12 @@ interface TranslatorToolsPanelProps {
   activeTranslatorSelectedRegion: { id: string; recognizedText?: string; translatedText?: string } | null;
   activeTranslatorSelectedTranslationNotes: string[];
   retranslateTranslatorRegions: (imageId: string, regionIds?: string[]) => Promise<void> | void;
+  /* ── Bilingual spreadsheet (Feature 3): export / import corrections ── */
+  onSheetExport: (format: SheetExportFormat) => void;
+  sheetImportRef: React.RefObject<HTMLInputElement | null>;
+  handleSheetImportFile: React.ChangeEventHandler<HTMLInputElement>;
+  sheetReport: SheetReimportReport | null;
+  onApplySheetConflict: (rowId: string) => void;
 }
 
 export default function TranslatorToolsPanel(props: TranslatorToolsPanelProps) {
@@ -88,6 +97,7 @@ export default function TranslatorToolsPanel(props: TranslatorToolsPanelProps) {
     quotaLimitButtonTitle = '', runTranslatorText, processTranslatorVisual, handleTranslatorTextImport,
     handleTranslatorImageUpload, activeId, activeTranslatorImageDetectionsCount, activeTranslatorSelectedRegion,
     activeTranslatorSelectedTranslationNotes, retranslateTranslatorRegions,
+    onSheetExport, sheetImportRef, handleSheetImportFile, sheetReport, onApplySheetConflict,
   } = props;
 
   const { t } = useI18n();
@@ -204,6 +214,13 @@ export default function TranslatorToolsPanel(props: TranslatorToolsPanelProps) {
               <button type="button" className="btn-ghost panel-cut-sm" disabled={processing || !activeId || activeTranslatorImageDetectionsCount === 0} onClick={() => { if (activeId) void retranslateTranslatorRegions(activeId); }}><RefreshCcw size={11} /> {t('dashboard.translator.retranslateImage')}</button>
               <button type="button" className="btn-ghost panel-cut-sm" disabled={processing || !activeId || !activeTranslatorSelectedRegion} onClick={() => { if (activeId && activeTranslatorSelectedRegion) void retranslateTranslatorRegions(activeId, [activeTranslatorSelectedRegion.id]); }}><Sparkles size={11} /> {t('dashboard.translator.retranslateRegion')}</button>
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" className="btn-ghost panel-cut-sm" disabled={processing || imagesCount === 0} onClick={() => onSheetExport('csv')}><FileDown size={11} /> {t('dashboard.translator.sheet.exportCsv')}</button>
+              <button type="button" className="btn-ghost panel-cut-sm" disabled={processing || imagesCount === 0} onClick={() => onSheetExport('xlsx')}><FileSpreadsheet size={11} /> {t('dashboard.translator.sheet.exportXlsx')}</button>
+            </div>
+            <button type="button" className="btn-ghost panel-cut-sm w-full" disabled={processing || imagesCount === 0} onClick={() => sheetImportRef.current?.click()}><FileUp size={11} /> {t('dashboard.translator.sheet.import')}</button>
+            <input ref={sheetImportRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={handleSheetImportFile} />
+            {sheetReport && <SheetConflictReport report={sheetReport} noir onApplyConflict={onApplySheetConflict} />}
             <input ref={translatorImageImportRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" hidden multiple onChange={handleTranslatorImageUpload} />
           </>
         )}

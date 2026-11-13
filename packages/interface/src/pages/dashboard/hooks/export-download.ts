@@ -27,7 +27,13 @@ import type {
   ProcessableMode,
 } from '../../../types/dashboard.types';
 import { materializePageFile } from '../../../utils/page-source';
+import type { SheetRow } from '../../../utils/spreadsheet-bridge';
 import type { WorkerPdfPage, WorkerZipEntry } from './exportPackageWorker';
+import type {
+  SheetExportFormat,
+  SheetWorkerRequest,
+  SheetWorkerResponse,
+} from './exportSheetWorker';
 import { createExportWorkerPool, type ExportWorkerPool } from './exportWorkerPool';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useExportStore } from '../stores/export-store';
@@ -41,6 +47,79 @@ let sharedExportPool: ExportWorkerPool | null = null;
 const getExportPool = (): ExportWorkerPool => {
   sharedExportPool ??= createExportWorkerPool();
   return sharedExportPool;
+};
+
+/**
+ * One-shot sheet worker run (Feature 3): a fresh standalone worker per
+ * operation, terminated on settle. Sheet ops are rare single-file ops — no
+ * pool, no queue, and `xlsx` stays out of every other chunk.
+ */
+const runSheetWorkerRequest = (request: SheetWorkerRequest): Promise<SheetWorkerResponse> =>
+  new Promise<SheetWorkerResponse>((resolve, reject) => {
+    const worker = new Worker(new URL('./exportSheetWorker.ts', import.meta.url), {
+      type: 'module',
+    });
+    const settle = (finish: () => void) => {
+      worker.terminate();
+      finish();
+    };
+    worker.onmessage = (event: MessageEvent<SheetWorkerResponse>) => {
+      settle(() => resolve(event.data));
+    };
+    worker.onerror = (event: ErrorEvent) => {
+      settle(() => reject(new Error(event.message || 'sheet worker failed')));
+    };
+    if (request.kind === 'sheet-import') {
+      worker.postMessage(request, [request.bytes]);
+      return;
+    }
+    worker.postMessage(request);
+  });
+
+export interface SheetExportFile {
+  blob: Blob;
+  fileName: string;
+}
+
+/** Serializes sheet rows to CSV/XLSX bytes in the standalone sheet worker. */
+export const buildSheetExportFile = async (
+  rows: readonly SheetRow[],
+  format: SheetExportFormat,
+): Promise<SheetExportFile> => {
+  const response = await runSheetWorkerRequest({
+    kind: 'sheet-export',
+    jobId: 1,
+    format,
+    rows,
+  });
+  if (response.kind === 'sheet-failure') {
+    throw new Error(response.message);
+  }
+  if (response.kind !== 'sheet-export-success') {
+    throw new Error('sheet worker returned an unexpected response kind');
+  }
+  return {
+    blob: new Blob([response.blobBytes], { type: response.mimeType }),
+    fileName: `koma-studio-corrections-${new Date().toISOString().replace(/[:.]/g, '-')}.${format}`,
+  };
+};
+
+/** Parses a reviewer's CSV/XLSX file back into sheet rows via the worker. */
+export const parseSheetCorrections = async (file: File): Promise<SheetRow[]> => {
+  const bytes = await file.arrayBuffer();
+  const response = await runSheetWorkerRequest({
+    kind: 'sheet-import',
+    jobId: 1,
+    fileName: file.name,
+    bytes,
+  });
+  if (response.kind === 'sheet-failure') {
+    throw new Error(response.message);
+  }
+  if (response.kind !== 'sheet-import-success') {
+    throw new Error('sheet worker returned an unexpected response kind');
+  }
+  return response.rows;
 };
 
 /** Anchor download of a generated blob (object-URL lifecycle 1:1). */

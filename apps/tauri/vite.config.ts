@@ -17,6 +17,12 @@ export default defineConfig(async ({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     define: appVersionDefine(import.meta.url),
+    // ES worker bundles may code-split: the export workers hold dynamic
+    // imports (pdf-lib, xlsx) that need legal chunks. The Vite default
+    // worker.format "iife" fails the build with [vite:worker-import-meta-url].
+    worker: {
+      format: "es",
+    },
     resolve: {
       // Single React copy across workspaces: without this, Vite can emit two
       // dep-optimizer bundles of react/react-dom (different ?v= hashes) when a

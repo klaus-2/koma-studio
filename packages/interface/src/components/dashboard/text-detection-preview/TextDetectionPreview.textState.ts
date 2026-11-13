@@ -145,7 +145,11 @@ export const useTextDetectionPreviewTextState = ({
             translatedText: normalizedText,
             translationNotes: undefined,
             translationNoteOverlay: undefined,
-            translatorModelKey: item.translatorModelKey ?? 'manual_edit',
+            // Provenance of the text IS manual: stamp unconditionally so a
+            // hand-edited ENGINE region is also caught by the reimport
+            // conflict predicate (sheet corrections never clobber manual
+            // edits silently).
+            translatorModelKey: 'manual_edit',
           };
         }),
       );

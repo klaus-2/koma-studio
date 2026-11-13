@@ -9,6 +9,12 @@ import { visualizer } from 'rollup-plugin-visualizer';
 // https://vitejs.dev/config/
 export default defineConfig({
   define: appVersionDefine(import.meta.url),
+  // ES worker bundles may code-split: the export workers hold dynamic
+  // imports (pdf-lib, xlsx) that need legal chunks. The Vite default
+  // worker.format "iife" fails the build with [vite:worker-import-meta-url].
+  worker: {
+    format: 'es',
+  },
   plugins: [
     react(),
     tailwindcss(),
