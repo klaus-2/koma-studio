@@ -1573,6 +1573,13 @@ export const arMessages: TranslationCatalog = {
   'dashboard.aio.works.chaptersTitle': 'الفصول',
   'dashboard.aio.works.chaptersEmpty': 'لا توجد فصول محمّلة.',
   'dashboard.aio.works.hint': 'تُدمج مصطلحات العمل في المسرد العام (يتقدم العمل عند تكرار المصدر) وتُرسل فقط للفصول المعينة لهذا العمل.',
+  'dashboard.aio.review.title': 'مشاكل معلّقة',
+  'dashboard.aio.review.empty': 'لا توجد مشاكل معلّقة.',
+  'dashboard.aio.review.listAria': 'مشاكل الترجمة المعلّقة',
+  'dashboard.aio.review.kind.untranslated': 'غير مترجم',
+  'dashboard.aio.review.kind.empty': 'فارغ',
+  'dashboard.aio.review.kind.cjkLeftover': 'بقايا CJK',
+  'dashboard.aio.review.kind.overflow': 'تجاوز',
   'dashboard.aio.translation.memoryToggle': 'إعادة استخدام الترجمات من الذاكرة المحلية',
   'dashboard.aio.translation.memory':
     'القراءة اختيارية (معطلة افتراضيًا): تُعاد استخدام الترجمات السابقة من قاعدة بياناتك المحلية فقط أثناء تفعيل هذا الخيار. الكتابة إلى الذاكرة المحلية مفعّلة دائمًا ولا ترسل أي شيء خارج الجهاز.',

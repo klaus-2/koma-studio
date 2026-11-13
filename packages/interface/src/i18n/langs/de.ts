@@ -1679,6 +1679,13 @@ export const deMessages: TranslationCatalog = {
   'dashboard.aio.works.chaptersTitle': 'Kapitel',
   'dashboard.aio.works.chaptersEmpty': 'Keine Kapitel geladen.',
   'dashboard.aio.works.hint': 'Werk-Begriffe werden mit dem globalen Glossar zusammengeführt (bei doppelten Quellen gewinnt das Werk) und nur für Kapitel gesendet, die diesem Werk zugewiesen sind.',
+  'dashboard.aio.review.title': 'Offene Probleme',
+  'dashboard.aio.review.empty': 'Keine offenen Probleme.',
+  'dashboard.aio.review.listAria': 'Offene Übersetzungsprobleme',
+  'dashboard.aio.review.kind.untranslated': 'Unübersetzt',
+  'dashboard.aio.review.kind.empty': 'Leer',
+  'dashboard.aio.review.kind.cjkLeftover': 'CJK-Rest',
+  'dashboard.aio.review.kind.overflow': 'Überlauf',
   'dashboard.aio.translation.memoryToggle': 'Übersetzungen aus dem lokalen Speicher wiederverwenden',
   'dashboard.aio.translation.memory':
     'Lesen ist Opt-in (standardmäßig aus): Frühere Übersetzungen werden nur aus Ihrer lokalen Datenbank wiederverwendet, solange diese Option aktiv ist. Das Schreiben in den lokalen Speicher ist immer aktiv und sendet nichts vom Gerät.',

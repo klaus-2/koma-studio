@@ -1653,6 +1653,13 @@ export const itMessages: TranslationCatalog = {
   'dashboard.aio.works.chaptersTitle': 'Capitoli',
   'dashboard.aio.works.chaptersEmpty': 'Nessun capitolo caricato.',
   'dashboard.aio.works.hint': 'I termini dell’opera vengono uniti al glossario globale (in caso di fonte duplicata prevale l’opera) e inviati solo per i capitoli assegnati a quest’opera.',
+  'dashboard.aio.review.title': 'Problemi in sospeso',
+  'dashboard.aio.review.empty': 'Nessun problema in sospeso.',
+  'dashboard.aio.review.listAria': 'Problemi di traduzione in sospeso',
+  'dashboard.aio.review.kind.untranslated': 'Non tradotto',
+  'dashboard.aio.review.kind.empty': 'Vuoto',
+  'dashboard.aio.review.kind.cjkLeftover': 'Residuo CJK',
+  'dashboard.aio.review.kind.overflow': 'Overflow',
   'dashboard.aio.translation.memoryToggle': 'Riutilizza le traduzioni dalla memoria locale',
   'dashboard.aio.translation.memory':
     'La lettura è facoltativa (disattivata per impostazione predefinita): le traduzioni passate vengono riutilizzate dal database locale solo mentre questa opzione è attiva. La scrittura nella memoria locale è sempre attiva e non invia nulla fuori dal dispositivo.',

@@ -1627,6 +1627,13 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.aio.works.chaptersTitle': 'अध्याय',
   'dashboard.aio.works.chaptersEmpty': 'कोई अध्याय लोड नहीं हुआ।',
   'dashboard.aio.works.hint': 'कृति के शब्द वैश्विक शब्दावली में मिलाए जाते हैं (डुप्लिकेट स्रोत पर कृति प्राथमिक होती है) और केवल इस कृति को सौंपे गए अध्यायों के लिए भेजे जाते हैं।',
+  'dashboard.aio.review.title': 'लंबित समस्याएँ',
+  'dashboard.aio.review.empty': 'कोई लंबित समस्या नहीं।',
+  'dashboard.aio.review.listAria': 'लंबित अनुवाद समस्याएँ',
+  'dashboard.aio.review.kind.untranslated': 'अनूदित नहीं',
+  'dashboard.aio.review.kind.empty': 'खाली',
+  'dashboard.aio.review.kind.cjkLeftover': 'CJK शेष',
+  'dashboard.aio.review.kind.overflow': 'अतिप्रवाह',
   'dashboard.aio.translation.memoryToggle': 'स्थानीय मेमोरी से अनुवाद पुनः उपयोग करें',
   'dashboard.aio.translation.memory':
     'पढ़ना वैकल्पिक है (डिफ़ॉल्ट रूप से बंद): यह सेटिंग चालू रहने तक ही पिछले अनुवाद आपके स्थानीय डेटाबेस से पुनः उपयोग किए जाते हैं। स्थानीय मेमोरी में लिखना हमेशा सक्रिय रहता है और डिवाइस के बाहर कुछ भी नहीं भेजा जाता।',

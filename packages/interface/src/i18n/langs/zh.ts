@@ -1492,6 +1492,13 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.aio.works.chaptersTitle': '章节',
   'dashboard.aio.works.chaptersEmpty': '尚未加载章节。',
   'dashboard.aio.works.hint': '作品术语会合并到全局术语表中（重复来源时以作品为准），仅随分配给该作品的章节的翻译请求一起发送。',
+  'dashboard.aio.review.title': '待处理问题',
+  'dashboard.aio.review.empty': '没有待处理的问题。',
+  'dashboard.aio.review.listAria': '待处理的翻译问题',
+  'dashboard.aio.review.kind.untranslated': '未翻译',
+  'dashboard.aio.review.kind.empty': '空白',
+  'dashboard.aio.review.kind.cjkLeftover': 'CJK 残留',
+  'dashboard.aio.review.kind.overflow': '溢出',
   'dashboard.aio.translation.memoryToggle': '复用本地记忆中的翻译',
   'dashboard.aio.translation.memory': '读取为可选（默认关闭）：仅在此设置开启时，才会从本地数据库复用过往翻译。写入本地记忆始终开启，且不会向设备外发送任何内容。',
   'dashboard.aio.translation.tmHitCount':

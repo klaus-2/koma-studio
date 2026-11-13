@@ -1635,6 +1635,13 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.aio.works.chaptersTitle': '章',
   'dashboard.aio.works.chaptersEmpty': '読み込まれた章はありません。',
   'dashboard.aio.works.hint': '作品の用語はグローバル用語集に統合され（重複するソースでは作品が優先）、この作品に割り当てられた章に対してのみ送信されます。',
+  'dashboard.aio.review.title': '未解決の問題',
+  'dashboard.aio.review.empty': '未解決の問題はありません。',
+  'dashboard.aio.review.listAria': '未解決の翻訳問題',
+  'dashboard.aio.review.kind.untranslated': '未翻訳',
+  'dashboard.aio.review.kind.empty': '空',
+  'dashboard.aio.review.kind.cjkLeftover': 'CJK 残留',
+  'dashboard.aio.review.kind.overflow': 'はみ出し',
   'dashboard.aio.translation.memoryToggle': 'ローカルメモリの翻訳を再利用',
   'dashboard.aio.translation.memory':
     '読み込みはオプトイン（既定ではオフ）：この設定が有効な間だけ、過去の翻訳をローカルデータベースから再利用します。ローカルメモリへの書き込みは常に行われ、端末の外には何も送信されません。',

@@ -1681,6 +1681,13 @@ export const enMessages = {
   'dashboard.aio.works.chaptersEmpty': 'No chapters loaded.',
   'dashboard.aio.works.hint':
     'Work terms merge into the global glossary (work wins on duplicate source) and are sent only for chapters assigned to this work.',
+  'dashboard.aio.review.title': 'Pending issues',
+  'dashboard.aio.review.empty': 'No pending issues.',
+  'dashboard.aio.review.listAria': 'Pending translation issues',
+  'dashboard.aio.review.kind.untranslated': 'Untranslated',
+  'dashboard.aio.review.kind.empty': 'Empty',
+  'dashboard.aio.review.kind.cjkLeftover': 'CJK leftover',
+  'dashboard.aio.review.kind.overflow': 'Overflow',
   'dashboard.aio.customAi.title': 'Custom AI',
   'dashboard.aio.customAi.loadingProfiles': 'Loading custom profiles...',
   'dashboard.aio.customAi.savedTranslationProfile': 'Saved Translation profile',

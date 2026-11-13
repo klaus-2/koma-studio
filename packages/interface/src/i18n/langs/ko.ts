@@ -1587,6 +1587,13 @@ export const koMessages: TranslationCatalog = {
   'dashboard.aio.works.chaptersTitle': '챕터',
   'dashboard.aio.works.chaptersEmpty': '불러온 챕터가 없습니다.',
   'dashboard.aio.works.hint': '작품 용어는 전역 용어집과 병합되고(중복 소스에서는 작품이 우선) 이 작품에 할당된 챕터에만 전송됩니다.',
+  'dashboard.aio.review.title': '대기 중인 문제',
+  'dashboard.aio.review.empty': '대기 중인 문제가 없습니다.',
+  'dashboard.aio.review.listAria': '대기 중인 번역 문제',
+  'dashboard.aio.review.kind.untranslated': '미번역',
+  'dashboard.aio.review.kind.empty': '비어 있음',
+  'dashboard.aio.review.kind.cjkLeftover': 'CJK 잔여',
+  'dashboard.aio.review.kind.overflow': '넘침',
   'dashboard.aio.translation.memoryToggle': '로컬 메모리의 번역 재사용',
   'dashboard.aio.translation.memory':
     '읽기는 옵트인(기본적으로 꺼짐): 이 설정이 켜져 있는 동안에만 이전 번역을 로컬 데이터베이스에서 재사용합니다. 로컬 메모리에 쓰기는 항상 활성화되어 있으며 기기 밖으로 아무것도 전송하지 않습니다.',

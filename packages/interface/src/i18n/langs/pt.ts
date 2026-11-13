@@ -1630,6 +1630,13 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.aio.works.chaptersTitle': 'Capítulos',
   'dashboard.aio.works.chaptersEmpty': 'Nenhum capítulo carregado.',
   'dashboard.aio.works.hint': 'Os termos da obra são mesclados ao glossário global (a obra vence em fonte duplicada) e enviados apenas para os capítulos atribuídos a esta obra.',
+  'dashboard.aio.review.title': 'Problemas pendentes',
+  'dashboard.aio.review.empty': 'Sem problemas pendentes.',
+  'dashboard.aio.review.listAria': 'Problemas de tradução pendentes',
+  'dashboard.aio.review.kind.untranslated': 'Não traduzido',
+  'dashboard.aio.review.kind.empty': 'Vazio',
+  'dashboard.aio.review.kind.cjkLeftover': 'Resíduo de CJK',
+  'dashboard.aio.review.kind.overflow': 'Transbordo',
   'dashboard.aio.translation.memoryToggle': 'Reutilizar traduções da memória local',
   'dashboard.aio.translation.memory':
     'Leitura opcional (desativada por predefinição): traduções anteriores só são reutilizadas da sua base de dados local enquanto esta opção estiver ativa. A gravação na memória local está sempre ativa e nada é enviado para fora do dispositivo.',

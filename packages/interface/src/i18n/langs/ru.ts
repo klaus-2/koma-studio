@@ -1655,6 +1655,13 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.aio.works.chaptersTitle': 'Главы',
   'dashboard.aio.works.chaptersEmpty': 'Главы не загружены.',
   'dashboard.aio.works.hint': 'Термины работы объединяются с глобальным глоссарием (при дубликате источника приоритет у работы) и отправляются только для глав, назначенных этой работе.',
+  'dashboard.aio.review.title': 'Нерешённые проблемы',
+  'dashboard.aio.review.empty': 'Нерешённых проблем нет.',
+  'dashboard.aio.review.listAria': 'Нерешённые проблемы перевода',
+  'dashboard.aio.review.kind.untranslated': 'Не переведено',
+  'dashboard.aio.review.kind.empty': 'Пусто',
+  'dashboard.aio.review.kind.cjkLeftover': 'Остаток CJK',
+  'dashboard.aio.review.kind.overflow': 'Переполнение',
   'dashboard.aio.translation.memoryToggle': 'Повторно использовать переводы из локальной памяти',
   'dashboard.aio.translation.memory':
     'Чтение — по выбору (по умолчанию выключено): прошлые переводы повторно используются из локальной базы, только пока параметр включён. Запись в локальную память выполняется всегда и ничего не отправляет за пределы устройства.',
