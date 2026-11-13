@@ -56,6 +56,10 @@
     "src-tauri/src/sidecar/recovery.rs": {
       "maxLines": 1076,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
+    },
+    "../../packages/interface/src/components/dashboard/noir/RenderTextPreviewNoir.tsx": {
+      "maxLines": 1011,
+      "reason": "God-file at the 1000-line audit limit; split tracked as tech debt."
     }
   }
 }
