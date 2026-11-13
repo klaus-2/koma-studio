@@ -9,6 +9,7 @@ import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { AioGlossaryEditor } from './AioGlossaryEditor';
 import { AioChecklistOption } from './AioRightPanel.skin';
 import TmHitCountBadge from './TmHitCountBadge';
+import { WorkGlossaryEditor } from './WorkGlossaryEditor';
 
 interface AioLlmSettingsPanelProps {
   supportSummary: string;
@@ -189,6 +190,8 @@ export default memo(function AioLlmSettingsPanel({
             )
           }
         />
+
+        <WorkGlossaryEditor noir={noir} />
 
         <p className="koma-aio-hint">
           {t("dashboard.aio.translation.activeConfigFor", {

@@ -11,11 +11,16 @@ import { AIO_STAGE_LABEL_KEYS } from '../../../constants/dashboard.constants';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import {
   type CustomLlmProfile,
+  type LlmRequestSettings,
   withSfxTranslationSettings,
 } from '../../../utils/customLlm';
 import {
   parseTranslatorStructuredTextInput,
 } from '../../../utils/dashboard.utils';
+import {
+  GLOSSARY_MAX_TERMS,
+  mergeWorkGlossary,
+} from '../../../utils/glossary';
 import {
   requireStageModelReadiness,
   runGetTranslationsStage,
@@ -35,11 +40,42 @@ import type {
   TranslatorTextRequestRegion,
 } from '../../../types/dashboard.types';
 import { parseApiError } from '../helpers';
+import { DIRECT_IMAGES_CHAPTER_ID } from '../lib/aio-chapters';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useStatusStore } from '../stores/status-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import { useWorksStore } from '../stores/works-store';
+
+/**
+ * Request-local LLM settings for an image: the chapter the image belongs to
+ * (chapter label, with the shared direct-images group as fallback) selects a
+ * work in the works registry, and that work's glossary is merged over the
+ * global one (work wins on NFKC-duplicate source, one clamp pass). The
+ * persisted store state is never mutated — a shallow copy carries the merged
+ * glossary only for this request.
+ */
+const resolveWorkGlossarySettings = (
+  image: LoadedImage,
+  llmSettings: LlmRequestSettings,
+): LlmRequestSettings => {
+  const chapterLabel = image.chapterLabel?.trim() || DIRECT_IMAGES_CHAPTER_ID;
+  const work = useWorksStore
+    .getState()
+    .works.find((candidate) => candidate.chapterLabels.includes(chapterLabel));
+  if (!work) {
+    return llmSettings;
+  }
+  return {
+    ...llmSettings,
+    glossary: mergeWorkGlossary(
+      llmSettings.glossary,
+      work.terms,
+      GLOSSARY_MAX_TERMS,
+    ),
+  };
+};
 
 /* ── Execution resolvers (translation/OCR pre-flight validation) ── */
 
@@ -420,7 +456,10 @@ export function useTranslatorRetranslate({
       setStatusMessage(t('translatorRetranslate.noTextAvailable'));
       return;
     }
-    const llmSettings = useLlmProvidersStore.getState().llmSettings;
+    const llmSettings = resolveWorkGlossarySettings(
+      imgData,
+      useLlmProvidersStore.getState().llmSettings,
+    );
 
     setProcessing(true);
     setTranslatorVisualRunning(true);

@@ -1665,6 +1665,22 @@ export const enMessages = {
   'dashboard.aio.glossary.add': 'Add term',
   'dashboard.aio.glossary.remove': 'Remove term',
   'dashboard.aio.glossary.neverTranslate': 'Never translate',
+  'dashboard.aio.works.title': 'Work glossary',
+  'dashboard.aio.works.empty':
+    'No works yet. Create a work to keep a per-title glossary.',
+  'dashboard.aio.works.namePlaceholder': 'Work name',
+  'dashboard.aio.works.add': 'Add work',
+  'dashboard.aio.works.remove': 'Remove work',
+  'dashboard.aio.works.removeConfirm': 'Remove work "{name}" and its terms?',
+  'dashboard.aio.works.rename': 'Rename work',
+  'dashboard.aio.works.renamePrompt': 'Work name',
+  'dashboard.aio.works.selectHint':
+    'Select a work to edit its terms and chapters.',
+  'dashboard.aio.works.termsTitle': 'Terms',
+  'dashboard.aio.works.chaptersTitle': 'Chapters',
+  'dashboard.aio.works.chaptersEmpty': 'No chapters loaded.',
+  'dashboard.aio.works.hint':
+    'Work terms merge into the global glossary (work wins on duplicate source) and are sent only for chapters assigned to this work.',
   'dashboard.aio.customAi.title': 'Custom AI',
   'dashboard.aio.customAi.loadingProfiles': 'Loading custom profiles...',
   'dashboard.aio.customAi.savedTranslationProfile': 'Saved Translation profile',

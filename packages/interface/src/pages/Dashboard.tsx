@@ -147,6 +147,7 @@ import {
 } from './dashboard/hooks/llm-providers';
 import { getAioDownloadItemForImage, getCleanerDownloadItemForImage } from './dashboard/lib/download-item-lookup';
 import { useDashboardModeChange } from './dashboard/hooks/use-dashboard-mode-change';
+import { useWorksPersistence } from './dashboard/stores/works-store';
 import { useDashboardPersistedSettings } from './dashboard/hooks/use-dashboard-persisted-settings';
 import { useStageTabs } from './dashboard/hooks/use-stage-tabs';
 import { useAioManualProgressSync } from './dashboard/hooks/use-aio-manual-progress-sync';
@@ -902,6 +903,7 @@ export const DashboardPage = ({
       removeCustomLlmProfileById,
     });
   useLlmSettingsPersistence();
+  useWorksPersistence();
   useCustomLlmProfilesSync({
     userId: authUser?.id ?? null,
     syncFreeProviderDraftsFromProfiles,
