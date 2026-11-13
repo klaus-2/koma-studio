@@ -1,5 +1,6 @@
 import type { LazyExoticComponent, ReactNode } from 'react';
 
+import CompareReviewStageButton from './CompareReviewStageButton';
 import { EMPTY_REGIONS } from '../../../../utils/dashboardRenderUtils';
 
 import type { EMPTY_REGION_MAP } from '../../../../utils/regionMapGating';
@@ -148,99 +149,104 @@ export function renderAioStageItemBody(
 
   if (shouldUseRenderPreview) {
     return (
-      <RenderTextPreview
-        key={`${img.id}-snapshot-${imageHistoryMeta.index}`}
-        label={`#${index + 1} — ${img.file.name}`}
-        image={img}
-        previewSrc={getPreviewSrc(img)}
-        viewMode={viewMode}
-        active={resolvedActiveId === img.id}
-        regions={aioDetectionsByImage[img.id] ?? EMPTY_REGIONS}
-        selectedRegionId={aioSelectedRegionByImage[img.id] ?? null}
-        onCardSelect={() => setActiveId(img.id)}
-        onSelectRegion={(regionId) =>
-          selectAioRegionForImage(img.id, regionId)
-        }
-        onRegionsChange={(nextRegions, selectedRegionIdOverride) =>
-          updateAioRegionsForImage(
-            img.id,
-            nextRegions,
-            selectedRegionIdOverride,
-          )
-        }
-        editable={subMode === 'manual'}
-        areaSelectionEnabled={imageAllowsAreaSelection}
-        newRegionShapeKind={resolvedAioAreaSelectionShapeKind}
-        fallbackStyle={renderDefaultStyle}
-        fontRefreshToken={renderFontRefreshToken}
-        availableRenderFonts={availableRenderFonts}
-        isCompactViewport={isCompactViewport}
-        stageBadgeKey={imageStageKey}
-        stageBadgeLabel={imageStageBadgeLabel}
-        canRewind={imageHistoryMeta.canRewind}
-        canForward={imageHistoryMeta.canForward}
-        onRewind={() => rewindAioPipelineForImage(img.id)}
-        onForward={() => forwardAioPipelineForImage(img.id)}
-        historyHint={imageHistoryHint}
-        renderStageActive={imageStageKey === 'render'}
-        onRequestRefineRegion={() => void refineActiveTypographerShape()}
-        onRequestAutoShapeRegion={applyAutoDetectedShapeToActiveRegion}
-        availableTypographyPresets={typographyPresetList}
-        availableTypographyFolders={typographyFolderList}
-        onRequestApplyPresetById={(regionId, presetId) =>
-          applyTypographyPresetToRegionById(img.id, regionId, presetId)
-        }
-        onRequestConvertShapeRegion={(regionId, kind) => {
-          if (kind === 'auto') {
-            applyAutoDetectedShapeToRegionById(img.id, regionId);
-            return;
+      <div className="koma-compare-host">
+        <div className="koma-compare-host__actions">
+          <CompareReviewStageButton imageId={img.id} />
+        </div>
+        <RenderTextPreview
+          key={`${img.id}-snapshot-${imageHistoryMeta.index}`}
+          label={`#${index + 1} — ${img.file.name}`}
+          image={img}
+          previewSrc={getPreviewSrc(img)}
+          viewMode={viewMode}
+          active={resolvedActiveId === img.id}
+          regions={aioDetectionsByImage[img.id] ?? EMPTY_REGIONS}
+          selectedRegionId={aioSelectedRegionByImage[img.id] ?? null}
+          onCardSelect={() => setActiveId(img.id)}
+          onSelectRegion={(regionId) =>
+            selectAioRegionForImage(img.id, regionId)
           }
-          convertRegionShapeById(img.id, regionId, kind);
-        }}
-        manualEditEnabled={subMode === 'manual'}
-        manualImageTool={manualImageTool}
-        manualPaintColor={manualImagePaintColor}
-        manualBrushSize={manualImageBrushSize}
-        manualBrushOpacity={manualImageBrushOpacity}
-        manualBrushBlur={manualImageBrushBlur}
-        manualPaintLayerDataUrl={
-          getAioManualImageEditState(img.id).paintLayerDataUrl
-        }
-        manualWandMaskDataUrl={
-          getAioManualImageEditState(img.id).wandMaskDataUrl
-        }
-        manualHealingPending={Boolean(aioManualHealingBusyByImage[img.id])}
-        textFillSwatches={textFillSwatches}
-        segmentEditEnabled={imageAllowsSegmentBrush}
-        segmentEditTool={segmentEditTool}
-        segmentBrushSize={segmentBrushSize}
-        segmentBrushDataUrl={
-          getAioManualImageEditState(img.id).segmentBrushDataUrl
-        }
-        onSegmentBrushChange={(nextUrl) =>
-          patchAioManualImageEditState(img.id, {
-            segmentBrushDataUrl: nextUrl,
-          })
-        }
-        inlineEditorRequestKey={inlineEditorShortcutRequestKey}
-        onManualPaintLayerChange={(nextLayer) => {
-          patchAioManualImageEditState(img.id, {
-            paintLayerDataUrl: nextLayer,
-          });
-        }}
-        onManualWandMaskChange={(nextMask) => {
-          patchAioManualImageEditState(img.id, {
-            wandMaskDataUrl: nextMask,
-          });
-        }}
-        onManualWandRequest={async (x, y) => {
-          await runAioMagicWandForImage(img.id, x, y);
-        }}
-        onManualHealingMaskCommit={async (maskDataUrl) => {
-          await applyAioHealingMaskForImage(img.id, maskDataUrl);
-        }}
-        translationNotesEnabled={translationNotesEnabled}
-      />
+          onRegionsChange={(nextRegions, selectedRegionIdOverride) =>
+            updateAioRegionsForImage(
+              img.id,
+              nextRegions,
+              selectedRegionIdOverride,
+            )
+          }
+          editable={subMode === 'manual'}
+          areaSelectionEnabled={imageAllowsAreaSelection}
+          newRegionShapeKind={resolvedAioAreaSelectionShapeKind}
+          fallbackStyle={renderDefaultStyle}
+          fontRefreshToken={renderFontRefreshToken}
+          availableRenderFonts={availableRenderFonts}
+          isCompactViewport={isCompactViewport}
+          stageBadgeKey={imageStageKey}
+          stageBadgeLabel={imageStageBadgeLabel}
+          canRewind={imageHistoryMeta.canRewind}
+          canForward={imageHistoryMeta.canForward}
+          onRewind={() => rewindAioPipelineForImage(img.id)}
+          onForward={() => forwardAioPipelineForImage(img.id)}
+          historyHint={imageHistoryHint}
+          renderStageActive={imageStageKey === 'render'}
+          onRequestRefineRegion={() => void refineActiveTypographerShape()}
+          onRequestAutoShapeRegion={applyAutoDetectedShapeToActiveRegion}
+          availableTypographyPresets={typographyPresetList}
+          availableTypographyFolders={typographyFolderList}
+          onRequestApplyPresetById={(regionId, presetId) =>
+            applyTypographyPresetToRegionById(img.id, regionId, presetId)
+          }
+          onRequestConvertShapeRegion={(regionId, kind) => {
+            if (kind === 'auto') {
+              applyAutoDetectedShapeToRegionById(img.id, regionId);
+              return;
+            }
+            convertRegionShapeById(img.id, regionId, kind);
+          }}
+          manualEditEnabled={subMode === 'manual'}
+          manualImageTool={manualImageTool}
+          manualPaintColor={manualImagePaintColor}
+          manualBrushSize={manualImageBrushSize}
+          manualBrushOpacity={manualImageBrushOpacity}
+          manualBrushBlur={manualImageBrushBlur}
+          manualPaintLayerDataUrl={
+            getAioManualImageEditState(img.id).paintLayerDataUrl
+          }
+          manualWandMaskDataUrl={
+            getAioManualImageEditState(img.id).wandMaskDataUrl
+          }
+          manualHealingPending={Boolean(aioManualHealingBusyByImage[img.id])}
+          textFillSwatches={textFillSwatches}
+          segmentEditEnabled={imageAllowsSegmentBrush}
+          segmentEditTool={segmentEditTool}
+          segmentBrushSize={segmentBrushSize}
+          segmentBrushDataUrl={
+            getAioManualImageEditState(img.id).segmentBrushDataUrl
+          }
+          onSegmentBrushChange={(nextUrl) =>
+            patchAioManualImageEditState(img.id, {
+              segmentBrushDataUrl: nextUrl,
+            })
+          }
+          inlineEditorRequestKey={inlineEditorShortcutRequestKey}
+          onManualPaintLayerChange={(nextLayer) => {
+            patchAioManualImageEditState(img.id, {
+              paintLayerDataUrl: nextLayer,
+            });
+          }}
+          onManualWandMaskChange={(nextMask) => {
+            patchAioManualImageEditState(img.id, {
+              wandMaskDataUrl: nextMask,
+            });
+          }}
+          onManualWandRequest={async (x, y) => {
+            await runAioMagicWandForImage(img.id, x, y);
+          }}
+          onManualHealingMaskCommit={async (maskDataUrl) => {
+            await applyAioHealingMaskForImage(img.id, maskDataUrl);
+          }}
+          translationNotesEnabled={translationNotesEnabled}
+        />
+      </div>
     );
   }
 

@@ -1700,6 +1700,18 @@ export const enMessages = {
     'Shrunk to the minimum font size ({size}px) — the text still overflows.',
   'dashboard.aio.review.overflow.pageReport':
     'Auto-fit: {fitted} fixed, {remaining} still overflow at the minimum size.',
+  'dashboard.compareReview.openButton': 'Compare review',
+  'dashboard.compareReview.openAction': 'Compare review (render stage)',
+  'dashboard.compareReview.title': 'Compare review',
+  'dashboard.compareReview.viewOriginal': 'Original',
+  'dashboard.compareReview.viewMask': 'Cleaning mask',
+  'dashboard.compareReview.viewRendered': 'Rendered',
+  'dashboard.compareReview.close': 'Close compare review',
+  'dashboard.compareReview.empty':
+    'Select a page in the render stage to compare it with its render.',
+  'dashboard.compareReview.noMask': 'No mask polygons on this page',
+  'dashboard.compareReview.hint':
+    'Ctrl+wheel zooms both panes · drag pans · zoom and pan are synchronized',
   'dashboard.aio.customAi.title': 'Custom AI',
   'dashboard.aio.customAi.loadingProfiles': 'Loading custom profiles...',
   'dashboard.aio.customAi.savedTranslationProfile': 'Saved Translation profile',

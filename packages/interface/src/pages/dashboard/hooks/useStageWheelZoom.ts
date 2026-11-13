@@ -16,6 +16,33 @@ export interface StageWheelZoomEvent {
 type SetZoom = (updater: (previous: number) => number) => void;
 
 /**
+ * One wheel event => signed zoom steps (the step formula has a floor of one).
+ * Shared by the stage wheel-zoom hook and the compare-review overlay so both
+ * apply the identical gesture math to the same zoom store value.
+ */
+export const zoomStepsFromWheelDeltas = (
+  deltas: readonly number[],
+): number[] =>
+  deltas.map((deltaY) => {
+    const direction = deltaY < 0 ? 1 : -1;
+    const steps = Math.max(
+      1,
+      Math.min(6, Math.round(Math.abs(deltaY) / 100)),
+    );
+    return direction * steps;
+  });
+
+/** Applies signed steps in order, clamped to the stage zoom bounds. */
+export const applyZoomSteps = (
+  previous: number,
+  steps: readonly number[],
+): number =>
+  steps.reduce(
+    (value, step) => clamp(value + step * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX),
+    previous,
+  );
+
+/**
  * Coalesces Ctrl+wheel bursts onto one frame. Every event keeps its own step
  * (the step formula has a floor of one), applied in order so the final zoom
  * matches handling the events one by one.
@@ -29,12 +56,7 @@ export const useStageWheelZoom = (
   const applySteps = useCallback(
     (steps: readonly number[]) => {
       if (steps.length === 0) return;
-      setZoom((previous) =>
-        steps.reduce(
-          (value, step) => clamp(value + step * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX),
-          previous,
-        ),
-      );
+      setZoom((previous) => applyZoomSteps(previous, steps));
     },
     [setZoom],
   );
@@ -43,12 +65,7 @@ export const useStageWheelZoom = (
     (event: StageWheelZoomEvent) => {
       if (!event.ctrlKey) return;
       event.preventDefault();
-      const direction = event.deltaY < 0 ? 1 : -1;
-      const steps = Math.max(
-        1,
-        Math.min(6, Math.round(Math.abs(event.deltaY) / 100)),
-      );
-      stepsRef.current.push(direction * steps);
+      stepsRef.current.push(...zoomStepsFromWheelDeltas([event.deltaY]));
       if (frameRef.current !== null) return;
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = null;

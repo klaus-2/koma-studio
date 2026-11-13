@@ -5,7 +5,11 @@ import CommandPalette from '../CommandPalette';
 import type { KeyboardShortcutConfigV2 } from '../../shortcuts/keyboardShortcuts';
 import type { ToolMode } from '../../types/dashboard.types';
 import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
-import { memo } from 'react';
+import { lazy, memo, Suspense } from 'react';
+
+// Compare review pulls the render-canvas pipeline; the chunk loads only when
+// the overlay is opened.
+const CompareReviewOverlay = lazy(() => import('./CompareReviewOverlay'));
 
 interface DashboardOverlaysProps {
   shortcutCenterOpen: boolean;
@@ -32,10 +36,19 @@ export default memo(function DashboardOverlays({
 }: DashboardOverlaysProps) {
   const commandPaletteOpen = useUiShellStore((s) => s.commandPaletteOpen);
   const setCommandPaletteOpen = useUiShellStore((s) => s.setCommandPaletteOpen);
+  const compareReviewOpen = useUiShellStore((s) => s.compareReviewOpen);
+  const setCompareReviewOpen = useUiShellStore(
+    (s) => s.setCompareReviewOpen,
+  );
   return (
     <>
       {commandPaletteOpen && (
         <CommandPalette onClose={() => setCommandPaletteOpen(false)} />
+      )}
+      {compareReviewOpen && (
+        <Suspense fallback={null}>
+          <CompareReviewOverlay onClose={() => setCompareReviewOpen(false)} />
+        </Suspense>
       )}
       {shortcutCenterOpen && (
         <ShortcutCenterModal

@@ -1,7 +1,11 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useStageWheelZoom } from './useStageWheelZoom';
+import {
+  applyZoomSteps,
+  useStageWheelZoom,
+  zoomStepsFromWheelDeltas,
+} from './useStageWheelZoom';
 
 type FrameCallback = (time: number) => void;
 
@@ -82,5 +86,22 @@ describe('useStageWheelZoom', () => {
     expect(setZoom).toHaveBeenCalledTimes(1);
     const updater = setZoom.mock.calls[0]?.[0];
     expect(updater?.(1)).toBeCloseTo(1.1);
+  });
+});
+
+describe('zoomStepsFromWheelDeltas', () => {
+  it('maps deltas to signed steps with a floor of one', () => {
+    expect(zoomStepsFromWheelDeltas([-1, -120, 120, 700])).toEqual([
+      1, 1, -1, -6,
+    ]);
+  });
+});
+
+describe('applyZoomSteps', () => {
+  it('applies steps in order and clamps to the stage zoom bounds', () => {
+    expect(applyZoomSteps(1, [1, 1, 1])).toBeCloseTo(1.3);
+    expect(applyZoomSteps(4.95, [1, 1])).toBeCloseTo(5);
+    expect(applyZoomSteps(0.15, [-1, -1])).toBeCloseTo(0.1);
+    expect(applyZoomSteps(1, [])).toBe(1);
   });
 });

@@ -8,6 +8,8 @@ import {
   type KeyboardShortcutConfigV2,
 } from '../../../shortcuts/keyboardShortcuts';
 import type {
+  ComparePanOffset,
+  CompareReviewView,
   SubMode,
   ToolMode,
   ViewMode,
@@ -36,6 +38,11 @@ interface UiShellStore {
   /* ── Command palette ── */
   commandPaletteOpen: boolean;
 
+  /* ── Compare review overlay (render stage) ── */
+  compareReviewOpen: boolean;
+  compareReviewView: CompareReviewView;
+  comparePanOffset: ComparePanOffset;
+
   /* ── Misc shell state ── */
   emptyPreviewTipIndex: number;
   inlineEditorShortcutRequestKey: string | null;
@@ -54,6 +61,11 @@ interface UiShellStore {
   ) => void;
   setKeyboardShortcutConfig: (config: KeyboardShortcutConfigV2) => void;
   setCommandPaletteOpen: (open: boolean) => void;
+  setCompareReviewOpen: (open: boolean) => void;
+  setCompareReviewView: (view: CompareReviewView) => void;
+  setComparePanOffset: (
+    pan: ComparePanOffset | ((prev: ComparePanOffset) => ComparePanOffset),
+  ) => void;
   setEmptyPreviewTipIndex: (
     index: number | ((prev: number) => number),
   ) => void;
@@ -73,6 +85,9 @@ export const useUiShellStore = create<UiShellStore>()(
       forcedTourDropdown: null,
       keyboardShortcutConfig: loadKeyboardShortcutConfig(),
       commandPaletteOpen: false,
+      compareReviewOpen: false,
+      compareReviewView: 'original',
+      comparePanOffset: { x: 0, y: 0 },
       emptyPreviewTipIndex: 0,
       inlineEditorShortcutRequestKey: null,
 
@@ -107,6 +122,13 @@ export const useUiShellStore = create<UiShellStore>()(
         set({ keyboardShortcutConfig }),
       setCommandPaletteOpen: (commandPaletteOpen) =>
         set({ commandPaletteOpen }),
+      setCompareReviewOpen: (compareReviewOpen) => set({ compareReviewOpen }),
+      setCompareReviewView: (compareReviewView) => set({ compareReviewView }),
+      setComparePanOffset: (pan) =>
+        set((state) => ({
+          comparePanOffset:
+            typeof pan === 'function' ? pan(state.comparePanOffset) : pan,
+        })),
       setEmptyPreviewTipIndex: (emptyPreviewTipIndex) =>
         set((state) => ({
           emptyPreviewTipIndex:

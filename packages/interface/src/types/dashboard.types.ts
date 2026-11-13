@@ -49,6 +49,15 @@ export type TranslatorVisualProcessingMode = "standard" | "ai_sfx";
 
 export type ViewMode = "paginated" | "long_strip";
 
+/** View shown by the render-stage compare-review overlay's main pane. */
+export type CompareReviewView = "original" | "mask" | "rendered";
+
+/** Shared pan offset applied identically to both compare-review panes. */
+export interface ComparePanOffset {
+  x: number;
+  y: number;
+}
+
 export type SegmentEditTool = "select" | "brush" | "eraser";
 
 export type ManualImageEditTool = "none" | "paint" | "paint_eraser" | "healing_brush" | "magic_wand";

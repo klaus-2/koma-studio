@@ -35,6 +35,7 @@ import type {
   IngestArchiveManifestEntry,
   LoadedImage,
   ProcessableMode,
+  ToolMode,
   TranslatorVisualRunMeta,
 } from '../../../types/dashboard.types';
 import { useImageCollectionStore } from '../stores/image-collection-store';
@@ -392,6 +393,46 @@ interface UseDashboardImageCollectionArgs {
   setTranslatorProcessedBaseByImage: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
 
+/**
+ * Pure preview-src resolution shared by the dashboard's `getPreviewSrc`
+ * callback and the compare-review overlay (which renders the exact same
+ * base image as the render stage without a hook-bound callback).
+ */
+export const resolveImagePreviewSrc = (
+  img: LoadedImage,
+  mode: ToolMode,
+): string => {
+  if (INFO_MODES.includes(mode)) return img.thumbnailUrl ?? img.url;
+  const manualToolsState = useManualToolsStore.getState();
+  const cleanerState = useCleanerStore.getState();
+  const translatorState = useTranslatorStore.getState();
+  if (mode === 'aio') {
+    const manualState = manualToolsState.aioManualImageEditsByImage[img.id];
+    if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
+  }
+  if (mode === 'cleaner') {
+    const manualState =
+      cleanerState.cleanerManualImageEditsByImage[img.id];
+    if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
+    const processedBase = cleanerState.cleanerProcessedBaseByImage[img.id];
+    if (processedBase) return processedBase;
+  }
+  const translatorProcessedBase =
+    translatorState.translatorProcessedBaseByImage[img.id];
+  if (mode === 'translator' && translatorProcessedBase) {
+    return translatorProcessedBase;
+  }
+  const scopedDownload = useExportStore
+    .getState()
+    .downloadItems.find(
+      (item) => item.scope === mode && item.sourceImageId === img.id,
+    );
+  if (mode === 'raw') {
+    return scopedDownload?.previewUrl ?? img.thumbnailUrl ?? img.url;
+  }
+  return scopedDownload?.previewUrl ?? img.url;
+};
+
 export function useDashboardImageCollection({
   setDownloadItems,
   setLastActionScope,
@@ -498,38 +539,7 @@ export function useDashboardImageCollection({
   }, [setDownloadItems, setLastActionScope]);
 
   const getPreviewSrc = useCallback(
-    (img: LoadedImage) => {
-      if (INFO_MODES.includes(mode)) return img.thumbnailUrl ?? img.url;
-      const manualToolsState = useManualToolsStore.getState();
-      const cleanerState = useCleanerStore.getState();
-      const translatorState = useTranslatorStore.getState();
-      if (mode === 'aio') {
-        const manualState = manualToolsState.aioManualImageEditsByImage[img.id];
-        if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
-      }
-      if (mode === 'cleaner') {
-        const manualState =
-          cleanerState.cleanerManualImageEditsByImage[img.id];
-        if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
-        if (cleanerState.cleanerProcessedBaseByImage[img.id])
-          return cleanerState.cleanerProcessedBaseByImage[img.id]!;
-      }
-      if (
-        mode === 'translator' &&
-        translatorState.translatorProcessedBaseByImage[img.id]
-      ) {
-        return translatorState.translatorProcessedBaseByImage[img.id]!;
-      }
-      const scopedDownload = useExportStore
-        .getState()
-        .downloadItems.find(
-          (item) => item.scope === mode && item.sourceImageId === img.id,
-        );
-      if (mode === 'raw') {
-        return scopedDownload?.previewUrl ?? img.thumbnailUrl ?? img.url;
-      }
-      return scopedDownload?.previewUrl ?? img.url;
-    },
+    (img: LoadedImage) => resolveImagePreviewSrc(img, mode),
     [mode],
   );
 

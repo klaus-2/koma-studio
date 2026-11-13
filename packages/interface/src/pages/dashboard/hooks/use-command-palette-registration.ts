@@ -57,6 +57,9 @@ export function useCommandPaletteRegistration({
 }: UseCommandPaletteRegistrationArgs): void {
   const setActiveStageTab = useUiShellStore((s) => s.setActiveStageTab);
   const setViewMode = useUiShellStore((s) => s.setViewMode);
+  const setCompareReviewOpen = useUiShellStore(
+    (s) => s.setCompareReviewOpen,
+  );
 
   useEffect(() => {
     const actions: PaletteAction[] = [
@@ -100,6 +103,12 @@ export function useCommandPaletteRegistration({
         category: 'pages',
         run: () => setViewMode('long_strip'),
       },
+      {
+        id: 'compareReview',
+        titleKey: 'dashboard.compareReview.openAction',
+        category: 'tools',
+        run: () => setCompareReviewOpen(true),
+      },
     ];
     registerPaletteActions(actions);
   }, [
@@ -108,5 +117,6 @@ export function useCommandPaletteRegistration({
     openShortcutCenter,
     setActiveStageTab,
     setViewMode,
+    setCompareReviewOpen,
   ]);
 }
