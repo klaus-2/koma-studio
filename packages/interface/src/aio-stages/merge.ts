@@ -72,6 +72,7 @@ export function mergeTranslationIntoRegions(
       translationNotes: normalizeTranslationNotes(match.translation_notes),
       translationNoteOverlay: undefined,
       translatorModelKey: match.translator_model_key,
+      translationSource: match.translation_source ?? null,
     };
   });
 }

@@ -1649,6 +1649,8 @@ export const esMessages: TranslationCatalog = {
   'dashboard.aio.translation.memoryToggle': 'Reutilizar traducciones de la memoria local',
   'dashboard.aio.translation.memory':
     'La lectura es opcional (desactivada de forma predeterminada): las traducciones anteriores se reutilizan de tu base de datos local solo mientras esté activada. Escribir en la memoria local siempre está activo y no envía nada fuera del dispositivo.',
+  'dashboard.aio.translation.tmHitCount':
+    'Aciertos de TM: {hits} / {total} regiones',
   'dashboard.aio.customAi.title': 'IA personalizada',
   'dashboard.aio.customAi.loadingProfiles':
     'Cargando perfiles personalizados...',

@@ -1487,6 +1487,8 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.aio.glossary.neverTranslate': '不翻譯',
   'dashboard.aio.translation.memoryToggle': '重複使用本地記憶中的翻譯',
   'dashboard.aio.translation.memory': '讀取為可選（預設關閉）：僅在此設定開啟時，才會從本機資料庫重複使用過去的翻譯。寫入本地記憶始終開啟，且不會向裝置外傳送任何內容。',
+  'dashboard.aio.translation.tmHitCount':
+    '記憶命中：{hits} / {total} 個區域',
   'dashboard.aio.customAi.title': '自訂 AI',
   'dashboard.aio.customAi.loadingProfiles': '正在載入自訂設定檔...',
   'dashboard.aio.customAi.savedTranslationProfile': '已儲存的翻譯設定檔',

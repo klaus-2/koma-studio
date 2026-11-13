@@ -1625,6 +1625,8 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.aio.translation.memoryToggle': 'ローカルメモリの翻訳を再利用',
   'dashboard.aio.translation.memory':
     '読み込みはオプトイン（既定ではオフ）：この設定が有効な間だけ、過去の翻訳をローカルデータベースから再利用します。ローカルメモリへの書き込みは常に行われ、端末の外には何も送信されません。',
+  'dashboard.aio.translation.tmHitCount':
+    'TMヒット: {hits} / {total}領域',
   'dashboard.aio.customAi.title': 'カスタムAI',
   'dashboard.aio.customAi.loadingProfiles':
     'カスタムプロファイルを読み込み中...',

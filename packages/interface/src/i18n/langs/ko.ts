@@ -1577,6 +1577,8 @@ export const koMessages: TranslationCatalog = {
   'dashboard.aio.translation.memoryToggle': '로컬 메모리의 번역 재사용',
   'dashboard.aio.translation.memory':
     '읽기는 옵트인(기본적으로 꺼짐): 이 설정이 켜져 있는 동안에만 이전 번역을 로컬 데이터베이스에서 재사용합니다. 로컬 메모리에 쓰기는 항상 활성화되어 있으며 기기 밖으로 아무것도 전송하지 않습니다.',
+  'dashboard.aio.translation.tmHitCount':
+    'TM 히트: {hits} / {total}개 영역',
   'dashboard.aio.customAi.title': '사용자 지정 AI',
   'dashboard.aio.customAi.loadingProfiles': '사용자 지정 프로필 로딩 중...',
   'dashboard.aio.customAi.savedTranslationProfile': '저장된 번역 프로필',

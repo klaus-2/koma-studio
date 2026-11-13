@@ -70,6 +70,9 @@ class TranslationRecord(TypedDict):
     detector_model_key: str
     ocr_model_key: str
     translator_model_key: str
+    # Set by run_cached_translation on persistent-cache ("cache"), TM ("tm")
+    # and fresh engine ("engine") answers; absent elsewhere.
+    translation_source: NotRequired[str]
 
 
 class TranslationSeed(TypedDict):

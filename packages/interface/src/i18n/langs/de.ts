@@ -1669,6 +1669,8 @@ export const deMessages: TranslationCatalog = {
   'dashboard.aio.translation.memoryToggle': 'Übersetzungen aus dem lokalen Speicher wiederverwenden',
   'dashboard.aio.translation.memory':
     'Lesen ist Opt-in (standardmäßig aus): Frühere Übersetzungen werden nur aus Ihrer lokalen Datenbank wiederverwendet, solange diese Option aktiv ist. Das Schreiben in den lokalen Speicher ist immer aktiv und sendet nichts vom Gerät.',
+  'dashboard.aio.translation.tmHitCount':
+    'TM-Treffer: {hits} / {total} Regionen',
   'dashboard.aio.customAi.title': 'Benutzerdefinierte KI',
   'dashboard.aio.customAi.loadingProfiles':
     'Benutzerdefinierte Profile werden geladen...',

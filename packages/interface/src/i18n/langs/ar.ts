@@ -1563,6 +1563,8 @@ export const arMessages: TranslationCatalog = {
   'dashboard.aio.translation.memoryToggle': 'إعادة استخدام الترجمات من الذاكرة المحلية',
   'dashboard.aio.translation.memory':
     'القراءة اختيارية (معطلة افتراضيًا): تُعاد استخدام الترجمات السابقة من قاعدة بياناتك المحلية فقط أثناء تفعيل هذا الخيار. الكتابة إلى الذاكرة المحلية مفعّلة دائمًا ولا ترسل أي شيء خارج الجهاز.',
+  'dashboard.aio.translation.tmHitCount':
+    'مطابقات الذاكرة: {hits} / {total} من المناطق',
   'dashboard.aio.customAi.title': 'AI مخصص',
   'dashboard.aio.customAi.loadingProfiles': 'جارٍ تحميل الملفات المخصصة...',
   'dashboard.aio.customAi.savedTranslationProfile': 'ملف ترجمة محفوظ',

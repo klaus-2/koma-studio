@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 
 MINI_BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -16,6 +17,7 @@ from models.translation.base_translator import (  # noqa: E402
     TranslationInputRegion,
     TranslationTextResult,
 )
+from pipelines import translation_stage  # noqa: E402
 from pipelines.cache_manager import CacheManager  # noqa: E402
 from pipelines.translation_stage import (  # noqa: E402
     CachedTranslationRequest,
@@ -80,6 +82,7 @@ def _request(
     settings: object = None,
     text: str = "konnichiwa",
     mode: str = "default",
+    model_key: str = "fake",
 ) -> CachedTranslationRequest:
     region = TranslationRegionRequest(
         id="r1",
@@ -89,7 +92,7 @@ def _request(
         ocr_model_key="ocr",
     )
     return CachedTranslationRequest(
-        model_key="fake",
+        model_key=model_key,
         source_language="ja",
         target_language="en",
         seeds=(seed_from_request(region),),
@@ -170,6 +173,49 @@ class TranslationMemoryStageTests(unittest.TestCase):
             result.records[0]["translator_model_key"], "m2m100_1_2b_ct2"
         )
         self.assertEqual(self._tm_hits(), 1)
+
+    def test_second_run_reuses_tm_and_stamps_translation_source(self) -> None:
+        """Cross-source reuse: the first run's engine answer feeds the memory;
+        the second run (persistent-cache miss through a different model key,
+        same line) is served by the TM and stamped "tm" without an engine
+        call. The first run's fresh answer is stamped "engine"."""
+        settings = clamp_llm_request_settings({"translation_memory_enabled": True})
+        engine_one = _FakeEngine("fake")
+
+        first = _run(_request(settings=settings), engine_one, self.store)
+
+        self.assertEqual(engine_one.calls, 1)
+        self.assertEqual(first.records[0]["translated_text"], "ok-konnichiwa")
+        self.assertEqual(first.records[0]["translation_source"], "engine")
+
+        engine_two = _FakeEngine("fake-two")
+        second = _run(
+            _request(settings=settings, model_key="fake-two"), engine_two, self.store
+        )
+
+        self.assertEqual(engine_two.calls, 0)
+        self.assertEqual(second.records[0]["translated_text"], "ok-konnichiwa")
+        self.assertEqual(second.records[0]["translation_source"], "tm")
+        self.assertEqual(self._tm_hits(), 1)
+
+    def test_reads_off_never_consult_tm_and_stamp_cache_or_engine(self) -> None:
+        """Toggle OFF => zero TM reads: the batched lookup helper is never
+        called even though a TM entry for the line exists, and the served
+        record keeps a non-TM provenance stamp."""
+        self.store.put_tm(
+            [TMWrite(tm_key("konnichiwa"), "ja", "en", "TM translation", "m2m100_1_2b_ct2")]
+        )
+        engine = _FakeEngine("fake")
+        settings = clamp_llm_request_settings({"translation_memory_enabled": False})
+
+        with unittest.mock.patch.object(
+            translation_stage, "_store_lookup_tm", return_value={}
+        ) as lookup_tm:
+            result = _run(_request(settings=settings), engine, self.store)
+
+        lookup_tm.assert_not_called()
+        self.assertEqual(engine.calls, 1)
+        self.assertIn(result.records[0]["translation_source"], ("cache", "engine"))
 
     def test_writes_are_always_on_outside_sfx_even_when_reads_off(self) -> None:
         engine = _FakeEngine("fake")

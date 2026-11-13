@@ -181,6 +181,7 @@ export interface TranslationApiResponse {
     detector_model_key: string;
     ocr_model_key: string;
     translator_model_key: string;
+    translation_source?: "tm" | "cache" | "engine" | null;
   }>;
 }
 

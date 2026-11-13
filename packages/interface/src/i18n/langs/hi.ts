@@ -1617,6 +1617,8 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.aio.translation.memoryToggle': 'स्थानीय मेमोरी से अनुवाद पुनः उपयोग करें',
   'dashboard.aio.translation.memory':
     'पढ़ना वैकल्पिक है (डिफ़ॉल्ट रूप से बंद): यह सेटिंग चालू रहने तक ही पिछले अनुवाद आपके स्थानीय डेटाबेस से पुनः उपयोग किए जाते हैं। स्थानीय मेमोरी में लिखना हमेशा सक्रिय रहता है और डिवाइस के बाहर कुछ भी नहीं भेजा जाता।',
+  'dashboard.aio.translation.tmHitCount':
+    'TM हिट: {hits} / {total} क्षेत्र',
   'dashboard.aio.customAi.title': 'AI Kustom',
   'dashboard.aio.customAi.loadingProfiles': 'Memuat profil kustom...',
   'dashboard.aio.customAi.savedTranslationProfile':

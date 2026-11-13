@@ -1620,6 +1620,8 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.aio.translation.memoryToggle': 'Reutilizar traduções da memória local',
   'dashboard.aio.translation.memory':
     'Leitura opcional (desativada por predefinição): traduções anteriores só são reutilizadas da sua base de dados local enquanto esta opção estiver ativa. A gravação na memória local está sempre ativa e nada é enviado para fora do dispositivo.',
+  'dashboard.aio.translation.tmHitCount':
+    'Correspondências TM: {hits} / {total} regiões',
   'dashboard.aio.customAi.title': 'Custom AI',
   'dashboard.aio.customAi.loadingProfiles': 'Carregando perfis custom...',
   'dashboard.aio.customAi.savedTranslationProfile': 'Perfil salvo de Tradução',

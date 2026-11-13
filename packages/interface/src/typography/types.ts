@@ -57,6 +57,7 @@ export interface TypographyRegion {
   translationNotes?: string[];
   translationNoteOverlay?: TranslationNoteOverlayConfig;
   translatorModelKey?: string;
+  translationSource?: "tm" | "cache" | "engine" | null;
   segmentBoxes?: TypographyBounds[];
   mergedSegmentBoxes?: TypographyBounds[];
   segmentModelKey?: string;

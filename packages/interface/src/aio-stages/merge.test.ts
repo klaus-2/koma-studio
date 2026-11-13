@@ -69,6 +69,38 @@ describe('mergeTranslationIntoRegions', () => {
     expect(next[0]?.translationNoteOverlay).toBeUndefined();
     expect(next[0]?.translatorModelKey).toBe('t');
   });
+
+  it('copies translation_source provenance onto the merged region', () => {
+    const next = mergeTranslationIntoRegions(
+      [region('a'), region('b', { translationSource: 'tm' })],
+      {
+        regions: [
+          {
+            id: 'a',
+            source_text: 'olá',
+            translated_text: 'hi',
+            source: 'model',
+            detector_model_key: 'd',
+            ocr_model_key: 'o',
+            translator_model_key: 't',
+            translation_source: 'tm',
+          },
+          {
+            id: 'b',
+            source_text: 'olá',
+            translated_text: 'hello',
+            source: 'model',
+            detector_model_key: 'd',
+            ocr_model_key: 'o',
+            translator_model_key: 't',
+            translation_source: null,
+          },
+        ],
+      },
+    );
+    expect(next[0]?.translationSource).toBe('tm');
+    expect(next[1]?.translationSource).toBeNull();
+  });
 });
 
 describe('mergeSegmentIntoRegions', () => {

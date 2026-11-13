@@ -1652,6 +1652,8 @@ export const enMessages = {
     'Reuse translations from the local memory',
   'dashboard.aio.translation.memory':
     'Reads are opt-in (default off): past translations are reused from your local database only while this is on. Writing to the local memory store is always active and sends nothing off-device.',
+  'dashboard.aio.translation.tmHitCount':
+    'TM hits: {hits} / {total} regions',
   'dashboard.aio.translation.activeConfigFor':
     'Active configuration for: {value}.',
   'dashboard.aio.glossary.title': 'Glossary',

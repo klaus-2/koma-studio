@@ -167,6 +167,7 @@ def to_region_result(record: TranslationRecord) -> TranslationRegionResult:
         detector_model_key=record["detector_model_key"],
         ocr_model_key=record["ocr_model_key"],
         translator_model_key=record["translator_model_key"],
+        translation_source=record.get("translation_source"),
     )
 
 
@@ -338,6 +339,7 @@ def _consult_persistent_cache(
             detector_model_key=seed["detector_model_key"],
             ocr_model_key=seed["ocr_model_key"],
             translator_model_key=row.engine_key or fallback_engine_key,
+            translation_source="cache",
         )
     return hits, remaining, keys_by_id
 
@@ -398,6 +400,7 @@ def _consult_translation_memory(
             detector_model_key=seed["detector_model_key"],
             ocr_model_key=seed["ocr_model_key"],
             translator_model_key=entry.model_key or fallback_engine_key,
+            translation_source="tm",
         )
         bumped[tm_key_value] = None
     if bumped:
@@ -793,6 +796,7 @@ async def run_cached_translation(
                         detector_model_key=member["detector_model_key"],
                         ocr_model_key=member["ocr_model_key"],
                         translator_model_key=item.translator_model_key or engine_key,
+                        translation_source="engine",
                     )
                 )
         _store_put_tm(translation_store, tm_writes)

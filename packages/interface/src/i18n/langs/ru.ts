@@ -1645,6 +1645,8 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.aio.translation.memoryToggle': 'Повторно использовать переводы из локальной памяти',
   'dashboard.aio.translation.memory':
     'Чтение — по выбору (по умолчанию выключено): прошлые переводы повторно используются из локальной базы, только пока параметр включён. Запись в локальную память выполняется всегда и ничего не отправляет за пределы устройства.',
+  'dashboard.aio.translation.tmHitCount':
+    'Совпадения TM: {hits} / {total} регионов',
   'dashboard.aio.customAi.title': 'Пользовательский ИИ',
   'dashboard.aio.customAi.loadingProfiles':
     'Загрузка пользовательских профилей...',

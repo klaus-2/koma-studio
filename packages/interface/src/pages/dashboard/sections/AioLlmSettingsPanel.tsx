@@ -8,6 +8,7 @@ import { clampLlmRequestSettings } from '../../../utils/customLlm';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { AioGlossaryEditor } from './AioGlossaryEditor';
 import { AioChecklistOption } from './AioRightPanel.skin';
+import TmHitCountBadge from './TmHitCountBadge';
 
 interface AioLlmSettingsPanelProps {
   supportSummary: string;
@@ -109,6 +110,7 @@ export default memo(function AioLlmSettingsPanel({
               )
             }
           />
+          <TmHitCountBadge noir={noir} />
           <AioChecklistOption
             noir={noir}
             checked={llmImageInputEnabled}

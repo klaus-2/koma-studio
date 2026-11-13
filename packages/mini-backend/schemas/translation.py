@@ -27,6 +27,9 @@ class TranslationRegionResult(SchemaModel):
     detector_model_key: str = ""
     ocr_model_key: str = ""
     translator_model_key: str
+    # Provenance of the answer: "cache" | "tm" | "engine"; None when the
+    # record did not pass through a stamped source (passthrough, empty).
+    translation_source: str | None = None
 
 
 class TranslationResponse(SchemaModel):

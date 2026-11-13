@@ -1623,6 +1623,8 @@ export const frMessages: TranslationCatalog = {
   'dashboard.aio.translation.memoryToggle': 'Réutiliser les traductions de la mémoire locale',
   'dashboard.aio.translation.memory':
     'La lecture est facultative (désactivée par défaut) : les traductions passées ne sont réutilisées depuis votre base locale que lorsque cette option est active. L’écriture dans la mémoire locale est toujours active et n’envoie rien hors de l’appareil.',
+  'dashboard.aio.translation.tmHitCount':
+    'Correspondances TM : {hits} / {total} régions',
   'dashboard.aio.customAi.title': 'IA personnalisée',
   'dashboard.aio.customAi.loadingProfiles':
     'Chargement des profils personnalisés...',
