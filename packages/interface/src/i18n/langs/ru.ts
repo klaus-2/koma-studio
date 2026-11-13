@@ -3420,6 +3420,9 @@ export const ruMessages: TranslationCatalog = {
   'shortcuts.openShortcutModal.label': 'Открыть центр горячих клавиш',
   'shortcuts.openShortcutModal.description':
     'Открывает окно горячих клавиш и настроек.',
+  'shortcuts.openCommandPalette.label': 'Открыть палитру команд',
+  'shortcuts.openCommandPalette.description':
+    'Открывает палитру команд (Ctrl+K) для выполнения действий.',
   'shortcuts.toggleToolsPanel.label': 'Показать/скрыть панель инструментов',
   'shortcuts.toggleToolsPanel.description':
     'Переключает видимость панели инструментов.',
@@ -3572,6 +3575,20 @@ export const ruMessages: TranslationCatalog = {
   'shortcuts.toolResetEdits.label': 'Сбросить ручные правки',
   'shortcuts.toolResetEdits.description':
     'Отменяет все ручные правки на активном изображении в клинере или AIO.',
+  'commandPalette.dialogAria': 'Палитра команд',
+  'commandPalette.placeholder': 'Поиск команд...',
+  'commandPalette.inputAria': 'Поиск команд',
+  'commandPalette.close': 'Закрыть палитру',
+  'commandPalette.noResults': 'Нет команд для "{query}"',
+  'commandPalette.results': 'Результаты ({count})',
+  'commandPalette.recent': 'Недавние',
+  'commandPalette.category.stages': 'Этапы',
+  'commandPalette.category.tools': 'Инструменты',
+  'commandPalette.category.pages': 'Страницы',
+  'commandPalette.category.styles': 'Стили',
+  'commandPalette.footerNavigate': 'навигация',
+  'commandPalette.footerRun': 'запустить',
+  'commandPalette.footerClose': 'закрыть',
   'dashboard.coachmark.stage.titleSuffix': 'основной этап',
   'dashboard.coachmark.stage.bodyWithImages':
     'Здесь вы видите активное изображение, проверяете визуальный результат режима <strong>{modeLabel}</strong> и вносите коррективы с мгновенной обратной связью.',

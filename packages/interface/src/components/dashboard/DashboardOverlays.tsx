@@ -1,8 +1,10 @@
 import BugReportModal from '../BugReportModal';
 import ShortcutCenterModal from '../ShortcutCenterModal';
+import CommandPalette from '../CommandPalette';
 
 import type { KeyboardShortcutConfigV2 } from '../../shortcuts/keyboardShortcuts';
 import type { ToolMode } from '../../types/dashboard.types';
+import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
 import { memo } from 'react';
 
 interface DashboardOverlaysProps {
@@ -28,8 +30,13 @@ export default memo(function DashboardOverlays({
   statusMessage,
   userEmail,
 }: DashboardOverlaysProps) {
+  const commandPaletteOpen = useUiShellStore((s) => s.commandPaletteOpen);
+  const setCommandPaletteOpen = useUiShellStore((s) => s.setCommandPaletteOpen);
   return (
     <>
+      {commandPaletteOpen && (
+        <CommandPalette onClose={() => setCommandPaletteOpen(false)} />
+      )}
       {shortcutCenterOpen && (
         <ShortcutCenterModal
           open={shortcutCenterOpen}

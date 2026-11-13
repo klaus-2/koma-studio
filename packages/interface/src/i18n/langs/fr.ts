@@ -3370,6 +3370,9 @@ export const frMessages: TranslationCatalog = {
   'shortcuts.openShortcutModal.label': 'Ouvrir le centre des raccourcis',
   'shortcuts.openShortcutModal.description':
     'Ouvre la fenêtre de raccourcis et de configuration.',
+  'shortcuts.openCommandPalette.label': 'Ouvrir la palette de commandes',
+  'shortcuts.openCommandPalette.description':
+    'Ouvre la palette de commandes (Ctrl+K) pour exécuter des actions.',
   'shortcuts.toggleToolsPanel.label': "Afficher/masquer le panneau d'outils",
   'shortcuts.toggleToolsPanel.description':
     "Bascule la visibilité du panneau d'outils.",
@@ -3518,6 +3521,20 @@ export const frMessages: TranslationCatalog = {
   'shortcuts.toolResetEdits.label': 'Réinitialiser les modifications manuelles',
   'shortcuts.toolResetEdits.description':
     "Annule toutes les modifications manuelles sur l'image active dans le Cleaner ou l'AIO.",
+  'commandPalette.dialogAria': 'Palette de commandes',
+  'commandPalette.placeholder': 'Rechercher des commandes...',
+  'commandPalette.inputAria': 'Rechercher des commandes',
+  'commandPalette.close': 'Fermer la palette',
+  'commandPalette.noResults': 'Aucune commande pour "{query}"',
+  'commandPalette.results': 'Résultats ({count})',
+  'commandPalette.recent': 'Récents',
+  'commandPalette.category.stages': 'Étapes',
+  'commandPalette.category.tools': 'Outils',
+  'commandPalette.category.pages': 'Pages',
+  'commandPalette.category.styles': 'Styles',
+  'commandPalette.footerNavigate': 'naviguer',
+  'commandPalette.footerRun': 'exécuter',
+  'commandPalette.footerClose': 'fermer',
   'dashboard.coachmark.stage.titleSuffix': 'scène principale',
   'dashboard.coachmark.stage.bodyWithImages':
     "Ici, vous voyez l'image active, validez le résultat visuel du mode <strong>{modeLabel}</strong> et effectuez des ajustements avec un retour immédiat.",

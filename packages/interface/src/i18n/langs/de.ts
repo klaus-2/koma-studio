@@ -3460,6 +3460,9 @@ export const deMessages: TranslationCatalog = {
   'shortcuts.openShortcutModal.label': 'Tastenkürzel-Center öffnen',
   'shortcuts.openShortcutModal.description':
     'Öffnet das Tastenkürzel- und Konfigurations-Modal.',
+  'shortcuts.openCommandPalette.label': 'Befehlspalette öffnen',
+  'shortcuts.openCommandPalette.description':
+    'Öffnet die Befehlspalette (Ctrl+K) zum Ausführen von Aktionen.',
   'shortcuts.toggleToolsPanel.label': 'Werkzeugbereich ein-/ausblenden',
   'shortcuts.toggleToolsPanel.description':
     'Schaltet die Sichtbarkeit des Werkzeugbereichs um.',
@@ -3612,6 +3615,20 @@ export const deMessages: TranslationCatalog = {
   'shortcuts.toolResetEdits.label': 'Manuelle Bearbeitungen zurücksetzen',
   'shortcuts.toolResetEdits.description':
     'Macht alle manuellen Bearbeitungen am aktiven Bild im Cleaner oder AIO rückgängig.',
+  'commandPalette.dialogAria': 'Befehlspalette',
+  'commandPalette.placeholder': 'Befehle suchen...',
+  'commandPalette.inputAria': 'Befehle suchen',
+  'commandPalette.close': 'Palette schließen',
+  'commandPalette.noResults': 'Keine Befehle für "{query}"',
+  'commandPalette.results': 'Ergebnisse ({count})',
+  'commandPalette.recent': 'Zuletzt verwendet',
+  'commandPalette.category.stages': 'Stufen',
+  'commandPalette.category.tools': 'Werkzeuge',
+  'commandPalette.category.pages': 'Seiten',
+  'commandPalette.category.styles': 'Stile',
+  'commandPalette.footerNavigate': 'navigieren',
+  'commandPalette.footerRun': 'ausführen',
+  'commandPalette.footerClose': 'schließen',
   'dashboard.coachmark.stage.titleSuffix': 'Hauptansicht',
   'dashboard.coachmark.stage.bodyWithImages':
     'Hier siehst du das aktive Bild, überprüfst das visuelle Ergebnis des Modus <strong>{modeLabel}</strong> und nimmst Anpassungen mit sofortigem Feedback vor.',

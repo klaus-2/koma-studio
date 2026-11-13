@@ -32,6 +32,7 @@ export type ShortcutModeGuard =
 
 export type ShortcutActionId =
   | "openShortcutModal"
+  | "openCommandPalette"
   | "toggleToolsPanel"
   | "rotateActiveImage"
   | "workspaceSave"
@@ -560,6 +561,15 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
   },
 
   // ─── Tool Palette ──────────────────────────────────────────────────────────
+  {
+    id: "openCommandPalette",
+    label: "shortcuts.openCommandPalette.label",
+    description: "shortcuts.openCommandPalette.description",
+    category: "palette",
+    modeGuard: "dashboard",
+    defaultCombo: ["CTRL", "K"],
+    isEnabled: () => true,
+  },
   {
     id: "duplicateRegion",
     label: "shortcuts.duplicateRegion.label",

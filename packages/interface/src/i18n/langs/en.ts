@@ -3001,6 +3001,9 @@ export const enMessages = {
   'shortcuts.openShortcutModal.label': 'Open shortcut center',
   'shortcuts.openShortcutModal.description':
     'Opens the shortcuts and configuration modal.',
+  'shortcuts.openCommandPalette.label': 'Open command palette',
+  'shortcuts.openCommandPalette.description':
+    'Opens the Ctrl+K command palette to run actions.',
   'shortcuts.toggleToolsPanel.label': 'Show/hide tools panel',
   'shortcuts.toggleToolsPanel.description':
     'Toggles the visibility of the tools panel.',
@@ -3147,6 +3150,20 @@ export const enMessages = {
   'shortcuts.toolResetEdits.label': 'Reset manual edits',
   'shortcuts.toolResetEdits.description':
     'Undoes all manual edits on the active image in the Cleaner or AIO.',
+  'commandPalette.dialogAria': 'Command palette',
+  'commandPalette.placeholder': 'Search commands...',
+  'commandPalette.inputAria': 'Search commands',
+  'commandPalette.close': 'Close palette',
+  'commandPalette.noResults': 'No commands for "{query}"',
+  'commandPalette.results': 'Results ({count})',
+  'commandPalette.recent': 'Recent',
+  'commandPalette.category.stages': 'Stages',
+  'commandPalette.category.tools': 'Tools',
+  'commandPalette.category.pages': 'Pages',
+  'commandPalette.category.styles': 'Styles',
+  'commandPalette.footerNavigate': 'navigate',
+  'commandPalette.footerRun': 'run',
+  'commandPalette.footerClose': 'close',
   'dashboard.coachmark.stage.titleSuffix': 'main stage',
   'dashboard.coachmark.stage.bodyWithImages':
     'Here you see the active image, validate the visual result of the <strong>{modeLabel}</strong> mode, and make adjustments with immediate feedback.',

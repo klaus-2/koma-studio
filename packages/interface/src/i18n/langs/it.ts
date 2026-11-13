@@ -3397,6 +3397,9 @@ export const itMessages: TranslationCatalog = {
   'shortcuts.openShortcutModal.label': 'Apri centro scorciatoie',
   'shortcuts.openShortcutModal.description':
     'Apre la finestra di scorciatoie e configurazione.',
+  'shortcuts.openCommandPalette.label': 'Apri la tavolozza dei comandi',
+  'shortcuts.openCommandPalette.description':
+    'Apre la tavolozza dei comandi (Ctrl+K) per eseguire azioni.',
   'shortcuts.toggleToolsPanel.label': 'Mostra/nascondi pannello strumenti',
   'shortcuts.toggleToolsPanel.description':
     'Alterna la visibilità del pannello strumenti.',
@@ -3548,6 +3551,20 @@ export const itMessages: TranslationCatalog = {
   'shortcuts.toolResetEdits.label': 'Reimposta modifiche manuali',
   'shortcuts.toolResetEdits.description':
     "Annulla tutte le modifiche manuali sull'immagine attiva nel Pulitore o AIO.",
+  'commandPalette.dialogAria': 'Tavolozza dei comandi',
+  'commandPalette.placeholder': 'Cerca comandi...',
+  'commandPalette.inputAria': 'Cerca comandi',
+  'commandPalette.close': 'Chiudi la tavolozza',
+  'commandPalette.noResults': 'Nessun comando per "{query}"',
+  'commandPalette.results': 'Risultati ({count})',
+  'commandPalette.recent': 'Recenti',
+  'commandPalette.category.stages': 'Fasi',
+  'commandPalette.category.tools': 'Strumenti',
+  'commandPalette.category.pages': 'Pagine',
+  'commandPalette.category.styles': 'Stili',
+  'commandPalette.footerNavigate': 'naviga',
+  'commandPalette.footerRun': 'esegui',
+  'commandPalette.footerClose': 'chiudi',
   'dashboard.coachmark.stage.titleSuffix': 'area di lavoro principale',
   'dashboard.coachmark.stage.bodyWithImages':
     "Qui vedi l'immagine attiva, verifichi il risultato visivo della modalità <strong>{modeLabel}</strong> e apporti modifiche con feedback immediato.",

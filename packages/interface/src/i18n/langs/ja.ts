@@ -3395,6 +3395,9 @@ export const jaMessages: TranslationCatalog = {
   'shortcuts.openShortcutModal.label': 'ショートカットセンターを開く',
   'shortcuts.openShortcutModal.description':
     'ショートカットと設定モーダルを開きます。',
+  'shortcuts.openCommandPalette.label': 'コマンドパレットを開く',
+  'shortcuts.openCommandPalette.description':
+    'アクションを実行するコマンドパレット（Ctrl+K）を開きます。',
   'shortcuts.toggleToolsPanel.label': 'ツールパネルの表示/非表示',
   'shortcuts.toggleToolsPanel.description':
     'ツールパネルの表示を切り替えます。',
@@ -3546,6 +3549,20 @@ export const jaMessages: TranslationCatalog = {
   'shortcuts.toolResetEdits.label': '手動編集をリセット',
   'shortcuts.toolResetEdits.description':
     'クリーナーまたはAIOでアクティブ画像のすべての手動編集を元に戻します。',
+  'commandPalette.dialogAria': 'コマンドパレット',
+  'commandPalette.placeholder': 'コマンドを検索...',
+  'commandPalette.inputAria': 'コマンドを検索',
+  'commandPalette.close': 'パレットを閉じる',
+  'commandPalette.noResults': '「{query}」に一致するコマンドはありません',
+  'commandPalette.results': '結果 ({count})',
+  'commandPalette.recent': '最近使用した',
+  'commandPalette.category.stages': 'ステージ',
+  'commandPalette.category.tools': 'ツール',
+  'commandPalette.category.pages': 'ページ',
+  'commandPalette.category.styles': 'スタイル',
+  'commandPalette.footerNavigate': '移動',
+  'commandPalette.footerRun': '実行',
+  'commandPalette.footerClose': '閉じる',
   'dashboard.coachmark.stage.titleSuffix': 'メインステージ',
   'dashboard.coachmark.stage.bodyWithImages':
     'ここでアクティブ画像を確認し、<strong>{modeLabel}</strong> モードの視覚的な結果を検証し、即座にフィードバックを得ながら調整を行います。',

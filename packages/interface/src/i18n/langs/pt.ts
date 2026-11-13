@@ -3361,6 +3361,9 @@ export const ptMessages: TranslationCatalog = {
   'shortcuts.openShortcutModal.label': 'Abrir central de atalhos',
   'shortcuts.openShortcutModal.description':
     'Abre o modal de atalhos e configuração.',
+  'shortcuts.openCommandPalette.label': 'Abrir paleta de comandos',
+  'shortcuts.openCommandPalette.description':
+    'Abre a paleta de comandos (Ctrl+K) para executar ações.',
   'shortcuts.toggleToolsPanel.label': 'Mostrar/ocultar painel de ferramentas',
   'shortcuts.toggleToolsPanel.description':
     'Alterna a visibilidade do painel de ferramentas.',
@@ -3510,6 +3513,20 @@ export const ptMessages: TranslationCatalog = {
   'shortcuts.toolResetEdits.label': 'Redefinir edições manuais',
   'shortcuts.toolResetEdits.description':
     'Desfaz todas as edições manuais da imagem ativa no Cleaner ou AIO.',
+  'commandPalette.dialogAria': 'Paleta de comandos',
+  'commandPalette.placeholder': 'Pesquisar comandos...',
+  'commandPalette.inputAria': 'Pesquisar comandos',
+  'commandPalette.close': 'Fechar paleta',
+  'commandPalette.noResults': 'Sem comandos para "{query}"',
+  'commandPalette.results': 'Resultados ({count})',
+  'commandPalette.recent': 'Recentes',
+  'commandPalette.category.stages': 'Etapas',
+  'commandPalette.category.tools': 'Ferramentas',
+  'commandPalette.category.pages': 'Páginas',
+  'commandPalette.category.styles': 'Estilos',
+  'commandPalette.footerNavigate': 'navegar',
+  'commandPalette.footerRun': 'executar',
+  'commandPalette.footerClose': 'fechar',
   'dashboard.coachmark.stage.titleSuffix': 'palco principal',
   'dashboard.coachmark.stage.bodyWithImages':
     'Aqui você vê a imagem ativa, valida o resultado visual do modo <strong>{modeLabel}</strong> e faz ajustes com feedback imediato.',

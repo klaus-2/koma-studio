@@ -25,6 +25,7 @@ import { useAioRegionEditing } from './region-editor';
 import { useCleanerManualEdits } from './cleaner';
 import { useTypographerControls } from './typographer';
 import { useWorkspacePersistence } from './workspace-persistence';
+import { useCommandPaletteRegistration } from './use-command-palette-registration';
 
 export interface UseDashboardKeyboardArgs {
   /* Values still owned by the page */
@@ -168,6 +169,15 @@ export function useDashboardKeyboard({
   const setInlineEditorShortcutRequestKey = useUiShellStore(
     (s) => s.setInlineEditorShortcutRequestKey,
   );
+  const setCommandPaletteOpen = useUiShellStore(
+    (s) => s.setCommandPaletteOpen,
+  );
+
+  useCommandPaletteRegistration({
+    handleModeChange,
+    handleToolsToggle,
+    openShortcutCenter,
+  });
 
   const dispatchKeyboardShortcutAction = useCallback(
     (actionId: ShortcutActionId) => {
@@ -176,6 +186,9 @@ export function useDashboardKeyboard({
       switch (actionId) {
         case 'openShortcutModal':
           openShortcutCenter();
+          return true;
+        case 'openCommandPalette':
+          setCommandPaletteOpen(true);
           return true;
         case 'toggleToolsPanel':
           handleToolsToggle();
@@ -386,6 +399,7 @@ export function useDashboardKeyboard({
       resetAioManualImageEditsForImage,
       resetCleanerManualImageEditsForImage,
       rotateImage,
+      setCommandPaletteOpen,
       setInlineEditorShortcutRequestKey,
       setManualImageTool,
       setManualToolsConfigOpen,

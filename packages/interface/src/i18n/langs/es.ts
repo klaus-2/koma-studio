@@ -3417,6 +3417,9 @@ export const esMessages: TranslationCatalog = {
   'shortcuts.openShortcutModal.label': 'Abrir centro de atajos',
   'shortcuts.openShortcutModal.description':
     'Abre el modal de atajos y configuración.',
+  'shortcuts.openCommandPalette.label': 'Abrir paleta de comandos',
+  'shortcuts.openCommandPalette.description':
+    'Abre la paleta de comandos (Ctrl+K) para ejecutar acciones.',
   'shortcuts.toggleToolsPanel.label': 'Mostrar/ocultar panel de herramientas',
   'shortcuts.toggleToolsPanel.description':
     'Alterna la visibilidad del panel de herramientas.',
@@ -3564,6 +3567,20 @@ export const esMessages: TranslationCatalog = {
   'shortcuts.toolResetEdits.label': 'Restablecer ediciones manuales',
   'shortcuts.toolResetEdits.description':
     'Deshace todas las ediciones manuales en la imagen activa del Limpiador o AIO.',
+  'commandPalette.dialogAria': 'Paleta de comandos',
+  'commandPalette.placeholder': 'Buscar comandos...',
+  'commandPalette.inputAria': 'Buscar comandos',
+  'commandPalette.close': 'Cerrar paleta',
+  'commandPalette.noResults': 'No hay comandos para "{query}"',
+  'commandPalette.results': 'Resultados ({count})',
+  'commandPalette.recent': 'Recientes',
+  'commandPalette.category.stages': 'Etapas',
+  'commandPalette.category.tools': 'Herramientas',
+  'commandPalette.category.pages': 'Páginas',
+  'commandPalette.category.styles': 'Estilos',
+  'commandPalette.footerNavigate': 'navegar',
+  'commandPalette.footerRun': 'ejecutar',
+  'commandPalette.footerClose': 'cerrar',
   'dashboard.coachmark.stage.titleSuffix': 'escenario principal',
   'dashboard.coachmark.stage.bodyWithImages':
     'Aquí ves la imagen activa, validas el resultado visual del modo <strong>{modeLabel}</strong> y haces ajustes con retroalimentación inmediata.',

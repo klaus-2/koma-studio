@@ -33,6 +33,9 @@ interface UiShellStore {
   /* ── Keyboard shortcuts ── */
   keyboardShortcutConfig: KeyboardShortcutConfigV2;
 
+  /* ── Command palette ── */
+  commandPaletteOpen: boolean;
+
   /* ── Misc shell state ── */
   emptyPreviewTipIndex: number;
   inlineEditorShortcutRequestKey: string | null;
@@ -50,6 +53,7 @@ interface UiShellStore {
     forcedTourDropdown: DashboardTourForcedDropdown,
   ) => void;
   setKeyboardShortcutConfig: (config: KeyboardShortcutConfigV2) => void;
+  setCommandPaletteOpen: (open: boolean) => void;
   setEmptyPreviewTipIndex: (
     index: number | ((prev: number) => number),
   ) => void;
@@ -68,6 +72,7 @@ export const useUiShellStore = create<UiShellStore>()(
       activeStageTab: 'detectText',
       forcedTourDropdown: null,
       keyboardShortcutConfig: loadKeyboardShortcutConfig(),
+      commandPaletteOpen: false,
       emptyPreviewTipIndex: 0,
       inlineEditorShortcutRequestKey: null,
 
@@ -100,6 +105,8 @@ export const useUiShellStore = create<UiShellStore>()(
         set({ forcedTourDropdown }),
       setKeyboardShortcutConfig: (keyboardShortcutConfig) =>
         set({ keyboardShortcutConfig }),
+      setCommandPaletteOpen: (commandPaletteOpen) =>
+        set({ commandPaletteOpen }),
       setEmptyPreviewTipIndex: (emptyPreviewTipIndex) =>
         set((state) => ({
           emptyPreviewTipIndex:

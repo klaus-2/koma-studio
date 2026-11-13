@@ -3363,6 +3363,9 @@ export const hiMessages: TranslationCatalog = {
   'shortcuts.openShortcutModal.label': 'Buka pusat pintasan',
   'shortcuts.openShortcutModal.description':
     'Membuka modal pintasan dan konfigurasi.',
+  'shortcuts.openCommandPalette.label': 'कमांड पैलेट खोलें',
+  'shortcuts.openCommandPalette.description':
+    'कार्यों को चलाने के लिए Ctrl+K कमांड पैलेट खोलता है।',
   'shortcuts.toggleToolsPanel.label': 'Tampilkan/sembunyikan panel alat',
   'shortcuts.toggleToolsPanel.description': 'Mengubah visibilitas panel alat.',
   'shortcuts.rotateActiveImage.label': 'Putar gambar aktif',
@@ -3509,6 +3512,20 @@ export const hiMessages: TranslationCatalog = {
   'shortcuts.toolResetEdits.label': 'Reset editan manual',
   'shortcuts.toolResetEdits.description':
     'Mengurungkan semua editan manual pada gambar aktif di Cleaner atau AIO.',
+  'commandPalette.dialogAria': 'कमांड पैलेट',
+  'commandPalette.placeholder': 'कमांड खोजें...',
+  'commandPalette.inputAria': 'कमांड खोजें',
+  'commandPalette.close': 'पैलेट बंद करें',
+  'commandPalette.noResults': '"{query}" के लिए कोई कमांड नहीं',
+  'commandPalette.results': 'परिणाम ({count})',
+  'commandPalette.recent': 'हाल के',
+  'commandPalette.category.stages': 'चरण',
+  'commandPalette.category.tools': 'उपकरण',
+  'commandPalette.category.pages': 'पृष्ठ',
+  'commandPalette.category.styles': 'शैलियाँ',
+  'commandPalette.footerNavigate': 'नेविगेट करें',
+  'commandPalette.footerRun': 'चलाएँ',
+  'commandPalette.footerClose': 'बंद करें',
   'dashboard.coachmark.stage.titleSuffix': 'tahap utama',
   'dashboard.coachmark.stage.bodyWithImages':
     'Di sini Anda melihat gambar aktif, memvalidasi hasil visual dari mode <strong>{modeLabel}</strong>, dan melakukan penyesuaian dengan umpan balik langsung.',

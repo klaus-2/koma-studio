@@ -3311,6 +3311,9 @@ export const koMessages: TranslationCatalog = {
   'shortcuts.noShortcut': '단축키 없음',
   'shortcuts.openShortcutModal.label': '단축키 센터 열기',
   'shortcuts.openShortcutModal.description': '단축키 및 설정 모달을 엽니다.',
+  'shortcuts.openCommandPalette.label': '명령 팔레트 열기',
+  'shortcuts.openCommandPalette.description':
+    '작업을 실행하는 명령 팔레트(Ctrl+K)를 엽니다.',
   'shortcuts.toggleToolsPanel.label': '도구 패널 표시/숨기기',
   'shortcuts.toggleToolsPanel.description':
     '도구 패널의 표시 여부를 전환합니다.',
@@ -3455,6 +3458,20 @@ export const koMessages: TranslationCatalog = {
   'shortcuts.toolResetEdits.label': '수동 편집 초기화',
   'shortcuts.toolResetEdits.description':
     '클리너 또는 AIO에서 활성 이미지의 모든 수동 편집을 되돌립니다.',
+  'commandPalette.dialogAria': '명령 팔레트',
+  'commandPalette.placeholder': '명령 검색...',
+  'commandPalette.inputAria': '명령 검색',
+  'commandPalette.close': '팔레트 닫기',
+  'commandPalette.noResults': '"{query}"에 일치하는 명령이 없습니다',
+  'commandPalette.results': '결과 ({count})',
+  'commandPalette.recent': '최근 사용',
+  'commandPalette.category.stages': '단계',
+  'commandPalette.category.tools': '도구',
+  'commandPalette.category.pages': '페이지',
+  'commandPalette.category.styles': '스타일',
+  'commandPalette.footerNavigate': '이동',
+  'commandPalette.footerRun': '실행',
+  'commandPalette.footerClose': '닫기',
   'dashboard.coachmark.stage.titleSuffix': '메인 스테이지',
   'dashboard.coachmark.stage.bodyWithImages':
     '여기서 활성 이미지를 확인하고, <strong>{modeLabel}</strong> 모드의 시각적 결과를 검증하며, 즉각적인 피드백과 함께 조정할 수 있습니다.',
