@@ -61,12 +61,15 @@ interface UseDashboardUploadsArgs {
   localApiUrl: string;
   setStatusMessage: (message: string) => void;
   invalidateAioPipelineHistory: () => void;
+  /** Fire-and-forget POST /warmup payload; null skips the request entirely. */
+  warmupPayload: { language: string; ocrModelKey: string } | null;
 }
 
 export function useDashboardUploads({
   localApiUrl,
   setStatusMessage,
   invalidateAioPipelineHistory,
+  warmupPayload,
 }: UseDashboardUploadsArgs) {
   const activeId = useImageCollectionStore((s) => s.activeId);
   const isExtractingUploads = useImageCollectionStore(
@@ -205,6 +208,26 @@ export function useDashboardUploads({
       throw new Error(`Failed to extract composite files: ${message}`);
     }
 
+    // Once per import: warm the OCR engine + font-style detector so the
+    // first page pipeline starts warm. Fire-and-forget — errors only reach
+    // the debug log, never the UI.
+    if (warmupPayload) {
+      void fetchWithTimeoutAndRetry(
+        `${localApiUrl}/warmup`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            language: warmupPayload.language,
+            ocr_model_key: warmupPayload.ocrModelKey,
+          }),
+        },
+        { timeoutMs: 10_000, retryCount: 0 },
+      ).catch((error: unknown) => {
+        console.debug('mini-backend warmup request failed', error);
+      });
+    }
+
     const archiveBuffer = new Uint8Array(await response.arrayBuffer());
     const { unzipSync, strFromU8 } = await import('fflate');
     const unpacked = unzipSync(archiveBuffer);
@@ -260,7 +283,7 @@ export function useDashboardUploads({
     }
 
     return { extractedFiles, warnings };
-  }, [localApiUrl]);
+  }, [localApiUrl, warmupPayload]);
 
   const onDrop = useCallback(async (
     files: File[],

@@ -22,6 +22,9 @@ import { aioDeviceInfoSchema } from '../models/aioStageCatalog';
 import {
   OLLAMA_LOCAL_API_BASE,
 } from '../utils/customLlm';
+import {
+  getActivePresetForLanguage,
+} from '../utils/aioModelPresets';
 import type {
   AioStageKey,
 } from '../types/aioModelPresets';
@@ -340,6 +343,14 @@ export const DashboardPage = ({
   const aioHdCropTriggerSize = useAioPipelineStore((s) => s.aioHdCropTriggerSize);
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
+  // POST /warmup payload for the next chapter import: the active preset's
+  // OCR model for the current source language; null skips the warmup call.
+  const aioWarmupPayload = useMemo(() => {
+    const preset = getActivePresetForLanguage(aioSrcLang);
+    const recognizeText = preset?.stageModels.recognizeText;
+    if (!recognizeText) return null;
+    return { language: aioSrcLang, ocrModelKey: recognizeText };
+  }, [aioSrcLang]);
   const setAioDetectionsByImage = useRegionEditorStore(
     (s) => s.setAioDetectionsByImage,
   );
@@ -1091,6 +1102,7 @@ export const DashboardPage = ({
       localApiUrl: apiConfig.localUrl,
       setStatusMessage,
       invalidateAioPipelineHistory,
+      warmupPayload: aioWarmupPayload,
     });
 
   const { handleTranslatorTextImport, handleTranslatorImageUpload } =
