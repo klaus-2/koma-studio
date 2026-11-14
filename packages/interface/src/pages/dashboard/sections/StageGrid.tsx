@@ -588,13 +588,16 @@ function DashboardStageSection({
             handleTranslatorTextImport={handleTranslatorTextImport}
           />
         </Suspense>
-      ) : [
-        'translator',
-        'stitch',
-        'split',
-        'watermark',
-        'optimizer',
-      ].includes(mode) ? (
+      ) : (
+        (mode !== 'translator' || images.length === 0) &&
+        [
+          'translator',
+          'stitch',
+          'split',
+          'watermark',
+          'optimizer',
+        ].includes(mode)
+      ) ? (
         <DashboardSpecialModeStage
           props={specialModeStageProps}
           stageMode={mode}
