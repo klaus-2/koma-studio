@@ -56,6 +56,8 @@ const desktop: IDesktopBridge = {
     call(channels.runtime.installMiniBackendRuntimeProfile, { profile }),
   resetLocalSettings: () => call(channels.runtime.resetLocalSettings),
   restartApp: () => call(channels.runtime.restartApp),
+  setMiniBackendThreadOverride: (payload) =>
+    call(channels.runtime.setMiniBackendThreadOverride, { payload }),
   onMiniBackendRuntimeState: (listener) => {
     miniBackendListeners.add(listener);
   },

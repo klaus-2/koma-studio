@@ -244,6 +244,11 @@ const tauriDesktopBridge: IDesktopBridge = {
   resetLocalSettings: () =>
     invokeCommand(desktopCommandChannels.runtime.resetLocalSettings),
   restartApp: () => invokeCommand(desktopCommandChannels.runtime.restartApp),
+  setMiniBackendThreadOverride: (payload) =>
+    invokeCommand(
+      desktopCommandChannels.runtime.setMiniBackendThreadOverride,
+      { payload },
+    ),
   onMiniBackendRuntimeState: (listener) => {
     registerListener(
       miniBackendRuntimeListeners,

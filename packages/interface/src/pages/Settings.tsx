@@ -19,6 +19,7 @@ import { useRenderModePresets } from "./settings/hooks/use-render-mode-presets";
 import { useTextFillSwatches } from "./settings/hooks/use-text-fill-swatches";
 import { useTypographyPresets } from "./settings/hooks/use-typography-presets";
 import { useSettingsAppPreferences } from "./settings/hooks/use-settings-app-preferences";
+import { useMiniBackendThreadSettings } from "./settings/hooks/use-mini-backend-thread-settings";
 import { useSettingsBlogger } from "./settings/hooks/use-settings-blogger";
 import { useSettingsImgur } from "./settings/hooks/use-settings-imgur";
 import { useSettingsProfileVerification } from "./settings/hooks/use-settings-profile-verification";
@@ -91,6 +92,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   const travelToken = useSettingsTravelToken({ user, isDesktop, t, fmtDate, travelDaysLabel });
   const updaterControls = useSettingsUpdaterControls({ updater, t });
   const appPreferences = useSettingsAppPreferences({ t });
+  const miniBackendThreads = useMiniBackendThreadSettings();
   const runtimeInstall = useSettingsRuntimeInstall({ t });
   const webhook = useSettingsWebhook({ t });
   const blogger = useSettingsBlogger({ t });
@@ -170,6 +172,9 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       ...updaterControls,
       fmtDate,
       ...appPreferences,
+      miniBackendThreadSettings: miniBackendThreads.settings,
+      setMiniBackendIntraOpThreads: miniBackendThreads.setIntraOpThreads,
+      miniBackendHardwareConcurrency: miniBackendThreads.hardwareConcurrency,
       ...runtimeInstall,
       formatRuntimeProfileLabel,
     });

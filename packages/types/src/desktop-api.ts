@@ -384,6 +384,7 @@ export const desktopCommandChannels = {
       "desktop:install-mini-backend-runtime-profile",
     resetLocalSettings: "desktop:reset-local-settings",
     restartApp: "desktop:restart-app",
+    setMiniBackendThreadOverride: "desktop:mini-backend:set-thread-override",
   },
   locale: {
     getPreferences: "desktop:locale:get-preferences",
@@ -713,6 +714,10 @@ export interface IDesktopBridge {
   ): Promise<MiniBackendRuntimeInstallResult>;
   resetLocalSettings(): Promise<unknown>;
   restartApp(): Promise<unknown>;
+  setMiniBackendThreadOverride(payload: {
+    intraOpThreads: number | null;
+    interOpThreads?: number | null;
+  }): Promise<unknown>;
   onMiniBackendRuntimeState(listener: MiniBackendRuntimeListener): void;
   offMiniBackendRuntimeState(listener: MiniBackendRuntimeListener): void;
   locale: {

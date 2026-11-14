@@ -11,6 +11,7 @@ import type { UseUpdaterApi } from "../../hooks/useUpdater";
 import type { KomaTheme, KomaThemeFamily } from "@koma/ui/stores/theme-store";
 import { THEME_FAMILIES } from "@koma/ui/themes/registry";
 import type { WorkspaceAutosaveSettings } from "../../utils/workspaceAutosaveSettings";
+import type { MiniBackendThreadSettings } from "../../utils/miniBackendThreadSettings";
 import type {
   DesktopMiniBackendRuntimeArtifactOption,
   DesktopMiniBackendRuntimeState,
@@ -54,6 +55,9 @@ interface SettingsAppTabArgs {
   localResetBusy: boolean;
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
+  miniBackendThreadSettings: MiniBackendThreadSettings;
+  setMiniBackendIntraOpThreads: (value: number | null) => void;
+  miniBackendHardwareConcurrency: number | null;
   handleCheck: () => Promise<void>;
   runtimeState: DesktopMiniBackendRuntimeState | null;
   recommendedRuntimeProfile: string;
@@ -103,6 +107,9 @@ export const renderSettingsAppTab = ({
   localResetBusy,
   handleResetLocalAppSettings,
   localResetFeedback,
+  miniBackendThreadSettings,
+  setMiniBackendIntraOpThreads,
+  miniBackendHardwareConcurrency,
   handleCheck,
   runtimeState,
   recommendedRuntimeProfile,
@@ -409,6 +416,73 @@ export const renderSettingsAppTab = ({
         <span>{workspaceAutosaveFeedback.message}</span>
       </div>
     )}
+  </section>
+
+  {/* Performance */}
+  <section className="koma-stg-section">
+    <div className="koma-stg-section__head">
+      <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">
+        <path d="M11 1L3 12h6l-1 7 8-11h-6l1-7z" />
+      </svg>
+      <h3 className="koma-stg-section__title">{t("settings.app.performance.title")}</h3>
+    </div>
+    <p className="koma-stg-section__desc">
+      {t("settings.app.performance.desc")}
+    </p>
+
+    <div className="koma-stg-grid">
+      <div className="koma-stg-item">
+        <span className="koma-stg-item__label">{t("settings.app.performance.threads.label")}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+          <input
+            type="number"
+            min={1}
+            max={64}
+            step={1}
+            className="koma-ig-field__input"
+            placeholder={t("settings.app.performance.threads.placeholder")}
+            value={miniBackendThreadSettings.intraOpThreads ?? ""}
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              if (!raw) {
+                setMiniBackendIntraOpThreads(null);
+                return;
+              }
+              const parsed = Number(raw);
+              if (Number.isFinite(parsed) && parsed >= 1) {
+                setMiniBackendIntraOpThreads(Math.min(64, Math.round(parsed)));
+              }
+            }}
+            style={{ maxWidth: 140, height: 32 }}
+          />
+          <span className="koma-stg-item__value">
+            {miniBackendThreadSettings.intraOpThreads === null
+              ? t("settings.app.performance.threads.default")
+              : `${miniBackendThreadSettings.intraOpThreads}`}
+          </span>
+          <button
+            type="button"
+            className="koma-btn koma-btn--ghost koma-btn--sm"
+            disabled={
+              miniBackendHardwareConcurrency === null ||
+              miniBackendHardwareConcurrency <= 2
+            }
+            onClick={() => {
+              if (miniBackendHardwareConcurrency !== null) {
+                setMiniBackendIntraOpThreads(
+                  Math.max(1, miniBackendHardwareConcurrency - 2),
+                );
+              }
+            }}
+          >
+            {t("settings.app.performance.threads.reserveCores")}
+          </button>
+        </div>
+        <p className="koma-stg-section__desc" style={{ marginTop: 12 }}>
+          {t("settings.app.performance.threads.restartHint")}
+        </p>
+      </div>
+    </div>
   </section>
 
   {/* Tool Tips */}

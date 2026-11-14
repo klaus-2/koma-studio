@@ -106,6 +106,13 @@ export const enMessages = {
   'settings.app.reset.confirm':
     'This will sign you out and clear all local presets and caches. Do you want to continue?',
   'settings.app.reset.success': 'Application reset. Restarting...',
+  'settings.app.performance.title': 'Performance',
+  'settings.app.performance.desc': 'CPU threads used by local AI models.',
+  'settings.app.performance.threads.label': 'Model CPU threads',
+  'settings.app.performance.threads.placeholder': 'Default',
+  'settings.app.performance.threads.reserveCores': 'Reserve 2 cores for the UI',
+  'settings.app.performance.threads.restartHint': 'Applies after the local backend restarts.',
+  'settings.app.performance.threads.default': 'Automatic',
   'settings.general.profile.title': 'Profile',
   'settings.general.profile.desc':
     'Your account information and global preferences.',

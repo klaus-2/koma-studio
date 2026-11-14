@@ -13,6 +13,8 @@ export const createDesktopBridgeStub = (models: DesktopModelsApi): IDesktopBridg
   installMiniBackendRuntimeProfile: async () => unavailable("installMiniBackendRuntimeProfile"),
   resetLocalSettings: async () => unavailable("resetLocalSettings"),
   restartApp: async () => unavailable("restartApp"),
+  setMiniBackendThreadOverride: async () =>
+    unavailable("setMiniBackendThreadOverride"),
   onMiniBackendRuntimeState: () => unavailable("onMiniBackendRuntimeState"),
   offMiniBackendRuntimeState: () => unavailable("offMiniBackendRuntimeState"),
   locale: {

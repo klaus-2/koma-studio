@@ -102,6 +102,13 @@ export const ptBrMessages: TranslationCatalog = {
   'settings.app.reset.confirm':
     'Isso irá deslogar sua conta e limpar todos os presets e caches locais. Deseja continuar?',
   'settings.app.reset.success': 'Aplicativo resetado. Reiniciando...',
+  'settings.app.performance.title': 'Desempenho',
+  'settings.app.performance.desc': 'Threads de CPU usadas pelos modelos de IA locais.',
+  'settings.app.performance.threads.label': 'Threads de CPU dos modelos',
+  'settings.app.performance.threads.placeholder': 'Padrão',
+  'settings.app.performance.threads.reserveCores': 'Reservar 2 núcleos para a interface',
+  'settings.app.performance.threads.restartHint': 'Aplica após o backend local reiniciar.',
+  'settings.app.performance.threads.default': 'Automático',
   'settings.general.profile.title': 'Perfil',
   'settings.general.profile.desc':
     'Informações da sua conta e preferências globais.',

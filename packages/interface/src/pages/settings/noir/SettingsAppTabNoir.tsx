@@ -1,6 +1,6 @@
 import type React from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { Moon, Sun, Globe2, DownloadCloud, Radio, Save, Lightbulb, Keyboard, RotateCcw, FileText, Palette, MousePointer2 } from "lucide-react";
+import { Moon, Sun, Globe2, DownloadCloud, Radio, Save, Lightbulb, Keyboard, RotateCcw, FileText, Palette, MousePointer2, Zap } from "lucide-react";
 import RuntimeProfileSection from "../../../components/runtime/RuntimeProfileSection";
 import ReleaseNotesMarkdown from "../../../components/updater/ReleaseNotesMarkdown";
 import SyncPanel from "../../../components/updater/SyncPanel";
@@ -10,6 +10,7 @@ import type { UseUpdaterApi } from "../../../hooks/useUpdater";
 import type { KomaTheme, KomaThemeFamily } from "@koma/ui/stores/theme-store";
 import { THEME_FAMILIES } from "@koma/ui/themes/registry";
 import type { WorkspaceAutosaveSettings } from "../../../utils/workspaceAutosaveSettings";
+import type { MiniBackendThreadSettings } from "../../../utils/miniBackendThreadSettings";
 import type {
   DesktopMiniBackendRuntimeArtifactOption, DesktopMiniBackendRuntimeState, UpdaterChannel,
 } from "../../../types";
@@ -52,6 +53,9 @@ interface SettingsAppTabArgs {
   localResetBusy: boolean;
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
+  miniBackendThreadSettings: MiniBackendThreadSettings;
+  setMiniBackendIntraOpThreads: (value: number | null) => void;
+  miniBackendHardwareConcurrency: number | null;
   handleCheck: () => Promise<void>;
   runtimeState: DesktopMiniBackendRuntimeState | null;
   recommendedRuntimeProfile: string;
@@ -264,6 +268,45 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
             </Alert>
           </div>
         )}
+      </Sec>
+
+      {/* ═══ PERFORMANCE ═══ */}
+      <Sec icon={<Zap size={14} />} title={t("settings.app.performance.title")} desc={t("settings.app.performance.desc")}>
+        <div className="flex flex-wrap items-end gap-4">
+          <Field label={t("settings.app.performance.threads.label")} className="w-40">
+            <input type="number" min={1} max={64} step={1} className={inputCls}
+              placeholder={t("settings.app.performance.threads.placeholder")}
+              value={a.miniBackendThreadSettings.intraOpThreads ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                if (!raw) {
+                  a.setMiniBackendIntraOpThreads(null);
+                  return;
+                }
+                const parsed = Number(raw);
+                if (Number.isFinite(parsed) && parsed >= 1) {
+                  a.setMiniBackendIntraOpThreads(Math.min(64, Math.round(parsed)));
+                }
+              }} />
+          </Field>
+          <span className="pb-2 font-mono text-[11px] font-bold text-gold">
+            {a.miniBackendThreadSettings.intraOpThreads === null
+              ? t("settings.app.performance.threads.default")
+              : String(a.miniBackendThreadSettings.intraOpThreads)}
+          </span>
+          <button type="button" className={btnGhost}
+            disabled={a.miniBackendHardwareConcurrency === null || a.miniBackendHardwareConcurrency <= 2}
+            onClick={() => {
+              if (a.miniBackendHardwareConcurrency !== null) {
+                a.setMiniBackendIntraOpThreads(Math.max(1, a.miniBackendHardwareConcurrency - 2));
+              }
+            }}>
+            {t("settings.app.performance.threads.reserveCores")}
+          </button>
+        </div>
+        <p className="mt-2 font-mono text-[9px] uppercase tracking-wider text-paper/40">
+          {t("settings.app.performance.threads.restartHint")}
+        </p>
       </Sec>
 
       {/* ═══ TOOLTIPS ═══ */}
