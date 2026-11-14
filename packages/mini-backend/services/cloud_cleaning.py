@@ -249,6 +249,19 @@ def _extract_text_parts(parts: list[Any]) -> str:
     return "\n".join(text_chunks).strip()
 
 
+def _text_failure_detail(text: str, limit: int = 240) -> str:
+    """Collapse a model's raw text reply into a bounded single-line diagnostic.
+
+    Text replies here mean the provider answered the clean request without an
+    image (detection-style JSON, reasoning prose, or a refusal); the full body
+    can be thousands of characters, so the error keeps a short excerpt only.
+    """
+    collapsed = " ".join(str(text or "").split())
+    if len(collapsed) <= limit:
+        return collapsed
+    return collapsed[: limit - 1].rstrip() + "…"
+
+
 def _extract_remote_image_url_from_text(text: str) -> str | None:
     normalized = str(text or "").strip()
     if not normalized:
@@ -572,7 +585,12 @@ async def _call_openai_compatible_clean(
         )
         if downloaded is not None:
             return downloaded
-    raise CloudCleanProviderError(text or "The custom provider did not return an edited image.")
+    if not text:
+        raise CloudCleanProviderError("The custom provider did not return an edited image.")
+    raise CloudCleanProviderError(
+        "The model returned text instead of an edited image; AI Clean requires an "
+        f"image-capable model. Model reply: {_text_failure_detail(text)}"
+    )
 
 
 def _retry_delay(response: httpx.Response, attempt: int) -> float:
@@ -638,8 +656,11 @@ async def _call_gemini_clean(
         )
         if downloaded is not None:
             return downloaded
+    if not text_payload:
+        raise CloudCleanProviderError("The Gemini model did not return an edited image.")
     raise CloudCleanProviderError(
-        text_payload or "The Gemini model did not return an edited image."
+        "The model returned text instead of an edited image; AI Clean requires an "
+        f"image-capable model. Model reply: {_text_failure_detail(text_payload)}"
     )
 
 
