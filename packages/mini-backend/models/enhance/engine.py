@@ -8,7 +8,7 @@ from typing import Sequence
 import numpy as np
 import onnxruntime as ort
 
-from models.onnx_utils import create_session_with_trt_fallback
+from models.onnx_utils import build_default_session_options, create_session_with_trt_fallback
 
 from .base_engine import BaseEnhancer
 
@@ -43,7 +43,8 @@ def _freeze_providers(providers: tuple) -> tuple:
 
 @lru_cache(maxsize=16)
 def _create_session(model_path: str, providers_key: tuple) -> ort.InferenceSession:
-    session_options = ort.SessionOptions()
+    # Thread limits from the shared builder + the enhance-specific extras.
+    session_options = build_default_session_options()
     session_options.enable_cpu_mem_arena = True
     session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     ort_providers = [_thaw_provider_entry(p) for p in providers_key]

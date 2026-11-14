@@ -18,6 +18,11 @@ from pathlib import Path
 from typing import Protocol, cast
 
 from core.device import OnnxProviderSpec
+from core.threads import (
+    INTER_OP_THREADS_ENV,
+    INTRA_OP_THREADS_ENV,
+    env_thread_limit,
+)
 
 import numpy as np
 import onnxruntime as ort
@@ -307,6 +312,24 @@ def _provider_name(spec: OnnxProviderSpec) -> str:
     return spec if isinstance(spec, str) else spec[0]
 
 
+def build_default_session_options() -> ort.SessionOptions:
+    """Fresh SessionOptions with env-configured thread limits.
+
+    ``MINI_BACKEND_INTRA_OP_THREADS`` / ``MINI_BACKEND_INTER_OP_THREADS``
+    are read at call time; absent, malformed, or non-positive values leave
+    ORT's defaults untouched. A new instance is returned per call, so every
+    session creation is independent.
+    """
+    options = ort.SessionOptions()
+    intra = env_thread_limit(INTRA_OP_THREADS_ENV)
+    if intra is not None:
+        options.intra_op_num_threads = intra
+    inter = env_thread_limit(INTER_OP_THREADS_ENV)
+    if inter is not None:
+        options.inter_op_num_threads = inter
+    return options
+
+
 def create_session_with_trt_fallback(
     model_path: str,
     providers: Sequence[OnnxProviderSpec],
@@ -323,14 +346,22 @@ def create_session_with_trt_fallback(
     unavailability surfaces as errors outside ONNX_RUNTIME_ERRORS too.
     ``session_factory`` lets a caller keep the construction resolved through
     its own patchable ``ort`` name (consumer-module monkeypatch seams).
+
+    When ``sess_options`` is None a default SessionOptions with the
+    env-configured thread limits (``build_default_session_options``) is
+    passed to both the primary construction and the degraded retry, so every
+    session-creation site inherits CPU thread control without per-site edits.
     """
     construct = (
         session_factory if session_factory is not None else ort.InferenceSession
     )
+    resolved_options = (
+        sess_options if sess_options is not None else build_default_session_options()
+    )
     try:
         return construct(
             model_path,
-            sess_options=sess_options,
+            sess_options=resolved_options,
             providers=list(providers),
         )
     except Exception as exc:
@@ -353,7 +384,7 @@ def create_session_with_trt_fallback(
         try:
             return construct(
                 model_path,
-                sess_options=sess_options,
+                sess_options=resolved_options,
                 providers=degraded,
             )
         except Exception as retry_exc:

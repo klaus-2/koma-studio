@@ -9,6 +9,11 @@ from pydantic import BaseModel
 
 from models.engine_cache import CacheStats
 from core.memory import ProcessMemory, collect_process_memory
+from core.threads import (
+    INTER_OP_THREADS_ENV,
+    INTRA_OP_THREADS_ENV,
+    env_thread_limit,
+)
 from models.detection.factory import get_detector_cache_size
 from models.inpainting.factory import get_inpainter_cache_size
 from models.ocr.factory import get_ocr_cache_size
@@ -19,11 +24,18 @@ from pipelines.cache_manager import get_pipeline_cache
 _MAX_CACHE_ENTRIES = 6
 
 
+class ThreadLimitsReport(BaseModel):
+    intra_op: int | None = None
+    inter_op: int | None = None
+    torch_num_threads: int | None = None
+
+
 class RuntimeMemoryReport(BaseModel):
     captured_at: datetime
     process: ProcessMemory
     caches: list[CacheStats]
     onnx_sessions: int | None = None
+    thread_limits: ThreadLimitsReport
 
 
 def _cache_stats(name: str, entries: int) -> CacheStats:
@@ -38,6 +50,22 @@ def _count_onnx_sessions() -> int | None:
     except ImportError:
         return None
     return sum(isinstance(obj, ort.InferenceSession) for obj in gc.get_objects())
+
+
+def _torch_num_threads() -> int | None:
+    try:
+        import torch
+    except ImportError:
+        return None
+    return int(torch.get_num_threads())
+
+
+def _collect_thread_limits() -> ThreadLimitsReport:
+    return ThreadLimitsReport(
+        intra_op=env_thread_limit(INTRA_OP_THREADS_ENV),
+        inter_op=env_thread_limit(INTER_OP_THREADS_ENV),
+        torch_num_threads=_torch_num_threads(),
+    )
 
 
 def collect_runtime_report(*, deep: bool = False) -> RuntimeMemoryReport:
@@ -59,4 +87,5 @@ def collect_runtime_report(*, deep: bool = False) -> RuntimeMemoryReport:
             ),
         ],
         onnx_sessions=_count_onnx_sessions() if deep else None,
+        thread_limits=_collect_thread_limits(),
     )
