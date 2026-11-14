@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FontFamilySelect, type FontFamilySelectProps } from './FontFamilySelect';
 
@@ -53,6 +53,10 @@ const moreResultsRow = (): HTMLElement => {
 };
 
 describe('FontFamilySelect', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it('owns its trigger class when the caller passes none', () => {
     renderPicker({
       value: 'Arial',
@@ -222,6 +226,108 @@ describe('FontFamilySelect', () => {
 
     expect(elapsed).toBeLessThan(300);
     expect(optionRows().length).toBeGreaterThan(0);
+  });
+
+  it('renders the given preview text inside the family rows', () => {
+    openPicker({
+      value: 'Cabin',
+      families: ['Cabin', 'Ubuntu Mono'],
+      onChange: changeHandler([]),
+      previewText: 'こんにちは',
+    });
+
+    const rows = optionRows();
+    expect(rows[0]?.textContent).toContain('こんにちは');
+    expect(rows[1]?.textContent).toContain('こんにちは');
+  });
+
+  it('falls back to the family label as the preview text', () => {
+    openPicker({
+      value: 'Cabin',
+      families: ['Cabin'],
+      onChange: changeHandler([]),
+      previewText: '   ',
+    });
+
+    expect(optionRows()[0]?.textContent).toBe('Cabin');
+  });
+
+  it('stars a row without committing the family and persists the favorite', () => {
+    const picked: string[] = [];
+    openPicker({
+      value: 'Cabin',
+      families: ['Cabin', 'Ubuntu Mono'],
+      onChange: changeHandler(picked),
+    });
+
+    const cabinRow = optionRows().find((row) => row.textContent === 'Cabin');
+    if (!cabinRow) {
+      throw new Error('Cabin option row is missing');
+    }
+    fireEvent.click(
+      within(cabinRow).getByRole('button', { name: 'fontPicker.favorite.add' }),
+    );
+
+    expect(picked).toEqual([]);
+    expect(window.localStorage.getItem('koma-studio.font-favorites.v1')).toBe(
+      JSON.stringify(['Cabin']),
+    );
+    expect(optionRows()[0]?.textContent).toBe('Cabin');
+    expect(
+      within(cabinRow).getByRole('button', { name: 'fontPicker.favorite.remove' }),
+    ).toBeTruthy();
+  });
+
+  it('sorts favorite families first and allows removing them', () => {
+    window.localStorage.setItem(
+      'koma-studio.font-favorites.v1',
+      JSON.stringify(['Ubuntu Mono']),
+    );
+    const picked: string[] = [];
+    openPicker({
+      value: 'Cabin',
+      families: ['Cabin', 'Ubuntu Mono'],
+      onChange: changeHandler(picked),
+    });
+
+    const rows = optionRows();
+    expect(rows[0]?.textContent).toBe('Ubuntu Mono');
+    expect(rows[1]?.textContent).toBe('Cabin');
+
+    fireEvent.click(screen.getByRole('button', { name: 'fontPicker.favorite.remove' }));
+    expect(window.localStorage.getItem('koma-studio.font-favorites.v1')).toBe('[]');
+    expect(optionRows()[0]?.textContent).toBe('Cabin');
+  });
+
+  it('keeps the pinned rows first even when a family is favorited', () => {
+    window.localStorage.setItem(
+      'koma-studio.font-favorites.v1',
+      JSON.stringify(['Cabin']),
+    );
+    openPicker({
+      value: 'Cabin',
+      families: ['Cabin', 'Ubuntu Mono'],
+      defaultOptionLabel: 'Default option',
+      onChange: changeHandler([]),
+    });
+
+    const rows = optionRows();
+    expect(rows[0]?.textContent).toBe('Default option');
+    expect(rows[1]?.textContent).toBe('Cabin');
+    expect(rows[2]?.textContent).toBe('Ubuntu Mono');
+  });
+
+  it('degrades invalid stored favorites JSON to an empty list', () => {
+    window.localStorage.setItem('koma-studio.font-favorites.v1', '{not json');
+    openPicker({
+      value: 'Cabin',
+      families: ['Cabin'],
+      onChange: changeHandler([]),
+    });
+
+    expect(optionRows()[0]?.textContent).toBe('Cabin');
+    expect(screen.getByRole('button', { name: 'fontPicker.favorite.add' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'fontPicker.favorite.remove' })).toBeNull();
   });
 
   it('never rewrites a stored family when the panel is opened and dismissed', () => {

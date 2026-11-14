@@ -1178,3 +1178,18 @@
 [data-theme="light"] .koma-aio-hint strong {
   color: rgba(15, 23, 42, 0.92);
 }
+
+.koma-aio-apply-style {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.koma-aio-apply-style__option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  cursor: pointer;
+}

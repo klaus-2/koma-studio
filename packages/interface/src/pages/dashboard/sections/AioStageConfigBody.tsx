@@ -1,6 +1,11 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { Info } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@koma/ui/components/popover';
+import type {
+  ApplyStyleOptions,
+  RenderStyleAttribute,
+} from '../utils/render-style-projection';
 
 import AioLlmSettingsPanel from './AioLlmSettingsPanel';
 import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
@@ -38,6 +43,14 @@ type ModelManagerPanelApi = ReturnType<typeof useDashboardModelManager>;
 type RenderFontCatalogApi = ReturnType<typeof useRenderFontCatalog>;
 type AioModelSelectionApi = ReturnType<typeof useAioModelSelection>;
 
+const APPLY_STYLE_ATTRIBUTES: RenderStyleAttribute[] = [
+  'fontFamily',
+  'fontSize',
+  'color',
+  'outline',
+  'alignment',
+];
+
 interface AioStageConfigBodyProps {
   activeStageTab: StageTabKey;
   subMode: SubMode;
@@ -67,7 +80,7 @@ interface AioStageConfigBodyProps {
   showLlmSettingsPanel: boolean;
   llmSettingsSupportSummary: string;
   updateActiveRenderMode: (nextMode: RenderTextMode) => void;
-  applyActiveRenderStyleToAllRegions: () => void;
+  applyActiveRenderStyleToAllRegions: (options?: ApplyStyleOptions) => void;
   activeImageRenderStageActive: boolean;
   loadRenderFontCatalog: RenderFontCatalogApi['loadRenderFontCatalog'];
   fontCatalogLoading: RenderFontCatalogApi['fontCatalogLoading'];
@@ -124,6 +137,24 @@ export default memo(function AioStageConfigBody({
   const { t, locale } = useI18n();
   const noir = useThemeStore((s) => s.family === 'noir');
   const skin = aioPanelClasses(noir);
+
+  const [applyStyleOpen, setApplyStyleOpen] = useState(false);
+  const [applyAttributes, setApplyAttributes] = useState<
+    Record<RenderStyleAttribute, boolean>
+  >({
+    fontFamily: true,
+    fontSize: true,
+    color: true,
+    outline: true,
+    alignment: true,
+  });
+  const [applyScope, setApplyScope] = useState<'currentPage' | 'allPages'>('allPages');
+
+  const toggleApplyAttribute = (attribute: RenderStyleAttribute): void => {
+    const next: Record<RenderStyleAttribute, boolean> = { ...applyAttributes };
+    next[attribute] = !applyAttributes[attribute];
+    setApplyAttributes(next);
+  };
 
   const modelManagerState = useModelManagerStatusSnapshot();
   const modelSummary = useMemo(
@@ -503,15 +534,65 @@ export default memo(function AioStageConfigBody({
           )}
 
           {/* Apply style */}
-          <button
-            type="button"
-            className={skin.primaryFullButton}
-            disabled={!canEditActiveRenderStage}
-            onClick={applyActiveRenderStyleToAllRegions}
-            title={t('dashboard.typesetter.applyStyleAll.title')}
-          >
-            {t('dashboard.typo.applyStyleToAll')}
-          </button>
+          <Popover open={applyStyleOpen} onOpenChange={setApplyStyleOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={skin.primaryFullButton}
+                disabled={!canEditActiveRenderStage}
+                title={t('dashboard.typesetter.applyStyleAll.title')}
+              >
+                {t('dashboard.typo.applyStyleToAll')}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start">
+              <div className="koma-aio-apply-style">
+                <span className="koma-aio-hint">
+                  {t('dashboard.typesetter.applyStyleAll.configure')}
+                </span>
+                {APPLY_STYLE_ATTRIBUTES.map((attribute) => (
+                  <label key={attribute} className="koma-aio-apply-style__option">
+                    <input
+                      type="checkbox"
+                      checked={applyAttributes[attribute]}
+                      onChange={() => toggleApplyAttribute(attribute)}
+                    />
+                    {t(`dashboard.typesetter.applyStyleAll.attr.${attribute}`)}
+                  </label>
+                ))}
+                <select
+                  className={skin.select}
+                  value={applyScope}
+                  onChange={(e) => setApplyScope(
+                    e.target.value === 'currentPage' ? 'currentPage' : 'allPages',
+                  )}
+                  aria-label={t('dashboard.typesetter.applyStyleAll.configure')}
+                >
+                  <option value="currentPage">
+                    {t('dashboard.typesetter.applyStyleAll.scope.currentPage')}
+                  </option>
+                  <option value="allPages">
+                    {t('dashboard.typesetter.applyStyleAll.scope.allPages')}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  className={skin.primaryFullButton}
+                  onClick={() => {
+                    applyActiveRenderStyleToAllRegions({
+                      attributes: APPLY_STYLE_ATTRIBUTES.filter(
+                        (attribute) => applyAttributes[attribute],
+                      ),
+                      scope: applyScope,
+                    });
+                    setApplyStyleOpen(false);
+                  }}
+                >
+                  {t('dashboard.typesetter.applyStyleAll.apply')}
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <p className="koma-aio-hint">
             {t('dashboard.typo.fontControlsHint')}{' '}

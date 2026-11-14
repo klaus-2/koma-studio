@@ -41,6 +41,7 @@ import {
   normalizeRenderRotation,
   normalizeRenderSkew,
 } from '../../../utils/dashboard.utils';
+import { buildDefaultRegionRenderText } from '../../../utils/dashboard.region.utils';
 import { CircularTextPopover } from '../../color/CircularTextPopover';
 import { FillStylePopover } from '../../color/FillStylePopover';
 import { RenderEffectPopover } from '../../color/RenderEffectPopover';
@@ -148,14 +149,10 @@ const RenderTextPreviewTypeDock = ({
           <FontFamilySelect
             className="koma-type-dock__select koma-type-dock__select--font"
             value={selectedRegionStyle.fontFamily}
-            onChange={(family) =>
-              updateSelectedRegionStyle((s) => ({
-                ...s,
-                fontFamily: family,
-              }))
-            }
+            onChange={(family) => updateSelectedRegionStyle((s) => ({ ...s, fontFamily: family }))}
             families={availableRenderFonts}
             ariaLabel={t('renderPreview.textFont')}
+            previewText={buildDefaultRegionRenderText(selectedRegion)}
           />
 
           {/* Shape */}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@koma/ui/components/popover';
 import { useI18n } from '../../i18n';
 import { cn } from '../../lib/utils';
+import { useFontFavorites } from './useFontFavorites';
 
 import './FontFamilySelect.css';
 
@@ -16,12 +17,14 @@ export interface FontFamilySelectProps {
   className?: string;
   defaultOptionLabel?: string;
   disabled?: boolean;
+  previewText?: string | null;
 }
 
 interface FontPickerRow {
   family: string;
   label: string;
   note: string | null;
+  starable: boolean;
 }
 
 interface FontPickerRows {
@@ -37,8 +40,10 @@ export function FontFamilySelect({
   className,
   defaultOptionLabel,
   disabled = false,
+  previewText = null,
 }: FontFamilySelectProps) {
   const { t } = useI18n();
+  const { favorites, isFavorite, toggleFavorite } = useFontFavorites();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -54,22 +59,38 @@ export function FontFamilySelect({
 
     const pinnedRows: FontPickerRow[] = [];
     if (defaultOptionLabel && matchesQuery(defaultOptionLabel)) {
-      pinnedRows.push({ family: '', label: defaultOptionLabel, note: null });
+      pinnedRows.push({ family: '', label: defaultOptionLabel, note: null, starable: false });
     }
     if (storedFamily !== '' && !isStoredFamilyKnown && matchesQuery(storedFamily)) {
-      pinnedRows.push({ family: storedFamily, label: storedFamily, note: t('fontPicker.freeValue') });
+      pinnedRows.push({ family: storedFamily, label: storedFamily, note: t('fontPicker.freeValue'), starable: false });
     }
 
     const matchingFamilies = families.filter(matchesQuery);
-    const visibleFamilies = matchingFamilies
+    // Favorites first (stable, case-insensitive), then the remaining families
+    // in their original order. One pass: per-family favorites state is a
+    // precomputed set (the picker must filter 2,000-family catalogs fast).
+    const favoriteSet = new Set(favorites.map((family) => family.toLowerCase()));
+    const favoriteMatches: string[] = [];
+    const otherMatches: string[] = [];
+    for (const family of matchingFamilies) {
+      if (favoriteSet.has(family.toLowerCase())) {
+        favoriteMatches.push(family);
+      } else {
+        otherMatches.push(family);
+      }
+    }
+    const orderedFamilies = [...favoriteMatches, ...otherMatches];
+    const visibleFamilies = orderedFamilies
       .slice(0, FONT_LIST_MAX_ROWS)
-      .map((family) => ({ family, label: family, note: null }));
+      .map((family) => ({ family, label: family, note: null, starable: true }));
 
     return {
       rows: [...pinnedRows, ...visibleFamilies],
       hiddenFamilyCount: Math.max(0, matchingFamilies.length - visibleFamilies.length),
     };
-  }, [defaultOptionLabel, families, isStoredFamilyKnown, query, storedFamily, t]);
+  }, [defaultOptionLabel, families, favorites, isStoredFamilyKnown, query, storedFamily, t]);
+
+  const preview = previewText?.trim() || '';
 
   useEffect(() => {
     setActiveIndex(0);
@@ -156,7 +177,42 @@ export function FontFamilySelect({
                 onClick={() => commit(row.family)}
                 onMouseEnter={() => setActiveIndex(index)}
               >
-                <span className="koma-font-select__name">{row.label}</span>
+                {row.starable && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={
+                      isFavorite(row.family)
+                        ? t('fontPicker.favorite.remove')
+                        : t('fontPicker.favorite.add')
+                    }
+                    className={cn(
+                      'koma-font-select__star',
+                      isFavorite(row.family) && 'is-favorite',
+                    )}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleFavorite(row.family);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        toggleFavorite(row.family);
+                      }
+                    }}
+                  />
+                )}
+                {row.starable ? (
+                  <span
+                    className="koma-font-select__preview"
+                    style={{ fontFamily: row.family }}
+                  >
+                    {preview || row.label}
+                  </span>
+                ) : (
+                  <span className="koma-font-select__name">{row.label}</span>
+                )}
                 {row.note && <span className="koma-font-select__note">{row.note}</span>}
               </button>
             ))}

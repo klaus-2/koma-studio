@@ -184,3 +184,43 @@
   border-radius: 0;
   background: color-mix(in srgb, var(--color-paper) 18%, transparent);
 }
+
+.koma-font-select__star {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  opacity: 0.4;
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Star glyph painted by CSS: zero extra DOM/text per row keeps the
+   2,000-family catalog filter within its performance budget. */
+.koma-font-select__star::before {
+  content: '\2605 ';
+}
+
+.koma-font-select__row:hover .koma-font-select__star,
+.koma-font-select__star.is-favorite {
+  opacity: 1;
+  color: #f59e0b;
+}
+
+.koma-font-select__preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme-family='noir'] .koma-font-select__star.is-favorite {
+  color: var(--color-gold);
+}
+
+:root[data-theme-family='noir'] .koma-font-select__preview {
+  color: var(--color-paper);
+}

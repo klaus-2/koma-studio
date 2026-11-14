@@ -53,6 +53,13 @@ import {
   readActiveAioSelectedRegionId,
   readActiveTypographerPreset,
 } from './region-editor.render';
+import { cloneRenderTextStyleRanges } from '../../../utils/renderTextStyleRanges';
+import { isRegionFieldLocked } from '../../../utils/region-lock';
+import {
+  ALL_RENDER_STYLE_ATTRIBUTES,
+  projectRenderStyle,
+} from '../utils/render-style-projection';
+import type { ApplyStyleOptions } from '../utils/render-style-projection';
 
 export { useAioRegionSnapshotSync } from './region-editor.snapshot';
 export {
@@ -606,17 +613,95 @@ export function useAioRegionEditing({
     ],
   );
 
-  const applyActiveRenderStyleToAllRegions = useCallback(() => {
-    const activeId = useImageCollectionStore.getState().activeId;
-    const activeSelectedRegion = readActiveAioSelectedRegion(activeId);
-    if (!activeSelectedRegion) return;
-    const styleSnapshot = cloneRenderStyle(
-      activeSelectedRegion.renderStyle ?? renderDefaultStyle,
-    );
-    const { aioSelectedRegionByImage } = useRegionEditorStore.getState();
-    Object.entries(useRegionEditorStore.getState().aioDetectionsByImage).forEach(
-      ([imageId, regions]) => {
+  const applyActiveRenderStyleToAllRegions = useCallback(
+    (options?: ApplyStyleOptions) => {
+      const activeId = useImageCollectionStore.getState().activeId;
+      const activeSelectedRegion = readActiveAioSelectedRegion(activeId);
+      if (!activeSelectedRegion) return;
+      const { aioSelectedRegionByImage } = useRegionEditorStore.getState();
+
+      const attributes = options?.attributes ?? ALL_RENDER_STYLE_ATTRIBUTES;
+      const isWholesaleApply =
+        !options ||
+        (options.scope === 'allPages' &&
+          attributes.length === ALL_RENDER_STYLE_ATTRIBUTES.length &&
+          ALL_RENDER_STYLE_ATTRIBUTES.every((attribute) =>
+            attributes.includes(attribute),
+          ));
+
+      if (isWholesaleApply) {
+        // No options (or the explicit all-attributes + all-pages combination)
+        // keeps the legacy behavior: the source style clones wholesale over
+        // every region of every page, target ranges stay untouched.
+        const styleSnapshot = cloneRenderStyle(
+          activeSelectedRegion.renderStyle ?? renderDefaultStyle,
+        );
+        Object.entries(useRegionEditorStore.getState().aioDetectionsByImage).forEach(
+          ([imageId, regions]) => {
+            const nextRegions = regions.map((region) => {
+              const withDefaults = applyRenderDefaultsToRegion(
+                region,
+                renderDefaultStyle,
+                applyDetectedGradientToStyle,
+                undefined,
+                aioTgtLang,
+              );
+              return {
+                ...withDefaults,
+                renderStyle: cloneRenderStyle(styleSnapshot),
+              };
+            });
+            applyAioRegionsEditForImage(
+              imageId,
+              nextRegions,
+              aioSelectedRegionByImage[imageId] ?? null,
+            );
+          },
+        );
+        setTonedStatus(
+          t('dashboard.status.renderStyleAppliedAll'),
+          'success',
+        );
+        return;
+      }
+
+      // Eyedropper path: normalized source style, per-attribute projection.
+      // Ranges policy: copied only when the font-family attribute is checked
+      // (ranges pin old-family per-span overrides — keeping them under a
+      // projected style yields mixed-font output), cleared otherwise.
+      const sourceRegion = applyRenderDefaultsToRegion(
+        activeSelectedRegion,
+        renderDefaultStyle,
+        applyDetectedGradientToStyle,
+        undefined,
+        aioTgtLang,
+      );
+      const sourceStyle = cloneRenderStyle(
+        sourceRegion.renderStyle ?? renderDefaultStyle,
+      );
+      const sourceRanges = sourceRegion.renderTextStyleRanges;
+      const checkedFontFamily = attributes.includes('fontFamily');
+      const { aioDetectionsByImage } = useRegionEditorStore.getState();
+      const targetEntries: Array<[string, AioTextRegion[]]> = [];
+      if (options?.scope === 'currentPage') {
+        if (activeId !== null) {
+          const activeRegions = aioDetectionsByImage[activeId];
+          if (activeRegions) {
+            targetEntries.push([activeId, activeRegions]);
+          }
+        }
+      } else {
+        targetEntries.push(...Object.entries(aioDetectionsByImage));
+      }
+      targetEntries.forEach(([imageId, regions]) => {
+        // The edit REPLACES the whole region list: map every region in scope
+        // and let style-locked/hidden entries pass through with their
+        // original object reference (clone-on-write keeps the identity) —
+        // filtering them out here would silently DELETE them.
         const nextRegions = regions.map((region) => {
+          if (isRegionFieldLocked(region, 'style') || region.hidden) {
+            return region;
+          }
           const withDefaults = applyRenderDefaultsToRegion(
             region,
             renderDefaultStyle,
@@ -626,7 +711,14 @@ export function useAioRegionEditing({
           );
           return {
             ...withDefaults,
-            renderStyle: cloneRenderStyle(styleSnapshot),
+            renderStyle: projectRenderStyle(
+              sourceStyle,
+              withDefaults.renderStyle ?? renderDefaultStyle,
+              attributes,
+            ),
+            renderTextStyleRanges: checkedFontFamily
+              ? cloneRenderTextStyleRanges(sourceRanges)
+              : undefined,
           };
         });
         applyAioRegionsEditForImage(
@@ -634,18 +726,19 @@ export function useAioRegionEditing({
           nextRegions,
           aioSelectedRegionByImage[imageId] ?? null,
         );
-      },
-    );
-    setTonedStatus(
-      t('dashboard.status.renderStyleAppliedAll'),
-      'success',
-    );
-  }, [
-    aioTgtLang,
-    applyAioRegionsEditForImage,
-    renderDefaultStyle,
-    setTonedStatus,
-  ]);
+      });
+      setTonedStatus(
+        t('dashboard.status.renderStyleAppliedAll'),
+        'success',
+      );
+    },
+    [
+      aioTgtLang,
+      applyAioRegionsEditForImage,
+      renderDefaultStyle,
+      setTonedStatus,
+    ],
+  );
 
   const ensureRenderDefaultsInAllRegions = useCallback(() => {
     setAioDetectionsByImage((prev) => {

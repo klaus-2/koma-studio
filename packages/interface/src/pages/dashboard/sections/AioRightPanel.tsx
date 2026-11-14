@@ -69,6 +69,7 @@ import { isPipelineSnapshotKey } from '../hooks/aio-snapshot.queries';
 import type { useModelManager } from '../../../hooks/useModelManager';
 import type { useDashboardModelManager } from '../../../hooks/useDashboardModelManager';
 import type { useRenderFontCatalog } from '../../../hooks/useRenderFontCatalog';
+import type { ApplyStyleOptions } from '../utils/render-style-projection';
 import AioStageConfigBody from './AioStageConfigBody';
 import AioBatchModePanel from '../../../components/dashboard/AioBatchModePanel';
 
@@ -134,7 +135,7 @@ interface AioRightPanelProps {
   showLlmSettingsPanel: boolean;
   llmSettingsSupportSummary: string;
   updateActiveRenderMode: (nextMode: RenderTextMode) => void;
-  applyActiveRenderStyleToAllRegions: () => void;
+  applyActiveRenderStyleToAllRegions: (options?: ApplyStyleOptions) => void;
   activeImageRenderStageActive: boolean;
   loadRenderFontCatalog: RenderFontCatalogApi['loadRenderFontCatalog'];
   fontCatalogLoading: RenderFontCatalogApi['fontCatalogLoading'];

@@ -23,6 +23,7 @@ import type {
 } from '../../../typography/types';
 import type { RenderTextStyle } from '../../../utils/renderText';
 import { DEFAULT_RENDER_STYLE } from '../../../constants/dashboard.constants';
+import { buildDefaultRegionRenderText } from '../../../utils/dashboard.region.utils';
 import {
   applyNativeTextEffectPreset,
   NATIVE_TEXT_EFFECT_PRESETS,
@@ -274,6 +275,7 @@ const RenderTextPreviewTypeDockNoir = ({
             onChange={(family) => updateSelectedRegionStyle((s) => ({ ...s, fontFamily: family }))}
             families={availableRenderFonts}
             ariaLabel={t('renderPreview.textFont')}
+            previewText={buildDefaultRegionRenderText(selectedRegion)}
           />
           <select
             className="panel-cut-sm h-7 w-[82px] border border-paper/10 bg-ink-3 px-2 py-1 font-mono text-[11px] text-paper outline-none focus:border-crimson"
