@@ -132,6 +132,17 @@ class _ImageState:
     clean_payload: StagePayload | None = None
     fell_back_stages: dict[StageName, str] = field(default_factory=dict)
     cleaned: CleanedImage | None = None
+    # Per-pass bytes memo: the page's bytes are read off disk at most once
+    # per pass and released when the page leaves the queue slot (_run_queue's
+    # finally). Cleared between phases so a two-phase batch never holds every
+    # page's bytes across phases; outstanding passes stay bounded by the
+    # executor admission semaphore.
+    bytes_memo: bytes | None = None
+
+    def read_bytes_once(self) -> bytes:
+        if self.bytes_memo is None:
+            self.bytes_memo = self.task.read_bytes()
+        return self.bytes_memo
 
     def fail(self, stage: StageName, message: str) -> None:
         self.errors.append(BatchItemError(stage=stage, message=message))
@@ -310,6 +321,7 @@ class BatchOrchestrator:
             try:
                 await handler(state)
             finally:
+                state.bytes_memo = None
                 self._progress.item_finished(state.task.index, self._item_status(state))
             return state
 
@@ -373,7 +385,7 @@ class BatchOrchestrator:
         two-phase batch never holds every page in memory at once."""
         cfg = self._config
         try:
-            image = await stages.open_rgb_image(await asyncio.to_thread(state.task.read_bytes))
+            image = await stages.open_rgb_image(await asyncio.to_thread(state.read_bytes_once))
         except InvalidImageError as exc:
             state.fail("input", str(exc))
             return
@@ -411,7 +423,7 @@ class BatchOrchestrator:
                     async def run_ocr(use_gpu: bool) -> StageOutput[OCRRecord]:
                         return await stages.run_ocr_stage(
                             image=image,
-                            image_bytes=await asyncio.to_thread(state.task.read_bytes),
+                            image_bytes=await asyncio.to_thread(state.read_bytes_once),
                             source_language=cfg.source_language,
                             model_key=cfg.ocr_model_key,
                             has_gpu=use_gpu,
@@ -493,7 +505,7 @@ class BatchOrchestrator:
         try:
             async def run_segment(use_gpu: bool) -> StageOutput[SegmentRecord]:
                 return await stages.run_segment_stage(
-                    image_bytes=await asyncio.to_thread(state.task.read_bytes),
+                    image_bytes=await asyncio.to_thread(state.read_bytes_once),
                     has_gpu=use_gpu,
                     model_key=cfg.segment_model_key,
                     seeds=seeds,
@@ -524,7 +536,7 @@ class BatchOrchestrator:
     async def _clean(self, state: _ImageState) -> None:
         cfg = self._config
         try:
-            image = await stages.open_rgb_image(await asyncio.to_thread(state.task.read_bytes))
+            image = await stages.open_rgb_image(await asyncio.to_thread(state.read_bytes_once))
         except InvalidImageError as exc:
             state.fail("clean", f"Invalid image for the clean stage: {exc}")
             return
