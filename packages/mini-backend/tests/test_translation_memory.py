@@ -198,6 +198,22 @@ class TranslationMemoryStageTests(unittest.TestCase):
         self.assertEqual(second.records[0]["translation_source"], "tm")
         self.assertEqual(self._tm_hits(), 1)
 
+    def test_persistent_cache_hit_stamps_translation_source_cache(self) -> None:
+        """Second run with a fresh in-memory CacheManager over the SAME
+        persistent store: the store's cached answer from the first run is
+        served and stamped "cache", with no second engine call."""
+        engine = _FakeEngine("fake")
+        settings = clamp_llm_request_settings({})
+
+        first = _run(_request(settings=settings), engine, self.store)
+        self.assertEqual(engine.calls, 1)
+        self.assertEqual(first.records[0]["translation_source"], "engine")
+
+        second = _run(_request(settings=settings), engine, self.store)
+        self.assertEqual(engine.calls, 1)
+        self.assertEqual(second.records[0]["translated_text"], "ok-konnichiwa")
+        self.assertEqual(second.records[0]["translation_source"], "cache")
+
     def test_reads_off_never_consult_tm_and_stamp_cache_or_engine(self) -> None:
         """Toggle OFF => zero TM reads: the batched lookup helper is never
         called even though a TM entry for the line exists, and the served
