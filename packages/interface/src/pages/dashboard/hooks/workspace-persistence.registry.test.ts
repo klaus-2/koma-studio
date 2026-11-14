@@ -117,6 +117,7 @@ const EXPECTED_CAPTURE_KEYS = {
     'subMode',
     'activeImageId',
     'viewMode',
+    'zoom',
     'translatorWorkspaceMode',
     'translatorVisualProcessingMode',
     'statusMessage',
@@ -599,6 +600,24 @@ describe('workspace persistence registry', () => {
     expect(restored.translator.translatorProcessedBaseByImage).toEqual({
       'img-1': DATA_URL_TEXT,
     });
+  });
+
+  it('restores the persisted canvas zoom and leaves legacy documents untouched', async () => {
+    useUiShellStore.setState({ zoom: 1.25 });
+    const payload = await captureWorkspaceDocument(buildWorkspaceCaptureState(null));
+    expect(payload.manifest.document.view.zoom).toBe(1.25);
+
+    useUiShellStore.setState({ zoom: 2 });
+    const restored = await restoreWorkspaceDocument(payload);
+    applyRestored(restored);
+    expect(useUiShellStore.getState().zoom).toBe(1.25);
+
+    const legacyView: { zoom?: number } = payload.manifest.document.view;
+    delete legacyView.zoom;
+    const legacyRestored = await restoreWorkspaceDocument(payload);
+    useUiShellStore.setState({ zoom: 2 });
+    applyRestored(legacyRestored);
+    expect(useUiShellStore.getState().zoom).toBe(2);
   });
 
   it('keeps the v1 manualQuotaChargedByImage synthesis', () => {

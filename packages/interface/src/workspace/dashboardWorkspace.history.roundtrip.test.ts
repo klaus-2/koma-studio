@@ -239,6 +239,7 @@ const buildCaptureState = (): DashboardWorkspaceCaptureState => {
     subMode: 'manual',
     activeImageId: 'img-1',
     viewMode: 'long_strip',
+    zoom: 1,
     translatorWorkspaceMode: 'visual',
     translatorVisualProcessingMode: 'standard',
     statusMessage: 'Ready',

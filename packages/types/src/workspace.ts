@@ -140,6 +140,7 @@ export interface WorkspaceViewStateDocument {
   subMode: string;
   activeImageId: string | null;
   viewMode: string;
+  zoom?: number;
   translatorWorkspaceMode: string;
   translatorVisualProcessingMode?: string;
 }

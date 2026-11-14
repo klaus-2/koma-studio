@@ -130,6 +130,7 @@ export const buildWorkspaceCaptureState = (
     subMode: uiShellStore.subMode,
     activeImageId: imageCollectionStore.activeId,
     viewMode: uiShellStore.viewMode,
+    zoom: uiShellStore.zoom,
     translatorWorkspaceMode: translatorStore.translatorWorkspaceMode,
     translatorVisualProcessingMode: translatorStore.translatorVisualProcessingMode,
     statusMessage: statusStore.statusMessage,
@@ -291,6 +292,10 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
       // before setImages.
       useImageCollectionStore.getState().setActiveId(restored.document.view.activeImageId);
       useUiShellStore.getState().setViewMode(restored.document.view.viewMode as ViewMode);
+      const restoredZoom = restored.document.view.zoom;
+      if (typeof restoredZoom === 'number') {
+        useUiShellStore.getState().setZoom(restoredZoom);
+      }
       useTranslatorStore.getState().setTranslatorWorkspaceMode(
         restored.document.view.translatorWorkspaceMode as TranslatorWorkspaceMode,
       );

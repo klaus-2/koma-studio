@@ -25,6 +25,7 @@ import {
   importArchiveChapter,
   importDirectPage,
 } from '../lib/chapter-archive-import';
+import { findDuplicateMatches } from '../utils/import-duplicates';
 import type { PageFile } from '../../../utils/page-source';
 import type {
   AioManualImageEditState,
@@ -39,6 +40,7 @@ import type {
   TranslatorVisualRunMeta,
 } from '../../../types/dashboard.types';
 import { useImageCollectionStore } from '../stores/image-collection-store';
+import { useImportDuplicatesStore } from '../stores/import-duplicates-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { useExportStore } from '../stores/export-store';
 import { useCleanerStore } from '../stores/cleaner-store';
@@ -79,6 +81,12 @@ export function useDashboardUploads({
   const setActiveId = useImageCollectionStore((s) => s.setActiveId);
   const setIsExtractingUploads = useImageCollectionStore(
     (s) => s.setIsExtractingUploads,
+  );
+  const openPendingDuplicates = useImportDuplicatesStore(
+    (s) => s.openPending,
+  );
+  const clearPendingDuplicates = useImportDuplicatesStore(
+    (s) => s.clearPending,
   );
 
   const loadImageDetails = useCallback(
@@ -348,6 +356,22 @@ export function useDashboardUploads({
       return;
     }
 
+    // Composes the same status text for the direct path and the two-phase
+    // duplicate-review resume (warnings + container-extraction info stashed
+    // with the pending batch through this closure).
+    const composeImportStatusMessage = (addedCount: number): string => {
+      let message = `${addedCount} image(s) added.`;
+      if (containerFiles.length > 0 && extractedContainerFiles.length > 0) {
+        message = `${addedCount} image(s) added (${extractedContainerFiles.length} extracted from ${containerFiles.length} container file(s)).`;
+      }
+      if (warnings.length > 0) {
+        const excerpt = warnings.slice(0, 2).join(' | ');
+        const suffix = warnings.length > 2 ? '...' : '';
+        message = `${message} Warnings: ${excerpt}${suffix}`;
+      }
+      return message;
+    };
+
     try {
       const newImgs = await runConcurrentBatch({
         items: candidateUploads,
@@ -355,30 +379,44 @@ export function useDashboardUploads({
         worker: async ({ item: { file, chapter } }) =>
           loadImageDetails(file, chapter ?? undefined),
       });
+      const duplicateMatches = await findDuplicateMatches(
+        newImgs,
+        useImageCollectionStore.getState().images,
+      );
+      if (duplicateMatches.length > 0) {
+        // Two-phase import: hold the batch in the duplicates store until the
+        // user confirms which copies to keep.
+        openPendingDuplicates({
+          images: newImgs,
+          matches: duplicateMatches,
+          resume: (keptImages) => {
+            addImages([...keptImages]);
+            if (!useImageCollectionStore.getState().activeId && newImgs[0]) {
+              setActiveId(newImgs[0].id);
+            }
+            invalidateAioPipelineHistory();
+            clearPendingDuplicates();
+            setStatusMessage(composeImportStatusMessage(keptImages.length));
+          },
+        });
+        return;
+      }
       addImages(newImgs);
       if (!activeId && newImgs.length > 0 && newImgs[0]) setActiveId(newImgs[0].id);
       invalidateAioPipelineHistory();
-
-      let message = `${newImgs.length} image(s) added.`;
-      if (containerFiles.length > 0 && extractedContainerFiles.length > 0) {
-        message = `${newImgs.length} image(s) added (${extractedContainerFiles.length} extracted from ${containerFiles.length} container file(s)).`;
-      }
-      if (warnings.length > 0) {
-        const excerpt = warnings.slice(0, 2).join(' | ');
-        const suffix = warnings.length > 2 ? '...' : '';
-        message = `${message} Warnings: ${excerpt}${suffix}`;
-      }
-      setStatusMessage(message);
+      setStatusMessage(composeImportStatusMessage(newImgs.length));
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : 'Failed to load the images.');
     }
   }, [
     activeId,
     addImages,
+    clearPendingDuplicates,
     extractImagesFromChapterArchives,
     extractImagesFromContainerFiles,
     invalidateAioPipelineHistory,
     loadImageDetails,
+    openPendingDuplicates,
     setActiveId,
     setIsExtractingUploads,
     setStatusMessage,

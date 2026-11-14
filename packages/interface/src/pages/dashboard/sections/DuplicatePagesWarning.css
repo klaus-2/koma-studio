@@ -1,0 +1,155 @@
+.koma-dupes__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 24px;
+}
+
+.koma-dupes__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(420px, 100%);
+  max-height: min(70vh, 520px);
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: #171a21;
+  color: #e2e8f0;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.koma-dupes__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.koma-dupes__desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.75;
+}
+
+.koma-dupes__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.koma-dupes__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+}
+
+.koma-dupes__row.is-ignored {
+  opacity: 0.55;
+}
+
+.koma-dupes__thumb {
+  flex: none;
+  width: 40px;
+  height: 54px;
+  border-radius: 4px;
+  background-color: rgba(148, 163, 184, 0.15);
+  background-size: cover;
+  background-position: center;
+}
+
+.koma-dupes__thumbText {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 54px;
+  padding: 2px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.15);
+  color: #e2e8f0;
+  font-size: 8px;
+  line-height: 1.2;
+  word-break: break-all;
+  opacity: 0.8;
+}
+
+.koma-dupes__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.koma-dupes__actions {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+
+.koma-dupes__choiceButton {
+  padding: 4px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.koma-dupes__choiceButton.is-active {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.18);
+}
+
+.koma-dupes__confirm {
+  flex: none;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #8b5cf6;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Noir skin: cut panels, paper-on-ink, crimson accents. */
+:root[data-theme-family='noir'] .koma-dupes__panel {
+  border: 1px solid color-mix(in srgb, var(--color-paper) 18%, transparent);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--color-ink) 92%, transparent);
+  color: var(--color-paper);
+  font-family: var(--font-display);
+}
+
+:root[data-theme-family='noir'] .koma-dupes__row,
+:root[data-theme-family='noir'] .koma-dupes__choiceButton {
+  border-color: color-mix(in srgb, var(--color-paper) 16%, transparent);
+  border-radius: 0;
+}
+
+:root[data-theme-family='noir'] .koma-dupes__choiceButton.is-active {
+  border-color: var(--color-crimson);
+  background: color-mix(in srgb, var(--color-crimson) 22%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-dupes__confirm {
+  border-radius: 0;
+  background: var(--color-crimson);
+}

@@ -32,6 +32,7 @@ export interface DashboardWorkspaceCaptureState {
   subMode: string;
   activeImageId: string | null;
   viewMode: string;
+  zoom: number;
   translatorWorkspaceMode: string;
   translatorVisualProcessingMode: TranslatorVisualProcessingMode;
   statusMessage: string;

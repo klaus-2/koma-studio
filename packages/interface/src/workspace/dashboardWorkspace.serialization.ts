@@ -427,6 +427,7 @@ export const captureWorkspaceDocument = async (
       subMode: state.subMode,
       activeImageId: state.activeImageId,
       viewMode: state.viewMode,
+      zoom: state.zoom,
       translatorWorkspaceMode: state.translatorWorkspaceMode,
       translatorVisualProcessingMode: state.translatorVisualProcessingMode,
     },

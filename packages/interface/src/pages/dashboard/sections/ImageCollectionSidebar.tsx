@@ -4,6 +4,7 @@ import { useAuthContext } from '../../../contexts/AuthContext';
 import DashboardLeftSidebar, {
   type AioImageHistoryMeta,
 } from '../../../components/dashboard/DashboardLeftSidebar';
+import DuplicatePagesWarning from './DuplicatePagesWarning';
 import { SIDEBAR_RESIZE_STEP } from '../../../constants/dashboard.constants';
 import { getRotatedDims } from '../../../utils/dashboard.utils';
 import { useAuthAccountProcessingStats } from '../hooks/auth-account';
@@ -90,39 +91,42 @@ export default function ImageCollectionSidebar({
   );
 
   return (
-    <DashboardLeftSidebar
-      mobileSidebarOpen={mobileSidebarOpen}
-      isCompactViewport={isCompactViewport}
-      desktopSidebarCollapsed={desktopSidebarCollapsed}
-      leftSidebarWidth={leftSidebarWidth}
-      sidebarRef={sidebarRef}
-      desktopSidebarToggleRef={desktopSidebarToggleRef}
-      processingStats={processingStats}
-      images={images}
-      activeId={resolvedActiveId}
-      mode={mode}
-      processing={processing}
-      isExtractingUploads={isExtractingUploads}
-      getRootProps={getRootProps}
-      getInputProps={getInputProps}
-      isDragActive={isDragActive}
-      setImages={setImages}
-      setActiveId={setActiveId}
-      invalidateAioPipelineHistory={invalidateAioPipelineHistory}
-      setStatusMessage={setStatusMessage}
-      toggleDesktopSidebar={toggleDesktopSidebar}
-      startSidebarResize={startSidebarResize}
-      resetLeftSidebarWidth={resetLeftSidebarWidth}
-      resizeLeftSidebarBy={resizeLeftSidebarBy}
-      sidebarResizeStep={SIDEBAR_RESIZE_STEP}
-      getRotatedDims={getRotatedDims}
-      getAioImageSnapshotMeta={getAioImageSnapshotMeta}
-      rewindAioPipelineForImage={rewindAioPipelineForImage}
-      forwardAioPipelineForImage={forwardAioPipelineForImage}
-      rotateImage={rotateImage}
-      moveImage={moveImage}
-      removeImage={removeImage}
-      chapterSelection={chapterSelection}
-    />
+    <>
+      <DashboardLeftSidebar
+        mobileSidebarOpen={mobileSidebarOpen}
+        isCompactViewport={isCompactViewport}
+        desktopSidebarCollapsed={desktopSidebarCollapsed}
+        leftSidebarWidth={leftSidebarWidth}
+        sidebarRef={sidebarRef}
+        desktopSidebarToggleRef={desktopSidebarToggleRef}
+        processingStats={processingStats}
+        images={images}
+        activeId={resolvedActiveId}
+        mode={mode}
+        processing={processing}
+        isExtractingUploads={isExtractingUploads}
+        getRootProps={getRootProps}
+        getInputProps={getInputProps}
+        isDragActive={isDragActive}
+        setImages={setImages}
+        setActiveId={setActiveId}
+        invalidateAioPipelineHistory={invalidateAioPipelineHistory}
+        setStatusMessage={setStatusMessage}
+        toggleDesktopSidebar={toggleDesktopSidebar}
+        startSidebarResize={startSidebarResize}
+        resetLeftSidebarWidth={resetLeftSidebarWidth}
+        resizeLeftSidebarBy={resizeLeftSidebarBy}
+        sidebarResizeStep={SIDEBAR_RESIZE_STEP}
+        getRotatedDims={getRotatedDims}
+        getAioImageSnapshotMeta={getAioImageSnapshotMeta}
+        rewindAioPipelineForImage={rewindAioPipelineForImage}
+        forwardAioPipelineForImage={forwardAioPipelineForImage}
+        rotateImage={rotateImage}
+        moveImage={moveImage}
+        removeImage={removeImage}
+        chapterSelection={chapterSelection}
+      />
+      <DuplicatePagesWarning />
+    </>
   );
 }
