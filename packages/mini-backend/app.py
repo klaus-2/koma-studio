@@ -32,6 +32,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 BaseModel.model_config["protected_namespaces"] = ()
 
 from core.config import get_config
+from core.threads import INTRA_OP_THREADS_ENV, env_thread_limit
 from core.version import APP_VERSION
 from core.device import (
     build_device_payload,
@@ -69,6 +70,7 @@ from routers.splitter import router as splitter_router
 from routers.translation import CACHE_MANAGER as TRANSLATION_CACHE_MANAGER
 from routers.translation import router as translation_router
 from routers.typography import router as typography_router
+from routers.warmup import router as warmup_router
 
 logger = logging.getLogger("mini-backend")
 
@@ -238,6 +240,25 @@ async def warmup_text_detection_model() -> None:
             extra={"profile": attempt, "elapsed_s": round(time.perf_counter() - start, 2)},
         )
         return
+
+
+def _configure_torch_thread_limit() -> None:
+    """Apply ``MINI_BACKEND_INTRA_OP_THREADS`` to torch at startup.
+
+    Runtime-safe (unlike ``OMP_NUM_THREADS``, which OpenMP reads once at
+    process start — the desktop shells mirror the intra-op value into the
+    spawn env for that). Never raises: torch is an optional heavy import.
+    """
+    threads = env_thread_limit(INTRA_OP_THREADS_ENV)
+    if threads is None:
+        return
+    try:
+        import torch
+
+        torch.set_num_threads(threads)
+        logger.info("threads.torch_configured", extra={"num_threads": threads})
+    except Exception:  # noqa: BLE001 — startup must not raise on an optional import
+        logger.warning("threads.torch_configure_failed", exc_info=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -425,6 +446,7 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         if not settings.is_production and not tracemalloc.is_tracing():
             tracemalloc.start(25)
+        _configure_torch_thread_limit()
         await warmup_text_detection_model()
         try:
             yield
@@ -575,6 +597,7 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         model_install_router,
         model_downloads_router,
         diagnostics_router,
+        warmup_router,
     )
     for router in routers:
         app.include_router(router)  # type: ignore[arg-type]
