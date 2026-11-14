@@ -1,0 +1,97 @@
+.koma-region-picker__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 24px;
+}
+
+.koma-region-picker__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(320px, 100%);
+  max-height: min(60vh, 460px);
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: #171a21;
+  color: #e2e8f0;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.koma-region-picker__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.koma-region-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.koma-region-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.koma-region-picker__row:hover {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.12);
+}
+
+.koma-region-picker__thumb {
+  flex: none;
+  display: block;
+  width: 48px;
+  height: 64px;
+  border-radius: 4px;
+  background-color: rgba(148, 163, 184, 0.15);
+  background-repeat: no-repeat;
+}
+
+.koma-region-picker__snippet {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Noir skin: cut panels, paper-on-ink, crimson accents. */
+:root[data-theme-family='noir'] .koma-region-picker__panel {
+  border: 1px solid color-mix(in srgb, var(--color-paper) 18%, transparent);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--color-ink) 92%, transparent);
+  color: var(--color-paper);
+  font-family: var(--font-display);
+}
+
+:root[data-theme-family='noir'] .koma-region-picker__row {
+  border-color: color-mix(in srgb, var(--color-paper) 16%, transparent);
+  border-radius: 0;
+}
+
+:root[data-theme-family='noir'] .koma-region-picker__row:hover {
+  border-color: var(--color-crimson);
+  background: color-mix(in srgb, var(--color-crimson) 20%, transparent);
+}

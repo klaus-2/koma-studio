@@ -24,11 +24,12 @@ import { drawManualStroke } from './canvasDrawing';
 import {
   detectCornerHit,
   detectRotateHandleHit,
-  findRegionAtPoint,
+  findRegionsAtPoint,
   getOppositeCorner,
   getRegionCornerPoint,
   getRegionRotation,
 } from './regionGeometry';
+import { shouldOpenRegionPicker } from './regionPickerDecision';
 import type { RenderTextPreviewContextMenuState } from './RenderTextPreviewContextMenu';
 
 type RenderTextPreviewInteraction = RenderOverlayInteraction;
@@ -91,6 +92,7 @@ interface UseRenderTextPreviewPointerParams {
     selectedRegionIdOverride?: string | null,
   ) => void;
   onMultiSelectToggle?: (regionId: string) => void;
+  onOpenRegionPicker?: (hits: readonly AioTextRegion[], point: { x: number; y: number }) => void;
   onManualWandMaskChange: (nextMask: string | null) => void;
   onManualWandRequest: (x: number, y: number) => Promise<void>;
   onSegmentBrushChange?: (dataUrl: string | null) => void;
@@ -153,7 +155,7 @@ export const useRenderTextPreviewPointer = ({
   onCardSelect,
   onSelectRegion,
   onRegionsChange,
-  onMultiSelectToggle,
+  onMultiSelectToggle, onOpenRegionPicker,
   onManualWandMaskChange,
   onManualWandRequest,
   onSegmentBrushChange,
@@ -524,15 +526,13 @@ export const useRenderTextPreviewPointer = ({
         }
       }
 
-      const region = findRegionAtPoint(displayRegionsWithDefaults, point.x, point.y);
-      const regionIsSelected = Boolean(
-        region && region.id === selectedRegionId,
-      );
+      const regionHits = findRegionsAtPoint(displayRegionsWithDefaults, point.x, point.y), region = regionHits[regionHits.length - 1] ?? null, regionIsSelected = Boolean(region && region.id === selectedRegionId);
       if (region) {
         if ((event.ctrlKey || event.metaKey) && onMultiSelectToggle && areaSelectionEnabled) {
           onMultiSelectToggle(region.id);
           return;
         }
+        if (shouldOpenRegionPicker(regionHits.length, region.id, selectedRegionId, event.ctrlKey || event.metaKey)) { onOpenRegionPicker?.(regionHits, point); return; }
         onSelectRegion(region.id);
         if (!editable) return;
         if (!regionIsSelected) return;
@@ -622,7 +622,7 @@ export const useRenderTextPreviewPointer = ({
       segmentEditTool,
       selectedRegionId,
       toImagePoint,
-      onMultiSelectToggle,
+      onMultiSelectToggle, onOpenRegionPicker,
     ],
   );
 

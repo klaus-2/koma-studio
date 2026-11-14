@@ -9,6 +9,7 @@ import {
   normalizeDetectedGradient,
   normalizeTranslationNotes,
 } from '../utils/dashboard.utils';
+import { isRegionFieldLocked } from '../utils/region-lock';
 
 const normalizedRenderText = (value: string | undefined): string | undefined =>
   typeof value === 'string' && value.trim().length === 0 ? undefined : value;
@@ -46,6 +47,12 @@ export function mergeOcrIntoRegions(
   return regions.map((region, index) => {
     const match = byId.get(String(region.id)) ?? payloadRegions[index] ?? null;
     if (!match) return { ...region };
+    if (isRegionFieldLocked(region, 'text')) {
+      return {
+        ...region,
+        renderText: normalizedRenderText(region.renderText),
+      };
+    }
     return {
       ...region,
       renderText: normalizedRenderText(region.renderText),
@@ -65,6 +72,12 @@ export function mergeTranslationIntoRegions(
   return regions.map((region) => {
     const match = byId.get(region.id);
     if (!match) return { ...region };
+    if (isRegionFieldLocked(region, 'text')) {
+      return {
+        ...region,
+        renderText: normalizedRenderText(region.renderText),
+      };
+    }
     return {
       ...region,
       renderText: normalizedRenderText(region.renderText),

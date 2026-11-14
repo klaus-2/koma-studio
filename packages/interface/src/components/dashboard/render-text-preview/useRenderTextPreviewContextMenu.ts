@@ -13,6 +13,8 @@ import {
   clamp,
   getRegionTranslationNotesForDisplay,
 } from '../../../utils/dashboard.utils';
+import { isRegionFieldLocked, withRegionLockField } from '../../../utils/region-lock';
+import type { RegionLockField } from '../../../utils/region-lock';
 import type { RenderTextPreviewContextMenuState } from './RenderTextPreviewContextMenu';
 import type { RenderTextPreviewInlineEditorState } from './useRenderTextPreviewInlineEditor';
 
@@ -265,6 +267,23 @@ export const useRenderTextPreviewContextMenu = ({
     removeRegionById(contextMenu.regionId);
   }, [contextMenu, editable, removeRegionById]);
 
+  const toggleRegionLockField = useCallback(
+    (field: RegionLockField) => {
+      if (!contextMenu || !editable) return;
+      updateRegions((region) =>
+        region.id === contextMenu.regionId
+          ? withRegionLockField(
+              region,
+              field,
+              !isRegionFieldLocked(region, field),
+            )
+          : region,
+      );
+      setContextMenu(null);
+    },
+    [contextMenu, editable, setContextMenu, updateRegions],
+  );
+
   return {
     getTooltipContent,
     handleRegionContextMenu,
@@ -275,5 +294,6 @@ export const useRenderTextPreviewContextMenu = ({
     handleContextConvertShape,
     removeRegionById,
     handleContextRemoveRegion,
+    toggleRegionLockField,
   };
 };

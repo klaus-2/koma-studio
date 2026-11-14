@@ -8,6 +8,8 @@ import type {
 } from '../../../types/dashboard.types';
 import type { TypographyShapeKind } from '../../../typography/types';
 import { createDefaultTypographyShape } from '../../../typography/types';
+import { findRegionsAtPoint } from '../render-text-preview/regionGeometry';
+import { shouldOpenRegionPicker } from '../render-text-preview/regionPickerDecision';
 import type { RenderTextStyle } from '../../../utils/renderText';
 import { clamp, cloneRenderStyle, normalizeRegion } from '../../../utils/dashboard.utils';
 import { useTextDetectionPreviewTextState } from './TextDetectionPreview.textState';
@@ -83,6 +85,10 @@ interface TextDetectionPreviewBehaviorDeps {
     nextSkewX: number,
     nextSkewY: number,
   ) => void;
+  onOpenRegionPicker: (
+    hits: readonly AioTextRegion[],
+    point: { x: number; y: number },
+  ) => void;
 }
 
 export interface TextDetectionPreviewContextMenu {
@@ -128,6 +134,7 @@ export const useTextDetectionPreviewBehaviors = ({
   updateRegionBox,
   setRegionRotation,
   setRegionSkew,
+  onOpenRegionPicker,
 }: TextDetectionPreviewBehaviorDeps) => {
   const regionsRef = useRef(regions);
   useEffect(() => {
@@ -416,6 +423,11 @@ export const useTextDetectionPreviewBehaviors = ({
         region && region.id === selectedRegionId,
       );
       if (region) {
+        const regionHits = findRegionsAtPoint(regionsRef.current, point.x, point.y);
+        if (shouldOpenRegionPicker(regionHits.length, region.id, selectedRegionId, event.ctrlKey || event.metaKey)) {
+          onOpenRegionPicker(regionHits, point);
+          return;
+        }
         onSelectRegion(region.id);
         if (!editable) return;
         if (!regionIsSelected) return;
@@ -485,6 +497,7 @@ export const useTextDetectionPreviewBehaviors = ({
       getRegionCornerPoint,
       getRegionRotation,
       onCardSelect,
+      onOpenRegionPicker,
       onSelectRegion,
       removeRegionById,
       selectedRegionId,

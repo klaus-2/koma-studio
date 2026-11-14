@@ -9,6 +9,7 @@ import {
 } from '../../../utils/region-review';
 import { applyRenderDefaultsToRegion } from '../../../utils/dashboard.region.utils';
 import { applyDetectedGradientToStyle } from '../../../utils/dashboard.rendering.utils';
+import { isRegionFieldLocked } from '../../../utils/region-lock';
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
@@ -77,14 +78,16 @@ export const useRegionOverflowReview = (): RegionOverflowReviewApi => {
 
   const resolveFitForRegion = useCallback(
     (region: AioTextRegion) =>
-      fitRegionFontSize(
-        applyRenderDefaultsToRegion(
-          region,
-          renderDefaultStyle,
-          applyDetectedGradientToStyle,
-        ),
-        measure,
-      ),
+      isRegionFieldLocked(region, 'style')
+        ? null
+        : fitRegionFontSize(
+            applyRenderDefaultsToRegion(
+              region,
+              renderDefaultStyle,
+              applyDetectedGradientToStyle,
+            ),
+            measure,
+          ),
     [measure, renderDefaultStyle],
   );
 
@@ -105,6 +108,7 @@ export const useRegionOverflowReview = (): RegionOverflowReviewApi => {
       const nextRegions = regions.map((region): AioTextRegion => {
         const nextSize = nextSizeByRegionId.get(region.id);
         if (nextSize === undefined) return region;
+        if (isRegionFieldLocked(region, 'style')) return region;
         const effectiveStyle = applyRenderDefaultsToRegion(
           region,
           renderDefaultStyle,

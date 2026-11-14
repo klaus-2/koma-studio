@@ -18,6 +18,11 @@ import {
 } from '../../utils/dashboard.utils';
 import { useTextDetectionPreviewBehaviors } from './text-detection-preview/TextDetectionPreview.behaviors';
 import TextDetectionPreviewView from './text-detection-preview/TextDetectionPreview.view';
+import { findRegionAtPoint as findRegionAtPointInRegions } from './render-text-preview/regionGeometry';
+import {
+  useRegionPickerState,
+  type RegionPickerState,
+} from './render-text-preview/RegionPickerMount';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 
 export interface TextDetectionPreviewProps {
@@ -64,6 +69,8 @@ export type TextDetectionPreviewController = ReturnType<
   canvasWrapH: number;
   isBrushCursorActive: boolean;
   zoom: number;
+  regionPicker: RegionPickerState | null;
+  closeRegionPicker: () => void;
 };
 
 export const useTextDetectionPreviewController = (
@@ -96,6 +103,8 @@ export const useTextDetectionPreviewController = (
   useEffect(() => {
     regionsRef.current = regions;
   });
+
+  const { picker: regionPicker, openRegionPicker, closeRegionPicker } = useRegionPickerState();
 
   // Zoom is subscribed here instead of forwarded as a prop, so a Ctrl+wheel
   // gesture re-renders only this preview leaf and not the whole stage chain.
@@ -230,16 +239,10 @@ export const useTextDetectionPreviewController = (
   );
 
   const findRegionAtPoint = useCallback(
-    (x: number, y: number): AioTextRegion | null => {
-    const r = regionsRef.current;
-    for (let idx = r.length - 1; idx >= 0; idx -= 1) {
-      const region = r[idx];
-      if (!region) continue;
-      const [x1, y1, x2, y2] = region.bbox;
-      if (x >= x1 && x <= x2 && y >= y1 && y <= y2) return region;
-    }
-    return null;
-  }, []);
+    (x: number, y: number): AioTextRegion | null =>
+      findRegionAtPointInRegions(regionsRef.current, x, y),
+    [],
+  );
 
   const getRegionRotation = useCallback(
     (region: AioTextRegion): number =>
@@ -448,6 +451,7 @@ export const useTextDetectionPreviewController = (
     updateRegionBox,
     setRegionRotation,
     setRegionSkew,
+    onOpenRegionPicker: openRegionPicker,
   });
 
   return {
@@ -458,6 +462,8 @@ export const useTextDetectionPreviewController = (
     canvasWrapH,
     isBrushCursorActive,
     zoom,
+    regionPicker,
+    closeRegionPicker,
     ...behavior,
   };
 };

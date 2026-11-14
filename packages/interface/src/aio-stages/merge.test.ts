@@ -48,6 +48,45 @@ describe('mergeOcrIntoRegions', () => {
     } as never);
     expect(next[0]?.recognizedText).toBe('x');
   });
+
+  it('skips OCR writes for text-locked regions but still normalizes renderText', () => {
+    const next = mergeOcrIntoRegions(
+      [
+        region('a', {
+          lockedFields: { text: true },
+          renderText: '  ',
+          recognizedText: 'kept',
+          ocrScore: 0.5,
+          ocrModelKey: 'kept-ocr',
+        }),
+        region('b', { recognizedText: 'kept' }),
+      ],
+      {
+        regions: [
+          { id: 'a', text: 'new', score: 0.9, ocr_model_key: 'new-ocr' },
+          { id: 'b', text: 'new', score: 0.9, ocr_model_key: 'new-ocr' },
+        ],
+      } as never,
+    );
+    expect(next[0]?.renderText).toBeUndefined();
+    expect(next[0]?.recognizedText).toBe('kept');
+    expect(next[0]?.ocrScore).toBe(0.5);
+    expect(next[0]?.ocrModelKey).toBe('kept-ocr');
+    expect(next[0]?.detectedGradient).toBeUndefined();
+    expect(next[1]?.recognizedText).toBe('new');
+    expect(next[1]?.ocrModelKey).toBe('new-ocr');
+  });
+
+  it('treats a legacy locked region as text-locked for the OCR merge', () => {
+    const next = mergeOcrIntoRegions(
+      [region('a', { locked: true, recognizedText: 'kept' })],
+      {
+        regions: [{ id: 'a', text: 'new', score: 0.9, ocr_model_key: 'new-ocr' }],
+      } as never,
+    );
+    expect(next[0]?.recognizedText).toBe('kept');
+    expect(next[0]?.ocrScore).toBeUndefined();
+  });
 });
 
 describe('mergeTranslationIntoRegions', () => {
@@ -100,6 +139,54 @@ describe('mergeTranslationIntoRegions', () => {
     );
     expect(next[0]?.translationSource).toBe('tm');
     expect(next[1]?.translationSource).toBeNull();
+  });
+
+  it('skips all translation-derived writes for text-locked regions', () => {
+    const next = mergeTranslationIntoRegions(
+      [
+        region('a', {
+          lockedFields: { text: true },
+          recognizedText: 'kept',
+          translatorModelKey: 'kept-translator',
+          translationSource: 'cache',
+        }),
+        region('b', { recognizedText: 'old' }),
+      ],
+      {
+        regions: [
+          {
+            id: 'a',
+            source_text: 'original',
+            translated_text: 'new',
+            translation_notes: ['note'],
+            source: 'model',
+            detector_model_key: 'detector',
+            ocr_model_key: 'ocr',
+            translator_model_key: 'new-translator',
+            translation_source: 'engine',
+          },
+          {
+            id: 'b',
+            source_text: 'original',
+            translated_text: 'new',
+            translation_notes: ['note'],
+            source: 'model',
+            detector_model_key: 'detector',
+            ocr_model_key: 'ocr',
+            translator_model_key: 'new-translator',
+            translation_source: 'engine',
+          },
+        ],
+      },
+    );
+    expect(next[0]?.translatedText).toBeUndefined();
+    expect(next[0]?.translationNotes).toBeUndefined();
+    expect(next[0]?.translatorModelKey).toBe('kept-translator');
+    expect(next[0]?.translationSource).toBe('cache');
+    expect(next[0]?.translationNoteOverlay).toBeUndefined();
+    expect(next[1]?.translatedText).toBe('new');
+    expect(next[1]?.translatorModelKey).toBe('new-translator');
+    expect(next[1]?.translationSource).toBe('engine');
   });
 });
 

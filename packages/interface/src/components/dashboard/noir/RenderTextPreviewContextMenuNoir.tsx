@@ -5,6 +5,8 @@ import {
   Circle,
   ClipboardCopy,
   Languages,
+  Lock,
+  LockOpen,
   Pencil,
   Square,
   Trash2,
@@ -20,6 +22,8 @@ import type {
   TypographyStylePreset,
 } from '../../../typography/types';
 import { cn } from '../../../utils/dashboard.utils';
+import { isRegionFieldLocked } from '../../../utils/region-lock';
+import type { RegionLockField } from '../../../utils/region-lock';
 import type { RenderTextPreviewContextMenuState } from '../render-text-preview/RenderTextPreviewContextMenu';
 
 interface RenderTextPreviewContextMenuNoirProps {
@@ -44,6 +48,7 @@ interface RenderTextPreviewContextMenuNoirProps {
   onEditRendered: () => void;
   onApplyPresetById: (presetId: string) => void;
   onConvertShape: (kind: 'auto' | TypographyShapeKind) => void;
+  onToggleRegionLock: (field: RegionLockField) => void;
   onRemoveRegion: () => void;
 }
 
@@ -102,6 +107,7 @@ const RenderTextPreviewContextMenuNoir = ({
   onEditRendered,
   onApplyPresetById,
   onConvertShape,
+  onToggleRegionLock,
   onRemoveRegion,
 }: RenderTextPreviewContextMenuNoirProps) => {
   const { t } = useI18n();
@@ -147,6 +153,7 @@ const RenderTextPreviewContextMenuNoir = ({
 
   const hasOcr = (targetRegion.recognizedText ?? '').trim().length > 0;
   const hasTl = (targetRegion.translatedText ?? '').trim().length > 0;
+  const regionLockFields: RegionLockField[] = ['geometry', 'text', 'style'];
 
   return (
     <div
@@ -172,6 +179,20 @@ const RenderTextPreviewContextMenuNoir = ({
         disabled={!editable || !canConvertShape} title={editable ? t('renderPreview.convertRectangular') : t('renderPreview.manualModeRequired')} />
       <CtxItem icon={Circle} label={t('renderPreview.elliptic')} onClick={() => onConvertShape('rounded')}
         disabled={!editable || !canConvertShape} title={editable ? t('renderPreview.convertElliptic') : t('renderPreview.manualModeRequired')} />
+
+      <div className="relative my-1 border-t border-paper/10" aria-hidden="true" />
+      <span className="kicker relative mb-1 block px-1.5 !text-[9px] !text-gold">// {t('renderPreview.regionLock.title')}</span>
+      {regionLockFields.map((field) => {
+        const isFieldLocked = isRegionFieldLocked(targetRegion, field);
+        return (
+          <CtxItem key={field}
+            icon={isFieldLocked ? Lock : LockOpen}
+            label={t(`renderPreview.regionLock.${field}`)}
+            onClick={() => onToggleRegionLock(field)}
+            disabled={!editable}
+            title={t(`renderPreview.regionLock.${field}`)} />
+        );
+      })}
 
       {availableTypographyPresets.length > 0 && (
         <>

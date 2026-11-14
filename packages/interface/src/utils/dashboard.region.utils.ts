@@ -15,6 +15,7 @@ import {
   cloneRenderTextStyleRanges,
 } from "./renderTextStyleRanges";
 import { getRenderModePresetStyle, normalizeDetectedRenderMode } from "./renderModes";
+import { isRegionFieldLocked, normalizeRegionLockFields } from "./region-lock";
 
 const clampNumber = (num: number, min: number, max: number): number =>
   Math.min(Math.max(num, min), max);
@@ -681,6 +682,8 @@ export const applyRenderDefaultsToRegion = (
   targetLanguage?: string | null,
 ): AioTextRegion => {
   const normalizedTargetLanguage = String(targetLanguage ?? "").trim().toLowerCase();
+  const textLocked = isRegionFieldLocked(region, "text");
+  const styleLocked = isRegionFieldLocked(region, "style");
   const resolvedStyle = {
     ...getRenderModePresetStyle(
       region.renderMode ?? "auto",
@@ -695,10 +698,11 @@ export const applyRenderDefaultsToRegion = (
     ...region,
     detectedRenderMode: region.detectedRenderMode ?? "text_bubble",
     renderMode: region.renderMode ?? "auto",
-    renderText: buildDefaultRegionRenderText(region),
-    renderStyle: applyDetectedGradient(region, resolvedStyle),
+    renderText: textLocked && region.renderText ? region.renderText : buildDefaultRegionRenderText(region),
+    renderStyle: styleLocked ? resolvedStyle : applyDetectedGradient(region, resolvedStyle),
     shape: ensureRegionShape(region, fallbackPreset),
     locked: Boolean(region.locked),
+    lockedFields: normalizeRegionLockFields(region),
     hidden: Boolean(region.hidden),
     queueIndex: region.queueIndex ?? null,
     stylePresetId: region.stylePresetId ?? null,

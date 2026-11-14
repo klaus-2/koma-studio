@@ -4,6 +4,7 @@ import {
   detectCornerHit,
   detectRotateHandleHit,
   findRegionAtPoint,
+  findRegionsAtPoint,
   getOppositeCorner,
   getRegionCornerPoint,
   rotatePoint,
@@ -104,5 +105,43 @@ describe("region geometry", () => {
 
   it("supports an empty collection", () => {
     expect(findRegionAtPoint([], 0, 0)).toBeNull();
+  });
+
+  it("returns every overlapping region in draw order", () => {
+    const back = { ...region, id: "back" };
+    const front = { ...region, id: "front" };
+    const farBbox: readonly [number, number, number, number] = [200, 0, 300, 20];
+    const far = {
+      ...region,
+      bbox: farBbox,
+      id: "far",
+    };
+
+    expect(findRegionsAtPoint([back, far, front], 50, 10)).toEqual([
+      back,
+      front,
+    ]);
+    expect(findRegionsAtPoint([back, far, front], 250, 10)).toEqual([far]);
+    expect(findRegionsAtPoint([back, far, front], 500, 10)).toEqual([]);
+  });
+
+  it("applies the rotation-aware transform to every hit", () => {
+    const rotated = {
+      ...region,
+      id: "rotated",
+      renderStyle: { rotation: 90, skewX: 0, skewY: 0 },
+    };
+    const plain = { ...region, id: "plain" };
+
+    expect(findRegionsAtPoint([rotated, plain], 50, -30)).toEqual([rotated]);
+    expect(findRegionsAtPoint([rotated, plain], 10, 10)).toEqual([plain]);
+  });
+
+  it("rejects non-finite pointer coordinates for the plural hit test", () => {
+    expect(findRegionsAtPoint([region], Number.NaN, 0)).toEqual([]);
+    expect(
+      findRegionsAtPoint([region], 0, Number.POSITIVE_INFINITY),
+    ).toEqual([]);
+    expect(findRegionsAtPoint([], 0, 0)).toEqual([]);
   });
 });

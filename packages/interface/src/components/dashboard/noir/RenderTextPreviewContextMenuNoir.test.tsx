@@ -22,12 +22,18 @@ const preset = {
   updatedAt: 0,
 } as never;
 
-function Harness() {
+function Harness({
+  targetRegion,
+  onToggleRegionLock = vi.fn(),
+}: {
+  targetRegion?: Record<string, unknown>;
+  onToggleRegionLock?: (field: string) => void;
+} = {}) {
   const [submenu, setSubmenu] = useState<'presets' | null>(null);
   return (
     <RenderTextPreviewContextMenuNoir
       contextMenu={{ regionId: 'r1', x: 24, y: 24 }}
-      targetRegion={{ id: 'r1', renderText: 'hello' } as never}
+      targetRegion={(targetRegion ?? { id: 'r1', renderText: 'hello' }) as never}
       editable
       contextSubmenu={submenu}
       presetSearch=""
@@ -47,6 +53,7 @@ function Harness() {
       onEditRendered={vi.fn()}
       onApplyPresetById={vi.fn()}
       onConvertShape={vi.fn()}
+      onToggleRegionLock={onToggleRegionLock}
       onRemoveRegion={vi.fn()}
     />
   );
@@ -73,5 +80,26 @@ describe('noir region context menu', () => {
     // Portaled to <body>: the clipped menu root is no longer an ancestor.
     expect(picker?.closest('.panel-cut.absolute')).toBeNull();
     expect(picker?.className).toContain('fixed');
+  });
+
+  it('lists the three region lock fields and dispatches their toggles', async () => {
+    const user = userEvent.setup();
+    const onToggleRegionLock = vi.fn();
+    render(
+      <I18nProvider>
+        <Harness
+          targetRegion={{ id: 'r1', lockedFields: { text: true } }}
+          onToggleRegionLock={onToggleRegionLock}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole('menuitem', { name: 'Lock geometry' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Lock text' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Lock style' })).toBeTruthy();
+
+    await user.click(screen.getByRole('menuitem', { name: 'Lock geometry' }));
+    expect(onToggleRegionLock).toHaveBeenCalledWith('geometry');
+    expect(onToggleRegionLock).toHaveBeenCalledTimes(1);
   });
 });

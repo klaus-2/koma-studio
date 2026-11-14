@@ -35,6 +35,16 @@ export interface TranslationNoteOverlayConfig {
   renderTextStyleRanges?: RenderTextStyleRange[];
 }
 
+/**
+ * Per-field region locks. A present `true` pins that field against pipeline
+ * writes. Legacy `locked: true` without `lockedFields` locks all three.
+ */
+export interface RegionLockFields {
+  geometry?: boolean;
+  text?: boolean;
+  style?: boolean;
+}
+
 export interface TypographyRegion {
   id: string;
   bbox: TypographyBounds;
@@ -67,6 +77,7 @@ export interface TypographyRegion {
   stylePresetId?: string | null;
   queueIndex?: number | null;
   locked?: boolean;
+  lockedFields?: RegionLockFields;
   hidden?: boolean;
   notes?: string[];
   shape?: TypographyShape;

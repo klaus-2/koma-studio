@@ -21,6 +21,7 @@ import {
   cn,
   getRegionTranslationNotesForDisplay,
 } from '../../../utils/dashboard.utils';
+import { RegionPickerMount } from '../render-text-preview/RegionPickerMount';
 
 interface DetectionRegionBoxProps {
   region: AioTextRegion;
@@ -178,6 +179,7 @@ const TextDetectionPreviewView = ({
   regions,
   selectedRegionId,
   onCardSelect,
+  onSelectRegion,
   editable,
   selectionEnabled,
   segmentEditEnabled,
@@ -227,6 +229,8 @@ const TextDetectionPreviewView = ({
     segmentOverlayBoxes,
     stopPropagationPointerDown,
     textEditor,
+    regionPicker,
+    closeRegionPicker,
   } = controller;
 
   const brushCursorPortal =
@@ -597,6 +601,12 @@ const TextDetectionPreviewView = ({
           </div>
         </div>
       </m.div>
+      <RegionPickerMount
+        picker={regionPicker}
+        image={image}
+        onSelectRegion={onSelectRegion}
+        onClose={closeRegionPicker}
+      />
       {brushCursorPortal}
     </>
   );

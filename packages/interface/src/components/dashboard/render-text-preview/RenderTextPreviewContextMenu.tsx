@@ -2,6 +2,8 @@ import {
   Circle,
   ClipboardCopy,
   Languages,
+  Lock,
+  LockOpen,
   Pencil,
   Square,
   Trash2,
@@ -13,6 +15,8 @@ import type {
   TypographyStyleFolder,
   TypographyStylePreset,
 } from '../../../typography/types';
+import type { RegionLockField } from '../../../utils/region-lock';
+import { isRegionFieldLocked } from '../../../utils/region-lock';
 import RenderTextPreviewPresetSubmenu from './RenderTextPreviewPresetSubmenu';
 
 export interface RenderTextPreviewContextMenuState {
@@ -43,6 +47,7 @@ interface RenderTextPreviewContextMenuProps {
   onEditRendered: () => void;
   onApplyPresetById: (presetId: string) => void;
   onConvertShape: (kind: 'auto' | TypographyShapeKind) => void;
+  onToggleRegionLock: (field: RegionLockField) => void;
   onRemoveRegion: () => void;
 }
 
@@ -68,6 +73,7 @@ const RenderTextPreviewContextMenu = ({
   onEditRendered,
   onApplyPresetById,
   onConvertShape,
+  onToggleRegionLock,
   onRemoveRegion,
 }: RenderTextPreviewContextMenuProps) => {
   const { t } = useI18n();
@@ -80,6 +86,8 @@ const RenderTextPreviewContextMenu = ({
 
   const hasOcr = (targetRegion.recognizedText ?? '').trim().length > 0;
   const hasTl = (targetRegion.translatedText ?? '').trim().length > 0;
+
+  const regionLockFields: RegionLockField[] = ['geometry', 'text', 'style'];
 
   return (
     <div
@@ -188,6 +196,31 @@ const RenderTextPreviewContextMenu = ({
           {t('renderPreview.elliptic')}
         </span>
       </button>
+
+      <div className="koma-ctx__sep" aria-hidden="true" />
+
+      <span className="koma-ctx__label">{t('renderPreview.regionLock.title')}</span>
+
+      {regionLockFields.map((field) => {
+        const isFieldLocked = isRegionFieldLocked(targetRegion, field);
+        const label = t(`renderPreview.regionLock.${field}`);
+        return (
+          <button
+            key={field}
+            type="button"
+            className="koma-ctx__item"
+            role="menuitem"
+            onClick={() => onToggleRegionLock(field)}
+            disabled={!editable}
+            title={label}
+          >
+            <span className="koma-ctx__item-icon" aria-hidden="true">
+              {isFieldLocked ? <Lock size={11} /> : <LockOpen size={11} />}
+            </span>
+            <span className="koma-ctx__item-label">{label}</span>
+          </button>
+        );
+      })}
 
       <div className="koma-ctx__sep" aria-hidden="true" />
 

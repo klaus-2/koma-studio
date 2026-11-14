@@ -17,6 +17,8 @@ import type {
   AioPipelineSnapshotKey,
   AioTextRegion,
 } from '../types/dashboard.types';
+import { useRegionEditorStore } from '../pages/dashboard/stores/region-editor-store';
+import { carryOverLockedRegions } from '../utils/region-lock-carryover';
 
 interface UseAioResultConsolidationArgs {
   aioSteps: {
@@ -67,13 +69,25 @@ export function useAioResultConsolidation({
     const cleanedOutputs: AioDownloadEntry[] = [];
 
     imageResults.forEach((result) => {
-      detectStageDetections[result.imageId] = cloneAioRegions(result.detectDetections, cloneRenderStyle);
+      // Batch detect carries locked regions over from the previous snapshot
+      // (fresh backend ids differ each run, so matching is spatial).
+      const previousRegions =
+        useRegionEditorStore.getState().aioDetectionsByImage[result.imageId] ?? [];
+      // The detect-stage timeline record represents DETECT output, with the
+      // locked regions carried over from the previous store snapshot.
+      detectStageDetections[result.imageId] = carryOverLockedRegions(
+        previousRegions,
+        cloneAioRegions(result.detectDetections, cloneRenderStyle),
+      );
       ocrStageDetections[result.imageId] = cloneAioRegions(result.ocrDetections, cloneRenderStyle);
       translationStageDetections[result.imageId] = cloneAioRegions(result.translationDetections, cloneRenderStyle);
       segmentStageDetections[result.imageId] = cloneAioRegions(result.segmentDetections, cloneRenderStyle);
       cleanStageDetections[result.imageId] = cloneAioRegions(result.cleanDetections, cloneRenderStyle);
       renderStageDetections[result.imageId] = cloneAioRegions(result.renderDetections, cloneRenderStyle);
-      nextDetections[result.imageId] = cloneAioRegions(result.renderDetections, cloneRenderStyle);
+      nextDetections[result.imageId] = carryOverLockedRegions(
+        previousRegions,
+        cloneAioRegions(result.renderDetections, cloneRenderStyle),
+      );
 
       if (aioSteps.recognizeText) {
         totalRecognized += result.ocrDetections.filter((region) => (region.recognizedText ?? '').trim().length > 0).length;
@@ -178,7 +192,22 @@ export function useAioResultConsolidation({
 
     const latestSnapshot = timelineSnapshots[timelineSnapshots.length - 1] ?? null;
     if (latestSnapshot) {
-      setAioDetectionsByImage(cloneAioDetectionsMap(latestSnapshot.detectionsByImage, cloneRenderStyle));
+      // The snapshot write REPLACES the editor store per image: whatever
+      // stage snapshot lands as latest, carry the locked regions of the
+      // current store state over its fresh detections.
+      const previousByImage = useRegionEditorStore.getState().aioDetectionsByImage;
+      const incoming = cloneAioDetectionsMap(
+        latestSnapshot.detectionsByImage,
+        cloneRenderStyle,
+      );
+      const carriedByImage: Record<string, AioTextRegion[]> = {};
+      for (const [imageId, incomingRegions] of Object.entries(incoming)) {
+        carriedByImage[imageId] = carryOverLockedRegions(
+          previousByImage[imageId] ?? [],
+          incomingRegions,
+        );
+      }
+      setAioDetectionsByImage(carriedByImage);
       setAioSelectedRegionByImage({ ...latestSnapshot.selectedRegionByImage });
     } else {
       setAioDetectionsByImage(nextDetections);

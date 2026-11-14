@@ -318,3 +318,55 @@ export function findRegionAtPoint<TRegion extends RegionGeometry>(
 
   return null;
 }
+
+/**
+ * Transform-aware hit test returning EVERY region under the point, in draw
+ * order (index ascending). The topmost hit is the last entry — the same
+ * region `findRegionAtPoint` would return.
+ */
+export function findRegionsAtPoint<TRegion extends RegionGeometry>(
+  regions: readonly TRegion[],
+  x: number,
+  y: number,
+  fallbackStyle?: RenderTextStyle,
+): TRegion[] {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return [];
+  }
+
+  const hits: TRegion[] = [];
+  for (let index = 0; index < regions.length; index += 1) {
+    const region = regions[index];
+
+    if (region === undefined || !hasFiniteBounds(region)) {
+      continue;
+    }
+
+    const style = region.renderStyle ?? fallbackStyle;
+    const transform = createTransform(
+      region,
+      style?.rotation ?? 0,
+      style?.skewX ?? 0,
+      style?.skewY ?? 0,
+    );
+
+    const local = inverseTransformPoint(x, y, transform);
+
+    if (local === null) {
+      continue;
+    }
+
+    const [x1, y1, x2, y2] = region.bbox;
+
+    if (
+      local.x >= Math.min(x1, x2) &&
+      local.x <= Math.max(x1, x2) &&
+      local.y >= Math.min(y1, y2) &&
+      local.y <= Math.max(y1, y2)
+    ) {
+      hits.push(region);
+    }
+  }
+
+  return hits;
+}

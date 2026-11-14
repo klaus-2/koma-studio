@@ -36,6 +36,7 @@ import { useRenderTextPreviewRegionOps } from '../render-text-preview/useRenderT
 import { useRenderTextPreviewInlineEditor } from '../render-text-preview/useRenderTextPreviewInlineEditor';
 import { useRenderTextPreviewContextMenu } from '../render-text-preview/useRenderTextPreviewContextMenu';
 import { useRenderTextPreviewPointer } from '../render-text-preview/useRenderTextPreviewPointer';
+import { RegionPickerMount, useRegionPickerState } from '../render-text-preview/RegionPickerMount';
 import { useRenderTextPreviewSelection } from '../render-text-preview/useRenderTextPreviewSelection';
 import { useRenderTextPreviewTypeDock } from '../render-text-preview/useRenderTextPreviewTypeDock';
 import { useInlineEditorSpanSync } from '../render-text-preview/useInlineEditorSpanSync';
@@ -202,6 +203,7 @@ const RenderTextPreviewNoir = ({
   const [hoveredRegionId, setHoveredRegionId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] =
     useState<RenderTextPreviewContextMenuState | null>(null);
+  const { picker: regionPicker, openRegionPicker, closeRegionPicker } = useRegionPickerState();
   const [contextSubmenu, setContextSubmenu] = useState<'presets' | null>(null);
   const [presetSearch, setPresetSearch] = useState("");
   const [presetFolderFilter, setPresetFolderFilter] = useState<string | null>(null);
@@ -362,6 +364,7 @@ const RenderTextPreviewNoir = ({
     handleContextConvertShape,
     removeRegionById,
     handleContextRemoveRegion,
+    toggleRegionLockField,
   } = useRenderTextPreviewContextMenu({
     overlayRef,
     segBrushDataUrlRef,
@@ -444,6 +447,7 @@ const RenderTextPreviewNoir = ({
     onSelectRegion,
     onRegionsChange,
     onMultiSelectToggle,
+    onOpenRegionPicker: openRegionPicker,
     onManualWandMaskChange,
     onManualWandRequest,
     onSegmentBrushChange,
@@ -878,8 +882,10 @@ const RenderTextPreviewNoir = ({
                 onEditRendered={handleContextEditRendered}
                 onApplyPresetById={handleContextApplyPresetById}
                 onConvertShape={handleContextConvertShape}
+                onToggleRegionLock={toggleRegionLockField}
                 onRemoveRegion={handleContextRemoveRegion}
               />
+              <RegionPickerMount picker={regionPicker} image={image} onSelectRegion={onSelectRegion} onClose={closeRegionPicker} />
 
               {showRenderDock && dockAnchor && selectedRegion && dockVisible && createPortal((() => {
                 const overlay = overlayRef.current;
