@@ -58,6 +58,18 @@ KNOWN_PROVIDERS: tuple[KnownProvider, ...] = (
     KnownProvider("llm7", frozenset({"api.llm7.io"}), "LLM7.io requires a valid token/API key."),
     KnownProvider("siliconflow", frozenset({"api.siliconflow.cn"}), "SiliconFlow requires a valid API key."),
     KnownProvider("ollama_cloud", frozenset({"ollama.com", "api.ollama.com"}), "Ollama Cloud requires a valid Bearer token."),
+    KnownProvider(
+        "cloudflare",
+        frozenset({"api.cloudflare.com"}),
+        "Cloudflare Workers AI requires a valid API token (Bearer).",
+        model_error_statuses=frozenset({404}),
+        model_error_detail=(
+            "On Cloudflare Workers AI the OpenAI-compatible endpoint (`.../ai/v1`) serves "
+            "only text-generation models on `/v1/chat/completions` (plus `/v1/embeddings`); "
+            "image-generation models such as `@cf/black-forest-labs/*` are not available "
+            "there and there is no `/v1/images/generations`. Check the model ID."
+        ),
+    ),
 )
 _HOST_TO_PROVIDER: dict[str, KnownProvider] = {
     host: provider for provider in KNOWN_PROVIDERS for host in provider.hosts
