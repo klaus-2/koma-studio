@@ -148,8 +148,11 @@ export const useTextDetectionPreviewTextState = ({
             // Provenance of the text IS manual: stamp unconditionally so a
             // hand-edited ENGINE region is also caught by the reimport
             // conflict predicate (sheet corrections never clobber manual
-            // edits silently).
+            // edits silently). The TM/cache provenance is stale once the text
+            // is hand-edited — cleared so the TM hit-count readout stays
+            // truthful.
             translatorModelKey: 'manual_edit',
+            translationSource: null,
           };
         }),
       );

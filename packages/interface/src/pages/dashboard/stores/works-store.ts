@@ -87,7 +87,13 @@ const persistWorks = (works: WorkRecord[]): void => {
   if (!isBrowser()) {
     return;
   }
-  window.localStorage.setItem(WORKS_STORAGE_KEY, JSON.stringify(works));
+  try {
+    window.localStorage.setItem(WORKS_STORAGE_KEY, JSON.stringify(works));
+  } catch (error) {
+    // Mirrors the load-side guard: a quota-blocked localStorage must not take
+    // the sync down — the in-memory registry stays the source of truth.
+    console.warn('Failed to persist the works registry.', error);
+  }
 };
 
 export const useWorksStore = create<WorksStore>()(

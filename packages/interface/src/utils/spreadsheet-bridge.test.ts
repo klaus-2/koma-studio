@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applySheetCorrectionsToImageRegions,
   applySheetRows,
   buildRegionLookup,
   buildSheetRowId,
   buildSheetRows,
+  groupSheetCorrectionsByImage,
+  type SheetAppliedRow,
   type SheetRow,
 } from "@/utils/spreadsheet-bridge";
 import type { TypographyRegion } from "@/typography/types";
@@ -180,6 +183,28 @@ describe("applySheetRows — match ladder", () => {
     expect(result.skippedRows).toEqual([]);
   });
 
+  it("targets the live image when the row imageId is stale but the OCR text matches another page", () => {
+    // Cross-session reimport: the sheet's imageId no longer exists (fresh
+    // crypto.randomUUID ids per session), so the exact rung cannot fire and
+    // the OCR fallback must land on the image that actually holds the region.
+    const images = [image("img-live")];
+    const rows = [row("img-stale", "gone", "ドン", "Boom")];
+    const result = applySheetRows(
+      rows,
+      buildRegionLookup(images, {
+        "img-live": [region("live-r", "ドン", "A", "qwen-engine")],
+      }),
+    );
+    expect(result.applied).toBe(1);
+    expect(result.appliedRows[0]).toMatchObject({
+      imageId: "img-stale",
+      matchedImageId: "img-live",
+      matchedRegionId: "live-r",
+      matchedVia: "nfkc_ocr",
+    });
+    expect(result.skippedRows).toEqual([]);
+  });
+
   it("keeps repeated OCR texts from absorbing more than one correction", () => {
     const images = [image("img-1")];
     const rows = [
@@ -235,6 +260,27 @@ describe("applySheetRows — match ladder", () => {
       reason: "unmatched",
     });
   });
+
+  it("skips a duplicate (imageId, regionId) row instead of re-applying", () => {
+    const images = [image("img-1")];
+    const rows = [
+      row("img-1", "r1", "こんにちは", "First"),
+      row("img-1", "r1", "こんにちは", "Second"),
+    ];
+    const result = applySheetRows(
+      rows,
+      buildRegionLookup(images, {
+        "img-1": [region("r1", "こんにちは", "Hello", "qwen-engine")],
+      }),
+    );
+    expect(result.applied).toBe(1);
+    expect(result.appliedRows[0]).toMatchObject({ translation: "First" });
+    expect(result.skippedRows).toHaveLength(1);
+    expect(result.skippedRows[0]).toMatchObject({
+      rowId: buildSheetRowId("img-1", "r1"),
+      reason: "duplicate",
+    });
+  });
 });
 
 describe("applySheetRows — manual edit protection", () => {
@@ -277,14 +323,16 @@ describe("applySheetRows — manual edit protection", () => {
     expect(overrideRun.conflicts[0]).toMatchObject({ resolved: true });
   });
 
-  it("catches a hand-edited engine region (post-fix stamped manual_edit) as CONFLICT", () => {
+  it("flags a manual_edit-stamped region diverging from the export as CONFLICT", () => {
+    // This covers the CONFLICT PREDICATE given a manual_edit-stamped region.
+    // The fixture hand-stamps the provenance — the unconditional stamping
+    // itself is covered by TextDetectionPreview.textState.test.ts
+    // (applyEditedRegionTranslation writes manual_edit over an engine key).
     const images = [image("img-1")];
     // Export snapshot taken BEFORE the hand edit: the region was engine-keyed.
     const exportedRows = buildSheetRows(images, {
       "img-1": [region("r1", "こんにちは", "Hello", "qwen-engine")],
     });
-    // Hand edit in KŌMA — applyEditedRegionTranslation now stamps
-    // manual_edit UNCONDITIONALLY, so the reimport conflict predicate fires.
     const editedRegions = {
       "img-1": [region("r1", "こんにちは", "Hand edit", "manual_edit")],
     };
@@ -330,5 +378,73 @@ describe("applySheetRows — applied rows report", () => {
         (entry) => entry.conflictOverride === false && entry.matchedVia === "exact",
       ),
     ).toBe(true);
+    // Exact matches write to the row's own image.
+    expect(
+      result.appliedRows.every(
+        (entry) => entry.matchedImageId === entry.imageId,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("sheet write-back helpers (pure level)", () => {
+  const appliedRow = (
+    overrides: Partial<SheetAppliedRow>,
+  ): SheetAppliedRow => ({
+    rowId: "row",
+    imageId: "img-declared",
+    matchedImageId: "img-declared",
+    rowRegionId: "row-region",
+    matchedRegionId: "row-region",
+    matchedVia: "exact",
+    translation: "Corrected",
+    conflictOverride: false,
+    ...overrides,
+  });
+
+  it("groups corrections by the MATCHED image, not the row-declared image", () => {
+    const groups = groupSheetCorrectionsByImage([
+      appliedRow({
+        rowId: "a",
+        imageId: "img-stale",
+        matchedImageId: "img-live",
+        matchedRegionId: "live-r",
+      }),
+      appliedRow({
+        rowId: "b",
+        imageId: "img-2",
+        matchedImageId: "img-2",
+        matchedRegionId: "r2",
+      }),
+    ]);
+    expect([...groups.keys()]).toEqual(["img-live", "img-2"]);
+    expect(groups.get("img-live")?.map((row) => row.rowId)).toEqual(["a"]);
+    expect(groups.get("img-2")?.map((row) => row.rowId)).toEqual(["b"]);
+  });
+
+  it("maps corrections by matchedRegionId and stamps manual_edit on applied regions only", () => {
+    const regions = [
+      region("r1", "ドン", "A", "qwen-engine"),
+      region("r2", "待って", "B"),
+    ];
+    const next = applySheetCorrectionsToImageRegions(regions, [
+      appliedRow({ matchedRegionId: "r1", translation: "Boom" }),
+    ]);
+    expect(next[0]).toMatchObject({
+      id: "r1",
+      translatedText: "Boom",
+      translatorModelKey: "manual_edit",
+    });
+    // Untouched regions keep their object identity.
+    expect(next[1]).toBe(regions[1]);
+  });
+
+  it("lets the last correction for one region win within a single image write", () => {
+    const regions = [region("r1", "ドン", "A", "qwen-engine")];
+    const next = applySheetCorrectionsToImageRegions(regions, [
+      appliedRow({ rowId: "x", matchedRegionId: "r1", translation: "First" }),
+      appliedRow({ rowId: "y", matchedRegionId: "r1", translation: "Second" }),
+    ]);
+    expect(next[0]).toMatchObject({ translatedText: "Second" });
   });
 });

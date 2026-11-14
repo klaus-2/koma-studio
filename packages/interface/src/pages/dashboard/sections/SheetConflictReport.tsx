@@ -1,8 +1,18 @@
 import { memo } from 'react';
 
 import { useI18n } from '../../../i18n';
+import type { TranslationKey } from '../../../i18n/messages';
 import { aioPanelClasses } from './AioRightPanel.skin';
-import type { SheetReimportReport } from '../../../utils/spreadsheet-bridge';
+import type {
+  SheetReimportReport,
+  SheetSkipReason,
+} from '../../../utils/spreadsheet-bridge';
+
+const SKIPPED_BADGE_KEYS: Record<SheetSkipReason, TranslationKey> = {
+  unchanged: 'dashboard.translator.sheet.badge.unchanged',
+  unmatched: 'dashboard.translator.sheet.badge.unmatched',
+  duplicate: 'dashboard.translator.sheet.badge.duplicate',
+};
 
 interface SheetConflictReportProps {
   report: SheetReimportReport;
@@ -72,7 +82,7 @@ export default memo(function SheetConflictReport({
             {t('dashboard.translator.sheet.listApplied')}
           </span>
           {report.appliedRows.map((row) => (
-            <div key={row.rowId} className={rowClass}>
+            <div key={`applied:${row.rowId}`} className={rowClass}>
               <span className={badgeClass}>
                 {t('dashboard.translator.sheet.badge.applied')}
               </span>
@@ -80,6 +90,13 @@ export default memo(function SheetConflictReport({
                 <span className="block truncate opacity-70">
                   {row.imageId} · {row.matchedRegionId}
                 </span>
+                {row.matchedImageId !== row.imageId && (
+                  <span className="block truncate opacity-70">
+                    {t('dashboard.translator.sheet.matchedOtherPage', {
+                      imageId: row.matchedImageId,
+                    })}
+                  </span>
+                )}
                 <span className="block truncate">
                   {truncatePreview(row.translation)}
                 </span>
@@ -95,7 +112,7 @@ export default memo(function SheetConflictReport({
             {t('dashboard.translator.sheet.listConflicts')}
           </span>
           {report.conflicts.map((entry) => (
-            <div key={entry.rowId} className={rowClass}>
+            <div key={`conflict:${entry.rowId}`} className={rowClass}>
               <span className={badgeClass}>
                 {t('dashboard.translator.sheet.badge.conflict')}
               </span>
@@ -133,13 +150,9 @@ export default memo(function SheetConflictReport({
             {t('dashboard.translator.sheet.listSkipped')}
           </span>
           {report.skippedRows.map((row) => (
-            <div key={`${row.rowId}:${row.reason}`} className={rowClass}>
+            <div key={`skipped:${row.rowId}:${row.reason}`} className={rowClass}>
               <span className={badgeClass}>
-                {t(
-                  row.reason === 'unchanged'
-                    ? 'dashboard.translator.sheet.badge.unchanged'
-                    : 'dashboard.translator.sheet.badge.unmatched',
-                )}
+                {t(SKIPPED_BADGE_KEYS[row.reason])}
               </span>
               <span className="min-w-0 flex-1 truncate">
                 {row.imageId} · {row.regionId}

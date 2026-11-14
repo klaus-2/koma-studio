@@ -13,6 +13,7 @@ import {
   type StageRegions,
 } from '../aio-stages';
 import { createAioStageRunSession } from '../pages/dashboard/hooks/aio-stage-runner';
+import { resolveWorkGlossarySettings } from '../pages/dashboard/hooks/translator.execution';
 import {
   applyRenderDefaultsToRegion,
   cloneAioRegions,
@@ -200,6 +201,10 @@ export function useAioSingleImageProcessor({
           'getTranslations',
           stageRegions,
         );
+        // Per-image request-local merge: the page's chapter selects the work
+        // whose glossary rides on THIS image's translation request (the
+        // batch-level llmSettings option stays untouched for the other pages).
+        const imageLlmSettings = resolveWorkGlossarySettings(imgData, llmSettings);
         const translateDone = await runGetTranslationsStage(
           {
             image: stageImage,
@@ -208,7 +213,7 @@ export function useAioSingleImageProcessor({
             targetLanguage,
             regions: translationSourceRegions,
             fallbackOcrModelKey: ocrSelectionKey,
-            llmSettings: useLlmSettingsForTranslation ? llmSettings : null,
+            llmSettings: useLlmSettingsForTranslation ? imageLlmSettings : null,
             customProfile: useLlmSettingsForTranslation ? selectedCustomTranslationProfile : null,
           },
           stageRuntime,

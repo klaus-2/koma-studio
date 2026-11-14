@@ -49,21 +49,23 @@ import { useUiShellStore } from '../stores/ui-shell-store';
 import { useWorksStore } from '../stores/works-store';
 
 /**
- * Request-local LLM settings for an image: the chapter the image belongs to
- * (chapter label, with the shared direct-images group as fallback) selects a
+ * Request-local LLM settings for ONE chapter: the chapter label selects a
  * work in the works registry, and that work's glossary is merged over the
  * global one (work wins on NFKC-duplicate source, one clamp pass). The
  * persisted store state is never mutated — a shallow copy carries the merged
- * glossary only for this request.
+ * glossary only for this request. A blank label resolves the shared
+ * direct-images group. Used per-image AND per-chapter (chapter-queue sidecar
+ * batches send one llm_settings blob per chapter, so one merge covers the
+ * chapter's whole batch).
  */
-const resolveWorkGlossarySettings = (
-  image: LoadedImage,
+export const resolveWorkGlossaryForChapter = (
+  chapterLabel: string,
   llmSettings: LlmRequestSettings,
 ): LlmRequestSettings => {
-  const chapterLabel = image.chapterLabel?.trim() || DIRECT_IMAGES_CHAPTER_ID;
+  const label = chapterLabel.trim() || DIRECT_IMAGES_CHAPTER_ID;
   const work = useWorksStore
     .getState()
-    .works.find((candidate) => candidate.chapterLabels.includes(chapterLabel));
+    .works.find((candidate) => candidate.chapterLabels.includes(label));
   if (!work) {
     return llmSettings;
   }
@@ -76,6 +78,20 @@ const resolveWorkGlossarySettings = (
     ),
   };
 };
+
+/**
+ * Request-local LLM settings for an image: the chapter the image belongs to
+ * (chapter label, with the shared direct-images group as fallback) selects a
+ * work via `resolveWorkGlossaryForChapter`. Called at EVERY image-scoped
+ * translation request-build site (retranslate, visual batch, AIO
+ * single-image processor, AIO manual stage executor); the free-text path has
+ * no image context and stays unmerged.
+ */
+export const resolveWorkGlossarySettings = (
+  image: LoadedImage,
+  llmSettings: LlmRequestSettings,
+): LlmRequestSettings =>
+  resolveWorkGlossaryForChapter(image.chapterLabel ?? '', llmSettings);
 
 /* ── Execution resolvers (translation/OCR pre-flight validation) ── */
 

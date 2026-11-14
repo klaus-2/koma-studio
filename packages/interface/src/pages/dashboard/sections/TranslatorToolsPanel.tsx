@@ -15,12 +15,15 @@ import type {
   useTranslatorVisualActions,
 } from '../hooks/translator';
 import {
+  applySheetCorrectionsToImageRegions,
   applySheetRows,
   buildRegionLookup,
   buildSheetRows,
+  groupSheetCorrectionsByImage,
 } from '../../../utils/spreadsheet-bridge';
 import type {
   SheetAppliedRow,
+  SheetConflict,
   SheetReimportReport,
   SheetRow,
 } from '../../../utils/spreadsheet-bridge';
@@ -204,37 +207,19 @@ export default function TranslatorToolsPanelSection({
 
   // Writes corrections through the EXISTING authoritative translator region
   // map (the same store the visual preview edits live in) — no parallel
-  // store. Untouched regions keep their object identity; applied regions get
-  // the manual-edit provenance stamp, matching the hand-edit path.
+  // store. Grouping is by MATCHED image id: a row whose declared imageId is
+  // stale (cross-session reimport) but whose OCR text matched a live region
+  // on another page must still land. Untouched regions keep their object
+  // identity; applied regions get the manual-edit provenance stamp, matching
+  // the hand-edit path.
   const writeSheetCorrections = useCallback(
     (appliedRows: readonly SheetAppliedRow[]): void => {
       if (appliedRows.length === 0) return;
       const detectionsByImage =
         useTranslatorStore.getState().translatorDetectionsByImage;
-      const rowsByImage = new Map<string, SheetAppliedRow[]>();
-      for (const row of appliedRows) {
-        const group = rowsByImage.get(row.imageId);
-        if (group) {
-          group.push(row);
-        } else {
-          rowsByImage.set(row.imageId, [row]);
-        }
-      }
-      for (const [imageId, rows] of rowsByImage) {
+      for (const [imageId, rows] of groupSheetCorrectionsByImage(appliedRows)) {
         const regions = detectionsByImage[imageId] ?? [];
-        const correctionByRegionId = new Map<string, SheetAppliedRow>();
-        for (const row of rows) {
-          correctionByRegionId.set(row.matchedRegionId, row);
-        }
-        const nextRegions = regions.map((region) => {
-          const correction = correctionByRegionId.get(region.id);
-          if (!correction) return region;
-          return {
-            ...region,
-            translatedText: correction.translation,
-            translatorModelKey: 'manual_edit',
-          };
-        });
+        const nextRegions = applySheetCorrectionsToImageRegions(regions, rows);
         setTranslatorDetectionsByImage((prev) => ({
           ...prev,
           [imageId]: nextRegions,
@@ -314,8 +299,9 @@ export default function TranslatorToolsPanelSection({
     (rowId: string) => {
       const rows = sheetRowsRef.current;
       if (rows === null) return;
+      const priorReport = sheetReport;
       const overrides = new Set<string>();
-      for (const entry of sheetReport?.conflicts ?? []) {
+      for (const entry of priorReport?.conflicts ?? []) {
         if (entry.resolved) overrides.add(entry.rowId);
       }
       overrides.add(rowId);
@@ -328,13 +314,38 @@ export default function TranslatorToolsPanelSection({
         { applyConflictRowIds: overrides },
       );
       writeSheetCorrections(result.appliedRows);
-      setSheetReport((prev) => ({
-        appliedRows: [...(prev?.appliedRows ?? []), ...result.appliedRows],
-        skippedRows: prev?.skippedRows ?? [],
-        conflicts: (prev?.conflicts ?? result.conflicts).map((entry) =>
+      // The re-run is the source of truth for conflicts and skips (fresh
+      // state: already-applied rows compare unchanged there). Applied history
+      // from prior runs is carried over — those rows WERE written by this
+      // feature — and then excluded from the re-run's skip list so no row is
+      // counted in both groups.
+      const reappliedIds = new Set(
+        result.appliedRows.map((row) => row.rowId),
+      );
+      const carriedApplied = (priorReport?.appliedRows ?? []).filter(
+        (row) => !reappliedIds.has(row.rowId),
+      );
+      const appliedIds = new Set(
+        [...carriedApplied, ...result.appliedRows].map((row) => row.rowId),
+      );
+      const conflictByRowId = new Map<string, SheetConflict>();
+      for (const entry of priorReport?.conflicts ?? []) {
+        conflictByRowId.set(entry.rowId, entry);
+      }
+      for (const entry of result.conflicts) {
+        if (!conflictByRowId.has(entry.rowId)) {
+          conflictByRowId.set(entry.rowId, entry);
+        }
+      }
+      setSheetReport({
+        appliedRows: [...carriedApplied, ...result.appliedRows],
+        skippedRows: result.skippedRows.filter(
+          (row) => !appliedIds.has(row.rowId),
+        ),
+        conflicts: [...conflictByRowId.values()].map((entry) =>
           overrides.has(entry.rowId) ? { ...entry, resolved: true } : entry,
         ),
-      }));
+      });
     },
     [sheetReport, writeSheetCorrections],
   );

@@ -17,7 +17,10 @@ import {
   findChapterPreset,
   resolveChapterBatchOptions,
 } from '@/pages/dashboard/lib/aio-chapter-options';
-import { groupImagesIntoAioChapters } from '@/pages/dashboard/lib/aio-chapters';
+import {
+  DIRECT_IMAGES_CHAPTER_ID,
+  groupImagesIntoAioChapters,
+} from '@/pages/dashboard/lib/aio-chapters';
 import type { AioChapterGroup } from '@/pages/dashboard/lib/aio-chapters';
 import {
   reportAioEvent,
@@ -39,6 +42,7 @@ import {
   runAioBatch,
   throwIfAioAborted,
 } from '@/pages/dashboard/lib/run-aio-batch';
+import { resolveWorkGlossaryForChapter } from '@/pages/dashboard/hooks/translator.execution';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collection-store';
 import { useLlmProvidersStore } from '@/pages/dashboard/stores/llm-providers-store';
@@ -299,6 +303,15 @@ export function useAioPipelineExecution(
     }
 
     const executionImages = [...images];
+    // WHY one blob here: non-queue multi-chapter batches fold ALL pages into
+    // a single sidecar request carrying ONE llm_settings blob — the backend
+    // builds every prompt from that single blob (core/config.py:246), so a
+    // per-image/per-chapter work-glossary merge is impossible on this path
+    // without a backend protocol change (out of scope for this cycle). The
+    // GLOBAL glossary does apply (it rides the same blob). Every other
+    // client path merges work glossary per image (retranslate, visual batch,
+    // single-image processor, manual stage) or per chapter (the chapter
+    // queue below — one blob per chapter request, so per-chapter merge works).
     const llmSettings = useLlmProvidersStore.getState().llmSettings;
     const enabledStages = AIO_MANUAL_STAGE_ORDER.filter(
       (stage) => stage === 'detectText' || aioSteps[stage],
@@ -505,11 +518,8 @@ export function useAioPipelineExecution(
             });
           };
 
-          const chapters: ChapterSource[] = chapterGroups.map((chapter) => ({
-            id: chapter.id,
-            label: chapter.label,
-            images: chapter.images,
-            options: resolveChapterBatchOptions(
+          const chapterRunOptions = (chapter: AioChapterGroup): LocalAioBatchOptions => {
+            const options = resolveChapterBatchOptions(
               localOptions,
               findChapterPreset(
                 pipeline.aioPresetState.presets,
@@ -517,7 +527,29 @@ export function useAioPipelineExecution(
                 pipeline.aioSrcLang,
               ),
               pipeline.aioStageOptions,
-            ),
+            );
+            // Per-chapter request-local merge: one llm_settings blob rides on
+            // THIS chapter's sidecar request and every image in the chapter
+            // shares the label, so one merge covers the chapter's batch.
+            // Direct uploads share the DIRECT_IMAGES_CHAPTER_ID group on the
+            // per-image paths — the queue labels that group 'Images', so the
+            // group id (not the display label) keys the work lookup here.
+            return {
+              ...options,
+              llmSettings: resolveWorkGlossaryForChapter(
+                chapter.id === DIRECT_IMAGES_CHAPTER_ID
+                  ? DIRECT_IMAGES_CHAPTER_ID
+                  : chapter.label,
+                options.llmSettings,
+              ),
+            };
+          };
+
+          const chapters: ChapterSource[] = chapterGroups.map((chapter) => ({
+            id: chapter.id,
+            label: chapter.label,
+            images: chapter.images,
+            options: chapterRunOptions(chapter),
           }));
 
           const runChapter = createLocalBatchChapterRunner({

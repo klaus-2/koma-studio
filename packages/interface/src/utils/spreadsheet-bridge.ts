@@ -30,7 +30,7 @@ export interface SheetRow {
 
 export type SheetMatchStrategy = "exact" | "nfkc_ocr";
 
-export type SheetSkipReason = "unchanged" | "unmatched";
+export type SheetSkipReason = "unchanged" | "unmatched" | "duplicate";
 
 /** A region addressable through the NFKC(ocr) fallback index. */
 export interface SheetOcrCandidate {
@@ -60,7 +60,15 @@ export interface SheetConflict {
 
 export interface SheetAppliedRow {
   readonly rowId: string;
+  /** Image id as declared by the imported row (may be stale after a re-upload). */
   readonly imageId: string;
+  /**
+   * Image that actually holds the matched region — `imageId` for exact
+   * matches, the OCR candidate's image for fallback matches. The write-back
+   * groups by THIS id: a stale row image id must not silently drop the
+   * correction.
+   */
+  readonly matchedImageId: string;
   /** Region id as declared by the imported row (may differ on OCR fallback). */
   readonly rowRegionId: string;
   readonly matchedRegionId: string;
@@ -193,7 +201,9 @@ const isSameTranslation = (sheetTranslation: string, currentTranslation: string)
  * manual-edit region diverging from the exported value => CONFLICT, skipped
  * by default (per-row opt-in through `applyConflictRowIds` — never silently
  * clobbered); any other diverging row => applied and listed in the report.
- * Rows with no ladder match => skipped as unmatched.
+ * Rows with no ladder match => skipped as unmatched. Every match claims its
+ * region, so a duplicate `(imageId, regionId)` row cannot re-apply over an
+ * earlier row's outcome.
  */
 export const applySheetRows = (
   rows: readonly SheetRow[],
@@ -209,40 +219,61 @@ export const applySheetRows = (
     const rowId = buildSheetRowId(row.imageId, row.regionId);
     const exact =
       current.byId.get(row.imageId)?.get(row.regionId) ?? null;
-    const fallback =
-      exact === null ? resolveOcrFallback(row, current, claimed) : null;
-    const region = exact ?? fallback?.region ?? null;
-    if (region === null) {
+    let matched: {
+      region: TypographyRegion;
+      matchedImageId: string;
+      matchedVia: SheetMatchStrategy;
+    } | null = null;
+    // A duplicate (imageId, regionId) row whose region is already claimed is
+    // skipped as 'duplicate' instead of re-applying over the earlier row.
+    let exactDuplicate = false;
+    if (exact !== null) {
+      if (claimed.has(exact)) {
+        exactDuplicate = true;
+      } else {
+        claimed.add(exact);
+        matched = { region: exact, matchedImageId: row.imageId, matchedVia: "exact" };
+      }
+    } else {
+      const fallback = resolveOcrFallback(row, current, claimed);
+      if (fallback !== null) {
+        claimed.add(fallback.region);
+        matched = {
+          region: fallback.region,
+          matchedImageId: fallback.imageId,
+          matchedVia: "nfkc_ocr",
+        };
+      }
+    }
+    if (matched === null) {
       skippedRows.push({
         rowId,
         imageId: row.imageId,
         regionId: row.regionId,
-        reason: "unmatched",
+        reason: exactDuplicate ? "duplicate" : "unmatched",
       });
       continue;
     }
-    const matchedVia: SheetMatchStrategy = exact !== null ? "exact" : "nfkc_ocr";
-    if (matchedVia === "nfkc_ocr") claimed.add(region);
 
-    const currentTranslation = region.translatedText ?? "";
+    const currentTranslation = matched.region.translatedText ?? "";
     if (isSameTranslation(row.translation, currentTranslation)) {
       skippedRows.push({
         rowId,
         imageId: row.imageId,
-        regionId: region.id,
+        regionId: matched.region.id,
         reason: "unchanged",
       });
       continue;
     }
 
-    const isManualEdit = region.translatorModelKey === MANUAL_EDIT_KEY;
+    const isManualEdit = matched.region.translatorModelKey === MANUAL_EDIT_KEY;
     if (isManualEdit) {
       const resolved =
         options.applyConflictRowIds?.has(rowId) === true;
       conflicts.push({
         rowId,
         imageId: row.imageId,
-        regionId: region.id,
+        regionId: matched.region.id,
         sheetTranslation: row.translation,
         currentTranslation,
         resolved,
@@ -253,9 +284,10 @@ export const applySheetRows = (
     appliedRows.push({
       rowId,
       imageId: row.imageId,
+      matchedImageId: matched.matchedImageId,
       rowRegionId: row.regionId,
-      matchedRegionId: region.id,
-      matchedVia,
+      matchedRegionId: matched.region.id,
+      matchedVia: matched.matchedVia,
       translation: row.translation,
       conflictOverride: isManualEdit,
     });
@@ -271,4 +303,54 @@ export const applySheetRows = (
     skippedRows,
     conflicts,
   };
+};
+
+/**
+ * Write-back grouping: corrections are applied to the image that actually
+ * holds the matched region (`matchedImageId`), not to the row's declared
+ * image — a stale row image id (cross-session reimport) must not silently
+ * drop the correction.
+ */
+export const groupSheetCorrectionsByImage = (
+  appliedRows: readonly SheetAppliedRow[],
+): ReadonlyMap<string, readonly SheetAppliedRow[]> => {
+  const byImage = new Map<string, SheetAppliedRow[]>();
+  for (const row of appliedRows) {
+    const group = byImage.get(row.matchedImageId);
+    if (group) {
+      group.push(row);
+    } else {
+      byImage.set(row.matchedImageId, [row]);
+    }
+  }
+  return byImage;
+};
+
+/**
+ * One image's region write: maps the corrections targeted at this image onto
+ * its regions by `matchedRegionId`, stamping the manual-edit provenance on
+ * every applied region. Generic over the region type so callers keep their
+ * refined region models (AioTextRegion et al.). Pure — the caller routes the
+ * result through the existing per-image region update path.
+ */
+export const applySheetCorrectionsToImageRegions = <TRegion extends TypographyRegion>(
+  regions: readonly TRegion[],
+  corrections: readonly SheetAppliedRow[],
+): TRegion[] => {
+  const correctionByRegionId = new Map<string, SheetAppliedRow>();
+  for (const correction of corrections) {
+    correctionByRegionId.set(correction.matchedRegionId, correction);
+  }
+  return regions.map((region) => {
+    const correction = correctionByRegionId.get(region.id);
+    if (correction === undefined) return region;
+    return {
+      ...region,
+      translatedText: correction.translation,
+      translatorModelKey: MANUAL_EDIT_KEY,
+      // The sheet text replaces the engine/TM answer: the stale provenance is
+      // cleared so the TM hit-count readout stays truthful.
+      translationSource: null,
+    };
+  });
 };

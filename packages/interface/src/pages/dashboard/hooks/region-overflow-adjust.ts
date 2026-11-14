@@ -132,9 +132,15 @@ export const useRegionOverflowReview = (): RegionOverflowReviewApi => {
       const regions =
         useRegionEditorStore.getState().aioDetectionsByImage[issue.imageId];
       const region = regions?.find((item) => item.id === issue.regionId);
-      if (!region) return;
+      if (!region) {
+        setStatusMessage(t('dashboard.aio.review.overflow.nothingToAdjust'));
+        return;
+      }
       const fit = resolveFitForRegion(region);
-      if (!fit) return;
+      if (!fit) {
+        setStatusMessage(t('dashboard.aio.review.overflow.nothingToAdjust'));
+        return;
+      }
       if (fit.toFontSize === fit.fromFontSize) {
         setStatusMessage(t('dashboard.aio.review.overflow.atBound'));
         return;
@@ -143,7 +149,10 @@ export const useRegionOverflowReview = (): RegionOverflowReviewApi => {
         issue.imageId,
         new Map([[issue.regionId, fit.toFontSize]]),
       );
-      if (!applied) return;
+      if (!applied) {
+        setStatusMessage(t('dashboard.aio.review.overflow.nothingToAdjust'));
+        return;
+      }
       setStatusMessage(
         fit.status === 'fitted'
           ? t('dashboard.aio.review.overflow.fitted', {
@@ -173,7 +182,10 @@ export const useRegionOverflowReview = (): RegionOverflowReviewApi => {
           nextSizeByRegionId.set(region.id, fit.toFontSize);
         }
       }
-      if (fittedCount === 0 && remainingCount === 0) return;
+      if (fittedCount === 0 && remainingCount === 0) {
+        setStatusMessage(t('dashboard.aio.review.overflow.nothingToAdjust'));
+        return;
+      }
       applyFontSizeAdjustments(imageId, nextSizeByRegionId);
       setStatusMessage(
         t('dashboard.aio.review.overflow.pageReport', {

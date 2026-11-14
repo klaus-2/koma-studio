@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { resolveWorkGlossarySettings } from '../pages/dashboard/hooks/translator.execution';
 import { useLlmProvidersStore } from '../pages/dashboard/stores/llm-providers-store';
 
 import { useI18n } from '../i18n';
@@ -347,7 +348,14 @@ export function useAioManualStageExecutor({
               targetLanguage: aioTgtLang,
               regions: ocrRegions,
               fallbackOcrModelKey: selectedOcrKey,
-              llmSettings: translationReadiness.useLlmSettings ? useLlmProvidersStore.getState().llmSettings : null,
+              // Per-image request-local merge: the active page's chapter
+              // selects the work whose glossary rides on this request.
+              llmSettings: translationReadiness.useLlmSettings
+                ? resolveWorkGlossarySettings(
+                    activeImageData,
+                    useLlmProvidersStore.getState().llmSettings,
+                  )
+                : null,
               customProfile: translationReadiness.useLlmSettings
                 ? translationReadiness.customProfile
                 : null,

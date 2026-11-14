@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 
+import { useI18n } from '../../../i18n';
 import type {
   AioTextRegion,
   ComparePanOffset,
@@ -25,6 +26,7 @@ import {
   zoomStepsFromWheelDeltas,
 } from '../../../pages/dashboard/hooks/useStageWheelZoom';
 import { resolveImagePreviewSrc } from '../../../pages/dashboard/hooks/image-collection';
+import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
 import { useImageCollectionStore } from '../../../pages/dashboard/stores/image-collection-store';
 import { useRegionEditorStore } from '../../../pages/dashboard/stores/region-editor-store';
@@ -76,6 +78,8 @@ export interface CompareReviewModel {
 export const useCompareReviewModel = ({
   panesRef,
 }: UseCompareReviewModelParams): CompareReviewModel => {
+  const { t } = useI18n();
+  const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
   const image = useMemo(
@@ -221,7 +225,9 @@ export const useCompareReviewModel = ({
   // Same paint protocol as the render stage's preview canvas: one rAF-gated
   // renderRegionsToCanvas call (fonts preloaded inside, layouts LRU-shared).
   // leftView is a dependency because the canvas element remounts into the
-  // other pane when the toggle crosses the rendered view.
+  // other pane when the toggle crosses the rendered view. Paint failures are
+  // surfaced through the status store — a rejected layout or a missing 2D
+  // context must never degrade into a silently blank pane.
   const renderCanvasRef = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     if (!image) return;
@@ -230,16 +236,24 @@ export const useCompareReviewModel = ({
       const canvas = renderCanvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      await renderRegionsToCanvas(ctx, {
-        imageWidth: image.width,
-        imageHeight: image.height,
-        regions: displayRegions,
-        fallbackStyle,
-        renderStageActive: true,
-        skipRegionId: null,
-        isCancelled: () => cancelled,
-      });
+      if (!ctx) {
+        setStatusMessage(t('dashboard.compareReview.paintFailed'));
+        return;
+      }
+      try {
+        await renderRegionsToCanvas(ctx, {
+          imageWidth: image.width,
+          imageHeight: image.height,
+          regions: displayRegions,
+          fallbackStyle,
+          renderStageActive: true,
+          skipRegionId: null,
+          isCancelled: () => cancelled,
+        });
+      } catch (error) {
+        console.warn('compare review paint failed', error);
+        setStatusMessage(t('dashboard.compareReview.paintFailed'));
+      }
     };
     const frame = requestAnimationFrame(() => {
       void paint();
@@ -248,7 +262,7 @@ export const useCompareReviewModel = ({
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [displayRegions, fallbackStyle, image, leftView]);
+  }, [displayRegions, fallbackStyle, image, leftView, setStatusMessage, t]);
 
   return {
     image,

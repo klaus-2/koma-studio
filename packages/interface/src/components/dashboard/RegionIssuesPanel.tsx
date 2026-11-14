@@ -107,7 +107,7 @@ export default memo(function RegionIssuesPanel({
               ) : null;
             const rowButton = (
               <button
-                key={issue.regionId}
+                key={`${issue.kind}:${issue.regionId}`}
                 type="button"
                 className={rowClass}
                 onClick={() => onSelect(issue)}
@@ -123,7 +123,7 @@ export default memo(function RegionIssuesPanel({
             if (!adjustControl) return rowButton;
             return (
               <div
-                key={issue.regionId}
+                key={`${issue.kind}:${issue.regionId}`}
                 className="flex items-center gap-1"
               >
                 <div className="min-w-0 flex-1">{rowButton}</div>

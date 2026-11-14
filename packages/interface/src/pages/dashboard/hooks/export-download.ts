@@ -52,19 +52,38 @@ const getExportPool = (): ExportWorkerPool => {
 /**
  * One-shot sheet worker run (Feature 3): a fresh standalone worker per
  * operation, terminated on settle. Sheet ops are rare single-file ops — no
- * pool, no queue, and `xlsx` stays out of every other chunk.
+ * pool, no queue, and `xlsx` stays out of every other chunk. A wedged worker
+ * is terminated after `SHEET_WORKER_TIMEOUT_MS` so the promise always settles.
  */
+const SHEET_WORKER_TIMEOUT_MS = 30_000;
 const runSheetWorkerRequest = (request: SheetWorkerRequest): Promise<SheetWorkerResponse> =>
   new Promise<SheetWorkerResponse>((resolve, reject) => {
     const worker = new Worker(new URL('./exportSheetWorker.ts', import.meta.url), {
       type: 'module',
     });
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      worker.terminate();
+      reject(
+        new Error(
+          `sheet worker timed out after ${SHEET_WORKER_TIMEOUT_MS}ms`,
+        ),
+      );
+    }, SHEET_WORKER_TIMEOUT_MS);
     const settle = (finish: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       worker.terminate();
       finish();
     };
     worker.onmessage = (event: MessageEvent<SheetWorkerResponse>) => {
       settle(() => resolve(event.data));
+    };
+    worker.onmessageerror = () => {
+      settle(() => reject(new Error('sheet worker message decode error')));
     };
     worker.onerror = (event: ErrorEvent) => {
       settle(() => reject(new Error(event.message || 'sheet worker failed')));

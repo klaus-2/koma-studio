@@ -52,6 +52,7 @@ import { useStatusStore } from '../stores/status-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import type { TranslationExecutionResult } from './translator.execution';
+import { resolveWorkGlossarySettings } from './translator.execution';
 
 export {
   useTranslatorRegionEditing,
@@ -321,6 +322,9 @@ export function useTranslatorVisualActions({
                   translatorSfxAdditionalInstructions,
               )
             : undefined;
+            // Per-image request-local merge: the page's chapter selects the
+            // work whose glossary rides on THIS image's translation request.
+            const imageLlmSettings = resolveWorkGlossarySettings(imgData, llmSettings);
 
             const translateDone = await runGetTranslationsStage(
               {
@@ -333,8 +337,8 @@ export function useTranslatorVisualActions({
                 sfx: sfxExtraContext != null ? { extraContext: sfxExtraContext } : undefined,
                 llmSettings: useLlmSettingsForTranslation
                   ? (isSfxTranslate && sfxExtraContext != null
-                      ? withSfxTranslationSettings(llmSettings, sfxExtraContext)
-                      : llmSettings)
+                      ? withSfxTranslationSettings(imageLlmSettings, sfxExtraContext)
+                      : imageLlmSettings)
                   : null,
                 customProfile: useLlmSettingsForTranslation
                   ? selectedCustomTranslationProfile

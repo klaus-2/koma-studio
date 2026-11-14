@@ -149,6 +149,7 @@ export const WorkGlossaryEditor = memo(({ noir }: WorkGlossaryEditorProps) => {
         <button
           type="button"
           className={classes.ghostButton}
+          disabled={newWorkName.trim().length === 0}
           onClick={handleCreateWork}
         >
           {t('dashboard.aio.works.add')}

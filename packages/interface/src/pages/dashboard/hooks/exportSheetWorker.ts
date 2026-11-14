@@ -69,29 +69,57 @@ const SHEET_HEADERS: readonly string[] = [
   'notes',
 ];
 
+// CWE-1236 (CSV formula injection): characters a spreadsheet evaluates as a
+// formula lead when a CSV cell starts with them.
+const CSV_FORMULA_LEAD_CHARS: ReadonlySet<string> = new Set([
+  '=',
+  '+',
+  '-',
+  '@',
+  '\t',
+  '\r',
+]);
+
+/**
+ * CSV-branch guard: a cell whose first character can start a spreadsheet
+ * formula is prefixed with an apostrophe so opening the exported file cannot
+ * execute it (dash-led dialogue lines are common OCR output). The XLSX branch
+ * needs no guard — string-typed cells are stored, never evaluated.
+ */
+const escapeCsvFormulaLead = (cell: string): string =>
+  CSV_FORMULA_LEAD_CHARS.has(cell.charAt(0)) ? `'${cell}` : cell;
+
+/**
+ * Mirror of `escapeCsvFormulaLead` on parse: strips ONE leading apostrophe
+ * from every parsed cell so escaped cells round-trip losslessly. Accepted
+ * cosmetic edge (stated, by design): OCR/translation text that genuinely
+ * starts with an apostrophe round-trips with it stripped.
+ */
+const stripCsvFormulaEscape = (cell: string): string =>
+  cell.startsWith("'") ? cell.slice(1) : cell;
+
 const buildExportBytes = async (
   request: SheetExportRequest,
 ): Promise<{ blobBytes: ArrayBuffer; mimeType: string }> => {
   const XLSX = await import('xlsx');
-  const values: string[][] = [
+  const buildValues = (escape: boolean): string[][] => [
     [...SHEET_HEADERS],
-    ...request.rows.map((row): string[] => [
-      row.imageId,
-      row.regionId,
-      row.chapterLabel,
-      row.ocrText,
-      row.translation,
-      row.notes,
-    ]),
+    ...request.rows.map((row): string[] => {
+      const cells: string[] = [
+        row.imageId,
+        row.regionId,
+        row.chapterLabel,
+        row.ocrText,
+        row.translation,
+        row.notes,
+      ];
+      return escape ? cells.map(escapeCsvFormulaLead) : cells;
+    }),
   ];
-  const worksheet = XLSX.utils.aoa_to_sheet(values);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, SHEET_NAME);
 
   if (request.format === 'csv') {
-    const sheet = workbook.Sheets[SHEET_NAME];
-    if (!sheet) throw new Error('sheet serialization failed');
-    const csv: string = XLSX.utils.sheet_to_csv(sheet);
+    const csvWorksheet = XLSX.utils.aoa_to_sheet(buildValues(true));
+    const csv: string = XLSX.utils.sheet_to_csv(csvWorksheet);
     const encoded = new TextEncoder().encode(csv);
     const copy = new Uint8Array(encoded.byteLength);
     copy.set(encoded);
@@ -101,6 +129,9 @@ const buildExportBytes = async (
     };
   }
 
+  const worksheet = XLSX.utils.aoa_to_sheet(buildValues(false));
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, SHEET_NAME);
   const output: ArrayBuffer = XLSX.write(workbook, {
     bookType: 'xlsx',
     type: 'array',
@@ -129,12 +160,12 @@ const parseImportRows = async (
     raw: false,
   });
   return records.map((record): SheetRow => ({
-    imageId: String(record.imageId ?? ''),
-    regionId: String(record.regionId ?? ''),
-    chapterLabel: String(record.chapterLabel ?? ''),
-    ocrText: String(record.ocrText ?? ''),
-    translation: String(record.translation ?? ''),
-    notes: String(record.notes ?? ''),
+    imageId: stripCsvFormulaEscape(String(record.imageId ?? '')),
+    regionId: stripCsvFormulaEscape(String(record.regionId ?? '')),
+    chapterLabel: stripCsvFormulaEscape(String(record.chapterLabel ?? '')),
+    ocrText: stripCsvFormulaEscape(String(record.ocrText ?? '')),
+    translation: stripCsvFormulaEscape(String(record.translation ?? '')),
+    notes: stripCsvFormulaEscape(String(record.notes ?? '')),
   }));
 };
 
@@ -180,4 +211,21 @@ async function handleWorkerMessage(request: SheetWorkerRequest): Promise<void> {
 
 messageTarget.onmessage = (event: MessageEvent<SheetWorkerRequest>): void => {
   void handleWorkerMessage(event.data);
+};
+
+/**
+ * Test seam (same shape as exportPackageWorker.attachWorkerScopeForTest):
+ * lets vitest drive the real worker module same-thread with a capturing
+ * scope instead of spawning a real Worker.
+ */
+export const attachSheetWorkerScopeForTest = (
+  scope: {
+    onmessage: ((event: MessageEvent<SheetWorkerRequest>) => void) | null;
+    postMessage: (response: SheetWorkerResponse) => void;
+  } | null,
+): void => {
+  messageTarget = scope ?? (self as unknown as typeof messageTarget);
+  messageTarget.onmessage = (event: MessageEvent<SheetWorkerRequest>): void => {
+    void handleWorkerMessage(event.data);
+  };
 };

@@ -413,11 +413,20 @@ export const resolveRegionTextLayout = (
 // resolveRegionTextLayout saves/restores the context around every measure.
 let overflowMeasureCanvas: HTMLCanvasElement | null = null;
 let overflowMeasureContext: CanvasRenderingContext2D | null = null;
+// Warn-once flag: the null-measure degradation is the correct contract, but
+// the capability loss (2D context unallocatable) must be diagnosable.
+let overflowMeasureContextWarned = false;
 const getOverflowMeasureContext = (): CanvasRenderingContext2D | null => {
   if (typeof document === 'undefined') return null;
   if (!overflowMeasureCanvas) {
     overflowMeasureCanvas = document.createElement('canvas');
     overflowMeasureContext = overflowMeasureCanvas.getContext('2d');
+    if (!overflowMeasureContext && !overflowMeasureContextWarned) {
+      overflowMeasureContextWarned = true;
+      console.warn(
+        'region overflow reviewer: no 2D canvas context available — overflow measurement is disabled (every region reads as non-overflowing)',
+      );
+    }
   }
   return overflowMeasureContext;
 };
