@@ -6963,7 +6963,8 @@
   min-height: 320px;
 }
 
-:root[data-theme-family='noir'] .koma-stage__empty .koma-btn {
+:root[data-theme-family='noir'] .koma-stage__empty .koma-btn,
+:root[data-theme-family='noir'] .koma-stage__empty .btn-primary {
   margin-top: 16px;
 }
 

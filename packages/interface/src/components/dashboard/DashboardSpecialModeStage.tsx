@@ -1,6 +1,7 @@
 import { Suspense, lazy, memo, useMemo } from 'react';
 import { Languages, Upload } from 'lucide-react';
 import { useI18n } from '@/i18n';
+import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { memoLoad } from '../../utils/lazyModule';
 import { useExportStore } from '../../pages/dashboard/stores/export-store';
 import { useCurrentUtilityWorkspaceStates } from '../../pages/dashboard/hooks/utility-workspaces';
@@ -43,6 +44,7 @@ const DashboardSpecialModeStage = ({
   stageMode?: ToolMode;
 }) => {
   const { t } = useI18n();
+  const noir = useThemeStore((s) => s.family === 'noir');
   const downloadItems = useExportStore((s) => s.downloadItems);
   const modeLabels = useMemo(() => getModeLabels(t), [t]);
   const optimizerSourceVariants = useMemo(() => {
@@ -115,7 +117,7 @@ const DashboardSpecialModeStage = ({
         <span>{t('dashboard.specialMode.visualEmpty.description')}</span>
         <button
           type="button"
-          className="koma-btn koma-btn--primary"
+          className={noir ? 'btn-primary panel-cut-sm' : 'koma-btn koma-btn--primary'}
           onClick={() => translatorImageImportRef.current?.click()}
         >
           <Upload size={14} />
