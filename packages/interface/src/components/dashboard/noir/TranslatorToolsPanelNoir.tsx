@@ -146,7 +146,7 @@ export default function TranslatorToolsPanel(props: TranslatorToolsPanelProps) {
             </select>
             {selectedTranslatorOcrCloudOption && (
               <div className="space-y-1 pt-1">
-                <Hint>{t('dashboard.translator.tier')}: {selectedTranslatorOcrCloudOption?.tier.join(', ') ?? '-'} | {t('dashboard.translator.device')}: {selectedTranslatorOcrCloudOption?.device ?? '-'}</Hint>
+                <Hint>{t('dashboard.translator.tier')}: {selectedTranslatorOcrCloudOption?.tier?.join(', ') ?? '-'} | {t('dashboard.translator.device')}: {selectedTranslatorOcrCloudOption?.device ?? '-'}</Hint>
                 <Hint>{t('dashboard.translator.languages')}: {(selectedTranslatorOcrCloudOption?.languages ?? []).join(', ') || t('dashboard.translator.multi')}</Hint>
                 <Hint>{selectedTranslatorOcrCloudOption?.use_case ?? t('dashboard.translator.noDescription')}</Hint>
                 {selectedOcrStatusText ? <Hint tone="mint">{t('dashboard.translator.localStatus', { value: selectedOcrStatusText })}</Hint> : null}
