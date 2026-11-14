@@ -222,6 +222,79 @@ def _bbox_id(bbox: BBox) -> str:
     return "_".join(str(value) for value in bbox)
 
 
+def _match_ocr_block_for_seed[V: (OCRRecord, dict[str, object])](
+    blocks: Mapping[str, V],
+    seed: OCRSeed,
+    *,
+    bbox_tolerance_px: float,
+) -> V | None:
+    target = normalize_bbox(seed["bbox"])
+    if target is None:
+        return None
+
+    exact = blocks.get(_bbox_id(target))
+    if exact is not None:
+        return exact
+    if bbox_tolerance_px == 0:
+        return None
+
+    best: V | None = None
+    best_distance = math.inf
+    ambiguous = False
+
+    for block in blocks.values():
+        cached = normalize_bbox(block["bbox"])
+        if cached is None:
+            continue
+
+        differences = [
+            abs(left - right)
+            for left, right in zip(target, cached, strict=True)
+        ]
+        if max(differences) > bbox_tolerance_px:
+            continue
+
+        distance = float(sum(value * value for value in differences))
+        if distance < best_distance:
+            best = block
+            best_distance = distance
+            ambiguous = False
+        elif distance == best_distance:
+            ambiguous = True
+
+    return None if ambiguous else best
+
+
+def match_ocr_blocks[V: (OCRRecord, dict[str, object])](
+    blocks: Mapping[str, V],
+    seeds: Sequence[OCRSeed],
+    *,
+    bbox_tolerance_px: float,
+) -> tuple[dict[str, V], list[OCRSeed]]:
+    """Match seeds against blocks by bbox id (exact) then by pixel tolerance.
+
+    Hit records are deep-copied with ``id``/``bbox`` overwritten from the
+    seed, so callers can never mutate the stored block. Returns the
+    hits-by-seed-id map and the unmatched seeds.
+    """
+    hits: dict[str, V] = {}
+    misses: list[OCRSeed] = []
+    for seed in seeds:
+        block = _match_ocr_block_for_seed(
+            blocks, seed, bbox_tolerance_px=bbox_tolerance_px
+        )
+        if block is None:
+            misses.append(seed)
+            continue
+
+        hit = deepcopy(block)
+        hit["id"] = seed["id"]
+        hit["bbox"] = list(seed["bbox"])
+        hits[seed["id"]] = hit
+
+    return hits, misses
+
+
 def _trim_blocks[V](blocks: dict[str, V], limit: int) -> None:
     while len(blocks) > limit:
         del blocks[next(iter(blocks))]
@@ -322,20 +395,11 @@ class CacheManager:
             if not isinstance(payload, _OcrPayload):
                 return {}, list(seeds)
 
-            hits: dict[str, OCRRecord] = {}
-            misses: list[OCRSeed] = []
-            for seed in seeds:
-                block = self._match_ocr_block(payload.blocks, seed)
-                if block is None:
-                    misses.append(seed)
-                    continue
-
-                hit = deepcopy(block)
-                hit["id"] = seed["id"]
-                hit["bbox"] = list(seed["bbox"])
-                hits[seed["id"]] = hit
-
-            return hits, misses
+            return match_ocr_blocks(
+                payload.blocks,
+                seeds,
+                bbox_tolerance_px=self.bbox_tolerance_px,
+            )
 
     def cache_ocr_results(
         self,
@@ -387,41 +451,9 @@ class CacheManager:
         blocks: _OcrBlocks,
         seed: OCRSeed,
     ) -> OCRRecord | None:
-        target = normalize_bbox(seed["bbox"])
-        if target is None:
-            return None
-
-        exact = blocks.get(_bbox_id(target))
-        if exact is not None:
-            return exact
-        if self.bbox_tolerance_px == 0:
-            return None
-
-        best: OCRRecord | None = None
-        best_distance = math.inf
-        ambiguous = False
-
-        for block in blocks.values():
-            cached = normalize_bbox(block["bbox"])
-            if cached is None:
-                continue
-
-            differences = [
-                abs(left - right)
-                for left, right in zip(target, cached, strict=True)
-            ]
-            if max(differences) > self.bbox_tolerance_px:
-                continue
-
-            distance = float(sum(value * value for value in differences))
-            if distance < best_distance:
-                best = block
-                best_distance = distance
-                ambiguous = False
-            elif distance == best_distance:
-                ambiguous = True
-
-        return None if ambiguous else best
+        return _match_ocr_block_for_seed(
+            blocks, seed, bbox_tolerance_px=self.bbox_tolerance_px
+        )
 
     # ----------------------------------------------------------- translation
 

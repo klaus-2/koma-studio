@@ -14,7 +14,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from core.config import LLMRequestSettings
+from core.config import LLMRequestSettings, get_config
 from core.device import DeviceInfo, release_gpu_memory
 from models.detection.base_detector import TextDetection
 from models.detection.factory import get_detector
@@ -32,8 +32,10 @@ from models.segmentation.factory import get_segmenter
 from pipelines.stage_store import (
     StageStore,
     build_clean_cache_key,
+    build_detect_cache_key,
     build_segment_cache_key,
     fingerprint_clean_settings,
+    fingerprint_detect_settings,
     fingerprint_mask_regions,
     fingerprint_seeds,
     get_stage_store,
@@ -154,14 +156,63 @@ async def _detect_plain(
     ]
 
 
+def _cached_detection_record(raw: Mapping[str, object]) -> DetectionRecord | None:
+    """Rebuild a DetectionRecord from a cached JSON entry through the same
+    normalize path the fresh run uses. Malformed entries (a corrupt row)
+    become None so the caller treats the entry as a miss."""
+    bbox = normalize_bbox(raw.get("bbox"))
+    record_id = optional_str(raw.get("id"))
+    model_key = optional_str(raw.get("model_key"))
+    if bbox is None or record_id is None or model_key is None:
+        return None
+    score = optional_float(raw.get("score"))
+    return DetectionRecord(
+        id=record_id,
+        bbox=list(bbox),
+        score=round(1.0 if score is None else score, 4),
+        label=optional_str(raw.get("label")) or "text",
+        source=normalize_stage_source(raw.get("source")),
+        model_key=model_key,
+        foreground_rgb=optional_rgb(raw.get("foreground_rgb")),
+        structural_type=optional_str(raw.get("structural_type")),
+        structural_confidence=optional_float(raw.get("structural_confidence")),
+        structural_source=optional_str(raw.get("structural_source")),
+        matched_reference_image=optional_str(raw.get("matched_reference_image")),
+    )
+
+
 async def run_detect_stage(
     *,
     image: Image.Image,
     has_gpu: bool,
     model_key: str | None,
     default_detection_model: str,
+    store: StageStore | None = None,
 ) -> StageOutput[DetectionRecord]:
     resolved_model = model_key or default_detection_model
+    resolved_store = store if store is not None else get_stage_store()
+    cfg = get_config()
+    rgb = cast(RGBArray, np.asarray(image, dtype=np.uint8))
+    cache_key = build_detect_cache_key(
+        image_hash=hash_image_array(rgb),
+        model_key=resolved_model,
+        settings_fingerprint=fingerprint_detect_settings(
+            conf_threshold=cfg.detection_conf_threshold,
+            nms_threshold=cfg.detection_nms_threshold,
+            input_size=cfg.detection_input_size,
+        ),
+    )
+    cached = await asyncio.to_thread(resolved_store.get_detect, cache_key)
+    if cached is not None:
+        records = [
+            record
+            for record in (
+                _cached_detection_record(entry) for entry in cached.records
+            )
+            if record is not None
+        ]
+        if not cached.records or records:
+            return StageOutput(model_used=cached.model_used, regions=records)
     detector = get_detector(task="text", has_gpu=has_gpu, model_key=resolved_model)
     try:
         detections, variant = await detect_with_fallbacks(
@@ -176,10 +227,14 @@ async def run_detect_stage(
         for index, det in enumerate(detections, start=1)
     ]
     model_used = records[-1]["model_key"] if records else resolved_model
-    return StageOutput(
-        model_used=model_used if variant == "original" else f"{model_used}@{variant}",
-        regions=records,
+    model_used = model_used if variant == "original" else f"{model_used}@{variant}"
+    await asyncio.to_thread(
+        resolved_store.put_detect,
+        key=cache_key,
+        records=records,
+        model_used=model_used,
     )
+    return StageOutput(model_used=model_used, regions=records)
 
 
 # --------------------------------------------------------------------------- ocr

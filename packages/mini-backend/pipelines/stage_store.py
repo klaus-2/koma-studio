@@ -8,6 +8,9 @@ prune at open, the file under ``KOMA_APP_DATA_DIR`` (dev fallback
 closed only at lifespan shutdown. Key doctrine cloned from
 ``pipelines.cache_manager``: version-pinned sha256 over canonical JSON;
 images hashed with blake2b(32); blank/empty results are never cached.
+Documented deviation: the ``detect_cache`` table DOES store empty detection
+results — the detector genuinely finding nothing is a legitimate expensive
+result worth caching.
 
 Image-hash basis (decided — do not re-derive): ``run_segment_stage`` receives
 raw image bytes, so its keys hash the bytes via ``hash_image_bytes``. The
@@ -72,6 +75,17 @@ CREATE TABLE IF NOT EXISTS clean_cache (
     model_used TEXT,
     created_at REAL
 );
+CREATE TABLE IF NOT EXISTS detect_cache (
+    key TEXT PRIMARY KEY,
+    payload TEXT NOT NULL,
+    model_used TEXT,
+    created_at REAL
+);
+CREATE TABLE IF NOT EXISTS ocr_cache (
+    key TEXT PRIMARY KEY,
+    payload TEXT NOT NULL,
+    created_at REAL
+);
 """
 
 
@@ -90,6 +104,12 @@ class CleanCacheHit:
     model_used: str
     png: bytes
     hd_strategy: str
+
+
+@dataclass(frozen=True)
+class DetectCacheHit:
+    model_used: str
+    records: list[dict[str, object]]
 
 
 # ----------------------------------------------------------------- key helpers
@@ -169,6 +189,33 @@ def build_clean_cache_key(
     return f"clean::{_sha256(_canonical_json(payload))}"
 
 
+def fingerprint_detect_settings(
+    *, conf_threshold: float, nms_threshold: float, input_size: int
+) -> str:
+    """sha256 over the canonical JSON of the resolved detection settings."""
+    payload: dict[str, object] = {
+        "version": 1,
+        "settings": {
+            "conf_threshold": conf_threshold,
+            "nms_threshold": nms_threshold,
+            "input_size": input_size,
+        },
+    }
+    return _sha256(_canonical_json(payload))
+
+
+def build_detect_cache_key(
+    *, image_hash: str, model_key: str, settings_fingerprint: str
+) -> str:
+    payload: dict[str, object] = {
+        "version": 1,
+        "image_hash": image_hash,
+        "model_key": model_key,
+        "settings_fingerprint": settings_fingerprint,
+    }
+    return f"detect::{_sha256(_canonical_json(payload))}"
+
+
 # ------------------------------------------------------------------ the store
 
 
@@ -200,6 +247,25 @@ def _parse_clean_hd_strategy(raw: object) -> str | None:
         return None
     strategy = parsed.get("hd_strategy")
     return strategy if isinstance(strategy, str) and strategy else None
+
+
+def _parse_detect_records(raw: object) -> list[dict[str, object]] | None:
+    # An empty parsed list IS a valid hit: an empty detection result is cached
+    # (documented deviation from the segment parser).
+    if not isinstance(raw, str):
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, list):
+        return None
+    records: list[dict[str, object]] = []
+    for entry in parsed:
+        if not isinstance(entry, dict):
+            return None
+        records.append({str(name): value for name, value in entry.items()})
+    return records
 
 
 class StageStore:
@@ -309,6 +375,117 @@ class StageStore:
             self._conn.commit()
         return True
 
+    # ----------------------------------------------------------------- detect
+
+    def get_detect(self, key: str) -> DetectCacheHit | None:
+        if not key:
+            return None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT payload, model_used FROM detect_cache WHERE key = ?", (key,)
+            ).fetchone()
+        if row is None:
+            return None
+        records = _parse_detect_records(row[0])
+        if records is None:
+            return None
+        model_used = row[1]
+        return DetectCacheHit(
+            model_used=model_used if isinstance(model_used, str) else "",
+            records=records,
+        )
+
+    def put_detect(
+        self, *, key: str, records: Sequence[Mapping[str, object]], model_used: str
+    ) -> bool:
+        """Persist detection records; empty ``records`` IS cached.
+
+        Documented deviation from ``put_segment`` (and the module docstring's
+        blank/empty doctrine): an empty detection result is a legitimate
+        expensive result — the detector genuinely found nothing.
+        """
+        if not key:
+            return False
+        payload = _canonical_json(list(records))
+        if len(payload.encode("utf-8")) > _MAX_ENTRY_BYTES:
+            return False
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO detect_cache"
+                " (key, payload, model_used, created_at) VALUES (?, ?, ?, ?)",
+                (key, payload, model_used, time.time()),
+            )
+            self._conn.commit()
+        return True
+
+    # -------------------------------------------------------------------- ocr
+
+    def get_ocr(self, key: str) -> dict[str, dict[str, object]] | None:
+        if not key:
+            return None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT payload FROM ocr_cache WHERE key = ?", (key,)
+            ).fetchone()
+        if row is None or not isinstance(row[0], str):
+            return None
+        try:
+            parsed = json.loads(row[0])
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(parsed, dict):
+            return None
+        blocks: dict[str, dict[str, object]] = {}
+        for block_key, value in parsed.items():
+            if not isinstance(value, dict):
+                return None
+            blocks[str(block_key)] = {str(name): item for name, item in value.items()}
+        return blocks
+
+    def merge_ocr(
+        self, *, key: str, blocks: Mapping[str, Mapping[str, object]]
+    ) -> bool:
+        """Read-modify-write one ``ocr_cache`` row under a single lock
+        acquisition: SELECT the existing payload, merge ``blocks`` over it
+        (new keys overwriting old), then INSERT OR REPLACE.
+
+        The atomic merge prevents lost block updates versus separate
+        read/put round-trips. Disk rows are permanent until pruned — no TTL
+        (documented deviation from the in-memory CacheManager TTL).
+        """
+        if not key:
+            return False
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT payload FROM ocr_cache WHERE key = ?", (key,)
+            ).fetchone()
+            merged: dict[str, dict[str, object]] = {}
+            if row is not None and isinstance(row[0], str):
+                try:
+                    existing = json.loads(row[0])
+                except json.JSONDecodeError:
+                    existing = None
+                if isinstance(existing, dict):
+                    for block_key, value in existing.items():
+                        if isinstance(value, dict):
+                            merged[str(block_key)] = {
+                                str(name): item for name, item in value.items()
+                            }
+            for block_key, record in blocks.items():
+                merged[str(block_key)] = {
+                    str(name): item for name, item in record.items()
+                }
+            payload = _canonical_json(merged)
+            if len(payload.encode("utf-8")) > _MAX_ENTRY_BYTES:
+                return False
+            self._conn.execute(
+                "INSERT OR REPLACE INTO ocr_cache"
+                " (key, payload, created_at) VALUES (?, ?, ?)",
+                (key, payload, time.time()),
+            )
+            self._conn.commit()
+        return True
+
     # -------------------------------------------------------------- lifecycle
 
     def prune(
@@ -347,8 +524,26 @@ class StageStore:
                 " ) WHERE running_bytes > ?)",
                 (bounded_bytes,),
             ).rowcount
+            removed_detect = self._conn.execute(
+                "DELETE FROM detect_cache WHERE key IN ("
+                " SELECT key FROM detect_cache"
+                " ORDER BY created_at DESC LIMIT -1 OFFSET ?)",
+                (bounded_rows,),
+            ).rowcount
+            removed_ocr = self._conn.execute(
+                "DELETE FROM ocr_cache WHERE key IN ("
+                " SELECT key FROM ocr_cache"
+                " ORDER BY created_at DESC LIMIT -1 OFFSET ?)",
+                (bounded_rows,),
+            ).rowcount
             self._conn.commit()
-        return int(removed_segment) + int(removed_clean_rows) + int(removed_clean_bytes)
+        return (
+            int(removed_segment)
+            + int(removed_clean_rows)
+            + int(removed_clean_bytes)
+            + int(removed_detect)
+            + int(removed_ocr)
+        )
 
     def close(self) -> None:
         with self._lock:

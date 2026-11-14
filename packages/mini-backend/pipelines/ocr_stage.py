@@ -27,8 +27,14 @@ from pipelines.batch.records import (
     normalize_bbox,
     normalize_stage_source,
 )
-from pipelines.cache_manager import CacheManager, get_pipeline_cache
+from pipelines.cache_manager import (
+    CacheManager,
+    _bbox_id,
+    get_pipeline_cache,
+    match_ocr_blocks,
+)
 from pipelines.ocr_enrichment import enrich_ocr_record_with_gradient
+from pipelines.stage_store import get_stage_store
 from services.device_fallback import should_skip_gpu_release
 from utils.ocr_fallback import recognize_with_fallbacks
 
@@ -95,6 +101,7 @@ async def run_cached_ocr(
     # Resolved at call time so tests can inject fake engines.
     resolve = resolve_engine if resolve_engine is not None else get_ocr_engine
     pipeline_cache = cache if cache is not None else get_pipeline_cache()
+    store = get_stage_store()
     engine = resolve(
         language=request.language,
         has_gpu=request.has_gpu,
@@ -105,6 +112,19 @@ async def run_cached_ocr(
         image_bytes=request.image_bytes, language=request.language, model_key=engine.key
     )
     cached_by_id, missing = pipeline_cache.get_cached_ocr_for_regions(cache_key, request.seeds)
+    if missing:
+        # Disk miss-path consult: outside CacheManager._lock (already
+        # released), sqlite read via a worker thread. Blocks are keyed by
+        # bbox id, so re-matching reassigns this pass's seed ids.
+        disk_blocks = await asyncio.to_thread(store.get_ocr, cache_key)
+        if disk_blocks is not None:
+            disk_hits, still_missing = match_ocr_blocks(
+                disk_blocks,
+                missing,
+                bbox_tolerance_px=pipeline_cache.bbox_tolerance_px,
+            )
+            cached_by_id.update(disk_hits)
+            missing = still_missing
 
     fresh_by_id: dict[str, OCRRecord] = {}
     inputs = [region for seed in missing if (region := _to_input_region(seed)) is not None]
@@ -137,6 +157,17 @@ async def run_cached_ocr(
         )
         fresh_by_id = {record["id"]: record for record in fresh}
         pipeline_cache.cache_ocr_results(cache_key, fresh)
+        # Persist to disk keyed by bbox id (never seed id — seed ids are
+        # pass-local). Blank text is not persisted so a later pass can still
+        # recover it, mirroring the in-memory guard.
+        new_blocks: dict[str, dict[str, object]] = {}
+        for record in fresh:
+            bbox = normalize_bbox(record["bbox"])
+            if bbox is None or not record["text"].strip():
+                continue
+            new_blocks[_bbox_id(bbox)] = dict(record)
+        if new_blocks:
+            await asyncio.to_thread(store.merge_ocr, key=cache_key, blocks=new_blocks)
 
     if request.device_info is not None:
         logger.info(
