@@ -120,6 +120,7 @@ pub fn run() {
             commands::desktop::get_locale_preferences,
             commands::desktop::reset_local_settings,
             commands::desktop::restart_app,
+            commands::desktop::set_mini_backend_thread_override,
             commands::desktop::get_mini_backend_runtime_state,
             commands::desktop::check_local_backend,
             commands::desktop::restart_local_backend,

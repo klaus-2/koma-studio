@@ -8,6 +8,7 @@ export default [
     appIgnores: [
       "mini-backend/**",
       ".venv-mini/**",
+      ".venv-mini-cpu/**",
       "resources/**",
       "release-desktop/**",
       ".build-cache/**",

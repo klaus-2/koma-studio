@@ -33,10 +33,7 @@ import {
 import {
   assertTrustedIpcSender,
 } from "./shared.ts";
-import {
-  clearMiniBackendRuntimeSelection,
-  getMiniBackendRuntimeSelectionPath,
-} from "../mini-backend-runtime-selection.ts";
+import { resetLocalSettingsFilesAt } from "./local-settings-reset.ts";
 import { registerSecureIpcHandler } from "./shared.ts";
 
 // ---------------------------------------------------------------------------
@@ -86,10 +83,6 @@ const resetDesktopLocalSettings = async (): Promise<{
   clearedPaths: string[];
 }> => {
   const userDataPath = app.getPath("userData");
-  const secureStorePath = path.join(userDataPath, "secure-store");
-  const deviceIdPath = path.join(userDataPath, "desktop-device-id.json");
-  const runtimeSelectionPath = getMiniBackendRuntimeSelectionPath(userDataPath);
-  const clearedPaths: string[] = [];
 
   try {
     await electronSession.defaultSession.clearStorageData({
@@ -99,15 +92,7 @@ const resetDesktopLocalSettings = async (): Promise<{
     console.warn("[desktop] Failed to clear Chromium storage during local reset", error);
   }
 
-  const removePath = (targetPath: string, _recursive: boolean = false): void => {
-    fs.rmSync(targetPath, { force: true, recursive: true });
-    clearedPaths.push(targetPath);
-  };
-
-  removePath(secureStorePath, true);
-  removePath(deviceIdPath);
-  clearMiniBackendRuntimeSelection(userDataPath);
-  clearedPaths.push(runtimeSelectionPath);
+  const clearedPaths = resetLocalSettingsFilesAt(userDataPath);
 
   return {
     cleared: true,

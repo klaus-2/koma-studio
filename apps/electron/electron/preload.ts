@@ -423,6 +423,14 @@ contextBridge.exposeInMainWorld("desktop", {
     invokeSecureDesktopApi("desktop:reset-local-settings"),
   restartApp: async (): Promise<unknown> =>
     invokeSecureDesktopApi("desktop:restart-app"),
+  setMiniBackendThreadOverride: async (payload: {
+    intraOpThreads: number | null;
+    interOpThreads?: number | null;
+  }): Promise<unknown> =>
+    invokeSecureDesktopApi("desktop:mini-backend:set-thread-override", {
+      intraOpThreads: payload.intraOpThreads,
+      interOpThreads: payload.interOpThreads ?? null,
+    }),
   onMiniBackendRuntimeState: (listener: MiniBackendRuntimeListener): void => {
     miniBackendRuntimeListeners.add(listener);
   },

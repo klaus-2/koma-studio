@@ -78,6 +78,11 @@ import {
 } from "./modules/mini-backend-dev-runtime.ts";
 import { createMiniBackendCommandBuilder } from "./modules/mini-backend-command.ts";
 import {
+  miniBackendThreadEnvVars,
+  readMiniBackendThreadOverride,
+  writeMiniBackendThreadOverride,
+} from "./modules/mini-backend-thread-override.ts";
+import {
   getRandomLocalPort,
   waitForMiniBackend,
 } from "./modules/mini-backend-process-utils.ts";
@@ -443,6 +448,9 @@ const startMiniBackend = async (options: StartMiniBackendOptions = {}): Promise<
     env: {
       ...process.env,
       ...commandSpec.env,
+      ...miniBackendThreadEnvVars(
+        readMiniBackendThreadOverride(app.getPath("userData")),
+      ),
       NODE_ENV: isDev ? "development" : "production",
       PORT: String(miniBackendPort),
       KOMA_MODELS_ROOT: desktopModelsRootDir,
@@ -547,6 +555,14 @@ registerSecureIpcHandler<{ restarting: true }>("desktop:restart-app", async () =
 
   return { restarting: true };
 });
+
+registerSecureIpcHandler<{ accepted: true }>(
+  "desktop:mini-backend:set-thread-override",
+  async (value) => {
+    writeMiniBackendThreadOverride(app.getPath("userData"), value);
+    return { accepted: true };
+  },
+);
 
 
 const {
