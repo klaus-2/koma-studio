@@ -73,5 +73,8 @@ class LibreTranslateEngine(IndexedBatchTranslatorBase):
             url=f"{self.server_url}/translate",
             payload=payload,
             timeout=_TIMEOUT_SECONDS,
+            # A hostile server could echo the key back in an error body that
+            # lands in the shipped runtime log.
+            redact=(self.api_key,) if self.api_key else (),
         )
         return _texts_from_translated(response)

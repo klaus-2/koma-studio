@@ -66,8 +66,11 @@ async def aclose_http_client() -> None:
     await _shared_client.aclose()
 
 
-def _truncate_detail(detail: str) -> str:
+def _truncate_detail(detail: str, redact: Sequence[str] = ()) -> str:
     compact = " ".join(detail.split())
+    for secret in redact:
+        if secret:
+            compact = compact.replace(secret, "[redacted]")
     if len(compact) <= _ERROR_DETAIL_MAX_CHARS:
         return compact
     return f"{compact[:_ERROR_DETAIL_MAX_CHARS]}…"
@@ -76,6 +79,7 @@ def _truncate_detail(detail: str) -> str:
 async def _send(
     provider_label: str,
     send: Callable[[httpx.AsyncClient], Awaitable[httpx.Response]],
+    redact: Sequence[str] = (),
 ) -> JsonValue:
     client = get_http_client()
     try:
@@ -83,7 +87,9 @@ async def _send(
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         raise TranslatorResponseError(
-            provider_label, exc.response.status_code, _truncate_detail(exc.response.text)
+            provider_label,
+            exc.response.status_code,
+            _truncate_detail(exc.response.text, redact),
         ) from exc
     except httpx.RequestError as exc:
         # Only the exception class is surfaced: request URLs may carry credentials.
@@ -105,6 +111,7 @@ async def post_json(
     headers: Mapping[str, str] | None = None,
     timeout: float,
     max_retries: int = 3,
+    redact: Sequence[str] = (),
 ) -> JsonValue:
     body = json.dumps(payload).encode("utf-8")
     request_headers = {"Content-Type": "application/json", **(headers or {})}
@@ -118,6 +125,7 @@ async def post_json(
             content=body,
             timeout=httpx.Timeout(timeout),
         ),
+        redact,
     )
 
 
@@ -129,6 +137,7 @@ async def post_form(
     headers: Mapping[str, str] | None = None,
     timeout: float,
     max_retries: int = 3,
+    redact: Sequence[str] = (),
 ) -> JsonValue:
     return await _send(
         provider_label,
@@ -140,6 +149,7 @@ async def post_form(
             data=dict(fields),
             timeout=httpx.Timeout(timeout),
         ),
+        redact,
     )
 
 
@@ -149,12 +159,14 @@ async def get_json(
     url: str,
     headers: Mapping[str, str] | None = None,
     timeout: float = 20.0,
+    redact: Sequence[str] = (),
 ) -> JsonValue:
     return await _send(
         provider_label,
         lambda client: client.get(
             url, headers=dict(headers or {}), timeout=httpx.Timeout(timeout)
         ),
+        redact,
     )
 
 

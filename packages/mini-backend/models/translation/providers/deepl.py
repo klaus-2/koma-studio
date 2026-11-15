@@ -55,5 +55,8 @@ class DeepLTranslatorEngine(IndexedBatchTranslatorBase):
             fields=fields,
             headers={"Authorization": f"DeepL-Auth-Key {self.api_key}"},
             timeout=_TIMEOUT_SECONDS,
+            # A hostile server could echo the key back in an error body that
+            # lands in the shipped runtime log.
+            redact=(self.api_key,),
         )
         return texts_from_list(response, "translations")

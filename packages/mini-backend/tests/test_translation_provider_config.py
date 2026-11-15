@@ -147,6 +147,17 @@ class LibreTranslateEngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["target"], "es")
         self.assertEqual(payload["format"], "text")
         self.assertEqual(payload["api_key"], "secret-lt-key")
+        self.assertEqual(captured["redact"], ("secret-lt-key",))
+
+    def test_error_detail_redacts_the_api_key(self) -> None:
+        from models.translation.http import _truncate_detail
+
+        detail = _truncate_detail(
+            'hostile provider echoed: {"error": "Invalid API key secret-lt-key"}',
+            ("secret-lt-key",),
+        )
+        self.assertNotIn("secret-lt-key", detail)
+        self.assertIn("[redacted]", detail)
 
     async def test_single_string_response_is_positional(self) -> None:
         async def fake_post_json(**kwargs: object) -> object:
