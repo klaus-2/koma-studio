@@ -78,7 +78,7 @@ def load_provider_config() -> TranslationProviderConfig:
     except FileNotFoundError:
         return TranslationProviderConfig()
     except (OSError, ValueError) as exc:
-        logger.warning("translation provider config unreadable: %s", type(exc).__name__)
+        logger.warning("translation provider config unreadable at %s: %r", path, exc)
         return TranslationProviderConfig()
 
 
@@ -93,14 +93,25 @@ def save_provider_config(config: TranslationProviderConfig) -> None:
         os.chmod(directory, 0o700)
     except OSError:
         pass
+    # Atomic replace: a mid-write failure must never truncate the previous
+    # file — that would silently erase the user's stored credentials and the
+    # fail-open read would then report the engines as "not configured".
+    temp_path = f"{path}.tmp"
+    fd: int | None = None
     try:
-        if os.path.exists(path):
-            os.chmod(path, 0o600)
-        with open(path, "w", encoding="utf-8") as handle:
+        fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            fd = None  # ownership transferred to handle
             handle.write(body)
-        os.chmod(path, 0o600)
+        os.replace(temp_path, path)
     except OSError as exc:
-        logger.error("translation provider config not saved: %s", type(exc).__name__)
+        logger.error("translation provider config not saved at %s: %r", path, exc)
+        if fd is not None:
+            os.close(fd)
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
         raise
 
 

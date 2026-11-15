@@ -6,6 +6,7 @@ import os
 from contextlib import ExitStack
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -126,14 +127,19 @@ class TranslationSelectionTests(unittest.TestCase):
 
     def test_explicit_unconfigured_deepl_names_the_missing_env(self) -> None:
         spy = _GoogleEngineSpy()
-        env = dict(os.environ)
-        env.pop("MINI_BACKEND_DEEPL_API_KEY", None)
-        with (
-            patch.object(translation_factory, "GoogleTranslatorEngine", spy),
-            patch.dict("os.environ", env, clear=True),
-        ):
-            with self.assertRaises(InvalidModelSelectionError) as ctx:
-                translation_factory.get_translation_engine("deepl")
+        with tempfile.TemporaryDirectory() as data_dir:
+            env = dict(os.environ)
+            env.pop("MINI_BACKEND_DEEPL_API_KEY", None)
+            # Isolated app-data dir: the developer machine may hold a real
+            # translation-provider-config.json whose stored key would make
+            # this refusal legitimately not fire.
+            env["KOMA_APP_DATA_DIR"] = data_dir
+            with (
+                patch.object(translation_factory, "GoogleTranslatorEngine", spy),
+                patch.dict("os.environ", env, clear=True),
+            ):
+                with self.assertRaises(InvalidModelSelectionError) as ctx:
+                    translation_factory.get_translation_engine("deepl")
 
         self.assertEqual(ctx.exception.model_key, "deepl")
         self.assertIn("MINI_BACKEND_DEEPL_API_KEY", ctx.exception.reason)
@@ -198,14 +204,16 @@ class TranslationDeepLAliasTests(unittest.TestCase):
 
     def test_deepl_translate_without_key_refuses_with_the_env_name(self) -> None:
         spy = _GoogleEngineSpy()
-        env = dict(os.environ)
-        env.pop("MINI_BACKEND_DEEPL_API_KEY", None)
-        with (
-            patch.object(translation_factory, "GoogleTranslatorEngine", spy),
-            patch.dict("os.environ", env, clear=True),
-        ):
-            with self.assertRaises(InvalidModelSelectionError) as ctx:
-                translation_factory.get_translation_engine("deepl_translate")
+        with tempfile.TemporaryDirectory() as data_dir:
+            env = dict(os.environ)
+            env.pop("MINI_BACKEND_DEEPL_API_KEY", None)
+            env["KOMA_APP_DATA_DIR"] = data_dir
+            with (
+                patch.object(translation_factory, "GoogleTranslatorEngine", spy),
+                patch.dict("os.environ", env, clear=True),
+            ):
+                with self.assertRaises(InvalidModelSelectionError) as ctx:
+                    translation_factory.get_translation_engine("deepl_translate")
 
         self.assertEqual(ctx.exception.model_key, "deepl")
         self.assertIn("MINI_BACKEND_DEEPL_API_KEY", ctx.exception.reason)

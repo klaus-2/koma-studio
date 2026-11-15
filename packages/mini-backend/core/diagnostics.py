@@ -82,6 +82,8 @@ def _collect_ram_total(snapshot: dict[str, _SnapshotValue]) -> None:
         snapshot["ram_total_gb"] = round(psutil.virtual_memory().total / 1024**3, 2)
     except ImportError:
         return
+    except Exception as exc:  # best-effort probe: a broken WMI/driver stays None
+        logger.debug("environment snapshot ram probe failed: %s", type(exc).__name__)
 
 
 def reset_environment_snapshot_cache() -> None:

@@ -62,9 +62,12 @@ def configure_logging(level: int = logging.INFO) -> None:
         if file_handler is not None:
             handlers.append(file_handler)
     except Exception as exc:  # fail-open: file logging must never break inference
-        _warn_file_logging_off(type(exc).__name__)
+        _warn_file_logging_off(f"dir {resolve_log_dir()}: {exc!r}")
     logging.basicConfig(level=level, handlers=handlers, force=True)
-    _log_backend_startup()
+    try:
+        _log_backend_startup()
+    except Exception as exc:  # fail-open: startup diagnostics must never break startup
+        _warn_stderr(f"startup diagnostics failed: {exc!r}\n")
 
 
 def _log_backend_startup() -> None:
@@ -95,8 +98,12 @@ def _build_file_handler() -> RotatingFileHandler | None:
 
 
 def _warn_file_logging_off(reason: str) -> None:
-    """One stderr line outside logging (the handlers are not up yet)."""
+    _warn_stderr(f"runtime file logging disabled: {reason}\n")
+
+
+def _warn_stderr(message: str) -> None:
+    """One stderr line outside logging (the handlers may not be up yet)."""
     try:
-        sys.stderr.write(f"runtime file logging disabled: {reason}\n")
+        sys.stderr.write(message)
     except Exception:
         pass

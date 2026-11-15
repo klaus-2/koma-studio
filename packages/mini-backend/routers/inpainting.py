@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from core.config import get_config
 from core.device import DeviceInfo, build_device_payload, get_device_info
+from core.logging_setup import get_log_file_path
 from core.runtime_errors import build_runtime_error_detail
 from models.detection.factory import get_detector
 from models.errors import UnimplementedModelSelectionError
@@ -104,6 +105,7 @@ def _to_http_error(exc: InpaintError, *, model_key: str | None) -> HTTPException
                 used_gpu=True,
                 cpu_fallback_attempted=True,
                 cpu_fallback_error=exc.cpu_error,
+                log_path=get_log_file_path(),
             ),
         )
     if isinstance(exc, InpaintInvalidRequestError):

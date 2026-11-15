@@ -11,6 +11,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from core.config import clamp_llm_request_settings
 from core.languages import normalize_language_code
+from core.logging_setup import get_log_file_path
 from core.translation_provider_config import (
     TranslationProviderConfig,
     load_provider_config,
@@ -82,6 +83,7 @@ def _refusal_detail(
         "stage": REFUSAL_STAGE,
         "model_key": exc.model_key,
         "available_keys": available,
+        "log_path": get_log_file_path(),
     }
 
 

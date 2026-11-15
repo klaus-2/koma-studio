@@ -48,6 +48,22 @@ class TranslationProviderConfigStoreTests(unittest.TestCase):
         loaded = provider_config.load_provider_config()
         self.assertEqual(loaded, config)
 
+    def test_failed_save_keeps_the_previous_config_intact(self) -> None:
+        first = provider_config.TranslationProviderConfig(deepl_api_key="keep-me")
+        provider_config.save_provider_config(first)
+
+        with patch.object(provider_config.os, "replace", side_effect=OSError("disk full")):
+            with self.assertRaises(OSError):
+                provider_config.save_provider_config(
+                    provider_config.TranslationProviderConfig(deepl_api_key="lost")
+                )
+
+        self.assertEqual(provider_config.load_provider_config(), first)
+        self.assertFalse(
+            Path(provider_config.config_file_path() + ".tmp").exists(),
+            "a failed save must not leave the temp file behind",
+        )
+
     def test_missing_file_answers_an_empty_config(self) -> None:
         self.assertEqual(provider_config.load_provider_config(), provider_config.TranslationProviderConfig())
 
