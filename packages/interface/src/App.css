@@ -15107,11 +15107,8 @@ html[data-theme="light"] #root {
 }
 
 .koma-aio-cloud-preview {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 0;
-  right: 0;
-  z-index: 40;
+  position: fixed;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 10px;

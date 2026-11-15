@@ -1,7 +1,7 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { useShallowStableObject } from '../../../utils/shallowStable';
-import AioCloudPreviewDialog from '../../../components/dashboard/AioCloudPreviewDialog';
+import { AioCloudPreviewMount } from './AioCloudPreviewMount';
 import AioBatchPauseButton from './AioBatchPauseButton';
 import { useAioCloudPreviewStart } from '../hooks/use-aio-cloud-preview-start';
 
@@ -212,6 +212,7 @@ export default memo(function AioRightPanel({
   isDesktopRuntime,
 }: AioRightPanelProps) {
   const { t, locale } = useI18n();
+  const executeBarRef = useRef<HTMLDivElement | null>(null);
   const noir = useThemeStore((s) => s.family === 'noir');
   const skin = aioPanelClasses(noir);
 
@@ -874,7 +875,7 @@ export default memo(function AioRightPanel({
       )}
 
       {/* ═══════════════════ EXECUTE BAR ═══════════════════ */}
-      <div className="koma-aio-execute">
+      <div className="koma-aio-execute" ref={executeBarRef}>
         <button
           type="button"
           className={cn(
@@ -942,19 +943,11 @@ export default memo(function AioRightPanel({
           </button>
         )}
         <AioBatchPauseButton subMode={subMode} />
-        {cloudPreview.previewGate !== null && (
-          <AioCloudPreviewDialog
-            gate={cloudPreview.previewGate}
-            imageCount={cloudPreview.imageCount}
-            imageBytes={cloudPreview.imageBytes}
-            textRegionCount={cloudPreview.textRegionCount}
-            knownTextChars={cloudPreview.knownTextChars}
-            imagesWithKnownText={cloudPreview.imagesWithKnownText}
-            neighborContextEnabled={cloudPreview.neighborContextEnabled}
-            onConfirm={() => { cloudPreview.clearPreviewGate(); processAIO(); }}
-            onCancel={cloudPreview.clearPreviewGate}
-          />
-        )}
+        <AioCloudPreviewMount
+          cloudPreview={cloudPreview}
+          processAIO={processAIO}
+          anchorEl={executeBarRef.current}
+        />
       </div>
     </div>
   );

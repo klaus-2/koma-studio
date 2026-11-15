@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { Cloud, Languages, X } from 'lucide-react';
 
@@ -92,6 +93,7 @@ interface AioCloudPreviewDialogProps {
   readonly neighborContextEnabled: boolean;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
+  readonly anchorEl?: HTMLElement | null;
 }
 
 const destinationLabel = (
@@ -129,10 +131,10 @@ function StageRow({
   fallbackText,
 }: StageRowProps): JSX.Element {
   const label = destinationLabel(destination, listings);
-  const isUnresolvedCustom =
+  const isGenericCustom =
     destination.source === 'custom' &&
-    /^[a-z_]+:[0-9a-f]{8}-[0-9a-f]/i.test(label.display);
-  const display = isUnresolvedCustom ? fallbackText : label.display;
+    (label.display === '' || /^[a-z_]+:[0-9a-f]{8}-[0-9a-f]/i.test(label.display));
+  const display = isGenericCustom ? fallbackText : label.display;
   return (
     <section className="koma-aio-cloud-preview__stage">
       <div className="koma-aio-cloud-preview__stageHead">
@@ -169,6 +171,7 @@ export function AioCloudPreviewDialog({
   neighborContextEnabled,
   onConfirm,
   onCancel,
+  anchorEl = null,
 }: AioCloudPreviewDialogProps): JSX.Element {
   const { t } = useI18n();
   const [ocrListings, setOcrListings] = useState<ListingEntry[]>([]);
@@ -176,6 +179,11 @@ export function AioCloudPreviewDialog({
     [],
   );
   const [dontAskAgain, setDontAskAgain] = useState(false);
+  const [position, setPosition] = useState<{
+    left: number;
+    width: number;
+    bottom: number;
+  } | null>(null);
   const [rates, setRates] = useState<AioCostRateSettings>(
     DEFAULT_AIO_COST_RATES,
   );
@@ -222,6 +230,27 @@ export function AioCloudPreviewDialog({
     [gate.ocr, gate.translation],
   );
 
+  useLayoutEffect(() => {
+    const update = (): void => {
+      if (anchorEl === null) {
+        return;
+      }
+      const rect = anchorEl.getBoundingClientRect();
+      setPosition({
+        left: rect.left,
+        width: rect.width,
+        bottom: window.innerHeight - rect.top + 10,
+      });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [anchorEl]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
@@ -263,8 +292,27 @@ export function AioCloudPreviewDialog({
     );
   }
 
-  return (
-    <div className="koma-aio-cloud-preview" role="dialog" aria-modal="true">
+  const popStyle: Record<string, string | number> =
+    position !== null
+      ? {
+          left: position.left,
+          width: position.width,
+          bottom: position.bottom,
+        }
+      : {
+          left: '50%',
+          width: 'min(420px, 92vw)',
+          bottom: 96,
+          transform: 'translateX(-50%)',
+        };
+
+  return createPortal(
+    <div
+      className="koma-aio-cloud-preview"
+      role="dialog"
+      aria-modal="true"
+      style={popStyle}
+    >
       <div className="koma-aio-cloud-preview__head">
         <span className="koma-aio-cloud-preview__title">
           {t('dashboard.aio.cloudPreview.title')}
@@ -341,7 +389,8 @@ export function AioCloudPreviewDialog({
           {t('dashboard.aio.cloudPreview.cancel')}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 
   function updateRates(next: AioCostRateSettings): void {

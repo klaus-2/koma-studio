@@ -86,10 +86,10 @@ const buildOcrDestination = (
   profile: CustomLlmProfile | null,
 ): RemoteStageDestination | null => {
   if (modelKey.startsWith('custom_ocr:')) {
-    if (
-      profile !== null &&
-      !shouldUseLocalDesktopTranslationForCustomProfile(profile)
-    ) {
+    if (profile !== null) {
+      if (shouldUseLocalDesktopTranslationForCustomProfile(profile)) {
+        return null;
+      }
       return {
         stage: 'ocr',
         provider: profile.id,
@@ -99,7 +99,14 @@ const buildOcrDestination = (
         modelKey,
       };
     }
-    return null;
+    return {
+      stage: 'ocr',
+      provider: modelKey.slice('custom_ocr:'.length),
+      providerLabel: '',
+      apiBase: null,
+      source: 'custom',
+      modelKey,
+    };
   }
   return {
     stage: 'ocr',
