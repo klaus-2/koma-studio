@@ -1,10 +1,12 @@
 import { memo, useRef, useState } from 'react';
 
 import { useI18n } from '@/i18n';
+import { aioPanelClasses } from './AioRightPanel.skin';
 import { clampGlossary, type GlossaryTerm } from '../../../utils/glossary';
 
 interface AioGlossaryEditorProps {
   glossary: GlossaryTerm[];
+  noir: boolean;
   onChange: (next: GlossaryTerm[]) => void;
 }
 
@@ -25,8 +27,9 @@ const glossaryEquals = (a: GlossaryTerm[], b: GlossaryTerm[]): boolean =>
     );
   });
 
-export const AioGlossaryEditor = memo(({ glossary, onChange }: AioGlossaryEditorProps) => {
+export const AioGlossaryEditor = memo(({ glossary, noir, onChange }: AioGlossaryEditorProps) => {
   const { t } = useI18n();
+  const classes = aioPanelClasses(noir);
   const nextRowIdRef = useRef(0);
   // Draft rows may be incomplete; only complete pairs reach the store.
   const [draft, setDraft] = useState<GlossaryDraftRow[]>(() =>
@@ -48,16 +51,20 @@ export const AioGlossaryEditor = memo(({ glossary, onChange }: AioGlossaryEditor
     onChange(clampGlossary(next.map((row) => row.term)));
   };
 
+  const inputClass = noir
+    ? 'panel-cut-sm min-w-0 flex-1 border border-paper/12 bg-ink px-2.5 py-2 font-mono text-[11px] text-paper placeholder:text-paper/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson'
+    : 'koma-input koma-input--sm';
+
   return (
     <div className="koma-aio-llm-panel">
-      <span className="koma-field__label">{t('dashboard.aio.glossary.title')}</span>
+      <span className={classes.label}>{t('dashboard.aio.glossary.title')}</span>
       {draft.length === 0 ? (
-        <p className="koma-aio-hint">{t('dashboard.aio.glossary.empty')}</p>
+        <p className={classes.hint}>{t('dashboard.aio.glossary.empty')}</p>
       ) : (
         draft.map((row) => (
           <div key={row.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <input
-              className="koma-input koma-input--sm"
+              className={inputClass}
               value={row.term.source}
               placeholder={t('dashboard.aio.glossary.sourcePlaceholder')}
               onChange={(event) =>
@@ -71,7 +78,7 @@ export const AioGlossaryEditor = memo(({ glossary, onChange }: AioGlossaryEditor
               }
             />
             <input
-              className="koma-input koma-input--sm"
+              className={inputClass}
               value={row.term.target}
               placeholder={t('dashboard.aio.glossary.targetPlaceholder')}
               onChange={(event) =>
@@ -85,7 +92,7 @@ export const AioGlossaryEditor = memo(({ glossary, onChange }: AioGlossaryEditor
               }
             />
             <label
-              className="koma-aio-hint"
+              className={classes.hint}
               style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}
             >
               <input
@@ -108,7 +115,7 @@ export const AioGlossaryEditor = memo(({ glossary, onChange }: AioGlossaryEditor
             </label>
             <button
               type="button"
-              className="koma-btn koma-btn--ghost koma-btn--sm"
+              className={classes.ghostButton}
               aria-label={t('dashboard.aio.glossary.remove')}
               onClick={() => commit(draft.filter((candidate) => candidate.id !== row.id))}
             >
@@ -119,14 +126,14 @@ export const AioGlossaryEditor = memo(({ glossary, onChange }: AioGlossaryEditor
       )}
       <button
         type="button"
-        className="koma-btn koma-btn--ghost koma-btn--sm"
+        className={classes.ghostButton}
         onClick={() =>
           setDraft([...draft, { id: nextRowIdRef.current++, term: { source: '', target: '', never_translate: false } }])
         }
       >
         {t('dashboard.aio.glossary.add')}
       </button>
-      <p className="koma-aio-hint">{t('dashboard.aio.glossary.hint')}</p>
+      <p className={classes.hint}>{t('dashboard.aio.glossary.hint')}</p>
     </div>
   );
 });

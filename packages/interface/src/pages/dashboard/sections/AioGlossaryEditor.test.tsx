@@ -26,7 +26,7 @@ const expectInput = (element: Element | null): HTMLInputElement => {
 const renderEditor = (glossary: GlossaryTerm[], onChange: (next: GlossaryTerm[]) => void) =>
   render(
     <I18nProvider>
-      <AioGlossaryEditor glossary={glossary} onChange={onChange} />
+      <AioGlossaryEditor noir={false} glossary={glossary} onChange={onChange} />
     </I18nProvider>,
   );
 
@@ -88,7 +88,7 @@ describe('AioGlossaryEditor', () => {
     ];
     rerender(
       <I18nProvider>
-        <AioGlossaryEditor glossary={preset} onChange={onChange} />
+        <AioGlossaryEditor noir={false} glossary={preset} onChange={onChange} />
       </I18nProvider>,
     );
 
@@ -120,7 +120,11 @@ describe('AioGlossaryEditor', () => {
     expect(onChange).toHaveBeenCalledWith([{ source: 'ax', target: 'b', never_translate: false }]);
     rerender(
       <I18nProvider>
-        <AioGlossaryEditor glossary={[{ source: 'ax', target: 'b', never_translate: false }]} onChange={onChange} />
+        <AioGlossaryEditor
+          noir={false}
+          glossary={[{ source: 'ax', target: 'b', never_translate: false }]}
+          onChange={onChange}
+        />
       </I18nProvider>,
     );
 

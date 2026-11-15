@@ -183,6 +183,7 @@ export default memo(function AioLlmSettingsPanel({
         </div>
 
         <AioGlossaryEditor
+          noir={noir}
           glossary={llmGlossary}
           onChange={(next) =>
             setLlmSettings((prev) =>
