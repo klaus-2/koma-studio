@@ -61,6 +61,9 @@ export const enMessages = {
   'toolbar.modelSelect.incompatibleWarning':
     '"{model}" does not support {source} → {target}. Select a compatible model or change the target language.',
   'settings.tabs.app': 'Application',
+  'settings.tabs.typographer': 'Typographer',
+  'settings.tabs.runtime': 'Updates & runtime',
+  'settings.tabs.performance': 'Performance',
   'settings.backToDashboard': 'Back to Dashboard',
   'settings.stats.version': 'version',
   'settings.app.updater.status.idle': 'Idle',

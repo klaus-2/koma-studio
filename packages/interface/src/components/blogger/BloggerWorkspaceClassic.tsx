@@ -47,7 +47,7 @@ type BloggerWorkspaceTab = 'publish' | 'upload';
 type BloggerEditorView = 'visual' | 'html' | 'preview';
 
 export interface BloggerWorkspaceProps {
-  onOpenSettings?: () => void;
+  openSettingsOnIntegrationsTab?: () => void;
 }
 
 export interface UploadDraftItem {
@@ -148,7 +148,7 @@ const buildSafePreviewDocument = (html: string, localeTag: string): string => {
 </html>`;
 };
 
-const BloggerWorkspaceClassic = ({ onOpenSettings }: BloggerWorkspaceProps) => {
+const BloggerWorkspaceClassic = ({ openSettingsOnIntegrationsTab }: BloggerWorkspaceProps) => {
   const { localeTag, t } = useI18n();
   const defaultEditorTemplate = useMemo(
     () =>
@@ -731,7 +731,7 @@ const BloggerWorkspaceClassic = ({ onOpenSettings }: BloggerWorkspaceProps) => {
         <button
           type="button"
           className="koma-cdn__tab koma-cdn__tab--ghost"
-          onClick={() => onOpenSettings?.()}
+          onClick={() => openSettingsOnIntegrationsTab?.()}
         >
           <Settings2 size={13} /> {t('blogger.settings')}
         </button>

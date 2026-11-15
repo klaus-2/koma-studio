@@ -307,7 +307,7 @@ export interface DashboardMainLayoutProps {
   openProjectExternalLink: ExternalActionsApi['openProjectExternalLink'];
   projectDiscordUrl: ExternalActionsApi['projectDiscordUrl'];
   projectWebsiteUrl: ExternalActionsApi['projectWebsiteUrl'];
-  openSettingsOnPresetsTab: ExternalActionsApi['openSettingsOnPresetsTab'];
+  openSettingsOnPresetsTab: ExternalActionsApi['openSettingsOnPresetsTab']; openSettingsOnIntegrationsTab: ExternalActionsApi['openSettingsOnIntegrationsTab'];
 
   /* ── Footer / dock derivations ── */
   manualDockVisible: boolean;
@@ -567,7 +567,7 @@ export default memo(function DashboardMainLayout({
   openProjectExternalLink,
   projectDiscordUrl,
   projectWebsiteUrl,
-  openSettingsOnPresetsTab,
+  openSettingsOnPresetsTab, openSettingsOnIntegrationsTab,
   manualDockVisible,
   manualDockRightOffset,
   isAioManualMode,
@@ -1091,7 +1091,7 @@ export default memo(function DashboardMainLayout({
           availableRenderFonts={availableRenderFonts}
           handleStageWheelZoom={handleStageWheelZoom}
           specialModeStageProps={specialModeStageProps}
-          onOpenSettings={onOpenSettings}
+          openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab}
           translatorTextImportRef={translatorTextImportRef}
           runTranslatorText={runTranslatorText}
           handleDownload={handleDownload}

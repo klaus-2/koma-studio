@@ -12,7 +12,7 @@ export type BloggerEditorView =
   | 'preview';
 
 export interface BloggerWorkspaceProps {
-  onOpenSettings?: () => void;
+  openSettingsOnIntegrationsTab?: () => void;
 }
 
 export interface UploadDraftItem {

@@ -10,14 +10,14 @@ const readSource = (relativePath: string): string =>
 
 describe("beta channel capability gate wiring", () => {
   it("gates the beta button and renders the guidance in the classic tab", () => {
-    const source = readSource("./SettingsAppTab.tsx");
+    const source = readSource("./SettingsRuntimeTab.tsx");
 
     expect(source).toContain("disabled={busy || betaChannelDisabled}");
     expect(source).toContain('t("settings.updates.betaManualOnly")');
   });
 
   it("scopes the gate to the beta channel and renders the guidance in the noir tab", () => {
-    const source = readSource("./noir/SettingsAppTabNoir.tsx");
+    const source = readSource("./noir/SettingsRuntimeTabNoir.tsx");
 
     expect(source).toContain('ch === "beta" && a.betaChannelDisabled');
     expect(source).toContain('t("settings.updates.betaManualOnly")');

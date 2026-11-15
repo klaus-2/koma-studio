@@ -71,7 +71,7 @@ type BloggerEditorView = 'visual' | 'html' | 'preview';
 type UploadItemStatus = QueueStatus;
 
 interface BloggerWorkspaceProps {
-  onOpenSettings?: () => void;
+  openSettingsOnIntegrationsTab?: () => void;
 }
 
 interface UploadDraftItem {
@@ -186,7 +186,7 @@ const ToolbarButton = ({
 
 /* ════════════════ Component ════════════════ */
 
-export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) => {
+export const BloggerWorkspaceNoir = ({ openSettingsOnIntegrationsTab }: BloggerWorkspaceProps) => {
   const { localeTag, t } = useI18n();
   const motionProps = useNoirMotion();
 
@@ -669,7 +669,7 @@ export const BloggerWorkspaceNoir = ({ onOpenSettings }: BloggerWorkspaceProps) 
             </button>
           );
         })}
-        <button type="button" className="btn-ghost ml-auto" onClick={() => onOpenSettings?.()}>
+        <button type="button" className="btn-ghost ml-auto" onClick={() => openSettingsOnIntegrationsTab?.()}>
           <Settings2 size={11} /> {t('blogger.settings')}
         </button>
       </m.div>

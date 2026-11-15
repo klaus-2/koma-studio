@@ -25,7 +25,7 @@ import '../blogger/CdnWorkspace.css';
 type UploadItemStatus = 'queued' | 'processing' | 'uploaded' | 'error';
 
 export interface ImgurWorkspaceProps {
-  onOpenSettings?: () => void;
+  openSettingsOnIntegrationsTab?: () => void;
 }
 
 interface UploadDraftItem {
@@ -58,7 +58,7 @@ const downloadTextFile = (fileName: string, content: string): void => {
   URL.revokeObjectURL(url);
 };
 
-const ImgurWorkspaceClassic = ({ onOpenSettings }: ImgurWorkspaceProps) => {
+const ImgurWorkspaceClassic = ({ openSettingsOnIntegrationsTab }: ImgurWorkspaceProps) => {
   const { t } = useI18n();
   const [configReady, setConfigReady] = useState(false);
   const [rateLimit, setRateLimit] = useState<ImgurRateLimitStatus>({
@@ -322,7 +322,7 @@ const ImgurWorkspaceClassic = ({ onOpenSettings }: ImgurWorkspaceProps) => {
             <button
               type="button"
               className="koma-cdn__tab koma-cdn__tab--ghost"
-              onClick={() => onOpenSettings?.()}
+              onClick={() => openSettingsOnIntegrationsTab?.()}
             >
               <Settings2 size={13} /> Settings
             </button>

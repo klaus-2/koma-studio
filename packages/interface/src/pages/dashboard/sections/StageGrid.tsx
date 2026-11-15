@@ -94,7 +94,7 @@ function DashboardStageSection({
   availableRenderFonts,
   handleStageWheelZoom,
   specialModeStageProps,
-  onOpenSettings,
+  openSettingsOnIntegrationsTab,
   translatorTextImportRef,
   runTranslatorText,
   handleDownload,
@@ -577,7 +577,7 @@ function DashboardStageSection({
         mode === 'imgur' ? (
         <DashboardInfoModeStage
           mode={mode}
-          onOpenSettings={onOpenSettings ?? (() => { })}
+          openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab ?? (() => { })}
         />
       ) : mode === 'translator' && translatorWorkspaceMode === 'text' ? (
         <Suspense fallback={<DashboardLazyFallback />}>

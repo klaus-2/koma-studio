@@ -58,7 +58,7 @@ import {
 } from './CdnV2Primitives';
 
 interface ImgurWorkspaceProps {
-  onOpenSettings?: () => void;
+  openSettingsOnIntegrationsTab?: () => void;
 }
 
 interface UploadDraftItem {
@@ -72,7 +72,7 @@ interface UploadDraftItem {
 }
 
 export function ImgurWorkspaceV2({
-  onOpenSettings,
+  openSettingsOnIntegrationsTab,
 }: ImgurWorkspaceProps) {
   const { t } = useI18n();
   const reduceMotion = useReducedMotion();
@@ -546,7 +546,7 @@ export function ImgurWorkspaceV2({
                 type="button"
                 className="btn-ghost !min-h-9 !px-3 !py-2"
                 onClick={() =>
-                  onOpenSettings?.()
+                  openSettingsOnIntegrationsTab?.()
                 }
               >
                 <Settings2 size={13} />
@@ -610,7 +610,7 @@ export function ImgurWorkspaceV2({
               type="button"
               className="btn-ghost !min-h-9 !px-3 !py-2"
               onClick={() =>
-                onOpenSettings?.()
+                openSettingsOnIntegrationsTab?.()
               }
             >
               <Settings2 size={13} />

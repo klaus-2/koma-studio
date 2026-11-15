@@ -16,8 +16,10 @@ export {
 export const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: "general", label: "general", icon: "user" },
   { id: "presets", label: "presets", icon: "sliders" },
+  { id: "typographer", label: "typographer", icon: "type" },
   { id: "integrations", label: "integrations", icon: "link" },
-  { id: "app", label: "app", icon: "app" },
+  { id: "runtime", label: "runtime", icon: "runtime" },
+  { id: "performance", label: "performance", icon: "performance" },
 ];
 
 export const AIO_STAGE_KEYS: AioStageKey[] = [

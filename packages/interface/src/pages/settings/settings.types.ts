@@ -6,7 +6,7 @@ import type { TypographyShapeKind } from "../../typography/types";
 
 /* ─── Types ─────────────────────────────────────────────── */
 
-export type SettingsTab = "general" | "presets" | "integrations" | "app";
+export type SettingsTab = "general" | "presets" | "typographer" | "integrations" | "runtime" | "performance";
 export type WebhookTestStatus = "idle" | "testing" | "success" | "error";
 export type WebhookFeedbackState = { type: "success" | "error"; message: string } | null;
 export type BloggerFeedbackState = { type: "success" | "error"; message: string } | null;

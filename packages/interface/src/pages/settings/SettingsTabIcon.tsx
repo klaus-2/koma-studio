@@ -39,6 +39,30 @@ export const SettingsTabIcon = ({ id }: { id: string }) => {
           <path d="M9 6v6M6 9l3 3 3-3" />
         </svg>
       );
+    case "type":
+      return (
+        <svg viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3.5 5.5V3.5h11v2" />
+          <path d="M9 3.5v11" />
+          <path d="M6.5 14.5h5" />
+        </svg>
+      );
+    case "runtime":
+      return (
+        <svg viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4.5" y="4.5" width="9" height="9" rx="1.5" />
+          <rect x="7.25" y="7.25" width="3.5" height="3.5" rx="0.5" />
+          <path d="M6 2v2.5M12 2v2.5M6 13.5V16M12 13.5V16M2 6h2.5M2 12h2.5M13.5 6H16M13.5 12H16" />
+        </svg>
+      );
+    case "performance":
+      return (
+        <svg viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2.5 12.5a6.5 6.5 0 0113 0" />
+          <path d="M9 12.5l3.6-4.1" />
+          <circle cx="9" cy="12.5" r="1.1" fill="currentColor" stroke="none" />
+        </svg>
+      );
     default:
       return null;
   }

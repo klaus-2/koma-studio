@@ -88,9 +88,13 @@ export const SettingsPageShellClassic = ({
                     ? t("settings.tabs.general")
                     : tab.id === "presets"
                       ? t("settings.tabs.presets")
-                      : tab.id === "integrations"
-                        ? t("settings.tabs.integrations")
-                        : t("settings.tabs.app")}
+                      : tab.id === "typographer"
+                        ? t("settings.tabs.typographer")
+                        : tab.id === "integrations"
+                          ? t("settings.tabs.integrations")
+                          : tab.id === "runtime"
+                            ? t("settings.tabs.runtime")
+                            : t("settings.tabs.performance")}
                 </span>
               </button>
             ))}

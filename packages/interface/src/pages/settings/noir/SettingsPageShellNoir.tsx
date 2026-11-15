@@ -38,14 +38,18 @@ export const SettingsPageShellNoir = ({
   const tabLabels: Record<SettingsTab, string> = {
     general: t('settings.tabs.general'),
     presets: t('settings.tabs.presets'),
+    typographer: t('settings.tabs.typographer'),
     integrations: t('settings.tabs.integrations'),
-    app: t('settings.tabs.app'),
+    runtime: t('settings.tabs.runtime'),
+    performance: t('settings.tabs.performance'),
   };
   const tabMeta: Record<SettingsTab, { index: string; jp: string }> = {
     general: { index: '01', jp: 'アカウント' },
     presets: { index: '02', jp: 'プリセット' },
-    integrations: { index: '03', jp: '連携' },
-    app: { index: '04', jp: 'アプリ' },
+    typographer: { index: '03', jp: 'タイポグラフィ' },
+    integrations: { index: '04', jp: '連携' },
+    runtime: { index: '05', jp: 'ランタイム' },
+    performance: { index: '06', jp: 'パフォーマンス' },
   };
 
   return (

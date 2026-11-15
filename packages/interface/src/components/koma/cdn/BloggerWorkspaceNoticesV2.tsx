@@ -11,14 +11,14 @@ import { WorkspaceNotice } from './CdnV2Primitives';
 
 interface BloggerWorkspaceNoticesV2Props {
   configReady: boolean;
-  onOpenSettings?: () => void;
+  openSettingsOnIntegrationsTab?: () => void;
   workspaceError: string | null;
   workspaceFeedback: string | null;
 }
 
 export function BloggerWorkspaceNoticesV2({
   configReady,
-  onOpenSettings,
+  openSettingsOnIntegrationsTab,
   workspaceError,
   workspaceFeedback,
 }: BloggerWorkspaceNoticesV2Props) {
@@ -36,7 +36,7 @@ export function BloggerWorkspaceNoticesV2({
               type="button"
               className="btn-ghost !min-h-9 !px-3 !py-2"
               onClick={() =>
-                onOpenSettings?.()
+                openSettingsOnIntegrationsTab?.()
               }
             >
               <Settings2

@@ -38,7 +38,7 @@ import {
 type UploadItemStatus = QueueStatus;
 
 interface ImgurWorkspaceProps {
-  onOpenSettings?: () => void;
+  openSettingsOnIntegrationsTab?: () => void;
 }
 
 interface UploadDraftItem {
@@ -79,7 +79,7 @@ const rateColor = (remaining: number, limit: number): string => {
   return '#ff2e63';
 };
 
-export const ImgurWorkspaceNoir = ({ onOpenSettings }: ImgurWorkspaceProps) => {
+export const ImgurWorkspaceNoir = ({ openSettingsOnIntegrationsTab }: ImgurWorkspaceProps) => {
   const { t } = useI18n();
   const motionProps = useNoirMotion();
 
@@ -358,7 +358,7 @@ export const ImgurWorkspaceNoir = ({ onOpenSettings }: ImgurWorkspaceProps) => {
               used: rateLimit.usedThisHour,
             })}
             right={
-              <button type="button" className="btn-ghost" onClick={() => onOpenSettings?.()}>
+              <button type="button" className="btn-ghost" onClick={() => openSettingsOnIntegrationsTab?.()}>
                 <Settings2 size={11} /> Settings
               </button>
             }

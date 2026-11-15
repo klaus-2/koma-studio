@@ -7,10 +7,12 @@ import { useI18n } from "../i18n";
 import { useThemeStore } from "@koma/ui/stores/theme-store";
 
 import { desktopBridge } from "@/lib/desktop-bridge";
-import { renderSettingsAppTab } from "./settings/SettingsAppTabFacade";
 import { renderSettingsIntegrationsTab } from "./settings/SettingsIntegrationsTabFacade";
 import { renderSettingsPresetsTab } from "./settings/SettingsPresetsTabFacade";
 import { renderSettingsGeneralTab } from "./settings/SettingsGeneralTabFacade";
+import { renderSettingsPerformanceTab } from "./settings/SettingsPerformanceTabFacade";
+import { renderSettingsRuntimeTab } from "./settings/SettingsRuntimeTabFacade";
+import { renderSettingsTypographerTab } from "./settings/SettingsTypographerTabFacade";
 import { SettingsPageShellClassic } from "./settings/SettingsPageShellClassic";
 import { SettingsPageShellNoir } from "./settings/noir/SettingsPageShellNoir";
 import { useAioPresets } from "./settings/hooks/use-aio-presets";
@@ -58,7 +60,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
     }
 
     const requestedTab = window.sessionStorage.getItem(SETTINGS_REQUESTED_TAB_STORAGE_KEY);
-    if (requestedTab === "general" || requestedTab === "presets" || requestedTab === "integrations" || requestedTab === "app") {
+    if (requestedTab === "general" || requestedTab === "presets" || requestedTab === "typographer" || requestedTab === "integrations" || requestedTab === "runtime" || requestedTab === "performance") {
       setActiveTab(requestedTab);
     }
     window.sessionStorage.removeItem(SETTINGS_REQUESTED_TAB_STORAGE_KEY);
@@ -117,6 +119,16 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       ...travelToken,
       fmtDate,
       travelDaysLabel,
+      currentTheme,
+      setCurrentTheme,
+      currentFamily,
+      setCurrentFamily,
+      locale,
+      localeLabels,
+      setLocale,
+      supportedLocales,
+      systemLocales,
+      ...appPreferences,
     });
 
   /* ═══════════════════════════════════════════════════════
@@ -132,6 +144,13 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
         ...renderModePresets,
         renderModePresetFontOptions: presetFontOptions,
       },
+    });
+
+
+  const renderTypographerTab = () =>
+    renderSettingsTypographerTab({
+      t,
+      textFill,
       typography: {
         ...typographyPresets,
         typographyPresetFontOptions: presetFontOptions,
@@ -152,42 +171,35 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       fmtDate,
     });
 
-  /* ═══════════════════════════════════════════════════════
-     RENDER — TAB: APP
-     ═══════════════════════════════════════════════════════ */
 
-  const renderAppTab = () =>
-    renderSettingsAppTab({
+  const renderRuntimeTab = () =>
+    renderSettingsRuntimeTab({
       t,
-      currentTheme,
-      setCurrentTheme,
-      currentFamily,
-      setCurrentFamily,
-      locale,
-      localeLabels,
-      setLocale,
-      supportedLocales,
-      systemLocales,
       updater,
       ...updaterControls,
       fmtDate,
-      ...appPreferences,
-      miniBackendThreadSettings: miniBackendThreads.settings,
-      setMiniBackendIntraOpThreads: miniBackendThreads.setIntraOpThreads,
-      miniBackendHardwareConcurrency: miniBackendThreads.hardwareConcurrency,
       ...runtimeInstall,
       formatRuntimeProfileLabel,
     });
 
-  /* ═══════════════════════════════════════════════════════
-     MAIN RENDER
-     ═══════════════════════════════════════════════════════ */
+
+  const renderPerformanceTab = () =>
+    renderSettingsPerformanceTab({
+      t,
+      ...appPreferences,
+      miniBackendThreadSettings: miniBackendThreads.settings,
+      setMiniBackendIntraOpThreads: miniBackendThreads.setIntraOpThreads,
+      miniBackendHardwareConcurrency: miniBackendThreads.hardwareConcurrency,
+    });
+
 
   const tabContent: Record<SettingsTab, () => JSX.Element> = {
     general: renderGeneralTab,
     presets: renderPresetsTab,
+    typographer: renderTypographerTab,
     integrations: renderIntegrationsTab,
-    app: renderAppTab,
+    runtime: renderRuntimeTab,
+    performance: renderPerformanceTab,
   };
 
   if (currentFamily === 'noir') {

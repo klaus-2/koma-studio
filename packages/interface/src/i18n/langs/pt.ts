@@ -55,6 +55,9 @@ export const ptMessages: TranslationCatalog = {
   'toolbar.modelSelect.incompatibleWarning':
     '"{model}" não suporta {source} → {target}. Selecione um modelo compatível ou altere o idioma de destino.',
   'settings.tabs.app': 'Aplicativo',
+  'settings.tabs.typographer': 'Tipógrafo',
+  'settings.tabs.runtime': 'Atualizações e runtime',
+  'settings.tabs.performance': 'Desempenho',
   'settings.backToDashboard': 'Voltar ao Dashboard',
   'settings.stats.version': 'versão',
   'settings.app.updater.status.idle': 'Aguardando',
@@ -1908,6 +1911,8 @@ export const ptMessages: TranslationCatalog = {
   'settings.updates.channelTitle': 'Canal de atualização',
   'settings.updates.stableDesc': 'Versões testadas e estáveis',
   'settings.updates.betaDesc': 'Acesso antecipado a features',
+  'settings.updates.betaManualOnly':
+    'As atualizações beta no aplicativo não estão disponíveis nesta versão — baixe as builds beta na página de releases.',
   'settings.updates.installOnCloseTitle': 'Instalar update ao fechar o app',
   'settings.updates.installOnCloseDesc':
     'Quando o pacote já estiver baixado, a instalação será iniciada automaticamente ao sair.',

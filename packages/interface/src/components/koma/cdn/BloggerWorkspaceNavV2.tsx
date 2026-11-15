@@ -21,14 +21,14 @@ interface BloggerWorkspaceNavV2Props {
   workspaceTab: BloggerWorkspaceTab;
   setWorkspaceTab: Dispatch<SetStateAction<BloggerWorkspaceTab>>;
   uploadDrafts: UploadDraftItem[];
-  onOpenSettings?: () => void;
+  openSettingsOnIntegrationsTab?: () => void;
 }
 
 export function BloggerWorkspaceNavV2({
   workspaceTab,
   setWorkspaceTab,
   uploadDrafts,
-  onOpenSettings,
+  openSettingsOnIntegrationsTab,
 }: BloggerWorkspaceNavV2Props) {
   const { t } = useI18n();
 
@@ -101,7 +101,7 @@ export function BloggerWorkspaceNavV2({
         type="button"
         className="btn-ghost sm:ml-auto"
         onClick={() =>
-          onOpenSettings?.()
+          openSettingsOnIntegrationsTab?.()
         }
       >
         <Settings2

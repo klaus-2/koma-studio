@@ -112,7 +112,7 @@ export interface DashboardStageSectionProps {
 
   /* ── Stage branch consumers ── */
   specialModeStageProps: SpecialModeStageProps;
-  onOpenSettings: (() => void) | undefined;
+  openSettingsOnIntegrationsTab: (() => void) | undefined;
   translatorTextImportRef: React.RefObject<HTMLInputElement | null>;
   runTranslatorText: TranslatorTextActionsApi;
   handleDownload: DownloadActionsApi['handleDownload'];

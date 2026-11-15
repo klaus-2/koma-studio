@@ -5,7 +5,7 @@ import { memoLoad } from '../../utils/lazyModule';
 
 interface DashboardInfoModeStageProps {
   mode: string;
-  onOpenSettings: () => void;
+  openSettingsOnIntegrationsTab: () => void;
 }
 
 const loadBloggerWorkspace = memoLoad(() => import('../blogger/BloggerWorkspace'));
@@ -28,18 +28,18 @@ export function preloadInfoModeModules() {
 
 export default function DashboardInfoModeStage({
   mode,
-  onOpenSettings,
+  openSettingsOnIntegrationsTab,
 }: DashboardInfoModeStageProps) {
   return (
     <Suspense fallback={<DashboardLazyFallback />}>
-      <DashboardInfoModeStageInner mode={mode} onOpenSettings={onOpenSettings} />
+      <DashboardInfoModeStageInner mode={mode} openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab} />
     </Suspense>
   );
 }
 
 function DashboardInfoModeStageInner({
   mode,
-  onOpenSettings,
+  openSettingsOnIntegrationsTab,
 }: DashboardInfoModeStageProps) {
   if (mode === 'guides') {
     return <GuidesPage />;
@@ -50,11 +50,11 @@ function DashboardInfoModeStageInner({
   }
 
   if (mode === 'blogger') {
-    return <BloggerWorkspace onOpenSettings={onOpenSettings} />;
+    return <BloggerWorkspace openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab} />;
   }
 
   if (mode === 'imgur') {
-    return <ImgurWorkspace onOpenSettings={onOpenSettings} />;
+    return <ImgurWorkspace openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab} />;
   }
 
   return null;

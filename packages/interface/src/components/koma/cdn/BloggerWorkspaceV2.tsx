@@ -59,7 +59,7 @@ import {
 import { mergeUploadedItems } from './bloggerUploadMerge';
 
 export function BloggerWorkspaceV2({
-  onOpenSettings,
+  openSettingsOnIntegrationsTab,
 }: BloggerWorkspaceProps) {
   const { localeTag, t } = useI18n();
   const reduceMotion = useReducedMotion();
@@ -945,13 +945,13 @@ export function BloggerWorkspaceV2({
         workspaceTab={workspaceTab}
         setWorkspaceTab={setWorkspaceTab}
         uploadDrafts={uploadDrafts}
-        onOpenSettings={onOpenSettings}
+        openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab}
       />
 
       {/* Notices */}
       <BloggerWorkspaceNoticesV2
         configReady={configReady}
-        onOpenSettings={onOpenSettings}
+        openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab}
         workspaceError={workspaceError}
         workspaceFeedback={workspaceFeedback}
       />
