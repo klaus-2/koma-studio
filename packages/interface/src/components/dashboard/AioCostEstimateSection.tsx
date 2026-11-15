@@ -15,6 +15,7 @@ import type { CloudPreviewGate } from '@/pages/dashboard/lib/aio-cloud-preview';
 interface AioCostEstimateSectionProps {
   readonly gate: CloudPreviewGate;
   readonly imageCount: number;
+  /** Images whose text is already known (typographer session present). */
   readonly imagesWithKnownText: number;
   readonly knownTextChars: number;
   readonly neighborContextEnabled: boolean;
@@ -64,82 +65,105 @@ export function AioCostEstimateSection({
 
   return (
     <section className="koma-aio-cloud-preview__estimate">
-      <h4>{t('dashboard.aio.costEstimate.title')}</h4>
-      <p>{t('dashboard.aio.costEstimate.estimateLabel')}</p>
+      <div className="koma-aio-cloud-preview__estHead">
+        <span>{t('dashboard.aio.costEstimate.title')}</span>
+      </div>
+      <p className="koma-aio-cloud-preview__estNote">
+        {t('dashboard.aio.costEstimate.estimateLabel')}
+      </p>
       {estimate.ocrCost !== null && (
-        <p>
-          {t('dashboard.aio.costEstimate.ocrCost')}:{' '}
-          {formatNumber(estimate.ocrCost)}
-        </p>
+        <div className="koma-aio-cloud-preview__costRow">
+          <span>{t('dashboard.aio.costEstimate.ocrCost')}</span>
+          <span className="koma-aio-cloud-preview__costValue">
+            {formatNumber(estimate.ocrCost)}
+          </span>
+        </div>
       )}
       {estimate.translationCost !== null && (
-        <p>
-          {t('dashboard.aio.costEstimate.translationCost')}:{' '}
-          {formatNumber(estimate.translationCost)}
-        </p>
+        <div className="koma-aio-cloud-preview__costRow">
+          <span>{t('dashboard.aio.costEstimate.translationCost')}</span>
+          <span className="koma-aio-cloud-preview__costValue">
+            {formatNumber(estimate.translationCost)}
+          </span>
+        </div>
       )}
       {estimate.totalCost !== null && (
-        <p>
-          {t('dashboard.aio.costEstimate.total')}:{' '}
-          {formatNumber(estimate.totalCost)}
-        </p>
+        <div className="koma-aio-cloud-preview__costRow koma-aio-cloud-preview__costRow--total">
+          <span>{t('dashboard.aio.costEstimate.total')}</span>
+          <span className="koma-aio-cloud-preview__costValue">
+            {formatNumber(estimate.totalCost)}
+          </span>
+        </div>
       )}
       {!estimate.textVolumeKnown && (
-        <p>
-          {t('dashboard.aio.costEstimate.rangeLabel')}:{' '}
-          {formatNumber(estimate.knownTextCharsRange?.[0] ?? 0)} –{' '}
-          {formatNumber(estimate.knownTextCharsRange?.[1] ?? 0)}
-        </p>
+        <div className="koma-aio-cloud-preview__costRow">
+          <span>{t('dashboard.aio.costEstimate.rangeLabel')}</span>
+          <span className="koma-aio-cloud-preview__costValue">
+            {formatNumber(estimate.knownTextCharsRange?.[0] ?? 0)} –{' '}
+            {formatNumber(estimate.knownTextCharsRange?.[1] ?? 0)}
+          </span>
+        </div>
       )}
-      <p>{t('dashboard.aio.costEstimate.cacheDiscountNote')}</p>
-      <p>{t('dashboard.aio.costEstimate.assumptions')}</p>
+      <p className="koma-aio-cloud-preview__estNote">
+        {t('dashboard.aio.costEstimate.cacheDiscountNote')}
+      </p>
+      <p className="koma-aio-cloud-preview__estNote">
+        {t('dashboard.aio.costEstimate.assumptions')}
+      </p>
       {rates.threshold > 0 &&
         estimate.totalCost !== null &&
         estimate.totalCost > rates.threshold && (
-          <p role="alert">{t('dashboard.aio.costEstimate.thresholdWarning')}</p>
+          <p role="alert" className="koma-aio-cloud-preview__alert">
+            {t('dashboard.aio.costEstimate.thresholdWarning')}
+          </p>
         )}
-      <label>
-        {t('dashboard.aio.costEstimate.ratesSetting')} — OCR:{' '}
-        <input
-          type="number"
-          min={0}
-          step="any"
-          value={rates.ocrPerImage}
-          onChange={(event) =>
-            onRatesChange({
-              ...rates,
-              ocrPerImage: Number(event.target.value) || 0,
-            })
-          }
-        />
-        {' · '}LLM:{' '}
-        <input
-          type="number"
-          min={0}
-          step="any"
-          value={rates.translationPer1kTokens}
-          onChange={(event) =>
-            onRatesChange({
-              ...rates,
-              translationPer1kTokens: Number(event.target.value) || 0,
-            })
-          }
-        />
-        {' · '}
-        {t('dashboard.aio.costEstimate.thresholdSetting')}:{' '}
-        <input
-          type="number"
-          min={0}
-          step="any"
-          value={rates.threshold}
-          onChange={(event) =>
-            onRatesChange({
-              ...rates,
-              threshold: Number(event.target.value) || 0,
-            })
-          }
-        />
-      </label>
+      <div className="koma-aio-cloud-preview__rates">
+        <label className="koma-aio-cloud-preview__rateField">
+          <span>{t('dashboard.aio.costEstimate.rateOcr')}</span>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            value={rates.ocrPerImage}
+            onChange={(event) =>
+              onRatesChange({
+                ...rates,
+                ocrPerImage: Number(event.target.value) || 0,
+              })
+            }
+          />
+        </label>
+        <label className="koma-aio-cloud-preview__rateField">
+          <span>{t('dashboard.aio.costEstimate.rateLlm')}</span>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            value={rates.translationPer1kTokens}
+            onChange={(event) =>
+              onRatesChange({
+                ...rates,
+                translationPer1kTokens: Number(event.target.value) || 0,
+              })
+            }
+          />
+        </label>
+        <label className="koma-aio-cloud-preview__rateField">
+          <span>{t('dashboard.aio.costEstimate.thresholdSetting')}</span>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            value={rates.threshold}
+            onChange={(event) =>
+              onRatesChange({
+                ...rates,
+                threshold: Number(event.target.value) || 0,
+              })
+            }
+          />
+        </label>
+      </div>
     </section>
   );
 }

@@ -115,7 +115,7 @@ describe('AioCloudPreviewDialog', () => {
       expect(screen.getByText(/vision\.googleapis\.com/)).toBeTruthy();
     });
     expect(screen.getByText('dashboard.aio.cloudPreview.inventory.imageCount:3')).toBeTruthy();
-    expect(screen.getByText('dashboard.aio.cloudPreview.inventory.imageBytes:2048')).toBeTruthy();
+    expect(screen.getByText('dashboard.aio.cloudPreview.inventory.imageBytes:2 KB')).toBeTruthy();
     expect(screen.getByText(/12/)).toBeTruthy();
     expect(screen.getByText('dashboard.aio.costEstimate.estimateLabel')).toBeTruthy();
   });

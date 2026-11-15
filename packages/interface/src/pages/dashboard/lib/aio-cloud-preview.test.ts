@@ -42,6 +42,7 @@ describe('resolveCloudPreviewGate', () => {
       ocrModelKey: 'google_cloud_vision',
       translationModelKey: 'gpt_4_1',
       customTranslationProfile: null,
+      customOcrProfile: null,
     });
 
     expect(gate.required).toBe(true);
@@ -57,6 +58,7 @@ describe('resolveCloudPreviewGate', () => {
       ocrModelKey: null,
       translationModelKey: 'custom:profile-1',
       customTranslationProfile: customProfile('https://api.example.com/v1'),
+      customOcrProfile: null,
     });
 
     expect(gate.required).toBe(true);
@@ -66,12 +68,39 @@ describe('resolveCloudPreviewGate', () => {
     expect(gate.ocr).toBeNull();
   });
 
+  it('resolves a REMOTE custom OCR profile to its human destination', () => {
+    const gate = resolveCloudPreviewGate({
+      aioSteps: { recognizeText: true, getTranslations: false },
+      ocrModelKey: 'custom_ocr:profile-9',
+      translationModelKey: null,
+      customTranslationProfile: null,
+      customOcrProfile: {
+        id: 'profile-9',
+        stage: 'ocr',
+        label: 'My Vision API',
+        apiBase: 'https://vision.example.com/v1',
+        apiKey: 'k',
+        model: 'vision-x',
+        createdAt: '',
+        updatedAt: '',
+      },
+    });
+
+    expect(gate.required).toBe(true);
+    expect(gate.ocr?.source).toBe('custom');
+    expect(gate.ocr?.provider).toBe('profile-9');
+    expect(gate.ocr?.providerLabel).toBe('My Vision API');
+    expect(gate.ocr?.apiBase).toBe('https://vision.example.com/v1');
+    expect(gate.translation).toBeNull();
+  });
+
   it('exempts a loopback custom profile on desktop (localhost-as-local)', () => {
     const gate = resolveCloudPreviewGate({
       aioSteps: { recognizeText: false, getTranslations: true },
       ocrModelKey: null,
       translationModelKey: 'custom:profile-1',
       customTranslationProfile: customProfile('http://127.0.0.1:11434/v1'),
+      customOcrProfile: null,
     });
 
     expect(gate.required).toBe(false);
@@ -84,6 +113,7 @@ describe('resolveCloudPreviewGate', () => {
       ocrModelKey: 'local_ocr_model',
       translationModelKey: 'sugoi_v4_ja_en_ct2',
       customTranslationProfile: null,
+      customOcrProfile: null,
     });
 
     expect(gate.required).toBe(false);
@@ -97,6 +127,7 @@ describe('resolveCloudPreviewGate', () => {
       ocrModelKey: 'google_cloud_vision',
       translationModelKey: 'gpt_4_1',
       customTranslationProfile: null,
+      customOcrProfile: null,
     });
 
     expect(gate.required).toBe(false);

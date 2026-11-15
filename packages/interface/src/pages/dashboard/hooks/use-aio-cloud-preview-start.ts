@@ -56,7 +56,21 @@ export function useAioCloudPreviewStart({
   );
 
   const handleAutoStartWithCloudPreview = useCallback((): void => {
+    const ocrSelection = aioStageSelection.recognizeText;
+    const ocrProfileId = ocrSelection.startsWith('custom_ocr:')
+      ? ocrSelection.slice('custom_ocr:'.length)
+      : null;
+    const customOcrProfile =
+      ocrProfileId !== null
+        ? (useLlmProvidersStore
+            .getState()
+            .customLlmProfiles.find(
+              (profile) =>
+                profile.stage === 'ocr' && profile.id === ocrProfileId,
+            ) ?? null)
+        : null;
     const gate = resolveCloudPreviewGate({
+      customOcrProfile,
       aioSteps: {
         recognizeText: aioSteps.recognizeText,
         getTranslations: aioSteps.getTranslations,

@@ -14,6 +14,7 @@ export interface CloudPreviewStageInput {
   readonly ocrModelKey: string | null;
   readonly translationModelKey: string | null;
   readonly customTranslationProfile: CustomLlmProfile | null;
+  readonly customOcrProfile: CustomLlmProfile | null;
 }
 
 export interface RemoteStageDestination {
@@ -80,6 +81,36 @@ export function isCloudPreviewSuppressed(providers: readonly string[]): boolean 
   return providers.every((provider) => skipped.has(provider));
 }
 
+const buildOcrDestination = (
+  modelKey: string,
+  profile: CustomLlmProfile | null,
+): RemoteStageDestination | null => {
+  if (modelKey.startsWith('custom_ocr:')) {
+    if (
+      profile !== null &&
+      !shouldUseLocalDesktopTranslationForCustomProfile(profile)
+    ) {
+      return {
+        stage: 'ocr',
+        provider: profile.id,
+        providerLabel: profile.label,
+        apiBase: profile.apiBase,
+        source: 'custom',
+        modelKey,
+      };
+    }
+    return null;
+  }
+  return {
+    stage: 'ocr',
+    provider: modelKey,
+    providerLabel: modelKey,
+    apiBase: null,
+    source: 'builtin',
+    modelKey,
+  };
+};
+
 export function resolveCloudPreviewGate(
   input: CloudPreviewStageInput,
 ): CloudPreviewGate {
@@ -87,14 +118,7 @@ export function resolveCloudPreviewGate(
     input.aioSteps.recognizeText &&
     input.ocrModelKey !== null &&
     isCloudOcrModelKey(input.ocrModelKey)
-      ? {
-          stage: 'ocr' as const,
-          provider: input.ocrModelKey,
-          providerLabel: input.ocrModelKey,
-          apiBase: null,
-          source: 'builtin' as const,
-          modelKey: input.ocrModelKey,
-        }
+      ? buildOcrDestination(input.ocrModelKey, input.customOcrProfile)
       : null;
 
   let translation: RemoteStageDestination | null = null;

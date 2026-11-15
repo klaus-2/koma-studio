@@ -1,7 +1,10 @@
 import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { Cloud, Languages, X } from 'lucide-react';
+
 import { getApiConfig } from '@/config/api';
+import { formatBytes } from '@/utils/formatBytes';
 import { useI18n } from '../../i18n';
 import {
   DEFAULT_AIO_COST_RATES,
@@ -98,11 +101,63 @@ const destinationLabel = (
   if (destination.source === 'custom') {
     return { display: destination.providerLabel, apiBase: destination.apiBase };
   }
-  const entry = listings.find((candidate) => candidate.key === destination.modelKey);
+  const entry = listings.find(
+    (candidate) => candidate.key === destination.modelKey,
+  );
   return entry
     ? { display: entry.provider, apiBase: entry.defaultApiBase }
     : { display: destination.providerLabel, apiBase: null };
 };
+
+interface StageRowProps {
+  readonly icon: JSX.Element;
+  readonly title: string;
+  readonly destination: RemoteStageDestination;
+  readonly listings: readonly ListingEntry[];
+  readonly facts: readonly string[];
+  readonly destinationText: string;
+  readonly fallbackText: string;
+}
+
+function StageRow({
+  icon,
+  title,
+  destination,
+  listings,
+  facts,
+  destinationText,
+  fallbackText,
+}: StageRowProps): JSX.Element {
+  const label = destinationLabel(destination, listings);
+  const isUnresolvedCustom =
+    destination.source === 'custom' &&
+    /^[a-z_]+:[0-9a-f]{8}-[0-9a-f]/i.test(label.display);
+  const display = isUnresolvedCustom ? fallbackText : label.display;
+  return (
+    <section className="koma-aio-cloud-preview__stage">
+      <div className="koma-aio-cloud-preview__stageHead">
+        {icon}
+        <span>{title}</span>
+      </div>
+      <div className="koma-aio-cloud-preview__dest">
+        <span className="koma-aio-cloud-preview__destLabel">
+          {destinationText}
+        </span>
+        <span className="koma-aio-cloud-preview__destValue">{display}</span>
+      </div>
+      {label.apiBase !== null && (
+        <div className="koma-aio-cloud-preview__host">{label.apiBase}</div>
+      )}
+      <div className="koma-aio-cloud-preview__facts">
+        {facts.map((fact) => (
+          <span key={fact} className="koma-aio-cloud-preview__fact">
+            {fact}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function AioCloudPreviewDialog({
   gate,
@@ -186,53 +241,69 @@ export function AioCloudPreviewDialog({
     onConfirm();
   };
 
+  const ocrFacts: string[] = [];
+  if (gate.ocr !== null) {
+    ocrFacts.push(
+      t('dashboard.aio.cloudPreview.inventory.imageCount', {
+        count: imageCount,
+      }),
+    );
+    ocrFacts.push(
+      t('dashboard.aio.cloudPreview.inventory.imageBytes', {
+        bytes: formatBytes(imageBytes),
+      }),
+    );
+  }
+  const translationFacts: string[] = [];
+  if (gate.translation !== null) {
+    translationFacts.push(
+      t('dashboard.aio.cloudPreview.inventory.regionCount', {
+        count: textRegionCount,
+      }),
+    );
+  }
+
   return (
     <div className="koma-aio-cloud-preview" role="dialog" aria-modal="true">
-      <h3>{t('dashboard.aio.cloudPreview.title')}</h3>
+      <div className="koma-aio-cloud-preview__head">
+        <span className="koma-aio-cloud-preview__title">
+          {t('dashboard.aio.cloudPreview.title')}
+        </span>
+        <button
+          type="button"
+          className="koma-aio-cloud-preview__close"
+          aria-label={t('dashboard.aio.cloudPreview.close')}
+          onClick={onCancel}
+        >
+          <X size={13} />
+        </button>
+      </div>
       <p className="koma-aio-cloud-preview__desc">
         {t('dashboard.aio.cloudPreview.description')}
       </p>
 
       {gate.ocr !== null && (
-        <section>
-          <h4>{t('dashboard.aio.cloudPreview.inventory.ocr')}</h4>
-          <p>
-            {t('dashboard.aio.cloudPreview.destination')}:{' '}
-            {destinationLabel(gate.ocr, ocrListings).display}
-            {destinationLabel(gate.ocr, ocrListings).apiBase !== null
-              ? ` (${destinationLabel(gate.ocr, ocrListings).apiBase})`
-              : ''}
-          </p>
-          <p>
-            {t('dashboard.aio.cloudPreview.inventory.imageCount', {
-              count: imageCount,
-            })}
-          </p>
-          <p>
-            {t('dashboard.aio.cloudPreview.inventory.imageBytes', {
-              bytes: formatNumber(imageBytes),
-            })}
-          </p>
-        </section>
+        <StageRow
+          icon={<Cloud size={13} />}
+          title={t('dashboard.aio.cloudPreview.inventory.ocr')}
+          destination={gate.ocr}
+          listings={ocrListings}
+          facts={ocrFacts}
+          destinationText={t('dashboard.aio.cloudPreview.destination')}
+          fallbackText={t('dashboard.aio.cloudPreview.customProvider')}
+        />
       )}
 
       {gate.translation !== null && (
-        <section>
-          <h4>{t('dashboard.aio.cloudPreview.inventory.translation')}</h4>
-          <p>
-            {t('dashboard.aio.cloudPreview.destination')}:{' '}
-            {destinationLabel(gate.translation, translationListings).display}
-            {destinationLabel(gate.translation, translationListings).apiBase !==
-            null
-              ? ` (${destinationLabel(gate.translation, translationListings).apiBase})`
-              : ''}
-          </p>
-          <p>
-            {t('dashboard.aio.costEstimate.rangeLabel')} ·{' '}
-            {t('dashboard.aio.cloudPreview.inventory.translation')}:{' '}
-            {formatNumber(textRegionCount)}
-          </p>
-        </section>
+        <StageRow
+          icon={<Languages size={13} />}
+          title={t('dashboard.aio.cloudPreview.inventory.translation')}
+          destination={gate.translation}
+          listings={translationListings}
+          facts={translationFacts}
+          destinationText={t('dashboard.aio.cloudPreview.destination')}
+          fallbackText={t('dashboard.aio.cloudPreview.customProvider')}
+        />
       )}
 
       <AioCostEstimateSection
@@ -255,10 +326,18 @@ export function AioCloudPreviewDialog({
       </label>
 
       <div className="koma-aio-cloud-preview__actions">
-        <button type="button" onClick={handleConfirm}>
+        <button
+          type="button"
+          className="koma-aio-cloud-preview__start"
+          onClick={handleConfirm}
+        >
           {t('dashboard.aio.cloudPreview.confirm')}
         </button>
-        <button type="button" onClick={onCancel}>
+        <button
+          type="button"
+          className="koma-aio-cloud-preview__cancel"
+          onClick={onCancel}
+        >
           {t('dashboard.aio.cloudPreview.cancel')}
         </button>
       </div>
@@ -269,10 +348,6 @@ export function AioCloudPreviewDialog({
     setRates(next);
     saveAioCostRates(next);
   }
-}
-
-function formatNumber(value: number): string {
-  return String(Math.round(value * 100) / 100);
 }
 
 export default AioCloudPreviewDialog;
