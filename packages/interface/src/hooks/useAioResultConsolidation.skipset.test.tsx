@@ -200,6 +200,7 @@ describe('useAioResultConsolidation skip-set (Fase D F1 pause edits)', () => {
 
     useAioBatchPauseStore.getState().requestPause();
     void boundary();
+    expect(setAioPipelineSnapshots).not.toHaveBeenCalled();
     expect(useRegionEditorStore.getState().aioDetectionsByImage['img-a']?.[0]?.id).toBe('render-img-a');
     expect(useRegionEditorStore.getState().aioDetectionsByImage['img-b']?.[0]?.id).toBe('render-img-b');
     useAioBatchPauseStore.getState().recordPauseConsolidatedImageIds(['img-a', 'img-b']);
@@ -216,6 +217,7 @@ describe('useAioResultConsolidation skip-set (Fase D F1 pause edits)', () => {
     useUiShellStore.setState({ processing: true });
     useAioBatchPauseStore.getState().requestPause();
     void boundary();
+    expect(setAioPipelineSnapshots).not.toHaveBeenCalled();
 
     const written = useRegionEditorStore.getState().aioDetectionsByImage;
     expect(Object.keys(written).sort()).toEqual(['img-a', 'img-b', 'img-c', 'img-d']);
@@ -228,6 +230,7 @@ describe('useAioResultConsolidation skip-set (Fase D F1 pause edits)', () => {
     result.current(runSoFar, {
       skipImageIds: useAioBatchPauseStore.getState().pauseConsolidatedImageIds,
     });
+    expect(setAioPipelineSnapshots).toHaveBeenCalledTimes(1);
     const finalWritten = useRegionEditorStore.getState().aioDetectionsByImage;
     expect(Object.keys(finalWritten).sort()).toEqual(['img-a', 'img-b', 'img-c', 'img-d']);
     expect(finalWritten['img-a']?.[0]?.id).toBe('edited-a');

@@ -9,7 +9,7 @@ export interface BatchPauseBoundaryOptions {
   readonly getAccumulatedResults: () => readonly AioBatchImageResult[];
   readonly consolidate: (
     results: readonly AioBatchImageResult[],
-    options?: { skipImageIds?: ReadonlySet<string> },
+    options?: { skipImageIds?: ReadonlySet<string>; writeSnapshots?: boolean },
   ) => void;
 }
 
@@ -27,6 +27,7 @@ export async function runBatchPauseBoundary(
   if (accumulated.length > 0) {
     options.consolidate(accumulated, {
       skipImageIds: useAioBatchPauseStore.getState().pauseConsolidatedImageIds,
+      writeSnapshots: false,
     });
     useAioBatchPauseStore
       .getState()

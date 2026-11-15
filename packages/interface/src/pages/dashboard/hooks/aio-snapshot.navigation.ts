@@ -22,6 +22,7 @@ import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collecti
 import { useRegionEditorStore } from '@/pages/dashboard/stores/region-editor-store';
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
+import { useAioBatchPauseStore } from '@/pages/dashboard/stores/aio-batch-pause-store';
 import type {
   AioDownloadEntry,
   AioManualImageProgress,
@@ -97,7 +98,12 @@ export function useAioSnapshotNavigation(
   const handleAioSubModeChange = useCallback(
     (nextMode: SubMode): void => {
       const shell = useUiShellStore.getState();
-      if (shell.processing || nextMode === shell.subMode) return;
+      if (
+        shell.processing ||
+        useAioBatchPauseStore.getState().pausePhase !== 'idle' ||
+        nextMode === shell.subMode
+      )
+        return;
 
       if (nextMode === 'manual') {
         const pipeline = useAioPipelineStore.getState();
@@ -167,7 +173,12 @@ export function useAioSnapshotNavigation(
   const navigatePipeline = useCallback(
     (direction: -1 | 1): void => {
       const shell = useUiShellStore.getState();
-      if (shell.processing || isManualAioMode(shell)) return;
+      if (
+        shell.processing ||
+        useAioBatchPauseStore.getState().pausePhase !== 'idle' ||
+        isManualAioMode(shell)
+      )
+        return;
 
       const pipeline = useAioPipelineStore.getState();
       const currentIndex = pipeline.aioPipelineSnapshotIndex;
@@ -210,7 +221,11 @@ export function useAioSnapshotNavigation(
   const navigateImage = useCallback(
     (imageId: string, direction: -1 | 1): void => {
       const shell = useUiShellStore.getState();
-      if (shell.processing) return;
+      if (
+        shell.processing ||
+        useAioBatchPauseStore.getState().pausePhase !== 'idle'
+      )
+        return;
 
       const image = useImageCollectionStore
         .getState()

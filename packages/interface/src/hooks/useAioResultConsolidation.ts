@@ -53,8 +53,16 @@ export function useAioResultConsolidation({
 }: UseAioResultConsolidationArgs) {
   const { t } = useI18n();
 
-  return useCallback((imageResults: AioBatchImageResult[], options?: { skipImageIds?: ReadonlySet<string> }) => {
+  return useCallback(
+    (
+      imageResults: AioBatchImageResult[],
+      options?: {
+        skipImageIds?: ReadonlySet<string>;
+        writeSnapshots?: boolean;
+      },
+    ) => {
     const skipImageIds = options?.skipImageIds ?? null;
+    const writeSnapshots = options?.writeSnapshots ?? true;
     const nextDetections: Record<string, AioTextRegion[]> = {};
     const detectStageDetections: Record<string, AioTextRegion[]> = {};
     const ocrStageDetections: Record<string, AioTextRegion[]> = {};
@@ -227,7 +235,16 @@ export function useAioResultConsolidation({
                 incomingRegions,
               );
       }
-      setAioDetectionsByImage(carriedByImage);
+      const previousDetections =
+        useRegionEditorStore.getState().aioDetectionsByImage;
+      const baseDetections = writeSnapshots
+        ? Object.fromEntries(
+            Object.entries(previousDetections).filter(
+              ([imageId]) => imageId in carriedByImage,
+            ),
+          )
+        : previousDetections;
+      setAioDetectionsByImage({ ...baseDetections, ...carriedByImage });
       const previousSelection =
         useRegionEditorStore.getState().aioSelectedRegionByImage;
       const selectionByImage: Record<string, string | null> = {
@@ -238,16 +255,35 @@ export function useAioResultConsolidation({
           selectionByImage[imageId] = previousSelection[imageId] ?? null;
         }
       }
-      setAioSelectedRegionByImage(selectionByImage);
+      const baseSelection = writeSnapshots
+        ? Object.fromEntries(
+            Object.entries(previousSelection).filter(
+              ([imageId]) => imageId in selectionByImage,
+            ),
+          )
+        : previousSelection;
+      setAioSelectedRegionByImage({
+        ...baseSelection,
+        ...selectionByImage,
+      });
     } else {
-      setAioDetectionsByImage(nextDetections);
-      setAioSelectedRegionByImage(buildAioSelectionMapFromDetections(nextDetections));
+      const previousDetections =
+        useRegionEditorStore.getState().aioDetectionsByImage;
+      const previousSelection =
+        useRegionEditorStore.getState().aioSelectedRegionByImage;
+      setAioDetectionsByImage({ ...previousDetections, ...nextDetections });
+      setAioSelectedRegionByImage({
+        ...previousSelection,
+        ...buildAioSelectionMapFromDetections(nextDetections),
+      });
     }
-    setAioPipelineSnapshots(timelineSnapshots);
-    const latestTimelineIndex = timelineSnapshots.length > 0 ? timelineSnapshots.length - 1 : -1;
-    setAioPipelineSnapshotIndex(latestTimelineIndex);
-    setAioImageSnapshotIndexById(buildAioImageSnapshotIndexMap(latestTimelineIndex));
-    setAioAutoHistoryAvailable(timelineSnapshots.length > 0);
+    if (writeSnapshots) {
+      setAioPipelineSnapshots(timelineSnapshots);
+      const latestTimelineIndex = timelineSnapshots.length > 0 ? timelineSnapshots.length - 1 : -1;
+      setAioPipelineSnapshotIndex(latestTimelineIndex);
+      setAioImageSnapshotIndexById(buildAioImageSnapshotIndexMap(latestTimelineIndex));
+      setAioAutoHistoryAvailable(timelineSnapshots.length > 0);
+    }
     setAioDownloadItems(latestSnapshot?.aioDownloads ?? []);
 
     const totalDetections = Object.values(nextDetections).reduce((sum, entries) => sum + entries.length, 0);
