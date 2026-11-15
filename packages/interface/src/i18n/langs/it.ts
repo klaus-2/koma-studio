@@ -46,6 +46,7 @@ export const itMessages: TranslationCatalog = {
   'toolbar.modelSelect.localPrefix': '[Locale]',
   'toolbar.modelSelect.cloudPrefix': '[Cloud]',
   'toolbar.modelSelect.updateAvailable': '(Aggiornamento disponibile)',
+  'toolbar.modelSelect.notConfigured': 'non configurato',
   'toolbar.modelSelect.installedCount_one': '{count} modello installato',
   'toolbar.modelSelect.installedCount_other': '{count} modelli installati',
   'toolbar.modelSelect.updates_one': '{count} aggiornamento in sospeso',

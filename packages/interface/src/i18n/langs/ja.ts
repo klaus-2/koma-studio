@@ -46,6 +46,7 @@ export const jaMessages: TranslationCatalog = {
   'toolbar.modelSelect.localPrefix': '[ローカル]',
   'toolbar.modelSelect.cloudPrefix': '[クラウド]',
   'toolbar.modelSelect.updateAvailable': '（アップデートあり）',
+  'toolbar.modelSelect.notConfigured': '未設定',
   'toolbar.modelSelect.installedCount_one': '{count} モデルインストール済み',
   'toolbar.modelSelect.installedCount_other': '{count} モデルインストール済み',
   'toolbar.modelSelect.updates_one': '{count} 件の保留中のアップデート',

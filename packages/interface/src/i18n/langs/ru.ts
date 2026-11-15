@@ -45,6 +45,7 @@ export const ruMessages: TranslationCatalog = {
   'toolbar.modelSelect.localPrefix': '[Локальная]',
   'toolbar.modelSelect.cloudPrefix': '[Облако]',
   'toolbar.modelSelect.updateAvailable': '(Доступно обновление)',
+  'toolbar.modelSelect.notConfigured': 'не настроен',
   'toolbar.modelSelect.installedCount_one': '{count} модель установлена',
   'toolbar.modelSelect.installedCount_other': '{count} моделей установлено',
   'toolbar.modelSelect.updates_one': '{count} ожидающее обновление',

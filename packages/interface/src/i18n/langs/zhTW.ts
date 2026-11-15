@@ -42,6 +42,7 @@ export const zhMessages: TranslationCatalog = {
   'toolbar.modelSelect.localPrefix': '【本機】',
   'toolbar.modelSelect.cloudPrefix': '【雲端】',
   'toolbar.modelSelect.updateAvailable': '（有可用更新）',
+  'toolbar.modelSelect.notConfigured': '未設定',
   'toolbar.modelSelect.installedCount_one': '已安裝 {count} 個模型',
   'toolbar.modelSelect.installedCount_other': '已安裝 {count} 個模型',
   'toolbar.modelSelect.updates_one': '{count} 個待更新',

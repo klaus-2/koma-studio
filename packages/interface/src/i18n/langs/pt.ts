@@ -45,6 +45,7 @@ export const ptMessages: TranslationCatalog = {
   'toolbar.modelSelect.localPrefix': '[Local]',
   'toolbar.modelSelect.cloudPrefix': '[Cloud]',
   'toolbar.modelSelect.updateAvailable': '(Update disponível)',
+  'toolbar.modelSelect.notConfigured': 'não configurado',
   'toolbar.modelSelect.installedCount_one': '{count} modelo instalado',
   'toolbar.modelSelect.installedCount_other': '{count} modelos instalados',
   'toolbar.modelSelect.updates_one': '{count} update pendente',

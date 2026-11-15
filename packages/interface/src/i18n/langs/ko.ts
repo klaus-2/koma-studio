@@ -44,6 +44,7 @@ export const koMessages: TranslationCatalog = {
   'toolbar.modelSelect.localPrefix': '[로컬]',
   'toolbar.modelSelect.cloudPrefix': '[클라우드]',
   'toolbar.modelSelect.updateAvailable': '(업데이트 가능)',
+  'toolbar.modelSelect.notConfigured': '미설정',
   'toolbar.modelSelect.installedCount_one': '{count}개 모델 설치됨',
   'toolbar.modelSelect.installedCount_other': '{count}개 모델 설치됨',
   'toolbar.modelSelect.updates_one': '{count}개 대기 중인 업데이트',

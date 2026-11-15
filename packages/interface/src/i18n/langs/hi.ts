@@ -44,6 +44,7 @@ export const hiMessages: TranslationCatalog = {
   'toolbar.modelSelect.localPrefix': '[Lokal]',
   'toolbar.modelSelect.cloudPrefix': '[Cloud]',
   'toolbar.modelSelect.updateAvailable': '(Pembaruan tersedia)',
+  'toolbar.modelSelect.notConfigured': 'कॉन्फ़िगर नहीं है',
   'toolbar.modelSelect.installedCount_one': '{count} model terinstal',
   'toolbar.modelSelect.installedCount_other': '{count} model terinstal',
   'toolbar.modelSelect.updates_one': '{count} pembaruan tertunda',

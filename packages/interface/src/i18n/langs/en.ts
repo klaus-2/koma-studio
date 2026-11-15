@@ -51,6 +51,7 @@ export const enMessages = {
   'toolbar.modelSelect.localPrefix': '[Local]',
   'toolbar.modelSelect.cloudPrefix': '[Cloud]',
   'toolbar.modelSelect.updateAvailable': '(Update available)',
+  'toolbar.modelSelect.notConfigured': 'not configured',
   'toolbar.modelSelect.installedCount_one': '{count} model installed',
   'toolbar.modelSelect.installedCount_other': '{count} models installed',
   'toolbar.modelSelect.updates_one': '{count} pending update',

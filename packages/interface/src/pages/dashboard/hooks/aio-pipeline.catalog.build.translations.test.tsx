@@ -125,7 +125,7 @@ describe('useAioStageCatalogBuild translation service hydration', () => {
     expect(isStageOptionSelectable(libre, {})).toBe(true);
   });
 
-  it('keeps unconfigured engines unselectable when the backend reports them unavailable', async () => {
+  it('keeps unconfigured engines listed and selectable when the backend reports them unavailable', async () => {
     const fetchMock = vi.fn(async () =>
       fetchResponse({
         models: [
@@ -161,7 +161,7 @@ describe('useAioStageCatalogBuild translation service hydration', () => {
     for (const key of ['deepl_translate', 'libretranslate']) {
       const option = options.find((candidate) => candidate.key === key);
       expect(option?.available).toBe(false);
-      expect(isStageOptionSelectable(option, {})).toBe(false);
+      expect(isStageOptionSelectable(option, {})).toBe(true);
     }
   });
 
@@ -202,7 +202,7 @@ describe('useAioStageCatalogBuild translation service hydration', () => {
     for (const key of ['deepl_translate', 'libretranslate']) {
       const option = options.find((candidate) => candidate.key === key);
       expect(option?.available).toBe(false);
-      expect(isStageOptionSelectable(option, {})).toBe(false);
+      expect(isStageOptionSelectable(option, {})).toBe(true);
     }
   });
 

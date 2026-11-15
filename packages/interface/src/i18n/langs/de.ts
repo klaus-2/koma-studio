@@ -46,6 +46,7 @@ export const deMessages: TranslationCatalog = {
   'toolbar.modelSelect.localPrefix': '[Lokal]',
   'toolbar.modelSelect.cloudPrefix': '[Cloud]',
   'toolbar.modelSelect.updateAvailable': '(Update verfügbar)',
+  'toolbar.modelSelect.notConfigured': 'nicht konfiguriert',
   'toolbar.modelSelect.installedCount_one': '{count} Modell installiert',
   'toolbar.modelSelect.installedCount_other': '{count} Modelle installiert',
   'toolbar.modelSelect.updates_one': '{count} ausstehendes Update',

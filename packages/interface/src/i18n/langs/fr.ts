@@ -4804,4 +4804,5 @@ export const frMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': 'Modèle inconnu',
   'modelCatalog.error.availableModels': 'Modèles disponibles',
   'modelCatalog.error.useDefault': 'Utiliser le modèle par défaut',
+  'toolbar.modelSelect.notConfigured': 'non configuré',
 } as const;

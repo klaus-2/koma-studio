@@ -44,6 +44,7 @@ export const arMessages: TranslationCatalog = {
   'toolbar.modelSelect.localPrefix': '[محلي]',
   'toolbar.modelSelect.cloudPrefix': '[سحابي]',
   'toolbar.modelSelect.updateAvailable': '(يتوفر تحديث)',
+  'toolbar.modelSelect.notConfigured': 'غير مهيأ',
   'toolbar.modelSelect.installedCount_one': '{count} نموذج مثبّت',
   'toolbar.modelSelect.installedCount_other': '{count} نماذج مثبّتة',
   'toolbar.modelSelect.updates_one': '{count} تحديث معلّق',

@@ -298,7 +298,7 @@ describe('translation service availability hydration', () => {
     expect(parseTranslationServiceAvailability('nope')).toBeNull();
   });
 
-  it('keeps unconfigured service engines unselectable by default', () => {
+  it('lists unconfigured service engines as selectable-but-unavailable', () => {
     const catalog = buildAioStageCatalog({ sourceLanguage: 'ja' });
 
     for (const key of ['deepl_translate', 'libretranslate']) {
@@ -307,11 +307,11 @@ describe('translation service availability hydration', () => {
       );
       expect(option?.implemented).toBe(true);
       expect(option?.available).toBe(false);
-      expect(isStageOptionSelectable(option, {})).toBe(false);
+      expect(isStageOptionSelectable(option, {})).toBe(true);
     }
   });
 
-  it('makes backend-configured engines selectable and unconfigured ones not', () => {
+  it('reports backend-configured engines available while unconfigured stay listed', () => {
     const catalog = buildAioStageCatalog({
       sourceLanguage: 'ja',
       translationServiceAvailability: {
@@ -329,7 +329,7 @@ describe('translation service availability hydration', () => {
     expect(deepl?.available).toBe(true);
     expect(isStageOptionSelectable(deepl, {})).toBe(true);
     expect(libre?.available).toBe(false);
-    expect(isStageOptionSelectable(libre, {})).toBe(false);
+    expect(isStageOptionSelectable(libre, {})).toBe(true);
   });
 
   it('does not promote non-service options through the availability map', () => {

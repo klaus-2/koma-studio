@@ -1,6 +1,7 @@
 import { AlertTriangle, HardDrive, Lock, ShieldAlert } from "lucide-react";
 import { memo, useMemo } from "react";
 
+import { TRANSLATION_SERVICE_BACKEND_KEYS } from "../../models/aioStageCatalog";
 import { modelSupportsLanguage, isDownloadOnlyModel, TRANSLATION_MODELS_REGISTRY } from "../../models/translation-models-registry";
 import type { ModelInstallState } from "../../models/types";
 import type { StageModelRefusalDetail } from "../../aio-stages/transport";
@@ -75,25 +76,29 @@ const TranslationModelControlBase = ({
     [compatibleLocalModels],
   );
 
-  const availableLegacyOptions = useMemo(
+  const listedLegacyOptions = useMemo(
     () =>
       legacyOptions.filter(
         (option) =>
           !localModelIds.has(option.key) &&
           option.implemented &&
-          option.available,
+          // Configurable services (DeepL, LibreTranslate) stay listed even
+          // unconfigured: the label marks them and running one surfaces the
+          // structured refusal naming what to set up (warn-not-block).
+          (option.available ||
+            option.key in TRANSLATION_SERVICE_BACKEND_KEYS),
       ),
     [legacyOptions, localModelIds],
   );
 
   const selectedValue =
     availableLocalModels.some((model) => model.id === selectedModelId) ||
-      availableLegacyOptions.some((option) => option.key === selectedModelId)
+      listedLegacyOptions.some((option) => option.key === selectedModelId)
       ? selectedModelId
       : "";
 
   const hasSelectableOptions =
-    availableLocalModels.length > 0 || availableLegacyOptions.length > 0;
+    availableLocalModels.length > 0 || listedLegacyOptions.length > 0;
   const hasAnyOptions =
     hasSelectableOptions || downloadOnlyLocalModels.length > 0;
 
@@ -160,9 +165,13 @@ const TranslationModelControlBase = ({
                 </option>
               );
             })}
-            {availableLegacyOptions.map((option) => (
+            {listedLegacyOptions.map((option) => (
               <option key={option.key} value={option.key}>
-                {`${t("toolbar.modelSelect.cloudPrefix")} ${option.name}`}
+                {`${t("toolbar.modelSelect.cloudPrefix")} ${option.name}${
+                  option.available
+                    ? ""
+                    : ` — ${t("toolbar.modelSelect.notConfigured")}`
+                }`}
               </option>
             ))}
             {downloadOnlyLocalModels.map((model) => (

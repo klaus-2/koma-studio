@@ -195,6 +195,13 @@ export function isStageOptionSelectable(
     return isInstalledLocalModel(option.key, entries);
   }
 
+  if (option.key in TRANSLATION_SERVICE_BACKEND_KEYS) {
+    // Configurable cloud services stay selectable unconfigured: running one
+    // surfaces the structured refusal naming exactly what to configure
+    // (warn-not-block). Env-only services keep the availability gate.
+    return true;
+  }
+
   return option.available;
 }
 
