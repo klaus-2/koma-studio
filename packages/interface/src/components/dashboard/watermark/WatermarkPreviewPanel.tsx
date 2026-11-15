@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import {
   Eye,
@@ -62,6 +63,18 @@ export default function WatermarkPreviewPanel({
   thumbsStripRef,
   previewStageRef,
 }: WatermarkPreviewPanelProps) {
+  const compareContainerRef = useRef<HTMLDivElement | null>(null);
+  const compareDraggingRef = useRef(false);
+
+  const updateCompareFromClientX = (clientX: number): void => {
+    const container = compareContainerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const ratio = ((clientX - rect.left) / rect.width) * 100;
+    setCompareValue(Math.min(100, Math.max(0, ratio)));
+  };
+
   const { t } = useI18n();
 
   return (
@@ -197,11 +210,32 @@ export default function WatermarkPreviewPanel({
               {activeImage && (
                 <>
                   {compareMode === 'split' && previewUrl ? (
-                    <div className="koma-wm-stage__compare-container">
+                    <div
+                      ref={compareContainerRef}
+                      className="koma-wm-stage__compare-container"
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                        compareDraggingRef.current = true;
+                        updateCompareFromClientX(event.clientX);
+                      }}
+                      onPointerMove={(event) => {
+                        if (!compareDraggingRef.current) return;
+                        updateCompareFromClientX(event.clientX);
+                      }}
+                      onPointerUp={(event) => {
+                        compareDraggingRef.current = false;
+                        event.currentTarget.releasePointerCapture(event.pointerId);
+                      }}
+                      onPointerCancel={() => {
+                        compareDraggingRef.current = false;
+                      }}
+                    >
                       <img
                         src={activeImage.url}
                         alt={t('watermark.preview.original')}
                         className="koma-wm-stage__img"
+                        draggable={false}
                         decoding="async"
                       />
                       <div
@@ -214,6 +248,7 @@ export default function WatermarkPreviewPanel({
                           src={previewUrl}
                           alt={t('watermark.preview.watermark')}
                           className="koma-wm-stage__img"
+                          draggable={false}
                           decoding="async"
                         />
                       </div>

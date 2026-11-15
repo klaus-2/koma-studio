@@ -317,6 +317,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
+  touch-action: none;
 }
 
 .koma-wm-stage__img {
