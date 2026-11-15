@@ -557,7 +557,12 @@ const setupDesktopExternalIpcHandlers = (): void => {
       let opened = false;
       try {
         fs.mkdirSync(logsDir, { recursive: true });
-        opened = (await shell.openPath(logsDir)) === "";
+        // shell.openPath resolves with the OS error string on failure.
+        const openError = await shell.openPath(logsDir);
+        opened = openError === "";
+        if (!opened) {
+          console.error("desktop:open-logs-folder failed:", openError);
+        }
       } catch (error) {
         console.error("desktop:open-logs-folder failed:", error);
       }
