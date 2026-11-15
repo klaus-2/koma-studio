@@ -489,7 +489,11 @@ def list_translation_models() -> list[TranslationModelOption]:
             "available": _is_available(key, meta),
         }
         if meta["kind"] == "llm":
-            option["provider"] = meta["provider"]
-            option["default_api_base"] = meta["default_api_base"]
+            provider = meta.get("provider")
+            if provider is not None:
+                option["provider"] = provider
+            default_api_base = meta.get("default_api_base")
+            if default_api_base is not None:
+                option["default_api_base"] = default_api_base
         options.append(option)
     return options
