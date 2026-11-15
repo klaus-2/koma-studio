@@ -829,6 +829,7 @@ export function useAioPipelineExecution(
     } finally {
       unsubscribeImages?.();
       useAioBatchPauseStore.getState().reset();
+      useEconomicUiStore.getState().clearPending();
 
       if (
         controller &&

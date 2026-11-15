@@ -167,6 +167,16 @@ export function AioCloudPreviewDialog({
     [gate.ocr, gate.translation],
   );
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onCancel]);
+
   const handleConfirm = (): void => {
     if (dontAskAgain) {
       for (const provider of providers) {

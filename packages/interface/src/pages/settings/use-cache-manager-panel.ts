@@ -126,15 +126,19 @@ export function useCacheManagerPanel(): UseCacheManagerPanelResult {
         return;
       }
       setPruneResult(parsed);
-      const freshUsage = parseUsageResponse(
-        await (
-          await fetch(`${getApiConfig().localUrl}/diagnostics/cache-usage`, {
-            method: 'GET',
-          })
-        ).json(),
-      );
-      if (freshUsage !== null) {
-        setUsage(freshUsage);
+      try {
+        const usageResponse = await fetch(
+          `${getApiConfig().localUrl}/diagnostics/cache-usage`,
+          { method: 'GET' },
+        );
+        if (usageResponse.ok) {
+          const freshUsage = parseUsageResponse(await usageResponse.json());
+          if (freshUsage !== null) {
+            setUsage(freshUsage);
+          }
+        }
+      } catch (refreshError) {
+        console.error('[cache-panel] usage refresh failed', refreshError);
       }
     } catch (error) {
       console.error('[cache-panel] prune request failed', error);
@@ -167,15 +171,19 @@ export function useCacheManagerPanel(): UseCacheManagerPanelResult {
         return;
       }
       setVacuumResult(parsed);
-      const freshUsage = parseUsageResponse(
-        await (
-          await fetch(`${getApiConfig().localUrl}/diagnostics/cache-usage`, {
-            method: 'GET',
-          })
-        ).json(),
-      );
-      if (freshUsage !== null) {
-        setUsage(freshUsage);
+      try {
+        const usageResponse = await fetch(
+          `${getApiConfig().localUrl}/diagnostics/cache-usage`,
+          { method: 'GET' },
+        );
+        if (usageResponse.ok) {
+          const freshUsage = parseUsageResponse(await usageResponse.json());
+          if (freshUsage !== null) {
+            setUsage(freshUsage);
+          }
+        }
+      } catch (refreshError) {
+        console.error('[cache-panel] usage refresh failed', refreshError);
       }
     } catch (error) {
       console.error('[cache-panel] vacuum request failed', error);

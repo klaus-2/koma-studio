@@ -254,6 +254,25 @@ describe('AioCloudPreviewDialog', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('cancel runs on Escape keydown', () => {
+    render(
+      <AioCloudPreviewDialog
+        gate={gate({})}
+        imageCount={1}
+        imageBytes={0}
+        textRegionCount={4}
+        knownTextChars={0}
+        imagesWithKnownText={0}
+        neighborContextEnabled={false}
+        onConfirm={confirmed}
+        onCancel={cancelled}
+      />,
+    );
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(cancelled).toHaveBeenCalledTimes(1);
+    expect(confirmed).not.toHaveBeenCalled();
+  });
+
   it('rate edits persist to localStorage and recompute the estimate', async () => {
     render(
       <AioCloudPreviewDialog
