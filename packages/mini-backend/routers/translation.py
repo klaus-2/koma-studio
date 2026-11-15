@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Annotated
+from typing import Annotated, Final
 
 from fastapi import APIRouter, Form, HTTPException
 from pydantic import TypeAdapter, ValidationError
@@ -12,13 +12,19 @@ from pydantic import TypeAdapter, ValidationError
 from core.config import clamp_llm_request_settings
 from core.languages import normalize_language_code
 from models.errors import (
+    MODEL_NOT_CONFIGURED_WIRE_CODE,
+    UNKNOWN_MODEL_WIRE_CODE,
     InvalidModelSelectionError,
     MissingDependencyError,
     ModelConfigurationError,
     ModelError,
     ModelNotInstalledError,
 )
-from models.translation.factory import list_translation_models
+from models.translation import errors as translation_errors
+from models.translation.factory import (
+    TRANSLATION_MODELS,
+    list_translation_models,
+)
 from pipelines.translation_stage import (
     CachedTranslationRequest,
     run_cached_translation,
@@ -46,6 +52,31 @@ _CLIENT_FIXABLE_MODEL_ERRORS = (
     ModelConfigurationError,
     MissingDependencyError,
 )
+REFUSAL_STAGE: Final = "translate"
+
+
+def _refusal_detail(
+    exc: translation_errors.InvalidModelSelectionError,
+) -> dict[str, object]:
+    """Additive structured body for an explicit selection that cannot serve.
+
+    Same shape as the segmentation/detection refusal ({error, code, stage,
+    model_key, available_keys}); ``str(exc)`` keeps naming what is missing.
+    """
+    available = [
+        option["key"] for option in list_translation_models() if option["available"]
+    ]
+    return {
+        "error": str(exc),
+        "code": (
+            UNKNOWN_MODEL_WIRE_CODE
+            if exc.model_key not in TRANSLATION_MODELS
+            else MODEL_NOT_CONFIGURED_WIRE_CODE
+        ),
+        "stage": REFUSAL_STAGE,
+        "model_key": exc.model_key,
+        "available_keys": available,
+    }
 
 
 def _parse_regions(raw: str | None) -> list[TranslationRegionRequest]:
@@ -116,6 +147,8 @@ async def translate_text(
     except ModelError as exc:
         logger.exception("translation failed", extra={"model_key": model_key})
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except translation_errors.InvalidModelSelectionError as exc:
+        raise HTTPException(status_code=400, detail=_refusal_detail(exc)) from exc
     except RuntimeError as exc:
         # Third-party provider errors that are not ModelError subclasses.
         raise HTTPException(status_code=400, detail=str(exc)) from exc

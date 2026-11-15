@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Final
 
 MODEL_NOT_IMPLEMENTED_WIRE_CODE: Final = "MODEL_NOT_IMPLEMENTED"
+MODEL_NOT_CONFIGURED_WIRE_CODE: Final = "MODEL_NOT_CONFIGURED"
 UNKNOWN_MODEL_WIRE_CODE: Final = "UNKNOWN_MODEL"
 
 

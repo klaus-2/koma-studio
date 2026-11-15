@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import ExitStack
 from pathlib import Path
 import sys
@@ -97,15 +98,43 @@ class TranslationSelectionTests(unittest.TestCase):
         self.assertIs(first, spy.last_engine)
         self.assertIs(second, first)
 
-    def test_unknown_and_custom_keys_keep_the_google_default(self) -> None:
+    def test_unknown_and_custom_slugs_refuse_without_a_cloud_call(self) -> None:
         spy = _GoogleEngineSpy()
         with patch.object(translation_factory, "GoogleTranslatorEngine", spy):
-            unknown = translation_factory.get_translation_engine("not_a_registered_engine")
-            custom = translation_factory.get_translation_engine("custom:vendor:model")
+            with self.assertRaises(InvalidModelSelectionError) as unknown_ctx:
+                translation_factory.get_translation_engine("not_a_registered_engine")
+            with self.assertRaises(InvalidModelSelectionError) as custom_ctx:
+                translation_factory.get_translation_engine("custom:vendor:model")
 
-        self.assertEqual(unknown.key, "google_translate")
-        self.assertEqual(custom.key, "google_translate")
+        self.assertEqual(unknown_ctx.exception.model_key, "not_a_registered_engine")
+        self.assertIn("unknown translation model key", unknown_ctx.exception.reason)
+        self.assertEqual(custom_ctx.exception.model_key, "custom:vendor:model")
+        self.assertIn("unknown translation model key", custom_ctx.exception.reason)
+        self.assertEqual(spy.calls, 0)
+
+    def test_auto_request_resolves_to_the_default_engine(self) -> None:
+        spy = _GoogleEngineSpy()
+        with patch.object(translation_factory, "GoogleTranslatorEngine", spy):
+            engine = translation_factory.get_translation_engine("auto")
+
+        self.assertEqual(engine.key, "google_translate")
         self.assertEqual(spy.calls, 1)
+
+    def test_explicit_unconfigured_deepl_names_the_missing_env(self) -> None:
+        spy = _GoogleEngineSpy()
+        env = dict(os.environ)
+        env.pop("MINI_BACKEND_DEEPL_API_KEY", None)
+        with (
+            patch.object(translation_factory, "GoogleTranslatorEngine", spy),
+            patch.dict("os.environ", env, clear=True),
+        ):
+            with self.assertRaises(InvalidModelSelectionError) as ctx:
+                translation_factory.get_translation_engine("deepl")
+
+        self.assertEqual(ctx.exception.model_key, "deepl")
+        self.assertIn("MINI_BACKEND_DEEPL_API_KEY", ctx.exception.reason)
+        self.assertIn("required configuration is missing", ctx.exception.reason)
+        self.assertEqual(spy.calls, 0)
 
     def test_available_local_key_builds_its_own_engine(self) -> None:
         spy = _GoogleEngineSpy()
@@ -125,6 +154,33 @@ class TranslationSelectionTests(unittest.TestCase):
 
         self.assertIs(engine, local_engine)
         self.assertEqual(spy.calls, 0)
+
+
+class TranslationRefusalBoundaryTests(unittest.TestCase):
+    """Pin: the translation router enriches refusals with the 1.1 wire shape."""
+
+    def test_refusal_body_names_the_missing_configuration(self) -> None:
+        from routers.translation import _refusal_detail
+
+        exc = InvalidModelSelectionError(
+            "deepl", "required configuration is missing: MINI_BACKEND_DEEPL_API_KEY"
+        )
+        detail = _refusal_detail(exc)
+        self.assertEqual(detail["code"], "MODEL_NOT_CONFIGURED")
+        self.assertEqual(detail["stage"], "translate")
+        self.assertEqual(detail["model_key"], "deepl")
+        self.assertIn("MINI_BACKEND_DEEPL_API_KEY", str(detail["error"]))
+        self.assertIsInstance(detail["available_keys"], list)
+
+    def test_refusal_body_marks_unknown_keys(self) -> None:
+        from routers.translation import _refusal_detail
+
+        exc = InvalidModelSelectionError(
+            "not_a_registered_engine", "unknown translation model key"
+        )
+        detail = _refusal_detail(exc)
+        self.assertEqual(detail["code"], "UNKNOWN_MODEL")
+        self.assertEqual(detail["model_key"], "not_a_registered_engine")
 
 
 if __name__ == "__main__":

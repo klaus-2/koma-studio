@@ -413,12 +413,18 @@ def get_translator_cache_size() -> int:
     return len(_TRANSLATOR_CACHE)
 
 
-def _has_required_env(required: list[str]) -> bool:
+def _missing_required_config(required: list[str]) -> list[str]:
+    """Requirement groups (``A|B`` means either) that have no env value set."""
+    missing: list[str] = []
     for item in required:
         options = [part.strip() for part in item.split("|") if part.strip()]
         if options and not any(os.getenv(option, "").strip() for option in options):
-            return False
-    return True
+            missing.append(item)
+    return missing
+
+
+def _has_required_env(required: list[str]) -> bool:
+    return not _missing_required_config(required)
 
 
 def _is_available(key: str, meta: TranslationModelMeta) -> bool:
@@ -436,7 +442,12 @@ def _unavailable_reason(key: str, meta: TranslationModelMeta) -> str:
         return "no local runtime is implemented for this model"
     if key in _CUSTOM_GGUF_KEYS:
         return "the .gguf file named by the user manifest is missing under the models root"
-    return "the local model files are not installed or are incomplete"
+    if meta["kind"] in _LOCAL_KINDS:
+        return "the local model files are not installed or are incomplete"
+    missing = _missing_required_config(meta["requires"])
+    if missing:
+        return "required configuration is missing: " + ", ".join(missing)
+    return "the engine is not configured"
 
 
 def _resolve_requested_key(requested: str) -> str:
@@ -452,22 +463,32 @@ def _resolve_requested_key(requested: str) -> str:
 
 
 def get_translation_engine(model_key: str | None = None) -> BaseTranslator:
+    """Build or fetch the cached engine for the requested translation model.
+
+    Empty and ``"auto"`` requests resolve to the default engine. Any other key
+    that is unknown or unavailable refuses with ``InvalidModelSelectionError``
+    naming exactly what is missing — never a silent swap to another engine.
+    """
     requested = (model_key or "").strip()
-    if not requested:
+    if not requested or requested == "auto":
         selected_key = DEFAULT_TRANSLATION_MODEL
     else:
         selected_key = _resolve_requested_key(requested)
         meta = TRANSLATION_MODELS.get(selected_key)
-        if (
-            meta is not None
-            and meta["kind"] in _LOCAL_KINDS
-            and not _is_available(selected_key, meta)
-        ):
+        if meta is None:
+            available = sorted(
+                key
+                for key, item in TRANSLATION_MODELS.items()
+                if _is_available(key, item)
+            )
+            reason = "unknown translation model key"
+            if available:
+                reason += f" (available: {', '.join(available)})"
+            raise InvalidModelSelectionError(selected_key, reason)
+        if not _is_available(selected_key, meta):
             raise InvalidModelSelectionError(
                 selected_key, _unavailable_reason(selected_key, meta)
             )
-        if meta is None or not _is_available(selected_key, meta):
-            selected_key = DEFAULT_TRANSLATION_MODEL
 
     return _TRANSLATOR_CACHE.get_or_build(
         selected_key, lambda: _ENGINE_BUILDERS[selected_key](selected_key)

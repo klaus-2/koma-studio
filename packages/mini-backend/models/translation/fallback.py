@@ -1,9 +1,8 @@
 """Ordered provider-fallback routing for translation.
 
-`get_translation_engine` never raises for an unknown or unavailable non-local
-key — it silently swaps in the default engine (factory.py). An explicitly
-requested local key without a runtime raises `InvalidModelSelectionError`
-instead of substituting a cloud engine, and a typo inside a chain is caught by
+`get_translation_engine` refuses unknown or unavailable keys with
+`InvalidModelSelectionError` (factory.py); only empty and "auto" requests
+resolve to the default engine. A typo inside a chain is caught by
 `validate_translation_chain_keys` before resolving.
 """
 
