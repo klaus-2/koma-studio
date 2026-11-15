@@ -36,6 +36,13 @@ describe("translation models registry", () => {
     expect(ENHANCE_IMAGE_MODELS_REGISTRY.length).toBe(AIO_LOCAL_MODELS_BY_STAGE.enhanceImage.length);
   });
 
+  test("aligns nllb-200-3.3b with the backend CPU device truth", () => {
+    const model = TRANSLATION_MODELS_REGISTRY.find((entry) => entry.id === "nllb-200-3.3b");
+    expect(model).toBeDefined();
+    expect(model?.requirements.gpu).toBe(false);
+    expect(model?.requirements.vramMin).toBe("0");
+  });
+
   test("keeps id lookups stable", () => {
     const firstModel = TRANSLATION_MODELS_REGISTRY[0];
     expect(firstModel).toBeDefined();

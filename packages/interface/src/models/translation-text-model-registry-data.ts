@@ -131,9 +131,9 @@ export const BASE_TRANSLATION_MODELS_REGISTRY: TranslationModel[] = [
     sourceLanguages: ["*"],
     targetLanguages: ["*"],
     requirements: {
-      gpu: true,
-      vramMin: "8GB",
-      ramMin: "16GB RAM",
+      gpu: false,
+      vramMin: "0",
+      ramMin: "high system RAM (fp32)",
       diskSpace: "17GB",
     },
     speed: "good",
