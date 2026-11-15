@@ -4840,6 +4840,7 @@ export const itMessages: TranslationCatalog = {
   'feed.tabsAria': "Sezioni del Feed Scanlation",
   'feed.actions.publishPost': "Pubblica {type}",
   'modelCatalog.error.notImplemented': 'Modello non implementato',
+  'modelCard.badge.untested': 'Non testato',
   'modelCard.badge.aboveHardware': "Oltre l'hardware disponibile",
   'modelCatalog.error.unknownModel': 'Modello sconosciuto',
   'modelCatalog.error.availableModels': 'Modelli disponibili',

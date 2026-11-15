@@ -2400,6 +2400,7 @@ export const enMessages = {
   'modelCard.badge.downloadOnly': 'Download only — no local runtime yet',
   'modelCard.badge.aboveHardware': 'Above your hardware',
   'modelCatalog.error.notImplemented': 'Model not implemented',
+  'modelCard.badge.untested': 'Not tested',
   'modelCatalog.error.unknownModel': 'Unknown model',
   'modelCatalog.error.availableModels': 'Available models',
   'modelCatalog.error.useDefault': 'Use default model',

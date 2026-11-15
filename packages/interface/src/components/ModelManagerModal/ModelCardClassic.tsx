@@ -16,6 +16,7 @@ import {
   modelStageLabel,
 } from '../../models/translation-models-registry';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
+import { isUntestedModel } from '../../models/untested-models';
 import { ModelInfoTooltipClassic } from './ModelInfoTooltipClassic';
 import { ModelProgressBarClassic } from './ModelProgressBarClassic';
 import styles from './styles.module.css';
@@ -220,6 +221,14 @@ export const ModelCardClassic = ({
               title={t('modelCard.badge.aboveHardware')}
             >
               <AlertTriangle size={10} /> {t('modelCard.badge.aboveHardware')}
+            </span>
+          )}
+          {isUntestedModel(model.id) && (
+            <span
+              className={styles.untestedBadge}
+              title={t('modelCard.badge.untested')}
+            >
+              {t('modelCard.badge.untested')}
             </span>
           )}
           <p className={styles.modelCardMeta}>

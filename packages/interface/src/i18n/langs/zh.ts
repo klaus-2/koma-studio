@@ -4346,6 +4346,7 @@ export const zhMessages: TranslationCatalog = {
   'feed.tabsAria': "Scanlation Feed 分区",
   'feed.actions.publishPost': "发布{type}",
   'modelCatalog.error.notImplemented': '模型未实现',
+  'modelCard.badge.untested': '未验证',
   'modelCard.badge.aboveHardware': '超出你的硬件性能',
   'modelCatalog.error.unknownModel': '未知模型',
   'modelCatalog.error.availableModels': '可用模型',

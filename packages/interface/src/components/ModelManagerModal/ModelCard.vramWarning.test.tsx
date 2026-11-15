@@ -136,6 +136,31 @@ describe("above-hardware VRAM warning (warn-not-block)", () => {
   });
 });
 
+describe("maintainer untested badge", () => {
+  it("badges an untested heavy model in the classic skin", () => {
+    setDevice(null);
+    renderClassic("got_ocr2");
+
+    expect(screen.getByText("Not tested")).toBeDefined();
+    expect(screen.getByRole("button", { name: /install/i })).toBeEnabled();
+  });
+
+  it("badges an untested heavy model in the noir skin", () => {
+    setDevice(null);
+    renderNoir("got_ocr2");
+
+    expect(screen.getByText("Not tested")).toBeDefined();
+    expect(screen.getByRole("button", { name: /install/i })).toBeEnabled();
+  });
+
+  it("does not badge a model outside the untested set", () => {
+    setDevice(null);
+    renderClassic("opus-mt-ja-en");
+
+    expect(screen.queryByText("Not tested")).toBeNull();
+  });
+});
+
 describe("StageModelSelect above-hardware hint", () => {
   const options = [
     {

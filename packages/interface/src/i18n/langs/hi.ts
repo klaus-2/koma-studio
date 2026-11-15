@@ -4787,6 +4787,7 @@ export const hiMessages: TranslationCatalog = {
   'feed.tabsAria': "स्कैनलेशन फ़ीड अनुभाग",
   'feed.actions.publishPost': "{type} प्रकाशित करें",
   'modelCatalog.error.notImplemented': 'मॉडल लागू नहीं किया गया',
+  'modelCard.badge.untested': 'अपरीक्षित',
   'modelCard.badge.aboveHardware': 'आपके हार्डवेयर से अधिक',
   'modelCatalog.error.unknownModel': 'अज्ञात मॉडल',
   'modelCatalog.error.availableModels': 'उपलब्ध मॉडल',

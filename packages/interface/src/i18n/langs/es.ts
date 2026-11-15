@@ -4856,6 +4856,7 @@ export const esMessages: TranslationCatalog = {
   'feed.tabsAria': "Secciones del Feed de Scanlation",
   'feed.actions.publishPost': "Publicar {type}",
   'modelCatalog.error.notImplemented': 'Modelo no implementado',
+  'modelCard.badge.untested': 'Sin probar',
   'modelCard.badge.aboveHardware': 'Por encima de tu hardware',
   'modelCatalog.error.unknownModel': 'Modelo desconocido',
   'modelCatalog.error.availableModels': 'Modelos disponibles',

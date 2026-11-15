@@ -2338,6 +2338,7 @@ export const ptBrMessages: TranslationCatalog = {
   'modelCard.badge.downloadOnly': 'Somente download — ainda sem runtime local',
   'modelCard.badge.aboveHardware': 'Acima do seu hardware',
   'modelCatalog.error.notImplemented': 'Modelo não implementado',
+  'modelCard.badge.untested': 'Não testado',
   'modelCatalog.error.unknownModel': 'Modelo desconhecido',
   'modelCatalog.error.availableModels': 'Modelos disponíveis',
   'modelCatalog.error.useDefault': 'Usar modelo padrão',

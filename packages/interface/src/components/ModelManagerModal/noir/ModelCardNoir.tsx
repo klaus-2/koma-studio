@@ -10,6 +10,7 @@ import {
   modelStageLabel,
 } from "../../../models/translation-models-registry";
 import { useAioPipelineStore } from "@/pages/dashboard/stores/aio-pipeline-store";
+import { isUntestedModel } from "../../../models/untested-models";
 import { ModelInfoTooltipNoir } from "./ModelInfoTooltipNoir";
 import { ModelProgressBarNoir } from "./ModelProgressBarNoir";
 
@@ -147,6 +148,13 @@ export const ModelCardNoir = ({
             <div className="mt-2">
               <Stamp tone="gold" title={t("modelCard.badge.aboveHardware")}>
                 <AlertTriangle size={9} /> {t("modelCard.badge.aboveHardware")}
+              </Stamp>
+            </div>
+          )}
+          {isUntestedModel(model.id) && (
+            <div className="mt-2">
+              <Stamp tone="neutral" title={t("modelCard.badge.untested")}>
+                {t("modelCard.badge.untested")}
               </Stamp>
             </div>
           )}
