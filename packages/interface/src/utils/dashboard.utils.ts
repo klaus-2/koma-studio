@@ -313,6 +313,7 @@ export const readExecutionRuntimeNotice = async (
         stage_label?: string;
         model_key?: string;
         cpu_fallback_attempted?: boolean;
+        log_path?: string | null;
       } | string;
     }
     | null;
@@ -326,11 +327,14 @@ export const readExecutionRuntimeNotice = async (
     return null;
   }
 
+  const message = detail.error.trim().length > 0
+    ? detail.error
+    : `Could not finish the "${detail.stage_label ?? stageLabel}" stage after falling back to CPU.`;
+  const logPath = typeof detail.log_path === "string" ? detail.log_path : "";
+
   return {
     title: "Fallback failed",
-    detail: detail.error.trim().length > 0
-      ? detail.error
-      : `Could not finish the "${detail.stage_label ?? stageLabel}" stage after falling back to CPU.`,
+    detail: logPath ? `${message}\n\nRuntime log: ${logPath}` : message,
     tone: "legacy",
   };
 };
