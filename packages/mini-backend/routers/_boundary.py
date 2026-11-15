@@ -20,6 +20,7 @@ from models.errors import (
 from models.execution import InferenceBusyError
 from pydantic import TypeAdapter, ValidationError
 
+from core.logging_setup import get_log_file_path
 from core.runtime_errors import build_runtime_error_detail
 from services.device_fallback import CpuFallbackFailedError, ExecutionError, ExecutionFailedError
 from utils.image_codec import ImageDecodeError, RGBImage, decode_rgb_async
@@ -88,6 +89,7 @@ def unimplemented_selection_to_http(
             "stage": exc.stage,
             "model_key": exc.model_key,
             "available_keys": list(exc.alternatives),
+            "log_path": get_log_file_path(),
         },
     )
 
@@ -154,6 +156,7 @@ def execution_error_to_http(exc: ExecutionError, *, model_key: str | None) -> HT
                 used_gpu=True,
                 cpu_fallback_attempted=True,
                 cpu_fallback_error=exc.cpu_error,
+                log_path=get_log_file_path(),
             ),
         )
     if isinstance(exc, ExecutionFailedError) and isinstance(

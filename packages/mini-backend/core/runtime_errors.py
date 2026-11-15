@@ -35,6 +35,7 @@ class RuntimeErrorDetail(TypedDict):
     cpu_fallback_attempted: bool
     cpu_fallback_error: str | None
     raw_detail: str
+    log_path: str | None
 
 
 def flatten_exception_message(error: BaseException) -> str:
@@ -65,6 +66,7 @@ def build_runtime_error_detail(
     used_gpu: bool,
     cpu_fallback_attempted: bool = False,
     cpu_fallback_error: BaseException | None = None,
+    log_path: str | None = None,
 ) -> RuntimeErrorDetail:
     stage_label = _STAGE_LABELS.get(stage, stage)
     resolved_model = (model_key or "auto").strip() or "auto"
@@ -103,6 +105,7 @@ def build_runtime_error_detail(
             if cpu_fallback_error is not None
             else None,
             "raw_detail": raw_detail,
+            "log_path": log_path,
         }
 
     return {
@@ -117,4 +120,5 @@ def build_runtime_error_detail(
         if cpu_fallback_error is not None
         else None,
         "raw_detail": raw_detail,
+        "log_path": log_path,
     }
