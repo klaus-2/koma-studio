@@ -14,6 +14,11 @@ try:
     from models.detection.base_detector import BaseDetector, TextDetection
     from models.detection.errors import DetectionModelNotInstalledError
     from models.detection.factory import DetectionModelSpec, resolve_detector_key
+    from models.errors import (
+        MODEL_NOT_IMPLEMENTED_WIRE_CODE,
+        UNKNOWN_MODEL_WIRE_CODE,
+        UnimplementedModelSelectionError,
+    )
 except Exception as exc:  # pragma: no cover - optional runtime deps
     IMPORT_ERROR = exc
 
@@ -54,17 +59,34 @@ class ResolveDetectorKeyTests(unittest.TestCase):
         self.assertIsNone(resolution.fallback_reason)
 
     def test_fallback_carries_explicit_reason(self) -> None:
+        # "not_installed" keeps the documented fallback (governed by the
+        # install flow); unknown and unimplemented keys refuse instead.
+        registry = {
+            "font_rtdetr_v2": _spec("font_rtdetr_v2", ready=True),
+            "pp": _spec("pp", ready=False),
+        }
+        resolution = resolve_detector_key("pp", registry=registry)
+        self.assertEqual(resolution.spec.key, "font_rtdetr_v2")
+        self.assertEqual(resolution.fallback_reason, "not_installed")
+
+    def test_explicit_unservable_selection_refuses(self) -> None:
         cases = [
-            ("ghost", {}, "unknown_model"),
-            ("craft", {"craft": _spec("craft", ready=False, implemented=False)}, "not_implemented"),
-            ("pp", {"pp": _spec("pp", ready=False)}, "not_installed"),
+            ("ghost", {}, UNKNOWN_MODEL_WIRE_CODE),
+            (
+                "craft",
+                {"craft": _spec("craft", ready=False, implemented=False)},
+                MODEL_NOT_IMPLEMENTED_WIRE_CODE,
+            ),
         ]
-        for requested, extra, reason in cases:
+        for requested, extra, code in cases:
             with self.subTest(requested=requested):
                 registry = {"font_rtdetr_v2": _spec("font_rtdetr_v2", ready=True), **extra}
-                resolution = resolve_detector_key(requested, registry=registry)
-                self.assertEqual(resolution.spec.key, "font_rtdetr_v2")
-                self.assertEqual(resolution.fallback_reason, reason)
+                with self.assertRaises(UnimplementedModelSelectionError) as ctx:
+                    resolve_detector_key(requested, registry=registry)
+                self.assertEqual(ctx.exception.code, code)
+                self.assertEqual(ctx.exception.model_key, requested)
+                self.assertEqual(ctx.exception.stage, "detect")
+                self.assertEqual(ctx.exception.alternatives, ("font_rtdetr_v2",))
 
     def test_default_unavailable_raises(self) -> None:
         registry = {"font_rtdetr_v2": _spec("font_rtdetr_v2", ready=False)}

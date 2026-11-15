@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
+from types import MappingProxyType
 from unittest.mock import patch
 
 
@@ -11,9 +12,17 @@ MINI_BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(MINI_BACKEND_DIR) not in __import__("sys").path:
     __import__("sys").path.insert(0, str(MINI_BACKEND_DIR))
 
-from models.errors import ModelNotInstalledError
+from models.errors import (
+    MODEL_NOT_IMPLEMENTED_WIRE_CODE,
+    UNKNOWN_MODEL_WIRE_CODE,
+    ModelNotInstalledError,
+    UnimplementedModelSelectionError,
+)
 from models.segmentation import factory
 from models.segmentation.baka_segmenter import BakaContentSegmenter
+
+
+DEFAULT_SEGMENTATION_MODEL_KEY = "baka_content_cc"
 
 
 def _always(_: str) -> bool:
@@ -50,15 +59,55 @@ class SegmentationFactoryTests(unittest.TestCase):
         factory.clear_segmenter_cache()
         self.addCleanup(factory.clear_segmenter_cache)
 
-    def test_resolution_falls_back_to_default(self) -> None:
-        cases = [(None, False), ("", False), ("  ", True), ("nope", True),
-                 ("sam2_text", True), ("sam2_text", False)]
+    def test_default_request_resolves_to_default_key(self) -> None:
+        cases = [(None, False), ("", False), ("  ", True), ("auto", False),
+                 ("auto", True)]
         for requested, has_gpu in cases:
             with self.subTest(requested=requested, has_gpu=has_gpu):
                 self.assertEqual(
                     factory.resolve_segmentation_model_key(requested, has_gpu),
                     "baka_content_cc",
                 )
+
+    def test_explicit_unservable_selection_refuses(self) -> None:
+        cases = [
+            ("nope", UNKNOWN_MODEL_WIRE_CODE),
+            ("sam2_text", MODEL_NOT_IMPLEMENTED_WIRE_CODE),
+        ]
+        for requested, code in cases:
+            with self.subTest(requested=requested):
+                with self.assertRaises(UnimplementedModelSelectionError) as ctx:
+                    factory.resolve_segmentation_model_key(requested, has_gpu=True)
+                self.assertEqual(ctx.exception.code, code)
+                self.assertEqual(ctx.exception.model_key, requested)
+                self.assertEqual(ctx.exception.stage, "segment")
+                self.assertEqual(ctx.exception.alternatives, ("baka_content_cc",))
+
+    def test_fallback_with_warning_is_preserved_for_gpu_only_reason(self) -> None:
+        gpu_only = factory.SegmentationModelMeta(
+            key="gpu_only_fake",
+            name="GPU Only Fake",
+            device="gpu",
+            use_case="test",
+            implemented=True,
+        )
+        patched_registry = MappingProxyType(
+            {
+                DEFAULT_SEGMENTATION_MODEL_KEY: factory.SEGMENTATION_MODELS[
+                    DEFAULT_SEGMENTATION_MODEL_KEY
+                ],
+                "gpu_only_fake": gpu_only,
+            }
+        )
+        with patch.object(factory, "SEGMENTATION_MODELS", patched_registry):
+            with self.assertLogs(factory.logger, level="WARNING") as captured:
+                resolved = factory.resolve_segmentation_model_key(
+                    "gpu_only_fake", has_gpu=False
+                )
+        self.assertEqual(resolved, "baka_content_cc")
+        self.assertTrue(
+            any("segmentation model fallback" in line for line in captured.output)
+        )
 
     def test_get_segmenter_is_cached_per_key(self) -> None:
         first = factory.get_segmenter(has_gpu=False)

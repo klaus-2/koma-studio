@@ -15,6 +15,7 @@ from models.errors import (
     MissingDependencyError,
     ModelConfigurationError,
     ModelNotInstalledError,
+    UnimplementedModelSelectionError,
 )
 from models.execution import InferenceBusyError
 from pydantic import TypeAdapter, ValidationError
@@ -66,6 +67,27 @@ def inference_busy_to_http(
             "stage": stage,
             "model_key": (model_key or "auto").strip() or "auto",
             "raw_detail": str(exc),
+        },
+    )
+
+
+def unimplemented_selection_to_http(
+    exc: UnimplementedModelSelectionError,
+) -> HTTPException:
+    """Structured 400 refusal for an explicit selection that cannot be served.
+
+    The body keeps the boundary's conventional error/code/stage/model_key
+    shape (mirroring ``inference_busy_to_http``) plus ``available_keys``, so
+    the frontend can offer "use the default model" from the refusal alone.
+    """
+    return HTTPException(
+        status.HTTP_400_BAD_REQUEST,
+        detail={
+            "error": str(exc),
+            "code": exc.code,
+            "stage": exc.stage,
+            "model_key": exc.model_key,
+            "available_keys": list(exc.alternatives),
         },
     )
 
@@ -134,6 +156,10 @@ def execution_error_to_http(exc: ExecutionError, *, model_key: str | None) -> HT
                 cpu_fallback_error=exc.cpu_error,
             ),
         )
+    if isinstance(exc, ExecutionFailedError) and isinstance(
+        exc.original, UnimplementedModelSelectionError
+    ):
+        return unimplemented_selection_to_http(exc.original)
     if isinstance(exc, ExecutionFailedError) and isinstance(exc.original, CLIENT_FIXABLE_MODEL_ERRORS):
         return HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc.original))
     stage = exc.stage if isinstance(exc, (ExecutionFailedError, CpuFallbackFailedError)) else None

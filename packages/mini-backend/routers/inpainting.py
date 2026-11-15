@@ -14,11 +14,12 @@ from core.config import get_config
 from core.device import DeviceInfo, build_device_payload, get_device_info
 from core.runtime_errors import build_runtime_error_detail
 from models.detection.factory import get_detector
+from models.errors import UnimplementedModelSelectionError
 from models.execution import InferenceBusyError
 from models.inpainting.factory import list_inpainting_models
 from models.segmentation.base_segmenter import SegmentInputRegion
 from models.segmentation.factory import get_segmenter
-from routers._boundary import inference_busy_to_http
+from routers._boundary import inference_busy_to_http, unimplemented_selection_to_http
 from schemas.inpainting import (
     REGION_LIST_ADAPTER,
     INPAINT_CROP_FIELD,
@@ -141,7 +142,10 @@ async def _auto_detect_regions(
     *, image_bytes: bytes, rgb_image: RGBImage, has_gpu: bool
 ) -> list[InpaintRegionRequest]:
     default_detector_key = get_config().default_detection_model
-    detector = get_detector(task="text", has_gpu=has_gpu, model_key=default_detector_key)
+    try:
+        detector = get_detector(task="text", has_gpu=has_gpu, model_key=default_detector_key)
+    except UnimplementedModelSelectionError as exc:
+        raise unimplemented_selection_to_http(exc) from exc
     detections = await detector.detect(Image.fromarray(rgb_image))
     if not detections:
         return []

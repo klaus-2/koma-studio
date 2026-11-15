@@ -8,10 +8,11 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import ValidationError
 
 from core.device import build_device_payload, get_device_info, release_gpu_memory
+from models.errors import UnimplementedModelSelectionError
 from models.execution import InferenceBusyError
 from models.segmentation.base_segmenter import SegmentInputRegion
 from models.segmentation.factory import get_segmenter, list_segmentation_models
-from routers._boundary import inference_busy_to_http
+from routers._boundary import inference_busy_to_http, unimplemented_selection_to_http
 from schemas.segmentation import (
     SegmentRegionRequest,
     SegmentRegionResult,
@@ -115,6 +116,10 @@ async def segment_text(
         # Busy holds no device memory, so unlike the runtime branches below
         # there is nothing to release here.
         raise inference_busy_to_http(exc, stage="segment", model_key=model_key) from exc
+    except UnimplementedModelSelectionError as exc:
+        if not should_skip_gpu_release():
+            release_gpu_memory()
+        raise unimplemented_selection_to_http(exc) from exc
     except RuntimeError as exc:
         if not should_skip_gpu_release():
             release_gpu_memory()

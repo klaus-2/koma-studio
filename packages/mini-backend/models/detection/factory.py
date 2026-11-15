@@ -29,6 +29,11 @@ from models.detection.font import (
 from models.detection.pp_doclayout_v3 import PPDocLayoutV3Detector
 from models.detection.storage import detection_runtime_ready
 from models.engine_cache import LruEngineCache
+from models.errors import (
+    MODEL_NOT_IMPLEMENTED_WIRE_CODE,
+    UNKNOWN_MODEL_WIRE_CODE,
+    UnimplementedModelSelectionError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -242,6 +247,14 @@ def resolve_detector_key(
     *,
     registry: Mapping[str, DetectionModelSpec] | None = None,
 ) -> DetectorResolution:
+    """Resolve to a servable spec, falling back to the default with a reason.
+
+    Empty, ``"auto"``, and default-key requests keep the documented fallback
+    path. Any other explicit selection of an unknown or unimplemented model
+    refuses with ``UnimplementedModelSelectionError`` instead of falling back
+    silently; ``not_installed`` keeps the fallback (governed by the install
+    flow).
+    """
     effective_registry = DETECTION_MODELS if registry is None else registry
     requested = (requested_key or DEFAULT_DETECTOR_KEY).strip().lower()
     if requested in {"", "auto"}:
@@ -253,6 +266,26 @@ def resolve_detector_key(
 
     if requested == DEFAULT_DETECTOR_KEY:
         raise DetectionModelNotInstalledError(DEFAULT_DETECTOR_KEY)
+
+    if reason in ("not_implemented", "unknown_model"):
+        alternatives = tuple(
+            key for key, item in effective_registry.items() if item.builder is not None
+        )
+        raise UnimplementedModelSelectionError(
+            model_key=requested,
+            stage="detect",
+            code=(
+                UNKNOWN_MODEL_WIRE_CODE
+                if reason == "unknown_model"
+                else MODEL_NOT_IMPLEMENTED_WIRE_CODE
+            ),
+            alternatives=alternatives,
+            message=(
+                f"Detection model '{requested}' is not available "
+                f"({reason.replace('_', ' ')}). "
+                f"Available models: {', '.join(alternatives)}"
+            ),
+        )
 
     default_reason, default_spec = _rejection_reason(
         DEFAULT_DETECTOR_KEY,

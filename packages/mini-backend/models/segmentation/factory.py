@@ -17,7 +17,12 @@ from core.device import (
 )
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
-from models.errors import ModelNotInstalledError
+from models.errors import (
+    MODEL_NOT_IMPLEMENTED_WIRE_CODE,
+    UNKNOWN_MODEL_WIRE_CODE,
+    ModelNotInstalledError,
+    UnimplementedModelSelectionError,
+)
 from models.segmentation.baka_segmenter import BakaContentSegmenter
 from models.segmentation.base_segmenter import BaseSegmenter
 from models.segmentation.storage import segmentation_runtime_ready
@@ -101,9 +106,14 @@ def list_segmentation_models(has_gpu: bool) -> list[SegmentationModelOption]:
 
 
 def resolve_segmentation_model_key(model_key: str | None, has_gpu: bool) -> str:
-    """Resolve to a servable key, falling back to the default with a logged reason."""
+    """Resolve to a servable key, falling back to the default with a logged reason.
+
+    Empty and ``"auto"`` requests normalize to the default path. Any other
+    explicit selection of an unknown or unimplemented model refuses with
+    ``UnimplementedModelSelectionError`` instead of falling back silently.
+    """
     requested = (model_key or "").strip()
-    if not requested:
+    if not requested or requested == "auto":
         return DEFAULT_SEGMENTATION_MODEL_KEY
 
     meta = SEGMENTATION_MODELS.get(requested)
@@ -117,6 +127,25 @@ def resolve_segmentation_model_key(model_key: str | None, has_gpu: bool) -> str:
         reason = "no engine builder registered"
     else:
         return requested
+
+    if reason != "model requires a GPU":
+        alternatives = tuple(
+            key for key, item in SEGMENTATION_MODELS.items() if item.implemented
+        )
+        raise UnimplementedModelSelectionError(
+            model_key=requested,
+            stage="segment",
+            code=(
+                UNKNOWN_MODEL_WIRE_CODE
+                if meta is None
+                else MODEL_NOT_IMPLEMENTED_WIRE_CODE
+            ),
+            alternatives=alternatives,
+            message=(
+                f"Segmentation model '{requested}' is not available ({reason}). "
+                f"Available models: {', '.join(alternatives)}"
+            ),
+        )
 
     logger.warning(
         "segmentation model fallback",
