@@ -20,6 +20,8 @@ import {
   RenderTextLayoutError,
   wrapAndMeasureStyled,
 } from '../../../utils/renderText.measure';
+import { resolveGlyphStyle } from '../../../utils/renderText.core';
+import { styleValuesEqual } from '../../../utils/renderTextStyleRanges';
 
 export const drawManualStroke = (
   canvas: HTMLCanvasElement | null,
@@ -238,6 +240,43 @@ type CachedRegionLayout = {
   signature: string;
   layout: RegionCanvasLayout;
   shape: TypographyShape | undefined;
+  baseStyle: RenderTextStyle;
+};
+
+const assignChangedStyleField = <K extends keyof RenderTextStyle>(
+  patch: Partial<RenderTextStyle>,
+  base: RenderTextStyle,
+  frozen: RenderTextStyle,
+  key: K,
+): void => {
+  if (!styleValuesEqual(base[key], frozen[key])) {
+    patch[key] = frozen[key];
+  }
+};
+
+const refreshPlacementStyles = (
+  entry: CachedRegionLayout,
+  style: RenderTextStyle,
+): CachedRegionLayout => {
+  const base = entry.baseStyle;
+  for (const placement of entry.layout.placements) {
+    const segments = placement.segments;
+    if (!segments) continue;
+    for (const segment of segments) {
+      const frozen = segment.style;
+      const patch: Partial<RenderTextStyle> = {};
+      for (const key of Object.keys(frozen) as (keyof RenderTextStyle)[]) {
+        assignChangedStyleField(patch, base, frozen, key);
+      }
+      segment.style = resolveGlyphStyle(style, frozen.fontSize, patch);
+    }
+  }
+  return {
+    signature: entry.signature,
+    layout: entry.layout,
+    shape: entry.shape,
+    baseStyle: cloneRenderStyle(style),
+  };
 };
 
 export interface RegionTextLayoutResult {
@@ -371,6 +410,11 @@ export const resolveRegionTextLayout = (
   );
   const cached = regionLayoutCache.get(region.id);
   if (cached && cached.signature === signature) {
+    if (!styleValuesEqual(cached.baseStyle, style)) {
+      const refreshed = refreshPlacementStyles(cached, style);
+      rememberRegionLayout(region.id, refreshed);
+      return refreshed;
+    }
     rememberRegionLayout(region.id, cached);
     return cached;
   }
@@ -402,7 +446,12 @@ export const resolveRegionTextLayout = (
     if (!fallback) throw new RenderTextLayoutError();
     layout = fallback;
   }
-  const entry: CachedRegionLayout = { signature, layout, shape };
+  const entry: CachedRegionLayout = {
+    signature,
+    layout,
+    shape,
+    baseStyle: cloneRenderStyle(style),
+  };
   rememberRegionLayout(region.id, entry);
   return entry;
 };

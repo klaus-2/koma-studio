@@ -148,6 +148,45 @@ describe('resolveRegionTextLayout (shared by painter and inline editor)', () => 
     expect(editorEntry.layout.placements.length).toBeGreaterThan(0);
   });
 
+  it('refreshes glyph styles on a style-only edit without re-measuring', () => {
+    const region = buildRegion(PAINTED_TEXT);
+    const ctx = createMockCtx();
+    const first = resolveRegionTextLayout(ctx, {
+      region,
+      text: PAINTED_TEXT,
+      style: STYLE,
+      styleRanges: null,
+      renderStageActive: true,
+    });
+    const measureSpy = vi.spyOn(ctx, 'measureText');
+    const editedStyle: RenderTextStyle = { ...STYLE, color: '#00ff00' };
+    const second = resolveRegionTextLayout(ctx, {
+      region,
+      text: PAINTED_TEXT,
+      style: editedStyle,
+      styleRanges: null,
+      renderStageActive: true,
+    });
+    expect(measureSpy.mock.calls.length).toBe(0);
+    const segment = second.layout.placements[0]?.segments?.[0];
+    expect(segment?.style.color).toBe('#00ff00');
+    expect(second.layout.lines).toEqual(first.layout.lines);
+    expect(second.layout.placements.map((p) => p.measuredWidth)).toEqual(
+      first.layout.placements.map((p) => p.measuredWidth),
+    );
+
+    const ranged = [{ start: 0, end: 5, style: { color: '#ff00ff' } }];
+    const third = resolveRegionTextLayout(ctx, {
+      region,
+      text: PAINTED_TEXT,
+      style: { ...editedStyle, color: '#0000ff' },
+      styleRanges: ranged,
+      renderStageActive: true,
+    });
+    const rangedSegment = third.layout.placements[0]?.segments?.[0];
+    expect(rangedSegment?.style.color).toBe('#ff00ff');
+  });
+
   it('re-measures after the layout cache is cleared', () => {
     const region = buildRegion(PAINTED_TEXT);
     const ctx = createMockCtx();

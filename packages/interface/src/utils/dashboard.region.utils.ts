@@ -13,6 +13,7 @@ import { createDefaultTypographyShape } from "../typography/types";
 import {
   areRenderTextStyleRangesEqual,
   cloneRenderTextStyleRanges,
+  styleValuesEqual,
 } from "./renderTextStyleRanges";
 import { getRenderModePresetStyle, normalizeDetectedRenderMode } from "./renderModes";
 import { isRegionFieldLocked, normalizeRegionLockFields } from "./region-lock";
@@ -635,6 +636,14 @@ export const areAioRegionsEqual = (
     if (a.stylePresetId !== b.stylePresetId) return false;
     if ((a.queueIndex ?? null) !== (b.queueIndex ?? null)) return false;
     if (Boolean(a.locked) !== Boolean(b.locked)) return false;
+    if (
+      !styleValuesEqual(
+        normalizeRegionLockFields(a) ?? null,
+        normalizeRegionLockFields(b) ?? null,
+      )
+    ) {
+      return false;
+    }
     if (Boolean(a.hidden) !== Boolean(b.hidden)) return false;
     if (!areStringArraysEqual(a.notes, b.notes)) return false;
     if (!areShapesEqual(a.shape, b.shape)) return false;
