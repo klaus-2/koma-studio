@@ -7690,21 +7690,27 @@
 }
 
 :root[data-theme-family='noir'] .koma-render-box--selected {
-  border-color: color-mix(in srgb, var(--color-crimson) 92%, transparent);
-  background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-paper) 30%, transparent),
-    0 0 16px color-mix(in srgb, var(--color-crimson) 38%, transparent);
+  border-color: color-mix(in srgb, var(--color-crimson) 35%, transparent);
+  background: color-mix(in srgb, var(--color-crimson) 14%, transparent);
+  border-radius: 0;
+  clip-path: var(--aio-cut-xs);
+  box-shadow: none;
 }
 
 :root[data-theme-family='noir'] .koma-render-box--manual.koma-render-box--selected {
-  border-color: color-mix(in srgb, var(--color-crimson) 96%, transparent);
-  background: color-mix(in srgb, var(--color-crimson) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-crimson) 35%, transparent);
+  background: color-mix(in srgb, var(--color-crimson) 14%, transparent);
+  border-radius: 0;
+  clip-path: var(--aio-cut-xs);
+  box-shadow: none;
 }
 
 :root[data-theme-family='noir'] .koma-render-box--note.koma-render-box--selected {
-  border-color: color-mix(in srgb, var(--color-azure) 85%, transparent);
-  background: color-mix(in srgb, var(--color-azure) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-crimson) 35%, transparent);
+  background: color-mix(in srgb, var(--color-crimson) 14%, transparent);
+  border-radius: 0;
+  clip-path: var(--aio-cut-xs);
+  box-shadow: none;
 }
 
 :root[data-theme-family='noir'] .koma-render-box--draft {
@@ -7714,18 +7720,19 @@
 }
 
 :root[data-theme-family='noir'] .koma-render-box--multi-selected {
-  border-color: color-mix(in srgb, var(--color-azure) 82%, transparent);
-  background: color-mix(in srgb, var(--color-azure) 10%, transparent);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-paper) 18%, transparent),
-    0 0 12px color-mix(in srgb, var(--color-azure) 30%, transparent);
+  border-color: color-mix(in srgb, var(--color-crimson) 35%, transparent);
+  background: color-mix(in srgb, var(--color-crimson) 14%, transparent);
+  border-radius: 0;
+  clip-path: var(--aio-cut-xs);
+  box-shadow: none;
 }
 
 :root[data-theme-family='noir'] .koma-render-box--multi-selected.koma-render-box--selected {
-  border-color: color-mix(in srgb, var(--color-crimson) 92%, transparent);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-paper) 30%, transparent),
-    0 0 16px color-mix(in srgb, var(--color-crimson) 38%, transparent);
+  border-color: color-mix(in srgb, var(--color-crimson) 35%, transparent);
+  background: color-mix(in srgb, var(--color-crimson) 14%, transparent);
+  border-radius: 0;
+  clip-path: var(--aio-cut-xs);
+  box-shadow: none;
 }
 
 :root[data-theme-family='noir'] .koma-render-box__multi-badge {
