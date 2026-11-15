@@ -10,6 +10,7 @@ import {
 } from "electron";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import type { DesktopOpenLogsFolderResult } from "../../../packages/types/src/desktop-api.ts";
 
 // Monorepo: the package was renamed to @koma/electron, but Electron's userData
 // directory is derived from the package name — pin it to "koma-studio" to
@@ -457,6 +458,10 @@ const startMiniBackend = async (options: StartMiniBackendOptions = {}): Promise<
       KOMA_LOCAL_API_SESSION_SECRET: localApiSessionSecret,
       KOMA_APP_RESOURCES_DIR: appResourcesDir,
       KOMA_REFERENCE_IMAGES_DIR: referenceImagesDir,
+      // models_root.parent == userData: the backend's default log dir
+      // ({KOMA_APP_DATA_DIR}/logs) then matches the folder the bug-report
+      // collector scans and the open-logs-folder IPC reveals.
+      KOMA_APP_DATA_DIR: app.getPath("userData"),
       PYTHONUTF8: "1",
       PYTHONIOENCODING: "utf-8",
     },
@@ -540,6 +545,25 @@ const setupDesktopExternalIpcHandlers = (): void => {
 
     await shell.openExternal(parsed.toString());
   });
+
+  registerSecureIpcHandler<DesktopOpenLogsFolderResult>(
+    "desktop:open-logs-folder",
+    async () => {
+      // Same folder the mini-backend writes its runtime log to
+      // (KOMA_APP_DATA_DIR = userData, logs under userData/logs) and the one
+      // the bug-report collector scans. Fail-open: a broken integration
+      // answers {opened: false} with the path instead of a hard error.
+      const logsDir = path.join(app.getPath("userData"), "logs");
+      let opened = false;
+      try {
+        fs.mkdirSync(logsDir, { recursive: true });
+        opened = (await shell.openPath(logsDir)) === "";
+      } catch (error) {
+        console.error("desktop:open-logs-folder failed:", error);
+      }
+      return { opened, path: logsDir };
+    },
+  );
 };
 registerSecureIpcHandler<{
   cleared: true;

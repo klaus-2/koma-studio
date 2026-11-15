@@ -79,6 +79,7 @@ const createMiniBackendCommandBuilder = (deps: {
           KOMA_MODELS_ROOT: path.join(app.getPath("userData"), "models"),
           KOMA_APP_RESOURCES_DIR: path.join(process.cwd(), "resources"),
           KOMA_REFERENCE_IMAGES_DIR: path.join(process.cwd(), "resources", "reference_images"),
+          KOMA_APP_DATA_DIR: app.getPath("userData"),
         },
         runtimeSource: "bundled-core",
         installDir: miniBackendDir,

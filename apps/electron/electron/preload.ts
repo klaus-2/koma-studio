@@ -19,6 +19,7 @@ import {
   type UpdaterListener,
   type UpdaterStatusPayload,
 } from "../../../packages/types/src/desktop-events.ts";
+import type { DesktopOpenLogsFolderResult } from "../../../packages/types/src/desktop-api.ts";
 import { desktopCommandChannels } from "../../../packages/types/src/desktop-api.ts";
 
 const MINI_BACKEND_RUNTIME_STATUSES: ReadonlySet<string> = new Set<MiniBackendRuntimeStatus>([
@@ -452,6 +453,18 @@ contextBridge.exposeInMainWorld("desktop", {
   },
   openCommunityLink: async (url: string): Promise<void> => {
     await invokeSecureDesktopApi("desktop:open-community-link", { url });
+  },
+  diagnostics: {
+    openLogsFolder: async (): Promise<DesktopOpenLogsFolderResult> => {
+      const result = await invokeSecureDesktopApi(
+        desktopCommandChannels.diagnostics.openLogsFolder,
+      );
+      const payload = (result ?? {}) as { opened?: unknown; path?: unknown };
+      return {
+        opened: payload.opened === true,
+        path: typeof payload.path === "string" ? payload.path : null,
+      };
+    },
   },
   models: {
     listInstalled: async (): Promise<unknown> => invokeSecureDesktopApi("desktop-models:list-installed"),
