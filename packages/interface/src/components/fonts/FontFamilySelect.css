@@ -208,6 +208,19 @@
   color: #f59e0b;
 }
 
+.koma-font-select__previewWrap {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.koma-font-select__previewWrap .koma-font-select__name {
+  flex: none;
+}
+
 .koma-font-select__preview {
   flex: 1 1 auto;
   min-width: 0;

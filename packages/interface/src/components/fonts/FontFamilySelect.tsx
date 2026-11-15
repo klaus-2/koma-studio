@@ -204,11 +204,16 @@ export function FontFamilySelect({
                   />
                 )}
                 {row.starable ? (
-                  <span
-                    className="koma-font-select__preview"
-                    style={{ fontFamily: row.family }}
-                  >
-                    {preview || row.label}
+                  <span className="koma-font-select__previewWrap">
+                    <span className="koma-font-select__name">{row.label}</span>
+                    {preview !== '' && (
+                      <span
+                        className="koma-font-select__preview"
+                        style={{ fontFamily: row.family }}
+                      >
+                        {preview}
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span className="koma-font-select__name">{row.label}</span>
