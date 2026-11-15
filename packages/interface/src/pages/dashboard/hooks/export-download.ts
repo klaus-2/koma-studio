@@ -41,7 +41,7 @@ import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 
 export { useDashboardDownloadActions, useDashboardPsdDownload } from './export-download.actions';
-export { useExportDownloadLifecycle, useExportDownloadAvailability } from './export-download.availability';
+export { useExportDownloadAvailability } from './export-download.availability';
 
 let sharedExportPool: ExportWorkerPool | null = null;
 const getExportPool = (): ExportWorkerPool => {

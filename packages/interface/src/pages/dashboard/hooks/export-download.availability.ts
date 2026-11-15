@@ -1,12 +1,8 @@
 /**
- * Export-download lifecycle & availability — the unmount object-URL revoke
- * lifecycle and the render-time download availability derivations consumed by
- * the topbar download menus and the tour/coachmark hooks. Split out of
- * export-download.ts (T10); the entry file keeps bundle preparation and
- * re-exports this module.
+ * Download availability derivations consumed by the topbar download menus and
+ * the tour/coachmark hooks. Split out of export-download.ts (T10); the entry
+ * file keeps bundle preparation and re-exports this module.
  */
-import { useEffect } from 'react';
-
 import { INFO_MODES } from '../../../constants/dashboard.constants';
 import type {
   LoadedImage,
@@ -18,19 +14,6 @@ import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
-
-export function useExportDownloadLifecycle() {
-  // Unmount revoke (LIFECYCLE). The downloadItems mirror ref effect is gone:
-  // the store is the latest value, so the cleanup reads getState() directly.
-  useEffect(() => {
-    return () => {
-      useExportStore.getState().downloadItems.forEach((item) =>
-        URL.revokeObjectURL(item.previewUrl),
-      );
-    };
-  }, []);
-}
-
 
 /* ── Download availability: render-time derivations consumed by the topbar
    download menus and the tour/coachmark hooks (export + ui-shell + translator

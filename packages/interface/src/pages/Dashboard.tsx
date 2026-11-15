@@ -57,7 +57,6 @@ import {
   useDashboardPsdDownload,
   triggerBlobDownload,
   useExportDownloadAvailability,
-  useExportDownloadLifecycle,
 } from './dashboard/hooks/export-download';
 import { useDashboardExternalActions } from '../hooks/useDashboardExternalActions';
 import { useDashboardMenus } from '../hooks/useDashboardMenus';
@@ -1139,7 +1138,6 @@ export const DashboardPage = ({
     setTranslatorProcessedBaseByImage,
   });
 
-  useExportDownloadLifecycle();
 
   useEffect(() => {
     setMobileNavOpen(false);

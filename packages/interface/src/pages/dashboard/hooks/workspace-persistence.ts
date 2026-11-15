@@ -42,6 +42,10 @@ interface UseWorkspacePersistenceArgs {
  * store.subscribe over the domain stores, so persistence bookkeeping does not
  * re-render the page.
  */
+const workspaceRestore: { hydratedFor: string | null } = {
+  hydratedFor: null,
+};
+
 export function useWorkspacePersistence({
   authUser,
 }: UseWorkspacePersistenceArgs) {
@@ -362,12 +366,15 @@ export function useWorkspacePersistence({
   }, [authUser?.id, seedWorkspaceHistory, setActiveId, setImages, setMode, setTonedStatus, setWorkspaceLastSavedAt, setWorkspaceStatus, setWorkspaceStatusDetail, t]);
 
   useEffect(() => {
+    const currentUserId = authUser?.id ?? null;
+    if (workspaceRestore.hydratedFor === currentUserId) return;
     setWorkspaceHydrated(false);
     const desktopWorkspace = desktopBridge.desktop?.workspace;
     if (!desktopWorkspace) {
       seedWorkspaceHistory();
       setWorkspaceLastSavedAt(null);
       setWorkspaceHydrated(true);
+      workspaceRestore.hydratedFor = currentUserId;
       return;
     }
 
@@ -382,6 +389,7 @@ export function useWorkspacePersistence({
           seedWorkspaceHistory();
           setWorkspaceLastSavedAt(null);
           setWorkspaceHydrated(true);
+          workspaceRestore.hydratedFor = currentUserId;
           return;
         }
         const migrateRenderSizes = shouldMigrateWorkspaceRenderSizes();
@@ -395,6 +403,7 @@ export function useWorkspacePersistence({
           Date.parse(result.payload.manifest.document.savedAt) || Date.now(),
         );
         setWorkspaceHydrated(true);
+        workspaceRestore.hydratedFor = currentUserId;
         if (migrateRenderSizes) {
           // Persist the migrated sizes so the override runs once, not on
           // every launch against the stale autosave file.
@@ -406,6 +415,7 @@ export function useWorkspacePersistence({
         seedWorkspaceHistory();
         setWorkspaceLastSavedAt(null);
         setWorkspaceHydrated(true);
+        workspaceRestore.hydratedFor = currentUserId;
       }
     })();
 
