@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildAioStageCatalog,
+  DEFAULT_AIO_STAGE_OPTIONS,
   isStageOptionSelectable,
   mergeStageOptions,
   ocrStageOptionSupportsLanguage,
@@ -145,6 +146,19 @@ describe('isStageOptionSelectable', () => {
 });
 
 describe('buildAioStageCatalog', () => {
+  it('never offers the unimplemented sam2_text segmentation engine', () => {
+    const catalog = buildAioStageCatalog({ sourceLanguage: 'ja' });
+
+    expect(
+      catalog.segmentText.some((option) => option.key === 'sam2_text'),
+    ).toBe(false);
+    expect(
+      DEFAULT_AIO_STAGE_OPTIONS.segmentText.every(
+        (option) => option.implemented,
+      ),
+    ).toBe(true);
+  });
+
   it('does not advertise missing local installations as available', () => {
     const catalog = buildAioStageCatalog({ sourceLanguage: 'ja' });
 

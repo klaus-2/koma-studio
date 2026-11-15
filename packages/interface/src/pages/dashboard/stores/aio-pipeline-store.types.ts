@@ -7,8 +7,10 @@ import type {
 import type { DesktopMiniBackendRuntimeState } from '@/types';
 import type {
   AioModelPresetStateV2,
+  AioStageKey,
   AioStageSelection,
 } from '@/types/aioModelPresets';
+import type { StageModelRefusalDetail } from '@/aio-stages/transport';
 import type { AioBatchProgress } from '@/pages/dashboard/lib/aio-batch-progress';
 import type {
   AioManualImageProgress,
@@ -125,6 +127,13 @@ export interface AioPipelineStore
   aioAbortController: AbortController | null;
   aioExecutionId: number;
   aioBackendRestarting: boolean;
+
+  /** Last structured model-selection refusal per stage (runtime-only). */
+  aioStageModelRefusals: Readonly<Partial<Record<AioStageKey, StageModelRefusalDetail>>>;
+  setAioStageModelRefusal: (
+    stage: AioStageKey,
+    refusal: StageModelRefusalDetail | null,
+  ) => void;
 
   aioExecutionProgress: {
     totalUnits: number;

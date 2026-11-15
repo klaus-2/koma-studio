@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { readExecutionRuntimeNotice } from '../utils/dashboard.utils';
 import { fetchWithTimeoutAndRetry } from '../utils/http';
-import { runStageForm, StageBusyError, StageTransportError } from './transport';
+import {
+  runStageForm,
+  stageKeyForRefusalStage,
+  StageBusyError,
+  StageModelRefusalError,
+  StageTransportError,
+} from './transport';
 
 vi.mock('../utils/dashboard.utils', () => ({
   readExecutionRuntimeNotice: vi.fn(),
@@ -155,5 +161,59 @@ describe('runStageForm transport error contract', () => {
 
     expect(thrown).toBeInstanceOf(StageTransportError);
     expect(thrown).not.toBeInstanceOf(StageBusyError);
+  });
+
+  it('throws StageModelRefusalError for the 400 structured refusal', async () => {
+    const response = new Response(
+      JSON.stringify({
+        detail: {
+          error: "Detection model 'craft' is not available (not implemented).",
+          code: 'MODEL_NOT_IMPLEMENTED',
+          stage: 'detect',
+          model_key: 'craft',
+          available_keys: ['font_rtdetr_v2', 'comic_text_detector'],
+        },
+      }),
+      { status: 400 },
+    );
+    mockedFetchWithTimeoutAndRetry.mockResolvedValue(response);
+    mockedReadExecutionRuntimeNotice.mockResolvedValue(null);
+
+    const failing = runStageForm(runtime, options, spec);
+    const thrown = await failing.catch((caught: StageTransportError) => caught);
+
+    expect(thrown).toBeInstanceOf(StageModelRefusalError);
+    expect(thrown).toMatchObject({
+      message: 'Failed to recognize text: backend exploded',
+      notice: null,
+      refusal: {
+        code: 'MODEL_NOT_IMPLEMENTED',
+        stage: 'detect',
+        modelKey: 'craft',
+        availableKeys: ['font_rtdetr_v2', 'comic_text_detector'],
+      },
+    });
+  });
+
+  it('maps refusal wire stages onto UI stage keys', () => {
+    expect(stageKeyForRefusalStage('detect')).toBe('detectText');
+    expect(stageKeyForRefusalStage('segment')).toBe('segmentText');
+    expect(stageKeyForRefusalStage('translate')).toBe('getTranslations');
+    expect(stageKeyForRefusalStage('unknown-stage')).toBeNull();
+  });
+
+  it('keeps the generic transport error when a 400 body is not a refusal', async () => {
+    const response = new Response(
+      JSON.stringify({ detail: 'plain validation failure' }),
+      { status: 400 },
+    );
+    mockedFetchWithTimeoutAndRetry.mockResolvedValue(response);
+    mockedReadExecutionRuntimeNotice.mockResolvedValue(null);
+
+    const failing = runStageForm(runtime, options, spec);
+    const thrown = await failing.catch((caught: StageTransportError) => caught);
+
+    expect(thrown).toBeInstanceOf(StageTransportError);
+    expect(thrown).not.toBeInstanceOf(StageModelRefusalError);
   });
 });

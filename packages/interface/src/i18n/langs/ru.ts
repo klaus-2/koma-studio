@@ -4850,4 +4850,8 @@ export const ruMessages: TranslationCatalog = {
   'typographer.shapeApplied': "Форма применена.",
   'feed.tabsAria': "Разделы Scanlation Feed",
   'feed.actions.publishPost': "Опубликовать {type}",
+  'modelCatalog.error.notImplemented': 'Модель не реализована',
+  'modelCatalog.error.unknownModel': 'Неизвестная модель',
+  'modelCatalog.error.availableModels': 'Доступные модели',
+  'modelCatalog.error.useDefault': 'Использовать модель по умолчанию',
 } as const;

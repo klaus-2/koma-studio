@@ -4776,4 +4776,8 @@ export const hiMessages: TranslationCatalog = {
   'typographer.shapeApplied': "आकार लागू किया गया।",
   'feed.tabsAria': "स्कैनलेशन फ़ीड अनुभाग",
   'feed.actions.publishPost': "{type} प्रकाशित करें",
+  'modelCatalog.error.notImplemented': 'मॉडल लागू नहीं किया गया',
+  'modelCatalog.error.unknownModel': 'अज्ञात मॉडल',
+  'modelCatalog.error.availableModels': 'उपलब्ध मॉडल',
+  'modelCatalog.error.useDefault': 'डिफ़ॉल्ट मॉडल का उपयोग करें',
 } as const;

@@ -273,14 +273,6 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
       available: true,
       implemented: true,
     },
-    {
-      key: 'sam2_text',
-      name: 'SAM2 Text',
-      device: 'gpu',
-      use_case: 'Advanced semantic segmentation (roadmap)',
-      available: false,
-      implemented: false,
-    },
   ],
   cleanImage: [
     {

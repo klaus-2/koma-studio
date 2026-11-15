@@ -13,8 +13,21 @@ import type {
 } from '@/models/aioStageCatalog';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import type { AioStageKey } from '@/types/aioModelPresets';
+import type { StageModelRefusalDetail } from '@/aio-stages/transport';
 
 type LocalStageKey = Exclude<AioStageKey, 'getTranslations'>;
+
+function withoutStageRefusal(
+  refusals: Readonly<Partial<Record<AioStageKey, StageModelRefusalDetail>>>,
+  stage: AioStageKey,
+): Readonly<Partial<Record<AioStageKey, StageModelRefusalDetail>>> {
+  if (refusals[stage] === undefined) {
+    return refusals;
+  }
+  const next = { ...refusals };
+  delete next[stage];
+  return next;
+}
 
 interface UseAioModelSelectionArgs {
   readonly ocrStageOptionsForSelect: readonly AioStageOption[];
@@ -110,6 +123,11 @@ export function useAioModelSelection({
               ...state.aioStageSelection,
               [stage]: modelKey,
             },
+            // A new selection invalidates any pending refusal warning.
+            aioStageModelRefusals: withoutStageRefusal(
+              state.aioStageModelRefusals,
+              stage,
+            ),
           },
       );
     },

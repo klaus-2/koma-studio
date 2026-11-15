@@ -4784,4 +4784,8 @@ export const frMessages: TranslationCatalog = {
   'typographer.shapeApplied': "Forme appliquée.",
   'feed.tabsAria': "Sections du flux Scanlation",
   'feed.actions.publishPost': "Publier {type}",
+  'modelCatalog.error.notImplemented': 'Modèle non implémenté',
+  'modelCatalog.error.unknownModel': 'Modèle inconnu',
+  'modelCatalog.error.availableModels': 'Modèles disponibles',
+  'modelCatalog.error.useDefault': 'Utiliser le modèle par défaut',
 } as const;

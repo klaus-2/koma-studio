@@ -116,6 +116,22 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
 
     aioStageSelection: { ...INITIAL_AIO_STAGE_SELECTION },
 
+    aioStageModelRefusals: {},
+    setAioStageModelRefusal: (stage, refusal) => {
+      set((state) => {
+        const previous = state.aioStageModelRefusals;
+        if (refusal === null) {
+          if (previous[stage] === undefined) {
+            return state;
+          }
+          const next = { ...previous };
+          delete next[stage];
+          return { ...state, aioStageModelRefusals: next };
+        }
+        return { ...state, aioStageModelRefusals: { ...previous, [stage]: refusal } };
+      });
+    },
+
     aioLanguageOptions: {
       source: [...SOURCE_LANGUAGE_OPTIONS],
       target: [...TARGET_LANGUAGE_OPTIONS],

@@ -4348,4 +4348,8 @@ export const zhMessages: TranslationCatalog = {
   'typographer.shapeApplied': "已套用形狀。",
   'feed.tabsAria': "Scanlation Feed 區段",
   'feed.actions.publishPost': "發佈{type}",
+  'modelCatalog.error.notImplemented': '模型未實作',
+  'modelCatalog.error.unknownModel': '未知模型',
+  'modelCatalog.error.availableModels': '可用模型',
+  'modelCatalog.error.useDefault': '使用預設模型',
 } as const;

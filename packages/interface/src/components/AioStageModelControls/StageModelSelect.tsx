@@ -1,7 +1,8 @@
 import { memo, type ReactNode } from "react";
-import { HardDrive } from "lucide-react";
+import { HardDrive, ShieldAlert } from "lucide-react";
 
 import { useI18n } from "../../i18n";
+import type { StageModelRefusalDetail } from "../../aio-stages/transport";
 import FieldInfoTooltip from "../dashboard/FieldInfoTooltip";
 import type { AioStageModelOption } from "./types";
 import { useStageControlTokens } from "./stageControlTokens";
@@ -20,6 +21,10 @@ export interface StageModelSelectProps {
   onSelectModel: (modelKey: string) => void;
   onOpenManager: () => void;
   hints?: readonly StageModelHint[];
+  /** Structured backend refusal for the current selection (warn, never block). */
+  refusal?: StageModelRefusalDetail | null;
+  /** Switches the persisted selection to the stage's default model (user consent only). */
+  onUseDefaultModel?: () => void;
   children?: ReactNode;
 }
 
@@ -49,6 +54,8 @@ const StageModelSelectBase = ({
   onSelectModel,
   onOpenManager,
   hints = DEFAULT_HINTS,
+  refusal = null,
+  onUseDefaultModel,
   children,
 }: StageModelSelectProps) => {
   const { t } = useI18n();
@@ -117,6 +124,30 @@ const StageModelSelectBase = ({
         <p className="koma-field__hint">
           {t("aio.model.localStatus", { value: statusText })}
         </p>
+      ) : null}
+      {refusal ? (
+        <div className={styles.refusalNotice} role="alert">
+          <p className={styles.refusalTitle}>
+            <ShieldAlert size={13} aria-hidden="true" />
+            {refusal.code === "UNKNOWN_MODEL"
+              ? t("modelCatalog.error.unknownModel")
+              : t("modelCatalog.error.notImplemented")}
+          </p>
+          <p className="koma-field__hint">{refusal.modelKey}</p>
+          <p className="koma-field__hint">
+            {t("modelCatalog.error.availableModels")}:{" "}
+            {refusal.availableKeys.join(", ") || "-"}
+          </p>
+          {onUseDefaultModel ? (
+            <button
+              type="button"
+              className={tokens.manageButton}
+              onClick={onUseDefaultModel}
+            >
+              {t("modelCatalog.error.useDefault")}
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {children}
     </div>

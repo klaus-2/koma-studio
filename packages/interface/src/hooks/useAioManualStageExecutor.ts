@@ -18,7 +18,9 @@ import {
   runRecognizeTextStage,
   runSegmentTextStage,
   stageCatalogOption,
+  stageKeyForRefusalStage,
   stageTransportNoticeDetail,
+  StageModelRefusalError,
   type StageRegions,
   type StageReadinessReady,
 } from '../aio-stages';
@@ -104,6 +106,23 @@ interface UseAioManualStageExecutorArgs {
   getAbortSignal: () => AbortSignal | null;
   onStageStart: (stageKey: AioPipelineSnapshotKey, image: LoadedImage, index: number) => void;
   setRuntimeExecutionNotice: (notice: RuntimeExecutionNotice | null) => void;
+}
+
+/**
+ * Surfaces a structured backend refusal (explicit selection of an
+ * unimplemented/unknown/unconfigured model) on the stage picker, where the
+ * "use default model" action lives.
+ */
+function recordStageModelRefusal(error: unknown): void {
+  if (!(error instanceof StageModelRefusalError)) {
+    return;
+  }
+  const stageKey = stageKeyForRefusalStage(error.refusal.stage);
+  if (stageKey !== null) {
+    useAioPipelineStore
+      .getState()
+      .setAioStageModelRefusal(stageKey, error.refusal);
+  }
 }
 
 /**
@@ -504,6 +523,7 @@ export function useAioManualStageExecutor({
       ) {
         setStatusMessage(`Timed out during the "${stageLabel}" stage. The local backend took too long to respond.`);
       } else {
+        recordStageModelRefusal(error);
         setStatusMessage(error instanceof Error ? `${error.message}${stageTransportNoticeDetail(error)}` : t('aioManual.stageFailed', { stageLabel }));
       }
     } finally {

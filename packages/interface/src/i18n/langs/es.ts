@@ -4845,4 +4845,8 @@ export const esMessages: TranslationCatalog = {
   'typographer.shapeApplied': "Forma aplicada.",
   'feed.tabsAria': "Secciones del Feed de Scanlation",
   'feed.actions.publishPost': "Publicar {type}",
+  'modelCatalog.error.notImplemented': 'Modelo no implementado',
+  'modelCatalog.error.unknownModel': 'Modelo desconocido',
+  'modelCatalog.error.availableModels': 'Modelos disponibles',
+  'modelCatalog.error.useDefault': 'Usar modelo predeterminado',
 } as const;

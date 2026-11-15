@@ -23,6 +23,7 @@ import {
 } from '../../../utils/renderModes';
 import type { CustomLlmProfile } from '../../../utils/customLlm';
 import type { SubMode } from '../../../types/dashboard.types';
+import { DEFAULT_AIO_STAGE_OPTIONS } from '../../../models/aioStageCatalog';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
@@ -173,6 +174,19 @@ export default memo(function AioStageConfigBody({
   const setAioStageSelection = useAioPipelineStore(
     (s) => s.setAioStageSelection,
   );
+  const stageModelRefusals = useAioPipelineStore(
+    (s) => s.aioStageModelRefusals,
+  );
+  const setAioStageModelRefusal = useAioPipelineStore(
+    (s) => s.setAioStageModelRefusal,
+  );
+  const useDefaultModelForStage = (stage: 'detectText' | 'segmentText'): void => {
+    const defaultKey = DEFAULT_AIO_STAGE_OPTIONS[stage][0]?.key;
+    if (defaultKey) {
+      selectAioLocalStageModel(stage, defaultKey);
+    }
+    setAioStageModelRefusal(stage, null);
+  };
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
   const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
   const aioMaskDilation = useAioPipelineStore((s) => s.aioMaskDilation);
@@ -215,6 +229,8 @@ export default memo(function AioStageConfigBody({
               focusedModelId: aioStageSelection.detectText,
             })
           }
+          refusal={stageModelRefusals.detectText ?? null}
+          onUseDefaultModel={() => useDefaultModelForStage('detectText')}
         />
       )}
 
@@ -298,6 +314,8 @@ export default memo(function AioStageConfigBody({
               focusedModelId: aioStageSelection.segmentText,
             })
           }
+          refusal={stageModelRefusals.segmentText ?? null}
+          onUseDefaultModel={() => useDefaultModelForStage('segmentText')}
         />
       )}
 

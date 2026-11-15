@@ -4630,4 +4630,8 @@ export const arMessages: TranslationCatalog = {
   'typographer.shapeApplied': "تم تطبيق الشكل.",
   'feed.tabsAria': "أقسام موجز الاسكانليشن",
   'feed.actions.publishPost': "نشر {type}",
+  'modelCatalog.error.notImplemented': 'النموذج غير مُنفَّذ',
+  'modelCatalog.error.unknownModel': 'نموذج غير معروف',
+  'modelCatalog.error.availableModels': 'النماذج المتاحة',
+  'modelCatalog.error.useDefault': 'استخدام النموذج الافتراضي',
 } as const;

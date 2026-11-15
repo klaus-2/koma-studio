@@ -4897,4 +4897,8 @@ export const deMessages: TranslationCatalog = {
   'typographer.shapeApplied': "Form angewendet.",
   'feed.tabsAria': "Bereiche des Scanlation-Feeds",
   'feed.actions.publishPost': "{type} veröffentlichen",
+  'modelCatalog.error.notImplemented': 'Modell nicht implementiert',
+  'modelCatalog.error.unknownModel': 'Unbekanntes Modell',
+  'modelCatalog.error.availableModels': 'Verfügbare Modelle',
+  'modelCatalog.error.useDefault': 'Standardmodell verwenden',
 } as const;

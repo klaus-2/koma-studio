@@ -4810,4 +4810,8 @@ export const jaMessages: TranslationCatalog = {
   'typographer.shapeApplied': "形状を適用しました。",
   'feed.tabsAria': "Scanlation Feed のセクション",
   'feed.actions.publishPost': "{type}を公開",
+  'modelCatalog.error.notImplemented': 'モデルが未実装です',
+  'modelCatalog.error.unknownModel': '不明なモデル',
+  'modelCatalog.error.availableModels': '利用可能なモデル',
+  'modelCatalog.error.useDefault': 'デフォルトモデルを使う',
 } as const;

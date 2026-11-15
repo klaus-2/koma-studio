@@ -4694,4 +4694,8 @@ export const koMessages: TranslationCatalog = {
   'typographer.shapeApplied': "도형이 적용되었습니다.",
   'feed.tabsAria': "스캔레이션 피드 섹션",
   'feed.actions.publishPost': "{type} 게시",
+  'modelCatalog.error.notImplemented': '구현되지 않은 모델',
+  'modelCatalog.error.unknownModel': '알 수 없는 모델',
+  'modelCatalog.error.availableModels': '사용 가능한 모델',
+  'modelCatalog.error.useDefault': '기본 모델 사용',
 } as const;

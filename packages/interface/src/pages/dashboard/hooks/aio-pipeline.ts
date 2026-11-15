@@ -7,7 +7,12 @@ import {
 import { useAioExecutionPreparation } from '@/hooks/useAioExecutionPreparation';
 import { useAioResultConsolidation } from '@/hooks/useAioResultConsolidation';
 import { useAioSingleImageProcessor } from '@/hooks/useAioSingleImageProcessor';
-import { StageBusyError, stageTransportNoticeDetail } from '@/aio-stages';
+import {
+  StageBusyError,
+  StageModelRefusalError,
+  stageKeyForRefusalStage,
+  stageTransportNoticeDetail,
+} from '@/aio-stages';
 import { useI18n, type TranslateFn } from '@/i18n';
 import { parseApiError } from '@/pages/dashboard/helpers';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
@@ -124,6 +129,23 @@ function itemErrorMessage(error: unknown): string {
  */
 function itemBusyMessage(error: unknown, t: TranslateFn): string | null {
   return error instanceof StageBusyError ? t('dashboard.aio.batchItemBusy') : null;
+}
+
+/**
+ * Surfaces a structured backend refusal (explicit selection of an
+ * unimplemented/unknown/unconfigured model) on the stage picker, where the
+ * "use default model" action lives.
+ */
+function recordStageModelRefusal(error: unknown): void {
+  if (!(error instanceof StageModelRefusalError)) {
+    return;
+  }
+  const stageKey = stageKeyForRefusalStage(error.refusal.stage);
+  if (stageKey !== null) {
+    useAioPipelineStore
+      .getState()
+      .setAioStageModelRefusal(stageKey, error.refusal);
+  }
 }
 
 function buildItemErrorNotice(
@@ -694,6 +716,7 @@ export function useAioPipelineExecution(
               return outcome.results;
             }
             const chapter = chapterGroups[index];
+            recordStageModelRefusal(outcome.error);
             return chapter
               ? chapter.images.map((image) =>
                   buildFailedBatchResult(
@@ -725,8 +748,10 @@ export function useAioPipelineExecution(
               throw error;
             }
           },
-          onItemError: (error, item) =>
-            buildFailedBatchResult(item, error, itemBusyMessage(error, t)),
+          onItemError: (error, item) => {
+            recordStageModelRefusal(error);
+            return buildFailedBatchResult(item, error, itemBusyMessage(error, t));
+          },
           beforeItem: runBatchPauseBoundaryAtBoundary,
           onItemSettled: (value) => {
             pauseSettledResults.push(value);
