@@ -1,17 +1,22 @@
 <div align="center">
 
-# KŌMA Studio
+# KOMA Studio: Open-Source AI Manga Translator & Scanlation Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/klaus-2/koma-studio)](https://github.com/klaus-2/koma-studio/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/klaus-2/koma-studio/total)](https://github.com/klaus-2/koma-studio/releases)
 [![Discord](https://img.shields.io/badge/Discord-join%20us-5865F2?logo=discord)](https://discord.gg/tzaV2efD4e)
 [![Website](https://img.shields.io/badge/website-koma--studio.site-111827)](https://koma-studio.site/)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/klaus-2/koma-studio?utm_source=oss&utm_medium=github&utm_campaign=klaus-2%2Fkoma-studio&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 ![KŌMA Studio — 15s preview](docs/media/koma-studio-promo.gif)
 
-**A free, open-source desktop toolkit for scanlation**: detection, OCR, translation,
-cleaning, typesetting and export, running locally on your machine.
+**A free, open-source AI manga translator and scanlation studio**: bubble and text
+detection, OCR, LLM translation, text erasure (inpainting), typesetting and export,
+running locally on your machine. Works with manga, manhwa, manhua, webtoons and
+comics, and never sends your pages to a server we own.
 
+[Download](https://github.com/klaus-2/koma-studio/releases/latest) ·
 [Website](https://koma-studio.site/) · [Discord](https://discord.gg/tzaV2efD4e) ·
 [Report an issue](https://github.com/klaus-2/koma-studio/issues)
 
@@ -51,6 +56,47 @@ Redrawer**, **Typesetter**, **Translator**, **Stitch**, **Smart Split**,
 - **No telemetry.** The app does not collect analytics, usage statistics or behavioural
   data.
 - **MIT licensed.** Bring your own models, CUDA/CPU/TensorRT/OpenVINO aware.
+
+## How KOMA compares
+
+KOMA is not the only open-source manga translator out there. The honest short
+version: the projects below are great one-click translators; KOMA is a full
+scanlation studio where translation integrity and manual control are the point.
+
+| | KOMA Studio | [manga-image-translator](https://github.com/zyddnys/manga-image-translator) | [BallonsTranslator](https://github.com/dmMaze/BallonsTranslator) | [comic-translate](https://github.com/ogkalu2/comic-translate) | [MangaTranslator](https://github.com/meangrinch/MangaTranslator) |
+|---|---|---|---|---|---|
+| Pipeline | Detect, OCR, translate, segment, clean, render, export | Detect, OCR, translate, inpaint, render | Detect, OCR, translate, inpaint, render + rich editor | Detect, OCR, translate, inpaint, render | Detect, OCR, translate, inpaint, render |
+| Translation memory + per-work glossary | Yes (persistent, with never-translate and echo QA) | Glossary and replacement dictionary | Translation history context for LLMs | No | No |
+| SFX handling | Dedicated classifier and redraw workflow | No | No | No | Outside-bubble text detection |
+| Manual editing | Mask brush, eraser, healing brush, magic wand, inline text editor | Web UI editing with GIMP render hand-off | Mask brush + rich text editor | Desktop app + browser extension editing | Web UI |
+| Export | Layered PSD, ZIP/CBZ/CB7/PDF bundles, translation spreadsheets | Images | Images, Word | Images, PDF, EPUB | Images |
+| Model catalog honesty | Min VRAM per model, untested badges, structured refusals | CLI options | Docs | Docs | Docs |
+| Runs 100% locally | Yes (cloud optional with your key) | Yes (online service optional) | Yes | Yes (cloud LLMs are the default translator) | Yes (LLM optional) |
+
+## FAQ
+
+**Is it really free?**
+Yes. No plans, tiers, quotas, credits or paid features. Cloud AI providers cost
+what they cost, but that is your key talking to your provider, directly.
+
+**Does it work offline?**
+The core pipeline does: detection, OCR, inpainting and the offline translation
+engines run entirely on your machine through the bundled Python sidecar. Cloud
+translation and cloud OCR are optional and only used with your own API key.
+
+**Does it support manhwa and webtoon long strips?**
+Yes. Vertical text (tategaki) is a first-class typesetting mode, and long-strip
+layouts are handled by the same pipeline with per-region control.
+
+**Which languages does it support?**
+The UI ships in 14 languages. OCR engines route by language family (Japanese,
+Korean, Chinese, Russian, Latin scripts and more), and translation runs from and
+to the languages your chosen engine supports, offline or in the cloud.
+
+**Does it need a GPU?**
+No. CPU profiles work out of the box; NVIDIA CUDA and other accelerators are
+detected automatically and used when available. Models state their minimum VRAM
+where it applies, so you can pick what fits your machine.
 
 ## Project status
 
