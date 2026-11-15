@@ -125,6 +125,8 @@ TRANSLATOR_MODEL_ALIASES: dict[str, str] = {
     "grok_2_vision": "grok_2_vision",
     "z_ai_glm_4_5v": "z_ai_glm_4_5v",
     "custom": "custom",
+    # UI key for DeepL connects to the backend engine of the same provider.
+    "deepl_translate": "deepl",
     # Registry ids carry hyphens/dots; normalize_stage_model_key slugs them.
     "opus_mt_ja_en": "opus-mt-ja-en",
     "opus_mt_zh_en": "opus-mt-zh-en",

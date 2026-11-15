@@ -15,7 +15,11 @@ if str(MINI_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(MINI_BACKEND_DIR))
 
 from models.translation import factory as translation_factory  # noqa: E402
-from models.translation.base_translator import BaseTranslator  # noqa: E402
+from models.translation.base_translator import (  # noqa: E402
+    BaseTranslator,
+    TranslationRequest,
+    TranslationTextResult,
+)
 from models.translation.errors import InvalidModelSelectionError  # noqa: E402
 from models.translation.providers import GoogleTranslatorEngine  # noqa: E402
 
@@ -153,6 +157,55 @@ class TranslationSelectionTests(unittest.TestCase):
             engine = translation_factory.get_translation_engine("opus-mt-ja-en")
 
         self.assertIs(engine, local_engine)
+        self.assertEqual(spy.calls, 0)
+
+
+class TranslationDeepLAliasTests(unittest.TestCase):
+    """Pin: the UI key ``deepl_translate`` routes to the backend ``deepl`` engine."""
+
+    def setUp(self) -> None:
+        translation_factory.clear_translator_cache()
+
+    def tearDown(self) -> None:
+        translation_factory.clear_translator_cache()
+
+    def test_ui_key_normalizes_to_the_deepl_engine_key(self) -> None:
+        from core.config import normalize_stage_model_key
+
+        self.assertEqual(
+            normalize_stage_model_key("translation", "deepl_translate"), "deepl"
+        )
+
+    def test_deepl_translate_selection_builds_the_deepl_engine(self) -> None:
+        class _DeepLStub(BaseTranslator):
+            async def _translate(
+                self, request: TranslationRequest
+            ) -> list[TranslationTextResult]:
+                raise AssertionError("not exercised in this test")
+
+        env = dict(os.environ)
+        env["MINI_BACKEND_DEEPL_API_KEY"] = "test-key"
+        with (
+            patch.object(translation_factory, "DeepLTranslatorEngine", _DeepLStub),
+            patch.dict("os.environ", env),
+        ):
+            engine = translation_factory.get_translation_engine("deepl_translate")
+
+        self.assertIsInstance(engine, _DeepLStub)
+
+    def test_deepl_translate_without_key_refuses_with_the_env_name(self) -> None:
+        spy = _GoogleEngineSpy()
+        env = dict(os.environ)
+        env.pop("MINI_BACKEND_DEEPL_API_KEY", None)
+        with (
+            patch.object(translation_factory, "GoogleTranslatorEngine", spy),
+            patch.dict("os.environ", env, clear=True),
+        ):
+            with self.assertRaises(InvalidModelSelectionError) as ctx:
+                translation_factory.get_translation_engine("deepl_translate")
+
+        self.assertEqual(ctx.exception.model_key, "deepl")
+        self.assertIn("MINI_BACKEND_DEEPL_API_KEY", ctx.exception.reason)
         self.assertEqual(spy.calls, 0)
 
 
