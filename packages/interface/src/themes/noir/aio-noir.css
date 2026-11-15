@@ -180,6 +180,7 @@
 :root[data-theme-family='noir'] .koma-aio-chip--active {
   border-color: var(--aio-crimson);
   background: color-mix(in srgb, var(--aio-crimson) 8%, var(--aio-ink-2));
+  box-shadow: none;
 }
 
 :root[data-theme-family='noir'] .koma-aio-chip--active:hover {
@@ -322,6 +323,7 @@
   color: var(--aio-crimson);
   transform: scale(1.2);
   animation: koma-aio-blink 1.1s steps(2, jump-none) infinite;
+  box-shadow: none;
 }
 
 :root[data-theme-family='noir'] .koma-aio-timeline__step--done .koma-aio-timeline__node {
@@ -516,10 +518,12 @@
 
 :root[data-theme-family='noir'] .koma-aio-stage-tab--active {
   color: var(--aio-ink);
+  background: color-mix(in srgb, var(--color-crimson) 14%, transparent);
+  box-shadow: none;
 }
 
 :root[data-theme-family='noir'] .koma-aio-stage-tab--active:hover {
-  background: transparent;
+  background: color-mix(in srgb, var(--color-crimson) 14%, transparent);
   color: var(--aio-ink);
 }
 
@@ -618,6 +622,8 @@
 }
 
 :root[data-theme-family='noir'] .koma-aio-preset-action--primary:hover {
+  background: color-mix(in srgb, var(--color-crimson) 10%, transparent);
+  color: var(--aio-crimson);
   filter: drop-shadow(2px 2px 0 var(--aio-gold));
 }
 
@@ -884,6 +890,7 @@
   background: color-mix(in srgb, var(--aio-crimson) 28%, var(--aio-ink-3));
   color: var(--aio-crimson);
   border: 1px solid var(--aio-crimson);
+  box-shadow: none;
 }
 
 :root[data-theme-family='noir'] .koma-aio-execute__btn--stop {
@@ -1022,6 +1029,22 @@
 
 :root[data-theme-family='noir'] [data-theme="light"] .koma-aio-execute__btn::before {
   background-image: radial-gradient(rgba(0, 0, 0, 0.35) 1px, transparent 1px);
+}
+
+:root[data-theme-family='noir'] [data-theme="light"] .koma-aio-section:hover {
+  box-shadow: none;
+}
+
+:root[data-theme-family='noir'] [data-theme="light"] .koma-aio-stage-tab--active {
+  box-shadow: none;
+}
+
+:root[data-theme-family='noir'] [data-theme="light"] .koma-aio-preset-editor {
+  border-color: color-mix(in srgb, var(--aio-paper) 14%, transparent);
+}
+
+:root[data-theme-family='noir'] [data-theme="light"] .koma-aio-llm-panel {
+  border-color: color-mix(in srgb, var(--aio-paper) 12%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

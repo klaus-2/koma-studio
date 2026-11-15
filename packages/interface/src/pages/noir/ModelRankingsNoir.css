@@ -12,7 +12,7 @@
   inset: 0;
   background:
     radial-gradient(ellipse 80% 60% at 50% 0%,
-      rgba(168, 85, 247, 0.06),
+      rgba(255, 46, 99, 0.06),
       transparent 70%),
     radial-gradient(ellipse 60% 50% at 80% 100%,
       rgba(6, 182, 212, 0.04),
@@ -41,7 +41,7 @@
   height: 500px;
   top: -120px;
   left: -100px;
-  background: rgba(168, 85, 247, 0.18);
+  background: rgba(255, 46, 99, 0.18);
   animation: koma-rank-orb-drift 25s ease-in-out infinite alternate;
 }
 
@@ -83,12 +83,12 @@
 
 .koma-rank-back:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(168, 85, 247, 0.15);
+  border-color: rgba(255, 46, 99, 0.15);
   color: var(--auth-text);
 }
 
 .koma-rank-back:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline: 2px solid rgba(255, 46, 99, 0.5);
   outline-offset: 2px;
 }
 
@@ -126,9 +126,9 @@
   height: 42px;
   border-radius: 12px;
   background: linear-gradient(135deg,
-      rgba(168, 85, 247, 0.18),
+      rgba(255, 46, 99, 0.18),
       rgba(6, 182, 212, 0.1));
-  border: 1px solid rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(255, 46, 99, 0.15);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -174,7 +174,7 @@
 }
 
 .koma-rank-stat:hover {
-  border-color: rgba(168, 85, 247, 0.12);
+  border-color: rgba(255, 46, 99, 0.12);
 }
 
 .koma-rank-stat__icon {
@@ -189,7 +189,7 @@
 }
 
 .koma-rank-stat__icon--purple {
-  background: rgba(168, 85, 247, 0.12);
+  background: rgba(255, 46, 99, 0.12);
   color: var(--auth-purple);
 }
 
@@ -271,14 +271,14 @@
 
 .koma-rank-tab--active {
   background: linear-gradient(135deg,
-      rgba(168, 85, 247, 0.16),
+      rgba(255, 46, 99, 0.16),
       rgba(6, 182, 212, 0.1));
   color: rgba(255, 255, 255, 0.93);
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.1);
+  box-shadow: 0 4px 12px rgba(255, 46, 99, 0.1);
 }
 
 .koma-rank-tab:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline: 2px solid rgba(255, 46, 99, 0.5);
   outline-offset: 1px;
 }
 
@@ -321,8 +321,8 @@
 
 .koma-rank-search__input:focus {
   outline: none;
-  border-color: rgba(168, 85, 247, 0.4);
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.08);
+  border-color: rgba(255, 46, 99, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 46, 99, 0.08);
 }
 
 .koma-rank-search:focus-within .koma-rank-search__icon {
@@ -349,18 +349,18 @@
 }
 
 .koma-rank-filter-toggle:hover {
-  border-color: rgba(168, 85, 247, 0.15);
+  border-color: rgba(255, 46, 99, 0.15);
   color: var(--auth-text);
 }
 
 .koma-rank-filter-toggle--active {
-  background: rgba(168, 85, 247, 0.08);
-  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(255, 46, 99, 0.08);
+  border-color: rgba(255, 46, 99, 0.2);
   color: var(--auth-purple);
 }
 
 .koma-rank-filter-toggle:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline: 2px solid rgba(255, 46, 99, 0.5);
   outline-offset: 2px;
 }
 
@@ -428,8 +428,8 @@
 
 .koma-rank-filter__select:focus {
   outline: none;
-  border-color: rgba(168, 85, 247, 0.4);
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.08);
+  border-color: rgba(255, 46, 99, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 46, 99, 0.08);
 }
 
 /* ─── Main layout ─── */
@@ -525,25 +525,25 @@
 }
 
 .koma-rank-row:hover {
-  background: rgba(168, 85, 247, 0.03);
-  border-color: rgba(168, 85, 247, 0.06);
+  background: rgba(255, 46, 99, 0.03);
+  border-color: rgba(255, 46, 99, 0.06);
 }
 
 .koma-rank-row:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline: 2px solid rgba(255, 46, 99, 0.5);
   outline-offset: 1px;
 }
 
 .koma-rank-row--active {
-  background: rgba(168, 85, 247, 0.06);
-  border-color: rgba(168, 85, 247, 0.14);
-  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.06);
+  background: rgba(255, 46, 99, 0.06);
+  border-color: rgba(255, 46, 99, 0.14);
+  box-shadow: 0 4px 20px rgba(255, 46, 99, 0.06);
 }
 
 .koma-rank-row--active::before {
   opacity: 1;
   background: linear-gradient(90deg,
-      rgba(168, 85, 247, 0.08) 0%,
+      rgba(255, 46, 99, 0.08) 0%,
       transparent 60%);
 }
 
@@ -633,8 +633,8 @@
 }
 
 .koma-rank-row__badge--new {
-  background: rgba(168, 85, 247, 0.12);
-  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(255, 46, 99, 0.12);
+  border-color: rgba(255, 46, 99, 0.2);
   color: var(--auth-purple);
 }
 
@@ -676,7 +676,7 @@
   border-radius: 999px;
   background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
   transition: width 0.5s ease;
-  box-shadow: 0 0 8px rgba(168, 85, 247, 0.15);
+  box-shadow: 0 0 8px rgba(255, 46, 99, 0.15);
 }
 
 /* ─── Row meta ─── */
@@ -771,9 +771,9 @@
   padding: 4px 10px;
   border-radius: 999px;
   background: linear-gradient(135deg,
-      rgba(168, 85, 247, 0.14),
+      rgba(255, 46, 99, 0.14),
       rgba(6, 182, 212, 0.08));
-  border: 1px solid rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(255, 46, 99, 0.12);
   color: rgba(255, 255, 255, 0.8);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -932,7 +932,7 @@
   border-radius: 999px;
   background: linear-gradient(90deg, var(--auth-purple), var(--auth-cyan));
   transition: width 0.6s ease;
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.12);
+  box-shadow: 0 0 10px rgba(255, 46, 99, 0.12);
 }
 
 .koma-rank-metric__value {
@@ -1066,13 +1066,13 @@
   padding: 9px 18px;
   border-radius: 12px;
   border: none;
-  background: linear-gradient(135deg, #9333ea, var(--auth-purple) 55%, #7c3aed);
+  background: linear-gradient(135deg, var(--color-crimson), color-mix(in srgb, var(--color-crimson) 80%, #000));
   color: #fff;
   font-family: var(--auth-font-heading);
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 10px 28px rgba(168, 85, 247, 0.2);
+  box-shadow: 0 10px 28px rgba(255, 46, 99, 0.2);
   transition:
     filter 0.2s ease,
     transform 0.2s ease,
@@ -1109,7 +1109,7 @@
 }
 
 .koma-rank-btn-primary:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.6);
+  outline: 2px solid rgba(255, 46, 99, 0.6);
   outline-offset: 2px;
 }
 
@@ -1132,7 +1132,7 @@
 
 .koma-rank-btn-ghost:hover {
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(168, 85, 247, 0.15);
+  border-color: rgba(255, 46, 99, 0.15);
   color: var(--auth-text);
 }
 
@@ -1142,7 +1142,7 @@
 }
 
 .koma-rank-btn-ghost:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline: 2px solid rgba(255, 46, 99, 0.5);
   outline-offset: 2px;
 }
 
@@ -1242,7 +1242,7 @@
 }
 
 .koma-rank-review:hover {
-  border-color: rgba(168, 85, 247, 0.08);
+  border-color: rgba(255, 46, 99, 0.08);
 }
 
 .koma-rank-review__head {
@@ -1418,22 +1418,22 @@
 }
 
 .koma-rank-score-btn:hover {
-  border-color: rgba(168, 85, 247, 0.2);
-  background: rgba(168, 85, 247, 0.06);
+  border-color: rgba(255, 46, 99, 0.2);
+  background: rgba(255, 46, 99, 0.06);
   color: var(--auth-text);
 }
 
 .koma-rank-score-btn--active {
   background: linear-gradient(135deg,
-      rgba(168, 85, 247, 0.25),
+      rgba(255, 46, 99, 0.25),
       rgba(6, 182, 212, 0.15));
-  border-color: rgba(168, 85, 247, 0.3);
+  border-color: rgba(255, 46, 99, 0.3);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.12);
+  box-shadow: 0 4px 12px rgba(255, 46, 99, 0.12);
 }
 
 .koma-rank-score-btn:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline: 2px solid rgba(255, 46, 99, 0.5);
   outline-offset: 1px;
 }
 
@@ -1488,8 +1488,8 @@
 .koma-rank-field__select:focus,
 .koma-rank-field__textarea:focus {
   outline: none;
-  border-color: rgba(168, 85, 247, 0.4);
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.08);
+  border-color: rgba(255, 46, 99, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 46, 99, 0.08);
 }
 
 .koma-rank-field__input:disabled,
@@ -1581,7 +1581,7 @@
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
-  scrollbar-color: rgba(168, 85, 247, 0.15) transparent;
+  scrollbar-color: rgba(255, 46, 99, 0.15) transparent;
   padding-bottom: 6px;
 }
 
@@ -1594,7 +1594,7 @@
 }
 
 .koma-rank-discover__scroll::-webkit-scrollbar-thumb {
-  background: rgba(168, 85, 247, 0.15);
+  background: rgba(255, 46, 99, 0.15);
   border-radius: 999px;
 }
 
@@ -1612,13 +1612,13 @@
 }
 
 .koma-rank-discover__card:hover {
-  border-color: rgba(168, 85, 247, 0.12);
-  background: rgba(168, 85, 247, 0.04);
+  border-color: rgba(255, 46, 99, 0.12);
+  background: rgba(255, 46, 99, 0.04);
   transform: translateY(-2px);
 }
 
 .koma-rank-discover__card:focus-visible {
-  outline: 2px solid rgba(168, 85, 247, 0.5);
+  outline: 2px solid rgba(255, 46, 99, 0.5);
   outline-offset: 1px;
 }
 
@@ -1719,7 +1719,7 @@
   font-family: var(--auth-font-display);
   font-size: 64px;
   font-weight: 400;
-  color: rgba(168, 85, 247, 0.025);
+  color: rgba(255, 46, 99, 0.025);
   pointer-events: none;
   user-select: none;
   z-index: 0;
@@ -1753,13 +1753,13 @@
   from {
     box-shadow:
       0 20px 60px rgba(0, 0, 0, 0.35),
-      0 0 40px rgba(168, 85, 247, 0.02);
+      0 0 40px rgba(255, 46, 99, 0.02);
   }
 
   to {
     box-shadow:
       0 20px 60px rgba(0, 0, 0, 0.35),
-      0 0 40px rgba(168, 85, 247, 0.06);
+      0 0 40px rgba(255, 46, 99, 0.06);
   }
 }
 
@@ -1901,7 +1901,7 @@
   .koma-rank-page__bg {
     background:
       radial-gradient(ellipse 80% 60% at 50% 0%,
-        rgba(168, 85, 247, 0.03),
+        rgba(201, 20, 63, 0.03),
         transparent 70%),
       radial-gradient(ellipse 60% 50% at 80% 100%,
         rgba(6, 182, 212, 0.02),
@@ -1914,7 +1914,7 @@
   }
 
   .koma-rank-page__orb--purple {
-    background: rgba(168, 85, 247, 0.09);
+    background: rgba(201, 20, 63, 0.09);
   }
 
   .koma-rank-page__orb--cyan {
@@ -1929,7 +1929,7 @@
 
   .koma-rank-back:hover {
     background: rgba(0, 0, 0, 0.04);
-    border-color: rgba(168, 85, 247, 0.18);
+    border-color: rgba(201, 20, 63, 0.18);
   }
 
   /* ── Hero banner ── */
@@ -1943,9 +1943,9 @@
 
   .koma-rank-hero__icon {
     background: linear-gradient(135deg,
-        rgba(168, 85, 247, 0.1),
+        rgba(201, 20, 63, 0.1),
         rgba(6, 182, 212, 0.06));
-    border: 1px solid rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(201, 20, 63, 0.12);
   }
 
   /* ── Stat pills ── */
@@ -1955,11 +1955,11 @@
   }
 
   .koma-rank-stat:hover {
-    border-color: rgba(168, 85, 247, 0.15);
+    border-color: rgba(201, 20, 63, 0.15);
   }
 
   .koma-rank-stat__icon--purple {
-    background: rgba(168, 85, 247, 0.08);
+    background: rgba(201, 20, 63, 0.08);
   }
 
   .koma-rank-stat__icon--cyan {
@@ -1987,10 +1987,10 @@
 
   .koma-rank-tab--active {
     background: linear-gradient(135deg,
-        rgba(168, 85, 247, 0.1),
+        rgba(201, 20, 63, 0.1),
         rgba(6, 182, 212, 0.06));
     color: #0f172a;
-    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.06);
+    box-shadow: 0 4px 12px rgba(201, 20, 63, 0.06);
   }
 
   /* ── Search field ── */
@@ -2009,12 +2009,12 @@
   }
 
   .koma-rank-filter-toggle:hover {
-    border-color: rgba(168, 85, 247, 0.18);
+    border-color: rgba(201, 20, 63, 0.18);
   }
 
   .koma-rank-filter-toggle--active {
-    background: rgba(168, 85, 247, 0.05);
-    border-color: rgba(168, 85, 247, 0.2);
+    background: rgba(201, 20, 63, 0.05);
+    border-color: rgba(201, 20, 63, 0.2);
   }
 
   /* ── Leaderboard panel ── */
@@ -2037,19 +2037,19 @@
 
   /* ── Leaderboard row ── */
   .koma-rank-row:hover {
-    background: rgba(168, 85, 247, 0.03);
-    border-color: rgba(168, 85, 247, 0.08);
+    background: rgba(201, 20, 63, 0.03);
+    border-color: rgba(201, 20, 63, 0.08);
   }
 
   .koma-rank-row--active {
-    background: rgba(168, 85, 247, 0.04);
-    border-color: rgba(168, 85, 247, 0.12);
-    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.04);
+    background: rgba(201, 20, 63, 0.04);
+    border-color: rgba(201, 20, 63, 0.12);
+    box-shadow: 0 4px 20px rgba(201, 20, 63, 0.04);
   }
 
   .koma-rank-row--active::before {
     background: linear-gradient(90deg,
-        rgba(168, 85, 247, 0.06) 0%,
+        rgba(201, 20, 63, 0.06) 0%,
         transparent 60%);
   }
 
@@ -2093,8 +2093,8 @@
   }
 
   .koma-rank-row__badge--new {
-    background: rgba(168, 85, 247, 0.08);
-    border-color: rgba(168, 85, 247, 0.15);
+    background: rgba(201, 20, 63, 0.08);
+    border-color: rgba(201, 20, 63, 0.15);
   }
 
   .koma-rank-row__badge--reviewed {
@@ -2122,10 +2122,10 @@
 
   .koma-rank-detail__source-badge {
     background: linear-gradient(135deg,
-        rgba(168, 85, 247, 0.08),
+        rgba(201, 20, 63, 0.08),
         rgba(6, 182, 212, 0.05));
-    border: 1px solid rgba(168, 85, 247, 0.1);
-    color: #6d28d9;
+    border: 1px solid rgba(201, 20, 63, 0.1);
+    color: #c9143f;
   }
 
   /* ── Score hero ── */
@@ -2186,7 +2186,7 @@
 
   .koma-rank-btn-ghost:hover {
     background: rgba(0, 0, 0, 0.04);
-    border-color: rgba(168, 85, 247, 0.18);
+    border-color: rgba(201, 20, 63, 0.18);
     color: #0f172a;
   }
 
@@ -2218,7 +2218,7 @@
   }
 
   .koma-rank-review:hover {
-    border-color: rgba(168, 85, 247, 0.1);
+    border-color: rgba(201, 20, 63, 0.1);
   }
 
   .koma-rank-review__body {
@@ -2259,17 +2259,17 @@
   }
 
   .koma-rank-score-btn:hover {
-    border-color: rgba(168, 85, 247, 0.2);
-    background: rgba(168, 85, 247, 0.04);
+    border-color: rgba(201, 20, 63, 0.2);
+    background: rgba(201, 20, 63, 0.04);
   }
 
   .koma-rank-score-btn--active {
     background: linear-gradient(135deg,
-        rgba(168, 85, 247, 0.18),
+        rgba(201, 20, 63, 0.18),
         rgba(6, 182, 212, 0.1));
-    border-color: rgba(168, 85, 247, 0.25);
-    color: #6d28d9;
-    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.08);
+    border-color: rgba(201, 20, 63, 0.25);
+    color: #c9143f;
+    box-shadow: 0 4px 12px rgba(201, 20, 63, 0.08);
   }
 
   /* ── Form fields ── */
@@ -2293,11 +2293,11 @@
   }
 
   .koma-rank-discover__scroll {
-    scrollbar-color: rgba(168, 85, 247, 0.12) transparent;
+    scrollbar-color: rgba(201, 20, 63, 0.12) transparent;
   }
 
   .koma-rank-discover__scroll::-webkit-scrollbar-thumb {
-    background: rgba(168, 85, 247, 0.12);
+    background: rgba(201, 20, 63, 0.12);
   }
 
   .koma-rank-discover__card {
@@ -2306,8 +2306,8 @@
   }
 
   .koma-rank-discover__card:hover {
-    border-color: rgba(168, 85, 247, 0.15);
-    background: rgba(168, 85, 247, 0.03);
+    border-color: rgba(201, 20, 63, 0.15);
+    background: rgba(201, 20, 63, 0.03);
   }
 
   .koma-rank-discover__card-pill {
@@ -2329,7 +2329,7 @@
 
   /* ── SFX decorative ── */
   .koma-rank-sfx {
-    color: rgba(168, 85, 247, 0.02);
+    color: rgba(201, 20, 63, 0.02);
   }
 
   .koma-rank-page__halftone {
@@ -2372,13 +2372,13 @@
     from {
       box-shadow:
         0 20px 60px rgba(0, 0, 0, 0.05),
-        0 0 40px rgba(168, 85, 247, 0.01);
+        0 0 40px rgba(201, 20, 63, 0.01);
     }
 
     to {
       box-shadow:
         0 20px 60px rgba(0, 0, 0, 0.05),
-        0 0 40px rgba(168, 85, 247, 0.04);
+        0 0 40px rgba(201, 20, 63, 0.04);
     }
   }
 }

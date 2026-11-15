@@ -11754,6 +11754,26 @@ body {
   background: transparent;
 }
 
+:root {
+  --mm-accent-border: rgba(168, 85, 247, 0.1);
+  --mm-accent-glow: rgba(168, 85, 247, 0.04);
+  --mm-accent-line: rgba(168, 85, 247, 0.15);
+  --mm-accent-line2: rgba(6, 182, 212, 0.08);
+  --mm-accent-focus: rgba(168, 85, 247, 0.5);
+  --mm-accent-dim: rgba(168, 85, 247, 0.4);
+  --mm-accent-ring: rgba(168, 85, 247, 0.08);
+}
+
+:root[data-theme-family='noir'] {
+  --mm-accent-border: color-mix(in srgb, var(--color-crimson) 10%, transparent);
+  --mm-accent-glow: color-mix(in srgb, var(--color-crimson) 4%, transparent);
+  --mm-accent-line: color-mix(in srgb, var(--color-crimson) 15%, transparent);
+  --mm-accent-line2: color-mix(in srgb, var(--color-azure) 8%, transparent);
+  --mm-accent-focus: color-mix(in srgb, var(--color-crimson) 50%, transparent);
+  --mm-accent-dim: color-mix(in srgb, var(--color-crimson) 40%, transparent);
+  --mm-accent-ring: color-mix(in srgb, var(--color-crimson) 8%, transparent);
+}
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
   .koma-dash__tools {

@@ -154,6 +154,7 @@
 }
 
 :root[data-theme-family='noir'] .koma-font-select__row--active {
+  border-color: var(--color-crimson);
   border-left-color: var(--color-crimson);
   background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
   color: var(--color-paper);

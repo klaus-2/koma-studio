@@ -21,3 +21,76 @@
   height: 28px;
   width: 1px;
 }
+
+:root[data-theme-family='noir'] .koma-type-dock {
+  border-color: color-mix(in srgb, var(--color-paper) 12%, transparent);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__row-sep {
+  background: color-mix(in srgb, var(--color-paper) 10%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__select:focus {
+  border-color: var(--color-crimson);
+  box-shadow: none;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__mini-label {
+  color: color-mix(in srgb, var(--color-crimson) 40%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__step-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-crimson) 10%, transparent);
+  color: var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__step-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-crimson) 45%, transparent);
+  outline-offset: -1px;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__icon-btn--active {
+  background: color-mix(in srgb, var(--color-crimson) 16%, transparent);
+  color: var(--color-paper);
+  box-shadow: inset 0 -2px 0 var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-crimson) 45%, transparent);
+  outline-offset: -1px;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__action--active {
+  background: color-mix(in srgb, var(--color-crimson) 12%, transparent);
+  color: var(--color-paper);
+  border-color: color-mix(in srgb, var(--color-crimson) 15%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__fine-range::-webkit-slider-thumb {
+  background: var(--color-crimson);
+  box-shadow: none;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__fine-range::-moz-range-thumb {
+  background: var(--color-crimson);
+  box-shadow: none;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__fine-range:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-crimson) 40%, transparent);
+  outline-offset: 2px;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__fine-toggle input[type='checkbox'] {
+  border-color: color-mix(in srgb, var(--color-paper) 18%, transparent);
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__fine-toggle input[type='checkbox']:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-crimson) 45%, transparent);
+  outline-offset: 1px;
+}
+
+:root[data-theme-family='noir'] .koma-type-dock__fine-divider {
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-paper) 10%, transparent), transparent);
+}
