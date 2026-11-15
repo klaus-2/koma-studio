@@ -12,7 +12,10 @@ import type { TranslationKey } from '../../i18n/messages';
 import type { RuntimeExecutionNotice, StatusMessageTone } from '../../types/dashboard.types';
 import type { AioDeviceInfo } from '../../models/aioStageCatalog';
 import AioBatchProgressBadge from './AioBatchProgressBadge';
+import AioBatchPausedBadge from './AioBatchPausedBadge';
+import AioStageTimingPanel from './AioStageTimingPanel';
 import { deriveAioFooterProcessingLabel } from '../../pages/dashboard/hooks/aio-snapshot-state';
+import { useAioBatchPauseStore } from '../../pages/dashboard/stores/aio-batch-pause-store';
 import { useAioPipelineStore } from '../../pages/dashboard/stores/aio-pipeline-store';
 import { useStatusStore } from '../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
@@ -57,6 +60,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   const statusMessageToneStore = useStatusStore((s) => s.statusMessageTone);
   const runtimeExecutionNoticeStore = useStatusStore((s) => s.runtimeExecutionNotice);
   const processingStore = useUiShellStore((s) => s.processing);
+  const batchPauseActive = useAioBatchPauseStore((s) => s.pausePhase !== 'idle');
   const progressStore = useUiShellStore((s) => s.progress);
   const mode = useUiShellStore((s) => s.mode);
   const aioExecutionStatus = useAioPipelineStore((s) => s.aioExecutionStatus);
@@ -408,8 +412,14 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
               style={{ "--p": Math.round(progressStore) / 100 } as React.CSSProperties}
             />
             <span className="koma-footerbar__meta">{Math.round(progressStore)}%</span>
-            <FooterAioBatchBadge className="koma-footerbar__meta" />
           </div>
+        )}
+        {(processing || batchPauseActive) && (
+          <>
+            <FooterAioBatchBadge className="koma-footerbar__meta" />
+            <AioBatchPausedBadge className="koma-footerbar__meta" />
+            <AioStageTimingPanel className="koma-footerbar__meta" />
+          </>
         )}
         <TooltipProvider delayDuration={120}>
           <div className="koma-footerbar__actions" aria-label={t('dashboard.footer.quickLinks')}>

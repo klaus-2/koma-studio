@@ -53,7 +53,8 @@ export function useAioResultConsolidation({
 }: UseAioResultConsolidationArgs) {
   const { t } = useI18n();
 
-  return useCallback((imageResults: AioBatchImageResult[]) => {
+  return useCallback((imageResults: AioBatchImageResult[], options?: { skipImageIds?: ReadonlySet<string> }) => {
+    const skipImageIds = options?.skipImageIds ?? null;
     const nextDetections: Record<string, AioTextRegion[]> = {};
     const detectStageDetections: Record<string, AioTextRegion[]> = {};
     const ocrStageDetections: Record<string, AioTextRegion[]> = {};
@@ -69,25 +70,41 @@ export function useAioResultConsolidation({
     const cleanedOutputs: AioDownloadEntry[] = [];
 
     imageResults.forEach((result) => {
+      const skipped = skipImageIds?.has(result.imageId) ?? false;
       // Batch detect carries locked regions over from the previous snapshot
       // (fresh backend ids differ each run, so matching is spatial).
       const previousRegions =
         useRegionEditorStore.getState().aioDetectionsByImage[result.imageId] ?? [];
+      const preservedRegions = cloneAioRegions(previousRegions, cloneRenderStyle);
       // The detect-stage timeline record represents DETECT output, with the
       // locked regions carried over from the previous store snapshot.
-      detectStageDetections[result.imageId] = carryOverLockedRegions(
-        previousRegions,
-        cloneAioRegions(result.detectDetections, cloneRenderStyle),
-      );
-      ocrStageDetections[result.imageId] = cloneAioRegions(result.ocrDetections, cloneRenderStyle);
-      translationStageDetections[result.imageId] = cloneAioRegions(result.translationDetections, cloneRenderStyle);
-      segmentStageDetections[result.imageId] = cloneAioRegions(result.segmentDetections, cloneRenderStyle);
-      cleanStageDetections[result.imageId] = cloneAioRegions(result.cleanDetections, cloneRenderStyle);
-      renderStageDetections[result.imageId] = cloneAioRegions(result.renderDetections, cloneRenderStyle);
-      nextDetections[result.imageId] = carryOverLockedRegions(
-        previousRegions,
-        cloneAioRegions(result.renderDetections, cloneRenderStyle),
-      );
+      detectStageDetections[result.imageId] = skipped
+        ? preservedRegions
+        : carryOverLockedRegions(
+            previousRegions,
+            cloneAioRegions(result.detectDetections, cloneRenderStyle),
+          );
+      ocrStageDetections[result.imageId] = skipped
+        ? preservedRegions
+        : cloneAioRegions(result.ocrDetections, cloneRenderStyle);
+      translationStageDetections[result.imageId] = skipped
+        ? preservedRegions
+        : cloneAioRegions(result.translationDetections, cloneRenderStyle);
+      segmentStageDetections[result.imageId] = skipped
+        ? preservedRegions
+        : cloneAioRegions(result.segmentDetections, cloneRenderStyle);
+      cleanStageDetections[result.imageId] = skipped
+        ? preservedRegions
+        : cloneAioRegions(result.cleanDetections, cloneRenderStyle);
+      renderStageDetections[result.imageId] = skipped
+        ? preservedRegions
+        : cloneAioRegions(result.renderDetections, cloneRenderStyle);
+      nextDetections[result.imageId] = skipped
+        ? preservedRegions
+        : carryOverLockedRegions(
+            previousRegions,
+            cloneAioRegions(result.renderDetections, cloneRenderStyle),
+          );
 
       if (aioSteps.recognizeText) {
         totalRecognized += result.ocrDetections.filter((region) => (region.recognizedText ?? '').trim().length > 0).length;
@@ -202,13 +219,26 @@ export function useAioResultConsolidation({
       );
       const carriedByImage: Record<string, AioTextRegion[]> = {};
       for (const [imageId, incomingRegions] of Object.entries(incoming)) {
-        carriedByImage[imageId] = carryOverLockedRegions(
-          previousByImage[imageId] ?? [],
-          incomingRegions,
-        );
+        carriedByImage[imageId] =
+          skipImageIds?.has(imageId) ?? false
+            ? cloneAioRegions(previousByImage[imageId] ?? [], cloneRenderStyle)
+            : carryOverLockedRegions(
+                previousByImage[imageId] ?? [],
+                incomingRegions,
+              );
       }
       setAioDetectionsByImage(carriedByImage);
-      setAioSelectedRegionByImage({ ...latestSnapshot.selectedRegionByImage });
+      const previousSelection =
+        useRegionEditorStore.getState().aioSelectedRegionByImage;
+      const selectionByImage: Record<string, string | null> = {
+        ...latestSnapshot.selectedRegionByImage,
+      };
+      for (const imageId of skipImageIds ?? []) {
+        if (imageId in selectionByImage) {
+          selectionByImage[imageId] = previousSelection[imageId] ?? null;
+        }
+      }
+      setAioSelectedRegionByImage(selectionByImage);
     } else {
       setAioDetectionsByImage(nextDetections);
       setAioSelectedRegionByImage(buildAioSelectionMapFromDetections(nextDetections));

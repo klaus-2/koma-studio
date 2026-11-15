@@ -9,6 +9,7 @@
  * decides what to do with the outcomes.
  */
 import type { BatchMappingImage } from '@/pages/dashboard/lib/batch-mapping';
+import type { BatchProgress } from '@/pages/dashboard/lib/batch-wire';
 import {
   resolveBatchCapacity,
   runLocalAioBatchChunks,
@@ -66,6 +67,7 @@ export interface RunChapterQueueInput {
     totalUnits: number,
   ) => void;
   onChapterSettled?: (outcome: ChapterOutcome, index: number) => void;
+  beforeChapter?: () => Promise<void>;
 }
 
 export interface ChapterQueueResult {
@@ -91,6 +93,7 @@ export async function runChapterQueue({
   onChapterStart,
   onChapterProgress,
   onChapterSettled,
+  beforeChapter,
 }: RunChapterQueueInput): Promise<ChapterQueueResult> {
   const outcomes: ChapterOutcome[] = [];
   let aborted = false;
@@ -106,6 +109,15 @@ export async function runChapterQueue({
       aborted = aborted || signal.aborted;
       settle(skippedOutcome(chapter.id), index);
       continue;
+    }
+
+    if (beforeChapter !== undefined) {
+      await beforeChapter();
+      if (signal.aborted) {
+        aborted = true;
+        settle(skippedOutcome(chapter.id), index);
+        continue;
+      }
     }
 
     onChapterStart?.(chapter, index);
@@ -159,6 +171,7 @@ export interface LocalBatchChapterRunnerInput {
   capacity?: ResolvedBatchCapacity['capacity'];
   /** Per-chunk state, tagged with the chapter that produced it. */
   onChunkState?: (chapter: ChapterSource, state: BatchChunkState) => void;
+  onWireProgress?: (chapter: ChapterSource, progress: BatchProgress) => void;
 }
 
 /**
@@ -173,6 +186,7 @@ export const createLocalBatchChapterRunner = ({
   concurrency,
   capacity: resolvedCapacity,
   onChunkState,
+  onWireProgress,
 }: LocalBatchChapterRunnerInput): RunChapter => {
   let pendingCapacity: Promise<ResolvedBatchCapacity> | null = null;
   const capacity = (): Promise<ResolvedBatchCapacity> => {
@@ -194,6 +208,9 @@ export const createLocalBatchChapterRunner = ({
       onProgress,
       onChunkState: onChunkState
         ? (state) => onChunkState(chapter, state)
+        : undefined,
+      onWireProgress: onWireProgress
+        ? (progress) => onWireProgress(chapter, progress)
         : undefined,
     });
   };

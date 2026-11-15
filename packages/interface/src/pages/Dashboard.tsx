@@ -109,6 +109,7 @@ import './DockTools.css';
 import { desktopBridge } from "@/lib/desktop-bridge";
 import { useStatusStore } from './dashboard/stores/status-store';
 import { useUiShellStore } from './dashboard/stores/ui-shell-store';
+import { useAioBatchPauseStore } from './dashboard/stores/aio-batch-pause-store';
 import { useImageCollectionStore } from './dashboard/stores/image-collection-store';
 import { useLlmProvidersStore } from './dashboard/stores/llm-providers-store';
 import { useAioPipelineStore } from './dashboard/stores/aio-pipeline-store';
@@ -602,7 +603,10 @@ export const DashboardPage = ({
   }, [images.length, isDesktopRuntime]);
 
   useEffect(() => {
-    if (!processing) {
+    if (
+      !processing &&
+      useAioBatchPauseStore.getState().pausePhase === 'idle'
+    ) {
       clearAioExecutionState();
     }
   }, [clearAioExecutionState, processing]);

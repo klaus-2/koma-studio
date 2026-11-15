@@ -9509,6 +9509,22 @@ body {
   color: var(--auth-purple);
 }
 
+.koma-footerbar__meta .aio-stage-timing__toggle {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+.koma-footerbar__meta .aio-stage-timing__body {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
 /* ── Tools panel ── */
 .koma-dash__tools {
   width: 310px;

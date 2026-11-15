@@ -12,7 +12,11 @@ import { useI18n, type TranslateFn } from '@/i18n';
 import { parseApiError } from '@/pages/dashboard/helpers';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
 import { useCommittedAsyncAction } from '@/pages/dashboard/hooks/use-committed-async-action';
-import { estimateRemainingSeconds } from '@/pages/dashboard/lib/aio-batch-progress';
+import { enforceCacheLimitAfterRun } from '@/pages/dashboard/hooks/use-cache-limit-enforcement';
+import {
+  estimateRemainingSeconds,
+  type AioBatchProgress,
+} from '@/pages/dashboard/lib/aio-batch-progress';
 import {
   findChapterPreset,
   resolveChapterBatchOptions,
@@ -31,6 +35,9 @@ import {
   runChapterQueue,
   type ChapterSource,
 } from '@/pages/dashboard/lib/chapter-queue';
+import { createBatchPauseGate } from '@/pages/dashboard/lib/batch-pause-gate';
+import { runBatchPauseBoundary } from '@/pages/dashboard/lib/batch-pause-boundary';
+import { useAioBatchPauseStore } from '@/pages/dashboard/stores/aio-batch-pause-store';
 import {
   aioStageKeyForBatchStage,
   runLocalAioBatchChunks,
@@ -44,6 +51,11 @@ import {
 } from '@/pages/dashboard/lib/run-aio-batch';
 import { resolveWorkGlossaryForChapter } from '@/pages/dashboard/hooks/translator.execution';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
+import {
+  deriveLocalProviderLabel,
+  useAioStageTimingStore,
+} from '@/pages/dashboard/stores/aio-stage-timing-store';
+import { useEconomicUiStore } from '@/pages/dashboard/stores/economic-ui-store';
 import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collection-store';
 import { useLlmProvidersStore } from '@/pages/dashboard/stores/llm-providers-store';
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
@@ -317,14 +329,16 @@ export function useAioPipelineExecution(
       (stage) => stage === 'detectText' || aioSteps[stage],
     );
 
-    let controller: AbortController | null = null;
-    let unsubscribeImages: (() => void) | null = null;
-    let lastStage: AioPipelineSnapshotKey | null = null;
-    let runCompleted = false;
+      let controller: AbortController | null = null;
+      let unsubscribeImages: (() => void) | null = null;
+      let lastStage: AioPipelineSnapshotKey | null = null;
+      let runCompleted = false;
 
     try {
       useStatusStore.getState().setRuntimeExecutionNotice(null);
       useAioPipelineStore.getState().setAioBatchProgress(null);
+      useAioStageTimingStore.getState().resetForRun();
+      useAioBatchPauseStore.getState().reset();
       args.beginAioExecution('auto', executionImages.length, enabledStages);
 
       controller = useAioPipelineStore.getState().aioAbortController;
@@ -354,6 +368,26 @@ export function useAioPipelineExecution(
 
       if (!prepared) {
         return;
+      }
+
+      if (prepared.useCloudOcr || prepared.useCloudTranslation) {
+        useAioStageTimingStore
+          .getState()
+          .setProviderLine(
+            prepared.useCloudOcr
+              ? prepared.selectedOcrKey
+              : prepared.selectedTranslationKey,
+            'cloud',
+          );
+      } else {
+        useAioStageTimingStore
+          .getState()
+          .setProviderLine(
+            deriveLocalProviderLabel(
+              useAioPipelineStore.getState().aioDeviceInfo,
+            ),
+            'local',
+          );
       }
 
       const options = {
@@ -388,6 +422,17 @@ export function useAioPipelineExecution(
       });
 
       let results: AioBatchImageResult[];
+      const pauseGate = createBatchPauseGate(executionController.signal);
+      const pauseSettledResults: AioBatchImageResult[] = [];
+      const runBatchPauseBoundaryAtBoundary = (): Promise<void> =>
+        runBatchPauseBoundary({
+          gate: pauseGate,
+          signal: executionController.signal,
+          getAccumulatedResults: () => pauseSettledResults,
+          consolidate: (batchResults, consolidateOptions) => {
+            consolidate([...batchResults], consolidateOptions);
+          },
+        });
       if (prepared.useLocalBatchPipeline) {
         const localOptions: LocalAioBatchOptions = {
           sourceLanguage: options.sourceLanguage,
@@ -430,11 +475,13 @@ export function useAioPipelineExecution(
           scopePrefix: string,
           state: BatchChunkState,
         ): void => {
-          useStatusStore
-            .getState()
-            .setStatusMessage(
-              `AIO ${scopePrefix}batch ${state.chunkNumber}/${state.chunkCount} · ${state.name}`,
-            );
+          const chunkMessage = `AIO ${scopePrefix}batch ${state.chunkNumber}/${state.chunkCount} · ${state.name}`;
+          const economic = useEconomicUiStore.getState();
+          if (economic.hidden) {
+            economic.stageStatusMessage(chunkMessage);
+            return;
+          }
+          useStatusStore.getState().setStatusMessage(chunkMessage);
 
           // Stages run inside the sidecar, so polled state is the only source
           // for the indicator the per-image path feeds directly.
@@ -478,6 +525,15 @@ export function useAioPipelineExecution(
                 .setAioExecutionUnitsStarted(startedUnits, totalUnits);
             },
             onChunkState: (state) => handleChunkState(null, '', state),
+            onWireProgress: (progress) => {
+              useAioStageTimingStore
+                .getState()
+                .ingestWireProgress(progress, 'batch', '');
+            },
+            beforeChunk: runBatchPauseBoundaryAtBoundary,
+            onChunkSettled: (chunkResults) => {
+              pauseSettledResults.push(...chunkResults);
+            },
           });
           results = localRun.results;
         } else {
@@ -505,7 +561,7 @@ export function useAioPipelineExecution(
           ): void => {
             const position = chapterPositionById.get(chapter.id);
 
-            useAioPipelineStore.getState().setAioBatchProgress({
+            const progress: AioBatchProgress = {
               chapterIndex: (position?.index ?? 0) + 1,
               chapterCount: chapterGroups.length,
               chapterLabel: chapter.label,
@@ -515,7 +571,13 @@ export function useAioPipelineExecution(
                 completedImages: startedImages,
                 totalImages,
               }),
-            });
+            };
+            const economic = useEconomicUiStore.getState();
+            if (economic.hidden) {
+              economic.stageBatchProgress(progress);
+              return;
+            }
+            useAioPipelineStore.getState().setAioBatchProgress(progress);
           };
 
           const chapterRunOptions = (chapter: AioChapterGroup): LocalAioBatchOptions => {
@@ -556,6 +618,11 @@ export function useAioPipelineExecution(
             localApiUrl: args.localApiUrl,
             concurrency: args.effectiveBatchConcurrency,
             capacity: prepared.batchCapacity,
+            onWireProgress: (chapter, progress) => {
+              useAioStageTimingStore
+                .getState()
+                .ingestWireProgress(progress, chapter.id, chapter.label);
+            },
             onChunkState: (chapter, state) => {
               const position = chapterPositionById.get(chapter.id);
               const scopePrefix = position
@@ -573,6 +640,12 @@ export function useAioPipelineExecution(
             chapters,
             signal: executionController.signal,
             runChapter,
+            beforeChapter: runBatchPauseBoundaryAtBoundary,
+            onChapterSettled: (outcome) => {
+              if (outcome.status !== 'failed') {
+                pauseSettledResults.push(...outcome.results);
+              }
+            },
             onChapterStart: (chapter, index) => {
               const group = chapterGroups[index];
 
@@ -583,11 +656,13 @@ export function useAioPipelineExecution(
                 );
               }
 
-              useStatusStore
-                .getState()
-                .setStatusMessage(
-                  `AIO chapter ${index + 1}/${chapters.length} · ${chapter.label}...`,
-                );
+              const chapterMessage = `AIO chapter ${index + 1}/${chapters.length} · ${chapter.label}...`;
+              const economic = useEconomicUiStore.getState();
+              if (economic.hidden) {
+                economic.stageStatusMessage(chapterMessage);
+                return;
+              }
+              useStatusStore.getState().setStatusMessage(chapterMessage);
             },
             onChapterProgress: (chapterId, completedUnits, totalUnits) => {
               const position = chapterPositionById.get(chapterId);
@@ -652,6 +727,10 @@ export function useAioPipelineExecution(
           },
           onItemError: (error, item) =>
             buildFailedBatchResult(item, error, itemBusyMessage(error, t)),
+          beforeItem: runBatchPauseBoundaryAtBoundary,
+          onItemSettled: (value) => {
+            pauseSettledResults.push(value);
+          },
         });
       }
 
@@ -665,7 +744,9 @@ export function useAioPipelineExecution(
         return;
       }
 
-      const summary = consolidate(results);
+      const summary = consolidate(results, {
+        skipImageIds: useAioBatchPauseStore.getState().pauseConsolidatedImageIds,
+      });
 
       useUiShellStore.getState().setProgress(100);
 
@@ -747,6 +828,7 @@ export function useAioPipelineExecution(
       }
     } finally {
       unsubscribeImages?.();
+      useAioBatchPauseStore.getState().reset();
 
       if (
         controller &&
@@ -760,6 +842,7 @@ export function useAioPipelineExecution(
         // The handoff has to follow the release of `processing`: entering the
         // Manual editor is refused while a run owns the shell.
         if (runCompleted) {
+          void enforceCacheLimitAfterRun();
           args.onAutoRunCompleted();
         }
       }

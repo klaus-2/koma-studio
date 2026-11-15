@@ -15,6 +15,7 @@ import type {
   DesktopMiniBackendRuntimeArtifactOption, DesktopMiniBackendRuntimeState, UpdaterChannel,
 } from "../../../types";
 import type { LocalResetFeedbackState, WorkspaceAutosaveFeedbackState } from "../settings.types";
+import { SettingsCacheSectionNoir } from "./SettingsCacheSectionNoir";
 import {
   Sec, Field, SpecGrid, SpecRow, Alert, ToggleRow,
   inputCls, selectCls, btnPrimary, btnGhost, btnDanger,
@@ -308,6 +309,8 @@ export const renderSettingsAppTabNoir = (a: SettingsAppTabArgs): React.ReactElem
           {t("settings.app.performance.threads.restartHint")}
         </p>
       </Sec>
+
+      <SettingsCacheSectionNoir t={t} />
 
       {/* ═══ TOOLTIPS ═══ */}
       <Sec icon={<Lightbulb size={14} />} title={t("settings.tooltips.title")} desc={t("settings.tooltips.description")}>

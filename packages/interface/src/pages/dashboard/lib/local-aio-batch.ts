@@ -225,6 +225,9 @@ export interface RunLocalAioBatchChunksInput {
    * gives up (recoverable — the chunk keeps running).
    */
   onChunkState?: (state: BatchChunkState | BatchChunkPollFailedState) => void;
+  onWireProgress?: (progress: BatchProgress) => void;
+  beforeChunk?: () => Promise<void>;
+  onChunkSettled?: (results: readonly AioBatchImageResult[]) => void;
 }
 
 export interface LocalAioBatchChunksResult {
@@ -722,6 +725,9 @@ export async function runLocalAioBatchChunks({
   signal,
   onProgress,
   onChunkState,
+  onWireProgress,
+  beforeChunk,
+  onChunkSettled,
 }: RunLocalAioBatchChunksInput): Promise<LocalAioBatchChunksResult> {
   const total = images.length;
   const results: AioBatchImageResult[] = [];
@@ -740,6 +746,13 @@ export async function runLocalAioBatchChunks({
   for (let chunkNumber = 1; chunkNumber <= chunkCount; chunkNumber += 1) {
     if (signal.aborted) {
       throw createAioAbortError();
+    }
+
+    if (beforeChunk !== undefined) {
+      await beforeChunk();
+      if (signal.aborted) {
+        throw createAioAbortError();
+      }
     }
 
     const chunk = chunks[chunkNumber - 1] ?? [];
@@ -761,6 +774,7 @@ export async function runLocalAioBatchChunks({
       batchId,
       signal,
       onUpdate: (progress) => {
+        onWireProgress?.(progress);
         // Units, not finished images: a 20-page run with one slow translation
         // would otherwise sit at 0% until the first page fully completes.
         const chunkUnits = Math.min(
@@ -803,6 +817,7 @@ export async function runLocalAioBatchChunks({
         batchId,
       });
       results.push(...chunkResult.results);
+      onChunkSettled?.(chunkResult.results);
       onProgress?.((offset + chunk.length) * stageUnitsPerImage, totalUnits);
     } finally {
       stopPolling();

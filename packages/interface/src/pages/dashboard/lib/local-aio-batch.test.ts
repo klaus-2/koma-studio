@@ -182,6 +182,8 @@ const makeProgress = (
   cancelled: false,
   finished: false,
   updatedAt: '2026-10-10T00:00:00Z',
+  stageSeconds: null,
+  lastStageMs: null,
   ...overrides,
 });
 

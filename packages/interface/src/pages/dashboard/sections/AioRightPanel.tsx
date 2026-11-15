@@ -1,6 +1,9 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { useShallowStableObject } from '../../../utils/shallowStable';
+import AioCloudPreviewDialog from '../../../components/dashboard/AioCloudPreviewDialog';
+import AioBatchPauseButton from './AioBatchPauseButton';
+import { useAioCloudPreviewStart } from '../hooks/use-aio-cloud-preview-start';
 
 import {
   AlertTriangle,
@@ -370,6 +373,13 @@ export default memo(function AioRightPanel({
     || (aioMiniBackendRuntimeState?.requestedProfile
       && aioMiniBackendRuntimeState.requestedProfile !== 'cpu'),
   );
+
+  const cloudPreview = useAioCloudPreviewStart({
+    processAIO,
+    processing,
+    images,
+    selectedCustomTranslationProfile,
+  });
 
   return (
     <div className="koma-aio-tools">
@@ -876,7 +886,8 @@ export default memo(function AioRightPanel({
               ? processing ||
               !resolvedActiveId ||
               !activeManualProgress
-              : processing || images.length === 0
+              :
+                processing || cloudPreview.runActive || images.length === 0
           }
           title={
             subMode === 'manual'
@@ -888,7 +899,7 @@ export default memo(function AioRightPanel({
           onClick={
             subMode === 'manual'
               ? () => void handleExecuteManualAioStage()
-              : processAIO
+              : cloudPreview.handleAutoStartWithCloudPreview
           }
           aria-busy={processing}
         >
@@ -915,7 +926,7 @@ export default memo(function AioRightPanel({
             </>
           )}
         </button>
-        {processing && (
+        {cloudPreview.runActive && (
           <button
             type="button"
             className="koma-aio-execute__btn koma-aio-execute__btn--stop"
@@ -929,6 +940,20 @@ export default memo(function AioRightPanel({
             <X size={14} />
             {t("dashboard.dashboardExecute.stop")}
           </button>
+        )}
+        <AioBatchPauseButton subMode={subMode} />
+        {cloudPreview.previewGate !== null && (
+          <AioCloudPreviewDialog
+            gate={cloudPreview.previewGate}
+            imageCount={cloudPreview.imageCount}
+            imageBytes={cloudPreview.imageBytes}
+            textRegionCount={cloudPreview.textRegionCount}
+            knownTextChars={cloudPreview.knownTextChars}
+            imagesWithKnownText={cloudPreview.imagesWithKnownText}
+            neighborContextEnabled={cloudPreview.neighborContextEnabled}
+            onConfirm={() => { cloudPreview.clearPreviewGate(); processAIO(); }}
+            onCancel={cloudPreview.clearPreviewGate}
+          />
         )}
       </div>
     </div>

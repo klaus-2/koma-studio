@@ -15,6 +15,8 @@ interface RunAioBatchOptions<T, R> {
    * An aborted signal (or a throwing handler) still stops the run.
    */
   readonly onItemError?: (error: unknown, item: T, index: number) => R;
+  readonly beforeItem?: () => Promise<void>;
+  readonly onItemSettled?: (value: R) => void;
 }
 
 type ResultSlot<T> =
@@ -38,6 +40,8 @@ export async function runAioBatch<T, R>({
   worker,
   onProgress,
   onItemError,
+  beforeItem,
+  onItemSettled,
 }: RunAioBatchOptions<T, R>): Promise<R[]> {
   if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
     throw new RangeError('AIO concurrency must be a positive safe integer.');
@@ -67,6 +71,13 @@ export async function runAioBatch<T, R>({
         return;
       }
 
+      if (beforeItem !== undefined) {
+        await beforeItem();
+        if (controller.signal.aborted) {
+          return;
+        }
+      }
+
       try {
         const value = await worker({
           ...queued,
@@ -81,6 +92,7 @@ export async function runAioBatch<T, R>({
         };
 
         completed += 1;
+        onItemSettled?.(value);
         onProgress?.(completed, items.length);
       } catch (error: unknown) {
         if (controller.signal.aborted) {

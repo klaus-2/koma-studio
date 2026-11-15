@@ -21,6 +21,7 @@ import type {
   LocalResetFeedbackState,
   WorkspaceAutosaveFeedbackState,
 } from "./settings.types";
+import { SettingsCacheSection } from "./SettingsCacheSection";
 
 type TranslationFn = ReturnType<typeof useI18n>["t"];
 type UpdaterStatusInfo = { labelKey: string; color: string; dot: string };
@@ -486,6 +487,8 @@ export const renderSettingsAppTab = ({
   </section>
 
   {/* Tool Tips */}
+  <SettingsCacheSection t={t} />
+
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">
       <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="koma-stg-section__ico">

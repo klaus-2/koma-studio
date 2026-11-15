@@ -9,7 +9,10 @@ import type { RuntimeExecutionNotice, StatusMessageTone } from '../../../types/d
 import type { AioDeviceInfo } from '../../../models/aioStageCatalog';
 import { cn } from '../../../utils/dashboard.utils';
 import AioBatchProgressBadge from '../AioBatchProgressBadge';
+import AioBatchPausedBadge from '../AioBatchPausedBadge';
+import AioStageTimingPanel from '../AioStageTimingPanel';
 import { deriveAioFooterProcessingLabel } from '../../../pages/dashboard/hooks/aio-snapshot-state';
+import { useAioBatchPauseStore } from '../../../pages/dashboard/stores/aio-batch-pause-store';
 import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
 import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
@@ -65,6 +68,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
   const statusMessageToneStore = useStatusStore((s) => s.statusMessageTone);
   const runtimeExecutionNoticeStore = useStatusStore((s) => s.runtimeExecutionNotice);
   const processingStore = useUiShellStore((s) => s.processing);
+  const batchPauseActive = useAioBatchPauseStore((s) => s.pausePhase !== 'idle');
   const progressStore = useUiShellStore((s) => s.progress);
   const mode = useUiShellStore((s) => s.mode);
   const aioExecutionStatus = useAioPipelineStore((s) => s.aioExecutionStatus);
@@ -274,7 +278,6 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
         )}
         {processing && (
           <>
-            <FooterAioBatchBadge className="whitespace-nowrap font-mono text-[9px] text-paper-dim" />
             <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">
               <m.div
                 className="halftone-red absolute inset-y-0 left-0 w-full origin-left bg-crimson"
@@ -284,6 +287,13 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
               />
               <span className="relative z-10 w-full text-center font-mono text-[9px] font-bold text-paper mix-blend-difference">{Math.round(progressStore)}%</span>
             </div>
+          </>
+        )}
+        {(processing || batchPauseActive) && (
+          <>
+            <FooterAioBatchBadge className="whitespace-nowrap font-mono text-[9px] text-paper-dim" />
+            <AioBatchPausedBadge className="whitespace-nowrap font-mono text-[9px] text-paper-dim" />
+            <AioStageTimingPanel className="whitespace-nowrap font-mono text-[9px] text-paper-dim" />
           </>
         )}
         <span aria-hidden className="mx-0.5 select-none font-mono text-[10px] text-paper-faint">/</span>

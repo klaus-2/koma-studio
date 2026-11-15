@@ -1,5 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LazyMotion, domMax } from "framer-motion";
+import { LazyMotion, MotionConfig, domMax } from "framer-motion";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { flushSync } from "react-dom";
 
@@ -16,6 +16,7 @@ import { useCustomCursor } from "./hooks/useCustomCursor";
 import { SessionTimeout } from "@koma/auth/SessionTimeout";
 import { PageTransition } from "./components/PageTransition";
 import { usePageTransition } from "./hooks/usePageTransition";
+import { useEconomicUiStore } from "./pages/dashboard/stores/economic-ui-store";
 import { useDiscordRPC } from "./hooks/useDiscordRPC";
 import { useI18n } from "./i18n";
 import {
@@ -524,17 +525,20 @@ const AppShell = () => {
 
 const App = () => {
   const { enabled: customCursorEnabled } = useCustomCursor();
+  const economicHidden = useEconomicUiStore((state) => state.hidden);
 
   return (
     // Root motion feature provider: every animated component uses `m` against
     // this single domMax bundle instead of shipping the full `motion` runtime.
     <LazyMotion features={domMax} strict>
-      <UpdaterProvider>
-        <AuthProvider>
-          {customCursorEnabled ? <CustomCursor /> : null}
-          <AppShell />
-        </AuthProvider>
-      </UpdaterProvider>
+      <MotionConfig reducedMotion={economicHidden ? "always" : "never"}>
+        <UpdaterProvider>
+          <AuthProvider>
+            {customCursorEnabled ? <CustomCursor /> : null}
+            <AppShell />
+          </AuthProvider>
+        </UpdaterProvider>
+      </MotionConfig>
     </LazyMotion>
   );
 };
