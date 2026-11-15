@@ -28,6 +28,7 @@ import { useSettingsProfileVerification } from "./settings/hooks/use-settings-pr
 import { useSettingsRuntimeInstall } from "./settings/hooks/use-settings-runtime-install";
 import { useSettingsTravelToken } from "./settings/hooks/use-settings-travel-token";
 import { useSettingsUpdaterControls } from "./settings/hooks/use-settings-updater-controls";
+import { useSettingsTranslationProviders } from "./settings/hooks/use-settings-translation-providers";
 import { useSettingsWebhook } from "./settings/hooks/use-settings-webhook";
 import type { SettingsPageProps, SettingsTab } from "./settings/settings.types";
 import {
@@ -99,6 +100,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   const webhook = useSettingsWebhook({ t });
   const blogger = useSettingsBlogger({ t });
   const imgur = useSettingsImgur({ t });
+  const translationProviders = useSettingsTranslationProviders({ t });
   const { presetFontOptions } = useRenderFontCatalog();
   const aio = useAioPresets({ t, userId: user?.id ?? null });
   const textFill = useTextFillSwatches({ t });
@@ -168,6 +170,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       user,
       ...blogger,
       ...imgur,
+      ...translationProviders,
       fmtDate,
     });
 

@@ -11,6 +11,7 @@ import type { BloggerConfig, ImgurConfig, ImgurRateLimitStatus } from "../../typ
 import { cn } from "@/utils/dashboard.utils";
 import { IntegGuide } from "../CollapsibleGuide";
 import type { BloggerFeedbackState, WebhookFeedbackState, WebhookTestStatus } from "./settings.types";
+import type { TranslationProviderSettings } from "./hooks/use-settings-translation-providers";
 
 type TranslationFn = ReturnType<typeof useI18n>["t"];
 
@@ -53,6 +54,11 @@ interface SettingsIntegrationsTabArgs {
   handleSaveImgurConfig: () => Promise<void>;
   imgurSaved: boolean;
   imgurFeedback: BloggerFeedbackState;
+  providers: TranslationProviderSettings;
+  updateTranslationProvider: <K extends keyof TranslationProviderSettings>(key: K, value: string) => void;
+  providersSaved: boolean;
+  saveTranslationProviders: () => Promise<void>;
+  providersFeedback: BloggerFeedbackState;
 }
 
 export const renderSettingsIntegrationsTab = ({
@@ -90,6 +96,11 @@ export const renderSettingsIntegrationsTab = ({
   handleSaveImgurConfig,
   imgurSaved,
   imgurFeedback,
+  providers,
+  updateTranslationProvider,
+  providersSaved,
+  saveTranslationProviders,
+  providersFeedback,
 }: SettingsIntegrationsTabArgs): JSX.Element => (
 <div className="koma-integ-panel" key="integrations">
 
@@ -478,6 +489,53 @@ export const renderSettingsIntegrationsTab = ({
         <ResourceExternalAnchor href="https://help.imgur.com/hc/en-us/articles/210076663-Uploading-Content">{t("settings.integrations.imgur.uploading")} <ExternalLink size={9} /></ResourceExternalAnchor>
       </div>
     </IntegGuide>
+  </section>
+
+  {/* ═══════════════════ TRANSLATION SERVICES ═══════════════════ */}
+  <section className="koma-integ-card">
+    <div className="koma-integ-card__head">
+      <span className="koma-integ-card__icon koma-integ-card__icon--blogger" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6.17H17V4h-7V2H8v2H1v2.18h11.59C11.55 8.36 10.03 10.34 8 12.14c-1.24-1.1-2.28-2.3-3.16-3.56H2.73c1.06 1.74 2.44 3.37 4.14 4.85l-7.09 7.02L1 21.59l3.5-3.5 2.09 2.09 1.41-1.41-2.08-2.09 3.11-3.11 2.54 2.53 1.3-1.44zm3.63-4.26c-.64 0-1.15-.51-1.15-1.15s.51-1.15 1.15-1.15 1.15.51 1.15 1.15-.51 1.15-1.15 1.15zm-.01-4.99c-2.13 0-3.85 1.72-3.85 3.85s1.72 3.85 3.85 3.85 3.85-1.72 3.85-3.85-1.72-3.85-3.85-3.85z" /></svg>
+      </span>
+      <div className="koma-integ-card__title-group">
+        <h3 className="koma-integ-card__title">
+          {t("settings.integrations.translation.title")}
+          <span className={`koma-integ-status${providers.libretranslateUrl.trim() || providers.deeplApiKey.trim() ? " koma-integ-status--on" : " koma-integ-status--off"}`} />
+        </h3>
+        <p className="koma-integ-card__desc">{t("settings.integrations.translation.description")}</p>
+      </div>
+    </div>
+
+    <div className="koma-integ-body">
+      <div className="koma-ig-field">
+        <label className="koma-ig-field__label">{t("settings.integrations.translation.libretranslateUrl")}</label>
+        <input type="text" className="koma-ig-field__input" value={providers.libretranslateUrl} onChange={(e) => updateTranslationProvider("libretranslateUrl", e.target.value)} placeholder={t("settings.integrations.translation.libretranslateUrlPlaceholder")} />
+      </div>
+
+      <div className="koma-ig-grid">
+        <div className="koma-ig-field">
+          <label className="koma-ig-field__label">{t("settings.integrations.translation.libretranslateApiKey")}</label>
+          <input type="password" className="koma-ig-field__input" value={providers.libretranslateApiKey} onChange={(e) => updateTranslationProvider("libretranslateApiKey", e.target.value)} placeholder={t("settings.integrations.translation.libretranslateApiKeyPlaceholder")} />
+        </div>
+        <div className="koma-ig-field">
+          <label className="koma-ig-field__label">{t("settings.integrations.translation.deeplApiKey")}</label>
+          <input type="password" className="koma-ig-field__input" value={providers.deeplApiKey} onChange={(e) => updateTranslationProvider("deeplApiKey", e.target.value)} placeholder={t("settings.integrations.translation.deeplApiKeyPlaceholder")} />
+        </div>
+      </div>
+
+      <div className="koma-ig-footer">
+        <button type="button" className="koma-btn koma-btn--primary koma-btn--sm" onClick={() => void saveTranslationProviders()}>
+          {providersSaved ? t("settings.integrations.saved") : t("common.save")}
+        </button>
+      </div>
+    </div>
+
+    {providersFeedback && (
+      <div className={`koma-ig-alert${providersFeedback.type === "error" ? " koma-ig-alert--error" : " koma-ig-alert--success"}`} role={providersFeedback.type === "error" ? "alert" : "status"}>
+        {providersFeedback.type === "error" ? <AlertTriangle size={11} className="koma-ig-alert__icon" /> : <CheckCircle2 size={11} className="koma-ig-alert__icon" />}
+        <span>{providersFeedback.message}</span>
+      </div>
+    )}
   </section>
 </div>
 );

@@ -9,6 +9,7 @@ import type { useI18n } from "../../../i18n";
 import type { BloggerConfig, ImgurConfig, ImgurRateLimitStatus } from "../../../types";
 import { IntegGuide } from "../../../pages/CollapsibleGuide";
 import type { BloggerFeedbackState, WebhookFeedbackState, WebhookTestStatus } from "../settings.types";
+import type { TranslationProviderSettings } from "../hooks/use-settings-translation-providers";
 import {
   Sec, Field, Alert, InkToggle, inputCls, selectCls,
   btnPrimary, btnGhost, iconBtnDanger,
@@ -51,6 +52,11 @@ interface SettingsIntegrationsTabArgs {
   handleSaveImgurConfig: () => Promise<void>;
   imgurSaved: boolean;
   imgurFeedback: BloggerFeedbackState;
+  providers: TranslationProviderSettings;
+  updateTranslationProvider: <K extends keyof TranslationProviderSettings>(key: K, value: string) => void;
+  providersSaved: boolean;
+  saveTranslationProviders: () => Promise<void>;
+  providersFeedback: BloggerFeedbackState;
 }
 
 const LiveDot = ({ on }: { on: boolean }) => (
@@ -440,6 +446,45 @@ export const renderSettingsIntegrationsTabNoir = (a: SettingsIntegrationsTabArgs
               ))}
             </div>
           </IntegGuide>
+        </div>
+      </Sec>
+
+      {/* ═══════════ TRANSLATION SERVICES ═══════════ */}
+      <Sec
+        icon={<svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6.17H17V4h-7V2H8v2H1v2.18h11.59C11.55 8.36 10.03 10.34 8 12.14c-1.24-1.1-2.28-2.3-3.16-3.56H2.73c1.06 1.74 2.44 3.37 4.14 4.85l-7.09 7.02L1 21.59l3.5-3.5 2.09 2.09 1.41-1.41-2.08-2.09 3.11-3.11 2.54 2.53 1.3-1.44zm3.63-4.26c-.64 0-1.15-.51-1.15-1.15s.51-1.15 1.15-1.15 1.15.51 1.15 1.15-.51 1.15-1.15 1.15zm-.01-4.99c-2.13 0-3.85 1.72-3.85 3.85s1.72 3.85 3.85 3.85 3.85-1.72 3.85-3.85-1.72-3.85-3.85-3.85z" /></svg>}
+        title={t("settings.integrations.translation.title")}
+        desc={t("settings.integrations.translation.description")}
+        actions={<LiveDot on={Boolean(a.providers.libretranslateUrl.trim() || a.providers.deeplApiKey.trim())} />}
+      >
+        <div className="space-y-4">
+          <Field label={t("settings.integrations.translation.libretranslateUrl")}>
+            <input type="text" className={inputCls} value={a.providers.libretranslateUrl}
+              onChange={(e) => a.updateTranslationProvider("libretranslateUrl", e.target.value)}
+              placeholder={t("settings.integrations.translation.libretranslateUrlPlaceholder")} />
+          </Field>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("settings.integrations.translation.libretranslateApiKey")}>
+              <input type="password" className={inputCls} value={a.providers.libretranslateApiKey}
+                onChange={(e) => a.updateTranslationProvider("libretranslateApiKey", e.target.value)}
+                placeholder={t("settings.integrations.translation.libretranslateApiKeyPlaceholder")} />
+            </Field>
+            <Field label={t("settings.integrations.translation.deeplApiKey")}>
+              <input type="password" className={inputCls} value={a.providers.deeplApiKey}
+                onChange={(e) => a.updateTranslationProvider("deeplApiKey", e.target.value)}
+                placeholder={t("settings.integrations.translation.deeplApiKeyPlaceholder")} />
+            </Field>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-paper/8 pt-4">
+            <button type="button" className={btnPrimary} onClick={() => void a.saveTranslationProviders()}>
+              {a.providersSaved ? `✓ ${t("settings.integrations.saved")}` : t("common.save")}
+            </button>
+          </div>
+
+          {a.providersFeedback && (
+            <Alert tone={a.providersFeedback.type === "error" ? "error" : "success"}>{a.providersFeedback.message}</Alert>
+          )}
         </div>
       </Sec>
     </div>
