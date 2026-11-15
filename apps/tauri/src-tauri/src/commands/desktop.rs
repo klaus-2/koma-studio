@@ -327,13 +327,16 @@ pub async fn open_external<R: Runtime>(
     .await
 }
 
-/// Reveals the mini-backend logs directory in the OS file manager.
+/// Opens the mini-backend logs directory in the OS file manager.
 ///
-/// Resolves the SAME base as the sidecar env (`KOMA_APP_DATA_DIR` =
-/// `app_data_dir`, logs under `app_data_dir/logs` — the folder the bug
-/// report auto-collector also scans). Fail-open: a failed create or reveal
-/// answers `{opened: false}` instead of surfacing a hard error, so a broken
-/// shell integration can never block diagnostics.
+/// Uses `open_path` (not `reveal_item_in_dir`) to match the Electron shell's
+/// `shell.openPath`: the user gets the logs folder opened with its files
+/// visible, not the folder selected inside its parent. Resolves the SAME
+/// base as the sidecar env (`KOMA_APP_DATA_DIR` = `app_data_dir`, logs under
+/// `app_data_dir/logs` — the folder the bug report auto-collector also
+/// scans). Fail-open: a failed create or open answers `{opened: false}`
+/// instead of surfacing a hard error, so a broken shell integration can
+/// never block diagnostics.
 #[tauri::command(rename = "desktop:open-logs-folder")]
 pub async fn open_logs_folder<R: Runtime>(
     app: AppHandle<R>,
@@ -353,12 +356,12 @@ pub async fn open_logs_folder<R: Runtime>(
         }
         let opened = app
             .opener()
-            .reveal_item_in_dir(&logs_dir)
-            .inspect_err(|reveal_error| {
+            .open_path(path_string.clone(), None::<&str>)
+            .inspect_err(|open_error| {
                 tracing::warn!(
                     operation = "open_logs_folder",
-                    error = %reveal_error,
-                    "logs directory reveal failed"
+                    error = %open_error,
+                    "logs directory could not be opened"
                 );
             })
             .is_ok();
