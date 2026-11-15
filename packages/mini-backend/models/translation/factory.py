@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 
 
 class TranslationModelMeta(TypedDict):
+    min_vram_gb: NotRequired[float]
     name: str
     device: str
     use_case: str
@@ -74,6 +75,7 @@ class TranslationModelOption(TypedDict):
     use_case: str
     implemented: bool
     available: bool
+    min_vram_gb: NotRequired[float]
     provider: NotRequired[str]
     default_api_base: NotRequired[str]
 
@@ -138,6 +140,7 @@ TRANSLATION_MODELS: dict[str, TranslationModelMeta] = {
         "name": "Sakura GalTransl 7B v3.7", "device": "cpu_gpu",
         "use_case": "Local JA->ZH-CN translation via GGUF (~6.3GB).",
         "implemented": True, "kind": "local_gguf", "requires": [],
+        "min_vram_gb": 6.0,
     },
     "sakura_1_5b_qwen2_5_v1_0": {
         "name": "Sakura 1.5B Qwen2.5 v1.0", "device": "cpu_gpu",
@@ -538,6 +541,8 @@ def list_translation_models() -> list[TranslationModelOption]:
             "implemented": meta["implemented"],
             "available": _is_available(key, meta),
         }
+        if "min_vram_gb" in meta:
+            option["min_vram_gb"] = meta["min_vram_gb"]
         if meta["kind"] == "llm":
             provider = meta.get("provider")
             if provider is not None:

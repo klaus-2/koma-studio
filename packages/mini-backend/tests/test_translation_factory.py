@@ -228,6 +228,17 @@ class TranslationNllbRunnableTests(unittest.TestCase):
 
 @unittest.skipIf(IMPORT_ERROR is not None, f"optional runtime dependencies missing: {IMPORT_ERROR}")
 class TranslationRegistrySnapshotTests(unittest.TestCase):
+    def test_sakura_meta_declares_min_vram_and_option_surfaces_it(self) -> None:
+        meta = translation_factory.TRANSLATION_MODELS["sakura_galtransl_7b_v3_7"]
+        self.assertEqual(meta.get("min_vram_gb"), 6.0)
+
+        options = {
+            option["key"]: option
+            for option in translation_factory.list_translation_models()
+        }
+        self.assertEqual(options["sakura_galtransl_7b_v3_7"].get("min_vram_gb"), 6.0)
+        self.assertNotIn("min_vram_gb", options["google_translate"])
+
     def test_nllb_600m_metadata_is_managed_runnable(self) -> None:
         self.assertEqual(
             translation_factory.TRANSLATION_MODELS["nllb-200-600m-int8"],

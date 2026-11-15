@@ -32,7 +32,10 @@ from models.ocr.transformers_vlm.engine import (  # noqa: E402
     TransformersVlmOcrEngine,
     _LoadedRuntime,
 )
-from models.ocr.transformers_vlm.storage import GOT_OCR2_MIN_VRAM_BYTES  # noqa: E402
+from models.ocr.transformers_vlm.storage import (  # noqa: E402
+    GOT_OCR2_MIN_VRAM_BYTES,
+    VLM_MIN_VRAM_BYTES,
+)
 from pipelines.ocr_stage import (  # noqa: E402
     CachedOcrRequest,
     CachedOcrResult,
@@ -230,8 +233,10 @@ class DeviceDecisionTests(unittest.TestCase):
     def test_undeclared_model_skips_the_probe(self) -> None:
         temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(temp_dir.cleanup)
+        # Every managed transformers-VLM now declares min_vram (plan 3.1), so
+        # the skip path is exercised with a key outside the declaration map.
         engine = TransformersVlmOcrEngine(
-            key="rolmocr", name="RolmOCR", model_dir=temp_dir.name, use_gpu=True
+            key="undeclared_vlm", name="Undeclared", model_dir=temp_dir.name, use_gpu=True
         )
         model = _StubModel()
         with (
@@ -313,6 +318,25 @@ class OcrModelsVramDeclarationTests(unittest.TestCase):
 
         self.assertEqual(options["got_ocr2"]["min_vram_gb"], 8.0)
         self.assertIsNone(options["manga_ocr"]["min_vram_gb"])
+
+    def test_full_vlm_family_declares_min_vram(self) -> None:
+        options = {option["key"]: option for option in list_ocr_models(has_gpu=False)}
+        expected = {
+            "got_ocr2": 8.0,
+            "qwen2_5_vl_3b": 8.0,
+            "glm_ocr_onnx": 8.0,
+            "paddleocr_vl_1_5": 8.0,
+            "paddleocr_vl_manga": 10.0,
+            "mangalmm": 14.0,
+            "rolmocr": 14.0,
+        }
+        for key, min_vram_gb in expected.items():
+            self.assertEqual(options[key]["min_vram_gb"], min_vram_gb)
+
+    def test_specs_parity_with_the_storage_vram_map(self) -> None:
+        options = {option["key"]: option for option in list_ocr_models(has_gpu=False)}
+        for key, vram_bytes in VLM_MIN_VRAM_BYTES.items():
+            self.assertEqual(options[key]["min_vram_gb"], vram_bytes / 1024**3)
 
 
 class _EmptyCache:

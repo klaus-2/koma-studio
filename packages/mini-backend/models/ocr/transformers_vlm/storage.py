@@ -21,13 +21,24 @@ from models.ocr.common import (
 )
 
 
-# Pre-load VRAM requirement for GOT-OCR2, matching factory.py's
-# `got_ocr2` spec (`min_vram_gb=8.0`). Only models declared here are checked
-# before `model.to(device)`; undeclared models keep the existing GPU choice.
+# Pre-load free-VRAM requirement per managed VLM (bytes). Single source of
+# truth: the engine probe reads it before `model.to(device)` and the OCR
+# factory specs mirror it (parity is tested). Only declared models are
+# checked; undeclared models keep the existing GPU choice. glm_ocr_onnx and
+# paddleocr_vl_manga have runtimes of their own (no probe) but still declare
+# the same limits for spec/payload parity.
 GOT_OCR2_MIN_VRAM_BYTES: Final = 8 * 1024**3
 
 logger = logging.getLogger(__name__)
-_VLM_MIN_VRAM_BYTES: Final[dict[str, int]] = {"got_ocr2": GOT_OCR2_MIN_VRAM_BYTES}
+VLM_MIN_VRAM_BYTES: Final[dict[str, int]] = {
+    "got_ocr2": GOT_OCR2_MIN_VRAM_BYTES,
+    "qwen2_5_vl_3b": 8 * 1024**3,
+    "glm_ocr_onnx": 8 * 1024**3,
+    "paddleocr_vl_1_5": 8 * 1024**3,
+    "paddleocr_vl_manga": 10 * 1024**3,
+    "mangalmm": 14 * 1024**3,
+    "rolmocr": 14 * 1024**3,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,7 +141,7 @@ _TRANSFORMERS_VLM_MODEL_SOURCES: dict[str, HfModelSource] = {
 
 def transformers_vlm_min_vram_bytes(model_id: str) -> int | None:
     """Declared free-VRAM requirement for a managed VLM, or None when undeclared."""
-    return _VLM_MIN_VRAM_BYTES.get((model_id or "").strip().lower())
+    return VLM_MIN_VRAM_BYTES.get((model_id or "").strip().lower())
 
 
 def _get_transformers_vlm_source(model_id: str) -> HfModelSource:

@@ -54,9 +54,15 @@ from models.ocr.pororo.storage import pororo_runtime_ready
 from models.ocr.pororo_engine import PororoOCREngine
 from models.ocr.transformers_vlm import TransformersVlmOcrEngine
 from models.ocr.transformers_vlm.storage import (
+    VLM_MIN_VRAM_BYTES,
     resolve_transformers_vlm_model_dir,
     transformers_vlm_runtime_ready,
 )
+
+
+def _vram_gb(model_key: str) -> float:
+    """Spec `min_vram_gb` from the storage map (GB); single source of truth."""
+    return VLM_MIN_VRAM_BYTES[model_key] / 1024**3
 
 
 AUTO_KEY = "auto"
@@ -158,19 +164,19 @@ _SPECS: tuple[_OcrModelSpec, ...] = (
     _OcrModelSpec("pororo", "Pororo OCR", ("ko",), "cpu_gpu", "Alta para coreano",
                   "OCR coreano (estilo Example/comic-translate)"),
     _OcrModelSpec("paddleocr_vl_manga", "PaddleOCR-VL Manga", ("ja",), "gpu", "VLM manga",
-                  "OCR local VLM focado em manga japonesa."),
+                  "OCR local VLM focado em manga japonesa.", min_vram_gb=_vram_gb("paddleocr_vl_manga")),
     _OcrModelSpec("got_ocr2", "GOT-OCR2", (_MULTI,), "gpu", "VLM OCR geral",
-                  "OCR local multimodal via GOT-OCR 2.0.", min_vram_gb=8.0),
+                  "OCR local multimodal via GOT-OCR 2.0.", min_vram_gb=_vram_gb("got_ocr2")),
     _OcrModelSpec("qwen2_5_vl_3b", "Qwen2.5-VL 3B", (_MULTI,), "gpu_8gb+", "VLM OCR geral",
-                  "OCR local via Qwen2.5-VL-3B-Instruct."),
+                  "OCR local via Qwen2.5-VL-3B-Instruct.", min_vram_gb=_vram_gb("qwen2_5_vl_3b")),
     _OcrModelSpec("mangalmm", "MangaLMM", ("ja",), "gpu_8gb+", "VLM manga",
-                  "OCR/entendimento multimodal especializado em manga."),
+                  "OCR/entendimento multimodal especializado em manga.", min_vram_gb=_vram_gb("mangalmm")),
     _OcrModelSpec("rolmocr", "RolmOCR", (_MULTI,), "gpu_8gb+", "VLM documento/OCR",
-                  "OCR local robusto com base Qwen2.5-VL."),
+                  "OCR local robusto com base Qwen2.5-VL.", min_vram_gb=_vram_gb("rolmocr")),
     _OcrModelSpec("glm_ocr_onnx", "GLM-OCR", ("zh", "en", "fr", "es", "ru", "de", "ja", "ko"), "gpu_8gb+",
-                  "VLM OCR geral", "OCR local GLM com foco em layout complexo."),
+                  "VLM OCR geral", "OCR local GLM com foco em layout complexo.", min_vram_gb=_vram_gb("glm_ocr_onnx")),
     _OcrModelSpec("paddleocr_vl_1_5", "PaddleOCR-VL 1.5", (_MULTI,), "gpu", "VLM OCR multilingue",
-                  "OCR VLM multilingue de alta qualidade (PaddleOCR-VL 1.5)."),
+                  "OCR VLM multilingue de alta qualidade (PaddleOCR-VL 1.5).", min_vram_gb=_vram_gb("paddleocr_vl_1_5")),
 )
 
 
