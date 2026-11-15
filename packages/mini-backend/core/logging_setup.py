@@ -64,6 +64,17 @@ def configure_logging(level: int = logging.INFO) -> None:
     except Exception as exc:  # fail-open: file logging must never break inference
         _warn_file_logging_off(type(exc).__name__)
     logging.basicConfig(level=level, handlers=handlers, force=True)
+    _log_backend_startup()
+
+
+def _log_backend_startup() -> None:
+    """One lifecycle event per process: allowlisted env snapshot, no secrets."""
+    from core.diagnostics import get_environment_snapshot
+
+    logging.getLogger(__name__).info(
+        "backend.startup",
+        extra={"environment_snapshot": get_environment_snapshot()},
+    )
 
 
 def _build_file_handler() -> RotatingFileHandler | None:
