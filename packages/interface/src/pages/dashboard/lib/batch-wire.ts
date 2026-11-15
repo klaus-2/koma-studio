@@ -53,6 +53,8 @@ export interface BatchProgress {
   cancelled: boolean;
   finished: boolean;
   updatedAt: string;
+  stageSeconds: Record<string, number> | null;
+  lastStageMs: number | null;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -526,6 +528,22 @@ export function parseBatchCapacity(payload: unknown, status: number): BatchCapac
   };
 }
 
+const readStageSeconds = (value: unknown): Record<string, number> | null => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (!isRecord(value)) {
+    return null;
+  }
+  const parsed: Record<string, number> = {};
+  for (const [name, seconds] of Object.entries(value)) {
+    if (typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0) {
+      parsed[name] = seconds;
+    }
+  }
+  return parsed;
+};
+
 /** `GET /pipeline/batch/progress` response; a 404 never reaches this parser. */
 export function parseBatchProgress(payload: unknown, status: number): BatchProgress {
   if (!isRecord(payload)) {
@@ -548,6 +566,8 @@ export function parseBatchProgress(payload: unknown, status: number): BatchProgr
   const cancelled = readBoolean(payload, 'cancelled');
   const finished = readBoolean(payload, 'finished');
   const updatedAt = readString(payload, 'updatedAt');
+  const stageSeconds = readStageSeconds(payload['stageSeconds']);
+  const reportedLastStageMs = readNumber(payload, 'lastStageMs');
   if (
     batchId === null ||
     total === null ||
@@ -585,5 +605,8 @@ export function parseBatchProgress(payload: unknown, status: number): BatchProgr
     cancelled,
     finished,
     updatedAt,
+    stageSeconds,
+    lastStageMs:
+      reportedLastStageMs === null ? null : Math.round(reportedLastStageMs),
   };
 }
