@@ -1721,6 +1721,8 @@ export const jaMessages: TranslationCatalog = {
   'bugReport.clearCrop': 'トリミングをクリア',
   'bugReport.manualAttachments': '手動添付',
   'bugReport.attach': '添付',
+  'diagnostics.openLogsFolder': 'ログフォルダを開く',
+  'diagnostics.openLogsFolderError': 'ログフォルダを開けませんでした。',
   'bugReport.attach.summary':
     '最大 {count} ファイル、各 {size}MB。合計：{total}。',
   'bugReport.attach.maxCount': '最大 {count} 件の添付ファイル。',

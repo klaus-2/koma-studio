@@ -1723,6 +1723,8 @@ export const frMessages: TranslationCatalog = {
   'bugReport.clearCrop': 'Effacer le recadrage',
   'bugReport.manualAttachments': 'Pièces jointes manuelles',
   'bugReport.attach': 'Joindre',
+  'diagnostics.openLogsFolder': 'Ouvrir le dossier de logs',
+  'diagnostics.openLogsFolderError': 'Impossible d’ouvrir le dossier de logs.',
   'bugReport.attach.summary':
     'Max {count} fichiers, {size} Mo chacun. Total : {total}.',
   'bugReport.attach.maxCount': 'Max {count} pièces jointes.',

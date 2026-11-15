@@ -1741,6 +1741,8 @@ export const itMessages: TranslationCatalog = {
   'bugReport.clearCrop': 'Cancella ritaglio',
   'bugReport.manualAttachments': 'Allegati manuali',
   'bugReport.attach': 'Allega',
+  'diagnostics.openLogsFolder': 'Apri la cartella dei log',
+  'diagnostics.openLogsFolderError': 'Impossibile aprire la cartella dei log.',
   'bugReport.attach.summary':
     'Max {count} file, {size}MB ciascuno. Totale: {total}.',
   'bugReport.attach.maxCount': 'Massimo {count} allegati.',

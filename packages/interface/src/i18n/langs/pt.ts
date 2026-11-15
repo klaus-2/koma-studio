@@ -1743,6 +1743,8 @@ export const ptMessages: TranslationCatalog = {
   'bugReport.clearCrop': 'Limpar recorte',
   'bugReport.manualAttachments': 'Anexos manuais',
   'bugReport.attach': 'Anexar',
+  'diagnostics.openLogsFolder': 'Abrir pasta de logs',
+  'diagnostics.openLogsFolderError': 'Não foi possível abrir a pasta de logs.',
   'bugReport.attach.summary':
     'Máx {count} arquivos, {size}MB cada. Total: {total}.',
   'bugReport.attach.maxCount': 'Máx {count} anexos.',

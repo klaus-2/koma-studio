@@ -1574,6 +1574,8 @@ export const zhMessages: TranslationCatalog = {
   'bugReport.clearCrop': '清除裁剪',
   'bugReport.manualAttachments': '手动附件',
   'bugReport.attach': '附加',
+  'diagnostics.openLogsFolder': '打开日志文件夹',
+  'diagnostics.openLogsFolderError': '无法打开日志文件夹。',
   'bugReport.attach.summary':
     '最多 {count} 个文件，每个 {size}MB。总计：{total}。',
   'bugReport.attach.maxCount': '最多 {count} 个附件。',

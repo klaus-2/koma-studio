@@ -1743,6 +1743,8 @@ export const ruMessages: TranslationCatalog = {
   'bugReport.clearCrop': 'Сбросить обрезку',
   'bugReport.manualAttachments': 'Ручные вложения',
   'bugReport.attach': 'Прикрепить',
+  'diagnostics.openLogsFolder': 'Открыть папку логов',
+  'diagnostics.openLogsFolderError': 'Не удалось открыть папку логов.',
   'bugReport.attach.summary':
     'Макс. {count} файлов, {size} МБ каждый. Всего: {total}.',
   'bugReport.attach.maxCount': 'Максимум {count} вложений.',

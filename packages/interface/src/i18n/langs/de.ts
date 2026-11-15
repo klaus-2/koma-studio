@@ -1768,6 +1768,8 @@ export const deMessages: TranslationCatalog = {
   'bugReport.clearCrop': 'Ausschnitt entfernen',
   'bugReport.manualAttachments': 'Manuelle Anhänge',
   'bugReport.attach': 'Anhängen',
+  'diagnostics.openLogsFolder': 'Logs-Ordner öffnen',
+  'diagnostics.openLogsFolderError': 'Der Logs-Ordner konnte nicht geöffnet werden.',
   'bugReport.attach.summary':
     'Max. {count} Dateien, je {size} MB. Gesamt: {total}.',
   'bugReport.attach.maxCount': 'Max. {count} Anhänge.',

@@ -1657,6 +1657,8 @@ export const arMessages: TranslationCatalog = {
   'bugReport.clearCrop': 'مسح الاقتصاص',
   'bugReport.manualAttachments': 'مرفقات يدوية',
   'bugReport.attach': 'إرفاق',
+  'diagnostics.openLogsFolder': 'افتح مجلد السجلات',
+  'diagnostics.openLogsFolderError': 'تعذر فتح مجلد السجلات.',
   'bugReport.attach.summary':
     'حد أقصى {count} ملفات، {size} ميجابايت لكل ملف. الإجمالي: {total}.',
   'bugReport.attach.maxCount': 'حد أقصى {count} مرفقات.',

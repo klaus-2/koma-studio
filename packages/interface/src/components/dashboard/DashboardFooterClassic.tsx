@@ -21,6 +21,7 @@ import { useAioPipelineStore } from '../../pages/dashboard/stores/aio-pipeline-s
 import { useStatusStore } from '../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
 import { useWorkspacePersistenceStore } from '../../pages/dashboard/stores/workspace-persistence-store';
+import { canOpenLogsFolder, openLogsFolder } from '../../lib/open-logs-folder';
 
 interface DashboardFooterProps {
   statusMessage?: string;
@@ -59,6 +60,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   const { t } = useI18n();
   const statusMessageStore = useStatusStore((s) => s.statusMessage);
   const statusMessageToneStore = useStatusStore((s) => s.statusMessageTone);
+  const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
   const runtimeExecutionNoticeStore = useStatusStore((s) => s.runtimeExecutionNotice);
   const processingStore = useUiShellStore((s) => s.processing);
   const batchPauseActive = useAioBatchPauseStore((s) => s.pausePhase !== 'idle');
@@ -379,6 +381,19 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
                   <>
                     <p style={{ fontWeight: 700 }}>{runtimeExecutionNotice.title}</p>
                     <p>{runtimeExecutionNotice.detail}</p>
+                    {canOpenLogsFolder() && (
+                      <button
+                        type="button"
+                        className="koma-btn koma-btn--ghost koma-btn--sm"
+                        onClick={() => {
+                          void openLogsFolder().catch(() => {
+                            setTonedStatus(t('diagnostics.openLogsFolderError'), 'error');
+                          });
+                        }}
+                      >
+                        {t('diagnostics.openLogsFolder')}
+                      </button>
+                    )}
                     <div className="koma-footerbar__tooltipDivider" />
                   </>
                 ) : null}

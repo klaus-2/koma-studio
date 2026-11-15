@@ -1796,6 +1796,8 @@ export const enMessages = {
   'bugReport.clearCrop': 'Clear crop',
   'bugReport.manualAttachments': 'Manual attachments',
   'bugReport.attach': 'Attach',
+  'diagnostics.openLogsFolder': 'Open logs folder',
+  'diagnostics.openLogsFolderError': 'Could not open the logs folder.',
   'bugReport.attach.summary':
     'Max {count} files, {size}MB each. Total: {total}.',
   'bugReport.attach.maxCount': 'Max {count} attachments.',

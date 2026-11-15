@@ -25,6 +25,7 @@ import { KomaDialog } from '@koma/ui/components/dialog';
 import '@koma/ui/styles/KomaModals.css';
 
 import { desktopBridge } from "@/lib/desktop-bridge";
+import { canOpenLogsFolder, openLogsFolder } from "@/lib/open-logs-folder";
 type BugSeverity = 'low' | 'medium' | 'high' | 'critical';
 type CropRect = { x: number; y: number; width: number; height: number };
 
@@ -571,10 +572,25 @@ const BugReportModalClassic = ({
 
               {/* Manual attachments */}
               <div className="koma-bug-sub">{t('bugReport.manualAttachments')}</div>
-              <label className="koma-bug-attach-btn">
-                <Paperclip size={12} /> {t('bugReport.attach')}
-                <input type="file" multiple onChange={addFiles} />
-              </label>
+              <div className="koma-bug-attach-row" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <label className="koma-bug-attach-btn">
+                  <Paperclip size={12} /> {t('bugReport.attach')}
+                  <input type="file" multiple onChange={addFiles} />
+                </label>
+                {canOpenLogsFolder() && (
+                  <button
+                    type="button"
+                    className="koma-bug-attach-btn"
+                    onClick={() => {
+                      void openLogsFolder().catch(() => {
+                        setAttachErr(t('diagnostics.openLogsFolderError'));
+                      });
+                    }}
+                  >
+                    {t('diagnostics.openLogsFolder')}
+                  </button>
+                )}
+              </div>
               <p
                 style={{
                   margin: 0,

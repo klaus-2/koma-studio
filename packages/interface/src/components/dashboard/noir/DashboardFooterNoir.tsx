@@ -17,6 +17,7 @@ import { useAioBatchPauseStore } from '../../../pages/dashboard/stores/aio-batch
 import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
 import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
+import { canOpenLogsFolder, openLogsFolder } from '../../../lib/open-logs-folder';
 import { useWorkspacePersistenceStore } from '../../../pages/dashboard/stores/workspace-persistence-store';
 
 interface DashboardFooterProps {
@@ -67,6 +68,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
 
   const statusMessageStore = useStatusStore((s) => s.statusMessage);
   const statusMessageToneStore = useStatusStore((s) => s.statusMessageTone);
+  const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
   const runtimeExecutionNoticeStore = useStatusStore((s) => s.runtimeExecutionNotice);
   const processingStore = useUiShellStore((s) => s.processing);
   const batchPauseActive = useAioBatchPauseStore((s) => s.pausePhase !== 'idle');
@@ -261,6 +263,12 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
                   <>
                     <p className="font-mono text-[11px] font-bold text-paper">{runtimeExecutionNotice.title}</p>
                     <p className="font-mono text-[11px] text-paper-dim">{runtimeExecutionNotice.detail}</p>
+                    {canOpenLogsFolder() && (
+                      <button type="button" onClick={() => void openLogsFolder().catch(() => setTonedStatus(t('diagnostics.openLogsFolderError'), 'error'))}
+                        className="font-mono text-[10px] uppercase tracking-wider text-azure underline decoration-azure/40 underline-offset-2 hover:decoration-azure">
+                        {t('diagnostics.openLogsFolder')}
+                      </button>
+                    )}
                     <div className="my-1 border-t border-paper/10" />
                   </>
                 )}

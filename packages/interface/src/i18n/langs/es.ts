@@ -1747,6 +1747,8 @@ export const esMessages: TranslationCatalog = {
   'bugReport.clearCrop': 'Borrar recorte',
   'bugReport.manualAttachments': 'Archivos adjuntos manuales',
   'bugReport.attach': 'Adjuntar',
+  'diagnostics.openLogsFolder': 'Abrir carpeta de logs',
+  'diagnostics.openLogsFolderError': 'No se pudo abrir la carpeta de logs.',
   'bugReport.attach.summary':
     'Máx. {count} archivos, {size}MB cada uno. Total: {total}.',
   'bugReport.attach.maxCount': 'Máx. {count} archivos adjuntos.',

@@ -1580,6 +1580,8 @@ export const zhMessages: TranslationCatalog = {
   'bugReport.clearCrop': '清除裁切',
   'bugReport.manualAttachments': '手動附件',
   'bugReport.attach': '附加',
+  'diagnostics.openLogsFolder': '開啟日誌資料夾',
+  'diagnostics.openLogsFolderError': '無法開啟日誌資料夾。',
   'bugReport.attach.summary':
     '最多 {count} 個檔案，每個 {size}MB。總計：{total}。',
   'bugReport.attach.maxCount': '最多 {count} 個附件。',

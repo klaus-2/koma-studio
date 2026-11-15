@@ -1713,6 +1713,8 @@ export const hiMessages: TranslationCatalog = {
   'bugReport.clearCrop': 'Hapus potongan',
   'bugReport.manualAttachments': 'Lampiran manual',
   'bugReport.attach': 'Lampirkan',
+  'diagnostics.openLogsFolder': 'लॉग फ़ोल्डर खोलें',
+  'diagnostics.openLogsFolderError': 'लॉग फ़ोल्डर नहीं खोला जा सका।',
   'bugReport.attach.summary':
     'Maks {count} file, {size}MB per file. Total: {total}.',
   'bugReport.attach.maxCount': 'Maks {count} lampiran.',

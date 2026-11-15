@@ -1,10 +1,17 @@
-import type { DesktopModelsApi, IDesktopBridge } from "@shared/desktop-api";
+import type {
+  DesktopDiagnosticsApi,
+  DesktopModelsApi,
+  IDesktopBridge,
+} from "@shared/desktop-api";
 
 const unavailable = (member: string): never => {
   throw new Error(`desktop bridge member "${member}" is not stubbed for this test`);
 };
 
-export const createDesktopBridgeStub = (models: DesktopModelsApi): IDesktopBridge => ({
+export const createDesktopBridgeStub = (
+  models: DesktopModelsApi,
+  extras?: { diagnostics?: DesktopDiagnosticsApi },
+): IDesktopBridge => ({
   getRuntimeConfig: () => unavailable("getRuntimeConfig"),
   getMiniBackendRuntimeState: async () => unavailable("getMiniBackendRuntimeState"),
   listMiniBackendRuntimeArtifacts: async () => unavailable("listMiniBackendRuntimeArtifacts"),
@@ -115,4 +122,5 @@ export const createDesktopBridgeStub = (models: DesktopModelsApi): IDesktopBridg
     isEnabled: async () => unavailable("discordRPC.isEnabled"),
     getPresetAssets: async () => unavailable("discordRPC.getPresetAssets"),
   },
+  diagnostics: extras?.diagnostics,
 });

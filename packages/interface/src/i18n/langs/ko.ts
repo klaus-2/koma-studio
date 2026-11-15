@@ -1672,6 +1672,8 @@ export const koMessages: TranslationCatalog = {
   'bugReport.clearCrop': '영역 지우기',
   'bugReport.manualAttachments': '수동 첨부 파일',
   'bugReport.attach': '첨부',
+  'diagnostics.openLogsFolder': '로그 폴더 열기',
+  'diagnostics.openLogsFolderError': '로그 폴더를 열지 못했습니다.',
   'bugReport.attach.summary':
     '최대 {count}개 파일, 각 {size}MB. 합계: {total}.',
   'bugReport.attach.maxCount': '최대 {count}개 첨부.',
