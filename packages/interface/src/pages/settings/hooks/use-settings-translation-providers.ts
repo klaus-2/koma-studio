@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { buildUrl } from '../../../config/api';
 import type { useI18n } from '../../../i18n';
+import { parseTranslationServiceAvailability } from '../../../models/aioStageCatalog';
+import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
 import type { BloggerFeedbackState } from '../settings.types';
 
 type TranslationFn = ReturnType<typeof useI18n>['t'];
@@ -25,6 +27,31 @@ const EMPTY_PROVIDERS: TranslationProviderSettings = {
 
 export interface UseSettingsTranslationProvidersArgs {
   t: TranslationFn;
+}
+
+/**
+ * The dashboard hydrates service availability once per session, so a key
+ * saved here would otherwise leave DeepL/LibreTranslate unselectable in the
+ * AIO picker until restart. Best-effort: on failure the backend still holds
+ * the truth and the next session rehydrates from it, so the save-success
+ * flow is kept intact.
+ */
+async function refreshTranslationServiceAvailability(): Promise<void> {
+  try {
+    const response = await fetch(buildUrl('localUrl', '/translate/models'));
+    if (!response.ok) {
+      throw new Error(`translate models HTTP ${response.status}`);
+    }
+    const payload: unknown = await response.json();
+    const availability = parseTranslationServiceAvailability(payload);
+    if (availability !== null) {
+      useAioPipelineStore
+        .getState()
+        .setAioTranslationServiceAvailability(availability);
+    }
+  } catch {
+    // Availability refresh is silent by design; the save was already reported.
+  }
 }
 
 /**
@@ -102,6 +129,7 @@ export const useSettingsTranslationProviders = ({ t }: UseSettingsTranslationPro
         message: t('settings.integrations.saved'),
       });
       setTimeout(() => setProvidersSaved(false), 3000);
+      void refreshTranslationServiceAvailability();
     } catch {
       setProvidersSaved(false);
       setProvidersFeedback({

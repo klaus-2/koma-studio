@@ -143,3 +143,110 @@ describe("selectAioTranslationModel commit", () => {
     ).toBeUndefined();
   });
 });
+
+describe("selectAioLocalStageModel commit", () => {
+  const SEGMENT_REFUSAL: StageModelRefusalDetail = {
+    code: "MODEL_NOT_CONFIGURED",
+    stage: "segment",
+    modelKey: "baka_content_cc",
+    availableKeys: [],
+  };
+
+  beforeEach(() => {
+    useAioPipelineStore.setState({ aioStageModelRefusals: {} });
+  });
+
+  it("commits an installed local model and clears a stored refusal", async () => {
+    const { I18nProvider } = await import("../../i18n");
+    const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+      <I18nProvider>{children}</I18nProvider>
+    );
+    const { result } = renderHook(
+      () =>
+        useAioModelSelection({
+          ocrStageOptionsForSelect: [],
+          filteredOcrStageOptions: [],
+          modelEntries: {
+            baka_content_cc: {
+              status: "installed",
+              model: { id: "baka_content_cc", name: "Baka Content CC" },
+            },
+          },
+          openModelManagerForStage: vi.fn(),
+          setStatusMessage: vi.fn(),
+        }),
+      { wrapper },
+    );
+
+    act(() => {
+      useAioPipelineStore.setState({
+        aioStageSelection: {
+          ...useAioPipelineStore.getState().aioStageSelection,
+          segmentText: "",
+        },
+        aioStageModelRefusals: { segmentText: SEGMENT_REFUSAL },
+      });
+    });
+
+    act(() => {
+      result.current.selectAioLocalStageModel("segmentText", "baka_content_cc");
+    });
+
+    await waitFor(() => {
+      expect(
+        useAioPipelineStore.getState().aioStageSelection.segmentText,
+      ).toBe("baka_content_cc");
+    });
+    expect(
+      useAioPipelineStore.getState().aioStageModelRefusals.segmentText,
+    ).toBeUndefined();
+  });
+
+  it("keeps the refusal and does not commit when the model is not installed", async () => {
+    const { I18nProvider } = await import("../../i18n");
+    const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+      <I18nProvider>{children}</I18nProvider>
+    );
+    const openModelManagerForStage = vi.fn();
+    const { result } = renderHook(
+      () =>
+        useAioModelSelection({
+          ocrStageOptionsForSelect: [],
+          filteredOcrStageOptions: [],
+          modelEntries: {
+            baka_content_cc: {
+              status: "not_installed",
+              model: { id: "baka_content_cc", name: "Baka Content CC" },
+            },
+          },
+          openModelManagerForStage,
+          setStatusMessage: vi.fn(),
+        }),
+      { wrapper },
+    );
+
+    act(() => {
+      useAioPipelineStore.setState({
+        aioStageSelection: {
+          ...useAioPipelineStore.getState().aioStageSelection,
+          segmentText: "",
+        },
+        aioStageModelRefusals: { segmentText: SEGMENT_REFUSAL },
+      });
+    });
+
+    act(() => {
+      result.current.selectAioLocalStageModel("segmentText", "baka_content_cc");
+    });
+
+    expect(openModelManagerForStage).toHaveBeenCalledWith("segmentText", {
+      focusedModelId: "baka_content_cc",
+    });
+    expect(
+      useAioPipelineStore.getState().aioStageSelection.segmentText,
+    ).toBe("");
+    expect(
+      useAioPipelineStore.getState().aioStageModelRefusals.segmentText,
+    ).toEqual(SEGMENT_REFUSAL);
+  });
+});

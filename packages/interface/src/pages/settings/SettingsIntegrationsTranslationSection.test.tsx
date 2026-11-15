@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setDesktopBridgeProvider } from "@/lib/desktop-bridge";
 import { installJsdomBrowserStubs } from "@/components/dashboard/renderTextPreviewTestSetup";
+import { buildAioStageCatalog, isStageOptionSelectable } from "@/models/aioStageCatalog";
+import { useAioPipelineStore } from "@/pages/dashboard/stores/aio-pipeline-store";
 import { WEBHOOK_EVENT_OPTIONS } from "@/services/discordWebhook";
 import type { BloggerConfig } from "@koma/types/blogger";
 import type { ImgurConfig, ImgurRateLimitStatus } from "@koma/types/imgur";
@@ -119,6 +121,10 @@ function fetchResponse(body: object, status = 200): Response {
 }
 
 describe("useSettingsTranslationProviders", () => {
+  beforeEach(() => {
+    useAioPipelineStore.setState({ aioTranslationServiceAvailability: {} });
+  });
+
   it("loads the persisted provider config from the local backend", async () => {
     const fetchMock = vi.fn(async () =>
       fetchResponse({
@@ -172,6 +178,78 @@ describe("useSettingsTranslationProviders", () => {
       deepl_api_key: null,
     });
     expect(result.current.providersSaved).toBe(true);
+  });
+
+  it("refreshes pipeline service availability after a successful save", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/translate/models")) {
+        return fetchResponse({
+          models: [{ key: "deepl", implemented: true, available: true }],
+        });
+      }
+      return fetchResponse({ providerConfig: {} });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useSettingsTranslationProviders({ t }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      await result.current.saveTranslationProviders();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/translate/models"),
+    );
+    await waitFor(() => {
+      expect(
+        useAioPipelineStore.getState().aioTranslationServiceAvailability,
+      ).toEqual({ deepl_translate: true });
+    });
+
+    const catalog = buildAioStageCatalog({
+      sourceLanguage: "ja",
+      translationServiceAvailability:
+        useAioPipelineStore.getState().aioTranslationServiceAvailability,
+    });
+    const deepl = catalog.getTranslations.find(
+      (option) => option.key === "deepl_translate",
+    );
+    expect(isStageOptionSelectable(deepl, {})).toBe(true);
+  });
+
+  it("keeps the save-success feedback when the availability refresh fails", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/translate/models")) {
+        return fetchResponse({ detail: "no" }, 500);
+      }
+      return fetchResponse({ providerConfig: {} });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useSettingsTranslationProviders({ t }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      await result.current.saveTranslationProviders();
+    });
+
+    expect(result.current.providersSaved).toBe(true);
+    expect(result.current.providersFeedback?.type).toBe("success");
+    await expect(
+      waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          expect.stringContaining("/translate/models"),
+        );
+      }),
+    ).resolves.toBeUndefined();
+    expect(
+      useAioPipelineStore.getState().aioTranslationServiceAvailability,
+    ).toEqual({});
   });
 
   it("surfaces an error feedback when the backend refuses", async () => {

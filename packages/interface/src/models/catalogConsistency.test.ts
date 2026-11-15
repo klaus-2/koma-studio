@@ -110,4 +110,15 @@ describe("catalog consistency", () => {
     expect(model?.requirements.vramMin).toBe("0");
     expect(model?.minVramGb).toBeUndefined();
   });
+
+  test("recovery stages lead with the backend's documented default models", () => {
+    // "Use default model" restores the FIRST option of the stage
+    // (DEFAULT_AIO_STAGE_OPTIONS[stage][0] mirrors BASE_AIO_STAGE_OPTIONS
+    // order), so a reorder here would silently change what the recovery
+    // action selects away from the backend defaults: font_rtdetr_v2,
+    // google_translate, baka_content_cc.
+    expect(BASE_AIO_STAGE_OPTIONS.detectText[0]?.key).toBe("font_rtdetr_v2");
+    expect(BASE_AIO_STAGE_OPTIONS.getTranslations[0]?.key).toBe("google_translate");
+    expect(BASE_AIO_STAGE_OPTIONS.segmentText[0]?.key).toBe("baka_content_cc");
+  });
 });

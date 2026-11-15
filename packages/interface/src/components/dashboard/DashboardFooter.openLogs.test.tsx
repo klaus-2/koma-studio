@@ -111,10 +111,25 @@ describe("open-logs-folder action on the runtime notice", () => {
     });
   });
 
-  it("surfaces an error status when the shell command fails", async () => {
+  it("surfaces an error status when the shell command rejects", async () => {
     const openLogsFolder = vi.fn(async () => {
       throw new Error("shell unavailable");
     });
+    setDesktopBridgeProvider({
+      desktop: createDesktopBridgeStub(modelsStub, { diagnostics: { openLogsFolder } }),
+      isDesktopRuntime: () => true,
+    });
+    renderFooter(NOTICE);
+
+    fireEvent.click(screen.getByText("Open logs folder"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Could not open the logs folder.")).toBeDefined();
+    });
+  });
+
+  it("surfaces an error status when the shell reports a failed reveal", async () => {
+    const openLogsFolder = vi.fn(async () => ({ opened: false, path: "C:/logs" }));
     setDesktopBridgeProvider({
       desktop: createDesktopBridgeStub(modelsStub, { diagnostics: { openLogsFolder } }),
       isDesktopRuntime: () => true,

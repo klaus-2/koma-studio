@@ -40,6 +40,7 @@ interface CatalogBuildModules {
     modelEntries: Record<string, ModelInstallState>;
   }) => void;
   useAioPipelineStore: typeof import('@/pages/dashboard/stores/aio-pipeline-store')['useAioPipelineStore'];
+  useUiShellStore: typeof import('@/pages/dashboard/stores/ui-shell-store')['useUiShellStore'];
   isStageOptionSelectable: typeof import('@/models/aioStageCatalog')['isStageOptionSelectable'];
 }
 
@@ -51,8 +52,15 @@ const importCatalogBuildModules = async (): Promise<CatalogBuildModules> => {
   const { I18nProvider } = await import('@/i18n');
   const { useAioStageCatalogBuild } = await import('./aio-pipeline.catalog.build');
   const { useAioPipelineStore } = await import('@/pages/dashboard/stores/aio-pipeline-store');
+  const { useUiShellStore } = await import('@/pages/dashboard/stores/ui-shell-store');
   const { isStageOptionSelectable } = await import('@/models/aioStageCatalog');
-  return { I18nProvider, useAioStageCatalogBuild, useAioPipelineStore, isStageOptionSelectable };
+  return {
+    I18nProvider,
+    useAioStageCatalogBuild,
+    useAioPipelineStore,
+    useUiShellStore,
+    isStageOptionSelectable,
+  };
 };
 
 describe('useAioStageCatalogBuild translation service hydration', () => {
@@ -196,5 +204,44 @@ describe('useAioStageCatalogBuild translation service hydration', () => {
       expect(option?.available).toBe(false);
       expect(isStageOptionSelectable(option, {})).toBe(false);
     }
+  });
+
+  it('never fetches translate models outside the aio mode', async () => {
+    const fetchMock = vi.fn(async () =>
+      fetchResponse({
+        models: [{ key: 'deepl', implemented: true, available: true }],
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const {
+      I18nProvider,
+      useAioStageCatalogBuild,
+      useAioPipelineStore,
+      useUiShellStore,
+    } = await importCatalogBuildModules();
+    useUiShellStore.setState({ mode: 'cleaner' });
+    const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+      <I18nProvider>{children}</I18nProvider>
+    );
+    renderHook(
+      () =>
+        useAioStageCatalogBuild({
+          customOcrStageOptions: [],
+          customTranslationStageOptions: [],
+          modelEntries: {},
+        }),
+      { wrapper },
+    );
+
+    await expect(
+      waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+      }, { timeout: 250 }),
+    ).rejects.toThrow();
+
+    expect(
+      useAioPipelineStore.getState().aioTranslationServiceAvailability,
+    ).toEqual({});
   });
 });
