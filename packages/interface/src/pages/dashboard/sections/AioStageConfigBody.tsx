@@ -68,6 +68,7 @@ interface AioStageConfigBodyProps {
   resolveLocalModelFocusForStage: AioModelSelectionApi['resolveLocalModelFocusForStage'];
   selectAioLocalStageModel: AioModelSelectionApi['selectAioLocalStageModel'];
   selectAioRecognizeTextModel: AioModelSelectionApi['selectAioRecognizeTextModel'];
+  selectAioTranslationModel: AioModelSelectionApi['selectAioTranslationModel'];
   selectedDetectStatusText: AioModelSelectionApi['selectedDetectStatusText'];
   selectedOcrStatusText: AioModelSelectionApi['selectedOcrStatusText'];
   selectedSegmentStatusText: AioModelSelectionApi['selectedSegmentStatusText'];
@@ -114,6 +115,7 @@ export default memo(function AioStageConfigBody({
   resolveLocalModelFocusForStage,
   selectAioLocalStageModel,
   selectAioRecognizeTextModel,
+  selectAioTranslationModel,
   selectedDetectStatusText,
   selectedOcrStatusText,
   selectedSegmentStatusText,
@@ -171,18 +173,21 @@ export default memo(function AioStageConfigBody({
   } = useActiveAioRegionState({ resolvedActiveId: activeId });
 
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
-  const setAioStageSelection = useAioPipelineStore(
-    (s) => s.setAioStageSelection,
-  );
   const stageModelRefusals = useAioPipelineStore(
     (s) => s.aioStageModelRefusals,
   );
   const setAioStageModelRefusal = useAioPipelineStore(
     (s) => s.setAioStageModelRefusal,
   );
-  const useDefaultModelForStage = (stage: 'detectText' | 'segmentText'): void => {
+  const useDefaultModelForStage = (
+    stage: 'detectText' | 'segmentText' | 'getTranslations',
+  ): void => {
     const defaultKey = DEFAULT_AIO_STAGE_OPTIONS[stage][0]?.key;
-    if (defaultKey) {
+    if (stage === 'getTranslations') {
+      if (defaultKey) {
+        selectAioTranslationModel(defaultKey);
+      }
+    } else if (defaultKey) {
       selectAioLocalStageModel(stage, defaultKey);
     }
     setAioStageModelRefusal(stage, null);
@@ -271,12 +276,9 @@ export default memo(function AioStageConfigBody({
             legacyOptions={availableTranslationStageOptions}
             installedCount={modelSummary.installedCount}
             updatesCount={modelSummary.updateCount}
-            onSelectModel={(modelId) =>
-              setAioStageSelection((prev) => ({
-                ...prev,
-                getTranslations: modelId,
-              }))
-            }
+            refusal={stageModelRefusals.getTranslations ?? null}
+            onUseDefaultModel={() => useDefaultModelForStage('getTranslations')}
+            onSelectModel={selectAioTranslationModel}
             onOpenManager={(args) => {
               openModelManagerForStage('getTranslations', {
                 language: args?.language ?? aioSrcLang,

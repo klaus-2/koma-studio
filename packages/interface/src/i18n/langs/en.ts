@@ -2402,6 +2402,8 @@ export const enMessages = {
   'modelCard.badge.downloadOnly': 'Download only — no local runtime yet',
   'modelCard.badge.aboveHardware': 'Above your hardware',
   'modelCatalog.error.notImplemented': 'Model not implemented',
+  'modelCatalog.error.notConfigured':
+    'This service is implemented but not configured. Add the required key or server URL in Settings → Integrations.',
   'modelCard.badge.untested': 'Not tested',
   'modelCatalog.error.unknownModel': 'Unknown model',
   'modelCatalog.error.availableModels': 'Available models',

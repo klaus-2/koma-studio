@@ -4842,6 +4842,8 @@ export const itMessages: TranslationCatalog = {
   'feed.tabsAria': "Sezioni del Feed Scanlation",
   'feed.actions.publishPost': "Pubblica {type}",
   'modelCatalog.error.notImplemented': 'Modello non implementato',
+  'modelCatalog.error.notConfigured':
+    'Questo servizio è implementato ma non è configurato. Aggiungi la chiave richiesta o l’URL del server in Impostazioni → Integrazioni.',
   'modelCard.badge.untested': 'Non testato',
   'modelCard.badge.aboveHardware': "Oltre l'hardware disponibile",
   'modelCatalog.error.unknownModel': 'Modello sconosciuto',

@@ -1,8 +1,9 @@
-import { AlertTriangle, HardDrive, Lock } from "lucide-react";
+import { AlertTriangle, HardDrive, Lock, ShieldAlert } from "lucide-react";
 import { memo, useMemo } from "react";
 
 import { modelSupportsLanguage, isDownloadOnlyModel, TRANSLATION_MODELS_REGISTRY } from "../../models/translation-models-registry";
 import type { ModelInstallState } from "../../models/types";
+import type { StageModelRefusalDetail } from "../../aio-stages/transport";
 import { useI18n } from "../../i18n";
 import type { LegacyTranslationOption } from "./types";
 import { useStageControlTokens } from "./stageControlTokens";
@@ -18,6 +19,10 @@ interface TranslationModelControlProps {
   updatesCount: number;
   selectedSummary: string;
   supportSummary: string;
+  /** Structured backend refusal for the current selection (warn, never block). */
+  refusal?: StageModelRefusalDetail | null;
+  /** Switches the persisted selection to the stage's default model (user consent only). */
+  onUseDefaultModel?: () => void;
   onSelectModel: (modelId: string) => void;
   onOpenManager: (args?: { language?: string; focusedModelId?: string | null }) => void;
 }
@@ -32,6 +37,8 @@ const TranslationModelControlBase = ({
   updatesCount,
   selectedSummary,
   supportSummary,
+  refusal = null,
+  onUseDefaultModel,
   onSelectModel,
   onOpenManager,
 }: TranslationModelControlProps) => {
@@ -166,6 +173,33 @@ const TranslationModelControlBase = ({
           </>
         )}
       </select>
+
+      {refusal ? (
+        <div className={styles.refusalNotice} role="alert">
+          <p className={styles.refusalTitle}>
+            <ShieldAlert size={13} aria-hidden="true" />
+            {refusal.code === "UNKNOWN_MODEL"
+              ? t("modelCatalog.error.unknownModel")
+              : refusal.code === "MODEL_NOT_CONFIGURED"
+                ? t("modelCatalog.error.notConfigured")
+                : t("modelCatalog.error.notImplemented")}
+          </p>
+          <p className="koma-field__hint">{refusal.modelKey}</p>
+          <p className="koma-field__hint">
+            {t("modelCatalog.error.availableModels")}:{" "}
+            {refusal.availableKeys.join(", ") || "-"}
+          </p>
+          {onUseDefaultModel ? (
+            <button
+              type="button"
+              className={tokens.manageButton}
+              onClick={onUseDefaultModel}
+            >
+              {t("modelCatalog.error.useDefault")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <p className="koma-field__hint">{selectedSummary}</p>
       <p className="koma-field__hint">{supportSummary}</p>

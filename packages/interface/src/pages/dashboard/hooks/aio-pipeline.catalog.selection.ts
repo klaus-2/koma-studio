@@ -237,6 +237,13 @@ export function useAioModelSelection({
     ],
   );
 
+  const selectAioTranslationModel = useCallback(
+    (modelKey: string): void => {
+      commitSelection('getTranslations', modelKey);
+    },
+    [commitSelection],
+  );
+
   const getLocalStageStatusText = useCallback(
     (modelKey: string): string | null => {
       const entry = modelEntries[modelKey];
@@ -261,6 +268,7 @@ export function useAioModelSelection({
     resolveLocalModelFocusForStage,
     selectAioLocalStageModel,
     selectAioRecognizeTextModel,
+    selectAioTranslationModel,
     getLocalStageStatusText,
     selectedDetectStatusText: getLocalStageStatusText(selection.detectText),
     selectedOcrStatusText: getLocalStageStatusText(selection.recognizeText),

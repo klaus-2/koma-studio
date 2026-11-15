@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 
+import { buildUrl } from '@/config/api';
 import { useI18n } from '@/i18n';
 import {
   buildAioStageCatalog,
   mergeStageOptions,
   ocrStageOptionSupportsLanguage,
+  parseTranslationServiceAvailability,
   SOURCE_LANGUAGE_OPTIONS,
   TARGET_LANGUAGE_OPTIONS,
 } from '@/models/aioStageCatalog';
@@ -57,6 +59,45 @@ function appendPendingOption(
   ];
 }
 
+// The backend is the only honest source for service-engine availability
+// (a DeepL key or LibreTranslate URL configured in Settings → Integrations),
+// so the store is hydrated once per session and every later catalog rebuild
+// re-applies it. The static `available: false` stays the pre-fetch default.
+let translationServiceAvailabilityHydrated = false;
+
+function useAioTranslationServiceAvailabilitySync(mode: string): void {
+  useEffect(() => {
+    if (mode !== 'aio' || translationServiceAvailabilityHydrated) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(buildUrl('localUrl', '/translate/models'));
+        if (!response.ok) {
+          throw new Error(`translate models HTTP ${response.status}`);
+        }
+        const payload: unknown = await response.json();
+        const availability = parseTranslationServiceAvailability(payload);
+        if (!cancelled && availability !== null) {
+          useAioPipelineStore
+            .getState()
+            .setAioTranslationServiceAvailability(availability);
+        }
+      } catch {
+        // Fetch failure keeps the static defaults (engines stay unselectable).
+      } finally {
+        translationServiceAvailabilityHydrated = true;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
+}
+
 export function useAioStageCatalogBuild({
   customOcrStageOptions,
   customTranslationStageOptions,
@@ -75,6 +116,11 @@ export function useAioStageCatalogBuild({
   const pendingTranslation = useLlmProvidersStore(
     (state) => state.pendingCustomSelections.translation,
   );
+  const translationServiceAvailability = useAioPipelineStore(
+    (state) => state.aioTranslationServiceAvailability,
+  );
+
+  useAioTranslationServiceAvailabilitySync(mode);
 
   useEffect(() => {
     if (mode !== 'aio') return;
@@ -96,6 +142,7 @@ export function useAioStageCatalogBuild({
         sourceLanguage: nextSourceLanguage,
         localModelEntries: modelEntries,
         customProfiles,
+        translationServiceAvailability,
       });
 
       const options: AioStageOptionMap = {
@@ -177,5 +224,6 @@ export function useAioStageCatalogBuild({
     sourceLanguage,
     t,
     targetLanguage,
+    translationServiceAvailability,
   ]);
 }

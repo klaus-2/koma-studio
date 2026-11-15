@@ -153,6 +153,7 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     aioHdCropTriggerSize: 512,
 
     aioDeviceInfo: null,
+    aioTranslationServiceAvailability: {},
     aioGpuStages: loadGpuStagePreferences(),
     aioMiniBackendRuntimeState: null,
 
@@ -201,6 +202,9 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     setAioHdCropTriggerSize: setter('aioHdCropTriggerSize'),
 
     setAioDeviceInfo: setter('aioDeviceInfo'),
+    setAioTranslationServiceAvailability: setter(
+      'aioTranslationServiceAvailability',
+    ),
     setAioMiniBackendRuntimeState: setter('aioMiniBackendRuntimeState'),
     setAioExecutionStatus: setter('aioExecutionStatus'),
 

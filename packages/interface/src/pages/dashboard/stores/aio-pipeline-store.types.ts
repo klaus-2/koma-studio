@@ -3,6 +3,7 @@ import type {
   AioDeviceInfo,
   AioLanguageOption,
   AioStageOptionMap,
+  TranslationServiceAvailability,
 } from '@/models/aioStageCatalog';
 import type { DesktopMiniBackendRuntimeState } from '@/types';
 import type {
@@ -54,6 +55,8 @@ export interface AioEditableState {
   aioHdCropMargin: number;
   aioHdCropTriggerSize: number;
   aioDeviceInfo: AioDeviceInfo | null;
+  /** Hydrated from `/translate/models` once per session; empty until then. */
+  aioTranslationServiceAvailability: TranslationServiceAvailability;
   aioMiniBackendRuntimeState: DesktopMiniBackendRuntimeState | null;
   aioExecutionStatus: AioExecutionStatus | null;
   batchThreadsEnabled: boolean;

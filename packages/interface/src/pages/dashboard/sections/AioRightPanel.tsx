@@ -123,6 +123,7 @@ interface AioRightPanelProps {
   resolveLocalModelFocusForStage: AioModelSelectionApi['resolveLocalModelFocusForStage'];
   selectAioLocalStageModel: AioModelSelectionApi['selectAioLocalStageModel'];
   selectAioRecognizeTextModel: AioModelSelectionApi['selectAioRecognizeTextModel'];
+  selectAioTranslationModel: AioModelSelectionApi['selectAioTranslationModel'];
   selectedDetectStatusText: AioModelSelectionApi['selectedDetectStatusText'];
   selectedOcrStatusText: AioModelSelectionApi['selectedOcrStatusText'];
   selectedSegmentStatusText: AioModelSelectionApi['selectedSegmentStatusText'];
@@ -188,6 +189,7 @@ export default memo(function AioRightPanel({
   resolveLocalModelFocusForStage,
   selectAioLocalStageModel,
   selectAioRecognizeTextModel,
+  selectAioTranslationModel,
   selectedDetectStatusText,
   selectedOcrStatusText,
   selectedSegmentStatusText,
@@ -792,6 +794,7 @@ export default memo(function AioRightPanel({
             resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
             selectAioLocalStageModel={selectAioLocalStageModel}
             selectAioRecognizeTextModel={selectAioRecognizeTextModel}
+            selectAioTranslationModel={selectAioTranslationModel}
             selectedDetectStatusText={selectedDetectStatusText}
             selectedOcrStatusText={selectedOcrStatusText}
             selectedSegmentStatusText={selectedSegmentStatusText}

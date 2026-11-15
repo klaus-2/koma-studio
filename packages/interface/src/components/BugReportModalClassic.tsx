@@ -25,7 +25,7 @@ import { KomaDialog } from '@koma/ui/components/dialog';
 import '@koma/ui/styles/KomaModals.css';
 
 import { desktopBridge } from "@/lib/desktop-bridge";
-import { canOpenLogsFolder, openLogsFolder } from "@/lib/open-logs-folder";
+import { canOpenLogsFolder, openLogsFolderOrReport } from "@/lib/open-logs-folder";
 type BugSeverity = 'low' | 'medium' | 'high' | 'critical';
 type CropRect = { x: number; y: number; width: number; height: number };
 
@@ -582,7 +582,7 @@ const BugReportModalClassic = ({
                     type="button"
                     className="koma-bug-attach-btn"
                     onClick={() => {
-                      void openLogsFolder().catch(() => {
+                      void openLogsFolderOrReport(() => {
                         setAttachErr(t('diagnostics.openLogsFolderError'));
                       });
                     }}

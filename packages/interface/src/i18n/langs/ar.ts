@@ -4643,6 +4643,8 @@ export const arMessages: TranslationCatalog = {
   'feed.tabsAria': "أقسام موجز الاسكانليشن",
   'feed.actions.publishPost': "نشر {type}",
   'modelCatalog.error.notImplemented': 'النموذج غير مُنفَّذ',
+  'modelCatalog.error.notConfigured':
+    'هذه الخدمة مُنفَّذة لكنها غير مُهيَّأة. أضِف المفتاح المطلوب أو عنوان URL الخاص بالخادم في الإعدادات ← التكاملات.',
   'modelCard.badge.untested': 'غير مُختبر',
   'modelCard.badge.aboveHardware': 'يتجاوز عتادك',
   'modelCatalog.error.unknownModel': 'نموذج غير معروف',

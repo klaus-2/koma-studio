@@ -4823,6 +4823,8 @@ export const jaMessages: TranslationCatalog = {
   'feed.tabsAria': "Scanlation Feed のセクション",
   'feed.actions.publishPost': "{type}を公開",
   'modelCatalog.error.notImplemented': 'モデルが未実装です',
+  'modelCatalog.error.notConfigured':
+    'このサービスは実装されていますが、設定されていません。「設定 → 統合」で必要なキーまたはサーバーURLを追加してください。',
   'modelCard.badge.untested': '未検証',
   'modelCard.badge.aboveHardware': 'ハードウェアの性能を超えています',
   'modelCatalog.error.unknownModel': '不明なモデル',

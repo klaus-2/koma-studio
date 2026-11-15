@@ -144,7 +144,9 @@ const StageModelSelectBase = ({
             <ShieldAlert size={13} aria-hidden="true" />
             {refusal.code === "UNKNOWN_MODEL"
               ? t("modelCatalog.error.unknownModel")
-              : t("modelCatalog.error.notImplemented")}
+              : refusal.code === "MODEL_NOT_CONFIGURED"
+                ? t("modelCatalog.error.notConfigured")
+                : t("modelCatalog.error.notImplemented")}
           </p>
           <p className="koma-field__hint">{refusal.modelKey}</p>
           <p className="koma-field__hint">

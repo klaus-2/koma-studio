@@ -4910,6 +4910,8 @@ export const deMessages: TranslationCatalog = {
   'feed.tabsAria': "Bereiche des Scanlation-Feeds",
   'feed.actions.publishPost': "{type} veröffentlichen",
   'modelCatalog.error.notImplemented': 'Modell nicht implementiert',
+  'modelCatalog.error.notConfigured':
+    'Dieser Dienst ist implementiert, aber nicht konfiguriert. Hinterlege den erforderlichen Schlüssel oder die Server-URL unter Einstellungen → Integrationen.',
   'modelCard.badge.untested': 'Nicht getestet',
   'modelCard.badge.aboveHardware': 'Über deiner Hardware',
   'modelCatalog.error.unknownModel': 'Unbekanntes Modell',

@@ -21,7 +21,7 @@ import { useAioPipelineStore } from '../../pages/dashboard/stores/aio-pipeline-s
 import { useStatusStore } from '../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
 import { useWorkspacePersistenceStore } from '../../pages/dashboard/stores/workspace-persistence-store';
-import { canOpenLogsFolder, openLogsFolder } from '../../lib/open-logs-folder';
+import { canOpenLogsFolder, openLogsFolderOrReport } from '../../lib/open-logs-folder';
 
 interface DashboardFooterProps {
   statusMessage?: string;
@@ -386,7 +386,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
                         type="button"
                         className="koma-btn koma-btn--ghost koma-btn--sm"
                         onClick={() => {
-                          void openLogsFolder().catch(() => {
+                          void openLogsFolderOrReport(() => {
                             setTonedStatus(t('diagnostics.openLogsFolderError'), 'error');
                           });
                         }}

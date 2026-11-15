@@ -4348,6 +4348,8 @@ export const zhMessages: TranslationCatalog = {
   'feed.tabsAria': "Scanlation Feed 分区",
   'feed.actions.publishPost': "发布{type}",
   'modelCatalog.error.notImplemented': '模型未实现',
+  'modelCatalog.error.notConfigured':
+    '该服务已实现但尚未配置。请在“设置 → 集成”中添加所需的密钥或服务器 URL。',
   'modelCard.badge.untested': '未验证',
   'modelCard.badge.aboveHardware': '超出你的硬件性能',
   'modelCatalog.error.unknownModel': '未知模型',

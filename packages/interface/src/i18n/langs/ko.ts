@@ -4707,6 +4707,8 @@ export const koMessages: TranslationCatalog = {
   'feed.tabsAria': "스캔레이션 피드 섹션",
   'feed.actions.publishPost': "{type} 게시",
   'modelCatalog.error.notImplemented': '구현되지 않은 모델',
+  'modelCatalog.error.notConfigured':
+    '이 서비스는 구현되었지만 구성되지 않았습니다. 설정 → 통합에서 필요한 키 또는 서버 URL을 추가하세요.',
   'modelCard.badge.untested': '미검증',
   'modelCard.badge.aboveHardware': '하드웨어 사양 초과',
   'modelCatalog.error.unknownModel': '알 수 없는 모델',

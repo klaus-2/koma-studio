@@ -2332,6 +2332,8 @@ export const ptMessages: TranslationCatalog = {
   'modelCard.badge.downloadOnly': 'Somente download — ainda sem runtime local',
   'modelCard.badge.aboveHardware': 'Acima do seu hardware',
   'modelCatalog.error.notImplemented': 'Modelo não implementado',
+  'modelCatalog.error.notConfigured':
+    'Este serviço está implementado mas não está configurado. Adicione a chave necessária ou o URL do servidor em Configurações → Integrações.',
   'modelCard.badge.untested': 'Não testado',
   'modelCatalog.error.unknownModel': 'Modelo desconhecido',
   'modelCatalog.error.availableModels': 'Modelos disponíveis',

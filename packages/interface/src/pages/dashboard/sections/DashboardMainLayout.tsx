@@ -370,6 +370,7 @@ export interface DashboardMainLayoutProps {
   resolveLocalModelFocusForStage: AioModelSelectionApi['resolveLocalModelFocusForStage'];
   selectAioLocalStageModel: AioModelSelectionApi['selectAioLocalStageModel'];
   selectAioRecognizeTextModel: AioModelSelectionApi['selectAioRecognizeTextModel'];
+  selectAioTranslationModel: AioModelSelectionApi['selectAioTranslationModel'];
   selectedDetectStatusText: AioModelSelectionApi['selectedDetectStatusText'];
   selectedOcrStatusText: AioModelSelectionApi['selectedOcrStatusText'];
   selectedSegmentStatusText: AioModelSelectionApi['selectedSegmentStatusText'];
@@ -626,6 +627,7 @@ export default memo(function DashboardMainLayout({
   resolveLocalModelFocusForStage,
   selectAioLocalStageModel,
   selectAioRecognizeTextModel,
+  selectAioTranslationModel,
   selectedDetectStatusText,
   selectedOcrStatusText,
   selectedSegmentStatusText,
@@ -780,22 +782,16 @@ export default memo(function DashboardMainLayout({
   const batchThreads = useAioPipelineStore((s) => s.batchThreads);
   const setBatchThreads = useAioPipelineStore((s) => s.setBatchThreads);
   const batchThreadsEnabled = useAioPipelineStore((s) => s.batchThreadsEnabled);
-  const setBatchThreadsEnabled = useAioPipelineStore(
-    (s) => s.setBatchThreadsEnabled,
-  );
+  const setBatchThreadsEnabled = useAioPipelineStore((s) => s.setBatchThreadsEnabled);
   const aioDeviceInfo = useAioPipelineStore((s) => s.aioDeviceInfo);
-  const aioMiniBackendRuntimeState = useAioPipelineStore(
-    (s) => s.aioMiniBackendRuntimeState,
-  );
+  const aioMiniBackendRuntimeState = useAioPipelineStore((s) => s.aioMiniBackendRuntimeState);
   const aioSrcLang = useAioPipelineStore((s) => s.aioSrcLang);
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
   const setAioStageSelection = useAioPipelineStore(
     (s) => s.setAioStageSelection,
   );
   const aioStageOptions = useAioPipelineStore((s) => s.aioStageOptions);
-  const invalidateAioPipelineHistory = useAioPipelineStore(
-    (s) => s.invalidateAioPipelineHistory,
-  );
+  const invalidateAioPipelineHistory = useAioPipelineStore((s) => s.invalidateAioPipelineHistory);
   const translatorWorkspaceMode = useTranslatorStore(
     (s) => s.translatorWorkspaceMode,
   );
@@ -1213,6 +1209,7 @@ export default memo(function DashboardMainLayout({
               resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
               selectAioLocalStageModel={selectAioLocalStageModel}
               selectAioRecognizeTextModel={selectAioRecognizeTextModel}
+              selectAioTranslationModel={selectAioTranslationModel}
               selectedDetectStatusText={selectedDetectStatusText}
               selectedOcrStatusText={selectedOcrStatusText}
               selectedSegmentStatusText={selectedSegmentStatusText}

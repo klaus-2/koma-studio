@@ -856,6 +856,7 @@ export const DashboardPage = ({
     resolveLocalModelFocusForStage,
     selectAioLocalStageModel,
     selectAioRecognizeTextModel,
+    selectAioTranslationModel,
     selectedDetectStatusText,
     selectedOcrStatusText,
     selectedSegmentStatusText,
@@ -1803,6 +1804,7 @@ export const DashboardPage = ({
       resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
       selectAioLocalStageModel={selectAioLocalStageModel}
       selectAioRecognizeTextModel={selectAioRecognizeTextModel}
+      selectAioTranslationModel={selectAioTranslationModel}
       selectedDetectStatusText={selectedDetectStatusText}
       selectedOcrStatusText={selectedOcrStatusText}
       selectedSegmentStatusText={selectedSegmentStatusText}

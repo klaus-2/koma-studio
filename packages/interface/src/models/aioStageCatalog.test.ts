@@ -6,6 +6,7 @@ import {
   isStageOptionSelectable,
   mergeStageOptions,
   ocrStageOptionSupportsLanguage,
+  parseTranslationServiceAvailability,
 } from '@/models/aioStageCatalog';
 import type {
   AioStageOption,
@@ -270,5 +271,77 @@ describe('managed NLLB translation entries', () => {
 
     expect(option?.implemented).toBe(true);
     expect(isStageOptionSelectable(option, {})).toBe(true);
+  });
+});
+
+describe('translation service availability hydration', () => {
+  it('maps the /translate/models payload onto the UI service keys only', () => {
+    const availability = parseTranslationServiceAvailability({
+      models: [
+        { key: 'deepl', implemented: true, available: true },
+        { key: 'libretranslate', implemented: true, available: false },
+        { key: 'microsoft_translator', implemented: true, available: true },
+        { key: 'nllb-200-1.3b', implemented: true, available: true },
+        { key: 'broken', available: 'yes' },
+      ],
+    });
+
+    expect(availability).toEqual({
+      deepl_translate: true,
+      libretranslate: false,
+    });
+  });
+
+  it('returns null for payloads without a models list', () => {
+    expect(parseTranslationServiceAvailability(null)).toBeNull();
+    expect(parseTranslationServiceAvailability({})).toBeNull();
+    expect(parseTranslationServiceAvailability('nope')).toBeNull();
+  });
+
+  it('keeps unconfigured service engines unselectable by default', () => {
+    const catalog = buildAioStageCatalog({ sourceLanguage: 'ja' });
+
+    for (const key of ['deepl_translate', 'libretranslate']) {
+      const option = catalog.getTranslations.find(
+        (candidate) => candidate.key === key,
+      );
+      expect(option?.implemented).toBe(true);
+      expect(option?.available).toBe(false);
+      expect(isStageOptionSelectable(option, {})).toBe(false);
+    }
+  });
+
+  it('makes backend-configured engines selectable and unconfigured ones not', () => {
+    const catalog = buildAioStageCatalog({
+      sourceLanguage: 'ja',
+      translationServiceAvailability: {
+        deepl_translate: true,
+        libretranslate: false,
+      },
+    });
+
+    const deepl = catalog.getTranslations.find(
+      (candidate) => candidate.key === 'deepl_translate',
+    );
+    const libre = catalog.getTranslations.find(
+      (candidate) => candidate.key === 'libretranslate',
+    );
+    expect(deepl?.available).toBe(true);
+    expect(isStageOptionSelectable(deepl, {})).toBe(true);
+    expect(libre?.available).toBe(false);
+    expect(isStageOptionSelectable(libre, {})).toBe(false);
+  });
+
+  it('does not promote non-service options through the availability map', () => {
+    const catalog = buildAioStageCatalog({
+      sourceLanguage: 'ja',
+      translationServiceAvailability: { 'nllb-200-1.3b': true },
+    });
+
+    const nllb = catalog.getTranslations.find(
+      (candidate) => candidate.key === 'nllb-200-1.3b',
+    );
+    expect(nllb?.available).toBe(false);
+    expect(isStageOptionSelectable(nllb, {})).toBe(false);
   });
 });

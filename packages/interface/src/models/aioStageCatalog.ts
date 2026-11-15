@@ -111,10 +111,63 @@ export type LocalModelEntry = Readonly<{
 
 export type LocalModelEntries = Readonly<Record<string, LocalModelEntry>>;
 
+/**
+ * UI option key -> backend `/translate/models` key for the service engines
+ * whose availability depends on the user's configured key/URL. Registry
+ * models are deliberately absent: their availability follows the install
+ * state, not this endpoint.
+ */
+export const TRANSLATION_SERVICE_BACKEND_KEYS: Readonly<
+  Record<string, string>
+> = {
+  deepl_translate: 'deepl',
+  libretranslate: 'libretranslate',
+};
+
+export type TranslationServiceAvailability = Readonly<Record<string, boolean>>;
+
+/**
+ * Defensive read of the `/translate/models` payload
+ * (`{models: [{key, implemented, available, ...}]}`); maps backend keys onto
+ * the UI service options and returns null for any other shape so callers
+ * keep the static catalog defaults.
+ */
+export function parseTranslationServiceAvailability(
+  payload: unknown,
+): TranslationServiceAvailability | null {
+  if (!isRecord(payload) || !Array.isArray(payload.models)) {
+    return null;
+  }
+
+  const uiKeyByBackendKey = new Map(
+    Object.entries(TRANSLATION_SERVICE_BACKEND_KEYS).map(
+      ([uiKey, backendKey]) => [backendKey, uiKey],
+    ),
+  );
+  const availability: Record<string, boolean> = {};
+
+  for (const entry of payload.models) {
+    if (
+      !isRecord(entry) ||
+      typeof entry.key !== 'string' ||
+      typeof entry.available !== 'boolean'
+    ) {
+      continue;
+    }
+    const uiKey = uiKeyByBackendKey.get(entry.key);
+    if (uiKey !== undefined) {
+      availability[uiKey] = entry.available;
+    }
+  }
+
+  return availability;
+}
+
 interface BuildAioStageCatalogOptions {
   readonly sourceLanguage: string;
   readonly localModelEntries?: Readonly<Record<string, ModelInstallState>>;
   readonly customProfiles?: readonly CustomLlmProfile[];
+  readonly translationServiceAvailability?: TranslationServiceAvailability;
 }
 
 export function isInstalledLocalModel(
@@ -271,6 +324,7 @@ const MANAGED_CLOUD_OPTION_KEYS: ReadonlySet<string> = new Set([
 function decorateOption(
   option: AioStageOption,
   entries: LocalModelEntries,
+  translationServiceAvailability: TranslationServiceAvailability,
 ): AioStageOption {
   const cloned = cloneStageOption(option);
 
@@ -282,6 +336,10 @@ function decorateOption(
   if (isLocalModelOptionKey(option.key) || entries[option.key]) {
     cloned.available =
       option.implemented && isInstalledLocalModel(option.key, entries);
+  } else if (option.key in TRANSLATION_SERVICE_BACKEND_KEYS) {
+    const available = translationServiceAvailability[option.key];
+    cloned.available =
+      option.implemented && (available ?? option.available);
   } else {
     cloned.available = option.implemented && option.available;
   }
@@ -289,25 +347,25 @@ function decorateOption(
   return cloned;
 }
 
-function createBaseCatalog(entries: LocalModelEntries): AioStageOptionMap {
+function createBaseCatalog(
+  entries: LocalModelEntries,
+  translationServiceAvailability: TranslationServiceAvailability = {},
+): AioStageOptionMap {
+  const decorate = (option: AioStageOption): AioStageOption =>
+    decorateOption(option, entries, translationServiceAvailability);
+
   return {
-    detectText: BASE_AIO_STAGE_OPTIONS.detectText.map((option) =>
-      decorateOption(option, entries),
-    ),
+    detectText: BASE_AIO_STAGE_OPTIONS.detectText.map(decorate),
     recognizeText: mergeStageOptions(
       BASE_AIO_STAGE_OPTIONS.recognizeText,
       OFFICIAL_CLOUD_STAGE_OPTIONS.recognizeText,
-    ).map((option) => decorateOption(option, entries)),
+    ).map(decorate),
     getTranslations: mergeStageOptions(
       BASE_AIO_STAGE_OPTIONS.getTranslations,
       [],
-    ).map((option) => decorateOption(option, entries)),
-    segmentText: BASE_AIO_STAGE_OPTIONS.segmentText.map((option) =>
-      decorateOption(option, entries),
-    ),
-    cleanImage: BASE_AIO_STAGE_OPTIONS.cleanImage.map((option) =>
-      decorateOption(option, entries),
-    ),
+    ).map(decorate),
+    segmentText: BASE_AIO_STAGE_OPTIONS.segmentText.map(decorate),
+    cleanImage: BASE_AIO_STAGE_OPTIONS.cleanImage.map(decorate),
   };
 }
 
@@ -318,8 +376,12 @@ export function buildAioStageCatalog({
   sourceLanguage,
   localModelEntries = {},
   customProfiles = [],
+  translationServiceAvailability = {},
 }: BuildAioStageCatalogOptions): AioStageOptionMap {
-  const catalog = createBaseCatalog(localModelEntries);
+  const catalog = createBaseCatalog(
+    localModelEntries,
+    translationServiceAvailability,
+  );
   const customTranslationOptions: AioStageOption[] = [];
   const customOcrOptions: AioStageOption[] = [];
 

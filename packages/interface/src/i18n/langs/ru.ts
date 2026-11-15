@@ -4863,6 +4863,8 @@ export const ruMessages: TranslationCatalog = {
   'feed.tabsAria': "Разделы Scanlation Feed",
   'feed.actions.publishPost': "Опубликовать {type}",
   'modelCatalog.error.notImplemented': 'Модель не реализована',
+  'modelCatalog.error.notConfigured':
+    'Сервис реализован, но не настроен. Укажите требуемый ключ или адрес сервера в разделе «Настройки → Интеграции».',
   'modelCard.badge.untested': 'Не протестировано',
   'modelCard.badge.aboveHardware': 'Выше возможностей вашего оборудования',
   'modelCatalog.error.unknownModel': 'Неизвестная модель',

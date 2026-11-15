@@ -4797,6 +4797,8 @@ export const frMessages: TranslationCatalog = {
   'feed.tabsAria': "Sections du flux Scanlation",
   'feed.actions.publishPost': "Publier {type}",
   'modelCatalog.error.notImplemented': 'Modèle non implémenté',
+  'modelCatalog.error.notConfigured':
+    'Ce service est implémenté mais non configuré. Ajoutez la clé requise ou l’URL du serveur dans Paramètres → Intégrations.',
   'modelCard.badge.untested': 'Non testé',
   'modelCard.badge.aboveHardware': 'Au-delà de votre matériel',
   'modelCatalog.error.unknownModel': 'Modèle inconnu',

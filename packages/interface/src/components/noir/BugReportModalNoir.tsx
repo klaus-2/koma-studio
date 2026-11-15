@@ -7,6 +7,7 @@ import { useI18n } from "../../i18n";
 import { LegalInlineLinks } from "../legal/LegalInlineLinks";
 import { useBugReportPrepare } from "../useBugReportPrepare";
 import { EASE, btnPrimary, btnGhost } from "../system/v2/kit";
+import { canOpenLogsFolder, openLogsFolderOrReport } from "../../lib/open-logs-folder";
 import { desktopBridge } from "@/lib/desktop-bridge";
 
 type BugSeverity = "low" | "medium" | "high" | "critical";
@@ -410,10 +411,25 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
               {/* Attachments */}
               <div className="border-t border-paper/8 pt-3">
                 <FieldLbl>{t("bugReport.manualAttachments")}</FieldLbl>
-                <label className={`${btnGhost} cursor-pointer`}>
-                  <Paperclip size={11} /> {t("bugReport.attach")}
-                  <input type="file" multiple className="sr-only" onChange={addFiles} />
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className={`${btnGhost} cursor-pointer`}>
+                    <Paperclip size={11} /> {t("bugReport.attach")}
+                    <input type="file" multiple className="sr-only" onChange={addFiles} />
+                  </label>
+                  {canOpenLogsFolder() && (
+                    <button
+                      type="button"
+                      className={btnGhost}
+                      onClick={() => {
+                        void openLogsFolderOrReport(() => {
+                          setAttachErr(t("diagnostics.openLogsFolderError"));
+                        });
+                      }}
+                    >
+                      {t("diagnostics.openLogsFolder")}
+                    </button>
+                  )}
+                </div>
                 <p className="mt-1.5 font-mono text-[8px] uppercase tracking-wider text-paper/30">
                   {t("bugReport.attach.summary", {
                     count: MAX_ATTACH, size: Math.round(MAX_FILE / 1048576), total: fmtBytes(totalBytes),

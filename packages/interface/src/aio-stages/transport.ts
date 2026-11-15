@@ -59,21 +59,35 @@ export const STAGE_BUSY_HTTP_STATUS = 503;
 export const STAGE_BUSY_WIRE_CODE = 'INFERENCE_BUSY';
 
 interface StageBusyDetailBody {
-  code?: string;
+  code?: unknown;
+  stage?: unknown;
+  model_key?: unknown;
+  available_keys?: unknown;
 }
 
 interface StageBusyResponseBody {
   detail?: StageBusyDetailBody | string | null;
 }
 
+const isStageBusyResponseBody = (
+  value: unknown,
+): value is StageBusyResponseBody =>
+  typeof value === 'object' && value !== null;
+
+async function readResponseJson(response: Response): Promise<unknown> {
+  try {
+    return await response.clone().json();
+  } catch {
+    return null;
+  }
+}
+
 /** Reads the parsed `detail` object from a failed response (null when absent). */
 async function readRefusalDetail(
   response: Response,
 ): Promise<StageBusyDetailBody | string | null | undefined> {
-  const payload = (await response.clone().json().catch(() => null)) as
-    | StageBusyResponseBody
-    | null;
-  return payload?.detail;
+  const payload: unknown = await readResponseJson(response);
+  return isStageBusyResponseBody(payload) ? payload.detail : null;
 }
 
 /**
@@ -93,10 +107,7 @@ async function isStageBusyResponse(response: Response): Promise<boolean> {
   if (response.status !== STAGE_BUSY_HTTP_STATUS) {
     return false;
   }
-  const payload = (await response.clone().json().catch(() => null)) as
-    | StageBusyResponseBody
-    | null;
-  const detail = payload?.detail;
+  const detail = await readRefusalDetail(response);
   return (
     typeof detail === 'object' &&
     detail !== null &&
@@ -120,13 +131,6 @@ export interface StageModelRefusalDetail {
   availableKeys: readonly string[];
 }
 
-interface StageRefusalDetailBody {
-  code?: unknown;
-  stage?: unknown;
-  model_key?: unknown;
-  available_keys?: unknown;
-}
-
 /**
  * Defensive read of the structured refusal body
  * (`{error, code, stage, model_key, available_keys}`); returns null for any
@@ -138,18 +142,16 @@ function parseStageModelRefusal(
   if (typeof detail !== 'object' || detail === null) {
     return null;
   }
-  const body = detail as StageRefusalDetailBody;
-  const code = body.code;
   const wireCode = STAGE_MODEL_REFUSAL_WIRE_CODES.find(
-    (candidate) => candidate === code,
+    (candidate) => candidate === detail.code,
   );
   if (wireCode === undefined) {
     return null;
   }
-  const stage = typeof body.stage === 'string' ? body.stage : '';
-  const modelKey = typeof body.model_key === 'string' ? body.model_key : '';
-  const availableKeys = Array.isArray(body.available_keys)
-    ? body.available_keys.filter(
+  const stage = typeof detail.stage === 'string' ? detail.stage : '';
+  const modelKey = typeof detail.model_key === 'string' ? detail.model_key : '';
+  const availableKeys = Array.isArray(detail.available_keys)
+    ? detail.available_keys.filter(
         (key): key is string => typeof key === 'string',
       )
     : [];

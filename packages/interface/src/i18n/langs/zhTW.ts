@@ -4361,6 +4361,8 @@ export const zhMessages: TranslationCatalog = {
   'feed.tabsAria': "Scanlation Feed 區段",
   'feed.actions.publishPost': "發佈{type}",
   'modelCatalog.error.notImplemented': '模型未實作',
+  'modelCatalog.error.notConfigured':
+    '此服務已實作但尚未設定。請在「設定 → 整合」中新增所需的金鑰或伺服器 URL。',
   'modelCard.badge.untested': '未驗證',
   'modelCard.badge.aboveHardware': '超出你的硬體效能',
   'modelCatalog.error.unknownModel': '未知模型',

@@ -29,6 +29,13 @@ const UNKNOWN_REFUSAL: StageModelRefusalDetail = {
   availableKeys: ["font_rtdetr_v2"],
 };
 
+const NOT_CONFIGURED_REFUSAL: StageModelRefusalDetail = {
+  code: "MODEL_NOT_CONFIGURED",
+  stage: "translate",
+  modelKey: "deepl_translate",
+  availableKeys: ["google_translate"],
+};
+
 const options: AioStageModelOption[] = [
   {
     key: "baka_content_cc",
@@ -81,6 +88,15 @@ describe("StageModelSelect refusal notice", () => {
   it("labels unknown keys with the unknown-model title", () => {
     renderSelect({ refusal: UNKNOWN_REFUSAL, onUseDefaultModel: vi.fn() });
     expect(screen.getByText("Unknown model")).toBeDefined();
+  });
+
+  it("labels implemented-but-unconfigured engines with the not-configured title", () => {
+    renderSelect({ refusal: NOT_CONFIGURED_REFUSAL, onUseDefaultModel: vi.fn() });
+    expect(
+      screen.getByText(
+        "This service is implemented but not configured. Add the required key or server URL in Settings → Integrations.",
+      ),
+    ).toBeDefined();
   });
 
   it("keeps the select enabled alongside the warning (warn-not-block)", () => {
