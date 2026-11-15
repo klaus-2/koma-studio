@@ -52,6 +52,8 @@ PROGRESS_KEYS = {
     "cancelled",
     "finished",
     "updatedAt",
+    "stageSeconds",
+    "lastStageMs",
 }
 
 

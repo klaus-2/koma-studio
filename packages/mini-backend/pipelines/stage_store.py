@@ -43,6 +43,7 @@ import time
 import numpy as np
 from numpy.typing import NDArray
 
+from pipelines.cache_usage import CacheStoreUsage, CacheTableUsage
 from utils.mask import MaskRegion
 
 logger = logging.getLogger(__name__)
@@ -279,6 +280,7 @@ class StageStore:
     def __init__(self, db_path: Path) -> None:
         self._lock = threading.Lock()
         self._closed = False
+        self._db_path = db_path
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         try:
@@ -487,6 +489,41 @@ class StageStore:
         return True
 
     # -------------------------------------------------------------- lifecycle
+
+    def usage(self) -> CacheStoreUsage:
+        stage_tables: tuple[tuple[str, str], ...] = (
+            ("segment_cache", "COALESCE(SUM(LENGTH(payload)), 0)"),
+            ("clean_cache", "COALESCE(SUM(LENGTH(png)), 0)"),
+            ("detect_cache", "COALESCE(SUM(LENGTH(payload)), 0)"),
+            ("ocr_cache", "COALESCE(SUM(LENGTH(payload)), 0)"),
+        )
+        tables: dict[str, CacheTableUsage] = {}
+        with self._lock:
+            page_row = self._conn.execute("PRAGMA page_count").fetchone()
+            freelist_row = self._conn.execute("PRAGMA freelist_count").fetchone()
+            page_count = int(page_row[0]) if page_row is not None else 0
+            freelist_count = int(freelist_row[0]) if freelist_row is not None else 0
+            for table, size_expr in stage_tables:
+                row = self._conn.execute(
+                    f"SELECT COUNT(*), {size_expr} FROM {table}"
+                ).fetchone()
+                tables[table] = CacheTableUsage(
+                    row_count=int(row[0]) if row is not None else 0,
+                    logical_bytes=int(row[1]) if row is not None else 0,
+                )
+        return CacheStoreUsage(
+            file_size_bytes=self._db_path.stat().st_size,
+            page_count=page_count,
+            freelist_count=freelist_count,
+            tables=tables,
+        )
+
+    def vacuum(self) -> tuple[int, int]:
+        before = self._db_path.stat().st_size
+        with self._lock:
+            self._conn.commit()
+            self._conn.execute("VACUUM")
+        return (before, self._db_path.stat().st_size)
 
     def prune(
         self,

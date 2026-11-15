@@ -49,6 +49,7 @@ from models.inpainting.factory import clear_inpainter_cache, get_inpainter_cache
 from models.ocr.factory import clear_ocr_cache, get_ocr_cache_size
 from models.segmentation.factory import clear_segmenter_cache, get_segmenter_cache_size
 from models.translation.factory import clear_translator_cache, get_translator_cache_size
+from routers.cache import router as cache_router
 from routers.cloud_tools import router as cloud_tools_router
 from routers.diagnostics import router as diagnostics_router
 from routers.detection import router as detection_router
@@ -597,6 +598,7 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         model_install_router,
         model_downloads_router,
         diagnostics_router,
+        cache_router,
         warmup_router,
     )
     for router in routers:

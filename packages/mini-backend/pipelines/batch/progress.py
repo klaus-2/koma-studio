@@ -21,6 +21,14 @@ from typing import Protocol
 PROGRESS_TTL_SECONDS = 600.0
 PROGRESS_MAX_ENTRIES = 128
 
+BATCH_STAGE_NAMES: tuple[str, str, str, str, str] = (
+    "detect",
+    "ocr",
+    "translation",
+    "segment",
+    "clean",
+)
+
 
 class BatchProgressSink(Protocol):
     """Per-item hooks the orchestrator emits; the default implementation no-ops."""
@@ -81,6 +89,10 @@ class _ProgressEntry:
     # Last known status per item index; a two-phase run finishes an item twice
     # and the later phase owns the final status.
     statuses: dict[int, str] = field(default_factory=dict)
+    open_stage: str | None = None
+    open_stage_started_at: float | None = None
+    stage_seconds: dict[str, float] = field(default_factory=dict)
+    last_stage_ms: int | None = None
 
     @property
     def completed(self) -> int:
@@ -89,6 +101,21 @@ class _ProgressEntry:
     @property
     def failed(self) -> int:
         return sum(1 for status in self.statuses.values() if status != "success")
+
+    def close_open_interval(self, now: float) -> None:
+        if self.open_stage is None or self.open_stage_started_at is None:
+            return
+        duration = max(0.0, now - self.open_stage_started_at)
+        self.stage_seconds[self.open_stage] = (
+            self.stage_seconds.get(self.open_stage, 0.0) + duration
+        )
+        self.last_stage_ms = int(duration * 1000)
+        self.open_stage = None
+        self.open_stage_started_at = None
+
+    def open_interval(self, stage: str, now: float) -> None:
+        self.open_stage = stage
+        self.open_stage_started_at = now
 
     def snapshot(self) -> dict[str, object]:
         return {
@@ -103,6 +130,11 @@ class _ProgressEntry:
             "cancelled": self.cancelled,
             "finished": self.finished,
             "updatedAt": _isoformat(self.updated_at),
+            "stageSeconds": {
+                stage: round(self.stage_seconds.get(stage, 0.0), 1)
+                for stage in BATCH_STAGE_NAMES
+            },
+            "lastStageMs": self.last_stage_ms,
         }
 
 
@@ -155,6 +187,7 @@ class BatchProgressRegistry:
             entry = self._entries.get(batch_id)
             if entry is None or entry.finished:
                 return
+            entry.close_open_interval(now)
             entry.current_index = index
             entry.current_name = name
             entry.updated_at = now
@@ -168,6 +201,8 @@ class BatchProgressRegistry:
             entry = self._entries.get(batch_id)
             if entry is None or entry.finished:
                 return
+            entry.close_open_interval(now)
+            entry.open_interval(stage, now)
             entry.current_index = index
             entry.current_name = name
             entry.current_stage = stage
@@ -183,6 +218,7 @@ class BatchProgressRegistry:
             entry = self._entries.get(batch_id)
             if entry is None or entry.cancelled:
                 return
+            entry.close_open_interval(now)
             entry.statuses[index] = status
             entry.updated_at = now
 
@@ -200,6 +236,7 @@ class BatchProgressRegistry:
             entry = self._entries.get(target)
             if entry is None or entry.cancelled or entry.finished:
                 return
+            entry.close_open_interval(now)
             entry.finished = True
             entry.finished_at = now
             entry.updated_at = now
@@ -214,6 +251,7 @@ class BatchProgressRegistry:
             entry = self._entries.get(target)
             if entry is None:
                 return
+            entry.close_open_interval(now)
             entry.cancelled = True
             entry.finished = True
             entry.finished_at = now
@@ -226,6 +264,10 @@ class BatchProgressRegistry:
             self._sweep_locked(now)
             entry = self._entries.get(batch_id)
             return None if entry is None else entry.snapshot()
+
+    def has_unfinished(self) -> bool:
+        with self._lock:
+            return any(not entry.finished for entry in self._entries.values())
 
     # ------------------------------------------------------------------ internals
 
