@@ -25,10 +25,12 @@ export default memo(function AioBatchPauseButton({
     return (
       <button
         type="button"
-        className="koma-aio-execute__btn"
+        className="koma-aio-execute__btn koma-aio-execute__btn--pause"
         onClick={() => useAioBatchPauseStore.getState().resume()}
       >
-        {t('dashboard.aio.resume')}
+        <span className="koma-aio-execute__pauseText">
+          {t('dashboard.aio.resume')}
+        </span>
       </button>
     );
   }
@@ -36,7 +38,7 @@ export default memo(function AioBatchPauseButton({
   return (
     <button
       type="button"
-      className="koma-aio-execute__btn"
+      className="koma-aio-execute__btn koma-aio-execute__btn--pause"
       disabled={pauseRequested}
       title={
         pausePhase === 'draining'
@@ -45,9 +47,11 @@ export default memo(function AioBatchPauseButton({
       }
       onClick={() => useAioBatchPauseStore.getState().requestPause()}
     >
-      {pausePhase === 'draining'
-        ? t('dashboard.aio.pauseFinishingChunk')
-        : t('dashboard.aio.pause')}
+      <span className="koma-aio-execute__pauseText">
+        {pausePhase === 'draining'
+          ? t('dashboard.aio.pauseFinishingChunk')
+          : t('dashboard.aio.pause')}
+      </span>
     </button>
   );
 });

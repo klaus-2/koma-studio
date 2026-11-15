@@ -16588,6 +16588,20 @@
   position: sticky;
 }
 
+ :root[data-theme-family='noir'] .koma-aio-execute__btn--pause {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 42%;
+  overflow: hidden;
+  justify-content: center;
+}
+
+:root[data-theme-family='noir'] .koma-aio-execute__pauseText {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 :root[data-theme-family='noir'] .koma-aio-cloud-preview {
   gap: 9px;
   padding: 12px 14px;

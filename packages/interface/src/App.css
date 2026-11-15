@@ -15102,8 +15102,22 @@ html[data-theme="light"] #root {
 .koma-aio-execute {
   position: relative;
   display: flex;
-  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.koma-aio-execute__btn--pause {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 42%;
+  overflow: hidden;
+}
+
+.koma-aio-execute__pauseText {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .koma-aio-cloud-preview {
