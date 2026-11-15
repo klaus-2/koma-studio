@@ -403,6 +403,9 @@ export const desktopCommandChannels = {
     openExternal: "desktop:open-external",
     openCommunityLink: "desktop:open-community-link",
   },
+  diagnostics: {
+    openLogsFolder: "desktop:open-logs-folder",
+  },
   logging: {
     sessionLog: "desktop:session-log",
   },
@@ -704,6 +707,22 @@ export interface DesktopFilesApi {
   }): Promise<{ cancelled: boolean; filePath: string | null }>;
 }
 
+export interface DesktopOpenLogsFolderResult {
+  /** Whether the OS file manager revealed the folder. */
+  opened: boolean;
+  /** Resolved logs directory, echoed even when the reveal failed. */
+  path: string | null;
+}
+
+/**
+ * Diagnostics helpers shared by both shells. Optional: shells without a
+ * native integration leave it undefined and the UI falls back to web-only
+ * behavior.
+ */
+export interface DesktopDiagnosticsApi {
+  openLogsFolder(): Promise<DesktopOpenLogsFolderResult>;
+}
+
 export interface IDesktopBridge {
   getRuntimeConfig(): RuntimeConfig;
   getMiniBackendRuntimeState(): Promise<MiniBackendRuntimeStatePayload | null>;
@@ -734,6 +753,7 @@ export interface IDesktopBridge {
   api: DesktopApiNamespace;
   images: DesktopImagesApi;
   discordRPC: DesktopDiscordRpcApi;
+  diagnostics?: DesktopDiagnosticsApi;
 }
 
 export interface IUpdaterSyncBridge {

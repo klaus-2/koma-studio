@@ -127,6 +127,7 @@ pub fn run() {
             commands::desktop::get_local_api_session,
             commands::desktop::open_external,
             commands::desktop::open_community_link,
+            commands::desktop::open_logs_folder,
             commands::desktop_updater::get_updater_state,
             commands::desktop_updater::download_updater,
             commands::desktop_updater::install_updater,

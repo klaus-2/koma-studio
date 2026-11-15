@@ -20,6 +20,7 @@ import type {
   DesktopCommandName,
   DesktopApiEnvelope,
   DesktopFontEntry,
+  DesktopOpenLogsFolderResult,
   DesktopFontsListResult,
   DesktopImageAllowOutcome,
   DesktopImageFolderPage,
@@ -563,6 +564,12 @@ const tauriDesktopBridge: IDesktopBridge = {
     getPresetAssets: () =>
       invokeCommand<Record<string, string>>(
         desktopCommandChannels.discordRPC.getPresetAssets,
+      ),
+  },
+  diagnostics: {
+    openLogsFolder: () =>
+      invokeCommand<DesktopOpenLogsFolderResult>(
+        desktopCommandChannels.diagnostics.openLogsFolder,
       ),
   },
 };

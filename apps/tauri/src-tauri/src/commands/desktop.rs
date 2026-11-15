@@ -198,6 +198,16 @@ pub struct SetMiniBackendThreadOverrideResult {
     pub accepted: bool,
 }
 
+/// Wire payload of `desktop:open-logs-folder`. `path` echoes the resolved
+/// logs directory even when the reveal fails, so the UI can still offer a
+/// copy action; `opened` reports whether the file-manager reveal succeeded.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenLogsFolderResult {
+    pub opened: bool,
+    pub path: Option<String>,
+}
+
 // ---------------------------------------------------------------------------
 // Commands (thin adapters)
 // ---------------------------------------------------------------------------
@@ -313,6 +323,46 @@ pub async fn open_external<R: Runtime>(
                 );
             })?;
         open_url(&app, &target)
+    })
+    .await
+}
+
+/// Reveals the mini-backend logs directory in the OS file manager.
+///
+/// Resolves the SAME base as the sidecar env (`KOMA_APP_DATA_DIR` =
+/// `app_data_dir`, logs under `app_data_dir/logs` — the folder the bug
+/// report auto-collector also scans). Fail-open: a failed create or reveal
+/// answers `{opened: false}` instead of surfacing a hard error, so a broken
+/// shell integration can never block diagnostics.
+#[tauri::command(rename = "desktop:open-logs-folder")]
+pub async fn open_logs_folder<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<OpenLogsFolderResult, DesktopError> {
+    use tauri_plugin_opener::OpenerExt;
+
+    run_blocking(move || {
+        let logs_dir = app_user_data_dir(&app)?.join("logs");
+        let path_string = logs_dir.to_string_lossy().to_string();
+        if let Err(create_error) = std::fs::create_dir_all(&logs_dir) {
+            tracing::warn!(
+                operation = "open_logs_folder",
+                error = %create_error,
+                "logs directory could not be created"
+            );
+            return Ok(OpenLogsFolderResult { opened: false, path: Some(path_string) });
+        }
+        let opened = app
+            .opener()
+            .reveal_item_in_dir(&logs_dir)
+            .inspect_err(|reveal_error| {
+                tracing::warn!(
+                    operation = "open_logs_folder",
+                    error = %reveal_error,
+                    "logs directory reveal failed"
+                );
+            })
+            .is_ok();
+        Ok(OpenLogsFolderResult { opened, path: Some(path_string) })
     })
     .await
 }
