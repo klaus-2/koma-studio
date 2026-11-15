@@ -716,6 +716,9 @@ export const ptBrMessages: TranslationCatalog = {
   'dashboard.footer.hardware.cpu': 'Execução local sem aceleração dedicada.',
   'dashboard.footer.quickLinks': 'Links rápidos',
   'dashboard.footer.lastSave.never': 'Ainda não salvo nesta sessão',
+  'dashboard.footer.details.button': 'Ver detalhes',
+  'dashboard.footer.details.title': 'Detalhes do status',
+  'dashboard.footer.details.close': 'Fechar',
   'dashboard.footer.lastSave.label': 'Último save: {time}',
   'dashboard.cleaner.flow.local.title':
     'Fluxo estruturado com OCR, segmentação e inpainting local',

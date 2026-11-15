@@ -8,6 +8,7 @@ import {
 } from "@koma/ui/components/tooltip";
 import type { DesktopMiniBackendRuntimeState } from '../../types';
 import { useI18n } from '../../i18n';
+import { FooterStatusMessage } from './FooterStatusMessage';
 import type { TranslationKey } from '../../i18n/messages';
 import type { RuntimeExecutionNotice, StatusMessageTone } from '../../types/dashboard.types';
 import type { AioDeviceInfo } from '../../models/aioStageCatalog';
@@ -305,12 +306,11 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
 
   return (
     <footer className="koma-footerbar">
-      <span
-        className={`koma-footerbar__msg ${processing && aioFooterProcessingLabel ? 'koma-footerbar__msg--processing' : `koma-footerbar__msg--${statusMessageTone}`}`}
-        role={statusMessageTone === 'error' ? 'alert' : 'status'}
-      >
-        {footerMessage}
-      </span>
+      <FooterStatusMessage
+        message={footerMessage}
+        tone={statusMessageTone}
+        textClassName={`koma-footerbar__msg ${processing && aioFooterProcessingLabel ? 'koma-footerbar__msg--processing' : `koma-footerbar__msg--${statusMessageTone}`}`}
+      />
       <div className="koma-footerbar__right">
         <TooltipProvider delayDuration={120}>
           <Tooltip>

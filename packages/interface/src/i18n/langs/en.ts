@@ -730,6 +730,9 @@ export const enMessages = {
     'Local execution without dedicated acceleration.',
   'dashboard.footer.quickLinks': 'Quick links',
   'dashboard.footer.lastSave.never': 'Not yet saved this session',
+  'dashboard.footer.details.button': 'See details',
+  'dashboard.footer.details.title': 'Status details',
+  'dashboard.footer.details.close': 'Close',
   'dashboard.footer.lastSave.label': 'Last save: {time}',
   'dashboard.cleaner.flow.local.title':
     'Structured flow with OCR, segmentation, and local inpainting',

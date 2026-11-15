@@ -4,6 +4,7 @@ import { AlertTriangle, Bug, Cpu, Globe, Rocket, Zap } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@koma/ui/components/tooltip';
 import type { DesktopMiniBackendRuntimeState } from '../../../types';
 import { useI18n } from '../../../i18n';
+import { FooterStatusMessage } from '../FooterStatusMessage';
 import type { TranslationKey } from '../../../i18n/messages';
 import type { RuntimeExecutionNotice, StatusMessageTone } from '../../../types/dashboard.types';
 import type { AioDeviceInfo } from '../../../models/aioStageCatalog';
@@ -208,12 +209,16 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
 
       <div className="relative flex min-w-0 flex-1 items-center gap-2">
         <span className={cn('h-1.5 w-1.5 shrink-0', processing ? 'bg-azure blink-noir' : statusMessageTone === 'error' ? 'bg-crimson blink-noir' : 'bg-mint')} aria-hidden="true" />
-        <span
-          role={statusMessageTone === 'error' ? 'alert' : 'status'}
-          className={cn('truncate font-mono text-[11px]', processing && aioFooterProcessingLabel ? 'text-azure' : TONE_TEXT[statusMessageTone] ?? 'text-paper')}
-        >
-          {footerMessage}
-        </span>
+        <FooterStatusMessage
+          message={footerMessage}
+          tone={statusMessageTone}
+          textClassName={cn(
+            'truncate font-mono text-[11px]',
+            processing && aioFooterProcessingLabel
+              ? 'text-azure'
+              : TONE_TEXT[statusMessageTone] ?? 'text-paper',
+          )}
+        />
       </div>
 
       <div className="relative flex shrink-0 items-center gap-2">
