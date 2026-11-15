@@ -58,6 +58,8 @@ class CloudModelListing(TypedDict):
     use_case: str
     implemented: bool
     available: bool
+    provider: NotRequired[str]
+    default_api_base: NotRequired[str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,8 +202,9 @@ _CLEAN_BY_KEY: Mapping[str, _CloudModelDefinition] = {d.key: d for d in _CLEAN_D
 
 
 def list_cloud_ocr_models() -> list[CloudModelListing]:
-    return [
-        {
+    listings: list[CloudModelListing] = []
+    for d in _OCR_DEFINITIONS:
+        entry: CloudModelListing = {
             "key": d.key,
             "name": d.name,
             "device": "cloud",
@@ -210,8 +213,11 @@ def list_cloud_ocr_models() -> list[CloudModelListing]:
             "implemented": True,
             "available": d.is_available(),
         }
-        for d in _OCR_DEFINITIONS
-    ]
+        entry["provider"] = d.provider
+        if d.account is not None:
+            entry["default_api_base"] = d.account.default_api_base
+        listings.append(entry)
+    return listings
 
 
 def _lookup(

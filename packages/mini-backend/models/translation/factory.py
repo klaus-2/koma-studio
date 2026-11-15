@@ -57,6 +57,8 @@ class TranslationModelMeta(TypedDict):
     requires: list[str]
     model: NotRequired[str]
     runtime_support: NotRequired[Literal["runnable", "download_only"]]
+    provider: NotRequired[str]
+    default_api_base: NotRequired[str]
 
 
 class TranslationModelOption(TypedDict):
@@ -66,6 +68,8 @@ class TranslationModelOption(TypedDict):
     use_case: str
     implemented: bool
     available: bool
+    provider: NotRequired[str]
+    default_api_base: NotRequired[str]
 
 
 DEFAULT_TRANSLATION_MODEL = "google_translate"
@@ -169,54 +173,72 @@ TRANSLATION_MODELS: dict[str, TranslationModelMeta] = {
         "use_case": "Cloud AI for contextual translation",
         "implemented": True, "kind": "llm", "model": "gpt-4.1",
         "requires": ["MINI_BACKEND_OPENAI_API_KEY"],
+        "provider": "openai",
+        "default_api_base": "https://api.openai.com/v1",
     },
     "gpt_4_1_mini": {
         "name": "GPT-4.1-mini", "device": "cpu_gpu",
         "use_case": "IA na nuvem com menor custo/latencia",
         "implemented": True, "kind": "llm", "model": "gpt-4.1-mini",
         "requires": ["MINI_BACKEND_OPENAI_API_KEY"],
+        "provider": "openai",
+        "default_api_base": "https://api.openai.com/v1",
     },
     "gemini_2_5_flash": {
         "name": "Gemini 2.5 Flash", "device": "cpu_gpu",
         "use_case": "IA multimodal na nuvem (Google Gemini)",
         "implemented": True, "kind": "llm", "model": "gemini-2.5-flash",
         "requires": ["MINI_BACKEND_GEMINI_API_KEY"],
+        "provider": "gemini",
+        "default_api_base": "https://generativelanguage.googleapis.com/v1beta/models",
     },
     "gemini_2_5_pro": {
         "name": "Gemini 2.5 Pro", "device": "cpu_gpu",
         "use_case": "IA na nuvem com contexto ampliado (Google Gemini)",
         "implemented": True, "kind": "llm", "model": "gemini-2.5-pro",
         "requires": ["MINI_BACKEND_GEMINI_API_KEY"],
+        "provider": "gemini",
+        "default_api_base": "https://generativelanguage.googleapis.com/v1beta/models",
     },
     "claude_3_5_haiku": {
         "name": "Claude Haiku 4.5", "device": "cpu_gpu",
         "use_case": "IA na nuvem (Anthropic Claude)",
         "implemented": True, "kind": "llm", "model": "claude-haiku-4-5",
         "requires": ["MINI_BACKEND_ANTHROPIC_API_KEY"],
+        "provider": "anthropic",
+        "default_api_base": "https://api.anthropic.com/v1/messages",
     },
     "claude_3_7_sonnet": {
         "name": "Claude Sonnet 4.6", "device": "cpu_gpu",
         "use_case": "IA na nuvem com melhor raciocinio contextual (Anthropic Claude)",
         "implemented": True, "kind": "llm", "model": "claude-sonnet-4-6",
         "requires": ["MINI_BACKEND_ANTHROPIC_API_KEY"],
+        "provider": "anthropic",
+        "default_api_base": "https://api.anthropic.com/v1/messages",
     },
     "deepseek_v3": {
         "name": "Deepseek-v3", "device": "cpu_gpu",
         "use_case": "Cloud translation via DeepSeek's OpenAI-compatible endpoint.",
         "implemented": True, "kind": "llm", "model": "deepseek-chat",
         "requires": ["MINI_BACKEND_DEEPSEEK_API_KEY"],
+        "provider": "deepseek",
+        "default_api_base": "https://api.deepseek.com/v1",
     },
     "grok_2_vision": {
         "name": "Grok 4", "device": "cpu_gpu",
         "use_case": "Cloud translation via xAI Grok with an OpenAI-compatible endpoint.",
         "implemented": True, "kind": "llm", "model": "grok-4",
         "requires": ["MINI_BACKEND_GROK_API_KEY"],
+        "provider": "grok",
+        "default_api_base": "https://api.x.ai/v1",
     },
     "z_ai_glm_4_5v": {
         "name": "Z.AI GLM-4.5V", "device": "cpu_gpu",
         "use_case": "Multimodal cloud translation via Z.AI.",
         "implemented": True, "kind": "llm", "model": "glm-4.5v",
         "requires": ["MINI_BACKEND_ZAI_API_KEY"],
+        "provider": "z_ai",
+        "default_api_base": "https://api.z.ai/api/paas/v4",
     },
 }
 
@@ -456,8 +478,9 @@ def list_translation_models() -> list[TranslationModelOption]:
     # Re-read the user manifest first: registration is otherwise frozen at
     # import time, and availability alone cannot surface a newly added entry.
     refresh_custom_gguf_models()
-    return [
-        {
+    options: list[TranslationModelOption] = []
+    for key, meta in TRANSLATION_MODELS.items():
+        option: TranslationModelOption = {
             "key": key,
             "name": meta["name"],
             "device": meta["device"],
@@ -465,5 +488,8 @@ def list_translation_models() -> list[TranslationModelOption]:
             "implemented": meta["implemented"],
             "available": _is_available(key, meta),
         }
-        for key, meta in TRANSLATION_MODELS.items()
-    ]
+        if meta["kind"] == "llm":
+            option["provider"] = meta["provider"]
+            option["default_api_base"] = meta["default_api_base"]
+        options.append(option)
+    return options
