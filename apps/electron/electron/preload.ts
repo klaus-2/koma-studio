@@ -456,13 +456,15 @@ contextBridge.exposeInMainWorld("desktop", {
   },
   diagnostics: {
     openLogsFolder: async (): Promise<DesktopOpenLogsFolderResult> => {
-      const result = await invokeSecureDesktopApi(
+      const result: unknown = await invokeSecureDesktopApi(
         desktopCommandChannels.diagnostics.openLogsFolder,
       );
-      const payload = (result ?? {}) as { opened?: unknown; path?: unknown };
+      const payload = typeof result === "object" && result !== null ? result : {};
+      const opened = "opened" in payload ? payload.opened : undefined;
+      const path = "path" in payload ? payload.path : undefined;
       return {
-        opened: payload.opened === true,
-        path: typeof payload.path === "string" ? payload.path : null,
+        opened: opened === true,
+        path: typeof path === "string" ? path : null,
       };
     },
   },
