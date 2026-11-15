@@ -57,6 +57,20 @@
   box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.12);
 }
 
+.vramWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fbbf24;
+}
+
+:global([data-theme="light"]) .vramWarning {
+  color: #b45309;
+}
+
 .refusalNotice {
   display: flex;
   flex-direction: column;

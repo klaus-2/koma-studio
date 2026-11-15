@@ -160,6 +160,7 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
       languages: ['ja'],
       available: false,
       implemented: true,
+      minVramGb: 10,
     },
     {
       key: 'got_ocr2',
@@ -169,6 +170,7 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
       languages: ['multi'],
       available: false,
       implemented: true,
+      minVramGb: 8,
     },
     {
       key: 'qwen2_5_vl_3b',
@@ -178,6 +180,7 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
       languages: ['multi'],
       available: false,
       implemented: true,
+      minVramGb: 8,
     },
     {
       key: 'mangalmm',
@@ -187,6 +190,7 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
       languages: ['ja'],
       available: false,
       implemented: true,
+      minVramGb: 14,
     },
     {
       key: 'rolmocr',
@@ -196,6 +200,7 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
       languages: ['multi'],
       available: false,
       implemented: true,
+      minVramGb: 14,
     },
     {
       key: 'glm_ocr_onnx',
@@ -205,6 +210,7 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
       languages: ['zh', 'en', 'fr', 'es', 'ru', 'de', 'ja', 'ko'],
       available: false,
       implemented: true,
+      minVramGb: 8,
     },
     {
       key: 'paddleocr_vl_1_5',
@@ -214,6 +220,7 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
       languages: ['multi'],
       available: false,
       implemented: true,
+      minVramGb: 8,
     },
   ],
   getTranslations: [
@@ -260,6 +267,7 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
         languages: [...model.sourceLanguages],
         available: !downloadOnly,
         implemented: !downloadOnly,
+        ...(model.minVramGb === undefined ? {} : { minVramGb: model.minVramGb }),
       };
     }),
     ...OFFICIAL_CLOUD_STAGE_OPTIONS.getTranslations,

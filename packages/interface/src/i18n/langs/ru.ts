@@ -4861,6 +4861,7 @@ export const ruMessages: TranslationCatalog = {
   'feed.tabsAria': "Разделы Scanlation Feed",
   'feed.actions.publishPost': "Опубликовать {type}",
   'modelCatalog.error.notImplemented': 'Модель не реализована',
+  'modelCard.badge.aboveHardware': 'Выше возможностей вашего оборудования',
   'modelCatalog.error.unknownModel': 'Неизвестная модель',
   'modelCatalog.error.availableModels': 'Доступные модели',
   'modelCatalog.error.useDefault': 'Использовать модель по умолчанию',

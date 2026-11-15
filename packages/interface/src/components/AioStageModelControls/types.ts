@@ -8,6 +8,8 @@ export interface AioStageModelOption {
   languages?: string[];
   available: boolean;
   implemented: boolean;
+  /** Declared free-VRAM floor in GB (absent = undeclared by the backend). */
+  minVramGb?: number;
   provider_id?: string;
   provider_name?: string;
   provider_status?: "integrated" | "catalog_only";

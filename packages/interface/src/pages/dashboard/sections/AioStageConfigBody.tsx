@@ -204,6 +204,9 @@ export default memo(function AioStageConfigBody({
     (s) => s.setAioHdCropTriggerSize,
   );
   const renderStepEnabled = useAioPipelineStore((s) => s.aioSteps.render);
+  const deviceVramGb = useAioPipelineStore(
+    (s) => s.aioDeviceInfo?.vram_gb ?? null,
+  );
 
   const canEditActiveRenderStage =
     activeImageRenderStageActive &&
@@ -242,6 +245,7 @@ export default memo(function AioStageConfigBody({
           options={availableOcrStageOptions}
           selectedModel={selectedOcrModel}
           statusText={selectedOcrStatusText}
+          deviceVramGb={deviceVramGb}
           formatOptionLabel={formatAioStageOptionLabel}
           onSelectModel={selectAioRecognizeTextModel}
           onOpenManager={() =>
@@ -305,6 +309,7 @@ export default memo(function AioStageConfigBody({
           options={availableSegmentStageOptions}
           selectedModel={selectedSegmentModel}
           statusText={selectedSegmentStatusText}
+          deviceVramGb={deviceVramGb}
           formatOptionLabel={formatAioStageOptionLabel}
           onSelectModel={(modelKey) =>
             selectAioLocalStageModel('segmentText', modelKey)

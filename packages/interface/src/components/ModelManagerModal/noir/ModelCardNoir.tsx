@@ -9,6 +9,7 @@ import {
   isDownloadOnlyModel,
   modelStageLabel,
 } from "../../../models/translation-models-registry";
+import { useAioPipelineStore } from "@/pages/dashboard/stores/aio-pipeline-store";
 import { ModelInfoTooltipNoir } from "./ModelInfoTooltipNoir";
 import { ModelProgressBarNoir } from "./ModelProgressBarNoir";
 
@@ -55,6 +56,11 @@ export const ModelCardNoir = ({
 }: ModelCardProps) => {
   const { t } = useI18n();
   const { model } = entry;
+  const deviceVramGb = useAioPipelineStore((s) => s.aioDeviceInfo?.vram_gb ?? null);
+  const aboveHardware =
+    model.minVramGb !== undefined &&
+    deviceVramGb !== null &&
+    model.minVramGb > deviceVramGb;
 
   const isActive =
     entry.status === "downloading" || entry.status === "queued" || entry.status === "verifying";
@@ -134,6 +140,13 @@ export const ModelCardNoir = ({
             <div className="mt-2">
               <Stamp tone="azure" title={t("modelCard.badge.downloadOnly")}>
                 {t("modelCard.badge.downloadOnly")}
+              </Stamp>
+            </div>
+          )}
+          {aboveHardware && (
+            <div className="mt-2">
+              <Stamp tone="gold" title={t("modelCard.badge.aboveHardware")}>
+                <AlertTriangle size={9} /> {t("modelCard.badge.aboveHardware")}
               </Stamp>
             </div>
           )}

@@ -4705,6 +4705,7 @@ export const koMessages: TranslationCatalog = {
   'feed.tabsAria': "스캔레이션 피드 섹션",
   'feed.actions.publishPost': "{type} 게시",
   'modelCatalog.error.notImplemented': '구현되지 않은 모델',
+  'modelCard.badge.aboveHardware': '하드웨어 사양 초과',
   'modelCatalog.error.unknownModel': '알 수 없는 모델',
   'modelCatalog.error.availableModels': '사용 가능한 모델',
   'modelCatalog.error.useDefault': '기본 모델 사용',

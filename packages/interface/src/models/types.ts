@@ -65,6 +65,8 @@ export interface TranslationModel {
   sourceLanguages: string[];
   targetLanguages: string[];
   requirements: TranslationModelRequirements;
+  /** Numeric free-VRAM floor (GB) declared by the backend; absent = undeclared. */
+  minVramGb?: number;
   speed: ModelSpeedRating;
   downloadUrl: string;
   checksumSHA256: string;

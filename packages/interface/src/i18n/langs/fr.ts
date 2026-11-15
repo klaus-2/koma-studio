@@ -4795,6 +4795,7 @@ export const frMessages: TranslationCatalog = {
   'feed.tabsAria': "Sections du flux Scanlation",
   'feed.actions.publishPost': "Publier {type}",
   'modelCatalog.error.notImplemented': 'Modèle non implémenté',
+  'modelCard.badge.aboveHardware': 'Au-delà de votre matériel',
   'modelCatalog.error.unknownModel': 'Modèle inconnu',
   'modelCatalog.error.availableModels': 'Modèles disponibles',
   'modelCatalog.error.useDefault': 'Utiliser le modèle par défaut',

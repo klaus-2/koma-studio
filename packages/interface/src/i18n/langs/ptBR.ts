@@ -2336,6 +2336,7 @@ export const ptBrMessages: TranslationCatalog = {
   'modelCard.action.active': 'Ativo',
   'modelCard.action.use': 'Usar',
   'modelCard.badge.downloadOnly': 'Somente download — ainda sem runtime local',
+  'modelCard.badge.aboveHardware': 'Acima do seu hardware',
   'modelCatalog.error.notImplemented': 'Modelo não implementado',
   'modelCatalog.error.unknownModel': 'Modelo desconhecido',
   'modelCatalog.error.availableModels': 'Modelos disponíveis',

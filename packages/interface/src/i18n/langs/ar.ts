@@ -4641,6 +4641,7 @@ export const arMessages: TranslationCatalog = {
   'feed.tabsAria': "أقسام موجز الاسكانليشن",
   'feed.actions.publishPost': "نشر {type}",
   'modelCatalog.error.notImplemented': 'النموذج غير مُنفَّذ',
+  'modelCard.badge.aboveHardware': 'يتجاوز عتادك',
   'modelCatalog.error.unknownModel': 'نموذج غير معروف',
   'modelCatalog.error.availableModels': 'النماذج المتاحة',
   'modelCatalog.error.useDefault': 'استخدام النموذج الافتراضي',

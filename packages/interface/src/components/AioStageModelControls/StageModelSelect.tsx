@@ -17,6 +17,8 @@ export interface StageModelSelectProps {
   options: AioStageModelOption[];
   selectedModel: AioStageModelOption | null;
   statusText: string | null;
+  /** VRAM reported by `/device/info` (GB); null when unknown. */
+  deviceVramGb?: number | null;
   formatOptionLabel: (option: AioStageModelOption) => string;
   onSelectModel: (modelKey: string) => void;
   onOpenManager: () => void;
@@ -50,6 +52,7 @@ const StageModelSelectBase = ({
   options,
   selectedModel,
   statusText,
+  deviceVramGb = null,
   formatOptionLabel,
   onSelectModel,
   onOpenManager,
@@ -61,6 +64,10 @@ const StageModelSelectBase = ({
   const { t } = useI18n();
   const tokens = useStageControlTokens();
   const selectedValue = options.some((option) => option.key === value) ? value : "";
+  const aboveHardware =
+    selectedModel?.minVramGb !== undefined &&
+    deviceVramGb !== null &&
+    selectedModel.minVramGb > deviceVramGb;
 
   return (
     <div className="koma-stage-config">
@@ -123,6 +130,12 @@ const StageModelSelectBase = ({
       {hints.includes("status") && statusText ? (
         <p className="koma-field__hint">
           {t("aio.model.localStatus", { value: statusText })}
+        </p>
+      ) : null}
+      {aboveHardware ? (
+        <p className={styles.vramWarning} role="status">
+          <ShieldAlert size={12} aria-hidden="true" />
+          {t("modelCard.badge.aboveHardware")}
         </p>
       ) : null}
       {refusal ? (

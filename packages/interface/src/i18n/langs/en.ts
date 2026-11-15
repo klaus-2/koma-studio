@@ -2398,6 +2398,7 @@ export const enMessages = {
   'modelCard.action.active': 'Active',
   'modelCard.action.use': 'Use',
   'modelCard.badge.downloadOnly': 'Download only — no local runtime yet',
+  'modelCard.badge.aboveHardware': 'Above your hardware',
   'modelCatalog.error.notImplemented': 'Model not implemented',
   'modelCatalog.error.unknownModel': 'Unknown model',
   'modelCatalog.error.availableModels': 'Available models',

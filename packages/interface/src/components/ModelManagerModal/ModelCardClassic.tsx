@@ -15,6 +15,7 @@ import {
   isDownloadOnlyModel,
   modelStageLabel,
 } from '../../models/translation-models-registry';
+import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import { ModelInfoTooltipClassic } from './ModelInfoTooltipClassic';
 import { ModelProgressBarClassic } from './ModelProgressBarClassic';
 import styles from './styles.module.css';
@@ -54,6 +55,11 @@ export const ModelCardClassic = ({
 }: ModelCardProps) => {
   const { t } = useI18n();
   const { model } = entry;
+  const deviceVramGb = useAioPipelineStore((s) => s.aioDeviceInfo?.vram_gb ?? null);
+  const aboveHardware =
+    model.minVramGb !== undefined &&
+    deviceVramGb !== null &&
+    model.minVramGb > deviceVramGb;
   const speedCfg = SPEED_CONFIG[model.speed] ?? DEFAULT_SPEED_CONFIG;
 
   const isActive =
@@ -206,6 +212,14 @@ export const ModelCardClassic = ({
               title={t('modelCard.badge.downloadOnly')}
             >
               {t('modelCard.badge.downloadOnly')}
+            </span>
+          )}
+          {aboveHardware && (
+            <span
+              className={styles.vramBadge}
+              title={t('modelCard.badge.aboveHardware')}
+            >
+              <AlertTriangle size={10} /> {t('modelCard.badge.aboveHardware')}
             </span>
           )}
           <p className={styles.modelCardMeta}>
