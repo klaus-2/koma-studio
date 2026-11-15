@@ -23,15 +23,19 @@ class DeepLTranslatorEngine(IndexedBatchTranslatorBase):
     name = "DeepL"
     provider_label = "DeepL"
 
-    def __init__(self) -> None:
-        self.api_key = first_env(_API_KEY_ENV)
+    def __init__(self, api_key: str | None = None) -> None:
+        # The builder passes the persisted (provider-config) key; the env var
+        # stays as the standalone fallback so direct construction keeps working.
+        self.api_key = api_key or first_env(_API_KEY_ENV) or None
         self.endpoint = first_env(
             "MINI_BACKEND_DEEPL_ENDPOINT", default="https://api-free.deepl.com/v2/translate"
         )
 
     def _ensure_configured(self) -> None:
         if not self.api_key:
-            raise TranslatorConfigurationError(f"DeepL requires {_API_KEY_ENV}")
+            raise TranslatorConfigurationError(
+                f"DeepL requires an API key (Settings → Integrations, or {_API_KEY_ENV})"
+            )
 
     def _resolve_language_pair(self, source_language: str, target_language: str) -> tuple[str, str]:
         target = _deepl_target_lang(target_language)

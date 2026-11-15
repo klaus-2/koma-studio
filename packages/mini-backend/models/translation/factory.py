@@ -7,6 +7,11 @@ from typing import Literal, NotRequired, TypedDict
 
 from core.config import normalize_stage_model_key
 from core.device import register_gpu_cache_releaser
+from core.translation_provider_config import (
+    resolve_deepl_api_key,
+    resolve_libretranslate_api_key,
+    resolve_libretranslate_url,
+)
 from models.engine_cache import LruEngineCache
 from core.models_store import model_is_installed
 from models.translation.base_translator import BaseTranslator
@@ -40,6 +45,7 @@ from models.translation.providers import (
     DeepLTranslatorEngine,
     GeminiTranslatorEngine,
     GoogleTranslatorEngine,
+    LibreTranslateEngine,
     MicrosoftTranslatorEngine,
     OpenAIGPTTranslatorEngine,
     YandexTranslatorEngine,
@@ -97,6 +103,11 @@ TRANSLATION_MODELS: dict[str, TranslationModelMeta] = {
         "name": "DeepL", "device": "cpu",
         "use_case": "Translation with the DeepL API (Free/Pro)",
         "implemented": True, "kind": "traditional", "requires": ["MINI_BACKEND_DEEPL_API_KEY"],
+    },
+    "libretranslate": {
+        "name": "LibreTranslate", "device": "cpu",
+        "use_case": "Translation via a self-hosted or public LibreTranslate server",
+        "implemented": True, "kind": "traditional", "requires": [],
     },
     "custom": {
         "name": "Custom", "device": "cpu",
@@ -283,7 +294,11 @@ _ENGINE_BUILDERS: dict[str, EngineBuilder] = {
     "google_translate": lambda _key: GoogleTranslatorEngine(),
     "microsoft_translator": lambda _key: MicrosoftTranslatorEngine(),
     "yandex_translate": lambda _key: YandexTranslatorEngine(),
-    "deepl": lambda _key: DeepLTranslatorEngine(),
+    "deepl": lambda _key: DeepLTranslatorEngine(api_key=resolve_deepl_api_key()),
+    "libretranslate": lambda _key: LibreTranslateEngine(
+        server_url=resolve_libretranslate_url(),
+        api_key=resolve_libretranslate_api_key(),
+    ),
     "custom": lambda _key: CustomTranslatorEngine(),
     "sugoi_v4_ja_en_ct2": lambda key: SugoiLocalTranslator(
         model_dir=resolve_local_translation_model_dir(key)
@@ -434,6 +449,10 @@ def _is_available(key: str, meta: TranslationModelMeta) -> bool:
         if key in _CUSTOM_GGUF_KEYS:
             return custom_gguf_ready(key)
         return model_is_installed(key) and local_translation_runtime_ready(key)
+    if key == "deepl":
+        return resolve_deepl_api_key() is not None
+    if key == "libretranslate":
+        return resolve_libretranslate_url() is not None
     return _has_required_env(meta["requires"])
 
 
@@ -444,6 +463,16 @@ def _unavailable_reason(key: str, meta: TranslationModelMeta) -> str:
         return "the .gguf file named by the user manifest is missing under the models root"
     if meta["kind"] in _LOCAL_KINDS:
         return "the local model files are not installed or are incomplete"
+    if key == "deepl":
+        return (
+            "the DeepL API key is not configured "
+            "(Settings → Integrations, or MINI_BACKEND_DEEPL_API_KEY)"
+        )
+    if key == "libretranslate":
+        return (
+            "the LibreTranslate server URL is not configured "
+            "(Settings → Integrations, or MINI_BACKEND_LIBRETRANSLATE_URL)"
+        )
     missing = _missing_required_config(meta["requires"])
     if missing:
         return "required configuration is missing: " + ", ".join(missing)

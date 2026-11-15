@@ -7,10 +7,15 @@ import logging
 from typing import Annotated, Final
 
 from fastapi import APIRouter, Form, HTTPException
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from core.config import clamp_llm_request_settings
 from core.languages import normalize_language_code
+from core.translation_provider_config import (
+    TranslationProviderConfig,
+    load_provider_config,
+    save_provider_config,
+)
 from models.errors import (
     MODEL_NOT_CONFIGURED_WIRE_CODE,
     UNKNOWN_MODEL_WIRE_CODE,
@@ -23,6 +28,7 @@ from models.errors import (
 from models.translation import errors as translation_errors
 from models.translation.factory import (
     TRANSLATION_MODELS,
+    clear_translator_cache,
     list_translation_models,
 )
 from pipelines.translation_stage import (
@@ -103,6 +109,42 @@ def _parse_json_object(raw: str | None, *, field: str) -> dict[str, object] | No
 @router.get("/translate/models")
 async def translation_models() -> dict[str, object]:
     return {"models": list_translation_models()}
+
+
+class TranslationProviderConfigPayload(BaseModel):
+    libretranslate_url: str | None = None
+    libretranslate_api_key: str | None = None
+    deepl_api_key: str | None = None
+
+
+def _provider_config_payload(config: TranslationProviderConfig) -> dict[str, str | None]:
+    return {
+        "libretranslate_url": config.libretranslate_url,
+        "libretranslate_api_key": config.libretranslate_api_key,
+        "deepl_api_key": config.deepl_api_key,
+    }
+
+
+@router.get("/translate/provider-config")
+async def get_translation_provider_config() -> dict[str, object]:
+    return {"providerConfig": _provider_config_payload(load_provider_config())}
+
+
+@router.put("/translate/provider-config")
+async def put_translation_provider_config(
+    payload: TranslationProviderConfigPayload,
+) -> dict[str, object]:
+    save_provider_config(
+        TranslationProviderConfig(
+            libretranslate_url=payload.libretranslate_url or None,
+            libretranslate_api_key=payload.libretranslate_api_key or None,
+            deepl_api_key=payload.deepl_api_key or None,
+        )
+    )
+    # Cached engines hold the previous credentials/URL: drop them so the next
+    # request rebuilds with the saved configuration.
+    clear_translator_cache()
+    return {"providerConfig": _provider_config_payload(load_provider_config())}
 
 
 @router.post("/translate", response_model=TranslationResponse)

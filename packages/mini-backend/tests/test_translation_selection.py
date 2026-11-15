@@ -137,7 +137,7 @@ class TranslationSelectionTests(unittest.TestCase):
 
         self.assertEqual(ctx.exception.model_key, "deepl")
         self.assertIn("MINI_BACKEND_DEEPL_API_KEY", ctx.exception.reason)
-        self.assertIn("required configuration is missing", ctx.exception.reason)
+        self.assertIn("not configured", ctx.exception.reason)
         self.assertEqual(spy.calls, 0)
 
     def test_available_local_key_builds_its_own_engine(self) -> None:
@@ -178,6 +178,9 @@ class TranslationDeepLAliasTests(unittest.TestCase):
 
     def test_deepl_translate_selection_builds_the_deepl_engine(self) -> None:
         class _DeepLStub(BaseTranslator):
+            def __init__(self, api_key: str | None = None) -> None:
+                self.api_key = api_key
+
             async def _translate(
                 self, request: TranslationRequest
             ) -> list[TranslationTextResult]:

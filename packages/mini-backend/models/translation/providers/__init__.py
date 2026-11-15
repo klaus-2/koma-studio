@@ -48,6 +48,7 @@ from models.translation.providers.factory import (
 )
 from models.translation.providers.gemini import GeminiTranslatorEngine
 from models.translation.providers.google import GoogleTranslatorEngine
+from models.translation.providers.libretranslate import LibreTranslateEngine
 from models.translation.providers.microsoft import MicrosoftTranslatorEngine
 from models.translation.providers.openai_gpt import OpenAIGPTTranslatorEngine
 from models.translation.providers.request_scoped import (
@@ -60,7 +61,8 @@ logger = logging.getLogger(__name__)  # same name as before: models.translation.
 
 __all__ = [
     "ClaudeTranslatorEngine", "CustomTranslatorEngine", "DeepLTranslatorEngine",
-    "GeminiTranslatorEngine", "GoogleTranslatorEngine", "MicrosoftTranslatorEngine",
+    "GeminiTranslatorEngine", "GoogleTranslatorEngine", "LibreTranslateEngine",
+    "MicrosoftTranslatorEngine",
     "OpenAIGPTTranslatorEngine", "RequestScopedOllamaNativeTranslatorEngine",
     "RequestScopedOpenAICompatibleTranslatorEngine", "YandexTranslatorEngine",
     "build_request_scoped_custom_translation_engine", "request_scoped_custom_identity",

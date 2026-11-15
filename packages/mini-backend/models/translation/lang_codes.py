@@ -82,3 +82,14 @@ _deepl_target_lang = LangCodeMap(
            "zh-tw": "ZH-HANT", "en": "EN-US"},
     fallback=str.upper,                # note: no zh-prefix rule here — "zh-hk" → "ZH-HK", as before
 )
+# LibreTranslate serves plain ISO 639-1 codes with the literal "auto" as
+# source; regional variants fold onto their base code ("zh-cn"/"zh-tw" → "zh",
+# "pt-br" → "pt").
+_libretranslate_source_lang = LangCodeMap(
+    allow_auto=True,
+    exact={"auto": "auto", "": "auto", "pt-br": "pt", "zh-cn": "zh", "zh-tw": "zh"},
+)
+_libretranslate_target_lang = LangCodeMap(
+    allow_auto=False,
+    exact={"pt-br": "pt", "zh-cn": "zh", "zh-tw": "zh"},
+)
