@@ -33,6 +33,7 @@ def _reset_sweep_state(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(engine_idle, "_last_sweep_error", None)
     monkeypatch.setattr(engine_idle, "_consecutive_sweep_failures", 0)
     monkeypatch.setattr(engine_idle, "_last_sweep_at", None)
+    monkeypatch.setattr(engine_idle, "_has_swept", False)
 
 
 def test_register_idle_cache_is_idempotent_by_name() -> None:
@@ -202,6 +203,19 @@ async def test_sweep_success_clears_error_and_counter(
         assert status.recorded_at is not None
     finally:
         get_config.cache_clear()
+
+
+def test_status_is_unhealthy_before_first_sweep(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _reset_sweep_state(monkeypatch)
+
+    status = engine_idle.get_last_sweep_status()
+
+    assert status.ok is False
+    assert status.error is None
+    assert status.consecutive_failures == 0
+    assert status.recorded_at is None
 
 
 def test_sweep_failure_level_escalates_at_three() -> None:

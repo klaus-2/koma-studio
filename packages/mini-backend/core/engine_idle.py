@@ -31,11 +31,13 @@ _last_sweep_evicted: dict[str, int] = {}
 _last_sweep_error: str | None = None
 _consecutive_sweep_failures: int = 0
 _last_sweep_at: float | None = None
+_has_swept: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class SweepStatus:
-    """Outcome of the most recently started sweeper cycle."""
+    """Outcome of the most recently completed sweeper cycle; ``ok`` is False
+    until the first cycle has finished (success or failure)."""
 
     ok: bool
     error: str | None
@@ -47,6 +49,12 @@ def register_idle_cache(name: str, cache: LruEngineCache[Hashable, object]) -> N
     """Register a factory engine cache for idle eviction; idempotent by name."""
     with _idle_caches_lock:
         _idle_caches.setdefault(name, cache)
+
+
+def registered_idle_cache_names() -> frozenset[str]:
+    """Names of every cache currently registered for idle eviction."""
+    with _idle_caches_lock:
+        return frozenset(_idle_caches)
 
 
 def evict_idle_engines(idle_seconds: float) -> dict[str, int]:
@@ -74,7 +82,7 @@ def get_last_sweep_evicted() -> dict[str, int]:
 def get_last_sweep_status() -> SweepStatus:
     with _last_sweep_lock:
         return SweepStatus(
-            ok=_last_sweep_error is None,
+            ok=_has_swept and _last_sweep_error is None,
             error=_last_sweep_error,
             consecutive_failures=_consecutive_sweep_failures,
             recorded_at=_last_sweep_at,
@@ -91,7 +99,7 @@ def _sweep_failure_level(consecutive_failures: int) -> int:
 def _record_last_sweep(evicted: dict[str, int], error: str | None) -> int:
     """Record one finished cycle (success or failure); returns the new
     consecutive-failure count (0 after a success)."""
-    global _consecutive_sweep_failures, _last_sweep_at, _last_sweep_error
+    global _consecutive_sweep_failures, _has_swept, _last_sweep_at, _last_sweep_error
     with _last_sweep_lock:
         _last_sweep_evicted.clear()
         _last_sweep_evicted.update(evicted)
@@ -102,6 +110,7 @@ def _record_last_sweep(evicted: dict[str, int], error: str | None) -> int:
             _last_sweep_error = error
             _consecutive_sweep_failures += 1
         _last_sweep_at = time.time()
+        _has_swept = True
         return _consecutive_sweep_failures
 
 

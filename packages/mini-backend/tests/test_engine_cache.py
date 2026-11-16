@@ -121,6 +121,16 @@ class LruEngineCacheTests(unittest.TestCase):
             self.assertEqual(cache.evict_idle(idle_seconds=1e12), [])
         self.assertEqual(len(cache), 3)
 
+    def test_evict_idle_keeps_fresh_entries_against_real_clock(self) -> None:
+        cache: LruEngineCache[str, object] = LruEngineCache(max_size=8)
+        for key in ("a", "b", "c"):
+            cache.get_or_build(key, object)
+        # Offset from the real clock: a monotonic->time.time() swap or a
+        # unit bug would read entries as aeons old and evict everything.
+        with mock.patch("time.monotonic", return_value=time.monotonic() + 60.0):
+            self.assertEqual(cache.evict_idle(idle_seconds=600.0), [])
+        self.assertEqual(len(cache), 3)
+
     def test_evict_idle_never_touches_pending_builds(self) -> None:
         cache: LruEngineCache[str, object] = LruEngineCache(max_size=8)
         stale = cache.get_or_build("stale", object)
