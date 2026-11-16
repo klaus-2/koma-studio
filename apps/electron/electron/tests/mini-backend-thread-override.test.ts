@@ -274,6 +274,23 @@ test("env mapping emits the runtime tunables only when set", () => {
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const mainSource = fs.readFileSync(path.join(testDirectory, "../main.ts"), "utf8");
+const rustOverrideSource = fs.readFileSync(
+  path.join(
+    testDirectory,
+    "../../../tauri/src-tauri/src/sidecar/mini_backend/thread_override.rs",
+  ),
+  "utf8",
+);
+const pythonContractSource = [
+  fs.readFileSync(
+    path.join(testDirectory, "../../../../packages/mini-backend/core/threads.py"),
+    "utf8",
+  ),
+  fs.readFileSync(
+    path.join(testDirectory, "../../../../packages/mini-backend/core/config.py"),
+    "utf8",
+  ),
+].join("\n");
 
 test("main.ts applies the thread override env in the mini-backend spawn env block", () => {
   const startIndex = mainSource.indexOf("const startMiniBackend");
@@ -287,4 +304,28 @@ test("main.ts applies the thread override env in the mini-backend spawn env bloc
     startFnSource.includes('readMiniBackendThreadOverride(app.getPath("userData"))'),
     "startMiniBackend must read the override file from userData at spawn time",
   );
+});
+
+test("test_override_fields_have_parity_across_shells", () => {
+  const fullySet = sanitizeMiniBackendThreadOverride({
+    intraOpThreads: 4,
+    interOpThreads: 2,
+    engineIdleTimeoutSeconds: 600,
+    workingResolutionMegapixels: 24,
+    workingResolutionOcrClean: true,
+  });
+
+  for (const field of Object.keys(fullySet)) {
+    assert.ok(
+      rustOverrideSource.includes(field),
+      `thread_override.rs must carry the camelCase field "${field}" (serde rename_all camelCase)`,
+    );
+  }
+
+  for (const envName of Object.keys(miniBackendThreadEnvVars(fullySet))) {
+    assert.ok(
+      pythonContractSource.includes(envName),
+      `the mini-backend Python contract (core/threads.py, core/config.py) must consume "${envName}"`,
+    );
+  }
 });
