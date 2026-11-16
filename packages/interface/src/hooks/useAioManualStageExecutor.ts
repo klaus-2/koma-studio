@@ -47,6 +47,8 @@ import type {
   RuntimeExecutionNotice,
 } from '../types/dashboard.types';
 import type { AioStageOption } from '../models/aioStageCatalog';
+import { TRANSLATION_MODELS_REGISTRY } from '../models/translation-models-registry';
+import { resolveTranslationStageExecutionKey } from '../utils/translationAutoResolution';
 import { useAioPipelineStore } from '../pages/dashboard/stores/aio-pipeline-store';
 import { useRegionEditorStore } from '../pages/dashboard/stores/region-editor-store';
 import { patchAioSnapshotStageForImage } from '../pages/dashboard/hooks/aio-snapshot.commands';
@@ -230,7 +232,16 @@ export function useAioManualStageExecutor({
     };
     let selectedDetectorKey = aioStageSelection.detectText;
     let selectedOcrKey = aioStageSelection.recognizeText;
-    let selectedTranslationKey = aioStageSelection.getTranslations;
+    let selectedTranslationKey = resolveTranslationStageExecutionKey(
+      aioStageSelection.getTranslations,
+      {
+        registryModels: TRANSLATION_MODELS_REGISTRY,
+        installEntries: modelEntries,
+        sourceLanguage: aioSrcLang,
+        targetLanguage: aioTgtLang,
+        deviceInfo: useAioPipelineStore.getState().aioDeviceInfo,
+      },
+    );
     let selectedSegmentKey = aioStageSelection.segmentText;
     let selectedCleanKey = aioStageSelection.cleanImage;
 

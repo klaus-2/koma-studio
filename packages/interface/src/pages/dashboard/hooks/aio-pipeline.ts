@@ -14,6 +14,7 @@ import {
   stageTransportNoticeDetail,
 } from '@/aio-stages';
 import { useI18n, type TranslateFn } from '@/i18n';
+import { TRANSLATION_MODELS_REGISTRY } from '@/models/translation-models-registry';
 import { parseApiError } from '@/pages/dashboard/helpers';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
 import { useCommittedAsyncAction } from '@/pages/dashboard/hooks/use-committed-async-action';
@@ -72,6 +73,7 @@ import type {
 } from '@/types/dashboard.types';
 import { applyDetectedGradientToStyle } from '@/utils/dashboard.utils';
 import { isCustomModelSelectionKey } from '@/utils/customLlm';
+import { resolveTranslationStageExecutionKey } from '@/utils/translationAutoResolution';
 import {
   isAbortError,
   isTimeoutError,
@@ -208,15 +210,27 @@ export function useAioPipelineExecution(
     };
   }, []);
 
+  const aioTgtLang = useAioPipelineStore((state) => state.aioTgtLang);
+  const aioDeviceInfo = useAioPipelineStore((state) => state.aioDeviceInfo);
+
   const prepare = useAioExecutionPreparation({
     imagesCount: images.length,
     localApiUrl: args.localApiUrl,
     aioSteps,
     aioSrcLang,
-    aioTgtLang: useAioPipelineStore((state) => state.aioTgtLang),
+    aioTgtLang,
     detectSelectionKey: selection.detectText,
     ocrSelectionKey: selection.recognizeText,
-    translationSelectionKey: selection.getTranslations,
+    translationSelectionKey: resolveTranslationStageExecutionKey(
+      selection.getTranslations,
+      {
+        registryModels: TRANSLATION_MODELS_REGISTRY,
+        installEntries: args.modelEntries,
+        sourceLanguage: aioSrcLang,
+        targetLanguage: aioTgtLang,
+        deviceInfo: aioDeviceInfo,
+      },
+    ),
     segmentSelectionKey: selection.segmentText,
     cleanSelectionKey: selection.cleanImage,
     effectiveBatchConcurrency: args.effectiveBatchConcurrency,

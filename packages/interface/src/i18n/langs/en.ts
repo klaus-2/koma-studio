@@ -499,6 +499,8 @@ export const enMessages = {
   'aio.model.languages.multi': 'multi',
   'aio.model.noDescription': 'No description.',
   'aio.model.localStatus': 'Local status: {value}',
+  'aio.model.auto.option': 'Auto',
+  'aio.model.auto.resolved': 'Auto: {model}',
   'aio.stage.detectText': 'Detect Text',
   'aio.stage.recognizeText': 'Recognize Text',
   'aio.stage.getTranslations': 'Get Translations',

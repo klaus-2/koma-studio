@@ -6,8 +6,14 @@ import { SOURCE_LANGUAGE_OPTIONS, TARGET_LANGUAGE_OPTIONS } from '../../../model
 import type { useDashboardModelManager } from '../../../hooks/useDashboardModelManager';
 import { useModelManagerStatusSnapshot } from '../../../hooks/useModelManager';
 import { summarizeInstalledModels } from '../../../models/model-storage';
+import { TRANSLATION_MODELS_REGISTRY } from '../../../models/translation-models-registry';
 import type { CustomLlmProfile } from '../../../utils/customLlm';
 import { clampLlmRequestSettings } from '../../../utils/customLlm';
+import {
+  resolveTranslationAutoModel,
+  toAutoResolvedBadge,
+  type TranslationAutoResolved,
+} from '../../../utils/translationAutoResolution';
 import type { useAioModelSelection } from '../hooks/aio-pipeline';
 import type {
   useTranslatorRetranslate,
@@ -170,6 +176,20 @@ export default function TranslatorToolsPanelSection({
   const aioStageSelection = useAioPipelineStore((s) => s.aioStageSelection);
   const setAioStageSelection = useAioPipelineStore(
     (s) => s.setAioStageSelection,
+  );
+  const aioDeviceInfo = useAioPipelineStore((s) => s.aioDeviceInfo);
+  const translationAutoResolved: TranslationAutoResolved | null = useMemo(
+    () =>
+      toAutoResolvedBadge(
+        resolveTranslationAutoModel({
+          registryModels: TRANSLATION_MODELS_REGISTRY,
+          installEntries: modelManagerState.entries,
+          sourceLanguage: srcLang,
+          targetLanguage: tgtLang,
+          deviceInfo: aioDeviceInfo,
+        }),
+      ),
+    [aioDeviceInfo, modelManagerState.entries, srcLang, tgtLang],
   );
   // The twins consume exactly these six fields — subscribe with useShallow so
   // unrelated llm-settings writes (extra-context keystrokes) don't re-render.
@@ -390,6 +410,7 @@ export default function TranslatorToolsPanelSection({
       availableTranslationStageOptions={availableTranslationStageOptions}
       installedCount={modelSummary.installedCount}
       updatesCount={modelSummary.updateCount}
+      translationAutoResolved={translationAutoResolved}
       setTranslationModel={(modelId) =>
         setAioStageSelection((prev) => ({
           ...prev,

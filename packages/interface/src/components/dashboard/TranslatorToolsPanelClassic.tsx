@@ -27,6 +27,7 @@ import { cn } from '../../utils/dashboard.utils';
 import { TranslatorWorkspaceToggle } from '../../pages/TranslatorWorkspaceToggle';
 import type { SheetReimportReport } from '../../utils/spreadsheet-bridge';
 import type { SheetExportFormat } from '../../pages/dashboard/hooks/exportSheetWorker';
+import type { TranslationAutoResolved } from '../../utils/translationAutoResolution';
 import SheetConflictReport from '../../pages/dashboard/sections/SheetConflictReport';
 
 interface TranslatorToolsPanelProps {
@@ -52,6 +53,7 @@ interface TranslatorToolsPanelProps {
   availableTranslationStageOptions: any[];
   installedCount: number;
   updatesCount: number;
+  translationAutoResolved: TranslationAutoResolved | null;
   setTranslationModel: (modelId: string) => void;
   openTranslationManager: (args?: {
     language?: string;
@@ -131,6 +133,7 @@ export default function TranslatorToolsPanelClassic({
   availableTranslationStageOptions,
   installedCount,
   updatesCount,
+  translationAutoResolved,
   setTranslationModel,
   openTranslationManager,
   translationSelectedSummary,
@@ -331,6 +334,7 @@ export default function TranslatorToolsPanelClassic({
           legacyOptions={availableTranslationStageOptions as any}
           installedCount={installedCount}
           updatesCount={updatesCount}
+          autoResolved={translationAutoResolved}
           onSelectModel={setTranslationModel}
           onOpenManager={openTranslationManager}
           selectedSummary={translationSelectedSummary}

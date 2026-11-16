@@ -489,6 +489,8 @@ export const ptMessages: TranslationCatalog = {
   'aio.model.languages.multi': 'multi',
   'aio.model.noDescription': 'Sem descrição.',
   'aio.model.localStatus': 'Status local: {value}',
+  'aio.model.auto.option': 'Auto',
+  'aio.model.auto.resolved': 'Auto: {model}',
   'aio.stage.detectText': 'Detectar Texto',
   'aio.stage.recognizeText': 'Reconhecer Texto',
   'aio.stage.getTranslations': 'Obter Traduções',

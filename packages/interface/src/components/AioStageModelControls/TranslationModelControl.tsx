@@ -1,4 +1,4 @@
-import { AlertTriangle, HardDrive, Lock, ShieldAlert } from "lucide-react";
+import { AlertTriangle, HardDrive, Lock, ShieldAlert, Wand2 } from "lucide-react";
 import { memo, useMemo } from "react";
 
 import { TRANSLATION_SERVICE_BACKEND_KEYS } from "../../models/aioStageCatalog";
@@ -6,6 +6,11 @@ import { modelSupportsLanguage, isDownloadOnlyModel, TRANSLATION_MODELS_REGISTRY
 import type { ModelInstallState } from "../../models/types";
 import type { StageModelRefusalDetail } from "../../aio-stages/transport";
 import { useI18n } from "../../i18n";
+import {
+  isTranslationAutoSelectionKey,
+  TRANSLATION_AUTO_MODEL_KEY,
+  type TranslationAutoResolved,
+} from "../../utils/translationAutoResolution";
 import type { LegacyTranslationOption } from "./types";
 import { useStageControlTokens } from "./stageControlTokens";
 import styles from "./styles.module.css";
@@ -22,6 +27,8 @@ interface TranslationModelControlProps {
   supportSummary: string;
   /** Structured backend refusal for the current selection (warn, never block). */
   refusal?: StageModelRefusalDetail | null;
+  /** Resolver output for the Auto sentinel selection (null = nothing installed). */
+  autoResolved?: TranslationAutoResolved | null;
   /** Switches the persisted selection to the stage's default model (user consent only). */
   onUseDefaultModel?: () => void;
   onSelectModel: (modelId: string) => void;
@@ -39,6 +46,7 @@ const TranslationModelControlBase = ({
   selectedSummary,
   supportSummary,
   refusal = null,
+  autoResolved = null,
   onUseDefaultModel,
   onSelectModel,
   onOpenManager,
@@ -91,8 +99,9 @@ const TranslationModelControlBase = ({
     [legacyOptions, localModelIds],
   );
 
-  const selectedValue =
-    availableLocalModels.some((model) => model.id === selectedModelId) ||
+  const selectedValue = isTranslationAutoSelectionKey(selectedModelId)
+    ? TRANSLATION_AUTO_MODEL_KEY
+    : availableLocalModels.some((model) => model.id === selectedModelId) ||
       listedLegacyOptions.some((option) => option.key === selectedModelId)
       ? selectedModelId
       : "";
@@ -153,6 +162,9 @@ const TranslationModelControlBase = ({
             <option value="" disabled>
               {t("toolbar.modelSelect.select")}
             </option>
+            <option value={TRANSLATION_AUTO_MODEL_KEY}>
+              {t("aio.model.auto.option")}
+            </option>
             {availableLocalModels.map((model) => {
               const entry = entries[model.id];
               const updateSuffix =
@@ -182,6 +194,15 @@ const TranslationModelControlBase = ({
           </>
         )}
       </select>
+
+      {isTranslationAutoSelectionKey(selectedModelId) && autoResolved !== null ? (
+        <div className={styles.refusalNotice} role="status">
+          <p className={styles.refusalTitle}>
+            <Wand2 size={13} aria-hidden="true" />
+            {t("aio.model.auto.resolved", { model: autoResolved.name })}
+          </p>
+        </div>
+      ) : null}
 
       {refusal ? (
         <div className={styles.refusalNotice} role="alert">

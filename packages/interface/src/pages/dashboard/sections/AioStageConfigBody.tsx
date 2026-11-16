@@ -25,6 +25,11 @@ import type { CustomLlmProfile } from '../../../utils/customLlm';
 import type { SubMode } from '../../../types/dashboard.types';
 import { DEFAULT_AIO_STAGE_OPTIONS } from '../../../models/aioStageCatalog';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
+import { TRANSLATION_MODELS_REGISTRY } from '../../../models/translation-models-registry';
+import {
+  resolveTranslationAutoModel,
+  toAutoResolvedBadge,
+} from '../../../utils/translationAutoResolution';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useActiveAioRegionState } from '../hooks/region-editor';
@@ -212,6 +217,20 @@ export default memo(function AioStageConfigBody({
   const deviceVramGb = useAioPipelineStore(
     (s) => s.aioDeviceInfo?.vram_gb ?? null,
   );
+  const aioDeviceInfo = useAioPipelineStore((s) => s.aioDeviceInfo);
+  const translationAutoResolved = useMemo(
+    () =>
+      toAutoResolvedBadge(
+        resolveTranslationAutoModel({
+          registryModels: TRANSLATION_MODELS_REGISTRY,
+          installEntries: modelManagerState.entries,
+          sourceLanguage: aioSrcLang,
+          targetLanguage: aioTgtLang,
+          deviceInfo: aioDeviceInfo,
+        }),
+      ),
+    [aioDeviceInfo, aioSrcLang, aioTgtLang, modelManagerState.entries],
+  );
 
   const canEditActiveRenderStage =
     activeImageRenderStageActive &&
@@ -276,6 +295,7 @@ export default memo(function AioStageConfigBody({
             legacyOptions={availableTranslationStageOptions}
             installedCount={modelSummary.installedCount}
             updatesCount={modelSummary.updateCount}
+            autoResolved={translationAutoResolved}
             refusal={stageModelRefusals.getTranslations ?? null}
             onUseDefaultModel={() => useDefaultModelForStage('getTranslations')}
             onSelectModel={selectAioTranslationModel}

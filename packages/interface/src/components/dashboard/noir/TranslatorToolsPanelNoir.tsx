@@ -18,6 +18,7 @@ import {
 } from '../../noir-panels/NoirPrimitives';
 import type { SheetReimportReport } from '../../../utils/spreadsheet-bridge';
 import type { SheetExportFormat } from '../../../pages/dashboard/hooks/exportSheetWorker';
+import type { TranslationAutoResolved } from '../../../utils/translationAutoResolution';
 import SheetConflictReport from '../../../pages/dashboard/sections/SheetConflictReport';
 
 interface TranslatorToolsPanelProps {
@@ -42,6 +43,7 @@ interface TranslatorToolsPanelProps {
   availableTranslationStageOptions: any[];
   installedCount: number;
   updatesCount: number;
+  translationAutoResolved: TranslationAutoResolved | null;
   setTranslationModel: (id: string) => void;
   openTranslationManager: (args?: { language?: string; focusedModelId?: string | null }) => void;
   translationSelectedSummary: string;
@@ -88,7 +90,7 @@ export default function TranslatorToolsPanel(props: TranslatorToolsPanelProps) {
     srcLang, setSrcLang, tgtLang, setTgtLang, sourceLanguageOptions, targetLanguageOptions,
     aioRecognizeTextValue, translatorAvailableOcrStageOptions, selectedTranslatorOcrCloudOption, selectedOcrStatusText,
     formatAioStageOptionLabel, setAioRecognizeTextModel, openRecognizeTextManager, translationSelectedModelId,
-    modelEntries, availableTranslationStageOptions, installedCount, updatesCount, setTranslationModel,
+    modelEntries, availableTranslationStageOptions, installedCount, updatesCount, translationAutoResolved, setTranslationModel,
     openTranslationManager, translationSelectedSummary, translationSupportSummary, translatorSfxCleanModelKey,
     translatorSfxCleanModelOptions, selectedTranslatorSfxCleanOption, selectTranslatorSfxCleanModel,
     translatorSfxAdditionalInstructions, setTranslatorSfxAdditionalInstructions, showLlmSettingsPanel, llmSettings,
@@ -158,7 +160,7 @@ export default function TranslatorToolsPanel(props: TranslatorToolsPanelProps) {
         <TranslationModelControl
           selectedModelId={translationSelectedModelId} sourceLanguage={srcLang} targetLanguage={tgtLang}
           entries={modelEntries as any} legacyOptions={availableTranslationStageOptions as any}
-          installedCount={installedCount} updatesCount={updatesCount} onSelectModel={setTranslationModel}
+          installedCount={installedCount} updatesCount={updatesCount} autoResolved={translationAutoResolved} onSelectModel={setTranslationModel}
           onOpenManager={openTranslationManager} selectedSummary={translationSelectedSummary} supportSummary={translationSupportSummary}
         />
 

@@ -9,6 +9,7 @@ import { useCallback } from 'react';
 import { useI18n } from '../../../i18n';
 import { AIO_STAGE_LABEL_KEYS } from '../../../constants/dashboard.constants';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
+import { TRANSLATION_MODELS_REGISTRY } from '../../../models/translation-models-registry';
 import {
   type CustomLlmProfile,
   type LlmRequestSettings,
@@ -21,6 +22,7 @@ import {
   GLOSSARY_MAX_TERMS,
   mergeWorkGlossary,
 } from '../../../utils/glossary';
+import { resolveTranslationStageExecutionKey } from '../../../utils/translationAutoResolution';
 import {
   requireStageModelReadiness,
   runGetTranslationsStage,
@@ -130,11 +132,21 @@ export function useTranslatorExecutionResolvers({
   );
   const srcLang = useTranslatorStore((s) => s.srcLang);
   const tgtLang = useTranslatorStore((s) => s.tgtLang);
+  const aioDeviceInfo = useAioPipelineStore((s) => s.aioDeviceInfo);
 
   const readinessSink = { openModelManagerForStage };
 
   const resolveTranslatorTranslationExecution = useCallback(async () => {
-    const selectedTranslationKey = translationSelectionKey;
+    const selectedTranslationKey = resolveTranslationStageExecutionKey(
+      translationSelectionKey,
+      {
+        registryModels: TRANSLATION_MODELS_REGISTRY,
+        installEntries: modelEntries,
+        sourceLanguage: srcLang,
+        targetLanguage: tgtLang,
+        deviceInfo: aioDeviceInfo,
+      },
+    );
     const selectedTranslationOption = translationStageOptionsForSelect.find(
       (option) => option.key === selectedTranslationKey,
     ) ?? null;
@@ -160,6 +172,7 @@ export function useTranslatorExecutionResolvers({
       useLlmSettingsForTranslation: readiness.useLlmSettings,
     };
   }, [
+    aioDeviceInfo,
     modelEntries,
     openModelManagerForStage,
     selectedCustomTranslationProfile,

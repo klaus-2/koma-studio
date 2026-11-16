@@ -16,6 +16,7 @@ import type { AioStageSelection } from '@/types/aioModelPresets';
 import { normalizeBatchConcurrency } from '@/utils/concurrentBatch';
 import { isCustomModelSelectionKey } from '@/utils/customLlm';
 import { fetchWithTimeoutAndRetry } from '@/utils/http';
+import { TRANSLATION_AUTO_MODEL_KEY } from '@/utils/translationAutoResolution';
 
 export function useAioMiniBackendRuntimeSync(): void {
   const setRuntime = useAioPipelineStore(
@@ -212,6 +213,7 @@ export function useAioStageSelectionFallbacks(
             selectedCustomOcrProfile !== null));
 
       const preserveTranslation =
+        previous.getTranslations === TRANSLATION_AUTO_MODEL_KEY ||
         isInstalledLocalAioEntry(previous.getTranslations) ||
         (isCustomModelSelectionKey(previous.getTranslations) &&
           (pendingTranslation === previous.getTranslations ||
