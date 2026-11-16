@@ -184,12 +184,16 @@ pub struct RestartAppResult {
 }
 
 /// Wire payload of `desktop:mini-backend:set-thread-override`. camelCase
-/// keys match the renderer; `default` tolerates a missing interOpThreads.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+/// keys match the renderer; `default` tolerates renderers written before
+/// the idle-timeout and working-resolution fields existed.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct MiniBackendThreadOverridePayload {
     pub intra_op_threads: Option<i64>,
     pub inter_op_threads: Option<i64>,
+    pub engine_idle_timeout_seconds: Option<i64>,
+    pub working_resolution_megapixels: Option<f64>,
+    pub working_resolution_ocr_clean: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -450,6 +454,14 @@ fn clamp_thread_value(value: i64) -> Option<u32> {
     }
 }
 
+fn clamp_idle_timeout_value(value: i64) -> u32 {
+    value.clamp(0, 86_400) as u32
+}
+
+fn clamp_megapixels_value(value: f64) -> f64 {
+    value.clamp(4.0, 64.0)
+}
+
 /// Per-call sequence number for temp-file names: two concurrent IPC writes
 /// must never share one temp path (the process id alone does not separate
 /// them), mirroring the Electron writer's `randomUUID()` intent.
@@ -468,6 +480,13 @@ pub(crate) fn write_mini_backend_thread_override_at(
     let override_env = MiniBackendThreadOverride {
         intra_op_threads: payload.intra_op_threads.and_then(clamp_thread_value),
         inter_op_threads: payload.inter_op_threads.and_then(clamp_thread_value),
+        engine_idle_timeout_seconds: payload
+            .engine_idle_timeout_seconds
+            .map(clamp_idle_timeout_value),
+        working_resolution_megapixels: payload
+            .working_resolution_megapixels
+            .map(clamp_megapixels_value),
+        working_resolution_ocr_clean: payload.working_resolution_ocr_clean,
     };
     let json = serde_json::to_string(&override_env)
         .map_err(|_| DesktopError::ThreadOverride)?;

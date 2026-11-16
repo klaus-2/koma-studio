@@ -736,6 +736,9 @@ export interface IDesktopBridge {
   setMiniBackendThreadOverride(payload: {
     intraOpThreads: number | null;
     interOpThreads?: number | null;
+    engineIdleTimeoutSeconds?: number | null;
+    workingResolutionMegapixels?: number | null;
+    workingResolutionOcrClean?: boolean | null;
   }): Promise<unknown>;
   onMiniBackendRuntimeState(listener: MiniBackendRuntimeListener): void;
   offMiniBackendRuntimeState(listener: MiniBackendRuntimeListener): void;

@@ -1,5 +1,8 @@
 export interface MiniBackendThreadSettings {
   intraOpThreads: number | null;
+  engineIdleTimeoutSeconds: number;
+  workingResolutionMegapixels: number;
+  workingResolutionOcrClean: boolean;
 }
 
 export const MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY =
@@ -7,9 +10,15 @@ export const MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY =
 
 export const DEFAULT_MINI_BACKEND_THREAD_SETTINGS: MiniBackendThreadSettings = {
   intraOpThreads: null,
+  engineIdleTimeoutSeconds: 600,
+  workingResolutionMegapixels: 24,
+  workingResolutionOcrClean: false,
 };
 
 const MAX_INTRA_OP_THREADS = 64;
+const MAX_ENGINE_IDLE_TIMEOUT_SECONDS = 86400;
+const MIN_WORKING_RESOLUTION_MEGAPIXELS = 4;
+const MAX_WORKING_RESOLUTION_MEGAPIXELS = 64;
 
 const sanitizeIntraOpThreads = (value: unknown): number | null => {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -22,6 +31,31 @@ const sanitizeIntraOpThreads = (value: unknown): number | null => {
   return Math.min(MAX_INTRA_OP_THREADS, rounded);
 };
 
+const sanitizeEngineIdleTimeoutSeconds = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_MINI_BACKEND_THREAD_SETTINGS.engineIdleTimeoutSeconds;
+  }
+  return Math.min(
+    MAX_ENGINE_IDLE_TIMEOUT_SECONDS,
+    Math.max(0, Math.round(value)),
+  );
+};
+
+const sanitizeWorkingResolutionMegapixels = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_MINI_BACKEND_THREAD_SETTINGS.workingResolutionMegapixels;
+  }
+  return Math.min(
+    MAX_WORKING_RESOLUTION_MEGAPIXELS,
+    Math.max(MIN_WORKING_RESOLUTION_MEGAPIXELS, value),
+  );
+};
+
+const sanitizeWorkingResolutionOcrClean = (value: unknown): boolean =>
+  typeof value === 'boolean'
+    ? value
+    : DEFAULT_MINI_BACKEND_THREAD_SETTINGS.workingResolutionOcrClean;
+
 export const sanitizeMiniBackendThreadSettings = (
   value: unknown,
 ): MiniBackendThreadSettings => {
@@ -33,6 +67,18 @@ export const sanitizeMiniBackendThreadSettings = (
   }
   return {
     intraOpThreads: sanitizeIntraOpThreads(value.intraOpThreads),
+    engineIdleTimeoutSeconds:
+      'engineIdleTimeoutSeconds' in value
+        ? sanitizeEngineIdleTimeoutSeconds(value.engineIdleTimeoutSeconds)
+        : DEFAULT_MINI_BACKEND_THREAD_SETTINGS.engineIdleTimeoutSeconds,
+    workingResolutionMegapixels:
+      'workingResolutionMegapixels' in value
+        ? sanitizeWorkingResolutionMegapixels(value.workingResolutionMegapixels)
+        : DEFAULT_MINI_BACKEND_THREAD_SETTINGS.workingResolutionMegapixels,
+    workingResolutionOcrClean:
+      'workingResolutionOcrClean' in value
+        ? sanitizeWorkingResolutionOcrClean(value.workingResolutionOcrClean)
+        : DEFAULT_MINI_BACKEND_THREAD_SETTINGS.workingResolutionOcrClean,
   };
 };
 

@@ -196,6 +196,8 @@ class MiniBackendConfig:
     batch_max_concurrency: int
     batch_max_images: int
     engine_idle_timeout_seconds: int
+    working_resolution_megapixels: float
+    working_resolution_ocr_clean_enabled: bool
 
 
 @dataclass(frozen=True)
@@ -331,5 +333,15 @@ def get_config() -> MiniBackendConfig:
             fallback=600,
             minimum=0,
             maximum=86400,
+        ),
+        working_resolution_megapixels=_as_float(
+            os.getenv("MINI_BACKEND_WORKING_RESOLUTION_MEGAPIXELS"),
+            fallback=24.0,
+            minimum=4.0,
+            maximum=64.0,
+        ),
+        working_resolution_ocr_clean_enabled=_as_bool(
+            os.getenv("MINI_BACKEND_WORKING_RESOLUTION_OCR_CLEAN"),
+            fallback=False,
         ),
     )

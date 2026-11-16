@@ -13,12 +13,16 @@ pub(crate) const MINI_BACKEND_THREAD_OVERRIDE_FILE: &str =
 
 /// Schema of ``mini-backend-thread-override.json``. camelCase keys are the
 /// wire format shared with the Electron shell; ``default`` tolerates files
-/// written before ``interOpThreads`` existed.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// written before ``interOpThreads`` and the runtime-tunable fields existed.
+/// An absent tunable field means the sidecar keeps its own default.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub(crate) struct MiniBackendThreadOverride {
     pub intra_op_threads: Option<u32>,
     pub inter_op_threads: Option<u32>,
+    pub engine_idle_timeout_seconds: Option<u32>,
+    pub working_resolution_megapixels: Option<f64>,
+    pub working_resolution_ocr_clean: Option<bool>,
 }
 
 fn clamp_thread_override(
@@ -32,6 +36,13 @@ fn clamp_thread_override(
     MiniBackendThreadOverride {
         intra_op_threads: clamp(parsed.intra_op_threads),
         inter_op_threads: clamp(parsed.inter_op_threads),
+        engine_idle_timeout_seconds: parsed
+            .engine_idle_timeout_seconds
+            .map(|seconds| seconds.min(86_400)),
+        working_resolution_megapixels: parsed
+            .working_resolution_megapixels
+            .map(|megapixels| megapixels.clamp(4.0, 64.0)),
+        working_resolution_ocr_clean: parsed.working_resolution_ocr_clean,
     }
 }
 
@@ -60,6 +71,21 @@ pub(crate) fn mini_backend_thread_env_pairs(
     }
     if let Some(threads) = override_env.inter_op_threads {
         pairs.push(("MINI_BACKEND_INTER_OP_THREADS", threads.to_string()));
+    }
+    if let Some(seconds) = override_env.engine_idle_timeout_seconds {
+        pairs.push(("MINI_BACKEND_ENGINE_IDLE_TIMEOUT_SECONDS", seconds.to_string()));
+    }
+    if let Some(megapixels) = override_env.working_resolution_megapixels {
+        pairs.push((
+            "MINI_BACKEND_WORKING_RESOLUTION_MEGAPIXELS",
+            megapixels.to_string(),
+        ));
+    }
+    if let Some(clean) = override_env.working_resolution_ocr_clean {
+        pairs.push((
+            "MINI_BACKEND_WORKING_RESOLUTION_OCR_CLEAN",
+            if clean { "1" } else { "0" }.to_string(),
+        ));
     }
     pairs
 }
@@ -108,6 +134,25 @@ mod tests {
             MiniBackendThreadOverride {
                 intra_op_threads: Some(4),
                 inter_op_threads: Some(2),
+                engine_idle_timeout_seconds: None,
+                working_resolution_megapixels: None,
+                working_resolution_ocr_clean: None,
+            }
+        );
+
+        fs::write(
+            data_dir.join(MINI_BACKEND_THREAD_OVERRIDE_FILE),
+            r#"{"intraOpThreads":6}"#,
+        )
+        .expect("write legacy override");
+        assert_eq!(
+            read_mini_backend_thread_override_at(data_dir),
+            MiniBackendThreadOverride {
+                intra_op_threads: Some(6),
+                inter_op_threads: None,
+                engine_idle_timeout_seconds: None,
+                working_resolution_megapixels: None,
+                working_resolution_ocr_clean: None,
             }
         );
     }
@@ -137,6 +182,32 @@ mod tests {
             MiniBackendThreadOverride {
                 intra_op_threads: Some(64),
                 inter_op_threads: None,
+                engine_idle_timeout_seconds: None,
+                working_resolution_megapixels: None,
+                working_resolution_ocr_clean: None,
+            }
+        );
+    }
+
+    #[test]
+    fn thread_override_clamps_runtime_tunables() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let data_dir = temp.path();
+
+        fs::write(
+            data_dir.join(MINI_BACKEND_THREAD_OVERRIDE_FILE),
+            r#"{"intraOpThreads":4,"engineIdleTimeoutSeconds":999999,
+                "workingResolutionMegapixels":100,"workingResolutionOcrClean":true}"#,
+        )
+        .expect("write override");
+        assert_eq!(
+            read_mini_backend_thread_override_at(data_dir),
+            MiniBackendThreadOverride {
+                intra_op_threads: Some(4),
+                inter_op_threads: None,
+                engine_idle_timeout_seconds: Some(86_400),
+                working_resolution_megapixels: Some(64.0),
+                working_resolution_ocr_clean: Some(true),
             }
         );
     }
@@ -147,6 +218,9 @@ mod tests {
         let pairs = mini_backend_thread_env_pairs(&MiniBackendThreadOverride {
             intra_op_threads: Some(4),
             inter_op_threads: Some(2),
+            engine_idle_timeout_seconds: None,
+            working_resolution_megapixels: None,
+            working_resolution_ocr_clean: None,
         });
         assert_eq!(
             pairs,
@@ -154,6 +228,40 @@ mod tests {
                 ("MINI_BACKEND_INTRA_OP_THREADS", "4".to_string()),
                 ("OMP_NUM_THREADS", "4".to_string()),
                 ("MINI_BACKEND_INTER_OP_THREADS", "2".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn thread_env_pairs_emit_runtime_tunables() {
+        let pairs = mini_backend_thread_env_pairs(&MiniBackendThreadOverride {
+            intra_op_threads: None,
+            inter_op_threads: None,
+            engine_idle_timeout_seconds: Some(600),
+            working_resolution_megapixels: Some(24.0),
+            working_resolution_ocr_clean: Some(false),
+        });
+        assert_eq!(
+            pairs,
+            vec![
+                ("MINI_BACKEND_ENGINE_IDLE_TIMEOUT_SECONDS", "600".to_string()),
+                ("MINI_BACKEND_WORKING_RESOLUTION_MEGAPIXELS", "24".to_string()),
+                ("MINI_BACKEND_WORKING_RESOLUTION_OCR_CLEAN", "0".to_string()),
+            ]
+        );
+        let pairs = mini_backend_thread_env_pairs(&MiniBackendThreadOverride {
+            intra_op_threads: None,
+            inter_op_threads: None,
+            engine_idle_timeout_seconds: Some(0),
+            working_resolution_megapixels: Some(48.5),
+            working_resolution_ocr_clean: Some(true),
+        });
+        assert_eq!(
+            pairs,
+            vec![
+                ("MINI_BACKEND_ENGINE_IDLE_TIMEOUT_SECONDS", "0".to_string()),
+                ("MINI_BACKEND_WORKING_RESOLUTION_MEGAPIXELS", "48.5".to_string()),
+                ("MINI_BACKEND_WORKING_RESOLUTION_OCR_CLEAN", "1".to_string()),
             ]
         );
     }

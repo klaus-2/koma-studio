@@ -5,12 +5,18 @@ import path from "node:path";
 export interface MiniBackendThreadOverride {
   intraOpThreads: number | null;
   interOpThreads: number | null;
+  engineIdleTimeoutSeconds: number | null;
+  workingResolutionMegapixels: number | null;
+  workingResolutionOcrClean: boolean | null;
 }
 
 export const MINI_BACKEND_THREAD_OVERRIDE_FILENAME =
   "mini-backend-thread-override.json";
 
 const MAX_THREADS = 64;
+const MAX_ENGINE_IDLE_TIMEOUT_SECONDS = 86400;
+const WORKING_RESOLUTION_MIN_MEGAPIXELS = 4;
+const WORKING_RESOLUTION_MAX_MEGAPIXELS = 64;
 
 export const getMiniBackendThreadOverridePath = (userDataPath: string): string =>
   path.join(userDataPath, MINI_BACKEND_THREAD_OVERRIDE_FILENAME);
@@ -26,6 +32,29 @@ const sanitizeThreadValue = (value: unknown): number | null => {
   return Math.min(MAX_THREADS, rounded);
 };
 
+const sanitizeSecondsValue = (value: unknown): number | null => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.min(
+    MAX_ENGINE_IDLE_TIMEOUT_SECONDS,
+    Math.max(0, Math.round(value)),
+  );
+};
+
+const sanitizeMegapixelsValue = (value: unknown): number | null => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.min(
+    WORKING_RESOLUTION_MAX_MEGAPIXELS,
+    Math.max(WORKING_RESOLUTION_MIN_MEGAPIXELS, value),
+  );
+};
+
+const sanitizeFlagValue = (value: unknown): boolean | null =>
+  typeof value === "boolean" ? value : null;
+
 export const sanitizeMiniBackendThreadOverride = (
   value: unknown,
 ): MiniBackendThreadOverride => {
@@ -35,13 +64,34 @@ export const sanitizeMiniBackendThreadOverride = (
     Array.isArray(value) ||
     !("intraOpThreads" in value)
   ) {
-    return { intraOpThreads: null, interOpThreads: null };
+    return {
+      intraOpThreads: null,
+      interOpThreads: null,
+      engineIdleTimeoutSeconds: null,
+      workingResolutionMegapixels: null,
+      workingResolutionOcrClean: null,
+    };
   }
   const interOpThreads =
     "interOpThreads" in value ? sanitizeThreadValue(value.interOpThreads) : null;
+  const engineIdleTimeoutSeconds =
+    "engineIdleTimeoutSeconds" in value
+      ? sanitizeSecondsValue(value.engineIdleTimeoutSeconds)
+      : null;
+  const workingResolutionMegapixels =
+    "workingResolutionMegapixels" in value
+      ? sanitizeMegapixelsValue(value.workingResolutionMegapixels)
+      : null;
+  const workingResolutionOcrClean =
+    "workingResolutionOcrClean" in value
+      ? sanitizeFlagValue(value.workingResolutionOcrClean)
+      : null;
   return {
     intraOpThreads: sanitizeThreadValue(value.intraOpThreads),
     interOpThreads,
+    engineIdleTimeoutSeconds,
+    workingResolutionMegapixels,
+    workingResolutionOcrClean,
   };
 };
 
@@ -55,7 +105,13 @@ export const readMiniBackendThreadOverride = (
     );
   } catch {
     // Missing or malformed file: the sidecar keeps its defaults.
-    return { intraOpThreads: null, interOpThreads: null };
+    return {
+      intraOpThreads: null,
+      interOpThreads: null,
+      engineIdleTimeoutSeconds: null,
+      workingResolutionMegapixels: null,
+      workingResolutionOcrClean: null,
+    };
   }
 };
 
@@ -92,6 +148,20 @@ export const miniBackendThreadEnvVars = (
   }
   if (override.interOpThreads !== null) {
     envVars.MINI_BACKEND_INTER_OP_THREADS = String(override.interOpThreads);
+  }
+  if (override.engineIdleTimeoutSeconds !== null) {
+    envVars.MINI_BACKEND_ENGINE_IDLE_TIMEOUT_SECONDS = String(
+      override.engineIdleTimeoutSeconds,
+    );
+  }
+  if (override.workingResolutionMegapixels !== null) {
+    envVars.MINI_BACKEND_WORKING_RESOLUTION_MEGAPIXELS = String(
+      override.workingResolutionMegapixels,
+    );
+  }
+  if (override.workingResolutionOcrClean !== null) {
+    envVars.MINI_BACKEND_WORKING_RESOLUTION_OCR_CLEAN =
+      override.workingResolutionOcrClean ? "1" : "0";
   }
   return envVars;
 };

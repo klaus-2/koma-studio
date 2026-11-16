@@ -6,7 +6,6 @@ import { createDesktopBridgeStub } from "@/testing/desktop-bridge-stub";
 import type { IDesktopBridge } from "@shared/desktop-api";
 import {
   MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY,
-  type MiniBackendThreadSettings,
 } from "../../../utils/miniBackendThreadSettings";
 import { useMiniBackendThreadSettings } from "./use-mini-backend-thread-settings";
 
@@ -57,24 +56,54 @@ describe("useMiniBackendThreadSettings", () => {
     capturedOverrides.length = 0;
   });
 
-  it("loads the stored value on mount", () => {
-    const stored: MiniBackendThreadSettings = { intraOpThreads: 6 };
+  it("loads the stored value on mount with tunable defaults for old shapes", () => {
+    // Old stored shape: only the legacy thread field, no tunables.
+    const stored = { intraOpThreads: 6 };
     window.localStorage.setItem(
       MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY,
       JSON.stringify(stored),
     );
     const { result } = renderHook(() => useMiniBackendThreadSettings());
-    expect(result.current.settings).toEqual({ intraOpThreads: 6 });
+    expect(result.current.settings).toEqual({
+      intraOpThreads: 6,
+      engineIdleTimeoutSeconds: 600,
+      workingResolutionMegapixels: 24,
+      workingResolutionOcrClean: false,
+    });
+    expect(result.current.miniBackendTunables).toEqual({
+      engineIdleTimeoutSeconds: 600,
+      workingResolutionMegapixels: 24,
+      workingResolutionOcrClean: false,
+    });
   });
 
   it("saves to localStorage and calls the bridge on change", () => {
     const { result } = renderHook(() => useMiniBackendThreadSettings());
     act(() => result.current.setIntraOpThreads(4));
-    expect(result.current.settings).toEqual({ intraOpThreads: 4 });
+    expect(result.current.settings).toEqual({
+      intraOpThreads: 4,
+      engineIdleTimeoutSeconds: 600,
+      workingResolutionMegapixels: 24,
+      workingResolutionOcrClean: false,
+    });
     expect(
       window.localStorage.getItem(MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY),
-    ).toBe(JSON.stringify({ intraOpThreads: 4 }));
-    expect(capturedOverrides).toEqual([{ intraOpThreads: 4 }]);
+    ).toBe(
+      JSON.stringify({
+        intraOpThreads: 4,
+        engineIdleTimeoutSeconds: 600,
+        workingResolutionMegapixels: 24,
+        workingResolutionOcrClean: false,
+      }),
+    );
+    expect(capturedOverrides).toEqual([
+      {
+        intraOpThreads: 4,
+        engineIdleTimeoutSeconds: 600,
+        workingResolutionMegapixels: 24,
+        workingResolutionOcrClean: false,
+      },
+    ]);
   });
 
   it("clearing the value persists null and notifies the bridge", () => {
@@ -84,11 +113,91 @@ describe("useMiniBackendThreadSettings", () => {
     );
     const { result } = renderHook(() => useMiniBackendThreadSettings());
     act(() => result.current.setIntraOpThreads(null));
-    expect(result.current.settings).toEqual({ intraOpThreads: null });
+    expect(result.current.settings).toEqual({
+      intraOpThreads: null,
+      engineIdleTimeoutSeconds: 600,
+      workingResolutionMegapixels: 24,
+      workingResolutionOcrClean: false,
+    });
     expect(
       window.localStorage.getItem(MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY),
-    ).toBe(JSON.stringify({ intraOpThreads: null }));
-    expect(capturedOverrides).toEqual([{ intraOpThreads: null }]);
+    ).toBe(
+      JSON.stringify({
+        intraOpThreads: null,
+        engineIdleTimeoutSeconds: 600,
+        workingResolutionMegapixels: 24,
+        workingResolutionOcrClean: false,
+      }),
+    );
+    expect(capturedOverrides).toEqual([
+      {
+        intraOpThreads: null,
+        engineIdleTimeoutSeconds: 600,
+        workingResolutionMegapixels: 24,
+        workingResolutionOcrClean: false,
+      },
+    ]);
+  });
+
+  it("saving the tunables persists them and notifies the bridge", () => {
+    const { result } = renderHook(() => useMiniBackendThreadSettings());
+    act(() => {
+      result.current.setMiniBackendTunables({
+        engineIdleTimeoutSeconds: 300,
+        workingResolutionMegapixels: 32,
+        workingResolutionOcrClean: true,
+      });
+    });
+    act(() => result.current.handleSaveMiniBackendTunables());
+    expect(result.current.settings).toEqual({
+      intraOpThreads: null,
+      engineIdleTimeoutSeconds: 300,
+      workingResolutionMegapixels: 32,
+      workingResolutionOcrClean: true,
+    });
+    expect(
+      window.localStorage.getItem(MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY),
+    ).toBe(
+      JSON.stringify({
+        intraOpThreads: null,
+        engineIdleTimeoutSeconds: 300,
+        workingResolutionMegapixels: 32,
+        workingResolutionOcrClean: true,
+      }),
+    );
+    expect(capturedOverrides).toEqual([
+      {
+        intraOpThreads: null,
+        engineIdleTimeoutSeconds: 300,
+        workingResolutionMegapixels: 32,
+        workingResolutionOcrClean: true,
+      },
+    ]);
+  });
+
+  it("changing the threads preserves the saved tunables", () => {
+    const { result } = renderHook(() => useMiniBackendThreadSettings());
+    act(() => {
+      result.current.setMiniBackendTunables({
+        engineIdleTimeoutSeconds: 300,
+        workingResolutionMegapixels: 32,
+        workingResolutionOcrClean: true,
+      });
+    });
+    act(() => result.current.handleSaveMiniBackendTunables());
+    act(() => result.current.setIntraOpThreads(2));
+    expect(result.current.settings).toEqual({
+      intraOpThreads: 2,
+      engineIdleTimeoutSeconds: 300,
+      workingResolutionMegapixels: 32,
+      workingResolutionOcrClean: true,
+    });
+    expect(capturedOverrides[1]).toEqual({
+      intraOpThreads: 2,
+      engineIdleTimeoutSeconds: 300,
+      workingResolutionMegapixels: 32,
+      workingResolutionOcrClean: true,
+    });
   });
 
   it("does not throw when the desktop bridge is absent", () => {
@@ -97,9 +206,21 @@ describe("useMiniBackendThreadSettings", () => {
     expect(() =>
       act(() => result.current.setIntraOpThreads(2)),
     ).not.toThrow();
-    expect(result.current.settings).toEqual({ intraOpThreads: 2 });
+    expect(result.current.settings).toEqual({
+      intraOpThreads: 2,
+      engineIdleTimeoutSeconds: 600,
+      workingResolutionMegapixels: 24,
+      workingResolutionOcrClean: false,
+    });
     expect(
       window.localStorage.getItem(MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY),
-    ).toBe(JSON.stringify({ intraOpThreads: 2 }));
+    ).toBe(
+      JSON.stringify({
+        intraOpThreads: 2,
+        engineIdleTimeoutSeconds: 600,
+        workingResolutionMegapixels: 24,
+        workingResolutionOcrClean: false,
+      }),
+    );
   });
 });

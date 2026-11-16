@@ -427,10 +427,16 @@ contextBridge.exposeInMainWorld("desktop", {
   setMiniBackendThreadOverride: async (payload: {
     intraOpThreads: number | null;
     interOpThreads?: number | null;
+    engineIdleTimeoutSeconds?: number | null;
+    workingResolutionMegapixels?: number | null;
+    workingResolutionOcrClean?: boolean | null;
   }): Promise<unknown> =>
     invokeSecureDesktopApi("desktop:mini-backend:set-thread-override", {
       intraOpThreads: payload.intraOpThreads,
       interOpThreads: payload.interOpThreads ?? null,
+      engineIdleTimeoutSeconds: payload.engineIdleTimeoutSeconds ?? null,
+      workingResolutionMegapixels: payload.workingResolutionMegapixels ?? null,
+      workingResolutionOcrClean: payload.workingResolutionOcrClean ?? null,
     }),
   onMiniBackendRuntimeState: (listener: MiniBackendRuntimeListener): void => {
     miniBackendRuntimeListeners.add(listener);

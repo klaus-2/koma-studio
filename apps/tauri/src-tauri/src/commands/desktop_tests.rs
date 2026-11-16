@@ -49,6 +49,9 @@
         let payload = MiniBackendThreadOverridePayload {
             intra_op_threads: Some(500),
             inter_op_threads: Some(0),
+            engine_idle_timeout_seconds: Some(-1),
+            working_resolution_megapixels: Some(100.0),
+            working_resolution_ocr_clean: Some(true),
         };
 
         write_mini_backend_thread_override_at(temp.path(), &payload)
@@ -58,13 +61,19 @@
                 .join(crate::sidecar::mini_backend::MINI_BACKEND_THREAD_OVERRIDE_FILE),
         )
         .expect("read override");
-        assert_eq!(raw, r#"{"intraOpThreads":64,"interOpThreads":null}"#);
+        assert_eq!(
+            raw,
+            r#"{"intraOpThreads":64,"interOpThreads":null,"engineIdleTimeoutSeconds":0,"workingResolutionMegapixels":64.0,"workingResolutionOcrClean":true}"#
+        );
 
         // A second write replaces the file on platforms where rename fails
         // onto an existing path (Windows).
         let second = MiniBackendThreadOverridePayload {
             intra_op_threads: Some(4),
             inter_op_threads: Some(2),
+            engine_idle_timeout_seconds: Some(600),
+            working_resolution_megapixels: Some(24.0),
+            working_resolution_ocr_clean: Some(false),
         };
         write_mini_backend_thread_override_at(temp.path(), &second)
             .expect("rewrite override");
@@ -73,7 +82,10 @@
                 .join(crate::sidecar::mini_backend::MINI_BACKEND_THREAD_OVERRIDE_FILE),
         )
         .expect("read override");
-        assert_eq!(raw, r#"{"intraOpThreads":4,"interOpThreads":2}"#);
+        assert_eq!(
+            raw,
+            r#"{"intraOpThreads":4,"interOpThreads":2,"engineIdleTimeoutSeconds":600,"workingResolutionMegapixels":24.0,"workingResolutionOcrClean":false}"#
+        );
     }
 
     fn command_fn_name_after_rename(source: &str) -> Option<String> {

@@ -18,20 +18,26 @@ import {
 const makeTempDir = (): string =>
   fs.mkdtempSync(path.join(os.tmpdir(), "koma-thread-override-"));
 
+const emptyOverride = {
+  intraOpThreads: null,
+  interOpThreads: null,
+  engineIdleTimeoutSeconds: null,
+  workingResolutionMegapixels: null,
+  workingResolutionOcrClean: null,
+};
+
 test("thread override round-trips through the override file", () => {
   const userDataPath = makeTempDir();
   try {
-    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), {
-      intraOpThreads: null,
-      interOpThreads: null,
-    });
+    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), emptyOverride);
 
     const stored = writeMiniBackendThreadOverride(userDataPath, {
       intraOpThreads: 4,
       interOpThreads: 2,
     });
-    assert.deepEqual(stored, { intraOpThreads: 4, interOpThreads: 2 });
+    assert.deepEqual(stored, { ...emptyOverride, intraOpThreads: 4, interOpThreads: 2 });
     assert.deepEqual(readMiniBackendThreadOverride(userDataPath), {
+      ...emptyOverride,
       intraOpThreads: 4,
       interOpThreads: 2,
     });
@@ -53,24 +59,37 @@ test("thread override round-trips through the override file", () => {
 test("malformed or missing override file falls back to defaults", () => {
   const userDataPath = makeTempDir();
   try {
+    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), emptyOverride);
+
     fs.writeFileSync(
       getMiniBackendThreadOverridePath(userDataPath),
       "not-json",
       "utf-8",
     );
-    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), {
-      intraOpThreads: null,
-      interOpThreads: null,
-    });
+    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), emptyOverride);
 
     fs.writeFileSync(
       getMiniBackendThreadOverridePath(userDataPath),
       JSON.stringify({ intraOpThreads: "many", unrelated: true }),
       "utf-8",
     );
+    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), emptyOverride);
+  } finally {
+    fs.rmSync(userDataPath, { recursive: true, force: true });
+  }
+});
+
+test("old override files without the runtime tunables keep loading", () => {
+  const userDataPath = makeTempDir();
+  try {
+    fs.writeFileSync(
+      getMiniBackendThreadOverridePath(userDataPath),
+      JSON.stringify({ intraOpThreads: 6 }),
+      "utf-8",
+    );
     assert.deepEqual(readMiniBackendThreadOverride(userDataPath), {
-      intraOpThreads: null,
-      interOpThreads: null,
+      ...emptyOverride,
+      intraOpThreads: 6,
     });
   } finally {
     fs.rmSync(userDataPath, { recursive: true, force: true });
@@ -85,10 +104,7 @@ test("clearMiniBackendThreadOverride removes the file", () => {
     clearMiniBackendThreadOverride(userDataPath);
     assert.ok(!fs.existsSync(getMiniBackendThreadOverridePath(userDataPath)));
     clearMiniBackendThreadOverride(userDataPath);
-    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), {
-      intraOpThreads: null,
-      interOpThreads: null,
-    });
+    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), emptyOverride);
   } finally {
     fs.rmSync(userDataPath, { recursive: true, force: true });
   }
@@ -96,48 +112,134 @@ test("clearMiniBackendThreadOverride removes the file", () => {
 
 test("sanitize clamps thread counts into 1..64 or null", () => {
   assert.deepEqual(sanitizeMiniBackendThreadOverride({ intraOpThreads: 4.6 }), {
+    ...emptyOverride,
     intraOpThreads: 5,
-    interOpThreads: null,
   });
   assert.deepEqual(sanitizeMiniBackendThreadOverride({ intraOpThreads: 500 }), {
+    ...emptyOverride,
     intraOpThreads: 64,
-    interOpThreads: null,
   });
-  assert.deepEqual(sanitizeMiniBackendThreadOverride({ intraOpThreads: 0 }), {
-    intraOpThreads: null,
-    interOpThreads: null,
-  });
+  assert.deepEqual(sanitizeMiniBackendThreadOverride({ intraOpThreads: 0 }), emptyOverride);
   assert.deepEqual(
     sanitizeMiniBackendThreadOverride({
       intraOpThreads: 4,
       interOpThreads: 0,
     }),
-    { intraOpThreads: 4, interOpThreads: null },
+    { ...emptyOverride, intraOpThreads: 4 },
   );
-  assert.deepEqual(sanitizeMiniBackendThreadOverride("nope"), {
-    intraOpThreads: null,
-    interOpThreads: null,
-  });
+  assert.deepEqual(sanitizeMiniBackendThreadOverride("nope"), emptyOverride);
+});
+
+test("sanitize clamps idle timeout into 0..86400 or null", () => {
+  assert.deepEqual(
+    sanitizeMiniBackendThreadOverride({
+      intraOpThreads: 4,
+      engineIdleTimeoutSeconds: 0,
+    }),
+    { ...emptyOverride, intraOpThreads: 4, engineIdleTimeoutSeconds: 0 },
+  );
+  assert.deepEqual(
+    sanitizeMiniBackendThreadOverride({
+      intraOpThreads: 4,
+      engineIdleTimeoutSeconds: 999999,
+    }),
+    { ...emptyOverride, intraOpThreads: 4, engineIdleTimeoutSeconds: 86400 },
+  );
+  assert.deepEqual(
+    sanitizeMiniBackendThreadOverride({
+      intraOpThreads: 4,
+      engineIdleTimeoutSeconds: -5,
+    }),
+    { ...emptyOverride, intraOpThreads: 4, engineIdleTimeoutSeconds: 0 },
+  );
+  assert.deepEqual(
+    sanitizeMiniBackendThreadOverride({
+      intraOpThreads: 4,
+      engineIdleTimeoutSeconds: "many",
+    }),
+    { ...emptyOverride, intraOpThreads: 4 },
+  );
+});
+
+test("sanitize clamps working resolution into 4..64 and keeps booleans", () => {
+  assert.deepEqual(
+    sanitizeMiniBackendThreadOverride({
+      intraOpThreads: 4,
+      workingResolutionMegapixels: 2,
+    }),
+    { ...emptyOverride, intraOpThreads: 4, workingResolutionMegapixels: 4 },
+  );
+  assert.deepEqual(
+    sanitizeMiniBackendThreadOverride({
+      intraOpThreads: 4,
+      workingResolutionMegapixels: 100,
+    }),
+    { ...emptyOverride, intraOpThreads: 4, workingResolutionMegapixels: 64 },
+  );
+  assert.deepEqual(
+    sanitizeMiniBackendThreadOverride({
+      intraOpThreads: 4,
+      workingResolutionOcrClean: true,
+    }),
+    { ...emptyOverride, intraOpThreads: 4, workingResolutionOcrClean: true },
+  );
+  assert.deepEqual(
+    sanitizeMiniBackendThreadOverride({
+      intraOpThreads: 4,
+      workingResolutionOcrClean: "yes",
+    }),
+    { ...emptyOverride, intraOpThreads: 4 },
+  );
 });
 
 test("env mapping emits intra, OMP mirror and inter only when set", () => {
+  assert.deepEqual(miniBackendThreadEnvVars(emptyOverride), {});
   assert.deepEqual(
-    miniBackendThreadEnvVars({ intraOpThreads: null, interOpThreads: null }),
-    {},
-  );
-  assert.deepEqual(
-    miniBackendThreadEnvVars({ intraOpThreads: 4, interOpThreads: null }),
+    miniBackendThreadEnvVars({ ...emptyOverride, intraOpThreads: 4 }),
     {
       MINI_BACKEND_INTRA_OP_THREADS: "4",
       OMP_NUM_THREADS: "4",
     },
   );
   assert.deepEqual(
-    miniBackendThreadEnvVars({ intraOpThreads: 4, interOpThreads: 2 }),
+    miniBackendThreadEnvVars({ ...emptyOverride, intraOpThreads: 4, interOpThreads: 2 }),
     {
       MINI_BACKEND_INTRA_OP_THREADS: "4",
       OMP_NUM_THREADS: "4",
       MINI_BACKEND_INTER_OP_THREADS: "2",
+    },
+  );
+});
+
+test("env mapping emits the runtime tunables only when set", () => {
+  assert.deepEqual(
+    miniBackendThreadEnvVars({
+      intraOpThreads: 4,
+      interOpThreads: null,
+      engineIdleTimeoutSeconds: 600,
+      workingResolutionMegapixels: 24,
+      workingResolutionOcrClean: false,
+    }),
+    {
+      MINI_BACKEND_INTRA_OP_THREADS: "4",
+      OMP_NUM_THREADS: "4",
+      MINI_BACKEND_ENGINE_IDLE_TIMEOUT_SECONDS: "600",
+      MINI_BACKEND_WORKING_RESOLUTION_MEGAPIXELS: "24",
+      MINI_BACKEND_WORKING_RESOLUTION_OCR_CLEAN: "0",
+    },
+  );
+  assert.deepEqual(
+    miniBackendThreadEnvVars({
+      intraOpThreads: null,
+      interOpThreads: null,
+      engineIdleTimeoutSeconds: 0,
+      workingResolutionMegapixels: 48,
+      workingResolutionOcrClean: true,
+    }),
+    {
+      MINI_BACKEND_ENGINE_IDLE_TIMEOUT_SECONDS: "0",
+      MINI_BACKEND_WORKING_RESOLUTION_MEGAPIXELS: "48",
+      MINI_BACKEND_WORKING_RESOLUTION_OCR_CLEAN: "1",
     },
   );
 });

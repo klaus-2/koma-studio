@@ -193,6 +193,9 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       miniBackendThreadSettings: miniBackendThreads.settings,
       setMiniBackendIntraOpThreads: miniBackendThreads.setIntraOpThreads,
       miniBackendHardwareConcurrency: miniBackendThreads.hardwareConcurrency,
+      miniBackendTunables: miniBackendThreads.miniBackendTunables,
+      setMiniBackendTunables: miniBackendThreads.setMiniBackendTunables,
+      handleSaveMiniBackendTunables: miniBackendThreads.handleSaveMiniBackendTunables,
     });
 
 
