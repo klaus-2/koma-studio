@@ -63,7 +63,7 @@ describe("TranslationModelControl Auto entry", () => {
     renderControl();
 
     const select = screen.getByRole("combobox");
-    const autoOption = select.querySelector(
+    const autoOption = select.querySelector<HTMLOptionElement>(
       `option[value="${TRANSLATION_AUTO_MODEL_KEY}"]`,
     );
     expect(autoOption).not.toBeNull();
