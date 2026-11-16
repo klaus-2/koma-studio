@@ -70,6 +70,7 @@ from utils.inpaint_heuristics import (
     detect_background_complexity,
 )
 from utils.mask import MaskRegion, generate_baka_style_mask
+from utils.resolution_policy import StageResolutionPlan, stage_resolution_plan
 
 type RGBArray = NDArray[np.uint8]
 type MaskArray = NDArray[np.uint8]
@@ -490,6 +491,34 @@ def _prepare_clean(
     )
 
 
+def _clean_working_plan(width: int, height: int) -> StageResolutionPlan | None:
+    """Stage-time downscale plan for clean; None when the policy flag is off."""
+    config = get_config()
+    if not config.working_resolution_ocr_clean_enabled:
+        return None
+    return stage_resolution_plan(
+        "clean", width, height, config.working_resolution_megapixels
+    )
+
+
+def _resize_for_inpaint(
+    rgb: RGBArray, mask: MaskArray, plan: StageResolutionPlan
+) -> tuple[RGBArray, MaskArray]:
+    working_rgb = cv2.resize(
+        rgb, (plan.working_width, plan.working_height), interpolation=cv2.INTER_CUBIC
+    )
+    working_mask = cv2.resize(
+        mask, (plan.working_width, plan.working_height), interpolation=cv2.INTER_NEAREST
+    )
+    return cast(RGBArray, working_rgb), cast(MaskArray, working_mask)
+
+
+def _resize_to_page(rgb: RGBArray, width: int, height: int) -> RGBArray:
+    return cast(
+        RGBArray, cv2.resize(rgb, (width, height), interpolation=cv2.INTER_CUBIC)
+    )
+
+
 async def run_clean_stage(
     *,
     image: Image.Image,
@@ -544,13 +573,20 @@ async def run_clean_stage(
         )
         return prepared
 
+    plan = _clean_working_plan(rgb.shape[1], rgb.shape[0])
+    job_rgb = prepared.image_rgb
+    job_mask = prepared.remaining_mask
+    if plan is not None and plan.downscaled:
+        job_rgb, job_mask = await asyncio.to_thread(
+            _resize_for_inpaint, job_rgb, job_mask, plan
+        )
     inpainter = get_inpainter(
         has_gpu=has_gpu, image_complexity="auto", model_key=settings.model_key
     )
     try:
         inpainted = await inpainter.inpaint(
-            prepared.image_rgb,
-            prepared.remaining_mask,
+            job_rgb,
+            job_mask,
             InpaintConfig(
                 hd_strategy=HDStrategy.from_value(prepared.hd_strategy),
                 hd_strategy_resize_limit=settings.hd_strategy_resize_limit,
@@ -561,7 +597,12 @@ async def run_clean_stage(
     finally:
         if not should_skip_gpu_release():
             release_gpu_memory()
-    png = await asyncio.to_thread(_encode_png, cast(RGBArray, inpainted))
+    output_rgb = cast(RGBArray, inpainted)
+    if plan is not None and plan.downscaled:
+        output_rgb = await asyncio.to_thread(
+            _resize_to_page, output_rgb, rgb.shape[1], rgb.shape[0]
+        )
+    png = await asyncio.to_thread(_encode_png, output_rgb)
     model_used = f"hybrid:{inpainter.key}" if prepared.hybrid else inpainter.key
     await asyncio.to_thread(
         resolved_store.put_clean,

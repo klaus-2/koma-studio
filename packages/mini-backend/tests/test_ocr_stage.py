@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -14,6 +15,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 
 from PIL import Image  # noqa: E402
 
+from core.config import MiniBackendConfig  # noqa: E402
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult  # noqa: E402
 from pipelines.ocr_stage import (  # noqa: E402
     CachedOcrRequest,
@@ -21,6 +23,11 @@ from pipelines.ocr_stage import (  # noqa: E402
 )
 from pipelines.batch.records import OCRSeed  # noqa: E402
 from pipelines.ocr_region_dedup import get_ocr_region_dedup_cache  # noqa: E402
+from pipelines.stage_store import StageStore  # noqa: E402
+from utils.resolution_policy import (  # noqa: E402
+    StageResolutionPlan,
+    stage_resolution_plan,
+)
 
 
 class _FakeEngine:
@@ -434,6 +441,195 @@ class DedupReuseTests(_DedupIsolatedTestCase):
             )
 
         self.assertEqual(get_ocr_region_dedup_cache().stats()["entries"], 0)
+
+
+type _EngineBatch = tuple[tuple[int, int], list[tuple[int, int, int, int]]]
+
+
+def _policy_config(*, enabled: bool, megapixels: float) -> MiniBackendConfig:
+    return MiniBackendConfig(
+        environment="test",
+        default_detection_model="det",
+        detection_conf_threshold=0.5,
+        detection_nms_threshold=0.5,
+        detection_input_size=1024,
+        pipeline_cache_ttl_seconds=1800,
+        pipeline_cache_max_entries=64,
+        pipeline_cache_bbox_tolerance_px=8.0,
+        batch_default_concurrency=2,
+        batch_max_concurrency=4,
+        batch_max_images=8,
+        engine_idle_timeout_seconds=0,
+        working_resolution_megapixels=megapixels,
+        working_resolution_ocr_clean_enabled=enabled,
+    )
+
+
+def _large_request(
+    seeds: tuple[OCRSeed, ...], cache: _FakeCache, page: Image.Image
+) -> CachedOcrRequest:
+    _ = cache
+    return CachedOcrRequest(
+        image=page,
+        image_bytes=b"img",
+        language="en",
+        model_key=None,
+        has_gpu=False,
+        seeds=seeds,
+    )
+
+
+def _expected_working_bbox(
+    bbox: list[int], plan: StageResolutionPlan
+) -> tuple[int, int, int, int]:
+    x1, y1, x2, y2 = bbox
+    return (
+        min(plan.working_width, max(0, round(x1 * plan.scale_x))),
+        min(plan.working_height, max(0, round(y1 * plan.scale_y))),
+        min(plan.working_width, max(0, round(x2 * plan.scale_x))),
+        min(plan.working_height, max(0, round(y2 * plan.scale_y))),
+    )
+
+
+class WorkingResolutionOCRTests(_DedupIsolatedTestCase):
+    PAGE_SIZE = (4600, 8000)
+
+    def _page(self) -> Image.Image:
+        return Image.new("RGB", self.PAGE_SIZE, (200, 200, 200))
+
+    def _seeds(self) -> tuple[OCRSeed, ...]:
+        return (
+            _seed_at("r1", [0, 0, 2000, 3000]),
+            _seed_at("r2", [1000, 2000, 3000, 5000]),
+        )
+
+    async def _run_arm(
+        self,
+        *,
+        enabled: bool,
+        page: Image.Image,
+        seeds: tuple[OCRSeed, ...],
+        cache: _FakeCache,
+        batches: list[_EngineBatch],
+        store_dir: Path,
+    ) -> CachedOcrResult:
+        config = _policy_config(enabled=enabled, megapixels=24.0)
+        arm_store = StageStore(store_dir / "stage-store.sqlite3")
+
+        def _resolve_store() -> StageStore:
+            return arm_store
+
+        async def _recognize(**kwargs: object) -> list[OCRTextResult]:
+            image = kwargs["image"]
+            assert isinstance(image, Image.Image)
+            regions = kwargs["regions"]
+            batches.append((image.size, [region.bbox for region in regions]))
+            return [
+                OCRTextResult(
+                    id=region.id,
+                    bbox=region.bbox,
+                    text=f"text-{region.id}",
+                    score=0.9,
+                    source=region.source,
+                    detector_model_key=region.detector_model_key,
+                    model_key="fake-ocr",
+                )
+                for region in regions
+            ]
+
+        try:
+            with (
+                patch("pipelines.ocr_stage.get_config", lambda: config),
+                patch("pipelines.ocr_stage.recognize_with_fallbacks", _recognize),
+                patch(
+                    "pipelines.ocr_stage.enrich_ocr_record_with_gradient",
+                    lambda image, record: _mark_enriched(record),
+                ),
+                patch("pipelines.ocr_stage.get_stage_store", _resolve_store),
+            ):
+                return await run_cached_ocr(
+                    _large_request(seeds, cache, page),
+                    cache=cache,
+                    resolve_engine=lambda **_: _FakeEngine(),
+                )
+        finally:
+            arm_store.close()
+
+    async def test_flag_on_downscales_engine_input_keeps_original_records(
+        self,
+    ) -> None:
+        page = self._page()
+        seeds = self._seeds()
+        plan = stage_resolution_plan("ocr", *self.PAGE_SIZE, 24.0)
+        self.assertTrue(plan.downscaled)
+
+        on_cache = _FakeCache()
+        on_batches: list[_EngineBatch] = []
+        with tempfile.TemporaryDirectory() as tmp:
+            on_result = await self._run_arm(
+                enabled=True,
+                page=page,
+                seeds=seeds,
+                cache=on_cache,
+                batches=on_batches,
+                store_dir=Path(tmp) / "on",
+            )
+        self.assertEqual(on_batches[0][0], (plan.working_width, plan.working_height))
+        self.assertEqual(
+            on_batches[0][1],
+            [_expected_working_bbox(list(seed["bbox"]), plan) for seed in seeds],
+        )
+
+        get_ocr_region_dedup_cache.cache_clear()
+
+        off_cache = _FakeCache()
+        off_batches: list[_EngineBatch] = []
+        with tempfile.TemporaryDirectory() as tmp:
+            off_result = await self._run_arm(
+                enabled=False,
+                page=page,
+                seeds=seeds,
+                cache=off_cache,
+                batches=off_batches,
+                store_dir=Path(tmp) / "off",
+            )
+        self.assertEqual(off_batches[0][0], self.PAGE_SIZE)
+        self.assertEqual(off_batches[0][1], [tuple(seed["bbox"]) for seed in seeds])
+
+        off_by_id = {record["id"]: record for record in off_result.records}
+        for record in on_result.records:
+            baseline = off_by_id[record["id"]]
+            for got, want in zip(record["bbox"], baseline["bbox"]):
+                self.assertLessEqual(abs(got - want), 1)
+            self.assertEqual(record["text"], baseline["text"])
+            self.assertEqual(record["score"], baseline["score"])
+        self.assertEqual(on_cache.built_keys, off_cache.built_keys)
+        self.assertEqual(len(on_cache.cache_calls), 1)
+        for cached in on_cache.cache_calls[0]:
+            baseline = off_by_id[cached["id"]]
+            for got, want in zip(cached["bbox"], baseline["bbox"]):
+                self.assertLessEqual(abs(got - want), 1)
+
+    async def test_flag_off_keeps_full_resolution_path(self) -> None:
+        page = self._page()
+        seeds = self._seeds()
+        cache = _FakeCache()
+        batches: list[_EngineBatch] = []
+        with tempfile.TemporaryDirectory() as tmp:
+            result = await self._run_arm(
+                enabled=False,
+                page=page,
+                seeds=seeds,
+                cache=cache,
+                batches=batches,
+                store_dir=Path(tmp) / "off",
+            )
+
+        self.assertEqual(batches[0][0], self.PAGE_SIZE)
+        self.assertEqual(batches[0][1], [tuple(seed["bbox"]) for seed in seeds])
+        by_id = {record["id"]: record for record in result.records}
+        for seed in seeds:
+            self.assertEqual(by_id[seed["id"]]["bbox"], seed["bbox"])
 
 
 if __name__ == "__main__":

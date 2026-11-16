@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass
 from typing import Final, Literal
 
-StageName = Literal["detection", "decode", "inpaint", "segment", "clean"]
+StageName = Literal["detection", "decode", "inpaint", "segment", "clean", "ocr"]
 
 SAFE_TARGET_MEGAPIXELS: Final[float] = 24.0
 
@@ -47,9 +47,15 @@ def stage_resolution_plan(
     stage: StageName,
     width: int,
     height: int,
+    target_megapixels: float = SAFE_TARGET_MEGAPIXELS,
 ) -> StageResolutionPlan:
+    """Downscale to target_megapixels whenever megapixels exceed it.
+
+    Stage-agnostic: whether a stage applies the plan is decided at its
+    call site. ``stage`` is echoed unchanged in every returned plan.
+    """
     megapixels = megapixels_of(width, height)
-    if stage != "detection" or megapixels <= SAFE_TARGET_MEGAPIXELS:
+    if megapixels <= target_megapixels:
         return StageResolutionPlan(
             stage=stage,
             width=width,
@@ -62,10 +68,10 @@ def stage_resolution_plan(
             downscaled=False,
         )
     working_width, working_height, scale_x, scale_y = _working_dimensions(
-        width, height, SAFE_TARGET_MEGAPIXELS
+        width, height, target_megapixels
     )
     return StageResolutionPlan(
-        stage="detection",
+        stage=stage,
         width=width,
         height=height,
         megapixels=megapixels,

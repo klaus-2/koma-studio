@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+import sys
 import unittest
 
-from utils.resolution_policy import (
+MINI_BACKEND_DIR = Path(__file__).resolve().parents[1]
+if str(MINI_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(MINI_BACKEND_DIR))
+
+from utils.resolution_policy import (  # noqa: E402
     DECODE_CEILING_MEGAPIXELS,
     DETECTION_HARD_CAP_MEGAPIXELS,
     SAFE_TARGET_MEGAPIXELS,
@@ -21,13 +27,13 @@ class MegapixelsTests(unittest.TestCase):
 
 class StageResolutionPlanTests(unittest.TestCase):
     def test_small_page_untouched_for_every_stage(self) -> None:
-        for stage in ("detection", "inpaint", "segment", "clean", "decode"):
+        for stage in ("detection", "ocr", "inpaint", "segment", "clean", "decode"):
             plan = stage_resolution_plan(stage, 800, 1200)
             self.assertFalse(plan.downscaled)
             self.assertEqual((plan.working_width, plan.working_height), (800, 1200))
             self.assertEqual((plan.scale_x, plan.scale_y), (1.0, 1.0))
 
-    def test_oversized_page_downscales_for_detection_only(self) -> None:
+    def test_oversized_page_downscales_for_every_stage_at_default_target(self) -> None:
         detection = stage_resolution_plan("detection", 4000, 8000)
         self.assertTrue(detection.downscaled)
         self.assertAlmostEqual(detection.working_width * detection.working_height / 1e6, 24.0, places=1)
@@ -35,8 +41,42 @@ class StageResolutionPlanTests(unittest.TestCase):
         self.assertLess(detection.scale_x, 1.0)
         self.assertLess(detection.scale_y, 1.0)
 
-        for stage in ("inpaint", "segment", "clean", "decode"):
+        for stage in ("ocr", "inpaint", "segment", "clean", "decode"):
             plan = stage_resolution_plan(stage, 4000, 8000)
+            self.assertTrue(plan.downscaled, stage)
+            self.assertEqual(plan.stage, stage)
+            self.assertEqual(
+                (plan.working_width, plan.working_height),
+                (detection.working_width, detection.working_height),
+            )
+
+    def test_plan_stage_always_equals_passed_stage(self) -> None:
+        for stage in ("detection", "ocr", "inpaint", "segment", "clean", "decode"):
+            untouched = stage_resolution_plan(stage, 800, 1200)
+            self.assertEqual(untouched.stage, stage)
+            downscaled = stage_resolution_plan(stage, 4600, 8000)
+            self.assertTrue(downscaled.downscaled, stage)
+            self.assertEqual(downscaled.stage, stage)
+
+    def test_explicit_target_controls_downscale(self) -> None:
+        for stage in ("detection", "ocr", "clean"):
+            below = stage_resolution_plan(stage, 4000, 8000, 40.0)
+            self.assertFalse(below.downscaled, stage)
+            self.assertEqual((below.working_width, below.working_height), (4000, 8000))
+            self.assertEqual((below.scale_x, below.scale_y), (1.0, 1.0))
+
+            above = stage_resolution_plan(stage, 4000, 8000, 12.0)
+            self.assertTrue(above.downscaled, stage)
+            self.assertEqual(above.stage, stage)
+            self.assertAlmostEqual(
+                above.working_width * above.working_height / 1e6, 12.0, places=1
+            )
+            self.assertAlmostEqual(above.scale_x, above.working_width / 4000, places=9)
+            self.assertAlmostEqual(above.scale_y, above.working_height / 8000, places=9)
+
+    def test_target_boundary_no_downscale_at_exact_target(self) -> None:
+        for stage in ("detection", "ocr", "clean"):
+            plan = stage_resolution_plan(stage, 4000, 8000, 32.0)
             self.assertFalse(plan.downscaled, stage)
             self.assertEqual((plan.working_width, plan.working_height), (4000, 8000))
 

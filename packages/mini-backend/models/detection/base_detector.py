@@ -6,6 +6,7 @@ from typing import ClassVar
 
 from PIL import Image
 
+from core.config import get_config
 from models.errors import InvalidInputImageError
 from models.execution import run_inference
 from models.geometry import BBox
@@ -44,7 +45,9 @@ class BaseDetector(ABC):
         if width < 1 or height < 1 or width * height > _MAX_IMAGE_PIXELS:
             raise InvalidInputImageError("Image dimensions exceed detection limits")
 
-        plan = stage_resolution_plan("detection", width, height)
+        plan = stage_resolution_plan(
+            "detection", width, height, get_config().working_resolution_megapixels
+        )
         with image.convert("RGB") as rgb:
             rgb.load()
             if not plan.downscaled:

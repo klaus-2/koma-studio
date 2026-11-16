@@ -25,10 +25,12 @@ from models.segmentation.base_segmenter import (  # noqa: E402
     SegmentInputRegion,
     SegmentResultRegion,
 )
+from core.config import MiniBackendConfig  # noqa: E402
 from pipelines.batch import stages  # noqa: E402
 from pipelines.batch.records import SegmentSeed  # noqa: E402
 from pipelines.batch.stages import CleanSettings, CleanStageResult  # noqa: E402
 from pipelines.stage_store import StageStore  # noqa: E402
+from utils.resolution_policy import stage_resolution_plan  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -74,6 +76,7 @@ class _FakeInpainter:
     def __init__(self) -> None:
         self.key = "fake-inpaint"
         self.calls = 0
+        self.shapes: list[tuple[tuple[int, int], tuple[int, int]]] = []
 
     async def inpaint(
         self,
@@ -81,8 +84,11 @@ class _FakeInpainter:
         mask: NDArray[np.uint8],
         config: object,
     ) -> NDArray[np.uint8]:
-        _ = mask, config
+        _ = config
         self.calls += 1
+        self.shapes.append(
+            ((image.shape[0], image.shape[1]), (mask.shape[0], mask.shape[1]))
+        )
         return image
 
 
@@ -174,6 +180,69 @@ async def test_clean_stage_hit_skips_inpainter(
         second = await _run_clean(store, image)
         assert inpainter.calls == 1  # hit: inpainter NOT invoked again
         assert second == first
+    finally:
+        store.close()
+
+
+def _resize_config(*, enabled: bool) -> MiniBackendConfig:
+    return MiniBackendConfig(
+        environment="test",
+        default_detection_model="fake-det",
+        detection_conf_threshold=0.5,
+        detection_nms_threshold=0.5,
+        detection_input_size=1024,
+        pipeline_cache_ttl_seconds=1800,
+        pipeline_cache_max_entries=64,
+        pipeline_cache_bbox_tolerance_px=8.0,
+        batch_default_concurrency=2,
+        batch_max_concurrency=4,
+        batch_max_images=8,
+        engine_idle_timeout_seconds=0,
+        working_resolution_megapixels=1.0,
+        working_resolution_ocr_clean_enabled=enabled,
+    )
+
+
+@pytest.mark.anyio
+async def test_clean_stage_flag_on_resizes_inpaint_job_and_restores_dims(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_heuristic(monkeypatch, needs_model_inpaint=True)
+    inpainter = _attach_inpainter(monkeypatch)
+    monkeypatch.setattr(stages, "get_config", lambda: _resize_config(enabled=True))
+    image = Image.fromarray(np.zeros((1600, 2400, 3), dtype=np.uint8))
+    plan = stage_resolution_plan("clean", 2400, 1600, 1.0)
+    assert plan.downscaled
+    store = StageStore(tmp_path / "stage-store.sqlite3")
+    try:
+        first = await _run_clean(store, image)
+        working = (plan.working_height, plan.working_width)
+        assert inpainter.shapes == [(working, working)]
+        with Image.open(io.BytesIO(first.png)) as out:
+            assert (out.width, out.height) == (2400, 1600)
+
+        second = await _run_clean(store, image)
+        assert inpainter.calls == 1  # cache keys hash the ORIGINAL image
+        with Image.open(io.BytesIO(second.png)) as out:
+            assert (out.width, out.height) == (2400, 1600)
+    finally:
+        store.close()
+
+
+@pytest.mark.anyio
+async def test_clean_stage_flag_off_keeps_full_resolution_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_heuristic(monkeypatch, needs_model_inpaint=True)
+    inpainter = _attach_inpainter(monkeypatch)
+    monkeypatch.setattr(stages, "get_config", lambda: _resize_config(enabled=False))
+    image = Image.fromarray(np.zeros((1600, 2400, 3), dtype=np.uint8))
+    store = StageStore(tmp_path / "stage-store.sqlite3")
+    try:
+        result = await _run_clean(store, image)
+        assert inpainter.shapes == [((1600, 2400), (1600, 2400))]
+        with Image.open(io.BytesIO(result.png)) as out:
+            assert (out.width, out.height) == (2400, 1600)
     finally:
         store.close()
 

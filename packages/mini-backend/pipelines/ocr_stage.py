@@ -14,11 +14,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 
 from PIL import Image
 
+from core.config import get_config
 from core.device import DeviceInfo, release_gpu_memory
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, to_rgb_array
 from models.ocr.factory import get_ocr_engine
@@ -43,6 +44,7 @@ from pipelines.ocr_region_dedup import (
 from pipelines.stage_store import get_stage_store
 from services.device_fallback import should_skip_gpu_release
 from utils.ocr_fallback import recognize_with_fallbacks
+from utils.resolution_policy import StageResolutionPlan, stage_resolution_plan
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +97,66 @@ def _device_decision(engine: BaseOCR) -> str | None:
     # Duck-typed fakes in tests predate the BaseOCR property.
     reason = getattr(engine, "device_decision_reason", None)
     return reason if isinstance(reason, str) else None
+
+
+def _ocr_working_plan(request: CachedOcrRequest) -> StageResolutionPlan | None:
+    """Stage-time downscale plan for OCR; None when the policy flag is off."""
+    config = get_config()
+    if not config.working_resolution_ocr_clean_enabled:
+        return None
+    if not isinstance(request.image, Image.Image):
+        return None
+    width, height = request.image.size
+    return stage_resolution_plan(
+        "ocr", width, height, config.working_resolution_megapixels
+    )
+
+
+def _scale_bbox(
+    bbox: tuple[int, int, int, int],
+    *,
+    scale_x: float,
+    scale_y: float,
+    max_width: int,
+    max_height: int,
+) -> tuple[int, int, int, int]:
+    x1, y1, x2, y2 = bbox
+    return (
+        min(max_width, max(0, round(x1 * scale_x))),
+        min(max_height, max(0, round(y1 * scale_y))),
+        min(max_width, max(0, round(x2 * scale_x))),
+        min(max_height, max(0, round(y2 * scale_y))),
+    )
+
+
+def _to_working_region(
+    region: OCRInputRegion, plan: StageResolutionPlan
+) -> OCRInputRegion:
+    return replace(
+        region,
+        bbox=_scale_bbox(
+            region.bbox,
+            scale_x=plan.scale_x,
+            scale_y=plan.scale_y,
+            max_width=plan.working_width,
+            max_height=plan.working_height,
+        ),
+    )
+
+
+def _original_bbox(
+    bbox: tuple[int, int, int, int],
+    plan: StageResolutionPlan | None,
+) -> tuple[int, int, int, int]:
+    if plan is None or not plan.downscaled:
+        return bbox
+    return _scale_bbox(
+        bbox,
+        scale_x=plan.width / plan.working_width,
+        scale_y=plan.height / plan.working_height,
+        max_width=plan.width,
+        max_height=plan.height,
+    )
 
 
 async def run_cached_ocr(
@@ -166,22 +228,31 @@ async def run_cached_ocr(
 
     fresh_by_id: dict[str, OCRRecord] = {}
     inputs = [region for seed in missing if (region := _to_input_region(seed)) is not None]
+    plan = _ocr_working_plan(request)
+    working_image: Image.Image | None = None
+    if plan is not None and plan.downscaled and inputs:
+        working_image = request.image.resize(
+            (plan.working_width, plan.working_height), Image.Resampling.BICUBIC
+        )
+        inputs = [_to_working_region(region, plan) for region in inputs]
     if inputs:
         try:
             results = await recognize_with_fallbacks(
                 engine=engine,
-                image=request.image,
+                image=working_image if working_image is not None else request.image,
                 regions=inputs,
                 language=request.language,
                 cancellation_event=request.cancellation_event,
             )
         finally:
+            if working_image is not None:
+                working_image.close()
             if not should_skip_gpu_release():
                 release_gpu_memory()
         raw = [
             OCRRecord(
                 id=result.id,
-                bbox=[int(v) for v in result.bbox],
+                bbox=list(_original_bbox(result.bbox, plan)),
                 text=result.text,
                 score=float(result.score),
                 source=normalize_stage_source(result.source),
