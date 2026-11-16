@@ -45,8 +45,8 @@ SHIPPED_ACCELERATION_PROFILE: Final = "nvidia-cuda-legacy"
 DETECTOR_MODEL_KEY: Final = "font_rtdetr_v2"
 INPAINTER_MODEL_KEY: Final = "aot"
 TEXT_DEGRADATION_LIMIT: Final = 0.15
-DEFAULT_WIDTH: Final = 4600
-DEFAULT_HEIGHT: Final = 8000
+DEFAULT_WIDTH: Final = 4400
+DEFAULT_HEIGHT: Final = 6800
 DEFAULT_LANGUAGE: Final = "ja"
 DEFAULT_OUT: Final = (
     MINI_BACKEND_ROOT.parents[1]
@@ -245,7 +245,7 @@ async def measure_ocr_arm(
     enabled: bool,
     language: str,
     model_key: str,
-) -> tuple[dict[str, float | int], list[OCRRecord]]:
+) -> tuple[dict[str, float | int | str], list[OCRRecord] | None]:
     _apply_policy_env(enabled=enabled)
     request = CachedOcrRequest(
         image=page,
@@ -255,11 +255,14 @@ async def measure_ocr_arm(
         has_gpu=True,
         seeds=seeds,
     )
-    start = time.perf_counter()
-    result = await run_cached_ocr(request)
-    wall_ms = (time.perf_counter() - start) * 1000.0
+    try:
+        start = time.perf_counter()
+        result = await run_cached_ocr(request)
+        wall_ms = (time.perf_counter() - start) * 1000.0
+    except Exception as exc:  # noqa: BLE001 — arm failure is a measured result
+        return {"wall_ms": None, "error": f"{type(exc).__name__}: {exc}"}, None
     records = list(result.records)
-    stats: dict[str, float | int] = {
+    stats: dict[str, float | int | str] = {
         "wall_ms": round(wall_ms, 1),
         "regions": len(records),
         "non_empty_texts": _non_empty_texts(records),
@@ -279,20 +282,23 @@ async def measure_clean_arm(
     *,
     enabled: bool,
     store_path: Path,
-) -> tuple[dict[str, float | int | str], list[int]]:
+) -> tuple[dict[str, float | int | str], list[int] | None]:
     _apply_policy_env(enabled=enabled)
     store = StageStore(store_path)
     try:
-        start = time.perf_counter()
-        result = await stages.run_clean_stage(
-            image=page,
-            has_gpu=True,
-            settings=_clean_settings(),
-            regions_for_mask=regions,
-            default_detection_model=DETECTOR_MODEL_KEY,
-            store=store,
-        )
-        wall_ms = (time.perf_counter() - start) * 1000.0
+        try:
+            start = time.perf_counter()
+            result = await stages.run_clean_stage(
+                image=page,
+                has_gpu=True,
+                settings=_clean_settings(),
+                regions_for_mask=regions,
+                default_detection_model=DETECTOR_MODEL_KEY,
+                store=store,
+            )
+            wall_ms = (time.perf_counter() - start) * 1000.0
+        except Exception as exc:  # noqa: BLE001 — arm failure is a measured result
+            return {"wall_ms": None, "error": f"{type(exc).__name__}: {exc}"}, None
     finally:
         store.close()
     stats: dict[str, float | int | str] = {
@@ -307,8 +313,8 @@ async def measure_clean_arm(
 class _AbResult:
     artifact: dict[str, object]
     gate_pass: bool
-    text_degradation: float
-    dims_match: bool
+    text_degradation: float | None
+    dims_match: bool | None
 
 
 async def _run_ab(args: argparse.Namespace, model_key: str) -> _AbResult:
@@ -339,11 +345,22 @@ async def _run_ab(args: argparse.Namespace, model_key: str) -> _AbResult:
             page, regions, enabled=True, store_path=work_dir / "clean-on.sqlite3"
         )
 
-    off_texts = int(off_ocr_stats["non_empty_texts"])
-    on_texts = int(on_ocr_stats["non_empty_texts"])
-    text_degradation = ((off_texts - on_texts) / off_texts) if off_texts > 0 else 0.0
-    dims_match = off_size == on_size and off_size == [args.width, args.height]
-    gate_pass = text_degradation <= TEXT_DEGRADATION_LIMIT and dims_match
+    off_texts = off_ocr_stats.get("non_empty_texts")
+    on_texts = on_ocr_stats.get("non_empty_texts")
+    if isinstance(off_texts, int) and isinstance(on_texts, int) and off_texts > 0:
+        text_degradation: float | None = (off_texts - on_texts) / off_texts
+    else:
+        text_degradation = None
+    dims_match: bool | None
+    if off_size is None or on_size is None:
+        dims_match = None
+    else:
+        dims_match = off_size == on_size and off_size == [args.width, args.height]
+    gate_pass = (
+        text_degradation is not None
+        and text_degradation <= TEXT_DEGRADATION_LIMIT
+        and dims_match is True
+    )
     artifact: dict[str, object] = {
         "capturedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "script": "profile_stage_resize_policy.py",
@@ -371,8 +388,14 @@ async def _run_ab(args: argparse.Namespace, model_key: str) -> _AbResult:
         "ocr": {
             "off_arm": off_ocr_stats,
             "on_arm": on_ocr_stats,
-            "text_degradation": round(text_degradation, 4),
-            "bbox_max_drift_px": _bbox_drift_px(off_records, on_records),
+            "text_degradation": (
+                round(text_degradation, 4) if text_degradation is not None else None
+            ),
+            "bbox_max_drift_px": (
+                _bbox_drift_px(off_records, on_records)
+                if off_records is not None and on_records is not None
+                else None
+            ),
         },
         "clean": {
             "off_arm": off_clean_stats,
@@ -415,8 +438,13 @@ def main() -> int:
     out = args.out.expanduser().resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result.artifact, indent=2) + "\n", encoding="utf-8")
+    degradation_text = (
+        f"{result.text_degradation:.4f}"
+        if result.text_degradation is not None
+        else "n/a (arm failed)"
+    )
     print(
-        f"F6-OCR-CLEAN-RESIZE text_degradation={result.text_degradation:.4f} "
+        f"F6-OCR-CLEAN-RESIZE text_degradation={degradation_text} "
         f"(limit {TEXT_DEGRADATION_LIMIT}) dims_match={result.dims_match} "
         f"-> {'PASS' if result.gate_pass else 'FAIL'}; artifact {out}"
     )
