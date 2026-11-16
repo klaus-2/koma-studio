@@ -195,6 +195,7 @@ class MiniBackendConfig:
     batch_default_concurrency: int
     batch_max_concurrency: int
     batch_max_images: int
+    engine_idle_timeout_seconds: int
 
 
 @dataclass(frozen=True)
@@ -324,5 +325,11 @@ def get_config() -> MiniBackendConfig:
             fallback=64,
             minimum=1,
             maximum=200,
+        ),
+        engine_idle_timeout_seconds=_as_int(
+            os.getenv("MINI_BACKEND_ENGINE_IDLE_TIMEOUT_SECONDS"),
+            fallback=600,
+            minimum=0,
+            maximum=86400,
         ),
     )

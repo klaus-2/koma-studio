@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections import OrderedDict
 from collections.abc import Callable, Hashable
 from concurrent.futures import Future
@@ -41,6 +42,7 @@ class LruEngineCache[K: Hashable, V]:
         "_builds",
         "_entries",
         "_generation",
+        "_last_used",
         "_lock",
         "_max_size",
     )
@@ -51,6 +53,7 @@ class LruEngineCache[K: Hashable, V]:
 
         self._max_size = max_size
         self._entries: OrderedDict[K, V] = OrderedDict()
+        self._last_used: OrderedDict[K, float] = OrderedDict()
         self._builds: dict[K, _Build[V]] = {}
         self._generation = 0
         self._lock = threading.Lock()
@@ -64,6 +67,7 @@ class LruEngineCache[K: Hashable, V]:
 
         with self._lock:
             if key in self._entries:
+                self._last_used[key] = time.monotonic()
                 self._entries.move_to_end(key)
                 return self._entries[key]
 
@@ -102,11 +106,13 @@ class LruEngineCache[K: Hashable, V]:
                 pending.generation == self._generation
                 and self._builds.get(key) is pending
             ):
+                self._last_used[key] = time.monotonic()
                 self._entries[key] = engine
                 self._entries.move_to_end(key)
 
                 while len(self._entries) > self._max_size:
-                    _, previous = self._entries.popitem(last=False)
+                    oldest, previous = self._entries.popitem(last=False)
+                    del self._last_used[oldest]
                     evicted.append(previous)
 
             if self._builds.get(key) is pending:
@@ -124,11 +130,33 @@ class LruEngineCache[K: Hashable, V]:
         evicted.clear()
         return engine
 
+    def evict_idle(self, idle_seconds: float) -> list[V]:
+        """Pop entries whose last use is older than idle_seconds; the
+        most-recently-used entry is always exempt, entries with pending
+        builds untouched. Returns evicted values; the caller drops
+        references outside the lock (same contract as get_or_build
+        eviction).
+        """
+        now = time.monotonic()
+        evicted: list[V] = []
+        with self._lock:
+            stale_keys = list(self._entries)[:-1]
+            for key in stale_keys:
+                if key in self._builds:
+                    continue
+                last_used = self._last_used.get(key)
+                if last_used is None or now - last_used <= idle_seconds:
+                    continue
+                evicted.append(self._entries.pop(key))
+                del self._last_used[key]
+        return evicted
+
     def clear(self) -> None:
         with self._lock:
             self._generation += 1
             previous_entries = self._entries
             self._entries = OrderedDict()
+            self._last_used.clear()
             self._builds.clear()
 
         previous_entries.clear()

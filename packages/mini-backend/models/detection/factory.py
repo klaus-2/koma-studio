@@ -18,6 +18,7 @@ from core.device import (
     freeze_provider_specs,
     FrozenOnnxProviderSpec,
 )
+from core.engine_idle import register_idle_cache
 from core.models_store import model_is_installed
 from models.detection.base_detector import BaseDetector
 from models.detection.comic_text_detector import ComicTextDetector
@@ -300,6 +301,9 @@ def resolve_detector_key(
 @register_gpu_cache_releaser
 def clear_detector_cache() -> None:
     _CACHE.clear()
+
+
+register_idle_cache("detector", _CACHE)
 
 
 def get_detector_cache_size() -> int:

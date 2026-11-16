@@ -15,6 +15,7 @@ from core.device import (
     build_cpu_device_info,
     get_device_info,
 )
+from core.engine_idle import register_idle_cache
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
 from models.ocr.base_ocr import BaseOCR
@@ -431,6 +432,9 @@ def list_ocr_models(has_gpu: bool, language: str | None = None) -> list[dict[str
 @register_gpu_cache_releaser
 def clear_ocr_cache() -> None:
     _OCR_CACHE.clear()
+
+
+register_idle_cache("ocr", _OCR_CACHE)
 
 
 def get_ocr_cache_size() -> int:

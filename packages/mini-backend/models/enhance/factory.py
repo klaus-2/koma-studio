@@ -9,6 +9,7 @@ from core.device import (
     get_onnx_execution_providers,
     register_gpu_cache_releaser,
 )
+from core.engine_idle import register_idle_cache
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
 
@@ -31,6 +32,9 @@ _ENHANCER_CACHE: LruEngineCache[tuple[str, str], BaseEnhancer] = LruEngineCache(
 @register_gpu_cache_releaser
 def clear_enhancer_cache() -> None:
     _ENHANCER_CACHE.clear()
+
+
+register_idle_cache("enhancer", _ENHANCER_CACHE)
 
 
 def list_enhancement_models(has_gpu: bool) -> list[dict[str, Any]]:

@@ -7,6 +7,7 @@ from typing import Literal, NotRequired, TypedDict
 
 from core.config import normalize_stage_model_key
 from core.device import register_gpu_cache_releaser
+from core.engine_idle import register_idle_cache
 from core.translation_provider_config import (
     resolve_deepl_api_key,
     resolve_libretranslate_api_key,
@@ -425,6 +426,9 @@ _TRANSLATOR_CACHE: LruEngineCache[str, BaseTranslator] = LruEngineCache(
 @register_gpu_cache_releaser
 def clear_translator_cache() -> None:
     _TRANSLATOR_CACHE.clear()
+
+
+register_idle_cache("translator", _TRANSLATOR_CACHE)
 
 
 def get_translator_cache_size() -> int:

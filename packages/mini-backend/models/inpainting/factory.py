@@ -14,6 +14,7 @@ from core.device import (
     freeze_provider_specs,
     FrozenOnnxProviderSpec,
 )
+from core.engine_idle import register_idle_cache
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
 from models.inpainting.aot import AOTInpainter
@@ -193,6 +194,9 @@ def get_inpainter(
 @register_gpu_cache_releaser
 def clear_inpainter_cache() -> None:
     _cache.clear()
+
+
+register_idle_cache("inpainting", _cache)
 
 
 def get_inpainter_cache_size() -> int:

@@ -15,6 +15,7 @@ from core.device import (
     get_onnx_execution_providers,
     register_gpu_cache_releaser,
 )
+from core.engine_idle import register_idle_cache
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
 from models.errors import (
@@ -176,6 +177,9 @@ def get_segmenter(has_gpu: bool, model_key: str | None = None) -> BaseSegmenter:
 @register_gpu_cache_releaser
 def clear_segmenter_cache() -> None:
     _CACHE.clear()
+
+
+register_idle_cache("segmentation", _CACHE)
 
 
 def get_segmenter_cache_size() -> int:

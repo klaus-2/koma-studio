@@ -42,6 +42,7 @@ from core.device import (
     reset_device_runtime_cache,
     verify_profile_dlls,
 )
+from core.engine_idle import get_last_sweep_evicted, idle_sweeper_loop
 from core.logging_setup import configure_logging
 from models.detection.errors import DetectionModelCorruptedError, DetectionModelNotInstalledError
 from models.detection.factory import clear_detector_cache, get_detector, get_detector_cache_size
@@ -293,10 +294,15 @@ class GpuStats(TypedDict):
     total_mb: float
 
 
+class EngineIdleStats(TypedDict):
+    timeout_seconds: int
+    last_sweep_evicted: dict[str, int]
+
+
 class MemoryStatsPayload(TypedDict):
     process: ProcessStats
     gc: GcStats
-    caches: dict[str, int | CacheManagerStats]
+    caches: dict[str, int | CacheManagerStats | EngineIdleStats]
     gpu: GpuStats | None
     tracemalloc: TracemallocStats | None
 
@@ -353,6 +359,10 @@ def _collect_memory_stats() -> MemoryStatsPayload:
             "translator": get_translator_cache_size(),
             "ocr_cache_manager": OCR_CACHE_MANAGER.stats(),
             "translation_cache_manager": TRANSLATION_CACHE_MANAGER.stats(),
+            "engine_idle": EngineIdleStats(
+                timeout_seconds=get_config().engine_idle_timeout_seconds,
+                last_sweep_evicted=get_last_sweep_evicted(),
+            ),
         },
         gpu=_collect_gpu_stats(),
         tracemalloc=traced,
@@ -449,9 +459,15 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
             tracemalloc.start(25)
         _configure_torch_thread_limit()
         await warmup_text_detection_model()
+        idle_sweeper_task = asyncio.create_task(idle_sweeper_loop())
         try:
             yield
         finally:
+            idle_sweeper_task.cancel()
+            try:
+                await idle_sweeper_task
+            except asyncio.CancelledError:
+                logger.info("engine_idle.sweeper_stopped")
             from models.execution import shutdown_inference_workers
 
             await shutdown_inference_workers()
