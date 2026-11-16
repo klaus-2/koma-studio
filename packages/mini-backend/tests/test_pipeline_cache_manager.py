@@ -20,6 +20,8 @@ class PipelineCacheManagerTests(unittest.TestCase):
             image_bytes=b"image-a",
             language="ja",
             model_key="easyocr",
+            working_mp=24.0,
+            ocr_clean_enabled=False,
         )
 
         cached_count = manager.cache_ocr_results(
@@ -198,17 +200,61 @@ class PipelineCacheManagerTests(unittest.TestCase):
         self.assertEqual(key_for(("deepl", "claude")), key_for(["deepl", "claude"]))
         self.assertNotEqual(key_for(("deepl", "claude")), key_for(()))
 
+    def test_ocr_cache_key_changes_with_working_resolution_policy(self) -> None:
+        manager = CacheManager(ttl_seconds=1800, max_entries=16, bbox_tolerance_px=5)
+        base = manager.build_ocr_cache_key(
+            image_bytes=b"image-a",
+            language="ja",
+            model_key="easyocr",
+            working_mp=24.0,
+            ocr_clean_enabled=False,
+        )
+        self.assertEqual(
+            manager.build_ocr_cache_key(
+                image_bytes=b"image-a",
+                language="ja",
+                model_key="easyocr",
+                working_mp=24.0,
+                ocr_clean_enabled=False,
+            ),
+            base,
+        )
+        self.assertNotEqual(
+            manager.build_ocr_cache_key(
+                image_bytes=b"image-a",
+                language="ja",
+                model_key="easyocr",
+                working_mp=12.0,
+                ocr_clean_enabled=False,
+            ),
+            base,
+        )
+        self.assertNotEqual(
+            manager.build_ocr_cache_key(
+                image_bytes=b"image-a",
+                language="ja",
+                model_key="easyocr",
+                working_mp=24.0,
+                ocr_clean_enabled=True,
+            ),
+            base,
+        )
+
     def test_cache_evicts_oldest_entries_when_limit_is_exceeded(self) -> None:
         manager = CacheManager(ttl_seconds=1800, max_entries=1, bbox_tolerance_px=5)
         key_a = manager.build_ocr_cache_key(
             image_bytes=b"image-a",
             language="ja",
             model_key="easyocr",
+            working_mp=24.0,
+            ocr_clean_enabled=False,
         )
         key_b = manager.build_ocr_cache_key(
             image_bytes=b"image-b",
             language="ja",
             model_key="easyocr",
+            working_mp=24.0,
+            ocr_clean_enabled=False,
         )
 
         manager.cache_ocr_results(

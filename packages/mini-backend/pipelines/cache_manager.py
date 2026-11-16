@@ -345,14 +345,18 @@ class CacheManager:
         image_bytes: bytes,
         language: str,
         model_key: str,
+        working_mp: float,
+        ocr_clean_enabled: bool,
         namespace: str = "",
     ) -> str:
         payload: dict[str, object] = {
-            "version": 2,
+            "version": 3,
             "namespace": namespace,
             "language": language.strip().lower(),
             "model_key": model_key.strip(),
             "image_hash": _hash_image_bytes(image_bytes),
+            "working_mp": working_mp,
+            "ocr_clean_enabled": ocr_clean_enabled,
         }
         return f"ocr::{_stable_hash(payload)}"
 

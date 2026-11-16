@@ -115,22 +115,37 @@ async def _run_detect(
 
 def test_detect_key_stability_and_sensitivity() -> None:
     fingerprint = fingerprint_detect_settings(
-        conf_threshold=0.35, nms_threshold=0.45, input_size=512
+        conf_threshold=0.35, nms_threshold=0.45, input_size=512, working_megapixels=24.0
     )
     assert (
-        fingerprint_detect_settings(conf_threshold=0.35, nms_threshold=0.45, input_size=512)
+        fingerprint_detect_settings(
+            conf_threshold=0.35, nms_threshold=0.45, input_size=512, working_megapixels=24.0
+        )
         == fingerprint
     )
     assert (
-        fingerprint_detect_settings(conf_threshold=0.5, nms_threshold=0.45, input_size=512)
+        fingerprint_detect_settings(
+            conf_threshold=0.5, nms_threshold=0.45, input_size=512, working_megapixels=24.0
+        )
         != fingerprint
     )
     assert (
-        fingerprint_detect_settings(conf_threshold=0.35, nms_threshold=0.5, input_size=512)
+        fingerprint_detect_settings(
+            conf_threshold=0.35, nms_threshold=0.5, input_size=512, working_megapixels=24.0
+        )
         != fingerprint
     )
     assert (
-        fingerprint_detect_settings(conf_threshold=0.35, nms_threshold=0.45, input_size=640)
+        fingerprint_detect_settings(
+            conf_threshold=0.35, nms_threshold=0.45, input_size=640, working_megapixels=24.0
+        )
+        != fingerprint
+    )
+    # The detection downscale target participates: changing it misses.
+    assert (
+        fingerprint_detect_settings(
+            conf_threshold=0.35, nms_threshold=0.45, input_size=512, working_megapixels=12.0
+        )
         != fingerprint
     )
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import sqlite3
 import sys
 import zlib
@@ -141,7 +142,15 @@ def test_fingerprint_clean_settings_stable_and_sensitive() -> None:
         "hd_strategy_crop_margin": 512,
         "hd_strategy_crop_trigger_size": 512,
     }
-    assert fingerprint_clean_settings(fields) == fingerprint_clean_settings(dict(fields))
+    base = fingerprint_clean_settings(
+        fields, working_megapixels=24.0, ocr_clean_enabled=False
+    )
+    assert (
+        fingerprint_clean_settings(
+            dict(fields), working_megapixels=24.0, ocr_clean_enabled=False
+        )
+        == base
+    )
     for field, value in (
         ("model_key", "aot"),
         ("mask_dilation", 2),
@@ -150,7 +159,27 @@ def test_fingerprint_clean_settings_stable_and_sensitive() -> None:
         ("hd_strategy_crop_margin", 256),
         ("hd_strategy_crop_trigger_size", 1024),
     ):
-        assert fingerprint_clean_settings({**fields, field: value}) != fingerprint_clean_settings(fields)
+        assert (
+            fingerprint_clean_settings(
+                {**fields, field: value},
+                working_megapixels=24.0,
+                ocr_clean_enabled=False,
+            )
+            != base
+        )
+    # The working-resolution policy participates in the fingerprint.
+    assert (
+        fingerprint_clean_settings(
+            fields, working_megapixels=12.0, ocr_clean_enabled=False
+        )
+        != base
+    )
+    assert (
+        fingerprint_clean_settings(
+            fields, working_megapixels=24.0, ocr_clean_enabled=True
+        )
+        != base
+    )
 
 
 def test_segment_round_trip(tmp_path: Path) -> None:
@@ -293,6 +322,16 @@ def test_payload_codec_contract() -> None:
     assert decode_payload(b"KZ1" + zlib.compress(text.encode("utf-8"))[:4]) is None
 
 
+def test_decode_payload_bound_rejects_oversized_expansion() -> None:
+    # ~33 MiB of repetitive text compresses to a few KiB, so the compressed
+    # row fits every store bound — but its expansion exceeds the
+    # decompression cap and must be a miss, never a full in-RAM expansion.
+    huge_text = "0123456789" * ((32 << 20) // 10 + 100)
+    encoded = encode_payload(huge_text)
+    assert len(encoded) < 1 << 20
+    assert decode_payload(encoded) is None
+
+
 def test_detect_and_ocr_round_trip(tmp_path: Path) -> None:
     store = _store(tmp_path)
     try:
@@ -313,6 +352,36 @@ def test_detect_and_ocr_round_trip(tmp_path: Path) -> None:
             "b1": {"text": "ド", "score": 0.9},
             "b2": {"text": "カ", "score": 0.8},
         }
+    finally:
+        store.close()
+
+
+def test_merge_ocr_warns_and_overwrites_undecodable_row(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    db_path = tmp_path / "stage-store.sqlite3"
+    raw = sqlite3.connect(str(db_path))
+    try:
+        raw.executescript(stage_store_module._SCHEMA_SQL)
+        raw.execute(
+            "INSERT INTO ocr_cache (key, payload) VALUES (?, ?)", ("o1", b"KZ1not-zlib")
+        )
+        raw.commit()
+    finally:
+        raw.close()
+    blocks: dict[str, dict[str, object]] = {"b1": {"text": "ド", "score": 0.9}}
+    store = StageStore(db_path)
+    try:
+        with caplog.at_level(logging.WARNING, logger="pipelines.stage_store"):
+            assert store.merge_ocr(key="o1", blocks=blocks) is True
+        records = [
+            record
+            for record in caplog.records
+            if record.getMessage() == "stage_store.ocr_payload_undecodable"
+        ]
+        assert len(records) == 1
+        assert records[0].key == "o1"
+        assert store.get_ocr("o1") == blocks
     finally:
         store.close()
 

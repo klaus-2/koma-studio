@@ -5,7 +5,8 @@ bytes as BLOB in the TEXT-affinity columns, so the storage class itself is
 the format bit. ``decode_payload`` is the total inverse: ``str`` passes
 through (legacy v1 rows), ``bytes`` unwraps, any failure returns ``None``
 (a cache miss, never an exception; a pre-v2 build therefore treats v2 rows
-as misses).
+as misses). Decompression is bounded: payloads expanding past
+``_MAX_DECOMPRESSED_BYTES`` are misses, never a full in-RAM expansion.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from typing import Final
 import zlib
 
 _MAGIC: Final[bytes] = b"KZ1"  # versioned container: magic + zlib(blob)
+_MAX_DECOMPRESSED_BYTES: Final = 32 << 20
 
 
 def encode_payload(text: str) -> bytes:
@@ -30,6 +32,18 @@ def decode_payload(raw: object) -> str | None:
     if not raw.startswith(_MAGIC):
         return None
     try:
-        return zlib.decompress(raw[len(_MAGIC) :]).decode("utf-8")
+        decompressor = zlib.decompressobj()
+        text = decompressor.decompress(
+            raw[len(_MAGIC) :], _MAX_DECOMPRESSED_BYTES + 1
+        ).decode("utf-8")
     except (zlib.error, OSError, UnicodeDecodeError):
         return None
+    # decompressobj returns partial output for truncated streams instead of
+    # raising; the tail/length checks enforce the size bound.
+    if (
+        not decompressor.eof
+        or decompressor.unconsumed_tail
+        or len(text) > _MAX_DECOMPRESSED_BYTES
+    ):
+        return None
+    return text

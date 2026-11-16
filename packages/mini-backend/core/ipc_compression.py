@@ -17,12 +17,31 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 _COMPRESS_LEVEL: Final = 6
 _MINIMUM_BYTES: Final = 1024
 _JSON_MEDIA_TYPE: Final = "application/json"
-_GZIP_TOKEN: Final = "gzip"
+_GZIP_TOKENS: Final[frozenset[str]] = frozenset({"gzip", "x-gzip"})
 
 
 def _accepts_gzip(scope: Scope) -> bool:
-    headers = Headers(scope=scope)
-    return _GZIP_TOKEN in headers.get("accept-encoding", "").lower()
+    header = Headers(scope=scope).get("accept-encoding", "").lower()
+    for element in header.split(","):
+        token = element.split(";", 1)[0].strip()
+        if token not in _GZIP_TOKENS:
+            continue
+        if _is_q_zero(element):
+            continue
+        return True
+    return False
+
+
+def _is_q_zero(element: str) -> bool:
+    for param in element.split(";")[1:]:
+        name, _, value = param.strip().partition("=")
+        if name.strip().lower() != "q":
+            continue
+        try:
+            return float(value.strip()) == 0.0
+        except ValueError:
+            return False
+    return False
 
 
 def _is_compressible(message: Message) -> bool:
@@ -33,13 +52,22 @@ def _is_compressible(message: Message) -> bool:
 
 
 class _JsonGzipSender:
-    """Buffers a compressible JSON response; forwards every other message."""
+    """Buffers one compressible JSON response. A second start (an error
+    response replacing an aborted attempt) restarts buffering; messages
+    after the flushed body are dropped, never re-sent downstream."""
 
-    __slots__ = ("_chunks", "_downstream", "_passthrough", "_start_message")
+    __slots__ = (
+        "_chunks",
+        "_completed",
+        "_downstream",
+        "_passthrough",
+        "_start_message",
+    )
 
     def __init__(self, downstream: Send) -> None:
         self._downstream = downstream
         self._passthrough = False
+        self._completed = False
         self._start_message: Message | None = None
         self._chunks: list[bytes] = []
 
@@ -47,20 +75,29 @@ class _JsonGzipSender:
         if self._passthrough:
             await self._downstream(message)
             return
+        if self._completed:
+            return
         if message["type"] == "http.response.start":
+            if self._start_message is not None:
+                self._chunks.clear()
             if _is_compressible(message):
                 self._start_message = message
             else:
+                self._start_message = None
                 self._passthrough = True
                 await self._downstream(message)
             return
+        if message["type"] != "http.response.body":
+            await self._downstream(message)
+            return
         start_message = self._start_message
-        if message["type"] != "http.response.body" or start_message is None:
+        if start_message is None:
             await self._downstream(message)
             return
         self._chunks.append(bytes(message.get("body", b"")))
         if bool(message.get("more_body", False)):
             return
+        self._completed = True
         body = b"".join(self._chunks)
         if len(body) >= _MINIMUM_BYTES:
             body = gzip.compress(body, compresslevel=_COMPRESS_LEVEL)

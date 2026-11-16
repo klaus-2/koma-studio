@@ -27,7 +27,11 @@ exceeds 32 MiB are skipped at write time; the put returns False (skipped).
 
 Payload compression (schema v2): the segment/detect/ocr ``payload`` columns
 store ``encode_payload(canonical_json)`` bytes; ``str`` rows are legacy v1
-plain JSON and stay readable, and a pre-v2 build treats v2 rows as misses.
+plain JSON and stay readable. Downgrade scope: only a v1-flagged database
+downgrades gracefully on a pre-v2 build (v2 rows decode as misses,
+non-crashing); a database created fresh by this build is stamped
+``user_version=2``, which the pre-v2 build's pin rejects with
+``StageStoreError`` at open until the user deletes ``stage-store.sqlite3``.
 The clean ``png`` BLOB and ``meta`` stay uncompressed; the 32 MiB
 entry-size bound applies to the compressed byte length of v2 rows.
 """
@@ -159,12 +163,19 @@ def fingerprint_mask_regions(regions: Sequence[MaskRegion]) -> str:
     return _sha256(_canonical_json(payload))
 
 
-def fingerprint_clean_settings(fields: Mapping[str, object]) -> str:
+def fingerprint_clean_settings(
+    fields: Mapping[str, object],
+    *,
+    working_megapixels: float,
+    ocr_clean_enabled: bool,
+) -> str:
     """sha256 over the canonical JSON of the CleanSettings fields, field-for-field."""
-    payload = {
-        "version": 1,
-        "settings": {name: fields.get(name) for name in _CLEAN_SETTINGS_FIELDS},
+    settings: dict[str, object] = {
+        name: fields.get(name) for name in _CLEAN_SETTINGS_FIELDS
     }
+    settings["working_megapixels"] = working_megapixels
+    settings["ocr_clean_enabled"] = ocr_clean_enabled
+    payload: dict[str, object] = {"version": 1, "settings": settings}
     return _sha256(_canonical_json(payload))
 
 
@@ -198,7 +209,11 @@ def build_clean_cache_key(
 
 
 def fingerprint_detect_settings(
-    *, conf_threshold: float, nms_threshold: float, input_size: int
+    *,
+    conf_threshold: float,
+    nms_threshold: float,
+    input_size: int,
+    working_megapixels: float,
 ) -> str:
     """sha256 over the canonical JSON of the resolved detection settings."""
     payload: dict[str, object] = {
@@ -207,6 +222,7 @@ def fingerprint_detect_settings(
             "conf_threshold": conf_threshold,
             "nms_threshold": nms_threshold,
             "input_size": input_size,
+            "working_megapixels": working_megapixels,
         },
     }
     return _sha256(_canonical_json(payload))
@@ -474,7 +490,11 @@ class StageStore:
             merged: dict[str, dict[str, object]] = {}
             if row is not None:
                 existing_text = decode_payload(row[0])
-                if existing_text is not None:
+                if existing_text is None:
+                    logger.warning(
+                        "stage_store.ocr_payload_undecodable", extra={"key": key}
+                    )
+                else:
                     try:
                         existing = json.loads(existing_text)
                     except json.JSONDecodeError:

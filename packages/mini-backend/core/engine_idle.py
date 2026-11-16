@@ -10,7 +10,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+import time
 from collections.abc import Hashable
+from dataclasses import dataclass
 from typing import Final
 
 from core.config import get_config
@@ -20,11 +22,25 @@ from models.engine_cache import LruEngineCache
 logger = logging.getLogger(__name__)
 
 _DEFAULT_POLL_INTERVAL_SECONDS: Final = 60.0
+_ERROR_ESCALATION_THRESHOLD: Final = 3
 
 _idle_caches_lock = threading.Lock()
 _idle_caches: dict[str, LruEngineCache[Hashable, object]] = {}
 _last_sweep_lock = threading.Lock()
 _last_sweep_evicted: dict[str, int] = {}
+_last_sweep_error: str | None = None
+_consecutive_sweep_failures: int = 0
+_last_sweep_at: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SweepStatus:
+    """Outcome of the most recently started sweeper cycle."""
+
+    ok: bool
+    error: str | None
+    consecutive_failures: int
+    recorded_at: float | None
 
 
 def register_idle_cache(name: str, cache: LruEngineCache[Hashable, object]) -> None:
@@ -55,23 +71,59 @@ def get_last_sweep_evicted() -> dict[str, int]:
         return dict(_last_sweep_evicted)
 
 
-def _record_last_sweep(evicted: dict[str, int]) -> None:
+def get_last_sweep_status() -> SweepStatus:
+    with _last_sweep_lock:
+        return SweepStatus(
+            ok=_last_sweep_error is None,
+            error=_last_sweep_error,
+            consecutive_failures=_consecutive_sweep_failures,
+            recorded_at=_last_sweep_at,
+        )
+
+
+def _sweep_failure_level(consecutive_failures: int) -> int:
+    """WARNING until three consecutive failures, then ERROR."""
+    if consecutive_failures >= _ERROR_ESCALATION_THRESHOLD:
+        return logging.ERROR
+    return logging.WARNING
+
+
+def _record_last_sweep(evicted: dict[str, int], error: str | None) -> int:
+    """Record one finished cycle (success or failure); returns the new
+    consecutive-failure count (0 after a success)."""
+    global _consecutive_sweep_failures, _last_sweep_at, _last_sweep_error
     with _last_sweep_lock:
         _last_sweep_evicted.clear()
         _last_sweep_evicted.update(evicted)
+        if error is None:
+            _last_sweep_error = None
+            _consecutive_sweep_failures = 0
+        else:
+            _last_sweep_error = error
+            _consecutive_sweep_failures += 1
+        _last_sweep_at = time.time()
+        return _consecutive_sweep_failures
 
 
 async def _sweep_once() -> None:
+    evicted: dict[str, int] = {}
     try:
         timeout = get_config().engine_idle_timeout_seconds
-        evicted: dict[str, int] = {}
         if timeout > 0:
             evicted = await asyncio.to_thread(evict_idle_engines, float(timeout))
             if evicted:
                 await asyncio.to_thread(release_gpu_memory)
-        _record_last_sweep(evicted)
-    except Exception:  # noqa: BLE001 — one broken cycle must not kill the loop
-        logger.warning("engine_idle.sweep_failed", exc_info=True)
+    except Exception as exc:  # noqa: BLE001 — one broken cycle must not kill the loop
+        error = f"{type(exc).__name__}: {exc}"
+        failures = _record_last_sweep(evicted, error)
+        logger.log(
+            _sweep_failure_level(failures),
+            "engine_idle.sweep_failed",
+            exc_info=failures == 1,
+            extra={"error": error},
+        )
+    else:
+        _record_last_sweep(evicted, None)
 
 
 async def idle_sweeper_loop(

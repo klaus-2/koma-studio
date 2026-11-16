@@ -15,6 +15,7 @@ import os
 import sys
 import tempfile
 import time
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -260,7 +261,11 @@ async def measure_ocr_arm(
         result = await run_cached_ocr(request)
         wall_ms = (time.perf_counter() - start) * 1000.0
     except Exception as exc:  # noqa: BLE001 — arm failure is a measured result
-        return {"wall_ms": None, "error": f"{type(exc).__name__}: {exc}"}, None
+        return {
+            "wall_ms": None,
+            "error": f"{type(exc).__name__}: {exc}",
+            "traceback": traceback.format_exc(),
+        }, None
     records = list(result.records)
     stats: dict[str, float | int | str] = {
         "wall_ms": round(wall_ms, 1),
@@ -298,7 +303,11 @@ async def measure_clean_arm(
             )
             wall_ms = (time.perf_counter() - start) * 1000.0
         except Exception as exc:  # noqa: BLE001 — arm failure is a measured result
-            return {"wall_ms": None, "error": f"{type(exc).__name__}: {exc}"}, None
+            return {
+                "wall_ms": None,
+                "error": f"{type(exc).__name__}: {exc}",
+                "traceback": traceback.format_exc(),
+            }, None
     finally:
         store.close()
     stats: dict[str, float | int | str] = {
@@ -448,7 +457,7 @@ def main() -> int:
         f"(limit {TEXT_DEGRADATION_LIMIT}) dims_match={result.dims_match} "
         f"-> {'PASS' if result.gate_pass else 'FAIL'}; artifact {out}"
     )
-    return 0
+    return 0 if result.gate_pass else 1
 
 
 if __name__ == "__main__":

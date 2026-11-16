@@ -8,6 +8,8 @@ TestClient (guarded on optional runtime deps) for the real-app wiring.
 
 from __future__ import annotations
 
+import gzip
+import json
 import os
 import sys
 from collections.abc import Iterator
@@ -19,6 +21,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
+from starlette.datastructures import Headers
+from starlette.types import Message, Scope
 
 os.environ["MINI_BACKEND_WARMUP_DETECTOR"] = "0"
 
@@ -26,7 +30,7 @@ MINI_BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(MINI_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(MINI_BACKEND_DIR))
 
-from core.ipc_compression import IpcGzipMiddleware  # noqa: E402
+from core.ipc_compression import IpcGzipMiddleware, _JsonGzipSender, _accepts_gzip  # noqa: E402
 
 IMPORT_ERROR: Exception | None = None
 try:
@@ -140,6 +144,117 @@ async def test_precompressed_json_response_is_untouched() -> None:
     assert response.headers["content-encoding"] == "identity"
     assert "vary" not in response.headers
     assert response.content == _LARGE_BODY
+
+
+def _scope_with_accept_encoding(value: str) -> Scope:
+    return {
+        "type": "http",
+        "headers": [(b"accept-encoding", value.encode("ascii"))],
+    }
+
+
+def test_bare_gzip_is_accepted() -> None:
+    assert _accepts_gzip(_scope_with_accept_encoding("gzip")) is True
+
+
+def test_q_zero_is_refusal() -> None:
+    assert _accepts_gzip(_scope_with_accept_encoding("gzip;q=0")) is False
+    assert _accepts_gzip(_scope_with_accept_encoding("gzip;q=0.0")) is False
+    assert _accepts_gzip(_scope_with_accept_encoding("gzip;q=0.000")) is False
+
+
+def test_positive_q_value_compresses() -> None:
+    assert _accepts_gzip(_scope_with_accept_encoding("gzip;q=0.5, br")) is True
+
+
+def test_other_codings_alone_do_not_compress() -> None:
+    assert _accepts_gzip(_scope_with_accept_encoding("br")) is False
+    assert _accepts_gzip(_scope_with_accept_encoding("identity")) is False
+    assert _accepts_gzip(_scope_with_accept_encoding("gzip;q=0, br")) is False
+
+
+def test_x_gzip_alias_is_accepted() -> None:
+    assert _accepts_gzip(_scope_with_accept_encoding("x-gzip")) is True
+
+
+def test_missing_header_does_not_compress() -> None:
+    assert _accepts_gzip({"type": "http", "headers": []}) is False
+
+
+async def test_gzip_q_zero_request_is_not_compressed() -> None:
+    async with _client() as client:
+        response = await client.get(
+            "/large-json", headers={"accept-encoding": "gzip;q=0, br"}
+        )
+    assert response.status_code == 200
+    assert "content-encoding" not in response.headers
+    assert response.content == _LARGE_BODY
+
+
+async def test_second_start_replaces_aborted_buffered_response() -> None:
+    downstream: list[Message] = []
+
+    async def send(message: Message) -> None:
+        downstream.append(message)
+
+    first_start: Message = {
+        "type": "http.response.start",
+        "status": 200,
+        "headers": [(b"content-type", b"application/json")],
+    }
+    error_start: Message = {
+        "type": "http.response.start",
+        "status": 500,
+        "headers": [(b"content-type", b"application/json")],
+    }
+    error_body = json.dumps({"detail": "boom " * 250}).encode("utf-8")
+
+    sender = _JsonGzipSender(send)
+    await sender(first_start)
+    await sender({"type": "http.response.body", "body": b"partial", "more_body": True})
+    await sender(error_start)
+    await sender({"type": "http.response.body", "body": error_body})
+
+    starts = [message for message in downstream if message["type"] == "http.response.start"]
+    assert len(starts) == 1
+    assert starts[0]["status"] == 500
+    bodies = [message for message in downstream if message["type"] == "http.response.body"]
+    assert len(bodies) == 1
+    assert gzip.decompress(bodies[0]["body"]) == error_body
+    headers = Headers(raw=starts[0]["headers"])
+    assert headers["content-encoding"] == "gzip"
+
+
+async def test_messages_after_flushed_response_are_dropped() -> None:
+    downstream: list[Message] = []
+
+    async def send(message: Message) -> None:
+        downstream.append(message)
+
+    start: Message = {
+        "type": "http.response.start",
+        "status": 200,
+        "headers": [(b"content-type", b"application/json")],
+    }
+    late_start: Message = {
+        "type": "http.response.start",
+        "status": 500,
+        "headers": [(b"content-type", b"application/json")],
+    }
+    small_body = b'{"ok": true}'
+
+    sender = _JsonGzipSender(send)
+    await sender(start)
+    await sender({"type": "http.response.body", "body": small_body})
+    await sender(late_start)
+    await sender({"type": "http.response.body", "body": b"late"})
+
+    assert [message["type"] for message in downstream] == [
+        "http.response.start",
+        "http.response.body",
+    ]
+    bodies = [message for message in downstream if message["type"] == "http.response.body"]
+    assert bodies[0]["body"] == small_body
 
 
 @pytest.mark.skipif(

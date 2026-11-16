@@ -342,11 +342,12 @@ def _pixel_request(
     cache: _FakeCache,
     *,
     image_bytes: bytes = b"img",
+    fill: tuple[int, int, int] = (200, 200, 200),
 ) -> CachedOcrRequest:
     _ = cache
     return CachedOcrRequest(
         # Uniform fill: any two same-sized crops hash identically.
-        image=Image.new("RGB", (32, 32), (200, 200, 200)),
+        image=Image.new("RGB", (32, 32), fill),
         image_bytes=image_bytes,
         language="en",
         model_key=None,
@@ -441,6 +442,70 @@ class DedupReuseTests(_DedupIsolatedTestCase):
             )
 
         self.assertEqual(get_ocr_region_dedup_cache().stats()["entries"], 0)
+
+    async def test_out_of_bounds_bbox_shares_clipped_crop_group(self) -> None:
+        cache = _FakeCache()
+        engine = _CountingEngine()
+        seeds = (
+            _seed_at("r1", [0, 0, 10, 10]),
+            _seed_at("r2", [-10, -10, 10, 10]),
+        )
+        with patch(
+            "pipelines.ocr_stage.enrich_ocr_record_with_gradient",
+            lambda image, record: _mark_enriched(record),
+        ):
+            result = await run_cached_ocr(
+                _pixel_request(seeds, cache),
+                cache=cache,
+                resolve_engine=lambda **_: engine,
+            )
+
+        # r2's malformed bbox clamps to r1's crop: one group, one engine batch.
+        self.assertEqual(engine.batches, [["r1", "r2"]])
+        by_id = {record["id"]: record for record in result.records}
+        self.assertEqual(by_id["r2"]["text"], "text-r2")
+        self.assertEqual(by_id["r2"]["bbox"], [-10, -10, 10, 10])
+
+    async def test_dedup_hit_never_carries_another_region_gradient(self) -> None:
+        cache = _FakeCache(remember=False)
+        engine = _CountingEngine()
+
+        def _color_enrich(image: Image.Image, record: dict) -> dict:
+            r, g, b = image.convert("RGB").getpixel((0, 0))
+            return {
+                **record,
+                "foreground_gradient": {
+                    "start_rgb": [r, g, b],
+                    "end_rgb": [r, g, b],
+                    "angle_degrees": 0.0,
+                },
+            }
+
+        seeds = (_seed_at("r1", [0, 0, 10, 10]),)
+        # Pure red and (0, 130, 0) grayscale to the same luminance: same dedup
+        # hash, different chroma.
+        with patch(
+            "pipelines.ocr_stage.enrich_ocr_record_with_gradient", _color_enrich
+        ):
+            await run_cached_ocr(
+                _pixel_request(seeds, cache, image_bytes=b"img-red", fill=(255, 0, 0)),
+                cache=cache,
+                resolve_engine=lambda **_: engine,
+            )
+            result = await run_cached_ocr(
+                _pixel_request(seeds, cache, image_bytes=b"img-green", fill=(0, 130, 0)),
+                cache=cache,
+                resolve_engine=lambda **_: engine,
+            )
+
+        self.assertEqual(engine.batches, [["r1"]])
+        by_id = {record["id"]: record for record in result.records}
+        gradient = by_id["r1"]["foreground_gradient"]
+        self.assertEqual(gradient["start_rgb"], [0, 130, 0])
+        self.assertEqual(gradient["end_rgb"], [0, 130, 0])
+        stats = get_ocr_region_dedup_cache().stats()
+        self.assertEqual(stats["hits"], 1)
+        self.assertEqual(stats["misses"], 1)
 
 
 type _EngineBatch = tuple[tuple[int, int], list[tuple[int, int, int, int]]]
@@ -603,7 +668,15 @@ class WorkingResolutionOCRTests(_DedupIsolatedTestCase):
                 self.assertLessEqual(abs(got - want), 1)
             self.assertEqual(record["text"], baseline["text"])
             self.assertEqual(record["score"], baseline["score"])
-        self.assertEqual(on_cache.built_keys, off_cache.built_keys)
+        # The policy rides in the key: same MP target, toggled enabled flag.
+        self.assertEqual(
+            on_cache.built_keys[0]["working_mp"],
+            off_cache.built_keys[0]["working_mp"],
+        )
+        self.assertNotEqual(
+            on_cache.built_keys[0]["ocr_clean_enabled"],
+            off_cache.built_keys[0]["ocr_clean_enabled"],
+        )
         self.assertEqual(len(on_cache.cache_calls), 1)
         for cached in on_cache.cache_calls[0]:
             baseline = off_by_id[cached["id"]]

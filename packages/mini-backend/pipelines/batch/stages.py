@@ -201,6 +201,7 @@ async def run_detect_stage(
             conf_threshold=cfg.detection_conf_threshold,
             nms_threshold=cfg.detection_nms_threshold,
             input_size=cfg.detection_input_size,
+            working_megapixels=cfg.working_resolution_megapixels,
         ),
     )
     cached = await asyncio.to_thread(resolved_store.get_detect, cache_key)
@@ -543,6 +544,7 @@ async def run_clean_stage(
         return CleanStageResult("no-op", png, settings.hd_strategy or "resize")
 
     resolved_store = store if store is not None else get_stage_store()
+    cfg = get_config()
     cache_key = build_clean_cache_key(
         image_hash=hash_image_array(rgb),
         mask_fingerprint=fingerprint_mask_regions(mask_regions),
@@ -554,7 +556,9 @@ async def run_clean_stage(
                 "hd_strategy_resize_limit": settings.hd_strategy_resize_limit,
                 "hd_strategy_crop_margin": settings.hd_strategy_crop_margin,
                 "hd_strategy_crop_trigger_size": settings.hd_strategy_crop_trigger_size,
-            }
+            },
+            working_megapixels=cfg.working_resolution_megapixels,
+            ocr_clean_enabled=cfg.working_resolution_ocr_clean_enabled,
         ),
         default_detection_model=default_detection_model,
     )

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from typing import Callable
@@ -21,6 +22,7 @@ from PIL import Image
 
 from core.config import get_config
 from core.device import DeviceInfo, release_gpu_memory
+from models.geometry import clip_bbox
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, to_rgb_array
 from models.ocr.factory import get_ocr_engine
 from pipelines.batch.records import (
@@ -159,6 +161,45 @@ def _original_bbox(
     )
 
 
+def _group_dedup_seeds(
+    image: Image.Image,
+    seeds: Sequence[OCRSeed],
+    *,
+    language: str,
+    model_key: str,
+) -> dict[str, list[OCRSeed]]:
+    """Sync page-scale work: RGB materialization + per-seed crop hashing."""
+    rgb = to_rgb_array(image)
+    groups: dict[str, list[OCRSeed]] = {}
+    for seed in seeds:
+        bbox = normalize_bbox(seed["bbox"])
+        if bbox is None:
+            continue
+        clipped = clip_bbox(*bbox, rgb.shape[1], rgb.shape[0])
+        if clipped is None:
+            continue
+        key = build_dedup_key(
+            language=language,
+            model_key=model_key,
+            bbox_width=clipped[2] - clipped[0],
+            bbox_height=clipped[3] - clipped[1],
+            crop_hash=compute_crop_hash(rgb, clipped),
+        )
+        groups.setdefault(key, []).append(seed)
+    return groups
+
+
+def _resize_engine_inputs(
+    image: Image.Image,
+    plan: StageResolutionPlan,
+    regions: list[OCRInputRegion],
+) -> tuple[Image.Image, list[OCRInputRegion]]:
+    working = image.resize(
+        (plan.working_width, plan.working_height), Image.Resampling.BICUBIC
+    )
+    return working, [_to_working_region(region, plan) for region in regions]
+
+
 async def run_cached_ocr(
     request: CachedOcrRequest,
     *,
@@ -176,8 +217,13 @@ async def run_cached_ocr(
         model_key=request.model_key,
         device_info=request.device_info,
     )
+    config = get_config()
     cache_key = pipeline_cache.build_ocr_cache_key(
-        image_bytes=request.image_bytes, language=request.language, model_key=engine.key
+        image_bytes=request.image_bytes,
+        language=request.language,
+        model_key=engine.key,
+        working_mp=config.working_resolution_megapixels,
+        ocr_clean_enabled=config.working_resolution_ocr_clean_enabled,
     )
     cached_by_id, missing = pipeline_cache.get_cached_ocr_for_regions(cache_key, request.seeds)
     if missing:
@@ -197,20 +243,13 @@ async def run_cached_ocr(
     dedup_pending: list[tuple[str, list[OCRSeed]]] = []
     if missing and isinstance(request.image, Image.Image):
         dedup = get_ocr_region_dedup_cache()
-        rgb = to_rgb_array(request.image)
-        groups: dict[str, list[OCRSeed]] = {}
-        for seed in missing:
-            bbox = normalize_bbox(seed["bbox"])
-            if bbox is None or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
-                continue
-            key = build_dedup_key(
-                language=request.language,
-                model_key=engine.key,
-                bbox_width=bbox[2] - bbox[0],
-                bbox_height=bbox[3] - bbox[1],
-                crop_hash=compute_crop_hash(rgb, bbox),
-            )
-            groups.setdefault(key, []).append(seed)
+        groups = await asyncio.to_thread(
+            _group_dedup_seeds,
+            request.image,
+            missing,
+            language=request.language,
+            model_key=engine.key,
+        )
         dedup_hits: set[str] = set()
         for key, group in groups.items():
             stored = dedup.lookup(key)
@@ -221,6 +260,9 @@ async def run_cached_ocr(
                 hit = deepcopy(stored[0])
                 hit["id"] = seed["id"]
                 hit["bbox"] = list(seed["bbox"])
+                # Grayscale hash: drop the color-derived gradient so merge()
+                # re-enriches it from this seed's own RGB crop.
+                hit.pop("foreground_gradient", None)
                 cached_by_id[seed["id"]] = hit
                 dedup_hits.add(seed["id"])
         if dedup_hits:
@@ -231,10 +273,9 @@ async def run_cached_ocr(
     plan = _ocr_working_plan(request)
     working_image: Image.Image | None = None
     if plan is not None and plan.downscaled and inputs:
-        working_image = request.image.resize(
-            (plan.working_width, plan.working_height), Image.Resampling.BICUBIC
+        working_image, inputs = await asyncio.to_thread(
+            _resize_engine_inputs, request.image, plan, inputs
         )
-        inputs = [_to_working_region(region, plan) for region in inputs]
     if inputs:
         try:
             results = await recognize_with_fallbacks(

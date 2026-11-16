@@ -42,7 +42,11 @@ from core.device import (
     reset_device_runtime_cache,
     verify_profile_dlls,
 )
-from core.engine_idle import get_last_sweep_evicted, idle_sweeper_loop
+from core.engine_idle import (
+    get_last_sweep_evicted,
+    get_last_sweep_status,
+    idle_sweeper_loop,
+)
 from core.ipc_compression import IpcGzipMiddleware
 from core.logging_setup import configure_logging
 from models.detection.errors import DetectionModelCorruptedError, DetectionModelNotInstalledError
@@ -298,6 +302,10 @@ class GpuStats(TypedDict):
 class EngineIdleStats(TypedDict):
     timeout_seconds: int
     last_sweep_evicted: dict[str, int]
+    last_sweep_ok: bool
+    last_sweep_error: str | None
+    consecutive_failures: int
+    last_sweep_at: float | None
 
 
 class MemoryStatsPayload(TypedDict):
@@ -344,6 +352,7 @@ def _collect_memory_stats() -> MemoryStatsPayload:
         if tracemalloc.is_tracing()
         else None
     )
+    sweep_status = get_last_sweep_status()
     return MemoryStatsPayload(
         process=ProcessStats(
             pid=process.pid,
@@ -363,6 +372,10 @@ def _collect_memory_stats() -> MemoryStatsPayload:
             "engine_idle": EngineIdleStats(
                 timeout_seconds=get_config().engine_idle_timeout_seconds,
                 last_sweep_evicted=get_last_sweep_evicted(),
+                last_sweep_ok=sweep_status.ok,
+                last_sweep_error=sweep_status.error,
+                consecutive_failures=sweep_status.consecutive_failures,
+                last_sweep_at=sweep_status.recorded_at,
             ),
         },
         gpu=_collect_gpu_stats(),
@@ -465,10 +478,8 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
             yield
         finally:
             idle_sweeper_task.cancel()
-            try:
-                await idle_sweeper_task
-            except asyncio.CancelledError:
-                logger.info("engine_idle.sweeper_stopped")
+            await asyncio.wait([idle_sweeper_task])
+            logger.info("engine_idle.sweeper_stopped")
             from models.execution import shutdown_inference_workers
 
             await shutdown_inference_workers()

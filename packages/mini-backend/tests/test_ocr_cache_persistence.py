@@ -20,6 +20,7 @@ MINI_BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(MINI_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(MINI_BACKEND_DIR))
 
+from core.config import get_config  # noqa: E402
 from models.ocr.base_ocr import OCRTextResult  # noqa: E402
 from pipelines import stage_store as stage_store_module  # noqa: E402
 from pipelines.cache_manager import (  # noqa: E402
@@ -67,6 +68,18 @@ def _request() -> CachedOcrRequest:
 
 def _new_cache() -> CacheManager:
     return CacheManager(ttl_seconds=1800, max_entries=16, bbox_tolerance_px=5.0)
+
+
+def _config_key(cache: CacheManager) -> str:
+    # Mirror run_cached_ocr: the key carries the working-resolution policy.
+    config = get_config()
+    return cache.build_ocr_cache_key(
+        image_bytes=_IMAGE_BYTES,
+        language="en",
+        model_key="fake-ocr",
+        working_mp=config.working_resolution_megapixels,
+        ocr_clean_enabled=config.working_resolution_ocr_clean_enabled,
+    )
 
 
 def _patch_collaborators(
@@ -239,9 +252,7 @@ async def test_blank_text_rows_never_reach_disk(
 
     cache = _new_cache()
     await run_cached_ocr(_request(), cache=cache, resolve_engine=lambda **_: _FakeEngine())
-    cache_key = cache.build_ocr_cache_key(
-        image_bytes=_IMAGE_BYTES, language="en", model_key="fake-ocr"
-    )
+    cache_key = _config_key(cache)
     store = stage_store_module.get_stage_store()
     try:
         blocks = store.get_ocr(cache_key)
@@ -384,9 +395,7 @@ async def test_payload_shape_tolerance_and_reenrichment(
     )
 
     # A legacy-shaped disk row without foreground_gradient.
-    cache_key = _new_cache().build_ocr_cache_key(
-        image_bytes=_IMAGE_BYTES, language="en", model_key="fake-ocr"
-    )
+    cache_key = _config_key(_new_cache())
     store = _store(tmp_path)
     try:
         assert (
@@ -439,9 +448,7 @@ async def test_cache_manager_clear_leaves_disk_intact(
     cache.clear()  # memory-only: /memory/clear-caches doctrine
     store = _store(tmp_path)
     try:
-        cache_key = cache.build_ocr_cache_key(
-            image_bytes=_IMAGE_BYTES, language="en", model_key="fake-ocr"
-        )
+        cache_key = _config_key(cache)
         assert store.get_ocr(cache_key) is not None  # disk untouched
     finally:
         store.close()
