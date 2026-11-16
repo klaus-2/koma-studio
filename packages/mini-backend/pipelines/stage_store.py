@@ -24,6 +24,12 @@ newest-N-per-table retention, clean PNGs (~2-5 MB blobs, three orders larger
 than translated texts) are bounded by a total-bytes cap, oldest-first — a
 rows-only cap cannot bound disk growth. Entries whose serialized value
 exceeds 32 MiB are skipped at write time; the put returns False (skipped).
+
+Payload compression (schema v2): the segment/detect/ocr ``payload`` columns
+store ``encode_payload(canonical_json)`` bytes; ``str`` rows are legacy v1
+plain JSON and stay readable, and a pre-v2 build treats v2 rows as misses.
+The clean ``png`` BLOB and ``meta`` stay uncompressed; the 32 MiB
+entry-size bound applies to the compressed byte length of v2 rows.
 """
 
 from __future__ import annotations
@@ -44,11 +50,12 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pipelines.cache_usage import CacheStoreUsage, CacheTableUsage
+from pipelines.stage_payload_codec import decode_payload, encode_payload
 from utils.mask import MaskRegion
 
 logger = logging.getLogger(__name__)
 
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 _DEFAULT_MAX_ROWS = 2_000
 _DEFAULT_MAX_TOTAL_BYTES = 1 << 30  # 1 GiB of clean PNG bytes
 _MAX_ENTRY_BYTES = 32 << 20  # 32 MiB per serialized entry
@@ -287,7 +294,7 @@ class StageStore:
             self._conn.execute("PRAGMA journal_mode=WAL")
             row = self._conn.execute("PRAGMA user_version").fetchone()
             version = int(row[0]) if row is not None else 0
-            if version not in (0, _SCHEMA_VERSION):
+            if version not in (0, 1, _SCHEMA_VERSION):
                 raise StageStoreError(
                     f"stage store schema version {version} is not supported"
                 )
@@ -311,7 +318,7 @@ class StageStore:
             ).fetchone()
         if row is None:
             return None
-        records = _parse_segment_records(row[0])
+        records = _parse_segment_records(decode_payload(row[0]))
         if records is None:
             return None
         engine_key = row[1]
@@ -325,8 +332,8 @@ class StageStore:
     ) -> bool:
         if not key or not records:
             return False
-        payload = _canonical_json(list(records))
-        if len(payload.encode("utf-8")) > _MAX_ENTRY_BYTES:
+        payload = encode_payload(_canonical_json(list(records)))
+        if len(payload) > _MAX_ENTRY_BYTES:
             return False
         with self._lock:
             self._conn.execute(
@@ -388,7 +395,7 @@ class StageStore:
             ).fetchone()
         if row is None:
             return None
-        records = _parse_detect_records(row[0])
+        records = _parse_detect_records(decode_payload(row[0]))
         if records is None:
             return None
         model_used = row[1]
@@ -408,8 +415,8 @@ class StageStore:
         """
         if not key:
             return False
-        payload = _canonical_json(list(records))
-        if len(payload.encode("utf-8")) > _MAX_ENTRY_BYTES:
+        payload = encode_payload(_canonical_json(list(records)))
+        if len(payload) > _MAX_ENTRY_BYTES:
             return False
         with self._lock:
             self._conn.execute(
@@ -429,10 +436,13 @@ class StageStore:
             row = self._conn.execute(
                 "SELECT payload FROM ocr_cache WHERE key = ?", (key,)
             ).fetchone()
-        if row is None or not isinstance(row[0], str):
+        if row is None:
+            return None
+        payload_text = decode_payload(row[0])
+        if payload_text is None:
             return None
         try:
-            parsed = json.loads(row[0])
+            parsed = json.loads(payload_text)
         except json.JSONDecodeError:
             return None
         if not isinstance(parsed, dict):
@@ -462,23 +472,25 @@ class StageStore:
                 "SELECT payload FROM ocr_cache WHERE key = ?", (key,)
             ).fetchone()
             merged: dict[str, dict[str, object]] = {}
-            if row is not None and isinstance(row[0], str):
-                try:
-                    existing = json.loads(row[0])
-                except json.JSONDecodeError:
-                    existing = None
-                if isinstance(existing, dict):
-                    for block_key, value in existing.items():
-                        if isinstance(value, dict):
-                            merged[str(block_key)] = {
-                                str(name): item for name, item in value.items()
-                            }
+            if row is not None:
+                existing_text = decode_payload(row[0])
+                if existing_text is not None:
+                    try:
+                        existing = json.loads(existing_text)
+                    except json.JSONDecodeError:
+                        existing = None
+                    if isinstance(existing, dict):
+                        for block_key, value in existing.items():
+                            if isinstance(value, dict):
+                                merged[str(block_key)] = {
+                                    str(name): item for name, item in value.items()
+                                }
             for block_key, record in blocks.items():
                 merged[str(block_key)] = {
                     str(name): item for name, item in record.items()
                 }
-            payload = _canonical_json(merged)
-            if len(payload.encode("utf-8")) > _MAX_ENTRY_BYTES:
+            payload = encode_payload(_canonical_json(merged))
+            if len(payload) > _MAX_ENTRY_BYTES:
                 return False
             self._conn.execute(
                 "INSERT OR REPLACE INTO ocr_cache"
