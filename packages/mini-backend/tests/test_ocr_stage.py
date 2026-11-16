@@ -12,12 +12,15 @@ MINI_BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(MINI_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(MINI_BACKEND_DIR))
 
-from models.ocr.base_ocr import OCRTextResult  # noqa: E402
+from PIL import Image  # noqa: E402
+
+from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult  # noqa: E402
 from pipelines.ocr_stage import (  # noqa: E402
     CachedOcrRequest,
     run_cached_ocr,
 )
 from pipelines.batch.records import OCRSeed  # noqa: E402
+from pipelines.ocr_region_dedup import get_ocr_region_dedup_cache  # noqa: E402
 
 
 class _FakeEngine:
@@ -26,16 +29,26 @@ class _FakeEngine:
 
 
 class _FakeCache:
-    """Records the stage's cache interactions; pre-seeds cached hits."""
+    """Records the stage's cache interactions; pre-seeds cached hits.
 
-    def __init__(self, cached_by_id: dict[str, dict] | None = None) -> None:
+    ``remember=False`` records writes without serving them again, isolating
+    the dedup layer from the page cache on repeat runs.
+    """
+
+    def __init__(
+        self,
+        cached_by_id: dict[str, dict] | None = None,
+        *,
+        remember: bool = True,
+    ) -> None:
         self.cached_by_id = cached_by_id or {}
+        self.remember = remember
         self.cache_calls: list[list[dict]] = []
         self.built_keys: list[dict] = []
 
     def build_ocr_cache_key(self, **kwargs: object) -> str:
         self.built_keys.append(kwargs)
-        return "cache-key-1"
+        return f"cache-key-{len(self.built_keys)}"
 
     def get_cached_ocr_for_regions(self, cache_key: str, seeds: tuple[OCRSeed, ...]):
         _ = cache_key
@@ -45,8 +58,9 @@ class _FakeCache:
     def cache_ocr_results(self, cache_key: str, records: list[dict]) -> int:
         _ = cache_key
         self.cache_calls.append([dict(record) for record in records])
-        for record in records:
-            self.cached_by_id[record["id"]] = dict(record)
+        if self.remember:
+            for record in records:
+                self.cached_by_id[record["id"]] = dict(record)
         return len(records)
 
 
@@ -74,7 +88,17 @@ def _mark_enriched(record: dict) -> dict:
     return {**record, "foreground_gradient": None}
 
 
-class RunCachedOcrTests(unittest.IsolatedAsyncioTestCase):
+class _DedupIsolatedTestCase(unittest.IsolatedAsyncioTestCase):
+    """Resets the process-wide dedup singleton around each test method."""
+
+    def setUp(self) -> None:
+        get_ocr_region_dedup_cache.cache_clear()
+
+    def tearDown(self) -> None:
+        get_ocr_region_dedup_cache.cache_clear()
+
+
+class RunCachedOcrTests(_DedupIsolatedTestCase):
     async def test_cached_hit_skips_recognition_and_caching(self) -> None:
         cached = {
             "r1": {
@@ -271,6 +295,145 @@ class RunCachedOcrTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(record.device, "cpu-test")
         self.assertEqual(record.fresh, 0)
         self.assertEqual(record.cached, 0)
+
+
+class _CountingEngine(BaseOCR):
+    """Real fallback path runs against it; records each batch's region ids."""
+
+    def __init__(self, key: str = "fake-ocr") -> None:
+        self.key = key
+        self.batches: list[list[str]] = []
+
+    def _recognize(
+        self,
+        image: Image.Image,
+        regions: list[OCRInputRegion],
+        language: str = "en",
+    ) -> list[OCRTextResult]:
+        _ = image, language
+        self.batches.append([region.id for region in regions])
+        return [
+            OCRTextResult(
+                id=region.id,
+                bbox=region.bbox,
+                text=f"text-{region.id}",
+                score=0.9,
+                source=region.source,
+                detector_model_key=region.detector_model_key,
+                model_key=self.key,
+            )
+            for region in regions
+        ]
+
+
+def _seed_at(seed_id: str, bbox: list[int]) -> OCRSeed:
+    return OCRSeed(id=seed_id, bbox=bbox, source="model", detector_model_key="det")
+
+
+def _pixel_request(
+    seeds: tuple[OCRSeed, ...],
+    cache: _FakeCache,
+    *,
+    image_bytes: bytes = b"img",
+) -> CachedOcrRequest:
+    _ = cache
+    return CachedOcrRequest(
+        # Uniform fill: any two same-sized crops hash identically.
+        image=Image.new("RGB", (32, 32), (200, 200, 200)),
+        image_bytes=image_bytes,
+        language="en",
+        model_key=None,
+        has_gpu=False,
+        seeds=seeds,
+    )
+
+
+class DedupReuseTests(_DedupIsolatedTestCase):
+    async def test_same_crop_twice_in_one_page_runs_engine_once(self) -> None:
+        cache = _FakeCache()
+        engine = _CountingEngine()
+        seeds = (_seed_at("r1", [0, 0, 10, 10]), _seed_at("r2", [4, 4, 14, 14]))
+        with patch(
+            "pipelines.ocr_stage.enrich_ocr_record_with_gradient",
+            lambda image, record: _mark_enriched(record),
+        ):
+            result = await run_cached_ocr(
+                _pixel_request(seeds, cache),
+                cache=cache,
+                resolve_engine=lambda **_: engine,
+            )
+
+        self.assertEqual(engine.batches, [["r1", "r2"]])
+        by_id = {record["id"]: record for record in result.records}
+        self.assertEqual(by_id["r1"]["bbox"], [0, 0, 10, 10])
+        self.assertEqual(by_id["r2"]["bbox"], [4, 4, 14, 14])
+        self.assertEqual(by_id["r2"]["text"], "text-r2")
+        stats = get_ocr_region_dedup_cache().stats()
+        self.assertEqual(stats["entries"], 1)
+        self.assertEqual(stats["misses"], 1)
+
+    async def test_second_call_missing_set_shrinks_via_dedup(self) -> None:
+        cache = _FakeCache(remember=False)
+        engine = _CountingEngine()
+        seeds = (_seed_at("r1", [0, 0, 10, 10]), _seed_at("r2", [4, 4, 14, 14]))
+        with patch(
+            "pipelines.ocr_stage.enrich_ocr_record_with_gradient",
+            lambda image, record: _mark_enriched(record),
+        ):
+            await run_cached_ocr(
+                _pixel_request(seeds, cache, image_bytes=b"img-1"),
+                cache=cache,
+                resolve_engine=lambda **_: engine,
+            )
+            self.assertEqual(engine.batches, [["r1", "r2"]])
+            result = await run_cached_ocr(
+                _pixel_request(seeds, cache, image_bytes=b"img-2"),
+                cache=cache,
+                resolve_engine=lambda **_: engine,
+            )
+
+        self.assertEqual(engine.batches, [["r1", "r2"]])
+        by_id = {record["id"]: record for record in result.records}
+        self.assertEqual(by_id["r1"]["text"], "text-r1")
+        self.assertEqual(by_id["r2"]["text"], "text-r1")
+        self.assertEqual(by_id["r1"]["bbox"], [0, 0, 10, 10])
+        self.assertEqual(by_id["r2"]["bbox"], [4, 4, 14, 14])
+        stats = get_ocr_region_dedup_cache().stats()
+        self.assertEqual(stats["hits"], 1)
+        self.assertEqual(stats["misses"], 1)
+
+    async def test_blank_text_records_are_not_stored(self) -> None:
+        cache = _FakeCache()
+
+        async def _blank_recognize(**kwargs: object) -> list[OCRTextResult]:
+            regions = kwargs["regions"]
+            return [
+                OCRTextResult(
+                    id=region.id,
+                    bbox=region.bbox,
+                    text="",
+                    score=0.0,
+                    source=region.source,
+                    detector_model_key=region.detector_model_key,
+                    model_key="fake-ocr",
+                )
+                for region in regions
+            ]
+
+        with (
+            patch("pipelines.ocr_stage.recognize_with_fallbacks", _blank_recognize),
+            patch(
+                "pipelines.ocr_stage.enrich_ocr_record_with_gradient",
+                lambda image, record: _mark_enriched(record),
+            ),
+        ):
+            await run_cached_ocr(
+                _pixel_request((_seed_at("r1", [0, 0, 10, 10]),), cache),
+                cache=cache,
+                resolve_engine=lambda **_: _FakeEngine(),
+            )
+
+        self.assertEqual(get_ocr_region_dedup_cache().stats()["entries"], 0)
 
 
 if __name__ == "__main__":

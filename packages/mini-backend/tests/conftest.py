@@ -22,10 +22,12 @@ def isolated_translation_store(
     """
     from pipelines import stage_store as stage_store_module
     from pipelines import translation_store as translation_store_module
+    from pipelines.ocr_region_dedup import get_ocr_region_dedup_cache
 
     monkeypatch.setenv("KOMA_APP_DATA_DIR", str(tmp_path))
     translation_store_module.get_translation_store.cache_clear()
     stage_store_module.get_stage_store.cache_clear()
+    get_ocr_region_dedup_cache.cache_clear()
 
 
 @pytest.fixture

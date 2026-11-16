@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable
 
 from PIL import Image
 
 from core.device import DeviceInfo, release_gpu_memory
-from models.ocr.base_ocr import BaseOCR, OCRInputRegion
+from models.ocr.base_ocr import BaseOCR, OCRInputRegion, to_rgb_array
 from models.ocr.factory import get_ocr_engine
 from pipelines.batch.records import (
     OCRRecord,
@@ -34,6 +35,11 @@ from pipelines.cache_manager import (
     match_ocr_blocks,
 )
 from pipelines.ocr_enrichment import enrich_ocr_record_with_gradient
+from pipelines.ocr_region_dedup import (
+    build_dedup_key,
+    compute_crop_hash,
+    get_ocr_region_dedup_cache,
+)
 from pipelines.stage_store import get_stage_store
 from services.device_fallback import should_skip_gpu_release
 from utils.ocr_fallback import recognize_with_fallbacks
@@ -126,6 +132,38 @@ async def run_cached_ocr(
             cached_by_id.update(disk_hits)
             missing = still_missing
 
+    dedup_pending: list[tuple[str, list[OCRSeed]]] = []
+    if missing and isinstance(request.image, Image.Image):
+        dedup = get_ocr_region_dedup_cache()
+        rgb = to_rgb_array(request.image)
+        groups: dict[str, list[OCRSeed]] = {}
+        for seed in missing:
+            bbox = normalize_bbox(seed["bbox"])
+            if bbox is None or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
+                continue
+            key = build_dedup_key(
+                language=request.language,
+                model_key=engine.key,
+                bbox_width=bbox[2] - bbox[0],
+                bbox_height=bbox[3] - bbox[1],
+                crop_hash=compute_crop_hash(rgb, bbox),
+            )
+            groups.setdefault(key, []).append(seed)
+        dedup_hits: set[str] = set()
+        for key, group in groups.items():
+            stored = dedup.lookup(key)
+            if stored is None:
+                dedup_pending.append((key, group))
+                continue
+            for seed in group:
+                hit = deepcopy(stored[0])
+                hit["id"] = seed["id"]
+                hit["bbox"] = list(seed["bbox"])
+                cached_by_id[seed["id"]] = hit
+                dedup_hits.add(seed["id"])
+        if dedup_hits:
+            missing = [seed for seed in missing if seed["id"] not in dedup_hits]
+
     fresh_by_id: dict[str, OCRRecord] = {}
     inputs = [region for seed in missing if (region := _to_input_region(seed)) is not None]
     if inputs:
@@ -157,6 +195,16 @@ async def run_cached_ocr(
         )
         fresh_by_id = {record["id"]: record for record in fresh}
         pipeline_cache.cache_ocr_results(cache_key, fresh)
+        for key, group in dedup_pending:
+            for seed in group:
+                record = fresh_by_id.get(seed["id"])
+                if record is None:
+                    continue
+                bbox = normalize_bbox(record["bbox"])
+                if bbox is None or not record["text"].strip():
+                    continue
+                get_ocr_region_dedup_cache().store(key, [record])
+                break
         # Persist to disk keyed by bbox id (never seed id — seed ids are
         # pass-local). Blank text is not persisted so a later pass can still
         # recover it, mirroring the in-memory guard.
