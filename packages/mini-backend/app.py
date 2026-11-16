@@ -43,6 +43,7 @@ from core.device import (
     verify_profile_dlls,
 )
 from core.engine_idle import get_last_sweep_evicted, idle_sweeper_loop
+from core.ipc_compression import IpcGzipMiddleware
 from core.logging_setup import configure_logging
 from models.detection.errors import DetectionModelCorruptedError, DetectionModelNotInstalledError
 from models.detection.factory import clear_detector_cache, get_detector, get_detector_cache_size
@@ -502,6 +503,7 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         # cannot read the id it must poll progress with.
         expose_headers=["X-Koma-Batch-Id"],
     )
+    app.add_middleware(IpcGzipMiddleware)
 
     trusted_origins = frozenset(origin.lower() for origin in settings.allowed_origins)
     public_paths = settings.public_paths
