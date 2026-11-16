@@ -10,6 +10,7 @@ import { TRANSLATION_MODELS_REGISTRY } from '../../../models/translation-models-
 import type { CustomLlmProfile } from '../../../utils/customLlm';
 import { clampLlmRequestSettings } from '../../../utils/customLlm';
 import {
+  TRANSLATION_AUTO_MODEL_KEY,
   resolveTranslationAutoModel,
   toAutoResolvedBadge,
   type TranslationAutoResolved,
@@ -426,11 +427,13 @@ export default function TranslatorToolsPanelSection({
       translationSelectedSummary={
         selectedTranslationModelState
           ? `${t('dashboard.status.selectedLabel')}: ${selectedTranslationModelState.model.name}`
-          : selectedCustomTranslationProfile
-            ? `${t('dashboard.status.selectedLabel')}: ${selectedCustomTranslationProfile.label} (Custom/FREE Provider)`
-            : selectedLegacyTranslationOption
-              ? `${t('dashboard.status.selectedLabel')}: ${selectedLegacyTranslationOption.name} ${t('dashboard.status.cloudApiSuffix')}`
-              : t('dashboard.status.selectTranslatorModel')
+          : aioStageSelection.getTranslations === TRANSLATION_AUTO_MODEL_KEY && translationAutoResolved
+            ? t('aio.model.auto.summary', { name: translationAutoResolved.name })
+            : selectedCustomTranslationProfile
+              ? `${t('dashboard.status.selectedLabel')}: ${selectedCustomTranslationProfile.label} (Custom/FREE Provider)`
+              : selectedLegacyTranslationOption
+                ? `${t('dashboard.status.selectedLabel')}: ${selectedLegacyTranslationOption.name} ${t('dashboard.status.cloudApiSuffix')}`
+                : t('dashboard.status.selectTranslatorModel')
       }
       translationSupportSummary={
         translatorSelectedLocalTranslationCompatible

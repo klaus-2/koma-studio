@@ -13,6 +13,8 @@ export interface MiniBackendTunablesSettings {
   workingResolutionOcrClean: boolean;
 }
 
+export type MiniBackendTunablesSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
+
 const bridgePayloadFor = (saved: MiniBackendThreadSettings) => ({
   intraOpThreads: saved.intraOpThreads,
   engineIdleTimeoutSeconds: saved.engineIdleTimeoutSeconds,
@@ -30,6 +32,8 @@ export const useMiniBackendThreadSettings = () => {
       workingResolutionMegapixels: settings.workingResolutionMegapixels,
       workingResolutionOcrClean: settings.workingResolutionOcrClean,
     }));
+  const [tunablesSaveStatus, setTunablesSaveStatus] =
+    useState<MiniBackendTunablesSaveStatus>('idle');
   const hardwareConcurrency =
     typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0
       ? navigator.hardwareConcurrency
@@ -63,11 +67,21 @@ export const useMiniBackendThreadSettings = () => {
       workingResolutionMegapixels: saved.workingResolutionMegapixels,
       workingResolutionOcrClean: saved.workingResolutionOcrClean,
     });
-    // Dev web has no desktop bridge: the override file is shell-side only.
-    void desktopBridge.desktop
-      ?.setMiniBackendThreadOverride(bridgePayloadFor(saved))
+    const bridge = desktopBridge.desktop;
+    if (!bridge) {
+      // Dev web has no desktop bridge: the override file is shell-side only.
+      setTunablesSaveStatus('saved');
+      return;
+    }
+    setTunablesSaveStatus('saving');
+    void bridge
+      .setMiniBackendThreadOverride(bridgePayloadFor(saved))
+      .then(() => {
+        setTunablesSaveStatus('saved');
+      })
       .catch((error: unknown) => {
-        console.debug('mini-backend thread override not delivered', error);
+        console.error('mini-backend thread override not delivered', error);
+        setTunablesSaveStatus('failed');
       });
   }, [settings, miniBackendTunables]);
 
@@ -78,12 +92,14 @@ export const useMiniBackendThreadSettings = () => {
       hardwareConcurrency,
       miniBackendTunables,
       setMiniBackendTunables,
+      tunablesSaveStatus,
       handleSaveMiniBackendTunables,
     }),
     [
       settings,
       hardwareConcurrency,
       miniBackendTunables,
+      tunablesSaveStatus,
       handleSaveMiniBackendTunables,
     ],
   );

@@ -5,7 +5,10 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { useI18n } from "../../i18n";
 import type { WorkspaceAutosaveSettings } from "../../utils/workspaceAutosaveSettings";
 import type { MiniBackendThreadSettings } from "../../utils/miniBackendThreadSettings";
-import type { MiniBackendTunablesSettings } from "./hooks/use-mini-backend-thread-settings";
+import type {
+  MiniBackendTunablesSaveStatus,
+  MiniBackendTunablesSettings,
+} from "./hooks/use-mini-backend-thread-settings";
 import type {
   WorkspaceAutosaveFeedbackState,
 } from "./settings.types";
@@ -25,6 +28,7 @@ interface SettingsPerformanceTabArgs {
   miniBackendHardwareConcurrency: number | null;
   miniBackendTunables: MiniBackendTunablesSettings;
   setMiniBackendTunables: Dispatch<SetStateAction<MiniBackendTunablesSettings>>;
+  miniBackendTunablesSaveStatus: MiniBackendTunablesSaveStatus;
   handleSaveMiniBackendTunables: () => void;
 }
 
@@ -40,6 +44,7 @@ export const renderSettingsPerformanceTab = ({
   miniBackendHardwareConcurrency,
   miniBackendTunables,
   setMiniBackendTunables,
+  miniBackendTunablesSaveStatus,
   handleSaveMiniBackendTunables,
 }: SettingsPerformanceTabArgs): JSX.Element => (
 <div className="koma-stg-panel" key="performance">
@@ -267,6 +272,9 @@ export const renderSettingsPerformanceTab = ({
             ))}
           </select>
         </div>
+        <p className="koma-stg-section__desc" style={{ marginTop: 8 }}>
+          {t("settings.app.performance.tunables.resolutionDesc")}
+        </p>
       </div>
     </div>
 
@@ -304,6 +312,24 @@ export const renderSettingsPerformanceTab = ({
         {t("settings.app.performance.tunables.save")}
       </button>
     </div>
+
+    {(miniBackendTunablesSaveStatus === "saved" || miniBackendTunablesSaveStatus === "failed") && (
+      <div
+        className={`koma-stg-alert ${miniBackendTunablesSaveStatus === "failed" ? "koma-stg-alert--error" : "koma-stg-alert--success"}`}
+        role={miniBackendTunablesSaveStatus === "failed" ? "alert" : "status"}
+      >
+        {miniBackendTunablesSaveStatus === "failed" ? (
+          <AlertTriangle size={11} />
+        ) : (
+          <CheckCircle2 size={11} />
+        )}
+        <span>
+          {miniBackendTunablesSaveStatus === "failed"
+            ? t("settings.app.performance.tunables.failed")
+            : t("settings.app.performance.tunables.saved")}
+        </span>
+      </div>
+    )}
 
     <p className="koma-stg-section__desc" style={{ marginTop: 12 }}>
       {t("settings.app.performance.tunables.restartHint")}

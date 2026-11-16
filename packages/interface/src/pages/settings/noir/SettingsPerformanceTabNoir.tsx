@@ -4,7 +4,10 @@ import { Save, Timer, Zap } from "lucide-react";
 import type { useI18n } from "../../../i18n";
 import type { WorkspaceAutosaveSettings } from "../../../utils/workspaceAutosaveSettings";
 import type { MiniBackendThreadSettings } from "../../../utils/miniBackendThreadSettings";
-import type { MiniBackendTunablesSettings } from "../hooks/use-mini-backend-thread-settings";
+import type {
+  MiniBackendTunablesSaveStatus,
+  MiniBackendTunablesSettings,
+} from "../hooks/use-mini-backend-thread-settings";
 import type { WorkspaceAutosaveFeedbackState } from "../settings.types";
 import { SettingsCacheSectionNoir } from "./SettingsCacheSectionNoir";
 import {
@@ -26,6 +29,7 @@ interface SettingsPerformanceTabArgs {
   miniBackendHardwareConcurrency: number | null;
   miniBackendTunables: MiniBackendTunablesSettings;
   setMiniBackendTunables: Dispatch<SetStateAction<MiniBackendTunablesSettings>>;
+  miniBackendTunablesSaveStatus: MiniBackendTunablesSaveStatus;
   handleSaveMiniBackendTunables: () => void;
 }
 
@@ -154,6 +158,9 @@ export const renderSettingsPerformanceTabNoir = (a: SettingsPerformanceTabArgs):
             </select>
           </Field>
         </div>
+        <p className="mt-2 font-mono text-[9px] uppercase tracking-wider text-paper/40">
+          {t("settings.app.performance.tunables.resolutionDesc")}
+        </p>
 
         <div className="mt-4">
           <ToggleRow
@@ -173,6 +180,17 @@ export const renderSettingsPerformanceTabNoir = (a: SettingsPerformanceTabArgs):
             {t("settings.app.performance.tunables.save")}
           </button>
         </div>
+
+        {(a.miniBackendTunablesSaveStatus === "saved" || a.miniBackendTunablesSaveStatus === "failed") && (
+          <div className="mt-3">
+            {a.miniBackendTunablesSaveStatus === "failed" ? (
+              <Alert tone="error">{t("settings.app.performance.tunables.failed")}</Alert>
+            ) : (
+              <Alert tone="success">{t("settings.app.performance.tunables.saved")}</Alert>
+            )}
+          </div>
+        )}
+
         <p className="mt-2 font-mono text-[9px] uppercase tracking-wider text-paper/40">
           {t("settings.app.performance.tunables.restartHint")}
         </p>

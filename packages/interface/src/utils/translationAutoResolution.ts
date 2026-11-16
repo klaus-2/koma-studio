@@ -134,8 +134,9 @@ export const toAutoResolvedBadge = (
  * Execution-side resolution: the sentinel becomes the resolved registry id so
  * the running config never carries it (the sidecar refuses the sentinel, and a
  * bare `"auto"` would select the sidecar's cloud default). Unresolvable Auto
- * keeps the sentinel so the readiness gate refuses with the install flow
- * instead of silently swapping engines.
+ * keeps the sentinel so the readiness gate refuses with
+ * `install_translation_model` (`openModelManager` → getTranslations) instead
+ * of silently swapping engines.
  */
 export function resolveTranslationStageExecutionKey(
   selectionKey: string,

@@ -1,7 +1,7 @@
 //! Thread-override file contract shared by both desktop shells.
 //! Extracted from mini_backend.rs to respect the 1000-line audit limit.
 
-use std::{fs, path::Path};
+use std::{fs, io::ErrorKind, path::Path};
 
 use serde::{Deserialize, Serialize};
 
@@ -50,11 +50,22 @@ pub(crate) fn read_mini_backend_thread_override_at(
     user_data_dir: &Path,
 ) -> MiniBackendThreadOverride {
     let path = user_data_dir.join(MINI_BACKEND_THREAD_OVERRIDE_FILE);
-    match fs::read_to_string(path) {
-        Ok(raw) => serde_json::from_str::<MiniBackendThreadOverride>(&raw)
-            .map(clamp_thread_override)
-            .unwrap_or_default(),
-        Err(_) => MiniBackendThreadOverride::default(),
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            return MiniBackendThreadOverride::default();
+        }
+        Err(error) => {
+            log::warn!("thread_override.read_failed: {error}");
+            return MiniBackendThreadOverride::default();
+        }
+    };
+    match serde_json::from_str::<MiniBackendThreadOverride>(&raw) {
+        Ok(parsed) => clamp_thread_override(parsed),
+        Err(error) => {
+            log::warn!("thread_override.parse_failed: {error}");
+            MiniBackendThreadOverride::default()
+        }
     }
 }
 
@@ -167,6 +178,17 @@ mod tests {
             "not-json",
         )
         .expect("write garbage");
+        assert_eq!(
+            read_mini_backend_thread_override_at(data_dir),
+            MiniBackendThreadOverride::default()
+        );
+
+        // One bad field discards the whole struct: the sidecar keeps defaults.
+        fs::write(
+            data_dir.join(MINI_BACKEND_THREAD_OVERRIDE_FILE),
+            r#"{"intraOpThreads":"four","engineIdleTimeoutSeconds":120}"#,
+        )
+        .expect("write override with a bad field");
         assert_eq!(
             read_mini_backend_thread_override_at(data_dir),
             MiniBackendThreadOverride::default()

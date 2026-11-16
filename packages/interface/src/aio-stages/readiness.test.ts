@@ -17,6 +17,7 @@ import {
   DEFAULT_LLM_REQUEST_SETTINGS,
   withSfxTranslationSettings,
 } from '../utils/customLlm';
+import { TRANSLATION_AUTO_MODEL_KEY } from '../utils/translationAutoResolution';
 
 afterEach(() => {
   setDesktopBridgeProvider(null);
@@ -190,6 +191,41 @@ describe('resolveStageModelReadiness', () => {
       ok: false,
       kind: 'install_translation_model',
       openModelManager: { stage: 'getTranslations', focusedModelId: 'local-key' },
+    });
+  });
+
+  it('refuses the unresolvable Auto sentinel with the translation install flow', () => {
+    const result = resolveStageModelReadiness({
+      stage: 'getTranslations',
+      stageLabel: 'Get Translations',
+      modelKey: TRANSLATION_AUTO_MODEL_KEY,
+      catalog: stageCatalogOption(null),
+      modelEntries: {},
+      languages: { source: 'ja', target: 'en' },
+      t,
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      kind: 'install_translation_model',
+      message: 'aioExec.installTranslationModel',
+      openModelManager: { stage: 'getTranslations', language: 'ja' },
+    });
+  });
+
+  it('keeps the explicit unknown translation pin on the option_missing path', () => {
+    const result = resolveStageModelReadiness({
+      stage: 'getTranslations',
+      stageLabel: 'Get Translations',
+      modelKey: 'ghost',
+      catalog: stageCatalogOption(null),
+      modelEntries: {},
+      languages: { source: 'ja', target: 'en' },
+      t,
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      kind: 'option_missing',
+      message: 'aioExec.selectValidTranslation',
     });
   });
 

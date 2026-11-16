@@ -103,8 +103,33 @@ export const readMiniBackendThreadOverride = (
     return sanitizeMiniBackendThreadOverride(
       JSON.parse(fs.readFileSync(filePath, "utf-8")),
     );
-  } catch {
-    // Missing or malformed file: the sidecar keeps its defaults.
+  } catch (error) {
+    if (
+      error instanceof Error
+      && "code" in error
+      && typeof error.code === "string"
+      && error.code === "ENOENT"
+    ) {
+      // Missing file: the sidecar keeps its defaults.
+      return {
+        intraOpThreads: null,
+        interOpThreads: null,
+        engineIdleTimeoutSeconds: null,
+        workingResolutionMegapixels: null,
+        workingResolutionOcrClean: null,
+      };
+    }
+    if (error instanceof SyntaxError) {
+      console.warn(
+        "[mini-backend] Failed to parse the thread override file:",
+        error,
+      );
+    } else {
+      console.warn(
+        "[mini-backend] Failed to read the thread override file:",
+        error,
+      );
+    }
     return {
       intraOpThreads: null,
       interOpThreads: null,

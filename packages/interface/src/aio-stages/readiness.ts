@@ -11,6 +11,7 @@ import {
   TRANSLATION_MODELS_BY_ID,
   modelSupportsLanguage,
 } from '../models/translation-models-registry';
+import { TRANSLATION_AUTO_MODEL_KEY } from '../utils/translationAutoResolution';
 import {
   getCustomLlmRuntimeRestriction,
   hasAnyLlmCapability,
@@ -273,6 +274,18 @@ export function resolveStageModelReadiness(args: {
     customProfile = null,
     t,
   } = args;
+
+  if (stage === 'getTranslations' && modelKey === TRANSLATION_AUTO_MODEL_KEY) {
+    return {
+      ok: false,
+      kind: 'install_translation_model',
+      message: t('aioExec.installTranslationModel'),
+      openModelManager: {
+        stage: 'getTranslations',
+        language: args.languages?.source,
+      },
+    };
+  }
 
   const option = catalog.kind === 'lookup' ? catalog.option : undefined;
   if (catalog.kind === 'lookup' && option === null) {

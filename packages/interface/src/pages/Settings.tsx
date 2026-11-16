@@ -195,6 +195,7 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
       miniBackendHardwareConcurrency: miniBackendThreads.hardwareConcurrency,
       miniBackendTunables: miniBackendThreads.miniBackendTunables,
       setMiniBackendTunables: miniBackendThreads.setMiniBackendTunables,
+      miniBackendTunablesSaveStatus: miniBackendThreads.tunablesSaveStatus,
       handleSaveMiniBackendTunables: miniBackendThreads.handleSaveMiniBackendTunables,
     });
 

@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setDesktopBridgeProvider } from "@/lib/desktop-bridge";
 import { createDesktopBridgeStub } from "@/testing/desktop-bridge-stub";
@@ -17,6 +17,7 @@ const capturedOverrides: ThreadOverridePayload[] = [];
 
 const buildBridge = (
   overrides: Partial<ThreadOverridePayload>[],
+  mode: "resolve" | "reject" = "resolve",
 ): IDesktopBridge => {
   const stub = createDesktopBridgeStub({
     listInstalled: async () => [],
@@ -40,6 +41,9 @@ const buildBridge = (
   return {
     ...stub,
     setMiniBackendThreadOverride: async (payload: ThreadOverridePayload) => {
+      if (mode === "reject") {
+        throw new Error("bridge delivery failed");
+      }
       overrides.push(payload);
       return {};
     },
@@ -222,5 +226,43 @@ describe("useMiniBackendThreadSettings", () => {
         workingResolutionOcrClean: false,
       }),
     );
+  });
+
+  it("reports the tunables save as saved when the bridge delivers", async () => {
+    setDesktopBridgeProvider({ desktop: buildBridge([]) });
+    const { result } = renderHook(() => useMiniBackendThreadSettings());
+    expect(result.current.tunablesSaveStatus).toBe("idle");
+    act(() => result.current.handleSaveMiniBackendTunables());
+    expect(result.current.tunablesSaveStatus).toBe("saving");
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.tunablesSaveStatus).toBe("saved");
+  });
+
+  it("reports the tunables save as failed when the bridge rejects", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      setDesktopBridgeProvider({ desktop: buildBridge([], "reject") });
+      const { result } = renderHook(() => useMiniBackendThreadSettings());
+      act(() => result.current.handleSaveMiniBackendTunables());
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(result.current.tunablesSaveStatus).toBe("failed");
+      expect(errorSpy).toHaveBeenCalledWith(
+        "mini-backend thread override not delivered",
+        expect.any(Error),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("reports the tunables save as saved immediately without a desktop bridge", () => {
+    setDesktopBridgeProvider({ desktop: null });
+    const { result } = renderHook(() => useMiniBackendThreadSettings());
+    act(() => result.current.handleSaveMiniBackendTunables());
+    expect(result.current.tunablesSaveStatus).toBe("saved");
   });
 });

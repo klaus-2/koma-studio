@@ -79,6 +79,34 @@ test("malformed or missing override file falls back to defaults", () => {
   }
 });
 
+test("missing override file stays silent; unreadable and malformed files warn", (t) => {
+  const userDataPath = makeTempDir();
+  const warn = t.mock.method(console, "warn", () => {});
+  try {
+    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), emptyOverride);
+    assert.equal(warn.mock.callCount(), 0);
+
+    fs.mkdirSync(getMiniBackendThreadOverridePath(userDataPath));
+    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), emptyOverride);
+    assert.equal(warn.mock.callCount(), 1);
+
+    fs.rmSync(getMiniBackendThreadOverridePath(userDataPath), {
+      recursive: true,
+      force: true,
+    });
+
+    fs.writeFileSync(
+      getMiniBackendThreadOverridePath(userDataPath),
+      "not-json",
+      "utf-8",
+    );
+    assert.deepEqual(readMiniBackendThreadOverride(userDataPath), emptyOverride);
+    assert.equal(warn.mock.callCount(), 2);
+  } finally {
+    fs.rmSync(userDataPath, { recursive: true, force: true });
+  }
+});
+
 test("old override files without the runtime tunables keep loading", () => {
   const userDataPath = makeTempDir();
   try {
