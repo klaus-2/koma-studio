@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { createThumbnailFromUrl } from '../../utils/imagePerformance';
+import { getOrCreateThumbnailForPage } from '../../utils/getOrCreateThumbnail';
 import type { LoadedImage } from '../../types/dashboard.types';
 
 interface UseSidebarThumbnailHydrationArgs {
@@ -25,8 +25,14 @@ const pumpHydration = (
     if (inFlightIds.has(next.id)) continue;
     inFlightIds.add(next.id);
     activeHydrationJobs += 1;
-    void createThumbnailFromUrl(next.url, 400, 600, 0.7)
-      .then((thumbnailUrl) => setThumbnailUrl(next.id, thumbnailUrl))
+    void getOrCreateThumbnailForPage(next.file, next.url)
+      .then((thumbnailUrl) => {
+        if (thumbnailUrl === null) {
+          attemptCounts.set(next.id, (attemptCounts.get(next.id) ?? 0) + 1);
+          return;
+        }
+        setThumbnailUrl(next.id, thumbnailUrl);
+      })
       .catch(() => {
         attemptCounts.set(next.id, (attemptCounts.get(next.id) ?? 0) + 1);
       })

@@ -33,7 +33,7 @@ import {
   shouldMigrateWorkspaceRenderSizes,
 } from "../utils/renderSizeDefaults";
 import { blobToDataUrl, dataUrlToBlob } from "../utils/dashboard.utils";
-import { createThumbnailFromUrl } from "../utils/imagePerformance";
+import { getOrCreateThumbnailForPage } from "../utils/getOrCreateThumbnail";
 import { createDirectPageFile } from "../utils/page-source";
 import { stitchWorkspaceCodec } from "../components/dashboard/stitch/workspaceCodec";
 import { splitterWorkspaceCodec } from "../components/dashboard/splitter/workspaceCodec";
@@ -554,9 +554,9 @@ const restoreLoadedImage = async (
   // (revokeLoadedImageUrls).
   const url = URL.createObjectURL(file);
   // Regenerate thumbnail so the sidebar does not decode full-res images.
-  const thumbnailUrl = await createThumbnailFromUrl(url, 400, 600, 0.7).catch(
-    () => url,
-  );
+  const thumbnailUrl = await getOrCreateThumbnailForPage(pageFile, url)
+    .then((thumbnail) => thumbnail ?? url)
+    .catch(() => url);
   const image: LoadedImage = {
     id: item.id,
     file: pageFile,

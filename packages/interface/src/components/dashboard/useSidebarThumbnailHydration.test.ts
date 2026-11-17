@@ -4,12 +4,12 @@ const thumbnailCalls: { url: string; id: string }[] = [];
 let thumbnailResult: Promise<string>;
 let thumbnailFail = false;
 
-vi.mock('../../utils/imagePerformance', () => ({
-  createThumbnailFromUrl: (srcUrl: string) => {
+import type { PageFile } from '../../utils/page-source';
+
+vi.mock('../../utils/getOrCreateThumbnail', () => ({
+  getOrCreateThumbnailForPage: (_file: PageFile, srcUrl: string) => {
     thumbnailCalls.push({ url: srcUrl, id: srcUrl });
-    return thumbnailFail
-      ? Promise.reject(new Error('broken image'))
-      : thumbnailResult;
+    return thumbnailFail ? Promise.resolve(null) : thumbnailResult;
   },
 }));
 

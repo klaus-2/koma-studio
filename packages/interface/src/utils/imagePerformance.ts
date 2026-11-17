@@ -178,6 +178,13 @@ const rememberThumbnail = (cacheKey: string, thumbUrl: string): void => {
   }
 };
 
+export const rememberThumbnailByKey = (cacheKey: string, thumbUrl: string): void => {
+  rememberThumbnail(cacheKey, thumbUrl);
+};
+
+export const getCachedThumbnailByKey = (cacheKey: string): string | undefined =>
+  thumbnailCache.get(cacheKey);
+
 export const getCachedThumbnailUrl = (
   srcUrl: string,
   maxWidth = THUMBNAIL_MAX_DIMENSION,

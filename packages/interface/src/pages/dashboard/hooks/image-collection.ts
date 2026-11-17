@@ -16,10 +16,8 @@ import {
   loadImageFromSource,
   parseResponseErrorMessage,
 } from '../../../utils/dashboard.utils';
-import {
-  createThumbnailFromUrl,
-  revokeLoadedImageUrls,
-} from '../../../utils/imagePerformance';
+import { getOrCreateThumbnailForPage } from '../../../utils/getOrCreateThumbnail';
+import { revokeLoadedImageUrls } from '../../../utils/imagePerformance';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
 import {
   importArchiveChapter,
@@ -140,9 +138,9 @@ export function useDashboardUploads({
             img.src = '';
 
             // Generate thumbnail for list/grid display to reduce memory
-            createThumbnailFromUrl(url, 400, 600, 0.7)
+            getOrCreateThumbnailForPage(file, url)
               .then((thumbUrl) => {
-                resolveWith(width, height, thumbUrl);
+                resolveWith(width, height, thumbUrl ?? undefined);
               })
               .catch(() => {
                 // Thumbnail generation failed, still resolve without it
