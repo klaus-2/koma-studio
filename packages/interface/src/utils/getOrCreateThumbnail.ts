@@ -22,7 +22,12 @@ const hashDirectPage = (file: DirectPageFile): Promise<string> => {
   if (cached) {
     return cached;
   }
-  const promise = sha256Hex(file.resident);
+  // A rejected hash must not stay memoized: drop the entry so the next call
+  // retries instead of failing forever.
+  const promise = sha256Hex(file.resident).catch((error: unknown) => {
+    directPageHashCache.delete(file.resident);
+    throw error;
+  });
   directPageHashCache.set(file.resident, promise);
   return promise;
 };
@@ -43,8 +48,9 @@ const readThumbnailBlobFromUrl = async (
  * Single thumbnail entry point for page files: direct pages go through the
  * content-hash tiers (LRU hot key `opfs:<hash>:<w>:<h>:<q>` → OPFS cold read →
  * encode + store), archive pages encode directly and never touch the store.
- * Returns null only when generation itself failed; callers fall back to
- * `srcUrl` exactly like the previous direct-encode behavior.
+ * Returns null when generation failed or degraded to `srcUrl` (no downscaled
+ * thumbnail exists — aliasing the page URL would dangle once it is revoked);
+ * callers fall back to the page URL exactly like the null contract.
  */
 export const getOrCreateThumbnailForPage = async (
   file: PageFile,
@@ -52,12 +58,13 @@ export const getOrCreateThumbnailForPage = async (
 ): Promise<string | null> => {
   try {
     if (file.kind !== 'direct') {
-      return await createThumbnailFromUrl(
+      const archiveThumbUrl = await createThumbnailFromUrl(
         srcUrl,
         THUMBNAIL_WIDTH,
         THUMBNAIL_HEIGHT,
         THUMBNAIL_QUALITY,
       );
+      return archiveThumbUrl === srcUrl ? null : archiveThumbUrl;
     }
 
     const hash = await hashDirectPage(file).catch(() => null);
@@ -79,7 +86,10 @@ export const getOrCreateThumbnailForPage = async (
       THUMBNAIL_HEIGHT,
       THUMBNAIL_QUALITY,
     );
-    if (hash !== null && thumbUrl !== srcUrl) {
+    if (thumbUrl === srcUrl) {
+      return null;
+    }
+    if (hash !== null) {
       const blob = await readThumbnailBlobFromUrl(thumbUrl);
       if (blob !== null) {
         await putStoredThumbnail(hash, blob);

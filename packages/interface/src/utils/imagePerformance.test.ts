@@ -3,10 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearThumbnailCache,
   createThumbnailFromUrl,
+  getCachedThumbnailByKey,
   getCachedThumbnailUrl,
   getThumbnailCacheKey,
   getThumbnailCacheSize,
   hasCachedThumbnail,
+  rememberThumbnailByKey,
   revokeLoadedImageUrls,
 } from "./imagePerformance";
 
@@ -192,5 +194,34 @@ describe("imagePerformance WebP thumbnail cache", () => {
 
     expect(key1).toBe(key2);
     expect(key1).not.toBe(key3);
+  });
+
+  it("keeps a shared thumbnail URL alive while another cache key still holds it", () => {
+    const shared = "blob:shared-thumb";
+    rememberThumbnailByKey("key-a", shared);
+    rememberThumbnailByKey("key-b", shared);
+
+    for (let index = 0; index < 499; index += 1) {
+      rememberThumbnailByKey(`filler-${index}`, `blob:filler-${index}`);
+    }
+
+    expect(getCachedThumbnailByKey("key-b")).toBe(shared);
+    expect(revokedUrls.has(shared)).toBe(false);
+
+    rememberThumbnailByKey("filler-499", "blob:filler-499");
+
+    expect(getCachedThumbnailByKey("key-b")).toBeUndefined();
+    expect(revokedUrls.has(shared)).toBe(true);
+  });
+
+  it("drops cache entries by value when revokeLoadedImageUrls runs", () => {
+    rememberThumbnailByKey("opfs:hash-1:400:600:0.7", "blob:thumb-1");
+    rememberThumbnailByKey("blob:page-1:400:600:0.7", "blob:thumb-1");
+
+    revokeLoadedImageUrls([{ url: "blob:page-1", thumbnailUrl: "blob:thumb-1" }]);
+
+    expect(getCachedThumbnailByKey("opfs:hash-1:400:600:0.7")).toBeUndefined();
+    expect(getCachedThumbnailByKey("blob:page-1:400:600:0.7")).toBeUndefined();
+    expect(revokedUrls.has("blob:thumb-1")).toBe(true);
   });
 });

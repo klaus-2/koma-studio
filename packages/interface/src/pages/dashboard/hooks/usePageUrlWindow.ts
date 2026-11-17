@@ -77,9 +77,9 @@ export function usePageUrlWindow({
       URL.revokeObjectURL(image.url);
       evictedIds.push(image.id);
     }
-    const { updateImageUrl } = useImageCollectionStore.getState();
+    const { evictPageUrl } = useImageCollectionStore.getState();
     for (const id of evictedIds) {
-      updateImageUrl(id, '');
+      evictPageUrl(id);
     }
   }, []);
 

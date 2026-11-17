@@ -159,6 +159,13 @@ export const getThumbnailCacheKey = (
   quality = THUMBNAIL_QUALITY,
 ): string => `${srcUrl}:${maxWidth}:${maxHeight}:${quality}`;
 
+const isUrlHeldByAnotherKey = (url: string, excludedKey: string): boolean => {
+  for (const [key, value] of thumbnailCache.entries()) {
+    if (key !== excludedKey && value === url) return true;
+  }
+  return false;
+};
+
 const rememberThumbnail = (cacheKey: string, thumbUrl: string): void => {
   thumbnailCache.delete(cacheKey);
   thumbnailCache.set(cacheKey, thumbUrl);
@@ -169,7 +176,8 @@ const rememberThumbnail = (cacheKey: string, thumbUrl: string): void => {
       if (
         oldestUrl &&
         oldestUrl.startsWith("blob:") &&
-        !oldestKey.startsWith(`${oldestUrl}:`)
+        !oldestKey.startsWith(`${oldestUrl}:`) &&
+        !isUrlHeldByAnotherKey(oldestUrl, oldestKey)
       ) {
         URL.revokeObjectURL(oldestUrl);
       }
@@ -374,13 +382,19 @@ export const revokeLoadedImageUrls = (
       urls.add(image.thumbnailUrl);
     }
 
+    // Keys are matched by value too: a thumbnail URL can be registered under
+    // several keys (legacy `${srcUrl}:…` and `opfs:<hash>:…`), and revoking
+    // only the prefixed siblings would leave the others serving a dead blob.
     for (const [key, thumbUrl] of thumbnailCache.entries()) {
-      if (key.startsWith(`${image.url}:`)) {
-        if (thumbUrl.startsWith("blob:") && thumbUrl !== image.url) {
-          urls.add(thumbUrl);
-        }
-        thumbnailCache.delete(key);
+      const owned =
+        key.startsWith(`${image.url}:`) ||
+        thumbUrl === image.url ||
+        thumbUrl === image.thumbnailUrl;
+      if (!owned) continue;
+      if (thumbUrl.startsWith("blob:") && thumbUrl !== image.url) {
+        urls.add(thumbUrl);
       }
+      thumbnailCache.delete(key);
     }
   }
 

@@ -287,6 +287,58 @@ describe('usePageUrlWindow', () => {
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
   });
 
+  it('reuses the store-filled URL for a stale snapshot instead of creating twice', () => {
+    const images = [makeDirectImage(0, '')];
+    seedStore(images, 'page-0');
+    const staleSnapshot = imageById('page-0');
+
+    const first = resolveImagePreviewSrc(staleSnapshot, 'raw');
+    const second = resolveImagePreviewSrc(staleSnapshot, 'raw');
+
+    expect(first).toBe('blob:recreated-1');
+    expect(second).toBe(first);
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears an aliased thumbnailUrl together with the evicted URL', async () => {
+    const images = Array.from({ length: DIRECT_PAGE_COUNT }, (_, index) => {
+      const image = makeDirectImage(index);
+      return index < 2 ? { ...image, thumbnailUrl: image.url } : image;
+    });
+    seedStore(images, 'page-10');
+    const { result } = mountController({ images, activeImageId: 'page-10' });
+
+    act(() => {
+      result.current.onVisibleRangeChange({ start: 10, end: 20 });
+    });
+    await flushEviction();
+
+    const evicted = imageById('page-0');
+    expect(evicted.url).toBe('');
+    expect(evicted).not.toHaveProperty('thumbnailUrl');
+    expect(urlState.revoked).toContain('blob:page-0');
+  });
+
+  it('keeps an independent thumbnailUrl when evicting the page URL', async () => {
+    const images = Array.from({ length: DIRECT_PAGE_COUNT }, (_, index) => {
+      const image = makeDirectImage(index);
+      return index < 2 ? { ...image, thumbnailUrl: `blob:thumb-${index}` } : image;
+    });
+    seedStore(images, 'page-10');
+    const { result } = mountController({ images, activeImageId: 'page-10' });
+
+    act(() => {
+      result.current.onVisibleRangeChange({ start: 10, end: 20 });
+    });
+    await flushEviction();
+
+    const evicted = imageById('page-0');
+    expect(evicted.url).toBe('');
+    expect(evicted.thumbnailUrl).toBe('blob:thumb-0');
+    expect(urlState.revoked).toContain('blob:page-0');
+    expect(urlState.revoked).not.toContain('blob:thumb-0');
+  });
+
   it('returns the empty archive URL from the selector without re-creating', () => {
     const archive = makeArchiveImage(0);
     seedStore([archive], 'page-0');

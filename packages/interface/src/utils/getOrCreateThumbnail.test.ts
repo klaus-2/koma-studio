@@ -5,7 +5,10 @@ import { getOrCreateThumbnailForPage } from './getOrCreateThumbnail';
 import {
   clearThumbnailCache,
   getCachedThumbnailByKey,
+  getThumbnailCacheKey,
+  hasCachedThumbnail,
   rememberThumbnailByKey,
+  revokeLoadedImageUrls,
 } from './imagePerformance';
 import {
   createArchivePageFile,
@@ -103,6 +106,7 @@ const createFakeDirectory = (): FakeDirectory => {
     removeEntry: async (name: string) => {
       files.delete(name);
     },
+    listFileNames: async () => [...files.keys()],
   };
 
   return { directory, files, stats };
@@ -239,14 +243,14 @@ describe('getOrCreateThumbnailForPage (content-hash tiers)', () => {
     );
   });
 
-  it('does not store when the encode engine early-exits with the source url', async () => {
+  it('returns null without storing when the encode engine early-exits with the source url', async () => {
     encodeState.setMode('src-url');
     const file = makeDirectPageFile('early-exit-bytes');
     const hash = await sha256Hex(file.resident);
 
     const result = await getOrCreateThumbnailForPage(file, 'blob:src-early-exit');
 
-    expect(result).toBe('blob:src-early-exit');
+    expect(result).toBeNull();
     expect(getCachedThumbnailByKey(`opfs:${hash}:400:600:0.7`)).toBeUndefined();
     expect(await getStoredThumbnail(hash)).toBeNull();
     expect(stats.manifestWrites).toBe(0);
@@ -270,14 +274,26 @@ describe('getOrCreateThumbnailForPage (content-hash tiers)', () => {
     const digestSpy = vi.spyOn(crypto.subtle, 'digest');
     const file = makeDirectPageFile('memo-bytes');
 
-    expect(await getOrCreateThumbnailForPage(file, 'blob:src-memo')).toBe(
-      'blob:src-memo',
-    );
-    expect(await getOrCreateThumbnailForPage(file, 'blob:src-memo')).toBe(
-      'blob:src-memo',
-    );
+    expect(await getOrCreateThumbnailForPage(file, 'blob:src-memo')).toBeNull();
+    expect(await getOrCreateThumbnailForPage(file, 'blob:src-memo')).toBeNull();
 
     expect(digestSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries hashing on the next call instead of memoizing a rejection', async () => {
+    const digestSpy = vi
+      .spyOn(crypto.subtle, 'digest')
+      .mockRejectedValueOnce(new Error('digest unavailable.'));
+    const file = makeDirectPageFile('memo-retry-bytes');
+
+    expect(await getOrCreateThumbnailForPage(file, 'blob:src-memo-retry')).toBe(
+      'blob:encoded-1',
+    );
+    expect(await getOrCreateThumbnailForPage(file, 'blob:src-memo-retry')).toBe(
+      'blob:encoded-2',
+    );
+
+    expect(digestSpy).toHaveBeenCalledTimes(2);
   });
 
   it('degrades to direct encode when the store cannot be opened', async () => {
@@ -313,9 +329,7 @@ describe('getOrCreateThumbnailForPage (content-hash tiers)', () => {
       throw new Error('OPFS unavailable.');
     });
     const file = makeDirectPageFile('timeout-bytes');
-    expect(await getOrCreateThumbnailForPage(file, 'blob:src-timeout')).toBe(
-      'blob:src-timeout',
-    );
+    expect(await getOrCreateThumbnailForPage(file, 'blob:src-timeout')).toBeNull();
     expect(openCalls).toBe(1);
 
     vi.useFakeTimers();
@@ -324,8 +338,36 @@ describe('getOrCreateThumbnailForPage (content-hash tiers)', () => {
     );
     const pending = getOrCreateThumbnailForPage(file, 'blob:src-timeout');
     await vi.advanceTimersByTimeAsync(2500);
-    expect(await pending).toBe('blob:src-timeout');
+    expect(await pending).toBeNull();
     vi.useRealTimers();
     expect(encodeState.calls).toHaveLength(2);
+  });
+
+  it('drops both LRU keys when the loaded image URL is revoked and re-imports fresh', async () => {
+    vi.stubGlobal(
+      'fetch',
+      async (): Promise<ThumbnailReadResponse> => ({
+        ok: true,
+        blob: async () => makeThumbnailBlob('encoded-webp-bytes'),
+      }),
+    );
+    const file = makeDirectPageFile('dual-key-bytes');
+    const hash = await sha256Hex(file.resident);
+    const hotKey = `opfs:${hash}:400:600:0.7`;
+
+    const thumbUrl = await getOrCreateThumbnailForPage(file, 'blob:src-dual');
+    expect(thumbUrl).toBe('blob:encoded-1');
+    expect(getCachedThumbnailByKey(hotKey)).toBe(thumbUrl);
+    rememberThumbnailByKey(getThumbnailCacheKey('blob:src-dual'), thumbUrl);
+    expect(hasCachedThumbnail('blob:src-dual')).toBe(true);
+
+    revokeLoadedImageUrls([{ url: 'blob:src-dual', thumbnailUrl: thumbUrl }]);
+
+    expect(getCachedThumbnailByKey(hotKey)).toBeUndefined();
+    expect(hasCachedThumbnail('blob:src-dual')).toBe(false);
+
+    const reimported = await getOrCreateThumbnailForPage(file, 'blob:src-dual-2');
+    expect(reimported).not.toBe(thumbUrl);
+    expect(getCachedThumbnailByKey(hotKey)).toBe(reimported);
   });
 });

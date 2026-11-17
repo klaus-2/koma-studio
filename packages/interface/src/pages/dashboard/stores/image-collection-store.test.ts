@@ -82,6 +82,36 @@ describe('assignChapterToImages', () => {
   });
 });
 
+describe('evictPageUrl', () => {
+  it('clears the URL and an aliased thumbnail together', () => {
+    const aliased = { ...images[0], thumbnailUrl: images[0].url };
+    useImageCollectionStore.setState({ images: [aliased, images[1], images[2]] });
+
+    useImageCollectionStore.getState().evictPageUrl('img-0');
+
+    const next = useImageCollectionStore.getState().images;
+    expect(next[0]?.url).toBe('');
+    expect(next[0]).not.toHaveProperty('thumbnailUrl');
+    expect(next[1]?.url).toBe(images[1].url);
+  });
+
+  it('keeps an independent thumbnail and skips already-evicted pages', () => {
+    const thumbed = { ...images[0], thumbnailUrl: 'blob:thumb-0' };
+    useImageCollectionStore.setState({ images: [thumbed, images[1], images[2]] });
+
+    useImageCollectionStore.getState().evictPageUrl('img-0');
+
+    expect(useImageCollectionStore.getState().images[0]).toMatchObject({
+      url: '',
+      thumbnailUrl: 'blob:thumb-0',
+    });
+
+    const before = useImageCollectionStore.getState().images;
+    useImageCollectionStore.getState().evictPageUrl('img-0');
+    expect(useImageCollectionStore.getState().images).toBe(before);
+  });
+});
+
 describe('chapter rename and removal', () => {
   const chapteredImages = (): [LoadedImage, LoadedImage, LoadedImage] => [
     { ...images[0], chapterId: 'archive:a.cbz', chapterLabel: 'a.cbz' },

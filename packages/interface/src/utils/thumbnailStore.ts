@@ -5,14 +5,18 @@
  * hash (`<hash>.webp`) plus one `manifest.json`. OPFS has no LRU, so the
  * manifest IS the eviction policy: loaded once on open, held in memory, pruned
  * on open (cap MAX_MANIFEST_ENTRIES, oldest lastUsed first) and flushed
- * coalesced after write bursts and after every prune — never per read. Losing
- * some lastUsed precision on a crash is harmless: worst case a slightly wrong
- * eviction order.
+ * coalesced (write bursts, lastUsed bumps, repairs) — never synchronously per
+ * read. Losing some lastUsed precision on a crash is harmless: worst case a
+ * slightly wrong eviction order.
  *
  * Every storage operation is bounded by OPERATION_TIMEOUT_MS so import and
- * restore never stall on storage. Any open, manifest or file error disables
+ * restore never stall on storage. Open failures and hung operations disable
  * the store for the session: every operation becomes a no-op and callers fall
- * back to direct thumbnail generation.
+ * back to direct thumbnail generation. Repairable states self-heal instead:
+ * a missing thumbnail file drops its stale manifest entry, an unreadable
+ * manifest resets the store to empty on open, and the open pass also sweeps
+ * `.webp` files the manifest no longer references (orphans of timed-out
+ * writes or lost manifest entries).
  */
 
 export interface ThumbnailManifestEntry {
@@ -43,6 +47,15 @@ export interface ThumbnailStoreDirectory {
     options?: { create?: boolean },
   ): Promise<ThumbnailStoredFileHandle>;
   removeEntry(name: string): Promise<void>;
+  listFileNames(): Promise<string[]>;
+}
+
+// The DOM.Iterable lib set does not ship OPFS directory iteration, but every
+// browser with OPFS support implements it; declare the slice the sweep needs.
+declare global {
+  interface FileSystemDirectoryHandle {
+    keys(): AsyncIterableIterator<string>;
+  }
 }
 
 const THUMBNAILS_DIR_NAME = 'thumbnails';
@@ -55,7 +68,16 @@ const OPERATION_TIMED_OUT = 'thumbnail-store-operation-timed-out';
 
 const defaultOpenThumbnailsDirectory = async (): Promise<ThumbnailStoreDirectory> => {
   const root = await navigator.storage.getDirectory();
-  return root.getDirectoryHandle(THUMBNAILS_DIR_NAME, { create: true });
+  const dir = await root.getDirectoryHandle(THUMBNAILS_DIR_NAME, { create: true });
+  return {
+    getFileHandle: (name, options) => dir.getFileHandle(name, options),
+    removeEntry: (name) => dir.removeEntry(name),
+    listFileNames: async () => {
+      const names: string[] = [];
+      for await (const name of dir.keys()) names.push(name);
+      return names;
+    },
+  };
 };
 
 let openDirectory: () => Promise<ThumbnailStoreDirectory> =
@@ -87,26 +109,48 @@ const disableStore = (): void => {
   }
 };
 
-const runBounded = async <T>(operation: () => Promise<T>): Promise<T | null> => {
-  if (disabled) return null;
+/**
+ * Bounded operation outcome: callers decide the failure policy (disable,
+ * self-heal or warn) — `runBounded` itself no longer disables the store.
+ */
+type BoundedOutcome<T> =
+  | { readonly ok: true; readonly value: T }
+  | {
+      readonly ok: false;
+      readonly reason: 'timeout' | 'error';
+      readonly error: unknown;
+    };
+
+const runBounded = async <T>(
+  operation: () => Promise<T>,
+): Promise<BoundedOutcome<T>> => {
+  if (disabled) {
+    return {
+      ok: false,
+      reason: 'error',
+      error: new Error('Thumbnail store is disabled.'),
+    };
+  }
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const tracked = operation();
     // A rejection arriving after the timeout already resolved the race must
-    // not surface as an unhandled rejection; the timeout path disables below.
+    // not surface as an unhandled rejection; the outcome reports it below.
     void tracked.catch(() => undefined);
     const timeout = new Promise<typeof OPERATION_TIMED_OUT>((resolve) => {
       timer = setTimeout(() => resolve(OPERATION_TIMED_OUT), OPERATION_TIMEOUT_MS);
     });
     const outcome = await Promise.race([tracked, timeout]);
     if (outcome === OPERATION_TIMED_OUT) {
-      disableStore();
-      return null;
+      return {
+        ok: false,
+        reason: 'timeout',
+        error: new Error('Thumbnail store operation timed out.'),
+      };
     }
-    return outcome;
-  } catch {
-    disableStore();
-    return null;
+    return { ok: true, value: outcome };
+  } catch (error) {
+    return { ok: false, reason: 'error', error };
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
@@ -178,14 +222,37 @@ const pruneManifest = async (
   const dropped = all.slice(0, overflowCount);
   for (const [, entry] of dropped) {
     const removed = await runBounded(() => dir.removeEntry(entry.file));
-    if (removed === null) return null;
+    if (!removed.ok) return null;
   }
   for (const [hash] of dropped) {
     delete loaded.entries[hash];
   }
   const flushed = await runBounded(() => writeManifestTo(dir, loaded));
-  if (flushed === null) return null;
+  if (!flushed.ok) return null;
   return loaded;
+};
+
+/**
+ * Reclaims `.webp` files the manifest does not reference: orphans of
+ * timed-out writes and leftovers of a reset manifest. Runs once per open,
+ * every removal individually bounded.
+ */
+const sweepOrphanThumbnailFiles = async (
+  dir: ThumbnailStoreDirectory,
+  loaded: ThumbnailManifest,
+): Promise<boolean> => {
+  const listed = await runBounded(() => dir.listFileNames());
+  if (!listed.ok) return false;
+  const referenced = new Set<string>([MANIFEST_FILE_NAME]);
+  for (const entry of Object.values(loaded.entries)) {
+    referenced.add(entry.file);
+  }
+  for (const name of listed.value) {
+    if (!name.endsWith('.webp') || referenced.has(name)) continue;
+    const removed = await runBounded(() => dir.removeEntry(name));
+    if (!removed.ok) return false;
+  }
+  return true;
 };
 
 const openStore = async (): Promise<ThumbnailStoreDirectory | null> => {
@@ -193,12 +260,41 @@ const openStore = async (): Promise<ThumbnailStoreDirectory | null> => {
   if (directory !== null) return directory;
   if (openPromise === null) {
     openPromise = (async () => {
-      const dir = await runBounded(openDirectory);
-      if (dir === null) return null;
+      const opened = await runBounded(openDirectory);
+      if (!opened.ok) {
+        disableStore();
+        return null;
+      }
+      const dir = opened.value;
       const loaded = await runBounded(() => readManifest(dir));
-      if (loaded === null) return null;
-      const pruned = await pruneManifest(dir, loaded);
-      if (pruned === null) return null;
+      let active: ThumbnailManifest;
+      if (!loaded.ok) {
+        if (loaded.reason === 'timeout') {
+          disableStore();
+          return null;
+        }
+        console.warn(
+          'thumbnailStore: unreadable manifest, resetting to an empty store.',
+          loaded.error,
+        );
+        active = { version: MANIFEST_VERSION, entries: {} };
+        const seeded = await runBounded(() => writeManifestTo(dir, active));
+        if (!seeded.ok) {
+          disableStore();
+          return null;
+        }
+      } else {
+        active = loaded.value;
+      }
+      if (!(await sweepOrphanThumbnailFiles(dir, active))) {
+        disableStore();
+        return null;
+      }
+      const pruned = await pruneManifest(dir, active);
+      if (pruned === null) {
+        disableStore();
+        return null;
+      }
       manifest = pruned;
       directory = dir;
       return dir;
@@ -213,9 +309,20 @@ const scheduleManifestFlush = (): void => {
     flushTimer = null;
     const target = directory;
     if (target === null || disabled) return;
-    void runBounded(() => writeManifestTo(target, manifest));
+    void runBounded(() => writeManifestTo(target, manifest)).then((outcome) => {
+      if (!outcome.ok) {
+        disableStore();
+        console.warn(
+          `thumbnailStore: manifest flush failed for ${Object.keys(manifest.entries).length} entries.`,
+          outcome.error,
+        );
+      }
+    });
   }, MANIFEST_FLUSH_DELAY_MS);
 };
+
+/** Sentinel returned by a read when the manifest entry points at a gone file. */
+const STALE_THUMBNAIL_FILE = 'thumbnail-store-stale-file';
 
 export const getStoredThumbnail = async (hash: string): Promise<Blob | null> => {
   const dir = await openStore();
@@ -223,12 +330,25 @@ export const getStoredThumbnail = async (hash: string): Promise<Blob | null> => 
   const entry = manifest.entries[hash];
   if (entry === undefined) return null;
   const outcome = await runBounded(async () => {
-    const handle = await dir.getFileHandle(entry.file);
-    return handle.getFile();
+    try {
+      const handle = await dir.getFileHandle(entry.file);
+      return await handle.getFile();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'NotFoundError') {
+        return STALE_THUMBNAIL_FILE;
+      }
+      throw error;
+    }
   });
-  if (outcome === null) return null;
+  if (!outcome.ok) return null;
+  if (outcome.value === STALE_THUMBNAIL_FILE) {
+    delete manifest.entries[hash];
+    scheduleManifestFlush();
+    return null;
+  }
   entry.lastUsed = Date.now();
-  return outcome;
+  scheduleManifestFlush();
+  return outcome.value;
 };
 
 export const putStoredThumbnail = async (hash: string, blob: Blob): Promise<void> => {
@@ -241,7 +361,19 @@ export const putStoredThumbnail = async (hash: string, blob: Blob): Promise<void
     await writable.write(blob);
     await writable.close();
   });
-  if (outcome === null) return;
+  if (!outcome.ok) {
+    if (outcome.reason === 'timeout') {
+      // The write may still land after the timeout, leaving an unreferenced
+      // file; the orphan sweep on the next open reclaims it.
+      console.warn(
+        `thumbnailStore: put for ${fileName} timed out; the file is left for the orphan sweep.`,
+        outcome.error,
+      );
+    } else {
+      disableStore();
+    }
+    return;
+  }
   manifest.entries[hash] = { file: fileName, size: blob.size, lastUsed: Date.now() };
   scheduleManifestFlush();
 };

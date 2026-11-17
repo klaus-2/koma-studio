@@ -66,6 +66,7 @@ const createFakeDirectory = (): FakeDirectory => {
       stats.removedNames.push(name);
       return Promise.resolve();
     },
+    listFileNames: async () => [...files.keys()],
   };
 
   return { directory, files, stats };
@@ -193,22 +194,73 @@ describe('thumbnailStore (OPFS cold tier)', () => {
     expect(openCalls).toBe(1);
   });
 
-  it('disables the session when the manifest is corrupt or malformed', async () => {
+  it('resets to an empty usable store when the manifest is corrupt', async () => {
     files.set('manifest.json', encoder.encode('{ not json'));
+
     expect(await getStoredThumbnail('hash-1')).toBeNull();
+    expect(
+      JSON.parse(new TextDecoder().decode(requireBytes(files, 'manifest.json'))),
+    ).toEqual({
+      version: 1,
+      entries: {},
+    });
+
     await putStoredThumbnail('hash-1', makeThumbnailBlob('webp'));
-    expect(files.has('hash-1.webp')).toBe(false);
+    expect(files.has('hash-1.webp')).toBe(true);
+    const stored = requireBlob(await getStoredThumbnail('hash-1'), 'hash-1');
+    expect(await decodeBlob(stored)).toBe('webp');
   });
 
-  it('disables the session when a manifest entry is malformed', async () => {
+  it('resets to an empty usable store when a manifest entry is malformed', async () => {
     const malformed = JSON.stringify({
       version: 1,
       entries: { 'hash-1': { file: 'hash-1.webp' } },
     });
     files.set('manifest.json', encoder.encode(malformed));
+
     expect(await getStoredThumbnail('hash-1')).toBeNull();
+
     await putStoredThumbnail('hash-1', makeThumbnailBlob('webp'));
-    expect(files.has('hash-1.webp')).toBe(false);
+    const stored = requireBlob(await getStoredThumbnail('hash-1'), 'hash-1');
+    expect(await decodeBlob(stored)).toBe('webp');
+  });
+
+  it('repairs a stale manifest entry whose file is missing', async () => {
+    await putStoredThumbnail('hash-1', makeThumbnailBlob('webp'));
+    await waitForManifestOnDisk('"hash-1"');
+    files.delete('hash-1.webp');
+
+    expect(await getStoredThumbnail('hash-1')).toBeNull();
+    await vi.waitFor(() => {
+      expect(
+        new TextDecoder().decode(requireBytes(files, 'manifest.json')),
+      ).not.toContain('"hash-1"');
+    });
+
+    await putStoredThumbnail('hash-2', makeThumbnailBlob('webp-2'));
+    const stored = requireBlob(await getStoredThumbnail('hash-2'), 'hash-2');
+    expect(await decodeBlob(stored)).toBe('webp-2');
+  });
+
+  it('sweeps orphan webp files the manifest does not reference on open', async () => {
+    files.set('hash-1.webp', encoder.encode('webp'));
+    files.set('orphan.webp', encoder.encode('orphan'));
+    files.set(
+      'manifest.json',
+      encoder.encode(
+        JSON.stringify({
+          version: 1,
+          entries: { 'hash-1': { file: 'hash-1.webp', size: 4, lastUsed: 1 } },
+        }),
+      ),
+    );
+
+    const stored = requireBlob(await getStoredThumbnail('hash-1'), 'hash-1');
+    expect(await decodeBlob(stored)).toBe('webp');
+    expect(files.has('manifest.json')).toBe(true);
+    expect(files.has('hash-1.webp')).toBe(true);
+    expect(files.has('orphan.webp')).toBe(false);
+    expect(stats.removedNames).toEqual(['orphan.webp']);
   });
 
   it('times out a hung store and degrades to no-op operations', async () => {

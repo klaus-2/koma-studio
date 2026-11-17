@@ -31,6 +31,7 @@ interface ImageCollectionStore {
     dimensions: { width: number; height: number },
   ) => void;
   updateImageUrl: (imageId: string, url: string) => void;
+  evictPageUrl: (imageId: string) => void;
 }
 
 const withoutChapter = (image: LoadedImage): LoadedImage => {
@@ -176,6 +177,24 @@ export const useImageCollectionStore = create<ImageCollectionStore>()(
             images: state.images.map((img) =>
               img.id === imageId ? { ...img, url } : img,
             ),
+          };
+        }),
+      // Eviction must drop a thumbnail that aliases the revoked URL in the
+      // same pass: leaving it pointing at a dead blob breaks every preview
+      // that prefers thumbnailUrl.
+      evictPageUrl: (imageId) =>
+        set((state) => {
+          const target = state.images.find((img) => img.id === imageId);
+          if (!target || target.url === '') {
+            return state;
+          }
+          return {
+            images: state.images.map((img) => {
+              if (img.id !== imageId) return img;
+              const next: LoadedImage = { ...img, url: '' };
+              if (img.thumbnailUrl === img.url) delete next.thumbnailUrl;
+              return next;
+            }),
           };
         }),
     }),

@@ -465,6 +465,13 @@ interface UseDashboardImageCollectionArgs {
 export const ensureDirectPageUrl = (img: LoadedImage): string => {
   if (img.url !== '') return img.url;
   if (img.file.kind !== 'direct') return img.url;
+  // The snapshot `img` may be stale: another consumer with the same stale
+  // snapshot can already have filled the URL, so read the live store entry
+  // before creating a second object URL for the same page.
+  const current = useImageCollectionStore
+    .getState()
+    .images.find((candidate) => candidate.id === img.id);
+  if (current && current.url !== '') return current.url;
   const url = URL.createObjectURL(img.file.resident);
   useImageCollectionStore.getState().updateImageUrl(img.id, url);
   return url;
