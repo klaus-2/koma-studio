@@ -22,6 +22,7 @@ import {
   getRegionTranslationNotesForDisplay,
 } from '../../../utils/dashboard.utils';
 import { RegionPickerMount } from '../render-text-preview/RegionPickerMount';
+import { StageProgressiveImage } from '../StageProgressiveImage';
 
 interface DetectionRegionBoxProps {
   region: AioTextRegion;
@@ -329,12 +330,18 @@ const TextDetectionPreviewView = ({
                 : undefined,
             }}
           >
-            <img
+            <StageProgressiveImage
+              placeholderSrc={image.thumbnailUrl ?? null}
               src={previewSrc}
-              className="koma-preview-card__img"
-              style={{ maxWidth: `${imgElemW}px` }}
               alt={image.file.name}
-              decoding="async"
+              className="koma-preview-card__img"
+              imgStyle={{
+                width: imgElemW,
+                height: imgElemH,
+                position: 'absolute',
+                left: 0,
+                top: 0,
+              }}
             />
             <div
               ref={overlayRef as React.Ref<HTMLDivElement>}

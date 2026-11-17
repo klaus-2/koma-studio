@@ -2,6 +2,7 @@ import { memo } from "react";
 import { cn } from "../../lib/utils";
 import type { LoadedImage } from "../../types/dashboard.types";
 import { useUiShellStore } from "@/pages/dashboard/stores/ui-shell-store";
+import { StageProgressiveImage } from "./StageProgressiveImage";
 
 interface PreviewStageItemProps {
   img: LoadedImage;
@@ -54,12 +55,13 @@ export const PreviewStageItem = memo(function PreviewStageItem({
         className="koma-preview-card__rotateWrap"
         style={{ width: wrapW, height: wrapH }}
       >
-        <img
-          src={img.thumbnailUrl ?? getPreviewSrc(img)}
-          loading="lazy"
-          decoding="async"
+        <StageProgressiveImage
+          placeholderSrc={img.thumbnailUrl ?? null}
+          src={getPreviewSrc(img)}
+          alt={img.file.name}
           className="koma-preview-card__img"
-          style={{
+          loading="lazy"
+          imgStyle={{
             width: imgElemW,
             height: imgElemH,
             position: "absolute",
@@ -67,7 +69,6 @@ export const PreviewStageItem = memo(function PreviewStageItem({
             top: (wrapH - imgElemH) / 2,
             transform: img.rotation ? `rotate(${img.rotation}deg)` : undefined,
           }}
-          alt={img.file.name}
         />
       </div>
     </div>

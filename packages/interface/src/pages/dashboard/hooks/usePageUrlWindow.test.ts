@@ -339,6 +339,27 @@ describe('usePageUrlWindow', () => {
     expect(urlState.revoked).not.toContain('blob:thumb-0');
   });
 
+  it('returns the full-res URL from the raw selector even when a thumbnail exists', async () => {
+    const images = Array.from({ length: DIRECT_PAGE_COUNT }, (_, index) => {
+      const image = makeDirectImage(index);
+      return index < 2 ? { ...image, thumbnailUrl: `blob:thumb-${index}` } : image;
+    });
+    seedStore(images, 'page-10');
+    const { result } = mountController({ images, activeImageId: 'page-10' });
+
+    expect(resolveImagePreviewSrc(imageById('page-1'), 'raw')).toBe('blob:page-1');
+
+    act(() => {
+      result.current.onVisibleRangeChange({ start: 10, end: 20 });
+    });
+    await flushEviction();
+    expect(urlOf('page-1')).toBe('');
+
+    const recreated = resolveImagePreviewSrc(imageById('page-1'), 'raw');
+    expect(recreated).toBe('blob:recreated-1');
+    expect(recreated).not.toBe('blob:thumb-1');
+  });
+
   it('returns the empty archive URL from the selector without re-creating', () => {
     const archive = makeArchiveImage(0);
     seedStore([archive], 'page-0');
