@@ -373,6 +373,7 @@ export function useDashboardDownloadBundle({
           includeInpaintedImage: false,
           includesTypographerSession: false,
         },
+        transferBytes: true,
       });
       return {
         blob: new Blob([result.blobBytes], { type: result.mimeType }),
@@ -456,6 +457,7 @@ export function useDashboardDownloadBundle({
         includeInpaintedImage: scope === 'aio' ? downloadIncludeInpaintedImage : false,
         includesTypographerSession: scope === 'typesetter',
       },
+      transferBytes: true,
     });
     const targetExt = extensionByFormat[downloadBundleFormat];
     return {

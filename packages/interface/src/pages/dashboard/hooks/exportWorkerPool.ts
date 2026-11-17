@@ -13,6 +13,10 @@ export interface ExportPoolJob {
   readonly pdfPages?: readonly WorkerPdfPage[];
   readonly createdAt: string;
   readonly flags: ExportPackageRequest['flags'];
+  // Ownership invariant: with transferBytes the pool hands every entry's buffer to the worker via
+  // postMessage transfer (caller bytes detach on send); pass only freshly allocated, job-scoped
+  // bytes the caller never reads again. Omitted/false keeps the copy-then-retry behavior.
+  readonly transferBytes?: boolean;
 }
 
 export interface ExportPoolEvents {
@@ -31,19 +35,21 @@ interface PendingJob {
   readonly resolve: (bytes: { blobBytes: ArrayBuffer; mimeType: string }) => void;
   readonly reject: (error: Error) => void;
   readonly attempts: { value: number };
+  bytesTransferred: boolean;
   timer: ReturnType<typeof setTimeout> | null;
 }
 
 const MAX_JOB_ATTEMPTS = 2;
 
 const buildRequest = (jobId: number, job: ExportPoolJob): ExportPackageRequest => {
+  const transferBytes = job.transferBytes === true;
   const zipEntries = job.zipEntries.map((entry) => ({
     path: entry.path,
-    bytes: entry.bytes.slice(),
+    bytes: transferBytes ? entry.bytes : entry.bytes.slice(),
   }));
   const pdfPages = job.pdfPages?.map((page) => ({
     sourceImageId: page.sourceImageId,
-    bytes: page.bytes.slice(),
+    bytes: transferBytes ? page.bytes : page.bytes.slice(),
     isJpeg: page.isJpeg,
   }));
   return {
@@ -136,7 +142,14 @@ export const createExportWorkerPool = (
         owned.timer = null;
       }
       owned.attempts.value += 1;
-      if (owned.attempts.value < MAX_JOB_ATTEMPTS) {
+      if (owned.bytesTransferred) {
+        events.onWorkerDone?.(owned.jobId);
+        owned.reject(
+          new Error(
+            `export worker failed after transfer; retry unavailable: ${message}`,
+          ),
+        );
+      } else if (owned.attempts.value < MAX_JOB_ATTEMPTS) {
         events.onRetry?.(owned.jobId, message);
         owned.timer = setTimeout(() => {
           const owner = ownerByJob.get(owned.jobId);
@@ -197,7 +210,14 @@ export const createExportWorkerPool = (
           transfer.push(page.bytes.buffer);
         }
         worker.postMessage(request, transfer);
+        if (job.job.transferBytes === true) {
+          job.bytesTransferred = true;
+        }
       } catch (error) {
+        if (job.timer) {
+          clearTimeout(job.timer);
+          job.timer = null;
+        }
         pending.delete(job.jobId);
         ownerByJob.delete(job.jobId);
         terminate(worker);
@@ -237,6 +257,7 @@ export const createExportWorkerPool = (
           resolve,
           reject,
           attempts: { value: 0 },
+          bytesTransferred: false,
           timer: setTimeout(() => {
             const owner = ownerByJob.get(jobId);
             if (owner) {

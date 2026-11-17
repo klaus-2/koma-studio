@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createExportWorkerPool } from './exportWorkerPool';
 import type {
@@ -167,5 +167,211 @@ describe('exportWorkerPool (plan T8 — pool logic with fake workers)', () => {
     const pool = createExportWorkerPool({}, factory);
     pool.dispose();
     await expect(pool.package(zipJob())).rejects.toThrow(/disposed/);
+  });
+});
+
+describe('exportWorkerPool transferBytes (GATE-1 — transfer + fail-fast-after-transfer)', () => {
+  it('posts original entry buffers without slicing when transferBytes is true and still resolves on success', async () => {
+    const factory = makeWorkerFactory();
+    const pool = createExportWorkerPool({}, factory);
+    const bytes = new Uint8Array(16).fill(1);
+    const promise = pool.package({
+      ...zipJob(),
+      zipEntries: [{ path: 'images/001.png', bytes }],
+      transferBytes: true,
+    });
+    await flushMicrotasks();
+    const posted = FakeWorker.instances[0]?.posted[0];
+    expect(posted?.request.zipEntries[0]?.bytes).toBe(bytes);
+    expect(posted?.transfer).toHaveLength(1);
+    FakeWorker.instances[0]?.succeedWithZip();
+    const result = await promise;
+    expect(result.mimeType).toBe('application/zip');
+    pool.dispose();
+  });
+
+  it('transfers original pdf page buffers without slicing when transferBytes is true', async () => {
+    const factory = makeWorkerFactory();
+    const pool = createExportWorkerPool({}, factory);
+    const bytes = new Uint8Array(8).fill(2);
+    const promise = pool.package({
+      ...zipJob(),
+      bundleFormat: 'pdf' as const,
+      zipEntries: [],
+      pdfPages: [{ sourceImageId: 'img-1', bytes, isJpeg: false }],
+      transferBytes: true,
+    });
+    await flushMicrotasks();
+    expect(FakeWorker.instances[0]?.posted[0]?.request.pdfPages?.[0]?.bytes).toBe(bytes);
+    FakeWorker.instances[0]?.succeedWithZip();
+    await promise;
+    pool.dispose();
+  });
+
+  it('rejects immediately after onerror once bytes were transferred (no retry, no re-enqueue)', async () => {
+    const factory = makeWorkerFactory();
+    const retried: string[] = [];
+    const pool = createExportWorkerPool(
+      { onRetry: (_jobId, message) => retried.push(message) },
+      factory,
+    );
+    const bytes = new Uint8Array(16).fill(1);
+    const pending = pool
+      .package({
+        ...zipJob(),
+        zipEntries: [{ path: 'images/001.png', bytes }],
+        transferBytes: true,
+      })
+      .catch((error: Error) => error);
+    await flushMicrotasks();
+    FakeWorker.instances[0]?.crash();
+    const error = await pending;
+    expect((error as Error).message).toBe(
+      'export worker failed after transfer; retry unavailable: poisoned',
+    );
+    expect(retried).toEqual([]);
+    expect(pool.pendingCount()).toBe(0);
+    expect(FakeWorker.instances[0]?.posted).toHaveLength(1);
+    expect(FakeWorker.instances[1]?.posted ?? []).toHaveLength(0);
+    pool.dispose();
+  });
+
+  it('rejects immediately after onmessageerror once bytes were transferred (no retry)', async () => {
+    const factory = makeWorkerFactory();
+    const retried: string[] = [];
+    const pool = createExportWorkerPool(
+      { onRetry: (_jobId, message) => retried.push(message) },
+      factory,
+    );
+    const pending = pool
+      .package({ ...zipJob(), transferBytes: true })
+      .catch((error: Error) => error);
+    await flushMicrotasks();
+    FakeWorker.instances[0]?.onmessageerror?.();
+    const error = await pending;
+    expect((error as Error).message).toBe(
+      'export worker failed after transfer; retry unavailable: worker message decode error',
+    );
+    expect(retried).toEqual([]);
+    expect(FakeWorker.instances[0]?.posted).toHaveLength(1);
+    pool.dispose();
+  });
+
+  it('rejects immediately on a synchronous postMessage throw and clears the job timer', async () => {
+    vi.useFakeTimers();
+    try {
+      const factory = makeWorkerFactory();
+      const pool = createExportWorkerPool({}, factory);
+      const worker = FakeWorker.instances[0];
+      if (!worker) throw new Error('expected the pool to spawn a worker');
+      worker.postMessage = () => {
+        throw new Error('post refused');
+      };
+      const pending = pool
+        .package({ ...zipJob(), transferBytes: true })
+        .catch((error: Error) => error);
+      await flushMicrotasks();
+      const error = await pending;
+      expect((error as Error).message).toBe('export worker post failed: post refused');
+      expect(vi.getTimerCount()).toBe(0);
+      expect(FakeWorker.instances[0]?.posted).toHaveLength(0);
+      expect(FakeWorker.instances[1]?.posted ?? []).toHaveLength(0);
+      pool.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('slices caller bytes and retries on a fresh worker when transferBytes is false', async () => {
+    const factory = makeWorkerFactory();
+    const retried: string[] = [];
+    const pool = createExportWorkerPool(
+      { onRetry: (_jobId, message) => retried.push(message) },
+      factory,
+    );
+    const bytes = new Uint8Array(16).fill(1);
+    const promise = pool.package({
+      ...zipJob(),
+      zipEntries: [{ path: 'images/001.png', bytes }],
+      transferBytes: false,
+    });
+    await flushMicrotasks();
+    const firstPost = FakeWorker.instances[0]?.posted[0];
+    expect(firstPost?.request.zipEntries[0]?.bytes).not.toBe(bytes);
+    expect(firstPost?.request.zipEntries[0]?.bytes).toEqual(bytes);
+    FakeWorker.instances[0]?.crash();
+    await flushMicrotasks();
+    expect(retried).toEqual(['poisoned']);
+    expect(FakeWorker.instances).toHaveLength(2);
+    expect(FakeWorker.instances[1]?.posted).toHaveLength(1);
+    expect(FakeWorker.instances[1]?.posted[0]?.request.zipEntries[0]?.bytes).toEqual(bytes);
+    FakeWorker.instances[1]?.succeedWithZip();
+    const result = await promise;
+    expect(result.mimeType).toBe('application/zip');
+    pool.dispose();
+  });
+
+  it('slices caller bytes when transferBytes is omitted (copy behavior regression guard)', async () => {
+    const factory = makeWorkerFactory();
+    const pool = createExportWorkerPool({}, factory);
+    const bytes = new Uint8Array(16).fill(1);
+    const promise = pool.package({
+      ...zipJob(),
+      zipEntries: [{ path: 'images/001.png', bytes }],
+    });
+    await flushMicrotasks();
+    const posted = FakeWorker.instances[0]?.posted[0];
+    expect(posted?.request.zipEntries[0]?.bytes).not.toBe(bytes);
+    expect(posted?.request.zipEntries[0]?.bytes).toEqual(bytes);
+    FakeWorker.instances[0]?.succeedWithZip();
+    await promise;
+    pool.dispose();
+  });
+
+  it('rejects with the timeout error for a transferred job that never responds, with no double-settle on a late error', async () => {
+    vi.useFakeTimers();
+    try {
+      const factory = makeWorkerFactory();
+      const retried: string[] = [];
+      const done: number[] = [];
+      const pool = createExportWorkerPool(
+        {
+          onRetry: (_jobId, message) => retried.push(message),
+          onWorkerDone: (jobId) => done.push(jobId),
+        },
+        factory,
+      );
+      const pending = pool
+        .package({ ...zipJob(), transferBytes: true })
+        .catch((error: Error) => error);
+      await flushMicrotasks();
+      vi.advanceTimersByTime(600_000);
+      const error = await pending;
+      expect((error as Error).message).toBe(
+        'export worker job 1 timed out after 600000ms',
+      );
+      expect(done).toEqual([1]);
+      expect(retried).toEqual([]);
+      FakeWorker.instances[0]?.crash();
+      await flushMicrotasks();
+      expect(done).toEqual([1]);
+      expect(retried).toEqual([]);
+      pool.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rejects with the disposal error when disposed during a transferred job', async () => {
+    const factory = makeWorkerFactory();
+    const pool = createExportWorkerPool({}, factory);
+    const pending = pool
+      .package({ ...zipJob(), transferBytes: true })
+      .catch((error: Error) => error);
+    await flushMicrotasks();
+    expect(pool.pendingCount()).toBe(1);
+    pool.dispose();
+    const error = await pending;
+    expect((error as Error).message).toMatch(/disposed/);
   });
 });
