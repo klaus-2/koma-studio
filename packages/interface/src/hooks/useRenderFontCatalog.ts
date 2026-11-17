@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useI18n } from '../i18n';
 import type { IDesktopFontEntry } from '../types';
@@ -20,18 +20,37 @@ export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogAr
   const [fontCatalogError, setFontCatalogError] = useState<string | null>(null);
   const [renderFontRefreshToken, setRenderFontRefreshToken] = useState(0);
 
-  const registerCustomFontFace = useCallback(async (entry: IDesktopFontEntry) => {
+  // Custom faces stay registered-but-unloaded (no fontFace.load() here);
+  // ensureCanvasFontLoaded loads each face from its dataUrl on first render use.
+  const registeredFacesRef = useRef<Map<string, { signature: string; face: FontFace }>>(new Map());
+
+  const clearRegisteredCustomFontFaces = useCallback(() => {
+    for (const tracked of registeredFacesRef.current.values()) {
+      document.fonts.delete(tracked.face);
+    }
+    registeredFacesRef.current.clear();
+  }, []);
+
+  const registerCustomFontFace = useCallback((entry: IDesktopFontEntry) => {
     if (typeof window === 'undefined') return;
     if (typeof FontFace === 'undefined') return;
     if (!('fonts' in document)) return;
+    const signature = `${entry.family}\0${entry.dataUrl}`;
+    const tracked = registeredFacesRef.current.get(entry.id);
+    if (tracked && tracked.signature === signature) return;
+    if (tracked) {
+      document.fonts.delete(tracked.face);
+      registeredFacesRef.current.delete(entry.id);
+    }
     const fontFace = new FontFace(entry.family, `url(${entry.dataUrl})`);
-    await fontFace.load();
     document.fonts.add(fontFace);
+    registeredFacesRef.current.set(entry.id, { signature, face: fontFace });
   }, []);
 
   const loadRenderFontCatalog = useCallback(async () => {
     const desktopFontsApi = desktopBridge.desktop?.api?.fonts;
     if (!desktopFontsApi) {
+      clearRegisteredCustomFontFaces();
       setRenderFontCatalog({ system: [], custom: [] });
       setFontCatalogError(null);
       resetLoadedCanvasFontCache();
@@ -53,15 +72,19 @@ export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogAr
         )) : [],
       };
 
-      await Promise.all(
-        normalizedCatalog.custom.map(async (fontEntry) => {
-          try {
-            await registerCustomFontFace(fontEntry);
-          } catch {
-            /* ignore invalid custom fonts and keep remaining catalog */
-          }
-        }),
-      );
+      const catalogFontIds = new Set(normalizedCatalog.custom.map((fontEntry) => fontEntry.id));
+      for (const [entryId, tracked] of registeredFacesRef.current) {
+        if (catalogFontIds.has(entryId)) continue;
+        document.fonts.delete(tracked.face);
+        registeredFacesRef.current.delete(entryId);
+      }
+      for (const fontEntry of normalizedCatalog.custom) {
+        try {
+          registerCustomFontFace(fontEntry);
+        } catch {
+          /* ignore invalid custom fonts and keep remaining catalog */
+        }
+      }
 
       resetLoadedCanvasFontCache();
       setRenderFontCatalog(normalizedCatalog);
@@ -71,7 +94,7 @@ export function useRenderFontCatalog({ onImportSuccess }: UseRenderFontCatalogAr
     } finally {
       setFontCatalogLoading(false);
     }
-  }, [registerCustomFontFace]);
+  }, [clearRegisteredCustomFontFaces, registerCustomFontFace]);
 
   const handleRenderFontImport = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const desktopFontsApi = desktopBridge.desktop?.api?.fonts;
