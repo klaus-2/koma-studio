@@ -78,9 +78,12 @@ export const runOptimizerJob = (
       );
     };
 
-    worker.postMessage({
-      id: requestId,
-      ...payload,
-    });
+    // Ownership: the caller allocates sourceBuffer fresh per call (all call
+    // sites pass a fresh blob.arrayBuffer() result) and relinquishes it on
+    // send, so the bytes transfer to the worker instead of structured-cloning.
+    worker.postMessage(
+      { id: requestId, ...payload },
+      [payload.sourceBuffer],
+    );
   });
 };
