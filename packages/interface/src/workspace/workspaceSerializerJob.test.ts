@@ -220,7 +220,7 @@ describe('workspaceSerializerJob (bridge with fake worker)', () => {
 
   it('falls back to the main-thread sequence on timeout with identical signatures and payload', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    vi.spyOn(crypto, 'randomUUID').mockReturnValue('fixture-uuid');
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('fixture-uuid-0000-0000-0000-000000000000');
     const state = seedStateWithDirectPage();
     const created = trackFakeWorkers();
     const reference = await captureWorkspaceDocument(state);

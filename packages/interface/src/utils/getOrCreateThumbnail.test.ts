@@ -86,7 +86,7 @@ const createFakeDirectory = (): FakeDirectory => {
           if (bytes === undefined) {
             throw new DOMException(`${name} does not exist.`, 'NotFoundError');
           }
-          return new File([bytes], name);
+          return new File([bytes.slice()], name);
         },
         createWritable: async () => {
           if (name === 'manifest.json') stats.manifestWrites += 1;
@@ -358,10 +358,10 @@ describe('getOrCreateThumbnailForPage (content-hash tiers)', () => {
     const thumbUrl = await getOrCreateThumbnailForPage(file, 'blob:src-dual');
     expect(thumbUrl).toBe('blob:encoded-1');
     expect(getCachedThumbnailByKey(hotKey)).toBe(thumbUrl);
-    rememberThumbnailByKey(getThumbnailCacheKey('blob:src-dual'), thumbUrl);
+    rememberThumbnailByKey(getThumbnailCacheKey('blob:src-dual'), thumbUrl ?? '');
     expect(hasCachedThumbnail('blob:src-dual')).toBe(true);
 
-    revokeLoadedImageUrls([{ url: 'blob:src-dual', thumbnailUrl: thumbUrl }]);
+    revokeLoadedImageUrls([{ url: 'blob:src-dual', thumbnailUrl: thumbUrl ?? '' }]);
 
     expect(getCachedThumbnailByKey(hotKey)).toBeUndefined();
     expect(hasCachedThumbnail('blob:src-dual')).toBe(false);

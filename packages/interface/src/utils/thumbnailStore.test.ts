@@ -41,7 +41,7 @@ const createFakeDirectory = (): FakeDirectory => {
         getFile: async () => {
           const bytes = files.get(name);
           if (bytes === undefined) throw notFoundError(name);
-          return new File([bytes], name);
+          return new File([bytes.slice()], name);
         },
         createWritable: async () => {
           if (name === 'manifest.json') stats.manifestWrites += 1;
