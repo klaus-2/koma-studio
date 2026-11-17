@@ -153,9 +153,15 @@ const dropSharedTransport = (): void => {
 
 const countWorkerFailure = (): void => {
   workerFailureCount += 1;
+  console.warn(
+    `[workspace-serializer] worker failure ${workerFailureCount}/${MAX_WORKER_FAILURES}`,
+  );
   if (workerFailureCount < MAX_WORKER_FAILURES) return;
   workerPermanentlyDegraded = true;
   dropSharedTransport();
+  console.warn(
+    '[workspace-serializer] worker degraded permanently; serializing on the main thread',
+  );
 };
 
 /**
@@ -206,6 +212,7 @@ const handleSerializerMessage = (response: WorkspaceSerializeResponse): void => 
   pendingSerializeJobs.delete(job.id);
   clearSerializeTimer(job);
   if (response.kind === 'serialize-success') {
+    workerFailureCount = 0;
     job.resolve({
       payload: response.payload,
       autosaveSignature: response.autosaveSignature,
@@ -213,15 +220,22 @@ const handleSerializerMessage = (response: WorkspaceSerializeResponse): void => 
     });
     return;
   }
+  console.warn(
+    '[workspace-serializer] worker serialization failed; falling back.',
+    { jobId: response.id, message: response.message },
+  );
   void settleJobFromFallback(job);
 };
 
+/**
+ * A timed-out transport is unusable for every job on it, so all pending jobs
+ * settle from the fallback together instead of waiting out their own timers.
+ */
 const handleSerializerTimeout = (job: PendingSerializeJob): void => {
   job.timer = null;
-  pendingSerializeJobs.delete(job.id);
   dropSharedTransport();
   countWorkerFailure();
-  void settleJobFromFallback(job);
+  settleAllPendingFromFallback();
 };
 
 const handleSerializerSendFailure = (job: PendingSerializeJob): void => {
@@ -294,6 +308,10 @@ export const setWorkspaceSerializerWorkerFactory = (
 
 export const resetWorkspaceSerializerForTests = (): void => {
   dropSharedTransport();
+  for (const job of pendingSerializeJobs.values()) {
+    clearSerializeTimer(job);
+    job.reject(new Error('workspace serializer was reset while the job was pending'));
+  }
   pendingSerializeJobs.clear();
   workerFailureCount = 0;
   workerPermanentlyDegraded = false;

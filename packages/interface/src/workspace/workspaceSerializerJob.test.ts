@@ -292,6 +292,109 @@ describe('workspaceSerializerJob (bridge with fake worker)', () => {
     expect(result.historySignature).toBe('correlated-history-signature');
   });
 
+  it('warns with the job id and falls back when the worker reports a serialization error', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const state = seedStateWithDirectPage();
+    trackFakeWorkers();
+    const promise = runWorkspaceSerialization(state);
+    await flushMicrotasks();
+    const worker = FakeSerializerWorker.instances[0];
+    if (!worker) throw new Error('no fake worker was created');
+    const request = worker.posted[0];
+    if (!request) throw new Error('worker received no request');
+
+    worker.respondWith({
+      kind: 'serialize-error',
+      id: request.id,
+      message: 'worker serialization failed',
+    });
+    const result = await promise;
+
+    expect(result.autosaveSignature).toBe(buildWorkspaceAutosaveSignature(state));
+    expect(result.historySignature).toBe(buildWorkspaceHistorySignature(state));
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[workspace-serializer] worker serialization failed; falling back.',
+      { jobId: request.id, message: 'worker serialization failed' },
+    );
+  });
+
+  it('resets the failure count after a successful round-trip, so spaced failures do not degrade', async () => {
+    const state = seedStateWithDirectPage();
+    const created = trackFakeWorkers();
+
+    const first = runWorkspaceSerialization(state);
+    await flushMicrotasks();
+    expect(created).toHaveLength(1);
+    created[0]?.crash();
+    await flushMicrotasks();
+    expect(created).toHaveLength(2);
+    const retryRequest = created[1]?.posted[0];
+    if (!retryRequest) throw new Error('rebuilt worker received no request');
+    created[1]?.respondWith({
+      kind: 'serialize-success',
+      id: retryRequest.id,
+      payload: await captureWorkspaceDocument(state),
+      autosaveSignature: 'post-crash-autosave-signature',
+      historySignature: 'post-crash-history-signature',
+    });
+    const firstResult = await first;
+    expect(firstResult.autosaveSignature).toBe('post-crash-autosave-signature');
+
+    const second = runWorkspaceSerialization(state);
+    await flushMicrotasks();
+    expect(created[1]?.posted).toHaveLength(2);
+    created[1]?.crash();
+    await flushMicrotasks();
+    expect(created).toHaveLength(3);
+    const rebuiltRequest = created[2]?.posted[0];
+    if (!rebuiltRequest) throw new Error('rebuilt worker received no request');
+    created[2]?.respondWith({
+      kind: 'serialize-success',
+      id: rebuiltRequest.id,
+      payload: await captureWorkspaceDocument(state),
+      autosaveSignature: 'after-reset-autosave-signature',
+      historySignature: 'after-reset-history-signature',
+    });
+    const secondResult = await second;
+    expect(secondResult.autosaveSignature).toBe('after-reset-autosave-signature');
+  });
+
+  it('settles sibling jobs immediately when one job times out', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const state = seedStateWithDirectPage();
+    const created = trackFakeWorkers();
+
+    const first = runWorkspaceSerialization(state);
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(15_000);
+    const second = runWorkspaceSerialization(state);
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(15_000);
+    await flushMicrotasks();
+
+    const firstResult = await first;
+    const secondResult = await second;
+    expect(created).toHaveLength(1);
+    expect(created[0]?.terminated).toBe(true);
+    expect(firstResult.autosaveSignature).toBe(buildWorkspaceAutosaveSignature(state));
+    expect(secondResult.autosaveSignature).toBe(buildWorkspaceAutosaveSignature(state));
+
+    const third = runWorkspaceSerialization(state);
+    await flushMicrotasks();
+    expect(created).toHaveLength(2);
+    const nextRequest = created[1]?.posted[0];
+    if (!nextRequest) throw new Error('rebuilt worker received no request');
+    created[1]?.respondWith({
+      kind: 'serialize-success',
+      id: nextRequest.id,
+      payload: await captureWorkspaceDocument(state),
+      autosaveSignature: 'post-timeout-autosave-signature',
+      historySignature: 'post-timeout-history-signature',
+    });
+    const thirdResult = await third;
+    expect(thirdResult.autosaveSignature).toBe('post-timeout-autosave-signature');
+  });
+
   it('runs in fallback mode when no Worker exists (jsdom) without warning spam', async () => {
     const warnSpy = vi.spyOn(console, 'warn');
     const errorSpy = vi.spyOn(console, 'error');
@@ -337,5 +440,39 @@ describe('workspaceSerializerWorker (real module, same-thread driver)', () => {
     responseBuffers.forEach((buffer, index) => {
       expect(first.transfer?.[index]).toBe(buffer);
     });
+  });
+
+  it('reports through console.error instead of rejecting when the error response cannot be posted', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const state = seedStateWithDirectPage();
+    const scope = {
+      onmessage: null as ((event: MessageEvent<WorkspaceSerializeRequest>) => void) | null,
+      postMessage: (): void => {
+        throw new Error('postMessage bridge is closed');
+      },
+    };
+    attachWorkerScopeForTest(scope);
+    if (!scope.onmessage) {
+      throw new Error('worker did not register onmessage');
+    }
+    scope.onmessage(
+      new MessageEvent('message', {
+        data: {
+          kind: 'serialize',
+          id: 'entry-request-unreportable',
+          state: toWireCaptureState(state),
+        } satisfies WorkspaceSerializeRequest,
+      }),
+    );
+
+    for (let waited = 0; errorSpy.mock.calls.length === 0 && waited < 5000; waited += 10) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0]?.[0]).toBe(
+      '[workspace-serializer] failed to report the serialization error',
+    );
+    errorSpy.mockRestore();
   });
 });

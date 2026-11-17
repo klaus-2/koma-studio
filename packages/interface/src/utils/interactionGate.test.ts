@@ -70,4 +70,9 @@ describe('interactionGate', () => {
     expect(isInteractionActive(0)).toBe(false);
     expect(isInteractionActive(GRACE_MS)).toBe(true);
   });
+
+  it('sees an interaction that began before the first gate check', () => {
+    document.dispatchEvent(new Event('pointerdown'));
+    expect(isInteractionActive()).toBe(true);
+  });
 });

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import {
   Eye,
@@ -10,6 +10,7 @@ import {
   Stamp,
 } from 'lucide-react';
 
+import { ensureDirectPageUrl } from '../../../pages/dashboard/hooks/image-collection';
 import { useI18n } from '../../../i18n';
 import type {
   WatermarkAnchor,
@@ -65,6 +66,14 @@ export default function WatermarkPreviewPanel({
 }: WatermarkPreviewPanelProps) {
   const compareContainerRef = useRef<HTMLDivElement | null>(null);
   const compareDraggingRef = useRef(false);
+
+  // Evicted direct pages (`url === ''`) re-create their blob URL on demand;
+  // only what renders resolves, so eviction stays effective.
+  const renderUrls = useMemo(
+    () => new Map(images.map((image) => [image.id, ensureDirectPageUrl(image)])),
+    [images],
+  );
+  const activeStageUrl = activeImage ? (renderUrls.get(activeImage.id) ?? '') : '';
 
   const updateCompareFromClientX = (clientX: number): void => {
     const container = compareContainerRef.current;
@@ -188,7 +197,7 @@ export default function WatermarkPreviewPanel({
                 onClick={() => setActiveImageId(image.id)}
               >
                 <img
-                  src={resultsById.get(image.id)?.previewUrl ?? image.thumbnailUrl ?? image.url}
+                  src={resultsById.get(image.id)?.previewUrl ?? image.thumbnailUrl ?? renderUrls.get(image.id) ?? ''}
                   alt={image.file.name}
                   loading="lazy"
                   decoding="async"
@@ -232,7 +241,7 @@ export default function WatermarkPreviewPanel({
                       }}
                     >
                       <img
-                        src={activeImage.url}
+                        src={activeStageUrl}
                         alt={t('watermark.preview.original')}
                         className="koma-wm-stage__img"
                         draggable={false}
@@ -276,7 +285,7 @@ export default function WatermarkPreviewPanel({
                   ) : (
                     <div className="koma-wm-stage__compare-container">
                       <img
-                        src={previewUrl ?? activeImage.url}
+                        src={previewUrl ?? activeStageUrl}
                         alt={t('watermark.panel.preview')}
                         className="koma-wm-stage__img"
                         decoding="async"

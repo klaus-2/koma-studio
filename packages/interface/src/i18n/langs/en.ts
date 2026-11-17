@@ -135,6 +135,7 @@ export const enMessages = {
   'settings.app.performance.preload.off': 'Off',
   'settings.app.performance.preload.save': 'Save prefetch settings',
   'settings.app.performance.preload.saved': 'Prefetch settings updated.',
+  'settings.app.performance.preload.failed': 'Failed to save prefetch settings.',
   'settings.general.profile.title': 'Profile',
   'settings.general.profile.desc':
     'Your account information and global preferences.',

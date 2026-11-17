@@ -43,6 +43,10 @@ function attachInteractionListeners(): void {
   window.addEventListener('blur', onPointerRelease, { passive: true });
 }
 
+// Eager attach: an interaction begun before the first autosave tick must
+// already be visible to the gate.
+attachInteractionListeners();
+
 /** Pointer down, IME composing, or within graceMs after a release. */
 export function isInteractionActive(graceMs = 1000): boolean {
   attachInteractionListeners();

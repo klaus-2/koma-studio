@@ -10,7 +10,12 @@ export const DEFAULT_WORKSPACE_PRELOAD_SETTINGS: WorkspacePreloadSettings = {
 };
 
 const clampArchivePreloadPages = (value: unknown): number => {
-  const numeric = Number(value);
+  const numeric =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : Number.NaN;
   if (!Number.isFinite(numeric)) {
     return DEFAULT_WORKSPACE_PRELOAD_SETTINGS.archivePreloadPages;
   }

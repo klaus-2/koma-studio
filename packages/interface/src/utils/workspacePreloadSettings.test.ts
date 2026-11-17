@@ -40,6 +40,33 @@ describe('workspacePreloadSettings', () => {
       ).toEqual(DEFAULT_WORKSPACE_PRELOAD_SETTINGS);
     });
 
+    it('falls back to the default for null, empty and boolean values instead of 0', () => {
+      expect(sanitizeWorkspacePreloadSettings({ archivePreloadPages: null })).toEqual(
+        DEFAULT_WORKSPACE_PRELOAD_SETTINGS,
+      );
+      expect(sanitizeWorkspacePreloadSettings({ archivePreloadPages: '' })).toEqual(
+        DEFAULT_WORKSPACE_PRELOAD_SETTINGS,
+      );
+      expect(
+        sanitizeWorkspacePreloadSettings({ archivePreloadPages: false }),
+      ).toEqual(DEFAULT_WORKSPACE_PRELOAD_SETTINGS);
+      expect(
+        sanitizeWorkspacePreloadSettings({ archivePreloadPages: undefined }),
+      ).toEqual(DEFAULT_WORKSPACE_PRELOAD_SETTINGS);
+    });
+
+    it('accepts numeric strings from the text-field input', () => {
+      expect(sanitizeWorkspacePreloadSettings({ archivePreloadPages: '3' })).toEqual({
+        archivePreloadPages: 3,
+      });
+      expect(sanitizeWorkspacePreloadSettings({ archivePreloadPages: '0' })).toEqual({
+        archivePreloadPages: 0,
+      });
+      expect(sanitizeWorkspacePreloadSettings({ archivePreloadPages: '  ' })).toEqual(
+        DEFAULT_WORKSPACE_PRELOAD_SETTINGS,
+      );
+    });
+
     it('returns the defaults for null, arrays and non-object payloads', () => {
       expect(sanitizeWorkspacePreloadSettings(null)).toEqual(
         DEFAULT_WORKSPACE_PRELOAD_SETTINGS,

@@ -57,12 +57,21 @@ export const useSettingsAppPreferences = ({ t }: UseSettingsAppPreferencesArgs) 
   }, [t, workspaceAutosaveSettings]);
 
   const handleSaveWorkspacePreloadSettings = useCallback(() => {
-    const saved = saveWorkspacePreloadSettings(workspacePreloadSettings);
-    setWorkspacePreloadSettings(saved);
-    setWorkspacePreloadFeedback({
-      type: "success",
-      message: t("settings.app.performance.preload.saved"),
-    });
+    try {
+      const saved = saveWorkspacePreloadSettings(workspacePreloadSettings);
+      setWorkspacePreloadSettings(saved);
+      setWorkspacePreloadFeedback({
+        type: "success",
+        message: t("settings.app.performance.preload.saved"),
+      });
+    } catch (error) {
+      setWorkspacePreloadFeedback({
+        type: "error",
+        message: error instanceof Error
+          ? error.message
+          : t("settings.app.performance.preload.failed"),
+      });
+    }
   }, [t, workspacePreloadSettings]);
 
   const handleResetLocalAppSettings = useCallback(async () => {

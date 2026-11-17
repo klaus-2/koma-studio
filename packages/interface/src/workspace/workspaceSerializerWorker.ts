@@ -90,7 +90,14 @@ const handleSerializeRequest = async (request: WorkspaceSerializeRequest): Promi
 function handleWorkerMessage(event: MessageEvent<WorkspaceSerializeRequest>): void {
   const request = event.data;
   if (request.kind !== 'serialize') return;
-  void handleSerializeRequest(request);
+  // The catch-block's error report must never reject itself: an unhandled
+  // rejection here would surface as another worker failure upstream.
+  handleSerializeRequest(request).catch((error: unknown) => {
+    console.error(
+      '[workspace-serializer] failed to report the serialization error',
+      error,
+    );
+  });
 }
 
 messageTarget.onmessage = handleWorkerMessage;

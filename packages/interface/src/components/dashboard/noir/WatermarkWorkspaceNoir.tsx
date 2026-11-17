@@ -43,6 +43,7 @@ import {
   suggestSmartPlacement,
 } from '../watermark/watermark-core.js';
 import { renderWatermarkAsset } from '../watermark/watermarkRenderer';
+import { ensureDirectPageUrl } from '../../../pages/dashboard/hooks/image-collection';
 import { loadImageFromSource } from '../../../utils/dashboard.utils';
 import { getApiConfig } from '../../../config/api';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
@@ -347,6 +348,8 @@ const WatermarkWorkspaceNoir = ({
     () => images.find((i) => i.id === activeImageId) ?? images[0] ?? null,
     [activeImageId, images],
   );
+  const renderUrls = useMemo(() => new Map(images.map((img) => [img.id, ensureDirectPageUrl(img)])), [images]);
+  const activeStageUrl = activeImage ? (renderUrls.get(activeImage.id) ?? '') : '';
   const resultsById = useMemo(
     () => new Map(results.map((e) => [e.sourceImageId, e])),
     [results],
@@ -1152,7 +1155,7 @@ const WatermarkWorkspaceNoir = ({
                   return (
                     <button key={img.id} type="button" data-thumb-id={img.id} onClick={() => setActiveImageId(img.id)}
                       className={`relative h-16 w-14 shrink-0 overflow-hidden panel-cut-sm border transition-all duration-150 ${active ? 'border-crimson -translate-y-0.5 shadow-[3px_3px_0_rgba(255,46,99,0.3)]' : 'border-paper/12 hover:border-paper/30'}`}>
-                      <img src={resultsById.get(img.id)?.previewUrl ?? img.thumbnailUrl ?? img.url} alt={img.file.name} className="h-full w-full object-cover" />
+                      <img src={resultsById.get(img.id)?.previewUrl ?? img.thumbnailUrl ?? renderUrls.get(img.id) ?? ''} alt={img.file.name} className="h-full w-full object-cover" />
                       <span className="absolute bottom-0 left-0 bg-ink/80 px-1 py-0.5 font-mono text-[8px] font-bold text-crimson">{i + 1}</span>
                       {textZoneCache[img.id] && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-mint animate-blink" aria-hidden="true" />}
                     </button>
@@ -1166,7 +1169,7 @@ const WatermarkWorkspaceNoir = ({
                   {activeImage && (
                     compareMode === 'split' && previewUrl ? (
                       <div className="relative inline-block">
-                        <img src={activeImage.url} alt={t('watermark.preview.original')} className="block panel-cut-sm border border-paper/10 shadow-[6px_6px_0_rgba(0,0,0,0.4)]" />
+                        <img src={activeStageUrl} alt={t('watermark.preview.original')} className="block panel-cut-sm border border-paper/10 shadow-[6px_6px_0_rgba(0,0,0,0.4)]" />
                         <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - compareValue}% 0 0)` }}>
                           <img src={previewUrl} alt={t('watermark.preview.watermark')} className="block panel-cut-sm" />
                         </div>
@@ -1182,7 +1185,7 @@ const WatermarkWorkspaceNoir = ({
                       </div>
                     ) : (
                       <div className="relative inline-block">
-                        <img src={previewUrl ?? activeImage.url} alt={t('watermark.panel.preview')} className="block panel-cut-sm border border-paper/10 shadow-[6px_6px_0_rgba(0,0,0,0.4)]" />
+                        <img src={previewUrl ?? activeStageUrl} alt={t('watermark.panel.preview')} className="block panel-cut-sm border border-paper/10 shadow-[6px_6px_0_rgba(0,0,0,0.4)]" />
                         {showTextZoneOverlay && activeTextZones.length > 0 && (
                           <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${activeImage.width} ${activeImage.height}`} preserveAspectRatio="xMidYMid meet">
                             {activeTextZones.map((zone) => (<rect key={zone.id} x={zone.bbox[0]} y={zone.bbox[1]} width={zone.bbox[2] - zone.bbox[0]} height={zone.bbox[3] - zone.bbox[1]} fill="rgba(62,242,176,0.12)" stroke="#3ef2b0" strokeWidth={2} strokeDasharray="6 4" />))}

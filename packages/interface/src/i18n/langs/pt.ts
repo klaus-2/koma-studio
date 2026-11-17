@@ -131,6 +131,7 @@ export const ptMessages: TranslationCatalog = {
   'settings.app.performance.preload.off': 'Desligado',
   'settings.app.performance.preload.save': 'Salvar ajustes de pré-carregamento',
   'settings.app.performance.preload.saved': 'Ajustes de pré-carregamento atualizados.',
+  'settings.app.performance.preload.failed': 'Falha ao salvar ajustes de pré-carregamento.',
   'settings.general.profile.title': 'Perfil',
   'settings.general.profile.desc':
     'Informações da sua conta e preferências globais.',
