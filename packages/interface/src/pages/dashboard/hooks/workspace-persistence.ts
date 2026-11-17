@@ -27,6 +27,7 @@ import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { useWorkspacePersistenceStore } from '../stores/workspace-persistence-store';
+import { isInteractionActive } from '../../../utils/interactionGate';
 import {
   markWorkspaceRenderSizesMigrated,
   shouldMigrateWorkspaceRenderSizes,
@@ -500,17 +501,7 @@ export function useWorkspacePersistence({
     }
 
     persistence.workspaceAutosaveInterval = window.setInterval(() => {
-      const tick = useWorkspacePersistenceStore.getState();
-      if (!tick.workspaceAutosaveDirty) return;
-      if (useUiShellStore.getState().processing) return;
-      if (workspaceHistory.isRestoringRef.current) return;
-      if (tick.workspaceAutosaveSaving) return;
-
-      void tick.saveWorkspaceAutosaveImpl().then((saved) => {
-        if (saved) {
-          useWorkspacePersistenceStore.getState().workspaceAutosaveDirty = false;
-        }
-      });
+      runWorkspaceAutosaveTick(workspaceHistory.isRestoringRef.current);
     }, workspaceAutosaveSettings.intervalSeconds * 1000);
 
     return () => {
@@ -566,4 +557,26 @@ export function useWorkspacePersistence({
     handleWorkspaceRedo,
     handleWorkspaceManualSave,
   };
+}
+
+/**
+ * One autosave interval tick, module-level so tests can drive it directly.
+ * The interaction gate is the LAST guard: a skip while interaction is active
+ * must not touch workspaceAutosaveDirty — it stays set (the change signal set
+ * it) so the next tick after release saves. Flush-on-hide, unmount-flush and
+ * manual save do not go through this function.
+ */
+export function runWorkspaceAutosaveTick(isRestoring: boolean): void {
+  const tick = useWorkspacePersistenceStore.getState();
+  if (!tick.workspaceAutosaveDirty) return;
+  if (useUiShellStore.getState().processing) return;
+  if (isRestoring) return;
+  if (tick.workspaceAutosaveSaving) return;
+  if (isInteractionActive()) return;
+
+  void tick.saveWorkspaceAutosaveImpl().then((saved) => {
+    if (saved) {
+      useWorkspacePersistenceStore.getState().workspaceAutosaveDirty = false;
+    }
+  });
 }
