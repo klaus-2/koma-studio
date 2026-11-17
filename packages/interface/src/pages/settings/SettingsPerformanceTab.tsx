@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 import type { useI18n } from "../../i18n";
 import type { WorkspaceAutosaveSettings } from "../../utils/workspaceAutosaveSettings";
+import type { WorkspacePreloadSettings } from "../../utils/workspacePreloadSettings";
 import type { MiniBackendThreadSettings } from "../../utils/miniBackendThreadSettings";
 import type {
   MiniBackendTunablesSaveStatus,
@@ -23,6 +24,11 @@ interface SettingsPerformanceTabArgs {
   setWorkspaceAutosaveFeedback: Dispatch<SetStateAction<WorkspaceAutosaveFeedbackState>>;
   workspaceAutosaveFeedback: WorkspaceAutosaveFeedbackState;
   handleSaveWorkspaceAutosaveSettings: () => void;
+  workspacePreloadSettings: WorkspacePreloadSettings;
+  setWorkspacePreloadSettings: Dispatch<SetStateAction<WorkspacePreloadSettings>>;
+  setWorkspacePreloadFeedback: Dispatch<SetStateAction<WorkspaceAutosaveFeedbackState>>;
+  workspacePreloadFeedback: WorkspaceAutosaveFeedbackState;
+  handleSaveWorkspacePreloadSettings: () => void;
   miniBackendThreadSettings: MiniBackendThreadSettings;
   setMiniBackendIntraOpThreads: (value: number | null) => void;
   miniBackendHardwareConcurrency: number | null;
@@ -39,6 +45,11 @@ export const renderSettingsPerformanceTab = ({
   setWorkspaceAutosaveFeedback,
   workspaceAutosaveFeedback,
   handleSaveWorkspaceAutosaveSettings,
+  workspacePreloadSettings,
+  setWorkspacePreloadSettings,
+  setWorkspacePreloadFeedback,
+  workspacePreloadFeedback,
+  handleSaveWorkspacePreloadSettings,
   miniBackendThreadSettings,
   setMiniBackendIntraOpThreads,
   miniBackendHardwareConcurrency,
@@ -206,7 +217,64 @@ export const renderSettingsPerformanceTab = ({
           {t("settings.app.performance.threads.restartHint")}
         </p>
       </div>
+
+      <div className="koma-stg-item">
+        <span className="koma-stg-item__label">{t("settings.app.performance.preload.label")}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+          <input
+            type="number"
+            min={0}
+            max={8}
+            step={1}
+            className="koma-ig-field__input"
+            value={workspacePreloadSettings.archivePreloadPages}
+            onChange={(e) => {
+              setWorkspacePreloadFeedback(null);
+              const parsed = Math.round(Number(e.target.value));
+              setWorkspacePreloadSettings((prev) => ({
+                ...prev,
+                archivePreloadPages: Number.isFinite(parsed)
+                  ? Math.min(8, Math.max(0, parsed))
+                  : prev.archivePreloadPages,
+              }));
+            }}
+            style={{ maxWidth: 140, height: 32 }}
+          />
+          <span className="koma-stg-item__value">
+            {workspacePreloadSettings.archivePreloadPages === 0
+              ? t("settings.app.performance.preload.off")
+              : `${workspacePreloadSettings.archivePreloadPages}`}
+          </span>
+        </div>
+        <p className="koma-stg-section__desc" style={{ marginTop: 8 }}>
+          {t("settings.app.performance.preload.desc")}
+        </p>
+      </div>
     </div>
+
+    <div className="koma-stg-actions koma-stg-actions--row" style={{ marginTop: 18 }}>
+      <button
+        type="button"
+        className="koma-btn koma-btn--primary koma-btn--sm"
+        onClick={handleSaveWorkspacePreloadSettings}
+      >
+        {t("settings.app.performance.preload.save")}
+      </button>
+    </div>
+
+    {workspacePreloadFeedback && (
+      <div
+        className={`koma-stg-alert ${workspacePreloadFeedback.type === "error" ? "koma-stg-alert--error" : "koma-stg-alert--success"}`}
+        role={workspacePreloadFeedback.type === "error" ? "alert" : "status"}
+      >
+        {workspacePreloadFeedback.type === "error" ? (
+          <AlertTriangle size={11} />
+        ) : (
+          <CheckCircle2 size={11} />
+        )}
+        <span>{workspacePreloadFeedback.message}</span>
+      </div>
+    )}
   </section>
 
   {/* Sidecar Tunables */}

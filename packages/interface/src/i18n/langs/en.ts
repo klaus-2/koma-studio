@@ -129,6 +129,12 @@ export const enMessages = {
   'settings.app.performance.tunables.saved': 'Engine settings saved.',
   'settings.app.performance.tunables.failed': 'Failed to deliver the engine settings to the local backend.',
   'settings.app.performance.tunables.restartHint': 'Applies after the local backend restarts.',
+  'settings.app.performance.preload.label': 'Archive page prefetch',
+  'settings.app.performance.preload.desc':
+    'Prepares the next pages of an archive while the app is idle so entering the view is instant. 0 turns it off.',
+  'settings.app.performance.preload.off': 'Off',
+  'settings.app.performance.preload.save': 'Save prefetch settings',
+  'settings.app.performance.preload.saved': 'Prefetch settings updated.',
   'settings.general.profile.title': 'Profile',
   'settings.general.profile.desc':
     'Your account information and global preferences.',

@@ -10,6 +10,11 @@ import {
   saveWorkspaceAutosaveSettings,
   type WorkspaceAutosaveSettings,
 } from '../../../utils/workspaceAutosaveSettings';
+import {
+  loadWorkspacePreloadSettings,
+  saveWorkspacePreloadSettings,
+  type WorkspacePreloadSettings,
+} from '../../../utils/workspacePreloadSettings';
 import type {
   LocalResetFeedbackState,
   WorkspaceAutosaveFeedbackState,
@@ -31,6 +36,12 @@ export const useSettingsAppPreferences = ({ t }: UseSettingsAppPreferencesArgs) 
     useState<LocalResetFeedbackState>(null);
   const [workspaceAutosaveFeedback, setWorkspaceAutosaveFeedback] =
     useState<WorkspaceAutosaveFeedbackState>(null);
+  const [workspacePreloadSettings, setWorkspacePreloadSettings] =
+    useState<WorkspacePreloadSettings>(() =>
+      loadWorkspacePreloadSettings(),
+    );
+  const [workspacePreloadFeedback, setWorkspacePreloadFeedback] =
+    useState<WorkspaceAutosaveFeedbackState>(null);
   const { enabled: toolTipsEnabled, setEnabled: setToolTipsEnabled } =
     useToolTips();
   const { enabled: customCursorEnabled, setEnabled: setCustomCursorEnabled } =
@@ -44,6 +55,15 @@ export const useSettingsAppPreferences = ({ t }: UseSettingsAppPreferencesArgs) 
       message: t("settings.app.autosave.success"),
     });
   }, [t, workspaceAutosaveSettings]);
+
+  const handleSaveWorkspacePreloadSettings = useCallback(() => {
+    const saved = saveWorkspacePreloadSettings(workspacePreloadSettings);
+    setWorkspacePreloadSettings(saved);
+    setWorkspacePreloadFeedback({
+      type: "success",
+      message: t("settings.app.performance.preload.saved"),
+    });
+  }, [t, workspacePreloadSettings]);
 
   const handleResetLocalAppSettings = useCallback(async () => {
     const confirmed = window.confirm(t("settings.app.reset.confirm"));
@@ -90,6 +110,11 @@ export const useSettingsAppPreferences = ({ t }: UseSettingsAppPreferencesArgs) 
     setWorkspaceAutosaveFeedback,
     workspaceAutosaveFeedback,
     handleSaveWorkspaceAutosaveSettings,
+    workspacePreloadSettings,
+    setWorkspacePreloadSettings,
+    setWorkspacePreloadFeedback,
+    workspacePreloadFeedback,
+    handleSaveWorkspacePreloadSettings,
     toolTipsEnabled,
     setToolTipsEnabled,
     customCursorEnabled,

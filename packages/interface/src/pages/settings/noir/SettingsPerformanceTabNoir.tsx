@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { Save, Timer, Zap } from "lucide-react";
 import type { useI18n } from "../../../i18n";
 import type { WorkspaceAutosaveSettings } from "../../../utils/workspaceAutosaveSettings";
+import type { WorkspacePreloadSettings } from "../../../utils/workspacePreloadSettings";
 import type { MiniBackendThreadSettings } from "../../../utils/miniBackendThreadSettings";
 import type {
   MiniBackendTunablesSaveStatus,
@@ -24,6 +25,11 @@ interface SettingsPerformanceTabArgs {
   setWorkspaceAutosaveFeedback: Dispatch<SetStateAction<WorkspaceAutosaveFeedbackState>>;
   workspaceAutosaveFeedback: WorkspaceAutosaveFeedbackState;
   handleSaveWorkspaceAutosaveSettings: () => void;
+  workspacePreloadSettings: WorkspacePreloadSettings;
+  setWorkspacePreloadSettings: Dispatch<SetStateAction<WorkspacePreloadSettings>>;
+  setWorkspacePreloadFeedback: Dispatch<SetStateAction<WorkspaceAutosaveFeedbackState>>;
+  workspacePreloadFeedback: WorkspaceAutosaveFeedbackState;
+  handleSaveWorkspacePreloadSettings: () => void;
   miniBackendThreadSettings: MiniBackendThreadSettings;
   setMiniBackendIntraOpThreads: (value: number | null) => void;
   miniBackendHardwareConcurrency: number | null;
@@ -117,6 +123,42 @@ export const renderSettingsPerformanceTabNoir = (a: SettingsPerformanceTabArgs):
         <p className="mt-2 font-mono text-[9px] uppercase tracking-wider text-paper/40">
           {t("settings.app.performance.threads.restartHint")}
         </p>
+
+        <div className="mt-4 flex flex-wrap items-end gap-4">
+          <Field label={t("settings.app.performance.preload.label")} className="w-40">
+            <input type="number" min={0} max={8} step={1} className={inputCls}
+              value={a.workspacePreloadSettings.archivePreloadPages}
+              onChange={(e) => {
+                a.setWorkspacePreloadFeedback(null);
+                const parsed = Math.round(Number(e.target.value));
+                a.setWorkspacePreloadSettings((prev) => ({
+                  ...prev,
+                  archivePreloadPages: Number.isFinite(parsed)
+                    ? Math.min(8, Math.max(0, parsed))
+                    : prev.archivePreloadPages,
+                }));
+              }} />
+          </Field>
+          <span className="pb-2 font-mono text-[11px] font-bold text-gold">
+            {a.workspacePreloadSettings.archivePreloadPages === 0
+              ? t("settings.app.performance.preload.off")
+              : String(a.workspacePreloadSettings.archivePreloadPages)}
+          </span>
+          <button type="button" className={btnPrimary} onClick={a.handleSaveWorkspacePreloadSettings}>
+            {t("settings.app.performance.preload.save")}
+          </button>
+        </div>
+        <p className="mt-2 font-mono text-[9px] uppercase tracking-wider text-paper/40">
+          {t("settings.app.performance.preload.desc")}
+        </p>
+
+        {a.workspacePreloadFeedback && (
+          <div className="mt-3">
+            <Alert tone={a.workspacePreloadFeedback.type === "error" ? "error" : "success"}>
+              {a.workspacePreloadFeedback.message}
+            </Alert>
+          </div>
+        )}
       </Sec>
 
       {/* ═══ SIDECAR TUNABLES ═══ */}

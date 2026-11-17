@@ -125,6 +125,12 @@ export const ptMessages: TranslationCatalog = {
   'settings.app.performance.tunables.saved': 'Ajustes do motor salvos.',
   'settings.app.performance.tunables.failed': 'Falha ao entregar os ajustes do motor ao backend local.',
   'settings.app.performance.tunables.restartHint': 'Aplica após o backend local reiniciar.',
+  'settings.app.performance.preload.label': 'Pré-carregamento de páginas de arquivo',
+  'settings.app.performance.preload.desc':
+    'Prepara as próximas páginas de um arquivo enquanto o app está ocioso para que a entrada na visualização seja instantânea. 0 desliga.',
+  'settings.app.performance.preload.off': 'Desligado',
+  'settings.app.performance.preload.save': 'Salvar ajustes de pré-carregamento',
+  'settings.app.performance.preload.saved': 'Ajustes de pré-carregamento atualizados.',
   'settings.general.profile.title': 'Perfil',
   'settings.general.profile.desc':
     'Informações da sua conta e preferências globais.',

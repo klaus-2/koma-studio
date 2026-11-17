@@ -46,6 +46,8 @@ import { useExportStore } from '../stores/export-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useNonPassiveWheel } from '../../../hooks/useNonPassiveWheel';
 import { usePageUrlWindow } from '../hooks/usePageUrlWindow';
+import { useArchivePagePreload } from '../hooks/useArchivePagePreload';
+import type { VisiblePageRange } from '../hooks/usePageUrlWindow';
 import type { AioPipelineSnapshotKey } from '../../../types/dashboard.types';
 import type { TypographyShapeKind } from '../../../typography/types';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
@@ -113,10 +115,23 @@ function DashboardStageSection({
   // Offscreen direct-page URL eviction (GATE-3): the window follows the
   // stage's virtualizer range; below the 5-item threshold the grid renders
   // without virtualization and no range is reported (no eviction).
-  const { onVisibleRangeChange } = usePageUrlWindow({
+  const { onVisibleRangeChange: onEvictionRangeChange } = usePageUrlWindow({
     images,
     activeImageId: resolvedActiveId,
   });
+
+  // Archive page idle prefetch consumes the same virtualizer range.
+  const { onVisibleRangeChange: onPreloadRangeChange } = useArchivePagePreload({
+    images,
+  });
+
+  const onVisibleRangeChange = useCallback(
+    (range: VisiblePageRange): void => {
+      onEvictionRangeChange(range);
+      onPreloadRangeChange(range);
+    },
+    [onEvictionRangeChange, onPreloadRangeChange],
+  );
 
   // ── Stage-owned store slices ──
   const trackAioMaps = needsAioRegionMaps(mode);
