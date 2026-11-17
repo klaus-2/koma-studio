@@ -23,7 +23,11 @@ import type { LoadedImage } from '../../types/dashboard.types';
 const makeImage = (id: string, withUrl: boolean, withThumb = false): LoadedImage =>
   ({
     id,
-    file: { kind: 'direct', name: `${id}.png` },
+    file: {
+      kind: 'direct',
+      name: `${id}.png`,
+      resident: new File([id], `${id}.png`, { type: 'image/png' }),
+    },
     url: withUrl ? `blob:${id}` : '',
     ...(withThumb ? { thumbnailUrl: `blob:thumb-${id}` } : {}),
     width: 800,
@@ -31,6 +35,23 @@ const makeImage = (id: string, withUrl: boolean, withThumb = false): LoadedImage
     rotation: 0,
     filters: {},
   }) as unknown as LoadedImage;
+
+const makeArchiveImage = (id: string): LoadedImage =>
+  ({
+    id,
+    file: { kind: 'archive', name: `${id}.png` },
+    url: '',
+    width: 0,
+    height: 0,
+    rotation: 0,
+    filters: {},
+  }) as unknown as LoadedImage;
+
+// jsdom may lack URL.createObjectURL depending on the runtime wiring; the
+// hydration pump re-creates evicted direct-page URLs through it.
+if (typeof URL.createObjectURL !== 'function') {
+  URL.createObjectURL = (): string => '';
+}
 
 const flush = async (): Promise<void> => {
   await Promise.resolve();
@@ -50,7 +71,10 @@ describe('useSidebarThumbnailHydration (T12 contract)', () => {
     setThumbnailUrl.mockClear();
   });
 
-  it('generates thumbnails only for resident-URL images lacking one', async () => {
+  it('generates thumbnails for live-URL images and re-creates evicted direct URLs', async () => {
+    const createObjectURL = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValue('blob:recreated-c');
     const images = [
       makeImage('a', true),
       makeImage('b', true, true),
@@ -58,10 +82,22 @@ describe('useSidebarThumbnailHydration (T12 contract)', () => {
     ];
     renderHook(() => useSidebarThumbnailHydration({ images, setThumbnailUrl }));
     await flush();
-    expect(thumbnailCalls).toHaveLength(1);
+    expect(thumbnailCalls).toHaveLength(2);
     expect(thumbnailCalls[0]?.url).toBe('blob:a');
+    expect(thumbnailCalls[1]?.url).toBe('blob:recreated-c');
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
     await flush();
     expect(setThumbnailUrl).toHaveBeenCalledWith('a', 'blob:generated');
+    expect(setThumbnailUrl).toHaveBeenCalledWith('c', 'blob:generated');
+    createObjectURL.mockRestore();
+  });
+
+  it('skips archive pages without URLs', async () => {
+    const images = [makeImage('live', true), makeArchiveImage('arch')];
+    renderHook(() => useSidebarThumbnailHydration({ images, setThumbnailUrl }));
+    await flush();
+    expect(thumbnailCalls).toHaveLength(1);
+    expect(thumbnailCalls[0]?.url).toBe('blob:live');
   });
 
   it('dedupes the queue across re-renders with fresh array identities', async () => {

@@ -8,6 +8,7 @@ interface DashboardStageGridProps {
   itemCount: number;
   renderStageItem: (index: number) => React.ReactNode;
   itemKey: (index: number) => string;
+  onVisibleRangeChange?: (range: { start: number; end: number }) => void;
 }
 
 const DashboardStageGrid = ({
@@ -15,6 +16,7 @@ const DashboardStageGrid = ({
   itemCount,
   renderStageItem,
   itemKey,
+  onVisibleRangeChange,
 }: DashboardStageGridProps) => {
   if (itemCount === 0) return null;
 
@@ -32,6 +34,7 @@ const DashboardStageGrid = ({
         enabled={true}
         itemKey={itemKey}
         renderItem={renderStageItem}
+        onVisibleRangeChange={onVisibleRangeChange}
       />
     );
   }

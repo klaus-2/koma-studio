@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   CSSProperties,
   FocusEvent,
@@ -21,6 +21,10 @@ export interface VirtualizedLongStripProps {
   readonly enabled?: boolean;
   readonly height?: CSSProperties["height"];
   readonly ariaLabel?: string;
+  readonly onVisibleRangeChange?: (range: {
+    start: number;
+    end: number;
+  }) => void;
 }
 
 export interface VirtualizedLongStripBaseProps
@@ -90,6 +94,7 @@ export function VirtualizedLongStripBase({
   enabled = true,
   height = "min(100dvh, 60rem)",
   ariaLabel = "Pages",
+  onVisibleRangeChange,
   variant,
 }: VirtualizedLongStripBaseProps): ReactElement {
   assertConfiguration(itemCount, estimatedItemHeight, overscan);
@@ -146,6 +151,16 @@ export function VirtualizedLongStripBase({
     );
   };
 
+  const virtualItems = enabled ? virtualizer.getVirtualItems() : [];
+  const firstVisibleIndex = virtualItems[0]?.index ?? null;
+  const lastVisibleIndex = virtualItems.at(-1)?.index ?? null;
+
+  useEffect(() => {
+    if (onVisibleRangeChange === undefined) return;
+    if (firstVisibleIndex === null || lastVisibleIndex === null) return;
+    onVisibleRangeChange({ start: firstVisibleIndex, end: lastVisibleIndex });
+  }, [onVisibleRangeChange, firstVisibleIndex, lastVisibleIndex]);
+
   const handleBlur = (event: FocusEvent<HTMLDivElement>): void => {
     if (
       event.relatedTarget instanceof Node &&
@@ -187,7 +202,7 @@ export function VirtualizedLongStripBase({
     >
       <ol role="list" style={listStyle}>
         {enabled
-          ? virtualizer.getVirtualItems().map((item) => (
+          ? virtualItems.map((item) => (
             <li
               key={item.key}
               ref={virtualizer.measureElement}

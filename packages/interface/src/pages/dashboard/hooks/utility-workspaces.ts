@@ -58,6 +58,10 @@ export function useStitchWorkspace() {
     (s) => s.setStitchSelectedBatchIndex,
   );
 
+  // `url` may be '' here (offscreen-evicted direct page — the same state
+  // archive pages always carry; byte materialization goes through
+  // file.toBlob() at the worker-job boundary). A new reader of this field
+  // must resolve it through ensureDirectPageUrl (image-collection).
   const stitchImages = useMemo<StitchImageInput[]>(
     () =>
       images.map((image) => ({
@@ -197,6 +201,8 @@ export function useUtilitySplitterController({
     [setSplitterWorkspaceState],
   );
 
+  // Same `url` contract as stitchImages: '' is the evicted/archive state;
+  // resolve through ensureDirectPageUrl before ever consuming it.
   const splitterImages = useMemo<SplitterImageInput[]>(
     () =>
       images.map((image) => ({

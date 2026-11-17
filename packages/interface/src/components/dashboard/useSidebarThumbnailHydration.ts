@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import { getOrCreateThumbnailForPage } from '../../utils/getOrCreateThumbnail';
 import type { LoadedImage } from '../../types/dashboard.types';
+import { ensureDirectPageUrl } from '../../pages/dashboard/hooks/image-collection';
 
 interface UseSidebarThumbnailHydrationArgs {
   images: readonly LoadedImage[];
@@ -25,7 +26,7 @@ const pumpHydration = (
     if (inFlightIds.has(next.id)) continue;
     inFlightIds.add(next.id);
     activeHydrationJobs += 1;
-    void getOrCreateThumbnailForPage(next.file, next.url)
+    void getOrCreateThumbnailForPage(next.file, ensureDirectPageUrl(next))
       .then((thumbnailUrl) => {
         if (thumbnailUrl === null) {
           attemptCounts.set(next.id, (attemptCounts.get(next.id) ?? 0) + 1);
@@ -52,7 +53,9 @@ export const useSidebarThumbnailHydration = ({
   useEffect(() => {
     const pending = images.filter(
       (img) =>
-        img.url &&
+        // Direct pages qualify even with an evicted ('') URL: the pump
+        // re-creates it synchronously. Archive pages have no URL by design.
+        (img.url !== '' || img.file.kind === 'direct') &&
         !img.thumbnailUrl &&
         !queuedIds.has(img.id) &&
         (attemptCounts.get(img.id) ?? 0) < MAX_ATTEMPTS_PER_IMAGE,

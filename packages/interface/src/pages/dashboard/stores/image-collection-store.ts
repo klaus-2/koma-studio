@@ -30,6 +30,7 @@ interface ImageCollectionStore {
     imageId: string,
     dimensions: { width: number; height: number },
   ) => void;
+  updateImageUrl: (imageId: string, url: string) => void;
 }
 
 const withoutChapter = (image: LoadedImage): LoadedImage => {
@@ -162,6 +163,18 @@ export const useImageCollectionStore = create<ImageCollectionStore>()(
                     height: dimensions.height,
                   }
                 : img,
+            ),
+          };
+        }),
+      updateImageUrl: (imageId, url) =>
+        set((state) => {
+          const target = state.images.find((img) => img.id === imageId);
+          if (!target || target.url === url) {
+            return state;
+          }
+          return {
+            images: state.images.map((img) =>
+              img.id === imageId ? { ...img, url } : img,
             ),
           };
         }),

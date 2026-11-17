@@ -453,6 +453,24 @@ interface UseDashboardImageCollectionArgs {
 }
 
 /**
+ * Synchronous re-create-on-demand for evicted direct-page URLs.
+ *
+ * Invariant: a direct page's resident File is retained for the image's whole
+ * life (page-source `release()` is a no-op for direct pages), so a revoked
+ * URL is always re-creatable. An evicted page (`url === ''`) reaching a
+ * render path is filled here — an idempotent cache fill — and the store is
+ * patched so ownership (revoke-on-remove) stays with the collection. Archive
+ * pages keep `url === ''` by design; their previews resolve their own URLs.
+ */
+export const ensureDirectPageUrl = (img: LoadedImage): string => {
+  if (img.url !== '') return img.url;
+  if (img.file.kind !== 'direct') return img.url;
+  const url = URL.createObjectURL(img.file.resident);
+  useImageCollectionStore.getState().updateImageUrl(img.id, url);
+  return url;
+};
+
+/**
  * Pure preview-src resolution shared by the dashboard's `getPreviewSrc`
  * callback and the compare-review overlay (which renders the exact same
  * base image as the render stage without a hook-bound callback).
@@ -461,7 +479,9 @@ export const resolveImagePreviewSrc = (
   img: LoadedImage,
   mode: ToolMode,
 ): string => {
-  if (INFO_MODES.includes(mode)) return img.thumbnailUrl ?? img.url;
+  if (INFO_MODES.includes(mode)) {
+    return img.thumbnailUrl ?? ensureDirectPageUrl(img);
+  }
   const manualToolsState = useManualToolsStore.getState();
   const cleanerState = useCleanerStore.getState();
   const translatorState = useTranslatorStore.getState();
@@ -487,9 +507,9 @@ export const resolveImagePreviewSrc = (
       (item) => item.scope === mode && item.sourceImageId === img.id,
     );
   if (mode === 'raw') {
-    return scopedDownload?.previewUrl ?? img.thumbnailUrl ?? img.url;
+    return scopedDownload?.previewUrl ?? img.thumbnailUrl ?? ensureDirectPageUrl(img);
   }
-  return scopedDownload?.previewUrl ?? img.url;
+  return scopedDownload?.previewUrl ?? ensureDirectPageUrl(img);
 };
 
 export function useDashboardImageCollection({

@@ -45,6 +45,7 @@ import { useCleanerStore } from '../stores/cleaner-store';
 import { useExportStore } from '../stores/export-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useNonPassiveWheel } from '../../../hooks/useNonPassiveWheel';
+import { usePageUrlWindow } from '../hooks/usePageUrlWindow';
 import type { AioPipelineSnapshotKey } from '../../../types/dashboard.types';
 import type { TypographyShapeKind } from '../../../typography/types';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
@@ -108,6 +109,14 @@ function DashboardStageSection({
   // listener is attached directly as non-passive instead.
   const stageRef = useRef<HTMLElement>(null);
   useNonPassiveWheel(stageRef, handleStageWheelZoom, true);
+
+  // Offscreen direct-page URL eviction (GATE-3): the window follows the
+  // stage's virtualizer range; below the 5-item threshold the grid renders
+  // without virtualization and no range is reported (no eviction).
+  const { onVisibleRangeChange } = usePageUrlWindow({
+    images,
+    activeImageId: resolvedActiveId,
+  });
 
   // ── Stage-owned store slices ──
   const trackAioMaps = needsAioRegionMaps(mode);
@@ -618,6 +627,7 @@ function DashboardStageSection({
               itemCount={images.length}
               itemKey={stageItemKey}
               renderStageItem={renderStageItem}
+              onVisibleRangeChange={onVisibleRangeChange}
             />
           </Suspense>
         </div>
