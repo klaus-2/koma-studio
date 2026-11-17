@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { buildWorkspaceCaptureState } from './workspace-persistence.registry';
 import {
+  buildWorkspaceAutosaveSignature,
   buildWorkspaceHistorySignature,
   captureWorkspaceHistorySnapshot,
   releaseWorkspaceHistorySnapshot,
   type DashboardWorkspaceHistorySnapshot,
 } from '../../../workspace/dashboardWorkspace';
+import { runWorkspaceSerialization } from '../../../workspace/workspaceSerializerJob';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useTypographerStore } from '../stores/typographer-store';
@@ -260,13 +262,15 @@ interface DepthSample {
   readonly snapshotMeanMs: number;
   readonly signatureMeanMs: number;
   readonly tickMeanMs: number;
+  readonly serializeFallbackMeanMs: number;
   readonly retainedMB: number;
 }
 
-const runDepthSample = (depth: number): DepthSample => {
+const runDepthSample = async (depth: number): Promise<DepthSample> => {
   const captureTimes: number[] = [];
   const snapshotTimes: number[] = [];
   const signatureTimes: number[] = [];
+  const serializeFallbackTimes: number[] = [];
   const retained: DashboardWorkspaceHistorySnapshot[] = [];
 
   for (let iteration = 0; iteration < depth + WARMUP_ITERATIONS; iteration += 1) {
@@ -278,16 +282,24 @@ const runDepthSample = (depth: number): DepthSample => {
     const snapshotEnd = performance.now();
     const signature = buildWorkspaceHistorySignature(captureState);
     const signatureEnd = performance.now();
+    // Serializer-bridge fallback reference: capture + both save-time signatures
+    // on the main thread (jsdom has no Worker, so the bridge always degrades).
+    const serializeStart = performance.now();
+    const serialized = await runWorkspaceSerialization(captureState);
+    const serializeEnd = performance.now();
 
     if (!warmup) {
       captureTimes.push(captureEnd - captureStart);
       snapshotTimes.push(snapshotEnd - captureEnd);
       signatureTimes.push(signatureEnd - snapshotEnd);
+      serializeFallbackTimes.push(serializeEnd - serializeStart);
       retained.push(snapshot);
     } else {
       releaseWorkspaceHistorySnapshot(snapshot);
     }
     expect(signature.length).toBeGreaterThan(0);
+    expect(serialized.autosaveSignature).toBe(buildWorkspaceAutosaveSignature(captureState));
+    expect(serialized.historySignature).toBe(buildWorkspaceHistorySignature(captureState));
   }
 
   const retainedBytes = retained.reduce(
@@ -309,17 +321,31 @@ const runDepthSample = (depth: number): DepthSample => {
     snapshotMeanMs,
     signatureMeanMs,
     tickMeanMs: captureMeanMs + signatureMeanMs,
+    serializeFallbackMeanMs: mean(serializeFallbackTimes),
     retainedMB:
       Math.round((retainedBytes / (1024 * 1024)) * 100) / 100,
   };
 };
 
 describe('perf-history-footprint (F3 probe, plan T1)', () => {
-  it('measures capture/snapshot/serialize tick cost and retained MB per history depth', () => {
+  it('measures capture/snapshot/serialize tick cost and retained MB per history depth', async () => {
     seedWorkspaceStores();
     try {
-      const samples = HISTORY_DEPTHS.map((depth) => runDepthSample(depth));
+      const samples: DepthSample[] = [];
+      for (const depth of HISTORY_DEPTHS) {
+        samples.push(await runDepthSample(depth));
+      }
       console.log(`PERF_HISTORY_FOOTPRINT ${JSON.stringify({ samples })}`);
+      // Serializer-worker A/B reference (Task 6 assembles the JSON from this
+      // output): main-thread cost of the shared serialization sequence.
+      console.log(`PERF_WORKSPACE_SERIALIZE ${JSON.stringify({
+        fixture: {
+          pages: PAGE_COUNT,
+          regionsPerPage: REGIONS_PER_PAGE,
+          paintLayerChars: PAINT_LAYER_CHARS,
+        },
+        samples,
+      })}`);
 
       for (const sample of samples) {
         expect(sample.retainedMB, `retained MB at depth ${sample.depth}`).toBeGreaterThan(0);
@@ -336,5 +362,5 @@ describe('perf-history-footprint (F3 probe, plan T1)', () => {
     } finally {
       clearWorkspaceStores();
     }
-  });
+  }, 30_000);
 });

@@ -22,6 +22,7 @@ import {
   type DashboardWorkspaceCaptureState,
   type DashboardWorkspaceHistorySnapshot,
 } from '../../../workspace/dashboardWorkspace';
+import { runWorkspaceSerialization } from '../../../workspace/workspaceSerializerJob';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useStatusStore } from '../stores/status-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
@@ -159,13 +160,12 @@ export function useWorkspacePersistence({
         buildCurrentWorkspaceCaptureState();
       setWorkspaceStatus('saving');
       setWorkspaceStatusDetail(t('dashboard.footer.workspace.saving'));
-      const payload = await captureWorkspaceDocument(captureState);
+      const { payload, autosaveSignature } = await runWorkspaceSerialization(captureState);
       await desktopWorkspace.saveAutosave({
         userId: authUser?.id ?? null,
         payload,
       });
-      useWorkspacePersistenceStore.getState().workspaceAutosaveSignature =
-        buildWorkspaceAutosaveSignature(captureState);
+      useWorkspacePersistenceStore.getState().workspaceAutosaveSignature = autosaveSignature;
       setWorkspaceStatus('saved');
       setWorkspaceStatusDetail(t('dashboard.status.saved'));
       setWorkspaceLastSavedAt(
@@ -226,8 +226,8 @@ export function useWorkspacePersistence({
       ) {
         return;
       }
-      void captureWorkspaceDocument(persistence.latestWorkspaceCaptureState)
-        .then((payload) => {
+      void runWorkspaceSerialization(persistence.latestWorkspaceCaptureState)
+        .then(({ payload }) => {
           desktopWorkspace.sendAutosave({
             userId: authUser?.id ?? null,
             payload,
@@ -246,7 +246,7 @@ export function useWorkspacePersistence({
       window.removeEventListener('beforeunload', sendDirtyAutosave);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [authUser?.id, captureWorkspaceDocument, workspaceAutosaveSettings.enabled]);
+  }, [authUser?.id, runWorkspaceSerialization, workspaceAutosaveSettings.enabled]);
 
   const exportCurrentWorkspace = useCallback(async () => {
     const desktopWorkspace = desktopBridge.desktop?.workspace;
