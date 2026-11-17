@@ -12,4 +12,4 @@ nvidia-nvtx-cu12
 # nvjitlink must be 12.3+: cusparse 12.2.0.103 imports __nvJitLink*_12_3
 # symbols that 12.2.x versions do not export — the CUDA provider fails with
 # WinError 1114/127. Verified with 12.3.101.
-nvidia-nvjitlink-cu12==12.3.101
+nvidia-nvjitlink-cu12==12.9.86
