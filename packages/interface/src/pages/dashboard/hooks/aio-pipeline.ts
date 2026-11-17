@@ -469,6 +469,34 @@ export function useAioPipelineExecution(
             consolidate([...batchResults], consolidateOptions);
           },
         });
+      // setAioDownloadItems replaces every prior `aio` download entry on each
+      // call, so each settle consolidation must pass the ACCUMULATED results:
+      // chunk-only results would revoke earlier chunks' cleaned previews.
+      const consolidateSettledResults = (
+        newResults: readonly AioBatchImageResult[],
+      ): void => {
+        if (newResults.length === 0) {
+          return;
+        }
+        if (
+          !mountedRef.current ||
+          useAioPipelineStore.getState().aioAbortController !==
+            executionController
+        ) {
+          return;
+        }
+        pauseSettledResults.push(...newResults);
+        consolidate([...pauseSettledResults], {
+          skipImageIds:
+            useAioBatchPauseStore.getState().pauseConsolidatedImageIds,
+          writeSnapshots: false,
+        });
+        useAioBatchPauseStore
+          .getState()
+          .recordPauseConsolidatedImageIds(
+            newResults.map((result) => result.imageId),
+          );
+      };
       if (prepared.useLocalBatchPipeline) {
         const localOptions: LocalAioBatchOptions = {
           sourceLanguage: options.sourceLanguage,
@@ -568,7 +596,7 @@ export function useAioPipelineExecution(
             },
             beforeChunk: runBatchPauseBoundaryAtBoundary,
             onChunkSettled: (chunkResults) => {
-              pauseSettledResults.push(...chunkResults);
+              consolidateSettledResults(chunkResults);
             },
           });
           results = localRun.results;
@@ -679,7 +707,7 @@ export function useAioPipelineExecution(
             beforeChapter: runBatchPauseBoundaryAtBoundary,
             onChapterSettled: (outcome) => {
               if (outcome.status !== 'failed') {
-                pauseSettledResults.push(...outcome.results);
+                consolidateSettledResults(outcome.results);
               }
             },
             onChapterStart: (chapter, index) => {
@@ -768,7 +796,7 @@ export function useAioPipelineExecution(
           },
           beforeItem: runBatchPauseBoundaryAtBoundary,
           onItemSettled: (value) => {
-            pauseSettledResults.push(value);
+            consolidateSettledResults([value]);
           },
         });
       }

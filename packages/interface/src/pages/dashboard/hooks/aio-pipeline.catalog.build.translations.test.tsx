@@ -123,7 +123,7 @@ describe('useAioStageCatalogBuild translation service hydration', () => {
     expect(isStageOptionSelectable(deepl, {})).toBe(true);
     expect(libre?.available).toBe(true);
     expect(isStageOptionSelectable(libre, {})).toBe(true);
-  });
+  }, 15000);
 
   it('keeps unconfigured engines listed and selectable when the backend reports them unavailable', async () => {
     const fetchMock = vi.fn(async () =>

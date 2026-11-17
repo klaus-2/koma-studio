@@ -531,9 +531,10 @@ describe('useAioPipelineExecution multi-chapter local run', () => {
     expect(mockedCapacity).not.toHaveBeenCalled();
     expect(mockedChunks.mock.calls[0]?.[0].capacity).toEqual(CAPACITY);
 
-    expect(consolidate).toHaveBeenCalledTimes(1);
+    // One settle consolidation per chapter plus the end-of-run consolidate.
+    expect(consolidate).toHaveBeenCalledTimes(3);
     expect(
-      consolidate.mock.calls[0]?.[0].map((result) => result.imageId),
+      consolidate.mock.calls.at(-1)?.[0].map((result) => result.imageId),
     ).toEqual(['img-0', 'img-1', 'img-2']);
     expect(progresses).toEqual([33, 83]);
     expect(statuses.at(-1)).toBe(
@@ -562,8 +563,10 @@ describe('useAioPipelineExecution multi-chapter local run', () => {
     await runProcess();
 
     expect(mockedChunks).toHaveBeenCalledTimes(2);
-    expect(consolidate).toHaveBeenCalledTimes(1);
-    const results = consolidate.mock.calls[0]?.[0] ?? [];
+    // The failed chapter never settles; the surviving chapter settles once,
+    // then the end-of-run consolidate runs on every result.
+    expect(consolidate).toHaveBeenCalledTimes(2);
+    const results = consolidate.mock.calls.at(-1)?.[0] ?? [];
     expect(results.map((result) => result.imageId)).toEqual([
       'img-0',
       'img-1',
@@ -607,9 +610,11 @@ describe('useAioPipelineExecution cloud branch', () => {
     await runProcess();
 
     expect(processImage).toHaveBeenCalledTimes(images.length);
-    expect(consolidate).toHaveBeenCalledTimes(1);
+    // img-0 and img-2 settle into per-item consolidations; img-1 fails on
+    // onItemError (never settles); the last call is the end-of-run consolidate.
+    expect(consolidate).toHaveBeenCalledTimes(3);
 
-    const results = consolidate.mock.calls[0]?.[0] ?? [];
+    const results = consolidate.mock.calls.at(-1)?.[0] ?? [];
     expect(results).toHaveLength(images.length);
     expect(results[0]).toMatchObject({
       imageId: 'img-0',
