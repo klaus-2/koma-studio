@@ -62,11 +62,11 @@ export const sanitizeMiniBackendThreadSettings = (
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { ...DEFAULT_MINI_BACKEND_THREAD_SETTINGS };
   }
-  if (!('intraOpThreads' in value)) {
-    return { ...DEFAULT_MINI_BACKEND_THREAD_SETTINGS };
-  }
   return {
-    intraOpThreads: sanitizeIntraOpThreads(value.intraOpThreads),
+    intraOpThreads:
+      'intraOpThreads' in value
+        ? sanitizeIntraOpThreads(value.intraOpThreads)
+        : DEFAULT_MINI_BACKEND_THREAD_SETTINGS.intraOpThreads,
     engineIdleTimeoutSeconds:
       'engineIdleTimeoutSeconds' in value
         ? sanitizeEngineIdleTimeoutSeconds(value.engineIdleTimeoutSeconds)

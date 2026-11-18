@@ -372,25 +372,50 @@ export const revokeLoadedImageUrls = (
   images: readonly {
     readonly url: string;
     readonly thumbnailUrl?: string;
+    readonly previewUrl?: string;
   }[],
+  retainedImages: readonly {
+    readonly url: string;
+    readonly thumbnailUrl?: string;
+    readonly previewUrl?: string;
+  }[] = [],
 ): void => {
+  const retainedUrls = new Set<string>();
+  for (const retained of retainedImages) {
+    if (retained.url.startsWith("blob:")) retainedUrls.add(retained.url);
+    if (retained.thumbnailUrl?.startsWith("blob:")) {
+      retainedUrls.add(retained.thumbnailUrl);
+    }
+    if (retained.previewUrl?.startsWith("blob:")) {
+      retainedUrls.add(retained.previewUrl);
+    }
+  }
+
   const urls = new Set<string>();
 
   for (const image of images) {
-    if (image.url.startsWith("blob:")) urls.add(image.url);
-    if (image.thumbnailUrl?.startsWith("blob:")) {
+    if (image.url.startsWith("blob:") && !retainedUrls.has(image.url)) {
+      urls.add(image.url);
+    }
+    if (
+      image.thumbnailUrl?.startsWith("blob:") &&
+      !retainedUrls.has(image.thumbnailUrl)
+    ) {
       urls.add(image.thumbnailUrl);
     }
+    if (
+      image.previewUrl?.startsWith("blob:") &&
+      !retainedUrls.has(image.previewUrl)
+    ) {
+      urls.add(image.previewUrl);
+    }
 
-    // Keys are matched by value too: a thumbnail URL can be registered under
-    // several keys (legacy `${srcUrl}:…` and `opfs:<hash>:…`), and revoking
-    // only the prefixed siblings would leave the others serving a dead blob.
     for (const [key, thumbUrl] of thumbnailCache.entries()) {
       const owned =
         key.startsWith(`${image.url}:`) ||
         thumbUrl === image.url ||
         thumbUrl === image.thumbnailUrl;
-      if (!owned) continue;
+      if (!owned || retainedUrls.has(thumbUrl)) continue;
       if (thumbUrl.startsWith("blob:") && thumbUrl !== image.url) {
         urls.add(thumbUrl);
       }

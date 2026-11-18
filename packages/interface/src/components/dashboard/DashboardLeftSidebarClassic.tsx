@@ -25,6 +25,7 @@ import { useSidebarThumbnailHydration } from './useSidebarThumbnailHydration';
 import { useImageCollectionStore } from '../../pages/dashboard/stores/image-collection-store';
 import SidebarChapterSelectionBar from './SidebarChapterSelectionBar';
 import { cn, formatImageDimensions } from '../../utils/dashboard.utils';
+import { revokeLoadedImageUrls } from '../../utils/imagePerformance';
 import type { SidebarChapterSelection } from '../../pages/dashboard/hooks/use-sidebar-chapter-selection';
 import {
   DIRECT_IMAGES_CHAPTER_ID,
@@ -515,7 +516,7 @@ export default function DashboardLeftSidebarClassic({
                 onClick={() => {
                   const { downloadItems, setDownloadItems } =
                     useExportStore.getState();
-                  images.forEach((img) => { URL.revokeObjectURL(img.url); if (img.thumbnailUrl?.startsWith("blob:")) URL.revokeObjectURL(img.thumbnailUrl); });
+                  revokeLoadedImageUrls(images);
                   downloadItems.forEach((item) =>
                     URL.revokeObjectURL(item.previewUrl),
                   );

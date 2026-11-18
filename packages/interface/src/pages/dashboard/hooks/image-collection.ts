@@ -581,8 +581,10 @@ export function useDashboardImageCollection({
     const fallbackActiveId = activeId === id ? images.find((img) => img.id !== id)?.id ?? null : activeId;
 
     if (removed) {
-      // Revoke blob URLs to free memory immediately
-      revokeLoadedImageUrls([removed]);
+      revokeLoadedImageUrls(
+        [removed],
+        images.filter((img) => img.id !== id),
+      );
     }
 
     setDownloadItems((prev) => {

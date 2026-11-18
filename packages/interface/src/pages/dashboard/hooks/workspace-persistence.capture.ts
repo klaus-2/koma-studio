@@ -35,6 +35,7 @@ import {
   WORKSPACE_PERSISTENCE_STORES,
   buildWorkspaceCaptureState,
 } from './workspace-persistence.registry';
+import { revokeLoadedImageUrls } from '../../../utils/imagePerformance';
 import { resolveUtilityWorkspaceSnapshots } from './utility-workspaces';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useExportStore } from '../stores/export-store';
@@ -48,12 +49,7 @@ export function useWorkspaceCaptureState({
   authUser,
 }: UseWorkspaceCaptureStateArgs) {
   const releaseWorkspaceObjectUrls = useCallback(() => {
-    useImageCollectionStore.getState().images.forEach((image) => {
-      URL.revokeObjectURL(image.url);
-      if (image.previewUrl) {
-        URL.revokeObjectURL(image.previewUrl);
-      }
-    });
+    revokeLoadedImageUrls(useImageCollectionStore.getState().images);
     useExportStore.getState().downloadItems.forEach((item) => {
       URL.revokeObjectURL(item.previewUrl);
     });

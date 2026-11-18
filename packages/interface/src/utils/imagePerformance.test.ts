@@ -224,4 +224,19 @@ describe("imagePerformance WebP thumbnail cache", () => {
     expect(getCachedThumbnailByKey("blob:page-1:400:600:0.7")).toBeUndefined();
     expect(revokedUrls.has("blob:thumb-1")).toBe(true);
   });
+
+  it("preserves a shared thumbnailUrl in thumbnailCache when a duplicate page survives", () => {
+    rememberThumbnailByKey("opfs:hash-dup:400:600:0.7", "blob:thumb-shared");
+
+    revokeLoadedImageUrls(
+      [{ url: "blob:page-dup-1", thumbnailUrl: "blob:thumb-shared" }],
+      [{ url: "blob:page-dup-2", thumbnailUrl: "blob:thumb-shared" }],
+    );
+
+    expect(revokedUrls.has("blob:page-dup-1")).toBe(true);
+    expect(revokedUrls.has("blob:thumb-shared")).toBe(false);
+    expect(getCachedThumbnailByKey("opfs:hash-dup:400:600:0.7")).toBe(
+      "blob:thumb-shared",
+    );
+  });
 });

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { getOrCreateThumbnailForPage } from '../../utils/getOrCreateThumbnail';
 import type { LoadedImage } from '../../types/dashboard.types';
 import { ensureDirectPageUrl } from '../../pages/dashboard/hooks/image-collection';
+import { useImageCollectionStore } from '../../pages/dashboard/stores/image-collection-store';
 
 interface UseSidebarThumbnailHydrationArgs {
   images: readonly LoadedImage[];
@@ -26,7 +27,11 @@ const pumpHydration = (
     if (inFlightIds.has(next.id)) continue;
     inFlightIds.add(next.id);
     activeHydrationJobs += 1;
-    void getOrCreateThumbnailForPage(next.file, ensureDirectPageUrl(next))
+    const liveImage =
+      useImageCollectionStore
+        .getState()
+        .images.find((candidate) => candidate.id === next.id) ?? next;
+    void getOrCreateThumbnailForPage(liveImage.file, ensureDirectPageUrl(liveImage))
       .then((thumbnailUrl) => {
         if (thumbnailUrl === null) {
           attemptCounts.set(next.id, (attemptCounts.get(next.id) ?? 0) + 1);
