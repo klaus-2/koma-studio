@@ -405,4 +405,74 @@ describe("useRenderFontCatalog custom FontFace lazy registration", () => {
       expect(result.current.availableRenderFonts).toContain("CC Wild Words");
     });
   });
+
+  it("removes tracked custom faces from document.fonts on unmount and logs invalid face registration", async () => {
+    const fontSet = stubBrowserFontEnvironment();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    bridgeState.listFonts = async () => ({
+      system: ["Arial"],
+      custom: [
+        buildFontEntry("custom-1", "Unmount Custom", "data:font/ttf;base64,Q3VzdG9t"),
+        buildFontEntry("broken", INVALID_FONT_FAMILY, "data:font/ttf;base64,QnJva2Vu"),
+      ],
+    });
+
+    const { unmount } = renderCatalogHook();
+    await waitFor(() => {
+      expect(fontSet.added).toHaveLength(1);
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[render-font-catalog] failed to register custom font face",
+      { id: "broken", family: INVALID_FONT_FAMILY },
+      expect.any(Error),
+    );
+
+    const registeredFace = fontSet.added[0];
+    unmount();
+    expect(fontSet.deleted).toContain(registeredFace);
+    warnSpy.mockRestore();
+  });
+
+  it("does not re-fetch the desktop catalog across re-renders with an unstable translator and surfaces fallback i18n errors", async () => {
+    const listSpy = vi.fn(async () => ({ system: ["Arial"], custom: [] }));
+    bridgeState.listFonts = listSpy;
+
+    const { result, rerender } = renderCatalogHook();
+    await waitFor(() => {
+      expect(result.current.availableRenderFonts).toContain("Arial");
+    });
+    expect(listSpy).toHaveBeenCalledTimes(1);
+
+    rerender();
+    rerender();
+    expect(listSpy).toHaveBeenCalledTimes(1);
+
+    bridgeState.listFonts = () => Promise.reject("non-error-rejection");
+    await act(async () => {
+      await result.current.loadRenderFontCatalog();
+    });
+    expect(result.current.fontCatalogError).toBe("renderFontCatalog.loadFailed");
+  });
+
+  it("does not leak FontFaces into document.fonts when unmounted while list() is in flight", async () => {
+    const fontSet = stubBrowserFontEnvironment();
+    let resolveList: ((value: { system: string[]; custom: ReturnType<typeof buildFontEntry>[] }) => void) | null = null;
+    bridgeState.listFonts = () =>
+      new Promise((resolve) => {
+        resolveList = resolve;
+      });
+
+    const { unmount } = renderCatalogHook();
+    unmount();
+
+    await act(async () => {
+      resolveList?.({
+        system: ["Arial"],
+        custom: [buildFontEntry("custom-late", "Late Font", "data:font/ttf;base64,TGF0ZQ==")],
+      });
+      await Promise.resolve();
+    });
+
+    expect(fontSet.added).toHaveLength(0);
+  });
 });

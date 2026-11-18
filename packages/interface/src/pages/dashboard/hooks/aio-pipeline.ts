@@ -460,13 +460,20 @@ export function useAioPipelineExecution(
       let results: AioBatchImageResult[];
       const pauseGate = createBatchPauseGate(executionController.signal);
       const pauseSettledResults: AioBatchImageResult[] = [];
+      const streamedConsolidatedImageIds = new Set<string>();
       const runBatchPauseBoundaryAtBoundary = (): Promise<void> =>
         runBatchPauseBoundary({
           gate: pauseGate,
           signal: executionController.signal,
           getAccumulatedResults: () => pauseSettledResults,
           consolidate: (batchResults, consolidateOptions) => {
-            consolidate([...batchResults], consolidateOptions);
+            consolidate([...batchResults], {
+              ...consolidateOptions,
+              skipImageIds: new Set<string>([
+                ...(consolidateOptions?.skipImageIds ?? []),
+                ...streamedConsolidatedImageIds,
+              ]),
+            });
           },
         });
       // setAioDownloadItems replaces every prior `aio` download entry on each
@@ -481,21 +488,32 @@ export function useAioPipelineExecution(
         if (
           !mountedRef.current ||
           useAioPipelineStore.getState().aioAbortController !==
-            executionController
+            executionController ||
+          !isSameImageCollection(
+            useImageCollectionStore.getState().images,
+            executionImages,
+          )
         ) {
           return;
         }
         pauseSettledResults.push(...newResults);
-        consolidate([...pauseSettledResults], {
-          skipImageIds:
-            useAioBatchPauseStore.getState().pauseConsolidatedImageIds,
-          writeSnapshots: false,
-        });
-        useAioBatchPauseStore
-          .getState()
-          .recordPauseConsolidatedImageIds(
-            newResults.map((result) => result.imageId),
+        try {
+          consolidate([...pauseSettledResults], {
+            skipImageIds: new Set<string>([
+              ...useAioBatchPauseStore.getState().pauseConsolidatedImageIds,
+              ...streamedConsolidatedImageIds,
+            ]),
+            writeSnapshots: false,
+          });
+          for (const result of newResults) {
+            streamedConsolidatedImageIds.add(result.imageId);
+          }
+        } catch (error) {
+          console.warn(
+            '[aio-pipeline] settle consolidation failed; deferring to final consolidation',
+            error,
           );
+        }
       };
       if (prepared.useLocalBatchPipeline) {
         const localOptions: LocalAioBatchOptions = {

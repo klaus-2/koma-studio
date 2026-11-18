@@ -28,7 +28,10 @@ export function StageProgressiveImage({
 }: StageProgressiveImageProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [loadedForSrc, setLoadedForSrc] = useState<string | null>(null);
+  const [failedForSrc, setFailedForSrc] = useState<string | null>(null);
+  const isFailed = src !== '' && failedForSrc === src;
   const showPlaceholder =
+    !isFailed &&
     placeholderSrc !== null &&
     placeholderSrc !== '' &&
     src !== '' &&
@@ -44,6 +47,7 @@ export function StageProgressiveImage({
     const img = imgRef.current;
     if (img && img.complete && img.naturalWidth > 0) {
       setLoadedForSrc(src);
+      setFailedForSrc((prev) => (prev === src ? null : prev));
     }
   }, [src]);
 
@@ -69,12 +73,27 @@ export function StageProgressiveImage({
         />
       )}
       <img
+        key={src}
         ref={imgRef}
         src={src}
         alt={alt}
         decoding="async"
         loading={loading}
-        onLoad={() => setLoadedForSrc(src)}
+        data-load-error={isFailed ? 'true' : undefined}
+        onLoad={(event) => {
+          if (event.currentTarget.getAttribute('src') === src) {
+            setLoadedForSrc(src);
+            setFailedForSrc((prev) => (prev === src ? null : prev));
+          }
+        }}
+        onError={(event) => {
+          if (event.currentTarget.getAttribute('src') === src && src !== '') {
+            console.warn('[stage-image] full-resolution image failed to load', {
+              src,
+            });
+            setFailedForSrc(src);
+          }
+        }}
         className={className}
         style={{
           ...imgStyle,

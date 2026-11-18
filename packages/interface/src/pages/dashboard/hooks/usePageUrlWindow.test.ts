@@ -370,6 +370,25 @@ describe('usePageUrlWindow', () => {
     expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
+  it('falls back to a cached thumbnail for an unmaterialized archive page in raw mode, then upgrades once materialized', () => {
+    const archiveWithThumb = {
+      ...makeArchiveImage(0),
+      thumbnailUrl: 'blob:archive-thumb-0',
+    };
+    seedStore([archiveWithThumb], 'page-0');
+
+    expect(resolveImagePreviewSrc(imageById('page-0'), 'raw')).toBe(
+      'blob:archive-thumb-0',
+    );
+
+    useImageCollectionStore
+      .getState()
+      .updateImageUrl('page-0', 'blob:archive-full-0');
+    expect(resolveImagePreviewSrc(imageById('page-0'), 'raw')).toBe(
+      'blob:archive-full-0',
+    );
+  });
+
   it('revokeLoadedImageUrls no-ops on an evicted image', async () => {
     const images = Array.from({ length: DIRECT_PAGE_COUNT }, (_, index) =>
       makeDirectImage(index),

@@ -135,20 +135,58 @@ export const useExportStore = create<ExportStore>()(
       setAioDownloadItems: (entries) => {
         get().setDownloadItems((prev) => {
           const keep: DownloadItem[] = [];
+          const reusableByImageId = new Map<string, DownloadItem>();
+          const staleAio: DownloadItem[] = [];
           for (const item of prev) {
-            if (item.scope === 'aio') URL.revokeObjectURL(item.previewUrl);
-            else keep.push(item);
+            if (item.scope !== 'aio') {
+              keep.push(item);
+              continue;
+            }
+            if (
+              item.sourceImageId !== undefined &&
+              !reusableByImageId.has(item.sourceImageId)
+            ) {
+              reusableByImageId.set(item.sourceImageId, item);
+            } else {
+              staleAio.push(item);
+            }
+          }
+          const dedupedEntries: AioDownloadEntry[] = [];
+          const indexByImageId = new Map<string, number>();
+          for (const entry of entries) {
+            const existingIndex = indexByImageId.get(entry.sourceImageId);
+            if (existingIndex !== undefined) {
+              dedupedEntries[existingIndex] = entry;
+            } else {
+              indexByImageId.set(entry.sourceImageId, dedupedEntries.length);
+              dedupedEntries.push(entry);
+            }
           }
           const aioItems: DownloadItem[] = [];
-          for (const entry of entries) {
-            const previewUrl = URL.createObjectURL(entry.blob);
+          for (const entry of dedupedEntries) {
+            const existing = reusableByImageId.get(entry.sourceImageId);
+            if (
+              existing !== undefined &&
+              existing.blob === entry.blob &&
+              existing.name === entry.fileName
+            ) {
+              reusableByImageId.delete(entry.sourceImageId);
+              aioItems.push(existing);
+              continue;
+            }
             aioItems.push({
               name: entry.fileName,
               blob: entry.blob,
               scope: 'aio',
               sourceImageId: entry.sourceImageId,
-              previewUrl,
+              previewUrl: URL.createObjectURL(entry.blob),
             });
+          }
+          for (const unused of reusableByImageId.values()) {
+            URL.revokeObjectURL(unused.previewUrl);
+          }
+          for (const extra of staleAio) {
+            URL.revokeObjectURL(extra.previewUrl);
           }
           return [...keep, ...aioItems];
         });

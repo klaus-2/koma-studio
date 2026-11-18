@@ -513,9 +513,8 @@ export const resolveImagePreviewSrc = (
     .downloadItems.find(
       (item) => item.scope === mode && item.sourceImageId === img.id,
     );
-  // `raw` must never fall back to the thumbnail: PreviewStageItem stages
-  // thumbnailUrl as the placeholder and upgrades through this selector.
-  return scopedDownload?.previewUrl ?? ensureDirectPageUrl(img);
+  const fullSrc = scopedDownload?.previewUrl ?? ensureDirectPageUrl(img);
+  return fullSrc !== '' ? fullSrc : (img.thumbnailUrl ?? '');
 };
 
 export function useDashboardImageCollection({

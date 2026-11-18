@@ -425,6 +425,22 @@ const checkFontRequestSafe = (
   }
 };
 
+const SYSTEM_FONT_LOAD_TIMEOUT_MS = 1200;
+const CUSTOM_FONT_LOAD_TIMEOUT_MS = 10_000;
+const registeredCustomCanvasFontFamilies = new Set<string>();
+
+export const setRegisteredCustomCanvasFontFamilies = (
+  families: Iterable<string>,
+): void => {
+  registeredCustomCanvasFontFamilies.clear();
+  for (const family of families) {
+    const normalized = normalizeFontFamilyForCanvas(family).toLowerCase();
+    if (normalized) {
+      registeredCustomCanvasFontFamilies.add(normalized);
+    }
+  }
+};
+
 /**
  * Ensures the fonts referenced by the style are available to canvas measureText.
  * Resolves to true when any family became newly usable (or was re-keyed after a
@@ -448,7 +464,10 @@ export const ensureCanvasFontLoaded = async (
       .filter(Boolean)
       .map(async (family) => {
         const escapedFamily = family.replace(/["\\]/g, "\\$&");
-        const key = `${family.toLowerCase()}|${style.bold ? "700" : "400"}|${style.italic ? "italic" : "normal"}`;
+        const normalizedFamily = family.toLowerCase();
+        const isCustomFamily =
+          registeredCustomCanvasFontFamilies.has(normalizedFamily);
+        const key = `${normalizedFamily}|${style.bold ? "700" : "400"}|${style.italic ? "italic" : "normal"}`;
         const fontRequest = `${style.italic ? "italic " : ""}${style.bold ? "700 " : "400 "}16px "${escapedFamily}"`;
 
         if (loadedCanvasFontKeys.has(key) && checkFontRequestSafe(fontSet, fontRequest)) {
@@ -459,19 +478,39 @@ export const ensureCanvasFontLoaded = async (
           return true;
         }
 
+        const timeoutMs = isCustomFamily
+          ? CUSTOM_FONT_LOAD_TIMEOUT_MS
+          : SYSTEM_FONT_LOAD_TIMEOUT_MS;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
         try {
           const loadedFaces = await Promise.race([
             fontSet.load(fontRequest),
             new Promise<FontFace[]>((resolve) => {
-              setTimeout(() => resolve([]), 1200);
+              timeoutId = setTimeout(() => resolve([]), timeoutMs);
             }),
           ]);
           if ((loadedFaces?.length ?? 0) > 0 && checkFontRequestSafe(fontSet, fontRequest)) {
             loadedCanvasFontKeys.add(key);
             return true;
           }
-        } catch {
-          // Ignore load errors; canvas will fallback if font is unavailable.
+          if (isCustomFamily) {
+            console.warn(
+              "[canvas-font] custom render font did not become usable within load budget",
+              { family, timeoutMs },
+            );
+          }
+        } catch (error) {
+          if (isCustomFamily) {
+            console.warn(
+              "[canvas-font] custom render font failed to load on demand",
+              { family },
+              error,
+            );
+          }
+        } finally {
+          if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+          }
         }
         loadedCanvasFontKeys.delete(key);
         return false;

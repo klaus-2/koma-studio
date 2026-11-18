@@ -207,6 +207,116 @@ describe('StageProgressiveImage', () => {
     expect(placeholder).not.toHaveAttribute('loading');
     expect(full).not.toHaveAttribute('loading');
   });
+
+  it('drops the placeholder and reveals the failed full layer with a diagnostic on load error', () => {
+    spyImagePending();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { container } = render(
+      <StageProgressiveImage
+        placeholderSrc="blob:thumb"
+        src="blob:broken-full"
+        alt="page.png"
+      />,
+    );
+    const { full } = expectImageLayers(container);
+    expect(full.style.opacity).toBe('0');
+
+    fireEvent.error(full);
+
+    const only = expectSingleImage(container);
+    expect(only).toHaveAttribute('src', 'blob:broken-full');
+    expect(only).toHaveAttribute('data-load-error', 'true');
+    expect(only.style.opacity).toBe('1');
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
+  });
+
+  it('ignores a stale load event whose DOM src attribute no longer matches the current prop', () => {
+    spyImagePending();
+    const { container } = render(
+      <StageProgressiveImage
+        placeholderSrc="blob:thumb"
+        src="blob:current"
+        alt="page.png"
+      />,
+    );
+    const { full } = expectImageLayers(container);
+    full.setAttribute('src', 'blob:stale-previous');
+    fireEvent.load(full);
+
+    expect(full.style.opacity).toBe('0');
+  });
+
+  it('ignores late load and error events dispatched on a detached previous image element after src swaps', () => {
+    spyImagePending();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { container, rerender } = render(
+      <StageProgressiveImage
+        placeholderSrc="blob:thumb"
+        src="blob:full-1"
+        alt="page.png"
+      />,
+    );
+    const { full: previousFull } = expectImageLayers(container);
+
+    rerender(
+      <StageProgressiveImage
+        placeholderSrc="blob:thumb"
+        src="blob:full-2"
+        alt="page.png"
+      />,
+    );
+    const { full: currentFull } = expectImageLayers(container);
+    expect(currentFull).not.toBe(previousFull);
+
+    fireEvent.load(previousFull);
+    expect(currentFull.style.opacity).toBe('0');
+
+    fireEvent.error(previousFull);
+    expect(currentFull).not.toHaveAttribute('data-load-error');
+    expect(currentFull.style.opacity).toBe('0');
+    warnSpy.mockRestore();
+  });
+
+  it('clears the failed state when a previously failed src later succeeds', () => {
+    spyImagePending();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { container, rerender } = render(
+      <StageProgressiveImage
+        placeholderSrc="blob:thumb"
+        src="blob:flaky"
+        alt="page.png"
+      />,
+    );
+    const { full: firstAttempt } = expectImageLayers(container);
+    fireEvent.error(firstAttempt);
+    expect(expectSingleImage(container)).toHaveAttribute(
+      'data-load-error',
+      'true',
+    );
+
+    rerender(
+      <StageProgressiveImage
+        placeholderSrc="blob:thumb"
+        src="blob:other"
+        alt="page.png"
+      />,
+    );
+    rerender(
+      <StageProgressiveImage
+        placeholderSrc="blob:thumb"
+        src="blob:flaky"
+        alt="page.png"
+      />,
+    );
+    const recovered = expectSingleImage(container);
+    fireEvent.load(recovered);
+
+    const { full: restoredFull } = expectImageLayers(container);
+    expect(restoredFull).not.toHaveAttribute('data-load-error');
+    expect(restoredFull.style.opacity).toBe('1');
+    warnSpy.mockRestore();
+  });
 });
 
 describe('StageProgressiveImage consumers', () => {

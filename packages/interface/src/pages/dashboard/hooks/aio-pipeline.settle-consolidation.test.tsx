@@ -17,12 +17,16 @@ import { useAioPipelineExecution } from '@/pages/dashboard/hooks/aio-pipeline';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
 import { useAioBatchPauseStore } from '@/pages/dashboard/stores/aio-batch-pause-store';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
+import { useExportStore } from '@/pages/dashboard/stores/export-store';
 import { useImageCollectionStore } from '@/pages/dashboard/stores/image-collection-store';
+import { useRegionEditorStore } from '@/pages/dashboard/stores/region-editor-store';
 import { useStatusStore } from '@/pages/dashboard/stores/status-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import type {
   AioBatchImageResult,
   AioDownloadEntry,
+  AioPipelineSnapshot,
+  AioTextRegion,
   LoadedImage,
 } from '@/types/dashboard.types';
 import { cloneRenderStyle } from '@/utils/dashboard.utils';
@@ -149,9 +153,6 @@ const processImage = vi.fn(
     makeBatchResult(image.id),
 );
 
-// The skip-set snapshot captured at consolidate-call time proves the store
-// records ids AFTER the consolidation, never before.
-let skipSetsAtConsolidate: ReadonlySet<string>[] = [];
 let recordedIdsAfterSettle: string[][] = [];
 
 const consolidate = vi.fn(
@@ -162,9 +163,6 @@ const consolidate = vi.fn(
       writeSnapshots?: boolean;
     },
   ) => {
-    skipSetsAtConsolidate.push(
-      useAioBatchPauseStore.getState().pauseConsolidatedImageIds,
-    );
     return {
       processedPagesCount: images.length,
       totalDetections: 0,
@@ -264,8 +262,8 @@ beforeEach(() => {
   mockedConsolidation.mockReturnValue(consolidate);
   mockedPreparation.mockReturnValue(async () => makePrepared(true));
   processImage.mockClear();
+  consolidate.mockClear();
 
-  skipSetsAtConsolidate = [];
   recordedIdsAfterSettle = [];
 
   useImageCollectionStore.setState({
@@ -313,7 +311,7 @@ describe('useAioPipelineExecution per-settle consolidation (chunk branch)', () =
     cleanedDownload: cleanedDownload('img-2'),
   };
 
-  it('consolidates the ACCUMULATED results on each chunk settle and records ids after the call', async () => {
+  it('consolidates the ACCUMULATED results on each chunk settle without polluting pauseConsolidatedImageIds', async () => {
     mockedChunks.mockImplementation(async (input) => {
       input.onChunkSettled?.([r0, r1]);
       recordedIdsAfterSettle.push([
@@ -348,21 +346,11 @@ describe('useAioPipelineExecution per-settle consolidation (chunk branch)', () =
         result.cleanedDownload ? [result.cleanedDownload.fileName] : [],
       ),
     ).toEqual(['img-1-clean.png', 'img-2-clean.png']);
-    // The final consolidate keeps its skip logic and writes the full timeline
-    // (no writeSnapshots override).
     expect(final?.[0]).toEqual([r0, r1, r2]);
     expect(final?.[1]).toEqual({
-      skipImageIds: new Set(['img-0', 'img-1', 'img-2']),
+      skipImageIds: new Set<string>(),
     });
-    expect(skipSetsAtConsolidate).toEqual([
-      new Set<string>(),
-      new Set(['img-0', 'img-1']),
-      new Set(['img-0', 'img-1', 'img-2']),
-    ]);
-    expect(recordedIdsAfterSettle).toEqual([
-      ['img-0', 'img-1'],
-      ['img-0', 'img-1', 'img-2'],
-    ]);
+    expect(recordedIdsAfterSettle).toEqual([[], []]);
     expect(useStatusStore.getState().statusMessage).toContain('AIO finished.');
   });
 
@@ -422,8 +410,34 @@ describe('useAioPipelineExecution per-settle consolidation (chunk branch)', () =
       writeSnapshots: false,
     });
     expect(final?.[1]).toEqual({
-      skipImageIds: new Set(['img-0', 'img-1', 'img-2']),
+      skipImageIds: new Set(['img-0', 'img-1']),
     });
+  });
+
+  it('contains a mid-flight consolidate exception without aborting the batch or desyncing skip ids', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    consolidate.mockImplementationOnce(() => {
+      throw new Error('transient-store-write');
+    });
+    mockedChunks.mockImplementation(async (input) => {
+      input.onChunkSettled?.([r0, r1]);
+      input.onChunkSettled?.([r2]);
+      return { batchIds: ['batch-1'], results: [r0, r1, r2] };
+    });
+
+    await runProcess();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(consolidate).toHaveBeenCalledTimes(3);
+    expect(consolidate.mock.calls[1]?.[0]).toEqual([r0, r1, r2]);
+    expect(consolidate.mock.calls[1]?.[1]).toEqual({
+      skipImageIds: new Set<string>(),
+      writeSnapshots: false,
+    });
+    expect(consolidate.mock.calls[2]?.[1]).toEqual({
+      skipImageIds: new Set<string>(),
+    });
+    warnSpy.mockRestore();
   });
 
   it('stops consolidating once the hook unmounts (late settle cannot mutate stores)', async () => {
@@ -451,6 +465,20 @@ describe('useAioPipelineExecution per-settle consolidation (chunk branch)', () =
     mockedChunks.mockImplementation(async (input) => {
       input.onChunkSettled?.([r0]);
       useAioPipelineStore.setState({ aioAbortController: new AbortController() });
+      input.onChunkSettled?.([r1]);
+      return { batchIds: ['batch-1'], results: [r0, r1] };
+    });
+
+    await runProcess();
+
+    expect(consolidate).toHaveBeenCalledTimes(1);
+    expect(consolidate.mock.calls[0]?.[0]).toEqual([r0]);
+  });
+
+  it('stops consolidating once the image collection changes mid-run', async () => {
+    mockedChunks.mockImplementation(async (input) => {
+      input.onChunkSettled?.([r0]);
+      useImageCollectionStore.setState({ images: [] });
       input.onChunkSettled?.([r1]);
       return { batchIds: ['batch-1'], results: [r0, r1] };
     });
@@ -497,10 +525,8 @@ describe('useAioPipelineExecution per-settle consolidation (chapter branch)', ()
     expect(consolidate.mock.calls.slice(0, -1).every(([results]) =>
       results.every((result) => result.imageId !== 'img-2'),
     )).toBe(true);
-    // The failed image was never recorded as consolidated, so the final
-    // consolidate still fully processes it.
     expect(final?.[1]).toEqual({
-      skipImageIds: new Set(['img-0', 'img-1']),
+      skipImageIds: new Set<string>(),
     });
   });
 
@@ -525,5 +551,175 @@ describe('useAioPipelineExecution per-settle consolidation (chapter branch)', ()
       writeSnapshots: false,
     });
     expect(onAutoRunCompleted).not.toHaveBeenCalled();
+  });
+});
+
+const makeStageRegion = (id: string, renderText?: string): AioTextRegion => ({
+  id,
+  bbox: [2, 2, 20, 20],
+  score: 0.95,
+  source: 'model',
+  modelKey: 'detector',
+  renderText,
+});
+
+describe('useAioPipelineExecution per-settle consolidation (cloud item branch + real timeline integration)', () => {
+  it('passes accumulated results and skipImageIds on each cloud onItemSettled call', async () => {
+    mockedPreparation.mockReturnValue(async () => makePrepared(false));
+    processImage.mockImplementation(async (image: LoadedImage) => ({
+      ...makeBatchResult(image.id),
+      cleanedDownload: cleanedDownload(image.id),
+    }));
+
+    await runProcess();
+
+    expect(consolidate).toHaveBeenCalledTimes(4);
+    const [item0, item1, item2, final] = consolidate.mock.calls;
+    expect(item0?.[0].map((r) => r.imageId)).toEqual(['img-0']);
+    expect(item0?.[1]).toEqual({
+      skipImageIds: new Set<string>(),
+      writeSnapshots: false,
+    });
+    expect(item1?.[0].map((r) => r.imageId)).toEqual(['img-0', 'img-1']);
+    expect(item1?.[1]).toEqual({
+      skipImageIds: new Set(['img-0']),
+      writeSnapshots: false,
+    });
+    expect(item2?.[0].map((r) => r.imageId)).toEqual(['img-0', 'img-1', 'img-2']);
+    expect(item2?.[1]).toEqual({
+      skipImageIds: new Set(['img-0', 'img-1']),
+      writeSnapshots: false,
+    });
+    expect(final?.[1]).toEqual({ skipImageIds: new Set<string>() });
+  });
+
+  it('preserves distinct per-stage timeline snapshots and reuses unchanged previewUrls with real consolidation', async () => {
+    const actualConsolidationModule = await vi.importActual<
+      typeof import('@/hooks/useAioResultConsolidation')
+    >('@/hooks/useAioResultConsolidation');
+
+    let capturedSnapshots: AioPipelineSnapshot[] = [];
+    const setAioPipelineSnapshots = vi.fn(
+      (snapshots: AioPipelineSnapshot[]) => {
+        capturedSnapshots = snapshots;
+      },
+    );
+    const createdUrls: string[] = [];
+    const revokedUrls: string[] = [];
+    const createSpy = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockImplementation(() => {
+        const nextUrl = `blob:aio-clean-${createdUrls.length + 1}`;
+        createdUrls.push(nextUrl);
+        return nextUrl;
+      });
+    const revokeSpy = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation((url: string) => {
+        revokedUrls.push(url);
+      });
+
+    useExportStore.setState({ downloadItems: [] });
+    useRegionEditorStore.setState({
+      aioDetectionsByImage: {},
+      aioSelectedRegionByImage: {},
+    });
+
+    mockedConsolidation.mockImplementation(() =>
+      actualConsolidationModule.useAioResultConsolidation({
+        aioSteps: {
+          recognizeText: true,
+          getTranslations: false,
+          segmentText: false,
+          cleanImage: true,
+          render: true,
+        },
+        buildAioImageSnapshotIndexMap: () => ({}),
+        setAioAutoProcessedImageById: vi.fn(),
+        setAioDetectionsByImage: (value) =>
+          useRegionEditorStore.getState().setAioDetectionsByImage(value),
+        setAioSelectedRegionByImage: (value) =>
+          useRegionEditorStore.getState().setAioSelectedRegionByImage(value),
+        setAioPipelineSnapshots,
+        setAioPipelineSnapshotIndex: vi.fn(),
+        setAioImageSnapshotIndexById: vi.fn(),
+        setAioAutoHistoryAvailable: vi.fn(),
+        setAioDownloadItems: (entries) =>
+          useExportStore.getState().setAioDownloadItems(entries),
+      }),
+    );
+
+    const richR0: AioBatchImageResult = {
+      ...makeBatchResult('img-0'),
+      detectDetections: [makeStageRegion('det-0')],
+      ocrDetections: [makeStageRegion('ocr-0')],
+      cleanDetections: [makeStageRegion('clean-0')],
+      renderDetections: [makeStageRegion('render-0', 'Rendered 0')],
+      cleanedDownload: cleanedDownload('img-0'),
+    };
+    const richR1: AioBatchImageResult = {
+      ...makeBatchResult('img-1'),
+      detectDetections: [makeStageRegion('det-1')],
+      ocrDetections: [makeStageRegion('ocr-1')],
+      cleanDetections: [makeStageRegion('clean-1')],
+      renderDetections: [makeStageRegion('render-1', 'Rendered 1')],
+      cleanedDownload: cleanedDownload('img-1'),
+    };
+
+    mockedChunks.mockImplementation(async (input) => {
+      input.onChunkSettled?.([richR0]);
+      input.onChunkSettled?.([richR1]);
+      return { batchIds: ['batch-1'], results: [richR0, richR1] };
+    });
+
+    await runProcess();
+
+    const detectStage = capturedSnapshots.find((s) => s.key === 'detectText');
+    const ocrStage = capturedSnapshots.find((s) => s.key === 'recognizeText');
+    const renderStage = capturedSnapshots.find((s) => s.key === 'render');
+    expect(detectStage?.detectionsByImage['img-0']?.[0]?.id).toBe('det-0');
+    expect(ocrStage?.detectionsByImage['img-0']?.[0]?.id).toBe('ocr-0');
+    expect(renderStage?.detectionsByImage['img-0']?.[0]?.id).toBe('render-0');
+    expect(detectStage?.detectionsByImage['img-1']?.[0]?.id).toBe('det-1');
+    expect(ocrStage?.detectionsByImage['img-1']?.[0]?.id).toBe('ocr-1');
+    expect(renderStage?.detectionsByImage['img-1']?.[0]?.id).toBe('render-1');
+
+    expect(createdUrls).toEqual(['blob:aio-clean-1', 'blob:aio-clean-2']);
+    expect(revokedUrls).toEqual([]);
+
+    const replacementBlob = new Blob(['clean-v2'], { type: 'image/png' });
+    useExportStore.getState().setAioDownloadItems([
+      {
+        sourceImageId: 'img-0',
+        fileName: 'img-0-clean.png',
+        blob: richR0.cleanedDownload?.blob ?? replacementBlob,
+      },
+      {
+        sourceImageId: 'img-0',
+        fileName: 'img-0-clean-v2.png',
+        blob: replacementBlob,
+      },
+      {
+        sourceImageId: 'img-1',
+        fileName: 'img-1-clean.png',
+        blob: richR1.cleanedDownload?.blob ?? replacementBlob,
+      },
+    ]);
+    const aioItems = useExportStore
+      .getState()
+      .downloadItems.filter((item) => item.scope === 'aio');
+    expect(aioItems.map((item) => item.name)).toEqual([
+      'img-0-clean-v2.png',
+      'img-1-clean.png',
+    ]);
+    expect(createdUrls).toEqual([
+      'blob:aio-clean-1',
+      'blob:aio-clean-2',
+      'blob:aio-clean-3',
+    ]);
+    expect(revokedUrls).toEqual(['blob:aio-clean-1']);
+
+    createSpy.mockRestore();
+    revokeSpy.mockRestore();
   });
 });
