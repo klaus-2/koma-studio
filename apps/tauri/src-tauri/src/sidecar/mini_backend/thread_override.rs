@@ -25,24 +25,53 @@ pub(crate) struct MiniBackendThreadOverride {
     pub working_resolution_ocr_clean: Option<bool>,
 }
 
-fn clamp_thread_override(
-    parsed: MiniBackendThreadOverride,
+fn sanitize_thread_value(value: &serde_json::Value) -> Option<u32> {
+    let raw = value.as_f64()?;
+    if !raw.is_finite() {
+        return None;
+    }
+    let rounded = raw.round();
+    if rounded < 1.0 {
+        return None;
+    }
+    Some((rounded.min(64.0)) as u32)
+}
+
+fn sanitize_seconds_value(value: &serde_json::Value) -> Option<u32> {
+    let raw = value.as_f64()?;
+    if !raw.is_finite() {
+        return None;
+    }
+    let clamped = raw.round().clamp(0.0, 86_400.0);
+    Some(clamped as u32)
+}
+
+fn sanitize_megapixels_value(value: &serde_json::Value) -> Option<f64> {
+    let raw = value.as_f64()?;
+    if !raw.is_finite() {
+        return None;
+    }
+    Some(raw.clamp(4.0, 64.0))
+}
+
+fn sanitize_thread_override_value(
+    value: &serde_json::Value,
 ) -> MiniBackendThreadOverride {
-    let clamp = |value: Option<u32>| {
-        value
-            .filter(|threads| *threads >= 1)
-            .map(|threads| threads.min(64))
+    let Some(map) = value.as_object() else {
+        return MiniBackendThreadOverride::default();
     };
     MiniBackendThreadOverride {
-        intra_op_threads: clamp(parsed.intra_op_threads),
-        inter_op_threads: clamp(parsed.inter_op_threads),
-        engine_idle_timeout_seconds: parsed
-            .engine_idle_timeout_seconds
-            .map(|seconds| seconds.min(86_400)),
-        working_resolution_megapixels: parsed
-            .working_resolution_megapixels
-            .map(|megapixels| megapixels.clamp(4.0, 64.0)),
-        working_resolution_ocr_clean: parsed.working_resolution_ocr_clean,
+        intra_op_threads: map.get("intraOpThreads").and_then(sanitize_thread_value),
+        inter_op_threads: map.get("interOpThreads").and_then(sanitize_thread_value),
+        engine_idle_timeout_seconds: map
+            .get("engineIdleTimeoutSeconds")
+            .and_then(sanitize_seconds_value),
+        working_resolution_megapixels: map
+            .get("workingResolutionMegapixels")
+            .and_then(sanitize_megapixels_value),
+        working_resolution_ocr_clean: map
+            .get("workingResolutionOcrClean")
+            .and_then(serde_json::Value::as_bool),
     }
 }
 
@@ -60,8 +89,8 @@ pub(crate) fn read_mini_backend_thread_override_at(
             return MiniBackendThreadOverride::default();
         }
     };
-    match serde_json::from_str::<MiniBackendThreadOverride>(&raw) {
-        Ok(parsed) => clamp_thread_override(parsed),
+    match serde_json::from_str::<serde_json::Value>(&raw) {
+        Ok(parsed) => sanitize_thread_override_value(&parsed),
         Err(error) => {
             log::warn!("thread_override.parse_failed: {error}");
             MiniBackendThreadOverride::default()
@@ -183,7 +212,6 @@ mod tests {
             MiniBackendThreadOverride::default()
         );
 
-        // One bad field discards the whole struct: the sidecar keeps defaults.
         fs::write(
             data_dir.join(MINI_BACKEND_THREAD_OVERRIDE_FILE),
             r#"{"intraOpThreads":"four","engineIdleTimeoutSeconds":120}"#,
@@ -191,7 +219,13 @@ mod tests {
         .expect("write override with a bad field");
         assert_eq!(
             read_mini_backend_thread_override_at(data_dir),
-            MiniBackendThreadOverride::default()
+            MiniBackendThreadOverride {
+                intra_op_threads: None,
+                inter_op_threads: None,
+                engine_idle_timeout_seconds: Some(120),
+                working_resolution_megapixels: None,
+                working_resolution_ocr_clean: None,
+            }
         );
 
         fs::write(

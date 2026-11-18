@@ -156,6 +156,19 @@ test("sanitize clamps thread counts into 1..64 or null", () => {
     { ...emptyOverride, intraOpThreads: 4 },
   );
   assert.deepEqual(sanitizeMiniBackendThreadOverride("nope"), emptyOverride);
+  assert.deepEqual(
+    sanitizeMiniBackendThreadOverride({
+      engineIdleTimeoutSeconds: 300,
+      workingResolutionMegapixels: 16,
+      workingResolutionOcrClean: true,
+    }),
+    {
+      ...emptyOverride,
+      engineIdleTimeoutSeconds: 300,
+      workingResolutionMegapixels: 16,
+      workingResolutionOcrClean: true,
+    },
+  );
 });
 
 test("sanitize clamps idle timeout into 0..86400 or null", () => {

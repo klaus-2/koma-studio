@@ -61,8 +61,7 @@ export const sanitizeMiniBackendThreadOverride = (
   if (
     typeof value !== "object" ||
     value === null ||
-    Array.isArray(value) ||
-    !("intraOpThreads" in value)
+    Array.isArray(value)
   ) {
     return {
       intraOpThreads: null,
@@ -72,6 +71,8 @@ export const sanitizeMiniBackendThreadOverride = (
       workingResolutionOcrClean: null,
     };
   }
+  const intraOpThreads =
+    "intraOpThreads" in value ? sanitizeThreadValue(value.intraOpThreads) : null;
   const interOpThreads =
     "interOpThreads" in value ? sanitizeThreadValue(value.interOpThreads) : null;
   const engineIdleTimeoutSeconds =
@@ -87,7 +88,7 @@ export const sanitizeMiniBackendThreadOverride = (
       ? sanitizeFlagValue(value.workingResolutionOcrClean)
       : null;
   return {
-    intraOpThreads: sanitizeThreadValue(value.intraOpThreads),
+    intraOpThreads,
     interOpThreads,
     engineIdleTimeoutSeconds,
     workingResolutionMegapixels,
