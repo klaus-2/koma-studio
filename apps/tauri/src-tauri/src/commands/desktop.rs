@@ -458,8 +458,11 @@ fn clamp_idle_timeout_value(value: i64) -> u32 {
     value.clamp(0, 86_400) as u32
 }
 
-fn clamp_megapixels_value(value: f64) -> f64 {
-    value.clamp(4.0, 64.0)
+fn clamp_megapixels_value(value: f64) -> Option<f64> {
+    if !value.is_finite() {
+        return None;
+    }
+    Some(value.clamp(4.0, 64.0))
 }
 
 /// Per-call sequence number for temp-file names: two concurrent IPC writes
@@ -485,7 +488,7 @@ pub(crate) fn write_mini_backend_thread_override_at(
             .map(clamp_idle_timeout_value),
         working_resolution_megapixels: payload
             .working_resolution_megapixels
-            .map(clamp_megapixels_value),
+            .and_then(clamp_megapixels_value),
         working_resolution_ocr_clean: payload.working_resolution_ocr_clean,
     };
     let json = serde_json::to_string(&override_env)
