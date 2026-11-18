@@ -87,6 +87,37 @@ class BuildDedupKeyTests(unittest.TestCase):
         self.assertNotEqual(base, _key("ab" * 32, language="en"))
         self.assertNotEqual(base, _key("ab" * 32, model_key="other-ocr"))
 
+    def test_resolution_policy_participates(self) -> None:
+        base = build_dedup_key(
+            language="ja",
+            model_key="fake-ocr",
+            bbox_width=10,
+            bbox_height=10,
+            crop_hash="ab" * 32,
+            working_mp=24.0,
+            ocr_clean_enabled=False,
+        )
+        enabled = build_dedup_key(
+            language="ja",
+            model_key="fake-ocr",
+            bbox_width=10,
+            bbox_height=10,
+            crop_hash="ab" * 32,
+            working_mp=24.0,
+            ocr_clean_enabled=True,
+        )
+        smaller_mp = build_dedup_key(
+            language="ja",
+            model_key="fake-ocr",
+            bbox_width=10,
+            bbox_height=10,
+            crop_hash="ab" * 32,
+            working_mp=12.0,
+            ocr_clean_enabled=True,
+        )
+        self.assertNotEqual(base, enabled)
+        self.assertNotEqual(enabled, smaller_mp)
+
 
 class OcrRegionDedupCacheTests(unittest.TestCase):
     def test_lookup_miss_then_hit_with_deep_copy_ownership(self) -> None:
@@ -134,6 +165,27 @@ class OcrRegionDedupCacheTests(unittest.TestCase):
             self.assertIsNone(cache.lookup(key))
         self.assertEqual(cache.stats()["misses"], 1)
         self.assertEqual(cache.stats()["entries"], 0)
+
+    def test_clear_empties_entries_and_resets_counters(self) -> None:
+        cache = OcrRegionDedupCache(ttl_seconds=1800, max_entries=8)
+        key = _key("ab" * 32)
+        cache.store(key, [_record("r0")])
+        self.assertIsNotNone(cache.lookup(key))
+        self.assertIsNone(cache.lookup(_key("cd" * 32)))
+
+        cache.clear()
+
+        self.assertEqual(
+            cache.stats(),
+            {
+                "entries": 0,
+                "hits": 0,
+                "misses": 0,
+                "max_entries": 8,
+                "ttl_seconds": 1800,
+            },
+        )
+        self.assertIsNone(cache.lookup(key))
 
 
 class SingletonAccessorTests(unittest.TestCase):

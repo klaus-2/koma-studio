@@ -67,6 +67,7 @@ from routers.inpainting import router as inpainting_router
 from routers.model_downloads import router as model_downloads_router
 from routers.model_install import router as model_install_router
 from pipelines.cache_manager import CacheManagerStats
+from pipelines.ocr_region_dedup import get_ocr_region_dedup_cache
 from pipelines.stage_store import close_stage_store
 from pipelines.translation_store import close_translation_store
 from routers.ocr import CACHE_MANAGER as OCR_CACHE_MANAGER
@@ -401,6 +402,7 @@ def _clear_all_caches() -> int:
         clear()
     for manager in _REQUEST_CACHE_MANAGERS:
         manager.clear()
+    get_ocr_region_dedup_cache().clear()
     release_onnx_gpu_memory()
     return gc.collect()
 

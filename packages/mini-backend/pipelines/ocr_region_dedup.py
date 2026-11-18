@@ -23,7 +23,7 @@ from pipelines.batch.records import OCRRecord
 from pipelines.cache_manager import _DEFAULT_MAX_BYTES, _TtlLruCache, _json_bytes
 
 _DEDUP_SIDE_PX: Final = 64
-_KEY_VERSION: Final = 1
+_KEY_VERSION: Final = 2
 _MAX_ENTRIES: Final = 512
 
 
@@ -52,6 +52,8 @@ def build_dedup_key(
     bbox_width: int,
     bbox_height: int,
     crop_hash: str,
+    working_mp: float = 24.0,
+    ocr_clean_enabled: bool = False,
 ) -> str:
     """Version-pinned sha256 over canonical JSON; (w, h) folding keeps
     different-sized renders of the same pixels from cross-matching."""
@@ -62,6 +64,8 @@ def build_dedup_key(
         "bbox_w": bbox_width,
         "bbox_h": bbox_height,
         "crop_hash": crop_hash,
+        "working_mp": float(working_mp),
+        "ocr_clean_enabled": bool(ocr_clean_enabled),
     }
     canonical = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), allow_nan=False
@@ -114,6 +118,12 @@ class OcrRegionDedupCache:
         with self._lock:
             stored = deepcopy(records)
             self._cache.put(key, stored, size_bytes=len(_json_bytes(stored)))
+
+    def clear(self) -> None:
+        with self._lock:
+            self._cache.clear()
+            self._hits = 0
+            self._misses = 0
 
     def stats(self) -> OcrRegionDedupStats:
         with self._lock:

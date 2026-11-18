@@ -371,11 +371,12 @@ class DedupReuseTests(_DedupIsolatedTestCase):
                 resolve_engine=lambda **_: engine,
             )
 
-        self.assertEqual(engine.batches, [["r1", "r2"]])
+        self.assertEqual(engine.batches, [["r1"]])
         by_id = {record["id"]: record for record in result.records}
         self.assertEqual(by_id["r1"]["bbox"], [0, 0, 10, 10])
         self.assertEqual(by_id["r2"]["bbox"], [4, 4, 14, 14])
-        self.assertEqual(by_id["r2"]["text"], "text-r2")
+        self.assertEqual(by_id["r1"]["text"], "text-r1")
+        self.assertEqual(by_id["r2"]["text"], "text-r1")
         stats = get_ocr_region_dedup_cache().stats()
         self.assertEqual(stats["entries"], 1)
         self.assertEqual(stats["misses"], 1)
@@ -393,19 +394,20 @@ class DedupReuseTests(_DedupIsolatedTestCase):
                 cache=cache,
                 resolve_engine=lambda **_: engine,
             )
-            self.assertEqual(engine.batches, [["r1", "r2"]])
+            self.assertEqual(engine.batches, [["r1"]])
             result = await run_cached_ocr(
                 _pixel_request(seeds, cache, image_bytes=b"img-2"),
                 cache=cache,
                 resolve_engine=lambda **_: engine,
             )
 
-        self.assertEqual(engine.batches, [["r1", "r2"]])
+        self.assertEqual(engine.batches, [["r1"]])
         by_id = {record["id"]: record for record in result.records}
         self.assertEqual(by_id["r1"]["text"], "text-r1")
         self.assertEqual(by_id["r2"]["text"], "text-r1")
         self.assertEqual(by_id["r1"]["bbox"], [0, 0, 10, 10])
         self.assertEqual(by_id["r2"]["bbox"], [4, 4, 14, 14])
+        self.assertEqual(len(cache.cache_calls[-1]), 2)
         stats = get_ocr_region_dedup_cache().stats()
         self.assertEqual(stats["hits"], 1)
         self.assertEqual(stats["misses"], 1)
@@ -460,10 +462,9 @@ class DedupReuseTests(_DedupIsolatedTestCase):
                 resolve_engine=lambda **_: engine,
             )
 
-        # r2's malformed bbox clamps to r1's crop: one group, one engine batch.
-        self.assertEqual(engine.batches, [["r1", "r2"]])
+        self.assertEqual(engine.batches, [["r1"]])
         by_id = {record["id"]: record for record in result.records}
-        self.assertEqual(by_id["r2"]["text"], "text-r2")
+        self.assertEqual(by_id["r2"]["text"], "text-r1")
         self.assertEqual(by_id["r2"]["bbox"], [-10, -10, 10, 10])
 
     async def test_dedup_hit_never_carries_another_region_gradient(self) -> None:
@@ -560,7 +561,9 @@ class WorkingResolutionOCRTests(_DedupIsolatedTestCase):
     PAGE_SIZE = (4600, 8000)
 
     def _page(self) -> Image.Image:
-        return Image.new("RGB", self.PAGE_SIZE, (200, 200, 200))
+        page = Image.new("RGB", self.PAGE_SIZE, (200, 200, 200))
+        page.paste((40, 40, 40), (0, 0, 500, 500))
+        return page
 
     def _seeds(self) -> tuple[OCRSeed, ...]:
         return (

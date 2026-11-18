@@ -167,6 +167,8 @@ def _group_dedup_seeds(
     *,
     language: str,
     model_key: str,
+    working_mp: float,
+    ocr_clean_enabled: bool,
 ) -> dict[str, list[OCRSeed]]:
     """Sync page-scale work: RGB materialization + per-seed crop hashing."""
     rgb = to_rgb_array(image)
@@ -184,6 +186,8 @@ def _group_dedup_seeds(
             bbox_width=clipped[2] - clipped[0],
             bbox_height=clipped[3] - clipped[1],
             crop_hash=compute_crop_hash(rgb, clipped),
+            working_mp=working_mp,
+            ocr_clean_enabled=ocr_clean_enabled,
         )
         groups.setdefault(key, []).append(seed)
     return groups
@@ -240,7 +244,8 @@ async def run_cached_ocr(
             cached_by_id.update(disk_hits)
             missing = still_missing
 
-    dedup_pending: list[tuple[str, list[OCRSeed]]] = []
+    dedup_pending: list[tuple[str, OCRSeed, list[OCRSeed]]] = []
+    dedup_hit_raw: list[OCRRecord] = []
     if missing and isinstance(request.image, Image.Image):
         dedup = get_ocr_region_dedup_cache()
         groups = await asyncio.to_thread(
@@ -249,24 +254,36 @@ async def run_cached_ocr(
             missing,
             language=request.language,
             model_key=engine.key,
+            working_mp=config.working_resolution_megapixels,
+            ocr_clean_enabled=config.working_resolution_ocr_clean_enabled,
         )
-        dedup_hits: set[str] = set()
+        removed_from_missing: set[str] = set()
         for key, group in groups.items():
             stored = dedup.lookup(key)
             if stored is None:
-                dedup_pending.append((key, group))
+                leader = group[0]
+                followers = group[1:]
+                dedup_pending.append((key, leader, followers))
+                for follower in followers:
+                    removed_from_missing.add(follower["id"])
                 continue
             for seed in group:
                 hit = deepcopy(stored[0])
                 hit["id"] = seed["id"]
                 hit["bbox"] = list(seed["bbox"])
-                # Grayscale hash: drop the color-derived gradient so merge()
-                # re-enriches it from this seed's own RGB crop.
                 hit.pop("foreground_gradient", None)
-                cached_by_id[seed["id"]] = hit
-                dedup_hits.add(seed["id"])
-        if dedup_hits:
-            missing = [seed for seed in missing if seed["id"] not in dedup_hits]
+                dedup_hit_raw.append(hit)
+                removed_from_missing.add(seed["id"])
+        if removed_from_missing:
+            missing = [seed for seed in missing if seed["id"] not in removed_from_missing]
+
+    dedup_enriched: list[OCRRecord] = []
+    if dedup_hit_raw:
+        dedup_enriched = await asyncio.to_thread(
+            lambda: [enrich_ocr_record_with_gradient(request.image, hit) for hit in dedup_hit_raw]
+        )
+        for record in dedup_enriched:
+            cached_by_id[record["id"]] = record
 
     fresh_by_id: dict[str, OCRRecord] = {}
     inputs = [region for seed in missing if (region := _to_input_region(seed)) is not None]
@@ -302,26 +319,36 @@ async def run_cached_ocr(
             )
             for result in results
         ]
+        raw_by_id = {record["id"]: record for record in raw}
+        for _key, leader, followers in dedup_pending:
+            leader_raw = raw_by_id.get(leader["id"])
+            if leader_raw is None:
+                continue
+            for follower in followers:
+                cloned = deepcopy(leader_raw)
+                cloned["id"] = follower["id"]
+                cloned["bbox"] = list(follower["bbox"])
+                cloned["source"] = normalize_stage_source(follower.get("source"))
+                cloned["detector_model_key"] = follower.get("detector_model_key")
+                raw.append(cloned)
         fresh = await asyncio.to_thread(
             lambda: [enrich_ocr_record_with_gradient(request.image, record) for record in raw]
         )
         fresh_by_id = {record["id"]: record for record in fresh}
-        pipeline_cache.cache_ocr_results(cache_key, fresh)
-        for key, group in dedup_pending:
-            for seed in group:
-                record = fresh_by_id.get(seed["id"])
-                if record is None:
-                    continue
-                bbox = normalize_bbox(record["bbox"])
-                if bbox is None or not record["text"].strip():
-                    continue
-                get_ocr_region_dedup_cache().store(key, [record])
-                break
-        # Persist to disk keyed by bbox id (never seed id — seed ids are
-        # pass-local). Blank text is not persisted so a later pass can still
-        # recover it, mirroring the in-memory guard.
+        for key, leader, _followers in dedup_pending:
+            record = fresh_by_id.get(leader["id"])
+            if record is None:
+                continue
+            bbox = normalize_bbox(record["bbox"])
+            if bbox is None or not record["text"].strip():
+                continue
+            get_ocr_region_dedup_cache().store(key, [record])
+
+    persistable = [*fresh_by_id.values(), *dedup_enriched]
+    if persistable:
+        pipeline_cache.cache_ocr_results(cache_key, persistable)
         new_blocks: dict[str, dict[str, object]] = {}
-        for record in fresh:
+        for record in persistable:
             bbox = normalize_bbox(record["bbox"])
             if bbox is None or not record["text"].strip():
                 continue
