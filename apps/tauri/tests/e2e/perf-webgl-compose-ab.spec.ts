@@ -483,6 +483,14 @@ test(
       baselinePath,
     })}`);
 
+    await setComposeFlag(page, null);
+    const defaultFlagEnabled = await page.evaluate(async ({ src }) => {
+      const composer = (await import(`${src}/utils/webglCompose.ts`)) as {
+        isWebGLComposeEnabled: () => boolean;
+      };
+      return composer.isWebGLComposeEnabled();
+    }, { src: SRC });
+
     expect(
       flagOff.webglAttempts,
       "flag-off run must not touch WebGL (2D path untouched)",
@@ -491,6 +499,16 @@ test(
       flagOn.webglAttempts,
       "flag-on run must attempt the WebGL composer per page",
     ).toBeGreaterThanOrEqual(AB_PAGES);
+    expect(
+      flagOn.webglContexts,
+      "flag-on Chromium run must acquire real WebGL contexts (not a vacuous 2D fallback)",
+    ).toBeGreaterThanOrEqual(AB_PAGES);
+    if (!allPixelEqual) {
+      expect(
+        defaultFlagEnabled,
+        "GATE-2(a): shipped default must stay false while WebGL output is not pixel-identical",
+      ).toBe(false);
+    }
     for (const entry of perImage) {
       expect(
         entry.maxChannelDelta,

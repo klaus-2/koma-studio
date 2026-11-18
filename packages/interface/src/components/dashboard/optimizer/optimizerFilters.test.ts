@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
+  applyOptimizerFilterChain,
   autoLevelsPixels,
   brightnessPixels,
   contrastPixels,
@@ -8,6 +9,10 @@ import {
   grayscalePixels,
   noiseReducePixels,
   sharpenPixels,
+} from './optimizerFilters';
+import type {
+  OptimizerFilterChainOptions,
+  OptimizerPixelContext,
 } from './optimizerFilters';
 
 const byteAt = (data: Uint8ClampedArray, index: number): number => data[index] ?? 0;
@@ -713,5 +718,113 @@ describe('pooled scratch protocol', () => {
     runSubsetChain(pooledData, () => pooledScratch);
 
     expect(pooledData).toEqual(freshData);
+  });
+});
+
+const makeSpyContext = (
+  pixels: Uint8ClampedArray,
+): {
+  context: OptimizerPixelContext;
+  getImageData: ReturnType<typeof vi.fn>;
+  putImageData: ReturnType<typeof vi.fn>;
+  written: Uint8ClampedArray[];
+} => {
+  const written: Uint8ClampedArray[] = [];
+  const getImageData = vi.fn(
+    (_sx: number, _sy: number, sw: number, sh: number): ImageData => ({
+      data: new Uint8ClampedArray(pixels),
+      width: sw,
+      height: sh,
+      colorSpace: 'srgb',
+    }),
+  );
+  const putImageData = vi.fn((imageData: ImageData, _dx: number, _dy: number): void => {
+    written.push(new Uint8ClampedArray(imageData.data));
+  });
+  return {
+    context: {
+      getImageData: (sx, sy, sw, sh) => getImageData(sx, sy, sw, sh),
+      putImageData: (imageData, dx, dy) => putImageData(imageData, dx, dy),
+    },
+    getImageData,
+    putImageData,
+    written,
+  };
+};
+
+describe('applyOptimizerFilterChain dirty-flag orchestration', () => {
+  const baseOptions: OptimizerFilterChainOptions = {
+    autoLevels: false,
+    brightness: 0,
+    contrast: 0,
+    noiseReduction: false,
+    noiseReductionStrength: 0.5,
+    sharpen: false,
+    sharpenStrength: 0.5,
+    grayscale: false,
+  };
+
+  it('neither reads nor writes when every filter is disabled or zero', () => {
+    const pixels = makeGradientFixture(FIXTURE_WIDTH, FIXTURE_HEIGHT, FIXTURE_SEED);
+    const spy = makeSpyContext(pixels);
+    applyOptimizerFilterChain(spy.context, FIXTURE_WIDTH, FIXTURE_HEIGHT, baseOptions);
+    expect(spy.getImageData).not.toHaveBeenCalled();
+    expect(spy.putImageData).not.toHaveBeenCalled();
+  });
+
+  it('skips putImageData when autoLevels early-returns on low-range semi-transparent pixels', () => {
+    const uniformSemiTransparent = new Uint8ClampedArray(4 * 4 * 4);
+    for (let idx = 0; idx < uniformSemiTransparent.length; idx += 4) {
+      uniformSemiTransparent[idx] = 128;
+      uniformSemiTransparent[idx + 1] = 128;
+      uniformSemiTransparent[idx + 2] = 128;
+      uniformSemiTransparent[idx + 3] = 137;
+    }
+    const spy = makeSpyContext(uniformSemiTransparent);
+    applyOptimizerFilterChain(spy.context, 4, 4, {
+      ...baseOptions,
+      autoLevels: true,
+    });
+    expect(spy.getImageData).toHaveBeenCalledTimes(1);
+    expect(spy.putImageData).not.toHaveBeenCalled();
+  });
+
+  it('fetches ImageData once and flushes putImageData once across the full filter chain', () => {
+    const source = makeGradientFixture(FIXTURE_WIDTH, FIXTURE_HEIGHT, FIXTURE_SEED);
+    const expected = new Uint8ClampedArray(source);
+    autoLevelsPixels(expected);
+    brightnessPixels(expected, 15);
+    contrastPixels(expected, 20);
+    noiseReducePixels(
+      expected,
+      new Uint8ClampedArray(expected.length),
+      FIXTURE_WIDTH,
+      FIXTURE_HEIGHT,
+      0.6,
+    );
+    sharpenPixels(
+      expected,
+      new Uint8ClampedArray(expected.length),
+      FIXTURE_WIDTH,
+      FIXTURE_HEIGHT,
+      0.8,
+    );
+    grayscalePixels(expected);
+
+    const spy = makeSpyContext(source);
+    applyOptimizerFilterChain(spy.context, FIXTURE_WIDTH, FIXTURE_HEIGHT, {
+      autoLevels: true,
+      brightness: 15,
+      contrast: 20,
+      noiseReduction: true,
+      noiseReductionStrength: 0.6,
+      sharpen: true,
+      sharpenStrength: 0.8,
+      grayscale: true,
+    });
+
+    expect(spy.getImageData).toHaveBeenCalledTimes(1);
+    expect(spy.putImageData).toHaveBeenCalledTimes(1);
+    expect(spy.written[0]).toEqual(expected);
   });
 });

@@ -1,11 +1,6 @@
 import {
-  autoLevelsPixels,
-  brightnessPixels,
-  contrastPixels,
+  applyOptimizerFilterChain,
   detectBorderCrop,
-  grayscalePixels,
-  noiseReducePixels,
-  sharpenPixels,
 } from "./optimizerFilters";
 
 type RawOutputFormat = "png" | "jpeg" | "webp";
@@ -30,11 +25,6 @@ interface OptimizationWorkerJob {
   noiseReduction: boolean;
   noiseReductionStrength: number;
   rotation: 0 | 90 | 180 | 270;
-}
-
-interface FilterScratch {
-  imageData: ImageData | null;
-  src: Uint8ClampedArray | null;
 }
 
 const getMimeType = (format: RawOutputFormat): "image/png" | "image/jpeg" | "image/webp" => {
@@ -66,6 +56,7 @@ const applyRotation = (
 
 self.onmessage = async (event: MessageEvent<OptimizationWorkerJob>) => {
   const job = event.data;
+  let activeStage = "decode";
   try {
     const blob = new Blob([job.sourceBuffer], { type: job.sourceMimeType || "image/png" });
     const bitmap = await createImageBitmap(blob);
@@ -76,6 +67,7 @@ self.onmessage = async (event: MessageEvent<OptimizationWorkerJob>) => {
     }
     stageContext.drawImage(bitmap, 0, 0);
 
+    activeStage = "trimBorders";
     const crop = job.trimBorders
       ? detectBorderCrop(
           stageContext.getImageData(0, 0, bitmap.width, bitmap.height).data,
@@ -85,6 +77,7 @@ self.onmessage = async (event: MessageEvent<OptimizationWorkerJob>) => {
         )
       : { x: 0, y: 0, width: bitmap.width, height: bitmap.height };
 
+    activeStage = "resize";
     let targetWidth = crop.width;
     let targetHeight = crop.height;
     if (job.resizeEnabled) {
@@ -110,76 +103,15 @@ self.onmessage = async (event: MessageEvent<OptimizationWorkerJob>) => {
       targetHeight,
     );
 
-    const scratch: FilterScratch = { imageData: null, src: null };
+    activeStage = "filters";
+    applyOptimizerFilterChain(outputContext, targetWidth, targetHeight, job);
 
-    // Dirty-flag protocol: the pooled ImageData is allocated once by the first
-    // filter's ensureSynced; after every putImageData canvas == buffer holds,
-    // so the holder is the single synchronization point — a filter that writes
-    // to the canvas outside the holder must reset scratch.imageData to re-sync.
-    const ensureSynced = (
-      context: OffscreenCanvasRenderingContext2D,
-      width: number,
-      height: number,
-    ): ImageData => {
-      if (!scratch.imageData) {
-        scratch.imageData = context.getImageData(0, 0, width, height);
-      }
-      return scratch.imageData;
-    };
-    const ensureScratchSrc = (length: number): Uint8ClampedArray => {
-      if (!scratch.src) {
-        scratch.src = new Uint8ClampedArray(length);
-      }
-      return scratch.src;
-    };
-
-    if (job.autoLevels) {
-      const imageData = ensureSynced(outputContext, targetWidth, targetHeight);
-      autoLevelsPixels(imageData.data);
-      outputContext.putImageData(imageData, 0, 0);
-    }
-    if (job.brightness !== 0) {
-      const imageData = ensureSynced(outputContext, targetWidth, targetHeight);
-      brightnessPixels(imageData.data, job.brightness);
-      outputContext.putImageData(imageData, 0, 0);
-    }
-    if (job.contrast !== 0) {
-      const imageData = ensureSynced(outputContext, targetWidth, targetHeight);
-      contrastPixels(imageData.data, job.contrast);
-      outputContext.putImageData(imageData, 0, 0);
-    }
-    if (job.noiseReduction) {
-      const imageData = ensureSynced(outputContext, targetWidth, targetHeight);
-      noiseReducePixels(
-        imageData.data,
-        ensureScratchSrc(imageData.data.length),
-        targetWidth,
-        targetHeight,
-        job.noiseReductionStrength,
-      );
-      outputContext.putImageData(imageData, 0, 0);
-    }
-    if (job.sharpen) {
-      const imageData = ensureSynced(outputContext, targetWidth, targetHeight);
-      sharpenPixels(
-        imageData.data,
-        ensureScratchSrc(imageData.data.length),
-        targetWidth,
-        targetHeight,
-        job.sharpenStrength,
-      );
-      outputContext.putImageData(imageData, 0, 0);
-    }
-    if (job.grayscale) {
-      const imageData = ensureSynced(outputContext, targetWidth, targetHeight);
-      grayscalePixels(imageData.data);
-      outputContext.putImageData(imageData, 0, 0);
-    }
-
+    activeStage = "rotation";
     const rotated = applyRotation(outputContext, targetWidth, targetHeight, job.rotation);
     const finalWidth = rotated.width;
     const finalHeight = rotated.height;
 
+    activeStage = "encode";
     const outputBlob = await rotated.canvas.convertToBlob({
       type: getMimeType(job.outputFormat),
       quality: job.outputFormat === "png" ? undefined : job.quality,
@@ -193,10 +125,11 @@ self.onmessage = async (event: MessageEvent<OptimizationWorkerJob>) => {
       height: finalHeight,
     });
   } catch (error) {
+    const detail = error instanceof Error ? error.message : "Optimizer worker failed.";
     self.postMessage({
       id: job.id,
       ok: false,
-      error: error instanceof Error ? error.message : "Optimizer worker failed.",
+      error: `[${activeStage}] ${detail}`,
     });
   }
 };

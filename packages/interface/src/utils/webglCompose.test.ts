@@ -102,11 +102,15 @@ type GLContextMembers = Pick<
   | 'enable'
   | 'enableVertexAttribArray'
   | 'getAttribLocation'
+  | 'getError'
   | 'getExtension'
+  | 'getProgramInfoLog'
   | 'getProgramParameter'
+  | 'getShaderInfoLog'
   | 'getShaderParameter'
   | 'getUniformLocation'
   | 'linkProgram'
+  | 'NO_ERROR'
   | 'pixelStorei'
   | 'shaderSource'
   | 'texImage2D'
@@ -121,6 +125,7 @@ interface GLStubBehaviors {
   readonly shaderCompiles: boolean;
   readonly programLinks: boolean;
   readonly loseContext: Mock | null;
+  readonly glError: number;
 }
 
 const stubGLContext = (behaviors?: Partial<GLStubBehaviors>): GLContextMembers => {
@@ -132,6 +137,7 @@ const stubGLContext = (behaviors?: Partial<GLStubBehaviors>): GLContextMembers =
     return null;
   });
   return {
+    NO_ERROR: 0,
     activeTexture: vi.fn(),
     attachShader: vi.fn(),
     bindBuffer: vi.fn(),
@@ -153,12 +159,15 @@ const stubGLContext = (behaviors?: Partial<GLStubBehaviors>): GLContextMembers =
     enable: vi.fn(),
     enableVertexAttribArray: vi.fn(),
     getAttribLocation: vi.fn((_program: WebGLProgram, _name: string): number => 0),
+    getError: vi.fn((): number => behaviors?.glError ?? 0),
     getExtension: getExtension as WebGLRenderingContext['getExtension'],
+    getProgramInfoLog: vi.fn((): string => 'program-link-error'),
     getProgramParameter: vi.fn(
       (_program: WebGLProgram, _pname: number): boolean =>
         behaviors?.programLinks ?? true,
     ),
-  getShaderParameter: vi.fn(
+    getShaderInfoLog: vi.fn((): string => 'shader-compile-error'),
+    getShaderParameter: vi.fn(
     (_shader: WebGLShader, _pname: number): boolean =>
       behaviors?.shaderCompiles ?? true,
   ),
@@ -330,20 +339,38 @@ describe('tryComposeLayersWebGL failure matrix', () => {
     expect(tryComposeLayersWebGL(base, null, text, 8, 8)).toBeNull();
   });
 
-  it('returns null when a shader fails to compile', () => {
+  it('returns null and logs stage diagnostics when a shader fails to compile', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const gl = stubGLContext({ shaderCompiles: false });
     routeGetContext({ on2d: null, onWebGL: () => gl });
     const { base, text } = buildLayers();
     expect(tryComposeLayersWebGL(base, null, text, 8, 8)).toBeNull();
     expect(gl.drawArrays).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[webgl-compose] falling back to 2D',
+      expect.objectContaining({
+        stage: 'compile-shader',
+        infoLog: 'shader-compile-error',
+      }),
+    );
+    warnSpy.mockRestore();
   });
 
-  it('returns null when the program fails to link', () => {
+  it('returns null and logs stage diagnostics when the program fails to link', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const gl = stubGLContext({ programLinks: false });
     routeGetContext({ on2d: null, onWebGL: () => gl });
     const { base, text } = buildLayers();
     expect(tryComposeLayersWebGL(base, null, text, 8, 8)).toBeNull();
     expect(gl.drawArrays).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[webgl-compose] falling back to 2D',
+      expect.objectContaining({
+        stage: 'link-program',
+        infoLog: 'program-link-error',
+      }),
+    );
+    warnSpy.mockRestore();
   });
 
   it('returns null when the readback 2D context is unavailable', () => {
@@ -372,7 +399,8 @@ describe('tryComposeLayersWebGL failure matrix', () => {
     expect(loseContext).toHaveBeenCalledTimes(1);
   });
 
-  it('cleans up allocated GL resources and releases context when mid-upload throws', () => {
+  it('cleans up allocated GL resources, logs upload diagnostics, and releases context when mid-upload throws', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const loseContext = vi.fn();
     const gl = stubGLContext({ loseContext });
     vi.mocked(gl.texImage2D).mockImplementationOnce(() => undefined).mockImplementationOnce(() => {
@@ -386,6 +414,30 @@ describe('tryComposeLayersWebGL failure matrix', () => {
     expect(gl.deleteProgram).toHaveBeenCalledTimes(1);
     expect(gl.deleteShader).toHaveBeenCalledTimes(2);
     expect(loseContext).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[webgl-compose] falling back to 2D',
+      expect.objectContaining({
+        stage: 'upload-texture',
+        layer: 'text',
+        error: 'tainted-canvas',
+      }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('returns null and warns when gl.getError reports a non-throwing GPU error', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const loseContext = vi.fn();
+    const gl = stubGLContext({ glError: 0x0502, loseContext });
+    routeGetContext({
+      on2d: (canvas) => stubTwoDContext(canvas),
+      onWebGL: () => gl,
+    });
+    const { base, text } = buildLayers();
+    expect(tryComposeLayersWebGL(base, null, text, 8, 8)).toBeNull();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(loseContext).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
   });
 });
 
@@ -554,6 +606,44 @@ describe('renderAioImageToBlob wiring', () => {
       64,
       32,
     );
+  });
+
+  it('falls back to drawing paint + text onto baseCtx when auxiliary textCanvas 2D context is null', async () => {
+    setWebGLComposeEnabled(true);
+    useManualToolsStore.setState({
+      aioManualImageEditsByImage: {
+        [imageId]: edited({ paintLayerDataUrl }),
+      },
+    });
+    let twoDCount = 0;
+    routeGetContext({
+      on2d: (canvas) => {
+        twoDCount += 1;
+        return twoDCount === 1 ? stubTwoDContext(canvas) : null;
+      },
+      onWebGL: null,
+    });
+
+    const image = buildLoadedImage(imageId);
+    const blob = await renderImageToBlob(image, [regionFixture]);
+
+    expect(tryComposeSpy).not.toHaveBeenCalled();
+    expect(twoDStubs[0]?.drawImage).toHaveBeenCalledWith(
+      loadedPaintImage,
+      0,
+      0,
+      64,
+      32,
+    );
+    expect(vi.mocked(drawRenderedTextInRegion)).toHaveBeenCalledWith(
+      twoDStubs[0]?.ctx,
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(vi.mocked(canvasToBlob).mock.calls[0]?.[0]).toBe(twoDStubs[0]?.canvas);
+    expect(blob.type).toBe('image/png');
   });
 });
 

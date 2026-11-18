@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { TranslationKey } from '../../../i18n/messages';
 import type { OptimizationRecipe } from '../../../types';
-import { runOptimizerJob } from './optimizerJob';
+import {
+  OPTIMIZER_JOB_TIMEOUT_MS,
+  runOptimizerJob,
+} from './optimizerJob';
 import { PRESET_RECIPES } from './optimizerRecipe';
 
 type OptimizerJobPayload = {
@@ -32,6 +35,7 @@ class FakeWorker {
   onmessage: ((event: MessageEvent<OptimizerJobResponse>) => void) | null =
     null;
   onerror: ((event: ErrorEvent) => void) | null = null;
+  onmessageerror: ((event: MessageEvent<null>) => void) | null = null;
   terminated = false;
   readonly posted: OptimizerJobPost[] = [];
 
@@ -53,6 +57,10 @@ class FakeWorker {
 
   fail(): void {
     this.onerror?.(new ErrorEvent('error', { message: 'poisoned' }));
+  }
+
+  failDeserialize(): void {
+    this.onmessageerror?.(new MessageEvent('messageerror', { data: null }));
   }
 }
 
@@ -184,7 +192,10 @@ describe('runOptimizerJob (plan T2 — transferable source buffer)', () => {
     expect(worker.terminated).toBe(true);
   });
 
-  it('rejects with the worker error message and terminates when the worker errors', async () => {
+  it('rejects with the worker error message, logs diagnostics, and terminates when the worker errors', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     vi.stubGlobal('Worker', FakeWorker);
     const payload = makePayload();
 
@@ -198,6 +209,11 @@ describe('runOptimizerJob (plan T2 — transferable source buffer)', () => {
 
     await expect(promise).rejects.toThrow('optimizer.error.worker');
     expect(worker.terminated).toBe(true);
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[optimizer] worker error',
+      expect.objectContaining({ message: 'poisoned' }),
+    );
+    errorSpy.mockRestore();
   });
 
   it('rejects with the worker-unavailable message when Worker is undefined', async () => {
@@ -208,5 +224,94 @@ describe('runOptimizerJob (plan T2 — transferable source buffer)', () => {
       'optimizer.error.worker',
     );
     expect(FakeWorker.instances).toHaveLength(0);
+  });
+
+  it('terminates the worker, logs the cause, and rejects with the localized error when postMessage throws synchronously', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    class ThrowingPostWorker extends FakeWorker {
+      override postMessage(): void {
+        throw new DOMException('ArrayBuffer is detached', 'DataCloneError');
+      }
+    }
+    vi.stubGlobal('Worker', ThrowingPostWorker);
+    const payload = makePayload();
+
+    await expect(runOptimizerJob(payload, t)).rejects.toThrow(
+      'optimizer.error.worker',
+    );
+    const worker = requirePostedWorker();
+    expect(worker.terminated).toBe(true);
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[optimizer] worker postMessage failed',
+      expect.objectContaining({ requestId: expect.stringMatching(/^optimizer-/) }),
+      expect.any(DOMException),
+    );
+    errorSpy.mockRestore();
+  });
+
+  it('terminates the worker and rejects when response deserialization fails via onmessageerror', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    vi.stubGlobal('Worker', FakeWorker);
+    const payload = makePayload();
+
+    const promise = runOptimizerJob(payload, t);
+    await flushMicrotasks();
+
+    const worker = requirePostedWorker();
+    worker.failDeserialize();
+
+    await expect(promise).rejects.toThrow('optimizer.error.worker');
+    expect(worker.terminated).toBe(true);
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[optimizer] worker response deserialization failed',
+      expect.objectContaining({ requestId: expect.stringMatching(/^optimizer-/) }),
+    );
+    errorSpy.mockRestore();
+  });
+
+  it('terminates a hung worker on timeout without double-settling on a late response', async () => {
+    vi.useFakeTimers();
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      vi.stubGlobal('Worker', FakeWorker);
+      const payload = makePayload();
+
+      const promise = runOptimizerJob(payload, t);
+      await flushMicrotasks();
+
+      const worker = requirePostedWorker();
+      const requestId = requireFirstPost(worker).payload.id;
+      expect(vi.getTimerCount()).toBe(1);
+
+      vi.advanceTimersByTime(OPTIMIZER_JOB_TIMEOUT_MS);
+
+      await expect(promise).rejects.toThrow('optimizer.error.worker');
+      expect(worker.terminated).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(errorSpy).toHaveBeenCalledWith(
+        '[optimizer] worker job timed out',
+        expect.objectContaining({
+          requestId,
+          timeoutMs: OPTIMIZER_JOB_TIMEOUT_MS,
+        }),
+      );
+
+      worker.respondWith({
+        id: requestId,
+        ok: true,
+        blob: new Blob(['late']),
+        width: 32,
+        height: 32,
+      });
+    } finally {
+      errorSpy.mockRestore();
+      vi.useRealTimers();
+    }
   });
 });

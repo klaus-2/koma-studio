@@ -50,18 +50,29 @@ const COMPOSE_QUAD_VERTICES = new Float32Array([
   1, 1,
 ]);
 
+const warnWebGLFallback = (
+  stage: string,
+  detail?: Record<string, string | number | boolean | null>,
+): null => {
+  console.warn('[webgl-compose] falling back to 2D', { stage, ...detail });
+  return null;
+};
+
 const createComposeShader = (
   gl: WebGLRenderingContext,
   type: number,
   source: string,
 ): WebGLShader | null => {
   const shader = gl.createShader(type);
-  if (!shader) return null;
+  if (!shader) {
+    return warnWebGLFallback('create-shader', { type });
+  }
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const infoLog = gl.getShaderInfoLog(shader);
     gl.deleteShader(shader);
-    return null;
+    return warnWebGLFallback('compile-shader', { type, infoLog });
   }
   return shader;
 };
@@ -69,9 +80,12 @@ const createComposeShader = (
 const createLayerTexture = (
   gl: WebGLRenderingContext,
   layer: TexImageSource,
+  label: 'base' | 'paint' | 'text',
 ): WebGLTexture | null => {
   const texture = gl.createTexture();
-  if (!texture) return null;
+  if (!texture) {
+    return warnWebGLFallback('create-texture', { layer: label });
+  }
   try {
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -82,9 +96,14 @@ const createLayerTexture = (
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, layer);
     return texture;
-  } catch {
+  } catch (error) {
+    const glError = gl.getError();
     gl.deleteTexture(texture);
-    return null;
+    return warnWebGLFallback('upload-texture', {
+      layer: label,
+      glError,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 };
 
@@ -125,7 +144,9 @@ export const tryComposeLayersWebGL = (
       depth: false,
       stencil: false,
     });
-    if (!gl) return null;
+    if (!gl) {
+      return warnWebGLFallback('context-unavailable');
+    }
 
     vertexShader = createComposeShader(
       gl,
@@ -140,23 +161,35 @@ export const tryComposeLayersWebGL = (
     if (!vertexShader || !fragmentShader) return null;
 
     program = gl.createProgram();
-    if (!program) return null;
+    if (!program) {
+      return warnWebGLFallback('create-program');
+    }
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      return warnWebGLFallback('link-program', {
+        infoLog: gl.getProgramInfoLog(program),
+      });
+    }
     gl.useProgram(program);
 
     quadBuffer = gl.createBuffer();
-    if (!quadBuffer) return null;
+    if (!quadBuffer) {
+      return warnWebGLFallback('create-buffer');
+    }
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, COMPOSE_QUAD_VERTICES, gl.STATIC_DRAW);
     const aPosition = gl.getAttribLocation(program, 'aPosition');
-    if (aPosition < 0) return null;
+    if (aPosition < 0) {
+      return warnWebGLFallback('attrib-location', { attrib: 'aPosition' });
+    }
     gl.enableVertexAttribArray(aPosition);
     gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
     const uLayer = gl.getUniformLocation(program, 'uLayer');
-    if (!uLayer) return null;
+    if (!uLayer) {
+      return warnWebGLFallback('uniform-location', { uniform: 'uLayer' });
+    }
     gl.uniform1i(uLayer, 0);
 
     gl.viewport(0, 0, width, height);
@@ -172,28 +205,36 @@ export const tryComposeLayersWebGL = (
       gl.ONE_MINUS_SRC_ALPHA,
     );
 
-    baseTexture = createLayerTexture(gl, base);
+    baseTexture = createLayerTexture(gl, base, 'base');
     if (!baseTexture) return null;
     drawLayerTexture(gl, baseTexture);
     if (paint) {
-      paintTexture = createLayerTexture(gl, paint);
+      paintTexture = createLayerTexture(gl, paint, 'paint');
       if (!paintTexture) return null;
       drawLayerTexture(gl, paintTexture);
     }
-    textTexture = createLayerTexture(gl, text);
+    textTexture = createLayerTexture(gl, text, 'text');
     if (!textTexture) return null;
     drawLayerTexture(gl, textTexture);
+    const glError = gl.getError();
+    if (glError !== gl.NO_ERROR) {
+      return warnWebGLFallback('draw-error', { glError });
+    }
 
     const outCanvas = document.createElement('canvas');
     outCanvas.width = width;
     outCanvas.height = height;
     const outCtx = outCanvas.getContext('2d');
-    if (!outCtx) return null;
+    if (!outCtx) {
+      return warnWebGLFallback('readback-2d-context');
+    }
     outCtx.drawImage(glCanvas, 0, 0, width, height);
     return outCanvas;
-  } catch {
+  } catch (error) {
     // Contract: any GPU failure falls back to the caller's 2D composite.
-    return null;
+    return warnWebGLFallback('exception', {
+      error: error instanceof Error ? error.message : String(error),
+    });
   } finally {
     if (gl) {
       try {

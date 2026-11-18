@@ -81,11 +81,62 @@ export const createExportWorkerPool = (
   const ownerByJob = new Map<number, Worker>();
   let nextJobId = 1;
   let disposed = false;
+  let lastSpawnError: Error | null = null;
 
   const releaseWorker = (worker: Worker): void => {
     if (!idle.includes(worker)) idle.push(worker);
     pump();
   };
+
+  const failQueuedJobsWithoutWorkers = (cause: Error): void => {
+    if (workers.length > 0 || queue.length === 0) return;
+    for (const queuedJob of queue.splice(0)) {
+      if (queuedJob.timer) {
+        clearTimeout(queuedJob.timer);
+        queuedJob.timer = null;
+      }
+      queuedJob.reject(
+        new Error(`export worker spawn failed: ${cause.message}`),
+      );
+    }
+  };
+
+  const armJobTimeout = (
+    jobId: number,
+    rejectJob: (error: Error) => void,
+  ): ReturnType<typeof setTimeout> =>
+    setTimeout(() => {
+      const owner = ownerByJob.get(jobId);
+      if (owner) {
+        terminate(owner);
+        spawn();
+      }
+      const tracked = pending.get(jobId);
+      if (tracked) {
+        events.onWorkerDone?.(jobId);
+        tracked.reject(
+          new Error(
+            `export worker job ${jobId} timed out after ${JOB_TIMEOUT_MS}ms`,
+          ),
+        );
+        pending.delete(jobId);
+        ownerByJob.delete(jobId);
+        pump();
+        if (workers.length === 0 && lastSpawnError) {
+          failQueuedJobsWithoutWorkers(lastSpawnError);
+        }
+        return;
+      }
+      const queuedIndex = queue.findIndex((entry) => entry.jobId === jobId);
+      if (queuedIndex >= 0) {
+        queue.splice(queuedIndex, 1);
+        rejectJob(
+          new Error(
+            `export worker job ${jobId} timed out queued after ${JOB_TIMEOUT_MS}ms`,
+          ),
+        );
+      }
+    }, JOB_TIMEOUT_MS);
 
   const settleJob = (
     job: PendingJob,
@@ -96,6 +147,7 @@ export const createExportWorkerPool = (
       job.timer = null;
     }
     pending.delete(job.jobId);
+    ownerByJob.delete(job.jobId);
     events.onWorkerDone?.(job.jobId);
     if (outcome.ok) {
       job.resolve({
@@ -151,24 +203,7 @@ export const createExportWorkerPool = (
         );
       } else if (owned.attempts.value < MAX_JOB_ATTEMPTS) {
         events.onRetry?.(owned.jobId, message);
-        owned.timer = setTimeout(() => {
-          const owner = ownerByJob.get(owned.jobId);
-          if (owner) {
-            terminate(owner);
-            spawn();
-          }
-          const tracked = pending.get(owned.jobId);
-          if (tracked) {
-            events.onWorkerDone?.(owned.jobId);
-            tracked.reject(
-              new Error(
-                `export worker job ${owned.jobId} timed out after ${JOB_TIMEOUT_MS}ms`,
-              ),
-            );
-            pending.delete(owned.jobId);
-            ownerByJob.delete(owned.jobId);
-          }
-        }, JOB_TIMEOUT_MS);
+        owned.timer = armJobTimeout(owned.jobId, owned.reject);
         enqueue(owned);
       } else {
         events.onWorkerDone?.(owned.jobId);
@@ -177,11 +212,24 @@ export const createExportWorkerPool = (
     }
     spawn();
     pump();
+    if (workers.length === 0 && lastSpawnError) {
+      failQueuedJobsWithoutWorkers(lastSpawnError);
+    }
   };
 
   const spawn = (): void => {
     if (disposed || workers.length >= POOL_SIZE) return;
-    const worker = createWorker();
+    let worker: Worker;
+    try {
+      worker = createWorker();
+      lastSpawnError = null;
+    } catch (error) {
+      const normalized =
+        error instanceof Error ? error : new Error(String(error));
+      lastSpawnError = normalized;
+      console.error('[export-worker-pool] failed to spawn worker', normalized);
+      return;
+    }
     workers.push(worker);
     worker.onmessage = (event: MessageEvent<ExportWorkerResponse>) =>
       emit(worker, event.data);
@@ -228,6 +276,9 @@ export const createExportWorkerPool = (
             `export worker post failed: ${error instanceof Error ? error.message : String(error)}`,
           ),
         );
+        if (workers.length === 0 && lastSpawnError) {
+          failQueuedJobsWithoutWorkers(lastSpawnError);
+        }
       }
     }
   };
@@ -235,7 +286,13 @@ export const createExportWorkerPool = (
   const enqueue = (job: PendingJob): void => {
     queue.push(job);
     events.onQueued?.();
+    if (!disposed && workers.length === 0) {
+      spawn();
+    }
     pump();
+    if (workers.length === 0 && lastSpawnError) {
+      failQueuedJobsWithoutWorkers(lastSpawnError);
+    }
   };
 
   spawn();
@@ -258,34 +315,7 @@ export const createExportWorkerPool = (
           reject,
           attempts: { value: 0 },
           bytesTransferred: false,
-          timer: setTimeout(() => {
-            const owner = ownerByJob.get(jobId);
-            if (owner) {
-              terminate(owner);
-              spawn();
-            }
-            const tracked = pending.get(jobId);
-            if (tracked) {
-              events.onWorkerDone?.(jobId);
-              tracked.reject(
-                new Error(
-                  `export worker job ${jobId} timed out after ${JOB_TIMEOUT_MS}ms`,
-                ),
-              );
-              pending.delete(jobId);
-              ownerByJob.delete(jobId);
-              return;
-            }
-            const queuedIndex = queue.findIndex((entry) => entry.jobId === jobId);
-            if (queuedIndex >= 0) {
-              queue.splice(queuedIndex, 1);
-              reject(
-                new Error(
-                  `export worker job ${jobId} timed out queued after ${JOB_TIMEOUT_MS}ms`,
-                ),
-              );
-            }
-          }, JOB_TIMEOUT_MS),
+          timer: armJobTimeout(jobId, reject),
         };
         enqueue(pendingJob);
       });
@@ -305,6 +335,7 @@ export const createExportWorkerPool = (
       pending.clear();
       ownerByJob.clear();
       for (const job of queue.splice(0)) {
+        if (job.timer) clearTimeout(job.timer);
         job.reject(new Error('export worker pool disposed'));
       }
       for (const worker of workers.slice()) {

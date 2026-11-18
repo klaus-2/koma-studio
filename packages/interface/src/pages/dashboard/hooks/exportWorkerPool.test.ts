@@ -362,16 +362,131 @@ describe('exportWorkerPool transferBytes (GATE-1 — transfer + fail-fast-after-
     }
   });
 
-  it('rejects with the disposal error when disposed during a transferred job', async () => {
-    const factory = makeWorkerFactory();
-    const pool = createExportWorkerPool({}, factory);
-    const pending = pool
-      .package({ ...zipJob(), transferBytes: true })
-      .catch((error: Error) => error);
-    await flushMicrotasks();
-    expect(pool.pendingCount()).toBe(1);
-    pool.dispose();
-    const error = await pending;
-    expect((error as Error).message).toMatch(/disposed/);
+  it('rejects with the disposal error and clears timers for both active and queued jobs', async () => {
+    vi.useFakeTimers();
+    try {
+      const factory = makeWorkerFactory();
+      const pool = createExportWorkerPool({}, factory);
+      const first = pool
+        .package({ ...zipJob(), transferBytes: true })
+        .catch((error: Error) => error);
+      const queued = pool
+        .package({ ...zipJob(), transferBytes: true })
+        .catch((error: Error) => error);
+      await flushMicrotasks();
+      expect(pool.pendingCount()).toBe(2);
+      expect(vi.getTimerCount()).toBe(2);
+      pool.dispose();
+      const [firstErr, queuedErr] = await Promise.all([first, queued]);
+      expect((firstErr as Error).message).toMatch(/disposed/);
+      expect((queuedErr as Error).message).toMatch(/disposed/);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('settles both an active job and a retried job queued behind it when their timeouts fire', async () => {
+    vi.useFakeTimers();
+    try {
+      const factory = makeWorkerFactory();
+      const pool = createExportWorkerPool({}, factory);
+      const first = pool
+        .package({ ...zipJob(), transferBytes: false })
+        .catch((error: Error) => error);
+      await flushMicrotasks();
+
+      vi.advanceTimersByTime(100_000);
+      const second = pool
+        .package({ ...zipJob(), transferBytes: true })
+        .catch((error: Error) => error);
+      await flushMicrotasks();
+
+      FakeWorker.instances[0]?.crash();
+      await flushMicrotasks();
+
+      expect(FakeWorker.instances).toHaveLength(2);
+      expect(FakeWorker.instances[1]?.posted[0]?.request.jobId).toBe(2);
+
+      vi.advanceTimersByTime(600_000);
+      const [firstErr, secondErr] = await Promise.all([first, second]);
+      expect((secondErr as Error).message).toBe(
+        'export worker job 2 timed out after 600000ms',
+      );
+      expect((firstErr as Error).message).toMatch(/timed out/);
+      expect(pool.pendingCount()).toBe(0);
+      expect(vi.getTimerCount()).toBe(0);
+      pool.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rejects queued and retried jobs cleanly when createWorker throws instead of hanging', async () => {
+    vi.useFakeTimers();
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      const baseFactory = makeWorkerFactory();
+      let allowSpawn = true;
+      const pool = createExportWorkerPool({}, () => {
+        if (!allowSpawn) {
+          throw new Error('bundle worker asset 404');
+        }
+        return baseFactory();
+      });
+      const retriedJob = pool
+        .package({ ...zipJob(), transferBytes: false })
+        .catch((error: Error) => error);
+      await flushMicrotasks();
+
+      allowSpawn = false;
+      FakeWorker.instances[0]?.crash();
+      await flushMicrotasks();
+
+      const err = await retriedJob;
+      expect((err as Error).message).toBe(
+        'export worker spawn failed: bundle worker asset 404',
+      );
+      expect(pool.pendingCount()).toBe(0);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(errorSpy).toHaveBeenCalled();
+      pool.dispose();
+    } finally {
+      errorSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('pumps the next queued job onto the replacement worker when the active job times out', async () => {
+    vi.useFakeTimers();
+    try {
+      const factory = makeWorkerFactory();
+      const pool = createExportWorkerPool({}, factory);
+      const first = pool
+        .package({ ...zipJob(), transferBytes: true })
+        .catch((error: Error) => error);
+      await flushMicrotasks();
+
+      vi.advanceTimersByTime(100_000);
+      const second = pool.package({ ...zipJob(), transferBytes: true });
+      await flushMicrotasks();
+
+      vi.advanceTimersByTime(500_000);
+      const firstErr = await first;
+      expect((firstErr as Error).message).toBe(
+        'export worker job 1 timed out after 600000ms',
+      );
+
+      expect(FakeWorker.instances).toHaveLength(2);
+      expect(FakeWorker.instances[1]?.posted[0]?.request.jobId).toBe(2);
+      FakeWorker.instances[1]?.succeedWithZip();
+      const secondResult = await second;
+      expect(secondResult.mimeType).toBe('application/zip');
+      pool.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

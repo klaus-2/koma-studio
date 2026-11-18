@@ -205,10 +205,12 @@ export function useAioRegionRenderToBlob({
         textCanvas.width = renderWidth;
         textCanvas.height = renderHeight;
         const acquiredTextCtx = textCanvas.getContext('2d');
-        if (!acquiredTextCtx) {
-          throw new Error(t('dashboard.status.renderCanvasInitFailed'));
+        if (acquiredTextCtx) {
+          textCtx = acquiredTextCtx;
+        } else if (paintLayer) {
+          baseCtx.drawImage(paintLayer, 0, 0, renderWidth, renderHeight);
+          paintLayer = null;
         }
-        textCtx = acquiredTextCtx;
       }
       const ctx = textCtx ?? baseCtx;
       await fontStrategy.waitReady();
@@ -292,7 +294,7 @@ export function useAioRegionRenderToBlob({
         drawRenderedTextInRegion(ctx, scaledBbox, layout, style, scaledShape);
       }
 
-      if (!webglComposeEnabled) {
+      if (!webglComposeEnabled || !textCtx) {
         return canvasToBlob(canvas, outFormat, outQuality);
       }
       const composited = tryComposeLayersWebGL(

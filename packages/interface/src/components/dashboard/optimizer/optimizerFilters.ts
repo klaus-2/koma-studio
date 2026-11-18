@@ -150,7 +150,7 @@ export const noiseReducePixels = (
 };
 
 /** Stretch histogram so that darkest pixel maps to 0 and brightest to 255. */
-export const autoLevelsPixels = (data: Uint8ClampedArray): void => {
+export const autoLevelsPixels = (data: Uint8ClampedArray): boolean => {
   let minVal = 255;
   let maxVal = 0;
   for (let i = 0; i < data.length; i += 4) {
@@ -161,11 +161,96 @@ export const autoLevelsPixels = (data: Uint8ClampedArray): void => {
     }
   }
   const range = maxVal - minVal;
-  if (range < 2) return;
+  if (range < 2) return false;
   const scale = 255 / range;
   for (let i = 0; i < data.length; i += 4) {
     for (let c = 0; c < 3; c++) {
       data[i + c] = Math.max(0, Math.min(255, Math.round((readChannel(data, i + c) - minVal) * scale)));
     }
+  }
+  return true;
+};
+
+export interface OptimizerPixelContext {
+  getImageData(sx: number, sy: number, sw: number, sh: number): ImageData;
+  putImageData(imageData: ImageData, dx: number, dy: number): void;
+}
+
+export interface OptimizerFilterChainOptions {
+  readonly autoLevels: boolean;
+  readonly brightness: number;
+  readonly contrast: number;
+  readonly noiseReduction: boolean;
+  readonly noiseReductionStrength: number;
+  readonly sharpen: boolean;
+  readonly sharpenStrength: number;
+  readonly grayscale: boolean;
+}
+
+export const applyOptimizerFilterChain = (
+  context: OptimizerPixelContext,
+  width: number,
+  height: number,
+  options: OptimizerFilterChainOptions,
+): void => {
+  let imageData: ImageData | null = null;
+  let scratchSrc: Uint8ClampedArray | null = null;
+  let dirty = false;
+
+  const ensureSynced = (): ImageData => {
+    if (!imageData) {
+      imageData = context.getImageData(0, 0, width, height);
+    }
+    return imageData;
+  };
+  const ensureScratchSrc = (length: number): Uint8ClampedArray => {
+    if (!scratchSrc) {
+      scratchSrc = new Uint8ClampedArray(length);
+    }
+    return scratchSrc;
+  };
+
+  if (options.autoLevels) {
+    if (autoLevelsPixels(ensureSynced().data)) {
+      dirty = true;
+    }
+  }
+  if (options.brightness !== 0) {
+    brightnessPixels(ensureSynced().data, options.brightness);
+    dirty = true;
+  }
+  if (options.contrast !== 0) {
+    contrastPixels(ensureSynced().data, options.contrast);
+    dirty = true;
+  }
+  if (options.noiseReduction) {
+    const data = ensureSynced().data;
+    noiseReducePixels(
+      data,
+      ensureScratchSrc(data.length),
+      width,
+      height,
+      options.noiseReductionStrength,
+    );
+    dirty = true;
+  }
+  if (options.sharpen) {
+    const data = ensureSynced().data;
+    sharpenPixels(
+      data,
+      ensureScratchSrc(data.length),
+      width,
+      height,
+      options.sharpenStrength,
+    );
+    dirty = true;
+  }
+  if (options.grayscale) {
+    grayscalePixels(ensureSynced().data);
+    dirty = true;
+  }
+
+  if (dirty && imageData) {
+    context.putImageData(imageData, 0, 0);
   }
 };
