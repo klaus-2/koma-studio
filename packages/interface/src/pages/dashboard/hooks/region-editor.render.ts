@@ -9,6 +9,7 @@ import {
   canvasToBlob,
   cloneRenderStyle,
   getRegionTranslationNotesForDisplay,
+  loadImageFromSource,
   scaleTypographyShapeForBounds,
 } from '../../../utils/dashboard.utils';
 import type { RenderTextStyle } from '../../../utils/renderText';
@@ -28,6 +29,10 @@ import {
   wrapAndMeasureStyled,
 } from '../../../utils/renderText.measure';
 import type { RenderTextLayout } from '../../../utils/renderText.types';
+import {
+  isWebGLComposeEnabled,
+  tryComposeLayersWebGL,
+} from '../../../utils/webglCompose';
 import { EMPTY_REGIONS } from '../../../utils/dashboardRenderUtils';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
 import type { TypographyStylePreset } from '../../../typography/types';
@@ -40,6 +45,7 @@ import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useExportStore } from '../stores/export-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
+import { useManualToolsStore } from '../stores/manual-tools-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useTypographerStore } from '../stores/typographer-store';
 
@@ -172,14 +178,39 @@ export function useAioRegionRenderToBlob({
       // Note-overlay toggle is an event-time read, like the download item above.
       const translationNotesEnabled =
         useLlmProvidersStore.getState().llmSettings.translation_notes_enabled;
+      // Compose mode is an event-time read, like the reads above: the A/B
+      // override flips it between export runs without touching the store.
+      const webglComposeEnabled = isWebGLComposeEnabled();
       const canvas = await composeAioEditableCanvas(
         imgData,
         baseItem?.previewUrl ?? imgData.url,
+        webglComposeEnabled ? { includePaintLayer: false } : undefined,
       );
       const renderWidth = canvas.width;
       const renderHeight = canvas.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error(t('dashboard.status.renderCanvasInitFailed'));
+      const baseCtx = canvas.getContext('2d');
+      if (!baseCtx) throw new Error(t('dashboard.status.renderCanvasInitFailed'));
+      // The GPU path keeps paint and text as separate layers for the WebGL
+      // composer; the 2D path draws text straight onto the composed canvas.
+      let paintLayer: HTMLImageElement | null = null;
+      let textCtx: CanvasRenderingContext2D | null = null;
+      if (webglComposeEnabled) {
+        const paintLayerDataUrl =
+          useManualToolsStore.getState().aioManualImageEditsByImage[imgData.id]
+            ?.paintLayerDataUrl ?? null;
+        paintLayer = paintLayerDataUrl
+          ? await loadImageFromSource(paintLayerDataUrl)
+          : null;
+        const textCanvas = document.createElement('canvas');
+        textCanvas.width = renderWidth;
+        textCanvas.height = renderHeight;
+        const acquiredTextCtx = textCanvas.getContext('2d');
+        if (!acquiredTextCtx) {
+          throw new Error(t('dashboard.status.renderCanvasInitFailed'));
+        }
+        textCtx = acquiredTextCtx;
+      }
+      const ctx = textCtx ?? baseCtx;
       await fontStrategy.waitReady();
 
       const baseRenderRegions = regions.map((item) =>
@@ -261,6 +292,23 @@ export function useAioRegionRenderToBlob({
         drawRenderedTextInRegion(ctx, scaledBbox, layout, style, scaledShape);
       }
 
+      if (!webglComposeEnabled) {
+        return canvasToBlob(canvas, outFormat, outQuality);
+      }
+      const composited = tryComposeLayersWebGL(
+        canvas,
+        paintLayer,
+        ctx.canvas,
+        renderWidth,
+        renderHeight,
+      );
+      if (composited) {
+        return canvasToBlob(composited, outFormat, outQuality);
+      }
+      if (paintLayer) {
+        baseCtx.drawImage(paintLayer, 0, 0, renderWidth, renderHeight);
+      }
+      baseCtx.drawImage(ctx.canvas, 0, 0, renderWidth, renderHeight);
       return canvasToBlob(canvas, outFormat, outQuality);
     },
     [
