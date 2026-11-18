@@ -271,6 +271,8 @@ async def run_cached_ocr(
                 hit = deepcopy(stored[0])
                 hit["id"] = seed["id"]
                 hit["bbox"] = list(seed["bbox"])
+                hit["source"] = normalize_stage_source(seed.get("source"))
+                hit["detector_model_key"] = seed.get("detector_model_key")
                 hit.pop("foreground_gradient", None)
                 dedup_hit_raw.append(hit)
                 removed_from_missing.add(seed["id"])

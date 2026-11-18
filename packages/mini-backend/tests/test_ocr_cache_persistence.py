@@ -27,6 +27,7 @@ from pipelines.cache_manager import (  # noqa: E402
     CacheManager,
     match_ocr_blocks,
 )
+from pipelines.ocr_region_dedup import get_ocr_region_dedup_cache  # noqa: E402
 from pipelines.ocr_stage import (  # noqa: E402
     CachedOcrRequest,
     run_cached_ocr,
@@ -55,9 +56,15 @@ def _seeds() -> tuple[OCRSeed, ...]:
     return (_seed("r1", [0, 0, 10, 10]), _seed("r2", [20, 20, 30, 30]))
 
 
+def _page() -> Image.Image:
+    image = Image.new("RGB", (64, 64), "white")
+    image.paste((30, 30, 30), (0, 0, 10, 10))
+    return image
+
+
 def _request() -> CachedOcrRequest:
     return CachedOcrRequest(
-        image=Image.new("RGB", (64, 64), "white"),
+        image=_page(),
         image_bytes=_IMAGE_BYTES,
         language="en",
         model_key=None,
@@ -116,6 +123,7 @@ def _patch_collaborators(
 def _fresh_singleton(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("KOMA_APP_DATA_DIR", str(tmp_path))
     stage_store_module.get_stage_store.cache_clear()
+    get_ocr_region_dedup_cache.cache_clear()
 
 
 def _store(tmp_path: Path) -> StageStore:
@@ -139,6 +147,7 @@ async def test_restart_round_trip_resolves_from_disk(
     # Force a NEW store/cache-manager view: reopen the sqlite file and drop
     # the in-memory cache — the actual "survives restart" property.
     stage_store_module.get_stage_store.cache_clear()
+    get_ocr_region_dedup_cache.cache_clear()
     second = await run_cached_ocr(
         request, cache=_new_cache(), resolve_engine=lambda **_: _FakeEngine()
     )
@@ -158,10 +167,11 @@ async def test_disk_rematch_within_and_beyond_tolerance(
         _request(), cache=_new_cache(), resolve_engine=lambda **_: _FakeEngine()
     )
     stage_store_module.get_stage_store.cache_clear()
+    get_ocr_region_dedup_cache.cache_clear()
 
     # Shift within the 5 px tolerance: disk hit, no recognition.
     shifted = CachedOcrRequest(
-        image=Image.new("RGB", (64, 64), "white"),
+        image=_page(),
         image_bytes=_IMAGE_BYTES,
         language="en",
         model_key=None,
@@ -178,7 +188,7 @@ async def test_disk_rematch_within_and_beyond_tolerance(
 
     # Shift beyond tolerance: miss, recognition runs for the seed.
     far = CachedOcrRequest(
-        image=Image.new("RGB", (64, 64), "white"),
+        image=_page(),
         image_bytes=_IMAGE_BYTES,
         language="en",
         model_key=None,
