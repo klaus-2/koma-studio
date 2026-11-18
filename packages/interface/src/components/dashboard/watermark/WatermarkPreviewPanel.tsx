@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import {
   Eye,
@@ -67,13 +67,7 @@ export default function WatermarkPreviewPanel({
   const compareContainerRef = useRef<HTMLDivElement | null>(null);
   const compareDraggingRef = useRef(false);
 
-  // Evicted direct pages (`url === ''`) re-create their blob URL on demand;
-  // only what renders resolves, so eviction stays effective.
-  const renderUrls = useMemo(
-    () => new Map(images.map((image) => [image.id, ensureDirectPageUrl(image)])),
-    [images],
-  );
-  const activeStageUrl = activeImage ? (renderUrls.get(activeImage.id) ?? '') : '';
+  const activeStageUrl = activeImage ? ensureDirectPageUrl(activeImage) : '';
 
   const updateCompareFromClientX = (clientX: number): void => {
     const container = compareContainerRef.current;
@@ -197,7 +191,7 @@ export default function WatermarkPreviewPanel({
                 onClick={() => setActiveImageId(image.id)}
               >
                 <img
-                  src={resultsById.get(image.id)?.previewUrl ?? image.thumbnailUrl ?? renderUrls.get(image.id) ?? ''}
+                  src={resultsById.get(image.id)?.previewUrl || image.thumbnailUrl || ensureDirectPageUrl(image)}
                   alt={image.file.name}
                   loading="lazy"
                   decoding="async"

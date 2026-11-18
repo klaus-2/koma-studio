@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_FILTERS } from '../../../constants/dashboard.constants';
 import type { LoadedImage } from '../../../types/dashboard.types';
 import { revokeLoadedImageUrls } from '../../../utils/imagePerformance';
-import { createArchivePageFile, createDirectPageFile } from '../../../utils/page-source';
+import {
+  createArchivePageFile,
+  createDirectPageFile,
+  resolvePagePreview,
+} from '../../../utils/page-source';
 import type { ArchiveChapter, ArchiveEntryMeta } from '../../../utils/archive-chapter-reader';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
@@ -278,8 +282,16 @@ describe('usePageUrlWindow', () => {
     await flushEviction();
     expect(urlOf('page-0')).toBe('');
 
+    let synchronousNotifications = 0;
+    const unsubscribe = useImageCollectionStore.subscribe(() => {
+      synchronousNotifications += 1;
+    });
     const first = resolveImagePreviewSrc(imageById('page-0'), 'raw');
     expect(first).toBe('blob:recreated-1');
+    expect(synchronousNotifications).toBe(0);
+    unsubscribe();
+
+    await Promise.resolve();
     expect(urlOf('page-0')).toBe('blob:recreated-1');
 
     const second = resolveImagePreviewSrc(imageById('page-0'), 'raw');
@@ -403,5 +415,16 @@ describe('usePageUrlWindow', () => {
 
     expect(() => revokeLoadedImageUrls([imageById('page-0')])).not.toThrow();
     expect(urlState.revoked).toHaveLength(revokeCount);
+  });
+
+  it('resolvePagePreview mints and releases a transient object URL for an evicted direct page', async () => {
+    const evicted = makeDirectImage(0, '');
+    const preview = await resolvePagePreview(evicted);
+
+    expect(preview.src).toBe('blob:recreated-1');
+    expect(urlState.revoked).toEqual([]);
+
+    preview.release();
+    expect(urlState.revoked).toEqual(['blob:recreated-1']);
   });
 });

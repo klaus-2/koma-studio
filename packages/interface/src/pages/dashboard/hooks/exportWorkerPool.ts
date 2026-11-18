@@ -250,14 +250,14 @@ export const createExportWorkerPool = (
       events.onWorkerStart?.(job.jobId);
       try {
         const request = buildRequest(job.jobId, job.job);
-        const transfer: ArrayBufferLike[] = [];
+        const transferSet = new Set<ArrayBufferLike>();
         for (const entry of request.zipEntries) {
-          transfer.push(entry.bytes.buffer);
+          transferSet.add(entry.bytes.buffer);
         }
         for (const page of request.pdfPages ?? []) {
-          transfer.push(page.bytes.buffer);
+          transferSet.add(page.bytes.buffer);
         }
-        worker.postMessage(request, transfer);
+        worker.postMessage(request, Array.from(transferSet));
         if (job.job.transferBytes === true) {
           job.bytesTransferred = true;
         }

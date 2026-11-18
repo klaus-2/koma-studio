@@ -180,7 +180,16 @@ export const resolvePagePreview = async (
   image: LoadedImage,
 ): Promise<ResolvedPagePreview> => {
   if (image.file.kind === 'direct') {
-    return { src: image.url, release: () => {} };
+    if (image.url !== '') {
+      return { src: image.url, release: () => {} };
+    }
+    const transientUrl = URL.createObjectURL(image.file.resident);
+    return {
+      src: transientUrl,
+      release: () => {
+        URL.revokeObjectURL(transientUrl);
+      },
+    };
   }
 
   const blob = await image.file.toBlob();

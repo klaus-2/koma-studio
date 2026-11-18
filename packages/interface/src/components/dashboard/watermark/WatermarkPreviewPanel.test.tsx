@@ -117,4 +117,14 @@ describe('WatermarkPreviewPanel', () => {
     );
     expect(evictedThumb?.getAttribute('src')).toBe('blob:recreated');
   });
+
+  it('does not eagerly un-evict non-active images that already have a thumbnailUrl', () => {
+    const active = makeImage('active', 'blob:active', 'blob:thumb-active');
+    const evictedOne = makeImage('evicted-1', '', 'blob:thumb-1');
+    const evictedTwo = makeImage('evicted-2', '', 'blob:thumb-2');
+
+    renderPanel([active, evictedOne, evictedTwo], active);
+
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
 });

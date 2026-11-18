@@ -25,7 +25,10 @@ import {
   applyZoomSteps,
   zoomStepsFromWheelDeltas,
 } from '../../../pages/dashboard/hooks/useStageWheelZoom';
-import { resolveImagePreviewSrc } from '../../../pages/dashboard/hooks/image-collection';
+import {
+  ensureDirectPageUrl,
+  resolveImagePreviewSrc,
+} from '../../../pages/dashboard/hooks/image-collection';
 import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
 import { useImageCollectionStore } from '../../../pages/dashboard/stores/image-collection-store';
@@ -56,6 +59,7 @@ export interface CompareMaskPolygon {
 export interface CompareReviewModel {
   /** Page under review (active page in the collection), or null when none. */
   image: LoadedImage | null;
+  originalSrc: string | null;
   /** Base image the render stage shows behind the text canvas (cleaned page). */
   previewSrc: string | null;
   /** Left-pane view: exactly the store's three-way toggle value. */
@@ -162,6 +166,11 @@ export const useCompareReviewModel = ({
     [regionsWithDefaults],
   );
 
+  const originalSrc = useMemo(
+    () => (image ? ensureDirectPageUrl(image) || image.thumbnailUrl || null : null),
+    [image],
+  );
+
   const previewSrc = useMemo(
     () => (image ? resolveImagePreviewSrc(image, mode) : null),
     [image, mode],
@@ -266,6 +275,7 @@ export const useCompareReviewModel = ({
 
   return {
     image,
+    originalSrc,
     previewSrc,
     leftView,
     rightView,

@@ -155,6 +155,8 @@ export function useWorkspacePersistence({
     if (useWorkspacePersistenceStore.getState().workspaceAutosaveSaving) return false;
     useWorkspacePersistenceStore.getState().workspaceAutosaveSaving = true;
     try {
+      const saveChangeVersion =
+        useWorkspacePersistenceStore.getState().workspaceChangeVersion;
       const captureState =
         captureStateOverride ??
         useWorkspacePersistenceStore.getState().latestWorkspaceCaptureState ??
@@ -166,9 +168,13 @@ export function useWorkspacePersistence({
         userId: authUser?.id ?? null,
         payload,
       });
-      useWorkspacePersistenceStore.getState().workspaceAutosaveSignature = autosaveSignature;
-      setWorkspaceStatus('saved');
-      setWorkspaceStatusDetail(t('dashboard.status.saved'));
+      const currentPersistence = useWorkspacePersistenceStore.getState();
+      if (currentPersistence.workspaceChangeVersion === saveChangeVersion) {
+        currentPersistence.workspaceAutosaveSignature = autosaveSignature;
+        currentPersistence.workspaceAutosaveDirty = false;
+        setWorkspaceStatus('saved');
+        setWorkspaceStatusDetail(t('dashboard.status.saved'));
+      }
       setWorkspaceLastSavedAt(
         Date.parse(payload.manifest.document.savedAt) || Date.now(),
       );
@@ -460,12 +466,14 @@ export function useWorkspacePersistence({
     }
 
     if (processing) {
+      persistence.workspaceChangeVersion += 1;
       persistence.workspaceAutosaveDirty = true;
       return;
     }
 
     const autosaveSignature = buildWorkspaceAutosaveSignature(captureState);
     if (autosaveSignature !== persistence.workspaceAutosaveSignature) {
+      persistence.workspaceChangeVersion += 1;
       persistence.workspaceAutosaveSignature = autosaveSignature;
       persistence.workspaceAutosaveDirty = true;
       setWorkspaceStatus('idle');
@@ -541,7 +549,6 @@ export function useWorkspacePersistence({
   const handleWorkspaceManualSave = useCallback(async () => {
     const saved = await saveWorkspaceAutosave();
     if (saved) {
-      useWorkspacePersistenceStore.getState().workspaceAutosaveDirty = false;
       setTonedStatus(t('dashboard.status.saved'), 'success');
       return true;
     }
@@ -574,9 +581,11 @@ export function runWorkspaceAutosaveTick(isRestoring: boolean): void {
   if (tick.workspaceAutosaveSaving) return;
   if (isInteractionActive()) return;
 
+  const tickChangeVersion = tick.workspaceChangeVersion;
   void tick.saveWorkspaceAutosaveImpl().then((saved) => {
-    if (saved) {
-      useWorkspacePersistenceStore.getState().workspaceAutosaveDirty = false;
+    const current = useWorkspacePersistenceStore.getState();
+    if (saved && current.workspaceChangeVersion === tickChangeVersion) {
+      current.workspaceAutosaveDirty = false;
     }
   });
 }

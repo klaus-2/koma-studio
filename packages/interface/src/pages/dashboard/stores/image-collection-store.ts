@@ -31,6 +31,7 @@ interface ImageCollectionStore {
     dimensions: { width: number; height: number },
   ) => void;
   updateImageUrl: (imageId: string, url: string) => void;
+  updateImageUrls: (updates: ReadonlyMap<string, string>) => void;
   evictPageUrl: (imageId: string) => void;
 }
 
@@ -178,6 +179,20 @@ export const useImageCollectionStore = create<ImageCollectionStore>()(
               img.id === imageId ? { ...img, url } : img,
             ),
           };
+        }),
+      updateImageUrls: (updates) =>
+        set((state) => {
+          if (updates.size === 0) return state;
+          let changed = false;
+          const images = state.images.map((img) => {
+            const nextUrl = updates.get(img.id);
+            if (nextUrl === undefined || img.url === nextUrl) {
+              return img;
+            }
+            changed = true;
+            return { ...img, url: nextUrl };
+          });
+          return changed ? { images } : state;
         }),
       // Eviction must drop a thumbnail that aliases the revoked URL in the
       // same pass: leaving it pointing at a dead blob breaks every preview

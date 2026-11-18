@@ -100,6 +100,7 @@ describe('StageProgressiveImage', () => {
     fireEvent.load(full);
 
     expect(full.style.opacity).toBe('1');
+    expect(placeholder.style.opacity).toBe('0');
     expect(placeholder.style.boxShadow).toBe('none');
     expect(container.querySelectorAll('img')).toHaveLength(2);
   });

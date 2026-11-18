@@ -47,7 +47,10 @@ const applyRotation = (
   const newW = swapped ? height : width;
   const newH = swapped ? width : height;
   const rotCanvas = new OffscreenCanvas(newW, newH);
-  const rotCtx = rotCanvas.getContext("2d")!;
+  const rotCtx = rotCanvas.getContext("2d");
+  if (!rotCtx) {
+    throw new Error("Rotation canvas 2D is unavailable in the optimizer.");
+  }
   rotCtx.translate(newW / 2, newH / 2);
   rotCtx.rotate((degrees * Math.PI) / 180);
   rotCtx.drawImage(context.canvas as OffscreenCanvas, -width / 2, -height / 2);
@@ -60,22 +63,30 @@ self.onmessage = async (event: MessageEvent<OptimizationWorkerJob>) => {
   try {
     const blob = new Blob([job.sourceBuffer], { type: job.sourceMimeType || "image/png" });
     const bitmap = await createImageBitmap(blob);
-    const stage = new OffscreenCanvas(bitmap.width, bitmap.height);
-    const stageContext = stage.getContext("2d", { willReadFrequently: true });
-    if (!stageContext) {
-      throw new Error("Canvas 2D is unavailable in the optimizer.");
+    const srcWidth = bitmap.width;
+    const srcHeight = bitmap.height;
+    let stage: OffscreenCanvas;
+    let stageContext: OffscreenCanvasRenderingContext2D | null;
+    try {
+      stage = new OffscreenCanvas(srcWidth, srcHeight);
+      stageContext = stage.getContext("2d", { willReadFrequently: true });
+      if (!stageContext) {
+        throw new Error("Canvas 2D is unavailable in the optimizer.");
+      }
+      stageContext.drawImage(bitmap, 0, 0);
+    } finally {
+      bitmap.close();
     }
-    stageContext.drawImage(bitmap, 0, 0);
 
     activeStage = "trimBorders";
     const crop = job.trimBorders
       ? detectBorderCrop(
-          stageContext.getImageData(0, 0, bitmap.width, bitmap.height).data,
-          bitmap.width,
-          bitmap.height,
+          stageContext.getImageData(0, 0, srcWidth, srcHeight).data,
+          srcWidth,
+          srcHeight,
           job.trimTolerance,
         )
-      : { x: 0, y: 0, width: bitmap.width, height: bitmap.height };
+      : { x: 0, y: 0, width: srcWidth, height: srcHeight };
 
     activeStage = "resize";
     let targetWidth = crop.width;

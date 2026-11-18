@@ -94,10 +94,6 @@ export function useDashboardUploads({
         // image is removed from the collection (revokeLoadedImageUrls).
         // For an archive-backed page there is no URL yet: the page's bytes are
         // materialized on demand, so the preview resolves one when it is shown.
-        // The URL is owned by the created LoadedImage and revoked when the
-        // image is removed from the collection (revokeLoadedImageUrls).
-        // For an archive-backed page there is no URL yet: the page's bytes are
-        // materialized on demand, so the preview resolves one when it is shown.
         const url = file.kind === 'direct'
           ? URL.createObjectURL(file.resident as Blob)
           : '';
@@ -462,18 +458,59 @@ interface UseDashboardImageCollectionArgs {
  * patched so ownership (revoke-on-remove) stays with the collection. Archive
  * pages keep `url === ''` by design; their previews resolve their own URLs.
  */
+const pendingDirectPageUrls = new Map<
+  string,
+  { readonly resident: File; readonly url: string }
+>();
+let directPageUrlFlushScheduled = false;
+
+const scheduleDirectPageUrlFlush = (): void => {
+  if (directPageUrlFlushScheduled) return;
+  directPageUrlFlushScheduled = true;
+  queueMicrotask(() => {
+    directPageUrlFlushScheduled = false;
+    if (pendingDirectPageUrls.size === 0) return;
+    const snapshot = new Map(pendingDirectPageUrls);
+    pendingDirectPageUrls.clear();
+    const storeState = useImageCollectionStore.getState();
+    const toApply = new Map<string, string>();
+    for (const [id, entry] of snapshot) {
+      const target = storeState.images.find((candidate) => candidate.id === id);
+      if (
+        target &&
+        target.file.kind === 'direct' &&
+        target.file.resident === entry.resident &&
+        target.url === ''
+      ) {
+        toApply.set(id, entry.url);
+      } else if (target?.url !== entry.url) {
+        URL.revokeObjectURL(entry.url);
+      }
+    }
+    if (toApply.size > 0) {
+      storeState.updateImageUrls(toApply);
+    }
+  });
+};
+
 export const ensureDirectPageUrl = (img: LoadedImage): string => {
   if (img.url !== '') return img.url;
   if (img.file.kind !== 'direct') return img.url;
-  // The snapshot `img` may be stale: another consumer with the same stale
-  // snapshot can already have filled the URL, so read the live store entry
-  // before creating a second object URL for the same page.
   const current = useImageCollectionStore
     .getState()
     .images.find((candidate) => candidate.id === img.id);
   if (current && current.url !== '') return current.url;
+  const pending = pendingDirectPageUrls.get(img.id);
+  if (pending) {
+    if (pending.resident === img.file.resident) {
+      return pending.url;
+    }
+    URL.revokeObjectURL(pending.url);
+    pendingDirectPageUrls.delete(img.id);
+  }
   const url = URL.createObjectURL(img.file.resident);
-  useImageCollectionStore.getState().updateImageUrl(img.id, url);
+  pendingDirectPageUrls.set(img.id, { resident: img.file.resident, url });
+  scheduleDirectPageUrlFlush();
   return url;
 };
 

@@ -18,6 +18,7 @@ import {
 } from '../../../utils/dashboard.utils';
 import { fetchWithTimeoutAndRetry } from '../../../utils/http';
 import { parseApiError } from '../helpers';
+import { ensureDirectPageUrl } from './image-collection';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
@@ -94,7 +95,7 @@ export function useAioManualEdits({
         useManualToolsStore.getState().aioManualImageEditsByImage[imgData.id];
       if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
       const baseItem = getAioDownloadItemForImage(imgData.id);
-      return baseItem?.previewUrl ?? imgData.url;
+      return baseItem?.previewUrl || ensureDirectPageUrl(imgData);
     },
     [getAioDownloadItemForImage],
   );
@@ -108,10 +109,10 @@ export function useAioManualEdits({
       const includePaintLayer = options?.includePaintLayer ?? true;
       const manualState = getAioManualImageEditState(imgData.id);
       const source =
-        manualState.baseImageDataUrl ??
-        fallbackBaseSource ??
-        getAioDownloadItemForImage(imgData.id)?.previewUrl ??
-        imgData.url;
+        manualState.baseImageDataUrl ||
+        fallbackBaseSource ||
+        getAioDownloadItemForImage(imgData.id)?.previewUrl ||
+        ensureDirectPageUrl(imgData);
       const sourceImage = await loadImageFromSource(source);
       const width =
         sourceImage.naturalWidth || sourceImage.width || imgData.width;

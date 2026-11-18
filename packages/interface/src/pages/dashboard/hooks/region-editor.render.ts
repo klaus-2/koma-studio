@@ -33,6 +33,7 @@ import {
   isWebGLComposeEnabled,
   tryComposeLayersWebGL,
 } from '../../../utils/webglCompose';
+import { ensureDirectPageUrl } from './image-collection';
 import { EMPTY_REGIONS } from '../../../utils/dashboardRenderUtils';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
 import type { TypographyStylePreset } from '../../../typography/types';
@@ -183,7 +184,7 @@ export function useAioRegionRenderToBlob({
       const webglComposeEnabled = isWebGLComposeEnabled();
       const canvas = await composeAioEditableCanvas(
         imgData,
-        baseItem?.previewUrl ?? imgData.url,
+        baseItem?.previewUrl || ensureDirectPageUrl(imgData),
         webglComposeEnabled ? { includePaintLayer: false } : undefined,
       );
       const renderWidth = canvas.width;

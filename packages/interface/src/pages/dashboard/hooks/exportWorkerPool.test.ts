@@ -489,4 +489,27 @@ describe('exportWorkerPool transferBytes (GATE-1 — transfer + fail-fast-after-
       vi.useRealTimers();
     }
   });
+
+  it('deduplicates shared ArrayBuffers in transfer list when transferBytes is true', async () => {
+    const factory = makeWorkerFactory();
+    const pool = createExportWorkerPool({}, factory);
+    const sharedBuffer = new ArrayBuffer(32);
+    const firstSlice = new Uint8Array(sharedBuffer, 0, 16);
+    const secondSlice = new Uint8Array(sharedBuffer, 16, 16);
+    const promise = pool.package({
+      ...zipJob(),
+      zipEntries: [
+        { path: 'images/001.png', bytes: firstSlice },
+        { path: 'images/002.png', bytes: secondSlice },
+      ],
+      transferBytes: true,
+    });
+    await flushMicrotasks();
+    const posted = FakeWorker.instances[0]?.posted[0];
+    expect(posted?.transfer).toHaveLength(1);
+    expect(posted?.transfer[0]).toBe(sharedBuffer);
+    FakeWorker.instances[0]?.succeedWithZip();
+    await promise;
+    pool.dispose();
+  });
 });

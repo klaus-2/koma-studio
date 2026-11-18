@@ -22,6 +22,7 @@ import {
   resolveSelectedRegionForRegions,
 } from '../../../utils/dashboard.utils';
 import { parseApiError } from '../helpers';
+import { ensureDirectPageUrl } from './image-collection';
 import type {
   AioManualImageEditState,
   AioTextRegion,
@@ -168,10 +169,10 @@ export function useCleanerManualEdits({
       const cleanerState = useCleanerStore.getState();
       const manualState = cleanerState.cleanerManualImageEditsByImage[imgData.id];
       if (manualState?.baseImageDataUrl) return manualState.baseImageDataUrl;
-      if (cleanerState.cleanerProcessedBaseByImage[imgData.id])
-        return cleanerState.cleanerProcessedBaseByImage[imgData.id]!;
+      const processedBase = cleanerState.cleanerProcessedBaseByImage[imgData.id];
+      if (processedBase) return processedBase;
       const baseItem = getCleanerDownloadItemForImage(imgData.id);
-      return baseItem?.previewUrl ?? imgData.url;
+      return baseItem?.previewUrl || ensureDirectPageUrl(imgData);
     },
     [
       getCleanerDownloadItemForImage,
@@ -187,11 +188,11 @@ export function useCleanerManualEdits({
       const includePaintLayer = options?.includePaintLayer ?? true;
       const manualState = getCleanerManualImageEditState(imgData.id);
       const source =
-        manualState.baseImageDataUrl ??
-        fallbackBaseSource ??
-        getCleanerDownloadItemForImage(imgData.id)?.previewUrl ??
-        useCleanerStore.getState().cleanerProcessedBaseByImage[imgData.id] ??
-        imgData.url;
+        manualState.baseImageDataUrl ||
+        fallbackBaseSource ||
+        getCleanerDownloadItemForImage(imgData.id)?.previewUrl ||
+        useCleanerStore.getState().cleanerProcessedBaseByImage[imgData.id] ||
+        ensureDirectPageUrl(imgData);
       const sourceImage = await loadImageFromSource(source);
       const width =
         sourceImage.naturalWidth || sourceImage.width || imgData.width;

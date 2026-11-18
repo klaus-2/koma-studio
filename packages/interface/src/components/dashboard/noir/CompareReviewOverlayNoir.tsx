@@ -69,7 +69,9 @@ function ComparePaneNoir({
         >
           <img
             src={
-              view === 'rendered' ? model.previewSrc ?? undefined : image.url
+              view === 'rendered'
+                ? model.previewSrc ?? undefined
+                : model.originalSrc ?? undefined
             }
             alt={image.file.name}
             className="block select-none"

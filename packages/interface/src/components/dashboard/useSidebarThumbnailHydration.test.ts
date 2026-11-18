@@ -18,34 +18,46 @@ const { useSidebarThumbnailHydration } = await import(
 );
 
 import { act, renderHook } from '@testing-library/react';
+import { DEFAULT_FILTERS } from '../../constants/dashboard.constants';
 import type { LoadedImage } from '../../types/dashboard.types';
+import type { ArchiveChapter, ArchiveEntryMeta } from '../../utils/archive-chapter-reader';
+import { createArchivePageFile, createDirectPageFile } from '../../utils/page-source';
 
-const makeImage = (id: string, withUrl: boolean, withThumb = false): LoadedImage =>
-  ({
-    id,
-    file: {
-      kind: 'direct',
-      name: `${id}.png`,
-      resident: new File([id], `${id}.png`, { type: 'image/png' }),
-    },
-    url: withUrl ? `blob:${id}` : '',
-    ...(withThumb ? { thumbnailUrl: `blob:thumb-${id}` } : {}),
-    width: 800,
-    height: 1200,
-    rotation: 0,
-    filters: {},
-  }) as unknown as LoadedImage;
+const archiveEntry: ArchiveEntryMeta = {
+  path: 'page-arch.png',
+  compressedSize: 10,
+  uncompressedSize: 10,
+  method: 0,
+  compressedOffset: 0,
+};
 
-const makeArchiveImage = (id: string): LoadedImage =>
-  ({
-    id,
-    file: { kind: 'archive', name: `${id}.png` },
-    url: '',
-    width: 0,
-    height: 0,
-    rotation: 0,
-    filters: {},
-  }) as unknown as LoadedImage;
+const archiveChapter: ArchiveChapter = {
+  id: 'chapter-1',
+  label: 'Chapter 1',
+  archive: new File([], 'chapter-1.cbz', { type: 'application/zip' }),
+  entries: [archiveEntry],
+};
+
+const makeImage = (id: string, withUrl: boolean, withThumb = false): LoadedImage => ({
+  id,
+  file: createDirectPageFile(new File([id], `${id}.png`, { type: 'image/png' })),
+  url: withUrl ? `blob:${id}` : '',
+  ...(withThumb ? { thumbnailUrl: `blob:thumb-${id}` } : {}),
+  width: 800,
+  height: 1200,
+  rotation: 0,
+  filters: { ...DEFAULT_FILTERS },
+});
+
+const makeArchiveImage = (id: string): LoadedImage => ({
+  id,
+  file: createArchivePageFile(archiveChapter, archiveEntry, `${id}.png`, 'image/png'),
+  url: '',
+  width: 0,
+  height: 0,
+  rotation: 0,
+  filters: { ...DEFAULT_FILTERS },
+});
 
 // jsdom may lack URL.createObjectURL depending on the runtime wiring; the
 // hydration pump re-creates evicted direct-page URLs through it.

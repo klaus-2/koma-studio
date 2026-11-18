@@ -87,4 +87,32 @@ describe('runWorkspaceAutosaveTick', () => {
     expect(isInteractionActiveMock).not.toHaveBeenCalled();
     expect(saveSpy).not.toHaveBeenCalled();
   });
+
+  it('keeps workspaceAutosaveDirty set when a new workspace edit occurs while save is in flight', async () => {
+    const deferred: { resolve: ((value: boolean) => void) | null } = {
+      resolve: null,
+    };
+    const deferredSave = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          deferred.resolve = resolve;
+        }),
+    );
+    useWorkspacePersistenceStore.setState({
+      workspaceAutosaveDirty: true,
+      workspaceAutosaveSaving: false,
+      workspaceChangeVersion: 5,
+      saveWorkspaceAutosaveImpl: deferredSave,
+    });
+
+    runWorkspaceAutosaveTick(false);
+    expect(deferredSave).toHaveBeenCalledTimes(1);
+
+    useWorkspacePersistenceStore.getState().workspaceChangeVersion += 1;
+    deferred.resolve?.(true);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(useWorkspacePersistenceStore.getState().workspaceAutosaveDirty).toBe(true);
+  });
 });

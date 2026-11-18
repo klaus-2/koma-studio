@@ -29,6 +29,7 @@ import {
 import type { RenderTextLayout } from '../../../utils/renderText.types';
 import type { TypographySessionSourceType } from '../../../typography/types';
 import { materializePageFile, resolvePagePreview } from '../../../utils/page-source';
+import { ensureDirectPageUrl } from './image-collection';
 import type {
   AioPipelineSnapshotKey,
   AioTextRegion,
@@ -409,7 +410,7 @@ export function useDashboardPsdDownload({
       if (mode === 'aio' && hasAioManualImageEdits(targetImage.id)) {
         const composed = await composeAioEditableCanvas(
           targetImage,
-          targetAioBaseItem?.previewUrl ?? targetImage.url,
+          targetAioBaseItem?.previewUrl || ensureDirectPageUrl(targetImage),
         );
         sourceBlobForExport = await canvasToBlob(composed, 'image/png', 1);
       }

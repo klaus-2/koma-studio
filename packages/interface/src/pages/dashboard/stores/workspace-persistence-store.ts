@@ -35,6 +35,7 @@ interface WorkspacePersistenceStore {
   workspaceAutosaveInterval: number | null;
   workspaceAutosaveDirty: boolean;
   workspaceAutosaveSaving: boolean;
+  workspaceChangeVersion: number;
   latestWorkspaceCaptureState: DashboardWorkspaceCaptureState | null;
   saveWorkspaceAutosaveImpl: SaveWorkspaceAutosaveFn;
 
@@ -73,6 +74,7 @@ export const useWorkspacePersistenceStore =
         workspaceAutosaveInterval: null,
         workspaceAutosaveDirty: false,
         workspaceAutosaveSaving: false,
+        workspaceChangeVersion: 0,
         latestWorkspaceCaptureState: null,
         // Same no-op the page ref started with until effect 44 mirrors the
         // latest saveWorkspaceAutosave implementation into it.

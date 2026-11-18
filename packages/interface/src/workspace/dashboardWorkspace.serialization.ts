@@ -472,13 +472,14 @@ export const captureWorkspaceDocument = async (
     llm: toJsonClone(state.llm),
   };
 
+  const collectedAssets = collector.getAssets();
   const manifest: WorkspacePackageManifestV1 = {
     packageVersion: 1,
     exportedAt: document.savedAt,
     app: "koma-studio",
     documentVersion: WORKSPACE_DOCUMENT_VERSION,
     document,
-    assets: collector.getAssets().map((asset) => ({
+    assets: collectedAssets.map((asset) => ({
       id: asset.id,
       path: asset.path,
       fileName: asset.fileName,
@@ -489,7 +490,7 @@ export const captureWorkspaceDocument = async (
 
   return {
     manifest,
-    assets: collector.getAssets(),
+    assets: collectedAssets,
   };
 };
 

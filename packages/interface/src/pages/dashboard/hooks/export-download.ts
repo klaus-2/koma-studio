@@ -35,6 +35,7 @@ import type {
   SheetWorkerResponse,
 } from './exportSheetWorker';
 import { createExportWorkerPool, type ExportWorkerPool } from './exportWorkerPool';
+import { ensureDirectPageUrl } from './image-collection';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useExportStore } from '../stores/export-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
@@ -235,7 +236,9 @@ export function useDashboardDownloadBundle({
         if (hasCleanerManualImageEdits(imgData.id)) {
           const composed = await composeCleanerEditableCanvas(
             imgData,
-            useCleanerStore.getState().cleanerProcessedBaseByImage[imgData.id] ?? baseItem?.previewUrl ?? imgData.url,
+            useCleanerStore.getState().cleanerProcessedBaseByImage[imgData.id] ||
+              baseItem?.previewUrl ||
+              ensureDirectPageUrl(imgData),
           );
           const blob = await canvasToBlob(composed, outFormat, outQuality);
           outputs.push({
@@ -275,7 +278,10 @@ export function useDashboardDownloadBundle({
 
         const baseItem = getAioDownloadItemForImage(imgData.id);
         if (hasAioManualImageEdits(imgData.id)) {
-          const composed = await composeAioEditableCanvas(imgData, baseItem?.previewUrl ?? imgData.url);
+          const composed = await composeAioEditableCanvas(
+            imgData,
+            baseItem?.previewUrl || ensureDirectPageUrl(imgData),
+          );
           const blob = await canvasToBlob(composed, outFormat, outQuality);
           const fallbackName = `koma-studio-aio-${AIO_STAGE_BADGE_LABELS[stageKey].toLowerCase()}-${imgData.file.name.replace(/\s+/g, '-')}.${extension}`;
           outputs.push({
@@ -427,7 +433,7 @@ export function useDashboardDownloadBundle({
         if (imageState && hasAioManualImageEdits(entry.sourceImageId)) {
           const composed = await composeAioEditableCanvas(
             imageState,
-            inpainted?.previewUrl ?? imageState.url,
+            inpainted?.previewUrl || ensureDirectPageUrl(imageState),
           );
           const inpaintedBlob = await canvasToBlob(composed, 'image/png', 1);
           const inpaintedPath = `inpainted/${String(index + 1).padStart(3, '0')}-${baseName}.png`;

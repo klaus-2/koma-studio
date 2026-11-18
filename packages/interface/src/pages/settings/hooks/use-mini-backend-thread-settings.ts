@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import type { SetStateAction } from 'react';
 
 import { desktopBridge } from '@/lib/desktop-bridge';
 import {
@@ -26,7 +27,7 @@ export const useMiniBackendThreadSettings = () => {
   const [settings, setSettings] = useState<MiniBackendThreadSettings>(() =>
     loadMiniBackendThreadSettings(),
   );
-  const [miniBackendTunables, setMiniBackendTunables] =
+  const [miniBackendTunables, setMiniBackendTunablesState] =
     useState<MiniBackendTunablesSettings>(() => ({
       engineIdleTimeoutSeconds: settings.engineIdleTimeoutSeconds,
       workingResolutionMegapixels: settings.workingResolutionMegapixels,
@@ -34,6 +35,14 @@ export const useMiniBackendThreadSettings = () => {
     }));
   const [tunablesSaveStatus, setTunablesSaveStatus] =
     useState<MiniBackendTunablesSaveStatus>('idle');
+
+  const setMiniBackendTunables = useCallback(
+    (next: SetStateAction<MiniBackendTunablesSettings>) => {
+      setTunablesSaveStatus('idle');
+      setMiniBackendTunablesState(next);
+    },
+    [],
+  );
   const hardwareConcurrency =
     typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0
       ? navigator.hardwareConcurrency
@@ -62,7 +71,7 @@ export const useMiniBackendThreadSettings = () => {
       ...miniBackendTunables,
     });
     setSettings(saved);
-    setMiniBackendTunables({
+    setMiniBackendTunablesState({
       engineIdleTimeoutSeconds: saved.engineIdleTimeoutSeconds,
       workingResolutionMegapixels: saved.workingResolutionMegapixels,
       workingResolutionOcrClean: saved.workingResolutionOcrClean,
@@ -97,8 +106,10 @@ export const useMiniBackendThreadSettings = () => {
     }),
     [
       settings,
+      setIntraOpThreads,
       hardwareConcurrency,
       miniBackendTunables,
+      setMiniBackendTunables,
       tunablesSaveStatus,
       handleSaveMiniBackendTunables,
     ],

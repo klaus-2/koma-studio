@@ -65,6 +65,7 @@ export function StageProgressiveImage({
           style={{
             ...imgStyle,
             pointerEvents: 'none',
+            opacity: isLoaded ? 0 : 1,
             // `.koma-preview-card__img` paints a box-shadow; once both layers
             // are opaque the placeholder's copy doubles, so it is suppressed
             // on load.
