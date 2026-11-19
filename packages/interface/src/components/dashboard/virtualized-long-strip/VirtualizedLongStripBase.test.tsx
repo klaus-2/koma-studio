@@ -12,6 +12,33 @@ import userEvent from "@testing-library/user-event";
 import { VirtualizedLongStrip } from "@/components/dashboard/VirtualizedLongStripClassic";
 import { VirtualizedLongStripNoir } from "@/components/dashboard/noir/VirtualizedLongStripNoir";
 
+const { scrollToIndexCalls } = vi.hoisted(() => ({
+  scrollToIndexCalls: [] as Array<{ index: number; align: string | undefined }>,
+}));
+
+vi.mock("@tanstack/react-virtual", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@tanstack/react-virtual")>();
+  type Instance = ReturnType<typeof actual.useVirtualizer>;
+  return {
+    ...actual,
+    useVirtualizer: (options: Parameters<typeof actual.useVirtualizer>[0]) => {
+      const instance = actual.useVirtualizer(options);
+      const original = instance.scrollToIndex.bind(instance);
+      instance.scrollToIndex = (
+        ...args: Parameters<Instance["scrollToIndex"]>
+      ): ReturnType<Instance["scrollToIndex"]> => {
+        scrollToIndexCalls.push({
+          index: args[0],
+          align: args[1]?.align as string | undefined,
+        });
+        return original(...args);
+      };
+      return instance;
+    },
+  };
+});
+
 afterEach(cleanup);
 
 // jsdom has no layout engine: every element reports offsetHeight 0, and
@@ -210,5 +237,107 @@ describe("long-strip accessibility", () => {
     await act(async () => {});
 
     expect(onVisibleRangeChange).not.toHaveBeenCalled();
+  });
+
+  it("scrolls to the focusIndexSignal index (center-aligned)", async () => {
+    const metrics = stubElementMetrics();
+    const props = {
+      itemCount: 30,
+      enabled: true,
+      renderItem: (index: number) => <span>Page {index + 1}</span>,
+    };
+    scrollToIndexCalls.length = 0;
+
+    try {
+      const view = render(<VirtualizedLongStrip {...props} />);
+      await act(async () => {});
+      expect(scrollToIndexCalls.length).toBe(0);
+
+      await act(async () => {
+        view.rerender(
+          <VirtualizedLongStrip
+            {...props}
+            focusIndexSignal={{ index: 12, nonce: 1 }}
+          />,
+        );
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => resolve(undefined));
+        });
+      });
+
+      expect(scrollToIndexCalls.length).toBeGreaterThanOrEqual(1);
+      expect(scrollToIndexCalls[0]).toEqual({ index: 12, align: "center" });
+      expect(scrollToIndexCalls.at(-1)).toEqual({ index: 12, align: "center" });
+    } finally {
+      metrics.restore();
+    }
+  });
+
+  it("re-scrolls when the nonce changes for the same index", async () => {
+    const metrics = stubElementMetrics();
+    const props = {
+      itemCount: 30,
+      enabled: true,
+      renderItem: (index: number) => <span>Page {index + 1}</span>,
+    };
+    scrollToIndexCalls.length = 0;
+
+    try {
+      const view = render(
+        <VirtualizedLongStrip
+          {...props}
+          focusIndexSignal={{ index: 10, nonce: 1 }}
+        />,
+      );
+      await act(async () => {});
+
+      expect(scrollToIndexCalls.length).toBeGreaterThanOrEqual(1);
+      const afterFirstNonce = scrollToIndexCalls.length;
+
+      await act(async () => {
+        view.rerender(
+          <VirtualizedLongStrip
+            {...props}
+            focusIndexSignal={{ index: 10, nonce: 2 }}
+          />,
+        );
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => resolve(undefined));
+        });
+      });
+
+      expect(scrollToIndexCalls.length).toBeGreaterThan(afterFirstNonce);
+      expect(scrollToIndexCalls.every((call) => call.index === 10)).toBe(true);
+    } finally {
+      metrics.restore();
+    }
+  });
+
+  it("ignores an out-of-range focusIndexSignal", async () => {
+    const metrics = stubElementMetrics();
+    const props = {
+      itemCount: 30,
+      enabled: true,
+      renderItem: (index: number) => <span>Page {index + 1}</span>,
+    };
+
+    try {
+      const view = render(<VirtualizedLongStrip {...props} />);
+      await act(async () => {});
+
+      const region = screen.getByRole("region", { name: "Pages" });
+      await act(async () => {
+        view.rerender(
+          <VirtualizedLongStrip
+            {...props}
+            focusIndexSignal={{ index: 30, nonce: 1 }}
+          />,
+        );
+      });
+
+      expect(region.scrollTop).toBe(0);
+    } finally {
+      metrics.restore();
+    }
   });
 });

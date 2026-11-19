@@ -4,6 +4,7 @@ import { VirtualizedLongStripBase } from "@/components/dashboard/virtualized-lon
 import type { VirtualizedLongStripProps } from "@/components/dashboard/virtualized-long-strip/VirtualizedLongStripBase";
 
 export type { VirtualizedLongStripProps } from "@/components/dashboard/virtualized-long-strip/VirtualizedLongStripBase";
+export type { FocusIndexSignal } from "@/components/dashboard/virtualized-long-strip/VirtualizedLongStripBase";
 
 export function VirtualizedLongStripNoir(
   props: VirtualizedLongStripProps,

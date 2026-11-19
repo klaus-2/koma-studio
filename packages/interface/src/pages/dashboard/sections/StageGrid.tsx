@@ -47,6 +47,9 @@ import { useTranslatorStore } from '../stores/translator-store';
 import { useNonPassiveWheel } from '../../../hooks/useNonPassiveWheel';
 import { usePageUrlWindow } from '../hooks/usePageUrlWindow';
 import { useArchivePagePreload } from '../hooks/useArchivePagePreload';
+import {
+  useRegionFocusSignal,
+} from '../hooks/useRegionFocusScroll';
 import type { VisiblePageRange } from '../hooks/usePageUrlWindow';
 import type { AioPipelineSnapshotKey } from '../../../types/dashboard.types';
 import type { TypographyShapeKind } from '../../../typography/types';
@@ -132,6 +135,8 @@ function DashboardStageSection({
     },
     [onEvictionRangeChange, onPreloadRangeChange],
   );
+
+  const focusIndexSignal = useRegionFocusSignal();
 
   // ── Stage-owned store slices ──
   const trackAioMaps = needsAioRegionMaps(mode);
@@ -643,6 +648,7 @@ function DashboardStageSection({
               itemKey={stageItemKey}
               renderStageItem={renderStageItem}
               onVisibleRangeChange={onVisibleRangeChange}
+              focusIndexSignal={focusIndexSignal}
             />
           </Suspense>
         </div>

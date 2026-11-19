@@ -25,11 +25,17 @@ export interface VirtualizedLongStripProps {
     start: number;
     end: number;
   }) => void;
+  readonly focusIndexSignal?: FocusIndexSignal | null;
 }
 
 export interface VirtualizedLongStripBaseProps
   extends VirtualizedLongStripProps {
   readonly variant: "classic" | "noir";
+}
+
+export interface FocusIndexSignal {
+  readonly index: number;
+  readonly nonce: number;
 }
 
 const defaultItemKey = (index: number): string => `item-${index}`;
@@ -95,6 +101,7 @@ export function VirtualizedLongStripBase({
   height = "min(100dvh, 60rem)",
   ariaLabel = "Pages",
   onVisibleRangeChange,
+  focusIndexSignal,
   variant,
 }: VirtualizedLongStripBaseProps): ReactElement {
   assertConfiguration(itemCount, estimatedItemHeight, overscan);
@@ -160,6 +167,22 @@ export function VirtualizedLongStripBase({
     if (firstVisibleIndex === null || lastVisibleIndex === null) return;
     onVisibleRangeChange({ start: firstVisibleIndex, end: lastVisibleIndex });
   }, [onVisibleRangeChange, firstVisibleIndex, lastVisibleIndex]);
+
+  useEffect(() => {
+    const signal = focusIndexSignal;
+    if (!enabled || signal === null || signal === undefined) return;
+    const index = signal.index;
+    if (!Number.isSafeInteger(index) || index < 0 || index >= itemCount) {
+      return;
+    }
+
+    virtualizer.scrollToIndex(index, { align: "center" });
+
+    const frame = requestAnimationFrame(() => {
+      virtualizer.scrollToIndex(index, { align: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [enabled, focusIndexSignal, itemCount, virtualizer]);
 
   const handleBlur = (event: FocusEvent<HTMLDivElement>): void => {
     if (

@@ -6,7 +6,6 @@ import AioBatchPauseButton from './AioBatchPauseButton';
 import { useAioCloudPreviewStart } from '../hooks/use-aio-cloud-preview-start';
 
 import {
-  AlertTriangle,
   ArrowRight,
   Bookmark,
   Eraser,
@@ -35,13 +34,11 @@ import { AioTimelineStep } from '../../AioTimelineStep';
 import { AioStageTabBar, type StageTabDef, type StageTabKey } from '../../AioStageTabBar';
 import SubModeToggle from '../../../components/dashboard/SubModeToggle';
 import FieldInfoTooltip from '../../../components/dashboard/FieldInfoTooltip';
-import RegionIssuesPanel from '../../../components/dashboard/RegionIssuesPanel';
+import AioReviewIssuesSection from './AioReviewIssuesSection';
 import { useI18n } from '../../../i18n';
 import { translateOrFallback } from '../../../i18n/messages';
 import { cn } from '../../../utils/dashboard.utils';
 import { capitalizeStageLabel } from '../../../utils/dashboardRenderUtils';
-import { deriveRegionIssues, type RegionIssue } from '../../../utils/region-review';
-import { useRegionOverflowReview } from '../hooks/region-overflow-adjust';
 import {
   AIO_MANUAL_STAGE_ORDER,
   AIO_PIPELINE_STAGE_ICONS,
@@ -60,7 +57,6 @@ import type { AioStageOption } from '../../../models/aioStageCatalog';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
-import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import type {
   useAioManualExecution,
@@ -221,7 +217,6 @@ export default memo(function AioRightPanel({
   /* ── Image collection ── */
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
-  const setActiveId = useImageCollectionStore((s) => s.setActiveId);
   const resolvedActiveId = useMemo(
     () =>
       (images.find((img) => img.id === activeId) ?? images[0] ?? null)?.id ??
@@ -296,57 +291,6 @@ export default memo(function AioRightPanel({
   const aioDeviceInfo = useAioPipelineStore((s) => s.aioDeviceInfo);
   const aioMiniBackendRuntimeState = useAioPipelineStore(
     (s) => s.aioMiniBackendRuntimeState,
-  );
-
-  /* ── Pending issues (derived — no store writes, no persistence) ── */
-  const setAioSelectedRegionByImage = useRegionEditorStore(
-    (s) => s.setAioSelectedRegionByImage,
-  );
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
-  const regionIssues = useMemo(
-    () =>
-      images.flatMap((image) =>
-        deriveRegionIssues(
-          image.id,
-          aioDetectionsByImage[image.id] ?? [],
-          aioTgtLang,
-        ),
-      ),
-    [images, aioDetectionsByImage, aioTgtLang],
-  );
-  const {
-    overflowIssues,
-    overflowCountByImageId,
-    adjustRegion,
-    adjustPage,
-  } = useRegionOverflowReview();
-  const reviewIssues = useMemo(
-    () => [...regionIssues, ...overflowIssues],
-    [regionIssues, overflowIssues],
-  );
-  const pageOverflowActions = useMemo(
-    () =>
-      images
-        .map((image) => ({
-          imageId: image.id,
-          imageLabel: image.file.name,
-          count: overflowCountByImageId.get(image.id) ?? 0,
-        }))
-        .filter((action) => action.count > 0),
-    [images, overflowCountByImageId],
-  );
-  const handleIssueSelect = useCallback(
-    (issue: RegionIssue) => {
-      setActiveId(issue.imageId);
-      setAioSelectedRegionByImage((prev) => ({
-        ...prev,
-        [issue.imageId]: issue.regionId,
-      }));
-      setActiveStageTab(issue.kind === 'overflow' ? 'render' : 'getTranslations');
-    },
-    [setActiveId, setAioSelectedRegionByImage, setActiveStageTab],
   );
 
   const enabledStepCount = [
@@ -828,44 +772,7 @@ export default memo(function AioRightPanel({
       </AioSection>
 
       {/* ═══════════════════ PENDING ISSUES ═══════════════════ */}
-      <AioSection
-        icon={AlertTriangle}
-        title={t('dashboard.aio.review.title')}
-        badge={
-          reviewIssues.length > 0 ? (
-            <span className="koma-aio-section__badge">
-              {reviewIssues.length}
-            </span>
-          ) : undefined
-        }
-        defaultOpen={false}
-      >
-        {pageOverflowActions.length > 0 && (
-          <div className="koma-aio-pipeline-controls">
-            {pageOverflowActions.map((action) => (
-              <button
-                key={action.imageId}
-                type="button"
-                className={skin.ghostButton}
-                title={action.imageLabel}
-                onClick={() => adjustPage(action.imageId)}
-              >
-                {action.imageLabel}
-                {' · '}
-                {t('dashboard.aio.review.overflow.adjustPage', {
-                  count: action.count,
-                })}
-              </button>
-            ))}
-          </div>
-        )}
-        <RegionIssuesPanel
-          noir={noir}
-          issues={reviewIssues}
-          onSelect={handleIssueSelect}
-          onAdjustOverflow={adjustRegion}
-        />
-      </AioSection>
+      <AioReviewIssuesSection noir={noir} />
 
       {/* ═══════════════════ MANUAL HINT ═══════════════════ */}
       {subMode === 'manual' && (
