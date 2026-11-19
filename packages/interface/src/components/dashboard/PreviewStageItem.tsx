@@ -3,6 +3,8 @@ import { cn } from "../../lib/utils";
 import type { LoadedImage } from "../../types/dashboard.types";
 import { useUiShellStore } from "@/pages/dashboard/stores/ui-shell-store";
 import { StageProgressiveImage } from "./StageProgressiveImage";
+import { usePeekOriginalOverlayHidden } from "./render-text-preview/PeekOriginalLayer";
+import { ensureDirectPageUrl } from "@/pages/dashboard/hooks/image-collection";
 
 interface PreviewStageItemProps {
   img: LoadedImage;
@@ -24,6 +26,8 @@ export const PreviewStageItem = memo(function PreviewStageItem({
   // Zoom is a high-frequency store value: the preview leaf subscribes itself,
   // so a Ctrl+wheel gesture re-renders this card without the stage section.
   const zoom = useUiShellStore((s) => s.zoom);
+  const peeking = usePeekOriginalOverlayHidden(resolvedActiveId === img.id);
+  const peekSrc = peeking ? ensureDirectPageUrl(img) : null;
   const baseMaxWidth = viewMode === "paginated" ? 420 : 960;
   const isSwapped = img.rotation === 90 || img.rotation === 270;
   const scaleFactor = isSwapped
@@ -57,7 +61,7 @@ export const PreviewStageItem = memo(function PreviewStageItem({
       >
         <StageProgressiveImage
           placeholderSrc={img.thumbnailUrl ?? null}
-          src={getPreviewSrc(img)}
+          src={peekSrc || getPreviewSrc(img)}
           alt={img.file.name}
           className="koma-preview-card__img"
           loading="lazy"

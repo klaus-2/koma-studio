@@ -1726,6 +1726,9 @@ export const enMessages = {
   'dashboard.aio.review.kind.empty': 'Empty',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK leftover',
   'dashboard.aio.review.kind.overflow': 'Overflow',
+  'dashboard.aio.review.filter.locked': 'Locked',
+  'dashboard.aio.review.filter.sfx': 'SFX',
+  'dashboard.aio.review.filter.all': 'All',
   'dashboard.aio.review.overflow.badgeTooltip':
     '{count} balloon(s) overflow the text box',
   'dashboard.aio.review.overflow.adjustRegion': 'Auto-fit font size',
@@ -3210,6 +3213,9 @@ export const enMessages = {
   'shortcuts.setViewPaginated.description': 'Switches to paginated view.',
   'shortcuts.setViewLongStrip.label': 'Long strip view',
   'shortcuts.setViewLongStrip.description': 'Switches to long strip view.',
+  'shortcuts.peekOriginalPage.label': 'Peek original page',
+  'shortcuts.peekOriginalPage.description':
+    'While held, shows the untouched page without rendered text or overlays.',
   'shortcuts.setModeAio.label': 'AIO mode',
   'shortcuts.setModeAio.description': 'Switches to AIO mode.',
   'shortcuts.setModeCleaner.label': 'Cleaner / Redrawer mode',

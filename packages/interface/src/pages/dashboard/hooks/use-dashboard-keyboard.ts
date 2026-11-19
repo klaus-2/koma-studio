@@ -25,6 +25,7 @@ import { useAioRegionEditing } from './region-editor';
 import { useCleanerManualEdits } from './cleaner';
 import { useTypographerControls } from './typographer';
 import { useWorkspacePersistence } from './workspace-persistence';
+import { useHoldOriginalShortcut } from './useHoldOriginalShortcut';
 import { useCommandPaletteRegistration } from './use-command-palette-registration';
 
 export interface UseDashboardKeyboardArgs {
@@ -178,6 +179,8 @@ export function useDashboardKeyboard({
     handleToolsToggle,
     openShortcutCenter,
   });
+
+  useHoldOriginalShortcut();
 
   const dispatchKeyboardShortcutAction = useCallback(
     (actionId: ShortcutActionId) => {

@@ -1661,6 +1661,9 @@ export const itMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'Vuoto',
   'dashboard.aio.review.kind.cjkLeftover': 'Residuo CJK',
   'dashboard.aio.review.kind.overflow': 'Overflow',
+  'dashboard.aio.review.filter.locked': 'Bloccata',
+  'dashboard.aio.review.filter.sfx': 'SFX',
+  'dashboard.aio.review.filter.all': 'Tutte',
   'dashboard.aio.review.overflow.badgeTooltip': '{count} fumetto/i sconfinano dalla casella di testo',
   'dashboard.aio.review.overflow.adjustRegion': 'Adatta automaticamente la dimensione del carattere',
   'dashboard.aio.review.overflow.adjustPage': 'Adatta i caratteri ({count})',
@@ -3477,6 +3480,9 @@ export const itMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'Vista a striscia lunga',
   'shortcuts.setViewLongStrip.description':
     'Passa alla vista a striscia lunga.',
+  'shortcuts.peekOriginalPage.label': 'Mostra pagina originale',
+  'shortcuts.peekOriginalPage.description':
+    'Finché tenuta premuta, mostra la pagina intatta senza testo renderizzato né sovrapposizioni.',
   'shortcuts.setModeAio.label': 'Modalità AIO',
   'shortcuts.setModeAio.description': 'Passa alla modalità AIO.',
   'shortcuts.setModeCleaner.label': 'Modalità Pulitore / Ridisegnatore',

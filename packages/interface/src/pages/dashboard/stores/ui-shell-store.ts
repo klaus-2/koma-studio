@@ -47,6 +47,8 @@ interface UiShellStore {
   emptyPreviewTipIndex: number;
   inlineEditorShortcutRequestKey: string | null;
 
+  holdOriginalActive: boolean;
+
   setMode: (mode: ToolMode) => void;
   setSubMode: (subMode: SubMode) => void;
   setProcessing: (
@@ -70,6 +72,7 @@ interface UiShellStore {
     index: number | ((prev: number) => number),
   ) => void;
   setInlineEditorShortcutRequestKey: (key: string | null) => void;
+  setHoldOriginalActive: (active: boolean) => void;
 }
 
 export const useUiShellStore = create<UiShellStore>()(
@@ -90,6 +93,7 @@ export const useUiShellStore = create<UiShellStore>()(
       comparePanOffset: { x: 0, y: 0 },
       emptyPreviewTipIndex: 0,
       inlineEditorShortcutRequestKey: null,
+      holdOriginalActive: false,
 
       setMode: (mode) => set({ mode }),
       setSubMode: (subMode) => set({ subMode }),
@@ -138,6 +142,7 @@ export const useUiShellStore = create<UiShellStore>()(
         })),
       setInlineEditorShortcutRequestKey: (inlineEditorShortcutRequestKey) =>
         set({ inlineEditorShortcutRequestKey }),
+      setHoldOriginalActive: (holdOriginalActive) => set({ holdOriginalActive }),
     }),
     { name: 'ui-shell-store' },
   ),

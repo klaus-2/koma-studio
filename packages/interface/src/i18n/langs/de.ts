@@ -1687,6 +1687,9 @@ export const deMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'Leer',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK-Rest',
   'dashboard.aio.review.kind.overflow': 'Überlauf',
+  'dashboard.aio.review.filter.locked': 'Gesperrt',
+  'dashboard.aio.review.filter.sfx': 'SFX',
+  'dashboard.aio.review.filter.all': 'Alle',
   'dashboard.aio.review.overflow.badgeTooltip': '{count} Sprechblase(n) überragen das Textfeld',
   'dashboard.aio.review.overflow.adjustRegion': 'Schriftgröße automatisch anpassen',
   'dashboard.aio.review.overflow.adjustPage': 'Schriftgrößen anpassen ({count})',
@@ -3541,6 +3544,9 @@ export const deMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'Langer-Streifen-Ansicht',
   'shortcuts.setViewLongStrip.description':
     'Wechselt zur Langer-Streifen-Ansicht.',
+  'shortcuts.peekOriginalPage.label': 'Originalseite einblenden',
+  'shortcuts.peekOriginalPage.description':
+    'Solange gehalten, zeigt die unveränderte Seite ohne gerenderten Text oder Overlays.',
   'shortcuts.setModeAio.label': 'AIO-Modus',
   'shortcuts.setModeAio.description': 'Wechselt zum AIO-Modus.',
   'shortcuts.setModeCleaner.label': 'Cleaner-/Redrawer-Modus',

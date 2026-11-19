@@ -55,6 +55,7 @@ export type ShortcutActionId =
   | "setModeGuides"
   | "setModeResources"
   | "applyText"
+  | "peekOriginalPage"
   | "nextRegion"
   | "previousRegion"
   | "toggleMultiBubble"
@@ -335,6 +336,15 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     isEnabled: (context) =>
       context.subMode === "manual"
       && (context.mode === "typesetter" || context.mode === "aio"),
+  },
+  {
+    id: "peekOriginalPage",
+    label: "shortcuts.peekOriginalPage.label",
+    description: "shortcuts.peekOriginalPage.description",
+    category: "global",
+    modeGuard: "requires-active-image",
+    defaultCombo: ["ALT", "O"],
+    isEnabled: (context) => Boolean(context.activeId) && !context.processing,
   },
   {
     id: "nextRegion",

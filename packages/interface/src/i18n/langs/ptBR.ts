@@ -1664,6 +1664,9 @@ export const ptBrMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'Vazio',
   'dashboard.aio.review.kind.cjkLeftover': 'Resto de CJK',
   'dashboard.aio.review.kind.overflow': 'Transbordamento',
+  'dashboard.aio.review.filter.locked': 'Bloqueada',
+  'dashboard.aio.review.filter.sfx': 'SFX',
+  'dashboard.aio.review.filter.all': 'Todas',
   'dashboard.aio.review.overflow.badgeTooltip': '{count} balão(ões) transbordam a caixa de texto',
   'dashboard.aio.review.overflow.adjustRegion': 'Ajustar automaticamente o tamanho da fonte',
   'dashboard.aio.review.overflow.adjustPage': 'Ajustar fontes ({count})',
@@ -3563,6 +3566,9 @@ export const ptBrMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'Visualização tira longa',
   'shortcuts.setViewLongStrip.description':
     'Alterna para a visualização de tira longa.',
+  'shortcuts.peekOriginalPage.label': 'Ver página original',
+  'shortcuts.peekOriginalPage.description':
+    'Enquanto pressionada, mostra a página intocada sem texto renderizado nem sobreposições.',
   'shortcuts.setModeAio.label': 'Modo AIO',
   'shortcuts.setModeAio.description': 'Troca para o modo AIO.',
   'shortcuts.setModeCleaner.label': 'Modo Limpador / Redesenhador',

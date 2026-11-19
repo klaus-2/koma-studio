@@ -1635,6 +1635,9 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': 'खाली',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK शेष',
   'dashboard.aio.review.kind.overflow': 'अतिप्रवाह',
+  'dashboard.aio.review.filter.locked': 'लॉक',
+  'dashboard.aio.review.filter.sfx': 'SFX',
+  'dashboard.aio.review.filter.all': 'सभी',
   'dashboard.aio.review.overflow.badgeTooltip': '{count} गुब्बारे टेक्स्ट बॉक्स से बाहर निकल रहे हैं',
   'dashboard.aio.review.overflow.adjustRegion': 'फ़ॉन्ट आकार ऑटो-फ़िट करें',
   'dashboard.aio.review.overflow.adjustPage': 'फ़ॉन्ट ऑटो-फ़िट करें ({count})',
@@ -3442,6 +3445,9 @@ export const hiMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'Tampilan strip panjang',
   'shortcuts.setViewLongStrip.description':
     'Beralih ke tampilan strip panjang.',
+  'shortcuts.peekOriginalPage.label': 'Lihat halaman asli',
+  'shortcuts.peekOriginalPage.description':
+    'Selama ditahan, menampilkan halaman asli tanpa teks yang dirender maupun overlay.',
   'shortcuts.setModeAio.label': 'Mode AIO',
   'shortcuts.setModeAio.description': 'Beralih ke mode AIO.',
   'shortcuts.setModeCleaner.label': 'Mode Cleaner / Redrawer',

@@ -46,6 +46,7 @@ import { renderRegionsToCanvas } from '../render-text-preview/canvasDrawing';
 import { overlayVisibleSet, useViewportCull } from '../render-text-preview/useViewportBand';
 import { useRenderTextPreviewCanvasRegions } from '../render-text-preview/useRenderTextPreviewCanvasRegions';
 import { useRenderTextPreviewOverlayWheel } from '../render-text-preview/useRenderTextPreviewOverlayWheel';
+import { PeekOriginalLayer, usePeekOriginalOverlayHidden } from '../render-text-preview/PeekOriginalLayer';
 
 const EMPTY_TYPOGRAPHY_PRESETS: TypographyStylePreset[] = [];
 const EMPTY_TYPOGRAPHY_FOLDERS: TypographyStyleFolder[] = [];
@@ -663,6 +664,7 @@ const RenderTextPreviewNoir = ({
     render: 'border-crimson/40 bg-crimson/10 text-crimson',
   };
 
+  const peekOverlayHidden = usePeekOriginalOverlayHidden(active);
   return (
     <>
       <div
@@ -754,18 +756,15 @@ const RenderTextPreviewNoir = ({
               width: imgElemW,
               left: (canvasWrapW - imgElemW) / 2,
               top: (canvasWrapH - imgElemH) / 2,
-              transform: image.rotation
-                ? `rotate(${image.rotation}deg)`
-                : undefined,
+              transform: image.rotation ? `rotate(${image.rotation}deg)` : undefined,
             }}
           >
-            <img
-              src={previewSrc}
-              className="block h-auto w-full select-none"
-              style={{ maxWidth: `${imgElemW}px` }}
-              alt={image.file.name}
-              decoding="async"
-              draggable={false}
+            <PeekOriginalLayer
+              image={image}
+              active={active}
+              previewSrc={previewSrc}
+              imgElemWidth={imgElemW}
+              variant="noir"
             />
             <canvas ref={paintCanvasRef} className="koma-manual-paint-canvas" />
             <canvas
@@ -787,7 +786,7 @@ const RenderTextPreviewNoir = ({
                 editable && areaSelectionEnabled && 'koma-render-overlay--editable',
                 inlineEditor && 'koma-render-overlay--inline-editing',
               )}
-              style={{ cursor: manualOverlayCursor }}
+              style={{ cursor: manualOverlayCursor, visibility: peekOverlayHidden ? 'hidden' : undefined }}
               onPointerDown={handlePointerDown}
               onPointerMove={handleOverlayPointerMove}
               onPointerUp={handlePointerUp}

@@ -1643,6 +1643,9 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.aio.review.kind.empty': '空',
   'dashboard.aio.review.kind.cjkLeftover': 'CJK 残留',
   'dashboard.aio.review.kind.overflow': 'はみ出し',
+  'dashboard.aio.review.filter.locked': 'ロック済み',
+  'dashboard.aio.review.filter.sfx': 'SFX',
+  'dashboard.aio.review.filter.all': 'すべて',
   'dashboard.aio.review.overflow.badgeTooltip': '{count}個の吹き出しがテキストボックスからはみ出しています',
   'dashboard.aio.review.overflow.adjustRegion': 'フォントサイズを自動調整',
   'dashboard.aio.review.overflow.adjustPage': 'フォントを自動調整（{count}件）',
@@ -3474,6 +3477,9 @@ export const jaMessages: TranslationCatalog = {
   'shortcuts.setViewLongStrip.label': 'ロングストリップ表示',
   'shortcuts.setViewLongStrip.description':
     'ロングストリップ表示に切り替えます。',
+  'shortcuts.peekOriginalPage.label': '元ページを表示',
+  'shortcuts.peekOriginalPage.description':
+    '押し続けている間、描画済みテキストやオーバーレイなしの元のページを表示します。',
   'shortcuts.setModeAio.label': 'AIOモード',
   'shortcuts.setModeAio.description': 'AIOモードに切り替えます。',
   'shortcuts.setModeCleaner.label': 'クリーナー / リドローワーモード',

@@ -52,6 +52,7 @@ import { overlayVisibleSet, useViewportCull } from './render-text-preview/useVie
 import { useRenderTextPreviewCanvasRegions } from './render-text-preview/useRenderTextPreviewCanvasRegions';
 import { useRenderTextPreviewOverlayWheel } from './render-text-preview/useRenderTextPreviewOverlayWheel';
 import RenderRegionOverlayBox from './render-text-preview/RenderRegionOverlayBox';
+import { PeekOriginalLayer, usePeekOriginalOverlayHidden } from './render-text-preview/PeekOriginalLayer';
 
 const EMPTY_TYPOGRAPHY_PRESETS: TypographyStylePreset[] = [];
 const EMPTY_TYPOGRAPHY_FOLDERS: TypographyStyleFolder[] = [];
@@ -660,6 +661,7 @@ const RenderTextPreviewClassic = ({
     [interaction],
   );
 
+  const peekOverlayHidden = usePeekOriginalOverlayHidden(active);
   return (
     <>
       <div
@@ -721,17 +723,15 @@ const RenderTextPreviewClassic = ({
               position: 'absolute',
               left: (canvasWrapW - imgElemW) / 2,
               top: (canvasWrapH - imgElemH) / 2,
-              transform: image.rotation
-                ? `rotate(${image.rotation}deg)`
-                : undefined,
+              transform: image.rotation ? `rotate(${image.rotation}deg)` : undefined,
             }}
           >
-            <img
-              src={previewSrc}
-              className="koma-preview-card__img"
-              style={{ maxWidth: `${imgElemW}px` }}
-              alt={image.file.name}
-              decoding="async"
+            <PeekOriginalLayer
+              image={image}
+              active={active}
+              previewSrc={previewSrc}
+              imgElemWidth={imgElemW}
+              variant="classic"
             />
             <canvas ref={paintCanvasRef} className="koma-manual-paint-canvas" />
             <canvas
@@ -753,7 +753,7 @@ const RenderTextPreviewClassic = ({
                 editable && areaSelectionEnabled && 'koma-render-overlay--editable',
                 inlineEditor && 'koma-render-overlay--inline-editing',
               )}
-              style={{ cursor: manualOverlayCursor }}
+              style={{ cursor: manualOverlayCursor, visibility: peekOverlayHidden ? 'hidden' : undefined }}
               onPointerDown={handlePointerDown}
               onPointerMove={handleOverlayPointerMove}
               onPointerUp={handlePointerUp}
