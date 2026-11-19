@@ -12,10 +12,20 @@ import {
   loadImageFromSource,
   maskCanvasHasVisibleContent,
 } from '../../../utils/dashboard.utils';
+import { dataUrlToBlob, decodeToImageBitmap } from '../../../utils/imagePerformance';
 import {
   computeWandMaskFrames,
   createWandFrameCanvas,
 } from './canvasDrawing';
+
+const paintSegBrush = async (ctx: CanvasRenderingContext2D, dataUrl: string): Promise<void> => {
+  try {
+    const blob = await dataUrlToBlob(dataUrl);
+    const source = await decodeToImageBitmap(blob);
+    ctx.drawImage(source, 0, 0, ctx.canvas.width, ctx.canvas.height);
+  } catch {
+  }
+};
 
 interface UseRenderTextPreviewManualCanvasParams {
   overlayRef: React.RefObject<HTMLDivElement | null>;
@@ -155,9 +165,7 @@ export const useRenderTextPreviewManualCanvas = ({
     ctx.clearRect(0, 0, newW, newH);
     const savedUrl = segBrushDataUrlRef.current;
     if (!savedUrl) return;
-    const img = new Image();
-    img.onload = () => ctx.drawImage(img, 0, 0, newW, newH);
-    img.src = savedUrl;
+    void paintSegBrush(ctx, savedUrl);
   }, []);
 
   const commitPaintLayer = useCallback(() => {

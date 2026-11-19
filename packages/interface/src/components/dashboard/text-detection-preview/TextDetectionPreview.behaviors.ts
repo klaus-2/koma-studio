@@ -12,7 +12,17 @@ import { findRegionsAtPoint } from '../render-text-preview/regionGeometry';
 import { shouldOpenRegionPicker } from '../render-text-preview/regionPickerDecision';
 import type { RenderTextStyle } from '../../../utils/renderText';
 import { clamp, cloneRenderStyle, normalizeRegion } from '../../../utils/dashboard.utils';
+import { dataUrlToBlob, decodeToImageBitmap } from '../../../utils/imagePerformance';
 import { useTextDetectionPreviewTextState } from './TextDetectionPreview.textState';
+
+const paintSegBrush = async (ctx: CanvasRenderingContext2D, dataUrl: string): Promise<void> => {
+  try {
+    const blob = await dataUrlToBlob(dataUrl);
+    const source = await decodeToImageBitmap(blob);
+    ctx.drawImage(source, 0, 0, ctx.canvas.width, ctx.canvas.height);
+  } catch {
+  }
+};
 
 interface TextDetectionPreviewBehaviorDeps {
   image: {
@@ -217,9 +227,7 @@ export const useTextDetectionPreviewBehaviors = ({
       ctx.clearRect(0, 0, newW, newH);
       const savedUrl = segBrushDataUrlRef.current;
       if (!savedUrl) return;
-      const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, newW, newH);
-      img.src = savedUrl;
+      void paintSegBrush(ctx, savedUrl);
     });
     observer.observe(container);
     return () => observer.disconnect();
@@ -241,9 +249,7 @@ export const useTextDetectionPreviewBehaviors = ({
     ctx.clearRect(0, 0, newW, newH);
     const savedUrl = segBrushDataUrlRef.current;
     if (!savedUrl) return;
-    const img = new Image();
-    img.onload = () => ctx.drawImage(img, 0, 0, newW, newH);
-    img.src = savedUrl;
+    void paintSegBrush(ctx, savedUrl);
   }, [overlayRef, segBrushCanvasRef, segmentBrushDataUrl]);
 
   const handlePointerDown = useCallback(

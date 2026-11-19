@@ -2,6 +2,45 @@ const THUMBNAIL_MAX_DIMENSION = 800;
 const THUMBNAIL_QUALITY = 0.6;
 const THUMBNAIL_CONCURRENCY = 2;
 
+export type DecodedImage = ImageBitmap | HTMLImageElement;
+
+export const decodeToImageBitmap = async (
+  source: Blob,
+): Promise<DecodedImage> => {
+  if (typeof createImageBitmap === "function") {
+    try {
+      return await createImageBitmap(source);
+    } catch {
+    }
+  }
+
+  const url = URL.createObjectURL(source);
+  try {
+    return await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+          reject(new Error("IMAGE_DECODE_FAILED"));
+          return;
+        }
+        resolve(image);
+      };
+      image.onerror = () => reject(new Error("IMAGE_DECODE_FAILED"));
+      image.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+};
+
+export const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
+  const response = await fetch(dataUrl);
+  if (!response.ok) {
+    throw new Error("IMAGE_DECODE_FAILED");
+  }
+  return response.blob();
+};
+
 export type ThumbnailFailureCode =
   | "IMAGE_LOAD_FAILED"
   | "CANVAS_UNAVAILABLE"

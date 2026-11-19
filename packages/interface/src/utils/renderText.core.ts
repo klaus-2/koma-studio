@@ -21,6 +21,10 @@ import {
   segmentText,
 } from "@/utils/renderText.unicode";
 import { parseCssGradientValue } from "@/utils/textFillPicker";
+import {
+  measureStyledGlyphCached,
+  measureStyledLineHeightCached,
+} from "@/utils/renderText.metrics-cache";
 
 export {
   buildRefinedSafeZoneInnerBox,
@@ -102,37 +106,13 @@ export const estimateLineHeight = (
   ctx: CanvasRenderingContext2D,
   style: RenderTextStyle,
   fontSize: number,
-): number =>
-  withCanvasState(ctx, () => {
-    ctx.font = buildCanvasFont(style, fontSize);
-    const metrics = ctx.measureText("Mg");
-    const ascent = Number.isFinite(metrics.actualBoundingBoxAscent)
-      ? Math.max(0, metrics.actualBoundingBoxAscent)
-      : fontSize * 0.8;
-    const descent = Number.isFinite(metrics.actualBoundingBoxDescent)
-      ? Math.max(0, metrics.actualBoundingBoxDescent)
-      : fontSize * 0.2;
-    const spacing = Number.isFinite(style.lineSpacing)
-      ? Math.max(0.6, style.lineSpacing)
-      : 1;
-
-    return Math.max(fontSize * 0.8, ascent + descent) * spacing;
-  });
+): number => measureStyledLineHeightCached(ctx, style, fontSize);
 
 export const measureStyledGlyph = (
   ctx: CanvasRenderingContext2D,
   text: string,
   style: RenderTextStyle,
-): StyledGlyph =>
-  withCanvasState(ctx, () => {
-    ctx.font = buildCanvasFont(style, style.fontSize);
-    return {
-      text,
-      style,
-      measuredWidth: ctx.measureText(text).width,
-      lineHeight: estimateLineHeight(ctx, style, style.fontSize),
-    };
-  });
+): StyledGlyph => measureStyledGlyphCached(ctx, text, style);
 
 export const buildStyledGlyphLines = (
   ctx: CanvasRenderingContext2D,

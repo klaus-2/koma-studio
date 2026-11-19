@@ -17,6 +17,7 @@ import { SessionTimeout } from "@koma/auth/SessionTimeout";
 import { PageTransition } from "./components/PageTransition";
 import { usePageTransition } from "./hooks/usePageTransition";
 import { useEconomicUiStore } from "./pages/dashboard/stores/economic-ui-store";
+import { useAioPipelineStore } from "./pages/dashboard/stores/aio-pipeline-store";
 import { useDiscordRPC } from "./hooks/useDiscordRPC";
 import { useI18n } from "./i18n";
 import {
@@ -526,12 +527,13 @@ const AppShell = () => {
 const App = () => {
   const { enabled: customCursorEnabled } = useCustomCursor();
   const economicHidden = useEconomicUiStore((state) => state.hidden);
+  const aioRunning = useAioPipelineStore((s) => s.aioExecutionStatus !== null);
 
   return (
     // Root motion feature provider: every animated component uses `m` against
     // this single domMax bundle instead of shipping the full `motion` runtime.
     <LazyMotion features={domMax} strict>
-      <MotionConfig reducedMotion={economicHidden ? "always" : "never"}>
+      <MotionConfig reducedMotion={economicHidden || aioRunning ? "always" : "never"}>
         <UpdaterProvider>
           <AuthProvider>
             {customCursorEnabled ? <CustomCursor /> : null}

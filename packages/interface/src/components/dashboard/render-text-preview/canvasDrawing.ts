@@ -21,6 +21,7 @@ import {
   wrapAndMeasureStyled,
 } from '../../../utils/renderText.measure';
 import { resolveGlyphStyle } from '../../../utils/renderText.core';
+import { clearGlyphMetricsCache } from '../../../utils/renderText.metrics-cache';
 import { styleValuesEqual } from '../../../utils/renderTextStyleRanges';
 
 export const drawManualStroke = (
@@ -354,6 +355,7 @@ const REGION_LAYOUT_CACHE_LIMIT = 64;
  */
 export const clearRegionLayoutCache = (): void => {
   regionLayoutCache = new Map();
+  clearGlyphMetricsCache();
 };
 
 const rememberRegionLayout = (

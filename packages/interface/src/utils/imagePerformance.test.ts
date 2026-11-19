@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearThumbnailCache,
   createThumbnailFromUrl,
+  dataUrlToBlob,
+  decodeToImageBitmap,
   getCachedThumbnailByKey,
   getCachedThumbnailUrl,
   getThumbnailCacheKey,
@@ -238,5 +240,109 @@ describe("imagePerformance WebP thumbnail cache", () => {
     expect(getCachedThumbnailByKey("opfs:hash-dup:400:600:0.7")).toBe(
       "blob:thumb-shared",
     );
+  });
+});
+
+describe("decodeToImageBitmap", () => {
+  const pngDataUrl =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+  it("converts a data URL into a Blob preserving its MIME type", async () => {
+    const blob = await dataUrlToBlob(pngDataUrl);
+
+    expect(blob.type).toBe("image/png");
+    expect(blob.size).toBeGreaterThan(0);
+  });
+
+  it("falls back to an Image element when createImageBitmap is unavailable", async () => {
+    const hadBitmapFactory = "createImageBitmap" in globalThis;
+    const original = globalThis.createImageBitmap;
+    Object.defineProperty(globalThis, "createImageBitmap", {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      const source = await dataUrlToBlob(pngDataUrl);
+      const decoded = await decodeToImageBitmap(source);
+
+      expect(decoded instanceof HTMLImageElement).toBe(true);
+      expect(
+        (decoded as HTMLImageElement).naturalWidth,
+      ).toBeGreaterThan(0);
+    } finally {
+      if (hadBitmapFactory) {
+        Object.defineProperty(globalThis, "createImageBitmap", {
+          configurable: true,
+          value: original,
+        });
+      }
+    }
+  });
+
+  it("decodes through createImageBitmap when the runtime provides it", async () => {
+    const closeSpy = vi.fn();
+    const bitmapFactory = vi.fn(async (_source: Blob) => ({
+      width: 1,
+      height: 1,
+      close: closeSpy,
+    }));
+    const hadBitmapFactory = "createImageBitmap" in globalThis;
+    const original = globalThis.createImageBitmap;
+    Object.defineProperty(globalThis, "createImageBitmap", {
+      configurable: true,
+      value: bitmapFactory,
+    });
+
+    try {
+      const source = await dataUrlToBlob(pngDataUrl);
+      const bitmap = await decodeToImageBitmap(source);
+
+      expect(bitmapFactory).toHaveBeenCalledTimes(1);
+      expect(bitmapFactory.mock.calls[0]?.[0]).toBe(source);
+      expect(bitmap instanceof HTMLImageElement).toBe(false);
+      expect(bitmap.width).toBeGreaterThan(0);
+      expect(closeSpy).not.toHaveBeenCalled();
+    } finally {
+      if (hadBitmapFactory) {
+        Object.defineProperty(globalThis, "createImageBitmap", {
+          configurable: true,
+          value: original,
+        });
+      } else {
+        Reflect.deleteProperty(globalThis, "createImageBitmap");
+      }
+    }
+  });
+
+  it("falls back to an Image element when createImageBitmap is present but rejects", async () => {
+    const rejectBitmapFactory = vi.fn((_source: Blob) =>
+      Promise.reject(new Error("boom")),
+    );
+    const hadBitmapFactory = "createImageBitmap" in globalThis;
+    const original = globalThis.createImageBitmap;
+    Object.defineProperty(globalThis, "createImageBitmap", {
+      configurable: true,
+      value: rejectBitmapFactory,
+    });
+
+    try {
+      const source = await dataUrlToBlob(pngDataUrl);
+      const decoded = await decodeToImageBitmap(source);
+
+      expect(rejectBitmapFactory).toHaveBeenCalledTimes(1);
+      expect(rejectBitmapFactory.mock.calls[0]?.[0]).toBe(source);
+      expect(decoded instanceof HTMLImageElement).toBe(true);
+      expect((decoded as HTMLImageElement).naturalWidth).toBeGreaterThan(0);
+    } finally {
+      if (hadBitmapFactory) {
+        Object.defineProperty(globalThis, "createImageBitmap", {
+          configurable: true,
+          value: original,
+        });
+      } else {
+        Reflect.deleteProperty(globalThis, "createImageBitmap");
+      }
+    }
   });
 });
