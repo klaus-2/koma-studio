@@ -16717,25 +16717,23 @@
 :root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--stop {
   position: relative;
   z-index: 1;
-  order: -1;
   background: var(--color-ink-3, #151522);
 }
 
-:root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--processing {
-  position: relative;
+:root[data-theme-family='noir'] .koma-aio-execute[data-auto-processing] .koma-aio-execute__btn--processing {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.75rem;
+  height: 6px;
   z-index: 0;
-  margin-top: -46px;
-  padding-top: 30px;
-  padding-bottom: 8px;
-  background: color-mix(in srgb, var(--color-crimson) 32%, var(--color-ink-3, #151522));
-  border-color: color-mix(in srgb, var(--color-crimson) 45%, transparent);
+  margin: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--color-crimson) 45%, var(--color-ink-3, #151522));
+  border: none;
   pointer-events: none;
-  /* pure effect layer: hide the run button's own spinner/label children */
   color: transparent;
-}
-
-:root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--processing>* {
-  visibility: hidden;
+  animation: noir-underlayer-hover 2.4s ease-in-out infinite;
 }
 
 @keyframes noir-underlayer-hover {
@@ -16752,7 +16750,7 @@
   }
 }
 
-:root[data-theme-family='noir'] .koma-aio-execute .koma-aio-execute__btn--processing {
+:root[data-theme-family='noir'] .koma-aio-execute[data-auto-processing] .koma-aio-execute__btn--processing {
   animation: noir-underlayer-hover 2.4s ease-in-out infinite;
 }
 :root[data-theme-family='noir'] .koma-aio-execute {

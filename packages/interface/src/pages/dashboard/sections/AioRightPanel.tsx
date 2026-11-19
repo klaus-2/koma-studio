@@ -2,7 +2,7 @@ import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { useShallowStableObject } from '../../../utils/shallowStable';
 import { AioCloudPreviewMount } from './AioCloudPreviewMount';
-import AioBatchPauseButton from './AioBatchPauseButton';
+import AioExecuteActionsRow from './AioExecuteActionsRow';
 import { useAioCloudPreviewStart } from '../hooks/use-aio-cloud-preview-start';
 
 import {
@@ -22,7 +22,6 @@ import {
   SkipBack,
   SkipForward,
   Trash2,
-  X,
   Zap,
 } from 'lucide-react';
 import { AioSection } from '../../AioSection';
@@ -785,7 +784,11 @@ export default memo(function AioRightPanel({
       )}
 
       {/* ═══════════════════ EXECUTE BAR ═══════════════════ */}
-      <div className="koma-aio-execute" ref={executeBarRef}>
+      <div
+        className="koma-aio-execute"
+        ref={executeBarRef}
+        data-auto-processing={processing && subMode === 'auto' ? '' : undefined}
+      >
         <button
           type="button"
           className={cn(
@@ -837,22 +840,11 @@ export default memo(function AioRightPanel({
             </>
           )}
         </button>
-        {cloudPreview.runActive && (
-          <button
-            type="button"
-            className="koma-aio-execute__btn koma-aio-execute__btn--stop"
-            onClick={stopAioExecution}
-          >
-            <span
-              className="auth-spinner"
-              style={{ width: 14, height: 14 }}
-              aria-hidden="true"
-            />
-            <X size={14} />
-            {t("dashboard.dashboardExecute.stop")}
-          </button>
-        )}
-        <AioBatchPauseButton subMode={subMode} />
+        <AioExecuteActionsRow
+          subMode={subMode}
+          runActive={cloudPreview.runActive}
+          onStop={stopAioExecution}
+        />
         <AioCloudPreviewMount
           cloudPreview={cloudPreview}
           processAIO={processAIO}

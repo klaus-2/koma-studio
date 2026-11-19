@@ -15126,6 +15126,22 @@ html[data-theme="light"] #root {
   gap: 0.5rem;
 }
 
+.koma-aio-execute__row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.koma-aio-execute__row:empty {
+  display: none;
+}
+
+.koma-aio-execute__row > .koma-aio-execute__btn--stop {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .koma-aio-execute__btn--pause {
   flex: 0 1 auto;
   min-width: 0;
