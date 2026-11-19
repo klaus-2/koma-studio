@@ -35,6 +35,7 @@ from models.errors import (
     InvalidModelOutputError,
     ModelNotInstalledError,
 )
+from models.onnx_graph_cache import apply_graph_cache, load_guard_and_purge
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +328,7 @@ def build_default_session_options() -> ort.SessionOptions:
     inter = env_thread_limit(INTER_OP_THREADS_ENV)
     if inter is not None:
         options.inter_op_num_threads = inter
+    options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     return options
 
 
@@ -348,9 +350,14 @@ def create_session_with_trt_fallback(
     its own patchable ``ort`` name (consumer-module monkeypatch seams).
 
     When ``sess_options`` is None a default SessionOptions with the
-    env-configured thread limits (``build_default_session_options``) is
-    passed to both the primary construction and the degraded retry, so every
-    session-creation site inherits CPU thread control without per-site edits.
+    env-configured thread limits and ``ORT_ENABLE_ALL`` graph optimization
+    (``build_default_session_options``) is passed to both the primary
+    construction and the degraded retry, so every session-creation site
+    inherits CPU thread control without per-site edits. With no explicit
+    options, CPU-EP loads also get a compiled-graph cache path assigned
+    (``apply_graph_cache``); a failed construct with that path retries once
+    without it after purging the cache entry, and a second failure raises
+    the original error — same doctrine as the TRT degradation below.
     """
     construct = (
         session_factory if session_factory is not None else ort.InferenceSession
@@ -358,6 +365,11 @@ def create_session_with_trt_fallback(
     resolved_options = (
         sess_options if sess_options is not None else build_default_session_options()
     )
+    model_file = Path(model_path)
+    if sess_options is None:
+        apply_graph_cache(model_file, providers, resolved_options)
+    assigned_cache: str = getattr(resolved_options, "optimized_model_filepath", "")
+    graph_cache_file = Path(assigned_cache) if assigned_cache else None
     try:
         return construct(
             model_path,
@@ -365,6 +377,25 @@ def create_session_with_trt_fallback(
             providers=list(providers),
         )
     except Exception as exc:
+        if graph_cache_file is not None and graph_cache_file.exists():
+            load_guard_and_purge(graph_cache_file)
+            logger.warning(
+                "onnx.graph_cache.load_retried_without_cache",
+                extra={
+                    "model_path": model_path,
+                    "cache_file": str(graph_cache_file),
+                    "error": str(exc),
+                },
+            )
+            resolved_options.optimized_model_filepath = ""
+            try:
+                return construct(
+                    model_path,
+                    sess_options=resolved_options,
+                    providers=list(providers),
+                )
+            except Exception as retry_exc:
+                raise exc from retry_exc
         if _TENSORRT_PROVIDER not in {_provider_name(spec) for spec in providers}:
             raise
         degraded = [

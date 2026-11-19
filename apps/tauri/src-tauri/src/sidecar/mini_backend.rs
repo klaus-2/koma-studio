@@ -23,6 +23,7 @@ use crate::{
         sync_runtime_state_from_api, MiniBackendRuntimePatch,
         MiniBackendRuntimeStore,
     },
+    runtime::temp_sweeper::sweep_stale_runtime_temp,
 };
 
 /// Source string emitted by `resolve_mini_backend_command` when a thin release
@@ -157,6 +158,13 @@ pub async fn start_mini_backend<R: Runtime + 'static>(
     // The next start is deliberate: a stop latch left over from a previous
     // restart must not classify its failures as expected stops.
     sidecar_store.mark_restart_intent();
+
+    let sweep_report =
+        sweep_stale_runtime_temp(&env::temp_dir(), Duration::from_secs(24 * 3600));
+    log::info!(
+        "mini-backend: runtime temp sweep removed {} stale entries, kept {} (24h floor)",
+        sweep_report.removed.len(), sweep_report.skipped
+    );
 
     // Reuse: if a healthy mini-backend is already listening on the default
     // port (e.g. started by another shell in the monorepo), don't try to bind

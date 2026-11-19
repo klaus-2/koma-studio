@@ -515,7 +515,7 @@ class PhotoshopTextLayerWriter:
         entries: Sequence[TextLayerEntry],
     ) -> int:
         descriptor, name = tempfile.mkstemp(
-            prefix=f".{target.stem}-",
+            prefix=f"koma_ps_.{target.stem}-",
             suffix=".psd",
             dir=target.parent,
         )

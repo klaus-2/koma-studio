@@ -55,6 +55,7 @@ from models.inpainting.factory import clear_inpainter_cache, get_inpainter_cache
 from models.ocr.factory import clear_ocr_cache, get_ocr_cache_size
 from models.segmentation.factory import clear_segmenter_cache, get_segmenter_cache_size
 from models.translation.factory import clear_translator_cache, get_translator_cache_size
+from utils.temp_sweeper import run_startup_sweep, temp_sweeper_loop
 from routers.cache import router as cache_router
 from routers.cloud_tools import router as cloud_tools_router
 from routers.diagnostics import router as diagnostics_router
@@ -475,13 +476,17 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
             tracemalloc.start(25)
         _configure_torch_thread_limit()
         await warmup_text_detection_model()
+        await asyncio.to_thread(run_startup_sweep)
         idle_sweeper_task = asyncio.create_task(idle_sweeper_loop())
+        temp_sweeper_task = asyncio.create_task(temp_sweeper_loop())
         try:
             yield
         finally:
             idle_sweeper_task.cancel()
             await asyncio.wait([idle_sweeper_task])
             logger.info("engine_idle.sweeper_stopped")
+            temp_sweeper_task.cancel()
+            await asyncio.wait([temp_sweeper_task])
             from models.execution import shutdown_inference_workers
 
             await shutdown_inference_workers()

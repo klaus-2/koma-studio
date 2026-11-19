@@ -88,6 +88,10 @@ experimentation:
 - `MINI_BACKEND_EXPOSE_MEMORY_ENDPOINTS` — off by default; set to `1` or
   `true` to expose `/memory/stats` and `/memory/clear-caches` without session
   auth. Endpoints are diagnostic only.
+- `MINI_BACKEND_ONNX_GRAPH_CACHE` — the compiled-graph disk cache for
+  CPU-EP ONNX loads is on by default; set to `0` to disable it entirely
+  (GPU loads never use the disk cache). Corrupted cache entries are purged
+  automatically and the session load retries without cache.
 
 See `core/config.py` and `core/cloud_registry.py` for the complete list.
 
@@ -159,6 +163,30 @@ per process, resets on the next day or a restart, and is not a quota server.
   ones are skipped in SFX mode. Echo collapse only rewrites at 3+ repetitions,
   and only when the collapsed text re-passes the same detectors.
   Implementation: `pipelines/translation_qa.py`.
+
+## Temp sweeper
+
+The sidecar removes its own orphaned scratch entries from the OS temp
+directory (`tempfile.gettempdir()`), on startup (blocking, fail-open) and
+then hourly in the background (implementation: `utils/temp_sweeper.py`).
+
+- **Eligible prefixes** — only entries named `koma_batch_*`, `koma_export_*`
+  or `koma_ps_*` are ever removed; `utils/photoshop_text_layers.py` creates
+  its PSD temporaries with the `koma_ps_` prefix for exactly this purpose.
+  Unknown names in the temp dir are never touched.
+- **Age floors** — temp entries are removed after 24 hours
+  (`TEMP_SWEEPER_MIN_AGE_SECONDS`); `*.part` download leftovers under
+  `KOMA_MODELS_ROOT` only after 7 days (fresh ones stay resumable). Entries
+  with a future mtime read as a negative age and are skipped.
+- **Batch gate** — while a batch is running (`has_unfinished()`, the same
+  doctrine as the 409 on `/cache/prune`) the whole pass is skipped and
+  `temp.sweep_skipped_batch_active` is logged.
+- **Hard exclusions** — `KOMA_APP_DATA_DIR` (persistent stores, logs,
+  config) and everything else under `KOMA_MODELS_ROOT` are never touched;
+  the models root is only scanned by the controlled `**/*.part` glob.
+- **Fail-open** — every removal failure is logged (`temp.sweep_removed`,
+  `temp.sweep_remove_failed`, summary `temp.sweep_summary`) and the pass
+  continues; the sweeper never breaks startup or a sweep cycle.
 
 ## Tests
 
