@@ -13,6 +13,7 @@ import { I18nProvider } from "./i18n";
 import { appQueryClient } from "./query/client";
 import { desktopBridge } from "@/lib/desktop-bridge";
 import { isConstrainedConnection } from "@/lib/network";
+import { runWhenIdle } from "./utils/runWhenIdle";
 import { KOMA_FONT_STYLESHEET_URL } from "./constants/app-webfonts";
 import brandLogoPreload from "@koma/ui/assets/logo-1.webp";
 
@@ -24,15 +25,6 @@ const playwrightWebAccess =
 if (playwrightWebAccess) {
   document.documentElement.dataset.playwrightWebAccess = "enabled";
 }
-
-const runWhenIdle = (callback: () => void): void => {
-  if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(callback, { timeout: 2_000 });
-    return;
-  }
-
-  (globalThis as { setTimeout: typeof setTimeout }).setTimeout(callback, 0);
-};
 
 /** First-launch MSI/Tauri IPC may not be ready — retry with backoff. */
 const hydrateRuntimeConfigWithRetry = async (): Promise<void> => {
