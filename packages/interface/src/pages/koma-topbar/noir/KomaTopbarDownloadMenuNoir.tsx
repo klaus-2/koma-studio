@@ -7,7 +7,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@koma/ui/components/tooltip";
+import { useMemo } from 'react';
 import { useI18n } from '../../../i18n';
+import * as exportNaming from '../../../utils/exportNaming';
+import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
+import { useExportStore } from '../../../pages/dashboard/stores/export-store';
+import { useImageCollectionStore } from '../../../pages/dashboard/stores/image-collection-store';
+import { useWorksStore } from '../../../pages/dashboard/stores/works-store';
 import type {
   DownloadBundleFormat,
   PsdCompression,
@@ -183,6 +189,10 @@ export default function KomaTopbarDownloadMenuNoir({
                   />
                 )}
 
+                {standardImagePackage && (
+                  <NamingPatternControlsNoir downloadBundleFormat={downloadBundleFormat} />
+                )}
+
                 {canExportAioMetadata && standardImagePackage && (
                   <div className="flex flex-col gap-1.5 border-t border-paper/10 pt-2">
                     <CheckRow checked={downloadIncludeRawText} disabled={downloadBundleFormat === 'pdf'} onChange={onDownloadIncludeRawTextChange} label={t('dashboard.topbar.rawText')} />
@@ -283,6 +293,63 @@ function ImagePackageControls({
         </select>
       </Field>
     </>
+  );
+}
+
+/** File-name pattern editor: input + live preview + recent patterns. */
+function NamingPatternControlsNoir({ downloadBundleFormat }: { downloadBundleFormat: DownloadBundleFormat }) {
+  const { t } = useI18n();
+  const namingPattern = useExportStore((s) => s.namingPattern);
+  const setNamingPattern = useExportStore((s) => s.setNamingPattern);
+  const recentNamingPatterns = useExportStore((s) => s.recentNamingPatterns);
+  const firstImage = useImageCollectionStore((s) => s.images[0] ?? null);
+  const works = useWorksStore((s) => s.works);
+  const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
+  const preview = useMemo(() => {
+    const context = exportNaming.buildPageNamingContext({
+      fileName: firstImage?.file.name ?? 'page-1',
+      chapterLabel: firstImage?.chapterLabel ?? null,
+      works,
+      targetLanguage: aioTgtLang,
+      pageIndex: 0,
+      // The bundle-format union values are the archive extensions themselves.
+      ext: downloadBundleFormat,
+    });
+    const pageStem = exportNaming.buildExportName(namingPattern, context);
+    return pageStem === null
+      ? null
+      : {
+        bundle: exportNaming.buildBundleExportFileName(namingPattern, context) ?? '',
+        image: `images/001-${exportNaming.ensureExportExtension(pageStem, context.ext)}`,
+        text: `texts/raw/001-${pageStem}.txt`,
+      };
+  }, [aioTgtLang, downloadBundleFormat, firstImage, namingPattern, works]);
+  return (
+    <div className="flex flex-col gap-1.5 border-t border-paper/10 pt-2">
+      <Field label={t('dashboard.topbar.namingPattern')}>
+        <input type="text" className={cn(inputCls, 'w-40')} value={namingPattern} onChange={(e) => setNamingPattern(e.target.value)} placeholder="{obra} {capitulo} {pagina}" />
+      </Field>
+      <p className="font-mono text-[10px] text-paper-dim">{t('dashboard.topbar.namingPatternHint')}</p>
+      {preview !== null && (
+        <p className="break-all font-mono text-[10px] text-paper-dim">
+          {t('dashboard.topbar.namingPreview')}: {preview.bundle}
+          <br />
+          {preview.image}
+          <br />
+          {preview.text}
+        </p>
+      )}
+      {recentNamingPatterns.length > 0 && (
+        <Field label={t('dashboard.topbar.namingRecent')}>
+          <select className={selectCls} value={recentNamingPatterns.includes(namingPattern) ? namingPattern : ''} onChange={(e) => setNamingPattern(e.target.value)}>
+            <option value="">{t('dashboard.topbar.namingReset')}</option>
+            {recentNamingPatterns.map((pattern) => (
+              <option key={pattern} value={pattern}>{pattern}</option>
+            ))}
+          </select>
+        </Field>
+      )}
+    </div>
   );
 }
 

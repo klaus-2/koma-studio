@@ -6,7 +6,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@koma/ui/components/tooltip";
+import { useMemo } from 'react';
 import { useI18n } from '../../i18n';
+import * as exportNaming from '../../utils/exportNaming';
+import { useAioPipelineStore } from '../dashboard/stores/aio-pipeline-store';
+import { useExportStore } from '../dashboard/stores/export-store';
+import { useImageCollectionStore } from '../dashboard/stores/image-collection-store';
+import { useWorksStore } from '../dashboard/stores/works-store';
 import type {
   DownloadBundleFormat,
   PsdCompression,
@@ -166,6 +172,10 @@ export default function KomaTopbarDownloadMenu({
                 />
               )}
 
+              {standardImagePackage && (
+                <NamingPatternControls downloadBundleFormat={downloadBundleFormat} />
+              )}
+
               {canExportAioMetadata && standardImagePackage && (
                 <div className="koma-dlmenu__checks">
                   <CheckRow checked={downloadIncludeRawText} disabled={downloadBundleFormat === 'pdf'} onChange={onDownloadIncludeRawTextChange} label={t('dashboard.topbar.rawText')} />
@@ -255,6 +265,65 @@ function ImagePackageControls({
           <option value="zip">{t('dashboard.topbar.optionZip')}</option>
         </select>
       </label>
+    </>
+  );
+}
+
+/** File-name pattern editor: input + live preview + recent patterns. */
+function NamingPatternControls({ downloadBundleFormat }: { downloadBundleFormat: DownloadBundleFormat }) {
+  const { t } = useI18n();
+  const namingPattern = useExportStore((s) => s.namingPattern);
+  const setNamingPattern = useExportStore((s) => s.setNamingPattern);
+  const recentNamingPatterns = useExportStore((s) => s.recentNamingPatterns);
+  const firstImage = useImageCollectionStore((s) => s.images[0] ?? null);
+  const works = useWorksStore((s) => s.works);
+  const aioTgtLang = useAioPipelineStore((s) => s.aioTgtLang);
+  const preview = useMemo(() => {
+    const context = exportNaming.buildPageNamingContext({
+      fileName: firstImage?.file.name ?? 'page-1',
+      chapterLabel: firstImage?.chapterLabel ?? null,
+      works,
+      targetLanguage: aioTgtLang,
+      pageIndex: 0,
+      // The bundle-format union values are the archive extensions themselves.
+      ext: downloadBundleFormat,
+    });
+    const pageStem = exportNaming.buildExportName(namingPattern, context);
+    return pageStem === null
+      ? null
+      : {
+        bundle: exportNaming.buildBundleExportFileName(namingPattern, context) ?? '',
+        image: `images/001-${exportNaming.ensureExportExtension(pageStem, context.ext)}`,
+        text: `texts/raw/001-${pageStem}.txt`,
+      };
+  }, [aioTgtLang, downloadBundleFormat, firstImage, namingPattern, works]);
+  return (
+    <>
+      <label className="koma-dlfield">
+        <span className="koma-dlfield__label">{t('dashboard.topbar.namingPattern')}</span>
+        <input type="text" className="koma-dlfield__input" value={namingPattern} onChange={(e) => setNamingPattern(e.target.value)} placeholder="{obra} {capitulo} {pagina}" />
+      </label>
+      <p className="koma-dlmenu__hint">{t('dashboard.topbar.namingPatternHint')}</p>
+      {preview !== null && (
+        <p className="koma-dlmenu__hint">
+          {t('dashboard.topbar.namingPreview')}: {preview.bundle}
+          <br />
+          {preview.image}
+          <br />
+          {preview.text}
+        </p>
+      )}
+      {recentNamingPatterns.length > 0 && (
+        <label className="koma-dlfield">
+          <span className="koma-dlfield__label">{t('dashboard.topbar.namingRecent')}</span>
+          <select className="koma-dlfield__select" value={recentNamingPatterns.includes(namingPattern) ? namingPattern : ''} onChange={(e) => setNamingPattern(e.target.value)}>
+            <option value="">{t('dashboard.topbar.namingReset')}</option>
+            {recentNamingPatterns.map((pattern) => (
+              <option key={pattern} value={pattern}>{pattern}</option>
+            ))}
+          </select>
+        </label>
+      )}
     </>
   );
 }

@@ -27,6 +27,14 @@ import type {
   ProcessableMode,
 } from '../../../types/dashboard.types';
 import { materializePageFile } from '../../../utils/page-source';
+import {
+  buildBundleExportFileName,
+  buildExportName,
+  buildPageNamingContext,
+  ensureExportExtension,
+  isExportNamingPatternEmpty,
+  type ExportNamingContext,
+} from '../../../utils/exportNaming';
 import type { SheetRow } from '../../../utils/spreadsheet-bridge';
 import type { WorkerPdfPage, WorkerZipEntry } from './exportPackageWorker';
 import type {
@@ -36,10 +44,12 @@ import type {
 } from './exportSheetWorker';
 import { createExportWorkerPool, type ExportWorkerPool } from './exportWorkerPool';
 import { ensureDirectPageUrl } from './image-collection';
+import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useCleanerStore } from '../stores/cleaner-store';
 import { useExportStore } from '../stores/export-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
+import { useWorksStore } from '../stores/works-store';
 
 export { useDashboardDownloadActions, useDashboardPsdDownload } from './export-download.actions';
 export { useExportDownloadAvailability } from './export-download.availability';
@@ -48,6 +58,49 @@ let sharedExportPool: ExportWorkerPool | null = null;
 const getExportPool = (): ExportWorkerPool => {
   sharedExportPool ??= createExportWorkerPool();
   return sharedExportPool;
+};
+
+/** Naming context of one ordered bundle entry: works/chapter label/AIO
+ * target language resolve `{obra}/{capitulo}/{idioma}` (bundle scopes never
+ * reach this builder as 'translator' — same rule as export-download.actions).
+ * Exported alongside `resolveBundleFileName` as the naming integration seam. */
+export const buildEntryNamingContext = (
+  entry: PreparedDownloadEntry,
+  pageIndex: number,
+  ext: string,
+): ExportNamingContext => {
+  const imageRef = useImageCollectionStore
+    .getState()
+    .images.find((item) => item.id === entry.sourceImageId);
+  return buildPageNamingContext({
+    fileName: imageRef?.file.name ?? `page-${pageIndex + 1}`,
+    chapterLabel: imageRef?.chapterLabel ?? null,
+    works: useWorksStore.getState().works,
+    targetLanguage: useAioPipelineStore.getState().aioTgtLang,
+    pageIndex,
+    ext,
+  });
+};
+
+/** Bundle name: pattern-based when set (recorded as used), else the legacy one.
+ *  Exported as the integration seam of the naming feature: the user-
+ *  visible bundle name and the recent-patterns recording flow through here. */
+export const resolveBundleFileName = (
+  pattern: string,
+  firstEntry: PreparedDownloadEntry | undefined,
+  scope: ProcessableMode,
+  timestamp: string,
+  targetExt: string,
+): string => {
+  if (!isExportNamingPatternEmpty(pattern)) {
+    useExportStore.getState().addRecentNamingPattern(pattern);
+  }
+  return (
+    (firstEntry === undefined
+      ? null
+      : buildBundleExportFileName(pattern, buildEntryNamingContext(firstEntry, 0, targetExt)))
+    ?? `koma-studio-${scope}-${timestamp}.${targetExt}`
+  );
 };
 
 /**
@@ -209,6 +262,7 @@ export function useDashboardDownloadBundle({
   const downloadIncludeInpaintedImage = useExportStore(
     (s) => s.downloadIncludeInpaintedImage,
   );
+  const namingPattern = useExportStore((s) => s.namingPattern);
 
   const prepareDownloadEntries = useCallback(async (scope: ProcessableMode): Promise<PreparedDownloadEntry[]> => {
     if (scope === 'typesetter') {
@@ -349,6 +403,7 @@ export function useDashboardDownloadBundle({
       cb7: 'cb7',
       pdf: 'pdf',
     };
+    const targetExt = extensionByFormat[downloadBundleFormat];
 
     if (downloadBundleFormat === 'pdf') {
       const orderedEntries = [...entries].sort((a, b) => {
@@ -381,9 +436,10 @@ export function useDashboardDownloadBundle({
         },
         transferBytes: true,
       });
+      // First ordered page = representative context; empty pattern → legacy.
       return {
         blob: new Blob([result.blobBytes], { type: result.mimeType }),
-        fileName: `koma-studio-${scope}-${timestamp}.pdf`,
+        fileName: resolveBundleFileName(namingPattern, orderedEntries[0] ?? entries[0], scope, timestamp, targetExt),
       };
     }
 
@@ -401,30 +457,36 @@ export function useDashboardDownloadBundle({
 
     const imageWriteJobs = orderedEntries.map(async (entry, index) => {
       const imageRef = getImages().find((item) => item.id === entry.sourceImageId);
-      const baseName = sanitizeArchivePathToken(removeFileExtension(imageRef?.file.name ?? `page-${index + 1}`));
       const imageExt = getImageExtensionFromMime(entry.blob.type || outFormat);
-      const imagePath = `images/${String(index + 1).padStart(3, '0')}-${baseName}.${imageExt}`;
+      // Empty pattern → the legacy base name exactly; a pattern resolves the
+      // shared page stem (reused by the sibling texts/typographer paths).
+      const patternedStem = buildExportName(namingPattern, buildEntryNamingContext(entry, index, imageExt));
+      const baseName = patternedStem ?? sanitizeArchivePathToken(removeFileExtension(imageRef?.file.name ?? `page-${index + 1}`));
+      const orderedIndex = String(index + 1).padStart(3, '0');
+      const imagePath = patternedStem === null
+        ? `images/${orderedIndex}-${baseName}.${imageExt}`
+        : `images/${orderedIndex}-${ensureExportExtension(baseName, imageExt)}`;
       zipFiles[imagePath] = new Uint8Array(await entry.blob.arrayBuffer());
 
       if (scope !== 'aio' && scope !== 'typesetter') return;
       const regions = useRegionEditorStore.getState().aioDetectionsByImage[entry.sourceImageId] ?? [];
       if (scope === 'aio' && downloadIncludeRawText) {
-        const rawTextPath = `texts/raw/${String(index + 1).padStart(3, '0')}-${baseName}.txt`;
+        const rawTextPath = `texts/raw/${orderedIndex}-${baseName}.txt`;
         zipFiles[rawTextPath] = strToU8(buildRegionTextDump(regions, 'recognized'));
       }
       if (scope === 'aio' && downloadIncludeTranslatedText) {
-        const translatedTextPath = `texts/translated/${String(index + 1).padStart(3, '0')}-${baseName}.txt`;
+        const translatedTextPath = `texts/translated/${orderedIndex}-${baseName}.txt`;
         zipFiles[translatedTextPath] = strToU8(buildRegionTextDump(regions, 'translated'));
       }
       const notesDump = scope === 'aio' ? buildRegionNotesDump(regions) : '';
       if (scope === 'aio' && notesDump) {
-        const notesTextPath = `texts/notes/${String(index + 1).padStart(3, '0')}-${baseName}.txt`;
+        const notesTextPath = `texts/notes/${orderedIndex}-${baseName}.txt`;
         zipFiles[notesTextPath] = strToU8(notesDump);
       }
       const typographySession =
         getTypographerSessionsByImage()[entry.sourceImageId];
       if (scope === 'typesetter' && typographySession) {
-        const sessionPath = `typographer/${String(index + 1).padStart(3, '0')}-${baseName}.session.json`;
+        const sessionPath = `typographer/${orderedIndex}-${baseName}.session.json`;
         zipFiles[sessionPath] = strToU8(JSON.stringify(typographySession, null, 2));
       }
       if (scope === 'aio' && downloadIncludeInpaintedImage) {
@@ -436,11 +498,11 @@ export function useDashboardDownloadBundle({
             inpainted?.previewUrl || ensureDirectPageUrl(imageState),
           );
           const inpaintedBlob = await canvasToBlob(composed, 'image/png', 1);
-          const inpaintedPath = `inpainted/${String(index + 1).padStart(3, '0')}-${baseName}.png`;
+          const inpaintedPath = `inpainted/${orderedIndex}-${baseName}.png`;
           zipFiles[inpaintedPath] = new Uint8Array(await inpaintedBlob.arrayBuffer());
         } else if (inpainted) {
           const inpaintedExt = getImageExtensionFromMime(inpainted.blob.type || 'image/png');
-          const inpaintedPath = `inpainted/${String(index + 1).padStart(3, '0')}-${baseName}.${inpaintedExt}`;
+          const inpaintedPath = `inpainted/${orderedIndex}-${baseName}.${inpaintedExt}`;
           zipFiles[inpaintedPath] = new Uint8Array(await inpainted.blob.arrayBuffer());
         }
       }
@@ -465,10 +527,9 @@ export function useDashboardDownloadBundle({
       },
       transferBytes: true,
     });
-    const targetExt = extensionByFormat[downloadBundleFormat];
     return {
       blob: new Blob([result.blobBytes], { type: result.mimeType }),
-      fileName: `koma-studio-${scope}-${timestamp}.${targetExt}`,
+      fileName: resolveBundleFileName(namingPattern, orderedEntries[0] ?? entries[0], scope, timestamp, targetExt),
     };
   }, [
 
@@ -478,6 +539,7 @@ export function useDashboardDownloadBundle({
     downloadIncludeRawText,
     downloadIncludeTranslatedText,
     hasAioManualImageEdits,
+    namingPattern,
     outFormat,
     getTypographerSessionsByImage,
   ]);

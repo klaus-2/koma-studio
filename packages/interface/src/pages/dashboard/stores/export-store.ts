@@ -2,6 +2,7 @@ import type { SetStateAction } from 'react';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+import { isRecord } from '../../../utils/guards';
 import type {
   AioDownloadEntry,
   DownloadBundleFormat,
@@ -9,6 +10,43 @@ import type {
   ProcessableMode,
   PsdCompression,
 } from '../../../types/dashboard.types';
+
+/** Storage key of the export-naming persistence boundary. */
+const EXPORT_NAMING_STORAGE_KEY = 'koma-studio.export-naming.v1';
+const MAX_RECENT_NAMING_PATTERNS = 5;
+
+/* Untrusted localStorage JSON is narrowed through isRecord before any field is
+   read (works-store boundary); quota-blocked writes keep memory authoritative. */
+const loadPersistedNaming = (): {
+  namingPattern: string;
+  recentNamingPatterns: string[];
+} => {
+  const fallback = { namingPattern: '', recentNamingPatterns: [] };
+  if (typeof window === 'undefined') return fallback;
+  let value: unknown = null;
+  try {
+    value = JSON.parse(
+      window.localStorage.getItem(EXPORT_NAMING_STORAGE_KEY) ?? 'null',
+    );
+  } catch (error) {
+    console.warn('Failed to parse the persisted export naming.', error);
+    return fallback;
+  }
+  if (!isRecord(value)) return fallback;
+  const recents = Array.isArray(value.recentNamingPatterns)
+    ? value.recentNamingPatterns
+    : [];
+  return {
+    namingPattern:
+      typeof value.namingPattern === 'string' ? value.namingPattern : '',
+    recentNamingPatterns: recents
+      .filter(
+        (entry): entry is string =>
+          typeof entry === 'string' && entry.trim().length > 0,
+      )
+      .slice(0, MAX_RECENT_NAMING_PATTERNS),
+  };
+};
 
 /**
  * Export-download domain: the blob registry shared with the AIO/cleaner
@@ -39,6 +77,10 @@ interface ExportStore {
   /** True while the PSD export request is running. */
   downloadPsdLoading: boolean;
 
+  /** User file-name pattern; '' keeps the legacy names. */
+  namingPattern: string;
+  /** Most-recent-first non-empty patterns actually used, capped at 5. */
+  recentNamingPatterns: string[];
   /** Value-or-updater: the image-collection hook, the cleaner healing hook
    *  and the restore all use functional updaters (same-name args). */
   setDownloadItems: (value: SetStateAction<DownloadItem[]>) => void;
@@ -60,6 +102,9 @@ interface ExportStore {
   setDownloadPsdUsePhotoshopTextLayers: (value: boolean) => void;
   setDownloadPsdIncludeMetadataJson: (value: boolean) => void;
   setDownloadPsdLoading: (value: boolean) => void;
+  setNamingPattern: (value: string) => void;
+  /** Records a pattern as recently used (dedup, most-recent-first, cap 5). */
+  addRecentNamingPattern: (pattern: string) => void;
 
   /** Replaces every aio-scope item (composed action, page callback 1:1). */
   setAioDownloadItems: (entries: AioDownloadEntry[]) => void;
@@ -88,6 +133,8 @@ export const useExportStore = create<ExportStore>()(
       downloadPsdUsePhotoshopTextLayers: false,
       downloadPsdIncludeMetadataJson: true,
       downloadPsdLoading: false,
+      namingPattern: loadPersistedNaming().namingPattern,
+      recentNamingPatterns: loadPersistedNaming().recentNamingPatterns,
 
       // Value-or-updater: keeps the Dispatch<SetStateAction<T>> same-name
       // args of the image-collection/cleaner hooks assignable.
@@ -130,6 +177,19 @@ export const useExportStore = create<ExportStore>()(
         set({ downloadPsdIncludeMetadataJson }),
       setDownloadPsdLoading: (downloadPsdLoading) =>
         set({ downloadPsdLoading }),
+      setNamingPattern: (namingPattern) => set({ namingPattern }),
+      addRecentNamingPattern: (pattern) =>
+        set((state) => {
+          const trimmed = pattern.trim();
+          if (!trimmed) {
+            return state;
+          }
+          const next = [
+            trimmed,
+            ...state.recentNamingPatterns.filter((existing) => existing !== trimmed),
+          ].slice(0, MAX_RECENT_NAMING_PATTERNS);
+          return { recentNamingPatterns: next };
+        }),
 
       // Composed actions, ported 1:1 from the page's useCallback bodies.
       setAioDownloadItems: (entries) => {
@@ -236,3 +296,23 @@ export const useExportStore = create<ExportStore>()(
     { name: 'export-store' },
   ),
 );
+
+/* SYNC-EXTERNAL: mirrors the naming pattern + recents to localStorage on
+   change (explicit sync stays the source of truth, works-store pattern). */
+if (typeof window !== 'undefined') {
+  let lastPersistedNaming: string | null = null;
+  useExportStore.subscribe((state) => {
+    const payload = JSON.stringify({
+      namingPattern: state.namingPattern,
+      recentNamingPatterns: state.recentNamingPatterns,
+    });
+    if (payload === lastPersistedNaming) return;
+    lastPersistedNaming = payload;
+    try {
+      window.localStorage.setItem(EXPORT_NAMING_STORAGE_KEY, payload);
+    } catch (error) {
+      // Quota-blocked localStorage must not take the store down.
+      console.warn('Failed to persist the export naming.', error);
+    }
+  });
+}
