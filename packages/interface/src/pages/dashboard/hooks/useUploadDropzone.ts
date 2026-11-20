@@ -26,10 +26,45 @@ interface NativeDropzoneApi {
   isDragActive: boolean;
 }
 
+/**
+ * Accept sets pre-derived from the dropzone's `accept` map. Shared by the
+ * dropzone (memoized per mount) and the paste-import path, which builds it
+ * from the same constant.
+ */
+export interface UploadAcceptMatcher {
+  mimeTypes: ReadonlySet<string>;
+  mimePrefixes: readonly string[];
+  extensions: ReadonlySet<string>;
+}
+
 const extensionOf = (name: string): string => {
   const dot = name.lastIndexOf(".");
   return dot === -1 ? "" : name.slice(dot).toLowerCase();
 };
+
+export const buildUploadAcceptMatcher = (
+  accept: Record<string, string[]>,
+): UploadAcceptMatcher => ({
+  mimeTypes: new Set(
+    Object.keys(accept).filter((mime) => !mime.endsWith("/*")),
+  ),
+  mimePrefixes: Object.keys(accept)
+    .filter((mime) => mime.endsWith("/*"))
+    .map((mime) => mime.slice(0, -1)),
+  extensions: new Set(
+    Object.values(accept)
+      .flat()
+      .map((extension) => extension.toLowerCase()),
+  ),
+});
+
+export const fileAccepts = (
+  file: File,
+  matcher: UploadAcceptMatcher,
+): boolean =>
+  matcher.mimeTypes.has(file.type) ||
+  matcher.mimePrefixes.some((prefix) => file.type.startsWith(prefix)) ||
+  matcher.extensions.has(extensionOf(file.name));
 
 export function useUploadDropzone({
   onDrop,
@@ -40,48 +75,18 @@ export function useUploadDropzone({
   const dragDepth = useRef(0);
   const [isDragActive, setIsDragActive] = useState(false);
 
-  const acceptedExtensions = useMemo(
-    () =>
-      new Set(
-        Object.values(accept)
-          .flat()
-          .map((extension) => extension.toLowerCase()),
-      ),
-    [accept],
-  );
-
-  const acceptedMimeTypes = useMemo(
-    () =>
-      new Set(
-        Object.keys(accept).filter((mime) => !mime.endsWith("/*")),
-      ),
-    [accept],
-  );
-
-  const acceptedMimePrefixes = useMemo(
-    () =>
-      Object.keys(accept)
-        .filter((mime) => mime.endsWith("/*"))
-        .map((mime) => mime.slice(0, -1)),
-    [accept],
-  );
-
-  const acceptsFile = useCallback(
-    (file: File): boolean =>
-      acceptedMimeTypes.has(file.type) ||
-      acceptedMimePrefixes.some((prefix) => file.type.startsWith(prefix)) ||
-      acceptedExtensions.has(extensionOf(file.name)),
-    [acceptedExtensions, acceptedMimePrefixes, acceptedMimeTypes],
-  );
+  const matcher = useMemo(() => buildUploadAcceptMatcher(accept), [accept]);
 
   const handleFiles = useCallback(
     (files: FileList | File[]): void => {
-      const accepted = Array.from(files).filter(acceptsFile);
+      const accepted = Array.from(files).filter((file) =>
+        fileAccepts(file, matcher),
+      );
       if (accepted.length > 0) {
         void onDrop(accepted);
       }
     },
-    [acceptsFile, onDrop],
+    [matcher, onDrop],
   );
 
   const openPicker = useCallback((): void => {
@@ -151,7 +156,9 @@ export function useUploadDropzone({
 
       const dataTransfer = event.dataTransfer;
 
-      void collectDroppedFiles(dataTransfer, acceptsFile).then((dropped) => {
+      void collectDroppedFiles(dataTransfer, (file) =>
+        fileAccepts(file, matcher),
+      ).then((dropped) => {
         if (dropped.length === 0) {
           return;
         }
@@ -168,7 +175,7 @@ export function useUploadDropzone({
         void onDrop(files, folders);
       });
     },
-    [acceptsFile, disabled, onDrop],
+    [matcher, disabled, onDrop],
   );
 
   const getRootProps = useCallback(
@@ -199,7 +206,7 @@ export function useUploadDropzone({
       ref: inputRef,
       type: "file",
       multiple: true,
-      accept: Array.from(acceptedExtensions).join(","),
+      accept: Array.from(matcher.extensions).join(","),
       disabled,
       style: { display: "none" },
       onChange: (event: ChangeEvent<HTMLInputElement>): void => {
@@ -210,7 +217,7 @@ export function useUploadDropzone({
         event.target.value = "";
       },
     }),
-    [acceptedExtensions, disabled, handleFiles],
+    [matcher, disabled, handleFiles],
   );
 
   return { getRootProps, getInputProps, isDragActive };

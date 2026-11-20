@@ -45,6 +45,7 @@ import { useCleanerStore } from '../stores/cleaner-store';
 import { useManualToolsStore } from '../stores/manual-tools-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useUploadDropzone } from './useUploadDropzone';
+import { useDashboardPasteImport } from './useDashboardPasteImport';
 
 interface UploadChapter {
   id: string;
@@ -421,6 +422,9 @@ export function useDashboardUploads({
     accept: DASHBOARD_UPLOAD_ACCEPT,
     disabled: isExtractingUploads,
   });
+
+  // Ctrl+V on the dashboard imports pages through the same drop pipeline.
+  useDashboardPasteImport({ onDrop });
 
   return {
     onDrop,
