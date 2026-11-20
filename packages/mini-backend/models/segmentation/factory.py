@@ -24,7 +24,6 @@ from models.errors import (
     ModelNotInstalledError,
     UnimplementedModelSelectionError,
 )
-from models.segmentation.baka_segmenter import BakaContentSegmenter
 from models.segmentation.base_segmenter import BaseSegmenter
 from models.segmentation.storage import segmentation_runtime_ready
 
@@ -66,8 +65,22 @@ SEGMENTATION_MODELS: Mapping[str, SegmentationModelMeta] = MappingProxyType(
     }
 )
 
+def _build_baka_content_segmenter() -> BaseSegmenter:
+    """Build the default segmenter, importing its engine lazily.
+
+    The engine module (``models.segmentation.baka_segmenter``) pulls heavy
+    runtime dependencies (cv2), so it is imported here at build time and
+    read through ``module.attr`` — never ``from X import Y`` inside a
+    function, so patching the engine module keeps working.
+    """
+    import models.segmentation.baka_segmenter as _mod
+
+    segmenter_class: type[BaseSegmenter] = _mod.BakaContentSegmenter
+    return segmenter_class()
+
+
 _BUILDERS: Mapping[str, Callable[[], BaseSegmenter]] = MappingProxyType(
-    {DEFAULT_SEGMENTATION_MODEL_KEY: BakaContentSegmenter}
+    {DEFAULT_SEGMENTATION_MODEL_KEY: _build_baka_content_segmenter}
 )
 
 type SegmentationCacheKey = tuple[str, tuple[FrozenOnnxProviderSpec, ...]]

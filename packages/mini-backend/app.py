@@ -57,6 +57,7 @@ from models.segmentation.factory import clear_segmenter_cache, get_segmenter_cac
 from models.translation.factory import clear_translator_cache, get_translator_cache_size
 from utils.temp_sweeper import run_startup_sweep, temp_sweeper_loop
 from routers.cache import router as cache_router
+from routers.calibration import router as calibration_router
 from routers.cloud_tools import router as cloud_tools_router
 from routers.diagnostics import router as diagnostics_router
 from routers.detection import router as detection_router
@@ -635,6 +636,7 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         model_downloads_router,
         diagnostics_router,
         cache_router,
+        calibration_router,
         warmup_router,
     )
     for router in routers:

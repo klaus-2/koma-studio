@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TypedDict
+from typing import Final, TypedDict
 
 from core.device import (
     DeviceInfo,
@@ -17,9 +17,7 @@ from core.device import (
 from core.engine_idle import register_idle_cache
 from core.models_store import model_is_installed
 from models.engine_cache import LruEngineCache
-from models.inpainting.aot import AOTInpainter
 from models.inpainting.base_inpainter import BaseInpainter
-from models.inpainting.lama import LaMaInpainter
 from models.inpainting.registry import (
     AUTO_PREFERENCE,
     INPAINT_MODEL_SPECS,
@@ -59,6 +57,47 @@ class InpaintingModelOption(TypedDict):
 
 class NoInpaintModelAvailableError(FileNotFoundError):
     """No installed inpainting model has an available runtime payload."""
+
+
+_ENGINE_CLASS_NAMES: Final[tuple[str, ...]] = ("AOTInpainter", "LaMaInpainter")
+
+
+def __getattr__(name: str) -> object:
+    """PEP 562 lazy resolution for the historical engine class attributes.
+
+    Keeps ``factory.AOTInpainter`` / ``factory.LaMaInpainter`` addressable —
+    the monkeypatch surface of the existing factory tests and the shape of
+    the old top-level imports — without importing the heavy engine modules
+    (cv2/ONNX runtimes) at import time.
+    """
+    if name in _ENGINE_CLASS_NAMES:
+        return _inpainter_class(name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _inpainter_class(name: str) -> type[BaseInpainter]:
+    """Resolve an inpainting engine class at build time, never at import time.
+
+    Resolution mirrors the previous import-time binding: a value already set
+    on this module (test patches such as ``patch.object(factory,
+    "LaMaInpainter")``) wins; otherwise the engine module is imported
+    lazily and read through ``module.attr`` — never ``from X import Y``
+    inside a function, so patching the engine module also keeps working.
+    """
+    bound: type[BaseInpainter] | None = globals().get(name)
+    if bound is not None:
+        return bound
+    if name == "AOTInpainter":
+        import models.inpainting.aot.inpainter as _mod
+
+        engine_class: type[BaseInpainter] = _mod.AOTInpainter
+    elif name == "LaMaInpainter":
+        import models.inpainting.lama.inpainter as _mod
+
+        engine_class = _mod.LaMaInpainter
+    else:
+        raise AttributeError(f"unknown inpainting engine class: {name}")
+    return engine_class
 
 
 def _is_available(spec: InpaintModelSpec) -> bool:
@@ -129,9 +168,11 @@ def _build(
     providers: tuple[OnnxProviderSpec, ...],
 ) -> BaseInpainter:
     if spec.key == "aot":
-        return AOTInpainter(model_path=model_path, providers=providers)
+        return _inpainter_class("AOTInpainter")(
+            model_path=model_path, providers=providers
+        )
 
-    return LaMaInpainter(
+    return _inpainter_class("LaMaInpainter")(
         model_path=model_path,
         providers=providers,
         key=spec.key,
