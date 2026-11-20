@@ -8,6 +8,8 @@ import AioReviewIssuesSection, {
   AIO_REVIEW_FILTER_STORAGE_KEY,
   AIO_REVIEW_FILTER_KINDS,
   type AioReviewFilterKind,
+  deriveNavRowsForImage,
+  deriveRegionIssuesForImage,
 } from './AioReviewIssuesSection';
 import RegionIssuesPanel from '@/components/dashboard/RegionIssuesPanel';
 import type { RegionIssueNavRow } from '@/components/dashboard/RegionIssuesPanel';
@@ -390,5 +392,55 @@ describe('filter chip interaction (act-compat)', () => {
     expect(lockedChip.getAttribute('aria-pressed')).toBe('false');
     await user.click(lockedChip);
     expect(lockedChip.getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+describe('per-image derivation caches (I11)', () => {
+  const cacheRegion = (
+    id: string,
+    overrides: Partial<AioTextRegion> = {},
+  ): AioTextRegion =>
+    region(id, { recognizedText: 'hello', translatedText: undefined, ...overrides });
+
+  it('reuses the cached derivation while the region array identity is unchanged', () => {
+    const regions = [cacheRegion('r-1')];
+    const first = deriveRegionIssuesForImage('img-1', regions, 'pt-br');
+    expect(deriveRegionIssuesForImage('img-1', regions, 'pt-br')).toBe(first);
+  });
+
+  it("an edit on image B never recomputes image A's derivations", () => {
+    const imageA = [cacheRegion('r-1')];
+    const first = deriveRegionIssuesForImage('img-1', imageA, 'pt-br');
+    deriveRegionIssuesForImage('img-2', [cacheRegion('r-2')], 'pt-br');
+    expect(deriveRegionIssuesForImage('img-1', imageA, 'pt-br')).toBe(first);
+    expect(first.map((issue) => issue.regionId)).toEqual(['r-1']);
+  });
+
+  it('recomputes only the edited image when its array identity changes', () => {
+    const before = [cacheRegion('r-1')];
+    const first = deriveRegionIssuesForImage('img-1', before, 'pt-br');
+    const after = [cacheRegion('r-1', { translatedText: 'olá' })];
+    expect(deriveRegionIssuesForImage('img-1', after, 'pt-br')).toEqual([]);
+    expect(deriveRegionIssuesForImage('img-1', before, 'pt-br')).toBe(first);
+  });
+
+  it('recomputes when the target language changes for the same array', () => {
+    const regions = [cacheRegion('r-1')];
+    const ptBr = deriveRegionIssuesForImage('img-1', regions, 'pt-br');
+    expect(deriveRegionIssuesForImage('img-1', regions, 'ja')).not.toBe(ptBr);
+  });
+
+  it('derives nav rows and caches them by array identity + owning image id', () => {
+    const lockedRegions = [
+      region('r-1', { locked: true }),
+      region('r-2', { sfxCandidate: true }),
+    ];
+    const rows = deriveNavRowsForImage('img-7', lockedRegions);
+    expect(rows.map((row) => row.regionId)).toEqual(['r-1', 'r-2']);
+    expect(rows.every((row) => row.imageId === 'img-7')).toBe(true);
+    expect(deriveNavRowsForImage('img-7', lockedRegions)).toBe(rows);
+    const reowned = deriveNavRowsForImage('img-9', lockedRegions);
+    expect(reowned).not.toBe(rows);
+    expect(reowned[0]?.imageId).toBe('img-9');
   });
 });
