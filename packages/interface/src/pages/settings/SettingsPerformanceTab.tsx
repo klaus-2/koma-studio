@@ -14,6 +14,7 @@ import type {
   WorkspaceAutosaveFeedbackState,
 } from "./settings.types";
 import { SettingsCacheSection } from "./SettingsCacheSection";
+import { SettingsCalibrationSection } from "./SettingsCalibrationSection";
 import { SettingsSidecarTunablesSection } from "./SettingsSidecarTunablesSection";
 
 type TranslationFn = ReturnType<typeof useI18n>["t"];
@@ -285,6 +286,8 @@ export const renderSettingsPerformanceTab = ({
     miniBackendTunablesSaveStatus={miniBackendTunablesSaveStatus}
     handleSaveMiniBackendTunables={handleSaveMiniBackendTunables}
   />
+
+  <SettingsCalibrationSection t={t} />
 
   {/* Tool Tips */}
   <SettingsCacheSection t={t} />

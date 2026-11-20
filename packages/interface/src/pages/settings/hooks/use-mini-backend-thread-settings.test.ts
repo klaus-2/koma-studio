@@ -265,4 +265,56 @@ describe("useMiniBackendThreadSettings", () => {
     act(() => result.current.handleSaveMiniBackendTunables());
     expect(result.current.tunablesSaveStatus).toBe("saved");
   });
+
+  it("two live instances never clobber each other's saved tunables", () => {
+    // The hook is state-per-instance: each save spreads only the fields that
+    // instance edited over the freshly loaded record.
+    const a = renderHook(() => useMiniBackendThreadSettings());
+    act(() => {
+      a.result.current.setMiniBackendTunables({
+        engineIdleTimeoutSeconds: 300,
+        workingResolutionMegapixels: 24,
+        workingResolutionOcrClean: false,
+      });
+    });
+    act(() => a.result.current.handleSaveMiniBackendTunables());
+
+    // Instance B mounts AFTER A's save and applies the calibration
+    // recommendation (its updater spreads prev, so only one field differs).
+    const b = renderHook(() => useMiniBackendThreadSettings());
+    expect(b.result.current.miniBackendTunables.engineIdleTimeoutSeconds).toBe(300);
+    act(() => {
+      b.result.current.setMiniBackendTunables((prev) => ({
+        ...prev,
+        workingResolutionMegapixels: 48,
+      }));
+    });
+    act(() => b.result.current.handleSaveMiniBackendTunables());
+    expect(JSON.parse(
+      window.localStorage.getItem(MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY) ?? "{}",
+    )).toEqual({
+      intraOpThreads: null,
+      engineIdleTimeoutSeconds: 300,
+      workingResolutionMegapixels: 48,
+      workingResolutionOcrClean: false,
+    });
+
+    // The inverse direction: A saves again from its stale B-field draft —
+    // B's resolution survives.
+    act(() => {
+      a.result.current.setMiniBackendTunables((prev) => ({
+        ...prev,
+        engineIdleTimeoutSeconds: 480,
+      }));
+    });
+    act(() => a.result.current.handleSaveMiniBackendTunables());
+    expect(JSON.parse(
+      window.localStorage.getItem(MINI_BACKEND_THREAD_SETTINGS_STORAGE_KEY) ?? "{}",
+    )).toEqual({
+      intraOpThreads: null,
+      engineIdleTimeoutSeconds: 480,
+      workingResolutionMegapixels: 48,
+      workingResolutionOcrClean: false,
+    });
+  });
 });

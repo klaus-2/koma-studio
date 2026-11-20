@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { SetStateAction } from 'react';
 
 import { desktopBridge } from '@/lib/desktop-bridge';
@@ -35,11 +35,28 @@ export const useMiniBackendThreadSettings = () => {
     }));
   const [tunablesSaveStatus, setTunablesSaveStatus] =
     useState<MiniBackendTunablesSaveStatus>('idle');
+  // Fields this instance actually edited (the calibration surfaces mount a
+  // second instance on the same tab as the thread controls). The save spreads
+  // ONLY these over the freshly loaded record, so a second instance's newer
+  // values for untouched fields are never silently reverted.
+  const touchedTunablesKeysRef = useRef<
+    ReadonlySet<keyof MiniBackendTunablesSettings>
+  >(new Set());
 
   const setMiniBackendTunables = useCallback(
     (next: SetStateAction<MiniBackendTunablesSettings>) => {
       setTunablesSaveStatus('idle');
-      setMiniBackendTunablesState(next);
+      setMiniBackendTunablesState((prev) => {
+        const resolved =
+          typeof next === 'function' ? next(prev) : (next as MiniBackendTunablesSettings);
+        touchedTunablesKeysRef.current = new Set([
+          ...touchedTunablesKeysRef.current,
+          ...(Object.keys(resolved) as (keyof MiniBackendTunablesSettings)[]).filter(
+            (key) => resolved[key] !== prev[key],
+          ),
+        ]);
+        return resolved;
+      });
     },
     [],
   );
@@ -50,8 +67,10 @@ export const useMiniBackendThreadSettings = () => {
 
   const setIntraOpThreads = useCallback(
     (value: number | null) => {
+      // Re-read the persisted record: other live hook instances (calibration
+      // apply) may have written newer values after this instance mounted.
       const saved = saveMiniBackendThreadSettings({
-        ...settings,
+        ...loadMiniBackendThreadSettings(),
         intraOpThreads: value,
       });
       setSettings(saved);
@@ -62,14 +81,30 @@ export const useMiniBackendThreadSettings = () => {
           console.debug('mini-backend thread override not delivered', error);
         });
     },
-    [settings],
+    [],
   );
 
   const handleSaveMiniBackendTunables = useCallback(() => {
-    const saved = saveMiniBackendThreadSettings({
-      ...settings,
-      ...miniBackendTunables,
-    });
+    // Re-read the persisted record at save time and spread only the fields
+    // this instance edited: this hook is state-per-instance, and the
+    // calibration surfaces mount a second instance on the same tab as the
+    // thread controls — spreading the whole mount draft would silently
+    // revert values the other instance (or the user) wrote meanwhile.
+    const fresh = loadMiniBackendThreadSettings();
+    const draft = miniBackendTunables;
+    const next: MiniBackendThreadSettings = { ...fresh };
+    for (const key of touchedTunablesKeysRef.current) {
+      // Union-key writes need per-key narrowing (TS intersection rule).
+      if (key === 'engineIdleTimeoutSeconds') {
+        next.engineIdleTimeoutSeconds = draft.engineIdleTimeoutSeconds;
+      } else if (key === 'workingResolutionMegapixels') {
+        next.workingResolutionMegapixels = draft.workingResolutionMegapixels;
+      } else if (key === 'workingResolutionOcrClean') {
+        next.workingResolutionOcrClean = draft.workingResolutionOcrClean;
+      }
+    }
+    const saved = saveMiniBackendThreadSettings(next);
+    touchedTunablesKeysRef.current = new Set();
     setSettings(saved);
     setMiniBackendTunablesState({
       engineIdleTimeoutSeconds: saved.engineIdleTimeoutSeconds,
@@ -92,7 +127,7 @@ export const useMiniBackendThreadSettings = () => {
         console.error('mini-backend thread override not delivered', error);
         setTunablesSaveStatus('failed');
       });
-  }, [settings, miniBackendTunables]);
+  }, [miniBackendTunables]);
 
   return useMemo(
     () => ({

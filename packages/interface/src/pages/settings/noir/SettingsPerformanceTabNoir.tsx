@@ -11,6 +11,7 @@ import type {
 } from "../hooks/use-mini-backend-thread-settings";
 import type { WorkspaceAutosaveFeedbackState } from "../settings.types";
 import { SettingsCacheSectionNoir } from "./SettingsCacheSectionNoir";
+import { SettingsCalibrationSection } from "../SettingsCalibrationSection";
 import {
   Sec, Field, Alert, ToggleRow,
   inputCls, selectCls, btnPrimary, btnGhost,
@@ -237,6 +238,8 @@ export const renderSettingsPerformanceTabNoir = (a: SettingsPerformanceTabArgs):
           {t("settings.app.performance.tunables.restartHint")}
         </p>
       </Sec>
+
+      <SettingsCalibrationSection t={t} />
 
       <SettingsCacheSectionNoir t={t} />
 
