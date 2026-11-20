@@ -29,7 +29,7 @@ import {
   getRegionCornerPoint,
   getRegionRotation,
 } from './regionGeometry';
-import { shouldOpenRegionPicker } from './regionPickerDecision';
+import { decideRegionSelectionClick } from './regionSelectionDecision';
 import type { RenderTextPreviewContextMenuState } from './RenderTextPreviewContextMenu';
 
 type RenderTextPreviewInteraction = RenderOverlayInteraction;
@@ -528,11 +528,9 @@ export const useRenderTextPreviewPointer = ({
 
       const regionHits = findRegionsAtPoint(displayRegionsWithDefaults, point.x, point.y), region = regionHits[regionHits.length - 1] ?? null, regionIsSelected = Boolean(region && region.id === selectedRegionId);
       if (region) {
-        if ((event.ctrlKey || event.metaKey) && onMultiSelectToggle && areaSelectionEnabled) {
-          onMultiSelectToggle(region.id);
-          return;
-        }
-        if (shouldOpenRegionPicker(regionHits.length, region.id, selectedRegionId, event.ctrlKey || event.metaKey)) { onOpenRegionPicker?.(regionHits, point); return; }
+        const selectionAction = decideRegionSelectionClick({ modifiers: { shift: event.shiftKey, ctrl: event.ctrlKey, meta: event.metaKey }, multiSelectToggleAvailable: onMultiSelectToggle !== undefined, areaSelectionEnabled, hitCount: regionHits.length, topmostRegionId: region.id, selectedRegionId });
+        if (selectionAction === 'multi-toggle') { onMultiSelectToggle?.(region.id); return; }
+        if (selectionAction === 'open-picker') { onOpenRegionPicker?.(regionHits, point); return; }
         onSelectRegion(region.id);
         if (!editable) return;
         if (!regionIsSelected) return;

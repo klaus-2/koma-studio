@@ -1,6 +1,6 @@
 import { m } from "framer-motion";
 import {
-  Circle, Square, ScanSearch, Copy, Trash2, Save, Library, Paintbrush, RotateCcw,
+  Circle, Square, SquareDashed, ScanSearch, Copy, Trash2, Save, Library, Paintbrush, RotateCcw,
 } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import type {
@@ -12,7 +12,7 @@ import { TypographerPresetBrowserNoir } from "./TypographerPresetBrowserNoir";
 import { AioSection } from "@/pages/AioSection";
 import { btnGhost, btnPrimary, inputCls, selectCls } from "../../../pages/settings/noir/primitives";
 
-type TypographerSelectionTool = "select" | "draw-square" | "draw-rounded";
+type TypographerSelectionTool = "select" | "draw-square" | "draw-rounded" | "marquee";
 
 interface TypographerToolboxProps {
   activeImageName: string | null;
@@ -56,6 +56,7 @@ const TOOLS = [
   { key: "select" as const, Icon: ScanSearch, labelKey: "typo.tools.select" },
   { key: "draw-square" as const, Icon: Square, labelKey: "typo.tools.rect" },
   { key: "draw-rounded" as const, Icon: Circle, labelKey: "typo.tools.ellipse" },
+  { key: "marquee" as const, Icon: SquareDashed, labelKey: "typo.tools.marquee" },
 ];
 
 export const TypographerToolboxNoir = (props: TypographerToolboxProps) => {

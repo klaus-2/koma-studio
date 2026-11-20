@@ -37,6 +37,7 @@ import type {
   TypographyShapeKind,
   TypographyStylePreset,
 } from '../../../typography/types';
+import type { RenderTextStyle } from '../../../utils/renderText';
 import type {
   AioTextRegion,
 } from '../../../types/dashboard.types';
@@ -196,21 +197,11 @@ export function useAioRegionEditing({
       preset: TypographyStylePreset | null,
     ): AioTextRegion => {
       if (!preset) return region;
-      const [x1, y1, x2, y2] = region.bbox;
-      const width = Math.max(1, x2 - x1);
-      const height = Math.max(1, y2 - y1);
-      return {
-        ...region,
-        stylePresetId: preset.id,
-        renderStyle: applyDetectedGradientToStyle(
-          region,
-          createTypographyStyleFromPreset(
-            preset,
-            cloneRenderStyle(region.renderStyle ?? renderDefaultStyle),
-          ),
-        ),
-        shape: buildShapeFromPreset(preset, width, height),
-      };
+      return applyTypographyPresetToRegionBody(
+        region,
+        preset,
+        renderDefaultStyle,
+      );
     },
     [renderDefaultStyle],
   );
@@ -802,3 +793,76 @@ export function useAioRegionEditing({
     updateActiveRenderRegion,
   };
 }
+
+/* ── Batch region actions (I4 multi-selection action bar): standalone so the
+   action bar can call them through the page's threaded edit committer. One
+   call = one commit = one undo snapshot; no loops over single-region actions. */
+
+export type AioRegionBatchEditCommit = (
+  imageId: string,
+  nextRegions: AioTextRegion[],
+  selectedRegionIdOverride?: string | null,
+) => void;
+
+export type AioRegionBatchActionResult =
+  | { kind: 'applied'; count: number; presetName: string }
+  | { kind: 'no-preset' }
+  | { kind: 'removed'; count: number }
+  | { kind: 'empty' };
+
+/** Shared body of the single and batch typography-preset application. */
+const applyTypographyPresetToRegionBody = (
+  region: AioTextRegion,
+  preset: TypographyStylePreset,
+  renderDefaultStyle: RenderTextStyle,
+): AioTextRegion => {
+  const [x1, y1, x2, y2] = region.bbox;
+  return {
+    ...region,
+    stylePresetId: preset.id,
+    renderStyle: applyDetectedGradientToStyle(region, createTypographyStyleFromPreset(preset, cloneRenderStyle(region.renderStyle ?? renderDefaultStyle))),
+    shape: buildShapeFromPreset(preset, Math.max(1, x2 - x1), Math.max(1, y2 - y1)),
+  };
+};
+
+/** Batch apply of the active session/mode preset to the requested region ids. */
+export const applyTypographyPresetToRegionIds = (
+  imageId: string,
+  regionIds: readonly string[],
+  commitEdit: AioRegionBatchEditCommit,
+): AioRegionBatchActionResult => {
+  const activePreset = readActiveTypographerPreset(imageId);
+  if (!activePreset) return { kind: 'no-preset' };
+  const selectedIdSet = new Set(regionIds);
+  if (selectedIdSet.size === 0) return { kind: 'empty' };
+  const { aioDetectionsByImage, renderDefaultStyle } = useRegionEditorStore.getState();
+  const currentRegions = aioDetectionsByImage[imageId] ?? [];
+  let appliedCount = 0;
+  const nextRegions = currentRegions.map((region) => {
+    if (!selectedIdSet.has(region.id)) return region;
+    appliedCount++;
+    return applyTypographyPresetToRegionBody(region, activePreset, renderDefaultStyle);
+  });
+  if (appliedCount === 0) return { kind: 'empty' };
+  // Selection override omitted: the committer resolves the current selection.
+  commitEdit(imageId, nextRegions);
+  return { kind: 'applied', count: appliedCount, presetName: activePreset.name };
+};
+
+/** Batch removal in one committed edit (active selection cleared in-mutation). */
+export const removeAioRegionsByIds = (
+  imageId: string,
+  regionIds: readonly string[],
+  commitEdit: AioRegionBatchEditCommit,
+): AioRegionBatchActionResult => {
+  const selectedIdSet = new Set(regionIds);
+  if (selectedIdSet.size === 0) return { kind: 'empty' };
+  const { aioDetectionsByImage, aioSelectedRegionByImage } = useRegionEditorStore.getState();
+  const currentRegions = aioDetectionsByImage[imageId] ?? [];
+  const keptRegions = currentRegions.filter((region) => !selectedIdSet.has(region.id));
+  const removedCount = currentRegions.length - keptRegions.length;
+  if (removedCount === 0) return { kind: 'empty' };
+  const currentSelected = aioSelectedRegionByImage[imageId] ?? null;
+  commitEdit(imageId, keptRegions, currentSelected !== null && selectedIdSet.has(currentSelected) ? null : undefined);
+  return { kind: 'removed', count: removedCount };
+};

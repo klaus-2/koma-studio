@@ -102,7 +102,8 @@ export const TypesetterStageItem = memo(function TypesetterStageItem({
         subMode === "manual" &&
         (typographerSelectionTool === "draw-square" ||
           typographerSelectionTool === "draw-rounded" ||
-          typographerSelectionTool === "select")
+          typographerSelectionTool === "select" ||
+          typographerSelectionTool === "marquee")
       }
       newRegionShapeKind={
         typographerSelectionTool === "draw-square" ? "square" : "rounded"

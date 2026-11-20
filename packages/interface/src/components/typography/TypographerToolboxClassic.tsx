@@ -1,6 +1,7 @@
 import {
   Circle,
   Square,
+  SquareDashed,
   ScanSearch,
   Copy,
   Trash2,
@@ -23,7 +24,7 @@ import { TypographerTextQueue } from './TypographerTextQueue';
 import { TypographerPresetBrowser } from './TypographerPresetBrowser';
 import { AioSection } from '@/pages/AioSection';
 
-type TypographerSelectionTool = 'select' | 'draw-square' | 'draw-rounded';
+type TypographerSelectionTool = 'select' | 'draw-square' | 'draw-rounded' | 'marquee';
 
 const EMPTY_MULTI_BUBBLE_REGIONS: Array<{ id: string; label: string }> = [];
 const EMPTY_FOLDERS: TypographyStyleFolder[] = [];
@@ -154,6 +155,14 @@ export const TypographerToolboxClassic = ({
             aria-label={t("typo.tools.ellipse")}
           >
             <Circle size={13} /> {t("typo.tools.ellipse")}
+          </button>
+          <button
+            type="button"
+            className={`koma-typo-strip__btn${selectedTool === 'marquee' ? ' koma-typo-strip__btn--active' : ''}`}
+            onClick={() => onSelectedToolChange('marquee')}
+            aria-label={t("typo.tools.marquee")}
+          >
+            <SquareDashed size={13} /> {t("typo.tools.marquee")}
           </button>
         </div>
 

@@ -3,7 +3,7 @@ import { devtools } from 'zustand/middleware';
 import type { TypographySession } from '../../../typography/types';
 
 /** Canvas tool of the typesetter stage (same union the page's useState had). */
-type TypographerSelectionTool = 'select' | 'draw-square' | 'draw-rounded';
+type TypographerSelectionTool = 'select' | 'draw-square' | 'draw-rounded' | 'marquee';
 
 /**
  * Per-image typographer sessions. Owned by the workspace lifecycle in

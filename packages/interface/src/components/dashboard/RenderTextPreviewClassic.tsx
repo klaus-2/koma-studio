@@ -778,6 +778,7 @@ const RenderTextPreviewClassic = ({
                   multiSelectedRegionIds={multiSelectedRegionIds}
                   interaction={interaction}
                   removeRegionById={removeRegionById}
+                  marqueeImageId={image.id}
                   editorHandle={inlineEditorHandle}
                 />
               )}

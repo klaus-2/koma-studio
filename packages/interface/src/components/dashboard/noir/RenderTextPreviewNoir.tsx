@@ -810,7 +810,7 @@ const RenderTextPreviewNoir = ({
                   selectedRegionId={selectedRegionId}
                   multiSelectedRegionIds={multiSelectedRegionIds}
                   interaction={interaction}
-                  removeRegionById={removeRegionById}
+                  removeRegionById={removeRegionById} marqueeImageId={image.id}
                   editorHandle={inlineEditorHandle}
                 />
               )}

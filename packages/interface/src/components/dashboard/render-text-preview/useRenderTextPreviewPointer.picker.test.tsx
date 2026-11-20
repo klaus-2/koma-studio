@@ -163,7 +163,7 @@ function PointerHarness({
 // type so React's synthetic onPointerDown carries button/clientX/ctrlKey.
 const firePointerDown = (
   stage: HTMLElement,
-  modifier: { ctrlKey?: boolean } = {},
+  modifier: { ctrlKey?: boolean; shiftKey?: boolean } = {},
 ): void => {
   fireEvent(
     stage,
@@ -224,6 +224,52 @@ describe('pointerdown region picker trigger (F3 wiring)', () => {
 
     expect(onOpenRegionPicker).not.toHaveBeenCalled();
     expect(onMultiSelectToggle).toHaveBeenCalledWith('front');
+    expect(onSelectRegion).not.toHaveBeenCalled();
+  });
+
+  it('toggles the multi-selection on a Shift+click like Ctrl already do', () => {
+    const onOpenRegionPicker = vi.fn();
+    const onSelectRegion = vi.fn();
+    const onMultiSelectToggle = vi.fn();
+    const { getByTestId } = render(
+      <I18nProvider>
+        <PointerHarness
+          displayRegions={overlapping}
+          selectedRegionId={null}
+          onOpenRegionPicker={onOpenRegionPicker}
+          onSelectRegion={onSelectRegion}
+          onMultiSelectToggle={onMultiSelectToggle}
+        />
+      </I18nProvider>,
+    );
+
+    firePointerDown(getByTestId('stage'), { shiftKey: true });
+
+    expect(onOpenRegionPicker).not.toHaveBeenCalled();
+    expect(onMultiSelectToggle).toHaveBeenCalledWith('front');
+    expect(onSelectRegion).not.toHaveBeenCalled();
+  });
+
+  it('toggles on Shift+click even for a single hit (shift excluded from the picker)', () => {
+    const onOpenRegionPicker = vi.fn();
+    const onSelectRegion = vi.fn();
+    const onMultiSelectToggle = vi.fn();
+    const { getByTestId } = render(
+      <I18nProvider>
+        <PointerHarness
+          displayRegions={[region('only', [0, 0, 100, 100])]}
+          selectedRegionId={null}
+          onOpenRegionPicker={onOpenRegionPicker}
+          onSelectRegion={onSelectRegion}
+          onMultiSelectToggle={onMultiSelectToggle}
+        />
+      </I18nProvider>,
+    );
+
+    firePointerDown(getByTestId('stage'), { shiftKey: true });
+
+    expect(onOpenRegionPicker).not.toHaveBeenCalled();
+    expect(onMultiSelectToggle).toHaveBeenCalledWith('only');
     expect(onSelectRegion).not.toHaveBeenCalled();
   });
 

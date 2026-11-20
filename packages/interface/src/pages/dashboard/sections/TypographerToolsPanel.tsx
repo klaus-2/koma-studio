@@ -1,10 +1,13 @@
 import { useEffect, useMemo } from 'react';
 
 import TypesetterToolsPanel from '../../../components/dashboard/TypesetterToolsPanel';
+import RegionMultiSelectionActionBar from '../../../components/dashboard/RegionMultiSelectionActionBar';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useTypographerStore } from '../stores/typographer-store';
 import type { useAioRegionEditing } from '../hooks/region-editor';
+import type { useAioRegionSnapshotSync } from '../hooks/region-editor.snapshot';
+import type { useTranslatorRetranslate } from '../hooks/translator.execution';
 import type { useTypographerControls } from '../hooks/typographer';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
 import { resolveRenderTextMode } from '../../../utils/renderModes';
@@ -12,6 +15,8 @@ import { EMPTY_SELECTED_REGION_IDS } from '../../../utils/dashboardRenderUtils';
 
 type AioRegionEditingApi = ReturnType<typeof useAioRegionEditing>;
 type TypographerControlsApi = ReturnType<typeof useTypographerControls>;
+type TranslatorRetranslateApi = ReturnType<typeof useTranslatorRetranslate>;
+type AioSnapshotSyncApi = ReturnType<typeof useAioRegionSnapshotSync>;
 
 interface TypographerToolsPanelProps {
   /* ── Render font catalog (not yet migrated) ── */
@@ -37,6 +42,9 @@ interface TypographerToolsPanelProps {
   applyActiveTypographyPresetToSelection: AioRegionEditingApi['applyActiveTypographyPresetToSelection'];
   applyActiveTypographyPresetToImage: AioRegionEditingApi['applyActiveTypographyPresetToImage'];
   handleUpdateTypographyPreset: AioRegionEditingApi['handleUpdateTypographyPreset'];
+
+  retranslateTranslatorRegions: TranslatorRetranslateApi;
+  updateAioRegionsForImage: AioSnapshotSyncApi['updateAioRegionsForImage'];
 }
 
 /**
@@ -65,6 +73,8 @@ export default function TypographerToolsPanel({
   handleTypographerToggleMultiBubble,
   handleTypographerImportQueueText,
   handleUpdateTypographyPreset,
+  retranslateTranslatorRegions,
+  updateAioRegionsForImage,
 }: TypographerToolsPanelProps) {
   const images = useImageCollectionStore((s) => s.images);
   const activeId = useImageCollectionStore((s) => s.activeId);
@@ -245,7 +255,8 @@ export default function TypographerToolsPanel({
   );
 
   return (
-    <TypesetterToolsPanel
+    <>
+      <TypesetterToolsPanel
       activeImageName={activeImage?.file.name ?? images[0]?.file.name ?? null}
       activeRegion={activeSelectedRegion}
       regionsCount={activeImageDetections.length}
@@ -294,6 +305,13 @@ export default function TypographerToolsPanel({
       availableFolders={typographyFolderList}
       availableFonts={availableRenderFonts}
       onUpdatePreset={handleUpdateTypographyPreset}
-    />
+      />
+      {/* I4 group actions: counter + apply/retranslate/deselect/delete. The
+          bar self-hides while no region is multi-selected. */}
+      <RegionMultiSelectionActionBar
+        retranslateTranslatorRegions={retranslateTranslatorRegions}
+        updateAioRegionsForImage={updateAioRegionsForImage}
+      />
+    </>
   );
 }

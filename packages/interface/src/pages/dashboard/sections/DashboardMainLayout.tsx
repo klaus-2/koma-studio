@@ -1285,6 +1285,8 @@ export default memo(function DashboardMainLayout({
               handleTypographerToggleMultiBubble={handleTypographerToggleMultiBubble}
               handleTypographerImportQueueText={handleTypographerImportQueueText}
               handleUpdateTypographyPreset={handleUpdateTypographyPreset}
+              retranslateTranslatorRegions={retranslateTranslatorRegions}
+              updateAioRegionsForImage={updateAioRegionsForImage}
             />
           </Suspense>
         )}

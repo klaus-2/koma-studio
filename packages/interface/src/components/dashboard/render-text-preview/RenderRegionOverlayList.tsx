@@ -11,6 +11,7 @@ import type { RenderTextStyle } from '../../../utils/renderText';
 import { isTranslationNoteOverlayRegion } from '../../../utils/dashboard.utils';
 import type { InlineTextEditorHandle } from './InlineTextEditorSurface';
 import type { RenderRegionOverlayBoxProps } from './RenderRegionOverlayBox';
+import MarqueeSelectionLayer from './MarqueeSelectionLayer';
 
 interface RenderRegionOverlayListProps {
   BoxComponent: React.ComponentType<RenderRegionOverlayBoxProps>;
@@ -26,6 +27,8 @@ interface RenderRegionOverlayListProps {
   multiSelectedRegionIds: readonly string[];
   interaction: RenderOverlayInteraction | null;
   removeRegionById: (regionId: string) => void;
+  /** Owning image id, written by the marquee layer's multi-selection. */
+  marqueeImageId: string | null;
   /** Handle for the open inline editor, attached to its own region only. */
   editorHandle: InlineTextEditorHandle | null;
 }
@@ -44,6 +47,7 @@ const RenderRegionOverlayList = ({
   multiSelectedRegionIds,
   interaction,
   removeRegionById,
+  marqueeImageId,
   editorHandle,
 }: RenderRegionOverlayListProps) => (
   <>
@@ -83,6 +87,13 @@ const RenderRegionOverlayList = ({
         />
       );
     })}
+    <MarqueeSelectionLayer
+      regions={regions}
+      imageWidth={imageWidth}
+      imageHeight={imageHeight}
+      areaSelectionEnabled={areaSelectionEnabled}
+      marqueeImageId={marqueeImageId}
+    />
   </>
 );
 
