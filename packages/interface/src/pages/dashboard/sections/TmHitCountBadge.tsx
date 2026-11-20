@@ -4,6 +4,9 @@ import { useI18n } from '../../../i18n';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { aioPanelClasses } from './AioRightPanel.skin';
+import type { AioTextRegion } from '../../../types/dashboard.types';
+
+const EMPTY_TRANSLATOR_REGIONS: AioTextRegion[] = [];
 
 interface TmHitCountBadgeProps {
   noir: boolean;
@@ -16,18 +19,20 @@ interface TmHitCountBadgeProps {
 export default memo(function TmHitCountBadge({ noir }: TmHitCountBadgeProps) {
   const { t } = useI18n();
   const activeId = useImageCollectionStore((s) => s.activeId);
-  const detectionsByImage = useTranslatorStore(
-    (s) => s.translatorDetectionsByImage,
+  // Per-id subscription: only the active image's array identity (CoW) can
+  // re-render this badge — edits on other images keep their array identity.
+  const activeRegions = useTranslatorStore((s) =>
+    activeId === null
+      ? EMPTY_TRANSLATOR_REGIONS
+      : (s.translatorDetectionsByImage[activeId] ?? EMPTY_TRANSLATOR_REGIONS),
   );
 
   const { tmHits, regionCount } = useMemo(() => {
-    const regions =
-      activeId === null ? [] : (detectionsByImage[activeId] ?? []);
     return {
-      tmHits: regions.filter((region) => region.translationSource === 'tm').length,
-      regionCount: regions.length,
+      tmHits: activeRegions.filter((region) => region.translationSource === 'tm').length,
+      regionCount: activeRegions.length,
     };
-  }, [activeId, detectionsByImage]);
+  }, [activeRegions]);
 
   return (
     <p className={aioPanelClasses(noir).hint}>

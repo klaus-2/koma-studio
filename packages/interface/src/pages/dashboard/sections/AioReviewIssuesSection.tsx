@@ -20,6 +20,7 @@ import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import type { AioTextRegion } from '../../../types/dashboard.types';
 
 export type AioReviewFilterKind =
   | 'all'
@@ -80,6 +81,59 @@ const buildRegionDetail = (region: {
     .replace(/\s+/g, ' ')
     .trim();
 
+/* ── Per-image derivation caches (I11): keyed by the region array identity.
+   CoW gives a fresh array identity only when THAT image's regions change, so
+   an edit on image B never recomputes the derivations of image A. ── */
+const EMPTY_AIO_REGIONS: AioTextRegion[] = [];
+
+const regionIssuesByRegions = new WeakMap<
+  AioTextRegion[],
+  { readonly targetLang: string; readonly issues: RegionIssue[] }
+>();
+const navRowsByRegions = new WeakMap<
+  AioTextRegion[],
+  { readonly imageId: string; readonly rows: RegionIssueNavRow[] }
+>();
+
+export const deriveRegionIssuesForImage = (
+  imageId: string,
+  regions: AioTextRegion[],
+  targetLang: string,
+): RegionIssue[] => {
+  const cached = regionIssuesByRegions.get(regions);
+  if (cached && cached.targetLang === targetLang) return cached.issues;
+  const issues = deriveRegionIssues(imageId, regions, targetLang);
+  regionIssuesByRegions.set(regions, { targetLang, issues });
+  return issues;
+};
+
+const pushNavRow = (
+  rows: RegionIssueNavRow[],
+  imageId: string,
+  region: AioTextRegion,
+  badgeLabelKey: RegionIssueNavRow['badgeLabelKey'],
+): void => {
+  rows.push({ imageId, regionId: region.id, badgeLabelKey, detail: buildRegionDetail(region) });
+};
+
+export const deriveNavRowsForImage = (
+  imageId: string,
+  regions: AioTextRegion[],
+): readonly RegionIssueNavRow[] => {
+  const cached = navRowsByRegions.get(regions);
+  if (cached && cached.imageId === imageId) return cached.rows;
+  const rows: RegionIssueNavRow[] = [];
+  for (const region of regions) {
+    const isLocked =
+      region.locked === true ||
+      Object.values(region.lockedFields ?? {}).some(Boolean);
+    if (isLocked) pushNavRow(rows, imageId, region, NAV_ROW_BADGE_KEYS.locked);
+    if (region.sfxCandidate === true) pushNavRow(rows, imageId, region, NAV_ROW_BADGE_KEYS.sfx);
+  }
+  navRowsByRegions.set(regions, { imageId, rows });
+  return rows;
+};
+
 export default function AioReviewIssuesSection(props: {
   readonly noir: boolean;
 }): ReactElement {
@@ -101,9 +155,9 @@ export default function AioReviewIssuesSection(props: {
   const regionIssues = useMemo(
     () =>
       images.flatMap((image) =>
-        deriveRegionIssues(
+        deriveRegionIssuesForImage(
           image.id,
-          aioDetectionsByImage[image.id] ?? [],
+          aioDetectionsByImage[image.id] ?? EMPTY_AIO_REGIONS,
           aioTgtLang,
         ),
       ),
@@ -123,27 +177,12 @@ export default function AioReviewIssuesSection(props: {
   const navRows = useMemo<RegionIssueNavRow[]>(() => {
     const rows: RegionIssueNavRow[] = [];
     for (const image of images) {
-      for (const region of aioDetectionsByImage[image.id] ?? []) {
-        const isLocked =
-          region.locked === true ||
-          Object.values(region.lockedFields ?? {}).some(Boolean);
-        if (isLocked) {
-          rows.push({
-            imageId: image.id,
-            regionId: region.id,
-            badgeLabelKey: NAV_ROW_BADGE_KEYS.locked,
-            detail: buildRegionDetail(region),
-          });
-        }
-        if (region.sfxCandidate === true) {
-          rows.push({
-            imageId: image.id,
-            regionId: region.id,
-            badgeLabelKey: NAV_ROW_BADGE_KEYS.sfx,
-            detail: buildRegionDetail(region),
-          });
-        }
-      }
+      rows.push(
+        ...deriveNavRowsForImage(
+          image.id,
+          aioDetectionsByImage[image.id] ?? EMPTY_AIO_REGIONS,
+        ),
+      );
     }
     return rows;
   }, [images, aioDetectionsByImage]);
