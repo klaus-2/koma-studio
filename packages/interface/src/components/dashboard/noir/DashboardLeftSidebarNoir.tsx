@@ -9,9 +9,17 @@ import { useI18n, type TranslateFn } from '../../../i18n';
 import VersionBadge from '../../VersionBadge';
 import SidebarChapterHeader from '../SidebarChapterHeader';
 import SidebarChapterSelectionBar from '../SidebarChapterSelectionBar';
+import {
+  DashboardLeftSidebarPageDragGuide,
+  usePageDragReorder,
+  type SidebarPageDragHandlers,
+} from '../DashboardLeftSidebarPageDragGuide';
 import { KomaMascotBadgeNoir } from './KomaMascotBadgeNoir';
 import { cn, formatImageDimensions } from '../../../utils/dashboard.utils';
 import { revokeLoadedImageUrls } from '../../../utils/imagePerformance';
+import { EMPTY_REGION_LIST } from '../../../utils/regionMapGating';
+import { deriveOverflowCount } from '../../../utils/overflowCounts';
+import type { RegionTextMeasure } from '../../../utils/region-review';
 import type { SidebarChapterSelection } from '../../../pages/dashboard/hooks/use-sidebar-chapter-selection';
 import {
   DIRECT_IMAGES_CHAPTER_ID,
@@ -22,7 +30,6 @@ import { useRegionEditorStore } from '../../../pages/dashboard/stores/region-edi
 import { useCleanerStore } from '../../../pages/dashboard/stores/cleaner-store';
 import { useTranslatorStore } from '../../../pages/dashboard/stores/translator-store';
 import { createRegionTextMeasurer } from '../render-text-preview/canvasDrawing';
-import { deriveOverflowIssues } from '../../../utils/region-review';
 import type {
   DashboardProcessingStatsSummary,
   LoadedImage,
@@ -83,8 +90,12 @@ interface SidebarImageItemProps {
   removeImage: (imageId: string) => void;
   rewindAioPipelineForImage: (imageId: string) => void;
   forwardAioPipelineForImage: (imageId: string) => void;
-  /** Overflowing balloons on this page (render-layout derived); 0 hides the badge. */
-  overflowCount: number;
+  /** Shared measure for this image's per-page overflow count (I11). */
+  measure: RegionTextMeasure;
+  /** Insertion guide line is shown on this item's top edge during drag-over. */
+  showDropGuide: boolean;
+  /** HTML5 drag-reorder handlers; `draggable: false` when the gate is active. */
+  dragHandlers: SidebarPageDragHandlers;
   t: TranslateFn;
 }
 
@@ -107,10 +118,18 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   removeImage,
   rewindAioPipelineForImage,
   forwardAioPipelineForImage,
-  overflowCount,
+  measure,
+  showDropGuide,
+  dragHandlers,
   t,
 }: SidebarImageItemProps) {
   const rotated = getRotatedDims(img);
+  // Per-image subscription (I11): only this page's regions trigger a re-render
+  // of this row; the count is cached by array identity.
+  const regions = useRegionEditorStore(
+    (s) => s.aioDetectionsByImage[img.id] ?? EMPTY_REGION_LIST,
+  );
+  const overflowCount = deriveOverflowCount(img.id, regions, measure);
   return (
     <m.li
       layout
@@ -118,17 +137,27 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -12 }}
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      // onDragOver/onDrop are native-only (framer-motion owns only the
+      // onDragStart/onDragEnd gesture names), so carrying them here makes
+      // the li's 6px padding a real drop target instead of a dead zone
+      // that silently appended the dragged group at the list end.
+      onDragOver={dragHandlers.onDragOver}
+      onDrop={dragHandlers.onDrop}
       onClick={() =>
         selectionMode ? onToggleSelection(img.id) : setActiveId(img.id)
       }
       className={cn(
-        'panel-cut-sm group flex cursor-pointer items-center gap-2 p-1.5 transition-all',
+        'panel-cut-sm group relative flex cursor-pointer items-center gap-2 p-1.5 transition-all',
         isActive
           ? 'bg-crimson/15 shadow-hard-crimson ring-1 ring-crimson/40'
           : 'bg-ink-3/60 hover:-translate-x-0.5 hover:bg-ink-3 hover:shadow-hard-paper',
         selectionMode && isSelected && 'bg-crimson/10 ring-1 ring-crimson/70',
       )}
     >
+      {showDropGuide && <DashboardLeftSidebarPageDragGuide />}
+      {/* framer-motion's m.li owns onDragStart/onDragEnd gesture props, so the
+          HTML5 drag-reorder handlers live on this plain inner row element. */}
+      <div {...dragHandlers} className="flex w-full items-center gap-2">
       {selectionMode && (
         <span
           aria-hidden="true"
@@ -189,6 +218,7 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
           <X size={12} />
         </MiniBtn>
       </div>
+      </div>
     </m.li>
   );
 });
@@ -239,35 +269,32 @@ export default function DashboardLeftSidebarNoir({
     () => new Map(images.map((image, index) => [image.id, index])),
     [images],
   );
-  // Per-page overflowing-balloon counts, derived through the render preview's
-  // own layout resolution (LRU-cached — derivation repeats hit the cache).
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
+  // Per-page overflowing-balloon counts: each row subscribes to its own page's
+  // regions (I11) and the derivation is cached by array identity — editing one
+  // page never re-derives another's counts.
   const renderDefaultStyle = useRegionEditorStore(
     (s) => s.renderDefaultStyle,
   );
-  const overflowCountByImageId = React.useMemo(() => {
-    const measure = createRegionTextMeasurer(renderDefaultStyle);
-    const counts = new Map<string, number>();
-    for (const image of images) {
-      const count = deriveOverflowIssues(
-        image.id,
-        aioDetectionsByImage[image.id] ?? [],
-        measure,
-      ).length;
-      if (count > 0) counts.set(image.id, count);
-    }
-    return counts;
-  }, [images, aioDetectionsByImage, renderDefaultStyle]);
+  const regionTextMeasure = React.useMemo(
+    () => createRegionTextMeasurer(renderDefaultStyle),
+    [renderDefaultStyle],
+  );
+  // HTML5 drag-reorder: the shared controller owns the dragged group and
+  // the insertion guide; drop is one moveImagesTo mutation = one undo.
+  const drag = usePageDragReorder({
+    imageIndexById,
+    chapterSelection,
+    dragEnabled: !processing && !isExtractingUploads,
+  });
   const renderImageItem = (img: LoadedImage) => {
     const meta = getAioImageSnapshotMeta(img.id);
+    const idx = imageIndexById.get(img.id) ?? 0;
 
     return (
       <SidebarImageItem
         key={img.id}
         img={img}
-        idx={imageIndexById.get(img.id) ?? 0}
+        idx={idx}
         count={images.length}
         isActive={activeId === img.id}
         canRewind={meta.canRewind}
@@ -284,7 +311,9 @@ export default function DashboardLeftSidebarNoir({
         removeImage={removeImage}
         rewindAioPipelineForImage={rewindAioPipelineForImage}
         forwardAioPipelineForImage={forwardAioPipelineForImage}
-        overflowCount={overflowCountByImageId.get(img.id) ?? 0}
+        measure={regionTextMeasure}
+        showDropGuide={drag.dropGuideIndex === idx}
+        dragHandlers={drag.itemHandlers(img, idx)}
         t={t}
       />
     );
@@ -446,7 +475,10 @@ export default function DashboardLeftSidebarNoir({
               <span className="font-mono text-[11px]">{t('dashboard.sidebar.empty')}</span>
             </div>
           ) : (
-            <ul className="flex flex-col gap-1.5">
+            <ul
+              className="flex flex-col gap-1.5"
+              {...drag.listHandlers(images.length)}
+            >
               {hasChapters ? (
                 chapterGroups.map((group) => (
                   <React.Fragment key={group.id}>

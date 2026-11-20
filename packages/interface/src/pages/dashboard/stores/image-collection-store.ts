@@ -25,6 +25,12 @@ interface ImageCollectionStore {
   renameChapter: (chapterId: string, label: string) => void;
   clearChapter: (chapterId: string) => void;
   moveImage: (index: number, direction: 'up' | 'down') => void;
+  /**
+   * Moves the pages at `fromIndices` (deduped, order preserved) to the
+   * insertion point `toIndex` of the ORIGINAL ordering. One store mutation =
+   * one undo snapshot; a no-op keeps the same state (no snapshot).
+   */
+  moveImagesTo: (fromIndices: readonly number[], toIndex: number) => void;
   rotateImage: (id: string) => void;
   updateImageDimensions: (
     imageId: string,
@@ -132,6 +138,34 @@ export const useImageCollectionStore = create<ImageCollectionStore>()(
           }
           [next[index], next[targetIndex]] = [target, current];
           return { images: next };
+        }),
+      moveImagesTo: (fromIndices, toIndex) =>
+        set((state) => {
+          const total = state.images.length;
+          const group = [...new Set(fromIndices)]
+            .filter((index) => Number.isInteger(index) && index >= 0 && index < total)
+            .sort((a, b) => a - b);
+          const target = Number.isInteger(toIndex) ? Math.min(total, Math.max(0, toIndex)) : null;
+          if (group.length === 0 || target === null) return state;
+          const movedIds = new Set(group);
+          const rest = state.images.filter((_, index) => !movedIds.has(index));
+          // Insertion point in the ORIGINAL ordering, over the pages that stay.
+          let insertAt = 0;
+          for (let index = 0; index < target; index += 1) {
+            if (!movedIds.has(index)) insertAt += 1;
+          }
+          const moved: LoadedImage[] = [];
+          for (const index of group) {
+            const image = state.images[index];
+            if (image !== undefined) moved.push(image);
+          }
+          const next = [...rest.slice(0, insertAt), ...moved, ...rest.slice(insertAt)];
+          // Same sequence (self-drop / whole list) → no-op keeps the state
+          // identity, so history takes no snapshot.
+          for (let index = 0; index < next.length; index += 1) {
+            if (next[index] !== state.images[index]) return { images: next };
+          }
+          return state;
         }),
       rotateImage: (id) =>
         set((state) => ({

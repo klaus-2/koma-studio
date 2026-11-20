@@ -21,11 +21,19 @@ import {
 import { useI18n, type TranslateFn } from '../../i18n';
 import VersionBadge from '../VersionBadge';
 import SidebarChapterHeader from './SidebarChapterHeader';
+import {
+  DashboardLeftSidebarPageDragGuide,
+  usePageDragReorder,
+  type SidebarPageDragHandlers,
+} from './DashboardLeftSidebarPageDragGuide';
 import { useSidebarThumbnailHydration } from './useSidebarThumbnailHydration';
 import { useImageCollectionStore } from '../../pages/dashboard/stores/image-collection-store';
 import SidebarChapterSelectionBar from './SidebarChapterSelectionBar';
 import { cn, formatImageDimensions } from '../../utils/dashboard.utils';
 import { revokeLoadedImageUrls } from '../../utils/imagePerformance';
+import { EMPTY_REGION_LIST } from '../../utils/regionMapGating';
+import { deriveOverflowCount } from '../../utils/overflowCounts';
+import type { RegionTextMeasure } from '../../utils/region-review';
 import type { SidebarChapterSelection } from '../../pages/dashboard/hooks/use-sidebar-chapter-selection';
 import {
   DIRECT_IMAGES_CHAPTER_ID,
@@ -36,7 +44,6 @@ import { useRegionEditorStore } from '../../pages/dashboard/stores/region-editor
 import { useCleanerStore } from '../../pages/dashboard/stores/cleaner-store';
 import { useTranslatorStore } from '../../pages/dashboard/stores/translator-store';
 import { createRegionTextMeasurer } from './render-text-preview/canvasDrawing';
-import { deriveOverflowIssues } from '../../utils/region-review';
 import type {
   DashboardProcessingStatsSummary,
   LoadedImage,
@@ -104,8 +111,12 @@ interface SidebarImageItemProps {
   removeImage: (imageId: string) => void;
   rewindAioPipelineForImage: (imageId: string) => void;
   forwardAioPipelineForImage: (imageId: string) => void;
-  /** Overflowing balloons on this page (render-layout derived); 0 hides the badge. */
-  overflowCount: number;
+  /** Shared measure for this image's per-page overflow count (I11). */
+  measure: RegionTextMeasure;
+  /** Insertion guide line is shown on this item's top edge during drag-over. */
+  showDropGuide: boolean;
+  /** HTML5 drag-reorder handlers; `draggable: false` when the gate is active. */
+  dragHandlers: SidebarPageDragHandlers;
   t: TranslateFn;
 }
 
@@ -128,21 +139,31 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   removeImage,
   rewindAioPipelineForImage,
   forwardAioPipelineForImage,
-  overflowCount,
+  measure,
+  showDropGuide,
+  dragHandlers,
   t,
 }: SidebarImageItemProps) {
   const rotated = getRotatedDims(img);
+  // Per-image subscription (I11): only this page's regions trigger a re-render
+  // of this row; the count is cached by array identity.
+  const regions = useRegionEditorStore(
+    (s) => s.aioDetectionsByImage[img.id] ?? EMPTY_REGION_LIST,
+  );
+  const overflowCount = deriveOverflowCount(img.id, regions, measure);
   return (
     <li
       onClick={() =>
         selectionMode ? onToggleSelection(img.id) : setActiveId(img.id)
       }
+      {...dragHandlers}
       className={cn(
-        'koma-fileitem',
+        'koma-fileitem relative',
         isActive && 'koma-fileitem--active',
         selectionMode && isSelected && 'ring-1 ring-inset ring-[var(--auth-purple)]',
       )}
     >
+      {showDropGuide && <DashboardLeftSidebarPageDragGuide />}
       {selectionMode && (
         <span
           aria-hidden="true"
@@ -324,27 +345,23 @@ export default function DashboardLeftSidebarClassic({
     () => new Map(images.map((image, index) => [image.id, index])),
     [images],
   );
-  // Per-page overflowing-balloon counts, derived through the render preview's
-  // own layout resolution (LRU-cached — derivation repeats hit the cache).
-  const aioDetectionsByImage = useRegionEditorStore(
-    (s) => s.aioDetectionsByImage,
-  );
+  // Per-page overflowing-balloon counts: each row subscribes to its own page's
+  // regions (I11) and the derivation is cached by array identity — editing one
+  // page never re-derives another's counts.
   const renderDefaultStyle = useRegionEditorStore(
     (s) => s.renderDefaultStyle,
   );
-  const overflowCountByImageId = React.useMemo(() => {
-    const measure = createRegionTextMeasurer(renderDefaultStyle);
-    const counts = new Map<string, number>();
-    for (const image of images) {
-      const count = deriveOverflowIssues(
-        image.id,
-        aioDetectionsByImage[image.id] ?? [],
-        measure,
-      ).length;
-      if (count > 0) counts.set(image.id, count);
-    }
-    return counts;
-  }, [images, aioDetectionsByImage, renderDefaultStyle]);
+  const regionTextMeasure = React.useMemo(
+    () => createRegionTextMeasurer(renderDefaultStyle),
+    [renderDefaultStyle],
+  );
+  // HTML5 drag-reorder: the shared controller owns the dragged group and
+  // the insertion guide; drop is one moveImagesTo mutation = one undo.
+  const drag = usePageDragReorder({
+    imageIndexById,
+    chapterSelection,
+    dragEnabled: !processing && !isExtractingUploads,
+  });
   const renderImageItem = (img: LoadedImage) => {
     const imageHistoryMeta = getAioImageSnapshotMeta(img.id);
 
@@ -369,7 +386,9 @@ export default function DashboardLeftSidebarClassic({
         removeImage={removeImage}
         rewindAioPipelineForImage={rewindAioPipelineForImage}
         forwardAioPipelineForImage={forwardAioPipelineForImage}
-        overflowCount={overflowCountByImageId.get(img.id) ?? 0}
+        measure={regionTextMeasure}
+        showDropGuide={drag.dropGuideIndex === (imageIndexById.get(img.id) ?? 0)}
+        dragHandlers={drag.itemHandlers(img, imageIndexById.get(img.id) ?? 0)}
         t={t}
       />
     );
@@ -547,7 +566,7 @@ export default function DashboardLeftSidebarClassic({
               <span>{t('dashboard.sidebar.empty')}</span>
             </div>
           ) : (
-            <ul className="koma-filelist">
+            <ul className="koma-filelist" {...drag.listHandlers(images.length)}>
               {hasChapters
                 ? chapterGroups.map((group) => (
                     <React.Fragment key={group.id}>
