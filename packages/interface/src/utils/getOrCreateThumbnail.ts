@@ -4,7 +4,7 @@ import {
   rememberThumbnailByKey,
 } from './imagePerformance';
 import { getStoredThumbnail, putStoredThumbnail } from './thumbnailStore';
-import { sha256Hex } from '../pages/dashboard/utils/import-duplicates';
+import { computeFileHash } from './fileHash';
 import type { DirectPageFile, PageFile } from './page-source';
 
 const THUMBNAIL_WIDTH = 400;
@@ -24,7 +24,7 @@ const hashDirectPage = (file: DirectPageFile): Promise<string> => {
   }
   // A rejected hash must not stay memoized: drop the entry so the next call
   // retries instead of failing forever.
-  const promise = sha256Hex(file.resident).catch((error: unknown) => {
+  const promise = computeFileHash(file.resident).catch((error: unknown) => {
     directPageHashCache.delete(file.resident);
     throw error;
   });

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LoadedImage } from '../../../types/dashboard.types';
 import type {
@@ -7,6 +7,29 @@ import type {
   PageFile,
 } from '../../../utils/page-source';
 import { findDuplicateMatches, fingerprintOfPageFile } from './import-duplicates';
+
+// Gate-2 counting: the real implementations run (spread of `actual`); only the
+// call counts are observed so tests can pin which hashing tier executes.
+const fileHashState = vi.hoisted(() => ({
+  computeFileHashCalls: 0,
+  partialCalls: 0,
+}));
+
+vi.mock('../../../utils/fileHash', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../../utils/fileHash')>();
+  return {
+    ...actual,
+    computeFileHash: vi.fn(async (blob: Blob) => {
+      fileHashState.computeFileHashCalls += 1;
+      return actual.computeFileHash(blob);
+    }),
+    computePartialHashFingerprint: vi.fn(async (blob: Blob) => {
+      fileHashState.partialCalls += 1;
+      return actual.computePartialHashFingerprint(blob);
+    }),
+  };
+});
 
 const makeFilters = (): LoadedImage['filters'] => ({
   brightness: 1,
@@ -230,5 +253,61 @@ describe('findDuplicateMatches', () => {
     ];
 
     expect(await findDuplicateMatches(imports, [])).toEqual([]);
+  });
+});
+
+describe('findDuplicateMatches gate 2 (partial-hash pre-filter)', () => {
+  beforeEach(() => {
+    fileHashState.computeFileHashCalls = 0;
+    fileHashState.partialCalls = 0;
+  });
+
+  it('skips the full hash entirely when the partial fingerprint mismatches', async () => {
+    const libraryImage = makeLibraryImage(
+      'lib-1',
+      makeDirectPage('existing.png', PNG_BYTES_A, 5000),
+    );
+    const imports = [
+      { file: makeDirectPage('incoming.png', PNG_BYTES_B, 999) },
+    ];
+
+    expect(await findDuplicateMatches(imports, [libraryImage])).toEqual([]);
+
+    expect(fileHashState.partialCalls).toBe(2);
+    expect(fileHashState.computeFileHashCalls).toBe(0);
+  });
+
+  it('confirms a partial match with the full hash', async () => {
+    const libraryImage = makeLibraryImage(
+      'lib-1',
+      makeDirectPage('existing.png', PNG_BYTES_A, 5000),
+    );
+    const imports = [
+      { file: makeDirectPage('incoming.png', PNG_BYTES_A, 999) },
+    ];
+
+    expect(await findDuplicateMatches(imports, [libraryImage])).toEqual([
+      { importIndex: 0, existingImageId: 'lib-1' },
+    ]);
+
+    expect(fileHashState.partialCalls).toBe(2);
+    expect(fileHashState.computeFileHashCalls).toBe(2);
+  });
+
+  it('never fingerprints or hashes archive pairs', async () => {
+    const libraryImage = makeLibraryImage(
+      'lib-1',
+      makeArchivePage('existing.png', PNG_BYTES_A.length, 5000),
+    );
+    const archivePage = makeArchivePage('incoming.png', PNG_BYTES_A.length, 5000);
+    const imports = [{ file: archivePage }];
+
+    expect(await findDuplicateMatches(imports, [libraryImage])).toEqual([
+      { importIndex: 0, existingImageId: 'lib-1' },
+    ]);
+
+    expect(fileHashState.partialCalls).toBe(0);
+    expect(fileHashState.computeFileHashCalls).toBe(0);
+    expect(archivePage.toBlob).not.toHaveBeenCalled();
   });
 });

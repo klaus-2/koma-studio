@@ -1,14 +1,24 @@
 import type { LoadedImage } from '../../../types/dashboard.types';
 import type { DirectPageFile, PageFile } from '../../../utils/page-source';
+import {
+  computeFileHash,
+  computePartialHashFingerprint,
+} from '../../../utils/fileHash';
+
+// Full hashing moved to utils/fileHash (worker pool, I6). Re-exported so the
+// existing import path stays valid for its current consumers.
+export { sha256Hex } from '../../../utils/fileHash';
 
 /**
  * Duplicate-page detection for imports.
  *
  * Fingerprint = { size, lastModified }. The file NAME is display info only and
  * is NEVER part of the comparison (manga pages share names across chapters).
- * Byte comparison (SHA-256) runs only for same-size pairs where BOTH sides are
- * direct page files; archive pages match metadata-only because their bytes are
- * materialized lazily and must never be read at import time.
+ * For same-size pairs where BOTH sides are direct page files, a cheap partial
+ * hash (head/mid/tail, I6 gate 2) rejects distinct content first, and the
+ * full SHA-256 (worker pool) confirms the rest. Archive pages match
+ * metadata-only because their bytes are materialized lazily and must never be
+ * read at import time.
  */
 export interface ImportFingerprint {
   size: number;
@@ -29,16 +39,6 @@ export const fingerprintOfPageFile = (file: PageFile): ImportFingerprint => ({
   lastModified: file.lastModified,
 });
 
-export const sha256Hex = async (blob: Blob): Promise<string> => {
-  const bytes = await blob.arrayBuffer();
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  let hex = '';
-  for (const byte of new Uint8Array(digest)) {
-    hex += byte.toString(16).padStart(2, '0');
-  }
-  return hex;
-};
-
 /** Hashes are memoized per resident File: identical pages hash once. */
 const directHashCache = new WeakMap<object, Promise<string>>();
 
@@ -47,7 +47,7 @@ const hashDirectPageFile = (file: DirectPageFile): Promise<string> => {
   if (cached) {
     return cached;
   }
-  const promise = sha256Hex(file.resident);
+  const promise = computeFileHash(file.resident);
   directHashCache.set(file.resident, promise);
   return promise;
 };
@@ -62,6 +62,17 @@ const isDuplicatePagePair = async (a: PageFile, b: PageFile): Promise<boolean> =
     return false;
   }
   if (isDirectPage(a) && isDirectPage(b)) {
+    // Gate 2: the cheap partial fingerprint settles distinct-content pairs
+    // without reading either file in full; a partial match still requires
+    // the full hash below to confirm equality. Runs before the full-hash
+    // memo and stays unmemoized (it is cheap and size-gated).
+    const [partialHashA, partialHashB] = await Promise.all([
+      computePartialHashFingerprint(a.resident),
+      computePartialHashFingerprint(b.resident),
+    ]);
+    if (partialHashA !== partialHashB) {
+      return false;
+    }
     const [hashA, hashB] = await Promise.all([
       hashDirectPageFile(a),
       hashDirectPageFile(b),
