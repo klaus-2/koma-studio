@@ -1,0 +1,58 @@
+/* ============================================================
+   KŌMA STUDIO — UI scale / compact density
+   Padding/gap overrides applied while `koma-density-compact` is
+   on <html> (see @koma/ui utils/applyUiScale). Scope is closed to
+   the shared utility classes koma-btn / koma-input / koma-select /
+   koma-dlfield and their size variants — nothing else is touched.
+   ============================================================ */
+
+/* Classic family: the base rules are single-class selectors (0,1,0),
+   so a two-class override wins regardless of stylesheet order. */
+.koma-density-compact .koma-btn {
+  padding: 6px 12px;
+  gap: 5px;
+}
+
+.koma-density-compact .koma-btn--sm {
+  padding: 4px 8px;
+}
+
+.koma-density-compact .koma-btn--xs {
+  padding: 3px 8px;
+}
+
+.koma-density-compact .koma-input,
+.koma-density-compact .koma-select {
+  padding: 6px 8px;
+}
+
+.koma-density-compact .koma-dlfield {
+  gap: 2px;
+}
+
+.koma-density-compact .koma-dlfield__select,
+.koma-density-compact .koma-dlfield__input {
+  padding: 0 6px;
+}
+
+/* Noir family: the base rules carry :root[data-theme-family='noir']
+   (0,3,0); the compact override needs (0,4,0) to win regardless of
+   stylesheet order. koma-dlfield is not noir-prefixed, so the classic
+   rules above cover it in both families. */
+:root.koma-density-compact[data-theme-family='noir'] .koma-btn {
+  padding: 6px 12px;
+  gap: 5px;
+}
+
+:root.koma-density-compact[data-theme-family='noir'] .koma-btn--sm {
+  padding: 4px 8px;
+}
+
+:root.koma-density-compact[data-theme-family='noir'] .koma-btn--xs {
+  padding: 3px 8px;
+}
+
+:root.koma-density-compact[data-theme-family='noir'] .koma-input,
+:root.koma-density-compact[data-theme-family='noir'] .koma-select {
+  padding: 6px 8px;
+}

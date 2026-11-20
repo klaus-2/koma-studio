@@ -9,6 +9,7 @@ import {
 } from './useRegionFocusScroll';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useUiShellStore } from '../stores/ui-shell-store';
+import { useUiScaleStore } from '@koma/ui/stores/ui-scale-store';
 
 type FrameCallback = (time: number) => void;
 
@@ -114,6 +115,39 @@ describe('computeZoomCorrectedScrollTop', () => {
   });
 });
 
+describe('computeZoomCorrectedScrollTop — zoom × uiScale matrix', () => {
+  const zooms = [1, 0.5, 1.5] as const;
+  const uiScales = [0.9, 1, 1.25, 1.5] as const;
+
+  // The hook feeds zoom × uiScale (the total CSS zoom) into the single `zoom`
+  // arg: every combination must center the region on the same visual point,
+  // i.e. divide the visual delta by the full product.
+  it.each(
+    zooms.flatMap((zoom) =>
+      uiScales.map((uiScale) => ({ zoom, uiScale })),
+    ),
+  )(
+    'centers the region on the same visual point at zoom $zoom × uiScale $uiScale',
+    ({ zoom, uiScale }) => {
+      const container = document.createElement('div');
+      Object.defineProperty(container, 'scrollTop', {
+        configurable: true,
+        value: 100,
+        writable: true,
+      });
+
+      const result = computeZoomCorrectedScrollTop({
+        container,
+        regionRect: asRect({ top: -100, left: 0, width: 200, height: 120 }),
+        containerRect: asRect({ top: 0, left: 0, width: 800, height: 600 }),
+        zoom: zoom * uiScale,
+      });
+
+      expect(result).toBeCloseTo(100 + (-340) / (zoom * uiScale), 5);
+    },
+  );
+});
+
 describe('resolveFocusSignal', () => {
   const images = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
 
@@ -186,6 +220,7 @@ describe('useRegionFocusScroll.focusRegion', () => {
   beforeEach(() => {
     raf = installRafQueue();
     useUiShellStore.setState({ zoom: 1, processing: false });
+    useUiScaleStore.setState({ uiScale: 1, compactDensity: false });
     useImageCollectionStore.setState({
       images: [
         {
@@ -280,6 +315,38 @@ describe('useRegionFocusScroll.focusRegion', () => {
     await raf.flush(3);
 
     expect(container.scrollTop).toBeCloseTo(-340, 5);
+  });
+
+  it('scales the centering by zoom × uiScale read from the stores', async () => {
+    useUiShellStore.setState({ zoom: 0.5, processing: false });
+    useUiScaleStore.setState({ uiScale: 1.25 });
+    const item = mountStripItem(0);
+    mountRegionOverlay(item, 'r-product');
+    const container = item.parentElement as HTMLElement;
+
+    const { result } = renderHook(() => useRegionFocusScroll());
+    await act(async () => {
+      void result.current.focusRegion({ imageId: 'img', regionId: 'r-product' });
+    });
+    await raf.flush(3);
+
+    expect(container.scrollTop).toBeCloseTo(-340 / (0.5 * 1.25), 5);
+  });
+
+  it('compensates a sub-1 root UI scale combined with stage zoom', async () => {
+    useUiShellStore.setState({ zoom: 1.5, processing: false });
+    useUiScaleStore.setState({ uiScale: 0.9 });
+    const item = mountStripItem(1);
+    mountRegionOverlay(item, 'r-sub');
+    const container = item.parentElement as HTMLElement;
+
+    const { result } = renderHook(() => useRegionFocusScroll());
+    await act(async () => {
+      void result.current.focusRegion({ imageId: 'img', regionId: 'r-sub' });
+    });
+    await raf.flush(3);
+
+    expect(container.scrollTop).toBeCloseTo(-340 / (1.5 * 0.9), 5);
   });
 
   it('retries once when the region overlay is not mounted yet', async () => {

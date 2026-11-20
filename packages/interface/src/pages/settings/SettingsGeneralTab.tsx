@@ -6,6 +6,7 @@ import type { useI18n } from "../../i18n";
 import type { AppLocale } from "../../i18n/config";
 import type { KomaTheme, KomaThemeFamily } from "@koma/ui/stores/theme-store";
 import { THEME_FAMILIES } from "@koma/ui/themes/registry";
+import { UI_SCALE_OPTIONS, useUiScaleStore } from "@koma/ui/stores/ui-scale-store";
 import type { LocalResetFeedbackState, TravelTokenMetadata } from "./settings.types";
 import { shortId } from "./settings.constants";
 
@@ -49,6 +50,23 @@ interface SettingsGeneralTabArgs {
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
 }
+
+// UI scale (90/100/125/150%) + compact density — applies live via applyUiScale (App mount).
+const UiScaleSection = ({ t }: { t: TranslationFn }): JSX.Element => {
+  const uiScale = useUiScaleStore((s) => s.uiScale);
+  const compactDensity = useUiScaleStore((s) => s.compactDensity);
+  return (<section className="koma-stg-section">
+    <div className="koma-stg-section__head"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="koma-stg-section__ico"><path d="M21 3h-6v2h2.59l-4.24 4.24 1.41 1.41L19 6.41V9h2V3zM3 21h6v-2H6.41l4.24-4.24-1.41-1.41L5 17.59V15H3v6z" /></svg><h3 className="koma-stg-section__title">{t("settings.uiScale.title")}</h3></div>
+    <p className="koma-stg-section__desc">{t("settings.uiScale.description")}</p>
+    <div className="koma-stg-actions">
+      {UI_SCALE_OPTIONS.map((scale) => <button key={scale} type="button" aria-pressed={uiScale === scale} className={`koma-btn ${uiScale === scale ? "koma-btn--primary" : "koma-btn--ghost"}`} onClick={() => useUiScaleStore.getState().setUiScale(scale)}>{Math.round(scale * 100)}%</button>)}
+    </div>
+    <label className="koma-stg-toggle-wide" style={{ marginTop: 14 }}>
+      <div><span className="koma-stg-toggle-wide__title">{t("settings.uiScale.compactTitle")}</span><p className="koma-stg-toggle-wide__desc">{t("settings.uiScale.compactDesc")}</p></div>
+      <div className={`koma-toggle ${compactDensity ? "koma-toggle--on" : ""}`}><input type="checkbox" className="koma-toggle__input" checked={compactDensity} onChange={(e) => useUiScaleStore.getState().setCompactDensity(e.target.checked)} /><span className="koma-toggle__track"><span className="koma-toggle__thumb" /></span></div>
+    </label>
+  </section>);
+};
 
 export const renderSettingsGeneralTab = ({
   t,
@@ -324,6 +342,8 @@ export const renderSettingsGeneralTab = ({
     </div>
   </section>
 
+  {/* UI Scale & Density */}
+  <UiScaleSection t={t} />
   {/* Tool Tips */}
   <section className="koma-stg-section">
     <div className="koma-stg-section__head">

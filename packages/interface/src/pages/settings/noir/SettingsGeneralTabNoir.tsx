@@ -6,6 +6,7 @@ import type { useI18n } from "../../../i18n";
 import type { AppLocale } from "../../../i18n/config";
 import type { KomaTheme, KomaThemeFamily } from "@koma/ui/stores/theme-store";
 import { THEME_FAMILIES } from "@koma/ui/themes/registry";
+import { UI_SCALE_OPTIONS, useUiScaleStore } from "@koma/ui/stores/ui-scale-store";
 import type { LocalResetFeedbackState, TravelTokenMetadata } from "../settings.types";
 import { shortId } from "../settings.constants";
 import { Sec, Field, SpecGrid, SpecRow, Alert, ToggleRow, btnGhost, btnDanger, chip, selectCls } from "./primitives";
@@ -50,6 +51,20 @@ interface SettingsGeneralTabArgs {
   handleResetLocalAppSettings: () => Promise<void>;
   localResetFeedback: LocalResetFeedbackState;
 }
+
+// UI scale + compact density — twin of the Classic section; applies live via applyUiScale (App mount).
+const UiScaleSectionNoir = ({ t }: { t: TranslationFn }): React.ReactElement => {
+  const uiScale = useUiScaleStore((s) => s.uiScale);
+  const compactDensity = useUiScaleStore((s) => s.compactDensity);
+  return (
+    <Sec icon={<svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 3h-6v2h2.59l-4.24 4.24 1.41 1.41L19 6.41V9h2V3zM3 21h6v-2H6.41l4.24-4.24-1.41-1.41L5 17.59V15H3v6z" /></svg>} title={t("settings.uiScale.title")} desc={t("settings.uiScale.description")}>
+      <div className="flex flex-wrap gap-2">{UI_SCALE_OPTIONS.map((scale) => <button key={scale} type="button" aria-pressed={uiScale === scale} onClick={() => useUiScaleStore.getState().setUiScale(scale)} className={`panel-cut-sm hard-hover inline-flex items-center border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] ${uiScale === scale ? "border-crimson/60 bg-crimson/8 text-crimson" : "border-paper/12 bg-ink/50 text-paper/70"}`}>{Math.round(scale * 100)}%</button>)}</div>
+      <div className="mt-4">
+        <ToggleRow title={t("settings.uiScale.compactTitle")} desc={t("settings.uiScale.compactDesc")} checked={compactDensity} onChange={useUiScaleStore.getState().setCompactDensity} />
+      </div>
+    </Sec>
+  );
+};
 
 export const renderSettingsGeneralTabNoir = ({
   t, user, authLoading, isDesktop, verificationBusy, handleVerify,
@@ -215,6 +230,8 @@ export const renderSettingsGeneralTabNoir = ({
       </div>
     </Sec>
 
+    {/* UI Scale & Density */}
+    <UiScaleSectionNoir t={t} />
     <Sec icon={<Lightbulb size={14} />} title={t("settings.tooltips.title")} desc={t("settings.tooltips.description")}>
       <ToggleRow
         title={t("settings.tooltips.enableTitle")}

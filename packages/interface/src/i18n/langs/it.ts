@@ -214,6 +214,12 @@ export const itMessages: TranslationCatalog = {
   'settings.language.systemLabel': 'Rilevato dal sistema',
   'settings.language.applied':
     'Le modifiche vengono applicate immediatamente e salvate su questo dispositivo per le build di sviluppo e pacchettizzate.',
+  'settings.uiScale.title': 'Scala dell\'interfaccia',
+  'settings.uiScale.description':
+    'Regola la dimensione dei controlli dell\'interfaccia. Le modifiche si applicano subito, senza riavvio.',
+  'settings.uiScale.compactTitle': 'Densità compatta',
+  'settings.uiScale.compactDesc':
+    'Riduce le spaziature per mostrare più contenuti sullo schermo.',
   'auth.tabs.login': 'Accedi',
   'auth.tabs.register': 'Crea account',
   'auth.legal.reviewDocs':
@@ -1787,6 +1793,32 @@ export const itMessages: TranslationCatalog = {
   'dashboard.topbar.format': 'Formato',
   'dashboard.topbar.quality': 'Qualità',
   'dashboard.topbar.package': 'Pacchetto',
+  // ── Lane D (W2): export naming, sidebar drag-reorder, calibration ──
+  'dashboard.topbar.namingPattern': 'Modello del nome file',
+  'dashboard.topbar.namingPatternHint':
+    'Token: {obra} {capitulo} {pagina} {idioma} {nome} {ext}. Vuoto mantiene i nomi predefiniti.',
+  'dashboard.topbar.namingPreview': 'Anteprima',
+  'dashboard.topbar.namingRecent': 'Recenti',
+  'dashboard.topbar.namingReset': 'Nomi predefiniti',
+  'dashboard.sidebar.dragPage': 'Trascina per riordinare le pagine',
+  'dashboard.sidebar.dragPageSelected':
+    'Trascinare una pagina selezionata sposta l’intera selezione',
+  'dashboard.calibration.title': 'Calibrazione',
+  'dashboard.calibration.desc':
+    'Esegue un benchmark del rilevatore di font e sceglie la risoluzione di lavoro sostenuta da questa macchina.',
+  'dashboard.calibration.run': 'Calibra ora',
+  'dashboard.calibration.decline': 'Non ora',
+  'dashboard.calibration.running':
+    'Misurazione… può richiedere fino a 20 secondi.',
+  'dashboard.calibration.failed':
+    'Nessuna risoluzione di lavoro sicura trovata. Nulla è stato applicato.',
+  'dashboard.calibration.neverRun': 'La calibrazione non è ancora stata eseguita.',
+  'dashboard.calibration.recommended':
+    'Risoluzione di lavoro consigliata: {megapixels} MP',
+  'dashboard.calibration.apply': 'Applica',
+  'dashboard.calibration.applyFailed':
+    'Impossibile inviare l’impostazione al sidecar.',
+  'dashboard.calibration.close': 'Chiudi',
   'dashboard.topbar.rawText': 'Testo originale',
   'dashboard.topbar.translated': 'Tradotto',
   'dashboard.topbar.inpainted': 'Inpainted',
@@ -2701,6 +2733,14 @@ export const itMessages: TranslationCatalog = {
   'typo.tools.select': 'Seleziona',
   'typo.tools.rect': 'Rettangolare',
   'typo.tools.ellipse': 'Ellittica',
+  'typo.tools.marquee': 'Selezione ad area',
+  'typo.multiSelect.count': '{count} regioni selezionate',
+  'typo.multiSelect.applyStyle': 'Applica stile',
+  'typo.multiSelect.retranslate': 'Ritraduci',
+  'typo.multiSelect.clear': 'Deseleziona',
+  'typo.multiSelect.delete': 'Elimina',
+  'typo.multiSelect.noPreset': 'Seleziona prima un preset',
+  'typo.multiSelect.regionsRemoved': '{count} regione(i) eliminate',
   'typo.actions.refine': 'Affina',
   'typo.actions.toRect': '→ Rettangolare',
   'typo.actions.toEllipse': '→ Ellittica',

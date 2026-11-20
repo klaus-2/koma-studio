@@ -199,6 +199,12 @@ export const arMessages: TranslationCatalog = {
   'settings.language.systemLabel': 'تم اكتشاف النظام',
   'settings.language.applied':
     'يتم تطبيق التغييرات فورًا وحفظها على هذا الجهاز لبناءات التطوير والحزم.',
+  'settings.uiScale.title': 'مقياس الواجهة',
+  'settings.uiScale.description':
+    'يضبط حجم عناصر التحكم في الواجهة؛ ويُطبَّق فورًا دون إعادة تشغيل.',
+  'settings.uiScale.compactTitle': 'الكثافة المدمجة',
+  'settings.uiScale.compactDesc':
+    'يقلل الحشو والتباعد ليتسع المزيد من المحتوى على الشاشة.',
   'auth.tabs.login': 'تسجيل الدخول',
   'auth.tabs.register': 'إنشاء حساب',
   'auth.legal.reviewDocs': 'بالمتابعة، يرجى مراجعة وثائقنا القانونية:',
@@ -1703,6 +1709,29 @@ export const arMessages: TranslationCatalog = {
   'dashboard.topbar.format': 'الصيغة',
   'dashboard.topbar.quality': 'الجودة',
   'dashboard.topbar.package': 'حزمة',
+  // ── Lane D (W2): export naming, sidebar drag-reorder, calibration ──
+  'dashboard.topbar.namingPattern': 'نمط اسم الملف',
+  'dashboard.topbar.namingPatternHint':
+    'الرموز: {obra} {capitulo} {pagina} {idioma} {nome} {ext}. تركه فارغًا يحافظ على الأسماء الافتراضية.',
+  'dashboard.topbar.namingPreview': 'معاينة',
+  'dashboard.topbar.namingRecent': 'الأحدث',
+  'dashboard.topbar.namingReset': 'الأسماء الافتراضية',
+  'dashboard.sidebar.dragPage': 'اسحب لإعادة ترتيب الصفحات',
+  'dashboard.sidebar.dragPageSelected':
+    'سحب صفحة محددة ينقل التحديد بالكامل',
+  'dashboard.calibration.title': 'المعايرة',
+  'dashboard.calibration.desc':
+    'يقيس كاشف الخطوط ويختار دقة العمل التي يتحملها هذا الجهاز.',
+  'dashboard.calibration.run': 'معايرة الآن',
+  'dashboard.calibration.decline': 'ليس الآن',
+  'dashboard.calibration.running': 'جارٍ القياس… قد يستغرق حتى 20 ثانية.',
+  'dashboard.calibration.failed':
+    'لم يُعثر على دقة عمل آمنة. لم يُطبَّق أي شيء.',
+  'dashboard.calibration.neverRun': 'لم تُنفَّذ المعايرة بعد.',
+  'dashboard.calibration.recommended': 'دقة العمل الموصى بها: {megapixels} MP',
+  'dashboard.calibration.apply': 'تطبيق',
+  'dashboard.calibration.applyFailed': 'تعذّر إرسال الإعداد إلى sidecar.',
+  'dashboard.calibration.close': 'إغلاق',
   'dashboard.topbar.rawText': 'نص خام',
   'dashboard.topbar.translated': 'مُترجم',
   'dashboard.topbar.inpainted': 'مُرمّم',
@@ -2615,6 +2644,14 @@ export const arMessages: TranslationCatalog = {
   'typo.tools.select': 'تحديد',
   'typo.tools.rect': 'مستطيل',
   'typo.tools.ellipse': 'بيضاوي',
+  'typo.tools.marquee': 'تحديد بالمستطيل',
+  'typo.multiSelect.count': '{count} مناطق محددة',
+  'typo.multiSelect.applyStyle': 'تطبيق النمط',
+  'typo.multiSelect.retranslate': 'إعادة الترجمة',
+  'typo.multiSelect.clear': 'إلغاء التحديد',
+  'typo.multiSelect.delete': 'حذف',
+  'typo.multiSelect.noPreset': 'اختر نمطًا مسبقًا أولًا',
+  'typo.multiSelect.regionsRemoved': 'تم حذف {count} مناطق',
   'typo.actions.refine': 'تحسين',
   'typo.actions.toRect': '→ مستطيل',
   'typo.actions.toEllipse': '→ بيضاوي',

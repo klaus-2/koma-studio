@@ -205,6 +205,12 @@ export const koMessages: TranslationCatalog = {
   'settings.language.systemLabel': '시스템 감지',
   'settings.language.applied':
     '변경사항은 즉시 적용되며 개발 및 패키지 빌드에서 이 기기에 저장됩니다.',
+  'settings.uiScale.title': '인터페이스 크기',
+  'settings.uiScale.description':
+    '인터페이스 컨트롤 크기를 조절합니다. 변경 사항은 재시작 없이 즉시 적용됩니다.',
+  'settings.uiScale.compactTitle': '컴팩트 밀도',
+  'settings.uiScale.compactDesc':
+    '여백과 간격을 줄여 화면에 더 많은 내용을 표시합니다.',
   'auth.tabs.login': '로그인',
   'auth.tabs.register': '계정 만들기',
   'auth.legal.reviewDocs': '계속하기 전에 법적 문서를 검토해 주세요:',
@@ -1718,6 +1724,29 @@ export const koMessages: TranslationCatalog = {
   'dashboard.topbar.format': '형식',
   'dashboard.topbar.quality': '품질',
   'dashboard.topbar.package': '패키지',
+  // ── Lane D (W2): export naming, sidebar drag-reorder, calibration ──
+  'dashboard.topbar.namingPattern': '파일 이름 패턴',
+  'dashboard.topbar.namingPatternHint':
+    '토큰: {obra} {capitulo} {pagina} {idioma} {nome} {ext}. 비워 두면 기본 이름을 사용합니다.',
+  'dashboard.topbar.namingPreview': '미리 보기',
+  'dashboard.topbar.namingRecent': '최근 항목',
+  'dashboard.topbar.namingReset': '기본 이름',
+  'dashboard.sidebar.dragPage': '드래그하여 페이지 재정렬',
+  'dashboard.sidebar.dragPageSelected':
+    '선택된 페이지를 드래그하면 전체 선택 항목이 이동합니다',
+  'dashboard.calibration.title': '캘리브레이션',
+  'dashboard.calibration.desc':
+    '글꼴 감지기를 벤치마크하여 이 컴퓨터가 감당할 수 있는 작업 해상도를 선택합니다.',
+  'dashboard.calibration.run': '지금 캘리브레이션',
+  'dashboard.calibration.decline': '나중에',
+  'dashboard.calibration.running': '측정 중… 최대 20초 걸릴 수 있습니다.',
+  'dashboard.calibration.failed':
+    '안전한 작업 해상도를 찾지 못했습니다. 아무것도 적용되지 않았습니다.',
+  'dashboard.calibration.neverRun': '아직 캘리브레이션을 실행하지 않았습니다.',
+  'dashboard.calibration.recommended': '권장 작업 해상도: {megapixels} MP',
+  'dashboard.calibration.apply': '적용',
+  'dashboard.calibration.applyFailed': '설정을 사이드카에 전달하지 못했습니다.',
+  'dashboard.calibration.close': '닫기',
   'dashboard.topbar.rawText': '원본 텍스트',
   'dashboard.topbar.translated': '번역됨',
   'dashboard.topbar.inpainted': '인페인팅됨',
@@ -2638,6 +2667,14 @@ export const koMessages: TranslationCatalog = {
   'typo.tools.select': '선택',
   'typo.tools.rect': '직사각형',
   'typo.tools.ellipse': '타원형',
+  'typo.tools.marquee': '영역 선택',
+  'typo.multiSelect.count': '{count}개 영역 선택됨',
+  'typo.multiSelect.applyStyle': '스타일 적용',
+  'typo.multiSelect.retranslate': '재번역',
+  'typo.multiSelect.clear': '선택 해제',
+  'typo.multiSelect.delete': '삭제',
+  'typo.multiSelect.noPreset': '먼저 프리셋을 선택하세요',
+  'typo.multiSelect.regionsRemoved': '{count}개 영역 삭제됨',
   'typo.actions.refine': '리파인',
   'typo.actions.toRect': '→ 직사각형',
   'typo.actions.toEllipse': '→ 타원형',

@@ -213,6 +213,12 @@ export const jaMessages: TranslationCatalog = {
   'settings.language.systemLabel': 'システム検出',
   'settings.language.applied':
     '変更は即座に適用され、開発版およびパッケージ版のこのデバイスに保存されます。',
+  'settings.uiScale.title': 'インターフェースの拡大率',
+  'settings.uiScale.description':
+    'インターフェース要素のサイズを調整します。変更は再起動なしで即座に反映されます。',
+  'settings.uiScale.compactTitle': 'コンパクト表示',
+  'settings.uiScale.compactDesc':
+    '余白と間隔を詰めて、画面に多くの内容を表示します。',
   'auth.tabs.login': 'サインイン',
   'auth.tabs.register': 'アカウント作成',
   'auth.legal.reviewDocs': '続行する前に、以下の法的文書をご確認ください：',
@@ -1767,6 +1773,29 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.topbar.format': 'フォーマット',
   'dashboard.topbar.quality': '品質',
   'dashboard.topbar.package': 'パッケージ',
+  // ── Lane D (W2): export naming, sidebar drag-reorder, calibration ──
+  'dashboard.topbar.namingPattern': 'ファイル名パターン',
+  'dashboard.topbar.namingPatternHint':
+    'トークン: {obra} {capitulo} {pagina} {idioma} {nome} {ext}。空欄なら既定の名前を使用します。',
+  'dashboard.topbar.namingPreview': 'プレビュー',
+  'dashboard.topbar.namingRecent': '最近使用したもの',
+  'dashboard.topbar.namingReset': '既定の名前',
+  'dashboard.sidebar.dragPage': 'ドラッグでページを並べ替え',
+  'dashboard.sidebar.dragPageSelected':
+    '選択したページをドラッグすると選択全体が移動します',
+  'dashboard.calibration.title': 'キャリブレーション',
+  'dashboard.calibration.desc':
+    'フォント検出器をベンチマークし、このマシンが維持できる作業解像度を選択します。',
+  'dashboard.calibration.run': '今すぐキャリブレーション',
+  'dashboard.calibration.decline': '後で',
+  'dashboard.calibration.running': '測定中…最大20秒かかることがあります。',
+  'dashboard.calibration.failed':
+    '安全な作業解像度が見つかりませんでした。何も適用されていません。',
+  'dashboard.calibration.neverRun': 'キャリブレーションはまだ実行されていません。',
+  'dashboard.calibration.recommended': '推奨作業解像度: {megapixels} MP',
+  'dashboard.calibration.apply': '適用',
+  'dashboard.calibration.applyFailed': '設定をサイドカーに渡せませんでした。',
+  'dashboard.calibration.close': '閉じる',
   'dashboard.topbar.rawText': '原文テキスト',
   'dashboard.topbar.translated': '翻訳済み',
   'dashboard.topbar.inpainted': 'インペイント済み',
@@ -2705,6 +2734,14 @@ export const jaMessages: TranslationCatalog = {
   'typo.tools.select': '選択',
   'typo.tools.rect': '矩形',
   'typo.tools.ellipse': '楕円形',
+  'typo.tools.marquee': '範囲選択',
+  'typo.multiSelect.count': '{count}個の領域を選択中',
+  'typo.multiSelect.applyStyle': 'スタイルを適用',
+  'typo.multiSelect.retranslate': '再翻訳',
+  'typo.multiSelect.clear': '選択解除',
+  'typo.multiSelect.delete': '削除',
+  'typo.multiSelect.noPreset': '先にプリセットを選択してください',
+  'typo.multiSelect.regionsRemoved': '{count}個の領域を削除しました',
   'typo.actions.refine': 'リファイン',
   'typo.actions.toRect': '→ 矩形',
   'typo.actions.toEllipse': '→ 楕円形',

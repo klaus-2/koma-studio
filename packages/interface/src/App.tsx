@@ -7,6 +7,8 @@ import { AuthProvider, useAuthContext } from "./contexts/AuthContext";
 import type { ActiveBanInfo } from "./contexts/AuthContext";
 import { UpdaterProvider } from "./hooks/useUpdater";
 import { applyTheme, useThemeStore } from "@koma/ui/stores/theme-store";
+import { useUiScaleEffect } from "@koma/ui/utils/applyUiScale";
+import "@koma/ui/styles/ui-scale.css";
 import { LegalInlineLinks } from "./components/legal/LegalInlineLinks";
 import { getLegalDocumentIdForRoute, isLegalRoutePath } from "./legal/navigation";
 import { UpdateToast } from "./components/updater/UpdateToast";
@@ -229,6 +231,7 @@ const AppShell = () => {
   useEffect(() => {
     applyTheme(theme, themeFamily);
   }, [theme, themeFamily]);
+  useUiScaleEffect();
   const {
     isActive: isTransitionActive,
     message: transitionMessage,

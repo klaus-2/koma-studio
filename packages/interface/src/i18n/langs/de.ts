@@ -221,6 +221,12 @@ export const deMessages: TranslationCatalog = {
   'settings.language.systemLabel': 'Systemerkennung',
   'settings.language.applied':
     'Änderungen werden sofort übernommen und auf diesem Gerät für Entwicklungs- und gepackte Builds gespeichert.',
+  'settings.uiScale.title': 'Interface-Skalierung',
+  'settings.uiScale.description':
+    'Passt die Größe der Oberflächenelemente an. Änderungen werden ohne Neustart sofort übernommen.',
+  'settings.uiScale.compactTitle': 'Kompakte Dichte',
+  'settings.uiScale.compactDesc':
+    'Reduziert Abstände, damit mehr Inhalt auf den Bildschirm passt.',
   'auth.tabs.login': 'Anmelden',
   'auth.tabs.register': 'Konto erstellen',
   'auth.legal.reviewDocs':
@@ -1816,6 +1822,33 @@ export const deMessages: TranslationCatalog = {
   'dashboard.topbar.format': 'Format',
   'dashboard.topbar.quality': 'Qualität',
   'dashboard.topbar.package': 'Paket',
+  // ── Lane D (W2): export naming, sidebar drag-reorder, calibration ──
+  'dashboard.topbar.namingPattern': 'Dateinamensmuster',
+  'dashboard.topbar.namingPatternHint':
+    'Platzhalter: {obra} {capitulo} {pagina} {idioma} {nome} {ext}. Leer behält die Standardnamen.',
+  'dashboard.topbar.namingPreview': 'Vorschau',
+  'dashboard.topbar.namingRecent': 'Zuletzt verwendet',
+  'dashboard.topbar.namingReset': 'Standardnamen',
+  'dashboard.sidebar.dragPage': 'Zum Neusortieren ziehen',
+  'dashboard.sidebar.dragPageSelected':
+    'Ziehen einer ausgewählten Seite verschiebt die ganze Auswahl',
+  'dashboard.calibration.title': 'Kalibrierung',
+  'dashboard.calibration.desc':
+    'Misst den Schriftdetektor und wählt die Arbeitsauflösung, die diese Maschine schafft.',
+  'dashboard.calibration.run': 'Jetzt kalibrieren',
+  'dashboard.calibration.decline': 'Jetzt nicht',
+  'dashboard.calibration.running':
+    'Messung läuft… kann bis zu 20 Sekunden dauern.',
+  'dashboard.calibration.failed':
+    'Keine sichere Arbeitsauflösung gefunden. Nichts wurde angewendet.',
+  'dashboard.calibration.neverRun':
+    'Die Kalibrierung wurde noch nicht ausgeführt.',
+  'dashboard.calibration.recommended':
+    'Empfohlene Arbeitsauflösung: {megapixels} MP',
+  'dashboard.calibration.apply': 'Anwenden',
+  'dashboard.calibration.applyFailed':
+    'Einstellung konnte nicht an das Sidecar übergeben werden.',
+  'dashboard.calibration.close': 'Schließen',
   'dashboard.topbar.rawText': 'Rohtext',
   'dashboard.topbar.translated': 'Übersetzt',
   'dashboard.topbar.inpainted': 'Inpainted',
@@ -2758,6 +2791,14 @@ export const deMessages: TranslationCatalog = {
   'typo.tools.select': 'Auswählen',
   'typo.tools.rect': 'Rechteckig',
   'typo.tools.ellipse': 'Elliptisch',
+  'typo.tools.marquee': 'Bereichsauswahl',
+  'typo.multiSelect.count': '{count} Regionen ausgewählt',
+  'typo.multiSelect.applyStyle': 'Stil anwenden',
+  'typo.multiSelect.retranslate': 'Neu übersetzen',
+  'typo.multiSelect.clear': 'Abwählen',
+  'typo.multiSelect.delete': 'Löschen',
+  'typo.multiSelect.noPreset': 'Zuerst ein Preset wählen',
+  'typo.multiSelect.regionsRemoved': '{count} Region(en) gelöscht',
   'typo.actions.refine': 'Verfeinern',
   'typo.actions.toRect': '→ Rechteckig',
   'typo.actions.toEllipse': '→ Elliptisch',

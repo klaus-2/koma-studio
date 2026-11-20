@@ -243,6 +243,12 @@ export const enMessages = {
   'settings.language.systemLabel': 'System detected',
   'settings.language.applied':
     'Changes are applied immediately and saved on this device for dev and packaged builds.',
+  'settings.uiScale.title': 'Interface scale',
+  'settings.uiScale.description':
+    'Adjust the size of interface controls. Changes apply immediately, without restarting.',
+  'settings.uiScale.compactTitle': 'Compact density',
+  'settings.uiScale.compactDesc':
+    'Reduce padding and spacing so more content fits on screen.',
   'auth.tabs.login': 'Sign In',
   'auth.tabs.register': 'Create Account',
   'auth.tabs.ariaLabel': 'Authentication',
@@ -1880,6 +1886,31 @@ export const enMessages = {
   'dashboard.topbar.format': 'Format',
   'dashboard.topbar.quality': 'Quality',
   'dashboard.topbar.package': 'Package',
+  // ── Lane D (W2): export naming, sidebar drag-reorder, calibration ──
+  'dashboard.topbar.namingPattern': 'File name pattern',
+  'dashboard.topbar.namingPatternHint':
+    'Tokens: {obra} {capitulo} {pagina} {idioma} {nome} {ext}. Empty keeps the default names.',
+  'dashboard.topbar.namingPreview': 'Preview',
+  'dashboard.topbar.namingRecent': 'Recent',
+  'dashboard.topbar.namingReset': 'Default names',
+  'dashboard.sidebar.dragPage': 'Drag to reorder pages',
+  'dashboard.sidebar.dragPageSelected':
+    'Dragging a selected page moves the whole selection',
+  'dashboard.calibration.title': 'Calibration',
+  'dashboard.calibration.desc':
+    'Benchmark the font detector and pick the working resolution this machine sustains.',
+  'dashboard.calibration.run': 'Calibrate now',
+  'dashboard.calibration.decline': 'Not now',
+  'dashboard.calibration.running': 'Measuring… this can take up to 20 seconds.',
+  'dashboard.calibration.failed':
+    'No safe working resolution was found. Nothing was applied.',
+  'dashboard.calibration.neverRun': 'Calibration has not run yet.',
+  'dashboard.calibration.recommended':
+    'Recommended working resolution: {megapixels} MP',
+  'dashboard.calibration.apply': 'Apply',
+  'dashboard.calibration.applyFailed':
+    'Could not deliver the setting to the sidecar.',
+  'dashboard.calibration.close': 'Close',
   'dashboard.topbar.rawText': 'Raw Text',
   'dashboard.topbar.translated': 'Translated',
   'dashboard.topbar.inpainted': 'Inpainted',
@@ -4887,6 +4918,14 @@ export const enMessages = {
   'typo.tools.select': 'Select',
   'typo.tools.rect': 'Rectangular',
   'typo.tools.ellipse': 'Elliptic',
+  'typo.tools.marquee': 'Marquee',
+  'typo.multiSelect.count': '{count} regions selected',
+  'typo.multiSelect.applyStyle': 'Apply style',
+  'typo.multiSelect.retranslate': 'Re-translate',
+  'typo.multiSelect.clear': 'Deselect',
+  'typo.multiSelect.delete': 'Delete',
+  'typo.multiSelect.noPreset': 'Select a preset first',
+  'typo.multiSelect.regionsRemoved': 'Removed {count} region(s)',
   'typo.actions.refine': 'Refine',
   'typo.actions.toRect': '→ Rectangular',
   'typo.actions.toEllipse': '→ Elliptic',

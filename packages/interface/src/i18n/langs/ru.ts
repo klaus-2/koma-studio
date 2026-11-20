@@ -217,6 +217,12 @@ export const ruMessages: TranslationCatalog = {
   'settings.language.systemLabel': 'Определён системой',
   'settings.language.applied':
     'Изменения применяются немедленно и сохраняются на этом устройстве для dev- и packaged-сборок.',
+  'settings.uiScale.title': 'Масштаб интерфейса',
+  'settings.uiScale.description':
+    'Настраивает размер элементов интерфейса. Изменения применяются сразу, без перезапуска.',
+  'settings.uiScale.compactTitle': 'Компактная плотность',
+  'settings.uiScale.compactDesc':
+    'Уменьшает отступы, чтобы на экране помещалось больше содержимого.',
   'auth.tabs.login': 'Вход',
   'auth.tabs.register': 'Регистрация',
   'auth.legal.reviewDocs':
@@ -1789,6 +1795,31 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.topbar.format': 'Формат',
   'dashboard.topbar.quality': 'Качество',
   'dashboard.topbar.package': 'Пакет',
+  // ── Lane D (W2): export naming, sidebar drag-reorder, calibration ──
+  'dashboard.topbar.namingPattern': 'Шаблон имени файла',
+  'dashboard.topbar.namingPatternHint':
+    'Токены: {obra} {capitulo} {pagina} {idioma} {nome} {ext}. Пусто — используются стандартные имена.',
+  'dashboard.topbar.namingPreview': 'Предпросмотр',
+  'dashboard.topbar.namingRecent': 'Недавние',
+  'dashboard.topbar.namingReset': 'Стандартные имена',
+  'dashboard.sidebar.dragPage': 'Перетащите, чтобы изменить порядок страниц',
+  'dashboard.sidebar.dragPageSelected':
+    'Перетаскивание выбранной страницы перемещает всё выделение',
+  'dashboard.calibration.title': 'Калибровка',
+  'dashboard.calibration.desc':
+    'Измеряет детектор шрифтов и выбирает рабочее разрешение, которое выдерживает эта машина.',
+  'dashboard.calibration.run': 'Калибровать сейчас',
+  'dashboard.calibration.decline': 'Не сейчас',
+  'dashboard.calibration.running': 'Измерение… может занять до 20 секунд.',
+  'dashboard.calibration.failed':
+    'Безопасное рабочее разрешение не найдено. Ничего не применено.',
+  'dashboard.calibration.neverRun': 'Калибровка ещё не запускалась.',
+  'dashboard.calibration.recommended':
+    'Рекомендуемое рабочее разрешение: {megapixels} MP',
+  'dashboard.calibration.apply': 'Применить',
+  'dashboard.calibration.applyFailed':
+    'Не удалось передать настройку в sidecar.',
+  'dashboard.calibration.close': 'Закрыть',
   'dashboard.topbar.rawText': 'Исходный текст',
   'dashboard.topbar.translated': 'Переведённый',
   'dashboard.topbar.inpainted': 'Очищенный',
@@ -2725,6 +2756,14 @@ export const ruMessages: TranslationCatalog = {
   'typo.tools.select': 'Выбор',
   'typo.tools.rect': 'Прямоугольная',
   'typo.tools.ellipse': 'Эллиптическая',
+  'typo.tools.marquee': 'Выделение рамкой',
+  'typo.multiSelect.count': 'Выбрано областей: {count}',
+  'typo.multiSelect.applyStyle': 'Применить стиль',
+  'typo.multiSelect.retranslate': 'Перевести снова',
+  'typo.multiSelect.clear': 'Снять выделение',
+  'typo.multiSelect.delete': 'Удалить',
+  'typo.multiSelect.noPreset': 'Сначала выберите пресет',
+  'typo.multiSelect.regionsRemoved': 'Удалено областей: {count}',
   'typo.actions.refine': 'Доработка',
   'typo.actions.toRect': '→ Прямоугольная',
   'typo.actions.toEllipse': '→ Эллиптическая',

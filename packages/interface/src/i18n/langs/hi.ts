@@ -211,6 +211,12 @@ export const hiMessages: TranslationCatalog = {
   'settings.language.systemLabel': 'Terdeteksi dari sistem',
   'settings.language.applied':
     'Perubahan langsung diterapkan dan disimpan di perangkat ini untuk build dev maupun packaged.',
+  'settings.uiScale.title': 'इंटरफ़ेस स्केल',
+  'settings.uiScale.description':
+    'इंटरफ़ेस नियंत्रणों का आकार समायोजित करता है। बदलाव बिना रीस्टार्ट तुरंत लागू होते हैं।',
+  'settings.uiScale.compactTitle': 'सघन घनत्व',
+  'settings.uiScale.compactDesc':
+    'स्क्रीन पर अधिक सामग्री दिखाने के लिए पैडिंग और स्पेसिंग कम करता है।',
   'auth.tabs.login': 'Masuk',
   'auth.tabs.register': 'Buat Akun',
   'auth.legal.reviewDocs':
@@ -1759,6 +1765,30 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.topbar.format': 'Format',
   'dashboard.topbar.quality': 'Kualitas',
   'dashboard.topbar.package': 'Paket',
+  // ── Lane D (W2): export naming, sidebar drag-reorder, calibration ──
+  'dashboard.topbar.namingPattern': 'फ़ाइल नाम पैटर्न',
+  'dashboard.topbar.namingPatternHint':
+    'टोकन: {obra} {capitulo} {pagina} {idioma} {nome} {ext}. खाली छोड़ने पर डिफ़ॉल्ट नाम रहेंगे।',
+  'dashboard.topbar.namingPreview': 'पूर्वावलोकन',
+  'dashboard.topbar.namingRecent': 'हाल के',
+  'dashboard.topbar.namingReset': 'डिफ़ॉल्ट नाम',
+  'dashboard.sidebar.dragPage': 'पेज पुनर्व्यवस्थित करने के लिए खींचें',
+  'dashboard.sidebar.dragPageSelected':
+    'चयनित पेज खींचने से पूरा चयन खिसकता है',
+  'dashboard.calibration.title': 'कैलिब्रेशन',
+  'dashboard.calibration.desc':
+    'फ़ॉन्ट डिटेक्टर का बेंचमार्क करके इस मशीन के लिए उपयुक्त वर्किंग रिज़ॉल्यूशन चुनता है।',
+  'dashboard.calibration.run': 'अभी कैलिब्रेट करें',
+  'dashboard.calibration.decline': 'अभी नहीं',
+  'dashboard.calibration.running': 'मापा जा रहा है… इसमें 20 सेकंड तक लग सकते हैं।',
+  'dashboard.calibration.failed':
+    'कोई सुरक्षित वर्किंग रिज़ॉल्यूशन नहीं मिला। कुछ भी लागू नहीं किया गया।',
+  'dashboard.calibration.neverRun': 'कैलिब्रेशन अभी तक नहीं चला है।',
+  'dashboard.calibration.recommended':
+    'अनुशंसित वर्किंग रिज़ॉल्यूशन: {megapixels} MP',
+  'dashboard.calibration.apply': 'लागू करें',
+  'dashboard.calibration.applyFailed': 'सेटिंग साइडकार को भेजने में विफल।',
+  'dashboard.calibration.close': 'बंद करें',
   'dashboard.topbar.rawText': 'Teks Mentah',
   'dashboard.topbar.translated': 'Diterjemahkan',
   'dashboard.topbar.inpainted': 'Inpainted',
@@ -2688,6 +2718,14 @@ export const hiMessages: TranslationCatalog = {
   'typo.tools.select': 'Pilih',
   'typo.tools.rect': 'Persegi Panjang',
   'typo.tools.ellipse': 'Elips',
+  'typo.tools.marquee': 'क्षेत्र चयन',
+  'typo.multiSelect.count': '{count} क्षेत्र चयनित',
+  'typo.multiSelect.applyStyle': 'स्टाइल लागू करें',
+  'typo.multiSelect.retranslate': 'पुनः अनुवाद',
+  'typo.multiSelect.clear': 'चयन हटाएँ',
+  'typo.multiSelect.delete': 'हटाएँ',
+  'typo.multiSelect.noPreset': 'पहले एक प्रीसेट चुनें',
+  'typo.multiSelect.regionsRemoved': '{count} क्षेत्र हटाए गए',
   'typo.actions.refine': 'Perhalus',
   'typo.actions.toRect': '→ Persegi Panjang',
   'typo.actions.toEllipse': '→ Elips',

@@ -222,6 +222,12 @@ export const ptBrMessages: TranslationCatalog = {
   'settings.language.systemLabel': 'Sistema detectado',
   'settings.language.applied':
     'A alteração é aplicada imediatamente e salva neste dispositivo para dev e build empacotado.',
+  'settings.uiScale.title': 'Escala da interface',
+  'settings.uiScale.description':
+    'Ajusta o tamanho dos controles da interface. As alterações são aplicadas imediatamente, sem reiniciar.',
+  'settings.uiScale.compactTitle': 'Densidade compacta',
+  'settings.uiScale.compactDesc':
+    'Reduz o espaçamento para caber mais conteúdo na tela.',
   'auth.tabs.login': 'Entrar',
   'auth.tabs.register': 'Criar conta',
   'auth.tabs.ariaLabel': 'Autenticação',
@@ -1797,6 +1803,31 @@ export const ptBrMessages: TranslationCatalog = {
   'dashboard.topbar.format': 'Formato',
   'dashboard.topbar.quality': 'Qualidade',
   'dashboard.topbar.package': 'Pacote',
+  // ── Lane D (W2): export naming, sidebar drag-reorder, calibration ──
+  'dashboard.topbar.namingPattern': 'Padrão de nome de arquivo',
+  'dashboard.topbar.namingPatternHint':
+    'Tokens: {obra} {capitulo} {pagina} {idioma} {nome} {ext}. Vazio mantém os nomes padrão.',
+  'dashboard.topbar.namingPreview': 'Prévia',
+  'dashboard.topbar.namingRecent': 'Recentes',
+  'dashboard.topbar.namingReset': 'Nomes padrão',
+  'dashboard.sidebar.dragPage': 'Arraste para reordenar páginas',
+  'dashboard.sidebar.dragPageSelected':
+    'Arrastar uma página selecionada move toda a seleção',
+  'dashboard.calibration.title': 'Calibração',
+  'dashboard.calibration.desc':
+    'Faz um benchmark do detector de fontes e escolhe a resolução de trabalho que esta máquina suporta.',
+  'dashboard.calibration.run': 'Calibrar agora',
+  'dashboard.calibration.decline': 'Agora não',
+  'dashboard.calibration.running': 'Medindo… pode levar até 20 segundos.',
+  'dashboard.calibration.failed':
+    'Nenhuma resolução de trabalho segura foi encontrada. Nada foi aplicado.',
+  'dashboard.calibration.neverRun': 'A calibração ainda não foi executada.',
+  'dashboard.calibration.recommended':
+    'Resolução de trabalho recomendada: {megapixels} MP',
+  'dashboard.calibration.apply': 'Aplicar',
+  'dashboard.calibration.applyFailed':
+    'Não foi possível entregar a configuração ao sidecar.',
+  'dashboard.calibration.close': 'Fechar',
   'dashboard.topbar.rawText': 'Raw Text',
   'dashboard.topbar.translated': 'Translated',
   'dashboard.topbar.inpainted': 'Inpainted',
@@ -2798,6 +2829,14 @@ export const ptBrMessages: TranslationCatalog = {
   'typo.tools.select': 'Select',
   'typo.tools.rect': 'Rectangular',
   'typo.tools.ellipse': 'Elliptic',
+  'typo.tools.marquee': 'Seleção por área',
+  'typo.multiSelect.count': '{count} regiões selecionadas',
+  'typo.multiSelect.applyStyle': 'Aplicar estilo',
+  'typo.multiSelect.retranslate': 'Retraduzir',
+  'typo.multiSelect.clear': 'Desmarcar',
+  'typo.multiSelect.delete': 'Excluir',
+  'typo.multiSelect.noPreset': 'Selecione um preset primeiro',
+  'typo.multiSelect.regionsRemoved': '{count} região(ões) removida(s)',
   'typo.actions.refine': 'Refine',
   'typo.actions.toRect': '→ Rectangular',
   'typo.actions.toEllipse': '→ Elliptic',
