@@ -9,7 +9,7 @@
 [![Website](https://img.shields.io/badge/website-koma--studio.site-111827)](https://koma-studio.site/)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/klaus-2/koma-studio?utm_source=oss&utm_medium=github&utm_campaign=klaus-2%2Fkoma-studio&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-![KŌMA Studio — 15s preview](docs/media/koma-studio-promo.gif)
+![KŌMA Studio — 15s preview](docs/media/koma-studio-demo.gif)
 
 **A free, open-source AI manga translator and scanlation studio**: bubble and text
 detection, OCR, LLM translation, text erasure (inpainting), typesetting and export,
