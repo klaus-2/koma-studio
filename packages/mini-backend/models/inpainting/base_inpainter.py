@@ -7,6 +7,7 @@ Compositing occurs once and never changes pixels outside the binary mask.
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from enum import StrEnum
@@ -25,6 +26,10 @@ type Box = tuple[int, int, int, int]
 
 _MAX_IMAGE_PIXELS = 32_000_000
 _BLEND_ROWS = 256
+_BATCH_SIZE_TOLERANCE = 96
+_BATCH_CROP_PADDING = 8
+
+logger = logging.getLogger(__name__)
 
 
 class InpaintingError(RuntimeError):
@@ -82,13 +87,7 @@ def _ceil_modulo(value: int, modulo: int) -> int:
     return ((value + modulo - 1) // modulo) * modulo
 
 
-def pad_to_modulo[T: np.generic](
-    array: npt.NDArray[T],
-    mod: int,
-    *,
-    min_size: int | None = None,
-    square: bool = False,
-) -> npt.NDArray[T]:
+def pad_to_modulo[T: np.generic](array: npt.NDArray[T], mod: int, *, min_size: int | None = None, square: bool = False) -> npt.NDArray[T]:
     if array.ndim < 2:
         raise InvalidInpaintInputError("Padding requires at least two dimensions")
     if mod < 1 or (min_size is not None and min_size < 1):
@@ -159,12 +158,7 @@ def boxes_from_mask(mask: MaskU8) -> list[Box]:
     return sorted(boxes, key=lambda box: (box[1], box[0], box[3], box[2]))
 
 
-def expand_crop_box(
-    box: Box,
-    img_w: int,
-    img_h: int,
-    margin: int,
-) -> Box:
+def expand_crop_box(box: Box, img_w: int, img_h: int, margin: int) -> Box:
     if img_w < 1 or img_h < 1 or margin < 0:
         raise ValueError("Invalid image dimensions or crop margin")
 
@@ -179,12 +173,7 @@ def expand_crop_box(
     return left, top, left + width, top + height
 
 
-def blend_with_mask(
-    original: ImageU8,
-    inpainted: ImageU8,
-    mask: MaskU8,
-    feather: int,
-) -> ImageU8:
+def blend_with_mask(original: ImageU8, inpainted: ImageU8, mask: MaskU8, feather: int) -> ImageU8:
     if original.shape != inpainted.shape or mask.shape != original.shape[:2]:
         raise InvalidInpaintInputError("Compositing dimensions do not match")
     if feather < 0:
@@ -261,6 +250,28 @@ def _normalize_mask(
     return np.where(active, np.uint8(255), np.uint8(0))
 
 
+def _batch_canvas_groups(crops: Sequence[Box]) -> list[list[Box]]:
+    """Bin similar-sized crops, splitting bins that exceed the pixel budget."""
+    groups: list[list[Box]] = []
+    for box in sorted(crops, key=lambda box: max(box[2] - box[0], box[3] - box[1])):
+        span = max(box[2] - box[0], box[3] - box[1])
+        if not groups or abs(span - max(max(b[2] - b[0], b[3] - b[1]) for b in groups[-1])) > _BATCH_SIZE_TOLERANCE:
+            groups.append([box])
+        else:
+            groups[-1].append(box)
+    ready: list[list[Box]] = []
+    while groups:
+        group = groups.pop(0)
+        width = sum(b[2] - b[0] for b in group) + _BATCH_CROP_PADDING * (len(group) - 1)
+        height = max(b[3] - b[1] for b in group)
+        if len(group) > 1 and width * height > _MAX_IMAGE_PIXELS:
+            middle = len(group) // 2
+            groups[0:0] = [group[:middle], group[middle:]]
+        else:
+            ready.append(group)
+    return ready
+
+
 class BaseInpainter(ABC):
     key: str = "base"
     name: str = "Base Inpainter"
@@ -320,7 +331,7 @@ class BaseInpainter(ABC):
             config.hd_strategy is HDStrategy.CROP
             and longest > config.hd_strategy_crop_trigger_size
         ):
-            return self._inpaint_crops(
+            return self._inpaint_crops_batched(
                 image,
                 mask,
                 boxes_from_mask(mask),
@@ -368,6 +379,10 @@ class BaseInpainter(ABC):
 
         return self._pad_forward(image, mask, config)
 
+    def _crop_boxes(self, image: ImageU8, boxes: Sequence[Box], config: InpaintConfig) -> list[Box]:
+        height, width = image.shape[:2]
+        return sorted({expand_crop_box(box, width, height, config.hd_strategy_crop_margin) for box in boxes}, key=lambda box: (box[1], box[0], box[3], box[2]))
+
     def _inpaint_crops(
         self,
         image: ImageU8,
@@ -377,21 +392,8 @@ class BaseInpainter(ABC):
     ) -> ImageU8:
         canvas = image.copy()
         remaining = mask >= 128
-        height, width = image.shape[:2]
 
-        crops = sorted(
-            {
-                expand_crop_box(
-                    box,
-                    width,
-                    height,
-                    config.hd_strategy_crop_margin,
-                )
-                for box in boxes
-            },
-            key=lambda box: (box[1], box[0], box[3], box[2]),
-        )
-
+        crops = self._crop_boxes(image, boxes, config)
         for left, top, right, bottom in crops:
             owned = remaining[top:bottom, left:right]
             if not owned.any():
@@ -409,6 +411,53 @@ class BaseInpainter(ABC):
             )
             owned[:] = False
 
+        return canvas
+
+    def _inpaint_crops_batched(self, image: ImageU8, mask: MaskU8, boxes: Sequence[Box], config: InpaintConfig) -> ImageU8:
+        crops = self._crop_boxes(image, boxes, config)
+        if len(crops) <= 1:
+            return self._inpaint_crops(image, mask, boxes, config)
+
+        image_height, image_width = image.shape[:2]
+        raw_box_by_crop: dict[Box, Box] = {}
+        for box in boxes:
+            raw_box_by_crop.setdefault(
+                expand_crop_box(box, image_width, image_height, config.hd_strategy_crop_margin),
+                box,
+            )
+
+        canvas = image.copy()
+        remaining = mask >= 128
+        for group in _batch_canvas_groups(crops):
+            tile_width = sum(r - l for l, t, r, b in group) + _BATCH_CROP_PADDING * (len(group) - 1)
+            tile_height = max(b - t for l, t, r, b in group)
+            tile = np.zeros((tile_height, tile_width, 3), dtype=np.uint8)
+            tile_mask = np.zeros((tile_height, tile_width), dtype=np.uint8)
+            placements: list[tuple[int, Box]] = []
+            offset = 0
+            for left, top, right, bottom in group:
+                tile[:bottom - top, offset:offset + right - left] = canvas[top:bottom, left:right]
+                tile_mask[:bottom - top, offset:offset + right - left] = np.where(
+                    remaining[top:bottom, left:right],
+                    mask[top:bottom, left:right],
+                    np.uint8(0),
+                )
+                placements.append((offset, (left, top, right, bottom)))
+                offset += right - left + _BATCH_CROP_PADDING
+            try:
+                prediction = self._pad_forward(tile, tile_mask, config)
+            except Exception as exc:
+                logger.warning("inpainting.batch_forward_failed", extra={"key": self.key, "crops": len(group), "error": str(exc)})
+                fallback = self._inpaint_crops(image, mask, [raw_box_by_crop[box] for box in group], config)
+                for left, top, right, bottom in group:
+                    owned = remaining[top:bottom, left:right]
+                    np.copyto(canvas[top:bottom, left:right], fallback[top:bottom, left:right], where=owned[:, :, np.newaxis])
+                    owned[:] = False
+                continue
+            for offset, (left, top, right, bottom) in placements:
+                owned = remaining[top:bottom, left:right]
+                np.copyto(canvas[top:bottom, left:right], prediction[:bottom - top, offset:offset + right - left], where=owned[:, :, np.newaxis])
+                owned[:] = False
         return canvas
 
     def _pad_forward(

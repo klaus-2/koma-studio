@@ -15,6 +15,7 @@ from core.device import (
     get_onnx_execution_providers,
 )
 from models.detection.base_detector import BaseDetector, TextDetection
+from models.detection.blank_bands import detect_blank_bands, filter_slices_through_content
 from models.detection.reading_order import sort_detections_in_reading_order
 from models.detection.slicing import compute_slice_bounds
 from models.detection.storage import resolve_detection_model_path
@@ -108,7 +109,11 @@ class ComicTextDetector(BaseDetector):
     def _detect_with_slicing(self, rgb: np.ndarray, score_threshold: float) -> list[TextDetection]:
         height, width = rgb.shape[:2]
         detections: list[TextDetection] = []
-        for start_y, end_y in compute_slice_bounds(height, width):
+        gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+        bounds = compute_slice_bounds(height, width)
+        filtered = filter_slices_through_content(bounds, detect_blank_bands(gray))
+        slices = bounds if len(filtered) <= 1 else filtered
+        for start_y, end_y in slices:
             for det in self._detect_single(rgb[start_y:end_y], score_threshold=score_threshold):
                 if start_y == 0:
                     detections.append(det)

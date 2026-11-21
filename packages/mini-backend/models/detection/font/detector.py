@@ -30,6 +30,7 @@ from core.device import (
     get_onnx_execution_providers,
 )
 from models.detection.base_detector import BaseDetector, TextDetection
+from models.detection.blank_bands import detect_blank_bands, filter_slices_through_content
 from models.detection.errors import (
     DetectionModelCorruptedError,
     DetectionModelNotInstalledError,
@@ -336,10 +337,13 @@ class ImageSlicer:
         bounds = compute_slice_bounds(height, width, self.slice_params)
         if len(bounds) <= 1:
             return detect_func(image)
+        gray = image if image.ndim == 2 else np.mean(image[..., :3], axis=2)
+        filtered = filter_slices_through_content(bounds, detect_blank_bands(gray))
+        slices = bounds if len(filtered) <= 1 else filtered
 
         bubble_parts: list[np.ndarray] = []
         text_parts: list[np.ndarray] = []
-        for start_y, end_y in bounds:
+        for start_y, end_y in slices:
             bubble_boxes, text_boxes = detect_func(image[start_y:end_y])
             if bubble_boxes.size > 0:
                 bubble_parts.append(self._shift_y(bubble_boxes, start_y))
