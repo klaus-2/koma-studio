@@ -39,10 +39,11 @@ def _collect(torch_module: ModuleType) -> dict[str, float | None]:
     return dict(stats)
 
 
-def test_free_mb_is_reported_from_mem_get_info() -> None:
+def test_free_mb_and_device_used_mb_are_reported_from_mem_get_info() -> None:
     stats = _collect(_fake_torch(free_bytes=300 * mini_app.MIB))
 
     assert stats["free_mb"] == 300.0
+    assert stats["device_used_mb"] == 700.0
     assert stats["allocated_mb"] == 100.0
     assert stats["total_mb"] == 1000.0
 
@@ -51,6 +52,7 @@ def test_free_mb_falls_back_to_none_when_probe_fails() -> None:
     stats = _collect(_fake_torch(broken_probe=True))
 
     assert stats["free_mb"] is None
+    assert stats["device_used_mb"] is None
     assert stats["allocated_mb"] == 100.0
 
 

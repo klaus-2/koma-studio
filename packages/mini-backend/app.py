@@ -284,6 +284,7 @@ class ProcessStats(TypedDict):
     rss_mb: float
     vms_mb: float
     cpu_percent: float
+    system_total_mb: float
 
 
 class GcStats(TypedDict):
@@ -301,6 +302,7 @@ class GpuStats(TypedDict):
     reserved_mb: float
     total_mb: float
     free_mb: float | None
+    device_used_mb: float | None
 
 
 class EngineIdleStats(TypedDict):
@@ -328,9 +330,11 @@ def _collect_gpu_stats() -> GpuStats | None:
     if not torch.cuda.is_available():
         return None
     free_mb: float | None = None
+    device_used_mb: float | None = None
     try:
-        free_bytes, _total_bytes = torch.cuda.mem_get_info(0)
+        free_bytes, total_bytes = torch.cuda.mem_get_info(0)
         free_mb = round(free_bytes / MIB, 1)
+        device_used_mb = round((total_bytes - free_bytes) / MIB, 1)
     except Exception as exc:  # best-effort probe: a broken driver stays None
         logger.debug("gpu free-memory probe failed: %s", type(exc).__name__)
     return GpuStats(
@@ -338,6 +342,7 @@ def _collect_gpu_stats() -> GpuStats | None:
         reserved_mb=round(torch.cuda.memory_reserved(0) / MIB, 1),
         total_mb=round(torch.cuda.get_device_properties(0).total_memory / MIB, 1),
         free_mb=free_mb,
+        device_used_mb=device_used_mb,
     )
 
 
@@ -370,6 +375,7 @@ def _collect_memory_stats() -> MemoryStatsPayload:
             rss_mb=round(memory.rss / MIB, 1),
             vms_mb=round(memory.vms / MIB, 1),
             cpu_percent=process.cpu_percent(),
+            system_total_mb=round(psutil.virtual_memory().total / MIB, 1),
         ),
         gc=_collect_gc_stats(),
         caches={
