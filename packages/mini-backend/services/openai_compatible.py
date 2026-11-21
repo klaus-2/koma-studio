@@ -211,6 +211,10 @@ def resolve_openai_compatible_chat_endpoint(api_base: str) -> str:
     return _resolve_openai_compatible_endpoint(api_base, "/chat/completions")
 
 
+def resolve_openai_compatible_images_edits_endpoint(api_base: str) -> str:
+    return _resolve_openai_compatible_endpoint(api_base, "/images/edits")
+
+
 def resolve_openai_compatible_models_endpoint(api_base: str) -> str:
     return _resolve_openai_compatible_endpoint(api_base, "/models")
 

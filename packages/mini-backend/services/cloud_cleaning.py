@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import ipaddress
+import json
 import logging
 import math
 import re
@@ -22,10 +23,12 @@ from models.translation.providers import resolve_request_custom_openai_config
 from services.http_client import get_shared_client
 from services.openai_compatible import (
     build_custom_provider_http_error_detail,
+    build_openai_compatible_headers,
     is_gemini_host,
     is_vertex_openai_endpoint,
     normalize_openai_compatible_api_base,
     post_openai_compatible_json,
+    resolve_openai_compatible_images_edits_endpoint,
     requires_api_key_for_known_provider,
 )
 
@@ -43,6 +46,8 @@ _MAX_REMOTE_IMAGE_BYTES: Final = 32 * 1024 * 1024
 _MAX_REDIRECTS: Final = 3
 _IMAGE_MAGIC: Final = (b"\x89PNG", b"\xff\xd8", b"RIFF")
 _GEMINI_RETRY_STATUSES: Final = frozenset({429, 500, 502, 503, 504})
+_PROTOCOL_FALLBACK_STATUSES: Final = frozenset({400, 404})
+_CLEAN_CUSTOM_PROTOCOL_CACHE: dict[tuple[str, str], str] = {}
 
 
 class CloudCleanError(RuntimeError):
@@ -593,6 +598,124 @@ async def _call_openai_compatible_clean(
     )
 
 
+async def _call_images_edits_clean(
+    *,
+    api_base: str,
+    api_key: str | None,
+    model_name: str,
+    system_prompt: str,
+    user_prompt: str,
+    image_bytes: bytes,
+    client: httpx.AsyncClient,
+) -> bytes:
+    payload = {
+        "model": model_name,
+        "prompt": f"{system_prompt}\n\n{user_prompt}",
+        "images": [
+            {
+                "image_url": (
+                    f"data:{_PNG_MIME};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+                )
+            }
+        ],
+        "response_format": "b64_json",
+    }
+    headers = build_openai_compatible_headers(api_key)
+    response = await client.post(
+        resolve_openai_compatible_images_edits_endpoint(api_base),
+        json=payload,
+        headers=headers or None,
+    )
+    response.raise_for_status()
+    response_payload = response.json()
+    data_items = (
+        response_payload.get("data") if isinstance(response_payload, dict) else None
+    )
+    if isinstance(data_items, list):
+        for item in data_items:
+            if not isinstance(item, dict):
+                continue
+            error = item.get("error")
+            if isinstance(error, dict) and str(error.get("message") or "").strip():
+                raise CloudCleanProviderError(
+                    "The provider rejected the edit request: "
+                    f"{_text_failure_detail(str(error.get('message')))}"
+                )
+            b64_json = str(item.get("b64_json") or "").strip()
+            if b64_json:
+                return base64.b64decode(b64_json)
+            remote_url = str(item.get("url") or "").strip()
+            if remote_url:
+                downloaded = await _download_remote_image(remote_url, client)
+                if downloaded is not None:
+                    return downloaded
+    raise CloudCleanProviderError(
+        "The provider did not return an edited image through the images/edits endpoint."
+    )
+
+
+def _upstream_error_detail(upstream_message: str | None, limit: int = 300) -> str:
+    if not upstream_message or not upstream_message.strip():
+        return ""
+    stripped = upstream_message.strip()
+    try:
+        parsed = json.loads(stripped)
+    except ValueError:
+        return _text_failure_detail(stripped, limit=limit)
+    if isinstance(parsed, dict):
+        error = parsed.get("error")
+        if isinstance(error, dict):
+            message = error.get("message")
+            if isinstance(message, str) and message.strip():
+                return _text_failure_detail(message.strip(), limit=limit)
+    return _text_failure_detail(stripped, limit=limit)
+
+
+async def _call_custom_clean_with_protocol(
+    *,
+    api_base: str,
+    api_key: str | None,
+    model_name: str,
+    system_prompt: str,
+    user_prompt: str,
+    image_bytes: bytes,
+) -> bytes:
+    cache_key = (api_base, model_name)
+    if _CLEAN_CUSTOM_PROTOCOL_CACHE.get(cache_key) == "images_edits":
+        return await _call_images_edits_clean(
+            api_base=api_base,
+            api_key=api_key,
+            model_name=model_name,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            image_bytes=image_bytes,
+            client=get_shared_client(),
+        )
+    try:
+        return await _call_openai_compatible_clean(
+            api_base=api_base,
+            api_key=api_key,
+            model_name=model_name,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            image_bytes=image_bytes,
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code not in _PROTOCOL_FALLBACK_STATUSES:
+            raise
+        edited = await _call_images_edits_clean(
+            api_base=api_base,
+            api_key=api_key,
+            model_name=model_name,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            image_bytes=image_bytes,
+            client=get_shared_client(),
+        )
+        _CLEAN_CUSTOM_PROTOCOL_CACHE[cache_key] = "images_edits"
+        return edited
+
+
 def _retry_delay(response: httpx.Response, attempt: int) -> float:
     header = response.headers.get("retry-after")
     try:
@@ -703,6 +826,15 @@ async def _execute_clean_call(
                 user_prompt=user_prompt,
                 image_bytes=image_bytes,
                 client=get_shared_client(),
+            )
+        if provider == "custom_image":
+            return await _call_custom_clean_with_protocol(
+                api_base=api_base,
+                api_key=api_key,
+                model_name=model_name,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                image_bytes=image_bytes,
             )
         return await _call_openai_compatible_clean(
             api_base=api_base,
@@ -921,7 +1053,14 @@ def build_clean_provider_http_error_detail(
             ).strip()
             model_name = str(custom_llm.get("model") or "").strip()
             if api_base:
-                return build_custom_provider_http_error_detail(
+                detail = build_custom_provider_http_error_detail(
                     status_code, api_base, model_name
                 )
+                upstream_detail = _upstream_error_detail(upstream_message)
+                if upstream_detail and upstream_detail not in detail:
+                    return f"{detail} Provider detail: {upstream_detail}"
+                return detail
+    upstream_detail = _upstream_error_detail(upstream_message)
+    if upstream_detail:
+        return f"Provider respondeu {status_code}. Provider detail: {upstream_detail}"
     return f"Provider respondeu {status_code}"
