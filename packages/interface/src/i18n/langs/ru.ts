@@ -951,6 +951,10 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.footer.runtime.cpu.title': 'CPU активен',
   'dashboard.footer.runtime.cpu.detail':
     'Локальное выполнение без выделенного ускорения.',
+  'dashboard.footer.runtime.cpuAlert.title': 'Выполняется на CPU',
+  'dashboard.footer.runtime.cpuAlert.detail':
+    'GPU доступен, но среда выполнения работает в режиме отката на CPU. Проверьте конфигурацию.',
+  'dashboard.footer.runtime.cpuAlert.cta': 'Исправить конфигурацию',
   'dashboard.footer.workspace.saving': 'Сохранение',
   'dashboard.footer.workspace.saved': 'Сохранено',
   'dashboard.footer.workspace.error': 'Локальная ошибка',
@@ -959,6 +963,11 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.footer.runtime.source': 'Источник: {value}',
   'dashboard.footer.runtime.remoteAvailable': 'Доступен удалённый пакет.',
   'dashboard.footer.runtime.errorReason': 'Причина: {value}',
+  'dashboard.footer.memory.title': 'Использование памяти среды выполнения',
+  'dashboard.footer.memory.ram': 'RAM {used}/{total}',
+  'dashboard.footer.memory.vram': 'VRAM {used}/{total}',
+  'dashboard.footer.memory.warning': 'Память близка к пределу',
+  'dashboard.footer.memory.ramTotalUnknown': 'Общий объём RAM системы не сообщается средой выполнения',
   'dashboard.footer.bugReport.title': 'Сообщить об ошибке',
   'dashboard.footer.bugReport.desc':
     'Отправьте отчёт об ошибке с автоматическими скриншотами и логами.',
@@ -1786,6 +1795,8 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.topbar.rotate90': 'Повернуть 90°',
   'dashboard.topbar.selectImage': 'Выберите изображение',
   'dashboard.topbar.export': 'Экспорт',
+  'dashboard.topbar.quickExport.label': 'Быстрый экспорт',
+  'dashboard.topbar.quickExport.webpLight': 'Легковесный WebP (0.6)',
   'dashboard.topbar.textFile': 'Текстовый файл',
   'dashboard.topbar.textPackage': 'Текстовый пакет',
   'dashboard.topbar.imagePackage': 'Пакет изображений',
@@ -2316,9 +2327,12 @@ export const ruMessages: TranslationCatalog = {
   'modelManager.installAll.confirm':
     'Это может занять много времени и использовать значительное количество дискового пространства. Продолжить?',
   'modelManager.installAll.confirmDownload': 'Подтвердить загрузку',
+  'modelManager.installAll.multiStage.label': 'Установить рекомендованные (все этапы AIO)',
+  'modelManager.installAll.multiStage.stagesList': 'Этапы: {stages}',
   'modelManager.disk.notVerified': 'Диск не проверен',
   'modelManager.disk.free': '{space} свободно',
   'modelManager.disk.models': '{installed}/{total} моделей ({size})',
+  'modelManager.disk.requiredVsAvailable': 'Требуется: {required} · Доступно: {available}',
   'modelManager.enhance.title': 'Модели улучшения',
   'modelManager.enhance.description':
     'Эксклюзивный локальный каталог для улучшения. Установка, обновление, удаление или импорт ONNX.',
@@ -2774,6 +2788,10 @@ export const ruMessages: TranslationCatalog = {
   'typo.presets.none': 'Нет пресета',
   'typo.presets.applySelection': '→ Выделение',
   'typo.presets.applyImage': '→ Изображение',
+  'typo.presets.saveFromRegion': 'Сохранить текущую область как пресет',
+  'typo.presets.sfxGroup': 'Пресеты SFX',
+  'typo.presets.applySfxToApproved': 'Применить пресет SFX к одобренным областям',
+  'typo.presets.previewHint': 'Наведите для предпросмотра · нажмите для применения',
   'typo.snapshots.title': 'Снимки',
   'typo.snapshots.hint':
     'Сохраните текущее состояние для восстановления позже.',

@@ -940,6 +940,10 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.footer.runtime.cpu.title': 'CPU有効',
   'dashboard.footer.runtime.cpu.detail':
     '専用アクセラレーションなしのローカル実行。',
+  'dashboard.footer.runtime.cpuAlert.title': 'CPUで実行中',
+  'dashboard.footer.runtime.cpuAlert.detail':
+    'GPUは利用可能ですが、ランタイムがCPUフォールバックで動作しています。設定を確認してください。',
+  'dashboard.footer.runtime.cpuAlert.cta': '設定を修正',
   'dashboard.footer.workspace.saving': '保存中',
   'dashboard.footer.workspace.saved': '保存済み',
   'dashboard.footer.workspace.error': 'ローカルエラー',
@@ -949,6 +953,11 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.footer.runtime.remoteAvailable':
     'リモートパッケージが利用可能です。',
   'dashboard.footer.runtime.errorReason': '理由：{value}',
+  'dashboard.footer.memory.title': 'ランタイムのメモリ使用量',
+  'dashboard.footer.memory.ram': 'RAM {used}/{total}',
+  'dashboard.footer.memory.vram': 'VRAM {used}/{total}',
+  'dashboard.footer.memory.warning': 'メモリが上限に近づいています',
+  'dashboard.footer.memory.ramTotalUnknown': 'システムの総RAMがランタイムから報告されていません',
   'dashboard.footer.bugReport.title': 'バグ報告',
   'dashboard.footer.bugReport.desc':
     'スクリーンショットとログを自動添付してバグを報告します。',
@@ -1764,6 +1773,8 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.topbar.rotate90': '90° 回転',
   'dashboard.topbar.selectImage': '画像を選択',
   'dashboard.topbar.export': 'エクスポート',
+  'dashboard.topbar.quickExport.label': 'クイックエクスポート',
+  'dashboard.topbar.quickExport.webpLight': '軽量WebP (0.6)',
   'dashboard.topbar.textFile': 'テキストファイル',
   'dashboard.topbar.textPackage': 'テキストパッケージ',
   'dashboard.topbar.imagePackage': '画像パッケージ',
@@ -2294,9 +2305,12 @@ export const jaMessages: TranslationCatalog = {
   'modelManager.installAll.confirm':
     '長時間かかり、大量のディスク容量を使用する場合があります。続行しますか？',
   'modelManager.installAll.confirmDownload': 'ダウンロードを確認',
+  'modelManager.installAll.multiStage.label': '推奨モデルをインストール（全AIOステージ）',
+  'modelManager.installAll.multiStage.stagesList': 'ステージ：{stages}',
   'modelManager.disk.notVerified': 'ディスク未検証',
   'modelManager.disk.free': '{space} 空き',
   'modelManager.disk.models': '{installed}/{total} モデル（{size}）',
+  'modelManager.disk.requiredVsAvailable': '必要：{required} · 利用可能：{available}',
   'modelManager.enhance.title': 'エンハンスモデル',
   'modelManager.enhance.description':
     'エンハンサー専用ローカルカタログ。インストール、アップデート、アンインストール、またはONNXのインポート。',
@@ -2752,6 +2766,10 @@ export const jaMessages: TranslationCatalog = {
   'typo.presets.none': 'プリセットなし',
   'typo.presets.applySelection': '→ 選択に適用',
   'typo.presets.applyImage': '→ 画像に適用',
+  'typo.presets.saveFromRegion': '現在の領域をプリセットとして保存',
+  'typo.presets.sfxGroup': 'SFXプリセット',
+  'typo.presets.applySfxToApproved': '承認済みの領域にSFXプリセットを適用',
+  'typo.presets.previewHint': 'ホバーでプレビュー · クリックで適用',
   'typo.snapshots.title': 'スナップショット',
   'typo.snapshots.hint': '現在の状態を保存して後で復元できます。',
   'typo.snapshots.placeholder': 'スナップショット名',

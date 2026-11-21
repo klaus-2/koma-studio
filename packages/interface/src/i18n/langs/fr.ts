@@ -927,6 +927,10 @@ export const frMessages: TranslationCatalog = {
   'dashboard.footer.runtime.cpu.title': 'CPU actif',
   'dashboard.footer.runtime.cpu.detail':
     'Exécution locale sans accélération dédiée.',
+  'dashboard.footer.runtime.cpuAlert.title': 'Exécution sur CPU',
+  'dashboard.footer.runtime.cpuAlert.detail':
+    "Un GPU est disponible, mais le runtime est en fallback CPU. Vérifiez la configuration.",
+  'dashboard.footer.runtime.cpuAlert.cta': 'Corriger la configuration',
   'dashboard.footer.workspace.saving': 'Enregistrement',
   'dashboard.footer.workspace.saved': 'Enregistré',
   'dashboard.footer.workspace.error': 'Erreur locale',
@@ -935,6 +939,11 @@ export const frMessages: TranslationCatalog = {
   'dashboard.footer.runtime.source': 'Source : {value}',
   'dashboard.footer.runtime.remoteAvailable': 'Package distant disponible.',
   'dashboard.footer.runtime.errorReason': 'Raison : {value}',
+  'dashboard.footer.memory.title': 'Utilisation de la mémoire du runtime',
+  'dashboard.footer.memory.ram': 'RAM {used}/{total}',
+  'dashboard.footer.memory.vram': 'VRAM {used}/{total}',
+  'dashboard.footer.memory.warning': 'Mémoire proche de la limite',
+  'dashboard.footer.memory.ramTotalUnknown': "Total de RAM du système non communiqué par le runtime",
   'dashboard.footer.bugReport.title': 'Signaler un bug',
   'dashboard.footer.bugReport.desc':
     "Signalez des bugs avec captures d'écran et journaux automatiques.",
@@ -1766,6 +1775,8 @@ export const frMessages: TranslationCatalog = {
   'dashboard.topbar.rotate90': 'Rotation 90°',
   'dashboard.topbar.selectImage': 'Sélectionnez une image',
   'dashboard.topbar.export': 'Exporter',
+  'dashboard.topbar.quickExport.label': 'Exportation rapide',
+  'dashboard.topbar.quickExport.webpLight': 'WebP léger (0.6)',
   'dashboard.topbar.textFile': 'Fichier texte',
   'dashboard.topbar.textPackage': 'Package texte',
   'dashboard.topbar.imagePackage': 'Package image',
@@ -2268,9 +2279,12 @@ export const frMessages: TranslationCatalog = {
   'modelManager.installAll.confirm':
     'Cela peut prendre beaucoup de temps et utiliser un espace disque important. Voulez-vous continuer ?',
   'modelManager.installAll.confirmDownload': 'Confirmer le téléchargement',
+  'modelManager.installAll.multiStage.label': 'Installer les recommandés (toutes les étapes AIO)',
+  'modelManager.installAll.multiStage.stagesList': 'Étapes : {stages}',
   'modelManager.disk.notVerified': 'Disque non vérifié',
   'modelManager.disk.free': '{space} libre',
   'modelManager.disk.models': '{installed}/{total} modèles ({size})',
+  'modelManager.disk.requiredVsAvailable': 'Requis : {required} · Disponible : {available}',
   'modelManager.enhance.title': "Modèles d'amélioration",
   'modelManager.enhance.description':
     "Catalogue local exclusif pour l'améliorateur. Installez, mettez à jour, désinstallez ou importez un ONNX.",
@@ -2720,6 +2734,10 @@ export const frMessages: TranslationCatalog = {
   'typo.presets.none': 'Aucun préréglage',
   'typo.presets.applySelection': '→ Sélection',
   'typo.presets.applyImage': '→ Image',
+  'typo.presets.saveFromRegion': 'Enregistrer la région actuelle comme préréglage',
+  'typo.presets.sfxGroup': 'Préréglages SFX',
+  'typo.presets.applySfxToApproved': 'Appliquer le préréglage SFX aux régions approuvées',
+  'typo.presets.previewHint': 'Survolez pour prévisualiser · cliquez pour appliquer',
   'typo.snapshots.title': 'Instantanés',
   'typo.snapshots.hint':
     "Enregistrez l'état actuel pour le restaurer plus tard.",
