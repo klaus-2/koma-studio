@@ -10,6 +10,7 @@ import {
 import { useMemo } from 'react';
 import { useI18n } from '../../../i18n';
 import * as exportNaming from '../../../utils/exportNaming';
+import { QUICK_EXPORT_PRESETS } from '../quickExportPresets';
 import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
 import { useExportStore } from '../../../pages/dashboard/stores/export-store';
 import { useImageCollectionStore } from '../../../pages/dashboard/stores/image-collection-store';
@@ -264,6 +265,22 @@ function ImagePackageControls({
   const { t } = useI18n();
   return (
     <>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('dashboard.topbar.quickExport.label')}>
+        {QUICK_EXPORT_PRESETS.map((preset) => {
+          const active = outFormat === preset.format && outQuality === preset.quality;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              className={cn('panel-cut-sm border px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors', active ? 'border-crimson bg-crimson text-ink' : 'border-paper/20 bg-ink-3 text-paper-dim hover:border-crimson hover:text-paper')}
+              aria-pressed={active}
+              onClick={() => { onOutFormatChange(preset.format); onOutQualityChange(preset.quality); }}
+            >
+              {t(preset.labelKey)}
+            </button>
+          );
+        })}
+      </div>
       <Field label={t('dashboard.topbar.format')}>
         <select className={selectCls} value={outFormat} onChange={(e) => onOutFormatChange(e.target.value)}>
           <option value="image/png">{t('dashboard.topbar.optionPng')}</option>

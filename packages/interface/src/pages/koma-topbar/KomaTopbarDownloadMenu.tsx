@@ -9,6 +9,7 @@ import {
 import { useMemo } from 'react';
 import { useI18n } from '../../i18n';
 import * as exportNaming from '../../utils/exportNaming';
+import { QUICK_EXPORT_PRESETS } from './quickExportPresets';
 import { useAioPipelineStore } from '../dashboard/stores/aio-pipeline-store';
 import { useExportStore } from '../dashboard/stores/export-store';
 import { useImageCollectionStore } from '../dashboard/stores/image-collection-store';
@@ -242,6 +243,22 @@ function ImagePackageControls({
   const { t } = useI18n();
   return (
     <>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }} role="group" aria-label={t('dashboard.topbar.quickExport.label')}>
+        {QUICK_EXPORT_PRESETS.map((preset) => {
+          const active = outFormat === preset.format && outQuality === preset.quality;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              className={cn('koma-dlmenu__action', active ? 'koma-dlmenu__action--primary' : 'koma-dlmenu__action--ghost')}
+              aria-pressed={active}
+              onClick={() => { onOutFormatChange(preset.format); onOutQualityChange(preset.quality); }}
+            >
+              {t(preset.labelKey)}
+            </button>
+          );
+        })}
+      </div>
       <label className="koma-dlfield">
         <span className="koma-dlfield__label">{t('dashboard.topbar.format')}</span>
         <select className="koma-dlfield__select" value={outFormat} onChange={(e) => onOutFormatChange(e.target.value)}>

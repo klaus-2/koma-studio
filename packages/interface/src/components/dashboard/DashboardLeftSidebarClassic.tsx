@@ -21,6 +21,7 @@ import {
 import { useI18n, type TranslateFn } from '../../i18n';
 import VersionBadge from '../VersionBadge';
 import SidebarChapterHeader from './SidebarChapterHeader';
+import VirtualizedSidebarList, { buildVirtualizedSidebarRows, VIRTUALIZED_SIDEBAR_MIN_IMAGES, type SidebarVirtualRow, type VirtualizedSidebarRowDomProps } from './virtualized-sidebar/VirtualizedSidebarList';
 import {
   DashboardLeftSidebarPageDragGuide,
   usePageDragReorder,
@@ -118,6 +119,7 @@ interface SidebarImageItemProps {
   /** HTML5 drag-reorder handlers; `draggable: false` when the gate is active. */
   dragHandlers: SidebarPageDragHandlers;
   t: TranslateFn;
+  rowDomProps?: VirtualizedSidebarRowDomProps;
 }
 
 const SidebarImageItem = React.memo(function SidebarImageItem({
@@ -143,6 +145,7 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   showDropGuide,
   dragHandlers,
   t,
+  rowDomProps,
 }: SidebarImageItemProps) {
   const rotated = getRotatedDims(img);
   // Per-image subscription (I11): only this page's regions trigger a re-render
@@ -153,6 +156,7 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   const overflowCount = deriveOverflowCount(img.id, regions, measure);
   return (
     <li
+      {...rowDomProps}
       onClick={() =>
         selectionMode ? onToggleSelection(img.id) : setActiveId(img.id)
       }
@@ -362,14 +366,15 @@ export default function DashboardLeftSidebarClassic({
     chapterSelection,
     dragEnabled: !processing && !isExtractingUploads,
   });
-  const renderImageItem = (img: LoadedImage) => {
+  const renderImageItem = (img: LoadedImage, rowDomProps?: VirtualizedSidebarRowDomProps, globalIndex?: number) => {
     const imageHistoryMeta = getAioImageSnapshotMeta(img.id);
 
     return (
       <SidebarImageItem
         key={img.id}
+        rowDomProps={rowDomProps}
         img={img}
-        idx={imageIndexById.get(img.id) ?? 0}
+        idx={globalIndex ?? imageIndexById.get(img.id) ?? 0}
         count={images.length}
         isActive={activeId === img.id}
         canRewind={imageHistoryMeta.canRewind}
@@ -393,6 +398,11 @@ export default function DashboardLeftSidebarClassic({
       />
     );
   };
+
+  const sidebarRows = React.useMemo(() => buildVirtualizedSidebarRows(images, chapterGroups, t('dashboard.sidebar.chapters.unassigned'), hasChapters), [chapterGroups, hasChapters, images, t]);
+  const renderItemRow = (row: SidebarVirtualRow, domProps: VirtualizedSidebarRowDomProps) => row.kind === 'image'
+    ? renderImageItem(row.image, domProps, row.globalIndex)
+    : <li {...domProps}><SidebarChapterHeader chapterId={row.chapterId} label={row.label} count={row.count} noir={false} /></li>;
 
   const formatResetCountdown = (resetInMs: number): string => {
     const totalMinutes = Math.max(0, Math.ceil(resetInMs / 60_000));
@@ -559,6 +569,9 @@ export default function DashboardLeftSidebarClassic({
           <SidebarChapterSelectionBar selection={chapterSelection} noir={false} />
         )}
 
+        {images.length >= VIRTUALIZED_SIDEBAR_MIN_IMAGES ? (
+          <VirtualizedSidebarList rows={sidebarRows} estimatedHeights={{ 'chapter-header': 42, image: 76 }} enabled containerClassName="koma-files__list custom-scrollbar" listHandlers={drag.listHandlers(images.length)} renderItemRow={renderItemRow} />
+        ) : (
         <div className="koma-files__list custom-scrollbar">
           {images.length === 0 ? (
             <div className="koma-files__empty">
@@ -586,13 +599,14 @@ export default function DashboardLeftSidebarClassic({
                           noir={false}
                         />
                       </li>
-                      {group.images.map(renderImageItem)}
+                      {group.images.map((img) => renderImageItem(img))}
                     </React.Fragment>
                   ))
-                : images.map(renderImageItem)}
+                : images.map((img) => renderImageItem(img))}
             </ul>
           )}
         </div>
+        )}
 
         <div
           {...getRootProps()}

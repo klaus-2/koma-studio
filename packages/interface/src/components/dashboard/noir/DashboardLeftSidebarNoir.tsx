@@ -8,6 +8,7 @@ import {
 import { useI18n, type TranslateFn } from '../../../i18n';
 import VersionBadge from '../../VersionBadge';
 import SidebarChapterHeader from '../SidebarChapterHeader';
+import VirtualizedSidebarList, { buildVirtualizedSidebarRows, VIRTUALIZED_SIDEBAR_MIN_IMAGES, type SidebarVirtualRow, type VirtualizedSidebarRowDomProps } from '../virtualized-sidebar/VirtualizedSidebarList';
 import SidebarChapterSelectionBar from '../SidebarChapterSelectionBar';
 import {
   DashboardLeftSidebarPageDragGuide,
@@ -97,6 +98,7 @@ interface SidebarImageItemProps {
   /** HTML5 drag-reorder handlers; `draggable: false` when the gate is active. */
   dragHandlers: SidebarPageDragHandlers;
   t: TranslateFn;
+  rowDomProps?: VirtualizedSidebarRowDomProps;
 }
 
 const SidebarImageItem = React.memo(function SidebarImageItem({
@@ -122,6 +124,7 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
   showDropGuide,
   dragHandlers,
   t,
+  rowDomProps,
 }: SidebarImageItemProps) {
   const rotated = getRotatedDims(img);
   // Per-image subscription (I11): only this page's regions trigger a re-render
@@ -130,30 +133,8 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
     (s) => s.aioDetectionsByImage[img.id] ?? EMPTY_REGION_LIST,
   );
   const overflowCount = deriveOverflowCount(img.id, regions, measure);
-  return (
-    <m.li
-      layout
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -12 }}
-      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-      // onDragOver/onDrop are native-only (framer-motion owns only the
-      // onDragStart/onDragEnd gesture names), so carrying them here makes
-      // the li's 6px padding a real drop target instead of a dead zone
-      // that silently appended the dragged group at the list end.
-      onDragOver={dragHandlers.onDragOver}
-      onDrop={dragHandlers.onDrop}
-      onClick={() =>
-        selectionMode ? onToggleSelection(img.id) : setActiveId(img.id)
-      }
-      className={cn(
-        'panel-cut-sm group relative flex cursor-pointer items-center gap-2 p-1.5 transition-all',
-        isActive
-          ? 'bg-crimson/15 shadow-hard-crimson ring-1 ring-crimson/40'
-          : 'bg-ink-3/60 hover:-translate-x-0.5 hover:bg-ink-3 hover:shadow-hard-paper',
-        selectionMode && isSelected && 'bg-crimson/10 ring-1 ring-crimson/70',
-      )}
-    >
+  const itemBody = (
+    <>
       {showDropGuide && <DashboardLeftSidebarPageDragGuide />}
       {/* framer-motion's m.li owns onDragStart/onDragEnd gesture props, so the
           HTML5 drag-reorder handlers live on this plain inner row element. */}
@@ -219,8 +200,52 @@ const SidebarImageItem = React.memo(function SidebarImageItem({
         </MiniBtn>
       </div>
       </div>
-    </m.li>
+    </>
   );
+  const liClassName = cn(
+    'panel-cut-sm group relative flex cursor-pointer items-center gap-2 p-1.5 transition-all',
+    isActive
+      ? 'bg-crimson/15 shadow-hard-crimson ring-1 ring-crimson/40'
+      : 'bg-ink-3/60 hover:-translate-x-0.5 hover:bg-ink-3 hover:shadow-hard-paper',
+    selectionMode && isSelected && 'bg-crimson/10 ring-1 ring-crimson/70',
+  );
+  const rowDomPropsPresent = rowDomProps !== undefined;
+  const legacyDomProps = rowDomProps;
+  const itemChildren = (
+    <>
+      {rowDomPropsPresent ? (
+        <li
+          {...rowDomProps}
+          onDragOver={dragHandlers.onDragOver}
+          onDrop={dragHandlers.onDrop}
+          onClick={() =>
+            selectionMode ? onToggleSelection(img.id) : setActiveId(img.id)
+          }
+          className={liClassName}
+        >
+          {itemBody}
+        </li>
+      ) : (
+        <m.li
+          {...legacyDomProps}
+          layout
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -12 }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          onDragOver={dragHandlers.onDragOver}
+          onDrop={dragHandlers.onDrop}
+          onClick={() =>
+            selectionMode ? onToggleSelection(img.id) : setActiveId(img.id)
+          }
+          className={liClassName}
+        >
+          {itemBody}
+        </m.li>
+      )}
+    </>
+  );
+  return itemChildren;
 });
 
 export default function DashboardLeftSidebarNoir({
@@ -286,13 +311,14 @@ export default function DashboardLeftSidebarNoir({
     chapterSelection,
     dragEnabled: !processing && !isExtractingUploads,
   });
-  const renderImageItem = (img: LoadedImage) => {
+  const renderImageItem = (img: LoadedImage, rowDomProps?: VirtualizedSidebarRowDomProps, globalIndex?: number) => {
     const meta = getAioImageSnapshotMeta(img.id);
-    const idx = imageIndexById.get(img.id) ?? 0;
+    const idx = globalIndex ?? imageIndexById.get(img.id) ?? 0;
 
     return (
       <SidebarImageItem
         key={img.id}
+        rowDomProps={rowDomProps}
         img={img}
         idx={idx}
         count={images.length}
@@ -318,6 +344,10 @@ export default function DashboardLeftSidebarNoir({
       />
     );
   };
+  const sidebarRows = React.useMemo(() => buildVirtualizedSidebarRows(images, chapterGroups, t('dashboard.sidebar.chapters.unassigned'), hasChapters), [chapterGroups, hasChapters, images, t]);
+  const renderItemRow = (row: SidebarVirtualRow, domProps: VirtualizedSidebarRowDomProps) => row.kind === 'image'
+    ? renderImageItem(row.image, domProps, row.globalIndex)
+    : <li {...domProps}><SidebarChapterHeader chapterId={row.chapterId} label={row.label} count={row.count} noir /></li>;
   const statsItems = [processingStats.daily, processingStats.weekly, processingStats.monthly];
 
   const formatResetCountdown = (resetInMs: number): string => {
@@ -468,6 +498,9 @@ export default function DashboardLeftSidebarNoir({
           <SidebarChapterSelectionBar selection={chapterSelection} noir />
         )}
 
+        {images.length >= VIRTUALIZED_SIDEBAR_MIN_IMAGES ? (
+          <VirtualizedSidebarList rows={sidebarRows} estimatedHeights={{ 'chapter-header': 34, image: 64 }} enabled containerClassName="custom-scrollbar min-h-0 flex-1 overflow-y-auto" listHandlers={drag.listHandlers(images.length)} renderItemRow={renderItemRow} />
+        ) : (
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
           {images.length === 0 ? (
             <div className="panel-cut flex h-40 flex-col items-center justify-center gap-2 border border-dashed border-paper/15 bg-ink-3/40 text-paper-dim">
@@ -498,17 +531,18 @@ export default function DashboardLeftSidebarNoir({
                         noir
                       />
                     </li>
-                    {group.images.map(renderImageItem)}
+                    {group.images.map((img) => renderImageItem(img))}
                   </React.Fragment>
                 ))
               ) : (
                 <AnimatePresence initial={false}>
-                  {images.map(renderImageItem)}
+                  {images.map((img) => renderImageItem(img))}
                 </AnimatePresence>
               )}
             </ul>
           )}
         </div>
+        )}
 
         <div
           {...getRootProps()}
