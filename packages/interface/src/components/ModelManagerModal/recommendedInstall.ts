@@ -181,3 +181,51 @@ export const buildScopedInstallSummary = (
     eligibleModelIds: eligible.map((entry) => entry.model.id),
   };
 };
+
+export const ALL_AIO_LOCAL_STAGES: readonly AioLocalModelStage[] = [
+  'translation',
+  'detectText',
+  'recognizeText',
+  'segmentText',
+  'cleanImage',
+  'enhanceImage',
+];
+
+const EMPTY_SCOPED_SUMMARY: InstallAllSummary = {
+  totalBytes: 0,
+  requiredBytes: 0,
+  eligibleModelIds: [],
+};
+
+export const buildMultiStageInstallSummary = (
+  entries: Record<string, ModelInstallState>,
+  stages: readonly AioLocalModelStage[],
+  languageFilter: string,
+  targetLanguage: string | undefined,
+  estimateBytes: (model: TranslationModel) => number,
+): InstallAllSummary => {
+  const seen = new Set<string>();
+  const eligibleModelIds: string[] = [];
+  let totalBytes = 0;
+
+  for (const stage of stages) {
+    const scoped = buildScopedInstallSummary(
+      entries,
+      stage,
+      languageFilter,
+      targetLanguage,
+      EMPTY_SCOPED_SUMMARY,
+      estimateBytes,
+    );
+    for (const modelId of scoped.eligibleModelIds) {
+      if (seen.has(modelId)) continue;
+      const entry = entries[modelId];
+      if (!entry) continue;
+      seen.add(modelId);
+      eligibleModelIds.push(modelId);
+      totalBytes += estimateBytes(entry.model);
+    }
+  }
+
+  return { totalBytes, requiredBytes: totalBytes, eligibleModelIds };
+};

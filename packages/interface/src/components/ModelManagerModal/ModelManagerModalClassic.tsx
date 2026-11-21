@@ -4,10 +4,11 @@ import { useI18n } from '../../i18n';
 import { KomaDialog } from '@koma/ui/components/dialog';
 
 import {
+  computeRequiredBytesWithSlack,
   estimateModelRequiredDiskBytes,
   formatBytes,
 } from '../../models/model-storage';
-import { listRegistryLanguages } from '../../models/translation-models-registry';
+import { listRegistryLanguages, modelStageLabel } from '../../models/translation-models-registry';
 import type {
   AioLocalModelStage,
   DiskSpaceInfo,
@@ -18,7 +19,7 @@ import { DiskSpaceIndicator } from './DiskSpaceIndicator';
 import { InstallAllConfirmation } from './InstallAllConfirmation';
 import { ModelCard } from './ModelCard';
 import { ModelFilters } from './ModelFilters';
-import { buildScopedInstallSummary } from './recommendedInstall';
+import { ALL_AIO_LOCAL_STAGES, buildMultiStageInstallSummary } from './recommendedInstall';
 import styles from './styles.module.css';
 
 export interface ModelManagerModalProps {
@@ -52,11 +53,6 @@ export interface ModelManagerModalProps {
     total: number;
     completed: number;
     cancelled: boolean;
-  };
-  installAllSummary: {
-    totalBytes: number;
-    requiredBytes: number;
-    eligibleModelIds: string[];
   };
   onClose: () => void;
   onSetLanguageFilter: (language: string) => void;
@@ -123,7 +119,6 @@ export const ModelManagerModalClassic = ({
   freeProviderSection,
   customProfilesSection,
   batch,
-  installAllSummary,
   onClose,
   onSetLanguageFilter,
   onInstallModel,
@@ -180,30 +175,34 @@ export const ModelManagerModalClassic = ({
 
   const hasLocal = filteredLocal.length > 0;
 
-  const scopedSummary = useMemo(() => {
-    return buildScopedInstallSummary(
+  const multiStageSummary = useMemo(() => {
+    return buildMultiStageInstallSummary(
       entries,
-      localStageFilter,
+      ALL_AIO_LOCAL_STAGES,
       languageFilter,
       defaultTargetLanguage,
-      installAllSummary,
       estimateModelRequiredDiskBytes,
     );
-  }, [
-    defaultTargetLanguage,
-    entries,
-    installAllSummary,
-    languageFilter,
-    localStageFilter,
-  ]);
+  }, [defaultTargetLanguage, entries, languageFilter]);
+
+  const eligibleStages = useMemo(
+    () =>
+      ALL_AIO_LOCAL_STAGES.filter((stage) =>
+        multiStageSummary.eligibleModelIds.some(
+          (id) => entries[id]?.model.stage === stage,
+        ),
+      ),
+    [entries, multiStageSummary.eligibleModelIds],
+  );
 
   const blockedReason = useMemo(() => {
-    if (!scopedSummary.eligibleModelIds.length)
+    if (!multiStageSummary.eligibleModelIds.length)
       return t('modelManager.modal.noEligible');
-    if (diskSpace && diskSpace.freeBytes < scopedSummary.requiredBytes)
-      return t('modelManager.modal.notEnoughSpace', { space: formatBytes(scopedSummary.requiredBytes) });
+    const requiredBytes = computeRequiredBytesWithSlack(multiStageSummary.requiredBytes);
+    if (diskSpace && diskSpace.freeBytes < requiredBytes)
+      return t('modelManager.modal.notEnoughSpace', { space: formatBytes(requiredBytes) });
     return null;
-  }, [diskSpace, scopedSummary, t]);
+  }, [diskSpace, multiStageSummary, t]);
 
   if (!open) return null;
 
@@ -391,9 +390,11 @@ export const ModelManagerModalClassic = ({
                 type="button"
                 className={styles.warningButton}
                 onClick={() => setShowConfirm(true)}
-                disabled={batch.active || scopedSummary.eligibleModelIds.length === 0}
+                disabled={batch.active || multiStageSummary.eligibleModelIds.length === 0}
               >
-                {t('modelManager.modal.installAll')}
+                {eligibleStages.length > 1
+                  ? t('modelManager.installAll.multiStage.label')
+                  : t('modelManager.modal.installAll')}
               </button>
 
               {batch.active && (
@@ -426,13 +427,14 @@ export const ModelManagerModalClassic = ({
       {!hideFooter && (
         <InstallAllConfirmation
           open={showConfirm}
-          totalBytes={scopedSummary.totalBytes}
+          totalBytes={multiStageSummary.totalBytes}
           diskSpace={diskSpace}
           blockedReason={blockedReason}
+          stageLabels={eligibleStages.map(modelStageLabel)}
           onCancel={() => setShowConfirm(false)}
           onConfirm={() => {
             setShowConfirm(false);
-            void onInstallAll(scopedSummary.eligibleModelIds);
+            void onInstallAll(multiStageSummary.eligibleModelIds);
           }}
         />
       )}

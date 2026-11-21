@@ -2,7 +2,7 @@ import { AlertTriangle } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { KomaDialog } from "@koma/ui/components/dialog";
 
-import { formatBytes } from "../../models/model-storage";
+import { computeRequiredBytesWithSlack, formatBytes } from "../../models/model-storage";
 import type { DiskSpaceInfo } from "../../models/types";
 import styles from "./styles.module.css";
 
@@ -13,6 +13,7 @@ export interface InstallAllConfirmationProps {
   onCancel: () => void;
   onConfirm: () => void;
   blockedReason?: string | null;
+  stageLabels?: readonly string[];
 }
 
 export const InstallAllConfirmationClassic = ({
@@ -22,6 +23,7 @@ export const InstallAllConfirmationClassic = ({
   onCancel,
   onConfirm,
   blockedReason,
+  stageLabels,
 }: InstallAllConfirmationProps) => {
   const { t } = useI18n();
 
@@ -29,7 +31,8 @@ export const InstallAllConfirmationClassic = ({
     return null;
   }
 
-  const hasEnoughSpace = diskSpace ? diskSpace.freeBytes >= totalBytes : false;
+  const requiredBytes = computeRequiredBytesWithSlack(totalBytes);
+  const hasEnoughSpace = diskSpace ? diskSpace.freeBytes >= requiredBytes : false;
 
   return (
     <KomaDialog
@@ -47,6 +50,9 @@ export const InstallAllConfirmationClassic = ({
         <p>{t("modelManager.installAll.warning")}</p>
         <ul className={styles.confirmList}>
           <li>{t("modelManager.installAll.totalSize", { size: formatBytes(totalBytes) })}</li>
+          {stageLabels && stageLabels.length > 1 && (
+            <li>{t("modelManager.installAll.multiStage.stagesList", { stages: stageLabels.join(", ") })}</li>
+          )}
           <li>{t("modelManager.installAll.space", { space: diskSpace ? formatBytes(diskSpace.freeBytes) : "--" })}</li>
           <li>{t("modelManager.installAll.time")}</li>
         </ul>
@@ -55,7 +61,7 @@ export const InstallAllConfirmationClassic = ({
           <p className={styles.confirmError}>{blockedReason}</p>
         ) : !hasEnoughSpace ? (
           <p className={styles.confirmError}>
-            {t("modelManager.installAll.notEnoughSpace", { required: formatBytes(totalBytes), available: diskSpace ? formatBytes(diskSpace.freeBytes) : "--" })}
+            {t("modelManager.disk.requiredVsAvailable", { required: formatBytes(requiredBytes), available: diskSpace ? formatBytes(diskSpace.freeBytes) : "--" })}
           </p>
         ) : (
           <p>{t("modelManager.installAll.confirm")}</p>

@@ -1,7 +1,7 @@
 import { m, AnimatePresence } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { useI18n } from "../../../i18n";
-import { formatBytes } from "../../../models/model-storage";
+import { computeRequiredBytesWithSlack, formatBytes } from "../../../models/model-storage";
 import type { DiskSpaceInfo } from "../../../models/types";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -13,13 +13,15 @@ interface InstallAllConfirmationProps {
   onCancel: () => void;
   onConfirm: () => void;
   blockedReason?: string | null;
+  stageLabels?: readonly string[];
 }
 
 export const InstallAllConfirmationNoir = ({
-  open, totalBytes, diskSpace, onCancel, onConfirm, blockedReason,
+  open, totalBytes, diskSpace, onCancel, onConfirm, blockedReason, stageLabels,
 }: InstallAllConfirmationProps) => {
   const { t } = useI18n();
-  const hasEnoughSpace = diskSpace ? diskSpace.freeBytes >= totalBytes : false;
+  const requiredBytes = computeRequiredBytesWithSlack(totalBytes);
+  const hasEnoughSpace = diskSpace ? diskSpace.freeBytes >= requiredBytes : false;
 
   return (
     <AnimatePresence>
@@ -60,6 +62,9 @@ export const InstallAllConfirmationNoir = ({
 
             <ul className="mb-4 space-y-1.5 border-l-2 border-crimson/40 pl-3 font-mono text-[11px] text-paper/60">
               <li><span aria-hidden className="text-crimson">▸</span> {t("modelManager.installAll.totalSize", { size: formatBytes(totalBytes) })}</li>
+              {stageLabels && stageLabels.length > 1 && (
+                <li><span aria-hidden className="text-crimson">▸</span> {t("modelManager.installAll.multiStage.stagesList", { stages: stageLabels.join(", ") })}</li>
+              )}
               <li><span aria-hidden className="text-crimson">▸</span> {t("modelManager.installAll.space", { space: diskSpace ? formatBytes(diskSpace.freeBytes) : "--" })}</li>
               <li><span aria-hidden className="text-crimson">▸</span> {t("modelManager.installAll.time")}</li>
             </ul>
@@ -68,8 +73,8 @@ export const InstallAllConfirmationNoir = ({
               <p className="mb-4 border border-crimson/40 bg-crimson/8 px-3 py-2 font-mono text-[11px] text-crimson">{blockedReason}</p>
             ) : !hasEnoughSpace ? (
               <p className="mb-4 border border-crimson/40 bg-crimson/8 px-3 py-2 font-mono text-[11px] text-crimson">
-                {t("modelManager.installAll.notEnoughSpace", {
-                  required: formatBytes(totalBytes),
+                {t("modelManager.disk.requiredVsAvailable", {
+                  required: formatBytes(requiredBytes),
                   available: diskSpace ? formatBytes(diskSpace.freeBytes) : "--",
                 })}
               </p>

@@ -67,6 +67,14 @@ export const estimateModelRequiredDiskBytes = (model: TranslationModel): number 
   return Math.max(fileBytes, diskBytes);
 };
 
+const DISK_SLACK_RATIO = 0.1;
+const DISK_SLACK_FLOOR_BYTES = 64 * 1024 * 1024;
+
+export const computeRequiredBytesWithSlack = (requiredBytes: number): number =>
+  requiredBytes <= 0
+    ? 0
+    : requiredBytes + Math.max(DISK_SLACK_FLOOR_BYTES, Math.floor(requiredBytes * DISK_SLACK_RATIO));
+
 interface ToDesktopDownloadPayloadOptions {
   sourceLanguage?: string;
 }

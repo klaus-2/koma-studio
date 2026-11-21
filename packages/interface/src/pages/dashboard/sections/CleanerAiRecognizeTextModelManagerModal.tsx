@@ -53,7 +53,6 @@ export default function CleanerAiRecognizeTextModelManagerModalSection({
       focusedModelId={null}
       selectedModelId={cleanerAiModelKey}
       batch={{ active: false, total: 0, completed: 0, cancelled: false }}
-      installAllSummary={{ totalBytes: 0, requiredBytes: 0, eligibleModelIds: [] }}
       onClose={() => setCleanerAiModelManagerOpen(false)}
       onSetLanguageFilter={() => {}}
       onInstallModel={async () => {}}

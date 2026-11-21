@@ -4,11 +4,13 @@ import { Layers, X, CheckCircle2, AlertTriangle, Sparkles, Plus } from 'lucide-r
 import { useI18n } from '../../../i18n';
 
 import {
+  computeRequiredBytesWithSlack,
   estimateModelRequiredDiskBytes,
   formatBytes,
 } from '../../../models/model-storage';
 import {
   listRegistryLanguages,
+  modelStageLabel,
 } from '../../../models/translation-models-registry';
 import type {
   AioLocalModelStage,
@@ -20,7 +22,7 @@ import { DiskSpaceIndicator } from '../DiskSpaceIndicator';
 import { InstallAllConfirmation } from '../InstallAllConfirmation';
 import { ModelCard } from '../ModelCard';
 import { ModelFilters } from '../ModelFilters';
-import { buildScopedInstallSummary } from '../recommendedInstall';
+import { ALL_AIO_LOCAL_STAGES, buildMultiStageInstallSummary } from '../recommendedInstall';
 
 export interface ModelManagerModalProps {
   open: boolean;
@@ -53,11 +55,6 @@ export interface ModelManagerModalProps {
     total: number;
     completed: number;
     cancelled: boolean;
-  };
-  installAllSummary: {
-    totalBytes: number;
-    requiredBytes: number;
-    eligibleModelIds: string[];
   };
   onClose: () => void;
   onSetLanguageFilter: (language: string) => void;
@@ -146,7 +143,6 @@ export const ModelManagerModalNoir = ({
   freeProviderSection,
   customProfilesSection,
   batch,
-  installAllSummary,
   onClose,
   onSetLanguageFilter,
   onInstallModel,
@@ -201,30 +197,34 @@ export const ModelManagerModalNoir = ({
 
   const hasLocal = filteredLocal.length > 0;
 
-  const scopedSummary = useMemo(() => {
-    return buildScopedInstallSummary(
+  const multiStageSummary = useMemo(() => {
+    return buildMultiStageInstallSummary(
       entries,
-      localStageFilter,
+      ALL_AIO_LOCAL_STAGES,
       languageFilter,
       defaultTargetLanguage,
-      installAllSummary,
       estimateModelRequiredDiskBytes,
     );
-  }, [
-    defaultTargetLanguage,
-    entries,
-    installAllSummary,
-    languageFilter,
-    localStageFilter,
-  ]);
+  }, [defaultTargetLanguage, entries, languageFilter]);
+
+  const eligibleStages = useMemo(
+    () =>
+      ALL_AIO_LOCAL_STAGES.filter((stage) =>
+        multiStageSummary.eligibleModelIds.some(
+          (id) => entries[id]?.model.stage === stage,
+        ),
+      ),
+    [entries, multiStageSummary.eligibleModelIds],
+  );
 
   const blockedReason = useMemo(() => {
-    if (!scopedSummary.eligibleModelIds.length)
+    if (!multiStageSummary.eligibleModelIds.length)
       return t('modelManager.modal.noEligible');
-    if (diskSpace && diskSpace.freeBytes < scopedSummary.requiredBytes)
-      return t('modelManager.modal.notEnoughSpace', { space: formatBytes(scopedSummary.requiredBytes) });
+    const requiredBytes = computeRequiredBytesWithSlack(multiStageSummary.requiredBytes);
+    if (diskSpace && diskSpace.freeBytes < requiredBytes)
+      return t('modelManager.modal.notEnoughSpace', { space: formatBytes(requiredBytes) });
     return null;
-  }, [diskSpace, scopedSummary, t]);
+  }, [diskSpace, multiStageSummary, t]);
 
   const cardProps = {
     onInstall: onInstallModel,
@@ -424,10 +424,12 @@ export const ModelManagerModalNoir = ({
 
                   <button
                     type="button"
-                    disabled={batch.active || scopedSummary.eligibleModelIds.length === 0}
+                    disabled={batch.active || multiStageSummary.eligibleModelIds.length === 0}
                     onClick={() => setShowConfirm(true)}
                     className="panel-cut-sm hard-hover bg-crimson px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-ink disabled:cursor-not-allowed disabled:opacity-40">
-                    {t('modelManager.modal.installAll')}
+                    {eligibleStages.length > 1
+                      ? t('modelManager.installAll.multiStage.label')
+                      : t('modelManager.modal.installAll')}
                   </button>
 
                   {batch.active && (
@@ -459,11 +461,12 @@ export const ModelManagerModalNoir = ({
           {!hideFooter && (
             <InstallAllConfirmation
               open={showConfirm}
-              totalBytes={scopedSummary.totalBytes}
+              totalBytes={multiStageSummary.totalBytes}
               diskSpace={diskSpace}
               blockedReason={blockedReason}
+              stageLabels={eligibleStages.map(modelStageLabel)}
               onCancel={() => setShowConfirm(false)}
-              onConfirm={() => { setShowConfirm(false); void onInstallAll(scopedSummary.eligibleModelIds); }}
+              onConfirm={() => { setShowConfirm(false); void onInstallAll(multiStageSummary.eligibleModelIds); }}
             />
           )}
         </m.div>
