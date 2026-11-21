@@ -17,7 +17,8 @@ export function parseMiniBackendMemoryStats(value: unknown): FooterMemoryMeterDa
 
   const processStats = isRecord(value.process) ? value.process : null;
   const ramUsed = processStats === null ? null : finiteOrNull(processStats.rss_mb);
-  const ram = ramUsed === null ? null : { used: ramUsed, total: null };
+  const ramTotal = processStats === null ? null : finiteOrNull(processStats.system_total_mb);
+  const ram = ramUsed === null ? null : { used: ramUsed, total: ramTotal };
 
   const gpuStats =
     value.gpu === null || value.gpu === undefined
@@ -25,10 +26,12 @@ export function parseMiniBackendMemoryStats(value: unknown): FooterMemoryMeterDa
       : isRecord(value.gpu)
         ? value.gpu
         : null;
+  const deviceUsed = gpuStats === null ? null : finiteOrNull(gpuStats.device_used_mb);
   const allocated = gpuStats === null ? null : finiteOrNull(gpuStats.allocated_mb);
+  const usedMb = deviceUsed ?? allocated;
   const total = gpuStats === null ? null : finiteOrNull(gpuStats.total_mb);
   const free = gpuStats === null ? null : finiteOrNull(gpuStats.free_mb);
-  const vram = allocated === null || total === null ? null : { used: allocated, total, free };
+  const vram = usedMb === null || total === null ? null : { used: usedMb, total, free };
 
   return { ram, vram };
 }

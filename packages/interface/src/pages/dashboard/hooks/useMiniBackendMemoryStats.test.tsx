@@ -52,18 +52,39 @@ describe('useMiniBackendMemoryStats', () => {
 
   it('parses the sidecar payload with immediate narrowing', () => {
     const parsed = parseMiniBackendMemoryStats({
-      process: { pid: 1, rss_mb: 512.3, vms_mb: 900, cpu_percent: 1 },
+      process: { pid: 1, rss_mb: 512.3, vms_mb: 900, cpu_percent: 1, system_total_mb: 16384 },
       gpu: {
         allocated_mb: 100,
         reserved_mb: 120,
         total_mb: 1000,
         free_mb: 300,
+        device_used_mb: 700,
       },
     });
 
     expect(parsed).toEqual({
+      ram: { used: 512.3, total: 16384 },
+      vram: { used: 700, total: 1000, free: 300 },
+    });
+  });
+
+  it('prefers device-wide VRAM usage and falls back per field on older runtimes', () => {
+    const legacy = parseMiniBackendMemoryStats({
+      process: { pid: 1, rss_mb: 512.3, vms_mb: 900, cpu_percent: 1 },
+      gpu: { allocated_mb: 100, reserved_mb: 120, total_mb: 1000, free_mb: 300 },
+    });
+    expect(legacy).toEqual({
       ram: { used: 512.3, total: null },
       vram: { used: 100, total: 1000, free: 300 },
+    });
+
+    const withoutFree = parseMiniBackendMemoryStats({
+      process: { pid: 1, rss_mb: 512.3, vms_mb: 900, cpu_percent: 1, system_total_mb: 16384 },
+      gpu: { allocated_mb: 100, reserved_mb: 120, total_mb: 1000 },
+    });
+    expect(withoutFree).toEqual({
+      ram: { used: 512.3, total: 16384 },
+      vram: { used: 100, total: 1000, free: null },
     });
   });
 
@@ -94,15 +115,15 @@ describe('fetchMiniBackendMemoryStats (real queryFn)', () => {
     const fetchStub = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
       expect(String(input)).toBe('http://127.0.0.1:8765/memory/stats');
       return new Response(JSON.stringify({
-        process: { pid: 1, rss_mb: 512.3, vms_mb: 900, cpu_percent: 1 },
-        gpu: { allocated_mb: 100, reserved_mb: 120, total_mb: 1000, free_mb: 300 },
+        process: { pid: 1, rss_mb: 512.3, vms_mb: 900, cpu_percent: 1, system_total_mb: 16384 },
+        gpu: { allocated_mb: 100, reserved_mb: 120, total_mb: 1000, free_mb: 300, device_used_mb: 700 },
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     });
     vi.stubGlobal('fetch', fetchStub);
 
     await expect(fetchMiniBackendMemoryStats(LOCAL_URL)).resolves.toEqual({
-      ram: { used: 512.3, total: null },
-      vram: { used: 100, total: 1000, free: 300 },
+      ram: { used: 512.3, total: 16384 },
+      vram: { used: 700, total: 1000, free: 300 },
     });
   });
 
