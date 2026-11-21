@@ -22,6 +22,7 @@ import { useStatusStore } from '../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../pages/dashboard/stores/ui-shell-store';
 import { useWorkspacePersistenceStore } from '../../pages/dashboard/stores/workspace-persistence-store';
 import { canOpenLogsFolder, openLogsFolderOrReport } from '../../lib/open-logs-folder';
+import FooterMemoryMeter, { type FooterMemoryMeterData } from './footer/FooterMemoryMeter';
 
 interface DashboardFooterProps {
   statusMessage?: string;
@@ -40,6 +41,7 @@ interface DashboardFooterProps {
   projectDiscordUrl: string;
   projectWebsiteUrl: string;
   runtimeExecutionNotice?: RuntimeExecutionNotice | null;
+  openSettingsOnRuntimeTab?: () => void; memoryStats?: FooterMemoryMeterData | null;
 }
 
 const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
@@ -55,7 +57,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
   openProjectExternalLink,
   projectDiscordUrl,
   projectWebsiteUrl,
-  runtimeExecutionNotice: runtimeExecutionNoticeProp,
+  runtimeExecutionNotice: runtimeExecutionNoticeProp, openSettingsOnRuntimeTab, memoryStats,
 }) => {
   const { t } = useI18n();
   const statusMessageStore = useStatusStore((s) => s.statusMessage);
@@ -172,6 +174,9 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
     return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
   };
 
+  const hasFallback = miniBackendRuntimeState?.status === 'fallback' || miniBackendRuntimeState?.requestedProfile !== miniBackendRuntimeState?.activeProfile;
+  const cpuWithGpuAvailable = miniBackendRuntimeState?.activeProfile === 'cpu' && aioDeviceInfo?.has_gpu === true;
+
   const runtimeBadge = (() => {
     if (!miniBackendRuntimeState) {
       return null;
@@ -203,10 +208,6 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
       };
     }
 
-    const hasFallback =
-      miniBackendRuntimeState.status === 'fallback' ||
-      miniBackendRuntimeState.requestedProfile !== miniBackendRuntimeState.activeProfile;
-
     if (miniBackendRuntimeState.status === 'error') {
       return {
         label: 'Runtime error',
@@ -224,8 +225,8 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
       return {
         label: t('dashboard.footer.runtime.fallback.label'),
         tone: 'fallback' as const,
-        title: t('dashboard.footer.runtime.fallback.title'),
-        detail: t('dashboard.footer.runtime.fallback.detail', {
+        title: cpuWithGpuAvailable ? t('dashboard.footer.runtime.cpuAlert.title') : t('dashboard.footer.runtime.fallback.title'),
+        detail: cpuWithGpuAvailable ? t('dashboard.footer.runtime.cpuAlert.detail') : t('dashboard.footer.runtime.fallback.detail', {
           requested: formatProfileLabel(miniBackendRuntimeState.requestedProfile),
           active: formatProfileLabel(miniBackendRuntimeState.activeProfile),
         }),
@@ -283,12 +284,14 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
         return {
           label: 'CPU',
           tone: 'cpu' as const,
-          title: t('dashboard.footer.runtime.cpu.title'),
-          detail: t('dashboard.footer.runtime.cpu.detail'),
+          title: cpuWithGpuAvailable ? t('dashboard.footer.runtime.cpuAlert.title') : t('dashboard.footer.runtime.cpu.title'),
+          detail: cpuWithGpuAvailable ? t('dashboard.footer.runtime.cpuAlert.detail') : t('dashboard.footer.runtime.cpu.detail'),
           icon: Cpu,
         };
     }
   })();
+
+  const showConfigCta = hasFallback && runtimeBadge?.tone === 'fallback';
 
   const [prevNotice, setPrevNotice] = useState(runtimeExecutionNotice);
   if (prevNotice !== runtimeExecutionNotice) {
@@ -358,6 +361,7 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
                   className={`koma-footerbar__workspace koma-footerbar__runtime koma-footerbar__runtime--${runtimeExecutionNotice?.tone ?? runtimeBadge.tone}`}
                   role="status"
                   aria-live="polite"
+                  data-testid="dashboard-footer-runtime-badge"
                 >
                   <span
                     className="koma-footerbar__runtimeIcon"
@@ -420,6 +424,16 @@ const DashboardFooterClassic: React.FC<DashboardFooterProps> = ({
             </Tooltip>
           </TooltipProvider>
         )}
+        {showConfigCta && (
+          <button
+            type="button"
+            className="koma-btn koma-btn--ghost koma-btn--sm"
+            onClick={() => openSettingsOnRuntimeTab?.()}
+          >
+            {t('dashboard.footer.runtime.cpuAlert.cta')}
+          </button>
+        )}
+        {memoryStats && <FooterMemoryMeter {...memoryStats} />}
         {processing && (
           <div className="koma-footerbar__progress">
             <div

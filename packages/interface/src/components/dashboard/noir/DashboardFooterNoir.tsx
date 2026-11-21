@@ -19,6 +19,7 @@ import { useStatusStore } from '../../../pages/dashboard/stores/status-store';
 import { useUiShellStore } from '../../../pages/dashboard/stores/ui-shell-store';
 import { canOpenLogsFolder, openLogsFolderOrReport } from '../../../lib/open-logs-folder';
 import { useWorkspacePersistenceStore } from '../../../pages/dashboard/stores/workspace-persistence-store';
+import FooterMemoryMeter, { type FooterMemoryMeterData } from '../footer/FooterMemoryMeter';
 
 interface DashboardFooterProps {
   statusMessage?: string;
@@ -34,6 +35,7 @@ interface DashboardFooterProps {
   projectDiscordUrl: string;
   projectWebsiteUrl: string;
   runtimeExecutionNotice?: RuntimeExecutionNotice | null;
+  openSettingsOnRuntimeTab?: () => void; memoryStats?: FooterMemoryMeterData | null;
 }
 
 const TONE_TEXT: Record<string, string> = {
@@ -62,6 +64,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
   openBugReportModal, openProjectExternalLink,
   projectDiscordUrl, projectWebsiteUrl,
   runtimeExecutionNotice: runtimeExecutionNoticeProp,
+  openSettingsOnRuntimeTab, memoryStats,
 }) => {
   const { t } = useI18n();
   const [runtimeTooltipOpen, setRuntimeTooltipOpen] = useState(false);
@@ -149,6 +152,9 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
     return `${size.toFixed(size >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
   };
 
+  const hasFallback = miniBackendRuntimeState?.status === 'fallback' || miniBackendRuntimeState?.requestedProfile !== miniBackendRuntimeState?.activeProfile;
+  const cpuWithGpuAvailable = miniBackendRuntimeState?.activeProfile === 'cpu' && aioDeviceInfo?.has_gpu === true;
+
   const runtimeBadge = (() => {
     if (!miniBackendRuntimeState) return null;
     const s = miniBackendRuntimeState.status;
@@ -167,7 +173,6 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
         icon: Rocket,
       };
     }
-    const hasFallback = s === 'fallback' || miniBackendRuntimeState.requestedProfile !== miniBackendRuntimeState.activeProfile;
     if (s === 'error') {
       return {
         label: 'Runtime error', tone: 'error' as const, title: 'Runtime startup failed',
@@ -177,8 +182,8 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
     if (hasFallback) {
       return {
         label: t('dashboard.footer.runtime.fallback.label'), tone: 'fallback' as const,
-        title: t('dashboard.footer.runtime.fallback.title'),
-        detail: t('dashboard.footer.runtime.fallback.detail', {
+        title: cpuWithGpuAvailable ? t('dashboard.footer.runtime.cpuAlert.title') : t('dashboard.footer.runtime.fallback.title'),
+        detail: cpuWithGpuAvailable ? t('dashboard.footer.runtime.cpuAlert.detail') : t('dashboard.footer.runtime.fallback.detail', {
           requested: formatProfileLabel(miniBackendRuntimeState.requestedProfile),
           active: formatProfileLabel(miniBackendRuntimeState.activeProfile),
         }), icon: AlertTriangle
@@ -198,9 +203,11 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
       case 'nvidia-cuda': return { label: 'CUDA', tone: 'cuda' as const, title: t('dashboard.footer.runtime.cuda.title'), detail: t('dashboard.footer.runtime.cuda.detail'), icon: Zap };
       case 'nvidia-cuda-legacy': return { label: t('dashboard.footer.runtime.legacy.label'), tone: 'legacy' as const, title: t('dashboard.footer.runtime.legacy.title'), detail: t('dashboard.footer.runtime.legacy.detail'), icon: Cpu };
       case 'intel-openvino': return { label: 'OpenVINO', tone: 'openvino' as const, title: t('dashboard.footer.runtime.openvino.title'), detail: t('dashboard.footer.runtime.openvino.detail'), icon: Cpu };
-      default: return { label: 'CPU', tone: 'cpu' as const, title: t('dashboard.footer.runtime.cpu.title'), detail: t('dashboard.footer.runtime.cpu.detail'), icon: Cpu };
+      default: return { label: 'CPU', tone: 'cpu' as const, title: cpuWithGpuAvailable ? t('dashboard.footer.runtime.cpuAlert.title') : t('dashboard.footer.runtime.cpu.title'), detail: cpuWithGpuAvailable ? t('dashboard.footer.runtime.cpuAlert.detail') : t('dashboard.footer.runtime.cpu.detail'), icon: Cpu };
     }
   })();
+
+  const showConfigCta = hasFallback && runtimeBadge?.tone === 'fallback';
 
   useEffect(() => { setRuntimeTooltipOpen(!!runtimeExecutionNotice); }, [runtimeExecutionNotice]);
   const handleRuntimeTooltipOpenChange = (next: boolean) => setRuntimeTooltipOpen(runtimeExecutionNotice ? true : next);
@@ -251,7 +258,7 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
           <TooltipProvider delayDuration={120}>
             <Tooltip open={runtimeTooltipOpen} onOpenChange={handleRuntimeTooltipOpenChange}>
               <TooltipTrigger asChild>
-                <div role="status" aria-live="polite"
+                <div role="status" aria-live="polite" data-testid="dashboard-footer-runtime-badge"
                   className={cn('panel-cut-sm flex items-center gap-1.5 border bg-ink-3/60 px-2 py-1', RT_TONE[runtimeExecutionNotice?.tone ?? runtimeBadge.tone])}>
                   <runtimeBadge.icon size={11} aria-hidden="true" />
                   <span className="font-mono text-[10px] font-semibold uppercase tracking-wider">{runtimeBadge.label}</span>
@@ -289,6 +296,13 @@ const DashboardFooterNoir: React.FC<DashboardFooterProps> = ({
             </Tooltip>
           </TooltipProvider>
         )}
+        {showConfigCta && (
+          <button type="button" onClick={() => openSettingsOnRuntimeTab?.()}
+            className="panel-cut-sm border border-gold/40 bg-ink-3/60 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-gold hover:bg-gold hover:text-ink">
+            {t('dashboard.footer.runtime.cpuAlert.cta')}
+          </button>
+        )}
+        {memoryStats && <FooterMemoryMeter {...memoryStats} />}
         {processing && (
           <>
             <div className="panel-cut-sm relative flex h-4 w-28 items-center overflow-hidden bg-ink-3">

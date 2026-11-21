@@ -307,7 +307,7 @@ export interface DashboardMainLayoutProps {
   openProjectExternalLink: ExternalActionsApi['openProjectExternalLink'];
   projectDiscordUrl: ExternalActionsApi['projectDiscordUrl'];
   projectWebsiteUrl: ExternalActionsApi['projectWebsiteUrl'];
-  openSettingsOnPresetsTab: ExternalActionsApi['openSettingsOnPresetsTab']; openSettingsOnIntegrationsTab: ExternalActionsApi['openSettingsOnIntegrationsTab'];
+  openSettingsOnPresetsTab: ExternalActionsApi['openSettingsOnPresetsTab']; openSettingsOnIntegrationsTab: ExternalActionsApi['openSettingsOnIntegrationsTab']; openSettingsOnRuntimeTab: ExternalActionsApi['openSettingsOnRuntimeTab'];
 
   /* ── Footer / dock derivations ── */
   manualDockVisible: boolean;
@@ -568,7 +568,7 @@ export default memo(function DashboardMainLayout({
   openProjectExternalLink,
   projectDiscordUrl,
   projectWebsiteUrl,
-  openSettingsOnPresetsTab, openSettingsOnIntegrationsTab,
+  openSettingsOnPresetsTab, openSettingsOnIntegrationsTab, openSettingsOnRuntimeTab,
   manualDockVisible,
   manualDockRightOffset,
   isAioManualMode,
@@ -1109,7 +1109,7 @@ export default memo(function DashboardMainLayout({
           openProjectExternalLink={openProjectExternalLink}
           projectDiscordUrl={projectDiscordUrl}
           projectWebsiteUrl={projectWebsiteUrl}
-          runtimeExecutionNotice={runtimeExecutionNotice}
+          runtimeExecutionNotice={runtimeExecutionNotice} openSettingsOnRuntimeTab={openSettingsOnRuntimeTab}
         />
       </main>
 

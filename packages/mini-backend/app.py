@@ -300,6 +300,7 @@ class GpuStats(TypedDict):
     allocated_mb: float
     reserved_mb: float
     total_mb: float
+    free_mb: float | None
 
 
 class EngineIdleStats(TypedDict):
@@ -326,10 +327,17 @@ def _collect_gpu_stats() -> GpuStats | None:
 
     if not torch.cuda.is_available():
         return None
+    free_mb: float | None = None
+    try:
+        free_bytes, _total_bytes = torch.cuda.mem_get_info(0)
+        free_mb = round(free_bytes / MIB, 1)
+    except Exception as exc:  # best-effort probe: a broken driver stays None
+        logger.debug("gpu free-memory probe failed: %s", type(exc).__name__)
     return GpuStats(
         allocated_mb=round(torch.cuda.memory_allocated(0) / MIB, 1),
         reserved_mb=round(torch.cuda.memory_reserved(0) / MIB, 1),
         total_mb=round(torch.cuda.get_device_properties(0).total_memory / MIB, 1),
+        free_mb=free_mb,
     )
 
 

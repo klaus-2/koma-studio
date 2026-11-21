@@ -23,6 +23,13 @@ export function useDashboardExternalActions({ onOpenSettings }: UseDashboardExte
     onOpenSettings?.();
   }, [onOpenSettings]);
 
+  const openSettingsOnRuntimeTab = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('koma-settings-requested-tab', 'runtime');
+    }
+    onOpenSettings?.();
+  }, [onOpenSettings]);
+
   const toExternalUrl = useCallback((rawUrl: string): string => {
     const trimmed = rawUrl.trim();
     if (!trimmed) return '';
@@ -98,6 +105,7 @@ export function useDashboardExternalActions({ onOpenSettings }: UseDashboardExte
     setBugReportModalOpen,
     openSettingsOnPresetsTab,
     openSettingsOnIntegrationsTab,
+    openSettingsOnRuntimeTab,
     projectWebsiteUrl,
     projectDiscordUrl,
     projectBugReportUrl,

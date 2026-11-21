@@ -472,7 +472,7 @@ export const DashboardPage = ({
     bugReportModalOpen,
     setBugReportModalOpen,
     openSettingsOnPresetsTab,
-    openSettingsOnIntegrationsTab,
+    openSettingsOnIntegrationsTab, openSettingsOnRuntimeTab,
     projectWebsiteUrl,
     projectDiscordUrl,
     openProjectExternalLink,
@@ -1743,7 +1743,7 @@ export const DashboardPage = ({
       projectDiscordUrl={projectDiscordUrl}
       projectWebsiteUrl={projectWebsiteUrl}
       openSettingsOnPresetsTab={openSettingsOnPresetsTab}
-      openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab}
+      openSettingsOnIntegrationsTab={openSettingsOnIntegrationsTab} openSettingsOnRuntimeTab={openSettingsOnRuntimeTab}
       // ── Footer / dock derivations ──
       manualDockVisible={manualDockVisible}
       manualDockRightOffset={manualDockRightOffset}
