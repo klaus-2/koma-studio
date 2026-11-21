@@ -156,12 +156,12 @@ async def test_images_edits_missing_data_raises() -> None:
 
 
 @pytest.mark.asyncio
-async def test_images_edits_never_retries_transient_failures() -> None:
+async def test_images_edits_never_retries_client_errors() -> None:
     calls: list[int] = []
 
     def handler(_request: httpx.Request) -> httpx.Response:
         calls.append(1)
-        return httpx.Response(503, json={"error": {"message": "upstream busy"}})
+        return httpx.Response(400, json={"error": {"message": "bad request"}})
 
     with pytest.raises(httpx.HTTPStatusError):
         await _call_images_edits_clean(
@@ -176,15 +176,130 @@ async def test_images_edits_never_retries_transient_failures() -> None:
     assert len(calls) == 1
 
 
-def _status_error(status_code: int) -> httpx.HTTPStatusError:
+@pytest.mark.asyncio
+async def test_images_edits_retries_transient_gateway_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _NoSleep:
+        @staticmethod
+        async def sleep(_seconds: float) -> None:
+            return None
+
+    calls: list[int] = []
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(503, json={"error": {"message": "upstream busy"}})
+
+    monkeypatch.setattr("core.http_retry.asyncio", _NoSleep)
+    with pytest.raises(httpx.HTTPStatusError):
+        await _call_images_edits_clean(
+            api_base="https://api.example.com/v1",
+            api_key="k",
+            model_name="m",
+            system_prompt="s",
+            user_prompt="u",
+            image_bytes=_1X1_PNG_BYTES,
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+    assert len(calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_images_edits_download_failure_falls_through_to_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import services.cloud_cleaning as cloud_cleaning
+
+    async def _stub_download(_url: str, _client: object) -> bytes | None:
+        return None
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": [{"url": "https://cdn.example.com/out.png"}]})
+
+    monkeypatch.setattr(cloud_cleaning, "_download_remote_image", _stub_download)
+    with pytest.raises(CloudCleanProviderError) as exc_info:
+        await _call_images_edits_clean(
+            api_base="https://api.example.com/v1",
+            api_key="k",
+            model_name="m",
+            system_prompt="s",
+            user_prompt="u",
+            image_bytes=_1X1_PNG_BYTES,
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+    assert "did not return an edited image" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_images_edits_non_dict_data_items_are_skipped() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": ["x"]})
+
+    with pytest.raises(CloudCleanProviderError) as exc_info:
+        await _call_images_edits_clean(
+            api_base="https://api.example.com/v1",
+            api_key="k",
+            model_name="m",
+            system_prompt="s",
+            user_prompt="u",
+            image_bytes=_1X1_PNG_BYTES,
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+    assert "did not return an edited image" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_images_edits_non_json_body_raises_provider_error() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"<html>not json</html>")
+
+    with pytest.raises(CloudCleanProviderError) as exc_info:
+        await _call_images_edits_clean(
+            api_base="https://api.example.com/v1",
+            api_key="k",
+            model_name="m",
+            system_prompt="s",
+            user_prompt="u",
+            image_bytes=_1X1_PNG_BYTES,
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+    assert "non-JSON response" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_images_edits_redirect_body_raises_redirect_error() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(301, headers={"location": "https://cdn.example.com/moved"})
+
+    with pytest.raises(CloudCleanProviderError) as exc_info:
+        await _call_images_edits_clean(
+            api_base="https://api.example.com/v1",
+            api_key="k",
+            model_name="m",
+            system_prompt="s",
+            user_prompt="u",
+            image_bytes=_1X1_PNG_BYTES,
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+    assert "redirect" in str(exc_info.value)
+
+
+def _status_error(
+    status_code: int, body: dict[str, object] | None = None
+) -> httpx.HTTPStatusError:
     request = httpx.Request("POST", "https://gateway.test/v1/chat/completions")
-    response = httpx.Response(status_code, request=request)
+    if body is not None:
+        response = httpx.Response(status_code, request=request, json=body)
+    else:
+        response = httpx.Response(status_code, request=request)
     return httpx.HTTPStatusError(f"HTTP {status_code}", request=request, response=response)
 
 
 @pytest.mark.asyncio
-async def test_custom_clean_negotiates_images_edits_on_400(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("blocking_status", [400, 404])
+async def test_custom_clean_negotiates_images_edits_on_chat_reject(
+    blocking_status: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import services.cloud_cleaning as cloud_cleaning
 
@@ -193,7 +308,7 @@ async def test_custom_clean_negotiates_images_edits_on_400(
 
     async def _stub_chat(**_kwargs: object) -> bytes:
         chat_calls.append(1)
-        raise _status_error(400)
+        raise _status_error(blocking_status)
 
     async def _stub_images(**_kwargs: object) -> bytes:
         images_calls.append(1)
@@ -213,12 +328,74 @@ async def test_custom_clean_negotiates_images_edits_on_400(
     first = await _call_custom_clean_with_protocol(**kwargs)
     assert first == _1X1_PNG_BYTES
     assert len(chat_calls) == 1 and len(images_calls) == 1
-    cache_key = ("http://127.0.0.1:3425/v1", "workbuddy-ai/hy-image-3.5")
+    cache_key = ("http://127.0.0.1:3425/v1", "workbuddy-ai/hy-image-3.5", "magpie")
     assert _CLEAN_CUSTOM_PROTOCOL_CACHE[cache_key] == "images_edits"
 
     second = await _call_custom_clean_with_protocol(**kwargs)
     assert second == _1X1_PNG_BYTES
     assert len(chat_calls) == 1 and len(images_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_custom_clean_reports_extracted_bodies_when_fallback_also_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import services.cloud_cleaning as cloud_cleaning
+
+    async def _stub_chat(**_kwargs: object) -> bytes:
+        raise _status_error(
+            400, {"error": {"message": "chat-side: Backend [maas] is not supported"}}
+        )
+
+    async def _stub_images(**_kwargs: object) -> bytes:
+        raise _status_error(502, {"error": {"message": "image-side: upstream failed"}})
+
+    monkeypatch.setattr(cloud_cleaning, "_call_openai_compatible_clean", _stub_chat)
+    monkeypatch.setattr(cloud_cleaning, "_call_images_edits_clean", _stub_images)
+
+    with pytest.raises(CloudCleanProviderError) as exc_info:
+        await _call_custom_clean_with_protocol(
+            api_base="http://127.0.0.1:3425/v1",
+            api_key="magpie",
+            model_name="workbuddy-ai/hy-image-3.5",
+            system_prompt="s",
+            user_prompt="u",
+            image_bytes=_1X1_PNG_BYTES,
+        )
+    message = str(exc_info.value)
+    assert "chat-side: Backend [maas] is not supported" in message
+    assert "image-side: upstream failed" in message
+    assert _CLEAN_CUSTOM_PROTOCOL_CACHE == {}
+
+
+@pytest.mark.asyncio
+async def test_custom_clean_reports_both_routes_when_fallback_also_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import services.cloud_cleaning as cloud_cleaning
+
+    async def _stub_chat(**_kwargs: object) -> bytes:
+        raise _status_error(400)
+
+    async def _stub_images(**_kwargs: object) -> bytes:
+        raise _status_error(502)
+
+    monkeypatch.setattr(cloud_cleaning, "_call_openai_compatible_clean", _stub_chat)
+    monkeypatch.setattr(cloud_cleaning, "_call_images_edits_clean", _stub_images)
+
+    with pytest.raises(CloudCleanProviderError) as exc_info:
+        await _call_custom_clean_with_protocol(
+            api_base="http://127.0.0.1:3425/v1",
+            api_key="magpie",
+            model_name="workbuddy-ai/hy-image-3.5",
+            system_prompt="s",
+            user_prompt="u",
+            image_bytes=_1X1_PNG_BYTES,
+        )
+    message = str(exc_info.value)
+    assert "/chat/completions" in message and "HTTP 400" in message
+    assert "/images/edits" in message and "HTTP 502" in message
+    assert _CLEAN_CUSTOM_PROTOCOL_CACHE == {}
 
 
 @pytest.mark.asyncio

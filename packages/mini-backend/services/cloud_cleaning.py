@@ -19,6 +19,7 @@ from PIL import Image
 
 from core.cloud_registry import get_clean_model_spec, get_env_value
 from core.config import normalize_stage_model_key
+from core.http_retry import post_with_retry
 from models.translation.providers import resolve_request_custom_openai_config
 from services.http_client import get_shared_client
 from services.openai_compatible import (
@@ -621,13 +622,26 @@ async def _call_images_edits_clean(
         "response_format": "b64_json",
     }
     headers = build_openai_compatible_headers(api_key)
-    response = await client.post(
+    response = await post_with_retry(
+        client,
         resolve_openai_compatible_images_edits_endpoint(api_base),
-        json=payload,
+        max_retries=3,
         headers=headers or None,
+        json=payload,
+        follow_redirects=False,
     )
+    if response.is_redirect:
+        raise CloudCleanProviderError(
+            "The images/edits endpoint answered with a redirect; check that the "
+            "API Base points at the images/edits route directly."
+        )
     response.raise_for_status()
-    response_payload = response.json()
+    try:
+        response_payload = response.json()
+    except ValueError as exc:
+        raise CloudCleanProviderError(
+            "The provider returned a non-JSON response from the images/edits endpoint."
+        ) from exc
     data_items = (
         response_payload.get("data") if isinstance(response_payload, dict) else None
     )
@@ -680,7 +694,7 @@ async def _call_custom_clean_with_protocol(
     user_prompt: str,
     image_bytes: bytes,
 ) -> bytes:
-    cache_key = (api_base, model_name)
+    cache_key = (api_base, model_name, api_key or "")
     if _CLEAN_CUSTOM_PROTOCOL_CACHE.get(cache_key) == "images_edits":
         return await _call_images_edits_clean(
             api_base=api_base,
@@ -703,15 +717,29 @@ async def _call_custom_clean_with_protocol(
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code not in _PROTOCOL_FALLBACK_STATUSES:
             raise
-        edited = await _call_images_edits_clean(
-            api_base=api_base,
-            api_key=api_key,
-            model_name=model_name,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            image_bytes=image_bytes,
-            client=get_shared_client(),
+        chat_detail = (
+            _upstream_error_detail(exc.response.text)
+            or f"HTTP {exc.response.status_code}"
         )
+        try:
+            edited = await _call_images_edits_clean(
+                api_base=api_base,
+                api_key=api_key,
+                model_name=model_name,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                image_bytes=image_bytes,
+                client=get_shared_client(),
+            )
+        except httpx.HTTPStatusError as fallback_exc:
+            fallback_detail = (
+                _upstream_error_detail(fallback_exc.response.text)
+                or f"HTTP {fallback_exc.response.status_code}"
+            )
+            raise CloudCleanProviderError(
+                "The provider rejected this model on /chat/completions "
+                f"({chat_detail}) and on /images/edits ({fallback_detail})."
+            ) from fallback_exc
         _CLEAN_CUSTOM_PROTOCOL_CACHE[cache_key] = "images_edits"
         return edited
 
