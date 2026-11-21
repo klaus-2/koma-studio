@@ -23,6 +23,9 @@ import {
 import { resolveGlyphStyle } from '../../../utils/renderText.core';
 import { clearGlyphMetricsCache } from '../../../utils/renderText.metrics-cache';
 import { styleValuesEqual } from '../../../utils/renderTextStyleRanges';
+import type { PresetPreviewOverride } from '../../../typography/presetPreview';
+
+export { usePresetPreviewOverride } from '../../../typography/presetPreview';
 
 export const drawManualStroke = (
   canvas: HTMLCanvasElement | null,
@@ -566,6 +569,7 @@ export const drawRegionsToCanvas = (
   renderStageActive: boolean,
   skipRegionId?: string | null,
   visibleIds?: ReadonlySet<string>,
+  previewOverride?: PresetPreviewOverride | null,
 ): void => {
   const canvas = ctx.canvas;
   // Reassigning width/height reallocates the backing store — during a drag
@@ -575,7 +579,10 @@ export const drawRegionsToCanvas = (
   if (canvas.height !== imageHeight) canvas.height = imageHeight;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  for (const region of regions) {
+  for (const sourceRegion of regions) {
+    const region = previewOverride?.regionId === sourceRegion.id
+      ? previewOverride.region
+      : sourceRegion;
     if (skipRegionId && region.id === skipRegionId) continue;
     if (visibleIds && !visibleIds.has(region.id)) continue;
     const text = renderStageActive ? (region.renderText ?? "") : "";
@@ -602,6 +609,7 @@ export interface RegionCanvasRenderRequest {
   readonly isCancelled?: () => boolean;
   readonly fontSet?: CanvasFontSet;
   readonly viewportBand?: ViewportBand | null;
+  readonly previewOverride?: PresetPreviewOverride | null;
 }
 
 /**
@@ -622,6 +630,7 @@ export const renderRegionsToCanvas = async (
     isCancelled,
     fontSet,
     viewportBand,
+    previewOverride,
   }: RegionCanvasRenderRequest,
 ): Promise<void> => {
   const visibleIds = visibleRegionIds(regions, viewportBand ?? null);
@@ -640,5 +649,6 @@ export const renderRegionsToCanvas = async (
     renderStageActive,
     skipRegionId,
     viewportBand ? visibleIds : undefined,
+    previewOverride,
   );
 };

@@ -18,7 +18,7 @@ interface TypesetterToolsPanelProps {
   onConvertShape: (kind: 'square' | 'rounded') => void;
   onDuplicateRegion: () => void;
   onDeleteRegion: () => void;
-  onApplyPresetToSelection: () => void;
+  onApplyPresetToSelection: (presetId: string | null, scope?: 'multi' | 'sfxApproved') => void;
   onApplyPresetToImage: () => void;
   onSnapshotNameChange: (value: string) => void;
   onSaveSnapshot: () => void;

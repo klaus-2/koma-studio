@@ -37,7 +37,7 @@ import type {
   TypographyShapeKind,
   TypographyStylePreset,
 } from '../../../typography/types';
-import type { RenderTextStyle } from '../../../utils/renderText';
+import { applyTypographyPresetToRegionBody } from '../../../typography/presetPreview';
 import type {
   AioTextRegion,
 } from '../../../types/dashboard.types';
@@ -810,32 +810,21 @@ export type AioRegionBatchActionResult =
   | { kind: 'removed'; count: number }
   | { kind: 'empty' };
 
-/** Shared body of the single and batch typography-preset application. */
-const applyTypographyPresetToRegionBody = (
-  region: AioTextRegion,
-  preset: TypographyStylePreset,
-  renderDefaultStyle: RenderTextStyle,
-): AioTextRegion => {
-  const [x1, y1, x2, y2] = region.bbox;
-  return {
-    ...region,
-    stylePresetId: preset.id,
-    renderStyle: applyDetectedGradientToStyle(region, createTypographyStyleFromPreset(preset, cloneRenderStyle(region.renderStyle ?? renderDefaultStyle))),
-    shape: buildShapeFromPreset(preset, Math.max(1, x2 - x1), Math.max(1, y2 - y1)),
-  };
-};
-
-/** Batch apply of the active session/mode preset to the requested region ids. */
 export const applyTypographyPresetToRegionIds = (
   imageId: string,
   regionIds: readonly string[],
   commitEdit: AioRegionBatchEditCommit,
+  presetId?: string | null,
 ): AioRegionBatchActionResult => {
-  const activePreset = readActiveTypographerPreset(imageId);
+  const normalizedPresetId = String(presetId ?? "").trim();
+  const state = useRegionEditorStore.getState();
+  const activePreset = normalizedPresetId
+    ? state.typographyPresetState.presets.find((entry) => entry.id === normalizedPresetId) ?? null
+    : readActiveTypographerPreset(imageId);
   if (!activePreset) return { kind: 'no-preset' };
   const selectedIdSet = new Set(regionIds);
   if (selectedIdSet.size === 0) return { kind: 'empty' };
-  const { aioDetectionsByImage, renderDefaultStyle } = useRegionEditorStore.getState();
+  const { aioDetectionsByImage, renderDefaultStyle } = state;
   const currentRegions = aioDetectionsByImage[imageId] ?? [];
   let appliedCount = 0;
   const nextRegions = currentRegions.map((region) => {
@@ -847,6 +836,11 @@ export const applyTypographyPresetToRegionIds = (
   // Selection override omitted: the committer resolves the current selection.
   commitEdit(imageId, nextRegions);
   return { kind: 'applied', count: appliedCount, presetName: activePreset.name };
+};
+
+export const readSfxApprovedRegionIds = (imageId: string): string[] => {
+  const regions = useRegionEditorStore.getState().aioDetectionsByImage[imageId] ?? [];
+  return regions.filter((region) => region.sfxApproved === true).map((region) => region.id);
 };
 
 /** Batch removal in one committed edit (active selection cleared in-mutation). */

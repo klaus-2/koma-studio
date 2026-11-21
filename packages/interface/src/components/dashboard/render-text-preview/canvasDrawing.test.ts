@@ -342,3 +342,43 @@ describe('visibleRegionIds (plan T9 cull-first)', () => {
     expect(ids.has('mid')).toBe(false);
   });
 });
+
+describe('drawRegionsToCanvas previewOverride (hover preset preview)', () => {
+  beforeEach(() => {
+    clearRegionLayoutCache();
+  });
+
+  const styledRegion = (id: string): AioTextRegion =>
+    ({ ...buildRegion(`text-${id}`), id }) as AioTextRegion;
+
+  it('draws the target region with the override style and others unchanged', () => {
+    const target = { ...styledRegion('region-1'), renderStyle: { ...STYLE, fontFamily: 'Region Font' } };
+    const other = { ...styledRegion('other'), renderStyle: { ...STYLE, fontFamily: 'Region Font' } };
+    const overrideRegion = { ...target, renderStyle: { ...STYLE, fontFamily: 'Preset Font' } };
+    const ctx = createMockCtx();
+    const fontSpy = vi.spyOn(ctx, 'font', 'set');
+
+    drawRegionsToCanvas(ctx, 320, 420, [target, other], STYLE, true, null, undefined, {
+      regionId: 'region-1',
+      region: overrideRegion,
+    });
+
+    const paintedFonts = fontSpy.mock.calls.map(([value]) => value as string);
+    expect(paintedFonts.some((font) => font.includes('Preset Font'))).toBe(true);
+    expect(paintedFonts.some((font) => font.includes('Region Font'))).toBe(true);
+    expect(other.renderStyle?.fontFamily).toBe('Region Font');
+  });
+
+  it('ignores an override aimed at another region', () => {
+    const target = { ...styledRegion('region-1'), renderStyle: { ...STYLE, fontFamily: 'Region Font' } };
+    const ctx = createMockCtx();
+    const fontSpy = vi.spyOn(ctx, 'font', 'set');
+
+    drawRegionsToCanvas(ctx, 320, 420, [target], STYLE, true, null, undefined, {
+      regionId: 'elsewhere',
+      region: { ...target, renderStyle: { ...STYLE, fontFamily: 'Preset Font' } },
+    });
+
+    expect(fontSpy.mock.calls.every(([value]) => (value as string).includes('Region Font'))).toBe(true);
+  });
+});

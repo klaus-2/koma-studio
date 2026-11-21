@@ -12,7 +12,17 @@ import {
   Bold,
   Italic,
   Type,
+  Save,
 } from 'lucide-react';
+
+import { useI18n } from '../../i18n';
+import {
+  hasSfxSeeds,
+  resolveSfxSeedId,
+  usePresetBrowserActions,
+  type PresetApplyScope,
+} from '../../typography/presetBrowserShared';
+import { publishPresetPreview } from '../../typography/presetPreviewSignal';
 
 import type {
   TypographyStylePreset,
@@ -29,7 +39,7 @@ interface TypographerPresetBrowserProps {
   selectedPresetId: string | null;
   availableFonts: string[];
   onSelectPreset: (presetId: string | null) => void;
-  onApplyToSelection: () => void;
+  onApplyToSelection: (presetId: string | null, scope?: PresetApplyScope) => void;
   onApplyToImage: () => void;
   onUpdatePreset?: (presetId: string, patch: Partial<TypographyStylePreset>) => void;
   hasActiveRegion: boolean;
@@ -95,7 +105,15 @@ export const TypographerPresetBrowserClassic = ({
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const { t } = useI18n();
   const popoutRef = useRef<HTMLDivElement | null>(null);
+  const {
+    saveName,
+    setSaveName,
+    saveRegionAsPreset,
+    handlePresetClick,
+    handleApplySelection,
+  } = usePresetBrowserActions();
 
   const toggleFolder = useCallback((folderId: string) => {
     setExpandedFolders((prev) => {
@@ -151,6 +169,8 @@ export const TypographerPresetBrowserClassic = ({
     return () => document.removeEventListener('mousedown', handler);
   }, [editingPresetId]);
 
+  useEffect(() => () => publishPresetPreview(null), []);
+
   const editingPreset = editingPresetId
     ? presets.find((p) => p.id === editingPresetId) ?? null
     : null;
@@ -162,7 +182,10 @@ export const TypographerPresetBrowserClassic = ({
       <div
         key={preset.id}
         className={`koma-preset-item${isSelected ? ' koma-preset-item--active' : ''}`}
-        onClick={() => onSelectPreset(isSelected ? null : preset.id)}
+        onMouseEnter={() => publishPresetPreview(preset.id)}
+        onMouseLeave={() => publishPresetPreview(null)}
+        onClick={() => handlePresetClick(preset.id, selectedPresetId, onSelectPreset, onApplyToSelection)}
+        title={t('typo.presets.previewHint')}
       >
         <span
           className="koma-preset-item__swatch"
@@ -307,7 +330,7 @@ export const TypographerPresetBrowserClassic = ({
         <button
           type="button"
           className="koma-btn koma-btn--ghost"
-          onClick={onApplyToSelection}
+          onClick={() => handleApplySelection(selectedPresetId, onApplyToSelection)}
           disabled={!hasActiveRegion || !selectedPresetId}
         >
           Apply to Selection
@@ -321,6 +344,32 @@ export const TypographerPresetBrowserClassic = ({
           Apply to Image
         </button>
       </div>
+
+      {hasSfxSeeds(presets) && (
+        <div className="koma-preset-browser__sfx" style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <span>{t('typo.presets.sfxGroup')}</span>
+          <button type="button" className="koma-btn koma-btn--ghost" title={t('typo.presets.applySfxToApproved')}
+            onClick={() => onApplyToSelection(resolveSfxSeedId(presets, selectedPresetId), 'sfxApproved')}>
+            {t('typo.presets.applySfxToApproved')}
+          </button>
+        </div>
+      )}
+
+      {hasActiveRegion && (
+        <div className="koma-preset-browser__save" style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <input
+            type="text"
+            className="koma-input koma-input--sm"
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            placeholder={t('dashboard.aio.presets.presetName')}
+            aria-label={t('dashboard.aio.presets.presetName')}
+          />
+          <button type="button" className="koma-btn koma-btn--ghost" onClick={saveRegionAsPreset}>
+            <Save size={10} /> {t('typo.presets.saveFromRegion')}
+          </button>
+        </div>
+      )}
 
       {/* Quick edit popout */}
       {editingPreset && onUpdatePreset && (

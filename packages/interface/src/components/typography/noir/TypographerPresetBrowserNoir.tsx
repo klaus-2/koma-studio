@@ -2,8 +2,16 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { m, AnimatePresence } from "framer-motion";
 import {
   Search, ChevronRight, FolderOpen, Folder,
-  Palette, Pencil, X, Check, Bold, Italic, Type,
+  Palette, Pencil, X, Check, Bold, Italic, Type, Save,
 } from "lucide-react";
+import { useI18n } from "../../../i18n";
+import {
+  hasSfxSeeds,
+  resolveSfxSeedId,
+  usePresetBrowserActions,
+  type PresetApplyScope,
+} from "../../../typography/presetBrowserShared";
+import { publishPresetPreview } from "../../../typography/presetPreviewSignal";
 import type {
   TypographyStylePreset, TypographyStyleFolder, TypographyShapeKind,
 } from "../../../typography/types";
@@ -19,7 +27,7 @@ interface TypographerPresetBrowserProps {
   selectedPresetId: string | null;
   availableFonts: string[];
   onSelectPreset: (presetId: string | null) => void;
-  onApplyToSelection: () => void;
+  onApplyToSelection: (presetId: string | null, scope?: PresetApplyScope) => void;
   onApplyToImage: () => void;
   onUpdatePreset?: (presetId: string, patch: Partial<TypographyStylePreset>) => void;
   hasActiveRegion: boolean;
@@ -68,7 +76,15 @@ export const TypographerPresetBrowserNoir = ({
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const { t } = useI18n();
   const popoutRef = useRef<HTMLDivElement | null>(null);
+  const {
+    saveName,
+    setSaveName,
+    saveRegionAsPreset,
+    handlePresetClick,
+    handleApplySelection,
+  } = usePresetBrowserActions();
 
   const toggleFolder = useCallback((folderId: string) => {
     setExpandedFolders((prev) => {
@@ -118,6 +134,8 @@ export const TypographerPresetBrowserNoir = ({
     return () => document.removeEventListener("mousedown", handler);
   }, [editingPresetId]);
 
+  useEffect(() => () => publishPresetPreview(null), []);
+
   const editingPreset = editingPresetId ? presets.find((p) => p.id === editingPresetId) ?? null : null;
 
   const renderPresetItem = (preset: TypographyStylePreset) => {
@@ -125,7 +143,10 @@ export const TypographerPresetBrowserNoir = ({
     const fillColor = preset.style.color || "#ffffff";
     return (
       <div key={preset.id}
-        onClick={() => onSelectPreset(isSelected ? null : preset.id)}
+        onMouseEnter={() => publishPresetPreview(preset.id)}
+        onMouseLeave={() => publishPresetPreview(null)}
+        onClick={() => handlePresetClick(preset.id, selectedPresetId, onSelectPreset, onApplyToSelection)}
+        title={t("typo.presets.previewHint")}
         className={`panel-cut-sm group relative flex cursor-pointer items-center gap-2 border px-2 py-1.5 transition-all ${isSelected
             ? "border-crimson/50 bg-crimson/[0.06]"
             : "border-paper/8 bg-ink/50 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:border-paper/20 hover:[filter:drop-shadow(2px_2px_0_rgba(255,200,87,0.4))]"
@@ -255,7 +276,7 @@ export const TypographerPresetBrowserNoir = ({
 
       {/* Apply */}
       <div className="grid grid-cols-2 gap-1.5 border-t border-paper/8 pt-2.5">
-        <button type="button" className={btnGhost} onClick={onApplyToSelection}
+        <button type="button" className={btnGhost} onClick={() => handleApplySelection(selectedPresetId, onApplyToSelection)}
           disabled={!hasActiveRegion || !selectedPresetId}>
           Apply to Selection
         </button>
@@ -264,6 +285,27 @@ export const TypographerPresetBrowserNoir = ({
           Apply to Image
         </button>
       </div>
+
+      {hasSfxSeeds(presets) && (
+        <div className="flex items-center gap-1.5 border-t border-paper/8 pt-2">
+          <span className="kicker !text-[8px]">{t("typo.presets.sfxGroup")}</span>
+          <button type="button" className={btnGhost} title={t("typo.presets.applySfxToApproved")}
+            onClick={() => onApplyToSelection(resolveSfxSeedId(presets, selectedPresetId), "sfxApproved")}>
+            {t("typo.presets.applySfxToApproved")}
+          </button>
+        </div>
+      )}
+
+      {hasActiveRegion && (
+        <div className="panel-cut-sm flex items-center gap-1.5 border border-paper/12 bg-ink px-2 py-1.5">
+          <input type="text" className={inputCls} value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            placeholder={t("dashboard.aio.presets.presetName")} aria-label={t("dashboard.aio.presets.presetName")} />
+          <button type="button" className={btnGhost} onClick={saveRegionAsPreset}>
+            <Save size={10} /> {t("typo.presets.saveFromRegion")}
+          </button>
+        </div>
+      )}
 
       {/* Quick edit popout */}
       <AnimatePresence>

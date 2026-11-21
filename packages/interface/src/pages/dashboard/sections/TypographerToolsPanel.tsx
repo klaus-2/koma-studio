@@ -1,14 +1,20 @@
 import { useEffect, useMemo } from 'react';
 
+import { useI18n } from '../../../i18n';
 import TypesetterToolsPanel from '../../../components/dashboard/TypesetterToolsPanel';
 import RegionMultiSelectionActionBar from '../../../components/dashboard/RegionMultiSelectionActionBar';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
+import { useStatusStore } from '../stores/status-store';
 import { useTypographerStore } from '../stores/typographer-store';
-import type { useAioRegionEditing } from '../hooks/region-editor';
 import type { useAioRegionSnapshotSync } from '../hooks/region-editor.snapshot';
 import type { useTranslatorRetranslate } from '../hooks/translator.execution';
 import type { useTypographerControls } from '../hooks/typographer';
+import {
+  applyTypographyPresetToRegionIds,
+  readSfxApprovedRegionIds,
+  type useAioRegionEditing,
+} from '../hooks/region-editor';
 import { resolveTypographyPresetForMode } from '../../../typography/presets';
 import { resolveRenderTextMode } from '../../../utils/renderModes';
 import { EMPTY_SELECTED_REGION_IDS } from '../../../utils/dashboardRenderUtils';
@@ -108,6 +114,8 @@ export default function TypographerToolsPanel({
   const setTypographerMultiSelectedByImage = useTypographerStore(
     (s) => s.setTypographerMultiSelectedByImage,
   );
+  const setTonedStatus = useStatusStore((s) => s.setTonedStatus);
+  const { t } = useI18n();
 
   // Same derivations the page computes (duplicate expression, single source
   // stores — consolidation candidate in T12).
@@ -277,7 +285,22 @@ export default function TypographerToolsPanel({
       onConvertShape={convertActiveTypographerShape}
       onDuplicateRegion={duplicateSelectedTypographerRegion}
       onDeleteRegion={removeSelectedAioRegion}
-      onApplyPresetToSelection={applyActiveTypographyPresetToSelection}
+      onApplyPresetToSelection={(presetId, scope) => {
+        if (!presetId || activeId === null) return applyActiveTypographyPresetToSelection();
+        const ids = scope === 'sfxApproved'
+          ? readSfxApprovedRegionIds(activeId)
+          : (activeTypographerMultiSelectedIds.length > 0
+            ? activeTypographerMultiSelectedIds
+            : (activeSelectedRegionId !== null ? [activeSelectedRegionId] : []));
+        const result = applyTypographyPresetToRegionIds(activeId, ids, updateAioRegionsForImage, presetId);
+        if (result.kind === 'applied') {
+          setTonedStatus(t('dashboard.status.presetAppliedToSelection', { name: result.presetName }), 'success');
+        } else if (result.kind === 'no-preset') {
+          setTonedStatus(t('typo.multiSelect.noPreset'), 'warning');
+        } else {
+          setTonedStatus(t('dashboard.status.selectBoxInPreview'), 'warning');
+        }
+      }}
       onApplyPresetToImage={applyActiveTypographyPresetToImage}
       onSnapshotNameChange={setTypographerSnapshotName}
       onSaveSnapshot={handleTypographerSaveSnapshot}

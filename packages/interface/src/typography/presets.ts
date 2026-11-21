@@ -13,6 +13,7 @@ import {
 } from "../utils/renderModePresets";
 import { DEFAULT_NATIVE_TEXT_EFFECT_PRESET_ID, isNativeTextEffectPresetId } from "./textEffects";
 import { migrateRenderSizeCatalog } from "../utils/renderSizeDefaults";
+import { seedSfxPresets } from "./sfxPresetSeed";
 
 export const TYPOGRAPHY_PRESET_STORAGE_KEY = "koma-typography-presets-v1";
 
@@ -63,12 +64,12 @@ const DEFAULT_STYLE: RenderTextStyle = {
   textEffectIntensity: 1,
 };
 
-const parseJson = <T>(raw: string | null, fallback: T): T => {
-  if (!raw) return fallback;
+const parseJson = <T>(raw: string | null): T | null => {
+  if (!raw) return null;
   try {
     return JSON.parse(raw) as T;
   } catch {
-    return fallback;
+    return null;
   }
 };
 
@@ -269,7 +270,9 @@ const persistState = (state: TypographyPresetStateV1): void => {
 export const loadTypographyPresetState = (): TypographyPresetStateV1 => {
   if (typeof window === "undefined") return buildLegacyPresetState();
   migrateRenderSizeCatalog(TYPOGRAPHY_PRESET_STORAGE_KEY);
-  return sanitizeState(parseJson(window.localStorage.getItem(TYPOGRAPHY_PRESET_STORAGE_KEY), buildLegacyPresetState()));
+  const raw = parseJson<TypographyPresetStateV1>(window.localStorage.getItem(TYPOGRAPHY_PRESET_STORAGE_KEY));
+  if (raw === null) return sanitizeState(seedSfxPresets(buildLegacyPresetState()));
+  return sanitizeState(raw);
 };
 
 export const saveTypographyPresetState = (state: TypographyPresetStateV1): TypographyPresetStateV1 => {

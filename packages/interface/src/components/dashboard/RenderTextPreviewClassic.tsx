@@ -47,7 +47,7 @@ import { useRenderTextPreviewTypeDock } from './render-text-preview/useRenderTex
 import { useInlineEditorSpanSync } from './render-text-preview/useInlineEditorSpanSync';
 import { buildInlineEditorHandle } from './render-text-preview/inlineEditorHandle';
 import RenderRegionOverlayList from './render-text-preview/RenderRegionOverlayList';
-import { renderRegionsToCanvas } from './render-text-preview/canvasDrawing';
+import { renderRegionsToCanvas, usePresetPreviewOverride } from './render-text-preview/canvasDrawing';
 import { overlayVisibleSet, useViewportCull } from './render-text-preview/useViewportBand';
 import { useRenderTextPreviewCanvasRegions } from './render-text-preview/useRenderTextPreviewCanvasRegions';
 import { useRenderTextPreviewOverlayWheel } from './render-text-preview/useRenderTextPreviewOverlayWheel';
@@ -512,6 +512,8 @@ const RenderTextPreviewClassic = ({
     openInlineEditorForRegion,
   });
 
+  const previewOverride = usePresetPreviewOverride(active ? (multiSelectedRegionIds[0] ?? selectedRegionId) : null, canvasDrawRegions, fallbackStyle, availableTypographyPresets);
+
   // Keeps the contentEditable's DOM (native formatting spans, trailing <br>
   // sentinel) in sync with the draft; needs the layout-aware selection mode.
   useInlineEditorSpanSync({
@@ -540,7 +542,7 @@ const RenderTextPreviewClassic = ({
         imageWidth: image.width,
         imageHeight: image.height,
         regions: canvasDrawRegions,
-        viewportBand,
+        viewportBand, previewOverride,
         fallbackStyle,
         renderStageActive,
         skipRegionId: inlineEditor && !inlineEditorUsesCanvasSelection
@@ -565,7 +567,7 @@ const RenderTextPreviewClassic = ({
       }
     };
   }, [
-    canvasDrawRegions,
+    canvasDrawRegions, previewOverride,
     fallbackStyle,
     fontRefreshToken,
     image.height,
