@@ -140,6 +140,7 @@ import {
 } from './dashboard/hooks/aio-pipeline';
 import { useAioPipelineSnapshotState } from './dashboard/hooks/aio-snapshot-state';
 import { useDashboardUploads, useDashboardImageCollection } from './dashboard/hooks/image-collection';
+import { useForwardedFilesIngestion } from './dashboard/hooks/useForwardedFilesIngestion';
 import {
   useCustomLlmDrafts,
   useCustomLlmProfilesSync,
@@ -1109,6 +1110,8 @@ export const DashboardPage = ({
       invalidateAioPipelineHistory,
       warmupPayload: aioWarmupPayload,
     });
+
+  useForwardedFilesIngestion({ onDrop, setStatusMessage });
 
   const { handleTranslatorTextImport, handleTranslatorImageUpload } =
     useTranslatorImports({

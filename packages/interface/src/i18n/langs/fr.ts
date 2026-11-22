@@ -525,6 +525,10 @@ export const frMessages: TranslationCatalog = {
   'aio.run.runCurrent': "Exécuter l'étape en cours (image active)",
   'aio.run.full':
     'Exécuter AIO (Détection + OCR + Traduction + Segmentation + Nettoyage + Rendu)',
+  'aio.batch.done.notify.title': 'Lot AIO terminé',
+  'aio.batch.done.notify.body': 'Le lot a fini de traiter {count} page(s).',
+  'aio.batch.failed.notify.title': 'Échec du lot AIO',
+  "aio.batch.failed.notify.body": "Une erreur a interrompu le lot. Consultez le panneau d'état pour plus de détails.",
   'aio.pipeline.textModeTitle': 'Mode texte',
   'aio.pipeline.textModeDescription':
     'Définissez comment la région sélectionnée doit être traitée lors du rendu. AUTO utilise la classification détectée.',
@@ -1814,6 +1818,13 @@ export const frMessages: TranslationCatalog = {
   'dashboard.topbar.downloadTxt': 'Télécharger le TXT',
   'dashboard.topbar.downloadZip': 'Télécharger le ZIP',
   'dashboard.topbar.downloadPackage': 'Télécharger le package',
+  'dashboard.topbar.revealExported': 'Afficher dans le dossier',
+  "dashboard.topbar.revealExportedFailed": "Le fichier n'a pas pu être affiché dans le dossier.",
+  "dashboard.clipboard.copyPage": "Copier l'image de la page",
+  "dashboard.clipboard.copyRegion": "Copier l'image de la région",
+  'dashboard.clipboard.copiedPage': 'Page copiée dans le presse-papiers.',
+  'dashboard.clipboard.copiedRegion': 'Région copiée dans le presse-papiers.',
+  "dashboard.clipboard.copyFailed": "Impossible de copier l'image dans le presse-papiers.",
   'dashboard.topbar.layeredPsd': 'PSD avec calques',
   'dashboard.topbar.layeredPsdHint':
     'Exporte un PSD pour Photoshop, CSP, Krita, GIMP.',

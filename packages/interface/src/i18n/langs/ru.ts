@@ -554,6 +554,10 @@ export const ruMessages: TranslationCatalog = {
   'aio.run.runCurrent': 'Запустить текущий этап (активное изображение)',
   'aio.run.full':
     'Запустить AIO (Обнаружение + OCR + Перевод + Сегментация + Очистка + Рендер)',
+  'aio.batch.done.notify.title': 'Пакетная обработка AIO завершена',
+  'aio.batch.done.notify.body': 'Пакет обработал страниц: {count}.',
+  'aio.batch.failed.notify.title': 'Сбой пакетной обработки AIO',
+  'aio.batch.failed.notify.body': 'Ошибка прервала пакет. Подробности — на панели состояния.',
   'aio.pipeline.textModeTitle': 'Режим текста',
   'aio.pipeline.textModeDescription':
     'Определите, как выбранная область должна обрабатываться при рендеринге. АВТО использует определённую классификацию.',
@@ -1833,6 +1837,13 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.topbar.downloadTxt': 'Скачать TXT',
   'dashboard.topbar.downloadZip': 'Скачать ZIP',
   'dashboard.topbar.downloadPackage': 'Скачать пакет',
+  'dashboard.topbar.revealExported': 'Показать в папке',
+  'dashboard.topbar.revealExportedFailed': 'Не удалось показать файл в папке.',
+  'dashboard.clipboard.copyPage': 'Копировать изображение страницы',
+  'dashboard.clipboard.copyRegion': 'Копировать изображение области',
+  'dashboard.clipboard.copiedPage': 'Страница скопирована в буфер обмена.',
+  'dashboard.clipboard.copiedRegion': 'Область скопирована в буфер обмена.',
+  'dashboard.clipboard.copyFailed': 'Не удалось скопировать изображение в буфер обмена.',
   'dashboard.topbar.layeredPsd': 'Многослойный PSD',
   'dashboard.topbar.layeredPsdHint':
     'Экспорт PSD для Photoshop, CSP, Krita, GIMP.',

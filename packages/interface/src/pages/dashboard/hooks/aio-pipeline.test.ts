@@ -7,6 +7,7 @@ import { useAioResultConsolidation } from '@/hooks/useAioResultConsolidation';
 import { useAioSingleImageProcessor } from '@/hooks/useAioSingleImageProcessor';
 import { I18nProvider } from '@/i18n';
 import { setDesktopBridgeProvider } from '@/lib/desktop-bridge';
+import { createDesktopBridgeStub, type DesktopBridgeStubExtras } from '@/testing/desktop-bridge-stub';
 import {
   resolveBatchCapacity,
   runLocalAioBatchChunks,
@@ -674,6 +675,91 @@ describe('useAioPipelineExecution custom AI payload', () => {
 
   it('withholds the profile when a regular model is selected', async () => {
     await expect(captureCarriedProfile('opus-mt-ja-en')).resolves.toBeNull();
+  });
+});
+
+describe('useAioPipelineExecution batch-terminal notifications', () => {
+  const show =
+    vi.fn<(payload: { title: string; body?: string }) => Promise<void>>(
+      async () => undefined,
+    );
+  const modelsStub: Parameters<typeof createDesktopBridgeStub>[0] = {
+    listInstalled: async () => [],
+    getDiskSpace: async () => ({ freeBytes: 1024 ** 3, totalBytes: 1024 ** 3, path: 'mock' }),
+    checkUpdates: async () => [],
+    download: async () => ({ queued: true, queueLength: 1 }),
+    importOnnx: async () => {
+      throw new Error('not used in this suite');
+    },
+    cancel: async () => undefined,
+    cancelAll: async () => undefined,
+    uninstall: async () => undefined,
+    listActive: async () => ({ known: false }),
+    on: async () => true,
+    off: () => undefined,
+  };
+
+  const withNotificationBridge = (
+    extras: DesktopBridgeStubExtras,
+  ): void => {
+    setDesktopBridgeProvider({
+      desktop: createDesktopBridgeStub(modelsStub, extras),
+    });
+  };
+
+  it('fires the done notification at the success terminal', async () => {
+    mockedChunks.mockImplementation(async (input) => {
+      void input;
+      return {
+        batchIds: ['batch-1'],
+        results: images.map((image) => makeBatchResult(image.id)),
+      };
+    });
+
+    try {
+      withNotificationBridge({ notifications: { show } });
+      await runProcess();
+
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show.mock.calls[0]?.[0]?.title).toBe('AIO batch completed');
+      expect(show.mock.calls[0]?.[0]?.body).toContain('3');
+    } finally {
+      show.mockClear();
+      setDesktopBridgeProvider({ desktop: null });
+    }
+  });
+
+  it('fires the failed notification at the error terminal', async () => {
+    mockedChunks.mockImplementation(async () => {
+      throw new Error('backend exploded');
+    });
+
+    try {
+      withNotificationBridge({ notifications: { show } });
+      await runProcess();
+
+      expect(show).toHaveBeenCalledTimes(1);
+      expect(show.mock.calls[0]?.[0]?.title).toBe('AIO batch failed');
+    } finally {
+      show.mockClear();
+      setDesktopBridgeProvider({ desktop: null });
+    }
+  });
+
+  it('does not notify when the user aborts the run', async () => {
+    mockedChunks.mockImplementation(async () => {
+      throw new DOMException('aborted', 'AbortError');
+    });
+
+    try {
+      withNotificationBridge({ notifications: { show } });
+      await runProcess();
+
+      expect(show).not.toHaveBeenCalled();
+    } finally {
+      show.mockClear();
+      setDesktopBridgeProvider({ desktop: null });
+    }
   });
 });
 

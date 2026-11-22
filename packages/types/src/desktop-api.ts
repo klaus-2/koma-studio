@@ -372,6 +372,39 @@ export interface DesktopImageFolderEntry {
   size: number;
 }
 
+export interface DesktopNotificationPayload {
+  title: string;
+  body?: string;
+}
+
+export interface DesktopRevealPathResult {
+  opened: boolean;
+  path: string | null;
+}
+
+export interface DesktopClipboardImagePayload {
+  data: ArrayBuffer;
+  mimeType: "image/png";
+}
+
+export interface DesktopImageThumbnailPayload {
+  filePath: string;
+  maxDim?: number;
+}
+
+export interface DesktopImageThumbnailResult {
+  mimeType: string;
+  data: ArrayBuffer;
+}
+
+export interface DesktopForwardedFilesPayload {
+  paths: string[];
+}
+
+export interface DesktopReadForwardedPayload {
+  path: string;
+}
+
 export const desktopCommandChannels = {
   runtime: {
     getRuntimeConfig: "desktop:get-runtime-config",
@@ -430,6 +463,16 @@ export const desktopCommandChannels = {
   },
   files: {
     saveBlob: "desktop:files:save-blob",
+    readForwarded: "desktop:files:read-forwarded",
+  },
+  system: {
+    revealPath: "desktop:system:reveal-path",
+  },
+  clipboard: {
+    writeImage: "desktop:clipboard:write-image",
+  },
+  notifications: {
+    show: "desktop:notification:show",
   },
   api: {
     auth: {
@@ -494,6 +537,7 @@ export const desktopCommandChannels = {
   images: {
     allowPaths: "desktop-api:images:allow-paths",
     listFolder: "desktop-api:images:list-folder",
+    thumbnail: "desktop-api:images:thumbnail",
   },
   discordRPC: {
     setEnabled: "discord-rpc:set-enabled",
@@ -668,6 +712,7 @@ export interface DesktopImagesApi {
   listFolder(
     payload: DesktopImageFolderPayload,
   ): Promise<DesktopImageFolderPage>;
+  thumbnail?(payload: DesktopImageThumbnailPayload): Promise<DesktopImageThumbnailResult>;
 }
 
 export interface DesktopSessionLogPayload {
@@ -705,6 +750,7 @@ export interface DesktopFilesApi {
     defaultFileName: string;
     data: ArrayBuffer;
   }): Promise<{ cancelled: boolean; filePath: string | null }>;
+  readForwarded?(payload: DesktopReadForwardedPayload): Promise<{ data: ArrayBuffer }>;
 }
 
 export interface DesktopOpenLogsFolderResult {
@@ -757,6 +803,18 @@ export interface IDesktopBridge {
   images: DesktopImagesApi;
   discordRPC: DesktopDiscordRpcApi;
   diagnostics?: DesktopDiagnosticsApi;
+  notifications?: {
+    show(payload: DesktopNotificationPayload): Promise<void>;
+  };
+  system?: {
+    revealPath(path: string): Promise<DesktopRevealPathResult>;
+  };
+  clipboard?: {
+    writeImage(payload: DesktopClipboardImagePayload): Promise<void>;
+  };
+  onForwardedFiles?(
+    listener: (payload: DesktopForwardedFilesPayload) => void,
+  ): () => void;
 }
 
 export interface IUpdaterSyncBridge {

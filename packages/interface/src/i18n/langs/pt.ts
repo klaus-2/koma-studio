@@ -578,6 +578,10 @@ export const ptMessages: TranslationCatalog = {
   'aio.run.runCurrent': 'Executar etapa atual (imagem ativa)',
   'aio.run.full':
     'Executar AIO (Detectar + OCR + Traduzir + Segmentar + Limpar + Render)',
+  'aio.batch.done.notify.title': 'Lote AIO concluído',
+  'aio.batch.done.notify.body': 'O lote terminou de processar {count} página(s).',
+  'aio.batch.failed.notify.title': 'Falha no lote AIO',
+  'aio.batch.failed.notify.body': 'Um erro interrompeu o lote. Verifique o painel de estado para detalhes.',
   'aio.pipeline.textModeTitle': 'Modo do Texto',
   'aio.pipeline.textModeDescription':
     'Defina como a região selecionada deve ser tratada no render. AUTO usa a classificação detectada.',
@@ -1855,6 +1859,13 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.topbar.downloadTxt': 'Baixar TXT',
   'dashboard.topbar.downloadZip': 'Baixar ZIP',
   'dashboard.topbar.downloadPackage': 'Baixar Pacote',
+  'dashboard.topbar.revealExported': 'Mostrar na pasta',
+  'dashboard.topbar.revealExportedFailed': 'Não foi possível mostrar o ficheiro na pasta.',
+  'dashboard.clipboard.copyPage': 'Copiar imagem da página',
+  'dashboard.clipboard.copyRegion': 'Copiar imagem da região',
+  'dashboard.clipboard.copiedPage': 'Página copiada para a área de transferência.',
+  'dashboard.clipboard.copiedRegion': 'Região copiada para a área de transferência.',
+  'dashboard.clipboard.copyFailed': 'Não foi possível copiar a imagem para a área de transferência.',
   'dashboard.topbar.layeredPsd': 'PSD em Camadas',
   'dashboard.topbar.layeredPsdHint':
     'Exporta PSD para Photoshop, CSP, Krita, GIMP.',

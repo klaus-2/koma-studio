@@ -588,6 +588,11 @@ export const enMessages = {
   'aio.run.runCurrent': 'Run current stage (active image)',
   'aio.run.full':
     'Run AIO (Detect + OCR + Translate + Segment + Clean + Render)',
+  'aio.batch.done.notify.title': 'AIO batch completed',
+  'aio.batch.done.notify.body': 'The batch finished processing {count} page(s).',
+  'aio.batch.failed.notify.title': 'AIO batch failed',
+  'aio.batch.failed.notify.body':
+    'An error interrupted the batch. Check the status panel for details.',
   'aio.pipeline.textModeTitle': 'Text Mode',
   'aio.pipeline.textModeDescription':
     'Define how the selected region should be treated during render. AUTO uses the detected classification.',
@@ -1924,6 +1929,14 @@ export const enMessages = {
   'dashboard.topbar.downloadTxt': 'Download TXT',
   'dashboard.topbar.downloadZip': 'Download ZIP',
   'dashboard.topbar.downloadPackage': 'Download Package',
+  'dashboard.topbar.revealExported': 'Show in folder',
+  'dashboard.topbar.revealExportedFailed':
+    'The file could not be revealed in the folder.',
+  'dashboard.clipboard.copyPage': 'Copy page image',
+  'dashboard.clipboard.copyRegion': 'Copy region image',
+  'dashboard.clipboard.copiedPage': 'Page copied to the clipboard.',
+  'dashboard.clipboard.copiedRegion': 'Region copied to the clipboard.',
+  'dashboard.clipboard.copyFailed': 'Could not copy the image to the clipboard.',
   'dashboard.topbar.layeredPsd': 'Layered PSD',
   'dashboard.topbar.layeredPsdHint':
     'Exports PSD for Photoshop, CSP, Krita, GIMP.',

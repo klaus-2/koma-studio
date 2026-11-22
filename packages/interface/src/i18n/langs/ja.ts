@@ -553,6 +553,10 @@ export const jaMessages: TranslationCatalog = {
   'aio.run.runCurrent': '現在のステージを実行（アクティブ画像）',
   'aio.run.full':
     'AIO実行（検出 + OCR + 翻訳 + セグメント + クリーン + レンダー）',
+  'aio.batch.done.notify.title': 'AIOバッチ完了',
+  'aio.batch.done.notify.body': 'バッチは{count}ページの処理を完了しました。',
+  'aio.batch.failed.notify.title': 'AIOバッチ失敗',
+  'aio.batch.failed.notify.body': 'エラーによりバッチが中断されました。詳細はステータスパネルを確認してください。',
   'aio.pipeline.textModeTitle': 'テキストモード',
   'aio.pipeline.textModeDescription':
     'レンダリング時に選択領域をどのように扱うかを定義します。AUTOは検出された分類を使用します。',
@@ -1809,6 +1813,13 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.topbar.downloadTxt': 'TXTをダウンロード',
   'dashboard.topbar.downloadZip': 'ZIPをダウンロード',
   'dashboard.topbar.downloadPackage': 'パッケージをダウンロード',
+  'dashboard.topbar.revealExported': 'フォルダ内で表示',
+  'dashboard.topbar.revealExportedFailed': 'ファイルをフォルダ内に表示できませんでした。',
+  'dashboard.clipboard.copyPage': 'ページ画像をコピー',
+  'dashboard.clipboard.copyRegion': '範囲画像をコピー',
+  'dashboard.clipboard.copiedPage': 'ページをクリップボードにコピーしました。',
+  'dashboard.clipboard.copiedRegion': '範囲をクリップボードにコピーしました。',
+  'dashboard.clipboard.copyFailed': '画像をクリップボードにコピーできませんでした。',
   'dashboard.topbar.layeredPsd': 'レイヤー付きPSD',
   'dashboard.topbar.layeredPsdHint':
     'Photoshop、CSP、Krita、GIMP向けPSDをエクスポート。',

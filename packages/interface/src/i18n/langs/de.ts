@@ -567,6 +567,10 @@ export const deMessages: TranslationCatalog = {
   'aio.run.runCurrent': 'Aktuelle Phase ausführen (aktives Bild)',
   'aio.run.full':
     'AIO ausführen (Erkennen + OCR + Übersetzen + Segmentieren + Bereinigen + Rendern)',
+  'aio.batch.done.notify.title': 'AIO-Stapel abgeschlossen',
+  'aio.batch.done.notify.body': 'Der Stapel hat {count} Seite(n) verarbeitet.',
+  'aio.batch.failed.notify.title': 'AIO-Stapel fehlgeschlagen',
+  'aio.batch.failed.notify.body': 'Ein Fehler hat den Stapel unterbrochen. Details finden Sie im Statusbereich.',
   'aio.pipeline.textModeTitle': 'Textmodus',
   'aio.pipeline.textModeDescription':
     'Lege fest, wie der ausgewählte Bereich beim Rendering behandelt werden soll. AUTO verwendet die erkannte Klassifizierung.',
@@ -1862,6 +1866,13 @@ export const deMessages: TranslationCatalog = {
   'dashboard.topbar.downloadTxt': 'TXT herunterladen',
   'dashboard.topbar.downloadZip': 'ZIP herunterladen',
   'dashboard.topbar.downloadPackage': 'Paket herunterladen',
+  'dashboard.topbar.revealExported': 'Im Ordner anzeigen',
+  'dashboard.topbar.revealExportedFailed': 'Die Datei konnte nicht im Ordner angezeigt werden.',
+  'dashboard.clipboard.copyPage': 'Seitenbild kopieren',
+  'dashboard.clipboard.copyRegion': 'Regionsbild kopieren',
+  'dashboard.clipboard.copiedPage': 'Seite in die Zwischenablage kopiert.',
+  'dashboard.clipboard.copiedRegion': 'Region in die Zwischenablage kopiert.',
+  'dashboard.clipboard.copyFailed': 'Das Bild konnte nicht in die Zwischenablage kopiert werden.',
   'dashboard.topbar.layeredPsd': 'PSD mit Ebenen',
   'dashboard.topbar.layeredPsdHint':
     'Exportiert PSD für Photoshop, CSP, Krita, GIMP.',

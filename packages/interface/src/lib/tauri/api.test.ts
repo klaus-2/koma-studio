@@ -257,6 +257,98 @@ describe("tauri api wrapper", () => {
     emit({ event: "progress", state: updaterStatePayload });
     expect(received).toHaveLength(1);
   });
+
+  it("sends save-blob bytes as base64 and returns the parsed filePath", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValueOnce({ cancelled: false, filePath: "C:/out/a.png" });
+
+    const result = await tauriApi.desktop?.files.saveBlob({
+      defaultFileName: "a.png",
+      data: new Uint8Array([72, 105]).buffer,
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith("desktop:files:save-blob", {
+      payload: { defaultFileName: "a.png", data: btoa("Hi") },
+    });
+    expect(result).toEqual({ cancelled: false, filePath: "C:/out/a.png" });
+  });
+
+  it("maps a failed save-blob response to a null filePath", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValueOnce({ cancelled: true });
+
+    const result = await tauriApi.desktop?.files.saveBlob({
+      defaultFileName: "a.png",
+      data: new ArrayBuffer(0),
+    });
+
+    expect(result).toEqual({ cancelled: true, filePath: null });
+  });
+
+  it("decodes forwarded-file bytes from the shell's base64 transport", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValueOnce({ data: btoa("Hi") });
+
+    const result = await tauriApi.desktop?.files.readForwarded?.({ path: "C:/a.cbz" });
+
+    expect(mockedInvoke).toHaveBeenCalledWith("desktop:files:read-forwarded", {
+      path: "C:/a.cbz",
+    });
+    expect(new Uint8Array(result?.data ?? new ArrayBuffer(0))).toEqual(
+      new Uint8Array([72, 105]),
+    );
+  });
+
+  it("delivers forwarded-files events to the registered listener and honors unlisten", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    const received: Array<{ paths: string[] }> = [];
+    const handlers: Array<(event: Event<unknown>) => void> = [];
+    mockedListen.mockImplementationOnce(async (eventName, handler) => {
+      expect(eventName).toBe("desktop:files:forwarded");
+      handlers.push(handler);
+      return () => {
+        const index = handlers.indexOf(handler);
+        if (index !== -1) {
+          handlers.splice(index, 1);
+        }
+      };
+    });
+
+    const unsubscribe = tauriApi.desktop?.onForwardedFiles?.((payload) => {
+      received.push(payload);
+    });
+    expect(unsubscribe).toBeTypeOf("function");
+    await vi.waitFor(() => expect(handlers).toHaveLength(1));
+
+    handlers[0]?.({ event: "desktop:files:forwarded", id: 1, payload: { paths: ["C:/a.cbz"] } });
+    handlers[0]?.({ event: "desktop:files:forwarded", id: 2, payload: { paths: [42] } });
+    expect(received).toEqual([{ paths: ["C:/a.cbz"] }]);
+
+    unsubscribe?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    handlers[0]?.({ event: "desktop:files:forwarded", id: 3, payload: { paths: ["C:/b.cbz"] } });
+    expect(received).toEqual([{ paths: ["C:/a.cbz"] }]);
+  });
+
+  it("routes the new shell-integration namespaces to their channels", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValue(undefined);
+    const imageBytes = new Uint8Array([1, 2, 3]).buffer;
+
+    await tauriApi.desktop?.notifications?.show({ title: "done", body: "3 page(s)" });
+    await tauriApi.desktop?.system?.revealPath("C:/out/a.png");
+    await tauriApi.desktop?.clipboard?.writeImage({ data: imageBytes, mimeType: "image/png" });
+
+    expect(mockedInvoke).toHaveBeenNthCalledWith(1, "desktop:notification:show", {
+      payload: { title: "done", body: "3 page(s)" },
+    });
+    expect(mockedInvoke).toHaveBeenNthCalledWith(2, "desktop:system:reveal-path", {
+      path: "C:/out/a.png",
+    });
+    expect(mockedInvoke).toHaveBeenNthCalledWith(3, "desktop:clipboard:write-image", {
+      payload: { mimeType: "image/png", data: btoa("\u0001\u0002\u0003") },
+    });
+  });
 });
 
 const updaterStatePayload: UpdaterStatusPayload = {

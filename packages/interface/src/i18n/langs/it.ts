@@ -557,6 +557,10 @@ export const itMessages: TranslationCatalog = {
   'aio.run.runCurrent': 'Esegui fase corrente (immagine attiva)',
   'aio.run.full':
     'Esegui AIO (Rileva + OCR + Traduci + Segmenta + Pulisci + Renderizza)',
+  'aio.batch.done.notify.title': 'Batch AIO completato',
+  'aio.batch.done.notify.body': 'Il batch ha terminato di elaborare {count} pagina/e.',
+  'aio.batch.failed.notify.title': 'Batch AIO non riuscito',
+  'aio.batch.failed.notify.body': 'Un errore ha interrotto il batch. Controlla il pannello di stato per i dettagli.',
   'aio.pipeline.textModeTitle': 'Modalità testo',
   'aio.pipeline.textModeDescription':
     'Definisci come la regione selezionata deve essere trattata durante il rendering. AUTO usa la classificazione rilevata.',
@@ -1832,6 +1836,13 @@ export const itMessages: TranslationCatalog = {
   'dashboard.topbar.downloadTxt': 'Scarica TXT',
   'dashboard.topbar.downloadZip': 'Scarica ZIP',
   'dashboard.topbar.downloadPackage': 'Scarica pacchetto',
+  'dashboard.topbar.revealExported': 'Mostra nella cartella',
+  'dashboard.topbar.revealExportedFailed': 'Impossibile mostrare il file nella cartella.',
+  'dashboard.clipboard.copyPage': 'Copia immagine della pagina',
+  'dashboard.clipboard.copyRegion': 'Copia immagine della regione',
+  'dashboard.clipboard.copiedPage': 'Pagina copiata negli appunti.',
+  'dashboard.clipboard.copiedRegion': 'Regione copiata negli appunti.',
+  "dashboard.clipboard.copyFailed": "Impossibile copiare l'immagine negli appunti.",
   'dashboard.topbar.layeredPsd': 'PSD a livelli',
   'dashboard.topbar.layeredPsdHint':
     'Esporta PSD per Photoshop, CSP, Krita, GIMP.',

@@ -20,7 +20,9 @@ import type {
   DesktopCommandName,
   DesktopApiEnvelope,
   DesktopFontEntry,
+  DesktopForwardedFilesPayload,
   DesktopOpenLogsFolderResult,
+  DesktopReadForwardedPayload,
   DesktopFontsListResult,
   DesktopImageAllowOutcome,
   DesktopImageFolderPage,
@@ -189,6 +191,12 @@ const miniBackendRuntimeListeners = new Map<
   Promise<UnlistenFn>
 >();
 const modelManagerListeners = new Map<ModelManagerListener, Promise<UnlistenFn>>();
+const forwardedFilesListeners = new Map<
+  (payload: DesktopForwardedFilesPayload) => void,
+  Promise<UnlistenFn>
+>();
+
+const FORWARDED_FILES_EVENT = "desktop:files:forwarded";
 
 const normalizeFontEntry = (entry: unknown): DesktopFontEntry | null => {
   if (!entry || typeof entry !== "object") {
@@ -227,6 +235,50 @@ const normalizeFontsListResult = (value: unknown): DesktopFontsListResult => {
   return { system, custom };
 };
 
+const normalizeForwardedFilesPayload = (
+  value: unknown,
+): DesktopForwardedFilesPayload | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const paths = (value as { paths?: unknown }).paths;
+  if (!Array.isArray(paths) || paths.some((path) => typeof path !== "string")) {
+    return null;
+  }
+  return { paths: paths.filter((path): path is string => typeof path === "string") };
+};
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+};
+
+const parseSaveBlobResult = (
+  value: unknown,
+): { cancelled: boolean; filePath: string | null } => {
+  const record =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return {
+    cancelled: record.cancelled === true,
+    filePath: typeof record.filePath === "string" ? record.filePath : null,
+  };
+};
+
+const base64ToArrayBuffer = (value: string): ArrayBuffer => {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes.buffer;
+};
+
 const tauriDesktopBridge: IDesktopBridge = {
   getRuntimeConfig: getCachedTauriRuntimeConfig,
   getMiniBackendRuntimeState: () =>
@@ -259,6 +311,21 @@ const tauriDesktopBridge: IDesktopBridge = {
   },
   offMiniBackendRuntimeState: (listener) => {
     unregisterListener(miniBackendRuntimeListeners, listener);
+  },
+  onForwardedFiles: (listener) => {
+    registerListener(
+      forwardedFilesListeners,
+      listener,
+      listen<unknown>(FORWARDED_FILES_EVENT, (event) => {
+        const payload = normalizeForwardedFilesPayload(event.payload);
+        if (payload) {
+          listener(payload);
+        }
+      }),
+    );
+    return () => {
+      unregisterListener(forwardedFilesListeners, listener);
+    };
   },
   locale: {
     getPreferences: () => invokeCommand(desktopCommandChannels.locale.getPreferences),
@@ -334,8 +401,20 @@ const tauriDesktopBridge: IDesktopBridge = {
     importFile: () => invokeCommand(desktopCommandChannels.workspace.importFile),
   },
   files: {
-    // Tauri native save-blob not wired yet — cancel so the browser fallback runs.
-    saveBlob: async () => ({ cancelled: true, filePath: null }),
+    saveBlob: async (payload: { defaultFileName: string; data: ArrayBuffer }) => {
+      const result: unknown = await invokeCommand(
+        desktopCommandChannels.files.saveBlob,
+        { payload: { defaultFileName: payload.defaultFileName, data: arrayBufferToBase64(payload.data) } },
+      );
+      return parseSaveBlobResult(result);
+    },
+    readForwarded: async (payload: DesktopReadForwardedPayload) => {
+      const result = await invokeCommand<{ data: string }>(
+        desktopCommandChannels.files.readForwarded,
+        { path: payload.path },
+      );
+      return { data: base64ToArrayBuffer(result.data) };
+    },
   },
   api: {
     auth: {
@@ -571,6 +650,25 @@ const tauriDesktopBridge: IDesktopBridge = {
       invokeCommand<DesktopOpenLogsFolderResult>(
         desktopCommandChannels.diagnostics.openLogsFolder,
       ),
+  },
+  notifications: {
+    show: (payload) =>
+      invokeCommand<void>(desktopCommandChannels.notifications.show, {
+        payload,
+      }),
+  },
+  system: {
+    revealPath: (path: string) =>
+      invokeCommand(desktopCommandChannels.system.revealPath, { path }),
+  },
+  clipboard: {
+    writeImage: (payload) =>
+      invokeCommand<void>(desktopCommandChannels.clipboard.writeImage, {
+        payload: {
+          mimeType: payload.mimeType,
+          data: arrayBufferToBase64(payload.data),
+        },
+      }),
   },
 };
 

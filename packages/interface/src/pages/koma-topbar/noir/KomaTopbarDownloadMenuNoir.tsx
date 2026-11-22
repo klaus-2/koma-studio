@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Download } from 'lucide-react';
+import { ChevronDown, Download, FolderOpen } from 'lucide-react';
 
 import {
   Tooltip,
@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { useI18n } from '../../../i18n';
 import * as exportNaming from '../../../utils/exportNaming';
 import { QUICK_EXPORT_PRESETS } from '../quickExportPresets';
+import { useRevealExportedFileAction } from '../useRevealExportedFileAction';
 import { useAioPipelineStore } from '../../../pages/dashboard/stores/aio-pipeline-store';
 import { useExportStore } from '../../../pages/dashboard/stores/export-store';
 import { useImageCollectionStore } from '../../../pages/dashboard/stores/image-collection-store';
@@ -120,6 +121,7 @@ export default function KomaTopbarDownloadMenuNoir({
   onToggle,
 }: KomaTopbarDownloadMenuProps) {
   const { t } = useI18n();
+  const revealAction = useRevealExportedFileAction();
   const standardImagePackage = !translatorTextMode && !translatorVisualMode;
 
   return (
@@ -219,6 +221,17 @@ export default function KomaTopbarDownloadMenuNoir({
                       ? t('dashboard.topbar.downloadZip')
                       : t('dashboard.topbar.downloadPackage')}
                 </button>
+
+                {revealAction.filePath !== null && (
+                  <button
+                    type="button"
+                    onClick={revealAction.reveal}
+                    className="panel-cut-sm flex items-center justify-center gap-2 border border-paper/20 bg-ink-3 px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-paper-dim transition-colors hover:border-crimson hover:text-paper"
+                  >
+                    <FolderOpen size={12} />
+                    {t('dashboard.topbar.revealExported')}
+                  </button>
+                )}
               </div>
 
               {standardImagePackage && !cleanerMode && (

@@ -546,6 +546,10 @@ export const hiMessages: TranslationCatalog = {
   'aio.run.runCurrent': 'Jalankan tahap saat ini (gambar aktif)',
   'aio.run.full':
     'Jalankan AIO (Deteksi + OCR + Terjemahan + Segmentasi + Bersihkan + Render)',
+  'aio.batch.done.notify.title': 'Batch AIO selesai',
+  'aio.batch.done.notify.body': 'Batch selesai memproses {count} halaman.',
+  'aio.batch.failed.notify.title': 'Batch AIO gagal',
+  'aio.batch.failed.notify.body': 'Kesalahan menghentikan batch. Periksa panel status untuk detailnya.',
   'aio.pipeline.textModeTitle': 'Mode Teks',
   'aio.pipeline.textModeDescription':
     'Tentukan bagaimana area terpilih diperlakukan saat render. AUTO menggunakan klasifikasi yang terdeteksi.',
@@ -1802,6 +1806,13 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.topbar.downloadTxt': 'Unduh TXT',
   'dashboard.topbar.downloadZip': 'Unduh ZIP',
   'dashboard.topbar.downloadPackage': 'Unduh Paket',
+  'dashboard.topbar.revealExported': 'Tampilkan di folder',
+  'dashboard.topbar.revealExportedFailed': 'Berkas tidak dapat ditampilkan di folder.',
+  'dashboard.clipboard.copyPage': 'Salin gambar halaman',
+  'dashboard.clipboard.copyRegion': 'Salin gambar wilayah',
+  'dashboard.clipboard.copiedPage': 'Halaman disalin ke papan klip.',
+  'dashboard.clipboard.copiedRegion': 'Wilayah disalin ke papan klip.',
+  'dashboard.clipboard.copyFailed': 'Tidak dapat menyalin gambar ke papan klip.',
   'dashboard.topbar.layeredPsd': 'PSD Berlapis',
   'dashboard.topbar.layeredPsdHint':
     'Ekspor PSD untuk Photoshop, CSP, Krita, GIMP.',

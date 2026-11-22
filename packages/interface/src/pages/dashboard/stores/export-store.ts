@@ -76,6 +76,7 @@ interface ExportStore {
   downloadPsdIncludeMetadataJson: boolean;
   /** True while the PSD export request is running. */
   downloadPsdLoading: boolean;
+  lastExportedFilePath: string | null;
 
   /** User file-name pattern; '' keeps the legacy names. */
   namingPattern: string;
@@ -102,6 +103,7 @@ interface ExportStore {
   setDownloadPsdUsePhotoshopTextLayers: (value: boolean) => void;
   setDownloadPsdIncludeMetadataJson: (value: boolean) => void;
   setDownloadPsdLoading: (value: boolean) => void;
+  setLastExportedFilePath: (value: string | null) => void;
   setNamingPattern: (value: string) => void;
   /** Records a pattern as recently used (dedup, most-recent-first, cap 5). */
   addRecentNamingPattern: (pattern: string) => void;
@@ -133,6 +135,7 @@ export const useExportStore = create<ExportStore>()(
       downloadPsdUsePhotoshopTextLayers: false,
       downloadPsdIncludeMetadataJson: true,
       downloadPsdLoading: false,
+      lastExportedFilePath: null,
       namingPattern: loadPersistedNaming().namingPattern,
       recentNamingPatterns: loadPersistedNaming().recentNamingPatterns,
 
@@ -177,6 +180,8 @@ export const useExportStore = create<ExportStore>()(
         set({ downloadPsdIncludeMetadataJson }),
       setDownloadPsdLoading: (downloadPsdLoading) =>
         set({ downloadPsdLoading }),
+      setLastExportedFilePath: (lastExportedFilePath) =>
+        set({ lastExportedFilePath }),
       setNamingPattern: (namingPattern) => set({ namingPattern }),
       addRecentNamingPattern: (pattern) =>
         set((state) => {

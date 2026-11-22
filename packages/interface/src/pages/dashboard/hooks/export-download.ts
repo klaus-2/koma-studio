@@ -197,7 +197,8 @@ export const parseSheetCorrections = async (file: File): Promise<SheetRow[]> => 
 
 /** Anchor download of a generated blob (object-URL lifecycle 1:1). */
 export function triggerBlobDownload(blob: Blob, fileName: string) {
-  const desktopFiles = desktopBridge.desktop?.files;
+  const desktopBridgeRef = desktopBridge.desktop;
+  const desktopFiles = desktopBridgeRef?.files;
   if (desktopFiles?.saveBlob) {
     // Native save dialog on desktop; browser fallback if the dialog is
     // cancelled or the IPC fails.
@@ -206,15 +207,18 @@ export function triggerBlobDownload(blob: Blob, fileName: string) {
         const data = await blob.arrayBuffer();
         const result = await desktopFiles.saveBlob({ defaultFileName: fileName, data });
         if (!result.cancelled) {
+          useExportStore.getState().setLastExportedFilePath(result.filePath);
           return;
         }
       } catch {
         // fall through to anchor download
       }
+      useExportStore.getState().setLastExportedFilePath(null);
       anchorBlobDownload(blob, fileName);
     })();
     return;
   }
+  useExportStore.getState().setLastExportedFilePath(null);
   anchorBlobDownload(blob, fileName);
 }
 

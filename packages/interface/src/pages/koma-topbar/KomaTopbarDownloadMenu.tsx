@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { ChevronDown, Download } from 'lucide-react';
+import { ChevronDown, Download, FolderOpen } from 'lucide-react';
 
 import {
   Tooltip,
@@ -10,6 +10,7 @@ import { useMemo } from 'react';
 import { useI18n } from '../../i18n';
 import * as exportNaming from '../../utils/exportNaming';
 import { QUICK_EXPORT_PRESETS } from './quickExportPresets';
+import { useRevealExportedFileAction } from './useRevealExportedFileAction';
 import { useAioPipelineStore } from '../dashboard/stores/aio-pipeline-store';
 import { useExportStore } from '../dashboard/stores/export-store';
 import { useImageCollectionStore } from '../dashboard/stores/image-collection-store';
@@ -119,6 +120,7 @@ export default function KomaTopbarDownloadMenu({
   onToggle,
 }: KomaTopbarDownloadMenuProps) {
   const { t } = useI18n();
+  const revealAction = useRevealExportedFileAction();
   const standardImagePackage = !translatorTextMode && !translatorVisualMode;
 
   return (
@@ -198,6 +200,17 @@ export default function KomaTopbarDownloadMenu({
                     ? t('dashboard.topbar.downloadZip')
                     : t('dashboard.topbar.downloadPackage')}
               </button>
+
+              {revealAction.filePath !== null && (
+                <button
+                  type="button"
+                  className="koma-dlmenu__action koma-dlmenu__action--ghost"
+                  onClick={revealAction.reveal}
+                >
+                  <FolderOpen size={12} />
+                  {t('dashboard.topbar.revealExported')}
+                </button>
+              )}
             </div>
 
             {standardImagePackage && !cleanerMode && (

@@ -1,6 +1,7 @@
 import type { LazyExoticComponent, ReactNode } from 'react';
 
 import CompareReviewStageButton from './CompareReviewStageButton';
+import PageClipboardActions from './PageClipboardActions';
 import { EMPTY_REGIONS } from '../../../../utils/dashboardRenderUtils';
 
 import type { EMPTY_REGION_MAP } from '../../../../utils/regionMapGating';
@@ -152,6 +153,7 @@ export function renderAioStageItemBody(
       <div className="koma-compare-host">
         <div className="koma-compare-host__actions">
           <CompareReviewStageButton imageId={img.id} />
+          <PageClipboardActions imageId={img.id} />
         </div>
         <RenderTextPreview
           key={`${img.id}-snapshot-${imageHistoryMeta.index}`}

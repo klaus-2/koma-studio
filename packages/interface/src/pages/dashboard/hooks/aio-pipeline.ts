@@ -55,6 +55,7 @@ import {
   runAioBatch,
   throwIfAioAborted,
 } from '@/pages/dashboard/lib/run-aio-batch';
+import { showDesktopNotification } from '@/pages/dashboard/lib/desktop-notifications';
 import { resolveWorkGlossaryForChapter } from '@/pages/dashboard/hooks/translator.execution';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import {
@@ -870,6 +871,11 @@ export function useAioPipelineExecution(
         pages: summary.processedPagesCount,
       });
 
+      showDesktopNotification({
+        title: t('aio.batch.done.notify.title'),
+        body: t('aio.batch.done.notify.body', { count: summary.processedPagesCount }),
+      });
+
       void runAioNotification(args.tryShowHealingHint);
       runCompleted = true;
     } catch (error: unknown) {
@@ -910,6 +916,11 @@ export function useAioPipelineExecution(
             { estrategia: 'per-image-concurrent' },
           ),
         );
+
+        showDesktopNotification({
+          title: t('aio.batch.failed.notify.title'),
+          body: t('aio.batch.failed.notify.body'),
+        });
       }
     } finally {
       unsubscribeImages?.();

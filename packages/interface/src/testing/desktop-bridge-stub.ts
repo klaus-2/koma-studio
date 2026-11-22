@@ -8,9 +8,20 @@ const unavailable = (member: string): never => {
   throw new Error(`desktop bridge member "${member}" is not stubbed for this test`);
 };
 
+export interface DesktopBridgeStubExtras {
+  diagnostics?: DesktopDiagnosticsApi;
+  notifications?: IDesktopBridge["notifications"];
+  system?: IDesktopBridge["system"];
+  clipboard?: IDesktopBridge["clipboard"];
+  onForwardedFiles?: IDesktopBridge["onForwardedFiles"];
+  sessionLog?: IDesktopBridge["sessionLog"];
+  filesReadForwarded?: IDesktopBridge["files"]["readForwarded"];
+  files?: IDesktopBridge["files"];
+}
+
 export const createDesktopBridgeStub = (
   models: DesktopModelsApi,
-  extras?: { diagnostics?: DesktopDiagnosticsApi },
+  extras?: DesktopBridgeStubExtras,
 ): IDesktopBridge => ({
   getRuntimeConfig: () => unavailable("getRuntimeConfig"),
   getMiniBackendRuntimeState: async () => unavailable("getMiniBackendRuntimeState"),
@@ -29,7 +40,7 @@ export const createDesktopBridgeStub = (
   },
   checkLocalBackend: async () => unavailable("checkLocalBackend"),
   restartLocalBackend: async () => unavailable("restartLocalBackend"),
-  sessionLog: async () => unavailable("sessionLog"),
+  sessionLog: extras?.sessionLog ?? (async () => unavailable("sessionLog")),
   openExternal: async () => unavailable("openExternal"),
   openCommunityLink: async () => unavailable("openCommunityLink"),
   models,
@@ -41,8 +52,9 @@ export const createDesktopBridgeStub = (
     exportCurrent: async () => unavailable("workspace.exportCurrent"),
     importFile: async () => unavailable("workspace.importFile"),
   },
-  files: {
+  files: extras?.files ?? {
     saveBlob: async () => unavailable("files.saveBlob"),
+    ...(extras?.filesReadForwarded ? { readForwarded: extras.filesReadForwarded } : {}),
   },
   api: {
     auth: {
@@ -123,4 +135,8 @@ export const createDesktopBridgeStub = (
     getPresetAssets: async () => unavailable("discordRPC.getPresetAssets"),
   },
   diagnostics: extras?.diagnostics,
+  notifications: extras?.notifications,
+  system: extras?.system,
+  clipboard: extras?.clipboard,
+  onForwardedFiles: extras?.onForwardedFiles,
 });

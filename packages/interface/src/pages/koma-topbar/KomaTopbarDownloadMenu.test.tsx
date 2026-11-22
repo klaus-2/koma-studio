@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 
 import type { ComponentProps } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { TooltipProvider } from '@koma/ui/components/tooltip';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DesktopModelsApi } from '@shared/desktop-api';
 
 import { I18nProvider } from '@/i18n';
 import { setDesktopBridgeProvider } from '@/lib/desktop-bridge';
+import { createDesktopBridgeStub } from '@/testing/desktop-bridge-stub';
 import { useExportStore } from '@/pages/dashboard/stores/export-store';
 import ClassicMenu from './KomaTopbarDownloadMenu';
 import NoirMenu from './noir/KomaTopbarDownloadMenuNoir';
@@ -128,5 +130,50 @@ describe.each([
     useExportStore.setState({ outFormat: 'image/webp', outQuality: 0.9 });
     renderMenu(noir);
     expect(getChip()).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+
+describe.each([
+  ['classic', false],
+  ['noir', true],
+])('show-in-folder row (%s)', (_variant, noir) => {
+  const modelsStub: DesktopModelsApi = {
+    listInstalled: async () => [],
+    getDiskSpace: async () => ({ freeBytes: 1024 ** 3, totalBytes: 1024 ** 3, path: 'mock' }),
+    checkUpdates: async () => [],
+    download: async () => ({ queued: true, queueLength: 1 }),
+    importOnnx: async () => {
+      throw new Error('not used in this suite');
+    },
+    cancel: async () => undefined,
+    cancelAll: async () => undefined,
+    uninstall: async () => undefined,
+    listActive: async () => ({ known: false }),
+    on: async () => true,
+    off: () => undefined,
+  };
+
+  it('hides the row without a shell reveal integration or an exported path', () => {
+    setDesktopBridgeProvider({ desktop: null });
+    const first = renderMenu(noir);
+    expect(screen.queryByText('Show in folder')).toBeNull();
+    first.unmount();
+
+    useExportStore.setState({ lastExportedFilePath: 'C:/out/a.zip' });
+    renderMenu(noir);
+    expect(screen.queryByText('Show in folder')).toBeNull();
+  });
+
+  it('shows the row after a shell export and calls system.revealPath', async () => {
+    const revealPath = vi.fn(async () => ({ opened: true, path: 'C:/out/a.zip' }));
+    setDesktopBridgeProvider({
+      desktop: createDesktopBridgeStub(modelsStub, { system: { revealPath } }),
+    });
+    useExportStore.setState({ lastExportedFilePath: 'C:/out/a.zip' });
+
+    renderMenu(noir);
+    fireEvent.click(screen.getByText('Show in folder'));
+
+    await waitFor(() => expect(revealPath).toHaveBeenCalledWith('C:/out/a.zip'));
   });
 });
