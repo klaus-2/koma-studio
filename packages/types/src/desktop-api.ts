@@ -309,11 +309,12 @@ export interface DesktopBugReportAttachmentPayload {
 export interface DesktopBugReportSubmitPayload {
   title: string;
   description: string;
-  severity: "low" | "medium" | "high" | "critical";
   stepsToReproduce?: string;
   expectedResult?: string;
   actualResult?: string;
   contact?: string;
+  endpointUrl: string;
+  includeLogs: boolean;
   screenshotDataUrl?: string | null;
   autoLogIds?: string[];
   attachments?: DesktopBugReportAttachmentPayload[];
@@ -323,7 +324,6 @@ export interface DesktopBugReportSubmitPayload {
 export interface DesktopBugReportSubmitResult {
   ok: boolean;
   status: number;
-  screenshotUrl?: string;
   error?: string;
 }
 

@@ -6,7 +6,7 @@
 // resolution still paints. Exercises both theme variants (classic + noir).
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 
 import type { ComponentProps } from 'react';
 
@@ -17,6 +17,7 @@ import BugReportModalNoir from './noir/BugReportModalNoir';
 import type {
   DesktopBugReportDiagnostics,
   DesktopBugReportPrepareResult,
+  DesktopBugReportSubmitPayload,
   IDesktopBridge,
 } from '@shared/desktop-api';
 
@@ -155,5 +156,76 @@ describe.each([
     await waitFor(() =>
       expect(document.body.querySelector('img[src^="data:"]')).not.toBeNull(),
     );
+  });
+});
+
+describe.each([
+  ['classic', BugReportModalClassic, 'button.koma-modal__btn--primary'],
+  ['noir', BugReportModalNoir, 'button.bg-crimson'],
+])('BugReportModal %s submit payload', (_name, Modal, submitSelector) => {
+  it('carries the endpoint URL and the technical-logs checkbox value', async () => {
+    const prepare = vi.fn(async () => readyPrep());
+    const submit = vi.fn(
+      async (_payload?: Partial<DesktopBugReportSubmitPayload>) => ({
+        ok: true,
+        status: 201,
+      }),
+    );
+    setDesktopBridgeProvider({
+      desktop: {
+        api: {
+          bugReport: { prepare, submit },
+        },
+      } as unknown as IDesktopBridge,
+    });
+
+    renderModal(Modal, true);
+    await waitFor(() =>
+      expect(document.body.querySelector('img[src^="data:"]')).not.toBeNull(),
+    );
+
+    const titleInput = document.body.querySelector(
+      'input[type="text"]',
+    ) as HTMLInputElement;
+    const descriptionArea = document.body.querySelector(
+      'textarea',
+    ) as HTMLTextAreaElement;
+    const checkbox = document.body.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    expect(checkbox).not.toBeNull();
+    expect(checkbox.checked).toBe(true);
+
+    await act(async () => {
+      fireEvent.change(titleInput, { target: { value: 'Crash on export' } });
+      fireEvent.change(descriptionArea, {
+        target: { value: 'The export stage crashes.' },
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(document.body.querySelector(submitSelector) as HTMLElement);
+    });
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const firstPayload = submit.mock.calls[0]?.[0] as {
+      endpointUrl: string;
+      includeLogs: boolean;
+    };
+    expect(firstPayload.endpointUrl).toBe('https://koma-studio.site/api/bug-reports');
+    expect(firstPayload.includeLogs).toBe(true);
+
+    await act(async () => {
+      fireEvent.click(checkbox);
+    });
+    expect(checkbox.checked).toBe(false);
+
+    await act(async () => {
+      fireEvent.click(document.body.querySelector(submitSelector) as HTMLElement);
+    });
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    const secondPayload = submit.mock.calls[1]?.[0] as
+      | { includeLogs: boolean }
+      | undefined;
+    expect(secondPayload?.includeLogs).toBe(false);
   });
 });

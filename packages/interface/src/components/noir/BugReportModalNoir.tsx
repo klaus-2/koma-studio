@@ -10,7 +10,6 @@ import { EASE, btnPrimary, btnGhost } from "../system/v2/kit";
 import { canOpenLogsFolder, openLogsFolderOrReport } from "../../lib/open-logs-folder";
 import { desktopBridge } from "@/lib/desktop-bridge";
 
-type BugSeverity = "low" | "medium" | "high" | "critical";
 type CropRect = { x: number; y: number; width: number; height: number };
 
 interface BugReportModalProps {
@@ -20,16 +19,11 @@ interface BugReportModalProps {
 }
 interface ManualAttachment { id: string; file: File }
 
-const MAX_ATTACH = 5;
-const MAX_FILE = 8 * 1024 * 1024;
+const MAX_ATTACH = 4;
+const MAX_FILE = 5 * 1024 * 1024;
 const MAX_TOTAL = 20 * 1024 * 1024;
-const SEV_KEYS: BugSeverity[] = ["low", "medium", "high", "critical"];
-const SEV_TONE: Record<BugSeverity, string> = {
-  low: "border-mint/50 bg-mint/10 text-mint",
-  medium: "border-azure/50 bg-azure/10 text-azure",
-  high: "border-gold/50 bg-gold/10 text-gold",
-  critical: "border-crimson/50 bg-crimson/10 text-crimson",
-};
+const BUG_REPORT_API_URL =
+  import.meta.env.VITE_BUG_REPORT_API_URL ?? "https://koma-studio.site/api/bug-reports";
 const mkId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 const fmtBytes = (v: number) => {
   if (!Number.isFinite(v) || v <= 0) return "0 B";
@@ -47,8 +41,12 @@ const toB64 = (buf: ArrayBuffer) => {
 const loadImg = (src: string, t: (key: any) => string) =>
   new Promise<HTMLImageElement>((r, j) => {
     const i = new Image();
-    i.onload = () => r(i);
-    i.onerror = () => j(new Error(t("bugReport.error.imgLoadFailed")));
+    i.addEventListener("load", () => r(i), { once: true });
+    i.addEventListener(
+      "error",
+      () => j(new Error(t("bugReport.error.imgLoadFailed"))),
+      { once: true },
+    );
     i.src = src;
   });
 const cropDataUrl = async (src: string, rect: CropRect, size: { width: number; height: number }, t: (key: any) => string) => {
@@ -93,7 +91,7 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
   const { prep, prepLoading } = useBugReportPrepare(open);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
-  const [sev, setSev] = useState<BugSeverity>("medium");
+  const [includeLogs, setIncludeLogs] = useState(true);
   const [steps, setSteps] = useState("");
   const [expected, setExpected] = useState("");
   const [actual, setActual] = useState("");
@@ -133,7 +131,7 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
   const canSubmit = Boolean(title.trim()) && Boolean(desc.trim()) && Boolean(screenshot) && Boolean(prep?.ready) && !loading;
 
   const reset = useCallback(() => {
-    setTitle(""); setDesc(""); setSev("medium"); setSteps(""); setExpected(""); setActual(""); setContact("");
+    setTitle(""); setDesc(""); setIncludeLogs(true); setSteps(""); setExpected(""); setActual(""); setContact("");
     setCrop(null); setDrag(null); draggingRef.current = false; dragStart.current = null;
     cancelDragFrame();
     setAttachments([]); setAttachErr(null); setErr(null); setSuccess(null);
@@ -209,8 +207,8 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
     // movement is not dropped, then tear the drag down.
     const flushedRect = pendingDragRef.current;
     cancelDragFrame();
-    const rect = flushedRect ?? drag;
-    if (rect) setCrop(rect.width >= 8 && rect.height >= 8 ? rect : null);
+    const cropDecision = flushedRect ?? drag;
+    if (cropDecision) setCrop(cropDecision.width >= 8 && cropDecision.height >= 8 ? cropDecision : null);
     setDrag(null); draggingRef.current = false; dragStart.current = null;
   }, [cancelDragFrame, drag]);
 
@@ -232,11 +230,13 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
         size: file.size, contentBase64: toB64(await file.arrayBuffer()),
       })));
       const payload: DesktopBugReportSubmitPayload = {
-        title: title.trim(), description: desc.trim(), severity: sev,
+        title: title.trim(), description: desc.trim(),
         stepsToReproduce: steps.trim() || undefined,
         expectedResult: expected.trim() || undefined,
         actualResult: actual.trim() || undefined,
         contact: contact.trim() || undefined,
+        endpointUrl: BUG_REPORT_API_URL,
+        includeLogs,
         screenshotDataUrl: ss,
         autoLogIds: prep.autoLogs.map((l) => l.id),
         attachments: atts,
@@ -244,13 +244,11 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
       };
       const res = await api.submit(payload);
       if (!res.ok) { setErr(res.error ?? t("bugReport.error.generic")); return; }
-      setSuccess(t("bugReport.success.sent", {
-        screenshot: res.screenshotUrl ? ` ${t("bugReport.success.screenshot", { url: res.screenshotUrl })}` : "",
-      }));
+      setSuccess(t("bugReport.success.sent"));
     } catch (e) {
       setErr(e instanceof Error ? e.message : t("bugReport.error.generic"));
     } finally { setLoading(false); }
-  }, [api, attachments, contact, context, desc, expected, actual, getScreenshot, prep, sev, steps, title, t]);
+  }, [api, attachments, contact, context, desc, expected, actual, getScreenshot, includeLogs, prep, steps, title, t]);
 
   if (!open) return null;
 
@@ -320,25 +318,17 @@ const BugReportModalNoir = ({ open, onClose, context }: BugReportModalProps): JS
                   onChange={(e) => setDesc(e.target.value)} placeholder={t("bugReport.placeholder.description")} />
               </label>
 
-              {/* Severity — segmented hanko */}
+              {/* Technical logs — consent toggle */}
               <div>
-                <FieldLbl required>{t("bugReport.field.severity")}</FieldLbl>
-                <div role="radiogroup" aria-label={t("bugReport.field.severity")} className="flex flex-wrap gap-1.5">
-                  {SEV_KEYS.map((v) => {
-                    const label = v === "low" ? t("bugReport.severity.low")
-                      : v === "medium" ? t("bugReport.severity.medium")
-                        : v === "high" ? t("bugReport.severity.high") : t("bugReport.severity.critical");
-                    const active = sev === v;
-                    return (
-                      <button key={v} type="button" role="radio" aria-checked={active}
-                        onClick={() => setSev(v)}
-                        className={`panel-cut-sm border px-3 py-1.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] transition-all ${active ? SEV_TONE[v] : "border-paper/12 text-paper/35 hover:text-paper/70"
-                          } ${active && v === "critical" ? "blink" : ""}`}>
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <FieldLbl>{t("bugReport.field.includeLogs")}</FieldLbl>
+                <label className="panel-cut-sm flex cursor-pointer items-center gap-2.5 border border-paper/12 px-3 py-2 transition-colors hover:border-crimson/40">
+                  <input type="checkbox" checked={includeLogs}
+                    onChange={(e) => setIncludeLogs(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-crimson" />
+                  <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-paper/60">
+                    {t("bugReport.field.includeLogsHint")}
+                  </span>
+                </label>
               </div>
 
               <label className="block">
