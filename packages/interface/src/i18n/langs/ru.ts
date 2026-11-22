@@ -4946,4 +4946,9 @@ export const ruMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': 'Неизвестная модель',
   'modelCatalog.error.availableModels': 'Доступные модели',
   'modelCatalog.error.useDefault': 'Использовать модель по умолчанию',
+  'dashboard.footer.timing.pages': 'Время по страницам',
+  'dashboard.footer.timing.copyReport': 'Скопировать отчёт',
+  'dashboard.footer.timing.copied': 'Отчёт по времени скопирован',
+  'dashboard.footer.timing.copyFailed':
+    'Не удалось скопировать отчёт по времени',
 } as const;

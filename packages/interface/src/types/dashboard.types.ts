@@ -332,6 +332,7 @@ export interface PipelineBatchItemResult {
   segment?: PipelineBatchSegmentResult | null;
   clean?: PipelineBatchCleanResult | null;
   errors?: PipelineBatchItemError[];
+  stage_timings?: Record<string, number> | undefined;
 }
 
 export interface PipelineBatchStages {

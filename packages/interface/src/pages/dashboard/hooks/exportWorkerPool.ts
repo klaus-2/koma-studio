@@ -1,4 +1,8 @@
 import type {
+  ExportEncodeRequest,
+  ExportEncodeWorkerResponse,
+} from './exportEncodeWorker';
+import type {
   ExportPackageRequest,
   ExportWorkerResponse,
   WorkerPdfPage,
@@ -19,6 +23,14 @@ export interface ExportPoolJob {
   readonly transferBytes?: boolean;
 }
 
+export interface ExportEncodeJobSpec {
+  readonly pixels: ArrayBuffer;
+  readonly width: number;
+  readonly height: number;
+  readonly mimeType: ExportEncodeRequest['mimeType'];
+  readonly quality: number;
+}
+
 export interface ExportPoolEvents {
   readonly onQueued?: () => void;
   readonly onWorkerStart?: (jobId: number) => void;
@@ -26,12 +38,36 @@ export interface ExportPoolEvents {
   readonly onRetry?: (jobId: number, message: string) => void;
 }
 
+export type ExportPoolRequest = ExportPackageRequest | ExportEncodeRequest;
+export type ExportPoolResponse = ExportWorkerResponse | ExportEncodeWorkerResponse;
+export type ExportWorkerPoolMode = 'package' | 'encode';
+
+export const EXPORT_POOL_MIN_SIZE = 2;
+export const EXPORT_POOL_MAX_SIZE = 4;
+
+export const resolveExportPoolSize = (
+  hardwareConcurrency: number | undefined,
+): number => {
+  if (
+    typeof hardwareConcurrency !== 'number' ||
+    !Number.isFinite(hardwareConcurrency) ||
+    hardwareConcurrency < 1
+  ) {
+    return EXPORT_POOL_MIN_SIZE;
+  }
+  const requested = Math.floor(hardwareConcurrency) - 1;
+  return Math.min(
+    EXPORT_POOL_MAX_SIZE,
+    Math.max(EXPORT_POOL_MIN_SIZE, requested),
+  );
+};
+
 const POOL_SIZE = 1;
 const JOB_TIMEOUT_MS = 600_000;
 
 interface PendingJob {
   readonly jobId: number;
-  readonly job: ExportPoolJob;
+  readonly job: ExportPoolJob | ExportEncodeJobSpec;
   readonly resolve: (bytes: { blobBytes: ArrayBuffer; mimeType: string }) => void;
   readonly reject: (error: Error) => void;
   readonly attempts: { value: number };
@@ -41,7 +77,26 @@ interface PendingJob {
 
 const MAX_JOB_ATTEMPTS = 2;
 
-const buildRequest = (jobId: number, job: ExportPoolJob): ExportPackageRequest => {
+const isEncodeJob = (
+  job: ExportPoolJob | ExportEncodeJobSpec,
+): job is ExportEncodeJobSpec => 'pixels' in job;
+
+const buildRequest = (
+  jobId: number,
+  job: ExportPoolJob | ExportEncodeJobSpec,
+): { request: ExportPoolRequest; transfer: Transferable[] } => {
+  if (isEncodeJob(job)) {
+    const request: ExportEncodeRequest = {
+      kind: 'encode',
+      jobId,
+      pixels: job.pixels,
+      width: job.width,
+      height: job.height,
+      mimeType: job.mimeType,
+      quality: job.quality,
+    };
+    return { request, transfer: [job.pixels] };
+  }
   const transferBytes = job.transferBytes === true;
   const zipEntries = job.zipEntries.map((entry) => ({
     path: entry.path,
@@ -52,7 +107,7 @@ const buildRequest = (jobId: number, job: ExportPoolJob): ExportPackageRequest =
     bytes: transferBytes ? page.bytes : page.bytes.slice(),
     isJpeg: page.isJpeg,
   }));
-  return {
+  const request: ExportPackageRequest = {
     kind: 'package',
     jobId,
     bundleFormat: job.bundleFormat,
@@ -63,6 +118,14 @@ const buildRequest = (jobId: number, job: ExportPoolJob): ExportPackageRequest =
     createdAt: job.createdAt,
     flags: job.flags,
   };
+  const transfer: Transferable[] = [];
+  for (const entry of request.zipEntries) {
+    transfer.push(entry.bytes.buffer);
+  }
+  for (const page of request.pdfPages ?? []) {
+    transfer.push(page.bytes.buffer);
+  }
+  return { request, transfer };
 };
 
 const defaultCreateWorker = (): Worker =>
@@ -70,9 +133,15 @@ const defaultCreateWorker = (): Worker =>
     type: 'module',
   });
 
+const defaultCreateEncodeWorker = (): Worker =>
+  new Worker(new URL('./exportEncodeWorker.ts', import.meta.url), {
+    type: 'module',
+  });
+
 export const createExportWorkerPool = (
   events: ExportPoolEvents = {},
   createWorker: () => Worker = defaultCreateWorker,
+  mode: ExportWorkerPoolMode = 'package',
 ) => {
   const workers: Worker[] = [];
   const idle: Worker[] = [];
@@ -161,12 +230,12 @@ export const createExportWorkerPool = (
 
   const emit = (
     worker: Worker,
-    response: ExportWorkerResponse,
+    response: ExportPoolResponse,
   ): void => {
     const job = pending.get(response.jobId);
     releaseWorker(worker);
     if (!job) return;
-    if (response.kind === 'package-success') {
+    if (response.kind === 'package-success' || response.kind === 'encode-success') {
       settleJob(job, { ok: true, blobBytes: response.blobBytes, mimeType: response.mimeType });
     } else {
       settleJob(job, { ok: false, message: response.message });
@@ -217,8 +286,17 @@ export const createExportWorkerPool = (
     }
   };
 
+  const maxWorkers = (): number =>
+    mode === 'encode'
+      ? resolveExportPoolSize(
+          typeof navigator === 'undefined'
+            ? undefined
+            : navigator.hardwareConcurrency,
+        )
+      : POOL_SIZE;
+
   const spawn = (): void => {
-    if (disposed || workers.length >= POOL_SIZE) return;
+    if (disposed || workers.length >= maxWorkers()) return;
     let worker: Worker;
     try {
       worker = createWorker();
@@ -231,7 +309,7 @@ export const createExportWorkerPool = (
       return;
     }
     workers.push(worker);
-    worker.onmessage = (event: MessageEvent<ExportWorkerResponse>) =>
+    worker.onmessage = (event: MessageEvent<ExportPoolResponse>) =>
       emit(worker, event.data);
     worker.onerror = (event) =>
       handleWorkerError(worker, event.message || 'worker error');
@@ -241,6 +319,15 @@ export const createExportWorkerPool = (
   };
 
   const pump = (): void => {
+    while (
+      !disposed &&
+      queue.length > idle.length &&
+      workers.length < maxWorkers()
+    ) {
+      const before = workers.length;
+      spawn();
+      if (workers.length === before) break;
+    }
     while (!disposed && queue.length > 0 && idle.length > 0) {
       const worker = idle.shift();
       const job = queue.shift();
@@ -249,16 +336,13 @@ export const createExportWorkerPool = (
       pending.set(job.jobId, job);
       events.onWorkerStart?.(job.jobId);
       try {
-        const request = buildRequest(job.jobId, job.job);
-        const transferSet = new Set<ArrayBufferLike>();
-        for (const entry of request.zipEntries) {
-          transferSet.add(entry.bytes.buffer);
-        }
-        for (const page of request.pdfPages ?? []) {
-          transferSet.add(page.bytes.buffer);
+        const { request, transfer } = buildRequest(job.jobId, job.job);
+        const transferSet = new Set<Transferable>();
+        for (const buffer of transfer) {
+          transferSet.add(buffer);
         }
         worker.postMessage(request, Array.from(transferSet));
-        if (job.job.transferBytes === true) {
+        if (isEncodeJob(job.job) || job.job.transferBytes === true) {
           job.bytesTransferred = true;
         }
       } catch (error) {
@@ -306,11 +390,41 @@ export const createExportWorkerPool = (
           reject(new Error('export worker pool disposed'));
           return;
         }
+        if (mode !== 'package') {
+          reject(new Error('package jobs require a package worker pool'));
+          return;
+        }
         const jobId = nextJobId;
         nextJobId += 1;
         const pendingJob: PendingJob = {
           jobId,
           job,
+          resolve,
+          reject,
+          attempts: { value: 0 },
+          bytesTransferred: false,
+          timer: armJobTimeout(jobId, reject),
+        };
+        enqueue(pendingJob);
+      });
+    },
+    encode(
+      spec: ExportEncodeJobSpec,
+    ): Promise<{ blobBytes: ArrayBuffer; mimeType: string }> {
+      return new Promise((resolve, reject) => {
+        if (disposed) {
+          reject(new Error('export worker pool disposed'));
+          return;
+        }
+        if (mode !== 'encode') {
+          reject(new Error('encode jobs require an encode worker pool'));
+          return;
+        }
+        const jobId = nextJobId;
+        nextJobId += 1;
+        const pendingJob: PendingJob = {
+          jobId,
+          job: spec,
           resolve,
           reject,
           attempts: { value: 0 },
@@ -348,3 +462,8 @@ export const createExportWorkerPool = (
 };
 
 export type ExportWorkerPool = ReturnType<typeof createExportWorkerPool>;
+
+export const createExportEncodeWorkerPool = (
+  events: ExportPoolEvents = {},
+  createWorker: () => Worker = defaultCreateEncodeWorker,
+): ExportWorkerPool => createExportWorkerPool(events, createWorker, 'encode');

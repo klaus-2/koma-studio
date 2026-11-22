@@ -4724,4 +4724,8 @@ export const arMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': 'نموذج غير معروف',
   'modelCatalog.error.availableModels': 'النماذج المتاحة',
   'modelCatalog.error.useDefault': 'استخدام النموذج الافتراضي',
+  'dashboard.footer.timing.pages': 'الوقت لكل صفحة',
+  'dashboard.footer.timing.copyReport': 'نسخ التقرير',
+  'dashboard.footer.timing.copied': 'تم نسخ تقرير التوقيت',
+  'dashboard.footer.timing.copyFailed': 'تعذّر نسخ تقرير التوقيت',
 } as const;

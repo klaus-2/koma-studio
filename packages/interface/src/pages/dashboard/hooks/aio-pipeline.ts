@@ -23,6 +23,7 @@ import {
   estimateRemainingSeconds,
   type AioBatchProgress,
 } from '@/pages/dashboard/lib/aio-batch-progress';
+import { createSingleBatchProgressReporter } from '@/pages/dashboard/lib/single-batch-progress';
 import {
   findChapterPreset,
   resolveChapterBatchOptions,
@@ -63,6 +64,7 @@ import {
 import { showDesktopNotification } from '@/pages/dashboard/lib/desktop-notifications';
 import { resolveWorkGlossaryForChapter } from '@/pages/dashboard/hooks/translator.execution';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
+import { useRegionEditorStore } from '@/pages/dashboard/stores/region-editor-store';
 import {
   deriveLocalProviderLabel,
   useAioStageTimingStore,
@@ -552,6 +554,8 @@ export function useAioPipelineExecution(
             ? args.selectedCustomTranslationProfile
             : null,
           renderDefaultStyle: args.renderDefaultStyle,
+          typographyPresetState:
+            useRegionEditorStore.getState().typographyPresetState,
           applyDetectedGradientToStyle,
           minRegionSize: MIN_REGION_SIZE,
           maxAreaRatio: 0.75,
@@ -602,6 +606,11 @@ export function useAioPipelineExecution(
           );
         };
 
+        const singleBatchProgress = createSingleBatchProgressReporter({
+          getStageLabel: () => currentStageLabel,
+          totalImages,
+        });
+
         const chapterGroups = groupImagesIntoAioChapters(executionImages);
         const runAsChapterQueue =
           pipeline.batchModeEnabled && chapterGroups.length > 1;
@@ -617,6 +626,7 @@ export function useAioPipelineExecution(
                 .getState()
                 .setAioExecutionUnitsStarted(startedUnits, totalUnits);
               publishBatchRunning(startedUnits, totalUnits);
+              singleBatchProgress.report(startedUnits, totalUnits);
             },
             onChunkState: (state) => handleChunkState(null, '', state),
             onWireProgress: (progress) => {

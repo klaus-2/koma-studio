@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import type { PipelineBatchItemResult } from '@/types/dashboard.types';
 import type { BatchProgress } from '@/pages/dashboard/lib/batch-wire';
 import {
   deriveLocalProviderLabel,
@@ -181,6 +182,105 @@ describe('aio-stage-timing-store', () => {
     const state = useAioStageTimingStore.getState();
     expect(state.providerKind).toBe('cloud');
     expect(state.providerLabel).toBe('google-cloud-vision');
+  });
+});
+
+describe('aio-stage-timing-store ingestReportItems (Fase C C4)', () => {
+  const makeReportItem = (
+    index: number,
+    overrides: Partial<PipelineBatchItemResult> = {},
+  ): PipelineBatchItemResult => ({
+    index,
+    filename: `page-${index + 1}.png`,
+    status: 'success',
+    ...overrides,
+  });
+
+  it('collects one page per report item carrying stage timings, in index order', () => {
+    const store = useAioStageTimingStore.getState();
+    store.ingestReportItems('batch-1', [
+      makeReportItem(1, { stage_timings: { ocr: 2.5 } }),
+      makeReportItem(0, { stage_timings: { detect: 1 } }),
+      makeReportItem(2, {}),
+    ]);
+
+    const state = useAioStageTimingStore.getState();
+    expect(state.pages).toEqual([
+      {
+        key: 'batch-1:0',
+        batchId: 'batch-1',
+        index: 0,
+        filename: 'page-1.png',
+        stageSeconds: { detect: 1 },
+      },
+      {
+        key: 'batch-1:1',
+        batchId: 'batch-1',
+        index: 1,
+        filename: 'page-2.png',
+        stageSeconds: { ocr: 2.5 },
+      },
+    ]);
+    expect(state.reportBatchId).toBe('batch-1');
+    expect(state.reportCapturedAt).not.toBeNull();
+  });
+
+  it('upserts by batch id and index instead of duplicating pages', () => {
+    const store = useAioStageTimingStore.getState();
+    store.ingestReportItems('batch-1', [
+      makeReportItem(0, { stage_timings: { detect: 1 } }),
+    ]);
+    store.ingestReportItems('batch-1', [
+      makeReportItem(0, { stage_timings: { detect: 2, ocr: 3 } }),
+    ]);
+
+    const state = useAioStageTimingStore.getState();
+    expect(state.pages).toHaveLength(1);
+    expect(state.pages[0]?.stageSeconds).toEqual({ detect: 2, ocr: 3 });
+  });
+
+  it('appends pages from the next chunk batch after the current ones', () => {
+    const store = useAioStageTimingStore.getState();
+    store.ingestReportItems('chunk-1', [
+      makeReportItem(0, { stage_timings: { detect: 1 } }),
+    ]);
+    store.ingestReportItems('chunk-2', [
+      makeReportItem(0, { stage_timings: { detect: 1.5 } }),
+    ]);
+
+    const state = useAioStageTimingStore.getState();
+    expect(state.pages.map((page) => page.key)).toEqual([
+      'chunk-1:0',
+      'chunk-2:0',
+    ]);
+    expect(state.reportBatchId).toBe('chunk-2');
+  });
+
+  it('keeps an empty page list when no report item carries timings', () => {
+    const store = useAioStageTimingStore.getState();
+    store.ingestReportItems('batch-1', [
+      makeReportItem(0),
+      makeReportItem(1, { stage_timings: {} }),
+    ]);
+
+    const state = useAioStageTimingStore.getState();
+    expect(state.pages).toEqual([]);
+    expect(state.reportBatchId).toBeNull();
+    expect(state.reportCapturedAt).toBeNull();
+  });
+
+  it('resetForRun clears report pages and header fields', () => {
+    const store = useAioStageTimingStore.getState();
+    store.ingestReportItems('batch-1', [
+      makeReportItem(0, { stage_timings: { detect: 1 } }),
+    ]);
+
+    useAioStageTimingStore.getState().resetForRun();
+
+    const state = useAioStageTimingStore.getState();
+    expect(state.pages).toEqual([]);
+    expect(state.reportBatchId).toBeNull();
+    expect(state.reportCapturedAt).toBeNull();
   });
 });
 

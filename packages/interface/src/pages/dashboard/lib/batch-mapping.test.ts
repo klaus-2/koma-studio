@@ -207,6 +207,13 @@ const baseInput = (results: PipelineBatchItemResult[]) => ({
   aioSteps: steps,
   targetLanguage: 'en',
   renderDefaultStyle: cloneRenderStyle(),
+  typographyPresetState: {
+    version: 1 as const,
+    folders: [],
+    presets: [],
+    modeBindings: {},
+    defaultPresetId: null,
+  },
   applyDetectedGradientToStyle,
   minRegionSize: 4,
 });

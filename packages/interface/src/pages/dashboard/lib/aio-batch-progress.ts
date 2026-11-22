@@ -45,6 +45,34 @@ export function estimateRemainingSeconds({
   return Math.max(1, Math.round((totalImages - completedImages) * secondsPerImage));
 }
 
+export interface SingleBatchProgressInput {
+  readonly runStartedAt: number;
+  readonly nowMs: number;
+  readonly startedUnits: number;
+  readonly totalUnits: number;
+  readonly totalImages: number;
+  readonly stageLabel: string | null;
+}
+
+export function buildSingleBatchProgress(
+  input: SingleBatchProgressInput,
+): AioBatchProgress {
+  const startedImages = input.totalUnits > 0
+    ? (Math.max(0, input.startedUnits) / input.totalUnits) * input.totalImages
+    : 0;
+  return {
+    chapterIndex: 1,
+    chapterCount: 1,
+    chapterLabel: '',
+    stageLabel: input.stageLabel,
+    etaSeconds: estimateRemainingSeconds({
+      elapsedMs: input.nowMs - input.runStartedAt,
+      completedImages: startedImages,
+      totalImages: input.totalImages,
+    }),
+  };
+}
+
 export function formatEta(
   seconds: number | null,
   units: EtaUnitLabels,

@@ -2111,6 +2111,11 @@ export const enMessages = {
   'dashboard.footer.timing.chapter': '{label}:',
   'dashboard.footer.timing.empty':
     'No stage timing yet — timing comes from local batch runs.',
+  'dashboard.footer.timing.pages': 'Per-page timing',
+  'dashboard.footer.timing.copyReport': 'Copy report',
+  'dashboard.footer.timing.copied': 'Timing report copied',
+  'dashboard.footer.timing.copyFailed':
+    'Could not copy the timing report',
   'dashboard.aio.cloudPreview.title': 'Cloud data preview',
   'dashboard.aio.cloudPreview.description':
     'This run sends data to remote providers. Review the destinations before starting.',

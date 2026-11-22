@@ -1,5 +1,5 @@
 import { useRef, useCallback } from "react";
-import { m, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import {
   ClipboardPaste, ListOrdered, FileUp, Eraser, SkipForward,
   CheckSquare, Rows3, ChevronUp, ChevronDown, GripVertical,
@@ -8,7 +8,7 @@ import type { TextQueueItem } from "../../../typography/types";
 import { AioSection } from "../../../pages/AioSection";
 import { useI18n } from "../../../i18n";
 import { InkToggle, btnGhost } from "../../../pages/settings/noir/primitives";
-import { EASE } from "../../system/v2/kit";
+import { TypographerQueueRowNoir } from "../TypographerTextQueueRows";
 
 interface MultiBubbleRegion { id: string; label: string }
 
@@ -28,12 +28,6 @@ interface TypographerTextQueueProps {
   multiBubbleRegions?: MultiBubbleRegion[];
   onReorderMultiBubbleRegions?: (nextOrder: string[]) => void;
 }
-
-const STATUS_CHIP: Record<TextQueueItem["status"], string> = {
-  applied: "border-mint/50 bg-mint/10 text-mint",
-  skipped: "border-paper/20 bg-paper/5 text-paper/40",
-  pending: "border-gold/50 bg-gold/10 text-gold",
-};
 
 // Stable identity: an inline `= []` default broke memo equality on every
 // parent render that omits the prop (react-doctor rerender-memo-with-default-value).
@@ -193,37 +187,15 @@ export const TypographerTextQueueNoir = ({
             </div>
           ) : (
             <AnimatePresence initial={false}>
-              {queue.map((item, idx) => {
-                const sel = selectedQueueItemId === item.id;
-                const statusLabel = item.status === "applied"
-                  ? t("typo.queue.statusApplied")
-                  : item.status === "skipped"
-                    ? t("typo.queue.statusSkipped")
-                    : t("typo.queue.statusPending");
-                return (
-                  <m.button key={item.id} type="button" role="listitem" aria-pressed={sel}
-                    initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 8 }} transition={{ duration: 0.2, ease: EASE }}
-                    onClick={() => onSelectQueueItem(item.id)}
-                    className={`panel-cut-sm relative flex w-full items-center gap-2 border px-2.5 py-2 text-left transition-colors ${sel ? "border-crimson/50 bg-crimson/[0.06]"
-                        : item.status === "applied" ? "border-paper/8 bg-ink/40 opacity-60"
-                          : "border-paper/10 bg-ink/60 hover:border-paper/25"
-                      }`}>
-                    {sel && <span aria-hidden className="absolute left-0 top-0 h-full w-[2px] bg-crimson" />}
-                    <span aria-hidden className={`font-display text-xs font-black ${sel ? "text-crimson" : "text-paper/25"}`}>
-                      {String(idx + 1).padStart(2, "0")}
-                    </span>
-                    <span className={`min-w-0 flex-1 truncate font-mono text-[10px] ${item.status === "applied" ? "text-paper/40 line-through" : "text-paper/80"
-                      }`}>
-                      {item.text}
-                    </span>
-                    <span className={`shrink-0 border px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.14em] ${STATUS_CHIP[item.status]}`}>
-                      {item.status === "pending" && <span className="blink mr-0.5">●</span>}
-                      {statusLabel}
-                    </span>
-                  </m.button>
-                );
-              })}
+              {queue.map((item, idx) => (
+                <TypographerQueueRowNoir
+                  key={item.id}
+                  item={item}
+                  index={idx}
+                  selected={selectedQueueItemId === item.id}
+                  onSelect={onSelectQueueItem}
+                />
+              ))}
             </AnimatePresence>
           )}
         </div>

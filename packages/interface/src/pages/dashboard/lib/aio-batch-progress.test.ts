@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildSingleBatchProgress,
   estimateRemainingSeconds,
   formatEta,
 } from '@/pages/dashboard/lib/aio-batch-progress';
@@ -54,6 +55,79 @@ describe('estimateRemainingSeconds', () => {
         totalImages: 1001,
       }),
     ).toBe(1);
+  });
+});
+
+describe('buildSingleBatchProgress', () => {
+  const baseInput = {
+    runStartedAt: 0,
+    totalUnits: 12,
+    totalImages: 4,
+    stageLabel: 'Translating text' as string | null,
+  };
+
+  it('keeps the ETA null on the early samples before any unit moved', () => {
+    expect(
+      buildSingleBatchProgress({ ...baseInput, nowMs: 500, startedUnits: 0 }),
+    ).toEqual({
+      chapterIndex: 1,
+      chapterCount: 1,
+      chapterLabel: '',
+      stageLabel: 'Translating text',
+      etaSeconds: null,
+    });
+    expect(
+      buildSingleBatchProgress({ ...baseInput, nowMs: 0, startedUnits: 3 })
+        .etaSeconds,
+    ).toBeNull();
+  });
+
+  it('projects a non-null ETA that shrinks as done counts increase', () => {
+    const first = buildSingleBatchProgress({
+      ...baseInput,
+      nowMs: 30_000,
+      startedUnits: 3,
+    });
+    expect(first.etaSeconds).toBe(90);
+    const second = buildSingleBatchProgress({
+      ...baseInput,
+      nowMs: 60_000,
+      startedUnits: 6,
+    });
+    expect(second.etaSeconds).toBe(60);
+    const third = buildSingleBatchProgress({
+      ...baseInput,
+      nowMs: 90_000,
+      startedUnits: 9,
+    });
+    expect(third.etaSeconds).toBe(30);
+    expect(second.etaSeconds ?? 0).toBeLessThan(first.etaSeconds ?? 0);
+    expect(third.etaSeconds ?? 0).toBeLessThan(second.etaSeconds ?? 0);
+  });
+
+  it('drops the ETA once the run has no remaining images', () => {
+    expect(
+      buildSingleBatchProgress({ ...baseInput, nowMs: 120_000, startedUnits: 12 })
+        .etaSeconds,
+    ).toBeNull();
+  });
+
+  it('never reports a negative or zero-unit rate', () => {
+    expect(
+      buildSingleBatchProgress({
+        ...baseInput,
+        nowMs: 10_000,
+        startedUnits: -4,
+      }).etaSeconds,
+    ).toBeNull();
+    expect(
+      buildSingleBatchProgress({
+        ...baseInput,
+        totalUnits: 0,
+        nowMs: 10_000,
+        startedUnits: 0,
+      }).etaSeconds,
+    ).toBeNull();
   });
 });
 

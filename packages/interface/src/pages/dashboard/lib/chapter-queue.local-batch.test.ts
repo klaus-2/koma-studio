@@ -110,6 +110,13 @@ const makeOptions = (
   hdCropMargin: 512,
   hdCropTriggerSize: 512,
   renderDefaultStyle: cloneRenderStyle(),
+  typographyPresetState: {
+    version: 1,
+    folders: [],
+    presets: [],
+    modeBindings: {},
+    defaultPresetId: null,
+  },
   applyDetectedGradientToStyle,
   minRegionSize: 4,
   parseApiError: async () => 'backend said no',

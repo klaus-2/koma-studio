@@ -4903,4 +4903,9 @@ export const jaMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': '不明なモデル',
   'modelCatalog.error.availableModels': '利用可能なモデル',
   'modelCatalog.error.useDefault': 'デフォルトモデルを使う',
+  'dashboard.footer.timing.pages': 'ページ別の時間',
+  'dashboard.footer.timing.copyReport': 'レポートをコピー',
+  'dashboard.footer.timing.copied': 'タイムレポートをコピーしました',
+  'dashboard.footer.timing.copyFailed':
+    'タイムレポートをコピーできませんでした',
 } as const;

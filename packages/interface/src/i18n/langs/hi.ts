@@ -4871,4 +4871,9 @@ export const hiMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': 'अज्ञात मॉडल',
   'modelCatalog.error.availableModels': 'उपलब्ध मॉडल',
   'modelCatalog.error.useDefault': 'डिफ़ॉल्ट मॉडल का उपयोग करें',
+  'dashboard.footer.timing.pages': 'प्रति पृष्ठ समय',
+  'dashboard.footer.timing.copyReport': 'रिपोर्ट कॉपी करें',
+  'dashboard.footer.timing.copied': 'टाइमिंग रिपोर्ट कॉपी हो गई',
+  'dashboard.footer.timing.copyFailed':
+    'टाइमिंग रिपोर्ट कॉपी नहीं हो सकी',
 } as const;

@@ -4941,4 +4941,9 @@ export const esMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': 'Modelo desconocido',
   'modelCatalog.error.availableModels': 'Modelos disponibles',
   'modelCatalog.error.useDefault': 'Usar modelo predeterminado',
+  'dashboard.footer.timing.pages': 'Tiempo por página',
+  'dashboard.footer.timing.copyReport': 'Copiar informe',
+  'dashboard.footer.timing.copied': 'Informe de tiempos copiado',
+  'dashboard.footer.timing.copyFailed':
+    'No se pudo copiar el informe de tiempos',
 } as const;

@@ -3,7 +3,6 @@ import { useCallback, useMemo } from 'react';
 import { useI18n } from '../../../i18n';
 import {
   applyDetectedGradientToStyle,
-  applyRenderDefaultsToRegion,
   buildDefaultRegionRenderText,
   buildTranslationNoteOverlayRegions,
   canvasToBlob,
@@ -20,6 +19,7 @@ import {
 } from '../../../utils/renderModes';
 import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
 import { listTextFillSwatches } from '../../../utils/textFillPicker';
+import { applyModePresetBindingsToRegions } from '../../../typography/autoModeApply';
 import {
   computeRenderTextLayout,
   drawRenderedTextInRegion,
@@ -216,15 +216,14 @@ export function useAioRegionRenderToBlob({
       const ctx = textCtx ?? baseCtx;
       await fontStrategy.waitReady();
 
-      const baseRenderRegions = regions.map((item) =>
-        applyRenderDefaultsToRegion(
-          item,
-          renderDefaultStyle,
-          applyDetectedGradientToStyle,
-          undefined,
-          aioTgtLang,
-        ),
-      );
+      const baseRenderRegions = applyModePresetBindingsToRegions({
+        regions,
+        renderDefaultStyle,
+        typographyPresetState:
+          useRegionEditorStore.getState().typographyPresetState,
+        applyDetectedGradientToStyle,
+        targetLanguage: aioTgtLang,
+      });
       const renderRegions = [
         ...baseRenderRegions,
         ...buildTranslationNoteOverlayRegions(

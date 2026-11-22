@@ -4995,4 +4995,9 @@ export const deMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': 'Unbekanntes Modell',
   'modelCatalog.error.availableModels': 'Verfügbare Modelle',
   'modelCatalog.error.useDefault': 'Standardmodell verwenden',
+  'dashboard.footer.timing.pages': 'Zeit pro Seite',
+  'dashboard.footer.timing.copyReport': 'Bericht kopieren',
+  'dashboard.footer.timing.copied': 'Zeitbericht kopiert',
+  'dashboard.footer.timing.copyFailed':
+    'Zeitbericht konnte nicht kopiert werden',
 } as const;

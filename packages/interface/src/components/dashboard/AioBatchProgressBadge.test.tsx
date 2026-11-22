@@ -48,4 +48,17 @@ describe('AioBatchProgressBadge', () => {
 
     expect(screen.getByText('ch 1/2')).toBeTruthy();
   });
+
+  it('renders a single-batch run without the chapter prefix', () => {
+    renderBadge({
+      chapterIndex: 1,
+      chapterCount: 1,
+      chapterLabel: '',
+      stageLabel: 'Detecting text',
+      etaSeconds: 45,
+    });
+
+    expect(screen.getByText('Detecting text · ~45s')).toBeTruthy();
+    expect(screen.queryByText(/ch 1\/1/)).toBeNull();
+  });
 });

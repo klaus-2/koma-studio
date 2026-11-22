@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import type { TextQueueItem } from '../../typography/types';
+import { TypographerQueueRowClassic } from './TypographerTextQueueRows';
 import './TypographerTextQueue.css';
 import { AioSection } from '../../pages/AioSection';
 import { useI18n } from '../../i18n';
@@ -254,35 +255,15 @@ export const TypographerTextQueueClassic = ({
               <span>{t('typo.queue.emptyDesc')}</span>
             </div>
           ) : (
-            queue.map((item, idx) => {
-              const sel = selectedQueueItemId === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`koma-text-queue__item${sel ? ' koma-text-queue__item--active' : ''}`}
-                  onClick={() => onSelectQueueItem(item.id)}
-                  role="listitem"
-                  aria-pressed={sel}
-                >
-                  <span className="koma-text-queue__item-index">
-                    {String(idx + 1).padStart(2, '0')}
-                  </span>
-                  <span className="koma-text-queue__item-text">
-                    {item.text}
-                  </span>
-                  <span
-                    className={`koma-text-queue__status koma-text-queue__status--${item.status}`}
-                  >
-                    {item.status === 'applied'
-                      ? t('typo.queue.statusApplied')
-                      : item.status === 'skipped'
-                        ? t('typo.queue.statusSkipped')
-                        : t('typo.queue.statusPending')}
-                  </span>
-                </button>
-              );
-            })
+            queue.map((item, idx) => (
+              <TypographerQueueRowClassic
+                key={item.id}
+                item={item}
+                index={idx}
+                selected={selectedQueueItemId === item.id}
+                onSelect={onSelectQueueItem}
+              />
+            ))
           )}
         </div>
 

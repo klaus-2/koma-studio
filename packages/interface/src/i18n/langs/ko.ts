@@ -4788,4 +4788,9 @@ export const koMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': '알 수 없는 모델',
   'modelCatalog.error.availableModels': '사용 가능한 모델',
   'modelCatalog.error.useDefault': '기본 모델 사용',
+  'dashboard.footer.timing.pages': '페이지별 시간',
+  'dashboard.footer.timing.copyReport': '리포트 복사',
+  'dashboard.footer.timing.copied': '타이밍 리포트가 복사되었습니다',
+  'dashboard.footer.timing.copyFailed':
+    '타이밍 리포트를 복사하지 못했습니다',
 } as const;

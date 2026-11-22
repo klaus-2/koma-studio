@@ -20,6 +20,7 @@ import {
   rebuildRegionShapeForRefinement,
   resolveRegionShapeKind,
 } from '../../../utils/dashboard.utils';
+import { applyModePresetBindingsToRegions } from '../../../typography/autoModeApply';
 import {
   getRenderModePresetStyle,
   normalizeDetectedRenderMode,
@@ -748,15 +749,14 @@ export function useAioRegionEditing({
           continue;
         }
         changed = true;
-        next[imageId] = regions.map((region) =>
-          applyRenderDefaultsToRegion(
-            region,
-            renderDefaultStyle,
-            applyDetectedGradientToStyle,
-            undefined,
-            aioTgtLang,
-          ),
-        );
+        next[imageId] = applyModePresetBindingsToRegions({
+          regions,
+          renderDefaultStyle,
+          typographyPresetState:
+            useRegionEditorStore.getState().typographyPresetState,
+          applyDetectedGradientToStyle,
+          targetLanguage: aioTgtLang,
+        });
       }
       return changed ? next : prev;
     });

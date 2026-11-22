@@ -37,6 +37,8 @@ import { parseResponseErrorMessage } from '@/utils/dashboard.utils';
 import { fetchWithTimeoutAndRetry } from '@/utils/http';
 import { releasePage } from '@/utils/page-source';
 import type { RenderTextStyle } from '@/utils/renderText';
+import type { TypographyPresetStateV1 } from '@/typography/types';
+import { useAioStageTimingStore } from '@/pages/dashboard/stores/aio-stage-timing-store';
 
 export const BATCH_REPORT_FILENAME = 'batch_report.json';
 
@@ -98,6 +100,7 @@ export interface LocalAioBatchOptions {
   /** Request-scoped Custom AI profile; empty api_base/model is a backend error. */
   translationCustomProfile?: CustomLlmRequestProfile | null;
   renderDefaultStyle: RenderTextStyle;
+  typographyPresetState: TypographyPresetStateV1;
   applyDetectedGradientToStyle: (
     region: AioTextRegion,
     style: RenderTextStyle,
@@ -641,6 +644,11 @@ export async function runLocalAioBatch({
       report = parsePipelineBatchReport(payload);
     }
 
+    const resolvedBatchId = headerBatchId ?? (report.batch_id?.trim() || batchId);
+    useAioStageTimingStore
+      .getState()
+      .ingestReportItems(resolvedBatchId, report.results);
+
     const results = mapBatchReportToAioResults({
       report,
       images,
@@ -648,6 +656,7 @@ export async function runLocalAioBatch({
       aioSteps: options.aioSteps,
       targetLanguage: options.targetLanguage,
       renderDefaultStyle: options.renderDefaultStyle,
+      typographyPresetState: options.typographyPresetState,
       applyDetectedGradientToStyle: options.applyDetectedGradientToStyle,
       minRegionSize: options.minRegionSize,
       maxAreaRatio: options.maxAreaRatio,
@@ -658,7 +667,7 @@ export async function runLocalAioBatch({
     onProgress?.(results.length, total);
 
     return {
-      batchId: headerBatchId ?? (report.batch_id?.trim() || batchId),
+      batchId: resolvedBatchId,
       report,
       results,
       zipEntries,

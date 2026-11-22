@@ -11,7 +11,6 @@ import { desktopBridge } from '../../../lib/desktop-bridge';
 import {
   buildRegionNotesDump,
   buildRegionTextDump,
-  canvasToBlob,
   getImageExtensionFromMime,
   normalizeBlobForPdf,
   removeFileExtension,
@@ -42,6 +41,7 @@ import type {
   SheetWorkerRequest,
   SheetWorkerResponse,
 } from './exportSheetWorker';
+import { encodeCanvasToBlob } from './export-download.encode';
 import { createExportWorkerPool, type ExportWorkerPool } from './exportWorkerPool';
 import { ensureDirectPageUrl } from './image-collection';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
@@ -298,7 +298,7 @@ export function useDashboardDownloadBundle({
               baseItem?.previewUrl ||
               ensureDirectPageUrl(imgData),
           );
-          const blob = await canvasToBlob(composed, outFormat, outQuality);
+          const blob = await encodeCanvasToBlob(composed, outFormat, outQuality);
           outputs.push({
             fileName: `koma-studio-cleaner-clean-${imgData.file.name.replace(/\s+/g, '-')}.${extension}`,
             blob,
@@ -340,7 +340,7 @@ export function useDashboardDownloadBundle({
             imgData,
             baseItem?.previewUrl || ensureDirectPageUrl(imgData),
           );
-          const blob = await canvasToBlob(composed, outFormat, outQuality);
+          const blob = await encodeCanvasToBlob(composed, outFormat, outQuality);
           const fallbackName = `koma-studio-aio-${AIO_STAGE_BADGE_LABELS[stageKey].toLowerCase()}-${imgData.file.name.replace(/\s+/g, '-')}.${extension}`;
           outputs.push({
             fileName: baseItem?.name ?? fallbackName,
@@ -501,7 +501,7 @@ export function useDashboardDownloadBundle({
             imageState,
             inpainted?.previewUrl || ensureDirectPageUrl(imageState),
           );
-          const inpaintedBlob = await canvasToBlob(composed, 'image/png', 1);
+          const inpaintedBlob = await encodeCanvasToBlob(composed, 'image/png', 1);
           const inpaintedPath = `inpainted/${orderedIndex}-${baseName}.png`;
           zipFiles[inpaintedPath] = new Uint8Array(await inpaintedBlob.arrayBuffer());
         } else if (inpainted) {

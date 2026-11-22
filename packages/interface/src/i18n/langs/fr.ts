@@ -4881,4 +4881,9 @@ export const frMessages: TranslationCatalog = {
   'modelCatalog.error.availableModels': 'Modèles disponibles',
   'modelCatalog.error.useDefault': 'Utiliser le modèle par défaut',
   'toolbar.modelSelect.notConfigured': 'non configuré',
+  'dashboard.footer.timing.pages': 'Temps par page',
+  'dashboard.footer.timing.copyReport': 'Copier le rapport',
+  'dashboard.footer.timing.copied': 'Rapport de temps copié',
+  'dashboard.footer.timing.copyFailed':
+    'Impossible de copier le rapport de temps',
 } as const;

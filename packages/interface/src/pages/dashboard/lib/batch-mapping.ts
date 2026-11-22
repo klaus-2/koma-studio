@@ -31,12 +31,13 @@ import type {
   PipelineBatchTranslationResult,
 } from '@/types/dashboard.types';
 import {
-  applyRenderDefaultsToRegion,
   cloneAioRegions,
   cloneRenderStyle,
 } from '@/utils/dashboard.utils';
 import { regionsFromDetectPayload } from '@/utils/detectTextRegions';
 import type { RenderTextStyle } from '@/utils/renderText';
+import { applyModePresetBindingsToRegions } from '@/typography/autoModeApply';
+import type { TypographyPresetStateV1 } from '@/typography/types';
 
 /** Minimal image shape the mapper needs; `LoadedImage` satisfies it. */
 export type BatchMappingImage = Pick<
@@ -59,6 +60,7 @@ export interface MapBatchReportToAioResultsInput {
   aioSteps: BatchMappingAioSteps;
   targetLanguage: string;
   renderDefaultStyle: RenderTextStyle;
+  typographyPresetState: TypographyPresetStateV1;
   applyDetectedGradientToStyle: (
     region: AioTextRegion,
     style: RenderTextStyle,
@@ -75,6 +77,7 @@ export interface BatchStageMappingInput {
   aioSteps: BatchMappingAioSteps;
   targetLanguage: string;
   renderDefaultStyle: RenderTextStyle;
+  typographyPresetState: TypographyPresetStateV1;
   applyDetectedGradientToStyle: (
     region: AioTextRegion,
     style: RenderTextStyle,
@@ -281,15 +284,13 @@ export function mapBatchStagePayloads(
   const renderSourceRegions = resolveUpstreamRegions('render', stageRegions);
   const renderDetections = cloneAioRegions(
     aioSteps.render
-      ? renderSourceRegions.map((region) =>
-          applyRenderDefaultsToRegion(
-            region,
-            input.renderDefaultStyle,
-            input.applyDetectedGradientToStyle,
-            undefined,
-            input.targetLanguage,
-          ),
-        )
+      ? applyModePresetBindingsToRegions({
+        regions: renderSourceRegions,
+        renderDefaultStyle: input.renderDefaultStyle,
+        typographyPresetState: input.typographyPresetState,
+        applyDetectedGradientToStyle: input.applyDetectedGradientToStyle,
+        targetLanguage: input.targetLanguage,
+      })
       : renderSourceRegions,
     cloneRenderStyle,
   );
@@ -355,6 +356,7 @@ export function mapBatchReportToAioResults(
       aioSteps,
       targetLanguage: input.targetLanguage,
       renderDefaultStyle: input.renderDefaultStyle,
+      typographyPresetState: input.typographyPresetState,
       applyDetectedGradientToStyle: input.applyDetectedGradientToStyle,
       minRegionSize: input.minRegionSize,
       maxAreaRatio: input.maxAreaRatio,

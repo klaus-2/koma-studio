@@ -137,6 +137,13 @@ const makeOptions = (
     cleanImage: false,
   },
   renderDefaultStyle: cloneRenderStyle(),
+  typographyPresetState: {
+    version: 1,
+    folders: [],
+    presets: [],
+    modeBindings: {},
+    defaultPresetId: null,
+  },
   applyDetectedGradientToStyle,
   minRegionSize: 4,
   parseApiError: async () => 'backend said no',

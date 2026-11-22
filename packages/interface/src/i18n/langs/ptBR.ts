@@ -2025,6 +2025,11 @@ export const ptBrMessages: TranslationCatalog = {
   'dashboard.footer.timing.chapter': '{label}:',
   'dashboard.footer.timing.empty':
     'Sem tempo por estágio ainda — o tempo vem de execuções em lote locais.',
+  'dashboard.footer.timing.pages': 'Tempo por página',
+  'dashboard.footer.timing.copyReport': 'Copiar relatório',
+  'dashboard.footer.timing.copied': 'Relatório de tempos copiado',
+  'dashboard.footer.timing.copyFailed':
+    'Não foi possível copiar o relatório de tempos',
   'dashboard.aio.cloudPreview.title': 'Prévia de dados na nuvem',
   'dashboard.aio.cloudPreview.description':
     'Esta execução envia dados para provedores remotos. Revise os destinos antes de iniciar.',

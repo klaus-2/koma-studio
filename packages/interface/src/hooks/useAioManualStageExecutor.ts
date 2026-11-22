@@ -24,10 +24,8 @@ import {
   type StageRegions,
   type StageReadinessReady,
 } from '../aio-stages';
-import {
-  applyRenderDefaultsToRegion,
-  clamp,
-} from '../utils/dashboard.utils';
+import { clamp } from '../utils/dashboard.utils';
+import { applyModePresetBindingsToRegions } from '../typography/autoModeApply';
 import { normalizeManualRegions } from '../utils/detectTextRegions';
 import {
   materializePageForProcessing,
@@ -493,7 +491,14 @@ export function useAioManualStageExecutor({
         patchAioSnapshotStageForImage(activeId, stageIndex, sourceRegions, cleanEntry);
       } else {
         const sourceRegions = resolveUpstreamRegions('render', stageRegionsFromSnapshot());
-        const renderRegions = sourceRegions.map((region) => applyRenderDefaultsToRegion(region, renderDefaultStyle, applyDetectedGradientToStyle, undefined, aioTgtLang));
+        const renderRegions = applyModePresetBindingsToRegions({
+          regions: sourceRegions,
+          renderDefaultStyle,
+          typographyPresetState:
+            useRegionEditorStore.getState().typographyPresetState,
+          applyDetectedGradientToStyle,
+          targetLanguage: aioTgtLang,
+        });
         patchAioSnapshotStageForImage(activeId, stageIndex, renderRegions);
       }
 

@@ -398,6 +398,19 @@ const parseItemStatus = (
   return null;
 };
 
+const readStageTimings = (value: unknown): Record<string, number> | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const parsed: Record<string, number> = {};
+  for (const [stage, seconds] of Object.entries(value)) {
+    if (typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0) {
+      parsed[stage] = seconds;
+    }
+  }
+  return Object.keys(parsed).length > 0 ? parsed : undefined;
+};
+
 const parseItemResult = (
   value: unknown,
   position: number,
@@ -431,6 +444,7 @@ const parseItemResult = (
     segment: parseSegmentPayload(value.segment),
     clean: parseCleanPayload(value.clean),
     errors: parseArray(value.errors, parseItemError),
+    stage_timings: readStageTimings(value.stage_timings),
   };
 };
 

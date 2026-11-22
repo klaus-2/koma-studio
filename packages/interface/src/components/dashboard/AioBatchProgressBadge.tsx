@@ -25,10 +25,12 @@ export default memo(function AioBatchProgressBadge({
     minute: t('dashboard.footer.batch.unitMinute'),
   });
   const label = [
-    t('dashboard.footer.batch.chapter', {
-      index: progress.chapterIndex,
-      count: progress.chapterCount,
-    }),
+    progress.chapterCount > 1
+      ? t('dashboard.footer.batch.chapter', {
+        index: progress.chapterIndex,
+        count: progress.chapterCount,
+      })
+      : null,
     progress.stageLabel,
     eta ? t('dashboard.footer.batch.eta', { value: eta }) : null,
   ]
@@ -36,7 +38,10 @@ export default memo(function AioBatchProgressBadge({
     .join(' · ');
 
   return (
-    <span className={className} title={progress.chapterLabel}>
+    <span
+      className={className}
+      title={progress.chapterLabel.length > 0 ? progress.chapterLabel : undefined}
+    >
       {label}
     </span>
   );

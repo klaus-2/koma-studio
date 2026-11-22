@@ -14,8 +14,9 @@ import {
 } from '../aio-stages';
 import { createAioStageRunSession } from '../pages/dashboard/hooks/aio-stage-runner';
 import { resolveWorkGlossarySettings } from '../pages/dashboard/hooks/translator.execution';
+import { useRegionEditorStore } from '../pages/dashboard/stores/region-editor-store';
+import { applyModePresetBindingsToRegions } from '../typography/autoModeApply';
 import {
-  applyRenderDefaultsToRegion,
   cloneAioRegions,
   cloneRenderStyle,
 } from '../utils/dashboard.utils';
@@ -324,8 +325,14 @@ export function useAioSingleImageProcessor({
           'render',
           stageRegions,
         );
-        enrichedDetections = renderSourceRegions.map((region) =>
-          applyRenderDefaultsToRegion(region, renderDefaultStyle, applyDetectedGradientToStyle, undefined, targetLanguage));
+        enrichedDetections = applyModePresetBindingsToRegions({
+          regions: renderSourceRegions,
+          renderDefaultStyle,
+          typographyPresetState:
+            useRegionEditorStore.getState().typographyPresetState,
+          applyDetectedGradientToStyle,
+          targetLanguage,
+        });
       }
 
       return {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseBatchProgress } from './batch-wire';
+import { parseBatchProgress, parsePipelineBatchReport } from './batch-wire';
 
 const VALID_PAYLOAD = {
   batchId: 'batch-1',
@@ -79,5 +79,69 @@ describe('parseBatchProgress timing fields (Fase D F5)', () => {
     );
 
     expect(parsed.lastStageMs).toBe(124);
+  });
+});
+
+const makeReportPayload = (
+  resultOverrides: Record<string, unknown>,
+): Record<string, unknown> => ({
+  batch_id: 'batch-1',
+  total_images: 2,
+  succeeded: 2,
+  partial: 0,
+  failed: 0,
+  stages: { detect: true, ocr: true, translation: true, segment: false, clean: false },
+  results: [
+    { index: 0, filename: 'page-1.png', status: 'success', ...resultOverrides },
+    { index: 1, filename: 'page-2.png', status: 'success' },
+  ],
+});
+
+describe('parsePipelineBatchReport stage_timings (Fase C C4)', () => {
+  it('parses per-item stage timings on current payloads', () => {
+    const payload = makeReportPayload({
+      stage_timings: { detect: 1.2, ocr: 3.4, translation: 0 },
+    });
+
+    const parsed = parsePipelineBatchReport(payload);
+
+    expect(parsed.results[0]?.stage_timings).toEqual({
+      detect: 1.2,
+      ocr: 3.4,
+      translation: 0,
+    });
+    expect(parsed.results[1]?.stage_timings).toBeUndefined();
+  });
+
+  it('keeps stage_timings undefined on legacy payloads without the field', () => {
+    const parsed = parsePipelineBatchReport(makeReportPayload({}));
+
+    expect(parsed.results[0]?.stage_timings).toBeUndefined();
+    expect(parsed.results[0]?.status).toBe('success');
+  });
+
+  it('drops non-finite and negative timings, and non-record values, instead of failing', () => {
+    const malformed = parsePipelineBatchReport(
+      makeReportPayload({
+        stage_timings: {
+          detect: Number.POSITIVE_INFINITY,
+          ocr: Number.NaN,
+          translation: -1,
+          segment: 'not-a-number',
+          clean: 0.5,
+        },
+      }),
+    );
+    expect(malformed.results[0]?.stage_timings).toEqual({ clean: 0.5 });
+
+    const notRecord = parsePipelineBatchReport(
+      makeReportPayload({ stage_timings: 'bogus' }),
+    );
+    expect(notRecord.results[0]?.stage_timings).toBeUndefined();
+
+    const empty = parsePipelineBatchReport(
+      makeReportPayload({ stage_timings: {} }),
+    );
+    expect(empty.results[0]?.stage_timings).toBeUndefined();
   });
 });

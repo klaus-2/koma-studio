@@ -4439,4 +4439,8 @@ export const zhMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': '未知模型',
   'modelCatalog.error.availableModels': '可用模型',
   'modelCatalog.error.useDefault': '使用預設模型',
+  'dashboard.footer.timing.pages': '分頁耗時',
+  'dashboard.footer.timing.copyReport': '複製報告',
+  'dashboard.footer.timing.copied': '耗時報告已複製',
+  'dashboard.footer.timing.copyFailed': '無法複製耗時報告',
 } as const;

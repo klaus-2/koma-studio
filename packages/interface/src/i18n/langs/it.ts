@@ -4926,4 +4926,9 @@ export const itMessages: TranslationCatalog = {
   'modelCatalog.error.unknownModel': 'Modello sconosciuto',
   'modelCatalog.error.availableModels': 'Modelli disponibili',
   'modelCatalog.error.useDefault': 'Usa modello predefinito',
+  'dashboard.footer.timing.pages': 'Tempo per pagina',
+  'dashboard.footer.timing.copyReport': 'Copia report',
+  'dashboard.footer.timing.copied': 'Report dei tempi copiato',
+  'dashboard.footer.timing.copyFailed':
+    'Impossibile copiare il report dei tempi',
 } as const;

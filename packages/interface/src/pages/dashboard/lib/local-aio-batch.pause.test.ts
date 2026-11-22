@@ -63,6 +63,13 @@ const options: LocalAioBatchOptions = {
   hdCropMargin: 512,
   hdCropTriggerSize: 512,
   renderDefaultStyle: cloneRenderStyle(),
+  typographyPresetState: {
+    version: 1,
+    folders: [],
+    presets: [],
+    modeBindings: {},
+    defaultPresetId: null,
+  },
   gpuStages: {
     detectText: false,
     recognizeText: false,

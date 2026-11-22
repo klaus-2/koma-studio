@@ -2,11 +2,20 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
 import type { AioDeviceInfo } from '@/models/aioStageCatalog';
+import type { PipelineBatchItemResult } from '@/types/dashboard.types';
 import type { BatchProgress } from '@/pages/dashboard/lib/batch-wire';
 
 export interface AioStageTimingChapter {
   readonly label: string;
   stageSeconds: Record<string, number>;
+}
+
+export interface AioStageTimingPage {
+  readonly key: string;
+  readonly batchId: string;
+  readonly index: number;
+  readonly filename: string;
+  readonly stageSeconds: Record<string, number>;
 }
 
 export type AioStageTimingProviderKind = 'local' | 'cloud' | null;
@@ -20,6 +29,9 @@ interface AioStageTimingState {
   providerKind: AioStageTimingProviderKind;
   cacheHitDetected: boolean;
   lastStageMs: number | null;
+  pages: AioStageTimingPage[];
+  reportBatchId: string | null;
+  reportCapturedAt: string | null;
   resetForRun: () => void;
   setProviderLine: (
     label: string | null,
@@ -29,6 +41,10 @@ interface AioStageTimingState {
     progress: BatchProgress,
     chapterKey: string,
     chapterLabel: string,
+  ) => void;
+  ingestReportItems: (
+    batchId: string,
+    items: readonly PipelineBatchItemResult[],
   ) => void;
 }
 
@@ -55,6 +71,16 @@ const ingestContext: IngestContext = { lastBatchId: null, lastRaw: {} };
 const readFinitePositive = (value: number): number =>
   Number.isFinite(value) && value > 0 ? value : 0;
 
+type ReportItemWithTimings = PipelineBatchItemResult & {
+  stage_timings: Record<string, number>;
+};
+
+const hasStageTimings = (
+  item: PipelineBatchItemResult,
+): item is ReportItemWithTimings =>
+  item.stage_timings !== undefined &&
+  Object.keys(item.stage_timings).length > 0;
+
 export const useAioStageTimingStore = create<AioStageTimingState>()(
   devtools(
     (set, get) => ({
@@ -66,6 +92,9 @@ export const useAioStageTimingStore = create<AioStageTimingState>()(
       providerKind: null,
       cacheHitDetected: false,
       lastStageMs: null,
+      pages: [],
+      reportBatchId: null,
+      reportCapturedAt: null,
 
       resetForRun: () => {
         ingestContext.lastBatchId = null;
@@ -79,6 +108,9 @@ export const useAioStageTimingStore = create<AioStageTimingState>()(
           providerKind: null,
           cacheHitDetected: false,
           lastStageMs: null,
+          pages: [],
+          reportBatchId: null,
+          reportCapturedAt: null,
         });
       },
 
@@ -157,6 +189,38 @@ export const useAioStageTimingStore = create<AioStageTimingState>()(
           bottleneck: bottleneckEntry ? bottleneckEntry[0] : null,
           cacheHitDetected,
           lastStageMs: progress.lastStageMs ?? state.lastStageMs,
+        });
+      },
+
+      ingestReportItems: (batchId, items) => {
+        const withTimings = items
+          .filter(hasStageTimings)
+          .sort((left, right) => left.index - right.index);
+        if (withTimings.length === 0) {
+          return;
+        }
+        const state = get();
+        const pages = [...state.pages];
+        for (const item of withTimings) {
+          const key = `${batchId}:${item.index}`;
+          const page: AioStageTimingPage = {
+            key,
+            batchId,
+            index: item.index,
+            filename: item.filename,
+            stageSeconds: { ...item.stage_timings },
+          };
+          const existingIndex = pages.findIndex((entry) => entry.key === key);
+          if (existingIndex >= 0) {
+            pages[existingIndex] = page;
+          } else {
+            pages.push(page);
+          }
+        }
+        set({
+          pages,
+          reportBatchId: batchId.length > 0 ? batchId : state.reportBatchId,
+          reportCapturedAt: new Date().toISOString(),
         });
       },
     }),

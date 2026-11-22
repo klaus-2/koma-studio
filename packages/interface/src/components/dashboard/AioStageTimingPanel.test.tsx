@@ -4,11 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AioStageTimingPanel from './AioStageTimingPanel';
 import type { BatchProgress } from '@/pages/dashboard/lib/batch-wire';
 import { useAioStageTimingStore } from '@/pages/dashboard/stores/aio-stage-timing-store';
+import { useStatusStore } from '@/pages/dashboard/stores/status-store';
+import { copyTextToClipboardSafe } from '../../utils/clipboard';
 
 vi.mock('@/i18n', () => ({
   useI18n: () => ({
     t: (key: string): string => key,
   }),
+}));
+
+vi.mock('../../utils/clipboard', () => ({
+  copyTextToClipboardSafe: vi.fn(async (): Promise<void> => undefined),
 }));
 
 const wireProgress = (overrides: Partial<BatchProgress>): BatchProgress => ({
@@ -117,5 +123,131 @@ describe('AioStageTimingPanel', () => {
     expect(
       screen.queryByText('dashboard.footer.timing.accumulated'),
     ).toBeNull();
+  });
+
+  it('hides the per-page section and copy action while no report arrived', () => {
+    render(<AioStageTimingPanel className="timing" />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▸' }),
+    );
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'dashboard.footer.timing.pages ▸',
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', {
+        name: 'dashboard.footer.timing.copyReport',
+      }),
+    ).toBeNull();
+  });
+
+  it('lists per-page stage timings from the report, sorted by arrival and index', () => {
+    act(() => {
+      useAioStageTimingStore.getState().ingestReportItems('chunk-1', [
+        {
+          index: 1,
+          filename: 'page-2.png',
+          status: 'success',
+          stage_timings: { detect: 0.5, ocr: 2.5 },
+        },
+        {
+          index: 0,
+          filename: 'page-1.png',
+          status: 'success',
+          stage_timings: { detect: 1 },
+        },
+      ]);
+    });
+    render(<AioStageTimingPanel className="timing" />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▸' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'dashboard.footer.timing.pages ▸',
+      }),
+    );
+
+    expect(screen.getByText(/1\. page-1\.png/).textContent).toBe(
+      '1. page-1.png — detect 1s',
+    );
+    expect(screen.getByText(/2\. page-2\.png/).textContent).toBe(
+      '2. page-2.png — detect 0.5s · ocr 2.5s',
+    );
+  });
+
+  it('copies the plain-text digest and reports success through the status store', async () => {
+    const copyMock = vi.mocked(copyTextToClipboardSafe);
+    copyMock.mockClear();
+    act(() => {
+      useAioStageTimingStore.getState().ingestReportItems('chunk-1', [
+        {
+          index: 0,
+          filename: 'page-1.png',
+          status: 'success',
+          stage_timings: { detect: 2.5 },
+        },
+      ]);
+    });
+    render(<AioStageTimingPanel className="timing" />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▸' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'dashboard.footer.timing.copyReport',
+      }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(copyMock).toHaveBeenCalledTimes(1);
+    const digest = copyMock.mock.calls[0]?.[0] ?? '';
+    expect(digest).toContain('AIO timing report');
+    expect(digest).toContain('detect 2.5s');
+    expect(useStatusStore.getState().statusMessage).toBe(
+      'dashboard.footer.timing.copied',
+    );
+    expect(useStatusStore.getState().statusToneExplicit).toBe(true);
+  });
+
+  it('reports a copy failure through the status store without throwing', async () => {
+    const copyMock = vi.mocked(copyTextToClipboardSafe);
+    copyMock.mockClear();
+    copyMock.mockRejectedValueOnce(new Error('clipboard blocked'));
+    act(() => {
+      useAioStageTimingStore.getState().ingestReportItems('chunk-1', [
+        {
+          index: 0,
+          filename: 'page-1.png',
+          status: 'success',
+          stage_timings: { detect: 2.5 },
+        },
+      ]);
+    });
+    render(<AioStageTimingPanel className="timing" />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'dashboard.footer.timing.title ▸' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'dashboard.footer.timing.copyReport',
+      }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(useStatusStore.getState().statusMessage).toBe(
+      'dashboard.footer.timing.copyFailed',
+    );
   });
 });
