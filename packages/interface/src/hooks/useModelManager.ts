@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
 import { useI18n } from "../i18n";
+import { desktopBridge } from "../lib/desktop-bridge";
+import { useStatusStore } from "../pages/dashboard/stores/status-store";
+import {
+  isMiniBackendRuntimeServing,
+  isMiniBackendRuntimeStarting,
+} from "../utils/miniBackendRuntime";
 import { getModelDownloadManager } from "../models/model-download-manager";
 import { reconcileModelInstallStates } from "../models/model-install-reconciliation";
 import {
@@ -457,16 +463,37 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
     [refreshDiskSpace, state.diskSpace, t],
   );
 
+  const ensureRuntimeReadyForInstall = useCallback(async (): Promise<boolean> => {
+    const desktop = desktopBridge.desktop;
+    if (!desktop?.getMiniBackendRuntimeState) {
+      return true;
+    }
+    const runtime = await desktop.getMiniBackendRuntimeState();
+    if (!runtime || isMiniBackendRuntimeServing(runtime.status)) {
+      return true;
+    }
+    useStatusStore.getState().setTonedStatus(
+      isMiniBackendRuntimeStarting(runtime.status)
+        ? t("modelManager.error.runtimeStarting")
+        : t("modelManager.error.runtimeNotReady"),
+      "error",
+    );
+    return false;
+  }, [t]);
+
   const installModel = useCallback(
     async (modelId: string): Promise<void> => {
       const entry = modelStore.getState().entries[modelId];
       if (!entry) {
         throw new Error(t("modelManager.error.modelNotFound"));
       }
+      if (!(await ensureRuntimeReadyForInstall())) {
+        return;
+      }
       await ensureEnoughDiskSpace(estimateModelRequiredDiskBytes(entry.model));
       await manager.enqueue(entry.model, sourceLanguage);
     },
-    [ensureEnoughDiskSpace, manager, sourceLanguage, t],
+    [ensureEnoughDiskSpace, ensureRuntimeReadyForInstall, manager, sourceLanguage, t],
   );
 
   const updateModel = useCallback(
@@ -502,6 +529,10 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
       return summary;
     }
 
+    if (!(await ensureRuntimeReadyForInstall())) {
+      return summary;
+    }
+
     await ensureEnoughDiskSpace(summary.requiredBytes);
 
     modelStore.setState((prev) => ({
@@ -518,7 +549,7 @@ export const useModelManager = ({ sourceLanguage, targetLanguage }: UseModelMana
 
     await manager.enqueueMany(models, sourceLanguage);
     return summary;
-  }, [ensureEnoughDiskSpace, manager, sourceLanguage]);
+  }, [ensureEnoughDiskSpace, ensureRuntimeReadyForInstall, manager, sourceLanguage]);
 
   const cancelAll = useCallback(async (): Promise<void> => {
     await manager.cancelAll();

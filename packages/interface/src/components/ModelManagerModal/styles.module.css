@@ -1768,3 +1768,35 @@
   border-color: rgba(168, 85, 247, 0.3);
   color: rgba(168, 85, 247, 0.95);
 }
+
+/* ── Runtime offline notice ── */
+.runtimeBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 20px 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  border-radius: 12px;
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.runtimeBannerIcon {
+  color: rgba(234, 179, 8, 0.9);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.runtimeBannerTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(234, 179, 8, 0.95);
+}
+
+.runtimeBannerBody {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(226, 232, 240, 0.75);
+}

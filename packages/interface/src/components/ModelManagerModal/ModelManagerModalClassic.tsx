@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Layers, X, CheckCircle2, AlertTriangle, Sparkles, Plus } from 'lucide-react';
 import { useI18n } from '../../i18n';
+import { useMiniBackendRuntimeStatus } from '../../hooks/useMiniBackendRuntimeStatus';
+import { isMiniBackendRuntimeServing, isMiniBackendRuntimeStarting } from '../../utils/miniBackendRuntime';
 import { KomaDialog } from '@koma/ui/components/dialog';
 
 import {
@@ -132,6 +134,11 @@ export const ModelManagerModalClassic = ({
   onCheckUpdatesNow,
 }: ModelManagerModalProps) => {
   const { t } = useI18n();
+  const runtimeState = useMiniBackendRuntimeStatus();
+  const runtimeOffline =
+    runtimeState !== null && !isMiniBackendRuntimeServing(runtimeState.status);
+  const runtimeStarting =
+    runtimeState !== null && isMiniBackendRuntimeStarting(runtimeState.status);
   const [showConfirm, setShowConfirm] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<ModelFilterState['source']>(
     initialSourceFilter ?? (enableCloudCatalog ? 'all' : 'local'),
@@ -262,6 +269,23 @@ export const ModelManagerModalClassic = ({
             <X size={14} />
           </button>
         </header>
+
+        {runtimeOffline && (
+          <div
+            className={styles.runtimeBanner}
+            role="status"
+          >
+            <span className={styles.runtimeBannerIcon} aria-hidden="true">⚠</span>
+            <div>
+              <p className={styles.runtimeBannerTitle}>
+                {t(runtimeStarting ? 'modelManager.runtimeBanner.startingTitle' : 'modelManager.runtimeBanner.offlineTitle')}
+              </p>
+              <p className={styles.runtimeBannerBody}>
+                {t(runtimeStarting ? 'modelManager.runtimeBanner.startingBody' : 'modelManager.runtimeBanner.offlineBody')}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ═══ Filters ═══ */}
         <ModelFilters

@@ -2438,6 +2438,7 @@ export const ptBrMessages: TranslationCatalog = {
   'modelCard.status.verifying': 'Verificando…',
   'modelCard.status.queued': 'Na fila…',
   'modelCard.status.downloading': 'Baixando…',
+  'modelCard.status.installing': 'Instalando…',
   'modelCard.status.cancelled': 'Cancelado',
   'modelCard.status.incomplete': 'Incompleto',
   'modelCard.status.notInstalled': 'Não instalado',
@@ -3952,6 +3953,16 @@ export const ptBrMessages: TranslationCatalog = {
     'Selecione um modelo válido de OCR para o Tradutor visual.',
   'modelManager.error.diskCheckFailed':
     'Não foi possível verificar o espaço em disco.',
+  'modelManager.error.runtimeNotReady':
+    'O runtime de modelos não está em execução. Abra Configurações → Runtime, inicie-o e tente novamente.',
+  'modelManager.error.runtimeStarting':
+    'O runtime de modelos está iniciando — tente novamente em alguns instantes.',
+  'modelManager.runtimeBanner.offlineTitle': 'Runtime de modelos está offline',
+  'modelManager.runtimeBanner.offlineBody':
+    'Os downloads precisam do runtime de modelos. Abra Configurações → Runtime, inicie-o e instale seus modelos.',
+  'modelManager.runtimeBanner.startingTitle': 'Runtime de modelos está iniciando',
+  'modelManager.runtimeBanner.startingBody':
+    'O runtime de modelos está iniciando — você poderá instalar modelos em alguns instantes.',
   'modelManager.downloadError.network':
     'O download falhou por um problema de conexão. Verifique sua internet e tente novamente.',
   'modelManager.downloadError.disk_full':

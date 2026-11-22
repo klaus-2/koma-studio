@@ -80,8 +80,10 @@ export const ModelCardNoir = ({
       return <Stamp tone="azure"><span className="blink">●</span> {t("modelCard.status.verifying")}</Stamp>;
     if (entry.status === "queued")
       return <Stamp tone="azure">{t("modelCard.status.queued")}</Stamp>;
-    if (entry.status === "downloading")
-      return <Stamp tone="crimson"><span className="blink">●</span> {t("modelCard.status.downloading")}</Stamp>;
+    if (entry.status === "downloading") {
+      const downloadComplete = (entry.progress?.percent ?? 0) >= 100;
+      return <Stamp tone="crimson"><span className="blink">●</span> {t(downloadComplete ? "modelCard.status.installing" : "modelCard.status.downloading")}</Stamp>;
+    }
     if (entry.status === "cancelled")
       return <Stamp tone="neutral">{t("modelCard.status.cancelled")}</Stamp>;
     if (entry.status === "incomplete")

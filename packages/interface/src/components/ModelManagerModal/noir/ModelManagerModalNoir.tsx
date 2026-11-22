@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { Layers, X, CheckCircle2, AlertTriangle, Sparkles, Plus } from 'lucide-react';
 import { useI18n } from '../../../i18n';
+import { useMiniBackendRuntimeStatus } from '../../../hooks/useMiniBackendRuntimeStatus';
+import { isMiniBackendRuntimeServing, isMiniBackendRuntimeStarting } from '../../../utils/miniBackendRuntime';
 
 import {
   computeRequiredBytesWithSlack,
@@ -235,6 +237,12 @@ export const ModelManagerModalNoir = ({
     onSelect: onSelectModel,
   };
 
+  const runtimeState = useMiniBackendRuntimeStatus();
+  const runtimeOffline =
+    runtimeState !== null && !isMiniBackendRuntimeServing(runtimeState.status);
+  const runtimeStarting =
+    runtimeState !== null && isMiniBackendRuntimeStarting(runtimeState.status);
+
   const ghostBtn =
     'panel-cut-sm hard-hover border border-paper/20 px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-paper/70 hover:text-paper disabled:opacity-40 disabled:cursor-not-allowed';
 
@@ -317,6 +325,23 @@ export const ModelManagerModalNoir = ({
                 <X size={15} />
               </button>
             </header>
+
+            {runtimeOffline && (
+              <div
+                className="mx-5 mb-3 flex items-start gap-2.5 border border-gold/50 bg-gold/10 p-3 sm:mx-6"
+                role="status"
+              >
+                <AlertTriangle size={13} className="mt-0.5 shrink-0 text-gold" />
+                <div className="font-mono text-[10px] leading-relaxed text-paper/80">
+                  <p className="font-bold uppercase tracking-[0.16em] text-gold">
+                    {t(runtimeStarting ? 'modelManager.runtimeBanner.startingTitle' : 'modelManager.runtimeBanner.offlineTitle')}
+                  </p>
+                  <p className="mt-1 text-paper/60">
+                    {t(runtimeStarting ? 'modelManager.runtimeBanner.startingBody' : 'modelManager.runtimeBanner.offlineBody')}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* ═══ FILTERS ═══ */}
             <ModelFilters

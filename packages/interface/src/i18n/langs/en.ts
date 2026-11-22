@@ -2524,6 +2524,7 @@ export const enMessages = {
   'modelCard.status.verifying': 'Verifying…',
   'modelCard.status.queued': 'Queued…',
   'modelCard.status.downloading': 'Downloading…',
+  'modelCard.status.installing': 'Installing…',
   'modelCard.status.cancelled': 'Canceled',
   'modelCard.status.incomplete': 'Incomplete',
   'modelCard.status.notInstalled': 'Not installed',
@@ -3584,6 +3585,16 @@ export const enMessages = {
   'translator.selectValidOcrModel':
     'Select a valid OCR model for the Visual Translator.',
   'modelManager.error.diskCheckFailed': 'Could not check available disk space.',
+  'modelManager.error.runtimeNotReady':
+    "The model runtime isn't running. Open Settings → Runtime and start it, then try again.",
+  'modelManager.error.runtimeStarting':
+    'The model runtime is starting up — try again in a few moments.',
+  'modelManager.runtimeBanner.offlineTitle': 'Model runtime is offline',
+  'modelManager.runtimeBanner.offlineBody':
+    'Downloads need the model runtime. Open Settings → Runtime and start it, then install your models.',
+  'modelManager.runtimeBanner.startingTitle': 'Model runtime is starting',
+  'modelManager.runtimeBanner.startingBody':
+    'The model runtime is starting up — you will be able to install models in a few moments.',
   'modelManager.downloadError.network':
     'The download failed due to a connection problem. Check your internet and try again.',
   'modelManager.downloadError.disk_full':

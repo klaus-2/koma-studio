@@ -104,8 +104,10 @@ export const ModelCardClassic = ({
       return <span className={styles.statusPending}>{t('modelCard.status.verifying')}</span>;
     if (entry.status === 'queued')
       return <span className={styles.statusPending}>{t('modelCard.status.queued')}</span>;
-    if (entry.status === 'downloading')
-      return <span className={styles.statusPending}>{t('modelCard.status.downloading')}</span>;
+    if (entry.status === 'downloading') {
+      const downloadComplete = (entry.progress?.percent ?? 0) >= 100;
+      return <span className={styles.statusPending}>{t(downloadComplete ? 'modelCard.status.installing' : 'modelCard.status.downloading')}</span>;
+    }
     if (entry.status === 'cancelled')
       return <span className={styles.statusNeutral}>{t('modelCard.status.cancelled')}</span>;
     if (entry.status === 'incomplete')
