@@ -44,6 +44,7 @@ import type { useModelManager } from '../../../hooks/useModelManager';
 import type { useDashboardModelManager } from '../../../hooks/useDashboardModelManager';
 import type { useRenderFontCatalog } from '../../../hooks/useRenderFontCatalog';
 import { aioPanelClasses } from './AioRightPanel.skin';
+import { AioChecklistOption } from './AioRightPanel.skin';
 
 type ModelManagerApi = ReturnType<typeof useModelManager>;
 type ModelManagerPanelApi = ReturnType<typeof useDashboardModelManager>;
@@ -382,15 +383,14 @@ export default memo(function AioStageConfigBody({
 
       {/* ── Clean ───────────────────────────────────────────── */}
       {activeStageTab === 'cleanImage' && (
-        <label className="koma-aio-apply-style__option">
-          <input
-            type="checkbox"
-            checked={cleanViaAi}
-            onChange={(event) => setCleanViaAi(event.target.checked)}
-            aria-label={t('dashboard.aio.clean.aiClean.toggleAria')}
-          />
-          <span className="koma-inline-label-with-info">
-            {t('dashboard.aio.clean.aiClean.toggle')}
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <AioChecklistOption
+              noir={noir}
+              checked={cleanViaAi}
+              label={t('dashboard.aio.clean.aiClean.toggle')}
+              onChange={(checked) => setCleanViaAi(checked)}
+            />
             <FieldInfoTooltip
               content={translateOrFallback(
                 locale,
@@ -403,13 +403,14 @@ export default memo(function AioStageConfigBody({
                 'What Automatic AI Clean is used for',
               )}
             />
-          </span>
-        </label>
+          </div>
+          <hr className="koma-aio-divider" />
+        </>
       )}
       {activeStageTab === 'cleanImage' && cleanViaAi && (
         <>
           <div className="koma-field">
-            <span className="koma-field__label">
+            <span className={skin.label}>
               {t('dashboard.aio.clean.aiClean.modelPickerLabel')}
             </span>
             <select
@@ -438,29 +439,29 @@ export default memo(function AioStageConfigBody({
               )}
             </select>
             {selectedCleanAiProfile && (
-              <p className="koma-aio-hint">{`${selectedCleanAiProfile.label} (Custom)`}</p>
+              <p className={skin.hint}>{`${selectedCleanAiProfile.label} (Custom)`}</p>
             )}
             {cleanAiSelectedProfileBase && (
-              <p className="koma-aio-hint">
+              <p className={skin.hint}>
                 {getCustomLlmProviderNotice(cleanAiSelectedProfileBase.apiBase)}
               </p>
             )}
           </div>
           <div className="koma-field">
-            <span className="koma-field__label">
+            <span className={skin.label}>
               {t('dashboard.aio.clean.aiClean.instructionsLabel')}
             </span>
             <textarea
               value={cleanAiInstructions}
               onChange={(event) => setCleanAiInstructions(event.target.value)}
-              className="koma-input"
+              className={noir ? 'noir-textarea panel-cut-sm' : 'koma-input'}
               rows={4}
               placeholder={t(
                 'dashboard.aio.clean.aiClean.instructionsPlaceholder',
               )}
               aria-label={t('dashboard.aio.clean.aiClean.instructionsLabel')}
             />
-            <p className="koma-aio-hint">
+            <p className={skin.hint}>
               {t('dashboard.aio.clean.aiClean.segmentSkippedNotice')}
             </p>
           </div>
