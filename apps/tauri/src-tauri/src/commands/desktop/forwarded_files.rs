@@ -86,7 +86,7 @@ fn normalize_forwarded_path(path: &str) -> String {
     path.trim().to_owned()
 }
 
-fn stage_session_forwarded_paths(paths: &[String]) {
+pub(crate) fn stage_session_forwarded_paths(paths: &[String]) {
     if let Ok(mut staged) = SESSION_FORWARDED_PATHS.lock() {
         staged
             .get_or_insert_with(HashSet::new)

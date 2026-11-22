@@ -129,6 +129,10 @@ fn validate_watch_folder(raw: &str) -> Result<PathBuf, String> {
         return Err("The watch path is not a folder.".to_owned());
     }
 
+    if canonical.parent().is_none() {
+        return Err("The watch path cannot be a filesystem root.".to_owned());
+    }
+
     Ok(canonical)
 }
 
@@ -142,14 +146,18 @@ fn handle_watch_event<R: Runtime>(
         return;
     };
 
-    let candidates = collect_watch_candidates(&event.kind, &event.paths, folder);
+    let candidates = collect_watch_candidates(&event.kind, &event.paths);
     if candidates.is_empty() {
         return;
     }
 
     let now_ms = unix_millis();
     for path in candidates {
-        let file_path = path.to_string_lossy().into_owned();
+        let staged_path = match verify_watch_candidate(&path, folder) {
+            Some(path) => path,
+            None => continue,
+        };
+        let file_path = staged_path.to_string_lossy().into_owned();
         let should_emit = match dedupe.lock() {
             Ok(mut state) => state.should_emit(&file_path, now_ms),
             Err(_) => {
@@ -161,10 +169,14 @@ fn handle_watch_event<R: Runtime>(
             continue;
         }
 
-        let file_name = path
+        let file_name = staged_path
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_else(|| file_path.clone());
+
+        super::forwarded_files::stage_session_forwarded_paths(std::slice::from_ref(
+            &file_path,
+        ));
 
         if let Err(error) = app.emit(
             WATCH_FILE_EVENT,
@@ -175,11 +187,19 @@ fn handle_watch_event<R: Runtime>(
     }
 }
 
-fn collect_watch_candidates(
-    kind: &EventKind,
-    paths: &[PathBuf],
-    folder: &Path,
-) -> Vec<PathBuf> {
+fn verify_watch_candidate(path: &Path, folder: &Path) -> Option<PathBuf> {
+    let link_metadata = fs::symlink_metadata(path).ok()?;
+    if link_metadata.file_type().is_symlink() || !link_metadata.is_file() {
+        return None;
+    }
+    let canonical = fs::canonicalize(path).ok()?;
+    if !canonical.starts_with(folder) || !is_watched_image_path(&canonical) {
+        return None;
+    }
+    Some(canonical)
+}
+
+fn collect_watch_candidates(kind: &EventKind, paths: &[PathBuf]) -> Vec<PathBuf> {
     if !matches!(
         kind,
         EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(_))
@@ -189,7 +209,6 @@ fn collect_watch_candidates(
 
     paths
         .iter()
-        .filter(|path| path.starts_with(folder))
         .filter(|path| is_watched_image_path(path))
         .cloned()
         .collect()
@@ -255,20 +274,18 @@ mod tests {
         assert!(collect_watch_candidates(
             &EventKind::Modify(ModifyKind::Data(DataChange::Any)),
             &[folder.join("a.png")],
-            &folder,
         )
         .is_empty());
 
         assert!(collect_watch_candidates(
             &EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any)),
             &[folder.join("a.png")],
-            &folder,
         )
         .is_empty());
     }
 
     #[test]
-    fn candidates_filter_extension_and_folder_containment() {
+    fn candidates_filter_by_extension_only() {
         let folder = Path::new(scratch_root()).join("folder");
         let outside = Path::new(scratch_root()).join("other");
 
@@ -280,24 +297,28 @@ mod tests {
                 outside.join("c.png"),
                 folder.join("D.PNG"),
             ],
-            &folder,
         );
 
-        assert_eq!(candidates, vec![folder.join("a.png"), folder.join("D.PNG")]);
+        assert_eq!(
+            candidates,
+            vec![folder.join("a.png"), outside.join("c.png"), folder.join("D.PNG")]
+        );
     }
 
     #[test]
-    fn rename_pair_keeps_only_the_destination_inside_the_folder() {
+    fn rename_pair_yields_both_extension_matches_for_verify_to_arbitrate() {
         let folder = Path::new(scratch_root()).join("folder");
         let outside = Path::new(scratch_root()).join("other");
 
         let candidates = collect_watch_candidates(
             &EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
             &[outside.join("moving.png"), folder.join("arrived.png")],
-            &folder,
         );
 
-        assert_eq!(candidates, vec![folder.join("arrived.png")]);
+        assert_eq!(
+            candidates,
+            vec![outside.join("moving.png"), folder.join("arrived.png")]
+        );
     }
 
     #[test]
@@ -309,6 +330,76 @@ mod tests {
         assert!(dedupe.should_emit("b.png", 1_200));
         assert!(!dedupe.should_emit("a.png", 1_399));
         assert!(dedupe.should_emit("a.png", 1_400));
+    }
+
+    #[test]
+    fn verify_watch_candidate_accepts_real_images_inside_the_folder() {
+        let root = std::env::temp_dir().join(format!("koma-watch-ok-{}", std::process::id()));
+        let folder = root.join("watched");
+        fs::create_dir_all(&folder).expect("create watched folder");
+        let folder = fs::canonicalize(&folder).expect("canonicalize watched folder");
+        let image = folder.join("page.png");
+        fs::write(&image, [1u8, 2, 3, 4]).expect("write image");
+
+        let verified = verify_watch_candidate(&image, &folder);
+
+        assert_eq!(
+            verified.as_deref(),
+            Some(fs::canonicalize(&image).unwrap().as_path())
+        );
+        fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn verify_watch_candidate_rejects_images_outside_the_folder() {
+        let root = std::env::temp_dir().join(format!("koma-watch-out-{}", std::process::id()));
+        let folder = root.join("watched");
+        let outside = root.join("outside");
+        fs::create_dir_all(&folder).expect("create watched folder");
+        fs::create_dir_all(&outside).expect("create outside folder");
+        let folder = fs::canonicalize(&folder).expect("canonicalize watched folder");
+        let image = outside.join("page.png");
+        fs::write(&image, [1u8, 2, 3, 4]).expect("write image");
+
+        assert!(verify_watch_candidate(&image, &folder).is_none());
+
+        fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn verify_watch_candidate_rejects_symlinks_escaping_the_folder() {
+        let root = std::env::temp_dir().join(format!("koma-watch-link-{}", std::process::id()));
+        let folder = root.join("watched");
+        fs::create_dir_all(&folder).expect("create watched folder");
+        let folder = fs::canonicalize(&folder).expect("canonicalize watched folder");
+        let secret = root.join("secret.txt");
+        fs::write(&secret, b"secret").expect("write secret");
+        let link = folder.join("leak.png");
+
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_file(&secret, &link).expect("create symlink");
+        #[cfg(not(windows))]
+        std::os::unix::fs::symlink(&secret, &link).expect("create symlink");
+
+        assert!(verify_watch_candidate(&link, &folder).is_none());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn verify_watch_candidate_rejects_non_images_and_missing_files() {
+        let root = std::env::temp_dir().join(format!("koma-watch-ext-{}", std::process::id()));
+        let folder = root.join("watched");
+        fs::create_dir_all(&folder).expect("create watched folder");
+        let folder = fs::canonicalize(&folder).expect("canonicalize watched folder");
+        let text = folder.join("notes.txt");
+        fs::write(&text, b"text").expect("write notes");
+        let missing = folder.join("ghost.png");
+
+        assert!(verify_watch_candidate(&text, &folder).is_none());
+        assert!(verify_watch_candidate(&missing, &folder).is_none());
+
+        fs::remove_dir_all(&root).expect("cleanup");
     }
 
     #[test]

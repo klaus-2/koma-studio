@@ -474,6 +474,7 @@ fn restore_workspace_backup_inner(
         || trimmed.len() > MAX_BACKUP_FILE_NAME_BYTES
         || trimmed.contains('/')
         || trimmed.contains('\\')
+        || trimmed.contains(':')
         || trimmed.contains("..")
         || trimmed.contains('\0')
     {

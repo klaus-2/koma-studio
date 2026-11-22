@@ -4,6 +4,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,14 @@ use crate::{
 const MAX_ARCHIVE_ENTRY_NAME_BYTES: usize = 200;
 const MAX_ACTIVE_EXPORT_SESSIONS: usize = 8;
 const MAX_ENTRY_NAME_INPUT_BYTES: usize = 1024;
+const BUNDLE_SESSION_TTL_MS: u64 = 10 * 60 * 1000;
+
+fn unix_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or_default()
+}
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -78,6 +87,7 @@ struct BundleSession {
     temp_path: PathBuf,
     target_path: PathBuf,
     used_names: HashSet<String>,
+    created_at_ms: u64,
 }
 
 impl BundleSession {
@@ -87,6 +97,7 @@ impl BundleSession {
             temp_path,
             target_path: _,
             used_names: _,
+            created_at_ms: _,
         } = self;
         drop(writer);
         let _ = fs::remove_file(temp_path);
@@ -211,6 +222,7 @@ fn begin_session(
     target: &Path,
 ) -> AppResult<String> {
     let mut map = sessions.lock().map_err(|_| store_poisoned())?;
+    sweep_expired_sessions(&mut map);
     if map.len() >= MAX_ACTIVE_EXPORT_SESSIONS {
         return Err(AppError::conflict("Too many active export sessions."));
     }
@@ -237,9 +249,26 @@ fn begin_session(
             temp_path,
             target_path: target.to_path_buf(),
             used_names: HashSet::new(),
+            created_at_ms: unix_millis(),
         },
     );
     Ok(session_id)
+}
+
+fn sweep_expired_sessions(map: &mut HashMap<String, BundleSession>) {
+    let now_ms = unix_millis();
+    let expired: Vec<String> = map
+        .iter()
+        .filter(|(_, session)| {
+            now_ms.saturating_sub(session.created_at_ms) > BUNDLE_SESSION_TTL_MS
+        })
+        .map(|(session_id, _)| session_id.clone())
+        .collect();
+    for session_id in expired {
+        if let Some(session) = map.remove(&session_id) {
+            session.abort();
+        }
+    }
 }
 
 fn append_session_entry(
@@ -302,6 +331,7 @@ fn finalize_session(
         temp_path,
         target_path,
         used_names: _,
+        created_at_ms: _,
     } = session;
 
     let outcome = (|| -> AppResult<PathBuf> {
@@ -426,6 +456,34 @@ mod tests {
         let error = begin_session(&store.sessions, &temp.path().join("overflow.zip"))
             .expect_err("saturated store rejects a new session");
         assert!(matches!(error, AppError::Conflict(_)));
+    }
+
+    #[test]
+    fn begin_session_sweeps_expired_sessions_and_frees_capacity() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = new_store();
+
+        for index in 0..MAX_ACTIVE_EXPORT_SESSIONS {
+            begin_at(&store, &temp.path().join(format!("stale-{index}.zip")));
+        }
+
+        {
+            let mut map = store.sessions.lock().unwrap();
+            for (_, session) in map.iter_mut() {
+                session.created_at_ms = session
+                    .created_at_ms
+                    .saturating_sub(BUNDLE_SESSION_TTL_MS + 60_000);
+            }
+        }
+
+        let fresh = begin_session(&store.sessions, &temp.path().join("fresh.zip"));
+        assert!(fresh.is_ok(), "expired sessions are swept before the cap");
+
+        {
+            let map = store.sessions.lock().unwrap();
+            assert!(map.contains_key(&fresh.unwrap()));
+            assert_eq!(map.len(), 1);
+        }
     }
 
     #[test]

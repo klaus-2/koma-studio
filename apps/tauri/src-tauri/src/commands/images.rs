@@ -25,6 +25,8 @@ const DEFAULT_PAGE_SIZE: usize = 100;
 const DEFAULT_THUMBNAIL_MAX_DIM: u32 = 800;
 const MAX_THUMBNAIL_MAX_DIM: u32 = 4096;
 const THUMBNAIL_MIME_TYPE: &str = "image/png";
+const MAX_THUMBNAIL_SOURCE_DIM: u32 = 16_384;
+const MAX_THUMBNAIL_DECODE_BYTES: u64 = 256 * 1024 * 1024;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -263,12 +265,7 @@ pub async fn desktop_api_allow_paths(
 pub async fn desktop_api_thumbnail(
     payload: DesktopImageThumbnailPayload,
 ) -> Result<DesktopImageThumbnailResult, AppError> {
-    let max_dim = payload.max_dim.unwrap_or(DEFAULT_THUMBNAIL_MAX_DIM);
-    if max_dim == 0 || max_dim > MAX_THUMBNAIL_MAX_DIM {
-        return Err(AppError::InvalidInput(
-            "Thumbnail size is outside the supported range.".to_owned(),
-        ));
-    }
+    let max_dim = validate_thumbnail_max_dim(payload.max_dim.unwrap_or(DEFAULT_THUMBNAIL_MAX_DIM))?;
 
     let file_path = payload.file_path;
     tauri::async_runtime::spawn_blocking(move || {
@@ -276,6 +273,15 @@ pub async fn desktop_api_thumbnail(
     })
     .await
     .map_err(blocking_task_error)?
+}
+
+fn validate_thumbnail_max_dim(max_dim: u32) -> Result<u32, AppError> {
+    if max_dim == 0 || max_dim > MAX_THUMBNAIL_MAX_DIM {
+        return Err(AppError::InvalidInput(
+            "Thumbnail size is outside the supported range.".to_owned(),
+        ));
+    }
+    Ok(max_dim)
 }
 
 fn thumbnail_png_bytes(
@@ -297,10 +303,27 @@ fn thumbnail_png_bytes(
         ));
     }
 
-    let decoded = image::open(path).map_err(|error| {
+    let mut reader = image::ImageReader::open(path).map_err(|error| {
+        AppError::UnsupportedMediaType(format!("The image could not be opened: {error}"))
+    })?;
+    reader = reader.with_guessed_format().map_err(|error| {
+        AppError::UnsupportedMediaType(format!("The image could not be decoded: {error}"))
+    })?;
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(MAX_THUMBNAIL_SOURCE_DIM);
+    limits.max_image_height = Some(MAX_THUMBNAIL_SOURCE_DIM);
+    limits.max_alloc = Some(MAX_THUMBNAIL_DECODE_BYTES);
+    reader.limits(limits);
+    let decoded = reader.decode().map_err(|error| {
         AppError::UnsupportedMediaType(format!("The image could not be decoded: {error}"))
     })?;
 
+    let (width, height) = (decoded.width(), decoded.height());
+    if u64::from(width) * u64::from(height) * 4 > MAX_THUMBNAIL_DECODE_BYTES {
+        return Err(AppError::UnsupportedMediaType(
+            "The image is too large to thumbnail.".to_owned(),
+        ));
+    }
     let rgba = decoded.to_rgba8();
     let (width, height) = (rgba.width(), rgba.height());
     let longest = width.max(height);
@@ -726,9 +749,10 @@ mod tests {
     }
 
     #[test]
-    fn thumbnail_max_dim_bounds_are_enforced_by_the_command_contract() {
-        assert!(DEFAULT_THUMBNAIL_MAX_DIM > 0);
-        assert!(DEFAULT_THUMBNAIL_MAX_DIM <= MAX_THUMBNAIL_MAX_DIM);
-        assert!(MAX_THUMBNAIL_MAX_DIM <= u32::MAX);
+    fn thumbnail_rejects_out_of_range_max_dim() {
+        assert!(validate_thumbnail_max_dim(0).is_err());
+        assert!(validate_thumbnail_max_dim(MAX_THUMBNAIL_MAX_DIM + 1).is_err());
+        assert!(validate_thumbnail_max_dim(1).is_ok());
+        assert!(validate_thumbnail_max_dim(MAX_THUMBNAIL_MAX_DIM).is_ok());
     }
 }
