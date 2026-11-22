@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -21,6 +22,23 @@ const MAX_BATCH_PATHS: usize = 256;
 const MAX_PATH_BYTES: usize = 32 * 1024;
 const MAX_PAGE_SIZE: usize = 200;
 const DEFAULT_PAGE_SIZE: usize = 100;
+const DEFAULT_THUMBNAIL_MAX_DIM: u32 = 800;
+const MAX_THUMBNAIL_MAX_DIM: u32 = 4096;
+const THUMBNAIL_MIME_TYPE: &str = "image/png";
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopImageThumbnailPayload {
+    pub file_path: String,
+    pub max_dim: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopImageThumbnailResult {
+    pub mime_type: String,
+    pub data: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -239,6 +257,76 @@ pub async fn desktop_api_allow_paths(
     }
 
     Ok(outcomes)
+}
+
+#[tauri::command(rename = "desktop-api:images:thumbnail")]
+pub async fn desktop_api_thumbnail(
+    payload: DesktopImageThumbnailPayload,
+) -> Result<DesktopImageThumbnailResult, AppError> {
+    let max_dim = payload.max_dim.unwrap_or(DEFAULT_THUMBNAIL_MAX_DIM);
+    if max_dim == 0 || max_dim > MAX_THUMBNAIL_MAX_DIM {
+        return Err(AppError::InvalidInput(
+            "Thumbnail size is outside the supported range.".to_owned(),
+        ));
+    }
+
+    let file_path = payload.file_path;
+    tauri::async_runtime::spawn_blocking(move || {
+        thumbnail_png_bytes(Path::new(&file_path), max_dim)
+    })
+    .await
+    .map_err(blocking_task_error)?
+}
+
+fn thumbnail_png_bytes(
+    path: &Path,
+    max_dim: u32,
+) -> Result<DesktopImageThumbnailResult, AppError> {
+    if path.as_os_str().is_empty() {
+        return Err(AppError::InvalidInput("Invalid image path.".to_owned()));
+    }
+
+    let metadata = fs::metadata(path)?;
+    if !metadata.is_file() {
+        return Err(AppError::NotAFile(path.to_path_buf()));
+    }
+
+    if !is_supported_image_path(path) {
+        return Err(AppError::UnsupportedMediaType(
+            "The selected file is not a supported image.".to_owned(),
+        ));
+    }
+
+    let decoded = image::open(path).map_err(|error| {
+        AppError::UnsupportedMediaType(format!("The image could not be decoded: {error}"))
+    })?;
+
+    let rgba = decoded.to_rgba8();
+    let (width, height) = (rgba.width(), rgba.height());
+    let longest = width.max(height);
+    let resized = if longest > max_dim {
+        let scale = f64::from(max_dim) / f64::from(longest);
+        let new_width = ((f64::from(width) * scale).round() as u32).max(1);
+        let new_height = ((f64::from(height) * scale).round() as u32).max(1);
+        image::imageops::resize(
+            &rgba,
+            new_width,
+            new_height,
+            image::imageops::FilterType::Triangle,
+        )
+    } else {
+        rgba
+    };
+
+    let mut encoded = Vec::new();
+    image::DynamicImage::ImageRgba8(resized)
+        .write_to(&mut io::Cursor::new(&mut encoded), image::ImageFormat::Png)
+        .map_err(|error| AppError::internal("encode_thumbnail", error))?;
+
+    Ok(DesktopImageThumbnailResult {
+        mime_type: THUMBNAIL_MIME_TYPE.to_owned(),
+        data: BASE64.encode(&encoded),
+    })
 }
 
 fn prepare_image_path(
@@ -584,5 +672,63 @@ mod tests {
             scan_image_folder_page(folder.path(), None, 100).unwrap();
 
         assert!(page.entries.is_empty());
+    }
+
+    #[test]
+    fn thumbnail_downscales_preserving_aspect_ratio() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = image::RgbaImage::from_fn(64, 32, |x, _| image::Rgba([x as u8, 0, 0, 255]));
+        let path = temp.path().join("page.png");
+        source.save(&path).unwrap();
+
+        let result = thumbnail_png_bytes(&path, 16).unwrap();
+
+        assert_eq!(result.mime_type, "image/png");
+        let bytes = BASE64.decode(result.data).unwrap();
+        let decoded = image::load_from_memory(&bytes).unwrap();
+        assert_eq!((decoded.width(), decoded.height()), (16, 8));
+    }
+
+    #[test]
+    fn thumbnail_keeps_small_images_unscaled() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = image::RgbaImage::from_fn(8, 8, |_, _| image::Rgba([9, 9, 9, 255]));
+        let path = temp.path().join("tiny.png");
+        source.save(&path).unwrap();
+
+        let result = thumbnail_png_bytes(&path, 16).unwrap();
+        let bytes = BASE64.decode(result.data).unwrap();
+        let decoded = image::load_from_memory(&bytes).unwrap();
+        assert_eq!((decoded.width(), decoded.height()), (8, 8));
+    }
+
+    #[test]
+    fn thumbnail_rejects_non_image_missing_and_directory_paths() {
+        let temp = tempfile::tempdir().unwrap();
+
+        let text = temp.path().join("notes.txt");
+        fs::write(&text, b"nope").unwrap();
+        assert!(matches!(
+            thumbnail_png_bytes(&text, 16),
+            Err(AppError::UnsupportedMediaType(_))
+        ));
+
+        let missing = temp.path().join("missing.png");
+        assert!(matches!(
+            thumbnail_png_bytes(&missing, 16),
+            Err(AppError::Io(_))
+        ));
+
+        assert!(matches!(
+            thumbnail_png_bytes(temp.path(), 16),
+            Err(AppError::NotAFile(_))
+        ));
+    }
+
+    #[test]
+    fn thumbnail_max_dim_bounds_are_enforced_by_the_command_contract() {
+        assert!(DEFAULT_THUMBNAIL_MAX_DIM > 0);
+        assert!(DEFAULT_THUMBNAIL_MAX_DIM <= MAX_THUMBNAIL_MAX_DIM);
+        assert!(MAX_THUMBNAIL_MAX_DIM <= u32::MAX);
     }
 }

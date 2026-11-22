@@ -34,6 +34,8 @@ const MAX_ASSET_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_TOTAL_UNCOMPRESSED_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 const MAX_ASSETS: usize = 10_000;
 const MAX_COMPRESSION_RATIO: u64 = 500;
+pub const WORKSPACE_BACKUP_DIR_NAME: &str = "workspace-backups";
+const WORKSPACE_BACKUP_RETENTION: usize = 5;
 
 #[derive(Debug)]
 pub struct LoadedWorkspace {
@@ -212,13 +214,13 @@ fn validate_mime_type(value: &str) -> AppResult<()> {
         .map_err(|_| AppError::invalid_input("Invalid workspace asset MIME type."))
 }
 
-fn atomic_replace(temp_path: &Path, final_path: &Path) -> AppResult<()> {
+pub(crate) fn atomic_replace(temp_path: &Path, final_path: &Path) -> AppResult<()> {
     if !final_path.exists() {
         fs::rename(temp_path, final_path)?;
         return Ok(());
     }
 
-    let backup_path = final_path.with_extension(format!(
+    let aside_path = final_path.with_extension(format!(
         "{}.{}.backup",
         final_path
             .extension()
@@ -227,10 +229,10 @@ fn atomic_replace(temp_path: &Path, final_path: &Path) -> AppResult<()> {
         Uuid::new_v4()
     ));
 
-    fs::rename(final_path, &backup_path)?;
+    fs::rename(final_path, &aside_path)?;
 
     if let Err(error) = fs::rename(temp_path, final_path) {
-        let rollback = fs::rename(&backup_path, final_path);
+        let rollback = fs::rename(&aside_path, final_path);
         if let Err(rollback_error) = rollback {
             tracing::error!(
                 error = %rollback_error,
@@ -240,12 +242,119 @@ fn atomic_replace(temp_path: &Path, final_path: &Path) -> AppResult<()> {
         return Err(error.into());
     }
 
-    // The replacement already succeeded; a leftover backup is cosmetic and
-    // must never turn a completed save into a reported failure.
-    if let Err(error) = fs::remove_file(backup_path) {
+    if let Err(error) = fs::remove_file(aside_path) {
         tracing::warn!(error_kind = ?error.kind(), "workspace backup cleanup failed");
     }
     Ok(())
+}
+
+fn atomic_replace_with_rotation(temp_path: &Path, final_path: &Path) -> AppResult<()> {
+    let rotated = if final_path.exists() {
+        Some(rotate_previous_file(final_path)?)
+    } else {
+        None
+    };
+
+    if let Err(error) = fs::rename(temp_path, final_path) {
+        if let Some(backup_path) = &rotated {
+            let _ = fs::rename(backup_path, final_path);
+        }
+        return Err(error.into());
+    }
+
+    if let Some(backup_path) = &rotated {
+        prune_workspace_backups(final_path, backup_path);
+    }
+    Ok(())
+}
+
+fn workspace_backup_dir(final_path: &Path) -> AppResult<PathBuf> {
+    let parent = final_path
+        .parent()
+        .ok_or_else(|| AppError::invalid_path("Workspace path has no parent directory."))?;
+    Ok(parent.join(WORKSPACE_BACKUP_DIR_NAME))
+}
+
+fn rotate_previous_file(final_path: &Path) -> AppResult<PathBuf> {
+    let backups_dir = workspace_backup_dir(final_path)?;
+    fs::create_dir_all(&backups_dir)?;
+
+    let file_name = final_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            AppError::invalid_path("Workspace file name is not valid UTF-8.")
+        })?;
+
+    let backup_path = backups_dir.join(format!(
+        "{file_name}.{}.backup",
+        Uuid::new_v4()
+    ));
+
+    fs::rename(final_path, &backup_path)?;
+    Ok(backup_path)
+}
+
+fn prune_workspace_backups(final_path: &Path, keep_path: &Path) {
+    let backups_dir = match workspace_backup_dir(final_path) {
+        Ok(backups_dir) => backups_dir,
+        Err(_) => return,
+    };
+
+    let Some(file_name) = final_path.file_name().and_then(|name| name.to_str()) else {
+        return;
+    };
+
+    let prefix = format!("{file_name}.");
+    let mut backups: Vec<(PathBuf, std::time::SystemTime)> = Vec::new();
+
+    let entries = match fs::read_dir(&backups_dir) {
+        Ok(entries) => entries,
+        Err(error) => {
+            tracing::warn!(error_kind = ?error.kind(), "workspace backup prune listing failed");
+            return;
+        }
+    };
+
+    for entry in entries.flatten() {
+        let Ok(name) = entry.file_name().into_string() else {
+            continue;
+        };
+        if !name.starts_with(&prefix) || !name.ends_with(".backup") {
+            continue;
+        }
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        if !metadata.is_file() {
+            continue;
+        }
+        let modified = metadata.modified().unwrap_or(std::time::UNIX_EPOCH);
+        backups.push((entry.path(), modified));
+    }
+
+    backups.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| b.0.cmp(&a.0)));
+
+    for (path, _) in backups.iter().skip(WORKSPACE_BACKUP_RETENTION) {
+        if path == keep_path {
+            continue;
+        }
+        if let Err(error) = fs::remove_file(path) {
+            tracing::warn!(error_kind = ?error.kind(), "workspace backup prune failed");
+        }
+    }
+}
+
+pub fn parse_backup_live_name(backup_name: &str) -> Option<String> {
+    let without_suffix = backup_name.strip_suffix(".backup")?;
+    let (live_name, uuid_part) = without_suffix.rsplit_once('.')?;
+    if live_name.is_empty() {
+        return None;
+    }
+    if Uuid::parse_str(uuid_part).is_err() {
+        return None;
+    }
+    Some(live_name.to_owned())
 }
 
 pub fn write_workspace_package(
@@ -299,7 +408,7 @@ pub fn write_workspace_package(
 
         let file = writer.finish()?;
         file.sync_all()?;
-        atomic_replace(&temp_path, file_path)?;
+        atomic_replace_with_rotation(&temp_path, file_path)?;
         sync_directory(parent)?;
 
         Ok(())
@@ -544,6 +653,94 @@ mod tests {
         let loaded = read_workspace_package(&path).unwrap();
         assert_eq!(loaded.assets[0].buffer, vec![1, 2, 3, 4]);
         assert_eq!(loaded.manifest.assets[0].path, "assets/page.png");
+    }
+
+    fn payload_with_version(version: u64) -> WorkspacePackagePayload {
+        let mut payload = sample_payload();
+        payload.manifest.document = json!({ "version": version });
+        payload
+    }
+
+    fn backup_files(backups_dir: &Path) -> Vec<PathBuf> {
+        let mut files = Vec::new();
+        for entry in fs::read_dir(backups_dir).unwrap() {
+            let entry = entry.unwrap();
+            assert!(entry.metadata().unwrap().is_file());
+            files.push(entry.path());
+        }
+        files
+    }
+
+    #[test]
+    fn rotation_keeps_five_backups_after_seven_saves() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("autosave.test.koma");
+
+        for version in 1..=7_u64 {
+            write_workspace_package(&path, &payload_with_version(version)).unwrap();
+        }
+
+        let backups_dir = temp.path().join(WORKSPACE_BACKUP_DIR_NAME);
+        let backups = backup_files(&backups_dir);
+        assert_eq!(backups.len(), WORKSPACE_BACKUP_RETENTION);
+
+        let mut versions = Vec::new();
+        for backup in &backups {
+            let name = backup.file_name().unwrap().to_str().unwrap();
+            assert!(name.starts_with("autosave.test.koma."));
+            assert!(name.ends_with(".backup"));
+            assert!(parse_backup_live_name(name).as_deref() == Some("autosave.test.koma"));
+            let loaded = read_workspace_package(backup).unwrap();
+            versions.push(loaded.manifest.document["version"].as_u64().unwrap());
+        }
+        versions.sort_unstable();
+        assert_eq!(versions, vec![2, 3, 4, 5, 6]);
+
+        let live = read_workspace_package(&path).unwrap();
+        assert_eq!(live.manifest.document["version"], 7);
+    }
+
+    #[test]
+    fn first_save_creates_no_backup_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("autosave.test.koma");
+
+        write_workspace_package(&path, &payload_with_version(1)).unwrap();
+
+        assert!(!temp.path().join(WORKSPACE_BACKUP_DIR_NAME).exists());
+    }
+
+    #[test]
+    fn failed_save_does_not_rotate_previous_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("autosave.test.koma");
+
+        write_workspace_package(&path, &payload_with_version(1)).unwrap();
+
+        let mut broken = payload_with_version(2);
+        broken.assets[0].buffer = vec![9, 9];
+        assert!(write_workspace_package(&path, &broken).is_err());
+
+        assert!(!temp.path().join(WORKSPACE_BACKUP_DIR_NAME).exists());
+        let live = read_workspace_package(&path).unwrap();
+        assert_eq!(live.manifest.document["version"], 1);
+    }
+
+    #[test]
+    fn parse_backup_live_name_rejects_malformed_names() {
+        let uuid = Uuid::new_v4();
+        assert!(
+            parse_backup_live_name(&format!("autosave.a.koma.{uuid}.backup"))
+                .as_deref()
+                == Some("autosave.a.koma")
+        );
+        assert_eq!(parse_backup_live_name("autosave.a.koma.backup"), None);
+        assert_eq!(parse_backup_live_name("backup"), None);
+        assert_eq!(parse_backup_live_name(""), None);
+        assert_eq!(
+            parse_backup_live_name(&format!("autosave.a.koma.not-a-uuid.backup")),
+            None
+        );
     }
 
     #[test]

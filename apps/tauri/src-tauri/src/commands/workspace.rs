@@ -1,8 +1,10 @@
 use std::{
     fs, io,
-    path::PathBuf,
+    path::{Path, PathBuf},
+    time::SystemTime,
 };
 
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
@@ -16,8 +18,9 @@ use crate::{
         WorkspacePackagePayload,
     },
     services::workspace::{
-        WORKSPACE_FILE_EXTENSION, normalize_asset_path, read_workspace_package,
-        workspace_autosave_path, write_workspace_package,
+        WORKSPACE_BACKUP_DIR_NAME, WORKSPACE_FILE_EXTENSION, atomic_replace, normalize_asset_path,
+        parse_backup_live_name, read_workspace_package, workspace_autosave_path,
+        write_workspace_package,
     },
     state::{AuthorizedWorkspaceAsset, WorkspaceAssetStore},
 };
@@ -26,6 +29,7 @@ const MAX_ASSET_REGISTRATION_BATCH: usize = 256;
 const MAX_DISPLAY_FILE_NAME_BYTES: usize = 255;
 const MAX_EXPORT_FILE_NAME_BYTES: usize = 200;
 const MAX_MIME_BYTES: usize = 255;
+const MAX_BACKUP_FILE_NAME_BYTES: usize = 255;
 
 #[tauri::command(rename = "desktop-workspace:select-assets")]
 pub async fn select_asset_files(
@@ -344,6 +348,188 @@ pub async fn import_file(app: AppHandle) -> AppResult<WorkspaceImportResult> {
             assets: payload.assets,
         }),
     })
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopBackupEntry {
+    pub file_name: String,
+    pub path: String,
+    pub size_bytes: u64,
+    pub modified_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopBackupListResult {
+    pub backups: Vec<DesktopBackupEntry>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopBackupRestorePayload {
+    pub file_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopBackupRestoreResult {
+    pub ok: bool,
+    pub error: Option<String>,
+}
+
+#[tauri::command(rename = "desktop-workspace:list-backups")]
+pub async fn list_backups(app: AppHandle) -> AppResult<DesktopBackupListResult> {
+    let root = workspace_storage_dir(&app)?;
+
+    tauri::async_runtime::spawn_blocking(move || list_workspace_backups_at(&root)).await?
+}
+
+#[tauri::command(rename = "desktop-workspace:restore-backup")]
+pub async fn restore_backup(
+    app: AppHandle,
+    payload: DesktopBackupRestorePayload,
+) -> AppResult<DesktopBackupRestoreResult> {
+    let root = workspace_storage_dir(&app)?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        Ok(restore_workspace_backup_at(&root, &payload.file_name))
+    })
+    .await?
+}
+
+fn list_workspace_backups_at(storage_dir: &Path) -> AppResult<DesktopBackupListResult> {
+    let backups_dir = storage_dir.join(WORKSPACE_BACKUP_DIR_NAME);
+
+    let entries = match fs::read_dir(&backups_dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(DesktopBackupListResult {
+                backups: Vec::new(),
+            });
+        }
+        Err(error) => return Err(error.into()),
+    };
+
+    let mut backups: Vec<(SystemTime, DesktopBackupEntry)> = Vec::new();
+
+    for entry in entries {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+        if !metadata.is_file() {
+            continue;
+        }
+        let file_name = match entry.file_name().into_string() {
+            Ok(file_name) => file_name,
+            Err(_) => continue,
+        };
+        if !file_name.ends_with(".backup") {
+            continue;
+        }
+        if parse_backup_live_name(&file_name).is_none() {
+            continue;
+        }
+        let modified = metadata.modified()?;
+        backups.push((
+            modified,
+            DesktopBackupEntry {
+                path: entry.path().to_string_lossy().into_owned(),
+                file_name,
+                size_bytes: metadata.len(),
+                modified_at: chrono::DateTime::<chrono::Utc>::from(modified).to_rfc3339(),
+            },
+        ));
+    }
+
+    backups.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.file_name.cmp(&b.1.file_name)));
+
+    Ok(DesktopBackupListResult {
+        backups: backups.into_iter().map(|(_, entry)| entry).collect(),
+    })
+}
+
+fn restore_workspace_backup_at(
+    storage_dir: &Path,
+    backup_file_name: &str,
+) -> DesktopBackupRestoreResult {
+    match restore_workspace_backup_inner(storage_dir, backup_file_name) {
+        Ok(()) => DesktopBackupRestoreResult {
+            ok: true,
+            error: None,
+        },
+        Err(message) => DesktopBackupRestoreResult {
+            ok: false,
+            error: Some(message),
+        },
+    }
+}
+
+fn restore_workspace_backup_inner(
+    storage_dir: &Path,
+    backup_file_name: &str,
+) -> Result<(), String> {
+    let trimmed = backup_file_name.trim();
+    if trimmed != backup_file_name
+        || trimmed.is_empty()
+        || trimmed.len() > MAX_BACKUP_FILE_NAME_BYTES
+        || trimmed.contains('/')
+        || trimmed.contains('\\')
+        || trimmed.contains("..")
+        || trimmed.contains('\0')
+    {
+        return Err("Invalid backup file name.".to_owned());
+    }
+
+    let Some(live_name) = parse_backup_live_name(trimmed) else {
+        return Err("Unknown backup file.".to_owned());
+    };
+
+    if live_name == WORKSPACE_BACKUP_DIR_NAME {
+        return Err("Invalid backup file name.".to_owned());
+    }
+
+    let backup_path = storage_dir.join(WORKSPACE_BACKUP_DIR_NAME).join(trimmed);
+    let backup_metadata = match fs::metadata(&backup_path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Err("Backup not found.".to_owned());
+        }
+        Err(error) => {
+            tracing::error!(
+                error_kind = ?error.kind(),
+                "failed to inspect the workspace backup"
+            );
+            return Err("The backup could not be read.".to_owned());
+        }
+    };
+    if !backup_metadata.is_file() {
+        return Err("Backup not found.".to_owned());
+    }
+
+    let live_path = storage_dir.join(&live_name);
+    let temp_path = storage_dir.join(format!(
+        ".{live_name}.{}.restore.tmp",
+        Uuid::new_v4()
+    ));
+
+    if let Err(error) = fs::copy(&backup_path, &temp_path) {
+        tracing::error!(
+            error_kind = ?error.kind(),
+            "failed to stage the workspace backup copy"
+        );
+        return Err("The backup could not be staged.".to_owned());
+    }
+
+    if let Err(error) = atomic_replace(&temp_path, &live_path) {
+        tracing::error!(
+            error = %error,
+            "failed to restore the workspace backup"
+        );
+        let _ = fs::remove_file(&temp_path);
+        return Err("The workspace file could not be restored.".to_owned());
+    }
+
+    Ok(())
 }
 
 pub fn workspace_storage_dir<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
@@ -667,5 +853,119 @@ mod tests {
 
         let error = write_workspace_package(&path, &payload).unwrap_err();
         assert!(matches!(error, AppError::InvalidInput(_)));
+    }
+
+    fn write_backup_with_mtime(
+        storage_dir: &Path,
+        file_name: &str,
+        contents: &[u8],
+        modified: SystemTime,
+    ) -> PathBuf {
+        let backups_dir = storage_dir.join(WORKSPACE_BACKUP_DIR_NAME);
+        fs::create_dir_all(&backups_dir).unwrap();
+        let path = backups_dir.join(file_name);
+        fs::write(&path, contents).unwrap();
+        let file = fs::File::options().write(true).open(&path).unwrap();
+        file.set_modified(modified).unwrap();
+        path
+    }
+
+    #[test]
+    fn list_workspace_backups_sorts_newest_first() {
+        let temp = tempfile::tempdir().unwrap();
+        let storage = temp.path();
+        let base = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
+
+        let oldest_name = format!("autosave.aaa.koma.{}.backup", Uuid::new_v4());
+        let middle_name = format!("autosave.bbb.koma.{}.backup", Uuid::new_v4());
+        let newest_name = format!("autosave.ccc.koma.{}.backup", Uuid::new_v4());
+
+        write_backup_with_mtime(storage, &oldest_name, b"a", base);
+        write_backup_with_mtime(storage, &middle_name, b"bb", base + std::time::Duration::from_secs(2));
+        write_backup_with_mtime(storage, &newest_name, b"ccc", base + std::time::Duration::from_secs(4));
+
+        let result = list_workspace_backups_at(storage).unwrap();
+
+        assert_eq!(
+            result
+                .backups
+                .iter()
+                .map(|entry| entry.file_name.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                newest_name.as_str(),
+                middle_name.as_str(),
+                oldest_name.as_str()
+            ]
+        );
+        assert_eq!(result.backups[0].size_bytes, 3);
+        assert_eq!(
+            result.backups[0].path,
+            storage
+                .join(WORKSPACE_BACKUP_DIR_NAME)
+                .join(&newest_name)
+                .to_string_lossy()
+        );
+        let parsed = chrono::DateTime::parse_from_rfc3339(&result.backups[0].modified_at).unwrap();
+        assert_eq!(parsed.timestamp_millis(), 1_700_000_004_000);
+    }
+
+    #[test]
+    fn list_workspace_backups_without_directory_is_empty() {
+        let temp = tempfile::tempdir().unwrap();
+        let result = list_workspace_backups_at(temp.path()).unwrap();
+        assert!(result.backups.is_empty());
+    }
+
+    #[test]
+    fn restore_backup_overwrites_the_live_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let storage = temp.path();
+        let live = storage.join("autosave.h1.koma");
+        fs::write(&live, b"v1").unwrap();
+
+        let backup_name = format!("autosave.h1.koma.{}.backup", Uuid::new_v4());
+        write_backup_with_mtime(storage, &backup_name, b"v2", SystemTime::now());
+
+        let result = restore_workspace_backup_at(storage, &backup_name);
+
+        assert_eq!(
+            result,
+            DesktopBackupRestoreResult {
+                ok: true,
+                error: None,
+            }
+        );
+        assert_eq!(fs::read(&live).unwrap(), b"v2");
+
+        let leftovers: Vec<_> = fs::read_dir(storage)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|name| name.ends_with(".tmp"))
+            })
+            .collect();
+        assert!(leftovers.is_empty());
+    }
+
+    #[test]
+    fn restore_backup_rejects_traversal_missing_and_malformed_names() {
+        let temp = tempfile::tempdir().unwrap();
+        let storage = temp.path();
+
+        for name in [
+            "../escape.backup".to_owned(),
+            "nested/dir.backup".to_owned(),
+            format!("missing.koma.{}.backup", Uuid::new_v4()),
+            "garbage.backup".to_owned(),
+            format!("{}.{}.backup", WORKSPACE_BACKUP_DIR_NAME, Uuid::new_v4()),
+        ] {
+            let result = restore_workspace_backup_at(storage, &name);
+            assert!(!result.ok, "restore must fail for {name}");
+            assert!(result.error.is_some());
+        }
     }
 }

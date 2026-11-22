@@ -96,6 +96,9 @@ tempfile = "3"
 fs2 = "0.4"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
+# Folder watching (renderer ingest affordance)
+notify = "7"
+
 # Optional: Discord Rich Presence (CHECK feature flag at runtime)
 discord-rich-presence = { version = "0.2", optional = true }
 

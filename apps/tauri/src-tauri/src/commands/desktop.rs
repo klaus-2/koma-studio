@@ -30,8 +30,10 @@ mod runtime_artifacts_url;
 mod url_validation;
 
 pub(crate) mod batch;
+pub(crate) mod bundle;
 pub(crate) mod forwarded_files;
 pub(crate) mod updater;
+pub(crate) mod watch;
 
 pub(crate) use config_sources::DESKTOP_UPDATE_CHANNEL;
 use infrastructure::{app_user_data_dir, loopback_http_client, open_url, run_blocking};

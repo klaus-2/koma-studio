@@ -120,6 +120,8 @@ pub fn run() {
         .manage(state::WorkspaceAssetStore::default())
         .manage(state::api::ApiRuntimeState::default())
         .manage(services::batch_state::BatchStateStore::<tauri::Wry>::default())
+        .manage(commands::desktop::bundle::BundleSessionStore::default())
+        .manage(commands::desktop::watch::WatchStore::default())
         .on_page_load(|webview, payload| {
             if payload.event() == tauri::webview::PageLoadEvent::Finished {
                 commands::desktop::forwarded_files::flush_staged_paths(webview.app_handle());
@@ -149,6 +151,11 @@ pub fn run() {
             commands::desktop::batch::set_state,
             commands::desktop::batch::set_dirty,
             commands::desktop::batch::close_force,
+            commands::desktop::bundle::begin_bundle,
+            commands::desktop::bundle::append_entry,
+            commands::desktop::bundle::finalize_bundle,
+            commands::desktop::watch::start_watch,
+            commands::desktop::watch::stop_watch,
             commands::logging::session_log,            runtime::profiles::list_mini_backend_runtime_artifacts,
             runtime::profiles::install_recommended_mini_backend_runtime,
             runtime::profiles::install_mini_backend_runtime_profile,
@@ -166,10 +173,13 @@ pub fn run() {
             commands::workspace::clear_autosave,
             commands::workspace::export_current,
             commands::workspace::import_file,
+            commands::workspace::list_backups,
+            commands::workspace::restore_backup,
             commands::workspace::select_asset_files,
             commands::workspace::register_internal_assets,
             commands::images::desktop_api_list_folder,
             commands::images::desktop_api_allow_paths,
+            commands::images::desktop_api_thumbnail,
             commands::api::auth::config,
             commands::api::auth::session,
             commands::api::auth::refresh_session,

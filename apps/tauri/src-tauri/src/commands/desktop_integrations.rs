@@ -237,7 +237,7 @@ fn reveal_path_at<R: Runtime>(app: &AppHandle<R>, raw_path: &str) -> AppResult<R
     })
 }
 
-fn sanitized_dialog_file_name(value: &str) -> String {
+pub(crate) fn sanitized_dialog_file_name(value: &str) -> String {
     let candidate = value.trim().rsplit(['/', '\\']).next().unwrap_or_default();
 
     let name: String = candidate
@@ -264,7 +264,7 @@ fn sanitized_dialog_file_name(value: &str) -> String {
     name
 }
 
-fn truncate_utf8(value: &str, max_bytes: usize) -> String {
+pub(crate) fn truncate_utf8(value: &str, max_bytes: usize) -> String {
     let mut truncated = String::with_capacity(value.len().min(max_bytes));
     for character in value.chars() {
         if truncated.len() + character.len_utf8() > max_bytes {
