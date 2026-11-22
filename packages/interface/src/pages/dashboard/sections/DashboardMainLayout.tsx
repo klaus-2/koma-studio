@@ -636,6 +636,7 @@ export default memo(function DashboardMainLayout({
   modelModalLanguageFilter,
   selectedTranslationModelState,
   selectedCustomTranslationProfile,
+
   selectedLegacyTranslationOption,
   aioStageLabels,
   STAGE_TABS,
@@ -1216,8 +1217,8 @@ export default memo(function DashboardMainLayout({
               selectedCleanStatusText={selectedCleanStatusText}
               openModelManagerForStage={openModelManagerForStage}
               selectedTranslationModelState={selectedTranslationModelState}
-              selectedCustomTranslationProfile={selectedCustomTranslationProfile}
               selectedLegacyTranslationOption={selectedLegacyTranslationOption}
+              selectedCustomTranslationProfile={selectedCustomTranslationProfile}
               // ── AIO pipeline — labels & stage tabs (page memos) ──
               aioStageLabels={aioStageLabels}
               STAGE_TABS={STAGE_TABS}

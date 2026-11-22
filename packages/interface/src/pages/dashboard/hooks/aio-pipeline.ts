@@ -8,12 +8,15 @@ import { useAioExecutionPreparation } from '@/hooks/useAioExecutionPreparation';
 import { useAioResultConsolidation } from '@/hooks/useAioResultConsolidation';
 import { useAioSingleImageProcessor } from '@/hooks/useAioSingleImageProcessor';
 import {
-  StageBusyError,
-  StageModelRefusalError,
-  stageKeyForRefusalStage,
   stageTransportNoticeDetail,
 } from '@/aio-stages';
-import { useI18n, type TranslateFn } from '@/i18n';
+import {
+  buildFailedBatchResult,
+  isSameImageCollection,
+  itemBusyMessage,
+  recordStageModelRefusal,
+} from '@/pages/dashboard/hooks/aio-pipeline.batch-helpers';
+import { useI18n } from '@/i18n';
 import { TRANSLATION_MODELS_REGISTRY } from '@/models/translation-models-registry';
 import { parseApiError } from '@/pages/dashboard/helpers';
 import type { UseAioPipelineExecutionArgs } from '@/pages/dashboard/hooks/aio-pipeline.execution.types';
@@ -111,92 +114,6 @@ interface ActiveAutoExecution {
   readonly images: ReadonlyArray<LoadedImage>;
 }
 
-function isSameImageCollection(
-  current: ReadonlyArray<LoadedImage>,
-  captured: ReadonlyArray<LoadedImage>,
-): boolean {
-  return (
-    current.length === captured.length &&
-    current.every((image, index) => image === captured[index])
-  );
-}
-
-const ITEM_ERROR_NOTICE_MAX_LENGTH = 200;
-
-function itemErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-  if (typeof error === 'string' && error.trim().length > 0) {
-    return error;
-  }
-  return 'Unknown error';
-}
-
-/**
- * The named "model busy — retry" state replaces the raw refusal text on the
- * per-item error notice; any other failure keeps its message.
- */
-function itemBusyMessage(error: unknown, t: TranslateFn): string | null {
-  return error instanceof StageBusyError ? t('dashboard.aio.batchItemBusy') : null;
-}
-
-/**
- * Surfaces a structured backend refusal (explicit selection of an
- * unimplemented/unknown/unconfigured model) on the stage picker, where the
- * "use default model" action lives.
- */
-function recordStageModelRefusal(error: unknown): void {
-  if (!(error instanceof StageModelRefusalError)) {
-    return;
-  }
-  const stageKey = stageKeyForRefusalStage(error.refusal.stage);
-  if (stageKey !== null) {
-    useAioPipelineStore
-      .getState()
-      .setAioStageModelRefusal(stageKey, error.refusal);
-  }
-}
-
-function buildItemErrorNotice(
-  fileName: string,
-  error: unknown,
-  busyMessage: string | null,
-): string {
-  if (busyMessage !== null) {
-    return `${fileName}: ${busyMessage}`;
-  }
-  const firstLine = itemErrorMessage(error).split(/\r?\n/, 1)[0] ?? '';
-  const collapsed = firstLine.replace(/\s+/g, ' ').trim();
-  const summary =
-    collapsed.length > ITEM_ERROR_NOTICE_MAX_LENGTH
-      ? `${collapsed.slice(0, ITEM_ERROR_NOTICE_MAX_LENGTH - 3)}...`
-      : collapsed;
-
-  return `${fileName}: ${summary.length > 0 ? summary : 'Unknown error'}`;
-}
-
-function buildFailedBatchResult(
-  image: LoadedImage,
-  error: unknown,
-  busyMessage: string | null,
-): AioBatchImageResult {
-  return {
-    imageId: image.id,
-    detectDetections: [],
-    ocrDetections: [],
-    translationDetections: [],
-    segmentDetections: [],
-    cleanDetections: [],
-    renderDetections: [],
-    cleanedDownload: null,
-    countAsProcessed: false,
-    executionNotices: [
-      buildItemErrorNotice(image.file.name, error, busyMessage),
-    ],
-  };
-}
-
 export function useAioPipelineExecution(
   args: UseAioPipelineExecutionArgs,
 ): Readonly<{ processAIO: () => Promise<void> }> {
@@ -205,6 +122,13 @@ export function useAioPipelineExecution(
   const aioSteps = useAioPipelineStore((state) => state.aioSteps);
   const aioSrcLang = useAioPipelineStore((state) => state.aioSrcLang);
   const selection = useAioPipelineStore((state) => state.aioStageSelection);
+  const cleanViaAi = useAioPipelineStore((state) => state.aioCleanViaAi);
+  const cleanAiModelKey = useAioPipelineStore(
+    (state) => state.aioCleanAiModelKey,
+  );
+  const cleanAiInstructions = useAioPipelineStore(
+    (state) => state.aioCleanAiInstructions,
+  );
 
   const activeRef = useRef<ActiveAutoExecution | null>(null);
   const mountedRef = useRef(true);
@@ -245,6 +169,9 @@ export function useAioPipelineExecution(
     modelEntries: args.modelEntries,
     selectedCustomOcrProfile: args.selectedCustomOcrProfile,
     selectedCustomTranslationProfile: args.selectedCustomTranslationProfile,
+    cleanViaAi,
+    cleanAiModelKey,
+    cleanCustomProfiles: args.cleanCustomProfiles,
     getAioStageOption: args.getAioStageOption,
     openModelManagerForStage: args.openModelManagerForStage,
     refreshSession: args.refreshSession,
@@ -346,6 +273,9 @@ export function useAioPipelineExecution(
       pipeline.aioSteps !== aioSteps ||
       pipeline.aioSrcLang !== aioSrcLang ||
       pipeline.aioStageSelection !== selection ||
+      pipeline.aioCleanViaAi !== cleanViaAi ||
+      pipeline.aioCleanAiModelKey !== cleanAiModelKey ||
+      pipeline.aioCleanAiInstructions !== cleanAiInstructions ||
       !isSameImageCollection(
         useImageCollectionStore.getState().images,
         images,
@@ -453,6 +383,10 @@ export function useAioPipelineExecution(
         selectedCustomOcrProfile: args.selectedCustomOcrProfile,
         selectedCustomTranslationProfile:
           args.selectedCustomTranslationProfile,
+        cleanViaAi,
+        cleanAiModelKey,
+        cleanAiInstructions,
+        cleanAiCustomProfile: prepared.cleanAiCustomProfile ?? null,
         maskDilation: pipeline.aioMaskDilation,
         hdStrategy: pipeline.aioHdStrategy,
         hdResizeLimit: pipeline.aioHdResizeLimit,

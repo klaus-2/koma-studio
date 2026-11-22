@@ -114,6 +114,8 @@ const basePrepared = {
   useCloudTranslation: false,
   useLlmSettingsForOcr: false,
   useLlmSettingsForTranslation: false,
+  cleanViaAi: false,
+  cleanAiCustomProfile: null,
   runningStages: ['detecting text'],
 };
 
@@ -154,6 +156,7 @@ const makeArgs = (): UseAioPipelineExecutionArgs => ({
   modelEntries: {},
   selectedCustomOcrProfile: null,
   selectedCustomTranslationProfile: null,
+  cleanCustomProfiles: [],
   getAioStageOption: () => null,
   openModelManagerForStage: vi.fn(),
   refreshSession: async () => null,

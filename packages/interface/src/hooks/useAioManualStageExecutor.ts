@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import { resolveWorkGlossarySettings } from '../pages/dashboard/hooks/translator.execution';
 import { useLlmProvidersStore } from '../pages/dashboard/stores/llm-providers-store';
 
 import { useI18n } from '../i18n';
 import {
+  AIO_CLEAN_AI_STAGE_LABEL_KEY,
   AIO_MANUAL_STAGE_ORDER,
   AIO_STAGE_LABEL_KEYS,
   getAioPipelineStageLabels,
@@ -11,7 +12,9 @@ import {
 import {
   ensureStageModelReadiness,
   getAioStageReadiness,
+  resolveAioCleanAiReadiness,
   resolveUpstreamRegions,
+  runCleanImageAiStage,
   runCleanImageStage,
   runDetectTextStage,
   runGetTranslationsStage,
@@ -91,6 +94,9 @@ interface UseAioManualStageExecutorArgs {
   modelEntries: Record<string, ModelManagerEntryLike | undefined>;
   selectedCustomOcrProfile: CustomLlmProfile | null;
   selectedCustomTranslationProfile: CustomLlmProfile | null;
+  cleanViaAi: boolean;
+  cleanAiModelKey: string;
+  cleanAiInstructions: string;
   openModelManagerForStage: (stage: string, options?: Record<string, unknown>) => void;
   getAioStageOption: (stageKey: 'recognizeText' | 'getTranslations', key: string) => AioStageOption | null;
   parseApiError: (response: Response) => Promise<string>;
@@ -151,6 +157,9 @@ export function useAioManualStageExecutor({
   modelEntries,
   selectedCustomOcrProfile,
   selectedCustomTranslationProfile,
+  cleanViaAi,
+  cleanAiModelKey,
+  cleanAiInstructions,
   openModelManagerForStage,
   getAioStageOption,
   parseApiError,
@@ -167,6 +176,11 @@ export function useAioManualStageExecutor({
   onStageStart,
   setRuntimeExecutionNotice,
 }: UseAioManualStageExecutorArgs) {
+  const customLlmProfiles = useLlmProvidersStore((s) => s.customLlmProfiles);
+  const cleanCustomProfiles = useMemo(
+    () => customLlmProfiles.filter((profile) => profile.stage === 'clean'),
+    [customLlmProfiles],
+  );
   const { t } = useI18n();
   const noticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -258,7 +272,8 @@ export function useAioManualStageExecutor({
     // be overwritten by the "stage done" message.
     type ManualStageBodyResult =
       | { refused: true }
-      | { refused: false; notice: RuntimeExecutionNotice | null };
+      | { refused: false; notice: RuntimeExecutionNotice | null }
+      | { skipped: true };
     const runStageBody = async (
       stageImage: MaterializedPage,
     ): Promise<ManualStageBodyResult> => {
@@ -397,6 +412,11 @@ export function useAioManualStageExecutor({
         }
       } else if (stageKey === 'segmentText') {
         assertNotAborted();
+        if (cleanViaAi) {
+          completeManualStageForImage(activeId, stageIndex, 'skipped');
+          setProgress(100);
+          return { skipped: true };
+        }
         const segmentReadiness = ensureReady({
           stage: 'segmentText',
           stageLabel: t(AIO_STAGE_LABEL_KEYS.segmentText),
@@ -433,62 +453,104 @@ export function useAioManualStageExecutor({
         }
       } else if (stageKey === 'cleanImage') {
         assertNotAborted();
-        const cleanReadiness = ensureReady({
-          stage: 'cleanImage',
-          stageLabel: t(AIO_STAGE_LABEL_KEYS.cleanImage),
-          modelKey: selectedCleanKey,
-          catalog: stageCatalogOption(
-            aioStageOptions.cleanImage.find((item) => item.key === selectedCleanKey) ?? null,
-          ),
-          modelEntries,
-          t,
-        });
-        if (!cleanReadiness) {
-          return { refused: true };
-        }
-
         const sourceRegions = resolveUpstreamRegions('cleanImage', stageRegionsFromSnapshot());
 
-        // If the user manually painted brush areas, convert the canvas to a pixel-exact
-        // binary mask blob and send it alongside the auto-detected regions. This ensures
-        // inpainting only touches the exact painted pixels (not their bounding boxes).
-        const manualEditState = getAioManualImageEditState(activeId);
-        const cleanDone = await runCleanImageStage(
-          {
-            image: stageImage,
-            modelKey: selectedCleanKey,
-            regions: sourceRegions,
-            fallbackOcrModelKey: selectedOcrKey,
-            fallbackSegmentModelKey: selectedSegmentKey,
-            options: {
-              maskDilation: aioMaskDilation,
-              hdStrategy: aioHdStrategy,
-              hdResizeLimit: aioHdResizeLimit,
-              hdCropMargin: aioHdCropMargin,
-              hdCropTriggerSize: aioHdCropTriggerSize,
-              brushDataUrl: manualEditState.segmentBrushDataUrl,
+        if (cleanViaAi) {
+          const cleanAiReadiness = resolveAioCleanAiReadiness({
+            modelKey: cleanAiModelKey,
+            profiles: cleanCustomProfiles,
+            t,
+          });
+          if (!cleanAiReadiness.ok) {
+            setStatusMessage(cleanAiReadiness.message);
+            return { refused: true };
+          }
+
+          const cleanAiDone = await runCleanImageAiStage(
+            {
+              image: stageImage,
+              modelKey: cleanAiModelKey,
+              regions: sourceRegions,
+              additionalInstructions: cleanAiInstructions.trim(),
+              customProfile: cleanAiReadiness.customProfile,
             },
-            useGpu: gpuStages?.cleanImage,
-          },
-          stageRuntime,
-          { stageLabel, failurePrefix: 'Failed to clean the image', parseApiError },
-        );
-        executionNotice = cleanDone.notice;
-        if (executionNotice) setRuntimeExecutionNotice(executionNotice);
+            stageRuntime,
+            {
+              stageLabel: t(AIO_CLEAN_AI_STAGE_LABEL_KEY),
+              failurePrefix: 'Automatic AI Clean failed',
+              parseApiError,
+            },
+          );
+          executionNotice = cleanAiDone.notice;
+          if (executionNotice) setRuntimeExecutionNotice(executionNotice);
 
-        const cleanBlob = cleanDone.value;
-        if (!cleanBlob.type.startsWith('image/')) {
-          throw new Error(t('aioManual.invalidCleanResponse'));
+          const aiCleanBlob = cleanAiDone.value;
+          if (!aiCleanBlob.type.startsWith('image/')) {
+            throw new Error(t('aioManual.invalidCleanResponse'));
+          }
+
+          const aiCleanEntry: AioDownloadEntry = {
+            fileName: `koma-studio-aio-clean-${activeImageData.file.name.replace(/\s+/g, '-')}.png`,
+            blob: aiCleanBlob,
+            sourceImageId: activeId,
+          };
+          patchAioSnapshotStageForImage(activeId, stageIndex, sourceRegions, aiCleanEntry);
+        } else {
+          const cleanReadiness = ensureReady({
+            stage: 'cleanImage',
+            stageLabel: t(AIO_STAGE_LABEL_KEYS.cleanImage),
+            modelKey: selectedCleanKey,
+            catalog: stageCatalogOption(
+              aioStageOptions.cleanImage.find((item) => item.key === selectedCleanKey) ?? null,
+            ),
+            modelEntries,
+            t,
+          });
+          if (!cleanReadiness) {
+            return { refused: true };
+          }
+
+          // If the user manually painted brush areas, convert the canvas to a pixel-exact
+          // binary mask blob and send it alongside the auto-detected regions. This ensures
+          // inpainting only touches the exact painted pixels (not their bounding boxes).
+          const manualEditState = getAioManualImageEditState(activeId);
+          const cleanDone = await runCleanImageStage(
+            {
+              image: stageImage,
+              modelKey: selectedCleanKey,
+              regions: sourceRegions,
+              fallbackOcrModelKey: selectedOcrKey,
+              fallbackSegmentModelKey: selectedSegmentKey,
+              options: {
+                maskDilation: aioMaskDilation,
+                hdStrategy: aioHdStrategy,
+                hdResizeLimit: aioHdResizeLimit,
+                hdCropMargin: aioHdCropMargin,
+                hdCropTriggerSize: aioHdCropTriggerSize,
+                brushDataUrl: manualEditState.segmentBrushDataUrl,
+              },
+              useGpu: gpuStages?.cleanImage,
+            },
+            stageRuntime,
+            { stageLabel, failurePrefix: 'Failed to clean the image', parseApiError },
+          );
+          executionNotice = cleanDone.notice;
+          if (executionNotice) setRuntimeExecutionNotice(executionNotice);
+
+          const cleanBlob = cleanDone.value;
+          if (!cleanBlob.type.startsWith('image/')) {
+            throw new Error(t('aioManual.invalidCleanResponse'));
+          }
+
+          const cleanEntry: AioDownloadEntry = {
+            fileName: `koma-studio-aio-clean-${activeImageData.file.name.replace(/\s+/g, '-')}.png`,
+            blob: cleanBlob,
+            sourceImageId: activeId,
+          };
+          // Store the original source regions in the snapshot (NOT the virtual brush region)
+          // so downstream stages don't show a giant full-image bounding box.
+          patchAioSnapshotStageForImage(activeId, stageIndex, sourceRegions, cleanEntry);
         }
-
-        const cleanEntry: AioDownloadEntry = {
-          fileName: `koma-studio-aio-clean-${activeImageData.file.name.replace(/\s+/g, '-')}.png`,
-          blob: cleanBlob,
-          sourceImageId: activeId,
-        };
-        // Store the original source regions in the snapshot (NOT the virtual brush region)
-        // so downstream stages don't show a giant full-image bounding box.
-        patchAioSnapshotStageForImage(activeId, stageIndex, sourceRegions, cleanEntry);
       } else {
         const sourceRegions = resolveUpstreamRegions('render', stageRegionsFromSnapshot());
         const renderRegions = applyModePresetBindingsToRegions({
@@ -514,6 +576,10 @@ export function useAioManualStageExecutor({
     try {
       const stageImage = await materializePageForProcessing(activeImageData);
       const stageBodyResult = await runStageBody(stageImage);
+      if ('skipped' in stageBodyResult) {
+        setStatusMessage(t('dashboard.aio.clean.aiClean.segmentSkippedNotice'));
+        return;
+      }
       if (stageBodyResult.refused) {
         return;
       }
@@ -576,6 +642,10 @@ export function useAioManualStageExecutor({
     renderDefaultStyle,
     selectedCustomOcrProfile,
     selectedCustomTranslationProfile,
+    cleanViaAi,
+    cleanAiModelKey,
+    cleanAiInstructions,
+    cleanCustomProfiles,
     setRuntimeExecutionNotice,
     onStageStart,
     setProcessing,

@@ -936,6 +936,24 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.aio.clean.cropTriggerSize': 'Tamanho de Gatilho de Recorte',
   'dashboard.aio.clean.localHardware':
     'Hardware local: {name} ({provider}{vram})',
+  'dashboard.aio.clean.aiClean.toggle': 'Limpeza Automática por IA',
+  'dashboard.aio.clean.aiClean.toggleAria': 'Alternar Limpeza Automática por IA',
+  'dashboard.aio.clean.aiClean.tooltip':
+    'Executa o stage Clean via provedor de IA (/clean/ai) em vez do inpainting local. O Segment é pulado: o provedor remove o texto de ponta a ponta. Roda por imagem e consome créditos do seu provedor.',
+  'dashboard.aio.clean.aiClean.tooltipAria': 'Para que serve a Limpeza Automática por IA',
+  'dashboard.aio.clean.aiClean.modelPickerLabel': 'Modelo de AI Clean',
+  'dashboard.aio.clean.aiClean.instructionsLabel': 'Instruções adicionais',
+  'dashboard.aio.clean.aiClean.instructionsPlaceholder':
+    'Orientações extras para a limpeza por IA (ex.: "mantenham screentones", "preservem as cores")',
+  'dashboard.aio.clean.aiClean.segmentSkippedNotice':
+    'O Segment é pulado no modo AI Clean.',
+  'dashboard.aio.clean.aiClean.stageLabel': 'Limpeza Automática por IA',
+  'dashboard.aio.clean.aiClean.readiness.selectModel':
+    'Selecione um modelo de AI Clean para executar a Limpeza Automática por IA.',
+  'dashboard.aio.clean.aiClean.readiness.profileMissing':
+    'Configure o perfil do provedor para o modelo de AI Clean selecionado.',
+  'dashboard.aio.clean.aiClean.readiness.apiKeyMissing':
+    'Este provedor de AI Clean exige uma API key.',
   'dashboard.sidebar.workspace': 'Área de Trabalho',
   'dashboard.sidebar.hide': 'Ocultar sidebar',
   'dashboard.sidebar.remaining': 'Restantes: {count}',
@@ -1132,6 +1150,15 @@ export const ptMessages: TranslationCatalog = {
   'dashboard.aio.customAi.save': 'Salvar',
   'dashboard.aio.customAi.saved': 'Salvo',
   'dashboard.aio.customAi.inUse': 'Em uso',
+  'dashboard.aio.customAi.protocol': 'Protocolo',
+  'dashboard.aio.customAi.protocol.auto': 'Automático (por plataforma)',
+  'dashboard.aio.customAi.protocol.openai_chat': 'OpenAI Chat',
+  'dashboard.aio.customAi.protocol.openai_images_edits': 'OpenAI Images Edits',
+  'dashboard.aio.customAi.protocol.gemini': 'Gemini (nativo)',
+  'dashboard.aio.customAi.protocol.replicate': 'Replicate',
+  'dashboard.aio.customAi.protocol.fal': 'fal.ai',
+  'dashboard.aio.customAi.protocol.stability': 'Stability AI',
+  'dashboard.aio.customAi.protocol.cloudflare': 'Cloudflare Workers AI',
   'dashboard.emptyStage.title': 'Selecione ou carregue imagens',
   'dashboard.emptyStage.desc':
     'Use as ferramentas na barra superior para processar suas páginas de manhwa.',

@@ -1,5 +1,6 @@
 import type { FreeAiProviderCatalogEntry } from "./freeAiProviderCatalog";
 import {
+  createCleanStage,
   LAST_VERIFIED_AT,
   createOcrStage,
   createTranslationStage,
@@ -93,6 +94,31 @@ export const FREE_AI_PROVIDER_CATALOG_EXTENDED: FreeAiProviderCatalogEntry[] = [
             ],
           true,
           {
+            configFields: [
+              {
+                id: "account_id",
+                label: "Cloudflare Account ID",
+                placeholder: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                required: true,
+                description: "Found in the Cloudflare dashboard under Workers AI.",
+              },
+            ],
+          },
+        ),
+        clean: createCleanStage(
+          "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run",
+          "@cf/black-forest-labs/flux-2-klein-9b",
+          [
+            {
+              id: "cloudflare-flux-2-klein-9b",
+              label: "@cf/black-forest-labs/flux-2-klein-9b",
+              apiModel: "@cf/black-forest-labs/flux-2-klein-9b",
+              notes: "FLUX.2 Klein img2img edit on Workers AI",
+            },
+            ],
+          true,
+          {
+            transport: "cloudflare_native",
             configFields: [
               {
                 id: "account_id",

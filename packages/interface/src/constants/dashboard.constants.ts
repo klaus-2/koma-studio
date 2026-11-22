@@ -137,6 +137,9 @@ export const AIO_STAGE_LABEL_KEYS: Record<AioStageKey, TranslationKey> = {
   cleanImage: "aio.stage.cleanImage",
 };
 
+export const AIO_CLEAN_AI_STAGE_LABEL_KEY: TranslationKey =
+  "dashboard.aio.clean.aiClean.stageLabel";
+
 export const getAioStageLabels = (t: TranslateFn): Record<AioStageKey, string> => ({
   detectText: t(AIO_STAGE_LABEL_KEYS.detectText),
   recognizeText: t(AIO_STAGE_LABEL_KEYS.recognizeText),

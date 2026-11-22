@@ -19,6 +19,7 @@ import {
 } from '../../../models/freeAiProviderCatalog';
 import {
   inferCustomLlmTransport,
+  resolveCleanProtocolForApiBase,
   saveCustomLlmProfile,
   toFreeProviderProfileId,
   type CustomLlmProfile,
@@ -311,6 +312,9 @@ export function useFreeProviderProfiles({
       apiBase: resolvedApiBase,
       apiKey: payloadDraft.apiKey,
       model: payloadDraft.model,
+      ...(stage === 'clean'
+        ? { protocol: resolveCleanProtocolForApiBase(resolvedApiBase) }
+        : {}),
     };
 
     try {

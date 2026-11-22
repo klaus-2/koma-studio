@@ -51,6 +51,9 @@ const makeArgs = (
   modelEntries: { detector: installedDetector },
   selectedCustomOcrProfile: null,
   selectedCustomTranslationProfile: null,
+  cleanViaAi: false,
+  cleanAiModelKey: '',
+  cleanCustomProfiles: [],
   getAioStageOption: () => null,
   openModelManagerForStage: vi.fn(),
   refreshSession: async () => null,
@@ -193,5 +196,98 @@ describe('useAioExecutionPreparation capacity preflight', () => {
     expect(prepared.batchCapacity).toBeNull();
     expect(prepared.capacityFallback).toBe(false);
     expect(mockedFetch).not.toHaveBeenCalled();
+  });
+});
+
+const replicateCleanProfile = {
+  id: 'free::replicate::clean',
+  stage: 'clean' as const,
+  label: 'Replicate FREE (Cleaning)',
+  apiBase: 'https://api.replicate.com/v1',
+  apiKey: 'r8_test-key',
+  model: 'dpakkk/image-object-removal',
+  createdAt: '2026-11-22T00:00:00.000Z',
+  updatedAt: '2026-11-22T00:00:00.000Z',
+};
+
+describe('useAioExecutionPreparation AI Clean mode', () => {
+  const aiCleanSteps: PreparationArgs['aioSteps'] = {
+    detectText: true,
+    recognizeText: false,
+    getTranslations: false,
+    segmentText: true,
+    cleanImage: true,
+    render: true,
+  };
+
+  it('forces the per-image path and skips local clean/segment readiness', async () => {
+    const prepared = await runPrepare(
+      makeArgs({
+        aioSteps: aiCleanSteps,
+        cleanViaAi: true,
+        cleanAiModelKey: 'custom_clean:free::replicate::clean',
+        cleanCustomProfiles: [replicateCleanProfile],
+        modelEntries: { detector: installedDetector },
+      }),
+    );
+
+    expect(prepared.useLocalBatchPipeline).toBe(false);
+    expect(prepared.cleanAiCustomProfile).not.toBeNull();
+    expect(prepared.cleanAiCustomProfile?.apiBase).toBe('https://api.replicate.com/v1');
+    expect(prepared.cleanAiCustomProfile?.model).toBe('dpakkk/image-object-removal');
+    expect(prepared.runningStages).toContain('ai cleaning image');
+    expect(prepared.runningStages).not.toContain('segmenting text');
+  });
+
+  it('refuses the run when the selected AI Clean profile is missing', async () => {
+    const setStatusMessage = vi.fn<(message: string) => void>();
+    const { result } = renderHook(
+      () =>
+        useAioExecutionPreparation(
+          makeArgs({
+            aioSteps: aiCleanSteps,
+            cleanViaAi: true,
+            cleanAiModelKey: 'custom_clean:missing-profile',
+            cleanCustomProfiles: [replicateCleanProfile],
+            modelEntries: { detector: installedDetector },
+            setStatusMessage,
+          }),
+        ),
+      { wrapper: I18nProvider },
+    );
+
+    let prepared: PreparedAioExecution = null;
+
+    await act(async () => {
+      prepared = await result.current();
+    });
+
+    expect(prepared).toBeNull();
+    expect(lastStatusMessage(setStatusMessage)).not.toBe('');
+  });
+
+  it('keeps the local clean readiness when AI Clean is off', async () => {
+    const { result } = renderHook(
+      () =>
+        useAioExecutionPreparation(
+          makeArgs({
+            aioSteps: { ...aiCleanSteps, segmentText: false, cleanImage: true },
+            cleanViaAi: false,
+            cleanAiModelKey: '',
+            cleanCustomProfiles: [],
+            modelEntries: { detector: installedDetector },
+            setStatusMessage: vi.fn(),
+          }),
+        ),
+      { wrapper: I18nProvider },
+    );
+
+    let prepared: PreparedAioExecution = null;
+
+    await act(async () => {
+      prepared = await result.current();
+    });
+
+    expect(prepared).toBeNull();
   });
 });

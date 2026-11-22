@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // jsdom has no storage backend (same as theme-store.test.ts) — Map-backed
 // stub keeps the GPU-preferences and preset rehydration paths honest.
@@ -25,6 +25,10 @@ const { useAioPipelineStore } = await import('@/pages/dashboard/stores/aio-pipel
 const { GPU_STAGES_STORAGE_KEY } = await import(
   '@/pages/dashboard/stores/aio-pipeline-storage'
 );
+
+const AIO_CLEAN_VIA_AI_STORAGE_KEY = 'koma-aio-clean-via-ai';
+const AIO_CLEAN_AI_MODEL_STORAGE_KEY = 'koma-aio-clean-ai-model';
+const AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY = 'koma-aio-clean-ai-instructions';
 
 describe('useAioPipelineStore', () => {
   beforeEach(() => {
@@ -155,5 +159,46 @@ describe('useAioPipelineStore', () => {
     expect(after).not.toBe(before);
     expect(after.description).toBe('Functional draft');
     expect(after.name).toBe(before.name);
+  });
+
+  it('commits the ai clean toggle and persists it', () => {
+    useAioPipelineStore.getState().setAioCleanViaAi(true);
+
+    expect(useAioPipelineStore.getState().aioCleanViaAi).toBe(true);
+    expect(storageMap.get(AIO_CLEAN_VIA_AI_STORAGE_KEY)).toBe('true');
+
+    useAioPipelineStore.getState().setAioCleanViaAi(false);
+    expect(useAioPipelineStore.getState().aioCleanViaAi).toBe(false);
+    expect(storageMap.get(AIO_CLEAN_VIA_AI_STORAGE_KEY)).toBe('false');
+  });
+
+  it('keeps an unchanged ai clean toggle a no-op without storage writes', () => {
+    useAioPipelineStore.getState().setAioCleanViaAi(false);
+    expect(storageMap.has(AIO_CLEAN_VIA_AI_STORAGE_KEY)).toBe(false);
+  });
+
+  it('persists the ai clean model key and instructions', () => {
+    useAioPipelineStore.getState().setAioCleanAiModelKey('custom_clean:abc');
+    useAioPipelineStore.getState().setAioCleanAiInstructions('Keep linework');
+
+    expect(useAioPipelineStore.getState().aioCleanAiModelKey).toBe('custom_clean:abc');
+    expect(useAioPipelineStore.getState().aioCleanAiInstructions).toBe('Keep linework');
+    expect(storageMap.get(AIO_CLEAN_AI_MODEL_STORAGE_KEY)).toBe('custom_clean:abc');
+    expect(storageMap.get(AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY)).toBe('Keep linework');
+  });
+
+  it('restores ai clean fields from storage on a fresh store instance', async () => {
+    storageMap.set(AIO_CLEAN_VIA_AI_STORAGE_KEY, 'true');
+    storageMap.set(AIO_CLEAN_AI_MODEL_STORAGE_KEY, 'custom_clean:restored');
+    storageMap.set(AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY, 'From storage');
+
+    vi.resetModules();
+    const { useAioPipelineStore: freshStore } = await import(
+      '@/pages/dashboard/stores/aio-pipeline-store'
+    );
+
+    expect(freshStore.getState().aioCleanViaAi).toBe(true);
+    expect(freshStore.getState().aioCleanAiModelKey).toBe('custom_clean:restored');
+    expect(freshStore.getState().aioCleanAiInstructions).toBe('From storage');
   });
 });

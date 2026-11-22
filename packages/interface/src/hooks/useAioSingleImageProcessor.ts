@@ -1,10 +1,14 @@
 import { useCallback } from 'react';
 
 import { useI18n } from '../i18n';
-import { AIO_STAGE_LABEL_KEYS } from '../constants/dashboard.constants';
+import {
+  AIO_CLEAN_AI_STAGE_LABEL_KEY,
+  AIO_STAGE_LABEL_KEYS,
+} from '../constants/dashboard.constants';
 import {
   getAioStageReadiness,
   resolveUpstreamRegions,
+  runCleanImageAiStage,
   runCleanImageStage,
   runDetectTextStage,
   runGetTranslationsStage,
@@ -21,7 +25,11 @@ import {
   cloneRenderStyle,
 } from '../utils/dashboard.utils';
 import { materializePageForProcessing, releasePage } from '../utils/page-source';
-import { type CustomLlmProfile, type LlmRequestSettings } from '../utils/customLlm';
+import {
+  type CustomLlmProfile,
+  type CustomLlmRequestProfile,
+  type LlmRequestSettings,
+} from '../utils/customLlm';
 import type { RenderTextStyle } from '../utils/renderText';
 import type {
   AioBatchImageResult,
@@ -72,6 +80,10 @@ interface SingleImageRunConfig {
   llmSettings: LlmRequestSettings;
   selectedCustomOcrProfile: CustomLlmProfile | null;
   selectedCustomTranslationProfile: CustomLlmProfile | null;
+  cleanViaAi: boolean;
+  cleanAiModelKey: string;
+  cleanAiInstructions: string;
+  cleanAiCustomProfile: CustomLlmRequestProfile | null;
   maskDilation: number;
   hdStrategy: string;
   hdResizeLimit: number;
@@ -112,6 +124,10 @@ export function useAioSingleImageProcessor({
       llmSettings,
       selectedCustomOcrProfile,
       selectedCustomTranslationProfile,
+      cleanViaAi,
+      cleanAiModelKey,
+      cleanAiInstructions,
+      cleanAiCustomProfile,
       maskDilation,
       hdStrategy,
       hdResizeLimit,
@@ -233,7 +249,7 @@ export function useAioSingleImageProcessor({
 
       const translationDetections = cloneAioRegions(enrichedDetections, cloneRenderStyle);
 
-      if (aioSteps.segmentText && getAioStageReadiness('segmentText', stageRegions).runnable) {
+      if (aioSteps.segmentText && !cleanViaAi && getAioStageReadiness('segmentText', stageRegions).runnable) {
         session.assertNotAborted();
         onStageStart('segmentText', imgData, index);
         const segmentSourceRegions = resolveUpstreamRegions(
@@ -273,43 +289,75 @@ export function useAioSingleImageProcessor({
           'cleanImage',
           stageRegions,
         );
-        const cleanDone = await runCleanImageStage(
-          {
-            image: stageImage,
-            modelKey: cleanSelectionKey,
-            regions: cleanSourceRegions,
-            fallbackOcrModelKey: ocrSelectionKey,
-            fallbackSegmentModelKey: segmentSelectionKey,
-            options: {
-              maskDilation,
-              hdStrategy,
-              hdResizeLimit,
-              hdCropMargin,
-              hdCropTriggerSize,
+        if (cleanViaAi) {
+          const cleanAiDone = await runCleanImageAiStage(
+            {
+              image: stageImage,
+              modelKey: cleanAiModelKey,
+              regions: cleanSourceRegions,
+              additionalInstructions: cleanAiInstructions.trim(),
+              customProfile: cleanAiCustomProfile,
             },
-            useGpu: gpuStages?.cleanImage,
-          },
-          stageRuntime,
-          {
-            stageLabel: t(AIO_STAGE_LABEL_KEYS.cleanImage),
-            failurePrefix: `Failed to clean the image "${imgData.file.name}"`,
-            parseApiError,
-            formatError: (message) =>
-              t('aio.singleImage.cleanFailed', { fileName: imgData.file.name, message }),
-          },
-        );
-        session.pushNotice(cleanDone.notice);
+            stageRuntime,
+            {
+              stageLabel: t(AIO_CLEAN_AI_STAGE_LABEL_KEY),
+              failurePrefix: `Automatic AI Clean failed for "${imgData.file.name}"`,
+              parseApiError,
+              formatError: (message) =>
+                t('aio.singleImage.cleanFailed', { fileName: imgData.file.name, message }),
+            },
+          );
+          session.pushNotice(cleanAiDone.notice);
 
-        const inpaintBlob = session.ensureStageImageBlob(
-          cleanDone.value,
-          t('aioSingleProcessor.invalidCleanResponse', { fileName: imgData.file.name }),
-        );
+          const aiCleanBlob = session.ensureStageImageBlob(
+            cleanAiDone.value,
+            t('aioSingleProcessor.invalidCleanResponse', { fileName: imgData.file.name }),
+          );
 
-        cleanedDownload = {
-          fileName: session.buildCleanDownloadName('koma-studio-aio-clean', imgData.file.name),
-          blob: inpaintBlob,
-          sourceImageId: imgData.id,
-        };
+          cleanedDownload = {
+            fileName: session.buildCleanDownloadName('koma-studio-aio-clean', imgData.file.name),
+            blob: aiCleanBlob,
+            sourceImageId: imgData.id,
+          };
+        } else {
+          const cleanDone = await runCleanImageStage(
+            {
+              image: stageImage,
+              modelKey: cleanSelectionKey,
+              regions: cleanSourceRegions,
+              fallbackOcrModelKey: ocrSelectionKey,
+              fallbackSegmentModelKey: segmentSelectionKey,
+              options: {
+                maskDilation,
+                hdStrategy,
+                hdResizeLimit,
+                hdCropMargin,
+                hdCropTriggerSize,
+              },
+              useGpu: gpuStages?.cleanImage,
+            },
+            stageRuntime,
+            {
+              stageLabel: t(AIO_STAGE_LABEL_KEYS.cleanImage),
+              failurePrefix: `Failed to clean the image "${imgData.file.name}"`,
+              parseApiError,
+              formatError: (message) =>
+                t('aio.singleImage.cleanFailed', { fileName: imgData.file.name, message }),
+            },
+          );
+          session.pushNotice(cleanDone.notice);
+
+          const inpaintBlob = session.ensureStageImageBlob(
+            cleanDone.value,
+            t('aioSingleProcessor.invalidCleanResponse', { fileName: imgData.file.name }),
+          );
+
+          cleanedDownload = {
+            fileName: session.buildCleanDownloadName('koma-studio-aio-clean', imgData.file.name),
+            blob: inpaintBlob,
+            sourceImageId: imgData.id,
+          };
+        }
         stageRegions = { ...stageRegions, cleanImage: cleanSourceRegions };
       }
 

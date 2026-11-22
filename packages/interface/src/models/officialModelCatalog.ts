@@ -411,6 +411,9 @@ const FREE_PROVIDER_CLEAN_IDS = new Set([
   "huggingface_router",
   "google_ai_studio",
   "replicate",
+  "fal_ai",
+  "stability",
+  "cloudflare_workers_ai",
 ]);
 
 const FREE_PROVIDER_OCR_IDS = new Set([

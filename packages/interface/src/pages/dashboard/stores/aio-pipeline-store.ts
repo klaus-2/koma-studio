@@ -31,6 +31,14 @@ import { createEmptyAioPresetEditorDraft } from '@/utils/dashboard.utils';
 
 export type { AioStepToggles } from '@/pages/dashboard/stores/aio-pipeline-store.types';
 
+const AIO_CLEAN_VIA_AI_STORAGE_KEY = 'koma-aio-clean-via-ai';
+const AIO_CLEAN_AI_MODEL_STORAGE_KEY = 'koma-aio-clean-ai-model';
+const AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY = 'koma-aio-clean-ai-instructions';
+
+const parseStoredAioBoolean = (value: string | null): boolean => value === 'true';
+
+const parseStoredAioString = (value: string | null): string => value ?? '';
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -152,6 +160,16 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     aioHdCropMargin: 512,
     aioHdCropTriggerSize: 512,
 
+    aioCleanViaAi: parseStoredAioBoolean(
+      readAioStorage(AIO_CLEAN_VIA_AI_STORAGE_KEY),
+    ),
+    aioCleanAiModelKey: parseStoredAioString(
+      readAioStorage(AIO_CLEAN_AI_MODEL_STORAGE_KEY),
+    ),
+    aioCleanAiInstructions: parseStoredAioString(
+      readAioStorage(AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY),
+    ),
+
     aioDeviceInfo: null,
     aioTranslationServiceAvailability: {},
     aioGpuStages: loadGpuStagePreferences(),
@@ -200,6 +218,42 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
     setAioHdResizeLimit: setter('aioHdResizeLimit'),
     setAioHdCropMargin: setter('aioHdCropMargin'),
     setAioHdCropTriggerSize: setter('aioHdCropTriggerSize'),
+
+    setAioCleanViaAi: (update) => {
+      const previous = get().aioCleanViaAi;
+      const next = isStateUpdater(update) ? update(previous) : update;
+
+      if (next === previous) {
+        return;
+      }
+
+      set({ aioCleanViaAi: next });
+      writeAioStorage(AIO_CLEAN_VIA_AI_STORAGE_KEY, String(next));
+    },
+
+    setAioCleanAiModelKey: (update) => {
+      const previous = get().aioCleanAiModelKey;
+      const next = isStateUpdater(update) ? update(previous) : update;
+
+      if (next === previous) {
+        return;
+      }
+
+      set({ aioCleanAiModelKey: next });
+      writeAioStorage(AIO_CLEAN_AI_MODEL_STORAGE_KEY, next);
+    },
+
+    setAioCleanAiInstructions: (update) => {
+      const previous = get().aioCleanAiInstructions;
+      const next = isStateUpdater(update) ? update(previous) : update;
+
+      if (next === previous) {
+        return;
+      }
+
+      set({ aioCleanAiInstructions: next });
+      writeAioStorage(AIO_CLEAN_AI_INSTRUCTIONS_STORAGE_KEY, next);
+    },
 
     setAioDeviceInfo: setter('aioDeviceInfo'),
     setAioTranslationServiceAvailability: setter(

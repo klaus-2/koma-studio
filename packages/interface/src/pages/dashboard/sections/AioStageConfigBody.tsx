@@ -21,7 +21,7 @@ import {
   RENDER_TEXT_MODE_LABELS,
   type RenderTextMode,
 } from '../../../utils/renderModes';
-import type { CustomLlmProfile } from '../../../utils/customLlm';
+import { getCustomLlmProviderNotice, type CustomLlmProfile } from '../../../utils/customLlm';
 import type { SubMode } from '../../../types/dashboard.types';
 import { DEFAULT_AIO_STAGE_OPTIONS } from '../../../models/aioStageCatalog';
 import type { AioStageOption } from '../../../models/aioStageCatalog';
@@ -31,6 +31,7 @@ import {
   toAutoResolvedBadge,
 } from '../../../utils/translationAutoResolution';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
+import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useActiveAioRegionState } from '../hooks/region-editor';
 import type { StageTabKey } from '../../AioStageTabBar';
@@ -213,7 +214,40 @@ export default memo(function AioStageConfigBody({
   const setAioHdCropTriggerSize = useAioPipelineStore(
     (s) => s.setAioHdCropTriggerSize,
   );
+  const cleanViaAi = useAioPipelineStore((s) => s.aioCleanViaAi);
+  const setCleanViaAi = useAioPipelineStore((s) => s.setAioCleanViaAi);
+  const cleanAiModelKey = useAioPipelineStore((s) => s.aioCleanAiModelKey);
+  const setCleanAiModelKey = useAioPipelineStore(
+    (s) => s.setAioCleanAiModelKey,
+  );
+  const cleanAiInstructions = useAioPipelineStore(
+    (s) => s.aioCleanAiInstructions,
+  );
+  const setCleanAiInstructions = useAioPipelineStore(
+    (s) => s.setAioCleanAiInstructions,
+  );
   const renderStepEnabled = useAioPipelineStore((s) => s.aioSteps.render);
+  const customLlmProfiles = useLlmProvidersStore((s) => s.customLlmProfiles);
+  const cleanCustomProfiles = useMemo(
+    () => customLlmProfiles.filter((profile) => profile.stage === 'clean'),
+    [customLlmProfiles],
+  );
+  const cleanAiProfileOptions = useMemo(
+    () =>
+      cleanCustomProfiles.map((profile) => ({
+        key: `custom_clean:${profile.id}`,
+        label: profile.label,
+      })),
+    [cleanCustomProfiles],
+  );
+  const selectedCleanAiProfile =
+    cleanAiProfileOptions.find(
+      (option) => option.key === cleanAiModelKey,
+    ) ?? null;
+  const cleanAiSelectedProfileBase =
+    cleanCustomProfiles.find(
+      (profile) => `custom_clean:${profile.id}` === cleanAiModelKey,
+    ) ?? null;
   const deviceVramGb = useAioPipelineStore(
     (s) => s.aioDeviceInfo?.vram_gb ?? null,
   );
@@ -348,6 +382,91 @@ export default memo(function AioStageConfigBody({
 
       {/* ── Clean ───────────────────────────────────────────── */}
       {activeStageTab === 'cleanImage' && (
+        <label className="koma-aio-apply-style__option">
+          <input
+            type="checkbox"
+            checked={cleanViaAi}
+            onChange={(event) => setCleanViaAi(event.target.checked)}
+            aria-label={t('dashboard.aio.clean.aiClean.toggleAria')}
+          />
+          <span className="koma-inline-label-with-info">
+            {t('dashboard.aio.clean.aiClean.toggle')}
+            <FieldInfoTooltip
+              content={translateOrFallback(
+                locale,
+                'dashboard.aio.clean.aiClean.tooltip',
+                'Runs the Clean stage through an Automatic AI Clean provider instead of the local inpainting models; the Segment stage is skipped while it is on.',
+              )}
+              ariaLabel={translateOrFallback(
+                locale,
+                'dashboard.aio.clean.aiClean.tooltipAria',
+                'What Automatic AI Clean is used for',
+              )}
+            />
+          </span>
+        </label>
+      )}
+      {activeStageTab === 'cleanImage' && cleanViaAi && (
+        <>
+          <div className="koma-field">
+            <span className="koma-field__label">
+              {t('dashboard.aio.clean.aiClean.modelPickerLabel')}
+            </span>
+            <select
+              value={
+                cleanAiProfileOptions.some(
+                  (option) => option.key === cleanAiModelKey,
+                )
+                  ? cleanAiModelKey
+                  : ''
+              }
+              onChange={(event) => setCleanAiModelKey(event.target.value)}
+              className={skin.select}
+              disabled={cleanAiProfileOptions.length === 0}
+              aria-label={t('dashboard.aio.clean.aiClean.modelPickerLabel')}
+            >
+              {cleanAiProfileOptions.length === 0 ? (
+                <option value="" disabled>
+                  {t('dashboard.aio.clean.aiClean.readiness.selectModel')}
+                </option>
+              ) : (
+                cleanAiProfileOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))
+              )}
+            </select>
+            {selectedCleanAiProfile && (
+              <p className="koma-aio-hint">{`${selectedCleanAiProfile.label} (Custom)`}</p>
+            )}
+            {cleanAiSelectedProfileBase && (
+              <p className="koma-aio-hint">
+                {getCustomLlmProviderNotice(cleanAiSelectedProfileBase.apiBase)}
+              </p>
+            )}
+          </div>
+          <div className="koma-field">
+            <span className="koma-field__label">
+              {t('dashboard.aio.clean.aiClean.instructionsLabel')}
+            </span>
+            <textarea
+              value={cleanAiInstructions}
+              onChange={(event) => setCleanAiInstructions(event.target.value)}
+              className="koma-input"
+              rows={4}
+              placeholder={t(
+                'dashboard.aio.clean.aiClean.instructionsPlaceholder',
+              )}
+              aria-label={t('dashboard.aio.clean.aiClean.instructionsLabel')}
+            />
+            <p className="koma-aio-hint">
+              {t('dashboard.aio.clean.aiClean.segmentSkippedNotice')}
+            </p>
+          </div>
+        </>
+      )}
+      {activeStageTab === 'cleanImage' && !cleanViaAi && (
         <StageModelSelect
           label={t('aio.stage.cleanImage')}
           labelTooltip={{

@@ -1,12 +1,16 @@
 /**
  * Cleaner AI Custom profile — API Base + Model + API key policy for
- * Automatic AI Clean / AI SFX.
  */
 import {
+  findCustomProfileForSelection,
   normalizeKnownCustomLlmApiBase,
   requiresCustomLlmApiKey,
+  resolveCleanProtocolForApiBase,
+  type CleanProtocol,
+  type CustomLlmProfile,
+  type CustomLlmRequestProfile,
 } from '../utils/customLlm';
-import type { ReadinessCustomProfile } from './readiness';
+import type { ReadinessCustomProfile, Translate } from './readiness';
 
 export interface CleanerAiProfileReadinessReady {
   ok: true;
@@ -64,6 +68,81 @@ export function resolveCleanerAiProfileReadiness(args: {
       apiBase: normalizedApiBase,
       model: normalizedModel,
       apiKey: normalizedApiKey,
+    },
+  };
+}
+
+export type AioCleanAiReadinessRefusalKind =
+  | 'aio_clean_ai_model_missing'
+  | 'aio_clean_ai_profile_missing'
+  | 'aio_clean_ai_api_key_missing';
+
+export interface AioCleanAiReadinessReady {
+  ok: true;
+  modelKey: string;
+  customProfile: CustomLlmRequestProfile;
+}
+
+export interface AioCleanAiReadinessRefusal {
+  ok: false;
+  kind: AioCleanAiReadinessRefusalKind;
+  message: string;
+}
+
+export type AioCleanAiReadiness =
+  | AioCleanAiReadinessReady
+  | AioCleanAiReadinessRefusal;
+
+const AIO_CLEAN_AI_SELECTION_PREFIX = 'custom_clean:';
+
+const isAioCleanAiSelectionKey = (value: string): boolean =>
+  value.startsWith(AIO_CLEAN_AI_SELECTION_PREFIX)
+  && value.slice(AIO_CLEAN_AI_SELECTION_PREFIX.length).trim().length > 0;
+
+export function resolveAioCleanAiReadiness(args: {
+  modelKey: string;
+  profiles: CustomLlmProfile[];
+  t: Translate;
+}): AioCleanAiReadiness {
+  const modelKey = args.modelKey.trim();
+
+  if (!isAioCleanAiSelectionKey(modelKey)) {
+    return {
+      ok: false,
+      kind: 'aio_clean_ai_model_missing',
+      message: args.t('dashboard.aio.clean.aiClean.readiness.selectModel'),
+    };
+  }
+
+  const profile = findCustomProfileForSelection(modelKey, args.profiles);
+  if (!profile || !profile.apiBase.trim() || !profile.model.trim()) {
+    return {
+      ok: false,
+      kind: 'aio_clean_ai_profile_missing',
+      message: args.t('dashboard.aio.clean.aiClean.readiness.profileMissing'),
+    };
+  }
+
+  const apiBase = normalizeKnownCustomLlmApiBase(profile.apiBase);
+  if (requiresCustomLlmApiKey(apiBase) && !profile.apiKey.trim()) {
+    return {
+      ok: false,
+      kind: 'aio_clean_ai_api_key_missing',
+      message: args.t('dashboard.aio.clean.aiClean.readiness.apiKeyMissing'),
+    };
+  }
+
+  const protocol: CleanProtocol =
+    profile.protocol ?? resolveCleanProtocolForApiBase(apiBase);
+
+  return {
+    ok: true,
+    modelKey,
+    customProfile: {
+      apiBase,
+      apiKey: profile.apiKey.trim(),
+      model: profile.model.trim(),
+      protocol,
     },
   };
 }

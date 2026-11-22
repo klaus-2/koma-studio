@@ -92,6 +92,13 @@ export function useAioManualExecution(args: UseAioManualExecutionArgs) {
     (state) => state.aioHdCropTriggerSize,
   );
   const gpuStages = useAioPipelineStore((state) => state.aioGpuStages);
+  const cleanViaAi = useAioPipelineStore((state) => state.aioCleanViaAi);
+  const cleanAiModelKey = useAioPipelineStore(
+    (state) => state.aioCleanAiModelKey,
+  );
+  const cleanAiInstructions = useAioPipelineStore(
+    (state) => state.aioCleanAiInstructions,
+  );
 
   const runningRef = useRef(false);
   const controllerRef = useRef<AbortController | null>(null);
@@ -171,6 +178,9 @@ export function useAioManualExecution(args: UseAioManualExecutionArgs) {
     modelEntries: args.modelEntries,
     selectedCustomOcrProfile: args.selectedCustomOcrProfile,
     selectedCustomTranslationProfile: args.selectedCustomTranslationProfile,
+    cleanViaAi,
+    cleanAiModelKey,
+    cleanAiInstructions,
     openModelManagerForStage: args.openModelManagerForStage,
     getAioStageOption: args.getAioStageOption,
     parseApiError,

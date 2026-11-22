@@ -958,6 +958,24 @@ export const enMessages = {
   'dashboard.aio.clean.cropTriggerSize': 'Crop Trigger Size',
   'dashboard.aio.clean.localHardware':
     'Local hardware: {name} ({provider}{vram})',
+  'dashboard.aio.clean.aiClean.toggle': 'Automatic AI Clean',
+  'dashboard.aio.clean.aiClean.toggleAria': 'Toggle Automatic AI Clean',
+  'dashboard.aio.clean.aiClean.tooltip':
+    'Runs the Clean stage through an AI provider (/clean/ai) instead of the local inpainting. Segment is skipped: the provider removes text end to end. Runs per image and uses your provider credits.',
+  'dashboard.aio.clean.aiClean.tooltipAria': 'What Automatic AI Clean is used for',
+  'dashboard.aio.clean.aiClean.modelPickerLabel': 'AI Clean model',
+  'dashboard.aio.clean.aiClean.instructionsLabel': 'Additional instructions',
+  'dashboard.aio.clean.aiClean.instructionsPlaceholder':
+    'Extra guidance for the AI clean (e.g. "keep screentones", "preserve colors")',
+  'dashboard.aio.clean.aiClean.segmentSkippedNotice':
+    'Segment is skipped in AI Clean mode.',
+  'dashboard.aio.clean.aiClean.stageLabel': 'Automatic AI Clean',
+  'dashboard.aio.clean.aiClean.readiness.selectModel':
+    'Select an AI Clean model to run Automatic AI Clean.',
+  'dashboard.aio.clean.aiClean.readiness.profileMissing':
+    'Configure the provider profile for the selected AI Clean model.',
+  'dashboard.aio.clean.aiClean.readiness.apiKeyMissing':
+    'This AI Clean provider requires an API key.',
   'dashboard.sidebar.workspace': 'Workspace',
   'dashboard.sidebar.hide': 'Hide sidebar',
   'dashboard.sidebar.remaining': 'Remaining: {count}',
@@ -1173,6 +1191,15 @@ export const enMessages = {
   'dashboard.aio.customAi.save': 'Save',
   'dashboard.aio.customAi.saved': 'Saved',
   'dashboard.aio.customAi.inUse': 'In use',
+  'dashboard.aio.customAi.protocol': 'Protocol',
+  'dashboard.aio.customAi.protocol.auto': 'Automatic (per platform)',
+  'dashboard.aio.customAi.protocol.openai_chat': 'OpenAI Chat',
+  'dashboard.aio.customAi.protocol.openai_images_edits': 'OpenAI Images Edits',
+  'dashboard.aio.customAi.protocol.gemini': 'Gemini (native)',
+  'dashboard.aio.customAi.protocol.replicate': 'Replicate',
+  'dashboard.aio.customAi.protocol.fal': 'fal.ai',
+  'dashboard.aio.customAi.protocol.stability': 'Stability AI',
+  'dashboard.aio.customAi.protocol.cloudflare': 'Cloudflare Workers AI',
   'dashboard.emptyStage.title': 'Select or load images',
   'dashboard.emptyStage.desc':
     'Use the tools in the top bar to process your manhwa pages.',

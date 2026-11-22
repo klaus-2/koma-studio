@@ -1420,6 +1420,7 @@ export const DashboardPage = ({
     modelEntries: modelManagerState.entries,
     selectedCustomOcrProfile,
     selectedCustomTranslationProfile,
+    cleanCustomProfiles,
     aioPipelineStageProgressLabels,
     setAioDetectionsByImage,
     setAioSelectedRegionByImage,

@@ -37,6 +37,7 @@ export interface CustomLlmProfile {
   apiBase: string;
   apiKey: string;
   model: string;
+  protocol?: CleanProtocol;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,13 +48,18 @@ export interface CustomLlmProfileDraft {
   apiBase: string;
   apiKey: string;
   model: string;
+  protocol?: CleanProtocol;
 }
 
 export type CustomLlmTransport =
   | "openai_compatible"
   | "gemini_native"
   | "nlp_cloud_chatbot"
-  | "ollama_native";
+  | "ollama_native"
+  | "replicate"
+  | "fal"
+  | "stability"
+  | "cloudflare_native";
 
 interface DesktopProfileStorePayload {
   profiles?: CustomLlmProfile[];
@@ -69,52 +75,24 @@ const LLM_SETTINGS_STORAGE_KEY = "koma-studio.llm-settings.v1";
 const GUEST_CUSTOM_LLM_PROFILE_SCOPE = "__guest__";
 const SHARED_CUSTOM_LLM_PROFILE_SCOPE = "__shared__";
 
-const CLOUD_TRANSLATION_MODEL_SLUGS = new Set([
-  "gpt_4o",
-  "gpt_4o_mini",
-  "gpt_4_1",
-  "gpt_4_1_mini",
-  "claude_3_opus",
-  "claude_3_7_sonnet",
-  "claude_3_5_haiku",
-  "deepseek_v3",
-  "gemini_2_0_flash",
-  "gemini_2_0_pro",
-  "gemini_2_5_flash",
-  "gemini_2_5_pro",
-  "grok_2_vision",
-  "z_ai_glm_4_5v",
-]);
 
-const CLOUD_OCR_MODEL_SLUGS = new Set([
-  "gpt_4o",
-  "gpt_4_1_mini",
-  "gpt_4_1_mini_ocr",
-  "gemini_2_5_flash",
-  "gemini_2_0_flash",
-  "gemini_2_0_flash_ocr",
-  "google_cloud_vision",
-  "google_ocr",
-  "microsoft_ocr",
-  "microsoft_vision",
-  "grok_2_vision",
-  "grok_2_vision_ocr",
-  "z_ai_glm_4_5v",
-  "z_ai_glm_4_5v_ocr",
-]);
 
-const OCR_MODELS_WITH_LLM_SETTINGS = new Set([
-  "gpt_4o",
-  "gpt_4_1_mini",
-  "gpt_4_1_mini_ocr",
-  "gemini_2_5_flash",
-  "gemini_2_0_flash",
-  "gemini_2_0_flash_ocr",
-  "grok_2_vision",
-  "grok_2_vision_ocr",
-  "z_ai_glm_4_5v",
-  "z_ai_glm_4_5v_ocr",
-]);
+import {
+  CLOUD_OCR_MODEL_SLUGS,
+  CLOUD_TRANSLATION_MODEL_SLUGS,
+  isCleanProtocol,
+  isCloudflareNativeCleanApiBase,
+  OCR_MODELS_WITH_LLM_SETTINGS,
+  type CleanProtocol,
+} from './customLlmCatalog';
+
+export {
+  CLEAN_PROTOCOL_OPTIONS,
+  isCleanProtocol,
+  isCloudflareNativeCleanApiBase,
+  resolveCleanProtocolForApiBase,
+} from './customLlmCatalog';
+export type { CleanProtocol };
 
 export const FULL_LLM_CAPABILITIES: LlmCapabilities = {
   extra_context: true,
@@ -200,7 +178,11 @@ type KnownCustomLlmProvider =
   | "zhipu_ai"
   | "kluster_ai"
   | "llm7_io"
-  | "siliconflow";
+  | "siliconflow"
+  | "replicate"
+  | "fal"
+  | "stability"
+  | "cloudflare";
 
 const isDesktopRuntime = (): boolean => isBrowser() && desktopBridge.isDesktopRuntime();
 
@@ -272,12 +254,23 @@ const getKnownCustomLlmProvider = (apiBase: string): KnownCustomLlmProvider => {
     if (host === "api.siliconflow.cn") {
       return "siliconflow";
     }
+    if (host === "api.replicate.com") {
+      return "replicate";
+    }
+    if (host === "fal.run" || host === "queue.fal.run" || host === "falrun.com") {
+      return "fal";
+    }
+    if (host === "api.stability.ai") {
+      return "stability";
+    }
   } catch {
     return "generic";
   }
 
   return "generic";
 };
+
+
 
 export const inferCustomLlmTransport = (
   apiBase: string,
@@ -292,6 +285,18 @@ export const inferCustomLlmTransport = (
   }
   if (provider === "ollama_cloud" && stage !== "clean") {
     return "ollama_native";
+  }
+  if (provider === "replicate") {
+    return "replicate";
+  }
+  if (provider === "fal") {
+    return "fal";
+  }
+  if (provider === "stability") {
+    return "stability";
+  }
+  if (isCloudflareNativeCleanApiBase(apiBase)) {
+    return "cloudflare_native";
   }
   return "openai_compatible";
 };
@@ -346,7 +351,11 @@ export const requiresCustomLlmApiKey = (apiBase: string): boolean => {
     || provider === "zhipu_ai"
     || provider === "kluster_ai"
     || provider === "llm7_io"
-    || provider === "siliconflow";
+    || provider === "siliconflow"
+    || provider === "replicate"
+    || provider === "fal"
+    || provider === "stability"
+    || provider === "cloudflare";
 };
 
 export const getCustomLlmProviderNotice = (apiBase: string): string | null => {
@@ -466,6 +475,7 @@ const normalizeProfiles = (value: unknown): CustomLlmProfile[] => {
       : sanitizeModelText(inferredModel);
     const createdAt = typeof payload.createdAt === "string" ? payload.createdAt : new Date().toISOString();
     const updatedAt = typeof payload.updatedAt === "string" ? payload.updatedAt : createdAt;
+    const protocol = isCleanProtocol(payload.protocol) ? payload.protocol : undefined;
 
     if (!stage || !id || !label || !apiBase || !model) {
       return [];
@@ -479,6 +489,7 @@ const normalizeProfiles = (value: unknown): CustomLlmProfile[] => {
         apiBase,
         apiKey,
         model,
+        ...(protocol ? { protocol } : {}),
         createdAt,
         updatedAt,
       },
@@ -637,6 +648,9 @@ export const sanitizeCustomLlmDraft = (
     apiBase,
     apiKey: sanitizeApiKeyText(draft.apiKey),
     model: sanitizeModelText(draft.model || inferredModel),
+    ...(stage === "clean" && isCleanProtocol(draft.protocol)
+      ? { protocol: draft.protocol }
+      : {}),
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -712,6 +726,7 @@ export type CustomLlmRequestProfile = {
   apiBase: string;
   apiKey: string;
   model?: string | null;
+  protocol?: CleanProtocol;
 };
 
 export const toCustomLlmRequestPayload = (
@@ -727,6 +742,9 @@ export const toCustomLlmRequestPayload = (
     api_base: profile.apiBase,
     model,
     ...(apiKey ? { api_key: apiKey } : {}),
+    ...(profile.protocol && profile.protocol !== 'auto'
+      ? { protocol: profile.protocol }
+      : {}),
   };
 };
 

@@ -19,6 +19,7 @@ export interface UseAioPipelineExecutionArgs
       | 'modelEntries'
       | 'selectedCustomOcrProfile'
       | 'selectedCustomTranslationProfile'
+      | 'cleanCustomProfiles'
       | 'getAioStageOption'
       | 'openModelManagerForStage'
       | 'refreshSession'

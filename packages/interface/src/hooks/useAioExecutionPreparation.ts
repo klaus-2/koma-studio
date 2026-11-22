@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useI18n } from '../i18n';
 import {
   ensureStageModelReadiness,
+  resolveAioCleanAiReadiness,
   skipStageCatalog,
   stageCatalogOption,
   type StageReadinessReady,
@@ -13,7 +14,10 @@ import {
 } from '@/pages/dashboard/lib/local-aio-batch';
 import type { AioStageKey } from '../types/aioModelPresets';
 import type { AioStageOption } from '../models/aioStageCatalog';
-import type { CustomLlmProfile } from '../utils/customLlm';
+import type {
+  CustomLlmProfile,
+  CustomLlmRequestProfile,
+} from '../utils/customLlm';
 
 interface ModelEntryLike {
   status: string;
@@ -34,6 +38,9 @@ interface UseAioExecutionPreparationArgs {
   translationSelectionKey: string;
   segmentSelectionKey: string;
   cleanSelectionKey: string;
+  cleanViaAi: boolean;
+  cleanAiModelKey: string;
+  cleanCustomProfiles: CustomLlmProfile[];
   effectiveBatchConcurrency: number;
   modelEntries: Record<string, ModelEntryLike | undefined>;
   selectedCustomOcrProfile: CustomLlmProfile | null;
@@ -62,6 +69,9 @@ export function useAioExecutionPreparation({
   translationSelectionKey,
   segmentSelectionKey,
   cleanSelectionKey,
+  cleanViaAi,
+  cleanAiModelKey,
+  cleanCustomProfiles,
   effectiveBatchConcurrency,
   modelEntries,
   selectedCustomOcrProfile,
@@ -132,7 +142,7 @@ export function useAioExecutionPreparation({
       useLlmSettingsForOcr = ocrReadiness.useLlmSettings;
     }
 
-    if (aioSteps.segmentText) {
+    if (aioSteps.segmentText && !cleanViaAi) {
       const segmentReadiness = ensureReady({
         stage: 'segmentText',
         stageLabel: 'Segmentar Texto',
@@ -145,17 +155,31 @@ export function useAioExecutionPreparation({
         return null;
       }
     }
+    let cleanAiCustomProfile: CustomLlmRequestProfile | null = null;
     if (aioSteps.cleanImage) {
-      const cleanReadiness = ensureReady({
-        stage: 'cleanImage',
-        stageLabel: 'Clean Image',
-        modelKey: selectedCleanKey,
-        catalog: skipStageCatalog(),
-        modelEntries,
-        t,
-      });
-      if (!cleanReadiness) {
-        return null;
+      if (cleanViaAi) {
+        const cleanAiReadiness = resolveAioCleanAiReadiness({
+          modelKey: cleanAiModelKey,
+          profiles: cleanCustomProfiles,
+          t,
+        });
+        if (!cleanAiReadiness.ok) {
+          setStatusMessage(cleanAiReadiness.message);
+          return null;
+        }
+        cleanAiCustomProfile = cleanAiReadiness.customProfile;
+      } else {
+        const cleanReadiness = ensureReady({
+          stage: 'cleanImage',
+          stageLabel: 'Clean Image',
+          modelKey: selectedCleanKey,
+          catalog: skipStageCatalog(),
+          modelEntries,
+          t,
+        });
+        if (!cleanReadiness) {
+          return null;
+        }
       }
     }
 
@@ -179,7 +203,7 @@ export function useAioExecutionPreparation({
       useLlmSettingsForTranslation = translationReadiness.useLlmSettings;
     }
 
-    const useLocalBatchPipeline = !(useCloudOcr || useCloudTranslation);
+    const useLocalBatchPipeline = !(useCloudOcr || useCloudTranslation || cleanViaAi);
 
     if (useCloudOcr || useCloudTranslation) {
       const sessionToken = (await refreshSession()) ?? getAuthToken();
@@ -222,8 +246,8 @@ export function useAioExecutionPreparation({
     const runningStages = ['detecting text'];
     if (aioSteps.recognizeText) runningStages.push('recognizing text');
     if (aioSteps.getTranslations) runningStages.push('translating text');
-    if (aioSteps.segmentText) runningStages.push('segmenting text');
-    if (aioSteps.cleanImage) runningStages.push('cleaning image');
+    if (aioSteps.segmentText && !cleanViaAi) runningStages.push('segmenting text');
+    if (aioSteps.cleanImage) runningStages.push(cleanViaAi ? 'ai cleaning image' : 'cleaning image');
     if (aioSteps.render) runningStages.push('preparing render');
     setStatusMessage(
       threadNote
@@ -248,6 +272,8 @@ export function useAioExecutionPreparation({
       useCloudTranslation,
       useLlmSettingsForOcr,
       useLlmSettingsForTranslation,
+      cleanViaAi,
+      cleanAiCustomProfile,
       runningStages,
     };
 
@@ -268,7 +294,10 @@ export function useAioExecutionPreparation({
     aioSrcLang,
     aioTgtLang,
     aioSteps,
+    cleanAiModelKey,
+    cleanCustomProfiles,
     cleanSelectionKey,
+    cleanViaAi,
     detectSelectionKey,
     effectiveBatchConcurrency,
     emitProcessStartWebhook,

@@ -129,6 +129,7 @@ interface AioRightPanelProps {
   | null;
   selectedCustomTranslationProfile: CustomLlmProfile | null;
   selectedLegacyTranslationOption: AioStageOption | null;
+
   aioStageLabels: Record<AioStageKey, string>;
   STAGE_TABS: StageTabDef[];
   showLlmSettingsPanel: boolean;
@@ -191,8 +192,9 @@ export default memo(function AioRightPanel({
   selectedCleanStatusText,
   openModelManagerForStage,
   selectedTranslationModelState,
-  selectedCustomTranslationProfile,
   selectedLegacyTranslationOption,
+  selectedCustomTranslationProfile,
+
   aioStageLabels,
   STAGE_TABS,
   showLlmSettingsPanel,
@@ -241,6 +243,7 @@ export default memo(function AioRightPanel({
 
   /* ── AIO pipeline ── */
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
+  const cleanViaAi = useAioPipelineStore((s) => s.aioCleanViaAi);
   const setAioSteps = useAioPipelineStore((s) => s.setAioSteps);
   const handleToggleAioStep = useCallback(
     (stageKey: StageTabKey) => {
@@ -381,6 +384,7 @@ export default memo(function AioRightPanel({
                 label={t('dashboard.stage.segmentText.short')}
                 subtitle={t('dashboard.aio.pipeline.segment.subtitle')}
                 enabled={aioSteps.segmentText}
+                disabled={cleanViaAi}
                 stageKey="segmentText"
                 onToggle={handleToggleAioStep}
               />
@@ -744,8 +748,9 @@ export default memo(function AioRightPanel({
             selectedCleanStatusText={selectedCleanStatusText}
             openModelManagerForStage={openModelManagerForStage}
             selectedTranslationModelState={selectedTranslationModelState}
-            selectedCustomTranslationProfile={selectedCustomTranslationProfile}
             selectedLegacyTranslationOption={selectedLegacyTranslationOption}
+            selectedCustomTranslationProfile={selectedCustomTranslationProfile}
+
             showLlmSettingsPanel={showLlmSettingsPanel}
             llmSettingsSupportSummary={llmSettingsSupportSummary}
             updateActiveRenderMode={updateActiveRenderMode}

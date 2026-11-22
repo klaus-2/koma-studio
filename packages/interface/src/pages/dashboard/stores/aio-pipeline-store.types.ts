@@ -54,6 +54,9 @@ export interface AioEditableState {
   aioHdResizeLimit: number;
   aioHdCropMargin: number;
   aioHdCropTriggerSize: number;
+  aioCleanViaAi: boolean;
+  aioCleanAiModelKey: string;
+  aioCleanAiInstructions: string;
   aioDeviceInfo: AioDeviceInfo | null;
   /** Hydrated from `/translate/models` once per session; empty until then. */
   aioTranslationServiceAvailability: TranslationServiceAvailability;

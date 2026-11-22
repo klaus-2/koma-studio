@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 
-import type { CustomLlmProfile, CustomLlmProfileDraft, CustomLlmStage } from '../../utils/customLlm';
+import {
+  CLEAN_PROTOCOL_OPTIONS,
+  isCleanProtocol,
+  type CustomLlmProfile,
+  type CustomLlmProfileDraft,
+  type CustomLlmStage,
+} from '../../utils/customLlm';
 import { useI18n } from '../../i18n';
 import styles from './CustomLlmProfilesManagerSection.module.css';
 
@@ -18,7 +24,8 @@ const draftsEqual = (
     left.label === right.label &&
     left.apiBase === right.apiBase &&
     left.apiKey === right.apiKey &&
-    left.model === right.model
+    left.model === right.model &&
+    left.protocol === right.protocol
   );
 };
 
@@ -228,6 +235,31 @@ export default function CustomLlmProfilesManagerSection({
             placeholder={t('dashboard.aio.customAi.apiBasePlaceholder')}
           />
         </div>
+        {stage === 'clean' ? (
+          <div className={`${styles.fullRow} koma-field`}>
+            <label className="koma-field__label">{t('dashboard.aio.customAi.protocol')}</label>
+            <select
+              value={localDraft.protocol ?? 'auto'}
+              onChange={(event) =>
+                setLocalDraft((prev) => {
+                  if (!prev) {
+                    return prev;
+                  }
+                  const next = event.target.value;
+                  return { ...prev, protocol: isCleanProtocol(next) ? next : undefined };
+                })
+              }
+              className="panel-cut-sm w-full appearance-none border border-paper/12 bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase text-paper/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-crimson"
+              aria-label={t('dashboard.aio.customAi.protocol')}
+            >
+              {CLEAN_PROTOCOL_OPTIONS.map((protocol) => (
+                <option key={protocol} value={protocol}>
+                  {t(`dashboard.aio.customAi.protocol.${protocol}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div className={`${styles.fullRow} koma-field`}>
           <label className="koma-field__label">{t('dashboard.aio.customAi.apiKey')}</label>
           <input

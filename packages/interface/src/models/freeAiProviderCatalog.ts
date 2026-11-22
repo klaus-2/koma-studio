@@ -21,6 +21,10 @@ export type FreeProviderTransport =
   | "gemini_native"
   | "nlp_cloud_chatbot"
   | "ollama_native"
+  | "replicate"
+  | "fal"
+  | "stability"
+  | "cloudflare_native"
   | "unsupported";
 
 export interface FreeProviderModelDefinition {
