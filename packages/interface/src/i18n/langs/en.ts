@@ -964,6 +964,7 @@ export const enMessages = {
     'Runs the Clean stage through an AI provider (/clean/ai) instead of the local inpainting. Segment is skipped: the provider removes text end to end. Runs per image and uses your provider credits.',
   'dashboard.aio.clean.aiClean.tooltipAria': 'What Automatic AI Clean is used for',
   'dashboard.aio.clean.aiClean.modelPickerLabel': 'AI Clean model',
+  'dashboard.aio.clean.aiClean.modelPickerPlaceholder': 'Select AI Clean model',
   'dashboard.aio.clean.aiClean.instructionsLabel': 'Additional instructions',
   'dashboard.aio.clean.aiClean.instructionsPlaceholder':
     'Extra guidance for the AI clean (e.g. "keep screentones", "preserve colors")',

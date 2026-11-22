@@ -942,6 +942,7 @@ export const ptMessages: TranslationCatalog = {
     'Executa o stage Clean via provedor de IA (/clean/ai) em vez do inpainting local. O Segment é pulado: o provedor remove o texto de ponta a ponta. Roda por imagem e consome créditos do seu provedor.',
   'dashboard.aio.clean.aiClean.tooltipAria': 'Para que serve a Limpeza Automática por IA',
   'dashboard.aio.clean.aiClean.modelPickerLabel': 'Modelo de AI Clean',
+  'dashboard.aio.clean.aiClean.modelPickerPlaceholder': 'Selecione o modelo de AI Clean',
   'dashboard.aio.clean.aiClean.instructionsLabel': 'Instruções adicionais',
   'dashboard.aio.clean.aiClean.instructionsPlaceholder':
     'Orientações extras para a limpeza por IA (ex.: "mantenham screentones", "preservem as cores")',

@@ -426,17 +426,14 @@ export default memo(function AioStageConfigBody({
               disabled={cleanAiProfileOptions.length === 0}
               aria-label={t('dashboard.aio.clean.aiClean.modelPickerLabel')}
             >
-              {cleanAiProfileOptions.length === 0 ? (
-                <option value="" disabled>
-                  {t('dashboard.aio.clean.aiClean.readiness.selectModel')}
+              <option value="" disabled>
+                {t('dashboard.aio.clean.aiClean.modelPickerPlaceholder')}
+              </option>
+              {cleanAiProfileOptions.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
                 </option>
-              ) : (
-                cleanAiProfileOptions.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {option.label}
-                  </option>
-                ))
-              )}
+              ))}
             </select>
             {selectedCleanAiProfile && (
               <p className={skin.hint}>{`${selectedCleanAiProfile.label} (Custom)`}</p>
