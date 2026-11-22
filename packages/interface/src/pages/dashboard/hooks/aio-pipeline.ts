@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import {
   AIO_MANUAL_STAGE_ORDER,
@@ -68,12 +68,7 @@ import { showDesktopNotification } from '@/pages/dashboard/lib/desktop-notificat
 import { resolveWorkGlossaryForChapter } from '@/pages/dashboard/hooks/translator.execution';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import { useRegionEditorStore } from '@/pages/dashboard/stores/region-editor-store';
-import {
-  applyAioPipelineSnapshotToImage,
-  patchAioSnapshotStageForImage,
-} from '@/pages/dashboard/hooks/aio-snapshot.commands';
-import { normalizeSnapshotsForManualMode } from '@/pages/dashboard/hooks/aio-snapshot.normalization';
-import { createAioManualProgressForIndex } from '@/pages/dashboard/helpers';
+import { advanceLiveStageView } from '@/pages/dashboard/hooks/aio-live-stage-advance';
 import {
   deriveLocalProviderLabel,
   useAioStageTimingStore,
@@ -85,14 +80,12 @@ import { useStatusStore } from '@/pages/dashboard/stores/status-store';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 import type {
   AioBatchImageResult,
+  AioDownloadEntry,
   AioPipelineSnapshotKey,
+  AioTextRegion,
   LoadedImage,
 } from '@/types/dashboard.types';
-import {
-  applyDetectedGradientToStyle,
-  cloneAioRegions,
-  cloneRenderStyle,
-} from '@/utils/dashboard.utils';
+import { applyDetectedGradientToStyle } from '@/utils/dashboard.utils';
 import { isCustomModelSelectionKey } from '@/utils/customLlm';
 import { resolveTranslationStageExecutionKey } from '@/utils/translationAutoResolution';
 import {
@@ -208,6 +201,24 @@ export function useAioPipelineExecution(
     },
   });
 
+  const advanceLiveStageForRun = useCallback(
+    (
+      stageKey: AioPipelineSnapshotKey,
+      image: LoadedImage,
+      regions: AioTextRegion[] | null,
+      download?: AioDownloadEntry | null,
+    ): void => {
+      advanceLiveStageView(
+        { labels: args.aioPipelineStageProgressLabels },
+        stageKey,
+        image,
+        regions,
+        download,
+      );
+    },
+    [args.aioPipelineStageProgressLabels],
+  );
+
   const processImage = useAioSingleImageProcessor({
     localApiUrl: args.localApiUrl,
     minRegionSize: MIN_REGION_SIZE,
@@ -233,6 +244,7 @@ export function useAioPipelineExecution(
           index,
           active.images.length,
         );
+        advanceLiveStageForRun(stageKey, image, null);
       }
     },
     setRuntimeExecutionNotice: (notice) => {
@@ -398,68 +410,7 @@ export function useAioPipelineExecution(
         cleanAiInstructions,
         cleanAiCustomProfile: prepared.cleanAiCustomProfile ?? null,
         onStageCompleted: (stageKey, image, regions, download) => {
-          const stageIndex = AIO_MANUAL_STAGE_ORDER.indexOf(stageKey);
-          if (stageIndex < 0) {
-            return;
-          }
-          let pipelineState = useAioPipelineStore.getState();
-          if (
-            pipelineState.aioPipelineSnapshots.length !==
-              AIO_MANUAL_STAGE_ORDER.length ||
-            AIO_MANUAL_STAGE_ORDER.some(
-              (stage, index) => pipelineState.aioPipelineSnapshots[index]?.key !== stage,
-            )
-          ) {
-            pipelineState.setAioPipelineSnapshots(
-              normalizeSnapshotsForManualMode({
-                snapshots: pipelineState.aioPipelineSnapshots,
-                imageIds: useImageCollectionStore
-                  .getState()
-                  .images.map((item) => item.id),
-                labels: args.aioPipelineStageProgressLabels,
-                fallbackDetections:
-                  useRegionEditorStore.getState().aioDetectionsByImage,
-                fallbackSelection:
-                  useRegionEditorStore.getState().aioSelectedRegionByImage,
-                fallbackDownloads: [],
-              }),
-            );
-            pipelineState = useAioPipelineStore.getState();
-          }
-          patchAioSnapshotStageForImage(
-            image.id,
-            stageIndex,
-            cloneAioRegions(regions, cloneRenderStyle),
-            download ?? undefined,
-          );
-          const canvasImageId = useImageCollectionStore.getState().activeId;
-          if (canvasImageId === image.id) {
-            applyAioPipelineSnapshotToImage(canvasImageId, stageIndex);
-          }
-          pipelineState.setAioManualProgressByImage((prev) => {
-            const current = prev[image.id] ?? createAioManualProgressForIndex(0);
-            if (
-              current.statusByStage[stageKey] === 'done' &&
-              current.unlockedMaxIndex >= stageIndex
-            ) {
-              return prev;
-            }
-            return {
-              ...prev,
-              [image.id]: {
-                ...current,
-                currentIndex: stageIndex,
-                unlockedMaxIndex: Math.max(
-                  current.unlockedMaxIndex,
-                  stageIndex,
-                ),
-                statusByStage: {
-                  ...current.statusByStage,
-                  [stageKey]: 'done',
-                },
-              },
-            };
-          });
+          advanceLiveStageForRun(stageKey, image, regions, download);
         },
         maskDilation: pipeline.aioMaskDilation,
         hdStrategy: pipeline.aioHdStrategy,
