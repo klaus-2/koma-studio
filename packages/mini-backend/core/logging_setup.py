@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+from contextvars import ContextVar, Token
 from logging.handlers import RotatingFileHandler
 from typing import Final
 
@@ -12,13 +13,25 @@ _RESERVED: Final = frozenset(
     | {"message": None, "asctime": None, "color_message": None}
 )
 
-MAX_LOG_BYTES: Final = int(1.3 * 1024 * 1024)
-LOG_BACKUP_COUNT: Final = 2
+MAX_LOG_BYTES: Final = 5 * 1024 * 1024
+LOG_BACKUP_COUNT: Final = 5
 RUNTIME_LOG_FILENAME: Final = "mini-backend-runtime.log"
 LOG_DIR_ENV: Final = "MINI_BACKEND_LOG_DIR"
 APP_DATA_DIR_ENV: Final = "KOMA_APP_DATA_DIR"
 
 _log_file_path: str | None = None
+
+_REQUEST_ID: ContextVar[str | None] = ContextVar("koma_request_id", default=None)
+
+
+def set_request_id(request_id: str | None) -> Token[str | None]:
+    """Bind the correlation id merged into every record of this call chain."""
+    return _REQUEST_ID.set(request_id)
+
+
+def reset_request_id(token: Token[str | None]) -> None:
+    """Restore the binding captured by :func:`set_request_id`."""
+    _REQUEST_ID.reset(token)
 
 
 class JsonFormatter(logging.Formatter):
@@ -30,6 +43,9 @@ class JsonFormatter(logging.Formatter):
             "msg": record.getMessage(),
         }
         payload.update({k: v for k, v in record.__dict__.items() if k not in _RESERVED})
+        request_id = _REQUEST_ID.get()
+        if request_id is not None and "request_id" not in payload:
+            payload["request_id"] = request_id
         if record.exc_info:
             payload["exc"] = self.formatException(record.exc_info)
         return json.dumps(payload, default=str, ensure_ascii=False)

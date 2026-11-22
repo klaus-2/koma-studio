@@ -68,6 +68,7 @@ def inference_busy_to_http(
             "stage": stage,
             "model_key": (model_key or "auto").strip() or "auto",
             "raw_detail": str(exc),
+            "log_path": get_log_file_path(),
         },
     )
 
@@ -147,6 +148,11 @@ def parse_json_form_field[T](
 
 def execution_error_to_http(exc: ExecutionError, *, model_key: str | None) -> HTTPException:
     if isinstance(exc, CpuFallbackFailedError):
+        logger.error(
+            "execution.cpu_fallback_failed",
+            extra={"stage": exc.stage, "model_key": model_key},
+            exc_info=exc,
+        )
         return HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=build_runtime_error_detail(

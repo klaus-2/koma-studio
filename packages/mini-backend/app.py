@@ -15,6 +15,7 @@ import os
 import sys
 import time
 import tracemalloc
+import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 BaseModel.model_config["protected_namespaces"] = ()
 
 from core.config import get_config
+from core.runtime_errors import build_runtime_error_detail
 from core.threads import INTRA_OP_THREADS_ENV, env_thread_limit
 from core.version import APP_VERSION
 from core.device import (
@@ -48,7 +50,7 @@ from core.engine_idle import (
     idle_sweeper_loop,
 )
 from core.ipc_compression import IpcGzipMiddleware
-from core.logging_setup import configure_logging
+from core.logging_setup import configure_logging, get_log_file_path, reset_request_id, set_request_id
 from models.detection.errors import DetectionModelCorruptedError, DetectionModelNotInstalledError
 from models.detection.factory import clear_detector_cache, get_detector, get_detector_cache_size
 from models.inpainting.factory import clear_inpainter_cache, get_inpainter_cache_size
@@ -85,6 +87,8 @@ from routers.warmup import router as warmup_router
 logger = logging.getLogger("mini-backend")
 
 LOCAL_API_SESSION_HEADER: Final = "x-koma-local-session"
+REQUEST_ID_HEADER: Final = "X-Koma-Request-Id"
+REQUEST_ID_STATE_KEY: Final = "request_id"
 # Desktop shells (Electron V1 + Tauri WebView2 on Windows/macOS/Linux).
 # Must always be allowlisted even if ALLOWED_ORIGINS omits them.
 DESKTOP_APP_ORIGINS: Final = (
@@ -484,6 +488,11 @@ def _configure_crash_logging() -> None:
     atexit.register(_atexit_log)
 
 
+def _request_id_from_state(request: Request) -> str | None:
+    raw = getattr(request.state, REQUEST_ID_STATE_KEY, None)
+    return raw if isinstance(raw, str) else None
+
+
 def create_app(settings: LocalApiSettings) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -610,6 +619,59 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
                 },
             )
         return await call_next(request)
+
+    @app.middleware("http")
+    async def request_context_middleware(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        request_id = uuid.uuid4().hex[:12]
+        request.state.request_id = request_id
+        token = set_request_id(request_id)
+        started = time.perf_counter()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            response.headers[REQUEST_ID_HEADER] = request_id
+            return response
+        finally:
+            logger.info(
+                "http.request",
+                extra={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status": status_code,
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                    "request_id": request_id,
+                },
+            )
+            reset_request_id(token)
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        request_id = _request_id_from_state(request)
+        logger.exception(
+            "unhandled.error",
+            extra={"request_id": request_id, "path": request.url.path},
+        )
+        chained_context = exc.__context__
+        exc.__context__ = None
+        try:
+            detail = build_runtime_error_detail(
+                error=exc,
+                stage="unknown",
+                model_key=None,
+                used_gpu=False,
+                log_path=get_log_file_path(),
+            )
+        finally:
+            exc.__context__ = chained_context
+        return JSONResponse(
+            status_code=500,
+            content={"detail": {**detail, "request_id": request_id}},
+        )
 
     @app.get("/")
     async def root() -> dict[str, str]:

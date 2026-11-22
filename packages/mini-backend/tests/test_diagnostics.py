@@ -42,6 +42,7 @@ class EnvironmentSnapshotTests(unittest.TestCase):
         for key in (
             "python_version",
             "platform",
+            "app_version",
             "acceleration_profile",
             "gpu_name",
             "vram_total_gb",
@@ -82,6 +83,21 @@ class EnvironmentSnapshotTests(unittest.TestCase):
         self.assertIsNone(snapshot["gpu_name"])
         self.assertIsNone(snapshot["vram_total_gb"])
         self.assertIsNone(snapshot["vram_free_gb"])
+
+    def test_app_version_is_none_when_the_env_is_unset(self) -> None:
+        env = {name: value for name, value in os.environ.items() if name != "KOMA_APP_VERSION"}
+        with patch.dict("os.environ", env, clear=True):
+            diagnostics.reset_environment_snapshot_cache()
+            snapshot = diagnostics.get_environment_snapshot()
+
+        self.assertIsNone(snapshot["app_version"])
+
+    def test_app_version_from_env_lands_in_the_snapshot(self) -> None:
+        with patch.dict("os.environ", {"KOMA_APP_VERSION": "9.9.9-test"}):
+            diagnostics.reset_environment_snapshot_cache()
+            snapshot = diagnostics.get_environment_snapshot()
+
+        self.assertEqual(snapshot["app_version"], "9.9.9-test")
 
     def test_no_secret_values_leak_into_the_snapshot(self) -> None:
         env = dict(os.environ)

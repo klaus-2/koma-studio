@@ -1,9 +1,9 @@
 """Cached, allowlisted environment snapshot for startup diagnostics.
 
-Reads no secrets: the only environment variable consulted is the
-non-secret acceleration profile, everything else comes from runtime
-capability probes (torch / onnxruntime / psutil) that degrade to ``None``
-when a library is unavailable. The snapshot feeds the one-shot
+Reads no secrets: the only environment variables consulted are the
+non-secret app version and acceleration profile, everything else comes
+from runtime capability probes (torch / onnxruntime / psutil) that degrade
+to ``None`` when a library is unavailable. The snapshot feeds the one-shot
 ``backend.startup`` log event.
 """
 
@@ -18,6 +18,7 @@ from typing import Final
 logger = logging.getLogger(__name__)
 
 ACCELERATION_PROFILE_ENV: Final = "MINI_BACKEND_ACCELERATION_PROFILE"
+APP_VERSION_ENV: Final = "KOMA_APP_VERSION"
 
 type _SnapshotValue = str | int | float | None
 
@@ -36,6 +37,7 @@ def _compute_environment_snapshot() -> dict[str, _SnapshotValue]:
     snapshot: dict[str, _SnapshotValue] = {
         "python_version": platform.python_version(),
         "platform": sys.platform,
+        "app_version": os.getenv(APP_VERSION_ENV, "").strip() or None,
         "acceleration_profile": os.getenv(ACCELERATION_PROFILE_ENV, "").strip() or None,
         "gpu_name": None,
         "vram_total_gb": None,

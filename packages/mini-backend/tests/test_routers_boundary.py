@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from io import BytesIO
+import logging
+import os
+import tempfile
 import unittest
 
 from fastapi import HTTPException, UploadFile
 from models.execution import InferenceBusyError
 from pydantic import TypeAdapter
 
+from core.logging_setup import configure_logging, get_log_file_path
 from routers._boundary import (
     INFERENCE_BUSY_HTTP_STATUS,
     INFERENCE_BUSY_WIRE_CODE,
@@ -85,6 +89,40 @@ class InferenceBusyToHttpTests(unittest.TestCase):
         assert isinstance(detail, dict)
         self.assertEqual(detail["stage"], "inpaint")
         self.assertEqual(detail["model_key"], "auto")
+
+
+class InferenceBusyLogPathTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self._original_log_dir = os.environ.get("MINI_BACKEND_LOG_DIR")
+        os.environ["MINI_BACKEND_LOG_DIR"] = self._tmp.name
+        self.addCleanup(self._cleanup)
+
+    def _cleanup(self) -> None:
+        for handler in list(logging.getLogger().handlers):
+            if isinstance(handler, logging.FileHandler):
+                handler.close()
+        logging.basicConfig(level=logging.INFO, force=True)
+        if self._original_log_dir is None:
+            os.environ.pop("MINI_BACKEND_LOG_DIR", None)
+        else:
+            os.environ["MINI_BACKEND_LOG_DIR"] = self._original_log_dir
+        self._tmp.cleanup()
+
+    def test_busy_503_body_carries_the_active_log_path(self) -> None:
+        configure_logging()
+        log_path = get_log_file_path()
+        self.assertIsNotNone(log_path)
+
+        http_exc = inference_busy_to_http(
+            InferenceBusyError("Inference capacity is exhausted"),
+            stage="detect",
+            model_key=None,
+        )
+
+        detail = http_exc.detail
+        assert isinstance(detail, dict)
+        self.assertEqual(detail["log_path"], log_path)
 
 
 if __name__ == "__main__":

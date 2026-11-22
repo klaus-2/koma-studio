@@ -72,6 +72,20 @@ class BoundaryLogPathTests(unittest.TestCase):
             stage="ocr",
         )
 
+    def test_cpu_fallback_branch_logs_error_with_stage_context(self) -> None:
+        error = self._fallback_error()
+        with self.assertLogs("routers._boundary", level="ERROR") as captured:
+            execution_error_to_http(error, model_key="got_ocr2")
+
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertEqual(record.getMessage(), "execution.cpu_fallback_failed")
+        self.assertEqual(record.levelno, logging.ERROR)
+        self.assertEqual(record.stage, "ocr")
+        self.assertEqual(record.model_key, "got_ocr2")
+        self.assertIsNotNone(record.exc_info)
+        self.assertIs(record.exc_info[1], error)
+
     def test_cpu_fallback_500_body_carries_the_active_log_path(self) -> None:
         configure_logging()
         log_path = get_log_file_path()

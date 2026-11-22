@@ -61,6 +61,7 @@ class LoggingSetupTests(unittest.TestCase):
         self.assertEqual(payload["level"], "INFO")
         self.assertIn("ts", payload)
         self.assertEqual(payload["stage"], "ocr")
+        self.assertNotIn("request_id", payload)
 
     def test_utf8_accents_survive(self) -> None:
         logging_setup.configure_logging()
@@ -70,11 +71,15 @@ class LoggingSetupTests(unittest.TestCase):
         payload = json.loads(lines[-1])
         self.assertEqual(payload["msg"], "tradução coração 日本語")
 
+    def test_rotation_budget_is_five_mb_with_five_backups(self) -> None:
+        self.assertEqual(logging_setup.MAX_LOG_BYTES, 5 * 1024 * 1024)
+        self.assertEqual(logging_setup.LOG_BACKUP_COUNT, 5)
+
     def test_rotation_respects_max_bytes_and_backup_count(self) -> None:
         logging_setup.configure_logging()
         logger = logging.getLogger("test.rotation")
         filler = "x" * 4096
-        for _ in range(1000):
+        for _ in range(3000):
             logger.warning(filler)
 
         log_path = self._log_file()
@@ -82,6 +87,36 @@ class LoggingSetupTests(unittest.TestCase):
         self.assertLess(log_path.stat().st_size, logging_setup.MAX_LOG_BYTES + 8192)
         rotated = Path(f"{log_path}.1")
         self.assertTrue(rotated.exists())
+        self.assertTrue(Path(f"{log_path}.2").exists())
+
+    def test_request_id_contextvar_is_merged_into_json_lines(self) -> None:
+        logging_setup.configure_logging()
+        token = logging_setup.set_request_id("abc123def456")
+        try:
+            logging.getLogger("test.request").info("with request")
+        finally:
+            logging_setup.reset_request_id(token)
+        logging.getLogger("test.request").info("without request")
+
+        payloads = [json.loads(line) for line in self._log_file().read_text(encoding="utf-8").splitlines()]
+        with_id = [p for p in payloads if p["msg"] == "with request"][-1]
+        without_id = [p for p in payloads if p["msg"] == "without request"][-1]
+        self.assertEqual(with_id["request_id"], "abc123def456")
+        self.assertNotIn("request_id", without_id)
+
+    def test_explicit_request_id_extra_wins_over_contextvar(self) -> None:
+        logging_setup.configure_logging()
+        token = logging_setup.set_request_id("aaaaaaaaaaaa")
+        try:
+            logging.getLogger("test.request").info(
+                "explicit wins", extra={"request_id": "bbbbbbbbbbbb"}
+            )
+        finally:
+            logging_setup.reset_request_id(token)
+
+        payloads = [json.loads(line) for line in self._log_file().read_text(encoding="utf-8").splitlines()]
+        payload = [p for p in payloads if p["msg"] == "explicit wins"][-1]
+        self.assertEqual(payload["request_id"], "bbbbbbbbbbbb")
 
     def test_fail_open_when_log_dir_path_is_a_file(self) -> None:
         blocked = Path(self._tmp.name) / "blocked"
