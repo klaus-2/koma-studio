@@ -81,9 +81,6 @@ export const writeWindowStateFile = (
   const tempPath = `${filePath}.${randomUUID()}.tmp`;
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(tempPath, JSON.stringify(state));
-  if (fs.existsSync(filePath)) {
-    fs.rmSync(filePath, { force: true });
-  }
   fs.renameSync(tempPath, filePath);
 };
 
