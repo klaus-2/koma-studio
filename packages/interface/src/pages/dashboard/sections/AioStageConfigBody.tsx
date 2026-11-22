@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useState } from 'react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
-import { Info } from 'lucide-react';
+import { HardDrive, Info } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@koma/ui/components/popover';
 import type {
   ApplyStyleOptions,
@@ -32,6 +32,7 @@ import {
 } from '../../../utils/translationAutoResolution';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
+import { useCleanerStore } from '../stores/cleaner-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useActiveAioRegionState } from '../hooks/region-editor';
 import type { StageTabKey } from '../../AioStageTabBar';
@@ -228,6 +229,9 @@ export default memo(function AioStageConfigBody({
     (s) => s.setAioCleanAiInstructions,
   );
   const renderStepEnabled = useAioPipelineStore((s) => s.aioSteps.render);
+  const setCleanerAiModelManagerOpen = useCleanerStore(
+    (s) => s.setCleanerAiModelManagerOpen,
+  );
   const customLlmProfiles = useLlmProvidersStore((s) => s.customLlmProfiles);
   const cleanCustomProfiles = useMemo(
     () => customLlmProfiles.filter((profile) => profile.stage === 'clean'),
@@ -410,9 +414,23 @@ export default memo(function AioStageConfigBody({
       {activeStageTab === 'cleanImage' && cleanViaAi && (
         <>
           <div className="koma-field">
-            <span className={skin.label}>
-              {t('dashboard.aio.clean.aiClean.modelPickerLabel')}
-            </span>
+            <div className="flex items-center justify-between gap-2">
+              <span className={skin.label}>
+                {t('dashboard.aio.clean.aiClean.modelPickerLabel')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCleanerAiModelManagerOpen(true)}
+                className={
+                  noir
+                    ? 'flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-paper-dim transition-colors hover:text-crimson'
+                    : 'koma-model-slot__manage'
+                }
+                aria-label={t('dashboard.cleaner.models.button')}
+              >
+                <HardDrive size={9} /> {t('dashboard.cleaner.models.button')}
+              </button>
+            </div>
             <select
               value={
                 cleanAiProfileOptions.some(
