@@ -229,7 +229,7 @@ bun run build:mini -- --force        # または MINI_BACKEND_FORCE_REBUILD=1
 | `VITE_AUTH_DISABLED` | ローカルモード; dev で `true` または未設定 = ログイン画面なし、認証系機能を非表示; `false` = auth サーバー必須 |
 | `VITE_LOCAL_API_URL` | mini-backend のアドレス（既定 `http://localhost:8001`） |
 | `KOMA_MODELS_ROOT` | AI の重みの保存先。空ならアプリデータディレクトリ |
-| `BUG_REPORT_DISCORD_WEBHOOK_URL` | オプトインのバグ報告フォームを有効化。空なら無効 |
+| `VITE_BUG_REPORT_API_URL` | バグレポートを受け取るHTTPSエンドポイント。空の場合は送信が無効になります |
 | `MINI_BACKEND_PYTHON` | サイドカー用に明示指定する Python インタープリタ |
 | `MINI_BACKEND_*_API_KEY` | 自分のクラウドプロバイダーのキー。サイドカーが直接使用します |
 

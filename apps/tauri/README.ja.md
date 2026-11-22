@@ -211,7 +211,7 @@ bun run mini:install-deps --profile nvidia-cuda
 | `VITE_LOCAL_API_URL` | mini-backend のアドレス（既定 `http://localhost:8001`） |
 | `KOMA_MODELS_ROOT` | AI の重みの保存先。空ならアプリデータディレクトリ |
 | `KOMA_EXTERNAL_STORAGE_ROOT` | 大きなプロジェクトデータ用の外部ルート（任意） |
-| `BUG_REPORT_DISCORD_WEBHOOK_URL` | オプトインのバグ報告フォームを有効化。空なら無効 |
+| `VITE_BUG_REPORT_API_URL` | バグレポートを受け取るHTTPSエンドポイント。空の場合は送信が無効になります |
 | `MINI_BACKEND_*_API_KEY` | 自分のクラウドプロバイダーのキー。サイドカーが直接使用します |
 
 ### 任意: 認証サーバー

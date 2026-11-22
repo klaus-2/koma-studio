@@ -231,7 +231,7 @@ local. Destacados:
 | `VITE_AUTH_DISABLED` | modo local; `true` o sin definir en dev = sin pantallas de login, funciones de auth ocultas; `false` requiere el auth server |
 | `VITE_LOCAL_API_URL` | Dirección del mini-backend (por defecto `http://localhost:8001`) |
 | `KOMA_MODELS_ROOT` | Dónde se guardan los pesos de IA; vacío = directorio de datos de la app |
-| `BUG_REPORT_DISCORD_WEBHOOK_URL` | Activa el formulario opt-in de bugs; vacío = desactivado |
+| `VITE_BUG_REPORT_API_URL` | Endpoint HTTPS que recibe los reportes de errores; vacío = envío desactivado |
 | `MINI_BACKEND_PYTHON` | Intérprete de Python explícito para el sidecar |
 | `MINI_BACKEND_*_API_KEY` | Tus claves de proveedores en la nube, usadas directamente por el sidecar |
 

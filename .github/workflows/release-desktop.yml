@@ -9,6 +9,7 @@ permissions:
 env:
   BUN_VERSION: "1.4.0"
   VITE_AUTH_DISABLED: "true"
+  VITE_BUG_REPORT_API_URL: "https://koma-studio.site/api/bug-reports"
   # Public keys pinned into release builds; they are not secrets.
   MINI_BACKEND_ARTIFACTS_PUBKEY: "HdJwZKhP6eGVAVUrWh5QdYtlEPW5kzqsbD9xRNlN98w="
   KOMA_MINI_BACKEND_ARTIFACTS_PUBKEY: "HdJwZKhP6eGVAVUrWh5QdYtlEPW5kzqsbD9xRNlN98w="

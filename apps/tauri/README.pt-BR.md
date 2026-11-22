@@ -210,7 +210,7 @@ comentada. Nada é obrigatório para rodar localmente. Destaques:
 | `VITE_LOCAL_API_URL` | Endereço do mini-backend (padrão `http://localhost:8001`) |
 | `KOMA_MODELS_ROOT` | Onde os pesos de IA ficam; vazio = diretório de dados do app |
 | `KOMA_EXTERNAL_STORAGE_ROOT` | Raiz externa opcional para dados grandes de projeto |
-| `BUG_REPORT_DISCORD_WEBHOOK_URL` | Habilita o formulário opt-in de bug; vazio = desativado |
+| `VITE_BUG_REPORT_API_URL` | Endpoint HTTPS que recebe os relatórios de bug; vazio = envio desativado |
 | `MINI_BACKEND_*_API_KEY` | Suas chaves de provedores de nuvem, usadas direto pelo sidecar |
 
 ### Opcional: o auth server

@@ -212,7 +212,7 @@ list. Nothing is required to run locally. Highlights:
 | `VITE_LOCAL_API_URL` | Mini-backend address (default `http://localhost:8001`) |
 | `KOMA_MODELS_ROOT` | Where AI weights are cached; empty = app data directory |
 | `KOMA_EXTERNAL_STORAGE_ROOT` | Optional external root for large project data |
-| `BUG_REPORT_DISCORD_WEBHOOK_URL` | Enables the opt-in bug report form; empty = disabled |
+| `VITE_BUG_REPORT_API_URL` | HTTPS endpoint that receives submitted bug reports; empty = submit disabled |
 | `MINI_BACKEND_*_API_KEY` | Your own cloud provider keys, used directly by the sidecar |
 
 ### Optional: the auth server
