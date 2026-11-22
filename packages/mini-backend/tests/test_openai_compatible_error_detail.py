@@ -55,3 +55,44 @@ def test_unknown_host_404_keeps_generic_openai_detail() -> None:
 def test_cloudflare_other_statuses_stay_generic(status: int) -> None:
     detail = build_custom_provider_http_error_detail(status, _CF_BASE, "model")
     assert detail == f"Provider respondeu {status}"
+
+
+@pytest.mark.parametrize(
+    ("api_base", "expected_snippet"),
+    [
+        ("https://api.replicate.com/v1", "Replicate requires a valid API token"),
+        ("https://fal.run/fal-ai/nano-banana/edit", "fal.ai requires a valid API key"),
+        ("https://queue.fal.run/fal-ai/nano-banana/edit", "fal.ai requires a valid API key"),
+        ("https://falrun.com/fal-ai/nano-banana/edit", "fal.ai requires a valid API key"),
+        ("https://api.stability.ai", "Stability AI requires a valid API key"),
+    ],
+)
+def test_image_edit_providers_have_own_auth_detail(api_base: str, expected_snippet: str) -> None:
+    detail = build_custom_provider_http_error_detail(401, api_base, "model")
+    assert expected_snippet in detail
+    assert "Provider respondeu 401" in detail
+
+
+def test_replicate_402_reports_billing() -> None:
+    detail = build_custom_provider_http_error_detail(402, "https://api.replicate.com", "owner/name")
+    assert "billing" in detail
+
+
+def test_fal_404_reports_app_not_found() -> None:
+    detail = build_custom_provider_http_error_detail(404, "https://fal.run", "fal-ai/nano-banana/edit")
+    assert "AppNotFound" in detail
+
+
+def test_fal_413_reports_payload_limit() -> None:
+    detail = build_custom_provider_http_error_detail(413, "https://fal.run", "fal-ai/nano-banana/edit")
+    assert "64 MiB" in detail
+
+
+def test_stability_402_reports_credits() -> None:
+    detail = build_custom_provider_http_error_detail(402, "https://api.stability.ai", "search-and-replace")
+    assert "credits" in detail
+
+
+def test_stability_413_reports_image_limit() -> None:
+    detail = build_custom_provider_http_error_detail(413, "https://api.stability.ai", "search-and-replace")
+    assert "10 MiB" in detail

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 from pydantic.alias_generators import to_camel
@@ -30,15 +30,32 @@ class _ProviderInput(BaseModel):
         return None if self.api_key is None else self.api_key.get_secret_value()
 
 
+TransportLiteral = Literal[
+    "openai_compatible",
+    "gemini_native",
+    "nlp_cloud_chatbot",
+    "ollama_native",
+    "replicate",
+    "fal",
+    "stability",
+    "cloudflare_native",
+]
+
+
 class ProviderTestRequest(_ProviderInput):
-    transport: str = Field(min_length=1)
+    transport: TransportLiteral = Field(min_length=1)
     stage: str = Field(min_length=1)
     api_base: str = Field(min_length=1)
     model: str = Field(min_length=1)
 
-    @field_validator("transport", "stage")
+    @field_validator("transport", mode="before")
     @classmethod
-    def _lowercase(cls, value: str) -> str:
+    def _lowercase_transport(cls, value: object) -> object:
+        return value.lower() if isinstance(value, str) else value
+
+    @field_validator("stage")
+    @classmethod
+    def _lowercase_stage(cls, value: str) -> str:
         return value.lower()
 
     @model_validator(mode="after")

@@ -7,7 +7,7 @@ import json
 import logging
 import math
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Final, Protocol
@@ -22,13 +22,22 @@ from core.config import normalize_stage_model_key
 from core.http_retry import post_with_retry
 from models.translation.providers import resolve_request_custom_openai_config
 from services.http_client import get_shared_client
+from services.image_edit_protocols import (
+    ImageEditProtocolError,
+    call_cloudflare_clean,
+    call_fal_clean,
+    call_replicate_clean,
+    call_stability_clean,
+)
 from services.openai_compatible import (
+    KNOWN_CLEAN_PROTOCOLS,
     build_custom_provider_http_error_detail,
     build_openai_compatible_headers,
     is_gemini_host,
     is_vertex_openai_endpoint,
     normalize_openai_compatible_api_base,
     post_openai_compatible_json,
+    resolve_clean_protocol,
     resolve_openai_compatible_images_edits_endpoint,
     requires_api_key_for_known_provider,
 )
@@ -49,6 +58,12 @@ _IMAGE_MAGIC: Final = (b"\x89PNG", b"\xff\xd8", b"RIFF")
 _GEMINI_RETRY_STATUSES: Final = frozenset({429, 500, 502, 503, 504})
 _PROTOCOL_FALLBACK_STATUSES: Final = frozenset({400, 404})
 _CLEAN_CUSTOM_PROTOCOL_CACHE: dict[tuple[str, str], str] = {}
+_IMAGE_EDIT_CLEAN_ADAPTERS: Final[dict[str, Callable[..., Coroutine[Any, Any, bytes]]]] = {
+    "replicate": call_replicate_clean,
+    "fal": call_fal_clean,
+    "stability": call_stability_clean,
+    "cloudflare": call_cloudflare_clean,
+}
 
 
 class CloudCleanError(RuntimeError):
@@ -508,7 +523,7 @@ def _build_user_prompt(
     )
 
 
-def _resolve_custom_clean_provider(custom_llm: dict[str, Any] | None) -> dict[str, str]:
+def _resolve_custom_clean_provider(custom_llm: dict[str, Any] | None) -> dict[str, str | None]:
     resolved = resolve_request_custom_openai_config(custom_llm)
     normalized_api_base = normalize_openai_compatible_api_base(resolved["api_base"])
     api_key = str(resolved.get("api_key") or "").strip()
@@ -525,10 +540,19 @@ def _resolve_custom_clean_provider(custom_llm: dict[str, Any] | None) -> dict[st
             "This custom provider requires a valid API key for AI Custom."
         )
 
+    raw_protocol = str(custom_llm.get("protocol") or "").strip().lower() if isinstance(custom_llm, dict) else ""
+    if raw_protocol and raw_protocol != "auto" and raw_protocol not in KNOWN_CLEAN_PROTOCOLS:
+        supported = ", ".join(sorted(KNOWN_CLEAN_PROTOCOLS))
+        raise CloudCleanConfigError(
+            f"Unknown clean protocol {raw_protocol!r} for AI Custom. Supported protocols: {supported}."
+        )
+    protocol_override: str | None = None if raw_protocol in {"", "auto"} else raw_protocol
+
     return {
         "api_key": api_key,
         "api_base": normalized_api_base,
         "model": str(resolved["model"]),
+        "protocol": protocol_override,
     }
 
 
@@ -824,6 +848,7 @@ async def _execute_clean_call(
     system_prompt: str,
     user_prompt: str,
     image_bytes: bytes,
+    protocol: str | None = None,
 ) -> bytes:
     if provider == "gemini_image":
         if not api_key:
@@ -841,7 +866,45 @@ async def _execute_clean_call(
         )
 
     if provider in {"custom_image", "openai_compatible_image"}:
-        if is_gemini_host(api_base) and not is_vertex_openai_endpoint(api_base):
+        if provider == "openai_compatible_image":
+            if is_gemini_host(api_base) and not is_vertex_openai_endpoint(api_base):
+                if not api_key:
+                    raise CloudCleanConfigError(
+                        "Google AI Studio/Gemini requires a valid API key for AI Custom."
+                    )
+                return await _call_gemini_clean(
+                    api_base=api_base,
+                    api_key=api_key,
+                    model_name=model_name,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    image_bytes=image_bytes,
+                    client=get_shared_client(),
+                )
+            return await _call_openai_compatible_clean(
+                api_base=api_base,
+                api_key=api_key,
+                model_name=model_name,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                image_bytes=image_bytes,
+            )
+
+        effective_protocol = resolve_clean_protocol(api_base, protocol)
+        if effective_protocol in _IMAGE_EDIT_CLEAN_ADAPTERS:
+            adapter = _IMAGE_EDIT_CLEAN_ADAPTERS[effective_protocol]
+            try:
+                return await adapter(
+                    api_base=api_base,
+                    api_key=api_key or "",
+                    model_name=model_name,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    image_bytes=image_bytes,
+                )
+            except ImageEditProtocolError as exc:
+                raise CloudCleanProviderError(str(exc)) from exc
+        if effective_protocol == "gemini":
             if not api_key:
                 raise CloudCleanConfigError(
                     "Google AI Studio/Gemini requires a valid API key for AI Custom."
@@ -855,8 +918,8 @@ async def _execute_clean_call(
                 image_bytes=image_bytes,
                 client=get_shared_client(),
             )
-        if provider == "custom_image":
-            return await _call_custom_clean_with_protocol(
+        if effective_protocol == "openai_chat":
+            return await _call_openai_compatible_clean(
                 api_base=api_base,
                 api_key=api_key,
                 model_name=model_name,
@@ -864,7 +927,17 @@ async def _execute_clean_call(
                 user_prompt=user_prompt,
                 image_bytes=image_bytes,
             )
-        return await _call_openai_compatible_clean(
+        if effective_protocol == "openai_images_edits":
+            return await _call_images_edits_clean(
+                api_base=api_base,
+                api_key=api_key,
+                model_name=model_name,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                image_bytes=image_bytes,
+                client=get_shared_client(),
+            )
+        return await _call_custom_clean_with_protocol(
             api_base=api_base,
             api_key=api_key,
             model_name=model_name,
@@ -947,6 +1020,7 @@ async def _clean_segments(
     model_name: str,
     system_prompt: str,
     additional_instructions: str,
+    protocol: str | None = None,
 ) -> list[Image.Image]:
     width, _ = image.size
     semaphore = asyncio.Semaphore(_MAX_CONCURRENT_SEGMENT_CALLS)
@@ -967,6 +1041,7 @@ async def _clean_segments(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 image_bytes=crop_bytes,
+                protocol=protocol,
             )
             return await asyncio.to_thread(
                 lambda: Image.open(BytesIO(cleaned_bytes)).convert("RGB")
@@ -995,12 +1070,14 @@ async def clean_image_with_ai(
         *tuple(spec.get("api_base_envs", ())),
         default=str(spec.get("default_api_base") or ""),
     )
+    protocol_override: str | None = None
 
     if provider == "custom_image":
         custom_config = _resolve_custom_clean_provider(custom_llm)
         model_name = custom_config["model"]
         api_key = custom_config["api_key"]
         api_base = custom_config["api_base"]
+        protocol_override = custom_config.get("protocol")
 
     image = Image.open(BytesIO(image_bytes)).convert("RGB")
     width, height = image.size
@@ -1021,6 +1098,7 @@ async def clean_image_with_ai(
         model_name=model_name,
         system_prompt=system_prompt,
         additional_instructions=normalized_additional_instructions,
+        protocol=protocol_override,
     )
 
     if len(cleaned_segments) == 1:

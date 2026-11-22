@@ -70,11 +70,43 @@ KNOWN_PROVIDERS: tuple[KnownProvider, ...] = (
             "there and there is no `/v1/images/generations`. Check the model ID."
         ),
     ),
+    KnownProvider(
+        "replicate",
+        frozenset({"api.replicate.com"}),
+        "Replicate requires a valid API token (Bearer).",
+    ),
+    KnownProvider(
+        "fal",
+        frozenset({"fal.run", "queue.fal.run", "falrun.com"}),
+        "fal.ai requires a valid API key (Authorization: Key <FAL_KEY>).",
+    ),
+    KnownProvider(
+        "stability",
+        frozenset({"api.stability.ai"}),
+        "Stability AI requires a valid API key.",
+    ),
 )
 _HOST_TO_PROVIDER: dict[str, KnownProvider] = {
     host: provider for provider in KNOWN_PROVIDERS for host in provider.hosts
 }
 _PROVIDER_BY_KEY: dict[str, KnownProvider] = {p.key: p for p in KNOWN_PROVIDERS}
+
+_PROVIDER_STATUS_DETAILS: dict[tuple[str, int], str] = {
+    ("replicate", 402): "Replicate reported a billing problem for this account; check your Replicate billing settings.",
+    ("replicate", 404): "Replicate could not find the model or prediction; check the owner/name in the Model ID.",
+    ("replicate", 413): "Replicate rejected the request payload as too large; use a smaller input image.",
+    ("replicate", 422): "Replicate rejected the prediction input; check the Model ID (owner/name).",
+    ("replicate", 429): "Replicate throttled this request (600 predictions/min limit); retry in a moment.",
+    ("fal", 404): "fal.ai reports AppNotFound for this model; check the Model ID (e.g. `fal-ai/nano-banana/edit`).",
+    ("fal", 413): "fal.ai rejected the payload above its 64 MiB limit; use a smaller input image.",
+    ("fal", 422): "fal.ai rejected the request validation; see the provider detail for the failing field.",
+    ("fal", 429): "fal.ai queue is full for this account; retry after the current requests drain.",
+    ("stability", 402): "Stability AI reported insufficient credits for this request.",
+    ("stability", 404): "Stability AI does not have this edit endpoint; use one of search-and-replace, inpaint, erase, search-and-recolor, outpaint or remove-background.",
+    ("stability", 413): "Stability AI rejected the image (10 MiB payload limit; each side >= 64px).",
+    ("stability", 422): "Stability AI rejected a well-formed request (unsupported image format or language); check the image constraints.",
+    ("stability", 429): "Stability AI rate limit hit (150 requests/10s); wait about 60s before retrying.",
+}
 
 
 def known_provider_for(api_base: str) -> KnownProvider | None:
@@ -106,6 +138,52 @@ def is_vertex_openai_endpoint(api_base: str) -> bool:
     hostname = (parsed.hostname or "").strip().lower()
     path = (parsed.path or "").strip().lower()
     return hostname == "aiplatform.googleapis.com" and "/endpoints/openapi" in path
+
+
+KNOWN_CLEAN_PROTOCOLS: frozenset[str] = frozenset(
+    {
+        "replicate",
+        "fal",
+        "stability",
+        "cloudflare",
+        "gemini",
+        "openai_chat",
+        "openai_images_edits",
+    }
+)
+
+_FAL_HOSTS: frozenset[str] = frozenset({"fal.run", "queue.fal.run", "falrun.com"})
+
+
+def _clean_protocol_from_host(api_base: str) -> str:
+    normalized = normalize_openai_compatible_api_base(api_base)
+    hostname = _normalized_hostname(normalized)
+    if hostname == "api.replicate.com":
+        return "replicate"
+    if hostname in _FAL_HOSTS:
+        return "fal"
+    if hostname == "api.stability.ai":
+        return "stability"
+    if hostname == "api.cloudflare.com":
+        path = (urlparse(normalized).path or "").strip().lower()
+        if "/accounts/" in path and ("/ai/run/" in path or path.endswith("/ai/run")):
+            return "cloudflare"
+        return "auto"
+    if hostname == "generativelanguage.googleapis.com":
+        return "gemini"
+    if hostname == "aiplatform.googleapis.com":
+        return "auto" if is_vertex_openai_endpoint(normalized) else "gemini"
+    return "auto"
+
+
+def resolve_clean_protocol(api_base: str, protocol_override: str | None) -> str:
+    """Effective AI Clean protocol: an explicit override wins, otherwise the host map."""
+    override = (protocol_override or "").strip().lower()
+    if override and override != "auto":
+        if override not in KNOWN_CLEAN_PROTOCOLS:
+            raise ValueError(f"Unknown clean protocol: {override!r}")
+        return override
+    return _clean_protocol_from_host(api_base)
 
 
 def extract_huggingface_model_from_legacy_api_base(api_base: str) -> str | None:
@@ -171,6 +249,9 @@ def build_custom_provider_http_error_detail(
             return f"{detail}. {provider.auth_error_detail}"
         if status_code in provider.model_error_statuses:
             return f"{detail}. {provider.model_error_detail}"
+        status_detail = _PROVIDER_STATUS_DETAILS.get((provider.key, status_code))
+        if status_detail:
+            return f"{detail}. {status_detail}"
 
     if status_code == 404:
         return (

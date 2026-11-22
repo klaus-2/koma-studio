@@ -21,6 +21,7 @@ from schemas.provider import (
     VisionProbeResponse,
 )
 from schemas.sfx import SfxClassificationResponse, SfxRegionRequest, SfxRegionResult
+from services.image_edit_protocols import _host_root_api_base
 from services.cloud_cleaning import (
     build_clean_provider_http_error_detail,
     clean_image_with_ai,
@@ -266,8 +267,56 @@ async def _run_provider_test(
             )
             return _vision_result(supported, model=model, label="Ollama model")
 
+        case "replicate" | "fal" | "stability" | "cloudflare_native":
+            if api_key is None:
+                raise ProviderProbeFailedError(
+                    f"An API key is required for {request.transport}"
+                )
+            await _test_image_edit_provider_auth(
+                transport=request.transport,
+                api_base=request.api_base,
+                api_key=api_key,
+                client=client,
+            )
+            return ProviderTestResponse(
+                ok=True,
+                message=f"API key validated successfully for {request.transport}.",
+                model=model,
+            )
+
         case _:
             return ProviderTestResponse(ok=False, message=_UNSUPPORTED_TRANSPORT_MESSAGE, model=model)
+
+
+_IMAGE_EDIT_AUTH_PROBES: dict[str, tuple[str, str]] = {
+    "replicate": ("{base}/v1/account", "bearer"),
+    "fal": ("https://rest.alpha.fal.ai/accounts/balance", "key"),
+    "stability": ("{base}/v1/user/account", "bearer"),
+    "cloudflare_native": (
+        "https://api.cloudflare.com/client/v4/user/tokens/verify",
+        "bearer",
+    ),
+}
+
+_IMAGE_EDIT_AUTH_FAILURE_STATUSES = frozenset({401, 403})
+
+
+async def _test_image_edit_provider_auth(
+    *,
+    transport: str,
+    api_base: str,
+    api_key: str,
+    client: httpx.AsyncClient,
+) -> None:
+    url_template, auth_style = _IMAGE_EDIT_AUTH_PROBES[transport]
+    url = url_template.format(base=_host_root_api_base(api_base))
+    authorization = f"Key {api_key}" if auth_style == "key" else f"Bearer {api_key}"
+    response = await client.get(url, headers={"Authorization": authorization})
+    if response.status_code in _IMAGE_EDIT_AUTH_FAILURE_STATUSES:
+        raise ProviderProbeFailedError(
+            f"Authentication failed for the {transport} provider: "
+            f"{_provider_body_preview(response)}"
+        )
 
 
 def _provider_body_preview(response: httpx.Response) -> str:
