@@ -1,0 +1,46 @@
+[Unit]
+Description=Koma bug-report intake server (127.0.0.1:3101)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/koma-bug-reports
+ExecStart=/usr/bin/node /opt/koma-bug-reports/server.mjs
+Environment=PORT=3101
+Environment=KOMA_BUG_REPORTS_DIR=/var/lib/koma-bug-reports
+Environment=KOMA_BUG_REPORTS_RETENTION_DAYS=180
+Environment=KOMA_BUG_RATE_LIMIT_PER_HOUR=5
+# KOMA_BUG_NOTIFY_DISCORD_WEBHOOK_URL is intentionally unset (notify disabled).
+# Enable via drop-in: systemctl edit bug-report-server
+
+DynamicUser=yes
+StateDirectory=koma-bug-reports
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/koma-bug-reports
+UMask=0077
+Restart=always
+RestartSec=3
+MemoryMax=100M
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RemoveIPC=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
