@@ -151,6 +151,13 @@ fn profile_from_wire(value: &Value) -> AppResult<LlmProfileInput> {
         .filter(|value| !value.is_empty())
         .map(|value| Zeroizing::new(value.to_string()));
 
+    let protocol = object
+        .get("protocol")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && !value.eq_ignore_ascii_case("auto"))
+        .map(|value| value.to_ascii_lowercase());
+
     Ok(LlmProfileInput {
         id: LlmProfileId(id),
         stage,
@@ -167,6 +174,7 @@ fn profile_from_wire(value: &Value) -> AppResult<LlmProfileInput> {
             .and_then(Value::as_bool)
             .unwrap_or(false),
         model,
+        protocol,
     })
 }
 
@@ -182,6 +190,7 @@ fn profile_to_json(profile: &LlmProfile) -> Value {
         "apiBase": profile.api_base,
         "apiKey": profile.api_key,
         "model": profile.model,
+        "protocol": profile.protocol,
         "hasApiKey": profile.has_api_key,
         "createdAt": profile.created_at,
         "updatedAt": profile.updated_at,

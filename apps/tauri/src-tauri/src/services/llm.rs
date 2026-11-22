@@ -29,6 +29,20 @@ const GUEST_SCOPE: &str = "__guest__";
 const SHARED_SCOPE: &str = "__shared__";
 const MAX_PROFILES_PER_SCOPE: usize = 256;
 
+const KNOWN_CLEAN_PROTOCOLS: [&str; 7] = [
+    "openai_chat",
+    "openai_images_edits",
+    "gemini",
+    "replicate",
+    "fal",
+    "stability",
+    "cloudflare",
+];
+
+fn sanitize_protocol(protocol: Option<String>) -> Option<String> {
+    protocol.filter(|value| KNOWN_CLEAN_PROTOCOLS.contains(&value.as_str()))
+}
+
 static PROFILE_STORE_GUARD: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[derive(Debug, Clone)]
@@ -71,6 +85,7 @@ pub struct LlmProfileInput {
     pub api_key: Option<Zeroizing<String>>,
     pub clear_api_key: bool,
     pub model: String,
+    pub protocol: Option<String>,
 }
 
 pub async fn save(
@@ -129,6 +144,7 @@ pub async fn save(
         api_base,
         model,
         api_key: String::new(),
+        protocol: sanitize_protocol(input.protocol.clone()),
         has_api_key: after.is_some(),
         created_at: previous
             .as_ref()
@@ -409,6 +425,14 @@ fn legacy_profile(value: &Value) -> AppResult<Option<LlmProfile>> {
         api_base,
         model,
         api_key: String::new(),
+        protocol: sanitize_protocol(
+            object
+                .get("protocol")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string),
+        ),
         has_api_key: object
             .get("apiKey")
             .and_then(Value::as_str)
@@ -425,6 +449,7 @@ fn sanitize_stored_profiles(stored: &mut StoredProfiles) {
     let mut dropped = 0_usize;
 
     for mut profile in std::mem::take(&mut stored.profiles) {
+        profile.protocol = sanitize_protocol(profile.protocol.take());
         let valid = validate_profile_id(&profile.id).is_ok()
             && sanitize_required_text(&profile.label, 128, "profile label")
                 .map(|label| profile.label = label)

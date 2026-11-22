@@ -31,6 +31,8 @@ pub struct LlmProfile {
     #[serde(rename = "apiKey")]
     pub api_key: String,
     pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<String>,
     pub has_api_key: bool,
     pub created_at: String,
     pub updated_at: String,
