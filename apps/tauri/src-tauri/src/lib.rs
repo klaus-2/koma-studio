@@ -78,6 +78,7 @@ pub fn run() {
             if let Some(window) = app.webview_windows().values().next() {
                 let _ = window.set_focus();
             }
+            commands::desktop::forwarded_files::forward_launch_args(app, argv);
         }))
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -99,6 +100,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(runtime::profiles::MiniBackendRuntimeStore::default())
         .manage(sidecar::recovery::MiniBackendSidecarStore::default())
         .manage(state::ModelDownloadStore::default())
@@ -115,6 +119,11 @@ pub fn run() {
         )
         .manage(state::WorkspaceAssetStore::default())
         .manage(state::api::ApiRuntimeState::default())
+        .on_page_load(|webview, payload| {
+            if payload.event() == tauri::webview::PageLoadEvent::Finished {
+                commands::desktop::forwarded_files::flush_staged_paths(webview.app_handle());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::desktop::get_runtime_config,
             commands::desktop::get_locale_preferences,
@@ -128,9 +137,14 @@ pub fn run() {
             commands::desktop::open_external,
             commands::desktop::open_community_link,
             commands::desktop::open_logs_folder,
+            commands::desktop::forwarded_files::read_forwarded,
             commands::desktop_updater::get_updater_state,
             commands::desktop_updater::download_updater,
             commands::desktop_updater::install_updater,
+            commands::desktop_integrations::show_notification,
+            commands::desktop_integrations::save_blob,
+            commands::desktop_integrations::reveal_path,
+            commands::desktop_integrations::write_clipboard_image,
             commands::logging::session_log,            runtime::profiles::list_mini_backend_runtime_artifacts,
             runtime::profiles::install_recommended_mini_backend_runtime,
             runtime::profiles::install_mini_backend_runtime_profile,
@@ -208,6 +222,7 @@ pub fn run() {
         .setup(|app| {
             log::info!("KŌMA Studio v2 booting");
             protocol::media::init_static_roots(app.handle())?;
+            services::panic_log::install(app.handle());
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = sidecar::mini_backend::start_mini_backend(handle).await {
@@ -233,14 +248,23 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building KŌMA Studio")
         .run(|app_handle, event| {
-            if matches!(
-                event,
-                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
-            ) {
-                // Latched before the kill so the sidecar's own exit event
-                // cannot schedule a recovery attempt into a dying process.
-                let _ = sidecar::recovery::mark_app_exiting(app_handle);
-                let _ = sidecar::mini_backend::stop_mini_backend(app_handle);
+            match event {
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+                    // Latched before the kill so the sidecar's own exit event
+                    // cannot schedule a recovery attempt into a dying process.
+                    let _ = sidecar::recovery::mark_app_exiting(app_handle);
+                    let _ = sidecar::mini_backend::stop_mini_backend(app_handle);
+                }
+                tauri::RunEvent::Ready => {
+                    commands::desktop::forwarded_files::stage_first_launch_paths(
+                        std::env::args().skip(1),
+                    );
+                }
+                #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+                tauri::RunEvent::Opened { urls } => {
+                    commands::desktop::forwarded_files::forward_opened_urls(app_handle, &urls);
+                }
+                _ => {}
             }
         });
 }

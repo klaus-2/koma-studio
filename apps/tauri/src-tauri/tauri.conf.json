@@ -61,6 +61,26 @@
     "category": "Productivity",
     "shortDescription": "Scanlation toolkit",
     "longDescription": "KŌMA Studio is a comprehensive scanlation toolkit for cleaning, translating and typesetting manga.",
+    "fileAssociations": [
+      {
+        "ext": ["cbz"],
+        "name": "KŌMA Comic Archive (CBZ)",
+        "description": "KŌMA Studio comic book archive (zip)",
+        "mimeType": "application/vnd.comicbook+zip"
+      },
+      {
+        "ext": ["cb7"],
+        "name": "KŌMA Comic Archive (CB7)",
+        "description": "KŌMA Studio comic book archive (7z)",
+        "mimeType": "application/vnd.comicbook+7zip"
+      },
+      {
+        "ext": ["pdf"],
+        "name": "KŌMA PDF Document",
+        "description": "KŌMA Studio PDF document",
+        "mimeType": "application/pdf"
+      }
+    ],
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper",

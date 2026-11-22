@@ -29,6 +29,7 @@ mod resolved_config;
 mod runtime_artifacts_url;
 mod url_validation;
 
+pub(crate) mod forwarded_files;
 pub(crate) mod updater;
 
 pub(crate) use config_sources::DESKTOP_UPDATE_CHANNEL;

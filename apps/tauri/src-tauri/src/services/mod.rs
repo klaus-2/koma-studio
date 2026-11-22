@@ -7,6 +7,7 @@ pub mod imgur;
 pub mod integrations;
 pub mod llm;
 pub mod models;
+pub mod panic_log;
 pub mod secret_store;
 pub mod system_fonts;
 pub mod workspace;

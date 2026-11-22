@@ -28,6 +28,9 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-clipboard-manager = "2"
 sys-locale = "0.3"
 
 # Async runtime
@@ -80,6 +83,8 @@ mime = "0.3"
 # Time
 chrono = { version = "0.4", features = ["serde"] }
 png = "0.18"
+
+image = "0.25"
 
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }
