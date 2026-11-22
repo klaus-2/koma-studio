@@ -555,6 +555,27 @@ export const hiMessages: TranslationCatalog = {
     'असहेजे परिवर्तन हैं या कोई बैच चल रहा है। अभी बंद करने से असहेजे परिवर्तन खो सकते हैं या बैच बाधित हो सकता है।',
   'desktop.closeGuard.closeAnyway': 'फिर भी बंद करें',
   'desktop.closeGuard.cancel': 'रद्द करें',
+  'desktop.backups.title': 'वर्कस्पेस बैकअप',
+  'desktop.backups.description':
+    'वर्तमान वर्कस्पेस के स्वचालित बैकअप। पुनर्स्थापित करने पर वर्तमान वर्कस्पेस फ़ाइल चयनित बैकअप से बदल दी जाती है।',
+  'desktop.backups.empty': 'अभी कोई बैकअप नहीं है।',
+  'desktop.backups.restore': 'पुनर्स्थापित करें',
+  'desktop.backups.restoreConfirmTitle': 'यह बैकअप पुनर्स्थापित करें?',
+  'desktop.backups.restoreConfirmBody':
+    'वर्तमान वर्कस्पेस "{value}" से बदल दिया जाएगा।',
+  'desktop.backups.restoreConfirmAccept': 'पुनर्स्थापित करें',
+  'desktop.backups.restoreConfirmCancel': 'रद्द करें',
+  'desktop.backups.restoreSuccess': 'बैकअप "{value}" पुनर्स्थापित किया गया।',
+  'desktop.backups.restoreFailed': 'बैकअप पुनर्स्थापित नहीं किया जा सका',
+  'desktop.backups.loadFailed': 'वर्कस्पेस बैकअप सूचीबद्ध नहीं किए जा सके',
+  'dashboard.watchFolder.title': 'फ़ोल्डर पर नज़र रखें',
+  'dashboard.watchFolder.description':
+    'चयनित फ़ोल्डर में इमेज फ़ाइलें आते ही आयात करें।',
+  'dashboard.watchFolder.pickFolder': 'फ़ोल्डर चुनें',
+  'dashboard.watchFolder.pickTitle': 'निगरानी के लिए फ़ोल्डर चुनें',
+  'dashboard.watchFolder.idle': 'बंद',
+  'dashboard.watchFolder.watching': 'निगरानी में',
+  'dashboard.watchFolder.startFailed': 'फ़ोल्डर पर नज़र नहीं रखी जा सकी',
   'aio.pipeline.textModeTitle': 'Mode Teks',
   'aio.pipeline.textModeDescription':
     'Tentukan bagaimana area terpilih diperlakukan saat render. AUTO menggunakan klasifikasi yang terdeteksi.',

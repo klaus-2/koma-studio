@@ -31,6 +31,7 @@ import { useRegionEditorStore } from '../../../pages/dashboard/stores/region-edi
 import { useCleanerStore } from '../../../pages/dashboard/stores/cleaner-store';
 import { useTranslatorStore } from '../../../pages/dashboard/stores/translator-store';
 import { createRegionTextMeasurer } from '../render-text-preview/canvasDrawing';
+import WatchFolderToggleNoir from './WatchFolderToggleNoir';
 import type {
   DashboardProcessingStatsSummary,
   LoadedImage,
@@ -579,6 +580,8 @@ export default function DashboardLeftSidebarNoir({
             )}
           </div>
         </div>
+
+        <WatchFolderToggleNoir />
       </div>
     </aside>
   );

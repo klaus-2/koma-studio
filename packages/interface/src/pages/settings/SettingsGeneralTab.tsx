@@ -9,6 +9,7 @@ import { THEME_FAMILIES } from "@koma/ui/themes/registry";
 import { UI_SCALE_OPTIONS, useUiScaleStore } from "@koma/ui/stores/ui-scale-store";
 import type { LocalResetFeedbackState, TravelTokenMetadata } from "./settings.types";
 import { shortId } from "./settings.constants";
+import { SettingsBackupsSection } from "./SettingsBackupsSection";
 
 type TranslationFn = ReturnType<typeof useI18n>["t"];
 
@@ -473,5 +474,7 @@ export const renderSettingsGeneralTab = ({
       </div>
     )}
   </section>
+
+  <SettingsBackupsSection t={t} />
 </div>
 );

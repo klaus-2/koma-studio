@@ -534,6 +534,27 @@ export const arMessages: TranslationCatalog = {
     'هناك تغييرات غير محفوظة أو دفعة قيد التشغيل. الإغلاق الآن قد يؤدي إلى فقدان التغييرات غير المحفوظة أو مقاطعة الدفعة.',
   'desktop.closeGuard.closeAnyway': 'إغلاق على أي حال',
   'desktop.closeGuard.cancel': 'إلغاء',
+  'desktop.backups.title': 'نسخ احتياطية لمساحة العمل',
+  'desktop.backups.description':
+    'نسخ احتياطية تلقائية لمساحة العمل الحالية. تؤدي الاستعادة إلى استبدال ملف مساحة العمل بالنسخة المحددة.',
+  'desktop.backups.empty': 'لا توجد نسخ احتياطية بعد.',
+  'desktop.backups.restore': 'استعادة',
+  'desktop.backups.restoreConfirmTitle': 'استعادة هذه النسخة الاحتياطية؟',
+  'desktop.backups.restoreConfirmBody':
+    'سيتم استبدال مساحة العمل الحالية بـ«{value}».',
+  'desktop.backups.restoreConfirmAccept': 'استعادة',
+  'desktop.backups.restoreConfirmCancel': 'إلغاء',
+  'desktop.backups.restoreSuccess': 'تمت استعادة النسخة الاحتياطية «{value}».',
+  'desktop.backups.restoreFailed': 'تعذر استعادة النسخة الاحتياطية',
+  'desktop.backups.loadFailed': 'تعذر سرد النسخ الاحتياطية لمساحة العمل',
+  'dashboard.watchFolder.title': 'مراقبة مجلد',
+  'dashboard.watchFolder.description':
+    'استيراد ملفات الصور فور ظهورها في المجلد المحدد.',
+  'dashboard.watchFolder.pickFolder': 'اختيار مجلد',
+  'dashboard.watchFolder.pickTitle': 'اختر مجلداً للمراقبة',
+  'dashboard.watchFolder.idle': 'متوقف',
+  'dashboard.watchFolder.watching': 'قيد المراقبة',
+  'dashboard.watchFolder.startFailed': 'تعذر مراقبة المجلد',
   'aio.pipeline.textModeTitle': 'وضع النص',
   'aio.pipeline.textModeDescription':
     'حدد كيفية معاملة المنطقة المحددة أثناء العرض. AUTO يستخدم التصنيف المكتشف.',

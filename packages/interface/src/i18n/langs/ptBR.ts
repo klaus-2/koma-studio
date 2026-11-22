@@ -572,6 +572,27 @@ export const ptBrMessages: TranslationCatalog = {
     'Há alterações não salvas ou um lote em execução. Fechar agora pode perder as alterações não salvas ou interromper o lote.',
   'desktop.closeGuard.closeAnyway': 'Fechar mesmo assim',
   'desktop.closeGuard.cancel': 'Cancelar',
+  'desktop.backups.title': 'Backups do workspace',
+  'desktop.backups.description':
+    'Backups automáticos do workspace atual. Restaurar substitui o arquivo do workspace pelo backup selecionado.',
+  'desktop.backups.empty': 'Nenhum backup ainda.',
+  'desktop.backups.restore': 'Restaurar',
+  'desktop.backups.restoreConfirmTitle': 'Restaurar este backup?',
+  'desktop.backups.restoreConfirmBody':
+    'O workspace atual será substituído por "{value}".',
+  'desktop.backups.restoreConfirmAccept': 'Restaurar',
+  'desktop.backups.restoreConfirmCancel': 'Cancelar',
+  'desktop.backups.restoreSuccess': 'Backup "{value}" restaurado.',
+  'desktop.backups.restoreFailed': 'Não foi possível restaurar o backup',
+  'desktop.backups.loadFailed': 'Não foi possível listar os backups do workspace.',
+  'dashboard.watchFolder.title': 'Vigiar pasta',
+  'dashboard.watchFolder.description':
+    'Importa arquivos de imagem assim que aparecerem na pasta escolhida.',
+  'dashboard.watchFolder.pickFolder': 'Escolher pasta',
+  'dashboard.watchFolder.pickTitle': 'Escolha uma pasta para vigiar',
+  'dashboard.watchFolder.idle': 'Desligado',
+  'dashboard.watchFolder.watching': 'Vigiando',
+  'dashboard.watchFolder.startFailed': 'Não foi possível vigiar a pasta',
   'aio.pipeline.textModeTitle': 'Modo do Texto',
   'aio.pipeline.textModeDescription':
     'Defina como a região selecionada deve ser tratada no render. AUTO usa a classificação detectada.',

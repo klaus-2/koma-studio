@@ -2,6 +2,7 @@ import { desktopBridge } from "@/lib/desktop-bridge";
 import type { IDesktopBridge } from "@shared/desktop-api";
 
 import { inferMimeTypeFromFileName } from "../../../utils/dashboard.utils";
+import { registerPageSourcePath } from "../../../utils/page-source";
 
 export interface ForwardedFilesIngestionDeps {
   onDrop: (files: File[]) => void | Promise<void>;
@@ -63,6 +64,10 @@ export const setForwardedFilesIngestion = (
   handler(drained);
 };
 
+export const dispatchForwardedFilePaths = (paths: string[]): void => {
+  dispatchForwardedPaths(sanitizeForwardedPaths(paths));
+};
+
 const forwardedFileName = (path: string): string => {
   const normalized = path.replace(/\\/g, "/");
   const name = normalized.slice(normalized.lastIndexOf("/") + 1).trim();
@@ -83,6 +88,31 @@ const readForwardedFile = async (
   });
 };
 
+const allowlistForwardedPath = async (
+  path: string,
+  file: File,
+  bridge: IDesktopBridge,
+): Promise<void> => {
+  const allowPaths = bridge.images.allowPaths;
+  if (!allowPaths) {
+    return;
+  }
+  try {
+    const outcomes = await allowPaths([path]);
+    if (outcomes[0]?.status === "allowed") {
+      registerPageSourcePath(file, path);
+    }
+  } catch (error) {
+    void bridge
+      .sessionLog({
+        level: "warn",
+        source: "renderer",
+        message: `koma-image allowlist failed for "${path}": ${error instanceof Error ? error.message : String(error)}`,
+      })
+      .catch(() => undefined);
+  }
+};
+
 export const ingestForwardedFilePaths = async (
   paths: string[],
   deps: ForwardedFilesIngestionDeps,
@@ -98,6 +128,9 @@ export const ingestForwardedFilePaths = async (
     try {
       const file = bridge ? await readForwardedFile(path, bridge) : null;
       if (file) {
+        if (bridge) {
+          await allowlistForwardedPath(path, file, bridge);
+        }
         files.push(file);
       } else {
         rejected.push(forwardedFileName(path));

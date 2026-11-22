@@ -561,6 +561,27 @@ export const jaMessages: TranslationCatalog = {
   'desktop.closeGuard.body': '未保存の変更があるか、バッチが実行中です。今閉じると、未保存の変更が失われたりバッチが中断されたりする可能性があります。',
   'desktop.closeGuard.closeAnyway': 'それでも閉じる',
   'desktop.closeGuard.cancel': 'キャンセル',
+  'desktop.backups.title': 'ワークスペースのバックアップ',
+  'desktop.backups.description':
+    '現在のワークスペースの自動バックアップ。復元すると現在のワークスペースファイルが選択したバックアップに置き換えられます。',
+  'desktop.backups.empty': 'バックアップはまだありません。',
+  'desktop.backups.restore': '復元',
+  'desktop.backups.restoreConfirmTitle': 'このバックアップを復元しますか？',
+  'desktop.backups.restoreConfirmBody':
+    '現在のワークスペースは「{value}」に置き換えられます。',
+  'desktop.backups.restoreConfirmAccept': '復元',
+  'desktop.backups.restoreConfirmCancel': 'キャンセル',
+  'desktop.backups.restoreSuccess': 'バックアップ「{value}」を復元しました。',
+  'desktop.backups.restoreFailed': 'バックアップを復元できませんでした',
+  'desktop.backups.loadFailed': 'バックアップ一覧を取得できませんでした',
+  'dashboard.watchFolder.title': 'フォルダを監視',
+  'dashboard.watchFolder.description':
+    '選択したフォルダに画像ファイルが現れたらすぐに取り込みます。',
+  'dashboard.watchFolder.pickFolder': 'フォルダを選択',
+  'dashboard.watchFolder.pickTitle': '監視するフォルダを選択',
+  'dashboard.watchFolder.idle': 'オフ',
+  'dashboard.watchFolder.watching': '監視中',
+  'dashboard.watchFolder.startFailed': 'フォルダを監視できませんでした',
   'aio.pipeline.textModeTitle': 'テキストモード',
   'aio.pipeline.textModeDescription':
     'レンダリング時に選択領域をどのように扱うかを定義します。AUTOは検出された分類を使用します。',

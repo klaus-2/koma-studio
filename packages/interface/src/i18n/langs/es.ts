@@ -565,6 +565,27 @@ export const esMessages: TranslationCatalog = {
     'Hay cambios sin guardar o un lote en ejecución. Cerrar ahora puede perder los cambios sin guardar o interrumpir el lote.',
   'desktop.closeGuard.closeAnyway': 'Cerrar igualmente',
   'desktop.closeGuard.cancel': 'Cancelar',
+  'desktop.backups.title': 'Copias de seguridad del workspace',
+  'desktop.backups.description':
+    'Copias de seguridad automáticas del workspace actual. Restaurar reemplaza el archivo del workspace por la copia seleccionada.',
+  'desktop.backups.empty': 'Todavía no hay copias de seguridad.',
+  'desktop.backups.restore': 'Restaurar',
+  'desktop.backups.restoreConfirmTitle': '¿Restaurar esta copia?',
+  'desktop.backups.restoreConfirmBody':
+    'El workspace actual será reemplazado por "{value}".',
+  'desktop.backups.restoreConfirmAccept': 'Restaurar',
+  'desktop.backups.restoreConfirmCancel': 'Cancelar',
+  'desktop.backups.restoreSuccess': 'Copia "{value}" restaurada.',
+  'desktop.backups.restoreFailed': 'No se pudo restaurar la copia',
+  'desktop.backups.loadFailed': 'No se pudieron listar las copias del workspace.',
+  'dashboard.watchFolder.title': 'Vigilar carpeta',
+  'dashboard.watchFolder.description':
+    'Importa archivos de imagen en cuanto aparezcan en la carpeta elegida.',
+  'dashboard.watchFolder.pickFolder': 'Elegir carpeta',
+  'dashboard.watchFolder.pickTitle': 'Elige una carpeta para vigilar',
+  'dashboard.watchFolder.idle': 'Apagado',
+  'dashboard.watchFolder.watching': 'Vigiando',
+  'dashboard.watchFolder.startFailed': 'No se pudo vigiar la carpeta',
   'aio.pipeline.textModeTitle': 'Modo de texto',
   'aio.pipeline.textModeDescription':
     'Define cómo se debe tratar la región seleccionada durante el renderizado. AUTO usa la clasificación detectada.',

@@ -42,6 +42,7 @@ import type {
   SheetWorkerResponse,
 } from './exportSheetWorker';
 import { encodeCanvasToBlob } from './export-download.encode';
+import { streamBundleViaShell } from './export-download.bundle-bridge';
 import { createExportWorkerPool, type ExportWorkerPool } from './exportWorkerPool';
 import { ensureDirectPageUrl } from './image-collection';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
@@ -53,6 +54,12 @@ import { useWorksStore } from '../stores/works-store';
 
 export { useDashboardDownloadActions, useDashboardPsdDownload } from './export-download.actions';
 export { useExportDownloadAvailability } from './export-download.availability';
+
+export interface DownloadBundleResult {
+  readonly fileName: string;
+  readonly blob: Blob | null;
+  readonly shellFilePath: string | null;
+}
 
 let sharedExportPool: ExportWorkerPool | null = null;
 const getExportPool = (): ExportWorkerPool => {
@@ -399,7 +406,7 @@ export function useDashboardDownloadBundle({
   const buildDownloadBundleBlob = useCallback(async (
     scope: ProcessableMode,
     entries: PreparedDownloadEntry[],
-  ): Promise<{ blob: Blob; fileName: string }> => {
+  ): Promise<DownloadBundleResult> => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const extensionByFormat: Record<DownloadBundleFormat, string> = {
       zip: 'zip',
@@ -444,6 +451,7 @@ export function useDashboardDownloadBundle({
       return {
         blob: new Blob([result.blobBytes], { type: result.mimeType }),
         fileName: resolveBundleFileName(namingPattern, orderedEntries[0] ?? entries[0], scope, timestamp, targetExt),
+        shellFilePath: null,
       };
     }
 
@@ -517,6 +525,20 @@ export function useDashboardDownloadBundle({
     const zipEntries: WorkerZipEntry[] = Object.entries(zipFiles).map(
       ([path, bytes]) => ({ path, bytes }),
     );
+    const fileName = resolveBundleFileName(namingPattern, orderedEntries[0] ?? entries[0], scope, timestamp, targetExt);
+    if (downloadBundleFormat === 'zip' || downloadBundleFormat === 'cbz') {
+      const outcome = await streamBundleViaShell(downloadBundleFormat, fileName, zipEntries);
+      if (outcome !== null) {
+        if (!outcome.cancelled) {
+          useExportStore.getState().setLastExportedFilePath(outcome.filePath);
+        }
+        return {
+          blob: null,
+          fileName,
+          shellFilePath: outcome.cancelled ? null : outcome.filePath,
+        };
+      }
+    }
     const result = await getExportPool().package({
       bundleFormat: downloadBundleFormat,
       scope,
@@ -533,7 +555,8 @@ export function useDashboardDownloadBundle({
     });
     return {
       blob: new Blob([result.blobBytes], { type: result.mimeType }),
-      fileName: resolveBundleFileName(namingPattern, orderedEntries[0] ?? entries[0], scope, timestamp, targetExt),
+      fileName,
+      shellFilePath: null,
     };
   }, [
 

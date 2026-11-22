@@ -503,6 +503,27 @@ export const zhMessages: TranslationCatalog = {
   'desktop.closeGuard.body': '有未儲存的變更或批次正在執行。現在關閉可能遺失未儲存的變更或中斷批次。',
   'desktop.closeGuard.closeAnyway': '仍要關閉',
   'desktop.closeGuard.cancel': '取消',
+  'desktop.backups.title': '工作區備份',
+  'desktop.backups.description':
+    '目前工作區的自動備份。還原後，目前工作區檔案將被所選備份取代。',
+  'desktop.backups.empty': '尚無備份。',
+  'desktop.backups.restore': '還原',
+  'desktop.backups.restoreConfirmTitle': '還原此備份？',
+  'desktop.backups.restoreConfirmBody':
+    '目前工作區將被「{value}」取代。',
+  'desktop.backups.restoreConfirmAccept': '還原',
+  'desktop.backups.restoreConfirmCancel': '取消',
+  'desktop.backups.restoreSuccess': '已還原備份「{value}」。',
+  'desktop.backups.restoreFailed': '無法還原備份',
+  'desktop.backups.loadFailed': '無法列出工作區備份',
+  'dashboard.watchFolder.title': '監視資料夾',
+  'dashboard.watchFolder.description':
+    '所選資料夾一旦出現圖片檔就立即匯入。',
+  'dashboard.watchFolder.pickFolder': '選擇資料夾',
+  'dashboard.watchFolder.pickTitle': '選擇要監視的資料夾',
+  'dashboard.watchFolder.idle': '關閉',
+  'dashboard.watchFolder.watching': '監視中',
+  'dashboard.watchFolder.startFailed': '無法監視該資料夾',
   'aio.pipeline.textModeTitle': '文字模式',
   'aio.pipeline.textModeDescription':
     '定義所選區域在��染時的處理方式。AUTO 使用偵測到的分類。',

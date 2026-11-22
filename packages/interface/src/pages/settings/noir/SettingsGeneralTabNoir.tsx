@@ -10,6 +10,7 @@ import { UI_SCALE_OPTIONS, useUiScaleStore } from "@koma/ui/stores/ui-scale-stor
 import type { LocalResetFeedbackState, TravelTokenMetadata } from "../settings.types";
 import { shortId } from "../settings.constants";
 import { Sec, Field, SpecGrid, SpecRow, Alert, ToggleRow, btnGhost, btnDanger, chip, selectCls } from "./primitives";
+import { SettingsBackupsSectionNoir } from "./SettingsBackupsSectionNoir";
 
 type TranslationFn = ReturnType<typeof useI18n>["t"];
 
@@ -276,5 +277,7 @@ export const renderSettingsGeneralTabNoir = ({
         </div>
       )}
     </Sec>
+
+    <SettingsBackupsSectionNoir t={t} />
   </div>
 );

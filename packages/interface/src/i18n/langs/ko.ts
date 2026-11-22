@@ -541,6 +541,27 @@ export const koMessages: TranslationCatalog = {
     '저장되지 않은 변경 사항이 있거나 배치가 실행 중입니다. 지금 닫으면 저장되지 않은 변경 사항이 손실되거나 배치가 중단될 수 있습니다.',
   'desktop.closeGuard.closeAnyway': '그래도 닫기',
   'desktop.closeGuard.cancel': '취소',
+  'desktop.backups.title': '워크스페이스 백업',
+  'desktop.backups.description':
+    '현재 워크스페이스의 자동 백업입니다. 복원하면 현재 워크스페이스 파일이 선택한 백업으로 대체됩니다.',
+  'desktop.backups.empty': '아직 백업이 없습니다.',
+  'desktop.backups.restore': '복원',
+  'desktop.backups.restoreConfirmTitle': '이 백업을 복원하시겠습니까?',
+  'desktop.backups.restoreConfirmBody':
+    '현재 워크스페이스가 "{value}"(으)로 대체됩니다.',
+  'desktop.backups.restoreConfirmAccept': '복원',
+  'desktop.backups.restoreConfirmCancel': '취소',
+  'desktop.backups.restoreSuccess': '백업 "{value}"을(를) 복원했습니다.',
+  'desktop.backups.restoreFailed': '백업을 복원하지 못했습니다',
+  'desktop.backups.loadFailed': '백업 목록을 가져오지 못했습니다',
+  'dashboard.watchFolder.title': '폴더 감시',
+  'dashboard.watchFolder.description':
+    '선택한 폴더에 이미지 파일이 나타나는 즉시 가져옵니다.',
+  'dashboard.watchFolder.pickFolder': '폴더 선택',
+  'dashboard.watchFolder.pickTitle': '감시할 폴더를 선택하세요',
+  'dashboard.watchFolder.idle': '꺼짐',
+  'dashboard.watchFolder.watching': '감시 중',
+  'dashboard.watchFolder.startFailed': '폴더를 감시하지 못했습니다',
   'aio.pipeline.textModeTitle': '텍스트 모드',
   'aio.pipeline.textModeDescription':
     '렌더 시 선택된 영역의 처리 방식을 정의합니다. AUTO는 감지된 분류를 사용합니다.',

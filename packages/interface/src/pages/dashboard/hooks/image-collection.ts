@@ -20,6 +20,10 @@ import { getOrCreateThumbnailForPage } from '../../../utils/getOrCreateThumbnail
 import { revokeLoadedImageUrls } from '../../../utils/imagePerformance';
 import { runConcurrentBatch } from '../../../utils/concurrentBatch';
 import {
+  buildKomaImagePageUrl,
+  hasKomaImageProtocolBridge,
+} from '../../../utils/koma-media-url';
+import {
   importArchiveChapter,
   importDirectPage,
 } from '../lib/chapter-archive-import';
@@ -96,7 +100,9 @@ export function useDashboardUploads({
         // For an archive-backed page there is no URL yet: the page's bytes are
         // materialized on demand, so the preview resolves one when it is shown.
         const url = file.kind === 'direct'
-          ? URL.createObjectURL(file.resident as Blob)
+          ? (file.sourcePath !== undefined && hasKomaImageProtocolBridge()
+            ? buildKomaImagePageUrl(file.sourcePath)
+            : URL.createObjectURL(file.resident as Blob))
           : '';
         const chapterFields = chapter
           ? { chapterId: chapter.id, chapterLabel: chapter.label }
@@ -500,6 +506,9 @@ const scheduleDirectPageUrlFlush = (): void => {
 export const ensureDirectPageUrl = (img: LoadedImage): string => {
   if (img.url !== '') return img.url;
   if (img.file.kind !== 'direct') return img.url;
+  if (img.file.sourcePath !== undefined && hasKomaImageProtocolBridge()) {
+    return buildKomaImagePageUrl(img.file.sourcePath);
+  }
   const current = useImageCollectionStore
     .getState()
     .images.find((candidate) => candidate.id === img.id);

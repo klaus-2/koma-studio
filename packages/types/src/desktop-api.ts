@@ -418,6 +418,67 @@ export interface DesktopWindowDirtyPayload {
   dirty: boolean;
 }
 
+export type DesktopBundleExtension = "zip" | "cbz";
+
+export interface DesktopBundleBeginPayload {
+  extension: DesktopBundleExtension;
+  defaultFileName?: string;
+}
+
+export interface DesktopBundleBeginResult {
+  cancelled: boolean;
+  sessionId: string | null;
+  filePath: string | null;
+}
+
+export interface DesktopBundleAppendPayload {
+  sessionId: string;
+  name: string;
+  data: ArrayBuffer;
+}
+
+export interface DesktopBundleFinalizePayload {
+  sessionId: string;
+}
+
+export interface DesktopBundleFinalizeResult {
+  filePath: string | null;
+}
+
+export interface DesktopWatchStartPayload {
+  folderPath: string;
+}
+
+export interface DesktopWatchStartResult {
+  watching: boolean;
+  error?: string;
+}
+
+export interface DesktopWatchFileEvent {
+  filePath: string;
+  fileName: string;
+}
+
+export interface DesktopBackupEntry {
+  fileName: string;
+  path: string;
+  sizeBytes: number;
+  modifiedAt: string;
+}
+
+export interface DesktopBackupListResult {
+  backups: DesktopBackupEntry[];
+}
+
+export interface DesktopBackupRestorePayload {
+  fileName: string;
+}
+
+export interface DesktopBackupRestoreResult {
+  ok: boolean;
+  error?: string;
+}
+
 export interface DesktopReadForwardedPayload {
   path: string;
 }
@@ -477,6 +538,8 @@ export const desktopCommandChannels = {
     clearAutosave: "desktop-workspace:clear-autosave",
     exportCurrent: "desktop-workspace:export-current",
     importFile: "desktop-workspace:import-file",
+    listBackups: "desktop-workspace:list-backups",
+    restoreBackup: "desktop-workspace:restore-backup",
   },
   files: {
     saveBlob: "desktop:files:save-blob",
@@ -497,6 +560,15 @@ export const desktopCommandChannels = {
   },
   notifications: {
     show: "desktop:notification:show",
+  },
+  bundle: {
+    begin: "desktop:export:begin-bundle",
+    append: "desktop:export:append-entry",
+    finalize: "desktop:export:finalize-bundle",
+  },
+  watch: {
+    start: "desktop:watch:start",
+    stop: "desktop:watch:stop",
   },
   api: {
     auth: {
@@ -621,6 +693,8 @@ export interface DesktopWorkspaceApi {
   ): Promise<WorkspaceAutosaveClearResult>;
   exportCurrent(payload: WorkspaceExportPayload): Promise<WorkspaceExportResult>;
   importFile(): Promise<WorkspaceImportResult>;
+  listBackups?(): Promise<DesktopBackupListResult>;
+  restoreBackup?(payload: DesktopBackupRestorePayload): Promise<DesktopBackupRestoreResult>;
 }
 
 /**
@@ -852,6 +926,16 @@ export interface IDesktopBridge {
   onCloseRequested?(
     listener: (payload: { hasUnsavedWork: boolean; batchRunning: boolean }) => void,
   ): () => void;
+  onWatchFile?(listener: (payload: DesktopWatchFileEvent) => void): () => void;
+  bundle?: {
+    begin(payload: DesktopBundleBeginPayload): Promise<DesktopBundleBeginResult>;
+    append(payload: DesktopBundleAppendPayload): Promise<void>;
+    finalize(payload: DesktopBundleFinalizePayload): Promise<DesktopBundleFinalizeResult>;
+  };
+  watch?: {
+    start(payload: DesktopWatchStartPayload): Promise<DesktopWatchStartResult>;
+    stop(): Promise<void>;
+  };
 }
 
 export interface IUpdaterSyncBridge {

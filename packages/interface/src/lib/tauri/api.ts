@@ -17,6 +17,11 @@ import type {
   AuthTravelTokenPayload,
   DeepLinkExtractPayload,
   DeepLinkUrlPayload,
+  DesktopBackupListResult,
+  DesktopBackupRestorePayload,
+  DesktopBundleAppendPayload,
+  DesktopBundleBeginPayload,
+  DesktopBundleFinalizePayload,
   DesktopCommandName,
   DesktopApiEnvelope,
   DesktopFontEntry,
@@ -27,10 +32,13 @@ import type {
   DesktopImageAllowOutcome,
   DesktopImageFolderPage,
   DesktopImageFolderPayload,
+  DesktopImageThumbnailPayload,
   DesktopModelDownloadPayload,
   DesktopModelImportOnnxPayload,
   DesktopSessionLogPayload,
   DesktopAuthSessionSnapshot,
+  DesktopWatchFileEvent,
+  DesktopWatchStartPayload,
   DiscordWebhookPayload,
   FontImportPayload,
   FontInstallPayload,
@@ -195,8 +203,13 @@ const forwardedFilesListeners = new Map<
   (payload: DesktopForwardedFilesPayload) => void,
   Promise<UnlistenFn>
 >();
+const watchFileListeners = new Map<
+  (payload: DesktopWatchFileEvent) => void,
+  Promise<UnlistenFn>
+>();
 
 const FORWARDED_FILES_EVENT = "desktop:files:forwarded";
+const WATCH_FILE_EVENT = "desktop:watch:file";
 
 const normalizeFontEntry = (entry: unknown): DesktopFontEntry | null => {
   if (!entry || typeof entry !== "object") {
@@ -246,6 +259,93 @@ const normalizeForwardedFilesPayload = (
     return null;
   }
   return { paths: paths.filter((path): path is string => typeof path === "string") };
+};
+
+const normalizeWatchFileEvent = (value: unknown): DesktopWatchFileEvent | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as { filePath?: unknown; fileName?: unknown };
+  if (typeof record.filePath !== "string" || typeof record.fileName !== "string") {
+    return null;
+  }
+  return { filePath: record.filePath, fileName: record.fileName };
+};
+
+const normalizeBackupListResult = (value: unknown): DesktopBackupListResult => {
+  const record =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const backups = Array.isArray(record.backups)
+    ? record.backups
+        .map((entry): DesktopBackupListResult["backups"][number] | null => {
+          if (!entry || typeof entry !== "object") {
+            return null;
+          }
+          const item = entry as Record<string, unknown>;
+          if (
+            typeof item.fileName !== "string" ||
+            typeof item.path !== "string" ||
+            typeof item.sizeBytes !== "number" ||
+            typeof item.modifiedAt !== "string"
+          ) {
+            return null;
+          }
+          return {
+            fileName: item.fileName,
+            path: item.path,
+            sizeBytes: item.sizeBytes,
+            modifiedAt: item.modifiedAt,
+          };
+        })
+        .filter((entry): entry is DesktopBackupListResult["backups"][number] => entry !== null)
+    : [];
+  return { backups };
+};
+
+const normalizeBundleBeginResult = (
+  value: unknown,
+): { cancelled: boolean; sessionId: string | null; filePath: string | null } => {
+  const record =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return {
+    cancelled: record.cancelled === true,
+    sessionId: typeof record.sessionId === "string" ? record.sessionId : null,
+    filePath: typeof record.filePath === "string" ? record.filePath : null,
+  };
+};
+
+const normalizeBundleFinalizeResult = (
+  value: unknown,
+): { filePath: string | null } => {
+  const record =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return { filePath: typeof record.filePath === "string" ? record.filePath : null };
+};
+
+const normalizeWatchStartResult = (
+  value: unknown,
+): { watching: boolean; error?: string } => {
+  const record =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const result: { watching: boolean; error?: string } = {
+    watching: record.watching === true,
+  };
+  if (typeof record.error === "string") {
+    result.error = record.error;
+  }
+  return result;
+};
+
+const normalizeBackupRestoreResult = (
+  value: unknown,
+): { ok: boolean; error?: string } => {
+  const record =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const result: { ok: boolean; error?: string } = { ok: record.ok === true };
+  if (typeof record.error === "string") {
+    result.error = record.error;
+  }
+  return result;
 };
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
@@ -399,6 +499,17 @@ const tauriDesktopBridge: IDesktopBridge = {
         payload: payload.payload,
       }),
     importFile: () => invokeCommand(desktopCommandChannels.workspace.importFile),
+    listBackups: async () =>
+      normalizeBackupListResult(
+        await invokeCommand<unknown>(desktopCommandChannels.workspace.listBackups),
+      ),
+    restoreBackup: async (payload: DesktopBackupRestorePayload) =>
+      normalizeBackupRestoreResult(
+        await invokeCommand<unknown>(
+          desktopCommandChannels.workspace.restoreBackup,
+          { payload: { fileName: payload.fileName } },
+        ),
+      ),
   },
   files: {
     saveBlob: async (payload: { defaultFileName: string; data: ArrayBuffer }) => {
@@ -415,6 +526,62 @@ const tauriDesktopBridge: IDesktopBridge = {
       );
       return { data: base64ToArrayBuffer(result.data) };
     },
+  },
+  bundle: {
+    begin: async (payload: DesktopBundleBeginPayload) => {
+      const result: unknown = await invokeCommand(
+        desktopCommandChannels.bundle.begin,
+        {
+          payload: {
+            extension: payload.extension,
+            ...(payload.defaultFileName !== undefined
+              ? { defaultFileName: payload.defaultFileName }
+              : {}),
+          },
+        },
+      );
+      return normalizeBundleBeginResult(result);
+    },
+    append: (payload: DesktopBundleAppendPayload) =>
+      invokeCommand<void>(desktopCommandChannels.bundle.append, {
+        payload: {
+          sessionId: payload.sessionId,
+          name: payload.name,
+          data: arrayBufferToBase64(payload.data),
+        },
+      }),
+    finalize: async (payload: DesktopBundleFinalizePayload) => {
+      const result: unknown = await invokeCommand(
+        desktopCommandChannels.bundle.finalize,
+        { payload: { sessionId: payload.sessionId } },
+      );
+      return normalizeBundleFinalizeResult(result);
+    },
+  },
+  watch: {
+    start: async (payload: DesktopWatchStartPayload) => {
+      const result: unknown = await invokeCommand(
+        desktopCommandChannels.watch.start,
+        { payload: { folderPath: payload.folderPath } },
+      );
+      return normalizeWatchStartResult(result);
+    },
+    stop: () => invokeCommand<void>(desktopCommandChannels.watch.stop),
+  },
+  onWatchFile: (listener: (payload: DesktopWatchFileEvent) => void) => {
+    registerListener(
+      watchFileListeners,
+      listener,
+      listen<unknown>(WATCH_FILE_EVENT, (event) => {
+        const payload = normalizeWatchFileEvent(event.payload);
+        if (payload) {
+          listener(payload);
+        }
+      }),
+    );
+    return () => {
+      unregisterListener(watchFileListeners, listener);
+    };
   },
   api: {
     auth: {
@@ -591,6 +758,17 @@ const tauriDesktopBridge: IDesktopBridge = {
         desktopCommandChannels.images.allowPaths,
         { paths },
       ),
+    thumbnail: (payload: DesktopImageThumbnailPayload) =>
+      invokeCommand<{ data: string; mimeType: string }>(
+        desktopCommandChannels.images.thumbnail,
+        {
+          filePath: payload.filePath,
+          ...(payload.maxDim !== undefined ? { maxDim: payload.maxDim } : {}),
+        },
+      ).then((result) => ({
+        data: base64ToArrayBuffer(result.data),
+        mimeType: result.mimeType,
+      })),
   },
   discordRPC: {
     setEnabled: (enabled: boolean) =>

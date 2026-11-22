@@ -598,6 +598,27 @@ export const enMessages = {
     'There are unsaved changes or a batch is running. Closing now may lose unsaved changes or interrupt the batch.',
   'desktop.closeGuard.closeAnyway': 'Close anyway',
   'desktop.closeGuard.cancel': 'Cancel',
+  'desktop.backups.title': 'Workspace backups',
+  'desktop.backups.description':
+    'Automatic backups of the current workspace. Restoring replaces the live workspace file with the selected backup.',
+  'desktop.backups.empty': 'No backups yet.',
+  'desktop.backups.restore': 'Restore',
+  'desktop.backups.restoreConfirmTitle': 'Restore this backup?',
+  'desktop.backups.restoreConfirmBody':
+    'The current workspace will be replaced by "{value}".',
+  'desktop.backups.restoreConfirmAccept': 'Restore',
+  'desktop.backups.restoreConfirmCancel': 'Cancel',
+  'desktop.backups.restoreSuccess': 'Backup "{value}" restored.',
+  'desktop.backups.restoreFailed': 'Could not restore the backup',
+  'desktop.backups.loadFailed': 'Could not list the workspace backups.',
+  'dashboard.watchFolder.title': 'Watch folder',
+  'dashboard.watchFolder.description':
+    'Import image files as soon as they appear in the chosen folder.',
+  'dashboard.watchFolder.pickFolder': 'Pick folder',
+  'dashboard.watchFolder.pickTitle': 'Choose a folder to watch',
+  'dashboard.watchFolder.idle': 'Off',
+  'dashboard.watchFolder.watching': 'Watching',
+  'dashboard.watchFolder.startFailed': 'The folder could not be watched',
   'aio.pipeline.textModeTitle': 'Text Mode',
   'aio.pipeline.textModeDescription':
     'Define how the selected region should be treated during render. AUTO uses the detected classification.',

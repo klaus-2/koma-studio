@@ -500,6 +500,27 @@ export const zhMessages: TranslationCatalog = {
   'desktop.closeGuard.body': '有未保存的更改或批次正在运行。现在关闭可能丢失未保存的更改或中断批次。',
   'desktop.closeGuard.closeAnyway': '仍然关闭',
   'desktop.closeGuard.cancel': '取消',
+  'desktop.backups.title': '工作区备份',
+  'desktop.backups.description':
+    '当前工作区的自动备份。恢复后，当前工作区文件将被所选备份替换。',
+  'desktop.backups.empty': '暂无备份。',
+  'desktop.backups.restore': '恢复',
+  'desktop.backups.restoreConfirmTitle': '恢复此备份？',
+  'desktop.backups.restoreConfirmBody':
+    '当前工作区将被“{value}”替换。',
+  'desktop.backups.restoreConfirmAccept': '恢复',
+  'desktop.backups.restoreConfirmCancel': '取消',
+  'desktop.backups.restoreSuccess': '已恢复备份“{value}”。',
+  'desktop.backups.restoreFailed': '无法恢复备份',
+  'desktop.backups.loadFailed': '无法列出工作区备份',
+  'dashboard.watchFolder.title': '监视文件夹',
+  'dashboard.watchFolder.description':
+    '所选文件夹中一旦出现图像文件就立即导入。',
+  'dashboard.watchFolder.pickFolder': '选择文件夹',
+  'dashboard.watchFolder.pickTitle': '选择要监视的文件夹',
+  'dashboard.watchFolder.idle': '关闭',
+  'dashboard.watchFolder.watching': '监视中',
+  'dashboard.watchFolder.startFailed': '无法监视该文件夹',
   'aio.pipeline.textModeTitle': '文本模式',
   'aio.pipeline.textModeDescription':
     '定义选中区域在渲染时的处理方式。AUTO 使用检测到的分类。',

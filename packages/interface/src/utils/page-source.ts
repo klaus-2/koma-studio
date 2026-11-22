@@ -6,6 +6,10 @@ import {
   type ArchiveEntryMeta,
 } from './archive-chapter-reader';
 import { readBlobBytes } from './blob-bytes';
+import {
+  buildKomaImagePageUrl,
+  hasKomaImageProtocolBridge,
+} from './koma-media-url';
 
 export interface PageDimensions {
   readonly width: number;
@@ -29,6 +33,7 @@ export interface PageFileBase {
 export interface DirectPageFile extends PageFileBase, ResidentPageBytes {
   readonly kind: 'direct';
   readonly resident: File;
+  readonly sourcePath?: string;
 }
 
 export interface ArchivePageFile extends PageFileBase {
@@ -57,20 +62,46 @@ const toBlobPart = (bytes: Uint8Array): ArrayBuffer => {
   return copy;
 };
 
-export const createDirectPageFile = (file: File): DirectPageFile => ({
-  kind: 'direct',
-  name: file.name,
-  type: file.type || 'application/octet-stream',
-  size: file.size,
-  lastModified: file.lastModified,
-  resident: file,
-  toBlob: async () => file,
-  dimensions: async () => {
-    const size = await readImageDimensions(file);
-    return size ?? UNKNOWN_DIMENSIONS;
-  },
-  release: () => {},
-});
+const pageSourcePaths = new WeakMap<File, string>();
+
+export const registerPageSourcePath = (file: File, sourcePath: string): void => {
+  const trimmed = sourcePath.trim();
+  if (trimmed.length > 0) {
+    pageSourcePaths.set(file, trimmed);
+  }
+};
+
+const resolveDirectPageSourcePath = (
+  file: File,
+  sourcePath?: string,
+): string | undefined => {
+  if (sourcePath !== undefined && sourcePath.trim().length > 0) {
+    return sourcePath.trim();
+  }
+  return pageSourcePaths.get(file);
+};
+
+export const createDirectPageFile = (
+  file: File,
+  sourcePath?: string,
+): DirectPageFile => {
+  const resolvedSourcePath = resolveDirectPageSourcePath(file, sourcePath);
+  return {
+    kind: 'direct',
+    name: file.name,
+    type: file.type || 'application/octet-stream',
+    size: file.size,
+    lastModified: file.lastModified,
+    resident: file,
+    ...(resolvedSourcePath !== undefined ? { sourcePath: resolvedSourcePath } : {}),
+    toBlob: async () => file,
+    dimensions: async () => {
+      const size = await readImageDimensions(file);
+      return size ?? UNKNOWN_DIMENSIONS;
+    },
+    release: () => {},
+  };
+};
 
 const readImageDimensions = async (
   blob: Blob,
@@ -182,6 +213,15 @@ export const resolvePagePreview = async (
   if (image.file.kind === 'direct') {
     if (image.url !== '') {
       return { src: image.url, release: () => {} };
+    }
+    if (
+      image.file.sourcePath !== undefined &&
+      hasKomaImageProtocolBridge()
+    ) {
+      return {
+        src: buildKomaImagePageUrl(image.file.sourcePath),
+        release: () => {},
+      };
     }
     const transientUrl = URL.createObjectURL(image.file.resident);
     return {

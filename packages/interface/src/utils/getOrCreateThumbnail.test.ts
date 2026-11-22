@@ -37,6 +37,48 @@ const encodeState = vi.hoisted(() => {
   };
 });
 
+const bridgeState = vi.hoisted(() => {
+  const calls: { filePath: string; maxDim?: number }[] = [];
+  let result:
+    | { data: ArrayBuffer; mimeType: string }
+    | Error
+    | null = null;
+  return {
+    calls,
+    setResult: (next: { data: ArrayBuffer; mimeType: string } | Error | null): void => {
+      result = next;
+    },
+    thumbnail: async (
+      payload: { filePath: string; maxDim?: number },
+    ): Promise<{ data: ArrayBuffer; mimeType: string }> => {
+      calls.push(payload);
+      if (result instanceof Error) {
+        throw result;
+      }
+      if (result === null) {
+        throw new Error('shell thumbnail unavailable');
+      }
+      return result;
+    },
+    reset: (): void => {
+      calls.length = 0;
+      result = null;
+    },
+  };
+});
+
+vi.mock('@/lib/desktop-bridge', () => ({
+  desktopBridge: {
+    get desktop(): unknown {
+      return {
+        images: {
+          thumbnail: bridgeState.thumbnail,
+        },
+      };
+    },
+  },
+}));
+
 vi.mock('./imagePerformance', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./imagePerformance')>();
   return {
@@ -174,6 +216,7 @@ beforeEach(() => {
   clearThumbnailCache();
   encodeState.calls.length = 0;
   encodeState.setMode('thumb');
+  bridgeState.reset();
   objectUrlCounter = 0;
   vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
     objectUrlCounter += 1;
@@ -341,6 +384,47 @@ describe('getOrCreateThumbnailForPage (content-hash tiers)', () => {
     expect(await pending).toBeNull();
     vi.useRealTimers();
     expect(encodeState.calls).toHaveLength(2);
+  });
+
+  it('uses the shell thumbnail for a path-backed page and stores it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      async (): Promise<ThumbnailReadResponse> => ({
+        ok: true,
+        blob: async () => makeThumbnailBlob('shell-png-bytes'),
+      }),
+    );
+    const file = createDirectPageFile(
+      new File([new Uint8Array([1, 2, 3])], 'page.png', { type: 'image/png' }),
+      'C:/comics/page.png',
+    );
+    bridgeState.setResult({ data: new ArrayBuffer(8), mimeType: 'image/png' });
+    const hash = await sha256Hex(file.resident);
+
+    const result = await getOrCreateThumbnailForPage(file, 'blob:src-shell');
+
+    expect(result).toBe('blob:mock-url-1');
+    expect(bridgeState.calls).toEqual([
+      { filePath: 'C:/comics/page.png', maxDim: 400 },
+    ]);
+    expect(encodeState.calls).toHaveLength(0);
+    expect(getCachedThumbnailByKey(`opfs:${hash}:400:600:0.7`)).toBe(result);
+  });
+
+  it('falls back to the canvas encode when the shell thumbnail fails', async () => {
+    const file = createDirectPageFile(
+      new File([new Uint8Array([4, 5])], 'page.png', { type: 'image/png' }),
+      'C:/comics/broken.png',
+    );
+    bridgeState.setResult(new Error('shell decode failed'));
+
+    const result = await getOrCreateThumbnailForPage(file, 'blob:src-shell-fb');
+
+    expect(result).toBe('blob:encoded-1');
+    expect(bridgeState.calls).toHaveLength(1);
+    expect(encodeState.calls).toEqual([
+      { srcUrl: 'blob:src-shell-fb', width: 400, height: 600, quality: 0.7 },
+    ]);
   });
 
   it('drops both LRU keys when the loaded image URL is revoked and re-imports fresh', async () => {

@@ -563,6 +563,27 @@ export const ruMessages: TranslationCatalog = {
     'Есть несохранённые изменения или выполняется пакет. Если закрыть сейчас, несохранённые изменения могут быть потеряны, а пакет — прерван.',
   'desktop.closeGuard.closeAnyway': 'Всё равно закрыть',
   'desktop.closeGuard.cancel': 'Отмена',
+  'desktop.backups.title': 'Резервные копии workspace',
+  'desktop.backups.description':
+    'Автоматические резервные копии текущего workspace. Восстановление заменяет файл workspace выбранной копией.',
+  'desktop.backups.empty': 'Пока нет резервных копий.',
+  'desktop.backups.restore': 'Восстановить',
+  'desktop.backups.restoreConfirmTitle': 'Восстановить эту копию?',
+  'desktop.backups.restoreConfirmBody':
+    'Текущий workspace будет заменён на "{value}".',
+  'desktop.backups.restoreConfirmAccept': 'Восстановить',
+  'desktop.backups.restoreConfirmCancel': 'Отмена',
+  'desktop.backups.restoreSuccess': 'Резервная копия "{value}" восстановлена.',
+  'desktop.backups.restoreFailed': 'Не удалось восстановить резервную копию',
+  'desktop.backups.loadFailed': 'Не удалось получить список резервных копий',
+  'dashboard.watchFolder.title': 'Следить за папкой',
+  'dashboard.watchFolder.description':
+    'Импортирует файлы изображений, как только они появятся в выбранной папке.',
+  'dashboard.watchFolder.pickFolder': 'Выбрать папку',
+  'dashboard.watchFolder.pickTitle': 'Выберите папку для наблюдения',
+  'dashboard.watchFolder.idle': 'Выкл',
+  'dashboard.watchFolder.watching': 'Наблюдение',
+  'dashboard.watchFolder.startFailed': 'Не удалось следить за папкой',
   'aio.pipeline.textModeTitle': 'Режим текста',
   'aio.pipeline.textModeDescription':
     'Определите, как выбранная область должна обрабатываться при рендеринге. АВТО использует определённую классификацию.',

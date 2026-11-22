@@ -5,6 +5,7 @@ import {
 } from './imagePerformance';
 import { getStoredThumbnail, putStoredThumbnail } from './thumbnailStore';
 import { computeFileHash } from './fileHash';
+import { desktopBridge } from '@/lib/desktop-bridge';
 import type { DirectPageFile, PageFile } from './page-source';
 
 const THUMBNAIL_WIDTH = 400;
@@ -30,6 +31,27 @@ const hashDirectPage = (file: DirectPageFile): Promise<string> => {
   });
   directPageHashCache.set(file.resident, promise);
   return promise;
+};
+
+const shellThumbnailUrl = async (
+  file: DirectPageFile,
+): Promise<string | null> => {
+  const thumbnail = desktopBridge.desktop?.images?.thumbnail;
+  const { sourcePath } = file;
+  if (!thumbnail || !sourcePath) {
+    return null;
+  }
+  try {
+    const result = await thumbnail({
+      filePath: sourcePath,
+      maxDim: THUMBNAIL_WIDTH,
+    });
+    return URL.createObjectURL(
+      new Blob([result.data], { type: result.mimeType }),
+    );
+  } catch {
+    return null;
+  }
 };
 
 const readThumbnailBlobFromUrl = async (
@@ -80,12 +102,14 @@ export const getOrCreateThumbnailForPage = async (
       }
     }
 
-    const thumbUrl = await createThumbnailFromUrl(
-      srcUrl,
-      THUMBNAIL_WIDTH,
-      THUMBNAIL_HEIGHT,
-      THUMBNAIL_QUALITY,
-    );
+    const thumbUrl =
+      (await shellThumbnailUrl(file)) ??
+      (await createThumbnailFromUrl(
+        srcUrl,
+        THUMBNAIL_WIDTH,
+        THUMBNAIL_HEIGHT,
+        THUMBNAIL_QUALITY,
+      ));
     if (thumbUrl === srcUrl) {
       return null;
     }

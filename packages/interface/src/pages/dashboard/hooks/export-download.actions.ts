@@ -30,6 +30,7 @@ import type { RenderTextLayout } from '../../../utils/renderText.types';
 import type { TypographySessionSourceType } from '../../../typography/types';
 import { materializePageFile, resolvePagePreview } from '../../../utils/page-source';
 import { ensureDirectPageUrl } from './image-collection';
+import type { DownloadBundleResult } from './export-download';
 import type {
   AioPipelineSnapshotKey,
   AioTextRegion,
@@ -51,7 +52,7 @@ import { useUiShellStore } from '../stores/ui-shell-store';
 
 interface UseDashboardDownloadActionsArgs {
   prepareDownloadEntries: (scope: ProcessableMode) => Promise<PreparedDownloadEntry[]>;
-  buildDownloadBundleBlob: (scope: ProcessableMode, entries: PreparedDownloadEntry[]) => Promise<{ blob: Blob; fileName: string }>;
+  buildDownloadBundleBlob: (scope: ProcessableMode, entries: PreparedDownloadEntry[]) => Promise<DownloadBundleResult>;
   triggerBlobDownload: (blob: Blob, fileName: string) => void;
   setDownloadMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -142,14 +143,21 @@ export function useDashboardDownloadActions({
         return;
       }
 
-      const { blob, fileName } = await buildDownloadBundleBlob(scope, entries);
-      triggerBlobDownload(blob, fileName);
-      setDownloadMenuOpen(false);
-      if (downloadBundleFormat === 'cb7') {
-        setStatusMessage(`Pacote ${fileName} gerado (modo CB7 experimental com container ZIP).`);
+      const bundle = await buildDownloadBundleBlob(scope, entries);
+      if (bundle.blob === null) {
+        setDownloadMenuOpen(false);
+        if (bundle.shellFilePath !== null) {
+          setStatusMessage(`Package ${bundle.fileName} generated successfully.`);
+        }
         return;
       }
-      setStatusMessage(`Package ${fileName} generated successfully.`);
+      triggerBlobDownload(bundle.blob, bundle.fileName);
+      setDownloadMenuOpen(false);
+      if (downloadBundleFormat === 'cb7') {
+        setStatusMessage(`Pacote ${bundle.fileName} gerado (modo CB7 experimental com container ZIP).`);
+        return;
+      }
+      setStatusMessage(`Package ${bundle.fileName} generated successfully.`);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : 'Failed to generate the download package.');
     }

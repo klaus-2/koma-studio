@@ -534,6 +534,27 @@ export const frMessages: TranslationCatalog = {
     'Des modifications non enregistrées ou un lot sont en cours. Fermer maintenant peut perdre les modifications non enregistrées ou interrompre le lot.',
   'desktop.closeGuard.closeAnyway': 'Fermer quand même',
   'desktop.closeGuard.cancel': 'Annuler',
+  'desktop.backups.title': 'Sauvegardes du workspace',
+  'desktop.backups.description':
+    'Sauvegardes automatiques du workspace actuel. La restauration remplace le fichier du workspace par la sauvegarde choisie.',
+  'desktop.backups.empty': 'Aucune sauvegarde pour le moment.',
+  'desktop.backups.restore': 'Restaurer',
+  'desktop.backups.restoreConfirmTitle': 'Restaurer cette sauvegarde ?',
+  'desktop.backups.restoreConfirmBody':
+    'Le workspace actuel sera remplacé par "{value}".',
+  'desktop.backups.restoreConfirmAccept': 'Restaurer',
+  'desktop.backups.restoreConfirmCancel': 'Annuler',
+  'desktop.backups.restoreSuccess': 'Sauvegarde "{value}" restaurée.',
+  'desktop.backups.restoreFailed': 'Impossible de restaurer la sauvegarde',
+  'desktop.backups.loadFailed': 'Impossible de lister les sauvegardes du workspace',
+  'dashboard.watchFolder.title': 'Surveiller un dossier',
+  'dashboard.watchFolder.description':
+    'Importe les fichiers images dès qu’ils apparaissent dans le dossier choisi.',
+  'dashboard.watchFolder.pickFolder': 'Choisir un dossier',
+  'dashboard.watchFolder.pickTitle': 'Choisissez un dossier à surveiller',
+  'dashboard.watchFolder.idle': 'Inactive',
+  'dashboard.watchFolder.watching': 'Surveillance active',
+  'dashboard.watchFolder.startFailed': 'Impossible de surveiller le dossier',
   'aio.pipeline.textModeTitle': 'Mode texte',
   'aio.pipeline.textModeDescription':
     'Définissez comment la région sélectionnée doit être traitée lors du rendu. AUTO utilise la classification détectée.',

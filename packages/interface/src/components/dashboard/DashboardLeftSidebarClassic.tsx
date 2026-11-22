@@ -28,6 +28,7 @@ import {
   type SidebarPageDragHandlers,
 } from './DashboardLeftSidebarPageDragGuide';
 import { useSidebarThumbnailHydration } from './useSidebarThumbnailHydration';
+import WatchFolderToggleClassic from './WatchFolderToggleClassic';
 import { useImageCollectionStore } from '../../pages/dashboard/stores/image-collection-store';
 import SidebarChapterSelectionBar from './SidebarChapterSelectionBar';
 import { cn, formatImageDimensions } from '../../utils/dashboard.utils';
@@ -638,6 +639,8 @@ export default function DashboardLeftSidebarClassic({
             )}
           </div>
         </div>
+
+        <WatchFolderToggleClassic />
       </div>
     </aside>
   );

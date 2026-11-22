@@ -16,8 +16,14 @@ export interface DesktopBridgeStubExtras {
   onForwardedFiles?: IDesktopBridge["onForwardedFiles"];
   onBatchTrayAction?: IDesktopBridge["onBatchTrayAction"];
   onCloseRequested?: IDesktopBridge["onCloseRequested"];
+  onWatchFile?: IDesktopBridge["onWatchFile"];
   batch?: IDesktopBridge["batch"];
   windowState?: IDesktopBridge["windowState"];
+  bundle?: IDesktopBridge["bundle"];
+  watch?: IDesktopBridge["watch"];
+  imagesAllowPaths?: IDesktopBridge["images"]["allowPaths"];
+  workspaceListBackups?: IDesktopBridge["workspace"]["listBackups"];
+  workspaceRestoreBackup?: IDesktopBridge["workspace"]["restoreBackup"];
   sessionLog?: IDesktopBridge["sessionLog"];
   filesReadForwarded?: IDesktopBridge["files"]["readForwarded"];
   files?: IDesktopBridge["files"];
@@ -55,6 +61,12 @@ export const createDesktopBridgeStub = (
     clearAutosave: async () => unavailable("workspace.clearAutosave"),
     exportCurrent: async () => unavailable("workspace.exportCurrent"),
     importFile: async () => unavailable("workspace.importFile"),
+    ...(extras?.workspaceListBackups || extras?.workspaceRestoreBackup
+      ? {
+        ...(extras.workspaceListBackups ? { listBackups: extras.workspaceListBackups } : {}),
+        ...(extras.workspaceRestoreBackup ? { restoreBackup: extras.workspaceRestoreBackup } : {}),
+      }
+      : {}),
   },
   files: extras?.files ?? {
     saveBlob: async () => unavailable("files.saveBlob"),
@@ -121,6 +133,7 @@ export const createDesktopBridgeStub = (
   },
   images: {
     listFolder: async () => unavailable("images.listFolder"),
+    ...(extras?.imagesAllowPaths ? { allowPaths: extras.imagesAllowPaths } : {}),
   },
   discordRPC: {
     setEnabled: async () => unavailable("discordRPC.setEnabled"),
@@ -145,6 +158,9 @@ export const createDesktopBridgeStub = (
   onForwardedFiles: extras?.onForwardedFiles,
   onBatchTrayAction: extras?.onBatchTrayAction,
   onCloseRequested: extras?.onCloseRequested,
+  onWatchFile: extras?.onWatchFile,
   batch: extras?.batch,
   windowState: extras?.windowState,
+  bundle: extras?.bundle,
+  watch: extras?.watch,
 });

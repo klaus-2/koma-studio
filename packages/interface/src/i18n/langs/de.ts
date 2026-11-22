@@ -576,6 +576,27 @@ export const deMessages: TranslationCatalog = {
     'Es gibt ungespeicherte Änderungen oder ein laufender Stapel. Das Schließen jetzt kann ungespeicherte Änderungen verwerfen oder den Stapel unterbrechen.',
   'desktop.closeGuard.closeAnyway': 'Trotzdem schließen',
   'desktop.closeGuard.cancel': 'Abbrechen',
+  'desktop.backups.title': 'Workspace-Backups',
+  'desktop.backups.description':
+    'Automatische Backups des aktuellen Workspaces. Beim Wiederherstellen wird die aktuelle Workspace-Datei durch das ausgewählte Backup ersetzt.',
+  'desktop.backups.empty': 'Noch keine Backups.',
+  'desktop.backups.restore': 'Wiederherstellen',
+  'desktop.backups.restoreConfirmTitle': 'Dieses Backup wiederherstellen?',
+  'desktop.backups.restoreConfirmBody':
+    'Der aktuelle Workspace wird durch "{value}" ersetzt.',
+  'desktop.backups.restoreConfirmAccept': 'Wiederherstellen',
+  'desktop.backups.restoreConfirmCancel': 'Abbrechen',
+  'desktop.backups.restoreSuccess': 'Backup "{value}" wiederhergestellt.',
+  'desktop.backups.restoreFailed': 'Backup konnte nicht wiederhergestellt werden',
+  'desktop.backups.loadFailed': 'Backups konnten nicht gelistet werden',
+  'dashboard.watchFolder.title': 'Ordner überwachen',
+  'dashboard.watchFolder.description':
+    'Bilddateien werden importiert, sobald sie im gewählten Ordner erscheinen.',
+  'dashboard.watchFolder.pickFolder': 'Ordner wählen',
+  'dashboard.watchFolder.pickTitle': 'Ordner zum Überwachen wählen',
+  'dashboard.watchFolder.idle': 'Aus',
+  'dashboard.watchFolder.watching': 'Wird überwacht',
+  'dashboard.watchFolder.startFailed': 'Ordner konnte nicht überwacht werden',
   'aio.pipeline.textModeTitle': 'Textmodus',
   'aio.pipeline.textModeDescription':
     'Lege fest, wie der ausgewählte Bereich beim Rendering behandelt werden soll. AUTO verwendet die erkannte Klassifizierung.',

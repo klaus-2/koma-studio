@@ -566,6 +566,27 @@ export const itMessages: TranslationCatalog = {
     'Ci sono modifiche non salvate o un batch in esecuzione. Chiudere ora può perdere le modifiche non salvate o interrompere il batch.',
   'desktop.closeGuard.closeAnyway': 'Chiudi comunque',
   'desktop.closeGuard.cancel': 'Annulla',
+  'desktop.backups.title': 'Backup del workspace',
+  'desktop.backups.description':
+    'Backup automatici del workspace attuale. Il ripristino sostituisce il file del workspace con il backup selezionato.',
+  'desktop.backups.empty': 'Nessun backup presente.',
+  'desktop.backups.restore': 'Ripristina',
+  'desktop.backups.restoreConfirmTitle': 'Ripristinare questo backup?',
+  'desktop.backups.restoreConfirmBody':
+    'Il workspace attuale sarà sostituito da "{value}".',
+  'desktop.backups.restoreConfirmAccept': 'Ripristina',
+  'desktop.backups.restoreConfirmCancel': 'Annulla',
+  'desktop.backups.restoreSuccess': 'Backup "{value}" ripristinato.',
+  'desktop.backups.restoreFailed': 'Impossibile ripristinare il backup',
+  'desktop.backups.loadFailed': 'Impossibile elencare i backup del workspace',
+  'dashboard.watchFolder.title': 'Osserva cartella',
+  'dashboard.watchFolder.description':
+    'Importa i file immagine appena compaiono nella cartella scelta.',
+  'dashboard.watchFolder.pickFolder': 'Scegli cartella',
+  'dashboard.watchFolder.pickTitle': 'Scegli una cartella da osservare',
+  'dashboard.watchFolder.idle': 'Off',
+  'dashboard.watchFolder.watching': 'In osservazione',
+  'dashboard.watchFolder.startFailed': 'Impossibile osservare la cartella',
   'aio.pipeline.textModeTitle': 'Modalità testo',
   'aio.pipeline.textModeDescription':
     'Definisci come la regione selezionata deve essere trattata durante il rendering. AUTO usa la classificazione rilevata.',
