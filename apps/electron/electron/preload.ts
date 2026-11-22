@@ -19,7 +19,12 @@ import {
   type UpdaterListener,
   type UpdaterStatusPayload,
 } from "../../../packages/types/src/desktop-events.ts";
-import type { DesktopOpenLogsFolderResult } from "../../../packages/types/src/desktop-api.ts";
+import type {
+  DesktopClipboardImagePayload,
+  DesktopForwardedFilesPayload,
+  DesktopNotificationPayload,
+  DesktopOpenLogsFolderResult,
+} from "../../../packages/types/src/desktop-api.ts";
 import { desktopCommandChannels } from "../../../packages/types/src/desktop-api.ts";
 
 const MINI_BACKEND_RUNTIME_STATUSES: ReadonlySet<string> = new Set<MiniBackendRuntimeStatus>([
@@ -358,6 +363,43 @@ ipcRenderer.on(DESKTOP_SHORTCUT_ACTION_CHANNEL, (_event, payload: unknown) => {
   );
 });
 
+const FORWARDED_FILES_EVENT_CHANNEL = "desktop:files:forwarded";
+
+const forwardedFilesListeners = new Set<(payload: DesktopForwardedFilesPayload) => void>();
+
+const normalizeForwardedFilesPayload = (value: unknown): DesktopForwardedFilesPayload | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const payload = value as Record<string, unknown>;
+  if (!Array.isArray(payload.paths)) {
+    return null;
+  }
+
+  const paths: string[] = [];
+  for (const entry of payload.paths) {
+    if (typeof entry !== "string") {
+      return null;
+    }
+    paths.push(entry);
+  }
+  return { paths };
+};
+
+ipcRenderer.on(FORWARDED_FILES_EVENT_CHANNEL, (_event, rawPayload: unknown) => {
+  const payload = normalizeForwardedFilesPayload(rawPayload);
+  if (!payload) {
+    return;
+  }
+
+  forwardedFilesListeners.forEach((listener) => {
+    try {
+      listener(payload);
+    } catch {}
+  });
+});
+
 const installRendererSessionLogging = (): void => {
   const originalConsole = {
     log: window.console.log.bind(window.console),
@@ -444,6 +486,12 @@ contextBridge.exposeInMainWorld("desktop", {
   offMiniBackendRuntimeState: (listener: MiniBackendRuntimeListener): void => {
     miniBackendRuntimeListeners.delete(listener);
   },
+  onForwardedFiles: (listener: (payload: DesktopForwardedFilesPayload) => void): (() => void) => {
+    forwardedFilesListeners.add(listener);
+    return () => {
+      forwardedFilesListeners.delete(listener);
+    };
+  },
   locale: {
     getPreferences: async (): Promise<unknown> =>
       invokeSecureDesktopApi("desktop:locale:get-preferences"),
@@ -472,6 +520,22 @@ contextBridge.exposeInMainWorld("desktop", {
         opened: opened === true,
         path: typeof path === "string" ? path : null,
       };
+    },
+  },
+  notifications: {
+    show: async (payload: DesktopNotificationPayload): Promise<void> => {
+      await invokeSecureDesktopApi("desktop:notification:show", {
+        title: payload.title,
+        body: payload.body,
+      });
+    },
+  },
+  clipboard: {
+    writeImage: async (payload: DesktopClipboardImagePayload): Promise<void> => {
+      await invokeSecureDesktopApi("desktop:clipboard:write-image", {
+        data: payload.data,
+        mimeType: payload.mimeType,
+      });
     },
   },
   models: {
@@ -549,6 +613,20 @@ contextBridge.exposeInMainWorld("desktop", {
         defaultFileName: payload.defaultFileName,
         data: payload.data,
       })) as { cancelled: boolean; filePath: string | null },
+    readForwarded: async (payload: { path: string }): Promise<{ data: ArrayBuffer }> => {
+      const result: unknown = await invokeSecureDesktopApi(
+        desktopCommandChannels.files.readForwarded,
+        { path: payload.path },
+      );
+      const record = (result && typeof result === "object" ? result : {}) as { data?: unknown };
+      if (!(record.data instanceof Uint8Array)) {
+        throw new Error("Forwarded file read returned no byte payload.");
+      }
+      const bytes = record.data.slice();
+      const data = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(data).set(bytes);
+      return { data };
+    },
   },
   api: {
     auth: {

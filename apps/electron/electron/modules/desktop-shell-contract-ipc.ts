@@ -6,6 +6,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { ClipboardItem, clipboard, nativeImage, Notification } from "electron";
+import type {
+  DesktopClipboardImagePayload,
+  DesktopNotificationPayload,
+} from "../../../../packages/types/src/desktop-api.ts";
 import { resolveDesktopDeviceId } from "./desktop-device-id.ts";
 import { getCertificatePinsByHost } from "./certificate-pinning.ts";
 import {
@@ -13,6 +18,7 @@ import {
   deepLinkToHashRoute,
   formatDeepLinkForLog,
 } from "./deep-link.ts";
+import { isForwardedFilePathStaged } from "./forwarded-files.ts";
 import { registerSecureIpcHandler } from "./shared.ts";
 
 interface DesktopShellContractIpcDeps {
@@ -88,6 +94,22 @@ const setupDesktopShellContractIpcHandlers = (deps: DesktopShellContractIpcDeps)
     return { folderPath, files };
   });
 
+  registerSecureIpcHandler<{ data: Buffer }>(
+    "desktop:files:read-forwarded",
+    async (value) => {
+      const payload = (value ?? {}) as { path?: unknown };
+      const requestedPath = typeof payload.path === "string" ? payload.path : "";
+      if (!isForwardedFilePathStaged(requestedPath)) {
+        throw new Error("Path was not forwarded to this session.");
+      }
+      const stats = await fs.promises.stat(requestedPath);
+      if (!stats.isFile()) {
+        throw new Error("Forwarded path is not a regular file.");
+      }
+      return { data: await fs.promises.readFile(requestedPath) };
+    },
+  );
+
   // fonts: install/uninstall are not yet implemented in the electron shell —
   // return a typed error so the UI can degrade gracefully (parity with the
   // contract).
@@ -104,6 +126,35 @@ const setupDesktopShellContractIpcHandlers = (deps: DesktopShellContractIpcDeps)
       status: 501,
       payload: { error: "Font uninstall is not supported by this shell yet." },
     };
+  });
+
+  registerSecureIpcHandler<void>("desktop:notification:show", async (value) => {
+    const payload = (value ?? {}) as Partial<DesktopNotificationPayload>;
+    const title = typeof payload.title === "string" ? payload.title.trim() : "";
+    if (!title) {
+      throw new Error("Notification title is required.");
+    }
+    const body = typeof payload.body === "string" ? payload.body : undefined;
+    const notification = new Notification({
+      title,
+      body: body && body.trim().length > 0 ? body : undefined,
+    });
+    notification.show();
+  });
+
+  registerSecureIpcHandler<void>("desktop:clipboard:write-image", async (value) => {
+    const payload = (value ?? {}) as Partial<DesktopClipboardImagePayload>;
+    if (!(payload.data instanceof ArrayBuffer)) {
+      throw new Error("Clipboard image payload must carry ArrayBuffer data.");
+    }
+    if (payload.mimeType !== "image/png") {
+      throw new Error("Clipboard image payload must use mimeType image/png.");
+    }
+    const image = nativeImage.createFromBuffer(Buffer.from(payload.data));
+    if (image.isEmpty()) {
+      throw new Error("Clipboard image payload could not be decoded.");
+    }
+    await clipboard.write([new ClipboardItem({ "image/png": new Blob([Buffer.from(payload.data)], { type: "image/png" }) })]);
   });
 };
 

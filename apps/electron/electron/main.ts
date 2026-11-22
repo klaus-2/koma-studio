@@ -4,6 +4,7 @@ import {
   ipcMain,
   net as electronNet,
   protocol,
+  screen,
   session as electronSession,
   shell,
   type Session,
@@ -130,6 +131,16 @@ import {
   navigateFromDeepLink,
 } from "./modules/deep-link.ts";
 import {
+  forwardFilesToRenderer,
+  extractPendingForwardedFilePaths,
+  registerOpenFileForwarding,
+} from "./modules/forwarded-files.ts";
+import {
+  persistWindowBoundsOnClose,
+  resolveRestoredPlacement,
+  restoredBrowserWindowOptions,
+} from "./modules/window-state.ts";
+import {
   setupDesktopBugReportIpcHandlers,
 } from "./modules/bug-report.ts";
 
@@ -162,6 +173,7 @@ setDesktopIsDev(isDev);
 setDesktopDebugLogsEnabled(appFlags.debugLogsEnabled);
 
 let pendingDeepLink: string | null = null;
+let pendingForwardedFiles: string[] | null = null;
 
 const navigateMainWindowFromDeepLink = (urlValue: string): void => {
   navigateFromDeepLink(urlValue, { getMainWindow: () => mainWindow });
@@ -626,9 +638,10 @@ const createWindow = async (): Promise<void> => {
     }
   }
 
+  const restoredPlacement = resolveRestoredPlacement(app.getPath("userData"), screen);
+
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    ...restoredBrowserWindowOptions(restoredPlacement),
     minWidth: 1024,
     minHeight: 720,
     title: "KŌMA Studio",
@@ -641,6 +654,10 @@ const createWindow = async (): Promise<void> => {
       devTools: areDevToolsEnabled,
     },
   });
+
+  if (restoredPlacement?.maximized) mainWindow.maximize();
+
+  persistWindowBoundsOnClose(mainWindow, app.getPath("userData"));
 
   attachRendererDiagnostics(mainWindow);
 
@@ -736,11 +753,14 @@ const createWindow = async (): Promise<void> => {
   }
 
   mainWindow.webContents.on("did-finish-load", () => {
-    if (!pendingDeepLink) {
-      return;
+    if (pendingDeepLink) {
+      navigateMainWindowFromDeepLink(pendingDeepLink);
+      pendingDeepLink = null;
     }
-    navigateMainWindowFromDeepLink(pendingDeepLink);
-    pendingDeepLink = null;
+    if (pendingForwardedFiles) {
+      forwardFilesToRenderer(mainWindow, pendingForwardedFiles);
+      pendingForwardedFiles = null;
+    }
   });
 
   setTimeout(() => {
@@ -875,6 +895,15 @@ if (initialDeepLink) {
   pendingDeepLink = initialDeepLink;
 }
 
+pendingForwardedFiles = extractPendingForwardedFilePaths(process.argv);
+
+registerOpenFileForwarding(app, {
+  getMainWindow: () => mainWindow,
+  appendPendingForwardedPaths: (paths) => {
+    pendingForwardedFiles = [...(pendingForwardedFiles ?? []), ...paths];
+  },
+});
+
 if (!gotTheLock) {
   app.quit();
 } else {
@@ -896,6 +925,11 @@ if (!gotTheLock) {
 
     if (pendingDeepLink) {
       navigateMainWindowFromDeepLink(pendingDeepLink);
+    }
+
+    const forwardedPaths = extractPendingForwardedFilePaths(argv);
+    if (forwardedPaths) {
+      forwardFilesToRenderer(mainWindow, forwardedPaths);
     }
   });
 

@@ -219,6 +219,23 @@
         ]
       }
     ],
+    "fileAssociations": [
+      {
+        "name": "KŌMA Comic Archive",
+        "ext": "cbz",
+        "role": "Editor"
+      },
+      {
+        "name": "KŌMA Comic Archive (7z)",
+        "ext": "cb7",
+        "role": "Editor"
+      },
+      {
+        "name": "KŌMA PDF Document",
+        "ext": "pdf",
+        "role": "Editor"
+      }
+    ],
     "publish": [
       {
         "provider": "github",
