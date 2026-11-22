@@ -36,8 +36,9 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.025);
   animation: koma-dock-appear 0.22s ease forwards;
   /* Above the dashboard sidebars (3 desktop / 95 <=1100px) and the
-     chrome toggles (140); below tooltips (220) and popovers (230). */
-  z-index: 150;
+     chrome toggles (140); below the topbar (105), modals (120+) and
+     tooltips (220) / popovers (230). */
+  z-index: 100;
   pointer-events: auto;
   /* safety: never exceed viewport */
   max-height: calc(100vh - 48px);
@@ -858,7 +859,7 @@
   /* Portaled to <body> with viewport coordinates: fixed keeps it out of the
      stage's scroll/clip box and above the dashboard sidebars. */
   position: fixed;
-  z-index: 150;
+  z-index: 102;
   pointer-events: auto;
   border-radius: var(--auth-radius);
   border: 1px solid rgba(168, 85, 247, 0.1);

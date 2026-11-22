@@ -43,7 +43,7 @@ export default function KomaMobileDrawerNoir({
   const initial = userDisplayName?.charAt(0)?.toUpperCase() ?? 'K';
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[106]">
       <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
