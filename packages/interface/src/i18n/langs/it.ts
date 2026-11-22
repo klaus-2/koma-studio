@@ -561,6 +561,11 @@ export const itMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': 'Il batch ha terminato di elaborare {count} pagina/e.',
   'aio.batch.failed.notify.title': 'Batch AIO non riuscito',
   'aio.batch.failed.notify.body': 'Un errore ha interrotto il batch. Controlla il pannello di stato per i dettagli.',
+  'desktop.closeGuard.title': 'Chiudere KŌMA?',
+  'desktop.closeGuard.body':
+    'Ci sono modifiche non salvate o un batch in esecuzione. Chiudere ora può perdere le modifiche non salvate o interrompere il batch.',
+  'desktop.closeGuard.closeAnyway': 'Chiudi comunque',
+  'desktop.closeGuard.cancel': 'Annulla',
   'aio.pipeline.textModeTitle': 'Modalità testo',
   'aio.pipeline.textModeDescription':
     'Definisci come la regione selezionata deve essere trattata durante il rendering. AUTO usa la classificazione rilevata.',

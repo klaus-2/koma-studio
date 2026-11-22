@@ -529,6 +529,11 @@ export const arMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': 'أنهت الدفعة معالجة {count} صفحة/صفحات.',
   'aio.batch.failed.notify.title': 'فشلت معالجة الدفعة',
   'aio.batch.failed.notify.body': 'أوقف خطأ ما الدفعة. راجع لوحة الحالة للتفاصيل.',
+  'desktop.closeGuard.title': 'إغلاق KŌMA؟',
+  'desktop.closeGuard.body':
+    'هناك تغييرات غير محفوظة أو دفعة قيد التشغيل. الإغلاق الآن قد يؤدي إلى فقدان التغييرات غير المحفوظة أو مقاطعة الدفعة.',
+  'desktop.closeGuard.closeAnyway': 'إغلاق على أي حال',
+  'desktop.closeGuard.cancel': 'إلغاء',
   'aio.pipeline.textModeTitle': 'وضع النص',
   'aio.pipeline.textModeDescription':
     'حدد كيفية معاملة المنطقة المحددة أثناء العرض. AUTO يستخدم التصنيف المكتشف.',

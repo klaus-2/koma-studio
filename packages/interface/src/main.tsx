@@ -15,6 +15,8 @@ import { desktopBridge } from "@/lib/desktop-bridge";
 import { isConstrainedConnection } from "@/lib/network";
 import { runWhenIdle } from "./utils/runWhenIdle";
 import { KOMA_FONT_STYLESHEET_URL } from "./constants/app-webfonts";
+import { installDesktopBatchBus } from "@/pages/dashboard/lib/desktop-batch-bus";
+import { installCloseGuardSubscription } from "@/pages/dashboard/lib/desktop-close-guard";
 import { installForwardedFilesSubscription } from "@/pages/dashboard/lib/forwarded-files";
 import brandLogoPreload from "@koma/ui/assets/logo-1.webp";
 
@@ -80,6 +82,8 @@ const preloadCriticalBrandAsset = (): void => {
 
 const bootstrap = async (): Promise<void> => {
   installForwardedFilesSubscription();
+  installDesktopBatchBus();
+  installCloseGuardSubscription();
 
   preloadCriticalBrandAsset();
 

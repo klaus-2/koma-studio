@@ -14,6 +14,10 @@ export interface DesktopBridgeStubExtras {
   system?: IDesktopBridge["system"];
   clipboard?: IDesktopBridge["clipboard"];
   onForwardedFiles?: IDesktopBridge["onForwardedFiles"];
+  onBatchTrayAction?: IDesktopBridge["onBatchTrayAction"];
+  onCloseRequested?: IDesktopBridge["onCloseRequested"];
+  batch?: IDesktopBridge["batch"];
+  windowState?: IDesktopBridge["windowState"];
   sessionLog?: IDesktopBridge["sessionLog"];
   filesReadForwarded?: IDesktopBridge["files"]["readForwarded"];
   files?: IDesktopBridge["files"];
@@ -139,4 +143,8 @@ export const createDesktopBridgeStub = (
   system: extras?.system,
   clipboard: extras?.clipboard,
   onForwardedFiles: extras?.onForwardedFiles,
+  onBatchTrayAction: extras?.onBatchTrayAction,
+  onCloseRequested: extras?.onCloseRequested,
+  batch: extras?.batch,
+  windowState: extras?.windowState,
 });

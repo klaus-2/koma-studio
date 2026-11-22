@@ -567,6 +567,11 @@ export const ptBrMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': 'O lote terminou de processar {count} página(s).',
   'aio.batch.failed.notify.title': 'Falha no lote AIO',
   'aio.batch.failed.notify.body': 'Um erro interrompeu o lote. Verifique o painel de status para detalhes.',
+  'desktop.closeGuard.title': 'Fechar o KŌMA?',
+  'desktop.closeGuard.body':
+    'Há alterações não salvas ou um lote em execução. Fechar agora pode perder as alterações não salvas ou interromper o lote.',
+  'desktop.closeGuard.closeAnyway': 'Fechar mesmo assim',
+  'desktop.closeGuard.cancel': 'Cancelar',
   'aio.pipeline.textModeTitle': 'Modo do Texto',
   'aio.pipeline.textModeDescription':
     'Defina como a região selecionada deve ser tratada no render. AUTO usa a classificação detectada.',

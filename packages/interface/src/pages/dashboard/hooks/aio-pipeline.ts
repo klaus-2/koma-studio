@@ -55,6 +55,11 @@ import {
   runAioBatch,
   throwIfAioAborted,
 } from '@/pages/dashboard/lib/run-aio-batch';
+import {
+  publishBatchError,
+  publishBatchIdle,
+  publishBatchRunning,
+} from '@/pages/dashboard/lib/desktop-batch-bus';
 import { showDesktopNotification } from '@/pages/dashboard/lib/desktop-notifications';
 import { resolveWorkGlossaryForChapter } from '@/pages/dashboard/hooks/translator.execution';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
@@ -370,6 +375,8 @@ export function useAioPipelineExecution(
       let unsubscribeImages: (() => void) | null = null;
       let lastStage: AioPipelineSnapshotKey | null = null;
       let runCompleted = false;
+      let publishedBatchRunning = false;
+      let publishedTerminalBatchState = false;
 
     try {
       useStatusStore.getState().setRuntimeExecutionNotice(null);
@@ -457,6 +464,9 @@ export function useAioPipelineExecution(
         pages: executionImages.length,
         concurrency: args.effectiveBatchConcurrency,
       });
+
+      publishBatchRunning(0, executionImages.length);
+      publishedBatchRunning = true;
 
       let results: AioBatchImageResult[];
       const pauseGate = createBatchPauseGate(executionController.signal);
@@ -606,6 +616,7 @@ export function useAioPipelineExecution(
               useAioPipelineStore
                 .getState()
                 .setAioExecutionUnitsStarted(startedUnits, totalUnits);
+              publishBatchRunning(startedUnits, totalUnits);
             },
             onChunkState: (state) => handleChunkState(null, '', state),
             onWireProgress: (progress) => {
@@ -756,6 +767,7 @@ export function useAioPipelineExecution(
                 position.imagesBefore +
                 (Math.max(0, completedUnits) / totalUnits) *
                   position.imageCount;
+              publishBatchRunning(Math.floor(startedImages), totalImages);
               const group = chapterGroups[position.index];
 
               if (group) {
@@ -794,6 +806,9 @@ export function useAioPipelineExecution(
           items: executionImages,
           concurrency: args.effectiveBatchConcurrency,
           controller: executionController,
+          onProgress: (completed, total) => {
+            publishBatchRunning(completed, total);
+          },
           worker: async ({ item, index }) => {
             try {
               return await processImage(item, index, options);
@@ -871,6 +886,9 @@ export function useAioPipelineExecution(
         pages: summary.processedPagesCount,
       });
 
+      publishBatchIdle(executionImages.length, executionImages.length);
+      publishedTerminalBatchState = true;
+
       showDesktopNotification({
         title: t('aio.batch.done.notify.title'),
         body: t('aio.batch.done.notify.body', { count: summary.processedPagesCount }),
@@ -921,9 +939,15 @@ export function useAioPipelineExecution(
           title: t('aio.batch.failed.notify.title'),
           body: t('aio.batch.failed.notify.body'),
         });
+
+        publishBatchError(executionImages.length);
+        publishedTerminalBatchState = true;
       }
     } finally {
       unsubscribeImages?.();
+      if (publishedBatchRunning && !publishedTerminalBatchState) {
+        publishBatchIdle(0, executionImages.length);
+      }
       useAioBatchPauseStore.getState().reset();
       useEconomicUiStore.getState().clearPending();
 

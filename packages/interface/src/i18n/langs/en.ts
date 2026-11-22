@@ -593,6 +593,11 @@ export const enMessages = {
   'aio.batch.failed.notify.title': 'AIO batch failed',
   'aio.batch.failed.notify.body':
     'An error interrupted the batch. Check the status panel for details.',
+  'desktop.closeGuard.title': 'Close KŌMA?',
+  'desktop.closeGuard.body':
+    'There are unsaved changes or a batch is running. Closing now may lose unsaved changes or interrupt the batch.',
+  'desktop.closeGuard.closeAnyway': 'Close anyway',
+  'desktop.closeGuard.cancel': 'Cancel',
   'aio.pipeline.textModeTitle': 'Text Mode',
   'aio.pipeline.textModeDescription':
     'Define how the selected region should be treated during render. AUTO uses the detected classification.',

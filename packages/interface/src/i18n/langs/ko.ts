@@ -536,6 +536,11 @@ export const koMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': '배치가 {count}페이지를 처리했습니다.',
   'aio.batch.failed.notify.title': 'AIO 배치 실패',
   'aio.batch.failed.notify.body': '오류로 인해 배치가 중단되었습니다. 자세한 내용은 상태 패널을 확인하세요.',
+  'desktop.closeGuard.title': 'KŌMA를 닫을까요?',
+  'desktop.closeGuard.body':
+    '저장되지 않은 변경 사항이 있거나 배치가 실행 중입니다. 지금 닫으면 저장되지 않은 변경 사항이 손실되거나 배치가 중단될 수 있습니다.',
+  'desktop.closeGuard.closeAnyway': '그래도 닫기',
+  'desktop.closeGuard.cancel': '취소',
   'aio.pipeline.textModeTitle': '텍스트 모드',
   'aio.pipeline.textModeDescription':
     '렌더 시 선택된 영역의 처리 방식을 정의합니다. AUTO는 감지된 분류를 사용합니다.',

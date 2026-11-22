@@ -571,6 +571,11 @@ export const deMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': 'Der Stapel hat {count} Seite(n) verarbeitet.',
   'aio.batch.failed.notify.title': 'AIO-Stapel fehlgeschlagen',
   'aio.batch.failed.notify.body': 'Ein Fehler hat den Stapel unterbrochen. Details finden Sie im Statusbereich.',
+  'desktop.closeGuard.title': 'KŌMA schließen?',
+  'desktop.closeGuard.body':
+    'Es gibt ungespeicherte Änderungen oder ein laufender Stapel. Das Schließen jetzt kann ungespeicherte Änderungen verwerfen oder den Stapel unterbrechen.',
+  'desktop.closeGuard.closeAnyway': 'Trotzdem schließen',
+  'desktop.closeGuard.cancel': 'Abbrechen',
   'aio.pipeline.textModeTitle': 'Textmodus',
   'aio.pipeline.textModeDescription':
     'Lege fest, wie der ausgewählte Bereich beim Rendering behandelt werden soll. AUTO verwendet die erkannte Klassifizierung.',

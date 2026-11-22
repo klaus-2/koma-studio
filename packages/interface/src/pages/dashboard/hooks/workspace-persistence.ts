@@ -9,6 +9,7 @@ import { WORKSPACE_PERSISTENCE_STORES } from './workspace-persistence.registry';
 import type { AuthUser } from '../../../contexts/AuthContext';
 import { useI18n } from '../../../i18n';
 import { desktopBridge } from '../../../lib/desktop-bridge';
+import { setWindowDirty } from '../lib/desktop-batch-bus';
 import { useWorkspaceHistory } from '../../../hooks/useWorkspaceHistory';
 import {
   buildWorkspaceAutosaveSignature,
@@ -46,6 +47,12 @@ interface UseWorkspacePersistenceArgs {
  */
 const workspaceRestore: { hydratedFor: string | null } = {
   hydratedFor: null,
+};
+
+const forwardWorkspaceDirtyToShell = (): void => {
+  setWindowDirty(
+    useWorkspacePersistenceStore.getState().workspaceAutosaveDirty,
+  );
 };
 
 export function useWorkspacePersistence({
@@ -116,6 +123,7 @@ export function useWorkspacePersistence({
   const seedWorkspaceHistory = useCallback(() => {
     useWorkspacePersistenceStore.getState().workspaceHistoryReady = false;
     useWorkspacePersistenceStore.getState().workspaceAutosaveDirty = false;
+    forwardWorkspaceDirtyToShell();
     const captureState = buildCurrentWorkspaceCaptureState();
     useWorkspacePersistenceStore.getState().workspaceHistorySignature =
       buildWorkspaceHistorySignature(captureState);
@@ -172,6 +180,7 @@ export function useWorkspacePersistence({
       if (currentPersistence.workspaceChangeVersion === saveChangeVersion) {
         currentPersistence.workspaceAutosaveSignature = autosaveSignature;
         currentPersistence.workspaceAutosaveDirty = false;
+        forwardWorkspaceDirtyToShell();
         setWorkspaceStatus('saved');
         setWorkspaceStatusDetail(t('dashboard.status.saved'));
       }
@@ -462,12 +471,14 @@ export function useWorkspacePersistence({
     if (!workspaceAutosaveSettings.enabled) {
       persistence.workspaceAutosaveSignature = null;
       persistence.workspaceAutosaveDirty = false;
+      forwardWorkspaceDirtyToShell();
       return;
     }
 
     if (processing) {
       persistence.workspaceChangeVersion += 1;
       persistence.workspaceAutosaveDirty = true;
+      forwardWorkspaceDirtyToShell();
       return;
     }
 
@@ -476,6 +487,7 @@ export function useWorkspacePersistence({
       persistence.workspaceChangeVersion += 1;
       persistence.workspaceAutosaveSignature = autosaveSignature;
       persistence.workspaceAutosaveDirty = true;
+      forwardWorkspaceDirtyToShell();
       setWorkspaceStatus('idle');
       setWorkspaceStatusDetail(t('dashboard.status.workspacePendingChanges'));
     }
@@ -586,6 +598,7 @@ export function runWorkspaceAutosaveTick(isRestoring: boolean): void {
     const current = useWorkspacePersistenceStore.getState();
     if (saved && current.workspaceChangeVersion === tickChangeVersion) {
       current.workspaceAutosaveDirty = false;
+      forwardWorkspaceDirtyToShell();
     }
   });
 }

@@ -546,10 +546,15 @@ export const hiMessages: TranslationCatalog = {
   'aio.run.runCurrent': 'Jalankan tahap saat ini (gambar aktif)',
   'aio.run.full':
     'Jalankan AIO (Deteksi + OCR + Terjemahan + Segmentasi + Bersihkan + Render)',
-  'aio.batch.done.notify.title': 'Batch AIO selesai',
-  'aio.batch.done.notify.body': 'Batch selesai memproses {count} halaman.',
-  'aio.batch.failed.notify.title': 'Batch AIO gagal',
-  'aio.batch.failed.notify.body': 'Kesalahan menghentikan batch. Periksa panel status untuk detailnya.',
+  'aio.batch.done.notify.title': 'AIO बैच पूरा हुआ',
+  'aio.batch.done.notify.body': 'बैच ने {count} पेज(ों) की प्रोसेसिंग पूरी की।',
+  'aio.batch.failed.notify.title': 'AIO बैच विफल रहा',
+  'aio.batch.failed.notify.body': 'एक त्रुटि ने बैच को रोक दिया। विवरण के लिए स्थिति पैनल देखें।',
+  'desktop.closeGuard.title': 'KŌMA बंद करें?',
+  'desktop.closeGuard.body':
+    'असहेजे परिवर्तन हैं या कोई बैच चल रहा है। अभी बंद करने से असहेजे परिवर्तन खो सकते हैं या बैच बाधित हो सकता है।',
+  'desktop.closeGuard.closeAnyway': 'फिर भी बंद करें',
+  'desktop.closeGuard.cancel': 'रद्द करें',
   'aio.pipeline.textModeTitle': 'Mode Teks',
   'aio.pipeline.textModeDescription':
     'Tentukan bagaimana area terpilih diperlakukan saat render. AUTO menggunakan klasifikasi yang terdeteksi.',

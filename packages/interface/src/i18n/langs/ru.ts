@@ -558,6 +558,11 @@ export const ruMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': 'Пакет обработал страниц: {count}.',
   'aio.batch.failed.notify.title': 'Сбой пакетной обработки AIO',
   'aio.batch.failed.notify.body': 'Ошибка прервала пакет. Подробности — на панели состояния.',
+  'desktop.closeGuard.title': 'Закрыть KŌMA?',
+  'desktop.closeGuard.body':
+    'Есть несохранённые изменения или выполняется пакет. Если закрыть сейчас, несохранённые изменения могут быть потеряны, а пакет — прерван.',
+  'desktop.closeGuard.closeAnyway': 'Всё равно закрыть',
+  'desktop.closeGuard.cancel': 'Отмена',
   'aio.pipeline.textModeTitle': 'Режим текста',
   'aio.pipeline.textModeDescription':
     'Определите, как выбранная область должна обрабатываться при рендеринге. АВТО использует определённую классификацию.',

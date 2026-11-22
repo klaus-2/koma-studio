@@ -557,6 +557,10 @@ export const jaMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': 'バッチは{count}ページの処理を完了しました。',
   'aio.batch.failed.notify.title': 'AIOバッチ失敗',
   'aio.batch.failed.notify.body': 'エラーによりバッチが中断されました。詳細はステータスパネルを確認してください。',
+  'desktop.closeGuard.title': 'KŌMAを閉じますか？',
+  'desktop.closeGuard.body': '未保存の変更があるか、バッチが実行中です。今閉じると、未保存の変更が失われたりバッチが中断されたりする可能性があります。',
+  'desktop.closeGuard.closeAnyway': 'それでも閉じる',
+  'desktop.closeGuard.cancel': 'キャンセル',
   'aio.pipeline.textModeTitle': 'テキストモード',
   'aio.pipeline.textModeDescription':
     'レンダリング時に選択領域をどのように扱うかを定義します。AUTOは検出された分類を使用します。',

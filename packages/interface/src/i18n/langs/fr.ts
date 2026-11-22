@@ -529,6 +529,11 @@ export const frMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': 'Le lot a fini de traiter {count} page(s).',
   'aio.batch.failed.notify.title': 'Échec du lot AIO',
   "aio.batch.failed.notify.body": "Une erreur a interrompu le lot. Consultez le panneau d'état pour plus de détails.",
+  'desktop.closeGuard.title': 'Fermer KŌMA ?',
+  'desktop.closeGuard.body':
+    'Des modifications non enregistrées ou un lot sont en cours. Fermer maintenant peut perdre les modifications non enregistrées ou interrompre le lot.',
+  'desktop.closeGuard.closeAnyway': 'Fermer quand même',
+  'desktop.closeGuard.cancel': 'Annuler',
   'aio.pipeline.textModeTitle': 'Mode texte',
   'aio.pipeline.textModeDescription':
     'Définissez comment la région sélectionnée doit être traitée lors du rendu. AUTO utilise la classification détectée.',

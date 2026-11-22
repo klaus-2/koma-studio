@@ -1,6 +1,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LazyMotion, MotionConfig, domMax } from "framer-motion";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { DesktopCloseGuard } from "./components/DesktopCloseGuard";
 import { flushSync } from "react-dom";
 
 import { AuthProvider, useAuthContext } from "./contexts/AuthContext";
@@ -523,6 +524,7 @@ const AppShell = () => {
       <SessionTimeout />
       <RuntimeStartupToast />
       <UpdateToast />
+      <DesktopCloseGuard />
     </>
   );
 };

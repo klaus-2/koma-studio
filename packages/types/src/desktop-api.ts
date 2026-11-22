@@ -401,6 +401,23 @@ export interface DesktopForwardedFilesPayload {
   paths: string[];
 }
 
+export type DesktopBatchPhase = "idle" | "running" | "paused" | "error";
+
+export interface DesktopBatchStatePayload {
+  phase: DesktopBatchPhase;
+  done: number;
+  total: number;
+  label?: string | null;
+}
+
+export interface DesktopBatchStateResult {
+  accepted: boolean;
+}
+
+export interface DesktopWindowDirtyPayload {
+  dirty: boolean;
+}
+
 export interface DesktopReadForwardedPayload {
   path: string;
 }
@@ -464,6 +481,13 @@ export const desktopCommandChannels = {
   files: {
     saveBlob: "desktop:files:save-blob",
     readForwarded: "desktop:files:read-forwarded",
+  },
+  batch: {
+    setState: "desktop:batch:set-state",
+  },
+  window: {
+    setDirty: "desktop:window:set-dirty",
+    closeForce: "desktop:window:close-force",
   },
   system: {
     revealPath: "desktop:system:reveal-path",
@@ -814,6 +838,19 @@ export interface IDesktopBridge {
   };
   onForwardedFiles?(
     listener: (payload: DesktopForwardedFilesPayload) => void,
+  ): () => void;
+  batch?: {
+    setState(payload: DesktopBatchStatePayload): Promise<DesktopBatchStateResult>;
+  };
+  windowState?: {
+    setDirty(payload: DesktopWindowDirtyPayload): Promise<void>;
+    closeForce(): Promise<void>;
+  };
+  onBatchTrayAction?(
+    listener: (payload: { action: "pause" | "resume" }) => void,
+  ): () => void;
+  onCloseRequested?(
+    listener: (payload: { hasUnsavedWork: boolean; batchRunning: boolean }) => void,
   ): () => void;
 }
 

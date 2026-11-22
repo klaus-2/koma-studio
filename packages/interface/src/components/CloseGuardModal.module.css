@@ -1,0 +1,12 @@
+.card {
+  max-width: 420px;
+  gap: 14px;
+}
+
+.text {
+  margin: 0;
+  font-family: var(--auth-font-body);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--auth-text-muted);
+}

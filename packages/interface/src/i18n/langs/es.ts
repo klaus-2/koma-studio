@@ -560,6 +560,11 @@ export const esMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': 'El lote terminó de procesar {count} página(s).',
   'aio.batch.failed.notify.title': 'Fallo del lote AIO',
   'aio.batch.failed.notify.body': 'Un error interrumpió el lote. Consulta el panel de estado para más detalles.',
+  'desktop.closeGuard.title': '¿Cerrar KŌMA?',
+  'desktop.closeGuard.body':
+    'Hay cambios sin guardar o un lote en ejecución. Cerrar ahora puede perder los cambios sin guardar o interrumpir el lote.',
+  'desktop.closeGuard.closeAnyway': 'Cerrar igualmente',
+  'desktop.closeGuard.cancel': 'Cancelar',
   'aio.pipeline.textModeTitle': 'Modo de texto',
   'aio.pipeline.textModeDescription':
     'Define cómo se debe tratar la región seleccionada durante el renderizado. AUTO usa la clasificación detectada.',

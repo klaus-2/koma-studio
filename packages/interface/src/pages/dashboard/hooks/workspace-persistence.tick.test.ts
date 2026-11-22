@@ -7,6 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runWorkspaceAutosaveTick } from './workspace-persistence';
+import { setDesktopBridgeProvider } from '../../../lib/desktop-bridge';
 import { useUiShellStore } from '../stores/ui-shell-store';
 import { useWorkspacePersistenceStore } from '../stores/workspace-persistence-store';
 
@@ -25,6 +26,7 @@ describe('runWorkspaceAutosaveTick', () => {
     isInteractionActiveMock.mockReset();
     isInteractionActiveMock.mockReturnValue(false);
     saveSpy.mockClear();
+    setDesktopBridgeProvider({ desktop: null });
     useUiShellStore.setState({ processing: false });
     useWorkspacePersistenceStore.setState({
       workspaceAutosaveDirty: true,

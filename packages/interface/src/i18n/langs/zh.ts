@@ -496,6 +496,10 @@ export const zhMessages: TranslationCatalog = {
   'aio.batch.done.notify.body': '批处理已完成 {count} 页。',
   'aio.batch.failed.notify.title': 'AIO 批处理失败',
   'aio.batch.failed.notify.body': '发生错误，批处理已中断。详情请查看状态面板。',
+  'desktop.closeGuard.title': '关闭 KŌMA？',
+  'desktop.closeGuard.body': '有未保存的更改或批次正在运行。现在关闭可能丢失未保存的更改或中断批次。',
+  'desktop.closeGuard.closeAnyway': '仍然关闭',
+  'desktop.closeGuard.cancel': '取消',
   'aio.pipeline.textModeTitle': '文本模式',
   'aio.pipeline.textModeDescription':
     '定义选中区域在渲染时的处理方式。AUTO 使用检测到的分类。',
