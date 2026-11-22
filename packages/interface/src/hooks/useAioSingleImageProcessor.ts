@@ -35,6 +35,7 @@ import type {
   AioBatchImageResult,
   AioDownloadEntry,
   AioPipelineSnapshotKey,
+  AioTextRegion,
   LoadedImage,
   RuntimeExecutionNotice,
 } from '../types/dashboard.types';
@@ -90,6 +91,11 @@ interface SingleImageRunConfig {
   hdCropMargin: number;
   hdCropTriggerSize: number;
   gpuStages?: GpuStagePreferences;
+  onStageCompleted?: (
+    stageKey: AioPipelineSnapshotKey,
+    image: LoadedImage,
+    regions: AioTextRegion[],
+  ) => void;
 }
 
 export function useAioSingleImageProcessor({
@@ -134,6 +140,7 @@ export function useAioSingleImageProcessor({
       hdCropMargin,
       hdCropTriggerSize,
       gpuStages,
+      onStageCompleted,
     }: SingleImageRunConfig,
   ): Promise<AioBatchImageResult> => {
     const signal = getAbortSignal();
@@ -176,6 +183,7 @@ export function useAioSingleImageProcessor({
       let stageRegions: StageRegions = {
         detectText: normalizedDetections,
       };
+      onStageCompleted?.('detectText', imgData, normalizedDetections);
 
       const detectDetections = cloneAioRegions(normalizedDetections, cloneRenderStyle);
       let enrichedDetections = cloneAioRegions(normalizedDetections, cloneRenderStyle);
@@ -207,6 +215,7 @@ export function useAioSingleImageProcessor({
         session.pushNotice(ocrDone.notice);
         enrichedDetections = ocrDone.value;
         stageRegions = { ...stageRegions, recognizeText: enrichedDetections };
+        onStageCompleted?.('recognizeText', imgData, enrichedDetections);
       }
 
       const ocrDetections = cloneAioRegions(enrichedDetections, cloneRenderStyle);
@@ -245,6 +254,7 @@ export function useAioSingleImageProcessor({
         session.pushNotice(translateDone.notice);
         enrichedDetections = translateDone.value;
         stageRegions = { ...stageRegions, getTranslations: enrichedDetections };
+        onStageCompleted?.('getTranslations', imgData, enrichedDetections);
       }
 
       const translationDetections = cloneAioRegions(enrichedDetections, cloneRenderStyle);
@@ -277,6 +287,7 @@ export function useAioSingleImageProcessor({
         session.pushNotice(segmentDone.notice);
         enrichedDetections = segmentDone.value;
         stageRegions = { ...stageRegions, segmentText: enrichedDetections };
+        onStageCompleted?.('segmentText', imgData, enrichedDetections);
       }
 
       const segmentDetections = cloneAioRegions(enrichedDetections, cloneRenderStyle);
@@ -359,6 +370,7 @@ export function useAioSingleImageProcessor({
           };
         }
         stageRegions = { ...stageRegions, cleanImage: cleanSourceRegions };
+        onStageCompleted?.('cleanImage', imgData, cleanSourceRegions);
       }
 
       const cleanDetections = cloneAioRegions(
@@ -381,6 +393,7 @@ export function useAioSingleImageProcessor({
           applyDetectedGradientToStyle,
           targetLanguage,
         });
+        onStageCompleted?.('render', imgData, enrichedDetections);
       }
 
       return {

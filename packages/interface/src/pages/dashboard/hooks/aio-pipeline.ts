@@ -82,7 +82,11 @@ import type {
   AioPipelineSnapshotKey,
   LoadedImage,
 } from '@/types/dashboard.types';
-import { applyDetectedGradientToStyle } from '@/utils/dashboard.utils';
+import {
+  applyDetectedGradientToStyle,
+  cloneAioRegions,
+  cloneRenderStyle,
+} from '@/utils/dashboard.utils';
 import { isCustomModelSelectionKey } from '@/utils/customLlm';
 import { resolveTranslationStageExecutionKey } from '@/utils/translationAutoResolution';
 import {
@@ -387,6 +391,36 @@ export function useAioPipelineExecution(
         cleanAiModelKey,
         cleanAiInstructions,
         cleanAiCustomProfile: prepared.cleanAiCustomProfile ?? null,
+        onStageCompleted: (stageKey, image, regions) => {
+          const canvasImageId = useImageCollectionStore.getState().activeId;
+          if (!canvasImageId || image.id !== canvasImageId) {
+            return;
+          }
+          const timelineIndex = enabledStages.indexOf(stageKey);
+          if (timelineIndex < 0) {
+            return;
+          }
+          const nextRegions = cloneAioRegions(regions, cloneRenderStyle);
+          const regionState = useRegionEditorStore.getState();
+          const previousSelection =
+            regionState.aioSelectedRegionByImage[canvasImageId] ?? null;
+          const selectionStillValid =
+            previousSelection !== null &&
+            nextRegions.some((region) => region.id === previousSelection);
+          regionState.setAioDetectionsByImage({
+            ...regionState.aioDetectionsByImage,
+            [canvasImageId]: nextRegions,
+          });
+          regionState.setAioSelectedRegionByImage({
+            ...regionState.aioSelectedRegionByImage,
+            [canvasImageId]: selectionStillValid ? previousSelection : null,
+          });
+          const pipelineState = useAioPipelineStore.getState();
+          pipelineState.setAioImageSnapshotIndexById({
+            ...pipelineState.aioImageSnapshotIndexById,
+            [canvasImageId]: timelineIndex,
+          });
+        },
         maskDilation: pipeline.aioMaskDilation,
         hdStrategy: pipeline.aioHdStrategy,
         hdResizeLimit: pipeline.aioHdResizeLimit,
