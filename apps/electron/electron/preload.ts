@@ -20,10 +20,13 @@ import {
   type UpdaterStatusPayload,
 } from "../../../packages/types/src/desktop-events.ts";
 import type {
+  DesktopBatchStatePayload,
+  DesktopBatchStateResult,
   DesktopClipboardImagePayload,
   DesktopForwardedFilesPayload,
   DesktopNotificationPayload,
   DesktopOpenLogsFolderResult,
+  DesktopWindowDirtyPayload,
 } from "../../../packages/types/src/desktop-api.ts";
 import { desktopCommandChannels } from "../../../packages/types/src/desktop-api.ts";
 
@@ -400,6 +403,65 @@ ipcRenderer.on(FORWARDED_FILES_EVENT_CHANNEL, (_event, rawPayload: unknown) => {
   });
 });
 
+const BATCH_TRAY_ACTION_EVENT_CHANNEL = "desktop:batch:tray-action";
+const CLOSE_REQUESTED_EVENT_CHANNEL = "desktop:window:close-requested";
+
+type BatchTrayActionListener = (payload: { action: "pause" | "resume" }) => void;
+type CloseRequestedListener = (payload: {
+  hasUnsavedWork: boolean;
+  batchRunning: boolean;
+}) => void;
+
+const batchTrayActionListeners = new Set<BatchTrayActionListener>();
+const closeRequestedListeners = new Set<CloseRequestedListener>();
+
+const normalizeBatchTrayActionPayload = (value: unknown): { action: "pause" | "resume" } | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const action = (value as Record<string, unknown>).action;
+  return action === "pause" || action === "resume" ? { action } : null;
+};
+
+const normalizeCloseRequestedPayload = (
+  value: unknown,
+): { hasUnsavedWork: boolean; batchRunning: boolean } | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.hasUnsavedWork !== "boolean" || typeof payload.batchRunning !== "boolean") {
+    return null;
+  }
+  return { hasUnsavedWork: payload.hasUnsavedWork, batchRunning: payload.batchRunning };
+};
+
+ipcRenderer.on(BATCH_TRAY_ACTION_EVENT_CHANNEL, (_event, rawPayload: unknown) => {
+  const payload = normalizeBatchTrayActionPayload(rawPayload);
+  if (!payload) {
+    return;
+  }
+
+  batchTrayActionListeners.forEach((listener) => {
+    try {
+      listener(payload);
+    } catch {}
+  });
+});
+
+ipcRenderer.on(CLOSE_REQUESTED_EVENT_CHANNEL, (_event, rawPayload: unknown) => {
+  const payload = normalizeCloseRequestedPayload(rawPayload);
+  if (!payload) {
+    return;
+  }
+
+  closeRequestedListeners.forEach((listener) => {
+    try {
+      listener(payload);
+    } catch {}
+  });
+});
+
 const installRendererSessionLogging = (): void => {
   const originalConsole = {
     log: window.console.log.bind(window.console),
@@ -490,6 +552,45 @@ contextBridge.exposeInMainWorld("desktop", {
     forwardedFilesListeners.add(listener);
     return () => {
       forwardedFilesListeners.delete(listener);
+    };
+  },
+  batch: {
+    setState: async (payload: DesktopBatchStatePayload): Promise<DesktopBatchStateResult> => {
+      const result: unknown = await invokeSecureDesktopApi(
+        desktopCommandChannels.batch.setState,
+        {
+          phase: payload.phase,
+          done: payload.done,
+          total: payload.total,
+          label: payload.label ?? null,
+        },
+      );
+      const record = (result && typeof result === "object" ? result : {}) as {
+        accepted?: unknown;
+      };
+      return { accepted: record.accepted === true };
+    },
+  },
+  windowState: {
+    setDirty: async (payload: DesktopWindowDirtyPayload): Promise<void> => {
+      await invokeSecureDesktopApi(desktopCommandChannels.window.setDirty, {
+        dirty: payload.dirty,
+      });
+    },
+    closeForce: async (): Promise<void> => {
+      await invokeSecureDesktopApi(desktopCommandChannels.window.closeForce);
+    },
+  },
+  onBatchTrayAction: (listener: BatchTrayActionListener): (() => void) => {
+    batchTrayActionListeners.add(listener);
+    return () => {
+      batchTrayActionListeners.delete(listener);
+    };
+  },
+  onCloseRequested: (listener: CloseRequestedListener): (() => void) => {
+    closeRequestedListeners.add(listener);
+    return () => {
+      closeRequestedListeners.delete(listener);
     };
   },
   locale: {

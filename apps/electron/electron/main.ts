@@ -135,6 +135,7 @@ import {
   extractPendingForwardedFilePaths,
   registerOpenFileForwarding,
 } from "./modules/forwarded-files.ts";
+import { registerBatchIntegrations } from "./modules/tray.ts";
 import {
   persistWindowBoundsOnClose,
   resolveRestoredPlacement,
@@ -658,6 +659,7 @@ const createWindow = async (): Promise<void> => {
   if (restoredPlacement?.maximized) mainWindow.maximize();
 
   persistWindowBoundsOnClose(mainWindow, app.getPath("userData"));
+  registerBatchIntegrations(mainWindow, { isAppExiting: () => appExiting });
 
   attachRendererDiagnostics(mainWindow);
 

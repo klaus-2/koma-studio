@@ -6,11 +6,28 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { ClipboardItem, clipboard, nativeImage, Notification } from "electron";
+import {
+  BrowserWindow,
+  ClipboardItem,
+  clipboard,
+  nativeImage,
+  Notification,
+  powerSaveBlocker,
+} from "electron";
 import type {
   DesktopClipboardImagePayload,
   DesktopNotificationPayload,
 } from "../../../../packages/types/src/desktop-api.ts";
+import { desktopCommandChannels } from "../../../../packages/types/src/desktop-api.ts";
+import {
+  applyBatchState,
+  applyDirtyFlag,
+  commitBatchShellState,
+  getBatchShellState,
+  parseBatchStatePayload,
+  setForceClose,
+  syncKeepAwakeWithState,
+} from "./batch-state.ts";
 import { resolveDesktopDeviceId } from "./desktop-device-id.ts";
 import { getCertificatePinsByHost } from "./certificate-pinning.ts";
 import {
@@ -21,10 +38,20 @@ import {
 import { isForwardedFilePathStaged } from "./forwarded-files.ts";
 import { registerSecureIpcHandler } from "./shared.ts";
 
+interface CloseForceTargetWindow {
+  isDestroyed(): boolean;
+  close(): void;
+}
+
 interface DesktopShellContractIpcDeps {
   authApiUrl: string;
   navigateMainWindowFromDeepLink: (url: string) => void;
 }
+
+const resolveForceCloseWindow = (): CloseForceTargetWindow | null => {
+  const [window] = BrowserWindow.getAllWindows();
+  return window ?? null;
+};
 
 const setupDesktopShellContractIpcHandlers = (deps: DesktopShellContractIpcDeps): void => {
   const { authApiUrl, navigateMainWindowFromDeepLink } = deps;
@@ -155,6 +182,32 @@ const setupDesktopShellContractIpcHandlers = (deps: DesktopShellContractIpcDeps)
       throw new Error("Clipboard image payload could not be decoded.");
     }
     await clipboard.write([new ClipboardItem({ "image/png": new Blob([Buffer.from(payload.data)], { type: "image/png" }) })]);
+  });
+
+  registerSecureIpcHandler<{ accepted: boolean }>(
+    desktopCommandChannels.batch.setState,
+    async (value) => {
+      const payload = parseBatchStatePayload(value);
+      if (!payload) {
+        return { accepted: false };
+      }
+      const nextState = applyBatchState(getBatchShellState(), payload);
+      commitBatchShellState(syncKeepAwakeWithState(nextState, powerSaveBlocker));
+      return { accepted: true };
+    },
+  );
+
+  registerSecureIpcHandler<void>(desktopCommandChannels.window.setDirty, async (value) => {
+    const payload = (value ?? {}) as { dirty?: unknown };
+    commitBatchShellState(applyDirtyFlag(getBatchShellState(), payload.dirty === true));
+  });
+
+  registerSecureIpcHandler<void>(desktopCommandChannels.window.closeForce, async () => {
+    commitBatchShellState(setForceClose(getBatchShellState(), true));
+    const window = resolveForceCloseWindow();
+    if (window && !window.isDestroyed()) {
+      window.close();
+    }
   });
 };
 
