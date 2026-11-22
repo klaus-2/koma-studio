@@ -402,16 +402,6 @@ pub fn build_runtime_config<R: Runtime>(app: &AppHandle<R>) -> RuntimeConfig {
     resolved_desktop_config(app).runtime.clone()
 }
 
-/// Desktop-internal variant: same precedence as the public resolve, but
-/// without the public-keys allowlist. For Rust-side consumers whose values
-/// never cross to the webview.
-pub(crate) fn resolve_desktop_internal_value<R: Runtime>(
-    app: &AppHandle<R>,
-    key: &str,
-) -> Option<String> {
-    resolved_desktop_config(app).sources.resolve_any(key)
-}
-
 pub fn reset_local_settings_at(
     user_data_dir: &Path,
 ) -> Result<ResetLocalSettingsResult, DesktopError> {

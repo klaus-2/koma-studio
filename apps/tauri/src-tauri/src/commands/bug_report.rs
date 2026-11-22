@@ -4,63 +4,52 @@ use std::{
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
+    sync::OnceLock,
     time::{Duration, SystemTime},
 };
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use reqwest::multipart::{Form, Part};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use tauri::{AppHandle, Manager, Runtime};
 use thiserror::Error;
 
 use crate::commands::{
     api::client::{http_client, stable_hash},
-    desktop::{
-        build_runtime_config, check_local_backend_health, resolve_desktop_internal_value,
-        DESKTOP_UPDATE_CHANNEL,
-    },
+    desktop::{build_runtime_config, check_local_backend_health, DESKTOP_UPDATE_CHANNEL},
 };
 
-const DISCORD_WEBHOOK_ENV: &str = "BUG_REPORT_DISCORD_WEBHOOK_URL";
-const IMGUR_CLIENT_ID_ENV: &str = "IMGUR_CLIENT_ID";
-const IMGUR_API_URL: &str = "https://api.imgur.com/3/image";
-const CONFIG_MISSING_MESSAGE: &str =
-    "BUG_REPORT_DISCORD_WEBHOOK_URL e IMGUR_CLIENT_ID devem estar configurados.";
 const DISCORD_WEBHOOK_PREFIXES: &[&str] = &[
     "https://discord.com/api/webhooks/",
     "https://discordapp.com/api/webhooks/",
 ];
 const ALLOWED_LOG_EXTENSIONS: &[&str] = &["log", "txt", "json", "ndjson", "jsonl"];
+const ALLOWED_ENDPOINT_HOST: &str = "koma-studio.site";
+const ENDPOINT_INVALID_MESSAGE: &str =
+    "The bug-report endpoint must be an https URL on koma-studio.site or a subdomain of it.";
+const BUG_REPORT_SCHEMA: u8 = 1;
 
 const MAX_AUTO_LOG_FILES: usize = 12;
-const MAX_AUTO_LOG_FILE_BYTES: u64 = 1_500_000;
-const MAX_MANUAL_ATTACHMENTS: usize = 5;
-const MAX_MANUAL_FILE_BYTES: usize = 8 * 1024 * 1024;
-/// Discord caps webhook request bodies by guild tier (8 MiB on default
-/// servers). The attachment budget stays under the floor so the report never
-/// dies with a 413 *after* the screenshot was already uploaded to Imgur; the
-/// pretty-printed diagnostics.json (~1-3 KiB) rides on top of it.
-const MAX_DISCORD_REQUEST_BYTES: usize = 8 * 1024 * 1024;
-const MAX_TOTAL_ATTACHMENT_BYTES: usize =
-    MAX_DISCORD_REQUEST_BYTES - 256 * 1024;
-const MAX_SCREENSHOT_BYTES: usize = 10 * 1024 * 1024;
-/// Discord rejects multipart webhooks with more than ten `files[n]` parts.
-const MAX_DISCORD_FILES: usize = 10;
-const MAX_TITLE_CHARS: usize = 200;
-const MAX_DESCRIPTION_CHARS: usize = 4000;
+const MAX_AUTO_LOG_FILE_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_MANUAL_ATTACHMENTS: usize = 4;
+const MAX_MANUAL_FILE_BYTES: usize = 5 * 1024 * 1024;
+const MAX_SCREENSHOT_BYTES: usize = 6 * 1024 * 1024;
+const MIN_TITLE_CHARS: usize = 5;
+const MAX_TITLE_CHARS: usize = 180;
+const MAX_DESCRIPTION_CHARS: usize = 3500;
 const MAX_FIELD_CHARS: usize = 1024;
 const MAX_FILE_NAME_CHARS: usize = 120;
 const MAX_UPSTREAM_ERROR_CHARS: usize = 512;
-const MAX_WEBHOOK_BODY_BYTES: usize = 256 * 1024;
+const MAX_LOG_ITEMS: usize = 24;
+const MAX_LOG_ITEM_BYTES: usize = 512 * 1024;
+const MAX_LOGS_TOTAL_BYTES: usize = 3 * 1024 * 1024;
+const WIRE_BUDGET_BYTES: usize = 20 * 1024 * 1024;
 /// Smallest edge we accept when downscaling an oversized screenshot.
 const MIN_SCREENSHOT_EDGE: u32 = 320;
 const BACKEND_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 const DEFAULT_ATTACHMENT_NAME: &str = "attachment.bin";
+const MAX_WEBHOOK_BODY_BYTES: usize = 256 * 1024;
 
-// ---------------------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------------------
 
 /// `Rejected` becomes a soft `{ ok: false, status, error }` answer (frontend
 /// contract). `Internal` is a hard IPC rejection: nothing the user can fix.
@@ -94,41 +83,6 @@ impl BugReportError {
     }
 }
 
-// ---------------------------------------------------------------------------
-// IPC contracts
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum Severity {
-    Low,
-    High,
-    Critical,
-    // `serde(other)` must sit on the LAST variant; order is semantic-free here.
-    #[default]
-    #[serde(other)]
-    Medium,
-}
-
-impl Severity {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Low => "low",
-            Self::Medium => "medium",
-            Self::High => "high",
-            Self::Critical => "critical",
-        }
-    }
-
-    fn color(self) -> u32 {
-        match self {
-            Self::Low => 0x2ecc71,
-            Self::Medium => 0x3498db,
-            Self::High => 0xf39c12,
-            Self::Critical => 0xe74c3c,
-        }
-    }
-}
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -149,7 +103,6 @@ pub struct ManualAttachmentInput {
 pub struct BugReportSubmitPayload {
     title: Option<String>,
     description: Option<String>,
-    severity: Option<Severity>,
     screenshot_data_url: Option<String>,
     steps_to_reproduce: Option<String>,
     expected_result: Option<String>,
@@ -158,6 +111,8 @@ pub struct BugReportSubmitPayload {
     context: Option<BugReportContext>,
     auto_log_ids: Option<Vec<String>>,
     attachments: Option<Vec<ManualAttachmentInput>>,
+    endpoint_url: Option<String>,
+    include_logs: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -212,20 +167,50 @@ pub struct BugReportSubmitResponse {
     ok: bool,
     status: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
-    screenshot_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<Cow<'static, str>>,
 }
 
-// ---------------------------------------------------------------------------
-// Internal models
-// ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
-struct BugReportConfig {
-    webhook_url: String,
-    imgur_client_id: String,
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BugReportClientInfo {
+    app_version: String,
+    shell: &'static str,
+    platform: &'static str,
+    arch: &'static str,
+    channel: String,
+    session_id: String,
 }
+
+#[derive(Debug, Serialize)]
+struct BugReportLogEntry {
+    name: String,
+    content: String,
+}
+
+#[derive(Debug, Serialize)]
+struct BugReportApiAttachment {
+    name: String,
+    mime: String,
+    data: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BugReportApiPayload {
+    schema: u8,
+    title: String,
+    description: String,
+    include_logs: bool,
+    client: BugReportClientInfo,
+    diagnostics: BugReportDiagnostics,
+    screenshot: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    logs: Vec<BugReportLogEntry>,
+    attachments: Vec<BugReportApiAttachment>,
+    dropped_attachments: usize,
+}
+
 
 #[derive(Debug, Clone)]
 struct AutoLogFile {
@@ -238,39 +223,25 @@ struct AutoLogFile {
 }
 
 #[derive(Debug)]
-struct Attachment {
-    name: String,
-    mime_type: Cow<'static, str>,
-    bytes: Vec<u8>,
-}
-
-#[derive(Debug)]
-struct PreparedSubmission {
-    title: String,
-    description: String,
-    severity: Severity,
-    /// `None` when the user chose not to attach a screenshot or none was
-    /// captured — the report is still submitted, without the Imgur image.
-    screenshot_base64: Option<String>,
-    route: String,
-    narrative: Vec<(&'static str, String)>,
-    attachments: Vec<Attachment>,
-}
-
-#[derive(Debug)]
 struct RawImage {
     width: u32,
     height: u32,
     rgba: Vec<u8>,
 }
 
-// ---------------------------------------------------------------------------
-// Commands
-// ---------------------------------------------------------------------------
+#[derive(Debug)]
+struct PreparedParts {
+    title: String,
+    description: String,
+    include_logs: bool,
+    screenshot: Option<String>,
+    attachments: Vec<BugReportApiAttachment>,
+    auto_log_ids: Option<Vec<String>>,
+}
+
 
 #[tauri::command(rename = "desktop-api:bug-report:prepare")]
 pub async fn prepare<R: Runtime>(app: AppHandle<R>) -> Result<BugReportPrepareResponse, String> {
-    let config = resolve_config(&app)?;
     let diagnostics = diagnostics(&app).await?;
 
     // Screen capture, PNG encoding and directory scanning are CPU/IO bound:
@@ -283,17 +254,9 @@ pub async fn prepare<R: Runtime>(app: AppHandle<R>) -> Result<BugReportPrepareRe
     .await
     .map_err(|error| error.to_string())?;
 
-    let screenshot_data_url = screenshot_result.as_ref().ok().cloned().flatten();
-    let configured = config.is_some();
-    let error = if configured {
-        screenshot_result.err()
-    } else {
-        Some(CONFIG_MISSING_MESSAGE.to_owned())
-    };
-
     Ok(BugReportPrepareResponse {
-        ready: configured && screenshot_data_url.is_some(),
-        screenshot_data_url,
+        ready: true,
+        screenshot_data_url: screenshot_result.as_ref().ok().cloned().flatten(),
         auto_logs: auto_logs
             .into_iter()
             .map(|entry| BugReportAutoLogEntry {
@@ -304,7 +267,7 @@ pub async fn prepare<R: Runtime>(app: AppHandle<R>) -> Result<BugReportPrepareRe
             })
             .collect(),
         diagnostics,
-        error,
+        error: screenshot_result.err(),
     })
 }
 
@@ -320,7 +283,6 @@ pub async fn submit<R: Runtime>(
             Ok(BugReportSubmitResponse {
                 ok: false,
                 status,
-                screenshot_url: None,
                 error: Some(message),
             })
         }
@@ -335,397 +297,330 @@ async fn submit_inner<R: Runtime>(
     app: AppHandle<R>,
     payload: BugReportSubmitPayload,
 ) -> Result<BugReportSubmitResponse, BugReportError> {
-    let config = resolve_config(&app)
-        .map_err(BugReportError::Internal)?
-        .ok_or_else(|| BugReportError::rejected(412, CONFIG_MISSING_MESSAGE))?;
+    let endpoint_url = payload
+        .endpoint_url
+        .clone()
+        .map(|url| url.trim().to_owned())
+        .unwrap_or_default();
+    if !is_allowed_bug_report_endpoint(&endpoint_url) {
+        return Err(BugReportError::rejected(400, ENDPOINT_INVALID_MESSAGE));
+    }
     let diagnostics = diagnostics(&app).await.map_err(BugReportError::Internal)?;
 
-    let prepared =
-        tauri::async_runtime::spawn_blocking(move || prepare_submission(&app, payload))
-            .await
-            .map_err(BugReportError::internal)??;
-
-    let client = http_client().map_err(|error| BugReportError::Internal(error.to_string()))?;
-    let screenshot_url = match prepared.screenshot_base64.as_deref() {
-        Some(image) => Some(
-            upload_screenshot_to_imgur(
-                &client,
-                &config.imgur_client_id,
-                &prepared.title,
-                image,
-            )
-            .await?,
-        ),
-        None => None,
-    };
-    let status = send_discord_report(
-        &client,
-        &config.webhook_url,
-        prepared,
-        &diagnostics,
-        screenshot_url.as_deref(),
-    )
-    .await?;
-
-    Ok(BugReportSubmitResponse {
-        ok: true,
-        status,
-        screenshot_url,
-        error: None,
+    let api_payload = tauri::async_runtime::spawn_blocking(move || {
+        prepare_submission(&app, payload, diagnostics)
     })
+    .await
+    .map_err(BugReportError::internal)??;
+
+    let client = bug_report_http_client()
+        .map_err(|error| BugReportError::Internal(error.to_string()))?;
+    let response = client
+        .post(endpoint_url)
+        .json(&api_payload)
+        .send()
+        .await
+        .map_err(|error| {
+            BugReportError::rejected(502, format!("Bug-report endpoint unreachable: {error}"))
+        })?;
+    map_bug_report_response(response).await
 }
 
-// ---------------------------------------------------------------------------
-// Input preparation (runs on a blocking thread)
-// ---------------------------------------------------------------------------
+// Log payloads must never follow a redirect off the allowlisted host, so this
+// client disables redirect following entirely (a 3xx surfaces as an error
+// instead of replaying the body elsewhere).
+fn bug_report_http_client() -> Result<reqwest::Client, String> {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    if let Some(client) = CLIENT.get() {
+        return Ok(client.clone());
+    }
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(60))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| error.to_string())?;
+    if CLIENT.set(client.clone()).is_ok() {
+        return Ok(client);
+    }
+    CLIENT
+        .get()
+        .cloned()
+        .ok_or_else(|| "bug-report http client unavailable".to_string())
+}
+
 
 fn prepare_submission<R: Runtime>(
     app: &AppHandle<R>,
     payload: BugReportSubmitPayload,
-) -> Result<PreparedSubmission, BugReportError> {
+    diagnostics: BugReportDiagnostics,
+) -> Result<BugReportApiPayload, BugReportError> {
+    let parts = prepare_payload_parts(payload)?;
+    let discovered = if parts.include_logs {
+        discovered_logs(app, parts.auto_log_ids.as_deref())
+    } else {
+        Vec::new()
+    };
+    let logs = collect_log_entries(discovered);
+    let api_payload = assemble_api_payload(parts, diagnostics, logs);
+    enforce_wire_budget(api_payload, WIRE_BUDGET_BYTES)
+}
+
+fn prepare_payload_parts(
+    payload: BugReportSubmitPayload,
+) -> Result<PreparedParts, BugReportError> {
     let title = truncate(trimmed(payload.title.as_deref()), MAX_TITLE_CHARS);
-    let description = truncate(trimmed(payload.description.as_deref()), MAX_DESCRIPTION_CHARS);
-    if title.is_empty() || description.is_empty() {
+    if title.chars().count() < MIN_TITLE_CHARS {
         return Err(BugReportError::rejected(
             400,
-            "Titulo e descricao sao obrigatorios.",
+            format!("Title must be at least {MIN_TITLE_CHARS} characters."),
         ));
     }
-
-    // An absent screenshot must not reject the report: the frontend omits it
-    // whenever prepare reported no capture (e.g. non-Windows) or the user
-    // chose not to include one.
-    let screenshot_base64 = payload
-        .screenshot_data_url
-        .filter(|value| !value.trim().is_empty())
-        .map(validate_screenshot_data_url)
-        .transpose()?;
-    let manual = decode_manual_attachments(payload.attachments.unwrap_or_default())?;
-    let manual_bytes: usize = manual.iter().map(|item| item.bytes.len()).sum();
-
-    let mut attachments = load_selected_logs(
-        app,
-        payload.auto_log_ids.as_deref().unwrap_or_default(),
-        MAX_TOTAL_ATTACHMENT_BYTES.saturating_sub(manual_bytes),
-        MAX_DISCORD_FILES.saturating_sub(1 + manual.len()),
-    );
-    attachments.extend(manual);
+    let description = truncate(trimmed(payload.description.as_deref()), MAX_DESCRIPTION_CHARS);
 
     let narrative = [
+        ("Route", payload.context.and_then(|context| context.route)),
         ("Steps", payload.steps_to_reproduce),
         ("Expected", payload.expected_result),
         ("Actual", payload.actual_result),
         ("Contact", payload.contact),
-    ]
-    .into_iter()
-    .filter_map(|(name, value)| {
-        let value = truncate(trimmed(value.as_deref()), MAX_FIELD_CHARS);
-        (!value.is_empty()).then_some((name, value))
-    })
-    .collect();
+    ];
+    let sections: Vec<(&'static str, String)> = narrative
+        .into_iter()
+        .filter_map(|(name, value)| {
+            let value = truncate(trimmed(value.as_deref()), MAX_FIELD_CHARS);
+            (!value.is_empty()).then_some((name, value))
+        })
+        .collect();
+    let description = assemble_description(&description, &sections);
 
-    let route = payload
-        .context
-        .and_then(|context| context.route)
-        .map(|route| truncate(&route, MAX_FIELD_CHARS))
-        .filter(|route| !route.is_empty())
-        .unwrap_or_else(|| "n/a".to_owned());
+    let screenshot = payload
+        .screenshot_data_url
+        .filter(|value| !value.trim().is_empty());
+    if let Some(data_url) = &screenshot {
+        validate_screenshot_data_url(data_url)?;
+    }
 
-    Ok(PreparedSubmission {
+    let attachments = validate_manual_attachments(payload.attachments.unwrap_or_default())?;
+
+    Ok(PreparedParts {
         title,
         description,
-        severity: payload.severity.unwrap_or_default(),
-        screenshot_base64,
-        route,
-        narrative,
+        include_logs: payload.include_logs.unwrap_or(true),
+        screenshot,
         attachments,
+        auto_log_ids: payload.auto_log_ids,
     })
 }
 
-/// Validates `data:image/*;base64,...` and returns the raw base64 payload
-/// (Imgur consumes base64 directly, so the decoded bytes are never kept).
-/// The prefix is removed in place to avoid copying a multi-megabyte string.
-fn validate_screenshot_data_url(mut data_url: String) -> Result<String, BugReportError> {
-    let Some(comma) = data_url.find(',') else {
-        return Err(BugReportError::rejected(400, "Screenshot invalida."));
-    };
-    {
-        let header = &data_url[..comma];
-        if !header.starts_with("data:image/") || !header.contains(";base64") {
-            return Err(BugReportError::rejected(
-                400,
-                "The screenshot must be a base64 image data URL.",
-            ));
-        }
+fn assemble_description(description: &str, sections: &[(&'static str, String)]) -> String {
+    let mut assembled = String::with_capacity(description.len() + 64);
+    assembled.push_str(description);
+    for (name, value) in sections {
+        assembled.push_str("\n\n");
+        assembled.push_str(name);
+        assembled.push_str(":\n");
+        assembled.push_str(value);
     }
-    data_url.drain(..=comma);
+    truncate(&assembled, MAX_DESCRIPTION_CHARS)
+}
 
-    if base64::decoded_len_estimate(data_url.len()) > MAX_SCREENSHOT_BYTES {
+/// Validates `data:image/(png|jpeg);base64,...` against the endpoint contract
+/// (6 MB decoded ceiling). The data URL is shipped as-is.
+fn validate_screenshot_data_url(data_url: &str) -> Result<(), BugReportError> {
+    let Some((header, payload)) = data_url.split_once(',') else {
+        return Err(BugReportError::rejected(400, "The screenshot must be a data URL with a ',' separator."));
+    };
+    if header != "data:image/png;base64" && header != "data:image/jpeg;base64" {
         return Err(BugReportError::rejected(
             400,
-            "The screenshot exceeds 10 MB.",
+            "The screenshot must be a base64 PNG or JPEG data URL.",
+        ));
+    }
+    if base64::decoded_len_estimate(payload.len()) > MAX_SCREENSHOT_BYTES {
+        return Err(BugReportError::rejected(
+            400,
+            "The screenshot exceeds 6 MB.",
         ));
     }
     let decoded_len = BASE64
-        .decode(data_url.as_bytes())
-        .map_err(|_| BugReportError::rejected(400, "Screenshot base64 invalida."))?
+        .decode(payload.as_bytes())
+        .map_err(|_| BugReportError::rejected(400, "The screenshot must carry valid base64 data."))?
         .len();
     if decoded_len > MAX_SCREENSHOT_BYTES {
         return Err(BugReportError::rejected(
             400,
-            "The screenshot exceeds 10 MB.",
+            "The screenshot exceeds 6 MB.",
         ));
     }
-    Ok(data_url)
+    Ok(())
 }
 
-fn decode_manual_attachments(
+/// Attachments must be image or text files, at most 4 items of 5 MB decoded
+/// each; anything else is rejected locally instead of failing at the server.
+fn validate_manual_attachments(
     items: Vec<ManualAttachmentInput>,
-) -> Result<Vec<Attachment>, BugReportError> {
+) -> Result<Vec<BugReportApiAttachment>, BugReportError> {
     if items.len() > MAX_MANUAL_ATTACHMENTS {
         return Err(BugReportError::rejected(
             400,
-            format!("Maximo de {MAX_MANUAL_ATTACHMENTS} anexos."),
+            format!("Maximum of {MAX_MANUAL_ATTACHMENTS} attachments."),
         ));
     }
 
-    let mut total = 0usize;
     let mut attachments = Vec::with_capacity(items.len());
     for item in items {
         let name = safe_file_name(item.name.as_deref().unwrap_or_default());
-        let encoded = item.content_base64.unwrap_or_default();
-        if base64::decoded_len_estimate(encoded.len()) > MAX_MANUAL_FILE_BYTES {
-            return Err(BugReportError::rejected(400, format!("{name} exceeds 8 MB.")));
-        }
-        let bytes = BASE64
-            .decode(encoded.as_bytes())
-            .map_err(|_| BugReportError::rejected(400, format!("Invalid attachment: {name}")))?;
-        if bytes.len() > MAX_MANUAL_FILE_BYTES {
-            return Err(BugReportError::rejected(400, format!("{name} exceeds 8 MB.")));
-        }
-        total += bytes.len();
-        if total > MAX_TOTAL_ATTACHMENT_BYTES {
-            return Err(BugReportError::rejected(
-                400,
-                format!(
-                    "Attachments exceed {} MB in total.",
-                    MAX_TOTAL_ATTACHMENT_BYTES / (1024 * 1024)
-                ),
-            ));
-        }
-        let mime_type = item
+        let mime = item
             .mime_type
             .as_deref()
             .map(str::trim)
-            .filter(|mime| mime.contains('/') && mime.parse::<mime::Mime>().is_ok())
-            .map_or(Cow::Borrowed("application/octet-stream"), |mime| {
-                Cow::Owned(mime.to_owned())
-            });
-        attachments.push(Attachment {
+            .unwrap_or_default()
+            .parse::<mime::Mime>()
+            .map_err(|_| {
+                BugReportError::rejected(400, format!("Invalid attachment MIME type: {name}"))
+            })?;
+        if mime.type_() != "image" && mime.type_() != "text" {
+            return Err(BugReportError::rejected(
+                400,
+                format!("Attachment must be an image or text file: {name}"),
+            ));
+        }
+        let data = item.content_base64.unwrap_or_default();
+        if base64::decoded_len_estimate(data.len()) > MAX_MANUAL_FILE_BYTES {
+            return Err(BugReportError::rejected(400, format!("{name} exceeds 5 MB.")));
+        }
+        let decoded_len = BASE64
+            .decode(data.as_bytes())
+            .map_err(|_| BugReportError::rejected(400, format!("Invalid attachment: {name}")))?
+            .len();
+        if decoded_len > MAX_MANUAL_FILE_BYTES {
+            return Err(BugReportError::rejected(400, format!("{name} exceeds 5 MB.")));
+        }
+        attachments.push(BugReportApiAttachment {
             name,
-            mime_type,
-            bytes,
+            mime: format!("{}/{}", mime.type_(), mime.subtype()),
+            data,
         });
     }
     Ok(attachments)
 }
 
-/// Loads the user-selected auto logs that fit into the remaining byte and
-/// file-count budget. Newest first; anything that does not fit is skipped
-/// rather than failing the whole report.
-fn load_selected_logs<R: Runtime>(
-    app: &AppHandle<R>,
-    selected_ids: &[String],
-    byte_budget: usize,
-    file_budget: usize,
-) -> Vec<Attachment> {
-    if selected_ids.is_empty() || file_budget == 0 {
-        return Vec::new();
+/// Wire-budget enforcement: the serialized body must fit the budget; over
+/// budget it drops attachments largest-first (the screenshot is never an
+/// attachment), then removes the oldest log entries until it fits.
+fn enforce_wire_budget(
+    mut payload: BugReportApiPayload,
+    wire_budget: usize,
+) -> Result<BugReportApiPayload, BugReportError> {
+    let mut dropped = 0usize;
+    while serialized_len(&payload)? > wire_budget {
+        if let Some(index) = largest_attachment_index(&payload.attachments) {
+            payload.attachments.remove(index);
+            dropped += 1;
+        } else if payload.logs.pop().is_none() {
+            return Err(BugReportError::Internal(
+                "bug-report payload exceeds the wire budget with nothing left to drop.".to_owned(),
+            ));
+        }
     }
-    let selected: HashSet<&str> = selected_ids.iter().map(String::as_str).collect();
-    let mut remaining = byte_budget;
-    let mut attachments = Vec::new();
+    payload.dropped_attachments = dropped;
+    Ok(payload)
+}
 
-    for log_file in collect_auto_logs(app)
-        .into_iter()
-        .filter(|entry| selected.contains(entry.id.as_str()))
-    {
-        if attachments.len() >= file_budget {
-            break;
+fn serialized_len(payload: &BugReportApiPayload) -> Result<usize, BugReportError> {
+    serde_json::to_vec(payload)
+        .map(|bytes| bytes.len())
+        .map_err(|error| BugReportError::Internal(error.to_string()))
+}
+
+/// First occurrence wins on ties so trimming is deterministic for a given
+/// attachment list order.
+fn largest_attachment_index(attachments: &[BugReportApiAttachment]) -> Option<usize> {
+    let mut best: Option<(usize, usize)> = None;
+    for (index, attachment) in attachments.iter().enumerate() {
+        let size = attachment.data.len();
+        match best {
+            Some((_, best_size)) if best_size >= size => {}
+            _ => best = Some((index, size)),
         }
-        let bytes = match fs::read(&log_file.path) {
-            Ok(bytes) => bytes,
-            Err(error) => {
-                log::warn!(
-                    "bug-report: skipping unreadable log {}: {error}",
-                    log_file.path.display()
-                );
-                continue;
-            }
-        };
-        if bytes.len() > remaining {
-            continue;
-        }
-        remaining -= bytes.len();
-        attachments.push(Attachment {
-            mime_type: log_mime_type(&log_file.path),
-            name: safe_file_name(&log_file.name),
-            bytes,
+    }
+    best.map(|(index, _)| index)
+}
+
+fn assemble_api_payload(
+    parts: PreparedParts,
+    diagnostics: BugReportDiagnostics,
+    logs: Vec<BugReportLogEntry>,
+) -> BugReportApiPayload {
+    BugReportApiPayload {
+        schema: BUG_REPORT_SCHEMA,
+        title: parts.title,
+        description: parts.description,
+        include_logs: parts.include_logs,
+        client: BugReportClientInfo {
+            app_version: diagnostics.app_version.clone(),
+            shell: "tauri",
+            platform: diagnostics.platform,
+            arch: diagnostics.arch,
+            channel: diagnostics.update_channel.clone(),
+            session_id: session_id().to_owned(),
+        },
+        diagnostics,
+        screenshot: parts.screenshot,
+        logs,
+        attachments: parts.attachments,
+        dropped_attachments: 0,
+    }
+}
+
+
+async fn map_bug_report_response(
+    response: reqwest::Response,
+) -> Result<BugReportSubmitResponse, BugReportError> {
+    let status = response.status().as_u16();
+    if (200..300).contains(&status) {
+        return Ok(BugReportSubmitResponse {
+            ok: true,
+            status,
+            error: None,
         });
     }
-    attachments
+
+    let body = response.text().await.unwrap_or_default();
+    let message: Cow<'static, str> = match status {
+        300..=399 => {
+            format!("The bug-report endpoint answered with a redirect ({status}); reports are never sent elsewhere.").into()
+        }
+        405 => "The bug-report endpoint rejected the HTTP method (405).".into(),
+        413 => "The bug report exceeds the server size limit (413).".into(),
+        429 => "Too many bug reports were submitted; try again later (429).".into(),
+        400..=499 => {
+            let detail = server_error_detail(&body)
+                .unwrap_or_else(|| truncate(&body, MAX_UPSTREAM_ERROR_CHARS));
+            if detail.is_empty() {
+                format!("The bug-report endpoint rejected the report ({status}).").into()
+            } else {
+                truncate(&detail, MAX_UPSTREAM_ERROR_CHARS).into()
+            }
+        }
+        _ => format!("The bug-report endpoint failed ({status}).").into(),
+    };
+    let reported_status = if (400..500).contains(&status) { status } else { 502 };
+    Err(BugReportError::rejected(reported_status, message))
 }
 
-// ---------------------------------------------------------------------------
-// Upstream calls
-// ---------------------------------------------------------------------------
-
-async fn upload_screenshot_to_imgur(
-    client: &reqwest::Client,
-    client_id: &str,
-    title: &str,
-    image_base64: &str,
-) -> Result<String, BugReportError> {
-    let response = client
-        .post(IMGUR_API_URL)
-        .header(
-            reqwest::header::AUTHORIZATION,
-            format!("Client-ID {client_id}"),
-        )
-        .form(&[
-            ("image", image_base64),
-            ("type", "base64"),
-            ("title", title),
-        ])
-        .send()
-        .await
-        .map_err(|error| BugReportError::rejected(502, error.to_string()))?;
-
-    let status = response.status();
-    let body = response
-        .json::<Value>()
-        .await
-        .unwrap_or_else(|_| json!({ "error": "Resposta invalida do Imgur." }));
-    if !status.is_success() {
-        return Err(BugReportError::rejected(
-            502,
-            format!(
-                "Imgur retornou {}: {}",
-                status.as_u16(),
-                api_error_message(&body)
-            ),
-        ));
+/// Extracts the server's `{"detail": ...}` explanation; non-JSON bodies fall
+/// back to the raw truncated text at the call site.
+fn server_error_detail(body: &str) -> Option<String> {
+    let value: Value = serde_json::from_str(body).ok()?;
+    let field = value.get("detail").or_else(|| value.get("error"))?;
+    match field {
+        Value::String(detail) => Some(detail.clone()),
+        other => Some(other.to_string()),
     }
-    body.get("data")
-        .and_then(|data| data.get("link"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|link| !link.is_empty())
-        .map(str::to_owned)
-        .ok_or_else(|| BugReportError::rejected(502, "Imgur did not return the screenshot URL."))
 }
 
-async fn send_discord_report(
-    client: &reqwest::Client,
-    webhook_url: &str,
-    prepared: PreparedSubmission,
-    diagnostics: &BugReportDiagnostics,
-    screenshot_url: Option<&str>,
-) -> Result<u16, BugReportError> {
-    let severity = prepared.severity;
-    let mut embed = json!({
-        "title": format!("[{}] {}", severity.label().to_uppercase(), prepared.title),
-        "description": prepared.description,
-        "color": severity.color(),
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "fields": report_fields(&prepared.route, &prepared.narrative, diagnostics),
-    });
-    if let Some(url) = screenshot_url {
-        embed["image"] = json!({ "url": url });
-    }
-    let webhook_payload = json!({
-        "username": "KOMA Bug Reporter",
-        "embeds": [embed],
-    });
-
-    let diagnostics_json =
-        serde_json::to_vec_pretty(diagnostics).map_err(BugReportError::internal)?;
-    let mut form = Form::new()
-        .text(
-            "payload_json",
-            serde_json::to_string(&webhook_payload).map_err(BugReportError::internal)?,
-        )
-        .part(
-            "files[0]",
-            file_part(diagnostics_json, "diagnostics.json".to_owned(), "application/json")?,
-        );
-
-    for (offset, attachment) in prepared
-        .attachments
-        .into_iter()
-        .take(MAX_DISCORD_FILES - 1)
-        .enumerate()
-    {
-        form = form.part(
-            format!("files[{}]", offset + 1),
-            file_part(attachment.bytes, attachment.name, &attachment.mime_type)?,
-        );
-    }
-
-    let response = client
-        .post(webhook_url)
-        .multipart(form)
-        .send()
-        .await
-        .map_err(|error| BugReportError::rejected(502, error.to_string()))?;
-    let status = response.status();
-    if status.is_success() {
-        return Ok(status.as_u16());
-    }
-
-    let text = response.text().await.unwrap_or_default();
-    let detail = truncate(&text, MAX_UPSTREAM_ERROR_CHARS);
-    Err(BugReportError::rejected(
-        502,
-        if detail.is_empty() {
-            format!("Discord webhook retornou {}", status.as_u16())
-        } else {
-            format!("Discord webhook retornou {}: {detail}", status.as_u16())
-        },
-    ))
-}
-
-fn file_part(bytes: Vec<u8>, file_name: String, mime_type: &str) -> Result<Part, BugReportError> {
-    Part::bytes(bytes)
-        .file_name(file_name)
-        .mime_str(mime_type)
-        .map_err(BugReportError::internal)
-}
-
-fn report_fields(
-    route: &str,
-    narrative: &[(&'static str, String)],
-    diagnostics: &BugReportDiagnostics,
-) -> Vec<Value> {
-    let mut fields = Vec::with_capacity(3 + narrative.len());
-    fields.push(json!({ "name": "App", "value": diagnostics.app_version, "inline": true }));
-    fields.push(json!({
-        "name": "Platform",
-        "value": format!("{}/{}", diagnostics.platform, diagnostics.arch),
-        "inline": true,
-    }));
-    fields.push(json!({ "name": "Route", "value": route, "inline": true }));
-    fields.extend(
-        narrative
-            .iter()
-            .map(|(name, value)| json!({ "name": name, "value": value, "inline": false })),
-    );
-    fields
-}
-
-// ---------------------------------------------------------------------------
-// Diagnostics & configuration
-// ---------------------------------------------------------------------------
 
 async fn diagnostics<R: Runtime>(app: &AppHandle<R>) -> Result<BugReportDiagnostics, String> {
     let config = build_runtime_config(app);
@@ -760,27 +655,67 @@ async fn diagnostics<R: Runtime>(app: &AppHandle<R>) -> Result<BugReportDiagnost
     })
 }
 
-fn resolve_config<R: Runtime>(app: &AppHandle<R>) -> Result<Option<BugReportConfig>, String> {
-    let webhook_url = normalize_discord_webhook_url(
-        resolve_desktop_internal_value(app, DISCORD_WEBHOOK_ENV).as_deref(),
-    );
-    let imgur_client_id = resolve_desktop_internal_value(app, IMGUR_CLIENT_ID_ENV)
-        .as_deref()
-        .and_then(non_empty)
-        .map(str::to_owned);
 
-    Ok(match (webhook_url, imgur_client_id) {
-        (Some(webhook_url), Some(imgur_client_id)) => Some(BugReportConfig {
-            webhook_url,
-            imgur_client_id,
-        }),
-        _ => None,
-    })
+fn discovered_logs<R: Runtime>(
+    app: &AppHandle<R>,
+    selected_ids: Option<&[String]>,
+) -> Vec<AutoLogFile> {
+    let files = collect_auto_logs(app);
+    match selected_ids {
+        None | Some(&[]) => files,
+        Some(ids) => {
+            let selected: HashSet<&str> = ids.iter().map(String::as_str).collect();
+            files
+                .into_iter()
+                .filter(|file| selected.contains(file.id.as_str()))
+                .collect()
+        }
+    }
 }
 
-// ---------------------------------------------------------------------------
-// Auto log discovery
-// ---------------------------------------------------------------------------
+fn collect_log_entries(files: Vec<AutoLogFile>) -> Vec<BugReportLogEntry> {
+    build_log_entries(
+        files,
+        MAX_LOG_ITEMS,
+        MAX_LOG_ITEM_BYTES,
+        MAX_LOGS_TOTAL_BYTES,
+    )
+}
+
+/// Newest files first; each file keeps only its tail (the failure lives at
+/// the end) and the whole list stops at the total byte cap.
+fn build_log_entries(
+    files: Vec<AutoLogFile>,
+    max_items: usize,
+    item_cap: usize,
+    total_cap: usize,
+) -> Vec<BugReportLogEntry> {
+    let mut entries = Vec::new();
+    let mut total = 0usize;
+    for file in files {
+        if entries.len() >= max_items || total >= total_cap {
+            break;
+        }
+        let bytes = match fs::read(&file.path) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                log::warn!(
+                    "bug-report: skipping unreadable log {}: {error}",
+                    file.path.display()
+                );
+                continue;
+            }
+        };
+        let cap = item_cap.min(total_cap - total);
+        let content = tail_truncate_lossy(&bytes, cap);
+        total += content.len();
+        entries.push(BugReportLogEntry {
+            name: file.name,
+            content,
+        });
+    }
+    entries
+}
 
 fn collect_auto_logs<R: Runtime>(app: &AppHandle<R>) -> Vec<AutoLogFile> {
     let resolver = app.path();
@@ -856,21 +791,19 @@ fn is_allowed_log_file(path: &Path) -> bool {
         })
 }
 
-fn log_mime_type(path: &Path) -> Cow<'static, str> {
-    let extension = path
-        .extension()
-        .and_then(OsStr::to_str)
-        .map(str::to_ascii_lowercase);
-    Cow::Borrowed(match extension.as_deref() {
-        Some("json") => "application/json",
-        Some("ndjson") | Some("jsonl") => "application/x-ndjson",
-        _ => "text/plain",
-    })
+/// Keeps at most `max_bytes` trailing bytes, advancing the cut to the next
+/// UTF-8 character boundary so the result is always valid UTF-8.
+fn tail_truncate_lossy(bytes: &[u8], max_bytes: usize) -> String {
+    if bytes.len() <= max_bytes {
+        return String::from_utf8_lossy(bytes).into_owned();
+    }
+    let start = bytes.len() - max_bytes;
+    let start = (start..bytes.len())
+        .find(|&index| bytes[index] & 0xC0 != 0x80)
+        .unwrap_or(bytes.len());
+    String::from_utf8_lossy(&bytes[start..]).into_owned()
 }
 
-// ---------------------------------------------------------------------------
-// Screenshot capture
-// ---------------------------------------------------------------------------
 
 fn capture_screen_data_url() -> Result<Option<String>, String> {
     let Some(image) = screen_capture::capture_virtual_screen()? else {
@@ -1011,8 +944,7 @@ mod screen_capture {
 
     impl Drop for GdiBitmap {
         fn drop(&mut self) {
-            // SAFETY: `self.0` was created by `CreateCompatibleBitmap`; by the time
-            // this runs any `Selection` borrowing it has already been dropped.
+            // SAFETY: `self.0` was created by `CreateCompatibleBitmap` and is owned by us.
             unsafe {
                 DeleteObject(self.0);
             }
@@ -1146,14 +1078,12 @@ mod screen_capture {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Generic Discord webhook relay
-// ---------------------------------------------------------------------------
 
 /// Generic Discord webhook relay for frontend-driven probes (e.g. testing a
 /// user-configured integration). The `ok: false` + `status` shape is the
-/// probe contract — the caller decides what a non-2xx means; the main bug
-/// report submit never flows through here (it uses typed `Result`).
+/// probe contract — the caller decides what a non-2xx means; the bug-report
+/// submit does not flow through here (it POSTs JSON to the allowlisted
+/// endpoint).
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscordWebhookSendPayload {
@@ -1236,9 +1166,6 @@ pub async fn discord_webhook_send(
     })
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 fn normalize_discord_webhook_url(value: Option<&str>) -> Option<String> {
     let trimmed = value?.trim();
@@ -1248,19 +1175,33 @@ fn normalize_discord_webhook_url(value: Option<&str>) -> Option<String> {
         .then(|| trimmed.to_owned())
 }
 
-fn api_error_message(value: &Value) -> &str {
-    value
-        .get("data")
-        .and_then(|data| data.get("error"))
-        .or_else(|| value.get("error"))
-        .or_else(|| value.get("message"))
-        .and_then(Value::as_str)
-        .unwrap_or("Remote request failed.")
+/// Only `https://koma-studio.site` and its subdomains are accepted so a
+/// compromised webview cannot redirect bug reports (with their logs) to a
+/// third-party host.
+fn is_allowed_bug_report_endpoint(value: &str) -> bool {
+    let Ok(url) = url::Url::parse(value.trim()) else {
+        return false;
+    };
+    if url.scheme() != "https" {
+        return false;
+    }
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    let host = host.strip_suffix('.').unwrap_or(host);
+    let subdomain_suffix = format!(".{ALLOWED_ENDPOINT_HOST}");
+    host == ALLOWED_ENDPOINT_HOST || host.ends_with(&subdomain_suffix)
+}
+
+/// uuid4 generated once per app session, reused by every report of the run.
+fn session_id() -> &'static str {
+    static SESSION_ID: OnceLock<String> = OnceLock::new();
+    SESSION_ID.get_or_init(|| uuid::Uuid::new_v4().to_string())
 }
 
 /// Strips path separators, reserved characters, control characters and
-/// leading/trailing dots so the name can never escape the Discord attachment
-/// namespace or collide with `.`/`..`.
+/// leading/trailing dots so the name can never escape the attachment name
+/// field or collide with `.`/`..`.
 fn safe_file_name(value: &str) -> String {
     let cleaned: String = value
         .trim()
@@ -1287,163 +1228,7 @@ fn trimmed(value: Option<&str>) -> &str {
     value.map(str::trim).unwrap_or_default()
 }
 
-fn non_empty(value: &str) -> Option<&str> {
-    let trimmed = value.trim();
-    (!trimmed.is_empty()).then_some(trimmed)
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "bug_report_tests.rs"]
+mod tests;
 
-    #[test]
-    fn validates_discord_webhook_url() {
-        assert!(
-            normalize_discord_webhook_url(Some(" https://discord.com/api/webhooks/1/token "))
-                .is_some()
-        );
-        assert!(
-            normalize_discord_webhook_url(Some("https://discordapp.com/api/webhooks/1/t"))
-                .is_some()
-        );
-        assert!(normalize_discord_webhook_url(Some("https://example.com")).is_none());
-        assert!(normalize_discord_webhook_url(None).is_none());
-    }
-
-    #[test]
-    fn screenshot_data_url_returns_base64_payload() {
-        let data = BASE64.encode(b"png");
-        let payload =
-            validate_screenshot_data_url(format!("data:image/png;base64,{data}")).unwrap();
-        assert_eq!(payload, data);
-    }
-
-    #[test]
-    fn screenshot_data_url_rejects_non_image_and_garbage() {
-        let data = BASE64.encode(b"txt");
-        assert!(matches!(
-            validate_screenshot_data_url(format!("data:text/plain;base64,{data}")),
-            Err(BugReportError::Rejected { status: 400, .. })
-        ));
-        assert!(matches!(
-            validate_screenshot_data_url("data:image/png;base64,***".to_owned()),
-            Err(BugReportError::Rejected { status: 400, .. })
-        ));
-        assert!(matches!(
-            validate_screenshot_data_url("no-comma".to_owned()),
-            Err(BugReportError::Rejected { status: 400, .. })
-        ));
-    }
-
-    #[test]
-    fn severity_deserializes_with_fallback() {
-        assert_eq!(
-            serde_json::from_str::<Severity>("\"critical\"").unwrap(),
-            Severity::Critical
-        );
-        assert_eq!(
-            serde_json::from_str::<Severity>("\"nonsense\"").unwrap(),
-            Severity::Medium
-        );
-    }
-
-    #[test]
-    fn manual_attachments_enforce_limits_and_mime_fallback() {
-        let attachments = decode_manual_attachments(vec![ManualAttachmentInput {
-            name: Some("../../evil.txt".to_owned()),
-            mime_type: Some("not a mime".to_owned()),
-            content_base64: Some(BASE64.encode(b"hello")),
-        }])
-        .unwrap();
-        assert_eq!(attachments.len(), 1);
-        assert_eq!(attachments[0].name, "evil.txt");
-        assert_eq!(attachments[0].mime_type, "application/octet-stream");
-        assert_eq!(attachments[0].bytes, b"hello");
-
-        let too_many = (0..=MAX_MANUAL_ATTACHMENTS)
-            .map(|_| ManualAttachmentInput::default())
-            .collect();
-        assert!(matches!(
-            decode_manual_attachments(too_many),
-            Err(BugReportError::Rejected { status: 400, .. })
-        ));
-    }
-
-    #[test]
-    fn safe_file_name_neutralizes_traversal_and_reserved_chars() {
-        assert_eq!(safe_file_name("..\\..\\x:y*z?.log"), "xyz.log");
-        assert_eq!(safe_file_name(" ... "), DEFAULT_ATTACHMENT_NAME);
-        assert_eq!(safe_file_name("a\nb\u{7}.txt"), "ab.txt");
-        assert!(safe_file_name(&"x".repeat(500)).chars().count() <= MAX_FILE_NAME_CHARS);
-    }
-
-    #[test]
-    fn collects_only_allowed_log_files_and_ignores_oversized() {
-        let temp = tempfile::tempdir().unwrap();
-        fs::write(temp.path().join("app.log"), b"ok").unwrap();
-        fs::write(temp.path().join("runtime-trace.json"), b"{}").unwrap();
-        fs::write(temp.path().join("binary.bin"), b"nope").unwrap();
-        fs::create_dir(temp.path().join("nested.log")).unwrap();
-
-        let mut files = Vec::new();
-        collect_logs_from_dir(temp.path(), LogSource::App, &mut files);
-
-        assert_eq!(files.len(), 2);
-        let runtime = files
-            .iter()
-            .find(|f| f.name == "runtime-trace.json")
-            .unwrap();
-        assert_eq!(runtime.source, LogSource::Runtime);
-        let app = files.iter().find(|f| f.name == "app.log").unwrap();
-        assert_eq!(app.source, LogSource::App);
-        assert_eq!(app.size, 2);
-    }
-
-    #[test]
-    fn missing_log_directory_is_not_an_error() {
-        let mut files = Vec::new();
-        collect_logs_from_dir(
-            Path::new("/definitely/not/here/koma-logs"),
-            LogSource::App,
-            &mut files,
-        );
-        assert!(files.is_empty());
-    }
-
-    #[test]
-    fn downsample_half_averages_2x2_blocks() {
-        let image = RawImage {
-            width: 4,
-            height: 2,
-            rgba: vec![
-                0, 0, 0, 255, 100, 100, 100, 255, 10, 20, 30, 255, 10, 20, 30, 255, //
-                200, 200, 200, 255, 100, 100, 100, 255, 10, 20, 30, 255, 10, 20, 30, 255,
-            ],
-        };
-        let half = image.downsample_half();
-        assert_eq!((half.width, half.height), (2, 1));
-        assert_eq!(&half.rgba[..4], &[100, 100, 100, 255]);
-        assert_eq!(&half.rgba[4..8], &[10, 20, 30, 255]);
-    }
-
-    #[test]
-    fn png_roundtrip_encodes_valid_image() {
-        let image = RawImage {
-            width: 2,
-            height: 2,
-            rgba: vec![255; 16],
-        };
-        let png = encode_png(&image).unwrap();
-        assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
-    }
-
-    #[test]
-    fn extracts_upstream_error_messages() {
-        assert_eq!(
-            api_error_message(&json!({ "data": { "error": "bad image" } })),
-            "bad image"
-        );
-        assert_eq!(api_error_message(&json!({ "message": "rate" })), "rate");
-        assert_eq!(api_error_message(&json!({})), "Remote request failed.");
-    }
-}

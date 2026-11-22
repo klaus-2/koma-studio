@@ -17,12 +17,10 @@ use super::{
 type SharedDesktopConfig = Arc<ResolvedDesktopConfig>;
 type DesktopConfigCell = Arc<OnceLock<SharedDesktopConfig>>;
 
-/// Fully resolved, immutable desktop configuration. Intentionally does not
-/// derive `Debug`: `sources` may hold developer `.env` contents.
+/// Fully resolved, immutable desktop configuration.
 pub(crate) struct ResolvedDesktopConfig {
     pub(super) runtime: RuntimeConfig,
     pub(super) allowed_external_hosts: HashSet<String>,
-    pub(super) sources: ConfigSources,
 }
 
 impl ResolvedDesktopConfig {
@@ -62,7 +60,6 @@ impl ResolvedDesktopConfig {
                 app_packaged: !cfg!(debug_assertions),
             },
             allowed_external_hosts,
-            sources,
         }
     }
 }

@@ -392,7 +392,11 @@ pub async fn start_mini_backend<R: Runtime + 'static>(
     )
     .env("PYTHONUTF8", "1")
     .env("PYTHONIOENCODING", "utf-8")
-    .env("MINI_BACKEND_ACCELERATION_PROFILE", &command_spec.profile);
+    .env("MINI_BACKEND_ACCELERATION_PROFILE", &command_spec.profile)
+    .env(
+        "KOMA_APP_VERSION",
+        app.package_info().version.to_string(),
+    );
 
     if let Ok(path_value) = env::var("PATH") {
         command = command.env("PATH", path_value);
