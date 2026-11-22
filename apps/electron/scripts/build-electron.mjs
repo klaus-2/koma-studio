@@ -6,9 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import { writeElectronTypecheckCache } from "./build-incremental-cache.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, "..");
+const buildScriptPath = fileURLToPath(import.meta.url);
+const rootDir = path.resolve(path.dirname(buildScriptPath), "..");
 const args = process.argv.slice(2);
 const skipTypecheck = args.includes("--skip-typecheck");
 
@@ -96,8 +95,6 @@ const writeRuntimeConfig = () => {
     "KOMA_STUDIO_DOWNLOAD_URL",
     "VITE_PROJECT_WEBSITE_URL",
     "VITE_PROJECT_DISCORD_URL",
-    "BUG_REPORT_DISCORD_WEBHOOK_URL",
-    "IMGUR_CLIENT_ID",
     "MINI_BACKEND_ARTIFACTS_URL",
   ];
 

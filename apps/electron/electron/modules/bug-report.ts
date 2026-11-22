@@ -1,26 +1,30 @@
-/**
- * Bug reporting pipeline module.
- * Extracted from the large legacy electron/main.ts during its decomposition.
- */
 import { app, net as electronNet } from "electron";
 import path from "node:path";
 import fs from "node:fs";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import os from "node:os";
 import {
   registerSecureIpcHandler,
   fetchWithTimeoutAndRetry,
-  normalizeDiscordWebhookUrl,
-  sanitizeDiscordWebhookText,
-  parseDiscordWebhookErrorMessage,
+  parseDesktopApiError,
 } from "./shared.ts";
+import {
+  BUG_REPORT_DESCRIPTION_MAX_LENGTH,
+  BUG_REPORT_TITLE_MAX_LENGTH,
+  buildBugReportPayload,
+  enforceBugReportWireBudget,
+  serializeBugReportPayload,
+  validateBugReportEndpointUrl,
+  type BugReportAttachmentEntry,
+  type BugReportClientMetadata,
+  type BugReportLogEntry,
+} from "./bug-report-payload.ts";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 type BugReportLogSource = "app" | "user" | "runtime";
-type BugReportSeverity = "low" | "medium" | "high" | "critical";
 
 interface BugReportAutoLogEntry {
   id: string;
@@ -47,14 +51,12 @@ interface BugReportPrepareResponse {
   autoLogs: BugReportAutoLogEntry[];
   diagnostics: Record<string, unknown>;
   ready: boolean;
-  error?: string;
 }
 
 interface BugReportSubmitResponse {
   ok: boolean;
   status: number;
   error?: string;
-  screenshotUrl?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,12 +64,12 @@ interface BugReportSubmitResponse {
 // ---------------------------------------------------------------------------
 
 const BUG_REPORT_ALLOWED_LOG_EXTENSIONS = new Set([".log", ".txt", ".json", ".ndjson", ".jsonl"]);
-const BUG_REPORT_MAX_AUTO_LOG_FILES = 12;
+const BUG_REPORT_MAX_AUTO_LOG_FILES = 24;
 const BUG_REPORT_MAX_AUTO_LOG_FILE_BYTES = 1_500_000;
-const BUG_REPORT_MAX_MANUAL_ATTACHMENTS = 5;
-const BUG_REPORT_MAX_MANUAL_FILE_BYTES = 8 * 1024 * 1024;
-const BUG_REPORT_MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024;
-const BUG_REPORT_MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024;
+const BUG_REPORT_MAX_MANUAL_ATTACHMENTS = 4;
+const BUG_REPORT_MAX_MANUAL_FILE_BYTES = 5 * 1024 * 1024;
+const BUG_REPORT_MAX_SCREENSHOT_BYTES = 6 * 1024 * 1024;
+const BUG_REPORT_SUBMIT_TIMEOUT_MS = 60_000;
 const MINI_BACKEND_RUNTIME_LOG_LIMIT = 600;
 const APP_SESSION_LOG_FILE_NAME = "desktop-session.log";
 
@@ -76,6 +78,7 @@ const APP_SESSION_LOG_FILE_NAME = "desktop-session.log";
 // ---------------------------------------------------------------------------
 
 let cachedBugReportLogEntries: BugReportResolvedLogEntry[] = [];
+const BUG_REPORT_SESSION_ID = randomUUID();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -171,7 +174,6 @@ interface MiniBackendRuntimeLogEntry {
 
 interface BugReportDeps {
   getMainWindow: () => import("electron").BrowserWindow | null;
-  resolveDesktopEnvValue: (key: string) => string | null;
   getDesktopUpdateChannel: () => "stable" | "beta";
   miniBackendRuntimeLogBuffer: MiniBackendRuntimeLogEntry[];
   miniBackendProcessRef: () => import("node:child_process").ChildProcess | null;
@@ -210,7 +212,6 @@ const collectResolvedBugReportLogs = (
     { dir: app.getPath("logs"), source: "app", label: "app" },
     { dir: path.join(app.getPath("userData"), "logs"), source: "user", label: "user" },
     { dir: path.resolve(process.cwd(), "logs"), source: "app", label: "cwd" },
-    { dir: path.resolve(process.cwd(), "auth-server", "logs"), source: "app", label: "auth-server" },
   ];
 
   const merged: BugReportResolvedLogEntry[] = [];
@@ -293,7 +294,7 @@ const decodeBugReportDataUrlImage = (
     return null;
   }
 
-  const match = rawDataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\r\n]+)$/i);
+  const match = rawDataUrl.match(/^data:(image\/(?:png|jpeg));base64,([a-z0-9+/=\r\n]+)$/i);
   if (!match) {
     return null;
   }
@@ -312,6 +313,20 @@ const decodeBugReportDataUrlImage = (
   }
 
   return { mimeType, data: decoded };
+};
+
+const resolveBugReportScreenshotPayload = (
+  rawDataUrl: unknown,
+): { ok: true; dataUrl: string | null } | { ok: false; error: string } => {
+  if (typeof rawDataUrl !== "string" || !rawDataUrl) {
+    return { ok: true, dataUrl: null };
+  }
+
+  if (!decodeBugReportDataUrlImage(rawDataUrl)) {
+    return { ok: false, error: "Screenshot is invalid. Capture it again before sending." };
+  }
+
+  return { ok: true, dataUrl: rawDataUrl };
 };
 
 // ---------------------------------------------------------------------------
@@ -361,189 +376,6 @@ const readAutoLogBuffer = (entry: BugReportResolvedLogEntry): Buffer => {
 };
 
 // ---------------------------------------------------------------------------
-// Severity
-// ---------------------------------------------------------------------------
-
-const parseBugReportSeverity = (value: unknown): BugReportSeverity | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "low" || normalized === "medium" || normalized === "high" || normalized === "critical") {
-    return normalized;
-  }
-
-  return null;
-};
-
-const severityToDiscordColor = (severity: BugReportSeverity): number => {
-  switch (severity) {
-    case "critical":
-      return 0xb91c1c;
-    case "high":
-      return 0xdc2626;
-    case "medium":
-      return 0xf59e0b;
-    case "low":
-    default:
-      return 0x2563eb;
-  }
-};
-
-// ---------------------------------------------------------------------------
-// Imgur upload
-// ---------------------------------------------------------------------------
-
-const uploadBugReportScreenshotToImgur = async (
-  imgurClientId: string,
-  screenshot: { mimeType: string; data: Buffer },
-): Promise<{ ok: boolean; status: number; link?: string; error?: string }> => {
-  const formData = new FormData();
-  formData.append(
-    "image",
-    new Blob([Uint8Array.from(screenshot.data)], { type: screenshot.mimeType }),
-    "bug-report-screenshot.png",
-  );
-
-  try {
-    const response = await fetchWithTimeoutAndRetry(
-      (signal) =>
-        electronNet.fetch("https://api.imgur.com/3/image", {
-          method: "POST",
-          headers: {
-            Authorization: `Client-ID ${imgurClientId}`,
-          },
-          body: formData,
-          signal,
-        }),
-      { method: "POST" },
-      { timeoutMs: 20_000, retryCount: 0 },
-    );
-
-    const rawText = await response.text().catch(() => "");
-    if (!response.ok) {
-      return {
-        ok: false,
-        status: response.status,
-        error: sanitizeBugReportText(rawText || `Imgur returned HTTP ${response.status}.`, 300),
-      };
-    }
-
-    let parsed: Record<string, unknown> = {};
-    try {
-      parsed = JSON.parse(rawText) as Record<string, unknown>;
-    } catch {
-      parsed = {};
-    }
-
-    const success = parsed.success === true;
-    const data = (parsed.data ?? {}) as Record<string, unknown>;
-    const link = typeof data.link === "string" ? data.link.trim() : "";
-    if (!success || !link) {
-      return {
-        ok: false,
-        status: response.status,
-        error: "Failed to receive the URL of the image uploaded to Imgur.",
-      };
-    }
-
-    return {
-      ok: true,
-      status: response.status,
-      link,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      error: sanitizeBugReportText(
-        error instanceof Error ? error.message : "Failed to upload screenshot to Imgur.",
-        300,
-      ),
-    };
-  }
-};
-
-// ---------------------------------------------------------------------------
-// Webhook payload
-// ---------------------------------------------------------------------------
-
-const buildBugReportWebhookPayload = (
-  title: string,
-  description: string,
-  severity: BugReportSeverity,
-  screenshotUrl: string,
-  details: {
-    stepsToReproduce?: string;
-    expectedResult?: string;
-    actualResult?: string;
-    contact?: string;
-    context?: Record<string, unknown>;
-  },
-): Record<string, unknown> => {
-  const fields: Array<{ name: string; value: string; inline?: boolean }> = [
-    {
-      name: "Severity",
-      value: severity.toUpperCase(),
-      inline: true,
-    },
-    {
-      name: "Version",
-      value: app.getVersion(),
-      inline: true,
-    },
-    {
-      name: "Platform",
-      value: `${os.platform()} ${os.release()} (${os.arch()})`,
-      inline: true,
-    },
-  ];
-
-  if (details.stepsToReproduce) {
-    fields.push({ name: "Steps to reproduce", value: details.stepsToReproduce.slice(0, 1024) });
-  }
-  if (details.expectedResult) {
-    fields.push({ name: "Expected result", value: details.expectedResult.slice(0, 1024) });
-  }
-  if (details.actualResult) {
-    fields.push({ name: "Actual result", value: details.actualResult.slice(0, 1024) });
-  }
-  if (details.contact) {
-    fields.push({ name: "Contact", value: details.contact.slice(0, 256), inline: false });
-  }
-
-  const context = details.context && typeof details.context === "object" ? details.context : null;
-  const mode = sanitizeBugReportText((context as Record<string, unknown> | null)?.mode ?? "", 120);
-  const userEmail = sanitizeBugReportText((context as Record<string, unknown> | null)?.userEmail ?? "", 160);
-  if (mode) {
-    fields.push({ name: "Current mode", value: mode, inline: true });
-  }
-  if (userEmail) {
-    fields.push({ name: "User", value: userEmail, inline: true });
-  }
-
-  return {
-    username: "KŌMA Bug Reporter",
-    embeds: [
-      {
-        title: `\u{1F41E} ${title.slice(0, 180)}`,
-        description: `${description.slice(0, 3500)}\n\n[Screenshot on Imgur](${screenshotUrl})`,
-        color: severityToDiscordColor(severity),
-        timestamp: new Date().toISOString(),
-        fields,
-        image: {
-          url: screenshotUrl,
-        },
-        footer: {
-          text: "KŌMA Studio • Automatic bug report",
-        },
-      },
-    ],
-  };
-};
-
-// ---------------------------------------------------------------------------
 // Attachments
 // ---------------------------------------------------------------------------
 
@@ -572,7 +404,13 @@ const parseBugReportManualAttachments = (
       sanitizeBugReportText(item.name ?? "", 140),
       `attachment-${parsed.length + 1}.txt`,
     );
-    const mimeType = sanitizeBugReportText(item.mimeType ?? "application/octet-stream", 80) || "application/octet-stream";
+    const mimeType = sanitizeBugReportText(item.mimeType ?? "", 80).toLowerCase();
+    if (!/^(image|text)\//.test(mimeType)) {
+      return {
+        ok: false,
+        error: `Attachment ${fileName} must be an image or text file.`,
+      };
+    }
     const contentBase64 = typeof item.contentBase64 === "string" ? item.contentBase64.replace(/\s+/g, "") : "";
     if (!contentBase64) {
       return { ok: false, error: `Attachment ${fileName} has no content.` };
@@ -640,63 +478,6 @@ const resolveSelectedAutoLogEntries = (
 };
 
 // ---------------------------------------------------------------------------
-// Discord webhook send
-// ---------------------------------------------------------------------------
-
-const sendBugReportToDiscord = async (
-  webhookUrl: string,
-  payloadJson: Record<string, unknown>,
-  attachments: BugReportAttachmentBuffer[],
-): Promise<BugReportSubmitResponse> => {
-  const formData = new FormData();
-  formData.append("payload_json", JSON.stringify(payloadJson));
-
-  attachments.forEach((attachment, index) => {
-    formData.append(
-      `files[${index}]`,
-      new Blob([Uint8Array.from(attachment.data)], { type: attachment.mimeType }),
-      attachment.fileName,
-    );
-  });
-
-  try {
-    const response = await fetchWithTimeoutAndRetry(
-      (signal) =>
-        electronNet.fetch(webhookUrl, {
-          method: "POST",
-          body: formData,
-          signal,
-        }),
-      { method: "POST" },
-      { timeoutMs: 20_000, retryCount: 0 },
-    );
-
-    if (response.ok || response.status === 204) {
-      return {
-        ok: true,
-        status: response.status,
-      };
-    }
-
-    const rawError = await response.text().catch(() => "");
-    return {
-      ok: false,
-      status: response.status,
-      error: parseDiscordWebhookErrorMessage(rawError, response.status),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      error: sanitizeBugReportText(
-        error instanceof Error ? error.message : "Failed to send the report to Discord.",
-        300,
-      ),
-    };
-  }
-};
-
-// ---------------------------------------------------------------------------
 // Context sanitization
 // ---------------------------------------------------------------------------
 
@@ -718,6 +499,44 @@ const sanitizeBugReportContext = (value: unknown): Record<string, unknown> => {
   return cleaned;
 };
 
+const BUG_REPORT_NARRATIVE_FIELD_MAX_CHARS = 1_024;
+
+const assembleBugReportDescription = (
+  base: string,
+  context: Record<string, unknown>,
+  payload: Record<string, unknown>,
+): string => {
+  const route = typeof context.route === "string" ? context.route : "";
+  const narrative: Array<[string, string]> = [
+    ["Route", route],
+    ["Steps", sanitizeBugReportMultilineText(payload.stepsToReproduce ?? "", BUG_REPORT_NARRATIVE_FIELD_MAX_CHARS)],
+    ["Expected", sanitizeBugReportMultilineText(payload.expectedResult ?? "", BUG_REPORT_NARRATIVE_FIELD_MAX_CHARS)],
+    ["Actual", sanitizeBugReportMultilineText(payload.actualResult ?? "", BUG_REPORT_NARRATIVE_FIELD_MAX_CHARS)],
+    ["Contact", sanitizeBugReportText(payload.contact ?? "", BUG_REPORT_NARRATIVE_FIELD_MAX_CHARS)],
+  ];
+
+  let assembled = base;
+  for (const [name, value] of narrative) {
+    if (!value) {
+      continue;
+    }
+    assembled += `\n\n${name}:\n${value}`;
+  }
+  return assembled.slice(0, BUG_REPORT_DESCRIPTION_MAX_LENGTH);
+};
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+
+const buildBugReportClientMetadata = (deps: BugReportDeps): BugReportClientMetadata => ({
+  appVersion: app.getVersion().slice(0, 64),
+  shell: "electron",
+  platform: os.platform().slice(0, 64),
+  arch: os.arch().slice(0, 32),
+  channel: deps.getDesktopUpdateChannel().slice(0, 64),
+  sessionId: BUG_REPORT_SESSION_ID,
+});
+
 // ---------------------------------------------------------------------------
 // Prepare response
 // ---------------------------------------------------------------------------
@@ -735,24 +554,50 @@ const buildBugReportPrepareResponse = async (deps: BugReportDeps): Promise<BugRe
   }));
 
   const diagnostics = await buildBugReportDiagnostics(deps);
-  const bugWebhookUrl = normalizeDiscordWebhookUrl(deps.resolveDesktopEnvValue("BUG_REPORT_DISCORD_WEBHOOK_URL") ?? "");
-  const imgurClientId = (deps.resolveDesktopEnvValue("IMGUR_CLIENT_ID") ?? "").trim();
-  const ready = Boolean(bugWebhookUrl && imgurClientId);
 
   return {
     screenshotDataUrl,
     autoLogs,
     diagnostics,
-    ready,
-    error: ready
-      ? undefined
-      : "Set BUG_REPORT_DISCORD_WEBHOOK_URL and IMGUR_CLIENT_ID in the environment to send reports.",
+    ready: true,
   };
 };
 
 // ---------------------------------------------------------------------------
 // IPC handler setup
 // ---------------------------------------------------------------------------
+
+const buildBugReportLogs = (
+  includeLogs: boolean,
+  rawIds: unknown,
+  deps: BugReportDeps,
+): BugReportLogEntry[] => {
+  if (!includeLogs) {
+    return [];
+  }
+
+  return resolveSelectedAutoLogEntries(rawIds, deps.miniBackendRuntimeLogBuffer)
+    .map((entry) => {
+      const buffer = readAutoLogBuffer(entry);
+      if (buffer.length <= 0) {
+        return null;
+      }
+      return {
+        name: toSafeBugReportFileName(path.basename(entry.name), `${entry.id}.log`),
+        content: buffer.toString("utf8"),
+      };
+    })
+    .filter((entry): entry is BugReportLogEntry => entry !== null);
+};
+
+const buildBugReportAttachments = (
+  manualAttachments: BugReportAttachmentBuffer[],
+): BugReportAttachmentEntry[] =>
+  manualAttachments.map((attachment) => ({
+    name: attachment.fileName,
+    mime: attachment.mimeType,
+    data: attachment.data.toString("base64"),
+  }));
 
 const setupDesktopBugReportIpcHandlers = (deps: BugReportDeps): void => {
   registerSecureIpcHandler<BugReportPrepareResponse>("desktop-api:bug-report:prepare", async () => {
@@ -762,47 +607,35 @@ const setupDesktopBugReportIpcHandlers = (deps: BugReportDeps): void => {
   registerSecureIpcHandler<BugReportSubmitResponse>("desktop-api:bug-report:submit", async (value) => {
     const payload = (value ?? {}) as Record<string, unknown>;
 
-    const bugWebhookUrl = normalizeDiscordWebhookUrl(deps.resolveDesktopEnvValue("BUG_REPORT_DISCORD_WEBHOOK_URL") ?? "");
-    const imgurClientId = (deps.resolveDesktopEnvValue("IMGUR_CLIENT_ID") ?? "").trim();
-    if (!bugWebhookUrl || !imgurClientId) {
-      return {
-        ok: false,
-        status: 412,
-        error: "BUG_REPORT_DISCORD_WEBHOOK_URL and IMGUR_CLIENT_ID must be configured.",
-      };
-    }
-
-    const title = sanitizeBugReportText(payload.title ?? "", 180);
-    const description = sanitizeBugReportMultilineText(payload.description ?? "", 3_500);
-    const severity = parseBugReportSeverity(payload.severity);
-    if (!title || !description || !severity) {
+    const endpointUrl = validateBugReportEndpointUrl(payload.endpointUrl);
+    if (!endpointUrl) {
       return {
         ok: false,
         status: 400,
-        error: "Provide a valid title, description, and severity to send the report.",
+        error: "The bug report endpoint is missing or not an allowed https://koma-studio.site address.",
       };
     }
 
-    const screenshot = decodeBugReportDataUrlImage(payload.screenshotDataUrl ?? "");
-    if (!screenshot) {
+    const title = sanitizeBugReportText(payload.title ?? "", BUG_REPORT_TITLE_MAX_LENGTH);
+    if (title.length < 5) {
       return {
         ok: false,
         status: 400,
-        error: "Screenshot is invalid or missing. Capture it again before sending.",
+        error: "Provide a title of at least 5 characters to send the report.",
       };
     }
 
-    const screenshotUpload = await uploadBugReportScreenshotToImgur(imgurClientId, screenshot);
-    if (!screenshotUpload.ok || !screenshotUpload.link) {
+    const screenshot = resolveBugReportScreenshotPayload(payload.screenshotDataUrl);
+    if (!screenshot.ok) {
       return {
         ok: false,
-        status: screenshotUpload.status || 502,
-        error: screenshotUpload.error ?? "Failed to upload the screenshot to Imgur.",
+        status: 400,
+        error: screenshot.error,
       };
     }
 
     const manualAttachmentsResult = parseBugReportManualAttachments(payload.attachments);
-    if ("error" in manualAttachmentsResult) {
+    if (!manualAttachmentsResult.ok) {
       return {
         ok: false,
         status: 400,
@@ -810,129 +643,46 @@ const setupDesktopBugReportIpcHandlers = (deps: BugReportDeps): void => {
       };
     }
 
-    const manualAttachments = manualAttachmentsResult.attachments;
+    const includeLogs = payload.includeLogs !== false;
+    const logs = buildBugReportLogs(includeLogs, payload.autoLogIds, deps);
     const context = sanitizeBugReportContext(payload.context);
+    const description = assembleBugReportDescription(
+      sanitizeBugReportMultilineText(payload.description ?? "", BUG_REPORT_DESCRIPTION_MAX_LENGTH),
+      context,
+      payload,
+    );
     const diagnosticsPayload = await buildBugReportDiagnostics(deps);
-    const diagnosticsAttachment: BugReportAttachmentBuffer = {
-      fileName: "diagnostics.json",
-      mimeType: "application/json",
-      source: "auto-log",
-      data: truncateUtf8BufferWithPrefix(
-        Buffer.from(JSON.stringify({ ...diagnosticsPayload, context }, null, 2), "utf8"),
-        BUG_REPORT_MAX_AUTO_LOG_FILE_BYTES,
-      ),
-    };
+    const diagnostics = { ...diagnosticsPayload, context };
 
-    const autoLogEntries = resolveSelectedAutoLogEntries(payload.autoLogIds, deps.miniBackendRuntimeLogBuffer);
-    const autoLogAttachments: BugReportAttachmentBuffer[] = autoLogEntries
-      .map((entry) => {
-        const buffer = readAutoLogBuffer(entry);
-        const safeName = toSafeBugReportFileName(path.basename(entry.name), `${entry.id}.log`);
-        return {
-          fileName: safeName,
-          mimeType: "text/plain",
-          source: "auto-log" as const,
-          data: buffer,
-        };
-      })
-      .filter((item) => item.data.length > 0);
-
-    const allAttachments = [diagnosticsAttachment, ...autoLogAttachments, ...manualAttachments];
-    const totalAttachmentBytes = allAttachments.reduce((sum, item) => sum + item.data.length, 0);
-    if (totalAttachmentBytes > BUG_REPORT_MAX_TOTAL_ATTACHMENT_BYTES) {
-      return {
-        ok: false,
-        status: 413,
-        error: `Attachments exceed the total limit of ${Math.round(BUG_REPORT_MAX_TOTAL_ATTACHMENT_BYTES / (1024 * 1024))}MB.`,
-      };
-    }
-
-    const stepsToReproduce = sanitizeBugReportMultilineText(payload.stepsToReproduce ?? "", 1_024);
-    const expectedResult = sanitizeBugReportMultilineText(payload.expectedResult ?? "", 1_024);
-    const actualResult = sanitizeBugReportMultilineText(payload.actualResult ?? "", 1_024);
-    const contact = sanitizeBugReportText(payload.contact ?? "", 256);
-
-    const webhookPayload = buildBugReportWebhookPayload(
+    const candidatePayload = buildBugReportPayload({
       title,
       description,
-      severity,
-      screenshotUpload.link,
-      {
-        stepsToReproduce: stepsToReproduce || undefined,
-        expectedResult: expectedResult || undefined,
-        actualResult: actualResult || undefined,
-        contact: contact || undefined,
-        context,
-      },
-    );
+      includeLogs,
+      logs,
+      diagnostics,
+      screenshot: screenshot.dataUrl,
+      attachments: buildBugReportAttachments(manualAttachmentsResult.attachments),
+      client: buildBugReportClientMetadata(deps),
+    });
 
-    const webhookResult = await sendBugReportToDiscord(bugWebhookUrl, webhookPayload, allAttachments);
-    if (!webhookResult.ok) {
-      return webhookResult;
-    }
-
-    return {
-      ok: true,
-      status: webhookResult.status,
-      screenshotUrl: screenshotUpload.link,
-    };
-  });
-};
-
-// ---------------------------------------------------------------------------
-// Discord webhook IPC handlers
-// ---------------------------------------------------------------------------
-
-const setupDesktopDiscordWebhookIpcHandlers = (): void => {
-  registerSecureIpcHandler<{
-    ok: boolean;
-    status: number;
-    error?: string;
-  }>("desktop-api:discord-webhook:send", async (value) => {
-    const payload = (value ?? {}) as Record<string, unknown>;
-    const normalizedUrl = normalizeDiscordWebhookUrl(payload.url);
-    if (!normalizedUrl) {
-      return {
-        ok: false,
-        status: 400,
-        error: "Invalid Discord webhook URL.",
-      };
-    }
-
-    const bodyCandidate = payload.body;
-    if (!bodyCandidate || typeof bodyCandidate !== "object" || Array.isArray(bodyCandidate)) {
-      return {
-        ok: false,
-        status: 400,
-        error: "Invalid webhook payload.",
-      };
-    }
-
-    let serializedBody = "";
-    try {
-      serializedBody = JSON.stringify(bodyCandidate);
-    } catch {
-      console.warn("[bug-report] Failed to serialize webhook body");
-      return {
-        ok: false,
-        status: 400,
-        error: "Webhook payload is not serializable.",
-      };
-    }
-
-    if (!serializedBody || serializedBody.length > 50_000) {
+    const budgetResult = enforceBugReportWireBudget(candidatePayload);
+    if (!budgetResult.ok) {
       return {
         ok: false,
         status: 413,
-        error: "Webhook payload exceeds the allowed limit.",
+        error: budgetResult.error,
       };
     }
 
+    const serializedBody = serializeBugReportPayload(budgetResult.payload);
+
+    let response: globalThis.Response;
     try {
-      const response = await fetchWithTimeoutAndRetry(
+      response = await fetchWithTimeoutAndRetry(
         (signal) =>
-          electronNet.fetch(normalizedUrl, {
+          electronNet.fetch(endpointUrl, {
             method: "POST",
+            redirect: "error",
             headers: {
               "content-type": "application/json",
             },
@@ -940,33 +690,47 @@ const setupDesktopDiscordWebhookIpcHandlers = (): void => {
             signal,
           }),
         { method: "POST" },
-        { timeoutMs: 15_000, retryCount: 0 },
+        { timeoutMs: BUG_REPORT_SUBMIT_TIMEOUT_MS, retryCount: 0 },
       );
-
-      if (response.ok || response.status === 204) {
-        return {
-          ok: true,
-          status: response.status,
-        };
-      }
-
-      const rawError = await response.text().catch(() => "");
-      return {
-        ok: false,
-        status: response.status,
-        error: parseDiscordWebhookErrorMessage(rawError, response.status),
-      };
     } catch (error) {
-      console.warn("[bug-report] Discord webhook send failed:", error);
+      console.warn("[bug-report] Failed to reach the bug report service:", error);
       return {
         ok: false,
         status: 0,
-        error: sanitizeDiscordWebhookText(
-          error instanceof Error ? error.message : "Failed to send webhook to Discord.",
-          300,
-        ),
+        error: "Could not reach the bug report service. Check your internet connection and try again.",
       };
     }
+
+    if (response.redirected || !validateBugReportEndpointUrl(response.url)) {
+      console.warn("[bug-report] Endpoint answered with a redirect; report not sent.");
+      return {
+        ok: false,
+        status: 502,
+        error: "The bug report endpoint attempted a redirect; the report was not sent.",
+      };
+    }
+
+    if (response.ok) {
+      return {
+        ok: true,
+        status: response.status,
+      };
+    }
+
+    if (response.status >= 400 && response.status < 500) {
+      const detail = await parseDesktopApiError(response);
+      return {
+        ok: false,
+        status: response.status,
+        error: sanitizeBugReportText(detail, 300),
+      };
+    }
+
+    return {
+      ok: false,
+      status: response.status,
+      error: `The bug report service returned HTTP ${response.status}. Try again later.`,
+    };
   });
 };
 
@@ -976,7 +740,6 @@ const setupDesktopDiscordWebhookIpcHandlers = (): void => {
 
 export {
   type BugReportLogSource,
-  type BugReportSeverity,
   type BugReportAutoLogEntry,
   type BugReportResolvedLogEntry,
   type BugReportAttachmentBuffer,
@@ -989,8 +752,8 @@ export {
   BUG_REPORT_MAX_AUTO_LOG_FILE_BYTES,
   BUG_REPORT_MAX_MANUAL_ATTACHMENTS,
   BUG_REPORT_MAX_MANUAL_FILE_BYTES,
-  BUG_REPORT_MAX_TOTAL_ATTACHMENT_BYTES,
   BUG_REPORT_MAX_SCREENSHOT_BYTES,
+  BUG_REPORT_SUBMIT_TIMEOUT_MS,
   MINI_BACKEND_RUNTIME_LOG_LIMIT,
   APP_SESSION_LOG_FILE_NAME,
   createBugReportLogId,
@@ -1004,18 +767,17 @@ export {
   buildBugReportDiagnostics,
   captureBugReportScreenshotDataUrl,
   decodeBugReportDataUrlImage,
+  resolveBugReportScreenshotPayload,
   toSafeBugReportFileName,
   truncateUtf8BufferWithPrefix,
   readAutoLogBuffer,
-  parseBugReportSeverity,
-  severityToDiscordColor,
-  uploadBugReportScreenshotToImgur,
-  buildBugReportPrepareResponse,
-  buildBugReportWebhookPayload,
   parseBugReportManualAttachments,
   resolveSelectedAutoLogEntries,
-  sendBugReportToDiscord,
   sanitizeBugReportContext,
+  assembleBugReportDescription,
+  buildBugReportClientMetadata,
+  buildBugReportPrepareResponse,
+  buildBugReportLogs,
+  buildBugReportAttachments,
   setupDesktopBugReportIpcHandlers,
-  setupDesktopDiscordWebhookIpcHandlers,
 };

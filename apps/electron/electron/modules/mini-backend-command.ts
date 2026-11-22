@@ -80,6 +80,7 @@ const createMiniBackendCommandBuilder = (deps: {
           KOMA_APP_RESOURCES_DIR: path.join(process.cwd(), "resources"),
           KOMA_REFERENCE_IMAGES_DIR: path.join(process.cwd(), "resources", "reference_images"),
           KOMA_APP_DATA_DIR: app.getPath("userData"),
+          KOMA_APP_VERSION: app.getVersion(),
         },
         runtimeSource: "bundled-core",
         installDir: miniBackendDir,
@@ -97,6 +98,7 @@ const createMiniBackendCommandBuilder = (deps: {
         cwd: path.dirname(selectedRuntimeBinaryPath),
         env: {
           MINI_BACKEND_ACCELERATION_PROFILE: profile,
+          KOMA_APP_VERSION: app.getVersion(),
         },
         runtimeSource: "downloaded-runtime",
         installDir: path.dirname(selectedRuntimeBinaryPath),
@@ -134,6 +136,7 @@ const createMiniBackendCommandBuilder = (deps: {
       env: {
         MINI_BACKEND_ACCELERATION_PROFILE: manifestEntry?.env.MINI_BACKEND_ACCELERATION_PROFILE ?? profile,
         ...manifestEntry?.env,
+        KOMA_APP_VERSION: app.getVersion(),
       },
       runtimeSource: "bundled-core",
       installDir: path.dirname(binaryPath),

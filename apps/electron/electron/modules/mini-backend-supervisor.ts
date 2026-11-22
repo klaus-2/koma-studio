@@ -5,6 +5,8 @@
  * Pure node — no electron imports — unit-testable under node:test.
  */
 import { execFileSync, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 import { formatRuntimeFallbackReason } from "../mini-backend-runtime.ts";
 import {
@@ -64,6 +66,7 @@ interface MiniBackendSupervisorDeps {
   restart: () => Promise<void>;
   /** Latched by before-quit / process exit; recovery never runs while true. */
   isAppExiting: () => boolean;
+  logsDir?: string | null;
   /** Injected clock for the restart policy (tests). */
   now?: () => number;
   /** Injected delay scheduler; returns a cancel function (tests). */
@@ -86,6 +89,7 @@ interface MiniBackendSupervisor<
 }
 
 const MAX_STDERR_CAPTURE_CHARS = 20_000;
+const MINI_BACKEND_CRASH_LOG_FILE_NAME = "mini-backend-crash.log";
 
 const defaultScheduleRestart = (
   delayMs: number,
@@ -123,6 +127,32 @@ const forceStopMiniBackendProcess = (processRef: MiniBackendChildProcess | null)
     processRef.kill("SIGKILL");
   } catch {
     // Ignore process termination race conditions.
+  }
+};
+
+const writeMiniBackendCrashLog = (
+  logsDir: string | null,
+  cause: string,
+  exitCodeLabel: string,
+  stderrTail: string,
+): string | null => {
+  if (!logsDir) {
+    return null;
+  }
+
+  try {
+    fs.mkdirSync(logsDir, { recursive: true });
+    const crashLogPath = path.join(logsDir, MINI_BACKEND_CRASH_LOG_FILE_NAME);
+    fs.writeFileSync(
+      crashLogPath,
+      `mini-backend ${cause} at ${Date.now()}ms since epoch\n` +
+        `exit code: ${exitCodeLabel}\n` +
+        `${stderrTail || "<no stderr captured>"}\n`,
+      "utf8",
+    );
+    return crashLogPath;
+  } catch {
+    return null;
   }
 };
 
@@ -195,6 +225,7 @@ const createMiniBackendSupervisor = <
 ): MiniBackendSupervisor<TChild> => {
   const policy = createMiniBackendRestartPolicy({ now: deps.now ?? (() => Date.now()) });
   const scheduleRestart = deps.scheduleRestart ?? defaultScheduleRestart;
+  const logsDir = deps.logsDir ?? null;
 
   let processRef: TChild | null = null;
   let shutdownPromise: Promise<void> | null = null;
@@ -259,6 +290,7 @@ const createMiniBackendSupervisor = <
 
     if (error instanceof MiniBackendRestartError && error.kind === "health-timeout") {
       const decision = policy.recordHealthTimeout();
+      const crashLogPath = writeMiniBackendCrashLog(logsDir, "restart-health-timeout", "unknown", lastStderr);
       deps.patchRuntimeState({
         status: "crashed",
         statusMessage:
@@ -269,7 +301,7 @@ const createMiniBackendSupervisor = <
         maxAttempts: policy.getMaxAttempts(),
         exitCode: null,
         lastStderr,
-        crashLogPath: null,
+        crashLogPath,
         progress: null,
       });
       console.error(`[mini-backend] restart health timeout; stderr tail:\n${lastStderr || "<empty>"}`);
@@ -279,6 +311,7 @@ const createMiniBackendSupervisor = <
 
     terminalFailureGeneration = generation;
     const decision = policy.recordSpawnFailure("spawn-error");
+    const crashLogPath = writeMiniBackendCrashLog(logsDir, "restart-spawn-error", "unknown", lastStderr);
     deps.patchRuntimeState({
       status: "error",
       statusMessage: "Local backend could not be restarted; automatic recovery stopped.",
@@ -287,7 +320,7 @@ const createMiniBackendSupervisor = <
       maxAttempts: policy.getMaxAttempts(),
       exitCode: null,
       lastStderr,
-      crashLogPath: null,
+      crashLogPath,
       progress: null,
     });
     console.error(`[mini-backend] restart failed (no retry): ${message}`);
@@ -334,6 +367,7 @@ const createMiniBackendSupervisor = <
     const lastStderr = formatMiniBackendCrashStderr(stderrCapture);
     const exitCodeLabel = code === null ? "unknown" : String(code);
     const decision = policy.recordUnexpectedExit({ exitCode: code, healthConfirmed });
+    const crashLogPath = writeMiniBackendCrashLog(logsDir, "unexpected-exit", exitCodeLabel, lastStderr);
     const statusMessage =
       decision.action === "restart"
         ? `Local backend exited unexpectedly (code ${exitCodeLabel}); ` +
@@ -349,7 +383,7 @@ const createMiniBackendSupervisor = <
       maxAttempts: policy.getMaxAttempts(),
       exitCode: code,
       lastStderr,
-      crashLogPath: null,
+      crashLogPath,
       progress: null,
     });
     console.error(
@@ -408,6 +442,8 @@ const createMiniBackendSupervisor = <
       terminalFailureGeneration = childGeneration;
       cancelPendingRestart();
       const message = redactMiniBackendSecrets(error.message);
+      const lastStderr = formatMiniBackendCrashStderr(stderrCapture);
+      const crashLogPath = writeMiniBackendCrashLog(logsDir, "spawn-error", "unknown", lastStderr);
       const decision = policy.recordSpawnFailure("spawn-error");
       deps.patchRuntimeState({
         status: "error",
@@ -416,8 +452,8 @@ const createMiniBackendSupervisor = <
         attempt: decision.attempt,
         maxAttempts: policy.getMaxAttempts(),
         exitCode: null,
-        lastStderr: formatMiniBackendCrashStderr(stderrCapture),
-        crashLogPath: null,
+        lastStderr,
+        crashLogPath,
         progress: null,
       });
       console.error(`[mini-backend] spawn failed (no retry): ${message}`);

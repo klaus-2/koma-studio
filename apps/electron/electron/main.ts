@@ -28,7 +28,6 @@ import {
   debugDesktopWarn,
   initializeAppSessionLog,
   installMainProcessConsoleSessionLogging,
-  isDesktopDebugLogsEnabled,
   recordSessionLog,
   setDesktopDebugLogsEnabled,
 } from "./modules/session-log.ts";
@@ -132,7 +131,6 @@ import {
 } from "./modules/deep-link.ts";
 import {
   setupDesktopBugReportIpcHandlers,
-  setupDesktopDiscordWebhookIpcHandlers,
 } from "./modules/bug-report.ts";
 
 // Prevent external Chromium extensions/scripts from injecting renderer code.
@@ -311,6 +309,7 @@ const miniBackendSupervisor = createMiniBackendSupervisor({
   pushRuntimeLog: (stream, text) => miniBackendRuntimeLog.push(stream, text),
   restart: () => startMiniBackend({ throwOnUnhealthy: true }),
   isAppExiting: () => appExiting,
+  logsDir: path.join(app.getPath("userData"), "logs"),
 });
 
 const getDesktopRuntimeConfig = (): {
@@ -781,10 +780,8 @@ setupDesktopFontIpcHandlers();
 setupDesktopLlmProfilesIpcHandlers();
 setupDesktopBloggerIpcHandlers();
 setupDesktopImgurIpcHandlers();
-setupDesktopDiscordWebhookIpcHandlers();
 setupDesktopBugReportIpcHandlers({
   getMainWindow: () => mainWindow,
-  resolveDesktopEnvValue,
   getDesktopUpdateChannel: () => DESKTOP_UPDATE_CHANNEL,
   miniBackendRuntimeLogBuffer: miniBackendRuntimeLog.getEntries(),
   miniBackendProcessRef: () => miniBackendSupervisor.getProcess(),
@@ -915,9 +912,7 @@ if (!gotTheLock) {
     // Strip Electron and App specific strings from user agent to bypass Turnstile bot detection
     app.userAgentFallback = app.userAgentFallback.replace(/Electron\/\S+\s?/, "").replace(/koma-studio\/\S+\s?/, "").replace(/ScanlatorPro\/\S+\s?/, "").trim();
 
-    if (isDesktopDebugLogsEnabled()) {
-      initializeAppSessionLog();
-    }
+    initializeAppSessionLog();
     enforcePackagedRuntimeIntegrity(isDev);
     setupInternalAppProtocol(isDev);
     setupPermissionHardening(electronSession.defaultSession);

@@ -103,9 +103,6 @@ const recordSessionLog = (
   source: "main" | "renderer",
   args: unknown[],
 ): void => {
-  if (!desktopDebugLogsEnabled) {
-    return;
-  }
   const message = sanitizeSessionLogText(args.map((item) => stringifySessionLogArg(item)).join(" "));
   if (!message) {
     return;

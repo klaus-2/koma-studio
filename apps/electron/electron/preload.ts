@@ -668,10 +668,6 @@ contextBridge.exposeInMainWorld("desktop", {
       uploadImages: async (payload: Record<string, unknown>): Promise<unknown> =>
         invokeSecureDesktopApi("desktop-api:imgur:upload-images", payload),
     },
-    discordWebhook: {
-      send: async (payload: { url: string; body: Record<string, unknown> }): Promise<unknown> =>
-        invokeSecureDesktopApi("desktop-api:discord-webhook:send", payload),
-    },
     bugReport: {
       prepare: async (): Promise<unknown> =>
         invokeSecureDesktopApi("desktop-api:bug-report:prepare"),
