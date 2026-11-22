@@ -1,6 +1,7 @@
 //! Domain services (pure logic, no IPC concerns).
 
 pub mod api_client;
+pub mod batch_state;
 pub mod fonts;
 pub mod identity;
 pub mod imgur;

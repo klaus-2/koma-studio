@@ -29,6 +29,7 @@ mod resolved_config;
 mod runtime_artifacts_url;
 mod url_validation;
 
+pub(crate) mod batch;
 pub(crate) mod forwarded_files;
 pub(crate) mod updater;
 

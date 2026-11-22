@@ -119,6 +119,7 @@ pub fn run() {
         )
         .manage(state::WorkspaceAssetStore::default())
         .manage(state::api::ApiRuntimeState::default())
+        .manage(services::batch_state::BatchStateStore::<tauri::Wry>::default())
         .on_page_load(|webview, payload| {
             if payload.event() == tauri::webview::PageLoadEvent::Finished {
                 commands::desktop::forwarded_files::flush_staged_paths(webview.app_handle());
@@ -145,6 +146,9 @@ pub fn run() {
             commands::desktop_integrations::save_blob,
             commands::desktop_integrations::reveal_path,
             commands::desktop_integrations::write_clipboard_image,
+            commands::desktop::batch::set_state,
+            commands::desktop::batch::set_dirty,
+            commands::desktop::batch::close_force,
             commands::logging::session_log,            runtime::profiles::list_mini_backend_runtime_artifacts,
             runtime::profiles::install_recommended_mini_backend_runtime,
             runtime::profiles::install_mini_backend_runtime_profile,
@@ -238,11 +242,16 @@ pub fn run() {
         // process instead of starting a fresh backend.
         .on_window_event(|window, event| {
             protocol::media::on_window_event(window, event);
-            if matches!(
-                event,
-                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed
-            ) {
-                let _ = sidecar::mini_backend::stop_mini_backend(window.app_handle());
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    if services::batch_state::handle_close_requested(window.app_handle(), api) {
+                        let _ = sidecar::mini_backend::stop_mini_backend(window.app_handle());
+                    }
+                }
+                tauri::WindowEvent::Destroyed => {
+                    let _ = sidecar::mini_backend::stop_mini_backend(window.app_handle());
+                }
+                _ => {}
             }
         })
         .build(tauri::generate_context!())
@@ -252,6 +261,7 @@ pub fn run() {
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
                     // Latched before the kill so the sidecar's own exit event
                     // cannot schedule a recovery attempt into a dying process.
+                    services::batch_state::release_keep_awake(app_handle);
                     let _ = sidecar::recovery::mark_app_exiting(app_handle);
                     let _ = sidecar::mini_backend::stop_mini_backend(app_handle);
                 }
