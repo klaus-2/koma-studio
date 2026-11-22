@@ -8,6 +8,7 @@ from pathlib import Path
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 import logging
+import time
 
 from pipelines.batch import stages
 from pipelines.batch.errors import InvalidImageError
@@ -131,6 +132,7 @@ class _ImageState:
     segment_payload: StagePayload | None = None
     clean_payload: StagePayload | None = None
     fell_back_stages: dict[StageName, str] = field(default_factory=dict)
+    stage_timings: dict[str, float] = field(default_factory=dict)
     cleaned: CleanedImage | None = None
     # Per-pass bytes memo: the page's bytes are read off disk at most once
     # per pass and released when the page leaves the queue slot (_run_queue's
@@ -342,6 +344,21 @@ class BatchOrchestrator:
 
     # ----------------------------------------------------------------- phases
 
+    async def _timed_stage[T](
+        self,
+        state: _ImageState,
+        stage: str,
+        run: Callable[[], Awaitable[T]],
+    ) -> T:
+        started = time.perf_counter()
+        try:
+            return await run()
+        finally:
+            state.stage_timings[stage] = (
+                state.stage_timings.get(stage, 0.0)
+                + max(0.0, time.perf_counter() - started)
+            )
+
     async def _run_gpu_stage[T](
         self,
         state: _ImageState,
@@ -355,11 +372,15 @@ class BatchOrchestrator:
         ``fell_back_to_cpu`` plus ``fallback_reason`` on the stage payload and
         emitting the batch-scoped ``batch.gpu_oom_fallback`` event."""
         self._progress.item_stage(state.task.index, state.task.filename, stage)
-        execution = await run_with_cpu_fallback(
-            lambda _device, stage_use_gpu: run(stage_use_gpu),
-            device=self._device,
-            use_gpu=use_gpu,
-            stage=stage,
+        execution = await self._timed_stage(
+            state,
+            stage,
+            lambda: run_with_cpu_fallback(
+                lambda _device, stage_use_gpu: run(stage_use_gpu),
+                device=self._device,
+                use_gpu=use_gpu,
+                stage=stage,
+            ),
         )
         if execution.fell_back_to_cpu:
             state.fell_back_stages[stage] = "gpu_oom_to_cpu"
@@ -473,15 +494,19 @@ class BatchOrchestrator:
         )
         self._progress.item_stage(state.task.index, state.task.filename, "translation")
         try:
-            out = await stages.run_translation_stage(
-                model_key=cfg.translation_model_key,
-                source_language=cfg.source_language,
-                target_language=cfg.target_language,
-                extra_context=cfg.extra_context,
-                settings=cfg.llm_settings,
-                ocr_regions=state.ocr,
-                custom_llm=cfg.custom_llm,
-                neighbor_context=neighbor_context,
+            out = await self._timed_stage(
+                state,
+                "translation",
+                lambda: stages.run_translation_stage(
+                    model_key=cfg.translation_model_key,
+                    source_language=cfg.source_language,
+                    target_language=cfg.target_language,
+                    extra_context=cfg.extra_context,
+                    settings=cfg.llm_settings,
+                    ocr_regions=state.ocr,
+                    custom_llm=cfg.custom_llm,
+                    neighbor_context=neighbor_context,
+                ),
             )
         except Exception as exc:  # noqa: BLE001 — per-stage fault isolation
             state.fail_from("translation", exc)
@@ -592,6 +617,13 @@ class BatchOrchestrator:
                 "fallback_reason": reason,
             }
 
+        stage_timings: dict[str, float] | None = None
+        if state.stage_timings:
+            stage_timings = {
+                stage: round(seconds, 1)
+                for stage, seconds in state.stage_timings.items()
+            }
+
         return BatchItemResult(
             index=state.task.index,
             filename=state.task.filename,
@@ -602,4 +634,5 @@ class BatchOrchestrator:
             segment=with_fallback("segment", state.segment_payload),
             clean=with_fallback("clean", state.clean_payload),
             errors=state.errors,
+            stage_timings=stage_timings,
         )

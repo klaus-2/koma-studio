@@ -19,6 +19,8 @@ from core.device import (
     get_device_info,
     get_onnx_execution_providers,
 )
+from models.detection.blank_bands import detect_blank_bands, filter_slices_through_content
+from models.detection.slicing import compute_slice_bounds
 from models.onnx_utils import create_session_with_trt_fallback
 from models.ocr.base_ocr import BaseOCR, OCRInputRegion, OCRTextResult
 from models.ocr.common import (
@@ -596,6 +598,15 @@ class PPOCRV5RecEngine(BaseOCR):
         self,
         image_bgr: np.ndarray,
     ) -> list[tuple[int, int, int, int, float, str]]:
+        gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+        height, width = gray.shape[:2]
+        content_slices = filter_slices_through_content(
+            compute_slice_bounds(height, width),
+            detect_blank_bands(gray),
+            keep_first_on_empty=False,
+        )
+        if not content_slices:
+            return []
         boxes = self._detect_text_boxes(image_bgr)
         if not boxes:
             return []

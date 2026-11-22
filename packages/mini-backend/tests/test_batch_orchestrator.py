@@ -256,6 +256,67 @@ class BatchOrchestratorTests(unittest.TestCase):
         finally:
             stages.run_detect_stage = original_detect
 
+    def test_stage_timings_populated_on_success_and_absent_without_stages(self) -> None:
+        async def fake_ocr(**kwargs: object):
+            _ = kwargs
+            return StageOutput("ocr", [_ocr("r0", "text")])
+
+        async def fake_translate(**kwargs: object):
+            regions = cast(list, kwargs["ocr_regions"])
+            return StageOutput(
+                "mt",
+                [
+                    TranslationRecord(
+                        id=r["id"],
+                        source_text=r["text"],
+                        translated_text="ok",
+                        translation_notes=[],
+                        source="model",
+                        detector_model_key="",
+                        ocr_model_key="ocr",
+                        translator_model_key="mt",
+                    )
+                    for r in regions
+                ],
+            )
+
+        async def fake_clean(**kwargs: object):
+            _ = kwargs
+            return CleanStageResult("no-op", b"\x89PNG", "resize")
+
+        original_ocr = stages.run_ocr_stage
+        original_translate = stages.run_translation_stage
+        original_clean = stages.run_clean_stage
+        stages.run_ocr_stage = fake_ocr
+        stages.run_translation_stage = fake_translate
+        stages.run_clean_stage = fake_clean
+        try:
+            png = _png_bytes()
+            tasks = [
+                BatchImageTask(0, "a.png", str(_spool(png))),
+                BatchImageTask(1, "broken.png", str(_spool(b"not-an-image"))),
+            ]
+            outcome = _run(
+                BatchOrchestrator(_config(neighbor=False), asyncio.Event()).run(tasks)
+            )
+        finally:
+            stages.run_ocr_stage = original_ocr
+            stages.run_translation_stage = original_translate
+            stages.run_clean_stage = original_clean
+
+        success = outcome.report.results[0]
+        self.assertEqual(success.status, "success")
+        self.assertIsNotNone(success.stage_timings)
+        timings = success.stage_timings or {}
+        self.assertEqual(set(timings), {"ocr", "translation", "clean"})
+        for seconds in timings.values():
+            self.assertGreaterEqual(seconds, 0.0)
+        wire = outcome.report.model_dump(mode="json")
+        self.assertIn("stage_timings", wire["results"][0])
+        broken = outcome.report.results[1]
+        self.assertEqual(broken.status, "failed")
+        self.assertIsNone(broken.stage_timings)
+
 
 class GpuLeaseBehaviorTests(unittest.TestCase):
     def test_stage_execution_holds_gpu_memory_lease(self) -> None:

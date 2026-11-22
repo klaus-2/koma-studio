@@ -81,6 +81,8 @@ def filter_slices_through_content(
     bounds: Sequence[SliceBounds],
     blank_bands: Sequence[SliceBounds],
     min_content_overlap: float = _DEFAULT_MIN_CONTENT_OVERLAP,
+    *,
+    keep_first_on_empty: bool = True,
 ) -> list[SliceBounds]:
     """Keep slices whose non-blank rows cover at least ``min_content_overlap``.
 
@@ -102,4 +104,4 @@ def filter_slices_through_content(
         )
         if span <= 0 or (span - blank_rows) / span >= min_content_overlap:
             kept.append((start, end))
-    return kept or [bounds[0]]
+    return kept or ([bounds[0]] if keep_first_on_empty else [])

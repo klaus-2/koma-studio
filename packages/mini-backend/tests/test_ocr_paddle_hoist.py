@@ -147,6 +147,14 @@ def _build_regions(count: int) -> list[OCRInputRegion]:
     ]
 
 
+def _content_page() -> Image.Image:
+    rng = np.random.default_rng(11)
+    return Image.fromarray(
+        rng.integers(0, 256, size=(PAGE_SIZE[1], PAGE_SIZE[0], 3), dtype=np.uint8),
+        "RGB",
+    )
+
+
 def _spy_snippets(
     engine: PPOCRV5RecEngine, monkeypatch: pytest.MonkeyPatch
 ) -> list[np.ndarray]:
@@ -168,7 +176,7 @@ def test_recognize_runs_snippet_pass_exactly_once(
     snippet_calls = _spy_snippets(engine, monkeypatch)
     regions = _build_regions(17)  # batch_size 8 -> 3 batches
 
-    results = asyncio.run(engine.recognize(Image.new("RGB", PAGE_SIZE), regions, "en"))
+    results = asyncio.run(engine.recognize(_content_page(), regions, "en"))
 
     assert len(results) == 17
     assert len(snippet_calls) == 1
@@ -201,7 +209,7 @@ def test_recognize_matches_legacy_composition(
 ) -> None:
     engine, _rec = _build_engine(tmp_path, monkeypatch)
     regions = _build_regions(17)
-    image = Image.new("RGB", PAGE_SIZE)
+    image = _content_page()
 
     hoisted = asyncio.run(engine.recognize(image, regions, "en"))
 

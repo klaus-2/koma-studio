@@ -21,6 +21,7 @@ from models.detection.comic_text_detector.detector import (  # noqa: E402
 )
 from models.detection.font.detector import ImageSlicer  # noqa: E402
 from models.detection.slicing import compute_slice_bounds  # noqa: E402
+from models.ocr.paddleocr.engine import PPOCRV5RecEngine  # noqa: E402
 
 
 def _page_with_band(height: int = 900, width: int = 100) -> np.ndarray:
@@ -40,6 +41,13 @@ def _page_with_faint_line_inside_band(line_value: int = 245, line_rows: int = 1)
     gray = _page_with_band()
     start = (240 + 540) // 2
     gray[start : start + line_rows, :] = line_value
+    return gray
+
+
+def _page_with_content_only_in_first_slice() -> np.ndarray:
+    rng = np.random.default_rng(23)
+    gray = np.full((900, 100), 250, dtype=np.uint8)
+    gray[0:200, :] = rng.integers(0, 256, size=(200, 100))
     return gray
 
 
@@ -101,6 +109,23 @@ class BlankBandTests(unittest.TestCase):
         kept = filter_slices_through_content(bounds, [(0, 600)])
         self.assertGreaterEqual(len(kept), 1)
 
+    def test_strict_filter_reports_zero_slices_on_all_blank_page(self) -> None:
+        bounds = compute_slice_bounds(600, 100)
+        self.assertEqual(
+            filter_slices_through_content(
+                bounds, [(0, 600)], keep_first_on_empty=False
+            ),
+            [],
+        )
+
+    def test_strict_filter_still_keeps_slices_with_content(self) -> None:
+        bounds = compute_slice_bounds(900, 100)
+        bands = detect_blank_bands(_page_with_band())
+        kept = filter_slices_through_content(
+            bounds, bands, keep_first_on_empty=False
+        )
+        self.assertEqual(kept, [(0, 300), (480, 900)])
+
 
 class SlicerBandInjectionTests(unittest.TestCase):
     def test_comic_detector_reoffsets_the_original_start_y(self) -> None:
@@ -125,6 +150,104 @@ class SlicerBandInjectionTests(unittest.TestCase):
 
         bubbles, _ = ImageSlicer().process_slices_for_detection(rgb, detect_func)
         self.assertEqual({int(y) for y in bubbles[:, 1]}, {10, 490})
+
+    def test_comic_detector_keeps_the_single_non_blank_slice(self) -> None:
+        gray = _page_with_content_only_in_first_slice()
+        rgb = np.repeat(gray[:, :, np.newaxis], 3, axis=2)
+        detector = object.__new__(ComicTextDetector)
+        detector._min_box_size_px = 6
+        crop_heights: list[int] = []
+
+        def detect_single(crop: np.ndarray, score_threshold: float) -> list[TextDetection]:
+            crop_heights.append(crop.shape[0])
+            return [TextDetection(bbox=(5, 10, 20, 20), score=1.0)]
+
+        detector._detect_single = detect_single
+        detections = detector._detect_with_slicing(rgb, score_threshold=0.5)
+        self.assertEqual(crop_heights, [300])
+        self.assertEqual({det.bbox[1] for det in detections}, {10})
+
+    def test_comic_detector_single_slice_page_still_runs_the_original_bounds(self) -> None:
+        gray = _page_with_content_only_in_first_slice()[0:300, :]
+        rgb = np.repeat(gray[:, :, np.newaxis], 3, axis=2)
+        detector = object.__new__(ComicTextDetector)
+        detector._min_box_size_px = 6
+        crop_heights: list[int] = []
+
+        def detect_single(crop: np.ndarray, score_threshold: float) -> list[TextDetection]:
+            crop_heights.append(crop.shape[0])
+            return [TextDetection(bbox=(5, 10, 20, 20), score=1.0)]
+
+        detector._detect_single = detect_single
+        detections = detector._detect_with_slicing(rgb, score_threshold=0.5)
+        self.assertEqual(crop_heights, [300])
+        self.assertEqual({det.bbox[1] for det in detections}, {10})
+
+    def test_font_slicer_keeps_the_single_non_blank_slice(self) -> None:
+        gray = _page_with_content_only_in_first_slice()
+        rgb = np.repeat(gray[:, :, np.newaxis], 3, axis=2)
+        crop_heights: list[int] = []
+
+        def detect_func(crop: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+            crop_heights.append(crop.shape[0])
+            return np.array([[5, 10, 20, 20]]), np.empty((0, 4), dtype=int)
+
+        bubbles, _ = ImageSlicer().process_slices_for_detection(rgb, detect_func)
+        self.assertEqual(crop_heights, [300])
+        self.assertEqual({int(y) for y in bubbles[:, 1]}, {10})
+
+    def test_font_slicer_single_slice_page_still_runs_the_whole_image(self) -> None:
+        gray = _page_with_content_only_in_first_slice()[0:300, :]
+        rgb = np.repeat(gray[:, :, np.newaxis], 3, axis=2)
+        crop_heights: list[int] = []
+
+        def detect_func(crop: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+            crop_heights.append(crop.shape[0])
+            return np.array([[5, 10, 20, 20]]), np.empty((0, 4), dtype=int)
+
+        bubbles, _ = ImageSlicer().process_slices_for_detection(rgb, detect_func)
+        self.assertEqual(crop_heights, [300])
+        self.assertEqual({int(y) for y in bubbles[:, 1]}, {10})
+
+
+class PaddleSnippetBlankSkipTests(unittest.TestCase):
+    def test_snippet_pass_is_skipped_on_a_blank_page(self) -> None:
+        engine = object.__new__(PPOCRV5RecEngine)
+        detection_calls: list[np.ndarray] = []
+
+        def detect_text_boxes(
+            image_bgr: np.ndarray,
+        ) -> list[tuple[int, int, int, int, float]]:
+            detection_calls.append(image_bgr)
+            return []
+
+        engine._detect_text_boxes = detect_text_boxes
+        blank = np.full((900, 100, 3), 250, dtype=np.uint8)
+        self.assertEqual(engine._detect_and_recognize_snippets(blank), [])
+        self.assertEqual(detection_calls, [])
+
+    def test_snippet_pass_still_runs_on_pages_with_content(self) -> None:
+        engine = object.__new__(PPOCRV5RecEngine)
+        detection_calls: list[np.ndarray] = []
+
+        def detect_text_boxes(
+            image_bgr: np.ndarray,
+        ) -> list[tuple[int, int, int, int, float]]:
+            detection_calls.append(image_bgr)
+            return [(0, 0, 50, 50, 0.9)]
+
+        def run_recognition(
+            crops: list[np.ndarray],
+        ) -> tuple[list[str], list[float]]:
+            return ["hello"], [0.9]
+
+        engine._detect_text_boxes = detect_text_boxes
+        engine._run_recognition = run_recognition
+        rng = np.random.default_rng(7)
+        page = rng.integers(0, 256, size=(300, 100, 3), dtype=np.uint8)
+        snippets = engine._detect_and_recognize_snippets(page)
+        self.assertEqual(len(detection_calls), 1)
+        self.assertEqual(snippets, [(0, 0, 50, 50, 0.9, "hello")])
 
 
 if __name__ == "__main__":

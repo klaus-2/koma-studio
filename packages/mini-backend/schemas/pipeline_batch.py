@@ -31,6 +31,7 @@ class BatchItemResult(SchemaModel):
     segment: dict[str, Any] | None = None
     clean: dict[str, Any] | None = None
     errors: list[BatchItemError] = Field(default_factory=list)
+    stage_timings: dict[str, float] | None = None
 
 
 class BatchSummary(SchemaModel):

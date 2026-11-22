@@ -112,7 +112,7 @@ class ComicTextDetector(BaseDetector):
         gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
         bounds = compute_slice_bounds(height, width)
         filtered = filter_slices_through_content(bounds, detect_blank_bands(gray))
-        slices = bounds if len(filtered) <= 1 else filtered
+        slices = bounds if len(bounds) <= 1 else filtered
         for start_y, end_y in slices:
             for det in self._detect_single(rgb[start_y:end_y], score_threshold=score_threshold):
                 if start_y == 0:
