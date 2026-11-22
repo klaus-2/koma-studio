@@ -88,13 +88,23 @@ const readForwardedFile = async (
   });
 };
 
+const FORWARDABLE_IMAGE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+  ".bmp",
+]);
+
 const allowlistForwardedPath = async (
   path: string,
   file: File,
   bridge: IDesktopBridge,
 ): Promise<void> => {
   const allowPaths = bridge.images.allowPaths;
-  if (!allowPaths) {
+  const extension = path.slice(path.lastIndexOf(".") ).toLowerCase();
+  if (!allowPaths || !FORWARDABLE_IMAGE_EXTENSIONS.has(extension)) {
     return;
   }
   try {

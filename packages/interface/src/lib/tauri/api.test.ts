@@ -349,6 +349,71 @@ describe("tauri api wrapper", () => {
       payload: { mimeType: "image/png", data: btoa("\u0001\u0002\u0003") },
     });
   });
+
+  it("publishes batch state through the frozen channel", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValueOnce({ accepted: true });
+
+    const result = await tauriApi.desktop?.batch?.setState({
+      phase: "running",
+      done: 3,
+      total: 10,
+      label: null,
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith("desktop:batch:set-state", {
+      payload: { phase: "running", done: 3, total: 10, label: null },
+    });
+    expect(result).toEqual({ accepted: true });
+  });
+
+  it("publishes dirty flag and close-force through the frozen channels", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValue(undefined);
+
+    await tauriApi.desktop?.windowState?.setDirty({ dirty: true });
+    await tauriApi.desktop?.windowState?.closeForce();
+
+    expect(mockedInvoke).toHaveBeenNthCalledWith(1, "desktop:window:set-dirty", {
+      payload: { dirty: true },
+    });
+    expect(mockedInvoke).toHaveBeenNthCalledWith(2, "desktop:window:close-force");
+  });
+
+  it("delivers close-requested and tray-action events with payload normalization", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    const closePayloads: Array<{ hasUnsavedWork: boolean; batchRunning: boolean }> = [];
+    const trayPayloads: Array<{ action: "pause" | "resume" }> = [];
+    const handlers: Record<string, Array<(event: Event<unknown>) => void>> = {};
+    mockedListen.mockImplementation(async (eventName, handler) => {
+      handlers[eventName] = handlers[eventName] ?? [];
+      handlers[eventName].push(handler);
+      return () => undefined;
+    });
+
+    tauriApi.desktop?.onCloseRequested?.((payload) => closePayloads.push(payload));
+    tauriApi.desktop?.onBatchTrayAction?.((payload) => trayPayloads.push(payload));
+    await vi.waitFor(() => {
+      expect(handlers["desktop:window:close-requested"]).toHaveLength(1);
+      expect(handlers["desktop:batch:tray-action"]).toHaveLength(1);
+    });
+
+    handlers["desktop:window:close-requested"]?.[0]?.(
+      new Event("x") as unknown as Event<unknown>,
+    );
+    handlers["desktop:window:close-requested"]?.[0]?.({
+      payload: { hasUnsavedWork: true, batchRunning: true },
+    } as unknown as Event<unknown>);
+    handlers["desktop:batch:tray-action"]?.[0]?.({
+      payload: { action: "pause" },
+    } as unknown as Event<unknown>);
+    handlers["desktop:batch:tray-action"]?.[0]?.({
+      payload: { action: "explode" },
+    } as unknown as Event<unknown>);
+
+    expect(closePayloads).toEqual([{ hasUnsavedWork: true, batchRunning: true }]);
+    expect(trayPayloads).toEqual([{ action: "pause" }]);
+  });
 });
 
 const updaterStatePayload: UpdaterStatusPayload = {

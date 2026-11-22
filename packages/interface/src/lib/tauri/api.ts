@@ -22,6 +22,8 @@ import type {
   DesktopBundleAppendPayload,
   DesktopBundleBeginPayload,
   DesktopBundleFinalizePayload,
+  DesktopBatchStatePayload,
+  DesktopWindowDirtyPayload,
   DesktopCommandName,
   DesktopApiEnvelope,
   DesktopFontEntry,
@@ -194,6 +196,27 @@ const unregisterListener = <TListener>(
   });
 };
 
+const registerEventMapListener = <P>(
+  listeners: Map<(payload: P) => void, Promise<UnlistenFn>>,
+  eventName: string,
+  normalize: (value: unknown) => P | null,
+  listener: (payload: P) => void,
+): (() => void) => {
+  registerListener(
+    listeners,
+    listener,
+    listen<unknown>(eventName, (event) => {
+      const payload = normalize(event.payload);
+      if (payload) {
+        listener(payload);
+      }
+    }),
+  );
+  return () => {
+    unregisterListener(listeners, listener);
+  };
+};
+
 const miniBackendRuntimeListeners = new Map<
   MiniBackendRuntimeListener,
   Promise<UnlistenFn>
@@ -207,9 +230,19 @@ const watchFileListeners = new Map<
   (payload: DesktopWatchFileEvent) => void,
   Promise<UnlistenFn>
 >();
+const batchTrayActionListeners = new Map<
+  (payload: { action: "pause" | "resume" }) => void,
+  Promise<UnlistenFn>
+>();
+const closeRequestedListeners = new Map<
+  (payload: { hasUnsavedWork: boolean; batchRunning: boolean }) => void,
+  Promise<UnlistenFn>
+>();
 
 const FORWARDED_FILES_EVENT = "desktop:files:forwarded";
 const WATCH_FILE_EVENT = "desktop:watch:file";
+const BATCH_TRAY_ACTION_EVENT = "desktop:batch:tray-action";
+const CLOSE_REQUESTED_EVENT = "desktop:window:close-requested";
 
 const normalizeFontEntry = (entry: unknown): DesktopFontEntry | null => {
   if (!entry || typeof entry !== "object") {
@@ -259,6 +292,29 @@ const normalizeForwardedFilesPayload = (
     return null;
   }
   return { paths: paths.filter((path): path is string => typeof path === "string") };
+};
+
+const normalizeBatchTrayAction = (
+  value: unknown,
+): { action: "pause" | "resume" } | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const action = (value as { action?: unknown }).action;
+  return action === "pause" || action === "resume" ? { action } : null;
+};
+
+const normalizeCloseRequestedPayload = (
+  value: unknown,
+): { hasUnsavedWork: boolean; batchRunning: boolean } | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    hasUnsavedWork: record.hasUnsavedWork === true,
+    batchRunning: record.batchRunning === true,
+  };
 };
 
 const normalizeWatchFileEvent = (value: unknown): DesktopWatchFileEvent | null => {
@@ -412,21 +468,42 @@ const tauriDesktopBridge: IDesktopBridge = {
   offMiniBackendRuntimeState: (listener) => {
     unregisterListener(miniBackendRuntimeListeners, listener);
   },
-  onForwardedFiles: (listener) => {
-    registerListener(
+  onForwardedFiles: (listener) =>
+    registerEventMapListener(
       forwardedFilesListeners,
+      FORWARDED_FILES_EVENT,
+      normalizeForwardedFilesPayload,
       listener,
-      listen<unknown>(FORWARDED_FILES_EVENT, (event) => {
-        const payload = normalizeForwardedFilesPayload(event.payload);
-        if (payload) {
-          listener(payload);
-        }
-      }),
-    );
-    return () => {
-      unregisterListener(forwardedFilesListeners, listener);
-    };
+    ),
+  batch: {
+    setState: (payload: DesktopBatchStatePayload) =>
+      invokeCommand<{ accepted: boolean }>(
+        desktopCommandChannels.batch.setState,
+        { payload },
+      ),
   },
+  windowState: {
+    setDirty: (payload: DesktopWindowDirtyPayload) =>
+      invokeCommand<void>(desktopCommandChannels.window.setDirty, { payload }),
+    closeForce: () =>
+      invokeCommand<void>(desktopCommandChannels.window.closeForce),
+  },
+  onBatchTrayAction: (listener: (payload: { action: "pause" | "resume" }) => void) =>
+    registerEventMapListener(
+      batchTrayActionListeners,
+      BATCH_TRAY_ACTION_EVENT,
+      normalizeBatchTrayAction,
+      listener,
+    ),
+  onCloseRequested: (
+    listener: (payload: { hasUnsavedWork: boolean; batchRunning: boolean }) => void,
+  ) =>
+    registerEventMapListener(
+      closeRequestedListeners,
+      CLOSE_REQUESTED_EVENT,
+      normalizeCloseRequestedPayload,
+      listener,
+    ),
   locale: {
     getPreferences: () => invokeCommand(desktopCommandChannels.locale.getPreferences),
   },
@@ -568,21 +645,13 @@ const tauriDesktopBridge: IDesktopBridge = {
     },
     stop: () => invokeCommand<void>(desktopCommandChannels.watch.stop),
   },
-  onWatchFile: (listener: (payload: DesktopWatchFileEvent) => void) => {
-    registerListener(
+  onWatchFile: (listener: (payload: DesktopWatchFileEvent) => void) =>
+    registerEventMapListener(
       watchFileListeners,
+      WATCH_FILE_EVENT,
+      normalizeWatchFileEvent,
       listener,
-      listen<unknown>(WATCH_FILE_EVENT, (event) => {
-        const payload = normalizeWatchFileEvent(event.payload);
-        if (payload) {
-          listener(payload);
-        }
-      }),
-    );
-    return () => {
-      unregisterListener(watchFileListeners, listener);
-    };
-  },
+    ),
   api: {
     auth: {
       config: () =>
