@@ -17,6 +17,10 @@ const RETENTION_SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const SHUTDOWN_GRACE_MS = 5000;
 const DISCORD_NOTIFY_TIMEOUT_MS = 5000;
+const DISCORD_NOTIFY_UPLOAD_TIMEOUT_MS = 20000;
+const DISCORD_MAX_FILES = 10;
+const DISCORD_ATTACH_BUDGET_BYTES = 7 * 1024 * 1024;
+const DISCORD_SAFE_FILENAME_PATTERN = /[^A-Za-z0-9._-]/g;
 const VALID_SCHEMA_VERSION = 1;
 const MIN_TITLE_CHARS = 5;
 const MAX_TITLE_CHARS = 180;
@@ -339,36 +343,132 @@ async function storeReport(reportsDir, id, received, report) {
   return filePath;
 }
 
-function notifyDiscord(webhookUrl, id, received, report) {
-  if (!webhookUrl) return;
-  const payload = {
-    content: `New bug report \`${id}\` received ${received}`,
-    embeds: [
-      {
-        title: report.title.slice(0, 256),
-        description: report.description.slice(0, 1024) || "no description",
-        fields: [
-          { name: "shell", value: report.client.shell, inline: true },
-          { name: "appVersion", value: report.client.appVersion || "unknown", inline: true },
-          { name: "platform", value: `${report.client.platform}/${report.client.arch}`, inline: true },
-          { name: "channel", value: report.client.channel || "unknown", inline: true },
-          {
-            name: "logs",
-            value: report.includeLogs ? `${report.logs?.length ?? 0} attached` : "not included",
-            inline: true,
-          },
-        ],
-      },
-    ],
-  };
-  fetch(webhookUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(DISCORD_NOTIFY_TIMEOUT_MS),
-  }).catch((error) => {
-    console.error(`bug-report discord notify failed id=${id}:`, error?.message ?? error);
+function discordSafeFilename(name) {
+  const base = String(name).replace(/\\/g, "/").split("/").pop() || "attachment";
+  const cleaned = base.replace(DISCORD_SAFE_FILENAME_PATTERN, "_").slice(0, 120);
+  return cleaned.includes(".") ? cleaned : `${cleaned}.txt`;
+}
+
+function decodeDataUrlPayload(dataUrl) {
+  if (typeof dataUrl !== "string") return null;
+  const match = /^data:([^;,]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl.trim());
+  if (!match) return null;
+  const bytes = Buffer.from(match[2], "base64");
+  return bytes.length ? { mime: match[1], bytes } : null;
+}
+
+export function selectDiscordFiles(report) {
+  const candidates = [];
+  const screenshot = decodeDataUrlPayload(report.screenshot);
+  if (screenshot) {
+    candidates.push({
+      filename: screenshot.mime === "image/jpeg" ? "screenshot.jpg" : "screenshot.png",
+      contentType: screenshot.mime,
+      bytes: screenshot.bytes,
+    });
+  }
+  for (const item of Array.isArray(report.attachments) ? report.attachments : []) {
+    if (!item || typeof item.data !== "string") continue;
+    const bytes = Buffer.from(item.data, "base64");
+    if (!bytes.length) continue;
+    candidates.push({
+      filename: discordSafeFilename(item.name),
+      contentType: typeof item.mime === "string" ? item.mime : "application/octet-stream",
+      bytes,
+    });
+  }
+  for (const entry of Array.isArray(report.logs) ? report.logs : []) {
+    if (!entry || typeof entry.content !== "string" || !entry.content) continue;
+    candidates.push({
+      filename: discordSafeFilename(entry.name),
+      contentType: "text/plain; charset=utf-8",
+      bytes: Buffer.from(entry.content, "utf8"),
+    });
+  }
+  const selected = [];
+  let totalBytes = 0;
+  let omittedCount = 0;
+  for (const candidate of candidates.slice(0, DISCORD_MAX_FILES)) {
+    if (totalBytes + candidate.bytes.length > DISCORD_ATTACH_BUDGET_BYTES) {
+      omittedCount += 1;
+      continue;
+    }
+    selected.push(candidate);
+    totalBytes += candidate.bytes.length;
+  }
+  omittedCount += Math.max(0, candidates.length - DISCORD_MAX_FILES);
+  return { selected, omittedCount, totalBytes };
+}
+
+function buildDiscordMultipart(payload, files) {
+  const boundary = `----komaBugReport${crypto.randomBytes(16).toString("hex")}`;
+  const chunks = [];
+  const pushText = (text) => chunks.push(Buffer.from(text, "utf8"));
+  pushText(`--${boundary}\r\nContent-Disposition: form-data; name="payload_json"\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(payload)}\r\n`);
+  files.forEach((file, index) => {
+    pushText(`--${boundary}\r\nContent-Disposition: form-data; name="files[${index}]"; filename="${file.filename}"\r\nContent-Type: ${file.contentType}\r\n\r\n`);
+    chunks.push(file.bytes);
+    pushText("\r\n");
   });
+  pushText(`--${boundary}--\r\n`);
+  return { contentType: `multipart/form-data; boundary=${boundary}`, body: Buffer.concat(chunks) };
+}
+
+async function postToDiscord(webhookUrl, contentType, body, timeoutMs) {
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "content-type": contentType },
+    body,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  return response.status;
+}
+
+async function notifyDiscord(webhookUrl, id, received, report) {
+  if (!webhookUrl) return;
+  try {
+    const { selected, omittedCount } = selectDiscordFiles(report);
+    const payload = {
+      content: `New bug report \`${id}\` received ${received}`,
+      embeds: [
+        {
+          title: report.title.slice(0, 256),
+          description: report.description.slice(0, 1024) || "no description",
+          fields: [
+            { name: "shell", value: report.client.shell, inline: true },
+            { name: "appVersion", value: report.client.appVersion || "unknown", inline: true },
+            { name: "platform", value: `${report.client.platform}/${report.client.arch}`, inline: true },
+            { name: "channel", value: report.client.channel || "unknown", inline: true },
+            {
+              name: "files",
+              value: report.includeLogs === false && selected.length === 0
+                ? "not included"
+                : omittedCount
+                  ? `${selected.length} attached, ${omittedCount} omitted by size`
+                  : `${selected.length} attached`,
+              inline: true,
+            },
+          ],
+        },
+      ],
+      ...(selected.length
+        ? { attachments: selected.map((file, index) => ({ id: index, filename: file.filename })) }
+        : {}),
+    };
+    let status = 0;
+    if (selected.length) {
+      const multipart = buildDiscordMultipart(payload, selected);
+      status = await postToDiscord(webhookUrl, multipart.contentType, multipart.body, DISCORD_NOTIFY_UPLOAD_TIMEOUT_MS);
+    }
+    if (!selected.length || status === 400 || status === 413) {
+      status = await postToDiscord(webhookUrl, "application/json", JSON.stringify(payload), DISCORD_NOTIFY_TIMEOUT_MS);
+    }
+    if (status >= 400) {
+      console.error(`bug-report discord notify rejected id=${id}: HTTP ${status}`);
+    }
+  } catch (error) {
+    console.error(`bug-report discord notify failed id=${id}:`, error?.message ?? error);
+  }
 }
 
 async function prepareStorage(settings) {
@@ -532,7 +632,7 @@ async function handleBugReportPost(request, response, settings, rateLimiter) {
     await storeReport(settings.reportsDir, id, received, parsedBody);
     respondJson(response, 201, { id, received });
     console.log(`bug-report stored id=${id} bytes=${requestBody.length} ip=${clientKey}`);
-    notifyDiscord(settings.notifyWebhookUrl, id, received, parsedBody);
+    void notifyDiscord(settings.notifyWebhookUrl, id, received, parsedBody);
   } catch (error) {
     console.error("bug-report request failed:", error);
     respondJson(response, 500, { error: "internal server error" });

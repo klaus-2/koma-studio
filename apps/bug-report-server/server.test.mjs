@@ -4,7 +4,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { createBugReportServer, runRetentionSweep } from "./server.mjs";
+import {
+  createBugReportServer,
+  runRetentionSweep,
+  selectDiscordFiles,
+} from "./server.mjs";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const WIRE_CAP_BYTES = 25 * 1024 * 1024;
@@ -307,14 +311,66 @@ test("discord notify failure does not fail the 201", async (t) => {
   assert.match(payload.id, UUID_PATTERN);
 });
 
-test("discord notify posts to a reachable webhook", async (t) => {
+test("discord notify posts multipart files to a reachable webhook", async (t) => {
   const deliveries = [];
   const webhook = http.createServer((request, response) => {
     const chunks = [];
     request.on("data", (chunk) => chunks.push(chunk));
     request.on("end", () => {
-      deliveries.push(Buffer.concat(chunks).toString("utf8"));
+      deliveries.push({
+        contentType: request.headers["content-type"],
+        body: Buffer.concat(chunks).toString("utf8"),
+      });
       response.writeHead(204);
+      response.end();
+    });
+  });
+  await new Promise((resolve) => webhook.listen(0, "127.0.0.1", resolve));
+  t.after(() => {
+    webhook.closeAllConnections();
+    return new Promise((resolve) => webhook.close(resolve));
+  });
+  const webhookUrl = `http://127.0.0.1:${webhook.address().port}/hook`;
+  const report = validReport();
+  report.screenshot = "data:image/png;base64,aGVsbG8=";
+  const { base } = await withServer(t, { notifyWebhookUrl: webhookUrl });
+  const response = await postJson(base, report);
+  assert.equal(response.status, 201);
+  const { id } = await response.json();
+  await waitFor(() => deliveries.length > 0, 2000, 25);
+  assert.equal(deliveries.length, 1, "multipart delivery only");
+  const boundary = /boundary=([^;]+)/.exec(deliveries[0].contentType)[1];
+  assert.ok(deliveries[0].body.includes(`name="files[0]"; filename="screenshot.png"`));
+  assert.ok(deliveries[0].body.includes(`name="files[1]"; filename="session.log"`));
+  assert.ok(deliveries[0].body.includes("log line"));
+  const payloadCrlf = String.fromCharCode(13, 10);
+  const payloadMarker =
+    'name="payload_json"' + payloadCrlf + 'Content-Type: application/json' + payloadCrlf + payloadCrlf;
+  const payloadStart =
+    deliveries[0].body.indexOf(payloadMarker) + payloadMarker.length;
+  const payloadEnd = deliveries[0].body.indexOf(payloadCrlf + '--', payloadStart);
+  const payloadJson = deliveries[0].body.slice(payloadStart, payloadEnd);
+  const delivery = JSON.parse(payloadJson);
+  assert.ok(delivery.content.includes(id));
+  assert.equal(delivery.embeds[0].title, "Renderer crash while exporting");
+  assert.deepEqual(
+    delivery.attachments.map((a) => a.filename),
+    ["screenshot.png", "session.log"],
+  );
+});
+
+test("discord notify falls back to the plain embed when multipart is rejected", async (t) => {
+  const deliveries = [];
+  const webhook = http.createServer((request, response) => {
+    const chunks = [];
+    request.on("data", (chunk) => chunks.push(chunk));
+    request.on("end", () => {
+      const contentType = request.headers["content-type"] ?? "";
+      deliveries.push({
+        multipart: contentType.startsWith("multipart/form-data"),
+        body: Buffer.concat(chunks).toString("utf8"),
+      });
+      response.writeHead(contentType.startsWith("multipart/form-data") ? 413 : 204);
       response.end();
     });
   });
@@ -327,11 +383,33 @@ test("discord notify posts to a reachable webhook", async (t) => {
   const { base } = await withServer(t, { notifyWebhookUrl: webhookUrl });
   const response = await postJson(base, validReport());
   assert.equal(response.status, 201);
-  const { id } = await response.json();
-  await waitFor(() => deliveries.length > 0, 2000, 25);
-  const delivery = JSON.parse(deliveries[0]);
-  assert.ok(delivery.content.includes(id));
+  await waitFor(() => deliveries.length >= 2, 2000, 25);
+  assert.equal(deliveries[0].multipart, true);
+  assert.equal(deliveries[1].multipart, false);
+  const delivery = JSON.parse(deliveries[1].body);
   assert.equal(delivery.embeds[0].title, "Renderer crash while exporting");
+});
+
+test("selectDiscordFiles sanitizes names, enforces count and byte budget", () => {
+  const hugeBase64 = Buffer.alloc(8 * 1024 * 1024, 0x41).toString("base64");
+  const result = selectDiscordFiles({
+    screenshot: "data:image/png;base64,aGVsbG8=",
+    attachments: [
+      { name: "../../evil.sh", mime: "text/plain", data: Buffer.from("tiny").toString("base64") },
+      { name: "huge.bin", mime: "image/png", data: hugeBase64 },
+    ],
+    logs: Array.from({ length: 12 }, (_unused, index) => ({
+      name: `log-${index}.log`,
+      content: `line ${index}`,
+    })),
+  });
+  assert.equal(result.selected.length, 9);
+  assert.equal(result.selected[0].filename, "screenshot.png");
+  assert.equal(result.selected[1].filename, "evil.sh");
+  assert.ok(!result.selected.some((file) => file.filename === "huge.bin"));
+  assert.ok(result.selected.every((file) => !file.filename.includes("/")));
+  assert.ok(result.selected.every((file) => !file.filename.includes("/")));
+  assert.equal(result.omittedCount, 6);
 });
 
 test("health endpoints return ok on both paths", async (t) => {
