@@ -69,6 +69,12 @@ import { resolveWorkGlossaryForChapter } from '@/pages/dashboard/hooks/translato
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import { useRegionEditorStore } from '@/pages/dashboard/stores/region-editor-store';
 import {
+  applyAioPipelineSnapshotToImage,
+  patchAioSnapshotStageForImage,
+} from '@/pages/dashboard/hooks/aio-snapshot.commands';
+import { normalizeSnapshotsForManualMode } from '@/pages/dashboard/hooks/aio-snapshot.normalization';
+import { createAioManualProgressForIndex } from '@/pages/dashboard/helpers';
+import {
   deriveLocalProviderLabel,
   useAioStageTimingStore,
 } from '@/pages/dashboard/stores/aio-stage-timing-store';
@@ -391,34 +397,68 @@ export function useAioPipelineExecution(
         cleanAiModelKey,
         cleanAiInstructions,
         cleanAiCustomProfile: prepared.cleanAiCustomProfile ?? null,
-        onStageCompleted: (stageKey, image, regions) => {
+        onStageCompleted: (stageKey, image, regions, download) => {
+          const stageIndex = AIO_MANUAL_STAGE_ORDER.indexOf(stageKey);
+          if (stageIndex < 0) {
+            return;
+          }
+          let pipelineState = useAioPipelineStore.getState();
+          if (
+            pipelineState.aioPipelineSnapshots.length !==
+              AIO_MANUAL_STAGE_ORDER.length ||
+            AIO_MANUAL_STAGE_ORDER.some(
+              (stage, index) => pipelineState.aioPipelineSnapshots[index]?.key !== stage,
+            )
+          ) {
+            pipelineState.setAioPipelineSnapshots(
+              normalizeSnapshotsForManualMode({
+                snapshots: pipelineState.aioPipelineSnapshots,
+                imageIds: useImageCollectionStore
+                  .getState()
+                  .images.map((item) => item.id),
+                labels: args.aioPipelineStageProgressLabels,
+                fallbackDetections:
+                  useRegionEditorStore.getState().aioDetectionsByImage,
+                fallbackSelection:
+                  useRegionEditorStore.getState().aioSelectedRegionByImage,
+                fallbackDownloads: [],
+              }),
+            );
+            pipelineState = useAioPipelineStore.getState();
+          }
+          patchAioSnapshotStageForImage(
+            image.id,
+            stageIndex,
+            cloneAioRegions(regions, cloneRenderStyle),
+            download ?? undefined,
+          );
           const canvasImageId = useImageCollectionStore.getState().activeId;
-          if (!canvasImageId || image.id !== canvasImageId) {
-            return;
+          if (canvasImageId === image.id) {
+            applyAioPipelineSnapshotToImage(canvasImageId, stageIndex);
           }
-          const timelineIndex = enabledStages.indexOf(stageKey);
-          if (timelineIndex < 0) {
-            return;
-          }
-          const nextRegions = cloneAioRegions(regions, cloneRenderStyle);
-          const regionState = useRegionEditorStore.getState();
-          const previousSelection =
-            regionState.aioSelectedRegionByImage[canvasImageId] ?? null;
-          const selectionStillValid =
-            previousSelection !== null &&
-            nextRegions.some((region) => region.id === previousSelection);
-          regionState.setAioDetectionsByImage({
-            ...regionState.aioDetectionsByImage,
-            [canvasImageId]: nextRegions,
-          });
-          regionState.setAioSelectedRegionByImage({
-            ...regionState.aioSelectedRegionByImage,
-            [canvasImageId]: selectionStillValid ? previousSelection : null,
-          });
-          const pipelineState = useAioPipelineStore.getState();
-          pipelineState.setAioImageSnapshotIndexById({
-            ...pipelineState.aioImageSnapshotIndexById,
-            [canvasImageId]: timelineIndex,
+          pipelineState.setAioManualProgressByImage((prev) => {
+            const current = prev[image.id] ?? createAioManualProgressForIndex(0);
+            if (
+              current.statusByStage[stageKey] === 'done' &&
+              current.unlockedMaxIndex >= stageIndex
+            ) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [image.id]: {
+                ...current,
+                currentIndex: stageIndex,
+                unlockedMaxIndex: Math.max(
+                  current.unlockedMaxIndex,
+                  stageIndex,
+                ),
+                statusByStage: {
+                  ...current.statusByStage,
+                  [stageKey]: 'done',
+                },
+              },
+            };
           });
         },
         maskDilation: pipeline.aioMaskDilation,

@@ -95,6 +95,7 @@ interface SingleImageRunConfig {
     stageKey: AioPipelineSnapshotKey,
     image: LoadedImage,
     regions: AioTextRegion[],
+    download?: AioDownloadEntry | null,
   ) => void;
 }
 
@@ -370,7 +371,7 @@ export function useAioSingleImageProcessor({
           };
         }
         stageRegions = { ...stageRegions, cleanImage: cleanSourceRegions };
-        onStageCompleted?.('cleanImage', imgData, cleanSourceRegions);
+        onStageCompleted?.('cleanImage', imgData, cleanSourceRegions, cleanedDownload);
       }
 
       const cleanDetections = cloneAioRegions(
