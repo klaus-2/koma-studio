@@ -6,7 +6,7 @@ import { AlertTriangle } from 'lucide-react';
 import KomaTopbar from '../../KomaTopbar.tsx';
 import DashboardMobileBackdrop from '../../../components/dashboard/DashboardMobileBackdrop';
 import DashboardRightSidebar from '../../../components/dashboard/DashboardRightSidebar';
-import DashboardLazyFallback from '../../../components/dashboard/DashboardLazyFallback';
+import DashboardSidebarSkeleton from '../../../components/dashboard/DashboardSidebarSkeleton';
 import InfoModesToolsPanel from '../../../components/dashboard/InfoModesToolsPanel';
 import ReviewRawToolsPanel from '../../../components/dashboard/ReviewRawToolsPanel';
 import DashboardOverlays from '../../../components/dashboard/DashboardOverlays';
@@ -1167,7 +1167,7 @@ export default memo(function DashboardMainLayout({
       >
         {/* ─── AIO — ALL IN ONE ─── */}
         {deferredStageMode === 'aio' && (
-          <Suspense fallback={<DashboardLazyFallback />}>
+          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <AioRightPanel
               // ── AIO pipeline — sub-mode & execution (not yet migrated) ──
               handleAioSubModeChange={handleAioSubModeChange}
@@ -1242,7 +1242,7 @@ export default memo(function DashboardMainLayout({
           </Suspense>
         )}
         {deferredStageMode === 'cleaner' && (
-          <Suspense fallback={<DashboardLazyFallback />}>
+          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <CleanerToolsPanel
               cleanerAiModelOptions={cleanerAiOptionsForSelect}
               availableOcrStageOptions={cleanerAvailableOcrStageOptions}
@@ -1266,7 +1266,7 @@ export default memo(function DashboardMainLayout({
           </Suspense>
         )}
         {deferredStageMode === 'typesetter' && (
-          <Suspense fallback={<DashboardLazyFallback />}>
+          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <TypographerToolsPanel
               availableRenderFonts={availableRenderFonts}
               handleTypographerPresetChange={handleTypographerPresetChange}
@@ -1292,7 +1292,7 @@ export default memo(function DashboardMainLayout({
           </Suspense>
         )}
         {deferredStageMode === 'translator' && (
-          <Suspense fallback={<DashboardLazyFallback />}>
+          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <TranslatorToolsPanel
               translatorAvailableOcrStageOptions={
                 translatorAvailableOcrStageOptions
@@ -1333,7 +1333,7 @@ export default memo(function DashboardMainLayout({
         <InfoModesToolsPanel mode={mode} />
         {/* ─── MELHORAR (ENHANCE) ─── */}
         {deferredStageMode === 'enhance' && (
-          <Suspense fallback={<DashboardLazyFallback />}>
+          <Suspense fallback={<DashboardSidebarSkeleton />}>
             <EnhanceToolsPanelSection
               isDesktopRuntime={isDesktopRuntime}
               selectedEnhanceModel={selectedEnhanceModel}
