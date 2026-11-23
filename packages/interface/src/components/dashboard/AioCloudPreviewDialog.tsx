@@ -311,17 +311,20 @@ export function AioCloudPreviewDialog({
           width: 'min(420px, 92vw)',
           bottom: 96,
           transform: 'translateX(-50%)',
+          '--koma-cloud-preview-bottom': '96px',
         }
       : position.placement === 'side'
         ? {
             right: position.right,
             width: position.width,
             bottom: position.bottom,
+            '--koma-cloud-preview-bottom': `${position.bottom}px`,
           }
         : {
             left: position.left,
             width: position.width,
             bottom: position.bottom,
+            '--koma-cloud-preview-bottom': `${position.bottom}px`,
           };
 
   return createPortal(
@@ -386,9 +389,15 @@ export function AioCloudPreviewDialog({
       <label className="koma-aio-cloud-preview__dontask">
         <input
           type="checkbox"
+          className="koma-aio-cloud-preview__check-input"
           checked={dontAskAgain}
           onChange={(event) => setDontAskAgain(event.target.checked)}
         />
+        <span className="koma-aio-cloud-preview__check" aria-hidden="true">
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+            <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
         {t('dashboard.aio.cloudPreview.dontAskAgain')}
       </label>
 

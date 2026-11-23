@@ -15055,8 +15055,10 @@ html[data-theme="light"] #root {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: min(62vh, 480px);
+  max-height: min(62vh, 480px, calc(100vh - var(--koma-cloud-preview-bottom, 96px) - 12px));
+  max-height: min(62dvh, 480px, calc(100dvh - var(--koma-cloud-preview-bottom, 96px) - 12px));
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 14px;
   border: 1px solid rgba(168, 85, 247, 0.28);
   border-radius: 14px;
@@ -15294,7 +15296,73 @@ html[data-theme="light"] #root {
   font-size: 11px;
 }
 
-.koma-aio-cloud-preview__dontask input { accent-color: #a855f7; }
+.koma-aio-cloud-preview__dontask { position: relative; }
+
+.koma-aio-cloud-preview .koma-aio-cloud-preview__dontask > input.koma-aio-cloud-preview__check-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  opacity: 0;
+  clip-path: inset(50%);
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: none;
+}
+
+.koma-aio-cloud-preview__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid rgba(168, 85, 247, 0.3);
+  border-radius: 5px;
+  background: var(--auth-input-bg);
+  color: #fff;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.koma-aio-cloud-preview__check svg {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.koma-aio-cloud-preview__dontask:hover .koma-aio-cloud-preview__check {
+  border-color: rgba(168, 85, 247, 0.55);
+}
+
+.koma-aio-cloud-preview__check-input:checked + .koma-aio-cloud-preview__check {
+  border-color: var(--auth-purple);
+  background: var(--auth-purple);
+  box-shadow: 0 2px 10px rgba(168, 85, 247, 0.25);
+}
+
+.koma-aio-cloud-preview__check-input:checked + .koma-aio-cloud-preview__check svg { opacity: 1; }
+
+.koma-aio-cloud-preview__check-input:focus-visible + .koma-aio-cloud-preview__check {
+  outline: 2px solid rgba(168, 85, 247, 0.7);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .koma-aio-cloud-preview .koma-aio-cloud-preview__close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .koma-aio-cloud-preview .koma-aio-cloud-preview__dontask {
+    min-height: 44px;
+  }
+
+  .koma-aio-cloud-preview .koma-aio-cloud-preview__actions button {
+    min-height: 44px;
+  }
+}
 
 .koma-aio-cloud-preview__actions {
   display: flex;

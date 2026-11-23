@@ -16557,8 +16557,31 @@
   font-family: var(--font-display);
 }
 
-:root[data-theme-family='noir'] .koma-aio-cloud-preview__dontask input {
-  accent-color: var(--color-crimson);
+:root[data-theme-family='noir'] .koma-aio-cloud-preview__check {
+  width: 16px;
+  height: 16px;
+  border: 1px solid color-mix(in srgb, var(--color-paper) 25%, transparent);
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  background: var(--color-ink);
+  color: var(--color-ink);
+  box-shadow: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+:root[data-theme-family='noir'] .koma-aio-cloud-preview__dontask:hover .koma-aio-cloud-preview__check {
+  border-color: var(--color-crimson);
+}
+
+:root[data-theme-family='noir'] .koma-aio-cloud-preview__check-input:checked + .koma-aio-cloud-preview__check {
+  border-color: var(--color-crimson);
+  background: var(--color-crimson);
+  box-shadow: none;
+}
+
+:root[data-theme-family='noir'] .koma-aio-cloud-preview__check-input:focus-visible + .koma-aio-cloud-preview__check {
+  outline: 1px solid var(--color-crimson);
+  outline-offset: 2px;
 }
 
 :root[data-theme-family='noir'] .koma-aio-cloud-preview__start {
