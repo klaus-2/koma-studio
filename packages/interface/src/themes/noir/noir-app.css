@@ -16434,6 +16434,12 @@
   background: color-mix(in srgb, var(--color-ink) 98%, transparent);
 }
 
+:root[data-theme-family='noir'] .koma-aio-cloud-preview[data-placement='side']::after {
+  bottom: 22px;
+  left: auto;
+  right: -6px;
+}
+
 :root[data-theme-family='noir'] .koma-aio-cloud-preview__title {
   color: var(--color-paper);
   font-family: var(--font-display);

@@ -15085,6 +15085,13 @@ html[data-theme="light"] #root {
   background: rgba(8, 10, 20, 0.96);
 }
 
+.koma-aio-cloud-preview[data-placement='side']::after {
+  bottom: 22px;
+  left: auto;
+  right: -6px;
+  transform: rotate(-45deg);
+}
+
 .koma-aio-cloud-preview__head {
   display: flex;
   align-items: center;

@@ -19,6 +19,11 @@ import {
   type CloudPreviewGate,
   type RemoteStageDestination,
 } from '@/pages/dashboard/lib/aio-cloud-preview';
+import {
+  TOOLS_PANEL_SELECTOR,
+  resolveCloudPreviewPosition,
+  type CloudPreviewPosition,
+} from './aio-cloud-preview-position';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -179,11 +184,7 @@ export function AioCloudPreviewDialog({
     [],
   );
   const [dontAskAgain, setDontAskAgain] = useState(false);
-  const [position, setPosition] = useState<{
-    left: number;
-    width: number;
-    bottom: number;
-  } | null>(null);
+  const [position, setPosition] = useState<CloudPreviewPosition | null>(null);
   const [rates, setRates] = useState<AioCostRateSettings>(
     DEFAULT_AIO_COST_RATES,
   );
@@ -231,23 +232,34 @@ export function AioCloudPreviewDialog({
   );
 
   useLayoutEffect(() => {
+    const panel = anchorEl?.closest<HTMLElement>(TOOLS_PANEL_SELECTOR) ?? null;
     const update = (): void => {
       if (anchorEl === null) {
         return;
       }
-      const rect = anchorEl.getBoundingClientRect();
-      setPosition({
-        left: rect.left,
-        width: rect.width,
-        bottom: window.innerHeight - rect.top + 10,
-      });
+      setPosition(
+        resolveCloudPreviewPosition(
+          anchorEl.getBoundingClientRect(),
+          panel?.getBoundingClientRect() ?? null,
+          window.innerWidth,
+          window.innerHeight,
+        ),
+      );
     };
     update();
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
+    const panelObserver =
+      panel !== null && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(update)
+        : null;
+    if (panel !== null) {
+      panelObserver?.observe(panel);
+    }
     return () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
+      panelObserver?.disconnect();
     };
   }, [anchorEl]);
 
@@ -293,24 +305,31 @@ export function AioCloudPreviewDialog({
   }
 
   const popStyle: Record<string, string | number> =
-    position !== null
+    position === null
       ? {
-          left: position.left,
-          width: position.width,
-          bottom: position.bottom,
-        }
-      : {
           left: '50%',
           width: 'min(420px, 92vw)',
           bottom: 96,
           transform: 'translateX(-50%)',
-        };
+        }
+      : position.placement === 'side'
+        ? {
+            right: position.right,
+            width: position.width,
+            bottom: position.bottom,
+          }
+        : {
+            left: position.left,
+            width: position.width,
+            bottom: position.bottom,
+          };
 
   return createPortal(
     <div
       className="koma-aio-cloud-preview"
       role="dialog"
       aria-modal="true"
+      data-placement={position?.placement ?? 'center'}
       style={popStyle}
     >
       <div className="koma-aio-cloud-preview__head">
