@@ -353,33 +353,27 @@ fn sanitize_entry_name(raw: &str, used: &mut HashSet<String>) -> AppResult<Strin
         return Err(AppError::invalid_input("Invalid archive entry name."));
     }
 
-    let candidate = raw.rsplit(['/', '\\']).next().unwrap_or_default();
-    let cleaned: String = candidate
-        .chars()
-        .filter(|character| {
-            !character.is_control()
-                && !matches!(
-                    character,
-                    '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'
-                )
-        })
+    let components: Vec<String> = raw
+        .split(['/', '\\'])
+        .map(sanitize_entry_component)
+        .filter(|component| !component.is_empty())
+        .collect();
+    let Some((file_name, directories)) = components.split_last() else {
+        return Err(AppError::invalid_input("Invalid archive entry name."));
+    };
+    let prefix: String = directories
+        .iter()
+        .map(|directory| format!("{directory}/"))
         .collect();
 
-    let cleaned = truncate_utf8(cleaned.trim_matches([' ', '.']), MAX_ARCHIVE_ENTRY_NAME_BYTES);
-    let cleaned = cleaned.trim_matches([' ', '.']);
-
-    if cleaned.is_empty() {
-        return Err(AppError::invalid_input("Invalid archive entry name."));
-    }
-
-    let path = Path::new(cleaned);
+    let path = Path::new(file_name.as_str());
     let stem = path
         .file_stem()
         .and_then(|stem| stem.to_str())
-        .unwrap_or(cleaned);
+        .unwrap_or(file_name.as_str());
     let extension = path.extension().and_then(|extension| extension.to_str());
 
-    let mut candidate_name = cleaned.to_owned();
+    let mut candidate_name = format!("{prefix}{file_name}");
     let mut counter = 1_u32;
     loop {
         if used.insert(candidate_name.clone()) {
@@ -392,10 +386,25 @@ fn sanitize_entry_name(raw: &str, used: &mut HashSet<String>) -> AppResult<Strin
             ));
         }
         candidate_name = match extension {
-            Some(extension) => format!("{stem} ({counter}).{extension}"),
-            None => format!("{stem} ({counter})"),
+            Some(extension) => format!("{prefix}{stem} ({counter}).{extension}"),
+            None => format!("{prefix}{stem} ({counter})"),
         };
     }
+}
+
+fn sanitize_entry_component(raw: &str) -> String {
+    let cleaned: String = raw
+        .chars()
+        .filter(|character| {
+            !character.is_control()
+                && !matches!(
+                    character,
+                    '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'
+                )
+        })
+        .collect();
+    let cleaned = truncate_utf8(cleaned.trim_matches([' ', '.']), MAX_ARCHIVE_ENTRY_NAME_BYTES);
+    cleaned.trim_matches([' ', '.']).to_owned()
 }
 
 #[cfg(test)]
@@ -431,7 +440,7 @@ mod tests {
 
         let mut first_bytes = Vec::new();
         {
-            let mut first = archive.by_name("001.png").unwrap();
+            let mut first = archive.by_name("pages/001.png").unwrap();
             first.read_to_end(&mut first_bytes).unwrap();
         }
         assert_eq!(first_bytes, b"first");
@@ -516,13 +525,21 @@ mod tests {
     }
 
     #[test]
-    fn sanitize_entry_name_takes_final_component() {
+    fn sanitize_entry_name_keeps_folders_and_drops_traversal() {
         let mut used = HashSet::new();
         assert_eq!(
             sanitize_entry_name("../x.png", &mut used).unwrap(),
             "x.png"
         );
-        assert_eq!(sanitize_entry_name("a/b.png", &mut used).unwrap(), "b.png");
+        assert_eq!(sanitize_entry_name("a/b.png", &mut used).unwrap(), "a/b.png");
+        assert_eq!(
+            sanitize_entry_name("texts\\raw\\001.txt", &mut used).unwrap(),
+            "texts/raw/001.txt"
+        );
+        assert_eq!(
+            sanitize_entry_name("/abs/./../c.png", &mut used).unwrap(),
+            "abs/c.png"
+        );
         assert_eq!(
             sanitize_entry_name("..\\y.png", &mut used).unwrap(),
             "y.png"
@@ -541,7 +558,11 @@ mod tests {
             sanitize_entry_name("page.png", &mut used).unwrap(),
             "page (3).png"
         );
-        assert_eq!(sanitize_entry_name("a/page.png", &mut used).unwrap(), "page (4).png");
+        assert_eq!(sanitize_entry_name("a/page.png", &mut used).unwrap(), "a/page.png");
+        assert_eq!(
+            sanitize_entry_name("a/page.png", &mut used).unwrap(),
+            "a/page (2).png"
+        );
     }
 
     #[test]
@@ -550,6 +571,7 @@ mod tests {
         assert!(sanitize_entry_name("", &mut used).is_err());
         assert!(sanitize_entry_name("..", &mut used).is_err());
         assert!(sanitize_entry_name("  .  ", &mut used).is_err());
+        assert!(sanitize_entry_name("../..", &mut used).is_err());
         assert!(sanitize_entry_name("bad\0name.png", &mut used).is_err());
         assert!(sanitize_entry_name(&"x".repeat(MAX_ENTRY_NAME_INPUT_BYTES + 1), &mut used).is_err());
     }
