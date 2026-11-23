@@ -70,7 +70,7 @@ export default function KomaNavGroupDropdownNoir({
           >
             {hasActive && <span className="h-1.5 w-1.5 bg-ink blink-noir" aria-hidden="true" />}
             <TriggerIcon size={13} />
-            <span>{triggerLabel}</span>
+            <span className="hidden max-w-[120px] truncate @min-[1000px]/topbar:inline">{triggerLabel}</span>
             <ChevronDown size={11} className={cn('transition-transform duration-200', isOpen && 'rotate-180')} />
           </button>
         </TooltipTrigger>

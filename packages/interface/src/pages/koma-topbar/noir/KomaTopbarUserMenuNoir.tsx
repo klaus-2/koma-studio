@@ -87,7 +87,7 @@ export default function KomaTopbarUserMenuNoir({
         >
           {initial}
         </span>
-        <span className="hidden max-w-[90px] truncate font-mono text-[11px] font-semibold uppercase tracking-wider sm:block">{userDisplayName}</span>
+        <span className="hidden max-w-[90px] truncate font-mono text-[11px] font-semibold uppercase tracking-wider @min-[960px]/topbar:block">{userDisplayName}</span>
         <ChevronDown size={10} className={cn('transition-transform', isOpen && 'rotate-180')} />
       </button>
 

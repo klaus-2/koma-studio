@@ -494,7 +494,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
         initial={{ y: -24, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-40 flex h-14 items-center gap-3 border-b-2 border-crimson/30 bg-ink-2/80 px-3 backdrop-blur-xl"
+        className="@container/topbar relative z-40 flex h-14 items-center gap-3 border-b-2 border-crimson/30 bg-ink-2/80 px-3 backdrop-blur-xl"
       >
         {/* halftone strip decoration */}
         <div className="halftone-red pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
@@ -502,8 +502,8 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
         <span className="pointer-events-none absolute left-0 top-0 h-0.5 w-full bg-gradient-to-r from-crimson via-crimson/40 to-transparent" aria-hidden="true" />
 
         {/* ═══ NAVIGATION ═══ */}
-        {!isCompactViewport ? (
-          <nav className="relative z-10 flex min-w-0 flex-1 items-center gap-1.5" role="tablist" onKeyDown={handleTablistArrowKeys} aria-label={t('dashboard.topbar.tools')}>
+        {!isCompactViewport && (
+          <nav className="relative z-10 hidden min-w-0 flex-1 items-center gap-1.5 @min-[860px]/topbar:flex" role="tablist" onKeyDown={handleTablistArrowKeys} aria-label={t('dashboard.topbar.tools')}>
             <div className="flex items-center gap-1">
               {primaryItems.map((item) => {
                 const Icon = item.icon;
@@ -530,7 +530,7 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
                       >
                         {isActive && <span className="h-1.5 w-1.5 bg-ink blink-noir" aria-hidden="true" />}
                         <Icon size={13} aria-hidden="true" />
-                        <span className="hidden lg:inline">{item.label}</span>
+                        <span className="hidden @min-[1180px]/topbar:inline">{item.label}</span>
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="glass panel-cut-sm border-crimson/30">
@@ -574,19 +574,18 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
               />
             ) : null}
           </nav>
-        ) : (
+        )}
           <button
             type="button"
             onClick={() => setMobileNavOpen((prev) => !prev)}
             aria-label={t('dashboard.topbar.navigation')}
             aria-haspopup="dialog"
             aria-expanded={mobileNavOpen}
-            className="panel-cut-sm relative z-10 flex items-center gap-1.5 bg-crimson px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-hard-gold"
+            className={cn('panel-cut-sm relative z-10 flex items-center gap-1.5 bg-crimson px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-hard-gold', !isCompactViewport && '@min-[860px]/topbar:hidden')}
           >
             {currentNavItem && <currentNavItem.icon size={13} />}
             <span>{currentNavItem?.label ?? mode}</span>
           </button>
-        )}
 
         {/* ═══ RIGHT ACTION CLUSTER ═══ */}
         <div className="relative z-10 ml-auto flex flex-shrink-0 items-center gap-1.5">

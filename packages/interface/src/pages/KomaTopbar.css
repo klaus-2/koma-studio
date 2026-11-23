@@ -5,6 +5,7 @@
 
 /* ── Bar Root ─────────────────────────────────────────────────── */
 .koma-topbar {
+  container: koma-topbar / inline-size;
   position: sticky;
   top: 0;
   z-index: 105;
@@ -1575,7 +1576,7 @@
 }
 
 /* ── Responsive ───────────────────────────────────────────────── */
-@media (max-width: 1100px) {
+@container koma-topbar (max-width: 999px) {
   .koma-navtab__text {
     display: none;
   }
@@ -2121,7 +2122,7 @@
 }
 
 /* ── Responsive Mode Pill ─────────────────────────────────────── */
-@media (max-width: 1100px) {
+@container koma-topbar (max-width: 999px) {
   [data-theme="light"] .koma-topbar__mode-pill {
     background: rgba(168, 85, 247, 0.07);
     border-color: rgba(168, 85, 247, 0.12);
