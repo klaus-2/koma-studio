@@ -25,23 +25,22 @@ import {
 
 import {
   COMMUNITIES_DATA,
-  EXTERNAL_TOOLS_DATA,
   FONTS_DATA,
   GLOSSARY_DATA,
   SFX_DATA,
+  TOOLBOX_ENTRIES,
 } from '@/data/resources-data';
 import type {
   ResourceTab,
 } from '@/data/guides-types';
 import { useI18n } from '@/i18n';
 import { useInfoNavStore } from '@/stores/info-nav-store';
-import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 import CommunitiesSectionV2 from './CommunitiesSectionV2';
 import FontsSectionV2 from './FontsSectionV2';
 import GlossarySectionV2 from './GlossarySectionV2';
 import SfxSectionV2 from './SfxSectionV2';
-import ToolsSectionV2 from './ToolsSectionV2';
+import ToolboxSectionV2 from './ToolboxSectionV2';
 import {
   ResourceMetric,
   ResourceNexusHero,
@@ -72,6 +71,7 @@ export default function ResourcesPageV2({
   showBackButton = false,
 }: ResourcesPageV2Props) {
   const { t } = useI18n();
+
   const reduceMotion =
     useReducedMotion();
 
@@ -150,13 +150,12 @@ export default function ResourcesPageV2({
         tone: 'azure',
       },
       {
-        id: 'tools-external',
+        id: 'toolbox',
         label: t(
-          'resources.page.tab.tools',
+          'resources.page.tab.toolbox',
         ),
         icon: Wrench,
-        count:
-          EXTERNAL_TOOLS_DATA.length,
+        count: TOOLBOX_ENTRIES.length,
         tone: 'mint',
       },
     ],
@@ -169,7 +168,7 @@ export default function ResourcesPageV2({
       SFX_DATA.length +
       GLOSSARY_DATA.length +
       COMMUNITIES_DATA.length +
-      EXTERNAL_TOOLS_DATA.length,
+      TOOLBOX_ENTRIES.length,
     [],
   );
 
@@ -345,12 +344,12 @@ export default function ResourcesPageV2({
               'SFX VAULT',
               'GLOSSARY',
               'COMMUNITY NETWORK',
-              'TOOL ARSENAL',
+              'TOOLBOX',
               'TYPE FOUNDRY',
               'SFX VAULT',
               'GLOSSARY',
               'COMMUNITY NETWORK',
-              'TOOL ARSENAL',
+              'TOOLBOX',
             ].map((label, index) => (
               <span
                 key={`${label}-${index}`}
@@ -428,7 +427,6 @@ export default function ResourcesPageV2({
             aria-label={t(
               'resources.page.tabsAria',
             )}
-            onKeyDown={handleTablistArrowKeys}
           >
             {tabs.map((tab, index) => {
               const Icon = tab.icon;
@@ -596,8 +594,8 @@ export default function ResourcesPageV2({
               ) : null}
 
               {activeTab ===
-              'tools-external' ? (
-                <ToolsSectionV2
+              'toolbox' ? (
+                <ToolboxSectionV2
                   search={search}
                 />
               ) : null}

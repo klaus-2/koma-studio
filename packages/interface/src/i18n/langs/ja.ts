@@ -1551,7 +1551,6 @@ export const jaMessages: TranslationCatalog = {
   'resources.page.tab.sfx': 'SFXライブラリ',
   'resources.page.tab.glossary': '用語集',
   'resources.page.tab.communities': 'コミュニティ',
-  'resources.page.tab.tools': 'ツール',
   'resources.page.title.main': 'リソース',
   'resources.page.title.accent': 'センター',
   'resources.page.subtitle':
@@ -1572,9 +1571,6 @@ export const jaMessages: TranslationCatalog = {
   'resources.category.communities.label': 'コミュニティ',
   'resources.category.communities.description':
     'Discordサーバー、サブレディット、スキャンレーションフォーラム。',
-  'resources.category.tools-external.label': '外部ツール',
-  'resources.category.tools-external.description':
-    '補完的なソフトウェアと便利なオンラインツール。',
   'resources.home.title': 'リソースセンター',
   'resources.home.subtitle':
     'ワークフロー向けの厳選された素材、コミュニティ、ツール。',
@@ -4156,15 +4152,6 @@ export const jaMessages: TranslationCatalog = {
     '一部の環境で安全なキャンバス制限を超える可能性があります。',
   'stitch.warning.largeBatch':
     '大きなバッチです。スキャンレーションにとって区切りがまだ適切か確認してください。',
-  'resources.data.fontsTitle': 'タイプセッティングフォント',
-  'resources.data.fontsDesc':
-    'マンガ、マンファ、マンホアのスキャンレーション向け人気フォントの厳選コレクション。',
-  'resources.data.onomatopoeiaDesc':
-    '翻訳と使用例付きの日本語擬音語ライブラリ。',
-  'resources.data.glossaryTitle': 'スキャンレーション用語集',
-  'resources.data.glossaryDesc':
-    'スキャンレーション界の技術用語とコミュニティ俗語。',
-  'resources.data.catalogLabel': 'カタログ',
   'aioLocalBatch.invalidBatchResponse':
     '無効なバッチ応答：ZIPにbatch_report.jsonが見つかりません。',
   'modelDownload.desktopOnly':

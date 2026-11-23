@@ -23,6 +23,7 @@ import {
 import {
   defaultTranslationCatalogs,
   loadTranslationCatalog,
+  translateDynamicMessage,
   translateMessage,
   type TranslationCatalog,
   type TranslationKey,
@@ -44,6 +45,8 @@ interface I18nContextValue {
   supportedLocales: readonly AppLocale[];
   localeLabels: Record<AppLocale, string>;
   t: (key: TranslationKey, vars?: TranslationVars) => string;
+
+  translateDynamic: (key: string, vars?: TranslationVars) => string;
   setLocale: (locale: AppLocale) => void;
 }
 
@@ -167,7 +170,6 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     try {
       window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
     } catch {
-      // no-op
     }
   }, [locale]);
 
@@ -189,6 +191,11 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     [catalogs, locale],
   );
 
+  const translateDynamic = useCallback(
+    (key: string, vars?: TranslationVars) => translateDynamicMessage(locale, key, vars, catalogs),
+    [catalogs, locale],
+  );
+
   const value = useMemo<I18nContextValue>(
     () => ({
       locale,
@@ -198,9 +205,10 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
       supportedLocales: SUPPORTED_LOCALES,
       localeLabels: LOCALE_LABELS,
       t,
+      translateDynamic,
       setLocale,
     }),
-    [locale, setLocale, systemLocales, t],
+    [locale, setLocale, systemLocales, t, translateDynamic],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

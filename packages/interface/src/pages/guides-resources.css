@@ -927,6 +927,79 @@
   }
   .koma-gr-callout--info .koma-gr-callout__icon { color: var(--auth-purple); }
   .koma-gr-callout--info .koma-gr-callout__text { color: rgba(186,199,247,0.78); }
+
+  .koma-gr-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    margin: 16px 0;
+    padding: 0;
+  }
+  .koma-gr-links__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.02);
+    color: rgba(186,199,247,0.65);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .koma-gr-links__link:hover {
+    color: var(--auth-text);
+    border-color: rgba(168,85,247,0.3);
+    background: rgba(168,85,247,0.06);
+  }
+  .koma-gr-links__link--download {
+    color: var(--auth-cyan);
+    border-color: rgba(6,182,212,0.22);
+    background: rgba(6,182,212,0.06);
+  }
+  .koma-gr-links__link--download:hover {
+    color: var(--auth-cyan);
+    border-color: rgba(6,182,212,0.45);
+    background: rgba(6,182,212,0.1);
+  }
+
+  .koma-gr-source {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0 0;
+    padding: 10px 14px;
+    border: 1px solid rgba(168,85,247,0.1);
+    border-radius: 12px;
+    background: rgba(168,85,247,0.03);
+  }
+  .koma-gr-source__label {
+    font-family: var(--gr-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--auth-text-muted);
+  }
+  .koma-gr-source__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--auth-purple);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color .15s ease;
+  }
+  .koma-gr-source__link:hover { color: var(--auth-text); }
+  .koma-gr-source__cta {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--auth-text-muted);
+  }
   
   /* ═══ CODE BLOCK ═══ */
   .koma-gr-code {
@@ -2076,6 +2149,36 @@
 }
 [data-theme="light"] .koma-gr-checklist-label {
   color: rgba(30,41,59,0.75);
+}
+
+[data-theme="light"] .koma-gr-links__link {
+  border-color: rgba(0,0,0,0.1);
+  color: rgba(30,41,59,0.75);
+}
+[data-theme="light"] .koma-gr-links__link:hover {
+  color: #6d28d9;
+  border-color: rgba(168,85,247,0.35);
+  background: rgba(168,85,247,0.06);
+}
+[data-theme="light"] .koma-gr-links__link--download {
+  color: #0e7490;
+  border-color: rgba(6,182,212,0.35);
+}
+[data-theme="light"] .koma-gr-links__link--download:hover {
+  color: #0e7490;
+  border-color: rgba(6,182,212,0.5);
+  background: rgba(6,182,212,0.1);
+}
+
+[data-theme="light"] .koma-gr-source {
+  border-color: rgba(168,85,247,0.15);
+  background: rgba(168,85,247,0.04);
+}
+[data-theme="light"] .koma-gr-source__link {
+  color: #6d28d9;
+}
+[data-theme="light"] .koma-gr-source__link:hover {
+  color: #1e293b;
 }
 
 /* ═══ Step navigation ═══ */

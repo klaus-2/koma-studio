@@ -12,16 +12,16 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../../i18n';
 import { handleTablistArrowKeys } from '@koma/ui/utils/tablist-navigation';
 
 import {
   COMMUNITIES_DATA,
-  EXTERNAL_TOOLS_DATA,
   FONTS_DATA,
   GLOSSARY_DATA,
   SFX_DATA,
+  TOOLBOX_ENTRIES,
 } from '../../data/resources-data';
 import type { ResourceTab } from '../../data/guides-types';
 import { useInfoNavStore } from '../../stores/info-nav-store';
@@ -30,7 +30,7 @@ import CommunitiesSection from './CommunitiesSection';
 import FontsSection from './FontsSection';
 import GlossarySection from './GlossarySection';
 import SfxSection from './SfxSection';
-import ToolsSection from './ToolsSection';
+import ToolboxSection from './ToolboxSection';
 
 import './resources.css';
 
@@ -45,6 +45,7 @@ interface TabDef {
 
 export default function ResourcesPage() {
   const { t } = useI18n();
+
   const rawTab = useInfoNavStore((s) => s.resourcesCategory);
   const setTab = useInfoNavStore((s) => s.navigateToResourceCategory);
   const activeTab: ResourceTab = rawTab ?? 'fonts';
@@ -52,13 +53,16 @@ export default function ResourcesPage() {
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const TABS: TabDef[] = [
-    { id: 'fonts', label: t('resources.page.tab.fonts'), icon: Type, count: FONTS_DATA.length },
-    { id: 'sfx-library', label: t('resources.page.tab.sfx'), icon: Volume2, count: SFX_DATA.length },
-    { id: 'glossary', label: t('resources.page.tab.glossary'), icon: BookOpen, count: GLOSSARY_DATA.length },
-    { id: 'communities', label: t('resources.page.tab.communities'), icon: Users, count: COMMUNITIES_DATA.length },
-    { id: 'tools-external', label: t('resources.page.tab.tools'), icon: Wrench, count: EXTERNAL_TOOLS_DATA.length },
-  ];
+  const TABS: TabDef[] = useMemo(
+    () => [
+      { id: 'fonts', label: t('resources.page.tab.fonts'), icon: Type, count: FONTS_DATA.length },
+      { id: 'sfx-library', label: t('resources.page.tab.sfx'), icon: Volume2, count: SFX_DATA.length },
+      { id: 'glossary', label: t('resources.page.tab.glossary'), icon: BookOpen, count: GLOSSARY_DATA.length },
+      { id: 'communities', label: t('resources.page.tab.communities'), icon: Users, count: COMMUNITIES_DATA.length },
+      { id: 'toolbox', label: t('resources.page.tab.toolbox'), icon: Wrench, count: TOOLBOX_ENTRIES.length },
+    ],
+    [t],
+  );
 
   /* Ctrl+F → focus search */
   useEffect(() => {
@@ -155,7 +159,7 @@ export default function ResourcesPage() {
           {activeTab === 'sfx-library' && <SfxSection search={search} />}
           {activeTab === 'glossary' && <GlossarySection search={search} />}
           {activeTab === 'communities' && <CommunitiesSection search={search} />}
-          {activeTab === 'tools-external' && <ToolsSection search={search} />}
+          {activeTab === 'toolbox' && <ToolboxSection search={search} />}
         </div>
       </div>
     </div>

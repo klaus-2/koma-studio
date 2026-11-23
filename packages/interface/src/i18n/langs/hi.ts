@@ -1541,7 +1541,6 @@ export const hiMessages: TranslationCatalog = {
   'resources.page.tab.sfx': 'Pustaka SFX',
   'resources.page.tab.glossary': 'Glosarium',
   'resources.page.tab.communities': 'Komunitas',
-  'resources.page.tab.tools': 'Alat',
   'resources.page.title.main': 'Pusat ',
   'resources.page.title.accent': 'Sumber Daya',
   'resources.page.subtitle':
@@ -1562,9 +1561,6 @@ export const hiMessages: TranslationCatalog = {
   'resources.category.communities.label': 'Komunitas',
   'resources.category.communities.description':
     'Server Discord, subreddit, dan forum scanlation.',
-  'resources.category.tools-external.label': 'Alat Eksternal',
-  'resources.category.tools-external.description':
-    'Software pelengkap dan alat online yang berguna.',
   'resources.home.title': 'Pusat Sumber Daya',
   'resources.home.subtitle':
     'Materi, komunitas, dan alat yang dikurasi untuk alur kerja Anda.',
@@ -4113,15 +4109,6 @@ export const hiMessages: TranslationCatalog = {
     'Mungkin melebihi batas kanvas aman di beberapa lingkungan.',
   'stitch.warning.largeBatch':
     'Batch besar; periksa apakah pemisahan masih nyaman untuk scanlation.',
-  'resources.data.fontsTitle': 'Font Typesetting',
-  'resources.data.fontsDesc':
-    'Koleksi font populer terkurasi untuk scanlation manga, manhwa, dan manhua.',
-  'resources.data.onomatopoeiaDesc':
-    'Pustaka onomatope Jepang dengan terjemahan dan contoh penggunaan.',
-  'resources.data.glossaryTitle': 'Glosarium Scanlation',
-  'resources.data.glossaryDesc':
-    'Istilah teknis dan jargon komunitas dari dunia scanlation.',
-  'resources.data.catalogLabel': 'Katalog',
   'aioLocalBatch.invalidBatchResponse':
     'Respons batch tidak valid: batch_report.json tidak ditemukan dalam ZIP.',
   'modelDownload.desktopOnly':

@@ -87,6 +87,7 @@ function resolveFlatProgress(
 
 export default function GuidesHomeV2() {
   const { t } = useI18n();
+
   const reduceMotion =
     useReducedMotion();
 

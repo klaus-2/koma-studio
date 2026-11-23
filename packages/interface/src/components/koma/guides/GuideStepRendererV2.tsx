@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Check,
   Copy,
+  ExternalLink,
   Info,
   Lightbulb,
   Quote,
@@ -159,6 +160,30 @@ export default function GuideStepRendererV2({
         <p className="text-[0.95rem] leading-8 text-paper/68 sm:text-base">
           {step.content}
         </p>
+      ) : null}
+
+      {step.links && step.links.length > 0 ? (
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {step.links.map((link) => (
+            <li key={`${link.label}-${link.url}`}>
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={[
+                  'inline-flex min-h-9 items-center gap-1.5 border px-3',
+                  'font-mono text-[0.6rem] font-bold uppercase tracking-[0.08em] transition',
+                  link.kind === 'download'
+                    ? 'border-crimson/45 bg-crimson/10 text-crimson hover:bg-crimson/20'
+                    : 'border-paper/12 bg-paper/[0.03] text-paper/55 hover:border-paper/30 hover:text-paper',
+                ].join(' ')}
+              >
+                {link.label}
+                <ExternalLink size={12} />
+              </a>
+            </li>
+          ))}
+        </ul>
       ) : null}
 
       {step.tip ? (

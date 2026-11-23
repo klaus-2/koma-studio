@@ -1495,7 +1495,6 @@ export const arMessages: TranslationCatalog = {
   'resources.page.tab.sfx': 'مكتبة SFX',
   'resources.page.tab.glossary': 'مسرد',
   'resources.page.tab.communities': 'مجتمعات',
-  'resources.page.tab.tools': 'أدوات',
   'resources.page.title.main': 'مركز ',
   'resources.page.title.accent': 'الموارد',
   'resources.page.subtitle': 'مواد منتقاة ومجتمعات وأدوات لسير عملك.',
@@ -1515,9 +1514,6 @@ export const arMessages: TranslationCatalog = {
   'resources.category.communities.label': 'المجتمعات',
   'resources.category.communities.description':
     'خوادم Discord ومنتديات فرعية ومنتديات ترجمة.',
-  'resources.category.tools-external.label': 'أدوات خارجية',
-  'resources.category.tools-external.description':
-    'برامج مكمّلة وأدوات إلكترونية مفيدة.',
   'resources.home.title': 'مركز الموارد',
   'resources.home.subtitle': 'مواد منتقاة ومجتمعات وأدوات لسير عملك.',
   'resources.home.itemCount': '{count} عنصر',
@@ -3979,15 +3975,6 @@ export const arMessages: TranslationCatalog = {
   'stitch.warning.canvasLimit': 'قد يتجاوز حدود اللوحة الآمنة في بعض البيئات.',
   'stitch.warning.largeBatch':
     'دفعة كبيرة؛ تحقق مما إذا كان الفاصل لا يزال مريحًا للترجمة.',
-  'resources.data.fontsTitle': 'خطوط الطباعة',
-  'resources.data.fontsDesc':
-    'مجموعة منتقاة من الخطوط الشائعة لترجمة المانغا والمانهوا والمانهوا.',
-  'resources.data.onomatopoeiaDesc':
-    'مكتبة المحاكاة الصوتية اليابانية مع ترجمات وأمثلة استخدام.',
-  'resources.data.glossaryTitle': 'مسرد الترجمة',
-  'resources.data.glossaryDesc':
-    'مصطلحات تقنية وعبارات مجتمعية من عالم الترجمة.',
-  'resources.data.catalogLabel': 'الكتالوج',
   'aioLocalBatch.invalidBatchResponse':
     'استجابة دفعة غير صالحة: batch_report.json مفقود من ZIP.',
   'modelDownload.desktopOnly': 'إدارة النماذج متاحة فقط في تطبيق سطح المكتب.',

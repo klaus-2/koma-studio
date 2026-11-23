@@ -6,9 +6,12 @@ interface ResourceExternalAnchorProps
   href: string;
 }
 
+const DANGEROUS_PROTOCOL =
+  /^(?:javascript|data|vbscript|file):/i;
+
 const normalizeExternalUrl = (rawUrl: string): string => {
   const trimmed = rawUrl.trim();
-  if (!trimmed) {
+  if (!trimmed || DANGEROUS_PROTOCOL.test(trimmed)) {
     return '';
   }
 
@@ -56,9 +59,17 @@ export default function ResourceExternalAnchor({
   return (
     <a
       {...props}
-      href={normalizedHref || href}
+      href={normalizedHref || '#'}
       target={target ?? '_blank'}
       rel={rel ?? 'noopener noreferrer'}
+      aria-disabled={
+        !normalizedHref || undefined
+      }
+      tabIndex={
+        normalizedHref
+          ? props.tabIndex
+          : -1
+      }
       onClick={handleClick}
     />
   );

@@ -33,6 +33,7 @@
      content: string;
      tip?: string;
      warning?: string;
+     links?: ResourceLink[];
      image?: {
        src: string;
        alt: string;
@@ -80,8 +81,11 @@
      | 'ai-models'
      | 'keyboard-shortcuts'
      | 'automation'
-     | 'troubleshooting';
-   
+     | 'troubleshooting'
+     | 'community-tutorials';
+
+   export type GuideOrigin = 'app' | 'community';
+
    export interface GuideEntry {
      id: string;
      category: GuideCategoryId;
@@ -93,7 +97,31 @@
      estimatedTime: string;
      tags: string[];
      sections: GuideSection[];
+     origin: GuideOrigin;
+     sourceUrl?: string;
+     sourceLabel?: string;
    }
+
+   export type GuideStepDraft = Omit<
+     GuideStep,
+     'id' | 'type'
+   > &
+     Partial<Pick<GuideStep, 'id' | 'type'>>;
+
+   export type GuideSectionDraft = Omit<
+     GuideSection,
+     'steps'
+   > & {
+     steps: GuideStepDraft[];
+   };
+
+   export type GuideEntryDraft = Omit<
+     GuideEntry,
+     'sections' | 'origin'
+   > & {
+     sections: GuideSectionDraft[];
+     origin?: GuideOrigin;
+   };
    
    /* ─── Category Meta ─── */
    
@@ -112,9 +140,56 @@
      | 'sfx-library'
      | 'glossary'
      | 'communities'
-     | 'tools-external'
-     | 'changelog';
-   
+     | 'toolbox';
+
+   export type ToolboxStage =
+     | 'rippers'
+     | 'cleaning'
+     | 'upscaling'
+     | 'typesetting'
+     | 'assets'
+     | 'publishing'
+     | 'translation'
+     | 'reference'
+     | 'utilities';
+
+   export type ToolboxLicense =
+     | 'open-source'
+     | 'free'
+     | 'freeware'
+     | 'paid'
+     | 'account';
+
+   export interface ToolboxEntry {
+     id: string;
+     name: string;
+     stage: ToolboxStage;
+     description: string;
+     url: string;
+     links?: ResourceLink[];
+     platform?: string;
+     license?: ToolboxLicense;
+     tags?: string[];
+     image?: string;
+     verifiedOn?: string;
+   }
+
+   export interface FontCollectionEntry {
+     id: string;
+     name: string;
+     origin: string;
+     description: string;
+     fileCount: number;
+     familyCount: number;
+     vendors: string[];
+     license: 'free' | 'personal-use' | 'open-source' | 'mixed';
+     licenseNote: string;
+     url: string;
+     links?: ResourceLink[];
+     image?: string;
+     verifiedOn?: string;
+   }
+
    export interface FontEntry {
      name: string;
      family: string;
@@ -125,6 +200,10 @@
      downloadUrl?: string;
       links?: ResourceLink[];
       tags: string[];
+      image?: string;
+      collectionId?: string;
+      vendor?: string;
+      verifiedOn?: string;
     }
    
    export interface SfxEntry {
@@ -158,15 +237,18 @@
    
    export interface CommunityEntry {
      name: string;
-     platform: 'discord' | 'reddit' | 'forum' | 'website' | 'telegram';
+     platform: 'discord' | 'reddit' | 'forum' | 'website' | 'telegram' | 'wiki';
      url: string;
      description: string;
      language: string;
      memberCount?: string;
      icon?: string;
      free?: boolean;
+     image?: string;
+     focus?: string;
+     verifiedOn?: string;
    }
-   
+
    export interface ExternalToolEntry {
      name: string;
      description: string;

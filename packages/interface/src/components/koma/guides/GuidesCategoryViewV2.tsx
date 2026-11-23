@@ -40,6 +40,7 @@ export default function GuidesCategoryViewV2({
   categoryId,
 }: Props) {
   const { t } = useI18n();
+
   const reduceMotion =
     useReducedMotion();
 

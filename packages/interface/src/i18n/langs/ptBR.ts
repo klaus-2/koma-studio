@@ -1589,7 +1589,6 @@ export const ptBrMessages: TranslationCatalog = {
   'resources.page.tab.sfx': 'Biblioteca SFX',
   'resources.page.tab.glossary': 'Glossário',
   'resources.page.tab.communities': 'Comunidades',
-  'resources.page.tab.tools': 'Ferramentas',
   'resources.page.title.main': 'Central de ',
   'resources.page.title.accent': 'Recursos',
   'resources.page.subtitle':
@@ -1610,9 +1609,48 @@ export const ptBrMessages: TranslationCatalog = {
   'resources.category.communities.label': 'Comunidades',
   'resources.category.communities.description':
     'Servidores Discord, subreddits e fóruns de scanlation.',
-  'resources.category.tools-external.label': 'Ferramentas Externas',
-  'resources.category.tools-external.description':
-    'Softwares complementares e ferramentas online úteis.',
+  'resources.category.toolbox.label': 'Caixa de Ferramentas',
+  'resources.category.toolbox.description':
+    'Ferramentas livres e abertas para cada etapa da pipeline, do download à publicação.',
+  'resources.page.tab.toolbox': 'Ferramentas',
+  'resources.toolbox.title': 'Caixa de Ferramentas da Pipeline',
+  'resources.toolbox.desc':
+    'Ferramentas livres e abertas para cada etapa da pipeline, do download à publicação.',
+  'resources.toolbox.filterAll': 'Todas as etapas',
+  'resources.toolbox.filterAria': 'Filtrar por etapa da pipeline',
+  'resources.toolbox.context': 'Ferramentas',
+  'resources.toolbox.action.open': 'Abrir',
+  'resources.toolbox.results_one': 'ferramenta listada',
+  'resources.toolbox.results_other': 'ferramentas listadas',
+  'resources.toolbox.stage.rippers': 'Downloaders',
+  'resources.toolbox.stage.cleaning': 'Limpeza',
+  'resources.toolbox.stage.upscaling': 'Upscaling',
+  'resources.toolbox.stage.typesetting': 'Typesetting',
+  'resources.toolbox.stage.assets': 'Assets',
+  'resources.toolbox.stage.publishing': 'Publicação',
+  'resources.toolbox.stage.translation': 'Tradução',
+  'resources.toolbox.stage.reference': 'Referência',
+  'resources.toolbox.stage.utilities': 'Utilidades',
+  'resources.toolbox.license.openSource': 'Open source',
+  'resources.toolbox.license.free': 'Grátis',
+  'resources.toolbox.license.freeware': 'Freeware',
+  'resources.toolbox.license.paid': 'Pago',
+  'resources.toolbox.license.account': 'Precisa de conta',
+  'resources.fonts.collections.title': 'Coleções de fontes',
+  'resources.fonts.collections.desc':
+    'Pacotes de lettering prontos, com os termos de licença que vieram junto.',
+  'resources.fonts.collection.files': 'arquivos',
+  'resources.fonts.collection.families': 'famílias',
+  'resources.fonts.collection.vendor': 'desenhada por',
+  'resources.fonts.collection.license': 'licença',
+  'resources.fonts.collection.open': 'Abrir coleção',
+  'resources.communities.focus': 'Foco',
+  'resources.guides.community.title': 'Tutoriais da comunidade',
+  'resources.guides.community.desc':
+    'Guias escritos pela comunidade de scanlation, com a fonte linkada.',
+  'resources.guides.source': 'Fonte',
+  'resources.guides.openSource': 'Ler o original',
+  'resources.communities.platform.wiki': 'Wiki',
   'resources.home.title': 'Central de Recursos',
   'resources.home.subtitle':
     'Materiais selecionados, comunidades e ferramentas para o seu workflow.',
@@ -4312,15 +4350,6 @@ export const ptBrMessages: TranslationCatalog = {
     'Pode exceder limites seguros de canvas em alguns ambientes.',
   'stitch.warning.largeBatch':
     'Lote grande; revise se a quebra continua confortável para scanlation.',
-  'resources.data.fontsTitle': 'Fontes para Typesetting',
-  'resources.data.fontsDesc':
-    'Coleção curada de fontes populares para scanlation de mangá, manhwa e manhua.',
-  'resources.data.onomatopoeiaDesc':
-    'Biblioteca de onomatopeias japonesas com traduções e exemplos de uso.',
-  'resources.data.glossaryTitle': 'Glossário de Scanlation',
-  'resources.data.glossaryDesc':
-    'Termos técnicos e jargão da comunidade de scanlation.',
-  'resources.data.catalogLabel': 'Catálogo',
   'aioLocalBatch.invalidBatchResponse':
     'Resposta batch inválida: batch_report.json ausente no ZIP.',
   'modelDownload.desktopOnly':

@@ -10,6 +10,7 @@
     Check,
     ChevronLeft,
     ChevronRight,
+    ExternalLink,
     FileText,
   } from 'lucide-react';
   import { useCallback, useMemo } from 'react';
@@ -40,7 +41,6 @@
     const category = GUIDE_CATEGORIES.find((c) => c.id === categoryId);
     const guide = GUIDES.find((g) => g.id === entryId);
   
-    // Flatten all steps across sections
     const allSteps = useMemo<Array<GuideStep & { sectionTitle: string }>>(() => {
       if (!guide) return [];
       return guide.sections.flatMap((section) =>
@@ -63,7 +63,6 @@
       [setActiveStep, totalSteps],
     );
 
-        /* ── Recently viewed guides for sidebar ── */
         const recentGuides = useMemo(
             () =>
               recentlyViewed
@@ -79,7 +78,6 @@
       navigateToGuideCategory(categoryId);
     }, [markGuideRead, entryId, navigateToGuideCategory, categoryId]);
 
-    // Identify which section headers belong before which step indices
     const sectionBreaks = useMemo(() => {
       const breaks: Record<number, string> = {};
       if (!guide) return breaks;
@@ -223,7 +221,24 @@
   
               <GuideStepRenderer step={currentStep} />
             </div>
-  
+
+            {/* Source attribution — community tutorials point at the original material */}
+            {guide.origin === 'community' && guide.sourceUrl && (
+              <div className="koma-gr-source">
+                <span className="koma-gr-source__label">{t('resources.guides.source')}</span>
+                <a
+                  href={guide.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="koma-gr-source__link"
+                >
+                  <span>{guide.sourceLabel ?? guide.sourceUrl}</span>
+                  <span className="koma-gr-source__cta">{t('resources.guides.openSource')}</span>
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+            )}
+
             {/* Step Navigation */}
             <div className="koma-gr-step-nav">
               <button

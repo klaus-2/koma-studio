@@ -1566,7 +1566,6 @@ export const ruMessages: TranslationCatalog = {
   'resources.page.tab.sfx': 'Библиотека SFX',
   'resources.page.tab.glossary': 'Глоссарий',
   'resources.page.tab.communities': 'Сообщества',
-  'resources.page.tab.tools': 'Инструменты',
   'resources.page.title.main': 'Центр ',
   'resources.page.title.accent': 'ресурсов',
   'resources.page.subtitle':
@@ -1587,9 +1586,6 @@ export const ruMessages: TranslationCatalog = {
   'resources.category.communities.label': 'Сообщества',
   'resources.category.communities.description':
     'Discord-серверы, сабреддиты и форумы сканлейта.',
-  'resources.category.tools-external.label': 'Внешние инструменты',
-  'resources.category.tools-external.description':
-    'Дополнительные программы и полезные онлайн-инструменты.',
   'resources.home.title': 'Центр ресурсов',
   'resources.home.subtitle':
     'Подборки материалов, сообщества и инструменты для вашего рабочего процесса.',
@@ -4187,15 +4183,6 @@ export const ruMessages: TranslationCatalog = {
     'Может превысить безопасные лимиты холста в некоторых окружениях.',
   'stitch.warning.largeBatch':
     'Большой пакет; проверьте, удобен ли разрыв для сканлейта.',
-  'resources.data.fontsTitle': 'Шрифты для набора',
-  'resources.data.fontsDesc':
-    'Подборка популярных шрифтов для сканлейта манги, манхвы и маньхуа.',
-  'resources.data.onomatopoeiaDesc':
-    'Библиотека японских ономатопей с переводами и примерами использования.',
-  'resources.data.glossaryTitle': 'Глоссарий сканлейта',
-  'resources.data.glossaryDesc':
-    'Технические термины и жаргон сообщества из мира сканлейта.',
-  'resources.data.catalogLabel': 'Каталог',
   'aioLocalBatch.invalidBatchResponse':
     'Недопустимый ответ пакета: batch_report.json отсутствует в ZIP.',
   'modelDownload.desktopOnly':

@@ -1,4 +1,8 @@
 import type { ResourceLink } from '@/data/guides-types';
+import {
+  matchesResourceSearch,
+  normalizeResourceSearch,
+} from '@/utils/resource-search';
 
 export const RESOURCE_EASE = [
   0.22,
@@ -7,33 +11,10 @@ export const RESOURCE_EASE = [
   1,
 ] as const;
 
-export function normalizeResourceSearch(
-  value: string,
-): string {
-  return value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLocaleLowerCase()
-    .trim();
-}
-
-export function matchesResourceSearch(
-  query: string,
-  values: Array<
-    string | null | undefined
-  >,
-): boolean {
-  const normalizedQuery =
-    normalizeResourceSearch(query);
-
-  if (!normalizedQuery) return true;
-
-  return values.some((value) =>
-    normalizeResourceSearch(
-      value ?? '',
-    ).includes(normalizedQuery),
-  );
-}
+export {
+  matchesResourceSearch,
+  normalizeResourceSearch,
+};
 
 export function deduplicateResourceLinks(
   links: ResourceLink[],
@@ -53,6 +34,19 @@ export function deduplicateResourceLinks(
     seen.add(key);
     return true;
   });
+}
+
+export function resolveLinkLabel(
+  label: string,
+  translate: (key: string) => string,
+): string {
+  if (!label.includes('.')) {
+    return label;
+  }
+
+  const translated = translate(label);
+
+  return translated === label ? label : translated;
 }
 
 export async function copyResourceText(

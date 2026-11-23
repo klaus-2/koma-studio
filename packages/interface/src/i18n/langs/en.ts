@@ -1652,7 +1652,6 @@ export const enMessages = {
   'resources.page.tab.sfx': 'SFX Library',
   'resources.page.tab.glossary': 'Glossary',
   'resources.page.tab.communities': 'Communities',
-  'resources.page.tab.tools': 'Tools',
   'resources.page.title.main': 'Resource ',
   'resources.page.title.accent': 'Center',
   'resources.page.subtitle':
@@ -1673,9 +1672,48 @@ export const enMessages = {
   'resources.category.communities.label': 'Communities',
   'resources.category.communities.description':
     'Discord servers, subreddits, and scanlation forums.',
-  'resources.category.tools-external.label': 'External Tools',
-  'resources.category.tools-external.description':
-    'Complementary software and useful online tools.',
+  'resources.category.toolbox.label': 'Toolbox',
+  'resources.category.toolbox.description':
+    'Free and open tools for every stage of the pipeline, from ripping to release.',
+  'resources.page.tab.toolbox': 'Toolbox',
+  'resources.toolbox.title': 'Pipeline Toolbox',
+  'resources.toolbox.desc':
+    'Free and open tools for every stage of the pipeline, from ripping to release.',
+  'resources.toolbox.filterAll': 'All stages',
+  'resources.toolbox.filterAria': 'Filter by pipeline stage',
+  'resources.toolbox.context': 'Toolbox',
+  'resources.toolbox.action.open': 'Open',
+  'resources.toolbox.results_one': 'tool listed',
+  'resources.toolbox.results_other': 'tools listed',
+  'resources.toolbox.stage.rippers': 'Rippers',
+  'resources.toolbox.stage.cleaning': 'Cleaning',
+  'resources.toolbox.stage.upscaling': 'Upscaling',
+  'resources.toolbox.stage.typesetting': 'Typesetting',
+  'resources.toolbox.stage.assets': 'Assets',
+  'resources.toolbox.stage.publishing': 'Publishing',
+  'resources.toolbox.stage.translation': 'Translation',
+  'resources.toolbox.stage.reference': 'Reference',
+  'resources.toolbox.stage.utilities': 'Utilities',
+  'resources.toolbox.license.openSource': 'Open source',
+  'resources.toolbox.license.free': 'Free',
+  'resources.toolbox.license.freeware': 'Freeware',
+  'resources.toolbox.license.paid': 'Paid',
+  'resources.toolbox.license.account': 'Account needed',
+  'resources.fonts.collections.title': 'Font collections',
+  'resources.fonts.collections.desc':
+    'Ready-made lettering packs, with the licence terms that came with them.',
+  'resources.fonts.collection.files': 'files',
+  'resources.fonts.collection.families': 'families',
+  'resources.fonts.collection.vendor': 'drawn by',
+  'resources.fonts.collection.license': 'licence',
+  'resources.fonts.collection.open': 'Open collection',
+  'resources.communities.focus': 'Focus',
+  'resources.guides.community.title': 'Community tutorials',
+  'resources.guides.community.desc':
+    'Walkthroughs published by the scanlation community, with the source linked.',
+  'resources.guides.source': 'Source',
+  'resources.guides.openSource': 'Read the original',
+  'resources.communities.platform.wiki': 'Wiki',
   'resources.home.title': 'Resource Center',
   'resources.home.subtitle':
     'Curated materials, communities, and tools for your workflow.',
@@ -3934,15 +3972,6 @@ export const enMessages = {
     'May exceed safe canvas limits in some environments.',
   'stitch.warning.largeBatch':
     'Large batch; check whether the break is still comfortable for scanlation.',
-  'resources.data.fontsTitle': 'Typesetting Fonts',
-  'resources.data.fontsDesc':
-    'Curated collection of popular fonts for manga, manhwa, and manhua scanlation.',
-  'resources.data.onomatopoeiaDesc':
-    'Library of Japanese onomatopoeia with translations and usage examples.',
-  'resources.data.glossaryTitle': 'Scanlation Glossary',
-  'resources.data.glossaryDesc':
-    'Technical terms and community jargon from the scanlation world.',
-  'resources.data.catalogLabel': 'Catalog',
   'aioLocalBatch.invalidBatchResponse':
     'Invalid batch response: batch_report.json missing from ZIP.',
   'modelDownload.desktopOnly':

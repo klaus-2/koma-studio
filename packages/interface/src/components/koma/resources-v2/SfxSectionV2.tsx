@@ -255,7 +255,7 @@ export default function SfxSectionV2({
                     index={index}
                     className="h-full"
                   >
-                    <article className="offset-card glass-card panel-cut-sm relative flex h-full min-h-72 flex-col overflow-hidden border-paper/10 drop-shadow-[6px_6px_0_rgba(77,201,255,0.18)]">
+                    <article className="offset-card panel-cut-sm relative flex h-full min-h-72 flex-col overflow-hidden border-paper/10 drop-shadow-[6px_6px_0_rgba(77,201,255,0.18)]">
                       <div
                         className="halftone pointer-events-none absolute -right-8 -top-8 size-36 opacity-30"
                         aria-hidden="true"

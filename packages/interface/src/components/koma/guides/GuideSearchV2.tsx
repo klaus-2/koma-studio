@@ -78,6 +78,7 @@ export default function GuideSearchV2({
   onClose,
 }: Props) {
   const { t } = useI18n();
+
   const reduceMotion =
     useReducedMotion();
 

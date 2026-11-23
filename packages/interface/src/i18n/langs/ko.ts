@@ -1506,7 +1506,6 @@ export const koMessages: TranslationCatalog = {
   'resources.page.tab.sfx': 'SFX 라이브러리',
   'resources.page.tab.glossary': '용어집',
   'resources.page.tab.communities': '커뮤니티',
-  'resources.page.tab.tools': '도구',
   'resources.page.title.main': '리소스 ',
   'resources.page.title.accent': '센터',
   'resources.page.subtitle': '워크플로를 위한 엄선된 자료, 커뮤니티 및 도구.',
@@ -1526,9 +1525,6 @@ export const koMessages: TranslationCatalog = {
   'resources.category.communities.label': '커뮤니티',
   'resources.category.communities.description':
     'Discord 서버, 서브레딧 및 스캔레이션 포럼.',
-  'resources.category.tools-external.label': '외부 도구',
-  'resources.category.tools-external.description':
-    '보완 소프트웨어 및 유용한 온라인 도구.',
   'resources.home.title': '리소스 센터',
   'resources.home.subtitle': '워크플로를 위한 엄선된 자료, 커뮤니티 및 도구.',
   'resources.home.itemCount': '{count}개 항목',
@@ -4043,14 +4039,6 @@ export const koMessages: TranslationCatalog = {
     '일부 환경에서 안전한 캔버스 한도를 초과할 수 있습니다.',
   'stitch.warning.largeBatch':
     '대형 배치입니다. 스캔레이션에서 나누기가 아직 편한지 확인하세요.',
-  'resources.data.fontsTitle': '타이프세팅 폰트',
-  'resources.data.fontsDesc':
-    '만화, 만화(manhwa), 만화(manhua) 스캔레이션을 위한 인기 폰트의 엄선된 컬렉션.',
-  'resources.data.onomatopoeiaDesc':
-    '번역 및 사용 예제가 포함된 일본어 의성어/의태어 라이브러리.',
-  'resources.data.glossaryTitle': '스캔레이션 용어집',
-  'resources.data.glossaryDesc': '스캔레이션 세계의 기술 용어와 커뮤니티 용어.',
-  'resources.data.catalogLabel': '카탈로그',
   'aioLocalBatch.invalidBatchResponse':
     '잘못된 배치 응답: ZIP에서 batch_report.json이 누락되었습니다.',
   'modelDownload.desktopOnly': '모델 관리는 데스크톱 앱에서만 사용 가능합니다.',

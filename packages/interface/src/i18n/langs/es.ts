@@ -1569,7 +1569,6 @@ export const esMessages: TranslationCatalog = {
   'resources.page.tab.sfx': 'Biblioteca de SFX',
   'resources.page.tab.glossary': 'Glosario',
   'resources.page.tab.communities': 'Comunidades',
-  'resources.page.tab.tools': 'Herramientas',
   'resources.page.title.main': 'Centro de ',
   'resources.page.title.accent': 'recursos',
   'resources.page.subtitle':
@@ -1590,9 +1589,6 @@ export const esMessages: TranslationCatalog = {
   'resources.category.communities.label': 'Comunidades',
   'resources.category.communities.description':
     'Servidores de Discord, subreddits y foros de scanlation.',
-  'resources.category.tools-external.label': 'Herramientas externas',
-  'resources.category.tools-external.description':
-    'Software complementario y herramientas en línea útiles.',
   'resources.home.title': 'Centro de recursos',
   'resources.home.subtitle':
     'Materiales curados, comunidades y herramientas para tu flujo de trabajo.',
@@ -4180,15 +4176,6 @@ export const esMessages: TranslationCatalog = {
     'Puede exceder los límites seguros del canvas en algunos entornos.',
   'stitch.warning.largeBatch':
     'Lote grande; verifica si la división sigue siendo cómoda para scanlation.',
-  'resources.data.fontsTitle': 'Fuentes para tipografía',
-  'resources.data.fontsDesc':
-    'Colección curada de fuentes populares para scanlation de manga, manhwa y manhua.',
-  'resources.data.onomatopoeiaDesc':
-    'Biblioteca de onomatopeyas japonesas con traducciones y ejemplos de uso.',
-  'resources.data.glossaryTitle': 'Glosario de scanlation',
-  'resources.data.glossaryDesc':
-    'Términos técnicos y jerga de la comunidad del mundo del scanlation.',
-  'resources.data.catalogLabel': 'Catálogo',
   'aioLocalBatch.invalidBatchResponse':
     'Respuesta de lote no válida: batch_report.json falta en el ZIP.',
   'modelDownload.desktopOnly':

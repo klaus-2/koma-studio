@@ -17,6 +17,7 @@ import type {
 import { useI18n } from '@/i18n';
 
 import ResourceExternalAnchorV2 from './ResourceExternalAnchorV2';
+import ResourceThumbV2 from './ResourceThumbV2';
 import {
   ResourceCardReveal,
   ResourceResultCount,
@@ -42,12 +43,14 @@ const PLATFORM_TONE: Record<
   forum: 'gold',
   website: 'mint',
   telegram: 'azure',
+  wiki: 'gold',
 };
 
 export default function CommunitiesSectionV2({
   search,
 }: Props) {
   const { t } = useI18n();
+
 
   const platformLabels: Record<
     CommunityEntry['platform'],
@@ -68,6 +71,9 @@ export default function CommunitiesSectionV2({
     telegram: t(
       'resources.communities.platform.telegram',
     ),
+    wiki: t(
+      'resources.communities.platform.wiki',
+    ),
   };
 
   const filtered = useMemo(
@@ -80,6 +86,7 @@ export default function CommunitiesSectionV2({
           community.description,
           community.language,
           community.platform,
+          community.focus ?? '',
         ]),
       ),
     [search],
@@ -139,7 +146,7 @@ export default function CommunitiesSectionV2({
                   >
                     <article
                       className={[
-                        'offset-card glass-card panel-cut-sm relative flex h-full min-h-64 flex-col overflow-hidden border p-5',
+                        'offset-card panel-cut-sm relative flex h-full min-h-64 flex-col overflow-hidden border p-5',
                         styles.border,
                         styles.shadow,
                       ].join(' ')}
@@ -154,19 +161,16 @@ export default function CommunitiesSectionV2({
                       </span>
 
                       <div className="relative z-10 flex items-start justify-between gap-3">
-                        <span
+                        <ResourceThumbV2
+                          image={community.image}
+                          fallback={MessageCircle}
+                          size={40}
                           className={[
-                            'grid size-10 place-items-center border panel-cut-sm',
+                            'border panel-cut-sm',
                             styles.border,
                             styles.background,
-                            styles.text,
                           ].join(' ')}
-                          aria-hidden="true"
-                        >
-                          <MessageCircle
-                            size={16}
-                          />
-                        </span>
+                        />
 
                         <span
                           className={[
@@ -202,6 +206,13 @@ export default function CommunitiesSectionV2({
                             community.language
                           }
                         </span>
+
+                        {community.focus ? (
+                          <span className="inline-flex items-center gap-1.5 font-mono text-[0.58rem] uppercase tracking-[0.08em] text-paper/34">
+                            <MessageCircle size={11} />
+                            {community.focus}
+                          </span>
+                        ) : null}
 
                         {community.memberCount ? (
                           <span className="inline-flex items-center gap-1.5 font-mono text-[0.58rem] uppercase tracking-[0.08em] text-paper/34">

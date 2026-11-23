@@ -17,6 +17,7 @@
    
    export default function GuidesCategoryView({ categoryId }: Props) {
      const { t } = useI18n();
+
      const navigateGuidesHome = useInfoNavStore((s) => s.navigateGuidesHome);
      const navigateToGuideEntry = useInfoNavStore((s) => s.navigateToGuideEntry);
      const readGuides = useInfoNavStore((s) => s.readGuides);

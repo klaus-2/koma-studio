@@ -1423,7 +1423,6 @@ export const zhMessages: TranslationCatalog = {
   'resources.page.tab.sfx': '音效字資料庫',
   'resources.page.tab.glossary': '術語表',
   'resources.page.tab.communities': '社群',
-  'resources.page.tab.tools': '工具',
   'resources.page.title.main': '資源',
   'resources.page.title.accent': '中心',
   'resources.page.subtitle': '精選的素材、社群和工具，助力您的工作流程。',
@@ -1442,8 +1441,6 @@ export const zhMessages: TranslationCatalog = {
   'resources.category.communities.label': '社群',
   'resources.category.communities.description':
     'Discord 伺服器、Reddit 版塊和漢化論壇。',
-  'resources.category.tools-external.label': '外部工具',
-  'resources.category.tools-external.description': '互補軟體和實用的線上工具。',
   'resources.home.title': '資源中心',
   'resources.home.subtitle': '精選的素材、社群和工具，助力您的工作流程。',
   'resources.home.itemCount': '{count} 個項目',
@@ -3791,13 +3788,6 @@ export const zhMessages: TranslationCatalog = {
   'stitch.warning.outputTooHeavy': '輸出過大，不利於審核和下載。',
   'stitch.warning.canvasLimit': '在某些環境中可能超出安全畫布限制。',
   'stitch.warning.largeBatch': '大批次；請檢查斷點是否仍適合漢化閱讀。',
-  'resources.data.fontsTitle': '排版字型',
-  'resources.data.fontsDesc': '精選的熱門漫畫、韓漫和國漫漢化字型合集。',
-  'resources.data.onomatopoeiaDesc':
-    '日文擬聲詞／擬態詞資料庫，附翻譯和使用範例。',
-  'resources.data.glossaryTitle': '漢化術語表',
-  'resources.data.glossaryDesc': '漢化界的技術術語和社群行話。',
-  'resources.data.catalogLabel': '目錄',
   'aioLocalBatch.invalidBatchResponse':
     '無效的批次回應：ZIP 中缺少 batch_report.json。',
   'modelDownload.desktopOnly': '模型管理僅在桌面應用程式中可用。',

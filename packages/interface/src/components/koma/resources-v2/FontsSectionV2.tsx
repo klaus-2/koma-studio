@@ -12,6 +12,7 @@ import {
 } from 'react';
 
 import {
+  FONT_COLLECTIONS_DATA,
   FONTS_DATA,
 } from '@/data/resources-data';
 import type {
@@ -21,6 +22,7 @@ import type {
 import { useI18n } from '@/i18n';
 
 import ResourceExternalAnchorV2 from './ResourceExternalAnchorV2';
+import ResourceThumbV2 from './ResourceThumbV2';
 import {
   ResourceCardReveal,
   ResourceResultCount,
@@ -30,6 +32,7 @@ import ResourcesEmptyStateV2 from './ResourcesEmptyStateV2';
 import {
   deduplicateResourceLinks,
   matchesResourceSearch,
+  resolveLinkLabel,
 } from './resource-v2-utils';
 
 interface Props {
@@ -63,7 +66,8 @@ function buildFontLinks(
 export default function FontsSectionV2({
   search,
 }: Props) {
-  const { t } = useI18n();
+  const { t, translateDynamic } = useI18n();
+
 
   const [previewSize, setPreviewSize] =
     useState<number>(24);
@@ -148,7 +152,117 @@ export default function FontsSectionV2({
       />
 
       <div className="space-y-5 p-4 sm:p-5">
-        <div className="glass-card panel-cut-sm grid gap-4 border-paper/10 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        {/* Collections */}
+        <section aria-labelledby="resources-font-collections">
+          <h3
+            id="resources-font-collections"
+            className="font-display text-sm font-black uppercase tracking-[-0.02em] text-paper"
+          >
+            {t(
+              'resources.fonts.collections.title',
+            )}
+          </h3>
+
+          <p className="mt-1 text-xs leading-5 text-paper/40">
+            {t(
+              'resources.fonts.collections.desc',
+            )}
+          </p>
+
+          <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {FONT_COLLECTIONS_DATA.map(
+              (collection) => (
+                <li
+                  key={collection.id}
+                >
+                  <article className="offset-card panel-cut-sm flex h-full flex-col gap-3 border border-paper/10 bg-paper/[0.02] p-4">
+                    <div className="flex items-start gap-3">
+                      <ResourceThumbV2
+                        image={collection.image}
+                        fallback={Type}
+                        size={40}
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-display text-sm font-black uppercase tracking-[-0.02em] text-paper">
+                          {collection.name}
+                        </h4>
+
+                        <p className="mt-1 text-xs text-paper/40">
+                          {collection.origin}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-xs leading-5 text-paper/45">
+                      {collection.description}
+                    </p>
+
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-paper/[0.065] pt-3 font-mono text-[0.58rem] uppercase tracking-[0.08em] text-paper/38">
+                      <dt className="contents">
+                        <dd>
+                          {collection.fileCount}{' '}
+                          {t(
+                            'resources.fonts.collection.files',
+                          )}
+                        </dd>
+                      </dt>
+
+                      <dt className="contents">
+                        <dd>
+                          {collection.familyCount}{' '}
+                          {t(
+                            'resources.fonts.collection.families',
+                          )}
+                        </dd>
+                      </dt>
+
+                      <dt className="contents">
+                        <dd className="col-span-2">
+                          {collection.vendors.join(' · ')}
+                        </dd>
+                      </dt>
+                    </dl>
+
+                    <p className="text-[0.68rem] leading-4 text-paper/34">
+                      <span className="font-semibold text-paper/55">
+                        {t(
+                          'resources.fonts.collection.license',
+                        )}
+                        :
+                      </span>{' '}
+                      {collection.licenseNote}
+                    </p>
+
+                    {collection.links?.length ? (
+                      <div className="mt-auto flex flex-wrap gap-2 pt-1">
+                        {collection.links.map(
+                          (link) => (
+                            <ResourceExternalAnchorV2
+                              key={`${collection.id}-${link.url}`}
+                              href={link.url}
+                              className={
+                                link.kind ===
+                                'download'
+                                  ? 'btn-primary'
+                                  : 'btn-ghost'
+                              }
+                              aria-label={`${link.label} — ${collection.name}`}
+                            >
+                              {link.label}
+                            </ResourceExternalAnchorV2>
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+                  </article>
+                </li>
+              ),
+            )}
+          </ul>
+        </section>
+
+        <div className="panel-cut-sm grid gap-4 border-paper/10 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <label className="block">
             <span className="mb-2 flex items-center gap-2 font-mono text-[0.62rem] font-bold uppercase tracking-[0.1em] text-paper/40">
               <Type
@@ -243,7 +357,7 @@ export default function FontsSectionV2({
                     index={index}
                     className="h-full"
                   >
-                    <article className="offset-card glass-card panel-cut-sm relative flex h-full flex-col overflow-hidden border-paper/10 drop-shadow-[6px_6px_0_rgba(255,46,99,0.18)]">
+                    <article className="offset-card panel-cut-sm relative flex h-full flex-col overflow-hidden border-paper/10 drop-shadow-[6px_6px_0_rgba(255,46,99,0.18)]">
                       <span
                         className="text-outline pointer-events-none absolute right-4 top-0 z-10 font-display text-6xl font-black leading-none"
                         aria-hidden="true"
@@ -254,18 +368,26 @@ export default function FontsSectionV2({
                       </span>
 
                       <header className="relative z-10 flex items-start justify-between gap-4 p-4">
-                        <div className="min-w-0 pr-10">
-                          <span className="kicker block text-[0.56rem]">
-                            Font specimen
-                          </span>
+                        <div className="flex min-w-0 items-start gap-3 pr-10">
+                          <ResourceThumbV2
+                            image={font.image}
+                            fallback={Type}
+                            size={32}
+                          />
 
-                          <h3 className="mt-1 truncate font-display text-lg font-black uppercase tracking-[-0.035em] text-paper">
-                            {font.name}
-                          </h3>
+                          <div className="min-w-0">
+                            <span className="kicker block text-[0.56rem]">
+                              Font specimen
+                            </span>
 
-                          <p className="mt-1 text-xs text-paper/34">
-                            {font.style}
-                          </p>
+                            <h3 className="mt-1 truncate font-display text-lg font-black uppercase tracking-[-0.035em] text-paper">
+                              {font.name}
+                            </h3>
+
+                            <p className="mt-1 text-xs text-paper/34">
+                              {font.style}
+                            </p>
+                          </div>
                         </div>
 
                         <span
@@ -333,13 +455,10 @@ export default function FontsSectionV2({
                           {actionLinks.map(
                             (link) => {
                               const label =
-                                link.label.includes(
-                                  '.',
-                                )
-                                  ? t(
-                                      link.label as any,
-                                    )
-                                  : link.label;
+                                resolveLinkLabel(
+                                  link.label,
+                                  translateDynamic,
+                                );
 
                               return (
                                 <ResourceExternalAnchorV2

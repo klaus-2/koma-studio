@@ -7,6 +7,8 @@
     AlertTriangle,
     Check,
     Copy,
+    Download,
+    ExternalLink,
     Info,
     Lightbulb,
     ShieldAlert,
@@ -27,6 +29,31 @@
         {/* Main text content */}
         {step.content && (
           <p className="koma-gr-content__step-text">{step.content}</p>
+        )}
+
+        {/* External links carried by the step */}
+        {step.links && step.links.length > 0 && (
+          <ul className="koma-gr-links">
+            {step.links.map((link) => (
+              <li key={`${link.label}-${link.url}`}>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={[
+                    'koma-gr-links__link',
+                    link.kind === 'download' && 'koma-gr-links__link--download',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-label={link.label}
+                >
+                  {link.kind === 'download' ? <Download size={12} /> : <ExternalLink size={12} />}
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
         )}
   
         {/* Tip callout */}
@@ -159,7 +186,7 @@
     );
   }
   
-  /* ─── Code Block sub-component ─── */
+
   
   function CodeBlock({ code }: { code: NonNullable<GuideStep['code']> }) {
     const { t } = useI18n();
@@ -213,7 +240,7 @@
     );
   }
   
-  /* ─── Checklist sub-component ─── */
+
   
   function Checklist({ items }: { items: NonNullable<GuideStep['checklist']> }) {
     const { t } = useI18n();

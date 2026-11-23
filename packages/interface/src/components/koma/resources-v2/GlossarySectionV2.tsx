@@ -43,6 +43,7 @@ export default function GlossarySectionV2({
   onSearchChange,
 }: Props) {
   const { t } = useI18n();
+
   const reduceMotion =
     useReducedMotion();
 
@@ -304,7 +305,7 @@ export default function GlossarySectionV2({
         ) : (
           <div className="grid items-start gap-4 xl:grid-cols-[3rem_minmax(0,1fr)]">
             <nav
-              className="glass-card panel-cut-sm koma-scrollbar sticky top-4 z-20 flex max-h-[70vh] gap-1 overflow-x-auto border-paper/10 p-2 xl:flex-col xl:overflow-y-auto"
+              className="panel-cut-sm koma-scrollbar sticky top-4 z-20 flex max-h-[70vh] gap-1 overflow-x-auto border-paper/10 p-2 xl:flex-col xl:overflow-y-auto"
               aria-label={t(
                 'resources.glossary.alphaAria',
               )}
@@ -378,7 +379,7 @@ export default function GlossarySectionV2({
                                 entry.term,
                               )}`}
                               className={[
-                                'glass-card panel-cut-sm scroll-mt-24 overflow-hidden border transition',
+                                'panel-cut-sm scroll-mt-24 overflow-hidden border transition',
                                 expanded
                                   ? 'border-crimson/35 drop-shadow-[5px_5px_0_rgba(255,46,99,0.2)]'
                                   : 'border-paper/10',

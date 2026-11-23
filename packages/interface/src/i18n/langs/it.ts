@@ -1563,7 +1563,6 @@ export const itMessages: TranslationCatalog = {
   'resources.page.tab.sfx': 'Libreria SFX',
   'resources.page.tab.glossary': 'Glossario',
   'resources.page.tab.communities': 'Community',
-  'resources.page.tab.tools': 'Strumenti',
   'resources.page.title.main': 'Centro ',
   'resources.page.title.accent': 'risorse',
   'resources.page.subtitle':
@@ -1584,9 +1583,6 @@ export const itMessages: TranslationCatalog = {
   'resources.category.communities.label': 'Community',
   'resources.category.communities.description':
     'Server Discord, subreddit e forum di scanlation.',
-  'resources.category.tools-external.label': 'Strumenti esterni',
-  'resources.category.tools-external.description':
-    'Software complementari e strumenti online utili.',
   'resources.home.title': 'Centro risorse',
   'resources.home.subtitle':
     'Materiali curati, community e strumenti per il tuo flusso di lavoro.',
@@ -4165,15 +4161,6 @@ export const itMessages: TranslationCatalog = {
     'Potrebbe superare i limiti sicuri del canvas in alcuni ambienti.',
   'stitch.warning.largeBatch':
     "Batch grande; verifica se l'interruzione è ancora confortevole per la scanlation.",
-  'resources.data.fontsTitle': 'Font per la composizione',
-  'resources.data.fontsDesc':
-    'Collezione curata di font popolari per la scanlation di manga, manhwa e manhua.',
-  'resources.data.onomatopoeiaDesc':
-    "Libreria di onomatopee giapponesi con traduzioni ed esempi d'uso.",
-  'resources.data.glossaryTitle': 'Glossario Scanlation',
-  'resources.data.glossaryDesc':
-    'Termini tecnici e gergo della community dal mondo della scanlation.',
-  'resources.data.catalogLabel': 'Catalogo',
   'aioLocalBatch.invalidBatchResponse':
     'Risposta batch non valida: batch_report.json mancante dallo ZIP.',
   'modelDownload.desktopOnly':

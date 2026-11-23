@@ -1587,7 +1587,6 @@ export const deMessages: TranslationCatalog = {
   'resources.page.tab.sfx': 'SFX-Bibliothek',
   'resources.page.tab.glossary': 'Glossar',
   'resources.page.tab.communities': 'Communities',
-  'resources.page.tab.tools': 'Werkzeuge',
   'resources.page.title.main': 'Ressourcen-',
   'resources.page.title.accent': 'Center',
   'resources.page.subtitle':
@@ -1608,9 +1607,6 @@ export const deMessages: TranslationCatalog = {
   'resources.category.communities.label': 'Communities',
   'resources.category.communities.description':
     'Discord-Server, Subreddits und Scanlation-Foren.',
-  'resources.category.tools-external.label': 'Externe Werkzeuge',
-  'resources.category.tools-external.description':
-    'Ergänzende Software und nützliche Online-Tools.',
   'resources.home.title': 'Ressourcen-Center',
   'resources.home.subtitle':
     'Kuratierte Materialien, Communities und Werkzeuge für deinen Workflow.',
@@ -4233,15 +4229,6 @@ export const deMessages: TranslationCatalog = {
     'Kann sichere Canvas-Limits in einigen Umgebungen überschreiten.',
   'stitch.warning.largeBatch':
     'Großer Stapel; prüfe, ob die Aufteilung für die Scanlation noch komfortabel ist.',
-  'resources.data.fontsTitle': 'Typesetting-Schriften',
-  'resources.data.fontsDesc':
-    'Kuratierte Sammlung beliebter Schriften für die Scanlation von Manga, Manhwa und Manhua.',
-  'resources.data.onomatopoeiaDesc':
-    'Bibliothek japanischer Lautmalereien mit Übersetzungen und Anwendungsbeispielen.',
-  'resources.data.glossaryTitle': 'Scanlation-Glossar',
-  'resources.data.glossaryDesc':
-    'Fachbegriffe und Community-Jargon aus der Scanlation-Welt.',
-  'resources.data.catalogLabel': 'Katalog',
   'aioLocalBatch.invalidBatchResponse':
     'Ungültige Stapelantwort: batch_report.json fehlt im ZIP.',
   'modelDownload.desktopOnly':

@@ -541,6 +541,100 @@
     border-color: rgba(168, 85, 247, 0.3);
     background: rgba(168, 85, 247, 0.06);
   }
+
+  .koma-res-collections {
+    margin-bottom: 24px;
+  }
+
+  .koma-res-collections__title {
+    font-family: var(--auth-font-heading, 'Cabin', sans-serif);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--auth-text, #f1f5f9);
+    margin: 0 0 4px;
+  }
+
+  .koma-res-collections__desc {
+    font-size: 11.5px;
+    color: rgba(186, 199, 247, 0.5);
+    line-height: 1.55;
+    margin: 0 0 14px;
+  }
+
+  .koma-res-collections__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .koma-res-collection {
+    gap: 12px;
+  }
+
+  .koma-res-collection__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .koma-res-collection__icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: rgba(168, 85, 247, 0.07);
+    border: 1px solid rgba(168, 85, 247, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--auth-purple, #a855f7);
+    flex-shrink: 0;
+  }
+
+  .koma-res-collection__ident {
+    min-width: 0;
+  }
+
+  .koma-res-collection__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin: 0;
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    color: rgba(186, 199, 247, 0.45);
+  }
+
+  .koma-res-collection__stat {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .koma-res-collection__stat--wide {
+    flex-basis: 100%;
+  }
+
+  .koma-res-collection__stat dt {
+    margin: 0;
+  }
+
+  .koma-res-collection__stat dd {
+    margin: 0;
+    color: rgba(186, 199, 247, 0.7);
+  }
+
+  .koma-res-collection__license {
+    font-size: 11px;
+    color: rgba(186, 199, 247, 0.45);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .koma-res-collection__license-label {
+    color: rgba(186, 199, 247, 0.7);
+    font-weight: 600;
+  }
   
   /* ══════════════════════════════════════════
      SFX SECTION
@@ -900,6 +994,19 @@
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
   }
   
+  .koma-res-link-card__icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: rgba(168, 85, 247, 0.07);
+    border: 1px solid rgba(168, 85, 247, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--auth-purple, #a855f7);
+    flex-shrink: 0;
+  }
+
   .koma-res-link-card__top {
     display: flex;
     align-items: flex-start;
