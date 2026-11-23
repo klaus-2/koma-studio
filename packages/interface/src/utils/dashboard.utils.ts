@@ -299,7 +299,7 @@ export const readExecutionRuntimeNotice = async (
   const fallbackNotice = readExecutionFallbackNotice(response, stageLabel);
   if (fallbackNotice) {
     return {
-      title: "Fallback para CPU",
+      title: "Fallback to CPU",
       detail: fallbackNotice,
       tone: "fallback",
     };

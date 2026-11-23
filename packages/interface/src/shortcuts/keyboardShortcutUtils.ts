@@ -46,7 +46,7 @@ export const normalizeShortcutCombo = (value: unknown): string[] => {
 export const isCompleteShortcutCombo = (combo: string[]): boolean =>
   combo.some((token) => !MODIFIER_TOKENS.has(token));
 
-export const getShortcutDisplayLabel = (combo: string[], noShortcutLabel = "Sem atalho"): string =>
+export const getShortcutDisplayLabel = (combo: string[], noShortcutLabel = "No shortcut"): string =>
   combo.length > 0 ? combo.join(" + ") : noShortcutLabel;
 
 export const collectShortcutStateFromKeyboardEvent = (event: KeyboardEvent): string[] => {
