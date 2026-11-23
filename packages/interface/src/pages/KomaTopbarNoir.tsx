@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, forwardRef, type ReactNode } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import {
+  ChevronDown,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
@@ -575,17 +576,36 @@ const KomaTopbarNoir = memo(function KomaTopbarNoir(props: KomaTopbarProps) {
             ) : null}
           </nav>
         )}
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen((prev) => !prev)}
-            aria-label={t('dashboard.topbar.navigation')}
-            aria-haspopup="dialog"
-            aria-expanded={mobileNavOpen}
-            className={cn('panel-cut-sm relative z-10 flex items-center gap-1.5 bg-crimson px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-ink shadow-hard-gold', !isCompactViewport && '@min-[860px]/topbar:hidden')}
+          <div
+            className={cn(
+              'panel-cut-sm relative z-10 flex items-stretch bg-crimson text-ink shadow-hard-gold',
+              !isCompactViewport && '@min-[860px]/topbar:hidden',
+            )}
           >
-            {currentNavItem && <currentNavItem.icon size={13} />}
-            <span>{currentNavItem?.label ?? mode}</span>
-          </button>
+            <span className="flex items-center gap-1.5 py-1.5 pl-3 pr-2.5 font-mono text-[11px] font-bold uppercase tracking-wider">
+              {currentNavItem && <currentNavItem.icon size={13} aria-hidden="true" />}
+              <span>{currentNavItem?.label ?? mode}</span>
+            </span>
+            <span className="my-1.5 w-px bg-ink/25" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((prev) => !prev)}
+              aria-label={t('dashboard.topbar.navigation')}
+              aria-haspopup="dialog"
+              aria-expanded={mobileNavOpen}
+              className={cn(
+                'grid place-items-center pl-1.5 pr-3 transition-colors focus-visible:bg-ink/20 focus-visible:outline-none',
+                mobileNavOpen ? 'bg-ink/20' : 'hover:bg-ink/15',
+              )}
+            >
+              <ChevronDown
+                size={13}
+                strokeWidth={2.5}
+                aria-hidden="true"
+                className={cn('transition-transform duration-200', mobileNavOpen && 'rotate-180')}
+              />
+            </button>
+          </div>
 
         {/* ═══ RIGHT ACTION CLUSTER ═══ */}
         <div className="relative z-10 ml-auto flex flex-shrink-0 items-center gap-1.5">

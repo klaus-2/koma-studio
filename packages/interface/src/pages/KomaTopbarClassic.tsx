@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react';
 import {
+  ChevronDown,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
@@ -654,8 +655,25 @@ const KomaTopbarClassic = memo(function KomaTopbarClassic(props: KomaTopbarProps
         <div className="koma-topbar__right">
           {/* Mobile mode pill */}
           <div className="koma-topbar__mode-pill" data-tour="topbar-mode-pill">
-            {currentNavItem && <currentNavItem.icon size={12} />}
-            <span>{currentNavItem?.label ?? mode}</span>
+            <span className="koma-topbar__mode-pill-label">
+              {currentNavItem && <currentNavItem.icon size={12} aria-hidden="true" />}
+              <span>{currentNavItem?.label ?? mode}</span>
+            </span>
+            {!isCompactViewport && (
+              <button
+                type="button"
+                className={cn('koma-topbar__mode-pill-toggle', mobileNavOpen && 'koma-topbar__mode-pill-toggle--open')}
+                onClick={() => {
+                  setActiveDropdown(null);
+                  setMobileNavOpen((prev) => !prev);
+                }}
+                aria-label={t('dashboard.topbar.navigation')}
+                aria-haspopup="dialog"
+                aria-expanded={mobileNavOpen}
+              >
+                <ChevronDown size={12} strokeWidth={2.5} aria-hidden="true" />
+              </button>
+            )}
           </div>
 
           <div className="koma-topbar__actions">
