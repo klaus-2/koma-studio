@@ -118,15 +118,6 @@ const bootstrap = async (): Promise<void> => {
   } else if (!import.meta.env.PROD) {
     appendKomaFontStylesheet();
   }
-  // Content catalog prime can stay lazy; config itself is already hydrated.
-  // On constrained links it would race the first route chunk, so skip it.
-  if (!isConstrainedConnection()) {
-    runWhenIdle(() => {
-      void import("./services/contentCatalog")
-        .then(({ primeRemoteContentCatalog }) => primeRemoteContentCatalog())
-        .catch(() => undefined);
-    });
-  }
 };
 
 void bootstrap();
