@@ -43,7 +43,11 @@ export const revokeToken = async (sessionId: string, ttlSeconds: number): Promis
     return;
   }
   const key = `${TOKEN_BLOCKLIST_PREFIX}${sessionId}`;
-  await redisClient.set(key, "1", { EX: ttlSeconds });
+  try {
+    await redisClient.set(key, "1", { EX: ttlSeconds });
+  } catch (error) {
+    logFailOpen("token-revoke-failed", error instanceof Error ? error.message : String(error));
+  }
 };
 
 export const revokeAllUserTokens = async (userId: string, ttlSeconds: number): Promise<void> => {
@@ -51,7 +55,11 @@ export const revokeAllUserTokens = async (userId: string, ttlSeconds: number): P
     return;
   }
   const key = `${TOKEN_BLOCKLIST_PREFIX}user:${userId}`;
-  await redisClient.set(key, "1", { EX: ttlSeconds });
+  try {
+    await redisClient.set(key, "1", { EX: ttlSeconds });
+  } catch (error) {
+    logFailOpen("user-token-revoke-failed", error instanceof Error ? error.message : String(error));
+  }
   _userRevokedCache.delete(userId);
 };
 

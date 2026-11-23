@@ -64,14 +64,45 @@ export const detectLoginAnomaly = async (
   const recentIpsKey = `user:${userId}:recent-ips`;
   const lastLoginKey = `user:${userId}:last-login`;
 
-  await redisClient.zAdd(recentIpsKey, {
-    score: now,
-    value: normalizedIp,
-  });
+  let uniqueIps: string[] = [];
+  let lastLogin: {
+    ip?: string;
+    userAgent?: string;
+    timestamp?: string;
+  } = {};
 
-  await redisClient.zRemRangeByScore(recentIpsKey, 0, oneHourAgo);
+  if (redisUsable()) {
+    try {
+      await redisClient.zAdd(recentIpsKey, {
+        score: now,
+        value: normalizedIp,
+      });
 
-  const uniqueIps = await redisClient.zRange(recentIpsKey, 0, -1);
+      await redisClient.zRemRangeByScore(recentIpsKey, 0, oneHourAgo);
+
+      uniqueIps = await redisClient.zRange(recentIpsKey, 0, -1);
+      lastLogin = await redisClient.hGetAll(lastLoginKey);
+    } catch {
+      uniqueIps = [];
+      lastLogin = {};
+    }
+  } else {
+    const ips = memoryRecentIps.get(userId) ?? new Map<string, number>();
+    ips.set(normalizedIp, now);
+    for (const [ip, score] of ips) {
+      if (score <= oneHourAgo) {
+        ips.delete(ip);
+      }
+    }
+    memoryRecentIps.set(userId, ips);
+    uniqueIps = [...ips.keys()];
+
+    const stored = memoryLastLogin.get(userId);
+    lastLogin = stored
+      ? { ip: stored.ip, userAgent: stored.userAgent, timestamp: stored.timestamp }
+      : {};
+  }
+
   if (uniqueIps.length > 5) {
     await recordSecurityLog(userId, "anomaly_multiple_ips", "warning", ipAddress, userAgent, {
       uniqueIps: uniqueIps.length,
@@ -84,7 +115,6 @@ export const detectLoginAnomaly = async (
     };
   }
 
-  const lastLogin = await redisClient.hGetAll(lastLoginKey);
   if (lastLogin.ip && lastLogin.ip !== normalizedIp && lastLogin.timestamp) {
     const previousTimestamp = Number(lastLogin.timestamp);
     if (Number.isFinite(previousTimestamp)) {
@@ -119,11 +149,22 @@ export const detectLoginAnomaly = async (
     };
   }
 
-  await redisClient.hSet(lastLoginKey, {
-    ip: normalizedIp,
-    userAgent,
-    timestamp: String(now),
-  });
+  if (redisUsable()) {
+    try {
+      await redisClient.hSet(lastLoginKey, {
+        ip: normalizedIp,
+        userAgent,
+        timestamp: String(now),
+      });
+    } catch {
+    }
+  } else {
+    memoryLastLogin.set(userId, {
+      ip: normalizedIp,
+      userAgent,
+      timestamp: String(now),
+    });
+  }
 
   return {
     isAnomalous: false,
@@ -140,6 +181,47 @@ const failedAccountKey = (email: string): string => `login:failed:account:${emai
 const failedClientKey = (email: string, ipAddress: string): string =>
   `login:failed:client:${email}:${ipAddress}`;
 
+const FAILED_LOGIN_TTL_MS = 15 * 60 * 1000;
+
+interface MemoryCounter {
+  count: number;
+  expiresAt: number;
+}
+
+const memoryCounters = new Map<string, MemoryCounter>();
+const memoryRecentIps = new Map<string, Map<string, number>>();
+const memoryLastLogin = new Map<
+  string,
+  { ip: string; userAgent: string; timestamp: string }
+>();
+
+const bumpMemoryCounter = (key: string): number => {
+  const now = Date.now();
+  const entry = memoryCounters.get(key);
+  const count = entry && entry.expiresAt > now ? entry.count + 1 : 1;
+  memoryCounters.set(key, {
+    count,
+    expiresAt: now + FAILED_LOGIN_TTL_MS,
+  });
+  return count;
+};
+
+const readMemoryCounter = (key: string): number => {
+  const entry = memoryCounters.get(key);
+  if (!entry) return 0;
+  if (entry.expiresAt <= Date.now()) {
+    memoryCounters.delete(key);
+    return 0;
+  }
+  return entry.count;
+};
+
+const clearMemoryCounter = (key: string): void => {
+  memoryCounters.delete(key);
+};
+
+const redisUsable = (): boolean => redisClient.isReady;
+
 /**
  * Counts a failure twice: per account (so rotating the source address cannot
  * reset the brute-force threshold) and per (account, client) (so the 423 gate
@@ -149,27 +231,61 @@ export const increaseFailedLoginAttempts = async (
   email: string,
   ipAddress: string,
 ): Promise<FailedLoginCounts> => {
-  const [account, client] = await Promise.all([
-    redisClient.incr(failedAccountKey(email)),
-    redisClient.incr(failedClientKey(email, ipAddress)),
-  ]);
-  await Promise.all([
-    redisClient.expire(failedAccountKey(email), 15 * 60),
-    redisClient.expire(failedClientKey(email, ipAddress), 15 * 60),
-  ]);
-  return { account, client };
+  const accountKey = failedAccountKey(email);
+  const clientKey = failedClientKey(email, ipAddress);
+
+  if (redisUsable()) {
+    try {
+      const [account, client] = await Promise.all([
+        redisClient.incr(accountKey),
+        redisClient.incr(clientKey),
+      ]);
+      await Promise.all([
+        redisClient.expire(accountKey, 15 * 60),
+        redisClient.expire(clientKey, 15 * 60),
+      ]);
+      return { account, client };
+    } catch {
+    }
+  }
+
+  return {
+    account: bumpMemoryCounter(accountKey),
+    client: bumpMemoryCounter(clientKey),
+  };
 };
 
 export const clearFailedLoginAttempts = async (email: string, ipAddress: string): Promise<void> => {
-  await Promise.all([
-    redisClient.del(failedAccountKey(email)),
-    redisClient.del(failedClientKey(email, ipAddress)),
-  ]);
+  const keys = [failedAccountKey(email), failedClientKey(email, ipAddress)];
+
+  if (redisUsable()) {
+    try {
+      await Promise.all(
+        keys.map((key) => redisClient.del(key)),
+      );
+    } catch {
+    }
+  }
+
+  for (const key of keys) {
+    clearMemoryCounter(key);
+  }
 };
 
 export const getFailedLoginAttempts = async (email: string, ipAddress: string): Promise<number> => {
-  const raw = await redisClient.get(failedClientKey(email, ipAddress));
-  return raw ? Number(raw) : 0;
+  const key = failedClientKey(email, ipAddress);
+
+  if (redisUsable()) {
+    try {
+      const raw = await redisClient.get(key);
+      if (raw !== null) {
+        return Number(raw);
+      }
+    } catch {
+    }
+  }
+
+  return readMemoryCounter(key);
 };
 
 export const updateUserLoginMeta = async (
