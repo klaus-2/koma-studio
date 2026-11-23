@@ -230,6 +230,14 @@ export const cloneRenderStyle = (style?: RenderTextStyle): RenderTextStyle => ({
   shadowLayers: style?.shadowLayers
     ? style.shadowLayers.map((layer) => ({ ...layer }))
     : undefined,
+  textEffectBaseSnapshot: style?.textEffectBaseSnapshot
+    ? {
+      ...style.textEffectBaseSnapshot,
+      shadowLayers: style.textEffectBaseSnapshot.shadowLayers
+        ? style.textEffectBaseSnapshot.shadowLayers.map((layer) => ({ ...layer }))
+        : undefined,
+    }
+    : undefined,
 });
 
 export const applyDetectedGradientToStyle = (
@@ -244,7 +252,7 @@ export const applyDetectedGradientToStyle = (
         || `linear-gradient(${Math.round(nextStyle.gradientAngle)}deg, ${nextStyle.gradientStartColor || nextStyle.color} 0%, ${nextStyle.gradientEndColor || nextStyle.color} 100%)`,
     };
   }
-  if (!nextStyle.detectGradient) {
+  if (!nextStyle.detectGradient || nextStyle.textEffectPreset !== "none") {
     return {
       ...nextStyle,
       fillCssValue: nextStyle.fillCssValue || nextStyle.color,

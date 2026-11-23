@@ -17,7 +17,7 @@ import {
   normalizeRenderSkew,
   scaleTypographyShapeForBounds,
 } from '../../../utils/dashboard.utils';
-import { isNativeTextEffectPresetId } from '../../../typography/textEffects';
+import { normalizeNativeTextEffectPresetId } from '../../../typography/textEffects';
 import {
   applyInlineRenderTextStylePatch,
   remapRenderTextStyleRangesAfterTextEdit,
@@ -388,16 +388,22 @@ export const useRenderTextPreviewRegionOps = ({
             nextStyle.gradientAngle,
           ),
           detectGradient: nextStyle.detectGradient !== false,
-          textEffectPreset: isNativeTextEffectPresetId(
+          textEffectPreset: normalizeNativeTextEffectPresetId(
             nextStyle.textEffectPreset,
-          )
-            ? nextStyle.textEffectPreset
-            : 'none',
+          ),
           textEffectIntensity: clamp(
             Number(nextStyle.textEffectIntensity ?? 1),
             0,
             2,
           ),
+          textEffectBaseSnapshot: nextStyle.textEffectBaseSnapshot
+            ? {
+                ...nextStyle.textEffectBaseSnapshot,
+                shadowLayers: nextStyle.textEffectBaseSnapshot.shadowLayers
+                  ? nextStyle.textEffectBaseSnapshot.shadowLayers.map((l) => ({ ...l }))
+                  : undefined,
+              }
+            : undefined,
           hyphenationEnabled: nextStyle.hyphenationEnabled === true,
           rotation: normalizeRenderRotation(nextStyle.rotation),
         };

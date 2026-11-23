@@ -217,6 +217,59 @@ def test_psd_skips_raster_render_layers_when_photoshop_engine(
     assert len(list(render_group)) == 0
 
 
+def test_psd_keeps_raster_render_layers_when_text_effect_preset_active(
+    tmp_path: Path,
+    sample_pipeline_result: PipelineResult,
+) -> None:
+    exporter = PSDExporter()
+    result = sample_pipeline_result.model_copy(deep=True)
+    result.render_text_layers = [
+        {
+            "name": "rendered_text_001",
+            "kind": "rendered",
+            "left": 80,
+            "top": 120,
+            "width": 100,
+            "height": 40,
+            "text": "BLAM!",
+            "style": {
+                "fontFamily": "Arial",
+                "fontSize": 24,
+                "alignment": "center",
+                "textEffectPreset": "blam_impact",
+                "gradientEnabled": False,
+            },
+            "image": Image.new("RGBA", (100, 40), (255, 190, 0, 220)),
+        },
+        {
+            "name": "rendered_text_002",
+            "kind": "rendered",
+            "left": 80,
+            "top": 200,
+            "width": 100,
+            "height": 40,
+            "text": "plain",
+            "style": {
+                "fontFamily": "Arial",
+                "fontSize": 24,
+                "alignment": "center",
+                "textEffectPreset": "none",
+                "gradientEnabled": False,
+            },
+            "image": Image.new("RGBA", (100, 40), (0, 0, 0, 220)),
+        },
+    ]
+
+    request = _build_export_request(text_layer_engine="photoshop")
+    output = exporter.export(result, tmp_path / "photoshop_effect_raster.psd", request)
+    psd = PSDImage.open(str(output))
+    render_group = _find_group(psd, "✍️ Rendered Text")
+
+    assert render_group is not None
+    assert _find_layer(render_group, "rendered_text_001") is not None
+    assert _find_layer(render_group, "rendered_text_002") is None
+
+
 def test_psd_keeps_raster_render_layers_when_raster_engine(
     tmp_path: Path,
     sample_pipeline_result: PipelineResult,

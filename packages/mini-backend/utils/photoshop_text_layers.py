@@ -81,6 +81,46 @@ def _parse_rgb_color(value: str) -> tuple[int, int, int] | None:
     return red, green, blue
 
 
+def requires_raster_layer(style: Mapping[str, object] | None) -> bool:
+    """Return True when the layer uses visual effects Photoshop Type cannot faithfully edit."""
+    if not isinstance(style, Mapping):
+        return False
+    if bool(style.get("gradientEnabled") or style.get("gradient_enabled")):
+        return True
+    preset = str(
+        style.get("textEffectPreset")
+        or style.get("text_effect_preset")
+        or "none"
+    ).strip().lower()
+    if preset not in ("", "none"):
+        return True
+    shadow_layers = style.get("shadowLayers")
+    if shadow_layers is None:
+        shadow_layers = style.get("shadow_layers")
+    if isinstance(shadow_layers, (list, tuple)) and len(shadow_layers) > 1:
+        return True
+    path_mode = str(
+        style.get("textPathMode") or style.get("text_path_mode") or "normal"
+    ).strip().lower()
+    if path_mode == "circular":
+        return True
+    orientation = str(
+        style.get("textOrientation") or style.get("text_orientation") or "horizontal"
+    ).strip().lower()
+    if orientation == "vertical":
+        return True
+    if bool(style.get("hasInlineStyleRanges") or style.get("has_inline_style_ranges")):
+        return True
+    for key, snake_key in (("rotation", "rotation"), ("skewX", "skew_x"), ("skewY", "skew_y")):
+        raw = style.get(key) if key in style else style.get(snake_key)
+        try:
+            if raw is not None and abs(float(raw)) > 0.01:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
 class TextLayerStyle(BaseModel):
     model_config = ConfigDict(
         frozen=True,
@@ -116,10 +156,29 @@ class TextLayerStyle(BaseModel):
     underline: bool = False
     color: str = "#111111"
     outline_color: str = Field(default="#ffffff", alias="outlineColor")
+    outline_opacity: float = Field(default=1.0, alias="outlineOpacity", ge=0, le=1)
     outline_width: float = Field(default=0, alias="outlineWidth", ge=0, le=250)
+    shadow_enabled: bool = Field(default=False, alias="shadowEnabled")
+    shadow_color: str = Field(default="#000000", alias="shadowColor")
+    shadow_opacity: float = Field(default=1.0, alias="shadowOpacity", ge=0, le=1)
+    shadow_blur: float = Field(default=0.0, alias="shadowBlur", ge=0, le=500)
+    shadow_offset_x: float = Field(default=0.0, alias="shadowOffsetX", ge=-500, le=500)
+    shadow_offset_y: float = Field(default=0.0, alias="shadowOffsetY", ge=-500, le=500)
+    shadow_layers: list[dict[str, object]] | None = Field(default=None, alias="shadowLayers")
     draw_top_offset: float = Field(default=0, alias="drawTopOffset", ge=0, le=300_000)
     wrapped_text: str = Field(default="", alias="wrappedText", max_length=100_000)
     gradient_enabled: bool = Field(default=False, alias="gradientEnabled")
+    text_effect_preset: str = Field(default="none", alias="textEffectPreset", max_length=128)
+    text_path_mode: str = Field(default="normal", alias="textPathMode", max_length=32)
+    text_orientation: str = Field(default="horizontal", alias="textOrientation", max_length=32)
+    rotation: float = Field(default=0.0, ge=-360, le=360)
+    skew_x: float = Field(default=0.0, alias="skewX", ge=-89, le=89)
+    skew_y: float = Field(default=0.0, alias="skewY", ge=-89, le=89)
+    has_inline_style_ranges: bool = Field(default=False, alias="hasInlineStyleRanges")
+    text_box_offset_x: float = Field(default=0.0, alias="textBoxOffsetX", ge=0, le=300_000)
+    text_box_offset_y: float = Field(default=0.0, alias="textBoxOffsetY", ge=0, le=300_000)
+    text_box_width: float | None = Field(default=None, alias="textBoxWidth", ge=1, le=300_000)
+    text_box_height: float | None = Field(default=None, alias="textBoxHeight", ge=1, le=300_000)
     point_anchor_x: float | None = Field(
         default=None,
         alias="pointAnchorX",
@@ -141,7 +200,7 @@ class TextLayerStyle(BaseModel):
             return {"middle": "center", "end": "right"}.get(normalized, normalized)
         return value
 
-    @field_validator("color", "outline_color")
+    @field_validator("color", "outline_color", "shadow_color")
     @classmethod
     def validate_color(cls, value: str) -> str:
         rgb = _parse_rgb_color(value)
@@ -152,6 +211,22 @@ class TextLayerStyle(BaseModel):
     @property
     def effective_font_size(self) -> float:
         return max(6.0, self.computed_font_size or self.font_size)
+
+    @property
+    def requires_raster(self) -> bool:
+        return requires_raster_layer(
+            {
+                "gradientEnabled": self.gradient_enabled,
+                "textEffectPreset": self.text_effect_preset,
+                "shadowLayers": self.shadow_layers,
+                "textPathMode": self.text_path_mode,
+                "textOrientation": self.text_orientation,
+                "rotation": self.rotation,
+                "skewX": self.skew_x,
+                "skewY": self.skew_y,
+                "hasInlineStyleRanges": self.has_inline_style_ranges,
+            }
+        )
 
 
 class TextLayerEntry(BaseModel):
@@ -176,7 +251,7 @@ class TextLayerEntry(BaseModel):
 
     @property
     def is_editable(self) -> bool:
-        return bool(self.resolved_text) and not self.style.gradient_enabled
+        return bool(self.resolved_text) and not self.style.requires_raster
 
 
 class _ScriptResult(BaseModel):
@@ -272,7 +347,23 @@ _SCRIPT: Final = r"""
         return best;
     }
 
-    function stroke(layer, hex, size) {
+    function rgbDescriptor(hex) {
+        var rgb = color(hex).rgb;
+        var components = new ActionDescriptor();
+        components.putDouble(charIDToTypeID("Rd  "), rgb.red);
+        components.putDouble(charIDToTypeID("Grn "), rgb.green);
+        components.putDouble(charIDToTypeID("Bl  "), rgb.blue);
+        return components;
+    }
+
+    function applyLayerEffects(layer, style) {
+        var hasStroke = style.outline_width > 0 && style.outline_opacity > 0;
+        var hasOffsetShadow = style.shadow_enabled &&
+            (Math.abs(style.shadow_offset_x) > 0.01 || Math.abs(style.shadow_offset_y) > 0.01);
+        var hasOuterGlow = style.shadow_enabled && !hasOffsetShadow && style.shadow_blur > 0;
+        if (!hasStroke && !hasOffsetShadow && !hasOuterGlow) {
+            return;
+        }
         document.activeLayer = layer;
         var descriptor = new ActionDescriptor();
         var reference = new ActionReference();
@@ -285,45 +376,116 @@ _SCRIPT: Final = r"""
         descriptor.putReference(charIDToTypeID("null"), reference);
 
         var effects = new ActionDescriptor();
-        var outline = new ActionDescriptor();
-        outline.putBoolean(charIDToTypeID("enab"), true);
-        outline.putEnumerated(
-            charIDToTypeID("Styl"),
-            charIDToTypeID("FStl"),
-            charIDToTypeID("CtrF")
-        );
-        outline.putEnumerated(
-            charIDToTypeID("PntT"),
-            charIDToTypeID("FrFl"),
-            charIDToTypeID("SClr")
-        );
-        outline.putEnumerated(
-            charIDToTypeID("Md  "),
-            charIDToTypeID("BlnM"),
-            charIDToTypeID("Nrml")
-        );
-        outline.putUnitDouble(
-            charIDToTypeID("Opct"), charIDToTypeID("#Prc"), 100
-        );
-        outline.putUnitDouble(
-            charIDToTypeID("Sz  "), charIDToTypeID("#Pxl"), size
-        );
-
-        var rgb = color(hex).rgb;
-        var components = new ActionDescriptor();
-        components.putDouble(charIDToTypeID("Rd  "), rgb.red);
-        components.putDouble(charIDToTypeID("Grn "), rgb.green);
-        components.putDouble(charIDToTypeID("Bl  "), rgb.blue);
-        outline.putObject(
-            charIDToTypeID("Clr "),
-            charIDToTypeID("RGBC"),
-            components
-        );
-        effects.putObject(
-            charIDToTypeID("FrFX"),
-            charIDToTypeID("FrFX"),
-            outline
-        );
+        if (hasStroke) {
+            var outline = new ActionDescriptor();
+            outline.putBoolean(charIDToTypeID("enab"), true);
+            outline.putEnumerated(
+                charIDToTypeID("Styl"),
+                charIDToTypeID("FStl"),
+                charIDToTypeID("OutF")
+            );
+            outline.putEnumerated(
+                charIDToTypeID("PntT"),
+                charIDToTypeID("FrFl"),
+                charIDToTypeID("SClr")
+            );
+            outline.putEnumerated(
+                charIDToTypeID("Md  "),
+                charIDToTypeID("BlnM"),
+                charIDToTypeID("Nrml")
+            );
+            outline.putUnitDouble(
+                charIDToTypeID("Opct"),
+                charIDToTypeID("#Prc"),
+                Math.round(Math.max(0, Math.min(1, style.outline_opacity)) * 100)
+            );
+            outline.putUnitDouble(
+                charIDToTypeID("Sz  "),
+                charIDToTypeID("#Pxl"),
+                Math.max(1, style.outline_width)
+            );
+            outline.putObject(
+                charIDToTypeID("Clr "),
+                charIDToTypeID("RGBC"),
+                rgbDescriptor(style.outline_color)
+            );
+            effects.putObject(
+                charIDToTypeID("FrFX"),
+                charIDToTypeID("FrFX"),
+                outline
+            );
+        }
+        if (hasOffsetShadow) {
+            var ox = style.shadow_offset_x * 1.35;
+            var oy = style.shadow_offset_y * 1.35;
+            var dist = Math.sqrt(ox * ox + oy * oy);
+            var angle = Math.atan2(oy, -ox) * 180 / Math.PI;
+            var dropShadow = new ActionDescriptor();
+            dropShadow.putBoolean(charIDToTypeID("enab"), true);
+            dropShadow.putEnumerated(
+                charIDToTypeID("Md  "),
+                charIDToTypeID("BlnM"),
+                charIDToTypeID("Nrml")
+            );
+            dropShadow.putObject(
+                charIDToTypeID("Clr "),
+                charIDToTypeID("RGBC"),
+                rgbDescriptor(style.shadow_color)
+            );
+            dropShadow.putUnitDouble(
+                charIDToTypeID("Opct"),
+                charIDToTypeID("#Prc"),
+                Math.round(Math.max(0, Math.min(1, style.shadow_opacity)) * 100)
+            );
+            dropShadow.putBoolean(charIDToTypeID("uglg"), false);
+            dropShadow.putUnitDouble(charIDToTypeID("lagl"), charIDToTypeID("#Ang"), angle);
+            dropShadow.putUnitDouble(charIDToTypeID("Dstn"), charIDToTypeID("#Pxl"), Math.round(dist));
+            dropShadow.putUnitDouble(charIDToTypeID("Ckmt"), charIDToTypeID("#Pxl"), 0);
+            dropShadow.putUnitDouble(
+                charIDToTypeID("blur"),
+                charIDToTypeID("#Pxl"),
+                Math.max(0, Math.round(style.shadow_blur))
+            );
+            dropShadow.putUnitDouble(charIDToTypeID("Nose"), charIDToTypeID("#Prc"), 0);
+            dropShadow.putBoolean(charIDToTypeID("AntA"), false);
+            effects.putObject(
+                charIDToTypeID("DrSh"),
+                charIDToTypeID("DrSh"),
+                dropShadow
+            );
+        }
+        if (hasOuterGlow) {
+            var outerGlow = new ActionDescriptor();
+            outerGlow.putBoolean(charIDToTypeID("enab"), true);
+            outerGlow.putEnumerated(
+                charIDToTypeID("Md  "),
+                charIDToTypeID("BlnM"),
+                charIDToTypeID("Nrml")
+            );
+            outerGlow.putObject(
+                charIDToTypeID("Clr "),
+                charIDToTypeID("RGBC"),
+                rgbDescriptor(style.shadow_color)
+            );
+            outerGlow.putUnitDouble(
+                charIDToTypeID("Opct"),
+                charIDToTypeID("#Prc"),
+                Math.round(Math.max(0, Math.min(1, style.shadow_opacity)) * 100)
+            );
+            outerGlow.putUnitDouble(charIDToTypeID("Ckmt"), charIDToTypeID("#Pxl"), 0);
+            outerGlow.putUnitDouble(
+                charIDToTypeID("blur"),
+                charIDToTypeID("#Pxl"),
+                Math.max(1, Math.round(style.shadow_blur))
+            );
+            outerGlow.putUnitDouble(charIDToTypeID("Inpr"), charIDToTypeID("#Prc"), 50);
+            outerGlow.putUnitDouble(charIDToTypeID("ShdN"), charIDToTypeID("#Prc"), 0);
+            effects.putObject(
+                charIDToTypeID("OrGl"),
+                charIDToTypeID("OrGl"),
+                outerGlow
+            );
+        }
         descriptor.putObject(
             charIDToTypeID("T   "),
             charIDToTypeID("Lefx"),
@@ -351,32 +513,36 @@ _SCRIPT: Final = r"""
             layer.name = entry.name || "text_layer";
             var text = layer.textItem;
             var size = Math.max(6, style.computed_font_size || style.font_size);
+            var boxLeft = entry.left + (style.text_box_offset_x || 0);
+            var boxTop = entry.top + (style.text_box_offset_y || 0);
+            var boxWidth = style.text_box_width || entry.width;
+            var boxTotalHeight = style.text_box_height || entry.height;
             var boxHeight = style.computed_text_height > 0
-                ? Math.min(entry.height, style.computed_text_height)
-                : entry.height - style.draw_top_offset;
+                ? Math.min(boxTotalHeight, style.computed_text_height)
+                : boxTotalHeight - style.draw_top_offset;
 
             var paragraph = optional(function () {
                 text.kind = TextType.PARAGRAPHTEXT;
                 text.position = [
-                    entry.left + style.outline_width,
-                    entry.top + style.draw_top_offset
+                    boxLeft + style.outline_width,
+                    boxTop + style.draw_top_offset
                 ];
-                text.width = Math.max(1, entry.width - style.outline_width * 2);
+                text.width = Math.max(1, boxWidth - style.outline_width * 2);
                 text.height = Math.max(1, boxHeight);
             });
             if (!paragraph) {
                 text.kind = TextType.POINTTEXT;
                 var anchor = style.point_anchor_x;
                 if (anchor === null) {
-                    anchor = style.alignment === "center" ? entry.width / 2
+                    anchor = style.alignment === "center" ? boxWidth / 2
                         : style.alignment === "right"
-                            ? Math.max(0, entry.width - style.outline_width)
+                            ? Math.max(0, boxWidth - style.outline_width)
                             : style.outline_width;
                 }
                 var baseline = style.point_anchor_baseline_offset;
                 text.position = [
-                    entry.left + anchor,
-                    entry.top + (baseline === null ? size : baseline)
+                    boxLeft + anchor,
+                    boxTop + (baseline === null ? size : baseline)
                 ];
             }
 
@@ -415,11 +581,9 @@ _SCRIPT: Final = r"""
                     text.leading = Math.max(1, leading) * pointsPerPixel;
                 });
             }
-            if (style.outline_width > 0) {
-                optional(function () {
-                    stroke(layer, style.outline_color, style.outline_width);
-                });
-            }
+            optional(function () {
+                applyLayerEffects(layer, style);
+            });
             created += 1;
         }
 

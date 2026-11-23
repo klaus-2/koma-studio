@@ -1099,6 +1099,15 @@ export const itMessages: TranslationCatalog = {
   'dashboard.typography.effect.searchPlaceholder': 'Cerca effetti...',
   'dashboard.typography.effect.intensity': 'Intensità',
   'dashboard.typography.effect.noResults': 'Nessun effetto trovato.',
+  'dashboard.typography.effect.clear': 'Cancella',
+  'dashboard.typography.effect.category.all': 'Tutti',
+  'dashboard.typography.effect.category.impact': 'Impatto',
+  'dashboard.typography.effect.category.soft': 'Morbido',
+  'dashboard.typography.effect.category.brush': 'Pennello',
+  'dashboard.typography.effect.category.comic': 'Fumetto',
+  'dashboard.typography.effect.category.smear': 'Scia',
+  'dashboard.typography.effect.resetIntensity': 'Doppio clic per ripristinare a 1.00x',
+  'dashboard.typography.effect.restoreOriginal': 'Rimuove l\'effetto attivo e ripristina lo stile originale del testo.',
   'dashboard.aio.customAi.titleTranslation':
     'Profili IA personalizzati (Traduzione)',
   'dashboard.aio.customAi.titleOcr': 'Profili IA personalizzati (OCR)',
@@ -3872,105 +3881,74 @@ export const itMessages: TranslationCatalog = {
     'Usa un URL ufficiale di Discord (discord.com).',
   'webhook.validation.urlInvalidPath':
     "Il percorso dell'URL non corrisponde a un webhook Discord valido.",
-  'typography.effect.none.label': 'Nessun effetto',
-  'typography.effect.none.description':
-    'Testo pulito, senza livelli aggiuntivi.',
-  'typography.effect.balloon_smear.label': 'Strisciata Fumetto',
-  'typography.effect.balloon_smear.description':
-    'Striscia grigia verticale con leggero ondeggiamento laterale, ispirata al testo drammatico dei dialoghi.',
-  'typography.effect.smiles_outline.label': 'Contorno SMILES',
-  'typography.effect.smiles_outline.description':
-    'Contorno corallo morbido con nucleo chiaro, stile sussurro delicato.',
-  'typography.effect.ahnnn_peach.label': 'Bagliore Pesca Ahnnn',
-  'typography.effect.ahnnn_peach.description':
-    'Riempimento pesca con un bagliore caldo e morbido.',
-  'typography.effect.silence_ink.label': 'Inchiostro Silenzio',
-  'typography.effect.silence_ink.description':
-    'Blu violaceo con una presenza pulita e leggera profondità interna.',
-  'typography.effect.hwa_pastel.label': 'HWA Pastello',
-  'typography.effect.hwa_pastel.description':
-    'Giallo chiaro con contorno rosa e una sensazione delicata.',
-  'typography.effect.hah_pop.label': 'HAH Pop',
-  'typography.effect.hah_pop.description':
-    'Nucleo lilla chiaro con presenza pop e rilievo rosa.',
-  'typography.effect.smooch_jelly.label': 'Bacio Gelatina',
-  'typography.effect.smooch_jelly.description':
-    "Rosa tenue con una lucentezza gelatinosa e un'ombra dolce.",
-  'typography.effect.tremble_brush.label': 'Pennello Tremolio',
-  'typography.effect.tremble_brush.description':
-    'Pennello blu-viola energico con bordo irregolare.',
-  'typography.effect.eheheh_whisper.label': 'Sussurro EHEHEH',
-  'typography.effect.eheheh_whisper.description':
-    'Rosa chiaro con contorno soffice e un bagliore timido.',
-  'typography.effect.hoho_ink.label': 'Inchiostro HOHO',
-  'typography.effect.hoho_ink.description':
-    'Blu scuro con colature verticali e una texture secca.',
-  'typography.effect.blam_impact.label': 'Impatto BLAM',
-  'typography.effect.blam_impact.description':
-    "Esplosione gialla con un'ombra rossa spostata.",
-  'typography.effect.badump_soft.label': 'BADUMP Morbido',
-  'typography.effect.badump_soft.description':
-    "Gradiente pastello rosa tenue con un'aura romantica.",
-  'typography.effect.thump_heavy.label': 'THUMP Pesante',
-  'typography.effect.thump_heavy.description':
-    "Impatto nero con un'ombra angolata color vino, dura.",
-  'typography.effect.neon_woah.label': 'WOAH Neon',
-  'typography.effect.neon_woah.description':
-    'Testo bianco con un intenso bagliore rosa di sorpresa/brillantezza.',
-  'typography.effect.slash_speed.label': 'SLAP Fendente Veloce',
-  'typography.effect.slash_speed.description':
-    'Tipografia scura con una striscia diagonale aggressiva/sfocatura di movimento.',
-  'typography.effect.ah_teal.label': 'Ah Verde Acqua',
-  'typography.effect.ah_teal.description':
-    'Acqua/verde acqua con contorno scuro e una sensazione gentile da discorso sommesso.',
-  'typography.effect.drip_blue.label': 'Goccia Blu',
-  'typography.effect.drip_blue.description':
-    'Azzurro chiaro con una sensazione liquida e effetto goccia.',
-  'typography.effect.question_pop.label': 'Domanda Pop',
-  'typography.effect.question_pop.description':
-    "Segno di punteggiatura caldo con un'ombra corallo spostata.",
-  'typography.effect.laugh_curve.label': 'Risata Curva',
-  'typography.effect.laugh_curve.description':
-    'Ciano brillante per una risata arcuata e leggera.',
-  'typography.effect.shake_blur.label': 'Tremolio Sfocato',
-  'typography.effect.shake_blur.description':
-    'Viola scuro con vibrazione/sfocatura di movimento per il tremolio.',
-  'typography.effect.beep_outline.label': 'Contorno Beep',
-  'typography.effect.beep_outline.description':
-    'Testo bianco con spesso contorno nero per SFX puliti e leggibili.',
-  'typography.effect.boom_comic.label': 'BOOM Fumetto',
-  'typography.effect.boom_comic.description':
-    'Esplosione classica giallo/rosso in stile fumetto.',
-  'typography.effect.bang_chunk.label': 'BANG Blocco',
-  'typography.effect.bang_chunk.description':
-    'Blocco viola/blu con una spessa ombra dorata spostata.',
-  'typography.effect.break_glitch.label': 'BREAK Glitch',
-  'typography.effect.break_glitch.description':
-    'Magenta scuro con una texture glitch/scansione rotta.',
-  'typography.effect.flinch_outline.label': 'FLINCH Contorno',
-  'typography.effect.flinch_outline.description':
-    'Nero con un contorno bianco aggressivo per una reazione istantanea.',
-  'typography.effect.growl_moss.label': 'Ringhio Muschio',
-  'typography.effect.growl_moss.description':
-    'Verde oliva secco per un suono rauco/animale.',
-  'typography.effect.yawn_soft.label': 'Sbadiglio Morbido',
-  'typography.effect.yawn_soft.description':
-    'Verde lime con contorno viola per un discorso pigro/stiracchiato.',
-  'typography.effect.scratch_noise.label': 'Graffio Rumore',
-  'typography.effect.scratch_noise.description':
-    'Nero ruvido con aspetto granuloso/rumoroso.',
-  'typography.effect.crack_ink.label': 'Schiocco Inchiostro',
-  'typography.effect.crack_ink.description':
-    'Pennello nero secco e netto per un impatto improvviso.',
-  'typography.effect.slap_scratch.label': 'Schiaffo Graffio',
-  'typography.effect.slap_scratch.description':
-    'Scarabocchio sottile e trascinato per un effetto graffio/colpo rapido.',
-  'typography.effect.dash_edge.label': 'Spigolo Scatto',
-  'typography.effect.dash_edge.description':
-    'Verde scuro con punte affilate per un taglio/ingresso improvviso.',
-  'typography.effect.scream_scratch.label': 'Urlo Graffio',
-  'typography.effect.scream_scratch.description':
-    'Urlo nero con un offset rosso ruvido.',
+  'typography.effect.none.label': 'No effect',
+  'typography.effect.none.description': 'Clean text, restores original style.',
+  'typography.effect.balloon_smear.label': 'Balloon Smear',
+  'typography.effect.balloon_smear.description': 'Organic downward ink smear trail with subtle lateral wobble.',
+  'typography.effect.smiles_outline.label': 'SMILES Outline',
+  'typography.effect.smiles_outline.description': 'Cream core with rounded coral-peach outline and warm blush glow.',
+  'typography.effect.ahnnn_peach.label': 'Ahnnn Peach',
+  'typography.effect.ahnnn_peach.description': 'Soft peach gradient with terracotta outline and warm aura.',
+  'typography.effect.hwa_pastel.label': 'HWA Pastel Floral',
+  'typography.effect.hwa_pastel.description': 'White fill patterned with pastel yellow, lime, and pink daisies.',
+  'typography.effect.aah_blush.label': 'Aah Blush Glow',
+  'typography.effect.aah_blush.description': 'Soft white rose-outlined letters with radiant strawberry pink aura.',
+  'typography.effect.silence_ink.label': 'SILENCE Ink',
+  'typography.effect.silence_ink.description': 'Periwinkle lavender gradient framed by a sharp ink-black stroke.',
+  'typography.effect.hah_pop.label': 'HAH? Halftone',
+  'typography.effect.hah_pop.description': 'Pink-to-gold Ben-Day dot pattern with white buffer and lavender outline.',
+  'typography.effect.kkk_crimson.label': 'KKK Crimson Brush',
+  'typography.effect.kkk_crimson.description': 'Deep crimson-to-black vertical gradient with split dry-brush edges.',
+  'typography.effect.smooch_jelly.label': 'Smooch Jelly',
+  'typography.effect.smooch_jelly.description': 'Coral-rose glossy jelly gradient with crisp white sticker stroke.',
+  'typography.effect.tremble_brush.label': 'TREMBLE Brush',
+  'typography.effect.tremble_brush.description': 'Royal blue-to-violet gradient with jagged trembling brush contours.',
+  'typography.effect.eheheh_whisper.label': 'EHEHEH Whisper',
+  'typography.effect.eheheh_whisper.description': 'Pure white core, rose-pink outline, and fluffy pink outer glow.',
+  'typography.effect.hoho_ink.label': 'HOHO Ink Drip',
+  'typography.effect.hoho_ink.description': 'Steel-blue gradient with dry scratch streaks and hanging ink drips.',
+  'typography.effect.blam_impact.label': 'BLAM! Impact',
+  'typography.effect.blam_impact.description': 'Golden yellow italic burst with white border and solid 3D red shadow.',
+  'typography.effect.thump_heavy.label': 'THUMP Heavy',
+  'typography.effect.thump_heavy.description': 'Ink-black top fading into deep crimson bottom with ragged edge.',
+  'typography.effect.badump_soft.label': 'BADUMP Soft',
+  'typography.effect.badump_soft.description': 'Smooth lilac-to-apricot pastel gradient with gentle warm aura.',
+  'typography.effect.glossy_pop.label': 'SS Glossy Pop',
+  'typography.effect.glossy_pop.description': 'Vibrant pink jelly fill with glossy highlight and crisp black outline.',
+  'typography.effect.haha_bounce.label': 'Ha! Ha! Bounce',
+  'typography.effect.haha_bounce.description': 'Playful comic ink lettering with lively uneven vertical bounce.',
+  'typography.effect.crack_ink.label': 'CRACK Splinter',
+  'typography.effect.crack_ink.description': 'Pitch-black slanted brush with sharp splintering cracks and spikes.',
+  'typography.effect.screach_sketch.label': 'SCREACH Etched',
+  'typography.effect.screach_sketch.description': 'Tall slanted hand-etched black strokes with jagged trailing scratches.',
+  'typography.effect.growl_moss.label': 'GROWL Moss',
+  'typography.effect.growl_moss.description': 'Dry olive-moss bold lettering with organic rough brush texture.',
+  'typography.effect.scratch_noise.label': 'Scratch Chalk',
+  'typography.effect.scratch_noise.description': 'Black lettering eroded with grainy chalk stipple and edge flecks.',
+  'typography.effect.beep_outline.label': 'Beep Outline',
+  'typography.effect.beep_outline.description': 'Crisp white comic lettering with thick rounded black outline.',
+  'typography.effect.boom_comic.label': 'BOOM! Comic',
+  'typography.effect.boom_comic.description': 'Fiery orange-to-yellow comic explosion with thick maroon outline.',
+  'typography.effect.bang_chunk.label': 'BANG Chunk',
+  'typography.effect.bang_chunk.description': 'Royal-blue-to-indigo block with thick warm ochre-gold outline.',
+  'typography.effect.shake_blur.label': 'SHAKE Double',
+  'typography.effect.shake_blur.description': 'Dusty mauve outline lettering with horizontal double-vision echo.',
+  'typography.effect.rattle_jagged.label': 'RATTLE Block',
+  'typography.effect.rattle_jagged.description': 'Vivid raspberry dry-brush letters with thick cream offset block shadow.',
+  'typography.effect.flinch_outline.label': 'FLINCH Impact',
+  'typography.effect.flinch_outline.description': 'White comic italic with thick black outline and sharp crimson shadow.',
+  'typography.effect.break_glitch.label': 'BREAK Fracture',
+  'typography.effect.break_glitch.description': 'Deep wine-plum lettering shattered horizontally with white crack seams.',
+  'typography.effect.snap_rough.label': 'Snap Splinter',
+  'typography.effect.snap_rough.description': 'Sharp pitch-black brush with jagged outward splinters and chips.',
+  'typography.effect.yawn_soft.label': 'Yawn~ Lime',
+  'typography.effect.yawn_soft.description': 'Bright chartreuse-lime lettering with thick deep purple outline.',
+  'typography.effect.click_ink.label': 'Click Ink',
+  'typography.effect.click_ink.description': 'Compact punchy comic black ink with subtle organic edge.',
+  'typography.effect.dash_edge.label': 'DASH Slash',
+  'typography.effect.dash_edge.description': 'Slanted sage-green brush with crisp muted-plum offset shadow.',
+  'typography.effect.scream_scratch.label': 'AAAA! Scream',
+  'typography.effect.scream_scratch.description': 'Italicized jagged black brush with tight crimson back echo.',
   'model.opus-mt-ja-en.description':
     'Pipeline OPUS-MT ottimizzata per contenuti giapponesi, con traduzione in inglese e un flusso secondario per il portoghese.',
   'model.nllb-200-600m-int8.description':

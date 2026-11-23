@@ -13,6 +13,10 @@ const loadScanlationFeedPage = () => import("./pages/ScanlationFeed");
 const loadSettingsPage = () => import("./pages/Settings");
 const loadVerifyEmailPage = () => import("./pages/VerifyEmail");
 const loadConfirmEmailPage = () => import("./pages/ConfirmEmail");
+const loadDevTextEffectsShowcasePage = () => import("./pages/DevTextEffectsShowcase");
+
+export const isDevTextEffectsRouteEnabled = (): boolean =>
+  import.meta.env.DEV || import.meta.env.MODE === "e2e";
 
 export const DashboardPage = lazy(() => loadDashboardPage().then((module) => ({ default: module.DashboardPage })));
 export const ForgotPasswordPage = lazy(() => loadForgotPasswordPage().then((module) => ({ default: module.ForgotPasswordPage })));
@@ -26,6 +30,11 @@ export const ScanlationFeedPage = lazy(() => loadScanlationFeedPage().then((modu
 export const SettingsPage = lazy(() => loadSettingsPage().then((module) => ({ default: module.SettingsPage })));
 export const VerifyEmailPage = lazy(() => loadVerifyEmailPage().then((module) => ({ default: module.VerifyEmailPage })));
 export const ConfirmEmailPage = lazy(() => loadConfirmEmailPage().then((module) => ({ default: module.ConfirmEmailPage })));
+export const DevTextEffectsShowcasePage = lazy(() =>
+  loadDevTextEffectsShowcasePage().then((module) => ({
+    default: module.DevTextEffectsShowcasePage,
+  })),
+);
 
 export type RoutePath =
   | "login"
@@ -39,6 +48,7 @@ export type RoutePath =
   | "model-rankings"
   | "settings"
   | "banned"
+  | "dev-text-effects"
   | LegalRoutePath;
 
 export const preloadRoute = (route: RoutePath): Promise<unknown> => {
@@ -65,6 +75,10 @@ export const preloadRoute = (route: RoutePath): Promise<unknown> => {
       return loadVerifyEmailPage();
     case "confirm-email":
       return loadConfirmEmailPage();
+    case "dev-text-effects":
+      return isDevTextEffectsRouteEnabled()
+        ? loadDevTextEffectsShowcasePage()
+        : Promise.resolve();
     default:
       if (isLegalRoutePath(route)) {
         return loadLegalHubPage();
@@ -92,7 +106,8 @@ export const parseHashRoute = (): RoutePath => {
     routeSegment === "scanlation-feed" ||
     routeSegment === "model-rankings" ||
     routeSegment === "settings" ||
-    routeSegment === "banned"
+    routeSegment === "banned" ||
+    (isDevTextEffectsRouteEnabled() && routeSegment === "dev-text-effects")
   ) {
     return routeSegment;
   }

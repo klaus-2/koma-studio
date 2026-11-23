@@ -499,6 +499,11 @@ export interface PsdTextLayerEntry {
     drawTopOffset?: number;
     pointAnchorX?: number;
     pointAnchorBaselineOffset?: number;
+    textBoxOffsetX?: number;
+    textBoxOffsetY?: number;
+    textBoxWidth?: number;
+    textBoxHeight?: number;
+    hasInlineStyleRanges?: boolean;
   };
   blob: Blob;
 }

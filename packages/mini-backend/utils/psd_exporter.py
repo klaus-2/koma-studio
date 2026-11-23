@@ -9,6 +9,7 @@ from psd_tools import PSDImage
 from psd_tools.constants import BlendMode, Compression
 
 from schemas.export import DetectionResult, DetectionType, ExportRequest, PipelineResult, TextLayerEngine
+from utils.photoshop_text_layers import requires_raster_layer
 
 
 logger = logging.getLogger(__name__)
@@ -216,7 +217,7 @@ class PSDExporter:
         raster_render_text_layers = (
             [
                 entry for entry in render_text_layers
-                if isinstance(entry.get("style"), dict) and bool(entry["style"].get("gradientEnabled"))
+                if requires_raster_layer(entry.get("style"))
             ]
             if use_photoshop_text_layers
             else render_text_layers

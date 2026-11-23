@@ -36,6 +36,7 @@ export const INLINE_RENDER_STYLE_KEYS = [
   "outlineWidth",
   "textEffectPreset",
   "textEffectIntensity",
+  "textEffectBaseSnapshot",
 ] as const satisfies readonly (keyof RenderTextStyle)[];
 
 export type InlineRenderTextStyleKey =
@@ -303,6 +304,18 @@ const canonicalRanges = (
     const style = pickInlineRenderTextStylePatch(run.style);
 
     for (const key of INLINE_RENDER_STYLE_KEYS) {
+      if (key === "shadowLayers") {
+        const leftLayers = Array.isArray(style.shadowLayers) ? style.shadowLayers : [];
+        const rightLayers = Array.isArray(baseStyle.shadowLayers) ? baseStyle.shadowLayers : [];
+        if (styleValuesEqual(leftLayers, rightLayers)) delete style.shadowLayers;
+        continue;
+      }
+      if (key === "textEffectBaseSnapshot") {
+        if (styleValuesEqual(style.textEffectBaseSnapshot ?? null, baseStyle.textEffectBaseSnapshot ?? null)) {
+          delete style.textEffectBaseSnapshot;
+        }
+        continue;
+      }
       if (styleValuesEqual(style[key], baseStyle[key])) delete style[key];
     }
 
@@ -332,14 +345,27 @@ export const getInlineStylePatchFromStyleDiff = (
 
   for (const key of keys) {
     if (styleValuesEqual(current[key], next[key])) continue;
-    if (!inlineKeys.has(key) || next[key] === undefined) return null;
+    if (!inlineKeys.has(key)) return null;
+    if (
+      next[key] === undefined
+      && key !== "shadowLayers"
+      && key !== "textEffectBaseSnapshot"
+    ) {
+      return null;
+    }
   }
 
   const patch: InlineRenderTextStylePatch = {};
 
   for (const key of INLINE_RENDER_STYLE_KEYS) {
     if (!styleValuesEqual(currentStyle[key], nextStyle[key])) {
-      copyDefinedProperty<RenderTextStyle, typeof key>(patch, nextStyle, key);
+      if (key === "shadowLayers" && nextStyle.shadowLayers === undefined) {
+        patch.shadowLayers = [];
+      } else if (key === "textEffectBaseSnapshot" && nextStyle.textEffectBaseSnapshot === undefined) {
+        patch.textEffectBaseSnapshot = null;
+      } else {
+        copyDefinedProperty<RenderTextStyle, typeof key>(patch, nextStyle, key);
+      }
     }
   }
 

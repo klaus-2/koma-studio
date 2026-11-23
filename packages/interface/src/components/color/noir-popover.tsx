@@ -7,10 +7,11 @@ export const PopoverChip = forwardRef<HTMLButtonElement, {
   value: ReactNode;
   previewStyle?: CSSProperties;
   previewText?: string;
+  previewSlot?: ReactNode;
   disabled?: boolean;
   valueClassName?: string;
 } & ButtonHTMLAttributes<HTMLButtonElement>>(function PopoverChip(
-  { label, value, previewStyle, previewText, disabled, valueClassName = '', ...rest },
+  { label, value, previewStyle, previewText, previewSlot, disabled, valueClassName = '', ...rest },
   ref,
 ) {
   return (
@@ -24,9 +25,9 @@ export const PopoverChip = forwardRef<HTMLButtonElement, {
       <span
         aria-hidden
         style={previewStyle}
-        className="grid h-7 w-7 flex-none place-items-center border border-paper/20 font-display text-[10px] font-black text-paper/70"
+        className="grid h-7 w-7 flex-none place-items-center overflow-hidden border border-paper/20 font-display text-[10px] font-black text-paper/70"
       >
-        {previewText}
+        {previewSlot ?? previewText}
       </span>
       <span className="min-w-0">
         <span className="block truncate font-mono text-[8.5px] uppercase tracking-[0.2em] text-paper/40">

@@ -28,6 +28,7 @@ import {
   parseHashRoute,
   setHashRoute,
   preloadRoute,
+  isDevTextEffectsRouteEnabled,
   DashboardPage,
   ForgotPasswordPage,
   LoginPage,
@@ -40,6 +41,7 @@ import {
   SettingsPage,
   VerifyEmailPage,
   ConfirmEmailPage,
+  DevTextEffectsShowcasePage,
 } from "./app-router";
 import { resolveRoutePresence } from "./discord-route-presence";
 
@@ -86,6 +88,10 @@ const AppRouteContent = ({
   const content = useMemo(() => {
     if (isLoading) {
       return null;
+    }
+
+    if (isDevTextEffectsRouteEnabled() && route === "dev-text-effects") {
+      return <DevTextEffectsShowcasePage />;
     }
 
     if (isLegalRoutePath(route)) {
@@ -403,6 +409,7 @@ const AppShell = () => {
 
     if (!isAuthenticated && route !== "login" && route !== "register") {
       if (
+        (isDevTextEffectsRouteEnabled() && route === "dev-text-effects") ||
         route === "forgot-password" ||
         route === "reset-password" ||
         route === "confirm-email" ||

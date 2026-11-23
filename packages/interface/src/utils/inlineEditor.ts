@@ -61,6 +61,14 @@ export const buildInlineSelectionStylePatch = (
   const original = structuredClone(currentStyle);
   const updated = updater(structuredClone(original));
 
+  if (updated.textEffectPreset !== original.textEffectPreset) {
+    updated.detectGradient = original.detectGradient;
+    updated.lineSpacing = original.lineSpacing;
+    updated.skewX = original.skewX;
+    updated.skewY = original.skewY;
+    updated.alignment = original.alignment;
+  }
+
   return getInlineStylePatchFromStyleDiff(
     original,
     structuredClone(updated),

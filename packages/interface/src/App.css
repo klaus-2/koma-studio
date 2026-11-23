@@ -8734,38 +8734,96 @@ body {
   background: rgba(8, 11, 24, 0.56);
 }
 
-.koma-effect-picker__list {
+.koma-effect-popover__content {
+  width: 372px;
+  max-width: calc(100vw - 24px);
+}
+
+.koma-effect-picker__headRow {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
-  max-height: 320px;
-  overflow: auto;
-  padding-right: 4px;
+  width: 100%;
+}
+
+.koma-effect-picker__clearBtn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.14);
+  color: rgba(255, 228, 230, 0.96);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.koma-effect-picker__clearBtn:hover {
+  background: rgba(244, 63, 94, 0.28);
+  border-color: rgba(244, 63, 94, 0.68);
+}
+
+.koma-effect-picker__triggerThumb {
+  background: #faf9f6 !important;
+  overflow: hidden;
+  padding: 0;
 }
 
 .koma-effect-picker__searchWrap {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .koma-effect-picker__search {
   width: 100%;
-  height: 36px;
-  border-radius: 12px;
+  height: 34px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(6, 8, 18, 0.78);
   color: rgba(241, 245, 255, 0.94);
-  padding: 0 12px;
+  padding: 0 11px;
   font-size: 12px;
   outline: none;
+}
+
+.koma-effect-picker__search:focus {
+  border-color: rgba(56, 189, 248, 0.42);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+}
+
+.koma-effect-picker__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.koma-effect-picker__tab {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 11, 24, 0.56);
+  color: rgba(186, 199, 247, 0.8);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.koma-effect-picker__tab--active {
+  border-color: rgba(168, 85, 247, 0.55);
+  background: rgba(168, 85, 247, 0.22);
+  color: rgba(248, 250, 255, 0.98);
 }
 
 .koma-effect-picker__intensity {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(8, 11, 24, 0.72);
 }
@@ -8780,323 +8838,157 @@ body {
   color: rgba(226, 232, 240, 0.92);
 }
 
+.koma-effect-picker__intensityReset {
+  border: none;
+  background: transparent;
+  color: rgba(168, 85, 247, 0.95);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+}
+
 .koma-effect-picker__intensity input[type='range'] {
   width: 100%;
 }
 
-.koma-effect-picker__search:focus {
-  border-color: rgba(56, 189, 248, 0.42);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
-}
-
-.koma-effect-picker__item {
+.koma-effect-picker__noneCard {
   width: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(8, 11, 24, 0.72);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 11, 24, 0.7);
   color: rgba(241, 245, 255, 0.94);
   text-align: left;
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    transform 0.18s ease;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.koma-effect-picker__item:hover {
-  border-color: rgba(56, 189, 248, 0.38);
-  background: rgba(20, 26, 46, 0.88);
+.koma-effect-picker__noneCard:hover {
+  border-color: rgba(56, 189, 248, 0.42);
+}
+
+.koma-effect-picker__noneBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 28px;
+  border-radius: 7px;
+  background: #faf9f6;
+  color: #1f2430;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.koma-effect-picker__noneMeta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.koma-effect-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 290px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.koma-effect-picker__card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 11, 24, 0.78);
+  color: rgba(241, 245, 255, 0.94);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    transform 0.16s ease;
+}
+
+.koma-effect-picker__card:hover {
+  border-color: rgba(56, 189, 248, 0.42);
+  background: rgba(20, 26, 46, 0.92);
   transform: translateY(-1px);
 }
 
+.koma-effect-picker__stage {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  padding: 2px 6px;
+  overflow: hidden;
+  background: #faf9f6;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.koma-effect-picker__cardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px 7px;
+  min-width: 0;
+}
+
 .koma-effect-picker__item--active {
-  border-color: rgba(168, 85, 247, 0.42);
+  border-color: rgba(168, 85, 247, 0.7) !important;
   background:
-    linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(6, 182, 212, 0.08)),
-    rgba(20, 26, 46, 0.92);
+    linear-gradient(135deg, rgba(168, 85, 247, 0.16), rgba(6, 182, 212, 0.1)),
+    rgba(20, 26, 46, 0.94) !important;
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.35);
 }
 
 .koma-effect-picker__title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .koma-effect-picker__desc {
-  font-size: 11px;
-  line-height: 1.35;
-  color: rgba(186, 199, 247, 0.78);
+  font-size: 10px;
+  line-height: 1.3;
+  color: rgba(186, 199, 247, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .koma-effect-picker__empty {
+  grid-column: span 2 / span 2;
   padding: 14px 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px dashed rgba(255, 255, 255, 0.08);
   color: rgba(186, 199, 247, 0.72);
   font-size: 12px;
   text-align: center;
 }
 
-.koma-effect-picker__sample {
-  position: relative;
-  display: inline-block;
-}
-
-.koma-effect-picker__sample--none {
-  color: rgba(241, 245, 255, 0.94);
-  text-shadow: none;
-}
-
-.koma-effect-picker__sample--balloon_smear {
-  color: #111111;
-  font-style: italic;
-  font-weight: 900;
-  letter-spacing: 0.01em;
-  text-shadow:
-    0 4px 0 rgba(120, 120, 120, 0.18),
-    1px 8px 2px rgba(150, 150, 150, 0.14),
-    -1px 12px 4px rgba(168, 168, 168, 0.12),
-    0 16px 6px rgba(176, 176, 176, 0.1);
-}
-
-.koma-effect-picker__sample--smiles_outline,
-.koma-effect-picker__sample--eheheh_whisper {
-  color: #fff7f5;
-  text-shadow:
-    0 0 0 #f2a59d,
-    1px 0 #f2a59d,
-    -1px 0 #f2a59d,
-    0 1px #f2a59d,
-    0 -1px #f2a59d,
-    0 0 8px rgba(255, 199, 210, 0.38);
-}
-
-.koma-effect-picker__sample--ahnnn_peach,
-.koma-effect-picker__sample--badump_soft,
-.koma-effect-picker__sample--smooch_jelly {
-  color: #f4b39e;
-  text-shadow:
-    0 0 6px rgba(255, 209, 190, 0.58),
-    0 2px 0 rgba(255, 140, 134, 0.22);
-}
-
-.koma-effect-picker__sample--silence_ink {
-  color: #8d90d9;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow:
-    0 0 0 #27234f,
-    1px 0 #27234f,
-    -1px 0 #27234f,
-    0 1px #27234f,
-    0 -1px #27234f;
-}
-
-.koma-effect-picker__sample--hwa_pastel {
-  color: #eef09a;
-  text-shadow:
-    0 0 0 #e9a6db,
-    1px 0 #e9a6db,
-    -1px 0 #e9a6db,
-    0 1px #e9a6db,
-    0 -1px #e9a6db,
-    0 0 8px rgba(255, 248, 180, 0.32);
-}
-
-.koma-effect-picker__sample--hah_pop {
-  color: #eee6ff;
-  text-shadow:
-    -2px 2px 0 rgba(244, 184, 221, 0.7),
-    0 0 0 #9b8cff,
-    1px 0 #9b8cff,
-    -1px 0 #9b8cff,
-    0 1px #9b8cff,
-    0 -1px #9b8cff;
-}
-
-.koma-effect-picker__sample--tremble_brush,
-.koma-effect-picker__sample--hoho_ink {
-  color: #315ed8;
-  font-weight: 900;
-  text-shadow:
-    1px 0 rgba(66, 100, 197, 0.22),
-    -1px 1px rgba(80, 58, 171, 0.25),
-    0 2px rgba(26, 54, 112, 0.18);
-}
-
-.koma-effect-picker__sample--blam_impact {
-  color: #ffcc00;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow:
-    -2px 3px 0 rgba(217, 45, 45, 0.92),
-    0 0 0 rgba(255, 241, 168, 0.92);
-}
-
-.koma-effect-picker__sample--thump_heavy {
-  color: #111111;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow: -2px 2px 0 rgba(122, 16, 24, 0.9);
-}
-
-.koma-effect-picker__sample--neon_woah {
-  color: #fff6fb;
-  text-shadow:
-    0 0 6px rgba(255, 255, 255, 0.9),
-    0 0 12px rgba(255, 71, 201, 0.8),
-    0 0 24px rgba(255, 71, 201, 0.58);
-}
-
-.koma-effect-picker__sample--slash_speed {
-  color: #1d0d2a;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow:
-    -6px 4px 8px rgba(91, 0, 128, 0.28),
-    -10px 7px 12px rgba(0, 0, 0, 0.22);
-}
-
-.koma-effect-picker__sample--ah_teal {
-  color: #29e2c9;
-  text-shadow:
-    0 0 0 rgba(22, 97, 106, 0.9),
-    1px 0 rgba(22, 97, 106, 0.9),
-    -1px 0 rgba(22, 97, 106, 0.9),
-    0 1px rgba(22, 97, 106, 0.9),
-    0 -1px rgba(22, 97, 106, 0.9);
-}
-
-.koma-effect-picker__sample--drip_blue {
-  color: #d6f4ff;
-  text-shadow:
-    0 0 0 rgba(92, 164, 255, 0.92),
-    0 3px 0 rgba(92, 164, 255, 0.72),
-    0 8px 8px rgba(135, 208, 255, 0.34);
-}
-
-.koma-effect-picker__sample--question_pop {
-  color: #ffca62;
-  text-shadow:
-    -2px 2px 0 rgba(255, 140, 96, 0.72),
-    0 0 0 rgba(255, 255, 255, 0.42);
-}
-
-.koma-effect-picker__sample--laugh_curve {
-  color: #92ffff;
-  text-shadow:
-    0 0 6px rgba(146, 255, 255, 0.28),
-    0 2px 0 rgba(68, 205, 224, 0.36);
-}
-
-.koma-effect-picker__sample--shake_blur {
-  color: #3d1fd1;
-  text-shadow:
-    -2px 0 6px rgba(109, 71, 255, 0.42),
-    2px 0 8px rgba(0, 0, 0, 0.22);
-}
-
-.koma-effect-picker__sample--beep_outline {
-  color: #fff;
-  text-shadow:
-    0 0 0 #111,
-    1px 0 #111,
-    -1px 0 #111,
-    0 1px #111,
-    0 -1px #111,
-    1px 1px #111,
-    -1px -1px #111;
-}
-
-.koma-effect-picker__sample--boom_comic {
-  color: #ffd327;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow:
-    0 0 0 #9c1b19,
-    1px 0 #9c1b19,
-    -1px 0 #9c1b19,
-    0 1px #9c1b19,
-    0 -1px #9c1b19;
-}
-
-.koma-effect-picker__sample--bang_chunk {
-  color: #2a22c5;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow:
-    -2px 3px 0 rgba(200, 150, 45, 0.9),
-    -4px 5px 0 rgba(200, 150, 45, 0.6);
-}
-
-.koma-effect-picker__sample--break_glitch {
-  color: #7a115f;
-  text-shadow:
-    -1px 0 rgba(118, 15, 88, 0.5),
-    1px 1px rgba(34, 0, 25, 0.3);
-}
-
-.koma-effect-picker__sample--flinch_outline {
-  color: #d71919;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow:
-    0 0 0 #fff,
-    1px 0 #fff,
-    -1px 0 #fff,
-    0 1px #fff,
-    0 -1px #fff,
-    -2px 2px 0 #111;
-}
-
-.koma-effect-picker__sample--growl_moss {
-  color: #a7a64a;
-}
-
-.koma-effect-picker__sample--yawn_soft {
-  color: #a8dd2e;
-  text-shadow:
-    0 0 0 #5a1f78,
-    1px 0 #5a1f78,
-    -1px 0 #5a1f78,
-    0 1px #5a1f78,
-    0 -1px #5a1f78;
-}
-
-.koma-effect-picker__sample--scratch_noise {
-  color: #111;
-  text-shadow:
-    1px 0 rgba(0, 0, 0, 0.28),
-    -1px 1px rgba(0, 0, 0, 0.22);
-}
-
-.koma-effect-picker__sample--crack_ink {
-  color: #111;
-  font-style: italic;
-  font-weight: 900;
-}
-
-.koma-effect-picker__sample--slap_scratch {
-  color: #18051d;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow: -6px 4px 8px rgba(32, 0, 40, 0.2);
-}
-
-.koma-effect-picker__sample--dash_edge {
-  color: #eef5f4;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow: -2px 2px 0 rgba(73, 111, 70, 0.75);
-}
-
-.koma-effect-picker__sample--scream_scratch {
-  color: #111;
-  font-style: italic;
-  font-weight: 900;
-  text-shadow: -1px 1px 0 rgba(204, 0, 0, 0.8);
+@media (prefers-reduced-motion: reduce) {
+  .koma-effect-picker__card,
+  .koma-effect-picker__clearBtn,
+  .koma-effect-picker__tab,
+  .koma-effect-picker__noneCard {
+    transition: none;
+    transform: none;
+  }
 }
 
 .koma-stg-fill-swatches {

@@ -21,6 +21,7 @@ import {
   scaleTypographyShapeForBounds,
 } from '../../../utils/dashboard.utils';
 import { computeRenderTextLayout, drawRenderedTextInRegion } from '../../../utils/renderText';
+import { getTextEffectBleedPadding } from '../../../utils/renderText.effects';
 import { resolveRegionRenderShape } from '../../../utils/dashboard.region.utils';
 import {
   RenderTextLayoutError,
@@ -339,7 +340,26 @@ export function useDashboardPsdDownload({
           if (!fallback) throw new RenderTextLayoutError();
           layout = fallback;
         }
-        drawRenderedTextInRegion(layerCtx, [0, 0, width, height], layout, style, scaledShape);
+        const bleed = getTextEffectBleedPadding(style, layout.fontSize);
+        const expLeft = Math.max(0, Math.floor(scaledBbox[0] - bleed.left));
+        const expTop = Math.max(0, Math.floor(scaledBbox[1] - bleed.top));
+        const expRight = Math.min(renderWidth, Math.ceil(scaledBbox[2] + bleed.right));
+        const expBottom = Math.min(renderHeight, Math.ceil(scaledBbox[3] + bleed.bottom));
+        const expWidth = Math.max(1, expRight - expLeft);
+        const expHeight = Math.max(1, expBottom - expTop);
+        if (expWidth !== width || expHeight !== height) {
+          layerCanvas.width = expWidth;
+          layerCanvas.height = expHeight;
+        }
+        const localLeft = scaledBbox[0] - expLeft;
+        const localTop = scaledBbox[1] - expTop;
+        drawRenderedTextInRegion(
+          layerCtx,
+          [localLeft, localTop, localLeft + width, localTop + height],
+          layout,
+          style,
+          scaledShape,
+        );
         const outlineWidth = Math.max(0, style.outlineWidth || 0);
         const drawTopOffset = Math.max(0, (height - layout.textHeight) / 2) + outlineWidth;
         const pointAnchorX = style.alignment === 'center'
@@ -353,10 +373,10 @@ export function useDashboardPsdDownload({
           fileName: `${layerName}.png`,
           name: layerName,
           kind: target,
-          left: scaledBbox[0],
-          top: scaledBbox[1],
-          width,
-          height,
+          left: expLeft,
+          top: expTop,
+          width: expWidth,
+          height: expHeight,
           text: layout.wrappedText || text,
           shape: scaledShape ? cloneTypographyShape(scaledShape) : undefined,
           stylePresetId: region.stylePresetId ?? null,
@@ -369,6 +389,11 @@ export function useDashboardPsdDownload({
             drawTopOffset,
             pointAnchorX,
             pointAnchorBaselineOffset,
+            textBoxOffsetX: localLeft,
+            textBoxOffsetY: localTop,
+            textBoxWidth: width,
+            textBoxHeight: height,
+            hasInlineStyleRanges: Boolean(region.renderTextStyleRanges?.length),
           },
           blob,
         };

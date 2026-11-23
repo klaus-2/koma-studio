@@ -11,7 +11,12 @@ import {
   RENDER_MODE_PRESET_MODES,
   type RenderModePresetMode,
 } from "../utils/renderModePresets";
-import { DEFAULT_NATIVE_TEXT_EFFECT_PRESET_ID, isNativeTextEffectPresetId } from "./textEffects";
+import {
+  cloneEffectBaseSnapshot,
+  DEFAULT_NATIVE_TEXT_EFFECT_PRESET_ID,
+  normalizeNativeTextEffectPresetId,
+  type RenderTextEffectBaseSnapshot,
+} from "./textEffects";
 import { migrateRenderSizeCatalog } from "../utils/renderSizeDefaults";
 import { seedSfxPresets } from "./sfxPresetSeed";
 
@@ -76,6 +81,53 @@ const parseJson = <T>(raw: string | null): T | null => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
+const sanitizeSnapshot = (value: unknown): RenderTextEffectBaseSnapshot | undefined => {
+  if (!isRecord(value)) return undefined;
+  const rawShadowLayers = Array.isArray(value.shadowLayers) ? value.shadowLayers : [];
+  const shadowLayers: RenderTextShadowLayer[] = [];
+  for (const entry of rawShadowLayers) {
+    if (!isRecord(entry)) continue;
+    shadowLayers.push({
+      fillCssValue: String(entry.fillCssValue ?? entry.color ?? "#000000").trim() || "#000000",
+      opacity: Number.isFinite(Number(entry.opacity)) ? Math.max(0, Math.min(1, Number(entry.opacity))) : 1,
+      blur: Number.isFinite(Number(entry.blur)) ? Math.max(0, Number(entry.blur)) : 0,
+      offsetX: Number.isFinite(Number(entry.offsetX)) ? Number(entry.offsetX) : 0,
+      offsetY: Number.isFinite(Number(entry.offsetY)) ? Number(entry.offsetY) : 0,
+    });
+  }
+  return cloneEffectBaseSnapshot({
+    color: String(value.color ?? DEFAULT_STYLE.color),
+    fillCssValue: value.fillCssValue ? String(value.fillCssValue).trim() : String(value.color ?? DEFAULT_STYLE.color),
+    gradientEnabled: Boolean(value.gradientEnabled),
+    gradientStartColor: String(value.gradientStartColor ?? value.color ?? DEFAULT_STYLE.gradientStartColor),
+    gradientEndColor: String(value.gradientEndColor ?? value.color ?? DEFAULT_STYLE.gradientEndColor),
+    gradientAngle: Number.isFinite(Number(value.gradientAngle)) ? Number(value.gradientAngle) : DEFAULT_STYLE.gradientAngle,
+    detectGradient: value.detectGradient === undefined ? DEFAULT_STYLE.detectGradient : Boolean(value.detectGradient),
+    outlineColor: String(value.outlineColor ?? DEFAULT_STYLE.outlineColor),
+    outlineOpacity: Number.isFinite(Number(value.outlineOpacity)) ? Number(value.outlineOpacity) : DEFAULT_STYLE.outlineOpacity,
+    outlineWidth: Number.isFinite(Number(value.outlineWidth)) ? Number(value.outlineWidth) : DEFAULT_STYLE.outlineWidth,
+    shadowEnabled: Boolean(value.shadowEnabled),
+    shadowColor: String(value.shadowColor ?? DEFAULT_STYLE.shadowColor),
+    shadowFillCssValue: value.shadowFillCssValue ? String(value.shadowFillCssValue).trim() : String(value.shadowColor ?? DEFAULT_STYLE.shadowColor),
+    shadowGradientEnabled: Boolean(value.shadowGradientEnabled),
+    shadowGradientStartColor: String(value.shadowGradientStartColor ?? value.shadowColor ?? DEFAULT_STYLE.shadowGradientStartColor),
+    shadowGradientEndColor: String(value.shadowGradientEndColor ?? value.shadowColor ?? DEFAULT_STYLE.shadowGradientEndColor),
+    shadowGradientAngle: Number.isFinite(Number(value.shadowGradientAngle)) ? Number(value.shadowGradientAngle) : DEFAULT_STYLE.shadowGradientAngle,
+    shadowOpacity: Number.isFinite(Number(value.shadowOpacity)) ? Number(value.shadowOpacity) : DEFAULT_STYLE.shadowOpacity,
+    shadowBlur: Number.isFinite(Number(value.shadowBlur)) ? Number(value.shadowBlur) : 0,
+    shadowOffsetX: Number.isFinite(Number(value.shadowOffsetX)) ? Number(value.shadowOffsetX) : 0,
+    shadowOffsetY: Number.isFinite(Number(value.shadowOffsetY)) ? Number(value.shadowOffsetY) : 0,
+    shadowLayers: shadowLayers.length > 0 ? shadowLayers : undefined,
+    bold: Boolean(value.bold),
+    italic: Boolean(value.italic),
+    uppercase: Boolean(value.uppercase),
+    lineSpacing: Number.isFinite(Number(value.lineSpacing)) ? Number(value.lineSpacing) : DEFAULT_STYLE.lineSpacing,
+    skewX: Number.isFinite(Number(value.skewX)) ? Number(value.skewX) : DEFAULT_STYLE.skewX,
+    skewY: Number.isFinite(Number(value.skewY)) ? Number(value.skewY) : DEFAULT_STYLE.skewY,
+    opacity: Number.isFinite(Number(value.opacity)) ? Number(value.opacity) : 1,
+  });
+};
+
 const sanitizeStyle = (value: unknown): RenderTextStyle => {
   const source = isRecord(value) ? value : {};
   const rawShadowLayers = Array.isArray(source.shadowLayers) ? source.shadowLayers : [];
@@ -136,8 +188,9 @@ const sanitizeStyle = (value: unknown): RenderTextStyle => {
     outlineColor: String(source.outlineColor ?? DEFAULT_STYLE.outlineColor),
     outlineOpacity: Number.isFinite(Number(source.outlineOpacity)) ? Number(source.outlineOpacity) : DEFAULT_STYLE.outlineOpacity,
     outlineWidth: Number.isFinite(Number(source.outlineWidth)) ? Number(source.outlineWidth) : DEFAULT_STYLE.outlineWidth,
-    textEffectPreset: isNativeTextEffectPresetId(source.textEffectPreset) ? source.textEffectPreset : DEFAULT_STYLE.textEffectPreset,
+    textEffectPreset: normalizeNativeTextEffectPresetId(source.textEffectPreset),
     textEffectIntensity: Number.isFinite(Number(source.textEffectIntensity)) ? Number(source.textEffectIntensity) : DEFAULT_STYLE.textEffectIntensity,
+    textEffectBaseSnapshot: sanitizeSnapshot(source.textEffectBaseSnapshot),
   };
 };
 

@@ -18,7 +18,11 @@ from mini_backend_tools.memory import (  # noqa: E402
     fetch_report,
     growth_findings,
 )
-from utils.photoshop_text_layers import TextLayerEntry, TextLayerStyle  # noqa: E402
+from utils.photoshop_text_layers import (  # noqa: E402
+    TextLayerEntry,
+    TextLayerStyle,
+    requires_raster_layer,
+)
 
 
 def test_environment_validation() -> None:
@@ -111,3 +115,14 @@ def test_photoshop_text_and_gradient_policy() -> None:
         {"text": "text", "style": {"gradientEnabled": True}}
     )
     assert not gradient.is_editable
+    effect = TextLayerEntry.model_validate(
+        {"text": "BLAM!", "style": {"textEffectPreset": "blam_impact"}}
+    )
+    assert not effect.is_editable
+    assert requires_raster_layer({"textEffectPreset": "balloon_smear"}) is True
+    assert requires_raster_layer({"shadowLayers": [{}, {}]}) is True
+    assert requires_raster_layer({"textPathMode": "circular"}) is True
+    assert requires_raster_layer({"textOrientation": "vertical"}) is True
+    assert requires_raster_layer({"rotation": 12.5}) is True
+    assert requires_raster_layer({"hasInlineStyleRanges": True}) is True
+    assert requires_raster_layer({"textEffectPreset": "none", "shadowEnabled": True}) is False

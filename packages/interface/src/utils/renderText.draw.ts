@@ -1,6 +1,11 @@
 import type { TypographyBounds, TypographyShape } from "../typography/types";
 import type { RenderTextStyle } from "../typography/renderStyle";
 import { getNativeTextEffectPreset } from "../typography/textEffects";
+import {
+  canBatchHorizontalLines,
+  drawLinesWithTextEffect,
+  type EffectLineRun,
+} from "./renderText.effects";
 import type {
   FillStyleSource,
   RenderTextLayout,
@@ -52,7 +57,28 @@ export const drawStyledSegment = (
   const outlineOpacity = normalizeOpacity(style.outlineOpacity ?? 1);
   const shadowOpacity = normalizeOpacity(style.shadowOpacity ?? 1);
   const effectPreset = getNativeTextEffectPreset(style.textEffectPreset);
-  const effectIntensity = Math.min(Math.max(Number(style.textEffectIntensity ?? 1), 0), 2);
+  if (effectPreset.id !== "none") {
+    drawLinesWithTextEffect({
+      ctx,
+      style,
+      fontSize: style.fontSize,
+      runs: [
+        {
+          text: segment.text,
+          drawX: x,
+          lineY: y,
+          measuredWidth: segment.measuredWidth,
+        },
+      ],
+      align,
+      baseline,
+      drawUnderline,
+      underlineThickness,
+      lineHeight: style.fontSize,
+    });
+    return;
+  }
+
   const outlineColor = applyOpacityToColor(style.outlineColor || "#ffffff", outlineOpacity);
   const shadowFillStyleSource: FillStyleSource = {
     color: style.shadowColor || "#000000",
@@ -61,21 +87,6 @@ export const drawStyledSegment = (
     gradientStartColor: style.shadowGradientStartColor || style.shadowColor || "#000000",
     gradientEndColor: style.shadowGradientEndColor || style.shadowColor || "#000000",
     gradientAngle: style.shadowGradientAngle || 90,
-  };
-
-  const drawGhost = (
-    fill: string,
-    opacity: number,
-    blur: number,
-    offsetX: number,
-    offsetY: number,
-  ) => {
-    ctx.save();
-    ctx.filter = blur > 0 ? `blur(${blur.toFixed(1)}px)` : "none";
-    ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
-    ctx.fillStyle = fill;
-    ctx.fillText(segment.text, x + offsetX, y + offsetY);
-    ctx.restore();
   };
 
   ctx.save();
@@ -121,11 +132,6 @@ export const drawStyledSegment = (
       ctx.restore();
     });
     ctx.filter = "none";
-  }
-
-  if (effectPreset.id !== "none" && effectIntensity > 0) {
-    drawGhost(effectPreset.fill, 0.1 + effectIntensity * 0.08, 1.4 + effectIntensity * 1.8, -1.5 * effectIntensity, 1.5 * effectIntensity);
-    drawGhost(effectPreset.fill, 0.06 + effectIntensity * 0.05, 3 + effectIntensity * 2.5, 0, 0.8 * effectIntensity);
   }
 
   if (outlineWidth > 0) {
@@ -182,7 +188,6 @@ export const drawRenderedTextInRegion = (
   };
   const outlineColor = applyOpacityToColor(style.outlineColor || "#ffffff", outlineOpacity);
   const effectPreset = getNativeTextEffectPreset(style.textEffectPreset);
-  const effectIntensity = Math.min(Math.max(Number(style.textEffectIntensity ?? 1), 0), 2);
   const innerBox = resolveInnerBoxOffset(bbox, shape);
 
   ctx.save();
@@ -225,12 +230,12 @@ export const drawRenderedTextInRegion = (
 
   if (normalizeTextPathMode(style.textPathMode) === "circular") {
     const normalizedShape = normalizeShape(shape, boxWidth, boxHeight);
-    const innerBox = normalizedShape?.innerBox ?? [0, 0, boxWidth, boxHeight];
-    const innerWidth = Math.max(1, innerBox[2] - innerBox[0] - (outlineWidth * 2));
-    const innerHeight = Math.max(1, innerBox[3] - innerBox[1] - (outlineWidth * 2));
+    const circularInnerBox = normalizedShape?.innerBox ?? [0, 0, boxWidth, boxHeight];
+    const innerWidth = Math.max(1, circularInnerBox[2] - circularInnerBox[0] - (outlineWidth * 2));
+    const innerHeight = Math.max(1, circularInnerBox[3] - circularInnerBox[1] - (outlineWidth * 2));
     const radius = (Math.min(innerWidth, innerHeight) / 2) * Math.min(Math.max(style.circularRadiusScale || 0.78, 0.2), 1.2);
-    const centerX = localX1 + innerBox[0] + (innerWidth / 2) + outlineWidth;
-    const centerY = localY1 + innerBox[1] + (innerHeight / 2) + outlineWidth;
+    const centerX = localX1 + circularInnerBox[0] + (innerWidth / 2) + outlineWidth;
+    const centerY = localY1 + circularInnerBox[1] + (innerHeight / 2) + outlineWidth;
     const text = layout.wrappedText || " ";
     const glyphSegments = hasStyledSegments
       ? (layout.placements[0]?.segments ?? [])
@@ -336,7 +341,24 @@ export const drawRenderedTextInRegion = (
   const verticalGap = Math.max(0, availableHeight - layout.textHeight);
   const drawTop = localY1 + innerBox[1] + Math.max(0, verticalGap / 2);
 
-  if (hasStyledSegments) {
+  const buildHorizontalRuns = (): EffectLineRun[] =>
+    layout.placements.map((placement) => {
+      const lineY = drawTop + placement.y;
+      let drawX = localX1 + placement.x;
+      if (style.alignment === "center") {
+        drawX = localX1 + placement.x + placement.availableWidth / 2;
+      } else if (style.alignment === "right") {
+        drawX = localX1 + placement.x + placement.availableWidth;
+      }
+      return {
+        text: placement.text,
+        drawX,
+        lineY,
+        measuredWidth: placement.measuredWidth,
+      };
+    });
+
+  if (hasStyledSegments && !canBatchHorizontalLines(layout, style)) {
     for (let index = 0; index < layout.placements.length; index += 1) {
       const placement = layout.placements[index]!;
       const lineY = drawTop + placement.y;
@@ -369,164 +391,20 @@ export const drawRenderedTextInRegion = (
     return;
   }
 
-  if (effectPreset.id !== "none" && effectIntensity > 0 && !effectPreset.shadowLayers?.length && effectPreset.supportsIntensity) {
-    ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0)";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0)";
-    ctx.lineWidth = 0;
-    const drawGhostLayer = (
-      fill: string,
-      opacity: number,
-      blur: number,
-      offsetX: number,
-      offsetY: number,
-    ) => {
-      ctx.fillStyle = fill;
-      ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
-      ctx.filter = blur > 0 ? `blur(${blur.toFixed(1)}px)` : "none";
-      for (let index = 0; index < layout.placements.length; index += 1) {
-        const placement = layout.placements[index]!;
-        const lineY = drawTop + placement.y + offsetY;
-        let drawX = localX1 + placement.x + offsetX;
-        if (style.alignment === "center") {
-          drawX = localX1 + placement.x + (placement.availableWidth / 2) + offsetX;
-        } else if (style.alignment === "right") {
-          drawX = localX1 + placement.x + placement.availableWidth + offsetX;
-        }
-        ctx.fillText(placement.text, drawX, lineY);
-      }
-    };
-
-    switch (effectPreset.id) {
-      case "balloon_smear": {
-        const ghostLayers = Math.max(1, Math.round(effectPreset.ghostLayers * (0.55 + (effectIntensity * 0.75))));
-        const offsetYStep = effectPreset.offsetYStep * (0.6 + (effectIntensity * 0.75));
-        const offsetXAmplitude = effectPreset.offsetXAmplitude * (0.45 + (effectIntensity * 0.8));
-        const blurStart = effectPreset.blurStart * (0.5 + (effectIntensity * 0.85));
-        const blurStep = effectPreset.blurStep * (0.55 + (effectIntensity * 0.8));
-        const opacityStart = Math.min(0.42, effectPreset.opacityStart * (0.7 + (effectIntensity * 0.55)));
-        const opacityFalloff = Math.max(0.68, effectPreset.opacityFalloff - (effectIntensity * 0.06));
-        for (let layerIndex = 0; layerIndex < ghostLayers; layerIndex += 1) {
-          const layerOpacity = opacityStart * Math.pow(opacityFalloff, layerIndex);
-          const offsetY = (layerIndex + 1) * offsetYStep;
-          const blur = blurStart + (layerIndex * blurStep);
-          ctx.fillStyle = effectPreset.fill;
-          ctx.globalAlpha = Math.max(0, Math.min(1, layerOpacity));
-          ctx.filter = blur > 0 ? `blur(${blur.toFixed(1)}px)` : "none";
-          for (let index = 0; index < layout.placements.length; index += 1) {
-            const placement = layout.placements[index]!;
-            const lineY = drawTop + placement.y + offsetY;
-            const jitterX = Math.sin((layerIndex + 1) * 1.15 + index * 0.75) * offsetXAmplitude;
-            let drawX = localX1 + placement.x + jitterX;
-            if (style.alignment === "center") {
-              drawX = localX1 + placement.x + (placement.availableWidth / 2) + jitterX;
-            } else if (style.alignment === "right") {
-              drawX = localX1 + placement.x + placement.availableWidth + jitterX;
-            }
-            ctx.fillText(placement.text, drawX, lineY);
-          }
-        }
-        break;
-      }
-      case "ahnnn_peach":
-      case "badump_soft":
-      case "eheheh_whisper":
-      case "smiles_outline":
-      case "neon_woah":
-      case "laugh_curve": {
-        drawGhostLayer(effectPreset.fill, 0.12 * effectIntensity, 4 + (effectIntensity * 4), 0, 0);
-        drawGhostLayer(effectPreset.fill, 0.08 * effectIntensity, 8 + (effectIntensity * 5), 0, 1.5 * effectIntensity);
-        break;
-      }
-      case "smooch_jelly":
-      case "blam_impact":
-      case "thump_heavy":
-      case "hah_pop":
-      case "question_pop": {
-        drawGhostLayer(effectPreset.fill, 0.24 * effectIntensity, 0, -2 * effectIntensity, 2 * effectIntensity);
-        drawGhostLayer(effectPreset.fill, 0.14 * effectIntensity, 1.4 * effectIntensity, -4 * effectIntensity, 4 * effectIntensity);
-        break;
-      }
-      case "tremble_brush":
-      case "hoho_ink":
-      case "shake_blur":
-      case "scratch_noise":
-      case "crack_ink":
-      case "scream_scratch": {
-        const passes = Math.max(3, Math.round(4 + effectIntensity * 3));
-        for (let pass = 0; pass < passes; pass += 1) {
-          const jitterX = Math.sin(pass * 1.9) * (1.2 + effectIntensity * 1.6);
-          const jitterY = Math.cos(pass * 1.3) * (0.8 + effectIntensity * 1.2);
-          drawGhostLayer(effectPreset.fill, 0.1 + (effectIntensity * 0.03), 0.6 + (effectIntensity * 0.5), jitterX, jitterY);
-        }
-        break;
-      }
-      case "slash_speed": {
-        const passes = Math.max(4, Math.round(5 + effectIntensity * 4));
-        for (let pass = 0; pass < passes; pass += 1) {
-          drawGhostLayer(
-            effectPreset.fill,
-            0.08 + (effectIntensity * 0.02),
-            1.8 + pass * 0.9,
-            -4 - (pass * (1.8 + effectIntensity)),
-            2 + pass * 1.4,
-          );
-        }
-        break;
-      }
-      case "slap_scratch":
-      case "dash_edge": {
-        const passes = Math.max(3, Math.round(4 + effectIntensity * 3));
-        for (let pass = 0; pass < passes; pass += 1) {
-          drawGhostLayer(
-            effectPreset.fill,
-            0.07 + (effectIntensity * 0.02),
-            0.8 + pass * 0.45,
-            -2 - (pass * (1.2 + effectIntensity * 0.6)),
-            1 + pass * 1.1,
-          );
-        }
-        break;
-      }
-      case "drip_blue": {
-        const passes = Math.max(3, Math.round(3 + effectIntensity * 3));
-        for (let pass = 0; pass < passes; pass += 1) {
-          drawGhostLayer(
-            effectPreset.fill,
-            0.06 + (effectIntensity * 0.02),
-            1 + pass * 0.8,
-            0,
-            3 + pass * (2.2 + effectIntensity),
-          );
-        }
-        break;
-      }
-      case "break_glitch":
-      case "growl_moss":
-      case "beep_outline":
-      case "boom_comic":
-      case "bang_chunk":
-      case "flinch_outline":
-      case "yawn_soft":
-      default:
-        break;
-    }
+  if (effectPreset.id !== "none") {
+    drawLinesWithTextEffect({
+      ctx,
+      style,
+      fontSize: layout.fontSize,
+      runs: buildHorizontalRuns(),
+      align: ctx.textAlign,
+      baseline: "top",
+      drawUnderline: Boolean(style.underline),
+      underlineThickness: lineThickness,
+      lineHeight: layout.lineHeight,
+    });
     ctx.restore();
-    ctx.font = buildCanvasFont(style, layout.fontSize);
-    ctx.textBaseline = "top";
-    ctx.strokeStyle = outlineColor;
-    ctx.lineJoin = "round";
-    ctx.miterLimit = 2;
-    ctx.lineWidth = Math.max(0, outlineWidth * 2);
-    ctx.fillStyle = resolveTextFillStyle(ctx, style, localX1, localY1, boxWidth, boxHeight);
-    ctx.shadowColor = "rgba(0, 0, 0, 0)";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.globalAlpha = 1;
+    return;
   }
 
   const drawManualShadowLayers = (

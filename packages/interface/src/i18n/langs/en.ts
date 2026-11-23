@@ -1170,6 +1170,15 @@ export const enMessages = {
   'dashboard.typography.effect.searchPlaceholder': 'Search effects...',
   'dashboard.typography.effect.intensity': 'Intensity',
   'dashboard.typography.effect.noResults': 'No effects found.',
+  'dashboard.typography.effect.clear': 'Clear',
+  'dashboard.typography.effect.category.all': 'All',
+  'dashboard.typography.effect.category.impact': 'Impact',
+  'dashboard.typography.effect.category.soft': 'Soft',
+  'dashboard.typography.effect.category.brush': 'Brush',
+  'dashboard.typography.effect.category.comic': 'Comic',
+  'dashboard.typography.effect.category.smear': 'Smear',
+  'dashboard.typography.effect.resetIntensity': 'Double-click to reset to 1.00x',
+  'dashboard.typography.effect.restoreOriginal': 'Removes the active effect and restores original text style.',
   'dashboard.aio.customAi.titleTranslation': 'Custom AI Profiles (Translation)',
   'dashboard.aio.customAi.titleOcr': 'Custom AI Profiles (OCR)',
   'dashboard.aio.customAi.newTranslation': 'New translation profile',
@@ -3698,103 +3707,73 @@ export const enMessages = {
   'webhook.validation.urlInvalidPath':
     'The URL path does not match a valid Discord webhook.',
   'typography.effect.none.label': 'No effect',
-  'typography.effect.none.description': 'Clean text, no extra layers.',
+  'typography.effect.none.description': 'Clean text, restores original style.',
   'typography.effect.balloon_smear.label': 'Balloon Smear',
-  'typography.effect.balloon_smear.description':
-    'Vertical gray streak with slight lateral wobble, inspired by dramatic speech text.',
+  'typography.effect.balloon_smear.description': 'Organic downward ink smear trail with subtle lateral wobble.',
   'typography.effect.smiles_outline.label': 'SMILES Outline',
-  'typography.effect.smiles_outline.description':
-    'Soft coral outline with a light core, cute whisper style.',
-  'typography.effect.ahnnn_peach.label': 'Ahnnn Peach Glow',
-  'typography.effect.ahnnn_peach.description':
-    'Peach fill with a warm, soft glow.',
-  'typography.effect.silence_ink.label': 'Silence Ink',
-  'typography.effect.silence_ink.description':
-    'Purplish blue with a clean presence and slight inner depth.',
-  'typography.effect.hwa_pastel.label': 'HWA Pastel',
-  'typography.effect.hwa_pastel.description':
-    'Light yellow with a pink outline and a gentle feel.',
-  'typography.effect.hah_pop.label': 'HAH Pop',
-  'typography.effect.hah_pop.description':
-    'Light lilac core with a pop presence and pink relief.',
+  'typography.effect.smiles_outline.description': 'Cream core with rounded coral-peach outline and warm blush glow.',
+  'typography.effect.ahnnn_peach.label': 'Ahnnn Peach',
+  'typography.effect.ahnnn_peach.description': 'Soft peach gradient with terracotta outline and warm aura.',
+  'typography.effect.hwa_pastel.label': 'HWA Pastel Floral',
+  'typography.effect.hwa_pastel.description': 'White fill patterned with pastel yellow, lime, and pink daisies.',
+  'typography.effect.aah_blush.label': 'Aah Blush Glow',
+  'typography.effect.aah_blush.description': 'Soft white rose-outlined letters with radiant strawberry pink aura.',
+  'typography.effect.silence_ink.label': 'SILENCE Ink',
+  'typography.effect.silence_ink.description': 'Periwinkle lavender gradient framed by a sharp ink-black stroke.',
+  'typography.effect.hah_pop.label': 'HAH? Halftone',
+  'typography.effect.hah_pop.description': 'Pink-to-gold Ben-Day dot pattern with white buffer and lavender outline.',
+  'typography.effect.kkk_crimson.label': 'KKK Crimson Brush',
+  'typography.effect.kkk_crimson.description': 'Deep crimson-to-black vertical gradient with split dry-brush edges.',
   'typography.effect.smooch_jelly.label': 'Smooch Jelly',
-  'typography.effect.smooch_jelly.description':
-    'Soft pink with a jelly-like shine and sweet shadow.',
-  'typography.effect.tremble_brush.label': 'Tremble Brush',
-  'typography.effect.tremble_brush.description':
-    'Energetic blue-violet brush with an irregular edge.',
+  'typography.effect.smooch_jelly.description': 'Coral-rose glossy jelly gradient with crisp white sticker stroke.',
+  'typography.effect.tremble_brush.label': 'TREMBLE Brush',
+  'typography.effect.tremble_brush.description': 'Royal blue-to-violet gradient with jagged trembling brush contours.',
   'typography.effect.eheheh_whisper.label': 'EHEHEH Whisper',
-  'typography.effect.eheheh_whisper.description':
-    'Light pink with a fluffy outline and a shy glow.',
-  'typography.effect.hoho_ink.label': 'HOHO Ink',
-  'typography.effect.hoho_ink.description':
-    'Dark blue with vertical dripping and a dry texture.',
-  'typography.effect.blam_impact.label': 'BLAM Impact',
-  'typography.effect.blam_impact.description':
-    'Yellow explosion with a displaced red shadow.',
-  'typography.effect.badump_soft.label': 'BADUMP Soft',
-  'typography.effect.badump_soft.description':
-    'Soft pink pastel gradient with a romantic aura.',
+  'typography.effect.eheheh_whisper.description': 'Pure white core, rose-pink outline, and fluffy pink outer glow.',
+  'typography.effect.hoho_ink.label': 'HOHO Ink Drip',
+  'typography.effect.hoho_ink.description': 'Steel-blue gradient with dry scratch streaks and hanging ink drips.',
+  'typography.effect.blam_impact.label': 'BLAM! Impact',
+  'typography.effect.blam_impact.description': 'Golden yellow italic burst with white border and solid 3D red shadow.',
   'typography.effect.thump_heavy.label': 'THUMP Heavy',
-  'typography.effect.thump_heavy.description':
-    'Black impact with a hard, angled wine-colored shadow.',
-  'typography.effect.neon_woah.label': 'WOAH Neon',
-  'typography.effect.neon_woah.description':
-    'White text with an intense pink glow of surprise/brilliance.',
-  'typography.effect.slash_speed.label': 'SLAP Speed Slash',
-  'typography.effect.slash_speed.description':
-    'Dark typography with an aggressive diagonal streak/motion blur.',
-  'typography.effect.ah_teal.label': 'Ah Teal',
-  'typography.effect.ah_teal.description':
-    'Aqua/teal with a dark outline and a gentle soft-speech feel.',
-  'typography.effect.drip_blue.label': 'DRIP Blue',
-  'typography.effect.drip_blue.description':
-    'Light blue with a liquid feel and drip effect.',
-  'typography.effect.question_pop.label': 'Question Pop',
-  'typography.effect.question_pop.description':
-    'Warm punctuation mark with a displaced coral shadow.',
-  'typography.effect.laugh_curve.label': 'Laugh Curve',
-  'typography.effect.laugh_curve.description':
-    'Bright cyan for an arched and light laugh.',
-  'typography.effect.shake_blur.label': 'Shake Blur',
-  'typography.effect.shake_blur.description':
-    'Dark purple with vibration/motion blur for trembling.',
+  'typography.effect.thump_heavy.description': 'Ink-black top fading into deep crimson bottom with ragged edge.',
+  'typography.effect.badump_soft.label': 'BADUMP Soft',
+  'typography.effect.badump_soft.description': 'Smooth lilac-to-apricot pastel gradient with gentle warm aura.',
+  'typography.effect.glossy_pop.label': 'SS Glossy Pop',
+  'typography.effect.glossy_pop.description': 'Vibrant pink jelly fill with glossy highlight and crisp black outline.',
+  'typography.effect.haha_bounce.label': 'Ha! Ha! Bounce',
+  'typography.effect.haha_bounce.description': 'Playful comic ink lettering with lively uneven vertical bounce.',
+  'typography.effect.crack_ink.label': 'CRACK Splinter',
+  'typography.effect.crack_ink.description': 'Pitch-black slanted brush with sharp splintering cracks and spikes.',
+  'typography.effect.screach_sketch.label': 'SCREACH Etched',
+  'typography.effect.screach_sketch.description': 'Tall slanted hand-etched black strokes with jagged trailing scratches.',
+  'typography.effect.growl_moss.label': 'GROWL Moss',
+  'typography.effect.growl_moss.description': 'Dry olive-moss bold lettering with organic rough brush texture.',
+  'typography.effect.scratch_noise.label': 'Scratch Chalk',
+  'typography.effect.scratch_noise.description': 'Black lettering eroded with grainy chalk stipple and edge flecks.',
   'typography.effect.beep_outline.label': 'Beep Outline',
-  'typography.effect.beep_outline.description':
-    'White text with a thick black outline for clean, readable SFX.',
-  'typography.effect.boom_comic.label': 'BOOM Comic',
-  'typography.effect.boom_comic.description':
-    'Classic comic-style yellow/red explosion.',
+  'typography.effect.beep_outline.description': 'Crisp white comic lettering with thick rounded black outline.',
+  'typography.effect.boom_comic.label': 'BOOM! Comic',
+  'typography.effect.boom_comic.description': 'Fiery orange-to-yellow comic explosion with thick maroon outline.',
   'typography.effect.bang_chunk.label': 'BANG Chunk',
-  'typography.effect.bang_chunk.description':
-    'Purple/blue block with a thick displaced gold shadow.',
-  'typography.effect.break_glitch.label': 'BREAK Glitch',
-  'typography.effect.break_glitch.description':
-    'Dark magenta with a glitch/broken scan texture.',
-  'typography.effect.flinch_outline.label': 'FLINCH Outline',
-  'typography.effect.flinch_outline.description':
-    'Black with an aggressive white outline for instant reaction.',
-  'typography.effect.growl_moss.label': 'Growl Moss',
-  'typography.effect.growl_moss.description':
-    'Dry olive green for a hoarse/animal sound.',
-  'typography.effect.yawn_soft.label': 'Yawn Soft',
-  'typography.effect.yawn_soft.description':
-    'Lime green with a purple outline for a lazy/stretched speech.',
-  'typography.effect.scratch_noise.label': 'Scratch Noise',
-  'typography.effect.scratch_noise.description':
-    'Rough black with a grainy/noisy appearance.',
-  'typography.effect.crack_ink.label': 'Crack Ink',
-  'typography.effect.crack_ink.description':
-    'Dry, sharp black brush for a sudden impact.',
-  'typography.effect.slap_scratch.label': 'Slap Scratch',
-  'typography.effect.slap_scratch.description':
-    'Thin, dragged scribble for a scrape/quick-strike effect.',
-  'typography.effect.dash_edge.label': 'Dash Edge',
-  'typography.effect.dash_edge.description':
-    'Dark green with sharp points for a sudden cut/entrance.',
-  'typography.effect.scream_scratch.label': 'Scream Scratch',
-  'typography.effect.scream_scratch.description':
-    'Black scream with a rough red offset.',
+  'typography.effect.bang_chunk.description': 'Royal-blue-to-indigo block with thick warm ochre-gold outline.',
+  'typography.effect.shake_blur.label': 'SHAKE Double',
+  'typography.effect.shake_blur.description': 'Dusty mauve outline lettering with horizontal double-vision echo.',
+  'typography.effect.rattle_jagged.label': 'RATTLE Block',
+  'typography.effect.rattle_jagged.description': 'Vivid raspberry dry-brush letters with thick cream offset block shadow.',
+  'typography.effect.flinch_outline.label': 'FLINCH Impact',
+  'typography.effect.flinch_outline.description': 'White comic italic with thick black outline and sharp crimson shadow.',
+  'typography.effect.break_glitch.label': 'BREAK Fracture',
+  'typography.effect.break_glitch.description': 'Deep wine-plum lettering shattered horizontally with white crack seams.',
+  'typography.effect.snap_rough.label': 'Snap Splinter',
+  'typography.effect.snap_rough.description': 'Sharp pitch-black brush with jagged outward splinters and chips.',
+  'typography.effect.yawn_soft.label': 'Yawn~ Lime',
+  'typography.effect.yawn_soft.description': 'Bright chartreuse-lime lettering with thick deep purple outline.',
+  'typography.effect.click_ink.label': 'Click Ink',
+  'typography.effect.click_ink.description': 'Compact punchy comic black ink with subtle organic edge.',
+  'typography.effect.dash_edge.label': 'DASH Slash',
+  'typography.effect.dash_edge.description': 'Slanted sage-green brush with crisp muted-plum offset shadow.',
+  'typography.effect.scream_scratch.label': 'AAAA! Scream',
+  'typography.effect.scream_scratch.description': 'Italicized jagged black brush with tight crimson back echo.',
   'model.opus-mt-ja-en.description':
     'OPUS-MT pipeline optimized for Japanese content, with English translation and a secondary flow for Portuguese.',
   'model.nllb-200-600m-int8.description':

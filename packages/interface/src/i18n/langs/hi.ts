@@ -1077,6 +1077,15 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.typography.effect.searchPlaceholder': 'Cari efek...',
   'dashboard.typography.effect.intensity': 'Intensitas',
   'dashboard.typography.effect.noResults': 'Tidak ada efek ditemukan.',
+  'dashboard.typography.effect.clear': 'हटाएं',
+  'dashboard.typography.effect.category.all': 'सभी',
+  'dashboard.typography.effect.category.impact': 'प्रभाव',
+  'dashboard.typography.effect.category.soft': 'मुलायम',
+  'dashboard.typography.effect.category.brush': 'ब्रश',
+  'dashboard.typography.effect.category.comic': 'कॉमिक',
+  'dashboard.typography.effect.category.smear': 'स्मीयर',
+  'dashboard.typography.effect.resetIntensity': '1.00x पर रीसेट करने के लिए डबल-क्लिक करें',
+  'dashboard.typography.effect.restoreOriginal': 'सक्रिय प्रभाव हटाता है और मूल टेक्स्ट शैली बहाल करता है।',
   'dashboard.aio.customAi.titleTranslation': 'Profil AI Kustom (Terjemahan)',
   'dashboard.aio.customAi.titleOcr': 'Profil AI Kustom (OCR)',
   'dashboard.aio.customAi.newTranslation': 'Profil terjemahan baru',
@@ -3827,104 +3836,74 @@ export const hiMessages: TranslationCatalog = {
     'Gunakan URL resmi Discord (discord.com).',
   'webhook.validation.urlInvalidPath':
     'Path URL tidak sesuai dengan webhook Discord yang valid.',
-  'typography.effect.none.label': 'Tanpa efek',
-  'typography.effect.none.description': 'Teks bersih, tanpa lapisan tambahan.',
+  'typography.effect.none.label': 'No effect',
+  'typography.effect.none.description': 'Clean text, restores original style.',
   'typography.effect.balloon_smear.label': 'Balloon Smear',
-  'typography.effect.balloon_smear.description':
-    'Goresan abu-abu vertikal dengan sedikit goyangan lateral, terinspirasi dari teks ucapan dramatis.',
+  'typography.effect.balloon_smear.description': 'Organic downward ink smear trail with subtle lateral wobble.',
   'typography.effect.smiles_outline.label': 'SMILES Outline',
-  'typography.effect.smiles_outline.description':
-    'Garis luar koral lembut dengan inti terang, gaya bisikan manis.',
-  'typography.effect.ahnnn_peach.label': 'Ahnnn Peach Glow',
-  'typography.effect.ahnnn_peach.description':
-    'Isian persik dengan cahaya hangat dan lembut.',
-  'typography.effect.silence_ink.label': 'Silence Ink',
-  'typography.effect.silence_ink.description':
-    'Biru keunguan dengan kehadiran bersih dan sedikit kedalaman dalam.',
-  'typography.effect.hwa_pastel.label': 'HWA Pastel',
-  'typography.effect.hwa_pastel.description':
-    'Kuning muda dengan garis luar merah muda dan nuansa lembut.',
-  'typography.effect.hah_pop.label': 'HAH Pop',
-  'typography.effect.hah_pop.description':
-    'Inti lilac muda dengan kehadiran pop dan relief merah muda.',
+  'typography.effect.smiles_outline.description': 'Cream core with rounded coral-peach outline and warm blush glow.',
+  'typography.effect.ahnnn_peach.label': 'Ahnnn Peach',
+  'typography.effect.ahnnn_peach.description': 'Soft peach gradient with terracotta outline and warm aura.',
+  'typography.effect.hwa_pastel.label': 'HWA Pastel Floral',
+  'typography.effect.hwa_pastel.description': 'White fill patterned with pastel yellow, lime, and pink daisies.',
+  'typography.effect.aah_blush.label': 'Aah Blush Glow',
+  'typography.effect.aah_blush.description': 'Soft white rose-outlined letters with radiant strawberry pink aura.',
+  'typography.effect.silence_ink.label': 'SILENCE Ink',
+  'typography.effect.silence_ink.description': 'Periwinkle lavender gradient framed by a sharp ink-black stroke.',
+  'typography.effect.hah_pop.label': 'HAH? Halftone',
+  'typography.effect.hah_pop.description': 'Pink-to-gold Ben-Day dot pattern with white buffer and lavender outline.',
+  'typography.effect.kkk_crimson.label': 'KKK Crimson Brush',
+  'typography.effect.kkk_crimson.description': 'Deep crimson-to-black vertical gradient with split dry-brush edges.',
   'typography.effect.smooch_jelly.label': 'Smooch Jelly',
-  'typography.effect.smooch_jelly.description':
-    'Merah muda lembut dengan kilau seperti jeli dan bayangan manis.',
-  'typography.effect.tremble_brush.label': 'Tremble Brush',
-  'typography.effect.tremble_brush.description':
-    'Kuas biru-ungu energik dengan tepi tidak beraturan.',
+  'typography.effect.smooch_jelly.description': 'Coral-rose glossy jelly gradient with crisp white sticker stroke.',
+  'typography.effect.tremble_brush.label': 'TREMBLE Brush',
+  'typography.effect.tremble_brush.description': 'Royal blue-to-violet gradient with jagged trembling brush contours.',
   'typography.effect.eheheh_whisper.label': 'EHEHEH Whisper',
-  'typography.effect.eheheh_whisper.description':
-    'Merah muda muda dengan garis luar halus dan cahaya malu-malu.',
-  'typography.effect.hoho_ink.label': 'HOHO Ink',
-  'typography.effect.hoho_ink.description':
-    'Biru tua dengan tetesan vertikal dan tekstur kering.',
-  'typography.effect.blam_impact.label': 'BLAM Impact',
-  'typography.effect.blam_impact.description':
-    'Ledakan kuning dengan bayangan merah tergeser.',
-  'typography.effect.badump_soft.label': 'BADUMP Soft',
-  'typography.effect.badump_soft.description':
-    'Gradien pastel merah muda lembut dengan aura romantis.',
+  'typography.effect.eheheh_whisper.description': 'Pure white core, rose-pink outline, and fluffy pink outer glow.',
+  'typography.effect.hoho_ink.label': 'HOHO Ink Drip',
+  'typography.effect.hoho_ink.description': 'Steel-blue gradient with dry scratch streaks and hanging ink drips.',
+  'typography.effect.blam_impact.label': 'BLAM! Impact',
+  'typography.effect.blam_impact.description': 'Golden yellow italic burst with white border and solid 3D red shadow.',
   'typography.effect.thump_heavy.label': 'THUMP Heavy',
-  'typography.effect.thump_heavy.description':
-    'Dampak hitam dengan bayangan warna anggur keras bersudut.',
-  'typography.effect.neon_woah.label': 'WOAH Neon',
-  'typography.effect.neon_woah.description':
-    'Teks putih dengan cahaya merah muda intens penuh kejutan/kemilau.',
-  'typography.effect.slash_speed.label': 'SLAP Speed Slash',
-  'typography.effect.slash_speed.description':
-    'Tipografi gelap dengan goresan diagonal agresif/motion blur.',
-  'typography.effect.ah_teal.label': 'Ah Teal',
-  'typography.effect.ah_teal.description':
-    'Aqua/teal dengan garis luar gelap dan nuansa ucapan lembut.',
-  'typography.effect.drip_blue.label': 'DRIP Blue',
-  'typography.effect.drip_blue.description':
-    'Biru muda dengan nuansa cair dan efek tetesan.',
-  'typography.effect.question_pop.label': 'Question Pop',
-  'typography.effect.question_pop.description':
-    'Tanda baca hangat dengan bayangan koral tergeser.',
-  'typography.effect.laugh_curve.label': 'Laugh Curve',
-  'typography.effect.laugh_curve.description':
-    'Cyan cerah untuk tawa melengkung dan ringan.',
-  'typography.effect.shake_blur.label': 'Shake Blur',
-  'typography.effect.shake_blur.description':
-    'Ungu tua dengan getaran/motion blur untuk efek gemetar.',
+  'typography.effect.thump_heavy.description': 'Ink-black top fading into deep crimson bottom with ragged edge.',
+  'typography.effect.badump_soft.label': 'BADUMP Soft',
+  'typography.effect.badump_soft.description': 'Smooth lilac-to-apricot pastel gradient with gentle warm aura.',
+  'typography.effect.glossy_pop.label': 'SS Glossy Pop',
+  'typography.effect.glossy_pop.description': 'Vibrant pink jelly fill with glossy highlight and crisp black outline.',
+  'typography.effect.haha_bounce.label': 'Ha! Ha! Bounce',
+  'typography.effect.haha_bounce.description': 'Playful comic ink lettering with lively uneven vertical bounce.',
+  'typography.effect.crack_ink.label': 'CRACK Splinter',
+  'typography.effect.crack_ink.description': 'Pitch-black slanted brush with sharp splintering cracks and spikes.',
+  'typography.effect.screach_sketch.label': 'SCREACH Etched',
+  'typography.effect.screach_sketch.description': 'Tall slanted hand-etched black strokes with jagged trailing scratches.',
+  'typography.effect.growl_moss.label': 'GROWL Moss',
+  'typography.effect.growl_moss.description': 'Dry olive-moss bold lettering with organic rough brush texture.',
+  'typography.effect.scratch_noise.label': 'Scratch Chalk',
+  'typography.effect.scratch_noise.description': 'Black lettering eroded with grainy chalk stipple and edge flecks.',
   'typography.effect.beep_outline.label': 'Beep Outline',
-  'typography.effect.beep_outline.description':
-    'Teks putih dengan garis luar hitam tebal untuk SFX yang bersih dan terbaca.',
-  'typography.effect.boom_comic.label': 'BOOM Comic',
-  'typography.effect.boom_comic.description':
-    'Ledakan kuning/merah gaya komik klasik.',
+  'typography.effect.beep_outline.description': 'Crisp white comic lettering with thick rounded black outline.',
+  'typography.effect.boom_comic.label': 'BOOM! Comic',
+  'typography.effect.boom_comic.description': 'Fiery orange-to-yellow comic explosion with thick maroon outline.',
   'typography.effect.bang_chunk.label': 'BANG Chunk',
-  'typography.effect.bang_chunk.description':
-    'Blok ungu/biru dengan bayangan emas tebal tergeser.',
-  'typography.effect.break_glitch.label': 'BREAK Glitch',
-  'typography.effect.break_glitch.description':
-    'Magenta gelap dengan tekstur glitch/scan rusak.',
-  'typography.effect.flinch_outline.label': 'FLINCH Outline',
-  'typography.effect.flinch_outline.description':
-    'Hitam dengan garis luar putih agresif untuk reaksi instan.',
-  'typography.effect.growl_moss.label': 'Growl Moss',
-  'typography.effect.growl_moss.description':
-    'Hijau zaitun kering untuk suara serak/hewan.',
-  'typography.effect.yawn_soft.label': 'Yawn Soft',
-  'typography.effect.yawn_soft.description':
-    'Hijau limau dengan garis luar ungu untuk ucapan malas/teregang.',
-  'typography.effect.scratch_noise.label': 'Scratch Noise',
-  'typography.effect.scratch_noise.description':
-    'Hitam kasar dengan tampilan berpasir/berisik.',
-  'typography.effect.crack_ink.label': 'Crack Ink',
-  'typography.effect.crack_ink.description':
-    'Kuas hitam kering dan tajam untuk dampak mendadak.',
-  'typography.effect.slap_scratch.label': 'Slap Scratch',
-  'typography.effect.slap_scratch.description':
-    'Coretan tipis terseret untuk efek goresan/serangan cepat.',
-  'typography.effect.dash_edge.label': 'Dash Edge',
-  'typography.effect.dash_edge.description':
-    'Hijau tua dengan ujung tajam untuk potongan/kemunculan mendadak.',
-  'typography.effect.scream_scratch.label': 'Scream Scratch',
-  'typography.effect.scream_scratch.description':
-    'Teriakan hitam dengan offset merah kasar.',
+  'typography.effect.bang_chunk.description': 'Royal-blue-to-indigo block with thick warm ochre-gold outline.',
+  'typography.effect.shake_blur.label': 'SHAKE Double',
+  'typography.effect.shake_blur.description': 'Dusty mauve outline lettering with horizontal double-vision echo.',
+  'typography.effect.rattle_jagged.label': 'RATTLE Block',
+  'typography.effect.rattle_jagged.description': 'Vivid raspberry dry-brush letters with thick cream offset block shadow.',
+  'typography.effect.flinch_outline.label': 'FLINCH Impact',
+  'typography.effect.flinch_outline.description': 'White comic italic with thick black outline and sharp crimson shadow.',
+  'typography.effect.break_glitch.label': 'BREAK Fracture',
+  'typography.effect.break_glitch.description': 'Deep wine-plum lettering shattered horizontally with white crack seams.',
+  'typography.effect.snap_rough.label': 'Snap Splinter',
+  'typography.effect.snap_rough.description': 'Sharp pitch-black brush with jagged outward splinters and chips.',
+  'typography.effect.yawn_soft.label': 'Yawn~ Lime',
+  'typography.effect.yawn_soft.description': 'Bright chartreuse-lime lettering with thick deep purple outline.',
+  'typography.effect.click_ink.label': 'Click Ink',
+  'typography.effect.click_ink.description': 'Compact punchy comic black ink with subtle organic edge.',
+  'typography.effect.dash_edge.label': 'DASH Slash',
+  'typography.effect.dash_edge.description': 'Slanted sage-green brush with crisp muted-plum offset shadow.',
+  'typography.effect.scream_scratch.label': 'AAAA! Scream',
+  'typography.effect.scream_scratch.description': 'Italicized jagged black brush with tight crimson back echo.',
   'model.opus-mt-ja-en.description':
     'Pipeline OPUS-MT yang dioptimalkan untuk konten Jepang, dengan terjemahan Inggris dan alur sekunder untuk Portugis.',
   'model.nllb-200-600m-int8.description':

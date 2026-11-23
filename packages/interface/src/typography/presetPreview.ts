@@ -10,6 +10,8 @@ import type { TypographyStylePreset } from "./types";
 import type { RenderTextStyle } from "./renderStyle";
 import type { AioTextRegion } from "../types/dashboard.types";
 import { usePresetPreviewSignal } from "./presetPreviewSignal";
+import { useTextEffectPreviewSignal } from "./textEffectPreviewSignal";
+import { applyNativeTextEffectPreset } from "./textEffects";
 
 export const applyTypographyPresetToRegionBody = (
   region: AioTextRegion,
@@ -37,14 +39,30 @@ export const usePresetPreviewOverride = (
   presets: readonly TypographyStylePreset[] | undefined,
 ): PresetPreviewOverride | null => {
   const previewPresetId = usePresetPreviewSignal();
+  const previewEffectId = useTextEffectPreviewSignal();
+  const region = regions.find((entry) => entry.id === targetRegionId) ?? null;
+  if (!region) return null;
+
   const preset = previewPresetId && presets
     ? presets.find((entry) => entry.id === previewPresetId) ?? null
     : null;
-  if (!preset) return null;
-  const region = regions.find((entry) => entry.id === targetRegionId) ?? null;
-  if (!region) return null;
-  return {
-    regionId: region.id,
-    region: applyTypographyPresetToRegionBody(region, preset, fallbackStyle),
-  };
+  if (preset) {
+    return {
+      regionId: region.id,
+      region: applyTypographyPresetToRegionBody(region, preset, fallbackStyle),
+    };
+  }
+
+  if (previewEffectId !== null) {
+    const baseStyle = cloneRenderStyle(region.renderStyle ?? fallbackStyle);
+    return {
+      regionId: region.id,
+      region: {
+        ...region,
+        renderStyle: applyNativeTextEffectPreset(baseStyle, previewEffectId),
+      },
+    };
+  }
+
+  return null;
 };

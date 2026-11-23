@@ -1,4 +1,7 @@
-import type { NativeTextEffectPresetId } from "./textEffects";
+import type {
+  NativeTextEffectPresetId,
+  RenderTextEffectBaseSnapshot,
+} from "./textEffects.types";
 
 export type RenderTextAlign = "left" | "center" | "right";
 export type RenderTextOrientation = "horizontal" | "vertical";
@@ -58,6 +61,7 @@ export interface RenderTextStyle {
   outlineWidth: number;
   textEffectPreset: NativeTextEffectPresetId;
   textEffectIntensity: number;
+  textEffectBaseSnapshot?: RenderTextEffectBaseSnapshot | null;
 }
 
 export interface RenderTextStyleRange {
