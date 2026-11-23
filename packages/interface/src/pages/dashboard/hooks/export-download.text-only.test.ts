@@ -9,6 +9,7 @@ import { useDashboardDownloadBundle } from './export-download';
 import { useExportStore } from '../stores/export-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
+import { useTranslatorStore } from '../stores/translator-store';
 
 const { packageMock, materializeMock, renderMock } = vi.hoisted(() => ({
   packageMock: vi.fn((_job: ExportPoolJob) =>
@@ -198,5 +199,50 @@ describe('AIO text-only bundle layout', () => {
       includeRawText: true,
       includeTranslatedText: true,
     });
+  });
+});
+
+describe('translator visual bundle', () => {
+  const translatorRegions: AioTextRegion[] = [
+    {
+      id: 't1',
+      bbox: [0, 0, 10, 10],
+      recognizedText: 'さようなら',
+      translatedText: 'Tchau',
+    } as AioTextRegion,
+  ];
+
+  const exportTranslator = async (): Promise<ExportPoolJob> => {
+    useTranslatorStore.setState({ translatorDetectionsByImage: { 'img-1': translatorRegions } });
+    const bundle = renderBundle();
+    const entries = await bundle.prepareDownloadEntries('translator');
+    await bundle.buildDownloadBundleBlob('translator', entries);
+    const job = packageMock.mock.calls.at(-1)?.[0];
+    if (!job) throw new Error('no package job was submitted');
+    return job;
+  };
+
+  it('uses the AIO text folders and page naming without page images', async () => {
+    const job = await exportTranslator();
+    const paths = job.zipEntries.map((entry) => entry.path);
+    expect(new Set(paths)).toEqual(new Set(['texts/raw/001-p1.txt', 'texts/translated/001-p1.txt']));
+    expect(materializeMock).not.toHaveBeenCalled();
+  });
+
+  it('writes the translator regions, not the AIO ones', async () => {
+    const job = await exportTranslator();
+    const decoder = new TextDecoder();
+    const translated = job.zipEntries.find((entry) => entry.path.startsWith('texts/translated/'));
+    expect(translated && decoder.decode(translated.bytes)).toContain('Tchau');
+    expect(translated && decoder.decode(translated.bytes)).not.toContain('Olá');
+  });
+
+  it('always packages a zip and flags both texts in the manifest', async () => {
+    useExportStore.setState({ downloadBundleFormat: 'pdf', downloadIncludeRawText: false });
+    const job = await exportTranslator();
+    expect(job.bundleFormat).toBe('zip');
+    expect(job.flags.includeRawText).toBe(true);
+    expect(job.flags.includeTranslatedText).toBe(true);
+    expect(job.flags.includeInpaintedImage).toBe(false);
   });
 });

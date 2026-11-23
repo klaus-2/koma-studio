@@ -6,7 +6,6 @@ import {
   applyDetectedGradientToStyle,
   applyRenderDefaultsToRegion,
   buildDefaultRegionRenderText,
-  buildRegionTextDump,
   buildTranslationNoteOverlayRegions,
   canvasToBlob,
   cloneRenderStyle,
@@ -17,7 +16,6 @@ import {
   loadImageFromSource,
   removeFileExtension,
   resolveDownloadFileName,
-  sanitizeArchivePathToken,
   scaleTypographyShapeForBounds,
 } from '../../../utils/dashboard.utils';
 import { computeRenderTextLayout, drawRenderedTextInRegion } from '../../../utils/renderText';
@@ -78,37 +76,13 @@ export function useDashboardDownloadActions({
   );
   const setStatusMessage = useStatusStore((s) => s.setStatusMessage);
 
-  const buildTranslatorDownloadBlob = useCallback(async (): Promise<{ blob: Blob; fileName: string }> => {
+  const buildTranslatorTextBlob = useCallback((): { blob: Blob; fileName: string } => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    if (translatorWorkspaceMode === 'text') {
-      const textBlob = new Blob([translatorTranslatedText], { type: 'text/plain;charset=utf-8' });
-      return {
-        blob: textBlob,
-        fileName: `koma-studio-translator-text-${timestamp}.txt`,
-      };
-    }
-
-    const { zipSync, strToU8 } = await import('fflate');
-    const zipFiles: Record<string, Uint8Array> = {};
-    getImages().forEach((imgData, index) => {
-      const regions = getTranslatorDetectionsByImage()[imgData.id] ?? [];
-      const baseName = sanitizeArchivePathToken(removeFileExtension(imgData.file.name));
-      zipFiles[`texts/raw/${String(index + 1).padStart(3, '0')}-${baseName}.txt`] = strToU8(
-        buildRegionTextDump(regions, 'recognized'),
-      );
-      zipFiles[`texts/translated/${String(index + 1).padStart(3, '0')}-${baseName}.txt`] = strToU8(
-        buildRegionTextDump(regions, 'translated'),
-      );
-    });
-
-    const zipped = zipSync(zipFiles, { level: 6 });
-    const zippedCopy = new Uint8Array(zipped.byteLength);
-    zippedCopy.set(zipped);
     return {
-      blob: new Blob([zippedCopy.buffer], { type: 'application/zip' }),
-      fileName: `koma-studio-translator-visual-${timestamp}.zip`,
+      blob: new Blob([translatorTranslatedText], { type: 'text/plain;charset=utf-8' }),
+      fileName: `koma-studio-translator-text-${timestamp}.txt`,
     };
-  }, [translatorTranslatedText, translatorWorkspaceMode]);
+  }, [translatorTranslatedText]);
 
   const handleDownload = useCallback(async (scope: ProcessableMode | null = lastActionScope) => {
     try {
@@ -131,11 +105,13 @@ export function useDashboardDownloadActions({
           setStatusMessage(t('downloadActions.noTranslatorResults'));
           return;
         }
-        const { blob, fileName } = await buildTranslatorDownloadBlob();
-        triggerBlobDownload(blob, fileName);
-        setDownloadMenuOpen(false);
-        setStatusMessage(`File ${fileName} generated successfully.`);
-        return;
+        if (translatorWorkspaceMode === 'text') {
+          const { blob, fileName } = buildTranslatorTextBlob();
+          triggerBlobDownload(blob, fileName);
+          setDownloadMenuOpen(false);
+          setStatusMessage(`File ${fileName} generated successfully.`);
+          return;
+        }
       }
 
       const entries = await prepareDownloadEntries(scope);
@@ -154,7 +130,7 @@ export function useDashboardDownloadActions({
       }
       triggerBlobDownload(bundle.blob, bundle.fileName);
       setDownloadMenuOpen(false);
-      if (downloadBundleFormat === 'cb7') {
+      if (downloadBundleFormat === 'cb7' && scope !== 'translator') {
         setStatusMessage(`Pacote ${bundle.fileName} gerado (modo CB7 experimental com container ZIP).`);
         return;
       }
@@ -164,7 +140,7 @@ export function useDashboardDownloadActions({
     }
   }, [
     buildDownloadBundleBlob,
-    buildTranslatorDownloadBlob,
+    buildTranslatorTextBlob,
     downloadBundleFormat,
     lastActionScope,
     prepareDownloadEntries,
@@ -177,7 +153,7 @@ export function useDashboardDownloadActions({
   ]);
 
   return {
-    buildTranslatorDownloadBlob,
+    buildTranslatorTextBlob,
     handleDownload,
   };
 }

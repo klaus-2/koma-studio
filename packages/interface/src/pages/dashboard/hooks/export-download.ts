@@ -50,6 +50,7 @@ import { useCleanerStore } from '../stores/cleaner-store';
 import { useExportStore } from '../stores/export-store';
 import { useImageCollectionStore } from '../stores/image-collection-store';
 import { useRegionEditorStore } from '../stores/region-editor-store';
+import { useTranslatorStore } from '../stores/translator-store';
 import { useWorksStore } from '../stores/works-store';
 
 export { useDashboardDownloadActions, useDashboardPsdDownload } from './export-download.actions';
@@ -326,6 +327,14 @@ export function useDashboardDownloadBundle({
       return outputs;
     }
 
+    if (scope === 'translator') {
+      return getImages().map((imgData) => ({
+        fileName: `${removeFileExtension(imgData.file.name) || 'image'}.txt`,
+        blob: new Blob([], { type: imgData.file.type || outFormat }),
+        sourceImageId: imgData.id,
+      }));
+    }
+
     if (scope === 'aio') {
       const extension = getImageExtensionFromMime(outFormat);
       const outputs: PreparedDownloadEntry[] = [];
@@ -425,9 +434,11 @@ export function useDashboardDownloadBundle({
       cb7: 'cb7',
       pdf: 'pdf',
     };
-    const targetExt = extensionByFormat[downloadBundleFormat];
+    const translatorScope = scope === 'translator';
+    const bundleFormat: DownloadBundleFormat = translatorScope ? 'zip' : downloadBundleFormat;
+    const targetExt = extensionByFormat[bundleFormat];
 
-    if (downloadBundleFormat === 'pdf') {
+    if (bundleFormat === 'pdf') {
       const orderedEntries = [...entries].sort((a, b) => {
         const ai = getImages().findIndex((item) => item.id === a.sourceImageId);
         const bi = getImages().findIndex((item) => item.id === b.sourceImageId);
@@ -493,23 +504,26 @@ export function useDashboardDownloadBundle({
       const imagePath = patternedStem === null
         ? `images/${orderedIndex}-${baseName}.${imageExt}`
         : `images/${orderedIndex}-${ensureExportExtension(baseName, imageExt)}`;
-      const textOnlyEntry = scope === 'aio' && aioTextOnly;
+      const textOnlyEntry = (scope === 'aio' && aioTextOnly) || translatorScope;
       if (!textOnlyEntry) {
         zipFiles[imagePath] = new Uint8Array(await entry.blob.arrayBuffer());
       }
 
-      if (scope !== 'aio' && scope !== 'typesetter') return;
-      const regions = useRegionEditorStore.getState().aioDetectionsByImage[entry.sourceImageId] ?? [];
-      if (scope === 'aio' && aioIncludeRawText) {
+      if (scope !== 'aio' && scope !== 'typesetter' && !translatorScope) return;
+      const regionsByImage = translatorScope
+        ? useTranslatorStore.getState().translatorDetectionsByImage
+        : useRegionEditorStore.getState().aioDetectionsByImage;
+      const regions = regionsByImage[entry.sourceImageId] ?? [];
+      if ((scope === 'aio' && aioIncludeRawText) || translatorScope) {
         const rawTextPath = `texts/raw/${orderedIndex}-${baseName}.txt`;
         zipFiles[rawTextPath] = strToU8(buildRegionTextDump(regions, 'recognized'));
       }
-      if (scope === 'aio' && aioIncludeTranslatedText) {
+      if ((scope === 'aio' && aioIncludeTranslatedText) || translatorScope) {
         const translatedTextPath = `texts/translated/${orderedIndex}-${baseName}.txt`;
         zipFiles[translatedTextPath] = strToU8(buildRegionTextDump(regions, 'translated'));
       }
-      const notesDump = scope === 'aio' ? buildRegionNotesDump(regions) : '';
-      if (scope === 'aio' && notesDump) {
+      const notesDump = scope === 'aio' || translatorScope ? buildRegionNotesDump(regions) : '';
+      if (notesDump) {
         const notesTextPath = `texts/notes/${orderedIndex}-${baseName}.txt`;
         zipFiles[notesTextPath] = strToU8(notesDump);
       }
@@ -544,8 +558,8 @@ export function useDashboardDownloadBundle({
       ([path, bytes]) => ({ path, bytes }),
     );
     const fileName = resolveBundleFileName(namingPattern, orderedEntries[0] ?? entries[0], scope, timestamp, targetExt);
-    if (downloadBundleFormat === 'zip' || downloadBundleFormat === 'cbz') {
-      const outcome = await streamBundleViaShell(downloadBundleFormat, fileName, zipEntries);
+    if (bundleFormat === 'zip' || bundleFormat === 'cbz') {
+      const outcome = await streamBundleViaShell(bundleFormat, fileName, zipEntries);
       if (outcome !== null) {
         if (!outcome.cancelled) {
           useExportStore.getState().setLastExportedFilePath(outcome.filePath);
@@ -558,14 +572,14 @@ export function useDashboardDownloadBundle({
       }
     }
     const result = await getExportPool().package({
-      bundleFormat: downloadBundleFormat,
+      bundleFormat,
       scope,
       outFormat,
       zipEntries,
       createdAt: new Date().toISOString(),
       flags: {
-        includeRawText: scope === 'aio' ? aioIncludeRawText : false,
-        includeTranslatedText: scope === 'aio' ? aioIncludeTranslatedText : false,
+        includeRawText: scope === 'aio' ? aioIncludeRawText : translatorScope,
+        includeTranslatedText: scope === 'aio' ? aioIncludeTranslatedText : translatorScope,
         includeInpaintedImage: scope === 'aio' && !aioTextOnly ? downloadIncludeInpaintedImage : false,
         includesTypographerSession: scope === 'typesetter',
       },
