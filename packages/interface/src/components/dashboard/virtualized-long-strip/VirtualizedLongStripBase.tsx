@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type {
   CSSProperties,
   FocusEvent,
   ReactElement,
   ReactNode,
+  RefObject,
 } from "react";
 import {
   defaultRangeExtractor,
@@ -26,6 +27,7 @@ export interface VirtualizedLongStripProps {
     end: number;
   }) => void;
   readonly focusIndexSignal?: FocusIndexSignal | null;
+  readonly scrollElementRef?: RefObject<HTMLElement | null>;
 }
 
 export interface VirtualizedLongStripBaseProps
@@ -102,17 +104,20 @@ export function VirtualizedLongStripBase({
   ariaLabel = "Pages",
   onVisibleRangeChange,
   focusIndexSignal,
+  scrollElementRef,
   variant,
 }: VirtualizedLongStripBaseProps): ReactElement {
   assertConfiguration(itemCount, estimatedItemHeight, overscan);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const [scrollMargin, setScrollMargin] = useState(0);
 
-  const virtualizer = useVirtualizer<HTMLDivElement, HTMLLIElement>({
+  const virtualizer = useVirtualizer<HTMLElement, HTMLLIElement>({
     count: itemCount,
     enabled,
-    getScrollElement: () => containerRef.current,
+    getScrollElement: () => scrollElementRef?.current ?? containerRef.current,
+    scrollMargin,
     getItemKey: itemKey,
     estimateSize: () => estimatedItemHeight,
     overscan,
@@ -149,6 +154,26 @@ export function VirtualizedLongStripBase({
       ];
     },
   });
+
+  useLayoutEffect(() => {
+    const scrollElement = scrollElementRef?.current;
+    const container = containerRef.current;
+    if (!enabled || !scrollElement || !container) return;
+    const measure = (): void => {
+      const offset =
+        container.getBoundingClientRect().top -
+        scrollElement.getBoundingClientRect().top -
+        scrollElement.clientTop +
+        scrollElement.scrollTop;
+      setScrollMargin((previous) => (previous === offset ? previous : offset));
+    };
+
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(scrollElement);
+    return () => observer.disconnect();
+  }, [enabled, scrollElementRef]);
 
   const handleFocus = (event: FocusEvent<HTMLDivElement>): void => {
     const index = readItemIndex(event.target, event.currentTarget);
@@ -204,6 +229,22 @@ export function VirtualizedLongStripBase({
     listStyle: "none",
   };
 
+  const containerStyle: CSSProperties = {
+    position: "relative",
+    width: "100%",
+    alignSelf: "stretch",
+    gridColumn: "1 / -1",
+    ...(scrollElementRef === undefined
+      ? {
+        height,
+        minHeight: 0,
+        overflowY: "auto",
+        overflowX: "hidden",
+        overflowAnchor: "none",
+      }
+      : {}),
+  };
+
   return (
     <div
       ref={containerRef}
@@ -214,14 +255,7 @@ export function VirtualizedLongStripBase({
       tabIndex={0}
       onFocusCapture={handleFocus}
       onBlurCapture={handleBlur}
-      style={{
-        position: "relative",
-        height,
-        minHeight: 0,
-        overflowY: "auto",
-        overflowX: "hidden",
-        overflowAnchor: "none",
-      }}
+      style={containerStyle}
     >
       <ol role="list" style={listStyle}>
         {enabled
@@ -238,8 +272,10 @@ export function VirtualizedLongStripBase({
                 top: 0,
                 left: 0,
                 width: "100%",
-                display: "flow-root",
-                transform: `translateY(${item.start}px)`,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                transform: `translateY(${item.start - scrollMargin}px)`,
               }}
             >
               {renderItem(item.index)}

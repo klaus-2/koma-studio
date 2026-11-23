@@ -649,6 +649,7 @@ function DashboardStageSection({
               renderStageItem={renderStageItem}
               onVisibleRangeChange={onVisibleRangeChange}
               focusIndexSignal={focusIndexSignal}
+              scrollElementRef={stageRef}
             />
           </Suspense>
         </div>

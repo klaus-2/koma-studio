@@ -140,6 +140,73 @@ describe("long-strip accessibility", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 
+  it.each([
+    ["classic", VirtualizedLongStrip],
+    ["noir", VirtualizedLongStripNoir],
+  ] as const)(
+    "fills the stage track and centers each page in the %s variant",
+    (_variant, Strip) => {
+      const metrics = stubElementMetrics();
+      try {
+        render(
+          <Strip
+            itemCount={6}
+            ariaLabel="Stage pages"
+            renderItem={(index) => <span>Page {index + 1}</span>}
+          />,
+        );
+
+        const region = screen.getByRole("region", { name: "Stage pages" });
+
+        expect(region.style.width).toBe("100%");
+        expect(region.style.alignSelf).toBe("stretch");
+        expect(region.style.gridColumn).toBe("1 / -1");
+
+        const items = screen.getAllByRole("listitem");
+        expect(items.length).toBeGreaterThan(0);
+        for (const item of items) {
+          expect(item.style.display).toBe("flex");
+          expect(item.style.flexDirection).toBe("column");
+          expect(item.style.alignItems).toBe("center");
+        }
+      } finally {
+        metrics.restore();
+      }
+    },
+  );
+
+  it("keeps its own scrollbar only when no stage scroll element is given", () => {
+    const stage = document.createElement("section");
+    document.body.appendChild(stage);
+    const scrollElementRef = { current: stage };
+    try {
+      const view = render(
+        <VirtualizedLongStrip
+          itemCount={6}
+          ariaLabel="Own scroll"
+          renderItem={(index) => <span>Page {index + 1}</span>}
+        />,
+      );
+      const own = screen.getByRole("region", { name: "Own scroll" });
+      expect(own.style.overflowY).toBe("auto");
+      view.unmount();
+
+      render(
+        <VirtualizedLongStrip
+          itemCount={6}
+          ariaLabel="Stage scroll"
+          scrollElementRef={scrollElementRef}
+          renderItem={(index) => <span>Page {index + 1}</span>}
+        />,
+      );
+      const shared = screen.getByRole("region", { name: "Stage scroll" });
+      expect(shared.style.overflowY).toBe("");
+      expect(shared.style.height).toBe("");
+    } finally {
+      stage.remove();
+    }
+  });
+
   it("reports the rendered first/last indexes to onVisibleRangeChange", async () => {
     const metrics = stubElementMetrics();
     const onVisibleRangeChange = vi.fn();

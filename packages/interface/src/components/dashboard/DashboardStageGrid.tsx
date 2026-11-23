@@ -10,6 +10,7 @@ interface DashboardStageGridProps {
   itemKey: (index: number) => string;
   onVisibleRangeChange?: (range: { start: number; end: number }) => void;
   focusIndexSignal?: { index: number; nonce: number } | null;
+  scrollElementRef?: React.RefObject<HTMLElement | null>;
 }
 
 const DashboardStageGrid = ({
@@ -19,6 +20,7 @@ const DashboardStageGrid = ({
   itemKey,
   onVisibleRangeChange,
   focusIndexSignal,
+  scrollElementRef,
 }: DashboardStageGridProps) => {
   if (itemCount === 0) return null;
 
@@ -38,6 +40,7 @@ const DashboardStageGrid = ({
         renderItem={renderStageItem}
         onVisibleRangeChange={onVisibleRangeChange}
         focusIndexSignal={focusIndexSignal}
+        scrollElementRef={scrollElementRef}
       />
     );
   }
