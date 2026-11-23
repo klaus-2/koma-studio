@@ -42,6 +42,16 @@ export function useExportDownloadAvailability({ activeImage }: { activeImage: Lo
     mode === 'aio' && aioSteps.render && images.length > 0;
   const hasRenderableTypographerOutput =
     mode === 'typesetter' && images.length > 0;
+  const hasAioTextOutput = useRegionEditorStore((s) =>
+    mode === 'aio' &&
+    images.some((img) =>
+      (s.aioDetectionsByImage[img.id] ?? []).some(
+        (region) =>
+          (region.recognizedText ?? '').trim().length > 0 ||
+          (region.translatedText ?? '').trim().length > 0,
+      ),
+    ),
+  );
   const translatorTextHasDownload = translatorTranslatedText.trim().length > 0;
   const translatorVisualHasDownload = images.some((img) => {
     const regions = translatorDetectionsByImage[img.id] ?? [];
@@ -86,6 +96,7 @@ export function useExportDownloadAvailability({ activeImage }: { activeImage: Lo
             : false,
       ) ||
       hasRenderableAioOutput ||
+      hasAioTextOutput ||
       hasRenderableTypographerOutput;
   const hasDownloadActions = hasDownloads || canExportPsd;
   return {

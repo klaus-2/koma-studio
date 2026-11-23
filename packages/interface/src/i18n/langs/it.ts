@@ -1864,6 +1864,7 @@ export const itMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': 'Testo originale',
   'dashboard.topbar.translated': 'Tradotto',
   'dashboard.topbar.inpainted': 'Inpainted',
+  'dashboard.topbar.textOnly': 'Solo testi',
   'dashboard.topbar.downloadTxt': 'Scarica TXT',
   'dashboard.topbar.downloadZip': 'Scarica ZIP',
   'dashboard.topbar.downloadPackage': 'Scarica pacchetto',

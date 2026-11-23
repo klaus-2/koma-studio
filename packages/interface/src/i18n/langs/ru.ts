@@ -1865,6 +1865,7 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': 'Исходный текст',
   'dashboard.topbar.translated': 'Переведённый',
   'dashboard.topbar.inpainted': 'Очищенный',
+  'dashboard.topbar.textOnly': 'Только текст',
   'dashboard.topbar.downloadTxt': 'Скачать TXT',
   'dashboard.topbar.downloadZip': 'Скачать ZIP',
   'dashboard.topbar.downloadPackage': 'Скачать пакет',

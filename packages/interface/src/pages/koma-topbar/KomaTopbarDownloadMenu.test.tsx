@@ -177,3 +177,43 @@ describe.each([
     await waitFor(() => expect(revealPath).toHaveBeenCalledWith('C:/out/a.zip'));
   });
 });
+
+describe.each([
+  ['classic', false],
+  ['noir', true],
+])('text-only toggle (%s)', (_variant, noir) => {
+  const renderAioMenu = () =>
+    render(
+      <TooltipProvider>
+        <I18nProvider>
+          {noir
+            ? <NoirMenu {...buildProps()} canExportAioMetadata activeDownloadScope="aio" />
+            : <ClassicMenu {...buildProps()} canExportAioMetadata activeDownloadScope="aio" />}
+        </I18nProvider>
+      </TooltipProvider>,
+    );
+
+  beforeEach(() => {
+    setDesktopBridgeProvider({ desktop: null });
+    useExportStore.setState({ downloadTextOnly: false, downloadBundleFormat: 'zip' });
+  });
+
+  it('writes the text-only option into the export store', () => {
+    renderAioMenu();
+    const toggle = screen.getByLabelText('Text only');
+    expect(toggle).not.toBeChecked();
+
+    fireEvent.click(toggle);
+
+    expect(useExportStore.getState().downloadTextOnly).toBe(true);
+  });
+
+  it('turns the inpainted option off while text-only is on', () => {
+    useExportStore.setState({ downloadTextOnly: true });
+    renderAioMenu();
+
+    expect(screen.getByLabelText('Text only')).toBeChecked();
+    expect(screen.getByLabelText('Inpainted')).toBeDisabled();
+    expect(screen.getByLabelText('Inpainted')).not.toBeChecked();
+  });
+});

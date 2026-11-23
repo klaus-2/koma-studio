@@ -2027,6 +2027,7 @@ export const enMessages = {
   'dashboard.topbar.rawText': 'Raw Text',
   'dashboard.topbar.translated': 'Translated',
   'dashboard.topbar.inpainted': 'Inpainted',
+  'dashboard.topbar.textOnly': 'Text only',
   'dashboard.topbar.downloadTxt': 'Download TXT',
   'dashboard.topbar.downloadZip': 'Download ZIP',
   'dashboard.topbar.downloadPackage': 'Download Package',

@@ -1840,6 +1840,7 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': '原文テキスト',
   'dashboard.topbar.translated': '翻訳済み',
   'dashboard.topbar.inpainted': 'インペイント済み',
+  'dashboard.topbar.textOnly': 'テキストのみ',
   'dashboard.topbar.downloadTxt': 'TXTをダウンロード',
   'dashboard.topbar.downloadZip': 'ZIPをダウンロード',
   'dashboard.topbar.downloadPackage': 'パッケージをダウンロード',

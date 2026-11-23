@@ -273,6 +273,8 @@ export function useDashboardDownloadBundle({
   const downloadIncludeInpaintedImage = useExportStore(
     (s) => s.downloadIncludeInpaintedImage,
   );
+  const downloadTextOnly = useExportStore((s) => s.downloadTextOnly);
+  const aioTextOnly = downloadTextOnly && downloadBundleFormat !== 'pdf';
   const namingPattern = useExportStore((s) => s.namingPattern);
 
   const prepareDownloadEntries = useCallback(async (scope: ProcessableMode): Promise<PreparedDownloadEntry[]> => {
@@ -329,6 +331,14 @@ export function useDashboardDownloadBundle({
       const outputs: PreparedDownloadEntry[] = [];
       // ponytail: sequential by design — canvas composition holds one full-page bitmap at a time (parallelizing would hold N decoded pages)
       for (const imgData of getImages()) {
+        if (aioTextOnly) {
+          outputs.push({
+            fileName: `${removeFileExtension(imgData.file.name) || 'image'}.txt`,
+            blob: new Blob([], { type: imgData.file.type || outFormat }),
+            sourceImageId: imgData.id,
+          });
+          continue;
+        }
         const stageKey = resolveAioStageKeyForImage(imgData.id);
         if (stageKey === 'render') {
           const regions = useRegionEditorStore.getState().aioDetectionsByImage[imgData.id] ?? [];
@@ -392,6 +402,7 @@ export function useDashboardDownloadBundle({
     return scopedEntries;
   }, [
 
+    aioTextOnly,
     composeAioEditableCanvas,
     composeCleanerEditableCanvas,
     getAioDownloadItemForImage,
@@ -467,6 +478,10 @@ export function useDashboardDownloadBundle({
       if (item.scope === 'aio') inpaintedByImageId.set(item.sourceImageId, item);
     }
 
+    const textOnlyFallback = aioTextOnly && !downloadIncludeRawText && !downloadIncludeTranslatedText;
+    const aioIncludeRawText = downloadIncludeRawText || textOnlyFallback;
+    const aioIncludeTranslatedText = downloadIncludeTranslatedText || textOnlyFallback;
+
     const imageWriteJobs = orderedEntries.map(async (entry, index) => {
       const imageRef = getImages().find((item) => item.id === entry.sourceImageId);
       const imageExt = getImageExtensionFromMime(entry.blob.type || outFormat);
@@ -478,15 +493,18 @@ export function useDashboardDownloadBundle({
       const imagePath = patternedStem === null
         ? `images/${orderedIndex}-${baseName}.${imageExt}`
         : `images/${orderedIndex}-${ensureExportExtension(baseName, imageExt)}`;
-      zipFiles[imagePath] = new Uint8Array(await entry.blob.arrayBuffer());
+      const textOnlyEntry = scope === 'aio' && aioTextOnly;
+      if (!textOnlyEntry) {
+        zipFiles[imagePath] = new Uint8Array(await entry.blob.arrayBuffer());
+      }
 
       if (scope !== 'aio' && scope !== 'typesetter') return;
       const regions = useRegionEditorStore.getState().aioDetectionsByImage[entry.sourceImageId] ?? [];
-      if (scope === 'aio' && downloadIncludeRawText) {
+      if (scope === 'aio' && aioIncludeRawText) {
         const rawTextPath = `texts/raw/${orderedIndex}-${baseName}.txt`;
         zipFiles[rawTextPath] = strToU8(buildRegionTextDump(regions, 'recognized'));
       }
-      if (scope === 'aio' && downloadIncludeTranslatedText) {
+      if (scope === 'aio' && aioIncludeTranslatedText) {
         const translatedTextPath = `texts/translated/${orderedIndex}-${baseName}.txt`;
         zipFiles[translatedTextPath] = strToU8(buildRegionTextDump(regions, 'translated'));
       }
@@ -501,7 +519,7 @@ export function useDashboardDownloadBundle({
         const sessionPath = `typographer/${orderedIndex}-${baseName}.session.json`;
         zipFiles[sessionPath] = strToU8(JSON.stringify(typographySession, null, 2));
       }
-      if (scope === 'aio' && downloadIncludeInpaintedImage) {
+      if (scope === 'aio' && !textOnlyEntry && downloadIncludeInpaintedImage) {
         const inpainted = inpaintedByImageId.get(entry.sourceImageId);
         const imageState = getImages().find((item) => item.id === entry.sourceImageId);
         if (imageState && hasAioManualImageEdits(entry.sourceImageId)) {
@@ -546,9 +564,9 @@ export function useDashboardDownloadBundle({
       zipEntries,
       createdAt: new Date().toISOString(),
       flags: {
-        includeRawText: scope === 'aio' ? downloadIncludeRawText : false,
-        includeTranslatedText: scope === 'aio' ? downloadIncludeTranslatedText : false,
-        includeInpaintedImage: scope === 'aio' ? downloadIncludeInpaintedImage : false,
+        includeRawText: scope === 'aio' ? aioIncludeRawText : false,
+        includeTranslatedText: scope === 'aio' ? aioIncludeTranslatedText : false,
+        includeInpaintedImage: scope === 'aio' && !aioTextOnly ? downloadIncludeInpaintedImage : false,
         includesTypographerSession: scope === 'typesetter',
       },
       transferBytes: true,
@@ -560,6 +578,7 @@ export function useDashboardDownloadBundle({
     };
   }, [
 
+    aioTextOnly,
     composeAioEditableCanvas,
     downloadBundleFormat,
     downloadIncludeInpaintedImage,

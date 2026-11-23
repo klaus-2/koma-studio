@@ -1777,6 +1777,7 @@ export const arMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': 'نص خام',
   'dashboard.topbar.translated': 'مُترجم',
   'dashboard.topbar.inpainted': 'مُرمّم',
+  'dashboard.topbar.textOnly': 'النصوص فقط',
   'dashboard.topbar.downloadTxt': 'تنزيل TXT',
   'dashboard.topbar.downloadZip': 'تنزيل ZIP',
   'dashboard.topbar.downloadPackage': 'تنزيل الحزمة',

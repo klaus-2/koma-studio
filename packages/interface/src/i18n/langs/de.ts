@@ -1894,6 +1894,7 @@ export const deMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': 'Rohtext',
   'dashboard.topbar.translated': 'Übersetzt',
   'dashboard.topbar.inpainted': 'Inpainted',
+  'dashboard.topbar.textOnly': 'Nur Texte',
   'dashboard.topbar.downloadTxt': 'TXT herunterladen',
   'dashboard.topbar.downloadZip': 'ZIP herunterladen',
   'dashboard.topbar.downloadPackage': 'Paket herunterladen',

@@ -1692,6 +1692,7 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': '原始文本',
   'dashboard.topbar.translated': '已翻译',
   'dashboard.topbar.inpainted': '已修复',
+  'dashboard.topbar.textOnly': '仅文本',
   'dashboard.topbar.downloadTxt': '下载 TXT',
   'dashboard.topbar.downloadZip': '下载 ZIP',
   'dashboard.topbar.downloadPackage': '下载包',

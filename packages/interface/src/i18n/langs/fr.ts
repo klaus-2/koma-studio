@@ -1846,6 +1846,7 @@ export const frMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': 'Texte brut',
   'dashboard.topbar.translated': 'Traduit',
   'dashboard.topbar.inpainted': 'Inpainté',
+  'dashboard.topbar.textOnly': 'Textes uniquement',
   'dashboard.topbar.downloadTxt': 'Télécharger le TXT',
   'dashboard.topbar.downloadZip': 'Télécharger le ZIP',
   'dashboard.topbar.downloadPackage': 'Télécharger le package',

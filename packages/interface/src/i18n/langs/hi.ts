@@ -1834,6 +1834,7 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': 'Teks Mentah',
   'dashboard.topbar.translated': 'Diterjemahkan',
   'dashboard.topbar.inpainted': 'Inpainted',
+  'dashboard.topbar.textOnly': 'Hanya teks',
   'dashboard.topbar.downloadTxt': 'Unduh TXT',
   'dashboard.topbar.downloadZip': 'Unduh ZIP',
   'dashboard.topbar.downloadPackage': 'Unduh Paket',

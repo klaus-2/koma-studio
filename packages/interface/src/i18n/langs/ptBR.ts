@@ -1943,6 +1943,7 @@ export const ptBrMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': 'Raw Text',
   'dashboard.topbar.translated': 'Translated',
   'dashboard.topbar.inpainted': 'Inpainted',
+  'dashboard.topbar.textOnly': 'Somente textos',
   'dashboard.topbar.downloadTxt': 'Baixar TXT',
   'dashboard.topbar.downloadZip': 'Baixar ZIP',
   'dashboard.topbar.downloadPackage': 'Baixar Pacote',

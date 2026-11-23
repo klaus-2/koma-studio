@@ -120,6 +120,8 @@ export default function KomaTopbarDownloadMenu({
   onToggle,
 }: KomaTopbarDownloadMenuProps) {
   const { t } = useI18n();
+  const downloadTextOnly = useExportStore((s) => s.downloadTextOnly);
+  const setDownloadTextOnly = useExportStore((s) => s.setDownloadTextOnly);
   const revealAction = useRevealExportedFileAction();
   const standardImagePackage = !translatorTextMode && !translatorVisualMode;
 
@@ -183,7 +185,8 @@ export default function KomaTopbarDownloadMenu({
                 <div className="koma-dlmenu__checks">
                   <CheckRow checked={downloadIncludeRawText} disabled={downloadBundleFormat === 'pdf'} onChange={onDownloadIncludeRawTextChange} label={t('dashboard.topbar.rawText')} />
                   <CheckRow checked={downloadIncludeTranslatedText} disabled={downloadBundleFormat === 'pdf'} onChange={onDownloadIncludeTranslatedTextChange} label={t('dashboard.topbar.translated')} />
-                  <CheckRow checked={downloadIncludeInpaintedImage} disabled={downloadBundleFormat === 'pdf' || !hasInpaintedOutputs} onChange={onDownloadIncludeInpaintedImageChange} label={t('dashboard.topbar.inpainted')} />
+                  <CheckRow checked={downloadIncludeInpaintedImage && !downloadTextOnly} disabled={downloadBundleFormat === 'pdf' || !hasInpaintedOutputs || downloadTextOnly} onChange={onDownloadIncludeInpaintedImageChange} label={t('dashboard.topbar.inpainted')} />
+                  <CheckRow checked={downloadTextOnly} disabled={downloadBundleFormat === 'pdf'} onChange={setDownloadTextOnly} label={t('dashboard.topbar.textOnly')} />
                 </div>
               )}
 

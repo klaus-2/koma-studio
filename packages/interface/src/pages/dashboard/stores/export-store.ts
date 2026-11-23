@@ -66,6 +66,7 @@ interface ExportStore {
   downloadIncludeRawText: boolean;
   downloadIncludeTranslatedText: boolean;
   downloadIncludeInpaintedImage: boolean;
+  downloadTextOnly: boolean;
   downloadPsdCompression: PsdCompression;
   downloadPsdDpi: number;
   downloadPsdIncludeOcrOverlay: boolean;
@@ -94,6 +95,7 @@ interface ExportStore {
   setDownloadIncludeRawText: (value: boolean) => void;
   setDownloadIncludeTranslatedText: (value: boolean) => void;
   setDownloadIncludeInpaintedImage: (value: boolean) => void;
+  setDownloadTextOnly: (value: boolean) => void;
   setDownloadPsdCompression: (value: PsdCompression) => void;
   setDownloadPsdDpi: (value: number) => void;
   setDownloadPsdIncludeOcrOverlay: (value: boolean) => void;
@@ -126,6 +128,7 @@ export const useExportStore = create<ExportStore>()(
       downloadIncludeRawText: true,
       downloadIncludeTranslatedText: true,
       downloadIncludeInpaintedImage: true,
+      downloadTextOnly: false,
       downloadPsdCompression: 'rle',
       downloadPsdDpi: 300,
       downloadPsdIncludeOcrOverlay: true,
@@ -161,6 +164,7 @@ export const useExportStore = create<ExportStore>()(
         set({ downloadIncludeTranslatedText }),
       setDownloadIncludeInpaintedImage: (downloadIncludeInpaintedImage) =>
         set({ downloadIncludeInpaintedImage }),
+      setDownloadTextOnly: (downloadTextOnly) => set({ downloadTextOnly }),
       setDownloadPsdCompression: (downloadPsdCompression) =>
         set({ downloadPsdCompression }),
       setDownloadPsdDpi: (downloadPsdDpi) => set({ downloadPsdDpi }),

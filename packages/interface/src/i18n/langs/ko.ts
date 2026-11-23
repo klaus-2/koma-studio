@@ -1792,6 +1792,7 @@ export const koMessages: TranslationCatalog = {
   'dashboard.topbar.rawText': '원본 텍스트',
   'dashboard.topbar.translated': '번역됨',
   'dashboard.topbar.inpainted': '인페인팅됨',
+  'dashboard.topbar.textOnly': '텍스트만',
   'dashboard.topbar.downloadTxt': 'TXT 다운로드',
   'dashboard.topbar.downloadZip': 'ZIP 다운로드',
   'dashboard.topbar.downloadPackage': '패키지 다운로드',
