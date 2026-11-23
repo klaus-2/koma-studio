@@ -53,6 +53,7 @@ import { resolveTranslationStageExecutionKey } from '../utils/translationAutoRes
 import { useAioPipelineStore } from '../pages/dashboard/stores/aio-pipeline-store';
 import { useRegionEditorStore } from '../pages/dashboard/stores/region-editor-store';
 import { patchAioSnapshotStageForImage } from '../pages/dashboard/hooks/aio-snapshot.commands';
+import { isPreviousManualStageFinished } from '../pages/dashboard/lib/manual-stage-gate';
 
 interface ModelManagerEntryLike {
   status: string;
@@ -226,6 +227,12 @@ export function useAioManualStageExecutor({
     // stays equally strict.
     const readiness = getAioStageReadiness(stageKey, stageRegionsFromSnapshot());
     if (!readiness.runnable) {
+      if (isPreviousManualStageFinished(stageIndex, progress.statusByStage)) {
+        patchAioSnapshotStageForImage(activeId, stageIndex, []);
+        completeManualStageForImage(activeId, stageIndex, 'skipped');
+        setStatusMessage(t('aioManual.stageSkippedNoRegions', { stage: stageLabel }));
+        return;
+      }
       setStatusMessage(t(`aioManual.prereqMissing.${stageKey}`));
       return;
     }

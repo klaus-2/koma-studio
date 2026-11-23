@@ -3932,6 +3932,7 @@ export const ptBrMessages: TranslationCatalog = {
   'aioModel.status.selectValidOcr': 'Selecione um modelo válido para OCR.',
   'aioModel.status.selectAvailableForStage': 'Selecione um modelo disponível para a etapa "{stage}".',
   'dashboard.aio.manualStageSkipped': 'Modo manual: etapa "{stage}" pulada.',
+  'aioManual.stageSkippedNoRegions': 'Modo manual: etapa "{stage}" pulada porque a etapa anterior não encontrou regiões.',
   'aio.singleImage.detectFailed': 'Falha ao detectar texto em "{fileName}": {message}',
   'aio.singleImage.recognizeFailed': 'Falha ao reconhecer texto em "{fileName}": {message}',
   'aio.singleImage.translateFailed': 'Falha ao traduzir texto em "{fileName}": {message}',
