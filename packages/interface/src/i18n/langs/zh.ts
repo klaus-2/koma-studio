@@ -4333,6 +4333,10 @@ export const zhMessages: TranslationCatalog = {
   'settings.customCursor.description': '用 Koma 的动画光标替换系统指针。',
   'settings.customCursor.enableTitle': '使用自定义光标',
   'settings.customCursor.enableDesc': '显示动画光标叠加层。关闭后将使用系统指针。',
+  'settings.backdropVideo.title': '背景视频',
+  'settings.backdropVideo.description': 'Noir 主题下仪表板背后的动画视频。',
+  'settings.backdropVideo.alwaysPausedTitle': '始终暂停视频',
+  'settings.backdropVideo.alwaysPausedDesc': '让背景视频保持停止。加载页面时视频本来就会暂停。',
   'dashboard.hint.healing.ariaLabel': '修复工具提示',
   'dashboard.hint.healing.eyebrow': '新工具',
   'dashboard.hint.healing.body':

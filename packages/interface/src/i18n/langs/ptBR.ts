@@ -5003,6 +5003,10 @@ export const ptBrMessages: TranslationCatalog = {
   'settings.customCursor.description': 'Substitui o ponteiro do sistema pelo cursor animado do Koma.',
   'settings.customCursor.enableTitle': 'Usar cursor personalizado',
   'settings.customCursor.enableDesc': 'Exibe o cursor animado sobreposto. Desative para usar o ponteiro do sistema.',
+  'settings.backdropVideo.title': 'Vídeo de fundo',
+  'settings.backdropVideo.description': 'Vídeo animado atrás do dashboard no tema Noir.',
+  'settings.backdropVideo.alwaysPausedTitle': 'Sempre pausar o vídeo',
+  'settings.backdropVideo.alwaysPausedDesc': 'Mantém o vídeo de fundo parado. Ele já pausa enquanto houver páginas carregadas.',
   'dashboard.hint.healing.ariaLabel': 'Dica da ferramenta Healing',
   'dashboard.hint.healing.eyebrow': 'Nova ferramenta',
   'dashboard.hint.healing.body':

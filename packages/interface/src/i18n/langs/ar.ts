@@ -4623,6 +4623,10 @@ export const arMessages: TranslationCatalog = {
   'settings.customCursor.description': 'يستبدل مؤشر النظام بمؤشر Koma المتحرك.',
   'settings.customCursor.enableTitle': 'استخدام المؤشر المخصص',
   'settings.customCursor.enableDesc': 'يعرض طبقة المؤشر المتحرك. أوقفه لاستخدام مؤشر النظام.',
+  'settings.backdropVideo.title': 'فيديو الخلفية',
+  'settings.backdropVideo.description': 'فيديو متحرك خلف لوحة التحكم في سمة Noir.',
+  'settings.backdropVideo.alwaysPausedTitle': 'إيقاف الفيديو مؤقتًا دائمًا',
+  'settings.backdropVideo.alwaysPausedDesc': 'يبقي فيديو الخلفية متوقفًا. يتوقف مؤقتًا بالفعل أثناء تحميل الصفحات.',
   'dashboard.hint.healing.ariaLabel': 'تلميح أداة Healing',
   'dashboard.hint.healing.eyebrow': 'أداة جديدة',
   'dashboard.hint.healing.body':

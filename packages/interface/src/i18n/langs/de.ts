@@ -4886,6 +4886,10 @@ export const deMessages: TranslationCatalog = {
   'settings.customCursor.description': 'Ersetzt den Systemzeiger durch den animierten Koma-Cursor.',
   'settings.customCursor.enableTitle': 'Benutzerdefinierten Cursor verwenden',
   'settings.customCursor.enableDesc': 'Zeigt das animierte Cursor-Overlay an. Deaktivieren, um den Systemzeiger zu verwenden.',
+  'settings.backdropVideo.title': 'Hintergrundvideo',
+  'settings.backdropVideo.description': 'Animiertes Video hinter dem Dashboard im Noir-Theme.',
+  'settings.backdropVideo.alwaysPausedTitle': 'Video immer pausieren',
+  'settings.backdropVideo.alwaysPausedDesc': 'Hält das Hintergrundvideo angehalten. Es pausiert bereits, solange Seiten geladen sind.',
   'dashboard.hint.healing.ariaLabel': 'Hinweis zum Healing-Werkzeug',
   'dashboard.hint.healing.eyebrow': 'Neues Werkzeug',
   'dashboard.hint.healing.body':

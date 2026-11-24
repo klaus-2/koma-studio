@@ -4818,6 +4818,10 @@ export const itMessages: TranslationCatalog = {
   'settings.customCursor.description': 'Sostituisce il puntatore di sistema con il cursore animato di Koma.',
   'settings.customCursor.enableTitle': 'Usa il cursore personalizzato',
   'settings.customCursor.enableDesc': 'Mostra il cursore animato sovrapposto. Disattivalo per usare il puntatore di sistema.',
+  'settings.backdropVideo.title': 'Video di sfondo',
+  'settings.backdropVideo.description': 'Video animato dietro la dashboard nel tema Noir.',
+  'settings.backdropVideo.alwaysPausedTitle': 'Metti sempre in pausa il video',
+  'settings.backdropVideo.alwaysPausedDesc': 'Mantiene fermo il video di sfondo. Si mette già in pausa quando ci sono pagine caricate.',
   'dashboard.hint.healing.ariaLabel': 'Suggerimento dello strumento Healing',
   'dashboard.hint.healing.eyebrow': 'Nuovo strumento',
   'dashboard.hint.healing.body':

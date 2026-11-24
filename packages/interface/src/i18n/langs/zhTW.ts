@@ -4348,6 +4348,10 @@ export const zhMessages: TranslationCatalog = {
   'settings.customCursor.description': '以 Koma 的動態游標取代系統指標。',
   'settings.customCursor.enableTitle': '使用自訂游標',
   'settings.customCursor.enableDesc': '顯示動態游標疊層。關閉後將使用系統指標。',
+  'settings.backdropVideo.title': '背景影片',
+  'settings.backdropVideo.description': 'Noir 主題下儀表板背後的動態影片。',
+  'settings.backdropVideo.alwaysPausedTitle': '一律暫停影片',
+  'settings.backdropVideo.alwaysPausedDesc': '讓背景影片保持停止。載入頁面時影片本來就會暫停。',
   'dashboard.hint.healing.ariaLabel': '修復工具提示',
   'dashboard.hint.healing.eyebrow': '新工具',
   'dashboard.hint.healing.body':

@@ -4623,6 +4623,10 @@ export const enMessages = {
   'settings.customCursor.description': 'Replace the system pointer with the animated Koma cursor.',
   'settings.customCursor.enableTitle': 'Use custom cursor',
   'settings.customCursor.enableDesc': 'Shows the animated cursor overlay. Turn off to use your system pointer.',
+  'settings.backdropVideo.title': 'Background video',
+  'settings.backdropVideo.description': 'Animated video behind the dashboard in the Noir theme.',
+  'settings.backdropVideo.alwaysPausedTitle': 'Always pause the video',
+  'settings.backdropVideo.alwaysPausedDesc': 'Keeps the background video stopped. It already pauses while pages are loaded.',
   'dashboard.hint.healing.ariaLabel': 'Healing tool tip',
   'dashboard.hint.healing.eyebrow': 'New tool',
   'dashboard.hint.healing.body':

@@ -1,0 +1,81 @@
+:root[data-theme-family='noir'] .koma-dash-backdrop {
+  overflow: hidden;
+}
+
+:root[data-theme-family='noir'] .koma-dash-backdrop__video {
+  opacity: 0.08;
+}
+
+:root[data-theme-family='noir'] .koma-dash-backdrop__halftone {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+}
+
+:root[data-theme-family='noir'] .koma-dash-backdrop__glow {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+:root[data-theme-family='noir'] .koma-dash-backdrop__glow--crimson {
+  top: 5rem;
+  right: -6rem;
+  width: 28rem;
+  height: 28rem;
+  background: color-mix(in srgb, var(--color-crimson) 15%, transparent);
+  filter: blur(130px);
+}
+
+:root[data-theme-family='noir'] .koma-dash-backdrop__glow--azure {
+  bottom: 4rem;
+  left: 18%;
+  width: 22rem;
+  height: 22rem;
+  background: color-mix(in srgb, var(--color-azure) 10%, transparent);
+  filter: blur(120px);
+}
+
+:root[data-theme-family='noir'] .koma-dash-backdrop__wordmark {
+  position: absolute;
+  right: 2rem;
+  bottom: 2.5rem;
+  font-family: var(--font-display);
+  font-size: clamp(8rem, 16vw, 16rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  user-select: none;
+}
+
+:root[data-theme-family='noir'] .koma-dash-backdrop__vtext {
+  position: absolute;
+  top: 6rem;
+  right: 1.75rem;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.55em;
+  color: color-mix(in srgb, var(--color-paper) 18%, transparent);
+  user-select: none;
+}
+
+:root[data-theme-family='noir'] .koma-dash-backdrop__sfx {
+  position: absolute;
+  top: 38%;
+  left: 34%;
+  transform: rotate(-12deg);
+  font-family: var(--font-display);
+  font-size: 4.5rem;
+  font-weight: 900;
+  color: color-mix(in srgb, var(--color-crimson) 10%, transparent);
+  user-select: none;
+}
+
+:root[data-theme-family='noir'] [data-theme='light'] .koma-dash-backdrop__video {
+  display: none;
+}
+
+:root[data-theme-family='noir'] [data-theme='light'] .koma-dash-backdrop__glow {
+  opacity: 0.4;
+}

@@ -1,4 +1,5 @@
-import { UserRound, ShieldCheck, Scale, Ticket, Globe2, Palette, Moon, Sun, Lightbulb, MousePointer2, Keyboard, RotateCcw } from "lucide-react";
+import { UserRound, ShieldCheck, Scale, Ticket, Globe2, Palette, Moon, Sun, Lightbulb, MousePointer2, Keyboard, RotateCcw, Film } from "lucide-react";
+import { useBackdropVideoStore } from "@/pages/dashboard/stores/backdrop-video-store";
 import { navigateToLegalDocument } from "../../../legal/navigation";
 import type React from "react";
 import type { AuthUser } from "../../../contexts/AuthContext";
@@ -63,6 +64,19 @@ const UiScaleSectionNoir = ({ t }: { t: TranslationFn }): React.ReactElement => 
       <div className="mt-4">
         <ToggleRow title={t("settings.uiScale.compactTitle")} desc={t("settings.uiScale.compactDesc")} checked={compactDensity} onChange={useUiScaleStore.getState().setCompactDensity} />
       </div>
+    </Sec>
+  );
+};
+
+const BackdropVideoSectionNoir = ({ t }: { t: TranslationFn }): React.ReactElement => {
+  const alwaysPaused = useBackdropVideoStore((s) => s.alwaysPaused);
+  return (
+    <Sec icon={<Film size={14} />} title={t("settings.backdropVideo.title")} desc={t("settings.backdropVideo.description")}>
+      <ToggleRow
+        title={t("settings.backdropVideo.alwaysPausedTitle")}
+        desc={t("settings.backdropVideo.alwaysPausedDesc")}
+        checked={alwaysPaused}
+        onChange={useBackdropVideoStore.getState().setAlwaysPaused} />
     </Sec>
   );
 };
@@ -248,6 +262,8 @@ export const renderSettingsGeneralTabNoir = ({
         checked={customCursorEnabled}
         onChange={setCustomCursorEnabled} />
     </Sec>
+
+    <BackdropVideoSectionNoir t={t} />
 
     <Sec icon={<Keyboard size={14} />} title={t("settings.shortcuts.title")} desc={t("settings.shortcuts.description")}>
       <Alert tone="info">

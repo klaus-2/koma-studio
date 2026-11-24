@@ -4771,6 +4771,10 @@ export const frMessages: TranslationCatalog = {
   'settings.customCursor.description': 'Remplace le pointeur système par le curseur animé de Koma.',
   'settings.customCursor.enableTitle': 'Utiliser le curseur personnalisé',
   'settings.customCursor.enableDesc': 'Affiche le curseur animé superposé. Désactivez-le pour utiliser le pointeur système.',
+  'settings.backdropVideo.title': 'Vidéo de fond',
+  'settings.backdropVideo.description': 'Vidéo animée derrière le tableau de bord dans le thème Noir.',
+  'settings.backdropVideo.alwaysPausedTitle': 'Toujours mettre la vidéo en pause',
+  'settings.backdropVideo.alwaysPausedDesc': 'Garde la vidéo de fond arrêtée. Elle se met déjà en pause quand des pages sont chargées.',
   'dashboard.hint.healing.ariaLabel': "Conseil de l'outil Healing",
   'dashboard.hint.healing.eyebrow': 'Nouvel outil',
   'dashboard.hint.healing.body':

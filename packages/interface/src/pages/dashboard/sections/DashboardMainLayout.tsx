@@ -4,6 +4,7 @@ import { memoLoad } from '../../../utils/lazyModule';
 import { AlertTriangle } from 'lucide-react';
 
 import KomaTopbar from '../../KomaTopbar.tsx';
+import DashboardBackdrop from '../../../components/dashboard/DashboardBackdrop';
 import DashboardMobileBackdrop from '../../../components/dashboard/DashboardMobileBackdrop';
 import DashboardRightSidebar from '../../../components/dashboard/DashboardRightSidebar';
 import DashboardSidebarSkeleton from '../../../components/dashboard/DashboardSidebarSkeleton';
@@ -884,8 +885,7 @@ export default memo(function DashboardMainLayout({
 
   return (
     <div className="koma-dash">
-      <div className="koma-dash__bg" aria-hidden="true" />
-      <div className="koma-dash__halftone" aria-hidden="true" />
+      <DashboardBackdrop />
 
       {/* Mobile overlay backdrop */}
       <DashboardMobileBackdrop

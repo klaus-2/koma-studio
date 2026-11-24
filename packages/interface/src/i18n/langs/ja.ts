@@ -4796,6 +4796,10 @@ export const jaMessages: TranslationCatalog = {
   'settings.customCursor.description': 'システムのポインターをKomaのアニメーションカーソルに置き換えます。',
   'settings.customCursor.enableTitle': 'カスタムカーソルを使用',
   'settings.customCursor.enableDesc': 'アニメーションカーソルのオーバーレイを表示します。オフにするとシステムのポインターを使用します。',
+  'settings.backdropVideo.title': '背景動画',
+  'settings.backdropVideo.description': 'Noir テーマでダッシュボードの背後に流れるアニメーション動画です。',
+  'settings.backdropVideo.alwaysPausedTitle': '動画を常に一時停止',
+  'settings.backdropVideo.alwaysPausedDesc': '背景動画を停止したままにします。ページを読み込んでいる間はもともと一時停止します。',
   'dashboard.hint.healing.ariaLabel': 'Healingツールのヒント',
   'dashboard.hint.healing.eyebrow': '新しいツール',
   'dashboard.hint.healing.body':

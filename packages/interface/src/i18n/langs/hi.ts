@@ -4764,6 +4764,10 @@ export const hiMessages: TranslationCatalog = {
   'settings.customCursor.description': 'सिस्टम पॉइंटर को Koma के एनिमेटेड कर्सर से बदलता है।',
   'settings.customCursor.enableTitle': 'कस्टम कर्सर का उपयोग करें',
   'settings.customCursor.enableDesc': 'एनिमेटेड कर्सर ओवरले दिखाता है। सिस्टम पॉइंटर का उपयोग करने के लिए इसे बंद करें।',
+  'settings.backdropVideo.title': 'बैकग्राउंड वीडियो',
+  'settings.backdropVideo.description': 'Noir थीम में डैशबोर्ड के पीछे चलने वाला एनिमेटेड वीडियो।',
+  'settings.backdropVideo.alwaysPausedTitle': 'वीडियो हमेशा रोकें',
+  'settings.backdropVideo.alwaysPausedDesc': 'बैकग्राउंड वीडियो को रुका रखता है। पेज लोड होने पर यह पहले से ही रुक जाता है।',
   'dashboard.hint.healing.ariaLabel': 'Tips alat Healing',
   'dashboard.hint.healing.eyebrow': 'Alat baru',
   'dashboard.hint.healing.body':

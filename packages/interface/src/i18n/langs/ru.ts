@@ -4840,6 +4840,10 @@ export const ruMessages: TranslationCatalog = {
   'settings.customCursor.description': 'Заменяет системный указатель анимированным курсором Koma.',
   'settings.customCursor.enableTitle': 'Использовать пользовательский курсор',
   'settings.customCursor.enableDesc': 'Показывает анимированный курсор поверх интерфейса. Отключите, чтобы использовать системный указатель.',
+  'settings.backdropVideo.title': 'Фоновое видео',
+  'settings.backdropVideo.description': 'Анимированное видео за панелью в теме Noir.',
+  'settings.backdropVideo.alwaysPausedTitle': 'Всегда ставить видео на паузу',
+  'settings.backdropVideo.alwaysPausedDesc': 'Фоновое видео остаётся остановленным. Оно и так ставится на паузу, пока загружены страницы.',
   'dashboard.hint.healing.ariaLabel': 'Подсказка по инструменту восстановления',
   'dashboard.hint.healing.eyebrow': 'Новый инструмент',
   'dashboard.hint.healing.body':

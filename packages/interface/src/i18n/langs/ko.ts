@@ -4682,6 +4682,10 @@ export const koMessages: TranslationCatalog = {
   'settings.customCursor.description': '시스템 포인터를 Koma 애니메이션 커서로 대체합니다.',
   'settings.customCursor.enableTitle': '사용자 지정 커서 사용',
   'settings.customCursor.enableDesc': '애니메이션 커서 오버레이를 표시합니다. 끄면 시스템 포인터를 사용합니다.',
+  'settings.backdropVideo.title': '배경 동영상',
+  'settings.backdropVideo.description': 'Noir 테마에서 대시보드 뒤에 재생되는 애니메이션 동영상입니다.',
+  'settings.backdropVideo.alwaysPausedTitle': '동영상 항상 일시정지',
+  'settings.backdropVideo.alwaysPausedDesc': '배경 동영상을 정지된 상태로 유지합니다. 페이지가 로드된 동안에는 이미 일시정지됩니다.',
   'dashboard.hint.healing.ariaLabel': 'Healing 도구 도움말',
   'dashboard.hint.healing.eyebrow': '새로운 도구',
   'dashboard.hint.healing.body':

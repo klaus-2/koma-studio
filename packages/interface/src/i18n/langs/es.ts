@@ -4833,6 +4833,10 @@ export const esMessages: TranslationCatalog = {
   'settings.customCursor.description': 'Reemplaza el puntero del sistema por el cursor animado de Koma.',
   'settings.customCursor.enableTitle': 'Usar cursor personalizado',
   'settings.customCursor.enableDesc': 'Muestra el cursor animado superpuesto. Desactívalo para usar el puntero del sistema.',
+  'settings.backdropVideo.title': 'Video de fondo',
+  'settings.backdropVideo.description': 'Video animado detrás del panel en el tema Noir.',
+  'settings.backdropVideo.alwaysPausedTitle': 'Pausar siempre el video',
+  'settings.backdropVideo.alwaysPausedDesc': 'Mantiene detenido el video de fondo. Ya se pausa mientras haya páginas cargadas.',
   'dashboard.hint.healing.ariaLabel': 'Consejo de la herramienta Healing',
   'dashboard.hint.healing.eyebrow': 'Nueva herramienta',
   'dashboard.hint.healing.body':
