@@ -7,6 +7,11 @@ import {
   type CreateAioPresetInput,
   type UpdateAioPresetInput,
 } from "../types/aioModelPresets";
+import {
+  AIO_DEFAULT_PRESETS_SEEDED_STORAGE_KEY,
+  buildDefaultAioPresetState,
+  seedDefaultAioPresets,
+} from "./aioModelPresetDefaults";
 
 const AIO_STAGE_KEYS: AioStageKey[] = [
   "detectText",
@@ -140,8 +145,12 @@ const createId = (): string => {
 };
 
 export const loadPresetState = (): AioModelPresetStateV2 => {
-  if (typeof window === "undefined") return { ...DEFAULT_STATE };
-  return sanitizeState(parseJson<unknown>(window.localStorage.getItem(AIO_MODEL_PRESET_STORAGE_KEY), DEFAULT_STATE));
+  if (typeof window === "undefined") return sanitizeState(buildDefaultAioPresetState());
+  const state = sanitizeState(parseJson<unknown>(window.localStorage.getItem(AIO_MODEL_PRESET_STORAGE_KEY), DEFAULT_STATE));
+  if (window.localStorage.getItem(AIO_DEFAULT_PRESETS_SEEDED_STORAGE_KEY) !== null) return state;
+  const seeded = savePresetState(seedDefaultAioPresets(state));
+  window.localStorage.setItem(AIO_DEFAULT_PRESETS_SEEDED_STORAGE_KEY, "1");
+  return seeded;
 };
 
 export const savePresetState = (state: AioModelPresetStateV2): AioModelPresetStateV2 => {
