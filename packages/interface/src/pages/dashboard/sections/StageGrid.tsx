@@ -8,6 +8,7 @@ import DashboardInfoModeStage from '../../../components/dashboard/DashboardInfoM
 import DashboardSpecialModeStage from '../../../components/dashboard/DashboardSpecialModeStage';
 import DashboardStageGrid from '../../../components/dashboard/DashboardStageGrid';
 import DashboardEmptyStage from '../../../components/dashboard/DashboardEmptyStage';
+import { PanelBoundary } from '../../../components/dashboard/PanelBoundary';
 
 const loadRenderTextPreview = memoLoad(() => import('../../../components/dashboard/RenderTextPreview'));
 const loadTextDetectionPreview = memoLoad(() => import('../../../components/dashboard/TextDetectionPreview'));
@@ -599,6 +600,7 @@ function DashboardStageSection({
       className="koma-stage custom-scrollbar"
       data-tour="dashboard-stage"
     >
+      <PanelBoundary label={t('dashboard.tour.stage.withImagesTitle')} resetKey={mode}>
       {/* Info modes show content instead of images */}
       {mode === 'guides' ||
         mode === 'resources' ||
@@ -656,6 +658,7 @@ function DashboardStageSection({
       ) : (
         <DashboardEmptyStage />
       )}
+      </PanelBoundary>
     </section>
   );
 }

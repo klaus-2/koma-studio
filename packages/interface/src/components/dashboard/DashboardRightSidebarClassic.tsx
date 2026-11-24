@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronLeft, ChevronRight, PanelRightClose, Settings, X } from 'lucide-react';
 
 import { useI18n } from '../../i18n';
+import { PanelBoundary } from './PanelBoundary';
 import { cn } from '../../utils/dashboard.utils';
 
 interface DashboardRightSidebarProps {
@@ -109,7 +110,9 @@ export default function DashboardRightSidebarClassic({
         </button>
       )}
 
-      <div className="koma-tools__body">{children}</div>
+      <div className="koma-tools__body">
+        <PanelBoundary label={modeLabel}>{children}</PanelBoundary>
+      </div>
     </aside>
   );
 }

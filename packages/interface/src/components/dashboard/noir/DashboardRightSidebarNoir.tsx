@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, PanelRightClose, Settings, X } from 'lucide-react';
 import { useI18n } from '../../../i18n';
+import { PanelBoundary } from '../PanelBoundary';
 import { cn } from '../../../utils/dashboard.utils';
 
 interface DashboardRightSidebarProps {
@@ -102,7 +103,9 @@ export default function DashboardRightSidebarNoir({
         </button>
       )}
 
-      <div className="custom-scrollbar relative min-h-0 flex-1 overflow-y-auto p-3">{children}</div>
+      <div className="custom-scrollbar relative min-h-0 flex-1 overflow-y-auto p-3">
+        <PanelBoundary label={modeLabel}>{children}</PanelBoundary>
+      </div>
     </aside>
   );
 }

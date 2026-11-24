@@ -7,4 +7,7 @@ export interface ErrorFallbackProps {
   onCopy: () => void;
   onRetry: () => void;
   onReload: () => void;
+  compact: boolean;
+  label?: string;
+  retryFailed: boolean;
 }

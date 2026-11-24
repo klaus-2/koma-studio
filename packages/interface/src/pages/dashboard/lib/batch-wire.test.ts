@@ -145,3 +145,39 @@ describe('parsePipelineBatchReport stage_timings (Fase C C4)', () => {
     expect(empty.results[0]?.stage_timings).toBeUndefined();
   });
 });
+
+describe('parsePipelineBatchReport completed_without_work', () => {
+  it('keeps the stages that finished with nothing to do', () => {
+    const parsed = parsePipelineBatchReport(
+      makeReportPayload({ completed_without_work: ['translation', 'segment'] }),
+    );
+
+    expect(parsed.results[0]?.completed_without_work).toEqual([
+      'translation',
+      'segment',
+    ]);
+    expect(parsed.results[0]?.status).toBe('success');
+  });
+
+  it('keeps the field undefined on legacy payloads and on an empty list', () => {
+    const legacy = parsePipelineBatchReport(makeReportPayload({}));
+    expect(legacy.results[0]?.completed_without_work).toBeUndefined();
+
+    const empty = parsePipelineBatchReport(
+      makeReportPayload({ completed_without_work: [] }),
+    );
+    expect(empty.results[0]?.completed_without_work).toBeUndefined();
+  });
+
+  it('drops non-string entries and non-array values instead of failing', () => {
+    const mixed = parsePipelineBatchReport(
+      makeReportPayload({ completed_without_work: ['translation', 7, null] }),
+    );
+    expect(mixed.results[0]?.completed_without_work).toEqual(['translation']);
+
+    const notArray = parsePipelineBatchReport(
+      makeReportPayload({ completed_without_work: 'translation' }),
+    );
+    expect(notArray.results[0]?.completed_without_work).toBeUndefined();
+  });
+});

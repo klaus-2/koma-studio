@@ -413,20 +413,20 @@ export default memo(function AioRightPanel({
                 className={skin.ghostButton}
                 onClick={rewindAioPipeline}
                 disabled={processing || !canAioRewind}
-                title={t('dashboard.pipeline.prevStep.title')}
-                aria-label="Rewind pipeline"
+                title={t('aio.pipeline.rewindTitle')}
+                aria-label={`${t('aio.pipeline.rewind')} — ${t('aio.pipeline.rewindTitle')}`}
               >
-                <SkipBack size={13} /> Rewind
+                <SkipBack size={13} /> {t('aio.pipeline.rewind')}
               </button>
               <button
                 type="button"
                 className={skin.ghostButton}
                 onClick={forwardAioPipeline}
                 disabled={processing || !canAioForward}
-                title={t('dashboard.pipeline.nextStep.title')}
-                aria-label="Forward pipeline"
+                title={t('aio.pipeline.forwardTitle')}
+                aria-label={`${t('aio.pipeline.forward')} — ${t('aio.pipeline.forwardTitle')}`}
               >
-                Forward <SkipForward size={13} />
+                {t('aio.pipeline.forward')} <SkipForward size={13} />
               </button>
             </div>
 

@@ -113,6 +113,18 @@ body {
   font-family: var(--auth-font-body);
 }
 
+.koma-error-boundary.koma-error-boundary--compact,
+[data-theme="light"] .koma-error-boundary.koma-error-boundary--compact {
+  min-height: 0;
+  padding: 16px;
+  background: transparent;
+}
+
+.koma-error-boundary.koma-error-boundary--compact::before,
+[data-theme="light"] .koma-error-boundary.koma-error-boundary--compact::before {
+  content: none;
+}
+
 .koma-error-boundary::before {
   content: '';
   position: absolute;

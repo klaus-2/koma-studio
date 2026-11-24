@@ -411,6 +411,16 @@ const readStageTimings = (value: unknown): Record<string, number> | undefined =>
   return Object.keys(parsed).length > 0 ? parsed : undefined;
 };
 
+const readStageNameList = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const names = value.filter(
+    (entry): entry is string => typeof entry === 'string',
+  );
+  return names.length > 0 ? names : undefined;
+};
+
 const parseItemResult = (
   value: unknown,
   position: number,
@@ -443,6 +453,7 @@ const parseItemResult = (
     translation: parseTranslationPayload(value.translation),
     segment: parseSegmentPayload(value.segment),
     clean: parseCleanPayload(value.clean),
+    completed_without_work: readStageNameList(value.completed_without_work),
     errors: parseArray(value.errors, parseItemError),
     stage_timings: readStageTimings(value.stage_timings),
   };

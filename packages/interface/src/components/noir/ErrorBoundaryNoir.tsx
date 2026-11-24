@@ -28,13 +28,17 @@ export const ErrorBoundaryNoir = ({
   onCopy,
   onRetry,
   onReload,
+  compact,
+  label,
+  retryFailed,
 }: ErrorFallbackProps) => {
   const { t } = useI18n();
 
   return (
     <div
       role="alert"
-      className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-14"
+      aria-label={label}
+      className={compact ? 'relative flex items-center justify-center p-4' : 'relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-14'}
     >
       <span
         aria-hidden
@@ -122,10 +126,12 @@ export const ErrorBoundaryNoir = ({
             <RotateCcw size={13} aria-hidden />
             {t('errorBoundary.retry')}
           </button>
-          <button type="button" className={btnGhost} onClick={onReload}>
-            <RefreshCcw size={13} aria-hidden />
-            {t('errorBoundary.reload')}
-          </button>
+          {(!compact || retryFailed) && (
+            <button type="button" className={btnGhost} onClick={onReload}>
+              <RefreshCcw size={13} aria-hidden />
+              {t('errorBoundary.reload')}
+            </button>
+          )}
         </div>
       </m.div>
     </div>

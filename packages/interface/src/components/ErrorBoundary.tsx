@@ -18,11 +18,14 @@ interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, info: ErrorInfo) => void;
+  compact?: boolean;
+  label?: string;
 }
 
 interface ErrorBoundaryState {
   error: Error | null;
   componentStack: string;
+  failures: number;
 }
 
 export const ErrorBoundaryFallback = createFamilyComponent<ErrorFallbackProps>(
@@ -36,6 +39,9 @@ interface PanelErrorFallbackProps {
   error: Error;
   componentStack: string;
   onReset: () => void;
+  compact: boolean;
+  label?: string;
+  retryFailed: boolean;
 }
 
 /** Owns the recovery state (details, clipboard echo) both skins present. */
@@ -43,6 +49,9 @@ const PanelErrorFallback = ({
   error,
   componentStack,
   onReset,
+  compact,
+  label,
+  retryFailed,
 }: PanelErrorFallbackProps) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -85,26 +94,32 @@ const PanelErrorFallback = ({
       onCopy={handleCopy}
       onRetry={onReset}
       onReload={handleReload}
+      compact={compact}
+      label={label}
+      retryFailed={retryFailed}
     />
   );
 };
 
 /** Class error boundary — function components cannot catch render errors. */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  override state: ErrorBoundaryState = { error: null, componentStack: '' };
+  override state: ErrorBoundaryState = { error: null, componentStack: '', failures: 0 };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Pick<ErrorBoundaryState, 'error' | 'componentStack'> {
     return { error, componentStack: '' };
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[koma] ErrorBoundary caught:', error, info.componentStack);
-    this.setState({ componentStack: info.componentStack ?? '' });
+    this.setState((prev) => ({
+      componentStack: info.componentStack ?? '',
+      failures: prev.failures + 1,
+    }));
     this.props.onError?.(error, info);
   }
 
   override render(): ReactNode {
-    const { error, componentStack } = this.state;
+    const { error, componentStack, failures } = this.state;
     if (!error) return this.props.children;
     if (this.props.fallback) return this.props.fallback;
     return (
@@ -112,6 +127,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         error={error}
         componentStack={componentStack}
         onReset={() => this.setState({ error: null, componentStack: '' })}
+        compact={this.props.compact ?? false}
+        label={this.props.label}
+        retryFailed={failures > 1}
       />
     );
   }

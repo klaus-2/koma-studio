@@ -29,6 +29,15 @@ const renderShell = () =>
     </I18nProvider>,
   );
 
+const renderCompact = (label = "Tools") =>
+  render(
+    <I18nProvider>
+      <ErrorBoundary compact label={label}>
+        <Flaky />
+      </ErrorBoundary>
+    </I18nProvider>,
+  );
+
 beforeAll(() => {
   setDesktopBridgeProvider({ desktop: null });
 });
@@ -84,5 +93,45 @@ describe("ErrorBoundary fallback", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("button", { name: "Hide details" })).toBeTruthy();
     expect(screen.getByText(/boom in the panel/)).toBeTruthy();
+  });
+
+  it("labels the compact alert with the panel name", () => {
+    useThemeStore.setState({ family: "classic" });
+    renderCompact("Tools");
+
+    expect(screen.getByRole("alert").getAttribute("aria-label")).toBe("Tools");
+  });
+
+  it("omits the app reload in the compact variant and still recovers", () => {
+    useThemeStore.setState({ family: "classic" });
+    renderCompact();
+
+    expect(screen.queryByRole("button", { name: "Reload the app" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+
+    failRender = false;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(screen.getByText("panel restored")).toBeTruthy();
+  });
+
+  it("applies the compact class in the compact variant", () => {
+    useThemeStore.setState({ family: "classic" });
+    const { container } = renderCompact();
+
+    expect(container.querySelector(".koma-error-boundary--compact")).toBeTruthy();
+  });
+
+  it("does not attach an aria-label when no panel name is given", () => {
+    useThemeStore.setState({ family: "classic" });
+    render(
+      <I18nProvider>
+        <ErrorBoundary compact>
+          <Flaky />
+        </ErrorBoundary>
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("alert").hasAttribute("aria-label")).toBe(false);
   });
 });

@@ -19,11 +19,18 @@ export const ErrorBoundaryClassic = ({
   onCopy,
   onRetry,
   onReload,
+  compact,
+  label,
+  retryFailed,
 }: ErrorFallbackProps) => {
   const { t } = useI18n();
 
   return (
-    <div role="alert" className="koma-error-boundary">
+    <div
+      role="alert"
+      aria-label={label}
+      className={compact ? 'koma-error-boundary koma-error-boundary--compact' : 'koma-error-boundary'}
+    >
       <section className="koma-error-boundary__card">
         <span className="koma-error-boundary__rail" aria-hidden="true" />
 
@@ -74,10 +81,12 @@ export const ErrorBoundaryClassic = ({
             <RotateCcw size={13} aria-hidden="true" />
             {t('errorBoundary.retry')}
           </button>
-          <button type="button" className="koma-btn koma-btn--ghost" onClick={onReload}>
-            <RefreshCcw size={13} aria-hidden="true" />
-            {t('errorBoundary.reload')}
-          </button>
+          {(!compact || retryFailed) && (
+            <button type="button" className="koma-btn koma-btn--ghost" onClick={onReload}>
+              <RefreshCcw size={13} aria-hidden="true" />
+              {t('errorBoundary.reload')}
+            </button>
+          )}
         </footer>
       </section>
     </div>
