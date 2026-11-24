@@ -92,3 +92,16 @@ export function advanceLiveStageView(
     };
   });
 }
+
+export function createBatchLiveStageTracker<TImage extends { id: string }>(
+  advance: (stageKey: AioPipelineSnapshotKey, image: TImage) => void,
+): (stageKey: AioPipelineSnapshotKey, image: TImage) => void {
+  const lastStageByImageId = new Map<string, AioPipelineSnapshotKey>();
+  return (stageKey, image) => {
+    if (lastStageByImageId.get(image.id) === stageKey) {
+      return;
+    }
+    lastStageByImageId.set(image.id, stageKey);
+    advance(stageKey, image);
+  };
+}

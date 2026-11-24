@@ -68,7 +68,10 @@ import { showDesktopNotification } from '@/pages/dashboard/lib/desktop-notificat
 import { resolveWorkGlossaryForChapter } from '@/pages/dashboard/hooks/translator.execution';
 import { useAioPipelineStore } from '@/pages/dashboard/stores/aio-pipeline-store';
 import { useRegionEditorStore } from '@/pages/dashboard/stores/region-editor-store';
-import { advanceLiveStageView } from '@/pages/dashboard/hooks/aio-live-stage-advance';
+import {
+  advanceLiveStageView,
+  createBatchLiveStageTracker,
+} from '@/pages/dashboard/hooks/aio-live-stage-advance';
 import {
   deriveLocalProviderLabel,
   useAioStageTimingStore,
@@ -526,6 +529,9 @@ export function useAioPipelineExecution(
           executionImages.map((image, index) => [image.id, index]),
         );
         let currentStageLabel: string | null = null;
+        const advanceBatchLiveStage = createBatchLiveStageTracker<LoadedImage>(
+          (stageKey, image) => advanceLiveStageForRun(stageKey, image, null),
+        );
         const handleChunkState = (
           chapter: AioChapterGroup | null,
           scopePrefix: string,
@@ -563,6 +569,7 @@ export function useAioPipelineExecution(
             globalIndexById.get(image.id) ?? state.imageIndex,
             totalImages,
           );
+          advanceBatchLiveStage(stageKey, image);
         };
 
         const singleBatchProgress = createSingleBatchProgressReporter({
