@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { APP_WEBFONT_FAMILIES } from "../constants/app-webfonts";
+import { BUNDLED_FONT_FAMILIES } from "../constants/bundled-fonts";
 import { DEFAULT_RENDER_FONT_FAMILIES } from "../constants/dashboard.constants";
 import type { IDesktopFontEntry } from "@/types";
 import {
@@ -132,7 +133,7 @@ describe("buildFontCatalog", () => {
       desktopSource({ osFamilies: ["", "   ", "\t"], customFamilies: [" "] }),
     );
 
-    expect(catalog).toHaveLength(APP_WEBFONT_FAMILIES.length);
+    expect(catalog).toHaveLength(APP_WEBFONT_FAMILIES.length + BUNDLED_FONT_FAMILIES.length);
     for (const family of catalog) {
       expect(family.trim()).toBe(family);
       expect(family.length).toBeGreaterThan(0);

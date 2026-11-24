@@ -149,6 +149,24 @@ use `cargo-deny`) against `apps/tauri/src-tauri/` and append the output here.
 (commonly SIL OFL for open fonts). Verify the licenses of any font you ship in an installer or use in
 published work — several popular comic lettering fonts are **not** free for commercial use.
 
+### Bundled fonts
+
+`packages/interface/src/assets/fonts/` ships these fonts inside the app. Each folder holds the font
+files and their license text.
+
+| Font | Author | License | Source |
+| --- | --- | --- | --- |
+| Comic Neue | Craig Rozynski, Hrant Papazian | SIL OFL 1.1 | [google/fonts](https://github.com/google/fonts/tree/main/ofl/comicneue) |
+| Patrick Hand | Patrick Wagesreiter | SIL OFL 1.1 | [google/fonts](https://github.com/google/fonts/tree/main/ofl/patrickhand) |
+| Comic Relief | Jeff Davis | SIL OFL 1.1 | [google/fonts](https://github.com/google/fonts/tree/main/ofl/comicrelief) |
+| Bangers | Vernon Adams | SIL OFL 1.1 | [google/fonts](https://github.com/google/fonts/tree/main/ofl/bangers) |
+| Luckiest Guy | Astigmatic | Apache 2.0 | [google/fonts](https://github.com/google/fonts/tree/main/apache/luckiestguy) |
+| Teko | The Teko Project Authors | SIL OFL 1.1 | [googlefonts/teko](https://github.com/googlefonts/teko) |
+| Creepster | Font Diner | SIL OFL 1.1 | [google/fonts](https://github.com/google/fonts/tree/main/ofl/creepster) |
+| SS Rosehip, SS Spicy Noodles 2, SS Boba Date | Sara Linsley | SIL OFL 1.1 | license declared in the font files |
+| Your Highschool Crush | Vixen | SIL OFL 1.1 | license declared in the font files |
+| CDX Amraam, CDX Starstreak | Codecy | SIL OFL 1.1 | license declared in the font files |
+
 ---
 
 ## Reporting a problem

@@ -1,4 +1,5 @@
 import { APP_WEBFONT_FAMILIES } from "../constants/app-webfonts";
+import { BUNDLED_FONT_FAMILIES } from "../constants/bundled-fonts";
 import { DEFAULT_RENDER_FONT_FAMILIES } from "../constants/dashboard.constants";
 import { desktopBridge } from "../lib/desktop-bridge";
 
@@ -31,6 +32,7 @@ export const buildFontCatalog = (source: FontCatalogSource): string[] => {
   };
 
   APP_WEBFONT_FAMILIES.forEach(addFamily);
+  BUNDLED_FONT_FAMILIES.forEach(addFamily);
   source.osFamilies.forEach(addFamily);
   source.customFamilies.forEach(addFamily);
   source.fallbackFamilies.forEach(addFamily);
