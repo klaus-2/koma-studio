@@ -38,6 +38,12 @@ import { useStatusStore } from '../stores/status-store';
 import { useExportStore } from '../stores/export-store';
 import { useLlmProvidersStore } from '../stores/llm-providers-store';
 import { useAioPipelineStore } from '../stores/aio-pipeline-store';
+import { AIO_MODEL_PRESET_STORAGE_KEY } from '../../../types/aioModelPresets';
+import {
+  AIO_DEFAULT_PRESETS_SEEDED_STORAGE_KEY,
+  aioDefaultPresetId,
+  buildDefaultAioPresetState,
+} from '../../../utils/aioModelPresetDefaults';
 import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useManualToolsStore } from '../stores/manual-tools-store';
 import { useCleanerStore } from '../stores/cleaner-store';
@@ -675,5 +681,38 @@ describe('workspace persistence registry', () => {
       useLlmProvidersStore,
       useWorkspacePersistenceStore,
     ]);
+  });
+});
+
+describe('workspace restore of AIO model presets', () => {
+  beforeEach(() => {
+    seedWorkspaceStores();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('keeps the stored presets when the workspace snapshot has none', async () => {
+    useAioPipelineStore.getState().setAioPresetState({
+      version: 2,
+      presets: [],
+      activePresetBySourceLanguage: {},
+    });
+    const restored = await restoreWorkspaceDocument(
+      await captureWorkspaceDocument(buildWorkspaceCaptureState(null)),
+    );
+    const stored = buildDefaultAioPresetState();
+    window.localStorage.setItem(AIO_MODEL_PRESET_STORAGE_KEY, JSON.stringify(stored));
+    window.localStorage.setItem(AIO_DEFAULT_PRESETS_SEEDED_STORAGE_KEY, '1');
+
+    applyRestored(restored);
+
+    const state = useAioPipelineStore.getState().aioPresetState;
+    expect(new Set(state.presets.map((preset) => preset.id))).toEqual(
+      new Set(stored.presets.map((preset) => preset.id)),
+    );
+    expect(state.activePresetBySourceLanguage.it).toBe(aioDefaultPresetId('it'));
   });
 });

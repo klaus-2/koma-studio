@@ -12,6 +12,7 @@
  * processing/progress terminal. Document and asset codecs stay in
  * dashboardWorkspace.serialization.ts.
  */
+import { loadValidatedPresetState } from '../stores/aio-pipeline-storage';
 import type {
   DashboardWorkspaceCaptureState,
   DashboardWorkspaceRestoreState,
@@ -34,7 +35,6 @@ import type {
   ViewMode,
 } from '../../../types/dashboard.types';
 import type {
-  AioModelPresetStateV2,
   AioStageSelection,
 } from '../../../types/aioModelPresets';
 import { clampLlmRequestSettings } from '../../../utils/customLlm';
@@ -339,9 +339,7 @@ export const WORKSPACE_RESTORE_STEPS: ReadonlyArray<WorkspaceRestoreStep> = [
       aio.setAioStageSelection(
         restored.document.aio.stageSelection as AioStageSelection,
       );
-      aio.setAioPresetState(
-        restored.document.aio.presetState as AioModelPresetStateV2,
-      );
+      aio.setAioPresetState(loadValidatedPresetState());
       aio.setAioMaskDilation(restored.document.aio.maskDilation);
       aio.setAioHdStrategy(
         restored.document.aio.hdStrategy as AioPipelineStoreState['aioHdStrategy'],

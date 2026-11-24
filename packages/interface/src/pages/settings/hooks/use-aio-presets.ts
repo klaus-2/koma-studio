@@ -18,6 +18,7 @@ import {
   loadCustomLlmProfiles,
   type CustomLlmProfile,
 } from '../../../utils/customLlm';
+import { useAioPipelineStore } from '../../dashboard/stores/aio-pipeline-store';
 import { useAioPresetGroups } from './use-aio-preset-groups';
 import { useAioStageCatalog } from './use-aio-stage-catalog';
 import {
@@ -47,6 +48,10 @@ export const useAioPresets = ({ t, userId }: UseAioPresetsArgs) => {
   const [presetFeedback, setPresetFeedback] = useState<string | null>(null);
   const [presetError, setPresetError] = useState<string | null>(null);
   const [customLlmProfiles, setCustomLlmProfiles] = useState<CustomLlmProfile[]>([]);
+
+  useEffect(() => {
+    useAioPipelineStore.getState().setAioPresetState(presetState);
+  }, [presetState]);
 
   useEffect(() => {
     let cancelled = false;
