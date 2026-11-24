@@ -21,6 +21,7 @@ from models.detection.comic_text_detector.detector import (  # noqa: E402
 )
 from models.detection.font.detector import ImageSlicer  # noqa: E402
 from models.detection.slicing import compute_slice_bounds  # noqa: E402
+from models.errors import InvalidModelOutputError  # noqa: E402
 from models.ocr.paddleocr.engine import PPOCRV5RecEngine  # noqa: E402
 
 
@@ -248,6 +249,39 @@ class PaddleSnippetBlankSkipTests(unittest.TestCase):
         snippets = engine._detect_and_recognize_snippets(page)
         self.assertEqual(len(detection_calls), 1)
         self.assertEqual(snippets, [(0, 0, 50, 50, 0.9, "hello")])
+
+
+class ComicDetectorOutputShapeTests(unittest.TestCase):
+    def _detector_returning(self, block: np.ndarray) -> ComicTextDetector:
+        detector = object.__new__(ComicTextDetector)
+        detector._min_box_size_px = 6
+        detector.nms_threshold = 0.5
+        detector.key = "comic_text_detector"
+
+        class FakeSession:
+            def run(self, output_names: object, feeds: object) -> list[np.ndarray]:
+                _ = output_names, feeds
+                return [block]
+
+        detector.session = FakeSession()
+        detector.input_name = "input"
+        return detector
+
+    def test_page_without_text_is_an_empty_result_not_an_error(self) -> None:
+        rng = np.random.default_rng(3)
+        rgb = rng.integers(0, 256, size=(64, 64, 3), dtype=np.uint8)
+        detector = self._detector_returning(np.zeros((1, 0, 7), dtype=np.float32))
+
+        self.assertEqual(detector._detect_single(rgb, 0.5), [])
+
+    def test_unexpected_output_shape_raises_instead_of_returning_nothing(self) -> None:
+        rng = np.random.default_rng(3)
+        rgb = rng.integers(0, 256, size=(64, 64, 3), dtype=np.uint8)
+
+        with self.assertRaises(InvalidModelOutputError):
+            self._detector_returning(np.zeros((1, 6), dtype=np.float32))._detect_single(rgb, 0.5)
+        with self.assertRaises(InvalidModelOutputError):
+            self._detector_returning(np.zeros((3, 7), dtype=np.float32))._detect_single(rgb, 0.5)
 
 
 if __name__ == "__main__":

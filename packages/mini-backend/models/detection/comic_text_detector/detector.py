@@ -19,6 +19,7 @@ from models.detection.blank_bands import detect_blank_bands, filter_slices_throu
 from models.detection.reading_order import sort_detections_in_reading_order
 from models.detection.slicing import compute_slice_bounds
 from models.detection.storage import resolve_detection_model_path
+from models.errors import InvalidModelOutputError
 from models.onnx_utils import create_session_with_trt_fallback
 
 
@@ -131,7 +132,9 @@ class ComicTextDetector(BaseDetector):
         blk = self.session.run(None, {self.input_name: tensor})[0]
         rows = np.asarray(blk[0], dtype=np.float32)
         if rows.ndim != 2 or rows.shape[1] < 7:
-            return []
+            raise InvalidModelOutputError(
+                f"Text detector returned rows with shape {rows.shape}, expected (n, >=7)"
+            )
 
         scale_x = width / float(target_size)
         scale_y = height / float(target_size)

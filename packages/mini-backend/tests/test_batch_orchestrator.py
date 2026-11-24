@@ -22,6 +22,7 @@ if str(MINI_BACKEND_DIR) not in sys.path:
 
 IMPORT_ERROR: Exception | None = None
 try:
+    from pipelines import detection_seeds
     from pipelines.batch import orchestrator, stages
     from pipelines.batch.archive import REPORT_FILENAME, build_batch_archive
     from pipelines.batch.orchestrator import (
@@ -203,6 +204,10 @@ class BatchOrchestratorTests(unittest.TestCase):
                 self.assertEqual(outcome.report.total_images, 3)
                 self.assertEqual(outcome.report.succeeded, 2)
                 self.assertEqual(outcome.report.failed, 1)
+                self.assertEqual(
+                    [getattr(r, "completed_without_work", None) for r in outcome.report.results[:2]],
+                    [[], []],
+                )
                 self.assertEqual([c.index for c in outcome.cleaned], [0, 1])
                 self.assertEqual(outcome.cleaned[0].output_file, "cleaned/000-a.png")
                 broken = outcome.report.results[2]
@@ -217,6 +222,156 @@ class BatchOrchestratorTests(unittest.TestCase):
             stages.run_ocr_stage = original_ocr
             stages.run_translation_stage = original_translate
             stages.run_clean_stage = original_clean
+
+    def _run_without_regions(self, *, neighbor: bool) -> tuple[object, list[str]]:
+        calls: list[str] = []
+
+        async def fake_ocr(**kwargs: object):
+            _ = kwargs
+            return StageOutput("ocr", [])
+
+        async def fake_translate(**kwargs: object):
+            _ = kwargs
+            calls.append("translate")
+            return StageOutput("mt", [])
+
+        async def fake_segment(**kwargs: object):
+            _ = kwargs
+            calls.append("segment")
+            return StageOutput("seg", [])
+
+        async def fake_clean(**kwargs: object):
+            _ = kwargs
+            calls.append("clean")
+            return CleanStageResult("no-op", b"\x89PNG", "resize")
+
+        config = dataclasses.replace(
+            _config(neighbor=neighbor),
+            stages=BatchStageConfig(
+                detect=False, ocr=True, translation=True, segment=True, clean=True
+            ),
+        )
+        original_ocr = stages.run_ocr_stage
+        original_translate = stages.run_translation_stage
+        original_segment = stages.run_segment_stage
+        original_clean = stages.run_clean_stage
+        stages.run_ocr_stage = fake_ocr
+        stages.run_translation_stage = fake_translate
+        stages.run_segment_stage = fake_segment
+        stages.run_clean_stage = fake_clean
+        try:
+            tasks = [BatchImageTask(0, "art.png", str(_spool(_png_bytes())))]
+            outcome = _run(BatchOrchestrator(config, asyncio.Event()).run(tasks))
+        finally:
+            stages.run_ocr_stage = original_ocr
+            stages.run_translation_stage = original_translate
+            stages.run_segment_stage = original_segment
+            stages.run_clean_stage = original_clean
+        return outcome, calls
+
+    def test_page_without_regions_completes_stages_without_work(self) -> None:
+        outcome, calls = self._run_without_regions(neighbor=False)
+
+        result = outcome.report.results[0]
+        self.assertEqual(result.status, "success")
+        self.assertEqual(result.errors, [])
+        self.assertEqual(
+            getattr(result, "completed_without_work", None), ["translation", "segment"]
+        )
+        self.assertEqual(outcome.report.succeeded, 1)
+        self.assertEqual(outcome.report.failed, 0)
+        self.assertEqual(outcome.report.partial, 0)
+        self.assertNotIn("translate", calls)
+        self.assertNotIn("segment", calls)
+        self.assertIn("clean", calls)
+
+    def test_page_without_regions_completes_stages_without_work_in_two_phase(self) -> None:
+        outcome, _calls = self._run_without_regions(neighbor=True)
+
+        result = outcome.report.results[0]
+        self.assertEqual(result.status, "success")
+        self.assertEqual(result.errors, [])
+        self.assertEqual(
+            getattr(result, "completed_without_work", None), ["translation", "segment"]
+        )
+
+    def test_ocr_exception_still_fails_downstream_stages(self) -> None:
+        async def failing_ocr(**kwargs: object):
+            _ = kwargs
+            raise RuntimeError("ocr engine unavailable")
+
+        config = dataclasses.replace(
+            _config(neighbor=False),
+            stages=BatchStageConfig(
+                detect=False, ocr=True, translation=True, segment=True, clean=False
+            ),
+        )
+        original_ocr = stages.run_ocr_stage
+        stages.run_ocr_stage = failing_ocr
+        try:
+            tasks = [BatchImageTask(0, "a.png", str(_spool(_png_bytes())))]
+            outcome = _run(BatchOrchestrator(config, asyncio.Event()).run(tasks))
+        finally:
+            stages.run_ocr_stage = original_ocr
+
+        result = outcome.report.results[0]
+        self.assertNotEqual(result.status, "success")
+        self.assertEqual(
+            [(e.stage, e.message) for e in result.errors][:1],
+            [("ocr", "ocr failed: ocr engine unavailable")],
+        )
+        self.assertEqual(getattr(result, "completed_without_work", []), [])
+        self.assertIn("translation", [e.stage for e in result.errors])
+        self.assertIn("segment", [e.stage for e in result.errors])
+
+    def test_invalid_image_stays_failed(self) -> None:
+        config = dataclasses.replace(
+            _config(neighbor=False),
+            stages=BatchStageConfig(
+                detect=False, ocr=True, translation=True, segment=True, clean=True
+            ),
+        )
+        tasks = [BatchImageTask(0, "broken.png", str(_spool(b"not-an-image")))]
+
+        outcome = _run(BatchOrchestrator(config, asyncio.Event()).run(tasks))
+
+        result = outcome.report.results[0]
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.errors[0].stage, "input")
+        self.assertEqual(outcome.report.failed, 1)
+
+    def test_detector_output_with_no_usable_bbox_fails_instead_of_passing_through(self) -> None:
+        config = dataclasses.replace(
+            _config(neighbor=False),
+            stages=BatchStageConfig(
+                detect=False, ocr=True, translation=True, segment=True, clean=False
+            ),
+        )
+        unusable = SimpleNamespace(bbox=None, source="model", model_key="det")
+
+        class DetectorWithUnusableOutput:
+            async def detect(self, image: object) -> list[object]:
+                return [unusable]
+
+        fake_translate_calls: list[str] = []
+
+        async def fake_translate(**kwargs: object):
+            _ = kwargs
+            fake_translate_calls.append("translate")
+            return StageOutput("mt", [])
+
+        with (
+            patch.object(detection_seeds, "get_detector", return_value=DetectorWithUnusableOutput()),
+            patch.object(stages, "run_translation_stage", fake_translate),
+        ):
+            tasks = [BatchImageTask(0, "a.png", str(_spool(_png_bytes())))]
+            outcome = _run(BatchOrchestrator(config, asyncio.Event()).run(tasks))
+
+        result = outcome.report.results[0]
+        self.assertNotEqual(result.status, "success")
+        self.assertIn("ocr", [error.stage for error in result.errors])
+        self.assertEqual(getattr(result, "completed_without_work", []), [])
+        self.assertNotIn("translate", fake_translate_calls)
 
     def test_gpu_oom_falls_back_to_cpu_and_flags_payload(self) -> None:
         calls: list[bool] = []

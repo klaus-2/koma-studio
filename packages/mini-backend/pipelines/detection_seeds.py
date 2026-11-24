@@ -11,6 +11,7 @@ from PIL import Image
 from core.device import release_gpu_memory
 from models.detection.base_detector import TextDetection
 from models.detection.factory import get_detector
+from models.errors import InvalidModelOutputError
 from pipelines.batch.records import (
     DetectionRecord,
     OCRSeed,
@@ -59,9 +60,11 @@ async def detect_text_seeds(
     and the batch Recognize Text stage."""
     detections = await run_text_detector(image, has_gpu=has_gpu, model_key=model_key)
     seeds: list[OCRSeed] = []
+    rejected = 0
     for index, det in enumerate(detections, start=1):
         fields = normalize_detector_fields(det, model_key)
         if fields is None:
+            rejected += 1
             continue
         seeds.append(
             OCRSeed(
@@ -70,6 +73,10 @@ async def detect_text_seeds(
                 source=fields.source,
                 detector_model_key=fields.model_key,
             )
+        )
+    if detections and not seeds:
+        raise InvalidModelOutputError(
+            f"Text detector returned {rejected} detection(s) with no usable bbox"
         )
     return seeds
 

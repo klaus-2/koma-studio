@@ -134,6 +134,7 @@ class _ImageState:
     fell_back_stages: dict[StageName, str] = field(default_factory=dict)
     stage_timings: dict[str, float] = field(default_factory=dict)
     cleaned: CleanedImage | None = None
+    completed_without_work: list[str] = field(default_factory=list)
     # Per-pass bytes memo: the page's bytes are read off disk at most once
     # per pass and released when the page leaves the queue slot (_run_queue's
     # finally). Cleared between phases so a two-phase batch never holds every
@@ -156,6 +157,16 @@ class _ImageState:
             exc_info=exc,
         )
         self.fail(stage, str(exc))
+
+    def stage_failed(self, stage: StageName) -> bool:
+        return any(error.stage == stage for error in self.errors)
+
+    def ocr_finished_empty(self) -> bool:
+        return self.ocr_payload is not None and not self.ocr
+
+    def complete_without_work(self, stage: str) -> None:
+        self.successful_stages += 1
+        self.completed_without_work.append(stage)
 
 
 def resolve_item_status(successful: int, selected: int, has_errors: bool) -> ItemStatus:
@@ -485,7 +496,10 @@ class BatchOrchestrator:
     async def _translate(self, state: _ImageState) -> None:
         cfg = self._config
         if not state.ocr:
-            state.fail("translation", "No OCR results to translate for this image.")
+            if cfg.stages.ocr and state.ocr_finished_empty():
+                state.complete_without_work("translation")
+            else:
+                state.fail("translation", "No OCR results to translate for this image.")
             return
         neighbor_context = (
             build_neighbor_image_translation_context(self._ocr_by_index, state.task.index)
@@ -521,11 +535,24 @@ class BatchOrchestrator:
         }
         state.successful_stages += 1
 
+    def _seed_source_finished_empty(self, state: _ImageState) -> bool:
+        cfg = self._config
+        if state.stage_failed("input"):
+            return False
+        if cfg.stages.ocr:
+            return state.ocr_finished_empty()
+        if cfg.stages.detect:
+            return state.detect_payload is not None and not state.detected
+        return False
+
     async def _segment(self, state: _ImageState) -> None:
         cfg = self._config
         seeds = _segment_seeds(state)
         if not seeds:
-            state.fail("segment", "No regions to segment for this image.")
+            if self._seed_source_finished_empty(state):
+                state.complete_without_work("segment")
+            else:
+                state.fail("segment", "No regions to segment for this image.")
             return
         try:
             async def run_segment(use_gpu: bool) -> StageOutput[SegmentRecord]:
@@ -633,6 +660,7 @@ class BatchOrchestrator:
             translation=state.translation_payload,
             segment=with_fallback("segment", state.segment_payload),
             clean=with_fallback("clean", state.clean_payload),
+            completed_without_work=list(state.completed_without_work),
             errors=state.errors,
             stage_timings=stage_timings,
         )

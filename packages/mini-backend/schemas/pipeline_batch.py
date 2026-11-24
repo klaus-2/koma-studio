@@ -30,6 +30,7 @@ class BatchItemResult(SchemaModel):
     translation: dict[str, Any] | None = None
     segment: dict[str, Any] | None = None
     clean: dict[str, Any] | None = None
+    completed_without_work: list[str] = Field(default_factory=list)
     errors: list[BatchItemError] = Field(default_factory=list)
     stage_timings: dict[str, float] | None = None
 
