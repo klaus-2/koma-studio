@@ -1,9 +1,9 @@
-import { RENDER_TEXT_MODE_LABELS, getRenderModePresetStyle, type DetectedRenderTextMode } from "../../utils/renderModes";
+import { RENDER_TEXT_MODE_LABELS, type DetectedRenderTextMode } from "../../utils/renderModes";
 import type { RenderTextStyle } from "../../utils/renderText";
 import type { AioStageKey, AioStageSelection } from "../../types/aioModelPresets";
 import type { AioStageOptionMap } from "../../models/aioStageCatalog";
-import type { RenderModePresetMode, RenderModePresetStateV1, RenderModeStylePreset } from "../../utils/renderModePresets";
-import type { RenderModePresetFormData, PresetFormData, SettingsTab, TypographyPresetFormData } from "./settings.types";
+import type { RenderModePresetMode, RenderModeStylePreset } from "../../utils/renderModePresets";
+import type { PresetFormData, SettingsTab, TypographyPresetFormData } from "./settings.types";
 
 /* ─── Constants ─────────────────────────────────────────── */
 
@@ -102,21 +102,6 @@ export const toRenderModePresetStyle = (
   uppercase: style.uppercase,
   detectGradient: style.detectGradient,
 });
-
-export const resolveRenderModePresetFormData = (
-  mode: RenderModePresetMode,
-  state: RenderModePresetStateV1,
-): RenderModePresetFormData => {
-  const resolvedStyle = getRenderModePresetStyle(mode, RENDER_MODE_EDITOR_BASE_STYLE, mode, state.presets);
-  const persistedPreset = state.presets[mode];
-  return {
-    mode,
-    style: toRenderModePresetStyle(
-      resolvedStyle,
-      persistedPreset?.outlineEnabled ?? (resolvedStyle.outlineWidth > 0),
-    ),
-  };
-};
 
 export const createEmptyTypographyPresetFormData = (): TypographyPresetFormData => ({
   presetId: null,

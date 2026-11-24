@@ -10,10 +10,10 @@ import { useTypographerStore } from '../pages/dashboard/stores/typographer-store
 import type { AioTextRegion } from '../types/dashboard.types';
 import { loadTypographyPresetState, TYPOGRAPHY_PRESET_STORAGE_KEY } from './presets';
 import { publishPresetPreview, subscribePresetPreview } from './presetPreviewSignal';
-import { resolveSfxSeedId, usePresetBrowserActions } from './presetBrowserShared';
-import { SFX_SEED_ID_PREFIX, seedSfxPresets } from './sfxPresetSeed';
+import { resolveSfxModePresetId, usePresetBrowserActions } from './presetBrowserShared';
+import { modeDefaultPresetId } from './modeDefaults';
 import { createDefaultTypographyShape } from './types';
-import type { TypographyPresetStateV1, TypographyStylePreset } from './types';
+import type { TypographyPresetStateV1 } from './types';
 
 setDesktopBridgeProvider({ desktop: null, isDesktopRuntime: () => false });
 
@@ -33,7 +33,7 @@ const region = (id: string, overrides: Partial<AioTextRegion> = {}): AioTextRegi
 beforeEach(() => {
   window.localStorage.clear();
   useRegionEditorStore.setState({
-    typographyPresetState: seedSfxPresets(loadTypographyPresetState()),
+    typographyPresetState: loadTypographyPresetState(),
   });
 });
 
@@ -254,50 +254,21 @@ describe('handlePresetClick (toggle-off, multiselection apply, preview clear)', 
   });
 });
 
-const seed = (effectId: string): TypographyStylePreset => ({
-  id: `${SFX_SEED_ID_PREFIX}${effectId}`,
-  folderId: null,
-  name: 'SFX Seed',
-  description: '',
-  style: { ...DEFAULT_RENDER_STYLE },
-  defaultShapeKind: 'rounded',
-  padding: 10,
-  createdAt: 0,
-  updatedAt: 0,
-});
+describe('resolveSfxModePresetId (preset bound to the SFX mode)', () => {
+  const presets = [{ id: 'user-preset-1' }, { id: modeDefaultPresetId('text_sfx') }];
 
-describe('resolveSfxSeedId (curated seed pick)', () => {
-  const userPreset: TypographyStylePreset = {
-    id: 'user-preset-1',
-    folderId: null,
-    name: 'User Preset',
-    description: '',
-    style: { ...DEFAULT_RENDER_STYLE },
-    defaultShapeKind: 'square',
-    padding: 10,
-    createdAt: 0,
-    updatedAt: 0,
-  };
-
-  it('prefers the selected SFX seed over the first seed', () => {
-    const presets = [userPreset, seed('first'), seed('second')];
-    expect(resolveSfxSeedId(presets, `${SFX_SEED_ID_PREFIX}second`))
-      .toBe(`${SFX_SEED_ID_PREFIX}second`);
+  it('returns the preset bound to the SFX mode', () => {
+    expect(resolveSfxModePresetId(presets, { text_sfx: modeDefaultPresetId('text_sfx') }))
+      .toBe(modeDefaultPresetId('text_sfx'));
+    expect(resolveSfxModePresetId(presets, { text_sfx: 'user-preset-1' })).toBe('user-preset-1');
   });
 
-  it('falls back to the first seed when the selection is not a seed', () => {
-    const presets = [userPreset, seed('first'), seed('second')];
-    expect(resolveSfxSeedId(presets, 'user-preset-1'))
-      .toBe(`${SFX_SEED_ID_PREFIX}first`);
+  it('returns null when the SFX mode has no binding', () => {
+    expect(resolveSfxModePresetId(presets, { text_bubble: 'user-preset-1' })).toBeNull();
   });
 
-  it('falls back to the first seed when nothing is selected', () => {
-    const presets = [userPreset, seed('first'), seed('second')];
-    expect(resolveSfxSeedId(presets, null)).toBe(`${SFX_SEED_ID_PREFIX}first`);
-  });
-
-  it('returns null when the list holds no seeds', () => {
-    expect(resolveSfxSeedId([userPreset], null)).toBeNull();
-    expect(resolveSfxSeedId([], 'user-preset-1')).toBeNull();
+  it('returns null when the bound preset no longer exists', () => {
+    expect(resolveSfxModePresetId(presets, { text_sfx: 'deleted-preset' })).toBeNull();
+    expect(resolveSfxModePresetId([], { text_sfx: modeDefaultPresetId('text_sfx') })).toBeNull();
   });
 });

@@ -1944,6 +1944,9 @@ export const jaMessages: TranslationCatalog = {
   'settings.modePresets.all': 'すべて',
   'settings.modePresets.mode': 'モード',
   'settings.modePresets.save': '保存',
+  'settings.modePresets.preview': 'ライブプレビュー',
+  'settings.modePresets.sampleText': 'サンプルテキスト',
+  'settings.modePresets.sampleTextDefault': 'なんて日だ!',
   'settings.typographerLibrary.title': 'タイプセッターライブラリ',
   'settings.typographerLibrary.description':
     'フォルダー、デフォルトプリセット、検出モードによるバインディング付きのグローバルスタイル。',
@@ -3410,8 +3413,7 @@ export const jaMessages: TranslationCatalog = {
     'カスタムOCRプロファイルはローカル同期待ちです。',
   'dashboard.status.presetAppliedToSelection':
     'プリセット「{name}」を現在の選択に適用しました。',
-  'dashboard.status.legacyPresetNotFound':
-    'レガシービジュアルプリセット {modeKey} が見つかりません。',
+  'dashboard.status.modePresetNotFound': '{modeKey} モードにプリセットが設定されていません。',
   'dashboard.status.presetAppliedShort':
     'プリセット「{name}」を選択に適用しました。',
   'dashboard.status.presetAppliedToImage':
@@ -3624,25 +3626,17 @@ export const jaMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': 'アクティブプリセットを適用',
   'shortcuts.applyActivePreset.description':
     'アクティブなタイポグラフィプリセットを選択した領域に適用します。',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'Legacy text_bubbleプリセットを適用',
-  'shortcuts.applyLegacyPresetTextBubble.description':
-    'Legacy text_bubbleビジュアルプリセットを選択した領域に適用します。',
-  'shortcuts.applyLegacyPresetTextFree.label':
-    'Legacy text_freeプリセットを適用',
-  'shortcuts.applyLegacyPresetTextFree.description':
-    'Legacy text_freeビジュアルプリセットを選択した領域に適用します。',
-  'shortcuts.applyLegacyPresetTextSfx.label': 'Legacy text_sfxプリセットを適用',
-  'shortcuts.applyLegacyPresetTextSfx.description':
-    'Legacy text_sfxビジュアルプリセットを選択した領域に適用します。',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'Legacy text_narrationプリセットを適用',
-  'shortcuts.applyLegacyPresetTextNarration.description':
-    'Legacy text_narrationビジュアルプリセットを選択した領域に適用します。',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'Legacy text_inside_black_bubbleプリセットを適用',
+  'shortcuts.applyLegacyPresetTextBubble.label': '「吹き出し」プリセットを適用',
+  'shortcuts.applyLegacyPresetTextBubble.description': '「吹き出し」モードに設定されたプリセットを選択中の領域に適用します。',
+  'shortcuts.applyLegacyPresetTextFree.label': '「フリー」プリセットを適用',
+  'shortcuts.applyLegacyPresetTextFree.description': '「フリー」モードに設定されたプリセットを選択中の領域に適用します。',
+  'shortcuts.applyLegacyPresetTextSfx.label': '「SFX」プリセットを適用',
+  'shortcuts.applyLegacyPresetTextSfx.description': '「SFX」モードに設定されたプリセットを選択中の領域に適用します。',
+  'shortcuts.applyLegacyPresetTextNarration.label': '「ナレーション」プリセットを適用',
+  'shortcuts.applyLegacyPresetTextNarration.description': '「ナレーション」モードに設定されたプリセットを選択中の領域に適用します。',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': '「黒い吹き出し」プリセットを適用',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'Legacy text_inside_black_bubbleビジュアルプリセットを選択した領域に適用します。',
+    '「黒い吹き出し」モードに設定されたプリセットを選択中の領域に適用します。',
   'shortcuts.applyAutoShape.label': '自動形状を適用',
   'shortcuts.applyAutoShape.description':
     '選択した領域に対して楕円形と矩形を自動的に選択します。',

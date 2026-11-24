@@ -1969,6 +1969,9 @@ export const itMessages: TranslationCatalog = {
   'settings.modePresets.all': 'Tutti',
   'settings.modePresets.mode': 'Modalità',
   'settings.modePresets.save': 'Salva',
+  'settings.modePresets.preview': 'Anteprima dal vivo',
+  'settings.modePresets.sampleText': 'Testo di esempio',
+  'settings.modePresets.sampleTextDefault': 'Che giornata!',
   'settings.typographerLibrary.title': 'Libreria Typesetter',
   'settings.typographerLibrary.description':
     'Stili globali con cartelle, preset predefinito e associazione per modalità rilevata.',
@@ -3411,8 +3414,7 @@ export const itMessages: TranslationCatalog = {
     'Profilo OCR personalizzato in attesa di sincronizzazione locale.',
   'dashboard.status.presetAppliedToSelection':
     'Preset "{name}" applicato alla selezione corrente.',
-  'dashboard.status.legacyPresetNotFound':
-    'Preset visivo legacy {modeKey} non trovato.',
+  'dashboard.status.modePresetNotFound': 'Nessun preset impostato per la modalità {modeKey}.',
   'dashboard.status.presetAppliedShort':
     'Preset "{name}" applicato alla selezione.',
   'dashboard.status.presetAppliedToImage':
@@ -3629,25 +3631,21 @@ export const itMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': 'Applica preset attivo',
   'shortcuts.applyActivePreset.description':
     'Applica il preset tipografico attivo alla regione selezionata.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'Applica preset Legacy text_bubble',
+  'shortcuts.applyLegacyPresetTextBubble.label': 'Applica preset Fumetto',
   'shortcuts.applyLegacyPresetTextBubble.description':
-    'Applica il preset visivo Legacy text_bubble alla regione selezionata.',
-  'shortcuts.applyLegacyPresetTextFree.label':
-    'Applica preset Legacy text_free',
+    'Applica il preset impostato per la modalità Fumetto alla regione selezionata.',
+  'shortcuts.applyLegacyPresetTextFree.label': 'Applica preset Libero',
   'shortcuts.applyLegacyPresetTextFree.description':
-    'Applica il preset visivo Legacy text_free alla regione selezionata.',
-  'shortcuts.applyLegacyPresetTextSfx.label': 'Applica preset Legacy text_sfx',
+    'Applica il preset impostato per la modalità Libero alla regione selezionata.',
+  'shortcuts.applyLegacyPresetTextSfx.label': 'Applica preset SFX',
   'shortcuts.applyLegacyPresetTextSfx.description':
-    'Applica il preset visivo Legacy text_sfx alla regione selezionata.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'Applica preset Legacy text_narration',
+    'Applica il preset impostato per la modalità SFX alla regione selezionata.',
+  'shortcuts.applyLegacyPresetTextNarration.label': 'Applica preset Narrazione',
   'shortcuts.applyLegacyPresetTextNarration.description':
-    'Applica il preset visivo Legacy text_narration alla regione selezionata.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'Applica preset Legacy text_inside_black_bubble',
+    'Applica il preset impostato per la modalità Narrazione alla regione selezionata.',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': 'Applica preset Fumetto Nero',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'Applica il preset visivo Legacy text_inside_black_bubble alla regione selezionata.',
+    'Applica il preset impostato per la modalità Fumetto Nero alla regione selezionata.',
   'shortcuts.applyAutoShape.label': 'Applica forma automatica',
   'shortcuts.applyAutoShape.description':
     'Sceglie automaticamente tra ellittica e rettangolare per la regione selezionata.',

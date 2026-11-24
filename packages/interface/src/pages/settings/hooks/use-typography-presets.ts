@@ -201,6 +201,7 @@ export const useTypographyPresets = ({ t }: UseTypographyPresetsArgs) => {
 
   return {
     typographyPresetState,
+    setTypographyPresetState,
     typographyPresetForm,
     setTypographyPresetForm,
     typographyPresetFeedback,

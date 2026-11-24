@@ -1880,6 +1880,9 @@ export const arMessages: TranslationCatalog = {
   'settings.modePresets.all': 'الكل',
   'settings.modePresets.mode': 'الوضع',
   'settings.modePresets.save': 'حفظ',
+  'settings.modePresets.preview': 'معاينة مباشرة',
+  'settings.modePresets.sampleText': 'نص تجريبي',
+  'settings.modePresets.sampleTextDefault': 'يا له من يوم!',
   'settings.typographerLibrary.title': 'مكتبة محرر الطباعة',
   'settings.typographerLibrary.description':
     'أنماط عامة مع مجلدات وإعداد مسبق افتراضي وربط حسب الوضع المكتشف.',
@@ -3303,8 +3306,7 @@ export const arMessages: TranslationCatalog = {
     'ملف OCR مخصص بانتظار المزامنة المحلية.',
   'dashboard.status.presetAppliedToSelection':
     'تم تطبيق الإعداد المسبق "{name}" على التحديد الحالي.',
-  'dashboard.status.legacyPresetNotFound':
-    'الإعداد المسبق المرئي القديم {modeKey} غير موجود.',
+  'dashboard.status.modePresetNotFound': 'لا يوجد إعداد مسبق محدد للوضع {modeKey}.',
   'dashboard.status.presetAppliedShort':
     'تم تطبيق الإعداد المسبق "{name}" على التحديد.',
   'dashboard.status.presetAppliedToImage':
@@ -3493,24 +3495,21 @@ export const arMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': 'تطبيق الإعداد المسبق النشط',
   'shortcuts.applyActivePreset.description':
     'يطبّق إعداد الطباعة المسبق النشط على المنطقة المحددة.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'تطبيق إعداد text_bubble القديم',
+  'shortcuts.applyLegacyPresetTextBubble.label': 'تطبيق الإعداد المسبق "فقاعة"',
   'shortcuts.applyLegacyPresetTextBubble.description':
-    'يطبّق الإعداد المرئي القديم text_bubble على المنطقة المحددة.',
-  'shortcuts.applyLegacyPresetTextFree.label': 'تطبيق إعداد text_free القديم',
+    'يطبق الإعداد المسبق المحدد للوضع "فقاعة" على المنطقة المحددة.',
+  'shortcuts.applyLegacyPresetTextFree.label': 'تطبيق الإعداد المسبق "حر"',
   'shortcuts.applyLegacyPresetTextFree.description':
-    'يطبّق الإعداد المرئي القديم text_free على المنطقة المحددة.',
-  'shortcuts.applyLegacyPresetTextSfx.label': 'تطبيق إعداد text_sfx القديم',
+    'يطبق الإعداد المسبق المحدد للوضع "حر" على المنطقة المحددة.',
+  'shortcuts.applyLegacyPresetTextSfx.label': 'تطبيق الإعداد المسبق "SFX"',
   'shortcuts.applyLegacyPresetTextSfx.description':
-    'يطبّق الإعداد المرئي القديم text_sfx على المنطقة المحددة.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'تطبيق إعداد text_narration القديم',
+    'يطبق الإعداد المسبق المحدد للوضع "SFX" على المنطقة المحددة.',
+  'shortcuts.applyLegacyPresetTextNarration.label': 'تطبيق الإعداد المسبق "سرد"',
   'shortcuts.applyLegacyPresetTextNarration.description':
-    'يطبّق الإعداد المرئي القديم text_narration على المنطقة المحددة.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'تطبيق إعداد text_inside_black_bubble القديم',
+    'يطبق الإعداد المسبق المحدد للوضع "سرد" على المنطقة المحددة.',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': 'تطبيق الإعداد المسبق "فقاعة سوداء"',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'يطبّق الإعداد المرئي القديم text_inside_black_bubble على المنطقة المحددة.',
+    'يطبق الإعداد المسبق المحدد للوضع "فقاعة سوداء" على المنطقة المحددة.',
   'shortcuts.applyAutoShape.label': 'تطبيق الشكل التلقائي',
   'shortcuts.applyAutoShape.description':
     'يختار تلقائيًا بين البيضاوي والمستطيل للمنطقة المحددة.',

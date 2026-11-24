@@ -2,7 +2,6 @@ import { useCallback, useState } from "react";
 
 import { publishPresetPreview } from "./presetPreviewSignal";
 import { createTypographyPreset } from "./presets";
-import { SFX_SEED_ID_PREFIX } from "./sfxPresetSeed";
 import { resolveRegionShapeKind } from "../utils/dashboard.utils";
 import { useRegionEditorStore } from "../pages/dashboard/stores/region-editor-store";
 import { useImageCollectionStore } from "../pages/dashboard/stores/image-collection-store";
@@ -22,20 +21,18 @@ const readActiveEditorRegion = () => {
   return { editor, activeId, active };
 };
 
-export const resolveSfxSeedId = (
+export const resolveSfxModePresetId = (
   presets: readonly { id: string }[],
-  selectedPresetId: string | null,
+  modeBindings: Readonly<Record<string, string>>,
 ): string | null => {
-  const selected = selectedPresetId !== null
-    ? presets.find((preset) => preset.id === selectedPresetId && preset.id.startsWith(SFX_SEED_ID_PREFIX))
-    : undefined;
-  return selected?.id
-    ?? presets.find((preset) => preset.id.startsWith(SFX_SEED_ID_PREFIX))?.id
-    ?? null;
+  const boundId = modeBindings.text_sfx;
+  return boundId && presets.some((preset) => preset.id === boundId) ? boundId : null;
 };
 
-export const hasSfxSeeds = (presets: readonly { id: string }[]): boolean =>
-  presets.some((preset) => preset.id.startsWith(SFX_SEED_ID_PREFIX));
+export const useSfxModePresetId = (presets: readonly { id: string }[]): string | null => {
+  const modeBindings = useRegionEditorStore((state) => state.typographyPresetState.modeBindings);
+  return resolveSfxModePresetId(presets, modeBindings);
+};
 
 const hasActiveMultiSelection = (activeId: string | null): boolean =>
   activeId !== null

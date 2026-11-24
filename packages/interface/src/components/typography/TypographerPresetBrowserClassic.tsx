@@ -17,9 +17,8 @@ import {
 
 import { useI18n } from '../../i18n';
 import {
-  hasSfxSeeds,
-  resolveSfxSeedId,
   usePresetBrowserActions,
+  useSfxModePresetId,
   type PresetApplyScope,
 } from '../../typography/presetBrowserShared';
 import { publishPresetPreview } from '../../typography/presetPreviewSignal';
@@ -114,6 +113,7 @@ export const TypographerPresetBrowserClassic = ({
     handlePresetClick,
     handleApplySelection,
   } = usePresetBrowserActions();
+  const sfxModePresetId = useSfxModePresetId(presets);
 
   const toggleFolder = useCallback((folderId: string) => {
     setExpandedFolders((prev) => {
@@ -345,11 +345,11 @@ export const TypographerPresetBrowserClassic = ({
         </button>
       </div>
 
-      {hasSfxSeeds(presets) && (
+      {sfxModePresetId !== null && (
         <div className="koma-preset-browser__sfx" style={{ display: 'flex', gap: 6, marginTop: 6 }}>
           <span>{t('typo.presets.sfxGroup')}</span>
           <button type="button" className="koma-btn koma-btn--ghost" title={t('typo.presets.applySfxToApproved')}
-            onClick={() => onApplyToSelection(resolveSfxSeedId(presets, selectedPresetId), 'sfxApproved')}>
+            onClick={() => onApplyToSelection(sfxModePresetId, 'sfxApproved')}>
             {t('typo.presets.applySfxToApproved')}
           </button>
         </div>

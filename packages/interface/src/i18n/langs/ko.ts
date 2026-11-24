@@ -1896,6 +1896,9 @@ export const koMessages: TranslationCatalog = {
   'settings.modePresets.all': '전체',
   'settings.modePresets.mode': '모드',
   'settings.modePresets.save': '저장',
+  'settings.modePresets.preview': '실시간 미리보기',
+  'settings.modePresets.sampleText': '샘플 텍스트',
+  'settings.modePresets.sampleTextDefault': '이게 무슨 날이야!',
   'settings.typographerLibrary.title': '타이프세터 라이브러리',
   'settings.typographerLibrary.description':
     '폴더, 기본 프리셋 및 감지된 모드별 바인딩이 포함된 글로벌 스타일.',
@@ -3334,8 +3337,7 @@ export const koMessages: TranslationCatalog = {
     '사용자 지정 OCR 프로필이 로컬 동기화를 대기 중입니다.',
   'dashboard.status.presetAppliedToSelection':
     '프리셋 "{name}"이(가) 현재 선택에 적용되었습니다.',
-  'dashboard.status.legacyPresetNotFound':
-    '레거시 비주얼 프리셋 {modeKey}을(를) 찾을 수 없습니다.',
+  'dashboard.status.modePresetNotFound': '{modeKey} 모드에 설정된 프리셋이 없습니다.',
   'dashboard.status.presetAppliedShort':
     '프리셋 "{name}"이(가) 선택에 적용되었습니다.',
   'dashboard.status.presetAppliedToImage':
@@ -3535,24 +3537,17 @@ export const koMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': '활성 프리셋 적용',
   'shortcuts.applyActivePreset.description':
     '선택한 영역에 활성 타이포그래피 프리셋을 적용합니다.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    '레거시 text_bubble 프리셋 적용',
-  'shortcuts.applyLegacyPresetTextBubble.description':
-    '선택한 영역에 레거시 text_bubble 비주얼 프리셋을 적용합니다.',
-  'shortcuts.applyLegacyPresetTextFree.label': '레거시 text_free 프리셋 적용',
-  'shortcuts.applyLegacyPresetTextFree.description':
-    '선택한 영역에 레거시 text_free 비주얼 프리셋을 적용합니다.',
-  'shortcuts.applyLegacyPresetTextSfx.label': '레거시 text_sfx 프리셋 적용',
-  'shortcuts.applyLegacyPresetTextSfx.description':
-    '선택한 영역에 레거시 text_sfx 비주얼 프리셋을 적용합니다.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    '레거시 text_narration 프리셋 적용',
-  'shortcuts.applyLegacyPresetTextNarration.description':
-    '선택한 영역에 레거시 text_narration 비주얼 프리셋을 적용합니다.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    '레거시 text_inside_black_bubble 프리셋 적용',
+  'shortcuts.applyLegacyPresetTextBubble.label': '"말풍선" 프리셋 적용',
+  'shortcuts.applyLegacyPresetTextBubble.description': '"말풍선" 모드에 설정된 프리셋을 선택한 영역에 적용합니다.',
+  'shortcuts.applyLegacyPresetTextFree.label': '"자유" 프리셋 적용',
+  'shortcuts.applyLegacyPresetTextFree.description': '"자유" 모드에 설정된 프리셋을 선택한 영역에 적용합니다.',
+  'shortcuts.applyLegacyPresetTextSfx.label': '"SFX" 프리셋 적용',
+  'shortcuts.applyLegacyPresetTextSfx.description': '"SFX" 모드에 설정된 프리셋을 선택한 영역에 적용합니다.',
+  'shortcuts.applyLegacyPresetTextNarration.label': '"내레이션" 프리셋 적용',
+  'shortcuts.applyLegacyPresetTextNarration.description': '"내레이션" 모드에 설정된 프리셋을 선택한 영역에 적용합니다.',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': '"검은 말풍선" 프리셋 적용',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    '선택한 영역에 레거시 text_inside_black_bubble 비주얼 프리셋을 적용합니다.',
+    '"검은 말풍선" 모드에 설정된 프리셋을 선택한 영역에 적용합니다.',
   'shortcuts.applyAutoShape.label': '자동 모양 적용',
   'shortcuts.applyAutoShape.description':
     '선택한 영역에 타원형과 직사각형 중 자동으로 선택합니다.',

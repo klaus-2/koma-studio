@@ -6,9 +6,8 @@ import {
 } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import {
-  hasSfxSeeds,
-  resolveSfxSeedId,
   usePresetBrowserActions,
+  useSfxModePresetId,
   type PresetApplyScope,
 } from "../../../typography/presetBrowserShared";
 import { publishPresetPreview } from "../../../typography/presetPreviewSignal";
@@ -85,6 +84,7 @@ export const TypographerPresetBrowserNoir = ({
     handlePresetClick,
     handleApplySelection,
   } = usePresetBrowserActions();
+  const sfxModePresetId = useSfxModePresetId(presets);
 
   const toggleFolder = useCallback((folderId: string) => {
     setExpandedFolders((prev) => {
@@ -286,11 +286,11 @@ export const TypographerPresetBrowserNoir = ({
         </button>
       </div>
 
-      {hasSfxSeeds(presets) && (
+      {sfxModePresetId !== null && (
         <div className="flex items-center gap-1.5 border-t border-paper/8 pt-2">
           <span className="kicker !text-[8px]">{t("typo.presets.sfxGroup")}</span>
           <button type="button" className={btnGhost} title={t("typo.presets.applySfxToApproved")}
-            onClick={() => onApplyToSelection(resolveSfxSeedId(presets, selectedPresetId), "sfxApproved")}>
+            onClick={() => onApplyToSelection(sfxModePresetId, "sfxApproved")}>
             {t("typo.presets.applySfxToApproved")}
           </button>
         </div>

@@ -1800,6 +1800,9 @@ export const zhMessages: TranslationCatalog = {
   'settings.modePresets.all': '全部',
   'settings.modePresets.mode': '模式',
   'settings.modePresets.save': '儲存',
+  'settings.modePresets.preview': '即時預覽',
+  'settings.modePresets.sampleText': '範例文字',
+  'settings.modePresets.sampleTextDefault': '真是美好的一天!',
   'settings.typographerLibrary.title': '排版器庫',
   'settings.typographerLibrary.description':
     '具備資料夾、預設預設和依偵測模式綁定的全域樣式。',
@@ -3183,7 +3186,7 @@ export const zhMessages: TranslationCatalog = {
     '自訂 OCR 設定檔等待本機同步。',
   'dashboard.status.presetAppliedToSelection':
     '預設「{name}」已套用至目前選取。',
-  'dashboard.status.legacyPresetNotFound': '找不到舊版視覺預設 {modeKey}。',
+  'dashboard.status.modePresetNotFound': '{modeKey} 模式未設定預設。',
   'dashboard.status.presetAppliedShort': '預設「{name}」已套用至選取。',
   'dashboard.status.presetAppliedToImage':
     '預設「{name}」已套用至啟用中的圖片。',
@@ -3355,23 +3358,16 @@ export const zhMessages: TranslationCatalog = {
     '在排版器或手動 AIO 中對所選形狀執行偵測或精修。',
   'shortcuts.applyActivePreset.label': '套用啟用的預設',
   'shortcuts.applyActivePreset.description': '將啟用的排版預��套用至所選區域。',
-  'shortcuts.applyLegacyPresetTextBubble.label': '套用舊版 text_bubble 預設',
-  'shortcuts.applyLegacyPresetTextBubble.description':
-    '將舊版 text_bubble 視覺預設套用至所選區域。',
-  'shortcuts.applyLegacyPresetTextFree.label': '套用舊版 text_free 預設',
-  'shortcuts.applyLegacyPresetTextFree.description':
-    '將舊版 text_free 視覺預設套用至所選區域。',
-  'shortcuts.applyLegacyPresetTextSfx.label': '套用舊版 text_sfx 預設',
-  'shortcuts.applyLegacyPresetTextSfx.description':
-    '將舊版 text_sfx 視覺預設套用至所選區域。',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    '套用舊版 text_narration 預設',
-  'shortcuts.applyLegacyPresetTextNarration.description':
-    '將舊版 text_narration 視覺預設套用至所選區域。',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    '套用舊版 text_inside_black_bubble 預設',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    '將舊版 text_inside_black_bubble 視覺預設套用至所選區域。',
+  'shortcuts.applyLegacyPresetTextBubble.label': '套用「對話框」預設',
+  'shortcuts.applyLegacyPresetTextBubble.description': '將「對話框」模式設定的預設套用到所選區域。',
+  'shortcuts.applyLegacyPresetTextFree.label': '套用「自由」預設',
+  'shortcuts.applyLegacyPresetTextFree.description': '將「自由」模式設定的預設套用到所選區域。',
+  'shortcuts.applyLegacyPresetTextSfx.label': '套用「SFX」預設',
+  'shortcuts.applyLegacyPresetTextSfx.description': '將「SFX」模式設定的預設套用到所選區域。',
+  'shortcuts.applyLegacyPresetTextNarration.label': '套用「旁白」預設',
+  'shortcuts.applyLegacyPresetTextNarration.description': '將「旁白」模式設定的預設套用到所選區域。',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': '套用「黑色對話框」預設',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.description': '將「黑色對話框」模式設定的預設套用到所選區域。',
   'shortcuts.applyAutoShape.label': '套用自動形狀',
   'shortcuts.applyAutoShape.description': '自動為所選區域選擇橢圓形或矩形。',
   'shortcuts.convertShapeSquare.label': '轉換形狀為矩形',

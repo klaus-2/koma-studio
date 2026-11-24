@@ -1970,6 +1970,9 @@ export const ruMessages: TranslationCatalog = {
   'settings.modePresets.all': 'Все',
   'settings.modePresets.mode': 'Режим',
   'settings.modePresets.save': 'Сохранить',
+  'settings.modePresets.preview': 'Предпросмотр',
+  'settings.modePresets.sampleText': 'Пример текста',
+  'settings.modePresets.sampleTextDefault': 'Ну и денёк!',
   'settings.typographerLibrary.title': 'Библиотека наборщика',
   'settings.typographerLibrary.description':
     'Глобальные стили с папками, пресетом по умолчанию и привязкой по обнаруженному режиму.',
@@ -3435,8 +3438,7 @@ export const ruMessages: TranslationCatalog = {
     'Пользовательский профиль OCR ожидает локальной синхронизации.',
   'dashboard.status.presetAppliedToSelection':
     'Пресет «{name}» применён к текущему выделению.',
-  'dashboard.status.legacyPresetNotFound':
-    'Устаревший визуальный пресет {modeKey} не найден.',
+  'dashboard.status.modePresetNotFound': 'Для режима {modeKey} не задан пресет.',
   'dashboard.status.presetAppliedShort':
     'Пресет «{name}» применён к выделению.',
   'dashboard.status.presetAppliedToImage':
@@ -3652,26 +3654,21 @@ export const ruMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': 'Применить активный пресет',
   'shortcuts.applyActivePreset.description':
     'Применяет активный пресет типографики к выбранной области.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'Применить устаревший пресет text_bubble',
+  'shortcuts.applyLegacyPresetTextBubble.label': 'Применить пресет «Облачко»',
   'shortcuts.applyLegacyPresetTextBubble.description':
-    'Применяет устаревший визуальный пресет text_bubble к выбранной области.',
-  'shortcuts.applyLegacyPresetTextFree.label':
-    'Применить устаревший пресет text_free',
+    'Применяет пресет режима «Облачко» к выбранной области.',
+  'shortcuts.applyLegacyPresetTextFree.label': 'Применить пресет «Свободный»',
   'shortcuts.applyLegacyPresetTextFree.description':
-    'Применяет устаревший визуальный пресет text_free к выбранной области.',
-  'shortcuts.applyLegacyPresetTextSfx.label':
-    'Применить устаревший пресет text_sfx',
+    'Применяет пресет режима «Свободный» к выбранной области.',
+  'shortcuts.applyLegacyPresetTextSfx.label': 'Применить пресет «SFX»',
   'shortcuts.applyLegacyPresetTextSfx.description':
-    'Применяет устаревший визуальный пресет text_sfx к выбранной области.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'Применить устаревший пресет text_narration',
+    'Применяет пресет режима «SFX» к выбранной области.',
+  'shortcuts.applyLegacyPresetTextNarration.label': 'Применить пресет «Повествование»',
   'shortcuts.applyLegacyPresetTextNarration.description':
-    'Применяет устаревший визуальный пресет text_narration к выбранной области.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'Применить устаревший пресет text_inside_black_bubble',
+    'Применяет пресет режима «Повествование» к выбранной области.',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': 'Применить пресет «Чёрное облачко»',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'Применяет устаревший визуальный пресет text_inside_black_bubble к выбранной области.',
+    'Применяет пресет режима «Чёрное облачко» к выбранной области.',
   'shortcuts.applyAutoShape.label': 'Применить автоформу',
   'shortcuts.applyAutoShape.description':
     'Автоматически выбирает между эллиптической и прямоугольной формой для выбранной области.',

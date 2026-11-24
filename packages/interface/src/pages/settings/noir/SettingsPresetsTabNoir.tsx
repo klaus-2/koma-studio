@@ -7,6 +7,9 @@ import { HexColorPopover } from "../../../components/color/HexColorPopover";
 import { FontFamilySelect } from "../../../components/fonts/FontFamilySelect";
 import type React from "react";
 import type { useI18n } from "../../../i18n";
+import { RenderModeAdvancedSectionNoir } from "./RenderModeAdvancedSectionNoir";
+import { RenderModePresetPreview } from "../RenderModePresetPreview";
+import type { AdvancedFieldChange } from "../renderModeAdvancedFields";
 import { AIO_STAGE_KEYS, AIO_STAGE_LABELS, RENDER_MODE_PRESET_OPTIONS, normalizeLanguageCode } from "../settings.constants";
 import type { PresetFormData, RenderModePresetFormData } from "../settings.types";
 import type { AioLanguageModelPreset } from "../../../types/aioModelPresets";
@@ -66,6 +69,7 @@ interface SettingsPresetsTabArgs {
     renderModePresetForm: RenderModePresetFormData;
     handleRenderModePresetModeChange: (mode: RenderModePresetMode) => void;
     handleRenderModePresetFieldChange: <K extends keyof RenderModeStylePreset>(key: K, value: RenderModeStylePreset[K]) => void;
+    handleRenderModePresetAdvancedChange: AdvancedFieldChange;
     handleSaveRenderModePreset: () => void;
     handleResetAllRenderModePreset: () => void;
     handleResetRenderModePreset: () => void;
@@ -380,6 +384,10 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode }: S
                 {RENDER_MODE_PRESET_OPTIONS.map(([mode, l]) => <option key={mode} value={mode}>{l}</option>)}
               </select>
             </Field>
+            <RenderModePresetPreview t={t} mode={rf.mode} style={rf.preview} shapeKind={rf.shapeKind}
+              className="panel-cut-sm flex flex-col gap-2 border border-paper/8 bg-ink/50 p-3 sm:col-span-2"
+              labelClassName="flex flex-col gap-1.5 font-mono text-[9px] uppercase tracking-[0.24em] text-paper/40"
+              inputClassName={inputCls} canvasClassName="panel-cut-sm block border border-paper/12" />
             <Field label={t("renderPreview.typographyStyle")}>
               <div className="flex flex-wrap items-center gap-2">
                 <FontFamilySelect
@@ -440,6 +448,8 @@ export const renderSettingsPresetsTabNoir = ({ t, aio, textFill, renderMode }: S
               value={rf.style.outlineColor} disabled={!rf.style.outlineEnabled}
               onChange={(v) => renderMode.handleRenderModePresetFieldChange("outlineColor", v)} />
           </div>
+
+          <RenderModeAdvancedSectionNoir t={t} style={rf.advanced} onChange={renderMode.handleRenderModePresetAdvancedChange} />
 
           <div className="flex flex-wrap justify-end gap-2 border-t border-paper/8 pt-4">
             <button type="button" className={btnGhost} onClick={renderMode.handleResetAllRenderModePreset}>

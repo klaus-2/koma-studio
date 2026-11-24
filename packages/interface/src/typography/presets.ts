@@ -8,7 +8,6 @@ import type {
 import { createDefaultTypographyShape, createTypographyId } from "./types";
 import {
   loadRenderModePresetState,
-  RENDER_MODE_PRESET_MODES,
   type RenderModePresetMode,
 } from "../utils/renderModePresets";
 import {
@@ -18,7 +17,13 @@ import {
   type RenderTextEffectBaseSnapshot,
 } from "./textEffects";
 import { migrateRenderSizeCatalog } from "../utils/renderSizeDefaults";
-import { seedSfxPresets } from "./sfxPresetSeed";
+import {
+  buildDefaultTypographyPresetState,
+  buildModeDefaultPreset,
+  migrateLegacyModePresets,
+  modeDefaultPresetId,
+  needsLegacyModeMigration,
+} from "./modeDefaults";
 
 export const TYPOGRAPHY_PRESET_STORAGE_KEY = "koma-typography-presets-v1";
 
@@ -227,65 +232,12 @@ const sanitizePreset = (value: unknown): TypographyStylePreset | null => {
   };
 };
 
-const buildLegacyPresetState = (): TypographyPresetStateV1 => {
-  const renderModePresetState = loadRenderModePresetState();
-  const now = Date.now();
-  const legacyFolderId = createTypographyId("typo-folder");
-  const presets: TypographyStylePreset[] = [];
-  const modeBindings: Record<string, string> = {};
-
-  RENDER_MODE_PRESET_MODES.forEach((mode, index) => {
-    const override = renderModePresetState.presets[mode];
-    const style: RenderTextStyle = {
-      ...DEFAULT_STYLE,
-      ...(override ? {
-        fontFamily: override.fontFamily,
-        fontSize: override.fontSize,
-        bold: override.bold,
-        italic: override.italic,
-        color: override.color,
-        detectGradient: override.detectGradient,
-        outlineColor: override.outlineColor,
-        outlineWidth: override.outlineEnabled === false ? 0 : override.outlineWidth,
-        uppercase: override.uppercase,
-      } : {}),
-    };
-    const presetId = createTypographyId(`legacy-${mode}`);
-    presets.push({
-      id: presetId,
-      folderId: legacyFolderId,
-      name: `Legacy ${mode}`,
-      description: "Migrado automaticamente dos presets legados de render mode.",
-      style,
-      defaultShapeKind: mode === "text_bubble" || mode === "text_inside_black_bubble" ? "rounded" : "square",
-      padding: 10,
-      createdAt: now + index,
-      updatedAt: now + index,
-    });
-    modeBindings[mode] = presetId;
-  });
-
-  return {
-    version: 1,
-    folders: [
-      {
-        id: legacyFolderId,
-        name: "Legacy Mode Presets",
-        parentId: null,
-        order: 0,
-        createdAt: now,
-        updatedAt: now,
-      },
-    ],
-    presets,
-    modeBindings,
-    defaultPresetId: presets[0]?.id ?? null,
-  };
-};
+const buildModeDefaultPresetState = (): TypographyPresetStateV1 =>
+  buildDefaultTypographyPresetState(DEFAULT_STYLE, loadRenderModePresetState().presets);
 
 const sanitizeState = (value: unknown): TypographyPresetStateV1 => {
   if (!isRecord(value) || Number(value.version) !== 1) {
-    return buildLegacyPresetState();
+    return buildModeDefaultPresetState();
   }
 
   const folders = Array.isArray(value.folders)
@@ -321,11 +273,13 @@ const persistState = (state: TypographyPresetStateV1): void => {
 };
 
 export const loadTypographyPresetState = (): TypographyPresetStateV1 => {
-  if (typeof window === "undefined") return buildLegacyPresetState();
+  if (typeof window === "undefined") return buildModeDefaultPresetState();
   migrateRenderSizeCatalog(TYPOGRAPHY_PRESET_STORAGE_KEY);
   const raw = parseJson<TypographyPresetStateV1>(window.localStorage.getItem(TYPOGRAPHY_PRESET_STORAGE_KEY));
-  if (raw === null) return sanitizeState(seedSfxPresets(buildLegacyPresetState()));
-  return sanitizeState(raw);
+  if (raw === null) return buildModeDefaultPresetState();
+  const state = sanitizeState(raw);
+  if (!needsLegacyModeMigration(state)) return state;
+  return saveTypographyPresetState(migrateLegacyModePresets(state, DEFAULT_STYLE, loadRenderModePresetState().presets));
 };
 
 export const saveTypographyPresetState = (state: TypographyPresetStateV1): TypographyPresetStateV1 => {
@@ -510,11 +464,27 @@ export const bindTypographyPresetToMode = (
   });
 };
 
-export const resolveLegacyTypographyPresetForMode = (
+export const resolveModeTypographyPreset = (
   mode: RenderModePresetMode,
   state: TypographyPresetStateV1 = loadTypographyPresetState(),
 ): TypographyStylePreset | null =>
-  state.presets.find((preset) => preset.name === `Legacy ${mode}`) ?? null;
+  getTypographyPresetById(state.modeBindings[mode] ?? modeDefaultPresetId(mode), state);
+
+export const restoreModeDefaultPresets = (
+  modes: readonly RenderModePresetMode[],
+  state: TypographyPresetStateV1 = loadTypographyPresetState(),
+): TypographyPresetStateV1 => {
+  const restored = modes.map((mode) => buildModeDefaultPreset(mode, DEFAULT_STYLE));
+  const restoredIds = new Set(restored.map((preset) => preset.id));
+  return saveTypographyPresetState({
+    ...state,
+    presets: [...state.presets.filter((preset) => !restoredIds.has(preset.id)), ...restored],
+    modeBindings: {
+      ...state.modeBindings,
+      ...Object.fromEntries(modes.map((mode) => [mode, modeDefaultPresetId(mode)])),
+    },
+  });
+};
 
 export const setDefaultTypographyPreset = (
   presetId: string | null,

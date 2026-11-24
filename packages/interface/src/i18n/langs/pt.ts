@@ -2062,6 +2062,9 @@ export const ptMessages: TranslationCatalog = {
   'settings.modePresets.all': 'Todos',
   'settings.modePresets.mode': 'Modo',
   'settings.modePresets.save': 'Salvar',
+  'settings.modePresets.preview': 'Pré-visualização ao vivo',
+  'settings.modePresets.sampleText': 'Texto de exemplo',
+  'settings.modePresets.sampleTextDefault': 'Que dia!',
   'settings.typographerLibrary.title': 'Biblioteca do Tipógrafo',
   'settings.typographerLibrary.description':
     'Estilos globais com pastas, preset padrão e binding por modo detectado.',
@@ -3597,8 +3600,7 @@ export const ptMessages: TranslationCatalog = {
     'Perfil custom OCR aguardando sincronização local.',
   'dashboard.status.presetAppliedToSelection':
     'Preset "{name}" aplicado à seleção atual.',
-  'dashboard.status.legacyPresetNotFound':
-    'Preset visual Legacy {modeKey} não encontrado.',
+  'dashboard.status.modePresetNotFound': 'Nenhum preset definido para o modo {modeKey}.',
   'dashboard.status.presetAppliedShort': 'Preset "{name}" aplicado à seleção.',
   'dashboard.status.presetAppliedToImage':
     'Preset "{name}" aplicado à imagem ativa.',
@@ -3802,25 +3804,21 @@ export const ptMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': 'Aplicar preset ativo',
   'shortcuts.applyActivePreset.description':
     'Aplica o preset tipográfico ativo na região selecionada.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'Aplicar preset Legacy text_bubble',
+  'shortcuts.applyLegacyPresetTextBubble.label': 'Aplicar preset Balão',
   'shortcuts.applyLegacyPresetTextBubble.description':
-    'Aplica o preset visual Legacy text_bubble na região selecionada.',
-  'shortcuts.applyLegacyPresetTextFree.label':
-    'Aplicar preset Legacy text_free',
+    'Aplica o preset definido para o modo Balão na região selecionada.',
+  'shortcuts.applyLegacyPresetTextFree.label': 'Aplicar preset Livre',
   'shortcuts.applyLegacyPresetTextFree.description':
-    'Aplica o preset visual Legacy text_free na região selecionada.',
-  'shortcuts.applyLegacyPresetTextSfx.label': 'Aplicar preset Legacy text_sfx',
+    'Aplica o preset definido para o modo Livre na região selecionada.',
+  'shortcuts.applyLegacyPresetTextSfx.label': 'Aplicar preset SFX',
   'shortcuts.applyLegacyPresetTextSfx.description':
-    'Aplica o preset visual Legacy text_sfx na região selecionada.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'Aplicar preset Legacy text_narration',
+    'Aplica o preset definido para o modo SFX na região selecionada.',
+  'shortcuts.applyLegacyPresetTextNarration.label': 'Aplicar preset Narração',
   'shortcuts.applyLegacyPresetTextNarration.description':
-    'Aplica o preset visual Legacy text_narration na região selecionada.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'Aplicar preset Legacy text_inside_black_bubble',
+    'Aplica o preset definido para o modo Narração na região selecionada.',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': 'Aplicar preset Balão Preto',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'Aplica o preset visual Legacy text_inside_black_bubble na região selecionada.',
+    'Aplica o preset definido para o modo Balão Preto na região selecionada.',
   'shortcuts.applyAutoShape.label': 'Aplicar shape automático',
   'shortcuts.applyAutoShape.description':
     'Escolhe automaticamente entre elliptic e rectangular para a região selecionada.',

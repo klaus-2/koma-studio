@@ -57,9 +57,9 @@ export interface UseDashboardKeyboardArgs {
   applyAutoDetectedShapeToActiveRegion: ReturnType<
     typeof useAioRegionEditing
   >['applyAutoDetectedShapeToActiveRegion'];
-  applyLegacyTypographyPresetToSelection: ReturnType<
+  applyModeTypographyPresetToSelection: ReturnType<
     typeof useAioRegionEditing
-  >['applyLegacyTypographyPresetToSelection'];
+  >['applyModeTypographyPresetToSelection'];
   clearAioRegionsForActiveImage: ReturnType<
     typeof useAioRegionEditing
   >['clearAioRegionsForActiveImage'];
@@ -139,7 +139,7 @@ export function useDashboardKeyboard({
   removeSelectedAioRegion,
   applyActiveTypographyPresetToSelection,
   applyAutoDetectedShapeToActiveRegion,
-  applyLegacyTypographyPresetToSelection,
+  applyModeTypographyPresetToSelection,
   applySelectedTypographerQueueItem,
   convertActiveTypographerShape,
   duplicateSelectedTypographerRegion,
@@ -281,15 +281,15 @@ export function useDashboardKeyboard({
           applyActiveTypographyPresetToSelection();
           return true;
         case 'applyLegacyPresetTextBubble':
-          return applyLegacyTypographyPresetToSelection('text_bubble');
+          return applyModeTypographyPresetToSelection('text_bubble');
         case 'applyLegacyPresetTextFree':
-          return applyLegacyTypographyPresetToSelection('text_free');
+          return applyModeTypographyPresetToSelection('text_free');
         case 'applyLegacyPresetTextSfx':
-          return applyLegacyTypographyPresetToSelection('text_sfx');
+          return applyModeTypographyPresetToSelection('text_sfx');
         case 'applyLegacyPresetTextNarration':
-          return applyLegacyTypographyPresetToSelection('text_narration');
+          return applyModeTypographyPresetToSelection('text_narration');
         case 'applyLegacyPresetTextInsideBlackBubble':
-          return applyLegacyTypographyPresetToSelection(
+          return applyModeTypographyPresetToSelection(
             'text_inside_black_bubble',
           );
         case 'applyAutoShape':
@@ -379,7 +379,7 @@ export function useDashboardKeyboard({
       activeId,
       applySelectedTypographerQueueItem,
       applyActiveTypographyPresetToSelection,
-      applyLegacyTypographyPresetToSelection,
+      applyModeTypographyPresetToSelection,
       applyAutoDetectedShapeToActiveRegion,
       convertActiveTypographerShape,
       clearAioManualPaintForImage,

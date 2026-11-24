@@ -1938,6 +1938,9 @@ export const hiMessages: TranslationCatalog = {
   'settings.modePresets.all': 'Semua',
   'settings.modePresets.mode': 'Mode',
   'settings.modePresets.save': 'Simpan',
+  'settings.modePresets.preview': 'लाइव पूर्वावलोकन',
+  'settings.modePresets.sampleText': 'नमूना पाठ',
+  'settings.modePresets.sampleTextDefault': 'क्या दिन है!',
   'settings.typographerLibrary.title': 'Pustaka Typesetter',
   'settings.typographerLibrary.description':
     'Gaya global dengan folder, preset default, dan pengikatan berdasarkan mode terdeteksi.',
@@ -3385,8 +3388,7 @@ export const hiMessages: TranslationCatalog = {
     'Profil OCR kustom menunggu sinkronisasi lokal.',
   'dashboard.status.presetAppliedToSelection':
     'Preset "{name}" diterapkan pada seleksi saat ini.',
-  'dashboard.status.legacyPresetNotFound':
-    'Preset visual lama {modeKey} tidak ditemukan.',
+  'dashboard.status.modePresetNotFound': '{modeKey} मोड के लिए कोई प्रीसेट सेट नहीं है।',
   'dashboard.status.presetAppliedShort':
     'Preset "{name}" diterapkan pada seleksi.',
   'dashboard.status.presetAppliedToImage':
@@ -3589,25 +3591,21 @@ export const hiMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': 'Terapkan preset aktif',
   'shortcuts.applyActivePreset.description':
     'Menerapkan preset tipografi aktif ke area yang dipilih.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'Terapkan preset Legacy text_bubble',
+  'shortcuts.applyLegacyPresetTextBubble.label': '"बबल" प्रीसेट लागू करें',
   'shortcuts.applyLegacyPresetTextBubble.description':
-    'Menerapkan preset visual Legacy text_bubble ke area yang dipilih.',
-  'shortcuts.applyLegacyPresetTextFree.label':
-    'Terapkan preset Legacy text_free',
+    '"बबल" मोड के लिए सेट प्रीसेट को चुने गए क्षेत्र पर लागू करता है।',
+  'shortcuts.applyLegacyPresetTextFree.label': '"फ़्री" प्रीसेट लागू करें',
   'shortcuts.applyLegacyPresetTextFree.description':
-    'Menerapkan preset visual Legacy text_free ke area yang dipilih.',
-  'shortcuts.applyLegacyPresetTextSfx.label': 'Terapkan preset Legacy text_sfx',
+    '"फ़्री" मोड के लिए सेट प्रीसेट को चुने गए क्षेत्र पर लागू करता है।',
+  'shortcuts.applyLegacyPresetTextSfx.label': '"SFX" प्रीसेट लागू करें',
   'shortcuts.applyLegacyPresetTextSfx.description':
-    'Menerapkan preset visual Legacy text_sfx ke area yang dipilih.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'Terapkan preset Legacy text_narration',
+    '"SFX" मोड के लिए सेट प्रीसेट को चुने गए क्षेत्र पर लागू करता है।',
+  'shortcuts.applyLegacyPresetTextNarration.label': '"कथन" प्रीसेट लागू करें',
   'shortcuts.applyLegacyPresetTextNarration.description':
-    'Menerapkan preset visual Legacy text_narration ke area yang dipilih.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'Terapkan preset Legacy text_inside_black_bubble',
+    '"कथन" मोड के लिए सेट प्रीसेट को चुने गए क्षेत्र पर लागू करता है।',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': '"काला बबल" प्रीसेट लागू करें',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'Menerapkan preset visual Legacy text_inside_black_bubble ke area yang dipilih.',
+    '"काला बबल" मोड के लिए सेट प्रीसेट को चुने गए क्षेत्र पर लागू करता है।',
   'shortcuts.applyAutoShape.label': 'Terapkan bentuk otomatis',
   'shortcuts.applyAutoShape.description':
     'Secara otomatis memilih antara elips dan persegi panjang untuk area yang dipilih.',

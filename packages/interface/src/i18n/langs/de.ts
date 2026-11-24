@@ -2001,6 +2001,9 @@ export const deMessages: TranslationCatalog = {
   'settings.modePresets.all': 'Alle',
   'settings.modePresets.mode': 'Modus',
   'settings.modePresets.save': 'Speichern',
+  'settings.modePresets.preview': 'Live-Vorschau',
+  'settings.modePresets.sampleText': 'Beispieltext',
+  'settings.modePresets.sampleTextDefault': 'Was für ein Tag!',
   'settings.typographerLibrary.title': 'Typesetter-Bibliothek',
   'settings.typographerLibrary.description':
     'Globale Stile mit Ordnern, Standardvorlage und Bindung nach erkanntem Modus.',
@@ -3477,8 +3480,7 @@ export const deMessages: TranslationCatalog = {
     'Benutzerdefiniertes OCR-Profil wartet auf lokale Synchronisierung.',
   'dashboard.status.presetAppliedToSelection':
     'Vorlage „{name}" auf die aktuelle Auswahl angewandt.',
-  'dashboard.status.legacyPresetNotFound':
-    'Legacy-Vorlage {modeKey} nicht gefunden.',
+  'dashboard.status.modePresetNotFound': 'Für den Modus {modeKey} ist kein Preset festgelegt.',
   'dashboard.status.presetAppliedShort':
     'Vorlage „{name}" auf die Auswahl angewandt.',
   'dashboard.status.presetAppliedToImage':
@@ -3694,26 +3696,21 @@ export const deMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': 'Aktive Vorlage anwenden',
   'shortcuts.applyActivePreset.description':
     'Wendet die aktive Typografie-Vorlage auf den ausgewählten Bereich an.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'Legacy-Vorlage text_bubble anwenden',
+  'shortcuts.applyLegacyPresetTextBubble.label': 'Preset Sprechblase anwenden',
   'shortcuts.applyLegacyPresetTextBubble.description':
-    'Wendet die Legacy-Vorlage text_bubble auf den ausgewählten Bereich an.',
-  'shortcuts.applyLegacyPresetTextFree.label':
-    'Legacy-Vorlage text_free anwenden',
+    'Wendet das für den Modus Sprechblase festgelegte Preset auf die ausgewählte Region an.',
+  'shortcuts.applyLegacyPresetTextFree.label': 'Preset Frei anwenden',
   'shortcuts.applyLegacyPresetTextFree.description':
-    'Wendet die Legacy-Vorlage text_free auf den ausgewählten Bereich an.',
-  'shortcuts.applyLegacyPresetTextSfx.label':
-    'Legacy-Vorlage text_sfx anwenden',
+    'Wendet das für den Modus Frei festgelegte Preset auf die ausgewählte Region an.',
+  'shortcuts.applyLegacyPresetTextSfx.label': 'Preset SFX anwenden',
   'shortcuts.applyLegacyPresetTextSfx.description':
-    'Wendet die Legacy-Vorlage text_sfx auf den ausgewählten Bereich an.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'Legacy-Vorlage text_narration anwenden',
+    'Wendet das für den Modus SFX festgelegte Preset auf die ausgewählte Region an.',
+  'shortcuts.applyLegacyPresetTextNarration.label': 'Preset Erzählung anwenden',
   'shortcuts.applyLegacyPresetTextNarration.description':
-    'Wendet die Legacy-Vorlage text_narration auf den ausgewählten Bereich an.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'Legacy-Vorlage text_inside_black_bubble anwenden',
+    'Wendet das für den Modus Erzählung festgelegte Preset auf die ausgewählte Region an.',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': 'Preset Schwarze Sprechblase anwenden',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'Wendet die Legacy-Vorlage text_inside_black_bubble auf den ausgewählten Bereich an.',
+    'Wendet das für den Modus Schwarze Sprechblase festgelegte Preset auf die ausgewählte Region an.',
   'shortcuts.applyAutoShape.label': 'Automatische Form anwenden',
   'shortcuts.applyAutoShape.description':
     'Wählt automatisch zwischen elliptisch und rechteckig für den ausgewählten Bereich.',

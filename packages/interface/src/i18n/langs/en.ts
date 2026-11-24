@@ -2134,6 +2134,9 @@ export const enMessages = {
   'settings.modePresets.all': 'All',
   'settings.modePresets.mode': 'Mode',
   'settings.modePresets.save': 'Save',
+  'settings.modePresets.preview': 'Live preview',
+  'settings.modePresets.sampleText': 'Sample text',
+  'settings.modePresets.sampleTextDefault': 'What a day!',
   'settings.typographerLibrary.title': 'Typesetter Library',
   'settings.typographerLibrary.description':
     'Global styles with folders, default preset, and binding by detected mode.',
@@ -3223,8 +3226,7 @@ export const enMessages = {
     'Custom OCR profile awaiting local sync.',
   'dashboard.status.presetAppliedToSelection':
     'Preset "{name}" applied to the current selection.',
-  'dashboard.status.legacyPresetNotFound':
-    'Legacy visual preset {modeKey} not found.',
+  'dashboard.status.modePresetNotFound': 'No preset is set for the {modeKey} mode.',
   'dashboard.status.presetAppliedShort':
     'Preset "{name}" applied to selection.',
   'dashboard.status.presetAppliedToImage':
@@ -3425,24 +3427,21 @@ export const enMessages = {
   'shortcuts.applyActivePreset.label': 'Apply active preset',
   'shortcuts.applyActivePreset.description':
     'Applies the active typography preset to the selected region.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'Apply Legacy text_bubble preset',
+  'shortcuts.applyLegacyPresetTextBubble.label': 'Apply Bubble preset',
   'shortcuts.applyLegacyPresetTextBubble.description':
-    'Applies the Legacy text_bubble visual preset to the selected region.',
-  'shortcuts.applyLegacyPresetTextFree.label': 'Apply Legacy text_free preset',
+    'Applies the preset set for the Bubble mode to the selected region.',
+  'shortcuts.applyLegacyPresetTextFree.label': 'Apply Free preset',
   'shortcuts.applyLegacyPresetTextFree.description':
-    'Applies the Legacy text_free visual preset to the selected region.',
-  'shortcuts.applyLegacyPresetTextSfx.label': 'Apply Legacy text_sfx preset',
+    'Applies the preset set for the Free mode to the selected region.',
+  'shortcuts.applyLegacyPresetTextSfx.label': 'Apply SFX preset',
   'shortcuts.applyLegacyPresetTextSfx.description':
-    'Applies the Legacy text_sfx visual preset to the selected region.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'Apply Legacy text_narration preset',
+    'Applies the preset set for the SFX mode to the selected region.',
+  'shortcuts.applyLegacyPresetTextNarration.label': 'Apply Narration preset',
   'shortcuts.applyLegacyPresetTextNarration.description':
-    'Applies the Legacy text_narration visual preset to the selected region.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'Apply Legacy text_inside_black_bubble preset',
+    'Applies the preset set for the Narration mode to the selected region.',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': 'Apply Inside Black Bubble preset',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'Applies the Legacy text_inside_black_bubble visual preset to the selected region.',
+    'Applies the preset set for the Inside Black Bubble mode to the selected region.',
   'shortcuts.applyAutoShape.label': 'Apply auto shape',
   'shortcuts.applyAutoShape.description':
     'Automatically chooses between elliptical and rectangular for the selected region.',

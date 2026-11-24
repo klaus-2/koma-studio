@@ -1922,6 +1922,9 @@ export const frMessages: TranslationCatalog = {
   'settings.modePresets.all': 'Tout',
   'settings.modePresets.mode': 'Mode',
   'settings.modePresets.save': 'Enregistrer',
+  'settings.modePresets.preview': 'Aperçu en direct',
+  'settings.modePresets.sampleText': "Texte d'exemple",
+  'settings.modePresets.sampleTextDefault': 'Quelle journée !',
   'settings.typographerLibrary.title': 'Bibliothèque Typesetter',
   'settings.typographerLibrary.description':
     'Styles globaux avec dossiers, préréglage par défaut et association par mode détecté.',
@@ -3385,8 +3388,7 @@ export const frMessages: TranslationCatalog = {
     'Profil OCR personnalisé en attente de synchronisation locale.',
   'dashboard.status.presetAppliedToSelection':
     'Préréglage « {name} » appliqué à la sélection actuelle.',
-  'dashboard.status.legacyPresetNotFound':
-    'Préréglage visuel hérité {modeKey} introuvable.',
+  'dashboard.status.modePresetNotFound': 'Aucun preset défini pour le mode {modeKey}.',
   'dashboard.status.presetAppliedShort':
     'Préréglage « {name} » appliqué à la sélection.',
   'dashboard.status.presetAppliedToImage':
@@ -3598,26 +3600,21 @@ export const frMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': 'Appliquer le préréglage actif',
   'shortcuts.applyActivePreset.description':
     'Applique le préréglage typographique actif à la région sélectionnée.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'Appliquer le préréglage hérité text_bubble',
+  'shortcuts.applyLegacyPresetTextBubble.label': 'Appliquer le preset Bulle',
   'shortcuts.applyLegacyPresetTextBubble.description':
-    'Applique le préréglage visuel hérité text_bubble à la région sélectionnée.',
-  'shortcuts.applyLegacyPresetTextFree.label':
-    'Appliquer le préréglage hérité text_free',
+    'Applique le preset défini pour le mode Bulle à la région sélectionnée.',
+  'shortcuts.applyLegacyPresetTextFree.label': 'Appliquer le preset Libre',
   'shortcuts.applyLegacyPresetTextFree.description':
-    'Applique le préréglage visuel hérité text_free à la région sélectionnée.',
-  'shortcuts.applyLegacyPresetTextSfx.label':
-    'Appliquer le préréglage hérité text_sfx',
+    'Applique le preset défini pour le mode Libre à la région sélectionnée.',
+  'shortcuts.applyLegacyPresetTextSfx.label': 'Appliquer le preset SFX',
   'shortcuts.applyLegacyPresetTextSfx.description':
-    'Applique le préréglage visuel hérité text_sfx à la région sélectionnée.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'Appliquer le préréglage hérité text_narration',
+    'Applique le preset défini pour le mode SFX à la région sélectionnée.',
+  'shortcuts.applyLegacyPresetTextNarration.label': 'Appliquer le preset Narration',
   'shortcuts.applyLegacyPresetTextNarration.description':
-    'Applique le préréglage visuel hérité text_narration à la région sélectionnée.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'Appliquer le préréglage hérité text_inside_black_bubble',
+    'Applique le preset défini pour le mode Narration à la région sélectionnée.',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': 'Appliquer le preset Bulle Noire',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'Applique le préréglage visuel hérité text_inside_black_bubble à la région sélectionnée.',
+    'Applique le preset défini pour le mode Bulle Noire à la région sélectionnée.',
   'shortcuts.applyAutoShape.label': 'Appliquer la forme automatique',
   'shortcuts.applyAutoShape.description':
     'Choisit automatiquement entre elliptique et rectangulaire pour la région sélectionnée.',

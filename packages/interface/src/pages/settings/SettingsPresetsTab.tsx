@@ -5,6 +5,9 @@ import { FillStylePopover } from "../../components/color/FillStylePopover";
 import { HexColorPopover } from "../../components/color/HexColorPopover";
 import { FontFamilySelect } from "../../components/fonts/FontFamilySelect";
 import type { useI18n } from "../../i18n";
+import { RenderModeAdvancedSection } from "./RenderModeAdvancedSection";
+import { RenderModePresetPreview } from "./RenderModePresetPreview";
+import type { AdvancedFieldChange } from "./renderModeAdvancedFields";
 import { AIO_STAGE_KEYS, AIO_STAGE_LABELS, RENDER_MODE_PRESET_OPTIONS, normalizeLanguageCode } from "./settings.constants";
 import type {
   PresetFormData,
@@ -62,6 +65,7 @@ interface SettingsPresetsTabArgs {
     renderModePresetForm: RenderModePresetFormData;
     handleRenderModePresetModeChange: (mode: RenderModePresetMode) => void;
     handleRenderModePresetFieldChange: <K extends keyof RenderModeStylePreset>(key: K, value: RenderModeStylePreset[K]) => void;
+    handleRenderModePresetAdvancedChange: AdvancedFieldChange;
     handleSaveRenderModePreset: () => void;
     handleResetAllRenderModePreset: () => void;
     handleResetRenderModePreset: () => void;
@@ -114,6 +118,7 @@ export const renderSettingsPresetsTab = ({
     renderModePresetForm,
     handleRenderModePresetModeChange,
     handleRenderModePresetFieldChange,
+    handleRenderModePresetAdvancedChange,
     handleSaveRenderModePreset,
     handleResetAllRenderModePreset,
     handleResetRenderModePreset,
@@ -367,6 +372,9 @@ export const renderSettingsPresetsTab = ({
         </select>
       </div>
 
+      <RenderModePresetPreview t={t} mode={renderModePresetForm.mode} style={renderModePresetForm.preview} shapeKind={renderModePresetForm.shapeKind}
+        className="koma-pf" labelClassName="koma-pf__label" inputClassName="koma-pf__input" />
+
       {/* Style controls */}
       <div className="koma-style-row">
         <FontFamilySelect
@@ -419,6 +427,8 @@ export const renderSettingsPresetsTab = ({
           </div>
         </div>
       </div>
+
+      <RenderModeAdvancedSection t={t} style={renderModePresetForm.advanced} onChange={handleRenderModePresetAdvancedChange} />
 
       <div className="koma-preset-form__actions">
         <button type="button" className="koma-btn koma-btn--ghost koma-btn--sm" onClick={handleResetAllRenderModePreset}><RotateCcw size={10} /> {t("settings.modePresets.all")}</button>

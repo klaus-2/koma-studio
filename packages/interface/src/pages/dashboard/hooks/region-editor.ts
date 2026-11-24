@@ -29,7 +29,7 @@ import {
 import {
   buildShapeFromPreset,
   createTypographyStyleFromPreset,
-  resolveLegacyTypographyPresetForMode,
+  resolveModeTypographyPreset,
   resolveTypographyPresetForMode,
   updateTypographyPreset,
 } from '../../../typography/presets';
@@ -244,7 +244,7 @@ export function useAioRegionEditing({
     ],
   );
 
-  const applyLegacyTypographyPresetToSelection = useCallback(
+  const applyModeTypographyPresetToSelection = useCallback(
     (
       modeKey:
         | 'text_bubble'
@@ -256,13 +256,13 @@ export function useAioRegionEditing({
       const activeId = useImageCollectionStore.getState().activeId;
       const activeSelectedRegion = readActiveAioSelectedRegion(activeId);
       if (!activeSelectedRegion || !activeId) return false;
-      const preset = resolveLegacyTypographyPresetForMode(
+      const preset = resolveModeTypographyPreset(
         modeKey,
         typographyPresetState,
       );
       if (!preset) {
         setTonedStatus(
-          t('dashboard.status.legacyPresetNotFound', { modeKey }),
+          t('dashboard.status.modePresetNotFound', { modeKey }),
           'error',
         );
         return false;
@@ -778,7 +778,7 @@ export function useAioRegionEditing({
     applyActiveRenderStyleToAllRegions,
     applyAutoDetectedShapeToActiveRegion,
     applyAutoDetectedShapeToRegionById,
-    applyLegacyTypographyPresetToSelection,
+    applyModeTypographyPresetToSelection,
     applyTypographyPresetToRegionById,
     clearAioRegionsForActiveImage,
     convertActiveTypographerShape,

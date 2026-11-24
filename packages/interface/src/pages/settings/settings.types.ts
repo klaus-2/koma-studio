@@ -26,6 +26,9 @@ export interface TravelTokenMetadata {
 export interface RenderModePresetFormData {
   mode: RenderModePresetMode;
   style: RenderModeStylePreset;
+  advanced: RenderTextStyle;
+  preview: RenderTextStyle;
+  shapeKind: TypographyShapeKind;
 }
 
 export interface TypographyPresetFormData {

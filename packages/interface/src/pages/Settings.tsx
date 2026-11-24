@@ -104,8 +104,12 @@ export const SettingsPage = ({ onBackDashboard }: SettingsPageProps) => {
   const { presetFontOptions } = useRenderFontCatalog();
   const aio = useAioPresets({ t, userId: user?.id ?? null });
   const textFill = useTextFillSwatches({ t });
-  const renderModePresets = useRenderModePresets({ t });
   const typographyPresets = useTypographyPresets({ t });
+  const renderModePresets = useRenderModePresets({
+    t,
+    typographyPresetState: typographyPresets.typographyPresetState,
+    setTypographyPresetState: typographyPresets.setTypographyPresetState,
+  });
 
   /* ═══════════════════════════════════════════════════════
      RENDER — TAB: GENERAL

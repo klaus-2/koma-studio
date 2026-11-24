@@ -1974,6 +1974,9 @@ export const esMessages: TranslationCatalog = {
   'settings.modePresets.all': 'Todos',
   'settings.modePresets.mode': 'Modo',
   'settings.modePresets.save': 'Guardar',
+  'settings.modePresets.preview': 'Vista previa en vivo',
+  'settings.modePresets.sampleText': 'Texto de ejemplo',
+  'settings.modePresets.sampleTextDefault': '¡Qué día!',
   'settings.typographerLibrary.title': 'Biblioteca del Tipógrafo',
   'settings.typographerLibrary.description':
     'Estilos globales con carpetas, preajuste predeterminado y vinculación por modo detectado.',
@@ -3433,8 +3436,7 @@ export const esMessages: TranslationCatalog = {
     'Perfil de OCR personalizado esperando sincronización local.',
   'dashboard.status.presetAppliedToSelection':
     'Preajuste "{name}" aplicado a la selección actual.',
-  'dashboard.status.legacyPresetNotFound':
-    'Preajuste visual legacy {modeKey} no encontrado.',
+  'dashboard.status.modePresetNotFound': 'No hay ningún preset definido para el modo {modeKey}.',
   'dashboard.status.presetAppliedShort':
     'Preajuste "{name}" aplicado a la selección.',
   'dashboard.status.presetAppliedToImage':
@@ -3644,26 +3646,21 @@ export const esMessages: TranslationCatalog = {
   'shortcuts.applyActivePreset.label': 'Aplicar preajuste activo',
   'shortcuts.applyActivePreset.description':
     'Aplica el preajuste de tipografía activo a la región seleccionada.',
-  'shortcuts.applyLegacyPresetTextBubble.label':
-    'Aplicar preajuste Legacy text_bubble',
+  'shortcuts.applyLegacyPresetTextBubble.label': 'Aplicar preset Globo',
   'shortcuts.applyLegacyPresetTextBubble.description':
-    'Aplica el preajuste visual Legacy text_bubble a la región seleccionada.',
-  'shortcuts.applyLegacyPresetTextFree.label':
-    'Aplicar preajuste Legacy text_free',
+    'Aplica el preset definido para el modo Globo a la región seleccionada.',
+  'shortcuts.applyLegacyPresetTextFree.label': 'Aplicar preset Libre',
   'shortcuts.applyLegacyPresetTextFree.description':
-    'Aplica el preajuste visual Legacy text_free a la región seleccionada.',
-  'shortcuts.applyLegacyPresetTextSfx.label':
-    'Aplicar preajuste Legacy text_sfx',
+    'Aplica el preset definido para el modo Libre a la región seleccionada.',
+  'shortcuts.applyLegacyPresetTextSfx.label': 'Aplicar preset SFX',
   'shortcuts.applyLegacyPresetTextSfx.description':
-    'Aplica el preajuste visual Legacy text_sfx a la región seleccionada.',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    'Aplicar preajuste Legacy text_narration',
+    'Aplica el preset definido para el modo SFX a la región seleccionada.',
+  'shortcuts.applyLegacyPresetTextNarration.label': 'Aplicar preset Narración',
   'shortcuts.applyLegacyPresetTextNarration.description':
-    'Aplica el preajuste visual Legacy text_narration a la región seleccionada.',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    'Aplicar preajuste Legacy text_inside_black_bubble',
+    'Aplica el preset definido para el modo Narración a la región seleccionada.',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': 'Aplicar preset Globo Negro',
   'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    'Aplica el preajuste visual Legacy text_inside_black_bubble a la región seleccionada.',
+    'Aplica el preset definido para el modo Globo Negro a la región seleccionada.',
   'shortcuts.applyAutoShape.label': 'Aplicar forma automática',
   'shortcuts.applyAutoShape.description':
     'Elige automáticamente entre elíptico y rectangular para la región seleccionada.',

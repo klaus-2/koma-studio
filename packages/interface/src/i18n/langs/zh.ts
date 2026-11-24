@@ -1794,6 +1794,9 @@ export const zhMessages: TranslationCatalog = {
   'settings.modePresets.all': '全部',
   'settings.modePresets.mode': '模式',
   'settings.modePresets.save': '保存',
+  'settings.modePresets.preview': '实时预览',
+  'settings.modePresets.sampleText': '示例文本',
+  'settings.modePresets.sampleTextDefault': '真是美好的一天!',
   'settings.typographerLibrary.title': '排版器库',
   'settings.typographerLibrary.description':
     '全局样式，支持文件夹、默认预设和按检测模式绑定。',
@@ -3174,7 +3177,7 @@ export const zhMessages: TranslationCatalog = {
     '自定义 OCR 配置文件等待本地同步。',
   'dashboard.status.presetAppliedToSelection':
     '预设 "{name}" 已应用到当前选区。',
-  'dashboard.status.legacyPresetNotFound': '未找到旧版视觉预设 {modeKey}。',
+  'dashboard.status.modePresetNotFound': '{modeKey} 模式未设置预设。',
   'dashboard.status.presetAppliedShort': '预设 "{name}" 已应用到选区。',
   'dashboard.status.presetAppliedToImage': '预设 "{name}" 已应用到当前图片。',
   'dashboard.status.typographerSelectionDuplicated': '排版器中已复制选区。',
@@ -3345,23 +3348,16 @@ export const zhMessages: TranslationCatalog = {
     '在排版器或手动 AIO 中对选中形状运行检测或精修。',
   'shortcuts.applyActivePreset.label': '应用活跃预设',
   'shortcuts.applyActivePreset.description': '将活跃的排版预��应用到选中区域。',
-  'shortcuts.applyLegacyPresetTextBubble.label': '应用旧版 text_bubble 预设',
-  'shortcuts.applyLegacyPresetTextBubble.description':
-    '将旧版 text_bubble 视觉预设应用到选中区域。',
-  'shortcuts.applyLegacyPresetTextFree.label': '应用旧版 text_free 预设',
-  'shortcuts.applyLegacyPresetTextFree.description':
-    '将旧版 text_free 视觉预设应用到选中区域。',
-  'shortcuts.applyLegacyPresetTextSfx.label': '应用旧版 text_sfx 预设',
-  'shortcuts.applyLegacyPresetTextSfx.description':
-    '将旧版 text_sfx 视觉预设应用到选中区域。',
-  'shortcuts.applyLegacyPresetTextNarration.label':
-    '应用旧版 text_narration 预设',
-  'shortcuts.applyLegacyPresetTextNarration.description':
-    '将旧版 text_narration 视觉预设应用到选中区域。',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label':
-    '应用旧版 text_inside_black_bubble 预设',
-  'shortcuts.applyLegacyPresetTextInsideBlackBubble.description':
-    '将旧版 text_inside_black_bubble 视觉预设应用到选中区域。',
+  'shortcuts.applyLegacyPresetTextBubble.label': '应用“气泡”预设',
+  'shortcuts.applyLegacyPresetTextBubble.description': '将“气泡”模式设置的预设应用到所选区域。',
+  'shortcuts.applyLegacyPresetTextFree.label': '应用“自由”预设',
+  'shortcuts.applyLegacyPresetTextFree.description': '将“自由”模式设置的预设应用到所选区域。',
+  'shortcuts.applyLegacyPresetTextSfx.label': '应用“SFX”预设',
+  'shortcuts.applyLegacyPresetTextSfx.description': '将“SFX”模式设置的预设应用到所选区域。',
+  'shortcuts.applyLegacyPresetTextNarration.label': '应用“旁白”预设',
+  'shortcuts.applyLegacyPresetTextNarration.description': '将“旁白”模式设置的预设应用到所选区域。',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.label': '应用“黑色气泡”预设',
+  'shortcuts.applyLegacyPresetTextInsideBlackBubble.description': '将“黑色气泡”模式设置的预设应用到所选区域。',
   'shortcuts.applyAutoShape.label': '应用自动形状',
   'shortcuts.applyAutoShape.description': '为选中区域自动选择椭圆形或矩形。',
   'shortcuts.convertShapeSquare.label': '转换形状为矩形',
