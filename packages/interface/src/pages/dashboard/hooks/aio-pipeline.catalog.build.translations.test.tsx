@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
@@ -64,6 +64,10 @@ const importCatalogBuildModules = async (): Promise<CatalogBuildModules> => {
 };
 
 describe('useAioStageCatalogBuild translation service hydration', () => {
+  beforeAll(async () => {
+    await importCatalogBuildModules();
+  }, 60_000);
+
   beforeEach(() => {
     vi.resetModules();
   });
