@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { useFontCatalogOptions } from '../hooks/useFontCatalogOptions';
 import { APP_WEBFONT_FAMILIES } from '../constants/app-webfonts';
+import { BUNDLED_FONT_FAMILIES } from '../constants/bundled-fonts';
 import {
   getFontCatalogSnapshot,
   publishFontCatalog,
@@ -19,8 +20,8 @@ describe('font-catalog-cache', () => {
   it('seeds a read-only consumer with exactly the families the dock shows before fonts:list answers', () => {
     const snapshot = getFontCatalogSnapshot();
 
-    expect(snapshot).toHaveLength(APP_WEBFONT_FAMILIES.length);
-    for (const family of APP_WEBFONT_FAMILIES) {
+    expect(snapshot).toHaveLength(APP_WEBFONT_FAMILIES.length + BUNDLED_FONT_FAMILIES.length);
+    for (const family of [...APP_WEBFONT_FAMILIES, ...BUNDLED_FONT_FAMILIES]) {
       expect(snapshot).toContain(family);
     }
     expect(getFontCatalogSnapshot()).toBe(snapshot);
