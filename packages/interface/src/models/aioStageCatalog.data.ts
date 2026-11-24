@@ -1,4 +1,3 @@
-import { OFFICIAL_CLOUD_STAGE_OPTIONS } from '@/models/officialModelCatalog';
 import {
   getModelRuntimeSupport,
   TRANSLATION_MODELS_REGISTRY,
@@ -270,7 +269,6 @@ export const BASE_AIO_STAGE_OPTIONS: AioStageOptionMap = {
         ...(model.minVramGb === undefined ? {} : { minVramGb: model.minVramGb }),
       };
     }),
-    ...OFFICIAL_CLOUD_STAGE_OPTIONS.getTranslations,
   ],
   segmentText: [
     {

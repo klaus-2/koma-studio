@@ -4,6 +4,7 @@ import {
   DEFAULT_AIO_STAGE_OPTIONS,
   SOURCE_LANGUAGE_OPTIONS,
   TARGET_LANGUAGE_OPTIONS,
+  LEGACY_CLOUD_STAGE_OPTION_KEYS,
 } from '@/models/aioStageCatalog';
 import { createAioExecutionActions } from '@/pages/dashboard/stores/aio-pipeline-execution';
 import {
@@ -81,6 +82,21 @@ const INITIAL_AIO_STAGE_SELECTION = {
   segmentText: 'baka_content_cc',
   cleanImage: 'aot',
 } as const;
+
+export function dropLegacyCloudStageSelection<T extends AioEditableState['aioStageSelection']>(
+  selection: T,
+): T {
+  const legacyOcr = LEGACY_CLOUD_STAGE_OPTION_KEYS.has(selection.recognizeText);
+  const legacyTranslation = LEGACY_CLOUD_STAGE_OPTION_KEYS.has(selection.getTranslations);
+  if (!legacyOcr && !legacyTranslation) return selection;
+  return {
+    ...selection,
+    recognizeText: legacyOcr ? INITIAL_AIO_STAGE_SELECTION.recognizeText : selection.recognizeText,
+    getTranslations: legacyTranslation
+      ? INITIAL_AIO_STAGE_SELECTION.getTranslations
+      : selection.getTranslations,
+  };
+}
 
 function isStateUpdater<T>(
   update: StateUpdate<T>,
@@ -205,7 +221,11 @@ export const useAioPipelineStore = create<AioPipelineStore>()((set, get) => {
 
     setAioSteps: setter('aioSteps'),
     setAioStageOptions: setter('aioStageOptions'),
-    setAioStageSelection: setter('aioStageSelection'),
+    setAioStageSelection: (update) => {
+      setter('aioStageSelection')((previous) =>
+        dropLegacyCloudStageSelection(isStateUpdater(update) ? update(previous) : update),
+      );
+    },
     setAioLanguageOptions: setter('aioLanguageOptions'),
     setAioSrcLang: setter('aioSrcLang'),
     setAioTgtLang: setter('aioTgtLang'),

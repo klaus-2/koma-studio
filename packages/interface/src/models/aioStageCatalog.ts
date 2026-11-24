@@ -320,10 +320,7 @@ export function buildCustomStageOption(
   return option;
 }
 
-// Official cloud options are "managed": the data ships available:false and the
-// runtime availability comes from implemented (decorated below). Local model
-// availability follows the install state instead.
-const MANAGED_CLOUD_OPTION_KEYS: ReadonlySet<string> = new Set([
+export const LEGACY_CLOUD_STAGE_OPTION_KEYS: ReadonlySet<string> = new Set([
   ...OFFICIAL_CLOUD_STAGE_OPTIONS.recognizeText.map((option) => option.key),
   ...OFFICIAL_CLOUD_STAGE_OPTIONS.getTranslations.map((option) => option.key),
 ]);
@@ -334,11 +331,6 @@ function decorateOption(
   translationServiceAvailability: TranslationServiceAvailability,
 ): AioStageOption {
   const cloned = cloneStageOption(option);
-
-  if (MANAGED_CLOUD_OPTION_KEYS.has(option.key)) {
-    cloned.available = option.implemented;
-    return cloned;
-  }
 
   if (isLocalModelOptionKey(option.key) || entries[option.key]) {
     cloned.available =
@@ -363,10 +355,7 @@ function createBaseCatalog(
 
   return {
     detectText: BASE_AIO_STAGE_OPTIONS.detectText.map(decorate),
-    recognizeText: mergeStageOptions(
-      BASE_AIO_STAGE_OPTIONS.recognizeText,
-      OFFICIAL_CLOUD_STAGE_OPTIONS.recognizeText,
-    ).map(decorate),
+    recognizeText: BASE_AIO_STAGE_OPTIONS.recognizeText.map(decorate),
     getTranslations: mergeStageOptions(
       BASE_AIO_STAGE_OPTIONS.getTranslations,
       [],
