@@ -41,22 +41,6 @@
       "maxLines": 1022,
       "reason": "God-file inherited from V1. Split tracked as tech debt."
     },
-    "src-tauri/src/commands/bug_report.rs": {
-      "maxLines": 1449,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
-    "src-tauri/src/runtime/profiles.rs": {
-      "maxLines": 1252,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
-    "src-tauri/src/sidecar/mini_backend.rs": {
-      "maxLines": 1202,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
-    "src-tauri/src/sidecar/recovery.rs": {
-      "maxLines": 1076,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
     "../../packages/interface/src/components/dashboard/noir/RenderTextPreviewNoir.tsx": {
       "maxLines": 1011,
       "reason": "God-file at the 1000-line audit limit; split tracked as tech debt."

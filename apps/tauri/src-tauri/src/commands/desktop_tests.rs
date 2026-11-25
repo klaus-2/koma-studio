@@ -105,7 +105,7 @@
     #[test]
     fn runtime_channels_are_declared_and_registered() {
         let desktop_source = include_str!("desktop.rs");
-        let profiles_source = include_str!("../runtime/profiles.rs");
+        let profiles_source = include_str!("../runtime/profiles/mod.rs");
         let lib_source = include_str!("../lib.rs");
         let command_sources = format!("{desktop_source}\n{profiles_source}");
 

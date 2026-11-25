@@ -1,10 +1,11 @@
-use std::time::Instant;
+use std::{io::Write, time::Instant};
 
 use super::*;
 use crate::runtime::manifest_trust::{
     PINNED_ARTIFACTS_PUBKEY, ensure_runtime_archive_url, validate_manifest_relative_path,
     verify_artifacts_manifest_signature,
 };
+use futures_util::StreamExt;
 
 /// Progress emit cadence. bytes_stream() yields far faster than the UI (or the
 /// IPC bus) can consume; throttle to ~10 updates/s and always emit a final one.
