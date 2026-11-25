@@ -215,6 +215,9 @@ async def run_detect_stage(
         ]
         if not cached.records or records:
             return StageOutput(model_used=cached.model_used, regions=records)
+    from core.warmup_state import await_startup_warmup
+
+    await await_startup_warmup()
     detector = get_detector(task="text", has_gpu=has_gpu, model_key=resolved_model)
     try:
         detections, variant = await detect_with_fallbacks(

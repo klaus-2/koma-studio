@@ -10,6 +10,7 @@ from PIL import Image
 
 from core.config import get_config
 from core.device import DeviceInfo, build_device_payload, get_device_info
+from core.warmup_state import await_startup_warmup
 from models.detection.base_detector import TextDetection
 from models.detection.factory import get_detector, list_detection_models
 from models.execution import InferenceBusyError
@@ -44,6 +45,7 @@ async def detect_text(
     nms_threshold: Annotated[float | None, Form(ge=0.0, le=1.0)] = None,
     use_gpu: Annotated[bool | None, Form()] = None,
 ) -> DetectionResponse:
+    await await_startup_warmup()
     device = get_device_info()
     _, rgb_image = await read_rgb_upload(file)
     image = Image.fromarray(rgb_image)

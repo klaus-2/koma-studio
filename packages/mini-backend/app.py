@@ -6,13 +6,18 @@ Local processing without authentication
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import gc
 import hmac
 import importlib.util
 import io
+import json
 import logging
 import os
+import signal
+import socket
 import sys
+import threading
 import time
 import tracemalloc
 import uuid
@@ -51,6 +56,12 @@ from core.engine_idle import (
 )
 from core.ipc_compression import IpcGzipMiddleware
 from core.logging_setup import configure_logging, get_log_file_path, reset_request_id, set_request_id
+from core.warmup_state import (
+    get_warmup_snapshot,
+    is_warmup_complete,
+    set_startup_warmup_task,
+    set_warmup_state,
+)
 from models.detection.errors import DetectionModelCorruptedError, DetectionModelNotInstalledError
 from models.detection.factory import clear_detector_cache, get_detector, get_detector_cache_size
 from models.inpainting.factory import clear_inpainter_cache, get_inpainter_cache_size
@@ -143,7 +154,7 @@ class LocalApiSettings:
 
     @property
     def public_paths(self) -> frozenset[str]:
-        paths = {"/", "/health"}
+        paths = {"/", "/health", "/ready"}
         if self.expose_memory_endpoints:
             paths |= {"/memory/stats", "/memory/clear-caches"}
         return frozenset(paths)
@@ -155,15 +166,21 @@ class LocalApiSettings:
         A rebound browser page still sends the attacker's domain here, so the
         guard rejects it even though the TCP connection lands on 127.0.0.1.
         """
-        names = ("127.0.0.1", "localhost", "[::1]")
-        hosts = {*names, *(f"{name}:{self.port}" for name in names)}
-        if not self.is_production:
-            hosts.add("testserver")
-        return frozenset(hosts)
+        return _allowed_hosts_for_port(self.port, is_production=self.is_production)
 
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+
+def _allowed_hosts_for_port(port: int, *, is_production: bool) -> frozenset[str]:
+    names = ("127.0.0.1", "localhost", "[::1]")
+    hosts: set[str] = set(names)
+    if port > 0:
+        hosts.update(f"{name}:{port}" for name in names)
+    if not is_production:
+        hosts.add("testserver")
+    return frozenset(hosts)
 
 
 # --------------------------------------------------------------------------- #
@@ -217,41 +234,56 @@ def _ensure_profile_runtime(profile: str) -> str:
 
 async def _run_detector_smoke_test() -> None:
     device = get_device_info()
-    detector = get_detector(
-        task="text", has_gpu=device.has_gpu, model_key=get_config().default_detection_model
+    detector = await asyncio.to_thread(
+        get_detector,
+        task="text",
+        has_gpu=device.has_gpu,
+        model_key=get_config().default_detection_model,
     )
     await detector.detect(Image.new("RGB", (64, 64), (255, 255, 255)))
 
 
 async def warmup_text_detection_model() -> None:
-    # Read the flag at call time: the test suite flips this env var at import.
     if not _env_flag("MINI_BACKEND_WARMUP_DETECTOR", default=True):
+        set_warmup_state(status="skipped", profile=_current_profile(), elapsed_s=0.0)
         return
     start = time.perf_counter()
-    profile = _ensure_profile_runtime(_current_profile())
+    initial_profile = _current_profile()
+    set_warmup_state(status="warming", profile=initial_profile)
+    profile = await asyncio.to_thread(_ensure_profile_runtime, initial_profile)
     attempts: tuple[str, ...] = (profile,) if profile == "cpu" else (profile, "cpu")
     for attempt in attempts:
         try:
             await _run_detector_smoke_test()
         except (DetectionModelNotInstalledError, DetectionModelCorruptedError) as error:
-            # A missing or corrupted model fails the smoke test on every
-            # profile, so downgrading to CPU cannot help and would misreport
-            # the runtime the user asked for (the panel showed "cpu" while the
-            # CUDA runtime was loaded). Skip the warmup and keep the profile;
-            # detection keeps raising the same actionable error when used.
+            set_warmup_state(
+                status="skipped",
+                profile=attempt,
+                elapsed_s=round(time.perf_counter() - start, 2),
+                error=str(error),
+            )
             logger.info(
                 "warmup.skipped_model_unavailable",
                 extra={"profile": attempt, "reason": str(error)},
             )
             return
-        except Exception:  # noqa: BLE001 — native runtime boundary (onnxruntime/torch)
+        except Exception as exc:  # noqa: BLE001 — native runtime boundary (onnxruntime/torch)
             logger.warning("warmup.failed", extra={"profile": attempt}, exc_info=True)
             if attempt != "cpu":
                 _switch_to_cpu_profile()
+            if attempt == attempts[-1]:
+                set_warmup_state(
+                    status="failed",
+                    profile=attempt,
+                    elapsed_s=round(time.perf_counter() - start, 2),
+                    error=str(exc),
+                )
             continue
+        elapsed_s = round(time.perf_counter() - start, 2)
+        set_warmup_state(status="ready", profile=attempt, elapsed_s=elapsed_s)
         logger.info(
             "warmup.done",
-            extra={"profile": attempt, "elapsed_s": round(time.perf_counter() - start, 2)},
+            extra={"profile": attempt, "elapsed_s": elapsed_s},
         )
         return
 
@@ -439,6 +471,9 @@ def _configure_stdio_utf8() -> None:
                 continue
 
 
+_CRASH_LOG_HANDLE: io.TextIOWrapper | None = None
+
+
 def _configure_crash_logging() -> None:
     """Log unhandled exceptions and segfaults to disk.
 
@@ -446,6 +481,7 @@ def _configure_crash_logging() -> None:
     crash log next to the app data dir so 'Failed to fetch' (process died
     mid-request) can be diagnosed.
     """
+    global _CRASH_LOG_HANDLE
     import atexit
     import faulthandler
     import time
@@ -461,9 +497,12 @@ def _configure_crash_logging() -> None:
     crash_log = os.path.join(log_dir, "mini-backend-crash.log")
 
     try:
-        faulthandler.enable(open(crash_log, "a", encoding="utf-8"))
+        _CRASH_LOG_HANDLE = open(crash_log, "a", encoding="utf-8")
+        faulthandler.enable(_CRASH_LOG_HANDLE)
     except Exception:
-        pass
+        if _CRASH_LOG_HANDLE is not None:
+            _CRASH_LOG_HANDLE.close()
+            _CRASH_LOG_HANDLE = None
 
     def _global_exception_hook(exc_type, exc_value, exc_traceback):
         with open(crash_log, "a", encoding="utf-8") as f:
@@ -480,6 +519,17 @@ def _configure_crash_logging() -> None:
     sys.excepthook = _global_exception_hook
 
     def _atexit_log() -> None:
+        global _CRASH_LOG_HANDLE
+        try:
+            faulthandler.disable()
+        except Exception:
+            pass
+        if _CRASH_LOG_HANDLE is not None:
+            try:
+                _CRASH_LOG_HANDLE.close()
+            except Exception:
+                pass
+            _CRASH_LOG_HANDLE = None
         with open(crash_log, "a", encoding="utf-8") as f:
             f.write(
                 f"\n=== EXIT at {time.strftime('%Y-%m-%d %H:%M:%S')} (pid={os.getpid()}) ===\n"
@@ -499,18 +549,29 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         if not settings.is_production and not tracemalloc.is_tracing():
             tracemalloc.start(25)
         _configure_torch_thread_limit()
-        await warmup_text_detection_model()
-        await asyncio.to_thread(run_startup_sweep)
+        if _env_flag("MINI_BACKEND_WARMUP_DETECTOR", default=True):
+            set_warmup_state(status="warming", profile=_current_profile())
+        else:
+            set_warmup_state(status="skipped", profile=_current_profile(), elapsed_s=0.0)
+        startup_warmup_task = asyncio.create_task(warmup_text_detection_model())
+        set_startup_warmup_task(startup_warmup_task)
+        startup_sweep_task = asyncio.create_task(asyncio.to_thread(run_startup_sweep))
         idle_sweeper_task = asyncio.create_task(idle_sweeper_loop())
         temp_sweeper_task = asyncio.create_task(temp_sweeper_loop())
         try:
             yield
         finally:
-            idle_sweeper_task.cancel()
-            await asyncio.wait([idle_sweeper_task])
+            background_tasks = [
+                startup_warmup_task,
+                startup_sweep_task,
+                idle_sweeper_task,
+                temp_sweeper_task,
+            ]
+            for task in background_tasks:
+                task.cancel()
+            await asyncio.gather(*background_tasks, return_exceptions=True)
+            set_startup_warmup_task(None)
             logger.info("engine_idle.sweeper_stopped")
-            temp_sweeper_task.cancel()
-            await asyncio.wait([temp_sweeper_task])
             from models.execution import shutdown_inference_workers
 
             await shutdown_inference_workers()
@@ -561,7 +622,10 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
         # flips auth/environment by patching these names at request time.
         if ENVIRONMENT == "production":
             host = (request.headers.get("host") or "").strip().lower()
-            if host not in settings.allowed_hosts:
+            allowed_hosts = _allowed_hosts_for_port(
+                _ACTIVE_PORT, is_production=settings.is_production
+            )
+            if host not in allowed_hosts:
                 return JSONResponse(
                     status_code=403,
                     content={
@@ -681,6 +745,15 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
     async def health() -> dict[str, bool]:
         return {"healthy": True}
 
+    @app.get("/ready")
+    async def ready() -> JSONResponse:
+        warmup = get_warmup_snapshot()
+        complete = is_warmup_complete()
+        return JSONResponse(
+            status_code=200 if complete else 503,
+            content={"ready": complete, "warmup": warmup},
+        )
+
     @app.get("/device/info")
     async def device_info() -> dict[str, str | bool | float | None | list[str]]:
         return build_device_payload(get_device_info())
@@ -728,15 +801,98 @@ SETTINGS = LocalApiSettings.from_env()
 # auth/environment behavior on the already-created app.
 LOCAL_API_SESSION_SECRET = SETTINGS.session_secret
 ENVIRONMENT = SETTINGS.environment
+_ACTIVE_PORT: int = SETTINGS.port
 app = create_app(SETTINGS)
 
 
+def set_active_port(port: int) -> None:
+    global _ACTIVE_PORT
+    _ACTIVE_PORT = port
+
+
+def get_active_port() -> int:
+    return _ACTIVE_PORT
+
+
+def _install_parent_watchdog() -> None:
+    raw_pid = (os.getenv("KOMA_PARENT_PID") or "").strip()
+    if not raw_pid:
+        return
+    try:
+        parent_pid = int(raw_pid)
+    except ValueError:
+        return
+    if parent_pid <= 0 or parent_pid == os.getpid():
+        return
+
+    if sys.platform.startswith("linux"):
+        try:
+            ctypes.CDLL("libc.so.6").prctl(1, signal.SIGTERM)
+        except Exception:  # noqa: BLE001
+            pass
+        if os.getppid() != parent_pid:
+            os._exit(0)
+
+    def _watch() -> None:
+        while True:
+            time.sleep(1.0)
+            parent_alive = psutil.pid_exists(parent_pid)
+            if parent_alive and sys.platform != "win32":
+                ppid = os.getppid()
+                if ppid == 1:
+                    parent_alive = False
+            if not parent_alive:
+                try:
+                    os.kill(os.getpid(), signal.SIGTERM)
+                except Exception:  # noqa: BLE001
+                    pass
+                time.sleep(3.0)
+                os._exit(0)
+
+    threading.Thread(
+        target=_watch, name="koma-parent-watchdog", daemon=True
+    ).start()
+
+
+class _AnnouncingServer(uvicorn.Server):
+    def __init__(self, config: uvicorn.Config, bound_port: int) -> None:
+        super().__init__(config)
+        self._bound_port = bound_port
+
+    async def startup(self, sockets: list[socket.socket] | None = None) -> None:
+        await super().startup(sockets=sockets)
+        if self.should_exit:
+            return
+        sys.stdout.write(
+            json.dumps({"event": "listening", "port": self._bound_port}) + "\n"
+        )
+        sys.stdout.flush()
+
+
 def main() -> None:
-    logger.info("server.starting", extra={"host": "127.0.0.1", "port": SETTINGS.port})
-    # access_log off: download/device pollers hit 2×/s and would drown real events.
-    uvicorn.run(
-        app, host="127.0.0.1", port=SETTINGS.port, log_config=None, access_log=False
-    )
+    _install_parent_watchdog()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if sys.platform != "win32":
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("127.0.0.1", SETTINGS.port))
+        sock.listen(2048)
+        bound_port = int(sock.getsockname()[1])
+        set_active_port(bound_port)
+        logger.info("server.starting", extra={"host": "127.0.0.1", "port": bound_port})
+        server = _AnnouncingServer(
+            uvicorn.Config(
+                app,
+                host="127.0.0.1",
+                port=bound_port,
+                log_config=None,
+                access_log=False,
+            ),
+            bound_port=bound_port,
+        )
+        server.run(sockets=[sock])
+    finally:
+        sock.close()
 
 
 if __name__ == "__main__":
