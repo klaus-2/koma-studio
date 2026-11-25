@@ -170,10 +170,10 @@ def test_apply_graph_cache_assigns_tmp_path_for_cpu_only(
     assert assigned.name.endswith(".onnx.tmp-4242")
 
 
-def test_apply_graph_cache_gate_blocks_non_cpu_providers(tmp_path: Path) -> None:
+def test_apply_graph_cache_gate_blocks_unmeasured_providers(tmp_path: Path) -> None:
     model_path = _model_file(tmp_path)
 
-    for providers in ([_CPU, _CUDA], [_TRT, _CPU], [_CUDA], []):
+    for providers in ([_TRT, _CUDA, _CPU], [_TRT, _CPU], ["ROCMExecutionProvider"], []):
         options = onnx_utils.build_default_session_options()
         onnx_graph_cache.apply_graph_cache(model_path, providers, options)
         assert options.optimized_model_filepath == ""
@@ -223,12 +223,10 @@ def _write_garbage_final_cache(model_path: Path, options: object) -> Path:
     a write (or wrote garbage), so ``apply_graph_cache`` assigns the FINAL
     cache file directly instead of a tmp path.
     """
-    import onnxruntime as ort
-
     key = onnx_graph_cache.build_graph_cache_key(
         model_path,
         ["CPUExecutionProvider"],
-        ort.__version__,
+        onnx_graph_cache.graph_cache_runtime_tag(),
         str(getattr(options, "graph_optimization_level")),
     )
     cache_file = onnx_graph_cache.graph_cache_dir() / f"{key}.onnx"
@@ -250,10 +248,9 @@ def test_corrupt_cache_is_purged_and_the_session_load_retries_without_it(
         sess_options: object | None = None,
         providers: list[str] | None = None,
     ) -> _RecordingSession:
-        del model_path_arg, providers
-        filepath = getattr(sess_options, "optimized_model_filepath", "")
-        calls.append(str(filepath) if filepath else None)
-        if filepath:
+        del providers
+        calls.append(model_path_arg)
+        if model_path_arg != str(model_path):
             raise RuntimeError("cached graph is corrupt")
         return _RecordingSession(sess_options)
 
@@ -264,8 +261,7 @@ def test_corrupt_cache_is_purged_and_the_session_load_retries_without_it(
     )
 
     assert isinstance(session, _RecordingSession)
-    assert calls[0] == str(corrupt_cache)
-    assert calls[1] is None
+    assert calls == [str(corrupt_cache), str(model_path)]
     assert not corrupt_cache.exists()
 
 
@@ -292,9 +288,18 @@ def test_retry_without_cache_failing_propagates_the_original_error(
     model_path = _model_file(tmp_path)
     options = onnx_utils.build_default_session_options()
     corrupt_cache = _write_garbage_final_cache(model_path, options)
-    calls: list[str | None] = []
+    calls: list[str] = []
     original_error = RuntimeError("load failed with cache")
-    factory = _recording_factory(calls, [original_error, RuntimeError("also broken")])
+    outcomes = iter([original_error, RuntimeError("also broken")])
+
+    def factory(
+        model_path_arg: str,
+        sess_options: object | None = None,
+        providers: list[str] | None = None,
+    ) -> _RecordingSession:
+        del sess_options, providers
+        calls.append(model_path_arg)
+        raise next(outcomes)
 
     with pytest.raises(RuntimeError) as excinfo:
         onnx_utils.create_session_with_trt_fallback(
@@ -304,9 +309,7 @@ def test_retry_without_cache_failing_propagates_the_original_error(
         )
 
     assert excinfo.value is original_error
-    assert calls[0] == str(corrupt_cache)
-    assert len(calls) == 2
-    assert calls[1] is None
+    assert calls == [str(corrupt_cache), str(model_path)]
     assert not corrupt_cache.exists()
 
 

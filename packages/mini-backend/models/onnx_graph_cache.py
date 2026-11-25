@@ -1,30 +1,9 @@
-"""Disk cache of CPU-optimized ONNX graphs under ``KOMA_APP_DATA_DIR``.
-
-Doctrine: only pure ``CPUExecutionProvider`` loads serialize their optimized
-graph to disk. CUDA/TensorRT EPs do not reliably preserve their nodes in a
-saved graph — a cached file can lose the EP's kernels or fail to load — so
-GPU runs keep the ``ORT_ENABLE_ALL`` optimization in memory only and never
-touch this cache. The key covers model content (streamed in 1 MiB chunks,
-O(1) memory), resolved provider names, the ORT version and the optimization
-level, so any of those changes re-derives a fresh key instead of reusing a
-stale graph.
-
-Every filesystem failure is logged (``onnx.graph_cache.write_failed``) and
-the session load proceeds WITHOUT the cache — a cache problem must never
-turn into a load failure. The write is atomic: the constructing session
-writes a pid-suffixed tmp entry in the same directory, and the next
-``apply_graph_cache`` for the same key promotes it with ``os.replace``;
-a construct that fails with a cache path assigned goes through
-``load_guard_and_purge`` so the retry runs from scratch. tmp entries a
-previous process abandoned (promotion never crosses a restart) are
-age-purged on the next ``apply_graph_cache``.
-"""
-
 from __future__ import annotations
 
 import hashlib
 import logging
 import os
+import platform
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -32,7 +11,7 @@ from typing import Final
 
 import onnxruntime as ort
 
-from core.device import OnnxProviderSpec
+from core.device import OnnxProviderSpec, accelerator_identity
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +25,8 @@ _TMP_SWEEPER_MIN_AGE_SECONDS: Final[int] = 24 * 3600
 _TMP_NAME_TEMPLATE: Final = "{name}.tmp-{pid}"
 _CHUNK_BYTES: Final = 1024 * 1024
 _CPU_PROVIDER: Final = "CPUExecutionProvider"
+_CUDA_PROVIDER: Final = "CUDAExecutionProvider"
+_CACHEABLE_PROVIDERS: Final = frozenset({_CPU_PROVIDER, _CUDA_PROVIDER})
 
 
 def _provider_name(spec: OnnxProviderSpec) -> str:
@@ -63,6 +44,21 @@ def _app_data_dir() -> Path:
 def graph_cache_dir() -> Path:
     """Cache directory: ``<KOMA_APP_DATA_DIR>/onnx-graph-cache``."""
     return _app_data_dir() / _CACHE_DIRNAME
+
+
+def graph_cache_runtime_tag(provider_names: Sequence[str] = ()) -> str:
+    parts = [ort.__version__, platform.machine(), platform.processor()]
+    if _CUDA_PROVIDER in provider_names:
+        parts.append(accelerator_identity())
+    return "|".join(parts)
+
+
+def _provider_key_segment(spec: OnnxProviderSpec) -> str:
+    if isinstance(spec, str):
+        return spec
+    name, provider_options = spec
+    flattened = ",".join(f"{key}={value}" for key, value in sorted(provider_options.items()))
+    return f"{name}[{flattened}]"
 
 
 def build_graph_cache_key(
@@ -138,21 +134,14 @@ def apply_graph_cache(
     providers: Sequence[OnnxProviderSpec],
     options: ort.SessionOptions,
 ) -> None:
-    """Point ``options.optimized_model_filepath`` at the CPU graph cache.
-
-    CPU-EP gate: with any non-CPU provider resolved (or an empty list) the
-    function returns without touching ``options`` — GPU loads serialize no
-    graph. The kill-switch ``MINI_BACKEND_ONNX_GRAPH_CACHE=0`` disables the
-    whole feature. When the final cache file already exists the options
-    point straight at it; otherwise the options point at a pid-suffixed tmp
-    entry that the constructing session fills and a later call promotes.
-    """
     if os.getenv(_GRAPH_CACHE_ENV) == "0":
         return
     provider_names = [_provider_name(spec) for spec in providers]
     if not provider_names or any(
-        name != _CPU_PROVIDER for name in provider_names
+        name not in _CACHEABLE_PROVIDERS for name in provider_names
     ):
+        return
+    if not model_path.is_file():
         return
     cache_dir = graph_cache_dir()
     try:
@@ -165,8 +154,8 @@ def apply_graph_cache(
         optimization_level = str(options.graph_optimization_level)
         key = build_graph_cache_key(
             model_path,
-            provider_names,
-            ort.__version__,
+            [_provider_key_segment(spec) for spec in providers],
+            graph_cache_runtime_tag(provider_names),
             optimization_level,
         )
     except OSError as exc:
@@ -179,15 +168,28 @@ def apply_graph_cache(
     tmp_file = cache_dir / _TMP_NAME_TEMPLATE.format(
         name=f"{key}{_CACHE_SUFFIX}", pid=os.getpid()
     )
-    if tmp_file.is_file():
-        try:
-            os.replace(tmp_file, cache_file)
-        except OSError as exc:
-            _log_write_failed(cache_file, str(exc))
-            return
-        options.optimized_model_filepath = str(cache_file)
-        return
     options.optimized_model_filepath = str(tmp_file)
+
+
+def is_final_graph_cache(cache_path: Path) -> bool:
+    return cache_path.suffix == _CACHE_SUFFIX and cache_path.is_file()
+
+
+def promote_graph_cache(cache_path: Path | None) -> None:
+    if cache_path is None or cache_path.suffix == _CACHE_SUFFIX:
+        return
+    if not cache_path.is_file():
+        return
+    final_name, separator, _ = cache_path.name.rpartition(".tmp-")
+    if not separator or not final_name.endswith(_CACHE_SUFFIX):
+        return
+    final_path = cache_path.with_name(final_name)
+    try:
+        os.replace(cache_path, final_path)
+    except OSError as exc:
+        _log_write_failed(final_path, str(exc))
+        return
+    logger.info("onnx.graph_cache.stored", extra={"cache_file": str(final_path)})
 
 
 def load_guard_and_purge(cache_path: Path) -> None:

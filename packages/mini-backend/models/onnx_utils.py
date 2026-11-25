@@ -35,7 +35,12 @@ from models.errors import (
     InvalidModelOutputError,
     ModelNotInstalledError,
 )
-from models.onnx_graph_cache import apply_graph_cache, load_guard_and_purge
+from models.onnx_graph_cache import (
+    apply_graph_cache,
+    is_final_graph_cache,
+    load_guard_and_purge,
+    promote_graph_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -336,6 +341,60 @@ def build_default_session_options() -> ort.SessionOptions:
     return options
 
 
+_CPU_PROVIDER = "CPUExecutionProvider"
+
+
+def _unavailable_providers(
+    requested: Sequence[OnnxProviderSpec], session: object
+) -> list[str] | None:
+    get_providers = getattr(session, "get_providers", None)
+    if not callable(get_providers):
+        return None
+    active = {str(name) for name in get_providers()}
+    return [
+        name
+        for name in (_provider_name(spec) for spec in requested)
+        if name != _CPU_PROVIDER and name not in active
+    ]
+
+
+def _settle_graph_cache(
+    graph_cache_file: Path | None,
+    requested: Sequence[OnnxProviderSpec],
+    session: object,
+) -> None:
+    if graph_cache_file is None or is_final_graph_cache(graph_cache_file):
+        return
+    if _unavailable_providers(requested, session):
+        load_guard_and_purge(graph_cache_file)
+        return
+    promote_graph_cache(graph_cache_file)
+
+
+def _log_session_created(
+    model_path: str,
+    load_path: str,
+    requested: Sequence[OnnxProviderSpec],
+    session: object,
+) -> None:
+    missing = _unavailable_providers(requested, session)
+    if missing is None:
+        return
+    get_providers = getattr(session, "get_providers")
+    payload = {
+        "model_path": model_path,
+        "graph_cache_hit": load_path != model_path,
+        "requested_providers": [_provider_name(spec) for spec in requested],
+        "active_providers": [str(name) for name in get_providers()],
+    }
+    logger.info("onnx.session_created", extra=payload)
+    if missing:
+        logger.warning(
+            "onnx.session_provider_unavailable",
+            extra={**payload, "unavailable_providers": missing},
+        )
+
+
 def create_session_with_trt_fallback(
     model_path: str,
     providers: Sequence[OnnxProviderSpec],
@@ -358,7 +417,7 @@ def create_session_with_trt_fallback(
     (``build_default_session_options``) is passed to both the primary
     construction and the degraded retry, so every session-creation site
     inherits CPU thread control without per-site edits. With no explicit
-    options, CPU-EP loads also get a compiled-graph cache path assigned
+    options, CPU and CUDA loads also get a compiled-graph cache path assigned
     (``apply_graph_cache``); a failed construct with that path retries once
     without it after purging the cache entry, and a second failure raises
     the original error — same doctrine as the TRT degradation below.
@@ -374,12 +433,21 @@ def create_session_with_trt_fallback(
         apply_graph_cache(model_file, providers, resolved_options)
     assigned_cache: str = getattr(resolved_options, "optimized_model_filepath", "")
     graph_cache_file = Path(assigned_cache) if assigned_cache else None
+    load_path = model_path
+    original_level = getattr(resolved_options, "graph_optimization_level", None)
+    if graph_cache_file is not None and is_final_graph_cache(graph_cache_file):
+        load_path = str(graph_cache_file)
+        resolved_options.optimized_model_filepath = ""
+        resolved_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
     try:
-        return construct(
-            model_path,
+        session = construct(
+            load_path,
             sess_options=resolved_options,
             providers=list(providers),
         )
+        _settle_graph_cache(graph_cache_file, providers, session)
+        _log_session_created(model_path, load_path, providers, session)
+        return session
     except Exception as exc:
         if graph_cache_file is not None and graph_cache_file.exists():
             load_guard_and_purge(graph_cache_file)
@@ -392,12 +460,16 @@ def create_session_with_trt_fallback(
                 },
             )
             resolved_options.optimized_model_filepath = ""
+            if original_level is not None:
+                resolved_options.graph_optimization_level = original_level
             try:
-                return construct(
+                session = construct(
                     model_path,
                     sess_options=resolved_options,
                     providers=list(providers),
                 )
+                _log_session_created(model_path, model_path, providers, session)
+                return session
             except Exception as retry_exc:
                 raise exc from retry_exc
         if _TENSORRT_PROVIDER not in {_provider_name(spec) for spec in providers}:
@@ -417,11 +489,13 @@ def create_session_with_trt_fallback(
             },
         )
         try:
-            return construct(
+            session = construct(
                 model_path,
                 sess_options=resolved_options,
                 providers=degraded,
             )
+            _log_session_created(model_path, model_path, degraded, session)
+            return session
         except Exception as retry_exc:
             raise exc from retry_exc
 

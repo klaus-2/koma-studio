@@ -883,6 +883,16 @@ def freeze_provider_specs(
     return tuple(frozen)
 
 
+def accelerator_identity() -> str:
+    info = get_device_info()
+    if not info.has_gpu:
+        return "cpu"
+    torch_info = _coerce_torch_runtime_info(_detect_torch_device())
+    return "|".join(
+        (info.acceleration_profile, torch_info.device_name, str(torch_info.vram_gb))
+    )
+
+
 def build_device_payload(
     device_info: DeviceInfo,
 ) -> dict[str, str | bool | float | None | list[str]]:
