@@ -14,7 +14,7 @@ import {
 } from '../../../utils/dashboard.utils';
 import { dataUrlToBlob, decodeToImageBitmap } from '../../../utils/imagePerformance';
 import {
-  computeWandMaskFrames,
+  computeWandMaskFramesAsync,
   createWandFrameCanvas,
 } from './canvasDrawing';
 
@@ -285,13 +285,18 @@ export const useRenderTextPreviewManualCanvas = ({
     if (!overlayCtx) return;
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     if (!manualWandMaskDataUrl) return;
-    let cancelled = false;
+    const abortController = new AbortController();
     void loadImageFromSource(manualWandMaskDataUrl)
-      .then((maskImage) => {
-        if (cancelled) return;
+      .then(async (maskImage) => {
+        if (abortController.signal.aborted) return;
 
-        const frames = computeWandMaskFrames(overlayCanvas, overlayCtx, maskImage);
-        if (!frames) return;
+        const frames = await computeWandMaskFramesAsync(
+          overlayCanvas,
+          overlayCtx,
+          maskImage,
+          abortController.signal,
+        );
+        if (!frames || abortController.signal.aborted) return;
 
         wandMaskSelectedRef.current = frames.selected;
 
@@ -302,7 +307,7 @@ export const useRenderTextPreviewManualCanvas = ({
         const ANIMATION_INTERVAL_MS = 120;
         let lastFrameTime = 0;
         const animate = (timestamp: number) => {
-          if (cancelled) return;
+          if (abortController.signal.aborted) return;
           if (timestamp - lastFrameTime >= ANIMATION_INTERVAL_MS) {
             overlayCtx.drawImage(useFrameA ? frameCanvasA : frameCanvasB, 0, 0);
             useFrameA = !useFrameA;
@@ -313,12 +318,12 @@ export const useRenderTextPreviewManualCanvas = ({
         wandMaskAnimationTimerRef.current = requestAnimationFrame(animate);
       })
       .catch(() => {
-        if (cancelled) return;
+        if (abortController.signal.aborted) return;
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       });
 
     return () => {
-      cancelled = true;
+      abortController.abort();
       stopWandMaskAnimation();
       wandMaskSelectedRef.current = null;
     };

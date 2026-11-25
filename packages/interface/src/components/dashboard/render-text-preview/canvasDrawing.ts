@@ -24,6 +24,8 @@ import { resolveGlyphStyle } from '../../../utils/renderText.core';
 import { clearGlyphMetricsCache } from '../../../utils/renderText.metrics-cache';
 import { styleValuesEqual } from '../../../utils/renderTextStyleRanges';
 import type { PresetPreviewOverride } from '../../../typography/presetPreview';
+import { computeWandMaskBuffers, type WandMaskBuffers } from './wandMaskCompute';
+import { computeWandMaskBuffersOffThread } from './wandMaskWorkerClient';
 
 export { usePresetPreviewOverride } from '../../../typography/presetPreview';
 
@@ -78,15 +80,10 @@ export interface WandMaskFrames {
   frameB: ImageData;
 }
 
-/**
- * Computes the marching-ants selection mask + two animation frames for the
- * magic-wand overlay. Returns null when a 2D context cannot be allocated.
- */
-export const computeWandMaskFrames = (
+const extractWandMaskImageData = (
   overlayCanvas: HTMLCanvasElement,
-  overlayCtx: CanvasRenderingContext2D,
   maskImage: HTMLImageElement,
-): WandMaskFrames | null => {
+): ImageData | null => {
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = overlayCanvas.width;
   maskCanvas.height = overlayCanvas.height;
@@ -106,93 +103,61 @@ export const computeWandMaskFrames = (
   // Free GPU texture memory immediately after extracting pixel data.
   maskCanvas.width = 0;
   maskCanvas.height = 0;
+  return maskImageData;
+};
 
-  const { width, height, data } = maskImageData;
-  const totalPixels = width * height;
-  const selected = new Uint8Array(totalPixels);
-  for (let pixel = 0; pixel < totalPixels; pixel += 1) {
-    const offset = pixel * 4;
-    const alpha = data[offset + 3] ?? 0;
-    const rgbSum =
-      (data[offset] ?? 0) +
-      (data[offset + 1] ?? 0) +
-      (data[offset + 2] ?? 0);
-    if (alpha > 18 || rgbSum > 18) {
-      selected[pixel] = 1;
-    }
-  }
-
-  const border = new Uint8Array(totalPixels);
-  for (let pixel = 0; pixel < totalPixels; pixel += 1) {
-    if (selected[pixel] === 0) continue;
-    const x = pixel % width;
-    const y = Math.floor(pixel / width);
-    if (
-      x === 0 ||
-      y === 0 ||
-      x === width - 1 ||
-      y === height - 1 ||
-      selected[pixel - 1] === 0 ||
-      selected[pixel + 1] === 0 ||
-      selected[pixel - width] === 0 ||
-      selected[pixel + width] === 0
-    ) {
-      border[pixel] = 1;
-    }
-  }
-
-  const thickBorder = new Uint8Array(totalPixels);
-  for (let pixel = 0; pixel < totalPixels; pixel += 1) {
-    if (selected[pixel] === 0) continue;
-    const x = pixel % width;
-    const y = Math.floor(pixel / width);
-    if (border[pixel] === 1) {
-      thickBorder[pixel] = 1;
-      continue;
-    }
-    if (
-      (x > 0 && border[pixel - 1] === 1) ||
-      (x < width - 1 && border[pixel + 1] === 1) ||
-      (y > 0 && border[pixel - width] === 1) ||
-      (y < height - 1 && border[pixel + width] === 1)
-    ) {
-      thickBorder[pixel] = 1;
-    }
-  }
-
-  const buildFrame = (phase: number): ImageData => {
-    const frame = overlayCtx.createImageData(width, height);
-    const frameData = frame.data;
-    for (let pixel = 0; pixel < totalPixels; pixel += 1) {
-      if (selected[pixel] === 0) continue;
-      const offset = pixel * 4;
-      const x = pixel % width;
-      const y = Math.floor(pixel / width);
-
-      if (thickBorder[pixel] === 1) {
-        const dashOn = (x + y + phase) % 12 < 6;
-        const dashColor = dashOn ? 255 : 12;
-        frameData[offset] = dashColor;
-        frameData[offset + 1] = dashColor;
-        frameData[offset + 2] = dashColor;
-        frameData[offset + 3] = 255;
-        continue;
-      }
-
-      const stripe = (x + y * 2 + phase * 2) % 20 < 10;
-      frameData[offset] = stripe ? 18 : 8;
-      frameData[offset + 1] = stripe ? 176 : 146;
-      frameData[offset + 2] = stripe ? 255 : 248;
-      frameData[offset + 3] = stripe ? 150 : 124;
-    }
-    return frame;
-  };
-
+const buffersToWandMaskFrames = (
+  overlayCtx: CanvasRenderingContext2D,
+  buffers: WandMaskBuffers,
+): WandMaskFrames => {
+  const frameA = overlayCtx.createImageData(buffers.width, buffers.height);
+  frameA.data.set(buffers.frameAData);
+  const frameB = overlayCtx.createImageData(buffers.width, buffers.height);
+  frameB.data.set(buffers.frameBData);
   return {
-    selected,
-    frameA: buildFrame(0),
-    frameB: buildFrame(6),
+    selected: buffers.selected,
+    frameA,
+    frameB,
   };
+};
+
+/**
+ * Computes the marching-ants selection mask + two animation frames for the
+ * magic-wand overlay. Returns null when a 2D context cannot be allocated.
+ */
+export const computeWandMaskFrames = (
+  overlayCanvas: HTMLCanvasElement,
+  overlayCtx: CanvasRenderingContext2D,
+  maskImage: HTMLImageElement,
+): WandMaskFrames | null => {
+  const maskImageData = extractWandMaskImageData(overlayCanvas, maskImage);
+  if (!maskImageData) return null;
+  const buffers = computeWandMaskBuffers(
+    maskImageData.data,
+    maskImageData.width,
+    maskImageData.height,
+  );
+  return buffersToWandMaskFrames(overlayCtx, buffers);
+};
+
+export const computeWandMaskFramesAsync = async (
+  overlayCanvas: HTMLCanvasElement,
+  overlayCtx: CanvasRenderingContext2D,
+  maskImage: HTMLImageElement,
+  signal?: AbortSignal,
+): Promise<WandMaskFrames | null> => {
+  const maskImageData = extractWandMaskImageData(overlayCanvas, maskImage);
+  if (!maskImageData) return null;
+  const buffers = await computeWandMaskBuffersOffThread(
+    maskImageData.data,
+    maskImageData.width,
+    maskImageData.height,
+    signal,
+  );
+  if (signal?.aborted === true) {
+    return null;
+  }
+  return buffersToWandMaskFrames(overlayCtx, buffers);
 };
 
 /**

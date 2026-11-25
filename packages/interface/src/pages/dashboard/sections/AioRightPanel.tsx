@@ -1,4 +1,13 @@
-import React, { memo, useCallback, useMemo, useRef } from 'react';
+import React, {
+  Activity,
+  memo,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useThemeStore } from '@koma/ui/stores/theme-store';
 import { useShallowStableObject } from '../../../utils/shallowStable';
 import { AioCloudPreviewMount } from './AioCloudPreviewMount';
@@ -240,6 +249,27 @@ export default memo(function AioRightPanel({
   const processing = useUiShellStore((s) => s.processing);
   const activeStageTab = useUiShellStore((s) => s.activeStageTab);
   const setActiveStageTab = useUiShellStore((s) => s.setActiveStageTab);
+  const [visitedStageTabs, setVisitedStageTabs] = useState<StageTabKey[]>([
+    activeStageTab,
+  ]);
+
+  useEffect(() => {
+    setVisitedStageTabs((prev) =>
+      prev.includes(activeStageTab) ? prev : [...prev, activeStageTab],
+    );
+  }, [activeStageTab]);
+
+  const handleSelectStageTab = useCallback(
+    (nextTab: StageTabKey) => {
+      startTransition(() => {
+        setVisitedStageTabs((prev) =>
+          prev.includes(nextTab) ? prev : [...prev, nextTab],
+        );
+        setActiveStageTab(nextTab);
+      });
+    },
+    [setActiveStageTab],
+  );
 
   /* ── AIO pipeline ── */
   const aioSteps = useAioPipelineStore((s) => s.aioSteps);
@@ -720,50 +750,57 @@ export default memo(function AioRightPanel({
           tabs={STAGE_TABS}
           activeTab={activeStageTab}
           enabledSteps={enabledStepsForTabs}
-          onSelect={setActiveStageTab}
+          onSelect={handleSelectStageTab}
         />
 
         {/* Tab content */}
-        <div className="koma-aio-stage-content" key={activeStageTab}>
-          <AioStageConfigBody
-            activeStageTab={activeStageTab}
-            subMode={subMode}
-            availableDetectStageOptions={availableDetectStageOptions}
-            availableOcrStageOptions={availableOcrStageOptions}
-            availableTranslationStageOptions={availableTranslationStageOptions}
-            availableSegmentStageOptions={availableSegmentStageOptions}
-            availableCleanStageOptions={availableCleanStageOptions}
-            selectedDetectModel={selectedDetectModel}
-            selectedOcrModel={selectedOcrModel}
-            selectedSegmentModel={selectedSegmentModel}
-            selectedCleanModel={selectedCleanModel}
-            formatAioStageOptionLabel={formatAioStageOptionLabel}
-            resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
-            selectAioLocalStageModel={selectAioLocalStageModel}
-            selectAioRecognizeTextModel={selectAioRecognizeTextModel}
-            selectAioTranslationModel={selectAioTranslationModel}
-            selectedDetectStatusText={selectedDetectStatusText}
-            selectedOcrStatusText={selectedOcrStatusText}
-            selectedSegmentStatusText={selectedSegmentStatusText}
-            selectedCleanStatusText={selectedCleanStatusText}
-            openModelManagerForStage={openModelManagerForStage}
-            selectedTranslationModelState={selectedTranslationModelState}
-            selectedLegacyTranslationOption={selectedLegacyTranslationOption}
-            selectedCustomTranslationProfile={selectedCustomTranslationProfile}
+        <div className="koma-aio-stage-content">
+          {visitedStageTabs.map((tabKey) => (
+            <Activity
+              key={tabKey}
+              mode={activeStageTab === tabKey ? 'visible' : 'hidden'}
+            >
+              <AioStageConfigBody
+                activeStageTab={tabKey}
+                subMode={subMode}
+                availableDetectStageOptions={availableDetectStageOptions}
+                availableOcrStageOptions={availableOcrStageOptions}
+                availableTranslationStageOptions={availableTranslationStageOptions}
+                availableSegmentStageOptions={availableSegmentStageOptions}
+                availableCleanStageOptions={availableCleanStageOptions}
+                selectedDetectModel={selectedDetectModel}
+                selectedOcrModel={selectedOcrModel}
+                selectedSegmentModel={selectedSegmentModel}
+                selectedCleanModel={selectedCleanModel}
+                formatAioStageOptionLabel={formatAioStageOptionLabel}
+                resolveLocalModelFocusForStage={resolveLocalModelFocusForStage}
+                selectAioLocalStageModel={selectAioLocalStageModel}
+                selectAioRecognizeTextModel={selectAioRecognizeTextModel}
+                selectAioTranslationModel={selectAioTranslationModel}
+                selectedDetectStatusText={selectedDetectStatusText}
+                selectedOcrStatusText={selectedOcrStatusText}
+                selectedSegmentStatusText={selectedSegmentStatusText}
+                selectedCleanStatusText={selectedCleanStatusText}
+                openModelManagerForStage={openModelManagerForStage}
+                selectedTranslationModelState={selectedTranslationModelState}
+                selectedLegacyTranslationOption={selectedLegacyTranslationOption}
+                selectedCustomTranslationProfile={selectedCustomTranslationProfile}
 
-            showLlmSettingsPanel={showLlmSettingsPanel}
-            llmSettingsSupportSummary={llmSettingsSupportSummary}
-            updateActiveRenderMode={updateActiveRenderMode}
-            applyActiveRenderStyleToAllRegions={applyActiveRenderStyleToAllRegions}
-            activeImageRenderStageActive={activeImageRenderStageActive}
-            loadRenderFontCatalog={loadRenderFontCatalog}
-            fontCatalogLoading={fontCatalogLoading}
-            fontCatalogImporting={fontCatalogImporting}
-            fontCatalogError={fontCatalogError}
-            fontCatalogInputRef={fontCatalogInputRef}
-            handleRenderFontImport={handleRenderFontImport}
-            isDesktopRuntime={isDesktopRuntime}
-          />
+                showLlmSettingsPanel={showLlmSettingsPanel}
+                llmSettingsSupportSummary={llmSettingsSupportSummary}
+                updateActiveRenderMode={updateActiveRenderMode}
+                applyActiveRenderStyleToAllRegions={applyActiveRenderStyleToAllRegions}
+                activeImageRenderStageActive={activeImageRenderStageActive}
+                loadRenderFontCatalog={loadRenderFontCatalog}
+                fontCatalogLoading={fontCatalogLoading}
+                fontCatalogImporting={fontCatalogImporting}
+                fontCatalogError={fontCatalogError}
+                fontCatalogInputRef={fontCatalogInputRef}
+                handleRenderFontImport={handleRenderFontImport}
+                isDesktopRuntime={isDesktopRuntime}
+              />
+            </Activity>
+          ))}
         </div>
 
         {/* GPU per-stage toggles */}
