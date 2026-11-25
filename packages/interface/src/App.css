@@ -12,18 +12,8 @@
 @import './themes/noir/noir.css';
 /* Noir settings page re-skin */
 @import './themes/noir/settings-noir.css';
-/* Noir AIO tools body */
-@import './themes/noir/aio-tools-noir.css';
-/* Noir watermark range thumb */
-@import './themes/noir/watermark-noir.css';
-/* Noir enhance/chapter-optimize */
-@import './themes/noir/enhance-noir.css';
-/* Noir blogger/imgur CDN panels */
-@import './themes/noir/blogger-noir.css';
 /* Noir LegalHub/ModelRankings/Feed extras */
 @import './themes/noir/a7b4-noir.css';
-/* Noir consolidated block */
-@import './themes/noir/noir-consolidated.css';
 /* Noir type dock compact sizing */
 @import './themes/noir/type-dock-noir.css';
 @import './themes/noir/noir-app.css';

@@ -1,10 +1,6 @@
 {
   "hardLimit": 1000,
   "files": {
-    "../../packages/interface/src/components/blogger/noir/BloggerWorkspaceNoir.tsx": {
-      "maxLines": 1207,
-      "reason": "God-file inherited from V1. Split tracked as tech debt."
-    },
     "../../packages/interface/src/components/dashboard/noir/WatermarkWorkspaceNoir.tsx": {
       "maxLines": 1287,
       "reason": "God-file inherited from V1. Split tracked as tech debt."

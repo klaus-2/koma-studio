@@ -1,11 +1,4 @@
-import type { JSX } from "react";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { JSX } from 'react';
 import {
   AlertTriangle,
   Bug,
@@ -15,344 +8,62 @@ import {
   Send,
   X,
 } from 'lucide-react';
-import type {
-  DesktopBugReportSubmitPayload,
-} from '@shared/desktop-api';
-import { useI18n } from '../i18n';
 import { LegalInlineLinks } from './legal/LegalInlineLinks';
-import { useBugReportPrepare } from './useBugReportPrepare';
 import { KomaDialog } from '@koma/ui/components/dialog';
 import '@koma/ui/styles/KomaModals.css';
-
-import { desktopBridge } from "@/lib/desktop-bridge";
-import { canOpenLogsFolder, openLogsFolderOrReport } from "@/lib/open-logs-folder";
-type CropRect = { x: number; y: number; width: number; height: number };
-
-interface BugReportModalProps {
-  open: boolean;
-  onClose: () => void;
-  context?: {
-    mode?: string;
-    statusMessage?: string;
-    route?: string;
-    userEmail?: string;
-  };
-}
-
-interface ManualAttachment {
-  id: string;
-  file: File;
-}
-
-const MAX_ATTACH = 4;
-const MAX_FILE = 5 * 1024 * 1024;
-const MAX_TOTAL = 20 * 1024 * 1024;
-const BUG_REPORT_API_URL =
-  import.meta.env.VITE_BUG_REPORT_API_URL ?? 'https://koma-studio.site/api/bug-reports';
-const mkId = () =>
-  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-const fmtBytes = (v: number) => {
-  if (!Number.isFinite(v) || v <= 0) return '0 B';
-  const u = ['B', 'KB', 'MB', 'GB'];
-  let s = v,
-    i = 0;
-  for (; i < u.length - 1 && s >= 1024; i++) s /= 1024;
-  return `${s.toFixed(s >= 10 ? 0 : 1)} ${u[i]}`;
-};
-const toB64 = (buf: ArrayBuffer) => {
-  const b = new Uint8Array(buf);
-  let s = '';
-  for (let i = 0; i < b.length; i += 0x8000)
-    s += String.fromCharCode(...b.subarray(i, i + 0x8000));
-  return btoa(s);
-};
-const loadImg = (src: string, t: (key: any) => string) =>
-  new Promise<HTMLImageElement>((r, j) => {
-    const i = new Image();
-    i.addEventListener("load", () => r(i), { once: true });
-    i.addEventListener(
-      "error",
-      () => j(new Error(t('bugReport.error.imgLoadFailed'))),
-      { once: true },
-    );
-    i.src = src;
-  });
-const cropDataUrl = async (
-  src: string,
-  rect: CropRect,
-  size: { width: number; height: number },
-  t: (key: any) => string,
-) => {
-  const img = await loadImg(src, t);
-  const sx = img.naturalWidth / Math.max(1, size.width),
-    sy = img.naturalHeight / Math.max(1, size.height);
-  const cx = Math.max(0, Math.floor(rect.x * sx)),
-    cy = Math.max(0, Math.floor(rect.y * sy));
-  const cw = Math.max(1, Math.floor(rect.width * sx)),
-    ch = Math.max(1, Math.floor(rect.height * sy));
-  const c = document.createElement('canvas');
-  c.width = cw;
-  c.height = ch;
-  const ctx = c.getContext('2d');
-  if (!ctx) throw new Error(t('bugReport.error.canvasFailed'));
-  ctx.drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch);
-  return c.toDataURL('image/png', 1);
-};
+import {
+  fmtBytes,
+  MAX_ATTACH,
+  MAX_FILE,
+  useBugReportModalController,
+  type BugReportModalProps,
+} from './useBugReportModalController';
 
 const BugReportModalClassic = ({
   open,
   onClose,
   context,
 }: BugReportModalProps): JSX.Element | null => {
-  const { t } = useI18n();
-  const { prep, prepLoading } = useBugReportPrepare(open);
-  const [title, setTitle] = useState('');
-  const [desc, setDesc] = useState('');
-  const [includeLogs, setIncludeLogs] = useState(true);
-  const [steps, setSteps] = useState('');
-  const [expected, setExpected] = useState('');
-  const [actual, setActual] = useState('');
-  const [contact, setContact] = useState('');
-  const [crop, setCrop] = useState<CropRect | null>(null);
-  const [drag, setDrag] = useState<CropRect | null>(null);
-  const draggingRef = useRef(false);
-  const dragStart = useRef<{ x: number; y: number } | null>(null);
-  // Crop dragging coalesces to one setDrag per animation frame: mousemove
-  // fires at device rate and each setDrag re-rendered the whole modal.
-  const pendingDragRef = useRef<CropRect | null>(null);
-  const dragFrameRef = useRef<number | null>(null);
-
-  const cancelDragFrame = useCallback(() => {
-    if (dragFrameRef.current !== null) {
-      cancelAnimationFrame(dragFrameRef.current);
-      dragFrameRef.current = null;
-    }
-    pendingDragRef.current = null;
-  }, []);
-
-  useEffect(() => cancelDragFrame, [cancelDragFrame]);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [attachments, setAttachments] = useState<ManualAttachment[]>([]);
-  const [attachErr, setAttachErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  const api = desktopBridge.desktop?.api?.bugReport;
-  const screenshot = prep?.screenshotDataUrl ?? null;
-  const rect = drag ?? crop;
-  const totalBytes = useMemo(
-    () => attachments.reduce((s, a) => s + a.file.size, 0),
-    [attachments],
-  );
-  const canSubmit =
-    Boolean(title.trim()) &&
-    Boolean(desc.trim()) &&
-    Boolean(screenshot) &&
-    Boolean(prep?.ready) &&
-    !loading;
-
-  // Parity with the noir twin: every open starts from a clean form.
-  const reset = useCallback(() => {
-    setTitle('');
-    setDesc('');
-    setIncludeLogs(true);
-    setSteps('');
-    setExpected('');
-    setActual('');
-    setContact('');
-    setCrop(null);
-    setDrag(null);
-    draggingRef.current = false;
-    dragStart.current = null;
-    cancelDragFrame();
-    setAttachments([]);
-    setAttachErr(null);
-    setErr(null);
-    setSuccess(null);
-  }, [cancelDragFrame]);
-
-  useEffect(() => {
-    if (!open) return;
-    reset();
-  }, [open, reset]);
-
-  const addFiles = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? []);
-      e.currentTarget.value = '';
-      if (!files.length) return;
-      setAttachErr(null);
-      const next = [...attachments];
-      for (const f of files) {
-        if (next.length >= MAX_ATTACH) {
-          setAttachErr(t('bugReport.attach.maxCount', { count: MAX_ATTACH }));
-          break;
-        }
-        if (f.size > MAX_FILE) {
-          setAttachErr(
-            t('bugReport.attach.fileTooLarge', {
-              name: f.name,
-              size: Math.round(MAX_FILE / 1048576),
-            }),
-          );
-          continue;
-        }
-        if (next.reduce((s, a) => s + a.file.size, 0) + f.size > MAX_TOTAL) {
-          setAttachErr(
-            t('bugReport.attach.totalTooLarge', {
-              size: Math.round(MAX_TOTAL / 1048576),
-            }),
-          );
-          break;
-        }
-        next.push({ id: mkId(), file: f });
-      }
-      setAttachments(next);
-    },
-    [attachments],
-  );
-
-  const rmAttach = useCallback((id: string) => {
-    setAttachments((p) => p.filter((a) => a.id !== id));
-    setAttachErr(null);
-  }, []);
-
-  const relPt = useCallback((cx: number, cy: number) => {
-    const h = wrapRef.current;
-    if (!h) return null;
-    const r = h.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(r.width, cx - r.left)),
-      y: Math.max(0, Math.min(r.height, cy - r.top)),
-      w: r.width,
-      h: r.height,
-    };
-  }, []);
-
-  const onDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (!screenshot) return;
-      const p = relPt(e.clientX, e.clientY);
-      if (!p) return;
-      cancelDragFrame();
-      dragStart.current = { x: p.x, y: p.y };
-      setDrag({ x: p.x, y: p.y, width: 0, height: 0 });
-      draggingRef.current = true;
-    },
-    [cancelDragFrame, relPt, screenshot],
-  );
-  const onMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!draggingRef.current || !dragStart.current) return;
-      const p = relPt(e.clientX, e.clientY);
-      if (!p) return;
-      pendingDragRef.current = {
-        x: Math.min(dragStart.current.x, p.x),
-        y: Math.min(dragStart.current.y, p.y),
-        width: Math.abs(p.x - dragStart.current.x),
-        height: Math.abs(p.y - dragStart.current.y),
-      };
-      if (dragFrameRef.current === null) {
-        dragFrameRef.current = requestAnimationFrame(() => {
-          dragFrameRef.current = null;
-          if (pendingDragRef.current) {
-            setDrag(pendingDragRef.current);
-            pendingDragRef.current = null;
-          }
-        });
-      }
-    },
-    [relPt],
-  );
-  const onUp = useCallback(() => {
-    // Flush the frame-in-flight rect into the crop decision so the last
-    // movement is not dropped, then tear the drag down.
-    const flushedRect = pendingDragRef.current;
-    cancelDragFrame();
-    const cropDecision = flushedRect ?? drag;
-    if (cropDecision) {
-      setCrop(cropDecision.width >= 8 && cropDecision.height >= 8 ? cropDecision : null);
-    }
-    setDrag(null);
-    draggingRef.current = false;
-    dragStart.current = null;
-  }, [cancelDragFrame, drag]);
-
-  const getScreenshot = useCallback(async () => {
-    if (!screenshot) throw new Error(t('bugReport.error.noScreenshot'));
-    if (!crop || !imgRef.current) return screenshot;
-    const r = imgRef.current.getBoundingClientRect();
-    return cropDataUrl(screenshot, crop, { width: r.width, height: r.height }, t);
-  }, [crop, screenshot, t]);
-
-  const submit = useCallback(async () => {
-    if (!api || !prep?.ready) {
-      setErr(prep?.error ?? t('bugReport.error.bridgeUnavailable'));
-      return;
-    }
-    if (!title.trim() || !desc.trim()) {
-      setErr(t('bugReport.error.fillTitleDescription'));
-      return;
-    }
-    setLoading(true);
-    setErr(null);
-    setSuccess(null);
-    try {
-      const ss = await getScreenshot();
-      const atts = await Promise.all(
-        attachments.map(async ({ file }) => ({
-          name: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          size: file.size,
-          contentBase64: toB64(await file.arrayBuffer()),
-        })),
-      );
-      const payload: DesktopBugReportSubmitPayload = {
-        title: title.trim(),
-        description: desc.trim(),
-        stepsToReproduce: steps.trim() || undefined,
-        expectedResult: expected.trim() || undefined,
-        actualResult: actual.trim() || undefined,
-        contact: contact.trim() || undefined,
-        endpointUrl: BUG_REPORT_API_URL,
-        includeLogs: includeLogs,
-        screenshotDataUrl: ss,
-        autoLogIds: prep.autoLogs.map((l) => l.id),
-        attachments: atts,
-        context: {
-          mode: context?.mode,
-          statusMessage: context?.statusMessage,
-          route: context?.route,
-          userEmail: context?.userEmail,
-        },
-      };
-      const res = await api.submit(payload);
-      if (!res.ok) {
-        setErr(res.error ?? t('bugReport.error.generic'));
-        return;
-      }
-      setSuccess(t('bugReport.success.sent'));
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : t('bugReport.error.generic'));
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    api,
-    attachments,
-    contact,
-    context,
-    desc,
-    expected,
-    actual,
-    getScreenshot,
-    includeLogs,
+  const {
+    t,
     prep,
-    steps,
+    prepLoading,
+    screenshot,
+    rect,
+    totalBytes,
+    canSubmit,
+    showOpenLogsFolder,
     title,
-  ]);
+    setTitle,
+    desc,
+    setDesc,
+    includeLogs,
+    setIncludeLogs,
+    steps,
+    setSteps,
+    expected,
+    setExpected,
+    actual,
+    setActual,
+    contact,
+    setContact,
+    crop,
+    setCrop,
+    wrapRef,
+    imgRef,
+    attachments,
+    attachErr,
+    loading,
+    err,
+    success,
+    addFiles,
+    rmAttach,
+    onDown,
+    onMove,
+    onUp,
+    openLogsFolder,
+    submit,
+  } = useBugReportModalController({ open, context });
 
   if (!open) return null;
 
@@ -568,15 +279,11 @@ const BugReportModalClassic = ({
                   <Paperclip size={12} /> {t('bugReport.attach')}
                   <input type="file" multiple onChange={addFiles} />
                 </label>
-                {canOpenLogsFolder() && (
+                {showOpenLogsFolder && (
                   <button
                     type="button"
                     className="koma-bug-attach-btn"
-                    onClick={() => {
-                      void openLogsFolderOrReport(() => {
-                        setAttachErr(t('diagnostics.openLogsFolderError'));
-                      });
-                    }}
+                    onClick={openLogsFolder}
                   >
                     {t('diagnostics.openLogsFolder')}
                   </button>
