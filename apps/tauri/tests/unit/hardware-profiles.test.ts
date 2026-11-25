@@ -87,7 +87,9 @@ describe("hardware profile catalog", () => {
                 const baseInclude =
                     relativePath === "requirements-windows-nvidia-legacy.txt"
                         ? /^\s*-r\s+requirements-base-no-ort\.txt\s*$/m
-                        : /^\s*-r\s+requirements\.txt\s*$/m;
+                        : relativePath === "requirements-macos-apple-silicon.txt"
+                            ? /^\s*-r\s+requirements\.txt\s*$/m
+                            : /^\s*-r\s+requirements-common\.txt\s*$/m;
                 expect(contents, `${relativePath} must include the base set`).toMatch(baseInclude);
             }
         }

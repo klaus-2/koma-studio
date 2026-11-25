@@ -116,6 +116,14 @@ export const HARDWARE_PROFILES = Object.freeze([
         }),
     }),
     Object.freeze({
+        id: "windows-directml",
+        label: "Windows DirectML",
+        summary: "onnxruntime-directml for AMD, Intel, and NVIDIA GPUs on Windows.",
+        requirements: Object.freeze({
+            win: "requirements-windows-directml.txt",
+        }),
+    }),
+    Object.freeze({
         id: "apple-mps",
         label: "Apple Metal (MPS)",
         summary: "Apple Silicon. Metal support ships in the default PyTorch wheel.",
