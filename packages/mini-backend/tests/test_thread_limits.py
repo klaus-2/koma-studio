@@ -26,6 +26,10 @@ class _SessionOptionsStub:
     def __init__(self) -> None:
         self.intra_op_num_threads: int | None = None
         self.inter_op_num_threads: int | None = None
+        self.config_entries: dict[str, str] = {}
+
+    def add_session_config_entry(self, key: str, value: str) -> None:
+        self.config_entries[key] = value
 
 
 @pytest.fixture

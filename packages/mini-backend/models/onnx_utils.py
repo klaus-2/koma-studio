@@ -313,6 +313,9 @@ def _provider_name(spec: OnnxProviderSpec) -> str:
     return spec if isinstance(spec, str) else spec[0]
 
 
+_DENORMAL_AS_ZERO_CONFIG_KEY = "session.set_denormal_as_zero"
+
+
 def build_default_session_options() -> ort.SessionOptions:
     """Fresh SessionOptions with env-configured thread limits.
 
@@ -322,6 +325,7 @@ def build_default_session_options() -> ort.SessionOptions:
     session creation is independent.
     """
     options = ort.SessionOptions()
+    options.add_session_config_entry(_DENORMAL_AS_ZERO_CONFIG_KEY, "1")
     intra = env_thread_limit(INTRA_OP_THREADS_ENV)
     if intra is not None:
         options.intra_op_num_threads = intra

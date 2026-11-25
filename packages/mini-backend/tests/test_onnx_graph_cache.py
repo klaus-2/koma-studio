@@ -115,6 +115,12 @@ def test_build_default_session_options_enables_full_graph_optimization() -> None
     assert options.graph_optimization_level == ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
 
+def test_build_default_session_options_flushes_denormals_to_zero() -> None:
+    options = onnx_utils.build_default_session_options()
+
+    assert options.get_session_config_entry("session.set_denormal_as_zero") == "1"
+
+
 def test_abandoned_tmp_entries_are_age_purged_on_next_apply(tmp_path: Path) -> None:
     """Promotion never crosses a restart: tmps older than 24h are removed.
 
