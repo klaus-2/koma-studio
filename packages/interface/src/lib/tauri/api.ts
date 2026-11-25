@@ -1,5 +1,4 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type {
   Event,
@@ -24,7 +23,6 @@ import type {
   DesktopBundleFinalizePayload,
   DesktopBatchStatePayload,
   DesktopWindowDirtyPayload,
-  DesktopCommandName,
   DesktopApiEnvelope,
   DesktopFontEntry,
   DesktopForwardedFilesPayload,
@@ -62,27 +60,20 @@ import type {
 } from "@shared/desktop-events";
 import { parseUpdaterEventPayload, parseUpdaterStatusPayload } from "@shared/desktop-events";
 
-import { toBridgeRejectionError } from "./bridge-rejection";
+import {
+  invokeCommand,
+  type TauriCommandArgs,
+  type TauriCommandName,
+} from "./invoke";
+import {
+  exportStagedWorkspace,
+  importStagedWorkspace,
+  loadStagedAutosave,
+  saveStagedAutosave,
+  toArrayBuffer,
+} from "./workspace-staged";
 
-export type TauriCommandName = DesktopCommandName;
-export type TauriCommandArgs = InvokeArgs | undefined;
-
-export const invokeCommand = <TResponse = unknown>(
-  command: TauriCommandName,
-  args?: TauriCommandArgs,
-  options?: InvokeOptions,
-): Promise<TResponse> => {
-  const pending =
-    options !== undefined
-      ? invoke<TResponse>(command, args, options)
-      : args !== undefined
-        ? invoke<TResponse>(command, args)
-        : invoke<TResponse>(command);
-
-  return pending.catch((rejection: unknown) => {
-    throw toBridgeRejectionError(rejection);
-  });
-};
+export { invokeCommand, type TauriCommandArgs, type TauriCommandName };
 
 export const listenToDesktopEvent = <TName extends DesktopEventName>(
   eventName: TName,
@@ -169,6 +160,21 @@ export const hydrateTauriRuntimeConfig = async (): Promise<RuntimeConfig> => {
 };
 
 export const getCachedTauriRuntimeConfig = (): RuntimeConfig => runtimeConfigCache;
+
+let runtimeConfigUpdatedBound = false;
+
+export const installTauriRuntimeConfigSubscription = (): void => {
+  if (!isTauriRuntime() || runtimeConfigUpdatedBound) {
+    return;
+  }
+  runtimeConfigUpdatedBound = true;
+  void listenToDesktopEvent("desktop:runtime-config:updated", (payload) => {
+    runtimeConfigCache = mergeRuntimeConfigWithBuildEnv(payload);
+  }).catch((error: unknown) => {
+    runtimeConfigUpdatedBound = false;
+    console.warn("[tauri-runtime-config] failed to bind update events:", error);
+  });
+};
 
 const registerListener = <TListener>(
   listeners: Map<TListener, Promise<UnlistenFn>>,
@@ -404,17 +410,6 @@ const normalizeBackupRestoreResult = (
   return result;
 };
 
-const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    const chunk = bytes.subarray(index, index + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  return btoa(binary);
-};
-
 const parseSaveBlobResult = (
   value: unknown,
 ): { cancelled: boolean; filePath: string | null } => {
@@ -424,15 +419,6 @@ const parseSaveBlobResult = (
     cancelled: record.cancelled === true,
     filePath: typeof record.filePath === "string" ? record.filePath : null,
   };
-};
-
-const base64ToArrayBuffer = (value: string): ArrayBuffer => {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes.buffer;
 };
 
 const tauriDesktopBridge: IDesktopBridge = {
@@ -547,21 +533,10 @@ const tauriDesktopBridge: IDesktopBridge = {
     },
   },
   workspace: {
-    loadAutosave: (userId?: string | null) =>
-      invokeCommand(desktopCommandChannels.workspace.loadAutosave, {
-        userId: userId ?? null,
-      }),
-    saveAutosave: (payload) =>
-      invokeCommand(desktopCommandChannels.workspace.saveAutosave, {
-        userId: payload.userId ?? null,
-        payload: payload.payload,
-      }),
+    loadAutosave: (userId?: string | null) => loadStagedAutosave(userId),
+    saveAutosave: (payload) => saveStagedAutosave(payload),
     sendAutosave: (payload) => {
-      // Fire-and-forget for teardown — do not await.
-      void invokeCommand(desktopCommandChannels.workspace.saveAutosave, {
-        userId: payload.userId ?? null,
-        payload: payload.payload,
-      }).catch(() => undefined);
+      void saveStagedAutosave(payload).catch(() => undefined);
     },
     clearAutosave: (payload) =>
       invokeCommand(desktopCommandChannels.workspace.clearAutosave, {
@@ -570,12 +545,8 @@ const tauriDesktopBridge: IDesktopBridge = {
             ? payload.userId
             : null,
       }),
-    exportCurrent: (payload) =>
-      invokeCommand(desktopCommandChannels.workspace.exportCurrent, {
-        defaultFileName: payload.defaultFileName,
-        payload: payload.payload,
-      }),
-    importFile: () => invokeCommand(desktopCommandChannels.workspace.importFile),
+    exportCurrent: (payload) => exportStagedWorkspace(payload),
+    importFile: () => importStagedWorkspace(),
     listBackups: async () =>
       normalizeBackupListResult(
         await invokeCommand<unknown>(desktopCommandChannels.workspace.listBackups),
@@ -592,16 +563,17 @@ const tauriDesktopBridge: IDesktopBridge = {
     saveBlob: async (payload: { defaultFileName: string; data: ArrayBuffer }) => {
       const result: unknown = await invokeCommand(
         desktopCommandChannels.files.saveBlob,
-        { payload: { defaultFileName: payload.defaultFileName, data: arrayBufferToBase64(payload.data) } },
+        payload.data,
+        { headers: { "x-koma-file-name": encodeURIComponent(payload.defaultFileName) } },
       );
       return parseSaveBlobResult(result);
     },
     readForwarded: async (payload: DesktopReadForwardedPayload) => {
-      const result = await invokeCommand<{ data: string }>(
+      const raw = await invokeCommand<ArrayBuffer | Uint8Array>(
         desktopCommandChannels.files.readForwarded,
         { path: payload.path },
       );
-      return { data: base64ToArrayBuffer(result.data) };
+      return { data: toArrayBuffer(raw) };
     },
   },
   bundle: {
@@ -620,11 +592,10 @@ const tauriDesktopBridge: IDesktopBridge = {
       return normalizeBundleBeginResult(result);
     },
     append: (payload: DesktopBundleAppendPayload) =>
-      invokeCommand<void>(desktopCommandChannels.bundle.append, {
-        payload: {
-          sessionId: payload.sessionId,
-          name: payload.name,
-          data: arrayBufferToBase64(payload.data),
+      invokeCommand<void>(desktopCommandChannels.bundle.append, payload.data, {
+        headers: {
+          "x-koma-session-id": encodeURIComponent(payload.sessionId),
+          "x-koma-entry-name": encodeURIComponent(payload.name),
         },
       }),
     finalize: async (payload: DesktopBundleFinalizePayload) => {
@@ -827,8 +798,8 @@ const tauriDesktopBridge: IDesktopBridge = {
         desktopCommandChannels.images.allowPaths,
         { paths },
       ),
-    thumbnail: (payload: DesktopImageThumbnailPayload) =>
-      invokeCommand<{ data: string; mimeType: string }>(
+    thumbnail: async (payload: DesktopImageThumbnailPayload) => {
+      const raw = await invokeCommand<ArrayBuffer | Uint8Array>(
         desktopCommandChannels.images.thumbnail,
         {
           payload: {
@@ -836,10 +807,12 @@ const tauriDesktopBridge: IDesktopBridge = {
             ...(payload.maxDim !== undefined ? { maxDim: payload.maxDim } : {}),
           },
         },
-      ).then((result) => ({
-        data: base64ToArrayBuffer(result.data),
-        mimeType: result.mimeType,
-      })),
+      );
+      return {
+        data: toArrayBuffer(raw),
+        mimeType: "image/png",
+      };
+    },
   },
   discordRPC: {
     setEnabled: (enabled: boolean) =>
@@ -912,12 +885,11 @@ const tauriDesktopBridge: IDesktopBridge = {
   },
   clipboard: {
     writeImage: (payload) =>
-      invokeCommand<void>(desktopCommandChannels.clipboard.writeImage, {
-        payload: {
-          mimeType: payload.mimeType,
-          data: arrayBufferToBase64(payload.data),
-        },
-      }),
+      invokeCommand<void>(
+        desktopCommandChannels.clipboard.writeImage,
+        payload.data,
+        { headers: { "x-koma-mime-type": encodeURIComponent(payload.mimeType) } },
+      ),
   },
 };
 
@@ -986,6 +958,7 @@ export const tauriApi = {
   isDesktopRuntime: isTauriRuntime,
   getRuntimeConfig: getCachedTauriRuntimeConfig,
   hydrateRuntimeConfig: hydrateTauriRuntimeConfig,
+  installRuntimeConfigSubscription: installTauriRuntimeConfigSubscription,
   get updater(): IUpdaterBridge | null {
     return isTauriRuntime() ? tauriUpdaterBridge : null;
   },

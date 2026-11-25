@@ -5,9 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{State, ipc::Response};
 
 use crate::{
     error::AppError,
@@ -24,7 +23,6 @@ const MAX_PAGE_SIZE: usize = 200;
 const DEFAULT_PAGE_SIZE: usize = 100;
 const DEFAULT_THUMBNAIL_MAX_DIM: u32 = 800;
 const MAX_THUMBNAIL_MAX_DIM: u32 = 4096;
-const THUMBNAIL_MIME_TYPE: &str = "image/png";
 const MAX_THUMBNAIL_SOURCE_DIM: u32 = 16_384;
 const MAX_THUMBNAIL_DECODE_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -33,13 +31,6 @@ const MAX_THUMBNAIL_DECODE_BYTES: u64 = 256 * 1024 * 1024;
 pub struct DesktopImageThumbnailPayload {
     pub file_path: String,
     pub max_dim: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct DesktopImageThumbnailResult {
-    pub mime_type: String,
-    pub data: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -66,15 +57,7 @@ pub struct DesktopImageFolderPage {
     pub next_cursor: Option<String>,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ImagePathFailureCode {
     InvalidPath,
@@ -148,11 +131,7 @@ pub async fn desktop_api_list_folder(
     let (folder, page) = tauri::async_runtime::spawn_blocking(move || {
         let canonical = fs::canonicalize(folder)?;
 
-        let page = scan_image_folder_page(
-            &canonical,
-            cursor.as_deref(),
-            limit,
-        )?;
+        let page = scan_image_folder_page(&canonical, cursor.as_deref(), limit)?;
 
         Ok::<_, AppError>((canonical, page))
     })
@@ -190,9 +169,7 @@ pub async fn desktop_api_allow_paths(
 
     for (index, prepared) in prepared.into_iter().enumerate() {
         let index = u32::try_from(index).map_err(|_| {
-            AppError::InvalidInput(
-                "Image path batch exceeds the supported size.".to_owned(),
-            )
+            AppError::InvalidInput("Image path batch exceeds the supported size.".to_owned())
         })?;
 
         let prepared = match prepared {
@@ -205,10 +182,7 @@ pub async fn desktop_api_allow_paths(
                     "image path rejected"
                 );
 
-                outcomes.push(DesktopImageAllowOutcome::Rejected {
-                    index,
-                    code,
-                });
+                outcomes.push(DesktopImageAllowOutcome::Rejected { index, code });
 
                 continue;
             }
@@ -216,9 +190,7 @@ pub async fn desktop_api_allow_paths(
 
         if !granted.contains(&prepared.canonical_path) {
             match scopes.images.allow_file(&prepared.canonical_path) {
-                Ok(authorized_path)
-                    if authorized_path == prepared.canonical_path =>
-                {
+                Ok(authorized_path) if authorized_path == prepared.canonical_path => {
                     granted.insert(prepared.canonical_path.clone());
                 }
                 Ok(_) => {
@@ -265,13 +237,15 @@ pub async fn desktop_api_allow_paths(
 pub async fn desktop_api_thumbnail(
     scopes: State<'_, MediaScopes>,
     payload: DesktopImageThumbnailPayload,
-) -> Result<DesktopImageThumbnailResult, AppError> {
+) -> Result<Response, AppError> {
     let max_dim = validate_thumbnail_max_dim(payload.max_dim.unwrap_or(DEFAULT_THUMBNAIL_MAX_DIM))?;
 
     let canonical = resolve_scoped_image_path(&scopes.images, Path::new(&payload.file_path))?;
-    tauri::async_runtime::spawn_blocking(move || thumbnail_png_bytes(&canonical, max_dim))
-        .await
-        .map_err(blocking_task_error)?
+    let bytes =
+        tauri::async_runtime::spawn_blocking(move || encode_thumbnail_png(&canonical, max_dim))
+            .await
+            .map_err(blocking_task_error)??;
+    Ok(Response::new(bytes))
 }
 
 fn resolve_scoped_image_path(scope: &MediaScope, path: &Path) -> Result<PathBuf, AppError> {
@@ -293,11 +267,13 @@ fn resolve_scoped_image_path(scope: &MediaScope, path: &Path) -> Result<PathBuf,
                 .parent()
                 .and_then(|parent| fs::canonicalize(parent).ok())
                 .is_some_and(|parent| scope.contains_dir(&parent));
-            Err(if parent_allowed && error.kind() == io::ErrorKind::NotFound {
-                AppError::NotFound(requested)
-            } else {
-                AppError::PathNotAllowed(requested)
-            })
+            Err(
+                if parent_allowed && error.kind() == io::ErrorKind::NotFound {
+                    AppError::NotFound(requested)
+                } else {
+                    AppError::PathNotAllowed(requested)
+                },
+            )
         }
     }
 }
@@ -307,12 +283,12 @@ fn thumbnail_png_bytes_in_scope(
     scope: &MediaScope,
     path: &Path,
     max_dim: u32,
-) -> Result<DesktopImageThumbnailResult, AppError> {
+) -> Result<Vec<u8>, AppError> {
     let canonical = resolve_scoped_image_path(scope, path)?;
-    thumbnail_png_bytes(&canonical, max_dim)
+    encode_thumbnail_png(&canonical, max_dim)
 }
 
-fn validate_thumbnail_max_dim(max_dim: u32) -> Result<u32, AppError> {
+pub(crate) fn validate_thumbnail_max_dim(max_dim: u32) -> Result<u32, AppError> {
     if max_dim == 0 || max_dim > MAX_THUMBNAIL_MAX_DIM {
         return Err(AppError::InvalidInput(
             "Thumbnail size is outside the supported range.".to_owned(),
@@ -321,10 +297,7 @@ fn validate_thumbnail_max_dim(max_dim: u32) -> Result<u32, AppError> {
     Ok(max_dim)
 }
 
-fn thumbnail_png_bytes(
-    path: &Path,
-    max_dim: u32,
-) -> Result<DesktopImageThumbnailResult, AppError> {
+pub(crate) fn encode_thumbnail_png(path: &Path, max_dim: u32) -> Result<Vec<u8>, AppError> {
     if path.as_os_str().is_empty() {
         return Err(AppError::InvalidInput("Invalid image path.".to_owned()));
     }
@@ -383,17 +356,11 @@ fn thumbnail_png_bytes(
         .write_to(&mut io::Cursor::new(&mut encoded), image::ImageFormat::Png)
         .map_err(|error| AppError::internal("encode_thumbnail", error))?;
 
-    Ok(DesktopImageThumbnailResult {
-        mime_type: THUMBNAIL_MIME_TYPE.to_owned(),
-        data: BASE64.encode(&encoded),
-    })
+    Ok(encoded)
 }
 
-fn prepare_image_path(
-    raw: &str,
-) -> Result<PreparedImage, ImagePathFailureCode> {
-    let path = validate_non_empty_path(raw)
-        .map_err(|_| ImagePathFailureCode::InvalidPath)?;
+fn prepare_image_path(raw: &str) -> Result<PreparedImage, ImagePathFailureCode> {
+    let path = validate_non_empty_path(raw).map_err(|_| ImagePathFailureCode::InvalidPath)?;
 
     if !path.is_absolute() {
         return Err(ImagePathFailureCode::InvalidPath);
@@ -403,15 +370,13 @@ fn prepare_image_path(
         return Err(ImagePathFailureCode::UnsupportedMediaType);
     }
 
-    let canonical_path = fs::canonicalize(path)
-        .map_err(|_| ImagePathFailureCode::Io)?;
+    let canonical_path = fs::canonicalize(path).map_err(|_| ImagePathFailureCode::Io)?;
 
     if !is_supported_image_path(&canonical_path) {
         return Err(ImagePathFailureCode::UnsupportedMediaType);
     }
 
-    let metadata = fs::metadata(&canonical_path)
-        .map_err(|_| ImagePathFailureCode::Io)?;
+    let metadata = fs::metadata(&canonical_path).map_err(|_| ImagePathFailureCode::Io)?;
 
     if !metadata.is_file() {
         return Err(ImagePathFailureCode::NotAFile);
@@ -454,14 +419,9 @@ fn scan_image_folder_page(
             continue;
         }
 
-        let file_name = entry
-            .file_name()
-            .into_string()
-            .map_err(|_| {
-                AppError::InvalidInput(
-                    "Image file name is not valid UTF-8.".to_owned(),
-                )
-            })?;
+        let file_name = entry.file_name().into_string().map_err(|_| {
+            AppError::InvalidInput("Image file name is not valid UTF-8.".to_owned())
+        })?;
 
         if cursor.is_some_and(|cursor| file_name.as_str() <= cursor) {
             continue;
@@ -503,17 +463,12 @@ fn scan_image_folder_page(
     let entries = candidates
         .into_iter()
         .map(|candidate| {
-            let mime_type =
-                infer_mime_type_from_path(&candidate.file_path).to_owned();
+            let mime_type = infer_mime_type_from_path(&candidate.file_path).to_owned();
 
             let file_path = candidate
                 .file_path
                 .to_str()
-                .ok_or_else(|| {
-                    AppError::InvalidInput(
-                        "Image path is not valid UTF-8.".to_owned(),
-                    )
-                })?
+                .ok_or_else(|| AppError::InvalidInput("Image path is not valid UTF-8.".to_owned()))?
                 .to_owned();
 
             Ok(DesktopImageFolderEntry {
@@ -533,9 +488,8 @@ fn scan_image_folder_page(
 
 fn validate_page_size(limit: Option<u32>) -> Result<usize, AppError> {
     let limit = match limit {
-        Some(limit) => usize::try_from(limit).map_err(|_| {
-            AppError::InvalidInput("Invalid image page size.".to_owned())
-        })?,
+        Some(limit) => usize::try_from(limit)
+            .map_err(|_| AppError::InvalidInput("Invalid image page size.".to_owned()))?,
         None => DEFAULT_PAGE_SIZE,
     };
 
@@ -564,13 +518,8 @@ fn validate_cursor(cursor: &str) -> Result<(), AppError> {
 }
 
 fn validate_non_empty_path(raw_path: &str) -> Result<PathBuf, AppError> {
-    if raw_path.trim().is_empty()
-        || raw_path.len() > MAX_PATH_BYTES
-        || raw_path.contains('\0')
-    {
-        return Err(AppError::InvalidInput(
-            "Invalid image path.".to_owned(),
-        ));
+    if raw_path.trim().is_empty() || raw_path.len() > MAX_PATH_BYTES || raw_path.contains('\0') {
+        return Err(AppError::InvalidInput("Invalid image path.".to_owned()));
     }
 
     // Leading and trailing spaces can be part of a valid filesystem name.
@@ -593,9 +542,7 @@ pub(crate) fn infer_mime_type_from_path(path: &Path) -> &'static str {
 }
 
 fn is_supported_image_path(path: &Path) -> bool {
-    extension(path).is_some_and(|extension| {
-        IMAGE_EXTENSIONS.contains(&extension.as_ref())
-    })
+    extension(path).is_some_and(|extension| IMAGE_EXTENSIONS.contains(&extension.as_ref()))
 }
 
 fn extension(path: &Path) -> Option<Cow<'_, str>> {
@@ -629,20 +576,14 @@ mod tests {
             fs::write(temp.path().join(name), [1_u8]).unwrap();
         }
 
-        let first =
-            scan_image_folder_page(temp.path(), None, 2).unwrap();
+        let first = scan_image_folder_page(temp.path(), None, 2).unwrap();
 
         assert_eq!(first.entries.len(), 2);
         assert_eq!(first.entries[0].file_name, "a.png");
         assert_eq!(first.entries[1].file_name, "b.png");
         assert_eq!(first.next_cursor.as_deref(), Some("b.png"));
 
-        let second = scan_image_folder_page(
-            temp.path(),
-            first.next_cursor.as_deref(),
-            2,
-        )
-        .unwrap();
+        let second = scan_image_folder_page(temp.path(), first.next_cursor.as_deref(), 2).unwrap();
 
         assert_eq!(second.entries.len(), 2);
         assert_eq!(second.entries[0].file_name, "c.png");
@@ -658,8 +599,7 @@ mod tests {
         fs::write(temp.path().join("notes.txt"), [1_u8]).unwrap();
         fs::create_dir(temp.path().join("nested.jpg")).unwrap();
 
-        let page =
-            scan_image_folder_page(temp.path(), None, 100).unwrap();
+        let page = scan_image_folder_page(temp.path(), None, 100).unwrap();
 
         assert_eq!(page.entries.len(), 1);
         assert_eq!(page.entries[0].file_name, "image.PNG");
@@ -728,8 +668,7 @@ mod tests {
 
         symlink(&target, folder.path().join("linked.png")).unwrap();
 
-        let page =
-            scan_image_folder_page(folder.path(), None, 100).unwrap();
+        let page = scan_image_folder_page(folder.path(), None, 100).unwrap();
 
         assert!(page.entries.is_empty());
     }
@@ -741,10 +680,8 @@ mod tests {
         let path = temp.path().join("page.png");
         source.save(&path).unwrap();
 
-        let result = thumbnail_png_bytes(&path, 16).unwrap();
+        let bytes = encode_thumbnail_png(&path, 16).unwrap();
 
-        assert_eq!(result.mime_type, "image/png");
-        let bytes = BASE64.decode(result.data).unwrap();
         let decoded = image::load_from_memory(&bytes).unwrap();
         assert_eq!((decoded.width(), decoded.height()), (16, 8));
     }
@@ -756,8 +693,7 @@ mod tests {
         let path = temp.path().join("tiny.png");
         source.save(&path).unwrap();
 
-        let result = thumbnail_png_bytes(&path, 16).unwrap();
-        let bytes = BASE64.decode(result.data).unwrap();
+        let bytes = encode_thumbnail_png(&path, 16).unwrap();
         let decoded = image::load_from_memory(&bytes).unwrap();
         assert_eq!((decoded.width(), decoded.height()), (8, 8));
     }
@@ -769,18 +705,18 @@ mod tests {
         let text = temp.path().join("notes.txt");
         fs::write(&text, b"nope").unwrap();
         assert!(matches!(
-            thumbnail_png_bytes(&text, 16),
+            encode_thumbnail_png(&text, 16),
             Err(AppError::UnsupportedMediaType(_))
         ));
 
         let missing = temp.path().join("missing.png");
         assert!(matches!(
-            thumbnail_png_bytes(&missing, 16),
+            encode_thumbnail_png(&missing, 16),
             Err(AppError::Io(_))
         ));
 
         assert!(matches!(
-            thumbnail_png_bytes(temp.path(), 16),
+            encode_thumbnail_png(temp.path(), 16),
             Err(AppError::NotAFile(_))
         ));
     }
@@ -825,8 +761,7 @@ mod tests {
         scope.allow_file(&alone).unwrap();
 
         for path in [&in_dir, &alone] {
-            let result = thumbnail_png_bytes_in_scope(&scope, path, 16).unwrap();
-            let bytes = BASE64.decode(result.data).unwrap();
+            let bytes = thumbnail_png_bytes_in_scope(&scope, path, 16).unwrap();
             let decoded = image::load_from_memory(&bytes).unwrap();
             assert_eq!((decoded.width(), decoded.height()), (16, 8));
         }

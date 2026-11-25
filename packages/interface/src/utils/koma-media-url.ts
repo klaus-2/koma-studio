@@ -33,5 +33,8 @@ export const isWindowsPlatform = (): boolean =>
 export const buildKomaImagePageUrl = (path: string): string =>
   buildKomaMediaUrl(KOMA_IMAGE_SCHEME, path, isWindowsPlatform());
 
+export const buildKomaImageThumbnailUrl = (path: string, maxDim: number): string =>
+  `${buildKomaImagePageUrl(path)}?thumb=${Math.max(1, Math.round(maxDim))}`;
+
 export const hasKomaImageProtocolBridge = (): boolean =>
   desktopBridge.desktop?.images.allowPaths !== undefined;

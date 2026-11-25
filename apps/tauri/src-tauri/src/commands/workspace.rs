@@ -217,8 +217,7 @@ pub async fn save_autosave(
     tauri::async_runtime::spawn_blocking(move || {
         fs::create_dir_all(&root)?;
 
-        let file_path =
-            workspace_autosave_path(&root, user_id.as_deref());
+        let file_path = workspace_autosave_path(&root, user_id.as_deref());
 
         write_workspace_package(&file_path, &payload)?;
 
@@ -238,17 +237,12 @@ pub async fn clear_autosave(
     let root = workspace_storage_dir(&app)?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        let file_path =
-            workspace_autosave_path(&root, user_id.as_deref());
+        let file_path = workspace_autosave_path(&root, user_id.as_deref());
 
         match fs::remove_file(file_path) {
-            Ok(()) => Ok(WorkspaceAutosaveClearResult {
-                cleared: true,
-            }),
+            Ok(()) => Ok(WorkspaceAutosaveClearResult { cleared: true }),
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                Ok(WorkspaceAutosaveClearResult {
-                    cleared: false,
-                })
+                Ok(WorkspaceAutosaveClearResult { cleared: false })
             }
             Err(error) => {
                 tracing::error!(
@@ -441,7 +435,10 @@ fn list_workspace_backups_at(storage_dir: &Path) -> AppResult<DesktopBackupListR
         ));
     }
 
-    backups.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.file_name.cmp(&b.1.file_name)));
+    backups.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then_with(|| a.1.file_name.cmp(&b.1.file_name))
+    });
 
     Ok(DesktopBackupListResult {
         backups: backups.into_iter().map(|(_, entry)| entry).collect(),
@@ -508,10 +505,7 @@ fn restore_workspace_backup_inner(
     }
 
     let live_path = storage_dir.join(&live_name);
-    let temp_path = storage_dir.join(format!(
-        ".{live_name}.{}.restore.tmp",
-        Uuid::new_v4()
-    ));
+    let temp_path = storage_dir.join(format!(".{live_name}.{}.restore.tmp", Uuid::new_v4()));
 
     if let Err(error) = fs::copy(&backup_path, &temp_path) {
         tracing::error!(
@@ -591,12 +585,8 @@ fn prepare_selected_asset(path: PathBuf) -> AppResult<AuthorizedWorkspaceAsset> 
     })
 }
 
-fn sanitized_export_file_name(value: &str) -> String {
-    let candidate = value
-        .trim()
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or_default();
+pub(crate) fn sanitized_export_file_name(value: &str) -> String {
+    let candidate = value.trim().rsplit(['/', '\\']).next().unwrap_or_default();
 
     let mut name: String = candidate
         .chars()
@@ -629,8 +619,7 @@ fn sanitized_export_file_name(value: &str) -> String {
         name.insert(0, '_');
     }
 
-    let stem_limit = MAX_EXPORT_FILE_NAME_BYTES
-        .saturating_sub(extension.len());
+    let stem_limit = MAX_EXPORT_FILE_NAME_BYTES.saturating_sub(extension.len());
 
     truncate_utf8(&mut name, stem_limit);
 
@@ -677,14 +666,13 @@ fn is_windows_reserved_file_name(value: &str) -> bool {
         stem.strip_prefix(prefix).is_some_and(|suffix| {
             matches!(
                 suffix,
-                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-                    | "¹" | "²" | "³"
+                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
             )
         })
     })
 }
 
-fn validate_display_file_name(value: &str) -> AppResult<String> {
+pub(crate) fn validate_display_file_name(value: &str) -> AppResult<String> {
     if value.is_empty()
         || value.len() > MAX_DISPLAY_FILE_NAME_BYTES
         || value.chars().any(char::is_control)
@@ -692,30 +680,21 @@ fn validate_display_file_name(value: &str) -> AppResult<String> {
         || value.contains('\\')
         || matches!(value, "." | "..")
     {
-        return Err(AppError::invalid_input(
-            "Invalid asset file name.",
-        ));
+        return Err(AppError::invalid_input("Invalid asset file name."));
     }
 
     Ok(value.to_owned())
 }
 
-fn validate_mime(value: &str) -> AppResult<String> {
-    if value.is_empty()
-        || value.len() > MAX_MIME_BYTES
-        || value.chars().any(char::is_control)
-    {
-        return Err(AppError::invalid_input(
-            "Invalid asset MIME type.",
-        ));
+pub(crate) fn validate_mime(value: &str) -> AppResult<String> {
+    if value.is_empty() || value.len() > MAX_MIME_BYTES || value.chars().any(char::is_control) {
+        return Err(AppError::invalid_input("Invalid asset MIME type."));
     }
 
     value
         .parse::<mime::Mime>()
         .map(|mime| mime.to_string())
-        .map_err(|_| {
-            AppError::invalid_input("Invalid asset MIME type.")
-        })
+        .map_err(|_| AppError::invalid_input("Invalid asset MIME type."))
 }
 
 #[cfg(test)]
@@ -738,10 +717,7 @@ mod tests {
             "page.koma"
         );
 
-        assert_eq!(
-            sanitized_export_file_name("/folder/page.koma"),
-            "page.koma"
-        );
+        assert_eq!(sanitized_export_file_name("/folder/page.koma"), "page.koma");
     }
 
     #[test]
@@ -754,15 +730,9 @@ mod tests {
 
     #[test]
     fn export_file_name_removes_trailing_dots_and_spaces() {
-        assert_eq!(
-            sanitized_export_file_name("page...   "),
-            "page.koma"
-        );
+        assert_eq!(sanitized_export_file_name("page...   "), "page.koma");
 
-        assert_eq!(
-            sanitized_export_file_name("..."),
-            "workspace.koma"
-        );
+        assert_eq!(sanitized_export_file_name("..."), "workspace.koma");
     }
 
     #[test]
@@ -882,8 +852,18 @@ mod tests {
         let newest_name = format!("autosave.ccc.koma.{}.backup", Uuid::new_v4());
 
         write_backup_with_mtime(storage, &oldest_name, b"a", base);
-        write_backup_with_mtime(storage, &middle_name, b"bb", base + std::time::Duration::from_secs(2));
-        write_backup_with_mtime(storage, &newest_name, b"ccc", base + std::time::Duration::from_secs(4));
+        write_backup_with_mtime(
+            storage,
+            &middle_name,
+            b"bb",
+            base + std::time::Duration::from_secs(2),
+        );
+        write_backup_with_mtime(
+            storage,
+            &newest_name,
+            b"ccc",
+            base + std::time::Duration::from_secs(4),
+        );
 
         let result = list_workspace_backups_at(storage).unwrap();
 

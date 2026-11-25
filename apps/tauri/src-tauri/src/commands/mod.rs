@@ -10,3 +10,4 @@ pub mod images;
 pub mod logging;
 pub mod models;
 pub mod workspace;
+pub mod workspace_staged;

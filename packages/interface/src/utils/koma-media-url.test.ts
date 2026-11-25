@@ -6,6 +6,7 @@ import { createDesktopBridgeStub } from '@/testing/desktop-bridge-stub';
 import { setDesktopBridgeProvider } from '@/lib/desktop-bridge';
 import {
   buildKomaImagePageUrl,
+  buildKomaImageThumbnailUrl,
   buildKomaMediaUrl,
   hasKomaImageProtocolBridge,
   percentEncodeNonAlphanumeric,
@@ -108,6 +109,20 @@ describe('koma-media-url', () => {
     stubUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36');
     expect(buildKomaImagePageUrl('/home/u/b.png')).toBe(
       'koma-image://localhost/%2Fhome%2Fu%2Fb%2Epng',
+    );
+  });
+
+  it('appends clamped integer thumb query parameter for thumbnail URLs', () => {
+    stubUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    expect(buildKomaImageThumbnailUrl('C:/a/b.png', 256.4)).toBe(
+      'http://koma-image.localhost/C%3A%2Fa%2Fb%2Epng?thumb=256',
+    );
+    expect(buildKomaImageThumbnailUrl('C:/a/b.png', 0)).toBe(
+      'http://koma-image.localhost/C%3A%2Fa%2Fb%2Epng?thumb=1',
+    );
+    stubUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36');
+    expect(buildKomaImageThumbnailUrl('/home/u/b.png', 400)).toBe(
+      'koma-image://localhost/%2Fhome%2Fu%2Fb%2Epng?thumb=400',
     );
   });
 });

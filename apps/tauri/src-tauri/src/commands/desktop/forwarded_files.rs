@@ -5,9 +5,8 @@ use std::{
     sync::Mutex,
 };
 
-use base64::{engine::general_purpose, Engine as _};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Runtime};
+use tauri::{AppHandle, Emitter, Runtime, ipc::Response};
 #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
 use url::Url;
 
@@ -115,20 +114,12 @@ fn serve_forwarded_file_bytes(path: &str) -> Result<Vec<u8>, AppError> {
     fs::read(path).map_err(AppError::from)
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct ReadForwardedFileResult {
-    data: String,
-}
-
 #[tauri::command(rename = "desktop:files:read-forwarded")]
-pub(crate) async fn read_forwarded(path: String) -> Result<ReadForwardedFileResult, AppError> {
+pub(crate) async fn read_forwarded(path: String) -> Result<Response, AppError> {
     let bytes = tauri::async_runtime::spawn_blocking(move || serve_forwarded_file_bytes(&path))
         .await
         .map_err(|error| AppError::from(io::Error::other(error)))??;
-    Ok(ReadForwardedFileResult {
-        data: general_purpose::STANDARD.encode(bytes),
-    })
+    Ok(Response::new(bytes))
 }
 
 fn candidate_path_from_launch_arg(arg: &str) -> Option<PathBuf> {
@@ -285,7 +276,9 @@ mod tests {
 
         let sibling = dir.path().join("b.cbz").to_string_lossy().into_owned();
         assert!(!is_session_forwarded_path(&sibling));
-        assert!(!is_session_forwarded_path(dir.path().to_string_lossy().as_ref()));
+        assert!(!is_session_forwarded_path(
+            dir.path().to_string_lossy().as_ref()
+        ));
 
         let traversal = format!("{}/../b.cbz", dir.path().join("a.cbz").to_string_lossy());
         assert!(!is_session_forwarded_path(&traversal));

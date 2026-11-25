@@ -540,6 +540,12 @@ export const desktopCommandChannels = {
     importFile: "desktop-workspace:import-file",
     listBackups: "desktop-workspace:list-backups",
     restoreBackup: "desktop-workspace:restore-backup",
+    stageAssetRaw: "desktop-workspace:stage-asset-raw",
+    commitStagedAutosave: "desktop-workspace:commit-staged-autosave",
+    commitStagedExport: "desktop-workspace:commit-staged-export",
+    loadAutosaveStaged: "desktop-workspace:load-autosave-staged",
+    importFileStaged: "desktop-workspace:import-file-staged",
+    readStagedAsset: "desktop-workspace:read-staged-asset",
   },
   files: {
     saveBlob: "desktop:files:save-blob",

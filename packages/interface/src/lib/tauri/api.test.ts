@@ -17,6 +17,7 @@ import type {
 import {
   getCachedTauriRuntimeConfig,
   hydrateTauriRuntimeConfig,
+  installTauriRuntimeConfigSubscription,
   invokeCommand,
   listenToDesktopEvent,
   isTauriRuntime,
@@ -258,17 +259,18 @@ describe("tauri api wrapper", () => {
     expect(received).toHaveLength(1);
   });
 
-  it("sends save-blob bytes as base64 and returns the parsed filePath", async () => {
+  it("sends save-blob bytes as raw ArrayBuffer with encoded filename header", async () => {
     mockedIsTauri.mockReturnValue(true);
     mockedInvoke.mockResolvedValueOnce({ cancelled: false, filePath: "C:/out/a.png" });
+    const bytes = new Uint8Array([72, 105]).buffer;
 
     const result = await tauriApi.desktop?.files.saveBlob({
-      defaultFileName: "a.png",
-      data: new Uint8Array([72, 105]).buffer,
+      defaultFileName: "página 1.png",
+      data: bytes,
     });
 
-    expect(mockedInvoke).toHaveBeenCalledWith("desktop:files:save-blob", {
-      payload: { defaultFileName: "a.png", data: btoa("Hi") },
+    expect(mockedInvoke).toHaveBeenCalledWith("desktop:files:save-blob", bytes, {
+      headers: { "x-koma-file-name": "p%C3%A1gina%201.png" },
     });
     expect(result).toEqual({ cancelled: false, filePath: "C:/out/a.png" });
   });
@@ -285,9 +287,9 @@ describe("tauri api wrapper", () => {
     expect(result).toEqual({ cancelled: true, filePath: null });
   });
 
-  it("decodes forwarded-file bytes from the shell's base64 transport", async () => {
+  it("receives forwarded-file bytes directly as raw binary IPC", async () => {
     mockedIsTauri.mockReturnValue(true);
-    mockedInvoke.mockResolvedValueOnce({ data: btoa("Hi") });
+    mockedInvoke.mockResolvedValueOnce(new Uint8Array([72, 105]).buffer);
 
     const result = await tauriApi.desktop?.files.readForwarded?.({ path: "C:/a.cbz" });
 
@@ -345,17 +347,36 @@ describe("tauri api wrapper", () => {
     expect(mockedInvoke).toHaveBeenNthCalledWith(2, "desktop:system:reveal-path", {
       path: "C:/out/a.png",
     });
-    expect(mockedInvoke).toHaveBeenNthCalledWith(3, "desktop:clipboard:write-image", {
-      payload: { mimeType: "image/png", data: btoa("\u0001\u0002\u0003") },
+    expect(mockedInvoke).toHaveBeenNthCalledWith(
+      3,
+      "desktop:clipboard:write-image",
+      imageBytes,
+      { headers: { "x-koma-mime-type": "image%2Fpng" } },
+    );
+  });
+
+  it("sends bundle append bytes as raw ArrayBuffer with session and entry headers", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValueOnce(undefined);
+    const bytes = new Uint8Array([4, 5, 6]).buffer;
+
+    await tauriApi.desktop?.bundle?.append({
+      sessionId: "sess-1",
+      name: "pages/01.png",
+      data: bytes,
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith("desktop:export:append-entry", bytes, {
+      headers: {
+        "x-koma-session-id": "sess-1",
+        "x-koma-entry-name": "pages%2F01.png",
+      },
     });
   });
 
-  it("sends the thumbnail request under the payload argument and decodes the bytes", async () => {
+  it("sends the thumbnail request under the payload argument and returns raw bytes", async () => {
     mockedIsTauri.mockReturnValue(true);
-    mockedInvoke.mockResolvedValueOnce({
-      data: btoa("\u0001\u0002\u0003"),
-      mimeType: "image/png",
-    });
+    mockedInvoke.mockResolvedValueOnce(new Uint8Array([1, 2, 3]).buffer);
 
     const result = await tauriApi.desktop?.images?.thumbnail?.({
       filePath: "C:/manga/p1.png",
@@ -432,6 +453,32 @@ describe("tauri api wrapper", () => {
 
     expect(closePayloads).toEqual([{ hasUnsavedWork: true, batchRunning: true }]);
     expect(trayPayloads).toEqual([{ action: "pause" }]);
+  });
+
+  it("updates cached runtime config when desktop:runtime-config:updated fires", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    let handler: ((event: Event<unknown>) => void) | undefined;
+    mockedListen.mockImplementationOnce(async (eventName, cb) => {
+      expect(eventName).toBe("desktop:runtime-config:updated");
+      handler = cb;
+      return () => undefined;
+    });
+
+    installTauriRuntimeConfigSubscription();
+    await vi.waitFor(() => expect(handler).toBeTypeOf("function"));
+
+    handler?.({
+      event: "desktop:runtime-config:updated",
+      id: 1,
+      payload: {
+        authApiUrl: "http://127.0.0.1:3001",
+        localApiUrl: "http://127.0.0.1:54321",
+        runtimeArtifactsUrl: "",
+        appPackaged: false,
+      },
+    } as Event<unknown>);
+
+    expect(getCachedTauriRuntimeConfig().localApiUrl).toBe("http://127.0.0.1:54321");
   });
 });
 

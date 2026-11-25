@@ -1,8 +1,13 @@
 use std::path::Path;
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Runtime};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use percent_encoding::percent_decode_str;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use tauri::{
+    AppHandle, Runtime,
+    http::HeaderMap,
+    ipc::{InvokeBody, Request},
+};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_notification::NotificationExt;
@@ -13,13 +18,15 @@ use crate::error::{AppError, AppResult};
 const MAX_SAVE_BLOB_FILE_NAME_BYTES: usize = 200;
 const FALLBACK_SAVE_BLOB_FILE_NAME: &str = "export";
 const PNG_MIME_TYPE: &str = "image/png";
+const FILE_NAME_HEADER: &str = "x-koma-file-name";
+const MIME_TYPE_HEADER: &str = "x-koma-mime-type";
 
 #[derive(Debug, Clone)]
 pub struct IpcBytes(Vec<u8>);
 
 impl IpcBytes {
-    pub fn as_slice(&self) -> &[u8] {
-        &self.0
+    pub fn into_vec(self) -> Vec<u8> {
+        self.0
     }
 }
 
@@ -61,6 +68,21 @@ impl<'de> Deserialize<'de> for IpcBytes {
 
         deserializer.deserialize_any(IpcBytesVisitor)
     }
+}
+
+pub(crate) fn decode_ipc_header(headers: &HeaderMap, name: &str) -> AppResult<String> {
+    let raw = headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| AppError::invalid_input(format!("Missing IPC header: {name}.")))?;
+    percent_decode_str(raw)
+        .decode_utf8()
+        .map(|decoded| decoded.into_owned())
+        .map_err(|_| AppError::invalid_input(format!("Invalid IPC header encoding: {name}.")))
+}
+
+pub(crate) fn json_payload<T: DeserializeOwned>(value: &serde_json::Value) -> AppResult<T> {
+    serde_json::from_value(value.get("payload").unwrap_or(value).clone()).map_err(AppError::from)
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -127,10 +149,19 @@ pub async fn show_notification<R: Runtime>(
 #[tauri::command(rename = "desktop:files:save-blob")]
 pub async fn save_blob<R: Runtime>(
     app: AppHandle<R>,
-    payload: SaveBlobPayload,
+    request: Request<'_>,
 ) -> AppResult<SaveBlobResult> {
-    let file_name = sanitized_dialog_file_name(&payload.default_file_name);
-    let bytes = payload.data;
+    let (default_file_name, bytes) = match request.body() {
+        InvokeBody::Raw(raw) => (
+            decode_ipc_header(request.headers(), FILE_NAME_HEADER)?,
+            raw.clone(),
+        ),
+        InvokeBody::Json(value) => {
+            let payload: SaveBlobPayload = json_payload(value)?;
+            (payload.default_file_name, payload.data.into_vec())
+        }
+    };
+    let file_name = sanitized_dialog_file_name(&default_file_name);
 
     let dialog_app = app.clone();
     let selected = tauri::async_runtime::spawn_blocking(move || {
@@ -154,8 +185,7 @@ pub async fn save_blob<R: Runtime>(
         .map_err(|_| AppError::invalid_path("Invalid save path."))?;
     let file_path = target.to_string_lossy().into_owned();
 
-    tauri::async_runtime::spawn_blocking(move || std::fs::write(&target, bytes.as_slice()))
-        .await??;
+    tauri::async_runtime::spawn_blocking(move || std::fs::write(&target, &bytes)).await??;
 
     Ok(SaveBlobResult {
         cancelled: false,
@@ -174,19 +204,30 @@ pub async fn reveal_path<R: Runtime>(
 #[tauri::command(rename = "desktop:clipboard:write-image")]
 pub async fn write_clipboard_image<R: Runtime>(
     app: AppHandle<R>,
-    payload: WriteClipboardImagePayload,
+    request: Request<'_>,
 ) -> AppResult<()> {
-    if !payload.mime_type.eq_ignore_ascii_case(PNG_MIME_TYPE) {
+    let (mime_type, png_bytes) = match request.body() {
+        InvokeBody::Raw(raw) => (
+            decode_ipc_header(request.headers(), MIME_TYPE_HEADER)?,
+            raw.clone(),
+        ),
+        InvokeBody::Json(value) => {
+            let payload: WriteClipboardImagePayload = json_payload(value)?;
+            (payload.mime_type, payload.data.into_vec())
+        }
+    };
+    if !mime_type.eq_ignore_ascii_case(PNG_MIME_TYPE) {
         return Err(AppError::invalid_input(
             "Clipboard image payloads must be PNG.",
         ));
     }
-    let png_bytes = payload.data;
 
     let clipboard_app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let decoded = image::load_from_memory(png_bytes.as_slice()).map_err(|error| {
-            AppError::invalid_input(format!("Clipboard payload is not a decodable image: {error}"))
+        let decoded = image::load_from_memory(&png_bytes).map_err(|error| {
+            AppError::invalid_input(format!(
+                "Clipboard payload is not a decodable image: {error}"
+            ))
         })?;
         let rgba = decoded.to_rgba8();
         let (width, height) = (rgba.width(), rgba.height());
@@ -218,7 +259,10 @@ fn reveal_path_at<R: Runtime>(app: &AppHandle<R>, raw_path: &str) -> AppResult<R
             error = %reveal_error,
             "item reveal failed; falling back to the parent folder"
         );
-        let opened = match target.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+        let opened = match target
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        {
             Some(parent) => app
                 .opener()
                 .open_path(parent.to_string_lossy(), None::<&str>)
@@ -279,9 +323,28 @@ fn is_windows_reserved_file_name(value: &str) -> bool {
     let stem = value.split('.').next().unwrap_or_default();
     matches!(
         stem.to_ascii_uppercase().as_str(),
-        "CON" | "PRN" | "AUX" | "NUL"
-            | "COM1" | "COM2" | "COM3" | "COM4" | "COM5" | "COM6" | "COM7" | "COM8" | "COM9"
-            | "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5" | "LPT6" | "LPT7" | "LPT8" | "LPT9"
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
     )
 }
 
@@ -292,14 +355,13 @@ mod tests {
     #[test]
     fn ipc_bytes_deserializes_from_number_arrays() {
         let bytes: IpcBytes = serde_json::from_str("[72, 105, 255]").expect("valid byte array");
-        assert_eq!(bytes.as_slice(), &[0x48u8, 0x69, 0xff]);
+        assert_eq!(bytes.into_vec(), vec![0x48u8, 0x69, 0xff]);
     }
 
     #[test]
     fn ipc_bytes_deserializes_from_base64() {
-        let bytes: IpcBytes =
-            serde_json::from_str("\"aGVsbG8=\"").expect("valid base64 payload");
-        assert_eq!(bytes.as_slice(), b"hello");
+        let bytes: IpcBytes = serde_json::from_str("\"aGVsbG8=\"").expect("valid base64 payload");
+        assert_eq!(bytes.into_vec(), b"hello".to_vec());
     }
 
     #[test]
@@ -334,5 +396,38 @@ mod tests {
         let sanitized = sanitized_dialog_file_name(&long);
         assert!(sanitized.len() <= MAX_SAVE_BLOB_FILE_NAME_BYTES);
         assert_eq!(sanitized.chars().count(), MAX_SAVE_BLOB_FILE_NAME_BYTES / 2);
+    }
+
+    #[test]
+    fn decode_ipc_header_percent_decodes_utf8_values() {
+        let mut headers = HeaderMap::new();
+        headers.insert(FILE_NAME_HEADER, "p%C3%A1gina%201.png".parse().unwrap());
+        assert_eq!(
+            decode_ipc_header(&headers, FILE_NAME_HEADER).unwrap(),
+            "página 1.png"
+        );
+    }
+
+    #[test]
+    fn decode_ipc_header_rejects_missing_and_invalid_values() {
+        let mut headers = HeaderMap::new();
+        assert!(decode_ipc_header(&headers, FILE_NAME_HEADER).is_err());
+        headers.insert(FILE_NAME_HEADER, "%FF%FE".parse().unwrap());
+        assert!(decode_ipc_header(&headers, FILE_NAME_HEADER).is_err());
+    }
+
+    #[test]
+    fn json_payload_accepts_wrapped_and_bare_objects() {
+        let wrapped =
+            serde_json::json!({ "payload": { "defaultFileName": "a.png", "data": [1, 2] } });
+        let bare = serde_json::json!({ "defaultFileName": "b.png", "data": "AQI=" });
+
+        let first: SaveBlobPayload = json_payload(&wrapped).unwrap();
+        let second: SaveBlobPayload = json_payload(&bare).unwrap();
+
+        assert_eq!(first.default_file_name, "a.png");
+        assert_eq!(first.data.into_vec(), vec![1, 2]);
+        assert_eq!(second.default_file_name, "b.png");
+        assert_eq!(second.data.into_vec(), vec![1, 2]);
     }
 }

@@ -22,17 +22,14 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC};
+use percent_encoding::{NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
 use tauri::{
-    http::{header, HeaderValue, Method, Request, Response, StatusCode},
     AppHandle, DragDropEvent, Manager, Runtime, UriSchemeContext, UriSchemeResponder, Window,
     WindowEvent,
+    http::{HeaderValue, Method, Request, Response, StatusCode, header},
 };
 
-use crate::{
-    services::fonts::fonts_dir as service_fonts_dir,
-    error::AppError,
-};
+use crate::{error::AppError, services::fonts::fonts_dir as service_fonts_dir};
 
 pub const IMAGE_SCHEME: &str = "koma-image";
 pub const FONT_SCHEME: &str = "koma-font";
@@ -160,7 +157,9 @@ impl MediaScope {
 
     /// `canonical` must already be the output of `fs::canonicalize`.
     pub fn is_allowed(&self, canonical: &Path) -> bool {
-        let Ok(files) = self.files.read() else { return false };
+        let Ok(files) = self.files.read() else {
+            return false;
+        };
         if files.contains(canonical) {
             return true;
         }
@@ -170,7 +169,9 @@ impl MediaScope {
 
     /// True if `canonical` is one of the allowed roots or below one of them.
     pub fn contains_dir(&self, canonical: &Path) -> bool {
-        let Ok(dirs) = self.dirs.read() else { return false };
+        let Ok(dirs) = self.dirs.read() else {
+            return false;
+        };
         dirs.iter().any(|root| canonical.starts_with(root))
     }
 }
@@ -271,18 +272,31 @@ fn handle<R: Runtime>(
             return;
         };
         let origin = pinned_origin(&app, &scopes, &label);
+        let cache_dir = app.path().app_cache_dir().ok();
         let response = check_origin(&request, origin.as_deref())
-            .and_then(|()| serve(scopes.for_kind(kind), kind, &request))
+            .and_then(|()| {
+                serve_with_cache(scopes.for_kind(kind), kind, &request, cache_dir.as_deref())
+            })
             .unwrap_or_else(|error| error_response(&error));
         responder.respond(with_cors(response, origin.as_deref()));
     });
 }
 
 /// Pure, testable core: no AppHandle.
+#[cfg(test)]
 pub(crate) fn serve(
     scope: &MediaScope,
     kind: MediaKind,
     request: &Request<Vec<u8>>,
+) -> Result<Response<Body>, AppError> {
+    serve_with_cache(scope, kind, request, None)
+}
+
+pub(crate) fn serve_with_cache(
+    scope: &MediaScope,
+    kind: MediaKind,
+    request: &Request<Vec<u8>>,
+    cache_dir: Option<&Path>,
 ) -> Result<Response<Body>, AppError> {
     match request.method() {
         &Method::OPTIONS => return preflight(),
@@ -296,6 +310,38 @@ pub(crate) fn serve(
     if !metadata.is_file() {
         return Err(AppError::NotAFile(path));
     }
+
+    if kind == MediaKind::Image {
+        if let Some(max_dim) = super::thumbnail_cache::parse_thumb_query(request.uri().query())? {
+            let etag = super::thumbnail_cache::thumbnail_weak_etag(&metadata, max_dim);
+            if etag_matches(request, &etag) {
+                return finish(
+                    Response::builder()
+                        .status(StatusCode::NOT_MODIFIED)
+                        .header(header::ETAG, &etag)
+                        .header(header::CACHE_CONTROL, CACHE_CONTROL_VALUE),
+                    Vec::new(),
+                );
+            }
+            let png = super::thumbnail_cache::load_or_generate_thumbnail(
+                &path, &metadata, max_dim, cache_dir,
+            )?;
+            let builder = Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "image/png")
+                .header(header::CONTENT_LENGTH, png.len())
+                .header(header::ETAG, &etag)
+                .header(header::CACHE_CONTROL, CACHE_CONTROL_VALUE)
+                .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
+            let body = if request.method() == Method::HEAD {
+                Vec::new()
+            } else {
+                png
+            };
+            return finish(builder, body);
+        }
+    }
+
     let total = metadata.len();
     let etag = weak_etag(&metadata);
 
@@ -348,11 +394,15 @@ fn resolve_request_path(
         .decode_utf8()
         .map_err(|_| AppError::InvalidPath("request path is not valid UTF-8".to_string()))?;
     if decoded.is_empty() || decoded.contains('\0') {
-        return Err(AppError::InvalidPath("empty or NUL-containing path".to_string()));
+        return Err(AppError::InvalidPath(
+            "empty or NUL-containing path".to_string(),
+        ));
     }
     let requested = PathBuf::from(decoded.as_ref());
     if !requested.is_absolute() {
-        return Err(AppError::InvalidPath("request path must be absolute".to_string()));
+        return Err(AppError::InvalidPath(
+            "request path must be absolute".to_string(),
+        ));
     }
 
     let canonical = match fs::canonicalize(&requested) {
@@ -364,11 +414,13 @@ fn resolve_request_path(
                 .parent()
                 .and_then(|parent| fs::canonicalize(parent).ok())
                 .is_some_and(|parent| scope.contains_dir(&parent));
-            return Err(if parent_allowed && error.kind() == io::ErrorKind::NotFound {
-                AppError::NotFound(requested)
-            } else {
-                AppError::PathNotAllowed(requested)
-            });
+            return Err(
+                if parent_allowed && error.kind() == io::ErrorKind::NotFound {
+                    AppError::NotFound(requested)
+                } else {
+                    AppError::PathNotAllowed(requested)
+                },
+            );
         }
     };
 
@@ -386,7 +438,9 @@ fn resolve_request_path(
 /// Single-range parser (`bytes=a-b`, `bytes=a-`, `bytes=-n`). Multipart ranges
 /// are deliberately unsupported. Returns inclusive `(start, end)`.
 fn parse_range(header: Option<&HeaderValue>, total: u64) -> Result<Option<(u64, u64)>, AppError> {
-    let Some(header) = header else { return Ok(None) };
+    let Some(header) = header else {
+        return Ok(None);
+    };
     let unsatisfiable = || AppError::RangeNotSatisfiable { size: total };
 
     let spec = header
@@ -474,7 +528,10 @@ fn pinned_origin<R: Runtime>(
     // First request from a webview: its URL is still the app's own page.
     let url = app.get_webview_window(label)?.url().ok()?;
     let host = url.host_str()?;
-    let port = url.port().map(|port| format!(":{port}")).unwrap_or_default();
+    let port = url
+        .port()
+        .map(|port| format!(":{port}"))
+        .unwrap_or_default();
     let origin = format!("{}://{host}{port}", url.scheme());
     scopes
         .origins
@@ -489,7 +546,11 @@ fn pinned_origin<R: Runtime>(
 /// from anything that is not the pinned app origin (e.g. a remote page loaded
 /// into the same webview).
 fn check_origin(request: &Request<Vec<u8>>, pinned: Option<&str>) -> Result<(), AppError> {
-    match request.headers().get(header::ORIGIN).map(HeaderValue::to_str) {
+    match request
+        .headers()
+        .get(header::ORIGIN)
+        .map(HeaderValue::to_str)
+    {
         None => Ok(()),
         Some(Ok(origin)) if pinned == Some(origin) => Ok(()),
         _ => Err(AppError::OriginMismatch),
@@ -557,11 +618,13 @@ fn error_response(error: &AppError) -> Response<Body> {
     } else {
         error.to_string()
     };
-    builder.body(Cow::Owned(text.into_bytes())).unwrap_or_else(|_| {
-        let mut fallback = Response::new(Cow::Borrowed(&b"internal error"[..]));
-        *fallback.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-        fallback
-    })
+    builder
+        .body(Cow::Owned(text.into_bytes()))
+        .unwrap_or_else(|_| {
+            let mut fallback = Response::new(Cow::Borrowed(&b"internal error"[..]));
+            *fallback.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            fallback
+        })
 }
 
 fn finish(
@@ -617,29 +680,53 @@ mod tests {
     #[test]
     fn serves_byte_range() {
         let (_temp, scope, page) = fixture();
-        let response =
-            serve(&scope, MediaKind::Image, &request(&page, &[("range", "bytes=10-19")])).unwrap();
+        let response = serve(
+            &scope,
+            MediaKind::Image,
+            &request(&page, &[("range", "bytes=10-19")]),
+        )
+        .unwrap();
         assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
         assert_eq!(response.headers()[header::CONTENT_RANGE], "bytes 10-19/256");
-        assert_eq!(response.body().as_ref(), &(10_u8..=19).collect::<Vec<_>>()[..]);
+        assert_eq!(
+            response.body().as_ref(),
+            &(10_u8..=19).collect::<Vec<_>>()[..]
+        );
     }
 
     #[test]
     fn suffix_and_open_ranges() {
         let (_temp, scope, page) = fixture();
-        let tail = serve(&scope, MediaKind::Image, &request(&page, &[("range", "bytes=-4")])).unwrap();
+        let tail = serve(
+            &scope,
+            MediaKind::Image,
+            &request(&page, &[("range", "bytes=-4")]),
+        )
+        .unwrap();
         assert_eq!(tail.body().as_ref(), &[252, 253, 254, 255]);
-        let open = serve(&scope, MediaKind::Image, &request(&page, &[("range", "bytes=250-")])).unwrap();
+        let open = serve(
+            &scope,
+            MediaKind::Image,
+            &request(&page, &[("range", "bytes=250-")]),
+        )
+        .unwrap();
         assert_eq!(open.headers()[header::CONTENT_RANGE], "bytes 250-255/256");
     }
 
     #[test]
     fn unsatisfiable_range_is_416() {
         let (_temp, scope, page) = fixture();
-        let error =
-            serve(&scope, MediaKind::Image, &request(&page, &[("range", "bytes=300-400")])).unwrap_err();
+        let error = serve(
+            &scope,
+            MediaKind::Image,
+            &request(&page, &[("range", "bytes=300-400")]),
+        )
+        .unwrap_err();
         assert!(matches!(error, AppError::RangeNotSatisfiable { size: 256 }));
-        assert_eq!(error_response(&error).status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        assert_eq!(
+            error_response(&error).status(),
+            StatusCode::RANGE_NOT_SATISFIABLE
+        );
     }
 
     #[test]
@@ -647,8 +734,12 @@ mod tests {
         let (_temp, scope, page) = fixture();
         let first = serve(&scope, MediaKind::Image, &request(&page, &[])).unwrap();
         let etag = first.headers()[header::ETAG].to_str().unwrap().to_string();
-        let second =
-            serve(&scope, MediaKind::Image, &request(&page, &[("if-none-match", &etag)])).unwrap();
+        let second = serve(
+            &scope,
+            MediaKind::Image,
+            &request(&page, &[("if-none-match", &etag)]),
+        )
+        .unwrap();
         assert_eq!(second.status(), StatusCode::NOT_MODIFIED);
         assert!(second.body().is_empty());
     }
@@ -727,8 +818,15 @@ mod tests {
     #[test]
     fn scope_refuses_filesystem_root() {
         let scope = MediaScope::default();
-        let root = if cfg!(windows) { PathBuf::from(r"C:\") } else { PathBuf::from("/") };
-        assert!(matches!(scope.allow_dir(root), Err(AppError::PathNotAllowed(_))));
+        let root = if cfg!(windows) {
+            PathBuf::from(r"C:\")
+        } else {
+            PathBuf::from("/")
+        };
+        assert!(matches!(
+            scope.allow_dir(root),
+            Err(AppError::PathNotAllowed(_))
+        ));
     }
 
     #[test]
@@ -750,9 +848,15 @@ mod tests {
     fn media_url_is_percent_encoded_absolute_path() {
         let url = media_url(IMAGE_SCHEME, Path::new(r"C:\Users\me\página 1.png"));
         let (host, path) = if cfg!(windows) {
-            ("http://koma-image.localhost", url.trim_start_matches("http://koma-image.localhost"))
+            (
+                "http://koma-image.localhost",
+                url.trim_start_matches("http://koma-image.localhost"),
+            )
         } else {
-            ("koma-image://localhost", url.trim_start_matches("koma-image://localhost"))
+            (
+                "koma-image://localhost",
+                url.trim_start_matches("koma-image://localhost"),
+            )
         };
         assert!(!host.is_empty());
         let decoded = percent_decode_str(path.trim_start_matches('/'))

@@ -12,3 +12,4 @@ pub mod panic_log;
 pub mod secret_store;
 pub mod system_fonts;
 pub mod workspace;
+pub mod workspace_staging;

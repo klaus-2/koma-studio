@@ -8,7 +8,10 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Runtime, State};
+use tauri::{
+    AppHandle, Runtime, State,
+    ipc::{InvokeBody, Request},
+};
 use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
@@ -23,6 +26,8 @@ const MAX_ARCHIVE_ENTRY_NAME_BYTES: usize = 200;
 const MAX_ACTIVE_EXPORT_SESSIONS: usize = 8;
 const MAX_ENTRY_NAME_INPUT_BYTES: usize = 1024;
 const BUNDLE_SESSION_TTL_MS: u64 = 10 * 60 * 1000;
+const SESSION_ID_HEADER: &str = "x-koma-session-id";
+const ENTRY_NAME_HEADER: &str = "x-koma-entry-name";
 
 fn unix_millis() -> u64 {
     SystemTime::now()
@@ -165,14 +170,13 @@ pub(crate) async fn begin_bundle<R: Runtime>(
 
     let file_path = target.to_string_lossy().into_owned();
     let sessions = Arc::clone(&store.sessions);
-    let session_id =
-        tauri::async_runtime::spawn_blocking(move || {
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            begin_session(&sessions, &target)
-        })
-        .await??;
+    let session_id = tauri::async_runtime::spawn_blocking(move || {
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        begin_session(&sessions, &target)
+    })
+    .await??;
 
     Ok(BundleBeginResult {
         cancelled: false,
@@ -184,11 +188,29 @@ pub(crate) async fn begin_bundle<R: Runtime>(
 #[tauri::command(rename = "desktop:export:append-entry")]
 pub(crate) async fn append_entry(
     store: State<'_, BundleSessionStore>,
-    payload: BundleAppendPayload,
+    request: Request<'_>,
 ) -> AppResult<()> {
+    let (session_id, name, bytes) = match request.body() {
+        InvokeBody::Raw(raw) => (
+            crate::commands::desktop_integrations::decode_ipc_header(
+                request.headers(),
+                SESSION_ID_HEADER,
+            )?,
+            crate::commands::desktop_integrations::decode_ipc_header(
+                request.headers(),
+                ENTRY_NAME_HEADER,
+            )?,
+            raw.clone(),
+        ),
+        InvokeBody::Json(value) => {
+            let payload: BundleAppendPayload =
+                crate::commands::desktop_integrations::json_payload(value)?;
+            (payload.session_id, payload.name, payload.data.into_vec())
+        }
+    };
     let sessions = Arc::clone(&store.sessions);
     tauri::async_runtime::spawn_blocking(move || {
-        append_session_entry(&sessions, &payload.session_id, &payload.name, payload.data.as_slice())
+        append_session_entry(&sessions, &session_id, &name, &bytes)
     })
     .await?
 }
@@ -199,9 +221,10 @@ pub(crate) async fn finalize_bundle(
     payload: BundleFinalizePayload,
 ) -> AppResult<BundleFinalizeResult> {
     let sessions = Arc::clone(&store.sessions);
-    let file_path =
-        tauri::async_runtime::spawn_blocking(move || finalize_session(&sessions, &payload.session_id))
-            .await??;
+    let file_path = tauri::async_runtime::spawn_blocking(move || {
+        finalize_session(&sessions, &payload.session_id)
+    })
+    .await??;
 
     Ok(BundleFinalizeResult {
         file_path: Some(file_path.to_string_lossy().into_owned()),
@@ -259,9 +282,7 @@ fn sweep_expired_sessions(map: &mut HashMap<String, BundleSession>) {
     let now_ms = unix_millis();
     let expired: Vec<String> = map
         .iter()
-        .filter(|(_, session)| {
-            now_ms.saturating_sub(session.created_at_ms) > BUNDLE_SESSION_TTL_MS
-        })
+        .filter(|(_, session)| now_ms.saturating_sub(session.created_at_ms) > BUNDLE_SESSION_TTL_MS)
         .map(|(session_id, _)| session_id.clone())
         .collect();
     for session_id in expired {
@@ -403,7 +424,10 @@ fn sanitize_entry_component(raw: &str) -> String {
                 )
         })
         .collect();
-    let cleaned = truncate_utf8(cleaned.trim_matches([' ', '.']), MAX_ARCHIVE_ENTRY_NAME_BYTES);
+    let cleaned = truncate_utf8(
+        cleaned.trim_matches([' ', '.']),
+        MAX_ARCHIVE_ENTRY_NAME_BYTES,
+    );
     cleaned.trim_matches([' ', '.']).to_owned()
 }
 
@@ -503,8 +527,7 @@ mod tests {
             .expect_err("unknown append");
         assert!(matches!(error, AppError::InvalidInput(_)));
 
-        let error = finalize_session(&store.sessions, "missing")
-            .expect_err("unknown finalize");
+        let error = finalize_session(&store.sessions, "missing").expect_err("unknown finalize");
         assert!(matches!(error, AppError::InvalidInput(_)));
     }
 
@@ -527,11 +550,11 @@ mod tests {
     #[test]
     fn sanitize_entry_name_keeps_folders_and_drops_traversal() {
         let mut used = HashSet::new();
+        assert_eq!(sanitize_entry_name("../x.png", &mut used).unwrap(), "x.png");
         assert_eq!(
-            sanitize_entry_name("../x.png", &mut used).unwrap(),
-            "x.png"
+            sanitize_entry_name("a/b.png", &mut used).unwrap(),
+            "a/b.png"
         );
-        assert_eq!(sanitize_entry_name("a/b.png", &mut used).unwrap(), "a/b.png");
         assert_eq!(
             sanitize_entry_name("texts\\raw\\001.txt", &mut used).unwrap(),
             "texts/raw/001.txt"
@@ -549,7 +572,10 @@ mod tests {
     #[test]
     fn sanitize_entry_name_dedupes_deterministically() {
         let mut used = HashSet::new();
-        assert_eq!(sanitize_entry_name("page.png", &mut used).unwrap(), "page.png");
+        assert_eq!(
+            sanitize_entry_name("page.png", &mut used).unwrap(),
+            "page.png"
+        );
         assert_eq!(
             sanitize_entry_name("page.png", &mut used).unwrap(),
             "page (2).png"
@@ -558,7 +584,10 @@ mod tests {
             sanitize_entry_name("page.png", &mut used).unwrap(),
             "page (3).png"
         );
-        assert_eq!(sanitize_entry_name("a/page.png", &mut used).unwrap(), "a/page.png");
+        assert_eq!(
+            sanitize_entry_name("a/page.png", &mut used).unwrap(),
+            "a/page.png"
+        );
         assert_eq!(
             sanitize_entry_name("a/page.png", &mut used).unwrap(),
             "a/page (2).png"
@@ -573,7 +602,9 @@ mod tests {
         assert!(sanitize_entry_name("  .  ", &mut used).is_err());
         assert!(sanitize_entry_name("../..", &mut used).is_err());
         assert!(sanitize_entry_name("bad\0name.png", &mut used).is_err());
-        assert!(sanitize_entry_name(&"x".repeat(MAX_ENTRY_NAME_INPUT_BYTES + 1), &mut used).is_err());
+        assert!(
+            sanitize_entry_name(&"x".repeat(MAX_ENTRY_NAME_INPUT_BYTES + 1), &mut used).is_err()
+        );
     }
 
     #[test]
@@ -593,8 +624,8 @@ mod tests {
 
         let session_id = begin_at(&store, &target);
         assert!(finalize_session(&store.sessions, &session_id).is_ok());
-        let error = finalize_session(&store.sessions, &session_id)
-            .expect_err("session already consumed");
+        let error =
+            finalize_session(&store.sessions, &session_id).expect_err("session already consumed");
         assert!(matches!(error, AppError::InvalidInput(_)));
     }
 

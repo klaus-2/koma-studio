@@ -12,25 +12,22 @@ use std::{
 
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
-use zip::{
-    CompressionMethod, ZipArchive, ZipWriter,
-    write::SimpleFileOptions,
-};
+use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 use crate::{
     error::{AppError, AppResult},
     models::workspace::{
-        WorkspaceAssetManifestEntry, WorkspaceBinaryAssetPayload,
-        WorkspacePackageManifestV1, WorkspacePackagePayload,
+        WorkspaceAssetManifestEntry, WorkspaceBinaryAssetPayload, WorkspacePackageManifestV1,
+        WorkspacePackagePayload,
     },
 };
 
 pub const WORKSPACE_FILE_EXTENSION: &str = "koma";
 pub const WORKSPACE_AUTOSAVE_FILE_BASENAME: &str = "autosave";
 
-const MANIFEST_PATH: &str = "manifest.json";
-const MAX_MANIFEST_BYTES: u64 = 8 * 1024 * 1024;
-const MAX_ASSET_BYTES: u64 = 512 * 1024 * 1024;
+pub(crate) const MANIFEST_PATH: &str = "manifest.json";
+pub(crate) const MAX_MANIFEST_BYTES: u64 = 8 * 1024 * 1024;
+pub(crate) const MAX_ASSET_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_TOTAL_UNCOMPRESSED_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 const MAX_ASSETS: usize = 10_000;
 const MAX_COMPRESSION_RATIO: u64 = 500;
@@ -41,7 +38,8 @@ const WORKSPACE_BACKUP_RETENTION: usize = 5;
 pub struct LoadedWorkspace {
     pub manifest: WorkspacePackageManifestV1,
     pub assets: Vec<WorkspaceBinaryAssetPayload>,
-}pub fn sanitize_workspace_user_id(value: Option<&str>) -> String {
+}
+pub fn sanitize_workspace_user_id(value: Option<&str>) -> String {
     value
         .unwrap_or_default()
         .trim()
@@ -66,9 +64,11 @@ pub fn workspace_autosave_path(storage_dir: &Path, user_id: Option<&str>) -> Pat
     ))
 }
 
-fn validate_manifest_entries(manifest: &WorkspacePackageManifestV1) -> AppResult<()> {
+pub(crate) fn validate_manifest_entries(manifest: &WorkspacePackageManifestV1) -> AppResult<()> {
     if manifest.assets.len() > MAX_ASSETS {
-        return Err(AppError::invalid_input("Workspace contains too many assets."));
+        return Err(AppError::invalid_input(
+            "Workspace contains too many assets.",
+        ));
     }
 
     let mut ids = HashSet::with_capacity(manifest.assets.len());
@@ -202,7 +202,9 @@ fn validate_file_name(value: &str) -> AppResult<()> {
         || value.contains('\\')
         || value.contains('\0')
     {
-        return Err(AppError::invalid_input("Invalid workspace asset file name."));
+        return Err(AppError::invalid_input(
+            "Invalid workspace asset file name.",
+        ));
     }
     Ok(())
 }
@@ -248,7 +250,7 @@ pub(crate) fn atomic_replace(temp_path: &Path, final_path: &Path) -> AppResult<(
     Ok(())
 }
 
-fn atomic_replace_with_rotation(temp_path: &Path, final_path: &Path) -> AppResult<()> {
+pub(crate) fn atomic_replace_with_rotation(temp_path: &Path, final_path: &Path) -> AppResult<()> {
     let rotated = if final_path.exists() {
         Some(rotate_previous_file(final_path)?)
     } else {
@@ -282,14 +284,9 @@ fn rotate_previous_file(final_path: &Path) -> AppResult<PathBuf> {
     let file_name = final_path
         .file_name()
         .and_then(|name| name.to_str())
-        .ok_or_else(|| {
-            AppError::invalid_path("Workspace file name is not valid UTF-8.")
-        })?;
+        .ok_or_else(|| AppError::invalid_path("Workspace file name is not valid UTF-8."))?;
 
-    let backup_path = backups_dir.join(format!(
-        "{file_name}.{}.backup",
-        Uuid::new_v4()
-    ));
+    let backup_path = backups_dir.join(format!("{file_name}.{}.backup", Uuid::new_v4()));
 
     fs::rename(final_path, &backup_path)?;
     Ok(backup_path)
@@ -421,7 +418,7 @@ pub fn write_workspace_package(
     operation
 }
 
-fn normalized_manifest(
+pub(crate) fn normalized_manifest(
     manifest: &WorkspacePackageManifestV1,
 ) -> AppResult<WorkspacePackageManifestV1> {
     let mut normalized = manifest.clone();
@@ -441,7 +438,9 @@ fn normalized_manifest(
     Ok(normalized)
 }
 
-pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
+pub(crate) fn open_workspace_archive(
+    file_path: &Path,
+) -> AppResult<(ZipArchive<File>, WorkspacePackageManifestV1)> {
     let file = File::open(file_path)?;
     if !file.metadata()?.is_file() {
         return Err(AppError::invalid_path(
@@ -457,9 +456,9 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
     }
 
     let manifest_bytes = {
-        let manifest_file = archive.by_name(MANIFEST_PATH).map_err(|_| {
-            AppError::Archive("Workspace manifest is missing.".to_string())
-        })?;
+        let manifest_file = archive
+            .by_name(MANIFEST_PATH)
+            .map_err(|_| AppError::Archive("Workspace manifest is missing.".to_string()))?;
 
         if manifest_file.size() > MAX_MANIFEST_BYTES {
             return Err(AppError::Archive(
@@ -526,36 +525,53 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
         }
     }
 
+    Ok((archive, manifest))
+}
+
+pub(crate) fn check_asset_entry_limits(
+    is_file: bool,
+    size: u64,
+    compressed_size: u64,
+    entry: &WorkspaceAssetManifestEntry,
+) -> AppResult<()> {
+    if !is_file {
+        return Err(AppError::Archive(format!(
+            "Workspace asset {} is not a regular file.",
+            entry.file_name
+        )));
+    }
+    if size != entry.byte_length {
+        return Err(AppError::Archive(format!(
+            "Workspace asset {} has an invalid size.",
+            entry.file_name
+        )));
+    }
+    if size > MAX_ASSET_BYTES {
+        return Err(AppError::Archive(
+            "Workspace contains an oversized asset.".to_string(),
+        ));
+    }
+    if size > 1024 * 1024 && compressed_size > 0 && size / compressed_size > MAX_COMPRESSION_RATIO {
+        return Err(AppError::Archive(
+            "Workspace contains an unsafe compression ratio.".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
+    let (mut archive, manifest) = open_workspace_archive(file_path)?;
+
     let mut assets = Vec::with_capacity(manifest.assets.len());
     for entry in &manifest.assets {
         let normalized_path = normalize_asset_path(&entry.path)?;
         let source = archive.by_name(&normalized_path)?;
-
-        if !source.is_file() {
-            return Err(AppError::Archive(format!(
-                "Workspace asset {} is not a regular file.",
-                entry.file_name
-            )));
-        }
-        if source.size() != entry.byte_length {
-            return Err(AppError::Archive(format!(
-                "Workspace asset {} has an invalid size.",
-                entry.file_name
-            )));
-        }
-        if source.size() > MAX_ASSET_BYTES {
-            return Err(AppError::Archive(
-                "Workspace contains an oversized asset.".to_string(),
-            ));
-        }
-        if source.size() > 1024 * 1024
-            && source.compressed_size() > 0
-            && source.size() / source.compressed_size() > MAX_COMPRESSION_RATIO
-        {
-            return Err(AppError::Archive(
-                "Workspace contains an unsafe compression ratio.".to_string(),
-            ));
-        }
+        check_asset_entry_limits(
+            source.is_file(),
+            source.size(),
+            source.compressed_size(),
+            entry,
+        )?;
 
         // Same hard cap as the manifest: never read past declared + 1 byte,
         // regardless of what the compressed stream actually inflates to.
@@ -580,17 +596,14 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
     Ok(LoadedWorkspace { manifest, assets })
 }
 
-
-
-
 #[cfg(unix)]
-fn sync_directory(path: &Path) -> AppResult<()> {
+pub(crate) fn sync_directory(path: &Path) -> AppResult<()> {
     File::open(path)?.sync_all()?;
     Ok(())
 }
 
 #[cfg(not(unix))]
-fn sync_directory(_path: &Path) -> AppResult<()> {
+pub(crate) fn sync_directory(_path: &Path) -> AppResult<()> {
     Ok(())
 }
 
@@ -741,8 +754,7 @@ mod tests {
     fn parse_backup_live_name_rejects_malformed_names() {
         let uuid = Uuid::new_v4();
         assert!(
-            parse_backup_live_name(&format!("autosave.a.koma.{uuid}.backup"))
-                .as_deref()
+            parse_backup_live_name(&format!("autosave.a.koma.{uuid}.backup")).as_deref()
                 == Some("autosave.a.koma")
         );
         assert_eq!(parse_backup_live_name("autosave.a.koma.backup"), None);

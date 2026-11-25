@@ -12,6 +12,7 @@ import "@koma/ui/styles/page-transition.css";
 import { I18nProvider } from "./i18n";
 import { appQueryClient } from "./query/client";
 import { desktopBridge } from "@/lib/desktop-bridge";
+import { installTauriRuntimeConfigSubscription } from "@/lib/tauri/api";
 import { isConstrainedConnection } from "@/lib/network";
 import { runWhenIdle } from "./utils/runWhenIdle";
 import { KOMA_FONT_STYLESHEET_URL } from "./constants/app-webfonts";
@@ -82,6 +83,7 @@ const preloadCriticalBrandAsset = (): void => {
 };
 
 const bootstrap = async (): Promise<void> => {
+  installTauriRuntimeConfigSubscription();
   installForwardedFilesSubscription();
   installDesktopBatchBus();
   installCloseGuardSubscription();

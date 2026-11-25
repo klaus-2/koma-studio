@@ -5,7 +5,7 @@ pub mod api;
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -126,7 +126,6 @@ impl WorkspaceAssetStore {
     /// Token-bound resolution for upload flows: the token alone is useless
     /// without the matching asset id, and the on-disk file must still match
     /// the authorized metadata.
-    #[allow(dead_code)] // reserved for token-based export/upload flows
     pub async fn resolve_token(
         &self,
         id: &WorkspaceAssetId,
@@ -155,8 +154,48 @@ impl WorkspaceAssetStore {
 
         Ok(stored.asset.clone())
     }
-}
 
+    pub async fn resolve_staged_path(
+        &self,
+        token: &WorkspaceAssetToken,
+        expected_byte_length: u64,
+        staging_root: &Path,
+    ) -> AppResult<PathBuf> {
+        let source_path = {
+            let assets = self.assets.read().await;
+            let stored = assets
+                .get(token)
+                .filter(|stored| stored.expires_at > Instant::now())
+                .ok_or_else(|| {
+                    AppError::security("The workspace asset authorization is invalid or expired.")
+                })?;
+
+            if stored.asset.byte_length != expected_byte_length {
+                return Err(AppError::Conflict(
+                    "The authorized asset changed after authorization.".to_string(),
+                ));
+            }
+            stored.asset.source_path.clone()
+        };
+
+        let canonical_root = std::fs::canonicalize(staging_root)?;
+        let canonical_path = std::fs::canonicalize(&source_path)?;
+        if !canonical_path.starts_with(&canonical_root) {
+            return Err(AppError::security(
+                "The staged workspace asset path escapes staging storage.",
+            ));
+        }
+
+        let metadata = std::fs::metadata(&canonical_path)?;
+        if !metadata.is_file() || metadata.len() != expected_byte_length {
+            return Err(AppError::Conflict(
+                "The authorized asset changed after authorization.".to_string(),
+            ));
+        }
+
+        Ok(canonical_path)
+    }
+}
 
 // Model download queue: a single worker drains the queue; every state
 // transition (queue/active/reserved) is one short critical section on a
@@ -204,10 +243,7 @@ impl ModelDownloadStore {
             .active
             .as_ref()
             .is_some_and(|active| active.model_id == model.id)
-            || state
-                .queue
-                .iter()
-                .any(|queued| queued.model.id == model.id)
+            || state.queue.iter().any(|queued| queued.model.id == model.id)
             || state.reserved.contains(&model.id);
 
         if duplicated {
@@ -318,10 +354,7 @@ impl ModelDownloadStore {
             .active
             .as_ref()
             .is_some_and(|active| active.model_id == model_id)
-            || state
-                .queue
-                .iter()
-                .any(|queued| queued.model.id == model_id)
+            || state.queue.iter().any(|queued| queued.model.id == model_id)
             || state.reserved.contains(model_id);
 
         if busy {
