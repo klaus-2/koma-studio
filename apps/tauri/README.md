@@ -10,9 +10,9 @@
 **English** · [Português (BR)](./README.pt-BR.md) · [Español](./README.es.md) · [日本語](./README.ja.md)
 
 > ### ⚠️ This branch is v2: work in progress
-> KŌMA Studio v2 is a full rewrite on **Tauri 2 + React 18**, replacing the Electron-based v1.
+> KŌMA Studio v2 is a full rewrite on **Tauri 2 + React 19**, replacing the Electron-based v1.
 > It is **not production ready**: expect breaking changes, incomplete features and rough edges.
-> Version: `1.1.0`.
+> Version: `1.3.1`.
 
 ---
 
@@ -56,7 +56,7 @@ Discord Rich Presence, and an incremental updater.
 │ Desktop shell — Tauri 2 (Rust)                            │
 │  · window/updater/deep links · secure IPC · cert pinning  │
 │  ┌─────────────────────────────────────────────────────┐  │
-│  │ UI — React 18 + Vite 6 + TypeScript + Zustand       │  │
+│  │ UI — React 19 + Vite 6 + TypeScript + Zustand       │  │
 │  └─────────────────────────────────────────────────────┘  │
 │  ┌─────────────────────────────────────────────────────┐  │
 │  │ Sidecar — Python FastAPI "mini-backend" (127.0.0.1) │  │
