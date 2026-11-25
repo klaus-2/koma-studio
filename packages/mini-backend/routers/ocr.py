@@ -29,6 +29,7 @@ from models.errors import (
     ModelConfigurationError,
     ModelNotInstalledError,
 )
+from models.execution import InferenceBusyError
 from models.ocr.factory import list_ocr_models
 from pipelines.detection_seeds import detect_text_seeds
 from pipelines.ocr_stage import CachedOcrRequest, CachedOcrResult, run_cached_ocr
@@ -41,7 +42,7 @@ from pipelines.batch.records import (
 )
 from pipelines.cache_manager import get_pipeline_cache
 from pipelines.ocr_enrichment import enrich_ocr_record_with_gradient
-from routers._boundary import execution_error_to_http
+from routers._boundary import execution_error_to_http, inference_busy_to_http
 from routers.uploads import decode_upload, read_upload_limited
 from schemas.ocr import (
     OCRForegroundGradient,
@@ -255,6 +256,10 @@ async def recognize_text(
             seeds = await detect_text_seeds(
                 image, has_gpu=effective_has_gpu, model_key=config.default_detection_model
             )
+        except InferenceBusyError as exc:
+            raise inference_busy_to_http(
+                exc, stage="ocr", model_key=model_key
+            ) from exc
         except Exception as exc:  # noqa: BLE001 — HTTP boundary; detector backends raise heterogeneous errors
             raise HTTPException(
                 status_code=500, detail=f"Failed to detect regions for OCR: {exc}"
@@ -284,6 +289,8 @@ async def recognize_text(
             use_gpu=effective_has_gpu,
             stage="ocr",
         )
+    except InferenceBusyError as exc:
+        raise inference_busy_to_http(exc, stage="ocr", model_key=model_key) from exc
     except FileNotFoundError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except ExecutionError as exc:

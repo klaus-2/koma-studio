@@ -39,6 +39,11 @@ class StartupReadinessTests(unittest.IsolatedAsyncioTestCase):
         set_warmup_state(status="idle", profile=None, elapsed_s=None, error=None)
 
     def tearDown(self) -> None:
+        from models import execution as model_execution
+
+        with model_execution._lock:
+            model_execution._closed = False
+            model_execution._executor = None
         mini_app.LOCAL_API_SESSION_SECRET = self._secret
         mini_app.ENVIRONMENT = self._environment
         mini_app.set_active_port(self._port)

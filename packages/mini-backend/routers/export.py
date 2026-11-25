@@ -149,6 +149,10 @@ def _build_export_request(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+def _decode_overlay_rgba(raw_payload: bytes) -> Image.Image:
+    return Image.open(BytesIO(raw_payload)).convert("RGBA")
+
+
 async def _read_render_overlay(
     overlay_file: UploadFile | None,
     *,
@@ -182,7 +186,7 @@ async def _read_render_overlay(
         )
 
     try:
-        overlay = Image.open(BytesIO(raw_payload)).convert("RGBA")
+        overlay = await asyncio.to_thread(_decode_overlay_rgba, raw_payload)
     except UnidentifiedImageError as exc:
         raise HTTPException(
             status_code=422, detail=f"Invalid overlay file for {label}"

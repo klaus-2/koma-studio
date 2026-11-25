@@ -215,19 +215,23 @@ async def run_cached_ocr(
     resolve = resolve_engine if resolve_engine is not None else get_ocr_engine
     pipeline_cache = cache if cache is not None else get_pipeline_cache()
     store = get_stage_store()
-    engine = resolve(
-        language=request.language,
-        has_gpu=request.has_gpu,
-        model_key=request.model_key,
-        device_info=request.device_info,
+    engine = await asyncio.to_thread(
+        lambda: resolve(
+            language=request.language,
+            has_gpu=request.has_gpu,
+            model_key=request.model_key,
+            device_info=request.device_info,
+        )
     )
     config = get_config()
-    cache_key = pipeline_cache.build_ocr_cache_key(
-        image_bytes=request.image_bytes,
-        language=request.language,
-        model_key=engine.key,
-        working_mp=config.working_resolution_megapixels,
-        ocr_clean_enabled=config.working_resolution_ocr_clean_enabled,
+    cache_key = await asyncio.to_thread(
+        lambda: pipeline_cache.build_ocr_cache_key(
+            image_bytes=request.image_bytes,
+            language=request.language,
+            model_key=engine.key,
+            working_mp=config.working_resolution_megapixels,
+            ocr_clean_enabled=config.working_resolution_ocr_clean_enabled,
+        )
     )
     cached_by_id, missing = pipeline_cache.get_cached_ocr_for_regions(cache_key, request.seeds)
     if missing:

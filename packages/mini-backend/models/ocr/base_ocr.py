@@ -20,6 +20,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from models.errors import GpuOutOfMemoryError, InferenceError
+from models.execution import run_inference
 from models.geometry import expand_bbox
 
 logger = logging.getLogger(__name__)
@@ -128,7 +129,7 @@ class BaseOCR(ABC):
 
             batch = list(regions[start : start + self.batch_size])
             try:
-                results.extend(await asyncio.to_thread(run_batch, batch))
+                results.extend(await run_inference(lambda: run_batch(batch)))
             except GpuOutOfMemoryError:
                 logger.error("ocr out of memory, releasing engine", extra={"model_key": self.key})
                 self.release()

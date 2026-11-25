@@ -182,6 +182,11 @@ def _cached_detection_record(raw: Mapping[str, object]) -> DetectionRecord | Non
     )
 
 
+def _detect_image_hash(image: Image.Image) -> str:
+    rgb = cast(RGBArray, np.asarray(image, dtype=np.uint8))
+    return hash_image_array(rgb)
+
+
 async def run_detect_stage(
     *,
     image: Image.Image,
@@ -193,9 +198,8 @@ async def run_detect_stage(
     resolved_model = model_key or default_detection_model
     resolved_store = store if store is not None else get_stage_store()
     cfg = get_config()
-    rgb = cast(RGBArray, np.asarray(image, dtype=np.uint8))
     cache_key = build_detect_cache_key(
-        image_hash=hash_image_array(rgb),
+        image_hash=await asyncio.to_thread(_detect_image_hash, image),
         model_key=resolved_model,
         settings_fingerprint=fingerprint_detect_settings(
             conf_threshold=cfg.detection_conf_threshold,
@@ -218,7 +222,9 @@ async def run_detect_stage(
     from core.warmup_state import await_startup_warmup
 
     await await_startup_warmup()
-    detector = get_detector(task="text", has_gpu=has_gpu, model_key=resolved_model)
+    detector = await asyncio.to_thread(
+        get_detector, task="text", has_gpu=has_gpu, model_key=resolved_model
+    )
     try:
         detections, variant = await detect_with_fallbacks(
             image,
@@ -377,7 +383,7 @@ async def run_segment_stage(
         return StageOutput(model_used=model_key or "", regions=[])
     resolved_store = store if store is not None else get_stage_store()
     cache_key = build_segment_cache_key(
-        image_hash=hash_image_bytes(image_bytes),
+        image_hash=await asyncio.to_thread(hash_image_bytes, image_bytes),
         model_key=model_key or "",
         seeds_fingerprint=fingerprint_seeds(list(seeds)),
     )
@@ -390,7 +396,9 @@ async def run_segment_stage(
         ]
         if records:
             return StageOutput(model_used=cached.engine_key, regions=records)
-    segmenter = get_segmenter(has_gpu=has_gpu, model_key=model_key)
+    segmenter = await asyncio.to_thread(
+        get_segmenter, has_gpu=has_gpu, model_key=model_key
+    )
     inputs = [
         SegmentInputRegion(
             id=seed["id"],

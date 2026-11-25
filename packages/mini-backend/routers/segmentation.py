@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from io import BytesIO
 
@@ -58,6 +59,10 @@ def _parse_regions(raw_regions: str | None) -> list[SegmentRegionRequest]:
     return parsed
 
 
+def _decode_rgb_image(payload: bytes) -> Image.Image:
+    return Image.open(BytesIO(payload)).convert("RGB")
+
+
 @router.post("/segment", response_model=SegmentResponse)
 async def segment_text(
     file: UploadFile = File(...),
@@ -74,7 +79,7 @@ async def segment_text(
 
     try:
         payload = await file.read()
-        image = Image.open(BytesIO(payload)).convert("RGB")
+        image = await asyncio.to_thread(_decode_rgb_image, payload)
     except UnidentifiedImageError as exc:
         raise HTTPException(
             status_code=400, detail="Invalid image file"
@@ -103,7 +108,8 @@ async def segment_text(
     ]
 
     try:
-        segmenter = get_segmenter(
+        segmenter = await asyncio.to_thread(
+            get_segmenter,
             has_gpu=effective_has_gpu,
             model_key=model_key,
         )

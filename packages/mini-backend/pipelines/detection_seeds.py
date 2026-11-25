@@ -3,6 +3,7 @@ stage. Owns the detector lifecycle and the detection-to-seed adaptation."""
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -44,7 +45,9 @@ def normalize_detector_fields(
 async def run_text_detector(
     image: Image.Image, *, has_gpu: bool, model_key: str
 ) -> Sequence[TextDetection]:
-    detector = get_detector(task="text", has_gpu=has_gpu, model_key=model_key)
+    detector = await asyncio.to_thread(
+        get_detector, task="text", has_gpu=has_gpu, model_key=model_key
+    )
     try:
         return await detector.detect(image)
     finally:
