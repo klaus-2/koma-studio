@@ -11,13 +11,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::{collections::HashSet, path::Path, time::Duration};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime, State};
 use thiserror::Error;
 use url::Url;
 
 use crate::runtime::profiles::{
-    snapshot_runtime_state, MiniBackendRuntimeState as RuntimeMiniBackendRuntimeState,
-    MiniBackendRuntimeStore,
+    MiniBackendRuntimeState as RuntimeMiniBackendRuntimeState, MiniBackendRuntimeStore,
+    snapshot_runtime_state,
 };
 
 mod config_sources;
@@ -284,13 +284,8 @@ pub fn get_mini_backend_runtime_state<R: Runtime>(
 }
 
 #[tauri::command(rename = "desktop:check-local-backend")]
-pub async fn check_local_backend<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<bool, DesktopError> {
-    let local_api_url = run_blocking(move || {
-        Ok(resolved_desktop_config(&app).runtime.local_api_url.clone())
-    })
-    .await?;
+pub async fn check_local_backend<R: Runtime>(app: AppHandle<R>) -> Result<bool, DesktopError> {
+    let local_api_url = run_blocking(move || Ok(build_runtime_config(&app).local_api_url)).await?;
 
     Ok(check_local_backend_health(&local_api_url).await)
 }
@@ -316,14 +311,11 @@ pub fn get_local_api_session<R: Runtime>(app: AppHandle<R>) -> Option<String> {
 }
 
 #[tauri::command(rename = "desktop:open-external")]
-pub async fn open_external<R: Runtime>(
-    app: AppHandle<R>,
-    url: String,
-) -> Result<(), DesktopError> {
+pub async fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), DesktopError> {
     run_blocking(move || {
         let config = resolved_desktop_config(&app);
-        let target = validate_external_url(&url, &config.allowed_external_hosts)
-            .inspect_err(|error| {
+        let target =
+            validate_external_url(&url, &config.allowed_external_hosts).inspect_err(|error| {
                 tracing::warn!(
                     operation = "validate_external_url",
                     error_code = ?error,
@@ -360,7 +352,10 @@ pub async fn open_logs_folder<R: Runtime>(
                 error = %create_error,
                 "logs directory could not be created"
             );
-            return Ok(OpenLogsFolderResult { opened: false, path: Some(path_string) });
+            return Ok(OpenLogsFolderResult {
+                opened: false,
+                path: Some(path_string),
+            });
         }
         let opened = app
             .opener()
@@ -373,7 +368,10 @@ pub async fn open_logs_folder<R: Runtime>(
                 );
             })
             .is_ok();
-        Ok(OpenLogsFolderResult { opened, path: Some(path_string) })
+        Ok(OpenLogsFolderResult {
+            opened,
+            path: Some(path_string),
+        })
     })
     .await
 }
@@ -403,7 +401,14 @@ pub async fn open_community_link<R: Runtime>(
 /// Returns the process-wide runtime configuration. Resolution happens once;
 /// subsequent calls are a cache hit.
 pub fn build_runtime_config<R: Runtime>(app: &AppHandle<R>) -> RuntimeConfig {
-    resolved_desktop_config(app).runtime.clone()
+    let mut runtime = resolved_desktop_config(app).runtime.clone();
+    if let Some(active_url) = app
+        .try_state::<crate::sidecar::recovery::MiniBackendSidecarStore>()
+        .and_then(|store| store.active_local_api_url())
+    {
+        runtime.local_api_url = active_url;
+    }
+    runtime
 }
 
 pub fn reset_local_settings_at(
@@ -471,7 +476,7 @@ pub(crate) fn write_mini_backend_thread_override_at(
     payload: &MiniBackendThreadOverridePayload,
 ) -> Result<(), DesktopError> {
     use crate::sidecar::mini_backend::{
-        MiniBackendThreadOverride, MINI_BACKEND_THREAD_OVERRIDE_FILE,
+        MINI_BACKEND_THREAD_OVERRIDE_FILE, MiniBackendThreadOverride,
     };
 
     let override_env = MiniBackendThreadOverride {
@@ -485,8 +490,7 @@ pub(crate) fn write_mini_backend_thread_override_at(
             .and_then(clamp_megapixels_value),
         working_resolution_ocr_clean: payload.working_resolution_ocr_clean,
     };
-    let json = serde_json::to_string(&override_env)
-        .map_err(|_| DesktopError::ThreadOverride)?;
+    let json = serde_json::to_string(&override_env).map_err(|_| DesktopError::ThreadOverride)?;
     let target = user_data_dir.join(MINI_BACKEND_THREAD_OVERRIDE_FILE);
     let temp_sequence = THREAD_OVERRIDE_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let temp = user_data_dir.join(format!(
@@ -522,6 +526,14 @@ pub(crate) fn write_mini_backend_thread_override_at(
 }
 
 pub async fn check_local_backend_health(local_api_url: &str) -> bool {
+    probe_local_backend_endpoint(local_api_url, "health").await
+}
+
+pub async fn check_local_backend_ready(local_api_url: &str) -> bool {
+    probe_local_backend_endpoint(local_api_url, "ready").await
+}
+
+async fn probe_local_backend_endpoint(local_api_url: &str, suffix: &str) -> bool {
     let mut endpoint = match parse_loopback_url(local_api_url) {
         Ok(endpoint) => endpoint,
         Err(error) => {
@@ -534,7 +546,7 @@ pub async fn check_local_backend_health(local_api_url: &str) -> bool {
         }
     };
 
-    let path = format!("{}/health", endpoint.path().trim_end_matches('/'));
+    let path = format!("{}/{}", endpoint.path().trim_end_matches('/'), suffix);
     endpoint.set_path(&path);
 
     let Some(client) = loopback_http_client() else {
@@ -546,19 +558,19 @@ pub async fn check_local_backend_health(local_api_url: &str) -> bool {
             Ok(response) if response.status().is_success() => return true,
             Ok(response) => {
                 tracing::debug!(
-                    operation = "check_local_backend_health",
+                    operation = "probe_local_backend_endpoint",
                     attempt,
                     status = response.status().as_u16(),
-                    "backend health check returned a non-success status"
+                    "backend probe returned a non-success status"
                 );
             }
             Err(error) => {
                 tracing::debug!(
-                    operation = "check_local_backend_health",
+                    operation = "probe_local_backend_endpoint",
                     attempt,
                     timeout = error.is_timeout(),
                     connect = error.is_connect(),
-                    "backend health check request failed"
+                    "backend probe request failed"
                 );
             }
         }
@@ -632,7 +644,6 @@ where
         system_locales,
     }
 }
-
 
 #[cfg(test)]
 #[path = "desktop_tests.rs"]

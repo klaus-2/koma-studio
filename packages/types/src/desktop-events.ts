@@ -1,3 +1,5 @@
+import type { RuntimeConfig } from "./desktop-api";
+
 export const updaterEventNames = [
   "status",
   "checking",
@@ -295,6 +297,7 @@ export interface DesktopEventPayloadMap {
   "updater:event": UpdaterEventPayload;
   "model-manager:event": ModelManagerEvent;
   "mini-backend-runtime:event": MiniBackendRuntimeStatePayload;
+  "desktop:runtime-config:updated": RuntimeConfig;
   "desktop:shortcut-action": DesktopShortcutEventPayload;
   "koma-desktop-shortcut": DesktopShortcutEventPayload;
 }

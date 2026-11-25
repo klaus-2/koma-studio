@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn start_mini_backend_applies_thread_override_env() {
-        let source = include_str!("../mini_backend.rs");
+        let source = include_str!("mod.rs");
         let start_index = source
             .find("pub async fn start_mini_backend")
             .expect("start_mini_backend must exist");
