@@ -4845,8 +4845,7 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.hint.healing.eyebrow': 'Новый инструмент',
   'dashboard.hint.healing.body':
     'Используйте восстанавливающую кисть для удаления дефектов, сломанных краёв и остатков текста. Закрасьте область, которую хотите исправить, и нажмите «Применить», чтобы ИИ плавно восстановил область.',
-  'dashboard.hint.healing.footer':
-    'Эта подсказка больше не появится в этой сессии. Отключите все подсказки в Настройки → Приложение.',
+  'dashboard.hint.healing.footer': 'Отключите все подсказки в Настройки → Приложение.',
   'dashboard.aio.presets.tooltip':
     'Предустановки сохраняют комбинацию моделей и этапов для каждого языка. Используйте их для быстрого переключения настроек AIO при изменении исходного языка или рабочего процесса.',
   'dashboard.aio.presets.tooltipAria': 'Назначение языковых предустановок',
@@ -4939,4 +4938,5 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': 'Отчёт по времени скопирован',
   'dashboard.footer.timing.copyFailed':
     'Не удалось скопировать отчёт по времени',
+  'tips.dontShowAgain': 'Больше не показывать',
 } as const;

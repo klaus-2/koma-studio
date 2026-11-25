@@ -4891,8 +4891,7 @@ export const deMessages: TranslationCatalog = {
   'dashboard.hint.healing.eyebrow': 'Neues Werkzeug',
   'dashboard.hint.healing.body':
     'Verwenden Sie den Healing Brush, um Defekte, gebrochene Kanten und Textreste zu entfernen. Malen Sie über den zu korrigierenden Bereich und klicken Sie auf Anwenden, damit die KI die Region nahtlos rekonstruiert.',
-  'dashboard.hint.healing.footer':
-    'Dieser Hinweis wird in dieser Sitzung nicht erneut angezeigt. Deaktivieren Sie alle Hinweise unter Einstellungen → App.',
+  'dashboard.hint.healing.footer': 'Deaktiviere alle Hinweise unter Einstellungen → App.',
   'dashboard.aio.presets.tooltip':
     'Voreinstellungen speichern eine sprachspezifische Kombination von Modellen und Stufen. Verwenden Sie sie, um Ihre AIO-Konfiguration beim Wechseln der Quellsprache oder des Workflows schneller zu ändern.',
   'dashboard.aio.presets.tooltipAria':
@@ -4988,4 +4987,5 @@ export const deMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': 'Zeitbericht kopiert',
   'dashboard.footer.timing.copyFailed':
     'Zeitbericht konnte nicht kopiert werden',
+  'tips.dontShowAgain': 'Nicht mehr anzeigen',
 } as const;

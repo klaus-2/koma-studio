@@ -4337,8 +4337,7 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.hint.healing.eyebrow': '新工具',
   'dashboard.hint.healing.body':
     '使用修复画笔移��缺陷、断边和文字残留。在要修复的区域上涂抹，然后点击应用，AI 将无缝重建该区域。',
-  'dashboard.hint.healing.footer':
-    '此提示在本次会话中不会再次出现。在"设置 → 应用程序"中禁用所有提示。',
+  'dashboard.hint.healing.footer': '在“设置 → 应用程序”中禁用所有提示。',
   'dashboard.aio.presets.tooltip':
     '预设保存每种语言的模型和阶段组合。在更改源语言或工作流程时，使用它们可以更快地切换AIO设置。',
   'dashboard.aio.presets.tooltipAria': '语言预设的用途是什么',
@@ -4429,4 +4428,5 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.footer.timing.copyReport': '复制报告',
   'dashboard.footer.timing.copied': '耗时报告已复制',
   'dashboard.footer.timing.copyFailed': '无法复制耗时报告',
+  'tips.dontShowAgain': '不再显示',
 } as const;

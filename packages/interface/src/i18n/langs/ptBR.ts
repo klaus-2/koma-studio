@@ -5009,8 +5009,7 @@ export const ptBrMessages: TranslationCatalog = {
   'dashboard.hint.healing.eyebrow': 'Nova ferramenta',
   'dashboard.hint.healing.body':
     'Use o Healing Brush para remover defeitos, bordas quebradas e restos de texto. Pinte sobre a área que deseja corrigir e clique em Aplicar para a IA reconstruir a região de forma imperceptível.',
-  'dashboard.hint.healing.footer':
-    'Esta dica não aparecerá novamente nesta sessão. Desative todas as dicas em Configurações → App.',
+  'dashboard.hint.healing.footer': 'Desative todas as dicas em Configurações → App.',
   'dashboard.aio.presets.tooltip':
     'As predefinições salvam uma combinação por idioma de modelos e etapas. Use‑as para trocar sua configuração do AIO mais rapidamente ao mudar o idioma de origem ou o fluxo de trabalho.',
   'dashboard.aio.presets.tooltipAria':
@@ -5122,5 +5121,5 @@ export const ptBrMessages: TranslationCatalog = {
   "watermark.status.appliedCount": "Marca d'água aplicada em {{count}} região(ões)",
   "watermark.status.configureLayer": "Configure a camada de marca d'água para continuar",
   'watermark.status.noResults': 'Nenhuma região correspondeu aos filtros atuais',
-
+  'tips.dontShowAgain': 'Não mostrar novamente',
 } as const;

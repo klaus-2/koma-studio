@@ -3,6 +3,7 @@ import { m, AnimatePresence } from 'framer-motion';
 import { Sparkles, X } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { useToolTips } from '@/hooks/useToolTips';
+import DontShowAgainCheckbox from '@/components/DontShowAgainCheckbox';
 import { useThemeStore } from "@koma/ui/stores/theme-store";
 
 const HINT_ID = 'healing-tool-first-use';
@@ -13,16 +14,23 @@ interface HealingToolHintProps {
 }
 
 export function HealingToolHint({ trigger, rightOffset = 24 }: HealingToolHintProps) {
-  const { shouldShow, dismiss } = useToolTips();
+  const { shouldShow, dismiss, isDismissedForever, setDismissedForever } = useToolTips();
   const { t } = useI18n();
   const theme = useThemeStore((s) => s.theme);
   const family = useThemeStore((s) => s.family);
   const [dismissed, setDismissed] = useState(false);
-  const visible = trigger > 0 && !dismissed && shouldShow(HINT_ID);
+  const [optedOutWhileOpen, setOptedOutWhileOpen] = useState(false);
+  const visible =
+    trigger > 0 && !dismissed && (optedOutWhileOpen || shouldShow(HINT_ID));
 
   const handleDismiss = () => {
     dismiss(HINT_ID);
     setDismissed(true);
+  };
+
+  const handleDontShowAgain = (checked: boolean) => {
+    setOptedOutWhileOpen(checked);
+    setDismissedForever(HINT_ID, checked);
   };
 
   const isNoir = family === 'noir';
@@ -108,9 +116,13 @@ export function HealingToolHint({ trigger, rightOffset = 24 }: HealingToolHintPr
               </p>
 
               {/* Footer hint */}
-              <p className={`mt-3 text-[11px] ${footerClass}`}>
-                {t('dashboard.hint.healing.footer')}
-              </p>
+              <div className={`mt-3 flex flex-col gap-1.5 ${footerClass}`}>
+                <DontShowAgainCheckbox
+                  checked={optedOutWhileOpen || isDismissedForever(HINT_ID)}
+                  onChange={handleDontShowAgain}
+                />
+                <p className="text-[11px]">{t('dashboard.hint.healing.footer')}</p>
+              </div>
             </div>
           </m.div>
         )}

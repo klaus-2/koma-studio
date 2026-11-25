@@ -4630,8 +4630,7 @@ export const arMessages: TranslationCatalog = {
   'dashboard.hint.healing.eyebrow': 'أداة جديدة',
   'dashboard.hint.healing.body':
     'استخدم فرشاة Healing لإزالة العيوب والحواف المكسورة وبقايا النصوص. ارسم فوق المنطقة التي تريد إصلاحها وانقر على تطبيق ليقوم الذكاء الاصطناعي بإعادة بناء المنطقة بشكل سلس.',
-  'dashboard.hint.healing.footer':
-    'لن يظهر هذا التلميح مجددًا في هذه الجلسة. يمكنك تعطيل جميع التلميحات من الإعدادات → التطبيق.',
+  'dashboard.hint.healing.footer': 'يمكنك تعطيل جميع التلميحات من الإعدادات → التطبيق.',
   'dashboard.aio.presets.tooltip':
     'تُحفظ الإعدادات المسبقة مجموعة من النماذج والمراحل لكل لغة. استخدمها لتغيير إعدادات AIO بسرعة عند تبديل لغة المصدر أو سير العمل.',
   'dashboard.aio.presets.tooltipAria': 'ما الغرض من الإعدادات المسبقة للغة',
@@ -4722,4 +4721,5 @@ export const arMessages: TranslationCatalog = {
   'dashboard.footer.timing.copyReport': 'نسخ التقرير',
   'dashboard.footer.timing.copied': 'تم نسخ تقرير التوقيت',
   'dashboard.footer.timing.copyFailed': 'تعذّر نسخ تقرير التوقيت',
+  'tips.dontShowAgain': 'عدم الإظهار مجددًا',
 } as const;

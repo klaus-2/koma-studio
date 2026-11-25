@@ -4798,8 +4798,7 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.hint.healing.eyebrow': '新しいツール',
   'dashboard.hint.healing.body':
     'Healing Brushを使用して、���陥、壊れたエッジ、テキストの残留物を除去できます。修正したい領域をブラシで塗り、適用をクリックすると、AIがその領域を違和感なく再構築します。',
-  'dashboard.hint.healing.footer':
-    'このヒントは今回のセッションでは再表示されません。すべてのヒントは設定 → アプリから無効にできます。',
+  'dashboard.hint.healing.footer': 'すべてのヒントは設定 → アプリから無効にできます。',
   'dashboard.aio.presets.tooltip':
     'プリセットは言語ごとにモデルとステージの組み合わせを保存します。ソース言語やワークフローを変更する際に、AIO設定を素早く切り替えるために使用してください。',
   'dashboard.aio.presets.tooltipAria': '言語プリセットは何に使われますか',
@@ -4893,4 +4892,5 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': 'タイムレポートをコピーしました',
   'dashboard.footer.timing.copyFailed':
     'タイムレポートをコピーできませんでした',
+  'tips.dontShowAgain': '今後表示しない',
 } as const;

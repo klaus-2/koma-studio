@@ -4630,8 +4630,7 @@ export const enMessages = {
   'dashboard.hint.healing.eyebrow': 'New tool',
   'dashboard.hint.healing.body':
     'Use the Healing Brush to remove defects, broken edges, and text remnants. Paint over the area you want to fix and click Apply for the AI to seamlessly reconstruct the region.',
-  'dashboard.hint.healing.footer':
-    "This tip won't appear again this session. Disable all tips in Settings → App.",
+  'dashboard.hint.healing.footer': 'Turn off all tips in Settings → App.',
   'dashboard.aio.presets.tooltip':
     'Presets save a per-language combination of models and stage choices. Use them to switch your AIO setup faster when changing source language or workflow.',
   'dashboard.aio.presets.tooltipAria': 'What language presets are used for',
@@ -5146,5 +5145,5 @@ export const enMessages = {
   'watermark.status.appliedCount': 'Watermark applied to {{count}} region(s)',
   'watermark.status.configureLayer': 'Configure the watermark layer to continue',
   'watermark.status.noResults': 'No regions matched the current filters',
-
+  'tips.dontShowAgain': 'Don\'t show again',
 } as const;

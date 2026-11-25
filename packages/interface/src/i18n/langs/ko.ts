@@ -4685,8 +4685,7 @@ export const koMessages: TranslationCatalog = {
   'dashboard.hint.healing.eyebrow': '새로운 도구',
   'dashboard.hint.healing.body':
     'Healing Brush를 사용하여 결함, 깨진 가장자리 및 텍스트 잔여물을 제거하세요. 수정하려는 영역 위에 칠한 후 적용을 클릭하면 AI가 해당 영역을 자연스럽게 복원합니다.',
-  'dashboard.hint.healing.footer':
-    '이 도움말은 현재 세션에서 다시 표시되지 않습니다. 모든 도움말은 설정 → 앱에서 비활성화할 수 있습니다.',
+  'dashboard.hint.healing.footer': '모든 도움말은 설정 → 앱에서 비활성화할 수 있습니다.',
   'dashboard.aio.presets.tooltip':
     '프리셋은 언어별 모델 및 단계 조합을 저장합니다. 소스 언어나 워크플로우를 변경할 때 AIO 설정을 더 빠르게 전환하려면 이를 사용하세요.',
   'dashboard.aio.presets.tooltipAria': '언어 프리셋은 무엇에 사용됩니다',
@@ -4781,4 +4780,5 @@ export const koMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': '타이밍 리포트가 복사되었습니다',
   'dashboard.footer.timing.copyFailed':
     '타이밍 리포트를 복사하지 못했습니다',
+  'tips.dontShowAgain': '다시 표시하지 않음',
 } as const;

@@ -47,6 +47,8 @@ const guardedPrefixes = [
   "dashboard.translator.",
   "dashboard.aio.glossary.",
   "dashboard.aio.translation.",
+  "tips.",
+  "dashboard.hint.healing.",
 ] as const;
 
 const walkTsFiles = (dir: string, acc: string[] = []): string[] => {

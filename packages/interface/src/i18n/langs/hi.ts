@@ -4770,8 +4770,7 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.hint.healing.eyebrow': 'Alat baru',
   'dashboard.hint.healing.body':
     'Gunakan Healing Brush untuk menghapus cacat, tepi yang rusak, dan sisa teks. Sapukan pada area yang ingin diperbaiki dan klik Terapkan agar AI merekonstruksi area tersebut secara mulus.',
-  'dashboard.hint.healing.footer':
-    'Tips ini tidak akan muncul lagi di sesi ini. Nonaktifkan semua tips di Pengaturan → Aplikasi.',
+  'dashboard.hint.healing.footer': 'सभी टिप्स सेटिंग्स → ऐप में बंद करें।',
   'dashboard.aio.presets.tooltip':
     'Preset menyimpan kombinasi model dan tahap per bahasa. Gunakan untuk beralih pengaturan AIO lebih cepat saat mengganti bahasa sumber atau alur kerja.',
   'dashboard.aio.presets.tooltipAria': 'Untuk apa preset bahasa digunakan',
@@ -4866,4 +4865,5 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': 'टाइमिंग रिपोर्ट कॉपी हो गई',
   'dashboard.footer.timing.copyFailed':
     'टाइमिंग रिपोर्ट कॉपी नहीं हो सकी',
+  'tips.dontShowAgain': 'फिर से न दिखाएँ',
 } as const;
