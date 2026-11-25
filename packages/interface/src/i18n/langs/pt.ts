@@ -5117,5 +5117,11 @@ export const ptMessages: TranslationCatalog = {
   "watermark.status.appliedCount": "Marca d'água aplicada em {{count}} região(ões)",
   "watermark.status.configureLayer": "Configure a camada de marca d'água para continuar",
   'watermark.status.noResults': 'Nenhuma região correspondeu aos filtros atuais',
+  'firstRunNotice.kicker': '// PRIMEIRA EXECUÇÃO',
+  'firstRunNotice.title': 'A primeira execução é mais lenta',
+  'firstRunNotice.body': 'Na primeira vez que cada modelo de IA é executado, é carregado do disco e otimizado para esta máquina. Isso pode demorar, sobretudo em CPU ou com muitas imagens.',
+  'firstRunNotice.followUp': 'As execuções seguintes reaproveitam o que foi preparado e são muito mais rápidas (no CPU e em GPUs NVIDIA, mesmo depois de reiniciar a app). Pode continuar a trabalhar enquanto esta termina.',
+  'firstRunNotice.dismiss': 'Percebi',
+  'firstRunNotice.closeAria': 'Fechar aviso de primeira execução',
   'tips.dontShowAgain': 'Não mostrar novamente',
 } as const;

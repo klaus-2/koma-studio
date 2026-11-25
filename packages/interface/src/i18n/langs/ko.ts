@@ -4780,5 +4780,11 @@ export const koMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': '타이밍 리포트가 복사되었습니다',
   'dashboard.footer.timing.copyFailed':
     '타이밍 리포트를 복사하지 못했습니다',
+  'firstRunNotice.kicker': '// 첫 실행',
+  'firstRunNotice.title': '첫 실행은 더 느립니다',
+  'firstRunNotice.body': '각 AI 모델은 처음 실행될 때 디스크에서 불러와 이 컴퓨터에 맞게 최적화됩니다. 특히 CPU를 쓰거나 이미지가 많으면 시간이 걸릴 수 있습니다.',
+  'firstRunNotice.followUp': '다음 실행부터는 준비된 내용을 다시 사용하므로 훨씬 빨라집니다(CPU와 NVIDIA GPU에서는 앱을 다시 시작한 뒤에도 적용됩니다). 실행이 끝나는 동안 계속 작업할 수 있습니다.',
+  'firstRunNotice.dismiss': '확인',
+  'firstRunNotice.closeAria': '첫 실행 안내 닫기',
   'tips.dontShowAgain': '다시 표시하지 않음',
 } as const;

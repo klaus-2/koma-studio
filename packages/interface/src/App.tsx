@@ -14,6 +14,7 @@ import { LegalInlineLinks } from "./components/legal/LegalInlineLinks";
 import { getLegalDocumentIdForRoute, isLegalRoutePath } from "./legal/navigation";
 import { UpdateToast } from "./components/updater/UpdateToast";
 import { RuntimeStartupToast } from "./components/runtime/RuntimeStartupToast";
+import { FirstRunSlowNotice } from "./components/FirstRunSlowNotice";
 import { CustomCursor } from "./components/CustomCursor";
 import { useCustomCursor } from "./hooks/useCustomCursor";
 import { SessionTimeout } from "@koma/auth/SessionTimeout";
@@ -531,6 +532,7 @@ const AppShell = () => {
       <SessionTimeout />
       <RuntimeStartupToast />
       <UpdateToast />
+      <FirstRunSlowNotice />
       <DesktopCloseGuard />
     </>
   );

@@ -4987,5 +4987,11 @@ export const deMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': 'Zeitbericht kopiert',
   'dashboard.footer.timing.copyFailed':
     'Zeitbericht konnte nicht kopiert werden',
+  'firstRunNotice.kicker': '// ERSTER LAUF',
+  'firstRunNotice.title': 'Der erste Lauf ist langsamer',
+  'firstRunNotice.body': 'Beim ersten Lauf wird jedes KI-Modell von der Festplatte geladen und für diesen Rechner optimiert. Das kann dauern, besonders auf der CPU oder bei vielen Bildern.',
+  'firstRunNotice.followUp': 'Spätere Läufe nutzen die Vorbereitung erneut und sind deutlich schneller (auf der CPU und auf NVIDIA-GPUs auch nach einem Neustart der App). Du kannst weiterarbeiten, während dieser Lauf endet.',
+  'firstRunNotice.dismiss': 'Verstanden',
+  'firstRunNotice.closeAria': 'Hinweis zum ersten Lauf schließen',
   'tips.dontShowAgain': 'Nicht mehr anzeigen',
 } as const;

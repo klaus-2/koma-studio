@@ -4721,5 +4721,11 @@ export const arMessages: TranslationCatalog = {
   'dashboard.footer.timing.copyReport': 'نسخ التقرير',
   'dashboard.footer.timing.copied': 'تم نسخ تقرير التوقيت',
   'dashboard.footer.timing.copyFailed': 'تعذّر نسخ تقرير التوقيت',
+  'firstRunNotice.kicker': '// التشغيل الأول',
+  'firstRunNotice.title': 'التشغيل الأول أبطأ',
+  'firstRunNotice.body': 'في المرة الأولى التي يعمل فيها كل نموذج ذكاء اصطناعي، يُحمَّل من القرص ويُحسَّن لهذا الجهاز. قد يستغرق ذلك بعض الوقت، خاصةً على المعالج المركزي أو مع عدد كبير من الصور.',
+  'firstRunNotice.followUp': 'تعيد عمليات التشغيل التالية استخدام ما تم تجهيزه وتكون أسرع بكثير (على المعالج المركزي ووحدات معالجة الرسومات من NVIDIA حتى بعد إعادة تشغيل التطبيق). يمكنك مواصلة العمل حتى ينتهي هذا التشغيل.',
+  'firstRunNotice.dismiss': 'فهمت',
+  'firstRunNotice.closeAria': 'إغلاق تنبيه التشغيل الأول',
   'tips.dontShowAgain': 'عدم الإظهار مجددًا',
 } as const;

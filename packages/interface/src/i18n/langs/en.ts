@@ -5145,5 +5145,11 @@ export const enMessages = {
   'watermark.status.appliedCount': 'Watermark applied to {{count}} region(s)',
   'watermark.status.configureLayer': 'Configure the watermark layer to continue',
   'watermark.status.noResults': 'No regions matched the current filters',
+  'firstRunNotice.kicker': '// FIRST RUN',
+  'firstRunNotice.title': 'The first run is slower',
+  'firstRunNotice.body': 'The first time each AI model runs, it is loaded from disk and optimized for this machine. That can take a while, especially on CPU or with many images.',
+  'firstRunNotice.followUp': 'Later runs reuse what was prepared and are much faster (on CPU and NVIDIA GPUs, even after restarting the app). You can keep working while this one finishes.',
+  'firstRunNotice.dismiss': 'Got it',
+  'firstRunNotice.closeAria': 'Dismiss first-run notice',
   'tips.dontShowAgain': 'Don\'t show again',
 } as const;

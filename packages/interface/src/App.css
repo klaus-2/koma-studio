@@ -3986,6 +3986,36 @@ body {
   }
 }
 
+.koma-toast.koma-toast--start {
+  right: auto;
+  left: 24px;
+  bottom: 56px;
+  z-index: 125;
+}
+
+.koma-toast__actions.koma-toast__actions--split {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.koma-toast__actions--split .koma-toast__desc {
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .koma-toast.koma-toast--start {
+    left: 16px;
+    right: 16px;
+    bottom: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .koma-toast.koma-toast--start {
+    animation: none;
+  }
+}
+
 /* ============================================================
    PROGRESS TOAST
    ============================================================ */

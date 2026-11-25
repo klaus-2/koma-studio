@@ -4934,5 +4934,11 @@ export const esMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': 'Informe de tiempos copiado',
   'dashboard.footer.timing.copyFailed':
     'No se pudo copiar el informe de tiempos',
+  'firstRunNotice.kicker': '// PRIMERA EJECUCIÓN',
+  'firstRunNotice.title': 'La primera ejecución es más lenta',
+  'firstRunNotice.body': 'La primera vez que se ejecuta cada modelo de IA, se carga desde el disco y se optimiza para este equipo. Puede tardar un poco, sobre todo en CPU o con muchas imágenes.',
+  'firstRunNotice.followUp': 'Las siguientes ejecuciones reutilizan lo preparado y son mucho más rápidas (en CPU y en GPU NVIDIA, incluso tras reiniciar la app). Puedes seguir trabajando mientras termina esta.',
+  'firstRunNotice.dismiss': 'Entendido',
+  'firstRunNotice.closeAria': 'Cerrar aviso de primera ejecución',
   'tips.dontShowAgain': 'No volver a mostrar',
 } as const;

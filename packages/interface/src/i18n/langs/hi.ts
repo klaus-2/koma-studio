@@ -4865,5 +4865,11 @@ export const hiMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': 'टाइमिंग रिपोर्ट कॉपी हो गई',
   'dashboard.footer.timing.copyFailed':
     'टाइमिंग रिपोर्ट कॉपी नहीं हो सकी',
+  'firstRunNotice.kicker': '// पहला रन',
+  'firstRunNotice.title': 'पहला रन धीमा होता है',
+  'firstRunNotice.body': 'हर AI मॉडल पहली बार चलने पर डिस्क से लोड होता है और इस मशीन के लिए ऑप्टिमाइज़ किया जाता है। इसमें समय लग सकता है, खासकर CPU पर या कई इमेज होने पर।',
+  'firstRunNotice.followUp': 'अगले रन तैयार की गई चीज़ों को दोबारा इस्तेमाल करते हैं और काफ़ी तेज़ होते हैं (CPU और NVIDIA GPU पर ऐप दोबारा शुरू करने के बाद भी)। यह रन पूरा होने तक आप काम जारी रख सकते हैं।',
+  'firstRunNotice.dismiss': 'समझ गया',
+  'firstRunNotice.closeAria': 'पहले रन की सूचना बंद करें',
   'tips.dontShowAgain': 'फिर से न दिखाएँ',
 } as const;

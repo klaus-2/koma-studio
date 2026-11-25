@@ -4892,5 +4892,11 @@ export const jaMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': 'タイムレポートをコピーしました',
   'dashboard.footer.timing.copyFailed':
     'タイムレポートをコピーできませんでした',
+  'firstRunNotice.kicker': '// 初回実行',
+  'firstRunNotice.title': '初回の実行は時間がかかります',
+  'firstRunNotice.body': '各AIモデルは初回の実行時にディスクから読み込まれ、このマシン向けに最適化されます。特にCPUや多数の画像では時間がかかることがあります。',
+  'firstRunNotice.followUp': '2回目以降は準備済みのデータを再利用するため、大幅に速くなります（CPUとNVIDIA GPUではアプリを再起動した後も有効です）。完了を待つ間も作業を続けられます。',
+  'firstRunNotice.dismiss': '了解',
+  'firstRunNotice.closeAria': '初回実行の案内を閉じる',
   'tips.dontShowAgain': '今後表示しない',
 } as const;

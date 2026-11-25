@@ -4938,5 +4938,11 @@ export const ruMessages: TranslationCatalog = {
   'dashboard.footer.timing.copied': 'Отчёт по времени скопирован',
   'dashboard.footer.timing.copyFailed':
     'Не удалось скопировать отчёт по времени',
+  'firstRunNotice.kicker': '// ПЕРВЫЙ ЗАПУСК',
+  'firstRunNotice.title': 'Первый запуск идёт медленнее',
+  'firstRunNotice.body': 'При первом запуске каждая модель ИИ загружается с диска и оптимизируется под этот компьютер. Это может занять время, особенно на CPU или при большом количестве изображений.',
+  'firstRunNotice.followUp': 'Следующие запуски используют подготовленные данные и проходят намного быстрее (на CPU и видеокартах NVIDIA — даже после перезапуска приложения). Можно продолжать работу, пока этот запуск завершается.',
+  'firstRunNotice.dismiss': 'Понятно',
+  'firstRunNotice.closeAria': 'Закрыть уведомление о первом запуске',
   'tips.dontShowAgain': 'Больше не показывать',
 } as const;

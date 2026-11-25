@@ -47,6 +47,7 @@ const guardedPrefixes = [
   "dashboard.translator.",
   "dashboard.aio.glossary.",
   "dashboard.aio.translation.",
+  "firstRunNotice.",
   "tips.",
   "dashboard.hint.healing.",
 ] as const;

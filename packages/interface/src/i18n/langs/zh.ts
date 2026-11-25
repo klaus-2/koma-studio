@@ -4428,5 +4428,11 @@ export const zhMessages: TranslationCatalog = {
   'dashboard.footer.timing.copyReport': '复制报告',
   'dashboard.footer.timing.copied': '耗时报告已复制',
   'dashboard.footer.timing.copyFailed': '无法复制耗时报告',
+  'firstRunNotice.kicker': '// 首次运行',
+  'firstRunNotice.title': '首次运行速度较慢',
+  'firstRunNotice.body': '每个 AI 模型首次运行时，需要从磁盘加载并针对本机进行优化。这可能需要一些时间，尤其是在 CPU 上或图片较多时。',
+  'firstRunNotice.followUp': '之后的运行会复用已准备好的内容，速度会快很多（在 CPU 和 NVIDIA GPU 上，重启应用后依然有效）。等待期间你可以继续工作。',
+  'firstRunNotice.dismiss': '知道了',
+  'firstRunNotice.closeAria': '关闭首次运行提示',
   'tips.dontShowAgain': '不再显示',
 } as const;
