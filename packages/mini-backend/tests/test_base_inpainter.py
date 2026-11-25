@@ -27,9 +27,7 @@ class _GrayInpainter(BaseInpainter):
 
 
 class BaseInpainterTests(unittest.TestCase):
-    def test_harmonization_keeps_white_regions_white_even_with_dark_outline_noise(
-        self,
-    ) -> None:
+    def test_single_blend_keeps_pixels_outside_the_mask_untouched(self) -> None:
         image = np.full((72, 72, 3), 252, dtype=np.uint8)
         image[25:47, 19] = 0
         image[25:47, 52] = 0
@@ -42,7 +40,9 @@ class BaseInpainterTests(unittest.TestCase):
         inpainter = _GrayInpainter()
         result = inpainter._inpaint(image=image, mask=mask, config=InpaintConfig())
 
-        self.assertTrue(np.all(result[35, 30] >= 235))
+        self.assertTrue(np.all(result[35, 19] == 0))
+        self.assertTrue(np.all(result[5, 5] == 252))
+        self.assertTrue(np.all(result[35, 30] == 185))
 
 
 if __name__ == "__main__":

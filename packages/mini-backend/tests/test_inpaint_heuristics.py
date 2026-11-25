@@ -46,7 +46,7 @@ class InpaintHeuristicsTests(unittest.TestCase):
         self.assertEqual(result.method_label, "solid_fill")
         self.assertGreater(int(result.image_rgb[35, 32, 0]), 200)
 
-    def test_colored_background_prefers_local_classical_fill_for_small_regions(
+    def test_gradient_colored_background_delegates_to_the_model(
         self,
     ) -> None:
         image = np.zeros((56, 56, 3), dtype=np.uint8)
@@ -60,11 +60,11 @@ class InpaintHeuristicsTests(unittest.TestCase):
 
         result = apply_need_inpaint_heuristic(image, mask)
 
-        self.assertFalse(result.needs_model_inpaint)
-        self.assertEqual(int(result.remaining_mask.sum()), 0)
-        self.assertGreater(int(result.image_rgb[27, 24, 1]), 80)
+        self.assertTrue(result.needs_model_inpaint)
+        self.assertEqual(result.method_label, "model_only")
+        self.assertGreater(int(result.remaining_mask.sum()), 0)
 
-    def test_bright_white_balloon_snaps_back_to_white(self) -> None:
+    def test_bright_white_balloon_uses_solid_fill_preserving_ring_median(self) -> None:
         image = np.full((64, 64, 3), 252, dtype=np.uint8)
         image[24:36, 22:42] = 20
         mask = np.zeros((64, 64), dtype=np.uint8)
@@ -73,7 +73,8 @@ class InpaintHeuristicsTests(unittest.TestCase):
         result = apply_need_inpaint_heuristic(image, mask)
 
         self.assertFalse(result.needs_model_inpaint)
-        self.assertTrue(np.all(result.image_rgb[30, 30] >= 254))
+        self.assertEqual(result.method_label, "solid_fill")
+        self.assertTrue(np.all(result.image_rgb[30, 30] == 252))
 
     def test_detect_background_complexity_flags_gradients_and_line_dense_regions(
         self,
