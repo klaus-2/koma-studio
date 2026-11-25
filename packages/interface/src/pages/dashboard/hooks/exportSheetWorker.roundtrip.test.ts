@@ -147,4 +147,36 @@ describe("exportSheetWorker serialize/parse roundtrip (real xlsx dep)", () => {
     if (importResponse.kind !== "sheet-import-success") return;
     expect(importResponse.rows).toEqual(dangerousRows);
   });
+
+  it('preserves leading/trailing spaces, quotes, commas, newlines and formula strings in xlsx', async () => {
+    const edgeRows: SheetRow[] = [
+      {
+        imageId: 'img-10',
+        regionId: 'r10',
+        chapterLabel: '  spaced chapter  ',
+        ocrText: '=1+1',
+        translation: '-Sore "na, no"?\nLine 2',
+        notes: ' keep leading and trailing ',
+      },
+    ];
+
+    const exportResponse = await runWorkerRequest({
+      kind: 'sheet-export',
+      jobId: 10,
+      format: 'xlsx',
+      rows: edgeRows,
+    });
+    expect(exportResponse.kind).toBe('sheet-export-success');
+    if (exportResponse.kind !== 'sheet-export-success') return;
+
+    const importResponse = await runWorkerRequest({
+      kind: 'sheet-import',
+      jobId: 11,
+      fileName: 'edge.xlsx',
+      bytes: exportResponse.blobBytes,
+    });
+    expect(importResponse.kind).toBe('sheet-import-success');
+    if (importResponse.kind !== 'sheet-import-success') return;
+    expect(importResponse.rows).toEqual(edgeRows);
+  });
 });

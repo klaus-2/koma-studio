@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import { appVersionDefine } from "@koma/config/vite";
 import path from "node:path";
@@ -15,7 +16,13 @@ export default defineConfig(async ({ mode }) => {
   const devHost = process.env.PLAYWRIGHT_HOST ?? "127.0.0.1";
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      babel({
+        presets: [reactCompilerPreset()],
+      }),
+      tailwindcss(),
+    ],
     define: appVersionDefine(import.meta.url),
     // ES worker bundles may code-split: the export workers hold dynamic
     // imports (pdf-lib, xlsx) that need legal chunks. The Vite default
@@ -30,8 +37,8 @@ export default defineConfig(async ({ mode }) => {
       // from a different React instance ("Invalid hook call" / null useMemo).
       dedupe: ["react", "react-dom", "scheduler"],
       alias: {
-        "@": path.resolve(__dirname, "../../packages/interface/src"),
-        "@shared": path.resolve(__dirname, "../../packages/types/src"),
+        "@": path.resolve(import.meta.dirname, "../../packages/interface/src"),
+        "@shared": path.resolve(import.meta.dirname, "../../packages/types/src"),
       },
     },
 
@@ -76,10 +83,7 @@ export default defineConfig(async ({ mode }) => {
       target: "es2022",
       sourcemap: false,
       chunkSizeWarningLimit: 3500,
-      rollupOptions: {
-        // An unresolved bare specifier is externalized into the bundle;
-        // WebView2 cannot resolve it and the whole module graph fails
-        // (blank window). Fail the build instead of shipping it.
+      rolldownOptions: {
         onwarn(warning, warn) {
           if (warning.code === "UNRESOLVED_IMPORT") {
             throw new Error(
@@ -88,15 +92,10 @@ export default defineConfig(async ({ mode }) => {
           }
           warn(warning);
         },
-        // No manualChunks: a catch-all vendor group hoisted every
-        // node_modules module into the eager entry graph, including deps that
-        // only route chunks import dynamically (ProseMirror, pako, pdf-lib,
-        // the color picker, dropzone, virtual). Let Rollup split along the
-        // real static/dynamic import graph so route-only deps stay lazy.
         output: {
-          // Shared leaf modules (icons, tiny motion helpers) otherwise each
-          // become their own request; on 3G every request pays a full RTT.
-          experimentalMinChunkSize: 20_000,
+          codeSplitting: {
+            minSize: 20_000,
+          },
         },
       },
     },

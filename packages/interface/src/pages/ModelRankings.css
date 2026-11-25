@@ -2416,17 +2416,20 @@
     color: #0f172a;
   }
 
-  /* ── Animations (lighter shadows) ── */
-  @keyframes koma-rank-hero-breathe {
-    from {
-      box-shadow:
-        0 20px 60px rgba(0, 0, 0, 0.05),
-        0 0 40px rgba(168, 85, 247, 0.01);
-    }
-    to {
-      box-shadow:
-        0 20px 60px rgba(0, 0, 0, 0.05),
-        0 0 40px rgba(168, 85, 247, 0.04);
-    }
+  .koma-rank-hero {
+    animation-name: koma-rank-hero-breathe-light;
+  }
+}
+
+@keyframes koma-rank-hero-breathe-light {
+  from {
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.05),
+      0 0 40px rgba(168, 85, 247, 0.01);
+  }
+  to {
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.05),
+      0 0 40px rgba(168, 85, 247, 0.04);
   }
 }

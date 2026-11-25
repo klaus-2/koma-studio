@@ -1,10 +1,9 @@
 /// <reference lib="webworker" />
 
-// Type-only import: erased at build time, so no static xlsx code lands in any
-// chunk — the runtime `await import('xlsx')` happens inside the handlers.
-import type { WorkBook, WorkSheet } from 'xlsx';
+import type { Row, SheetData } from 'write-excel-file/universal';
 
 import type { SheetRow } from '../../../utils/spreadsheet-bridge';
+import { parseCsvRows, serializeCsvRows } from './csvCodec';
 
 export type SheetExportFormat = 'csv' | 'xlsx';
 
@@ -98,10 +97,80 @@ const escapeCsvFormulaLead = (cell: string): string =>
 const stripCsvFormulaEscape = (cell: string): string =>
   cell.startsWith("'") ? cell.slice(1) : cell;
 
+const HEADER_INDEX_NOT_FOUND = -1;
+
+const resolveHeaderIndexes = (
+  headerRow: readonly string[],
+): Record<keyof SheetRow, number> => ({
+  imageId: headerRow.indexOf('imageId'),
+  regionId: headerRow.indexOf('regionId'),
+  chapterLabel: headerRow.indexOf('chapterLabel'),
+  ocrText: headerRow.indexOf('ocrText'),
+  translation: headerRow.indexOf('translation'),
+  notes: headerRow.indexOf('notes'),
+});
+
+const readMappedCell = (
+  row: readonly string[],
+  columnIndex: number,
+): string => {
+  if (columnIndex === HEADER_INDEX_NOT_FOUND) {
+    return '';
+  }
+  return stripCsvFormulaEscape(row[columnIndex] ?? '');
+};
+
+const normalizeImportedCell = (value: unknown): string => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value);
+};
+
+const mapHeaderRowsToSheetRows = (
+  matrix: readonly (readonly string[])[],
+): SheetRow[] => {
+  if (matrix.length <= 1) {
+    return [];
+  }
+  const indexes = resolveHeaderIndexes(matrix[0] ?? []);
+  const mappedRows: SheetRow[] = [];
+  for (let rowIndex = 1; rowIndex < matrix.length; rowIndex += 1) {
+    const rawRow = matrix[rowIndex] ?? [];
+    if (rawRow.every((cell) => cell.length === 0)) {
+      continue;
+    }
+    mappedRows.push({
+      imageId: readMappedCell(rawRow, indexes.imageId),
+      regionId: readMappedCell(rawRow, indexes.regionId),
+      chapterLabel: readMappedCell(rawRow, indexes.chapterLabel),
+      ocrText: readMappedCell(rawRow, indexes.ocrText),
+      translation: readMappedCell(rawRow, indexes.translation),
+      notes: readMappedCell(rawRow, indexes.notes),
+    });
+  }
+  return mappedRows;
+};
+
+const blobToArrayBuffer = async (blob: Blob): Promise<ArrayBuffer> => {
+  if (typeof blob.arrayBuffer === 'function') {
+    return blob.arrayBuffer();
+  }
+  return new Response(blob).arrayBuffer();
+};
+
+const toXlsxSheetData = (rows: readonly (readonly string[])[]): SheetData =>
+  rows.map((row): Row => row.map((value) => ({ type: String, value })));
+
 const buildExportBytes = async (
   request: SheetExportRequest,
 ): Promise<{ blobBytes: ArrayBuffer; mimeType: string }> => {
-  const XLSX = await import('xlsx');
   const buildValues = (escape: boolean): string[][] => [
     [...SHEET_HEADERS],
     ...request.rows.map((row): string[] => {
@@ -118,8 +187,7 @@ const buildExportBytes = async (
   ];
 
   if (request.format === 'csv') {
-    const csvWorksheet = XLSX.utils.aoa_to_sheet(buildValues(true));
-    const csv: string = XLSX.utils.sheet_to_csv(csvWorksheet);
+    const csv = serializeCsvRows(buildValues(true));
     const encoded = new TextEncoder().encode(csv);
     const copy = new Uint8Array(encoded.byteLength);
     copy.set(encoded);
@@ -129,44 +197,27 @@ const buildExportBytes = async (
     };
   }
 
-  const worksheet = XLSX.utils.aoa_to_sheet(buildValues(false));
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, SHEET_NAME);
-  const output: ArrayBuffer = XLSX.write(workbook, {
-    bookType: 'xlsx',
-    type: 'array',
-  });
+  const { default: writeXlsxFile } = await import('write-excel-file/universal');
+  const blob = await writeXlsxFile(toXlsxSheetData(buildValues(false)), {
+    sheet: SHEET_NAME,
+  }).toBlob();
+  const output = await blobToArrayBuffer(blob);
   return { blobBytes: output, mimeType: XLSX_MIME_TYPE };
 };
 
 const parseImportRows = async (
   request: SheetImportRequest,
 ): Promise<SheetRow[]> => {
-  const XLSX = await import('xlsx');
   const isCsv = request.fileName.toLowerCase().endsWith('.csv');
-  const workbook: WorkBook = isCsv
-    ? XLSX.read(new TextDecoder().decode(new Uint8Array(request.bytes)), {
-      type: 'string',
-    })
-    : XLSX.read(request.bytes, { type: 'array' });
+  if (isCsv) {
+    const csvText = new TextDecoder().decode(new Uint8Array(request.bytes));
+    return mapHeaderRowsToSheetRows(parseCsvRows(csvText));
+  }
 
-  const firstSheetName: string | undefined = workbook.SheetNames[0];
-  if (firstSheetName === undefined) return [];
-  const worksheet: WorkSheet | undefined = workbook.Sheets[firstSheetName];
-  if (worksheet === undefined) return [];
-
-  const records = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, {
-    defval: '',
-    raw: false,
-  });
-  return records.map((record): SheetRow => ({
-    imageId: stripCsvFormulaEscape(String(record.imageId ?? '')),
-    regionId: stripCsvFormulaEscape(String(record.regionId ?? '')),
-    chapterLabel: stripCsvFormulaEscape(String(record.chapterLabel ?? '')),
-    ocrText: stripCsvFormulaEscape(String(record.ocrText ?? '')),
-    translation: stripCsvFormulaEscape(String(record.translation ?? '')),
-    notes: stripCsvFormulaEscape(String(record.notes ?? '')),
-  }));
+  const { readSheet } = await import('read-excel-file/universal');
+  const rawRows = await readSheet(new Uint8Array(request.bytes), { trim: false });
+  const matrix = rawRows.map((row) => row.map(normalizeImportedCell));
+  return mapHeaderRowsToSheetRows(matrix);
 };
 
 let messageTarget: {
