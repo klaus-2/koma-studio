@@ -179,6 +179,6 @@ export const useTranslatorStore = create<TranslatorStore>()(
       setTranslatorSfxAdditionalInstructions: (translatorSfxAdditionalInstructions) =>
         set({ translatorSfxAdditionalInstructions }),
     }),
-    { name: 'translator-store' },
+    { name: 'translator-store', enabled: import.meta.env.DEV },
   ),
 );

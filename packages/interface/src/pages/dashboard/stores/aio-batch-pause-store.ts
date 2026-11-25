@@ -73,6 +73,6 @@ export const useAioBatchPauseStore = create<AioBatchPauseStore>()(
           pauseConsolidatedImageIds: new Set<string>(),
         }),
     }),
-    { name: 'aio-batch-pause-store' },
+    { name: 'aio-batch-pause-store', enabled: import.meta.env.DEV },
   ),
 );

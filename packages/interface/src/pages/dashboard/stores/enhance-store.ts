@@ -56,6 +56,6 @@ export const useEnhanceStore = create<EnhanceStore>()(
       setEnhanceActionBusy: (enhanceActionBusy) =>
         set({ enhanceActionBusy }),
     }),
-    { name: 'enhance-store' },
+    { name: 'enhance-store', enabled: import.meta.env.DEV },
   ),
 );

@@ -83,10 +83,10 @@ describe("App MotionConfig reducedMotion", () => {
     );
   };
 
-  it("keeps animations enabled while the dashboard is idle", () => {
+  it("follows the OS reduced-motion preference while the dashboard is idle", () => {
     renderApp();
 
-    expect(motionCapture.reducedMotion).toBe("never");
+    expect(motionCapture.reducedMotion).toBe("user");
   });
 
   it("disables motion while an AIO pipeline run is active and re-enables it after", () => {
@@ -100,7 +100,7 @@ describe("App MotionConfig reducedMotion", () => {
     act(() => {
       useAioPipelineStore.setState({ aioExecutionStatus: null });
     });
-    expect(motionCapture.reducedMotion).toBe("never");
+    expect(motionCapture.reducedMotion).toBe("user");
   });
 
   it("disables motion while the economic UI is hidden", () => {

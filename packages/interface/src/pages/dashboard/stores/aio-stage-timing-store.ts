@@ -224,6 +224,6 @@ export const useAioStageTimingStore = create<AioStageTimingState>()(
         });
       },
     }),
-    { name: 'aio-stage-timing-store' },
+    { name: 'aio-stage-timing-store', enabled: import.meta.env.DEV },
   ),
 );

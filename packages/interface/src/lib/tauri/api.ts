@@ -831,8 +831,10 @@ const tauriDesktopBridge: IDesktopBridge = {
       invokeCommand<{ data: string; mimeType: string }>(
         desktopCommandChannels.images.thumbnail,
         {
-          filePath: payload.filePath,
-          ...(payload.maxDim !== undefined ? { maxDim: payload.maxDim } : {}),
+          payload: {
+            filePath: payload.filePath,
+            ...(payload.maxDim !== undefined ? { maxDim: payload.maxDim } : {}),
+          },
         },
       ).then((result) => ({
         data: base64ToArrayBuffer(result.data),

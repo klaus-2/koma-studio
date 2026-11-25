@@ -39,6 +39,6 @@ export const useEconomicUiStore = create<EconomicUiStore>()(
       clearPending: () =>
         set({ pendingStatusMessage: null, pendingBatchProgress: null }),
     }),
-    { name: 'economic-ui-store' },
+    { name: 'economic-ui-store', enabled: import.meta.env.DEV },
   ),
 );

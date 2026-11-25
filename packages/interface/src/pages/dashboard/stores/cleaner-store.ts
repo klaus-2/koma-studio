@@ -159,6 +159,6 @@ export const useCleanerStore = create<CleanerStore>()(
         set({ cleanerAiAdditionalInstructions }),
       setCleanerSrcLang: (cleanerSrcLang) => set({ cleanerSrcLang }),
     }),
-    { name: 'cleaner-store' },
+    { name: 'cleaner-store', enabled: import.meta.env.DEV },
   ),
 );

@@ -302,7 +302,7 @@ export const useExportStore = create<ExportStore>()(
         }
       },
     }),
-    { name: 'export-store' },
+    { name: 'export-store', enabled: import.meta.env.DEV },
   ),
 );
 

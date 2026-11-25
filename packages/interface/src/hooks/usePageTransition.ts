@@ -97,12 +97,17 @@ export const usePageTransition = (
 
   const runNavigation = useCallback(
     (update: () => void, msg?: string) => {
-      const canUseNativeTransition =
-        typeof document !== "undefined" &&
-        typeof document.startViewTransition === "function" &&
-        !prefersReducedMotionRef.current;
+      if (prefersReducedMotionRef.current) {
+        clearHideTimeout();
+        setIsActive(false);
+        update();
+        return;
+      }
 
-      if (!canUseNativeTransition) {
+      if (
+        typeof document === "undefined" ||
+        typeof document.startViewTransition !== "function"
+      ) {
         start(msg);
         update();
 
@@ -117,12 +122,7 @@ export const usePageTransition = (
       setMessage(msg ?? "");
 
       try {
-        const startViewTransition = document.startViewTransition;
-        if (!startViewTransition) {
-          throw new Error("Native view transitions are unavailable");
-        }
-
-        const transition = startViewTransition(() => {
+        const transition = document.startViewTransition(() => {
           update();
         });
 

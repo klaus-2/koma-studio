@@ -98,6 +98,6 @@ export const useWorkspacePersistenceStore =
                 : token,
           })),
       }),
-      { name: 'workspace-persistence-store' },
+      { name: 'workspace-persistence-store', enabled: import.meta.env.DEV },
     ),
   );

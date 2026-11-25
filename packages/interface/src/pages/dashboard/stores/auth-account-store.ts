@@ -29,6 +29,6 @@ export const useAuthAccountStore = create<AuthAccountStore>()(
           user: typeof value === 'function' ? value(state.user) : value,
         })),
     }),
-    { name: 'auth-account-store' },
+    { name: 'auth-account-store', enabled: import.meta.env.DEV },
   ),
 );

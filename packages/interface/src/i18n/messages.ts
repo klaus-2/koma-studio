@@ -56,6 +56,10 @@ const lazyCatalogLoaders = {
     import("@/i18n/langs/zhTW").then((module) => module.zhMessages),
 } satisfies Record<LazyLocale, CatalogLoader>;
 
+const loadedCatalogs: Partial<Record<AppLocale, TranslationCatalog>> = {
+  [DEFAULT_APP_LOCALE]: defaultMessages,
+};
+
 const pendingCatalogs = new Map<
   LazyLocale,
   Promise<TranslationCatalog>
@@ -158,8 +162,9 @@ export const translateOrFallback = (
   locale: AppLocale,
   key: string,
   fallback: string,
+  catalogs: TranslationCatalogMap = loadedCatalogs,
 ): string => {
-  const value = translateDynamicMessage(locale, key);
+  const value = translateDynamicMessage(locale, key, undefined, catalogs);
   return value === key ? fallback : value;
 };
 
@@ -183,7 +188,9 @@ export const loadTranslationCatalog = (
         throw new TranslationCatalogLoadError(locale);
       }
 
-      return Object.freeze(payload);
+      const frozen = Object.freeze(payload);
+      loadedCatalogs[locale] = frozen;
+      return frozen;
     })
     .catch((): never => {
       pendingCatalogs.delete(locale);

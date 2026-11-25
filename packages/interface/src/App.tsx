@@ -246,7 +246,7 @@ const AppShell = () => {
     start: startOverlayTransition,
     end: endOverlayTransition,
     runNavigation,
-  } = usePageTransition({ minDuration: 800 });
+  } = usePageTransition({ minDuration: 150 });
   const isDesktopRuntime = desktopBridge.isDesktopRuntime();
   const isProductionEnvironment = import.meta.env.PROD && import.meta.env.MODE !== "e2e";
   const isProductionBrowserRuntime = import.meta.env.PROD && !isDesktopRuntime;
@@ -547,7 +547,7 @@ const App = () => {
     // Root motion feature provider: every animated component uses `m` against
     // this single domMax bundle instead of shipping the full `motion` runtime.
     <LazyMotion features={domMax} strict>
-      <MotionConfig reducedMotion={economicHidden || aioRunning ? "always" : "never"}>
+      <MotionConfig reducedMotion={economicHidden || aioRunning ? "always" : "user"}>
         <UpdaterProvider>
           <AuthProvider>
             {customCursorEnabled ? <CustomCursor /> : null}

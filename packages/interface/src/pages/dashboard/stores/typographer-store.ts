@@ -87,6 +87,6 @@ export const useTypographerStore = create<TypographerStore>()(
       setTypographerSelectedSnapshotId: (typographerSelectedSnapshotId) =>
         set({ typographerSelectedSnapshotId }),
     }),
-    { name: 'typographer-store' },
+    { name: 'typographer-store', enabled: import.meta.env.DEV },
   ),
 );

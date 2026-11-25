@@ -67,6 +67,6 @@ export const useSplitterStore = create<SplitterStore>()(
           return { imageStates: { ...state.imageStates, [imageId]: next } };
         }),
     }),
-    { name: 'splitter-store' },
+    { name: 'splitter-store', enabled: import.meta.env.DEV },
   ),
 );

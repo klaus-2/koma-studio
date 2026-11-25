@@ -5,6 +5,7 @@ import {
   loadTranslationCatalog,
   translateDynamicMessage,
   translateMessage,
+  translateOrFallback,
 } from "@/i18n/messages";
 
 describe("translateMessage", () => {
@@ -71,6 +72,31 @@ describe("translateMessage", () => {
     expect(
       translateDynamicMessage("en", "external.missing.message"),
     ).toBe("external.missing.message");
+  });
+
+  it("translateOrFallback reads the supplied non-English catalogs", () => {
+    expect(
+      translateOrFallback("pt", "custom.tooltip", "English text", {
+        pt: { "custom.tooltip": "Texto em português" },
+      }),
+    ).toBe("Texto em português");
+  });
+
+  it("translateOrFallback sees catalogs loaded through loadTranslationCatalog", async () => {
+    const ptBr = await loadTranslationCatalog("pt-br");
+    const [key, value] = Object.entries(ptBr).find(
+      ([entryKey, entryValue]) =>
+        entryValue !== (defaultMessages as Record<string, string>)[entryKey],
+    ) ?? ["", ""];
+
+    expect(key).not.toBe("");
+    expect(translateOrFallback("pt-br", key, "fallback")).toBe(value);
+  });
+
+  it("translateOrFallback returns the fallback for unknown keys", () => {
+    expect(translateOrFallback("en", "does.not.exist", "Fallback copy")).toBe(
+      "Fallback copy",
+    );
   });
 
   it("returns the immutable default catalog", async () => {

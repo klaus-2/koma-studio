@@ -169,6 +169,6 @@
          }),
        },
      ),
-     { name: 'info-nav-store' },
+     { name: 'info-nav-store', enabled: import.meta.env.DEV },
      ),
    );

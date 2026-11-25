@@ -144,6 +144,6 @@ export const useUiShellStore = create<UiShellStore>()(
         set({ inlineEditorShortcutRequestKey }),
       setHoldOriginalActive: (holdOriginalActive) => set({ holdOriginalActive }),
     }),
-    { name: 'ui-shell-store' },
+    { name: 'ui-shell-store', enabled: import.meta.env.DEV },
   ),
 );

@@ -350,6 +350,25 @@ describe("tauri api wrapper", () => {
     });
   });
 
+  it("sends the thumbnail request under the payload argument and decodes the bytes", async () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedInvoke.mockResolvedValueOnce({
+      data: btoa("\u0001\u0002\u0003"),
+      mimeType: "image/png",
+    });
+
+    const result = await tauriApi.desktop?.images?.thumbnail?.({
+      filePath: "C:/manga/p1.png",
+      maxDim: 400,
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith("desktop-api:images:thumbnail", {
+      payload: { filePath: "C:/manga/p1.png", maxDim: 400 },
+    });
+    expect(result?.mimeType).toBe("image/png");
+    expect(Array.from(new Uint8Array(result?.data ?? new ArrayBuffer(0)))).toEqual([1, 2, 3]);
+  });
+
   it("publishes batch state through the frozen channel", async () => {
     mockedIsTauri.mockReturnValue(true);
     mockedInvoke.mockResolvedValueOnce({ accepted: true });

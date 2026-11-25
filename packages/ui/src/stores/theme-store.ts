@@ -49,7 +49,7 @@ export const useThemeStore = create<ThemeStore>()(
         },
       },
     ),
-    { name: 'theme-store' },
+    { name: 'theme-store', enabled: import.meta.env.DEV },
   ),
 );
 

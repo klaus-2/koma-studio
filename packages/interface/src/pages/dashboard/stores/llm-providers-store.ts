@@ -179,6 +179,6 @@ export const useLlmProvidersStore = create<LlmProvidersStore>()(
               : drafts,
         })),
     }),
-    { name: 'llm-providers-store' },
+    { name: 'llm-providers-store', enabled: import.meta.env.DEV },
   ),
 );

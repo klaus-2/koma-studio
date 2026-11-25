@@ -41,6 +41,6 @@ export const useBackdropVideoStore = create<BackdropVideoStore>()(
         }),
       },
     ),
-    { name: 'backdrop-video-store' },
+    { name: 'backdrop-video-store', enabled: import.meta.env.DEV },
   ),
 );

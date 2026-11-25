@@ -164,7 +164,7 @@ export const useWorksStore = create<WorksStore>()(
           ),
         })),
     }),
-    { name: 'works-store' },
+    { name: 'works-store', enabled: import.meta.env.DEV },
   ),
 );
 

@@ -77,6 +77,6 @@ export const useRegionEditorStore = create<RegionEditorStore>()(
       setTypographyPresetState: (typographyPresetState) =>
         set({ typographyPresetState }),
     }),
-    { name: 'region-editor-store' },
+    { name: 'region-editor-store', enabled: import.meta.env.DEV },
   ),
 );

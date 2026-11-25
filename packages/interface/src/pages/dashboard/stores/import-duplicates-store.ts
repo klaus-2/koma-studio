@@ -25,5 +25,6 @@ export const useImportDuplicatesStore = create<ImportDuplicatesStore>()(
       openPending: (pending) => set({ pending }),
       clearPending: () => set({ pending: null }),
     }),
+    { name: 'import-duplicates-store', enabled: import.meta.env.DEV },
   ),
 );

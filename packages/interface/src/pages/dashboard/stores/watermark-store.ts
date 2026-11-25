@@ -155,6 +155,6 @@ export const useWatermarkStore = create<WatermarkStore>()(
             typeof value === 'function' ? value(state.textZoneCache) : value,
         })),
     }),
-    { name: 'watermark-store' },
+    { name: 'watermark-store', enabled: import.meta.env.DEV },
   ),
 );

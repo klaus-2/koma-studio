@@ -6,7 +6,7 @@ import { DEFAULT_RENDER_STYLE } from '../../constants/dashboard.constants';
 import type { RenderTextStyle } from '../../typography/renderStyle';
 
 const drawSpy = vi.hoisted(() => vi.fn());
-const layoutSpy = vi.hoisted(() => vi.fn(() => ({ lines: [] })));
+const layoutSpy = vi.hoisted(() => vi.fn((..._args: unknown[]) => ({ lines: [] })));
 
 vi.mock('../../utils/renderText', () => ({
   computeRenderTextLayout: layoutSpy,

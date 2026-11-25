@@ -68,6 +68,6 @@ export const useUiScaleStore = create<UiScaleStore>()(
         }),
       },
     ),
-    { name: 'ui-scale-store' },
+    { name: 'ui-scale-store', enabled: import.meta.env.DEV },
   ),
 );

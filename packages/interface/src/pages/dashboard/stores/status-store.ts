@@ -50,6 +50,6 @@ export const useStatusStore = create<StatusStore>()(
       setRuntimeExecutionNotice: (notice) =>
         set({ runtimeExecutionNotice: notice }),
     }),
-    { name: 'status-store' },
+    { name: 'status-store', enabled: import.meta.env.DEV },
   ),
 );

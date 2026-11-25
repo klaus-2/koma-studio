@@ -136,6 +136,6 @@ export const useManualToolsStore = create<ManualToolsStore>()(
             typeof value === 'function' ? value(state.healingHintTrigger) : value,
         })),
     }),
-    { name: 'manual-tools-store' },
+    { name: 'manual-tools-store', enabled: import.meta.env.DEV },
   ),
 );

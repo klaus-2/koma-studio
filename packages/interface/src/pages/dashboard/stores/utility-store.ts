@@ -106,6 +106,6 @@ export const useUtilityStore = create<UtilityWorkspacesStore>()(
       setOptimizerWorkspaceState: (optimizerWorkspaceState) =>
         set({ optimizerWorkspaceState }),
     }),
-    { name: 'utility-store' },
+    { name: 'utility-store', enabled: import.meta.env.DEV },
   ),
 );

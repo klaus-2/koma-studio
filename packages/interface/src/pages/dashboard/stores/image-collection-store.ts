@@ -247,6 +247,6 @@ export const useImageCollectionStore = create<ImageCollectionStore>()(
           };
         }),
     }),
-    { name: 'image-collection-store' },
+    { name: 'image-collection-store', enabled: import.meta.env.DEV },
   ),
 );
