@@ -7,6 +7,7 @@ import {
 
 import { useI18n, type TranslateFn } from '../../../i18n';
 import VersionBadge from '../../VersionBadge';
+import { PanelBoundary } from '../PanelBoundary';
 import SidebarChapterHeader from '../SidebarChapterHeader';
 import VirtualizedSidebarList, { buildVirtualizedSidebarRows, VIRTUALIZED_SIDEBAR_MIN_IMAGES, type SidebarVirtualRow, type VirtualizedSidebarRowDomProps } from '../virtualized-sidebar/VirtualizedSidebarList';
 import SidebarChapterSelectionBar from '../SidebarChapterSelectionBar';
@@ -463,6 +464,10 @@ export default function DashboardLeftSidebarNoir({
       )}
 
       <div className="relative flex min-h-0 flex-1 flex-col p-3">
+        <PanelBoundary
+          label={t('dashboard.sidebar.files', { count: images.length })}
+          resetKey="left-sidebar"
+        >
         <div className="mb-2 flex items-center justify-between">
           <span className="kicker">// {t('dashboard.sidebar.files', { count: images.length })}</span>
           {images.length > 0 && (
@@ -582,6 +587,7 @@ export default function DashboardLeftSidebarNoir({
         </div>
 
         <WatchFolderToggleNoir />
+        </PanelBoundary>
       </div>
     </aside>
   );

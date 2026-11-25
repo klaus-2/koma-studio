@@ -20,6 +20,7 @@ import {
 
 import { useI18n, type TranslateFn } from '../../i18n';
 import VersionBadge from '../VersionBadge';
+import { PanelBoundary } from './PanelBoundary';
 import SidebarChapterHeader from './SidebarChapterHeader';
 import VirtualizedSidebarList, { buildVirtualizedSidebarRows, VIRTUALIZED_SIDEBAR_MIN_IMAGES, type SidebarVirtualRow, type VirtualizedSidebarRowDomProps } from './virtualized-sidebar/VirtualizedSidebarList';
 import {
@@ -521,6 +522,10 @@ export default function DashboardLeftSidebarClassic({
       )}
 
       <div className="koma-files">
+        <PanelBoundary
+          label={t('dashboard.sidebar.files', { count: images.length })}
+          resetKey="left-sidebar"
+        >
         <div className="koma-files__header">
           <span>{t('dashboard.sidebar.files', { count: images.length })}</span>
           {images.length > 0 && (
@@ -641,6 +646,7 @@ export default function DashboardLeftSidebarClassic({
         </div>
 
         <WatchFolderToggleClassic />
+        </PanelBoundary>
       </div>
     </aside>
   );
