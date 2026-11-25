@@ -139,6 +139,7 @@ def effective_requirements(
     result.constraints.extend(base.constraints)
     result.constraints.extend(profile.constraints)
 
+    seen_requirements: set[str] = set()
     for requirement in [*base.requirements, *profile.requirements]:
         if not _active(requirement):
             continue
@@ -147,6 +148,10 @@ def effective_requirements(
             continue
         if legacy_windows and name == "numpy" and requirement in base.requirements:
             continue
+        dedup_key = f"{name}|{requirement.specifier}|{','.join(sorted(requirement.extras))}|{requirement.marker}"
+        if dedup_key in seen_requirements:
+            continue
+        seen_requirements.add(dedup_key)
         result.requirements.append(requirement)
 
     names = {canonicalize_name(item.name) for item in result.requirements}

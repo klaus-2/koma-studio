@@ -50,6 +50,7 @@ PROFILE_REQUIREMENTS: dict[tuple[str, str], str] = {
     ("amd-rocm", "Linux"): "requirements-linux-amd.txt",
     ("intel-openvino", "Windows"): "requirements-windows-intel.txt",
     ("intel-openvino", "Linux"): "requirements-linux-intel.txt",
+    ("windows-directml", "Windows"): "requirements-windows-directml.txt",
     ("apple-mps", "Darwin"): "requirements-macos-apple-silicon.txt",
 }
 

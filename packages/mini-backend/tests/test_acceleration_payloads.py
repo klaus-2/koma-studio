@@ -42,6 +42,8 @@ class DevicePayloadTests(unittest.TestCase):
                 "nvidia_tensorrt_available": False,
                 "intel_openvino_available": False,
                 "amd_rocm_available": False,
+                "windows_directml_available": False,
+                "webgpu_available": False,
             },
         )
 

@@ -308,7 +308,13 @@ pub(super) fn list_artifact_options(
 fn artifact_profile_order(platform: &str, include_tensorrt: bool) -> Vec<&'static str> {
     match platform {
         "win32" => {
-            let mut profiles = vec!["cpu", "nvidia-cuda", "nvidia-cuda-legacy", "intel-openvino"];
+            let mut profiles = vec![
+                "cpu",
+                "nvidia-cuda",
+                "nvidia-cuda-legacy",
+                "intel-openvino",
+                "windows-directml",
+            ];
             if include_tensorrt {
                 profiles.push("nvidia-tensorrt");
             }
@@ -349,6 +355,9 @@ pub(super) fn format_runtime_fallback_reason(value: Option<&str>) -> Option<Stri
         }
         "coreml_only_for_onnx" => {
             "CoreML acceleration is unavailable for the current ONNX runtime, so the app is using CPU execution."
+        }
+        "onnx_directml_provider_unavailable" => {
+            "DirectML / WebGPU acceleration is unavailable on this runtime, so the app is using CPU execution."
         }
         "runtime_warmup_fallback_to_cpu" => {
             "The selected runtime profile failed warmup and was downgraded to CPU."

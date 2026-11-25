@@ -7,8 +7,9 @@ import sys
 import zipfile
 from dataclasses import dataclass
 from typing import Tuple, Union
+from urllib.parse import urlparse
 
-import wget
+import httpx
 
 from ....pororo.tasks.utils.config import CONFIGS
 
@@ -313,9 +314,23 @@ def download_from_url(
     url = get_download_url(n_model, key=key, lang=lang)
 
     logging.info("Downloading user-selected model...")
-    wget.download(url, type_dir)
-    sys.stderr.write("\n")
-    sys.stderr.flush()
+    file_name = os.path.basename(urlparse(url).path) or "model.bin"
+    dest_path = os.path.join(type_dir, file_name)
+    tmp_path = f"{dest_path}.part"
+    try:
+        with httpx.stream("GET", url, follow_redirects=True, timeout=60.0) as response:
+            response.raise_for_status()
+            with open(tmp_path, "wb") as handle:
+                for chunk in response.iter_bytes(chunk_size=65536):
+                    if chunk:
+                        handle.write(chunk)
+        os.replace(tmp_path, dest_path)
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
     return type_dir
 

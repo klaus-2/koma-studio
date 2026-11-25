@@ -440,6 +440,11 @@ PROFILE_PROVIDER_ORDER: dict[AccelerationProfile, tuple[str, ...]] = {
     "amd-rocm": ("ROCMExecutionProvider", "CPUExecutionProvider"),
     "apple-mps": ("CoreMLExecutionProvider", "CPUExecutionProvider"),
     "intel-openvino": ("OpenVINOExecutionProvider", "CPUExecutionProvider"),
+    "windows-directml": (
+        "WebGPUExecutionProvider",
+        "DmlExecutionProvider",
+        "CPUExecutionProvider",
+    ),
     "cpu": ("CPUExecutionProvider",),
 }
 VALID_ACCELERATION_PROFILES = {
@@ -451,6 +456,7 @@ VALID_ACCELERATION_PROFILES = {
     "apple-mps",
     "amd-rocm",
     "intel-openvino",
+    "windows-directml",
 }
 
 
@@ -653,6 +659,8 @@ def _resolve_auto_profile(
         return "nvidia-cuda"
     if system_name == "Darwin" and platform.machine().lower().startswith("arm"):
         return "apple-mps"
+    if "WebGPUExecutionProvider" in providers or "DmlExecutionProvider" in providers:
+        return "windows-directml"
     return "cpu"
 
 
@@ -698,6 +706,8 @@ def _resolve_provider_for_profile(
                 fallback_reason = "coreml_only_for_onnx"
             elif profile == "intel-openvino":
                 fallback_reason = "openvino_provider_unavailable"
+            elif profile == "windows-directml":
+                fallback_reason = "onnx_directml_provider_unavailable"
         return selected_provider, fallback_reason
     return (
         "CPUExecutionProvider",
@@ -747,6 +757,9 @@ def get_device_info() -> DeviceInfo:
         "intel-openvino": torch_info.device_name
         if torch_info.has_gpu
         else "Intel OpenVINO",
+        "windows-directml": torch_info.device_name
+        if torch_info.has_gpu
+        else "Windows GPU (DirectML / WebGPU)",
     }
     profile_has_gpu = requested_profile != "cpu"
     if requested_profile == "nvidia-cuda" and not (
@@ -776,6 +789,12 @@ def get_device_info() -> DeviceInfo:
         and "OpenVINOExecutionProvider" not in providers
     ):
         profile_has_gpu = torch_info.has_gpu
+    if requested_profile == "windows-directml" and not (
+        "WebGPUExecutionProvider" in providers
+        or "DmlExecutionProvider" in providers
+        or torch_info.has_gpu
+    ):
+        profile_has_gpu = False
 
     return DeviceInfo(
         name=profile_name_map.get(requested_profile, torch_info.device_name),
@@ -910,6 +929,8 @@ def build_device_payload(
         "nvidia_tensorrt_available": "TensorrtExecutionProvider" in available_providers,
         "intel_openvino_available": "OpenVINOExecutionProvider" in available_providers,
         "amd_rocm_available": "ROCMExecutionProvider" in available_providers,
+        "windows_directml_available": "DmlExecutionProvider" in available_providers,
+        "webgpu_available": "WebGPUExecutionProvider" in available_providers,
     }
 
 

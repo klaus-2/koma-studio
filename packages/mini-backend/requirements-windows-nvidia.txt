@@ -1,4 +1,5 @@
--r requirements.txt
+-r requirements-common.txt
+numpy>=2.0.0
 onnxruntime-gpu==1.22.0
 nvidia-cuda-runtime-cu12
 nvidia-cuda-nvrtc-cu12

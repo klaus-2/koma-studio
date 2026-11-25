@@ -26,6 +26,7 @@ pub(super) const PROFILES: &[&str] = &[
     "apple-mps",
     "amd-rocm",
     "intel-openvino",
+    "windows-directml",
 ];
 
 #[derive(Debug, thiserror::Error)]

@@ -166,6 +166,37 @@ class DeviceInfoTests(unittest.TestCase):
             ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
         )
 
+    @patch.object(device_module, "_detect_torch_device", return_value=(False, "AMD Radeon", None))
+    @patch.object(
+        device_module,
+        "_detect_onnx_providers",
+        return_value=(("WebGPUExecutionProvider", "DmlExecutionProvider", "CPUExecutionProvider"), False),
+    )
+    def test_windows_directml_profile_prefers_webgpu_then_directml(self, *_mocks: object) -> None:
+        info = device_module.get_device_info()
+
+        self.assertTrue(info.has_gpu)
+        self.assertEqual(info.acceleration_profile, "windows-directml")
+        self.assertEqual(info.onnx_provider, "WebGPUExecutionProvider")
+        self.assertEqual(
+            device_module.get_onnx_execution_providers(info),
+            ["WebGPUExecutionProvider", "DmlExecutionProvider", "CPUExecutionProvider"],
+        )
+
+    @patch.object(device_module, "_detect_torch_device", return_value=(False, "CPU", None))
+    @patch.object(
+        device_module,
+        "_detect_onnx_providers",
+        return_value=(("CPUExecutionProvider",), False),
+    )
+    def test_windows_directml_missing_provider_falls_back_cleanly(self, *_mocks: object) -> None:
+        os.environ["MINI_BACKEND_ACCELERATION_PROFILE"] = "windows-directml"
+        info = device_module.get_device_info()
+
+        self.assertFalse(info.has_gpu)
+        self.assertEqual(info.onnx_provider, "CPUExecutionProvider")
+        self.assertEqual(info.fallback_reason, "onnx_directml_provider_unavailable")
+
     @unittest.skipUnless(os.name == "nt", "Windows-only DLL path")
     @patch.object(device_module.Path, "exists", return_value=True)
     @patch.object(

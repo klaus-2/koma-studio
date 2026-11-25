@@ -47,6 +47,7 @@ Profile = Literal[
     "amd-rocm",
     "intel-openvino",
     "apple-mps",
+    "windows-directml",
 ]
 
 _EXPECTED_ONNX = {
@@ -57,10 +58,12 @@ _EXPECTED_ONNX = {
     "amd-rocm": "onnxruntime-rocm",
     "intel-openvino": "onnxruntime-openvino",
     "apple-mps": "onnxruntime",
+    "windows-directml": "onnxruntime-directml",
 }
 
 _PROBE = r"""
 import importlib
+import platform
 import sys
 
 profile = sys.argv[1]
@@ -69,18 +72,27 @@ providers = set(ort.get_available_providers())
 if not callable(ort.InferenceSession):
     raise SystemExit(10)
 
-expected = {
-    "cpu": "CPUExecutionProvider",
-    "nvidia-cuda": "CUDAExecutionProvider",
-    "nvidia-cuda-legacy": "CUDAExecutionProvider",
-    "nvidia-tensorrt": "TensorrtExecutionProvider",
-    "amd-rocm": "ROCMExecutionProvider",
-    "intel-openvino": "OpenVINOExecutionProvider",
-    "apple-mps": "CPUExecutionProvider",
-}.get(profile)
+if profile == "windows-directml":
+    if not ({"WebGPUExecutionProvider", "DmlExecutionProvider"} & providers):
+        raise SystemExit(11)
+else:
+    apple_expected = (
+        "CoreMLExecutionProvider"
+        if sys.platform == "darwin" and platform.machine().lower().startswith("arm")
+        else "CPUExecutionProvider"
+    )
+    expected = {
+        "cpu": "CPUExecutionProvider",
+        "nvidia-cuda": "CUDAExecutionProvider",
+        "nvidia-cuda-legacy": "CUDAExecutionProvider",
+        "nvidia-tensorrt": "TensorrtExecutionProvider",
+        "amd-rocm": "ROCMExecutionProvider",
+        "intel-openvino": "OpenVINOExecutionProvider",
+        "apple-mps": apple_expected,
+    }.get(profile)
 
-if expected is not None and expected not in providers:
-    raise SystemExit(11)
+    if expected is not None and expected not in providers:
+        raise SystemExit(11)
 
 if sys.platform == "win32" and profile.startswith("nvidia-"):
     from pathlib import Path

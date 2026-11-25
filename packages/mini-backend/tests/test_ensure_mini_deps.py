@@ -50,6 +50,44 @@ def test_profile_mapping_survives_parity_contract() -> None:
         == "requirements-windows-nvidia-legacy.txt"
     )
     assert mapping[("amd-rocm", "Linux")] == "requirements-linux-amd.txt"
+    assert mapping[("windows-directml", "Windows")] == "requirements-windows-directml.txt"
+
+
+def test_apple_mps_probe_checks_coreml_on_apple_silicon() -> None:
+    from mini_backend_tools import dependencies
+
+    assert "CoreMLExecutionProvider" in dependencies._PROBE
+    assert "DmlExecutionProvider" in dependencies._PROBE
+    assert "WebGPUExecutionProvider" in dependencies._PROBE
+
+
+def test_requirements_profiles_share_common_without_wget_or_dual_ort() -> None:
+    from mini_backend_tools.requirements import ONNX_VARIANTS
+
+    profile_files = [
+        "requirements-windows-nvidia.txt",
+        "requirements-linux-nvidia.txt",
+        "requirements-linux-amd.txt",
+        "requirements-linux-intel.txt",
+        "requirements-windows-intel.txt",
+        "requirements-windows-directml.txt",
+    ]
+    for filename in profile_files:
+        base = RequirementSet()
+        profile = RequirementSet()
+        read_requirements(MINI_BACKEND_DIR / "requirements.txt", root=MINI_BACKEND_DIR, result=base)
+        read_requirements(MINI_BACKEND_DIR / filename, root=MINI_BACKEND_DIR, result=profile)
+        expected_onnx = next(item.name for item in profile.requirements if item.name in ONNX_VARIANTS)
+        merged = effective_requirements(
+            base,
+            profile,
+            selected="windows-directml" if expected_onnx == "onnxruntime-directml" else "nvidia-cuda",
+            expected_onnx=expected_onnx,
+        )
+        names = [item.name for item in merged.requirements]
+        assert "wget" not in names
+        assert len(names) == len(set(names)), f"duplicate entries in {filename}: {names}"
+        assert [n for n in names if n in ONNX_VARIANTS] == [expected_onnx]
 
 
 def test_environment_validation() -> None:
