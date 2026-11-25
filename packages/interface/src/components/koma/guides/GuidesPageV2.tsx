@@ -1,5 +1,3 @@
-'use client';
-
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import { useInfoNavStore } from '@/stores/info-nav-store';

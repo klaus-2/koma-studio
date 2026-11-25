@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronDown, Pencil, Save, Settings2, Trash2, X } from 'lucide-react';
 import { useI18n } from '../../i18n';

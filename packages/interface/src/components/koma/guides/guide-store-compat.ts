@@ -1,5 +1,3 @@
-'use client';
-
 import { useInfoNavStore } from '@/stores/info-nav-store';
 import type { GuideCategoryId } from '@/data/guides-types';
 

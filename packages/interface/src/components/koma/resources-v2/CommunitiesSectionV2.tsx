@@ -1,5 +1,3 @@
-'use client';
-
 import {
   ExternalLink,
   Globe2,

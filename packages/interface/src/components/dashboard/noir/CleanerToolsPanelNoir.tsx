@@ -1,5 +1,3 @@
-'use client';
-
 import {
   Box, Eraser, Eye, RefreshCcw, Replace, Sparkles, Wand2, Wrench,
 } from 'lucide-react';

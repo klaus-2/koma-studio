@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import {
   ArrowRight, Box, Eye, FileDown, FileSpreadsheet, FileUp, FolderOpen,

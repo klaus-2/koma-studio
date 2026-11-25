@@ -1,5 +1,3 @@
-"use client";
-
 import { ReactNode } from "react";
 import { m, useReducedMotion } from "framer-motion";
 import loginBackgroundVideo from "@koma/ui/assets/login-background.mp4";

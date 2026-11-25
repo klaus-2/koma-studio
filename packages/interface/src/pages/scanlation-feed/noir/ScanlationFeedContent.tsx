@@ -1,5 +1,3 @@
-'use client';
-
 import { memo, type ChangeEvent } from 'react';
 import { Plus } from 'lucide-react';
 

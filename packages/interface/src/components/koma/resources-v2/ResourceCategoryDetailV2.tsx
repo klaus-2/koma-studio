@@ -1,5 +1,3 @@
-'use client';
-
 import type {
   ResourceTab,
 } from '@/data/guides-types';

@@ -1,5 +1,3 @@
-'use client';
-
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { m, useReducedMotion, type Variants } from 'framer-motion';

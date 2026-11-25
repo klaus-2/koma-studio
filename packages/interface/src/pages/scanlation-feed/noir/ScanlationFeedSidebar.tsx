@@ -1,5 +1,3 @@
-'use client';
-
 import type { ChangeEvent } from 'react';
 import { Check, Inbox, User } from 'lucide-react';
 

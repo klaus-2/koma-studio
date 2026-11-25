@@ -1,5 +1,3 @@
-'use client';
-
 import type { Dispatch, SetStateAction } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { Briefcase, Clock, DollarSign, FileText, MessageCircle, Star } from 'lucide-react';

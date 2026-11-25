@@ -1,5 +1,3 @@
-'use client';
-
 import type { Dispatch, SetStateAction } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { Check, Globe, Plus, X, type LucideIcon } from 'lucide-react';

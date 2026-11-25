@@ -1,5 +1,3 @@
-'use client';
-
 import {
   AlertTriangle, Briefcase, Flag, Gavel, Megaphone, Plus, Send, Users,
 } from 'lucide-react';

@@ -1,5 +1,3 @@
-'use client';
-
 import type { Dispatch, SetStateAction } from 'react';
 import { Flag, Send } from 'lucide-react';
 

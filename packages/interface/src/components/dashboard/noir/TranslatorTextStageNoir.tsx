@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { m } from 'framer-motion';
 import { AlertTriangle, Copy, Download, Eraser, FolderOpen, Languages, Type } from 'lucide-react';

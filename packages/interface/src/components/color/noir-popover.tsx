@@ -1,5 +1,3 @@
-'use client';
-
 import { forwardRef, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
 
 export const PopoverChip = forwardRef<HTMLButtonElement, {

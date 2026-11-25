@@ -1,5 +1,3 @@
-'use client';
-
 import { useMemo, useState } from 'react';
 import { HexColorInput, HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from '@koma/ui/components/popover';

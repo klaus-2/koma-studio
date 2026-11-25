@@ -1,5 +1,3 @@
-'use client';
-
 import { useMemo, useState, type ReactNode } from 'react';
 import { HexColorInput, HexColorPicker } from 'react-colorful';
 import { GColorPicker } from '../GColorPicker';

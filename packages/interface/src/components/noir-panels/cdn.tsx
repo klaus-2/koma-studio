@@ -1,5 +1,3 @@
-'use client';
-
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AlertTriangle, Check, type LucideIcon } from 'lucide-react';

@@ -1,5 +1,3 @@
-'use client';
-
 import { Popover, PopoverContent, PopoverTrigger } from '@koma/ui/components/popover';
 import type { NativeTextEffectPreset, NativeTextEffectPresetId } from '../../../typography/textEffects';
 import { useI18n } from '../../../i18n';

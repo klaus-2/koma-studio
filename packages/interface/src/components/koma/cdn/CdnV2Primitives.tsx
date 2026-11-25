@@ -1,5 +1,3 @@
-'use client';
-
 import type { ReactNode } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
