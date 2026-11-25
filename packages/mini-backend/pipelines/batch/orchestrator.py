@@ -92,6 +92,7 @@ class BatchRunConfig:
     gpu: GpuFlags
     batch_id: str = ""
     requested_concurrency: int | None = None
+    priority_index: int | None = None
 
     @property
     def selected_stage_count(self) -> int:
@@ -114,6 +115,23 @@ class CleanedImage:
 class BatchOutcome:
     report: BatchReport
     cleaned: list[CleanedImage]
+
+
+def _order_states_by_priority(
+    states: Sequence[_ImageState], priority_index: int | None
+) -> list[_ImageState]:
+    if priority_index is None or not any(
+        state.task.index == priority_index for state in states
+    ):
+        return list(states)
+    return sorted(
+        states,
+        key=lambda state: (
+            abs(state.task.index - priority_index),
+            0 if state.task.index >= priority_index else 1,
+            state.task.index,
+        ),
+    )
 
 
 @dataclass(slots=True)
@@ -141,6 +159,7 @@ class _ImageState:
     # page's bytes across phases; outstanding passes stay bounded by the
     # executor admission semaphore.
     bytes_memo: bytes | None = None
+    final_item_result: BatchItemResult | None = None
 
     def read_bytes_once(self) -> bytes:
         if self.bytes_memo is None:
@@ -277,18 +296,23 @@ class BatchOrchestrator:
             },
         )
         if self._config.two_phase:
-            await self._run_queue(states, self._phase_one)
+            await self._run_queue(states, self._phase_one, emit_page_ready=False)
             self._ocr_by_index = {s.task.index: s.ocr for s in states}
-            await self._run_queue(states, self._phase_two)
+            await self._run_queue(states, self._phase_two, emit_page_ready=True)
         else:
-            await self._run_queue(states, self._single_pass)
+            await self._run_queue(states, self._single_pass, emit_page_ready=True)
 
         if self._cancellation.is_set():
             self._progress.cancel()
         else:
             self._progress.finish()
 
-        results = [self._to_item_result(state) for state in states]
+        results = [
+            state.final_item_result
+            if state.final_item_result is not None
+            else self._to_item_result(state)
+            for state in states
+        ]
         requested_concurrency = (
             self._config.requested_concurrency
             if self._config.requested_concurrency is not None
@@ -328,30 +352,51 @@ class BatchOrchestrator:
         self,
         states: Sequence[_ImageState],
         handler: Callable[[_ImageState], Awaitable[None]],
+        *,
+        emit_page_ready: bool = False,
     ) -> None:
+        ordered = _order_states_by_priority(states, self._config.priority_index)
+
         async def worker(state: _ImageState, _position: int) -> _ImageState:
             self._progress.item_started(state.task.index, state.task.filename)
             try:
                 await handler(state)
             finally:
                 state.bytes_memo = None
-                self._progress.item_finished(state.task.index, self._item_status(state))
+                self._progress.item_finished(
+                    state.task.index, self._item_status(state)
+                )
+                if emit_page_ready:
+                    has_cleaned = state.cleaned is not None
+                    if state.cleaned is not None:
+                        self._progress.store_cleaned_page(
+                            state.task.index, state.cleaned.png
+                        )
+                    item_result = self._to_item_result(state)
+                    state.final_item_result = item_result
+                    self._progress.item_page_ready(
+                        state.task.index,
+                        item_result.model_dump(mode="json"),
+                        has_cleaned=has_cleaned,
+                    )
             return state
 
         processor: QueueProcessor[_ImageState, _ImageState] = QueueProcessor(
             concurrency=self._config.concurrency, continue_on_error=True
         )
         outcomes = await processor.process(
-            states,
+            ordered,
             worker,
             cancellation_event=self._cancellation,
             per_task_timeout=PER_IMAGE_TIMEOUT_SECONDS,
         )
         for outcome in outcomes:
             if outcome.result is None:
-                states[outcome.index].fail(
+                target = ordered[outcome.index]
+                target.fail(
                     "queue", outcome.error or "Unexpected failure during batch processing."
                 )
+                target.final_item_result = None
 
     # ----------------------------------------------------------------- phases
 

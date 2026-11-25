@@ -459,6 +459,11 @@ const parseItemResult = (
   };
 };
 
+export const parseBatchItemResult = (
+  value: unknown,
+  position = 0,
+): PipelineBatchItemResult => parseItemResult(value, position);
+
 const parseBatchStages = (value: unknown): PipelineBatchStages => {
   const record = isRecord(value) ? value : {};
   return {

@@ -49,6 +49,7 @@ router = APIRouter(tags=["pipeline"])
 logger = logging.getLogger(__name__)
 
 _DISCONNECT_CHECK_INTERVAL_SECONDS = 2.0
+_SSE_KEEPALIVE_SECONDS = 15.0
 # Manga/comic scans top out well below this; anything larger is abuse or a mistake.
 _MAX_IMAGE_BYTES = 50 * 1024 * 1024
 _UPLOAD_CHUNK_BYTES = 1024 * 1024
@@ -206,12 +207,81 @@ async def get_batch_capacity(concurrency: int | None = None) -> dict[str, object
     }
 
 
+def _format_sse_event(event_name: str, payload: dict[str, object]) -> str:
+    serialized = json.dumps(payload, separators=(",", ":"))
+    return f"event: {event_name}\ndata: {serialized}\n\n"
+
+
 @router.get("/pipeline/batch/progress")
 async def get_batch_progress(batch_id: str) -> dict[str, object]:
     snapshot = get_batch_progress_registry().snapshot(batch_id)
     if snapshot is None:
         raise HTTPException(status_code=404, detail="Unknown or expired batch id.")
     return snapshot
+
+
+@router.get("/pipeline/batch/{batch_id}/events")
+async def stream_batch_events(request: Request, batch_id: str) -> StreamingResponse:
+    resolved = _resolve_batch_id(batch_id)
+    registry = get_batch_progress_registry()
+    subscription = registry.subscribe(resolved)
+    if subscription is None:
+        raise HTTPException(status_code=404, detail="Unknown or expired batch id.")
+    initial_progress, existing_pages, queue = subscription
+
+    async def event_generator():
+        try:
+            yield _format_sse_event("progress", initial_progress)
+            for page_payload in existing_pages:
+                yield _format_sse_event("page", page_payload)
+            if bool(initial_progress.get("finished")) or bool(
+                initial_progress.get("cancelled")
+            ):
+                yield _format_sse_event("done", initial_progress)
+                return
+
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event_name, payload = await asyncio.wait_for(
+                        queue.get(), timeout=_SSE_KEEPALIVE_SECONDS
+                    )
+                except TimeoutError:
+                    if await request.is_disconnected():
+                        break
+                    yield ": keepalive\n\n"
+                    continue
+                yield _format_sse_event(event_name, payload)
+                if event_name == "done":
+                    break
+        finally:
+            registry.unsubscribe(resolved, queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get("/pipeline/batch/{batch_id}/cleaned/{index}")
+async def get_batch_cleaned_page(batch_id: str, index: int) -> Response:
+    resolved = _resolve_batch_id(batch_id)
+    if index < 0:
+        raise HTTPException(status_code=400, detail="index must be non-negative.")
+    png = get_batch_progress_registry().get_cleaned_page(resolved, index)
+    if png is None:
+        raise HTTPException(status_code=404, detail="Cleaned page not found or expired.")
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post("/pipeline/batch")
@@ -244,6 +314,7 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
     use_gpu_ocr: Annotated[bool | None, Form()] = None,
     use_gpu_segment: Annotated[bool | None, Form()] = None,
     use_gpu_clean: Annotated[bool | None, Form()] = None,
+    priority_index: Annotated[int | None, Form()] = None,
 ) -> Response:
     if not files:
         raise HTTPException(status_code=400, detail="No image was uploaded.")
@@ -309,6 +380,7 @@ async def pipeline_batch(  # noqa: PLR0913 — multipart form contract of the en
         ),
         batch_id=resolved_batch_id,
         requested_concurrency=requested_concurrency,
+        priority_index=priority_index,
     )
 
     tasks = await _spool_uploads(files, limit_bytes=_MAX_IMAGE_BYTES)

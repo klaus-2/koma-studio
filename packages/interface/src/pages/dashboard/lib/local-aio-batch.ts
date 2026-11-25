@@ -107,6 +107,7 @@ export interface LocalAioBatchOptions {
   ) => RenderTextStyle;
   minRegionSize: number;
   maxAreaRatio?: number;
+  priorityIndex?: number;
   cleanFileName?: (image: BatchMappingImage, index: number) => string;
   parseApiError: (response: Response) => Promise<string>;
 }
@@ -518,6 +519,13 @@ const buildBatchForm = async (
     appendBoolean(form, 'use_gpu_segment', options.gpuStages.segmentText);
     appendBoolean(form, 'use_gpu_clean', options.gpuStages.cleanImage);
   }
+  if (
+    options.priorityIndex !== undefined &&
+    Number.isSafeInteger(options.priorityIndex) &&
+    options.priorityIndex >= 0
+  ) {
+    form.append('priority_index', String(options.priorityIndex));
+  }
 
   return form;
 };
@@ -836,3 +844,10 @@ export async function runLocalAioBatchChunks({
 
   return { batchIds, results };
 }
+
+export {
+  parseBatchPageStreamEvent,
+  startBatchProgressStream,
+  type BatchPageStreamEvent,
+  type StartBatchProgressStreamInput,
+} from './local-aio-batch-stream';
