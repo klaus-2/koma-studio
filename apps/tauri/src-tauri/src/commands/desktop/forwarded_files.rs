@@ -270,7 +270,7 @@ mod tests {
         let zip = temp_container_file(dir.path(), "a.cbz");
         let staged = zip.to_string_lossy().into_owned();
 
-        stage_session_forwarded_paths(&[staged.clone()]);
+        stage_session_forwarded_paths(std::slice::from_ref(&staged));
 
         assert!(is_session_forwarded_path(&format!("  {staged}  ")));
     }

@@ -20,7 +20,7 @@ pub(super) fn resolve_runtime_artifacts_url(sources: &ConfigSources) -> String {
         .iter()
         .find_map(|key| sources.resolve(key))
         .map_or_else(
-            || default_runtime_artifacts_url(),
+            default_runtime_artifacts_url,
             |raw| normalize_runtime_artifacts_url(&raw, sources.channel),
         )
 }

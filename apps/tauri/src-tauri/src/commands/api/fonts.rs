@@ -249,8 +249,8 @@ async fn install_from_dialog(
         dialog_app
             .dialog()
             .file()
-            .set_title("Importar fonte")
-            .add_filter("Fontes", FONT_EXTENSIONS)
+            .set_title("Import font")
+            .add_filter("Fonts", FONT_EXTENSIONS)
             .blocking_pick_file()
     })
     .await?;

@@ -55,7 +55,7 @@ pub fn run() {
                             match serde_json::to_string(&hash) {
                                 Ok(script) => {
                                     if let Err(error) =
-                                        window.eval(&format!("window.location.hash = {script}"))
+                                        window.eval(format!("window.location.hash = {script}"))
                                     {
                                         log::warn!(
                                             "single-instance: failed to apply deep link: {error}"
@@ -110,12 +110,15 @@ pub fn run() {
         .manage(commands::logging::SessionLogSink::default())
         .manage(commands::desktop_updater::InstallerUpdaterStore::default())
         .manage(
-            // A failed spawn (thread exhaustion) is unrecoverable for presence:
-            // fail loudly at startup instead of managing a dead handle.
             commands::discord::DiscordPresence::spawn(
                 commands::discord::DEFAULT_DISCORD_CLIENT_ID.to_owned(),
             )
-            .expect("failed to spawn the Discord presence worker"),
+            .unwrap_or_else(|error| {
+                log::warn!(
+                    "failed to spawn the Discord presence worker; continuing with Discord RPC disabled: {error}"
+                );
+                commands::discord::DiscordPresence::disabled()
+            }),
         )
         .manage(state::WorkspaceAssetStore::default())
         .manage(state::api::ApiRuntimeState::default())

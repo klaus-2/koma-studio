@@ -41,7 +41,7 @@ pub async fn select_asset_files(
         dialog_app
             .dialog()
             .file()
-            .set_title("Selecionar assets")
+            .set_title("Select assets")
             .blocking_pick_files()
     })
     .await?;
@@ -277,7 +277,7 @@ pub async fn export_current(
         dialog_app
             .dialog()
             .file()
-            .set_title("Exportar workspace")
+            .set_title("Export workspace")
             .set_file_name(file_name)
             .add_filter("KOMA Workspace", &[WORKSPACE_FILE_EXTENSION])
             .blocking_save_file()
@@ -319,7 +319,7 @@ pub async fn import_file(app: AppHandle) -> AppResult<WorkspaceImportResult> {
         dialog_app
             .dialog()
             .file()
-            .set_title("Importar workspace")
+            .set_title("Import workspace")
             .add_filter("KOMA Workspace", &[WORKSPACE_FILE_EXTENSION])
             .blocking_pick_file()
     })

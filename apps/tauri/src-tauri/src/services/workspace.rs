@@ -583,6 +583,17 @@ pub fn read_workspace_package(file_path: &Path) -> AppResult<LoadedWorkspace> {
 
 
 
+#[cfg(unix)]
+fn sync_directory(path: &Path) -> AppResult<()> {
+    File::open(path)?.sync_all()?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn sync_directory(_path: &Path) -> AppResult<()> {
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -738,7 +749,7 @@ mod tests {
         assert_eq!(parse_backup_live_name("backup"), None);
         assert_eq!(parse_backup_live_name(""), None);
         assert_eq!(
-            parse_backup_live_name(&format!("autosave.a.koma.not-a-uuid.backup")),
+            parse_backup_live_name("autosave.a.koma.not-a-uuid.backup"),
             None
         );
     }
@@ -795,15 +806,4 @@ mod tests {
         let error = write_workspace_package(&path, &payload).unwrap_err();
         assert!(matches!(error, AppError::InvalidInput(_)));
     }
-}
-
-#[cfg(unix)]
-fn sync_directory(path: &Path) -> AppResult<()> {
-    File::open(path)?.sync_all()?;
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn sync_directory(_path: &Path) -> AppResult<()> {
-    Ok(())
 }

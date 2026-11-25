@@ -186,6 +186,15 @@ impl DiscordPresence {
         })
     }
 
+    pub fn disabled() -> Self {
+        let (sender, _receiver) = mpsc::channel();
+        Self {
+            enabled: AtomicBool::new(false),
+            connected: Arc::new(AtomicBool::new(false)),
+            sender,
+        }
+    }
+
     pub fn is_enabled(&self) -> bool {
         self.enabled.load(Ordering::Acquire)
     }
@@ -776,6 +785,20 @@ mod tests {
         }
         assert_eq!(Preset::parse("unknown"), None);
         assert_eq!(preset_assets().len(), Preset::ALL.len() + 1);
+    }
+
+    #[test]
+    fn disabled_presence_stays_off_and_reports_worker_gone() {
+        let presence = DiscordPresence::disabled();
+        assert!(!presence.is_enabled());
+        assert!(!presence.is_connected());
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("failed to build the test runtime");
+        let result = runtime.block_on(presence.enable());
+        assert!(matches!(result, Err(PresenceError::WorkerGone)));
+        assert!(!presence.is_enabled());
     }
 
     #[test]

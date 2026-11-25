@@ -592,7 +592,6 @@ pub(crate) fn fold_sidecar_failure<R: Runtime + 'static>(
     let decision = sidecar_store.evaluate_restart(now_millis(), trigger)?;
     let epoch = sidecar_store.restart_epoch()?;
     let tail = sidecar_store.stderr_tail();
-    drop(sidecar_store);
 
     let cause = trigger.label();
     let report = describe_failure(&decision, &cause, RESTART_MAX_ATTEMPTS);
@@ -642,7 +641,6 @@ pub(crate) fn fold_sidecar_failure<R: Runtime + 'static>(
         },
     )
     .map_err(|error| error.to_string())?;
-    drop(runtime_store);
 
     if let Some(delay) = retry_after {
         schedule_restart(app.clone(), epoch, attempt, delay);
@@ -665,7 +663,6 @@ fn schedule_restart<R: Runtime + 'static>(
         tokio::time::sleep(delay).await;
         let sidecar_store = app.state::<MiniBackendSidecarStore>();
         let cancelled = sidecar_store.restart_cancelled(epoch);
-        drop(sidecar_store);
         if cancelled.unwrap_or(true) {
             log::info!("mini-backend: pending restart cancelled by a newer request");
             return;
@@ -694,7 +691,6 @@ async fn run_restart_attempt<R: Runtime + 'static>(
     let sidecar_store = app.state::<MiniBackendSidecarStore>();
     sidecar_store.invalidate_generation()?;
     sidecar_store.mark_restart_intent();
-    drop(sidecar_store);
     stop_mini_backend(&app)?;
 
     let runtime_store = app.state::<MiniBackendRuntimeStore>();
@@ -715,7 +711,6 @@ async fn run_restart_attempt<R: Runtime + 'static>(
         },
     )
     .map_err(|error| error.to_string())?;
-    drop(runtime_store);
 
     start_mini_backend(app).await.map(|_| ())
 }

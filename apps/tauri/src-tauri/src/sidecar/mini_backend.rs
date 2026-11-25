@@ -388,7 +388,7 @@ pub async fn start_mini_backend<R: Runtime + 'static>(
     )
     .env(
         "KOMA_APP_DATA_DIR",
-        path_to_string(&models_root.parent().unwrap_or(&models_root)),
+        path_to_string(models_root.parent().unwrap_or(&models_root)),
     )
     .env("PYTHONUTF8", "1")
     .env("PYTHONIOENCODING", "utf-8")
@@ -617,7 +617,6 @@ pub fn stop_mini_backend<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     store.set_session_secret(None)?;
 
     let (child, pid) = store.take_child()?;
-    drop(store);
     if let Some(child) = child {
         // TerminateProcess via tauri-plugin-shell only kills the immediate
         // child (python.exe). On Windows the sidecar is spawned without a Job

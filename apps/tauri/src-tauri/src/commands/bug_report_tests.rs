@@ -38,16 +38,20 @@
 
     #[test]
     fn payload_parts_reject_short_titles_and_default_include_logs() {
-        let mut payload = BugReportSubmitPayload::default();
-        payload.title = Some("ab".to_owned());
-        payload.description = Some("description".to_owned());
+        let payload = BugReportSubmitPayload {
+            title: Some("ab".to_owned()),
+            description: Some("description".to_owned()),
+            ..Default::default()
+        };
         assert!(matches!(
             prepare_payload_parts(payload),
             Err(BugReportError::Rejected { status: 400, .. })
         ));
 
-        let mut payload = BugReportSubmitPayload::default();
-        payload.title = Some("Valid title".to_owned());
+        let payload = BugReportSubmitPayload {
+            title: Some("Valid title".to_owned()),
+            ..Default::default()
+        };
         let parts = prepare_payload_parts(payload).unwrap();
         assert!(parts.include_logs);
         assert_eq!(parts.title, "Valid title");

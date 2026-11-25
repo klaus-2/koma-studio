@@ -208,7 +208,7 @@ async fn import_onnx_inner(
         dialog_app
             .dialog()
             .file()
-            .set_title("Importar modelo ONNX")
+            .set_title("Import ONNX model")
             .add_filter("ONNX", &["onnx"])
             .blocking_pick_file()
     })

@@ -11,7 +11,7 @@ use tauri::State;
 
 use crate::{
     error::AppError,
-    protocol::media::MediaScopes,
+    protocol::media::{MediaScope, MediaScopes},
 };
 
 pub(crate) const IMAGE_EXTENSIONS: &[&str] = &[
@@ -263,16 +263,53 @@ pub async fn desktop_api_allow_paths(
 
 #[tauri::command(rename = "desktop-api:images:thumbnail")]
 pub async fn desktop_api_thumbnail(
+    scopes: State<'_, MediaScopes>,
     payload: DesktopImageThumbnailPayload,
 ) -> Result<DesktopImageThumbnailResult, AppError> {
     let max_dim = validate_thumbnail_max_dim(payload.max_dim.unwrap_or(DEFAULT_THUMBNAIL_MAX_DIM))?;
 
-    let file_path = payload.file_path;
-    tauri::async_runtime::spawn_blocking(move || {
-        thumbnail_png_bytes(Path::new(&file_path), max_dim)
-    })
-    .await
-    .map_err(blocking_task_error)?
+    let canonical = resolve_scoped_image_path(&scopes.images, Path::new(&payload.file_path))?;
+    tauri::async_runtime::spawn_blocking(move || thumbnail_png_bytes(&canonical, max_dim))
+        .await
+        .map_err(blocking_task_error)?
+}
+
+fn resolve_scoped_image_path(scope: &MediaScope, path: &Path) -> Result<PathBuf, AppError> {
+    let raw = path
+        .to_str()
+        .ok_or_else(|| AppError::InvalidPath("Image path is not valid UTF-8.".to_owned()))?;
+    let requested = validate_non_empty_path(raw)?;
+    if !requested.is_absolute() {
+        return Err(AppError::InvalidInput(
+            "Image path must be absolute.".to_owned(),
+        ));
+    }
+
+    match fs::canonicalize(&requested) {
+        Ok(canonical) if scope.is_allowed(&canonical) => Ok(canonical),
+        Ok(_) => Err(AppError::PathNotAllowed(requested)),
+        Err(error) => {
+            let parent_allowed = requested
+                .parent()
+                .and_then(|parent| fs::canonicalize(parent).ok())
+                .is_some_and(|parent| scope.contains_dir(&parent));
+            Err(if parent_allowed && error.kind() == io::ErrorKind::NotFound {
+                AppError::NotFound(requested)
+            } else {
+                AppError::PathNotAllowed(requested)
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+fn thumbnail_png_bytes_in_scope(
+    scope: &MediaScope,
+    path: &Path,
+    max_dim: u32,
+) -> Result<DesktopImageThumbnailResult, AppError> {
+    let canonical = resolve_scoped_image_path(scope, path)?;
+    thumbnail_png_bytes(&canonical, max_dim)
 }
 
 fn validate_thumbnail_max_dim(max_dim: u32) -> Result<u32, AppError> {
@@ -745,6 +782,58 @@ mod tests {
         assert!(matches!(
             thumbnail_png_bytes(temp.path(), 16),
             Err(AppError::NotAFile(_))
+        ));
+    }
+
+    #[test]
+    fn thumbnail_in_scope_rejects_path_outside_allowed_scope() {
+        let allowed = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let scope = MediaScope::default();
+        scope.allow_dir(allowed.path()).unwrap();
+
+        let path = outside.path().join("page.png");
+        image::RgbaImage::from_fn(8, 8, |_, _| image::Rgba([1, 2, 3, 255]))
+            .save(&path)
+            .unwrap();
+
+        assert!(matches!(
+            thumbnail_png_bytes_in_scope(&scope, &path, 16),
+            Err(AppError::PathNotAllowed(_))
+        ));
+        assert!(matches!(
+            thumbnail_png_bytes_in_scope(&scope, &outside.path().join("missing.png"), 16),
+            Err(AppError::PathNotAllowed(_))
+        ));
+    }
+
+    #[test]
+    fn thumbnail_in_scope_allows_authorized_file_and_dir() {
+        let folder = tempfile::tempdir().unwrap();
+        let single = tempfile::tempdir().unwrap();
+
+        let in_dir = folder.path().join("a.png");
+        let alone = single.path().join("b.png");
+        for path in [&in_dir, &alone] {
+            image::RgbaImage::from_fn(64, 32, |_, _| image::Rgba([9, 9, 9, 255]))
+                .save(path)
+                .unwrap();
+        }
+
+        let scope = MediaScope::default();
+        scope.allow_dir(folder.path()).unwrap();
+        scope.allow_file(&alone).unwrap();
+
+        for path in [&in_dir, &alone] {
+            let result = thumbnail_png_bytes_in_scope(&scope, path, 16).unwrap();
+            let bytes = BASE64.decode(result.data).unwrap();
+            let decoded = image::load_from_memory(&bytes).unwrap();
+            assert_eq!((decoded.width(), decoded.height()), (16, 8));
+        }
+
+        assert!(matches!(
+            thumbnail_png_bytes_in_scope(&scope, &folder.path().join("missing.png"), 16),
+            Err(AppError::NotFound(_))
         ));
     }
 
