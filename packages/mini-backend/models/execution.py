@@ -15,6 +15,7 @@ from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Final
 
+from core.denormals import flush_denormals_on_current_thread
 from core.device import acquire_gpu_memory_lease, release_gpu_memory_lease
 from models.errors import InferenceError
 
@@ -53,6 +54,7 @@ def _get_executor() -> ThreadPoolExecutor:
             _executor = ThreadPoolExecutor(
                 max_workers=_MAX_WORKERS,
                 thread_name_prefix="inference",
+                initializer=flush_denormals_on_current_thread,
             )
         return _executor
 
