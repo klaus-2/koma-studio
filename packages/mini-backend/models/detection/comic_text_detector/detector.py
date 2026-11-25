@@ -91,19 +91,23 @@ class ComicTextDetector(BaseDetector):
 
     def _detect(self, image: Image.Image) -> list[TextDetection]:
         rgb = np.asarray(image.convert("RGB"))
-        candidates = self._detect_with_slicing(rgb, score_threshold=self.confidence_threshold)
+        recall_threshold = max(0.05, min(self.confidence_threshold * 0.5, 0.10))
+        recall_enabled = recall_threshold < self.confidence_threshold
+        pool = self._detect_with_slicing(
+            rgb,
+            score_threshold=recall_threshold if recall_enabled else self.confidence_threshold,
+        )
+        candidates = [det for det in pool if det.score >= self.confidence_threshold]
         if not candidates:
             return []
         merged = self._merge_text_lines(candidates, width=rgb.shape[1], height=rgb.shape[0])
 
         # Recall pass: if only one block was found, retry with a lower threshold
         # to recover secondary text areas (e.g. credits/watermarks at the bottom).
-        recall_threshold = max(0.05, min(self.confidence_threshold * 0.5, 0.10))
-        if len(merged) < 2 and recall_threshold < self.confidence_threshold:
-            extra_candidates = self._detect_with_slicing(rgb, score_threshold=recall_threshold)
-            if extra_candidates:
-                combined = candidates + extra_candidates
-                merged = self._merge_text_lines(combined, width=rgb.shape[1], height=rgb.shape[0])
+        if len(merged) < 2 and recall_enabled:
+            merged = self._merge_text_lines(
+                candidates + pool, width=rgb.shape[1], height=rgb.shape[0]
+            )
 
         return sort_detections_in_reading_order(self._apply_nms(merged))
 
