@@ -6,7 +6,7 @@ import { useI18n } from '../i18n';
 import type {
   CalibrationOfferController,
   CalibrationReportView,
-} from './CalibrationOfferDialog';
+} from './CalibrationOfferDialog.types';
 
 const CalibrationReportSummary = ({
   report,

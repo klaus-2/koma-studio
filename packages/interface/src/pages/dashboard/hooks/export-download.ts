@@ -53,14 +53,12 @@ import { useRegionEditorStore } from '../stores/region-editor-store';
 import { useTranslatorStore } from '../stores/translator-store';
 import { useWorksStore } from '../stores/works-store';
 
+import type { DownloadBundleResult } from './export-download.types';
+
 export { useDashboardDownloadActions, useDashboardPsdDownload } from './export-download.actions';
 export { useExportDownloadAvailability } from './export-download.availability';
 
-export interface DownloadBundleResult {
-  readonly fileName: string;
-  readonly blob: Blob | null;
-  readonly shellFilePath: string | null;
-}
+export type { DownloadBundleResult } from './export-download.types';
 
 let sharedExportPool: ExportWorkerPool | null = null;
 const getExportPool = (): ExportWorkerPool => {

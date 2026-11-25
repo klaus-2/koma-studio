@@ -10,27 +10,23 @@ import { useUiShellStore } from '../pages/dashboard/stores/ui-shell-store';
 
 /* ═══ Calibration report view (backend contract: routers/calibration.py) ══ */
 
-export interface CalibrationMeasurementView {
-  megapixels: number;
-  status: 'ok' | 'failed';
-  throughputImagesPerSecond: number | null;
-  peakVramMb: number | null;
-  downscaled: boolean;
-  effectiveMegapixels: number | null;
-}
+import type {
+  CalibrationDialogPhase,
+  CalibrationLastResult,
+  CalibrationMeasurementView,
+  CalibrationOfferController,
+  CalibrationReportView,
+  CalibrationTunableApply,
+} from './CalibrationOfferDialog.types';
 
-export interface CalibrationReportView {
-  status: 'ok' | 'failed';
-  deviceName: string;
-  deviceHasGpu: boolean;
-  totalVramMb: number | null;
-  wallClockSeconds: number;
-  measurements: CalibrationMeasurementView[];
-  recommendedWorkingResolution: number | null;
-  error: string | null;
-}
-
-export type CalibrationLastResult = CalibrationReportView | { status: 'never-run' };
+export type {
+  CalibrationDialogPhase,
+  CalibrationLastResult,
+  CalibrationMeasurementView,
+  CalibrationOfferController,
+  CalibrationReportView,
+  CalibrationTunableApply,
+} from './CalibrationOfferDialog.types';
 
 const narrowMeasurement = (
   value: unknown,
@@ -161,12 +157,6 @@ export const markCalibrationOfferAnswered = (): void => {
 
 /* ═══ Tunable apply (through the settings hook's existing save flow) ═══ */
 
-export interface CalibrationTunableApply {
-  /** Writes the recommendation through the mini-backend tunables save flow. */
-  applyRecommendation: (megapixels: number) => void;
-  saveStatus: 'idle' | 'saving' | 'saved' | 'failed';
-}
-
 /**
  * The settings hook's save closes over its draft state, so the draft update
  * and the save are one render apart: `applyRecommendation` marks the pending
@@ -198,21 +188,6 @@ export const useCalibrationTunableApply = (): CalibrationTunableApply => {
 };
 
 /* ═══ Offer controller ═══ */
-
-export type CalibrationDialogPhase = 'offer' | 'running' | 'result' | 'error';
-
-export interface CalibrationOfferController {
-  open: boolean;
-  phase: CalibrationDialogPhase;
-  report: CalibrationReportView | null;
-  /** True when the benchmark POST failed (transport/HTTP/payload). */
-  runError: boolean;
-  applyStatus: CalibrationTunableApply['saveStatus'];
-  accept: () => void;
-  decline: () => void;
-  apply: () => void;
-  close: () => void;
-}
 
 const useCalibrationOfferController = (): CalibrationOfferController => {
   const processing = useUiShellStore((s) => s.processing);

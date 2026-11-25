@@ -5,7 +5,7 @@
    render from this list; new families only get added here.
    ============================================================ */
 
-import type { KomaThemeFamily } from '../stores/theme-store';
+import type { KomaThemeFamily } from './theme-family';
 
 export interface ThemeFamilyDef {
   id: KomaThemeFamily;

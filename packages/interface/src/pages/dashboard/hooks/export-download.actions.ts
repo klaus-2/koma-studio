@@ -29,7 +29,7 @@ import type { RenderTextLayout } from '../../../utils/renderText.types';
 import type { TypographySessionSourceType } from '../../../typography/types';
 import { materializePageFile, resolvePagePreview } from '../../../utils/page-source';
 import { ensureDirectPageUrl } from './image-collection';
-import type { DownloadBundleResult } from './export-download';
+import type { DownloadBundleResult } from './export-download.types';
 import type {
   AioPipelineSnapshotKey,
   AioTextRegion,

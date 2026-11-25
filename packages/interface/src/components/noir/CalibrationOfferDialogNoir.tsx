@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useI18n } from '../../i18n';
-import type { CalibrationOfferController } from '../CalibrationOfferDialog';
+import type { CalibrationOfferController } from '../CalibrationOfferDialog.types';
 
 const btnPrimary =
   'panel-cut-sm flex items-center justify-center gap-2 bg-crimson px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-ink transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-gold disabled:cursor-not-allowed disabled:opacity-40';

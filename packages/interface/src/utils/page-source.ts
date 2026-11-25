@@ -10,39 +10,21 @@ import {
   buildKomaImagePageUrl,
   hasKomaImageProtocolBridge,
 } from './koma-media-url';
+import type {
+  ArchivePageFile,
+  DirectPageFile,
+  PageDimensions,
+  PageFile,
+} from '../types/page-source.types';
 
-export interface PageDimensions {
-  readonly width: number;
-  readonly height: number;
-}
-
-export interface ResidentPageBytes {
-  readonly resident: Blob;
-}
-
-export interface PageFileBase {
-  readonly name: string;
-  readonly type: string;
-  readonly size: number;
-  readonly lastModified: number;
-  readonly toBlob: () => Promise<Blob>;
-  readonly dimensions: () => Promise<PageDimensions>;
-  readonly release: () => void;
-}
-
-export interface DirectPageFile extends PageFileBase, ResidentPageBytes {
-  readonly kind: 'direct';
-  readonly resident: File;
-  readonly sourcePath?: string;
-}
-
-export interface ArchivePageFile extends PageFileBase {
-  readonly kind: 'archive';
-  readonly chapter: ArchiveChapter;
-  readonly entry: ArchiveEntryMeta;
-}
-
-export type PageFile = DirectPageFile | ArchivePageFile;
+export type {
+  ArchivePageFile,
+  DirectPageFile,
+  PageDimensions,
+  PageFile,
+  PageFileBase,
+  ResidentPageBytes,
+} from '../types/page-source.types';
 
 export const isPageFile = (value: unknown): value is PageFile =>
   typeof value === 'object' &&

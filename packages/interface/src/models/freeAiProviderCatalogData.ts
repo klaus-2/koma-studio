@@ -1,4 +1,4 @@
-import type { FreeAiProviderCatalogEntry } from "./freeAiProviderCatalog";
+import type { FreeAiProviderCatalogEntry } from "./freeAiProviderCatalog.types";
 import { FREE_AI_PROVIDER_CATALOG_CORE } from "./freeAiProviderCatalogCoreData";
 import { FREE_AI_PROVIDER_CATALOG_EXTENDED } from "./freeAiProviderCatalogExtendedData";
 

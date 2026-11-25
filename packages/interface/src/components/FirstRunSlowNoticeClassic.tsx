@@ -2,7 +2,7 @@ import type { JSX, KeyboardEvent } from 'react';
 import { Hourglass, X } from 'lucide-react';
 import { useI18n } from '../i18n';
 import DontShowAgainCheckbox from './DontShowAgainCheckbox';
-import type { FirstRunNoticeController } from './FirstRunSlowNotice';
+import type { FirstRunNoticeController } from './FirstRunSlowNotice.types';
 
 export default function FirstRunSlowNoticeClassic({
   controller,

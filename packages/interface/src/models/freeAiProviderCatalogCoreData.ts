@@ -1,4 +1,4 @@
-import type { FreeAiProviderCatalogEntry } from "./freeAiProviderCatalog";
+import type { FreeAiProviderCatalogEntry } from "./freeAiProviderCatalog.types";
 import {
   createCleanStage,
   LAST_VERIFIED_AT,

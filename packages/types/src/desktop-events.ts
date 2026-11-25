@@ -1,4 +1,4 @@
-import type { RuntimeConfig } from "./desktop-api";
+import type { RuntimeConfig } from "./runtime-config";
 
 export const updaterEventNames = [
   "status",

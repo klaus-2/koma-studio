@@ -7,10 +7,8 @@ module.exports = {
   forbidden: [
     {
       name: 'no-circular',
-      // warn until the known type/runtime cycles in packages/interface are paid down
-      // (34 pre-existing violations as of the token-catalog landing). New rules stay error.
-      severity: 'warn',
-      comment: 'Runtime import cycles are banned. Currently warn-only due to legacy cycles.',
+      severity: 'error',
+      comment: 'Runtime and module import cycles are banned.',
       from: {},
       to: { circular: true },
     },

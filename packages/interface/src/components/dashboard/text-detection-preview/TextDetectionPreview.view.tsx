@@ -13,7 +13,7 @@ import '../ContextMenu.css';
 import type {
   TextDetectionPreviewController,
   TextDetectionPreviewProps,
-} from '../TextDetectionPreview';
+} from './TextDetectionPreview.types';
 import { useI18n } from '../../../i18n';
 import type { AioTextRegion } from '../../../types/dashboard.types';
 import type { RenderTextStyle } from '../../../utils/renderText';

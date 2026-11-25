@@ -2,16 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createFamilyComponent } from '@koma/ui/themes/family-skins';
 import FirstRunSlowNoticeClassic from './FirstRunSlowNoticeClassic';
 import FirstRunSlowNoticeNoir from './noir/FirstRunSlowNoticeNoir';
+import type { FirstRunNoticeController } from './FirstRunSlowNotice.types';
 import { useToolTips } from '../hooks/useToolTips';
 import { useAioPipelineStore } from '../pages/dashboard/stores/aio-pipeline-store';
 
 export const FIRST_RUN_NOTICE_TIP_ID = 'first-run-slow-notice';
 
-export interface FirstRunNoticeController {
-  dismiss: () => void;
-  dontShowAgain: boolean;
-  setDontShowAgain: (checked: boolean) => void;
-}
+export type { FirstRunNoticeController } from './FirstRunSlowNotice.types';
 
 const useFirstRunNoticeController = (): FirstRunNoticeController & { open: boolean } => {
   const aioRunning = useAioPipelineStore((s) => s.aioExecutionStatus !== null);

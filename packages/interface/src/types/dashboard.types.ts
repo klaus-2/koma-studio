@@ -10,7 +10,7 @@ import type {
   TypographyShape,
 } from "../typography/types";
 import type { RenderTextStyleRange } from "../typography/renderStyle";
-import type { PageFile } from "../utils/page-source";
+import type { PageFile } from "./page-source.types";
 
 export type EnhanceScale = 2 | 4;
 

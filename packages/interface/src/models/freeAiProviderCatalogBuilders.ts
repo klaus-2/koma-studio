@@ -5,7 +5,7 @@ import type {
   FreeProviderStage,
   FreeProviderStageDefinition,
   FreeProviderTransport,
-} from "./freeAiProviderCatalog";
+} from "./freeAiProviderCatalog.types";
 
 export const LAST_VERIFIED_AT = "2026-04-06";
 export const FREE_RESOURCES_SOURCE_URL = "https://github.com/cheahjs/free-llm-api-resources?tab=readme-ov-file";

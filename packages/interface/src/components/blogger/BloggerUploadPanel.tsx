@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 import type { useI18n } from '../../i18n';
-import type { UploadDraftItem } from './BloggerWorkspace';
+import type { UploadDraftItem } from './BloggerWorkspace.types';
 
 type I18nTranslate = ReturnType<typeof useI18n>['t'];
 

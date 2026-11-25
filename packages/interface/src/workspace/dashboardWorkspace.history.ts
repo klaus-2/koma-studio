@@ -19,7 +19,7 @@ import type {
   HistoryDataUrlHandle,
   HistoryManualImageEditState,
   OptimizerWorkspaceRuntimeState,
-} from "./dashboardWorkspace";
+} from "./dashboardWorkspace.types";
 
 type RuntimeAioState = DashboardWorkspaceCaptureState["aio"] & {
   detectionsByImage: Record<string, AioTextRegion[]>;

@@ -3,7 +3,7 @@ import { AlertTriangle, Layers } from 'lucide-react';
 import { useI18n } from '../../../i18n';
 import type { PsdCompression } from '../KomaTopbar.shared';
 import { cn } from '../KomaTopbar.shared';
-import { CheckRow, Field, inputCls, selectCls } from './KomaTopbarDownloadMenuNoir';
+import { CheckRow, Field, inputCls, selectCls } from './KomaTopbarDownloadMenuPrimitivesNoir';
 
 type KomaTopbarDownloadMenuPsdSectionProps = {
   modeIsAio: boolean;

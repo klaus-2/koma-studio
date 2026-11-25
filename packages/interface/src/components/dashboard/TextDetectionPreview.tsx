@@ -1,15 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { DEFAULT_RENDER_STYLE } from '../../constants/dashboard.constants';
 import type {
-  AioPipelineSnapshotKey,
   AioTextRegion,
-  LoadedImage,
   RegionCorner,
-  SegmentEditTool,
-  ViewMode,
 } from '../../types/dashboard.types';
-import type { TypographyShapeKind } from '../../typography/types';
-import type { RenderTextStyle } from '../../utils/renderText';
 import {
   clamp,
   cloneRenderStyle,
@@ -18,60 +12,18 @@ import {
 } from '../../utils/dashboard.utils';
 import { useTextDetectionPreviewBehaviors } from './text-detection-preview/TextDetectionPreview.behaviors';
 import TextDetectionPreviewView from './text-detection-preview/TextDetectionPreview.view';
+import type {
+  TextDetectionPreviewController,
+  TextDetectionPreviewProps,
+} from './text-detection-preview/TextDetectionPreview.types';
 import { findRegionAtPoint as findRegionAtPointInRegions } from './render-text-preview/regionGeometry';
-import {
-  useRegionPickerState,
-  type RegionPickerState,
-} from './render-text-preview/RegionPickerMount';
+import { useRegionPickerState } from './render-text-preview/RegionPickerMount';
 import { useUiShellStore } from '@/pages/dashboard/stores/ui-shell-store';
 
-export interface TextDetectionPreviewProps {
-  label: string;
-  image: LoadedImage;
-  previewSrc: string;
-  viewMode: ViewMode;
-  active: boolean;
-  regions: AioTextRegion[];
-  selectedRegionId: string | null;
-  onCardSelect: () => void;
-  onSelectRegion: (regionId: string | null) => void;
-  onRegionsChange: (
-    next: AioTextRegion[],
-    selectedRegionIdOverride?: string | null,
-  ) => void;
-  editable: boolean;
-  selectionEnabled: boolean;
-  creationEnabled: boolean;
-  newRegionShapeKind: TypographyShapeKind;
-  segmentEditEnabled: boolean;
-  segmentEditTool: SegmentEditTool;
-  segmentBrushSize: number;
-  segmentBrushDataUrl?: string | null;
-  onSegmentBrushChange?: (dataUrl: string | null) => void;
-  stageBadgeKey: AioPipelineSnapshotKey;
-  stageBadgeLabel: string;
-  canRewind: boolean;
-  canForward: boolean;
-  onRewind: () => void;
-  onForward: () => void;
-  historyHint: string | null;
-  translationNotesEnabled: boolean;
-  fallbackStyle?: RenderTextStyle;
-}
-
-export type TextDetectionPreviewController = ReturnType<
-  typeof useTextDetectionPreviewBehaviors
-> & {
-  overlayRef: React.RefObject<HTMLDivElement | null>;
-  imgElemW: number;
-  imgElemH: number;
-  canvasWrapW: number;
-  canvasWrapH: number;
-  isBrushCursorActive: boolean;
-  zoom: number;
-  regionPicker: RegionPickerState | null;
-  closeRegionPicker: () => void;
-};
+export type {
+  TextDetectionPreviewController,
+  TextDetectionPreviewProps,
+} from './text-detection-preview/TextDetectionPreview.types';
 
 export const useTextDetectionPreviewController = (
   {

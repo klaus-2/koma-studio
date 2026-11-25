@@ -26,7 +26,7 @@ import type { TypographySession } from "../typography/types";
 import type {
   DashboardWorkspaceCaptureState,
   DashboardWorkspaceRestoreState,
-} from "./dashboardWorkspace";
+} from "./dashboardWorkspace.types";
 import { jsonSafeClone as toJsonClone } from "./jsonSafeClone";
 import {
   forceRenderSizesInPlace,

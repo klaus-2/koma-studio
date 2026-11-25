@@ -38,6 +38,9 @@ import type {
  * Electron shell's desktop-auth-constants, the Tauri sidecar modules and
  * `app.py`.
  */
+import type { RuntimeConfig } from "./runtime-config";
+export type { RuntimeConfig } from "./runtime-config";
+
 export const localApiSessionHeader = "x-koma-local-session";
 
 export type JsonRecord = Record<string, unknown>;
@@ -47,14 +50,6 @@ type LeafValue<T> = T extends string
   : T extends Record<string, unknown>
     ? LeafValue<T[keyof T]>
     : never;
-
-export interface RuntimeConfig {
-  authApiUrl: string;
-  localApiUrl: string;
-  runtimeArtifactsUrl?: string;
-  appPackaged: boolean;
-  authDisabled?: boolean;
-}
 
 export type ModelInstallStrategy =
   | "direct_download"

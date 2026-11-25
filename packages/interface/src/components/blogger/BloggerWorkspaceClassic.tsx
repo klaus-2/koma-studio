@@ -27,6 +27,10 @@ import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
 
 import { DEFAULT_BLOGGER_CONFIG, type BloggerUploadResult } from '../../types';
+import type {
+  BloggerWorkspaceProps,
+  UploadDraftItem,
+} from './BloggerWorkspace.types';
 import {
   buildBloggerBulkOutput,
   deserializeBloggerLabels,
@@ -46,19 +50,10 @@ import './CdnWorkspace.css';
 type BloggerWorkspaceTab = 'publish' | 'upload';
 type BloggerEditorView = 'visual' | 'html' | 'preview';
 
-export interface BloggerWorkspaceProps {
-  openSettingsOnIntegrationsTab?: () => void;
-}
-
-export interface UploadDraftItem {
-  id: string;
-  file: File;
-  altText: string;
-  previewUrl: string;
-  status: 'queued' | 'processing' | 'uploaded' | 'error';
-  result: BloggerUploadResult | null;
-  error: string | null;
-}
+export type {
+  BloggerWorkspaceProps,
+  UploadDraftItem,
+} from './BloggerWorkspace.types';
 
 const ACCEPTED_IMAGE_TYPES = {
   'image/png': ['.png'],

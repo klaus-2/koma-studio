@@ -1,4 +1,4 @@
-import type { DashboardWorkspaceCaptureState } from "./dashboardWorkspace";
+import type { DashboardWorkspaceCaptureState } from "./dashboardWorkspace.types";
 import { isPageFile } from "../utils/page-source";
 
 const signatureReplacer = (_key: string, value: unknown): unknown => {

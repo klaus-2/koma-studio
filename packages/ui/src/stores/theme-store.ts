@@ -8,9 +8,10 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
 import { DEFAULT_THEME_FAMILY } from '../themes/registry';
+import type { KomaThemeFamily } from '../themes/theme-family';
 
+export type { KomaThemeFamily } from '../themes/theme-family';
 export type KomaTheme = 'dark' | 'light';
-export type KomaThemeFamily = 'classic' | 'noir';
 
 const THEME_STORAGE_KEY = 'koma_theme';
 const THEME_STORAGE_VERSION = 2;

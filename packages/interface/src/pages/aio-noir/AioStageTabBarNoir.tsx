@@ -1,4 +1,4 @@
-import type { StageTabDef, StageTabKey } from "../AioStageTabBar";
+import type { StageTabDef, StageTabKey } from "../AioStageTabBar.types";
 import { m } from "framer-motion";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";

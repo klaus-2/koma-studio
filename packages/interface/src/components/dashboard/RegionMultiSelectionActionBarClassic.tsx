@@ -4,7 +4,7 @@ import { useI18n } from '../../i18n';
 import {
   useRegionMultiSelectionActions,
   type RegionMultiSelectionActionBarProps,
-} from './RegionMultiSelectionActionBar';
+} from './RegionMultiSelectionActionBar.controller';
 
 /** Classic skin of the multi-selection action bar (counter + group actions). */
 export const RegionMultiSelectionActionBarClassic = (

@@ -5,7 +5,7 @@ import { btnGhost } from '../../../pages/settings/noir/primitives';
 import {
   useRegionMultiSelectionActions,
   type RegionMultiSelectionActionBarProps,
-} from '../RegionMultiSelectionActionBar';
+} from '../RegionMultiSelectionActionBar.controller';
 
 /** Noir skin of the multi-selection action bar (counter + group actions). */
 export const RegionMultiSelectionActionBarNoir = (
