@@ -190,6 +190,21 @@ def decode_predictions(
     return text, float(kept_scores[reading_order].mean())
 
 
+def _supports_dynamic_batch(session: ort.InferenceSession) -> bool:
+    inputs = session.get_inputs()
+    if not inputs:
+        return False
+    shape = getattr(inputs[0], "shape", None)
+    if not shape:
+        return False
+    batch_dim = shape[0]
+    if batch_dim is None or isinstance(batch_dim, str):
+        return True
+    if isinstance(batch_dim, int):
+        return batch_dim <= 0
+    return False
+
+
 def _run_session(
     session: ort.InferenceSession,
     prepared: PreparedInput,
@@ -206,6 +221,38 @@ def _run_session(
     boxes = np.asarray(outputs[1])[0].astype(np.float32, copy=False)
     scores = np.asarray(outputs[2])[0].astype(np.float32, copy=False)
     return labels, boxes, scores
+
+
+def _run_session_batch(
+    session: ort.InferenceSession,
+    prepared_items: Sequence[PreparedInput],
+    spec: _OrientationSpec,
+) -> list[tuple[Labels, Boxes, Scores]]:
+    if len(prepared_items) == 1 or not _supports_dynamic_batch(session):
+        return [_run_session(session, item, spec) for item in prepared_items]
+    batch_size = len(prepared_items)
+    feeds: dict[str, NDArray[np.float32] | NDArray[np.int64]] = {
+        "images": np.concatenate([item.tensor for item in prepared_items], axis=0),
+        "orig_target_sizes": np.repeat(
+            np.array([[spec.canvas_width, spec.canvas_height]], dtype=np.int64),
+            batch_size,
+            axis=0,
+        ),
+    }
+    outputs = cast(list[object], session.run(None, feeds))
+    if len(outputs) != 3:
+        raise MeikiModelContractError(f"Expected 3 outputs from {spec.model_file}, got {len(outputs)}")
+    all_labels = np.asarray(outputs[0])
+    all_boxes = np.asarray(outputs[1])
+    all_scores = np.asarray(outputs[2])
+    return [
+        (
+            np.asarray(all_labels[idx]).astype(np.int64, copy=False),
+            np.asarray(all_boxes[idx]).astype(np.float32, copy=False),
+            np.asarray(all_scores[idx]).astype(np.float32, copy=False),
+        )
+        for idx in range(batch_size)
+    ]
 
 
 class MeikiOcrEngine(BaseOCR):
@@ -276,14 +323,38 @@ class MeikiOcrEngine(BaseOCR):
         del language  # Meiki is a Japanese-only recognizer.
         sessions = self._sessions.get()
         rgb_image = image.convert("RGB")
-        results: list[OCRTextResult] = []
-        for region in regions:
+        results = [build_result(region, model_key=self.key) for region in regions]
+        grouped: dict[TextOrientation, list[tuple[int, PreparedInput]]] = {}
+        for idx, region in enumerate(regions):
             crop = crop_region(rgb_image, region)
             if crop is None:
-                # Degenerate region: empty result, no inference on fake pixels.
-                results.append(build_result(region, model_key=self.key))
                 continue
-            text, score = self._recognize_crop_pair(sessions, np.asarray(crop, dtype=np.uint8))
-            results.append(build_result(region, model_key=self.key, text=text, score=score))
+            rgb = np.asarray(crop, dtype=np.uint8)
+            height, width = rgb.shape[:2]
+            orientation = detect_orientation(width=width, height=height)
+            prepared = prepare_input(rgb, _SPECS[orientation])
+            grouped.setdefault(orientation, []).append((idx, prepared))
+
+        for orientation, entries in grouped.items():
+            spec = _SPECS[orientation]
+            predictions = _run_session_batch(
+                sessions[orientation],
+                [prepared for _, prepared in entries],
+                spec,
+            )
+            for (region_idx, prepared), (labels, boxes, scores) in zip(
+                entries, predictions, strict=True
+            ):
+                text, score = decode_predictions(
+                    labels,
+                    boxes,
+                    scores,
+                    prepared=prepared,
+                    spec=spec,
+                    confidence_threshold=self.confidence_threshold,
+                )
+                results[region_idx] = build_result(
+                    regions[region_idx], model_key=self.key, text=text, score=score
+                )
         logger.debug("meiki_regions_recognized", extra={"region_count": len(results)})
         return results

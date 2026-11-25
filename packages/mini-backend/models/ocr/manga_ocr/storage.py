@@ -22,6 +22,8 @@ _HF_REPO = "mayocream/manga-ocr-onnx"
 
 ENCODER_FILE = "encoder_model.onnx"
 DECODER_FILE = "decoder_model.onnx"
+DECODER_MERGED_FILE = "decoder_model_merged.onnx"
+DECODER_WITH_PAST_FILE = "decoder_with_past_model.onnx"
 VOCAB_FILE = "vocab.txt"
 
 

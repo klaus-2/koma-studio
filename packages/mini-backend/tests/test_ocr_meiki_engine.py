@@ -106,5 +106,47 @@ class MeikiDecodeTests(unittest.TestCase):
         self.assertEqual(text, "a")
 
 
+class MeikiBatchedRecognitionTests(unittest.TestCase):
+    def test_groups_same_orientation_into_one_batch_when_dynamic(self) -> None:
+        from types import SimpleNamespace
+        from PIL import Image
+        from models.ocr.base_ocr import OCRInputRegion
+        from models.ocr.meiki.engine import MeikiOcrEngine
+
+        class _FakeMeikiSession:
+            def __init__(self) -> None:
+                self.batch_sizes: list[int] = []
+
+            def get_inputs(self):
+                return [SimpleNamespace(name="images", shape=["batch", 3, 32, 960])]
+
+            def run(self, _out, feeds):
+                batch = int(feeds["images"].shape[0])
+                self.batch_sizes.append(batch)
+                labels = np.full((batch, 1), ord("A"), dtype=np.int64)
+                boxes = np.repeat(np.array([[[0, 0, 20, 32]]], dtype=np.float32), batch, axis=0)
+                scores = np.full((batch, 1), 0.9, dtype=np.float32)
+                return [labels, boxes, scores]
+
+        horiz = _FakeMeikiSession()
+        vert = _FakeMeikiSession()
+        engine = MeikiOcrEngine(providers=("CPUExecutionProvider",), model_dir=".")
+        engine._sessions = SimpleNamespace(
+            get=lambda: {TextOrientation.HORIZONTAL: horiz, TextOrientation.VERTICAL: vert}
+        )
+        results = engine._recognize(
+            Image.new("RGB", (300, 300)),
+            [
+                OCRInputRegion("h1", (0, 0, 120, 20)),
+                OCRInputRegion("deg", (10, 10, 10, 10)),
+                OCRInputRegion("v1", (0, 0, 30, 100)),
+                OCRInputRegion("h2", (0, 40, 120, 60)),
+            ],
+        )
+        self.assertEqual(horiz.batch_sizes, [2])
+        self.assertEqual(vert.batch_sizes, [1])
+        self.assertEqual([(r.id, r.text) for r in results], [("h1", "A"), ("deg", ""), ("v1", "A"), ("h2", "A")])
+
+
 if __name__ == "__main__":
     unittest.main()
