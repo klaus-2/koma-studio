@@ -573,8 +573,10 @@ def create_app(settings: LocalApiSettings) -> FastAPI:
             set_startup_warmup_task(None)
             logger.info("engine_idle.sweeper_stopped")
             from models.execution import shutdown_inference_workers
+            from models.translation.llama_server import shutdown_llama_server
 
             await shutdown_inference_workers()
+            await asyncio.to_thread(shutdown_llama_server)
             collected = await asyncio.to_thread(_clear_all_caches)
             logger.info("shutdown.caches_released", extra={"collected_objects": collected})
             from services.http_client import close_shared_client

@@ -10,9 +10,11 @@ from models.translation.base_translator import (
     BaseTranslator,
     TranslationInputRegion,
     TranslationMap,
+    TranslationPayload,
     TranslationRequest,
     TranslationTextResult,
 )
+from models.translation.chunking import estimate_tokens, split_regions_by_token_budget
 from models.translation.json_types import JsonValue
 from models.translation.parsing import (
     _parse_llm_translation_map,
@@ -91,21 +93,45 @@ class LLMTranslatorBase(BaseTranslator):
             request.translation_notes_enabled,
             request.translation_mode,
         )
-        user_prompt = _llm_user_prompt(
-            prepared,
-            request.extra_context,
-            request.translation_notes_enabled,
-            request.translation_mode,
-        )
-        http_request = self._build_http_request(system_prompt, user_prompt)
-        response = await http_mod.post_json(
-            provider_label=self.provider_label,
-            url=http_request.url,
-            payload=http_request.payload,
-            headers=http_request.headers,
-            timeout=self.timeout_seconds,
-        )
-        translated = self._parse_response(response, prepared)
+        if len(prepared) <= 1:
+            chunks = [prepared]
+        else:
+            overhead_prompt = _llm_user_prompt(
+                [],
+                request.extra_context,
+                request.translation_notes_enabled,
+                request.translation_mode,
+            )
+            split_chunks = split_regions_by_token_budget(
+                prepared,
+                context_window=16_000,
+                max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
+                system_tokens=estimate_tokens(system_prompt),
+                prompt_overhead_tokens=estimate_tokens(overhead_prompt),
+                safety_margin=512,
+                region_text_fn=lambda region: (
+                    f'{{"id": "{region.id}", "text": "{region.text}"}}, '
+                ),
+            )
+            chunks = [list(chunk.regions) for chunk in split_chunks]
+
+        translated: dict[str, TranslationPayload] = {}
+        for chunk in chunks:
+            user_prompt = _llm_user_prompt(
+                chunk,
+                request.extra_context,
+                request.translation_notes_enabled,
+                request.translation_mode,
+            )
+            http_request = self._build_http_request(system_prompt, user_prompt)
+            response = await http_mod.post_json(
+                provider_label=self.provider_label,
+                url=http_request.url,
+                payload=http_request.payload,
+                headers=http_request.headers,
+                timeout=self.timeout_seconds,
+            )
+            translated.update(self._parse_response(response, chunk))
         return self._build_results(request, translated)
 
     def _parse_response(

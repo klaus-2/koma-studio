@@ -425,7 +425,10 @@ _TRANSLATOR_CACHE: LruEngineCache[str, BaseTranslator] = LruEngineCache(
 
 @register_gpu_cache_releaser
 def clear_translator_cache() -> None:
+    from models.translation.llama_server import shutdown_llama_server
+
     _TRANSLATOR_CACHE.clear()
+    shutdown_llama_server()
 
 
 register_idle_cache("translator", _TRANSLATOR_CACHE)
